@@ -3419,9 +3419,16 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_asint:
   case hlsl::IntrinsicOp::IOP_asuint:
     return processIntrinsicAsType(callExpr);
+  case hlsl::IntrinsicOp::IOP_clip: {
+    return processIntrinsicClip(callExpr);
+  }
   case hlsl::IntrinsicOp::IOP_clamp:
   case hlsl::IntrinsicOp::IOP_uclamp:
     return processIntrinsicClamp(callExpr);
+  case hlsl::IntrinsicOp::IOP_frexp:
+    return processIntrinsicFrexp(callExpr);
+  case hlsl::IntrinsicOp::IOP_modf:
+    return processIntrinsicModf(callExpr);
   case hlsl::IntrinsicOp::IOP_sign: {
     if (isFloatOrVecMatOfFloatType(callExpr->getArg(0)->getType()))
       return processIntrinsicFloatSign(callExpr);
@@ -3439,10 +3446,15 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_saturate: {
     return processIntrinsicSaturate(callExpr);
   }
+  case hlsl::IntrinsicOp::IOP_log10: {
+    return processIntrinsicLog10(callExpr);
+  }
     INTRINSIC_SPIRV_OP_CASE(transpose, Transpose, false);
+    INTRINSIC_SPIRV_OP_CASE(countbits, BitCount, false);
     INTRINSIC_SPIRV_OP_CASE(isinf, IsInf, true);
     INTRINSIC_SPIRV_OP_CASE(isnan, IsNan, true);
     INTRINSIC_SPIRV_OP_CASE(fmod, FMod, true);
+    INTRINSIC_SPIRV_OP_CASE(reversebits, BitReverse, false);
     INTRINSIC_OP_CASE(round, Round, true);
     INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
     INTRINSIC_OP_CASE(acos, Acos, true);
@@ -3465,8 +3477,11 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(fma, Fma, true);
     INTRINSIC_OP_CASE(frac, Fract, true);
     INTRINSIC_OP_CASE(length, Length, false);
+    INTRINSIC_OP_CASE(ldexp, Ldexp, true);
+    INTRINSIC_OP_CASE(lerp, FMix, true);
     INTRINSIC_OP_CASE(log, Log, true);
     INTRINSIC_OP_CASE(log2, Log2, true);
+    INTRINSIC_OP_CASE(mad, Fma, true);
     INTRINSIC_OP_CASE_SINT_UINT_FLOAT(max, SMax, UMax, FMax, true);
     INTRINSIC_OP_CASE(umax, UMax, true);
     INTRINSIC_OP_CASE_SINT_UINT_FLOAT(min, SMin, UMin, FMin, true);
@@ -3494,6 +3509,259 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 #undef INTRINSIC_OP_CASE
 #undef INTRINSIC_OP_CASE_INT_FLOAT
 
+  return 0;
+}
+
+uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
+  // Signature is: ret modf(x, ip)
+  // [in]    x: the input floating-point value.
+  // [out]  ip: the integer portion of x.
+  // [out] ret: the fractional portion of x.
+  // All of the above must be a scalar, vector, or matrix with the same
+  // component types. Component types can be float or int.
+
+  // The ModfStruct SPIR-V instruction returns a struct. The first member is the
+  // fractional part and the second member is the integer portion.
+  // ModfStruct {
+  //   <scalar or vector of float> frac;
+  //   <scalar or vector of float> ip;
+  // }
+
+  // Note if the input number (x) is not a float (i.e. 'x' is an int), it is
+  // automatically converted to float before modf is invoked. Sadly, the 'ip'
+  // argument is not treated the same way. Therefore, in such cases we'll have
+  // to manually convert the float result into int.
+
+  const uint32_t glslInstSetId = theBuilder.getGLSLExtInstSet();
+  const Expr *arg = callExpr->getArg(0);
+  const Expr *ipArg = callExpr->getArg(1);
+  const auto argType = arg->getType();
+  const auto ipType = ipArg->getType();
+  const auto returnType = callExpr->getType();
+  const auto returnTypeId = typeTranslator.translateType(returnType);
+  const auto ipTypeId = typeTranslator.translateType(ipType);
+  const uint32_t argId = doExpr(arg);
+  const uint32_t ipId = doExpr(ipArg);
+
+  // TODO: We currently do not support non-float matrices.
+  QualType ipElemType = {};
+  if (TypeTranslator::isMxNMatrix(ipType, &ipElemType) &&
+      !ipElemType->isFloatingType()) {
+    emitError("Non-FP matrices are currently not supported.");
+    return 0;
+  }
+
+  // For scalar and vector argument types.
+  {
+    if (TypeTranslator::isScalarType(argType) ||
+        TypeTranslator::isVectorType(argType)) {
+      const auto argTypeId = typeTranslator.translateType(argType);
+      // The struct members *must* have the same type.
+      const auto modfStructTypeId = theBuilder.getStructType(
+          {argTypeId, argTypeId}, "ModfStructType", {"frac", "ip"});
+      const auto modf =
+          theBuilder.createExtInst(modfStructTypeId, glslInstSetId,
+                                   GLSLstd450::GLSLstd450ModfStruct, {argId});
+      auto ip = theBuilder.createCompositeExtract(argTypeId, modf, {1});
+      // This will do nothing if the input number (x) and the ip are both of the
+      // same type. Otherwise, it will convert the ip into int as necessary.
+      ip = castToInt(ip, argType, ipType);
+      theBuilder.createStore(ipId, ip);
+      return theBuilder.createCompositeExtract(argTypeId, modf, {0});
+    }
+  }
+
+  // For matrix argument types.
+  {
+    uint32_t rowCount = 0, colCount = 0;
+    QualType elemType = {};
+    if (TypeTranslator::isMxNMatrix(argType, &elemType, &rowCount, &colCount)) {
+      const auto elemTypeId = typeTranslator.translateType(elemType);
+      const auto colTypeId = theBuilder.getVecType(elemTypeId, colCount);
+      const auto modfStructTypeId = theBuilder.getStructType(
+          {colTypeId, colTypeId}, "ModfStructType", {"frac", "ip"});
+      llvm::SmallVector<uint32_t, 4> fracs;
+      llvm::SmallVector<uint32_t, 4> ips;
+      for (uint32_t i = 0; i < rowCount; ++i) {
+        const auto curRow =
+            theBuilder.createCompositeExtract(colTypeId, argId, {i});
+        const auto modf = theBuilder.createExtInst(
+            modfStructTypeId, glslInstSetId, GLSLstd450::GLSLstd450ModfStruct,
+            {curRow});
+        auto ip = theBuilder.createCompositeExtract(colTypeId, modf, {1});
+        ips.push_back(ip);
+        fracs.push_back(
+            theBuilder.createCompositeExtract(colTypeId, modf, {0}));
+      }
+      theBuilder.createStore(
+          ipId, theBuilder.createCompositeConstruct(returnTypeId, ips));
+      return theBuilder.createCompositeConstruct(returnTypeId, fracs);
+    }
+  }
+
+  emitError("Unknown argument type passed to Modf function.");
+  return 0;
+}
+
+uint32_t SPIRVEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
+  // Signature is: ret frexp(x, exp)
+  // [in]   x: the input floating-point value.
+  // [out]  exp: the calculated exponent.
+  // [out]  ret: the calculated mantissa.
+  // All of the above must be a scalar, vector, or matrix of *float* type.
+
+  // The FrexpStruct SPIR-V instruction returns a struct. The first
+  // member is the significand (mantissa) and must be of the same type as the
+  // input parameter, and the second member is the exponent and must always be a
+  // scalar or vector of 32-bit *integer* type.
+  // FrexpStruct {
+  //   <scalar or vector of int/float> mantissa;
+  //   <scalar or vector of integers>  exponent;
+  // }
+
+  const uint32_t glslInstSetId = theBuilder.getGLSLExtInstSet();
+  const Expr *arg = callExpr->getArg(0);
+  const auto argType = arg->getType();
+  const auto intId = theBuilder.getInt32Type();
+  const auto returnTypeId = typeTranslator.translateType(callExpr->getType());
+  const uint32_t argId = doExpr(arg);
+  const uint32_t expId = doExpr(callExpr->getArg(1));
+
+  // For scalar and vector argument types.
+  {
+    uint32_t elemCount = 1;
+    if (TypeTranslator::isScalarType(argType) ||
+        TypeTranslator::isVectorType(argType, nullptr, &elemCount)) {
+      const auto argTypeId = typeTranslator.translateType(argType);
+      const auto expTypeId =
+          elemCount == 1 ? intId : theBuilder.getVecType(intId, elemCount);
+      const auto frexpStructTypeId = theBuilder.getStructType(
+          {argTypeId, expTypeId}, "FrexpStructType", {"mantissa", "exponent"});
+      const auto frexp =
+          theBuilder.createExtInst(frexpStructTypeId, glslInstSetId,
+                                   GLSLstd450::GLSLstd450FrexpStruct, {argId});
+      const auto exponentInt =
+          theBuilder.createCompositeExtract(expTypeId, frexp, {1});
+
+      // Since the SPIR-V instruction returns an int, and the intrinsic HLSL
+      // expects a float, an conversion must take place before writing the
+      // results.
+      const auto exponentFloat = theBuilder.createUnaryOp(
+          spv::Op::OpConvertSToF, returnTypeId, exponentInt);
+      theBuilder.createStore(expId, exponentFloat);
+      return theBuilder.createCompositeExtract(argTypeId, frexp, {0});
+    }
+  }
+
+  // For matrix argument types.
+  {
+    uint32_t rowCount = 0, colCount = 0;
+    if (TypeTranslator::isMxNMatrix(argType, nullptr, &rowCount, &colCount)) {
+      const auto floatId = theBuilder.getFloat32Type();
+      const auto expTypeId = theBuilder.getVecType(intId, colCount);
+      const auto colTypeId = theBuilder.getVecType(floatId, colCount);
+      const auto frexpStructTypeId = theBuilder.getStructType(
+          {colTypeId, expTypeId}, "FrexpStructType", {"mantissa", "exponent"});
+      llvm::SmallVector<uint32_t, 4> exponents;
+      llvm::SmallVector<uint32_t, 4> mantissas;
+      for (uint32_t i = 0; i < rowCount; ++i) {
+        const auto curRow =
+            theBuilder.createCompositeExtract(colTypeId, argId, {i});
+        const auto frexp = theBuilder.createExtInst(
+            frexpStructTypeId, glslInstSetId, GLSLstd450::GLSLstd450FrexpStruct,
+            {curRow});
+        const auto exponentInt =
+            theBuilder.createCompositeExtract(expTypeId, frexp, {1});
+
+        // Since the SPIR-V instruction returns an int, and the intrinsic HLSL
+        // expects a float, an conversion must take place before writing the
+        // results.
+        const auto exponentFloat = theBuilder.createUnaryOp(
+            spv::Op::OpConvertSToF, colTypeId, exponentInt);
+        exponents.push_back(exponentFloat);
+        mantissas.push_back(
+            theBuilder.createCompositeExtract(colTypeId, frexp, {0}));
+      }
+      const auto exponentsResultId =
+          theBuilder.createCompositeConstruct(returnTypeId, exponents);
+      theBuilder.createStore(expId, exponentsResultId);
+      return theBuilder.createCompositeConstruct(returnTypeId, mantissas);
+    }
+  }
+
+  emitError("Unknown argument type passed to Frexp function.");
+  return 0;
+}
+
+uint32_t SPIRVEmitter::processIntrinsicClip(const CallExpr *callExpr) {
+  // Discards the current pixel if the specified value is less than zero.
+  // TODO: If the argument can be const folded and evaluated, we could
+  // potentially avoid creating a branch. This would be a bit challenging for
+  // matrix/vector arguments.
+
+  assert(callExpr->getNumArgs() == 1u);
+  const Expr *arg = callExpr->getArg(0);
+  const auto argType = arg->getType();
+  const auto boolType = theBuilder.getBoolType();
+  uint32_t condition = 0;
+
+  // Could not determine the argument as a constant. We need to branch based on
+  // the argument. If the argument is a vector/matrix, clipping is done if *any*
+  // element of the vector/matrix is less than zero.
+  const uint32_t argId = doExpr(arg);
+
+  QualType elemType = {};
+  uint32_t elemCount = 0, rowCount = 0, colCount = 0;
+  if (TypeTranslator::isScalarType(argType)) {
+    const auto zero = getValueZero(argType);
+    condition = theBuilder.createBinaryOp(spv::Op::OpFOrdLessThan, boolType,
+                                          argId, zero);
+  } else if (TypeTranslator::isVectorType(argType, nullptr, &elemCount)) {
+    const auto zero = getValueZero(argType);
+    const auto boolVecType = theBuilder.getVecType(boolType, elemCount);
+    const auto cmp = theBuilder.createBinaryOp(spv::Op::OpFOrdLessThan,
+                                               boolVecType, argId, zero);
+    condition = theBuilder.createUnaryOp(spv::Op::OpAny, boolType, cmp);
+  } else if (TypeTranslator::isMxNMatrix(argType, &elemType, &rowCount,
+                                         &colCount)) {
+    const uint32_t elemTypeId = typeTranslator.translateType(elemType);
+    const uint32_t floatVecType = theBuilder.getVecType(elemTypeId, colCount);
+    const uint32_t elemZeroId = getValueZero(elemType);
+    llvm::SmallVector<uint32_t, 4> elements(size_t(colCount), elemZeroId);
+    const auto zero = theBuilder.getConstantComposite(floatVecType, elements);
+    llvm::SmallVector<uint32_t, 4> cmpResults;
+    for (uint32_t i = 0; i < rowCount; ++i) {
+      const uint32_t lhsVec =
+          theBuilder.createCompositeExtract(floatVecType, argId, {i});
+      const auto boolColType = theBuilder.getVecType(boolType, colCount);
+      const auto cmp = theBuilder.createBinaryOp(spv::Op::OpFOrdLessThan,
+                                                 boolColType, lhsVec, zero);
+      const auto any = theBuilder.createUnaryOp(spv::Op::OpAny, boolType, cmp);
+      cmpResults.push_back(any);
+    }
+    const auto boolRowType = theBuilder.getVecType(boolType, rowCount);
+    const auto results =
+        theBuilder.createCompositeConstruct(boolRowType, cmpResults);
+    condition = theBuilder.createUnaryOp(spv::Op::OpAny, boolType, results);
+  } else {
+    emitError("Invalid type passed to clip function.");
+    return 0;
+  }
+
+  // Then we need to emit the instruction for the conditional branch.
+  const uint32_t thenBB = theBuilder.createBasicBlock("if.true");
+  const uint32_t mergeBB = theBuilder.createBasicBlock("if.merge");
+  // Create the branch instruction. This will end the current basic block.
+  theBuilder.createConditionalBranch(condition, thenBB, mergeBB, mergeBB);
+  theBuilder.addSuccessor(thenBB);
+  theBuilder.addSuccessor(mergeBB);
+  theBuilder.setMergeTarget(mergeBB);
+  // Handle the then branch
+  theBuilder.setInsertPoint(thenBB);
+  theBuilder.createKill();
+  theBuilder.addSuccessor(mergeBB);
+  // From now on, we'll emit instructions into the merge block.
+  theBuilder.setInsertPoint(mergeBB);
   return 0;
 }
 
@@ -4067,6 +4335,23 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
   emitError("Unsupported intrinsic function %0.")
       << cast<DeclRefExpr>(callExpr->getCallee())->getNameInfo().getAsString();
   return 0;
+}
+
+uint32_t SPIRVEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
+  // Since there is no log10 instruction in SPIR-V, we can use:
+  // log10(x) = log2(x) * ( 1 / log2(10) )
+  // 1 / log2(10) = 0.30103
+  const auto scale = theBuilder.getConstantFloat32(0.30103f);
+  const auto log2 =
+      processIntrinsicUsingGLSLInst(callExpr, GLSLstd450::GLSLstd450Log2, true);
+  const auto returnType = callExpr->getType();
+  const auto returnTypeId = typeTranslator.translateType(returnType);
+  spv::Op scaleOp = TypeTranslator::isScalarType(returnType)
+                        ? spv::Op::OpFMul
+                        : TypeTranslator::isVectorType(returnType)
+                              ? spv::Op::OpVectorTimesScalar
+                              : spv::Op::OpMatrixTimesScalar;
+  return theBuilder.createBinaryOp(scaleOp, returnTypeId, log2, scale);
 }
 
 uint32_t SPIRVEmitter::getValueZero(QualType type) {
