@@ -65,7 +65,7 @@ DeclResultIdMapper::getDeclSpirvInfo(const NamedDecl *decl) const {
   return nullptr;
 }
 
-uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
+SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
   if (const auto *info = getDeclSpirvInfo(decl))
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
@@ -80,11 +80,14 @@ uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
           // According to the Vulkan spec, cbuffer should follow standrad
           // uniform buffer layout, which GLSL std140 rules statisfies.
           LayoutRule::GLSLStd140);
-      return theBuilder.createAccessChain(
+
+      const uint32_t elemId = theBuilder.createAccessChain(
           theBuilder.getPointerType(varType, info->storageClass),
           info->resultId, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
+
+      return {elemId, info->storageClass, info->layoutRule};
     } else {
-      return info->resultId;
+      return {info->resultId, info->storageClass, info->layoutRule};
     }
 
   assert(false && "found unregistered decl");
@@ -262,116 +265,6 @@ uint32_t DeclResultIdMapper::getCounterId(const VarDecl *decl) {
   if (counter != counterVars.end())
     return counter->second;
   return 0;
-}
-
-namespace {
-/// A class for resolving the storage info (storage class and memory layout) of
-/// a given Decl or Expr.
-class StorageInfoResolver : public RecursiveASTVisitor<StorageInfoResolver> {
-public:
-  explicit StorageInfoResolver(const DeclResultIdMapper &mapper)
-      : declIdMapper(mapper), baseDecl(nullptr) {}
-
-  bool TraverseMemberExpr(MemberExpr *expr) {
-    // For MemberExpr, the storage info should follow the base.
-    return TraverseStmt(expr->getBase());
-  }
-
-  bool TravereArraySubscriptExpr(ArraySubscriptExpr *expr) {
-    // For ArraySubscriptExpr, the storage info should follow the array object.
-    return TraverseStmt(expr->getBase());
-  }
-
-  bool TraverseCXXOperatorCallExpr(CXXOperatorCallExpr *expr) {
-    // For operator[], the storage info should follow the object.
-    if (expr->getOperator() == OverloadedOperatorKind::OO_Subscript)
-      return TraverseStmt(expr->getArg(0));
-
-    // TODO: the following may not be correct for all other operator calls.
-    for (uint32_t i = 0; i < expr->getNumArgs(); ++i)
-      if (!TraverseStmt(expr->getArg(i)))
-        return false;
-
-    return true;
-  }
-
-  bool TraverseCXXMemberCallExpr(CXXMemberCallExpr *expr) {
-    // For method calls, the storage info should follow the object.
-    return TraverseStmt(expr->getImplicitObjectArgument());
-  }
-
-  // For querying the storage info of a remapped decl
-
-  // Semantics may be attached to FunctionDecl, ParmVarDecl, and FieldDecl.
-  // We create stage variables for them and we may need to query the storage
-  // classes of these stage variables.
-  bool VisitFunctionDecl(FunctionDecl *decl) { return processDecl(decl); }
-  bool VisitFieldDecl(FieldDecl *decl) { return processDecl(decl); }
-  bool VisitParmVarDecl(ParmVarDecl *decl) { return processDecl(decl); }
-
-  // For querying the storage info of a normal decl
-
-  // Normal decls should be referred in expressions.
-  bool VisitDeclRefExpr(DeclRefExpr *expr) {
-    return processDecl(expr->getDecl());
-  }
-
-  bool processDecl(NamedDecl *decl) {
-    // Calling C++ methods like operator[] is also represented as DeclRefExpr.
-    if (isa<CXXMethodDecl>(decl))
-      return true;
-
-    if (!baseDecl) {
-      baseDecl = decl;
-      return true;
-    }
-
-    // Two different decls referenced in the expression: this expression stands
-    // for a derived temporary object, for which case we use the Function
-    // storage class and no layout rules.
-    // Turn baseDecl to nullptr so we return the proper info and stop further
-    // traversing.
-    baseDecl = nullptr;
-    return false;
-  }
-
-  spv::StorageClass getStorageClass() const {
-    if (const auto *info = declIdMapper.getDeclSpirvInfo(baseDecl))
-      return info->storageClass;
-
-    // No Decl referenced. This is probably a temporary expression.
-    return spv::StorageClass::Function;
-  }
-
-  LayoutRule getLayoutRule() const {
-    if (const auto *info = declIdMapper.getDeclSpirvInfo(baseDecl))
-      return info->layoutRule;
-
-    // No Decl referenced. This is probably a temporary expression.
-    return LayoutRule::Void;
-  }
-
-private:
-  const DeclResultIdMapper &declIdMapper;
-  const NamedDecl *baseDecl;
-};
-} // namespace
-
-spv::StorageClass
-DeclResultIdMapper::resolveStorageInfo(const Expr *expr,
-                                       LayoutRule *rule) const {
-  auto resolver = StorageInfoResolver(*this);
-  resolver.TraverseStmt(const_cast<Expr *>(expr));
-  if (rule)
-    *rule = resolver.getLayoutRule();
-  return resolver.getStorageClass();
-}
-
-spv::StorageClass
-DeclResultIdMapper::resolveStorageClass(const Decl *decl) const {
-  auto resolver = StorageInfoResolver(*this);
-  resolver.TraverseDecl(const_cast<Decl *>(decl));
-  return resolver.getStorageClass();
 }
 
 std::vector<uint32_t> DeclResultIdMapper::collectStageVars() const {

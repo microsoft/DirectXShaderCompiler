@@ -321,9 +321,8 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
   }
 }
 
-uint32_t SPIRVEmitter::doExpr(const Expr *expr) {
+SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   if (const auto *delRefExpr = dyn_cast<DeclRefExpr>(expr)) {
-    // Returns the <result-id> of the referenced Decl.
     return declIdMapper.getDeclResultId(delRefExpr->getFoundDecl());
   }
 
@@ -346,15 +345,17 @@ uint32_t SPIRVEmitter::doExpr(const Expr *expr) {
 
   if (const auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
     const bool value = boolLiteral->getValue();
-    return theBuilder.getConstantBool(value);
+    return SpirvEvalInfo::withConst(theBuilder.getConstantBool(value));
   }
 
   if (const auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
-    return translateAPInt(intLiteral->getValue(), expr->getType());
+    return SpirvEvalInfo::withConst(
+        translateAPInt(intLiteral->getValue(), expr->getType()));
   }
 
   if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
-    return translateAPFloat(floatLiteral->getValue(), expr->getType());
+    return SpirvEvalInfo::withConst(
+        translateAPFloat(floatLiteral->getValue(), expr->getType()));
   }
 
   // CompoundAssignOperator is a subclass of BinaryOperator. It should be
@@ -397,16 +398,17 @@ uint32_t SPIRVEmitter::doExpr(const Expr *expr) {
   }
 
   emitError("Expr '%0' is not supported yet.") << expr->getStmtClassName();
-  // TODO: handle other expressions
   return 0;
 }
 
-uint32_t SPIRVEmitter::loadIfGLValue(const Expr *expr) {
-  const uint32_t result = doExpr(expr);
+SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr) {
+  auto info = doExpr(expr);
   if (expr->isGLValue())
-    return theBuilder.createLoad(getType(expr), result);
+    info.resultId = theBuilder.createLoad(
+        typeTranslator.translateType(expr->getType(), info.layoutRule),
+        info.resultId);
 
-  return result;
+  return info;
 }
 
 uint32_t SPIRVEmitter::castToType(uint32_t value, QualType fromType,
@@ -454,7 +456,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // Non-entry functions are added to the work queue following function
     // calls. We have already assigned <result-id>s for it when translating
     // its call site. Query it here.
-    funcId = declIdMapper.getDeclResultId(decl);
+    funcId = declIdMapper.getDeclResultId(decl).resultId;
   }
 
   if (!needsLegalization &&
@@ -582,10 +584,7 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
           toInitGloalVars.push_back(decl);
         }
       } else {
-        LayoutRule rhsLayout = LayoutRule::Void;
-        (void)declIdMapper.resolveStorageInfo(decl->getInit(), &rhsLayout);
-        storeValue(varId, loadIfGLValue(decl->getInit()), decl->getType(),
-                   spv::StorageClass::Function, LayoutRule::Void, rhsLayout);
+        storeValue(varId, loadIfGLValue(decl->getInit()), decl->getType());
       }
     }
   } else {
@@ -1112,35 +1111,35 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
     processSwitchStmtUsingIfStmts(switchStmt);
 }
 
-uint32_t SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
+SpirvEvalInfo
+SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
   const auto *base = collectArrayStructIndices(expr, &indices);
+  auto info = doExpr(base);
 
-  LayoutRule rule = LayoutRule::Void;
-  const auto sc = declIdMapper.resolveStorageInfo(base, &rule);
   const uint32_t ptrType = theBuilder.getPointerType(
-      typeTranslator.translateType(expr->getType(), rule), sc);
+      typeTranslator.translateType(expr->getType(), info.layoutRule),
+      info.storageClass);
+  info.resultId = theBuilder.createAccessChain(ptrType, info, indices);
 
-  return theBuilder.createAccessChain(ptrType, doExpr(base), indices);
+  return info;
 }
 
-uint32_t SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
+SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
   const auto opcode = expr->getOpcode();
 
   // Handle assignment first since we need to evaluate rhs before lhs.
   // For other binary operations, we need to evaluate lhs before rhs.
   if (opcode == BO_Assign) {
-    LayoutRule rhsLayout = LayoutRule::Void;
-    (void)declIdMapper.resolveStorageInfo(expr->getRHS(), &rhsLayout);
     return processAssignment(expr->getLHS(), loadIfGLValue(expr->getRHS()),
-                             false, /*lhsPtr*/ 0, rhsLayout);
+                             false);
   }
 
   // Try to optimize floatMxN * float and floatN * float case
   if (opcode == BO_Mul) {
-    if (const uint32_t result = tryToGenFloatMatrixScale(expr))
+    if (const SpirvEvalInfo result = tryToGenFloatMatrixScale(expr))
       return result;
-    if (const uint32_t result = tryToGenFloatVectorScale(expr))
+    if (const SpirvEvalInfo result = tryToGenFloatVectorScale(expr))
       return result;
   }
 
@@ -1148,7 +1147,7 @@ uint32_t SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
   return processBinaryOp(expr->getLHS(), expr->getRHS(), opcode, resultType);
 }
 
-uint32_t SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
+SpirvEvalInfo SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
   if (const auto *operatorCall = dyn_cast<CXXOperatorCallExpr>(callExpr))
     return doCXXOperatorCallExpr(operatorCall);
 
@@ -1244,13 +1243,13 @@ uint32_t SPIRVEmitter::processCall(const CallExpr *callExpr) {
   return 0;
 }
 
-uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
+SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   const Expr *subExpr = expr->getSubExpr();
   const QualType toType = expr->getType();
 
   switch (expr->getCastKind()) {
   case CastKind::CK_LValueToRValue: {
-    const uint32_t fromValue = doExpr(subExpr);
+    auto info = doExpr(subExpr);
     if (isVectorShuffle(subExpr) || isa<ExtMatrixElementExpr>(subExpr) ||
         isBufferTextureIndexing(dyn_cast<CXXOperatorCallExpr>(subExpr)) ||
         isTextureMipsSampleIndexing(dyn_cast<CXXOperatorCallExpr>(subExpr))) {
@@ -1262,13 +1261,14 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       // should have already happened after creating access chain for each
       // element. For (RW)Buffer/RWTexture element accessing, load should have
       // already happened using OpImageFetch.
-
-      return fromValue;
+      return info;
     }
 
     // Using lvalue as rvalue means we need to OpLoad the contents from
     // the parameter/variable first.
-    return theBuilder.createLoad(getType(expr), fromValue);
+    info.resultId = theBuilder.createLoad(
+        typeTranslator.translateType(expr->getType(), info.layoutRule), info);
+    return info;
   }
   case CastKind::CK_NoOp:
     return doExpr(subExpr);
@@ -1363,16 +1363,16 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     if (colCount == 1)
       return createVectorSplat(subExpr, rowCount);
 
-    bool isConstVec = false;
-    const uint32_t vecSplat = createVectorSplat(subExpr, colCount, &isConstVec);
+    const auto vecSplat = createVectorSplat(subExpr, colCount);
     if (rowCount == 1)
       return vecSplat;
 
     const uint32_t matType = typeTranslator.translateType(toType);
     llvm::SmallVector<uint32_t, 4> vectors(size_t(rowCount), vecSplat);
 
-    if (isConstVec) {
-      return theBuilder.getConstantComposite(matType, vectors);
+    if (vecSplat.isConst) {
+      return SpirvEvalInfo::withConst(
+          theBuilder.getConstantComposite(matType, vectors));
     } else {
       return theBuilder.createCompositeConstruct(matType, vectors);
     }
@@ -1399,25 +1399,24 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   }
 }
 
-uint32_t
+SpirvEvalInfo
 SPIRVEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
   const auto opcode = expr->getOpcode();
 
   // Try to optimize floatMxN *= float and floatN *= float case
   if (opcode == BO_MulAssign) {
-    if (const uint32_t result = tryToGenFloatMatrixScale(expr))
+    if (const SpirvEvalInfo result = tryToGenFloatMatrixScale(expr))
       return result;
-    if (const uint32_t result = tryToGenFloatVectorScale(expr))
+    if (const SpirvEvalInfo result = tryToGenFloatVectorScale(expr))
       return result;
   }
 
   const auto *rhs = expr->getRHS();
   const auto *lhs = expr->getLHS();
 
-  uint32_t lhsPtr = 0;
+  SpirvEvalInfo lhsPtr = 0;
   const uint32_t resultType = typeTranslator.translateType(expr->getType());
-  const uint32_t result =
-      processBinaryOp(lhs, rhs, opcode, resultType, &lhsPtr);
+  const auto result = processBinaryOp(lhs, rhs, opcode, resultType, &lhsPtr);
   return processAssignment(lhs, result, true, lhsPtr);
 }
 
@@ -1551,7 +1550,8 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   }
 
   const uint32_t query =
-      lod ? theBuilder.createBinaryOp(spv::Op::OpImageQuerySizeLod,
+      lod
+          ? theBuilder.createBinaryOp(spv::Op::OpImageQuerySizeLod,
                                       resultTypeId, objectId, lod)
           : theBuilder.createUnaryOp(spv::Op::OpImageQuerySize, resultTypeId,
                                      objectId);
@@ -1688,7 +1688,7 @@ uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
   uint32_t resultId = 0;
   const auto object = expr->getImplicitObjectArgument();
   const auto type = object->getType();
-  const uint32_t objectId = doExpr(object);
+  const auto objectInfo = doExpr(object);
   assert(numWords >= 1 && numWords <= 4);
   if (doStore) {
     assert(typeTranslator.isRWByteAddressBuffer(type));
@@ -1720,8 +1720,8 @@ uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
   // runtimeArray). The second index passed to OpAccessChain should be
   // the address.
   const uint32_t uintTypeId = theBuilder.getUint32Type();
-  const uint32_t ptrType = theBuilder.getPointerType(
-      uintTypeId, declIdMapper.resolveStorageInfo(object));
+  const uint32_t ptrType =
+      theBuilder.getPointerType(uintTypeId, objectInfo.storageClass);
   const uint32_t constUint0 = theBuilder.getConstantUint32(0);
 
   if (doStore) {
@@ -1743,12 +1743,12 @@ uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
 
       // Store the word to the right address at the output.
       const uint32_t storePtr = theBuilder.createAccessChain(
-          ptrType, objectId, {constUint0, curStoreAddress});
+          ptrType, objectInfo, {constUint0, curStoreAddress});
       theBuilder.createStore(storePtr, curValue);
     }
   } else {
-    uint32_t loadPtr =
-        theBuilder.createAccessChain(ptrType, objectId, {constUint0, address});
+    uint32_t loadPtr = theBuilder.createAccessChain(ptrType, objectInfo,
+                                                    {constUint0, address});
     resultId = theBuilder.createLoad(uintTypeId, loadPtr);
     if (numWords > 1) {
       // Load word 2, 3, and 4 where necessary. Use OpCompositeConstruct to
@@ -1759,7 +1759,7 @@ uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
         const uint32_t offset = theBuilder.getConstantUint32(wordCounter - 1);
         const uint32_t newAddress = theBuilder.createBinaryOp(
             spv::Op::OpIAdd, addressTypeId, address, offset);
-        loadPtr = theBuilder.createAccessChain(ptrType, objectId,
+        loadPtr = theBuilder.createAccessChain(ptrType, objectInfo,
                                                {constUint0, newAddress});
         values.push_back(theBuilder.createLoad(uintTypeId, loadPtr));
       }
@@ -1771,7 +1771,7 @@ uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
   return resultId;
 }
 
-uint32_t
+SpirvEvalInfo
 SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   if (expr->getNumArgs() == 2) {
     emitError("Load(int, int) unimplemented for (RW)StructuredBuffer");
@@ -1779,19 +1779,22 @@ SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   }
 
   const auto *buffer = expr->getImplicitObjectArgument();
+  auto info = doExpr(buffer);
+
   const QualType structType =
       hlsl::GetHLSLResourceResultType(buffer->getType());
   const uint32_t ptrType = theBuilder.getPointerType(
-      typeTranslator.translateType(structType, LayoutRule::GLSLStd430),
-      declIdMapper.resolveStorageInfo(buffer));
+      typeTranslator.translateType(structType, info.layoutRule),
+      info.storageClass);
 
   const uint32_t zero = theBuilder.getConstantInt32(0);
   const uint32_t index = doExpr(expr->getArg(0));
 
-  return theBuilder.createAccessChain(ptrType, doExpr(buffer), {zero, index});
+  info.resultId = theBuilder.createAccessChain(ptrType, info, {zero, index});
+  return info;
 }
 
-uint32_t
+SpirvEvalInfo
 SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   const bool isAppend = expr->getNumArgs() == 1;
 
@@ -1822,24 +1825,21 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
     index = theBuilder.createBinaryOp(spv::Op::OpISub, u32Type, prevIndex, one);
   }
 
-  LayoutRule lhsLayout = LayoutRule::Void;
-  const auto lhsSc = declIdMapper.resolveStorageInfo(object, &lhsLayout);
+  auto bufferInfo = declIdMapper.getDeclResultId(buffer);
 
   const auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
   const uint32_t bufferElemType =
-      typeTranslator.translateType(bufferElemTy, lhsLayout);
+      typeTranslator.translateType(bufferElemTy, bufferInfo.layoutRule);
   // Get the pointer inside the {Append|Consume}StructuredBuffer
   const uint32_t bufferElemPtrType =
-      theBuilder.getPointerType(bufferElemType, lhsSc);
+      theBuilder.getPointerType(bufferElemType, bufferInfo.storageClass);
   const uint32_t bufferElemPtr = theBuilder.createAccessChain(
-      bufferElemPtrType, declIdMapper.getDeclResultId(buffer), {zero, index});
+      bufferElemPtrType, bufferInfo.resultId, {zero, index});
 
   if (isAppend) {
-    LayoutRule rhsLayout = LayoutRule::Void;
-    (void)declIdMapper.resolveStorageInfo(expr->getArg(0), &rhsLayout);
     // Write out the value
-    storeValue(bufferElemPtr, doExpr(expr->getArg(0)), bufferElemTy, lhsSc,
-               lhsLayout, rhsLayout);
+    bufferInfo.resultId = bufferElemPtr;
+    storeValue(bufferInfo, doExpr(expr->getArg(0)), bufferElemTy);
 
     return 0;
   } else {
@@ -1847,13 +1847,15 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
     // of .Consume() is not labelled as xvalue. That will cause OpLoad
     // instruction missing. Load directly here.
     if (bufferElemTy->isStructureType())
-      return bufferElemPtr;
+      bufferInfo.resultId = bufferElemPtr;
     else
-      return theBuilder.createLoad(bufferElemType, bufferElemPtr);
+      bufferInfo.resultId =
+          theBuilder.createLoad(bufferElemType, bufferElemPtr);
+    return bufferInfo;
   }
 }
 
-uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
+SpirvEvalInfo SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
   const FunctionDecl *callee = expr->getDirectCallee();
 
   llvm::StringRef group;
@@ -1867,8 +1869,9 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
   return processCall(expr);
 }
 
-uint32_t SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
-                                                  hlsl::IntrinsicOp opcode) {
+SpirvEvalInfo
+SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
+                                         hlsl::IntrinsicOp opcode) {
   using namespace hlsl;
 
   // Handles the offset argument. If there exists an offset argument, writes the
@@ -2022,7 +2025,7 @@ uint32_t SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
 
     if (TypeTranslator::isTexture(objectType)) {
       // .Load() has a second optional paramter for offset.
-      const auto locationId = doExpr(location);
+      const uint32_t locationId = doExpr(location);
       uint32_t constOffset = 0, varOffset = 0;
       uint32_t coordinate = 0, lod = 0;
       // For Texture Load() functions, the location parameter is a vector that
@@ -2089,7 +2092,8 @@ uint32_t SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   return 0;
 }
 
-uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
+SpirvEvalInfo
+SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
   { // Handle Buffer/RWBuffer/Texture/RWTexture indexing
     const Expr *baseExpr = nullptr;
     const Expr *indexExpr = nullptr;
@@ -2114,7 +2118,7 @@ uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
   const Expr *baseExpr = collectArrayStructIndices(expr, &indices);
 
-  uint32_t base = doExpr(baseExpr);
+  auto base = doExpr(baseExpr);
   if (indices.empty())
     return base; // For indexing into size-1 vectors and 1xN matrices
   // If we are indexing into a rvalue, to use OpAccessChain, we first need
@@ -2129,18 +2133,18 @@ uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
     base = tempVar;
   }
 
-  LayoutRule rule = LayoutRule::Void;
-  const auto sc = declIdMapper.resolveStorageInfo(baseExpr, &rule);
   const uint32_t ptrType = theBuilder.getPointerType(
-      typeTranslator.translateType(expr->getType(), rule), sc);
+      typeTranslator.translateType(expr->getType(), base.layoutRule),
+      base.storageClass);
+  base.resultId = theBuilder.createAccessChain(ptrType, base, indices);
 
-  return theBuilder.createAccessChain(ptrType, base, indices);
+  return base;
 }
 
-uint32_t
+SpirvEvalInfo
 SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
   const Expr *baseExpr = expr->getBase();
-  const uint32_t base = doExpr(baseExpr);
+  const auto baseInfo = doExpr(baseExpr);
   const auto accessor = expr->getEncodedElementAccess();
   const uint32_t elemType = typeTranslator.translateType(
       hlsl::GetHLSLMatElementType(baseExpr->getType()));
@@ -2170,19 +2174,19 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
       for (uint32_t i = 0; i < indices.size(); ++i)
         indices[i] = theBuilder.getConstantInt32(indices[i]);
 
-      const uint32_t ptrType = theBuilder.getPointerType(
-          elemType, declIdMapper.resolveStorageInfo(baseExpr));
+      const uint32_t ptrType =
+          theBuilder.getPointerType(elemType, baseInfo.storageClass);
       if (!indices.empty()) {
         // Load the element via access chain
-        elem = theBuilder.createAccessChain(ptrType, base, indices);
+        elem = theBuilder.createAccessChain(ptrType, baseInfo, indices);
       } else {
         // The matrix is of size 1x1. No need to use access chain, base should
         // be the source pointer.
-        elem = base;
+        elem = baseInfo;
       }
       elem = theBuilder.createLoad(elemType, elem);
     } else { // e.g., (mat1 + mat2)._m11
-      elem = theBuilder.createCompositeExtract(elemType, base, indices);
+      elem = theBuilder.createCompositeExtract(elemType, baseInfo, indices);
     }
     elements.push_back(elem);
   }
@@ -2194,7 +2198,7 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
   return theBuilder.createCompositeConstruct(vecType, elements);
 }
 
-uint32_t
+SpirvEvalInfo
 SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
   const Expr *baseExpr = nullptr;
   hlsl::VectorMemberAccessPositions accessor;
@@ -2229,11 +2233,12 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
     // instead of the original base here since we can have something like
     // v.xyyz to turn a lvalue v into rvalue.
     if (expr->getBase()->isGLValue()) { // E.g., v.x;
-      const uint32_t ptrType = theBuilder.getPointerType(
-          type, declIdMapper.resolveStorageInfo(baseExpr));
+      const auto baseInfo = doExpr(baseExpr);
+      const uint32_t ptrType =
+          theBuilder.getPointerType(type, baseInfo.storageClass);
       const uint32_t index = theBuilder.getConstantInt32(accessor.Swz0);
       // We need a lvalue here. Do not try to load.
-      return theBuilder.createAccessChain(ptrType, doExpr(baseExpr), {index});
+      return theBuilder.createAccessChain(ptrType, baseInfo, {index});
     } else { // E.g., (v + w).x;
       // The original base vector may not be a rvalue. Need to load it if
       // it is lvalue since ImplicitCastExpr (LValueToRValue) will be missing
@@ -2270,30 +2275,31 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
   return theBuilder.createVectorShuffle(type, baseVal, baseVal, selectors);
 }
 
-uint32_t SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
+SpirvEvalInfo SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
   if (const uint32_t id = tryToEvaluateAsConst(expr))
     return id;
 
   return InitListHandler(*this).process(expr);
 }
 
-uint32_t SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
+SpirvEvalInfo SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
   const Expr *base = collectArrayStructIndices(expr, &indices);
+  auto info = doExpr(base);
 
-  LayoutRule rule = LayoutRule::Void;
-  const auto sc = declIdMapper.resolveStorageInfo(base, &rule);
   const uint32_t ptrType = theBuilder.getPointerType(
-      typeTranslator.translateType(expr->getType(), rule), sc);
+      typeTranslator.translateType(expr->getType(), info.layoutRule),
+      info.storageClass);
+  info.resultId = theBuilder.createAccessChain(ptrType, info, indices);
 
-  return theBuilder.createAccessChain(ptrType, doExpr(base), indices);
+  return info;
 }
 
-uint32_t SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
+SpirvEvalInfo SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
   const auto opcode = expr->getOpcode();
   const auto *subExpr = expr->getSubExpr();
   const auto subType = subExpr->getType();
-  const auto subValue = doExpr(subExpr);
+  auto subValue = doExpr(subExpr);
   const auto subTypeId = typeTranslator.translateType(subType);
 
   switch (opcode) {
@@ -2349,19 +2355,6 @@ uint32_t SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
       << expr->getOpcodeStr(opcode);
   expr->dump();
   return 0;
-}
-
-uint32_t SPIRVEmitter::getType(const Expr *expr) {
-  LayoutRule rule = LayoutRule::Void;
-  (void)declIdMapper.resolveStorageInfo(expr, &rule);
-  return typeTranslator.translateType(expr->getType(), rule);
-}
-
-uint32_t SPIRVEmitter::getPointerType(const Expr *expr) {
-  LayoutRule rule = LayoutRule::Void;
-  const auto sc = declIdMapper.resolveStorageInfo(expr, &rule);
-  return theBuilder.getPointerType(
-      typeTranslator.translateType(expr->getType(), rule), sc);
 }
 
 spv::Op SPIRVEmitter::translateOp(BinaryOperator::Opcode op, QualType type) {
@@ -2485,45 +2478,42 @@ case BO_##kind : {                                                             \
   return spv::Op::OpNop;
 }
 
-uint32_t SPIRVEmitter::processAssignment(const Expr *lhs, const uint32_t rhs,
-                                         const bool isCompoundAssignment,
-                                         uint32_t lhsPtr,
-                                         LayoutRule rhsLayout) {
+SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
+                                              const SpirvEvalInfo &rhs,
+                                              const bool isCompoundAssignment,
+                                              SpirvEvalInfo lhsPtr) {
   // Assigning to vector swizzling should be handled differently.
-  if (const uint32_t result = tryToAssignToVectorElements(lhs, rhs)) {
+  if (const SpirvEvalInfo result = tryToAssignToVectorElements(lhs, rhs))
     return result;
-  }
+
   // Assigning to matrix swizzling should be handled differently.
-  if (const uint32_t result = tryToAssignToMatrixElements(lhs, rhs)) {
+  if (const SpirvEvalInfo result = tryToAssignToMatrixElements(lhs, rhs))
     return result;
-  }
+
   // Assigning to a RWBuffer/RWTexture should be handled differently.
-  if (const uint32_t result = tryToAssignToRWBufferRWTexture(lhs, rhs)) {
+  if (const SpirvEvalInfo result = tryToAssignToRWBufferRWTexture(lhs, rhs))
     return result;
-  }
 
   // Normal assignment procedure
-  if (!lhsPtr)
+
+  if (!lhsPtr.resultId)
     lhsPtr = doExpr(lhs);
 
-  LayoutRule lhsLayout = LayoutRule::Void;
-  const auto lhsSc = declIdMapper.resolveStorageInfo(lhs, &lhsLayout);
-  storeValue(lhsPtr, rhs, lhs->getType(), lhsSc, lhsLayout, rhsLayout);
+  storeValue(lhsPtr, rhs, lhs->getType());
 
   // Plain assignment returns a rvalue, while compound assignment returns
   // lvalue.
   return isCompoundAssignment ? lhsPtr : rhs;
 }
 
-void SPIRVEmitter::storeValue(const uint32_t lhsPtr, const uint32_t rhsVal,
-                              const QualType valType,
-                              const spv::StorageClass lhsSc,
-                              const LayoutRule lhsLayout,
-                              const LayoutRule rhsLayout) {
+void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
+                              const SpirvEvalInfo &rhsVal,
+                              const QualType valType) {
   // If lhs and rhs has the same memory layout, we should be safe to load
   // from rhs and directly store into lhs and avoid decomposing rhs.
   // TODO: is this optimization always correct?
-  if (lhsLayout == rhsLayout || typeTranslator.isScalarType(valType) ||
+  if (lhsPtr.layoutRule == rhsVal.layoutRule ||
+      typeTranslator.isScalarType(valType) ||
       typeTranslator.isVectorType(valType) ||
       typeTranslator.isMxNMatrix(valType)) {
     theBuilder.createStore(lhsPtr, rhsVal);
@@ -2538,16 +2528,17 @@ void SPIRVEmitter::storeValue(const uint32_t lhsPtr, const uint32_t rhsVal,
       assert(field);
 
       const auto subRhsValType =
-          typeTranslator.translateType(field->getType(), rhsLayout);
+          typeTranslator.translateType(field->getType(), rhsVal.layoutRule);
       const auto subRhsVal =
           theBuilder.createCompositeExtract(subRhsValType, rhsVal, {index});
       const auto subLhsPtrType = theBuilder.getPointerType(
-          typeTranslator.translateType(field->getType(), lhsLayout), lhsSc);
+          typeTranslator.translateType(field->getType(), lhsPtr.layoutRule),
+          lhsPtr.storageClass);
       const auto subLhsPtr = theBuilder.createAccessChain(
           subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(index)});
 
-      storeValue(subLhsPtr, subRhsVal, field->getType(), lhsSc, lhsLayout,
-                 rhsLayout);
+      storeValue(lhsPtr.substResultId(subLhsPtr),
+                 rhsVal.substResultId(subRhsVal), field->getType());
       ++index;
     }
   } else if (const auto *arrayType =
@@ -2559,26 +2550,28 @@ void SPIRVEmitter::storeValue(const uint32_t lhsPtr, const uint32_t rhsVal,
 
     for (uint32_t i = 0; i < size; ++i) {
       const auto subRhsValType =
-          typeTranslator.translateType(elemType, rhsLayout);
+          typeTranslator.translateType(elemType, rhsVal.layoutRule);
       const auto subRhsVal =
           theBuilder.createCompositeExtract(subRhsValType, rhsVal, {i});
       const auto subLhsPtrType = theBuilder.getPointerType(
-          typeTranslator.translateType(elemType, lhsLayout), lhsSc);
+          typeTranslator.translateType(elemType, lhsPtr.layoutRule),
+          lhsPtr.storageClass);
       const auto subLhsPtr = theBuilder.createAccessChain(
           subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(i)});
 
-      storeValue(subLhsPtr, subRhsVal, elemType, lhsSc, lhsLayout, rhsLayout);
+      storeValue(lhsPtr.substResultId(subLhsPtr),
+                 rhsVal.substResultId(subRhsVal), elemType);
     }
   } else {
     emitError("storing value of type %0 unimplemented") << valType;
   }
 }
 
-uint32_t SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
-                                       const BinaryOperatorKind opcode,
-                                       const uint32_t resultType,
-                                       uint32_t *lhsResultId,
-                                       const spv::Op mandateGenOpcode) {
+SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
+                                            const BinaryOperatorKind opcode,
+                                            const uint32_t resultType,
+                                            SpirvEvalInfo *lhsInfo,
+                                            const spv::Op mandateGenOpcode) {
   // If the operands are of matrix type, we need to dispatch the operation
   // onto each element vector iff the operands are not degenerated matrices
   // and we don't have a matrix specific SPIR-V instruction for the operation.
@@ -2599,7 +2592,7 @@ uint32_t SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
                             ? translateOp(opcode, lhs->getType())
                             : mandateGenOpcode;
 
-  uint32_t rhsVal, lhsPtr, lhsVal;
+  SpirvEvalInfo rhsVal = 0, lhsPtr = 0, lhsVal = 0;
   if (BinaryOperator::isCompoundAssignmentOp(opcode)) {
     // Evalute rhs before lhs
     rhsVal = doExpr(rhs);
@@ -2616,8 +2609,8 @@ uint32_t SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
     rhsVal = doExpr(rhs);
   }
 
-  if (lhsResultId)
-    *lhsResultId = lhsPtr;
+  if (lhsInfo)
+    *lhsInfo = lhsPtr;
 
   switch (opcode) {
   case BO_Add:
@@ -2647,8 +2640,13 @@ uint32_t SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_OrAssign:
   case BO_XorAssign:
   case BO_ShlAssign:
-  case BO_ShrAssign:
-    return theBuilder.createBinaryOp(spvOp, resultType, lhsVal, rhsVal);
+  case BO_ShrAssign: {
+    const auto result =
+        theBuilder.createBinaryOp(spvOp, resultType, lhsVal, rhsVal);
+    return lhsVal.isRelaxedPrecision || rhsVal.isRelaxedPrecision
+               ? SpirvEvalInfo::withRelaxedPrecision(result)
+               : result;
+  }
   case BO_Assign:
     llvm_unreachable("assignment should not be handled here");
   default:
@@ -2830,8 +2828,8 @@ void SPIRVEmitter::condenseVectorElementExpr(
   }
 }
 
-uint32_t SPIRVEmitter::createVectorSplat(const Expr *scalarExpr, uint32_t size,
-                                         bool *resultIsConstant) {
+SpirvEvalInfo SPIRVEmitter::createVectorSplat(const Expr *scalarExpr,
+                                              uint32_t size) {
   bool isConstVal = false;
   uint32_t scalarVal = 0;
 
@@ -2843,19 +2841,19 @@ uint32_t SPIRVEmitter::createVectorSplat(const Expr *scalarExpr, uint32_t size,
     scalarVal = doExpr(scalarExpr);
   }
 
-  if (resultIsConstant)
-    *resultIsConstant = isConstVal;
-
   // Just return the scalar value for vector splat with size 1
   if (size == 1)
-    return scalarVal;
+    return isConstVal ? SpirvEvalInfo::withConst(scalarVal) : scalarVal;
 
   const uint32_t vecType = theBuilder.getVecType(
       typeTranslator.translateType(scalarExpr->getType()), size);
   llvm::SmallVector<uint32_t, 4> elements(size_t(size), scalarVal);
 
   if (isConstVal) {
-    return theBuilder.getConstantComposite(vecType, elements);
+    // TODO: we are saying the constant has Function storage class here.
+    // Should find a more meaningful one.
+    return SpirvEvalInfo::withConst(
+        theBuilder.getConstantComposite(vecType, elements));
   } else {
     return theBuilder.createCompositeConstruct(vecType, elements);
   }
@@ -2886,7 +2884,8 @@ void SPIRVEmitter::splitVecLastElement(QualType vecType, uint32_t vec,
       theBuilder.createCompositeExtract(elemTypeId, vec, {count - 1});
 }
 
-uint32_t SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
+SpirvEvalInfo
+SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
   const QualType type = expr->getType();
   // We can only translate floatN * float into OpVectorTimesScalar.
   // So the result type must be floatN.
@@ -2907,8 +2906,8 @@ uint32_t SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
       if (cast->getCastKind() == CK_HLSLVectorSplat) {
         const uint32_t vecType = typeTranslator.translateType(expr->getType());
         if (isa<CompoundAssignOperator>(expr)) {
-          uint32_t lhsPtr = 0;
-          const uint32_t result =
+          SpirvEvalInfo lhsPtr = 0;
+          const auto result =
               processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
                               vecType, &lhsPtr, spv::Op::OpVectorTimesScalar);
           return processAssignment(lhs, result, true, lhsPtr);
@@ -2938,7 +2937,8 @@ uint32_t SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
   return 0;
 }
 
-uint32_t SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
+SpirvEvalInfo
+SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
   const QualType type = expr->getType();
   // We can only translate floatMxN * float into OpMatrixTimesScalar.
   // So the result type must be floatMxN.
@@ -2968,8 +2968,8 @@ uint32_t SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
         const uint32_t matType = typeTranslator.translateType(expr->getType());
         const spv::Op opcode = selectOpcode(lhsType);
         if (isa<CompoundAssignOperator>(expr)) {
-          uint32_t lhsPtr = 0;
-          const uint32_t result =
+          SpirvEvalInfo lhsPtr = 0;
+          const auto result =
               processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
                               matType, &lhsPtr, opcode);
           return processAssignment(lhs, result, true, lhsPtr);
@@ -2999,8 +2999,9 @@ uint32_t SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
   return 0;
 }
 
-uint32_t SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
-                                                   const uint32_t rhs) {
+SpirvEvalInfo
+SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
+                                          const SpirvEvalInfo &rhs) {
   // Assigning to a vector swizzling lhs is tricky if we are neither
   // writing to one element nor all elements in their original order.
   // Under such cases, we need to create a new vector swizzling involving
@@ -3066,8 +3067,9 @@ uint32_t SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
   return rhs;
 }
 
-uint32_t SPIRVEmitter::tryToAssignToRWBufferRWTexture(const Expr *lhs,
-                                                      uint32_t rhs) {
+SpirvEvalInfo
+SPIRVEmitter::tryToAssignToRWBufferRWTexture(const Expr *lhs,
+                                             const SpirvEvalInfo &rhs) {
   const Expr *baseExpr = nullptr;
   const Expr *indexExpr = nullptr;
   const auto lhsExpr = dyn_cast<CXXOperatorCallExpr>(lhs);
@@ -3081,14 +3083,15 @@ uint32_t SPIRVEmitter::tryToAssignToRWBufferRWTexture(const Expr *lhs,
   return 0;
 }
 
-uint32_t SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
-                                                   uint32_t rhs) {
+SpirvEvalInfo
+SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
+                                          const SpirvEvalInfo &rhs) {
   const auto *lhsExpr = dyn_cast<ExtMatrixElementExpr>(lhs);
   if (!lhsExpr)
     return 0;
 
   const Expr *baseMat = lhsExpr->getBase();
-  const uint32_t base = doExpr(baseMat);
+  const auto &base = doExpr(baseMat);
   const QualType elemType = hlsl::GetHLSLMatElementType(baseMat->getType());
   const uint32_t elemTypeId = typeTranslator.translateType(elemType);
 
@@ -3122,15 +3125,15 @@ uint32_t SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
     if (accessor.Count > 1)
       rhsElem = theBuilder.createCompositeExtract(elemTypeId, rhs, {i});
 
-    const uint32_t ptrType = theBuilder.getPointerType(
-        elemTypeId, declIdMapper.resolveStorageInfo(baseMat));
+    const uint32_t ptrType =
+        theBuilder.getPointerType(elemTypeId, base.storageClass);
 
     // If the lhs is actually a matrix of size 1x1, we don't need the access
     // chain. base is already the dest pointer.
     uint32_t lhsElemPtr = base;
     if (!indices.empty()) {
       // Load the element via access chain
-      lhsElemPtr = theBuilder.createAccessChain(ptrType, base, indices);
+      lhsElemPtr = theBuilder.createAccessChain(ptrType, lhsElemPtr, indices);
     }
 
     theBuilder.createStore(lhsElemPtr, rhsElem);
@@ -3166,8 +3169,9 @@ uint32_t SPIRVEmitter::processEachVectorInMatrix(
       typeTranslator.translateType(matType), vectors);
 }
 
-uint32_t SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
-                                             const BinaryOperatorKind opcode) {
+SpirvEvalInfo
+SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
+                                    const BinaryOperatorKind opcode) {
   // TODO: some code are duplicated from processBinaryOp. Try to unify them.
   const auto lhsType = lhs->getType();
   assert(TypeTranslator::isSpirvAcceptableMatrixType(lhsType));
@@ -4186,8 +4190,7 @@ uint32_t SPIRVEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
     const uint32_t vecZero = getVecValueZero(elemType, numCols);
     const uint32_t vecOne = getVecValueOne(elemType, numCols);
     const auto actOnEachVec = [this, vecZero, vecOne, glslInstSetId](
-                                  uint32_t /*index*/, uint32_t vecType,
-                                  uint32_t curRowId) {
+        uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
       return theBuilder.createExtInst(vecType, glslInstSetId,
                                       GLSLstd450::GLSLstd450FClamp,
                                       {curRowId, vecZero, vecOne});
@@ -4237,9 +4240,8 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg->getType())) {
-      const auto actOnEachVec = [this, opcode](uint32_t /*index*/,
-                                               uint32_t vecType,
-                                               uint32_t curRowId) {
+      const auto actOnEachVec = [this, opcode](
+          uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
         return theBuilder.createUnaryOp(opcode, vecType, {curRowId});
       };
       return processEachVectorInMatrix(arg, argId, actOnEachVec);
@@ -4253,9 +4255,8 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg0->getType())) {
-      const auto actOnEachVec = [this, opcode, arg1Id](uint32_t index,
-                                                       uint32_t vecType,
-                                                       uint32_t arg0RowId) {
+      const auto actOnEachVec = [this, opcode, arg1Id](
+          uint32_t index, uint32_t vecType, uint32_t arg0RowId) {
         const uint32_t arg1RowId =
             theBuilder.createCompositeExtract(vecType, arg1Id, {index});
         return theBuilder.createBinaryOp(opcode, vecType, arg0RowId, arg1RowId);
@@ -4283,9 +4284,8 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg->getType())) {
-      const auto actOnEachVec = [this, glslInstSetId,
-                                 opcode](uint32_t /*index*/, uint32_t vecType,
-                                         uint32_t curRowId) {
+      const auto actOnEachVec = [this, glslInstSetId, opcode](
+          uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
         return theBuilder.createExtInst(vecType, glslInstSetId, opcode,
                                         {curRowId});
       };
@@ -4300,9 +4300,8 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg0->getType())) {
-      const auto actOnEachVec = [this, glslInstSetId, opcode,
-                                 arg1Id](uint32_t index, uint32_t vecType,
-                                         uint32_t arg0RowId) {
+      const auto actOnEachVec = [this, glslInstSetId, opcode, arg1Id](
+          uint32_t index, uint32_t vecType, uint32_t arg0RowId) {
         const uint32_t arg1RowId =
             theBuilder.createCompositeExtract(vecType, arg1Id, {index});
         return theBuilder.createExtInst(vecType, glslInstSetId, opcode,
