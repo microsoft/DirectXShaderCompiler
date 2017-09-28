@@ -26,26 +26,6 @@ using namespace llvm;
 using namespace hlsl;
 
 
-/*
-Debug Format
-
-[31:0] Header
-[31:28] Record size in DWORDs (EXCLUDING Header & UID)
-[27:24] Flags [Currently Reserved = 0]
-[23:16] Record Type
-0 = Invocation Start Marker
-1 = Step
-2 = Event
-3 = Input
-4 = Read Register
-5 = Written Register
-6 = Register Relative Index 0
-7 = Register Relative Index 1
-[15:0] Header Payload.  Payload depends on Record Type
-[31:0] UID
-[31:0] ... Payload DWORDs 0-N defined by the Payload Size.  Payload depends on Record Type
-*/
-
 enum DebugShaderModifierRecordType {
   DebugShaderModifierRecordTypeInvocationStartMarker,
   DebugShaderModifierRecordTypeStep,
@@ -197,15 +177,12 @@ private:
   CallInst * addUAV(BuilderContext & BC);
   Value * addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices);
   Value * addPixelShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices);
-//  void recordReturnValue(BuilderContext & BC, CallInst * HandleForUAV, Value * value);
   void addDebugEntryValue(BuilderContext & BC, Value * Index, Value * TheValue);
   void addInvocationStartMarker(BuilderContext & BC);
   Value * reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInDwords);
   Value * incrementUAVIndex(BuilderContext & BC, Value * CurrentValue);
   void addStepDebugEntry(BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst);
-//  void instrumentFunction(Function*, BuilderContext & BC);
   uint32_t UAVDumpingGroundOffset();
-  void typeCastAndAddDebugEntryValue(BuilderContext & BC, Value * Index, Value * TheValue);
   template<typename ReturnType>
   void addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst);
 
@@ -388,33 +365,8 @@ Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext & BC, Syst
   auto CompareToX = BC.Builder.CreateICmpEQ(XAsInt, BC.HlslOP->GetU32Const(m_Parameters.PixelShader.X), "CompareToX");
   auto CompareToY = BC.Builder.CreateICmpEQ(YAsInt, BC.HlslOP->GetU32Const(m_Parameters.PixelShader.Y), "CompareToY");
   auto ComparePos = BC.Builder.CreateAnd(CompareToX, CompareToY, "ComparePos");
-  
-#if 0
-  // Compare primitve ID to expected primitive ID
-  {
-    auto LoadInputOpFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::LoadInput, Type::getInt32Ty(BC.Ctx));
-    Constant* LoadInputOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::LoadInput);
-    Constant*  SV_Prim_ID = BC.HlslOP->GetU32Const(SVIndices.PixelShader.PrimitiveId);
-    auto PrimitiveId = BC.Builder.CreateCall(LoadInputOpFunc,
-      { LoadInputOpcode, SV_Prim_ID, Zero32Arg /*row*/, Zero8Arg /*column*/, UndefArg }, "PrimitiveId");
-  }
-#endif
 
   return ComparePos;
-
-
-#if 0
-  auto CompareToExpectedPrimId = BC.Builder.CreateICmpEQ(PrimitiveId, BC.HlslOP->GetU32Const(Parameters.PixelShader.PrimitiveId), "CompareToPrimId");
-
-  //Test: return just compare to Y
-  //return CompareToY;
-
-  // Test: ignore SV_Position and prim id
-  //return BC.Builder.CreateICmpEQ(BC.HlslOP->GetU32Const(Parameters.PixelShader.X), BC.HlslOP->GetU32Const(Parameters.PixelShader.X), "CompareToX");
-
-  // Merge comparisons into one:
-  return BC.Builder.CreateAnd(ComparePos, CompareToExpectedPrimId, "ComparePosAndPrimId");
-#endif
 }
 
 CallInst * DxilDebugInstrumentation::addUAV(BuilderContext & BC)
@@ -565,37 +517,6 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * I
 
 void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC)
 {
-  //auto BuilderWasWorkingHere = BC.Builder.GetInsertPoint()->getNextNode();
-  //
-  //auto ThenBlockTail = SplitBlockAndInsertIfThen(SelectionCriterion, BC.Builder.GetInsertPoint(), false);
-  //
-  //IRBuilder<> ThenBuilder(ThenBlockTail);
-  //BuilderContext ThenBuilderContext = { BC.M, BC.DM, BC.Ctx, BC.HlslOP, ThenBuilder };
-
- //Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
- //Constant* Zero8Arg = BC.HlslOP->GetI8Const(0);
- //Constant* One8Arg = BC.HlslOP->GetI8Const(1);
- //UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
- //
- //// Convert SV_POSITION to UINT    
- //Value * XAsInt;
- //Value * YAsInt;
- //{
- //  auto LoadInputOpFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::LoadInput, Type::getFloatTy(BC.Ctx));
- //  Constant* LoadInputOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::LoadInput);
- //  Constant*  SV_Pos_ID = BC.HlslOP->GetU32Const(0 /*total hack*/);
- //  auto XPos = BC.Builder.CreateCall(LoadInputOpFunc,
- //  { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, Zero8Arg /*column*/, UndefArg }, "XPos");
- //  auto YPos = BC.Builder.CreateCall(LoadInputOpFunc,
- //  { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, One8Arg /*column*/, UndefArg }, "YPos");
- //
- //  XAsInt = BC.Builder.CreateCast(Instruction::CastOps::FPToUI, XPos, Type::getInt32Ty(BC.Ctx), "XIndex");
- //  YAsInt = BC.Builder.CreateCast(Instruction::CastOps::FPToUI, YPos, Type::getInt32Ty(BC.Ctx), "YIndex");
- //}
- //
- //
-  
-  
   DebugShaderModifierRecordHeader marker{ 0 };
   auto RecordStart = reserveDebugEntrySpace(BC, sizeof(marker));
 
@@ -605,11 +526,6 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC)
   addDebugEntryValue(BC, RecordStart, BC.HlslOP->GetU32Const(marker.Header.u32Header));
   auto NextIndex = incrementUAVIndex(BC, RecordStart);
   addDebugEntryValue(BC, NextIndex, m_InvocationId);
-  //test: writing x above and y below: (note +sizeof(DWORD) and 3 reserveds above)
-  //auto ThirdIndex = incrementUAVIndex(BC, NextIndex);
-  //addDebugEntryValue(BC, ThirdIndex, YAsInt);
-  //
-  //BC.Builder.SetInsertPoint(BuilderWasWorkingHere);
 }
 
 template<typename ReturnType>
@@ -670,160 +586,6 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, unsigned i
   }
 
 }
-
-
-void DxilDebugInstrumentation::typeCastAndAddDebugEntryValue(BuilderContext & BC, Value * Index, Value * TheValue)
-{
-  Value * CastValue = TheValue;
-
-  Type::TypeID ID = TheValue->getType()->getTypeID();
-
-  switch (ID)
-  {
-  case Type::TypeID::IntegerTyID: 
-  {
-    if (ConstantInt *CI = dyn_cast<ConstantInt>(TheValue)) {
-      if (CI->getBitWidth() != 32)
-      {
-        return;
-      }
-    }
-    else
-    {
-      return;
-    }
-    OutputDebugStringW(BC.M, "IntegerTyID  ");
-  }
-    break;
-  case Type::TypeID::VoidTyID:
-  case Type::TypeID::HalfTyID:
-  case Type::TypeID::DoubleTyID:
-  case Type::TypeID::X86_FP80TyID:
-  case Type::TypeID::FP128TyID:
-  case Type::TypeID::PPC_FP128TyID:
-  case Type::TypeID::LabelTyID:
-  case Type::TypeID::MetadataTyID:
-  case Type::TypeID::X86_MMXTyID:
-  case Type::TypeID::FunctionTyID:
-  case Type::TypeID::StructTyID:
-  case Type::TypeID::ArrayTyID:
-  case Type::TypeID::PointerTyID:
-  case Type::TypeID::VectorTyID:
-    return;
-  case Type::TypeID::FloatTyID:
-    break;
-  }
-
-  addDebugEntryValue(BC, Index, CastValue ); //record.Index2;
-}
-
-#if 0
-
-void DxilDebugInstrumentation::recordReturnValue(BuilderContext & BC, CallInst * HandleForUAV, Value * value)
-{
-  auto pName = std::find(m_Variables.begin(), m_Variables.end(), value->getName());
-  size_t RegisterIndex = pName - m_Variables.begin();
-
-  DebugShaderModifierRecordRegister record = {};
-  record.Header.Details.PayloadSizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(record));
-  record.Header.Details.Flags = 0;
-  record.Header.Details.Type = DebugShaderModifierRecordTypeWrittenRegister;
-  record.Header.Details.Register = PIX_TRACE_INDEXABLE_TEMP_REGISTER; // ConvertOperandTypeToTraceRegisterType(value);
-  record.Header.Details.Operand = 0; // number;
-  record.Header.Details.Mask = 1; // always scalar? ConvertOperandMaskToTraceComponentMask(operand.GetMaskFromComponentLayout());
-
-  // Now append the header and UID and payloads
-  { //scope for overflow protection
-    uint32_t numDwords = sizeof(record) / sizeof(uint32_t);
-    auto RecordStart = reserveDebugEntrySpace(BC, numDwords);
-
-    addDebugEntryValue(BC, RecordStart, BC.HlslOP->GetU32Const(record.Header.u32Header));
-    auto SecondIndex = incrementUAVIndex(BC, RecordStart);
-    addDebugEntryValue(BC, SecondIndex, m_InvocationId);
-    auto ThirdIndex = incrementUAVIndex(BC, SecondIndex);
-    addDebugEntryValue(BC, ThirdIndex, BC.HlslOP->GetU32Const(static_cast<uint32_t>(RegisterIndex))); //record.Index0;
-    auto FourthIndex = incrementUAVIndex(BC, ThirdIndex);
-    addDebugEntryValue(BC, FourthIndex, BC.HlslOP->GetU32Const(0)); //record.Index1;
-    auto FifthIndex = incrementUAVIndex(BC, FourthIndex);
-    addDebugEntryValue(BC, FifthIndex, BC.HlslOP->GetU32Const(0)); //record.Index2;
-    auto SixthIndex = incrementUAVIndex(BC, FifthIndex);
-    typeCastAndAddDebugEntryValue(BC, SixthIndex, value);
-  }
-
-    Type::TypeID ID = operand->getType()->getTypeID();
-
-  switch (ID)
-  {
-  case Type::TypeID::VoidTyID: OutputDebugStringW(BC.M, "VoidTyID     "); break;
-  case Type::TypeID::HalfTyID: OutputDebugStringW(BC.M, "HalfTyID     "); break;
-  case Type::TypeID::FloatTyID: OutputDebugStringW(BC.M, "FloatTyID    "); break;
-  case Type::TypeID::DoubleTyID: OutputDebugStringW(BC.M, "DoubleTyID   "); break;
-  case Type::TypeID::X86_FP80TyID: OutputDebugStringW(BC.M, "X86_FP80TyID "); break;
-  case Type::TypeID::FP128TyID: OutputDebugStringW(BC.M, "FP128TyID    "); break;
-  case Type::TypeID::PPC_FP128TyID: OutputDebugStringW(BC.M, "PPC_FP128TyID"); break;
-  case Type::TypeID::LabelTyID: OutputDebugStringW(BC.M, "LabelTyID    "); break;
-  case Type::TypeID::MetadataTyID: OutputDebugStringW(BC.M, "MetadataTyID "); break;
-  case Type::TypeID::X86_MMXTyID: OutputDebugStringW(BC.M, "X86_MMXTyID  "); break;
-  case Type::TypeID::IntegerTyID: OutputDebugStringW(BC.M, "IntegerTyID  "); break;
-  case Type::TypeID::FunctionTyID: OutputDebugStringW(BC.M, "FunctionTyID "); break;
-  case Type::TypeID::StructTyID: OutputDebugStringW(BC.M, "StructTyID   "); break;
-  case Type::TypeID::ArrayTyID: OutputDebugStringW(BC.M, "ArrayTyID    "); break;
-  case Type::TypeID::PointerTyID: OutputDebugStringW(BC.M, "PointerTyID  "); break;
-  case Type::TypeID::VectorTyID: OutputDebugStringW(BC.M, "VectorTyID   "); break;
-  }
-}
-#endif
-
-#if 0
-void DxilDebugInstrumentation::instrumentFunction(Function* FN, BuilderContext & BC)
-{
-  std::vector<Instruction*> AllInstrucitons;
-  // First record pointers to all instructions in the function:
-  auto & Blocks = FN->getBasicBlockList();
-  for (auto & b : Blocks)
-  {
-    auto & Instructions = b.getInstList();
-
-    for (
-      Instruction * InstructionIterator = Instructions.begin();
-      InstructionIterator != Instructions.end();
-      InstructionIterator = InstructionIterator->getNextNode())
-    {
-      AllInstrucitons.push_back(InstructionIterator);
-    }
-  }
-
-  if ( false)
-  {
-    unsigned int InstructionIndex = 0;
-    for (auto & Inst : AllInstrucitons)
-    {
-      if (OSOverride != nullptr) {
-        formatted_raw_ostream FOS(*OSOverride);
-        Inst->print(FOS);
-        FOS << "\n<--Instruction\n";
-      }
-
-
-      IRBuilder<> Builder(Inst);
-      BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
-      addStepDebugEntry(BC2, InstructionIndex++, Inst);
-
-      auto OpIterator = Inst->op_begin();
-      while (OpIterator != Inst->op_end())
-      {
-        Value const * operand = *OpIterator;
-
-        recordInputValue(BC2, m_HandleForUAV, operand);
-
-        OpIterator++;
-      }
-    }
-  }
-
-}
-#endif
-
 
 bool DxilDebugInstrumentation::runOnModule(Module &M)
 {
@@ -895,58 +657,8 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
         BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
         addStepDebugEntry(BC2, InstructionIndex++, Inst);
       }
-
-      //auto OpIterator = Inst->op_begin();
-      //while (OpIterator != Inst->op_end())
-      //{
-      //  Use const & operand = *OpIterator;
-      //
-      //  recordReturnValue(BC2, m_HandleForUAV, operand);
-      //
-      //  OpIterator++;
-      //}
     }
   }
-
-
-  //llvm::ValueToValueMapTy ValueToValueMap;
-  //auto CloneOfMain = llvm::CloneFunction(DM.GetEntryFunction(), ValueToValueMap, true, nullptr);
-  //auto & FunctionList = M.getFunctionList();
-  //FunctionList.push_back(CloneOfMain);
-  //CloneOfMain->setName("InstrumentedCopy");
-  //CloneOfMain->addAttribute(AttributeSet::FunctionIndex, llvm::Attribute::AlwaysInline);
-  //
-  //{
-  //  {
-  //    //CallInst * WaveAnyTrueCall;
-  //    //{
-  //    //  Function* AnyTrue = HlslOP->GetOpFunc(OP::OpCode::WaveAnyTrue, Type::getVoidTy(BC.Ctx));
-  //    //  Constant* AnyTrueOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::WaveAnyTrue);
-  //    //  WaveAnyTrueCall = Builder.CreateCall(AnyTrue, {
-  //    //    AnyTrueOpcode, // i32 opcode
-  //    //    SelectionCriterion
-  //    //  });
-  //    //}
-  //
-  //    auto ThenBlockTail = SplitBlockAndInsertIfThen(
-  //      SelectionCriterion, // WaveAnyTrueCall,
-  //      BC.Builder.GetInsertPoint(),
-  //      true /* tail is unreachable*/ );
-  //
-  //    // Call the copy of the main function (which will become the instrumented version)
-  //    {
-  //      IRBuilder<> InstrumentationBuilder(ThenBlockTail);
-  //      ArrayRef<Value*> CallArgs;
-  //      InstrumentationBuilder.CreateCall(CloneOfMain, CallArgs);
-  //      InstrumentationBuilder.CreateRet(nullptr);
-  //      
-  //      instrumentFunction(CloneOfMain, BC);
-  //    }
-  //
-  //    // We've inserted a ret, so we don't need the unreachable terminator:
-  //    ThenBlockTail->eraseFromParent();
-  //  }
-  //}
 
   DM.ReEmitDxilResources();
 
@@ -956,7 +668,6 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
 char DxilDebugInstrumentation::ID = 0;
 
 ModulePass *llvm::createDxilDebugInstrumentationPass() {
-  __debugbreak();
   return new DxilDebugInstrumentation();
 }
 
