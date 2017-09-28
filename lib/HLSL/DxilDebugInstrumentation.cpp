@@ -56,68 +56,10 @@ enum DebugShaderModifierRecordType {
   DebugShaderModifierRecordTypeRegisterRelativeIndex0,
   DebugShaderModifierRecordTypeRegisterRelativeIndex1,
   DebugShaderModifierRecordTypeRegisterRelativeIndex2,
-};
-
-enum DebugShaderModifierComponentMask {
-  DebugShaderModifierComponent_NONE = 0x0,
-  DebugShaderModifierComponent_X = 0x1, // (PIX_TRACE_COMPONENT_X),
-  DebugShaderModifierComponent_Y = 0x2, // (PIX_TRACE_COMPONENT_Y),
-  DebugShaderModifierComponent_XY = 0x3, // (PIX_TRACE_COMPONENT_X | PIX_TRACE_COMPONENT_Y),
-  DebugShaderModifierComponent_Z = 0x4, // (PIX_TRACE_COMPONENT_Z),
-  DebugShaderModifierComponent_XZ = 0x5, // (PIX_TRACE_COMPONENT_X | PIX_TRACE_COMPONENT_Z),
-  DebugShaderModifierComponent_YZ = 0x6, // (PIX_TRACE_COMPONENT_Y | PIX_TRACE_COMPONENT_Z),
-  DebugShaderModifierComponent_XYZ = 0x7, // (PIX_TRACE_COMPONENT_X | PIX_TRACE_COMPONENT_Y | PIX_TRACE_COMPONENT_Z),
-  DebugShaderModifierComponent_W = 0x8, // (PIX_TRACE_COMPONENT_W),
-  DebugShaderModifierComponent_XW = 0x9, // (PIX_TRACE_COMPONENT_X | PIX_TRACE_COMPONENT_W),
-  DebugShaderModifierComponent_YW = 0xA, // (PIX_TRACE_COMPONENT_Y | PIX_TRACE_COMPONENT_W),
-  DebugShaderModifierComponent_XYW = 0xB, // (PIX_TRACE_COMPONENT_X | PIX_TRACE_COMPONENT_Y | PIX_TRACE_COMPONENT_W),
-  DebugShaderModifierComponent_ZW = 0xC, // (PIX_TRACE_COMPONENT_Z | PIX_TRACE_COMPONENT_W),
-  DebugShaderModifierComponent_XZW = 0xD, // (PIX_TRACE_COMPONENT_X | PIX_TRACE_COMPONENT_Z | PIX_TRACE_COMPONENT_W),
-  DebugShaderModifierComponent_YZW = 0xE, // (PIX_TRACE_COMPONENT_Y | PIX_TRACE_COMPONENT_Z | PIX_TRACE_COMPONENT_W),
-  DebugShaderModifierComponent_XYZW = 0xF, // (PIX_TRACE_COMPONENT_X | PIX_TRACE_COMPONENT_Y | PIX_TRACE_COMPONENT_Z | PIX_TRACE_COMPONENT_W),
-};
-
-enum PIX_TRACE_REGISTER_TYPE
-{
-  PIX_TRACE_OUTPUT_NULL_REGISTER = 0,
-  PIX_TRACE_INPUT_REGISTER = 1,
-  PIX_TRACE_INPUT_PRIMITIVE_ID_REGISTER = 2,
-  PIX_TRACE_IMMEDIATE_CONSTANT_BUFFER = 3,
-  PIX_TRACE_TEMP_REGISTER = 4,
-  PIX_TRACE_INDEXABLE_TEMP_REGISTER = 5,
-  PIX_TRACE_OUTPUT_REGISTER = 6,
-  PIX_TRACE_OUTPUT_DEPTH_REGISTER = 7,
-  PIX_TRACE_CONSTANT_BUFFER = 8,
-  PIX_TRACE_IMMEDIATE32 = 9,
-  PIX_TRACE_SAMPLER = 10,
-  PIX_TRACE_RESOURCE = 11,
-  PIX_TRACE_RASTERIZER = 12,
-  PIX_TRACE_OUTPUT_COVERAGE_MASK = 13,
-  PIX_TRACE_STREAM = 14,
-  PIX_TRACE_THIS_POINTER = 15,
-  PIX_TRACE_OUTPUT_CONTROL_POINT_ID_REGISTER = 16,
-  PIX_TRACE_INPUT_FORK_INSTANCE_ID_REGISTER = 17,
-  PIX_TRACE_INPUT_JOIN_INSTANCE_ID_REGISTER = 18,
-  PIX_TRACE_INPUT_CONTROL_POINT_REGISTER = 19,
-  PIX_TRACE_OUTPUT_CONTROL_POINT_REGISTER = 20,
-  PIX_TRACE_INPUT_PATCH_CONSTANT_REGISTER = 21,
-  PIX_TRACE_INPUT_DOMAIN_POINT_REGISTER = 22,
-  PIX_TRACE_UNORDERED_ACCESS_VIEW = 23,
-  PIX_TRACE_THREAD_GROUP_SHARED_MEMORY = 24,
-  PIX_TRACE_INPUT_THREAD_ID_REGISTER = 25,
-  PIX_TRACE_INPUT_THREAD_GROUP_ID_REGISTER = 26,
-  PIX_TRACE_INPUT_THREAD_ID_IN_GROUP_REGISTER = 27,
-  PIX_TRACE_INPUT_COVERAGE_MASK_REGISTER = 28,
-  PIX_TRACE_INPUT_THREAD_ID_IN_GROUP_FLATTENED_REGISTER = 29,
-  PIX_TRACE_INPUT_GS_INSTANCE_ID_REGISTER = 30,
-  PIX_TRACE_OUTPUT_DEPTH_GREATER_EQUAL_REGISTER = 31,
-  PIX_TRACE_OUTPUT_DEPTH_LESS_EQUAL_REGISTER = 32,
-  PIX_TRACE_IMMEDIATE64 = 33,
-  PIX_TRACE_INPUT_CYCLE_COUNTER_REGISTER = 34,
-  PIX_TRACE_INTERFACE_POINTER = 35,
-  PIX_TRACE_OUTPUT_STENCIL_REF = 36,
-  PIX_TRACE_INPUT_INNER_COVERAGE = 37,
-  PIX_TRACE_REGISTER_TYPE_COUNT
+  DebugShaderModifierRecordTypeDXILStepVoid = 252,
+  DebugShaderModifierRecordTypeDXILStepFloat = 253,
+  DebugShaderModifierRecordTypeDXILStepUint32 = 254,
+  DebugShaderModifierRecordTypeDXILStepDouble = 255,
 };
 
 struct DebugShaderModifierBufferHeader {
@@ -137,42 +79,33 @@ struct DebugShaderModifierRecordHeader {
   uint32_t UID;
 };
 
-struct DebugShaderModifierRecordStep {
+struct DebugShaderModifierRecordDXILStepBase
+{
   union {
     struct {
       uint32_t SizeDwords : 4;
       uint32_t Flags : 4;
       uint32_t Type : 8;
-      uint32_t HeaderPayload : 16;
+      uint32_t Opcode : 16;
     } Details;
     uint32_t u32Header;
   } Header;
   uint32_t UID;
   uint32_t InstructionOffset;
-  uint32_t Opcode;
+  uint32_t VirtualRegisterOrdinal;
 };
 
-struct DebugShaderModifierRecordRegister {
-  union {
-    struct  {
-      uint32_t PayloadSizeDwords : 4;
-      uint32_t Flags : 4;
-      uint32_t Type : 8;
-      uint32_t Register : 8;
-      uint32_t Operand : 4;
-      uint32_t Mask : 4;
-    } Details;
-    uint32_t u32Header;
-  } Header;
-  uint32_t UID;
-  uint32_t Index0;
-  uint32_t Index1;
-  uint32_t Index2;
-  union {
-    uint32_t u32Value[4];
-    float f32Value[4];
-  } Value;
+template< typename ReturnType >
+struct DebugShaderModifierRecordDXILStep : public DebugShaderModifierRecordDXILStepBase
+{
+  ReturnType ReturnValue;
 };
+
+template< >
+struct DebugShaderModifierRecordDXILStep<void> : public DebugShaderModifierRecordDXILStepBase
+{
+};
+
 
 uint32_t DebugShaderModifierRecordPayloadSizeDwords(size_t recordTotalSizeBytes) {
   return ((recordTotalSizeBytes - sizeof(DebugShaderModifierRecordHeader)) / sizeof(uint32_t));
@@ -226,6 +159,12 @@ private:
   CallInst * m_HandleForUAV = nullptr;
   Value * m_InvocationId = nullptr;
 
+  // Together these two values allow branchless writing to the UAV. An invocation of the shader
+  // is either of interest or not (e.g. it writes to the pixel the user selected for debugging
+  // or it doesn't). If not of interest, debugging output will still occur, but it will be
+  // relegated to the very top few bytes of the UAV. Invocations of interest, by contrast, will
+  // be written to the UAV at sequentially increasing offsets.
+
   // This value will either be one or zero (one if the invocation is of interest, zero otherwise)
   Value * m_OffsetMultiplicand = nullptr;
   // This will either be zero (if the invocation is of interest) or (UAVSize)-(SmallValue) if not.
@@ -256,7 +195,7 @@ private:
   CallInst * addUAV(BuilderContext & BC);
   Value * addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices);
   Value * addPixelShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices);
-  void recordReturnValue(BuilderContext & BC, CallInst * HandleForUAV, Value * value);
+//  void recordReturnValue(BuilderContext & BC, CallInst * HandleForUAV, Value * value);
   void addDebugEntryValue(BuilderContext & BC, Value * Index, Value * TheValue);
   void addInvocationStartMarker(BuilderContext & BC);
   Value * reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInDwords);
@@ -265,6 +204,9 @@ private:
 //  void instrumentFunction(Function*, BuilderContext & BC);
   uint32_t UAVDumpingGroundOffset();
   void typeCastAndAddDebugEntryValue(BuilderContext & BC, Value * Index, Value * TheValue);
+  template<typename ReturnType>
+  void addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst);
+
 };
 
 void DxilDebugInstrumentation::applyOptions(PassOptions O)
@@ -657,44 +599,63 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC)
   //BC.Builder.SetInsertPoint(BuilderWasWorkingHere);
 }
 
-void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst)
+template<typename ReturnType>
+void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst)
 {
-  DebugShaderModifierRecordStep step = {};
+  DebugShaderModifierRecordDXILStep<ReturnType> step = {};
+
   step.Header.Details.SizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(step));
-  step.Header.Details.Flags = 0;
-  step.Header.Details.Type = DebugShaderModifierRecordTypeStep;
-  auto RecordStart = reserveDebugEntrySpace(BC, 4);
+  step.Header.Details.Type = static_cast<uint8_t>(RecordType);
+  auto RecordStart = reserveDebugEntrySpace(BC, sizeof(step) / sizeof(uint32_t));
   addDebugEntryValue(BC, RecordStart, BC.HlslOP->GetU32Const(step.Header.u32Header));
   auto SecondIndex = incrementUAVIndex(BC, RecordStart);
   addDebugEntryValue(BC, SecondIndex, m_InvocationId);
   auto ThirdIndex = incrementUAVIndex(BC, SecondIndex);
   addDebugEntryValue(BC, ThirdIndex, BC.HlslOP->GetU32Const(InstructionIndex));
   auto FourthIndex = incrementUAVIndex(BC, ThirdIndex);
-  addDebugEntryValue(BC, FourthIndex, BC.HlslOP->GetU32Const(Inst->getOpcode()));
+
+  auto pName = std::find(m_Variables.begin(), m_Variables.end(), Inst->getName());
+  auto RegisterIndex = static_cast<uint32_t>(pName - m_Variables.begin());
+
+  addDebugEntryValue(BC, FourthIndex, BC.HlslOP->GetU32Const(RegisterIndex));
+  auto FifthIndex = incrementUAVIndex(BC, FourthIndex);
+
+  if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid)
+  {
+    addDebugEntryValue(BC, FifthIndex, Inst);
+  }
 }
 
-uint32_t ConvertOperandTypeToTraceRegisterType(Value * operand)
+void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst)
 {
-  switch (operand->getType()->getTypeID())
+  Type::TypeID ID = Inst->getType()->getTypeID();
+
+  switch (ID)
   {
+  case Type::TypeID::StructTyID:
   case Type::TypeID::VoidTyID:
-    return PIX_TRACE_OUTPUT_NULL_REGISTER;
-  case Type::TypeID::HalfTyID:
+    addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepVoid, BC, InstructionIndex, Inst);
+    break;
   case Type::TypeID::FloatTyID:
-  case Type::TypeID::DoubleTyID:
+    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, InstructionIndex, Inst);
+    break;
   case Type::TypeID::IntegerTyID:
+    addStepEntryForType<uint32_t>(DebugShaderModifierRecordTypeDXILStepUint32, BC, InstructionIndex, Inst);
+    break;
+  case Type::TypeID::DoubleTyID:
+    addStepEntryForType<double>(DebugShaderModifierRecordTypeDXILStepDouble, BC, InstructionIndex, Inst);
+    break;
   case Type::TypeID::FP128TyID:
-    return PIX_TRACE_IMMEDIATE32;
+  case Type::TypeID::HalfTyID:
   case Type::TypeID::LabelTyID:
   case Type::TypeID::MetadataTyID:
   case Type::TypeID::FunctionTyID:
-  case Type::TypeID::StructTyID:
   case Type::TypeID::ArrayTyID:
   case Type::TypeID::PointerTyID:
   case Type::TypeID::VectorTyID:
-    return PIX_TRACE_OUTPUT_NULL_REGISTER;
+    assert(false);
   }
-  return 0;
+
 }
 
 
@@ -743,6 +704,7 @@ void DxilDebugInstrumentation::typeCastAndAddDebugEntryValue(BuilderContext & BC
   addDebugEntryValue(BC, Index, CastValue ); //record.Index2;
 }
 
+#if 0
 
 void DxilDebugInstrumentation::recordReturnValue(BuilderContext & BC, CallInst * HandleForUAV, Value * value)
 {
@@ -775,7 +737,6 @@ void DxilDebugInstrumentation::recordReturnValue(BuilderContext & BC, CallInst *
     typeCastAndAddDebugEntryValue(BC, SixthIndex, value);
   }
 
-#if 0
     Type::TypeID ID = operand->getType()->getTypeID();
 
   switch (ID)
@@ -797,8 +758,8 @@ void DxilDebugInstrumentation::recordReturnValue(BuilderContext & BC, CallInst *
   case Type::TypeID::PointerTyID: OutputDebugStringW(BC.M, "PointerTyID  "); break;
   case Type::TypeID::VectorTyID: OutputDebugStringW(BC.M, "VectorTyID   "); break;
   }
-#endif
 }
+#endif
 
 #if 0
 void DxilDebugInstrumentation::instrumentFunction(Function* FN, BuilderContext & BC)
@@ -915,18 +876,12 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
         m_Variables.emplace_back(Inst->getName().data());
       }
 
-      {
-        IRBuilder<> Builder(Inst);
-        BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
-        addStepDebugEntry(BC2, InstructionIndex, Inst);
-      }
-      if (Inst->getType()->getTypeID() != Type::TypeID::VoidTyID)
+      if (Inst != AllInstrucitons.back() && Inst->getNextNode()) //Inst->getOpcode() != Instruction::Ret)
       {
         IRBuilder<> Builder(Inst->getNextNode());
-        BuilderContext BCAfter{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
-        recordReturnValue(BCAfter, m_HandleForUAV, Inst);
+        BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
+        addStepDebugEntry(BC2, InstructionIndex++, Inst);
       }
-      InstructionIndex++;
 
       //auto OpIterator = Inst->op_begin();
       //while (OpIterator != Inst->op_end())
