@@ -170,6 +170,8 @@ private:
   // This will either be zero (if the invocation is of interest) or (UAVSize)-(SmallValue) if not.
   Value * m_OffsetAddend = nullptr;
 
+  std::map<uint32_t, Value *> m_IncrementInstructionBySize;
+
   std::vector<std::string> m_Variables;
 
   struct BuilderContext
@@ -232,7 +234,7 @@ void DxilDebugInstrumentation::applyOptions(PassOptions O)
   }
 }
 
-#define MAX_ROOM_NEEDED_FOR_DEBUG_FIELD 16
+#define MAX_ROOM_NEEDED_FOR_DEBUG_FIELD 64
 uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset()
 {
   return static_cast<uint32_t>(m_UAVSize - MAX_ROOM_NEEDED_FOR_DEBUG_FIELD);
@@ -480,16 +482,27 @@ Value * DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & 
   return ParameterTestResult;
 }
 
-Value * DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInDwords)
+Value * DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInBytes)
 {
   // Insert the UAV increment instruction:
   Function* AtomicOpFunc = BC.HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(BC.Ctx));
   Constant* AtomicBinOpcode = BC.HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
   Constant* AtomicAdd = BC.HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
   Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
-  Constant* Increment = BC.HlslOP->GetU32Const(SpaceInDwords);
   UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
-  auto IncrementForThisInvocation = BC.Builder.CreateMul(Increment, m_OffsetMultiplicand, "IncrementForThisInvocation"); // so inc will be zero for uninteresting invocations
+
+  // so inc will be zero for uninteresting invocations:
+  Value * IncrementForThisInvocation;
+  auto findIncrementInstruction = m_IncrementInstructionBySize.find(SpaceInBytes);
+  if (findIncrementInstruction == m_IncrementInstructionBySize.end())
+  {
+    Constant* Increment = BC.HlslOP->GetU32Const(SpaceInBytes);
+    auto it = m_IncrementInstructionBySize.emplace(
+      SpaceInBytes, BC.Builder.CreateMul(Increment, m_OffsetMultiplicand, "IncrementForThisInvocation"));
+    findIncrementInstruction = it.first;
+  }
+  IncrementForThisInvocation = findIncrementInstruction->second;
+
   auto PreviousValue = BC.Builder.CreateCall(AtomicOpFunc, {
     AtomicBinOpcode,// i32, ; opcode
     m_HandleForUAV, // %dx.types.Handle, ; resource handle
@@ -505,17 +518,16 @@ Value * DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, ui
       m_InvocationId = PreviousValue;
   }
 
-  // *sizeof(DWORD), and leave 1 DWORD of space for the counter in the first dword of the UAV:
-  auto MulBy4 = BC.Builder.CreateMul(PreviousValue, BC.HlslOP->GetU32Const(4));
-  return incrementUAVIndex(BC, MulBy4);
+  // The return value will either end up being itself (multiplied by one and added with zero)
+  // or the "dump uninteresting things here" value of (UAVSize - a bit).
+  auto MultipliedForInterest = BC.Builder.CreateMul(PreviousValue, m_OffsetMultiplicand);
+  auto AddedForInterest = BC.Builder.CreateAdd(MultipliedForInterest, m_OffsetAddend);
+  return AddedForInterest;
 }
 
 Value * DxilDebugInstrumentation::incrementUAVIndex(BuilderContext & BC, Value * CurrentValue)
 {
-  auto NewValue = BC.Builder.CreateAdd(CurrentValue, BC.HlslOP->GetU32Const(4));
-  auto MultipliedForInterest = BC.Builder.CreateMul(NewValue, m_OffsetMultiplicand);
-  auto AddedForInterest = BC.Builder.CreateAdd(MultipliedForInterest, m_OffsetAddend);
-  return AddedForInterest;
+  return BC.Builder.CreateAdd(CurrentValue, BC.HlslOP->GetU32Const(4));;
 }
 
 void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * Index, Value * TheValue)
@@ -583,9 +595,10 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC)
  //
  //
   
-  auto RecordStart = reserveDebugEntrySpace(BC, 2);
   
   DebugShaderModifierRecordHeader marker{ 0 };
+  auto RecordStart = reserveDebugEntrySpace(BC, sizeof(marker));
+
   marker.Header.Details.SizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(marker));;
   marker.Header.Details.Flags = 0;
   marker.Header.Details.Type = DebugShaderModifierRecordTypeInvocationStartMarker;
@@ -603,10 +616,10 @@ template<typename ReturnType>
 void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst)
 {
   DebugShaderModifierRecordDXILStep<ReturnType> step = {};
+  auto RecordStart = reserveDebugEntrySpace(BC, sizeof(step));
 
   step.Header.Details.SizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(step));
   step.Header.Details.Type = static_cast<uint8_t>(RecordType);
-  auto RecordStart = reserveDebugEntrySpace(BC, sizeof(step) / sizeof(uint32_t));
   addDebugEntryValue(BC, RecordStart, BC.HlslOP->GetU32Const(step.Header.u32Header));
   auto SecondIndex = incrementUAVIndex(BC, RecordStart);
   addDebugEntryValue(BC, SecondIndex, m_InvocationId);
@@ -618,10 +631,10 @@ void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType
   auto RegisterIndex = static_cast<uint32_t>(pName - m_Variables.begin());
 
   addDebugEntryValue(BC, FourthIndex, BC.HlslOP->GetU32Const(RegisterIndex));
-  auto FifthIndex = incrementUAVIndex(BC, FourthIndex);
 
   if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid)
   {
+    auto FifthIndex = incrementUAVIndex(BC, FourthIndex);
     addDebugEntryValue(BC, FifthIndex, Inst);
   }
 }
