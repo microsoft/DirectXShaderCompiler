@@ -700,7 +700,7 @@ struct InputOutputAccessInfo {
 void collectInputOutputAccessInfo(
     Value *GV, Constant *constZero,
     std::vector<InputOutputAccessInfo> &accessInfoList, bool hasVertexID,
-    bool bInput) {
+    bool bInput, bool bRowMajor) {
   auto User = GV->user_begin();
   auto UserE = GV->user_end();
   for (; User != UserE;) {
@@ -743,6 +743,8 @@ void collectInputOutputAccessInfo(
           DXASSERT_NOMSG((++GEPIt) == E);
         } else {
           // Array which may have vector indexing.
+          // Highest dim index is saved in rowIdx,
+          //  array size for highest dim not affect index.
           GEPIt++;
           IRBuilder<> Builder(GEP);
           Type *idxTy = rowIdx->getType();
@@ -763,6 +765,15 @@ void collectInputOutputAccessInfo(
               // Save vector idx.
               vectorIdx = GEPIt.getOperand();
             }
+          }
+          if (HLMatrixLower::IsMatrixType(*GEPIt)) {
+            unsigned row, col;
+            HLMatrixLower::GetMatrixInfo(*GEPIt, col, row);
+            Constant *arraySize = ConstantInt::get(idxTy, col);
+            if (bRowMajor) {
+              arraySize = ConstantInt::get(idxTy, row);
+            }
+            rowIdx = Builder.CreateMul(rowIdx, arraySize);
           }
         }
       } else
@@ -1016,6 +1027,9 @@ void HLSignatureLower::GenerateDxilInputsOutputs(bool bInput) {
   DxilSignature &Sig =
       bInput ? EntrySig.InputSignature : EntrySig.OutputSignature;
 
+  DxilTypeSystem &typeSys = HLM.GetTypeSystem();
+  DxilFunctionAnnotation *pFuncAnnot = typeSys.GetFunctionAnnotation(Entry);
+
   Type *i1Ty = Type::getInt1Ty(constZero->getContext());
   Type *i32Ty = constZero->getType();
 
@@ -1073,10 +1087,18 @@ void HLSignatureLower::GenerateDxilInputsOutputs(bool bInput) {
     bool bIsPrecise = m_preciseSigSet.count(SE);
     if (bIsPrecise)
       HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(GV, M);
-
+    bool bRowMajor = false;
+    if (Argument *Arg = dyn_cast<Argument>(GV)) {
+      if (pFuncAnnot) {
+        auto &paramAnnot = pFuncAnnot->GetParameterAnnotation(Arg->getArgNo());
+        if (paramAnnot.HasMatrixAnnotation())
+          bRowMajor = paramAnnot.GetMatrixAnnotation().Orientation ==
+                      MatrixOrientation::RowMajor;
+      }
+    }
     std::vector<InputOutputAccessInfo> accessInfoList;
     collectInputOutputAccessInfo(GV, constZero, accessInfoList,
-                                 bNeedVertexID && bIsArrayTy, bInput);
+                                 bNeedVertexID && bIsArrayTy, bInput, bRowMajor);
 
     for (InputOutputAccessInfo &info : accessInfoList) {
       GenerateInputOutputUserCall(info, undefVertexIdx, dxilFunc, OpArg, ID,
@@ -1172,6 +1194,8 @@ void HLSignatureLower::GenerateDxilPatchConstantLdSt() {
   Module &M = *(HLM.GetModule());
   Constant *constZero = hlslOP->GetU32Const(0);
   DxilSignature &Sig = EntrySig.PatchConstantSignature;
+  DxilTypeSystem &typeSys = HLM.GetTypeSystem();
+  DxilFunctionAnnotation *pFuncAnnot = typeSys.GetFunctionAnnotation(Entry);
   auto InsertPt = Entry->getEntryBlock().getFirstInsertionPt();
   const bool bIsHs = props.IsHS();
   const bool bIsInput = !bIsHs;
@@ -1234,10 +1258,18 @@ void HLSignatureLower::GenerateDxilPatchConstantLdSt() {
                                   Builder);
       continue;
     }
-
+    bool bRowMajor = false;
+    if (Argument *Arg = dyn_cast<Argument>(GV)) {
+      if (pFuncAnnot) {
+        auto &paramAnnot = pFuncAnnot->GetParameterAnnotation(Arg->getArgNo());
+        if (paramAnnot.HasMatrixAnnotation())
+          bRowMajor = paramAnnot.GetMatrixAnnotation().Orientation ==
+                      MatrixOrientation::RowMajor;
+      }
+    }
     std::vector<InputOutputAccessInfo> accessInfoList;
     collectInputOutputAccessInfo(GV, constZero, accessInfoList, bNeedVertexID,
-                                 bIsInput);
+                                 bIsInput, bRowMajor);
 
     bool bIsArrayTy = GV->getType()->getPointerElementType()->isArrayTy();
     bool isPrecise = m_preciseSigSet.count(SE);
@@ -1291,10 +1323,18 @@ void HLSignatureLower::GenerateDxilPatchConstantFunctionInputs() {
                               ? OP::OpCode::LoadInput
                               : OP::OpCode::LoadOutputControlPoint;
       Function *dxilLdFunc = hlslOP->GetOpFunc(opcode, Ty);
-
+      bool bRowMajor = false;
+      if (Argument *Arg = dyn_cast<Argument>(&arg)) {
+        if (patchFuncAnnotation) {
+          auto &paramAnnot = patchFuncAnnotation->GetParameterAnnotation(Arg->getArgNo());
+          if (paramAnnot.HasMatrixAnnotation())
+            bRowMajor = paramAnnot.GetMatrixAnnotation().Orientation ==
+                      MatrixOrientation::RowMajor;
+        }
+      }
       std::vector<InputOutputAccessInfo> accessInfoList;
       collectInputOutputAccessInfo(&arg, constZero, accessInfoList,
-                                   /*hasVertexID*/ true, true);
+                                   /*hasVertexID*/ true, true, bRowMajor);
       for (InputOutputAccessInfo &info : accessInfoList) {
         if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
           Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);

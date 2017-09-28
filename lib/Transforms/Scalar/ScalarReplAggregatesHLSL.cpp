@@ -5896,6 +5896,16 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   }
 
   // Function Attr and Parameter Attr.
+  // Remove sret first.
+  if (F->hasStructRetAttr())
+    F->removeFnAttr(Attribute::StructRet);
+  for (Argument &arg : F->args()) {
+    if (arg.hasStructRetAttr()) {
+      AttributeSet SRetAS = AttributeSet::get(Ctx, arg.getArgNo() + 1, {Attribute::StructRet});
+      arg.removeAttr(SRetAS);
+    }
+  }
+
   AttributeSet AS = F->getAttributes();
   AttrBuilder FnAttrs(AS.getFnAttributes(), AttributeSet::FunctionIndex);
   AttributeSet flatAS;
