@@ -126,10 +126,6 @@ private:
       unsigned VertexId;
       unsigned InstanceId;
     } VertexShader;
-    struct ComputeShaderParameters
-    {
-      unsigned ThreadId;
-    } ComputeShader;
   };
 
   uint64_t m_UAVSize = 1024*1024;
@@ -177,6 +173,8 @@ private:
   CallInst * addUAV(BuilderContext & BC);
   Value * addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices);
   Value * addPixelShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices);
+  Value * addComputeShaderProlog(BuilderContext & BC);
+  Value * addVertexShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices);
   void addDebugEntryValue(BuilderContext & BC, Value * Index, Value * TheValue);
   void addInvocationStartMarker(BuilderContext & BC);
   Value * reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInDwords);
@@ -228,7 +226,7 @@ void DxilDebugInstrumentation::OutputDebugStringW(Module &M, const char *p)
 
 DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext & BC)
 {
-  SystemValueIndices SVIndices;
+  SystemValueIndices SVIndices{};
 
   hlsl::DxilSignature & InputSignature = BC.DM.GetInputSignature();
 
@@ -271,11 +269,11 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
         return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::VertexID; });
 
       if (Existing_SV_VertexId == InputElements.end()) {
-        auto Added_SV_VertexId = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-        Added_SV_VertexId->Initialize("PrimitiveId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 1);
+        auto Added_SV_VertexId = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
+        Added_SV_VertexId->Initialize("VertexId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Undefined, 1, 1);
         Added_SV_VertexId->AppendSemanticIndex(0);
-        Added_SV_VertexId->SetSigPointKind(DXIL::SigPointKind::PSIn);
-        Added_SV_VertexId->SetKind(hlsl::DXIL::SemanticKind::PrimitiveID);
+        Added_SV_VertexId->SetSigPointKind(DXIL::SigPointKind::VSIn);
+        Added_SV_VertexId->SetKind(hlsl::DXIL::SemanticKind::VertexID);
 
         auto index = InputSignature.AppendElement(std::move(Added_SV_VertexId));
         SVIndices.VertexShader.VertexId = InputElements[index]->GetID();
@@ -291,11 +289,11 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
         return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::InstanceID; });
 
       if (Existing_SV_InstanceId == InputElements.end()) {
-        auto Added_SV_InstanceId = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-        Added_SV_InstanceId->Initialize("InstanceId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 1);
+        auto Added_SV_InstanceId = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
+        Added_SV_InstanceId->Initialize("InstanceId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Undefined, 1, 1);
         Added_SV_InstanceId->AppendSemanticIndex(0);
-        Added_SV_InstanceId->SetSigPointKind(DXIL::SigPointKind::PSIn);
-        Added_SV_InstanceId->SetKind(hlsl::DXIL::SemanticKind::PrimitiveID);
+        Added_SV_InstanceId->SetSigPointKind(DXIL::SigPointKind::VSIn);
+        Added_SV_InstanceId->SetKind(hlsl::DXIL::SemanticKind::InstanceID);
 
         auto index = InputSignature.AppendElement(std::move(Added_SV_InstanceId));
         SVIndices.VertexShader.InstanceId = InputElements[index]->GetID();
@@ -307,29 +305,27 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
   }
   break;
   case DXIL::ShaderKind::Compute:
-  {
-    auto Existing_SV_ThreadId = std::find_if(
-      InputElements.begin(), InputElements.end(),
-      [](const std::unique_ptr<DxilSignatureElement> & Element) {
-      return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::DispatchThreadID; });
-
-    // SV_Position, if present, has to have full mask, so we needn't worry 
-    // about the shader having selected components that don't include x or y.
-    // If not present, we add it.
-    if (Existing_SV_ThreadId == InputElements.end()) {
-      auto Added_SV_Thread = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-      Added_SV_Thread->Initialize("ThreadId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 4);
-      Added_SV_Thread->AppendSemanticIndex(0);
-      Added_SV_Thread->SetSigPointKind(DXIL::SigPointKind::PSIn);
-      Added_SV_Thread->SetKind(hlsl::DXIL::SemanticKind::Position);
-
-      auto index = InputSignature.AppendElement(std::move(Added_SV_Thread));
-      SVIndices.ComputeShader.ThreadId = InputElements[index]->GetID();
-    }
-    else {
-      SVIndices.ComputeShader.ThreadId = Existing_SV_ThreadId->get()->GetID();
-    }
-  }
+    // Compute thread Id is not in the input signature
+  //{
+  //  auto Existing_SV_ThreadId = std::find_if(
+  //    InputElements.begin(), InputElements.end(),
+  //    [](const std::unique_ptr<DxilSignatureElement> & Element) {
+  //    return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::DispatchThreadID; });
+  //
+  //  if (Existing_SV_ThreadId == InputElements.end()) {
+  //    auto Added_SV_Thread = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::CSIn);
+  //    Added_SV_Thread->Initialize("ThreadId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Undefined, 1, 4);
+  //    Added_SV_Thread->AppendSemanticIndex(0);
+  //    Added_SV_Thread->SetSigPointKind(DXIL::SigPointKind::CSIn);
+  //    Added_SV_Thread->SetKind(hlsl::DXIL::SemanticKind::DispatchThreadID);
+  //
+  //    auto index = InputSignature.AppendElement(std::move(Added_SV_Thread));
+  //    SVIndices.ComputeShader.ThreadId = InputElements[index]->GetID();
+  //  }
+  //  else {
+  //    SVIndices.ComputeShader.ThreadId = Existing_SV_ThreadId->get()->GetID();
+  //  }
+  //}
   break;
   default:
     assert(false);
@@ -338,11 +334,59 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
   return SVIndices;
 }
 
+Value * DxilDebugInstrumentation::addComputeShaderProlog(BuilderContext & BC)
+{
+  Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
+  Constant* One32Arg = BC.HlslOP->GetU32Const(1);
+  Constant* Two32Arg = BC.HlslOP->GetU32Const(2);
+
+  auto ThreadIdFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::ThreadId, Type::getInt32Ty(BC.Ctx));
+  Constant* Opcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::ThreadId);
+  auto ThreadIdX = BC.Builder.CreateCall(ThreadIdFunc, { Opcode, Zero32Arg }, "ThreadIdX");
+  auto ThreadIdY = BC.Builder.CreateCall(ThreadIdFunc, { Opcode, One32Arg  }, "ThreadIdY");
+  auto ThreadIdZ = BC.Builder.CreateCall(ThreadIdFunc, { Opcode, Two32Arg  }, "ThreadIdZ");
+
+  // Compare to expected pixel position and primitive ID
+  auto CompareToX = BC.Builder.CreateICmpEQ(ThreadIdX, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdX), "CompareToThreadIdX");
+  auto CompareToY = BC.Builder.CreateICmpEQ(ThreadIdY, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdY), "CompareToThreadIdY");
+  auto CompareToZ = BC.Builder.CreateICmpEQ(ThreadIdZ, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdZ), "CompareToThreadIdZ");
+
+  auto CompareXAndY = BC.Builder.CreateAnd(CompareToX, CompareToY, "CompareXAndY");
+
+  auto CompareAll = BC.Builder.CreateAnd(CompareXAndY, CompareToZ, "CompareAll");
+
+  return CompareAll;
+}
+
+Value * DxilDebugInstrumentation::addVertexShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices)
+{
+  Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
+  Constant* Zero8Arg = BC.HlslOP->GetI8Const(0);
+  UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
+
+  auto LoadInputOpFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::LoadInput, Type::getInt32Ty(BC.Ctx));
+  Constant* LoadInputOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::LoadInput);
+  Constant*  SV_Vert_ID = BC.HlslOP->GetU32Const(SVIndices.VertexShader.VertexId);
+  auto VertId = BC.Builder.CreateCall(LoadInputOpFunc,
+  { LoadInputOpcode, SV_Vert_ID, Zero32Arg /*row*/, Zero8Arg /*column*/, UndefArg }, "VertId");
+
+  Constant*  SV_Instance_ID = BC.HlslOP->GetU32Const(SVIndices.VertexShader.InstanceId);
+  auto InstanceId = BC.Builder.CreateCall(LoadInputOpFunc,
+  { LoadInputOpcode, SV_Instance_ID, Zero32Arg /*row*/, Zero8Arg /*column*/, UndefArg }, "InstanceId");
+
+  // Compare to expected pixel position and primitive ID
+  auto CompareToVert = BC.Builder.CreateICmpEQ(VertId, BC.HlslOP->GetU32Const(m_Parameters.VertexShader.VertexId), "CompareToVertId");
+  auto CompareToInstance = BC.Builder.CreateICmpEQ(InstanceId, BC.HlslOP->GetU32Const(m_Parameters.VertexShader.InstanceId), "CompareToInstanceId");
+  auto CompareBoth = BC.Builder.CreateAnd(CompareToVert, CompareToInstance, "CompareBoth");
+
+  return CompareBoth;
+}
+
 Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices)
 {
   Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
-  Constant* Zero8Arg  = BC.HlslOP->GetI8Const(0);
-  Constant* One8Arg   = BC.HlslOP->GetI8Const(1);
+  Constant* Zero8Arg = BC.HlslOP->GetI8Const(0);
+  Constant* One8Arg = BC.HlslOP->GetI8Const(1);
   UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
 
   // Convert SV_POSITION to UINT    
@@ -417,12 +461,12 @@ Value * DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & 
   case DXIL::ShaderKind::Pixel:
     ParameterTestResult = addPixelShaderProlog(BC, SVIndices);
     break;
-    //  case DXIL::ShaderKind::Vertex:
-    //    addVertexShaderProlog(Builder);
-    //    break;
-    //  case DXIL::ShaderKind::Compute:
-    //    addComputeShaderProlog(Builder);
-    //    break;
+    case DXIL::ShaderKind::Vertex:
+      ParameterTestResult = addVertexShaderProlog(BC, SVIndices);
+    break;
+    case DXIL::ShaderKind::Compute:
+      ParameterTestResult = addComputeShaderProlog(BC);
+    break;
   default:
     assert(false);
   }
