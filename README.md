@@ -56,8 +56,6 @@ To run tests, open the HLSL Console and run this command after a successful buil
 
 Some tests will run shaders and verify their behavior. These tests also involve a driver that can run these execute these shaders. See the next section on how this should be currently set up.
 
-If you use Ninja to build the project, please make sure to supply `-ninja` to `hcttest` for testing.
-
 ## Running Shaders
 
 To run shaders compiled as DXIL, you will need support from the operating system as well as from the driver for your graphics adapter. Windows 10 Creators Update is the first version to support DXIL shaders.
