@@ -1144,11 +1144,114 @@ HLSL Methods
 
 This section lists how various HLSL methods are mapped.
 
+Buffers
+-------
+
+``Buffer``
+~~~~~~~~~~
+
+``.Load()``
++++++++++++
+Since Buffers are represented as ``OpTypeImage`` with ``Sampled`` set to 1
+(meaning to be used with a sampler), ``OpImageFetch`` is used to perform this
+operation. The return value of ``OpImageFetch`` is always a four-component
+vector; so proper additional instructions are generated to truncate the vector
+and return the desired number of elements.
+
+``operator[]``
+++++++++++++++
+Handled similarly as ``.Load()``.
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since Buffers are represented as ``OpTypeImage`` with dimension of ``Buffer``,
+``OpImageQuerySize`` is used to perform this operation.
+
+``RWBuffer``
+~~~~~~~~~~~~
+
+``.Load()``
++++++++++++
+Since RWBuffers are represented as ``OpTypeImage`` with ``Sampled`` set to 2
+(meaning to be used without a sampler), ``OpImageRead`` is used to perform this
+operation.
+
+``operator[]``
+++++++++++++++
+Using ``operator[]`` for reading is handled similarly as ``.Load()``, while for
+writing, the ``OpImageWrite`` instruction is generated.
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since RWBuffers are represented as ``OpTypeImage`` with dimension of ``Buffer``,
+``OpImageQuerySize`` is used to perform this operation.
+
+``StructuredBuffer`` and ``RWStructuredBuffer``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since StructuredBuffers/RWStructuredBuffers are represented as a struct with one
+member that is a runtime array of structures, ``OpArrayLength`` is invoked on
+the runtime array in order to find the dimension.
+
+``ByteAddressBuffer``
+~~~~~~~~~~~~~~~~~~~~~
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since ByteAddressBuffers are represented as a struct with one member that is a
+runtime array of unsigned integers, ``OpArrayLength`` is invoked on the runtime array
+in order to find the number of unsigned integers. This is then multiplied by 4 to find
+the number of bytes.
+
+``.Load()``, ``.Load2()``, ``.Load3()``, ``.Load4()``
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ByteAddressBuffers are represented as a struct with one member that is a runtime array of
+unsigned integers. The ``address`` argument passed to the function is first divided by 4
+in order to find the offset into the array (because each array element is 4 bytes). The
+SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpLoad`` is
+used to load a 32-bit unsigned integer. For ``Load2``, ``Load3``, and ``Load4``, this is
+done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
+performing ``OpAccessChain``. After all ``OpLoad`` operations are performed, a vector is
+constructed with all the resulting values.
+
+``RWByteAddressBuffer``
+~~~~~~~~~~~~~~~~~~~~~~~
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since RWByteAddressBuffers are represented as a struct with one member that is a
+runtime array of unsigned integers, ``OpArrayLength`` is invoked on the runtime array
+in order to find the number of unsigned integers. This is then multiplied by 4 to find
+the number of bytes.
+
+``.Load()``, ``.Load2()``, ``.Load3()``, ``.Load4()``
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+RWByteAddressBuffers are represented as a struct with one member that is a runtime array of
+unsigned integers. The ``address`` argument passed to the function is first divided by 4
+in order to find the offset into the array (because each array element is 4 bytes). The
+SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpLoad`` is
+used to load a 32-bit unsigned integer. For ``Load2``, ``Load3``, and ``Load4``, this is
+done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
+performing ``OpAccessChain``. After all ``OpLoad`` operations are performed, a vector is
+constructed with all the resulting values.
+
+``.Store()``, ``.Store2()``, ``.Store3()``, ``.Store4()``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+RWByteAddressBuffers are represented as a struct with one member that is a runtime array of
+unsigned integers. The ``address`` argument passed to the function is first divided by 4
+in order to find the offset into the array (because each array element is 4 bytes). The
+SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpStore`` is
+used to store a 32-bit unsigned integer. For ``Store2``, ``Store3``, and ``Store4``, this is
+done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
+performing ``OpAccessChain``.
+
 ``AppendStructuredBuffer``
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``.Append()``
-~~~~~~~~~~~~~
++++++++++++++
 
 The associated counter number will be increased by 1 using ``OpAtomicIAdd``.
 The return value of ``OpAtomicIAdd``, which is the original count number, will
@@ -1163,16 +1266,17 @@ be used as the index for storing the new element. E.g., for ``buf.Append(vec)``:
              OpStore %ptr %val
 
 ``.GetDimensions()``
-~~~~~~~~~~~~~~~~~~~~
-Since AppendStructuredBuffers are represented as a struct with one member that is a
-runtime array, ``OpArrayLength`` is invoked on the runtime array in order to find the
-number of elements. The stride is also calculated based on GLSL ``std430`` as explained above.
+++++++++++++++++++++
+Since AppendStructuredBuffers are represented as a struct with one member that
+is a runtime array, ``OpArrayLength`` is invoked on the runtime array in order
+to find the number of elements. The stride is also calculated based on GLSL
+``std430`` as explained above.
 
 ``ConsumeStructuredBuffer``
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``.Consume()``
-~~~~~~~~~~~~~
+++++++++++++++
 
 The associated counter number will be decreased by 1 using ``OpAtomicISub``.
 The return value of ``OpAtomicISub`` minus 1, which is the new count number,
@@ -1189,248 +1293,250 @@ will be used as the index for reading the new element. E.g., for
              OpStore %ptr %val
 
 ``.GetDimensions()``
-~~~~~~~~~~~~~~~~~~~~
-Since ConsumeStructuredBuffers are represented as a struct with one member that is a
-runtime array, ``OpArrayLength`` is invoked on the runtime array in order to find the
-number of elements. The stride is also calculated based on GLSL ``std430`` as explained above.
+++++++++++++++++++++
+Since ConsumeStructuredBuffers are represented as a struct with one member that
+is a runtime array, ``OpArrayLength`` is invoked on the runtime array in order
+to find the number of elements. The stride is also calculated based on GLSL
+``std430`` as explained above.
 
-``Buffer``
---------------------------
+Read-only textures
+------------------
 
-``.GetDimensions()``
-~~~~~~~~~~~~~~~~~~~~
-Since Buffers are represented as ``OpTypeImage`` with dimension of ``Buffer``,
-``OpImageQuerySize`` is used to perform this operation.
+Methods common to all texture types are explained in the "common texture methods"
+section. Methods unique to a specific texture type is explained in the section
+for that texture type.
 
-``RWBuffer``
---------------------------
+Common texture methods
+~~~~~~~~~~~~~~~~~~~~~~
 
-``.GetDimensions()``
-~~~~~~~~~~~~~~~~~~~~
-Since RWBuffers are represented as ``OpTypeImage`` with dimension of ``Buffer``,
-``OpImageQuerySize`` is used to perform this operation.
+``.Sample(sampler, location[, offset])``
+++++++++++++++++++++++++++++++++++++++++
 
-``StructuredBuffer``
---------------------------
+Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
-``.GetDimensions()``
-~~~~~~~~~~~~~~~~~~~~
-Since StructuredBuffers are represented as a struct with one member that is a
-runtime array of structures, ``OpArrayLength`` is invoked on the runtime array in
-order to find the dimension.
+The ``OpImageSampleImplicitLod`` instruction is used to translate ``.Sample()``
+since texture types are represented as ``OpTypeImage``. An ``OpSampledImage`` is
+created based on the ``sampler`` passed to the function. The resulting sampled
+image and the ``location`` passed to the function are used as arguments to
+``OpImageSampleImplicitLod``, with the optional ``offset`` tranlated into
+addtional SPIR-V image operands ``ConstOffset`` or ``Offset`` on it.
 
-``RWStructuredBuffer``
---------------------------
+``.SampleLevel(sampler, location, lod[, offset])``
+++++++++++++++++++++++++++++++++++++++++++++++++++
 
-``.GetDimensions()``
-~~~~~~~~~~~~~~~~~~~~
-Similar to StructuredBuffers, since RWStructuredBuffers are represented as a struct
-with one member that is a runtime array of structures, ``OpArrayLength`` is invoked
-on the runtime array in order to find the dimension.
+Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
-``ByteAddressBuffer``
---------------------------
+The ``OpImageSampleExplicitLod`` instruction is used to translate this method.
+An ``OpSampledImage`` is created based on the ``sampler`` passed to the function.
+The resulting sampled image and the ``location`` passed to the function are used
+as arguments to ``OpImageSampleExplicitLod``. The ``lod`` passed to the function
+is attached to the instruction as an SPIR-V image operands ``Lod``. The optional
+``offset`` is also tranlated into addtional SPIR-V image operands ``ConstOffset``
+or ``Offset`` on it.
 
-``.GetDimensions()``
-~~~~~~~~~~~~~~~~~~~~
-Since ByteAddressBuffers are represented as a struct with one member that is a
-runtime array of unsigned integers, ``OpArrayLength`` is invoked on the runtime array
-in order to find the number of unsigned integers. This is then multiplied by 4 to find
-the number of bytes.
+``.SampleGrad(sampler, location, ddx, ddy[, offset])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-``.Load()``, ``.Load2()``, ``.Load3()``, ``.Load4()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-ByteAddressBuffers are represented as a struct with one member that is a runtime array of
-unsigned integers. The ``address`` argument passed to the function is first divided by 4
-in order to find the offset into the array (because each array element is 4 bytes). The
-SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpLoad`` is
-used to load a 32-bit unsigned integer. For ``Load2``, ``Load3``, and ``Load4``, this is
-done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
-performing ``OpAccessChain``. After all ``OpLoad`` operations are performed, a vector is
-constructed with all the resulting values.
+Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
-``RWByteAddressBuffer``
---------------------------
+Similarly to ``.SampleLevel``, the ``ddx`` and ``ddy`` parameter are attached to
+the ``OpImageSampleExplicitLod`` instruction as an SPIR-V image operands
+``Grad``.
 
-``.GetDimensions()``
-~~~~~~~~~~~~~~~~~~~~
-Since RWByteAddressBuffers are represented as a struct with one member that is a
-runtime array of unsigned integers, ``OpArrayLength`` is invoked on the runtime array
-in order to find the number of unsigned integers. This is then multiplied by 4 to find
-the number of bytes.
+``.SampleBias(sampler, location, bias[, offset])``
+++++++++++++++++++++++++++++++++++++++++++++++++++
 
-``.Load()``, ``.Load2()``, ``.Load3()``, ``.Load4()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-RWByteAddressBuffers are represented as a struct with one member that is a runtime array of
-unsigned integers. The ``address`` argument passed to the function is first divided by 4
-in order to find the offset into the array (because each array element is 4 bytes). The
-SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpLoad`` is
-used to load a 32-bit unsigned integer. For ``Load2``, ``Load3``, and ``Load4``, this is
-done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
-performing ``OpAccessChain``. After all ``OpLoad`` operations are performed, a vector is
-constructed with all the resulting values.
+Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
-``.Store()``, ``.Store2()``, ``.Store3()``, ``.Store4()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-RWByteAddressBuffers are represented as a struct with one member that is a runtime array of
-unsigned integers. The ``address`` argument passed to the function is first divided by 4
-in order to find the offset into the array (because each array element is 4 bytes). The
-SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpStore`` is
-used to store a 32-bit unsigned integer. For ``Store2``, ``Store3``, and ``Store4``, this is
-done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
-performing ``OpAccessChain``.
+The translation is similar to ``.Sample()``, with the ``bias`` parameter
+attached to the ``OpImageSampleImplicitLod`` instruction as an SPIR-V image
+operands ``Bias``.
+
+``.Gather(sampler, location[, offset])``
+++++++++++++++++++++++++++++++++++++++++
+
+Available to ``Texture2D``, ``Texture2DArray``, ``TextureCube``, and
+``TextureCubeArray``.
+
+The translation is similar to ``.Sample()``, but the ``OpImageGather``
+instruction is used.
+
+``.Load(location[, sampleIndex][, offset])``
+++++++++++++++++++++++++++++++++++++++++++++
+
+The ``OpImageFetch`` instruction is used for translation because texture types
+are represented as ``OpTypeImage``. The last element in the ``location``
+parameter will be used as arguments to the ``Lod`` SPIR-V image operand attached
+to the ``OpImageFetch`` instruction, and the rest are used as the coordinate
+argument to the instruction. ``offset`` is handled similarly to ``.Sample()``.
+The return value of ``OpImageFetch`` is always a four-component vector; so
+proper additional instructions are generated to truncate the vector and return
+the desired number of elements.
+
+``operator[]``
+++++++++++++++
+Handled similarly as ``.Load()``.
+
+``.mips[lod][position]``
+++++++++++++++++++++++++
+
+Not available to ``TextureCube``, ``TextureCubeArray``, ``Texture2DMS``, and
+``Texture2DMSArray``.
+
+This method is translated into the ``OpImageFetch`` instruction. The ``lod``
+parameter is attached to the instruction as the parameter to the ``Lod`` SPIR-V
+image operands. The ``position`` parameter are used as the coordinate to the
+instruction directly.
+
+``.CalculateLevelOfDetail()``
++++++++++++++++++++++++++++++
+
+Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
+
+Since texture types are represented as ``OpTypeImage``, the ``OpImageQueryLod``
+instruction is used for translation. An ``OpSampledImage`` is created based on
+the ``SamplerState`` passed to the function. The resulting sampled image and
+the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
+The result of ``OpImageQueryLod`` is a ``float2``. The first element contains
+the mipmap array layer.
 
 ``Texture1D``
---------------------------
+~~~~~~~~~~~~~
 
 ``.GetDimensions(width)`` or ``.GetDimensions(MipLevel, width, NumLevels)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Since Texture1D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
 is used for translation. If a ``MipLevel`` argument is passed to ``GetDimensions``, it will
 be used as the ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
 
-``.CalculateLevelOfDetail()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since Texture1D is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
-for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
-The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
-The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
-
 ``Texture1DArray``
---------------------------
+~~~~~~~~~~~~~~~~~~
 
 ``.GetDimensions(width, elements)`` or ``.GetDimensions(MipLevel, width, elements, NumLevels)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Since Texture1DArray is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
 is used for translation. If a ``MipLevel`` argument is present, it will be used as the
 ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
 
-``.CalculateLevelOfDetail()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since Texture1DArray is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
-for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
-The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
-The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
-
 ``Texture2D``
---------------------------
+~~~~~~~~~~~~~
 
 ``.GetDimensions(width, height)`` or ``.GetDimensions(MipLevel, width, height, NumLevels)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Since Texture2D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
 is used for translation. If a ``MipLevel`` argument is present, it will be used as the
 ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
 
-``.CalculateLevelOfDetail()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since Texture2D is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
-for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
-The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
-The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
-
 ``Texture2DArray``
---------------------------
+~~~~~~~~~~~~~~~~~~
 
 ``.GetDimensions(width, height, elements)`` or ``.GetDimensions(MipLevel, width, height, elements, NumLevels)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Since Texture2DArray is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
 is used for translation. If a ``MipLevel`` argument is present, it will be used as the
 ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
 
-``.CalculateLevelOfDetail()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since Texture2DArray is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
-for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
-The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
-The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
-
 ``Texture3D``
---------------------------
+~~~~~~~~~~~~~
 
 ``.GetDimensions(width, height, depth)`` or ``.GetDimensions(MipLevel, width, height, depth, NumLevels)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Since Texture3D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
 is used for translation. If a ``MipLevel`` argument is present, it will be used as the
 ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
 
-``.CalculateLevelOfDetail()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since Texture3D is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
-for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
-The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
-The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
-
 ``Texture2DMS``
---------------------------
+~~~~~~~~~~~~~~~
+
+``.sample[sample][position]``
++++++++++++++++++++++++++++++
+This method is translated into the ``OpImageFetch`` instruction. The ``sample``
+parameter is attached to the instruction as the parameter to the ``Sample``
+SPIR-V image operands. The ``position`` parameter are used as the coordinate to
+the instruction directly.
 
 ``.GetDimensions(width, height, numSamples)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++++++++++++
 Since Texture2DMS is represented as ``OpTypeImage`` with ``MS`` of ``1``, the ``OpImageQuerySize`` instruction
 is used to get the width and the height. Furthermore, ``OpImageQuerySamples`` is used to get the numSamples.
 
 ``Texture2DMSArray``
---------------------------
+~~~~~~~~~~~~~~~~~~~~
+
+``.sample[sample][position]``
++++++++++++++++++++++++++++++
+This method is translated into the ``OpImageFetch`` instruction. The ``sample``
+parameter is attached to the instruction as the parameter to the ``Sample``
+SPIR-V image operands. The ``position`` parameter are used as the coordinate to
+the instruction directly.
 
 ``.GetDimensions(width, height, elements, numSamples)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Since Texture2DMS is represented as ``OpTypeImage`` with ``MS`` of ``1``, the ``OpImageQuerySize`` instruction
 is used to get the width, the height, and the elements. Furthermore, ``OpImageQuerySamples`` is used to get the numSamples.
 
 ``TextureCube``
---------------------------
-
-``.CalculateLevelOfDetail()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since TextureCube is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
-for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
-The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
-The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
+~~~~~~~~~~~~~~~
 
 ``TextureCubeArray``
---------------------------
+~~~~~~~~~~~~~~~~~~~~
 
-``.CalculateLevelOfDetail()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since TextureCubeArray is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
-for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
-The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
-The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
+Read-write textures
+-------------------
+
+Methods common to all texture types are explained in the "common texture methods"
+section. Methods unique to a specific texture type is explained in the section
+for that texture type.
+
+Common texture methods
+~~~~~~~~~~~~~~~~~~~~~~
+
+``.Load()``
++++++++++++
+Since read-write texture types are represented as ``OpTypeImage`` with
+``Sampled`` set to 2 (meaning to be used without a sampler), ``OpImageRead`` is
+used to perform this operation.
+
+``operator[]``
+++++++++++++++
+Using ``operator[]`` for reading is handled similarly as ``.Load()``, while for
+writing, the ``OpImageWrite`` instruction is generated.
 
 ``RWTexture1D``
---------------------------
+~~~~~~~~~~~~~~~
 
 ``.GetDimensions(width)``
-~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++
 The ``OpImageQuerySize`` instruction is used to find the width.
 
 ``RWTexture1DArray``
---------------------------
+~~~~~~~~~~~~~~~~~~~~
 
 ``.GetDimensions(width, elements)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++
 The ``OpImageQuerySize`` instruction is used to get a uint2. The first element is the width, and the second
 is the elements.
 
 ``RWTexture2D``
---------------------------
+~~~~~~~~~~~~~~~
 
 ``.GetDimensions(width, height)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++
 The ``OpImageQuerySize`` instruction is used to get a uint2. The first element is the width, and the second
 element is the height.
 
 ``RWTexture2DArray``
---------------------------
+~~~~~~~~~~~~~~~~~~~~
 
 ``.GetDimensions(width, height, elements)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++++++++++
 The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
 element is the height, and the third is the elements.
 
 ``RWTexture3D``
---------------------------
+~~~~~~~~~~~~~~~
 
 ``.GetDimensions(width, height, depth)``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+++++++++++++++++++++++++++++++++++++++++
 The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
 element is the height, and the third element is the depth.
