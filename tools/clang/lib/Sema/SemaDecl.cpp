@@ -5781,7 +5781,11 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       case SC_None:
         break;
       case SC_Static:
-        Diag(D.getDeclSpec().getStorageClassSpecLoc(),
+        if (!getLangOpts().HLSL) // HLSL Change: We had to set SC_Static for
+                                 // static data member to distinguish it from
+                                 // global constant variable.
+                                 // So we ignore this warning.
+          Diag(D.getDeclSpec().getStorageClassSpecLoc(),
              diag::err_static_out_of_line)
           << FixItHint::CreateRemoval(D.getDeclSpec().getStorageClassSpecLoc());
         break;
@@ -7563,8 +7567,10 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       NewFD->setImplicitlyInline();
     }
 
+    // HLSL Change: We had to set SC_Static for static data member to
+    // distinguish it from global constant variable.
     if (SC == SC_Static && isa<CXXMethodDecl>(NewFD) &&
-        !CurContext->isRecord()) {
+        !CurContext->isRecord() && !getLangOpts().HLSL) {
       // C++ [class.static]p1:
       //   A data or function member of a class may be declared static
       //   in a class definition, in which case it is a static member of
