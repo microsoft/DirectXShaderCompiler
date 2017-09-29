@@ -597,6 +597,8 @@ public:
   TEST_METHOD(CodeGenMatParam)
   TEST_METHOD(CodeGenMatParam2)
  // TEST_METHOD(CodeGenMatParam3)
+  TEST_METHOD(CodeGenMatArrayOutput)
+  TEST_METHOD(CodeGenMatArrayOutput2)
   TEST_METHOD(CodeGenMatElt)
   TEST_METHOD(CodeGenMatInit)
   TEST_METHOD(CodeGenMatMulMat)
@@ -3529,6 +3531,14 @@ TEST_F(CompilerTest, CodeGenMatParam2) {
 //TEST_F(CompilerTest, CodeGenMatParam3) {
 //  CodeGenTestCheck(L"..\\CodeGenHLSL\\mat_param3.hlsl");
 //}
+
+TEST_F(CompilerTest, CodeGenMatArrayOutput) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\MatArrayOutput.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatArrayOutput2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\MatArrayOutput2.hlsl");
+}
 
 TEST_F(CompilerTest, CodeGenMatElt) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matElt.hlsl");
