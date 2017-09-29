@@ -863,7 +863,7 @@ const char *HLModule::GetLegacyDataLayoutDesc() {
 }
 
 // New data layout with native low precision types
-static const StringRef kNewLayoutString = "e-m:e-p:32:32-i1:32:32-i8:32:32-i16:32:32-i64:64-f16:16-f80:32-n8:16:32-a:0:32-S320";
+static const StringRef kNewLayoutString = "e-m:e-p:32:32-i1:32:32-i8:8:32-i16:16:32-i64:64-f16:16-f80:32-n8:16:32-a:0:32-S320";
 const char *HLModule::GetNewDataLayoutDesc() {
   return kNewLayoutString.data();
 }
