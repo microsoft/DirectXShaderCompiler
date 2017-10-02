@@ -159,6 +159,8 @@ private:
     IRBuilder<> & Builder;
   };
 
+  uint32_t m_RemainingReservedSpaceInBytes = 0;
+  Value * m_CurrentIndex = nullptr;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -175,10 +177,9 @@ private:
   Value * addPixelShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices);
   Value * addComputeShaderProlog(BuilderContext & BC);
   Value * addVertexShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices);
-  void addDebugEntryValue(BuilderContext & BC, Value * Index, Value * TheValue);
+  void addDebugEntryValue(BuilderContext & BC, Value * TheValue);
   void addInvocationStartMarker(BuilderContext & BC);
-  Value * reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInDwords);
-  Value * incrementUAVIndex(BuilderContext & BC, Value * CurrentValue);
+  void reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInDwords);
   void addStepDebugEntry(BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst);
   uint32_t UAVDumpingGroundOffset();
   template<typename ReturnType>
@@ -478,8 +479,13 @@ Value * DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & 
   return ParameterTestResult;
 }
 
-Value * DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInBytes)
+void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInBytes)
 {
+  assert(m_CurrentIndex == nullptr);
+  assert(m_RemainingReservedSpaceInBytes == 0);
+
+  m_RemainingReservedSpaceInBytes = SpaceInBytes;
+
   // Insert the UAV increment instruction:
   Function* AtomicOpFunc = BC.HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(BC.Ctx));
   Constant* AtomicBinOpcode = BC.HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
@@ -518,84 +524,102 @@ Value * DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, ui
   // or the "dump uninteresting things here" value of (UAVSize - a bit).
   auto MultipliedForInterest = BC.Builder.CreateMul(PreviousValue, m_OffsetMultiplicand);
   auto AddedForInterest = BC.Builder.CreateAdd(MultipliedForInterest, m_OffsetAddend);
-  return AddedForInterest;
+  m_CurrentIndex = AddedForInterest;
 }
 
-Value * DxilDebugInstrumentation::incrementUAVIndex(BuilderContext & BC, Value * CurrentValue)
+void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * TheValue)
 {
-  return BC.Builder.CreateAdd(CurrentValue, BC.HlslOP->GetU32Const(4));;
-}
+  assert(m_RemainingReservedSpaceInBytes > 0);
 
-void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * Index, Value * TheValue)
-{
-  Function* StoreValue = BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
-  Constant* StoreValueOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
-  Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
-  Constant* ZeroArg;
   auto TheValueTypeID = TheValue->getType()->getTypeID();
-  if (TheValueTypeID  == Type::TypeID::IntegerTyID)
-  {
-      ZeroArg = BC.HlslOP->GetU32Const(0);
-  }
-  else if (TheValueTypeID == Type::TypeID::FloatTyID)
-  {
-      ZeroArg = BC.HlslOP->GetFloatConst(0.f);
+  if (TheValueTypeID == Type::TypeID::DoubleTyID)
+  {	
+    Function* SplitDouble = BC.HlslOP->GetOpFunc(OP::OpCode::SplitDouble, TheValue->getType());
+    Constant* SplitDoubleOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::SplitDouble);
+    auto SplitDoubleIntruction = BC.Builder.CreateCall(SplitDouble, { SplitDoubleOpcode, TheValue }, "SplitDouble");
+    auto LowBits = BC.Builder.CreateExtractValue(SplitDoubleIntruction, 0, "LowBits");
+    auto HighBits = BC.Builder.CreateExtractValue(SplitDoubleIntruction, 1, "LowBits");
+    addDebugEntryValue(BC, LowBits);
+    addDebugEntryValue(BC, HighBits);
   }
   else
   {
-      __debugbreak();
+    Function* StoreValue = BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
+    Constant* StoreValueOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
+    Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
+    Constant* ZeroArg;
+    if (TheValueTypeID == Type::TypeID::IntegerTyID)
+    {
+      ZeroArg = BC.HlslOP->GetU32Const(0);
+    }
+    else if (TheValueTypeID == Type::TypeID::FloatTyID)
+    {
+      ZeroArg = BC.HlslOP->GetFloatConst(0.f);
+    }
+    else
+    {
+      // The above are the only two valid types for a UAV store
+      assert(false);
+    }
+    Constant* WriteMask_X = BC.HlslOP->GetI8Const(1);
+    (void)BC.Builder.CreateCall(StoreValue, {
+      StoreValueOpcode, // i32 opcode
+      m_HandleForUAV,     // %dx.types.Handle, ; resource handle
+      m_CurrentIndex,            // i32 c0: index in bytes into UAV
+      Zero32Arg,        // i32 c1: unused
+      TheValue,
+      ZeroArg,        // unused values
+      ZeroArg,        // unused values
+      ZeroArg,        // unused values
+      WriteMask_X
+    });
+
+    m_RemainingReservedSpaceInBytes -= 4;
+    assert(m_RemainingReservedSpaceInBytes < 1024);  // check for underflow
+
+    if (m_RemainingReservedSpaceInBytes != 0)
+    {
+      m_CurrentIndex = BC.Builder.CreateAdd(m_CurrentIndex, BC.HlslOP->GetU32Const(4));
+    }
+    else
+    {
+        m_CurrentIndex = nullptr;
+    }
   }
-  Constant* WriteMask_X = BC.HlslOP->GetI8Const(1);
-  (void)BC.Builder.CreateCall(StoreValue, {
-    StoreValueOpcode, // i32 opcode
-    m_HandleForUAV,     // %dx.types.Handle, ; resource handle
-    Index,            // i32 c0: index in bytes into UAV
-    Zero32Arg,        // i32 c1: unused
-    TheValue,
-    ZeroArg,        // unused values
-    ZeroArg,        // unused values
-    ZeroArg,        // unused values
-    WriteMask_X
-  });
 }
 
 void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC)
 {
   DebugShaderModifierRecordHeader marker{ 0 };
-  auto RecordStart = reserveDebugEntrySpace(BC, sizeof(marker));
+  reserveDebugEntrySpace(BC, sizeof(marker));
 
   marker.Header.Details.SizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(marker));;
   marker.Header.Details.Flags = 0;
   marker.Header.Details.Type = DebugShaderModifierRecordTypeInvocationStartMarker;
-  addDebugEntryValue(BC, RecordStart, BC.HlslOP->GetU32Const(marker.Header.u32Header));
-  auto NextIndex = incrementUAVIndex(BC, RecordStart);
-  addDebugEntryValue(BC, NextIndex, m_InvocationId);
+  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(marker.Header.u32Header));
+  addDebugEntryValue(BC, m_InvocationId);
 }
 
 template<typename ReturnType>
 void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst)
 {
   DebugShaderModifierRecordDXILStep<ReturnType> step = {};
-  auto RecordStart = reserveDebugEntrySpace(BC, sizeof(step));
+  reserveDebugEntrySpace(BC, sizeof(step));
 
   step.Header.Details.SizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(step));
   step.Header.Details.Type = static_cast<uint8_t>(RecordType);
-  addDebugEntryValue(BC, RecordStart, BC.HlslOP->GetU32Const(step.Header.u32Header));
-  auto SecondIndex = incrementUAVIndex(BC, RecordStart);
-  addDebugEntryValue(BC, SecondIndex, m_InvocationId);
-  auto ThirdIndex = incrementUAVIndex(BC, SecondIndex);
-  addDebugEntryValue(BC, ThirdIndex, BC.HlslOP->GetU32Const(InstructionIndex));
-  auto FourthIndex = incrementUAVIndex(BC, ThirdIndex);
+  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(step.Header.u32Header));
+  addDebugEntryValue(BC, m_InvocationId);
+  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(InstructionIndex));
 
   auto pName = std::find(m_Variables.begin(), m_Variables.end(), Inst->getName());
   auto RegisterIndex = static_cast<uint32_t>(pName - m_Variables.begin());
 
-  addDebugEntryValue(BC, FourthIndex, BC.HlslOP->GetU32Const(RegisterIndex));
+  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(RegisterIndex));
 
   if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid)
   {
-    auto FifthIndex = incrementUAVIndex(BC, FourthIndex);
-    addDebugEntryValue(BC, FifthIndex, Inst);
+    addDebugEntryValue(BC, Inst);
   }
 }
 
