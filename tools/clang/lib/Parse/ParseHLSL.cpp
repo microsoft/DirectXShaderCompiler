@@ -27,6 +27,7 @@
 using namespace clang;
 
 Decl *Parser::ParseCTBuffer(unsigned Context, SourceLocation &DeclEnd,
+                            ParsedAttributesWithRange &CTBAttrs,
                             SourceLocation InlineLoc) {
   assert((Tok.is(tok::kw_cbuffer) || Tok.is(tok::kw_tbuffer)) &&
          "Not a cbuffer or tbuffer!");
@@ -54,6 +55,9 @@ Decl *Parser::ParseCTBuffer(unsigned Context, SourceLocation &DeclEnd,
                                             identifier, identifierLoc,
                                             hlslAttrs, T.getOpenLocation());
 
+  // Process potential C++11 attribute specifiers
+  Actions.ProcessDeclAttributeList(getCurScope(), decl, CTBAttrs.getList());
+
   while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof)) {
     ParsedAttributesWithRange attrs(AttrFactory);
     MaybeParseCXX11Attributes(attrs);
@@ -71,6 +75,7 @@ Decl *Parser::ParseCTBuffer(unsigned Context, SourceLocation &DeclEnd,
 }
 
 Decl *Parser::ParseConstBuffer(unsigned Context, SourceLocation &DeclEnd,
+                               ParsedAttributesWithRange &attrs,
                                SourceLocation InlineLoc) {
   bool isCBuffer = Tok.is(tok::kw_ConstantBuffer);
   assert((isCBuffer || Tok.is(tok::kw_TextureBuffer)) && "Not a ConstantBuffer or TextureBuffer!");
@@ -91,6 +96,8 @@ Decl *Parser::ParseConstBuffer(unsigned Context, SourceLocation &DeclEnd,
     return nullptr;
   }
   ConsumeToken(); // eat the >
+
+  PDS.takeAttributesFrom(attrs);
 
   Actions.ActOnStartHLSLBufferView();
   Parser::DeclGroupPtrTy dcl = ParseDeclGroup(PDS, Declarator::FileContext);
