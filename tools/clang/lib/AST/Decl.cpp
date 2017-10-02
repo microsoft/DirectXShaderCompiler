@@ -954,22 +954,22 @@ static LinkageInfo getLVForClassMember(const NamedDecl *D,
     // HLSL Change: Make static data member internal linkage. This is to avoid confusion between global constant buffer
     if (VD->getStorageClass() == StorageClass::SC_Static)
       LV.setLinkage(Linkage::InternalLinkage);
-    else {
-      if (const VarTemplateSpecializationDecl *spec
-        = dyn_cast<VarTemplateSpecializationDecl>(VD))
-      mergeTemplateLV(LV, spec, computation);
 
-      // Modify the variable's linkage by its type, but ignore the
-      // type's visibility unless it's a definition.
-      LinkageInfo typeLV = getLVForType(*VD->getType(), computation);
-      if (!LV.isVisibilityExplicit() && !classLV.isVisibilityExplicit())
-        LV.mergeVisibility(typeLV);
-      LV.mergeExternalVisibility(typeLV);
+    if (const VarTemplateSpecializationDecl *spec
+      = dyn_cast<VarTemplateSpecializationDecl>(VD))
+    mergeTemplateLV(LV, spec, computation);
 
-      if (isExplicitMemberSpecialization(VD)) {
-        explicitSpecSuppressor = VD;
-      }
+    // Modify the variable's linkage by its type, but ignore the
+    // type's visibility unless it's a definition.
+    LinkageInfo typeLV = getLVForType(*VD->getType(), computation);
+    if (!LV.isVisibilityExplicit() && !classLV.isVisibilityExplicit())
+      LV.mergeVisibility(typeLV);
+    LV.mergeExternalVisibility(typeLV);
+
+    if (isExplicitMemberSpecialization(VD)) {
+      explicitSpecSuppressor = VD;
     }
+
   // Template members.
   } else if (const TemplateDecl *temp = dyn_cast<TemplateDecl>(D)) {
     bool considerVisibility =
