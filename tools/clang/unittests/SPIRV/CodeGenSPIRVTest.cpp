@@ -320,6 +320,11 @@ TEST_F(FileTest, StructMethodCallNormal) {
   runFileTest("method.struct.method.hlsl");
 }
 
+// For class methods
+TEST_F(FileTest, ClassMethodCallNormal) {
+  runFileTest("method.class.method.hlsl");
+}
+
 // For semantics
 TEST_F(FileTest, SemanticPositionVS) {
   runFileTest("semantic.position.vs.hlsl");
