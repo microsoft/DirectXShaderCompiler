@@ -464,62 +464,47 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 }
 
 bool DeclResultIdMapper::decorateResourceBindings() {
-  // Returns true if the given ResourceVar has explicit descriptor set and
-  // binding specified.
-  const auto bindingAssigned = [](const ResourceVar &var) {
-    return var.getBinding() != nullptr;
-  };
-
   BindingSet bindingSet;
   bool noError = true;
 
-  if (std::all_of(resourceVars.begin(), resourceVars.end(), bindingAssigned)) {
-    for (const auto &var : resourceVars) {
-      const auto attrLoc = var.getBinding()->getLocation();
-      const auto set = var.getBinding()->getSet();
-      const auto binding = var.getBinding()->getBinding();
+  // Process variables with [[vk::binding(...)]] binding assignment
+  for (const auto &var : resourceVars)
+    if (const auto *vkBinding = var.getBinding()) {
+      const auto set = vkBinding->getSet();
+      const auto binding = vkBinding->getBinding();
 
       if (bindingSet.isBindingUsed(binding, set)) {
         emitError("resource binding #%0 in descriptor set #%1 already assigned",
-                  attrLoc)
+                  vkBinding->getLocation())
             << binding << set;
         noError = false;
+      } else {
+        theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
+        bindingSet.useBinding(binding, set);
+      }
+    }
+
+  // Process variables with register(...) binding assignment
+  for (const auto &var : resourceVars)
+    if (const auto *reg = var.getRegister())
+      if (!var.getBinding()) {
+        const uint32_t set = reg->RegisterSpace;
+        const uint32_t binding = reg->RegisterNumber;
+
+        // TODO: we can have duplicated set and binding number because of there
+        // are multiple resource types in the following. E.g., :register(s0) and
+        // :register(t0) will both map to set #0 and binding #0.
+        theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
+        bindingSet.useBinding(binding, set);
       }
 
-      theBuilder.decorateDSetBinding(var.getSpirvId(),
-                                     var.getBinding()->getSet(),
-                                     var.getBinding()->getBinding());
+  // Process variables with no binding assignment
+  for (const auto &var : resourceVars)
+    if (!var.getBinding() && !var.getRegister())
+      theBuilder.decorateDSetBinding(var.getSpirvId(), 0,
+                                     bindingSet.useNextBinding());
 
-      bindingSet.useBinding(binding, set);
-    }
-    return noError;
-  }
-
-  if (std::any_of(resourceVars.begin(), resourceVars.end(), bindingAssigned)) {
-    // We have checked that not all of the stage variables have explicit
-    // set and binding assignment.
-    emitError("partial explicit resource binding assignment via "
-              "[[vk::binding(X[, Y])]] unsupported");
-    return false;
-  }
-
-  for (const auto &var : resourceVars) {
-    // TODO: we can have duplicated set and binding number because of there are
-    // multiple resource types in the following. E.g., :register(s0) and
-    // :register(t0) will both map to set #0 and binding #0.
-    uint32_t set = 0, binding = 0;
-    if (const auto *reg = var.getRegister()) {
-      set = reg->RegisterSpace;
-      binding = reg->RegisterNumber;
-      bindingSet.useBinding(binding, set);
-    } else {
-      binding = bindingSet.useNextBinding();
-    }
-
-    theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
-  }
-
-  return true;
+  return noError;
 }
 
 QualType

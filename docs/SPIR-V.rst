@@ -642,8 +642,7 @@ In shaders for DirectX, resources are accessed via registers; while in shaders
 for Vulkan, it is done via descriptor set and binding numbers. The developer
 can explicitly annotate variables in HLSL to specify descriptor set and binding
 numbers, or leave it to the compiler to derive implicitly from registers.
-The explicit way has precedence over the implicit way. However, a mix of both
-way is not allowed (yet).
+The explicit way has precedence over the implicit way.
 
 Explicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -666,6 +665,15 @@ reassignment of the same set and binding number pair. [TODO])
 If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
 set #0.
+
+In summary, the compiler essentially assigns binding numbers in three passes.
+
+- Firstly it handles all declarations with explicit ``[[vk::binding(X[, Y])]]``
+  annotation.
+- Then the compiler processes all remaining declarations with
+  ``:register(xX, spaceY)`` annotation.
+- Finally, the compiler assigns next available binding numbers to the rest in
+  the declaration order.
 
 HLSL Expressions
 ================
