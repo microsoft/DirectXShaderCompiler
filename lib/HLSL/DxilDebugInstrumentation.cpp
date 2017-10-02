@@ -551,6 +551,12 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * T
     addDebugEntryValue(BC, LowBits);
     addDebugEntryValue(BC, HighBits);
   }
+  else if (TheValueTypeID == Type::TypeID::IntegerTyID && 
+    (TheValue->getType()->getIntegerBitWidth() == 16 || TheValue->getType()->getIntegerBitWidth() == 1))
+  {
+    auto As32 = BC.Builder.CreateZExt(TheValue, Type::getInt32Ty(BC.Ctx), "As32");
+    addDebugEntryValue(BC, As32);
+  }
   else
   {
     Function* StoreValue = BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
