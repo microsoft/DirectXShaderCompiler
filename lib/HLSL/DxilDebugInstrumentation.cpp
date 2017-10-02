@@ -36,9 +36,10 @@ enum DebugShaderModifierRecordType {
   DebugShaderModifierRecordTypeRegisterRelativeIndex0,
   DebugShaderModifierRecordTypeRegisterRelativeIndex1,
   DebugShaderModifierRecordTypeRegisterRelativeIndex2,
-  DebugShaderModifierRecordTypeDXILStepVoid = 252,
-  DebugShaderModifierRecordTypeDXILStepFloat = 253,
-  DebugShaderModifierRecordTypeDXILStepUint32 = 254,
+  DebugShaderModifierRecordTypeDXILStepVoid = 251,
+  DebugShaderModifierRecordTypeDXILStepFloat = 252,
+  DebugShaderModifierRecordTypeDXILStepUint32 = 253,
+  DebugShaderModifierRecordTypeDXILStepUint64 = 254,
   DebugShaderModifierRecordTypeDXILStepDouble = 255,
 };
 
@@ -533,12 +534,20 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * T
 
   auto TheValueTypeID = TheValue->getType()->getTypeID();
   if (TheValueTypeID == Type::TypeID::DoubleTyID)
-  {	
+  {
     Function* SplitDouble = BC.HlslOP->GetOpFunc(OP::OpCode::SplitDouble, TheValue->getType());
     Constant* SplitDoubleOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::SplitDouble);
     auto SplitDoubleIntruction = BC.Builder.CreateCall(SplitDouble, { SplitDoubleOpcode, TheValue }, "SplitDouble");
     auto LowBits = BC.Builder.CreateExtractValue(SplitDoubleIntruction, 0, "LowBits");
-    auto HighBits = BC.Builder.CreateExtractValue(SplitDoubleIntruction, 1, "LowBits");
+    auto HighBits = BC.Builder.CreateExtractValue(SplitDoubleIntruction, 1, "HighBits");
+    addDebugEntryValue(BC, LowBits);
+    addDebugEntryValue(BC, HighBits);
+  }
+  else if (TheValueTypeID == Type::TypeID::IntegerTyID && TheValue->getType()->getIntegerBitWidth() == 64)
+  {
+    auto LowBits = BC.Builder.CreateTrunc(TheValue, Type::getInt32Ty(BC.Ctx), "LowBits");
+    auto ShiftedBits = BC.Builder.CreateLShr(TheValue, 32, "ShiftedBits");
+    auto HighBits = BC.Builder.CreateTrunc(ShiftedBits, Type::getInt32Ty(BC.Ctx), "HighBits");
     addDebugEntryValue(BC, LowBits);
     addDebugEntryValue(BC, HighBits);
   }
@@ -637,7 +646,14 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, unsigned i
     addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, InstructionIndex, Inst);
     break;
   case Type::TypeID::IntegerTyID:
-    addStepEntryForType<uint32_t>(DebugShaderModifierRecordTypeDXILStepUint32, BC, InstructionIndex, Inst);
+    if (Inst->getType()->getIntegerBitWidth() == 64)
+    {
+      addStepEntryForType<uint64_t>(DebugShaderModifierRecordTypeDXILStepUint64, BC, InstructionIndex, Inst);
+    }
+    else
+    {
+      addStepEntryForType<uint32_t>(DebugShaderModifierRecordTypeDXILStepUint32, BC, InstructionIndex, Inst);
+    }
     break;
   case Type::TypeID::DoubleTyID:
     addStepEntryForType<double>(DebugShaderModifierRecordTypeDXILStepDouble, BC, InstructionIndex, Inst);
