@@ -1922,13 +1922,11 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
   // HLSL Change Starts
   case tok::kw_cbuffer:
   case tok::kw_tbuffer:
-    ProhibitAttributes(attrs);
-    SingleDecl = ParseCTBuffer(Context, DeclEnd);
+    SingleDecl = ParseCTBuffer(Context, DeclEnd, attrs);
     break;
   case tok::kw_ConstantBuffer:
   case tok::kw_TextureBuffer:
-    ProhibitAttributes(attrs);
-    SingleDecl = ParseConstBuffer(Context, DeclEnd);
+    SingleDecl = ParseConstBuffer(Context, DeclEnd, attrs);
     break;
   // HLSL Change Ends
   case tok::kw_namespace:

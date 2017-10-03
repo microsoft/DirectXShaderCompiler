@@ -865,7 +865,7 @@ def VKLocation : InheritableAttr {
 
 def VKBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "binding">];
-  let Subjects = SubjectList<[GlobalVar], ErrorDiag, "ExpectedVariable">;
+  let Subjects = SubjectList<[GlobalVar, HLSLBuffer], ErrorDiag, "ExpectedVariable">;
   let Args = [IntArgument<"Binding">, DefaultIntArgument<"Set", 0>];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1421,7 +1421,7 @@ def Overloadable : Attr {
   let Documentation = [OverloadableDocs];
 }
 
-def Override : InheritableAttr { 
+def Override : InheritableAttr {
   let Spellings = [Keyword<"override">];
   let SemaHandler = 0;
   let Documentation = [Undocumented];
@@ -1488,7 +1488,7 @@ def ReqdWorkGroupSize : InheritableAttr {
 
 def WorkGroupSizeHint :  InheritableAttr {
   let Spellings = [GNU<"work_group_size_hint">];
-  let Args = [UnsignedArgument<"XDim">, 
+  let Args = [UnsignedArgument<"XDim">,
               UnsignedArgument<"YDim">,
               UnsignedArgument<"ZDim">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
