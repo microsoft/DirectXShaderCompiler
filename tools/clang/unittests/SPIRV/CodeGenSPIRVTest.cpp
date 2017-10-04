@@ -572,6 +572,36 @@ TEST_F(FileTest, AttributeNumThreads) {
 TEST_F(FileTest, AttributeMissingNumThreads) {
   runFileTest("attribute.numthreads.missing.hlsl");
 }
+TEST_F(FileTest, AttributeDomainTri) {
+  runFileTest("attribute.domain.tri.hlsl");
+}
+TEST_F(FileTest, AttributeDomainQuad) {
+  runFileTest("attribute.domain.quad.hlsl");
+}
+TEST_F(FileTest, AttributeDomainIsoline) {
+  runFileTest("attribute.domain.isoline.hlsl");
+}
+TEST_F(FileTest, AttributePartitioningInteger) {
+  runFileTest("attribute.partitioning.integer.hlsl");
+}
+TEST_F(FileTest, AttributePartitioningFractionalEven) {
+  runFileTest("attribute.partitioning.fractional-even.hlsl");
+}
+TEST_F(FileTest, AttributePartitioningFractionalOdd) {
+  runFileTest("attribute.partitioning.fractional-odd.hlsl");
+}
+TEST_F(FileTest, AttributeOutputTopologyPoint) {
+  runFileTest("attribute.outputtopology.point.hlsl");
+}
+TEST_F(FileTest, AttributeOutputTopologyTriangleCw) {
+  runFileTest("attribute.outputtopology.triangle-cw.hlsl");
+}
+TEST_F(FileTest, AttributeOutputTopologyTriangleCcw) {
+  runFileTest("attribute.outputtopology.triangle-ccw.hlsl");
+}
+TEST_F(FileTest, AttributeOutputControlPoints) {
+  runFileTest("attribute.outputcontrolpoints.hlsl");
+}
 
 // Vulkan/SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }

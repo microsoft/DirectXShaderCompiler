@@ -681,6 +681,24 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
         /*depth*/ 0, /*isArray*/ 0, /*ms*/ 0,
         /*sampled*/ name == "Buffer" ? 1 : 2, format);
   }
+
+  // InputPatch
+  if (name == "InputPatch") {
+    const auto elemType = hlsl::GetHLSLInputPatchElementType(type);
+    const auto elemCount = hlsl::GetHLSLInputPatchCount(type);
+    const uint32_t elemTypeId = translateType(elemType);
+    const uint32_t elemCountId = theBuilder.getConstantUint32(elemCount);
+    return theBuilder.getArrayType(elemTypeId, elemCountId);
+  }
+  // OutputPatch
+  if (name == "OutputPatch") {
+    const auto elemType = hlsl::GetHLSLOutputPatchElementType(type);
+    const auto elemCount = hlsl::GetHLSLOutputPatchCount(type);
+    const uint32_t elemTypeId = translateType(elemType);
+    const uint32_t elemCountId = theBuilder.getConstantUint32(elemCount);
+    return theBuilder.getArrayType(elemTypeId, elemCountId);
+  }
+
   return 0;
 }
 

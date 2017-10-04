@@ -4748,7 +4748,6 @@ SPIRVEmitter::getSpirvShaderStage(const hlsl::ShaderModel &model) {
 void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
   if (shaderModel.IsHS() || shaderModel.IsDS()) {
     theBuilder.requireCapability(spv::Capability::Tessellation);
-    emitError("Tasselation shaders are currently not supported.");
   } else if (shaderModel.IsGS()) {
     theBuilder.requireCapability(spv::Capability::Geometry);
     emitError("Geometry shaders are currently not supported.");
@@ -4790,6 +4789,66 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     } else {
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::LocalSize, {1, 1, 1});
+    }
+  }
+
+  if (shaderModel.IsHS()) {
+    if (auto *domain = decl->getAttr<HLSLDomainAttr>()) {
+      const auto domainType = domain->getDomainType().lower();
+      const auto hsExecMode = domainType == "tri"
+                                  ? spv::ExecutionMode::Triangles
+                                  : domainType == "quad"
+                                        ? spv::ExecutionMode::Quads
+                                        : domainType == "isoline"
+                                              ? spv::ExecutionMode::Isolines
+                                              : spv::ExecutionMode::Max;
+      if (hsExecMode == spv::ExecutionMode::Max) {
+        emitError("Unknown domain type in Hull shader.");
+        return false;
+      }
+      theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+    }
+    if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
+      // TODO: Could not find an equivalent of "pow2" partitioning scheme in
+      // SPIR-V.
+      const auto scheme = partitioning->getScheme().lower();
+      const auto hsExecMode =
+          scheme == "fractional_even"
+              ? spv::ExecutionMode::SpacingFractionalEven
+              : scheme == "fractional_odd"
+                    ? spv::ExecutionMode::SpacingFractionalOdd
+                    : scheme == "integer" ? spv::ExecutionMode::SpacingEqual
+                                          : spv::ExecutionMode::Max;
+      if (hsExecMode == spv::ExecutionMode::Max) {
+        emitError("Unknown partitioning scheme in Hull shader.");
+        return false;
+      }
+      theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+    }
+    if (auto *outputTopology = decl->getAttr<HLSLOutputTopologyAttr>()) {
+      const auto topology = outputTopology->getTopology().lower();
+      const auto hsExecMode =
+          topology == "point" ? spv::ExecutionMode::PointMode
+                              : topology == "triangle_cw"
+                                    ? spv::ExecutionMode::VertexOrderCw
+                                    : topology == "triangle_ccw"
+                                          ? spv::ExecutionMode::VertexOrderCcw
+                                          : spv::ExecutionMode::Max;
+      // TODO: There is no SPIR-V equivalent for "line" topology. Is it the
+      // default?
+      if (topology != "line") {
+        if (hsExecMode != spv::ExecutionMode::Max) {
+          theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+        } else {
+          emitError("Unknown partitioning scheme in Hull shader.");
+          return false;
+        }
+      }
+    }
+    if (auto *controlPoints = decl->getAttr<HLSLOutputControlPointsAttr>()) {
+      const uint32_t numPoints = controlPoints->getCount();
+      theBuilder.addExecutionMode(
+          entryFunctionId, spv::ExecutionMode::OutputVertices, {numPoints});
     }
   }
 

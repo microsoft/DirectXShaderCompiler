@@ -525,7 +525,14 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
   }
   const uint32_t typeId = typeTranslator.translateType(type);
 
-  const llvm::StringRef semanticStr = getStageVarSemantic(decl);
+  llvm::StringRef semanticStr = getStageVarSemantic(decl);
+
+  // Special case: InputPatch and OutputPatch in the Hull/Domain shaders do
+  // not have semantics.
+  const bool isInputPatch = hlsl::IsHLSLInputPatchType(type);
+  if (hlsl::IsHLSLInputPatchType(type))
+    semanticStr = "InputPatch";
+
   if (!semanticStr.empty()) {
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
@@ -547,10 +554,10 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     const auto *semantic = hlsl::Semantic::GetByName(semanticName);
 
     // Error out when the given semantic is invalid in this shader model
-    if (hlsl::SigPoint::GetInterpretation(
-            semantic->GetKind(), sigPoint->GetKind(), shaderModel.GetMajor(),
-            shaderModel.GetMinor()) ==
-        hlsl::DXIL::SemanticInterpretationKind::NA) {
+    if (!isInputPatch && hlsl::SigPoint::GetInterpretation(
+                             semantic->GetKind(), sigPoint->GetKind(),
+                             shaderModel.GetMajor(), shaderModel.GetMinor()) ==
+                             hlsl::DXIL::SemanticInterpretationKind::NA) {
       emitError("invalid semantic %0 for shader module %1")
           << semanticStr << shaderModel.GetName();
       return false;
@@ -647,16 +654,59 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
 
   const auto semanticKind = stageVar->getSemantic()->GetKind();
   const auto sigPointKind = stageVar->getSigPoint()->GetKind();
+  const auto signatureKind = stageVar->getSigPoint()->GetSignatureKind();
   const uint32_t type = stageVar->getSpirvTypeId();
 
   // The following translation assumes that semantic validity in the current
   // shader model is already checked, so it only covers valid SigPoints for
   // each semantic.
+  spv::StorageClass sc = spv::StorageClass::Max;
+  switch (signatureKind) {
+  case hlsl::DXIL::SignatureKind::Input:
+    sc = spv::StorageClass::Input;
+    break;
+  case hlsl::DXIL::SignatureKind::Output:
+    sc = spv::StorageClass::Output;
+    break;
+  case hlsl::DXIL::SignatureKind::Invalid: {
+    // There are some special cases in HLSL (See docs/dxil.rst):
+    // SignatureKind is "invalid" for PCIn, HSIn, GSIn, and CSIn.
+    switch (sigPointKind) {
+    case hlsl::DXIL::SigPointKind::PCIn:
+    case hlsl::DXIL::SigPointKind::HSIn:
+    case hlsl::DXIL::SigPointKind::GSIn:
+    case hlsl::DXIL::SigPointKind::CSIn:
+      sc = spv::StorageClass::Input;
+      break;
+    default:
+      emitError("Found invalid SigPoint kind for a semantic.");
+      return 0;
+    }
+    break;
+  }
+  case hlsl::DXIL::SignatureKind::PatchConstant: {
+    // There are some special cases in HLSL (See docs/dxil.rst):
+    // SignatureKind is "PatchConstant" for PCOut and DSIn.
+    switch (sigPointKind) {
+    case hlsl::DXIL::SigPointKind::PCOut:
+      // Patch Constant Output (Output of Hull which is passed to Domain).
+      sc = spv::StorageClass::Output;
+      break;
+    case hlsl::DXIL::SigPointKind::DSIn:
+      // Domain Shader regular input - Patch Constant data plus system values.
+      sc = spv::StorageClass::Input;
+      break;
+    default:
+      emitError("Found invalid SigPoint kind for a semantic.");
+      return 0;
+    }
+    break;
+  }
+  default:
+    emitError("Found invalid SignatureKind for semantic.");
+    return 0;
+  }
 
-  // TODO: case for patch constant
-  const auto sc = stageVar->getSigPoint()->IsInput()
-                      ? spv::StorageClass::Input
-                      : spv::StorageClass::Output;
   stageVar->setStorageClass(sc);
 
   switch (semanticKind) {
@@ -742,32 +792,29 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     // TODO: patch constant function in hull shader
   }
   case hlsl::Semantic::Kind::DispatchThreadID: {
-    // DispatchThreadID semantic is only valid for compute shaders, and it is
-    // always an input.
     stageVar->setIsSpirvBuiltin();
-    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
-                                         BuiltIn::GlobalInvocationId);
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::GlobalInvocationId);
   }
   case hlsl::Semantic::Kind::GroupID: {
-    // GroupID semantic is only valid for compute shaders, and it is always an
-    // input.
     stageVar->setIsSpirvBuiltin();
-    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
-                                         BuiltIn::WorkgroupId);
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::WorkgroupId);
   }
   case hlsl::Semantic::Kind::GroupThreadID: {
-    // GroupThreadID semantic is only valid for compute shaders, and it is
-    // always an input.
     stageVar->setIsSpirvBuiltin();
-    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
-                                         BuiltIn::LocalInvocationId);
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::LocalInvocationId);
   }
   case hlsl::Semantic::Kind::GroupIndex: {
-    // GroupIndex semantic is only valid for compute shaders, and it is
-    // always an input.
     stageVar->setIsSpirvBuiltin();
-    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
+    return theBuilder.addStageBuiltinVar(type, sc,
                                          BuiltIn::LocalInvocationIndex);
+  }
+  case hlsl::Semantic::Kind::OutputControlPointID: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::InvocationId);
+  }
+  case hlsl::Semantic::Kind::PrimitiveID: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::PrimitiveId);
   }
   default:
     emitError("semantic %0 unimplemented yet")
