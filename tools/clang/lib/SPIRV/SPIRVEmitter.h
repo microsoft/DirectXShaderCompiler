@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "dxc/HLSL/DxilShaderModel.h"
+#include "dxc/HlslIntrinsicOp.h"
 #include "spirv/1.0/GLSL.std.450.h"
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
@@ -32,6 +33,7 @@
 #include "llvm/ADT/SetVector.h"
 
 #include "DeclResultIdMapper.h"
+#include "SpirvEvalInfo.h"
 #include "TypeTranslator.h"
 
 namespace clang {
@@ -43,7 +45,7 @@ namespace spirv {
 /// through the AST is done manually instead of using ASTConsumer's harness.
 class SPIRVEmitter : public ASTConsumer {
 public:
-  explicit SPIRVEmitter(CompilerInstance &ci, const EmitSPIRVOptions &options);
+  SPIRVEmitter(CompilerInstance &ci, const EmitSPIRVOptions &options);
 
   void HandleTranslationUnit(ASTContext &context) override;
 
@@ -54,7 +56,7 @@ public:
 
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
-  uint32_t doExpr(const Expr *expr);
+  SpirvEvalInfo doExpr(const Expr *expr);
 
   /// Processes the given expression and emits SPIR-V instructions. If the
   /// result is a GLValue, does an additional load.
@@ -64,7 +66,7 @@ public:
   /// not be wrapped in ImplicitCastExpr (LValueToRValue) when appearing in
   /// HLSLVectorElementExpr since the generated HLSLVectorElementExpr itself can
   /// be lvalue or rvalue.
-  uint32_t loadIfGLValue(const Expr *expr);
+  SpirvEvalInfo loadIfGLValue(const Expr *expr);
 
   /// Casts the given value from fromType to toType. fromType and toType should
   /// both be scalar or vector types of the same size.
@@ -86,55 +88,50 @@ private:
   void doDoStmt(const DoStmt *, llvm::ArrayRef<const Attr *> attrs = {});
   void doContinueStmt(const ContinueStmt *);
 
-  uint32_t doArraySubscriptExpr(const ArraySubscriptExpr *expr);
-  uint32_t doBinaryOperator(const BinaryOperator *expr);
-  uint32_t doCallExpr(const CallExpr *callExpr);
-  uint32_t doCastExpr(const CastExpr *expr);
-  uint32_t doCompoundAssignOperator(const CompoundAssignOperator *expr);
+  SpirvEvalInfo doArraySubscriptExpr(const ArraySubscriptExpr *expr);
+  SpirvEvalInfo doBinaryOperator(const BinaryOperator *expr);
+  SpirvEvalInfo doCallExpr(const CallExpr *callExpr);
+  SpirvEvalInfo doCastExpr(const CastExpr *expr);
+  SpirvEvalInfo doCompoundAssignOperator(const CompoundAssignOperator *expr);
   uint32_t doConditionalOperator(const ConditionalOperator *expr);
-  uint32_t doCXXMemberCallExpr(const CXXMemberCallExpr *expr);
-  uint32_t doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr);
-  uint32_t doExtMatrixElementExpr(const ExtMatrixElementExpr *expr);
-  uint32_t doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr);
-  uint32_t doInitListExpr(const InitListExpr *expr);
-  uint32_t doMemberExpr(const MemberExpr *expr);
-  uint32_t doUnaryOperator(const UnaryOperator *expr);
+  SpirvEvalInfo doCXXMemberCallExpr(const CXXMemberCallExpr *expr);
+  SpirvEvalInfo doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr);
+  SpirvEvalInfo doExtMatrixElementExpr(const ExtMatrixElementExpr *expr);
+  SpirvEvalInfo doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr);
+  SpirvEvalInfo doInitListExpr(const InitListExpr *expr);
+  SpirvEvalInfo doMemberExpr(const MemberExpr *expr);
+  SpirvEvalInfo doUnaryOperator(const UnaryOperator *expr);
 
 private:
-  /// Returns the proper type for the given expr. This method is used to please
-  /// expressions derived from global resource variables, when we must construct
-  /// the type with correct layout decorations.
-  uint32_t getType(const Expr *expr);
-
-  /// Returns the proper pointer type for the given expr. Similar to the above.
-  uint32_t getPointerType(const Expr *expr);
-
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
   spv::Op translateOp(BinaryOperator::Opcode op, QualType type);
 
+  /// Generates SPIR-V instructions for the given normal (non-intrinsic and
+  /// non-operator) standalone or member function call.
+  uint32_t processCall(const CallExpr *expr);
+
   /// Generates the necessary instructions for assigning rhs to lhs. If lhsPtr
   /// is not zero, it will be used as the pointer from lhs instead of evaluating
   /// lhs again.
-  uint32_t processAssignment(const Expr *lhs, uint32_t rhs,
-                             bool isCompoundAssignment, uint32_t lhsPtr = 0,
-                             LayoutRule rhsLayout = LayoutRule::Void);
+  SpirvEvalInfo processAssignment(const Expr *lhs, const SpirvEvalInfo &rhs,
+                                  bool isCompoundAssignment,
+                                  SpirvEvalInfo lhsPtr = 0);
 
   /// Generates SPIR-V instructions to store rhsVal into lhsPtr. This will be
   /// recursive if valType is a composite type.
-  void storeValue(uint32_t lhsPtr, uint32_t rhsVal, QualType valType,
-                  spv::StorageClass lhsSc, LayoutRule lhsLayout,
-                  LayoutRule rhsLayout);
+  void storeValue(const SpirvEvalInfo &lhsPtr, const SpirvEvalInfo &rhsVal,
+                  QualType valType);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs. If lhsResultId is not nullptr, the evaluated
   /// pointer from lhs during the process will be written into it. If
   /// mandateGenOpcode is not spv::Op::Max, it will used as the SPIR-V opcode
   /// instead of deducing from Clang frontend opcode.
-  uint32_t processBinaryOp(const Expr *lhs, const Expr *rhs,
-                           BinaryOperatorKind opcode, uint32_t resultType,
-                           uint32_t *lhsResultId = nullptr,
-                           spv::Op mandateGenOpcode = spv::Op::Max);
+  SpirvEvalInfo processBinaryOp(const Expr *lhs, const Expr *rhs,
+                                BinaryOperatorKind opcode, uint32_t resultType,
+                                SpirvEvalInfo *lhsInfo = nullptr,
+                                spv::Op mandateGenOpcode = spv::Op::Max);
 
   /// Generates SPIR-V instructions to initialize the given variable once.
   void initOnce(std::string varName, uint32_t varPtr, const Expr *varInit);
@@ -150,12 +147,22 @@ private:
   bool isVectorShuffle(const Expr *expr);
 
   /// \brief Returns true if the given CXXOperatorCallExpr is indexing into a
-  /// Buffer/RWBuffer using operator[].
+  /// Buffer/RWBuffer/Texture/RWTexture using operator[].
   /// On success, writes the base buffer into *base if base is not nullptr, and
   /// writes the index into *index if index is not nullptr.
-  bool isBufferIndexing(const CXXOperatorCallExpr *,
-                        const Expr **base = nullptr,
-                        const Expr **index = nullptr);
+  bool isBufferTextureIndexing(const CXXOperatorCallExpr *,
+                               const Expr **base = nullptr,
+                               const Expr **index = nullptr);
+
+  /// \brief Returns true if the given CXXOperatorCallExpr is the .mips[][]
+  /// access into a Texture or .sample[][] access into Texture2DMS(Array). On
+  /// success, writes base texture object into *base if base is not nullptr,
+  /// writes the index into *index if index is not nullptr, and writes the mip
+  /// level (lod) to *lod if lod is not nullptr.
+  bool isTextureMipsSampleIndexing(const CXXOperatorCallExpr *indexExpr,
+                                   const Expr **base = nullptr,
+                                   const Expr **index = nullptr,
+                                   const Expr **lod = nullptr);
 
   /// Condenses a sequence of HLSLVectorElementExpr starting from the given
   /// expr into one. Writes the original base into *basePtr and the condensed
@@ -168,8 +175,7 @@ private:
   /// the given scalarExpr. The generated vector will have the same element
   /// type as scalarExpr and of the given size. If resultIsConstant is not
   /// nullptr, writes true to it if the generated instruction is a constant.
-  uint32_t createVectorSplat(const Expr *scalarExpr, uint32_t size,
-                             bool *resultIsConstant = nullptr);
+  SpirvEvalInfo createVectorSplat(const Expr *scalarExpr, uint32_t size);
 
   /// Splits the given vector into the last element and the rest (as a new
   /// vector).
@@ -179,12 +185,12 @@ private:
   /// Translates a floatN * float multiplication into SPIR-V instructions and
   /// returns the <result-id>. Returns 0 if the given binary operation is not
   /// floatN * float.
-  uint32_t tryToGenFloatVectorScale(const BinaryOperator *expr);
+  SpirvEvalInfo tryToGenFloatVectorScale(const BinaryOperator *expr);
 
   /// Translates a floatMxN * float multiplication into SPIR-V instructions and
   /// returns the <result-id>. Returns 0 if the given binary operation is not
   /// floatMxN * float.
-  uint32_t tryToGenFloatMatrixScale(const BinaryOperator *expr);
+  SpirvEvalInfo tryToGenFloatMatrixScale(const BinaryOperator *expr);
 
   /// Tries to emit instructions for assigning to the given vector element
   /// accessing expression. Returns 0 if the trial fails and no instructions
@@ -193,16 +199,19 @@ private:
   /// This method handles the cases that we are writing to neither one element
   /// or all elements in their original order. For other cases, 0 will be
   /// returned and the normal assignment process should be used.
-  uint32_t tryToAssignToVectorElements(const Expr *lhs, const uint32_t rhs);
+  SpirvEvalInfo tryToAssignToVectorElements(const Expr *lhs,
+                                            const SpirvEvalInfo &rhs);
 
   /// Tries to emit instructions for assigning to the given matrix element
   /// accessing expression. Returns 0 if the trial fails and no instructions
   /// are generated.
-  uint32_t tryToAssignToMatrixElements(const Expr *lhs, uint32_t rhs);
+  SpirvEvalInfo tryToAssignToMatrixElements(const Expr *lhs,
+                                            const SpirvEvalInfo &rhs);
 
-  /// Tries to emit instructions for assigning to the given RWBuffer object.
-  /// Returns 0 if the trial fails and no instructions are generated.
-  uint32_t tryToAssignToRWBuffer(const Expr *lhs, uint32_t rhs);
+  /// Tries to emit instructions for assigning to the given RWBuffer/RWTexture
+  /// object. Returns 0 if the trial fails and no instructions are generated.
+  SpirvEvalInfo tryToAssignToRWBufferRWTexture(const Expr *lhs,
+                                               const SpirvEvalInfo &rhs);
 
   /// Processes each vector within the given matrix by calling actOnEachVector.
   /// matrixVal should be the loaded value of the matrix. actOnEachVector takes
@@ -217,8 +226,8 @@ private:
   /// operation on lhs and rhs.
   ///
   /// This method expects that both lhs and rhs are SPIR-V acceptable matrices.
-  uint32_t processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
-                                 const BinaryOperatorKind opcode);
+  SpirvEvalInfo processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
+                                      const BinaryOperatorKind opcode);
 
   /// Collects all indices (SPIR-V constant values) from consecutive MemberExprs
   /// or ArraySubscriptExprs or operator[] calls and writes into indices.
@@ -244,8 +253,18 @@ private:
   /// Processes HLSL instrinsic functions.
   uint32_t processIntrinsicCallExpr(const CallExpr *);
 
+  /// Processes the 'clip' intrinsic function. Discards the current pixel if the
+  /// specified value is less than zero.
+  uint32_t processIntrinsicClip(const CallExpr *);
+
   /// Processes the 'clamp' intrinsic function.
   uint32_t processIntrinsicClamp(const CallExpr *);
+
+  /// Processes the 'frexp' intrinsic function.
+  uint32_t processIntrinsicFrexp(const CallExpr *);
+
+  /// Processes the 'modf' intrinsic function.
+  uint32_t processIntrinsicModf(const CallExpr *);
 
   /// Processes the 'mul' intrinsic function.
   uint32_t processIntrinsicMul(const CallExpr *);
@@ -253,11 +272,23 @@ private:
   /// Processes the 'dot' intrinsic function.
   uint32_t processIntrinsicDot(const CallExpr *);
 
+  /// Processes the 'log10' intrinsic function.
+  uint32_t processIntrinsicLog10(const CallExpr *);
+
   /// Processes the 'all' and 'any' intrinsic functions.
   uint32_t processIntrinsicAllOrAny(const CallExpr *, spv::Op);
 
   /// Processes the 'asfloat', 'asint', and 'asuint' intrinsic functions.
   uint32_t processIntrinsicAsType(const CallExpr *);
+
+  /// Processes the 'saturate' intrinsic function.
+  uint32_t processIntrinsicSaturate(const CallExpr *);
+
+  /// Processes the 'sincos' intrinsic function.
+  uint32_t processIntrinsicSinCos(const CallExpr *);
+
+  /// Processes the 'isFinite' intrinsic function.
+  uint32_t processIntrinsicIsFinite(const CallExpr *);
 
   /// Processes the 'sign' intrinsic function for float types.
   /// The FSign instruction in the GLSL instruction set returns a floating point
@@ -271,6 +302,17 @@ private:
   /// construction to generate the resulting matrix.
   uint32_t processIntrinsicUsingGLSLInst(const CallExpr *, GLSLstd450 instr,
                                          bool canOperateOnMatrix);
+
+  /// Processes the given intrinsic function call using the given SPIR-V
+  /// instruction. If the given instruction cannot operate on matrices, it
+  /// performs the instruction on each row of the matrix and uses composite
+  /// construction to generate the resulting matrix.
+  uint32_t processIntrinsicUsingSpirvInst(const CallExpr *, spv::Op,
+                                          bool canOperateOnMatrix);
+
+  /// Processes the given intrinsic member call.
+  SpirvEvalInfo processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
+                                           hlsl::IntrinsicOp opcode);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
@@ -436,20 +478,44 @@ private:
   /// \brief Loads one element from the given Buffer/RWBuffer/Texture object at
   /// the given location. The type of the loaded element matches the type in the
   /// declaration for the Buffer/Texture object.
-  uint32_t processBufferTextureLoad(const Expr *object, const Expr *address,
+  uint32_t processBufferTextureLoad(const Expr *object, uint32_t location,
                                     uint32_t constOffset = 0,
-                                    uint32_t varOffst = 0);
+                                    uint32_t varOffst = 0, uint32_t lod = 0);
 
   /// \brief Generates an OpAccessChain instruction for the given
   /// (RW)StructuredBuffer.Load() method call.
-  uint32_t processStructuredBufferLoad(const CXXMemberCallExpr *expr);
+  SpirvEvalInfo processStructuredBufferLoad(const CXXMemberCallExpr *expr);
 
   /// \brief Generates SPIR-V instructions for the .Append()/.Consume() call on
   /// the given {Append|Consume}StructuredBuffer. Returns the <result-id> of
   /// the loaded value for .Consume; returns zero for .Append().
-  uint32_t processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
+  SpirvEvalInfo processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
+
+  /// \brief Returns the calculated level-of-detail (a single float value) for
+  /// the given texture. Handles intrinsic HLSL CalculateLevelOfDetail function.
+  uint32_t processTextureLevelOfDetail(const CXXMemberCallExpr *expr);
+
+  /// \brief Queries the given (RW)Buffer/(RW)Texture image in the given expr
+  /// for the requested information. Based on the dimension of the image, the
+  /// following info can be queried: width, height, depth, number of mipmap
+  /// levels.
+  uint32_t processBufferTextureGetDimensions(const CXXMemberCallExpr *);
+
+  /// \brief Processes the GetDimensions intrinsic function call on a
+  /// (RW)ByteAddressBuffer by querying the image in the given expr.
+  uint32_t processByteAddressBufferStructuredBufferGetDimensions(
+      const CXXMemberCallExpr *);
 
 private:
+  /// \brief Wrapper method to create a fatal error message and report it
+  /// in the diagnostic engine associated with this consumer.
+  template <unsigned N>
+  DiagnosticBuilder emitFatalError(const char (&message)[N]) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Fatal, message);
+    return diags.Report(diagId);
+  }
+
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
@@ -489,11 +555,23 @@ private:
   /// a deterministic order of iterating the queue for finding the next decl
   /// to translate. So we need SetVector here.
   llvm::SetVector<const DeclaratorDecl *> workQueue;
+
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.
   uint32_t entryFunctionId;
   /// The current function under traversal.
   const FunctionDecl *curFunction;
+  /// The SPIR-V function parameter for the current this object.
+  uint32_t curThis;
+
+  /// Whether the translated SPIR-V binary needs legalization.
+  ///
+  /// The following cases will require legalization:
+  /// * Opaque types (textures, samplers) within structs
+  ///
+  /// If this is true, SPIRV-Tools legalization passes will be executed after
+  /// the translation to legalize the generated SPIR-V binary.
+  bool needsLegalization;
 
   /// Global variables that should be initialized once at the begining of the
   /// entry function.

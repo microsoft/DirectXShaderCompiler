@@ -122,6 +122,9 @@ TEST_F(FileTest, BinaryOpAssignComposite) {
   runFileTest("binary-op.assign.composite.hlsl");
 }
 
+// For comma binary operator
+TEST_F(FileTest, BinaryOpComma) { runFileTest("binary-op.comma.hlsl"); }
+
 // For arithmetic binary operators
 TEST_F(FileTest, BinaryOpScalarArithmetic) {
   runFileTest("binary-op.arithmetic.scalar.hlsl");
@@ -225,6 +228,19 @@ TEST_F(FileTest, OpRWStructuredBufferAccess) {
   runFileTest("op.rw-structured-buffer.access.hlsl");
 }
 
+// For Texture/RWTexture accessing operator (operator[])
+TEST_F(FileTest, OpTextureAccess) { runFileTest("op.texture.access.hlsl"); }
+TEST_F(FileTest, OpRWTextureAccess) { runFileTest("op.rwtexture.access.hlsl"); }
+
+// For Texture.mips[][] operator
+TEST_F(FileTest, OpTextureMipsAccess) {
+  runFileTest("op.texture.mips-access.hlsl");
+}
+// For Texture2MD(Array).sample[][] operator
+TEST_F(FileTest, OpTextureSampleAccess) {
+  runFileTest("op.texture.sample-access.hlsl");
+}
+
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
 TEST_F(FileTest, CastImplicit2Bool) { runFileTest("cast.2bool.implicit.hlsl"); }
@@ -286,6 +302,9 @@ TEST_F(FileTest, EarlyReturnFloat4) {
   runFileTest("cf.return.early.float4.hlsl");
 }
 
+// For returning a structure
+TEST_F(FileTest, ReturnStruct) { runFileTest("cf.return.struct.hlsl"); }
+
 // For control flows
 TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
 TEST_F(FileTest, ControlFlowLogicalAnd) { runFileTest("cf.logical-and.hlsl"); }
@@ -295,6 +314,16 @@ TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
 // For functions
 TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
 TEST_F(FileTest, FunctionInOutParam) { runFileTest("fn.param.inout.hlsl"); }
+
+// For struct methods
+TEST_F(FileTest, StructMethodCallNormal) {
+  runFileTest("method.struct.method.hlsl");
+}
+
+// For class methods
+TEST_F(FileTest, ClassMethodCallNormal) {
+  runFileTest("method.class.method.hlsl");
+}
 
 // For semantics
 TEST_F(FileTest, SemanticPositionVS) {
@@ -336,6 +365,15 @@ TEST_F(FileTest, SemanticDuplication) {
 TEST_F(FileTest, SemanticDispatchThreadId) {
   runFileTest("semantic.dispatch-thread-id.cs.hlsl");
 }
+TEST_F(FileTest, SemanticGroupID) {
+  runFileTest("semantic.group-id.cs.hlsl");
+}
+TEST_F(FileTest, SemanticGroupThreadID) {
+  runFileTest("semantic.group-thread-id.cs.hlsl");
+}
+TEST_F(FileTest, SemanticGroupIndex) {
+  runFileTest("semantic.group-index.cs.hlsl");
+}
 
 // For texture methods
 TEST_F(FileTest, TextureSample) { runFileTest("texture.sample.hlsl"); }
@@ -344,6 +382,12 @@ TEST_F(FileTest, TextureArraySample) {
 }
 TEST_F(FileTest, TextureLoad) { runFileTest("texture.load.hlsl"); }
 TEST_F(FileTest, TextureArrayLoad) { runFileTest("texture.array.load.hlsl"); }
+TEST_F(FileTest, TextureGetDimensions) {
+  runFileTest("texture.get-dimensions.hlsl");
+}
+TEST_F(FileTest, TextureCalculateLevelOfDetail) {
+  runFileTest("texture.calculate-lod.hlsl");
+}
 TEST_F(FileTest, TextureGather) { runFileTest("texture.gather.hlsl"); }
 TEST_F(FileTest, TextureArrayGather) {
   runFileTest("texture.array.gather.hlsl");
@@ -366,12 +410,22 @@ TEST_F(FileTest, TextureArraySampleGrad) {
 TEST_F(FileTest, StructuredBufferLoad) {
   runFileTest("method.structured-buffer.load.hlsl");
 }
+TEST_F(FileTest, StructuredBufferGetDimensions) {
+  runFileTest("method.structured-buffer.get-dimensions.hlsl");
+}
 TEST_F(FileTest, AppendStructuredBufferAppend) {
   runFileTest("method.append-structured-buffer.append.hlsl");
+}
+TEST_F(FileTest, AppendStructuredBufferGetDimensions) {
+  runFileTest("method.append-structured-buffer.get-dimensions.hlsl");
 }
 TEST_F(FileTest, ConsumeStructuredBufferConsume) {
   runFileTest("method.consume-structured-buffer.consume.hlsl");
 }
+TEST_F(FileTest, ConsumeStructuredBufferGetDimensions) {
+  runFileTest("method.consume-structured-buffer.get-dimensions.hlsl");
+}
+
 // For ByteAddressBuffer methods
 TEST_F(FileTest, ByteAddressBufferLoad) {
   runFileTest("method.byte-address-buffer.load.hlsl");
@@ -379,15 +433,28 @@ TEST_F(FileTest, ByteAddressBufferLoad) {
 TEST_F(FileTest, ByteAddressBufferStore) {
   runFileTest("method.byte-address-buffer.store.hlsl");
 }
+TEST_F(FileTest, ByteAddressBufferGetDimensions) {
+  runFileTest("method.byte-address-buffer.get-dimensions.hlsl");
+}
 
 // For Buffer/RWBuffer methods
 TEST_F(FileTest, BufferLoad) { runFileTest("buffer.load.hlsl"); }
 TEST_F(FileTest, BufferWrite) { runFileTest("buffer.write.hlsl"); }
+TEST_F(FileTest, BufferGetDimensions) {
+  runFileTest("buffer.get-dimensions.hlsl");
+}
 
 // For RWTexture methods
 TEST_F(FileTest, RWTextureLoad) { runFileTest("rwtexture.load.hlsl"); }
+TEST_F(FileTest, RWTextureWrite) { runFileTest("rwtexture.write.hlsl"); }
+TEST_F(FileTest, RWTextureGetDimensions) {
+  runFileTest("rwtexture.get-dimensions.hlsl");
+}
 
 // For intrinsic functions
+TEST_F(FileTest, IntrinsicsCountBits) {
+  runFileTest("intrinsics.countbits.hlsl");
+}
 TEST_F(FileTest, IntrinsicsDot) { runFileTest("intrinsics.dot.hlsl"); }
 TEST_F(FileTest, IntrinsicsMul) { runFileTest("intrinsics.mul.hlsl"); }
 TEST_F(FileTest, IntrinsicsAll) { runFileTest("intrinsics.all.hlsl"); }
@@ -400,18 +467,42 @@ TEST_F(FileTest, IntrinsicsAbs) { runFileTest("intrinsics.abs.hlsl"); }
 TEST_F(FileTest, IntrinsicsCross) { runFileTest("intrinsics.cross.hlsl"); }
 TEST_F(FileTest, IntrinsicsCeil) { runFileTest("intrinsics.ceil.hlsl"); }
 TEST_F(FileTest, IntrinsicsClamp) { runFileTest("intrinsics.clamp.hlsl"); }
+TEST_F(FileTest, IntrinsicsClip) { runFileTest("intrinsics.clip.hlsl"); }
 TEST_F(FileTest, IntrinsicsDegrees) { runFileTest("intrinsics.degrees.hlsl"); }
+TEST_F(FileTest, IntrinsicsDistance) {
+  runFileTest("intrinsics.distance.hlsl");
+}
 TEST_F(FileTest, IntrinsicsRadians) { runFileTest("intrinsics.radians.hlsl"); }
 TEST_F(FileTest, IntrinsicsDeterminant) {
   runFileTest("intrinsics.determinant.hlsl");
 }
 TEST_F(FileTest, IntrinsicsExp) { runFileTest("intrinsics.exp.hlsl"); }
 TEST_F(FileTest, IntrinsicsExp2) { runFileTest("intrinsics.exp2.hlsl"); }
+TEST_F(FileTest, IntrinsicsFirstBitHigh) {
+  runFileTest("intrinsics.firstbithigh.hlsl");
+}
+TEST_F(FileTest, IntrinsicsFirstBitLow) {
+  runFileTest("intrinsics.firstbitlow.hlsl");
+}
 TEST_F(FileTest, IntrinsicsFloor) { runFileTest("intrinsics.floor.hlsl"); }
+TEST_F(FileTest, IntrinsicsFma) { runFileTest("intrinsics.fma.hlsl"); }
+TEST_F(FileTest, IntrinsicsFmod) { runFileTest("intrinsics.fmod.hlsl"); }
+TEST_F(FileTest, IntrinsicsFrac) { runFileTest("intrinsics.frac.hlsl"); }
+TEST_F(FileTest, IntrinsicsFrexp) { runFileTest("intrinsics.frexp.hlsl"); }
+TEST_F(FileTest, IntrinsicsIsFinite) {
+  runFileTest("intrinsics.isfinite.hlsl");
+}
+TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
+TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
 TEST_F(FileTest, IntrinsicsLength) { runFileTest("intrinsics.length.hlsl"); }
+TEST_F(FileTest, IntrinsicsLdexp) { runFileTest("intrinsics.ldexp.hlsl"); }
+TEST_F(FileTest, IntrinsicsLerp) { runFileTest("intrinsics.lerp.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog) { runFileTest("intrinsics.log.hlsl"); }
+TEST_F(FileTest, IntrinsicsLog10) { runFileTest("intrinsics.log10.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog2) { runFileTest("intrinsics.log2.hlsl"); }
 TEST_F(FileTest, IntrinsicsMin) { runFileTest("intrinsics.min.hlsl"); }
+TEST_F(FileTest, IntrinsicsModf) { runFileTest("intrinsics.modf.hlsl"); }
+TEST_F(FileTest, IntrinsicsMad) { runFileTest("intrinsics.mad.hlsl"); }
 TEST_F(FileTest, IntrinsicsMax) { runFileTest("intrinsics.max.hlsl"); }
 TEST_F(FileTest, IntrinsicsNormalize) {
   runFileTest("intrinsics.normalize.hlsl");
@@ -423,13 +514,27 @@ TEST_F(FileTest, IntrinsicsFloatSign) {
 }
 TEST_F(FileTest, IntrinsicsIntSign) { runFileTest("intrinsics.intsign.hlsl"); }
 TEST_F(FileTest, IntrinsicsReflect) { runFileTest("intrinsics.reflect.hlsl"); }
+TEST_F(FileTest, IntrinsicsRefract) { runFileTest("intrinsics.refract.hlsl"); }
+TEST_F(FileTest, IntrinsicsReverseBits) {
+  runFileTest("intrinsics.reversebits.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSaturate) {
+  runFileTest("intrinsics.saturate.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSmoothStep) {
+  runFileTest("intrinsics.smoothstep.hlsl");
+}
 TEST_F(FileTest, IntrinsicsStep) { runFileTest("intrinsics.step.hlsl"); }
 TEST_F(FileTest, IntrinsicsSqrt) { runFileTest("intrinsics.sqrt.hlsl"); }
+TEST_F(FileTest, IntrinsicsTranspose) {
+  runFileTest("intrinsics.transpose.hlsl");
+}
 TEST_F(FileTest, IntrinsicsTrunc) { runFileTest("intrinsics.trunc.hlsl"); }
 
 // For intrinsic trigonometric functions
 TEST_F(FileTest, IntrinsicsSin) { runFileTest("intrinsics.sin.hlsl"); }
 TEST_F(FileTest, IntrinsicsCos) { runFileTest("intrinsics.cos.hlsl"); }
+TEST_F(FileTest, IntrinsicsSinCos) { runFileTest("intrinsics.sincos.hlsl"); }
 TEST_F(FileTest, IntrinsicsTan) { runFileTest("intrinsics.tan.hlsl"); }
 TEST_F(FileTest, IntrinsicsSinh) { runFileTest("intrinsics.sinh.hlsl"); }
 TEST_F(FileTest, IntrinsicsCosh) { runFileTest("intrinsics.cosh.hlsl"); }
@@ -437,6 +542,7 @@ TEST_F(FileTest, IntrinsicsTanh) { runFileTest("intrinsics.tanh.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsin) { runFileTest("intrinsics.asin.hlsl"); }
 TEST_F(FileTest, IntrinsicsAcos) { runFileTest("intrinsics.acos.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan) { runFileTest("intrinsics.atan.hlsl"); }
+TEST_F(FileTest, IntrinsicsAtan2) { runFileTest("intrinsics.atan2.hlsl"); }
 
 // For attributes
 TEST_F(FileTest, AttributeNumThreads) {

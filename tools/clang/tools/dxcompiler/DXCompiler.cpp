@@ -23,20 +23,20 @@ namespace hlsl { HRESULT SetupRegistryPassForHLSL(); }
 #pragma warning( disable : 4290 )
 
 // operator new and friends.
-void *operator new(std::size_t size) throw(std::bad_alloc) {
+void *  __CRTDECL operator new(std::size_t size) throw(std::bad_alloc) {
   void * ptr = DxcGetThreadMallocNoRef()->Alloc(size);
   if (ptr == nullptr)
     throw std::bad_alloc();
   return ptr;
 }
-void *operator new(std::size_t size,
+void * __CRTDECL operator new(std::size_t size,
   const std::nothrow_t &nothrow_value) throw() {
   return DxcGetThreadMallocNoRef()->Alloc(size);
 }
-void operator delete (void* ptr) throw() {
+void  __CRTDECL operator delete (void* ptr) throw() {
   DxcGetThreadMallocNoRef()->Free(ptr);
 }
-void operator delete (void* ptr, const std::nothrow_t& nothrow_constant) throw() {
+void  __CRTDECL operator delete (void* ptr, const std::nothrow_t& nothrow_constant) throw() {
   DxcGetThreadMallocNoRef()->Free(ptr);
 }
 

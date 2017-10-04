@@ -104,8 +104,6 @@ compatibility. Direct3D 10 shader targets map all ``half`` data types to
 ``float`` data types." This may change in the future to map to 16-bit floating
 point numbers (possibly via a command-line option).
 
-Note: ``float`` and ``double`` not implemented yet
-
 Minimal precision scalar types
 ------------------------------
 
@@ -125,8 +123,6 @@ the corresponding 32-bit scalar types with the ``RelexedPrecision`` decoration:
 ``min12int``   ``OpTypeInt 32 1`` ``RelexedPrecision``
 ``min16uint``  ``OpTypeInt 32 0`` ``RelexedPrecision``
 ============== ================== ====================
-
-Note: not implemented yet
 
 Vectors and matrices
 --------------------
@@ -184,7 +180,7 @@ in SPIR-V. For example, for the following HLSL source code:
     ...
   }
 
-There will be there different ``OpTypeStruct`` generated, one for each variable
+There will be three different ``OpTypeStruct`` generated, one for each variable
 defined in the above source code. This is because the ``OpTypeStruct`` for
 both ``myCBuffer`` and ``mySBuffer`` will have layout decorations (``Offset``,
 ``MatrixStride``, ``ArrayStride``, ``RowMajor``, ``ColMajor``). However, their
@@ -264,6 +260,10 @@ There are serveral buffer types in HLSL:
 - ``tbuffer`` and ``TextureBuffer``
 - ``StructuredBuffer`` and ``RWStructuredBuffer``
 - ``AppendStructuredBuffer`` and ``ConsumeStructuredBuffer``
+- ``ByteAddressBuffer`` and ``RWByteAddressBuffer``
+
+Note that ``Buffer`` and ``RWBuffer`` are considered as texture object in HLSL.
+They are listed in the above section.
 
 Please see the following sections for the details of each type. As a summary:
 
@@ -276,6 +276,8 @@ Please see the following sections for the details of each type. As a summary:
 ``RWStructuredBuffer``        Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 ``AppendStructuredBuffer``    Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 ``ConsumeStructuredBuffer``   Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
+``ByteAddressBuffer``         Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
+``RWByteAddressBuffer``       Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 =========================== ================== ========================== ==================== =================
 
 To know more about the Vulkan buffer types, please refer to the Vulkan spec
@@ -376,7 +378,8 @@ layout rule used is GLSL ``std430``.
 A variable declared as one of these types will be placed in the ``Uniform``
 storage class. Besides, each variable will have an associated counter variable
 generated. The counter variable will be of ``OpTypeStruct`` type, which only
-contains a 32-bit integer. The counter variable takes its own binding number.
+contains a 32-bit integer. The integer is the total number of elements in the
+buffer. The counter variable takes its own binding number.
 ``.Append()``/``.Consume()`` will use the counter variable as the index and
 adjust it accordingly.
 
@@ -421,6 +424,54 @@ will be translated into
   ; Variables
   %myASbuffer = OpVariable %_ptr_Uniform_type_AppendStructuredBuffer_T Uniform
   %counter_var_myASbuffer = OpVariable %_ptr_Uniform_type_ACSBuffer_counter Uniform
+
+``ByteAddressBuffer`` and ``RWByteAddressBuffer``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``ByteAddressBuffer``/``RWByteAddressBuffer`` is treated as storage buffer using
+Vulkan's terminology. It is translated into an ``OpTypeStruct`` containing an
+``OpTypeRuntimeArray`` of 32-bit unsigned integers, with ``BufferBlock``
+decoration.
+
+A variable declared as one of these types will be placed in the ``Uniform``
+storage class.
+
+For example, for the following HLSL source code:
+
+.. code:: hlsl
+
+  ByteAddressBuffer   myBuffer1;
+  RWByteAddressBuffer myBuffer2;
+
+will be translated into
+
+.. code:: spirv
+
+  ; Layout decorations
+
+  OpDecorate %_runtimearr_uint ArrayStride 4
+
+  OpDecorate %type_ByteAddressBuffer BufferBlock
+  OpMemberDecorate %type_ByteAddressBuffer 0 Offset 0
+  OpMemberDecorate %type_ByteAddressBuffer 0 NonWritable
+
+  OpDecorate %type_RWByteAddressBuffer BufferBlock
+  OpMemberDecorate %type_RWByteAddressBuffer 0 Offset 0
+
+  ; Types
+
+  %_runtimearr_uint = OpTypeRuntimeArray %uint
+
+  %type_ByteAddressBuffer = OpTypeStruct %_runtimearr_uint
+  %_ptr_Uniform_type_ByteAddressBuffer = OpTypePointer Uniform %type_ByteAddressBuffer
+
+  %type_RWByteAddressBuffer = OpTypeStruct %_runtimearr_uint
+  %_ptr_Uniform_type_RWByteAddressBuffer = OpTypePointer Uniform %type_RWByteAddressBuffer
+
+  ; Variables
+
+  %myBuffer1 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
+  %myBuffer2 = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
 
 HLSL Variables and Resources
 ============================
@@ -539,25 +590,31 @@ Firstly, under certain `SigPoints <https://github.com/Microsoft/DirectXShaderCom
 some system-value (SV) semantic strings will be translated into SPIR-V
 ``BuiltIn`` decorations:
 
-+----------------------+----------+------------------------+-----------------------+
-| HLSL Semantic        | SigPoint | SPIR-V ``BuiltIn``     | SPIR-V Execution Mode |
-+======================+==========+========================+=======================+
-|                      | VSOut    | ``Position``           | N/A                   |
-| SV_Position          +----------+------------------------+-----------------------+
-|                      | PSIn     | ``FragCoord``          | N/A                   |
-+----------------------+----------+------------------------+-----------------------+
-| SV_VertexID          | VSIn     | ``VertexIndex``        | N/A                   |
-+----------------------+----------+------------------------+-----------------------+
-| SV_InstanceID        | VSIn     | ``InstanceIndex``      | N/A                   |
-+----------------------+----------+------------------------+-----------------------+
-| SV_Depth             | PSOut    | ``FragDepth``          | N/A                   |
-+----------------------+----------+------------------------+-----------------------+
-| SV_DepthGreaterEqual | PSOut    | ``FragDepth``          | ``DepthGreater``      |
-+----------------------+----------+------------------------+-----------------------+
-| SV_DepthLessEqual    | PSOut    | ``FragDepth``          | ``DepthLess``         |
-+----------------------+----------+------------------------+-----------------------+
-| SV_DispatchThreadID  | CSIn     | ``GlobalInvocationId`` | N/A                   |
-+----------------------+----------+------------------------+-----------------------+
++----------------------+----------+--------------------------+-----------------------+
+| HLSL Semantic        | SigPoint | SPIR-V ``BuiltIn``       | SPIR-V Execution Mode |
++======================+==========+==========================+=======================+
+|                      | VSOut    | ``Position``             | N/A                   |
+| SV_Position          +----------+--------------------------+-----------------------+
+|                      | PSIn     | ``FragCoord``            | N/A                   |
++----------------------+----------+--------------------------+-----------------------+
+| SV_VertexID          | VSIn     | ``VertexIndex``          | N/A                   |
++----------------------+----------+--------------------------+-----------------------+
+| SV_InstanceID        | VSIn     | ``InstanceIndex``        | N/A                   |
++----------------------+----------+--------------------------+-----------------------+
+| SV_Depth             | PSOut    | ``FragDepth``            | N/A                   |
++----------------------+----------+--------------------------+-----------------------+
+| SV_DepthGreaterEqual | PSOut    | ``FragDepth``            | ``DepthGreater``      |
++----------------------+----------+--------------------------+-----------------------+
+| SV_DepthLessEqual    | PSOut    | ``FragDepth``            | ``DepthLess``         |
++----------------------+----------+--------------------------+-----------------------+
+| SV_DispatchThreadID  | CSIn     | ``GlobalInvocationId``   | N/A                   |
++----------------------+----------+--------------------------+-----------------------+
+| SV_GroupID           | CSIn     | ``WorkgroupId``          | N/A                   |
++----------------------+----------+--------------------------+-----------------------+
+| SV_GroupThreadID     | CSIn     | ``LocalInvocationId``    | N/A                   |
++----------------------+----------+--------------------------+-----------------------+
+| SV_GroupIndex        | CSIn     | ``LocalInvocationIndex`` | N/A                   |
++----------------------+----------+--------------------------+-----------------------+
 
 [TODO] add other SV semantic strings in the above
 
@@ -585,8 +642,7 @@ In shaders for DirectX, resources are accessed via registers; while in shaders
 for Vulkan, it is done via descriptor set and binding numbers. The developer
 can explicitly annotate variables in HLSL to specify descriptor set and binding
 numbers, or leave it to the compiler to derive implicitly from registers.
-The explicit way has precedence over the implicit way. However, a mix of both
-way is not allowed (yet).
+The explicit way has precedence over the implicit way.
 
 Explicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -609,6 +665,15 @@ reassignment of the same set and binding number pair. [TODO])
 If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
 set #0.
+
+In summary, the compiler essentially assigns binding numbers in three passes.
+
+- Firstly it handles all declarations with explicit ``[[vk::binding(X[, Y])]]``
+  annotation.
+- Then the compiler processes all remaining declarations with
+  ``:register(xX, spaceY)`` annotation.
+- Finally, the compiler assigns next available binding numbers to the rest in
+  the declaration order.
 
 HLSL Expressions
 ================
@@ -762,6 +827,32 @@ out-of-bound indexing triggers undefined behavior anyway. For example, for a
 ``OpAccessChain ... %mat %uint_0``. Similarly, variable index into a size 1
 vector will also be ignored and the only element will be always returned.
 
+Assignment operators
+--------------------
+
+Assigning to struct object may involve decomposing the source struct object and
+assign each element separately and recursively. This happens when the source
+struct object is of different memory layout from the destination struct object.
+For example, for the following source code:
+
+.. code:: hlsl
+
+  struct S {
+    float    a;
+    float2   b;
+    float2x3 c;
+  };
+
+      ConstantBuffer<S> cbuf;
+  RWStructuredBuffer<S> sbuf;
+
+  ...
+  sbuf[0] = cbuf[0];
+  ...
+
+We need to assign each element because ``ConstantBuffer`` and
+``RWStructuredBuffer`` has different memory layout.
+
 HLSL Control Flows
 ==================
 
@@ -863,34 +954,34 @@ output/builtin variables created according to semantics. For example:
 
   ; Wrapper function starts
 
-  %main    = OpFunction %void None {{%\d+}}
-  {{%\d+}} = OpLabel
+  %main    = OpFunction %void None ...
+  ...      = OpLabel
 
   %param_var_input = OpVariable %_ptr_Function_T Function
 
   ; Load stage input variables and group into the expected composite
 
-  [[inA:%\d+]]     = OpLoad %bool %in_var_A
-  [[inB:%\d+]]     = OpLoad %v2uint %in_var_B
-  [[inC:%\d+]]     = OpLoad %mat2v3float %in_var_C
-  [[inS:%\d+]]     = OpCompositeConstruct %S [[inA]] [[inB]] [[inC]]
-  [[inD:%\d+]]     = OpLoad %int %in_var_D
-  [[inT:%\d+]]     = OpCompositeConstruct %T [[inS]] [[inD]]
-                     OpStore %param_var_input [[inT]]
+  %inA = OpLoad %bool %in_var_A
+  %inB = OpLoad %v2uint %in_var_B
+  %inC = OpLoad %mat2v3float %in_var_C
+  %inS = OpCompositeConstruct %S %inA %inB %inC
+  %inD = OpLoad %int %in_var_D
+  %inT = OpCompositeConstruct %T %inS %inD
+         OpStore %param_var_input %inT
 
-  [[ret:%\d+]]  = OpFunctionCall %T %src_main %param_var_input
+  %ret = OpFunctionCall %T %src_main %param_var_input
 
   ; Extract component values from the composite and store into stage output variables
 
-  [[outS:%\d+]] = OpCompositeExtract %S [[ret]] 0
-  [[outA:%\d+]] = OpCompositeExtract %bool [[outS]] 0
-                  OpStore %out_var_A [[outA]]
-  [[outB:%\d+]] = OpCompositeExtract %v2uint [[outS]] 1
-                  OpStore %out_var_B [[outB]]
-  [[outC:%\d+]] = OpCompositeExtract %mat2v3float [[outS]] 2
-                  OpStore %out_var_C [[outC]]
-  [[outD:%\d+]] = OpCompositeExtract %int [[ret]] 1
-                  OpStore %out_var_D [[outD]]
+  %outS = OpCompositeExtract %S %ret 0
+  %outA = OpCompositeExtract %bool %outS 0
+          OpStore %out_var_A %outA
+  %outB = OpCompositeExtract %v2uint %outS 1
+          OpStore %out_var_B %outB
+  %outC = OpCompositeExtract %mat2v3float %outS 2
+          OpStore %out_var_C %outC
+  %outD = OpCompositeExtract %int %ret 1
+          OpStore %out_var_D %outD
 
   OpReturn
   OpFunctionEnd
@@ -959,7 +1050,7 @@ The following intrinsic HLSL functions are currently supported:
 - ``dot`` : performs dot product of two vectors, each containing floats or
   integers. If the two parameters are vectors of floats, we use SPIR-V's
   ``OpDot`` instruction to perform the translation. If the two parameters are
-  vectors of integers, we multiply corresponding vector elementes using
+  vectors of integers, we multiply corresponding vector elements using
   ``OpIMul`` and accumulate the results using ``OpIAdd`` to compute the dot
   product.
 - ``mul``: performs multiplications. Each argument may be a scalar, vector,
@@ -984,6 +1075,17 @@ The following intrinsic HLSL functions are currently supported:
 - ``asuint``: converts the component type of a scalar/vector/matrix from float
   or int into uint. Uses ``OpBitcast``. This method currently does not support
   conversion into unsigned integer matrices.
+- ``transpose`` : Transposes the specified matrix. Uses SPIR-V ``OpTranspose``.
+- ``isnan`` : Determines if the specified value is NaN. Uses SPIR-V ``OpIsNan``.
+- ``isinf`` : Determines if the specified value is infinite. Uses SPIR-V ``OpIsInf``.
+- ``isfinite`` : Determines if the specified value is finite. Since ``OpIsFinite``
+  requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and ``OpIsInf``.
+  A given value is finite iff it is not NaN and not infinite.
+- ``fmod`` : Returns the floating-point remainder for division of its arguments. Uses SPIR-V ``OpFMod``.
+- ``countbits`` : Counts the number of bits (per component) in the input integer. Uses SPIR-V ``OpBitCount``.
+- ``reversebits``: Reverses the order of the bits, per component. Uses SPIR-V ``OpBitReverse``.
+- ``clip``: Discards the current pixel if the specified value is less than zero. Uses conditional
+  control flow as well as SPIR-V ``OpKill``.
 
 Using GLSL extended instructions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -991,40 +1093,458 @@ Using GLSL extended instructions
 the following intrinsic HLSL functions are translated using their equivalent
 instruction in the `GLSL extended instruction set <https://www.khronos.org/registry/spir-v/specs/1.0/GLSL.std.450.html>`_.
 
-======================= ===============================
+======================= ===================================
 HLSL Intrinsic Function   GLSL Extended Instruction
-======================= ===============================
+======================= ===================================
 ``abs``                 ``SAbs``/``FAbs``
 ``acos``                ``Acos``
 ``asin``                ``Asin``
 ``atan``                ``Atan``
+``atan2``               ``Atan2``
 ``ceil``                ``Ceil``
 ``clamp``               ``SClamp``/``UClamp``/``FClamp``
 ``cos``                 ``Cos``
 ``cosh``                ``Cosh``
-``cross``                ``Cross``
+``cross``               ``Cross``
 ``degrees``             ``Degrees``
+``distance``            ``Distance``
 ``radians``             ``Radian``
 ``determinant``         ``Determinant``
 ``exp``                 ``Exp``
 ``exp2``                ``exp2``
+``firstbithigh``        ``FindSMsb`` / ``FindUMsb``
+``firstbitlow``         ``FindILsb``
 ``floor``               ``Floor``
+``fma``                 ``Fma``
+``frac``                ``Fract``
+``frexp``               ``FrexpStruct``
+``ldexp``               ``Ldexp``
 ``length``              ``Length``
+``lerp``                ``FMix``
 ``log``                 ``Log``
+``log10``               ``Log2`` (scaled by ``1/log2(10)``)
 ``log2``                ``Log2``
+``mad``                 ``Fma``
 ``max``                 ``SMax``/``UMax``/``FMax``
 ``min``                 ``SMin``/``UMin``/``FMin``
+``modf``                ``ModfStruct``
 ``normalize``           ``Normalize``
 ``pow``                 ``Pow``
 ``reflect``             ``Reflect``
+``refract``             ``Refract``
 ``round``               ``Round``
 ``rsqrt``               ``InverseSqrt``
-``step``                ``Step``
+``saturate``            ``FClamp``
 ``sign``                ``SSign``/``FSign``
 ``sin``                 ``Sin``
+``sincos``              ``Sin`` and ``Cos``
 ``sinh``                ``Sinh``
+``smoothstep``          ``SmoothStep``
+``sqrt``                ``Sqrt``
+``step``                ``Step``
 ``tan``                 ``Tan``
 ``tanh``                ``Tanh``
-``sqrt``                ``Sqrt``
 ``trunc``               ``Trunc``
 ======================= ===============================
+
+HLSL Methods
+============
+
+This section lists how various HLSL methods are mapped.
+
+Buffers
+-------
+
+``Buffer``
+~~~~~~~~~~
+
+``.Load()``
++++++++++++
+Since Buffers are represented as ``OpTypeImage`` with ``Sampled`` set to 1
+(meaning to be used with a sampler), ``OpImageFetch`` is used to perform this
+operation. The return value of ``OpImageFetch`` is always a four-component
+vector; so proper additional instructions are generated to truncate the vector
+and return the desired number of elements.
+
+``operator[]``
+++++++++++++++
+Handled similarly as ``.Load()``.
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since Buffers are represented as ``OpTypeImage`` with dimension of ``Buffer``,
+``OpImageQuerySize`` is used to perform this operation.
+
+``RWBuffer``
+~~~~~~~~~~~~
+
+``.Load()``
++++++++++++
+Since RWBuffers are represented as ``OpTypeImage`` with ``Sampled`` set to 2
+(meaning to be used without a sampler), ``OpImageRead`` is used to perform this
+operation.
+
+``operator[]``
+++++++++++++++
+Using ``operator[]`` for reading is handled similarly as ``.Load()``, while for
+writing, the ``OpImageWrite`` instruction is generated.
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since RWBuffers are represented as ``OpTypeImage`` with dimension of ``Buffer``,
+``OpImageQuerySize`` is used to perform this operation.
+
+``StructuredBuffer`` and ``RWStructuredBuffer``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since StructuredBuffers/RWStructuredBuffers are represented as a struct with one
+member that is a runtime array of structures, ``OpArrayLength`` is invoked on
+the runtime array in order to find the dimension.
+
+``ByteAddressBuffer``
+~~~~~~~~~~~~~~~~~~~~~
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since ByteAddressBuffers are represented as a struct with one member that is a
+runtime array of unsigned integers, ``OpArrayLength`` is invoked on the runtime array
+in order to find the number of unsigned integers. This is then multiplied by 4 to find
+the number of bytes.
+
+``.Load()``, ``.Load2()``, ``.Load3()``, ``.Load4()``
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ByteAddressBuffers are represented as a struct with one member that is a runtime array of
+unsigned integers. The ``address`` argument passed to the function is first divided by 4
+in order to find the offset into the array (because each array element is 4 bytes). The
+SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpLoad`` is
+used to load a 32-bit unsigned integer. For ``Load2``, ``Load3``, and ``Load4``, this is
+done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
+performing ``OpAccessChain``. After all ``OpLoad`` operations are performed, a vector is
+constructed with all the resulting values.
+
+``RWByteAddressBuffer``
+~~~~~~~~~~~~~~~~~~~~~~~
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since RWByteAddressBuffers are represented as a struct with one member that is a
+runtime array of unsigned integers, ``OpArrayLength`` is invoked on the runtime array
+in order to find the number of unsigned integers. This is then multiplied by 4 to find
+the number of bytes.
+
+``.Load()``, ``.Load2()``, ``.Load3()``, ``.Load4()``
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+RWByteAddressBuffers are represented as a struct with one member that is a runtime array of
+unsigned integers. The ``address`` argument passed to the function is first divided by 4
+in order to find the offset into the array (because each array element is 4 bytes). The
+SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpLoad`` is
+used to load a 32-bit unsigned integer. For ``Load2``, ``Load3``, and ``Load4``, this is
+done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
+performing ``OpAccessChain``. After all ``OpLoad`` operations are performed, a vector is
+constructed with all the resulting values.
+
+``.Store()``, ``.Store2()``, ``.Store3()``, ``.Store4()``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+RWByteAddressBuffers are represented as a struct with one member that is a runtime array of
+unsigned integers. The ``address`` argument passed to the function is first divided by 4
+in order to find the offset into the array (because each array element is 4 bytes). The
+SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpStore`` is
+used to store a 32-bit unsigned integer. For ``Store2``, ``Store3``, and ``Store4``, this is
+done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
+performing ``OpAccessChain``.
+
+``AppendStructuredBuffer``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``.Append()``
++++++++++++++
+
+The associated counter number will be increased by 1 using ``OpAtomicIAdd``.
+The return value of ``OpAtomicIAdd``, which is the original count number, will
+be used as the index for storing the new element. E.g., for ``buf.Append(vec)``:
+
+.. code:: spirv
+
+  %counter = OpAccessChain %_ptr_Uniform_int %counter_var_buf %uint_0
+    %index = OpAtomicIAdd %uint %counter %uint_1 %uint_0 %uint_1
+      %ptr = OpAccessChain %_ptr_Uniform_v4float %buf %uint_0 %index
+      %val = OpLoad %v4float %vec
+             OpStore %ptr %val
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since AppendStructuredBuffers are represented as a struct with one member that
+is a runtime array, ``OpArrayLength`` is invoked on the runtime array in order
+to find the number of elements. The stride is also calculated based on GLSL
+``std430`` as explained above.
+
+``ConsumeStructuredBuffer``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``.Consume()``
+++++++++++++++
+
+The associated counter number will be decreased by 1 using ``OpAtomicISub``.
+The return value of ``OpAtomicISub`` minus 1, which is the new count number,
+will be used as the index for reading the new element. E.g., for
+``buf.Consume(vec)``:
+
+.. code:: spirv
+
+  %counter = OpAccessChain %_ptr_Uniform_int %counter_var_buf %uint_0
+     %prev = OpAtomicISub %uint %counter %uint_1 %uint_0 %uint_1
+    %index = OpISub %uint %prev %uint_1
+      %ptr = OpAccessChain %_ptr_Uniform_v4float %buf %uint_0 %index
+      %val = OpLoad %v4float %vec
+             OpStore %ptr %val
+
+``.GetDimensions()``
+++++++++++++++++++++
+Since ConsumeStructuredBuffers are represented as a struct with one member that
+is a runtime array, ``OpArrayLength`` is invoked on the runtime array in order
+to find the number of elements. The stride is also calculated based on GLSL
+``std430`` as explained above.
+
+Read-only textures
+------------------
+
+Methods common to all texture types are explained in the "common texture methods"
+section. Methods unique to a specific texture type is explained in the section
+for that texture type.
+
+Common texture methods
+~~~~~~~~~~~~~~~~~~~~~~
+
+``.Sample(sampler, location[, offset])``
+++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
+
+The ``OpImageSampleImplicitLod`` instruction is used to translate ``.Sample()``
+since texture types are represented as ``OpTypeImage``. An ``OpSampledImage`` is
+created based on the ``sampler`` passed to the function. The resulting sampled
+image and the ``location`` passed to the function are used as arguments to
+``OpImageSampleImplicitLod``, with the optional ``offset`` tranlated into
+addtional SPIR-V image operands ``ConstOffset`` or ``Offset`` on it.
+
+``.SampleLevel(sampler, location, lod[, offset])``
+++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
+
+The ``OpImageSampleExplicitLod`` instruction is used to translate this method.
+An ``OpSampledImage`` is created based on the ``sampler`` passed to the function.
+The resulting sampled image and the ``location`` passed to the function are used
+as arguments to ``OpImageSampleExplicitLod``. The ``lod`` passed to the function
+is attached to the instruction as an SPIR-V image operands ``Lod``. The optional
+``offset`` is also tranlated into addtional SPIR-V image operands ``ConstOffset``
+or ``Offset`` on it.
+
+``.SampleGrad(sampler, location, ddx, ddy[, offset])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
+
+Similarly to ``.SampleLevel``, the ``ddx`` and ``ddy`` parameter are attached to
+the ``OpImageSampleExplicitLod`` instruction as an SPIR-V image operands
+``Grad``.
+
+``.SampleBias(sampler, location, bias[, offset])``
+++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
+
+The translation is similar to ``.Sample()``, with the ``bias`` parameter
+attached to the ``OpImageSampleImplicitLod`` instruction as an SPIR-V image
+operands ``Bias``.
+
+``.Gather(sampler, location[, offset])``
+++++++++++++++++++++++++++++++++++++++++
+
+Available to ``Texture2D``, ``Texture2DArray``, ``TextureCube``, and
+``TextureCubeArray``.
+
+The translation is similar to ``.Sample()``, but the ``OpImageGather``
+instruction is used.
+
+``.Load(location[, sampleIndex][, offset])``
+++++++++++++++++++++++++++++++++++++++++++++
+
+The ``OpImageFetch`` instruction is used for translation because texture types
+are represented as ``OpTypeImage``. The last element in the ``location``
+parameter will be used as arguments to the ``Lod`` SPIR-V image operand attached
+to the ``OpImageFetch`` instruction, and the rest are used as the coordinate
+argument to the instruction. ``offset`` is handled similarly to ``.Sample()``.
+The return value of ``OpImageFetch`` is always a four-component vector; so
+proper additional instructions are generated to truncate the vector and return
+the desired number of elements.
+
+``operator[]``
+++++++++++++++
+Handled similarly as ``.Load()``.
+
+``.mips[lod][position]``
+++++++++++++++++++++++++
+
+Not available to ``TextureCube``, ``TextureCubeArray``, ``Texture2DMS``, and
+``Texture2DMSArray``.
+
+This method is translated into the ``OpImageFetch`` instruction. The ``lod``
+parameter is attached to the instruction as the parameter to the ``Lod`` SPIR-V
+image operands. The ``position`` parameter are used as the coordinate to the
+instruction directly.
+
+``.CalculateLevelOfDetail()``
++++++++++++++++++++++++++++++
+
+Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
+
+Since texture types are represented as ``OpTypeImage``, the ``OpImageQueryLod``
+instruction is used for translation. An ``OpSampledImage`` is created based on
+the ``SamplerState`` passed to the function. The resulting sampled image and
+the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
+The result of ``OpImageQueryLod`` is a ``float2``. The first element contains
+the mipmap array layer.
+
+``Texture1D``
+~~~~~~~~~~~~~
+
+``.GetDimensions(width)`` or ``.GetDimensions(MipLevel, width, NumLevels)``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Since Texture1D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
+is used for translation. If a ``MipLevel`` argument is passed to ``GetDimensions``, it will
+be used as the ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``Texture1DArray``
+~~~~~~~~~~~~~~~~~~
+
+``.GetDimensions(width, elements)`` or ``.GetDimensions(MipLevel, width, elements, NumLevels)``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Since Texture1DArray is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
+is used for translation. If a ``MipLevel`` argument is present, it will be used as the
+``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``Texture2D``
+~~~~~~~~~~~~~
+
+``.GetDimensions(width, height)`` or ``.GetDimensions(MipLevel, width, height, NumLevels)``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Since Texture2D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
+is used for translation. If a ``MipLevel`` argument is present, it will be used as the
+``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``Texture2DArray``
+~~~~~~~~~~~~~~~~~~
+
+``.GetDimensions(width, height, elements)`` or ``.GetDimensions(MipLevel, width, height, elements, NumLevels)``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Since Texture2DArray is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
+is used for translation. If a ``MipLevel`` argument is present, it will be used as the
+``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``Texture3D``
+~~~~~~~~~~~~~
+
+``.GetDimensions(width, height, depth)`` or ``.GetDimensions(MipLevel, width, height, depth, NumLevels)``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Since Texture3D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
+is used for translation. If a ``MipLevel`` argument is present, it will be used as the
+``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``Texture2DMS``
+~~~~~~~~~~~~~~~
+
+``.sample[sample][position]``
++++++++++++++++++++++++++++++
+This method is translated into the ``OpImageFetch`` instruction. The ``sample``
+parameter is attached to the instruction as the parameter to the ``Sample``
+SPIR-V image operands. The ``position`` parameter are used as the coordinate to
+the instruction directly.
+
+``.GetDimensions(width, height, numSamples)``
++++++++++++++++++++++++++++++++++++++++++++++
+Since Texture2DMS is represented as ``OpTypeImage`` with ``MS`` of ``1``, the ``OpImageQuerySize`` instruction
+is used to get the width and the height. Furthermore, ``OpImageQuerySamples`` is used to get the numSamples.
+
+``Texture2DMSArray``
+~~~~~~~~~~~~~~~~~~~~
+
+``.sample[sample][position]``
++++++++++++++++++++++++++++++
+This method is translated into the ``OpImageFetch`` instruction. The ``sample``
+parameter is attached to the instruction as the parameter to the ``Sample``
+SPIR-V image operands. The ``position`` parameter are used as the coordinate to
+the instruction directly.
+
+``.GetDimensions(width, height, elements, numSamples)``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Since Texture2DMS is represented as ``OpTypeImage`` with ``MS`` of ``1``, the ``OpImageQuerySize`` instruction
+is used to get the width, the height, and the elements. Furthermore, ``OpImageQuerySamples`` is used to get the numSamples.
+
+``TextureCube``
+~~~~~~~~~~~~~~~
+
+``TextureCubeArray``
+~~~~~~~~~~~~~~~~~~~~
+
+Read-write textures
+-------------------
+
+Methods common to all texture types are explained in the "common texture methods"
+section. Methods unique to a specific texture type is explained in the section
+for that texture type.
+
+Common texture methods
+~~~~~~~~~~~~~~~~~~~~~~
+
+``.Load()``
++++++++++++
+Since read-write texture types are represented as ``OpTypeImage`` with
+``Sampled`` set to 2 (meaning to be used without a sampler), ``OpImageRead`` is
+used to perform this operation.
+
+``operator[]``
+++++++++++++++
+Using ``operator[]`` for reading is handled similarly as ``.Load()``, while for
+writing, the ``OpImageWrite`` instruction is generated.
+
+``RWTexture1D``
+~~~~~~~~~~~~~~~
+
+``.GetDimensions(width)``
++++++++++++++++++++++++++
+The ``OpImageQuerySize`` instruction is used to find the width.
+
+``RWTexture1DArray``
+~~~~~~~~~~~~~~~~~~~~
+
+``.GetDimensions(width, elements)``
++++++++++++++++++++++++++++++++++++
+The ``OpImageQuerySize`` instruction is used to get a uint2. The first element is the width, and the second
+is the elements.
+
+``RWTexture2D``
+~~~~~~~~~~~~~~~
+
+``.GetDimensions(width, height)``
++++++++++++++++++++++++++++++++++
+The ``OpImageQuerySize`` instruction is used to get a uint2. The first element is the width, and the second
+element is the height.
+
+``RWTexture2DArray``
+~~~~~~~~~~~~~~~~~~~~
+
+``.GetDimensions(width, height, elements)``
++++++++++++++++++++++++++++++++++++++++++++
+The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
+element is the height, and the third is the elements.
+
+``RWTexture3D``
+~~~~~~~~~~~~~~~
+
+``.GetDimensions(width, height, depth)``
+++++++++++++++++++++++++++++++++++++++++
+The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
+element is the height, and the third element is the depth.

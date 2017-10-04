@@ -1,17 +1,29 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 0
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 1
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 2
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 3
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 0
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 1
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 2
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 3
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 0
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 1
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 2
 // CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: extractvalue {{.*}}, 3
 
 
 SamplerState samp1;

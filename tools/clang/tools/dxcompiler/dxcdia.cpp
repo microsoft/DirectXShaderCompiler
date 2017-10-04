@@ -2053,7 +2053,7 @@ __override STDMETHODIMP DxcDiaSession::findInjectedSource(
     IDiaTable *pTable;
     IFT(CreateDxcDiaTable(this, DiaTableKind::InjectedSource, &pTable));
     DxcDiaTableInjectedSource *pInjectedSource =
-        dynamic_cast<DxcDiaTableInjectedSource *>(pTable);
+        reinterpret_cast<DxcDiaTableInjectedSource *>(pTable);
     pInjectedSource->Init(pUtf8FileName.m_psz);
     *ppResult = pInjectedSource;
     return S_OK;

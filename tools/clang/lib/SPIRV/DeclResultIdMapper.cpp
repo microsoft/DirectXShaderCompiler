@@ -65,7 +65,7 @@ DeclResultIdMapper::getDeclSpirvInfo(const NamedDecl *decl) const {
   return nullptr;
 }
 
-uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
+SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
   if (const auto *info = getDeclSpirvInfo(decl))
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
@@ -80,11 +80,14 @@ uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
           // According to the Vulkan spec, cbuffer should follow standrad
           // uniform buffer layout, which GLSL std140 rules statisfies.
           LayoutRule::GLSLStd140);
-      return theBuilder.createAccessChain(
+
+      const uint32_t elemId = theBuilder.createAccessChain(
           theBuilder.getPointerType(varType, info->storageClass),
           info->resultId, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
+
+      return {elemId, info->storageClass, info->layoutRule};
     } else {
-      return info->resultId;
+      return {info->resultId, info->storageClass, info->layoutRule};
     }
 
   assert(false && "found unregistered decl");
@@ -262,116 +265,6 @@ uint32_t DeclResultIdMapper::getCounterId(const VarDecl *decl) {
   if (counter != counterVars.end())
     return counter->second;
   return 0;
-}
-
-namespace {
-/// A class for resolving the storage info (storage class and memory layout) of
-/// a given Decl or Expr.
-class StorageInfoResolver : public RecursiveASTVisitor<StorageInfoResolver> {
-public:
-  explicit StorageInfoResolver(const DeclResultIdMapper &mapper)
-      : declIdMapper(mapper), baseDecl(nullptr) {}
-
-  bool TraverseMemberExpr(MemberExpr *expr) {
-    // For MemberExpr, the storage info should follow the base.
-    return TraverseStmt(expr->getBase());
-  }
-
-  bool TravereArraySubscriptExpr(ArraySubscriptExpr *expr) {
-    // For ArraySubscriptExpr, the storage info should follow the array object.
-    return TraverseStmt(expr->getBase());
-  }
-
-  bool TraverseCXXOperatorCallExpr(CXXOperatorCallExpr *expr) {
-    // For operator[], the storage info should follow the object.
-    if (expr->getOperator() == OverloadedOperatorKind::OO_Subscript)
-      return TraverseStmt(expr->getArg(0));
-
-    // TODO: the following may not be correct for all other operator calls.
-    for (uint32_t i = 0; i < expr->getNumArgs(); ++i)
-      if (!TraverseStmt(expr->getArg(i)))
-        return false;
-
-    return true;
-  }
-
-  bool TraverseCXXMemberCallExpr(CXXMemberCallExpr *expr) {
-    // For method calls, the storage info should follow the object.
-    return TraverseStmt(expr->getImplicitObjectArgument());
-  }
-
-  // For querying the storage info of a remapped decl
-
-  // Semantics may be attached to FunctionDecl, ParmVarDecl, and FieldDecl.
-  // We create stage variables for them and we may need to query the storage
-  // classes of these stage variables.
-  bool VisitFunctionDecl(FunctionDecl *decl) { return processDecl(decl); }
-  bool VisitFieldDecl(FieldDecl *decl) { return processDecl(decl); }
-  bool VisitParmVarDecl(ParmVarDecl *decl) { return processDecl(decl); }
-
-  // For querying the storage info of a normal decl
-
-  // Normal decls should be referred in expressions.
-  bool VisitDeclRefExpr(DeclRefExpr *expr) {
-    return processDecl(expr->getDecl());
-  }
-
-  bool processDecl(NamedDecl *decl) {
-    // Calling C++ methods like operator[] is also represented as DeclRefExpr.
-    if (isa<CXXMethodDecl>(decl))
-      return true;
-
-    if (!baseDecl) {
-      baseDecl = decl;
-      return true;
-    }
-
-    // Two different decls referenced in the expression: this expression stands
-    // for a derived temporary object, for which case we use the Function
-    // storage class and no layout rules.
-    // Turn baseDecl to nullptr so we return the proper info and stop further
-    // traversing.
-    baseDecl = nullptr;
-    return false;
-  }
-
-  spv::StorageClass getStorageClass() const {
-    if (const auto *info = declIdMapper.getDeclSpirvInfo(baseDecl))
-      return info->storageClass;
-
-    // No Decl referenced. This is probably a temporary expression.
-    return spv::StorageClass::Function;
-  }
-
-  LayoutRule getLayoutRule() const {
-    if (const auto *info = declIdMapper.getDeclSpirvInfo(baseDecl))
-      return info->layoutRule;
-
-    // No Decl referenced. This is probably a temporary expression.
-    return LayoutRule::Void;
-  }
-
-private:
-  const DeclResultIdMapper &declIdMapper;
-  const NamedDecl *baseDecl;
-};
-} // namespace
-
-spv::StorageClass
-DeclResultIdMapper::resolveStorageInfo(const Expr *expr,
-                                       LayoutRule *rule) const {
-  auto resolver = StorageInfoResolver(*this);
-  resolver.TraverseStmt(const_cast<Expr *>(expr));
-  if (rule)
-    *rule = resolver.getLayoutRule();
-  return resolver.getStorageClass();
-}
-
-spv::StorageClass
-DeclResultIdMapper::resolveStorageClass(const Decl *decl) const {
-  auto resolver = StorageInfoResolver(*this);
-  resolver.TraverseDecl(const_cast<Decl *>(decl));
-  return resolver.getStorageClass();
 }
 
 std::vector<uint32_t> DeclResultIdMapper::collectStageVars() const {
@@ -571,62 +464,47 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 }
 
 bool DeclResultIdMapper::decorateResourceBindings() {
-  // Returns true if the given ResourceVar has explicit descriptor set and
-  // binding specified.
-  const auto bindingAssigned = [](const ResourceVar &var) {
-    return var.getBinding() != nullptr;
-  };
-
   BindingSet bindingSet;
   bool noError = true;
 
-  if (std::all_of(resourceVars.begin(), resourceVars.end(), bindingAssigned)) {
-    for (const auto &var : resourceVars) {
-      const auto attrLoc = var.getBinding()->getLocation();
-      const auto set = var.getBinding()->getSet();
-      const auto binding = var.getBinding()->getBinding();
+  // Process variables with [[vk::binding(...)]] binding assignment
+  for (const auto &var : resourceVars)
+    if (const auto *vkBinding = var.getBinding()) {
+      const auto set = vkBinding->getSet();
+      const auto binding = vkBinding->getBinding();
 
       if (bindingSet.isBindingUsed(binding, set)) {
         emitError("resource binding #%0 in descriptor set #%1 already assigned",
-                  attrLoc)
+                  vkBinding->getLocation())
             << binding << set;
         noError = false;
+      } else {
+        theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
+        bindingSet.useBinding(binding, set);
+      }
+    }
+
+  // Process variables with register(...) binding assignment
+  for (const auto &var : resourceVars)
+    if (const auto *reg = var.getRegister())
+      if (!var.getBinding()) {
+        const uint32_t set = reg->RegisterSpace;
+        const uint32_t binding = reg->RegisterNumber;
+
+        // TODO: we can have duplicated set and binding number because of there
+        // are multiple resource types in the following. E.g., :register(s0) and
+        // :register(t0) will both map to set #0 and binding #0.
+        theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
+        bindingSet.useBinding(binding, set);
       }
 
-      theBuilder.decorateDSetBinding(var.getSpirvId(),
-                                     var.getBinding()->getSet(),
-                                     var.getBinding()->getBinding());
+  // Process variables with no binding assignment
+  for (const auto &var : resourceVars)
+    if (!var.getBinding() && !var.getRegister())
+      theBuilder.decorateDSetBinding(var.getSpirvId(), 0,
+                                     bindingSet.useNextBinding());
 
-      bindingSet.useBinding(binding, set);
-    }
-    return noError;
-  }
-
-  if (std::any_of(resourceVars.begin(), resourceVars.end(), bindingAssigned)) {
-    // We have checked that not all of the stage variables have explicit
-    // set and binding assignment.
-    emitError("partial explicit resource binding assignment via "
-              "[[vk::binding(X[, Y])]] unsupported");
-    return false;
-  }
-
-  for (const auto &var : resourceVars) {
-    // TODO: we can have duplicated set and binding number because of there are
-    // multiple resource types in the following. E.g., :register(s0) and
-    // :register(t0) will both map to set #0 and binding #0.
-    uint32_t set = 0, binding = 0;
-    if (const auto *reg = var.getRegister()) {
-      set = reg->RegisterSpace;
-      binding = reg->RegisterNumber;
-      bindingSet.useBinding(binding, set);
-    } else {
-      binding = bindingSet.useNextBinding();
-    }
-
-    theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
-  }
-
-  return true;
+  return noError;
 }
 
 QualType
@@ -869,6 +747,27 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
                                          BuiltIn::GlobalInvocationId);
+  }
+  case hlsl::Semantic::Kind::GroupID: {
+    // GroupID semantic is only valid for compute shaders, and it is always an
+    // input.
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
+                                         BuiltIn::WorkgroupId);
+  }
+  case hlsl::Semantic::Kind::GroupThreadID: {
+    // GroupThreadID semantic is only valid for compute shaders, and it is
+    // always an input.
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
+                                         BuiltIn::LocalInvocationId);
+  }
+  case hlsl::Semantic::Kind::GroupIndex: {
+    // GroupIndex semantic is only valid for compute shaders, and it is
+    // always an input.
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
+                                         BuiltIn::LocalInvocationIndex);
   }
   default:
     emitError("semantic %0 unimplemented yet")

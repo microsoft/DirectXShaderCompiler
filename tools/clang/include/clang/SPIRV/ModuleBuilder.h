@@ -163,7 +163,8 @@ public:
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t bias, uint32_t lod,
                              std::pair<uint32_t, uint32_t> grad,
-                             uint32_t constOffset, uint32_t varOffset);
+                             uint32_t constOffset, uint32_t varOffset,
+                             uint32_t constOffsets, uint32_t sample);
 
   /// \brief Creates SPIR-V instructions for reading a texel from an image. If
   /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
@@ -172,7 +173,8 @@ public:
   uint32_t createImageFetchOrRead(bool doImageFetch, uint32_t texelType,
                                   uint32_t image, uint32_t coordinate,
                                   uint32_t lod, uint32_t constOffset,
-                                  uint32_t varOffset);
+                                  uint32_t varOffset, uint32_t constOffsets,
+                                  uint32_t sample);
 
   /// \brief Creates SPIR-V instructions for writing to the given image.
   void createImageWrite(uint32_t imageId, uint32_t coordId, uint32_t texelId);
@@ -181,7 +183,8 @@ public:
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t component,
-                             uint32_t constOffset, uint32_t varOffset);
+                             uint32_t constOffset, uint32_t varOffset,
+                             uint32_t constOffsets, uint32_t sample);
 
   /// \brief Creates a select operation with the given values for true and false
   /// cases and returns the <result-id> for the result.
@@ -293,6 +296,7 @@ public:
   uint32_t getInt32Type();
   uint32_t getUint32Type();
   uint32_t getFloat32Type();
+  uint32_t getFloat64Type();
   uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
   uint32_t getMatType(uint32_t colType, uint32_t colCount);
   uint32_t getPointerType(uint32_t pointeeType, spv::StorageClass);
@@ -337,11 +341,10 @@ private:
 
   /// \brief Returns the composed ImageOperandsMask from non-zero parameters
   /// and pushes non-zero parameters to *orderedParams in the expected order.
-  spv::ImageOperandsMask
-  composeImageOperandsMask(uint32_t bias, uint32_t lod,
-                           const std::pair<uint32_t, uint32_t> &grad,
-                           uint32_t constOffset, uint32_t varOffset,
-                           llvm::SmallVectorImpl<uint32_t> *orderedParams);
+  spv::ImageOperandsMask composeImageOperandsMask(
+      uint32_t bias, uint32_t lod, const std::pair<uint32_t, uint32_t> &grad,
+      uint32_t constOffset, uint32_t varOffset, uint32_t constOffsets,
+      uint32_t sample, llvm::SmallVectorImpl<uint32_t> *orderedParams);
 
   SPIRVContext &theContext; ///< The SPIR-V context.
   SPIRVModule theModule;    ///< The module under building.

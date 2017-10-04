@@ -10412,7 +10412,7 @@ HLSLBufferDecl::Create(ASTContext &C, DeclContext *lexicalParent, bool cbuffer,
 const char *HLSLBufferDecl::getDeclKindName() const {
   static const char *HLSLBufferNames[] = {"tbuffer", "cbuffer", "TextureBuffer",
                                           "ConstantBuffer"};
-  unsigned index = isCBuffer() | (isConstantBufferView()) << 1;
+  unsigned index = (unsigned ) isCBuffer() | (isConstantBufferView()) << 1;
   return HLSLBufferNames[index];
 }
 

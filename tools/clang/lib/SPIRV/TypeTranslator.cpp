@@ -34,6 +34,80 @@ inline void roundToPow2(uint32_t *val, uint32_t pow2) {
 }
 } // anonymous namespace
 
+bool TypeTranslator::isRelaxedPrecisionType(QualType type) {
+  // Primitive types
+  {
+    QualType ty = {};
+    if (isScalarType(type, &ty))
+      if (const auto *builtinType = ty->getAs<BuiltinType>())
+        switch (builtinType->getKind()) {
+        case BuiltinType::Short:
+        case BuiltinType::UShort:
+        case BuiltinType::Min12Int:
+        case BuiltinType::Min10Float:
+        case BuiltinType::Half:
+          return true;
+        }
+  }
+
+  // Vector & Matrix types could use relaxed precision based on their element
+  // type.
+  {
+    QualType elemType = {};
+    if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType))
+      return isRelaxedPrecisionType(elemType);
+  }
+
+  return false;
+}
+
+bool TypeTranslator::isOpaqueType(QualType type) {
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    const auto name = recordType->getDecl()->getName();
+
+    if (name == "Texture1D" || name == "RWTexture1D")
+      return true;
+    if (name == "Texture2D" || name == "RWTexture2D")
+      return true;
+    if (name == "Texture2DMS" || name == "RWTexture2DMS")
+      return true;
+    if (name == "Texture3D" || name == "RWTexture3D")
+      return true;
+    if (name == "TextureCube" || name == "RWTextureCube")
+      return true;
+
+    if (name == "Texture1DArray" || name == "RWTexture1DArray")
+      return true;
+    if (name == "Texture2DArray" || name == "RWTexture2DArray")
+      return true;
+    if (name == "Texture2DMSArray" || name == "RWTexture2DMSArray")
+      return true;
+    if (name == "TextureCubeArray" || name == "RWTextureCubeArray")
+      return true;
+
+    if (name == "Buffer" || name == "RWBuffer")
+      return true;
+
+    if (name == "SamplerState" || name == "SamplerComparisonState")
+      return true;
+  }
+  return false;
+}
+
+bool TypeTranslator::isOpaqueStructType(QualType type) {
+  if (isOpaqueType(type))
+    return false;
+
+  if (const auto *recordType = type->getAs<RecordType>())
+    for (const auto *field : recordType->getDecl()->decls())
+      if (const auto *fieldDecl = dyn_cast<FieldDecl>(field))
+        if (isOpaqueType(fieldDecl->getType()) ||
+            isOpaqueStructType(fieldDecl->getType()))
+          return true;
+
+  return false;
+}
+
 uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                        bool isRowMajor) {
   // We can only apply row_major to matrices or arrays of matrices.
@@ -55,12 +129,25 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           return theBuilder.getVoidType();
         case BuiltinType::Bool:
           return theBuilder.getBoolType();
+        // int, min16int (short), and min12int are all translated to 32-bit
+        // signed integers in SPIR-V.
         case BuiltinType::Int:
+        case BuiltinType::Short:
+        case BuiltinType::Min12Int:
           return theBuilder.getInt32Type();
+        // uint and min16uint (ushort) are both translated to 32-bit unsigned
+        // integers in SPIR-V.
+        case BuiltinType::UShort:
         case BuiltinType::UInt:
           return theBuilder.getUint32Type();
+        // float, min16float (half), and min10float are all translated to 32-bit
+        // float in SPIR-V.
         case BuiltinType::Float:
+        case BuiltinType::Half:
+        case BuiltinType::Min10Float:
           return theBuilder.getFloat32Type();
+        case BuiltinType::Double:
+          return theBuilder.getFloat64Type();
         default:
           emitError("Primitive type '%0' is not supported yet.")
               << builtinType->getTypeClassName();
@@ -81,6 +168,12 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     // variables. So it should be fine to drop the pointer type and treat it
     // as the underlying pointee type here.
     return translateType(refType->getPointeeType(), rule, isRowMajor);
+  }
+
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>()) {
+    // The this object in a struct member function is of pointer type.
+    return translateType(ptrType->getPointeeType(), rule, isRowMajor);
   }
 
   // In AST, vector/matrix types are TypedefType of TemplateSpecializationType.
@@ -167,6 +260,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
   }
 
   emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
+  type->dump();
   return 0;
 }
 
@@ -216,6 +310,30 @@ bool TypeTranslator::isRWByteAddressBuffer(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isAppendStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "AppendStructuredBuffer";
+}
+
+bool TypeTranslator::isConsumeStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "ConsumeStructuredBuffer";
+}
+
+bool TypeTranslator::isStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "StructuredBuffer" || name == "RWStructuredBuffer";
+}
+
 bool TypeTranslator::isByteAddressBuffer(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     return rt->getDecl()->getName() == "ByteAddressBuffer";
@@ -256,6 +374,15 @@ bool TypeTranslator::isTexture(QualType type) {
         name == "Texture2DMS" || name == "Texture2DMSArray" ||
         name == "TextureCube" || name == "TextureCubeArray" ||
         name == "Texture3D")
+      return true;
+  }
+  return false;
+}
+
+bool TypeTranslator::isTextureMS(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (name == "Texture2DMS" || name == "Texture2DMSArray")
       return true;
   }
   return false;

@@ -28,7 +28,7 @@ if (${ENABLE_SPIRV_CODEGEN})
   if (NOT TARGET SPIRV-Tools)
     message(FATAL_ERROR "SPIRV-Tools was not found - required for SPIR-V codegen")
   else()
-    set(SPIRV_TOOLS_INCLUDE_DIR ${SPIRV-Tools_SOURCE_DIR}/include PARENT_SCOPE)
+    set(SPIRV_TOOLS_INCLUDE_DIR ${spirv-tools_SOURCE_DIR}/include PARENT_SCOPE)
   endif()
 
   set(SPIRV_DEP_TARGETS

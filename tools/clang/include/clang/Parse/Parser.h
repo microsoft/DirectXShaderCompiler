@@ -2377,9 +2377,9 @@ private:
 
   // HLSL Change Starts
   Decl *ParseCTBuffer(unsigned Context, SourceLocation &DeclEnd,
-    SourceLocation InlineLoc = SourceLocation());
+    ParsedAttributesWithRange &attrs, SourceLocation InlineLoc = SourceLocation());
   Decl *ParseConstBuffer(unsigned Context, SourceLocation &DeclEnd,
-    SourceLocation InlineLoc = SourceLocation());
+    ParsedAttributesWithRange &attrs, SourceLocation InlineLoc = SourceLocation());
   // HLSL Change Ends
 
   Decl *ParseNamespace(unsigned Context, SourceLocation &DeclEnd,

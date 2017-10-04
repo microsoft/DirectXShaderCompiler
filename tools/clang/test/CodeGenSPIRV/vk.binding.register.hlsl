@@ -18,14 +18,8 @@ Texture2D<float4> texture1: register(t2, space1);
 // CHECK-NEXT: OpDecorate %texture2 Binding 1
 Texture3D<float4> texture2: register(t1);
 
-// Note: using the next available binding #
-// CHECK:      OpDecorate %sampler3 DescriptorSet 0
-// CHECK-NEXT: OpDecorate %sampler3 Binding 0
 SamplerState sampler3;
 
-// Note: using the next available binding #
-// CHECK:      OpDecorate %sampler4 DescriptorSet 0
-// CHECK-NEXT: OpDecorate %sampler4 Binding 2
 SamplerState sampler4;
 
 // CHECK:      OpDecorate %var_myCbuffer DescriptorSet 3
@@ -64,16 +58,26 @@ RWStructuredBuffer<S> sbuffer2 : register(u6, space1);
     // The counter variable will use the next unassigned number
 // CHECK:      OpDecorate %abuffer DescriptorSet 0
 // CHECK-NEXT: OpDecorate %abuffer Binding 5
-// CHECK-NEXT: OpDecorate %counter_var_abuffer DescriptorSet 0
-// CHECK-NEXT: OpDecorate %counter_var_abuffer Binding 4
 AppendStructuredBuffer<S> abuffer : register(u5);
 
     // The counter variable will use the next unassigned number
 // CHECK:      OpDecorate %csbuffer DescriptorSet 0
 // CHECK-NEXT: OpDecorate %csbuffer Binding 7
+ConsumeStructuredBuffer<S> csbuffer : register(u7);
+
+// Note: The following are using the next available binding #
+
+// CHECK:      OpDecorate %sampler3 DescriptorSet 0
+// CHECK-NEXT: OpDecorate %sampler3 Binding 0
+
+// CHECK:      OpDecorate %sampler4 DescriptorSet 0
+// CHECK-NEXT: OpDecorate %sampler4 Binding 2
+
+// CHECK-NEXT: OpDecorate %counter_var_abuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %counter_var_abuffer Binding 4
+
 // CHECK-NEXT: OpDecorate %counter_var_csbuffer DescriptorSet 0
 // CHECK-NEXT: OpDecorate %counter_var_csbuffer Binding 6
-ConsumeStructuredBuffer<S> csbuffer : register(u7);
 
 float4 main() : SV_Target {
     return 1.0;

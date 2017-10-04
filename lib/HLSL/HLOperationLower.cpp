@@ -1677,9 +1677,7 @@ Value *TranslateFrexp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Constant *exponentShiftConst = ConstantInt::get(i32Ty, 23);
   Constant *mantisaOrConst = ConstantInt::get(i32Ty, 0x3f000000);
   Constant *exponentBiasConst = ConstantInt::get(i32Ty, -(int)0x3f000000);
-  // bool ne = val != 0;
-  Value *notZero = Builder.CreateFCmpUNE(val, hlslOP->GetFloatConst(0));
-  notZero = Builder.CreateZExt(notZero, i32Ty);
+  Constant *zeroVal = hlslOP->GetFloatConst(0);
   // int iVal = asint(val);
   Type *dstTy = i32Ty;
   Type *Ty = val->getType();
@@ -1691,9 +1689,14 @@ Value *TranslateFrexp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     exponentShiftConst = ConstantVector::getSplat(vecSize, exponentShiftConst);
     mantisaOrConst = ConstantVector::getSplat(vecSize, mantisaOrConst);
     exponentBiasConst = ConstantVector::getSplat(vecSize, exponentBiasConst);
+    zeroVal = ConstantVector::getSplat(vecSize, zeroVal);
   }
 
-  Value *intVal = Builder.CreateBitCast(val, i32Ty);
+  // bool ne = val != 0;
+  Value *notZero = Builder.CreateFCmpUNE(val, zeroVal);
+  notZero = Builder.CreateZExt(notZero, dstTy);
+
+  Value *intVal = Builder.CreateBitCast(val, dstTy);
   // temp = intVal & exponentMask;
   Value *temp = Builder.CreateAnd(intVal, exponentMaskConst);
   // temp = temp + exponentBias;
@@ -2784,17 +2787,17 @@ void GenerateDxilGather(CallInst *CI, Function *F,
 
     helper.UpdateOffsetInGatherArgs(gatherArgs, /*sampleIdx*/ 1);
     CallInst *callY = Builder.CreateCall(F, gatherArgs);
-    elt = Builder.CreateExtractValue(callY, (uint64_t)0);
+    elt = Builder.CreateExtractValue(callY, (uint64_t)1);
     retVal = Builder.CreateInsertElement(retVal, elt, 1);
 
     helper.UpdateOffsetInGatherArgs(gatherArgs, /*sampleIdx*/ 2);
     CallInst *callZ = Builder.CreateCall(F, gatherArgs);
-    elt = Builder.CreateExtractValue(callZ, (uint64_t)0);
+    elt = Builder.CreateExtractValue(callZ, (uint64_t)2);
     retVal = Builder.CreateInsertElement(retVal, elt, 2);
 
     helper.UpdateOffsetInGatherArgs(gatherArgs, /*sampleIdx*/ 3);
     CallInst *callW = Builder.CreateCall(F, gatherArgs);
-    elt = Builder.CreateExtractValue(callW, (uint64_t)0);
+    elt = Builder.CreateExtractValue(callW, (uint64_t)3);
     retVal = Builder.CreateInsertElement(retVal, elt, 3);
     // Replace ret val.
     CI->replaceAllUsesWith(retVal);

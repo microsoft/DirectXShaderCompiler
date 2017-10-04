@@ -24,6 +24,8 @@ add_clang_library(clangSPIRV
   clangBasic
   clangFrontend
   clangLex
+  SPIRV-Tools-opt
   )
 
 target_include_directories(clangSPIRV PUBLIC ${SPIRV_HEADER_INCLUDE_DIR})
+target_include_directories(clangSPIRV PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR})

@@ -16,15 +16,10 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 
+#include "SpirvEvalInfo.h"
+
 namespace clang {
 namespace spirv {
-
-/// Memory layout rules
-enum class LayoutRule {
-  Void,
-  GLSLStd140,
-  GLSLStd430,
-};
 
 /// The class responsible to translate Clang frontend types into SPIR-V type
 /// instructions.
@@ -59,11 +54,20 @@ public:
   /// integer value. This type will be decorated with BufferBlock.
   uint32_t getACSBufferCounter();
 
+  /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
+  static bool isStructuredBuffer(QualType type);
+
+  /// \brief Returns true if the given type is an AppendStructuredBuffer type.
+  static bool isAppendStructuredBuffer(QualType type);
+
+  /// \brief Returns true if the given type is a ConsumeStructuredBuffer type.
+  static bool isConsumeStructuredBuffer(QualType type);
+
   /// \brief Returns true if the given type is the HLSL ByteAddressBufferType.
-  bool isByteAddressBuffer(QualType type);
+  static bool isByteAddressBuffer(QualType type);
 
   /// \brief Returns true if the given type is the HLSL RWByteAddressBufferType.
-  bool isRWByteAddressBuffer(QualType type);
+  static bool isRWByteAddressBuffer(QualType type);
 
   /// \brief Returns true if the given type is the HLSL Buffer type.
   static bool isBuffer(QualType type);
@@ -73,6 +77,10 @@ public:
 
   /// \brief Returns true if the given type is an HLSL Texture type.
   static bool isTexture(QualType);
+
+  /// \brief Returns true if the given type is an HLSL Texture2DMS or
+  /// Texture2DMSArray type.
+  static bool isTextureMS(QualType);
 
   /// \brief Returns true if the given type is an HLSL RWTexture type.
   static bool isRWTexture(QualType);
@@ -121,6 +129,19 @@ public:
   /// counts.
   static bool isSpirvAcceptableMatrixType(QualType type);
 
+  /// \brief Returns true if the given type can use relaxed precision
+  /// decoration. Integer and float types with lower than 32 bits can be
+  /// operated on with a relaxed precision.
+  static bool isRelaxedPrecisionType(QualType);
+
+  /// Returns true if the given type will be translated into a SPIR-V image,
+  /// sampler or struct containing images or samplers.
+  static bool isOpaqueType(QualType type);
+
+  /// Returns true if the given type is a struct type who has an opaque field
+  /// (in a recursive away).
+  static bool isOpaqueStructType(QualType tye);
+
   /// \brief Returns the the element type for the given scalar/vector/matrix
   /// type. Returns empty QualType for other cases.
   QualType getElementType(QualType type);
@@ -155,6 +176,14 @@ private:
   /// instructions and returns the <result-id>. Returns 0 on failure.
   uint32_t translateResourceType(QualType type, LayoutRule rule);
 
+  /// \bried For the given sampled type, returns the corresponding image format
+  /// that can be used to create an image object.
+  spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
+
+  /// \brief Returns a string name for the given type.
+  static std::string getName(QualType type);
+
+public:
   /// \brief Returns the alignment and size in bytes for the given type
   /// according to the given LayoutRule.
 
@@ -170,13 +199,6 @@ private:
                                                     LayoutRule rule,
                                                     bool isRowMajor,
                                                     uint32_t *stride);
-
-  /// \bried For the given sampled type, returns the corresponding image format
-  /// that can be used to create an image object.
-  spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
-
-  /// \brief Returns a string name for the given type.
-  static std::string getName(QualType type);
 
 private:
   ASTContext &astContext;
