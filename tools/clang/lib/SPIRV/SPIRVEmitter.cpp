@@ -178,6 +178,36 @@ bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
   return optimizer.Run(module->data(), module->size(), module);
 }
 
+/// Translates RWByteAddressBuffer atomic method opcode into SPIR-V opcode.
+spv::Op translateRWBABufferAtomicMethods(hlsl::IntrinsicOp opcode) {
+  using namespace hlsl;
+  using namespace spv;
+
+  switch (opcode) {
+  case IntrinsicOp::MOP_InterlockedAdd:
+    return Op::OpAtomicIAdd;
+  case IntrinsicOp::MOP_InterlockedAnd:
+    return Op::OpAtomicAnd;
+  case IntrinsicOp::MOP_InterlockedOr:
+    return Op::OpAtomicOr;
+  case IntrinsicOp::MOP_InterlockedXor:
+    return Op::OpAtomicXor;
+  case IntrinsicOp::MOP_InterlockedUMax:
+    return Op::OpAtomicUMax;
+  case IntrinsicOp::MOP_InterlockedUMin:
+    return Op::OpAtomicUMin;
+  case IntrinsicOp::MOP_InterlockedMax:
+    return Op::OpAtomicSMax;
+  case IntrinsicOp::MOP_InterlockedMin:
+    return Op::OpAtomicSMin;
+  case IntrinsicOp::MOP_InterlockedExchange:
+    return Op::OpAtomicExchange;
+  }
+
+  assert(false && "unimplemented hlsl intrinsic opcode");
+  return Op::Max;
+}
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
@@ -1472,6 +1502,54 @@ uint32_t SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
   return 0;
 }
 
+uint32_t SPIRVEmitter::processRWByteAddressBufferAtomicMethods(
+    hlsl::IntrinsicOp opcode, const CXXMemberCallExpr *expr) {
+  // The signature of RWByteAddressBuffer atomic methods are largely:
+  // void Interlocked*(in UINT dest, in UINT value);
+  // void Interlocked*(in UINT dest, in UINT value, out UINT original_value);
+
+  const auto *object = expr->getImplicitObjectArgument();
+  // We do not need to load the object since we are using its pointers.
+  const auto objectInfo = doExpr(object);
+
+  const auto uintType = theBuilder.getUint32Type();
+  const uint32_t zero = theBuilder.getConstantUint32(0);
+
+  const uint32_t offset = doExpr(expr->getArg(0));
+  // Right shift by 2 to convert the byte offset to uint32_t offset
+  const uint32_t address =
+      theBuilder.createBinaryOp(spv::Op::OpShiftRightLogical, uintType, offset,
+                                theBuilder.getConstantUint32(2));
+  const auto ptrType =
+      theBuilder.getPointerType(uintType, objectInfo.storageClass);
+  const uint32_t ptr =
+      theBuilder.createAccessChain(ptrType, objectInfo, {zero, address});
+
+  const uint32_t scope = theBuilder.getConstantUint32(1); // Device
+
+  const bool isCompareExchange =
+      opcode == hlsl::IntrinsicOp::MOP_InterlockedCompareExchange;
+  const bool isCompareStore =
+      opcode == hlsl::IntrinsicOp::MOP_InterlockedCompareStore;
+
+  if (isCompareExchange || isCompareStore) {
+    const uint32_t comparator = doExpr(expr->getArg(1));
+    const uint32_t originalVal = theBuilder.createAtomicCompareExchange(
+        uintType, ptr, scope, zero, zero, doExpr(expr->getArg(2)), comparator);
+    if (isCompareExchange)
+      theBuilder.createStore(doExpr(expr->getArg(3)), originalVal);
+  } else {
+    const uint32_t value = doExpr(expr->getArg(1));
+    const uint32_t originalVal =
+        theBuilder.createAtomicOp(translateRWBABufferAtomicMethods(opcode),
+                                  uintType, ptr, scope, zero, value);
+    if (expr->getNumArgs() > 2)
+      theBuilder.createStore(doExpr(expr->getArg(2)), originalVal);
+  }
+
+  return 0;
+}
+
 uint32_t
 SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   theBuilder.requireCapability(spv::Capability::ImageQuery);
@@ -1814,14 +1892,14 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   uint32_t index = 0;
   if (isAppend) {
     // For append, we add one to the counter.
-    index = theBuilder.createAtomicIAddSub(u32Type, counterPtr, one, zero, one,
-                                           /*isAdd=*/true);
+    index = theBuilder.createAtomicOp(spv::Op::OpAtomicIAdd, u32Type,
+                                      counterPtr, one, zero, one);
   } else {
     // For consume, we substract one from the counter. Note that OpAtomicIAdd
     // returns the value before the addition; so we need to do substraction
     // again with OpAtomicIAdd's return value.
-    const auto prevIndex = theBuilder.createAtomicIAddSub(
-        u32Type, counterPtr, one, zero, one, /*isAdd=*/false);
+    const auto prevIndex = theBuilder.createAtomicOp(
+        spv::Op::OpAtomicISub, u32Type, counterPtr, one, zero, one);
     index = theBuilder.createBinaryOp(spv::Op::OpISub, u32Type, prevIndex, one);
   }
 
@@ -2090,7 +2168,20 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_CalculateLevelOfDetail: {
     return processTextureLevelOfDetail(expr);
   }
+  case IntrinsicOp::MOP_InterlockedAdd:
+  case IntrinsicOp::MOP_InterlockedAnd:
+  case IntrinsicOp::MOP_InterlockedOr:
+  case IntrinsicOp::MOP_InterlockedXor:
+  case IntrinsicOp::MOP_InterlockedUMax:
+  case IntrinsicOp::MOP_InterlockedUMin:
+  case IntrinsicOp::MOP_InterlockedMax:
+  case IntrinsicOp::MOP_InterlockedMin:
+  case IntrinsicOp::MOP_InterlockedExchange:
+  case IntrinsicOp::MOP_InterlockedCompareExchange:
+  case IntrinsicOp::MOP_InterlockedCompareStore:
+    return processRWByteAddressBufferAtomicMethods(opcode, expr);
   }
+
   emitError("HLSL intrinsic member call unimplemented: %0")
       << callee->getName();
   return 0;

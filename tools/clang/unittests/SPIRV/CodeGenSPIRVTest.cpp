@@ -365,9 +365,7 @@ TEST_F(FileTest, SemanticDuplication) {
 TEST_F(FileTest, SemanticDispatchThreadId) {
   runFileTest("semantic.dispatch-thread-id.cs.hlsl");
 }
-TEST_F(FileTest, SemanticGroupID) {
-  runFileTest("semantic.group-id.cs.hlsl");
-}
+TEST_F(FileTest, SemanticGroupID) { runFileTest("semantic.group-id.cs.hlsl"); }
 TEST_F(FileTest, SemanticGroupThreadID) {
   runFileTest("semantic.group-thread-id.cs.hlsl");
 }
@@ -435,6 +433,9 @@ TEST_F(FileTest, ByteAddressBufferStore) {
 }
 TEST_F(FileTest, ByteAddressBufferGetDimensions) {
   runFileTest("method.byte-address-buffer.get-dimensions.hlsl");
+}
+TEST_F(FileTest, RWByteAddressBufferAtomicMethods) {
+  runFileTest("method.rw-byte-address-buffer.atomic.hlsl");
 }
 
 // For Buffer/RWBuffer methods
