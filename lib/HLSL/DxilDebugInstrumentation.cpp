@@ -25,7 +25,56 @@
 using namespace llvm;
 using namespace hlsl;
 
+// Overview of instrumentation:
+// 
+// In summary, instructions are added that cause a "trace" of the execution of the shader to be written
+// out to a UAV. This trace is then used by a debugger application to provide a post-mortem debugging
+// experience that reconstructs the execution history of the shader.
+// 
+// The trace is only required for a particular shader instance of interest, and a branchless mechanism
+// is used to write the trace either to an incrementing location within the UAV, or to a "dumping ground"
+// area at the top of the UAV if the instance is not of interest.
+// 
+// The following modifications are made:
+// 
+// First, instructions are added to the top of the entry point function that implement the following:
+// -  Examine the input variables that define the instance of the shader that is running. This will
+//    be SV_Position for pixel shaders, SV_Vertex+SV_Instance for vertex shaders, thread id for compute
+//    shaders etc. If these system values need to be added to the shader, then they are also added to the
+//    input signature, if appropriate.
+// -  Compare the above variables with the instance of interest defined by the invoker of this pass.
+//    Deduce two values: a multiplicand and an addend that together allow a branchless calculation of
+//    the offset into the UAV at which to write via "offset = offset * multiplicand + addend."
+//    If the instance is NOT of interest, the multiplicand is zero and the addend is 
+//    sizeof(UAV)-(a little bit), causing writes for uninteresting invocations to end up at the top of 
+//    the UAV. Otherwise the multiplicand is 1 and the addend is 0.
+// -  Calculate an "instance identifier". Even with the above instance identification, several invocations may
+//    end up matching the selection criteria. Specifically, this happens during a draw call in which many
+//    triangles overlap the pixel of interest. More on this below.
+//    
+// During execution, the instrumentation for most instructions cause data to be emitted to the UAV. 
+// The index at which data is written is identified by treating the first uint32 of the UAV as an index 
+// which is atomically incremented by the instrumentation. The very first value of this counter that is
+// encountered by each invocation is used as the "instance identifier" mentioned above. That instance
+// identifier is written out with each packet, since many pixel shaders executing in parallel will emit
+// interleaved packets, and the debugger application uses the identifiers to group packets from each separate
+// invocation together.
+// 
+// If an instruction has a non-void and primitive return type, i.e. isn't a struct, then the instrumentation
+// will write that value out to the UAV as well as part of the "step" data packet.
+//    
+// The limiting size of the UAV is enforced in a branchless way by ANDing the offset with a precomputed
+// value that is sizeof(UAV)-64. The actual size of the UAV allocated by the caller is required to be
+// a power of two plus 64 for this reason. The caller detects UAV overrun by examining a canary value
+// close to the end of the power-of-two size of the UAV. If this value has been overwritten, the debug session
+// is deemed to have overflowed the UAV. The caller will than allocate a UAV that is twice the size and
+// try again, up to a predefined maximum.
 
+// Keep this in sync with the same-named value in the debugger application's WinPixShaderUtils.h
+constexpr uint64_t DebugBufferDumpingGroundSize = 64 * 1024;
+
+
+// These definitions echo those in the debugger application's debugshaderrecord.h file
 enum DebugShaderModifierRecordType {
   DebugShaderModifierRecordTypeInvocationStartMarker,
   DebugShaderModifierRecordTypeStep,
@@ -43,10 +92,9 @@ enum DebugShaderModifierRecordType {
   DebugShaderModifierRecordTypeDXILStepDouble = 255,
 };
 
-struct DebugShaderModifierBufferHeader {
-  uint32_t DwordCount;
-};
-
+// These structs echo those in the debugger application's debugshaderrecord.h file, but are recapitulated here
+// because the originals use unnamed unions which are disallowed by DXCompiler's build.
+// 
 struct DebugShaderModifierRecordHeader {
   union  {
     struct {
@@ -130,8 +178,6 @@ private:
   };
 
   uint64_t m_UAVSize = 1024*1024;
-
-  CallInst * m_IndexVariable = nullptr;
   Value * m_SelectionCriterion = nullptr;
   CallInst * m_HandleForUAV = nullptr;
   Value * m_InvocationId = nullptr;
@@ -147,9 +193,13 @@ private:
   // This will either be zero (if the invocation is of interest) or (UAVSize)-(SmallValue) if not.
   Value * m_OffsetAddend = nullptr;
 
+  Constant * m_OffsetMask = nullptr;
+
   std::map<uint32_t, Value *> m_IncrementInstructionBySize;
 
   std::vector<std::string> m_Variables;
+
+  unsigned int m_InstructionIndex = 0;
 
   struct BuilderContext
   {
@@ -171,20 +221,19 @@ public:
   bool runOnModule(Module &M) override;
 
 private:
-  void OutputDebugStringW(Module &M, const char *p);
   SystemValueIndices addRequiredSystemValues(BuilderContext & BC);
-  CallInst * addUAV(BuilderContext & BC);
-  Value * addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices);
+  void addUAV(BuilderContext & BC);
+  void addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices);
   Value * addPixelShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices);
   Value * addComputeShaderProlog(BuilderContext & BC);
   Value * addVertexShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices);
   void addDebugEntryValue(BuilderContext & BC, Value * TheValue);
   void addInvocationStartMarker(BuilderContext & BC);
   void reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInDwords);
-  void addStepDebugEntry(BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst);
+  void addStepDebugEntry(BuilderContext & BC, Instruction * Inst);
   uint32_t UAVDumpingGroundOffset();
   template<typename ReturnType>
-  void addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst);
+  void addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, Instruction * Inst);
 
 };
 
@@ -211,20 +260,11 @@ void DxilDebugInstrumentation::applyOptions(PassOptions O)
   }
 }
 
-#define MAX_ROOM_NEEDED_FOR_DEBUG_FIELD 64
 uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset()
 {
-  return static_cast<uint32_t>(m_UAVSize - MAX_ROOM_NEEDED_FOR_DEBUG_FIELD);
+  return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
 }
 
-
-void DxilDebugInstrumentation::OutputDebugStringW(Module &M, const char *p)
-{
-  if (OSOverride != nullptr) {
-    formatted_raw_ostream FOS(*OSOverride);
-    FOS << p << "\n";
-  }
-}
 
 DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext & BC)
 {
@@ -308,26 +348,6 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
   break;
   case DXIL::ShaderKind::Compute:
     // Compute thread Id is not in the input signature
-  //{
-  //  auto Existing_SV_ThreadId = std::find_if(
-  //    InputElements.begin(), InputElements.end(),
-  //    [](const std::unique_ptr<DxilSignatureElement> & Element) {
-  //    return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::DispatchThreadID; });
-  //
-  //  if (Existing_SV_ThreadId == InputElements.end()) {
-  //    auto Added_SV_Thread = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::CSIn);
-  //    Added_SV_Thread->Initialize("ThreadId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Undefined, 1, 4);
-  //    Added_SV_Thread->AppendSemanticIndex(0);
-  //    Added_SV_Thread->SetSigPointKind(DXIL::SigPointKind::CSIn);
-  //    Added_SV_Thread->SetKind(hlsl::DXIL::SemanticKind::DispatchThreadID);
-  //
-  //    auto index = InputSignature.AppendElement(std::move(Added_SV_Thread));
-  //    SVIndices.ComputeShader.ThreadId = InputElements[index]->GetID();
-  //  }
-  //  else {
-  //    SVIndices.ComputeShader.ThreadId = Existing_SV_ThreadId->get()->GetID();
-  //  }
-  //}
   break;
   default:
     assert(false);
@@ -348,7 +368,7 @@ Value * DxilDebugInstrumentation::addComputeShaderProlog(BuilderContext & BC)
   auto ThreadIdY = BC.Builder.CreateCall(ThreadIdFunc, { Opcode, One32Arg  }, "ThreadIdY");
   auto ThreadIdZ = BC.Builder.CreateCall(ThreadIdFunc, { Opcode, Two32Arg  }, "ThreadIdZ");
 
-  // Compare to expected pixel position and primitive ID
+  // Compare to expected thread ID
   auto CompareToX = BC.Builder.CreateICmpEQ(ThreadIdX, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdX), "CompareToThreadIdX");
   auto CompareToY = BC.Builder.CreateICmpEQ(ThreadIdY, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdY), "CompareToThreadIdY");
   auto CompareToZ = BC.Builder.CreateICmpEQ(ThreadIdZ, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdZ), "CompareToThreadIdZ");
@@ -376,7 +396,7 @@ Value * DxilDebugInstrumentation::addVertexShaderProlog(BuilderContext & BC, Sys
   auto InstanceId = BC.Builder.CreateCall(LoadInputOpFunc,
   { LoadInputOpcode, SV_Instance_ID, Zero32Arg /*row*/, Zero8Arg /*column*/, UndefArg }, "InstanceId");
 
-  // Compare to expected pixel position and primitive ID
+  // Compare to expected vertex ID and instance ID
   auto CompareToVert = BC.Builder.CreateICmpEQ(VertId, BC.HlslOP->GetU32Const(m_Parameters.VertexShader.VertexId), "CompareToVertId");
   auto CompareToInstance = BC.Builder.CreateICmpEQ(InstanceId, BC.HlslOP->GetU32Const(m_Parameters.VertexShader.InstanceId), "CompareToInstanceId");
   auto CompareBoth = BC.Builder.CreateAnd(CompareToVert, CompareToInstance, "CompareBoth");
@@ -415,7 +435,7 @@ Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext & BC, Syst
   return ComparePos;
 }
 
-CallInst * DxilDebugInstrumentation::addUAV(BuilderContext & BC)
+void DxilDebugInstrumentation::addUAV(BuilderContext & BC)
 {
   // Set up a UAV with structure of a single int
   unsigned int UAVResourceHandle = static_cast<unsigned int>(BC.DM.GetUAVs().size());
@@ -447,13 +467,11 @@ CallInst * DxilDebugInstrumentation::addUAV(BuilderContext & BC)
   Constant* MetaDataArg = BC.HlslOP->GetU32Const(ID); // position of the metadata record in the corresponding metadata list
   Constant* IndexArg = BC.HlslOP->GetU32Const(0); // 
   Constant* FalseArg = BC.HlslOP->GetI1Const(0); // non-uniform resource index: false
-  auto HandleForUAV = BC.Builder.CreateCall(CreateHandleOpFunc,
+  m_HandleForUAV = BC.Builder.CreateCall(CreateHandleOpFunc,
   { CreateHandleOpcodeArg, UAVVArg, MetaDataArg, IndexArg, FalseArg }, "PIX_DebugUAV_Handle");
-
-  return HandleForUAV;
 }
 
-Value * DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices)
+void DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices)
 {
   auto ShaderModel = BC.DM.GetShaderModel();
 
@@ -473,11 +491,14 @@ Value * DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & 
     assert(false);
   }
 
+  // This is a convenient place to calculate the values that modify the UAV offset for invocations of interest and for
+  // UAV size.
   m_OffsetMultiplicand = BC.Builder.CreateCast(Instruction::CastOps::ZExt, ParameterTestResult, Type::getInt32Ty(BC.Ctx), "OffsetMultiplicand");
   auto InverseOffsetMultiplicand = BC.Builder.CreateSub(BC.HlslOP->GetU32Const(1), m_OffsetMultiplicand, "ComplementOfMultiplicand");
   m_OffsetAddend = BC.Builder.CreateMul(BC.HlslOP->GetU32Const(UAVDumpingGroundOffset()), InverseOffsetMultiplicand, "OffsetAddend");
+  m_OffsetMask = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() - 1);
 
-  return ParameterTestResult;
+  m_SelectionCriterion = ParameterTestResult;
 }
 
 void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInBytes)
@@ -521,10 +542,11 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, uint3
       m_InvocationId = PreviousValue;
   }
 
+  auto MaskedForLimit = BC.Builder.CreateAnd(PreviousValue, m_OffsetMask, "MaskedForUAVLimit");
   // The return value will either end up being itself (multiplied by one and added with zero)
   // or the "dump uninteresting things here" value of (UAVSize - a bit).
-  auto MultipliedForInterest = BC.Builder.CreateMul(PreviousValue, m_OffsetMultiplicand);
-  auto AddedForInterest = BC.Builder.CreateAdd(MultipliedForInterest, m_OffsetAddend);
+  auto MultipliedForInterest = BC.Builder.CreateMul(MaskedForLimit, m_OffsetMultiplicand, "MultipliedForInterest");
+  auto AddedForInterest = BC.Builder.CreateAdd(MultipliedForInterest, m_OffsetAddend, "AddedForInterest");
   m_CurrentIndex = AddedForInterest;
 }
 
@@ -616,8 +638,14 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC)
 }
 
 template<typename ReturnType>
-void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst)
+void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, Instruction * Inst)
 {
+  if (OSOverride != nullptr) {
+    formatted_raw_ostream FOS(*OSOverride);
+    Inst->print(FOS);
+    FOS << "\n<--Instruction\n";
+  }
+
   DebugShaderModifierRecordDXILStep<ReturnType> step = {};
   reserveDebugEntrySpace(BC, sizeof(step));
 
@@ -625,7 +653,7 @@ void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType
   step.Header.Details.Type = static_cast<uint8_t>(RecordType);
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(step.Header.u32Header));
   addDebugEntryValue(BC, m_InvocationId);
-  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(InstructionIndex));
+  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(m_InstructionIndex++));
 
   auto pName = std::find(m_Variables.begin(), m_Variables.end(), Inst->getName());
   auto RegisterIndex = static_cast<uint32_t>(pName - m_Variables.begin());
@@ -638,31 +666,41 @@ void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType
   }
 }
 
-void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst)
+void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, Instruction * Inst)
 {
+  //if (Inst->isTerminator())
+  //{
+  //  return;
+  //}
+  //
+  if (Inst->getOpcode() == Instruction::OtherOps::PHI)
+  {
+    return;
+  }
+
   Type::TypeID ID = Inst->getType()->getTypeID();
 
   switch (ID)
   {
   case Type::TypeID::StructTyID:
   case Type::TypeID::VoidTyID:
-    addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepVoid, BC, InstructionIndex, Inst);
+    addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepVoid, BC, Inst);
     break;
   case Type::TypeID::FloatTyID:
-    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, InstructionIndex, Inst);
+    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, Inst);
     break;
   case Type::TypeID::IntegerTyID:
     if (Inst->getType()->getIntegerBitWidth() == 64)
     {
-      addStepEntryForType<uint64_t>(DebugShaderModifierRecordTypeDXILStepUint64, BC, InstructionIndex, Inst);
+      addStepEntryForType<uint64_t>(DebugShaderModifierRecordTypeDXILStepUint64, BC, Inst);
     }
     else
     {
-      addStepEntryForType<uint32_t>(DebugShaderModifierRecordTypeDXILStepUint32, BC, InstructionIndex, Inst);
+      addStepEntryForType<uint32_t>(DebugShaderModifierRecordTypeDXILStepUint32, BC, Inst);
     }
     break;
   case Type::TypeID::DoubleTyID:
-    addStepEntryForType<double>(DebugShaderModifierRecordTypeDXILStepDouble, BC, InstructionIndex, Inst);
+    addStepEntryForType<double>(DebugShaderModifierRecordTypeDXILStepDouble, BC, Inst);
     break;
   case Type::TypeID::FP128TyID:
   case Type::TypeID::HalfTyID:
@@ -713,23 +751,16 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
 
   BuilderContext BC{ M, DM, Ctx, HlslOP, Builder };
 
-  m_HandleForUAV = addUAV(BC);
+  addUAV(BC);
   auto SystemValues = addRequiredSystemValues(BC);
-  m_SelectionCriterion = addInvocationSelectionProlog(BC, SystemValues);
+  addInvocationSelectionProlog(BC, SystemValues);
   addInvocationStartMarker(BC);
 
   // Instrument original instructions:
   {
-    unsigned int InstructionIndex = 0;
     unsigned int UnnamedVariableCounter = 0;
     for (auto & Inst : AllInstrucitons)
     {
-      if (OSOverride != nullptr) {
-        formatted_raw_ostream FOS(*OSOverride);
-        Inst->print(FOS);
-        FOS << "\n<--Instruction\n";
-      }
-
       if (!Inst->getType()->isVoidTy())
       {
         if (Inst->getName().empty())
@@ -741,11 +772,21 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
         m_Variables.emplace_back(Inst->getName().data());
       }
 
-      if (Inst != AllInstrucitons.back() && Inst->getNextNode()) //Inst->getOpcode() != Instruction::Ret)
+      // Instrumentation goes after the instruction if it has a return value.
+      // Otherwise, the instruction might be a terminator so we HAVE to put the instrumentation before
+      if (Inst->getType()->getTypeID() != Type::TypeID::VoidTyID)
       {
+        // Has a return type, so can't be a terminator, so start inserting before the next instruction
         IRBuilder<> Builder(Inst->getNextNode());
         BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
-        addStepDebugEntry(BC2, InstructionIndex++, Inst);
+        addStepDebugEntry(BC2, Inst);
+      }
+      else
+      {
+        // Insert before this instruction
+        IRBuilder<> Builder(Inst);
+        BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
+        addStepDebugEntry(BC2, Inst);
       }
     }
   }
