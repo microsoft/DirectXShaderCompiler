@@ -238,6 +238,9 @@ public:
   uint32_t createExtInst(uint32_t resultType, uint32_t setId, uint32_t instId,
                          llvm::ArrayRef<uint32_t> operands);
 
+  /// \brief Creates an OpControlBarrier instruction with the given flags.
+  void createControlBarrier(uint32_t exec, uint32_t memory, uint32_t semantics);
+
   // === SPIR-V Module Structure ===
 
   inline void requireCapability(spv::Capability);

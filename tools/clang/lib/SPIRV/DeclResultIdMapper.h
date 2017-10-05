@@ -134,6 +134,16 @@ public:
   /// variables and composite them into one and write to *loadedValue.
   bool createStageInputVar(const ParmVarDecl *paramDecl, uint32_t *loadedValue);
 
+  /// \brief Creates an input/output stage variable which does not have any
+  /// semantics (such as InputPatch/OutputPatch in Hull shaders). This method
+  /// does not create a Load/Store from/to the created stage variable and leaves
+  /// it to the caller to do so as they see fit, because it is possible that the
+  /// stage variable may have to be accessed differently (using OpAccessChain
+  /// for example).
+  uint32_t createStageVarWithoutSemantics(bool isInput, uint32_t typeId,
+                                          const llvm::StringRef name,
+                                          const clang::VKLocationAttr *loc);
+
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its <result-id>.
   uint32_t createFnParam(uint32_t paramType, const ParmVarDecl *param);

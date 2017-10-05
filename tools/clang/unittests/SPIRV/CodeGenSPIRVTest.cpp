@@ -36,6 +36,10 @@ TEST_F(WholeFileTest, ConstantPixelShader) {
   runWholeFileTest("constant-ps.hlsl2spv", /*generateHeader*/ true);
 }
 
+TEST_F(WholeFileTest, BezierHullShader) {
+  runWholeFileTest("bezier.hull.hlsl2spv");
+}
+
 // === Partial output tests ===
 
 // For types

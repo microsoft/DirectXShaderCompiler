@@ -384,6 +384,14 @@ private:
   bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
                                 uint32_t entryFuncId);
 
+  /// \brief TODO: describe
+  /// The method panics if it is called for any shader kind other than Hull
+  /// shaders.
+  bool processHullEntryPointOutputAndPatchConstFunc(
+      const FunctionDecl *hullMainFuncDecl, uint32_t retType, uint32_t retVal,
+      uint32_t numOutputControlPoints, uint32_t outputControlPointId,
+      uint32_t primitiveId, uint32_t hullMainInputPatch);
+
 private:
   /// \brief Returns true iff *all* the case values in the given switch
   /// statement are integer literals. In such cases OpSwitch can be used to
@@ -612,6 +620,10 @@ private:
 
   /// Maps a given statement to the basic block that is associated with it.
   llvm::DenseMap<const Stmt *, uint32_t> stmtBasicBlock;
+
+  /// This is the Patch Constant Function. This function is not explicitly
+  /// called from the entry point function.
+  FunctionDecl *patchConstFunc;
 };
 
 void SPIRVEmitter::doDeclStmt(const DeclStmt *declStmt) {

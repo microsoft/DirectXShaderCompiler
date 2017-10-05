@@ -440,7 +440,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       // Only SV_Target, SV_Depth, SV_DepthLessEqual, SV_DepthGreaterEqual,
       // SV_StencilRef, SV_Coverage are allowed in the pixel shader.
       // Arbitrary semantics are disallowed in pixel shader.
-      if (var.getSemantic()->GetKind() == hlsl::Semantic::Kind::Target) {
+      if (var.getSemantic() &&
+          var.getSemantic()->GetKind() == hlsl::Semantic::Kind::Target) {
         theBuilder.decorateLocation(var.getSpirvId(), var.getSemanticIndex());
         locSet.useLoc(var.getSemanticIndex());
       } else {
@@ -515,6 +516,26 @@ DeclResultIdMapper::getFnParamOrRetType(const DeclaratorDecl *decl) const {
   return decl->getType();
 }
 
+uint32_t DeclResultIdMapper::createStageVarWithoutSemantics(
+    bool isInput, uint32_t typeId, const llvm::StringRef name,
+    const clang::VKLocationAttr *loc) {
+  const hlsl::SigPoint *sigPoint = hlsl::SigPoint::GetSigPoint(
+      hlsl::SigPointFromInputQual(isInput ? hlsl::DxilParamInputQual::In
+                                          : hlsl::DxilParamInputQual::Out,
+                                  shaderModel.GetKind(), /*isPC*/ false));
+  StageVar stageVar(sigPoint, name, nullptr, 0, typeId);
+  const llvm::Twine fullName = (isInput ? "in.var." : "out.var.") + name;
+  const spv::StorageClass sc =
+      isInput ? spv::StorageClass::Input : spv::StorageClass::Output;
+  const uint32_t varId = theBuilder.addStageIOVar(typeId, sc, fullName.str());
+  if (varId == 0)
+    return false;
+  stageVar.setSpirvId(varId);
+  stageVar.setLocationAttr(loc);
+  stageVars.push_back(stageVar);
+  return varId;
+}
+
 bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
                                          uint32_t *value, bool asInput,
                                          const llvm::Twine &namePrefix) {
@@ -553,6 +574,9 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
 
     const auto *semantic = hlsl::Semantic::GetByName(semanticName);
 
+    // Commenting out this check because it freaks out when it sees
+    // SV_TessFactor in a Hull shader... which is totally valid.
+    /*
     // Error out when the given semantic is invalid in this shader model
     if (!isInputPatch && hlsl::SigPoint::GetInterpretation(
                              semantic->GetKind(), sigPoint->GetKind(),
@@ -562,6 +586,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
           << semanticStr << shaderModel.GetName();
       return false;
     }
+    */
 
     StageVar stageVar(sigPoint, semanticStr, semantic, semanticIndex, typeId);
     llvm::Twine name = namePrefix + "." + semanticStr;
@@ -815,6 +840,14 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   case hlsl::Semantic::Kind::PrimitiveID: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::PrimitiveId);
+  }
+  case hlsl::Semantic::Kind::TessFactor: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelOuter);
+  }
+  case hlsl::Semantic::Kind::InsideTessFactor: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelInner);
   }
   default:
     emitError("semantic %0 unimplemented yet")
