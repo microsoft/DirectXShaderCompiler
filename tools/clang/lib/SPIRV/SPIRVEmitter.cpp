@@ -2010,68 +2010,35 @@ SpirvEvalInfo SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
 
   return processCall(expr);
 }
+void SPIRVEmitter::handleOptionalOffsetInMethodCall(
+    const CXXMemberCallExpr *expr, uint32_t index, uint32_t *constOffset,
+    uint32_t *varOffset) {
+  *constOffset = *varOffset = 0; // Initialize both first
+
+  if (expr->getNumArgs() == index + 1) { // Has offset argument
+    if (*constOffset = tryToEvaluateAsConst(expr->getArg(index)))
+      return; // Constant offset
+    else
+      *varOffset = doExpr(expr->getArg(index));
+  }
+};
 
 SpirvEvalInfo
 SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
                                          hlsl::IntrinsicOp opcode) {
   using namespace hlsl;
 
-  // Handles the offset argument. If there exists an offset argument, writes the
-  // <result-id> to either *constOffset or *varOffset, depending on the
-  // constantness of the offset.
-  const auto handleOffset = [this](const CXXMemberCallExpr *expr,
-                                   uint32_t index, uint32_t *constOffset,
-                                   uint32_t *varOffset) {
-    *constOffset = *varOffset = 0; // Initialize both first
-
-    if (expr->getNumArgs() == index + 1) { // Has offset argument
-      if (*constOffset = tryToEvaluateAsConst(expr->getArg(index)))
-        return; // Constant offset
-      else
-        *varOffset = doExpr(expr->getArg(index));
-    }
-  };
-
-  const FunctionDecl *callee = expr->getDirectCallee();
-  const auto retType = typeTranslator.translateType(callee->getReturnType());
-
   switch (opcode) {
   case IntrinsicOp::MOP_Sample:
-  case IntrinsicOp::MOP_Gather: {
-    // Signatures:
-    // DXGI_FORMAT Object.Sample(sampler_state S,
-    //                           float Location
-    //                           [, int Offset]);
-    //
-    // <Template Type>4 Object.Gather(sampler_state S,
-    //                                float2|3|4 Location
-    //                                [, int2 Offset]);
-
-    const auto *imageExpr = expr->getImplicitObjectArgument();
-
-    const uint32_t imageType =
-        typeTranslator.translateType(imageExpr->getType());
-
-    const uint32_t image = loadIfGLValue(imageExpr);
-    const uint32_t sampler = doExpr(expr->getArg(0));
-    const uint32_t coordinate = doExpr(expr->getArg(1));
-    // .Sample()/.Gather() has a third optional paramter for offset.
-    uint32_t constOffset = 0, varOffset = 0;
-    handleOffset(expr, 2, &constOffset, &varOffset);
-
-    if (opcode == IntrinsicOp::MOP_Sample) {
-      return theBuilder.createImageSample(
-          retType, imageType, image, sampler, coordinate, /*bias*/ 0,
-          /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
-          /*constOffsets*/ 0, /*sampleNumber*/ 0);
-    } else {
-      return theBuilder.createImageGather(
-          retType, imageType, image, sampler, coordinate,
-          // .Gather() doc says we return four components of red data.
-          theBuilder.getConstantInt32(0), constOffset, varOffset,
-          /*constOffsets*/ 0, /*sampleNumber*/ 0);
-    }
-  }
+    return processTextureSampleGather(expr, /*isSample=*/true);
+  case IntrinsicOp::MOP_Gather:
+    return processTextureSampleGather(expr, /*isSample=*/false);
+  case IntrinsicOp::MOP_SampleBias:
+    return processTextureSampleBiasLevel(expr, /*isBias=*/true);
+  case IntrinsicOp::MOP_SampleLevel:
+    return processTextureSampleBiasLevel(expr, /*isBias=*/false);
+  case IntrinsicOp::MOP_SampleGrad:
+    return processTextureSampleGrad(expr);
   case IntrinsicOp::MOP_GatherRed:
     return processTextureGatherRGBA(expr, 0);
   case IntrinsicOp::MOP_GatherGreen:
@@ -2080,166 +2047,29 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return processTextureGatherRGBA(expr, 2);
   case IntrinsicOp::MOP_GatherAlpha:
     return processTextureGatherRGBA(expr, 3);
-  case IntrinsicOp::MOP_SampleBias:
-  case IntrinsicOp::MOP_SampleLevel: {
-    // Signatures:
-    // DXGI_FORMAT Object.SampleBias(sampler_state S,
-    //                               float Location,
-    //                               float Bias
-    //                               [, int Offset]);
-    //
-    // DXGI_FORMAT Object.SampleLevel(sampler_state S,
-    //                                float Location,
-    //                                float LOD
-    //                                [, int Offset]);
-    const auto *imageExpr = expr->getImplicitObjectArgument();
-
-    const uint32_t imageType =
-        typeTranslator.translateType(imageExpr->getType());
-
-    const uint32_t image = loadIfGLValue(imageExpr);
-    const uint32_t sampler = doExpr(expr->getArg(0));
-    const uint32_t coordinate = doExpr(expr->getArg(1));
-    uint32_t lod = 0;
-    uint32_t bias = 0;
-    if (opcode == IntrinsicOp::MOP_SampleBias) {
-      bias = doExpr(expr->getArg(2));
-    } else {
-      lod = doExpr(expr->getArg(2));
-    }
-    // .Bias()/.SampleLevel() has a fourth optional paramter for offset.
-    uint32_t constOffset = 0, varOffset = 0;
-    handleOffset(expr, 3, &constOffset, &varOffset);
-
-    return theBuilder.createImageSample(
-        retType, imageType, image, sampler, coordinate, bias, lod,
-        std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
-        /*sampleNumber*/ 0);
-  }
-  case IntrinsicOp::MOP_SampleGrad: {
-    // Signature:
-    // DXGI_FORMAT Object.SampleGrad(sampler_state S,
-    //                               float Location,
-    //                               float DDX,
-    //                               float DDY
-    //                               [, int Offset]);
-
-    const auto *imageExpr = expr->getImplicitObjectArgument();
-
-    const uint32_t imageType =
-        typeTranslator.translateType(imageExpr->getType());
-
-    const uint32_t image = loadIfGLValue(imageExpr);
-    const uint32_t sampler = doExpr(expr->getArg(0));
-    const uint32_t coordinate = doExpr(expr->getArg(1));
-    const uint32_t ddx = doExpr(expr->getArg(2));
-    const uint32_t ddy = doExpr(expr->getArg(3));
-    // .SampleGrad() has a fifth optional paramter for offset.
-    uint32_t constOffset = 0, varOffset = 0;
-    handleOffset(expr, 4, &constOffset, &varOffset);
-
-    return theBuilder.createImageSample(
-        retType, imageType, image, sampler, coordinate, /*bias*/ 0, /*lod*/ 0,
-        std::make_pair(ddx, ddy), constOffset, varOffset, /*constOffsets*/ 0,
-        /*sampleNumber*/ 0);
-  }
-  case IntrinsicOp::MOP_Load: {
-    // Signature:
-    // ret Object.Load(int Location
-    //                 [, int SampleIndex,]
-    //                 [, int Offset]);
-
-    const auto *object = expr->getImplicitObjectArgument();
-    const auto *location = expr->getArg(0);
-    const auto objectType = object->getType();
-
-    if (typeTranslator.isRWByteAddressBuffer(objectType) ||
-        typeTranslator.isByteAddressBuffer(objectType))
-      return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false);
-
-    if (TypeTranslator::isStructuredBuffer(objectType))
-      return processStructuredBufferLoad(expr);
-
-    if (TypeTranslator::isBuffer(objectType) ||
-        TypeTranslator::isRWBuffer(objectType) ||
-        TypeTranslator::isRWTexture(objectType))
-      return processBufferTextureLoad(object, doExpr(location));
-
-    if (TypeTranslator::isTexture(objectType)) {
-      // .Load() has a second optional paramter for offset.
-      const auto locationId = doExpr(location);
-      uint32_t constOffset = 0, varOffset = 0;
-      uint32_t coordinate = locationId, lod = 0;
-
-      if (TypeTranslator::isTextureMS(objectType)) {
-        // SampleIndex is only available when the Object is of Texture2DMS or
-        // Texture2DMSArray types. Under those cases, Offset will be the third
-        // parameter (index 2).
-        lod = doExpr(expr->getArg(1));
-        handleOffset(expr, 2, &constOffset, &varOffset);
-      } else {
-        // For Texture Load() functions, the location parameter is a vector
-        // that consists of both the coordinate and the mipmap level (via the
-        // last vector element). We need to split it here since the
-        // OpImageFetch SPIR-V instruction encodes them as separate arguments.
-        splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
-        // For textures other than Texture2DMS(Array), offset should be the
-        // second parameter (index 1).
-        handleOffset(expr, 1, &constOffset, &varOffset);
-      }
-
-      return processBufferTextureLoad(object, coordinate, constOffset,
-                                      varOffset, lod);
-    }
-    emitError("Load() is not implemented for the given object type.");
-    return 0;
-  }
-  case IntrinsicOp::MOP_Load2: {
+  case IntrinsicOp::MOP_Load:
+    return processBufferTextureLoad(expr);
+  case IntrinsicOp::MOP_Load2:
     return processByteAddressBufferLoadStore(expr, 2, /*doStore*/ false);
-  }
-  case IntrinsicOp::MOP_Load3: {
+  case IntrinsicOp::MOP_Load3:
     return processByteAddressBufferLoadStore(expr, 3, /*doStore*/ false);
-  }
-  case IntrinsicOp::MOP_Load4: {
+  case IntrinsicOp::MOP_Load4:
     return processByteAddressBufferLoadStore(expr, 4, /*doStore*/ false);
-  }
-  case IntrinsicOp::MOP_Store: {
+  case IntrinsicOp::MOP_Store:
     return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ true);
-  }
-  case IntrinsicOp::MOP_Store2: {
+  case IntrinsicOp::MOP_Store2:
     return processByteAddressBufferLoadStore(expr, 2, /*doStore*/ true);
-  }
-  case IntrinsicOp::MOP_Store3: {
+  case IntrinsicOp::MOP_Store3:
     return processByteAddressBufferLoadStore(expr, 3, /*doStore*/ true);
-  }
-  case IntrinsicOp::MOP_Store4: {
+  case IntrinsicOp::MOP_Store4:
     return processByteAddressBufferLoadStore(expr, 4, /*doStore*/ true);
-  }
-  case IntrinsicOp::MOP_Append:
-  case IntrinsicOp::MOP_Consume: {
-    return processACSBufferAppendConsume(expr);
-  }
-  case IntrinsicOp::MOP_GetDimensions: {
-    const auto objectType = expr->getImplicitObjectArgument()->getType();
-    if (TypeTranslator::isTexture(objectType) ||
-        TypeTranslator::isRWTexture(objectType) ||
-        TypeTranslator::isBuffer(objectType) ||
-        TypeTranslator::isRWBuffer(objectType)) {
-      return processBufferTextureGetDimensions(expr);
-    } else if (TypeTranslator::isByteAddressBuffer(objectType) ||
-               TypeTranslator::isRWByteAddressBuffer(objectType) ||
-               TypeTranslator::isStructuredBuffer(objectType) ||
-               TypeTranslator::isAppendStructuredBuffer(objectType) ||
-               TypeTranslator::isConsumeStructuredBuffer(objectType)) {
-      return processByteAddressBufferStructuredBufferGetDimensions(expr);
-    } else {
-      emitError("GetDimensions not implmented for the given type yet.");
-      return 0;
-    }
-  }
-  case IntrinsicOp::MOP_CalculateLevelOfDetail: {
+  case IntrinsicOp::MOP_GetDimensions:
+    return processGetDimensions(expr);
+  case IntrinsicOp::MOP_CalculateLevelOfDetail:
     return processTextureLevelOfDetail(expr);
-  }
+  case IntrinsicOp::MOP_Append:
+  case IntrinsicOp::MOP_Consume:
+    return processACSBufferAppendConsume(expr);
   case IntrinsicOp::MOP_InterlockedAdd:
   case IntrinsicOp::MOP_InterlockedAnd:
   case IntrinsicOp::MOP_InterlockedOr:
@@ -2255,8 +2085,189 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   }
 
   emitError("HLSL intrinsic member call unimplemented: %0")
-      << callee->getName();
+      << expr->getDirectCallee()->getName();
   return 0;
+}
+
+uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
+                                                  const bool isSample) {
+  // Signatures:
+  // DXGI_FORMAT Object.Sample(sampler_state S,
+  //                           float Location
+  //                           [, int Offset]);
+  //
+  // <Template Type>4 Object.Gather(sampler_state S,
+  //                                float2|3|4 Location
+  //                                [, int2 Offset]);
+
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+
+  const uint32_t imageType = typeTranslator.translateType(imageExpr->getType());
+
+  const uint32_t image = loadIfGLValue(imageExpr);
+  const uint32_t sampler = doExpr(expr->getArg(0));
+  const uint32_t coordinate = doExpr(expr->getArg(1));
+  // .Sample()/.Gather() has a third optional paramter for offset.
+  uint32_t constOffset = 0, varOffset = 0;
+  handleOptionalOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
+
+  const auto retType =
+      typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
+
+  if (isSample) {
+    return theBuilder.createImageSample(
+        retType, imageType, image, sampler, coordinate, /*bias*/ 0,
+        /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
+        /*constOffsets*/ 0, /*sampleNumber*/ 0);
+  } else {
+    return theBuilder.createImageGather(
+        retType, imageType, image, sampler, coordinate,
+        // .Gather() doc says we return four components of red data.
+        theBuilder.getConstantInt32(0), constOffset, varOffset,
+        /*constOffsets*/ 0, /*sampleNumber*/ 0);
+  }
+}
+
+uint32_t
+SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
+                                            const bool isBias) {
+  // Signatures:
+  // DXGI_FORMAT Object.SampleBias(sampler_state S,
+  //                               float Location,
+  //                               float Bias
+  //                               [, int Offset]);
+  //
+  // DXGI_FORMAT Object.SampleLevel(sampler_state S,
+  //                                float Location,
+  //                                float LOD
+  //                                [, int Offset]);
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+
+  const uint32_t imageType = typeTranslator.translateType(imageExpr->getType());
+
+  const uint32_t image = loadIfGLValue(imageExpr);
+  const uint32_t sampler = doExpr(expr->getArg(0));
+  const uint32_t coordinate = doExpr(expr->getArg(1));
+  uint32_t lod = 0;
+  uint32_t bias = 0;
+  if (isBias) {
+    bias = doExpr(expr->getArg(2));
+  } else {
+    lod = doExpr(expr->getArg(2));
+  }
+  // .Bias()/.SampleLevel() has a fourth optional paramter for offset.
+  uint32_t constOffset = 0, varOffset = 0;
+  handleOptionalOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+
+  const auto retType =
+      typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
+
+  return theBuilder.createImageSample(
+      retType, imageType, image, sampler, coordinate, bias, lod,
+      std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
+      /*sampleNumber*/ 0);
+}
+
+uint32_t SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
+  // Signature:
+  // DXGI_FORMAT Object.SampleGrad(sampler_state S,
+  //                               float Location,
+  //                               float DDX,
+  //                               float DDY
+  //                               [, int Offset]);
+
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+
+  const uint32_t imageType = typeTranslator.translateType(imageExpr->getType());
+
+  const uint32_t image = loadIfGLValue(imageExpr);
+  const uint32_t sampler = doExpr(expr->getArg(0));
+  const uint32_t coordinate = doExpr(expr->getArg(1));
+  const uint32_t ddx = doExpr(expr->getArg(2));
+  const uint32_t ddy = doExpr(expr->getArg(3));
+  // .SampleGrad() has a fifth optional paramter for offset.
+  uint32_t constOffset = 0, varOffset = 0;
+  handleOptionalOffsetInMethodCall(expr, 4, &constOffset, &varOffset);
+
+  const auto retType =
+      typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
+
+  return theBuilder.createImageSample(
+      retType, imageType, image, sampler, coordinate, /*bias*/ 0, /*lod*/ 0,
+      std::make_pair(ddx, ddy), constOffset, varOffset, /*constOffsets*/ 0,
+      /*sampleNumber*/ 0);
+}
+
+SpirvEvalInfo
+SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
+  // Signature:
+  // ret Object.Load(int Location
+  //                 [, int SampleIndex,]
+  //                 [, int Offset]);
+
+  const auto *object = expr->getImplicitObjectArgument();
+  const auto *location = expr->getArg(0);
+  const auto objectType = object->getType();
+
+  if (typeTranslator.isRWByteAddressBuffer(objectType) ||
+      typeTranslator.isByteAddressBuffer(objectType))
+    return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false);
+
+  if (TypeTranslator::isStructuredBuffer(objectType))
+    return processStructuredBufferLoad(expr);
+
+  if (TypeTranslator::isBuffer(objectType) ||
+      TypeTranslator::isRWBuffer(objectType) ||
+      TypeTranslator::isRWTexture(objectType))
+    return processBufferTextureLoad(object, doExpr(location));
+
+  if (TypeTranslator::isTexture(objectType)) {
+    // .Load() has a second optional paramter for offset.
+    const auto locationId = doExpr(location);
+    uint32_t constOffset = 0, varOffset = 0;
+    uint32_t coordinate = locationId, lod = 0;
+
+    if (TypeTranslator::isTextureMS(objectType)) {
+      // SampleIndex is only available when the Object is of Texture2DMS or
+      // Texture2DMSArray types. Under those cases, Offset will be the third
+      // parameter (index 2).
+      lod = doExpr(expr->getArg(1));
+      handleOptionalOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
+    } else {
+      // For Texture Load() functions, the location parameter is a vector
+      // that consists of both the coordinate and the mipmap level (via the
+      // last vector element). We need to split it here since the
+      // OpImageFetch SPIR-V instruction encodes them as separate arguments.
+      splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
+      // For textures other than Texture2DMS(Array), offset should be the
+      // second parameter (index 1).
+      handleOptionalOffsetInMethodCall(expr, 1, &constOffset, &varOffset);
+    }
+
+    return processBufferTextureLoad(object, coordinate, constOffset, varOffset,
+                                    lod);
+  }
+  emitError("Load() is not implemented for the given object type.");
+  return 0;
+}
+
+uint32_t SPIRVEmitter::processGetDimensions(const CXXMemberCallExpr *expr) {
+  const auto objectType = expr->getImplicitObjectArgument()->getType();
+  if (TypeTranslator::isTexture(objectType) ||
+      TypeTranslator::isRWTexture(objectType) ||
+      TypeTranslator::isBuffer(objectType) ||
+      TypeTranslator::isRWBuffer(objectType)) {
+    return processBufferTextureGetDimensions(expr);
+  } else if (TypeTranslator::isByteAddressBuffer(objectType) ||
+             TypeTranslator::isRWByteAddressBuffer(objectType) ||
+             TypeTranslator::isStructuredBuffer(objectType) ||
+             TypeTranslator::isAppendStructuredBuffer(objectType) ||
+             TypeTranslator::isConsumeStructuredBuffer(objectType)) {
+    return processByteAddressBufferStructuredBufferGetDimensions(expr);
+  } else {
+    emitError("GetDimensions not implmented for the given type yet.");
+    return 0;
+  }
 }
 
 SpirvEvalInfo
