@@ -150,6 +150,8 @@ public:
   const DxilViewIdState &GetViewIdState() const;
 
   // DXIL metadata manipulation.
+  /// Clear all DXIL data that exists in in-memory form.
+  static void ClearDxilMetadata(llvm::Module &M);
   /// Serialize DXIL in-memory form to metadata form.
   void EmitDxilMetadata();
   /// Update resource metadata.

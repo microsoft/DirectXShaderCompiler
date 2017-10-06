@@ -46,6 +46,7 @@ add_llvm_library(LLVMHLSL
   HLOperationLowerExtension.cpp
   HLResource.cpp
   HLSignatureLower.cpp
+  PauseResumePasses.cpp
   ReducibilityAnalysis.cpp
   WaveSensitivityAnalysis.cpp
 

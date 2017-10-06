@@ -23,6 +23,7 @@
 #include "dxc/Support/dxcapi.impl.h"
 
 #include "llvm/Pass.h"
+#include "llvm/PassInfo.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -134,12 +135,15 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeMergeFunctionsPass(Registry);
     initializeMergedLoadStoreMotionPass(Registry);
     initializeMultiDimArrayToOneDimArrayPass(Registry);
+    initializeNoPausePassesPass(Registry);
+    initializePausePassesPass(Registry);
     initializePromotePassPass(Registry);
     initializePruneEHPass(Registry);
     initializeReassociatePass(Registry);
     initializeReducibilityAnalysisPass(Registry);
     initializeRegToMemHlslPass(Registry);
     initializeResourceToHandlePass(Registry);
+    initializeResumePassesPass(Registry);
     initializeRewriteSymbolsPass(Registry);
     initializeSCCPPass(Registry);
     initializeSROAPass(Registry);

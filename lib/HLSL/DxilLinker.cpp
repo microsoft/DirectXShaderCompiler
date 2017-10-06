@@ -724,6 +724,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createDxilFinalizeModulePass());
   PM.add(createComputeViewIdStatePass());
   PM.add(createDxilDeadFunctionEliminationPass());
+  PM.add(createNoPausePassesPass());
   PM.add(createDxilEmitMetadataPass());
 
   PM.run(M);

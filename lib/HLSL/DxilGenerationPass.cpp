@@ -291,6 +291,9 @@ public:
     HLModule::ClearHLMetadata(M);
     M.ResetHLModule();
 
+    // We now have a DXIL representation - record this.
+    SetPauseResumePasses(*m_pHLModule->GetModule(), "hlsl-dxilemit", "hlsl-dxilload");
+
     // Remove debug code when not debug info.
     if (!m_HasDbgInfo)
       DxilMod.StripDebugRelatedCode();
@@ -1259,6 +1262,7 @@ public:
 
   bool runOnModule(Module &M) override {
     if (M.HasHLModule()) {
+      HLModule::ClearHLMetadata(M);
       M.GetHLModule().EmitHLMetadata();
       return true;
     }

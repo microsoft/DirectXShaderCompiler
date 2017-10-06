@@ -209,7 +209,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilFinalizeModule() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL DXIL Metadata Emit"; }
+  const char *getPassName() const override { return "HLSL DXIL Finalize Module"; }
 
   void patchValidation_1_1(Module &M) {
     for (iplist<Function>::iterator F : M.getFunctionList()) {
@@ -271,6 +271,7 @@ public:
                                  // Update Validator Version
         DM.UpgradeToMinValidatorVersion();
       }
+
       return true;
     }
 
@@ -409,6 +410,7 @@ public:
 
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
+      DxilModule::ClearDxilMetadata(M);
       M.GetDxilModule().EmitDxilMetadata();
       return true;
     }

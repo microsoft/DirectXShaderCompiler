@@ -41,6 +41,7 @@
 #include "dxc/Support/WinIncludes.h"    // stream support
 #include "dxc/dxcapi.h"                 // stream support
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
+#include "dxc/HLSL/DxilGenerationPass.h" // support pause/resume passes
 
 using namespace clang;
 using namespace CodeGen;
@@ -4151,6 +4152,8 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     }
   }
 
+  // At this point, we have a high-level DXIL module - record this.
+  SetPauseResumePasses(*m_pHLModule->GetModule(), "hlsl-hlemit", "hlsl-hlensure");
 }
 
 RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,

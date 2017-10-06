@@ -160,6 +160,10 @@ void DxilModule::SetValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
 }
 
 bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
+  // Don't upgrade if validation was disabled.
+  if (m_ValMajor == 0 && m_ValMinor == 0) {
+    return false;
+  }
   if (ValMajor > m_ValMajor || (ValMajor == m_ValMajor && ValMinor > m_ValMinor)) {
     // Module requires higher validator version than previously set
     SetValidatorVersion(ValMajor, ValMinor);
@@ -1186,6 +1190,38 @@ vector<GlobalVariable* > &DxilModule::GetLLVMUsed() {
 }
 
 // DXIL metadata serialization/deserialization.
+void DxilModule::ClearDxilMetadata(Module &M) {
+  // Delete: DXIL version, validator version, DXIL shader model,
+  // entry point tuples (shader properties, signatures, resources)
+  // type system, view ID state, LLVM used, entry point tuples,
+  // root signature, function properties.
+  // Other cases for libs pending.
+  // LLVM used is a global variable - handle separately.
+  Module::named_metadata_iterator
+    b = M.named_metadata_begin(),
+    e = M.named_metadata_end();
+  SmallVector<NamedMDNode*, 8> nodes;
+  for (; b != e; ++b) {
+    StringRef name = b->getName();
+    if (name == DxilMDHelper::kDxilVersionMDName ||
+      name == DxilMDHelper::kDxilValidatorVersionMDName ||
+      name == DxilMDHelper::kDxilShaderModelMDName ||
+      name == DxilMDHelper::kDxilEntryPointsMDName ||
+      name == DxilMDHelper::kDxilRootSignatureMDName ||
+      name == DxilMDHelper::kDxilResourcesMDName ||
+      name == DxilMDHelper::kDxilTypeSystemMDName ||
+      name == DxilMDHelper::kDxilViewIdStateMDName ||
+      name == DxilMDHelper::kDxilFunctionPropertiesMDName || // used in libraries
+      name == DxilMDHelper::kDxilEntrySignaturesMDName || // used in libraries
+      name.startswith(DxilMDHelper::kDxilTypeSystemHelperVariablePrefix)) {
+      nodes.push_back(b);
+    }
+  }
+  for (size_t i = 0; i < nodes.size(); ++i) {
+    M.eraseNamedMetadata(nodes[i]);
+  }
+}
+
 void DxilModule::EmitDxilMetadata() {
   m_pMDHelper->EmitDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
@@ -1199,7 +1235,8 @@ void DxilModule::EmitDxilMetadata() {
     m_pMDHelper->EmitDxilResources(pMDResources);
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   if (!m_pSM->IsCS() &&
-      (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
+      ((m_ValMajor == 0 &&  m_ValMinor == 0) ||
+       (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1)))) {
     m_pMDHelper->EmitDxilViewIdState(GetViewIdState());
   }
   EmitLLVMUsed();
