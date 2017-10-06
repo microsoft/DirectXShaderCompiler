@@ -8,10 +8,11 @@
 // CHECK:  %MaskedForUAVLimit16 = and i32 %UAVIncResult15, 983039
 // CHECK:  %MultipliedForInterest17 = mul i32 %MaskedForUAVLimit16, %OffsetMultiplicand
 // CHECK:  %AddedForInterest18 = add i32 %MultipliedForInterest17, %OffsetAddend
-// CHECK:  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest18, i32 0, i32 64258, i32 0, i32 0, i32 0, i8 1)
-// CHECK:  switch i32 %"1", label
-// CHECK:    i32 0, label
+// CHECK:  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest18, i32 0, i32 64257, i32 0, i32 0, i32 0, i8 1)
+// CHECK:  switch i32
+// CHECK:    i32 0, label 
 // CHECK:    i32 32, label
+// CHECK:  ]
 
 int i32;
 float f32;
