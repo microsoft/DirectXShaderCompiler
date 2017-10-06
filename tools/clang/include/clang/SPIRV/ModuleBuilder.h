@@ -189,7 +189,10 @@ public:
   /// \brief Creates SPIR-V instructions for writing to the given image.
   void createImageWrite(uint32_t imageId, uint32_t coordId, uint32_t texelId);
 
-  /// \brief Creates SPIR-V instructions for sampling the given image.
+  /// \brief Creates SPIR-V instructions for gathering the given image.
+  ///
+  /// If compareVal is given a non-zero value, OpImageDrefGather will be
+  /// generated; otherwise, OpImageGather will be generated.
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t component,

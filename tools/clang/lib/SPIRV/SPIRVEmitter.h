@@ -503,9 +503,10 @@ private:
   uint32_t processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
                                                bool isCmp);
 
-  /// \brief Handles .Gather{Red|Green|Blue|Alpha}() calls on texture types.
-  uint32_t processTextureGatherRGBA(const CXXMemberCallExpr *expr,
-                                    uint32_t component);
+  /// \brief Handles .Gather{|Cmp}{Red|Green|Blue|Alpha}() calls on texture
+  /// types.
+  uint32_t processTextureGatherRGBACmpRGBA(const CXXMemberCallExpr *expr,
+                                           bool isCmp, uint32_t component);
 
   /// \brief Handles .GatherCmp() calls on texture types.
   uint32_t processTextureGatherCmp(const CXXMemberCallExpr *expr);

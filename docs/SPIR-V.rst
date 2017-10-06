@@ -1440,6 +1440,16 @@ instruction is used.
 
 The overload with the status parameter are not supported.
 
+``.GatherCmpRed()``
++++++++++++++++++++
+
+Available to ``Texture2D``, ``Texture2DArray``, ``TextureCube``, and
+``TextureCubeArray``.
+
+The translation is the same as ``.GatherCmp()``.
+
+The overload with the status parameter are not supported.
+
 ``.Load(location[, sampleIndex][, offset])``
 ++++++++++++++++++++++++++++++++++++++++++++
 
