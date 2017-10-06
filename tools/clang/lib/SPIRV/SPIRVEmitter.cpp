@@ -1720,11 +1720,7 @@ uint32_t SPIRVEmitter::processTextureGatherRGBA(const CXXMemberCallExpr *expr,
   uint32_t constOffset = 0, varOffset = 0, constOffsets = 0;
   if (numArgs == 3) {
     // One offset parameter
-    const uint32_t offset = tryToEvaluateAsConst(expr->getArg(2));
-    if (offset)
-      constOffset = offset;
-    else
-      varOffset = offset;
+    handleOptionalOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
   } else {
     // Four offset parameters
     const auto offset0 = tryToEvaluateAsConst(expr->getArg(2));
@@ -1751,8 +1747,45 @@ uint32_t SPIRVEmitter::processTextureGatherRGBA(const CXXMemberCallExpr *expr,
 
   return theBuilder.createImageGather(
       retType, imageType, image, sampler, coordinate,
-      theBuilder.getConstantInt32(component), constOffset, varOffset,
-      constOffsets, /*sampleNumber=*/0);
+      theBuilder.getConstantInt32(component), /*compareVal*/ 0, constOffset,
+      varOffset, constOffsets, /*sampleNumber*/ 0);
+}
+
+uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
+  // Signature:
+  //
+  // float4 GatherCmp(
+  //   in SamplerComparisonState s,
+  //   in float2 location,
+  //   in float compare_value
+  //   [,in int2 offset]
+  // );
+  const FunctionDecl *callee = expr->getDirectCallee();
+  const auto numArgs = expr->getNumArgs();
+
+  if (expr->getNumArgs() > 4) {
+    emitError("unsupported '%0' method call with status parameter",
+              expr->getExprLoc())
+        << callee->getName() << expr->getSourceRange();
+    return 0;
+  }
+
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+
+  const uint32_t image = loadIfGLValue(imageExpr);
+  const uint32_t sampler = doExpr(expr->getArg(0));
+  const uint32_t coordinate = doExpr(expr->getArg(1));
+  const uint32_t comparator = doExpr(expr->getArg(2));
+  uint32_t constOffset = 0, varOffset = 0;
+  handleOptionalOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+
+  const auto retType = typeTranslator.translateType(callee->getReturnType());
+  const auto imageType = typeTranslator.translateType(imageExpr->getType());
+
+  return theBuilder.createImageGather(
+      retType, imageType, image, sampler, coordinate,
+      /*component*/ 0, comparator, constOffset, varOffset, /*constOffsets*/ 0,
+      /*sampleNumber*/ 0);
 }
 
 uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
@@ -2051,6 +2084,8 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return processTextureGatherRGBA(expr, 2);
   case IntrinsicOp::MOP_GatherAlpha:
     return processTextureGatherRGBA(expr, 3);
+  case IntrinsicOp::MOP_GatherCmp:
+    return processTextureGatherCmp(expr);
   case IntrinsicOp::MOP_Load:
     return processBufferTextureLoad(expr);
   case IntrinsicOp::MOP_Load2:
@@ -2128,7 +2163,8 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
     return theBuilder.createImageGather(
         retType, imageType, image, sampler, coordinate,
         // .Gather() doc says we return four components of red data.
-        theBuilder.getConstantInt32(0), constOffset, varOffset,
+        theBuilder.getConstantInt32(0), /*compareVal*/ 0, constOffset,
+        varOffset,
         /*constOffsets*/ 0, /*sampleNumber*/ 0);
   }
 }

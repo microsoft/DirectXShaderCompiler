@@ -410,6 +410,10 @@ TEST_F(FileTest, TextureGatherAlpha) {
 TEST_F(FileTest, TextureArrayGatherAlpha) {
   runFileTest("texture.array.gather-alpha.hlsl");
 }
+TEST_F(FileTest, TextureGatherCmp) { runFileTest("texture.gather-cmp.hlsl"); }
+TEST_F(FileTest, TextureArrayGatherCmp) {
+  runFileTest("texture.array.gather-cmp.hlsl");
+}
 TEST_F(FileTest, TextureSampleLevel) {
   runFileTest("texture.sample-level.hlsl");
 }
