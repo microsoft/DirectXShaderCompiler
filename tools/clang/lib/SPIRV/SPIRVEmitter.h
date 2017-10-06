@@ -506,6 +506,11 @@ private:
   uint32_t processByteAddressBufferStructuredBufferGetDimensions(
       const CXXMemberCallExpr *);
 
+  /// \brief Processes the Interlocked* intrinsic function call on a
+  /// RWByteAddressBuffer.
+  uint32_t processRWByteAddressBufferAtomicMethods(hlsl::IntrinsicOp opcode,
+                                                   const CXXMemberCallExpr *);
+
 private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.

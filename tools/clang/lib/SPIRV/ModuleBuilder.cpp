@@ -210,19 +210,71 @@ uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
   return id;
 }
 
-uint32_t ModuleBuilder::createAtomicIAddSub(uint32_t resultType,
-                                            uint32_t orignalValuePtr,
-                                            uint32_t scopeId,
-                                            uint32_t memorySemanticsId,
-                                            uint32_t valueToOp, bool isAdd) {
+uint32_t ModuleBuilder::createAtomicOp(spv::Op opcode, uint32_t resultType,
+                                       uint32_t orignalValuePtr,
+                                       uint32_t scopeId,
+                                       uint32_t memorySemanticsId,
+                                       uint32_t valueToOp) {
   assert(insertPoint && "null insert point");
   const uint32_t id = theContext.takeNextId();
-  if (isAdd)
+  switch (opcode) {
+  case spv::Op::OpAtomicIAdd:
     instBuilder.opAtomicIAdd(resultType, id, orignalValuePtr, scopeId,
                              memorySemanticsId, valueToOp);
-  else
+    break;
+  case spv::Op::OpAtomicISub:
     instBuilder.opAtomicISub(resultType, id, orignalValuePtr, scopeId,
                              memorySemanticsId, valueToOp);
+    break;
+  case spv::Op::OpAtomicAnd:
+    instBuilder.opAtomicAnd(resultType, id, orignalValuePtr, scopeId,
+                            memorySemanticsId, valueToOp);
+    break;
+  case spv::Op::OpAtomicOr:
+    instBuilder.opAtomicOr(resultType, id, orignalValuePtr, scopeId,
+                           memorySemanticsId, valueToOp);
+    break;
+  case spv::Op::OpAtomicXor:
+    instBuilder.opAtomicXor(resultType, id, orignalValuePtr, scopeId,
+                            memorySemanticsId, valueToOp);
+    break;
+  case spv::Op::OpAtomicUMax:
+    instBuilder.opAtomicUMax(resultType, id, orignalValuePtr, scopeId,
+                             memorySemanticsId, valueToOp);
+    break;
+  case spv::Op::OpAtomicUMin:
+    instBuilder.opAtomicUMin(resultType, id, orignalValuePtr, scopeId,
+                             memorySemanticsId, valueToOp);
+    break;
+  case spv::Op::OpAtomicSMax:
+    instBuilder.opAtomicSMax(resultType, id, orignalValuePtr, scopeId,
+                             memorySemanticsId, valueToOp);
+    break;
+  case spv::Op::OpAtomicSMin:
+    instBuilder.opAtomicSMin(resultType, id, orignalValuePtr, scopeId,
+                             memorySemanticsId, valueToOp);
+    break;
+  case spv::Op::OpAtomicExchange:
+    instBuilder.opAtomicExchange(resultType, id, orignalValuePtr, scopeId,
+                                 memorySemanticsId, valueToOp);
+    break;
+  default:
+    assert(false && "unimplemented atomic opcode");
+  }
+  instBuilder.x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createAtomicCompareExchange(
+    uint32_t resultType, uint32_t orignalValuePtr, uint32_t scopeId,
+    uint32_t equalMemorySemanticsId, uint32_t unequalMemorySemanticsId,
+    uint32_t valueToOp, uint32_t comparator) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.opAtomicCompareExchange(
+      resultType, id, orignalValuePtr, scopeId, equalMemorySemanticsId,
+      unequalMemorySemanticsId, valueToOp, comparator);
   instBuilder.x();
   insertPoint->appendInstruction(std::move(constructSite));
   return id;

@@ -1255,6 +1255,23 @@ used to store a 32-bit unsigned integer. For ``Store2``, ``Store3``, and ``Store
 done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
 performing ``OpAccessChain``.
 
+``.Interlocked*()``
++++++++++++++++++++
+
+================================= =================================
+     HLSL Intrinsic Method                SPIR-V Opcode
+================================= =================================
+``.InterlockedAdd()``             ``OpAtomicIAdd``
+``.InterlockedAnd()``             ``OpAtomicAnd``
+``.InterlockedOr()``              ``OpAtomicOr``
+``.InterlockedXor()``             ``OpAtomicXor``
+``.InterlockedMin()``             ``OpAtomicUMin``/``OpAtomicSMin``
+``.InterlockedMax()``             ``OpAtomicUMax``/``OpAtomicSMax``
+``.InterlockedExchange()``        ``OpAtomicExchange``
+``.InterlockedCompareExchange()`` ``OpAtomicCompareExchange``
+``.InterlockedCompareStore()``    ``OpAtomicCompareExchange``
+================================= =================================
+
 ``AppendStructuredBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
