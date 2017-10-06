@@ -24,6 +24,7 @@
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 #include "dia2.h"
 
@@ -2172,7 +2173,7 @@ public:
       }
 
       std::string DiagStr;
-      std::unique_ptr<llvm::Module> pModule = dxcutil::LoadModuleFromBitcode(
+      std::unique_ptr<llvm::Module> pModule = dxilutil::LoadModuleFromBitcode(
           pBitcodeBuffer, *m_context.get(), DiagStr);
       if (!pModule.get())
         return E_FAIL;

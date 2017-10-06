@@ -14,7 +14,13 @@
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilUtil.h"
 #include "dxc/HLSL/DxilModule.h"
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -100,6 +106,33 @@ bool RemoveUnusedFunctions(Module &M, Function *EntryFunc,
     F->eraseFromParent();
   return bUpdated;
 }
+
+void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI, void *Context) {
+  DiagnosticPrinter *printer = reinterpret_cast<DiagnosticPrinter *>(Context);
+  DI.print(*printer);
 }
 
+std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
+  llvm::LLVMContext &Ctx,
+  std::string &DiagStr) {
+  raw_string_ostream DiagStream(DiagStr);
+  llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+  Ctx.setDiagnosticHandler(PrintDiagnosticHandler, &DiagPrinter, true);
+  ErrorOr<std::unique_ptr<llvm::Module>> pModule(
+    llvm::parseBitcodeFile(MB->getMemBufferRef(), Ctx));
+  if (std::error_code ec = pModule.getError()) {
+    return nullptr;
+  }
+  return std::unique_ptr<llvm::Module>(pModule.get().release());
+}
+
+std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
+  llvm::LLVMContext &Ctx,
+  std::string &DiagStr) {
+  std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf(
+    llvm::MemoryBuffer::getMemBuffer(BC, "", false));
+  return LoadModuleFromBitcode(pBitcodeBuf.get(), Ctx, DiagStr);
+}
+
+}
 }

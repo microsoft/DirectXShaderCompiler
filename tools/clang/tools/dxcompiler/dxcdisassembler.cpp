@@ -26,6 +26,7 @@
 #include "llvm/Support/Format.h"
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/DxilContainer.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxcutil.h"
 
 using namespace llvm;
@@ -1322,7 +1323,7 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
 
   std::string DiagStr;
   llvm::LLVMContext llvmContext;
-  std::unique_ptr<llvm::Module> pModule(dxcutil::LoadModuleFromBitcode(
+  std::unique_ptr<llvm::Module> pModule(dxilutil::LoadModuleFromBitcode(
     llvm::StringRef(pIL, pILLength), llvmContext, DiagStr));
   if (pModule.get() == nullptr) {
     return DXC_E_IR_VERIFICATION_FAILED;

@@ -95,11 +95,6 @@ private:
 
 } // namespace
 
-static void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI, void *Context) {
-  DiagnosticPrinter *printer = reinterpret_cast<DiagnosticPrinter *>(Context);
-  DI.print(*printer);
-}
-
 namespace dxcutil {
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
   if (pMajor == nullptr || pMinor == nullptr)
@@ -220,28 +215,6 @@ bool IsAbsoluteOrCurDirRelative(const Twine &T) {
   }
   DXASSERT(false, "twine kind not supported");
   return false;
-}
-
-std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
-                                                    llvm::LLVMContext &Ctx,
-                                                    std::string &DiagStr) {
-  raw_string_ostream DiagStream(DiagStr);
-  llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
-  Ctx.setDiagnosticHandler(PrintDiagnosticHandler, &DiagPrinter, true);
-  ErrorOr<std::unique_ptr<llvm::Module>> pModule(
-      llvm::parseBitcodeFile(MB->getMemBufferRef(), Ctx));
-  if (std::error_code ec = pModule.getError()) {
-    return nullptr;
-  }
-  return std::unique_ptr<llvm::Module>(pModule.get().release());
-}
-
-std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
-                                                    llvm::LLVMContext &Ctx,
-                                                    std::string &DiagStr) {
-  std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf(
-      llvm::MemoryBuffer::getMemBuffer(BC, "", false));
-  return LoadModuleFromBitcode(pBitcodeBuf.get(), Ctx, DiagStr);
 }
 
 } // namespace dxcutil

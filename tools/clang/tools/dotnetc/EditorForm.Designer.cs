@@ -91,7 +91,6 @@ namespace MainNs
             this.ASTTabPage = new System.Windows.Forms.TabPage();
             this.ASTDumpBox = new System.Windows.Forms.RichTextBox();
             this.OptimizerTabPage = new System.Windows.Forms.TabPage();
-            this.PrintAllPassesBox = new System.Windows.Forms.CheckBox();
             this.ResetDefaultPassesButton = new System.Windows.Forms.Button();
             this.AnalyzeCheckBox = new System.Windows.Forms.CheckBox();
             this.AddPrintModuleButton = new System.Windows.Forms.Button();
@@ -105,6 +104,7 @@ namespace MainNs
             this.copyToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.PastePassesMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.DeleteAllPassesMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.AvailablePassesBox = new System.Windows.Forms.ListBox();
@@ -114,7 +114,7 @@ namespace MainNs
             this.RenderLogTabPage = new System.Windows.Forms.TabPage();
             this.RenderLogBox = new System.Windows.Forms.TextBox();
             this.RewriterOutputTextBox = new System.Windows.Forms.RichTextBox();
-            this.DeleteAllPassesMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.InteractiveEditorButton = new System.Windows.Forms.Button();
             this.TheStatusStrip.SuspendLayout();
             this.TheMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -602,7 +602,7 @@ namespace MainNs
             // 
             // OptimizerTabPage
             // 
-            this.OptimizerTabPage.Controls.Add(this.PrintAllPassesBox);
+            this.OptimizerTabPage.Controls.Add(this.InteractiveEditorButton);
             this.OptimizerTabPage.Controls.Add(this.ResetDefaultPassesButton);
             this.OptimizerTabPage.Controls.Add(this.AnalyzeCheckBox);
             this.OptimizerTabPage.Controls.Add(this.AddPrintModuleButton);
@@ -621,18 +621,6 @@ namespace MainNs
             this.OptimizerTabPage.TabIndex = 2;
             this.OptimizerTabPage.Text = "Optimizer";
             this.OptimizerTabPage.UseVisualStyleBackColor = true;
-            // 
-            // PrintAllPassesBox
-            // 
-            this.PrintAllPassesBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.PrintAllPassesBox.AutoSize = true;
-            this.PrintAllPassesBox.Location = new System.Drawing.Point(6, 396);
-            this.PrintAllPassesBox.Margin = new System.Windows.Forms.Padding(2, 3, 2, 3);
-            this.PrintAllPassesBox.Name = "PrintAllPassesBox";
-            this.PrintAllPassesBox.Size = new System.Drawing.Size(96, 17);
-            this.PrintAllPassesBox.TabIndex = 10;
-            this.PrintAllPassesBox.Text = "Print all passes";
-            this.PrintAllPassesBox.UseVisualStyleBackColor = true;
             // 
             // ResetDefaultPassesButton
             // 
@@ -731,40 +719,47 @@ namespace MainNs
             this.PastePassesMenuItem,
             this.DeleteAllPassesMenuItem});
             this.PassesContextMenu.Name = "PassesContextMenu";
-            this.PassesContextMenu.Size = new System.Drawing.Size(153, 142);
+            this.PassesContextMenu.Size = new System.Drawing.Size(137, 120);
             // 
             // PassPropertiesMenuItem
             // 
             this.PassPropertiesMenuItem.Name = "PassPropertiesMenuItem";
-            this.PassPropertiesMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.PassPropertiesMenuItem.Size = new System.Drawing.Size(136, 22);
             this.PassPropertiesMenuItem.Text = "P&roperties...";
             this.PassPropertiesMenuItem.Click += new System.EventHandler(this.PassPropertiesMenuItem_Click);
             // 
             // toolStripMenuItem5
             // 
             this.toolStripMenuItem5.Name = "toolStripMenuItem5";
-            this.toolStripMenuItem5.Size = new System.Drawing.Size(149, 6);
+            this.toolStripMenuItem5.Size = new System.Drawing.Size(133, 6);
             // 
             // copyToolStripMenuItem1
             // 
             this.copyToolStripMenuItem1.Name = "copyToolStripMenuItem1";
-            this.copyToolStripMenuItem1.Size = new System.Drawing.Size(152, 22);
+            this.copyToolStripMenuItem1.Size = new System.Drawing.Size(136, 22);
             this.copyToolStripMenuItem1.Text = "&Copy";
             this.copyToolStripMenuItem1.Click += new System.EventHandler(this.copyToolStripMenuItem_Click);
             // 
             // copyAllToolStripMenuItem
             // 
             this.copyAllToolStripMenuItem.Name = "copyAllToolStripMenuItem";
-            this.copyAllToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.copyAllToolStripMenuItem.Size = new System.Drawing.Size(136, 22);
             this.copyAllToolStripMenuItem.Text = "Copy &All";
             this.copyAllToolStripMenuItem.Click += new System.EventHandler(this.copyAllToolStripMenuItem_Click);
             // 
             // PastePassesMenuItem
             // 
             this.PastePassesMenuItem.Name = "PastePassesMenuItem";
-            this.PastePassesMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.PastePassesMenuItem.Size = new System.Drawing.Size(136, 22);
             this.PastePassesMenuItem.Text = "&Paste";
             this.PastePassesMenuItem.Click += new System.EventHandler(this.PastePassesMenuItem_Click);
+            // 
+            // DeleteAllPassesMenuItem
+            // 
+            this.DeleteAllPassesMenuItem.Name = "DeleteAllPassesMenuItem";
+            this.DeleteAllPassesMenuItem.Size = new System.Drawing.Size(136, 22);
+            this.DeleteAllPassesMenuItem.Text = "Delete All";
+            this.DeleteAllPassesMenuItem.Click += new System.EventHandler(this.DeleteAllPassesMenuItem_Click);
             // 
             // label2
             // 
@@ -870,12 +865,15 @@ namespace MainNs
             this.RewriterOutputTextBox.Text = "";
             this.RewriterOutputTextBox.WordWrap = false;
             // 
-            // DeleteAllPassesMenuItem
+            // InteractiveEditorButton
             // 
-            this.DeleteAllPassesMenuItem.Name = "DeleteAllPassesMenuItem";
-            this.DeleteAllPassesMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.DeleteAllPassesMenuItem.Text = "Delete All";
-            this.DeleteAllPassesMenuItem.Click += new System.EventHandler(this.DeleteAllPassesMenuItem_Click);
+            this.InteractiveEditorButton.Location = new System.Drawing.Point(285, 454);
+            this.InteractiveEditorButton.Name = "InteractiveEditorButton";
+            this.InteractiveEditorButton.Size = new System.Drawing.Size(146, 23);
+            this.InteractiveEditorButton.TabIndex = 11;
+            this.InteractiveEditorButton.Text = "Interactive Editor...";
+            this.InteractiveEditorButton.UseVisualStyleBackColor = true;
+            this.InteractiveEditorButton.Click += new System.EventHandler(this.InteractiveEditorButton_Click);
             // 
             // EditorForm
             // 
@@ -984,7 +982,6 @@ namespace MainNs
         private System.Windows.Forms.TabPage ASTTabPage;
         private System.Windows.Forms.RichTextBox ASTDumpBox;
         private System.Windows.Forms.TabPage OptimizerTabPage;
-        private System.Windows.Forms.CheckBox PrintAllPassesBox;
         private System.Windows.Forms.Button ResetDefaultPassesButton;
         private System.Windows.Forms.CheckBox AnalyzeCheckBox;
         private System.Windows.Forms.Button AddPrintModuleButton;
@@ -998,5 +995,6 @@ namespace MainNs
         private System.Windows.Forms.RichTextBox RewriterOutputTextBox;
         private System.Windows.Forms.ToolStripMenuItem PastePassesMenuItem;
         private System.Windows.Forms.ToolStripMenuItem DeleteAllPassesMenuItem;
+        private System.Windows.Forms.Button InteractiveEditorButton;
     }
 }

@@ -55,11 +55,4 @@ void CreateOperationResultFromOutputs(
 
 bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T);
 
-std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
-                                                    llvm::LLVMContext &Ctx,
-                                                    std::string &DiagStr);
-std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
-                                                    llvm::LLVMContext &Ctx,
-                                                    std::string &DiagStr);
-
 } // namespace dxcutil
