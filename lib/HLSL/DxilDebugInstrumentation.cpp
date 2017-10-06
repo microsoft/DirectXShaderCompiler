@@ -121,7 +121,6 @@ struct DebugShaderModifierRecordDXILStepBase
   } Header;
   uint32_t UID;
   uint32_t InstructionOffset;
-  uint32_t VirtualRegisterOrdinal;
 };
 
 template< typename ReturnType >
@@ -196,8 +195,6 @@ private:
   Constant * m_OffsetMask = nullptr;
 
   std::map<uint32_t, Value *> m_IncrementInstructionBySize;
-
-  std::vector<std::string> m_Variables;
 
   unsigned int m_InstructionIndex = 0;
 
@@ -655,11 +652,6 @@ void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType
   addDebugEntryValue(BC, m_InvocationId);
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(m_InstructionIndex++));
 
-  auto pName = std::find(m_Variables.begin(), m_Variables.end(), Inst->getName());
-  auto RegisterIndex = static_cast<uint32_t>(pName - m_Variables.begin());
-
-  addDebugEntryValue(BC, BC.HlslOP->GetU32Const(RegisterIndex));
-
   if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid)
   {
     addDebugEntryValue(BC, Inst);
@@ -668,11 +660,6 @@ void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType
 
 void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, Instruction * Inst)
 {
-  //if (Inst->isTerminator())
-  //{
-  //  return;
-  //}
-  //
   if (Inst->getOpcode() == Instruction::OtherOps::PHI)
   {
     return;
@@ -758,20 +745,8 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
 
   // Instrument original instructions:
   {
-    unsigned int UnnamedVariableCounter = 0;
     for (auto & Inst : AllInstrucitons)
     {
-      if (!Inst->getType()->isVoidTy())
-      {
-        if (Inst->getName().empty())
-        {
-          std::ostringstream s;
-          s << UnnamedVariableCounter++;
-          Inst->setName(s.str().c_str());
-        }
-        m_Variables.emplace_back(Inst->getName().data());
-      }
-
       // Instrumentation goes after the instruction if it has a return value.
       // Otherwise, the instruction might be a terminator so we HAVE to put the instrumentation before
       if (Inst->getType()->getTypeID() != Type::TypeID::VoidTyID)
