@@ -158,6 +158,9 @@ public:
 
   /// \brief Creates SPIR-V instructions for sampling the given image.
   ///
+  /// If compareVal is given a non-zero value, *Dref* variants of OpImageSample*
+  /// will be generated.
+  ///
   /// If lod or grad is given a non-zero value, *ExplicitLod variants of
   /// OpImageSample* will be generated; otherwise, *ImplicitLod variant will
   /// be generated.
@@ -167,7 +170,8 @@ public:
   /// respectively.
   uint32_t createImageSample(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
-                             uint32_t coordinate, uint32_t bias, uint32_t lod,
+                             uint32_t coordinate, uint32_t bias,
+                             uint32_t compareVal, uint32_t lod,
                              std::pair<uint32_t, uint32_t> grad,
                              uint32_t constOffset, uint32_t varOffset,
                              uint32_t constOffsets, uint32_t sample);

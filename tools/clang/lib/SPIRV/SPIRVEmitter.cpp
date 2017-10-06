@@ -2039,6 +2039,10 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return processTextureSampleBiasLevel(expr, /*isBias=*/false);
   case IntrinsicOp::MOP_SampleGrad:
     return processTextureSampleGrad(expr);
+  case IntrinsicOp::MOP_SampleCmp:
+    return processTextureSampleCmpCmpLevelZero(expr, /*isCmp=*/true);
+  case IntrinsicOp::MOP_SampleCmpLevelZero:
+    return processTextureSampleCmpCmpLevelZero(expr, /*isCmp=*/false);
   case IntrinsicOp::MOP_GatherRed:
     return processTextureGatherRGBA(expr, 0);
   case IntrinsicOp::MOP_GatherGreen:
@@ -2116,7 +2120,8 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
 
   if (isSample) {
     return theBuilder.createImageSample(
-        retType, imageType, image, sampler, coordinate, /*bias*/ 0,
+        retType, imageType, image, sampler, coordinate, /*compareVal*/ 0,
+        /*bias*/ 0,
         /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
         /*constOffsets*/ 0, /*sampleNumber*/ 0);
   } else {
@@ -2163,8 +2168,8 @@ SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
       typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
 
   return theBuilder.createImageSample(
-      retType, imageType, image, sampler, coordinate, bias, lod,
-      std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
+      retType, imageType, image, sampler, coordinate, /*compareVal*/ 0, bias,
+      lod, std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
       /*sampleNumber*/ 0);
 }
 
@@ -2193,9 +2198,44 @@ uint32_t SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
       typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
 
   return theBuilder.createImageSample(
-      retType, imageType, image, sampler, coordinate, /*bias*/ 0, /*lod*/ 0,
-      std::make_pair(ddx, ddy), constOffset, varOffset, /*constOffsets*/ 0,
+      retType, imageType, image, sampler, coordinate, /*compareVal*/ 0,
+      /*bias*/ 0, /*lod*/ 0, std::make_pair(ddx, ddy), constOffset, varOffset,
+      /*constOffsets*/ 0,
       /*sampleNumber*/ 0);
+}
+
+uint32_t
+SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
+                                                  const bool isCmp) {
+  // .SampleCmp() Signature:
+  //
+  // float Object.SampleCmp(
+  //   SamplerComparisonState S,
+  //   float Location,
+  //   float CompareValue,
+  //   [int Offset]
+  // );
+  //
+  // .SampleCmpLevelZero() is identical to .SampleCmp() on mipmap level 0 only.
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+
+  const uint32_t image = loadIfGLValue(imageExpr);
+  const uint32_t sampler = doExpr(expr->getArg(0));
+  const uint32_t coordinate = doExpr(expr->getArg(1));
+  const uint32_t compareVal = doExpr(expr->getArg(2));
+  // .SampleCmp() has a fourth optional paramter for offset.
+  uint32_t constOffset = 0, varOffset = 0;
+  handleOptionalOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+  const uint32_t lod = isCmp ? 0 : theBuilder.getConstantFloat32(0);
+
+  const auto retType =
+      typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
+  const auto imageType = typeTranslator.translateType(imageExpr->getType());
+
+  return theBuilder.createImageSample(
+      retType, imageType, image, sampler, coordinate, compareVal, /*bias*/ 0,
+      lod, std::make_pair(0, 0), constOffset, varOffset,
+      /*constOffsets*/ 0, /*sampleNumber*/ 0);
 }
 
 SpirvEvalInfo

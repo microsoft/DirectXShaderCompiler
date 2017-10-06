@@ -333,7 +333,7 @@ spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
 
 uint32_t ModuleBuilder::createImageSample(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
-    uint32_t coordinate, uint32_t bias, uint32_t lod,
+    uint32_t coordinate, uint32_t compareVal, uint32_t bias, uint32_t lod,
     std::pair<uint32_t, uint32_t> grad, uint32_t constOffset,
     uint32_t varOffset, uint32_t constOffsets, uint32_t sample) {
   assert(insertPoint && "null insert point");
@@ -348,15 +348,33 @@ uint32_t ModuleBuilder::createImageSample(
   llvm::SmallVector<uint32_t, 4> params;
   const auto mask = composeImageOperandsMask(
       bias, lod, grad, constOffset, varOffset, constOffsets, sample, &params);
-  // The Lod and Grad image operands requires explicit-lod instructions.
-  if (lod || (grad.first && grad.second)) {
-    instBuilder.opImageSampleExplicitLod(texelType, texelId, sampledImgId,
-                                         coordinate, mask);
+
+  // If depth-comparison is needed when sampling, we use the OpImageSampleDref*
+  // instructions.
+  if (compareVal) {
+    // The Lod and Grad image operands requires explicit-lod instructions.
+    // Otherwise we use implicit-lod instructions.
+    if (lod || (grad.first && grad.second)) {
+      instBuilder.opImageSampleDrefExplicitLod(texelType, texelId, sampledImgId,
+                                               coordinate, compareVal, mask);
+    } else {
+      instBuilder.opImageSampleDrefImplicitLod(
+          texelType, texelId, sampledImgId, coordinate, compareVal,
+          llvm::Optional<spv::ImageOperandsMask>(mask));
+    }
   } else {
-    instBuilder.opImageSampleImplicitLod(
-        texelType, texelId, sampledImgId, coordinate,
-        llvm::Optional<spv::ImageOperandsMask>(mask));
+    // The Lod and Grad image operands requires explicit-lod instructions.
+    // Otherwise we use implicit-lod instructions.
+    if (lod || (grad.first && grad.second)) {
+      instBuilder.opImageSampleExplicitLod(texelType, texelId, sampledImgId,
+                                           coordinate, mask);
+    } else {
+      instBuilder.opImageSampleImplicitLod(
+          texelType, texelId, sampledImgId, coordinate,
+          llvm::Optional<spv::ImageOperandsMask>(mask));
+    }
   }
+
   for (const auto param : params)
     instBuilder.idRef(param);
   instBuilder.x();
