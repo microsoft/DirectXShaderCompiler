@@ -91,6 +91,7 @@ namespace MainNs
             this.ASTTabPage = new System.Windows.Forms.TabPage();
             this.ASTDumpBox = new System.Windows.Forms.RichTextBox();
             this.OptimizerTabPage = new System.Windows.Forms.TabPage();
+            this.InteractiveEditorButton = new System.Windows.Forms.Button();
             this.ResetDefaultPassesButton = new System.Windows.Forms.Button();
             this.AnalyzeCheckBox = new System.Windows.Forms.CheckBox();
             this.AddPrintModuleButton = new System.Windows.Forms.Button();
@@ -114,7 +115,6 @@ namespace MainNs
             this.RenderLogTabPage = new System.Windows.Forms.TabPage();
             this.RenderLogBox = new System.Windows.Forms.TextBox();
             this.RewriterOutputTextBox = new System.Windows.Forms.RichTextBox();
-            this.InteractiveEditorButton = new System.Windows.Forms.Button();
             this.TheStatusStrip.SuspendLayout();
             this.TheMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -622,10 +622,21 @@ namespace MainNs
             this.OptimizerTabPage.Text = "Optimizer";
             this.OptimizerTabPage.UseVisualStyleBackColor = true;
             // 
+            // InteractiveEditorButton
+            // 
+            this.InteractiveEditorButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.InteractiveEditorButton.Location = new System.Drawing.Point(285, 437);
+            this.InteractiveEditorButton.Name = "InteractiveEditorButton";
+            this.InteractiveEditorButton.Size = new System.Drawing.Size(146, 23);
+            this.InteractiveEditorButton.TabIndex = 11;
+            this.InteractiveEditorButton.Text = "Interactive Editor...";
+            this.InteractiveEditorButton.UseVisualStyleBackColor = true;
+            this.InteractiveEditorButton.Click += new System.EventHandler(this.InteractiveEditorButton_Click);
+            // 
             // ResetDefaultPassesButton
             // 
             this.ResetDefaultPassesButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.ResetDefaultPassesButton.Location = new System.Drawing.Point(285, 399);
+            this.ResetDefaultPassesButton.Location = new System.Drawing.Point(285, 382);
             this.ResetDefaultPassesButton.Margin = new System.Windows.Forms.Padding(2);
             this.ResetDefaultPassesButton.Name = "ResetDefaultPassesButton";
             this.ResetDefaultPassesButton.Size = new System.Drawing.Size(146, 25);
@@ -638,7 +649,7 @@ namespace MainNs
             // 
             this.AnalyzeCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.AnalyzeCheckBox.AutoSize = true;
-            this.AnalyzeCheckBox.Location = new System.Drawing.Point(6, 375);
+            this.AnalyzeCheckBox.Location = new System.Drawing.Point(6, 351);
             this.AnalyzeCheckBox.Margin = new System.Windows.Forms.Padding(2, 3, 2, 3);
             this.AnalyzeCheckBox.Name = "AnalyzeCheckBox";
             this.AnalyzeCheckBox.Size = new System.Drawing.Size(99, 17);
@@ -649,7 +660,7 @@ namespace MainNs
             // AddPrintModuleButton
             // 
             this.AddPrintModuleButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.AddPrintModuleButton.Location = new System.Drawing.Point(6, 418);
+            this.AddPrintModuleButton.Location = new System.Drawing.Point(4, 373);
             this.AddPrintModuleButton.Margin = new System.Windows.Forms.Padding(2);
             this.AddPrintModuleButton.Name = "AddPrintModuleButton";
             this.AddPrintModuleButton.Size = new System.Drawing.Size(146, 25);
@@ -661,7 +672,7 @@ namespace MainNs
             // RunPassesButton
             // 
             this.RunPassesButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.RunPassesButton.Location = new System.Drawing.Point(285, 426);
+            this.RunPassesButton.Location = new System.Drawing.Point(285, 409);
             this.RunPassesButton.Margin = new System.Windows.Forms.Padding(2);
             this.RunPassesButton.Name = "RunPassesButton";
             this.RunPassesButton.Size = new System.Drawing.Size(146, 25);
@@ -673,7 +684,7 @@ namespace MainNs
             // SelectPassDownButton
             // 
             this.SelectPassDownButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.SelectPassDownButton.Location = new System.Drawing.Point(358, 368);
+            this.SelectPassDownButton.Location = new System.Drawing.Point(358, 351);
             this.SelectPassDownButton.Margin = new System.Windows.Forms.Padding(2);
             this.SelectPassDownButton.Name = "SelectPassDownButton";
             this.SelectPassDownButton.Size = new System.Drawing.Size(74, 25);
@@ -685,7 +696,7 @@ namespace MainNs
             // SelectPassUpButton
             // 
             this.SelectPassUpButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.SelectPassUpButton.Location = new System.Drawing.Point(285, 368);
+            this.SelectPassUpButton.Location = new System.Drawing.Point(285, 351);
             this.SelectPassUpButton.Margin = new System.Windows.Forms.Padding(2);
             this.SelectPassUpButton.Name = "SelectPassUpButton";
             this.SelectPassUpButton.Size = new System.Drawing.Size(70, 25);
@@ -703,7 +714,7 @@ namespace MainNs
             this.SelectedPassesBox.Location = new System.Drawing.Point(285, 30);
             this.SelectedPassesBox.Margin = new System.Windows.Forms.Padding(2);
             this.SelectedPassesBox.Name = "SelectedPassesBox";
-            this.SelectedPassesBox.Size = new System.Drawing.Size(206, 225);
+            this.SelectedPassesBox.Size = new System.Drawing.Size(206, 316);
             this.SelectedPassesBox.TabIndex = 3;
             this.SelectedPassesBox.DoubleClick += new System.EventHandler(this.SelectedPassesBox_DoubleClick);
             this.SelectedPassesBox.KeyUp += new System.Windows.Forms.KeyEventHandler(this.SelectedPassesBox_KeyUp);
@@ -792,7 +803,7 @@ namespace MainNs
             this.AvailablePassesBox.Margin = new System.Windows.Forms.Padding(2);
             this.AvailablePassesBox.Name = "AvailablePassesBox";
             this.AvailablePassesBox.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
-            this.AvailablePassesBox.Size = new System.Drawing.Size(274, 225);
+            this.AvailablePassesBox.Size = new System.Drawing.Size(274, 316);
             this.AvailablePassesBox.TabIndex = 0;
             this.AvailablePassesBox.DoubleClick += new System.EventHandler(this.AvailablePassesBox_DoubleClick);
             // 
@@ -864,16 +875,6 @@ namespace MainNs
             this.RewriterOutputTextBox.TabIndex = 1;
             this.RewriterOutputTextBox.Text = "";
             this.RewriterOutputTextBox.WordWrap = false;
-            // 
-            // InteractiveEditorButton
-            // 
-            this.InteractiveEditorButton.Location = new System.Drawing.Point(285, 454);
-            this.InteractiveEditorButton.Name = "InteractiveEditorButton";
-            this.InteractiveEditorButton.Size = new System.Drawing.Size(146, 23);
-            this.InteractiveEditorButton.TabIndex = 11;
-            this.InteractiveEditorButton.Text = "Interactive Editor...";
-            this.InteractiveEditorButton.UseVisualStyleBackColor = true;
-            this.InteractiveEditorButton.Click += new System.EventHandler(this.InteractiveEditorButton_Click);
             // 
             // EditorForm
             // 

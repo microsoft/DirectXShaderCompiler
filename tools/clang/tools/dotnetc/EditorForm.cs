@@ -1515,10 +1515,19 @@ namespace MainNs
                 result.Add("-analyze");
             if (printAll)
                 result.Add("-print-module:start");
+            bool inOptFn = false;
             foreach (var itemText in passes)
             {
                 result.Add(PassStringToOption(itemText));
-                if (printAll)
+                if (itemText == "opt-fn-passes")
+                {
+                    inOptFn = true;
+                }
+                else if (itemText.StartsWith("opt-") && itemText.EndsWith("-passes"))
+                {
+                    inOptFn = false;
+                }
+                if (printAll && !inOptFn)
                 {
                     result.Add("-hlsl-passes-pause");
                     result.Add("-print-module:" + itemText);
