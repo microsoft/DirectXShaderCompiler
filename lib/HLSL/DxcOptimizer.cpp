@@ -727,15 +727,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       pass->setOSOverride(&outStream);
       pass->applyOptions(options);
       options.clear();
-      switch (pass->getPassKind()) {
-      case PassKind::PT_Module:
-        ModulePasses.add(pass);
-        break;
-      case PassKind::PT_Function:
-        FunctionPasses.add(pass);
-        break;
-      }
-      //pPassManager->add(pass);
+      pPassManager->add(pass);
       if (AnalyzeOnly) {
         const bool Quiet = false;
         PassKind Kind = pass->getPassKind();
