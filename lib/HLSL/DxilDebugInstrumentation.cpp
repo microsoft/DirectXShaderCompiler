@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilOutputColorBecomesConstant.cpp                                        //
+// DxilDebugInstrumentation.cpp                                              //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -12,15 +12,12 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilModule.h"
+
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 
-#include "llvm/support/FormattedStream.h"
-
-#include <sstream>
 
 using namespace llvm;
 using namespace hlsl;
@@ -95,6 +92,7 @@ enum DebugShaderModifierRecordType {
 // These structs echo those in the debugger application's debugshaderrecord.h file, but are recapitulated here
 // because the originals use unnamed unions which are disallowed by DXCompiler's build.
 // 
+#pragma pack(push,4)
 struct DebugShaderModifierRecordHeader {
   union  {
     struct {
@@ -130,6 +128,7 @@ struct DebugShaderModifierRecordDXILStep : public DebugShaderModifierRecordDXILS
 template< >
 struct DebugShaderModifierRecordDXILStep<void> : public DebugShaderModifierRecordDXILStepBase {
 };
+#pragma pack(pop)
 
 
 uint32_t DebugShaderModifierRecordPayloadSizeDwords(size_t recordTotalSizeBytes) {
@@ -202,24 +201,24 @@ private:
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilDebugInstrumentation() : ModulePass(ID) {}
-  const char *getPassName() const override { return "DXIL Force Early Z"; }
+  const char *getPassName() const override { return "Add PIX debug instrumentation"; }
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
 
 private:
-  SystemValueIndices addRequiredSystemValues(BuilderContext & BC);
-  void addUAV(BuilderContext & BC);
-  void addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices);
-  Value * addPixelShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices);
-  Value * addComputeShaderProlog(BuilderContext & BC);
-  Value * addVertexShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices);
-  void addDebugEntryValue(BuilderContext & BC, Value * TheValue);
-  void addInvocationStartMarker(BuilderContext & BC);
-  void reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInDwords);
-  void addStepDebugEntry(BuilderContext & BC, Instruction * Inst);
+  SystemValueIndices addRequiredSystemValues(BuilderContext &BC);
+  void addUAV(BuilderContext &BC);
+  void addInvocationSelectionProlog(BuilderContext &BC, SystemValueIndices SVIndices);
+  Value * addPixelShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
+  Value * addComputeShaderProlog(BuilderContext &BC);
+  Value * addVertexShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
+  void addDebugEntryValue(BuilderContext &BC, Value * TheValue);
+  void addInvocationStartMarker(BuilderContext &BC);
+  void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
+  void addStepDebugEntry(BuilderContext &BC, Instruction *Inst);
   uint32_t UAVDumpingGroundOffset();
   template<typename ReturnType>
-  void addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, Instruction * Inst);
+  void addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, Instruction *Inst);
 
 };
 
@@ -245,7 +244,7 @@ uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
 }
 
 
-DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext & BC) {
+DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC) {
   SystemValueIndices SVIndices{};
 
   hlsl::DxilSignature & InputSignature = BC.DM.GetInputSignature();
@@ -325,13 +324,13 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
     // Compute thread Id is not in the input signature
   break;
   default:
-    assert(false);
+    assert(false); // guaranteed by runOnModule
   }
 
   return SVIndices;
 }
 
-Value * DxilDebugInstrumentation::addComputeShaderProlog(BuilderContext & BC) {
+Value * DxilDebugInstrumentation::addComputeShaderProlog(BuilderContext &BC) {
   Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
   Constant* One32Arg = BC.HlslOP->GetU32Const(1);
   Constant* Two32Arg = BC.HlslOP->GetU32Const(2);
@@ -354,7 +353,7 @@ Value * DxilDebugInstrumentation::addComputeShaderProlog(BuilderContext & BC) {
   return CompareAll;
 }
 
-Value * DxilDebugInstrumentation::addVertexShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices) {
+Value * DxilDebugInstrumentation::addVertexShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices) {
   Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
   Constant* Zero8Arg = BC.HlslOP->GetI8Const(0);
   UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
@@ -377,7 +376,7 @@ Value * DxilDebugInstrumentation::addVertexShaderProlog(BuilderContext & BC, Sys
   return CompareBoth;
 }
 
-Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext & BC, SystemValueIndices SVIndices) {
+Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices) {
   Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
   Constant* Zero8Arg = BC.HlslOP->GetI8Const(0);
   Constant* One8Arg = BC.HlslOP->GetI8Const(1);
@@ -407,7 +406,7 @@ Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext & BC, Syst
   return ComparePos;
 }
 
-void DxilDebugInstrumentation::addUAV(BuilderContext & BC)
+void DxilDebugInstrumentation::addUAV(BuilderContext &BC)
 {
   // Set up a UAV with structure of a single int
   unsigned int UAVResourceHandle = static_cast<unsigned int>(BC.DM.GetUAVs().size());
@@ -443,7 +442,7 @@ void DxilDebugInstrumentation::addUAV(BuilderContext & BC)
   { CreateHandleOpcodeArg, UAVVArg, MetaDataArg, IndexArg, FalseArg }, "PIX_DebugUAV_Handle");
 }
 
-void DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices) {
+void DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext &BC, SystemValueIndices SVIndices) {
   auto ShaderModel = BC.DM.GetShaderModel();
 
   Value * ParameterTestResult;
@@ -458,7 +457,7 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & BC,
       ParameterTestResult = addComputeShaderProlog(BC);
     break;
   default:
-    assert(false);
+    assert(false); // guaranteed by runOnModule
   }
 
   // This is a convenient place to calculate the values that modify the UAV offset for invocations of interest and for
@@ -471,7 +470,7 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & BC,
   m_SelectionCriterion = ParameterTestResult;
 }
 
-void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInBytes) {
+void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInBytes) {
   assert(m_CurrentIndex == nullptr);
   assert(m_RemainingReservedSpaceInBytes == 0);
 
@@ -518,7 +517,7 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, uint3
   m_CurrentIndex = AddedForInterest;
 }
 
-void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * TheValue) {
+void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC, Value * TheValue) {
   assert(m_RemainingReservedSpaceInBytes > 0);
 
   auto TheValueTypeID = TheValue->getType()->getTypeID();
@@ -528,6 +527,7 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * T
     auto SplitDoubleIntruction = BC.Builder.CreateCall(SplitDouble, { SplitDoubleOpcode, TheValue }, "SplitDouble");
     auto LowBits = BC.Builder.CreateExtractValue(SplitDoubleIntruction, 0, "LowBits");
     auto HighBits = BC.Builder.CreateExtractValue(SplitDoubleIntruction, 1, "HighBits");
+    //addDebugEntryValue(BC, BC.HlslOP->GetU32Const(0)); // padding
     addDebugEntryValue(BC, LowBits);
     addDebugEntryValue(BC, HighBits);
   }
@@ -535,13 +535,18 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * T
     auto LowBits = BC.Builder.CreateTrunc(TheValue, Type::getInt32Ty(BC.Ctx), "LowBits");
     auto ShiftedBits = BC.Builder.CreateLShr(TheValue, 32, "ShiftedBits");
     auto HighBits = BC.Builder.CreateTrunc(ShiftedBits, Type::getInt32Ty(BC.Ctx), "HighBits");
+    //addDebugEntryValue(BC, BC.HlslOP->GetU32Const(0)); // padding
     addDebugEntryValue(BC, LowBits);
     addDebugEntryValue(BC, HighBits);
   }
-  else if (TheValueTypeID == Type::TypeID::IntegerTyID && 
+  else if (TheValueTypeID == Type::TypeID::IntegerTyID &&
     (TheValue->getType()->getIntegerBitWidth() == 16 || TheValue->getType()->getIntegerBitWidth() == 1)) {
     auto As32 = BC.Builder.CreateZExt(TheValue, Type::getInt32Ty(BC.Ctx), "As32");
     addDebugEntryValue(BC, As32);
+  }
+  else if (TheValueTypeID == Type::TypeID::HalfTyID) {
+    auto AsFloat = BC.Builder.CreateFPCast(TheValue, Type::getFloatTy(BC.Ctx), "AsFloat");
+    addDebugEntryValue(BC, AsFloat);
   }
   else {
     Function* StoreValue = BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
@@ -578,12 +583,12 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * T
       m_CurrentIndex = BC.Builder.CreateAdd(m_CurrentIndex, BC.HlslOP->GetU32Const(4));
     }
     else {
-        m_CurrentIndex = nullptr;
+      m_CurrentIndex = nullptr;
     }
   }
 }
 
-void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC) {
+void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext &BC) {
   DebugShaderModifierRecordHeader marker{ 0 };
   reserveDebugEntrySpace(BC, sizeof(marker));
 
@@ -595,7 +600,7 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC) {
 }
 
 template<typename ReturnType>
-void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext & BC, Instruction * Inst) {
+void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType RecordType, BuilderContext &BC, Instruction *Inst) {
 
   DebugShaderModifierRecordDXILStep<ReturnType> step = {};
   reserveDebugEntrySpace(BC, sizeof(step));
@@ -611,7 +616,7 @@ void DxilDebugInstrumentation::addStepEntryForType(DebugShaderModifierRecordType
   }
 }
 
-void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, Instruction * Inst) {
+void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC, Instruction *Inst) {
   if (Inst->getOpcode() == Instruction::OtherOps::PHI) {
     return;
   }
@@ -637,8 +642,10 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, Instructio
   case Type::TypeID::DoubleTyID:
     addStepEntryForType<double>(DebugShaderModifierRecordTypeDXILStepDouble, BC, Inst);
     break;
-  case Type::TypeID::FP128TyID:
   case Type::TypeID::HalfTyID:
+    addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, Inst);
+    break;
+  case Type::TypeID::FP128TyID:
   case Type::TypeID::LabelTyID:
   case Type::TypeID::MetadataTyID:
   case Type::TypeID::FunctionTyID:
@@ -655,19 +662,21 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   LLVMContext & Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
+  auto ShaderModel = DM.GetShaderModel();
+  switch (ShaderModel->GetKind()) {
+  case DXIL::ShaderKind::Pixel:
+  case DXIL::ShaderKind::Vertex:
+  case DXIL::ShaderKind::Compute:
+    break;
+  default:
+    return false;
+  }
+
+
   // First record pointers to all instructions in the function:
-  std::vector<Instruction*> AllInstrucitons;
-  auto & Blocks = DM.GetEntryFunction()->getBasicBlockList();
-  for (auto & b : Blocks) {
-    auto & Instructions = b.getInstList();
-
-    for (
-      Instruction * InstructionIterator = Instructions.begin();
-      InstructionIterator != Instructions.end();
-      InstructionIterator = InstructionIterator->getNextNode()) {
-
-      AllInstrucitons.push_back(InstructionIterator);
-    }
+  std::vector<Instruction*> AllInstructions;
+  for (inst_iterator I = inst_begin(DM.GetEntryFunction()), E = inst_end(DM.GetEntryFunction()); I != E; ++I) {
+    AllInstructions.push_back(&*I);
   }
 
   // Branchless instrumentation requires taking care of a few things:
@@ -691,7 +700,7 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   // Instrument original instructions:
   {
-    for (auto & Inst : AllInstrucitons) {
+    for (auto & Inst : AllInstructions) {
       // Instrumentation goes after the instruction if it has a return value.
       // Otherwise, the instruction might be a terminator so we HAVE to put the instrumentation before
       if (Inst->getType()->getTypeID() != Type::TypeID::VoidTyID) {

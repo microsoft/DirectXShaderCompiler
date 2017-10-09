@@ -436,6 +436,9 @@ public:
   TEST_METHOD(PixDebugVSParameters)
   TEST_METHOD(PixDebugCSParameters)
   TEST_METHOD(PixDebugFlowControl)
+  TEST_METHOD(PixDebugPreexistingSVPosition)
+  TEST_METHOD(PixDebugPreexistingSVVertex)
+  TEST_METHOD(PixDebugPreexistingSVInstance)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -2893,6 +2896,18 @@ TEST_F(CompilerTest, PixDebugCSParameters) {
 
 TEST_F(CompilerTest, PixDebugFlowControl) {
   CodeGenTestCheck(L"pix\\DebugFlowControl.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPreexistingSVPosition) {
+  CodeGenTestCheck(L"pix\\DebugPreexistingSVPosition.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPreexistingSVVertex) {
+  CodeGenTestCheck(L"pix\\DebugPreexistingSVVertex.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPreexistingSVInstance) {
+  CodeGenTestCheck(L"pix\\DebugPreexistingSVInstance.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
