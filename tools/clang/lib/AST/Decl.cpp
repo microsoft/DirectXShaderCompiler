@@ -951,9 +951,13 @@ static LinkageInfo getLVForClassMember(const NamedDecl *D,
 
   // Static data members.
   } else if (const VarDecl *VD = dyn_cast<VarDecl>(D)) {
+    // HLSL Change: Make static data member internal linkage. This is to avoid confusion between global constant buffer
+    if (VD->getStorageClass() == StorageClass::SC_Static)
+      LV.setLinkage(Linkage::InternalLinkage);
+
     if (const VarTemplateSpecializationDecl *spec
-        = dyn_cast<VarTemplateSpecializationDecl>(VD))
-      mergeTemplateLV(LV, spec, computation);
+      = dyn_cast<VarTemplateSpecializationDecl>(VD))
+    mergeTemplateLV(LV, spec, computation);
 
     // Modify the variable's linkage by its type, but ignore the
     // type's visibility unless it's a definition.
