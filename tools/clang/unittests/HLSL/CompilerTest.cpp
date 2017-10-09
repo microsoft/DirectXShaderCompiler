@@ -430,6 +430,15 @@ public:
   TEST_METHOD(PixConstantColorFromCB)
   TEST_METHOD(PixConstantColorFromCBint)
   TEST_METHOD(PixForceEarlyZ)
+  TEST_METHOD(PixDebugBasic)
+  TEST_METHOD(PixDebugUAVSize)
+  TEST_METHOD(PixDebugPSParameters)
+  TEST_METHOD(PixDebugVSParameters)
+  TEST_METHOD(PixDebugCSParameters)
+  TEST_METHOD(PixDebugFlowControl)
+  TEST_METHOD(PixDebugPreexistingSVPosition)
+  TEST_METHOD(PixDebugPreexistingSVVertex)
+  TEST_METHOD(PixDebugPreexistingSVInstance)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -2864,6 +2873,42 @@ TEST_F(CompilerTest, PixConstantColorFromCBint) {
 
 TEST_F(CompilerTest, PixForceEarlyZ) {
   CodeGenTestCheck(L"pix\\forceEarlyZ.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugBasic) {
+  CodeGenTestCheck(L"pix\\DebugBasic.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugUAVSize) {
+  CodeGenTestCheck(L"pix\\DebugUAVSize.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPSParameters) {
+  CodeGenTestCheck(L"pix\\DebugPSParameters.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugVSParameters) {
+  CodeGenTestCheck(L"pix\\DebugVSParameters.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugCSParameters) {
+  CodeGenTestCheck(L"pix\\DebugCSParameters.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugFlowControl) {
+  CodeGenTestCheck(L"pix\\DebugFlowControl.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPreexistingSVPosition) {
+  CodeGenTestCheck(L"pix\\DebugPreexistingSVPosition.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPreexistingSVVertex) {
+  CodeGenTestCheck(L"pix\\DebugPreexistingSVVertex.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPreexistingSVInstance) {
+  CodeGenTestCheck(L"pix\\DebugPreexistingSVInstance.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {

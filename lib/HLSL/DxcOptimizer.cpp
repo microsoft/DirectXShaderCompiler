@@ -85,6 +85,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilAddPixelHitInstrumentationPass(Registry);
     initializeDxilCondenseResourcesPass(Registry);
     initializeDxilDeadFunctionEliminationPass(Registry);
+    initializeDxilDebugInstrumentationPass(Registry);
     initializeDxilEliminateOutputDynamicIndexingPass(Registry);
     initializeDxilEmitMetadataPass(Registry);
     initializeDxilExpandTrigIntrinsicsPass(Registry);
@@ -176,6 +177,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "maxElements" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "Threshold", "Ftor", "bonus-inst-threshold" };
   static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "force-early-z", "add-pixel-cost", "rt-width", "sv-position-index", "num-pixels" };
+  static const LPCSTR DxilDebugInstrumentationArgs[] = { "UAVSize", "parameter0", "parameter1", "parameter2" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
@@ -207,6 +209,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   if (strcmp(passName, "argpromotion") == 0) return ArrayRef<LPCSTR>(ArgPromotionArgs, _countof(ArgPromotionArgs));
   if (strcmp(passName, "simplifycfg") == 0) return ArrayRef<LPCSTR>(CFGSimplifyPassArgs, _countof(CFGSimplifyPassArgs));
   if (strcmp(passName, "hlsl-dxil-add-pixel-hit-instrmentation") == 0) return ArrayRef<LPCSTR>(DxilAddPixelHitInstrumentationArgs, _countof(DxilAddPixelHitInstrumentationArgs));
+  if (strcmp(passName, "hlsl-dxil-debug-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilDebugInstrumentationArgs, _countof(DxilDebugInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "dynamic-vector-to-array") == 0) return ArrayRef<LPCSTR>(DynamicIndexingVectorToArrayArgs, _countof(DynamicIndexingVectorToArrayArgs));
@@ -245,6 +248,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "None" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "None", "None", "Control the number of bonus instructions (default = 1)" };
   static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "None", "None", "None", "None", "None" };
+  static const LPCSTR DxilDebugInstrumentationArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "None" };
@@ -276,6 +280,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   if (strcmp(passName, "argpromotion") == 0) return ArrayRef<LPCSTR>(ArgPromotionArgs, _countof(ArgPromotionArgs));
   if (strcmp(passName, "simplifycfg") == 0) return ArrayRef<LPCSTR>(CFGSimplifyPassArgs, _countof(CFGSimplifyPassArgs));
   if (strcmp(passName, "hlsl-dxil-add-pixel-hit-instrmentation") == 0) return ArrayRef<LPCSTR>(DxilAddPixelHitInstrumentationArgs, _countof(DxilAddPixelHitInstrumentationArgs));
+  if (strcmp(passName, "hlsl-dxil-debug-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilDebugInstrumentationArgs, _countof(DxilDebugInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "dynamic-vector-to-array") == 0) return ArrayRef<LPCSTR>(DynamicIndexingVectorToArrayArgs, _countof(DynamicIndexingVectorToArrayArgs));
@@ -328,6 +333,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("TIRA")
     ||  S.equals("TLIImpl")
     ||  S.equals("Threshold")
+    ||  S.equals("UAVSize")
     ||  S.equals("add-pixel-cost")
     ||  S.equals("bonus-inst-threshold")
     ||  S.equals("constant-alpha")
@@ -356,6 +362,9 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("no-discriminators")
     ||  S.equals("noloads")
     ||  S.equals("num-pixels")
+    ||  S.equals("parameter0")
+    ||  S.equals("parameter1")
+    ||  S.equals("parameter2")
     ||  S.equals("pragma-unroll-threshold")
     ||  S.equals("reroll-num-tolerated-failed-matches")
     ||  S.equals("rewrite-map-file")
