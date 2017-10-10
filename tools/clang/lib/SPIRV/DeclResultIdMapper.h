@@ -126,13 +126,15 @@ public:
   /// true on success. SPIR-V instructions will also be generated to update the
   /// contents of the output variables by extracting sub-values from the given
   /// storedValue.
-  bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t storedValue);
+  bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t storedValue,
+                            bool isPC);
 
   /// \brief Creates the stage input variables by parsing the semantics attached
   /// to the given function's parameter and returns true on success. SPIR-V
   /// instructions will also be generated to load the contents from the input
   /// variables and composite them into one and write to *loadedValue.
-  bool createStageInputVar(const ParmVarDecl *paramDecl, uint32_t *loadedValue);
+  bool createStageInputVar(const ParmVarDecl *paramDecl, uint32_t *loadedValue,
+                           bool isPC);
 
   /// \brief Creates an input/output stage variable which does not have any
   /// semantics (such as InputPatch/OutputPatch in Hull shaders). This method
@@ -280,7 +282,7 @@ private:
   ///
   /// Assumes the decl has semantic attached to itself or to its fields.
   bool createStageVars(const DeclaratorDecl *decl, uint32_t *value,
-                       bool asInput, const llvm::Twine &namePrefix);
+                       bool asInput, const llvm::Twine &namePrefix, bool isPC);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and

@@ -47,13 +47,13 @@ const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
 } // anonymous namespace
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
-                                              uint32_t storedValue) {
-  return createStageVars(decl, &storedValue, false, "out.var");
+                                              uint32_t storedValue, bool isPC) {
+  return createStageVars(decl, &storedValue, false, "out.var", isPC);
 }
 
 bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
-                                             uint32_t *loadedValue) {
-  return createStageVars(paramDecl, loadedValue, true, "in.var");
+                                             uint32_t *loadedValue, bool isPC) {
+  return createStageVars(paramDecl, loadedValue, true, "in.var", isPC);
 }
 
 const DeclResultIdMapper::DeclSpirvInfo *
@@ -538,7 +538,8 @@ uint32_t DeclResultIdMapper::createStageVarWithoutSemantics(
 
 bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
                                          uint32_t *value, bool asInput,
-                                         const llvm::Twine &namePrefix) {
+                                         const llvm::Twine &namePrefix,
+                                         bool isPC) {
   QualType type = getFnParamOrRetType(decl);
   if (type->isVoidType()) {
     // No stage variables will be created for void type.
@@ -547,38 +548,23 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
   const uint32_t typeId = typeTranslator.translateType(type);
 
   llvm::StringRef semanticStr = getStageVarSemantic(decl);
-
-  // Special case: InputPatch and OutputPatch in the Hull/Domain shaders do
-  // not have semantics.
-  const bool isInputPatch = hlsl::IsHLSLInputPatchType(type);
-  if (hlsl::IsHLSLInputPatchType(type))
-    semanticStr = "InputPatch";
-
   if (!semanticStr.empty()) {
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
 
     const hlsl::DxilParamInputQual qual =
         asInput ? hlsl::DxilParamInputQual::In : hlsl::DxilParamInputQual::Out;
-
-    // TODO: use the correct isPC value when supporting patch constant function
-    // in hull shader
-    const hlsl::SigPoint *sigPoint =
-        hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
-            qual, shaderModel.GetKind(), /*isPC*/ false));
+    const hlsl::SigPoint *sigPoint = hlsl::SigPoint::GetSigPoint(
+        hlsl::SigPointFromInputQual(qual, shaderModel.GetKind(), isPC));
 
     llvm::StringRef semanticName;
     uint32_t semanticIndex = 0;
     hlsl::Semantic::DecomposeNameAndIndex(semanticStr, &semanticName,
                                           &semanticIndex);
-
     const auto *semantic = hlsl::Semantic::GetByName(semanticName);
 
-    // Commenting out this check because it freaks out when it sees
-    // SV_TessFactor in a Hull shader... which is totally valid.
-    /*
     // Error out when the given semantic is invalid in this shader model
-    if (!isInputPatch && hlsl::SigPoint::GetInterpretation(
+    if (hlsl::SigPoint::GetInterpretation(
                              semantic->GetKind(), sigPoint->GetKind(),
                              shaderModel.GetMajor(), shaderModel.GetMinor()) ==
                              hlsl::DXIL::SemanticInterpretationKind::NA) {
@@ -586,7 +572,6 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
           << semanticStr << shaderModel.GetName();
       return false;
     }
-    */
 
     StageVar stageVar(sigPoint, semanticStr, semantic, semanticIndex, typeId);
     llvm::Twine name = namePrefix + "." + semanticStr;
@@ -629,7 +614,6 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
 
     stageVar.setSpirvId(varId);
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
-
     stageVars.push_back(stageVar);
 
     if (asInput) {
@@ -651,7 +635,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
       llvm::SmallVector<uint32_t, 4> subValues;
       for (const auto *field : structDecl->fields()) {
         uint32_t subValue = 0;
-        if (!createStageVars(field, &subValue, true, namePrefix))
+        if (!createStageVars(field, &subValue, true, namePrefix, isPC))
           return false;
         subValues.push_back(subValue);
       }
@@ -664,7 +648,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
             typeTranslator.translateType(field->getType());
         uint32_t subValue = theBuilder.createCompositeExtract(
             fieldType, *value, {field->getFieldIndex()});
-        if (!createStageVars(field, &subValue, false, namePrefix))
+        if (!createStageVars(field, &subValue, false, namePrefix, isPC))
           return false;
       }
     }

@@ -4916,7 +4916,8 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
                 decl->getAttr<VKLocationAttr>());
         loadedValue = theBuilder.createLoad(typeId, hullInputPatchId);
         hullMainInputPatch = tempVar;
-      } else if (!declIdMapper.createStageInputVar(param, &loadedValue)) {
+      } else if (!declIdMapper.createStageInputVar(param, &loadedValue,
+                                                   /*isPC*/ false)) {
         return false;
       }
 
@@ -4946,7 +4947,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
             primitiveId, hullMainInputPatch))
       return false;
   } else {
-    if (!declIdMapper.createStageOutputVar(decl, retVal))
+    if (!declIdMapper.createStageOutputVar(decl, retVal, /*isPC*/ false))
       return false;
   }
 
@@ -4959,7 +4960,8 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       const uint32_t typeId = typeTranslator.translateType(param->getType());
       const uint32_t loadedParam = theBuilder.createLoad(typeId, params[i]);
 
-      if (!declIdMapper.createStageOutputVar(param, loadedParam))
+      if (!declIdMapper.createStageOutputVar(param, loadedParam,
+                                             /*isPC*/ false))
         return false;
     }
   }
@@ -5076,7 +5078,7 @@ bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
         std::string tempVarName = "param.var." + param->getNameAsString();
         const uint32_t tempVar = theBuilder.addFnVar(typeId, tempVarName);
         uint32_t loadedValue = 0;
-        declIdMapper.createStageInputVar(param, &loadedValue);
+        declIdMapper.createStageInputVar(param, &loadedValue, /*isPC*/ true);
         theBuilder.createStore(tempVar, loadedValue);
         primitiveId = tempVar;
       }
@@ -5085,7 +5087,8 @@ bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
   }
   const uint32_t pcfResultId =
       theBuilder.createFunctionCall(pcfRetType, pcfId, {pcfParams});
-  if (!declIdMapper.createStageOutputVar(patchConstFunc, pcfResultId))
+  if (!declIdMapper.createStageOutputVar(patchConstFunc, pcfResultId,
+                                         /*isPC*/ true))
     return false;
 
   theBuilder.createBranch(mergeBB);
