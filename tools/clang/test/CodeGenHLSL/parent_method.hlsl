@@ -8,15 +8,26 @@ class A {
 };
 class B : A {
   int m_b;
+  void bar() {
+     A::bar();
+  }
   void foo() {
     m_a = 1.3;
     m_b = 3;
   }
 };
 
+class C : B {
+   void bar() {
+      B::bar();
+      A::bar();
+      m_a = 1.5;
+   }
+};
+
 float main() : SV_Target {
-  B b;
-  b.bar();
-  b.foo();
-  return b.m_a;
+  C c;
+  c.bar();
+  c.foo();
+  return c.m_a;
 }
