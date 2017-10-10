@@ -1691,6 +1691,70 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr) {
                                            {0});
 }
 
+uint32_t SPIRVEmitter::processTextureGatherRGBA(const CXXMemberCallExpr *expr,
+                                                const uint32_t component) {
+  // Parameters for .Gather{Red|Green|Blue|Alpha}() are one of the following two
+  // sets:
+  // * SamplerState s, float2 location, int2 offset
+  // * SamplerState s, float2 location, int2 offset0, int2 offset1,
+  //   int offset2, int2 offset3
+  // An additional out uint status parameter can appear in both of the above,
+  // which we does not support yet.
+  // Return type is always a 4-component vector.
+  const FunctionDecl *callee = expr->getDirectCallee();
+  const auto numArgs = expr->getNumArgs();
+
+  if (numArgs != 3 && numArgs != 6) {
+    emitError("unsupported '%0' method call with status parameter",
+              expr->getExprLoc())
+        << callee->getName() << expr->getSourceRange();
+    return 0;
+  }
+
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+
+  const uint32_t image = loadIfGLValue(imageExpr);
+  const uint32_t sampler = doExpr(expr->getArg(0));
+  const uint32_t coordinate = doExpr(expr->getArg(1));
+
+  uint32_t constOffset = 0, varOffset = 0, constOffsets = 0;
+  if (numArgs == 3) {
+    // One offset parameter
+    const uint32_t offset = tryToEvaluateAsConst(expr->getArg(2));
+    if (offset)
+      constOffset = offset;
+    else
+      varOffset = offset;
+  } else {
+    // Four offset parameters
+    const auto offset0 = tryToEvaluateAsConst(expr->getArg(2));
+    const auto offset1 = tryToEvaluateAsConst(expr->getArg(3));
+    const auto offset2 = tryToEvaluateAsConst(expr->getArg(4));
+    const auto offset3 = tryToEvaluateAsConst(expr->getArg(5));
+
+    // Make sure we can generate the ConstOffsets image operands in SPIR-V.
+    if (!offset0 || !offset1 || !offset2 || !offset3) {
+      emitError("all offset parameters to '%0' method call must be constants",
+                expr->getExprLoc())
+          << callee->getName() << expr->getSourceRange();
+      return 0;
+    }
+    const uint32_t v2i32 = theBuilder.getVecType(theBuilder.getInt32Type(), 2);
+    const uint32_t offsetType =
+        theBuilder.getArrayType(v2i32, theBuilder.getConstantUint32(4));
+    constOffsets = theBuilder.getConstantComposite(
+        offsetType, {offset0, offset1, offset2, offset3});
+  }
+
+  const auto retType = typeTranslator.translateType(callee->getReturnType());
+  const auto imageType = typeTranslator.translateType(imageExpr->getType());
+
+  return theBuilder.createImageGather(
+      retType, imageType, image, sampler, coordinate,
+      theBuilder.getConstantInt32(component), constOffset, varOffset,
+      constOffsets, /*sampleNumber=*/0);
+}
+
 uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
                                                 const uint32_t locationId,
                                                 uint32_t constOffset,
@@ -2008,6 +2072,14 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
           /*constOffsets*/ 0, /*sampleNumber*/ 0);
     }
   }
+  case IntrinsicOp::MOP_GatherRed:
+    return processTextureGatherRGBA(expr, 0);
+  case IntrinsicOp::MOP_GatherGreen:
+    return processTextureGatherRGBA(expr, 1);
+  case IntrinsicOp::MOP_GatherBlue:
+    return processTextureGatherRGBA(expr, 2);
+  case IntrinsicOp::MOP_GatherAlpha:
+    return processTextureGatherRGBA(expr, 3);
   case IntrinsicOp::MOP_SampleBias:
   case IntrinsicOp::MOP_SampleLevel: {
     // Signatures:
