@@ -495,6 +495,10 @@ private:
   /// the given texture. Handles intrinsic HLSL CalculateLevelOfDetail function.
   uint32_t processTextureLevelOfDetail(const CXXMemberCallExpr *expr);
 
+  /// \brief Handles .Gather{Red|Green|Blue|Alpha}() calls on texture types.
+  uint32_t processTextureGatherRGBA(const CXXMemberCallExpr *expr,
+                                    uint32_t component);
+
   /// \brief Queries the given (RW)Buffer/(RW)Texture image in the given expr
   /// for the requested information. Based on the dimension of the image, the
   /// following info can be queried: width, height, depth, number of mipmap
@@ -523,10 +527,12 @@ private:
 
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
-  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N],
+                              SourceLocation loc = {}) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
-    return diags.Report(diagId);
+    return diags.Report(loc, diagId);
   }
 
   /// \brief Wrapper method to create a warning message and report it

@@ -390,6 +390,26 @@ TEST_F(FileTest, TextureGather) { runFileTest("texture.gather.hlsl"); }
 TEST_F(FileTest, TextureArrayGather) {
   runFileTest("texture.array.gather.hlsl");
 }
+TEST_F(FileTest, TextureGatherRed) { runFileTest("texture.gather-red.hlsl"); }
+TEST_F(FileTest, TextureArrayGatherRed) {
+  runFileTest("texture.array.gather-red.hlsl");
+}
+TEST_F(FileTest, TextureGatherGreen) {
+  runFileTest("texture.gather-green.hlsl");
+}
+TEST_F(FileTest, TextureArrayGatherGreen) {
+  runFileTest("texture.array.gather-green.hlsl");
+}
+TEST_F(FileTest, TextureGatherBlue) { runFileTest("texture.gather-blue.hlsl"); }
+TEST_F(FileTest, TextureArrayGatherBlue) {
+  runFileTest("texture.array.gather-blue.hlsl");
+}
+TEST_F(FileTest, TextureGatherAlpha) {
+  runFileTest("texture.gather-alpha.hlsl");
+}
+TEST_F(FileTest, TextureArrayGatherAlpha) {
+  runFileTest("texture.array.gather-alpha.hlsl");
+}
 TEST_F(FileTest, TextureSampleLevel) {
   runFileTest("texture.sample-level.hlsl");
 }
