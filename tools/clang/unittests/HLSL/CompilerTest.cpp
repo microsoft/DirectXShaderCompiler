@@ -813,6 +813,7 @@ public:
   //TEST_METHOD(CodeGenMore_Operators_Mod)
   //TEST_METHOD(CodeGenObject_Operators_Mod)
   TEST_METHOD(CodeGenPackreg_Mod)
+  TEST_METHOD(CodeGenParentMethod)
   TEST_METHOD(CodeGenParameter_Types)
   TEST_METHOD(CodeGenScalar_Assignments_Mod)
   TEST_METHOD(CodeGenScalar_Operators_Assign_Mod)
@@ -4418,6 +4419,10 @@ TEST_F(CompilerTest, CodeGenMatrix_Syntax_Mod) {
 
 TEST_F(CompilerTest, CodeGenPackreg_Mod) {
   CodeGenTest(L"..\\CodeGenHLSL\\packreg_Mod.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenParentMethod) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\parent_method.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenParameter_Types) {

@@ -1892,6 +1892,7 @@ BaseResult Parser::ParseBaseSpecifier(Decl *ClassDecl) {
   if (Access != AS_none) Diag(Tok, diag::err_hlsl_unsupported_construct) << "base type access specifier"; // HLSL Change
   if (Access != AS_none)
     ConsumeToken();
+  if (getLangOpts().HLSL) Access = AS_public; // HLSL Change - always use public for hlsl.
 
   CheckMisplacedCXX11Attribute(Attributes, StartLoc);
 
@@ -1924,7 +1925,6 @@ BaseResult Parser::ParseBaseSpecifier(Decl *ClassDecl) {
   SourceLocation EllipsisLoc;
   TryConsumeToken(tok::ellipsis, EllipsisLoc);
   if (getLangOpts().HLSL && EllipsisLoc != SourceLocation()) Diag(Tok, diag::err_hlsl_unsupported_construct) << "base type ellipsis"; // HLSL Change
-
   // Find the complete source range for the base-specifier.
   SourceRange Range(StartLoc, EndLocation);
 
