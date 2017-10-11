@@ -498,6 +498,7 @@ public:
   TEST_METHOD(CodeGenConstMat2)
   TEST_METHOD(CodeGenConstMat3)
   TEST_METHOD(CodeGenConstMat4)
+  TEST_METHOD(CodeGenCorrectDelay)
   TEST_METHOD(CodeGenDiscard)
   TEST_METHOD(CodeGenDivZero)
   TEST_METHOD(CodeGenDot1)
@@ -3148,6 +3149,10 @@ TEST_F(CompilerTest, CodeGenConstMat3) {
 
 TEST_F(CompilerTest, CodeGenConstMat4) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\constMat4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCorrectDelay) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\correct_delay.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenDiscard) {

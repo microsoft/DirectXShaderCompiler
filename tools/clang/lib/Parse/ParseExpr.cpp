@@ -307,7 +307,12 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
           Actions.CorrectDelayedTyposInExpr(LHS);
           LHS = ExprError();
           TernaryMiddle = nullptr;
-        }
+        } else {  // HLSL Change Begin - CorrectDelayedTypos for a? b:c.
+           if (LHS.isInvalid()) {
+             // Ensure potential typos in the RHS aren't left undiagnosed.
+             Actions.CorrectDelayedTyposInExpr(TernaryMiddle);
+           }
+        } // HLSL Change End.
       } else {
         // Special case handling of "X ? Y : Z" where Y is empty:
         //   logical-OR-expression '?' ':' conditional-expression   [GNU]
