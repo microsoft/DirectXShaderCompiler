@@ -80,7 +80,13 @@
     <Compile Include="${DOS_STYLE_SOURCE_DIR}\GoToDialog.Designer.cs">
       <DependentUpon>GoToDialog.cs</DependentUpon>
     </Compile>
-	<Compile Include="${DOS_STYLE_SOURCE_DIR}\HlslHost.cs" />
+    <Compile Include="${DOS_STYLE_SOURCE_DIR}\HlslHost.cs" />
+    <Compile Include="${DOS_STYLE_SOURCE_DIR}\OptEditorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="${DOS_STYLE_SOURCE_DIR}\OptEditorForm.Designer.cs">
+      <DependentUpon>OptEditorForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="${DOS_STYLE_SOURCE_DIR}\Tom.cs" />
     <Compile Include="${DOS_STYLE_SOURCE_DIR}\Program.cs" />
   </ItemGroup>
@@ -93,6 +99,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="${DOS_STYLE_SOURCE_DIR}\GoToDialog.resx">
       <DependentUpon>GoToDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="${DOS_STYLE_SOURCE_DIR}\OptEditorForm.resx">
+      <DependentUpon>OptEditorForm.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

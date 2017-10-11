@@ -135,7 +135,7 @@ namespace MainNs
                     unsafe
                     {
                         IDxcBlob part = reflection.GetPartContent(index);
-                        UInt32* p = (UInt32 *)part.GetBufferPointer();
+                        UInt32* p = (UInt32*)part.GetBufferPointer();
                         return DescribeProgramVersionShort(*p);
                     }
                 }
@@ -958,12 +958,17 @@ namespace MainNs
 
         private IDxcBlobEncoding CreateBlobForText(string text)
         {
+            return CreateBlobForText(this.Library, text);
+        }
+
+        public static IDxcBlobEncoding CreateBlobForText(IDxcLibrary library, string text)
+        {
             if (String.IsNullOrEmpty(text))
             {
                 return null;
             }
             const UInt32 CP_UTF16 = 1200;
-            var source = Library.CreateBlobWithEncodingOnHeapCopy(text, (UInt32)(text.Length * 2), CP_UTF16);
+            var source = library.CreateBlobWithEncodingOnHeapCopy(text, (UInt32)(text.Length * 2), CP_UTF16);
             return source;
         }
 
@@ -1068,9 +1073,14 @@ namespace MainNs
 
         private string GetStringFromBlob(IDxcBlob blob)
         {
+            return GetStringFromBlob(this.Library, blob);
+        }
+
+        public static string GetStringFromBlob(IDxcLibrary library, IDxcBlob blob)
+        {
             unsafe
             {
-                blob = this.Library.GetBlobAstUf16(blob);
+                blob = library.GetBlobAstUf16(blob);
                 return new string(blob.GetBufferPointer(), 0, (int)(blob.GetBufferSize() / 2));
             }
         }
@@ -1267,7 +1277,7 @@ namespace MainNs
             return range;
         }
 
-        private void HandleDebugMetadata(string dbgLine)
+        private static void HandleDebugMetadata(string dbgLine, RichTextBox sourceBox)
         {
             Regex lineRE = new Regex(@"line: (\d+)");
             Match lineMatch = lineRE.Match(dbgLine);
@@ -1277,15 +1287,15 @@ namespace MainNs
             }
 
             int lineVal = Int32.Parse(lineMatch.Groups[1].Value) - 1;
-            int targetStart = this.CodeBox.GetFirstCharIndexFromLine(lineVal);
-            int targetEnd = this.CodeBox.GetFirstCharIndexFromLine(lineVal + 1);
-            var highlights = SelectionHighlightData.FromRtb(CodeBox);
-            highlights.ClearFromRtb(CodeBox);
+            int targetStart = sourceBox.GetFirstCharIndexFromLine(lineVal);
+            int targetEnd = sourceBox.GetFirstCharIndexFromLine(lineVal + 1);
+            var highlights = SelectionHighlightData.FromRtb(sourceBox);
+            highlights.ClearFromRtb(sourceBox);
             highlights.Add(targetStart, targetEnd - targetStart);
-            highlights.ApplyToRtb(CodeBox, Color.Yellow);
+            highlights.ApplyToRtb(sourceBox, Color.Yellow);
         }
 
-        private void HandleDebugTokenOnDisassemblyLine(RichTextBox rtb)
+        private static void HandleDebugTokenOnDisassemblyLine(RichTextBox rtb, RichTextBox sourceBox)
         {
             // Get the line.
             string[] lines = rtb.Lines;
@@ -1307,7 +1317,7 @@ namespace MainNs
                     int dbgIdx = Int32.Parse(dbgLine.Substring(1, dbgLine.IndexOf(' ') - 1));
                     if (dbgIdx == dbgMetadata)
                     {
-                        HandleDebugMetadata(dbgLine);
+                        HandleDebugMetadata(dbgLine, sourceBox);
                         return;
                     }
                     else if (dbgIdx < dbgMetadata)
@@ -1326,20 +1336,17 @@ namespace MainNs
             }
         }
 
-        private void DisassemblyTextBox_SelectionChanged(object sender, EventArgs e)
+        public static void HandleCodeSelectionChanged(RichTextBox rtb, RichTextBox sourceBox)
         {
-            // We use [) ranges for selection
-            RichTextBox rtb = (RichTextBox)sender;
             SelectionHighlightData data = SelectionHighlightData.FromRtb(rtb);
             SelectionExpandResult expand = SelectionExpandResult.Expand(rtb);
             if (expand.IsEmpty)
                 return;
 
             string token = expand.Token;
-
-            if (token == "dbg")
+            if (sourceBox != null && token == "dbg")
             {
-                HandleDebugTokenOnDisassemblyLine(rtb);
+                HandleDebugTokenOnDisassemblyLine(rtb, sourceBox);
             }
 
             if (data.SelectedToken == token)
@@ -1363,6 +1370,11 @@ namespace MainNs
             }
         }
 
+        private void DisassemblyTextBox_SelectionChanged(object sender, EventArgs e)
+        {
+            HandleCodeSelectionChanged((RichTextBox)sender, this.CodeBox);
+        }
+
 
         private string PassToPassString(IDxcOptimizerPass pass)
         {
@@ -1377,7 +1389,7 @@ namespace MainNs
             return value;
         }
 
-        private string PassStringToOption(string value)
+        private static string PassStringToOption(string value)
         {
             int separator = value.IndexOf(OptDescSeparator);
             if (separator >= 0)
@@ -1496,136 +1508,56 @@ namespace MainNs
             this.SelectedPassesBox.Items.AddRange(defaultPasses.ToArray());
         }
 
-        private string[] CreatePassOptions()
+        public static string[] CreatePassOptions(IEnumerable<string> passes, bool analyze, bool printAll)
         {
             List<string> result = new List<string>();
-            if (this.AnalyzeCheckBox.Checked)
+            if (analyze)
                 result.Add("-analyze");
-            bool printAll = this.PrintAllPassesBox.Checked;
-            var items = this.SelectedPassesBox.Items;
             if (printAll)
                 result.Add("-print-module:start");
-            for (int i = 0; i < items.Count; ++i)
+            bool inOptFn = false;
+            foreach (var itemText in passes)
             {
-                string itemText = items[i].ToString();
                 result.Add(PassStringToOption(itemText));
-                if (printAll)
+                if (itemText == "opt-fn-passes")
+                {
+                    inOptFn = true;
+                }
+                else if (itemText.StartsWith("opt-") && itemText.EndsWith("-passes"))
+                {
+                    inOptFn = false;
+                }
+                if (printAll && !inOptFn)
+                {
+                    result.Add("-hlsl-passes-pause");
                     result.Add("-print-module:" + itemText);
+                }
             }
             return result.ToArray();
         }
 
-        class TextSection
+        private string[] CreatePassOptions(bool analyze, bool printAll)
         {
-            private string[] lines;
-            private int[] lineHashes;
-            public string Title;
-            public string Text;
-            public bool HasChange;
-            public string[] Lines
-            {
-                get
-                {
-                    if (lines == null)
-                       lines = Text.Split(new char[] { '\n' });
-                    return lines;
-                }
-            }
-            public int[] LineHashes
-            {
-                get
-                {
-                    if (lineHashes == null)
-                       lineHashes = lines.Select(l => l.GetHashCode()).ToArray();
-                    return lineHashes;
-                }
-            }
-            public override string ToString()
-            {
-                return Title;
-            }
-        }
-
-        private static bool ClosestMatch(string text, ref int start, string[] separators, out string separator)
-        {
-            int closest = -1;
-            separator = null;
-            for (int i = 0; i < separators.Length; ++i)
-            {
-                int idx = text.IndexOf(separators[i], start);
-                if (idx >= 0 && (closest < 0 || idx < closest))
-                {
-                    closest = idx;
-                    separator = separators[i];
-                }
-            }
-            start = closest;
-            return closest >= 0;
-        }
-
-        private static IEnumerable<TextSection> EnumerateSections(string[] separators, string text)
-        {
-            string prior = null;
-            string separator;
-            int idx = 0;
-            while (idx >= 0 && ClosestMatch(text, ref idx, separators, out separator))
-            {
-                int lineEnd = text.IndexOf('\n', idx);
-                if (lineEnd < 0) break;
-                string title = text.Substring(idx + separator.Length, lineEnd - (idx + separator.Length));
-                title = title.Trim();
-                int next = lineEnd;
-                if (!ClosestMatch(text, ref next, separators, out separator))
-                    next = -1;
-                string sectionText = (next < 0) ? text.Substring(lineEnd + 1) : text.Substring(lineEnd + 1, next - (lineEnd + 1));
-                sectionText = sectionText.Trim();
-                if (sectionText == prior)
-                    sectionText = prior;
-                yield return new TextSection { Title = title, Text = sectionText };
-                idx = next;
-                prior = sectionText;
-            }
+            return CreatePassOptions(this.SelectedPassesBox.Items.ToStringEnumerable(), analyze, printAll);
         }
 
         private void RunPassesButton_Click(object sender, EventArgs e)
         {
             // TODO: consider accepting DXIL in the code editor as well
             // Do a high-level only compile.
-            IDxcCompiler compiler = HlslDxcLib.CreateDxcCompiler();
-            string fileName = "hlsl.hlsl";
-            HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
-            string[] args = new string[] { "-fcgl" };
-            string resultText = "";
-            IDxcBlob source = null;
+            HighLevelCompileResult compile = RunHighLevelCompile();
+            if (compile.Blob == null)
             {
-                var result = compiler.Compile(this.CreateBlobForCodeText(), fileName, fileVars.Entry, fileVars.Target, args, args.Length, null, 0, library.CreateIncludeHandler());
-                if (result.GetStatus() == 0)
-                {
-                    source = result.GetResult();
-                }
-                else
-                {
-                    resultText = GetStringFromBlob(result.GetErrors());
-                }
+                MessageBox.Show("Failed to compile: " + compile.ResultText);
+                return;
             }
 
-            if (source != null)
+            string[] options = CreatePassOptions(this.AnalyzeCheckBox.Checked, false);
+            OptimizeResult opt = RunOptimize(this.Library, options, compile.Blob);
+            if (!opt.Succeeded)
             {
-                string[] options = CreatePassOptions();
-                IDxcOptimizer opt = HlslDxcLib.CreateDxcOptimizer();
-
-                IDxcBlob module;
-                IDxcBlobEncoding text;
-                try
-                {
-                    opt.RunOptimizer(source, options, options.Length, out module, out text);
-                }
-                catch (Exception optException)
-                {
-                    HandleException(optException, "Failed to run optimizer");
-                    return;
-                }
-                resultText = GetStringFromBlob(text);
+                MessageBox.Show("Failed to optimize: " + opt.ResultText);
+                return;
             }
 
             Form form = new Form();
@@ -1639,133 +1571,9 @@ namespace MainNs
                     new MenuItem("Show Graph", helper.ShowGraphClick)
                 });
             rtb.SelectionChanged += DisassemblyTextBox_SelectionChanged;
-            if (this.PrintAllPassesBox.Checked)
-            {
-                SplitContainer split = new SplitContainer() { Dock = DockStyle.Fill };
-                ListBox sectionBox = new ListBox() { Dock = DockStyle.Fill };
-                RadioButton leftButton = new RadioButton() { Text = "Left Only" };
-                RadioButton diffButton = new RadioButton() { Checked = true, Text = "Both", Left = leftButton.Right };
-                RadioButton rightButton = new RadioButton() { Text = "Right Only", Left = diffButton.Right };
-                Panel optionsPanel = new Panel() { Dock = DockStyle.Top, Height = diffButton.Bottom };
-                optionsPanel.Controls.AddRange(new Control[] { leftButton, diffButton, rightButton } );
-                var sections = EnumerateSections(new string[] { "MODULE-PRINT", "Phase:" }, resultText).ToArray();
-                TextSection last = null;
-                foreach (var s in sections)
-                {
-                    s.HasChange = last != null && !object.ReferenceEquals(last.Text, s.Text);
-                    if (s.HasChange) s.Title = "* " + s.Title;
-                    last = s;
-                }
-                sectionBox.Items.AddRange(sections);
-                Action updateBox = () =>
-                {
-                    rtb.Clear();
-                    int index = sectionBox.SelectedIndex;
-                    if (index == -1) return;
-                    TextSection section = (TextSection)sectionBox.SelectedItem;
-                    TextSection prior = index == 0 ? null : sectionBox.Items[index-1] as TextSection;
-                    if (prior == null || section.Text == prior.Text || rightButton.Checked)
-                        rtb.Text = section.Text;
-                    else if (leftButton.Checked)
-                        rtb.Text = (prior == null) ? "(no prior text)" : prior.Text;
-                    else
-                        RunDiff(prior, section, rtb);
-                };
-                EventHandler H = (ccChanged, __) =>
-                {
-                    if (((RadioButton)ccChanged).Checked) updateBox();
-                };
-                leftButton.CheckedChanged += H;
-                diffButton.CheckedChanged += H;
-                rightButton.CheckedChanged += H;
-                sectionBox.SelectedIndexChanged += (_, __) => { updateBox(); };
-                split.Panel1.Controls.Add(sectionBox);
-                split.Panel2.Controls.Add(rtb);
-                split.Panel2.Controls.Add(optionsPanel);
-                form.Controls.Add(split);
-            }
-            else
-            {
-                rtb.Text = resultText;
-                form.Controls.Add(rtb);
-            }
+            rtb.Text = opt.ResultText;
             form.StartPosition = FormStartPosition.CenterParent;
             form.Show(this);
-        }
-
-        private void RunDiff(TextSection oldText, TextSection newText, RichTextBox rtb)
-        {
-            // Longest common subsequence, simple edition. If/when something faster is needed,
-            // should probably take a dependency on a proper diff package. Other than shorter
-            // comparison windows, other things to look for are avoiding creating strings here,
-            // working on the RichTextBox buffer directly for color, and unique'ing lines.
-            string[] oldLines = oldText.Lines;
-            string[] newLines = newText.Lines;
-            // Reduce strings to hashes.
-            int[] oldHashes = oldText.LineHashes;
-            int[] newHashes = newText.LineHashes;
-            // Reduce by trimming prefix and suffix.
-            int diffStart = 0;
-            while (diffStart < oldHashes.Length && diffStart < newHashes.Length && oldHashes[diffStart] == newHashes[diffStart])
-                diffStart++;
-            int newDiffEndExc = newLines.Length, oldDiffEndExc = oldLines.Length;
-            while (newDiffEndExc > diffStart && oldDiffEndExc > diffStart)
-            {
-                if (oldHashes[oldDiffEndExc - 1] == newHashes[newDiffEndExc - 1])
-                {
-                    oldDiffEndExc--;
-                    newDiffEndExc--;
-                }
-                else
-                    break;
-            }
-            int suffixLength = (newLines.Length - newDiffEndExc);
-            // Build LCS table.
-            int oldLen = oldDiffEndExc - diffStart, newLen = newDiffEndExc - diffStart;
-            int[,] lcs = new int[oldLen + 1, newLen + 1]; // already zero-initialized
-            for (int i = 0; i < oldLen; i++)
-                for (int j = 0; j < newLen; j++)
-                    if (oldHashes[i + diffStart] == newHashes[j + diffStart])
-                        lcs[i + 1, j + 1] = lcs[i, j] + 1;
-                    else
-                        lcs[i + 1, j + 1] = Math.Max(lcs[i, j + 1], lcs[i + 1, j]);
-            // Print the diff - common prefix, backtracked diff and common suffix.
-            rtb.AppendLines("  ", newLines, 0, diffStart, Color.White);
-            {
-                int i = oldLen, j = newLen;
-                Stack<string> o = new Stack<string>();
-                for (;;)
-                {
-                    if (i > 0 && j > 0 && oldHashes[diffStart + i - 1] == newHashes[diffStart + j - 1])
-                    {
-                        o.Push("  " + oldLines[diffStart + i - 1]);
-                        i--;
-                        j--;
-                    }
-                    else if (j > 0 && (i == 0 || lcs[i, j - 1] >= lcs[i - 1, j]))
-                    {
-                        o.Push("+ " + newLines[diffStart + j - 1]);
-                        j--;
-                    }
-                    else if (i > 0 && (j == 0 || lcs[i, j - 1] < lcs[i - 1, j]))
-                    {
-                        o.Push("- " + oldLines[diffStart + i - 1]);
-                        i--;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                while (o.Count != 0)
-                {
-                    string line = o.Pop();
-                    Color c = (line[0] == ' ') ? Color.White :
-                        ((line[0] == '+') ? Color.Yellow : Color.Red);
-                    rtb.AppendLine(line, c);
-                }
-            }
-            rtb.AppendLines("  ", newLines, newDiffEndExc, (newLines.Length - newDiffEndExc), Color.White);
         }
 
         private void SelectPassUpButton_Click(object sender, EventArgs e)
@@ -1848,7 +1656,7 @@ namespace MainNs
         }
 
         /// <summary>Helper class to handle the context menu of operations log.</summary>
-        class LogContextMenuHelper
+        public class LogContextMenuHelper
         {
             public RichTextBox Rtb { get; set; }
 
@@ -2399,7 +2207,7 @@ namespace MainNs
                 {
                     BuildBitstreamForDXIL(bytes, offset, partNode);
                 }
-                else if (partCC == "ISGN" || partCC == "OSGN" || partCC == "PSGN" || partCC == "ISG1" || partCC == "OSG1" || partCC == "PSG1" )
+                else if (partCC == "ISGN" || partCC == "OSGN" || partCC == "PSGN" || partCC == "ISG1" || partCC == "OSG1" || partCC == "PSG1")
                 {
                     BuildBitstreamForSignature(bytes, offset, partNode, partCC);
                 }
@@ -3046,7 +2854,7 @@ namespace MainNs
         {
             IDxcRewriter rewriter = HlslDxcLib.CreateDxcRewriter();
             IDxcBlobEncoding code = CreateBlobForCodeText();
-            IDxcRewriteResult rewriterResult = rewriter.RewriteUnchangedWithInclude(code, "input.hlsl",null, 0, library.CreateIncludeHandler(), 1);
+            IDxcRewriteResult rewriterResult = rewriter.RewriteUnchangedWithInclude(code, "input.hlsl", null, 0, library.CreateIncludeHandler(), 1);
             IDxcBlobEncoding rewriteBlob = rewriterResult.GetRewrite();
             string rewriteText = GetStringFromBlob(rewriteBlob);
             RewriterOutputTextBox.Text = rewriteText;
@@ -3364,6 +3172,120 @@ namespace MainNs
         {
             this.SelectedPassesBox.Items.Clear();
         }
+
+        public class AssembleResult
+        {
+            public IDxcBlob Blob { get; set; }
+            public string ResultText { get; set; }
+            public bool Succeeded { get; set; }
+        }
+
+        public class HighLevelCompileResult
+        {
+            public IDxcBlob Blob { get; set; }
+            public string ResultText { get; set; }
+        }
+
+        public class OptimizeResult
+        {
+            public IDxcBlob Module { get; set; }
+            public string ResultText { get; set; }
+            public bool Succeeded { get; set; }
+        }
+
+        public static AssembleResult RunAssembly(IDxcLibrary library, IDxcBlob source)
+        {
+            IDxcBlob resultBlob = null;
+            string resultText = "";
+            bool succeeded;
+            var assembler = HlslDxcLib.CreateDxcAssembler();
+            var result = assembler.AssembleToContainer(source);
+            if (result.GetStatus() == 0)
+            {
+                resultBlob = result.GetResult();
+                succeeded = true;
+            }
+            else
+            {
+                resultText = GetStringFromBlob(library, result.GetErrors());
+                succeeded = false;
+            }
+            return new AssembleResult() { Blob = resultBlob, ResultText = resultText, Succeeded = succeeded };
+        }
+
+        public HighLevelCompileResult RunHighLevelCompile()
+        {
+            IDxcCompiler compiler = HlslDxcLib.CreateDxcCompiler();
+            string fileName = "hlsl.hlsl";
+            HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+            string[] args = new string[] { "-fcgl" };
+            string resultText = "";
+            IDxcBlob source = null;
+            {
+                var result = compiler.Compile(this.CreateBlobForCodeText(), fileName, fileVars.Entry, fileVars.Target, args, args.Length, null, 0, library.CreateIncludeHandler());
+                if (result.GetStatus() == 0)
+                {
+                    source = result.GetResult();
+                }
+                else
+                {
+                    resultText = GetStringFromBlob(result.GetErrors());
+                }
+            }
+            return new HighLevelCompileResult() { Blob = source, ResultText = resultText };
+        }
+
+        public static OptimizeResult RunOptimize(IDxcLibrary library, string[] options, string source)
+        {
+            return RunOptimize(library, options, CreateBlobForText(library, source));
+        }
+
+        public static OptimizeResult RunOptimize(IDxcLibrary library, string[] options, IDxcBlob source)
+        {
+            IDxcOptimizer opt = HlslDxcLib.CreateDxcOptimizer();
+            IDxcBlob module = null;
+            string resultText = "";
+            IDxcBlobEncoding text;
+            bool succeeded = true;
+            try
+            {
+                opt.RunOptimizer(source, options, options.Length, out module, out text);
+                resultText = GetStringFromBlob(library, text);
+            }
+            catch (Exception optException)
+            {
+                succeeded = false;
+                resultText = "Failed to run optimizer: " + optException.Message;
+            }
+            return new OptimizeResult() { Module = module, ResultText = resultText, Succeeded = succeeded };
+        }
+
+        private void InteractiveEditorButton_Click(object sender, EventArgs e)
+        {
+            // Do a high-level only compile.
+            HighLevelCompileResult compile = RunHighLevelCompile();
+            if (compile.Blob == null)
+            {
+                MessageBox.Show("Failed to compile: " + compile.ResultText);
+                return;
+            }
+
+            string[] options = CreatePassOptions(false, true);
+            OptimizeResult opt = RunOptimize(this.Library, options, compile.Blob);
+            if (!opt.Succeeded)
+            {
+                MessageBox.Show("Failed to optimize: " + opt.ResultText);
+                return;
+            }
+
+            OptEditorForm form = new OptEditorForm();
+            form.CodeFont = this.CodeBox.Font;
+            form.HighLevelSource = compile.Blob;
+            form.Library = this.Library;
+            form.Sections = TextSection.EnumerateSections(new string[] { "MODULE-PRINT", "Phase:" }, opt.ResultText).ToArray();
+            form.StartPosition = FormStartPosition.CenterParent;
+            form.Show(this);
+        }
     }
 
     public static class RichTextBoxExt
@@ -3381,6 +3303,12 @@ namespace MainNs
             {
                 rtb.AppendLine(prefix + lines[i], c);
             }
+        }
+
+        public static IEnumerable<string> ToStringEnumerable(this ListBox.ObjectCollection collection)
+        {
+            foreach (var item in collection)
+                yield return item.ToString();
         }
     }
 }

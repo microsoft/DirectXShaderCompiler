@@ -18,6 +18,7 @@ class Function;
 class FunctionPass;
 class Instruction;
 class PassRegistry;
+class StringRef;
 }
 
 namespace hlsl {
@@ -31,6 +32,11 @@ public:
 };
 
 class HLSLExtensionsCodegenHelper;
+
+// Pause/resume support.
+bool ClearPauseResumePasses(llvm::Module &M); // true if modified; false if missing
+void GetPauseResumePasses(llvm::Module &M, llvm::StringRef &pause, llvm::StringRef &resume);
+void SetPauseResumePasses(llvm::Module &M, llvm::StringRef pause, llvm::StringRef resume);
 }
 
 namespace llvm {
@@ -61,6 +67,9 @@ ModulePass *createDxilRemoveDiscardsPass();
 ModulePass *createDxilReduceMSAAToSingleSamplePass();
 ModulePass *createDxilForceEarlyZPass();
 ModulePass *createDxilDebugInstrumentationPass();
+ModulePass *createNoPausePassesPass();
+ModulePass *createPausePassesPass();
+ModulePass *createResumePassesPass();
 
 void initializeDxilCondenseResourcesPass(llvm::PassRegistry&);
 void initializeDxilEliminateOutputDynamicIndexingPass(llvm::PassRegistry&);
@@ -86,6 +95,9 @@ void initializeDxilRemoveDiscardsPass(llvm::PassRegistry&);
 void initializeDxilReduceMSAAToSingleSamplePass(llvm::PassRegistry&);
 void initializeDxilForceEarlyZPass(llvm::PassRegistry&);
 void initializeDxilDebugInstrumentationPass(llvm::PassRegistry&);
+void initializeNoPausePassesPass(llvm::PassRegistry&);
+void initializePausePassesPass(llvm::PassRegistry&);
+void initializeResumePassesPass(llvm::PassRegistry&);
 
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 

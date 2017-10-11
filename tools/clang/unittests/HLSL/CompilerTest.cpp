@@ -48,6 +48,14 @@
 using namespace std;
 using namespace hlsl_test;
 
+void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule, IDxcBlob **pContainer) {
+  CComPtr<IDxcAssembler> pAssembler;
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+  VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pModule, &pResult));
+  CheckOperationSucceeded(pResult, pContainer);
+}
+
 std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob) {
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
   const UINT CP_UTF16 = 1200;
@@ -68,6 +76,16 @@ std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob) {
   } else {
     throw std::exception("Unsupported codepage.");
   }
+}
+
+void GetDxilPart(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram, IDxcBlob **pDxilPart) {
+  const UINT32 DxilPartKind = 'LIXD'; // DXIL
+  UINT32 DxilIndex;
+  CComPtr<IDxcContainerReflection> pContainerReflection;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pContainerReflection));
+  VERIFY_SUCCEEDED(pContainerReflection->Load(pProgram));
+  VERIFY_SUCCEEDED(pContainerReflection->FindFirstPartKind(DxilPartKind, &DxilIndex));
+  VERIFY_SUCCEEDED(pContainerReflection->GetPartContent(DxilIndex, pDxilPart));
 }
 
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob) {
@@ -2307,29 +2325,7 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
     // Get wchar_t version and prepend hlsl-hlensure, to do a split high-level/opt compilation pass.
     CA2W passesW(passes.c_str(), CP_UTF8);
     std::vector<LPCWSTR> Options;
-    Options.push_back(L"-hlsl-hlensure");
-    wchar_t *pPassesBuffer = passesW.m_psz;
-    while (*pPassesBuffer) {
-      // Skip comment lines.
-      if (*pPassesBuffer == L'#') {
-        while (*pPassesBuffer && *pPassesBuffer != '\n' && *pPassesBuffer != '\r') {
-          ++pPassesBuffer;
-        }
-        while (*pPassesBuffer == '\n' || *pPassesBuffer == '\r') {
-          ++pPassesBuffer;
-        }
-        continue;
-      }
-      // Every other line is an option. Find the end of the line/buffer and terminate it.
-      Options.push_back(pPassesBuffer);
-      while (*pPassesBuffer && *pPassesBuffer != '\n' && *pPassesBuffer != '\r') {
-        ++pPassesBuffer;
-      }
-      while (*pPassesBuffer == '\n' || *pPassesBuffer == '\r') {
-        *pPassesBuffer = L'\0';
-        ++pPassesBuffer;
-      }
-    }
+    SplitPassList(passesW.m_psz, Options);
 
     // Now compile directly.
     pResult.Release();
@@ -2347,6 +2343,9 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
     VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pHighLevelBlob, Options.data(),
                                               Options.size(), &pOptimizedModule,
                                               nullptr));
+
+    string text = DisassembleProgram(m_dllSupport, pOptimizedModule);
+    LogCommentFmt(L"Final program:\r\n%S", text.c_str());
 
     // At the very least, the module should be valid.
     pResult.Release();
