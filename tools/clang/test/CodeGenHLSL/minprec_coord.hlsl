@@ -9,5 +9,8 @@ float4 main(
               min16float2  UV : X
               ) : SV_Target
 {
-    return tex.Sample(ss, UV);
+    min16float w;
+    min16float h;
+    tex.GetDimensions(w,h);
+    return tex.Sample(ss, UV) + w + h;
 }
