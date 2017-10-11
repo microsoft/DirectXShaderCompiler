@@ -675,4 +675,25 @@ TEST_F(FileTest, VulkanLayoutConsumeSBufferStd430) {
   runFileTest("vk.layout.csbuffer.std430.hlsl");
 }
 
+// For different Patch Constant Functions (for Hull shaders)
+TEST_F(FileTest, HullShaderPCFVoid) {
+  runFileTest("hull.pcf.void.hlsl");
+}
+TEST_F(FileTest, HullShaderPCFTakesInputPatch) {
+  runFileTest("hull.pcf.input-patch.hlsl");
+}
+TEST_F(FileTest, HullShaderPCFTakesOutputPatch) {
+  runFileTest("hull.pcf.output-patch.hlsl");
+}
+TEST_F(FileTest, HullShaderPCFTakesPrimitiveId) {
+  runFileTest("hull.pcf.primitive-id.hlsl");
+}
+TEST_F(FileTest, HullShaderPCFTakesPrimitiveIdButMainDoesnt) {
+  runFileTest("hull.pcf.primitive-id-2.hlsl");
+}
+// For Hull Shader Output variables
+TEST_F(FileTest, HullShaderOutputVars) { runFileTest("hull.output-vars.hlsl"); }
+// For the structure of Hull Shaders
+TEST_F(FileTest, HullShaderStructure) { runFileTest("hull.structure.hlsl"); }
+
 } // namespace

@@ -384,7 +384,26 @@ private:
   bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
                                 uint32_t entryFuncId);
 
-  /// \brief TODO: describe
+  /// \brief Performs the following operations for the Hull shader:
+  /// * Creates an output variable which is an Array containing results for all
+  /// control points.
+  ///
+  /// * If the Patch Constant Function (PCF) takes the Hull main entry function
+  /// results (OutputPatch), it creates a temporary function-scope variable that
+  /// is then passed to the PCF.
+  ///
+  /// * Adds a control barrier (OpControlBarrier) to ensure all invocations are
+  /// done before PCF is called.
+  ///
+  /// * Prepares the necessary parameters to pass to the PCF (Can be one or more
+  /// of InputPatch, OutputPatch, PrimitiveId).
+  ///
+  /// * The execution thread with ControlPointId (invocationID) of 0 calls the
+  /// PCF. e.g. if(id == 0) pcf();
+  ///
+  /// * Gathers the results of the PCF and assigns them to top-level output
+  /// variables.
+  ///
   /// The method panics if it is called for any shader kind other than Hull
   /// shaders.
   bool processHullEntryPointOutputAndPatchConstFunc(

@@ -1,4 +1,4 @@
-#define MAX_POINTS 32
+#define MAX_POINTS 16
 
 // Input control point
 struct VS_CONTROL_POINT_OUTPUT
