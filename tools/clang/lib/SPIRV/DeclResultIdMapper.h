@@ -290,6 +290,10 @@ private:
   /// creating a stage input/output variable.
   uint32_t createSpirvStageVar(StageVar *, const llvm::Twine &name);
 
+  /// Returns the proper SPIR-V storage class (Input or Output) for the given
+  /// SigPoint.
+  spv::StorageClass getStorageClassForSigPoint(const hlsl::SigPoint *);
+
 private:
   const hlsl::ShaderModel &shaderModel;
   ModuleBuilder &theBuilder;

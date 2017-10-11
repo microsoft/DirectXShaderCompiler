@@ -369,8 +369,11 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
   // Returns false if the given StageVar is an input/output variable without
   // explicit location assignment. Otherwise, returns true.
-  const auto locAssigned = [forInput](const StageVar &v) {
-    if (forInput ? v.getSigPoint()->IsInput() : v.getSigPoint()->IsOutput())
+  const auto locAssigned = [forInput, this](const StageVar &v) {
+    const auto sigPoint = v.getSigPoint();
+    const bool isInputStorageClass =
+        getStorageClassForSigPoint(sigPoint) == spv::StorageClass::Input;
+    if (forInput == isInputStorageClass)
       // No need to assign location for builtins. Treat as assigned.
       return v.isSpirvBuitin() || v.getLocationAttr() != nullptr;
     // For the ones we don't care, treat as assigned.
@@ -385,8 +388,10 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
     for (const auto &var : stageVars) {
       // Skip those stage variables we are not handling for this call
-      if ((forInput ? !var.getSigPoint()->IsInput()
-                    : !var.getSigPoint()->IsOutput()))
+      const bool isInputStorageClass =
+          getStorageClassForSigPoint(var.getSigPoint()) ==
+          spv::StorageClass::Input;
+      if (forInput != isInputStorageClass)
         continue;
 
       // Skip builtins
@@ -423,8 +428,10 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   LocationSet locSet;
 
   for (const auto &var : stageVars) {
-    if ((forInput ? !var.getSigPoint()->IsInput()
-                  : !var.getSigPoint()->IsOutput()))
+    const bool isInputStorageClass =
+        getStorageClassForSigPoint(var.getSigPoint()) ==
+        spv::StorageClass::Input;
+    if (forInput != isInputStorageClass)
       continue;
 
     if (!var.isSpirvBuitin()) {
@@ -660,64 +667,19 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
 uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
                                                  const llvm::Twine &name) {
   using spv::BuiltIn;
-
+  const auto sigPoint = stageVar->getSigPoint();
   const auto semanticKind = stageVar->getSemantic()->GetKind();
-  const auto sigPointKind = stageVar->getSigPoint()->GetKind();
-  const auto signatureKind = stageVar->getSigPoint()->GetSignatureKind();
+  const auto sigPointKind = sigPoint->GetKind();
   const uint32_t type = stageVar->getSpirvTypeId();
+
+  spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
+  if (sc == spv::StorageClass::Max)
+    return 0;
+  stageVar->setStorageClass(sc);
 
   // The following translation assumes that semantic validity in the current
   // shader model is already checked, so it only covers valid SigPoints for
   // each semantic.
-  spv::StorageClass sc = spv::StorageClass::Max;
-  switch (signatureKind) {
-  case hlsl::DXIL::SignatureKind::Input:
-    sc = spv::StorageClass::Input;
-    break;
-  case hlsl::DXIL::SignatureKind::Output:
-    sc = spv::StorageClass::Output;
-    break;
-  case hlsl::DXIL::SignatureKind::Invalid: {
-    // There are some special cases in HLSL (See docs/dxil.rst):
-    // SignatureKind is "invalid" for PCIn, HSIn, GSIn, and CSIn.
-    switch (sigPointKind) {
-    case hlsl::DXIL::SigPointKind::PCIn:
-    case hlsl::DXIL::SigPointKind::HSIn:
-    case hlsl::DXIL::SigPointKind::GSIn:
-    case hlsl::DXIL::SigPointKind::CSIn:
-      sc = spv::StorageClass::Input;
-      break;
-    default:
-      emitError("Found invalid SigPoint kind for a semantic.");
-      return 0;
-    }
-    break;
-  }
-  case hlsl::DXIL::SignatureKind::PatchConstant: {
-    // There are some special cases in HLSL (See docs/dxil.rst):
-    // SignatureKind is "PatchConstant" for PCOut and DSIn.
-    switch (sigPointKind) {
-    case hlsl::DXIL::SigPointKind::PCOut:
-      // Patch Constant Output (Output of Hull which is passed to Domain).
-      sc = spv::StorageClass::Output;
-      break;
-    case hlsl::DXIL::SigPointKind::DSIn:
-      // Domain Shader regular input - Patch Constant data plus system values.
-      sc = spv::StorageClass::Input;
-      break;
-    default:
-      emitError("Found invalid SigPoint kind for a semantic.");
-      return 0;
-    }
-    break;
-  }
-  default:
-    emitError("Found invalid SignatureKind for semantic.");
-    return 0;
-  }
-
-  stageVar->setStorageClass(sc);
-
   switch (semanticKind) {
   // According to DXIL spec, the Position SV can be used by all SigPoints
   // other than PCIn, HSIn, GSIn, PSOut, CSIn.
@@ -735,7 +697,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragCoord);
     default:
       emitError("semantic Position for SigPoint %0 unimplemented yet")
-          << stageVar->getSigPoint()->GetName();
+          << sigPoint->GetName();
       break;
     }
   }
@@ -758,7 +720,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       return theBuilder.addStageIOVar(type, sc, name.str());
     default:
       emitError("semantic InstanceID for SigPoint %0 unimplemented yet")
-          << stageVar->getSigPoint()->GetName();
+          << sigPoint->GetName();
       break;
     }
   }
@@ -786,7 +748,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing);
     default:
       emitError("semantic IsFrontFace for SigPoint %0 unimplemented yet")
-          << stageVar->getSigPoint()->GetName();
+          << sigPoint->GetName();
       break;
     }
   }
@@ -840,6 +802,57 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
 
   return 0;
+}
+
+spv::StorageClass
+DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint) {
+  // This translation is done based on the HLSL reference (see docs/dxil.rst).
+  const auto sigPointKind = sigPoint->GetKind();
+  const auto signatureKind = sigPoint->GetSignatureKind();
+  spv::StorageClass sc = spv::StorageClass::Max;
+  switch (signatureKind) {
+  case hlsl::DXIL::SignatureKind::Input:
+    sc = spv::StorageClass::Input;
+    break;
+  case hlsl::DXIL::SignatureKind::Output:
+    sc = spv::StorageClass::Output;
+    break;
+  case hlsl::DXIL::SignatureKind::Invalid: {
+    // There are some special cases in HLSL (See docs/dxil.rst):
+    // SignatureKind is "invalid" for PCIn, HSIn, GSIn, and CSIn.
+    switch (sigPointKind) {
+    case hlsl::DXIL::SigPointKind::PCIn:
+    case hlsl::DXIL::SigPointKind::HSIn:
+    case hlsl::DXIL::SigPointKind::GSIn:
+    case hlsl::DXIL::SigPointKind::CSIn:
+      sc = spv::StorageClass::Input;
+      break;
+    default:
+      emitError("Found invalid SigPoint kind for a semantic.");
+    }
+    break;
+  }
+  case hlsl::DXIL::SignatureKind::PatchConstant: {
+    // There are some special cases in HLSL (See docs/dxil.rst):
+    // SignatureKind is "PatchConstant" for PCOut and DSIn.
+    switch (sigPointKind) {
+    case hlsl::DXIL::SigPointKind::PCOut:
+      // Patch Constant Output (Output of Hull which is passed to Domain).
+      sc = spv::StorageClass::Output;
+      break;
+    case hlsl::DXIL::SigPointKind::DSIn:
+      // Domain Shader regular input - Patch Constant data plus system values.
+      sc = spv::StorageClass::Input;
+      break;
+    default:
+      emitError("Found invalid SigPoint kind for a semantic.");
+    }
+    break;
+  }
+  default:
+    emitError("Found invalid SignatureKind for semantic.");
+  }
+  return sc;
 }
 
 } // end namespace spirv
