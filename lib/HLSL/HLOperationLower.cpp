@@ -2186,7 +2186,7 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
 
   Value *width = Builder.CreateExtractValue(dims, dimensionIdx++);
   Value *widthPtr = CI->getArgOperand(widthOpIdx);
-  if (widthPtr->getType()->getPointerElementType()->isFloatTy())
+  if (widthPtr->getType()->getPointerElementType()->isFloatingPointTy())
     width = Builder.CreateSIToFP(width,
                                  widthPtr->getType()->getPointerElementType());
 
@@ -2210,7 +2210,7 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
            argIdx < CI->getNumArgOperands() - 1; argIdx++) {
         Value *dim = Builder.CreateExtractValue(dims, dimensionIdx++);
         Value *ptr = CI->getArgOperand(argIdx);
-        if (ptr->getType()->getPointerElementType()->isFloatTy())
+        if (ptr->getType()->getPointerElementType()->isFloatingPointTy())
           dim = Builder.CreateSIToFP(dim,
                                      ptr->getType()->getPointerElementType());
         Builder.CreateStore(dim, ptr);
@@ -2219,7 +2219,7 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
       dimensionIdx = 3;
       Value *dim = Builder.CreateExtractValue(dims, dimensionIdx);
       Value *ptr = CI->getArgOperand(CI->getNumArgOperands() - 1);
-      if (ptr->getType()->getPointerElementType()->isFloatTy())
+      if (ptr->getType()->getPointerElementType()->isFloatingPointTy())
         dim =
             Builder.CreateSIToFP(dim, ptr->getType()->getPointerElementType());
       Builder.CreateStore(dim, ptr);
@@ -2228,7 +2228,7 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
            argIdx++) {
         Value *dim = Builder.CreateExtractValue(dims, dimensionIdx++);
         Value *ptr = CI->getArgOperand(argIdx);
-        if (ptr->getType()->getPointerElementType()->isFloatTy())
+        if (ptr->getType()->getPointerElementType()->isFloatingPointTy())
           dim = Builder.CreateSIToFP(dim,
                                      ptr->getType()->getPointerElementType());
         Builder.CreateStore(dim, ptr);
