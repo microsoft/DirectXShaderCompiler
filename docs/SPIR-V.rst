@@ -1255,6 +1255,23 @@ used to store a 32-bit unsigned integer. For ``Store2``, ``Store3``, and ``Store
 done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
 performing ``OpAccessChain``.
 
+``.Interlocked*()``
++++++++++++++++++++
+
+================================= =================================
+     HLSL Intrinsic Method                SPIR-V Opcode
+================================= =================================
+``.InterlockedAdd()``             ``OpAtomicIAdd``
+``.InterlockedAnd()``             ``OpAtomicAnd``
+``.InterlockedOr()``              ``OpAtomicOr``
+``.InterlockedXor()``             ``OpAtomicXor``
+``.InterlockedMin()``             ``OpAtomicUMin``/``OpAtomicSMin``
+``.InterlockedMax()``             ``OpAtomicUMax``/``OpAtomicSMax``
+``.InterlockedExchange()``        ``OpAtomicExchange``
+``.InterlockedCompareExchange()`` ``OpAtomicCompareExchange``
+``.InterlockedCompareStore()``    ``OpAtomicCompareExchange``
+================================= =================================
+
 ``AppendStructuredBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1329,6 +1346,8 @@ image and the ``location`` passed to the function are used as arguments to
 ``OpImageSampleImplicitLod``, with the optional ``offset`` tranlated into
 addtional SPIR-V image operands ``ConstOffset`` or ``Offset`` on it.
 
+The overload with the status parameter are not supported.
+
 ``.SampleLevel(sampler, location, lod[, offset])``
 ++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -1342,6 +1361,8 @@ is attached to the instruction as an SPIR-V image operands ``Lod``. The optional
 ``offset`` is also tranlated into addtional SPIR-V image operands ``ConstOffset``
 or ``Offset`` on it.
 
+The overload with the status parameter are not supported.
+
 ``.SampleGrad(sampler, location, ddx, ddy[, offset])``
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -1350,6 +1371,8 @@ Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 Similarly to ``.SampleLevel``, the ``ddx`` and ``ddy`` parameter are attached to
 the ``OpImageSampleExplicitLod`` instruction as an SPIR-V image operands
 ``Grad``.
+
+The overload with the status parameter are not supported.
 
 ``.SampleBias(sampler, location, bias[, offset])``
 ++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1360,14 +1383,34 @@ The translation is similar to ``.Sample()``, with the ``bias`` parameter
 attached to the ``OpImageSampleImplicitLod`` instruction as an SPIR-V image
 operands ``Bias``.
 
-``.Gather(sampler, location[, offset])``
-++++++++++++++++++++++++++++++++++++++++
+The overload with the status parameter are not supported.
+
+``.Gather()``
++++++++++++++
 
 Available to ``Texture2D``, ``Texture2DArray``, ``TextureCube``, and
 ``TextureCubeArray``.
 
 The translation is similar to ``.Sample()``, but the ``OpImageGather``
-instruction is used.
+instruction is used, with component setting to 0.
+
+The overload with the status parameter are not supported.
+
+``.GatherRed()``, ``.GatherGreen()``, ``.GatherBlue()``, ``.GatherAlpha()``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Available to ``Texture2D``, ``Texture2DArray``, ``TextureCube``, and
+``TextureCubeArray``.
+
+The ``OpImageGather`` instruction is used to translate these functions, with
+component setting to 0, 1, 2, and 3 respectively.
+
+There are a few overloads for these functions:
+
+- For those overloads taking 4 offset parameters, those offset parameters will
+  be conveyed as an additional ``ConstOffsets`` image operands to the
+  instruction. So those offset parameters must all be constant values.
+- Those overloads with the status parameter are not supported.
 
 ``.Load(location[, sampleIndex][, offset])``
 ++++++++++++++++++++++++++++++++++++++++++++
@@ -1380,6 +1423,8 @@ argument to the instruction. ``offset`` is handled similarly to ``.Sample()``.
 The return value of ``OpImageFetch`` is always a four-component vector; so
 proper additional instructions are generated to truncate the vector and return
 the desired number of elements.
+
+The overload with the status parameter are not supported.
 
 ``operator[]``
 ++++++++++++++

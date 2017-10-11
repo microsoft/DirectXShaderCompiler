@@ -448,6 +448,15 @@ public:
   TEST_METHOD(PixConstantColorFromCB)
   TEST_METHOD(PixConstantColorFromCBint)
   TEST_METHOD(PixForceEarlyZ)
+  TEST_METHOD(PixDebugBasic)
+  TEST_METHOD(PixDebugUAVSize)
+  TEST_METHOD(PixDebugPSParameters)
+  TEST_METHOD(PixDebugVSParameters)
+  TEST_METHOD(PixDebugCSParameters)
+  TEST_METHOD(PixDebugFlowControl)
+  TEST_METHOD(PixDebugPreexistingSVPosition)
+  TEST_METHOD(PixDebugPreexistingSVVertex)
+  TEST_METHOD(PixDebugPreexistingSVInstance)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -644,6 +653,7 @@ public:
   TEST_METHOD(CodeGenMinprec5)
   TEST_METHOD(CodeGenMinprec6)
   TEST_METHOD(CodeGenMinprec7)
+  TEST_METHOD(CodeGenMinprecCoord)
   TEST_METHOD(CodeGenModf)
   TEST_METHOD(CodeGenMinprecCast)
   TEST_METHOD(CodeGenMultiUAVLoad1)
@@ -754,6 +764,7 @@ public:
   TEST_METHOD(CodeGenStaticGlobals2)
   TEST_METHOD(CodeGenStaticGlobals3)
   TEST_METHOD(CodeGenStaticGlobals4)
+  TEST_METHOD(CodeGenStaticGlobals5)
   TEST_METHOD(CodeGenStaticMatrix)
   TEST_METHOD(CodeGenStaticResource)
   TEST_METHOD(CodeGenStaticResource2)
@@ -821,6 +832,7 @@ public:
   //TEST_METHOD(CodeGenMore_Operators_Mod)
   //TEST_METHOD(CodeGenObject_Operators_Mod)
   TEST_METHOD(CodeGenPackreg_Mod)
+  TEST_METHOD(CodeGenParentMethod)
   TEST_METHOD(CodeGenParameter_Types)
   TEST_METHOD(CodeGenScalar_Assignments_Mod)
   TEST_METHOD(CodeGenScalar_Operators_Assign_Mod)
@@ -2864,6 +2876,42 @@ TEST_F(CompilerTest, PixForceEarlyZ) {
   CodeGenTestCheck(L"pix\\forceEarlyZ.hlsl");
 }
 
+TEST_F(CompilerTest, PixDebugBasic) {
+  CodeGenTestCheck(L"pix\\DebugBasic.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugUAVSize) {
+  CodeGenTestCheck(L"pix\\DebugUAVSize.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPSParameters) {
+  CodeGenTestCheck(L"pix\\DebugPSParameters.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugVSParameters) {
+  CodeGenTestCheck(L"pix\\DebugVSParameters.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugCSParameters) {
+  CodeGenTestCheck(L"pix\\DebugCSParameters.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugFlowControl) {
+  CodeGenTestCheck(L"pix\\DebugFlowControl.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPreexistingSVPosition) {
+  CodeGenTestCheck(L"pix\\DebugPreexistingSVPosition.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPreexistingSVVertex) {
+  CodeGenTestCheck(L"pix\\DebugPreexistingSVVertex.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugPreexistingSVInstance) {
+  CodeGenTestCheck(L"pix\\DebugPreexistingSVInstance.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenAbs1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\abs1.hlsl");
 }
@@ -3650,6 +3698,10 @@ TEST_F(CompilerTest, CodeGenMinprec7) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\minprec7.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenMinprecCoord) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\minprec_coord.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenModf) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\modf.hlsl");
 }
@@ -4102,6 +4154,10 @@ TEST_F(CompilerTest, CodeGenStaticGlobals4) {
   CodeGenTest(L"..\\CodeGenHLSL\\staticGlobals4.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenStaticGlobals5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\staticGlobals5.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenStaticMatrix) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\static_matrix.hlsl");
 }
@@ -4367,6 +4423,10 @@ TEST_F(CompilerTest, CodeGenMatrix_Syntax_Mod) {
 
 TEST_F(CompilerTest, CodeGenPackreg_Mod) {
   CodeGenTest(L"..\\CodeGenHLSL\\packreg_Mod.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenParentMethod) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\parent_method.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenParameter_Types) {

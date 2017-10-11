@@ -2119,7 +2119,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
       if (getLangOpts().CPlusPlus && !NeedsGlobalDtor)
         DelayedCXXInitPosition.erase(D);
       // HLSL Change Begins.
-      if (getLangOpts().HLSL && D->isExternallyVisible()) {
+      if (getLangOpts().HLSL && D->isExternallyVisible() && !D->isStaticDataMember()) {
         // For global constant with init, the init will be ignored.
         Init = EmitNullConstant(D->getType());
         unsigned DiagID = Diags.getCustomDiagID(

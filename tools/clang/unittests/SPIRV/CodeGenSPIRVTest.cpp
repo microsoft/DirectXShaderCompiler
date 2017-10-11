@@ -365,9 +365,7 @@ TEST_F(FileTest, SemanticDuplication) {
 TEST_F(FileTest, SemanticDispatchThreadId) {
   runFileTest("semantic.dispatch-thread-id.cs.hlsl");
 }
-TEST_F(FileTest, SemanticGroupID) {
-  runFileTest("semantic.group-id.cs.hlsl");
-}
+TEST_F(FileTest, SemanticGroupID) { runFileTest("semantic.group-id.cs.hlsl"); }
 TEST_F(FileTest, SemanticGroupThreadID) {
   runFileTest("semantic.group-thread-id.cs.hlsl");
 }
@@ -391,6 +389,26 @@ TEST_F(FileTest, TextureCalculateLevelOfDetail) {
 TEST_F(FileTest, TextureGather) { runFileTest("texture.gather.hlsl"); }
 TEST_F(FileTest, TextureArrayGather) {
   runFileTest("texture.array.gather.hlsl");
+}
+TEST_F(FileTest, TextureGatherRed) { runFileTest("texture.gather-red.hlsl"); }
+TEST_F(FileTest, TextureArrayGatherRed) {
+  runFileTest("texture.array.gather-red.hlsl");
+}
+TEST_F(FileTest, TextureGatherGreen) {
+  runFileTest("texture.gather-green.hlsl");
+}
+TEST_F(FileTest, TextureArrayGatherGreen) {
+  runFileTest("texture.array.gather-green.hlsl");
+}
+TEST_F(FileTest, TextureGatherBlue) { runFileTest("texture.gather-blue.hlsl"); }
+TEST_F(FileTest, TextureArrayGatherBlue) {
+  runFileTest("texture.array.gather-blue.hlsl");
+}
+TEST_F(FileTest, TextureGatherAlpha) {
+  runFileTest("texture.gather-alpha.hlsl");
+}
+TEST_F(FileTest, TextureArrayGatherAlpha) {
+  runFileTest("texture.array.gather-alpha.hlsl");
 }
 TEST_F(FileTest, TextureSampleLevel) {
   runFileTest("texture.sample-level.hlsl");
@@ -435,6 +453,9 @@ TEST_F(FileTest, ByteAddressBufferStore) {
 }
 TEST_F(FileTest, ByteAddressBufferGetDimensions) {
   runFileTest("method.byte-address-buffer.get-dimensions.hlsl");
+}
+TEST_F(FileTest, RWByteAddressBufferAtomicMethods) {
+  runFileTest("method.rw-byte-address-buffer.atomic.hlsl");
 }
 
 // For Buffer/RWBuffer methods

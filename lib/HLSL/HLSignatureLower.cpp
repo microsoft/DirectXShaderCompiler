@@ -1205,6 +1205,7 @@ void HLSignatureLower::GenerateDxilPatchConstantLdSt() {
     DxilFunctionProps &EntryQual = HLM.GetDxilFunctionProps(Entry);
     Function *patchConstantFunc = EntryQual.ShaderProps.HS.patchConstantFunc;
     InsertPt = patchConstantFunc->getEntryBlock().getFirstInsertionPt();
+    pFuncAnnot = typeSys.GetFunctionAnnotation(patchConstantFunc);
   }
   IRBuilder<> Builder(InsertPt);
   Type *i1Ty = Builder.getInt1Ty();

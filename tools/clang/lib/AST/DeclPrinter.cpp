@@ -330,7 +330,9 @@ void DeclPrinter::VisitDeclContext(DeclContext *DC, bool Indent) {
       continue;
     }
 
-    if (isa<AccessSpecDecl>(*D)) {
+    if (isa<AccessSpecDecl>(*D)
+        && !Policy.LangOpts.HLSL // HLSL Change - no access specifier for hlsl.
+        ) {
       Indentation -= Policy.Indentation;
       this->Indent();
       Print(D->getAccess());
@@ -893,7 +895,9 @@ void DeclPrinter::VisitCXXRecordDecl(CXXRecordDecl *D) {
           Out << "virtual ";
 
         AccessSpecifier AS = Base->getAccessSpecifierAsWritten();
-        if (AS != AS_none) {
+        if (AS != AS_none
+            && !Policy.LangOpts.HLSL // HLSL Change - no access specifier for hlsl.
+            ) {
           Print(AS);
           Out << " ";
         }

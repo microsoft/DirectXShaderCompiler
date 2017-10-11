@@ -467,13 +467,17 @@ private:
   void processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt);
 
 private:
-  /// \brief Loads numWords 32-bit unsigned integers or stores numWords 32-bit
-  /// unsigned integers (based on the doStore parameter) to the given
-  /// ByteAddressBuffer. Loading is allowed from a ByteAddressBuffer or
-  /// RWByteAddressBuffer. Storing is allowed only to RWByteAddressBuffer.
-  /// Panics if it is not the case.
-  uint32_t processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
-                                             uint32_t numWords, bool doStore);
+  /// Handles the optional offset argument in the given method call at the given
+  /// argument index.
+  /// If there exists an offset argument, writes the <result-id> to either
+  /// *constOffset or *varOffset, depending on the constantness of the offset.
+  void handleOptionalOffsetInMethodCall(const CXXMemberCallExpr *expr,
+                                        uint32_t index, uint32_t *constOffset,
+                                        uint32_t *varOffset);
+
+  /// \brief Processes .Load() method call for Buffer/RWBuffer and texture
+  /// objects.
+  SpirvEvalInfo processBufferTextureLoad(const CXXMemberCallExpr *);
 
   /// \brief Loads one element from the given Buffer/RWBuffer/Texture object at
   /// the given location. The type of the loaded element matches the type in the
@@ -482,18 +486,28 @@ private:
                                     uint32_t constOffset = 0,
                                     uint32_t varOffst = 0, uint32_t lod = 0);
 
-  /// \brief Generates an OpAccessChain instruction for the given
-  /// (RW)StructuredBuffer.Load() method call.
-  SpirvEvalInfo processStructuredBufferLoad(const CXXMemberCallExpr *expr);
+  /// \brief Processes .Sample() and .Gather() method calls for texture objects.
+  uint32_t processTextureSampleGather(const CXXMemberCallExpr *expr,
+                                      bool isSample);
 
-  /// \brief Generates SPIR-V instructions for the .Append()/.Consume() call on
-  /// the given {Append|Consume}StructuredBuffer. Returns the <result-id> of
-  /// the loaded value for .Consume; returns zero for .Append().
-  SpirvEvalInfo processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
+  /// \brief Processes .SampleBias() and .SampleLevel() method calls for texture
+  /// objects.
+  uint32_t processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
+                                         bool isBias);
+
+  /// \brief Processes .SampleGrad()  method call for texture objects.
+  uint32_t processTextureSampleGrad(const CXXMemberCallExpr *expr);
+
+  /// \brief Handles .Gather{Red|Green|Blue|Alpha}() calls on texture types.
+  uint32_t processTextureGatherRGBA(const CXXMemberCallExpr *expr,
+                                    uint32_t component);
 
   /// \brief Returns the calculated level-of-detail (a single float value) for
   /// the given texture. Handles intrinsic HLSL CalculateLevelOfDetail function.
   uint32_t processTextureLevelOfDetail(const CXXMemberCallExpr *expr);
+
+  /// \brief Processes the .GetDimensions() call on supported objects.
+  uint32_t processGetDimensions(const CXXMemberCallExpr *);
 
   /// \brief Queries the given (RW)Buffer/(RW)Texture image in the given expr
   /// for the requested information. Based on the dimension of the image, the
@@ -501,10 +515,32 @@ private:
   /// levels.
   uint32_t processBufferTextureGetDimensions(const CXXMemberCallExpr *);
 
+  /// \brief Generates an OpAccessChain instruction for the given
+  /// (RW)StructuredBuffer.Load() method call.
+  SpirvEvalInfo processStructuredBufferLoad(const CXXMemberCallExpr *expr);
+
+  /// \brief Loads numWords 32-bit unsigned integers or stores numWords 32-bit
+  /// unsigned integers (based on the doStore parameter) to the given
+  /// ByteAddressBuffer. Loading is allowed from a ByteAddressBuffer or
+  /// RWByteAddressBuffer. Storing is allowed only to RWByteAddressBuffer.
+  /// Panics if it is not the case.
+  uint32_t processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
+                                             uint32_t numWords, bool doStore);
+
   /// \brief Processes the GetDimensions intrinsic function call on a
   /// (RW)ByteAddressBuffer by querying the image in the given expr.
   uint32_t processByteAddressBufferStructuredBufferGetDimensions(
       const CXXMemberCallExpr *);
+
+  /// \brief Processes the Interlocked* intrinsic function call on a
+  /// RWByteAddressBuffer.
+  uint32_t processRWByteAddressBufferAtomicMethods(hlsl::IntrinsicOp opcode,
+                                                   const CXXMemberCallExpr *);
+
+  /// \brief Generates SPIR-V instructions for the .Append()/.Consume() call on
+  /// the given {Append|Consume}StructuredBuffer. Returns the <result-id> of
+  /// the loaded value for .Consume; returns zero for .Append().
+  SpirvEvalInfo processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
 
 private:
   /// \brief Wrapper method to create a fatal error message and report it
@@ -518,10 +554,12 @@ private:
 
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
-  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N],
+                              SourceLocation loc = {}) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
-    return diags.Report(diagId);
+    return diags.Report(loc, diagId);
   }
 
   /// \brief Wrapper method to create a warning message and report it
