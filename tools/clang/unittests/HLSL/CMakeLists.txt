@@ -34,6 +34,7 @@ add_clang_library(clang-hlsl-tests SHARED
   LinkerTest.cpp
   MSFileSysTest.cpp
   Objects.cpp
+  OptimizerTest.cpp
   OptionsTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp

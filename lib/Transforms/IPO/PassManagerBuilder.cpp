@@ -292,15 +292,16 @@ void PassManagerBuilder::populateModulePassManager(
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
     // HLSL Change Begins.
-    addHLSLPasses(HLSLHighLevel, true/*NoOpt*/, HLSLExtensionsCodeGen, MPM); // HLSL Change
+    addHLSLPasses(HLSLHighLevel, true/*NoOpt*/, HLSLExtensionsCodeGen, MPM);
     if (!HLSLHighLevel) {
-      MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
-      MPM.add(createDxilCondenseResourcesPass()); // HLSL Change
-      MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
-      MPM.add(createDxilFinalizeModulePass());      // HLSL Change
-      MPM.add(createComputeViewIdStatePass());    // HLSL Change
-      MPM.add(createDxilDeadFunctionEliminationPass()); // HLSL Change
-      MPM.add(createDxilEmitMetadataPass());      // HLSL Change
+      MPM.add(createMultiDimArrayToOneDimArrayPass());
+      MPM.add(createDxilCondenseResourcesPass());
+      MPM.add(createDxilLegalizeSampleOffsetPass());
+      MPM.add(createDxilFinalizeModulePass());
+      MPM.add(createComputeViewIdStatePass());
+      MPM.add(createDxilDeadFunctionEliminationPass());
+      MPM.add(createNoPausePassesPass());
+      MPM.add(createDxilEmitMetadataPass());
     }
     // HLSL Change Ends.
     return;
@@ -565,13 +566,14 @@ void PassManagerBuilder::populateModulePassManager(
 
   // HLSL Change Begins.
   if (!HLSLHighLevel) {
-    MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
+    MPM.add(createMultiDimArrayToOneDimArrayPass());
     MPM.add(createDxilCondenseResourcesPass());
     if (DisableUnrollLoops)
-      MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
+      MPM.add(createDxilLegalizeSampleOffsetPass());
     MPM.add(createDxilFinalizeModulePass());
-    MPM.add(createComputeViewIdStatePass()); // HLSL Change
-    MPM.add(createDxilDeadFunctionEliminationPass()); // HLSL Change
+    MPM.add(createComputeViewIdStatePass());
+    MPM.add(createDxilDeadFunctionEliminationPass());
+    MPM.add(createNoPausePassesPass());
     MPM.add(createDxilEmitMetadataPass());
   }
   // HLSL Change Ends.

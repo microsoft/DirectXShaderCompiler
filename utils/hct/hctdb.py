@@ -1266,6 +1266,9 @@ class db_dxil(object):
         add_pass('scalarizer', 'Scalarizer', 'Scalarize vector operations', [])
         add_pass('multi-dim-one-dim', 'MultiDimArrayToOneDimArray', 'Flatten multi-dim array into one-dim array', [])
         add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [])
+        add_pass('hlsl-passes-nopause', 'NoPausePasses', 'Clears metadata used for pause and resume', [])
+        add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [])
+        add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [])
         add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
         add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
         add_pass('hlsl-dxil-add-pixel-hit-instrmentation', 'DxilAddPixelHitInstrumentation', 'DXIL Count completed PS invocations and costs', [

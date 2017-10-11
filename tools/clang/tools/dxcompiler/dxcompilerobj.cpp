@@ -411,7 +411,7 @@ public:
       bool needsValidation = produceFullContainer && !opts.DisableValidation &&
                              !opts.IsLibraryProfile();
 
-      if (needsValidation) {
+      if (needsValidation || (opts.CodeGenHighLevel && !opts.DisableValidation)) {
         UINT32 majorVer, minorVer;
         dxcutil::GetValidatorVersion(&majorVer, &minorVer);
         compiler.getCodeGenOpts().HLSLValidatorMajorVer = majorVer;
