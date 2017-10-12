@@ -292,7 +292,7 @@ public:
     M.ResetHLModule();
 
     // We now have a DXIL representation - record this.
-    SetPauseResumePasses(*m_pHLModule->GetModule(), "hlsl-dxilemit", "hlsl-dxilload");
+    SetPauseResumePasses(M, "hlsl-dxilemit", "hlsl-dxilload");
 
     // Remove debug code when not debug info.
     if (!m_HasDbgInfo)
