@@ -36,6 +36,10 @@ TEST_F(WholeFileTest, ConstantPixelShader) {
   runWholeFileTest("constant-ps.hlsl2spv", /*generateHeader*/ true);
 }
 
+TEST_F(WholeFileTest, BezierHullShader) {
+  runWholeFileTest("bezier.hull.hlsl2spv");
+}
+
 // === Partial output tests ===
 
 // For types
@@ -586,6 +590,36 @@ TEST_F(FileTest, AttributeNumThreads) {
 TEST_F(FileTest, AttributeMissingNumThreads) {
   runFileTest("attribute.numthreads.missing.hlsl");
 }
+TEST_F(FileTest, AttributeDomainTri) {
+  runFileTest("attribute.domain.tri.hlsl");
+}
+TEST_F(FileTest, AttributeDomainQuad) {
+  runFileTest("attribute.domain.quad.hlsl");
+}
+TEST_F(FileTest, AttributeDomainIsoline) {
+  runFileTest("attribute.domain.isoline.hlsl");
+}
+TEST_F(FileTest, AttributePartitioningInteger) {
+  runFileTest("attribute.partitioning.integer.hlsl");
+}
+TEST_F(FileTest, AttributePartitioningFractionalEven) {
+  runFileTest("attribute.partitioning.fractional-even.hlsl");
+}
+TEST_F(FileTest, AttributePartitioningFractionalOdd) {
+  runFileTest("attribute.partitioning.fractional-odd.hlsl");
+}
+TEST_F(FileTest, AttributeOutputTopologyPoint) {
+  runFileTest("attribute.outputtopology.point.hlsl");
+}
+TEST_F(FileTest, AttributeOutputTopologyTriangleCw) {
+  runFileTest("attribute.outputtopology.triangle-cw.hlsl");
+}
+TEST_F(FileTest, AttributeOutputTopologyTriangleCcw) {
+  runFileTest("attribute.outputtopology.triangle-ccw.hlsl");
+}
+TEST_F(FileTest, AttributeOutputControlPoints) {
+  runFileTest("attribute.outputcontrolpoints.hlsl");
+}
 
 // Vulkan/SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
@@ -654,5 +688,26 @@ TEST_F(FileTest, VulkanLayoutAppendSBufferStd430) {
 TEST_F(FileTest, VulkanLayoutConsumeSBufferStd430) {
   runFileTest("vk.layout.csbuffer.std430.hlsl");
 }
+
+// For different Patch Constant Functions (for Hull shaders)
+TEST_F(FileTest, HullShaderPCFVoid) {
+  runFileTest("hull.pcf.void.hlsl");
+}
+TEST_F(FileTest, HullShaderPCFTakesInputPatch) {
+  runFileTest("hull.pcf.input-patch.hlsl");
+}
+TEST_F(FileTest, HullShaderPCFTakesOutputPatch) {
+  runFileTest("hull.pcf.output-patch.hlsl");
+}
+TEST_F(FileTest, HullShaderPCFTakesPrimitiveId) {
+  runFileTest("hull.pcf.primitive-id.hlsl");
+}
+TEST_F(FileTest, HullShaderPCFTakesPrimitiveIdButMainDoesnt) {
+  runFileTest("hull.pcf.primitive-id-2.hlsl");
+}
+// For Hull Shader Output variables
+TEST_F(FileTest, HullShaderOutputVars) { runFileTest("hull.output-vars.hlsl"); }
+// For the structure of Hull Shaders
+TEST_F(FileTest, HullShaderStructure) { runFileTest("hull.structure.hlsl"); }
 
 } // namespace

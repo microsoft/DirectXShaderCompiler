@@ -85,6 +85,12 @@ public:
   /// \brief Returns true if the given type is an HLSL RWTexture type.
   static bool isRWTexture(QualType);
 
+  /// \brief Returns true if the given type is an HLSL OutputPatch type.
+  static bool isOutputPatch(QualType);
+
+  /// \brief Returns true if the given type is an HLSL InputPatch type.
+  static bool isInputPatch(QualType);
+
   /// \brief Returns true if the given type will be translated into a SPIR-V
   /// scalar type. This includes normal scalar types, vectors of size 1, and
   /// 1x1 matrices. If scalarType is not nullptr, writes the scalar type to
