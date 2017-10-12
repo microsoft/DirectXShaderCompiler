@@ -1385,6 +1385,23 @@ operands ``Bias``.
 
 The overload with the status parameter are not supported.
 
+``.SampleCmp(sampler, location, comparator[, offset])``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture3D``, ``Texture2DMS``, and ``Texture2DMSArray``.
+
+The translation is similar to ``.Sample()``, but the
+``OpImageSampleDrefImplicitLod`` instruction are used.
+
+``.SampleCmpLevelZero(sampler, location, comparator[, offset])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture3D``, ``Texture2DMS``, and ``Texture2DMSArray``.
+
+The translation is similar to ``.Sample()``, but the
+``OpImageSampleDrefExplicitLod`` instruction are used, with the additional
+``Lod`` image operands set to 0.0.
+
 ``.Gather()``
 +++++++++++++
 
@@ -1567,8 +1584,8 @@ The ``OpImageQuerySize`` instruction is used to find the width.
 
 ``.GetDimensions(width, elements)``
 +++++++++++++++++++++++++++++++++++
-The ``OpImageQuerySize`` instruction is used to get a uint2. The first element is the width, and the second
-is the elements.
+The ``OpImageQuerySize`` instruction is used to get a uint2. The first element
+is the width, and the second is the elements.
 
 ``RWTexture2D``
 ~~~~~~~~~~~~~~~
