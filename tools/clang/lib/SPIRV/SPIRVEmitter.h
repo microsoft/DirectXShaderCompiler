@@ -372,9 +372,8 @@ private:
 
   /// \brief Adds necessary execution modes for the hull shader based on the
   /// HLSL attributes of the entry point function.
-  /// Also, if the 'outputcontrolpoints' attribute is present, the number of
-  /// output control points is written to *numOutputControlPoints.
-  /// Returns true on success, and false on failure.
+  /// Also writes the number of output control points to
+  /// *numOutputControlPoints. Returns true on success, and false on failure.
   bool processHullShaderAttributes(const FunctionDecl *entryFunction,
                                    uint32_t *numOutputControlPoints);
 

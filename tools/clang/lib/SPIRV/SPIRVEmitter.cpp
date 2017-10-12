@@ -4840,7 +4840,7 @@ bool SPIRVEmitter::processHullShaderAttributes(
       if (hsExecMode != spv::ExecutionMode::Max) {
         theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
       } else {
-        emitError("unknown partitioning scheme in hull shader",
+        emitError("unknown output topology in hull shader",
                   decl->getLocation());
         return false;
       }
