@@ -541,6 +541,13 @@ uint32_t ModuleBuilder::createExtInst(uint32_t resultType, uint32_t setId,
   return resultId;
 }
 
+void ModuleBuilder::createControlBarrier(uint32_t execution, uint32_t memory,
+                                         uint32_t semantics) {
+  assert(insertPoint && "null insert point");
+  instBuilder.opControlBarrier(execution, memory, semantics).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
 void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
                                      spv::ExecutionMode em,
                                      llvm::ArrayRef<uint32_t> params) {

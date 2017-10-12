@@ -24,6 +24,31 @@ namespace spirv {
 
 namespace {
 
+// Returns true if the given decl has the given semantic.
+bool hasSemantic(const DeclaratorDecl *decl,
+                 hlsl::DXIL::SemanticKind semanticKind) {
+  using namespace hlsl;
+  for (auto *annotation : decl->getUnusualAnnotations()) {
+    if (auto *semanticDecl = dyn_cast<SemanticDecl>(annotation)) {
+      llvm::StringRef semanticName;
+      uint32_t semanticIndex = 0;
+      Semantic::DecomposeNameAndIndex(semanticDecl->SemanticName, &semanticName,
+                                      &semanticIndex);
+      const auto *semantic = Semantic::GetByName(semanticName);
+      if (semantic->GetKind() == semanticKind)
+        return true;
+    }
+  }
+  return false;
+}
+
+bool patchConstFuncTakesHullOutputPatch(FunctionDecl *pcf) {
+  for (const auto *param : pcf->parameters())
+    if (TypeTranslator::isOutputPatch(param->getType()))
+      return true;
+  return false;
+}
+
 // TODO: Maybe we should move these type probing functions to TypeTranslator.
 
 /// Returns true if the two types are the same scalar or vector type.
@@ -243,6 +268,9 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     if (auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
       if (funcDecl->getName() == entryFunctionName) {
         workQueue.insert(funcDecl);
+      }
+      if (context.IsPatchConstantFunctionDecl(funcDecl)) {
+        patchConstFunc = funcDecl;
       }
     } else if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
       if (isa<HLSLBufferDecl>(varDecl->getDeclContext())) {
@@ -4835,7 +4863,6 @@ SPIRVEmitter::getSpirvShaderStage(const hlsl::ShaderModel &model) {
 void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
   if (shaderModel.IsHS() || shaderModel.IsDS()) {
     theBuilder.requireCapability(spv::Capability::Tessellation);
-    emitError("Tasselation shaders are currently not supported.");
   } else if (shaderModel.IsGS()) {
     theBuilder.requireCapability(spv::Capability::Geometry);
     emitError("Geometry shaders are currently not supported.");
@@ -4851,8 +4878,79 @@ void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
   }
 }
 
+bool SPIRVEmitter::processHullShaderAttributes(
+    const FunctionDecl *decl, uint32_t *numOutputControlPoints) {
+  assert(shaderModel.IsHS());
+  using namespace spv;
+  if (auto *domain = decl->getAttr<HLSLDomainAttr>()) {
+    const auto domainType = domain->getDomainType().lower();
+    const ExecutionMode hsExecMode =
+        llvm::StringSwitch<ExecutionMode>(domainType)
+            .Case("tri", ExecutionMode::Triangles)
+            .Case("quad", ExecutionMode::Quads)
+            .Case("isoline", ExecutionMode::Isolines)
+            .Default(ExecutionMode::Max);
+    if (hsExecMode == ExecutionMode::Max) {
+      emitError("unknown domain type in hull shader", decl->getLocation());
+      return false;
+    }
+    theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+  }
+  if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
+    // TODO: Could not find an equivalent of "pow2" partitioning scheme in
+    // SPIR-V.
+    const auto scheme = partitioning->getScheme().lower();
+    const ExecutionMode hsExecMode =
+        llvm::StringSwitch<ExecutionMode>(scheme)
+            .Case("fractional_even", ExecutionMode::SpacingFractionalEven)
+            .Case("fractional_odd", ExecutionMode::SpacingFractionalOdd)
+            .Case("integer", ExecutionMode::SpacingEqual)
+            .Default(ExecutionMode::Max);
+    if (hsExecMode == ExecutionMode::Max) {
+      emitError("unknown partitioning scheme in hull shader",
+                decl->getLocation());
+      return false;
+    }
+    theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+  }
+  if (auto *outputTopology = decl->getAttr<HLSLOutputTopologyAttr>()) {
+    const auto topology = outputTopology->getTopology().lower();
+    const ExecutionMode hsExecMode =
+        llvm::StringSwitch<ExecutionMode>(topology)
+            .Case("point", ExecutionMode::PointMode)
+            .Case("triangle_cw", ExecutionMode::VertexOrderCw)
+            .Case("triangle_ccw", ExecutionMode::VertexOrderCcw)
+            .Default(ExecutionMode::Max);
+    // TODO: There is no SPIR-V equivalent for "line" topology. Is it the
+    // default?
+    if (topology != "line") {
+      if (hsExecMode != spv::ExecutionMode::Max) {
+        theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+      } else {
+        emitError("unknown output topology in hull shader",
+                  decl->getLocation());
+        return false;
+      }
+    }
+  }
+  if (auto *controlPoints = decl->getAttr<HLSLOutputControlPointsAttr>()) {
+    *numOutputControlPoints = controlPoints->getCount();
+    theBuilder.addExecutionMode(entryFunctionId,
+                                spv::ExecutionMode::OutputVertices,
+                                {*numOutputControlPoints});
+  }
+
+  return true;
+}
+
 bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
                                             const uint32_t entryFuncId) {
+  // These are going to be used for Hull shaders only.
+  uint32_t numOutputControlPoints = 0;
+  uint32_t outputControlPointIdVal = 0;
+  uint32_t primitiveIdVar = 0;
+  uint32_t hullMainInputPatchParam = 0;
+
   // Construct the wrapper function signature.
   const uint32_t voidType = theBuilder.getVoidType();
   const uint32_t funcType = theBuilder.getFunctionType(voidType, {});
@@ -4878,6 +4976,9 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::LocalSize, {1, 1, 1});
     }
+  } else if (shaderModel.IsHS()) {
+    if (!processHullShaderAttributes(decl, &numOutputControlPoints))
+      return false;
   }
 
   // The entry basic block.
@@ -4902,10 +5003,24 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     // initialize the corresponding temporary variable
     if (!param->getAttr<HLSLOutAttr>()) {
       uint32_t loadedValue = 0;
-      if (!declIdMapper.createStageInputVar(param, &loadedValue))
+      if (TypeTranslator::isInputPatch(param->getType())) {
+        const uint32_t hullInputPatchId =
+            declIdMapper.createStageVarWithoutSemantics(
+                /*isInput*/ true, typeId, "hullEntryPointInput",
+                decl->getAttr<VKLocationAttr>());
+        loadedValue = theBuilder.createLoad(typeId, hullInputPatchId);
+        hullMainInputPatchParam = tempVar;
+      } else if (!declIdMapper.createStageInputVar(param, &loadedValue,
+                                                   /*isPC*/ false)) {
         return false;
+      }
 
       theBuilder.createStore(tempVar, loadedValue);
+
+      if (hasSemantic(param, hlsl::DXIL::SemanticKind::OutputControlPointID))
+        outputControlPointIdVal = loadedValue;
+      if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID))
+        primitiveIdVar = tempVar;
     }
   }
 
@@ -4914,11 +5029,24 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   const uint32_t retVal =
       theBuilder.createFunctionCall(retType, entryFuncId, params);
 
-  // Create and write stage output variables for return value
-  if (!declIdMapper.createStageOutputVar(decl, retVal))
-    return false;
+  // Create and write stage output variables for return value. Special case for
+  // Hull shaders since they operate differently in 2 ways:
+  // 1- Their return value is in fact an array and each invocation should write
+  // to the proper offset in the array.
+  // 2- The patch constant function must be called *once* after all invocations
+  // of the main entry point function is done.
+  if (shaderModel.IsHS()) {
+    if (!processHullEntryPointOutputAndPatchConstFunc(
+            decl, retType, retVal, numOutputControlPoints,
+            outputControlPointIdVal, primitiveIdVar, hullMainInputPatchParam))
+      return false;
+  } else {
+    if (!declIdMapper.createStageOutputVar(decl, retVal, /*isPC*/ false))
+      return false;
+  }
 
-  // Create and write stage output variables for parameters marked as out/inout
+  // Create and write stage output variables for parameters marked as
+  // out/inout
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const auto *param = decl->getParamDecl(i);
     if (param->getAttr<HLSLOutAttr>() || param->getAttr<HLSLInOutAttr>()) {
@@ -4926,7 +5054,8 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       const uint32_t typeId = typeTranslator.translateType(param->getType());
       const uint32_t loadedParam = theBuilder.createLoad(typeId, params[i]);
 
-      if (!declIdMapper.createStageOutputVar(param, loadedParam))
+      if (!declIdMapper.createStageOutputVar(param, loadedParam,
+                                             /*isPC*/ false))
         return false;
     }
   }
@@ -4934,6 +5063,133 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   theBuilder.createReturn();
   theBuilder.endFunction();
 
+  // For Hull shaders, there is no explicit call to the PCF in the HLSL source.
+  // We should invoke a translation of the PCF manually.
+  if (shaderModel.IsHS())
+    doDecl(patchConstFunc);
+
+  return true;
+}
+
+bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
+    const FunctionDecl *hullMainFuncDecl, uint32_t retType, uint32_t retVal,
+    uint32_t numOutputControlPoints, uint32_t outputControlPointId,
+    uint32_t primitiveId, uint32_t hullMainInputPatch) {
+
+  // This method may only be called for Hull shaders.
+  assert(shaderModel.IsHS());
+  uint32_t hullMainOutputPatch = 0;
+
+  // For Hull shaders, the real output is an array of size
+  // numOutputControlPoints. The results of the main should be written to the
+  // correct offset in the array (based on InvocationID).
+  if (!numOutputControlPoints) {
+    emitError("number of output control points cannot be zero",
+              hullMainFuncDecl->getLocation());
+    return false;
+  }
+  // TODO: We should be able to handle cases where the SV_OutputControlPointID
+  // is not provided.
+  if (!outputControlPointId) {
+    emitError(
+        "SV_OutputControlPointID semantic must be provided in the hull shader",
+        hullMainFuncDecl->getLocation());
+    return false;
+  }
+  if (!patchConstFunc) {
+    emitError("patch constant function not defined in hull shader",
+              hullMainFuncDecl->getLocation());
+    return false;
+  }
+
+  // Let's call the return value of the Hull entry point function
+  // "hllEntryPointOutput". The type of hullEntryPointOutput should be an
+  // array of size numOutputControlPoints.
+  const uint32_t hullEntryPointOutputType = theBuilder.getArrayType(
+      retType, theBuilder.getConstantUint32(numOutputControlPoints));
+  const auto loc = hullMainFuncDecl->getAttr<VKLocationAttr>();
+  const auto hullOutputVar = declIdMapper.createStageVarWithoutSemantics(
+      /*isInput*/ false, hullEntryPointOutputType, "hullEntryPointOutput", loc);
+  if (!hullOutputVar)
+    return false;
+
+  // Write the results into the correct Output array offset.
+  const auto location = theBuilder.createAccessChain(
+      theBuilder.getPointerType(retType, spv::StorageClass::Output),
+      hullOutputVar, {outputControlPointId});
+  theBuilder.createStore(location, retVal);
+
+  // If the patch constant function (PCF) takes the result of the Hull main
+  // entry point, create a temporary function-scope variable and write the
+  // results to it, so it can be passed to the PCF.
+  if (patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
+    hullMainOutputPatch = theBuilder.addFnVar(hullEntryPointOutputType,
+                                              "temp.var.hullEntryPointOutput");
+    const auto tempLocation = theBuilder.createAccessChain(
+        theBuilder.getPointerType(retType, spv::StorageClass::Function),
+        hullMainOutputPatch, {outputControlPointId});
+    theBuilder.createStore(tempLocation, retVal);
+  }
+
+  // Now create a barrier before calling the Patch Constant Function (PCF).
+  // Flags are:
+  // Execution Barrier scope = Workgroup (2)
+  // Memory Barrier scope = Device (1)
+  // Memory Semantics Barrier scope = None (0)
+  theBuilder.createControlBarrier(theBuilder.getConstantUint32(2),
+                                  theBuilder.getConstantUint32(1),
+                                  theBuilder.getConstantUint32(0));
+
+  // The PCF should be called only once. Therefore, we check the invocationID,
+  // and we only allow ID 0 to call the PCF.
+  const uint32_t condition = theBuilder.createBinaryOp(
+      spv::Op::OpIEqual, theBuilder.getBoolType(), outputControlPointId,
+      theBuilder.getConstantUint32(0));
+  const uint32_t thenBB = theBuilder.createBasicBlock("if.true");
+  const uint32_t mergeBB = theBuilder.createBasicBlock("if.merge");
+  theBuilder.createConditionalBranch(condition, thenBB, mergeBB, mergeBB);
+  theBuilder.addSuccessor(thenBB);
+  theBuilder.addSuccessor(mergeBB);
+  theBuilder.setMergeTarget(mergeBB);
+
+  theBuilder.setInsertPoint(thenBB);
+  // Call the PCF. Since the function is not explicitly called, we must first
+  // register an ID for it.
+  const uint32_t pcfId = declIdMapper.getOrRegisterFnResultId(patchConstFunc);
+  const uint32_t pcfRetType =
+      typeTranslator.translateType(patchConstFunc->getReturnType());
+  std::vector<uint32_t> pcfParams;
+  for (const auto *param : patchConstFunc->parameters()) {
+    // Note: According to the HLSL reference, the PCF takes an InputPatch of
+    // ControlPoints as well as the PatchID (PrimitiveID). This does not
+    // necessarily mean that they are present. There is also no requirement
+    // for the order of parameters passed to PCF.
+    if (TypeTranslator::isInputPatch(param->getType()))
+      pcfParams.push_back(hullMainInputPatch);
+    if (TypeTranslator::isOutputPatch(param->getType()))
+      pcfParams.push_back(hullMainOutputPatch);
+    if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID)) {
+      if (!primitiveId) {
+        const uint32_t typeId = typeTranslator.translateType(param->getType());
+        std::string tempVarName = "param.var." + param->getNameAsString();
+        const uint32_t tempVar = theBuilder.addFnVar(typeId, tempVarName);
+        uint32_t loadedValue = 0;
+        declIdMapper.createStageInputVar(param, &loadedValue, /*isPC*/ true);
+        theBuilder.createStore(tempVar, loadedValue);
+        primitiveId = tempVar;
+      }
+      pcfParams.push_back(primitiveId);
+    }
+  }
+  const uint32_t pcfResultId =
+      theBuilder.createFunctionCall(pcfRetType, pcfId, {pcfParams});
+  if (!declIdMapper.createStageOutputVar(patchConstFunc, pcfResultId,
+                                         /*isPC*/ true))
+    return false;
+
+  theBuilder.createBranch(mergeBB);
+  theBuilder.addSuccessor(mergeBB);
+  theBuilder.setInsertPoint(mergeBB);
   return true;
 }
 

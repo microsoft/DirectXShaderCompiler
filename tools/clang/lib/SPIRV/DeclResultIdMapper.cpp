@@ -47,13 +47,16 @@ const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
 } // anonymous namespace
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
-                                              uint32_t storedValue) {
-  return createStageVars(decl, &storedValue, false, "out.var");
+                                              uint32_t storedValue,
+                                              bool isPatchConstant) {
+  return createStageVars(decl, &storedValue, false, "out.var", isPatchConstant);
 }
 
 bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
-                                             uint32_t *loadedValue) {
-  return createStageVars(paramDecl, loadedValue, true, "in.var");
+                                             uint32_t *loadedValue,
+                                             bool isPatchConstant) {
+  return createStageVars(paramDecl, loadedValue, true, "in.var",
+                         isPatchConstant);
 }
 
 const DeclResultIdMapper::DeclSpirvInfo *
@@ -369,8 +372,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
   // Returns false if the given StageVar is an input/output variable without
   // explicit location assignment. Otherwise, returns true.
-  const auto locAssigned = [forInput](const StageVar &v) {
-    if (forInput ? v.getSigPoint()->IsInput() : v.getSigPoint()->IsOutput())
+  const auto locAssigned = [forInput, this](const StageVar &v) {
+    if (forInput == isInputStorageClass(v))
       // No need to assign location for builtins. Treat as assigned.
       return v.isSpirvBuitin() || v.getLocationAttr() != nullptr;
     // For the ones we don't care, treat as assigned.
@@ -385,8 +388,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
     for (const auto &var : stageVars) {
       // Skip those stage variables we are not handling for this call
-      if ((forInput ? !var.getSigPoint()->IsInput()
-                    : !var.getSigPoint()->IsOutput()))
+      if (forInput != isInputStorageClass(var))
         continue;
 
       // Skip builtins
@@ -423,8 +425,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   LocationSet locSet;
 
   for (const auto &var : stageVars) {
-    if ((forInput ? !var.getSigPoint()->IsInput()
-                  : !var.getSigPoint()->IsOutput()))
+    if (forInput != isInputStorageClass(var))
       continue;
 
     if (!var.isSpirvBuitin()) {
@@ -440,7 +441,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       // Only SV_Target, SV_Depth, SV_DepthLessEqual, SV_DepthGreaterEqual,
       // SV_StencilRef, SV_Coverage are allowed in the pixel shader.
       // Arbitrary semantics are disallowed in pixel shader.
-      if (var.getSemantic()->GetKind() == hlsl::Semantic::Kind::Target) {
+      if (var.getSemantic() &&
+          var.getSemantic()->GetKind() == hlsl::Semantic::Kind::Target) {
         theBuilder.decorateLocation(var.getSpirvId(), var.getSemanticIndex());
         locSet.useLoc(var.getSemanticIndex());
       } else {
@@ -515,9 +517,30 @@ DeclResultIdMapper::getFnParamOrRetType(const DeclaratorDecl *decl) const {
   return decl->getType();
 }
 
+uint32_t DeclResultIdMapper::createStageVarWithoutSemantics(
+    bool isInput, uint32_t typeId, const llvm::StringRef name,
+    const clang::VKLocationAttr *loc) {
+  const hlsl::SigPoint *sigPoint = hlsl::SigPoint::GetSigPoint(
+      hlsl::SigPointFromInputQual(isInput ? hlsl::DxilParamInputQual::In
+                                          : hlsl::DxilParamInputQual::Out,
+                                  shaderModel.GetKind(), /*isPC*/ false));
+  StageVar stageVar(sigPoint, name, nullptr, 0, typeId);
+  const llvm::Twine fullName = (isInput ? "in.var." : "out.var.") + name;
+  const spv::StorageClass sc =
+      isInput ? spv::StorageClass::Input : spv::StorageClass::Output;
+  const uint32_t varId = theBuilder.addStageIOVar(typeId, sc, fullName.str());
+  if (varId == 0)
+    return 0;
+  stageVar.setSpirvId(varId);
+  stageVar.setLocationAttr(loc);
+  stageVars.push_back(stageVar);
+  return varId;
+}
+
 bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
                                          uint32_t *value, bool asInput,
-                                         const llvm::Twine &namePrefix) {
+                                         const llvm::Twine &namePrefix,
+                                         bool isPatchConstant) {
   QualType type = getFnParamOrRetType(decl);
   if (type->isVoidType()) {
     // No stage variables will be created for void type.
@@ -525,32 +548,28 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
   }
   const uint32_t typeId = typeTranslator.translateType(type);
 
-  const llvm::StringRef semanticStr = getStageVarSemantic(decl);
+  llvm::StringRef semanticStr = getStageVarSemantic(decl);
   if (!semanticStr.empty()) {
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
 
     const hlsl::DxilParamInputQual qual =
         asInput ? hlsl::DxilParamInputQual::In : hlsl::DxilParamInputQual::Out;
-
-    // TODO: use the correct isPC value when supporting patch constant function
-    // in hull shader
     const hlsl::SigPoint *sigPoint =
         hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
-            qual, shaderModel.GetKind(), /*isPC*/ false));
+            qual, shaderModel.GetKind(), isPatchConstant));
 
     llvm::StringRef semanticName;
     uint32_t semanticIndex = 0;
     hlsl::Semantic::DecomposeNameAndIndex(semanticStr, &semanticName,
                                           &semanticIndex);
-
     const auto *semantic = hlsl::Semantic::GetByName(semanticName);
 
     // Error out when the given semantic is invalid in this shader model
     if (hlsl::SigPoint::GetInterpretation(
-            semantic->GetKind(), sigPoint->GetKind(), shaderModel.GetMajor(),
-            shaderModel.GetMinor()) ==
-        hlsl::DXIL::SemanticInterpretationKind::NA) {
+                             semantic->GetKind(), sigPoint->GetKind(),
+                             shaderModel.GetMajor(), shaderModel.GetMinor()) ==
+                             hlsl::DXIL::SemanticInterpretationKind::NA) {
       emitError("invalid semantic %0 for shader module %1")
           << semanticStr << shaderModel.GetName();
       return false;
@@ -597,7 +616,6 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
 
     stageVar.setSpirvId(varId);
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
-
     stageVars.push_back(stageVar);
 
     if (asInput) {
@@ -619,7 +637,8 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
       llvm::SmallVector<uint32_t, 4> subValues;
       for (const auto *field : structDecl->fields()) {
         uint32_t subValue = 0;
-        if (!createStageVars(field, &subValue, true, namePrefix))
+        if (!createStageVars(field, &subValue, true, namePrefix,
+                             isPatchConstant))
           return false;
         subValues.push_back(subValue);
       }
@@ -632,7 +651,8 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
             typeTranslator.translateType(field->getType());
         uint32_t subValue = theBuilder.createCompositeExtract(
             fieldType, *value, {field->getFieldIndex()});
-        if (!createStageVars(field, &subValue, false, namePrefix))
+        if (!createStageVars(field, &subValue, false, namePrefix,
+                             isPatchConstant))
           return false;
       }
     }
@@ -644,21 +664,19 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
 uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
                                                  const llvm::Twine &name) {
   using spv::BuiltIn;
-
+  const auto sigPoint = stageVar->getSigPoint();
   const auto semanticKind = stageVar->getSemantic()->GetKind();
-  const auto sigPointKind = stageVar->getSigPoint()->GetKind();
+  const auto sigPointKind = sigPoint->GetKind();
   const uint32_t type = stageVar->getSpirvTypeId();
+
+  spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
+  if (sc == spv::StorageClass::Max)
+    return 0;
+  stageVar->setStorageClass(sc);
 
   // The following translation assumes that semantic validity in the current
   // shader model is already checked, so it only covers valid SigPoints for
   // each semantic.
-
-  // TODO: case for patch constant
-  const auto sc = stageVar->getSigPoint()->IsInput()
-                      ? spv::StorageClass::Input
-                      : spv::StorageClass::Output;
-  stageVar->setStorageClass(sc);
-
   switch (semanticKind) {
   // According to DXIL spec, the Position SV can be used by all SigPoints
   // other than PCIn, HSIn, GSIn, PSOut, CSIn.
@@ -676,7 +694,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragCoord);
     default:
       emitError("semantic Position for SigPoint %0 unimplemented yet")
-          << stageVar->getSigPoint()->GetName();
+          << sigPoint->GetName();
       break;
     }
   }
@@ -699,7 +717,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       return theBuilder.addStageIOVar(type, sc, name.str());
     default:
       emitError("semantic InstanceID for SigPoint %0 unimplemented yet")
-          << stageVar->getSigPoint()->GetName();
+          << sigPoint->GetName();
       break;
     }
   }
@@ -727,7 +745,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing);
     default:
       emitError("semantic IsFrontFace for SigPoint %0 unimplemented yet")
-          << stageVar->getSigPoint()->GetName();
+          << sigPoint->GetName();
       break;
     }
   }
@@ -742,32 +760,37 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     // TODO: patch constant function in hull shader
   }
   case hlsl::Semantic::Kind::DispatchThreadID: {
-    // DispatchThreadID semantic is only valid for compute shaders, and it is
-    // always an input.
     stageVar->setIsSpirvBuiltin();
-    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
-                                         BuiltIn::GlobalInvocationId);
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::GlobalInvocationId);
   }
   case hlsl::Semantic::Kind::GroupID: {
-    // GroupID semantic is only valid for compute shaders, and it is always an
-    // input.
     stageVar->setIsSpirvBuiltin();
-    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
-                                         BuiltIn::WorkgroupId);
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::WorkgroupId);
   }
   case hlsl::Semantic::Kind::GroupThreadID: {
-    // GroupThreadID semantic is only valid for compute shaders, and it is
-    // always an input.
     stageVar->setIsSpirvBuiltin();
-    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
-                                         BuiltIn::LocalInvocationId);
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::LocalInvocationId);
   }
   case hlsl::Semantic::Kind::GroupIndex: {
-    // GroupIndex semantic is only valid for compute shaders, and it is
-    // always an input.
     stageVar->setIsSpirvBuiltin();
-    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
+    return theBuilder.addStageBuiltinVar(type, sc,
                                          BuiltIn::LocalInvocationIndex);
+  }
+  case hlsl::Semantic::Kind::OutputControlPointID: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::InvocationId);
+  }
+  case hlsl::Semantic::Kind::PrimitiveID: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::PrimitiveId);
+  }
+  case hlsl::Semantic::Kind::TessFactor: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelOuter);
+  }
+  case hlsl::Semantic::Kind::InsideTessFactor: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelInner);
   }
   default:
     emitError("semantic %0 unimplemented yet")
@@ -776,6 +799,57 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
 
   return 0;
+}
+
+spv::StorageClass
+DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint) {
+  // This translation is done based on the HLSL reference (see docs/dxil.rst).
+  const auto sigPointKind = sigPoint->GetKind();
+  const auto signatureKind = sigPoint->GetSignatureKind();
+  spv::StorageClass sc = spv::StorageClass::Max;
+  switch (signatureKind) {
+  case hlsl::DXIL::SignatureKind::Input:
+    sc = spv::StorageClass::Input;
+    break;
+  case hlsl::DXIL::SignatureKind::Output:
+    sc = spv::StorageClass::Output;
+    break;
+  case hlsl::DXIL::SignatureKind::Invalid: {
+    // There are some special cases in HLSL (See docs/dxil.rst):
+    // SignatureKind is "invalid" for PCIn, HSIn, GSIn, and CSIn.
+    switch (sigPointKind) {
+    case hlsl::DXIL::SigPointKind::PCIn:
+    case hlsl::DXIL::SigPointKind::HSIn:
+    case hlsl::DXIL::SigPointKind::GSIn:
+    case hlsl::DXIL::SigPointKind::CSIn:
+      sc = spv::StorageClass::Input;
+      break;
+    default:
+      emitError("Found invalid SigPoint kind for a semantic.");
+    }
+    break;
+  }
+  case hlsl::DXIL::SignatureKind::PatchConstant: {
+    // There are some special cases in HLSL (See docs/dxil.rst):
+    // SignatureKind is "PatchConstant" for PCOut and DSIn.
+    switch (sigPointKind) {
+    case hlsl::DXIL::SigPointKind::PCOut:
+      // Patch Constant Output (Output of Hull which is passed to Domain).
+      sc = spv::StorageClass::Output;
+      break;
+    case hlsl::DXIL::SigPointKind::DSIn:
+      // Domain Shader regular input - Patch Constant data plus system values.
+      sc = spv::StorageClass::Input;
+      break;
+    default:
+      emitError("Found invalid SigPoint kind for a semantic.");
+    }
+    break;
+  }
+  default:
+    emitError("Found invalid SignatureKind for semantic.");
+  }
+  return sc;
 }
 
 } // end namespace spirv
