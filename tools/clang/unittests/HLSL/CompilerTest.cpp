@@ -591,7 +591,9 @@ public:
   TEST_METHOD(CodeGenInput2)
   TEST_METHOD(CodeGenInput3)
   TEST_METHOD(CodeGenIntrinsic1)
+  TEST_METHOD(CodeGenIntrinsic1Minprec)
   TEST_METHOD(CodeGenIntrinsic2)
+  TEST_METHOD(CodeGenIntrinsic2Minprec)
   TEST_METHOD(CodeGenIntrinsic3_even)
   TEST_METHOD(CodeGenIntrinsic3_integer)
   TEST_METHOD(CodeGenIntrinsic3_odd)
@@ -599,6 +601,7 @@ public:
   TEST_METHOD(CodeGenIntrinsic4)
   TEST_METHOD(CodeGenIntrinsic4_dbg)
   TEST_METHOD(CodeGenIntrinsic5)
+  TEST_METHOD(CodeGenIntrinsic5Minprec)
   TEST_METHOD(CodeGenInvalidInputOutputTypes)
   TEST_METHOD(CodeGenLegacyStruct)
   TEST_METHOD(CodeGenLibCsEntry)
@@ -3448,8 +3451,16 @@ TEST_F(CompilerTest, CodeGenIntrinsic1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\intrinsic1.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenIntrinsic1Minprec) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\intrinsic1_minprec.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenIntrinsic2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\intrinsic2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenIntrinsic2Minprec) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\intrinsic2_minprec.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenIntrinsic3_even) {
@@ -3478,6 +3489,10 @@ TEST_F(CompilerTest, CodeGenIntrinsic4_dbg) {
 
 TEST_F(CompilerTest, CodeGenIntrinsic5) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\intrinsic5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenIntrinsic5Minprec) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\intrinsic5_minprec.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenInvalidInputOutputTypes) {
