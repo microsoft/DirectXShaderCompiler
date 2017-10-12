@@ -507,6 +507,9 @@ private:
   uint32_t processTextureGatherRGBA(const CXXMemberCallExpr *expr,
                                     uint32_t component);
 
+  /// \brief Handles .GatherCmp() calls on texture types.
+  uint32_t processTextureGatherCmp(const CXXMemberCallExpr *expr);
+
   /// \brief Returns the calculated level-of-detail (a single float value) for
   /// the given texture. Handles intrinsic HLSL CalculateLevelOfDetail function.
   uint32_t processTextureLevelOfDetail(const CXXMemberCallExpr *expr);
