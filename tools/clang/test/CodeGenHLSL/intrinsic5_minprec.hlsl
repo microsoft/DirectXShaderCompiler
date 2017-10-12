@@ -13,19 +13,19 @@
 // CHECK: UMad
 
 
-float4 n;
-float4 i;
-float4 ng;
+min16float4 n;
+min16float4 i;
+min16float4 ng;
 
-float eta;
+min16float eta;
 
 double a;
 double b;
 double c;
 
-float x;
-float y;
-float z;
+min16float x;
+min16float y;
+min16float z;
 
 int ix;
 int iy;
@@ -52,11 +52,11 @@ float4 main(float4 arg : A) : SV_TARGET {
   if (any(isf))
     return isf;
 
-  float4 ff = faceforward(n, i, ng);
+  min16float4 ff = faceforward(n, i, ng);
   double ma = fma(a, b, c);
-  float st = step(y, x) + smoothstep(y, x, 0.3);
-  float4 ref = refract(i, n, eta);
-  float fmad = mad(x,y,z);
+  min16float st = step(y, x) + smoothstep(y, x, 0.3);
+  min16float4 ref = refract(i, n, eta);
+  min16float fmad = mad(x,y,z);
   int   ima = mad(ix,iy,iz);
   uint  uma = mad(ux,uy,uz);
   return ff + ma + st + ref + fmad + ima + uma;
