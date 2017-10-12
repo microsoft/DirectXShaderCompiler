@@ -1429,6 +1429,17 @@ There are a few overloads for these functions:
   instruction. So those offset parameters must all be constant values.
 - Those overloads with the status parameter are not supported.
 
+``.GatherCmp()``
+++++++++++++++++
+
+Available to ``Texture2D``, ``Texture2DArray``, ``TextureCube``, and
+``TextureCubeArray``.
+
+The translation is similar to ``.Sample()``, but the ``OpImageDrefGather``
+instruction is used.
+
+The overload with the status parameter are not supported.
+
 ``.Load(location[, sampleIndex][, offset])``
 ++++++++++++++++++++++++++++++++++++++++++++
 

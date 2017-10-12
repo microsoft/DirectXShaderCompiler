@@ -418,8 +418,9 @@ uint32_t ModuleBuilder::createImageFetchOrRead(
 
 uint32_t ModuleBuilder::createImageGather(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
-    uint32_t coordinate, uint32_t component, uint32_t constOffset,
-    uint32_t varOffset, uint32_t constOffsets, uint32_t sample) {
+    uint32_t coordinate, uint32_t component, uint32_t compareVal,
+    uint32_t constOffset, uint32_t varOffset, uint32_t constOffsets,
+    uint32_t sample) {
   assert(insertPoint && "null insert point");
 
   // An OpSampledImage is required to do the image sampling.
@@ -435,8 +436,16 @@ uint32_t ModuleBuilder::createImageGather(
           /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
           constOffsets, sample, &params));
   const uint32_t texelId = theContext.takeNextId();
-  instBuilder.opImageGather(texelType, texelId, sampledImgId, coordinate,
-                            component, mask);
+
+  if (compareVal) {
+    // Note: OpImageDrefGather does not take the component parameter.
+    instBuilder.opImageDrefGather(texelType, texelId, sampledImgId, coordinate,
+                                  compareVal, mask);
+  } else {
+    instBuilder.opImageGather(texelType, texelId, sampledImgId, coordinate,
+                              component, mask);
+  }
+
   for (const auto param : params)
     instBuilder.idRef(param);
   instBuilder.x();

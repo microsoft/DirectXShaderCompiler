@@ -193,8 +193,9 @@ public:
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t component,
-                             uint32_t constOffset, uint32_t varOffset,
-                             uint32_t constOffsets, uint32_t sample);
+                             uint32_t compareVal, uint32_t constOffset,
+                             uint32_t varOffset, uint32_t constOffsets,
+                             uint32_t sample);
 
   /// \brief Creates a select operation with the given values for true and false
   /// cases and returns the <result-id> for the result.
