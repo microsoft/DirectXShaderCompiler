@@ -230,12 +230,6 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   if (context.getDiagnostics().hasErrorOccurred())
     return;
 
-  AddRequiredCapabilitiesForShaderModel();
-
-  // Addressing and memory model are required in a valid SPIR-V module.
-  theBuilder.setAddressingModel(spv::AddressingModel::Logical);
-  theBuilder.setMemoryModel(spv::MemoryModel::GLSL450);
-
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
 
   // The entry function is the seed of the queue.
@@ -263,6 +257,15 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   for (uint32_t i = 0; i < workQueue.size(); ++i) {
     doDecl(workQueue[i]);
   }
+
+  if (context.getDiagnostics().hasErrorOccurred())
+    return;
+
+  AddRequiredCapabilitiesForShaderModel();
+
+  // Addressing and memory model are required in a valid SPIR-V module.
+  theBuilder.setAddressingModel(spv::AddressingModel::Logical);
+  theBuilder.setMemoryModel(spv::MemoryModel::GLSL450);
 
   theBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunctionId,
                            entryFunctionName, declIdMapper.collectStageVars());
