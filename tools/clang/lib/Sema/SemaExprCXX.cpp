@@ -1006,8 +1006,12 @@ Sema::ActOnCXXTypeConstructExpr(ParsedType TypeRep,
   QualType Ty = GetTypeFromParser(TypeRep, &TInfo);
   if (!TInfo)
     TInfo = Context.getTrivialTypeSourceInfo(Ty, SourceLocation());
-
-  return BuildCXXTypeConstructExpr(TInfo, LParenLoc, exprs, RParenLoc);
+  // HLSL Change Begin - Check embedded typos for CXXUnresolvedConstructExpr.
+  ExprResult Result = BuildCXXTypeConstructExpr(TInfo, LParenLoc, exprs, RParenLoc);
+  if (!Result.isInvalid() && isa<CXXUnresolvedConstructExpr>(Result.get()))
+    Result = CorrectDelayedTyposInExpr(Result.get());
+  return Result;
+  // HLSL Change End.
 }
 
 /// ActOnCXXTypeConstructExpr - Parse construction of a specified type.
