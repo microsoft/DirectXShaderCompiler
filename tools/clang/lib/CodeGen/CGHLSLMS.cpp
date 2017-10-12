@@ -4177,6 +4177,10 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
           if (!isImm) {
             allOperandImm = false;
             break;
+          } else if (operand->getType()->isHalfTy()) {
+            // Not support half Eval yet.
+            allOperandImm = false;
+            break;
           }
         }
         if (allOperandImm) {
