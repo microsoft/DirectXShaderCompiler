@@ -495,8 +495,13 @@ private:
   uint32_t processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
                                          bool isBias);
 
-  /// \brief Processes .SampleGrad()  method call for texture objects.
+  /// \brief Processes .SampleGrad() method call for texture objects.
   uint32_t processTextureSampleGrad(const CXXMemberCallExpr *expr);
+
+  /// \brief Processes .SampleCmp() or .SampleCmpLevelZero() method call for
+  /// texture objects.
+  uint32_t processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
+                                               bool isCmp);
 
   /// \brief Handles .Gather{Red|Green|Blue|Alpha}() calls on texture types.
   uint32_t processTextureGatherRGBA(const CXXMemberCallExpr *expr,

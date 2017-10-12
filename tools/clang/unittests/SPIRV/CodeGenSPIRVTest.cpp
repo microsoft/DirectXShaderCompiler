@@ -424,6 +424,16 @@ TEST_F(FileTest, TextureSampleGrad) { runFileTest("texture.sample-grad.hlsl"); }
 TEST_F(FileTest, TextureArraySampleGrad) {
   runFileTest("texture.array.sample-grad.hlsl");
 }
+TEST_F(FileTest, TextureSampleCmp) { runFileTest("texture.sample-cmp.hlsl"); }
+TEST_F(FileTest, TextureArraySampleCmp) {
+  runFileTest("texture.array.sample-cmp.hlsl");
+}
+TEST_F(FileTest, TextureSampleCmpLevelZero) {
+  runFileTest("texture.sample-cmp-level-zero.hlsl");
+}
+TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
+  runFileTest("texture.array.sample-cmp-level-zero.hlsl");
+}
 
 TEST_F(FileTest, StructuredBufferLoad) {
   runFileTest("method.structured-buffer.load.hlsl");
