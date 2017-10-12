@@ -47,13 +47,16 @@ const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
 } // anonymous namespace
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
-                                              uint32_t storedValue, bool isPC) {
-  return createStageVars(decl, &storedValue, false, "out.var", isPC);
+                                              uint32_t storedValue,
+                                              bool isPatchConstant) {
+  return createStageVars(decl, &storedValue, false, "out.var", isPatchConstant);
 }
 
 bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
-                                             uint32_t *loadedValue, bool isPC) {
-  return createStageVars(paramDecl, loadedValue, true, "in.var", isPC);
+                                             uint32_t *loadedValue,
+                                             bool isPatchConstant) {
+  return createStageVars(paramDecl, loadedValue, true, "in.var",
+                         isPatchConstant);
 }
 
 const DeclResultIdMapper::DeclSpirvInfo *
@@ -370,10 +373,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   // Returns false if the given StageVar is an input/output variable without
   // explicit location assignment. Otherwise, returns true.
   const auto locAssigned = [forInput, this](const StageVar &v) {
-    const auto sigPoint = v.getSigPoint();
-    const bool isInputStorageClass =
-        getStorageClassForSigPoint(sigPoint) == spv::StorageClass::Input;
-    if (forInput == isInputStorageClass)
+    if (forInput == isInputStorageClass(v))
       // No need to assign location for builtins. Treat as assigned.
       return v.isSpirvBuitin() || v.getLocationAttr() != nullptr;
     // For the ones we don't care, treat as assigned.
@@ -388,10 +388,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
     for (const auto &var : stageVars) {
       // Skip those stage variables we are not handling for this call
-      const bool isInputStorageClass =
-          getStorageClassForSigPoint(var.getSigPoint()) ==
-          spv::StorageClass::Input;
-      if (forInput != isInputStorageClass)
+      if (forInput != isInputStorageClass(var))
         continue;
 
       // Skip builtins
@@ -428,10 +425,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   LocationSet locSet;
 
   for (const auto &var : stageVars) {
-    const bool isInputStorageClass =
-        getStorageClassForSigPoint(var.getSigPoint()) ==
-        spv::StorageClass::Input;
-    if (forInput != isInputStorageClass)
+    if (forInput != isInputStorageClass(var))
       continue;
 
     if (!var.isSpirvBuitin()) {
@@ -536,7 +530,7 @@ uint32_t DeclResultIdMapper::createStageVarWithoutSemantics(
       isInput ? spv::StorageClass::Input : spv::StorageClass::Output;
   const uint32_t varId = theBuilder.addStageIOVar(typeId, sc, fullName.str());
   if (varId == 0)
-    return false;
+    return 0;
   stageVar.setSpirvId(varId);
   stageVar.setLocationAttr(loc);
   stageVars.push_back(stageVar);
@@ -546,7 +540,7 @@ uint32_t DeclResultIdMapper::createStageVarWithoutSemantics(
 bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
                                          uint32_t *value, bool asInput,
                                          const llvm::Twine &namePrefix,
-                                         bool isPC) {
+                                         bool isPatchConstant) {
   QualType type = getFnParamOrRetType(decl);
   if (type->isVoidType()) {
     // No stage variables will be created for void type.
@@ -561,8 +555,9 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
 
     const hlsl::DxilParamInputQual qual =
         asInput ? hlsl::DxilParamInputQual::In : hlsl::DxilParamInputQual::Out;
-    const hlsl::SigPoint *sigPoint = hlsl::SigPoint::GetSigPoint(
-        hlsl::SigPointFromInputQual(qual, shaderModel.GetKind(), isPC));
+    const hlsl::SigPoint *sigPoint =
+        hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
+            qual, shaderModel.GetKind(), isPatchConstant));
 
     llvm::StringRef semanticName;
     uint32_t semanticIndex = 0;
@@ -642,7 +637,8 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
       llvm::SmallVector<uint32_t, 4> subValues;
       for (const auto *field : structDecl->fields()) {
         uint32_t subValue = 0;
-        if (!createStageVars(field, &subValue, true, namePrefix, isPC))
+        if (!createStageVars(field, &subValue, true, namePrefix,
+                             isPatchConstant))
           return false;
         subValues.push_back(subValue);
       }
@@ -655,7 +651,8 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
             typeTranslator.translateType(field->getType());
         uint32_t subValue = theBuilder.createCompositeExtract(
             fieldType, *value, {field->getFieldIndex()});
-        if (!createStageVars(field, &subValue, false, namePrefix, isPC))
+        if (!createStageVars(field, &subValue, false, namePrefix,
+                             isPatchConstant))
           return false;
       }
     }

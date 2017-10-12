@@ -3,6 +3,7 @@
 #include "bezier_common_hull.hlsl"
 
 // CHECK: [[fType:%\d+]] = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT
+// CHECK:          %main = OpFunction %void None {{%\d+}}
 // CHECK:       {{%\d+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %PCF
 // CHECK:           %PCF = OpFunction %HS_CONSTANT_DATA_OUTPUT None [[fType]]
 

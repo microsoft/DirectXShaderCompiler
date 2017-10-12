@@ -4791,13 +4791,78 @@ void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
   }
 }
 
+bool SPIRVEmitter::processHullShaderAttributes(
+    const FunctionDecl *decl, uint32_t *numOutputControlPoints) {
+  assert(shaderModel.IsHS());
+  using namespace spv;
+  if (auto *domain = decl->getAttr<HLSLDomainAttr>()) {
+    const auto domainType = domain->getDomainType().lower();
+    const ExecutionMode hsExecMode =
+        llvm::StringSwitch<ExecutionMode>(domainType)
+            .Case("tri", ExecutionMode::Triangles)
+            .Case("quad", ExecutionMode::Quads)
+            .Case("isoline", ExecutionMode::Isolines)
+            .Default(ExecutionMode::Max);
+    if (hsExecMode == ExecutionMode::Max) {
+      emitError("unknown domain type in hull shader", decl->getLocation());
+      return false;
+    }
+    theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+  }
+  if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
+    // TODO: Could not find an equivalent of "pow2" partitioning scheme in
+    // SPIR-V.
+    const auto scheme = partitioning->getScheme().lower();
+    const ExecutionMode hsExecMode =
+        llvm::StringSwitch<ExecutionMode>(scheme)
+            .Case("fractional_even", ExecutionMode::SpacingFractionalEven)
+            .Case("fractional_odd", ExecutionMode::SpacingFractionalOdd)
+            .Case("integer", ExecutionMode::SpacingEqual)
+            .Default(ExecutionMode::Max);
+    if (hsExecMode == ExecutionMode::Max) {
+      emitError("unknown partitioning scheme in hull shader",
+                decl->getLocation());
+      return false;
+    }
+    theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+  }
+  if (auto *outputTopology = decl->getAttr<HLSLOutputTopologyAttr>()) {
+    const auto topology = outputTopology->getTopology().lower();
+    const ExecutionMode hsExecMode =
+        llvm::StringSwitch<ExecutionMode>(topology)
+            .Case("point", ExecutionMode::PointMode)
+            .Case("triangle_cw", ExecutionMode::VertexOrderCw)
+            .Case("triangle_ccw", ExecutionMode::VertexOrderCcw)
+            .Default(ExecutionMode::Max);
+    // TODO: There is no SPIR-V equivalent for "line" topology. Is it the
+    // default?
+    if (topology != "line") {
+      if (hsExecMode != spv::ExecutionMode::Max) {
+        theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+      } else {
+        emitError("unknown partitioning scheme in hull shader",
+                  decl->getLocation());
+        return false;
+      }
+    }
+  }
+  if (auto *controlPoints = decl->getAttr<HLSLOutputControlPointsAttr>()) {
+    *numOutputControlPoints = controlPoints->getCount();
+    theBuilder.addExecutionMode(entryFunctionId,
+                                spv::ExecutionMode::OutputVertices,
+                                {*numOutputControlPoints});
+  }
+
+  return true;
+}
+
 bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
                                             const uint32_t entryFuncId) {
   // These are going to be used for Hull shaders only.
   uint32_t numOutputControlPoints = 0;
-  uint32_t outputControlPointId = 0;
-  uint32_t primitiveId = 0;
-  uint32_t hullMainInputPatch = 0;
+  uint32_t outputControlPointIdVal = 0;
+  uint32_t primitiveIdVar = 0;
+  uint32_t hullMainInputPatchParam = 0;
 
   // Construct the wrapper function signature.
   const uint32_t voidType = theBuilder.getVoidType();
@@ -4824,67 +4889,9 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::LocalSize, {1, 1, 1});
     }
-  }
-
-  if (shaderModel.IsHS()) {
-    if (auto *domain = decl->getAttr<HLSLDomainAttr>()) {
-      const auto domainType = domain->getDomainType().lower();
-      const auto hsExecMode = domainType == "tri"
-                                  ? spv::ExecutionMode::Triangles
-                                  : domainType == "quad"
-                                        ? spv::ExecutionMode::Quads
-                                        : domainType == "isoline"
-                                              ? spv::ExecutionMode::Isolines
-                                              : spv::ExecutionMode::Max;
-      if (hsExecMode == spv::ExecutionMode::Max) {
-        emitError("Unknown domain type in Hull shader.");
-        return false;
-      }
-      theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
-    }
-    if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
-      // TODO: Could not find an equivalent of "pow2" partitioning scheme in
-      // SPIR-V.
-      const auto scheme = partitioning->getScheme().lower();
-      const auto hsExecMode =
-          scheme == "fractional_even"
-              ? spv::ExecutionMode::SpacingFractionalEven
-              : scheme == "fractional_odd"
-                    ? spv::ExecutionMode::SpacingFractionalOdd
-                    : scheme == "integer" ? spv::ExecutionMode::SpacingEqual
-                                          : spv::ExecutionMode::Max;
-      if (hsExecMode == spv::ExecutionMode::Max) {
-        emitError("Unknown partitioning scheme in Hull shader.");
-        return false;
-      }
-      theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
-    }
-    if (auto *outputTopology = decl->getAttr<HLSLOutputTopologyAttr>()) {
-      const auto topology = outputTopology->getTopology().lower();
-      const auto hsExecMode =
-          topology == "point" ? spv::ExecutionMode::PointMode
-                              : topology == "triangle_cw"
-                                    ? spv::ExecutionMode::VertexOrderCw
-                                    : topology == "triangle_ccw"
-                                          ? spv::ExecutionMode::VertexOrderCcw
-                                          : spv::ExecutionMode::Max;
-      // TODO: There is no SPIR-V equivalent for "line" topology. Is it the
-      // default?
-      if (topology != "line") {
-        if (hsExecMode != spv::ExecutionMode::Max) {
-          theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
-        } else {
-          emitError("Unknown partitioning scheme in Hull shader.");
-          return false;
-        }
-      }
-    }
-    if (auto *controlPoints = decl->getAttr<HLSLOutputControlPointsAttr>()) {
-      numOutputControlPoints = controlPoints->getCount();
-      theBuilder.addExecutionMode(entryFunctionId,
-                                  spv::ExecutionMode::OutputVertices,
-                                  {numOutputControlPoints});
-    }
+  } else if (shaderModel.IsHS()) {
+    if (!processHullShaderAttributes(decl, &numOutputControlPoints))
+      return false;
   }
 
   // The entry basic block.
@@ -4915,7 +4922,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
                 /*isInput*/ true, typeId, "hullEntryPointInput",
                 decl->getAttr<VKLocationAttr>());
         loadedValue = theBuilder.createLoad(typeId, hullInputPatchId);
-        hullMainInputPatch = tempVar;
+        hullMainInputPatchParam = tempVar;
       } else if (!declIdMapper.createStageInputVar(param, &loadedValue,
                                                    /*isPC*/ false)) {
         return false;
@@ -4924,9 +4931,9 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       theBuilder.createStore(tempVar, loadedValue);
 
       if (hasSemantic(param, hlsl::DXIL::SemanticKind::OutputControlPointID))
-        outputControlPointId = loadedValue;
+        outputControlPointIdVal = loadedValue;
       if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID))
-        primitiveId = tempVar;
+        primitiveIdVar = tempVar;
     }
   }
 
@@ -4943,8 +4950,8 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // of the main entry point function is done.
   if (shaderModel.IsHS()) {
     if (!processHullEntryPointOutputAndPatchConstFunc(
-            decl, retType, retVal, numOutputControlPoints, outputControlPointId,
-            primitiveId, hullMainInputPatch))
+            decl, retType, retVal, numOutputControlPoints,
+            outputControlPointIdVal, primitiveIdVar, hullMainInputPatchParam))
       return false;
   } else {
     if (!declIdMapper.createStageOutputVar(decl, retVal, /*isPC*/ false))
@@ -4990,19 +4997,21 @@ bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
   // numOutputControlPoints. The results of the main should be written to the
   // correct offset in the array (based on InvocationID).
   if (!numOutputControlPoints) {
-    emitError("Number of Output Control Points must be specified in a Hull "
-              "shader.");
+    emitError("number of output control points cannot be zero",
+              hullMainFuncDecl->getLocation());
     return false;
   }
   // TODO: We should be able to handle cases where the SV_OutputControlPointID
   // is not provided.
   if (!outputControlPointId) {
-    emitError("SV_OutputControlPointID semantic must be provided in the Hull "
-              "shader.");
+    emitError(
+        "SV_OutputControlPointID semantic must be provided in the hull shader",
+        hullMainFuncDecl->getLocation());
     return false;
   }
   if (!patchConstFunc) {
-    emitError("Patch Constant Function not defined in Hull shader.");
+    emitError("patch constant function not defined in hull shader",
+              hullMainFuncDecl->getLocation());
     return false;
   }
 
@@ -5028,7 +5037,7 @@ bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
   // results to it, so it can be passed to the PCF.
   if (patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
     hullMainOutputPatch = theBuilder.addFnVar(hullEntryPointOutputType,
-                                              "temp.hullEntryPointOutput");
+                                              "temp.var.hullEntryPointOutput");
     const auto tempLocation = theBuilder.createAccessChain(
         theBuilder.getPointerType(retType, spv::StorageClass::Function),
         hullMainOutputPatch, {outputControlPointId});

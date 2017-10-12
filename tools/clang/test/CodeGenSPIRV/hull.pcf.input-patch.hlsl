@@ -8,8 +8,9 @@
 
 // CHECK:              [[fType:%\d+]] = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_16
 // CHECK: %in_var_hullEntryPointInput = OpVariable %_ptr_Input__arr_VS_CONTROL_POINT_OUTPUT_uint_16 Input
-// CHECK:               %param_var_ip = OpVariable %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_16 Function
 
+// CHECK:                       %main = OpFunction %void None {{%\d+}}
+// CHECK:               %param_var_ip = OpVariable %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_16 Function
 // CHECK:            [[hull_in:%\d+]] = OpLoad %_arr_VS_CONTROL_POINT_OUTPUT_uint_16 %in_var_hullEntryPointInput
 // CHECK:                               OpStore %param_var_ip [[hull_in]]
 

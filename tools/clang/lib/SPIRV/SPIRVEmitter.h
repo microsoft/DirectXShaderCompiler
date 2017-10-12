@@ -370,6 +370,14 @@ private:
   /// shader model.
   void AddExecutionModeForEntryPoint(uint32_t entryPointId);
 
+  /// \brief Adds necessary execution modes for the hull shader based on the
+  /// HLSL attributes of the entry point function.
+  /// Also, if the 'outputcontrolpoints' attribute is present, the number of
+  /// output control points is written to *numOutputControlPoints.
+  /// Returns true on success, and false on failure.
+  bool processHullShaderAttributes(const FunctionDecl *entryFunction,
+                                   uint32_t *numOutputControlPoints);
+
   /// \brief Emits a wrapper function for the entry function and returns true
   /// on success.
   ///
@@ -401,7 +409,7 @@ private:
   /// * The execution thread with ControlPointId (invocationID) of 0 calls the
   /// PCF. e.g. if(id == 0) pcf();
   ///
-  /// * Gathers the results of the PCF and assigns them to top-level output
+  /// * Gathers the results of the PCF and assigns them to stage output
   /// variables.
   ///
   /// The method panics if it is called for any shader kind other than Hull

@@ -12,6 +12,8 @@
 
 // CHECK:     [[fType:%\d+]] = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT %_ptr_Function_uint
 // CHECK:    %gl_PrimitiveID = OpVariable %_ptr_Input_uint Input
+
+// CHECK:              %main = OpFunction %void None {{%\d+}}
 // CHECK: %param_var_PatchID = OpVariable %_ptr_Function_uint Function
 
 // CHECK: [[pid:%\d+]] = OpLoad %uint %gl_PrimitiveID

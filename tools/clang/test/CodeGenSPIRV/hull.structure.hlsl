@@ -10,7 +10,10 @@
 // CHECK:         %main = OpFunction %void None {{%\d+}}
 // CHECK:   [[id:%\d+]] = OpLoad %uint %gl_InvocationID
 
-// CHECK:      {{%\d+}} = OpFunctionCall %BEZIER_CONTROL_POINT %src_main %param_var_ip %param_var_i %param_var_PatchID
+// CHECK:  [[hullOutput:%\d+]] = OpFunctionCall %BEZIER_CONTROL_POINT %src_main %param_var_ip %param_var_i %param_var_PatchID
+
+// CHECK: [[outLocation:%\d+]] = OpAccessChain %_ptr_Output_BEZIER_CONTROL_POINT %out_var_hullEntryPointOutput [[id]]
+// CHECK:                        OpStore [[outLocation]] [[hullOutput]]
 
 // CHECK:                 OpControlBarrier %uint_2 %uint_1 %uint_0
 
