@@ -642,6 +642,7 @@ public:
   TEST_METHOD(CodeGenMinprecCoord)
   TEST_METHOD(CodeGenModf)
   TEST_METHOD(CodeGenMinprecCast)
+  TEST_METHOD(CodeGenMinprecImm)
   TEST_METHOD(CodeGenMultiUAVLoad1)
   TEST_METHOD(CodeGenMultiUAVLoad2)
   TEST_METHOD(CodeGenMultiUAVLoad3)
@@ -3729,6 +3730,10 @@ TEST_F(CompilerTest, CodeGenModf) {
 
 TEST_F(CompilerTest, CodeGenMinprecCast) {
   CodeGenTest(L"..\\CodeGenHLSL\\minprec_cast.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMinprecImm) {
+  CodeGenTest(L"..\\CodeGenHLSL\\minprec_imm.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad1) {
