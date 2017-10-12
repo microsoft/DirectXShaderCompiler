@@ -1898,8 +1898,8 @@ Value *TranslateRefract(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   Value *eta2 = Builder.CreateFMul(eta, eta);
   // d*d;
   Value *dot2 = Builder.CreateFMul(dot, dot);
-  Constant *one = hlslOP->GetFloatConst(1);
-  Constant *zero = hlslOP->GetFloatConst(0);
+  Constant *one = ConstantFP::get(eta->getType(), 1);
+  Constant *zero = ConstantFP::get(eta->getType(), 0);
   // 1- d*d;
   dot2 = Builder.CreateFSub(one, dot2);
   // eta * eta * (1-d*d);
@@ -1944,8 +1944,8 @@ Value *TranslateSmoothStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *s = TrivialDxilUnaryOperation(DXIL::OpCode::Saturate, satVal, hlslOP,
                                        Builder);
   // return s * s *(3-2*s).
-  Constant *c2 = hlslOP->GetFloatConst(2);
-  Constant *c3 = hlslOP->GetFloatConst(3);
+  Constant *c2 = ConstantFP::get(CI->getType(),2);
+  Constant *c3 = ConstantFP::get(CI->getType(),3);
   if (s->getType()->isVectorTy()) {
     unsigned vecSize = s->getType()->getVectorNumElements();
     c2 = ConstantVector::getSplat(vecSize, c2);
