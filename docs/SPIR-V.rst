@@ -1086,6 +1086,12 @@ The following intrinsic HLSL functions are currently supported:
 - ``reversebits``: Reverses the order of the bits, per component. Uses SPIR-V ``OpBitReverse``.
 - ``clip``: Discards the current pixel if the specified value is less than zero. Uses conditional
   control flow as well as SPIR-V ``OpKill``.
+- ``ddx``: Partial derivative with respect to the screen-space x-coordinate. Uses SIR-V ``OpDPdx``.
+- ``ddy``: Partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdy``.
+- ``ddx_coarse``: Low precision partial derivative with respect to the screen-space x-coordinate. Uses SIR-V ``OpDPdxCoarse``.
+- ``ddy_coarse``: Low precision partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdyCoarse``.
+- ``ddx_fine``: High precision partial derivative with respect to the screen-space x-coordinate. Uses SIR-V ``OpDPdxFine``.
+- ``ddy_fine``: High precision partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdyFine``.
 
 Using GLSL extended instructions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

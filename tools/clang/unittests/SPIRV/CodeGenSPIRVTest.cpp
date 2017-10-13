@@ -518,6 +518,16 @@ TEST_F(FileTest, IntrinsicsDistance) {
   runFileTest("intrinsics.distance.hlsl");
 }
 TEST_F(FileTest, IntrinsicsRadians) { runFileTest("intrinsics.radians.hlsl"); }
+TEST_F(FileTest, IntrinsicsDdx) { runFileTest("intrinsics.ddx.hlsl"); }
+TEST_F(FileTest, IntrinsicsDdy) { runFileTest("intrinsics.ddy.hlsl"); }
+TEST_F(FileTest, IntrinsicsDdxCoarse) {
+  runFileTest("intrinsics.ddx-coarse.hlsl");
+}
+TEST_F(FileTest, IntrinsicsDdyCoarse) {
+  runFileTest("intrinsics.ddy-coarse.hlsl");
+}
+TEST_F(FileTest, IntrinsicsDdxFine) { runFileTest("intrinsics.ddx-fine.hlsl"); }
+TEST_F(FileTest, IntrinsicsDdyFine) { runFileTest("intrinsics.ddy-fine.hlsl"); }
 TEST_F(FileTest, IntrinsicsDeterminant) {
   runFileTest("intrinsics.determinant.hlsl");
 }
@@ -696,9 +706,7 @@ TEST_F(FileTest, VulkanLayoutConsumeSBufferStd430) {
 }
 
 // For different Patch Constant Functions (for Hull shaders)
-TEST_F(FileTest, HullShaderPCFVoid) {
-  runFileTest("hull.pcf.void.hlsl");
-}
+TEST_F(FileTest, HullShaderPCFVoid) { runFileTest("hull.pcf.void.hlsl"); }
 TEST_F(FileTest, HullShaderPCFTakesInputPatch) {
   runFileTest("hull.pcf.input-patch.hlsl");
 }
