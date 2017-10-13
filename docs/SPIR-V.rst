@@ -590,31 +590,39 @@ Firstly, under certain `SigPoints <https://github.com/Microsoft/DirectXShaderCom
 some system-value (SV) semantic strings will be translated into SPIR-V
 ``BuiltIn`` decorations:
 
-+----------------------+----------+--------------------------+-----------------------+
-| HLSL Semantic        | SigPoint | SPIR-V ``BuiltIn``       | SPIR-V Execution Mode |
-+======================+==========+==========================+=======================+
-|                      | VSOut    | ``Position``             | N/A                   |
-| SV_Position          +----------+--------------------------+-----------------------+
-|                      | PSIn     | ``FragCoord``            | N/A                   |
-+----------------------+----------+--------------------------+-----------------------+
-| SV_VertexID          | VSIn     | ``VertexIndex``          | N/A                   |
-+----------------------+----------+--------------------------+-----------------------+
-| SV_InstanceID        | VSIn     | ``InstanceIndex``        | N/A                   |
-+----------------------+----------+--------------------------+-----------------------+
-| SV_Depth             | PSOut    | ``FragDepth``            | N/A                   |
-+----------------------+----------+--------------------------+-----------------------+
-| SV_DepthGreaterEqual | PSOut    | ``FragDepth``            | ``DepthGreater``      |
-+----------------------+----------+--------------------------+-----------------------+
-| SV_DepthLessEqual    | PSOut    | ``FragDepth``            | ``DepthLess``         |
-+----------------------+----------+--------------------------+-----------------------+
-| SV_DispatchThreadID  | CSIn     | ``GlobalInvocationId``   | N/A                   |
-+----------------------+----------+--------------------------+-----------------------+
-| SV_GroupID           | CSIn     | ``WorkgroupId``          | N/A                   |
-+----------------------+----------+--------------------------+-----------------------+
-| SV_GroupThreadID     | CSIn     | ``LocalInvocationId``    | N/A                   |
-+----------------------+----------+--------------------------+-----------------------+
-| SV_GroupIndex        | CSIn     | ``LocalInvocationIndex`` | N/A                   |
-+----------------------+----------+--------------------------+-----------------------+
++-------------------------+----------+--------------------------+-----------------------+
+| HLSL Semantic           | SigPoint | SPIR-V ``BuiltIn``       | SPIR-V Execution Mode |
++=========================+==========+==========================+=======================+
+|                         | VSOut    | ``Position``             | N/A                   |
+| SV_Position             +----------+--------------------------+-----------------------+
+|                         | PSIn     | ``FragCoord``            | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_VertexID             | VSIn     | ``VertexIndex``          | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_InstanceID           | VSIn     | ``InstanceIndex``        | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_Depth                | PSOut    | ``FragDepth``            | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_DepthGreaterEqual    | PSOut    | ``FragDepth``            | ``DepthGreater``      |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_DepthLessEqual       | PSOut    | ``FragDepth``            | ``DepthLess``         |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_DispatchThreadID     | CSIn     | ``GlobalInvocationId``   | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_GroupID              | CSIn     | ``WorkgroupId``          | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_GroupThreadID        | CSIn     | ``LocalInvocationId``    | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_GroupIndex           | CSIn     | ``LocalInvocationIndex`` | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_OutputControlPointID | HSIn     | ``InvocationId``         | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_PrimitiveID          | HSIn     | ``PrimitiveId``          | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_TessFactor           | PCOut    | ``TessLevelOuter``       | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
+| SV_InsideTessFactor     | PCOut    | ``TessLevelInner``       | N/A                   |
++-------------------------+----------+--------------------------+-----------------------+
 
 [TODO] add other SV semantic strings in the above
 
@@ -1631,3 +1639,77 @@ element is the height, and the third is the elements.
 ++++++++++++++++++++++++++++++++++++++++
 The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
 element is the height, and the third element is the depth.
+
+
+HLSL Hull Shaders
+=================
+
+Hull shaders translate to Tessellation Control Shaders (TCS) in Vulkan.
+This section describes how Hull shaders are translated to SPIR-V for Vulkan.
+
+Hull Entry Point Attributes
+---------------------------
+The following HLSL attributes are assigned to the main entry point of hull shaders
+and are translated to SPIR-V execution modes according to the table below:
+
++-------------------------+---------------------+--------------------------+
+| HLSL Attribute          |   value             | SPIR-V Execution Mode    |
++=========================+=====================+==========================+
+|                         | ``quad``            | ``Quads``                |
+|                         +---------------------+--------------------------+
+|    ``domain``           | ``tri``             | ``Triangles``            |
+|                         +---------------------+--------------------------+
+|                         | ``isoline``         | ``Isoline``              |
++-------------------------+---------------------+--------------------------+
+|                         | ``integer``         | ``SpacingEqual``         |
+|                         +---------------------+--------------------------+
+|                         | ``fractional_even`` | ``SpacingFractionalEven``|
+|    ``partitioning``     +---------------------+--------------------------+
+|                         | ``fractional_odd``  | ``SpacingFractionalOdd`` |
+|                         +---------------------+--------------------------+
+|                         | ``pow2``            |           N/A            |
++-------------------------+---------------------+--------------------------+
+|                         | ``point``           | ``PointMode``            |
+|                         +---------------------+--------------------------+
+|                         | ``line``            |           N/A            |
+|  ``outputtopology``     +---------------------+--------------------------+
+|                         | ``triangle_cw``     | ``VertexOrderCw``        |
+|                         +---------------------+--------------------------+
+|                         | ``triangle_ccw``    | ``VertexOrderCcw``       |
++-------------------------+---------------------+--------------------------+
+|``outputcontrolpoints``  | ``n``               | ``OutputVertices n``     |
++-------------------------+---------------------+--------------------------+
+
+The last attribute is `patchconstfunc` which does not have a direct equivalent
+in SPIR-V. It specifies the name of the Patch Constant Function. This function
+is run only once per patch. The is further described below.
+
+InputPatch and OutputPatch
+--------------------------
+Both of ``InputPatch<T, N>`` and ``OutputPatch<T, N>`` are translated to an array
+of constant size ``N`` where each element is of type ``T``.
+
+InputPatch can be passed to the Hull shader main entry function as well as the
+patch constant function. This would include information about each of the ``N``
+vertices that are input to the tessellation control shader.
+
+OutputPatch is an array containing ``N`` elements (where ``N`` is the number of
+output vertices). Each element of the array contains information about an
+output vertex. OutputPatch may also be passed to the patch constant function.
+
+The SPIR-V ``InvocationID`` (``SV_OutputControlPointID`` in HLSL) is used to index 
+into the InputPatch and OutputPatch arrays to read/write information for the given
+vertex.
+
+Patch Constant Function
+-----------------------
+As mentioned above, the patch constant function is to be invoked only once per patch.
+As a result, in the SPIR-V module, the entry function wrapper will first invoke the
+main entry function, and then use an ``OpControlBarrier`` to wait for all vertex
+processing to finish. After the barrier, *only* the first thread (with InvocationID of 0)
+will invoke the patch constant function.
+
+The infromation resulting from the patch constant function will also be returned 
+as output stage variables. The output of the patch constant function must include
+``SV_TessFactor`` and ``SV_InsideTessFactor`` variables which will translate to
+``TessLevelOuter`` and ``TessLevelInner`` builtin variables, respectively.
