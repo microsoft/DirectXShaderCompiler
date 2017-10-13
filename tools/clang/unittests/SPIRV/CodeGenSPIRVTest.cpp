@@ -418,6 +418,12 @@ TEST_F(FileTest, TextureGatherCmp) { runFileTest("texture.gather-cmp.hlsl"); }
 TEST_F(FileTest, TextureArrayGatherCmp) {
   runFileTest("texture.array.gather-cmp.hlsl");
 }
+TEST_F(FileTest, TextureGatherCmpRed) {
+  runFileTest("texture.gather-cmp-red.hlsl");
+}
+TEST_F(FileTest, TextureArrayGatherCmpRed) {
+  runFileTest("texture.array.gather-cmp-red.hlsl");
+}
 TEST_F(FileTest, TextureSampleLevel) {
   runFileTest("texture.sample-level.hlsl");
 }
