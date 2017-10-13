@@ -1722,20 +1722,31 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr) {
                                            {0});
 }
 
-uint32_t SPIRVEmitter::processTextureGatherRGBA(const CXXMemberCallExpr *expr,
-                                                const uint32_t component) {
-  // Parameters for .Gather{Red|Green|Blue|Alpha}() are one of the following two
-  // sets:
+uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
+    const CXXMemberCallExpr *expr, const bool isCmp, const uint32_t component) {
+  // Parameters for .Gather{Red|Green|Blue|Alpha}() are one of the following
+  // two sets:
   // * SamplerState s, float2 location, int2 offset
   // * SamplerState s, float2 location, int2 offset0, int2 offset1,
   //   int offset2, int2 offset3
+  //
   // An additional out uint status parameter can appear in both of the above,
   // which we does not support yet.
+  //
+  // Parameters for .GatherCmp{Red|Green|Blue|Alpha}() are one of the following
+  // two sets:
+  // * SamplerState s, float2 location, int2 offset
+  // * SamplerState s, float2 location, int2 offset0, int2 offset1,
+  //   int offset2, int2 offset3
+  //
+  // An additional out uint status parameter can appear in both of the above,
+  // which we does not support yet.
+  //
   // Return type is always a 4-component vector.
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto numArgs = expr->getNumArgs();
 
-  if (numArgs != 3 && numArgs != 6) {
+  if (numArgs != 3 + isCmp && numArgs != 6 + isCmp) {
     emitError("unsupported '%0' method call with status parameter",
               expr->getExprLoc())
         << callee->getName() << expr->getSourceRange();
@@ -1747,17 +1758,18 @@ uint32_t SPIRVEmitter::processTextureGatherRGBA(const CXXMemberCallExpr *expr,
   const uint32_t image = loadIfGLValue(imageExpr);
   const uint32_t sampler = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
+  const uint32_t compareVal = isCmp ? doExpr(expr->getArg(2)) : 0;
 
   uint32_t constOffset = 0, varOffset = 0, constOffsets = 0;
-  if (numArgs == 3) {
+  if (numArgs == 3 + isCmp) {
     // One offset parameter
-    handleOptionalOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
+    handleOptionalOffsetInMethodCall(expr, 2 + isCmp, &constOffset, &varOffset);
   } else {
     // Four offset parameters
-    const auto offset0 = tryToEvaluateAsConst(expr->getArg(2));
-    const auto offset1 = tryToEvaluateAsConst(expr->getArg(3));
-    const auto offset2 = tryToEvaluateAsConst(expr->getArg(4));
-    const auto offset3 = tryToEvaluateAsConst(expr->getArg(5));
+    const auto offset0 = tryToEvaluateAsConst(expr->getArg(2 + isCmp));
+    const auto offset1 = tryToEvaluateAsConst(expr->getArg(3 + isCmp));
+    const auto offset2 = tryToEvaluateAsConst(expr->getArg(4 + isCmp));
+    const auto offset3 = tryToEvaluateAsConst(expr->getArg(5 + isCmp));
 
     // Make sure we can generate the ConstOffsets image operands in SPIR-V.
     if (!offset0 || !offset1 || !offset2 || !offset3) {
@@ -1778,7 +1790,7 @@ uint32_t SPIRVEmitter::processTextureGatherRGBA(const CXXMemberCallExpr *expr,
 
   return theBuilder.createImageGather(
       retType, imageType, image, sampler, coordinate,
-      theBuilder.getConstantInt32(component), /*compareVal*/ 0, constOffset,
+      theBuilder.getConstantInt32(component), compareVal, constOffset,
       varOffset, constOffsets, /*sampleNumber*/ 0);
 }
 
@@ -2108,15 +2120,17 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_SampleCmpLevelZero:
     return processTextureSampleCmpCmpLevelZero(expr, /*isCmp=*/false);
   case IntrinsicOp::MOP_GatherRed:
-    return processTextureGatherRGBA(expr, 0);
+    return processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/false, 0);
   case IntrinsicOp::MOP_GatherGreen:
-    return processTextureGatherRGBA(expr, 1);
+    return processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/false, 1);
   case IntrinsicOp::MOP_GatherBlue:
-    return processTextureGatherRGBA(expr, 2);
+    return processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/false, 2);
   case IntrinsicOp::MOP_GatherAlpha:
-    return processTextureGatherRGBA(expr, 3);
+    return processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/false, 3);
   case IntrinsicOp::MOP_GatherCmp:
     return processTextureGatherCmp(expr);
+  case IntrinsicOp::MOP_GatherCmpRed:
+    return processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/true, 0);
   case IntrinsicOp::MOP_Load:
     return processBufferTextureLoad(expr);
   case IntrinsicOp::MOP_Load2:
@@ -2187,16 +2201,14 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   if (isSample) {
     return theBuilder.createImageSample(
         retType, imageType, image, sampler, coordinate, /*compareVal*/ 0,
-        /*bias*/ 0,
-        /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
+        /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
         /*constOffsets*/ 0, /*sampleNumber*/ 0);
   } else {
     return theBuilder.createImageGather(
         retType, imageType, image, sampler, coordinate,
         // .Gather() doc says we return four components of red data.
         theBuilder.getConstantInt32(0), /*compareVal*/ 0, constOffset,
-        varOffset,
-        /*constOffsets*/ 0, /*sampleNumber*/ 0);
+        varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0);
   }
 }
 
