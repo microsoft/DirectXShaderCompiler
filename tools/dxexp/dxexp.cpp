@@ -44,7 +44,7 @@ static HRESULT AtlCheck(HRESULT hr) {
 }
 
 // Not defined in Creators Update version of d3d12.h:
-#ifndef D3D12_FEATURE_DATA_D3D12_OPTIONS3
+#if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS2
 #define D3D_SHADER_MODEL_6_1 ((D3D_SHADER_MODEL)0x61)
 #define D3D12_FEATURE_D3D12_OPTIONS3 ((D3D12_FEATURE)21)
 typedef
