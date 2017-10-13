@@ -2480,15 +2480,26 @@ generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
 Shader Model 6.0 Wave Intrinsics
 ================================
 
-Shader Model 6.0 introduces a set of wave operations, which are translated
-according to the following table:
+ ... note ::
 
-====================== ============================= =========================
-      Intrinsic               SPIR-V BuiltIn                Extension
-====================== ============================= =========================
-``WaveGetLaneCount()`` ``SubgroupSize``              ``SPV_KHR_shader_ballot``
-``WaveGetLaneIndex()`` ``SubgroupLocalInvocationId`` ``SPV_KHR_shader_ballot``
-====================== ============================= =========================
+  Wave intrinsics requires SPIR-V 1.3, which is supported by Vulkan 1.1.
+  If you use wave intrinsics in your source code, the generated SPIR-V code
+  will be of version 1.3 instead of 1.0, which is supported by Vulkan 1.0.
+
+Shader model 6.0 introduces a set of wave operations. Apart from
+``WaveGetLaneCount()`` and ``WaveGetLaneIndex()``, which are translated into
+loading from SPIR-V builtin variable ``SubgroupSize`` and
+``SubgroupLocalInvocationId`` respectively, the rest are translated into SPIR-V
+group operations with ``Subgroup`` scope according to the following chart:
+
+============= ======================= ===========================
+Wave Category     Wave Intrinsics          SPIR-V Opcode
+============= ======================= ===========================
+Query         ``WaveIsFirstLane()``   ``OpGroupNonUniformElect``
+Vote          ``WaveActiveAnyTrue()`` ``OpGroupNonUniformAny``
+Vote          ``WaveActiveAllTrue()`` ``OpGroupNonUniformAll``
+Vote          ``WaveActiveBallot()``  ``OpGroupNonUniformBallot``
+============= ======================= ===========================
 
 Vulkan Command-line Options
 ===========================

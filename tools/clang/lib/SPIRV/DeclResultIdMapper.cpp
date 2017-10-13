@@ -1706,9 +1706,7 @@ uint32_t DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
     return 0;
   }
 
-  // Both of them require the SPV_KHR_shader_ballot extension.
-  theBuilder.addExtension("SPV_KHR_shader_ballot");
-  theBuilder.requireCapability(spv::Capability::SubgroupBallotKHR);
+  theBuilder.requireCapability(spv::Capability::GroupNonUniform);
 
   uint32_t type = theBuilder.getUint32Type();
 

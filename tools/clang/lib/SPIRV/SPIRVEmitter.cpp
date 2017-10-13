@@ -479,6 +479,20 @@ void getBaseClassIndices(const CastExpr *expr,
   }
 }
 
+spv::Capability getCapabilityForGroupNonUniform(spv::Op opcode) {
+  switch (opcode) {
+  case spv::Op::OpGroupNonUniformElect:
+    return spv::Capability::GroupNonUniform;
+  case spv::Op::OpGroupNonUniformAny:
+  case spv::Op::OpGroupNonUniformAll:
+    return spv::Capability::GroupNonUniformVote;
+  case spv::Op::OpGroupNonUniformBallot:
+    return spv::Capability::GroupNonUniformBallot;
+  }
+  assert(false && "unhandled opcode");
+  return spv::Capability::Max;
+}
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
@@ -6013,6 +6027,7 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processIntrinsicF32ToF16(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneCount: {
+    needsSpirv1p3 = true;
     const uint32_t retType =
         typeTranslator.translateType(callExpr->getCallReturnType(astContext));
     const uint32_t varId =
@@ -6020,12 +6035,25 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = theBuilder.createLoad(retType, varId);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
+    needsSpirv1p3 = true;
     const uint32_t retType =
         typeTranslator.translateType(callExpr->getCallReturnType(astContext));
     const uint32_t varId =
         declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupLocalInvocationId);
     retVal = theBuilder.createLoad(retType, varId);
   } break;
+  case hlsl::IntrinsicOp::IOP_WaveIsFirstLane:
+    retVal = processWaveQuery(callExpr, spv::Op::OpGroupNonUniformElect);
+    break;
+  case hlsl::IntrinsicOp::IOP_WaveActiveAllTrue:
+    retVal = processWaveVote(callExpr, spv::Op::OpGroupNonUniformAll);
+    break;
+  case hlsl::IntrinsicOp::IOP_WaveActiveAnyTrue:
+    retVal = processWaveVote(callExpr, spv::Op::OpGroupNonUniformAny);
+    break;
+  case hlsl::IntrinsicOp::IOP_WaveActiveBallot:
+    retVal = processWaveVote(callExpr, spv::Op::OpGroupNonUniformBallot);
+    break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
@@ -6394,6 +6422,38 @@ uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
     }
   }
   return theBuilder.createCompositeConstruct(uint4Type, accums);
+}
+
+uint32_t SPIRVEmitter::processWaveQuery(const CallExpr *callExpr,
+                                        spv::Op opcode) {
+  // Signatures:
+  // bool WaveIsFirstLane()
+  // uint WaveGetLaneCount()
+  // uint WaveGetLaneIndex()
+  assert(callExpr->getNumArgs() == 0);
+  needsSpirv1p3 = true;
+  theBuilder.requireCapability(getCapabilityForGroupNonUniform(opcode));
+  const uint32_t subgroupScope = theBuilder.getConstantInt32(3);
+  const uint32_t retType =
+      typeTranslator.translateType(callExpr->getCallReturnType(astContext));
+  return theBuilder.createGroupNonUniformOp(opcode, retType, subgroupScope);
+}
+
+uint32_t SPIRVEmitter::processWaveVote(const CallExpr *callExpr,
+                                       spv::Op opcode) {
+  // Signatures:
+  // bool WaveActiveAnyTrue( bool expr )
+  // bool WaveActiveAllTrue( bool expr )
+  // bool uint4 WaveActiveBallot( bool expr )
+  assert(callExpr->getNumArgs() == 1);
+  needsSpirv1p3 = true;
+  theBuilder.requireCapability(getCapabilityForGroupNonUniform(opcode));
+  const uint32_t predicate = doExpr(callExpr->getArg(0));
+  const uint32_t subgroupScope = theBuilder.getConstantInt32(3);
+  const uint32_t retType =
+      typeTranslator.translateType(callExpr->getCallReturnType(astContext));
+  return theBuilder.createGroupNonUniformUnaryOp(opcode, retType, subgroupScope,
+                                                 predicate);
 }
 
 uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {

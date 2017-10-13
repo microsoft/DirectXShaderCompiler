@@ -448,6 +448,11 @@ private:
   /// Processes Interlocked* intrinsic functions.
   uint32_t processIntrinsicInterlockedMethod(const CallExpr *,
                                              hlsl::IntrinsicOp);
+  /// Processes SM6.0 wave query intrinsic calls.
+  uint32_t processWaveQuery(const CallExpr *, spv::Op opcode);
+
+  /// Processes SM6.0 wave vote intrinsic calls.
+  uint32_t processWaveVote(const CallExpr *, spv::Op opcode);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.

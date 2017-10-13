@@ -247,6 +247,42 @@ uint32_t ModuleBuilder::createSpecConstantBinaryOp(spv::Op op,
   return id;
 }
 
+uint32_t ModuleBuilder::createGroupNonUniformOp(spv::Op op, uint32_t resultType,
+                                                uint32_t execScope) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.groupNonUniformOp(op, resultType, id, execScope).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createGroupNonUniformUnaryOp(spv::Op op,
+                                                     uint32_t resultType,
+                                                     uint32_t execScope,
+                                                     uint32_t operand) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.groupNonUniformUnaryOp(op, resultType, id, execScope, operand)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createGroupNonUniformBinaryOp(spv::Op op,
+                                                      uint32_t resultType,
+                                                      uint32_t execScope,
+                                                      uint32_t operand1,
+                                                      uint32_t operand2) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder
+      .groupNonUniformBinaryOp(op, resultType, id, execScope, operand1,
+                               operand2)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 uint32_t ModuleBuilder::createAtomicOp(spv::Op opcode, uint32_t resultType,
                                        uint32_t orignalValuePtr,
                                        uint32_t scopeId,

@@ -976,6 +976,10 @@ TEST_F(FileTest, PrimitiveErrorGS) {
 }
 
 // Shader model 6.0 wave query
+TEST_F(FileTest, SM6WaveIsFirstLane) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-is-first-lane.hlsl");
+}
 TEST_F(FileTest, SM6WaveGetLaneCount) {
   useVulkan1p1();
   runFileTest("sm6.wave-get-lane-count.hlsl");
@@ -987,6 +991,20 @@ TEST_F(FileTest, SM6WaveGetLaneIndex) {
 TEST_F(FileTest, SM6WaveBuiltInNoDuplicate) {
   useVulkan1p1();
   runFileTest("sm6.wave.builtin.no-dup.hlsl");
+}
+
+// Shader model 6.0 wave vote
+TEST_F(FileTest, SM6WaveActiveAnyTrue) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-any-true.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveAllTrue) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-all-true.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveBallot) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-ballot.hlsl");
 }
 
 // SPIR-V specific
