@@ -188,7 +188,11 @@ if not exist "%kit_root%" (
   echo Windows 10 SDK was installed but is not accessible.
   exit /b 1
 )
-rem 10.0.15063.0 and 10.0.14393.0 will work properly. Reject 10586 and 10240 explicitly.
+rem 10.0.16299.0, 10.0.15063.0 and 10.0.14393.0 will work properly. Reject 10586 and 10240 explicitly.
+if exist "%kit_root%\include\10.0.16299.0\um\d3d12.h" (
+  echo Found Windows SDK 10.0.16299.0
+  goto :eof
+)
 if exist "%kit_root%\include\10.0.15063.0\um\d3d12.h" (
   echo Found Windows SDK 10.0.15063.0
   goto :eof
