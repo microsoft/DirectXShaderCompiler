@@ -460,6 +460,9 @@ private:
   uint32_t processWaveReductionOrPrefix(const CallExpr *, spv::Op op,
                                         spv::GroupOperation groupOp);
 
+  /// Processes SM6.0 wave broadcast intrinsic calls.
+  uint32_t processWaveBroadcast(const CallExpr *);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   uint32_t getValueZero(QualType type);

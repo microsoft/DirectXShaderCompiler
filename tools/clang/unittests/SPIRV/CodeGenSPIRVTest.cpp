@@ -1059,6 +1059,16 @@ TEST_F(FileTest, SM6WavePrefixCountBits) {
   runFileTest("sm6.wave-prefix-count-bits.hlsl");
 }
 
+// Shader model 6.0 wave broadcast
+TEST_F(FileTest, SM6WaveReadLaneAt) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-read-lane-at.hlsl");
+}
+TEST_F(FileTest, SM6WaveReadLaneFirst) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-read-lane-first.hlsl");
+}
+
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 

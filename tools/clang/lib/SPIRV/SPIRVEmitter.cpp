@@ -489,6 +489,8 @@ spv::Capability getCapabilityForGroupNonUniform(spv::Op opcode) {
     return spv::Capability::GroupNonUniformVote;
   case spv::Op::OpGroupNonUniformBallot:
   case spv::Op::OpGroupNonUniformBallotBitCount:
+  case spv::Op::OpGroupNonUniformBroadcast:
+  case spv::Op::OpGroupNonUniformBroadcastFirst:
     return spv::Capability::GroupNonUniformBallot;
   case spv::Op::OpGroupNonUniformIAdd:
   case spv::Op::OpGroupNonUniformFAdd:
@@ -6108,6 +6110,10 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
         callExpr, spv::Op::OpGroupNonUniformBallotBitCount,
         spv::GroupOperation::ExclusiveScan);
     break;
+  case hlsl::IntrinsicOp::IOP_WaveReadLaneAt:
+  case hlsl::IntrinsicOp::IOP_WaveReadLaneFirst:
+    retVal = processWaveBroadcast(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
@@ -6600,6 +6606,28 @@ uint32_t SPIRVEmitter::processWaveReductionOrPrefix(
   return theBuilder.createGroupNonUniformUnaryOp(
       opcode, retType, subgroupScope, predicate,
       llvm::Optional<spv::GroupOperation>(groupOp));
+}
+
+uint32_t SPIRVEmitter::processWaveBroadcast(const CallExpr *callExpr) {
+  // Signatures:
+  // <type> WaveReadLaneFirst(<type> expr)
+  // <type> WaveReadLaneAt(<type> expr, uint laneIndex)
+  const auto numArgs = callExpr->getNumArgs();
+  assert(numArgs == 1 || numArgs == 2);
+  needsSpirv1p3 = true;
+  theBuilder.requireCapability(spv::Capability::GroupNonUniformBallot);
+  const uint32_t value = doExpr(callExpr->getArg(0));
+  const uint32_t subgroupScope = theBuilder.getConstantInt32(3);
+  const uint32_t retType =
+      typeTranslator.translateType(callExpr->getCallReturnType(astContext));
+  if (numArgs == 2)
+    return theBuilder.createGroupNonUniformBinaryOp(
+        spv::Op::OpGroupNonUniformBroadcast, retType, subgroupScope, value,
+        doExpr(callExpr->getArg(1)));
+  else
+    return theBuilder.createGroupNonUniformUnaryOp(
+        spv::Op::OpGroupNonUniformBroadcastFirst, retType, subgroupScope,
+        value);
 }
 
 uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {

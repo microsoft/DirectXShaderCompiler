@@ -2511,6 +2511,8 @@ Reduction     ``WaveActiveMax()``       ``OpGroupNonUniform*Max``           ``Re
 Scan/Prefix   ``WavePrefixSum()``       ``OpGroupNonUniform*Add``           ``ExclusiveScan``
 Scan/Prefix   ``WavePrefixProduct()``   ``OpGroupNonUniform*Mul``           ``ExclusiveScan``
 Scan/Prefix   ``WavePrefixCountBits()`  ``OpGroupNonUniformBallotBitCount`` ``ExclusiveScan``
+Broadcast     ``WaveReadLaneAt()``      ``OpGroupNonUniformBroadcast``
+Broadcast     ``WaveReadLaneFirst()``   ``OpGroupNonUniformBroadcastFirst``
 ============= ========================= =================================== ======================
 
 Vulkan Command-line Options
