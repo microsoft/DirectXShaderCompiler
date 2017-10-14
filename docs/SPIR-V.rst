@@ -2492,14 +2492,23 @@ loading from SPIR-V builtin variable ``SubgroupSize`` and
 ``SubgroupLocalInvocationId`` respectively, the rest are translated into SPIR-V
 group operations with ``Subgroup`` scope according to the following chart:
 
-============= ======================= ===========================
-Wave Category     Wave Intrinsics          SPIR-V Opcode
-============= ======================= ===========================
-Query         ``WaveIsFirstLane()``   ``OpGroupNonUniformElect``
-Vote          ``WaveActiveAnyTrue()`` ``OpGroupNonUniformAny``
-Vote          ``WaveActiveAllTrue()`` ``OpGroupNonUniformAll``
-Vote          ``WaveActiveBallot()``  ``OpGroupNonUniformBallot``
-============= ======================= ===========================
+============= ========================= =================================== ======================
+Wave Category      Wave Intrinsics               SPIR-V Opcode              SPIR-V Group Operation
+============= ========================= =================================== ======================
+Query         ``WaveIsFirstLane()``     ``OpGroupNonUniformElect``
+Vote          ``WaveActiveAnyTrue()``   ``OpGroupNonUniformAny``
+Vote          ``WaveActiveAllTrue()``   ``OpGroupNonUniformAll``
+Vote          ``WaveActiveBallot()``    ``OpGroupNonUniformBallot``
+Reduction     ``WaveActiveAllEqual()``  ``OpGroupNonUniformAllEqual``       ``Reduction``
+Reduction     ``WaveActiveCountBits()`` ``OpGroupNonUniformBallotBitCount`` ``Reduction``
+Reduction     ``WaveActiveSum()``       ``OpGroupNonUniform*Add``           ``Reduction``
+Reduction     ``WaveActiveProduct()``   ``OpGroupNonUniform*Mul``           ``Reduction``
+Reduction     ``WaveActiveBitAdd()``    ``OpGroupNonUniformBitwiseAnd``     ``Reduction``
+Reduction     ``WaveActiveBitOr()``     ``OpGroupNonUniformBitwiseOr``      ``Reduction``
+Reduction     ``WaveActiveBitXor()``    ``OpGroupNonUniformBitwiseXor``     ``Reduction``
+Reduction     ``WaveActiveMin()``       ``OpGroupNonUniform*Min``           ``Reduction``
+Reduction     ``WaveActiveMax()``       ``OpGroupNonUniform*Max``           ``Reduction``
+============= ========================= =================================== ======================
 
 Vulkan Command-line Options
 ===========================

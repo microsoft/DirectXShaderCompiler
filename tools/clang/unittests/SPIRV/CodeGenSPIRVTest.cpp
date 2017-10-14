@@ -1007,6 +1007,44 @@ TEST_F(FileTest, SM6WaveActiveBallot) {
   runFileTest("sm6.wave-active-ballot.hlsl");
 }
 
+// Shader model 6.0 wave reduction
+TEST_F(FileTest, SM6WaveActiveAllEqual) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-all-equal.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveSum) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-sum.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveProduct) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-product.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveMax) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-max.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveMin) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-min.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveBitAnd) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-bit-and.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveBitOr) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-bit-or.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveBitXor) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-bit-xor.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveCountBits) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-count-bits.hlsl");
+}
+
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 

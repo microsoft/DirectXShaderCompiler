@@ -485,9 +485,25 @@ spv::Capability getCapabilityForGroupNonUniform(spv::Op opcode) {
     return spv::Capability::GroupNonUniform;
   case spv::Op::OpGroupNonUniformAny:
   case spv::Op::OpGroupNonUniformAll:
+  case spv::Op::OpGroupNonUniformAllEqual:
     return spv::Capability::GroupNonUniformVote;
   case spv::Op::OpGroupNonUniformBallot:
+  case spv::Op::OpGroupNonUniformBallotBitCount:
     return spv::Capability::GroupNonUniformBallot;
+  case spv::Op::OpGroupNonUniformIAdd:
+  case spv::Op::OpGroupNonUniformFAdd:
+  case spv::Op::OpGroupNonUniformIMul:
+  case spv::Op::OpGroupNonUniformFMul:
+  case spv::Op::OpGroupNonUniformSMax:
+  case spv::Op::OpGroupNonUniformUMax:
+  case spv::Op::OpGroupNonUniformFMax:
+  case spv::Op::OpGroupNonUniformSMin:
+  case spv::Op::OpGroupNonUniformUMin:
+  case spv::Op::OpGroupNonUniformFMin:
+  case spv::Op::OpGroupNonUniformBitwiseAnd:
+  case spv::Op::OpGroupNonUniformBitwiseOr:
+  case spv::Op::OpGroupNonUniformBitwiseXor:
+    return spv::Capability::GroupNonUniformArithmetic;
   }
   assert(false && "unhandled opcode");
   return spv::Capability::Max;
@@ -6054,6 +6070,28 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_WaveActiveBallot:
     retVal = processWaveVote(callExpr, spv::Op::OpGroupNonUniformBallot);
     break;
+  case hlsl::IntrinsicOp::IOP_WaveActiveAllEqual:
+    retVal = processWaveVote(callExpr, spv::Op::OpGroupNonUniformAllEqual);
+    break;
+  case hlsl::IntrinsicOp::IOP_WaveActiveCountBits:
+    retVal = processWaveReduction(callExpr,
+                                  spv::Op::OpGroupNonUniformBallotBitCount);
+    break;
+  case hlsl::IntrinsicOp::IOP_WaveActiveUSum:
+  case hlsl::IntrinsicOp::IOP_WaveActiveSum:
+  case hlsl::IntrinsicOp::IOP_WaveActiveUProduct:
+  case hlsl::IntrinsicOp::IOP_WaveActiveProduct:
+  case hlsl::IntrinsicOp::IOP_WaveActiveUMax:
+  case hlsl::IntrinsicOp::IOP_WaveActiveMax:
+  case hlsl::IntrinsicOp::IOP_WaveActiveUMin:
+  case hlsl::IntrinsicOp::IOP_WaveActiveMin:
+  case hlsl::IntrinsicOp::IOP_WaveActiveBitAnd:
+  case hlsl::IntrinsicOp::IOP_WaveActiveBitOr:
+  case hlsl::IntrinsicOp::IOP_WaveActiveBitXor: {
+    const auto retType = callExpr->getCallReturnType(astContext);
+    retVal = processWaveReduction(
+        callExpr, translateWaveOp(hlslOpcode, retType, callExpr->getExprLoc()));
+  } break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
@@ -6454,6 +6492,90 @@ uint32_t SPIRVEmitter::processWaveVote(const CallExpr *callExpr,
       typeTranslator.translateType(callExpr->getCallReturnType(astContext));
   return theBuilder.createGroupNonUniformUnaryOp(opcode, retType, subgroupScope,
                                                  predicate);
+}
+
+spv::Op SPIRVEmitter::translateWaveOp(hlsl::IntrinsicOp op, QualType type,
+                                      SourceLocation srcLoc) {
+  const bool isSintType = isSintOrVecMatOfSintType(type);
+  const bool isUintType = isUintOrVecMatOfUintType(type);
+  const bool isFloatType = isFloatOrVecMatOfFloatType(type);
+
+#define WAVE_OP_CASE_INT(kind, intWaveOp)                                      \
+                                                                               \
+  case hlsl::IntrinsicOp::IOP_Wave##kind: {                                    \
+    if (isSintType || isUintType) {                                            \
+      return spv::Op::OpGroupNonUniform##intWaveOp;                            \
+    }                                                                          \
+  } break
+
+#define WAVE_OP_CASE_INT_FLOAT(kind, intWaveOp, floatWaveOp)                   \
+                                                                               \
+  case hlsl::IntrinsicOp::IOP_Wave##kind: {                                    \
+    if (isSintType || isUintType) {                                            \
+      return spv::Op::OpGroupNonUniform##intWaveOp;                            \
+    }                                                                          \
+    if (isFloatType) {                                                         \
+      return spv::Op::OpGroupNonUniform##floatWaveOp;                          \
+    }                                                                          \
+  } break
+
+#define WAVE_OP_CASE_SINT_UINT_FLOAT(kind, sintWaveOp, uintWaveOp,             \
+                                     floatWaveOp)                              \
+                                                                               \
+  case hlsl::IntrinsicOp::IOP_Wave##kind: {                                    \
+    if (isSintType) {                                                          \
+      return spv::Op::OpGroupNonUniform##sintWaveOp;                           \
+    }                                                                          \
+    if (isUintType) {                                                          \
+      return spv::Op::OpGroupNonUniform##uintWaveOp;                           \
+    }                                                                          \
+    if (isFloatType) {                                                         \
+      return spv::Op::OpGroupNonUniform##floatWaveOp;                          \
+    }                                                                          \
+  } break
+
+  switch (op) {
+    WAVE_OP_CASE_INT_FLOAT(ActiveUSum, IAdd, FAdd);
+    WAVE_OP_CASE_INT_FLOAT(ActiveSum, IAdd, FAdd);
+    WAVE_OP_CASE_INT_FLOAT(ActiveUProduct, IMul, FMul);
+    WAVE_OP_CASE_INT_FLOAT(ActiveProduct, IMul, FMul);
+    WAVE_OP_CASE_INT(ActiveBitAnd, BitwiseAnd);
+    WAVE_OP_CASE_INT(ActiveBitOr, BitwiseOr);
+    WAVE_OP_CASE_INT(ActiveBitXor, BitwiseXor);
+    WAVE_OP_CASE_SINT_UINT_FLOAT(ActiveUMax, SMax, UMax, FMax);
+    WAVE_OP_CASE_SINT_UINT_FLOAT(ActiveMax, SMax, UMax, FMax);
+    WAVE_OP_CASE_SINT_UINT_FLOAT(ActiveUMin, SMin, UMin, FMin);
+    WAVE_OP_CASE_SINT_UINT_FLOAT(ActiveMin, SMin, UMin, FMin);
+  }
+#undef WAVE_OP_CASE_INT_FLOAT
+
+  emitError("translating wave operator '%0' unimplemented", srcLoc)
+      << static_cast<uint32_t>(op);
+  return spv::Op::OpNop;
+}
+
+uint32_t SPIRVEmitter::processWaveReduction(const CallExpr *callExpr,
+                                            spv::Op opcode) {
+  // Signatures:
+  // bool WaveActiveAllEqual( <type> expr )
+  // uint WaveActiveCountBits( bool bBit )
+  // <type> WaveActiveSum( <type> expr )
+  // <type> WaveActiveProduct( <type> expr )
+  // <int_type> WaveActiveBitAnd( <int_type> expr )
+  // <int_type> WaveActiveBitOr( <int_type> expr )
+  // <int_type> WaveActiveBitXor( <int_type> expr )
+  // <type> WaveActiveMin( <type> expr)
+  // <type> WaveActiveMax( <type> expr)
+  assert(callExpr->getNumArgs() == 1);
+  needsSpirv1p3 = true;
+  theBuilder.requireCapability(getCapabilityForGroupNonUniform(opcode));
+  const uint32_t predicate = doExpr(callExpr->getArg(0));
+  const uint32_t subgroupScope = theBuilder.getConstantInt32(3);
+  const uint32_t retType =
+      typeTranslator.translateType(callExpr->getCallReturnType(astContext));
+  return theBuilder.createGroupNonUniformUnaryOp(
+      opcode, retType, subgroupScope, predicate,
+      llvm::Optional<spv::GroupOperation>(spv::GroupOperation::Reduce));
 }
 
 uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {

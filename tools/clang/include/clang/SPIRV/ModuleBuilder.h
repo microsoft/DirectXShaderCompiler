@@ -158,8 +158,9 @@ public:
   /// opcode. Returns the <result-id> for the result.
   uint32_t createGroupNonUniformOp(spv::Op op, uint32_t resultType,
                                    uint32_t execScope);
-  uint32_t createGroupNonUniformUnaryOp(spv::Op op, uint32_t resultType,
-                                        uint32_t execScope, uint32_t operand);
+  uint32_t createGroupNonUniformUnaryOp(
+      spv::Op op, uint32_t resultType, uint32_t execScope, uint32_t operand,
+      llvm::Optional<spv::GroupOperation> groupOp = llvm::None);
   uint32_t createGroupNonUniformBinaryOp(spv::Op op, uint32_t resultType,
                                          uint32_t execScope, uint32_t operand1,
                                          uint32_t operand2);

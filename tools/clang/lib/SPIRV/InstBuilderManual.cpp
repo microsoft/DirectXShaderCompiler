@@ -103,11 +103,9 @@ InstBuilder &InstBuilder::groupNonUniformOp(spv::Op op, uint32_t result_type,
   return *this;
 }
 
-InstBuilder &InstBuilder::groupNonUniformUnaryOp(spv::Op op,
-                                                 uint32_t result_type,
-                                                 uint32_t result_id,
-                                                 uint32_t exec_scope,
-                                                 uint32_t operand) {
+InstBuilder &InstBuilder::groupNonUniformUnaryOp(
+    spv::Op op, uint32_t result_type, uint32_t result_id, uint32_t exec_scope,
+    llvm::Optional<spv::GroupOperation> groupOp, uint32_t operand) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -120,6 +118,8 @@ InstBuilder &InstBuilder::groupNonUniformUnaryOp(spv::Op op,
   TheInst.emplace_back(result_type);
   TheInst.emplace_back(result_id);
   TheInst.emplace_back(exec_scope);
+  if (groupOp.hasValue())
+    TheInst.emplace_back(static_cast<uint32_t>(groupOp.getValue()));
   TheInst.emplace_back(operand);
 
   return *this;

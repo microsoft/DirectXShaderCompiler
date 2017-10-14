@@ -130,6 +130,8 @@ private:
   /// taking consideration of the operand type.
   spv::Op translateOp(BinaryOperator::Opcode op, QualType type);
 
+  spv::Op translateWaveOp(hlsl::IntrinsicOp op, QualType type, SourceLocation);
+
   /// Generates SPIR-V instructions for the given normal (non-intrinsic and
   /// non-operator) standalone or member function call.
   SpirvEvalInfo processCall(const CallExpr *expr);
@@ -453,6 +455,9 @@ private:
 
   /// Processes SM6.0 wave vote intrinsic calls.
   uint32_t processWaveVote(const CallExpr *, spv::Op opcode);
+
+  /// Processes SM6.0 wave reduction intrinsic calls.
+  uint32_t processWaveReduction(const CallExpr *, spv::Op op);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.

@@ -1037,9 +1037,9 @@ public:
   // All-in-one methods for creating OpGroupNonUniform* operations.
   InstBuilder &groupNonUniformOp(spv::Op op, uint32_t result_type,
                                  uint32_t result_id, uint32_t exec_scope);
-  InstBuilder &groupNonUniformUnaryOp(spv::Op op, uint32_t result_type,
-                                      uint32_t result_id, uint32_t exec_scope,
-                                      uint32_t operand);
+  InstBuilder &groupNonUniformUnaryOp(
+      spv::Op op, uint32_t result_type, uint32_t result_id, uint32_t exec_scope,
+      llvm::Optional<spv::GroupOperation> groupOp, uint32_t operand);
   InstBuilder &groupNonUniformBinaryOp(spv::Op op, uint32_t result_type,
                                        uint32_t result_id, uint32_t exec_scope,
                                        uint32_t operand1, uint32_t operand2);

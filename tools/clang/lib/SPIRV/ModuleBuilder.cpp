@@ -256,13 +256,13 @@ uint32_t ModuleBuilder::createGroupNonUniformOp(spv::Op op, uint32_t resultType,
   return id;
 }
 
-uint32_t ModuleBuilder::createGroupNonUniformUnaryOp(spv::Op op,
-                                                     uint32_t resultType,
-                                                     uint32_t execScope,
-                                                     uint32_t operand) {
+uint32_t ModuleBuilder::createGroupNonUniformUnaryOp(
+    spv::Op op, uint32_t resultType, uint32_t execScope, uint32_t operand,
+    llvm::Optional<spv::GroupOperation> groupOp) {
   assert(insertPoint && "null insert point");
   const uint32_t id = theContext.takeNextId();
-  instBuilder.groupNonUniformUnaryOp(op, resultType, id, execScope, operand)
+  instBuilder
+      .groupNonUniformUnaryOp(op, resultType, id, execScope, groupOp, operand)
       .x();
   insertPoint->appendInstruction(std::move(constructSite));
   return id;
