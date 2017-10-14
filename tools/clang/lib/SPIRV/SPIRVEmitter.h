@@ -463,6 +463,9 @@ private:
   /// Processes SM6.0 wave broadcast intrinsic calls.
   uint32_t processWaveBroadcast(const CallExpr *);
 
+  /// Processes SM6.0 quad-wide shuffle.
+  uint32_t processWaveQuadWideShuffle(const CallExpr *, hlsl::IntrinsicOp op);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   uint32_t getValueZero(QualType type);

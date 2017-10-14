@@ -1069,6 +1069,24 @@ TEST_F(FileTest, SM6WaveReadLaneFirst) {
   runFileTest("sm6.wave-read-lane-first.hlsl");
 }
 
+// Shader model 6.0 wave quad-wide shuffle
+TEST_F(FileTest, SM6QuadReadAcrossX) {
+  useVulkan1p1();
+  runFileTest("sm6.quad-read-across-x.hlsl");
+}
+TEST_F(FileTest, SM6QuadReadAcrossY) {
+  useVulkan1p1();
+  runFileTest("sm6.quad-read-across-y.hlsl");
+}
+TEST_F(FileTest, SM6QuadReadAcrossDiagonal) {
+  useVulkan1p1();
+  runFileTest("sm6.quad-read-across-diagonal.hlsl");
+}
+TEST_F(FileTest, SM6QuadReadLaneAt) {
+  useVulkan1p1();
+  runFileTest("sm6.quad-read-lane-at.hlsl");
+}
+
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 

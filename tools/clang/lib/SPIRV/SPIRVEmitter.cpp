@@ -506,6 +506,9 @@ spv::Capability getCapabilityForGroupNonUniform(spv::Op opcode) {
   case spv::Op::OpGroupNonUniformBitwiseOr:
   case spv::Op::OpGroupNonUniformBitwiseXor:
     return spv::Capability::GroupNonUniformArithmetic;
+  case spv::Op::OpGroupNonUniformQuadBroadcast:
+  case spv::Op::OpGroupNonUniformQuadSwap:
+    return spv::Capability::GroupNonUniformQuad;
   }
   assert(false && "unhandled opcode");
   return spv::Capability::Max;
@@ -6114,6 +6117,12 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_WaveReadLaneFirst:
     retVal = processWaveBroadcast(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_QuadReadAcrossX:
+  case hlsl::IntrinsicOp::IOP_QuadReadAcrossY:
+  case hlsl::IntrinsicOp::IOP_QuadReadAcrossDiagonal:
+  case hlsl::IntrinsicOp::IOP_QuadReadLaneAt:
+    retVal = processWaveQuadWideShuffle(callExpr, hlslOpcode);
+    break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
@@ -6628,6 +6637,46 @@ uint32_t SPIRVEmitter::processWaveBroadcast(const CallExpr *callExpr) {
     return theBuilder.createGroupNonUniformUnaryOp(
         spv::Op::OpGroupNonUniformBroadcastFirst, retType, subgroupScope,
         value);
+}
+
+uint32_t SPIRVEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
+                                                  hlsl::IntrinsicOp op) {
+  // Signatures:
+  // <type> QuadReadAcrossX(<type> localValue)
+  // <type> QuadReadAcrossY(<type> localValue)
+  // <type> QuadReadAcrossDiagonal(<type> localValue)
+  // <type> QuadReadLaneAt(<type> sourceValue, uint quadLaneID)
+  assert(callExpr->getNumArgs() == 1 || callExpr->getNumArgs() == 2);
+  needsSpirv1p3 = true;
+  theBuilder.requireCapability(spv::Capability::GroupNonUniformQuad);
+
+  const uint32_t value = doExpr(callExpr->getArg(0));
+  const uint32_t subgroupScope = theBuilder.getConstantInt32(3);
+  const uint32_t retType =
+      typeTranslator.translateType(callExpr->getCallReturnType(astContext));
+
+  uint32_t target = 0;
+  spv::Op opcode = spv::Op::OpGroupNonUniformQuadSwap;
+  switch (op) {
+  case hlsl::IntrinsicOp::IOP_QuadReadAcrossX:
+    target = theBuilder.getConstantUint32(0);
+    break;
+  case hlsl::IntrinsicOp::IOP_QuadReadAcrossY:
+    target = theBuilder.getConstantUint32(1);
+    break;
+  case hlsl::IntrinsicOp::IOP_QuadReadAcrossDiagonal:
+    target = theBuilder.getConstantUint32(2);
+    break;
+  case hlsl::IntrinsicOp::IOP_QuadReadLaneAt:
+    target = doExpr(callExpr->getArg(1));
+    opcode = spv::Op::OpGroupNonUniformQuadBroadcast;
+    break;
+  default:
+    llvm_unreachable("case should not appear here");
+  }
+
+  return theBuilder.createGroupNonUniformBinaryOp(opcode, retType,
+                                                  subgroupScope, value, target);
 }
 
 uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
