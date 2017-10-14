@@ -2508,6 +2508,9 @@ Reduction     ``WaveActiveBitOr()``     ``OpGroupNonUniformBitwiseOr``      ``Re
 Reduction     ``WaveActiveBitXor()``    ``OpGroupNonUniformBitwiseXor``     ``Reduction``
 Reduction     ``WaveActiveMin()``       ``OpGroupNonUniform*Min``           ``Reduction``
 Reduction     ``WaveActiveMax()``       ``OpGroupNonUniform*Max``           ``Reduction``
+Scan/Prefix   ``WavePrefixSum()``       ``OpGroupNonUniform*Add``           ``ExclusiveScan``
+Scan/Prefix   ``WavePrefixProduct()``   ``OpGroupNonUniform*Mul``           ``ExclusiveScan``
+Scan/Prefix   ``WavePrefixCountBits()`  ``OpGroupNonUniformBallotBitCount`` ``ExclusiveScan``
 ============= ========================= =================================== ======================
 
 Vulkan Command-line Options

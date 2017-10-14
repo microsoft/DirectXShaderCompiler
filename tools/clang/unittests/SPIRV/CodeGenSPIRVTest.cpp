@@ -1045,6 +1045,20 @@ TEST_F(FileTest, SM6WaveActiveCountBits) {
   runFileTest("sm6.wave-active-count-bits.hlsl");
 }
 
+// Shader model 6.0 wave scan/prefix
+TEST_F(FileTest, SM6WavePrefixSum) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-prefix-sum.hlsl");
+}
+TEST_F(FileTest, SM6WavePrefixProduct) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-prefix-product.hlsl");
+}
+TEST_F(FileTest, SM6WavePrefixCountBits) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-prefix-count-bits.hlsl");
+}
+
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 

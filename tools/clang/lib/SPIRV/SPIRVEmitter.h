@@ -456,8 +456,9 @@ private:
   /// Processes SM6.0 wave vote intrinsic calls.
   uint32_t processWaveVote(const CallExpr *, spv::Op opcode);
 
-  /// Processes SM6.0 wave reduction intrinsic calls.
-  uint32_t processWaveReduction(const CallExpr *, spv::Op op);
+  /// Processes SM6.0 wave reduction or scan/prefix intrinsic calls.
+  uint32_t processWaveReductionOrPrefix(const CallExpr *, spv::Op op,
+                                        spv::GroupOperation groupOp);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.

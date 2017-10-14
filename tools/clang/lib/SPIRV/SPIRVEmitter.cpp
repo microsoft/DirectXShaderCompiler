@@ -6074,8 +6074,9 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processWaveVote(callExpr, spv::Op::OpGroupNonUniformAllEqual);
     break;
   case hlsl::IntrinsicOp::IOP_WaveActiveCountBits:
-    retVal = processWaveReduction(callExpr,
-                                  spv::Op::OpGroupNonUniformBallotBitCount);
+    retVal = processWaveReductionOrPrefix(
+        callExpr, spv::Op::OpGroupNonUniformBallotBitCount,
+        spv::GroupOperation::Reduce);
     break;
   case hlsl::IntrinsicOp::IOP_WaveActiveUSum:
   case hlsl::IntrinsicOp::IOP_WaveActiveSum:
@@ -6089,9 +6090,24 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_WaveActiveBitOr:
   case hlsl::IntrinsicOp::IOP_WaveActiveBitXor: {
     const auto retType = callExpr->getCallReturnType(astContext);
-    retVal = processWaveReduction(
-        callExpr, translateWaveOp(hlslOpcode, retType, callExpr->getExprLoc()));
+    retVal = processWaveReductionOrPrefix(
+        callExpr, translateWaveOp(hlslOpcode, retType, callExpr->getExprLoc()),
+        spv::GroupOperation::Reduce);
   } break;
+  case hlsl::IntrinsicOp::IOP_WavePrefixUSum:
+  case hlsl::IntrinsicOp::IOP_WavePrefixSum:
+  case hlsl::IntrinsicOp::IOP_WavePrefixUProduct:
+  case hlsl::IntrinsicOp::IOP_WavePrefixProduct: {
+    const auto retType = callExpr->getCallReturnType(astContext);
+    retVal = processWaveReductionOrPrefix(
+        callExpr, translateWaveOp(hlslOpcode, retType, callExpr->getExprLoc()),
+        spv::GroupOperation::ExclusiveScan);
+  } break;
+  case hlsl::IntrinsicOp::IOP_WavePrefixCountBits:
+    retVal = processWaveReductionOrPrefix(
+        callExpr, spv::Op::OpGroupNonUniformBallotBitCount,
+        spv::GroupOperation::ExclusiveScan);
+    break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
@@ -6539,6 +6555,10 @@ spv::Op SPIRVEmitter::translateWaveOp(hlsl::IntrinsicOp op, QualType type,
     WAVE_OP_CASE_INT_FLOAT(ActiveSum, IAdd, FAdd);
     WAVE_OP_CASE_INT_FLOAT(ActiveUProduct, IMul, FMul);
     WAVE_OP_CASE_INT_FLOAT(ActiveProduct, IMul, FMul);
+    WAVE_OP_CASE_INT_FLOAT(PrefixUSum, IAdd, FAdd);
+    WAVE_OP_CASE_INT_FLOAT(PrefixSum, IAdd, FAdd);
+    WAVE_OP_CASE_INT_FLOAT(PrefixUProduct, IMul, FMul);
+    WAVE_OP_CASE_INT_FLOAT(PrefixProduct, IMul, FMul);
     WAVE_OP_CASE_INT(ActiveBitAnd, BitwiseAnd);
     WAVE_OP_CASE_INT(ActiveBitOr, BitwiseOr);
     WAVE_OP_CASE_INT(ActiveBitXor, BitwiseXor);
@@ -6554,8 +6574,8 @@ spv::Op SPIRVEmitter::translateWaveOp(hlsl::IntrinsicOp op, QualType type,
   return spv::Op::OpNop;
 }
 
-uint32_t SPIRVEmitter::processWaveReduction(const CallExpr *callExpr,
-                                            spv::Op opcode) {
+uint32_t SPIRVEmitter::processWaveReductionOrPrefix(
+    const CallExpr *callExpr, spv::Op opcode, spv::GroupOperation groupOp) {
   // Signatures:
   // bool WaveActiveAllEqual( <type> expr )
   // uint WaveActiveCountBits( bool bBit )
@@ -6566,6 +6586,10 @@ uint32_t SPIRVEmitter::processWaveReduction(const CallExpr *callExpr,
   // <int_type> WaveActiveBitXor( <int_type> expr )
   // <type> WaveActiveMin( <type> expr)
   // <type> WaveActiveMax( <type> expr)
+  //
+  // uint WavePrefixCountBits(Bool bBit)
+  // <type> WavePrefixProduct(<type> value)
+  // <type> WavePrefixSum(<type> value)
   assert(callExpr->getNumArgs() == 1);
   needsSpirv1p3 = true;
   theBuilder.requireCapability(getCapabilityForGroupNonUniform(opcode));
@@ -6575,7 +6599,7 @@ uint32_t SPIRVEmitter::processWaveReduction(const CallExpr *callExpr,
       typeTranslator.translateType(callExpr->getCallReturnType(astContext));
   return theBuilder.createGroupNonUniformUnaryOp(
       opcode, retType, subgroupScope, predicate,
-      llvm::Optional<spv::GroupOperation>(spv::GroupOperation::Reduce));
+      llvm::Optional<spv::GroupOperation>(groupOp));
 }
 
 uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
