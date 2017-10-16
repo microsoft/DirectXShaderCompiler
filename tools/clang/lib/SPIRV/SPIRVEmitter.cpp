@@ -3777,6 +3777,7 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_SPIRV_OP_CASE(isinf, IsInf, true);
     INTRINSIC_SPIRV_OP_CASE(isnan, IsNan, true);
     INTRINSIC_SPIRV_OP_CASE(fmod, FMod, true);
+    INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
     INTRINSIC_SPIRV_OP_CASE(reversebits, BitReverse, false);
     INTRINSIC_OP_CASE(round, Round, true);
     INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
@@ -3795,6 +3796,7 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(exp2, Exp2, true);
     INTRINSIC_OP_CASE_SINT_UINT(firstbithigh, FindSMsb, FindUMsb, false);
     INTRINSIC_OP_CASE_SINT_UINT(ufirstbithigh, FindSMsb, FindUMsb, false);
+    INTRINSIC_OP_CASE(faceforward, FaceForward, false);
     INTRINSIC_OP_CASE(firstbitlow, FindILsb, false);
     INTRINSIC_OP_CASE(floor, Floor, true);
     INTRINSIC_OP_CASE(fma, Fma, true);
