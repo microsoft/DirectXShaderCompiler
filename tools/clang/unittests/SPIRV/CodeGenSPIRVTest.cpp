@@ -196,7 +196,7 @@ TEST_F(FileTest, TernaryOpConditionalOp) {
 
 // For vector accessing/swizzling operators
 TEST_F(FileTest, OpVectorSwizzle) { runFileTest("op.vector.swizzle.hlsl"); }
-TEST_F(FileTest, OpVectorSize1Swizzle) {
+TEST_F(FileTest, OpVectorSwizzle1) {
   runFileTest("op.vector.swizzle.size1.hlsl");
 }
 TEST_F(FileTest, OpVectorAccess) { runFileTest("op.vector.access.hlsl"); }
@@ -221,6 +221,7 @@ TEST_F(FileTest, OpArrayAccess) { runFileTest("op.array.access.hlsl"); }
 
 // For buffer accessing operator
 TEST_F(FileTest, OpBufferAccess) { runFileTest("op.buffer.access.hlsl"); }
+TEST_F(FileTest, OpRWBufferAccess) { runFileTest("op.rwbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
 TEST_F(FileTest, OpConstantBufferAccess) {
   runFileTest("op.constant-buffer.access.hlsl");
@@ -234,7 +235,12 @@ TEST_F(FileTest, OpRWStructuredBufferAccess) {
 
 // For Texture/RWTexture accessing operator (operator[])
 TEST_F(FileTest, OpTextureAccess) { runFileTest("op.texture.access.hlsl"); }
-TEST_F(FileTest, OpRWTextureAccess) { runFileTest("op.rwtexture.access.hlsl"); }
+TEST_F(FileTest, OpRWTextureAccessRead) {
+  runFileTest("op.rwtexture.access.read.hlsl");
+}
+TEST_F(FileTest, OpRWTextureAccessWrite) {
+  runFileTest("op.rwtexture.access.write.hlsl");
+}
 
 // For Texture.mips[][] operator
 TEST_F(FileTest, OpTextureMipsAccess) {
@@ -262,51 +268,47 @@ TEST_F(FileTest, CastSplatVector) { runFileTest("cast.vector.splat.hlsl"); }
 TEST_F(FileTest, CastSplatMatrix) { runFileTest("cast.matrix.splat.hlsl"); }
 
 // For if statements
-TEST_F(FileTest, IfStmtPlainAssign) { runFileTest("if-stmt.plain.hlsl"); }
-TEST_F(FileTest, IfStmtNestedIfStmt) { runFileTest("if-stmt.nested.hlsl"); }
-TEST_F(FileTest, IfStmtConstCondition) {
-  runFileTest("if-stmt.const-cond.hlsl");
-}
+TEST_F(FileTest, IfStmtPlainAssign) { runFileTest("cf.if.plain.hlsl"); }
+TEST_F(FileTest, IfStmtNestedIfStmt) { runFileTest("cf.if.nested.hlsl"); }
+TEST_F(FileTest, IfStmtConstCondition) { runFileTest("cf.if.const-cond.hlsl"); }
 
 // For switch statements
 TEST_F(FileTest, SwitchStmtUsingOpSwitch) {
-  runFileTest("switch-stmt.opswitch.hlsl");
+  runFileTest("cf.switch.opswitch.hlsl");
 }
 TEST_F(FileTest, SwitchStmtUsingIfStmt) {
-  runFileTest("switch-stmt.ifstmt.hlsl");
+  runFileTest("cf.switch.ifstmt.hlsl");
 }
 
 // For for statements
-TEST_F(FileTest, ForStmtPlainAssign) { runFileTest("for-stmt.plain.hlsl"); }
-TEST_F(FileTest, ForStmtNestedForStmt) { runFileTest("for-stmt.nested.hlsl"); }
-TEST_F(FileTest, ForStmtContinue) { runFileTest("for-stmt.continue.hlsl"); }
-TEST_F(FileTest, ForStmtBreak) { runFileTest("for-stmt.break.hlsl"); }
+TEST_F(FileTest, ForStmtPlainAssign) { runFileTest("cf.for.plain.hlsl"); }
+TEST_F(FileTest, ForStmtNestedForStmt) { runFileTest("cf.for.nested.hlsl"); }
+TEST_F(FileTest, ForStmtContinue) { runFileTest("cf.for.continue.hlsl"); }
+TEST_F(FileTest, ForStmtBreak) { runFileTest("cf.for.break.hlsl"); }
 
 // For while statements
-TEST_F(FileTest, WhileStmtPlain) { runFileTest("while-stmt.plain.hlsl"); }
-TEST_F(FileTest, WhileStmtNested) { runFileTest("while-stmt.nested.hlsl"); }
-TEST_F(FileTest, WhileStmtContinue) { runFileTest("while-stmt.continue.hlsl"); }
-TEST_F(FileTest, WhileStmtBreak) { runFileTest("while-stmt.break.hlsl"); }
+TEST_F(FileTest, WhileStmtPlain) { runFileTest("cf.while.plain.hlsl"); }
+TEST_F(FileTest, WhileStmtNested) { runFileTest("cf.while.nested.hlsl"); }
+TEST_F(FileTest, WhileStmtContinue) { runFileTest("cf.while.continue.hlsl"); }
+TEST_F(FileTest, WhileStmtBreak) { runFileTest("cf.while.break.hlsl"); }
 
 // For do statements
-TEST_F(FileTest, DoStmtPlain) { runFileTest("do-stmt.plain.hlsl"); }
-TEST_F(FileTest, DoStmtNested) { runFileTest("do-stmt.nested.hlsl"); }
-TEST_F(FileTest, DoStmtContinue) { runFileTest("do-stmt.continue.hlsl"); }
-TEST_F(FileTest, DoStmtBreak) { runFileTest("do-stmt.break.hlsl"); }
+TEST_F(FileTest, DoStmtPlain) { runFileTest("cf.do.plain.hlsl"); }
+TEST_F(FileTest, DoStmtNested) { runFileTest("cf.do.nested.hlsl"); }
+TEST_F(FileTest, DoStmtContinue) { runFileTest("cf.do.continue.hlsl"); }
+TEST_F(FileTest, DoStmtBreak) { runFileTest("cf.do.break.hlsl"); }
 
 // For break statements (mix of breaks in loops and switch)
-TEST_F(FileTest, BreakStmtMixed) { runFileTest("break-stmt.mixed.hlsl"); }
+TEST_F(FileTest, BreakStmtMixed) { runFileTest("cf.break.mixed.hlsl"); }
 
 // For discard statement
 TEST_F(FileTest, Discard) { runFileTest("cf.discard.hlsl"); }
 
-// For early returns
+// For return statement
 TEST_F(FileTest, EarlyReturn) { runFileTest("cf.return.early.hlsl"); }
 TEST_F(FileTest, EarlyReturnFloat4) {
   runFileTest("cf.return.early.float4.hlsl");
 }
-
-// For returning a structure
 TEST_F(FileTest, ReturnStruct) { runFileTest("cf.return.struct.hlsl"); }
 
 // For control flows
@@ -449,6 +451,7 @@ TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
   runFileTest("texture.array.sample-cmp-level-zero.hlsl");
 }
 
+// For structured buffer methods
 TEST_F(FileTest, StructuredBufferLoad) {
   runFileTest("method.structured-buffer.load.hlsl");
 }
@@ -483,17 +486,15 @@ TEST_F(FileTest, RWByteAddressBufferAtomicMethods) {
 }
 
 // For Buffer/RWBuffer methods
-TEST_F(FileTest, BufferLoad) { runFileTest("buffer.load.hlsl"); }
-TEST_F(FileTest, BufferWrite) { runFileTest("buffer.write.hlsl"); }
+TEST_F(FileTest, BufferLoad) { runFileTest("method.buffer.load.hlsl"); }
 TEST_F(FileTest, BufferGetDimensions) {
-  runFileTest("buffer.get-dimensions.hlsl");
+  runFileTest("method.buffer.get-dimensions.hlsl");
 }
 
 // For RWTexture methods
-TEST_F(FileTest, RWTextureLoad) { runFileTest("rwtexture.load.hlsl"); }
-TEST_F(FileTest, RWTextureWrite) { runFileTest("rwtexture.write.hlsl"); }
+TEST_F(FileTest, RWTextureLoad) { runFileTest("method.rwtexture.load.hlsl"); }
 TEST_F(FileTest, RWTextureGetDimensions) {
-  runFileTest("rwtexture.get-dimensions.hlsl");
+  runFileTest("method.rwtexture.get-dimensions.hlsl");
 }
 
 // For intrinsic functions
