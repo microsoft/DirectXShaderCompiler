@@ -1702,9 +1702,14 @@ into the InputPatch and OutputPatch arrays to read/write information for the giv
 vertex.
 
 The hull main entry function in HLSL returns only one value (say, of type ``T``), but 
-that function is in fact executed several times. Therefore, we create a stage output variable
-that is an array with elements of type ``T``. The number of elements of the array is equal to
-the number of output control points.
+that function is in fact executed once for each control point. The Vulkan spec requires that
+"Tessellation control shader per-vertex output variables and blocks, and tessellation control, 
+tessellation evaluation, and geometry shader per-vertex input variables and blocks are required
+to be declared as arrays, with each element representing input or output values for a single vertex 
+of a multi-vertex primitive". Therefore, we need to create a stage output variable that is an array
+with elements of type ``T``. The number of elements of the array is equal to the number of 
+output control points. Each final output control point is written into the corresponding element in 
+the array using SV_OutputControlPointID as the index.
 
 Patch Constant Function
 -----------------------
