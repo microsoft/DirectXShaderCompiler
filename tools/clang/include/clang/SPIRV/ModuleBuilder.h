@@ -339,6 +339,7 @@ public:
   uint32_t getConstantInt32(int32_t value);
   uint32_t getConstantUint32(uint32_t value);
   uint32_t getConstantFloat32(float value);
+  uint32_t getConstantFloat64(double value);
   uint32_t getConstantComposite(uint32_t typeId,
                                 llvm::ArrayRef<uint32_t> constituents);
   uint32_t getConstantNull(uint32_t type);
