@@ -3674,6 +3674,13 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 
   GLSLstd450 glslOpcode = GLSLstd450Bad;
 
+#define INTRINSIC_SPIRV_OP_WITH_CAP_CASE(intrinsicOp, spirvOp, doEachVec, cap) \
+  case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
+    theBuilder.requireCapability(cap);                                         \
+    return processIntrinsicUsingSpirvInst(callExpr, spv::Op::Op##spirvOp,      \
+                                          doEachVec);                          \
+  } break
+
 #define INTRINSIC_SPIRV_OP_CASE(intrinsicOp, spirvOp, doEachVec)               \
   case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
     return processIntrinsicUsingSpirvInst(callExpr, spv::Op::Op##spirvOp,      \
@@ -3756,6 +3763,16 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     return processIntrinsicLog10(callExpr);
   }
     INTRINSIC_SPIRV_OP_CASE(transpose, Transpose, false);
+    INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
+    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddx_coarse, DPdxCoarse, false,
+                                     spv::Capability::DerivativeControl);
+    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddx_fine, DPdxFine, false,
+                                     spv::Capability::DerivativeControl);
+    INTRINSIC_SPIRV_OP_CASE(ddy, DPdy, true);
+    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddy_coarse, DPdyCoarse, false,
+                                     spv::Capability::DerivativeControl);
+    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddy_fine, DPdyFine, false,
+                                     spv::Capability::DerivativeControl);
     INTRINSIC_SPIRV_OP_CASE(countbits, BitCount, false);
     INTRINSIC_SPIRV_OP_CASE(isinf, IsInf, true);
     INTRINSIC_SPIRV_OP_CASE(isnan, IsNan, true);
