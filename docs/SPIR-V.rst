@@ -1120,6 +1120,7 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``determinant``         ``Determinant``
 ``exp``                 ``Exp``
 ``exp2``                ``exp2``
+``faceforward``         ``FaceForward``
 ``firstbithigh``        ``FindSMsb`` / ``FindUMsb``
 ``firstbitlow``         ``FindILsb``
 ``floor``               ``Floor``
