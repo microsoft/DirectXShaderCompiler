@@ -545,8 +545,8 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
   uint32_t offset = 0, index = 0;
 
   for (const auto *field : decl->decls()) {
-    // Implicit generated struct declarations should be ignored.
-    if (isa<CXXRecordDecl>(field) && field->isImplicit())
+    // Ignore implicit generated struct declarations/constructors/destructors.
+    if (field->isImplicit())
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
