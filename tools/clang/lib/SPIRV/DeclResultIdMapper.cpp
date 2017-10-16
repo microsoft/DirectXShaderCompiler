@@ -174,8 +174,8 @@ DeclResultIdMapper::createVarOfExplicitLayoutStruct(const DeclContext *decl,
   llvm::SmallVector<uint32_t, 4> fieldTypes;
   llvm::SmallVector<llvm::StringRef, 4> fieldNames;
   for (const auto *subDecl : decl->decls()) {
-    // Implicit generated struct declarations should be ignored.
-    if (isa<CXXRecordDecl>(subDecl) && subDecl->isImplicit())
+    // Ignore implicit generated struct declarations/constructors/destructors.
+    if (subDecl->isImplicit())
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
@@ -567,9 +567,9 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
 
     // Error out when the given semantic is invalid in this shader model
     if (hlsl::SigPoint::GetInterpretation(
-                             semantic->GetKind(), sigPoint->GetKind(),
-                             shaderModel.GetMajor(), shaderModel.GetMinor()) ==
-                             hlsl::DXIL::SemanticInterpretationKind::NA) {
+            semantic->GetKind(), sigPoint->GetKind(), shaderModel.GetMajor(),
+            shaderModel.GetMinor()) ==
+        hlsl::DXIL::SemanticInterpretationKind::NA) {
       emitError("invalid semantic %0 for shader module %1")
           << semanticStr << shaderModel.GetName();
       return false;

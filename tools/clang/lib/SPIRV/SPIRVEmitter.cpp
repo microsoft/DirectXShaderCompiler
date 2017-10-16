@@ -1088,10 +1088,25 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
 }
 
 void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
-  if (const auto *retVal = stmt->getRetValue())
-    theBuilder.createReturnValue(doExpr(retVal));
-  else
+  if (const auto *retVal = stmt->getRetValue()) {
+    const auto retInfo = doExpr(retVal);
+    const auto retType = retVal->getType();
+    if (retInfo.storageClass != spv::StorageClass::Function &&
+        retType->isStructureType()) {
+      // We are returning some value from a non-Function storage class. Need to
+      // create a temporary variable to "convert" the value to Function storage
+      // class and then return.
+      const uint32_t valType = typeTranslator.translateType(retType);
+      const uint32_t tempVar = theBuilder.addFnVar(valType, "temp.var.ret");
+      storeValue(tempVar, retInfo, retType);
+
+      theBuilder.createReturnValue(theBuilder.createLoad(valType, tempVar));
+    } else {
+      theBuilder.createReturnValue(retInfo);
+    }
+  } else {
     theBuilder.createReturn();
+  }
 
   // Some statements that alter the control flow (break, continue, return, and
   // discard), require creation of a new basic block to hold any statement that
@@ -2817,8 +2832,8 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
   } else if (const auto *recordType = valType->getAs<RecordType>()) {
     uint32_t index = 0;
     for (const auto *decl : recordType->getDecl()->decls()) {
-      // Implicit generated struct declarations should be ignored.
-      if (isa<CXXRecordDecl>(decl) && decl->isImplicit())
+      // Ignore implicit generated struct declarations/constructors/destructors.
+      if (decl->isImplicit())
         continue;
 
       const auto *field = cast<FieldDecl>(decl);

@@ -310,6 +310,9 @@ TEST_F(FileTest, EarlyReturnFloat4) {
   runFileTest("cf.return.early.float4.hlsl");
 }
 TEST_F(FileTest, ReturnStruct) { runFileTest("cf.return.struct.hlsl"); }
+TEST_F(FileTest, ReturnFromDifferentStorageClass) {
+  runFileTest("cf.return.storage-class.hlsl");
+}
 
 // For control flows
 TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
