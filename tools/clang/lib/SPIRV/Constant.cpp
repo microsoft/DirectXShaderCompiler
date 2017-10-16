@@ -46,6 +46,8 @@ const Constant *Constant::getFloat32(SPIRVContext &ctx, uint32_t type_id,
 
 const Constant *Constant::getFloat64(SPIRVContext &ctx, uint32_t type_id,
                                      double value, DecorationSet dec) {
+  // TODO: The ordering of the 2 words depends on the endian-ness of the host
+  // machine.
   struct wideFloat {
     uint32_t word0;
     uint32_t word1;

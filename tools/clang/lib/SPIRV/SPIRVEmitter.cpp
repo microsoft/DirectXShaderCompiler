@@ -4767,10 +4767,13 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
       }
 
       if (const auto *builtinType = scalarType->getAs<BuiltinType>()) {
-        if (builtinType->getKind() == BuiltinType::Double)
+        // TODO: Add support for other types that are not covered yet.
+        switch (builtinType->getKind()) {
+        case BuiltinType::Double:
           return theBuilder.getConstantFloat64(1.0);
-        if (builtinType->getKind() == BuiltinType::Float)
+        case BuiltinType::Float:
           return theBuilder.getConstantFloat32(1.0);
+        }
       }
     }
   }
@@ -4883,6 +4886,8 @@ uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
   switch (bitwidth) {
   case 32:
     return theBuilder.getConstantFloat32(floatValue.convertToFloat());
+  case 64:
+    return theBuilder.getConstantFloat64(floatValue.convertToDouble());
   default:
     break;
   }
