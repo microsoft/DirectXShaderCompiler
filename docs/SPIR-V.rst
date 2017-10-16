@@ -1164,6 +1164,17 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``trunc``               ``Trunc``
 ======================= ===============================
 
+HLSL OO features
+================
+
+A HLSL struct/class member method is translated into a normal SPIR-V function,
+whose signature has an additional first parameter for the struct/class called
+upon. Every calling site of the method is generated to pass in the object as
+the first argument.
+
+HLSL struct/class static member variables are translated into SPIR-V variables
+in the ``Private`` storage class.
+
 HLSL Methods
 ============
 
@@ -1690,7 +1701,7 @@ and are translated to SPIR-V execution modes according to the table below:
 +-------------------------+---------------------+--------------------------+
 
 The ``patchconstfunc`` attribute does not have a direct equivalent in SPIR-V.
-It specifies the name of the Patch Constant Function. This function is run only 
+It specifies the name of the Patch Constant Function. This function is run only
 once per patch. This is further described below.
 
 InputPatch and OutputPatch
@@ -1706,18 +1717,18 @@ OutputPatch is an array containing ``N`` elements (where ``N`` is the number of
 output vertices). Each element of the array contains information about an
 output vertex. OutputPatch may also be passed to the patch constant function.
 
-The SPIR-V ``InvocationID`` (``SV_OutputControlPointID`` in HLSL) is used to index 
+The SPIR-V ``InvocationID`` (``SV_OutputControlPointID`` in HLSL) is used to index
 into the InputPatch and OutputPatch arrays to read/write information for the given
 vertex.
 
-The hull main entry function in HLSL returns only one value (say, of type ``T``), but 
+The hull main entry function in HLSL returns only one value (say, of type ``T``), but
 that function is in fact executed once for each control point. The Vulkan spec requires that
-"Tessellation control shader per-vertex output variables and blocks, and tessellation control, 
+"Tessellation control shader per-vertex output variables and blocks, and tessellation control,
 tessellation evaluation, and geometry shader per-vertex input variables and blocks are required
-to be declared as arrays, with each element representing input or output values for a single vertex 
+to be declared as arrays, with each element representing input or output values for a single vertex
 of a multi-vertex primitive". Therefore, we need to create a stage output variable that is an array
-with elements of type ``T``. The number of elements of the array is equal to the number of 
-output control points. Each final output control point is written into the corresponding element in 
+with elements of type ``T``. The number of elements of the array is equal to the number of
+output control points. Each final output control point is written into the corresponding element in
 the array using SV_OutputControlPointID as the index.
 
 Patch Constant Function
@@ -1728,8 +1739,8 @@ main entry function, and then use an ``OpControlBarrier`` to wait for all vertex
 processing to finish. After the barrier, *only* the first thread (with InvocationID of 0)
 will invoke the patch constant function.
 
-The information resulting from the patch constant function will also be returned 
+The information resulting from the patch constant function will also be returned
 as stage output variables. The output struct of the patch constant function must include
 ``SV_TessFactor`` and ``SV_InsideTessFactor`` fields which will translate to
-``TessLevelOuter`` and ``TessLevelInner`` builtin variables, respectively. And the rest 
+``TessLevelOuter`` and ``TessLevelInner`` builtin variables, respectively. And the rest
 will be flattened and translated into normal stage output variables, one for each field.
