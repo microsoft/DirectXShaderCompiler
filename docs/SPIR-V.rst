@@ -1092,6 +1092,8 @@ The following intrinsic HLSL functions are currently supported:
 - ``ddy_coarse``: Low precision partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdyCoarse``.
 - ``ddx_fine``: High precision partial derivative with respect to the screen-space x-coordinate. Uses SIR-V ``OpDPdxFine``.
 - ``ddy_fine``: High precision partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdyFine``.
+- ``fwidth``: Returns the absolute value of the partial derivatives of the specified value. Uses SIR-V ``OpFwidth``.
+
 
 Using GLSL extended instructions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
