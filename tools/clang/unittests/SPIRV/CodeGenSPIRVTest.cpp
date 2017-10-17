@@ -324,14 +324,14 @@ TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
 TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
 TEST_F(FileTest, FunctionInOutParam) { runFileTest("fn.param.inout.hlsl"); }
 
-// For struct methods
-TEST_F(FileTest, StructMethodCallNormal) {
-  runFileTest("method.struct.method.hlsl");
+// For OO features
+TEST_F(FileTest, StructMethodCall) { runFileTest("oo.struct.method.hlsl"); }
+TEST_F(FileTest, ClassMethodCall) { runFileTest("oo.class.method.hlsl"); }
+TEST_F(FileTest, StructStaticMember) {
+  runFileTest("oo.struct.static.member.hlsl");
 }
-
-// For class methods
-TEST_F(FileTest, ClassMethodCallNormal) {
-  runFileTest("method.class.method.hlsl");
+TEST_F(FileTest, ClassStaticMember) {
+  runFileTest("oo.struct.static.member.hlsl");
 }
 
 // For semantics

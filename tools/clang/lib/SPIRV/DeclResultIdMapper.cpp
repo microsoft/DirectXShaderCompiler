@@ -90,7 +90,7 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
 
       return {elemId, info->storageClass, info->layoutRule};
     } else {
-      return {info->resultId, info->storageClass, info->layoutRule};
+      return *info;
     }
 
   assert(false && "found unregistered decl");
