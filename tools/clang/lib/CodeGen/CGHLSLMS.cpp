@@ -31,6 +31,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/IR/InstIterator.h"
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -4016,6 +4017,96 @@ static void ReplaceConstStaticGlobals(
   }
 }
 
+bool BuildImmInit(Function *Ctor) {
+  GlobalVariable *GV = nullptr;
+  SmallVector<Constant *, 4> ImmList;
+  bool allConst = true;
+  for (inst_iterator I = inst_begin(Ctor), E = inst_end(Ctor); I != E; ++I) {
+    if (StoreInst *SI = dyn_cast<StoreInst>(&(*I))) {
+      Value *V = SI->getValueOperand();
+      if (!isa<Constant>(V) || V->getType()->isPointerTy()) {
+        allConst = false;
+        break;
+      }
+      ImmList.emplace_back(cast<Constant>(V));
+      Value *Ptr = SI->getPointerOperand();
+      if (GEPOperator *GepOp = dyn_cast<GEPOperator>(Ptr)) {
+        Ptr = GepOp->getPointerOperand();
+        if (GlobalVariable *pGV = dyn_cast<GlobalVariable>(Ptr)) {
+          if (GV == nullptr)
+            GV = pGV;
+          else
+            DXASSERT(GV == pGV, "else pointer mismatch");
+        }
+      }
+    } else {
+      if (!isa<ReturnInst>(*I)) {
+        allConst = false;
+        break;
+      }
+    }
+  }
+  if (!allConst)
+    return false;
+  if (!GV)
+    return false;
+
+  llvm::Type *Ty = GV->getType()->getElementType();
+  llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty);
+  // TODO: support other types.
+  if (!AT)
+    return false;
+  if (ImmList.size() != AT->getNumElements())
+    return false;
+  Constant *Init = llvm::ConstantArray::get(AT, ImmList);
+  GV->setInitializer(Init);
+  return true;
+}
+
+void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
+                          Instruction *InsertPt) {
+  // add global call to entry func
+  GlobalVariable *GV = M.getGlobalVariable(globalName);
+  if (GV) {
+    if (ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer())) {
+
+      IRBuilder<> Builder(InsertPt);
+      for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e;
+           ++i) {
+        if (isa<ConstantAggregateZero>(*i))
+          continue;
+        ConstantStruct *CS = cast<ConstantStruct>(*i);
+        if (isa<ConstantPointerNull>(CS->getOperand(1)))
+          continue;
+
+        // Must have a function or null ptr.
+        if (!isa<Function>(CS->getOperand(1)))
+          continue;
+        Function *Ctor = cast<Function>(CS->getOperand(1));
+        assert(Ctor->getReturnType()->isVoidTy() && Ctor->arg_size() == 0 &&
+               "function type must be void (void)");
+
+        for (inst_iterator I = inst_begin(Ctor), E = inst_end(Ctor); I != E;
+             ++I) {
+          if (CallInst *CI = dyn_cast<CallInst>(&(*I))) {
+            Function *F = CI->getCalledFunction();
+            // Try to build imm initilizer.
+            // If not work, add global call to entry func.
+            if (BuildImmInit(F) == false) {
+              Builder.CreateCall(F);
+            }
+          } else {
+            DXASSERT(isa<ReturnInst>(&(*I)),
+                     "else invalid Global constructor function");
+          }
+        }
+      }
+      // remove the GV
+      GV->eraseFromParent();
+    }
+  }
+}
+
 void CGMSHLSLRuntime::FinishCodeGen() {
   // Library don't have entry.
   if (!m_bIsLib) {
@@ -4068,36 +4159,8 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   ConstructCBuffer(m_pHLModule, CBufferType, m_ConstVarAnnotationMap);
 
   if (!m_bIsLib) {
-    // add global call to entry func
-    auto AddGlobalCall = [&](StringRef globalName, Instruction *InsertPt) {
-      GlobalVariable *GV = TheModule.getGlobalVariable(globalName);
-      if (GV) {
-        if (ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer())) {
-
-          IRBuilder<> Builder(InsertPt);
-          for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e;
-               ++i) {
-            if (isa<ConstantAggregateZero>(*i))
-              continue;
-            ConstantStruct *CS = cast<ConstantStruct>(*i);
-            if (isa<ConstantPointerNull>(CS->getOperand(1)))
-              continue;
-
-            // Must have a function or null ptr.
-            if (!isa<Function>(CS->getOperand(1)))
-              continue;
-            Function *Ctor = cast<Function>(CS->getOperand(1));
-            assert(Ctor->getReturnType()->isVoidTy() && Ctor->arg_size() == 0 &&
-                   "function type must be void (void)");
-            Builder.CreateCall(Ctor);
-          }
-          // remove the GV
-          GV->eraseFromParent();
-        }
-      }
-    };
     // need this for "llvm.global_dtors"?
-    AddGlobalCall("llvm.global_ctors",
+    ProcessCtorFunctions(TheModule ,"llvm.global_ctors",
                   EntryFunc->getEntryBlock().getFirstInsertionPt());
   }
   // translate opcode into parameter for intrinsic functions
