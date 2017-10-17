@@ -195,6 +195,11 @@ public:
         : resultId(result), storageClass(sc), layoutRule(lr),
           indexInCTBuffer(indexInCTB) {}
 
+    /// Implicit conversion to SpirvEvalInfo.
+    operator SpirvEvalInfo() const {
+      return SpirvEvalInfo(resultId, storageClass, layoutRule);
+    }
+
     uint32_t resultId;
     spv::StorageClass storageClass;
     /// Layout rule for this decl.

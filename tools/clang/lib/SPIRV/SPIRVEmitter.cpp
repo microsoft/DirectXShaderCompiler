@@ -604,7 +604,7 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   // File scope variables (static "global" and "local" variables) belongs to
   // the Private storage class, while function scope variables (normal "local"
   // variables) belongs to the Function storage class.
-  if (!decl->isExternallyVisible()) {
+  if (!decl->isExternallyVisible() || decl->isStaticDataMember()) {
     // Note: cannot move varType outside of this scope because it generates
     // SPIR-V types without decorations, while external visible variable should
     // have SPIR-V type with decorations.
@@ -1193,10 +1193,12 @@ SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   const auto *base = collectArrayStructIndices(expr, &indices);
   auto info = doExpr(base);
 
-  const uint32_t ptrType = theBuilder.getPointerType(
-      typeTranslator.translateType(expr->getType(), info.layoutRule),
-      info.storageClass);
-  info.resultId = theBuilder.createAccessChain(ptrType, info, indices);
+  if (!indices.empty()) {
+    const uint32_t ptrType = theBuilder.getPointerType(
+        typeTranslator.translateType(expr->getType(), info.layoutRule),
+        info.storageClass);
+    info.resultId = theBuilder.createAccessChain(ptrType, info, indices);
+  }
 
   return info;
 }
@@ -2596,13 +2598,16 @@ SpirvEvalInfo SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
 
 SpirvEvalInfo SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
+
   const Expr *base = collectArrayStructIndices(expr, &indices);
   auto info = doExpr(base);
 
-  const uint32_t ptrType = theBuilder.getPointerType(
-      typeTranslator.translateType(expr->getType(), info.layoutRule),
-      info.storageClass);
-  info.resultId = theBuilder.createAccessChain(ptrType, info, indices);
+  if (!indices.empty()) {
+    const uint32_t ptrType = theBuilder.getPointerType(
+        typeTranslator.translateType(expr->getType(), info.layoutRule),
+        info.storageClass);
+    info.resultId = theBuilder.createAccessChain(ptrType, info, indices);
+  }
 
   return info;
 }
@@ -3539,6 +3544,15 @@ SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
 const Expr *SPIRVEmitter::collectArrayStructIndices(
     const Expr *expr, llvm::SmallVectorImpl<uint32_t> *indices) {
   if (const auto *indexing = dyn_cast<MemberExpr>(expr)) {
+    // First check whether this is referring to a static member. If it is, we
+    // create a DeclRefExpr for it.
+    if (auto *varDecl = dyn_cast<VarDecl>(indexing->getMemberDecl()))
+      if (varDecl->isStaticDataMember())
+        return DeclRefExpr::Create(
+            astContext, NestedNameSpecifierLoc(), SourceLocation(), varDecl,
+            /*RefersToEnclosingVariableOrCapture=*/false, SourceLocation(),
+            varDecl->getType(), VK_LValue);
+
     const Expr *base = collectArrayStructIndices(
         indexing->getBase()->IgnoreParenNoopCasts(astContext), indices);
 
