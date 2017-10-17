@@ -4083,7 +4083,7 @@ void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
         if (!isa<Function>(CS->getOperand(1)))
           continue;
         Function *Ctor = cast<Function>(CS->getOperand(1));
-        assert(Ctor->getReturnType()->isVoidTy() && Ctor->arg_size() == 0 &&
+        DXASSERT(Ctor->getReturnType()->isVoidTy() && Ctor->arg_size() == 0,
                "function type must be void (void)");
 
         for (inst_iterator I = inst_begin(Ctor), E = inst_end(Ctor); I != E;
