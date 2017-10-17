@@ -44,6 +44,20 @@ const Constant *Constant::getFloat32(SPIRVContext &ctx, uint32_t type_id,
   return getUniqueConstant(ctx, c);
 }
 
+const Constant *Constant::getFloat64(SPIRVContext &ctx, uint32_t type_id,
+                                     double value, DecorationSet dec) {
+  // TODO: The ordering of the 2 words depends on the endian-ness of the host
+  // machine.
+  struct wideFloat {
+    uint32_t word0;
+    uint32_t word1;
+  };
+  wideFloat words = cast::BitwiseCast<wideFloat, double>(value);
+  Constant c =
+      Constant(spv::Op::OpConstant, type_id, {words.word0, words.word1}, dec);
+  return getUniqueConstant(ctx, c);
+}
+
 const Constant *Constant::getUint32(SPIRVContext &ctx, uint32_t type_id,
                                     uint32_t value, DecorationSet dec) {
   Constant c = Constant(spv::Op::OpConstant, type_id, {value}, dec);

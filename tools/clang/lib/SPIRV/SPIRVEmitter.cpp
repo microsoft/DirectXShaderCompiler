@@ -3771,6 +3771,9 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_sincos: {
     return processIntrinsicSinCos(callExpr);
   }
+  case hlsl::IntrinsicOp::IOP_rcp: {
+    return processIntrinsicRcp(callExpr);
+  }
   case hlsl::IntrinsicOp::IOP_saturate: {
     return processIntrinsicSaturate(callExpr);
   }
@@ -4349,6 +4352,35 @@ uint32_t SPIRVEmitter::processIntrinsicDot(const CallExpr *callExpr) {
   }
 }
 
+uint32_t SPIRVEmitter::processIntrinsicRcp(const CallExpr *callExpr) {
+  // 'rcp' takes only 1 argument that is a scalar, vector, or matrix of type
+  // float or double.
+  assert(callExpr->getNumArgs() == 1u);
+  const QualType returnType = callExpr->getType();
+  const uint32_t returnTypeId = typeTranslator.translateType(returnType);
+  const Expr *arg = callExpr->getArg(0);
+  const uint32_t argId = doExpr(arg);
+  const QualType argType = arg->getType();
+
+  // For cases with matrix argument.
+  QualType elemType = {};
+  uint32_t numRows = 0, numCols = 0;
+  if (TypeTranslator::isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
+    const uint32_t vecOne = getVecValueOne(elemType, numCols);
+    const auto actOnEachVec = [this, vecOne](uint32_t /*index*/,
+                                             uint32_t vecType,
+                                             uint32_t curRowId) {
+      return theBuilder.createBinaryOp(spv::Op::OpFDiv, vecType, vecOne,
+                                       curRowId);
+    };
+    return processEachVectorInMatrix(arg, argId, actOnEachVec);
+  }
+
+  // For cases with scalar or vector arguments.
+  return theBuilder.createBinaryOp(spv::Op::OpFDiv, returnTypeId,
+                                   getValueOne(argType), argId);
+}
+
 uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
                                                 spv::Op spvOp) {
   // 'all' and 'any' take only 1 parameter.
@@ -4739,6 +4771,8 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
   {
     QualType scalarType = {};
     if (TypeTranslator::isScalarType(type, &scalarType)) {
+      // TODO: Support other types such as short, half, etc.
+
       if (scalarType->isSignedIntegerType()) {
         return theBuilder.getConstantInt32(1);
       }
@@ -4747,8 +4781,14 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
         return theBuilder.getConstantUint32(1);
       }
 
-      if (scalarType->isFloatingType()) {
-        return theBuilder.getConstantFloat32(1.0);
+      if (const auto *builtinType = scalarType->getAs<BuiltinType>()) {
+        // TODO: Add support for other types that are not covered yet.
+        switch (builtinType->getKind()) {
+        case BuiltinType::Double:
+          return theBuilder.getConstantFloat64(1.0);
+        case BuiltinType::Float:
+          return theBuilder.getConstantFloat32(1.0);
+        }
       }
     }
   }
@@ -4861,6 +4901,8 @@ uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
   switch (bitwidth) {
   case 32:
     return theBuilder.getConstantFloat32(floatValue.convertToFloat());
+  case 64:
+    return theBuilder.getConstantFloat64(floatValue.convertToDouble());
   default:
     break;
   }

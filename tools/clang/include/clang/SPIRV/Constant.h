@@ -67,6 +67,8 @@ public:
                                    uint32_t value, DecorationSet dec = {});
   static const Constant *getFloat32(SPIRVContext &ctx, uint32_t type_id,
                                     float value, DecorationSet dec = {});
+  static const Constant *getFloat64(SPIRVContext &ctx, uint32_t type_id,
+                                    double value, DecorationSet dec = {});
 
   // TODO: 64-bit float and integer constant implementation
 

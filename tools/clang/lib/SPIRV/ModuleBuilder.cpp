@@ -927,6 +927,7 @@ uint32_t ModuleBuilder::getConstant##builderTy(cppTy value) {                  \
 IMPL_GET_PRIMITIVE_CONST(Int32, int32_t)
 IMPL_GET_PRIMITIVE_CONST(Uint32, uint32_t)
 IMPL_GET_PRIMITIVE_CONST(Float32, float)
+IMPL_GET_PRIMITIVE_CONST(Float64, double)
 
 #undef IMPL_GET_PRIMITIVE_VALUE
 
