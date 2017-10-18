@@ -251,8 +251,8 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
             auto WeightStruct = Builder.CreateCall(LoadWeight, {
               LoadWeightOpcode, // i32 opcode
               HandleForUAV,     // %dx.types.Handle, ; resource handle
-              OffsetIntoUAV,    // i32 c0: index in elements into UAV
-              Zero32Arg         // i32 c1: byte offset into struct
+              OffsetIntoUAV,    // i32 c0: byte offset
+              UndefArg          // i32 c1: unused
             }, "WeightStruct");
             Weight = Builder.CreateExtractValue(WeightStruct, static_cast<uint64_t>(0LL), "Weight");
           }
@@ -265,7 +265,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
             AtomicBinOpcode,          // i32, ; opcode
             HandleForUAV,   // %dx.types.Handle, ; resource handle
             AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
-            OffsetIndex,    // i32, ; coordinate c0: index in elements
+            OffsetIndex,    // i32, ; coordinate c0: byte offset
             UndefArg,       // i32, ; coordinate c1 (unused)
             UndefArg,       // i32, ; coordinate c2 (unused)
             Weight          // i32); increment value
