@@ -692,8 +692,19 @@ TEST_F(FileTest, VulkanRegisterBinding) {
   // Resource binding from :register()
   runFileTest("vk.binding.register.hlsl");
 }
+TEST_F(FileTest, VulkanRegisterBindingShift) {
+  // Resource binding from :register() and with shift specified via
+  // command line option
+  runFileTest("vk.binding.cl.hlsl");
+}
 TEST_F(FileTest, VulkanExplicitBindingReassigned) {
   runFileTest("vk.binding.explicit.error.hlsl", /*expectSuccess*/ false);
+}
+TEST_F(FileTest, VulkanRegisterBindingReassigned) {
+  runFileTest("vk.binding.register.error.hlsl", /*expectSuccess*/ false);
+}
+TEST_F(FileTest, VulkanRegisterBindingShiftReassigned) {
+  runFileTest("vk.binding.cl.error.hlsl", /*expectSuccess*/ false);
 }
 TEST_F(FileTest, VulkanLayoutCBufferStd140) {
   runFileTest("vk.layout.cbuffer.std140.hlsl");

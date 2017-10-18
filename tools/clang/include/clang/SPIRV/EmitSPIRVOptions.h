@@ -15,6 +15,10 @@ namespace clang {
 /// Structs for controlling behaviors of SPIR-V codegen.
 struct EmitSPIRVOptions {
   llvm::StringRef stageIoOrder;
+  uint32_t bShift;
+  uint32_t tShift;
+  uint32_t sShift;
+  uint32_t uShift;
 };
 } // end namespace clang
 

@@ -650,7 +650,6 @@ In shaders for DirectX, resources are accessed via registers; while in shaders
 for Vulkan, it is done via descriptor set and binding numbers. The developer
 can explicitly annotate variables in HLSL to specify descriptor set and binding
 numbers, or leave it to the compiler to derive implicitly from registers.
-The explicit way has precedence over the implicit way.
 
 Explicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -667,22 +666,55 @@ binding numbers in the following way:
 
 If there is ``:register(xX, spaceY)`` specified for the given global variable,
 the corresponding resource will be assigned to descriptor set ``Y`` and binding
-number ``X``, regardless the resource type ``x``. (Note that this can cause
-reassignment of the same set and binding number pair. [TODO])
+number ``X``, regardless the register type ``x``. Note that this will cause
+binding number collision if, say, two resources are of different register
+type but the same register number. To solve this problem, four command-line
+options, ``-fvk-b-shift=N``, ``-fvk-s-shift=N``, ``-fvk-t-shift=N``, and
+``-fvk-u-shift=N``, are provided to shift all binding numbers of register type
+``b``, ``s``, ``t``, and ``u`` by ``N``, respectively.
 
 If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
 set #0.
+
+Summary
+~~~~~~~
 
 In summary, the compiler essentially assigns binding numbers in three passes.
 
 - Firstly it handles all declarations with explicit ``[[vk::binding(X[, Y])]]``
   annotation.
 - Then the compiler processes all remaining declarations with
-  ``:register(xX, spaceY)`` annotation.
+  ``:register(xX, spaceY)`` annotation, by applying the shift passed in using
+  command-line option ``-fvk-{b|s|t|u}-shift=N``, if provided.
 - Finally, the compiler assigns next available binding numbers to the rest in
   the declaration order.
 
+As an example, for the following code:
+
+.. code:: hlsl
+
+  struct S { ... };
+
+  ConstantBuffer<S> cbuffer1 : register(b0);
+  Texture2D<float4> texture1 : register(t0);
+  Texture2D<float4> texture2 : register(t1, space1);
+  SamplerState      sampler1;
+  [[vk::binding(3)]]
+  RWBuffer<float4> rwbuffer1 : register(u5, space2);
+
+If we compile with ``-fvk-t-shift=10``:
+
+- ``rwbuffer1`` will take binding #3 in set #0, since explicit binding
+  assignment has precedence over the rest.
+- ``cbuffer1`` will take binding #0 in set #0, since that's what deduced from
+  the register assignment, and there is no shift requested from command line.
+- ``texture1`` will take binding #10 in set #0, and ``texture2`` will take
+  binding #11 in set #1, since we requested an 10 shift on t-type registers.
+- ``sampler1`` will take binding 1 in set #0, since that's the next available
+  binding number in set #0.
+
+.. code:: hlsl
 HLSL Expressions
 ================
 
@@ -1163,7 +1195,7 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``tan``                 ``Tan``
 ``tanh``                ``Tanh``
 ``trunc``               ``Trunc``
-======================= ===============================
+======================= ===================================
 
 HLSL OO features
 ================

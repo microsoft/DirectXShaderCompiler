@@ -491,13 +491,37 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     if (const auto *reg = var.getRegister())
       if (!var.getBinding()) {
         const uint32_t set = reg->RegisterSpace;
-        const uint32_t binding = reg->RegisterNumber;
+        uint32_t binding = reg->RegisterNumber;
+        switch (reg->RegisterType) {
+        case 'b':
+          binding += spirvOptions.bShift;
+          break;
+        case 't':
+          binding += spirvOptions.tShift;
+          break;
+        case 's':
+          binding += spirvOptions.sShift;
+          break;
+        case 'u':
+          binding += spirvOptions.uShift;
+          break;
+        case 'c':
+          // For setting packing offset. Does not affect binding.
+          break;
+        default:
+          llvm_unreachable("unknown register type found");
+        }
 
-        // TODO: we can have duplicated set and binding number because of there
-        // are multiple resource types in the following. E.g., :register(s0) and
-        // :register(t0) will both map to set #0 and binding #0.
-        theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
-        bindingSet.useBinding(binding, set);
+        if (bindingSet.isBindingUsed(binding, set)) {
+          emitError(
+              "resource binding #%0 in descriptor set #%1 already assigned",
+              reg->Loc)
+              << binding << set;
+          noError = false;
+        } else {
+          theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
+          bindingSet.useBinding(binding, set);
+        }
       }
 
   // Process variables with no binding assignment
