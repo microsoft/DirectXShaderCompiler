@@ -444,15 +444,42 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
+
+  const llvm::StringRef bShift = Args.getLastArgValue(OPT_fvk_b_shift_EQ, "0");
+  if (bShift.getAsInteger(10, opts.VkBShift)) {
+    errors << "invalid b-type register number shift: " << bShift;
+    return 1;
+  }
+  const llvm::StringRef tShift = Args.getLastArgValue(OPT_fvk_t_shift_EQ, "0");
+  if (tShift.getAsInteger(10, opts.VkTShift)) {
+    errors << "invalid t-type register number shift: " << tShift;
+    return 1;
+  }
+  const llvm::StringRef sShift = Args.getLastArgValue(OPT_fvk_s_shift_EQ, "0");
+  if (sShift.getAsInteger(10, opts.VkSShift)) {
+    errors << "invalid s-type register number shift: " << sShift;
+    return 1;
+  }
+  const llvm::StringRef uShift = Args.getLastArgValue(OPT_fvk_u_shift_EQ, "0");
+  if (uShift.getAsInteger(10, opts.VkUShift)) {
+    errors << "invalid u-type register number shift: " << uShift;
+    return 1;
+  }
+
   opts.VkStageIoOrder = Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
   if (opts.VkStageIoOrder != "alpha" && opts.VkStageIoOrder != "decl") {
-    errors << "Unknown Vulkan stage I/O location assignment order : "
+    errors << "unknown Vulkan stage I/O location assignment order: "
            << opts.VkStageIoOrder;
     return 1;
   }
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
-      !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty()) {
+      !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fvk_b_shift_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fvk_t_shift_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fvk_s_shift_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fvk_u_shift_EQ).empty()
+      ) {
     errors << "SPIR-V CodeGen not available. "
               "Please recompile with -DENABLE_SPIRV_CODEGEN=ON.";
     return 1;
