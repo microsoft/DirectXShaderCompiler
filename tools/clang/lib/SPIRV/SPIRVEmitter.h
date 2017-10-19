@@ -290,6 +290,9 @@ private:
   /// Processes the 'isFinite' intrinsic function.
   uint32_t processIntrinsicIsFinite(const CallExpr *);
 
+  /// Processes the 'rcp' intrinsic function.
+  uint32_t processIntrinsicRcp(const CallExpr *);
+
   /// Processes the 'sign' intrinsic function for float types.
   /// The FSign instruction in the GLSL instruction set returns a floating point
   /// result. The HLSL sign function, however, returns an integer. An extra
@@ -370,6 +373,13 @@ private:
   /// shader model.
   void AddExecutionModeForEntryPoint(uint32_t entryPointId);
 
+  /// \brief Adds necessary execution modes for the hull shader based on the
+  /// HLSL attributes of the entry point function.
+  /// Also writes the number of output control points to
+  /// *numOutputControlPoints. Returns true on success, and false on failure.
+  bool processHullShaderAttributes(const FunctionDecl *entryFunction,
+                                   uint32_t *numOutputControlPoints);
+
   /// \brief Emits a wrapper function for the entry function and returns true
   /// on success.
   ///
@@ -383,6 +393,33 @@ private:
   /// variables for some cases.
   bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
                                 uint32_t entryFuncId);
+
+  /// \brief Performs the following operations for the Hull shader:
+  /// * Creates an output variable which is an Array containing results for all
+  /// control points.
+  ///
+  /// * If the Patch Constant Function (PCF) takes the Hull main entry function
+  /// results (OutputPatch), it creates a temporary function-scope variable that
+  /// is then passed to the PCF.
+  ///
+  /// * Adds a control barrier (OpControlBarrier) to ensure all invocations are
+  /// done before PCF is called.
+  ///
+  /// * Prepares the necessary parameters to pass to the PCF (Can be one or more
+  /// of InputPatch, OutputPatch, PrimitiveId).
+  ///
+  /// * The execution thread with ControlPointId (invocationID) of 0 calls the
+  /// PCF. e.g. if(id == 0) pcf();
+  ///
+  /// * Gathers the results of the PCF and assigns them to stage output
+  /// variables.
+  ///
+  /// The method panics if it is called for any shader kind other than Hull
+  /// shaders.
+  bool processHullEntryPointOutputAndPatchConstFunc(
+      const FunctionDecl *hullMainFuncDecl, uint32_t retType, uint32_t retVal,
+      uint32_t numOutputControlPoints, uint32_t outputControlPointId,
+      uint32_t primitiveId, uint32_t hullMainInputPatch);
 
 private:
   /// \brief Returns true iff *all* the case values in the given switch
@@ -503,9 +540,10 @@ private:
   uint32_t processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
                                                bool isCmp);
 
-  /// \brief Handles .Gather{Red|Green|Blue|Alpha}() calls on texture types.
-  uint32_t processTextureGatherRGBA(const CXXMemberCallExpr *expr,
-                                    uint32_t component);
+  /// \brief Handles .Gather{|Cmp}{Red|Green|Blue|Alpha}() calls on texture
+  /// types.
+  uint32_t processTextureGatherRGBACmpRGBA(const CXXMemberCallExpr *expr,
+                                           bool isCmp, uint32_t component);
 
   /// \brief Handles .GatherCmp() calls on texture types.
   uint32_t processTextureGatherCmp(const CXXMemberCallExpr *expr);
@@ -647,6 +685,10 @@ private:
 
   /// Maps a given statement to the basic block that is associated with it.
   llvm::DenseMap<const Stmt *, uint32_t> stmtBasicBlock;
+
+  /// This is the Patch Constant Function. This function is not explicitly
+  /// called from the entry point function.
+  FunctionDecl *patchConstFunc;
 };
 
 void SPIRVEmitter::doDeclStmt(const DeclStmt *declStmt) {

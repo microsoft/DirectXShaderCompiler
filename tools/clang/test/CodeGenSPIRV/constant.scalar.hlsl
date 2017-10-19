@@ -1,7 +1,8 @@
 // Run: %dxc -T ps_6_0 -E main
 
 // TODO
-// 16bit & 64bit integer & floats (require additional capability)
+// 16bit & 64bit integer (require additional capability)
+// 16bit floats (require additional capability)
 // float: denormalized numbers, Inf, NaN
 
 void main() {
@@ -46,4 +47,18 @@ void main() {
   float c_float_4_2 = 4.2;
 // CHECK-DAG: %float_n4_2 = OpConstant %float -4.2
   float c_float_n4_2 = -4.2;
+  
+  // double constants
+// CHECK-DAG: %double_0 = OpConstant %double 0
+  double c_double_0 = 0.;
+// CHECK-DAG: %double_n0 = OpConstant %double -0
+  double c_double_n0 = -0.;
+// CHECK-DAG: %double_4_5 = OpConstant %double 4.5
+  double c_double_4_5 = 4.5;
+// CHECK-DAG: %double_n8_2 = OpConstant %double -8.2
+  double c_double_n8_2 = -8.2;
+// CHECK-DAG: %double_1234567898765_32 = OpConstant %double 1234567898765.32
+  double c_large  =  1234567898765.32;
+// CHECK-DAG: %double_n1234567898765_32 = OpConstant %double -1234567898765.32
+  double c_nlarge = -1234567898765.32;
 }

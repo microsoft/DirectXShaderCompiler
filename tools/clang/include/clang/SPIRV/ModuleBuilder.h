@@ -189,7 +189,10 @@ public:
   /// \brief Creates SPIR-V instructions for writing to the given image.
   void createImageWrite(uint32_t imageId, uint32_t coordId, uint32_t texelId);
 
-  /// \brief Creates SPIR-V instructions for sampling the given image.
+  /// \brief Creates SPIR-V instructions for gathering the given image.
+  ///
+  /// If compareVal is given a non-zero value, OpImageDrefGather will be
+  /// generated; otherwise, OpImageGather will be generated.
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t component,
@@ -242,6 +245,9 @@ public:
   /// instruction.
   uint32_t createExtInst(uint32_t resultType, uint32_t setId, uint32_t instId,
                          llvm::ArrayRef<uint32_t> operands);
+
+  /// \brief Creates an OpControlBarrier instruction with the given flags.
+  void createControlBarrier(uint32_t exec, uint32_t memory, uint32_t semantics);
 
   // === SPIR-V Module Structure ===
 
@@ -333,6 +339,7 @@ public:
   uint32_t getConstantInt32(int32_t value);
   uint32_t getConstantUint32(uint32_t value);
   uint32_t getConstantFloat32(float value);
+  uint32_t getConstantFloat64(double value);
   uint32_t getConstantComposite(uint32_t typeId,
                                 llvm::ArrayRef<uint32_t> constituents);
   uint32_t getConstantNull(uint32_t type);

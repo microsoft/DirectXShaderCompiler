@@ -24,6 +24,31 @@ namespace spirv {
 
 namespace {
 
+// Returns true if the given decl has the given semantic.
+bool hasSemantic(const DeclaratorDecl *decl,
+                 hlsl::DXIL::SemanticKind semanticKind) {
+  using namespace hlsl;
+  for (auto *annotation : decl->getUnusualAnnotations()) {
+    if (auto *semanticDecl = dyn_cast<SemanticDecl>(annotation)) {
+      llvm::StringRef semanticName;
+      uint32_t semanticIndex = 0;
+      Semantic::DecomposeNameAndIndex(semanticDecl->SemanticName, &semanticName,
+                                      &semanticIndex);
+      const auto *semantic = Semantic::GetByName(semanticName);
+      if (semantic->GetKind() == semanticKind)
+        return true;
+    }
+  }
+  return false;
+}
+
+bool patchConstFuncTakesHullOutputPatch(FunctionDecl *pcf) {
+  for (const auto *param : pcf->parameters())
+    if (TypeTranslator::isOutputPatch(param->getType()))
+      return true;
+  return false;
+}
+
 // TODO: Maybe we should move these type probing functions to TypeTranslator.
 
 /// Returns true if the two types are the same scalar or vector type.
@@ -230,12 +255,6 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   if (context.getDiagnostics().hasErrorOccurred())
     return;
 
-  AddRequiredCapabilitiesForShaderModel();
-
-  // Addressing and memory model are required in a valid SPIR-V module.
-  theBuilder.setAddressingModel(spv::AddressingModel::Logical);
-  theBuilder.setMemoryModel(spv::MemoryModel::GLSL450);
-
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
 
   // The entry function is the seed of the queue.
@@ -243,6 +262,9 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     if (auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
       if (funcDecl->getName() == entryFunctionName) {
         workQueue.insert(funcDecl);
+      }
+      if (context.IsPatchConstantFunctionDecl(funcDecl)) {
+        patchConstFunc = funcDecl;
       }
     } else if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
       if (isa<HLSLBufferDecl>(varDecl->getDeclContext())) {
@@ -263,6 +285,15 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   for (uint32_t i = 0; i < workQueue.size(); ++i) {
     doDecl(workQueue[i]);
   }
+
+  if (context.getDiagnostics().hasErrorOccurred())
+    return;
+
+  AddRequiredCapabilitiesForShaderModel();
+
+  // Addressing and memory model are required in a valid SPIR-V module.
+  theBuilder.setAddressingModel(spv::AddressingModel::Logical);
+  theBuilder.setMemoryModel(spv::MemoryModel::GLSL450);
 
   theBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunctionId,
                            entryFunctionName, declIdMapper.collectStageVars());
@@ -573,7 +604,7 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   // File scope variables (static "global" and "local" variables) belongs to
   // the Private storage class, while function scope variables (normal "local"
   // variables) belongs to the Function storage class.
-  if (!decl->isExternallyVisible()) {
+  if (!decl->isExternallyVisible() || decl->isStaticDataMember()) {
     // Note: cannot move varType outside of this scope because it generates
     // SPIR-V types without decorations, while external visible variable should
     // have SPIR-V type with decorations.
@@ -1057,10 +1088,25 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
 }
 
 void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
-  if (const auto *retVal = stmt->getRetValue())
-    theBuilder.createReturnValue(doExpr(retVal));
-  else
+  if (const auto *retVal = stmt->getRetValue()) {
+    const auto retInfo = doExpr(retVal);
+    const auto retType = retVal->getType();
+    if (retInfo.storageClass != spv::StorageClass::Function &&
+        retType->isStructureType()) {
+      // We are returning some value from a non-Function storage class. Need to
+      // create a temporary variable to "convert" the value to Function storage
+      // class and then return.
+      const uint32_t valType = typeTranslator.translateType(retType);
+      const uint32_t tempVar = theBuilder.addFnVar(valType, "temp.var.ret");
+      storeValue(tempVar, retInfo, retType);
+
+      theBuilder.createReturnValue(theBuilder.createLoad(valType, tempVar));
+    } else {
+      theBuilder.createReturnValue(retInfo);
+    }
+  } else {
     theBuilder.createReturn();
+  }
 
   // Some statements that alter the control flow (break, continue, return, and
   // discard), require creation of a new basic block to hold any statement that
@@ -1147,10 +1193,12 @@ SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   const auto *base = collectArrayStructIndices(expr, &indices);
   auto info = doExpr(base);
 
-  const uint32_t ptrType = theBuilder.getPointerType(
-      typeTranslator.translateType(expr->getType(), info.layoutRule),
-      info.storageClass);
-  info.resultId = theBuilder.createAccessChain(ptrType, info, indices);
+  if (!indices.empty()) {
+    const uint32_t ptrType = theBuilder.getPointerType(
+        typeTranslator.translateType(expr->getType(), info.layoutRule),
+        info.storageClass);
+    info.resultId = theBuilder.createAccessChain(ptrType, info, indices);
+  }
 
   return info;
 }
@@ -1691,20 +1739,31 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr) {
                                            {0});
 }
 
-uint32_t SPIRVEmitter::processTextureGatherRGBA(const CXXMemberCallExpr *expr,
-                                                const uint32_t component) {
-  // Parameters for .Gather{Red|Green|Blue|Alpha}() are one of the following two
-  // sets:
+uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
+    const CXXMemberCallExpr *expr, const bool isCmp, const uint32_t component) {
+  // Parameters for .Gather{Red|Green|Blue|Alpha}() are one of the following
+  // two sets:
   // * SamplerState s, float2 location, int2 offset
   // * SamplerState s, float2 location, int2 offset0, int2 offset1,
   //   int offset2, int2 offset3
+  //
   // An additional out uint status parameter can appear in both of the above,
   // which we does not support yet.
+  //
+  // Parameters for .GatherCmp{Red|Green|Blue|Alpha}() are one of the following
+  // two sets:
+  // * SamplerState s, float2 location, int2 offset
+  // * SamplerState s, float2 location, int2 offset0, int2 offset1,
+  //   int offset2, int2 offset3
+  //
+  // An additional out uint status parameter can appear in both of the above,
+  // which we does not support yet.
+  //
   // Return type is always a 4-component vector.
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto numArgs = expr->getNumArgs();
 
-  if (numArgs != 3 && numArgs != 6) {
+  if (numArgs != 3 + isCmp && numArgs != 6 + isCmp) {
     emitError("unsupported '%0' method call with status parameter",
               expr->getExprLoc())
         << callee->getName() << expr->getSourceRange();
@@ -1716,17 +1775,18 @@ uint32_t SPIRVEmitter::processTextureGatherRGBA(const CXXMemberCallExpr *expr,
   const uint32_t image = loadIfGLValue(imageExpr);
   const uint32_t sampler = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
+  const uint32_t compareVal = isCmp ? doExpr(expr->getArg(2)) : 0;
 
   uint32_t constOffset = 0, varOffset = 0, constOffsets = 0;
-  if (numArgs == 3) {
+  if (numArgs == 3 + isCmp) {
     // One offset parameter
-    handleOptionalOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
+    handleOptionalOffsetInMethodCall(expr, 2 + isCmp, &constOffset, &varOffset);
   } else {
     // Four offset parameters
-    const auto offset0 = tryToEvaluateAsConst(expr->getArg(2));
-    const auto offset1 = tryToEvaluateAsConst(expr->getArg(3));
-    const auto offset2 = tryToEvaluateAsConst(expr->getArg(4));
-    const auto offset3 = tryToEvaluateAsConst(expr->getArg(5));
+    const auto offset0 = tryToEvaluateAsConst(expr->getArg(2 + isCmp));
+    const auto offset1 = tryToEvaluateAsConst(expr->getArg(3 + isCmp));
+    const auto offset2 = tryToEvaluateAsConst(expr->getArg(4 + isCmp));
+    const auto offset3 = tryToEvaluateAsConst(expr->getArg(5 + isCmp));
 
     // Make sure we can generate the ConstOffsets image operands in SPIR-V.
     if (!offset0 || !offset1 || !offset2 || !offset3) {
@@ -1747,7 +1807,7 @@ uint32_t SPIRVEmitter::processTextureGatherRGBA(const CXXMemberCallExpr *expr,
 
   return theBuilder.createImageGather(
       retType, imageType, image, sampler, coordinate,
-      theBuilder.getConstantInt32(component), /*compareVal*/ 0, constOffset,
+      theBuilder.getConstantInt32(component), compareVal, constOffset,
       varOffset, constOffsets, /*sampleNumber*/ 0);
 }
 
@@ -2077,15 +2137,17 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_SampleCmpLevelZero:
     return processTextureSampleCmpCmpLevelZero(expr, /*isCmp=*/false);
   case IntrinsicOp::MOP_GatherRed:
-    return processTextureGatherRGBA(expr, 0);
+    return processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/false, 0);
   case IntrinsicOp::MOP_GatherGreen:
-    return processTextureGatherRGBA(expr, 1);
+    return processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/false, 1);
   case IntrinsicOp::MOP_GatherBlue:
-    return processTextureGatherRGBA(expr, 2);
+    return processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/false, 2);
   case IntrinsicOp::MOP_GatherAlpha:
-    return processTextureGatherRGBA(expr, 3);
+    return processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/false, 3);
   case IntrinsicOp::MOP_GatherCmp:
     return processTextureGatherCmp(expr);
+  case IntrinsicOp::MOP_GatherCmpRed:
+    return processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/true, 0);
   case IntrinsicOp::MOP_Load:
     return processBufferTextureLoad(expr);
   case IntrinsicOp::MOP_Load2:
@@ -2156,16 +2218,14 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   if (isSample) {
     return theBuilder.createImageSample(
         retType, imageType, image, sampler, coordinate, /*compareVal*/ 0,
-        /*bias*/ 0,
-        /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
+        /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
         /*constOffsets*/ 0, /*sampleNumber*/ 0);
   } else {
     return theBuilder.createImageGather(
         retType, imageType, image, sampler, coordinate,
         // .Gather() doc says we return four components of red data.
         theBuilder.getConstantInt32(0), /*compareVal*/ 0, constOffset,
-        varOffset,
-        /*constOffsets*/ 0, /*sampleNumber*/ 0);
+        varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0);
   }
 }
 
@@ -2538,13 +2598,16 @@ SpirvEvalInfo SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
 
 SpirvEvalInfo SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
+
   const Expr *base = collectArrayStructIndices(expr, &indices);
   auto info = doExpr(base);
 
-  const uint32_t ptrType = theBuilder.getPointerType(
-      typeTranslator.translateType(expr->getType(), info.layoutRule),
-      info.storageClass);
-  info.resultId = theBuilder.createAccessChain(ptrType, info, indices);
+  if (!indices.empty()) {
+    const uint32_t ptrType = theBuilder.getPointerType(
+        typeTranslator.translateType(expr->getType(), info.layoutRule),
+        info.storageClass);
+    info.resultId = theBuilder.createAccessChain(ptrType, info, indices);
+  }
 
   return info;
 }
@@ -2774,8 +2837,8 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
   } else if (const auto *recordType = valType->getAs<RecordType>()) {
     uint32_t index = 0;
     for (const auto *decl : recordType->getDecl()->decls()) {
-      // Implicit generated struct declarations should be ignored.
-      if (isa<CXXRecordDecl>(decl) && decl->isImplicit())
+      // Ignore implicit generated struct declarations/constructors/destructors.
+      if (decl->isImplicit())
         continue;
 
       const auto *field = cast<FieldDecl>(decl);
@@ -3481,6 +3544,15 @@ SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
 const Expr *SPIRVEmitter::collectArrayStructIndices(
     const Expr *expr, llvm::SmallVectorImpl<uint32_t> *indices) {
   if (const auto *indexing = dyn_cast<MemberExpr>(expr)) {
+    // First check whether this is referring to a static member. If it is, we
+    // create a DeclRefExpr for it.
+    if (auto *varDecl = dyn_cast<VarDecl>(indexing->getMemberDecl()))
+      if (varDecl->isStaticDataMember())
+        return DeclRefExpr::Create(
+            astContext, NestedNameSpecifierLoc(), SourceLocation(), varDecl,
+            /*RefersToEnclosingVariableOrCapture=*/false, SourceLocation(),
+            varDecl->getType(), VK_LValue);
+
     const Expr *base = collectArrayStructIndices(
         indexing->getBase()->IgnoreParenNoopCasts(astContext), indices);
 
@@ -3631,6 +3703,13 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 
   GLSLstd450 glslOpcode = GLSLstd450Bad;
 
+#define INTRINSIC_SPIRV_OP_WITH_CAP_CASE(intrinsicOp, spirvOp, doEachVec, cap) \
+  case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
+    theBuilder.requireCapability(cap);                                         \
+    return processIntrinsicUsingSpirvInst(callExpr, spv::Op::Op##spirvOp,      \
+                                          doEachVec);                          \
+  } break
+
 #define INTRINSIC_SPIRV_OP_CASE(intrinsicOp, spirvOp, doEachVec)               \
   case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
     return processIntrinsicUsingSpirvInst(callExpr, spv::Op::Op##spirvOp,      \
@@ -3706,6 +3785,9 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_sincos: {
     return processIntrinsicSinCos(callExpr);
   }
+  case hlsl::IntrinsicOp::IOP_rcp: {
+    return processIntrinsicRcp(callExpr);
+  }
   case hlsl::IntrinsicOp::IOP_saturate: {
     return processIntrinsicSaturate(callExpr);
   }
@@ -3713,10 +3795,21 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     return processIntrinsicLog10(callExpr);
   }
     INTRINSIC_SPIRV_OP_CASE(transpose, Transpose, false);
+    INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
+    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddx_coarse, DPdxCoarse, false,
+                                     spv::Capability::DerivativeControl);
+    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddx_fine, DPdxFine, false,
+                                     spv::Capability::DerivativeControl);
+    INTRINSIC_SPIRV_OP_CASE(ddy, DPdy, true);
+    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddy_coarse, DPdyCoarse, false,
+                                     spv::Capability::DerivativeControl);
+    INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddy_fine, DPdyFine, false,
+                                     spv::Capability::DerivativeControl);
     INTRINSIC_SPIRV_OP_CASE(countbits, BitCount, false);
     INTRINSIC_SPIRV_OP_CASE(isinf, IsInf, true);
     INTRINSIC_SPIRV_OP_CASE(isnan, IsNan, true);
     INTRINSIC_SPIRV_OP_CASE(fmod, FMod, true);
+    INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
     INTRINSIC_SPIRV_OP_CASE(reversebits, BitReverse, false);
     INTRINSIC_OP_CASE(round, Round, true);
     INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
@@ -3735,6 +3828,7 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(exp2, Exp2, true);
     INTRINSIC_OP_CASE_SINT_UINT(firstbithigh, FindSMsb, FindUMsb, false);
     INTRINSIC_OP_CASE_SINT_UINT(ufirstbithigh, FindSMsb, FindUMsb, false);
+    INTRINSIC_OP_CASE(faceforward, FaceForward, false);
     INTRINSIC_OP_CASE(firstbitlow, FindILsb, false);
     INTRINSIC_OP_CASE(floor, Floor, true);
     INTRINSIC_OP_CASE(fma, Fma, true);
@@ -4272,6 +4366,35 @@ uint32_t SPIRVEmitter::processIntrinsicDot(const CallExpr *callExpr) {
   }
 }
 
+uint32_t SPIRVEmitter::processIntrinsicRcp(const CallExpr *callExpr) {
+  // 'rcp' takes only 1 argument that is a scalar, vector, or matrix of type
+  // float or double.
+  assert(callExpr->getNumArgs() == 1u);
+  const QualType returnType = callExpr->getType();
+  const uint32_t returnTypeId = typeTranslator.translateType(returnType);
+  const Expr *arg = callExpr->getArg(0);
+  const uint32_t argId = doExpr(arg);
+  const QualType argType = arg->getType();
+
+  // For cases with matrix argument.
+  QualType elemType = {};
+  uint32_t numRows = 0, numCols = 0;
+  if (TypeTranslator::isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
+    const uint32_t vecOne = getVecValueOne(elemType, numCols);
+    const auto actOnEachVec = [this, vecOne](uint32_t /*index*/,
+                                             uint32_t vecType,
+                                             uint32_t curRowId) {
+      return theBuilder.createBinaryOp(spv::Op::OpFDiv, vecType, vecOne,
+                                       curRowId);
+    };
+    return processEachVectorInMatrix(arg, argId, actOnEachVec);
+  }
+
+  // For cases with scalar or vector arguments.
+  return theBuilder.createBinaryOp(spv::Op::OpFDiv, returnTypeId,
+                                   getValueOne(argType), argId);
+}
+
 uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
                                                 spv::Op spvOp) {
   // 'all' and 'any' take only 1 parameter.
@@ -4662,6 +4785,8 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
   {
     QualType scalarType = {};
     if (TypeTranslator::isScalarType(type, &scalarType)) {
+      // TODO: Support other types such as short, half, etc.
+
       if (scalarType->isSignedIntegerType()) {
         return theBuilder.getConstantInt32(1);
       }
@@ -4670,8 +4795,14 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
         return theBuilder.getConstantUint32(1);
       }
 
-      if (scalarType->isFloatingType()) {
-        return theBuilder.getConstantFloat32(1.0);
+      if (const auto *builtinType = scalarType->getAs<BuiltinType>()) {
+        // TODO: Add support for other types that are not covered yet.
+        switch (builtinType->getKind()) {
+        case BuiltinType::Double:
+          return theBuilder.getConstantFloat64(1.0);
+        case BuiltinType::Float:
+          return theBuilder.getConstantFloat32(1.0);
+        }
       }
     }
   }
@@ -4784,6 +4915,8 @@ uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
   switch (bitwidth) {
   case 32:
     return theBuilder.getConstantFloat32(floatValue.convertToFloat());
+  case 64:
+    return theBuilder.getConstantFloat64(floatValue.convertToDouble());
   default:
     break;
   }
@@ -4835,7 +4968,6 @@ SPIRVEmitter::getSpirvShaderStage(const hlsl::ShaderModel &model) {
 void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
   if (shaderModel.IsHS() || shaderModel.IsDS()) {
     theBuilder.requireCapability(spv::Capability::Tessellation);
-    emitError("Tasselation shaders are currently not supported.");
   } else if (shaderModel.IsGS()) {
     theBuilder.requireCapability(spv::Capability::Geometry);
     emitError("Geometry shaders are currently not supported.");
@@ -4851,8 +4983,79 @@ void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
   }
 }
 
+bool SPIRVEmitter::processHullShaderAttributes(
+    const FunctionDecl *decl, uint32_t *numOutputControlPoints) {
+  assert(shaderModel.IsHS());
+  using namespace spv;
+  if (auto *domain = decl->getAttr<HLSLDomainAttr>()) {
+    const auto domainType = domain->getDomainType().lower();
+    const ExecutionMode hsExecMode =
+        llvm::StringSwitch<ExecutionMode>(domainType)
+            .Case("tri", ExecutionMode::Triangles)
+            .Case("quad", ExecutionMode::Quads)
+            .Case("isoline", ExecutionMode::Isolines)
+            .Default(ExecutionMode::Max);
+    if (hsExecMode == ExecutionMode::Max) {
+      emitError("unknown domain type in hull shader", decl->getLocation());
+      return false;
+    }
+    theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+  }
+  if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
+    // TODO: Could not find an equivalent of "pow2" partitioning scheme in
+    // SPIR-V.
+    const auto scheme = partitioning->getScheme().lower();
+    const ExecutionMode hsExecMode =
+        llvm::StringSwitch<ExecutionMode>(scheme)
+            .Case("fractional_even", ExecutionMode::SpacingFractionalEven)
+            .Case("fractional_odd", ExecutionMode::SpacingFractionalOdd)
+            .Case("integer", ExecutionMode::SpacingEqual)
+            .Default(ExecutionMode::Max);
+    if (hsExecMode == ExecutionMode::Max) {
+      emitError("unknown partitioning scheme in hull shader",
+                decl->getLocation());
+      return false;
+    }
+    theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+  }
+  if (auto *outputTopology = decl->getAttr<HLSLOutputTopologyAttr>()) {
+    const auto topology = outputTopology->getTopology().lower();
+    const ExecutionMode hsExecMode =
+        llvm::StringSwitch<ExecutionMode>(topology)
+            .Case("point", ExecutionMode::PointMode)
+            .Case("triangle_cw", ExecutionMode::VertexOrderCw)
+            .Case("triangle_ccw", ExecutionMode::VertexOrderCcw)
+            .Default(ExecutionMode::Max);
+    // TODO: There is no SPIR-V equivalent for "line" topology. Is it the
+    // default?
+    if (topology != "line") {
+      if (hsExecMode != spv::ExecutionMode::Max) {
+        theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
+      } else {
+        emitError("unknown output topology in hull shader",
+                  decl->getLocation());
+        return false;
+      }
+    }
+  }
+  if (auto *controlPoints = decl->getAttr<HLSLOutputControlPointsAttr>()) {
+    *numOutputControlPoints = controlPoints->getCount();
+    theBuilder.addExecutionMode(entryFunctionId,
+                                spv::ExecutionMode::OutputVertices,
+                                {*numOutputControlPoints});
+  }
+
+  return true;
+}
+
 bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
                                             const uint32_t entryFuncId) {
+  // These are going to be used for Hull shaders only.
+  uint32_t numOutputControlPoints = 0;
+  uint32_t outputControlPointIdVal = 0;
+  uint32_t primitiveIdVar = 0;
+  uint32_t hullMainInputPatchParam = 0;
+
   // Construct the wrapper function signature.
   const uint32_t voidType = theBuilder.getVoidType();
   const uint32_t funcType = theBuilder.getFunctionType(voidType, {});
@@ -4878,6 +5081,9 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::LocalSize, {1, 1, 1});
     }
+  } else if (shaderModel.IsHS()) {
+    if (!processHullShaderAttributes(decl, &numOutputControlPoints))
+      return false;
   }
 
   // The entry basic block.
@@ -4902,10 +5108,24 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     // initialize the corresponding temporary variable
     if (!param->getAttr<HLSLOutAttr>()) {
       uint32_t loadedValue = 0;
-      if (!declIdMapper.createStageInputVar(param, &loadedValue))
+      if (TypeTranslator::isInputPatch(param->getType())) {
+        const uint32_t hullInputPatchId =
+            declIdMapper.createStageVarWithoutSemantics(
+                /*isInput*/ true, typeId, "hullEntryPointInput",
+                decl->getAttr<VKLocationAttr>());
+        loadedValue = theBuilder.createLoad(typeId, hullInputPatchId);
+        hullMainInputPatchParam = tempVar;
+      } else if (!declIdMapper.createStageInputVar(param, &loadedValue,
+                                                   /*isPC*/ false)) {
         return false;
+      }
 
       theBuilder.createStore(tempVar, loadedValue);
+
+      if (hasSemantic(param, hlsl::DXIL::SemanticKind::OutputControlPointID))
+        outputControlPointIdVal = loadedValue;
+      if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID))
+        primitiveIdVar = tempVar;
     }
   }
 
@@ -4914,11 +5134,24 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   const uint32_t retVal =
       theBuilder.createFunctionCall(retType, entryFuncId, params);
 
-  // Create and write stage output variables for return value
-  if (!declIdMapper.createStageOutputVar(decl, retVal))
-    return false;
+  // Create and write stage output variables for return value. Special case for
+  // Hull shaders since they operate differently in 2 ways:
+  // 1- Their return value is in fact an array and each invocation should write
+  // to the proper offset in the array.
+  // 2- The patch constant function must be called *once* after all invocations
+  // of the main entry point function is done.
+  if (shaderModel.IsHS()) {
+    if (!processHullEntryPointOutputAndPatchConstFunc(
+            decl, retType, retVal, numOutputControlPoints,
+            outputControlPointIdVal, primitiveIdVar, hullMainInputPatchParam))
+      return false;
+  } else {
+    if (!declIdMapper.createStageOutputVar(decl, retVal, /*isPC*/ false))
+      return false;
+  }
 
-  // Create and write stage output variables for parameters marked as out/inout
+  // Create and write stage output variables for parameters marked as
+  // out/inout
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const auto *param = decl->getParamDecl(i);
     if (param->getAttr<HLSLOutAttr>() || param->getAttr<HLSLInOutAttr>()) {
@@ -4926,7 +5159,8 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       const uint32_t typeId = typeTranslator.translateType(param->getType());
       const uint32_t loadedParam = theBuilder.createLoad(typeId, params[i]);
 
-      if (!declIdMapper.createStageOutputVar(param, loadedParam))
+      if (!declIdMapper.createStageOutputVar(param, loadedParam,
+                                             /*isPC*/ false))
         return false;
     }
   }
@@ -4934,6 +5168,133 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   theBuilder.createReturn();
   theBuilder.endFunction();
 
+  // For Hull shaders, there is no explicit call to the PCF in the HLSL source.
+  // We should invoke a translation of the PCF manually.
+  if (shaderModel.IsHS())
+    doDecl(patchConstFunc);
+
+  return true;
+}
+
+bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
+    const FunctionDecl *hullMainFuncDecl, uint32_t retType, uint32_t retVal,
+    uint32_t numOutputControlPoints, uint32_t outputControlPointId,
+    uint32_t primitiveId, uint32_t hullMainInputPatch) {
+
+  // This method may only be called for Hull shaders.
+  assert(shaderModel.IsHS());
+  uint32_t hullMainOutputPatch = 0;
+
+  // For Hull shaders, the real output is an array of size
+  // numOutputControlPoints. The results of the main should be written to the
+  // correct offset in the array (based on InvocationID).
+  if (!numOutputControlPoints) {
+    emitError("number of output control points cannot be zero",
+              hullMainFuncDecl->getLocation());
+    return false;
+  }
+  // TODO: We should be able to handle cases where the SV_OutputControlPointID
+  // is not provided.
+  if (!outputControlPointId) {
+    emitError(
+        "SV_OutputControlPointID semantic must be provided in the hull shader",
+        hullMainFuncDecl->getLocation());
+    return false;
+  }
+  if (!patchConstFunc) {
+    emitError("patch constant function not defined in hull shader",
+              hullMainFuncDecl->getLocation());
+    return false;
+  }
+
+  // Let's call the return value of the Hull entry point function
+  // "hllEntryPointOutput". The type of hullEntryPointOutput should be an
+  // array of size numOutputControlPoints.
+  const uint32_t hullEntryPointOutputType = theBuilder.getArrayType(
+      retType, theBuilder.getConstantUint32(numOutputControlPoints));
+  const auto loc = hullMainFuncDecl->getAttr<VKLocationAttr>();
+  const auto hullOutputVar = declIdMapper.createStageVarWithoutSemantics(
+      /*isInput*/ false, hullEntryPointOutputType, "hullEntryPointOutput", loc);
+  if (!hullOutputVar)
+    return false;
+
+  // Write the results into the correct Output array offset.
+  const auto location = theBuilder.createAccessChain(
+      theBuilder.getPointerType(retType, spv::StorageClass::Output),
+      hullOutputVar, {outputControlPointId});
+  theBuilder.createStore(location, retVal);
+
+  // If the patch constant function (PCF) takes the result of the Hull main
+  // entry point, create a temporary function-scope variable and write the
+  // results to it, so it can be passed to the PCF.
+  if (patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
+    hullMainOutputPatch = theBuilder.addFnVar(hullEntryPointOutputType,
+                                              "temp.var.hullEntryPointOutput");
+    const auto tempLocation = theBuilder.createAccessChain(
+        theBuilder.getPointerType(retType, spv::StorageClass::Function),
+        hullMainOutputPatch, {outputControlPointId});
+    theBuilder.createStore(tempLocation, retVal);
+  }
+
+  // Now create a barrier before calling the Patch Constant Function (PCF).
+  // Flags are:
+  // Execution Barrier scope = Workgroup (2)
+  // Memory Barrier scope = Device (1)
+  // Memory Semantics Barrier scope = None (0)
+  theBuilder.createControlBarrier(theBuilder.getConstantUint32(2),
+                                  theBuilder.getConstantUint32(1),
+                                  theBuilder.getConstantUint32(0));
+
+  // The PCF should be called only once. Therefore, we check the invocationID,
+  // and we only allow ID 0 to call the PCF.
+  const uint32_t condition = theBuilder.createBinaryOp(
+      spv::Op::OpIEqual, theBuilder.getBoolType(), outputControlPointId,
+      theBuilder.getConstantUint32(0));
+  const uint32_t thenBB = theBuilder.createBasicBlock("if.true");
+  const uint32_t mergeBB = theBuilder.createBasicBlock("if.merge");
+  theBuilder.createConditionalBranch(condition, thenBB, mergeBB, mergeBB);
+  theBuilder.addSuccessor(thenBB);
+  theBuilder.addSuccessor(mergeBB);
+  theBuilder.setMergeTarget(mergeBB);
+
+  theBuilder.setInsertPoint(thenBB);
+  // Call the PCF. Since the function is not explicitly called, we must first
+  // register an ID for it.
+  const uint32_t pcfId = declIdMapper.getOrRegisterFnResultId(patchConstFunc);
+  const uint32_t pcfRetType =
+      typeTranslator.translateType(patchConstFunc->getReturnType());
+  std::vector<uint32_t> pcfParams;
+  for (const auto *param : patchConstFunc->parameters()) {
+    // Note: According to the HLSL reference, the PCF takes an InputPatch of
+    // ControlPoints as well as the PatchID (PrimitiveID). This does not
+    // necessarily mean that they are present. There is also no requirement
+    // for the order of parameters passed to PCF.
+    if (TypeTranslator::isInputPatch(param->getType()))
+      pcfParams.push_back(hullMainInputPatch);
+    if (TypeTranslator::isOutputPatch(param->getType()))
+      pcfParams.push_back(hullMainOutputPatch);
+    if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID)) {
+      if (!primitiveId) {
+        const uint32_t typeId = typeTranslator.translateType(param->getType());
+        std::string tempVarName = "param.var." + param->getNameAsString();
+        const uint32_t tempVar = theBuilder.addFnVar(typeId, tempVarName);
+        uint32_t loadedValue = 0;
+        declIdMapper.createStageInputVar(param, &loadedValue, /*isPC*/ true);
+        theBuilder.createStore(tempVar, loadedValue);
+        primitiveId = tempVar;
+      }
+      pcfParams.push_back(primitiveId);
+    }
+  }
+  const uint32_t pcfResultId =
+      theBuilder.createFunctionCall(pcfRetType, pcfId, {pcfParams});
+  if (!declIdMapper.createStageOutputVar(patchConstFunc, pcfResultId,
+                                         /*isPC*/ true))
+    return false;
+
+  theBuilder.createBranch(mergeBB);
+  theBuilder.addSuccessor(mergeBB);
+  theBuilder.setInsertPoint(mergeBB);
   return true;
 }
 

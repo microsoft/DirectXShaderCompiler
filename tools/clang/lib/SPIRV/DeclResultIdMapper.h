@@ -126,13 +126,25 @@ public:
   /// true on success. SPIR-V instructions will also be generated to update the
   /// contents of the output variables by extracting sub-values from the given
   /// storedValue.
-  bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t storedValue);
+  bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t storedValue,
+                            bool isPatchConstant);
 
   /// \brief Creates the stage input variables by parsing the semantics attached
   /// to the given function's parameter and returns true on success. SPIR-V
   /// instructions will also be generated to load the contents from the input
   /// variables and composite them into one and write to *loadedValue.
-  bool createStageInputVar(const ParmVarDecl *paramDecl, uint32_t *loadedValue);
+  bool createStageInputVar(const ParmVarDecl *paramDecl, uint32_t *loadedValue,
+                           bool isPatchConstant);
+
+  /// \brief Creates an input/output stage variable which does not have any
+  /// semantics (such as InputPatch/OutputPatch in Hull shaders). This method
+  /// does not create a Load/Store from/to the created stage variable and leaves
+  /// it to the caller to do so as they see fit, because it is possible that the
+  /// stage variable may have to be accessed differently (using OpAccessChain
+  /// for example).
+  uint32_t createStageVarWithoutSemantics(bool isInput, uint32_t typeId,
+                                          const llvm::StringRef name,
+                                          const clang::VKLocationAttr *loc);
 
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its <result-id>.
@@ -182,6 +194,11 @@ public:
                   LayoutRule lr = LayoutRule::Void, int indexInCTB = -1)
         : resultId(result), storageClass(sc), layoutRule(lr),
           indexInCTBuffer(indexInCTB) {}
+
+    /// Implicit conversion to SpirvEvalInfo.
+    operator SpirvEvalInfo() const {
+      return SpirvEvalInfo(resultId, storageClass, layoutRule);
+    }
 
     uint32_t resultId;
     spv::StorageClass storageClass;
@@ -270,13 +287,24 @@ private:
   ///
   /// Assumes the decl has semantic attached to itself or to its fields.
   bool createStageVars(const DeclaratorDecl *decl, uint32_t *value,
-                       bool asInput, const llvm::Twine &namePrefix);
+                       bool asInput, const llvm::Twine &namePrefix,
+                       bool isPatchConstant);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
   /// its storage class accordingly. name will be used as the debug name when
   /// creating a stage input/output variable.
   uint32_t createSpirvStageVar(StageVar *, const llvm::Twine &name);
+
+  /// Returns the proper SPIR-V storage class (Input or Output) for the given
+  /// SigPoint.
+  spv::StorageClass getStorageClassForSigPoint(const hlsl::SigPoint *);
+
+  /// Returns true if the given SPIR-V stage variable has Input storage class.
+  inline bool isInputStorageClass(const StageVar &v) {
+    return getStorageClassForSigPoint(v.getSigPoint()) ==
+           spv::StorageClass::Input;
+  }
 
 private:
   const hlsl::ShaderModel &shaderModel;

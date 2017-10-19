@@ -551,28 +551,31 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC, Value * Th
   else {
     Function* StoreValue = BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
     Constant* StoreValueOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
-    Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
+    UndefValue* Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
     Constant* ZeroArg;
+    UndefValue* UndefArg;
     if (TheValueTypeID == Type::TypeID::IntegerTyID) {
-      ZeroArg = BC.HlslOP->GetU32Const(0);
+        ZeroArg = BC.HlslOP->GetU32Const(0);
+        UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
     }
     else if (TheValueTypeID == Type::TypeID::FloatTyID) {
-      ZeroArg = BC.HlslOP->GetFloatConst(0.f);
+        ZeroArg = BC.HlslOP->GetFloatConst(0.f);
+        UndefArg = UndefValue::get(Type::getFloatTy(BC.Ctx));
     }
     else {
-      // The above are the only two valid types for a UAV store
-      assert(false);
+        // The above are the only two valid types for a UAV store
+        assert(false);
     }
     Constant* WriteMask_X = BC.HlslOP->GetI8Const(1);
     (void)BC.Builder.CreateCall(StoreValue, {
       StoreValueOpcode, // i32 opcode
-      m_HandleForUAV,     // %dx.types.Handle, ; resource handle
-      m_CurrentIndex,            // i32 c0: index in bytes into UAV
-      Zero32Arg,        // i32 c1: unused
+      m_HandleForUAV,   // %dx.types.Handle, ; resource handle
+      m_CurrentIndex,   // i32 c0: index in bytes into UAV
+      Undef32Arg,       // i32 c1: unused
       TheValue,
-      ZeroArg,        // unused values
-      ZeroArg,        // unused values
-      ZeroArg,        // unused values
+      UndefArg,         // unused values
+      UndefArg,         // unused values
+      UndefArg,         // unused values
       WriteMask_X
     });
 
@@ -699,22 +702,20 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   addInvocationStartMarker(BC);
 
   // Instrument original instructions:
-  {
-    for (auto & Inst : AllInstructions) {
-      // Instrumentation goes after the instruction if it has a return value.
-      // Otherwise, the instruction might be a terminator so we HAVE to put the instrumentation before
-      if (Inst->getType()->getTypeID() != Type::TypeID::VoidTyID) {
-        // Has a return type, so can't be a terminator, so start inserting before the next instruction
-        IRBuilder<> Builder(Inst->getNextNode());
-        BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
-        addStepDebugEntry(BC2, Inst);
-      }
-      else {
-        // Insert before this instruction
-        IRBuilder<> Builder(Inst);
-        BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
-        addStepDebugEntry(BC2, Inst);
-      }
+  for (auto & Inst : AllInstructions) {
+    // Instrumentation goes after the instruction if it has a return value.
+    // Otherwise, the instruction might be a terminator so we HAVE to put the instrumentation before
+    if (Inst->getType()->getTypeID() != Type::TypeID::VoidTyID) {
+      // Has a return type, so can't be a terminator, so start inserting before the next instruction
+      IRBuilder<> Builder(Inst->getNextNode());
+      BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
+      addStepDebugEntry(BC2, Inst);
+    }
+    else {
+      // Insert before this instruction
+      IRBuilder<> Builder(Inst);
+      BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
+      addStepDebugEntry(BC2, Inst);
     }
   }
 

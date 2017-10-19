@@ -303,6 +303,20 @@ bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
   return isScalar;
 }
 
+bool TypeTranslator::isOutputPatch(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "OutputPatch";
+  }
+  return false;
+}
+
+bool TypeTranslator::isInputPatch(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "InputPatch";
+  }
+  return false;
+}
+
 bool TypeTranslator::isRWByteAddressBuffer(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     return rt->getDecl()->getName() == "RWByteAddressBuffer";
@@ -531,8 +545,8 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
   uint32_t offset = 0, index = 0;
 
   for (const auto *field : decl->decls()) {
-    // Implicit generated struct declarations should be ignored.
-    if (isa<CXXRecordDecl>(field) && field->isImplicit())
+    // Ignore implicit generated struct declarations/constructors/destructors.
+    if (field->isImplicit())
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
@@ -681,6 +695,24 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
         /*depth*/ 0, /*isArray*/ 0, /*ms*/ 0,
         /*sampled*/ name == "Buffer" ? 1 : 2, format);
   }
+
+  // InputPatch
+  if (name == "InputPatch") {
+    const auto elemType = hlsl::GetHLSLInputPatchElementType(type);
+    const auto elemCount = hlsl::GetHLSLInputPatchCount(type);
+    const uint32_t elemTypeId = translateType(elemType);
+    const uint32_t elemCountId = theBuilder.getConstantUint32(elemCount);
+    return theBuilder.getArrayType(elemTypeId, elemCountId);
+  }
+  // OutputPatch
+  if (name == "OutputPatch") {
+    const auto elemType = hlsl::GetHLSLOutputPatchElementType(type);
+    const auto elemCount = hlsl::GetHLSLOutputPatchCount(type);
+    const uint32_t elemTypeId = translateType(elemType);
+    const uint32_t elemCountId = theBuilder.getConstantUint32(elemCount);
+    return theBuilder.getArrayType(elemTypeId, elemCountId);
+  }
+
   return 0;
 }
 

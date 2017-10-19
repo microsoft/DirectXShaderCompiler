@@ -9415,6 +9415,10 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
     return false;
   }
 
+  if (type->isFunctionType()) {
+    return false;
+  }
+
   if (m_firstType.isNull()) {
     m_firstType = type;
   }

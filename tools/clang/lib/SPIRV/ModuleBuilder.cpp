@@ -541,6 +541,13 @@ uint32_t ModuleBuilder::createExtInst(uint32_t resultType, uint32_t setId,
   return resultId;
 }
 
+void ModuleBuilder::createControlBarrier(uint32_t execution, uint32_t memory,
+                                         uint32_t semantics) {
+  assert(insertPoint && "null insert point");
+  instBuilder.opControlBarrier(execution, memory, semantics).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
 void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
                                      spv::ExecutionMode em,
                                      llvm::ArrayRef<uint32_t> params) {
@@ -920,6 +927,7 @@ uint32_t ModuleBuilder::getConstant##builderTy(cppTy value) {                  \
 IMPL_GET_PRIMITIVE_CONST(Int32, int32_t)
 IMPL_GET_PRIMITIVE_CONST(Uint32, uint32_t)
 IMPL_GET_PRIMITIVE_CONST(Float32, float)
+IMPL_GET_PRIMITIVE_CONST(Float64, double)
 
 #undef IMPL_GET_PRIMITIVE_VALUE
 
