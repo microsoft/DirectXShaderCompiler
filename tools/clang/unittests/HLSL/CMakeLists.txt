@@ -42,7 +42,6 @@ add_clang_library(clang-hlsl-tests SHARED
   ValidationTest.cpp
   VerifierTest.cpp
   clang-hlsl-tests.rc
-  ShaderOpArithTable.xml
   )
 set_target_properties(clang-hlsl-tests PROPERTIES FOLDER "Clang tests")
 

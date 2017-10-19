@@ -3112,7 +3112,7 @@ TEST_F(CompilerTest, CodeGenCbufferAllocLegacy) {
 }
 
 TEST_F(CompilerTest, CodeGenCbufferHalf) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
+  if (m_ver.SkipDxilVersion(1, 3)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferHalf.hlsl");
 }
 
@@ -4202,6 +4202,7 @@ TEST_F(CompilerTest, CodeGenStruct_Buf1) {
 }
 
 TEST_F(CompilerTest, CodeGenStruct_Buf_New_Layout) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_buf_new_layout.hlsl");
 }
 
@@ -4509,6 +4510,7 @@ TEST_F(CompilerTest, CodeGenTypemods_Syntax_Mod) {
 }
 
 TEST_F(CompilerTest, CodeGenTypedBufferHalf) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\typed_buffer_half.hlsl");
 }
 
