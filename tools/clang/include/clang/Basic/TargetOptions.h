@@ -47,6 +47,9 @@ public:
   std::vector<std::string> Features;
   
   std::vector<std::string> Reciprocals;
+
+  // HLSL Change: Target layout can change by min precision option
+  const char *DescriptionString;
 };
 
 }  // end namespace clang

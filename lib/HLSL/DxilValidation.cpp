@@ -2536,8 +2536,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           continue;
         }
 
-        bool IsMinPrecisionTy = ValCtx.DL.getTypeAllocSize(FromTy) < 4 ||
-                          ValCtx.DL.getTypeAllocSize(ToTy) < 4;
+        bool IsMinPrecisionTy = ValCtx.DL.getTypeStoreSize(FromTy) < 4 ||
+                          ValCtx.DL.getTypeStoreSize(ToTy) < 4;
         if (IsMinPrecisionTy) {
           ValCtx.EmitInstrError(Cast, ValidationRule::InstrMinPrecisonBitCast);
         }

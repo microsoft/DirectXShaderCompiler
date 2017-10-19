@@ -928,6 +928,12 @@ namespace DXIL {
     UseNativeLowPrecision
   };
 
+  // For legacy data layout, everything less than 32 align to 32.
+  static const char* kLegacyLayoutString = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-f16:32-f32:32-n8:16:32";
+
+  // New data layout with native low precision types
+  static const char* kNewLayoutString = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-f16:16-f32:32-n8:16:32";
+
 } // namespace DXIL
 
 } // namespace hlsl

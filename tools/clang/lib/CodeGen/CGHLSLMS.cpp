@@ -93,7 +93,7 @@ private:
   llvm::Type *CBufferType;
   uint32_t globalCBIndex;
   // TODO: make sure how minprec works
-  llvm::DataLayout legacyLayout;
+  llvm::DataLayout dataLayout;
   // decl map to constant id for program
   llvm::DenseMap<HLSLBufferDecl *, uint32_t> constantBufMap;
   // Map for resource type to resource metadata value.
@@ -313,7 +313,10 @@ void clang::CompileRootSignature(
 //
 CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()), EntryFunc(nullptr),
-      TheModule(CGM.getModule()), legacyLayout(CGM.getLangOpts().UseMinPrecision ? HLModule::GetLegacyDataLayoutDesc() : HLModule::GetNewDataLayoutDesc()),
+      TheModule(CGM.getModule()),
+      dataLayout(CGM.getLangOpts().UseMinPrecision
+                       ? hlsl::DXIL::kLegacyLayoutString
+                       : hlsl::DXIL::kNewLayoutString),
       CBufferType(
           llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")) {
   const hlsl::ShaderModel *SM =
@@ -828,7 +831,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
         // Align offset.
         offset = AlignBaseOffset(parentTy, offset, bDefaultRowMajor, CGM,
-                                 legacyLayout);
+                                 dataLayout);
 
         unsigned CBufferOffset = offset;
 
@@ -857,7 +860,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     QualType fieldTy = fieldDecl->getType();
     
     // Align offset.
-    offset = AlignBaseOffset(fieldTy, offset, bDefaultRowMajor, CGM, legacyLayout);
+    offset = AlignBaseOffset(fieldTy, offset, bDefaultRowMajor, CGM, dataLayout);
 
     unsigned CBufferOffset = offset;
 
@@ -934,12 +937,12 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
 
   // Get size.
   llvm::Type *Type = CGM.getTypes().ConvertType(paramTy);
-  unsigned size = legacyLayout.getTypeAllocSize(Type);
+  unsigned size = dataLayout.getTypeAllocSize(Type);
 
   if (IsHLSLMatType(Ty)) {
     unsigned col, row;
     llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Type, col, row);
-    bool b64Bit = legacyLayout.getTypeAllocSize(EltTy) == 8;
+    bool b64Bit = dataLayout.getTypeAllocSize(EltTy) == 8;
     size = GetMatrixSizeInCB(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor,
                              b64Bit);
   }
@@ -2281,7 +2284,7 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
         templateDecl->getTemplateArgs()[0];
     llvm::Type *retTy = CGM.getTypes().ConvertType(retTyArg.getAsType());
 
-    uint32_t strideInBytes = legacyLayout.getTypeAllocSize(retTy);
+    uint32_t strideInBytes = dataLayout.getTypeAllocSize(retTy);
     hlslRes->SetElementStride(strideInBytes);
   }
 
