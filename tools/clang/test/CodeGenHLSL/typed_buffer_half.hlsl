@@ -1,7 +1,6 @@
-// RUN: %dxc -E includedFunc2 -T ps_6_0 %s
+// RUN: %dxc -E main -T ps_6_2 -no-min-precision %s  | FileCheck %s
 
 // CHECK: call void @dx.op.bufferStore.f16
-
 
 RWBuffer<half4> g_tb: register(u1);
 

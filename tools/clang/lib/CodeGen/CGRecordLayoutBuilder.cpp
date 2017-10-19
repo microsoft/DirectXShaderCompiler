@@ -274,12 +274,14 @@ void CGRecordLowering::lower(bool NVBaseType) {
       accumulateVBases();
   }
   std::stable_sort(Members.begin(), Members.end());
+#if 0 // HLSL Change - No padding for structure. Array offset will be handled when load/store is called
   Members.push_back(StorageInfo(Size, getIntNType(8)));
   clipTailPadding();
   determinePacked(NVBaseType);
   insertPadding();
   Members.pop_back();
   calculateZeroInit();
+#endif // HLSL Change End
   fillOutputFields();
 }
 
@@ -734,8 +736,8 @@ CGRecordLayout *CodeGenTypes::ComputeRecordLayout(const RecordDecl *D,
 
 #ifndef NDEBUG
   // Verify that the computed LLVM struct size matches the AST layout size.
+#if 0 // HLSL Change - No padding for structure. Disable validation check.
   const ASTRecordLayout &Layout = getContext().getASTRecordLayout(D);
-
   uint64_t TypeSizeInBits = getContext().toBits(Layout.getSize());
   assert(TypeSizeInBits == getDataLayout().getTypeAllocSizeInBits(Ty) &&
          "Type size mismatch!");
@@ -807,6 +809,7 @@ CGRecordLayout *CodeGenTypes::ComputeRecordLayout(const RecordDecl *D,
     assert(static_cast<unsigned>(Info.Offset) + Info.Size <= Info.StorageSize &&
            "Bitfield outside of its allocated storage");
   }
+#endif // HLSL Change End
 #endif
 
   return RL;
