@@ -331,6 +331,18 @@ spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
   return mask;
 }
 
+uint32_t ModuleBuilder::createImageTexelPointer(uint32_t resultType,
+                                                uint32_t imageId,
+                                                uint32_t coordinate,
+                                                uint32_t sample) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.opImageTexelPointer(resultType, id, imageId, coordinate, sample)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 uint32_t ModuleBuilder::createImageSample(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
     uint32_t coordinate, uint32_t compareVal, uint32_t bias, uint32_t lod,
