@@ -2937,7 +2937,7 @@ static void ValidateResource(hlsl::DxilResource &res,
   if (res.IsStructuredBuffer()) {
     unsigned stride = res.GetElementStride();
     bool alignedTo4Bytes = (stride & 3) == 0;
-    if (!alignedTo4Bytes) {
+    if (!alignedTo4Bytes && !ValCtx.M.GetDxilModule().m_ShaderFlags.GetUseNativeLowPrecision()) {
       ValCtx.EmitResourceFormatError(
           &res, ValidationRule::MetaStructBufAlignment,
           {std::to_string(4), std::to_string(stride)});

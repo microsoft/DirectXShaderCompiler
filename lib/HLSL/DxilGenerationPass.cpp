@@ -277,8 +277,9 @@ public:
     // Translate precise on allocas into function call to keep the information after mem2reg.
     // The function calls will be removed after propagate precise attribute.
     TranslatePreciseAttribute();
-    // Change struct type to legacy layout for cbuf and struct buf.
-    UpdateStructTypeForLegacyLayout();
+    // Change struct type to legacy layout for cbuf and struct buf for min precision data types.
+    if (M.GetHLModule().GetHLOptions().bUseMinPrecision)
+      UpdateStructTypeForLegacyLayout();
 
     // High-level metadata should now be turned into low-level metadata.
     const bool SkipInit = true;
@@ -1139,7 +1140,7 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty, bool IsCBuf, DxilFieldAnnotation 
     if (Ty->isHalfTy()) {
       return Type::getFloatTy(Ty->getContext());
     } else if (IntegerType *ITy = dyn_cast<IntegerType>(Ty)) {
-      if (ITy->getBitWidth() <= 32)
+      if (ITy->getBitWidth() < 32)
         return i32Ty;
       else
         return Ty;
