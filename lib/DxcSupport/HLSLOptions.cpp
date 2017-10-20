@@ -443,11 +443,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
-  opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
+  const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
 
   // Collects the arguments for -fvk-{b|s|t|u}-shift.
-  const auto handleVkShiftArgs = [&Args, &errors](
+  const auto handleVkShiftArgs = [genSpirv, &Args, &errors](
       OptSpecifier id, const char* name, llvm::SmallVectorImpl<uint32_t>* shifts) {
+    if (!genSpirv) {
+      errors << "-fvk-" << name << "-shift requires -spirv";
+      return false;
+    }
+
     const auto values = Args.getAllArgValues(id);
 
     shifts->clear();
