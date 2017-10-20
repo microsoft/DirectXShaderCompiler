@@ -448,12 +448,12 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // Collects the arguments for -fvk-{b|s|t|u}-shift.
   const auto handleVkShiftArgs = [genSpirv, &Args, &errors](
       OptSpecifier id, const char* name, llvm::SmallVectorImpl<uint32_t>* shifts) {
-    if (!genSpirv) {
+    const auto values = Args.getAllArgValues(id);
+
+    if (!genSpirv && !values.empty()) {
       errors << "-fvk-" << name << "-shift requires -spirv";
       return false;
     }
-
-    const auto values = Args.getAllArgValues(id);
 
     shifts->clear();
     for (const auto& val : values) {
