@@ -203,28 +203,37 @@ bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
   return optimizer.Run(module->data(), module->size(), module);
 }
 
-/// Translates RWByteAddressBuffer atomic method opcode into SPIR-V opcode.
-spv::Op translateRWBABufferAtomicMethods(hlsl::IntrinsicOp opcode) {
+/// Translates atomic HLSL opcodes into the equivalent SPIR-V opcode.
+spv::Op translateAtomicHlslOpcodeToSpirvOpcode(hlsl::IntrinsicOp opcode) {
   using namespace hlsl;
   using namespace spv;
 
   switch (opcode) {
+  case IntrinsicOp::IOP_InterlockedAdd:
   case IntrinsicOp::MOP_InterlockedAdd:
     return Op::OpAtomicIAdd;
+  case IntrinsicOp::IOP_InterlockedAnd:
   case IntrinsicOp::MOP_InterlockedAnd:
     return Op::OpAtomicAnd;
+  case IntrinsicOp::IOP_InterlockedOr:
   case IntrinsicOp::MOP_InterlockedOr:
     return Op::OpAtomicOr;
+  case IntrinsicOp::IOP_InterlockedXor:
   case IntrinsicOp::MOP_InterlockedXor:
     return Op::OpAtomicXor;
+  case IntrinsicOp::IOP_InterlockedUMax:
   case IntrinsicOp::MOP_InterlockedUMax:
     return Op::OpAtomicUMax;
+  case IntrinsicOp::IOP_InterlockedUMin:
   case IntrinsicOp::MOP_InterlockedUMin:
     return Op::OpAtomicUMin;
+  case IntrinsicOp::IOP_InterlockedMax:
   case IntrinsicOp::MOP_InterlockedMax:
     return Op::OpAtomicSMax;
+  case IntrinsicOp::IOP_InterlockedMin:
   case IntrinsicOp::MOP_InterlockedMin:
     return Op::OpAtomicSMin;
+  case IntrinsicOp::IOP_InterlockedExchange:
   case IntrinsicOp::MOP_InterlockedExchange:
     return Op::OpAtomicExchange;
   }
@@ -1588,9 +1597,9 @@ uint32_t SPIRVEmitter::processRWByteAddressBufferAtomicMethods(
       theBuilder.createStore(doExpr(expr->getArg(3)), originalVal);
   } else {
     const uint32_t value = doExpr(expr->getArg(1));
-    const uint32_t originalVal =
-        theBuilder.createAtomicOp(translateRWBABufferAtomicMethods(opcode),
-                                  uintType, ptr, scope, zero, value);
+    const uint32_t originalVal = theBuilder.createAtomicOp(
+        translateAtomicHlslOpcodeToSpirvOpcode(opcode), uintType, ptr, scope,
+        zero, value);
     if (expr->getNumArgs() > 2)
       theBuilder.createStore(doExpr(expr->getArg(2)), originalVal);
   }
@@ -3748,7 +3757,19 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     return processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec);     \
   } break
 
-  switch (static_cast<hlsl::IntrinsicOp>(opcode)) {
+  switch (const auto hlslOpcode = static_cast<hlsl::IntrinsicOp>(opcode)) {
+  case hlsl::IntrinsicOp::IOP_InterlockedAdd:
+  case hlsl::IntrinsicOp::IOP_InterlockedAnd:
+  case hlsl::IntrinsicOp::IOP_InterlockedMax:
+  case hlsl::IntrinsicOp::IOP_InterlockedUMax:
+  case hlsl::IntrinsicOp::IOP_InterlockedMin:
+  case hlsl::IntrinsicOp::IOP_InterlockedUMin:
+  case hlsl::IntrinsicOp::IOP_InterlockedOr:
+  case hlsl::IntrinsicOp::IOP_InterlockedXor:
+  case hlsl::IntrinsicOp::IOP_InterlockedExchange:
+  case hlsl::IntrinsicOp::IOP_InterlockedCompareStore:
+  case hlsl::IntrinsicOp::IOP_InterlockedCompareExchange:
+    return processIntrinsicInterlockedMethod(callExpr, hlslOpcode);
   case hlsl::IntrinsicOp::IOP_dot:
     return processIntrinsicDot(callExpr);
   case hlsl::IntrinsicOp::IOP_mul:
@@ -3865,6 +3886,119 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 
 #undef INTRINSIC_OP_CASE
 #undef INTRINSIC_OP_CASE_INT_FLOAT
+
+  return 0;
+}
+
+uint32_t
+SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
+                                                hlsl::IntrinsicOp opcode) {
+  // The signature of intrinsic atomic methods are:
+  // void Interlocked*(in R dest, in T value);
+  // void Interlocked*(in R dest, in T value, out T original_value);
+
+  // Note: ALL Interlocked*() methods are forced to have an unsigned integer
+  // 'value'. Meaning, T is forced to be 'unsigned int'. If the provided
+  // parameter is not an unsigned integer, the frontend inserts an
+  // 'ImplicitCastExpr' to convert it to unsigned integer. OpAtomicIAdd (and
+  // other SPIR-V OpAtomic* instructions) require that the pointee in 'dest' to
+  // be of the same type as T. This will result in an invalid SPIR-V if 'dest'
+  // is a signed integer typed resource such as RWTexture1D<int>. For example,
+  // the following OpAtomicIAdd is invalid because the pointee type defined in
+  // %1 is a signed integer, while the value passed to atomic add (%3) is an
+  // unsigned integer.
+  //
+  //  %_ptr_Image_int = OpTypePointer Image %int
+  //  %1 = OpImageTexelPointer %_ptr_Image_int %RWTexture1D_int %index %uint_0
+  //  %2 = OpLoad %int %value
+  //  %3 = OpBitcast %uint %2   <-------- Inserted by the frontend
+  //  %4 = OpAtomicIAdd %int %1 %uint_1 %uint_0 %3
+  //
+  // In such cases, we bypass the forced IntegralCast.
+  // Moreover, the frontend does not add a cast AST node to cast uint to int
+  // where necessary. To ensure SPIR-V validity, we add that where necessary.
+
+  const uint32_t zero = theBuilder.getConstantUint32(0);
+  const uint32_t scope = theBuilder.getConstantUint32(1); // Device
+  const auto *dest = expr->getArg(0);
+  const auto baseType = dest->getType();
+  const uint32_t baseTypeId = typeTranslator.translateType(baseType);
+
+  const auto doArg = [baseType, this](const CallExpr *callExpr,
+                                      uint32_t argIndex) {
+    const Expr *valueExpr = callExpr->getArg(argIndex);
+    if (const auto *castExpr = dyn_cast<ImplicitCastExpr>(valueExpr))
+      if (castExpr->getCastKind() == CK_IntegralCast &&
+          castExpr->getSubExpr()->getType() == baseType)
+        valueExpr = castExpr->getSubExpr();
+
+    uint32_t argId = doExpr(valueExpr);
+    if (valueExpr->getType() != baseType)
+      argId = castToInt(argId, valueExpr->getType(), baseType);
+    return argId;
+  };
+
+  const auto writeToOutputArg = [&baseType, this](uint32_t toWrite,
+                                                  const CallExpr *callExpr,
+                                                  uint32_t outputArgIndex) {
+    const auto outputArg = callExpr->getArg(outputArgIndex);
+    const auto outputArgType = outputArg->getType();
+    if (baseType != outputArgType)
+      toWrite = castToInt(toWrite, baseType, outputArgType);
+    theBuilder.createStore(doExpr(outputArg), toWrite);
+  };
+
+  // If the argument is indexing into a texture/buffer, we need to create an
+  // OpImageTexelPointer instruction.
+  uint32_t ptr = 0;
+  if (const auto *callExpr = dyn_cast<CXXOperatorCallExpr>(dest)) {
+    const Expr *base = nullptr;
+    const Expr *index = nullptr;
+    if (isBufferTextureIndexing(callExpr, &base, &index)) {
+      const auto ptrType =
+          theBuilder.getPointerType(baseTypeId, spv::StorageClass::Image);
+      const auto baseId = doExpr(base);
+      const auto coordId = doExpr(index);
+      ptr = theBuilder.createImageTexelPointer(ptrType, baseId, coordId, zero);
+    }
+  } else {
+    ptr = doExpr(dest);
+  }
+
+  const bool isCompareExchange =
+      opcode == hlsl::IntrinsicOp::IOP_InterlockedCompareExchange;
+  const bool isCompareStore =
+      opcode == hlsl::IntrinsicOp::IOP_InterlockedCompareStore;
+
+  if (isCompareExchange || isCompareStore) {
+    const uint32_t comparator = doArg(expr, 1);
+    const uint32_t valueId = doArg(expr, 2);
+    const uint32_t originalVal = theBuilder.createAtomicCompareExchange(
+        baseTypeId, ptr, scope, zero, zero, valueId, comparator);
+    if (isCompareExchange)
+      writeToOutputArg(originalVal, expr, 3);
+  } else {
+    const uint32_t valueId = doArg(expr, 1);
+    // Since these atomic operations write through the provided pointer, the
+    // signed vs. unsigned opcode must be decided based on the pointee type
+    // of the first argument. However, the frontend decides the opcode based on
+    // the second argument (value). Therefore, the HLSL opcode provided by the
+    // frontend may be wrong. Therefore we need the following code to make sure
+    // we are using the correct SPIR-V opcode.
+    spv::Op atomicOp = translateAtomicHlslOpcodeToSpirvOpcode(opcode);
+    if (atomicOp == spv::Op::OpAtomicUMax && baseType->isSignedIntegerType())
+      atomicOp = spv::Op::OpAtomicSMax;
+    if (atomicOp == spv::Op::OpAtomicSMax && baseType->isUnsignedIntegerType())
+      atomicOp = spv::Op::OpAtomicUMax;
+    if (atomicOp == spv::Op::OpAtomicUMin && baseType->isSignedIntegerType())
+      atomicOp = spv::Op::OpAtomicSMin;
+    if (atomicOp == spv::Op::OpAtomicSMin && baseType->isUnsignedIntegerType())
+      atomicOp = spv::Op::OpAtomicUMin;
+    const uint32_t originalVal = theBuilder.createAtomicOp(
+        atomicOp, baseTypeId, ptr, scope, zero, valueId);
+    if (expr->getNumArgs() > 2)
+      writeToOutputArg(originalVal, expr, 2);
+  }
 
   return 0;
 }
