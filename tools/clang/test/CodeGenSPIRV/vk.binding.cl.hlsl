@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-b-shift 0 100 -fvk-b-shift 2 200 -fvk-t-shift 0 200 -fvk-t-shift 1 300 -fvk-t-shift 0 400 -fvk-s-shift 0 500 -fvk-s-shift 2 600 -fvk-u-shift 0 700 -fvk-u-shift 3 800
+// Run: %dxc -T ps_6_0 -E main -fvk-b-shift 100 0 -fvk-b-shift 200 2 -fvk-t-shift 200 0 -fvk-t-shift 300 1 -fvk-t-shift 400 0 -fvk-s-shift 500 0 -fvk-s-shift 600 2 -fvk-u-shift 700 0 -fvk-u-shift 800 3
 
 // Tests that we can set shift for more than one sets of the same register type
 // Tests that we can override shift for the same set

@@ -669,8 +669,8 @@ the corresponding resource will be assigned to descriptor set ``Y`` and binding
 number ``X``, regardless of the register type ``x``. Note that this will cause
 binding number collision if, say, two resources are of different register
 type but the same register number. To solve this problem, four command-line
-options, ``-fvk-b-shift M N``, ``-fvk-s-shift M N``, ``-fvk-t-shift M N``, and
-``-fvk-u-shift M N``, are provided to shift by ``N`` all binding numbers
+options, ``-fvk-b-shift N M``, ``-fvk-s-shift N M``, ``-fvk-t-shift N M``, and
+``-fvk-u-shift N M``, are provided to shift by ``N`` all binding numbers
 inferred for register type ``b``, ``s``, ``t``, and ``u`` in space ``M``,
 respectively.
 
@@ -687,7 +687,7 @@ In summary, the compiler essentially assigns binding numbers in three passes.
   annotation.
 - Then the compiler processes all remaining declarations with
   ``:register(xX, spaceY)`` annotation, by applying the shift passed in using
-  command-line option ``-fvk-{b|s|t|u}-shift M N``, if provided.
+  command-line option ``-fvk-{b|s|t|u}-shift N M``, if provided.
 - Finally, the compiler assigns next available binding numbers to the rest in
   the declaration order.
 
@@ -1786,7 +1786,7 @@ The following command line options are added into ``dxc`` to support SPIR-V
 codegen for Vulkan:
 
 - ``-spirv``: Generates SPIR-V code.
-- ``-fvk-b-shift M N``: Shifts by ``N`` the inferred binding numbers for all
+- ``-fvk-b-shift N M``: Shifts by ``N`` the inferred binding numbers for all
   resources in b-type registers of space ``M``. Specifically, for a resouce
   attached with ``:register(bX, spaceM)`` but not ``[vk::binding(...)]``,
   sets its Vulkan descriptor set to ``M`` and binding number to ``X + N``. If
@@ -1794,9 +1794,9 @@ codegen for Vulkan:
   provide more than one such option. If more than one such option is provided
   for the same space, the last one takes effect. See `HLSL register and Vulkan
   binding`_ for explanation and examples.
-- ``-fvk-t-shift M N``, similar to ``-fvk-b-shift``, but for t-type registers.
-- ``-fvk-s-shift M N``, similar to ``-fvk-b-shift``, but for s-type registers.
-- ``-fvk-u-shift M N``, similar to ``-fvk-b-shift``, but for u-type registers.
+- ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
+- ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
+- ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.
 - ``-fvk-stage-io-order={alpha|decl}``: Assigns the stage input/output variable
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.

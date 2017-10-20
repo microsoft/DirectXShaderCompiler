@@ -474,7 +474,7 @@ public:
       : masterShift(0) {
     assert(shifts.size() % 2 == 0);
     for (uint32_t i = 0; i < shifts.size(); i += 2)
-      perSetShift[shifts[i]] = shifts[i + 1];
+      perSetShift[shifts[i + 1]] = shifts[i];
   }
 
   /// Returns the shift amount for the given set.
