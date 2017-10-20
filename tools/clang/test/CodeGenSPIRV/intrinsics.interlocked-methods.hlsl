@@ -136,7 +136,7 @@ void main()
 
 // CHECK:      [[ptr11:%\d+]] = OpImageTexelPointer %_ptr_Image_uint %g_tTex1du1 {{%\d+}} %uint_0
 // CHECK-NEXT: [[i1_11:%\d+]] = OpLoad %int %i1
-// CHECK-NEXT: [[i1_11_uint:%\d+]] = OpBitcast %uint %136
+// CHECK-NEXT: [[i1_11_uint:%\d+]] = OpBitcast %uint [[i1_11]]
 // CHECK-NEXT: [[aumin11:%\d+]] = OpAtomicUMin %uint [[ptr11]] %uint_1 %uint_0 [[i1_11_uint]]
 // CHECK-NEXT: [[aumin11_int:%\d+]] = OpBitcast %int [[aumin11]]
 // CHECK-NEXT: OpStore %out_i1 [[aumin11_int]]
@@ -284,4 +284,4 @@ void main()
 // CHECK-NEXT:                   OpStore %out_i1 [[ace35]]
   InterlockedExchange(i1, i1c, out_i1);
 }
-// CHECK-WHOLE-SPIR-V:
+
