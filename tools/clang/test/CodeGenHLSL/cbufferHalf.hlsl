@@ -18,7 +18,9 @@
 // CHECK:       half3 f_h3;                                   ; Offset:   52
 
 // CHECK:       double f_d1;                                  ; Offset:   64
-// CHECK:   } Foo                                           ; Offset:    0 Size:    72
+// CHECK:       half3 f_h3_1;                                 ; Offset:   72
+// CHECK:       int f_i1;                                     ; Offset:   80
+// CHECK:   } Foo                                             ; Offset:    0 Size:    84
 // CHECK: }
 
 // CHECK: cbuffer Bar
@@ -71,6 +73,10 @@
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 4
 // CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f64 @dx.op.cbufferLoadLegacy.f64(i32 59, %dx.types.Handle %Foo_buffer, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f64 {{%[0-9]+}}, 0
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_buffer, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 4
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32 59, %dx.types.Handle %Foo_buffer, i32 5)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.i32 {{%[0-9]+}}, 0
 
 cbuffer Foo {
   half f_h1;
@@ -82,6 +88,8 @@ cbuffer Foo {
   half2 f_h2_1;
   half3 f_h3;
   double f_d1;
+  half3 f_h3_1;
+  int   f_i1;
 }
 
 cbuffer Bar {
@@ -105,6 +113,6 @@ cbuffer Bar {
 
 float4 main() : SV_Target {
   return f_h1 + f_f3.x + f_h2.x + f_h2.y + f_f3_1.z + f_f2.x + f_h4.x + f_h4.y 
-  + f_h4.z + f_h4.w + f_h2_1.x + f_h2_1.y + f_h3.x + f_h3.y + f_h3.z + f_d1
+  + f_h4.z + f_h4.w + f_h2_1.x + f_h2_1.y + f_h3.x + f_h3.y + f_h3.z + f_d1 + f_h3_1.x + f_i1
   + b_h1;
 }

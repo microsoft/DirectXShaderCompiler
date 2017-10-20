@@ -492,6 +492,18 @@ StringToTessOutputPrimitive(StringRef primitive) {
   return DXIL::TessellatorOutputPrimitive::Undefined;
 }
 
+static unsigned RoundToAlign(unsigned num, unsigned mod) {
+  return mod * ((num + mod - 1) / mod);
+}
+
+static unsigned AlignTo4Bytes(unsigned offset, bool b4BytesAlign) {
+  DXASSERT((offset & 0x1) == 0, "offset should be divisible by 2");
+  if (b4BytesAlign && (offset & 0x2)) {
+    return RoundToAlign(offset, 4);
+  }
+  return offset;
+}
+
 static unsigned AlignTo8Bytes(unsigned offset, bool b8BytesAlign) {
   DXASSERT((offset & 0x1) == 0, "offset should be divisible by 2");
   if (!b8BytesAlign)
@@ -499,18 +511,30 @@ static unsigned AlignTo8Bytes(unsigned offset, bool b8BytesAlign) {
   else if ((offset & 0x7) == 0)
     return offset;
   else
-    return offset + 4;
+    return RoundToAlign(offset, 8);
 }
 
 static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size,
                                  QualType Ty, bool bDefaultRowMajor) {
+  bool b4BytesAlign = false;
   bool b8BytesAlign = false;
-  if (Ty->isBuiltinType()) {
-    const clang::BuiltinType *BT = Ty->getAs<clang::BuiltinType>();
+  const clang::BuiltinType *BT = Ty->getAs<clang::BuiltinType>();
+
+  if (hlsl::IsHLSLVecMatType(Ty)) {
+    BT = CGHLSLRuntime::GetHLSLVecMatElementType(Ty)->getAs<clang::BuiltinType>();
+  }
+
+  if (BT) {
     if (BT->getKind() == clang::BuiltinType::Kind::Double ||
         BT->getKind() == clang::BuiltinType::Kind::LongLong)
       b8BytesAlign = true;
+    else if (BT->getKind() != clang::BuiltinType::Kind::Half) {
+      b4BytesAlign = true;
+    }
   }
+
+  // Align to 4 bytes for 4 byte scalar types.
+  baseOffset = AlignTo4Bytes(baseOffset, b4BytesAlign);
 
   if (unsigned remainder = (baseOffset & 0xf)) {
     // Align to 4 x 4 bytes.
@@ -2615,15 +2639,13 @@ void CGMSHLSLRuntime::SetEntryFunction() {
 // Here the size is CB size. So don't need check type.
 static unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty) {
   DXASSERT(!(offset & 1), "otherwise we have an invalid offset.");
-  // offset is already 4 bytes aligned.
+  bool b4BytesAlign = Ty->getScalarSizeInBits() > 16;
   bool b8BytesAlign = Ty->isDoubleTy();
   if (llvm::IntegerType *IT = dyn_cast<llvm::IntegerType>(Ty)) {
     b8BytesAlign = IT->getBitWidth() > 32;
   }
-  // If offset is divisible by 2 and not 4, then increase the offset by 2 for dword alignment.
-  if (!Ty->getScalarType()->isHalfTy() && (offset & 0x2)) {
-    offset += 2;
-  }
+
+  offset = AlignTo4Bytes(offset, b4BytesAlign);
 
   // Align it to 4 x 4bytes.
   if (unsigned remainder = (offset & 0xf)) {
