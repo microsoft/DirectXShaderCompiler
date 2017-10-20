@@ -238,13 +238,13 @@ def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverO
   HelpText<"Generate SPIR-V binary code">;
 def fvk_stage_io_order_EQ : Joined<["-"], "fvk-stage-io-order=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Specify Vulkan stage I/O location assignment order">;
-def fvk_b_shift_EQ : Joined<["-"], "fvk-b-shift=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+def fvk_b_shift : MultiArg<["-"], "fvk-b-shift", 2>, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify the register number shift for b-type register">;
-def fvk_t_shift_EQ : Joined<["-"], "fvk-t-shift=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+def fvk_t_shift : MultiArg<["-"], "fvk-t-shift", 2>, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify the register number shift for t-type register">;
-def fvk_s_shift_EQ : Joined<["-"], "fvk-s-shift=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+def fvk_s_shift : MultiArg<["-"], "fvk-s-shift", 2>, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify the register number shift for s-type register">;
-def fvk_u_shift_EQ : Joined<["-"], "fvk-u-shift=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+def fvk_u_shift : MultiArg<["-"], "fvk-u-shift", 2>, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify the register number shift for u-type register">;
 // SPIRV Change Ends
 

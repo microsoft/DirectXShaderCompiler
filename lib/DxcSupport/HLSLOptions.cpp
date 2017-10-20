@@ -445,26 +445,28 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 #ifdef ENABLE_SPIRV_CODEGEN
   opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
 
-  const llvm::StringRef bShift = Args.getLastArgValue(OPT_fvk_b_shift_EQ, "0");
-  if (bShift.getAsInteger(10, opts.VkBShift)) {
-    errors << "invalid b-type register number shift: " << bShift;
+  // Collects the arguments for -fvk-{b|s|t|u}-shift.
+  const auto handleVkShiftArgs = [&Args, &errors](
+      OptSpecifier id, const char* name, llvm::SmallVectorImpl<uint32_t>* shifts) {
+    const auto values = Args.getAllArgValues(id);
+
+    shifts->clear();
+    for (const auto& val : values) {
+      uint32_t number = 0;
+      if (llvm::StringRef(val).getAsInteger(10, number)) {
+        errors << "invalid -fvk-" << name << "-shift argument: " << val;
+        return false;
+      }
+      shifts->push_back(number);
+    }
+    return true;
+  };
+
+  if (!handleVkShiftArgs(OPT_fvk_b_shift, "b", &opts.VkBShift) ||
+      !handleVkShiftArgs(OPT_fvk_t_shift, "t", &opts.VkTShift) ||
+      !handleVkShiftArgs(OPT_fvk_s_shift, "s", &opts.VkSShift) ||
+      !handleVkShiftArgs(OPT_fvk_u_shift, "u", &opts.VkUShift))
     return 1;
-  }
-  const llvm::StringRef tShift = Args.getLastArgValue(OPT_fvk_t_shift_EQ, "0");
-  if (tShift.getAsInteger(10, opts.VkTShift)) {
-    errors << "invalid t-type register number shift: " << tShift;
-    return 1;
-  }
-  const llvm::StringRef sShift = Args.getLastArgValue(OPT_fvk_s_shift_EQ, "0");
-  if (sShift.getAsInteger(10, opts.VkSShift)) {
-    errors << "invalid s-type register number shift: " << sShift;
-    return 1;
-  }
-  const llvm::StringRef uShift = Args.getLastArgValue(OPT_fvk_u_shift_EQ, "0");
-  if (uShift.getAsInteger(10, opts.VkUShift)) {
-    errors << "invalid u-type register number shift: " << uShift;
-    return 1;
-  }
 
   opts.VkStageIoOrder = Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
   if (opts.VkStageIoOrder != "alpha" && opts.VkStageIoOrder != "decl") {
@@ -475,10 +477,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
-      !Args.getLastArgValue(OPT_fvk_b_shift_EQ).empty() ||
-      !Args.getLastArgValue(OPT_fvk_t_shift_EQ).empty() ||
-      !Args.getLastArgValue(OPT_fvk_s_shift_EQ).empty() ||
-      !Args.getLastArgValue(OPT_fvk_u_shift_EQ).empty()
+      !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
+      !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
+      !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||
+      !Args.getLastArgValue(OPT_fvk_u_shift).empty()
       ) {
     errors << "SPIR-V CodeGen not available. "
               "Please recompile with -DENABLE_SPIRV_CODEGEN=ON.";
