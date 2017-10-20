@@ -581,6 +581,10 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     if (varId == 0)
       return false;
 
+    if (sigPoint->GetSignatureKind() ==
+        hlsl::DXIL::SignatureKind::PatchConstant)
+      theBuilder.decorate(varId, spv::Decoration::Patch);
+
     // Decorate with interpolation modes for pixel shader input variables
     if (shaderModel.IsPS() && sigPoint->IsInput()) {
       const QualType elemType = typeTranslator.getElementType(type);
@@ -687,6 +691,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     case hlsl::SigPoint::Kind::VSIn:
       return theBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::VSOut:
+    case hlsl::SigPoint::Kind::DSOut:
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::Position);
     case hlsl::SigPoint::Kind::PSIn:
@@ -791,6 +796,10 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   case hlsl::Semantic::Kind::InsideTessFactor: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelInner);
+  }
+  case hlsl::Semantic::Kind::DomainLocation: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessCoord);
   }
   default:
     emitError("semantic %0 unimplemented yet")

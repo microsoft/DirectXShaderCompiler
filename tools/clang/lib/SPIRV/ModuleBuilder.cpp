@@ -642,6 +642,9 @@ void ModuleBuilder::decorate(uint32_t targetId, spv::Decoration decoration) {
   case spv::Decoration::RelaxedPrecision:
     d = Decoration::getRelaxedPrecision(theContext);
     break;
+  case spv::Decoration::Patch:
+    d = Decoration::getPatch(theContext);
+    break;
   }
 
   assert(d && "unimplemented decoration");

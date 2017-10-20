@@ -40,6 +40,10 @@ TEST_F(WholeFileTest, BezierHullShader) {
   runWholeFileTest("bezier.hull.hlsl2spv");
 }
 
+TEST_F(WholeFileTest, BezierDomainShader) {
+  runWholeFileTest("bezier.domain.hlsl2spv");
+}
+
 // === Partial output tests ===
 
 // For types
