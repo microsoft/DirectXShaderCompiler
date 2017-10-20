@@ -1,5 +1,8 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// Note: According to HLSL reference (https://msdn.microsoft.com/en-us/library/windows/desktop/ff471475(v=vs.85).aspx),
+// all RWByteAddressBuffer atomic methods must take unsigned integers as parameters.
+
 RWByteAddressBuffer myBuffer;
 
 float4 main() : SV_Target
@@ -58,13 +61,13 @@ float4 main() : SV_Target
 
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
-// CHECK-NEXT:        {{%\d+}} = OpAtomicSMax %uint [[ptr]] %uint_1 %uint_0 %int_n42
-    myBuffer.InterlockedMax(16, -42);
+// CHECK-NEXT:        {{%\d+}} = OpAtomicUMax %uint [[ptr]] %uint_1 %uint_0 %uint_42
+    myBuffer.InterlockedMax(16, 42);
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
-// CHECK-NEXT:    [[val:%\d+]] = OpAtomicSMax %uint [[ptr]] %uint_1 %uint_0 %int_n42
+// CHECK-NEXT:    [[val:%\d+]] = OpAtomicUMax %uint [[ptr]] %uint_1 %uint_0 %uint_42
 // CHECK-NEXT:                   OpStore %originalVal [[val]]
-    myBuffer.InterlockedMax(16, -42, originalVal);
+    myBuffer.InterlockedMax(16, 42, originalVal);
 
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
@@ -78,13 +81,13 @@ float4 main() : SV_Target
 
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
-// CHECK-NEXT:        {{%\d+}} = OpAtomicSMin %uint [[ptr]] %uint_1 %uint_0 %int_n42
-    myBuffer.InterlockedMin(16, -42);
+// CHECK-NEXT:        {{%\d+}} = OpAtomicUMin %uint [[ptr]] %uint_1 %uint_0 %uint_42
+    myBuffer.InterlockedMin(16, 42);
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
-// CHECK-NEXT:    [[val:%\d+]] = OpAtomicSMin %uint [[ptr]] %uint_1 %uint_0 %int_n42
+// CHECK-NEXT:    [[val:%\d+]] = OpAtomicUMin %uint [[ptr]] %uint_1 %uint_0 %uint_42
 // CHECK-NEXT:                   OpStore %originalVal [[val]]
-    myBuffer.InterlockedMin(16, -42, originalVal);
+    myBuffer.InterlockedMin(16, 42, originalVal);
 
     // .InterlockedExchnage() has no two-parameter overload.
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2

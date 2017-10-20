@@ -555,6 +555,9 @@ TEST_F(FileTest, IntrinsicsFwidth) { runFileTest("intrinsics.fwidth.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsFinite) {
   runFileTest("intrinsics.isfinite.hlsl");
 }
+TEST_F(FileTest, IntrinsicsInterlockedMethods) {
+  runFileTest("intrinsics.interlocked-methods.hlsl");
+}
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
 TEST_F(FileTest, IntrinsicsLength) { runFileTest("intrinsics.length.hlsl"); }

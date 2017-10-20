@@ -317,6 +317,10 @@ private:
   SpirvEvalInfo processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
                                            hlsl::IntrinsicOp opcode);
 
+  /// Processes Interlocked* intrinsic functions.
+  uint32_t processIntrinsicInterlockedMethod(const CallExpr *,
+                                             hlsl::IntrinsicOp);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   uint32_t getValueZero(QualType type);
