@@ -322,7 +322,7 @@ static void ParseSpaceForHLSL(_In_z_ const char *name,
   *diagId = 0;
   *spaceValue = 0;
 
-  if (strncmp(name, "space", strlen("space") != 0)) {
+  if (strncmp(name, "space", strlen("space")) != 0) {
     *diagId = diag::err_hlsl_expected_space;
     return;
   }
