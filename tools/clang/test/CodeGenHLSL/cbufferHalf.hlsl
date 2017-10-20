@@ -3,7 +3,7 @@
 // CHECK: Use native low precision
 // CHECK: cbuffer Foo
 // CHECK: {
-// CHECK:   struct dx.alignment.legacy.Foo
+// CHECK:   struct Foo
 // CHECK:   {
 // CHECK:       half f_h1;                                    ; Offset:    0
 // CHECK:       float3 f_f3;                                  ; Offset:    4
@@ -23,7 +23,7 @@
 
 // CHECK: cbuffer Bar
 // CHECK: {
-// CHECK:   struct dx.alignment.legacy.Bar
+// CHECK:   struct Bar
 // CHECK:   {
 // CHECK:       half b_h1;                                    ; Offset:    0
 // CHECK:       half b_h2;                                    ; Offset:    2
