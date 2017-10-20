@@ -655,23 +655,24 @@ Explicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``[[vk::binding(X[, Y])]]`` can be attached to global variables to specify the
-descriptor set ``Y`` and binding ``X``. The descriptor set number is optional;
-if missing, it will be zero.
+descriptor set as ``Y`` and binding number as ``X``. The descriptor set number
+is optional; if missing, it will be zero.
 
 Implicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Without explicit annotations, the compiler will try to deduce descriptor set and
-binding numbers in the following way:
+Without explicit annotations, the compiler will try to deduce descriptor sets
+and binding numbers in the following way:
 
 If there is ``:register(xX, spaceY)`` specified for the given global variable,
 the corresponding resource will be assigned to descriptor set ``Y`` and binding
-number ``X``, regardless the register type ``x``. Note that this will cause
+number ``X``, regardless of the register type ``x``. Note that this will cause
 binding number collision if, say, two resources are of different register
 type but the same register number. To solve this problem, four command-line
 options, ``-fvk-b-shift M N``, ``-fvk-s-shift M N``, ``-fvk-t-shift M N``, and
-``-fvk-u-shift M N``, are provided to shift all binding numbers in space ``M``
-of register type ``b``, ``s``, ``t``, and ``u`` by ``N``, respectively.
+``-fvk-u-shift M N``, are provided to shift by ``N`` all binding numbers
+inferred for register type ``b``, ``s``, ``t``, and ``u`` in space ``M``,
+respectively.
 
 If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
@@ -1788,14 +1789,14 @@ codegen for Vulkan:
 - ``-fvk-b-shift M N``: Shifts by ``N`` the inferred binding numbers for all
   resources in b-type registers of space ``M``. Specifically, for a resouce
   attached with ``:register(bX, spaceM)`` but not ``[vk::binding(...)]``,
-  sets its Vulkan binding set to ``M`` and binding number to ``X + N``. If you
-  need to shift the inferred binding numbers for more than one space, provide
-  more than one such option. If more than one such option is provided for the
-  same space, the last one takes effect. See `HLSL register and Vulkan binding`_
-  for explanation and examples.
+  sets its Vulkan descriptor set to ``M`` and binding number to ``X + N``. If
+  you need to shift the inferred binding numbers for more than one space,
+  provide more than one such option. If more than one such option is provided
+  for the same space, the last one takes effect. See `HLSL register and Vulkan
+  binding`_ for explanation and examples.
 - ``-fvk-t-shift M N``, similar to ``-fvk-b-shift``, but for t-type registers.
 - ``-fvk-s-shift M N``, similar to ``-fvk-b-shift``, but for s-type registers.
 - ``-fvk-u-shift M N``, similar to ``-fvk-b-shift``, but for u-type registers.
-- ``-fvk-stage-io-order={alpha|decl}``: Sets the stage input/output variable
+- ``-fvk-stage-io-order={alpha|decl}``: Assigns the stage input/output variable
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.
