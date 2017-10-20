@@ -1,4 +1,7 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-b-shift=100 -fvk-t-shift=200 -fvk-s-shift=300 -fvk-u-shift=400
+// Run: %dxc -T ps_6_0 -E main -fvk-b-shift 0 100 -fvk-b-shift 2 200 -fvk-t-shift 0 200 -fvk-t-shift 1 300 -fvk-t-shift 0 400 -fvk-s-shift 0 500 -fvk-s-shift 2 600 -fvk-u-shift 0 700 -fvk-u-shift 3 800
+
+// Tests that we can set shift for more than one sets of the same register type
+// Tests that we can override shift for the same set
 
 struct S {
     float4 f;
@@ -9,34 +12,34 @@ struct S {
 // CHECK: OpDecorate %cbuffer3 DescriptorSet 0
 // CHECK: OpDecorate %cbuffer3 Binding 42
 [[vk::binding(42)]]
-ConstantBuffer<S> cbuffer3;
+ConstantBuffer<S> cbuffer3 : register(b10, space2);
 
 // CHECK: OpDecorate %cbuffer1 DescriptorSet 0
 // CHECK: OpDecorate %cbuffer1 Binding 100
 ConstantBuffer<S> cbuffer1 : register(b0);
 // CHECK: OpDecorate %cbuffer2 DescriptorSet 2
-// CHECK: OpDecorate %cbuffer2 Binding 100
+// CHECK: OpDecorate %cbuffer2 Binding 200
 ConstantBuffer<S> cbuffer2 : register(b0, space2);
 
 // CHECK: OpDecorate %texture1 DescriptorSet 1
-// CHECK: OpDecorate %texture1 Binding 201
+// CHECK: OpDecorate %texture1 Binding 301
 Texture2D<float4> texture1: register(t1, space1);
 // CHECK: OpDecorate %texture2 DescriptorSet 0
-// CHECK: OpDecorate %texture2 Binding 201
+// CHECK: OpDecorate %texture2 Binding 401
 Texture2D<float4> texture2: register(t1);
 
 // CHECK: OpDecorate %sampler1 DescriptorSet 0
-// CHECK: OpDecorate %sampler1 Binding 300
+// CHECK: OpDecorate %sampler1 Binding 500
 // CHECK: OpDecorate %sampler2 DescriptorSet 2
-// CHECK: OpDecorate %sampler2 Binding 300
+// CHECK: OpDecorate %sampler2 Binding 600
 SamplerState sampler1: register(s0);
 SamplerState sampler2: register(s0, space2);
 
 // CHECK: OpDecorate %rwbuffer1 DescriptorSet 3
-// CHECK: OpDecorate %rwbuffer1 Binding 403
+// CHECK: OpDecorate %rwbuffer1 Binding 803
 RWBuffer<float4> rwbuffer1 : register(u3, space3);
 // CHECK: OpDecorate %rwbuffer2 DescriptorSet 0
-// CHECK: OpDecorate %rwbuffer2 Binding 403
+// CHECK: OpDecorate %rwbuffer2 Binding 703
 RWBuffer<float4> rwbuffer2 : register(u3);
 
 // Lacking binding assignment is unaffacted.

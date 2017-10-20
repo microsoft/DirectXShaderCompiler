@@ -465,6 +465,32 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   return true;
 }
 
+namespace {
+/// A class for maintaining the binding number shift requested for descriptor
+/// sets.
+class BindingShiftMapper {
+public:
+  explicit BindingShiftMapper(const llvm::SmallVectorImpl<uint32_t> &shifts)
+      : masterShift(0) {
+    assert(shifts.size() % 2 == 0);
+    for (uint32_t i = 0; i < shifts.size(); i += 2)
+      perSetShift[shifts[i]] = shifts[i + 1];
+  }
+
+  /// Returns the shift amount for the given set.
+  uint32_t getShiftForSet(uint32_t set) const {
+    const auto found = perSetShift.find(set);
+    if (found != perSetShift.end())
+      return found->second;
+    return masterShift;
+  }
+
+private:
+  uint32_t masterShift; /// Shift amount applies to all sets.
+  llvm::DenseMap<uint32_t, uint32_t> perSetShift;
+};
+}
+
 bool DeclResultIdMapper::decorateResourceBindings() {
   BindingSet bindingSet;
   bool noError = true;
@@ -486,6 +512,11 @@ bool DeclResultIdMapper::decorateResourceBindings() {
       }
     }
 
+  BindingShiftMapper bShiftMapper(spirvOptions.bShift);
+  BindingShiftMapper tShiftMapper(spirvOptions.tShift);
+  BindingShiftMapper sShiftMapper(spirvOptions.sShift);
+  BindingShiftMapper uShiftMapper(spirvOptions.uShift);
+
   // Process variables with register(...) binding assignment
   for (const auto &var : resourceVars)
     if (const auto *reg = var.getRegister())
@@ -494,16 +525,16 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         uint32_t binding = reg->RegisterNumber;
         switch (reg->RegisterType) {
         case 'b':
-          binding += spirvOptions.bShift;
+          binding += bShiftMapper.getShiftForSet(set);
           break;
         case 't':
-          binding += spirvOptions.tShift;
+          binding += tShiftMapper.getShiftForSet(set);
           break;
         case 's':
-          binding += spirvOptions.sShift;
+          binding += sShiftMapper.getShiftForSet(set);
           break;
         case 'u':
-          binding += spirvOptions.uShift;
+          binding += uShiftMapper.getShiftForSet(set);
           break;
         case 'c':
           // For setting packing offset. Does not affect binding.

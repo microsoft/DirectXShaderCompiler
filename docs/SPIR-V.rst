@@ -669,9 +669,9 @@ the corresponding resource will be assigned to descriptor set ``Y`` and binding
 number ``X``, regardless the register type ``x``. Note that this will cause
 binding number collision if, say, two resources are of different register
 type but the same register number. To solve this problem, four command-line
-options, ``-fvk-b-shift=N``, ``-fvk-s-shift=N``, ``-fvk-t-shift=N``, and
-``-fvk-u-shift=N``, are provided to shift all binding numbers of register type
-``b``, ``s``, ``t``, and ``u`` by ``N``, respectively.
+options, ``-fvk-b-shift M N``, ``-fvk-s-shift M N``, ``-fvk-t-shift M N``, and
+``-fvk-u-shift M N``, are provided to shift all binding numbers in space ``M``
+of register type ``b``, ``s``, ``t``, and ``u`` by ``N``, respectively.
 
 If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
@@ -686,7 +686,7 @@ In summary, the compiler essentially assigns binding numbers in three passes.
   annotation.
 - Then the compiler processes all remaining declarations with
   ``:register(xX, spaceY)`` annotation, by applying the shift passed in using
-  command-line option ``-fvk-{b|s|t|u}-shift=N``, if provided.
+  command-line option ``-fvk-{b|s|t|u}-shift M N``, if provided.
 - Finally, the compiler assigns next available binding numbers to the rest in
   the declaration order.
 
@@ -703,14 +703,14 @@ As an example, for the following code:
   [[vk::binding(3)]]
   RWBuffer<float4> rwbuffer1 : register(u5, space2);
 
-If we compile with ``-fvk-t-shift=10``:
+If we compile with ``-fvk-t-shift 0 10 -fvk-t-shift 1 20``:
 
 - ``rwbuffer1`` will take binding #3 in set #0, since explicit binding
   assignment has precedence over the rest.
 - ``cbuffer1`` will take binding #0 in set #0, since that's what deduced from
   the register assignment, and there is no shift requested from command line.
 - ``texture1`` will take binding #10 in set #0, and ``texture2`` will take
-  binding #11 in set #1, since we requested an 10 shift on t-type registers.
+  binding #21 in set #1, since we requested an 10 shift on t-type registers.
 - ``sampler1`` will take binding 1 in set #0, since that's the next available
   binding number in set #0.
 
@@ -1777,3 +1777,25 @@ as stage output variables. The output struct of the patch constant function must
 ``SV_TessFactor`` and ``SV_InsideTessFactor`` fields which will translate to
 ``TessLevelOuter`` and ``TessLevelInner`` builtin variables, respectively. And the rest
 will be flattened and translated into normal stage output variables, one for each field.
+
+Vulkan Command-line Options
+===========================
+
+The following command line options are added into ``dxc`` to support SPIR-V
+codegen for Vulkan:
+
+- ``-spirv``: Generates SPIR-V code.
+- ``-fvk-b-shift M N``: Shifts by ``N`` the inferred binding numbers for all
+  resources in b-type registers of space ``M``. Specifically, for a resouce
+  attached with ``:register(bX, spaceM)`` but not ``[vk::binding(...)]``,
+  sets its Vulkan binding set to ``M`` and binding number to ``X + N``. If you
+  need to shift the inferred binding numbers for more than one space, provide
+  more than one such option. If more than one such option is provided for the
+  same space, the last one takes effect. See `HLSL register and Vulkan binding`_
+  for explanation and examples.
+- ``-fvk-t-shift M N``, similar to ``-fvk-b-shift``, but for t-type registers.
+- ``-fvk-s-shift M N``, similar to ``-fvk-b-shift``, but for s-type registers.
+- ``-fvk-u-shift M N``, similar to ``-fvk-b-shift``, but for u-type registers.
+- ``-fvk-stage-io-order={alpha|decl}``: Sets the stage input/output variable
+  location number according to alphabetical order or declaration order. See
+  `HLSL semantic and Vulkan Location`_ for more details.
