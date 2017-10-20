@@ -109,6 +109,7 @@ void DxcCallDestructor(T *obj) {
       ULONG result = InterlockedDecrement(&m_dwRef); \
       if (result == 0) { \
         CComPtr<IMalloc> pTmp(m_pMalloc); \
+        DxcThreadMalloc M(pTmp); \
         DxcCallDestructor(this); \
         pTmp->Free(this); \
       } \
