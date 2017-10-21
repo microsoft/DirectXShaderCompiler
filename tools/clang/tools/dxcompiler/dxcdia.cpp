@@ -1672,7 +1672,7 @@ public:
   }
 
   DxcDiaSourceFile(IMalloc *pMalloc, DxcDiaSession *pSession, DWORD index)
-    : m_pSession(pSession), m_index(index) {}
+    : m_pMalloc(pMalloc), m_pSession(pSession), m_index(index) {}
 
   llvm::MDTuple *NameContent() {
     return cast<llvm::MDTuple>(m_pSession->Contents()->getOperand(m_index));
