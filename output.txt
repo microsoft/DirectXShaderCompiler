@@ -1,0 +1,3612 @@
+Copying binaries to test to C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\test:
+
+	                  12	C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\bin\
+Running HLSL tests ...
+Running Clang unit tests ...
+te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering /parallel:11 C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\test\clang-hlsl-tests.dll /p:"HlslDataDir=C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL" /select: "@Priority<1"
+Test Authoring and Execution Framework v10.3k for x64
+
+StartGroup: DxilModuleTest::LoadDxilModule_1_0
+
+StartGroup: DxilContainerTest::CompileWhenDebugSourceThenSourceMatters
+
+StartGroup: ExtensionTest::DefineWhenRegisteredThenPreserved
+
+StartGroup: FunctionTest::AllowedStorageClass
+
+StartGroup: MSFileSysTest::CreationWhenInvokedThenNonNull
+EndGroup: MSFileSysTest::CreationWhenInvokedThenNonNull [Passed]
+
+StartGroup: MSFileSysTest::FindFirstWhenInvokedThenHasFile
+EndGroup: MSFileSysTest::FindFirstWhenInvokedThenHasFile [Passed]
+
+StartGroup: MSFileSysTest::FindFirstWhenInvokedThenFailsIfNoMatch
+
+StartGroup: DXIntellisenseTest::CursorWhenCBufferRefThenFound
+EndGroup: MSFileSysTest::FindFirstWhenInvokedThenFailsIfNoMatch [Passed]
+
+StartGroup: MSFileSysTest::FindNextWhenLastThenNoMatch
+EndGroup: MSFileSysTest::FindNextWhenLastThenNoMatch [Passed]
+
+StartGroup: MSFileSysTest::FindNextWhenExistsThenMatch
+EndGroup: MSFileSysTest::FindNextWhenExistsThenMatch [Passed]
+
+StartGroup: MSFileSysTest::OpenWhenNewThenZeroSize
+
+StartGroup: CompilerTest::CompileWhenDebugThenDIPresent
+
+StartGroup: ObjectTest::DeclareLocalObject
+EndGroup: MSFileSysTest::OpenWhenNewThenZeroSize [Passed]
+
+StartGroup: LinkerTest::RunLinkResource
+
+StartGroup: OptionsTest::ReadOptionsWhenDefinesThenInit
+
+StartGroup: AllocatorTest::Intersections
+EndGroup: OptionsTest::ReadOptionsWhenDefinesThenInit [Passed]
+
+StartGroup: OptionsTest::ReadOptionsWhenExtensionsThenOK
+EndGroup: OptionsTest::ReadOptionsWhenExtensionsThenOK [Passed]
+
+StartGroup: OptionsTest::ReadOptionsWhenHelpThenShortcut
+EndGroup: OptionsTest::ReadOptionsWhenHelpThenShortcut [Passed]
+
+StartGroup: OptionsTest::ReadOptionsWhenInvalidThenFail
+EndGroup: AllocatorTest::Intersections [Passed]
+
+StartGroup: AllocatorTest::GapFilling
+EndGroup: OptionsTest::ReadOptionsWhenInvalidThenFail [Passed]
+
+StartGroup: OptionsTest::ReadOptionsConflict
+EndGroup: AllocatorTest::GapFilling [Passed]
+EndGroup: OptionsTest::ReadOptionsConflict [Passed]
+
+StartGroup: OptionsTest::ReadOptionsWhenValidThenOK
+
+StartGroup: AllocatorTest::Allocate
+EndGroup: OptionsTest::ReadOptionsWhenValidThenOK [Passed]
+
+StartGroup: OptionsTest::ReadOptionsWhenJoinedThenOK
+EndGroup: OptionsTest::ReadOptionsWhenJoinedThenOK [Passed]
+
+StartGroup: OptionsTest::ReadOptionsWhenNoEntryThenOK
+EndGroup: OptionsTest::ReadOptionsWhenNoEntryThenOK [Passed]
+
+StartGroup: OptionsTest::ReadOptionsForOutputObject
+EndGroup: OptionsTest::ReadOptionsForOutputObject [Passed]
+
+StartGroup: OptionsTest::ReadOptionsForDxcWhenApiArgMissingThenFail
+EndGroup: OptionsTest::ReadOptionsForDxcWhenApiArgMissingThenFail [Passed]
+
+StartGroup: OptionsTest::ReadOptionsForApiWhenApiArgMissingThenOK
+EndGroup: OptionsTest::ReadOptionsForApiWhenApiArgMissingThenOK [Passed]
+
+StartGroup: OptionsTest::ConvertWhenFailThenThrow
+EndGroup: OptionsTest::ConvertWhenFailThenThrow [Passed]
+
+StartGroup: OptionsTest::CopyOptionsWhenSingleThenOK
+EndGroup: OptionsTest::CopyOptionsWhenSingleThenOK [Passed]
+
+StartGroup: RewriterTest::RunAttributes
+EndGroup: AllocatorTest::Allocate [Passed]
+
+StartGroup: OptimizerTest::OptimizerWhenSlice0ThenOK
+EndGroup: DXIntellisenseTest::CursorWhenCBufferRefThenFound [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenFieldRefThenSimpleNames
+
+StartGroup: SystemValueTest::VerifyArbitrarySupport
+EndGroup: DXIntellisenseTest::CursorWhenFieldRefThenSimpleNames [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenFindAtBodyCallThenMatch
+EndGroup: DXIntellisenseTest::CursorWhenFindAtBodyCallThenMatch [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenFindAtGlobalThenMatch
+EndGroup: FunctionTest::AllowedStorageClass [Passed]
+
+StartGroup: FunctionTest::AllowedInParamUsesClass
+EndGroup: DxilContainerTest::CompileWhenDebugSourceThenSourceMatters [Passed]
+
+StartGroup: DxilContainerTest::CompileWhenOKThenIncludesFeatureInfo
+EndGroup: DXIntellisenseTest::CursorWhenFindAtGlobalThenMatch [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenFindBeforeBodyCallThenMatch
+EndGroup: ExtensionTest::DefineWhenRegisteredThenPreserved [Passed]
+
+StartGroup: ExtensionTest::DefineValidationError
+EndGroup: DxilModuleTest::LoadDxilModule_1_0 [Passed]
+
+StartGroup: DxilModuleTest::LoadDxilModule_1_1
+EndGroup: DxilModuleTest::LoadDxilModule_1_1 [Passed]
+
+StartGroup: DxilModuleTest::LoadDxilModule_1_2
+EndGroup: DxilModuleTest::LoadDxilModule_1_2 [Passed]
+
+StartGroup: DxilModuleTest::FunctionFPFlag
+EndGroup: DxilModuleTest::FunctionFPFlag [Passed]
+
+StartGroup: DxilModuleTest::Precise1
+EndGroup: ExtensionTest::DefineValidationError [Passed]
+
+StartGroup: ExtensionTest::DefineValidationWarning
+EndGroup: DXIntellisenseTest::CursorWhenFindBeforeBodyCallThenMatch [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenFindBeforeGlobalThenMatch
+EndGroup: DXIntellisenseTest::CursorWhenFindBeforeGlobalThenMatch [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenFunctionThenParamsAvailable
+EndGroup: DxilContainerTest::CompileWhenOKThenIncludesFeatureInfo [Passed]
+
+StartGroup: DxilContainerTest::CompileWhenOKThenIncludesSignatures
+EndGroup: DXIntellisenseTest::CursorWhenFunctionThenParamsAvailable [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenFunctionThenReturnTypeAvailable
+EndGroup: DXIntellisenseTest::CursorWhenFunctionThenReturnTypeAvailable [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenFunctionThenSignatureAvailable
+EndGroup: ExtensionTest::DefineValidationWarning [Passed]
+
+StartGroup: ExtensionTest::DefineNoValidatorOk
+EndGroup: DxilModuleTest::Precise1 [Passed]
+
+StartGroup: DxilModuleTest::Precise2
+EndGroup: DXIntellisenseTest::CursorWhenFunctionThenSignatureAvailable [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenGlobalVariableThenSimpleNames
+EndGroup: DXIntellisenseTest::CursorWhenGlobalVariableThenSimpleNames [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenOverloadedIncompleteThenInvisible
+EndGroup: DXIntellisenseTest::CursorWhenOverloadedIncompleteThenInvisible [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenOverloadedResolvedThenDirectSymbol
+EndGroup: DxilModuleTest::Precise2 [Passed]
+
+StartGroup: DxilModuleTest::Precise3
+EndGroup: DxilModuleTest::Precise3 [Passed]
+
+StartGroup: DxilModuleTest::Precise4
+EndGroup: DXIntellisenseTest::CursorWhenOverloadedResolvedThenDirectSymbol [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenReferenceThenDefinitionAvailable
+EndGroup: ExtensionTest::DefineNoValidatorOk [Passed]
+
+StartGroup: ExtensionTest::DefineFromMacro
+EndGroup: RewriterTest::RunAttributes [Passed]
+
+StartGroup: RewriterTest::RunAnonymousStruct
+EndGroup: FunctionTest::AllowedInParamUsesClass [Passed]
+
+StartGroup: FunctionTest::ParseRootSignature
+EndGroup: DXIntellisenseTest::CursorWhenReferenceThenDefinitionAvailable [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenTypeOfVariableDeclThenNamesHaveType
+EndGroup: RewriterTest::RunAnonymousStruct [Passed]
+
+StartGroup: RewriterTest::RunCppErrors
+EndGroup: DXIntellisenseTest::CursorWhenTypeOfVariableDeclThenNamesHaveType [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenVariableRefThenSimpleNames
+EndGroup: DxilContainerTest::CompileWhenOKThenIncludesSignatures [Passed]
+
+StartGroup: DxilContainerTest::CompileWhenSigSquareThenIncludeSplit
+EndGroup: DxilContainerTest::CompileWhenSigSquareThenIncludeSplit [Passed]
+
+StartGroup: DxilContainerTest::DisassemblyWhenMissingThenFails
+EndGroup: DxilContainerTest::DisassemblyWhenMissingThenFails [Passed]
+
+StartGroup: DxilContainerTest::DisassemblyWhenBCInvalidThenFails
+EndGroup: DXIntellisenseTest::CursorWhenVariableRefThenSimpleNames [Passed]
+
+StartGroup: DXIntellisenseTest::CursorWhenVariableUsedThenDeclarationAvailable
+EndGroup: DxilModuleTest::Precise4 [Passed]
+
+StartGroup: DxilModuleTest::Precise5
+EndGroup: ExtensionTest::DefineFromMacro [Passed]
+
+StartGroup: ExtensionTest::IntrinsicWhenAvailableThenUsed
+EndGroup: DXIntellisenseTest::CursorWhenVariableUsedThenDeclarationAvailable [Passed]
+
+StartGroup: DXIntellisenseTest::FileWhenSameThenEqual
+EndGroup: DXIntellisenseTest::FileWhenSameThenEqual [Passed]
+
+StartGroup: DXIntellisenseTest::FileWhenNotSameThenNotEqual
+EndGroup: RewriterTest::RunCppErrors [Passed]
+
+StartGroup: RewriterTest::RunForceExtern
+EndGroup: DxilContainerTest::DisassemblyWhenBCInvalidThenFails [Passed]
+
+StartGroup: DxilContainerTest::DisassemblyWhenInvalidThenFails
+EndGroup: DxilContainerTest::DisassemblyWhenInvalidThenFails [Passed]
+
+StartGroup: DxilContainerTest::DisassemblyWhenValidThenOK
+EndGroup: RewriterTest::RunForceExtern [Passed]
+
+StartGroup: RewriterTest::RunIndexingOperator
+EndGroup: DXIntellisenseTest::FileWhenNotSameThenNotEqual [Passed]
+
+StartGroup: DXIntellisenseTest::InclusionWhenMissingThenError
+EndGroup: DxilModuleTest::Precise5 [Passed]
+
+StartGroup: DxilModuleTest::Precise6
+EndGroup: DXIntellisenseTest::InclusionWhenMissingThenError [Passed]
+
+StartGroup: DXIntellisenseTest::InclusionWhenValidThenAvailable
+EndGroup: DXIntellisenseTest::InclusionWhenValidThenAvailable [Passed]
+
+StartGroup: DXIntellisenseTest::TUWhenGetFileMissingThenFail
+EndGroup: ExtensionTest::IntrinsicWhenAvailableThenUsed [Passed]
+
+StartGroup: ExtensionTest::CustomIntrinsicName
+EndGroup: DxilContainerTest::DisassemblyWhenValidThenOK [Passed]
+
+StartGroup: DxilContainerTest::ValidateFromLL_Abs2
+EndGroup: DXIntellisenseTest::TUWhenGetFileMissingThenFail [Passed]
+
+StartGroup: DXIntellisenseTest::TUWhenGetFilePresentThenOK
+EndGroup: DxilContainerTest::ValidateFromLL_Abs2 [Passed]
+
+StartGroup: DxilContainerTest::DxilContainerUnitTest
+EndGroup: DXIntellisenseTest::TUWhenGetFilePresentThenOK [Passed]
+
+StartGroup: DXIntellisenseTest::TUWhenEmptyStructThenErrorIfISense
+EndGroup: DxilModuleTest::Precise6 [Passed]
+
+StartGroup: DxilModuleTest::Precise7
+EndGroup: DXIntellisenseTest::TUWhenEmptyStructThenErrorIfISense [Passed]
+
+StartGroup: DXIntellisenseTest::TUWhenRegionInactiveMissingThenCountIsZero
+EndGroup: DXIntellisenseTest::TUWhenRegionInactiveMissingThenCountIsZero [Passed]
+
+StartGroup: DXIntellisenseTest::TUWhenRegionInactiveThenEndIsBeforeElseHash
+EndGroup: ExtensionTest::CustomIntrinsicName [Passed]
+
+StartGroup: ExtensionTest::NoLowering
+EndGroup: DXIntellisenseTest::TUWhenRegionInactiveThenEndIsBeforeElseHash [Passed]
+
+StartGroup: DXIntellisenseTest::TUWhenRegionInactiveThenEndIsBeforeEndifHash
+EndGroup: DXIntellisenseTest::TUWhenRegionInactiveThenEndIsBeforeEndifHash [Passed]
+
+StartGroup: DXIntellisenseTest::TUWhenRegionInactiveThenStartIsAtIfdefEol
+EndGroup: DxilModuleTest::Precise7 [Passed]
+
+StartGroup: ValidationTest::WhenCorrectThenOK
+EndGroup: LinkerTest::RunLinkResource [Passed]
+
+StartGroup: LinkerTest::RunLinkAllProfiles
+EndGroup: DXIntellisenseTest::TUWhenRegionInactiveThenStartIsAtIfdefEol [Passed]
+
+StartGroup: DXIntellisenseTest::TUWhenUnsaveFileThenOK
+EndGroup: DxilContainerTest::DxilContainerUnitTest [Passed]
+
+StartGroup: DxilContainerTest::ReflectionMatchesDXBC_CheckIn
+EndGroup: DXIntellisenseTest::TUWhenUnsaveFileThenOK [Passed]
+
+StartGroup: DXIntellisenseTest::QualifiedNameClass
+EndGroup: ExtensionTest::NoLowering [Passed]
+
+StartGroup: ExtensionTest::PackedLowering
+EndGroup: DXIntellisenseTest::QualifiedNameClass [Passed]
+
+StartGroup: DXIntellisenseTest::QualifiedNameVariable
+EndGroup: ValidationTest::WhenCorrectThenOK [Passed]
+
+StartGroup: ValidationTest::WhenMisalignedThenFail
+EndGroup: ValidationTest::WhenMisalignedThenFail [Passed]
+
+StartGroup: ValidationTest::WhenEmptyFileThenFail
+EndGroup: ValidationTest::WhenEmptyFileThenFail [Passed]
+
+StartGroup: ValidationTest::WhenIncorrectMagicThenFail
+EndGroup: ValidationTest::WhenIncorrectMagicThenFail [Passed]
+
+StartGroup: ValidationTest::WhenIncorrectTargetTripleThenFail
+EndGroup: ValidationTest::WhenIncorrectTargetTripleThenFail [Passed]
+
+StartGroup: ValidationTest::WhenIncorrectModelThenFail
+EndGroup: DXIntellisenseTest::QualifiedNameVariable [Passed]
+
+StartGroup: DXIntellisenseTest::TypeWhenICEThenEval
+EndGroup: DXIntellisenseTest::TypeWhenICEThenEval [Passed]
+
+StartGroup: VerifierTest::RunAttributes
+EndGroup: ValidationTest::WhenIncorrectModelThenFail [Passed]
+
+StartGroup: ValidationTest::WhenIncorrectPSThenFail
+EndGroup: ExtensionTest::PackedLowering [Passed]
+
+StartGroup: ExtensionTest::ReplicateLoweringWhenOnlyVectorIsResult
+EndGroup: ValidationTest::WhenIncorrectPSThenFail [Passed]
+
+StartGroup: ValidationTest::WhenWaveAffectsGradientThenFail
+EndGroup: ExtensionTest::ReplicateLoweringWhenOnlyVectorIsResult [Passed]
+
+StartGroup: ExtensionTest::UnsignedOpcodeIsUnchanged
+EndGroup: ExtensionTest::UnsignedOpcodeIsUnchanged [Passed]
+
+StartGroup: ExtensionTest::ResourceExtensionIntrinsic
+EndGroup: ExtensionTest::ResourceExtensionIntrinsic [Passed]
+
+StartGroup: ExtensionTest::NameLoweredWhenNoReplicationNeeded
+EndGroup: ValidationTest::WhenWaveAffectsGradientThenFail [Passed]
+
+StartGroup: ValidationTest::WhenMultipleModulesThenFail
+EndGroup: ValidationTest::WhenMultipleModulesThenFail [Passed]
+
+StartGroup: ValidationTest::WhenUnexpectedEOFThenFail
+EndGroup: ValidationTest::WhenUnexpectedEOFThenFail [Passed]
+
+StartGroup: ValidationTest::WhenUnknownBlocksThenFail
+EndGroup: ValidationTest::WhenUnknownBlocksThenFail [Passed]
+
+StartGroup: ValidationTest::WhenZeroInputPatchCountWithInputThenFail
+EndGroup: VerifierTest::RunAttributes [Passed]
+
+StartGroup: VerifierTest::RunConstExpr
+EndGroup: ExtensionTest::NameLoweredWhenNoReplicationNeeded [Passed]
+
+StartGroup: ExtensionTest::DxilLoweringVector1
+EndGroup: ExtensionTest::DxilLoweringVector1 [Passed]
+
+StartGroup: ExtensionTest::DxilLoweringVector2
+EndGroup: VerifierTest::RunConstExpr [Passed]
+
+StartGroup: VerifierTest::RunConstAssign
+EndGroup: VerifierTest::RunConstAssign [Passed]
+
+StartGroup: VerifierTest::RunConstDefault
+EndGroup: RewriterTest::RunIndexingOperator [Passed]
+
+StartGroup: RewriterTest::RunIntrinsicExamples
+EndGroup: ExtensionTest::DxilLoweringVector2 [Passed]
+
+StartGroup: ExtensionTest::DxilLoweringScalar
+EndGroup: VerifierTest::RunConstDefault [Passed]
+
+StartGroup: VerifierTest::RunCppErrors
+EndGroup: ObjectTest::DeclareLocalObject [Passed]
+
+StartGroup: ObjectTest::OptionalTemplateArgs
+EndGroup: ExtensionTest::DxilLoweringScalar [Passed]
+
+StartGroup: CompilerTest::CompileDebugLines
+EndGroup: ValidationTest::WhenZeroInputPatchCountWithInputThenFail [Passed]
+
+StartGroup: ValidationTest::LoadOutputControlPointNotInPatchConstantFunction
+EndGroup: CompilerTest::CompileDebugLines [Passed]
+
+StartGroup: CompilerTest::CompileWhenDefinesThenApplied
+EndGroup: RewriterTest::RunIntrinsicExamples [Passed]
+
+StartGroup: RewriterTest::RunMatrixAssignments
+EndGroup: RewriterTest::RunMatrixAssignments [Passed]
+
+StartGroup: RewriterTest::RunMatrixSyntax
+EndGroup: CompilerTest::CompileWhenDefinesThenApplied [Passed]
+
+StartGroup: CompilerTest::CompileWhenDefinesManyThenApplied
+EndGroup: VerifierTest::RunCppErrors [Passed]
+
+StartGroup: VerifierTest::RunCXX11Attributes
+EndGroup: VerifierTest::RunCXX11Attributes [Passed]
+
+StartGroup: VerifierTest::RunEnums
+EndGroup: RewriterTest::RunMatrixSyntax [Passed]
+
+StartGroup: RewriterTest::RunPackReg
+EndGroup: ValidationTest::LoadOutputControlPointNotInPatchConstantFunction [Passed]
+
+StartGroup: ValidationTest::StorePatchControlNotInPatchConstantFunction
+EndGroup: CompilerTest::CompileWhenDefinesManyThenApplied [Passed]
+
+StartGroup: CompilerTest::CompileWhenEmptyThenFails
+EndGroup: CompilerTest::CompileWhenEmptyThenFails [Passed]
+
+StartGroup: CompilerTest::CompileWhenIncorrectThenFails
+EndGroup: CompilerTest::CompileWhenIncorrectThenFails [Passed]
+
+StartGroup: CompilerTest::CompileWhenWorksThenDisassembleWorks
+EndGroup: CompilerTest::CompileWhenWorksThenDisassembleWorks [Passed]
+
+StartGroup: CompilerTest::CompileWhenDebugWorksThenStripDebug
+EndGroup: VerifierTest::RunEnums [Passed]
+
+StartGroup: VerifierTest::RunFunctions
+EndGroup: LinkerTest::RunLinkAllProfiles [Passed]
+
+StartGroup: LinkerTest::RunLinkFailNoDefine
+EndGroup: ValidationTest::StorePatchControlNotInPatchConstantFunction [Passed]
+
+StartGroup: ValidationTest::OutputControlPointIDInPatchConstantFunction
+EndGroup: CompilerTest::CompileWhenDebugWorksThenStripDebug [Passed]
+
+StartGroup: CompilerTest::CompileWhenWorksThenAddRemovePrivate
+EndGroup: RewriterTest::RunPackReg [Passed]
+
+StartGroup: RewriterTest::RunScalarAssignments
+EndGroup: CompilerTest::CompileWhenWorksThenAddRemovePrivate [Passed]
+
+StartGroup: CompilerTest::CompileWithRootSignatureThenStripRootSignature
+EndGroup: CompilerTest::CompileWithRootSignatureThenStripRootSignature [Passed]
+
+StartGroup: CompilerTest::CompileWhenIncludeThenLoadInvoked
+EndGroup: ValidationTest::OutputControlPointIDInPatchConstantFunction [Passed]
+
+StartGroup: ValidationTest::GsVertexIDOutOfBound
+EndGroup: LinkerTest::RunLinkFailNoDefine [Passed]
+
+StartGroup: LinkerTest::RunLinkFailReDefine
+EndGroup: CompilerTest::CompileWhenIncludeThenLoadInvoked [Passed]
+
+StartGroup: CompilerTest::CompileWhenIncludeThenLoadUsed
+EndGroup: CompilerTest::CompileWhenIncludeThenLoadUsed [Passed]
+
+StartGroup: CompilerTest::CompileWhenIncludeAbsoluteThenLoadAbsolute
+EndGroup: ObjectTest::OptionalTemplateArgs [Passed]
+
+StartGroup: ObjectTest::MissingTemplateArgs
+EndGroup: VerifierTest::RunFunctions [Passed]
+
+StartGroup: VerifierTest::RunIndexingOperator
+EndGroup: CompilerTest::CompileWhenIncludeAbsoluteThenLoadAbsolute [Passed]
+
+StartGroup: CompilerTest::CompileWhenIncludeLocalThenLoadRelative
+EndGroup: DxilContainerTest::ReflectionMatchesDXBC_CheckIn [Passed]
+
+StartGroup: CompilerTest::CompileWhenIncludeSystemThenLoadNotRelative
+EndGroup: CompilerTest::CompileWhenIncludeLocalThenLoadRelative [Passed]
+
+StartGroup: CompilerTest::CompileWhenIncludeSystemMissingThenLoadAttempt
+EndGroup: RewriterTest::RunScalarAssignments [Passed]
+
+StartGroup: RewriterTest::RunShared
+EndGroup: LinkerTest::RunLinkFailReDefine [Passed]
+
+StartGroup: LinkerTest::RunLinkGlobalInit
+EndGroup: CompilerTest::CompileWhenIncludeSystemMissingThenLoadAttempt [Passed]
+
+StartGroup: CompilerTest::CompileWhenIncludeFlagsThenIncludeUsed
+EndGroup: SystemValueTest::VerifyArbitrarySupport [Passed]
+
+StartGroup: SystemValueTest::VerifyNotAvailableFail
+EndGroup: CompilerTest::CompileWhenIncludeSystemThenLoadNotRelative [Passed]
+
+StartGroup: CompilerTest::CompileWhenIncludeMissingThenFail
+EndGroup: ValidationTest::GsVertexIDOutOfBound [Passed]
+
+StartGroup: ValidationTest::StreamIDOutOfBound
+EndGroup: CompilerTest::CompileWhenIncludeMissingThenFail [Passed]
+
+StartGroup: CompilerTest::CompileWhenIncludeHasPathThenOK
+EndGroup: CompilerTest::CompileWhenIncludeFlagsThenIncludeUsed [Passed]
+
+StartGroup: CompilerTest::CompileWhenODumpThenPassConfig
+EndGroup: CompilerTest::CompileWhenODumpThenPassConfig [Passed]
+
+StartGroup: CompilerTest::CompileWhenODumpThenOptimizerMatch
+EndGroup: CompilerTest::CompileWhenIncludeHasPathThenOK [Passed]
+
+StartGroup: CompilerTest::CompileWhenVdThenProducesDxilContainer
+EndGroup: CompilerTest::CompileWhenVdThenProducesDxilContainer [Passed]
+
+StartGroup: CompilerTest::CompileWhenNoMemThenOOM
+EndGroup: ValidationTest::StreamIDOutOfBound [Passed]
+
+StartGroup: ValidationTest::SignatureDataWidth
+EndGroup: ValidationTest::SignatureDataWidth [Passed]
+
+StartGroup: ValidationTest::SignatureStreamIDForNonGS
+EndGroup: LinkerTest::RunLinkGlobalInit [Passed]
+
+StartGroup: LinkerTest::RunLinkNoAlloca
+EndGroup: ValidationTest::SignatureStreamIDForNonGS [Passed]
+
+StartGroup: ValidationTest::TypedUAVStoreFullMask0
+EndGroup: RewriterTest::RunShared [Passed]
+
+StartGroup: RewriterTest::RunStructAssignments
+EndGroup: CompilerTest::CompileWhenODumpThenOptimizerMatch [Passed]
+
+StartGroup: CompilerTest::CompileWhenShaderModelMismatchAttributeThenFail
+EndGroup: CompilerTest::CompileWhenShaderModelMismatchAttributeThenFail [Passed]
+
+StartGroup: CompilerTest::CompileBadHlslThenFail
+EndGroup: CompilerTest::CompileBadHlslThenFail [Passed]
+
+StartGroup: CompilerTest::CompileLegacyShaderModelThenFail
+EndGroup: CompilerTest::CompileLegacyShaderModelThenFail [Passed]
+
+StartGroup: CompilerTest::CompileWhenRecursiveAlbeitStaticTermThenFail
+EndGroup: RewriterTest::RunStructAssignments [Passed]
+
+StartGroup: RewriterTest::RunTemplateChecks
+EndGroup: LinkerTest::RunLinkNoAlloca [Passed]
+
+StartGroup: LinkerTest::RunLinkFailReDefineGlobal
+EndGroup: ValidationTest::TypedUAVStoreFullMask0 [Passed]
+
+StartGroup: ValidationTest::TypedUAVStoreFullMask1
+EndGroup: CompilerTest::CompileWhenRecursiveAlbeitStaticTermThenFail [Passed]
+
+StartGroup: CompilerTest::CompileWhenRecursiveThenFail
+EndGroup: CompilerTest::CompileWhenRecursiveThenFail [Passed]
+
+StartGroup: CompilerTest::CompileHlsl2015ThenFail
+EndGroup: CompilerTest::CompileHlsl2015ThenFail [Passed]
+
+StartGroup: CompilerTest::CompileHlsl2016ThenOK
+EndGroup: ValidationTest::TypedUAVStoreFullMask1 [Passed]
+
+StartGroup: ValidationTest::Recursive
+EndGroup: ObjectTest::MissingTemplateArgs [Passed]
+
+StartGroup: ObjectTest::TooManyTemplateArgs
+EndGroup: ValidationTest::Recursive [Passed]
+
+StartGroup: ValidationTest::Recursive2
+EndGroup: CompilerTest::CompileHlsl2016ThenOK [Passed]
+
+StartGroup: CompilerTest::CompileHlsl2017ThenOK
+EndGroup: ValidationTest::Recursive2 [Passed]
+
+StartGroup: ValidationTest::Recursive3
+EndGroup: RewriterTest::RunTemplateChecks [Passed]
+
+StartGroup: RewriterTest::RunTypemodsSyntax
+EndGroup: ValidationTest::Recursive3 [Passed]
+
+StartGroup: ValidationTest::ResourceRangeOverlap0
+EndGroup: CompilerTest::CompileHlsl2017ThenOK [Passed]
+
+StartGroup: CompilerTest::CompileHlsl2018ThenFail
+EndGroup: CompilerTest::CompileHlsl2018ThenFail [Passed]
+
+StartGroup: CompilerTest::CompileCBufferTBufferASTDump
+EndGroup: CompilerTest::CompileCBufferTBufferASTDump [Passed]
+
+StartGroup: CompilerTest::DiaLoadBadBitcodeThenFail
+EndGroup: CompilerTest::DiaLoadBadBitcodeThenFail [Passed]
+
+StartGroup: CompilerTest::DiaLoadDebugThenOK
+EndGroup: VerifierTest::RunIndexingOperator [Passed]
+
+StartGroup: VerifierTest::RunIntrinsicExamples
+EndGroup: CompilerTest::DiaLoadDebugThenOK [Passed]
+
+StartGroup: CompilerTest::DiaTableIndexThenOK
+EndGroup: RewriterTest::RunTypemodsSyntax [Passed]
+
+StartGroup: RewriterTest::RunVarmodsSyntax
+EndGroup: OptimizerTest::OptimizerWhenSlice0ThenOK [Passed]
+
+StartGroup: OptimizerTest::OptimizerWhenSlice1ThenOK
+EndGroup: CompilerTest::DiaTableIndexThenOK [Passed]
+
+StartGroup: CompilerTest::PixMSAAToSample0
+EndGroup: ValidationTest::ResourceRangeOverlap0 [Passed]
+
+StartGroup: ValidationTest::ResourceRangeOverlap1
+EndGroup: RewriterTest::RunVarmodsSyntax [Passed]
+
+StartGroup: RewriterTest::RunVectorAssignments
+EndGroup: RewriterTest::RunVectorAssignments [Passed]
+
+StartGroup: RewriterTest::RunVectorSyntaxMix
+EndGroup: RewriterTest::RunVectorSyntaxMix [Passed]
+
+StartGroup: RewriterTest::RunVectorSyntax
+EndGroup: LinkerTest::RunLinkFailReDefineGlobal [Passed]
+
+StartGroup: LinkerTest::RunLinkFailProfileMismatch
+EndGroup: RewriterTest::RunVectorSyntax [Passed]
+
+StartGroup: RewriterTest::RunIncludes
+EndGroup: VerifierTest::RunIntrinsicExamples [Passed]
+
+StartGroup: VerifierTest::RunMatrixAssignments
+EndGroup: RewriterTest::RunIncludes [Passed]
+
+StartGroup: RewriterTest::RunStructMethods
+EndGroup: RewriterTest::RunStructMethods [Passed]
+
+StartGroup: RewriterTest::RunPredefines
+EndGroup: RewriterTest::RunPredefines [Passed]
+
+StartGroup: RewriterTest::RunUTF16OneByte
+EndGroup: RewriterTest::RunUTF16OneByte [Passed]
+
+StartGroup: RewriterTest::RunUTF16TwoByte
+EndGroup: RewriterTest::RunUTF16TwoByte [Passed]
+
+StartGroup: RewriterTest::RunUTF16ThreeByteBadChar
+EndGroup: VerifierTest::RunMatrixAssignments [Passed]
+
+StartGroup: VerifierTest::RunMatrixSyntax
+EndGroup: RewriterTest::RunUTF16ThreeByteBadChar [Passed]
+
+StartGroup: RewriterTest::RunUTF16ThreeByte
+EndGroup: ObjectTest::TooManyTemplateArgs [Passed]
+
+StartGroup: ObjectTest::PassAsParameter
+EndGroup: RewriterTest::RunUTF16ThreeByte [Passed]
+
+StartGroup: RewriterTest::RunNonUnicode
+EndGroup: RewriterTest::RunNonUnicode [Passed]
+
+StartGroup: RewriterTest::RunEffect
+EndGroup: ValidationTest::ResourceRangeOverlap1 [Passed]
+
+StartGroup: ValidationTest::ResourceRangeOverlap2
+EndGroup: VerifierTest::RunMatrixSyntax [Passed]
+
+StartGroup: VerifierTest::RunMatrixSyntaxExactPrecision
+EndGroup: CompilerTest::PixMSAAToSample0 [Passed]
+
+StartGroup: CompilerTest::PixRemoveDiscards
+EndGroup: LinkerTest::RunLinkFailProfileMismatch [Passed]
+
+StartGroup: LinkerTest::RunLinkFailEntryNoProps
+EndGroup: CompilerTest::PixRemoveDiscards [Passed]
+
+StartGroup: CompilerTest::PixPixelCounter
+EndGroup: VerifierTest::RunMatrixSyntaxExactPrecision [Passed]
+
+StartGroup: VerifierTest::RunMoreOperators
+EndGroup: ValidationTest::ResourceRangeOverlap2 [Passed]
+
+StartGroup: ValidationTest::ResourceRangeOverlap3
+EndGroup: RewriterTest::RunEffect [Passed]
+
+StartGroup: RewriterTest::RunSemanticDefines
+EndGroup: RewriterTest::RunSemanticDefines [Passed]
+
+StartGroup: RewriterTest::RunNoFunctionBody
+EndGroup: CompilerTest::PixPixelCounter [Passed]
+
+StartGroup: CompilerTest::PixPixelCounterEarlyZ
+EndGroup: RewriterTest::RunNoFunctionBody [Passed]
+
+StartGroup: RewriterTest::RunNoFunctionBodyInclude
+EndGroup: RewriterTest::RunNoFunctionBodyInclude [Passed]
+
+StartGroup: RewriterTest::RunNoStatic
+EndGroup: CompilerTest::PixPixelCounterEarlyZ [Passed]
+
+StartGroup: CompilerTest::PixPixelCounterNoSvPosition
+EndGroup: CompilerTest::PixPixelCounterNoSvPosition [Passed]
+
+StartGroup: CompilerTest::PixPixelCounterAddPixelCost
+EndGroup: LinkerTest::RunLinkFailEntryNoProps [Passed]
+EndGroup: ValidationTest::ResourceRangeOverlap3 [Passed]
+
+StartGroup: ValidationTest::CBufferOverlap0
+
+StartGroup: CompilerTest::PixConstantColor
+EndGroup: RewriterTest::RunNoStatic [Passed]
+
+StartGroup: RewriterTest::RunKeepUserMacro
+EndGroup: CompilerTest::PixPixelCounterAddPixelCost [Passed]
+
+StartGroup: CompilerTest::PixConstantColorInt
+EndGroup: RewriterTest::RunKeepUserMacro [Passed]
+
+StartGroup: CompilerTest::PixConstantColorMRT
+EndGroup: CompilerTest::PixConstantColor [Passed]
+
+StartGroup: CompilerTest::PixConstantColorUAVs
+EndGroup: ValidationTest::CBufferOverlap0 [Passed]
+
+StartGroup: ValidationTest::CBufferOverlap1
+EndGroup: CompilerTest::PixConstantColorInt [Passed]
+
+StartGroup: CompilerTest::PixConstantColorOtherSIVs
+EndGroup: CompilerTest::PixConstantColorMRT [Passed]
+
+StartGroup: CompilerTest::PixConstantColorFromCB
+EndGroup: ValidationTest::CBufferOverlap1 [Passed]
+
+StartGroup: ValidationTest::ControlFlowHint
+EndGroup: CompilerTest::PixConstantColorOtherSIVs [Passed]
+
+StartGroup: CompilerTest::PixConstantColorFromCBint
+EndGroup: CompilerTest::PixConstantColorUAVs [Passed]
+
+StartGroup: CompilerTest::PixForceEarlyZ
+EndGroup: CompilerTest::PixConstantColorFromCB [Passed]
+
+StartGroup: CompilerTest::PixDebugBasic
+EndGroup: ValidationTest::ControlFlowHint [Passed]
+
+StartGroup: ValidationTest::ControlFlowHint1
+EndGroup: CompilerTest::PixConstantColorFromCBint [Passed]
+
+StartGroup: CompilerTest::PixDebugUAVSize
+EndGroup: CompilerTest::PixForceEarlyZ [Passed]
+
+StartGroup: CompilerTest::PixDebugPSParameters
+EndGroup: VerifierTest::RunMoreOperators [Passed]
+
+StartGroup: VerifierTest::RunObjectOperators
+EndGroup: ValidationTest::ControlFlowHint1 [Passed]
+
+StartGroup: ValidationTest::ControlFlowHint2
+EndGroup: CompilerTest::PixDebugBasic [Passed]
+
+StartGroup: CompilerTest::PixDebugVSParameters
+EndGroup: CompilerTest::PixDebugPSParameters [Passed]
+EndGroup: CompilerTest::PixDebugUAVSize [Passed]
+
+StartGroup: CompilerTest::PixDebugCSParameters
+
+StartGroup: CompilerTest::PixDebugFlowControl
+EndGroup: CompilerTest::PixDebugCSParameters [Passed]
+
+StartGroup: CompilerTest::PixDebugPreexistingSVPosition
+EndGroup: ValidationTest::ControlFlowHint2 [Passed]
+
+StartGroup: ValidationTest::SemanticLength1
+EndGroup: CompilerTest::PixDebugVSParameters [Passed]
+
+StartGroup: CompilerTest::PixDebugPreexistingSVVertex
+EndGroup: CompilerTest::PixDebugPreexistingSVPosition [Passed]
+
+StartGroup: CompilerTest::PixDebugPreexistingSVInstance
+EndGroup: ValidationTest::SemanticLength1 [Passed]
+
+StartGroup: ValidationTest::SemanticLength64
+EndGroup: CompilerTest::PixDebugPreexistingSVVertex [Passed]
+
+StartGroup: CompilerTest::CodeGenAbs1
+EndGroup: CompilerTest::CodeGenAbs1 [Passed]
+
+StartGroup: CompilerTest::CodeGenAbs2
+EndGroup: CompilerTest::PixDebugFlowControl [Passed]
+
+StartGroup: CompilerTest::CodeGenAllLit
+EndGroup: CompilerTest::PixDebugPreexistingSVInstance [Passed]
+
+StartGroup: CompilerTest::CodeGenAllocaAtEntryBlk
+EndGroup: ValidationTest::SemanticLength64 [Passed]
+
+StartGroup: ValidationTest::PullModelPosition
+EndGroup: CompilerTest::CodeGenAbs2 [Passed]
+
+StartGroup: CompilerTest::CodeGenAddUint64
+EndGroup: CompilerTest::CodeGenAllLit [Passed]
+
+StartGroup: CompilerTest::CodeGenArrayArg
+EndGroup: ValidationTest::PullModelPosition [Passed]
+
+StartGroup: ValidationTest::StructBufStrideAlign
+EndGroup: CompilerTest::CodeGenAllocaAtEntryBlk [Passed]
+
+StartGroup: CompilerTest::CodeGenArrayArg2
+EndGroup: VerifierTest::RunObjectOperators [Passed]
+
+StartGroup: VerifierTest::RunPackReg
+EndGroup: CompilerTest::CodeGenArrayArg [Passed]
+
+StartGroup: CompilerTest::CodeGenArrayArg3
+EndGroup: ObjectTest::PassAsParameter [Passed]
+
+StartGroup: ObjectTest::AssignVariables
+EndGroup: CompilerTest::CodeGenAddUint64 [Passed]
+
+StartGroup: CompilerTest::CodeGenArrayOfStruct
+EndGroup: CompilerTest::CodeGenArrayArg2 [Passed]
+
+StartGroup: CompilerTest::CodeGenAsUint
+EndGroup: CompilerTest::CodeGenArrayArg3 [Passed]
+
+StartGroup: CompilerTest::CodeGenAsUint2
+EndGroup: CompilerTest::CodeGenAsUint [Passed]
+
+StartGroup: CompilerTest::CodeGenAtomic
+EndGroup: CompilerTest::CodeGenAsUint2 [Passed]
+
+StartGroup: CompilerTest::CodeGenAtomic2
+EndGroup: ValidationTest::StructBufStrideAlign [Passed]
+
+StartGroup: ValidationTest::StructBufStrideOutOfBound
+EndGroup: CompilerTest::CodeGenAtomic2 [Passed]
+
+StartGroup: CompilerTest::CodeGenAttributeAtVertex
+EndGroup: CompilerTest::CodeGenAttributeAtVertex [Passed]
+
+StartGroup: CompilerTest::CodeGenBarycentrics
+EndGroup: CompilerTest::CodeGenBarycentrics [Passed]
+
+StartGroup: CompilerTest::CodeGenBarycentrics1
+EndGroup: CompilerTest::CodeGenBarycentrics1 [Passed]
+
+StartGroup: CompilerTest::CodeGenBarycentricsThreeSV
+EndGroup: CompilerTest::CodeGenBarycentricsThreeSV [Passed]
+
+StartGroup: CompilerTest::CodeGenBinary1
+EndGroup: CompilerTest::CodeGenArrayOfStruct [Passed]
+
+StartGroup: CompilerTest::CodeGenBoolComb
+EndGroup: CompilerTest::CodeGenAtomic [Passed]
+
+StartGroup: CompilerTest::CodeGenBoolSvTarget
+EndGroup: CompilerTest::CodeGenBinary1 [Passed]
+
+StartGroup: CompilerTest::CodeGenCalcLod2DArray
+EndGroup: CompilerTest::CodeGenBoolSvTarget [Passed]
+
+StartGroup: CompilerTest::CodeGenCall1
+EndGroup: CompilerTest::CodeGenBoolComb [Passed]
+
+StartGroup: CompilerTest::CodeGenCall3
+EndGroup: CompilerTest::CodeGenCall1 [Passed]
+
+StartGroup: CompilerTest::CodeGenCast1
+EndGroup: CompilerTest::CodeGenCast1 [Passed]
+
+StartGroup: CompilerTest::CodeGenCast2
+EndGroup: CompilerTest::CodeGenCall3 [Passed]
+
+StartGroup: CompilerTest::CodeGenCast3
+EndGroup: ValidationTest::StructBufStrideOutOfBound [Passed]
+
+StartGroup: ValidationTest::StructBufGlobalCoherentAndCounter
+EndGroup: CompilerTest::CodeGenCast2 [Passed]
+
+StartGroup: CompilerTest::CodeGenCast4
+EndGroup: CompilerTest::CodeGenCast3 [Passed]
+
+StartGroup: CompilerTest::CodeGenCast5
+EndGroup: CompilerTest::CodeGenCast4 [Passed]
+
+StartGroup: CompilerTest::CodeGenCast6
+EndGroup: CompilerTest::CodeGenCast5 [Passed]
+
+StartGroup: CompilerTest::CodeGenCast7
+EndGroup: CompilerTest::CodeGenCast7 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbuf_init_static
+EndGroup: CompilerTest::CodeGenCast6 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbufferCopy
+EndGroup: CompilerTest::CodeGenCbuf_init_static [Passed]
+
+StartGroup: CompilerTest::CodeGenCbufferCopy1
+EndGroup: CompilerTest::CodeGenCbufferCopy [Passed]
+
+StartGroup: CompilerTest::CodeGenCbufferCopy2
+EndGroup: CompilerTest::CodeGenCalcLod2DArray [Passed]
+
+StartGroup: CompilerTest::CodeGenCbufferCopy3
+EndGroup: ValidationTest::StructBufGlobalCoherentAndCounter [Passed]
+
+StartGroup: ValidationTest::StructBufLoadCoordinates
+EndGroup: CompilerTest::CodeGenCbufferCopy2 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbufferCopy4
+EndGroup: CompilerTest::CodeGenCbufferCopy3 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbuffer_unused
+EndGroup: VerifierTest::RunPackReg [Passed]
+
+StartGroup: VerifierTest::RunScalarAssignments
+EndGroup: CompilerTest::CodeGenCbuffer_unused [Passed]
+
+StartGroup: CompilerTest::CodeGenCbuffer1_50
+EndGroup: CompilerTest::CodeGenCbufferCopy4 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbuffer1_51
+EndGroup: CompilerTest::CodeGenCbuffer1_50 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbuffer2_50
+EndGroup: ValidationTest::StructBufLoadCoordinates [Passed]
+
+StartGroup: ValidationTest::StructBufStoreCoordinates
+EndGroup: CompilerTest::CodeGenCbuffer1_51 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbuffer2_51
+EndGroup: CompilerTest::CodeGenCbuffer2_50 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbuffer3_50
+EndGroup: CompilerTest::CodeGenCbufferCopy1 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbuffer3_51
+EndGroup: ObjectTest::AssignVariables [Passed]
+
+StartGroup: ObjectTest::AssignReturnResult
+EndGroup: CompilerTest::CodeGenCbuffer2_51 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbuffer5_51
+EndGroup: VerifierTest::RunScalarAssignments [Passed]
+
+StartGroup: VerifierTest::RunScalarAssignmentsExactPrecision
+EndGroup: CompilerTest::CodeGenCbuffer3_50 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbuffer6_51
+EndGroup: CompilerTest::CodeGenCbuffer3_51 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbufferAlloc
+EndGroup: CompilerTest::CodeGenCbuffer5_51 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbufferAllocLegacy
+EndGroup: CompilerTest::CodeGenCbuffer6_51 [Passed]
+
+StartGroup: CompilerTest::CodeGenCbufferHalf
+EndGroup: CompilerTest::CodeGenCbufferHalf [Passed]
+
+StartGroup: CompilerTest::CodeGenCbufferInLoop
+EndGroup: CompilerTest::CodeGenCbufferAlloc [Passed]
+
+StartGroup: CompilerTest::CodeGenCbufferMinPrec
+EndGroup: ValidationTest::StructBufStoreCoordinates [Passed]
+
+StartGroup: ValidationTest::TypedBufRetType
+EndGroup: CompilerTest::CodeGenCbufferAllocLegacy [Passed]
+
+StartGroup: CompilerTest::CodeGenClass
+EndGroup: CompilerTest::CodeGenCbufferInLoop [Passed]
+
+StartGroup: CompilerTest::CodeGenClip
+EndGroup: CompilerTest::CodeGenClip [Passed]
+
+StartGroup: CompilerTest::CodeGenClipPlanes
+EndGroup: VerifierTest::RunScalarAssignmentsExactPrecision [Passed]
+
+StartGroup: VerifierTest::RunScalarOperatorsAssign
+EndGroup: CompilerTest::CodeGenCbufferMinPrec [Passed]
+
+StartGroup: CompilerTest::CodeGenConstoperand1
+EndGroup: CompilerTest::CodeGenClass [Passed]
+
+StartGroup: CompilerTest::CodeGenConstMat
+EndGroup: CompilerTest::CodeGenConstoperand1 [Passed]
+
+StartGroup: CompilerTest::CodeGenConstMat2
+EndGroup: CompilerTest::CodeGenConstMat [Passed]
+
+StartGroup: CompilerTest::CodeGenConstMat3
+EndGroup: ValidationTest::TypedBufRetType [Passed]
+
+StartGroup: ValidationTest::VsInputSemantic
+EndGroup: CompilerTest::CodeGenClipPlanes [Passed]
+
+StartGroup: CompilerTest::CodeGenConstMat4
+EndGroup: CompilerTest::CodeGenConstMat2 [Passed]
+
+StartGroup: CompilerTest::CodeGenCorrectDelay
+EndGroup: CompilerTest::CodeGenCorrectDelay [Passed]
+
+StartGroup: CompilerTest::CodeGenDiscard
+EndGroup: CompilerTest::CodeGenConstMat3 [Passed]
+
+StartGroup: CompilerTest::CodeGenDivZero
+EndGroup: CompilerTest::CodeGenDiscard [Passed]
+
+StartGroup: CompilerTest::CodeGenDot1
+EndGroup: CompilerTest::CodeGenConstMat4 [Passed]
+
+StartGroup: CompilerTest::CodeGenDynamic_Resources
+EndGroup: ValidationTest::VsInputSemantic [Passed]
+
+StartGroup: ValidationTest::VsOutputSemantic
+EndGroup: CompilerTest::CodeGenDivZero [Passed]
+
+StartGroup: CompilerTest::CodeGenEffectSkip
+EndGroup: CompilerTest::CodeGenDot1 [Passed]
+
+StartGroup: CompilerTest::CodeGenEliminateDynamicIndexing
+EndGroup: CompilerTest::CodeGenEffectSkip [Passed]
+
+StartGroup: CompilerTest::CodeGenEliminateDynamicIndexing2
+EndGroup: ValidationTest::VsOutputSemantic [Passed]
+
+StartGroup: ValidationTest::HsInputSemantic
+EndGroup: CompilerTest::CodeGenEliminateDynamicIndexing [Passed]
+
+StartGroup: CompilerTest::CodeGenEliminateDynamicIndexing3
+EndGroup: CompilerTest::CodeGenDynamic_Resources [Passed]
+
+StartGroup: CompilerTest::CodeGenEliminateDynamicIndexing4
+EndGroup: CompilerTest::CodeGenEliminateDynamicIndexing2 [Passed]
+
+StartGroup: CompilerTest::CodeGenEliminateDynamicIndexing5
+EndGroup: CompilerTest::CodeGenEliminateDynamicIndexing3 [Passed]
+
+StartGroup: CompilerTest::CodeGenEliminateDynamicIndexing6
+EndGroup: CompilerTest::CodeGenEliminateDynamicIndexing4 [Passed]
+
+StartGroup: CompilerTest::CodeGenEmpty
+EndGroup: CompilerTest::CodeGenEmpty [Passed]
+
+StartGroup: CompilerTest::CodeGenEmptyStruct
+EndGroup: ValidationTest::HsInputSemantic [Passed]
+
+StartGroup: ValidationTest::HsOutputSemantic
+EndGroup: CompilerTest::CodeGenEliminateDynamicIndexing5 [Passed]
+
+StartGroup: CompilerTest::CodeGenEnum1
+EndGroup: CompilerTest::CodeGenEliminateDynamicIndexing6 [Passed]
+
+StartGroup: CompilerTest::CodeGenEnum2
+EndGroup: CompilerTest::CodeGenEmptyStruct [Passed]
+
+StartGroup: CompilerTest::CodeGenEnum3
+EndGroup: CompilerTest::CodeGenEnum3 [Passed]
+
+StartGroup: CompilerTest::CodeGenEnum4
+EndGroup: CompilerTest::CodeGenEnum1 [Passed]
+
+StartGroup: CompilerTest::CodeGenEnum5
+EndGroup: CompilerTest::CodeGenEnum2 [Passed]
+
+StartGroup: CompilerTest::CodeGenEnum6
+EndGroup: ObjectTest::AssignReturnResult [Passed]
+
+StartGroup: ObjectTest::PassToInoutArgs
+EndGroup: CompilerTest::CodeGenEnum4 [Passed]
+
+StartGroup: CompilerTest::CodeGenEarlyDepthStencil
+EndGroup: CompilerTest::CodeGenEnum5 [Passed]
+
+StartGroup: CompilerTest::CodeGenEval
+EndGroup: CompilerTest::CodeGenEnum6 [Passed]
+
+StartGroup: CompilerTest::CodeGenEvalInvalid
+EndGroup: CompilerTest::CodeGenEval [Passed]
+
+StartGroup: CompilerTest::CodeGenEvalMat
+EndGroup: CompilerTest::CodeGenEarlyDepthStencil [Passed]
+
+StartGroup: CompilerTest::CodeGenEvalMatMember
+EndGroup: CompilerTest::CodeGenEvalInvalid [Passed]
+
+StartGroup: CompilerTest::CodeGenEvalPos
+EndGroup: CompilerTest::CodeGenEvalMat [Passed]
+
+StartGroup: CompilerTest::CodeGenExternRes
+EndGroup: ValidationTest::HsOutputSemantic [Passed]
+
+StartGroup: ValidationTest::PatchConstSemantic
+EndGroup: CompilerTest::CodeGenEvalMatMember [Passed]
+
+StartGroup: CompilerTest::CodeGenExpandTrig
+EndGroup: CompilerTest::CodeGenEvalPos [Passed]
+
+StartGroup: CompilerTest::CodeGenFloatCast
+EndGroup: CompilerTest::CodeGenFloatCast [Passed]
+
+StartGroup: CompilerTest::CodeGenFloatToBool
+EndGroup: CompilerTest::CodeGenFloatToBool [Passed]
+
+StartGroup: CompilerTest::CodeGenFirstbitHi
+EndGroup: CompilerTest::CodeGenExternRes [Passed]
+
+StartGroup: CompilerTest::CodeGenFirstbitLo
+EndGroup: VerifierTest::RunScalarOperatorsAssign [Passed]
+
+StartGroup: VerifierTest::RunScalarOperators
+EndGroup: ValidationTest::PatchConstSemantic [Passed]
+
+StartGroup: ValidationTest::DsInputSemantic
+EndGroup: CompilerTest::CodeGenFirstbitLo [Passed]
+
+StartGroup: CompilerTest::CodeGenFloatMaxtessfactor
+EndGroup: CompilerTest::CodeGenFirstbitHi [Passed]
+
+StartGroup: CompilerTest::CodeGenFModPS
+EndGroup: CompilerTest::CodeGenFModPS [Passed]
+
+StartGroup: CompilerTest::CodeGenFuncCast
+EndGroup: CompilerTest::CodeGenFuncCast [Passed]
+
+StartGroup: CompilerTest::CodeGenFunctionalCast
+EndGroup: ValidationTest::DsInputSemantic [Passed]
+
+StartGroup: ValidationTest::DsOutputSemantic
+EndGroup: CompilerTest::CodeGenFunctionalCast [Passed]
+
+StartGroup: CompilerTest::CodeGenGather
+EndGroup: CompilerTest::CodeGenFloatMaxtessfactor [Passed]
+
+StartGroup: CompilerTest::CodeGenGatherCmp
+EndGroup: ValidationTest::DsOutputSemantic [Passed]
+
+StartGroup: ValidationTest::GsInputSemantic
+EndGroup: ValidationTest::GsInputSemantic [Passed]
+
+StartGroup: ValidationTest::GsOutputSemantic
+EndGroup: CompilerTest::CodeGenGather [Passed]
+
+StartGroup: CompilerTest::CodeGenGatherCubeOffset
+EndGroup: CompilerTest::CodeGenExpandTrig [Passed]
+
+StartGroup: CompilerTest::CodeGenGatherOffset
+EndGroup: CompilerTest::CodeGenGatherCmp [Passed]
+
+StartGroup: CompilerTest::CodeGenGepZeroIdx
+EndGroup: ObjectTest::PassToInoutArgs [Passed]
+
+StartGroup: ObjectTest::TemplateArgConstraints
+EndGroup: ValidationTest::GsOutputSemantic [Passed]
+
+StartGroup: ValidationTest::PsInputSemantic
+EndGroup: CompilerTest::CodeGenGepZeroIdx [Passed]
+
+StartGroup: CompilerTest::CodeGenGloballyCoherent
+EndGroup: ValidationTest::PsInputSemantic [Passed]
+
+StartGroup: ValidationTest::PsOutputSemantic
+EndGroup: CompilerTest::CodeGenGloballyCoherent [Passed]
+
+StartGroup: CompilerTest::CodeGenI32ColIdx
+EndGroup: ValidationTest::PsOutputSemantic [Passed]
+
+StartGroup: ValidationTest::ArrayOfSVTarget
+EndGroup: CompilerTest::CodeGenI32ColIdx [Passed]
+
+StartGroup: CompilerTest::CodeGenIcb1
+EndGroup: CompilerTest::CodeGenIcb1 [Passed]
+
+StartGroup: CompilerTest::CodeGenIf1
+EndGroup: CompilerTest::CodeGenIf1 [Passed]
+
+StartGroup: CompilerTest::CodeGenIf2
+EndGroup: CompilerTest::CodeGenGatherCubeOffset [Passed]
+
+StartGroup: CompilerTest::CodeGenIf3
+EndGroup: CompilerTest::CodeGenIf2 [Passed]
+
+StartGroup: CompilerTest::CodeGenIf4
+EndGroup: CompilerTest::CodeGenGatherOffset [Passed]
+
+StartGroup: CompilerTest::CodeGenIf5
+EndGroup: CompilerTest::CodeGenIf3 [Passed]
+
+StartGroup: CompilerTest::CodeGenIf6
+EndGroup: CompilerTest::CodeGenIf4 [Passed]
+
+StartGroup: CompilerTest::CodeGenIf7
+EndGroup: CompilerTest::CodeGenIf5 [Passed]
+
+StartGroup: CompilerTest::CodeGenIf8
+EndGroup: ValidationTest::ArrayOfSVTarget [Passed]
+
+StartGroup: ValidationTest::InfiniteLog
+EndGroup: CompilerTest::CodeGenIf6 [Passed]
+
+StartGroup: CompilerTest::CodeGenIf9
+EndGroup: CompilerTest::CodeGenIf7 [Passed]
+
+StartGroup: CompilerTest::CodeGenImm0
+EndGroup: CompilerTest::CodeGenIf8 [Passed]
+
+StartGroup: CompilerTest::CodeGenInclude
+EndGroup: CompilerTest::CodeGenIf9 [Passed]
+
+StartGroup: CompilerTest::CodeGenIncompletePos
+EndGroup: ValidationTest::InfiniteLog [Passed]
+
+StartGroup: ValidationTest::InfiniteAsin
+EndGroup: CompilerTest::CodeGenIncompletePos [Passed]
+
+StartGroup: CompilerTest::CodeGenIndexableinput1
+EndGroup: CompilerTest::CodeGenImm0 [Passed]
+
+StartGroup: CompilerTest::CodeGenIndexableinput2
+EndGroup: ObjectTest::TemplateArgConstraints [Passed]
+
+StartGroup: ObjectTest::FunctionInvoke
+EndGroup: ObjectTest::FunctionInvoke [Passed]
+
+StartGroup: CompilerTest::CodeGenIndexableinput3
+EndGroup: CompilerTest::CodeGenIndexableinput1 [Passed]
+
+StartGroup: CompilerTest::CodeGenIndexableinput4
+EndGroup: CompilerTest::CodeGenIndexableinput2 [Passed]
+
+StartGroup: CompilerTest::CodeGenIndexableoutput1
+EndGroup: ValidationTest::InfiniteAsin [Passed]
+
+StartGroup: ValidationTest::InfiniteAcos
+EndGroup: CompilerTest::CodeGenIndexableoutput1 [Passed]
+
+StartGroup: CompilerTest::CodeGenIndexabletemp1
+EndGroup: CompilerTest::CodeGenInclude [Passed]
+
+StartGroup: CompilerTest::CodeGenIndexabletemp2
+EndGroup: CompilerTest::CodeGenIndexableinput3 [Passed]
+
+StartGroup: CompilerTest::CodeGenIndexabletemp3
+EndGroup: ValidationTest::InfiniteAcos [Passed]
+
+StartGroup: ValidationTest::InfiniteDdxDdy
+EndGroup: CompilerTest::CodeGenIndexableinput4 [Passed]
+
+StartGroup: CompilerTest::CodeGenInitListType
+EndGroup: CompilerTest::CodeGenIndexabletemp1 [Passed]
+
+StartGroup: CompilerTest::CodeGenInoutSE
+EndGroup: CompilerTest::CodeGenIndexabletemp2 [Passed]
+
+StartGroup: CompilerTest::CodeGenInout1
+EndGroup: CompilerTest::CodeGenIndexabletemp3 [Passed]
+
+StartGroup: CompilerTest::CodeGenInout2
+EndGroup: CompilerTest::CodeGenInitListType [Passed]
+
+StartGroup: CompilerTest::CodeGenInout3
+EndGroup: ValidationTest::InfiniteDdxDdy [Passed]
+
+StartGroup: ValidationTest::IDivByZero
+EndGroup: CompilerTest::CodeGenInoutSE [Passed]
+
+StartGroup: CompilerTest::CodeGenInout4
+EndGroup: CompilerTest::CodeGenInout1 [Passed]
+
+StartGroup: CompilerTest::CodeGenInout5
+EndGroup: CompilerTest::CodeGenInout2 [Passed]
+
+StartGroup: CompilerTest::CodeGenInput1
+EndGroup: CompilerTest::CodeGenInout3 [Passed]
+
+StartGroup: CompilerTest::CodeGenInput2
+EndGroup: CompilerTest::CodeGenInout5 [Passed]
+
+StartGroup: CompilerTest::CodeGenInput3
+EndGroup: ValidationTest::IDivByZero [Passed]
+
+StartGroup: ValidationTest::UDivByZero
+EndGroup: CompilerTest::CodeGenInput3 [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic1
+EndGroup: CompilerTest::CodeGenInout4 [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic1Minprec
+EndGroup: CompilerTest::CodeGenInput2 [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic2
+EndGroup: CompilerTest::CodeGenInput1 [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic2Minprec
+EndGroup: ValidationTest::UDivByZero [Passed]
+
+StartGroup: ValidationTest::UnusedMetadata
+EndGroup: CompilerTest::CodeGenIntrinsic1 [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic3_even
+EndGroup: ValidationTest::UnusedMetadata [Passed]
+
+StartGroup: ValidationTest::MemoryOutOfBound
+EndGroup: VerifierTest::RunScalarOperators [Passed]
+
+StartGroup: VerifierTest::RunScalarOperatorsExactPrecision
+EndGroup: CompilerTest::CodeGenIntrinsic1Minprec [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic3_integer
+EndGroup: CompilerTest::CodeGenIntrinsic2 [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic3_odd
+EndGroup: CompilerTest::CodeGenIntrinsic2Minprec [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic3_pow2
+EndGroup: ValidationTest::MemoryOutOfBound [Passed]
+
+StartGroup: ValidationTest::LocalRes2
+EndGroup: CompilerTest::CodeGenIntrinsic3_even [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic4
+EndGroup: ValidationTest::LocalRes2 [Passed]
+
+StartGroup: ValidationTest::LocalRes3
+EndGroup: CompilerTest::CodeGenIntrinsic3_integer [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic4_dbg
+EndGroup: CompilerTest::CodeGenIntrinsic3_odd [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic5
+EndGroup: ValidationTest::LocalRes3 [Passed]
+
+StartGroup: ValidationTest::LocalRes5
+EndGroup: CompilerTest::CodeGenIntrinsic3_pow2 [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic5Minprec
+EndGroup: OptimizerTest::OptimizerWhenSlice1ThenOK [Passed]
+
+StartGroup: OptimizerTest::OptimizerWhenSlice2ThenOK
+EndGroup: CompilerTest::CodeGenIntrinsic4 [Passed]
+
+StartGroup: CompilerTest::CodeGenInvalidInputOutputTypes
+EndGroup: CompilerTest::CodeGenIntrinsic5 [Passed]
+
+StartGroup: CompilerTest::CodeGenLegacyStruct
+EndGroup: CompilerTest::CodeGenInvalidInputOutputTypes [Passed]
+
+StartGroup: CompilerTest::CodeGenLibCsEntry
+EndGroup: ValidationTest::LocalRes5 [Passed]
+
+StartGroup: ValidationTest::LocalRes5Dbg
+EndGroup: CompilerTest::CodeGenLegacyStruct [Passed]
+
+StartGroup: CompilerTest::CodeGenLibCsEntry2
+EndGroup: CompilerTest::CodeGenIntrinsic4_dbg [Passed]
+
+StartGroup: CompilerTest::CodeGenLibCsEntry3
+EndGroup: CompilerTest::CodeGenLibCsEntry2 [Passed]
+
+StartGroup: CompilerTest::CodeGenLibEntries
+EndGroup: CompilerTest::CodeGenLibCsEntry [Passed]
+
+StartGroup: CompilerTest::CodeGenLibEntries2
+EndGroup: CompilerTest::CodeGenIntrinsic5Minprec [Passed]
+
+StartGroup: CompilerTest::CodeGenLibNoAlias
+EndGroup: CompilerTest::CodeGenLibCsEntry3 [Passed]
+
+StartGroup: CompilerTest::CodeGenLibResource
+EndGroup: ValidationTest::LocalRes5Dbg [Passed]
+
+StartGroup: ValidationTest::LocalRes6
+EndGroup: CompilerTest::CodeGenLibNoAlias [Passed]
+
+StartGroup: CompilerTest::CodeGenLibUnusedFunc
+EndGroup: CompilerTest::CodeGenLibUnusedFunc [Passed]
+
+StartGroup: CompilerTest::CodeGenLitInParen
+EndGroup: CompilerTest::CodeGenLibResource [Passed]
+
+StartGroup: CompilerTest::CodeGenLiteralShift
+EndGroup: CompilerTest::CodeGenLitInParen [Passed]
+
+StartGroup: CompilerTest::CodeGenLiveness1
+EndGroup: ValidationTest::LocalRes6 [Passed]
+
+StartGroup: ValidationTest::LocalRes6Dbg
+EndGroup: CompilerTest::CodeGenLiteralShift [Passed]
+
+StartGroup: CompilerTest::CodeGenLocalRes1
+EndGroup: CompilerTest::CodeGenLiveness1 [Passed]
+
+StartGroup: CompilerTest::CodeGenLocalRes4
+EndGroup: ValidationTest::LocalRes6Dbg [Passed]
+
+StartGroup: ValidationTest::AddrSpaceCast
+EndGroup: CompilerTest::CodeGenLocalRes4 [Passed]
+
+StartGroup: CompilerTest::CodeGenLocalRes7
+EndGroup: CompilerTest::CodeGenLibEntries [Passed]
+
+StartGroup: CompilerTest::CodeGenLocalRes7Dbg
+EndGroup: CompilerTest::CodeGenLibEntries2 [Passed]
+
+StartGroup: CompilerTest::CodeGenLoop1
+EndGroup: CompilerTest::CodeGenLoop1 [Passed]
+
+StartGroup: CompilerTest::CodeGenLoop2
+EndGroup: CompilerTest::CodeGenLocalRes1 [Passed]
+
+StartGroup: CompilerTest::CodeGenLoop3
+EndGroup: CompilerTest::CodeGenLoop2 [Passed]
+
+StartGroup: CompilerTest::CodeGenLoop4
+EndGroup: CompilerTest::CodeGenLoop3 [Passed]
+
+StartGroup: CompilerTest::CodeGenLoop5
+EndGroup: ValidationTest::AddrSpaceCast [Passed]
+
+StartGroup: ValidationTest::PtrBitCast
+EndGroup: CompilerTest::CodeGenLocalRes7 [Passed]
+
+StartGroup: CompilerTest::CodeGenLoop6
+EndGroup: CompilerTest::CodeGenLocalRes7Dbg [Passed]
+
+StartGroup: CompilerTest::CodeGenMatParam
+EndGroup: CompilerTest::CodeGenLoop4 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatParam2
+EndGroup: CompilerTest::CodeGenLoop5 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatArrayOutput
+EndGroup: CompilerTest::CodeGenLoop6 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatArrayOutput2
+EndGroup: CompilerTest::CodeGenMatParam2 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatElt
+EndGroup: CompilerTest::CodeGenMatArrayOutput [Passed]
+
+StartGroup: CompilerTest::CodeGenMatInit
+EndGroup: CompilerTest::CodeGenMatArrayOutput2 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatMulMat
+EndGroup: CompilerTest::CodeGenMatParam [Passed]
+
+StartGroup: CompilerTest::CodeGenMatOps
+EndGroup: CompilerTest::CodeGenMatElt [Passed]
+
+StartGroup: CompilerTest::CodeGenMatInStruct
+EndGroup: ValidationTest::PtrBitCast [Passed]
+
+StartGroup: ValidationTest::MinPrecisionBitCast
+EndGroup: CompilerTest::CodeGenMatInStruct [Passed]
+
+StartGroup: CompilerTest::CodeGenMatInStructRet
+EndGroup: CompilerTest::CodeGenMatMulMat [Passed]
+
+StartGroup: CompilerTest::CodeGenMatIn
+EndGroup: CompilerTest::CodeGenMatInStructRet [Passed]
+
+StartGroup: CompilerTest::CodeGenMatIn1
+EndGroup: CompilerTest::CodeGenMatInit [Passed]
+
+StartGroup: CompilerTest::CodeGenMatIn2
+EndGroup: VerifierTest::RunScalarOperatorsExactPrecision [Passed]
+
+StartGroup: VerifierTest::RunString
+EndGroup: ValidationTest::MinPrecisionBitCast [Passed]
+
+StartGroup: ValidationTest::StructBitCast
+EndGroup: CompilerTest::CodeGenMatIn [Passed]
+
+StartGroup: CompilerTest::CodeGenMatOut
+EndGroup: VerifierTest::RunString [Passed]
+
+StartGroup: VerifierTest::RunStructAssignments
+EndGroup: CompilerTest::CodeGenMatIn1 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatOut1
+EndGroup: CompilerTest::CodeGenMatOps [Passed]
+
+StartGroup: CompilerTest::CodeGenMatOut2
+EndGroup: CompilerTest::CodeGenMatIn2 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatSubscript
+EndGroup: VerifierTest::RunStructAssignments [Passed]
+
+StartGroup: VerifierTest::RunTemplateChecks
+EndGroup: CompilerTest::CodeGenMatOut [Passed]
+
+StartGroup: CompilerTest::CodeGenMatSubscript2
+EndGroup: CompilerTest::CodeGenMatOut1 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatSubscript3
+EndGroup: CompilerTest::CodeGenMatOut2 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatSubscript4
+Error: TAEF: An unhandled breakpoint was encountered.
+EndGroup: CompilerTest::CodeGenMatSubscript [Passed]
+
+StartGroup: CompilerTest::CodeGenMatSubscript5
+EndGroup: CompilerTest::CodeGenMatSubscript2 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatSubscript6
+EndGroup: CompilerTest::CodeGenMatSubscript4 [Passed]
+
+StartGroup: CompilerTest::CodeGenMatSubscript7
+EndGroup: CompilerTest::CodeGenMatSubscript3 [Passed]
+
+StartGroup: CompilerTest::CodeGenMaxMin
+EndGroup: ValidationTest::StructBitCast [Passed]
+
+StartGroup: ValidationTest::MultiDimArray
+EndGroup: VerifierTest::RunTemplateChecks [Passed]
+
+StartGroup: VerifierTest::RunVarmodsSyntax
+EndGroup: CompilerTest::CodeGenMatSubscript6 [Passed]
+
+StartGroup: CompilerTest::CodeGenMinprec1
+EndGroup: CompilerTest::CodeGenMatSubscript5 [Passed]
+
+StartGroup: CompilerTest::CodeGenMinprec2
+EndGroup: CompilerTest::CodeGenMinprec1 [Passed]
+
+StartGroup: CompilerTest::CodeGenMinprec3
+EndGroup: CompilerTest::CodeGenMatSubscript7 [Passed]
+
+StartGroup: CompilerTest::CodeGenMinprec4
+EndGroup: CompilerTest::CodeGenMaxMin [Passed]
+
+StartGroup: CompilerTest::CodeGenMinprec5
+EndGroup: CompilerTest::CodeGenMinprec2 [Passed]
+
+StartGroup: CompilerTest::CodeGenMinprec6
+EndGroup: CompilerTest::CodeGenMinprec3 [Passed]
+
+StartGroup: CompilerTest::CodeGenMinprec7
+EndGroup: CompilerTest::CodeGenMinprec4 [Passed]
+
+StartGroup: CompilerTest::CodeGenMinprecCoord
+EndGroup: CompilerTest::CodeGenMinprec5 [Passed]
+
+StartGroup: CompilerTest::CodeGenModf
+EndGroup: CompilerTest::CodeGenMinprec6 [Passed]
+
+StartGroup: CompilerTest::CodeGenMinprecCast
+EndGroup: CompilerTest::CodeGenMinprec7 [Passed]
+
+StartGroup: CompilerTest::CodeGenMinprecImm
+EndGroup: CompilerTest::CodeGenModf [Passed]
+
+StartGroup: CompilerTest::CodeGenMultiUAVLoad1
+EndGroup: ValidationTest::MultiDimArray [Passed]
+
+StartGroup: ValidationTest::SimpleGs8
+EndGroup: CompilerTest::CodeGenMinprecImm [Passed]
+
+StartGroup: CompilerTest::CodeGenMultiUAVLoad2
+EndGroup: CompilerTest::CodeGenMultiUAVLoad2 [Passed]
+
+StartGroup: CompilerTest::CodeGenMultiUAVLoad3
+EndGroup: ValidationTest::SimpleGs8 [Passed]
+
+StartGroup: ValidationTest::SimpleGs9
+EndGroup: ValidationTest::SimpleGs9 [Passed]
+
+StartGroup: ValidationTest::SimpleGs10
+EndGroup: CompilerTest::CodeGenMultiUAVLoad1 [Passed]
+
+StartGroup: CompilerTest::CodeGenMultiUAVLoad4
+EndGroup: CompilerTest::CodeGenMultiUAVLoad4 [Passed]
+
+StartGroup: CompilerTest::CodeGenMultiUAVLoad5
+EndGroup: CompilerTest::CodeGenMultiUAVLoad5 [Passed]
+
+StartGroup: CompilerTest::CodeGenMultiUAVLoad6
+EndGroup: CompilerTest::CodeGenMultiUAVLoad6 [Passed]
+
+StartGroup: CompilerTest::CodeGenMultiUAVLoad7
+EndGroup: CompilerTest::CodeGenMultiUAVLoad7 [Passed]
+
+StartGroup: CompilerTest::CodeGenMultiStream
+EndGroup: ValidationTest::SimpleGs10 [Passed]
+
+StartGroup: ValidationTest::IllegalSampleOffset3
+EndGroup: CompilerTest::CodeGenMultiUAVLoad3 [Passed]
+
+StartGroup: CompilerTest::CodeGenMultiStream2
+EndGroup: CompilerTest::CodeGenMinprecCoord [Passed]
+
+StartGroup: CompilerTest::CodeGenNeg1
+EndGroup: CompilerTest::CodeGenMultiStream2 [Passed]
+
+StartGroup: CompilerTest::CodeGenNeg2
+EndGroup: CompilerTest::CodeGenMinprecCast [Passed]
+
+StartGroup: CompilerTest::CodeGenNegabs1
+EndGroup: CompilerTest::CodeGenNeg1 [Passed]
+
+StartGroup: CompilerTest::CodeGenNoise
+EndGroup: CompilerTest::CodeGenNeg2 [Passed]
+
+StartGroup: CompilerTest::CodeGenNonUniform
+EndGroup: CompilerTest::CodeGenNegabs1 [Passed]
+
+StartGroup: CompilerTest::CodeGenOptForNoOpt
+EndGroup: ValidationTest::IllegalSampleOffset3 [Passed]
+
+StartGroup: ValidationTest::IllegalSampleOffset4
+EndGroup: VerifierTest::RunVarmodsSyntax [Passed]
+
+StartGroup: VerifierTest::RunVectorAssignments
+EndGroup: CompilerTest::CodeGenNoise [Passed]
+
+StartGroup: CompilerTest::CodeGenOptForNoOpt2
+EndGroup: CompilerTest::CodeGenMultiStream [Passed]
+
+StartGroup: CompilerTest::CodeGenOptionGis
+EndGroup: VerifierTest::RunVectorAssignments [Passed]
+
+StartGroup: VerifierTest::RunVectorSyntaxMix
+EndGroup: VerifierTest::RunVectorSyntaxMix [Passed]
+
+StartGroup: VerifierTest::RunVectorSyntax
+EndGroup: CompilerTest::CodeGenOptionGis [Passed]
+
+StartGroup: CompilerTest::CodeGenOptionWX
+EndGroup: CompilerTest::CodeGenNonUniform [Passed]
+
+StartGroup: CompilerTest::CodeGenOutput1
+EndGroup: CompilerTest::CodeGenOptionWX [Passed]
+
+StartGroup: CompilerTest::CodeGenOutput2
+EndGroup: VerifierTest::RunVectorSyntax [Passed]
+
+StartGroup: VerifierTest::RunVectorSyntaxExactPrecision
+EndGroup: ValidationTest::IllegalSampleOffset4 [Passed]
+
+StartGroup: ValidationTest::NoFunctionParam
+EndGroup: CompilerTest::CodeGenOutput2 [Passed]
+
+StartGroup: CompilerTest::CodeGenOutput3
+EndGroup: CompilerTest::CodeGenOutput1 [Passed]
+
+StartGroup: CompilerTest::CodeGenOutput4
+EndGroup: CompilerTest::CodeGenOptForNoOpt2 [Passed]
+
+StartGroup: CompilerTest::CodeGenOutput5
+EndGroup: CompilerTest::CodeGenOptForNoOpt [Passed]
+
+StartGroup: CompilerTest::CodeGenOutput6
+EndGroup: CompilerTest::CodeGenOutput3 [Passed]
+
+StartGroup: CompilerTest::CodeGenOutputArray
+EndGroup: VerifierTest::RunVectorSyntaxExactPrecision [Passed]
+
+StartGroup: VerifierTest::RunTypemodsSyntax
+EndGroup: ValidationTest::NoFunctionParam [Passed]
+
+StartGroup: ValidationTest::I8Type
+EndGroup: CompilerTest::CodeGenOutput4 [Passed]
+
+StartGroup: CompilerTest::CodeGenPassthrough1
+EndGroup: CompilerTest::CodeGenOutput5 [Passed]
+
+StartGroup: CompilerTest::CodeGenPassthrough2
+EndGroup: CompilerTest::CodeGenOutput6 [Passed]
+
+StartGroup: CompilerTest::CodeGenPrecise1
+EndGroup: CompilerTest::CodeGenPassthrough1 [Passed]
+
+StartGroup: CompilerTest::CodeGenPrecise2
+EndGroup: CompilerTest::CodeGenPassthrough2 [Passed]
+
+StartGroup: CompilerTest::CodeGenPrecise3
+EndGroup: CompilerTest::CodeGenOutputArray [Passed]
+
+StartGroup: CompilerTest::CodeGenPrecise4
+EndGroup: CompilerTest::CodeGenPrecise1 [Passed]
+
+StartGroup: CompilerTest::CodeGenPreciseOnCall
+EndGroup: CompilerTest::CodeGenPrecise2 [Passed]
+
+StartGroup: CompilerTest::CodeGenPreciseOnCallNot
+EndGroup: CompilerTest::CodeGenPreciseOnCall [Passed]
+
+StartGroup: CompilerTest::CodeGenPreserveAllOutputs
+EndGroup: CompilerTest::CodeGenPrecise4 [Passed]
+
+StartGroup: CompilerTest::CodeGenRaceCond2
+EndGroup: CompilerTest::CodeGenPrecise3 [Passed]
+
+StartGroup: CompilerTest::CodeGenRaw_Buf1
+EndGroup: CompilerTest::CodeGenPreciseOnCallNot [Passed]
+
+StartGroup: CompilerTest::CodeGenRcp1
+EndGroup: ValidationTest::I8Type [Passed]
+
+StartGroup: ValidationTest::EmptyStructInBuffer
+EndGroup: CompilerTest::CodeGenRaceCond2 [Passed]
+
+StartGroup: CompilerTest::CodeGenReadFromOutput
+EndGroup: ValidationTest::EmptyStructInBuffer [Passed]
+
+StartGroup: ValidationTest::BigStructInBuffer
+EndGroup: VerifierTest::RunTypemodsSyntax [Passed]
+
+StartGroup: VerifierTest::RunSemantics
+EndGroup: CompilerTest::CodeGenRcp1 [Passed]
+
+StartGroup: CompilerTest::CodeGenReadFromOutput2
+FileName: C:\Users\hanbyang\AppData\Local\Temp\Tfm-2724-0\te.processhost.exe-20171020-161846.dmp
+EndGroup: ValidationTest::BigStructInBuffer [Passed]
+
+StartGroup: ValidationTest::GloballyCoherent2
+Saved output file to: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\WexLogFileOutput\000001_~ileWhenDebugThenDIPresent_te.processhost.exe-20171020-161846.dmp
+EndGroup: VerifierTest::RunSemantics [Passed]
+EndGroup: ValidationTest::GloballyCoherent2 [Passed]
+EndGroup: CompilerTest::CodeGenReadFromOutput [Passed]
+Error: TAEF: [HRESULT 0x800706BE] Failed to invoke test operation: 'CompilerTest::CompileWhenDebugThenDIPresent'. (Test Host Process could not be reached. It has terminated with an exit code of 0xFFFFFFFF.) (The message to invoke a test operation was not properly handled by the host process.)
+EndGroup: CompilerTest::CodeGenPreserveAllOutputs [Passed]
+
+StartGroup: VerifierTest::RunImplicitCasts
+EndGroup: CompilerTest::CodeGenReadFromOutput2 [Passed]
+EndGroup: CompilerTest::CompileWhenDebugThenDIPresent [Failed]
+
+StartGroup: ValidationTest::GloballyCoherent3
+
+StartGroup: CompilerTest::CodeGenReadFromOutput3
+
+StartGroup: CompilerTest::CodeGenRedundantinput1
+
+StartGroup: CompilerTest::CodeGenRovs
+TestSkipped: TAEF: The cleanup method 'TestModuleCleanup' will not be run as TAEF has stopped communicating with the test host process due to a previous failure.
+EndGroup: CompilerTest::CodeGenRaw_Buf1 [Passed]
+
+StartGroup: CompilerTest::CodeGenRValAssign
+EndGroup: CompilerTest::CodeGenRValAssign [Passed]
+EndGroup: ValidationTest::GloballyCoherent3 [Passed]
+
+StartGroup: CompilerTest::CodeGenRValSubscript
+
+StartGroup: ValidationTest::AddUint64Odd
+EndGroup: CompilerTest::CodeGenRedundantinput1 [Passed]
+
+StartGroup: CompilerTest::CodeGenSample1
+EndGroup: ValidationTest::AddUint64Odd [Passed]
+
+StartGroup: ValidationTest::BarycentricFloat4Fail
+EndGroup: ValidationTest::BarycentricFloat4Fail [Passed]
+
+StartGroup: ValidationTest::BarycentricMaxIndexFail
+EndGroup: ValidationTest::BarycentricMaxIndexFail [Passed]
+
+StartGroup: ValidationTest::BarycentricNoInterpolationFail
+EndGroup: ValidationTest::BarycentricNoInterpolationFail [Passed]
+
+StartGroup: ValidationTest::BarycentricSamePerspectiveFail
+EndGroup: ValidationTest::BarycentricSamePerspectiveFail [Passed]
+
+StartGroup: ValidationTest::ClipCullMaxComponents
+EndGroup: CompilerTest::CodeGenReadFromOutput3 [Passed]
+
+StartGroup: CompilerTest::CodeGenSample2
+
+StartGroup: CompilerTest::CodeGenRes64bit
+EndGroup: ValidationTest::ClipCullMaxComponents [Passed]
+
+StartGroup: ValidationTest::ClipCullMaxRows
+EndGroup: CompilerTest::CodeGenRovs [Passed]
+
+StartGroup: CompilerTest::CodeGenSample3
+EndGroup: ValidationTest::ClipCullMaxRows [Passed]
+
+StartGroup: ValidationTest::DuplicateSysValue
+EndGroup: CompilerTest::CodeGenRValSubscript [Passed]
+
+StartGroup: CompilerTest::CodeGenSample4
+EndGroup: CompilerTest::CodeGenSample1 [Passed]
+
+StartGroup: CompilerTest::CodeGenSample5
+EndGroup: ValidationTest::DuplicateSysValue [Passed]
+
+StartGroup: ValidationTest::GetAttributeAtVertexInVSFail
+EndGroup: ValidationTest::GetAttributeAtVertexInVSFail [Passed]
+
+StartGroup: ValidationTest::GetAttributeAtVertexIn60Fail
+EndGroup: ValidationTest::GetAttributeAtVertexIn60Fail [Passed]
+
+StartGroup: ValidationTest::GetAttributeAtVertexInterpFail
+EndGroup: ValidationTest::GetAttributeAtVertexInterpFail [Passed]
+
+StartGroup: ValidationTest::SemTargetMax
+EndGroup: CompilerTest::CodeGenSample2 [Passed]
+
+StartGroup: CompilerTest::CodeGenSampleBias
+EndGroup: CompilerTest::CodeGenRes64bit [Passed]
+
+StartGroup: CompilerTest::CodeGenSampleCmp
+EndGroup: ValidationTest::SemTargetMax [Passed]
+
+StartGroup: ValidationTest::SemTargetIndexMatchesRow
+EndGroup: ValidationTest::SemTargetIndexMatchesRow [Passed]
+
+StartGroup: ValidationTest::SemTargetCol0
+EndGroup: CompilerTest::CodeGenSample5 [Passed]
+
+StartGroup: CompilerTest::CodeGenSampleCmpLZ
+EndGroup: CompilerTest::CodeGenSample4 [Passed]
+
+StartGroup: CompilerTest::CodeGenSampleCmpLZ2
+EndGroup: ValidationTest::SemTargetCol0 [Passed]
+
+StartGroup: ValidationTest::SemIndexMax
+EndGroup: CompilerTest::CodeGenSample3 [Passed]
+
+StartGroup: CompilerTest::CodeGenSampleGrad
+EndGroup: ValidationTest::SemIndexMax [Passed]
+
+StartGroup: ValidationTest::SemTessFactorIndexMax
+EndGroup: CompilerTest::CodeGenSampleBias [Passed]
+
+StartGroup: CompilerTest::CodeGenSampleL
+EndGroup: CompilerTest::CodeGenSampleCmp [Passed]
+
+StartGroup: CompilerTest::CodeGenSaturate1
+EndGroup: CompilerTest::CodeGenSampleCmpLZ [Passed]
+
+StartGroup: CompilerTest::CodeGenScalarOnVecIntrinsic
+EndGroup: CompilerTest::CodeGenSaturate1 [Passed]
+
+StartGroup: CompilerTest::CodeGenScalarToVec
+EndGroup: ValidationTest::SemTessFactorIndexMax [Passed]
+
+StartGroup: ValidationTest::SemInsideTessFactorIndexMax
+EndGroup: CompilerTest::CodeGenScalarToVec [Passed]
+
+StartGroup: CompilerTest::CodeGenSelectObj
+EndGroup: CompilerTest::CodeGenScalarOnVecIntrinsic [Passed]
+
+StartGroup: CompilerTest::CodeGenSelectObj2
+EndGroup: VerifierTest::RunImplicitCasts [Passed]
+
+StartGroup: VerifierTest::RunLiterals
+EndGroup: CompilerTest::CodeGenSampleGrad [Passed]
+
+StartGroup: CompilerTest::CodeGenSelectObj3
+EndGroup: CompilerTest::CodeGenSampleCmpLZ2 [Passed]
+
+StartGroup: CompilerTest::CodeGenSelectObj4
+EndGroup: ValidationTest::SemInsideTessFactorIndexMax [Passed]
+
+StartGroup: ValidationTest::SemShouldBeAllocated
+EndGroup: CompilerTest::CodeGenSampleL [Passed]
+
+StartGroup: CompilerTest::CodeGenSelectObj5
+EndGroup: CompilerTest::CodeGenSelectObj2 [Passed]
+
+StartGroup: CompilerTest::CodeGenSelfCopy
+EndGroup: CompilerTest::CodeGenSelectObj [Passed]
+
+StartGroup: CompilerTest::CodeGenSelMat
+EndGroup: CompilerTest::CodeGenSelectObj4 [Passed]
+
+StartGroup: CompilerTest::CodeGenSignaturePacking
+EndGroup: CompilerTest::CodeGenSelectObj3 [Passed]
+
+StartGroup: CompilerTest::CodeGenSignaturePackingByWidth
+EndGroup: CompilerTest::CodeGenSignaturePackingByWidth [Passed]
+
+StartGroup: CompilerTest::CodeGenShaderAttr
+EndGroup: CompilerTest::CodeGenShaderAttr [Passed]
+
+StartGroup: CompilerTest::CodeGenShare_Mem_Dbg
+EndGroup: CompilerTest::CodeGenSelectObj5 [Passed]
+
+StartGroup: CompilerTest::CodeGenShare_Mem_Phi
+EndGroup: ValidationTest::SemShouldBeAllocated [Passed]
+
+StartGroup: ValidationTest::SemShouldNotBeAllocated
+EndGroup: CompilerTest::CodeGenSelfCopy [Passed]
+
+StartGroup: CompilerTest::CodeGenShare_Mem1
+EndGroup: CompilerTest::CodeGenSignaturePacking [Passed]
+
+StartGroup: CompilerTest::CodeGenShare_Mem2
+EndGroup: ValidationTest::SemShouldNotBeAllocated [Passed]
+
+StartGroup: ValidationTest::SemComponentOrder
+EndGroup: VerifierTest::RunLiterals [Passed]
+
+StartGroup: VerifierTest::RunEffectsSyntax
+EndGroup: CompilerTest::CodeGenShare_Mem_Phi [Passed]
+
+StartGroup: CompilerTest::CodeGenShare_Mem2Dim
+EndGroup: CompilerTest::CodeGenShare_Mem_Dbg [Passed]
+
+StartGroup: CompilerTest::CodeGenShift
+EndGroup: CompilerTest::CodeGenSelMat [Passed]
+
+StartGroup: CompilerTest::CodeGenShortCircuiting0
+EndGroup: CompilerTest::CodeGenShare_Mem1 [Passed]
+
+StartGroup: CompilerTest::CodeGenShortCircuiting1
+EndGroup: ValidationTest::SemComponentOrder [Passed]
+
+StartGroup: ValidationTest::SemComponentOrder2
+EndGroup: CompilerTest::CodeGenShare_Mem2 [Passed]
+
+StartGroup: CompilerTest::CodeGenShortCircuiting2
+EndGroup: CompilerTest::CodeGenShortCircuiting1 [Passed]
+
+StartGroup: CompilerTest::CodeGenShortCircuiting3
+EndGroup: CompilerTest::CodeGenShift [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleDS1
+EndGroup: CompilerTest::CodeGenShortCircuiting0 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleGS1
+EndGroup: CompilerTest::CodeGenShare_Mem2Dim [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleGS2
+EndGroup: ValidationTest::SemComponentOrder2 [Passed]
+
+StartGroup: ValidationTest::SemComponentOrder3
+EndGroup: VerifierTest::RunEffectsSyntax [Passed]
+
+StartGroup: VerifierTest::RunVectorConditional
+EndGroup: CompilerTest::CodeGenShortCircuiting2 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleGS3
+EndGroup: CompilerTest::CodeGenShortCircuiting3 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleGS4
+EndGroup: ValidationTest::SemComponentOrder3 [Passed]
+
+StartGroup: ValidationTest::SemIndexConflictArbSV
+EndGroup: CompilerTest::CodeGenSimpleGS3 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleGS5
+EndGroup: CompilerTest::CodeGenSimpleGS4 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleGS6
+EndGroup: CompilerTest::CodeGenSimpleDS1 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleGS7
+EndGroup: ValidationTest::SemIndexConflictArbSV [Passed]
+
+StartGroup: ValidationTest::SemIndexConflictTessfactors
+EndGroup: CompilerTest::CodeGenSimpleGS1 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleGS11
+EndGroup: VerifierTest::RunVectorConditional [Passed]
+
+StartGroup: VerifierTest::RunUint4Add3
+EndGroup: CompilerTest::CodeGenSimpleGS2 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleGS12
+EndGroup: VerifierTest::RunUint4Add3 [Passed]
+
+StartGroup: VerifierTest::RunBadInclude
+EndGroup: CompilerTest::CodeGenSimpleGS5 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleHS1
+EndGroup: VerifierTest::RunBadInclude [Passed]
+
+StartGroup: VerifierTest::RunWave
+EndGroup: CompilerTest::CodeGenSimpleGS6 [Passed]
+EndGroup: CompilerTest::CodeGenSimpleGS7 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleHS2
+
+StartGroup: CompilerTest::CodeGenSimpleHS3
+EndGroup: CompilerTest::CodeGenSimpleGS11 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleHS4
+EndGroup: ValidationTest::SemIndexConflictTessfactors [Passed]
+
+StartGroup: ValidationTest::SemIndexConflictTessfactors2
+EndGroup: CompilerTest::CodeGenSimpleGS12 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleHS5
+EndGroup: VerifierTest::RunWave [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleHS6
+EndGroup: CompilerTest::CodeGenSimpleHS6 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleHS7
+EndGroup: CompilerTest::CodeGenSimpleHS7 [Passed]
+
+StartGroup: CompilerTest::CodeGenSimpleHS8
+EndGroup: ValidationTest::SemIndexConflictTessfactors2 [Passed]
+
+StartGroup: ValidationTest::SemRowOutOfRange
+EndGroup: CompilerTest::CodeGenSimpleHS8 [Passed]
+
+StartGroup: CompilerTest::CodeGenSMFail
+EndGroup: CompilerTest::CodeGenSMFail [Passed]
+
+StartGroup: CompilerTest::CodeGenSrv_Ms_Load1
+EndGroup: CompilerTest::CodeGenSimpleHS2 [Passed]
+
+StartGroup: CompilerTest::CodeGenSrv_Ms_Load2
+EndGroup: CompilerTest::CodeGenSimpleHS3 [Passed]
+
+StartGroup: CompilerTest::CodeGenSrv_Typed_Load1
+EndGroup: CompilerTest::CodeGenSimpleHS1 [Passed]
+
+StartGroup: CompilerTest::CodeGenSrv_Typed_Load2
+EndGroup: ValidationTest::SemRowOutOfRange [Passed]
+
+StartGroup: ValidationTest::SemPackOverlap
+EndGroup: CompilerTest::CodeGenSimpleHS4 [Passed]
+
+StartGroup: CompilerTest::CodeGenStaticConstGlobal
+EndGroup: CompilerTest::CodeGenSimpleHS5 [Passed]
+
+StartGroup: CompilerTest::CodeGenStaticConstGlobal2
+EndGroup: CompilerTest::CodeGenSrv_Ms_Load1 [Passed]
+
+StartGroup: CompilerTest::CodeGenStaticGlobals
+EndGroup: CompilerTest::CodeGenSrv_Ms_Load2 [Passed]
+
+StartGroup: CompilerTest::CodeGenStaticGlobals2
+EndGroup: CompilerTest::CodeGenStaticConstGlobal2 [Passed]
+
+StartGroup: CompilerTest::CodeGenStaticGlobals3
+EndGroup: CompilerTest::CodeGenSrv_Typed_Load2 [Passed]
+
+StartGroup: CompilerTest::CodeGenStaticGlobals4
+EndGroup: CompilerTest::CodeGenStaticConstGlobal [Passed]
+
+StartGroup: CompilerTest::CodeGenStaticGlobals5
+EndGroup: CompilerTest::CodeGenStaticGlobals4 [Passed]
+
+StartGroup: CompilerTest::CodeGenStaticMatrix
+EndGroup: ValidationTest::SemPackOverlap [Passed]
+
+StartGroup: ValidationTest::SemPackOverlap2
+EndGroup: CompilerTest::CodeGenStaticGlobals5 [Passed]
+
+StartGroup: CompilerTest::CodeGenStaticResource
+EndGroup: CompilerTest::CodeGenStaticGlobals3 [Passed]
+
+StartGroup: CompilerTest::CodeGenStaticResource2
+EndGroup: CompilerTest::CodeGenSrv_Typed_Load1 [Passed]
+
+StartGroup: CompilerTest::CodeGenStruct_Buf1
+EndGroup: ValidationTest::SemPackOverlap2 [Passed]
+
+StartGroup: ValidationTest::SemMultiDepth
+EndGroup: CompilerTest::CodeGenStaticGlobals2 [Passed]
+
+StartGroup: CompilerTest::CodeGenStruct_Buf_New_Layout
+EndGroup: CompilerTest::CodeGenStruct_Buf_New_Layout [Passed]
+
+StartGroup: CompilerTest::CodeGenStruct_BufHasCounter
+EndGroup: CompilerTest::CodeGenStaticGlobals [Passed]
+
+StartGroup: CompilerTest::CodeGenStruct_BufHasCounter2
+EndGroup: ValidationTest::SemMultiDepth [Passed]
+
+StartGroup: ValidationTest::WhenInstrDisallowedThenFail
+EndGroup: CompilerTest::CodeGenStruct_BufHasCounter2 [Passed]
+
+StartGroup: CompilerTest::CodeGenStructArray
+EndGroup: CompilerTest::CodeGenStaticResource [Passed]
+EndGroup: CompilerTest::CodeGenStaticMatrix [Passed]
+
+StartGroup: CompilerTest::CodeGenStructCast
+
+StartGroup: CompilerTest::CodeGenStructCast2
+EndGroup: ValidationTest::WhenInstrDisallowedThenFail [Passed]
+
+StartGroup: ValidationTest::WhenDepthNotFloatThenFail
+EndGroup: CompilerTest::CodeGenStruct_BufHasCounter [Passed]
+
+StartGroup: CompilerTest::CodeGenStructInBuffer
+EndGroup: CompilerTest::CodeGenStaticResource2 [Passed]
+
+StartGroup: CompilerTest::CodeGenStructInBuffer2
+EndGroup: ValidationTest::WhenDepthNotFloatThenFail [Passed]
+
+StartGroup: ValidationTest::BarrierFail
+EndGroup: CompilerTest::CodeGenStructCast2 [Passed]
+
+StartGroup: CompilerTest::CodeGenStructInBuffer3
+EndGroup: CompilerTest::CodeGenStruct_Buf1 [Passed]
+
+StartGroup: CompilerTest::CodeGenSwitchFloat
+EndGroup: CompilerTest::CodeGenStructInBuffer3 [Passed]
+
+StartGroup: CompilerTest::CodeGenSwitch1
+EndGroup: CompilerTest::CodeGenStructArray [Passed]
+
+StartGroup: CompilerTest::CodeGenSwitch2
+EndGroup: CompilerTest::CodeGenStructInBuffer [Passed]
+
+StartGroup: CompilerTest::CodeGenSwitch3
+EndGroup: CompilerTest::CodeGenStructCast [Passed]
+
+StartGroup: CompilerTest::CodeGenSwizzle1
+EndGroup: CompilerTest::CodeGenStructInBuffer2 [Passed]
+
+StartGroup: CompilerTest::CodeGenSwizzle2
+EndGroup: CompilerTest::CodeGenSwitchFloat [Passed]
+
+StartGroup: CompilerTest::CodeGenSwizzleAtomic
+EndGroup: CompilerTest::CodeGenSwitch1 [Passed]
+
+StartGroup: CompilerTest::CodeGenSwizzleAtomic2
+EndGroup: CompilerTest::CodeGenSwitch2 [Passed]
+
+StartGroup: CompilerTest::CodeGenSwizzleIndexing
+EndGroup: CompilerTest::CodeGenSwitch3 [Passed]
+
+StartGroup: CompilerTest::CodeGenTempDbgInfo
+EndGroup: CompilerTest::CodeGenSwizzle1 [Passed]
+
+StartGroup: CompilerTest::CodeGenTemp1
+EndGroup: ValidationTest::BarrierFail [Passed]
+
+StartGroup: ValidationTest::CBufferLegacyOutOfBoundFail
+EndGroup: CompilerTest::CodeGenSwizzle2 [Passed]
+
+StartGroup: CompilerTest::CodeGenTemp2
+EndGroup: CompilerTest::CodeGenSwizzleAtomic2 [Passed]
+
+StartGroup: CompilerTest::CodeGenTexSubscript
+EndGroup: CompilerTest::CodeGenTempDbgInfo [Passed]
+
+StartGroup: CompilerTest::CodeGenUav_Raw1
+EndGroup: CompilerTest::CodeGenSwizzleIndexing [Passed]
+
+StartGroup: CompilerTest::CodeGenUav_Typed_Load_Store1
+EndGroup: CompilerTest::CodeGenTemp1 [Passed]
+
+StartGroup: CompilerTest::CodeGenUav_Typed_Load_Store2
+EndGroup: ValidationTest::CBufferLegacyOutOfBoundFail [Passed]
+
+StartGroup: ValidationTest::CsThreadSizeFail
+EndGroup: CompilerTest::CodeGenTemp2 [Passed]
+
+StartGroup: CompilerTest::CodeGenUint64_1
+EndGroup: CompilerTest::CodeGenSwizzleAtomic [Passed]
+
+StartGroup: CompilerTest::CodeGenUint64_2
+EndGroup: CompilerTest::CodeGenUint64_2 [Passed]
+
+StartGroup: CompilerTest::CodeGenUintSample
+EndGroup: CompilerTest::CodeGenUav_Typed_Load_Store1 [Passed]
+
+StartGroup: CompilerTest::CodeGenUmaxObjectAtomic
+EndGroup: CompilerTest::CodeGenUav_Typed_Load_Store2 [Passed]
+
+StartGroup: CompilerTest::CodeGenUnrollDbg
+EndGroup: CompilerTest::CodeGenUav_Raw1 [Passed]
+
+StartGroup: CompilerTest::CodeGenUnsignedShortHandMatrixVector
+EndGroup: ValidationTest::CsThreadSizeFail [Passed]
+
+StartGroup: ValidationTest::DeadLoopFail
+EndGroup: CompilerTest::CodeGenUintSample [Passed]
+
+StartGroup: CompilerTest::CodeGenUnusedFunc
+EndGroup: CompilerTest::CodeGenUint64_1 [Passed]
+
+StartGroup: CompilerTest::CodeGenUnusedCB
+EndGroup: CompilerTest::CodeGenTexSubscript [Passed]
+
+StartGroup: CompilerTest::CodeGenUpdateCounter
+EndGroup: CompilerTest::CodeGenUnusedFunc [Passed]
+
+StartGroup: CompilerTest::CodeGenUpperCaseRegister1
+EndGroup: CompilerTest::CodeGenUnsignedShortHandMatrixVector [Passed]
+
+StartGroup: CompilerTest::CodeGenVcmp
+EndGroup: CompilerTest::CodeGenUnrollDbg [Passed]
+
+StartGroup: CompilerTest::CodeGenVecBitCast
+EndGroup: ValidationTest::DeadLoopFail [Passed]
+
+StartGroup: ValidationTest::EvalFail
+EndGroup: CompilerTest::CodeGenUnusedCB [Passed]
+
+StartGroup: CompilerTest::CodeGenVec_Comp_Arg
+EndGroup: CompilerTest::CodeGenVcmp [Passed]
+
+StartGroup: CompilerTest::CodeGenVecCmpCond
+EndGroup: CompilerTest::CodeGenUpdateCounter [Passed]
+
+StartGroup: CompilerTest::CodeGenVecTrunc
+EndGroup: CompilerTest::CodeGenVecBitCast [Passed]
+
+StartGroup: CompilerTest::CodeGenWave
+EndGroup: CompilerTest::CodeGenVecTrunc [Passed]
+EndGroup: CompilerTest::CodeGenVecCmpCond [Passed]
+
+StartGroup: CompilerTest::CodeGenWaveNoOpt
+
+StartGroup: CompilerTest::CodeGenWriteMaskBuf
+EndGroup: ValidationTest::EvalFail [Passed]
+
+StartGroup: ValidationTest::GetDimCalcLODFail
+EndGroup: CompilerTest::CodeGenUmaxObjectAtomic [Passed]
+
+StartGroup: CompilerTest::CodeGenWriteMaskBuf2
+EndGroup: CompilerTest::CodeGenVec_Comp_Arg [Passed]
+
+StartGroup: CompilerTest::CodeGenWriteMaskBuf3
+EndGroup: CompilerTest::CodeGenWriteMaskBuf [Passed]
+
+StartGroup: CompilerTest::CodeGenWriteMaskBuf4
+EndGroup: CompilerTest::CodeGenWaveNoOpt [Passed]
+
+StartGroup: CompilerTest::CodeGenWriteToInput
+EndGroup: CompilerTest::CodeGenWriteMaskBuf2 [Passed]
+
+StartGroup: CompilerTest::CodeGenWriteToInput2
+EndGroup: CompilerTest::CodeGenWriteMaskBuf3 [Passed]
+
+StartGroup: CompilerTest::CodeGenWriteToInput3
+EndGroup: CompilerTest::CodeGenUpperCaseRegister1 [Passed]
+
+StartGroup: CompilerTest::CodeGenAttributes_Mod
+EndGroup: CompilerTest::CodeGenWriteToInput [Passed]
+
+StartGroup: CompilerTest::CodeGenConst_Exprb_Mod
+EndGroup: CompilerTest::CodeGenWriteMaskBuf4 [Passed]
+
+StartGroup: CompilerTest::CodeGenConst_Expr_Mod
+EndGroup: CompilerTest::CodeGenWriteToInput2 [Passed]
+
+StartGroup: CompilerTest::CodeGenFunctions_Mod
+EndGroup: ValidationTest::GetDimCalcLODFail [Passed]
+
+StartGroup: ValidationTest::HsAttributeFail
+EndGroup: CompilerTest::CodeGenWave [Passed]
+
+StartGroup: CompilerTest::CodeGenImplicit_Casts_Mod
+EndGroup: CompilerTest::CodeGenWriteToInput3 [Passed]
+
+StartGroup: CompilerTest::CodeGenIndexing_Operator_Mod
+EndGroup: CompilerTest::CodeGenConst_Exprb_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenIntrinsic_Examples_Mod
+EndGroup: CompilerTest::CodeGenConst_Expr_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenLiterals_Mod
+EndGroup: ValidationTest::HsAttributeFail [Passed]
+
+StartGroup: ValidationTest::InnerCoverageFail
+EndGroup: CompilerTest::CodeGenFunctions_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenLiterals_Exact_Precision_Mod
+EndGroup: CompilerTest::CodeGenLiterals_Exact_Precision_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenMatrix_Assignments_Mod
+EndGroup: ValidationTest::InnerCoverageFail [Passed]
+
+StartGroup: ValidationTest::InterpChangeFail
+EndGroup: CompilerTest::CodeGenLiterals_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenMatrix_Syntax_Mod
+EndGroup: CompilerTest::CodeGenIntrinsic_Examples_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenPackreg_Mod
+EndGroup: ValidationTest::InterpChangeFail [Passed]
+
+StartGroup: ValidationTest::InterpOnIntFail
+EndGroup: CompilerTest::CodeGenMatrix_Assignments_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenParentMethod
+EndGroup: CompilerTest::CodeGenMatrix_Syntax_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenParameter_Types
+EndGroup: CompilerTest::CodeGenAttributes_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenScalar_Assignments_Mod
+EndGroup: ValidationTest::InterpOnIntFail [Passed]
+
+StartGroup: ValidationTest::InvalidSigCompTyFail
+EndGroup: CompilerTest::CodeGenParameter_Types [Passed]
+
+StartGroup: CompilerTest::CodeGenScalar_Operators_Assign_Mod
+EndGroup: CompilerTest::CodeGenParentMethod [Passed]
+
+StartGroup: CompilerTest::CodeGenScalar_Operators_Mod
+EndGroup: ValidationTest::InvalidSigCompTyFail [Passed]
+
+StartGroup: ValidationTest::MultiStream2Fail
+EndGroup: CompilerTest::CodeGenScalar_Operators_Assign_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenSemantics_Mod
+EndGroup: CompilerTest::CodeGenScalar_Operators_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenString_Mod
+EndGroup: CompilerTest::CodeGenString_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenStruct_Assignments_Mod
+EndGroup: CompilerTest::CodeGenPackreg_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenStruct_AssignmentsFull_Mod
+EndGroup: CompilerTest::CodeGenStruct_Assignments_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenTemplate_Checks_Mod
+EndGroup: CompilerTest::CodeGenStruct_AssignmentsFull_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenToinclude2_Mod
+EndGroup: CompilerTest::CodeGenImplicit_Casts_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenTypemods_Syntax_Mod
+EndGroup: CompilerTest::CodeGenIndexing_Operator_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenTypedBufferHalf
+EndGroup: CompilerTest::CodeGenTypedBufferHalf [Passed]
+
+StartGroup: CompilerTest::CodeGenVarmods_Syntax_Mod
+EndGroup: CompilerTest::CodeGenSemantics_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenVector_Assignments_Mod
+EndGroup: ValidationTest::MultiStream2Fail [Passed]
+
+StartGroup: ValidationTest::PhiTGSMFail
+EndGroup: CompilerTest::CodeGenToinclude2_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenVector_Syntax_Mix_Mod
+EndGroup: CompilerTest::CodeGenVector_Assignments_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenVector_Syntax_Mod
+EndGroup: CompilerTest::CodeGenVector_Syntax_Mix_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenBasicHLSL11_PS
+EndGroup: OptimizerTest::OptimizerWhenSlice2ThenOK [Passed]
+
+StartGroup: OptimizerTest::OptimizerWhenSlice3ThenOK
+EndGroup: ValidationTest::PhiTGSMFail [Passed]
+
+StartGroup: ValidationTest::ReducibleFail
+EndGroup: CompilerTest::CodeGenTemplate_Checks_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenBasicHLSL11_PS2
+EndGroup: CompilerTest::CodeGenTypemods_Syntax_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenBasicHLSL11_PS3
+EndGroup: CompilerTest::CodeGenVector_Syntax_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenBasicHLSL11_VS
+EndGroup: ValidationTest::ReducibleFail [Passed]
+
+StartGroup: ValidationTest::SampleBiasFail
+EndGroup: CompilerTest::CodeGenScalar_Assignments_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenBasicHLSL11_VS2
+EndGroup: CompilerTest::CodeGenVarmods_Syntax_Mod [Passed]
+
+StartGroup: CompilerTest::CodeGenVecIndexingInput
+EndGroup: CompilerTest::CodeGenVecIndexingInput [Passed]
+
+StartGroup: CompilerTest::CodeGenVecMulMat
+EndGroup: CompilerTest::CodeGenBasicHLSL11_VS [Passed]
+
+StartGroup: CompilerTest::CodeGenVecArrayParam
+EndGroup: CompilerTest::CodeGenBasicHLSL11_PS [Passed]
+
+StartGroup: CompilerTest::CodeGenBindings1
+EndGroup: CompilerTest::CodeGenBasicHLSL11_VS2 [Passed]
+
+StartGroup: CompilerTest::CodeGenBindings2
+EndGroup: CompilerTest::CodeGenBasicHLSL11_PS2 [Passed]
+
+StartGroup: CompilerTest::CodeGenBindings3
+EndGroup: CompilerTest::CodeGenVecArrayParam [Passed]
+
+StartGroup: CompilerTest::CodeGenResCopy
+EndGroup: CompilerTest::CodeGenBasicHLSL11_PS3 [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceParam
+EndGroup: ValidationTest::SampleBiasFail [Passed]
+
+StartGroup: ValidationTest::SamplerKindFail
+EndGroup: CompilerTest::CodeGenResCopy [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInCB
+EndGroup: CompilerTest::CodeGenResourceParam [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInCB2
+EndGroup: CompilerTest::CodeGenVecMulMat [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInCB3
+EndGroup: CompilerTest::CodeGenResourceInCB [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInCB4
+EndGroup: CompilerTest::CodeGenResourceInCB2 [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInCBV
+EndGroup: CompilerTest::CodeGenBindings2 [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInCBV2
+EndGroup: CompilerTest::CodeGenBindings3 [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInStruct
+EndGroup: ValidationTest::SamplerKindFail [Passed]
+
+StartGroup: ValidationTest::SemaOverlapFail
+EndGroup: CompilerTest::CodeGenBindings1 [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInStruct2
+EndGroup: CompilerTest::CodeGenResourceInCB3 [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInStruct3
+EndGroup: CompilerTest::CodeGenResourceInCBV2 [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInTB
+EndGroup: ValidationTest::SemaOverlapFail [Passed]
+
+StartGroup: ValidationTest::SigOutOfRangeFail
+EndGroup: ValidationTest::SigOutOfRangeFail [Passed]
+
+StartGroup: ValidationTest::SigOverlapFail
+EndGroup: CompilerTest::CodeGenResourceInCBV [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInTB2
+EndGroup: CompilerTest::CodeGenResourceInCB4 [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInTBV
+EndGroup: ValidationTest::SigOverlapFail [Passed]
+
+StartGroup: ValidationTest::SimpleHs1Fail
+EndGroup: CompilerTest::CodeGenResourceInStruct [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceInTBV2
+EndGroup: CompilerTest::CodeGenResourceInTBV [Passed]
+
+StartGroup: CompilerTest::CodeGenResourceArrayParam
+EndGroup: CompilerTest::CodeGenResourceInStruct2 [Passed]
+
+StartGroup: CompilerTest::CodeGenResPhi
+EndGroup: CompilerTest::CodeGenResourceInTB [Passed]
+
+StartGroup: CompilerTest::CodeGenResPhi2
+EndGroup: CompilerTest::CodeGenResourceInStruct3 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigEntry
+EndGroup: CompilerTest::CodeGenResourceInTB2 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigProfile
+EndGroup: CompilerTest::CodeGenRootSigProfile [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigProfile2
+EndGroup: CompilerTest::CodeGenRootSigProfile2 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigProfile3
+EndGroup: CompilerTest::CodeGenRootSigProfile3 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigProfile4
+EndGroup: CompilerTest::CodeGenRootSigProfile4 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigProfile5
+EndGroup: CompilerTest::CodeGenRootSigProfile5 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigDefine1
+EndGroup: CompilerTest::CodeGenRootSigEntry [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigDefine2
+EndGroup: CompilerTest::CodeGenResourceInTBV2 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigDefine3
+EndGroup: CompilerTest::CodeGenResPhi [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigDefine4
+EndGroup: CompilerTest::CodeGenRootSigDefine3 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigDefine5
+EndGroup: CompilerTest::CodeGenRootSigDefine4 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigDefine6
+EndGroup: ValidationTest::SimpleHs1Fail [Passed]
+
+StartGroup: ValidationTest::SimpleHs3Fail
+EndGroup: CompilerTest::CodeGenRootSigDefine1 [Passed]
+EndGroup: CompilerTest::CodeGenRootSigDefine2 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigDefine8
+
+StartGroup: CompilerTest::CodeGenRootSigDefine7
+EndGroup: CompilerTest::CodeGenResourceArrayParam [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigDefine9
+EndGroup: CompilerTest::CodeGenRootSigDefine5 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigDefine10
+EndGroup: CompilerTest::CodeGenRootSigDefine6 [Passed]
+
+StartGroup: CompilerTest::CodeGenRootSigDefine11
+EndGroup: CompilerTest::CodeGenResPhi2 [Passed]
+
+StartGroup: CompilerTest::CodeGenCBufferStructArray
+EndGroup: CompilerTest::CodeGenRootSigDefine9 [Passed]
+
+StartGroup: CompilerTest::CodeGenPatchLength
+EndGroup: CompilerTest::CodeGenRootSigDefine7 [Passed]
+
+StartGroup: CompilerTest::PreprocessWhenValidThenOK
+EndGroup: CompilerTest::PreprocessWhenValidThenOK [Passed]
+
+StartGroup: CompilerTest::WhenSigMismatchPCFunctionThenFail
+EndGroup: CompilerTest::CodeGenCBufferStructArray [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_2Dquadshaders_Blurx_Ps
+EndGroup: CompilerTest::CodeGenRootSigDefine8 [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_2Dquadshaders_Blury_Ps
+EndGroup: CompilerTest::CodeGenRootSigDefine10 [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_2Dquadshaders_Vs
+EndGroup: CompilerTest::CodeGenRootSigDefine11 [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Bc6Hdecode
+EndGroup: CompilerTest::WhenSigMismatchPCFunctionThenFail [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Bc6Hencode_Encodeblockcs
+EndGroup: ValidationTest::SimpleHs3Fail [Passed]
+
+StartGroup: ValidationTest::SimpleHs4Fail
+EndGroup: CompilerTest::CodeGenDX11Sample_2Dquadshaders_Blurx_Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Bc6Hencode_Trymodeg10Cs
+EndGroup: CompilerTest::CodeGenDX11Sample_2Dquadshaders_Blury_Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Bc6Hencode_Trymodele10Cs
+EndGroup: CompilerTest::CodeGenDX11Sample_2Dquadshaders_Vs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Bc7Decode
+EndGroup: CompilerTest::CodeGenPatchLength [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Bc7Encode_Encodeblockcs
+EndGroup: ValidationTest::SimpleHs4Fail [Passed]
+
+StartGroup: ValidationTest::SimpleDs1Fail
+EndGroup: ValidationTest::SimpleDs1Fail [Passed]
+
+StartGroup: ValidationTest::SimpleGs1Fail
+EndGroup: ValidationTest::SimpleGs1Fail [Passed]
+
+StartGroup: ValidationTest::UavBarrierFail
+EndGroup: ValidationTest::UavBarrierFail [Passed]
+
+StartGroup: ValidationTest::UndefValueFail
+EndGroup: ValidationTest::UndefValueFail [Passed]
+
+StartGroup: ValidationTest::UpdateCounterFail
+EndGroup: ValidationTest::UpdateCounterFail [Passed]
+
+StartGroup: ValidationTest::LocalResCopy
+EndGroup: ValidationTest::LocalResCopy [Passed]
+
+StartGroup: ValidationTest::WhenSmUnknownThenFail
+EndGroup: ValidationTest::WhenSmUnknownThenFail [Passed]
+
+StartGroup: ValidationTest::WhenSmLegacyThenFail
+EndGroup: ValidationTest::WhenSmLegacyThenFail [Passed]
+
+StartGroup: ValidationTest::WhenMetaFlagsUsageDeclThenOK
+EndGroup: ValidationTest::WhenMetaFlagsUsageDeclThenOK [Passed]
+
+StartGroup: ValidationTest::WhenMetaFlagsUsageThenFail
+EndGroup: ValidationTest::WhenMetaFlagsUsageThenFail [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMismatchThenFail
+EndGroup: ValidationTest::WhenRootSigMismatchThenFail [Passed]
+
+StartGroup: ValidationTest::WhenRootSigCompatThenSucceed
+EndGroup: ValidationTest::WhenRootSigCompatThenSucceed [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderSucceed_RootConstVis
+EndGroup: ValidationTest::WhenRootSigMatchShaderSucceed_RootConstVis [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_RootConstVis
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_RootConstVis [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderSucceed_RootCBV
+EndGroup: ValidationTest::WhenRootSigMatchShaderSucceed_RootCBV [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_RootCBV_Range
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_RootCBV_Range [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_RootCBV_Space
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_RootCBV_Space [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderSucceed_RootSRV
+EndGroup: ValidationTest::WhenRootSigMatchShaderSucceed_RootSRV [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_RootSRV_ResType
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_RootSRV_ResType [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderSucceed_RootUAV
+EndGroup: ValidationTest::WhenRootSigMatchShaderSucceed_RootUAV [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderSucceed_DescTable
+EndGroup: ValidationTest::WhenRootSigMatchShaderSucceed_DescTable [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderSucceed_DescTable_GoodRange
+EndGroup: ValidationTest::WhenRootSigMatchShaderSucceed_DescTable_GoodRange [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderSucceed_DescTable_Unbounded
+EndGroup: ValidationTest::WhenRootSigMatchShaderSucceed_DescTable_Unbounded [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_DescTable_Range1
+EndGroup: CompilerTest::CodeGenDX11Sample_Bc6Hdecode [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Bc7Encode_Trymode02Cs
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_DescTable_Range1 [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_DescTable_Range2
+EndGroup: CompilerTest::CodeGenDX11Sample_Bc6Hencode_Trymodeg10Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Bc7Encode_Trymode137Cs
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_DescTable_Range2 [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_DescTable_Range3
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_DescTable_Range3 [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_DescTable_Space
+EndGroup: CompilerTest::CodeGenDX11Sample_Bc7Decode [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Bc7Encode_Trymode456Cs
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_DescTable_Space [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderSucceed_Unbounded
+EndGroup: ValidationTest::WhenRootSigMatchShaderSucceed_Unbounded [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_Unbounded1
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_Unbounded1 [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_Unbounded2
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_Unbounded2 [Passed]
+
+StartGroup: ValidationTest::WhenRootSigMatchShaderFail_Unbounded3
+EndGroup: ValidationTest::WhenRootSigMatchShaderFail_Unbounded3 [Passed]
+
+StartGroup: ValidationTest::WhenProgramOutSigMissingThenFail
+EndGroup: ValidationTest::WhenProgramOutSigMissingThenFail [Passed]
+
+StartGroup: ValidationTest::WhenProgramOutSigUnexpectedThenFail
+EndGroup: ValidationTest::WhenProgramOutSigUnexpectedThenFail [Passed]
+
+StartGroup: ValidationTest::WhenProgramSigMismatchThenFail
+EndGroup: ValidationTest::WhenProgramSigMismatchThenFail [Passed]
+
+StartGroup: ValidationTest::WhenProgramInSigMissingThenFail
+EndGroup: CompilerTest::CodeGenDX11Sample_Bc6Hencode_Trymodele10Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Brightpassandhorizfiltercs
+EndGroup: ValidationTest::WhenProgramInSigMissingThenFail [Passed]
+
+StartGroup: ValidationTest::WhenProgramSigMismatchThenFail2
+EndGroup: ValidationTest::WhenProgramSigMismatchThenFail2 [Passed]
+
+StartGroup: ValidationTest::WhenProgramPCSigMissingThenFail
+EndGroup: ValidationTest::WhenProgramPCSigMissingThenFail [Passed]
+
+StartGroup: ValidationTest::WhenPSVMismatchThenFail
+EndGroup: ValidationTest::WhenPSVMismatchThenFail [Passed]
+
+StartGroup: ValidationTest::WhenFeatureInfoMismatchThenFail
+EndGroup: CompilerTest::CodeGenDX11Sample_Brightpassandhorizfiltercs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Computeshadersort11
+EndGroup: ValidationTest::WhenFeatureInfoMismatchThenFail [Passed]
+
+StartGroup: ValidationTest::ViewIDInCSFail
+EndGroup: ValidationTest::ViewIDInCSFail [Passed]
+
+StartGroup: ValidationTest::ViewIDIn60Fail
+EndGroup: ValidationTest::ViewIDIn60Fail [Passed]
+
+StartGroup: ValidationTest::ViewIDNoSpaceFail
+EndGroup: ValidationTest::ViewIDNoSpaceFail [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Computeshadersort11_Matrixtranspose
+EndGroup: CompilerTest::CodeGenDX11Sample_Computeshadersort11 [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Contacthardeningshadows11_Ps
+EndGroup: CompilerTest::CodeGenDX11Sample_Computeshadersort11_Matrixtranspose [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Contacthardeningshadows11_Sm_Vs
+EndGroup: CompilerTest::CodeGenDX11Sample_Bc6Hencode_Encodeblockcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Contacthardeningshadows11_Vs
+EndGroup: CompilerTest::CodeGenDX11Sample_Contacthardeningshadows11_Sm_Vs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Decaltessellation11_Ds
+EndGroup: OptimizerTest::OptimizerWhenSlice3ThenOK [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Decaltessellation11_Hs
+EndGroup: CompilerTest::CodeGenDX11Sample_Contacthardeningshadows11_Vs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Decaltessellation11_Ps
+EndGroup: FunctionTest::ParseRootSignature [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Decaltessellation11_Tessvs
+EndGroup: CompilerTest::CodeGenDX11Sample_Bc7Encode_Trymode137Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Decaltessellation11_Vs
+EndGroup: CompilerTest::CodeGenDX11Sample_Bc7Encode_Trymode456Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Detailtessellation11_Ds
+EndGroup: CompilerTest::CodeGenDX11Sample_Decaltessellation11_Tessvs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Detailtessellation11_Hs
+EndGroup: CompilerTest::CodeGenDX11Sample_Bc7Encode_Trymode02Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Detailtessellation11_Ps
+EndGroup: CompilerTest::CodeGenDX11Sample_Decaltessellation11_Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Detailtessellation11_Tessvs
+EndGroup: CompilerTest::CodeGenDX11Sample_Decaltessellation11_Ds [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Detailtessellation11_Vs
+EndGroup: CompilerTest::CodeGenDX11Sample_Decaltessellation11_Vs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Dumptotexture
+EndGroup: CompilerTest::CodeGenDX11Sample_Dumptotexture [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Filtercs_Horz
+EndGroup: CompilerTest::CodeGenDX11Sample_Detailtessellation11_Hs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Filtercs_Vertical
+EndGroup: CompilerTest::CodeGenDX11Sample_Decaltessellation11_Hs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Finalpass_Cpu_Ps
+EndGroup: CompilerTest::CodeGenDX11Sample_Detailtessellation11_Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Finalpass_Ps
+EndGroup: CompilerTest::CodeGenDX11Sample_Detailtessellation11_Vs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Buildgridcs
+EndGroup: CompilerTest::CodeGenDX11Sample_Detailtessellation11_Tessvs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Buildgridindicescs
+EndGroup: CompilerTest::CodeGenDX11Sample_Finalpass_Cpu_Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Cleargridindicescs
+EndGroup: CompilerTest::CodeGenDX11Sample_Contacthardeningshadows11_Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Densitycs_Grid
+EndGroup: CompilerTest::CodeGenDX11Sample_Filtercs_Horz [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Densitycs_Shared
+EndGroup: CompilerTest::CodeGenDX11Sample_Filtercs_Vertical [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Densitycs_Simple
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Buildgridcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Forcecs_Grid
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Cleargridindicescs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Forcecs_Shared
+EndGroup: CompilerTest::CodeGenDX11Sample_Finalpass_Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Forcecs_Simple
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Buildgridindicescs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Integratecs
+EndGroup: CompilerTest::CodeGenDX11Sample_Detailtessellation11_Ds [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Rearrangeparticlescs
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Densitycs_Simple [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidrender_Gs
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Densitycs_Shared [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Fluidrender_Vs
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Rearrangeparticlescs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Nbodygravitycs11
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Densitycs_Grid [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Oit_Createprefixsum_Pass0_Cs
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Integratecs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Oit_Createprefixsum_Pass1_Cs
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidrender_Vs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Oit_Fragmentcountps
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidrender_Gs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Oit_Ps
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Forcecs_Shared [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Oit_Sortandrendercs
+EndGroup: CompilerTest::CodeGenDX11Sample_Oit_Fragmentcountps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Particledraw_Gs
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Forcecs_Grid [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Particledraw_Vs
+EndGroup: CompilerTest::CodeGenDX11Sample_Oit_Createprefixsum_Pass0_Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Particle_Gs
+EndGroup: CompilerTest::CodeGenDX11Sample_Fluidcs11_Forcecs_Simple [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Particle_Ps
+EndGroup: CompilerTest::CodeGenDX11Sample_Oit_Createprefixsum_Pass1_Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Particle_Vs
+EndGroup: CompilerTest::CodeGenDX11Sample_Oit_Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Pntriangles11_Ds
+EndGroup: CompilerTest::CodeGenDX11Sample_Particledraw_Vs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Pntriangles11_Hs
+EndGroup: CompilerTest::CodeGenDX11Sample_Particledraw_Gs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Pntriangles11_Tessvs
+EndGroup: CompilerTest::CodeGenDX11Sample_Particle_Vs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Pntriangles11_Vs
+EndGroup: CompilerTest::CodeGenDX11Sample_Oit_Sortandrendercs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Pom_Ps
+EndGroup: CompilerTest::CodeGenDX11Sample_Particle_Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Pom_Vs
+EndGroup: CompilerTest::CodeGenDX11Sample_Particle_Gs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Psapproach_Bloomps
+EndGroup: CompilerTest::CodeGenDX11Sample_Bc7Encode_Encodeblockcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Psapproach_Downscale2X2_Lumps
+EndGroup: CompilerTest::CodeGenDX11Sample_Pntriangles11_Tessvs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Psapproach_Downscale3X3Ps
+EndGroup: CompilerTest::CodeGenDX11Sample_Pntriangles11_Vs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Psapproach_Downscale3X3_Brightpassps
+EndGroup: CompilerTest::CodeGenDX11Sample_Pntriangles11_Ds [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Psapproach_Finalpassps
+EndGroup: CompilerTest::CodeGenDX11Sample_Psapproach_Bloomps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Reduceto1Dcs
+EndGroup: CompilerTest::CodeGenDX11Sample_Psapproach_Downscale3X3Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Reducetosinglecs
+EndGroup: CompilerTest::CodeGenDX11Sample_Psapproach_Downscale3X3_Brightpassps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Rendervariancesceneps
+EndGroup: CompilerTest::CodeGenDX11Sample_Psapproach_Downscale2X2_Lumps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Rendervs
+EndGroup: CompilerTest::CodeGenDX11Sample_Pntriangles11_Hs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Simplebezier11Ds
+EndGroup: CompilerTest::CodeGenDX11Sample_Pom_Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Simplebezier11Hs
+EndGroup: CompilerTest::CodeGenDX11Sample_Psapproach_Finalpassps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Simplebezier11Ps
+EndGroup: CompilerTest::CodeGenDX11Sample_Simplebezier11Hs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Subd11_Bezierevalds
+EndGroup: CompilerTest::CodeGenDX11Sample_Pom_Vs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Subd11_Meshskinningvs
+EndGroup: CompilerTest::CodeGenDX11Sample_Reducetosinglecs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Subd11_Patchskinningvs
+EndGroup: CompilerTest::CodeGenDX11Sample_Reduceto1Dcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Subd11_Smoothps
+EndGroup: CompilerTest::CodeGenDX11Sample_Rendervs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Subd11_Subdtobezierhs
+EndGroup: CompilerTest::CodeGenDX11Sample_Simplebezier11Ps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Subd11_Subdtobezierhs4444
+EndGroup: CompilerTest::CodeGenDX11Sample_Simplebezier11Ds [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Tessellatorcs40_Edgefactorcs
+EndGroup: CompilerTest::CodeGenDX11Sample_Rendervariancesceneps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Tessellatorcs40_Numverticesindicescs
+EndGroup: CompilerTest::CodeGenDX11Sample_Subd11_Smoothps [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Tessellatorcs40_Scatteridcs
+EndGroup: CompilerTest::CodeGenDX11Sample_Tessellatorcs40_Scatteridcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Tessellatorcs40_Tessellateindicescs
+EndGroup: CompilerTest::CodeGenDX11Sample_Subd11_Subdtobezierhs [Passed]
+
+StartGroup: CompilerTest::CodeGenDX11Sample_Tessellatorcs40_Tessellateverticescs
+EndGroup: CompilerTest::CodeGenDX11Sample_Subd11_Meshskinningvs [Passed]
+
+StartGroup: CompilerTest::CodeGenSamplesD12_DynamicIndexing_PS
+EndGroup: CompilerTest::CodeGenDX11Sample_Subd11_Patchskinningvs [Passed]
+
+StartGroup: CompilerTest::CodeGenSamplesD12_ExecuteIndirect_CS
+EndGroup: CompilerTest::CodeGenDX11Sample_Tessellatorcs40_Edgefactorcs [Passed]
+
+StartGroup: CompilerTest::CodeGenSamplesD12_MultiThreading_VS
+EndGroup: CompilerTest::CodeGenDX11Sample_Tessellatorcs40_Numverticesindicescs [Passed]
+
+StartGroup: CompilerTest::CodeGenSamplesD12_MultiThreading_PS
+EndGroup: CompilerTest::CodeGenSamplesD12_DynamicIndexing_PS [Passed]
+
+StartGroup: CompilerTest::CodeGenSamplesD12_NBodyGravity_CS
+EndGroup: CompilerTest::CodeGenSamplesD12_ExecuteIndirect_CS [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineAdaptexposurecs
+EndGroup: CompilerTest::CodeGenSamplesD12_MultiThreading_VS [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineAoblurupsampleblendoutcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineAdaptexposurecs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineAoblurupsamplecs
+EndGroup: CompilerTest::CodeGenDX11Sample_Nbodygravitycs11 [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineAoblurupsamplepreminblendoutcs
+EndGroup: CompilerTest::CodeGenDX11Sample_Tessellatorcs40_Tessellateverticescs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineAoblurupsamplepremincs
+EndGroup: CompilerTest::CodeGenSamplesD12_MultiThreading_PS [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineAopreparedepthbuffers1Cs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineAoblurupsampleblendoutcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineAopreparedepthbuffers2Cs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineAoblurupsamplecs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineAorender1Cs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineAoblurupsamplepreminblendoutcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineAorender2Cs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineAopreparedepthbuffers1Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineApplybloomcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineAopreparedepthbuffers2Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineAveragelumacs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineAoblurupsamplepremincs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineBicubichorizontalupsampleps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineAveragelumacs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineBicubicupsamplegammaps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineApplybloomcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineBicubicupsampleps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineBicubichorizontalupsampleps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineBicubicverticalupsampleps
+EndGroup: CompilerTest::CodeGenDX11Sample_Tessellatorcs40_Tessellateindicescs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineBilinearupsampleps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineAorender1Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineBloomextractanddownsamplehdrcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineAorender2Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineBloomextractanddownsampleldrcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineBicubicverticalupsampleps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineBlurcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineBilinearupsampleps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineBuffercopyps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineBloomextractanddownsamplehdrcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineCameramotionblurprepasscs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineBuffercopyps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineCameramotionblurprepasslinearzcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineBloomextractanddownsampleldrcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineCameravelocitycs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineBicubicupsampleps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineConvertldrtodisplayaltps
+EndGroup: CompilerTest::CodeGenSamplesD12_NBodyGravity_CS [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineConvertldrtodisplayps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineCameravelocitycs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineDebugdrawhistogramcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineCameramotionblurprepasscs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineDebugluminancehdrcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineBlurcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineDebugluminanceldrcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineCameramotionblurprepasslinearzcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineDebugssaocs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineConvertldrtodisplayps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineDepthviewerps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineDebugdrawhistogramcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineDepthviewervs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineConvertldrtodisplayaltps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineDownsamplebloomallcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineDebugssaocs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineDownsamplebloomcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineDepthviewervs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineExtractlumacs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineDepthviewerps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass1_Luma_Cs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineDebugluminanceldrcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass1_Rgb_Cs
+EndGroup: CompilerTest::CodeGenDX11Sample_Subd11_Subdtobezierhs4444 [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass2Hcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineDebugluminancehdrcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass2Hdebugcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineDownsamplebloomcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass2Vcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineExtractlumacs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass2Vdebugcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass1_Rgb_Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineFxaaresolveworkqueuecs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineBicubicupsamplegammaps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineGeneratehistogramcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineDownsamplebloomallcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipsgammacs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineFxaaresolveworkqueuecs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipsgammaoddcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass2Hcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipsgammaoddxcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass2Hdebugcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipsgammaoddycs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineGeneratehistogramcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipslinearcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass1_Luma_Cs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipslinearoddcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass2Vdebugcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipslinearoddxcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineFxaapass2Vcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipslinearoddycs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipsgammaoddxcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineLinearizedepthcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipsgammaoddcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineMagnifypixelsps
+EndGroup: CompilerTest::CodeGenDX11Sample_Subd11_Bezierevalds [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineModelviewerps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipslinearcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineModelviewervs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipsgammaoddycs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineMotionblurfinalpasscs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipslinearoddcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineMotionblurfinalpasstemporalcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineLinearizedepthcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineMotionblurprepasscs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipsgammacs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticlebincullingcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipslinearoddxcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticledepthboundscs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineModelviewervs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticledispatchindirectargscs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineMagnifypixelsps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticlefinaldispatchindirectargscs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineGeneratemipslinearoddycs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticleinnersortcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticledispatchindirectargscs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticlelargebincullingcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticlefinaldispatchindirectargscs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticleoutersortcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticleoutersortcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticlepresortcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticleinnersortcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticleps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineMotionblurprepasscs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticlesortindirectargscs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineMotionblurfinalpasscs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticlespawncs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineModelviewerps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticletilecullingcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticlelargebincullingcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerendercs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticlebincullingcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerenderfastcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticlesortindirectargscs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerenderfastdynamiccs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticledepthboundscs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerenderfastlowrescs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineMotionblurfinalpasstemporalcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerenderslowdynamiccs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticlespawncs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerenderslowlowrescs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticleps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticleupdatecs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticlepresortcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineParticlevs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticleupdatecs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEnginePerfgraphbackgroundvs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticlevs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEnginePerfgraphps
+EndGroup: CompilerTest::CodeGenDx12MiniEnginePerfgraphps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEnginePerfgraphvs
+EndGroup: CompilerTest::CodeGenDx12MiniEnginePerfgraphbackgroundvs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineScreenquadvs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerenderfastlowrescs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineSharpeningupsamplegammaps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineScreenquadvs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineSharpeningupsampleps
+EndGroup: CompilerTest::CodeGenDx12MiniEnginePerfgraphvs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineTemporalblendcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticletilecullingcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineTextantialiasps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerenderfastdynamiccs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineTextshadowps
+EndGroup: CompilerTest::CodeGenDx12MiniEngineTextantialiasps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineTextvs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerenderfastcs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineTonemap2Cs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineTextvs [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineTonemapcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineSharpeningupsampleps [Passed]
+
+StartGroup: CompilerTest::CodeGenDx12MiniEngineUpsampleandblurcs
+EndGroup: CompilerTest::CodeGenDx12MiniEngineTextshadowps [Passed]
+
+StartGroup: CompilerTest::DxilGen_StoreOutput
+EndGroup: CompilerTest::DxilGen_StoreOutput [Passed]
+
+StartGroup: CompilerTest::ConstantFolding
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerendercs [Passed]
+
+StartGroup: CompilerTest::HoistConstantArray
+EndGroup: CompilerTest::CodeGenDx12MiniEngineTemporalblendcs [Passed]
+
+StartGroup: CompilerTest::ViewID
+EndGroup: CompilerTest::ViewID [Passed]
+
+StartGroup: CompilerTest::ShaderCompatSuite
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\ignore_line_directives.hlsl
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerenderslowlowrescs [Passed]
+
+StartGroup: SystemValueTest::VerifySVAsArbitrary
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\ignore_line_directives.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\inout_subscript.hlsl
+EndGroup: CompilerTest::CodeGenDx12MiniEngineSharpeningupsamplegammaps [Passed]
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\inout_subscript.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\in_out.hlsl
+
+StartGroup: SystemValueTest::VerifySVAsSV
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\in_out.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten.hlsl
+EndGroup: CompilerTest::CodeGenDx12MiniEngineTonemapcs [Passed]
+
+StartGroup: SystemValueTest::VerifySGV
+EndGroup: CompilerTest::CodeGenDx12MiniEngineTonemap2Cs [Passed]
+EndGroup: CompilerTest::CodeGenDx12MiniEngineParticletilerenderslowdynamiccs [Passed]
+
+StartGroup: SystemValueTest::VerifySVNotPacked
+
+StartGroup: SystemValueTest::VerifySVNotInSig
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten2.hlsl
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten2.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten3.hlsl
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten3.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten4.hlsl
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten4.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_empty_struct_arg.hlsl
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_empty_struct_arg.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_ret_struct.hlsl
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_ret_struct.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_no_flat_extern_func.hlsl
+EndGroup: SystemValueTest::VerifySVNotPacked [Passed]
+
+StartGroup: SystemValueTest::VerifyVertexPacking
+EndGroup: SystemValueTest::VerifyVertexPacking [Passed]
+
+StartGroup: SystemValueTest::VerifyPatchConstantPacking
+EndGroup: SystemValueTest::VerifyPatchConstantPacking [Passed]
+
+StartGroup: SystemValueTest::VerifyTargetPacking
+EndGroup: SystemValueTest::VerifyTargetPacking [Passed]
+
+StartGroup: SystemValueTest::VerifyTessFactors
+EndGroup: SystemValueTest::VerifyTessFactors [Passed]
+
+StartGroup: SystemValueTest::VerifyShadowEntries
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_no_flat_extern_func.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_out_param_res.hlsl
+EndGroup: CompilerTest::CodeGenDx12MiniEngineUpsampleandblurcs [Passed]
+
+StartGroup: SystemValueTest::VerifyVersionedSemantics
+EndGroup: SystemValueTest::VerifyVersionedSemantics [Passed]
+
+StartGroup: SystemValueTest::VerifyMissingSemanticFailure
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_out_param_res.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_res_sel.hlsl
+EndGroup: CompilerTest::HoistConstantArray [Passed]
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_res_sel.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_ret_res.hlsl
+EndGroup: SystemValueTest::VerifyShadowEntries [Passed]
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\lib_ret_res.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\matFrexp.hlsl
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\matFrexp.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\matrix_indexing_cs.hlsl
+EndGroup: SystemValueTest::VerifySGV [Passed]
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\matrix_indexing_cs.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\nest_struct_uav.hlsl
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\nest_struct_uav.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\no_loop_unswitch.hlsl
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\no_loop_unswitch.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\share_mem_arg.hlsl
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\share_mem_arg.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\static_const_field.hlsl
+EndGroup: SystemValueTest::VerifySVNotInSig [Passed]
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\static_const_field.hlsl [Passed]
+
+StartGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\static_imm.hlsl
+EndGroup: C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL\..\CodeGenHLSL\shader-compat-suite\static_imm.hlsl [Passed]
+EndGroup: CompilerTest::ShaderCompatSuite [Passed]
+EndGroup: SystemValueTest::VerifySVAsArbitrary [Passed]
+EndGroup: SystemValueTest::VerifyMissingSemanticFailure [Passed]
+EndGroup: CompilerTest::ConstantFolding [Passed]
+EndGroup: SystemValueTest::VerifySVAsSV [Passed]
+EndGroup: CompilerTest::CompileWhenNoMemThenOOM [Passed]
+EndGroup: SystemValueTest::VerifyNotAvailableFail [Passed]
+
+Non-passing Tests:
+
+    CompilerTest::CompileWhenDebugThenDIPresent [Failed]
+
+Summary: Total=1088, Passed=1087, Failed=1, Blocked=0, Not Run=0, Skipped=0
+You can debug the test with the following command line.
+start devenv /debugexe TE.exe /inproc C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\test\clang-hlsl-tests.dll /p:"HlslDataDir=C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL" /select: "@Priority<1"
+
+Use this te.exe for out-of-proc, or pick the correct one for the target arch, currently x64.
+C:\Program Files (x86)\windows kits\10\Testing\Runtimes\TAEF\TE.exe
+C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\external\taef\build\Binaries\amd64\TE.exe
+
+Use /name:TestClass* or /name:TestClass::MethodName to filter and /breakOnError to catch the failure.
+        1 file(s) copied.
+Testing command line programs at C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\test ...
+Smoke test for dxr command line program ...
+Failed - C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\test\dxc.exe /T ps_6_0 C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\utils\hct\\smoke.hlsl /Zi /Fd C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\test\
+Sniffing for D3D12 configuration ...
+te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering /parallel:11 C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\test\clang-hlsl-tests.dll /p:"HlslDataDir=C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL" /name:ExecutionTest::BasicTriangleTest /runIgnoredTests /p:"ExperimentalShaders=*"
+Test Authoring and Execution Framework v10.3k for x64
+
+StartGroup: ExecutionTest::BasicTriangleTest
+EndGroup: ExecutionTest::BasicTriangleTest [Blocked]
+
+Non-passing Tests:
+
+    ExecutionTest::BasicTriangleTest [Blocked]
+
+Summary: Total=1, Passed=0, Failed=0, Blocked=1, Not Run=0, Skipped=0
+You can debug the test with the following command line.
+start devenv /debugexe TE.exe /inproc C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\test\clang-hlsl-tests.dll /p:"HlslDataDir=C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL" /name:ExecutionTest::BasicTriangleTest /runIgnoredTests /p:"ExperimentalShaders=*"
+
+Use this te.exe for out-of-proc, or pick the correct one for the target arch, currently x64.
+C:\Program Files (x86)\windows kits\10\Testing\Runtimes\TAEF\TE.exe
+C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\external\taef\build\Binaries\amd64\TE.exe
+
+Use /name:TestClass* or /name:TestClass::MethodName to filter and /breakOnError to catch the failure.
+te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering /parallel:11 C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\test\clang-hlsl-tests.dll /p:"HlslDataDir=C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL" /select:"@Name='ExecutionTest::*' AND @Priority<2" /runIgnoredTests /p:"ExperimentalShaders=*"
+Test Authoring and Execution Framework v10.3k for x64
+
+StartGroup: ExecutionTest::BasicTriangleTest
+
+StartGroup: ExecutionTest::BasicComputeTest
+
+StartGroup: ExecutionTest::Int64Test
+
+StartGroup: ExecutionTest::BasicTriangleOpTest
+
+StartGroup: ExecutionTest::SignTest
+
+StartGroup: ExecutionTest::WaveIntrinsicsTest
+
+StartGroup: ExecutionTest::WaveIntrinsicsInPSTest
+
+StartGroup: ExecutionTest::WaveIntrinsicsDDITest
+
+StartGroup: ExecutionTest::PartialDerivTest
+EndGroup: ExecutionTest::BasicTriangleTest [Blocked]
+
+StartGroup: ExecutionTest::SaturateTest
+EndGroup: ExecutionTest::BasicComputeTest [Blocked]
+
+StartGroup: ExecutionTest::OutOfBoundsTest
+EndGroup: ExecutionTest::Int64Test [Blocked]
+EndGroup: ExecutionTest::BasicTriangleOpTest [Blocked]
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveSum
+EndGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveSum [Passed]
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveUSum
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveProduct
+EndGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveProduct [Passed]
+EndGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveUSum [Passed]
+
+StartGroup: ExecutionTest::WaveIntrinsicsPrefixIntTest#WavePrefixCountBits
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveCountBits
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveUProduct
+EndGroup: ExecutionTest::WaveIntrinsicsTest [Blocked]
+EndGroup: ExecutionTest::SignTest [Blocked]
+EndGroup: ExecutionTest::WaveIntrinsicsInPSTest [Blocked]
+EndGroup: ExecutionTest::WaveIntrinsicsDDITest [Blocked]
+EndGroup: ExecutionTest::PartialDerivTest [Blocked]
+EndGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveCountBits [Passed]
+EndGroup: ExecutionTest::WaveIntrinsicsPrefixIntTest#WavePrefixCountBits [Passed]
+EndGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveUProduct [Passed]
+
+StartGroup: ExecutionTest::WaveIntrinsicsPrefixUintTest#WavePrefixCountBits
+EndGroup: ExecutionTest::SaturateTest [Blocked]
+EndGroup: ExecutionTest::OutOfBoundsTest [Blocked]
+
+StartGroup: ExecutionTest::BinaryFloatOpTest#MinMax
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveMax
+
+StartGroup: ExecutionTest::WaveIntrinsicsPrefixIntTest#WavePrefixSum
+EndGroup: ExecutionTest::WaveIntrinsicsPrefixUintTest#WavePrefixCountBits [Passed]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#sin
+EndGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveMax [Passed]
+EndGroup: ExecutionTest::WaveIntrinsicsPrefixIntTest#WavePrefixSum [Passed]
+
+StartGroup: ExecutionTest::TertiaryFloatOpTest#FMad
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveUMax
+EndGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveUMax [Passed]
+
+StartGroup: ExecutionTest::TertiaryIntOpTest#IMad
+
+StartGroup: ExecutionTest::WaveIntrinsicsPrefixUintTest#WavePrefixSum
+
+StartGroup: ExecutionTest::BinaryIntOpTest#IMax
+EndGroup: ExecutionTest::WaveIntrinsicsPrefixUintTest#WavePrefixSum [Passed]
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveMin
+EndGroup: ExecutionTest::BinaryFloatOpTest#MinMax [Blocked]
+
+StartGroup: ExecutionTest::WaveIntrinsicsPrefixIntTest#WavePrefixProduct
+EndGroup: ExecutionTest::UnaryFloatOpTest#sin [Blocked]
+
+StartGroup: ExecutionTest::UnaryUintOpTest#FirstbitHi
+EndGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveMin [Passed]
+EndGroup: ExecutionTest::WaveIntrinsicsPrefixIntTest#WavePrefixProduct [Passed]
+EndGroup: ExecutionTest::TertiaryFloatOpTest#FMad [Blocked]
+
+StartGroup: ExecutionTest::UnaryIntOpTest#Bfrev
+
+StartGroup: ExecutionTest::WaveIntrinsicsPrefixUintTest#WavePrefixProduct
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#cos
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveAllEqual
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveUMin
+EndGroup: ExecutionTest::TertiaryIntOpTest#IMad [Blocked]
+EndGroup: ExecutionTest::WaveIntrinsicsPrefixUintTest#WavePrefixProduct [Passed]
+EndGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveAllEqual [Passed]
+EndGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveUMin [Passed]
+
+StartGroup: ExecutionTest::TertiaryUintOpTest#UMad
+EndGroup: ExecutionTest::BinaryIntOpTest#IMax [Blocked]
+EndGroup: ExecutionTest::UnaryUintOpTest#FirstbitHi [Blocked]
+
+StartGroup: ExecutionTest::DotTest#Dot
+EndGroup: ExecutionTest::UnaryFloatOpTest#cos [Blocked]
+EndGroup: ExecutionTest::UnaryIntOpTest#Bfrev [Blocked]
+
+StartGroup: ExecutionTest::BinaryUintOpTest#UMax
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveAnyTrue
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveBitOr
+
+StartGroup: ExecutionTest::BinaryIntOpTest#IMin
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#tan
+
+StartGroup: ExecutionTest::UnaryIntOpTest#FirstbitSHi
+EndGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveBitOr [Passed]
+EndGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveAnyTrue [Passed]
+EndGroup: ExecutionTest::TertiaryUintOpTest#UMad [Blocked]
+
+StartGroup: ExecutionTest::Msad4Test#MSad4
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveAllTrue
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveBitAnd
+
+StartGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveBitXor
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#Hcos
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#Hsin
+EndGroup: ExecutionTest::WaveIntrinsicsActiveIntTest#WaveActiveAllTrue [Passed]
+EndGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveBitAnd [Passed]
+EndGroup: ExecutionTest::DotTest#Dot [Blocked]
+EndGroup: ExecutionTest::BinaryUintOpTest#UMax [Blocked]
+EndGroup: ExecutionTest::WaveIntrinsicsActiveUintTest#WaveActiveBitXor [Passed]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#Htan
+EndGroup: ExecutionTest::BinaryIntOpTest#IMin [Blocked]
+
+StartGroup: ExecutionTest::BinaryUintOpTest#UMin
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#acos
+
+StartGroup: ExecutionTest::BinaryIntOpTest#IMul
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#asin
+EndGroup: ExecutionTest::UnaryIntOpTest#FirstbitSHi [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#atan
+
+StartGroup: ExecutionTest::UnaryIntOpTest#FirstBitLo
+EndGroup: ExecutionTest::UnaryFloatOpTest#tan [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#exp
+EndGroup: ExecutionTest::Msad4Test#MSad4 [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#frc
+EndGroup: ExecutionTest::UnaryFloatOpTest#Hcos [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#log
+EndGroup: ExecutionTest::UnaryFloatOpTest#Hsin [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#sqrt
+EndGroup: ExecutionTest::UnaryFloatOpTest#Htan [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#rsqrt
+EndGroup: ExecutionTest::BinaryUintOpTest#UMin [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#acos [Blocked]
+EndGroup: ExecutionTest::BinaryIntOpTest#IMul [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#atan [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#asin [Blocked]
+EndGroup: ExecutionTest::UnaryIntOpTest#FirstBitLo [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#rsqrt
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#round_ne
+
+StartGroup: ExecutionTest::BinaryUintOpTest#UMul
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#round_ni
+
+StartGroup: ExecutionTest::UnaryIntOpTest#Countbits
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#round_pi
+EndGroup: ExecutionTest::UnaryFloatOpTest#exp [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#frc [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#round_z
+EndGroup: ExecutionTest::UnaryFloatOpTest#log [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#IsNaN
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#IsInf
+EndGroup: ExecutionTest::UnaryFloatOpTest#sqrt [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#IsFinite
+EndGroup: ExecutionTest::UnaryFloatOpTest#rsqrt [Blocked]
+
+StartGroup: ExecutionTest::UnaryFloatOpTest#FAbs
+EndGroup: ExecutionTest::BinaryUintOpTest#UMul [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#round_ne [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#round_ni [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#rsqrt [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#round_pi [Blocked]
+
+StartGroup: ExecutionTest::BinaryUintOpTest#UDiv
+EndGroup: ExecutionTest::UnaryIntOpTest#Countbits [Blocked]
+
+StartGroup: ExecutionTest::BinaryUintOpTest#UAddc
+EndGroup: ExecutionTest::UnaryFloatOpTest#IsInf [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#round_z [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#IsNaN [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#IsFinite [Blocked]
+EndGroup: ExecutionTest::UnaryFloatOpTest#FAbs [Blocked]
+EndGroup: ExecutionTest::BinaryUintOpTest#UAddc [Blocked]
+EndGroup: ExecutionTest::BinaryUintOpTest#UDiv [Blocked]
+
+Non-passing Tests:
+
+    ExecutionTest::BasicTriangleTest [Blocked]
+    ExecutionTest::BasicComputeTest [Blocked]
+    ExecutionTest::Int64Test [Blocked]
+    ExecutionTest::BasicTriangleOpTest [Blocked]
+    ExecutionTest::WaveIntrinsicsTest [Blocked]
+    ExecutionTest::SignTest [Blocked]
+    ExecutionTest::WaveIntrinsicsInPSTest [Blocked]
+    ExecutionTest::WaveIntrinsicsDDITest [Blocked]
+    ExecutionTest::PartialDerivTest [Blocked]
+    ExecutionTest::SaturateTest [Blocked]
+    ExecutionTest::OutOfBoundsTest [Blocked]
+    ExecutionTest::BinaryFloatOpTest#MinMax [Blocked]
+    ExecutionTest::UnaryFloatOpTest#sin [Blocked]
+    ExecutionTest::TertiaryFloatOpTest#FMad [Blocked]
+    ExecutionTest::TertiaryIntOpTest#IMad [Blocked]
+    ExecutionTest::BinaryIntOpTest#IMax [Blocked]
+    ExecutionTest::UnaryUintOpTest#FirstbitHi [Blocked]
+    ExecutionTest::UnaryFloatOpTest#cos [Blocked]
+    ExecutionTest::UnaryIntOpTest#Bfrev [Blocked]
+    ExecutionTest::TertiaryUintOpTest#UMad [Blocked]
+    ExecutionTest::DotTest#Dot [Blocked]
+    ExecutionTest::BinaryUintOpTest#UMax [Blocked]
+    ExecutionTest::BinaryIntOpTest#IMin [Blocked]
+    ExecutionTest::UnaryIntOpTest#FirstbitSHi [Blocked]
+    ExecutionTest::UnaryFloatOpTest#tan [Blocked]
+    ExecutionTest::Msad4Test#MSad4 [Blocked]
+    ExecutionTest::UnaryFloatOpTest#Hcos [Blocked]
+    ExecutionTest::UnaryFloatOpTest#Hsin [Blocked]
+    ExecutionTest::UnaryFloatOpTest#Htan [Blocked]
+    ExecutionTest::BinaryUintOpTest#UMin [Blocked]
+    ExecutionTest::UnaryFloatOpTest#acos [Blocked]
+    ExecutionTest::BinaryIntOpTest#IMul [Blocked]
+    ExecutionTest::UnaryFloatOpTest#atan [Blocked]
+    ExecutionTest::UnaryFloatOpTest#asin [Blocked]
+    ExecutionTest::UnaryIntOpTest#FirstBitLo [Blocked]
+    ExecutionTest::UnaryFloatOpTest#exp [Blocked]
+    ExecutionTest::UnaryFloatOpTest#frc [Blocked]
+    ExecutionTest::UnaryFloatOpTest#log [Blocked]
+    ExecutionTest::UnaryFloatOpTest#sqrt [Blocked]
+    ExecutionTest::UnaryFloatOpTest#rsqrt [Blocked]
+    ExecutionTest::BinaryUintOpTest#UMul [Blocked]
+    ExecutionTest::UnaryFloatOpTest#round_ne [Blocked]
+    ExecutionTest::UnaryFloatOpTest#round_ni [Blocked]
+    ExecutionTest::UnaryFloatOpTest#rsqrt [Blocked]
+    ExecutionTest::UnaryFloatOpTest#round_pi [Blocked]
+    ExecutionTest::UnaryIntOpTest#Countbits [Blocked]
+    ExecutionTest::UnaryFloatOpTest#IsInf [Blocked]
+    ExecutionTest::UnaryFloatOpTest#round_z [Blocked]
+    ExecutionTest::UnaryFloatOpTest#IsNaN [Blocked]
+    ExecutionTest::UnaryFloatOpTest#IsFinite [Blocked]
+    ExecutionTest::UnaryFloatOpTest#FAbs [Blocked]
+    ExecutionTest::BinaryUintOpTest#UAddc [Blocked]
+    ExecutionTest::BinaryUintOpTest#UDiv [Blocked]
+
+Summary: Total=74, Passed=21, Failed=0, Blocked=53, Not Run=0, Skipped=0
+You can debug the test with the following command line.
+start devenv /debugexe TE.exe /inproc C:\Users\hanbyang\Documents\sandbox\hlsl.bin\Debug\test\clang-hlsl-tests.dll /p:"HlslDataDir=C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\tools\clang\test\HLSL" /select:"@Name='ExecutionTest::*' AND @Priority<2" /runIgnoredTests /p:"ExperimentalShaders=*"
+
+Use this te.exe for out-of-proc, or pick the correct one for the target arch, currently x64.
+C:\Program Files (x86)\windows kits\10\Testing\Runtimes\TAEF\TE.exe
+C:\Users\hanbyang\Documents\sandbox\DirectXShaderCompiler\external\taef\build\Binaries\amd64\TE.exe
+
+Use /name:TestClass* or /name:TestClass::MethodName to filter and /breakOnError to catch the failure.
+
+==================================
+Unit test results:
+[FAILED] clang tests
+[FAILED] command line tests
+[FAILED] execution tests
+3 failed.
+==================================
