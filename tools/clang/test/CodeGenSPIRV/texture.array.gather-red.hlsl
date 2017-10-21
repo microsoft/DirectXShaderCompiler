@@ -1,6 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
 
-SamplerState gSampler : register(s1);
+SamplerState gSampler : register(s5);
 
 Texture2DArray<float4> t2f4 : register(t1);
 Texture2DArray<uint>   t2u1 : register(t2);

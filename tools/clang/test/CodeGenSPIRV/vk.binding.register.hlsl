@@ -8,15 +8,13 @@ SamplerState sampler1: register(s1);
 // CHECK-NEXT: OpDecorate %sampler2 Binding 2
 SamplerState sampler2 : register(s2, space1);
 
-// Note: overlapping set # and binding # for now.
 // CHECK:      OpDecorate %texture1 DescriptorSet 1
-// CHECK-NEXT: OpDecorate %texture1 Binding 2
-Texture2D<float4> texture1: register(t2, space1);
+// CHECK-NEXT: OpDecorate %texture1 Binding 20
+Texture2D<float4> texture1: register(t20, space1);
 
-// Note: overlapping set # and binding # for now.
 // CHECK:      OpDecorate %texture2 DescriptorSet 0
-// CHECK-NEXT: OpDecorate %texture2 Binding 1
-Texture3D<float4> texture2: register(t1);
+// CHECK-NEXT: OpDecorate %texture2 Binding 10
+Texture3D<float4> texture2: register(t10);
 
 SamplerState sampler3;
 
@@ -57,8 +55,8 @@ RWStructuredBuffer<S> sbuffer2 : register(u6, space1);
 
     // The counter variable will use the next unassigned number
 // CHECK:      OpDecorate %abuffer DescriptorSet 0
-// CHECK-NEXT: OpDecorate %abuffer Binding 5
-AppendStructuredBuffer<S> abuffer : register(u5);
+// CHECK-NEXT: OpDecorate %abuffer Binding 55
+AppendStructuredBuffer<S> abuffer : register(u55);
 
     // The counter variable will use the next unassigned number
 // CHECK:      OpDecorate %csbuffer DescriptorSet 0

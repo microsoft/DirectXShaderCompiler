@@ -650,39 +650,72 @@ In shaders for DirectX, resources are accessed via registers; while in shaders
 for Vulkan, it is done via descriptor set and binding numbers. The developer
 can explicitly annotate variables in HLSL to specify descriptor set and binding
 numbers, or leave it to the compiler to derive implicitly from registers.
-The explicit way has precedence over the implicit way.
 
 Explicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``[[vk::binding(X[, Y])]]`` can be attached to global variables to specify the
-descriptor set ``Y`` and binding ``X``. The descriptor set number is optional;
-if missing, it will be zero.
+descriptor set as ``Y`` and binding number as ``X``. The descriptor set number
+is optional; if missing, it will be zero.
 
 Implicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Without explicit annotations, the compiler will try to deduce descriptor set and
-binding numbers in the following way:
+Without explicit annotations, the compiler will try to deduce descriptor sets
+and binding numbers in the following way:
 
 If there is ``:register(xX, spaceY)`` specified for the given global variable,
 the corresponding resource will be assigned to descriptor set ``Y`` and binding
-number ``X``, regardless the resource type ``x``. (Note that this can cause
-reassignment of the same set and binding number pair. [TODO])
+number ``X``, regardless of the register type ``x``. Note that this will cause
+binding number collision if, say, two resources are of different register
+type but the same register number. To solve this problem, four command-line
+options, ``-fvk-b-shift N M``, ``-fvk-s-shift N M``, ``-fvk-t-shift N M``, and
+``-fvk-u-shift N M``, are provided to shift by ``N`` all binding numbers
+inferred for register type ``b``, ``s``, ``t``, and ``u`` in space ``M``,
+respectively.
 
 If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
 set #0.
+
+Summary
+~~~~~~~
 
 In summary, the compiler essentially assigns binding numbers in three passes.
 
 - Firstly it handles all declarations with explicit ``[[vk::binding(X[, Y])]]``
   annotation.
 - Then the compiler processes all remaining declarations with
-  ``:register(xX, spaceY)`` annotation.
+  ``:register(xX, spaceY)`` annotation, by applying the shift passed in using
+  command-line option ``-fvk-{b|s|t|u}-shift N M``, if provided.
 - Finally, the compiler assigns next available binding numbers to the rest in
   the declaration order.
 
+As an example, for the following code:
+
+.. code:: hlsl
+
+  struct S { ... };
+
+  ConstantBuffer<S> cbuffer1 : register(b0);
+  Texture2D<float4> texture1 : register(t0);
+  Texture2D<float4> texture2 : register(t1, space1);
+  SamplerState      sampler1;
+  [[vk::binding(3)]]
+  RWBuffer<float4> rwbuffer1 : register(u5, space2);
+
+If we compile with ``-fvk-t-shift 0 10 -fvk-t-shift 1 20``:
+
+- ``rwbuffer1`` will take binding #3 in set #0, since explicit binding
+  assignment has precedence over the rest.
+- ``cbuffer1`` will take binding #0 in set #0, since that's what deduced from
+  the register assignment, and there is no shift requested from command line.
+- ``texture1`` will take binding #10 in set #0, and ``texture2`` will take
+  binding #21 in set #1, since we requested an 10 shift on t-type registers.
+- ``sampler1`` will take binding 1 in set #0, since that's the next available
+  binding number in set #0.
+
+.. code:: hlsl
 HLSL Expressions
 ================
 
@@ -1163,7 +1196,7 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``tan``                 ``Tan``
 ``tanh``                ``Tanh``
 ``trunc``               ``Trunc``
-======================= ===============================
+======================= ===================================
 
 HLSL OO features
 ================
@@ -1745,3 +1778,25 @@ as stage output variables. The output struct of the patch constant function must
 ``SV_TessFactor`` and ``SV_InsideTessFactor`` fields which will translate to
 ``TessLevelOuter`` and ``TessLevelInner`` builtin variables, respectively. And the rest
 will be flattened and translated into normal stage output variables, one for each field.
+
+Vulkan Command-line Options
+===========================
+
+The following command line options are added into ``dxc`` to support SPIR-V
+codegen for Vulkan:
+
+- ``-spirv``: Generates SPIR-V code.
+- ``-fvk-b-shift N M``: Shifts by ``N`` the inferred binding numbers for all
+  resources in b-type registers of space ``M``. Specifically, for a resouce
+  attached with ``:register(bX, spaceM)`` but not ``[vk::binding(...)]``,
+  sets its Vulkan descriptor set to ``M`` and binding number to ``X + N``. If
+  you need to shift the inferred binding numbers for more than one space,
+  provide more than one such option. If more than one such option is provided
+  for the same space, the last one takes effect. See `HLSL register and Vulkan
+  binding`_ for explanation and examples.
+- ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
+- ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
+- ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.
+- ``-fvk-stage-io-order={alpha|decl}``: Assigns the stage input/output variable
+  location number according to alphabetical order or declaration order. See
+  `HLSL semantic and Vulkan Location`_ for more details.

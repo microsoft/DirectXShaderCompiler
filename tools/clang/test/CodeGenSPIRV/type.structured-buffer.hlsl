@@ -39,9 +39,9 @@ StructuredBuffer<S> mySBuffer1 : register(t1);
 StructuredBuffer<T> mySBuffer2 : register(t2);
 
 // CHECK: %mySBuffer3 = OpVariable %_ptr_Uniform_type_RWStructuredBuffer_S Uniform
-RWStructuredBuffer<S> mySBuffer3 : register(u1);
+RWStructuredBuffer<S> mySBuffer3 : register(u3);
 // CHECK: %mySBuffer4 = OpVariable %_ptr_Uniform_type_RWStructuredBuffer_T Uniform
-RWStructuredBuffer<T> mySBuffer4 : register(u2);
+RWStructuredBuffer<T> mySBuffer4 : register(u4);
 
 float4 main() : SV_Target {
     return 1.0;

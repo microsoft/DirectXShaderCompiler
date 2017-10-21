@@ -1,6 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
 
-SamplerComparisonState gSampler : register(s1);
+SamplerComparisonState gSampler : register(s5);
 
 Texture1DArray   <float4> t1 : register(t1);
 Texture2DArray   <float3> t2 : register(t2);
