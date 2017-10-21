@@ -160,7 +160,11 @@ public:
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   bool GenSPIRV; // OPT_spirv
-  llvm::StringRef VkStageIoOrder;
+  llvm::StringRef VkStageIoOrder; // OPT_fvk_stage_io_order
+  llvm::SmallVector<uint32_t, 4> VkBShift; // OPT_fvk_b_shift
+  llvm::SmallVector<uint32_t, 4> VkTShift; // OPT_fvk_t_shift
+  llvm::SmallVector<uint32_t, 4> VkSShift; // OPT_fvk_s_shift
+  llvm::SmallVector<uint32_t, 4> VkUShift; // OPT_fvk_u_shift
 #endif
   // SPIRV Change Ends
 };

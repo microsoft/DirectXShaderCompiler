@@ -1,6 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
 
-SamplerState gSampler : register(s1);
+SamplerState gSampler : register(s5);
 
 // Note: The front end forbids sampling from non-floating-point texture formats.
 

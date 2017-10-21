@@ -443,16 +443,50 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
-  opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
+  const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
+
+  // Collects the arguments for -fvk-{b|s|t|u}-shift.
+  const auto handleVkShiftArgs = [genSpirv, &Args, &errors](
+      OptSpecifier id, const char* name, llvm::SmallVectorImpl<uint32_t>* shifts) {
+    const auto values = Args.getAllArgValues(id);
+
+    if (!genSpirv && !values.empty()) {
+      errors << "-fvk-" << name << "-shift requires -spirv";
+      return false;
+    }
+
+    shifts->clear();
+    for (const auto& val : values) {
+      uint32_t number = 0;
+      if (llvm::StringRef(val).getAsInteger(10, number)) {
+        errors << "invalid -fvk-" << name << "-shift argument: " << val;
+        return false;
+      }
+      shifts->push_back(number);
+    }
+    return true;
+  };
+
+  if (!handleVkShiftArgs(OPT_fvk_b_shift, "b", &opts.VkBShift) ||
+      !handleVkShiftArgs(OPT_fvk_t_shift, "t", &opts.VkTShift) ||
+      !handleVkShiftArgs(OPT_fvk_s_shift, "s", &opts.VkSShift) ||
+      !handleVkShiftArgs(OPT_fvk_u_shift, "u", &opts.VkUShift))
+    return 1;
+
   opts.VkStageIoOrder = Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
   if (opts.VkStageIoOrder != "alpha" && opts.VkStageIoOrder != "decl") {
-    errors << "Unknown Vulkan stage I/O location assignment order : "
+    errors << "unknown Vulkan stage I/O location assignment order: "
            << opts.VkStageIoOrder;
     return 1;
   }
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
-      !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty()) {
+      !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
+      !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
+      !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||
+      !Args.getLastArgValue(OPT_fvk_u_shift).empty()
+      ) {
     errors << "SPIR-V CodeGen not available. "
               "Please recompile with -DENABLE_SPIRV_CODEGEN=ON.";
     return 1;
