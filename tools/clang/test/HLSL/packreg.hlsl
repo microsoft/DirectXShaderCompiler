@@ -195,6 +195,7 @@ sampler myVar_s1 : register(ps, s[1], space1);
   `-RegisterAssignment <col:20> register(ps, s1, space1)
 */
 // fxc error X3591: incorrect bind semantic
+sampler myVar_sb : register(ps, s[1], splice); // expected-error {{expected space definition with syntax 'spaceX', where X is an integral value}} fxc-pass {{X3591: incorrect bind semantic}}
 sampler myVar_sz : register(ps, s[1], spacez); // expected-error {{space number should be an integral numeric string}} fxc-error {{X3591: incorrect bind semantic}}
 
 // Legal in fxc due to compatibility mode:
