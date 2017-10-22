@@ -678,6 +678,13 @@ If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
 set #0.
 
+Error checking
+~~~~~~~~~~~~~~
+
+Trying to reuse the same binding number of the same descriptor set results in
+a compiler error, unless we have exactly two resources and one is an image and
+the other is a sampler. This is to support the Vulkan combined image sampler.
+
 Summary
 ~~~~~~~
 
@@ -704,7 +711,7 @@ As an example, for the following code:
   [[vk::binding(3)]]
   RWBuffer<float4> rwbuffer1 : register(u5, space2);
 
-If we compile with ``-fvk-t-shift 0 10 -fvk-t-shift 1 20``:
+If we compile with ``-fvk-t-shift 10 0 -fvk-t-shift 20 1``:
 
 - ``rwbuffer1`` will take binding #3 in set #0, since explicit binding
   assignment has precedence over the rest.

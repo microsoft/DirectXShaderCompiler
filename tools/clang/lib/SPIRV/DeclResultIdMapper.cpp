@@ -44,6 +44,16 @@ const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
   }
   return nullptr;
 }
+
+/// \brief Returns the resource category for the given type.
+ResourceVar::Category getResourceCategory(QualType type) {
+  if (TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type))
+    return ResourceVar::Category::Image;
+  if (TypeTranslator::isSampler(type))
+    return ResourceVar::Category::Sampler;
+  return ResourceVar::Category::Other;
+}
+
 } // anonymous namespace
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
@@ -148,7 +158,8 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
                                               var->getName(), llvm::None);
   astDecls[var] = {id, storageClass, rule};
-  resourceVars.emplace_back(id, getResourceBinding(var),
+  resourceVars.emplace_back(id, getResourceCategory(var->getType()),
+                            getResourceBinding(var),
                             var->getAttr<VKBindingAttr>());
 
   if (isACSBuffer) {
@@ -159,7 +170,8 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
     const uint32_t counterId =
         theBuilder.addModuleVar(counterType, storageClass, counterName);
 
-    resourceVars.emplace_back(counterId, nullptr, nullptr);
+    resourceVars.emplace_back(counterId, ResourceVar::Category::Other, nullptr,
+                              nullptr);
     counterVars[var] = counterId;
   }
 
@@ -225,7 +237,8 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     astDecls[varDecl] = {bufferVar, spv::StorageClass::Uniform,
                          LayoutRule::GLSLStd140, index++};
   }
-  resourceVars.emplace_back(bufferVar, getResourceBinding(decl),
+  resourceVars.emplace_back(bufferVar, ResourceVar::Category::Other,
+                            getResourceBinding(decl),
                             decl->getAttr<VKBindingAttr>());
 
   return bufferVar;
@@ -247,7 +260,8 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   // TODO: std140 rules may not suit tbuffers.
   astDecls[decl] = {bufferVar, spv::StorageClass::Uniform,
                     LayoutRule::GLSLStd140};
-  resourceVars.emplace_back(bufferVar, getResourceBinding(context),
+  resourceVars.emplace_back(bufferVar, ResourceVar::Category::Other,
+                            getResourceBinding(context),
                             decl->getAttr<VKBindingAttr>());
 
   return bufferVar;
@@ -316,27 +330,32 @@ class BindingSet {
 public:
   BindingSet() : nextBinding(0) {}
 
-  /// Uses the given set and binding number.
-  void useBinding(uint32_t binding, uint32_t set) {
-    bindings[set].insert(binding);
+  /// Tries to use the given set and binding number. Returns true if possible,
+  /// false otherwise.
+  bool tryToUseBinding(uint32_t binding, uint32_t set,
+                       ResourceVar::Category category) {
+    const auto cat = static_cast<uint32_t>(category);
+    // Note that we will create the entry for binding in bindings[set] here.
+    // But that should not have bad effects since it defaults to zero.
+    if ((bindings[set][binding] & cat) == 0) {
+      bindings[set][binding] |= cat;
+      return true;
+    }
+    return false;
   }
 
   /// Uses the next avaiable binding number in set 0.
-  uint32_t useNextBinding() {
+  uint32_t useNextBinding(ResourceVar::Category category) {
     auto &set0bindings = bindings[0];
     while (set0bindings.count(nextBinding))
       nextBinding++;
-    set0bindings.insert(nextBinding);
+    set0bindings[nextBinding] = static_cast<uint32_t>(category);
     return nextBinding++;
   }
 
-  /// Returns true if the given set and binding number is already used.
-  bool isBindingUsed(uint32_t binding, uint32_t set) {
-    return bindings[set].count(binding);
-  }
-
 private:
-  std::unordered_map<uint32_t, llvm::SmallSet<uint32_t, 8>> bindings;
+  ///< set number -> (binding number -> resource category)
+  llvm::DenseMap<uint32_t, llvm::DenseMap<uint32_t, uint32_t>> bindings;
   uint32_t nextBinding; ///< Next available binding number in set 0
 };
 } // namespace
@@ -498,17 +517,17 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   // Process variables with [[vk::binding(...)]] binding assignment
   for (const auto &var : resourceVars)
     if (const auto *vkBinding = var.getBinding()) {
+      const auto cat = var.getCategory();
       const auto set = vkBinding->getSet();
       const auto binding = vkBinding->getBinding();
 
-      if (bindingSet.isBindingUsed(binding, set)) {
+      if (bindingSet.tryToUseBinding(binding, set, cat)) {
+        theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
+      } else {
         emitError("resource binding #%0 in descriptor set #%1 already assigned",
                   vkBinding->getLocation())
             << binding << set;
         noError = false;
-      } else {
-        theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
-        bindingSet.useBinding(binding, set);
       }
     }
 
@@ -543,23 +562,24 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           llvm_unreachable("unknown register type found");
         }
 
-        if (bindingSet.isBindingUsed(binding, set)) {
+        const auto cat = var.getCategory();
+
+        if (bindingSet.tryToUseBinding(binding, set, cat)) {
+          theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
+        } else {
           emitError(
               "resource binding #%0 in descriptor set #%1 already assigned",
               reg->Loc)
               << binding << set;
           noError = false;
-        } else {
-          theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
-          bindingSet.useBinding(binding, set);
         }
       }
 
   // Process variables with no binding assignment
   for (const auto &var : resourceVars)
     if (!var.getBinding() && !var.getRegister())
-      theBuilder.decorateDSetBinding(var.getSpirvId(), 0,
-                                     bindingSet.useNextBinding());
+      theBuilder.decorateDSetBinding(
+          var.getSpirvId(), 0, bindingSet.useNextBinding(var.getCategory()));
 
   return noError;
 }
