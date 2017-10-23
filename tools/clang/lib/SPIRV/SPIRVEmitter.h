@@ -377,12 +377,13 @@ private:
   /// shader model.
   void AddExecutionModeForEntryPoint(uint32_t entryPointId);
 
-  /// \brief Adds necessary execution modes for the hull shader based on the
-  /// HLSL attributes of the entry point function.
-  /// Also writes the number of output control points to
-  /// *numOutputControlPoints. Returns true on success, and false on failure.
-  bool processHullShaderAttributes(const FunctionDecl *entryFunction,
-                                   uint32_t *numOutputControlPoints);
+  /// \brief Adds necessary execution modes for the hull/domain shaders based on
+  /// the HLSL attributes of the entry point function.
+  /// In the case of hull shaders, also writes the number of output control
+  /// points to *numOutputControlPoints. Returns true on success, and false on
+  /// failure.
+  bool processTessellationShaderAttributes(const FunctionDecl *entryFunction,
+                                           uint32_t *numOutputControlPoints);
 
   /// \brief Emits a wrapper function for the entry function and returns true
   /// on success.

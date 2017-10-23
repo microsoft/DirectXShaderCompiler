@@ -106,7 +106,14 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // OpDecorate %gl_InvocationID BuiltIn InvocationId
 // OpDecorate %gl_PrimitiveID BuiltIn PrimitiveId
 // OpDecorate %gl_TessLevelOuter BuiltIn TessLevelOuter
+// OpDecorate %gl_TessLevelOuter Patch
 // OpDecorate %gl_TessLevelInner BuiltIn TessLevelInner
+// OpDecorate %gl_TessLevelInner Patch
+// OpDecorate %out_var_TANGENT Patch
+// OpDecorate %out_var_TEXCOORD Patch
+// OpDecorate %out_var_TANUCORNER Patch
+// OpDecorate %out_var_TANVCORNER Patch
+// OpDecorate %out_var_TANWEIGHTS Patch
 // OpDecorate %in_var_hullEntryPointInput Location 0
 // OpDecorate %out_var_hullEntryPointOutput Location 0
 // OpDecorate %out_var_TANGENT Location 1
