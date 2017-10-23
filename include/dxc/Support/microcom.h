@@ -93,6 +93,11 @@ inline T *CreateOnMalloc(IMalloc * pMalloc, Args&&... args) {
   return (T *)P; \
 }
 
+template<typename T>
+void DxcCallDestructor(T *obj) {
+  obj->~T();
+}
+
 // The "TM" version keep an IMalloc field that, if not null, indicate
 // ownership of 'this' and of any allocations used during release.
 #define DXC_MICROCOM_TM_REF_FIELDS() \
@@ -104,7 +109,9 @@ inline T *CreateOnMalloc(IMalloc * pMalloc, Args&&... args) {
       ULONG result = InterlockedDecrement(&m_dwRef); \
       if (result == 0) { \
         CComPtr<IMalloc> pTmp(m_pMalloc); \
-        DxcThreadMalloc M(pTmp); delete this; \
+        DxcThreadMalloc M(pTmp); \
+        DxcCallDestructor(this); \
+        pTmp->Free(this); \
       } \
       return result; \
     }
