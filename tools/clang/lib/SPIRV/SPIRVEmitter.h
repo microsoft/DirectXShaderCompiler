@@ -385,6 +385,10 @@ private:
   bool processTessellationShaderAttributes(const FunctionDecl *entryFunction,
                                            uint32_t *numOutputControlPoints);
 
+  /// \brief Adds necessary execution modes for the geometry shader based on the
+  /// HLSL attributes of the entry point function.
+  bool processGeometryShaderAttributes(const FunctionDecl *entryFunction);
+
   /// \brief Emits a wrapper function for the entry function and returns true
   /// on success.
   ///

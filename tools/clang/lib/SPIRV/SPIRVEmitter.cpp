@@ -5123,7 +5123,6 @@ void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
     theBuilder.requireCapability(spv::Capability::Tessellation);
   } else if (shaderModel.IsGS()) {
     theBuilder.requireCapability(spv::Capability::Geometry);
-    emitError("Geometry shaders are currently not supported.");
   } else {
     theBuilder.requireCapability(spv::Capability::Shader);
   }
@@ -5134,6 +5133,16 @@ void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
     theBuilder.addExecutionMode(entryPointId,
                                 spv::ExecutionMode::OriginUpperLeft, {});
   }
+}
+
+bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl) {
+  assert(shaderModel.IsGS());
+  if (auto *vcAttr = decl->getAttr<HLSLMaxVertexCountAttr>()) {
+    theBuilder.addExecutionMode(entryFunctionId,
+                                spv::ExecutionMode::OutputVertices,
+                                {static_cast<uint32_t>(vcAttr->getCount())});
+  }
+  return true;
 }
 
 bool SPIRVEmitter::processTessellationShaderAttributes(
@@ -5244,6 +5253,9 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     }
   } else if (shaderModel.IsHS() || shaderModel.IsDS()) {
     if (!processTessellationShaderAttributes(decl, &numOutputControlPoints))
+      return false;
+  } else if (shaderModel.IsGS()) {
+    if (!processGeometryShaderAttributes(decl))
       return false;
   }
 
