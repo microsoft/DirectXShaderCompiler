@@ -4515,9 +4515,8 @@ uint32_t SPIRVEmitter::processIntrinsicRcp(const CallExpr *callExpr) {
   uint32_t numRows = 0, numCols = 0;
   if (TypeTranslator::isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
     const uint32_t vecOne = getVecValueOne(elemType, numCols);
-    const auto actOnEachVec = [this, vecOne](uint32_t /*index*/,
-                                             uint32_t vecType,
-                                             uint32_t curRowId) {
+    const auto actOnEachVec = [this, vecOne](
+        uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
       return theBuilder.createBinaryOp(spv::Op::OpFDiv, vecType, vecOne,
                                        curRowId);
     };
@@ -5117,10 +5116,11 @@ void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
   }
 }
 
-bool SPIRVEmitter::processHullShaderAttributes(
+bool SPIRVEmitter::processTessellationShaderAttributes(
     const FunctionDecl *decl, uint32_t *numOutputControlPoints) {
-  assert(shaderModel.IsHS());
+  assert(shaderModel.IsHS() || shaderModel.IsDS());
   using namespace spv;
+
   if (auto *domain = decl->getAttr<HLSLDomainAttr>()) {
     const auto domainType = domain->getDomainType().lower();
     const ExecutionMode hsExecMode =
@@ -5130,11 +5130,18 @@ bool SPIRVEmitter::processHullShaderAttributes(
             .Case("isoline", ExecutionMode::Isolines)
             .Default(ExecutionMode::Max);
     if (hsExecMode == ExecutionMode::Max) {
-      emitError("unknown domain type in hull shader", decl->getLocation());
+      emitError("unknown domain type specified for entry function",
+                decl->getLocation());
       return false;
     }
     theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
   }
+
+  // Early return for domain shaders as domain shaders only takes the 'domain'
+  // attribute.
+  if (shaderModel.IsDS())
+    return true;
+
   if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
     // TODO: Could not find an equivalent of "pow2" partitioning scheme in
     // SPIR-V.
@@ -5215,8 +5222,8 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::LocalSize, {1, 1, 1});
     }
-  } else if (shaderModel.IsHS()) {
-    if (!processHullShaderAttributes(decl, &numOutputControlPoints))
+  } else if (shaderModel.IsHS() || shaderModel.IsDS()) {
+    if (!processTessellationShaderAttributes(decl, &numOutputControlPoints))
       return false;
   }
 
@@ -5242,16 +5249,36 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     // initialize the corresponding temporary variable
     if (!param->getAttr<HLSLOutAttr>()) {
       uint32_t loadedValue = 0;
-      if (TypeTranslator::isInputPatch(param->getType())) {
+      if (shaderModel.IsHS() &&
+          TypeTranslator::isInputPatch(param->getType())) {
         const uint32_t hullInputPatchId =
             declIdMapper.createStageVarWithoutSemantics(
                 /*isInput*/ true, typeId, "hullEntryPointInput",
                 decl->getAttr<VKLocationAttr>());
         loadedValue = theBuilder.createLoad(typeId, hullInputPatchId);
         hullMainInputPatchParam = tempVar;
+      } else if (shaderModel.IsDS() &&
+                 TypeTranslator::isOutputPatch(param->getType())) {
+        // OutputPatch is the output of the hull shader and an input to the
+        // domain shader.
+        const uint32_t hullOutputPatchId =
+            declIdMapper.createStageVarWithoutSemantics(
+                /*isInput*/ true, typeId, "hullShaderOutput",
+                decl->getAttr<VKLocationAttr>());
+        loadedValue = theBuilder.createLoad(typeId, hullOutputPatchId);
       } else if (!declIdMapper.createStageInputVar(param, &loadedValue,
                                                    /*isPC*/ false)) {
         return false;
+      }
+
+      // SV_DomainLocation refers to a float2 (u,v), whereas TessCoord is a
+      // float3 (u,v,w). To ensure SPIR-V validity, a float3 stage variable is
+      // created, and we must extract a float2 from it before passing it to the
+      // main function.
+      if (hasSemantic(param, hlsl::DXIL::SemanticKind::DomainLocation) &&
+          hlsl::GetHLSLVecSize(param->getType()) == 2) {
+        loadedValue = theBuilder.createVectorShuffle(typeId, loadedValue,
+                                                     loadedValue, {0, 1});
       }
 
       theBuilder.createStore(tempVar, loadedValue);

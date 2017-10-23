@@ -621,7 +621,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     // No stage variables will be created for void type.
     return true;
   }
-  const uint32_t typeId = typeTranslator.translateType(type);
+  uint32_t typeId = typeTranslator.translateType(type);
 
   llvm::StringRef semanticStr = getStageVarSemantic(decl);
   if (!semanticStr.empty()) {
@@ -650,11 +650,22 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
       return false;
     }
 
+    // SV_DomainLocation refers to a float2 (u,v), whereas TessCoord is a
+    // float3 (u,v,w). To ensure SPIR-V validity, we must create a float3 and
+    // extract a float2 from it before passing it to the main function.
+    if (semantic->GetKind() == hlsl::DXIL::SemanticKind::DomainLocation) {
+      typeId = theBuilder.getVecType(theBuilder.getFloat32Type(), 3);
+    }
+
     StageVar stageVar(sigPoint, semanticStr, semantic, semanticIndex, typeId);
     llvm::Twine name = namePrefix + "." + semanticStr;
     const uint32_t varId = createSpirvStageVar(&stageVar, name);
     if (varId == 0)
       return false;
+
+    if (sigPoint->GetSignatureKind() ==
+        hlsl::DXIL::SignatureKind::PatchConstant)
+      theBuilder.decorate(varId, spv::Decoration::Patch);
 
     // Decorate with interpolation modes for pixel shader input variables
     if (shaderModel.IsPS() && sigPoint->IsInput()) {
@@ -762,6 +773,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     case hlsl::SigPoint::Kind::VSIn:
       return theBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::VSOut:
+    case hlsl::SigPoint::Kind::DSOut:
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::Position);
     case hlsl::SigPoint::Kind::PSIn:
@@ -866,6 +878,10 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   case hlsl::Semantic::Kind::InsideTessFactor: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelInner);
+  }
+  case hlsl::Semantic::Kind::DomainLocation: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessCoord);
   }
   default:
     emitError("semantic %0 unimplemented yet")
