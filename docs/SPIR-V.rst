@@ -70,6 +70,9 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``binding(X[, Y])``: For specifying the descriptor set (``Y``) and binding
   (``X``) numbers for resource variables. The descriptor set (``Y``) is
   optional; if missing, it will be set to 0. Allowed on global variables.
+- ``counter_binding(X)``: For specifying the binding number (``X``) for the
+  associated counter for RW/Append/Consume structured buffer. The descriptor
+  set number for the associated counter is always the same as the main resource.
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
@@ -365,6 +368,11 @@ will be translated into
   ; Variable
   %myCbuffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_T Uniform
 
+If ``.IncrementCounter()`` or ``.DecrementCounter()`` is used in the source
+code, an additional associated counter variable will be created for manipulating
+the counter. The counter variable will be of ``OpTypeStruct`` type, which only
+contains a 32-bit integer. The counter variable takes its own binding number.
+
 ``AppendStructuredBuffer`` and ``ConsumeStructuredBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -656,7 +664,11 @@ Explicit binding number assignment
 
 ``[[vk::binding(X[, Y])]]`` can be attached to global variables to specify the
 descriptor set as ``Y`` and binding number as ``X``. The descriptor set number
-is optional; if missing, it will be zero.
+is optional; if missing, it will be zero. RW/append/consume structured buffers
+have associated counters, which will occupy their own Vulkan descriptors.
+``[vk::counter_binding(Z)]`` can be attached to a RW/append/consume structured
+buffers to specify the binding number for the associated counter to ``Z``. Note
+that the set number of the counter is always the same as the main buffer.
 
 Implicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

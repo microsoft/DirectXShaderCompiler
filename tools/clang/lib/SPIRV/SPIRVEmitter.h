@@ -570,6 +570,10 @@ private:
   /// (RW)StructuredBuffer.Load() method call.
   SpirvEvalInfo processStructuredBufferLoad(const CXXMemberCallExpr *expr);
 
+  /// \brief Increments or decrements the counter for RW/Append/Consume
+  /// structured buffer.
+  uint32_t incDecRWACSBufferCounter(const CXXMemberCallExpr *, bool isInc);
+
   /// \brief Loads numWords 32-bit unsigned integers or stores numWords 32-bit
   /// unsigned integers (based on the doStore parameter) to the given
   /// ByteAddressBuffer. Loading is allowed from a ByteAddressBuffer or
