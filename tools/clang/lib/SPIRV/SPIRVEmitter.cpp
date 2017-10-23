@@ -5137,6 +5137,16 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
         return false;
       }
 
+      // SV_DomainLocation refers to a float2 (u,v), whereas TessCoord is a
+      // float3 (u,v,w). To ensure SPIR-V validity, a float3 stage variable is
+      // created, and we must extract a float2 from it before passing it to the
+      // main function.
+      if (hasSemantic(param, hlsl::DXIL::SemanticKind::DomainLocation) &&
+          hlsl::GetHLSLVecSize(param->getType()) == 2) {
+        loadedValue = theBuilder.createVectorShuffle(typeId, loadedValue,
+                                                     loadedValue, {0, 1});
+      }
+
       theBuilder.createStore(tempVar, loadedValue);
 
       if (hasSemantic(param, hlsl::DXIL::SemanticKind::OutputControlPointID))

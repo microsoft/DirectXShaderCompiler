@@ -546,7 +546,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     // No stage variables will be created for void type.
     return true;
   }
-  const uint32_t typeId = typeTranslator.translateType(type);
+  uint32_t typeId = typeTranslator.translateType(type);
 
   llvm::StringRef semanticStr = getStageVarSemantic(decl);
   if (!semanticStr.empty()) {
@@ -573,6 +573,13 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
       emitError("invalid semantic %0 for shader module %1")
           << semanticStr << shaderModel.GetName();
       return false;
+    }
+
+    // SV_DomainLocation refers to a float2 (u,v), whereas TessCoord is a
+    // float3 (u,v,w). To ensure SPIR-V validity, we must create a float3 and
+    // extract a float2 from it before passing it to the main function.
+    if (semantic->GetKind() == hlsl::DXIL::SemanticKind::DomainLocation) {
+      typeId = theBuilder.getVecType(theBuilder.getFloat32Type(), 3);
     }
 
     StageVar stageVar(sigPoint, semanticStr, semantic, semanticIndex, typeId);

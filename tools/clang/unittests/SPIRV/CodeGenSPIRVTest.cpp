@@ -345,6 +345,9 @@ TEST_F(FileTest, SemanticPositionVS) {
 TEST_F(FileTest, SemanticPositionPS) {
   runFileTest("semantic.position.ps.hlsl");
 }
+TEST_F(FileTest, SemanticPositionDS) {
+  runFileTest("semantic.position.ds.hlsl");
+}
 TEST_F(FileTest, SemanticVertexIDVS) {
   runFileTest("semantic.vertex-id.vs.hlsl");
 }
@@ -384,6 +387,27 @@ TEST_F(FileTest, SemanticGroupThreadID) {
 }
 TEST_F(FileTest, SemanticGroupIndex) {
   runFileTest("semantic.group-index.cs.hlsl");
+}
+TEST_F(FileTest, SemanticDomainLocationDS) {
+  runFileTest("semantic.domain-location.ds.hlsl");
+}
+TEST_F(FileTest, SemanticTessFactorDS) {
+  runFileTest("semantic.tess-factor.ds.hlsl");
+}
+TEST_F(FileTest, SemanticInsideTessFactorDS) {
+  runFileTest("semantic.inside-tess-factor.ds.hlsl");
+}
+TEST_F(FileTest, SemanticTessFactorHS) {
+  runFileTest("semantic.tess-factor.hs.hlsl");
+}
+TEST_F(FileTest, SemanticInsideTessFactorHS) {
+  runFileTest("semantic.inside-tess-factor.hs.hlsl");
+}
+TEST_F(FileTest, SemanticPrimitiveIdHS) {
+  runFileTest("semantic.primitive-id.hs.hlsl");
+}
+TEST_F(FileTest, SemanticOutputControlPointIdHS) {
+  runFileTest("semantic.output-control-point-id.hs.hlsl");
 }
 
 // For texture methods
