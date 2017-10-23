@@ -1508,6 +1508,7 @@ TEST_F(ValidationTest, PtrBitCast) {
 }
 
 TEST_F(ValidationTest, MinPrecisionBitCast) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
                           "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
                           "  store i32 %([0-9]+), i32\\* %\\1, align 4",
