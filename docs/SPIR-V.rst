@@ -590,6 +590,8 @@ Firstly, under certain `SigPoints <https://github.com/Microsoft/DirectXShaderCom
 some system-value (SV) semantic strings will be translated into SPIR-V
 ``BuiltIn`` decorations:
 
+.. table:: Mapping from HLSL SV semantic to SPIR-V builtin and execution mode
+
 +-------------------------+-------------+--------------------------+-----------------------+
 | HLSL Semantic           | SigPoint    | SPIR-V ``BuiltIn``       | SPIR-V Execution Mode |
 +=========================+=============+==========================+=======================+
@@ -1093,7 +1095,8 @@ variables: both of them are accessed via load/store instructions.
 Intrinsic functions
 -------------------
 
-The following intrinsic HLSL functions are currently supported:
+The following intrinsic HLSL functions have no direct SPIR-V opcode or GLSL
+extended instruction mapping, so they are handled with additional steps:
 
 - ``dot`` : performs dot product of two vectors, each containing floats or
   integers. If the two parameters are vectors of floats, we use SPIR-V's
@@ -1123,26 +1126,45 @@ The following intrinsic HLSL functions are currently supported:
 - ``asuint``: converts the component type of a scalar/vector/matrix from float
   or int into uint. Uses ``OpBitcast``. This method currently does not support
   conversion into unsigned integer matrices.
-- ``transpose`` : Transposes the specified matrix. Uses SPIR-V ``OpTranspose``.
-- ``isnan`` : Determines if the specified value is NaN. Uses SPIR-V ``OpIsNan``.
-- ``isinf`` : Determines if the specified value is infinite. Uses SPIR-V ``OpIsInf``.
 - ``isfinite`` : Determines if the specified value is finite. Since ``OpIsFinite``
-  requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and ``OpIsInf``.
-  A given value is finite iff it is not NaN and not infinite.
-- ``fmod`` : Returns the floating-point remainder for division of its arguments. Uses SPIR-V ``OpFMod``.
-- ``countbits`` : Counts the number of bits (per component) in the input integer. Uses SPIR-V ``OpBitCount``.
-- ``reversebits``: Reverses the order of the bits, per component. Uses SPIR-V ``OpBitReverse``.
-- ``clip``: Discards the current pixel if the specified value is less than zero. Uses conditional
-  control flow as well as SPIR-V ``OpKill``.
-- ``ddx``: Partial derivative with respect to the screen-space x-coordinate. Uses SIR-V ``OpDPdx``.
-- ``ddy``: Partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdy``.
-- ``ddx_coarse``: Low precision partial derivative with respect to the screen-space x-coordinate. Uses SIR-V ``OpDPdxCoarse``.
-- ``ddy_coarse``: Low precision partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdyCoarse``.
-- ``ddx_fine``: High precision partial derivative with respect to the screen-space x-coordinate. Uses SIR-V ``OpDPdxFine``.
-- ``ddy_fine``: High precision partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdyFine``.
-- ``fwidth``: Returns the absolute value of the partial derivatives of the specified value. Uses SIR-V ``OpFwidth``.
-- ``rcp``: Calculates a fast, approximate, per-component reciprocal. Uses SIR-V ``OpFDiv``.
+  requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and
+  ``OpIsInf``.  A given value is finite iff it is not NaN and not infinite.
+- ``clip``: Discards the current pixel if the specified value is less than zero.
+  Uses conditional control flow as well as SPIR-V ``OpKill``.
+- ``rcp``: Calculates a fast, approximate, per-component reciprocal.
+  Uses SIR-V ``OpFDiv``.
 
+Using SPIR-V opcode
+~~~~~~~~~~~~~~~~~~~
+
+the following intrinsic HLSL functions have direct SPIR-V opcodes for them:
+
+============================== =================================
+   HLSL Intrinsic Function              SPIR-V Opcode
+============================== =================================
+``countbits``                  ``OpBitCount``
+``ddx``                        ``OpDPdx``
+``ddy``                        ``OpDPdy``
+``ddx_coarse``                 ``OpDPdxCoarse``
+``ddy_coarse``                 ``OpDPdyCoarse``
+``ddx_fine``                   ``OpDPdxFine``
+``ddy_fine``                   ``OpDPdyFine``
+``fmod``                       ``OpFMod``
+``fwidth``                     ``OpFwidth``
+``InterlockedAdd``             ``OpAtomicIAdd``
+``InterlockedAnd``             ``OpAtomicAnd``
+``InterlockedOr``              ``OpAtomicOr``
+``InterlockedXor``             ``OpAtomicXor``
+``InterlockedMin``             ``OpAtomicUMin``/``OpAtomicSMin``
+``InterlockedMax``             ``OpAtomicUMax``/``OpAtomicSMax``
+``InterlockedExchange``        ``OpAtomicExchange``
+``InterlockedCompareExchange`` ``OpAtomicCompareExchange``
+``InterlockedCompareStore``    ``OpAtomicCompareExchange``
+``isnan``                      ``OpIsNan``
+``isInf``                      ``OpIsInf``
+``reversebits``                ``OpBitReverse``
+``transpose``                  ``OpTranspose``
+============================== =================================
 
 Using GLSL extended instructions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1702,16 +1724,21 @@ The ``OpImageQuerySize`` instruction is used to get a uint3. The first element i
 element is the height, and the third element is the depth.
 
 
-HLSL Hull Shaders
-=================
+HLSL Shader Stages
+==================
+
+Hull Shaders
+------------
 
 Hull shaders corresponds to Tessellation Control Shaders (TCS) in Vulkan.
 This section describes how Hull shaders are translated to SPIR-V for Vulkan.
 
 Hull Entry Point Attributes
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The following HLSL attributes are attached to the main entry point of hull shaders
 and are translated to SPIR-V execution modes according to the table below:
+
+.. table:: Mapping from HLSL attribute to SPIR-V execution mode
 
 +-------------------------+---------------------+--------------------------+
 | HLSL Attribute          |   value             | SPIR-V Execution Mode    |
@@ -1746,7 +1773,7 @@ It specifies the name of the Patch Constant Function. This function is run only
 once per patch. This is further described below.
 
 InputPatch and OutputPatch
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 Both of ``InputPatch<T, N>`` and ``OutputPatch<T, N>`` are translated to an array
 of constant size ``N`` where each element is of type ``T``.
 
@@ -1773,7 +1800,7 @@ output control points. Each final output control point is written into the corre
 the array using SV_OutputControlPointID as the index.
 
 Patch Constant Function
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 As mentioned above, the patch constant function is to be invoked only once per patch.
 As a result, in the SPIR-V module, the `entry function wrapper`_ will first invoke the
 main entry function, and then use an ``OpControlBarrier`` to wait for all vertex
