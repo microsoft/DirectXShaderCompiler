@@ -56,19 +56,19 @@ ConstantBuffer<S> myConstantBuffer: register(b1, space1);
 RWStructuredBuffer<S> sbuffer2 : register(u6);
 
 // CHECK:      OpDecorate %asbuffer DescriptorSet 1
-// CHECK-NEXT: OpDecorate %asbuffer Binding 20
+// CHECK-NEXT: OpDecorate %asbuffer Binding 1
 // CHECK-NEXT: OpDecorate %csbuffer DescriptorSet 1
 // CHECK-NEXT: OpDecorate %csbuffer Binding 21
-// CHECK-NEXT: OpDecorate %counter_var_asbuffer DescriptorSet 0
-// CHECK-NEXT: OpDecorate %counter_var_asbuffer Binding 1
-// CHECK-NEXT: OpDecorate %counter_var_csbuffer DescriptorSet 0
-// CHECK-NEXT: OpDecorate %counter_var_csbuffer Binding 4
-[[vk::binding(20, 1)]]
+// CHECK-NEXT: OpDecorate %counter_var_asbuffer DescriptorSet 1
+// CHECK-NEXT: OpDecorate %counter_var_asbuffer Binding 0
+// CHECK-NEXT: OpDecorate %counter_var_csbuffer DescriptorSet 1
+// CHECK-NEXT: OpDecorate %counter_var_csbuffer Binding 2
+[[vk::binding(1, 1)]]
 AppendStructuredBuffer<S> asbuffer : register(u10);
-// Next available "hole": binding #1 in set #0
+// Next available "hole" in set #1: binding #0
 [[vk::binding(21, 1)]]
 ConsumeStructuredBuffer<S> csbuffer : register(u11);
-// Next available "hole": binding #4 in set #0
+// Next available "hole" in set #1: binding #2
 
 float4 main() : SV_Target {
     return 1.0;
