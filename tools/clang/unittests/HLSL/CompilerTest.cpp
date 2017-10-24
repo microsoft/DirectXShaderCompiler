@@ -823,6 +823,7 @@ public:
   TEST_METHOD(CodeGenWriteToInput)
   TEST_METHOD(CodeGenWriteToInput2)
   TEST_METHOD(CodeGenWriteToInput3)
+  TEST_METHOD(CodeGenWriteToInput4)
 
   TEST_METHOD(CodeGenAttributes_Mod)
   TEST_METHOD(CodeGenConst_Exprb_Mod)
@@ -4397,6 +4398,10 @@ TEST_F(CompilerTest, CodeGenWriteToInput2) {
 
 TEST_F(CompilerTest, CodeGenWriteToInput3) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\writeToInput3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWriteToInput4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeToInput4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAttributes_Mod) {
