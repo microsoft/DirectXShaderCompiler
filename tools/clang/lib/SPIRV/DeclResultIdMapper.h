@@ -99,19 +99,25 @@ public:
   };
 
   ResourceVar(uint32_t id, Category cat, const hlsl::RegisterAssignment *r,
-              const VKBindingAttr *b)
-      : varId(id), category(cat), reg(r), binding(b) {}
+              const VKBindingAttr *b, const VKCounterBindingAttr *cb,
+              bool counter = false)
+      : varId(id), category(cat), reg(r), binding(b), counterBinding(cb),
+        isCounterVar(counter) {}
 
   uint32_t getSpirvId() const { return varId; }
   Category getCategory() const { return category; }
   const hlsl::RegisterAssignment *getRegister() const { return reg; }
   const VKBindingAttr *getBinding() const { return binding; }
+  bool isCounter() const { return isCounterVar; }
+  const auto *getCounterBinding() const { return counterBinding; }
 
 private:
-  uint32_t varId;                      ///< <result-id>
-  Category category;                   ///< Resource category
-  const hlsl::RegisterAssignment *reg; ///< HLSL register assignment
-  const VKBindingAttr *binding;        ///< Vulkan binding assignment
+  uint32_t varId;                             ///< <result-id>
+  Category category;                          ///< Resource category
+  const hlsl::RegisterAssignment *reg;        ///< HLSL register assignment
+  const VKBindingAttr *binding;               ///< Vulkan binding assignment
+  const VKCounterBindingAttr *counterBinding; ///< Vulkan counter binding
+  bool isCounterVar;                          ///< Couter variable or not
 };
 
 /// \brief The class containing mappings from Clang frontend Decls to their
@@ -239,8 +245,8 @@ public:
   uint32_t getOrRegisterFnResultId(const FunctionDecl *fn);
 
   /// \brief Returns the associated counter's <result-id> for the given
-  /// {Append|Consume}StructuredBuffer variable.
-  uint32_t getCounterId(const VarDecl *decl);
+  /// {RW|Append|Consume}StructuredBuffer variable.
+  uint32_t getOrCreateCounterId(const ValueDecl *decl);
 
   /// \brief Returns all defined stage (builtin/input/ouput) variables in this
   /// mapper.
@@ -311,15 +317,16 @@ private:
   /// creating a stage input/output variable.
   uint32_t createSpirvStageVar(StageVar *, const llvm::Twine &name);
 
+  /// Creates the associated counter variable for RW/Append/Consume
+  /// structured buffer.
+  uint32_t createCounterVar(const ValueDecl *decl);
+
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.
   spv::StorageClass getStorageClassForSigPoint(const hlsl::SigPoint *);
 
   /// Returns true if the given SPIR-V stage variable has Input storage class.
-  inline bool isInputStorageClass(const StageVar &v) {
-    return getStorageClassForSigPoint(v.getSigPoint()) ==
-           spv::StorageClass::Input;
-  }
+  inline bool isInputStorageClass(const StageVar &v);
 
 private:
   const hlsl::ShaderModel &shaderModel;
@@ -352,6 +359,11 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
 bool DeclResultIdMapper::decorateStageIOLocations() {
   // Try both input and output even if input location assignment failed
   return finalizeStageIOLocations(true) & finalizeStageIOLocations(false);
+}
+
+bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {
+  return getStorageClassForSigPoint(v.getSigPoint()) ==
+         spv::StorageClass::Input;
 }
 
 } // end namespace spirv

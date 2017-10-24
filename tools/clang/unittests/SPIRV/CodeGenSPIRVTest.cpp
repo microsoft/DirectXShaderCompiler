@@ -489,6 +489,9 @@ TEST_F(FileTest, StructuredBufferLoad) {
 TEST_F(FileTest, StructuredBufferGetDimensions) {
   runFileTest("method.structured-buffer.get-dimensions.hlsl");
 }
+TEST_F(FileTest, RWStructuredBufferIncDecCounter) {
+  runFileTest("method.rw-structured-buffer.counter.hlsl");
+}
 TEST_F(FileTest, AppendStructuredBufferAppend) {
   runFileTest("method.append-structured-buffer.append.hlsl");
 }
@@ -687,6 +690,17 @@ TEST_F(FileTest, SpirvEntryFunctionInOut) {
   runFileTest("spirv.entry-function.inout.hlsl");
 }
 
+TEST_F(FileTest, SpirvInterpolation) {
+  runFileTest("spirv.interpolation.hlsl");
+}
+TEST_F(FileTest, SpirvInterpolationError) {
+  runFileTest("spirv.interpolation.error.hlsl", /*expectSuccess*/ false);
+}
+
+TEST_F(FileTest, VulkanAttributeErrors) {
+  runFileTest("vk.attribute.error.hlsl", /*expectSuccess*/ false);
+}
+
 TEST_F(FileTest, VulkanLocation) { runFileTest("vk.location.hlsl"); }
 TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {
   runFileTest("vk.location.exp-in.hlsl");
@@ -702,13 +716,6 @@ TEST_F(FileTest, VulkanLocationReassigned) {
 }
 TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
   runFileTest("vk.location.mixed.hlsl", /*expectSuccess*/ false);
-}
-
-TEST_F(FileTest, SpirvInterpolation) {
-  runFileTest("spirv.interpolation.hlsl");
-}
-TEST_F(FileTest, SpirvInterpolationError) {
-  runFileTest("spirv.interpolation.error.hlsl", /*expectSuccess*/ false);
 }
 
 TEST_F(FileTest, VulkanExplicitBinding) {
@@ -737,6 +744,12 @@ TEST_F(FileTest, VulkanRegisterBindingReassigned) {
 TEST_F(FileTest, VulkanRegisterBindingShiftReassigned) {
   runFileTest("vk.binding.cl.error.hlsl", /*expectSuccess*/ false);
 }
+TEST_F(FileTest, VulkanStructuredBufferCounter) {
+  // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
+  // and ConsumeStructuredBuffer
+  runFileTest("vk.binding.counter.hlsl");
+}
+
 TEST_F(FileTest, VulkanLayoutCBufferStd140) {
   runFileTest("vk.layout.cbuffer.std140.hlsl");
 }

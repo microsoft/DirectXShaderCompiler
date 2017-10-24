@@ -2038,36 +2038,49 @@ SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   return info;
 }
 
-SpirvEvalInfo
-SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
-  const bool isAppend = expr->getNumArgs() == 1;
-
-  const uint32_t u32Type = theBuilder.getUint32Type();
+uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
+                                                bool isInc) {
+  const uint32_t i32Type = theBuilder.getInt32Type();
   const uint32_t one = theBuilder.getConstantUint32(1);  // As scope: Device
   const uint32_t zero = theBuilder.getConstantUint32(0); // As memory sema: None
+  const uint32_t sOne = theBuilder.getConstantInt32(1);
 
-  const auto *object = expr->getImplicitObjectArgument();
+  const auto *object =
+      expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
   const auto *buffer = cast<DeclRefExpr>(object)->getDecl();
 
-  // Calculate the index we should use for appending the value
-  const uint32_t counterVar = declIdMapper.getCounterId(cast<VarDecl>(buffer));
+  const uint32_t counterVar = declIdMapper.getOrCreateCounterId(buffer);
   const uint32_t counterPtrType = theBuilder.getPointerType(
       theBuilder.getInt32Type(), spv::StorageClass::Uniform);
   const uint32_t counterPtr =
       theBuilder.createAccessChain(counterPtrType, counterVar, {zero});
+
   uint32_t index = 0;
-  if (isAppend) {
-    // For append, we add one to the counter.
-    index = theBuilder.createAtomicOp(spv::Op::OpAtomicIAdd, u32Type,
-                                      counterPtr, one, zero, one);
+  if (isInc) {
+    index = theBuilder.createAtomicOp(spv::Op::OpAtomicIAdd, i32Type,
+                                      counterPtr, one, zero, sOne);
   } else {
-    // For consume, we substract one from the counter. Note that OpAtomicIAdd
-    // returns the value before the addition; so we need to do substraction
-    // again with OpAtomicIAdd's return value.
-    const auto prevIndex = theBuilder.createAtomicOp(
-        spv::Op::OpAtomicISub, u32Type, counterPtr, one, zero, one);
-    index = theBuilder.createBinaryOp(spv::Op::OpISub, u32Type, prevIndex, one);
+    // Note that OpAtomicISub returns the value before the subtraction;
+    // so we need to do substraction again with OpAtomicISub's return value.
+    const auto prev = theBuilder.createAtomicOp(spv::Op::OpAtomicISub, i32Type,
+                                                counterPtr, one, zero, sOne);
+    index = theBuilder.createBinaryOp(spv::Op::OpISub, i32Type, prev, sOne);
   }
+
+  return index;
+}
+
+SpirvEvalInfo
+SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
+  const bool isAppend = expr->getNumArgs() == 1;
+
+  const uint32_t zero = theBuilder.getConstantUint32(0);
+
+  const auto *object =
+      expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
+  const auto *buffer = cast<DeclRefExpr>(object)->getDecl();
+
+  uint32_t index = incDecRWACSBufferCounter(expr, isAppend);
 
   auto bufferInfo = declIdMapper.getDeclResultId(buffer);
 
@@ -2177,6 +2190,14 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return processGetDimensions(expr);
   case IntrinsicOp::MOP_CalculateLevelOfDetail:
     return processTextureLevelOfDetail(expr);
+  case IntrinsicOp::MOP_IncrementCounter:
+    return theBuilder.createUnaryOp(
+        spv::Op::OpBitcast, theBuilder.getUint32Type(),
+        incDecRWACSBufferCounter(expr, /*isInc*/ true));
+  case IntrinsicOp::MOP_DecrementCounter:
+    return theBuilder.createUnaryOp(
+        spv::Op::OpBitcast, theBuilder.getUint32Type(),
+        incDecRWACSBufferCounter(expr, /*isInc*/ false));
   case IntrinsicOp::MOP_Append:
   case IntrinsicOp::MOP_Consume:
     return processACSBufferAppendConsume(expr);
@@ -3938,9 +3959,8 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     return argId;
   };
 
-  const auto writeToOutputArg = [&baseType, this](uint32_t toWrite,
-                                                  const CallExpr *callExpr,
-                                                  uint32_t outputArgIndex) {
+  const auto writeToOutputArg = [&baseType, this](
+      uint32_t toWrite, const CallExpr *callExpr, uint32_t outputArgIndex) {
     const auto outputArg = callExpr->getArg(outputArgIndex);
     const auto outputArgType = outputArg->getType();
     if (baseType != outputArgType)

@@ -2325,6 +2325,10 @@ def warn_attribute_wrong_decl_type : Warning<
   "variables, functions and classes|Objective-C protocols|"
   "functions and global variables|structs, unions, and typedefs|structs and typedefs|"
   "interface or protocol declarations|kernel functions|"
+  // SPIRV Change Starts
+  "global variables, cbuffers, and tbuffers|"
+  "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
+  // SPIRV Change Ends
   // HLSL Change Starts - add 3 more enum values
   "varibales and parameters|functions, parameters, and fields|"
   "functions, variables, parameters, fields, and types}1">,
