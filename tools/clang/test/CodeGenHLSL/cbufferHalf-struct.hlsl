@@ -19,8 +19,9 @@
 // CHECK:       half3 h3_1;                                 ; Offset:   72
 
 // CHECK:       int i1;                                     ; Offset:   80
+// CHECK:       double d2;                                  ; Offset:   88
 
-// CHECK:   } f                                             ; Offset:    0 Size:    84
+// CHECK:   } f                                             ; Offset:    0 Size:    96
 
 // CHECK:   struct struct.Bar
 // CHECK:   {
@@ -73,6 +74,8 @@
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 4
 // CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32 59, %dx.types.Handle %f_buffer, i32 5)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.i32 {{%[0-9]+}}, 0
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f64 @dx.op.cbufferLoadLegacy.f64(i32 59, %dx.types.Handle %f_buffer, i32 5)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f64 {{%[0-9]+}}, 1
 // CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_buffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 0
 
@@ -93,7 +96,7 @@ struct Foo {
   half3 h3_1;
   
   int   i1;
-
+  double d2;
 };
 
 struct Bar {
@@ -120,6 +123,6 @@ ConstantBuffer<Bar> b : register(b1);
 
 float4 main() : SV_Target {
   return f.h1 + f.f3.x + f.h2.x + f.h2.y + f.f3_1.z + f.f2.x + f.h4.x + f.h4.y 
-  + f.h4.z + f.h4.w + f.h2_1.x + f.h2_1.y + f.h3.x + f.h3.y + f.h3.z + f.d1 + f.h3_1.x + f.i1
+  + f.h4.z + f.h4.w + f.h2_1.x + f.h2_1.y + f.h3.x + f.h3.y + f.h3.z + f.d1 + f.h3_1.x + f.i1 + f.d2
   + b.h1;
 }
