@@ -500,9 +500,9 @@ static unsigned RoundToAlign(unsigned num, unsigned mod) {
 }
 
 // Align cbuffer offset in legacy mode (16 bytes per row).
-unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
-  unsigned scalarSizeInBytes,
-  bool bNeedNewRow) {
+static unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
+                                          unsigned scalarSizeInBytes,
+                                          bool bNeedNewRow) {
   if (unsigned remainder = (offset & 0xf)) {
     // Start from new row
     if (remainder + size > 16 || bNeedNewRow) {
@@ -512,16 +512,6 @@ unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
     return RoundToAlign(offset, scalarSizeInBytes);
   }
   return offset;
-}
-
-static unsigned AlignTo8Bytes(unsigned offset, bool b8BytesAlign) {
-  DXASSERT((offset & 0x1) == 0, "offset should be divisible by 2");
-  if (!b8BytesAlign)
-    return offset;
-  else if ((offset & 0x7) == 0)
-    return offset;
-  else
-    return RoundToAlign(offset, 8);
 }
 
 static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size,
