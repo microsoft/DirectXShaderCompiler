@@ -3726,7 +3726,8 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC) {
     Type* TyV = V->getType()->getPointerElementType();
     Type* TySrc = Src->getType()->getPointerElementType();
     if (TyV == TySrc) {
-      V->replaceAllUsesWith(Src);
+      if (V != Src)
+        V->replaceAllUsesWith(Src);
     } else {
       DXASSERT((TyV->isArrayTy() && TySrc->isArrayTy()) &&
                (TyV->getArrayNumElements() == 0 ||
@@ -3764,7 +3765,9 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   const bool bStructElt = false;
   PointerStatus::analyzePointer(V, PS, typeSys, bStructElt);
   if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
-    if (PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce) {
+    if (PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce &&
+        // Skip argument for input argument has input value, it is not dest once anymore.
+        !isa<Argument>(V)) {
       // Replace with src of memcpy.
       MemCpyInst *MC = PS.StoringMemcpy;
       if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
