@@ -5142,6 +5142,38 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl) {
                                 spv::ExecutionMode::OutputVertices,
                                 {static_cast<uint32_t>(vcAttr->getCount())});
   }
+
+  // Only one primitive type is permitted for the geometry shader.
+  uint32_t primitiveTypes = 0;
+  for (const auto *param : decl->params()) {
+    if (param->hasAttr<HLSLTriangleAttr>()) {
+      ++primitiveTypes;
+      theBuilder.addExecutionMode(entryFunctionId,
+                                  spv::ExecutionMode::Triangles, {});
+    } else if (param->hasAttr<HLSLTriangleAdjAttr>()) {
+      ++primitiveTypes;
+      theBuilder.addExecutionMode(
+          entryFunctionId, spv::ExecutionMode::InputTrianglesAdjacency, {});
+    } else if (param->hasAttr<HLSLPointAttr>()) {
+      ++primitiveTypes;
+      theBuilder.addExecutionMode(entryFunctionId,
+                                  spv::ExecutionMode::InputPoints, {});
+    } else if (param->hasAttr<HLSLLineAdjAttr>()) {
+      ++primitiveTypes;
+      theBuilder.addExecutionMode(entryFunctionId,
+                                  spv::ExecutionMode::InputLinesAdjacency, {});
+    } else if (param->hasAttr<HLSLLineAttr>()) {
+      ++primitiveTypes;
+      theBuilder.addExecutionMode(entryFunctionId,
+                                  spv::ExecutionMode::InputLines, {});
+    }
+  }
+  if (primitiveTypes > 1) {
+    emitError(
+        "only one primitive type must be specified in the geometry shader");
+    return false;
+  }
+
   return true;
 }
 

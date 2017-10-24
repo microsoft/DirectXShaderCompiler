@@ -1843,6 +1843,28 @@ and is translated to SPIR-V execution mode as follows:
 |``maxvertexcount``       | ``n``               | ``OutputVertices n``     |
 +-------------------------+---------------------+--------------------------+
 
+Translation for Primitive Types
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Geometry shader vertex inputs may be qualified with primitive types. Only one primitive type
+is allowed to be used in a given geometry shader. The following table shows the SPIR-V execution
+mode that is used in order to represent the given primitive type.
+
+.. table:: Mapping from geometry shader primitive type to SPIR-V execution mode
+
++---------------------+-----------------------------+
+| HLSL Primitive Type | SPIR-V Execution Mode       |
++=====================+=============================+
+|``point``            | ``InputPoints``             |
++---------------------+-----------------------------+
+|``line``             | ``InputLines``              |
++---------------------+-----------------------------+
+|``triangle``         | ``Triangles``               |
++---------------------+-----------------------------+
+|``lineadj``          | ``InputLinesAdjacency``     |
++---------------------+-----------------------------+
+|``triangleadj``      | ``InputTrianglesAdjacency`` |
++---------------------+-----------------------------+
+
 TODO: Describe more details about how geometry shaders are translated. e.g. OutputStreams, etc.
 
 Vulkan Command-line Options

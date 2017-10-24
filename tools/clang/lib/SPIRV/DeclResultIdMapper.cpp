@@ -54,6 +54,17 @@ ResourceVar::Category getResourceCategory(QualType type) {
   return ResourceVar::Category::Other;
 }
 
+/// \brief Returns true if the given declaration has a primitive type qualifier.
+/// Returns false otherwise.
+bool hasGSPrimitiveTypeQualifier(const Decl *decl) {
+  if (decl->hasAttr<HLSLTriangleAttr>() ||
+      decl->hasAttr<HLSLTriangleAdjAttr>() || decl->hasAttr<HLSLPointAttr>() ||
+      decl->hasAttr<HLSLLineAdjAttr>() || decl->hasAttr<HLSLLineAttr>()) {
+    return true;
+  }
+  return false;
+}
+
 } // anonymous namespace
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
@@ -684,8 +695,14 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
 
-    const hlsl::DxilParamInputQual qual =
+    hlsl::DxilParamInputQual qual =
         asInput ? hlsl::DxilParamInputQual::In : hlsl::DxilParamInputQual::Out;
+
+    // The inputs to the geometry shader that have a primitive type qualifier
+    // must use 'InputPrimitive'.
+    if (asInput && shaderModel.IsGS() && hasGSPrimitiveTypeQualifier(decl))
+      qual = hlsl::DxilParamInputQual::InputPrimitive;
+
     const hlsl::SigPoint *sigPoint =
         hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
             qual, shaderModel.GetKind(), isPatchConstant));
