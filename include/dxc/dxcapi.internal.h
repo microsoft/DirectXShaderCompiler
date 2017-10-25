@@ -59,8 +59,8 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_ANY_INT32 = 5,       // i32, u32, int-literal
   LICOMPTYPE_UINT_ONLY = 6,       // u32, u64, int-literal; no casts allowed
   LICOMPTYPE_FLOAT = 7,           // f32, partial-precision-f32, float-literal
-  LICOMPTYPE_ANY_FLOAT = 8,       // f32, partial-precision-f32, f64, float-literal, min10-float, min16-float
-  LICOMPTYPE_FLOAT_LIKE = 9,      // f32, partial-precision-f32, float-literal, min10-float, min16-float
+  LICOMPTYPE_ANY_FLOAT = 8,       // f32, partial-precision-f32, f64, float-literal, min10-float, min16-float, half
+  LICOMPTYPE_FLOAT_LIKE = 9,      // f32, partial-precision-f32, float-literal, min10-float, min16-float, half
   LICOMPTYPE_FLOAT_DOUBLE = 10,   // f32, partial-precision-f32, f64, float-literal
   LICOMPTYPE_DOUBLE = 11,         // f64, float-literal
   LICOMPTYPE_DOUBLE_ONLY = 12,    // f64; no casts allowed
@@ -78,8 +78,9 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_WAVE = 24,
   LICOMPTYPE_UINT64 = 25,         // u64, int-literal
   LICOMPTYPE_UINT32_64 = 26,      // u32, u64, int-literal
+  LICOMPTYPE_HALF = 27,
 
-  LICOMPTYPE_COUNT = 27
+  LICOMPTYPE_COUNT = 28
 };
 
 static const BYTE IA_SPECIAL_BASE = 0xf0;

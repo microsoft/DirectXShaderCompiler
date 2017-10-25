@@ -1068,6 +1068,13 @@ static const ArBasicKind g_UInt3264CT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_HalfCT[] =
+{
+  AR_BASIC_FLOAT16,
+  AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_UNKNOWN
+};
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind* g_LegalIntrinsicCompTypes[] =
 {
@@ -1097,7 +1104,8 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_StringCT,           // LICOMPTYPE_STRING
   g_WaveCT,             // LICOMPTYPE_WAVE
   g_UInt64CT,           // LICOMPTYPE_UINT64
-  g_UInt3264CT          // LICOMPTYPE_UINT32_64
+  g_UInt3264CT,         // LICOMPTYPE_UINT32_64
+  g_HalfCT              // LICOMPTYPE_HALF
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
 

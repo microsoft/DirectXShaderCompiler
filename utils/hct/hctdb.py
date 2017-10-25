@@ -1897,6 +1897,7 @@ class db_hlsl(object):
             "any_int": "LICOMPTYPE_ANY_INT",
             "any_int32": "LICOMPTYPE_ANY_INT32",
             "uint_only": "LICOMPTYPE_UINT_ONLY",
+            "half": "LICOMPTYPE_HALF",
             "float": "LICOMPTYPE_FLOAT",
             "fldbl": "LICOMPTYPE_FLOAT_DOUBLE",
             "any_float": "LICOMPTYPE_ANY_FLOAT",
