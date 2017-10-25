@@ -5311,7 +5311,12 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
     // Create the stage input variable for parameter not marked as pure out and
     // initialize the corresponding temporary variable
-    if (!param->getAttr<HLSLOutAttr>()) {
+    // Also do not create input variables for output stream objects of geometry
+    // shaders (e.g. TriangleStream) which are required to be marked as 'inout'.
+    bool isGSOutputStream = shaderModel.IsGS() &&
+                            param->hasAttr<HLSLInOutAttr>() &&
+                            hlsl::IsHLSLStreamOutputType(param->getType());
+    if (!param->hasAttr<HLSLOutAttr>() && !isGSOutputStream) {
       uint32_t loadedValue = 0;
       if (shaderModel.IsHS() &&
           TypeTranslator::isInputPatch(param->getType())) {

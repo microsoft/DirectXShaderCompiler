@@ -85,6 +85,9 @@ public:
   /// \brief Returns true if the given type is an HLSL RWTexture type.
   static bool isRWTexture(QualType);
 
+  /// \brief Returns true if the given type is an HLSL Stream Output type.
+  static bool isStream(QualType);
+
   /// \brief Returns true if the given type is an HLSL sampler type.
   static bool isSampler(QualType);
 

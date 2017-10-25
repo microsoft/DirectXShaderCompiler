@@ -73,6 +73,11 @@ TEST_F(FileTest, ConsumeStructuredBufferType) {
 TEST_F(FileTest, ByteAddressBufferTypes) {
   runFileTest("type.byte-address-buffer.hlsl");
 }
+TEST_F(FileTest, PointStreamTypes) { runFileTest("type.point-stream.hlsl"); }
+TEST_F(FileTest, LineStreamTypes) { runFileTest("type.line-stream.hlsl"); }
+TEST_F(FileTest, TriangleStreamTypes) {
+  runFileTest("type.triangle-stream.hlsl");
+}
 
 // For constants
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
@@ -347,6 +352,9 @@ TEST_F(FileTest, SemanticPositionPS) {
 }
 TEST_F(FileTest, SemanticPositionDS) {
   runFileTest("semantic.position.ds.hlsl");
+}
+TEST_F(FileTest, SemanticPositionGS) {
+  runFileTest("semantic.position.gs.hlsl");
 }
 TEST_F(FileTest, SemanticVertexIDVS) {
   runFileTest("semantic.vertex-id.vs.hlsl");

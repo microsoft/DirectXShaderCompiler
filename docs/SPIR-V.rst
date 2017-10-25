@@ -1865,6 +1865,15 @@ mode that is used in order to represent the given primitive type.
 |``triangleadj``      | ``InputTrianglesAdjacency`` |
 +---------------------+-----------------------------+
 
+Translation of Output Stream Types
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Supported output stream types in geometry shaders are: ``PointStream<T>``,
+``LineStream<T>``, and ``TriangleStream<T>``. These types are translated to the underlying type ``T``.
+
+Furthermore, output stream objects passed to geometry shader entry points are
+required to be annotated with ``inout``, but the generated SPIR-V only creates
+stage output variables for them.
+
 TODO: Describe more details about how geometry shaders are translated. e.g. OutputStreams, etc.
 
 Vulkan Command-line Options
