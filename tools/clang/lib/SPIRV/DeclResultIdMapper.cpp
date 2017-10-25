@@ -57,12 +57,10 @@ ResourceVar::Category getResourceCategory(QualType type) {
 /// \brief Returns true if the given declaration has a primitive type qualifier.
 /// Returns false otherwise.
 bool hasGSPrimitiveTypeQualifier(const Decl *decl) {
-  if (decl->hasAttr<HLSLTriangleAttr>() ||
-      decl->hasAttr<HLSLTriangleAdjAttr>() || decl->hasAttr<HLSLPointAttr>() ||
-      decl->hasAttr<HLSLLineAdjAttr>() || decl->hasAttr<HLSLLineAttr>()) {
-    return true;
-  }
-  return false;
+  return (decl->hasAttr<HLSLTriangleAttr>() ||
+          decl->hasAttr<HLSLTriangleAdjAttr>() ||
+          decl->hasAttr<HLSLPointAttr>() || decl->hasAttr<HLSLLineAdjAttr>() ||
+          decl->hasAttr<HLSLLineAttr>());
 }
 
 } // anonymous namespace

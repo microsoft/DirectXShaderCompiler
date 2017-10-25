@@ -5170,7 +5170,7 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl) {
   }
   if (primitiveTypes > 1) {
     emitError(
-        "only one primitive type must be specified in the geometry shader");
+        "only one primitive type can be specified in the geometry shader");
     return false;
   }
 
