@@ -1825,6 +1825,26 @@ as stage output variables. The output struct of the patch constant function must
 ``TessLevelOuter`` and ``TessLevelInner`` builtin variables, respectively. And the rest
 will be flattened and translated into normal stage output variables, one for each field.
 
+Geometry Shaders
+----------------
+
+This section describes how geometry shaders are translated to SPIR-V for Vulkan.
+
+Geometry Shader Entry Point Attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The following HLSL attribute is attached to the main entry point of geometry shaders
+and is translated to SPIR-V execution mode as follows:
+
+.. table:: Mapping from geometry shader HLSL attribute to SPIR-V execution mode
+
++-------------------------+---------------------+--------------------------+
+| HLSL Attribute          |   value             | SPIR-V Execution Mode    |
++=========================+=====================+==========================+
+|``maxvertexcount``       | ``n``               | ``OutputVertices n``     |
++-------------------------+---------------------+--------------------------+
+
+TODO: Describe more details about how geometry shaders are translated. e.g. OutputStreams, etc.
+
 Vulkan Command-line Options
 ===========================
 

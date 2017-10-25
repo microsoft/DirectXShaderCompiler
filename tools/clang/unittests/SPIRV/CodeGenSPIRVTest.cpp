@@ -679,6 +679,9 @@ TEST_F(FileTest, AttributeOutputTopologyTriangleCcw) {
 TEST_F(FileTest, AttributeOutputControlPoints) {
   runFileTest("attribute.outputcontrolpoints.hlsl");
 }
+TEST_F(FileTest, AttributeMaxVertexCount) {
+  runFileTest("attribute.max-vertex-count.hlsl");
+}
 
 // Vulkan/SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
