@@ -683,6 +683,22 @@ TEST_F(FileTest, AttributeMaxVertexCount) {
   runFileTest("attribute.max-vertex-count.hlsl");
 }
 
+// For geometry shader primitive types
+TEST_F(FileTest, PrimitivePointGS) { runFileTest("primitive.point.gs.hlsl"); }
+TEST_F(FileTest, PrimitiveLineGS) { runFileTest("primitive.line.gs.hlsl"); }
+TEST_F(FileTest, PrimitiveTriangleGS) {
+  runFileTest("primitive.triangle.gs.hlsl");
+}
+TEST_F(FileTest, PrimitiveLineAdjGS) {
+  runFileTest("primitive.lineadj.gs.hlsl");
+}
+TEST_F(FileTest, PrimitiveTriangleAdjGS) {
+  runFileTest("primitive.triangleadj.gs.hlsl");
+}
+TEST_F(FileTest, PrimitiveErrorGS) {
+  runFileTest("primitive.error.gs.hlsl", /*expectSuccess*/ false);
+}
+
 // Vulkan/SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
