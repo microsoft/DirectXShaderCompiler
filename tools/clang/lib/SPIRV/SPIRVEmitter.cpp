@@ -196,6 +196,8 @@ bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
   optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
 
   optimizer.RegisterPass(spvtools::CreateEliminateDeadFunctionsPass());
+  optimizer.RegisterPass(spvtools::CreateCFGCleanupPass());
+  optimizer.RegisterPass(spvtools::CreateDeadVariableEliminationPass());
   optimizer.RegisterPass(spvtools::CreateEliminateDeadConstantPass());
 
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
