@@ -303,7 +303,7 @@ bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
   return isScalar;
 }
 
-bool TypeTranslator::isStream(QualType type) {
+bool TypeTranslator::isOutputStream(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     const auto name = rt->getDecl()->getName();
     return name == "PointStream" || name == "LineStream" ||

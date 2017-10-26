@@ -705,6 +705,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     // Note that geometry shaders have output streams that are required to be
     // marked as "inout". The DxilParamInputQual for these cases must be
     // 'OutStream' rather than 'Out'.
+    // TODO: Add support for multiple output streams.
     if (!asInput && isOutputStream)
       qual = hlsl::DxilParamInputQual::OutStream0;
 
@@ -856,7 +857,6 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       return theBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
-    case hlsl::SigPoint::Kind::GSVIn:
     case hlsl::SigPoint::Kind::GSOut:
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::Position);

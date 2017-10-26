@@ -1868,11 +1868,27 @@ mode that is used in order to represent the given primitive type.
 Translation of Output Stream Types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Supported output stream types in geometry shaders are: ``PointStream<T>``,
-``LineStream<T>``, and ``TriangleStream<T>``. These types are translated to the underlying type ``T``.
+``LineStream<T>``, and ``TriangleStream<T>``. These types are translated as the underlying
+type ``T``, which is recursively flattened into stand-alone variables for each field.
 
 Furthermore, output stream objects passed to geometry shader entry points are
-required to be annotated with ``inout``, but the generated SPIR-V only creates
+required to be annotated with ``inout``, but the generated SPIR-V only contains
 stage output variables for them.
+
+The following table shows the SPIR-V execution mode that is used in order to represent the
+given output stream.
+
+.. table:: Mapping from geometry shader output stream type to SPIR-V execution mode
+
++---------------------+-----------------------------+
+| HLSL Output Stream  | SPIR-V Execution Mode       |
++=====================+=============================+
+|``PointStream``      | ``OutputPoints``            |
++---------------------+-----------------------------+
+|``LineStream``       | ``OutputLineStrip``         |
++---------------------+-----------------------------+
+|``TriangleStream``   | ``OutputTriangleStrip``     |
++---------------------+-----------------------------+
 
 TODO: Describe more details about how geometry shaders are translated. e.g. OutputStreams, etc.
 

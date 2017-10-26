@@ -1,6 +1,8 @@
 // Run: %dxc -T gs_6_0 -E main
 
-// CHECK: OpEntryPoint Geometry %main "main" %in_var_VertexID %gl_Position %out_var_COLOR0 %out_var_TEXCOORD0
+// CHECK: OpEntryPoint Geometry %main "main" {{%\w+}} %gl_Position %out_var_COLOR0 %out_var_TEXCOORD0
+
+// CHECK: OpExecutionMode %main OutputLineStrip
 
 // CHECK: OpDecorate %gl_Position BuiltIn Position
 // CHECK: OpDecorate %out_var_COLOR0 Location 0
