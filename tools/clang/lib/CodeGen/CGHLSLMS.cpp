@@ -93,7 +93,7 @@ private:
   llvm::Type *CBufferType;
   uint32_t globalCBIndex;
   // TODO: make sure how minprec works
-  llvm::DataLayout legacyLayout;
+  llvm::DataLayout dataLayout;
   // decl map to constant id for program
   llvm::DenseMap<HLSLBufferDecl *, uint32_t> constantBufMap;
   // Map for resource type to resource metadata value.
@@ -313,7 +313,10 @@ void clang::CompileRootSignature(
 //
 CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()), EntryFunc(nullptr),
-      TheModule(CGM.getModule()), legacyLayout(CGM.getLangOpts().UseMinPrecision ? HLModule::GetLegacyDataLayoutDesc() : HLModule::GetNewDataLayoutDesc()),
+      TheModule(CGM.getModule()),
+      dataLayout(CGM.getLangOpts().UseMinPrecision
+                       ? hlsl::DXIL::kLegacyLayoutString
+                       : hlsl::DXIL::kNewLayoutString),
       CBufferType(
           llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")) {
   const hlsl::ShaderModel *SM =
@@ -489,64 +492,69 @@ StringToTessOutputPrimitive(StringRef primitive) {
   return DXIL::TessellatorOutputPrimitive::Undefined;
 }
 
-static unsigned AlignTo8Bytes(unsigned offset, bool b8BytesAlign) {
-  DXASSERT((offset & 0x1) == 0, "offset should be divisible by 2");
-  if (!b8BytesAlign)
-    return offset;
-  else if ((offset & 0x7) == 0)
-    return offset;
-  else
-    return offset + 4;
+static unsigned RoundToAlign(unsigned num, unsigned mod) {
+  // round num to next highest mod
+  if (mod != 0)
+    return mod * ((num + mod - 1) / mod);
+  return num;
+}
+
+// Align cbuffer offset in legacy mode (16 bytes per row).
+static unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
+                                          unsigned scalarSizeInBytes,
+                                          bool bNeedNewRow) {
+  if (unsigned remainder = (offset & 0xf)) {
+    // Start from new row
+    if (remainder + size > 16 || bNeedNewRow) {
+      return offset + 16 - remainder;
+    }
+    // If not, naturally align data
+    return RoundToAlign(offset, scalarSizeInBytes);
+  }
+  return offset;
 }
 
 static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size,
                                  QualType Ty, bool bDefaultRowMajor) {
-  bool b8BytesAlign = false;
-  if (Ty->isBuiltinType()) {
-    const clang::BuiltinType *BT = Ty->getAs<clang::BuiltinType>();
-    if (BT->getKind() == clang::BuiltinType::Kind::Double ||
-        BT->getKind() == clang::BuiltinType::Kind::LongLong)
-      b8BytesAlign = true;
-  }
+  bool needNewAlign = Ty->isArrayType();
 
-  if (unsigned remainder = (baseOffset & 0xf)) {
-    // Align to 4 x 4 bytes.
-    unsigned aligned = baseOffset - remainder + 16;
-    // If cannot fit in the remainder, need align.
-    bool bNeedAlign = (remainder + size) > 16;
-    // Array always start aligned.
-    bNeedAlign |= Ty->isArrayType();
-
-    if (IsHLSLMatType(Ty)) {
-      bool bColMajor = !bDefaultRowMajor;
-      if (const AttributedType *AT = dyn_cast<AttributedType>(Ty)) {
-        switch (AT->getAttrKind()) {
-        case AttributedType::Kind::attr_hlsl_column_major:
-          bColMajor = true;
-          break;
-        case AttributedType::Kind::attr_hlsl_row_major:
-          bColMajor = false;
-          break;
-        default:
-          // Do nothing
-          break;
-        }
+  if (IsHLSLMatType(Ty)) {
+    bool bColMajor = !bDefaultRowMajor;
+    if (const AttributedType *AT = dyn_cast<AttributedType>(Ty)) {
+      switch (AT->getAttrKind()) {
+      case AttributedType::Kind::attr_hlsl_column_major:
+        bColMajor = true;
+        break;
+      case AttributedType::Kind::attr_hlsl_row_major:
+        bColMajor = false;
+        break;
+      default:
+        // Do nothing
+        break;
       }
-
-      unsigned row, col;
-      hlsl::GetHLSLMatRowColCount(Ty, row, col);
-
-      bNeedAlign |= bColMajor && col > 1;
-      bNeedAlign |= !bColMajor && row > 1;
     }
 
-    if (bNeedAlign)
-      return AlignTo8Bytes(aligned, b8BytesAlign);
-    else
-      return AlignTo8Bytes(baseOffset, b8BytesAlign);
+    unsigned row, col;
+    hlsl::GetHLSLMatRowColCount(Ty, row, col);
 
-  } else
-    return baseOffset;
+    needNewAlign |= bColMajor && col > 1;
+    needNewAlign |= !bColMajor && row > 1;
+  }
+
+  unsigned scalarSizeInBytes = 4;
+  const clang::BuiltinType *BT = Ty->getAs<clang::BuiltinType>();
+  if (hlsl::IsHLSLVecMatType(Ty)) {
+    BT = CGHLSLRuntime::GetHLSLVecMatElementType(Ty)->getAs<clang::BuiltinType>();
+  }
+  if (BT) {
+    if (BT->getKind() == clang::BuiltinType::Kind::Double ||
+      BT->getKind() == clang::BuiltinType::Kind::LongLong)
+      scalarSizeInBytes = 8;
+    else if (BT->getKind() == clang::BuiltinType::Kind::Half)
+      scalarSizeInBytes = 2;
+  }
+
+  return AlignBufferOffsetInLegacy(baseOffset, size, scalarSizeInBytes, needNewAlign);
 }
 
 static unsigned AlignBaseOffset(QualType Ty, unsigned baseOffset,
@@ -828,7 +836,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
         // Align offset.
         offset = AlignBaseOffset(parentTy, offset, bDefaultRowMajor, CGM,
-                                 legacyLayout);
+                                 dataLayout);
 
         unsigned CBufferOffset = offset;
 
@@ -857,7 +865,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     QualType fieldTy = fieldDecl->getType();
     
     // Align offset.
-    offset = AlignBaseOffset(fieldTy, offset, bDefaultRowMajor, CGM, legacyLayout);
+    offset = AlignBaseOffset(fieldTy, offset, bDefaultRowMajor, CGM, dataLayout);
 
     unsigned CBufferOffset = offset;
 
@@ -934,12 +942,12 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
 
   // Get size.
   llvm::Type *Type = CGM.getTypes().ConvertType(paramTy);
-  unsigned size = legacyLayout.getTypeAllocSize(Type);
+  unsigned size = dataLayout.getTypeAllocSize(Type);
 
   if (IsHLSLMatType(Ty)) {
     unsigned col, row;
     llvm::Type *EltTy = HLMatrixLower::GetMatrixInfo(Type, col, row);
-    bool b64Bit = legacyLayout.getTypeAllocSize(EltTy) == 8;
+    bool b64Bit = dataLayout.getTypeAllocSize(EltTy) == 8;
     size = GetMatrixSizeInCB(Ty, m_pHLModule->GetHLOptions().bDefaultRowMajor,
                              b64Bit);
   }
@@ -2281,7 +2289,7 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
         templateDecl->getTemplateArgs()[0];
     llvm::Type *retTy = CGM.getTypes().ConvertType(retTyArg.getAsType());
 
-    uint32_t strideInBytes = legacyLayout.getTypeAllocSize(retTy);
+    uint32_t strideInBytes = dataLayout.getTypeAllocSize(retTy);
     hlslRes->SetElementStride(strideInBytes);
   }
 
@@ -2612,29 +2620,10 @@ void CGMSHLSLRuntime::SetEntryFunction() {
 // Here the size is CB size. So don't need check type.
 static unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty) {
   DXASSERT(!(offset & 1), "otherwise we have an invalid offset.");
-  // offset is already 4 bytes aligned.
-  bool b8BytesAlign = Ty->isDoubleTy();
-  if (llvm::IntegerType *IT = dyn_cast<llvm::IntegerType>(Ty)) {
-    b8BytesAlign = IT->getBitWidth() > 32;
-  }
-  // If offset is divisible by 2 and not 4, then increase the offset by 2 for dword alignment.
-  if (!Ty->getScalarType()->isHalfTy() && (offset & 0x2)) {
-    offset += 2;
-  }
+  bool bNeedNewRow = Ty->isArrayTy();
+  unsigned scalarSizeInBytes = Ty->getScalarSizeInBits() / 8;
 
-  // Align it to 4 x 4bytes.
-  if (unsigned remainder = (offset & 0xf)) {
-    unsigned aligned = offset - remainder + 16;
-    // If cannot fit in the remainder, need align.
-    bool bNeedAlign = (remainder + size) > 16;
-    // Array always start aligned.
-    bNeedAlign |= Ty->isArrayTy();
-    if (bNeedAlign)
-      return AlignTo8Bytes(aligned, b8BytesAlign);
-    else
-      return AlignTo8Bytes(offset, b8BytesAlign);
-  } else
-    return offset;
+  return AlignBufferOffsetInLegacy(offset, size, scalarSizeInBytes, bNeedNewRow);
 }
 
 static unsigned AllocateDxilConstantBuffer(HLCBuffer &CB) {

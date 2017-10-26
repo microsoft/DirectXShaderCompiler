@@ -7033,9 +7033,9 @@ const Builtin::Info DXILTargetInfo::BuiltinInfo[] = {
 class DXIL_32TargetInfo : public DXILTargetInfo {
 
 public:
-  DXIL_32TargetInfo(const llvm::Triple &Triple) : DXILTargetInfo(Triple) {
+  DXIL_32TargetInfo(const llvm::Triple &Triple, const char *descriptionString) : DXILTargetInfo(Triple) {
     // TODO: Update Description for DXIL
-    DescriptionString = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32";
+    DescriptionString = descriptionString;
   }
 };
 }
@@ -7046,9 +7046,9 @@ public:
 // Driver code
 //===----------------------------------------------------------------------===//
 
-static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
+static TargetInfo *AllocateTarget(const llvm::Triple &Triple, const char* descrptionString) {
 #if 1 // HLSL Change
-  return new DXIL_32TargetInfo(Triple);
+  return new DXIL_32TargetInfo(Triple, descrptionString);
 #else // HLSL Change
   llvm::Triple::OSType os = Triple.getOS();
 
@@ -7459,7 +7459,7 @@ TargetInfo::CreateTargetInfo(DiagnosticsEngine &Diags,
   llvm::Triple Triple(Opts->Triple);
 
   // Construct the target
-  std::unique_ptr<TargetInfo> Target(AllocateTarget(Triple));
+  std::unique_ptr<TargetInfo> Target(AllocateTarget(Triple, Opts.get()->DescriptionString));
   if (!Target) {
     Diags.Report(diag::err_target_unknown_triple) << Triple.str();
     return nullptr;

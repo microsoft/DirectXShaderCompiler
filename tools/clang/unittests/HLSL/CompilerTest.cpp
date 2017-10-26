@@ -506,6 +506,7 @@ public:
   TEST_METHOD(CodeGenCbufferAlloc)
   TEST_METHOD(CodeGenCbufferAllocLegacy)
   TEST_METHOD(CodeGenCbufferHalf)
+  TEST_METHOD(CodeGenCbufferHalfStruct)
   TEST_METHOD(CodeGenCbufferInLoop)
   TEST_METHOD(CodeGenCbufferMinPrec)
   TEST_METHOD(CodeGenClass)
@@ -517,6 +518,8 @@ public:
   TEST_METHOD(CodeGenConstMat3)
   TEST_METHOD(CodeGenConstMat4)
   TEST_METHOD(CodeGenCorrectDelay)
+  TEST_METHOD(CodeGenDataLayout)
+  TEST_METHOD(CodeGenDataLayoutHalf)
   TEST_METHOD(CodeGenDiscard)
   TEST_METHOD(CodeGenDivZero)
   TEST_METHOD(CodeGenDot1)
@@ -3117,6 +3120,11 @@ TEST_F(CompilerTest, CodeGenCbufferHalf) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferHalf.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenCbufferHalfStruct) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferHalf-struct.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenCbufferInLoop) {
   CodeGenTest(L"..\\CodeGenHLSL\\cbufferInLoop.hlsl");
 }
@@ -3159,6 +3167,15 @@ TEST_F(CompilerTest, CodeGenConstMat4) {
 
 TEST_F(CompilerTest, CodeGenCorrectDelay) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\correct_delay.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenDataLayout) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\dataLayout.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenDataLayoutHalf) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\dataLayoutHalf.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenDiscard) {

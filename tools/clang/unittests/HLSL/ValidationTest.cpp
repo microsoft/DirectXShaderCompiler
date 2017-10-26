@@ -1508,11 +1508,12 @@ TEST_F(ValidationTest, PtrBitCast) {
 }
 
 TEST_F(ValidationTest, MinPrecisionBitCast) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
                           "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
                           "  store i32 %([0-9]+), i32\\* %\\1, align 4",
                           "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
-                          "  %X = bitcast i32* %\\1 to [2 x half]*    \n"
+                          "  %X = bitcast i32* %\\1 to half* \n"
                           "  store i32 %\\3, i32* %\\1, align 4",
                           "Bitcast on minprecison types is not allowed",
                           /*bRegex*/true);
