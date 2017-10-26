@@ -735,6 +735,9 @@ public:
     // Setup a compiler instance.
     std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
     targetOptions->Triple = "dxil-ms-dx";
+    targetOptions->DescriptionString = Opts.NoMinPrecision
+      ? hlsl::DXIL::kNewLayoutString
+      : hlsl::DXIL::kLegacyLayoutString;
     compiler.HlslLangExtensions = helper;
     compiler.createDiagnostics(diagPrinter, false);
     compiler.createFileManager();

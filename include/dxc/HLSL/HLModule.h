@@ -163,8 +163,6 @@ public:
   static bool IsHLSLObjectType(llvm::Type *Ty);
   static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows, unsigned &cols,
                                       DxilParameterAnnotation &paramAnnotation);
-  static const char *GetLegacyDataLayoutDesc();
-  static const char *GetNewDataLayoutDesc();
 
   static void MergeGepUse(llvm::Value *V);
 

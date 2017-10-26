@@ -46,8 +46,8 @@ struct HLOperationLowerHelper {
 
 HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
     : hlslOP(*HLM.GetOP()), dxilTypeSys(HLM.GetTypeSystem()),
-      legacyDataLayout(HLModule::GetLegacyDataLayoutDesc()),
-      newDataLayout(HLModule::GetNewDataLayoutDesc()) {
+      legacyDataLayout(hlsl::DXIL::kLegacyLayoutString),
+      newDataLayout(hlsl::DXIL::kNewLayoutString) {
   llvm::LLVMContext &Ctx = HLM.GetCtx();
   voidTy = Type::getVoidTy(Ctx);
   f32Ty = Type::getFloatTy(Ctx);
