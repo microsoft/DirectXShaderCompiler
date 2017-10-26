@@ -539,6 +539,11 @@ TEST_F(FileTest, RWTextureGetDimensions) {
   runFileTest("method.rwtexture.get-dimensions.hlsl");
 }
 
+// For InputPatch and OutputPatch methods
+TEST_F(FileTest, InputOutputPatchAccess) {
+  runFileTest("method.input-output-patch.access.hlsl");
+}
+
 // For intrinsic functions
 TEST_F(FileTest, IntrinsicsCountBits) {
   runFileTest("intrinsics.countbits.hlsl");
