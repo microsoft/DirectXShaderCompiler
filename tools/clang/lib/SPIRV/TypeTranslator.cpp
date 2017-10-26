@@ -303,6 +303,15 @@ bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
   return isScalar;
 }
 
+bool TypeTranslator::isOutputStream(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    return name == "PointStream" || name == "LineStream" ||
+           name == "TriangleStream";
+  }
+  return false;
+}
+
 bool TypeTranslator::isOutputPatch(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     return rt->getDecl()->getName() == "OutputPatch";
@@ -720,6 +729,11 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
     const uint32_t elemTypeId = translateType(elemType);
     const uint32_t elemCountId = theBuilder.getConstantUint32(elemCount);
     return theBuilder.getArrayType(elemTypeId, elemCountId);
+  }
+  // Output stream objects (TriangleStream, LineStream, and PointStream)
+  if (name == "TriangleStream" || name == "LineStream" ||
+      name == "PointStream") {
+    return translateType(hlsl::GetHLSLResourceResultType(type), rule);
   }
 
   return 0;

@@ -309,7 +309,7 @@ private:
   /// Assumes the decl has semantic attached to itself or to its fields.
   bool createStageVars(const DeclaratorDecl *decl, uint32_t *value,
                        bool asInput, const llvm::Twine &namePrefix,
-                       bool isPatchConstant);
+                       bool isPatchConstant, bool isOutputStream = false);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
