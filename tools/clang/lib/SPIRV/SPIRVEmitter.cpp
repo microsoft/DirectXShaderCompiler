@@ -5138,6 +5138,7 @@ void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
 }
 
 bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl) {
+  bool success = true;
   assert(shaderModel.IsGS());
   if (auto *vcAttr = decl->getAttr<HLSLMaxVertexCountAttr>()) {
     theBuilder.addExecutionMode(entryFunctionId,
@@ -5146,37 +5147,68 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl) {
   }
 
   // Only one primitive type is permitted for the geometry shader.
-  uint32_t primitiveTypes = 0;
+  bool outPoint = false, outLine = false, outTriangle = false, inPoint = false,
+       inLine = false, inTriangle = false, inLineAdj = false,
+       inTriangleAdj = false;
   for (const auto *param : decl->params()) {
-    if (param->hasAttr<HLSLTriangleAttr>()) {
-      ++primitiveTypes;
+    // Add an execution mode based on the output stream type. Do not an
+    // execution mode more than once.
+    if (param->hasAttr<HLSLInOutAttr>()) {
+      const auto paramType = param->getType();
+      if (hlsl::IsHLSLTriangleStreamType(paramType) && !outTriangle) {
+        theBuilder.addExecutionMode(
+            entryFunctionId, spv::ExecutionMode::OutputTriangleStrip, {});
+        outTriangle = true;
+      } else if (hlsl::IsHLSLLineStreamType(paramType) && !outLine) {
+        theBuilder.addExecutionMode(entryFunctionId,
+                                    spv::ExecutionMode::OutputLineStrip, {});
+        outLine = true;
+      } else if (hlsl::IsHLSLPointStreamType(paramType) && !outPoint) {
+        theBuilder.addExecutionMode(entryFunctionId,
+                                    spv::ExecutionMode::OutputPoints, {});
+        outPoint = true;
+      }
+      // An output stream parameter will not have the input primitive type
+      // attributes, so we can continue to the next parameter.
+      continue;
+    }
+
+    // Add an execution mode based on the input primitive type. Do not add an
+    // execution mode more than once.
+    if (param->hasAttr<HLSLTriangleAttr>() && !inTriangle) {
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::Triangles, {});
-    } else if (param->hasAttr<HLSLTriangleAdjAttr>()) {
-      ++primitiveTypes;
+      inTriangle = true;
+    } else if (param->hasAttr<HLSLTriangleAdjAttr>() && !inTriangleAdj) {
       theBuilder.addExecutionMode(
           entryFunctionId, spv::ExecutionMode::InputTrianglesAdjacency, {});
-    } else if (param->hasAttr<HLSLPointAttr>()) {
-      ++primitiveTypes;
+      inTriangleAdj = true;
+    } else if (param->hasAttr<HLSLPointAttr>() && !inPoint) {
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::InputPoints, {});
-    } else if (param->hasAttr<HLSLLineAdjAttr>()) {
-      ++primitiveTypes;
+      inPoint = true;
+    } else if (param->hasAttr<HLSLLineAdjAttr>() && !inLineAdj) {
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::InputLinesAdjacency, {});
-    } else if (param->hasAttr<HLSLLineAttr>()) {
-      ++primitiveTypes;
+      inLineAdj = true;
+    } else if (param->hasAttr<HLSLLineAttr>() && !inLine) {
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::InputLines, {});
+      inLine = true;
     }
   }
-  if (primitiveTypes > 1) {
-    emitError(
-        "only one primitive type can be specified in the geometry shader");
-    return false;
+  if (inPoint + inLine + inLineAdj + inTriangle + inTriangleAdj > 1) {
+    emitError("only one input primitive type can be specified in the geometry "
+              "shader");
+    success = false;
+  }
+  if (outPoint + outTriangle + outLine > 1) {
+    emitError("only one output primitive type can be specified in the geometry "
+              "shader");
+    success = false;
   }
 
-  return true;
+  return success;
 }
 
 bool SPIRVEmitter::processTessellationShaderAttributes(
@@ -5313,7 +5345,12 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
     // Create the stage input variable for parameter not marked as pure out and
     // initialize the corresponding temporary variable
-    if (!param->getAttr<HLSLOutAttr>()) {
+    // Also do not create input variables for output stream objects of geometry
+    // shaders (e.g. TriangleStream) which are required to be marked as 'inout'.
+    bool isGSOutputStream = shaderModel.IsGS() &&
+                            param->hasAttr<HLSLInOutAttr>() &&
+                            hlsl::IsHLSLStreamOutputType(param->getType());
+    if (!param->hasAttr<HLSLOutAttr>() && !isGSOutputStream) {
       uint32_t loadedValue = 0;
       if (shaderModel.IsHS() &&
           TypeTranslator::isInputPatch(param->getType())) {

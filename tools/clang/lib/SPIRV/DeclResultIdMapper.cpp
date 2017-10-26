@@ -383,7 +383,6 @@ private:
 bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
   llvm::StringSet<> seenSemantics;
   bool success = true;
-
   for (const auto &var : stageVars) {
     auto s = var.getSemanticStr();
 
@@ -680,12 +679,14 @@ uint32_t DeclResultIdMapper::createStageVarWithoutSemantics(
 bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
                                          uint32_t *value, bool asInput,
                                          const llvm::Twine &namePrefix,
-                                         bool isPatchConstant) {
+                                         bool isPatchConstant,
+                                         bool isOutputStream) {
   QualType type = getFnParamOrRetType(decl);
   if (type->isVoidType()) {
     // No stage variables will be created for void type.
     return true;
   }
+
   uint32_t typeId = typeTranslator.translateType(type);
 
   llvm::StringRef semanticStr = getStageVarSemantic(decl);
@@ -700,6 +701,13 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     // must use 'InputPrimitive'.
     if (asInput && shaderModel.IsGS() && hasGSPrimitiveTypeQualifier(decl))
       qual = hlsl::DxilParamInputQual::InputPrimitive;
+
+    // Note that geometry shaders have output streams that are required to be
+    // marked as "inout". The DxilParamInputQual for these cases must be
+    // 'OutStream' rather than 'Out'.
+    // TODO: Add support for multiple output streams.
+    if (!asInput && isOutputStream)
+      qual = hlsl::DxilParamInputQual::OutStream0;
 
     const hlsl::SigPoint *sigPoint =
         hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
@@ -782,9 +790,13 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     }
   } else {
     // If the decl itself doesn't have semantic, it should be a struct having
-    // all its fields with semantics.
-    assert(type->isStructureType() &&
-           "found non-struct decls without semantics");
+    // all its fields with semantics. Or it should be an OutputStream
+    // parameterized by a structure type with all its fields with semantics.
+    if (hlsl::IsHLSLStreamOutputType(type)) {
+      isOutputStream = true;
+      type = hlsl::GetHLSLResourceResultType(type);
+    }
+    assert(type->isStructureType() && "found non-struct decls without semantics");
 
     const auto *structDecl = cast<RecordType>(type.getTypePtr())->getDecl();
 
@@ -795,7 +807,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
       for (const auto *field : structDecl->fields()) {
         uint32_t subValue = 0;
         if (!createStageVars(field, &subValue, true, namePrefix,
-                             isPatchConstant))
+                             isPatchConstant, isOutputStream))
           return false;
         subValues.push_back(subValue);
       }
@@ -809,7 +821,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
         uint32_t subValue = theBuilder.createCompositeExtract(
             fieldType, *value, {field->getFieldIndex()});
         if (!createStageVars(field, &subValue, false, namePrefix,
-                             isPatchConstant))
+                             isPatchConstant, isOutputStream))
           return false;
       }
     }
@@ -845,6 +857,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       return theBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
+    case hlsl::SigPoint::Kind::GSOut:
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::Position);
     case hlsl::SigPoint::Kind::PSIn:
