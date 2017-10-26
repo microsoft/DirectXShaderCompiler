@@ -1,6 +1,34 @@
 // Run: %dxc -T hs_6_0 -E SubDToBezierHS
 
-#include "bezier_common_hull.hlsl"
+#define MAX_POINTS 16
+
+// Input control point
+struct VS_CONTROL_POINT_OUTPUT
+{
+  float3 vPosition : WORLDPOS;
+  float2 vUV       : TEXCOORD0;
+  float3 vTangent  : TANGENT;
+};
+
+// Output control point
+struct BEZIER_CONTROL_POINT
+{
+  float3 vPosition	: BEZIERPOS;
+  uint     pointID 	: ControlPointID;
+};
+
+// Output patch constant data.
+struct HS_CONSTANT_DATA_OUTPUT
+{
+  float Edges[4]        : SV_TessFactor;
+  float Inside[2]       : SV_InsideTessFactor;
+
+  float3 vTangent[4]    : TANGENT;
+  float2 vUV[4]         : TEXCOORD;
+  float3 vTanUCorner[4] : TANUCORNER;
+  float3 vTanVCorner[4] : TANVCORNER;
+  float4 vCWts          : TANWEIGHTS;
+};
 
 HS_CONSTANT_DATA_OUTPUT PCF(OutputPatch<BEZIER_CONTROL_POINT, MAX_POINTS> op) {
   HS_CONSTANT_DATA_OUTPUT Output;
@@ -16,12 +44,12 @@ HS_CONSTANT_DATA_OUTPUT PCF(OutputPatch<BEZIER_CONTROL_POINT, MAX_POINTS> op) {
 
 // CHECK:      [[op_1_loc:%\d+]] = OpAccessChain %_ptr_Function_v3float %op %uint_1 %int_0
 // CHECK-NEXT:          {{%\d+}} = OpLoad %v3float [[op_1_loc]]
-  float3 out1pos = op[1].vPosition; // vPosition is member 0 in the BEZIER_CONTROL_POINT struct.
+  float3 out1pos = op[1].vPosition;
 
 // CHECK:             [[x:%\d+]] = OpLoad %uint %x
-// CHECK-NEXT: [[op_x_loc:%\d+]] = OpAccessChain %_ptr_Function_v3float %op [[x]] %int_0
-// CHECK-NEXT:          {{%\d+}} = OpLoad %v3float [[op_x_loc]]
-  float3 out5pos = op[x].vPosition; // vPosition is member 0 in the BEZIER_CONTROL_POINT struct.
+// CHECK-NEXT: [[op_x_loc:%\d+]] = OpAccessChain %_ptr_Function_uint %op [[x]] %int_1
+// CHECK-NEXT:          {{%\d+}} = OpLoad %uint [[op_x_loc]]
+  uint out5id = op[x].pointID;
 
   return Output;
 }
@@ -37,12 +65,12 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 
 // CHECK:      [[ip_1_loc:%\d+]] = OpAccessChain %_ptr_Function_v3float %ip %uint_1 %int_0
 // CHECK-NEXT:          {{%\d+}} = OpLoad %v3float [[ip_1_loc]]
-  result.vPosition = ip[1].vPosition;  // vPosition is member 0 in the VS_CONTROL_POINT_OUTPUT struct.
+  result.vPosition = ip[1].vPosition;
 
 // CHECK:             [[y:%\d+]] = OpLoad %uint %y
-// CHECK-NEXT: [[ip_y_loc:%\d+]] = OpAccessChain %_ptr_Function_v3float %ip [[y]] %int_0
+// CHECK-NEXT: [[ip_y_loc:%\d+]] = OpAccessChain %_ptr_Function_v3float %ip [[y]] %int_2
 // CHECK-NEXT:          {{%\d+}} = OpLoad %v3float [[ip_y_loc]]
-  result.vPosition = ip[y].vPosition;  // vPosition is member 0 in the VS_CONTROL_POINT_OUTPUT struct.
+  result.vPosition = ip[y].vTangent;
 
   return result;
 }
