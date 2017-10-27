@@ -32,6 +32,7 @@
 #include <memory>
 #include <unordered_set>
 #include <array>
+#include <sstream> //test-remove
 
 using namespace llvm;
 using namespace hlsl;
@@ -64,7 +65,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
   std::vector<Type*> i32 = { Type::getInt32Ty(Ctx) };
   std::vector<Type*> f16f32 = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx) };
   std::vector<Type*> f32i32 = { Type::getFloatTy(Ctx), Type::getInt32Ty(Ctx) };
-  std::vector<Type*> f32i32f64 = { Type::getFloatTy(Ctx), Type::getInt32Ty(Ctx), Type::getInt64Ty(Ctx) };
+  std::vector<Type*> f32i32f64 = { Type::getFloatTy(Ctx), Type::getInt32Ty(Ctx), Type::getDoubleTy(Ctx) };
   std::vector<Type*> f16f32i16i32 = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx) };
   std::vector<Type*> f16f32f64i16i32i64 = { Type::getHalfTy(Ctx), Type::getFloatTy(Ctx), Type::getDoubleTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx), Type::getInt64Ty(Ctx) };
 
@@ -80,8 +81,8 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
     { DXIL::OpCode::SampleCmpLevelZero    , ReadWrite::Read , f16f32 },
     { DXIL::OpCode::TextureLoad           , ReadWrite::Read , f16f32i16i32 },
     { DXIL::OpCode::TextureStore          , ReadWrite::Write, f16f32i16i32 },
-    { DXIL::OpCode::TextureGather         , ReadWrite::Read , f16f32i16i32 },
-    { DXIL::OpCode::TextureGatherCmp      , ReadWrite::Read , f16f32i16i32 },
+    { DXIL::OpCode::TextureGather         , ReadWrite::Read , f32i32 }, // todo: SM6: f16f32i16i32 },
+    { DXIL::OpCode::TextureGatherCmp      , ReadWrite::Read , f32i32 }, // todo: SM6: f16f32i16i32 },
     { DXIL::OpCode::BufferLoad            , ReadWrite::Read , f32i32 },
     { DXIL::OpCode::BufferStore           , ReadWrite::Write, f32i32 },
     { DXIL::OpCode::BufferUpdateCounter   , ReadWrite::Write, voidType },
@@ -133,7 +134,10 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
 
         if (OSOverride != nullptr) {
           formatted_raw_ostream FOS(*OSOverride);
-          FOS << "(" << res->GetSpaceID() << "," << res->GetID() << ")\n\n";
+          FOS << "(" << res->GetSpaceID() << "," << res->GetID() << ")\n";
+          std::ostringstream s;
+          s << "(" << res->GetSpaceID() << "," << res->GetID() << ")\n";
+          OutputDebugStringA(s.str().c_str());
         }
       }
     }
