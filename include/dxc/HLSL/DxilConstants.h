@@ -393,6 +393,7 @@ namespace DXIL {
     CheckAccessFullyMapped = 71, // determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
     CreateHandle = 57, // creates the handle to a resource
     GetDimensions = 72, // gets texture size information
+    RawBufferLoad = 139, // reads from a raw buffer and structured buffer
     TextureLoad = 66, // reads texel data without any filtering or sampling
     TextureStore = 67, // reads texel data without any filtering or sampling
   
@@ -475,8 +476,9 @@ namespace DXIL {
   
     NumOpCodes_Dxil_1_0 = 137,
     NumOpCodes_Dxil_1_1 = 139,
+    NumOpCodes_Dxil_1_2 = 140,
   
-    NumOpCodes = 139 // exclusive last value of enumeration
+    NumOpCodes = 140 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -589,6 +591,7 @@ namespace DXIL {
     CheckAccessFullyMapped,
     CreateHandle,
     GetDimensions,
+    RawBufferLoad,
     TextureLoad,
     TextureStore,
   
@@ -633,8 +636,9 @@ namespace DXIL {
   
     NumOpClasses_Dxil_1_0 = 93,
     NumOpClasses_Dxil_1_1 = 95,
+    NumOpClasses_Dxil_1_2 = 96,
   
-    NumOpClasses = 95 // exclusive last value of enumeration
+    NumOpClasses = 96 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 

@@ -2894,14 +2894,18 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 // Load/Store intrinsics.
 struct ResLoadHelper {
   ResLoadHelper(CallInst *CI, DxilResource::Kind RK, DxilResourceBase::Class RC,
-                Value *h, bool bForSubscript=false);
+                Value *h, IntrinsicOp IOP, bool bForSubscript=false);
   ResLoadHelper(CallInst *CI, DxilResource::Kind RK, DxilResourceBase::Class RC,
                 Value *h, Value *mip);
   // For double subscript.
   ResLoadHelper(Instruction *ldInst, Value *h, Value *idx, Value *mip)
-      : opcode(OP::OpCode::TextureLoad), handle(h), retVal(ldInst), addr(idx),
-        offset(nullptr), status(nullptr), mipLevel(mip) {}
+      : opcode(OP::OpCode::TextureLoad),
+        intrinsicOpCode(IntrinsicOp::Num_Intrinsics), handle(h), retVal(ldInst),
+        addr(idx), offset(nullptr), status(nullptr), mipLevel(mip) {}
   OP::OpCode opcode;
+  IntrinsicOp intrinsicOpCode;
+  unsigned dxilMajor;
+  unsigned dxilMinor;
   Value *handle;
   Value *retVal;
   Value *addr;
@@ -2911,12 +2915,14 @@ struct ResLoadHelper {
 };
 
 ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
-                             DxilResourceBase::Class RC, Value *hdl, bool bForSubscript)
-    : handle(hdl), offset(nullptr), status(nullptr) {
+                             DxilResourceBase::Class RC, Value *hdl, IntrinsicOp IOP, bool bForSubscript)
+    : intrinsicOpCode(IOP), handle(hdl), offset(nullptr), status(nullptr) {
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
-  case DxilResource::Kind::TypedBuffer:
   case DxilResource::Kind::StructuredBuffer:
+    opcode = OP::OpCode::RawBufferLoad;
+    break;
+  case DxilResource::Kind::TypedBuffer:
     opcode = OP::OpCode::BufferLoad;
     break;
   case DxilResource::Kind::Invalid:
@@ -2926,7 +2932,6 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
     opcode = OP::OpCode::TextureLoad;
     break;
   }
-
   retVal = CI;
   const unsigned kAddrIdx = HLOperandIndex::kBufLoadAddrOpIdx;
   addr = CI->getArgOperand(kAddrIdx);
@@ -3039,6 +3044,50 @@ void Make64bitResultForLoad(Type *EltTy, ArrayRef<Value *> resultElts32,
   }
 }
 
+static Constant *GetRawBufferLoadMaskFromIOP(IntrinsicOp IOP, hlsl::OP *OP) {
+  switch (IOP) {
+    case IntrinsicOp::MOP_Load:
+    case IntrinsicOp::MOP_LoadHalf:
+    case IntrinsicOp::MOP_LoadInt:
+    case IntrinsicOp::MOP_LoadFloat:
+      return OP->GetI8Const(0x1);
+    case IntrinsicOp::MOP_Load2:
+    case IntrinsicOp::MOP_LoadHalf2:
+    case IntrinsicOp::MOP_LoadInt2:
+    case IntrinsicOp::MOP_LoadFloat2:
+      return OP->GetI8Const(0x3);
+    case IntrinsicOp::MOP_Load3:
+    case IntrinsicOp::MOP_LoadHalf3:
+    case IntrinsicOp::MOP_LoadInt3:
+    case IntrinsicOp::MOP_LoadFloat3:
+      return OP->GetI8Const(0x7);
+    case IntrinsicOp::MOP_Load4:
+    case IntrinsicOp::MOP_LoadHalf4:
+    case IntrinsicOp::MOP_LoadInt4:
+    case IntrinsicOp::MOP_LoadFloat4:
+      return OP->GetI8Const(0xf);
+    default:
+      DXASSERT(false, "Invalid Intrinsic for computing load mask.");
+      return OP->GetI8Const(0x0);
+  }
+}
+
+static Constant *GetRawBufferLoadMaskForType(Type *Ty, hlsl::OP *OP) {
+  if (VectorType *vTy = dyn_cast<VectorType>(Ty)) {
+    switch (vTy->getNumElements()) {
+      case 1:
+        return OP->GetI8Const(0x1);
+      case 2:
+        return OP->GetI8Const(0x3);
+      case 3:
+        return OP->GetI8Const(0x7);
+      case 4:
+        return OP->GetI8Const(0xf);
+   }
+  }
+  return OP->GetI8Const(0x1);
+}
+
 void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
                    IRBuilder<> &Builder, hlsl::OP *OP, const DataLayout &DL) {
 
@@ -3122,10 +3171,13 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (RK == DxilResource::Kind::RawBuffer ||
       RK == DxilResource::Kind::TypedBuffer) {
     loadArgs.emplace_back(undefI);
-  } else if (RK == DxilResource::Kind::StructuredBuffer)
+    loadArgs.emplace_back(GetRawBufferLoadMaskFromIOP(helper.intrinsicOpCode, OP));
+  }
+  else if (RK == DxilResource::Kind::StructuredBuffer) {
     loadArgs.emplace_back(
-        OP->GetU32Const(0)); // For case use built-in types in structure buffer.
-
+      OP->GetU32Const(0)); // For case use built-in types in structure buffer.
+    loadArgs.emplace_back(OP->GetU8Const(0)); // When is this case hit?
+  }
   Value *ResRet =
       Builder.CreateCall(F, loadArgs, OP->GetOpCodeName(opcode));
 
@@ -3169,7 +3221,7 @@ Value *TranslateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   DXIL::ResourceClass RC = pObjHelper->GetRC(handle);
   DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
 
-  ResLoadHelper loadHelper(CI, RK, RC, handle);
+  ResLoadHelper loadHelper(CI, RK, RC, handle, IOP);
   TranslateLoad(loadHelper, RK, Builder, hlslOP, helper.legacyDataLayout);
   // CI is replaced in TranslateLoad.
   return nullptr;
@@ -5407,13 +5459,13 @@ Value *GEPIdxToOffset(GetElementPtrInst *GEP, IRBuilder<> &Builder,
 void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
                          Value *status, Type *EltTy,
                          MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
-                         IRBuilder<> &Builder) {
-  OP::OpCode opcode = OP::OpCode::BufferLoad;
+                         IRBuilder<> &Builder, Constant *mask) {
+  OP::OpCode opcode = OP::OpCode::RawBufferLoad;
 
   DXASSERT(resultElts.size() <= 4,
            "buffer load cannot load more than 4 values");
 
-  Value *Args[] = {OP->GetU32Const((unsigned)opcode), handle, bufIdx, offset};
+  Value *Args[] = {OP->GetU32Const((unsigned)opcode), handle, bufIdx, offset, mask};
 
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
@@ -5560,7 +5612,10 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
   unsigned rest = (matSize % 4);
   if (rest) {
     Value *ResultElts[4];
-    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder);
+    Constant *mask = OP->GetI8Const(rest == 1 ? 0x1 :
+                                    rest == 2 ? 0x3
+                                              : 0x7);
+    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, mask);
     for (unsigned i = 0; i < rest; i++)
       elts[i] = ResultElts[i];
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * rest));
@@ -5568,7 +5623,8 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
 
   for (unsigned i = rest; i < matSize; i += 4) {
     Value *ResultElts[4];
-    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder);
+    Constant *mask = OP->GetI8Const(0xf);
+    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, mask);
     elts[i] = ResultElts[0];
     elts[i + 1] = ResultElts[1];
     elts[i + 2] = ResultElts[2];
@@ -5672,6 +5728,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
                                      Value *bufIdx, Value *baseOffset,
                                      Value *status, hlsl::OP *OP, const DataLayout &DL);
 
+// subscript operator for matrix of struct element.
 void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
                                     hlsl::OP *hlslOP, Value *bufIdx,
                                     Value *baseOffset, Value *status,
@@ -5768,17 +5825,18 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
       LoadInst *ldUser = cast<LoadInst>(subsUser);
       IRBuilder<> ldBuilder(ldUser);
       Value *ldData = UndefValue::get(resultType);
+      Constant *mask = GetRawBufferLoadMaskForType(resultType, hlslOP);
       if (resultType->isVectorTy()) {
         for (unsigned i = 0; i < resultSize; i++) {
           Value *ResultElt;
           GenerateStructBufLd(handle, bufIdx, idxList[i],
                               /*status*/ nullptr, EltTy, ResultElt, hlslOP,
-                              ldBuilder);
+                              ldBuilder, mask);
           ldData = ldBuilder.CreateInsertElement(ldData, ResultElt, i);
         }
       } else {
         GenerateStructBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
-                            EltTy, ldData, hlslOP, ldBuilder);
+                            EltTy, ldData, hlslOP, ldBuilder, mask);
       }
       ldUser->replaceAllUsesWith(ldData);
       ldUser->eraseFromParent();
@@ -5793,7 +5851,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
                                      Value *status, hlsl::OP *OP, const DataLayout &DL) {
   IRBuilder<> Builder(user);
   if (CallInst *userCall = dyn_cast<CallInst>(user)) {
-    HLOpcodeGroup group =
+    HLOpcodeGroup group = // user call?
         hlsl::GetHLOpcodeGroupByName(userCall->getCalledFunction());
     unsigned opcode = GetHLOpcode(userCall);
     // For case element type of structure buffer is not structure type.
@@ -5907,8 +5965,9 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     if (ldInst) {
       auto LdElement = [&](Value *offset, IRBuilder<> &Builder) -> Value * {
         Value *ResultElts[4];
+        Constant *mask = GetRawBufferLoadMaskForType(Ty, OP);
         GenerateStructBufLd(handle, bufIdx, offset, status, pOverloadTy,
-                            ResultElts, OP, Builder);
+                            ResultElts, OP, Builder, mask);
         return ScalarizeElements(Ty, ResultElts, Builder);
       };
 
@@ -6003,7 +6062,7 @@ Value *TranslateTypedBufLoad(CallInst *CI, DXIL::ResourceKind RK,
                              DXIL::ResourceClass RC, Value *handle,
                              LoadInst *ldInst, IRBuilder<> &Builder,
                              hlsl::OP *hlslOP, const DataLayout &DL) {
-  ResLoadHelper ldHelper(CI, RK, RC, handle, /*bForSubscript*/ true);
+  ResLoadHelper ldHelper(CI, RK, RC, handle, IntrinsicOp::MOP_Load, /*bForSubscript*/ true);
   // Default sampleIdx for 2DMS textures.
   if (RK == DxilResource::Kind::Texture2DMS ||
       RK == DxilResource::Kind::Texture2DMSArray)
@@ -6188,63 +6247,63 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         }
         switch (IOP) {
         case IntrinsicOp::IOP_InterlockedAdd: {
-          ResLoadHelper helper(CI, RK, RC, handle);
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedAdd);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicBinOp, handle,
                                   helper.addr, /*offset*/ nullptr);
           TranslateAtomicBinaryOperation(atomHelper, DXIL::AtomicBinOpCode::Add,
                                          Builder, hlslOP);
         } break;
         case IntrinsicOp::IOP_InterlockedAnd: {
-          ResLoadHelper helper(CI, RK, RC, handle);
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedAnd);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicBinOp, handle,
                                   helper.addr, /*offset*/ nullptr);
           TranslateAtomicBinaryOperation(atomHelper, DXIL::AtomicBinOpCode::And,
                                          Builder, hlslOP);
         } break;
         case IntrinsicOp::IOP_InterlockedExchange: {
-          ResLoadHelper helper(CI, RK, RC, handle);
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedExchange);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicBinOp, handle,
                                   helper.addr, /*offset*/ nullptr);
           TranslateAtomicBinaryOperation(
               atomHelper, DXIL::AtomicBinOpCode::Exchange, Builder, hlslOP);
         } break;
         case IntrinsicOp::IOP_InterlockedMax: {
-          ResLoadHelper helper(CI, RK, RC, handle);
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedMax);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicBinOp, handle,
                                   helper.addr, /*offset*/ nullptr);
           TranslateAtomicBinaryOperation(
               atomHelper, DXIL::AtomicBinOpCode::IMax, Builder, hlslOP);
         } break;
         case IntrinsicOp::IOP_InterlockedMin: {
-          ResLoadHelper helper(CI, RK, RC, handle);
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedMin);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicBinOp, handle,
                                   helper.addr, /*offset*/ nullptr);
           TranslateAtomicBinaryOperation(
               atomHelper, DXIL::AtomicBinOpCode::IMin, Builder, hlslOP);
         } break;
         case IntrinsicOp::IOP_InterlockedUMax: {
-          ResLoadHelper helper(CI, RK, RC, handle);
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedUMax);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicBinOp, handle,
                                   helper.addr, /*offset*/ nullptr);
           TranslateAtomicBinaryOperation(
               atomHelper, DXIL::AtomicBinOpCode::UMax, Builder, hlslOP);
         } break;
         case IntrinsicOp::IOP_InterlockedUMin: {
-          ResLoadHelper helper(CI, RK, RC, handle);
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedUMin);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicBinOp, handle,
                                   helper.addr, /*offset*/ nullptr);
           TranslateAtomicBinaryOperation(
               atomHelper, DXIL::AtomicBinOpCode::UMin, Builder, hlslOP);
         } break;
         case IntrinsicOp::IOP_InterlockedOr: {
-          ResLoadHelper helper(CI, RK, RC, handle);
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedOr);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicBinOp, handle,
                                   helper.addr, /*offset*/ nullptr);
           TranslateAtomicBinaryOperation(atomHelper, DXIL::AtomicBinOpCode::Or,
                                          Builder, hlslOP);
         } break;
         case IntrinsicOp::IOP_InterlockedXor: {
-          ResLoadHelper helper(CI, RK, RC, handle);
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedXor);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicBinOp, handle,
                                   helper.addr, /*offset*/ nullptr);
           TranslateAtomicBinaryOperation(atomHelper, DXIL::AtomicBinOpCode::Xor,
@@ -6252,7 +6311,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         } break;
         case IntrinsicOp::IOP_InterlockedCompareStore:
         case IntrinsicOp::IOP_InterlockedCompareExchange: {
-          ResLoadHelper helper(CI, RK, RC, handle);
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedCompareExchange);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicCompareExchange,
                                   handle, helper.addr, /*offset*/ nullptr);
           TranslateAtomicCmpXChg(atomHelper, Builder, hlslOP);

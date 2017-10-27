@@ -1,4 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 ###############################################################################
 # DXIL information.                                                           #
@@ -239,7 +238,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Quaternary"
         for i in "Dot2,Dot3,Dot4".split(","):
             self.name_idx[i].category = "Dot"
-        for i in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions".split(","):
+        for i in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad".split(","):
             self.name_idx[i].category = "Resources"
         for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
@@ -284,6 +283,8 @@ class db_dxil(object):
                 i.category = "Bitcasts with different sizes"
         for i in "ViewID,AttributeAtVertex".split(","):
             self.name_idx[i].shader_model = 6,1
+        for i in "RawBufferLoad".split(","):
+            self.name_idx[i].shader_model = 6,2
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1072,7 +1073,17 @@ class db_dxil(object):
         # End of DXIL 1.1 opcodes.
         self.set_op_count_for_version(1, 1, next_op_idx)
 
-        assert next_op_idx == 139, "next operation index is %d rather than 139 and thus opcodes are broken" % next_op_idx
+        self.add_dxil_op("RawBufferLoad", next_op_idx, "RawBufferLoad", "reads from a raw buffer and structured buffer", "hfwi", "ro", [
+            db_dxil_param(0, "$r", "", "the loaded value"),
+            db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
+            db_dxil_param(3, "i32", "index", "element index"),
+            db_dxil_param(4, "i32", "wot", "coordinate for structured buffer"),
+            db_dxil_param(5, "i8", "mask", "loading value mask")])
+        next_op_idx += 1
+
+        # End of DXIL 1.2 opcodes.
+        self.set_op_count_for_version(1, 2, next_op_idx)
+        assert next_op_idx == 140, "next operation index is %d rather than 140 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()

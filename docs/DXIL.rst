@@ -2131,6 +2131,7 @@ ID  Name                          Description
 136 WavePrefixBitCount            returns the count of bits set to 1 on prior lanes
 137 AttributeAtVertex_            returns the values of the attributes at the vertex.
 138 ViewID                        returns the view index
+139 RawBufferLoad                 reads from a raw buffer and structured buffer
 === ============================= =================================================================================================================
 
 

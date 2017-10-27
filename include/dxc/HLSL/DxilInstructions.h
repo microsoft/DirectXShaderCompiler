@@ -4448,5 +4448,37 @@ struct DxilInst_ViewID {
     return true;
   }
 };
+
+/// This instruction reads from a raw buffer and structured buffer
+struct DxilInst_RawBufferLoad {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_RawBufferLoad(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::RawBufferLoad);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Operand indexes
+  enum OperandIdx {
+    arg_srv = 1,
+    arg_index = 2,
+    arg_wot = 3,
+    arg_mask = 4,
+  };
+  // Accessors
+  llvm::Value *get_srv() const { return Instr->getOperand(1); }
+  void set_srv(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_index() const { return Instr->getOperand(2); }
+  void set_index(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_wot() const { return Instr->getOperand(3); }
+  void set_wot(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_mask() const { return Instr->getOperand(4); }
+  void set_mask(llvm::Value *val) { Instr->setOperand(4, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl

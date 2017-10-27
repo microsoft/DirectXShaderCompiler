@@ -246,6 +246,9 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // Graphics shader                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::ViewID,                  "ViewID",                   OCC::ViewID,                   "viewID",                     false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
+
+  // Resources                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::RawBufferLoad,           "RawBufferLoad",            OCC::RawBufferLoad,            "rawBufferLoad",              false,  true,  true, false, false, false,  true,  true, false, Attribute::ReadOnly, },
 };
 // OPCODE-OLOADS:END
 
@@ -736,6 +739,9 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
 
     // Graphics shader
   case OpCode::ViewID:                 A(pI32);     A(pI32); break;
+
+    // Resources
+  case OpCode::RawBufferLoad:          RRT(pETy);   A(pI32); A(pRes); A(pI32); A(pI32); A(pI8);  break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -902,6 +908,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::BufferLoad:
   case OpCode::TextureGather:
   case OpCode::TextureGatherCmp:
+  case OpCode::RawBufferLoad:
   {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
