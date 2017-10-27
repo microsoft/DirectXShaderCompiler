@@ -31,6 +31,7 @@ add_llvm_library(LLVMHLSL
   DxilRootSignature.cpp
   DxilSampler.cpp
   DxilSemantic.cpp
+  DxilShaderAccessTracking.cpp
   DxilShaderModel.cpp
   DxilSignature.cpp
   DxilSignatureElement.cpp

@@ -104,6 +104,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilPreserveAllOutputsPass(Registry);
     initializeDxilReduceMSAAToSingleSamplePass(Registry);
     initializeDxilRemoveDiscardsPass(Registry);
+    initializeDxilShaderAccessTrackingPass(Registry);
     initializeDynamicIndexingVectorToArrayPass(Registry);
     initializeEarlyCSELegacyPassPass(Registry);
     initializeEliminateAvailableExternallyPass(Registry);
