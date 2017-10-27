@@ -9,12 +9,17 @@
 #ifndef LLVM_CLANG_SPIRV_EMITSPIRVOPTIONS_H
 #define LLVM_CLANG_SPIRV_EMITSPIRVOPTIONS_H
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace clang {
 /// Structs for controlling behaviors of SPIR-V codegen.
 struct EmitSPIRVOptions {
   llvm::StringRef stageIoOrder;
+  llvm::SmallVector<uint32_t, 4> bShift;
+  llvm::SmallVector<uint32_t, 4> tShift;
+  llvm::SmallVector<uint32_t, 4> sShift;
+  llvm::SmallVector<uint32_t, 4> uShift;
 };
 } // end namespace clang
 

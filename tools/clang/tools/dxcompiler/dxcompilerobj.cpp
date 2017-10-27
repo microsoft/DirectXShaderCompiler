@@ -464,6 +464,10 @@ public:
       else if (opts.GenSPIRV) {
           clang::EmitSPIRVOptions spirvOpts;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
+          spirvOpts.bShift = opts.VkBShift;
+          spirvOpts.tShift = opts.VkTShift;
+          spirvOpts.sShift = opts.VkSShift;
+          spirvOpts.uShift = opts.VkUShift;
           clang::EmitSPIRVAction action(spirvOpts);
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
           action.BeginSourceFile(compiler, file);
@@ -731,6 +735,9 @@ public:
     // Setup a compiler instance.
     std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
     targetOptions->Triple = "dxil-ms-dx";
+    targetOptions->DescriptionString = Opts.NoMinPrecision
+      ? hlsl::DXIL::kNewLayoutString
+      : hlsl::DXIL::kLegacyLayoutString;
     compiler.HlslLangExtensions = helper;
     compiler.createDiagnostics(diagPrinter, false);
     compiler.createFileManager();

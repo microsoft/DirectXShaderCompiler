@@ -2536,8 +2536,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           continue;
         }
 
-        bool IsMinPrecisionTy = ValCtx.DL.getTypeAllocSize(FromTy) < 4 ||
-                          ValCtx.DL.getTypeAllocSize(ToTy) < 4;
+        bool IsMinPrecisionTy = ValCtx.DL.getTypeStoreSize(FromTy) < 4 ||
+                          ValCtx.DL.getTypeStoreSize(ToTy) < 4;
         if (IsMinPrecisionTy) {
           ValCtx.EmitInstrError(Cast, ValidationRule::InstrMinPrecisonBitCast);
         }
@@ -2937,7 +2937,7 @@ static void ValidateResource(hlsl::DxilResource &res,
   if (res.IsStructuredBuffer()) {
     unsigned stride = res.GetElementStride();
     bool alignedTo4Bytes = (stride & 3) == 0;
-    if (!alignedTo4Bytes) {
+    if (!alignedTo4Bytes && !ValCtx.M.GetDxilModule().m_ShaderFlags.GetUseNativeLowPrecision()) {
       ValCtx.EmitResourceFormatError(
           &res, ValidationRule::MetaStructBufAlignment,
           {std::to_string(4), std::to_string(stride)});

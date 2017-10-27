@@ -42,7 +42,7 @@ bool validateSpirvBinary(std::vector<uint32_t> &binary) {
 
 bool processRunCommandArgs(const llvm::StringRef runCommandLine,
                            std::string *targetProfile, std::string *entryPoint,
-                           std::string *restArgs) {
+                           std::vector<std::string> *restArgs) {
   std::istringstream buf(runCommandLine);
   std::istream_iterator<std::string> start(buf), end;
   std::vector<std::string> tokens(start, end);
@@ -60,9 +60,8 @@ bool processRunCommandArgs(const llvm::StringRef runCommandLine,
     else if (tokens[i] == "-E" && (++i) < tokens.size())
       *entryPoint = tokens[i];
     else
-      rest << (restArgs->empty() ? "" : " ") << tokens[i];
+      restArgs->push_back(tokens[i]);
   }
-  *restArgs = rest.str();
 
   if (targetProfile->empty()) {
     fprintf(stderr, "Error: Missing target profile argument (-T).\n");
@@ -106,13 +105,17 @@ std::string getAbsPathOfInputDataFile(const llvm::StringRef filename) {
 bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
                                     const llvm::StringRef entryPoint,
                                     const llvm::StringRef targetProfile,
-                                    const llvm::StringRef restArgs,
+                                    const std::vector<std::string> &restArgs,
                                     std::vector<uint32_t> *generatedBinary,
                                     std::string *errorMessages) {
   std::wstring srcFile(inputFilePath.begin(), inputFilePath.end());
   std::wstring entry(entryPoint.begin(), entryPoint.end());
   std::wstring profile(targetProfile.begin(), targetProfile.end());
-  std::wstring rest(restArgs.begin(), restArgs.end());
+
+  std::vector<std::wstring> rest;
+  for (const auto &arg : restArgs)
+    rest.emplace_back(arg.begin(), arg.end());
+
   bool success = true;
 
   try {
@@ -135,7 +138,8 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     flags.push_back(profile.c_str());
     flags.push_back(L"-spirv");
     flags.push_back(L"-O0"); // Disable optimization for testing
-    flags.push_back(rest.c_str());
+    for (const auto &arg : rest)
+      flags.push_back(arg.c_str());
 
     IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     IFT(pLibrary->CreateBlobFromFile(srcFile.c_str(), nullptr, &pSource));

@@ -40,6 +40,10 @@ TEST_F(WholeFileTest, BezierHullShader) {
   runWholeFileTest("bezier.hull.hlsl2spv");
 }
 
+TEST_F(WholeFileTest, BezierDomainShader) {
+  runWholeFileTest("bezier.domain.hlsl2spv");
+}
+
 // === Partial output tests ===
 
 // For types
@@ -68,6 +72,11 @@ TEST_F(FileTest, ConsumeStructuredBufferType) {
 }
 TEST_F(FileTest, ByteAddressBufferTypes) {
   runFileTest("type.byte-address-buffer.hlsl");
+}
+TEST_F(FileTest, PointStreamTypes) { runFileTest("type.point-stream.hlsl"); }
+TEST_F(FileTest, LineStreamTypes) { runFileTest("type.line-stream.hlsl"); }
+TEST_F(FileTest, TriangleStreamTypes) {
+  runFileTest("type.triangle-stream.hlsl");
 }
 
 // For constants
@@ -341,6 +350,12 @@ TEST_F(FileTest, SemanticPositionVS) {
 TEST_F(FileTest, SemanticPositionPS) {
   runFileTest("semantic.position.ps.hlsl");
 }
+TEST_F(FileTest, SemanticPositionDS) {
+  runFileTest("semantic.position.ds.hlsl");
+}
+TEST_F(FileTest, SemanticPositionGS) {
+  runFileTest("semantic.position.gs.hlsl");
+}
 TEST_F(FileTest, SemanticVertexIDVS) {
   runFileTest("semantic.vertex-id.vs.hlsl");
 }
@@ -380,6 +395,27 @@ TEST_F(FileTest, SemanticGroupThreadID) {
 }
 TEST_F(FileTest, SemanticGroupIndex) {
   runFileTest("semantic.group-index.cs.hlsl");
+}
+TEST_F(FileTest, SemanticDomainLocationDS) {
+  runFileTest("semantic.domain-location.ds.hlsl");
+}
+TEST_F(FileTest, SemanticTessFactorDS) {
+  runFileTest("semantic.tess-factor.ds.hlsl");
+}
+TEST_F(FileTest, SemanticInsideTessFactorDS) {
+  runFileTest("semantic.inside-tess-factor.ds.hlsl");
+}
+TEST_F(FileTest, SemanticTessFactorHS) {
+  runFileTest("semantic.tess-factor.hs.hlsl");
+}
+TEST_F(FileTest, SemanticInsideTessFactorHS) {
+  runFileTest("semantic.inside-tess-factor.hs.hlsl");
+}
+TEST_F(FileTest, SemanticPrimitiveIdHS) {
+  runFileTest("semantic.primitive-id.hs.hlsl");
+}
+TEST_F(FileTest, SemanticOutputControlPointIdHS) {
+  runFileTest("semantic.output-control-point-id.hs.hlsl");
 }
 
 // For texture methods
@@ -461,6 +497,9 @@ TEST_F(FileTest, StructuredBufferLoad) {
 TEST_F(FileTest, StructuredBufferGetDimensions) {
   runFileTest("method.structured-buffer.get-dimensions.hlsl");
 }
+TEST_F(FileTest, RWStructuredBufferIncDecCounter) {
+  runFileTest("method.rw-structured-buffer.counter.hlsl");
+}
 TEST_F(FileTest, AppendStructuredBufferAppend) {
   runFileTest("method.append-structured-buffer.append.hlsl");
 }
@@ -498,6 +537,11 @@ TEST_F(FileTest, BufferGetDimensions) {
 TEST_F(FileTest, RWTextureLoad) { runFileTest("method.rwtexture.load.hlsl"); }
 TEST_F(FileTest, RWTextureGetDimensions) {
   runFileTest("method.rwtexture.get-dimensions.hlsl");
+}
+
+// For InputPatch and OutputPatch methods
+TEST_F(FileTest, InputOutputPatchAccess) {
+  runFileTest("method.input-output-patch.access.hlsl");
 }
 
 // For intrinsic functions
@@ -554,6 +598,9 @@ TEST_F(FileTest, IntrinsicsFrexp) { runFileTest("intrinsics.frexp.hlsl"); }
 TEST_F(FileTest, IntrinsicsFwidth) { runFileTest("intrinsics.fwidth.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsFinite) {
   runFileTest("intrinsics.isfinite.hlsl");
+}
+TEST_F(FileTest, IntrinsicsInterlockedMethods) {
+  runFileTest("intrinsics.interlocked-methods.hlsl");
 }
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
@@ -645,6 +692,25 @@ TEST_F(FileTest, AttributeOutputTopologyTriangleCcw) {
 TEST_F(FileTest, AttributeOutputControlPoints) {
   runFileTest("attribute.outputcontrolpoints.hlsl");
 }
+TEST_F(FileTest, AttributeMaxVertexCount) {
+  runFileTest("attribute.max-vertex-count.hlsl");
+}
+
+// For geometry shader primitive types
+TEST_F(FileTest, PrimitivePointGS) { runFileTest("primitive.point.gs.hlsl"); }
+TEST_F(FileTest, PrimitiveLineGS) { runFileTest("primitive.line.gs.hlsl"); }
+TEST_F(FileTest, PrimitiveTriangleGS) {
+  runFileTest("primitive.triangle.gs.hlsl");
+}
+TEST_F(FileTest, PrimitiveLineAdjGS) {
+  runFileTest("primitive.lineadj.gs.hlsl");
+}
+TEST_F(FileTest, PrimitiveTriangleAdjGS) {
+  runFileTest("primitive.triangleadj.gs.hlsl");
+}
+TEST_F(FileTest, PrimitiveErrorGS) {
+  runFileTest("primitive.error.gs.hlsl", /*expectSuccess*/ false);
+}
 
 // Vulkan/SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
@@ -654,6 +720,17 @@ TEST_F(FileTest, SpirvEntryFunctionWrapper) {
 }
 TEST_F(FileTest, SpirvEntryFunctionInOut) {
   runFileTest("spirv.entry-function.inout.hlsl");
+}
+
+TEST_F(FileTest, SpirvInterpolation) {
+  runFileTest("spirv.interpolation.hlsl");
+}
+TEST_F(FileTest, SpirvInterpolationError) {
+  runFileTest("spirv.interpolation.error.hlsl", /*expectSuccess*/ false);
+}
+
+TEST_F(FileTest, VulkanAttributeErrors) {
+  runFileTest("vk.attribute.error.hlsl", /*expectSuccess*/ false);
 }
 
 TEST_F(FileTest, VulkanLocation) { runFileTest("vk.location.hlsl"); }
@@ -673,13 +750,6 @@ TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
   runFileTest("vk.location.mixed.hlsl", /*expectSuccess*/ false);
 }
 
-TEST_F(FileTest, SpirvInterpolation) {
-  runFileTest("spirv.interpolation.hlsl");
-}
-TEST_F(FileTest, SpirvInterpolationError) {
-  runFileTest("spirv.interpolation.error.hlsl", /*expectSuccess*/ false);
-}
-
 TEST_F(FileTest, VulkanExplicitBinding) {
   // Resource binding from [[vk::binding()]]
   runFileTest("vk.binding.explicit.hlsl");
@@ -692,9 +762,26 @@ TEST_F(FileTest, VulkanRegisterBinding) {
   // Resource binding from :register()
   runFileTest("vk.binding.register.hlsl");
 }
+TEST_F(FileTest, VulkanRegisterBindingShift) {
+  // Resource binding from :register() and with shift specified via
+  // command line option
+  runFileTest("vk.binding.cl.hlsl");
+}
 TEST_F(FileTest, VulkanExplicitBindingReassigned) {
   runFileTest("vk.binding.explicit.error.hlsl", /*expectSuccess*/ false);
 }
+TEST_F(FileTest, VulkanRegisterBindingReassigned) {
+  runFileTest("vk.binding.register.error.hlsl", /*expectSuccess*/ false);
+}
+TEST_F(FileTest, VulkanRegisterBindingShiftReassigned) {
+  runFileTest("vk.binding.cl.error.hlsl", /*expectSuccess*/ false);
+}
+TEST_F(FileTest, VulkanStructuredBufferCounter) {
+  // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
+  // and ConsumeStructuredBuffer
+  runFileTest("vk.binding.counter.hlsl");
+}
+
 TEST_F(FileTest, VulkanLayoutCBufferStd140) {
   runFileTest("vk.layout.cbuffer.std140.hlsl");
 }

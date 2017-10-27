@@ -506,6 +506,7 @@ public:
   TEST_METHOD(CodeGenCbufferAlloc)
   TEST_METHOD(CodeGenCbufferAllocLegacy)
   TEST_METHOD(CodeGenCbufferHalf)
+  TEST_METHOD(CodeGenCbufferHalfStruct)
   TEST_METHOD(CodeGenCbufferInLoop)
   TEST_METHOD(CodeGenCbufferMinPrec)
   TEST_METHOD(CodeGenClass)
@@ -517,6 +518,8 @@ public:
   TEST_METHOD(CodeGenConstMat3)
   TEST_METHOD(CodeGenConstMat4)
   TEST_METHOD(CodeGenCorrectDelay)
+  TEST_METHOD(CodeGenDataLayout)
+  TEST_METHOD(CodeGenDataLayoutHalf)
   TEST_METHOD(CodeGenDiscard)
   TEST_METHOD(CodeGenDivZero)
   TEST_METHOD(CodeGenDot1)
@@ -774,6 +777,7 @@ public:
   TEST_METHOD(CodeGenStaticResource)
   TEST_METHOD(CodeGenStaticResource2)
   TEST_METHOD(CodeGenStruct_Buf1)
+  TEST_METHOD(CodeGenStruct_Buf_New_Layout)
   TEST_METHOD(CodeGenStruct_BufHasCounter)
   TEST_METHOD(CodeGenStruct_BufHasCounter2)
   TEST_METHOD(CodeGenStructArray)
@@ -822,6 +826,7 @@ public:
   TEST_METHOD(CodeGenWriteToInput)
   TEST_METHOD(CodeGenWriteToInput2)
   TEST_METHOD(CodeGenWriteToInput3)
+  TEST_METHOD(CodeGenWriteToInput4)
 
   TEST_METHOD(CodeGenAttributes_Mod)
   TEST_METHOD(CodeGenConst_Exprb_Mod)
@@ -850,6 +855,7 @@ public:
   TEST_METHOD(CodeGenTemplate_Checks_Mod)
   TEST_METHOD(CodeGenToinclude2_Mod)
   TEST_METHOD(CodeGenTypemods_Syntax_Mod)
+  TEST_METHOD(CodeGenTypedBufferHalf)
   TEST_METHOD(CodeGenVarmods_Syntax_Mod)
   TEST_METHOD(CodeGenVector_Assignments_Mod)
   TEST_METHOD(CodeGenVector_Syntax_Mix_Mod)
@@ -3114,6 +3120,11 @@ TEST_F(CompilerTest, CodeGenCbufferHalf) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferHalf.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenCbufferHalfStruct) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferHalf-struct.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenCbufferInLoop) {
   CodeGenTest(L"..\\CodeGenHLSL\\cbufferInLoop.hlsl");
 }
@@ -3156,6 +3167,15 @@ TEST_F(CompilerTest, CodeGenConstMat4) {
 
 TEST_F(CompilerTest, CodeGenCorrectDelay) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\correct_delay.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenDataLayout) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\dataLayout.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenDataLayoutHalf) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\dataLayoutHalf.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenDiscard) {
@@ -4199,6 +4219,11 @@ TEST_F(CompilerTest, CodeGenStruct_Buf1) {
   CodeGenTest(L"..\\CodeGenHLSL\\struct_buf1.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenStruct_Buf_New_Layout) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_buf_new_layout.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenStruct_BufHasCounter) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_bufHasCounter.hlsl");
 }
@@ -4392,6 +4417,10 @@ TEST_F(CompilerTest, CodeGenWriteToInput3) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\writeToInput3.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenWriteToInput4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeToInput4.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenAttributes_Mod) {
   CodeGenTest(L"..\\CodeGenHLSL\\attributes_Mod.hlsl");
 }
@@ -4500,6 +4529,11 @@ TEST_F(CompilerTest, CodeGenToinclude2_Mod) {
 
 TEST_F(CompilerTest, CodeGenTypemods_Syntax_Mod) {
   CodeGenTest(L"..\\CodeGenHLSL\\typemods-syntax_Mod.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenTypedBufferHalf) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\typed_buffer_half.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenVarmods_Syntax_Mod) {

@@ -234,10 +234,18 @@ def no_min_precision: Flag<["-", "/"], "no-min-precision">, Flags<[CoreOption, D
 def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
 // SPIRV Change Starts
-def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Generate SPIR-V binary code">;
+def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Generate SPIR-V code">;
 def fvk_stage_io_order_EQ : Joined<["-"], "fvk-stage-io-order=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Specify Vulkan stage I/O location assignment order">;
+def fvk_b_shift : MultiArg<["-"], "fvk-b-shift", 2>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify Vulkan binding number shift for b-type register">;
+def fvk_t_shift : MultiArg<["-"], "fvk-t-shift", 2>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify Vulkan binding number shift for t-type register">;
+def fvk_s_shift : MultiArg<["-"], "fvk-s-shift", 2>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify Vulkan binding number shift for s-type register">;
+def fvk_u_shift : MultiArg<["-"], "fvk-u-shift", 2>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify Vulkan binding number shift for u-type register">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////

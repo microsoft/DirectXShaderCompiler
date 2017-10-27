@@ -8,7 +8,7 @@
 //--------------------------------------------------------------------------------------
 
 ByteAddressBuffer Buffer0 : register(t0);
-RWByteAddressBuffer BufferOut : register(u0);
+RWByteAddressBuffer BufferOut : register(u1);
 
 [numthreads(1, 1, 1)]
 void main( uint3 DTid : SV_DispatchThreadID )
@@ -47,7 +47,7 @@ void main( uint3 DTid : SV_DispatchThreadID )
 // OpDecorate %Buffer0 DescriptorSet 0
 // OpDecorate %Buffer0 Binding 0
 // OpDecorate %BufferOut DescriptorSet 0
-// OpDecorate %BufferOut Binding 0
+// OpDecorate %BufferOut Binding 1
 // %uint = OpTypeInt 32 0
 // %int = OpTypeInt 32 1
 // %_runtimearr_uint = OpTypeRuntimeArray %uint

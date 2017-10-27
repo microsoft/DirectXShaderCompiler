@@ -856,18 +856,6 @@ void HLModule::GetParameterRowsAndCols(Type *Ty, unsigned &rows, unsigned &cols,
   rows *= arraySize;
 }
 
-// For legacy data layout, everything less than 32 align to 32.
-static const StringRef kLegacyLayoutString = "e-m:e-p:32:32-i1:32:32-i8:32:32-i16:32:32-i64:64-f16:32-f80:32-n8:16:32-a:0:32-S32";
-const char *HLModule::GetLegacyDataLayoutDesc() {
-  return kLegacyLayoutString.data();
-}
-
-// New data layout with native low precision types
-static const StringRef kNewLayoutString = "e-m:e-p:32:32-i1:32:32-i8:32:32-i16:32:32-i64:64-f16:16-f80:32-n8:16:32-a:0:32-S320";
-const char *HLModule::GetNewDataLayoutDesc() {
-  return kNewLayoutString.data();
-}
-
 static Value *MergeGEP(GEPOperator *SrcGEP, GetElementPtrInst *GEP) {
   IRBuilder<> Builder(GEP);
   SmallVector<Value *, 8> Indices;

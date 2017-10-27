@@ -38,13 +38,16 @@ struct HLOperationLowerHelper {
   DxilTypeSystem &dxilTypeSys;
   DxilFunctionProps *functionProps;
   bool bLegacyCBufferLoad;
+  bool bNewDataLayout;
   DataLayout legacyDataLayout;
+  DataLayout newDataLayout;
   HLOperationLowerHelper(HLModule &HLM);
 };
 
 HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
     : hlslOP(*HLM.GetOP()), dxilTypeSys(HLM.GetTypeSystem()),
-      legacyDataLayout(HLModule::GetLegacyDataLayoutDesc()) {
+      legacyDataLayout(hlsl::DXIL::kLegacyLayoutString),
+      newDataLayout(hlsl::DXIL::kNewLayoutString) {
   llvm::LLVMContext &Ctx = HLM.GetCtx();
   voidTy = Type::getVoidTy(Ctx);
   f32Ty = Type::getFloatTy(Ctx);
@@ -56,6 +59,7 @@ HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
   if (HLM.HasDxilFunctionProps(EntryFunc))
     functionProps = &HLM.GetDxilFunctionProps(EntryFunc);
   bLegacyCBufferLoad = HLM.GetHLOptions().bLegacyCBufferLoad;
+  bNewDataLayout = !HLM.GetHLOptions().bUseMinPrecision;
 }
 
 struct HLObjectOperationLowerHelper {
@@ -6301,11 +6305,11 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
       Type *RetTy = ObjTy->getStructElementType(0);
       if (RK == DxilResource::Kind::StructuredBuffer) {
         TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP,
-                                    helper.legacyDataLayout);
+                                    helper.bNewDataLayout ? helper.newDataLayout : helper.legacyDataLayout);
       } else if (RetTy->isAggregateType() &&
                  RK == DxilResource::Kind::TypedBuffer) {
         TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP,
-                                    helper.legacyDataLayout);
+                                    helper.bNewDataLayout ? helper.newDataLayout : helper.legacyDataLayout);
         // Clear offset for typed buf.
         for (auto User : handle->users()) {
           CallInst *CI = cast<CallInst>(User);

@@ -196,6 +196,8 @@ bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
   optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
 
   optimizer.RegisterPass(spvtools::CreateEliminateDeadFunctionsPass());
+  optimizer.RegisterPass(spvtools::CreateCFGCleanupPass());
+  optimizer.RegisterPass(spvtools::CreateDeadVariableEliminationPass());
   optimizer.RegisterPass(spvtools::CreateEliminateDeadConstantPass());
 
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
@@ -203,28 +205,37 @@ bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
   return optimizer.Run(module->data(), module->size(), module);
 }
 
-/// Translates RWByteAddressBuffer atomic method opcode into SPIR-V opcode.
-spv::Op translateRWBABufferAtomicMethods(hlsl::IntrinsicOp opcode) {
+/// Translates atomic HLSL opcodes into the equivalent SPIR-V opcode.
+spv::Op translateAtomicHlslOpcodeToSpirvOpcode(hlsl::IntrinsicOp opcode) {
   using namespace hlsl;
   using namespace spv;
 
   switch (opcode) {
+  case IntrinsicOp::IOP_InterlockedAdd:
   case IntrinsicOp::MOP_InterlockedAdd:
     return Op::OpAtomicIAdd;
+  case IntrinsicOp::IOP_InterlockedAnd:
   case IntrinsicOp::MOP_InterlockedAnd:
     return Op::OpAtomicAnd;
+  case IntrinsicOp::IOP_InterlockedOr:
   case IntrinsicOp::MOP_InterlockedOr:
     return Op::OpAtomicOr;
+  case IntrinsicOp::IOP_InterlockedXor:
   case IntrinsicOp::MOP_InterlockedXor:
     return Op::OpAtomicXor;
+  case IntrinsicOp::IOP_InterlockedUMax:
   case IntrinsicOp::MOP_InterlockedUMax:
     return Op::OpAtomicUMax;
+  case IntrinsicOp::IOP_InterlockedUMin:
   case IntrinsicOp::MOP_InterlockedUMin:
     return Op::OpAtomicUMin;
+  case IntrinsicOp::IOP_InterlockedMax:
   case IntrinsicOp::MOP_InterlockedMax:
     return Op::OpAtomicSMax;
+  case IntrinsicOp::IOP_InterlockedMin:
   case IntrinsicOp::MOP_InterlockedMin:
     return Op::OpAtomicSMin;
+  case IntrinsicOp::IOP_InterlockedExchange:
   case IntrinsicOp::MOP_InterlockedExchange:
     return Op::OpAtomicExchange;
   }
@@ -1588,9 +1599,9 @@ uint32_t SPIRVEmitter::processRWByteAddressBufferAtomicMethods(
       theBuilder.createStore(doExpr(expr->getArg(3)), originalVal);
   } else {
     const uint32_t value = doExpr(expr->getArg(1));
-    const uint32_t originalVal =
-        theBuilder.createAtomicOp(translateRWBABufferAtomicMethods(opcode),
-                                  uintType, ptr, scope, zero, value);
+    const uint32_t originalVal = theBuilder.createAtomicOp(
+        translateAtomicHlslOpcodeToSpirvOpcode(opcode), uintType, ptr, scope,
+        zero, value);
     if (expr->getNumArgs() > 2)
       theBuilder.createStore(doExpr(expr->getArg(2)), originalVal);
   }
@@ -2029,36 +2040,49 @@ SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   return info;
 }
 
-SpirvEvalInfo
-SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
-  const bool isAppend = expr->getNumArgs() == 1;
-
-  const uint32_t u32Type = theBuilder.getUint32Type();
+uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
+                                                bool isInc) {
+  const uint32_t i32Type = theBuilder.getInt32Type();
   const uint32_t one = theBuilder.getConstantUint32(1);  // As scope: Device
   const uint32_t zero = theBuilder.getConstantUint32(0); // As memory sema: None
+  const uint32_t sOne = theBuilder.getConstantInt32(1);
 
-  const auto *object = expr->getImplicitObjectArgument();
+  const auto *object =
+      expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
   const auto *buffer = cast<DeclRefExpr>(object)->getDecl();
 
-  // Calculate the index we should use for appending the value
-  const uint32_t counterVar = declIdMapper.getCounterId(cast<VarDecl>(buffer));
+  const uint32_t counterVar = declIdMapper.getOrCreateCounterId(buffer);
   const uint32_t counterPtrType = theBuilder.getPointerType(
       theBuilder.getInt32Type(), spv::StorageClass::Uniform);
   const uint32_t counterPtr =
       theBuilder.createAccessChain(counterPtrType, counterVar, {zero});
+
   uint32_t index = 0;
-  if (isAppend) {
-    // For append, we add one to the counter.
-    index = theBuilder.createAtomicOp(spv::Op::OpAtomicIAdd, u32Type,
-                                      counterPtr, one, zero, one);
+  if (isInc) {
+    index = theBuilder.createAtomicOp(spv::Op::OpAtomicIAdd, i32Type,
+                                      counterPtr, one, zero, sOne);
   } else {
-    // For consume, we substract one from the counter. Note that OpAtomicIAdd
-    // returns the value before the addition; so we need to do substraction
-    // again with OpAtomicIAdd's return value.
-    const auto prevIndex = theBuilder.createAtomicOp(
-        spv::Op::OpAtomicISub, u32Type, counterPtr, one, zero, one);
-    index = theBuilder.createBinaryOp(spv::Op::OpISub, u32Type, prevIndex, one);
+    // Note that OpAtomicISub returns the value before the subtraction;
+    // so we need to do substraction again with OpAtomicISub's return value.
+    const auto prev = theBuilder.createAtomicOp(spv::Op::OpAtomicISub, i32Type,
+                                                counterPtr, one, zero, sOne);
+    index = theBuilder.createBinaryOp(spv::Op::OpISub, i32Type, prev, sOne);
   }
+
+  return index;
+}
+
+SpirvEvalInfo
+SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
+  const bool isAppend = expr->getNumArgs() == 1;
+
+  const uint32_t zero = theBuilder.getConstantUint32(0);
+
+  const auto *object =
+      expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
+  const auto *buffer = cast<DeclRefExpr>(object)->getDecl();
+
+  uint32_t index = incDecRWACSBufferCounter(expr, isAppend);
 
   auto bufferInfo = declIdMapper.getDeclResultId(buffer);
 
@@ -2168,6 +2192,14 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return processGetDimensions(expr);
   case IntrinsicOp::MOP_CalculateLevelOfDetail:
     return processTextureLevelOfDetail(expr);
+  case IntrinsicOp::MOP_IncrementCounter:
+    return theBuilder.createUnaryOp(
+        spv::Op::OpBitcast, theBuilder.getUint32Type(),
+        incDecRWACSBufferCounter(expr, /*isInc*/ true));
+  case IntrinsicOp::MOP_DecrementCounter:
+    return theBuilder.createUnaryOp(
+        spv::Op::OpBitcast, theBuilder.getUint32Type(),
+        incDecRWACSBufferCounter(expr, /*isInc*/ false));
   case IntrinsicOp::MOP_Append:
   case IntrinsicOp::MOP_Consume:
     return processACSBufferAppendConsume(expr);
@@ -3748,7 +3780,19 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     return processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec);     \
   } break
 
-  switch (static_cast<hlsl::IntrinsicOp>(opcode)) {
+  switch (const auto hlslOpcode = static_cast<hlsl::IntrinsicOp>(opcode)) {
+  case hlsl::IntrinsicOp::IOP_InterlockedAdd:
+  case hlsl::IntrinsicOp::IOP_InterlockedAnd:
+  case hlsl::IntrinsicOp::IOP_InterlockedMax:
+  case hlsl::IntrinsicOp::IOP_InterlockedUMax:
+  case hlsl::IntrinsicOp::IOP_InterlockedMin:
+  case hlsl::IntrinsicOp::IOP_InterlockedUMin:
+  case hlsl::IntrinsicOp::IOP_InterlockedOr:
+  case hlsl::IntrinsicOp::IOP_InterlockedXor:
+  case hlsl::IntrinsicOp::IOP_InterlockedExchange:
+  case hlsl::IntrinsicOp::IOP_InterlockedCompareStore:
+  case hlsl::IntrinsicOp::IOP_InterlockedCompareExchange:
+    return processIntrinsicInterlockedMethod(callExpr, hlslOpcode);
   case hlsl::IntrinsicOp::IOP_dot:
     return processIntrinsicDot(callExpr);
   case hlsl::IntrinsicOp::IOP_mul:
@@ -3865,6 +3909,118 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 
 #undef INTRINSIC_OP_CASE
 #undef INTRINSIC_OP_CASE_INT_FLOAT
+
+  return 0;
+}
+
+uint32_t
+SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
+                                                hlsl::IntrinsicOp opcode) {
+  // The signature of intrinsic atomic methods are:
+  // void Interlocked*(in R dest, in T value);
+  // void Interlocked*(in R dest, in T value, out T original_value);
+
+  // Note: ALL Interlocked*() methods are forced to have an unsigned integer
+  // 'value'. Meaning, T is forced to be 'unsigned int'. If the provided
+  // parameter is not an unsigned integer, the frontend inserts an
+  // 'ImplicitCastExpr' to convert it to unsigned integer. OpAtomicIAdd (and
+  // other SPIR-V OpAtomic* instructions) require that the pointee in 'dest' to
+  // be of the same type as T. This will result in an invalid SPIR-V if 'dest'
+  // is a signed integer typed resource such as RWTexture1D<int>. For example,
+  // the following OpAtomicIAdd is invalid because the pointee type defined in
+  // %1 is a signed integer, while the value passed to atomic add (%3) is an
+  // unsigned integer.
+  //
+  //  %_ptr_Image_int = OpTypePointer Image %int
+  //  %1 = OpImageTexelPointer %_ptr_Image_int %RWTexture1D_int %index %uint_0
+  //  %2 = OpLoad %int %value
+  //  %3 = OpBitcast %uint %2   <-------- Inserted by the frontend
+  //  %4 = OpAtomicIAdd %int %1 %uint_1 %uint_0 %3
+  //
+  // In such cases, we bypass the forced IntegralCast.
+  // Moreover, the frontend does not add a cast AST node to cast uint to int
+  // where necessary. To ensure SPIR-V validity, we add that where necessary.
+
+  const uint32_t zero = theBuilder.getConstantUint32(0);
+  const uint32_t scope = theBuilder.getConstantUint32(1); // Device
+  const auto *dest = expr->getArg(0);
+  const auto baseType = dest->getType();
+  const uint32_t baseTypeId = typeTranslator.translateType(baseType);
+
+  const auto doArg = [baseType, this](const CallExpr *callExpr,
+                                      uint32_t argIndex) {
+    const Expr *valueExpr = callExpr->getArg(argIndex);
+    if (const auto *castExpr = dyn_cast<ImplicitCastExpr>(valueExpr))
+      if (castExpr->getCastKind() == CK_IntegralCast &&
+          castExpr->getSubExpr()->getType() == baseType)
+        valueExpr = castExpr->getSubExpr();
+
+    uint32_t argId = doExpr(valueExpr);
+    if (valueExpr->getType() != baseType)
+      argId = castToInt(argId, valueExpr->getType(), baseType);
+    return argId;
+  };
+
+  const auto writeToOutputArg = [&baseType, this](
+      uint32_t toWrite, const CallExpr *callExpr, uint32_t outputArgIndex) {
+    const auto outputArg = callExpr->getArg(outputArgIndex);
+    const auto outputArgType = outputArg->getType();
+    if (baseType != outputArgType)
+      toWrite = castToInt(toWrite, baseType, outputArgType);
+    theBuilder.createStore(doExpr(outputArg), toWrite);
+  };
+
+  // If the argument is indexing into a texture/buffer, we need to create an
+  // OpImageTexelPointer instruction.
+  uint32_t ptr = 0;
+  if (const auto *callExpr = dyn_cast<CXXOperatorCallExpr>(dest)) {
+    const Expr *base = nullptr;
+    const Expr *index = nullptr;
+    if (isBufferTextureIndexing(callExpr, &base, &index)) {
+      const auto ptrType =
+          theBuilder.getPointerType(baseTypeId, spv::StorageClass::Image);
+      const auto baseId = doExpr(base);
+      const auto coordId = doExpr(index);
+      ptr = theBuilder.createImageTexelPointer(ptrType, baseId, coordId, zero);
+    }
+  } else {
+    ptr = doExpr(dest);
+  }
+
+  const bool isCompareExchange =
+      opcode == hlsl::IntrinsicOp::IOP_InterlockedCompareExchange;
+  const bool isCompareStore =
+      opcode == hlsl::IntrinsicOp::IOP_InterlockedCompareStore;
+
+  if (isCompareExchange || isCompareStore) {
+    const uint32_t comparator = doArg(expr, 1);
+    const uint32_t valueId = doArg(expr, 2);
+    const uint32_t originalVal = theBuilder.createAtomicCompareExchange(
+        baseTypeId, ptr, scope, zero, zero, valueId, comparator);
+    if (isCompareExchange)
+      writeToOutputArg(originalVal, expr, 3);
+  } else {
+    const uint32_t valueId = doArg(expr, 1);
+    // Since these atomic operations write through the provided pointer, the
+    // signed vs. unsigned opcode must be decided based on the pointee type
+    // of the first argument. However, the frontend decides the opcode based on
+    // the second argument (value). Therefore, the HLSL opcode provided by the
+    // frontend may be wrong. Therefore we need the following code to make sure
+    // we are using the correct SPIR-V opcode.
+    spv::Op atomicOp = translateAtomicHlslOpcodeToSpirvOpcode(opcode);
+    if (atomicOp == spv::Op::OpAtomicUMax && baseType->isSignedIntegerType())
+      atomicOp = spv::Op::OpAtomicSMax;
+    if (atomicOp == spv::Op::OpAtomicSMax && baseType->isUnsignedIntegerType())
+      atomicOp = spv::Op::OpAtomicUMax;
+    if (atomicOp == spv::Op::OpAtomicUMin && baseType->isSignedIntegerType())
+      atomicOp = spv::Op::OpAtomicSMin;
+    if (atomicOp == spv::Op::OpAtomicSMin && baseType->isUnsignedIntegerType())
+      atomicOp = spv::Op::OpAtomicUMin;
+    const uint32_t originalVal = theBuilder.createAtomicOp(
+        atomicOp, baseTypeId, ptr, scope, zero, valueId);
+    if (expr->getNumArgs() > 2)
+      writeToOutputArg(originalVal, expr, 2);
+  }
 
   return 0;
 }
@@ -4381,9 +4537,8 @@ uint32_t SPIRVEmitter::processIntrinsicRcp(const CallExpr *callExpr) {
   uint32_t numRows = 0, numCols = 0;
   if (TypeTranslator::isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
     const uint32_t vecOne = getVecValueOne(elemType, numCols);
-    const auto actOnEachVec = [this, vecOne](uint32_t /*index*/,
-                                             uint32_t vecType,
-                                             uint32_t curRowId) {
+    const auto actOnEachVec = [this, vecOne](
+        uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
       return theBuilder.createBinaryOp(spv::Op::OpFDiv, vecType, vecOne,
                                        curRowId);
     };
@@ -4970,7 +5125,6 @@ void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
     theBuilder.requireCapability(spv::Capability::Tessellation);
   } else if (shaderModel.IsGS()) {
     theBuilder.requireCapability(spv::Capability::Geometry);
-    emitError("Geometry shaders are currently not supported.");
   } else {
     theBuilder.requireCapability(spv::Capability::Shader);
   }
@@ -4983,10 +5137,85 @@ void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
   }
 }
 
-bool SPIRVEmitter::processHullShaderAttributes(
+bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl) {
+  bool success = true;
+  assert(shaderModel.IsGS());
+  if (auto *vcAttr = decl->getAttr<HLSLMaxVertexCountAttr>()) {
+    theBuilder.addExecutionMode(entryFunctionId,
+                                spv::ExecutionMode::OutputVertices,
+                                {static_cast<uint32_t>(vcAttr->getCount())});
+  }
+
+  // Only one primitive type is permitted for the geometry shader.
+  bool outPoint = false, outLine = false, outTriangle = false, inPoint = false,
+       inLine = false, inTriangle = false, inLineAdj = false,
+       inTriangleAdj = false;
+  for (const auto *param : decl->params()) {
+    // Add an execution mode based on the output stream type. Do not an
+    // execution mode more than once.
+    if (param->hasAttr<HLSLInOutAttr>()) {
+      const auto paramType = param->getType();
+      if (hlsl::IsHLSLTriangleStreamType(paramType) && !outTriangle) {
+        theBuilder.addExecutionMode(
+            entryFunctionId, spv::ExecutionMode::OutputTriangleStrip, {});
+        outTriangle = true;
+      } else if (hlsl::IsHLSLLineStreamType(paramType) && !outLine) {
+        theBuilder.addExecutionMode(entryFunctionId,
+                                    spv::ExecutionMode::OutputLineStrip, {});
+        outLine = true;
+      } else if (hlsl::IsHLSLPointStreamType(paramType) && !outPoint) {
+        theBuilder.addExecutionMode(entryFunctionId,
+                                    spv::ExecutionMode::OutputPoints, {});
+        outPoint = true;
+      }
+      // An output stream parameter will not have the input primitive type
+      // attributes, so we can continue to the next parameter.
+      continue;
+    }
+
+    // Add an execution mode based on the input primitive type. Do not add an
+    // execution mode more than once.
+    if (param->hasAttr<HLSLTriangleAttr>() && !inTriangle) {
+      theBuilder.addExecutionMode(entryFunctionId,
+                                  spv::ExecutionMode::Triangles, {});
+      inTriangle = true;
+    } else if (param->hasAttr<HLSLTriangleAdjAttr>() && !inTriangleAdj) {
+      theBuilder.addExecutionMode(
+          entryFunctionId, spv::ExecutionMode::InputTrianglesAdjacency, {});
+      inTriangleAdj = true;
+    } else if (param->hasAttr<HLSLPointAttr>() && !inPoint) {
+      theBuilder.addExecutionMode(entryFunctionId,
+                                  spv::ExecutionMode::InputPoints, {});
+      inPoint = true;
+    } else if (param->hasAttr<HLSLLineAdjAttr>() && !inLineAdj) {
+      theBuilder.addExecutionMode(entryFunctionId,
+                                  spv::ExecutionMode::InputLinesAdjacency, {});
+      inLineAdj = true;
+    } else if (param->hasAttr<HLSLLineAttr>() && !inLine) {
+      theBuilder.addExecutionMode(entryFunctionId,
+                                  spv::ExecutionMode::InputLines, {});
+      inLine = true;
+    }
+  }
+  if (inPoint + inLine + inLineAdj + inTriangle + inTriangleAdj > 1) {
+    emitError("only one input primitive type can be specified in the geometry "
+              "shader");
+    success = false;
+  }
+  if (outPoint + outTriangle + outLine > 1) {
+    emitError("only one output primitive type can be specified in the geometry "
+              "shader");
+    success = false;
+  }
+
+  return success;
+}
+
+bool SPIRVEmitter::processTessellationShaderAttributes(
     const FunctionDecl *decl, uint32_t *numOutputControlPoints) {
-  assert(shaderModel.IsHS());
+  assert(shaderModel.IsHS() || shaderModel.IsDS());
   using namespace spv;
+
   if (auto *domain = decl->getAttr<HLSLDomainAttr>()) {
     const auto domainType = domain->getDomainType().lower();
     const ExecutionMode hsExecMode =
@@ -4996,11 +5225,18 @@ bool SPIRVEmitter::processHullShaderAttributes(
             .Case("isoline", ExecutionMode::Isolines)
             .Default(ExecutionMode::Max);
     if (hsExecMode == ExecutionMode::Max) {
-      emitError("unknown domain type in hull shader", decl->getLocation());
+      emitError("unknown domain type specified for entry function",
+                decl->getLocation());
       return false;
     }
     theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
   }
+
+  // Early return for domain shaders as domain shaders only takes the 'domain'
+  // attribute.
+  if (shaderModel.IsDS())
+    return true;
+
   if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
     // TODO: Could not find an equivalent of "pow2" partitioning scheme in
     // SPIR-V.
@@ -5081,8 +5317,11 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::LocalSize, {1, 1, 1});
     }
-  } else if (shaderModel.IsHS()) {
-    if (!processHullShaderAttributes(decl, &numOutputControlPoints))
+  } else if (shaderModel.IsHS() || shaderModel.IsDS()) {
+    if (!processTessellationShaderAttributes(decl, &numOutputControlPoints))
+      return false;
+  } else if (shaderModel.IsGS()) {
+    if (!processGeometryShaderAttributes(decl))
       return false;
   }
 
@@ -5106,18 +5345,43 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
     // Create the stage input variable for parameter not marked as pure out and
     // initialize the corresponding temporary variable
-    if (!param->getAttr<HLSLOutAttr>()) {
+    // Also do not create input variables for output stream objects of geometry
+    // shaders (e.g. TriangleStream) which are required to be marked as 'inout'.
+    bool isGSOutputStream = shaderModel.IsGS() &&
+                            param->hasAttr<HLSLInOutAttr>() &&
+                            hlsl::IsHLSLStreamOutputType(param->getType());
+    if (!param->hasAttr<HLSLOutAttr>() && !isGSOutputStream) {
       uint32_t loadedValue = 0;
-      if (TypeTranslator::isInputPatch(param->getType())) {
+      if (shaderModel.IsHS() &&
+          TypeTranslator::isInputPatch(param->getType())) {
         const uint32_t hullInputPatchId =
             declIdMapper.createStageVarWithoutSemantics(
                 /*isInput*/ true, typeId, "hullEntryPointInput",
                 decl->getAttr<VKLocationAttr>());
         loadedValue = theBuilder.createLoad(typeId, hullInputPatchId);
         hullMainInputPatchParam = tempVar;
+      } else if (shaderModel.IsDS() &&
+                 TypeTranslator::isOutputPatch(param->getType())) {
+        // OutputPatch is the output of the hull shader and an input to the
+        // domain shader.
+        const uint32_t hullOutputPatchId =
+            declIdMapper.createStageVarWithoutSemantics(
+                /*isInput*/ true, typeId, "hullShaderOutput",
+                decl->getAttr<VKLocationAttr>());
+        loadedValue = theBuilder.createLoad(typeId, hullOutputPatchId);
       } else if (!declIdMapper.createStageInputVar(param, &loadedValue,
                                                    /*isPC*/ false)) {
         return false;
+      }
+
+      // SV_DomainLocation refers to a float2 (u,v), whereas TessCoord is a
+      // float3 (u,v,w). To ensure SPIR-V validity, a float3 stage variable is
+      // created, and we must extract a float2 from it before passing it to the
+      // main function.
+      if (hasSemantic(param, hlsl::DXIL::SemanticKind::DomainLocation) &&
+          hlsl::GetHLSLVecSize(param->getType()) == 2) {
+        loadedValue = theBuilder.createVectorShuffle(typeId, loadedValue,
+                                                     loadedValue, {0, 1});
       }
 
       theBuilder.createStore(tempVar, loadedValue);

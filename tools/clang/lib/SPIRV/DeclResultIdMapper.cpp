@@ -44,6 +44,25 @@ const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
   }
   return nullptr;
 }
+
+/// \brief Returns the resource category for the given type.
+ResourceVar::Category getResourceCategory(QualType type) {
+  if (TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type))
+    return ResourceVar::Category::Image;
+  if (TypeTranslator::isSampler(type))
+    return ResourceVar::Category::Sampler;
+  return ResourceVar::Category::Other;
+}
+
+/// \brief Returns true if the given declaration has a primitive type qualifier.
+/// Returns false otherwise.
+bool hasGSPrimitiveTypeQualifier(const Decl *decl) {
+  return (decl->hasAttr<HLSLTriangleAttr>() ||
+          decl->hasAttr<HLSLTriangleAdjAttr>() ||
+          decl->hasAttr<HLSLPointAttr>() || decl->hasAttr<HLSLLineAdjAttr>() ||
+          decl->hasAttr<HLSLLineAttr>());
+}
+
 } // anonymous namespace
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
@@ -148,19 +167,18 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
                                               var->getName(), llvm::None);
   astDecls[var] = {id, storageClass, rule};
-  resourceVars.emplace_back(id, getResourceBinding(var),
-                            var->getAttr<VKBindingAttr>());
+
+  const auto *regAttr = getResourceBinding(var);
+  const auto *bindingAttr = var->getAttr<VKBindingAttr>();
+  const auto *counterBindingAttr = var->getAttr<VKCounterBindingAttr>();
+
+  resourceVars.emplace_back(id, getResourceCategory(var->getType()), regAttr,
+                            bindingAttr, counterBindingAttr);
 
   if (isACSBuffer) {
-    // For {Append|Consume}StructuredBuffer, we need to create another variable
-    // for its associated counter.
-    const uint32_t counterType = typeTranslator.getACSBufferCounter();
-    const std::string counterName = "counter.var." + var->getName().str();
-    const uint32_t counterId =
-        theBuilder.addModuleVar(counterType, storageClass, counterName);
-
-    resourceVars.emplace_back(counterId, nullptr, nullptr);
-    counterVars[var] = counterId;
+    // For {Append|Consume}StructuredBuffer, we need to always create another
+    // variable for its associated counter.
+    createCounterVar(var);
   }
 
   return id;
@@ -225,8 +243,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     astDecls[varDecl] = {bufferVar, spv::StorageClass::Uniform,
                          LayoutRule::GLSLStd140, index++};
   }
-  resourceVars.emplace_back(bufferVar, getResourceBinding(decl),
-                            decl->getAttr<VKBindingAttr>());
+  resourceVars.emplace_back(
+      bufferVar, ResourceVar::Category::Other, getResourceBinding(decl),
+      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
 }
@@ -247,8 +266,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   // TODO: std140 rules may not suit tbuffers.
   astDecls[decl] = {bufferVar, spv::StorageClass::Uniform,
                     LayoutRule::GLSLStd140};
-  resourceVars.emplace_back(bufferVar, getResourceBinding(context),
-                            decl->getAttr<VKBindingAttr>());
+  resourceVars.emplace_back(
+      bufferVar, ResourceVar::Category::Other, getResourceBinding(context),
+      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
 }
@@ -263,11 +283,25 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
   return id;
 }
 
-uint32_t DeclResultIdMapper::getCounterId(const VarDecl *decl) {
+uint32_t DeclResultIdMapper::getOrCreateCounterId(const ValueDecl *decl) {
   const auto counter = counterVars.find(decl);
   if (counter != counterVars.end())
     return counter->second;
-  return 0;
+  return createCounterVar(decl);
+}
+
+uint32_t DeclResultIdMapper::createCounterVar(const ValueDecl *decl) {
+  const auto *info = getDeclSpirvInfo(decl);
+  const uint32_t counterType = typeTranslator.getACSBufferCounter();
+  const std::string counterName = "counter.var." + decl->getName().str();
+  const uint32_t counterId =
+      theBuilder.addModuleVar(counterType, info->storageClass, counterName);
+
+  resourceVars.emplace_back(counterId, ResourceVar::Category::Other,
+                            getResourceBinding(decl),
+                            decl->getAttr<VKBindingAttr>(),
+                            decl->getAttr<VKCounterBindingAttr>(), true);
+  return counterVars[decl] = counterId;
 }
 
 std::vector<uint32_t> DeclResultIdMapper::collectStageVars() const {
@@ -314,37 +348,41 @@ private:
 /// set and binding number.
 class BindingSet {
 public:
-  BindingSet() : nextBinding(0) {}
-
-  /// Uses the given set and binding number.
-  void useBinding(uint32_t binding, uint32_t set) {
-    bindings[set].insert(binding);
+  /// Tries to use the given set and binding number. Returns true if possible,
+  /// false otherwise.
+  bool tryToUseBinding(uint32_t binding, uint32_t set,
+                       ResourceVar::Category category) {
+    const auto cat = static_cast<uint32_t>(category);
+    // Note that we will create the entry for binding in bindings[set] here.
+    // But that should not have bad effects since it defaults to zero.
+    if ((usedBindings[set][binding] & cat) == 0) {
+      usedBindings[set][binding] |= cat;
+      return true;
+    }
+    return false;
   }
 
   /// Uses the next avaiable binding number in set 0.
-  uint32_t useNextBinding() {
-    auto &set0bindings = bindings[0];
-    while (set0bindings.count(nextBinding))
-      nextBinding++;
-    set0bindings.insert(nextBinding);
-    return nextBinding++;
-  }
-
-  /// Returns true if the given set and binding number is already used.
-  bool isBindingUsed(uint32_t binding, uint32_t set) {
-    return bindings[set].count(binding);
+  uint32_t useNextBinding(uint32_t set, ResourceVar::Category category) {
+    auto &binding = usedBindings[set];
+    auto &next = nextBindings[set];
+    while (binding.count(next))
+      ++next;
+    binding[next] = static_cast<uint32_t>(category);
+    return next++;
   }
 
 private:
-  std::unordered_map<uint32_t, llvm::SmallSet<uint32_t, 8>> bindings;
-  uint32_t nextBinding; ///< Next available binding number in set 0
+  ///< set number -> (binding number -> resource category)
+  llvm::DenseMap<uint32_t, llvm::DenseMap<uint32_t, uint32_t>> usedBindings;
+  ///< set number -> next available binding number
+  llvm::DenseMap<uint32_t, uint32_t> nextBindings;
 };
 } // namespace
 
 bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
   llvm::StringSet<> seenSemantics;
   bool success = true;
-
   for (const auto &var : stageVars) {
     auto s = var.getSemanticStr();
 
@@ -465,46 +503,147 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   return true;
 }
 
+namespace {
+/// A class for maintaining the binding number shift requested for descriptor
+/// sets.
+class BindingShiftMapper {
+public:
+  explicit BindingShiftMapper(const llvm::SmallVectorImpl<uint32_t> &shifts)
+      : masterShift(0) {
+    assert(shifts.size() % 2 == 0);
+    for (uint32_t i = 0; i < shifts.size(); i += 2)
+      perSetShift[shifts[i + 1]] = shifts[i];
+  }
+
+  /// Returns the shift amount for the given set.
+  uint32_t getShiftForSet(uint32_t set) const {
+    const auto found = perSetShift.find(set);
+    if (found != perSetShift.end())
+      return found->second;
+    return masterShift;
+  }
+
+private:
+  uint32_t masterShift; /// Shift amount applies to all sets.
+  llvm::DenseMap<uint32_t, uint32_t> perSetShift;
+};
+}
+
 bool DeclResultIdMapper::decorateResourceBindings() {
+  // For normal resource, we support 3 approaches of setting binding numbers:
+  // - m1: [[vk::binding(...)]]
+  // - m2: :register(...)
+  // - m3: None
+  //
+  // For associated counters, we support 2 approaches:
+  // - c1: [[vk::counter_binding(...)]
+  // - c2: None
+  //
+  // In combination, we need to handle 9 cases:
+  // - 3 cases for nomral resoures (m1, m2, m3)
+  // - 6 cases for associated counters (mX * cY)
+  //
+  // In the following order:
+  // - m1, mX * c1
+  // - m2
+  // - m3, mX * c2
+
   BindingSet bindingSet;
   bool noError = true;
 
-  // Process variables with [[vk::binding(...)]] binding assignment
-  for (const auto &var : resourceVars)
-    if (const auto *vkBinding = var.getBinding()) {
-      const auto set = vkBinding->getSet();
-      const auto binding = vkBinding->getBinding();
+  // Tries to decorate the given varId of the given category with set number
+  // setNo, binding number bindingNo. Emits error on failure.
+  const auto tryToDecorate = [this, &bindingSet, &noError](
+      const uint32_t varId, const uint32_t setNo, const uint32_t bindingNo,
+      const ResourceVar::Category cat, SourceLocation loc) {
+    if (bindingSet.tryToUseBinding(bindingNo, setNo, cat)) {
+      theBuilder.decorateDSetBinding(varId, setNo, bindingNo);
+    } else {
+      emitError("resource binding #%0 in descriptor set #%1 already assigned",
+                loc)
+          << bindingNo << setNo;
+      noError = false;
+    }
+  };
 
-      if (bindingSet.isBindingUsed(binding, set)) {
-        emitError("resource binding #%0 in descriptor set #%1 already assigned",
-                  vkBinding->getLocation())
-            << binding << set;
-        noError = false;
-      } else {
-        theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
-        bindingSet.useBinding(binding, set);
+  for (const auto &var : resourceVars) {
+    if (var.isCounter()) {
+      if (const auto *vkCBinding = var.getCounterBinding()) {
+        // Process mX * c1
+        uint32_t set = 0;
+        if (const auto *vkBinding = var.getBinding())
+          set = vkBinding->getSet();
+        if (const auto *reg = var.getRegister())
+          set = reg->RegisterSpace;
+
+        tryToDecorate(var.getSpirvId(), set, vkCBinding->getBinding(),
+                      var.getCategory(), vkCBinding->getLocation());
+      }
+    } else {
+      if (const auto *vkBinding = var.getBinding()) {
+        // Process m1
+        tryToDecorate(var.getSpirvId(), vkBinding->getSet(),
+                      vkBinding->getBinding(), var.getCategory(),
+                      vkBinding->getLocation());
       }
     }
+  }
 
-  // Process variables with register(...) binding assignment
+  BindingShiftMapper bShiftMapper(spirvOptions.bShift);
+  BindingShiftMapper tShiftMapper(spirvOptions.tShift);
+  BindingShiftMapper sShiftMapper(spirvOptions.sShift);
+  BindingShiftMapper uShiftMapper(spirvOptions.uShift);
+
+  // Process m2
   for (const auto &var : resourceVars)
-    if (const auto *reg = var.getRegister())
-      if (!var.getBinding()) {
+    if (!var.isCounter() && !var.getBinding())
+      if (const auto *reg = var.getRegister()) {
         const uint32_t set = reg->RegisterSpace;
-        const uint32_t binding = reg->RegisterNumber;
+        uint32_t binding = reg->RegisterNumber;
+        switch (reg->RegisterType) {
+        case 'b':
+          binding += bShiftMapper.getShiftForSet(set);
+          break;
+        case 't':
+          binding += tShiftMapper.getShiftForSet(set);
+          break;
+        case 's':
+          binding += sShiftMapper.getShiftForSet(set);
+          break;
+        case 'u':
+          binding += uShiftMapper.getShiftForSet(set);
+          break;
+        case 'c':
+          // For setting packing offset. Does not affect binding.
+          break;
+        default:
+          llvm_unreachable("unknown register type found");
+        }
 
-        // TODO: we can have duplicated set and binding number because of there
-        // are multiple resource types in the following. E.g., :register(s0) and
-        // :register(t0) will both map to set #0 and binding #0.
-        theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
-        bindingSet.useBinding(binding, set);
+        tryToDecorate(var.getSpirvId(), set, binding, var.getCategory(),
+                      reg->Loc);
       }
 
-  // Process variables with no binding assignment
-  for (const auto &var : resourceVars)
-    if (!var.getBinding() && !var.getRegister())
+  for (const auto &var : resourceVars) {
+    const auto cat = var.getCategory();
+    if (var.isCounter()) {
+      if (!var.getCounterBinding()) {
+        // Process mX * c2
+        uint32_t set = 0;
+        if (const auto *vkBinding = var.getBinding())
+          set = vkBinding->getSet();
+        else if (const auto *reg = var.getRegister())
+          set = reg->RegisterSpace;
+
+        theBuilder.decorateDSetBinding(var.getSpirvId(), set,
+                                       bindingSet.useNextBinding(set, cat));
+      }
+    } else if (!var.getBinding() && !var.getRegister()) {
+      // Process m3
       theBuilder.decorateDSetBinding(var.getSpirvId(), 0,
-                                     bindingSet.useNextBinding());
+                                     bindingSet.useNextBinding(0, cat));
+    }
+  }
 
   return noError;
 }
@@ -540,21 +679,36 @@ uint32_t DeclResultIdMapper::createStageVarWithoutSemantics(
 bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
                                          uint32_t *value, bool asInput,
                                          const llvm::Twine &namePrefix,
-                                         bool isPatchConstant) {
+                                         bool isPatchConstant,
+                                         bool isOutputStream) {
   QualType type = getFnParamOrRetType(decl);
   if (type->isVoidType()) {
     // No stage variables will be created for void type.
     return true;
   }
-  const uint32_t typeId = typeTranslator.translateType(type);
+
+  uint32_t typeId = typeTranslator.translateType(type);
 
   llvm::StringRef semanticStr = getStageVarSemantic(decl);
   if (!semanticStr.empty()) {
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
 
-    const hlsl::DxilParamInputQual qual =
+    hlsl::DxilParamInputQual qual =
         asInput ? hlsl::DxilParamInputQual::In : hlsl::DxilParamInputQual::Out;
+
+    // The inputs to the geometry shader that have a primitive type qualifier
+    // must use 'InputPrimitive'.
+    if (asInput && shaderModel.IsGS() && hasGSPrimitiveTypeQualifier(decl))
+      qual = hlsl::DxilParamInputQual::InputPrimitive;
+
+    // Note that geometry shaders have output streams that are required to be
+    // marked as "inout". The DxilParamInputQual for these cases must be
+    // 'OutStream' rather than 'Out'.
+    // TODO: Add support for multiple output streams.
+    if (!asInput && isOutputStream)
+      qual = hlsl::DxilParamInputQual::OutStream0;
+
     const hlsl::SigPoint *sigPoint =
         hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
             qual, shaderModel.GetKind(), isPatchConstant));
@@ -575,11 +729,22 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
       return false;
     }
 
+    // SV_DomainLocation refers to a float2 (u,v), whereas TessCoord is a
+    // float3 (u,v,w). To ensure SPIR-V validity, we must create a float3 and
+    // extract a float2 from it before passing it to the main function.
+    if (semantic->GetKind() == hlsl::DXIL::SemanticKind::DomainLocation) {
+      typeId = theBuilder.getVecType(theBuilder.getFloat32Type(), 3);
+    }
+
     StageVar stageVar(sigPoint, semanticStr, semantic, semanticIndex, typeId);
     llvm::Twine name = namePrefix + "." + semanticStr;
     const uint32_t varId = createSpirvStageVar(&stageVar, name);
     if (varId == 0)
       return false;
+
+    if (sigPoint->GetSignatureKind() ==
+        hlsl::DXIL::SignatureKind::PatchConstant)
+      theBuilder.decorate(varId, spv::Decoration::Patch);
 
     // Decorate with interpolation modes for pixel shader input variables
     if (shaderModel.IsPS() && sigPoint->IsInput()) {
@@ -625,9 +790,13 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     }
   } else {
     // If the decl itself doesn't have semantic, it should be a struct having
-    // all its fields with semantics.
-    assert(type->isStructureType() &&
-           "found non-struct decls without semantics");
+    // all its fields with semantics. Or it should be an OutputStream
+    // parameterized by a structure type with all its fields with semantics.
+    if (hlsl::IsHLSLStreamOutputType(type)) {
+      isOutputStream = true;
+      type = hlsl::GetHLSLResourceResultType(type);
+    }
+    assert(type->isStructureType() && "found non-struct decls without semantics");
 
     const auto *structDecl = cast<RecordType>(type.getTypePtr())->getDecl();
 
@@ -638,7 +807,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
       for (const auto *field : structDecl->fields()) {
         uint32_t subValue = 0;
         if (!createStageVars(field, &subValue, true, namePrefix,
-                             isPatchConstant))
+                             isPatchConstant, isOutputStream))
           return false;
         subValues.push_back(subValue);
       }
@@ -652,7 +821,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
         uint32_t subValue = theBuilder.createCompositeExtract(
             fieldType, *value, {field->getFieldIndex()});
         if (!createStageVars(field, &subValue, false, namePrefix,
-                             isPatchConstant))
+                             isPatchConstant, isOutputStream))
           return false;
       }
     }
@@ -687,6 +856,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     case hlsl::SigPoint::Kind::VSIn:
       return theBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::VSOut:
+    case hlsl::SigPoint::Kind::DSOut:
+    case hlsl::SigPoint::Kind::GSOut:
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::Position);
     case hlsl::SigPoint::Kind::PSIn:
@@ -791,6 +962,10 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   case hlsl::Semantic::Kind::InsideTessFactor: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelInner);
+  }
+  case hlsl::Semantic::Kind::DomainLocation: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessCoord);
   }
   default:
     emitError("semantic %0 unimplemented yet")

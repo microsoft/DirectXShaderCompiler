@@ -865,8 +865,24 @@ def VKLocation : InheritableAttr {
 
 def VKBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "binding">];
-  let Subjects = SubjectList<[GlobalVar, HLSLBuffer], ErrorDiag, "ExpectedVariable">;
+  let Subjects = SubjectList<[GlobalVar, HLSLBuffer], ErrorDiag, "ExpectedGlobalVarOrCTBuffer">;
   let Args = [IntArgument<"Binding">, DefaultIntArgument<"Set", 0>];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+// StructuredBuffer types that can have associated counters.
+def CounterStructuredBuffer : SubsetSubject<
+    Var,
+    [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+      (S->getType()->getAs<RecordType>()->getDecl()->getName() == "RWStructuredBuffer" ||
+       S->getType()->getAs<RecordType>()->getDecl()->getName() == "AppendStructuredBuffer" ||
+       S->getType()->getAs<RecordType>()->getDecl()->getName() == "ConsumeStructuredBuffer")}]>;
+
+def VKCounterBinding : InheritableAttr {
+  let Spellings = [CXX11<"vk", "counter_binding">];
+  let Subjects = SubjectList<[CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
+  let Args = [IntArgument<"Binding">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }

@@ -11,8 +11,8 @@ ConsumeStructuredBuffer<S>      buffer2;
 
 float4 main() : A {
 // CHECK:      [[counter:%\d+]] = OpAccessChain %_ptr_Uniform_int %counter_var_buffer1 %uint_0
-// CHECK-NEXT: [[prev:%\d+]] = OpAtomicISub %uint [[counter]] %uint_1 %uint_0 %uint_1
-// CHECK-NEXT: [[index:%\d+]] = OpISub %uint [[prev]] %uint_1
+// CHECK-NEXT: [[prev:%\d+]] = OpAtomicISub %int [[counter]] %uint_1 %uint_0 %int_1
+// CHECK-NEXT: [[index:%\d+]] = OpISub %int [[prev]] %int_1
 // CHECK-NEXT: [[buffer1:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %buffer1 %uint_0 [[index]]
 // CHECK-NEXT: [[val:%\d+]] = OpLoad %v4float [[buffer1]]
 // CHECK-NEXT: OpStore %v [[val]]
@@ -21,8 +21,8 @@ float4 main() : A {
     S s; // Will use a separate S type without layout decorations
 
 // CHECK-NEXT: [[counter:%\d+]] = OpAccessChain %_ptr_Uniform_int %counter_var_buffer2 %uint_0
-// CHECK-NEXT: [[prev:%\d+]] = OpAtomicISub %uint [[counter]] %uint_1 %uint_0 %uint_1
-// CHECK-NEXT: [[index:%\d+]] = OpISub %uint [[prev]] %uint_1
+// CHECK-NEXT: [[prev:%\d+]] = OpAtomicISub %int [[counter]] %uint_1 %uint_0 %int_1
+// CHECK-NEXT: [[index:%\d+]] = OpISub %int [[prev]] %int_1
 
 // CHECK-NEXT: [[buffer2:%\d+]] = OpAccessChain %_ptr_Uniform_S %buffer2 %uint_0 [[index]]
 // CHECK-NEXT: [[val:%\d+]] = OpLoad %S [[buffer2]]

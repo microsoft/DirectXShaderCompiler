@@ -156,6 +156,11 @@ public:
                                        uint32_t unequalMemorySemanticsId,
                                        uint32_t valueToOp, uint32_t comparator);
 
+  /// \brief Creates an OpImageTexelPointer SPIR-V instruction with the given
+  /// parameters.
+  uint32_t createImageTexelPointer(uint32_t resultType, uint32_t imageId,
+                                   uint32_t coordinate, uint32_t sample);
+
   /// \brief Creates SPIR-V instructions for sampling the given image.
   ///
   /// If compareVal is given a non-zero value, *Dref* variants of OpImageSample*

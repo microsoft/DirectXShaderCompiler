@@ -70,6 +70,9 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``binding(X[, Y])``: For specifying the descriptor set (``Y``) and binding
   (``X``) numbers for resource variables. The descriptor set (``Y``) is
   optional; if missing, it will be set to 0. Allowed on global variables.
+- ``counter_binding(X)``: For specifying the binding number (``X``) for the
+  associated counter for RW/Append/Consume structured buffer. The descriptor
+  set number for the associated counter is always the same as the main resource.
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
@@ -365,6 +368,11 @@ will be translated into
   ; Variable
   %myCbuffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_T Uniform
 
+If ``.IncrementCounter()`` or ``.DecrementCounter()`` is used in the source
+code, an additional associated counter variable will be created for manipulating
+the counter. The counter variable will be of ``OpTypeStruct`` type, which only
+contains a 32-bit integer. The counter variable takes its own binding number.
+
 ``AppendStructuredBuffer`` and ``ConsumeStructuredBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -590,6 +598,8 @@ Firstly, under certain `SigPoints <https://github.com/Microsoft/DirectXShaderCom
 some system-value (SV) semantic strings will be translated into SPIR-V
 ``BuiltIn`` decorations:
 
+.. table:: Mapping from HLSL SV semantic to SPIR-V builtin and execution mode
+
 +-------------------------+-------------+--------------------------+-----------------------+
 | HLSL Semantic           | SigPoint    | SPIR-V ``BuiltIn``       | SPIR-V Execution Mode |
 +=========================+=============+==========================+=======================+
@@ -650,39 +660,83 @@ In shaders for DirectX, resources are accessed via registers; while in shaders
 for Vulkan, it is done via descriptor set and binding numbers. The developer
 can explicitly annotate variables in HLSL to specify descriptor set and binding
 numbers, or leave it to the compiler to derive implicitly from registers.
-The explicit way has precedence over the implicit way.
 
 Explicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``[[vk::binding(X[, Y])]]`` can be attached to global variables to specify the
-descriptor set ``Y`` and binding ``X``. The descriptor set number is optional;
-if missing, it will be zero.
+descriptor set as ``Y`` and binding number as ``X``. The descriptor set number
+is optional; if missing, it will be zero. RW/append/consume structured buffers
+have associated counters, which will occupy their own Vulkan descriptors.
+``[vk::counter_binding(Z)]`` can be attached to a RW/append/consume structured
+buffers to specify the binding number for the associated counter to ``Z``. Note
+that the set number of the counter is always the same as the main buffer.
 
 Implicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Without explicit annotations, the compiler will try to deduce descriptor set and
-binding numbers in the following way:
+Without explicit annotations, the compiler will try to deduce descriptor sets
+and binding numbers in the following way:
 
 If there is ``:register(xX, spaceY)`` specified for the given global variable,
 the corresponding resource will be assigned to descriptor set ``Y`` and binding
-number ``X``, regardless the resource type ``x``. (Note that this can cause
-reassignment of the same set and binding number pair. [TODO])
+number ``X``, regardless of the register type ``x``. Note that this will cause
+binding number collision if, say, two resources are of different register
+type but the same register number. To solve this problem, four command-line
+options, ``-fvk-b-shift N M``, ``-fvk-s-shift N M``, ``-fvk-t-shift N M``, and
+``-fvk-u-shift N M``, are provided to shift by ``N`` all binding numbers
+inferred for register type ``b``, ``s``, ``t``, and ``u`` in space ``M``,
+respectively.
 
 If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
 set #0.
+
+Error checking
+~~~~~~~~~~~~~~
+
+Trying to reuse the same binding number of the same descriptor set results in
+a compiler error, unless we have exactly two resources and one is an image and
+the other is a sampler. This is to support the Vulkan combined image sampler.
+
+Summary
+~~~~~~~
 
 In summary, the compiler essentially assigns binding numbers in three passes.
 
 - Firstly it handles all declarations with explicit ``[[vk::binding(X[, Y])]]``
   annotation.
 - Then the compiler processes all remaining declarations with
-  ``:register(xX, spaceY)`` annotation.
+  ``:register(xX, spaceY)`` annotation, by applying the shift passed in using
+  command-line option ``-fvk-{b|s|t|u}-shift N M``, if provided.
 - Finally, the compiler assigns next available binding numbers to the rest in
   the declaration order.
 
+As an example, for the following code:
+
+.. code:: hlsl
+
+  struct S { ... };
+
+  ConstantBuffer<S> cbuffer1 : register(b0);
+  Texture2D<float4> texture1 : register(t0);
+  Texture2D<float4> texture2 : register(t1, space1);
+  SamplerState      sampler1;
+  [[vk::binding(3)]]
+  RWBuffer<float4> rwbuffer1 : register(u5, space2);
+
+If we compile with ``-fvk-t-shift 10 0 -fvk-t-shift 20 1``:
+
+- ``rwbuffer1`` will take binding #3 in set #0, since explicit binding
+  assignment has precedence over the rest.
+- ``cbuffer1`` will take binding #0 in set #0, since that's what deduced from
+  the register assignment, and there is no shift requested from command line.
+- ``texture1`` will take binding #10 in set #0, and ``texture2`` will take
+  binding #21 in set #1, since we requested an 10 shift on t-type registers.
+- ``sampler1`` will take binding 1 in set #0, since that's the next available
+  binding number in set #0.
+
+.. code:: hlsl
 HLSL Expressions
 ================
 
@@ -1053,7 +1107,8 @@ variables: both of them are accessed via load/store instructions.
 Intrinsic functions
 -------------------
 
-The following intrinsic HLSL functions are currently supported:
+The following intrinsic HLSL functions have no direct SPIR-V opcode or GLSL
+extended instruction mapping, so they are handled with additional steps:
 
 - ``dot`` : performs dot product of two vectors, each containing floats or
   integers. If the two parameters are vectors of floats, we use SPIR-V's
@@ -1083,26 +1138,45 @@ The following intrinsic HLSL functions are currently supported:
 - ``asuint``: converts the component type of a scalar/vector/matrix from float
   or int into uint. Uses ``OpBitcast``. This method currently does not support
   conversion into unsigned integer matrices.
-- ``transpose`` : Transposes the specified matrix. Uses SPIR-V ``OpTranspose``.
-- ``isnan`` : Determines if the specified value is NaN. Uses SPIR-V ``OpIsNan``.
-- ``isinf`` : Determines if the specified value is infinite. Uses SPIR-V ``OpIsInf``.
 - ``isfinite`` : Determines if the specified value is finite. Since ``OpIsFinite``
-  requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and ``OpIsInf``.
-  A given value is finite iff it is not NaN and not infinite.
-- ``fmod`` : Returns the floating-point remainder for division of its arguments. Uses SPIR-V ``OpFMod``.
-- ``countbits`` : Counts the number of bits (per component) in the input integer. Uses SPIR-V ``OpBitCount``.
-- ``reversebits``: Reverses the order of the bits, per component. Uses SPIR-V ``OpBitReverse``.
-- ``clip``: Discards the current pixel if the specified value is less than zero. Uses conditional
-  control flow as well as SPIR-V ``OpKill``.
-- ``ddx``: Partial derivative with respect to the screen-space x-coordinate. Uses SIR-V ``OpDPdx``.
-- ``ddy``: Partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdy``.
-- ``ddx_coarse``: Low precision partial derivative with respect to the screen-space x-coordinate. Uses SIR-V ``OpDPdxCoarse``.
-- ``ddy_coarse``: Low precision partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdyCoarse``.
-- ``ddx_fine``: High precision partial derivative with respect to the screen-space x-coordinate. Uses SIR-V ``OpDPdxFine``.
-- ``ddy_fine``: High precision partial derivative with respect to the screen-space y-coordinate. Uses SIR-V ``OpDPdyFine``.
-- ``fwidth``: Returns the absolute value of the partial derivatives of the specified value. Uses SIR-V ``OpFwidth``.
-- ``rcp``: Calculates a fast, approximate, per-component reciprocal. Uses SIR-V ``OpFDiv``.
+  requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and
+  ``OpIsInf``.  A given value is finite iff it is not NaN and not infinite.
+- ``clip``: Discards the current pixel if the specified value is less than zero.
+  Uses conditional control flow as well as SPIR-V ``OpKill``.
+- ``rcp``: Calculates a fast, approximate, per-component reciprocal.
+  Uses SIR-V ``OpFDiv``.
 
+Using SPIR-V opcode
+~~~~~~~~~~~~~~~~~~~
+
+the following intrinsic HLSL functions have direct SPIR-V opcodes for them:
+
+============================== =================================
+   HLSL Intrinsic Function              SPIR-V Opcode
+============================== =================================
+``countbits``                  ``OpBitCount``
+``ddx``                        ``OpDPdx``
+``ddy``                        ``OpDPdy``
+``ddx_coarse``                 ``OpDPdxCoarse``
+``ddy_coarse``                 ``OpDPdyCoarse``
+``ddx_fine``                   ``OpDPdxFine``
+``ddy_fine``                   ``OpDPdyFine``
+``fmod``                       ``OpFMod``
+``fwidth``                     ``OpFwidth``
+``InterlockedAdd``             ``OpAtomicIAdd``
+``InterlockedAnd``             ``OpAtomicAnd``
+``InterlockedOr``              ``OpAtomicOr``
+``InterlockedXor``             ``OpAtomicXor``
+``InterlockedMin``             ``OpAtomicUMin``/``OpAtomicSMin``
+``InterlockedMax``             ``OpAtomicUMax``/``OpAtomicSMax``
+``InterlockedExchange``        ``OpAtomicExchange``
+``InterlockedCompareExchange`` ``OpAtomicCompareExchange``
+``InterlockedCompareStore``    ``OpAtomicCompareExchange``
+``isnan``                      ``OpIsNan``
+``isInf``                      ``OpIsInf``
+``reversebits``                ``OpBitReverse``
+``transpose``                  ``OpTranspose``
+============================== =================================
 
 Using GLSL extended instructions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1163,7 +1237,7 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``tan``                 ``Tan``
 ``tanh``                ``Tanh``
 ``trunc``               ``Trunc``
-======================= ===============================
+======================= ===================================
 
 HLSL OO features
 ================
@@ -1662,16 +1736,21 @@ The ``OpImageQuerySize`` instruction is used to get a uint3. The first element i
 element is the height, and the third element is the depth.
 
 
-HLSL Hull Shaders
-=================
+HLSL Shader Stages
+==================
+
+Hull Shaders
+------------
 
 Hull shaders corresponds to Tessellation Control Shaders (TCS) in Vulkan.
 This section describes how Hull shaders are translated to SPIR-V for Vulkan.
 
 Hull Entry Point Attributes
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The following HLSL attributes are attached to the main entry point of hull shaders
 and are translated to SPIR-V execution modes according to the table below:
+
+.. table:: Mapping from HLSL attribute to SPIR-V execution mode
 
 +-------------------------+---------------------+--------------------------+
 | HLSL Attribute          |   value             | SPIR-V Execution Mode    |
@@ -1706,7 +1785,7 @@ It specifies the name of the Patch Constant Function. This function is run only
 once per patch. This is further described below.
 
 InputPatch and OutputPatch
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 Both of ``InputPatch<T, N>`` and ``OutputPatch<T, N>`` are translated to an array
 of constant size ``N`` where each element is of type ``T``.
 
@@ -1733,7 +1812,7 @@ output control points. Each final output control point is written into the corre
 the array using SV_OutputControlPointID as the index.
 
 Patch Constant Function
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 As mentioned above, the patch constant function is to be invoked only once per patch.
 As a result, in the SPIR-V module, the `entry function wrapper`_ will first invoke the
 main entry function, and then use an ``OpControlBarrier`` to wait for all vertex
@@ -1745,3 +1824,92 @@ as stage output variables. The output struct of the patch constant function must
 ``SV_TessFactor`` and ``SV_InsideTessFactor`` fields which will translate to
 ``TessLevelOuter`` and ``TessLevelInner`` builtin variables, respectively. And the rest
 will be flattened and translated into normal stage output variables, one for each field.
+
+Geometry Shaders
+----------------
+
+This section describes how geometry shaders are translated to SPIR-V for Vulkan.
+
+Geometry Shader Entry Point Attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The following HLSL attribute is attached to the main entry point of geometry shaders
+and is translated to SPIR-V execution mode as follows:
+
+.. table:: Mapping from geometry shader HLSL attribute to SPIR-V execution mode
+
++-------------------------+---------------------+--------------------------+
+| HLSL Attribute          |   value             | SPIR-V Execution Mode    |
++=========================+=====================+==========================+
+|``maxvertexcount``       | ``n``               | ``OutputVertices n``     |
++-------------------------+---------------------+--------------------------+
+
+Translation for Primitive Types
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Geometry shader vertex inputs may be qualified with primitive types. Only one primitive type
+is allowed to be used in a given geometry shader. The following table shows the SPIR-V execution
+mode that is used in order to represent the given primitive type.
+
+.. table:: Mapping from geometry shader primitive type to SPIR-V execution mode
+
++---------------------+-----------------------------+
+| HLSL Primitive Type | SPIR-V Execution Mode       |
++=====================+=============================+
+|``point``            | ``InputPoints``             |
++---------------------+-----------------------------+
+|``line``             | ``InputLines``              |
++---------------------+-----------------------------+
+|``triangle``         | ``Triangles``               |
++---------------------+-----------------------------+
+|``lineadj``          | ``InputLinesAdjacency``     |
++---------------------+-----------------------------+
+|``triangleadj``      | ``InputTrianglesAdjacency`` |
++---------------------+-----------------------------+
+
+Translation of Output Stream Types
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Supported output stream types in geometry shaders are: ``PointStream<T>``,
+``LineStream<T>``, and ``TriangleStream<T>``. These types are translated as the underlying
+type ``T``, which is recursively flattened into stand-alone variables for each field.
+
+Furthermore, output stream objects passed to geometry shader entry points are
+required to be annotated with ``inout``, but the generated SPIR-V only contains
+stage output variables for them.
+
+The following table shows the SPIR-V execution mode that is used in order to represent the
+given output stream.
+
+.. table:: Mapping from geometry shader output stream type to SPIR-V execution mode
+
++---------------------+-----------------------------+
+| HLSL Output Stream  | SPIR-V Execution Mode       |
++=====================+=============================+
+|``PointStream``      | ``OutputPoints``            |
++---------------------+-----------------------------+
+|``LineStream``       | ``OutputLineStrip``         |
++---------------------+-----------------------------+
+|``TriangleStream``   | ``OutputTriangleStrip``     |
++---------------------+-----------------------------+
+
+TODO: Describe more details about how geometry shaders are translated. e.g. OutputStreams, etc.
+
+Vulkan Command-line Options
+===========================
+
+The following command line options are added into ``dxc`` to support SPIR-V
+codegen for Vulkan:
+
+- ``-spirv``: Generates SPIR-V code.
+- ``-fvk-b-shift N M``: Shifts by ``N`` the inferred binding numbers for all
+  resources in b-type registers of space ``M``. Specifically, for a resouce
+  attached with ``:register(bX, spaceM)`` but not ``[vk::binding(...)]``,
+  sets its Vulkan descriptor set to ``M`` and binding number to ``X + N``. If
+  you need to shift the inferred binding numbers for more than one space,
+  provide more than one such option. If more than one such option is provided
+  for the same space, the last one takes effect. See `HLSL register and Vulkan
+  binding`_ for explanation and examples.
+- ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
+- ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
+- ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.
+- ``-fvk-stage-io-order={alpha|decl}``: Assigns the stage input/output variable
+  location number according to alphabetical order or declaration order. See
+  `HLSL semantic and Vulkan Location`_ for more details.
