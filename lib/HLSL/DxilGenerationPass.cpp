@@ -1820,3 +1820,74 @@ ModulePass *llvm::createDxilLegalizeEvalOperationsPass() {
 INITIALIZE_PASS(DxilLegalizeEvalOperations,
                 "hlsl-dxil-legalize-eval-operations",
                 "DXIL legalize eval operations", false, false)
+
+///////////////////////////////////////////////////////////////////////////////
+// Translate DXIL Function.
+// Make sure that we have a correct DXIL ops for the given DXIL version
+// For example, the structured/raw buffer Load methods map to different DXIL
+// ops starting in SM 6.2. This pass is to map one op to another depending on the
+// shader model version.
+namespace {
+
+class DxilTranslateOpCodeVersion : public ModulePass {
+public:
+  static char ID;
+  explicit DxilTranslateOpCodeVersion() : ModulePass(ID) {}
+  bool runOnModule(Module &M) {
+    unsigned major, minor;
+    M.GetDxilModule().GetDxilVersion(major, minor);
+    if (major == 1 && minor < 2) {
+      for (auto F = M.functions().begin(), E = M.functions().end(); F != E;) {
+        Function *func = &*(F++);
+
+        if (func->hasName() && func->getName().startswith("dx.op.rawBufferLoad")) {
+          ReplaceRawBufferLoadWithBufferLoad(func, M);
+          func->eraseFromParent();
+        }
+      }
+    }
+    return true;
+  }
+private:
+  void ReplaceRawBufferLoadWithBufferLoad(Function *F, Module &M);
+};
+} // namespace
+
+void DxilTranslateOpCodeVersion::ReplaceRawBufferLoadWithBufferLoad(Function *F,
+                                                                    Module &M) {
+  OP *op = M.GetDxilModule().GetOP();
+  Type *RTy = F->getReturnType();
+
+  if (StructType *STy = dyn_cast<StructType>(RTy)) {
+    Type *ETy = STy->getElementType(0);
+    Function *newFunction = op->GetOpFunc(hlsl::DXIL::OpCode::BufferLoad, ETy);
+    for (auto U = F->user_begin(), E = F->user_end(); U != E;) {
+      User *user = *(U++);
+      if (CallInst *CI = dyn_cast<CallInst>(user)) {
+        IRBuilder<> Builder(CI);
+        SmallVector<Value *, 4> args;
+        args.emplace_back(op->GetI32Const((unsigned)DXIL::OpCode::BufferLoad));
+        for (unsigned i = 1; i < 4; ++i) {
+          args.emplace_back(CI->getArgOperand(i));
+        }
+        CallInst *newCall = Builder.CreateCall(newFunction, args);
+        CI->replaceAllUsesWith(newCall);
+        CI->eraseFromParent();
+      }
+      else {
+        DXASSERT(false, "function can only be used with call instructions.");
+      }
+    }
+  } else {
+    DXASSERT(false, "RawBufferLoad should return vector type.");
+  }
+}
+
+char DxilTranslateOpCodeVersion::ID = 0;
+ModulePass *llvm::createDxilTranslateOpCodeVersionPass() {
+  return new DxilTranslateOpCodeVersion();
+}
+
+INITIALIZE_PASS(DxilTranslateOpCodeVersion,
+                "hlsl-translate-dxil-opcode-version",
+                "Translate one version of DXIL op to another", false, false)

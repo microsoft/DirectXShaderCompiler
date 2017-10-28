@@ -3168,10 +3168,12 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   }
 
   // Offset 1
-  if (RK == DxilResource::Kind::RawBuffer ||
-      RK == DxilResource::Kind::TypedBuffer) {
+  if (RK == DxilResource::Kind::RawBuffer) {
     loadArgs.emplace_back(undefI);
     loadArgs.emplace_back(GetRawBufferLoadMaskFromIOP(helper.intrinsicOpCode, OP));
+  }
+  else if (RK == DxilResource::Kind::TypedBuffer) {
+    loadArgs.emplace_back(undefI);
   }
   else if (RK == DxilResource::Kind::StructuredBuffer) {
     loadArgs.emplace_back(
