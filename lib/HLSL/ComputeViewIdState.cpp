@@ -627,6 +627,9 @@ void DxilViewIdState::CollectReachingDeclsRec(Value *pValue, ValueSetType &Reach
     for (Value *pPtrValue : phi->operands()) {
       CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
     }
+  } else if (SelectInst *SelI = dyn_cast<SelectInst>(pValue)) {
+    CollectReachingDeclsRec(SelI->getTrueValue(), ReachingDecls, Visited);
+    CollectReachingDeclsRec(SelI->getFalseValue(), ReachingDecls, Visited);
   } else if (Argument *pArg = dyn_cast<Argument>(pValue)) {
     ReachingDecls.emplace(pValue);
   } else {
