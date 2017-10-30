@@ -2486,11 +2486,10 @@ bool GVN::performScalarPRE(Instruction *CurInst) {
   if (isa<CmpInst>(CurInst))
     return false;
 
-  // HLSL Change Begin
-  // Don't do PRE on share memory. The PHI may merge two shader memory variable.
+  // HLSL Change Begin - Don't do PRE on pointer which may generate phi of
+  // pointers.
   if (PointerType *PT = dyn_cast<PointerType>(CurInst->getType())) {
-    if (PT->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace)
-      return false;
+    return false;
   }
   // HLSL Change End
 
