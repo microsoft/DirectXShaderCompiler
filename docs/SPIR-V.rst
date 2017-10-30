@@ -1145,11 +1145,14 @@ extended instruction mapping, so they are handled with additional steps:
   Uses conditional control flow as well as SPIR-V ``OpKill``.
 - ``rcp``: Calculates a fast, approximate, per-component reciprocal.
   Uses SIR-V ``OpFDiv``.
+- ``lit``: Returns a lighting coefficient vector. This vector is a float4 with
+  components of (ambient, diffuse, specular, 1). How ``diffuse`` and ``specular``
+  are calculated are explained `here <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509619(v=vs.85).aspx>`_.
 
 Using SPIR-V opcode
 ~~~~~~~~~~~~~~~~~~~
 
-the following intrinsic HLSL functions have direct SPIR-V opcodes for them:
+The following intrinsic HLSL functions have direct SPIR-V opcodes for them:
 
 ============================== =================================
    HLSL Intrinsic Function              SPIR-V Opcode
@@ -1181,7 +1184,7 @@ the following intrinsic HLSL functions have direct SPIR-V opcodes for them:
 Using GLSL extended instructions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-the following intrinsic HLSL functions are translated using their equivalent
+The following intrinsic HLSL functions are translated using their equivalent
 instruction in the `GLSL extended instruction set <https://www.khronos.org/registry/spir-v/specs/1.0/GLSL.std.450.html>`_.
 
 ======================= ===================================

@@ -3813,6 +3813,8 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     return processIntrinsicClamp(callExpr);
   case hlsl::IntrinsicOp::IOP_frexp:
     return processIntrinsicFrexp(callExpr);
+  case hlsl::IntrinsicOp::IOP_lit:
+    return processIntrinsicLit(callExpr);
   case hlsl::IntrinsicOp::IOP_modf:
     return processIntrinsicModf(callExpr);
   case hlsl::IntrinsicOp::IOP_sign: {
@@ -4114,6 +4116,37 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
 
   emitError("Unknown argument type passed to Modf function.");
   return 0;
+}
+
+uint32_t SPIRVEmitter::processIntrinsicLit(const CallExpr *callExpr) {
+  // Signature is: float4 lit(float n_dot_l, float n_dot_h, float m)
+  //
+  // This function returns a lighting coefficient vector
+  // (ambient, diffuse, specular, 1) where:
+  // ambient  = 1.
+  // diffuse  = (n_dot_l < 0) ? 0 : n_dot_l
+  // specular = (n_dot_l < 0 || n_dot_h < 0) ? 0 : ((n_dot_h) * m)
+  const uint32_t glslInstSetId = theBuilder.getGLSLExtInstSet();
+  const uint32_t nDotL = doExpr(callExpr->getArg(0));
+  const uint32_t nDotH = doExpr(callExpr->getArg(1));
+  const uint32_t m = doExpr(callExpr->getArg(2));
+  const uint32_t floatType = theBuilder.getFloat32Type();
+  const uint32_t boolType = theBuilder.getBoolType();
+  const uint32_t floatZero = theBuilder.getConstantFloat32(0);
+  const uint32_t floatOne = theBuilder.getConstantFloat32(1);
+  const uint32_t retType = typeTranslator.translateType(callExpr->getType());
+  const uint32_t diffuse = theBuilder.createExtInst(
+      floatType, glslInstSetId, GLSLstd450::GLSLstd450FMax, {floatZero, nDotL});
+  const uint32_t min = theBuilder.createExtInst(
+      floatType, glslInstSetId, GLSLstd450::GLSLstd450FMin, {nDotL, nDotH});
+  const uint32_t isNeg = theBuilder.createBinaryOp(spv::Op::OpFOrdLessThan,
+                                                   boolType, min, floatZero);
+  const uint32_t mul =
+      theBuilder.createBinaryOp(spv::Op::OpFMul, floatType, nDotH, m);
+  const uint32_t specular =
+      theBuilder.createSelect(floatType, isNeg, floatZero, mul);
+  return theBuilder.createCompositeConstruct(
+      retType, {floatOne, diffuse, specular, floatOne});
 }
 
 uint32_t SPIRVEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
