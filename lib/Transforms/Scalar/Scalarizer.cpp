@@ -73,7 +73,13 @@ struct FCmpSplitter {
   FCmpSplitter(FCmpInst &fci) : FCI(fci) {}
   Value *operator()(IRBuilder<> &Builder, Value *Op0, Value *Op1,
                     const Twine &Name) const {
-    return Builder.CreateFCmp(FCI.getPredicate(), Op0, Op1, Name);
+    Value *Cmp = Builder.CreateFCmp(FCI.getPredicate(), Op0, Op1, Name);
+    // HLSL Change Begins -Transfer FPMath flag.
+    if (Instruction *FPMath = dyn_cast<Instruction>(Cmp)) {
+      FPMath->copyFastMathFlags(FCI.getFastMathFlags());
+    }
+    // HLSL Change Ends
+    return Cmp;
   }
   FCmpInst &FCI;
 };
@@ -95,7 +101,15 @@ struct BinarySplitter {
   BinarySplitter(BinaryOperator &bo) : BO(bo) {}
   Value *operator()(IRBuilder<> &Builder, Value *Op0, Value *Op1,
                     const Twine &Name) const {
-    return Builder.CreateBinOp(BO.getOpcode(), Op0, Op1, Name);
+    Value *BinOp = Builder.CreateBinOp(BO.getOpcode(), Op0, Op1, Name);
+    // HLSL Change Begins -Transfer FPMath flag.
+    if (isa<FPMathOperator>(&BO)) {
+      if (Instruction *FPMath = dyn_cast<Instruction>(BinOp)) {
+        FPMath->copyFastMathFlags(BO.getFastMathFlags());
+      }
+    }
+    // HLSL Change Ends
+    return BinOp;
   }
   BinaryOperator &BO;
 };
@@ -341,13 +355,6 @@ void Scalarizer::transferMetadata(Instruction *Op, const ValueVector &CV) {
         if (canTransferMetadata(MI->first))
           New->setMetadata(MI->first, MI->second);
       New->setDebugLoc(Op->getDebugLoc());
-      // HLSL Change Begins
-      // Transfer FPMath flag.
-      if (FPMathOperator *FPMath = dyn_cast<FPMathOperator>(New)) {
-        if (FPMathOperator *FPMathOp = dyn_cast<FPMathOperator>(Op))
-          New->copyFastMathFlags(FPMathOp->getFastMathFlags());
-      }
-      // HLSL Change Ends
     }
   }
 }
