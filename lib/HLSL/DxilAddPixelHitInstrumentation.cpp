@@ -143,6 +143,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
     pUAV->SetLowerBound(0);
     pUAV->SetRangeSize(1);
     pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
+    pUAV->SetRW(true);
 
     auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
     if (pAnnotation == nullptr)
@@ -247,7 +248,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
           {
             Function* LoadWeight = HlslOP->GetOpFunc(OP::OpCode::BufferLoad, Type::getInt32Ty(Ctx));
             Constant* LoadWeightOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferLoad);
-            Constant* OffsetIntoUAV = HlslOP->GetU32Const(NumPixels * 2);
+            Constant* OffsetIntoUAV = HlslOP->GetU32Const(NumPixels * 2 * 4);
             auto WeightStruct = Builder.CreateCall(LoadWeight, {
               LoadWeightOpcode, // i32 opcode
               HandleForUAV,     // %dx.types.Handle, ; resource handle
