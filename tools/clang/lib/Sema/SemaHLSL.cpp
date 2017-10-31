@@ -7697,6 +7697,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(
   case BO_ShlAssign:
   case BO_ShrAssign:
   case BO_SubAssign:
+  case BO_OrAssign:
   case BO_XorAssign: {
     extern bool CheckForModifiableLvalue(Expr * E, SourceLocation Loc,
                                          Sema & S);
@@ -7834,12 +7835,16 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     // element kind may be taken from one side and the dimensions from the
     // other.
 
-    // Legal dimension combinations are identical, splat, and truncation.
-    // ResultTy will be set to whichever type can be converted to, if legal,
-    // with preference for leftType if both are possible.
-    if (FAILED(CombineDimensions(leftType, rightType, &ResultTy))) {
-      m_sema->Diag(OpLoc, diag::err_hlsl_type_mismatch);
-      return;
+    if (!isCompoundAssignment) {
+      // Legal dimension combinations are identical, splat, and truncation.
+      // ResultTy will be set to whichever type can be converted to, if legal,
+      // with preference for leftType if both are possible.
+      if (FAILED(CombineDimensions(leftType, rightType, &ResultTy))) {
+        m_sema->Diag(OpLoc, diag::err_hlsl_type_mismatch);
+        return;
+      }
+    } else {
+      ResultTy = LHS.get()->getType();
     }
 
     // Here, element kind is combined with dimensions for computation type.
