@@ -611,6 +611,7 @@ TEST_F(FileTest, IntrinsicsLog) { runFileTest("intrinsics.log.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog10) { runFileTest("intrinsics.log10.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog2) { runFileTest("intrinsics.log2.hlsl"); }
 TEST_F(FileTest, IntrinsicsMin) { runFileTest("intrinsics.min.hlsl"); }
+TEST_F(FileTest, IntrinsicsLit) { runFileTest("intrinsics.lit.hlsl"); }
 TEST_F(FileTest, IntrinsicsModf) { runFileTest("intrinsics.modf.hlsl"); }
 TEST_F(FileTest, IntrinsicsMad) { runFileTest("intrinsics.mad.hlsl"); }
 TEST_F(FileTest, IntrinsicsMax) { runFileTest("intrinsics.max.hlsl"); }

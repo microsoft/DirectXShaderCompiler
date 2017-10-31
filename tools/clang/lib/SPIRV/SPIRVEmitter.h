@@ -263,6 +263,9 @@ private:
   /// Processes the 'frexp' intrinsic function.
   uint32_t processIntrinsicFrexp(const CallExpr *);
 
+  /// Processes the 'lit' intrinsic function.
+  uint32_t processIntrinsicLit(const CallExpr *);
+
   /// Processes the 'modf' intrinsic function.
   uint32_t processIntrinsicModf(const CallExpr *);
 
