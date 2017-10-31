@@ -1480,12 +1480,129 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   case CastKind::CK_FunctionToPointerDecay:
     // Just need to return the function id
     return doExpr(subExpr);
+  case CastKind::CK_FlatConversion: {
+    // Optimization: we can use OpConstantNull for cases where we want to
+    // initialize an entire data structure to zeros.
+    llvm::APSInt intValue;
+    if (subExpr->EvaluateAsInt(intValue, astContext, Expr::SE_NoSideEffects) &&
+        intValue.getExtValue() == 0) {
+      return theBuilder.getConstantNull(typeTranslator.translateType(toType));
+    } else {
+      return processFlatConversion(toType, subExpr->getType(), doExpr(subExpr));
+    }
+  }
   default:
     emitError("ImplictCast Kind '%0' is not supported yet.")
         << expr->getCastKindName();
     expr->dump();
     return 0;
   }
+}
+
+uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
+                                             const QualType initType,
+                                             const uint32_t initId) {
+  // Try to translate the canonical type first
+  const auto canonicalType = type.getCanonicalType();
+  if (canonicalType != type)
+    return processFlatConversion(canonicalType, initType, initId);
+
+  // Primitive types
+  {
+    QualType ty = {};
+    if (TypeTranslator::isScalarType(type, &ty)) {
+      if (const auto *builtinType = ty->getAs<BuiltinType>()) {
+        switch (builtinType->getKind()) {
+        case BuiltinType::Void: {
+          emitError("cannot create a constant of void type");
+          return 0;
+        }
+        case BuiltinType::Bool:
+          return castToBool(initId, initType, ty);
+          // int, min16int (short), and min12int are all translated to 32-bit
+          // signed integers in SPIR-V.
+        case BuiltinType::Int:
+        case BuiltinType::Short:
+        case BuiltinType::Min12Int:
+        case BuiltinType::UShort:
+        case BuiltinType::UInt:
+          return castToInt(initId, initType, ty);
+          // float, min16float (half), and min10float are all translated to
+          // 32-bit float in SPIR-V.
+        case BuiltinType::Float:
+        case BuiltinType::Half:
+        case BuiltinType::Min10Float:
+          return castToFloat(initId, initType, ty);
+        default:
+          emitError("getting a constant of type '%0' is not supported yet.")
+              << builtinType->getTypeClassName();
+          return 0;
+        }
+      }
+    }
+  }
+  // Vector types
+  {
+    QualType elemType = {};
+    uint32_t elemCount = {};
+    if (TypeTranslator::isVectorType(type, &elemType, &elemCount)) {
+      const uint32_t elemId = processFlatConversion(elemType, initType, initId);
+      std::vector<uint32_t> constituents(elemCount, elemId);
+      return theBuilder.createCompositeConstruct(
+          typeTranslator.translateType(type), constituents);
+    }
+  }
+
+  // Matrix types
+  {
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0;
+    if (TypeTranslator::isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+      if (!elemType->isFloatingType()) {
+        emitError("Non-floating-point matrices not supported yet");
+        return 0;
+      }
+
+      // HLSL matrices are row major, while SPIR-V matrices are column major.
+      // We are mapping what HLSL semantically mean a row into a column here.
+      const uint32_t vecType = theBuilder.getVecType(
+          typeTranslator.translateType(elemType), colCount);
+      const uint32_t elemId = processFlatConversion(elemType, initType, initId);
+      const std::vector<uint32_t> constituents(colCount, elemId);
+      const uint32_t colId =
+          theBuilder.createCompositeConstruct(vecType, constituents);
+      const std::vector<uint32_t> rows(rowCount, colId);
+      return theBuilder.createCompositeConstruct(
+          typeTranslator.translateType(type), rows);
+    }
+  }
+
+  // Struct type
+  if (const auto *structType = type->getAs<RecordType>()) {
+    const auto *decl = structType->getDecl();
+    std::vector<uint32_t> fields;
+    for (const auto *field : decl->fields())
+      fields.push_back(
+          processFlatConversion(field->getType(), initType, initId));
+    return theBuilder.createCompositeConstruct(
+        typeTranslator.translateType(type), fields);
+  }
+
+  // Array type
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+    const auto size =
+        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+    const uint32_t elemId =
+        processFlatConversion(arrayType->getElementType(), initType, initId);
+    std::vector<uint32_t> constituents(size, elemId);
+    return theBuilder.createCompositeConstruct(
+        typeTranslator.translateType(type), constituents);
+  }
+
+  emitError("flat conversion for type '%0' is not supported yet.")
+      << type->getTypeClassName();
+  type->dump();
+  return 0;
 }
 
 SpirvEvalInfo
