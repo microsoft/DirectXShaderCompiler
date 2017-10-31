@@ -708,10 +708,6 @@ $unspec [[]] Load(in int x, out uint_only status) : rwbuffer_load_s;
 namespace ByteAddressBufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-bool [[ro]] LoadBool(in uint byteOffset) : byteaddress_load;
-bool<2> [[ro]] LoadBool2(in uint byteOffset) : byteaddress_load;
-bool<3> [[ro]] LoadBool3(in uint byteOffset) : byteaddress_load;
-bool<4> [[ro]] LoadBool4(in uint byteOffset) : byteaddress_load;
 int [[ro]] LoadInt(in uint byteOffset) : byteaddress_load;
 int<2> [[ro]] LoadInt2(in uint byteOffset) : byteaddress_load;
 int<3> [[ro]] LoadInt3(in uint byteOffset) : byteaddress_load;
@@ -732,10 +728,6 @@ double [[ro]] LoadDouble(in uint byteOffset) : byteaddress_load;
 double<2> [[ro]] LoadDouble2(in uint byteOffset) : byteaddress_load;
 double<3> [[ro]] LoadDouble3(in uint byteOffset) : byteaddress_load;
 double<4> [[ro]] LoadDouble4(in uint byteOffset) : byteaddress_load;
-bool [[]] LoadBool(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-bool<2> [[]] LoadBool2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-bool<3> [[]] LoadBool3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-bool<4> [[]] LoadBool4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 int [[]] LoadInt(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 int<2> [[]] LoadInt2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 int<3> [[]] LoadInt3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
@@ -762,10 +754,6 @@ double<4> [[]] LoadDouble4(in uint byteOffset, out uint_only status) : byteaddre
 namespace RWByteAddressBufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-bool [[ro]] LoadBool(in uint byteOffset) : byteaddress_load;
-bool<2> [[ro]] LoadBool2(in uint byteOffset) : byteaddress_load;
-bool<3> [[ro]] LoadBool3(in uint byteOffset) : byteaddress_load;
-bool<4> [[ro]] LoadBool4(in uint byteOffset) : byteaddress_load;
 int [[ro]] LoadInt(in uint byteOffset) : byteaddress_load;
 int<2> [[ro]] LoadInt2(in uint byteOffset) : byteaddress_load;
 int<3> [[ro]] LoadInt3(in uint byteOffset) : byteaddress_load;
@@ -786,10 +774,6 @@ double [[ro]] LoadDouble(in uint byteOffset) : byteaddress_load;
 double<2> [[ro]] LoadDouble2(in uint byteOffset) : byteaddress_load;
 double<3> [[ro]] LoadDouble3(in uint byteOffset) : byteaddress_load;
 double<4> [[ro]] LoadDouble4(in uint byteOffset) : byteaddress_load;
-bool [[]] LoadBool(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-bool<2> [[]] LoadBool2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-bool<3> [[]] LoadBool3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-bool<4> [[]] LoadBool4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 int [[]] LoadInt(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 int<2> [[]] LoadInt2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 int<3> [[]] LoadInt3(in uint byteOffset, out uint_only status) : byteaddress_load_s;

@@ -3402,7 +3402,7 @@ public:
     case AR_OBJECT_NULL:          return m_context->VoidTy;
     case AR_BASIC_BOOL:           return m_context->BoolTy;
     case AR_BASIC_LITERAL_FLOAT:  return m_context->LitFloatTy;
-    case AR_BASIC_FLOAT16:        return m_context->getLangOpts().UseMinPrecision ? m_context->FloatTy : m_context->HalfTy;
+    case AR_BASIC_FLOAT16:        return m_context->HalfTy;
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->FloatTy;
     case AR_BASIC_FLOAT32:        return m_context->FloatTy;
     case AR_BASIC_FLOAT64:        return m_context->DoubleTy;

@@ -38,16 +38,15 @@ struct HLOperationLowerHelper {
   DxilTypeSystem &dxilTypeSys;
   DxilFunctionProps *functionProps;
   bool bLegacyCBufferLoad;
-  bool bNewDataLayout;
-  DataLayout legacyDataLayout;
-  DataLayout newDataLayout;
+  DataLayout dataLayout;
   HLOperationLowerHelper(HLModule &HLM);
 };
 
 HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
     : hlslOP(*HLM.GetOP()), dxilTypeSys(HLM.GetTypeSystem()),
-      legacyDataLayout(hlsl::DXIL::kLegacyLayoutString),
-      newDataLayout(hlsl::DXIL::kNewLayoutString) {
+      dataLayout(DataLayout(HLM.GetHLOptions().bUseMinPrecision
+                                  ? hlsl::DXIL::kLegacyLayoutString
+                                  : hlsl::DXIL::kNewLayoutString)) {
   llvm::LLVMContext &Ctx = HLM.GetCtx();
   voidTy = Type::getVoidTy(Ctx);
   f32Ty = Type::getFloatTy(Ctx);
@@ -59,7 +58,6 @@ HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
   if (HLM.HasDxilFunctionProps(EntryFunc))
     functionProps = &HLM.GetDxilFunctionProps(EntryFunc);
   bLegacyCBufferLoad = HLM.GetHLOptions().bLegacyCBufferLoad;
-  bNewDataLayout = !HLM.GetHLOptions().bUseMinPrecision;
 }
 
 struct HLObjectOperationLowerHelper {
@@ -2199,7 +2197,7 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   if (RK == DxilResource::Kind::StructuredBuffer) {
     // Set stride.
     Value *stridePtr = CI->getArgOperand(widthOpIdx + 1);
-    const DataLayout &DL = helper.legacyDataLayout;
+    const DataLayout &DL = helper.dataLayout;
     Value *buf = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
     Type *bufTy = buf->getType();
     Type *bufRetTy = bufTy->getStructElementType(0);
@@ -3046,25 +3044,31 @@ void Make64bitResultForLoad(Type *EltTy, ArrayRef<Value *> resultElts32,
 
 static Constant *GetRawBufferLoadMaskFromIOP(IntrinsicOp IOP, hlsl::OP *OP) {
   switch (IOP) {
+    // one dword
     case IntrinsicOp::MOP_Load:
     case IntrinsicOp::MOP_LoadHalf:
     case IntrinsicOp::MOP_LoadInt:
     case IntrinsicOp::MOP_LoadFloat:
       return OP->GetI8Const(0x1);
+    // two dword
     case IntrinsicOp::MOP_Load2:
     case IntrinsicOp::MOP_LoadHalf2:
     case IntrinsicOp::MOP_LoadInt2:
     case IntrinsicOp::MOP_LoadFloat2:
+    case IntrinsicOp::MOP_LoadDouble:
       return OP->GetI8Const(0x3);
+    // three dword
     case IntrinsicOp::MOP_Load3:
     case IntrinsicOp::MOP_LoadHalf3:
     case IntrinsicOp::MOP_LoadInt3:
     case IntrinsicOp::MOP_LoadFloat3:
       return OP->GetI8Const(0x7);
+    // three dword
     case IntrinsicOp::MOP_Load4:
     case IntrinsicOp::MOP_LoadHalf4:
     case IntrinsicOp::MOP_LoadInt4:
     case IntrinsicOp::MOP_LoadFloat4:
+    case IntrinsicOp::MOP_LoadDouble2:
       return OP->GetI8Const(0xf);
     default:
       DXASSERT(false, "Invalid Intrinsic for computing load mask.");
@@ -3224,7 +3228,7 @@ Value *TranslateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
 
   ResLoadHelper loadHelper(CI, RK, RC, handle, IOP);
-  TranslateLoad(loadHelper, RK, Builder, hlslOP, helper.legacyDataLayout);
+  TranslateLoad(loadHelper, RK, Builder, hlslOP, helper.dataLayout);
   // CI is replaced in TranslateLoad.
   return nullptr;
 }
@@ -4205,6 +4209,7 @@ Value *StreamOutputLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
   return nullptr;
 }
 
+// This table has to match IntrinsicOp orders
 IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] = {
     {IntrinsicOp::IOP_AddUint64,  TranslateAddUint64,  DXIL::OpCode::UAddc},
     {IntrinsicOp::IOP_AllMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
@@ -4393,26 +4398,22 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::MOP_Load2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Load3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Load4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadBool, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadBool2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadBool3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadBool4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadInt, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadInt2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadInt3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadInt4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadHalf, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadHalf2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadHalf3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadHalf4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadFloat, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadFloat2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadFloat3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadFloat4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadDouble, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadDouble2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadDouble3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadDouble4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadFloat, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadFloat2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadFloat3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadFloat4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadHalf, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadHalf2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadHalf3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadHalf4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadInt, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadInt2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadInt3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_LoadInt4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedAdd, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedAnd, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedCompareExchange, TranslateMopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
@@ -6132,7 +6133,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
     Instruction *I = cast<Instruction>(user);
     IRBuilder<> Builder(I);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
-      TranslateTypedBufLoad(CI, RK, RC, handle, ldInst, Builder, hlslOP, helper.legacyDataLayout);
+      TranslateTypedBufLoad(CI, RK, RC, handle, ldInst, Builder, hlslOP, helper.dataLayout);
     } else if (StoreInst *stInst = dyn_cast<StoreInst>(user)) {
       Value *val = stInst->getValueOperand();
       TranslateStore(RK, handle, val,
@@ -6155,7 +6156,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
           LoadInst *tmpLd = StBuilder.CreateLoad(CI);
 
           Value *ldVal = TranslateTypedBufLoad(CI, RK, RC, handle, tmpLd, StBuilder,
-                                          hlslOP, helper.legacyDataLayout);
+                                          hlslOP, helper.dataLayout);
           // Update vector.
           ldVal = UpdateVectorElt(ldVal, SI->getValueOperand(), EltIdx,
                                   vectorSize, SI);
@@ -6345,7 +6346,7 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     Value *handle = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
     if (helper.bLegacyCBufferLoad)
       TranslateCBOperationsLegacy(handle, CI, hlslOP, helper.dxilTypeSys,
-                                  helper.legacyDataLayout, pObjHelper);
+                                  helper.dataLayout, pObjHelper);
     else {
       TranslateCBOperations(handle, CI, /*offset*/ hlslOP->GetU32Const(0),
                             hlslOP, helper.dxilTypeSys,
@@ -6367,7 +6368,7 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     Instruction *ldInst = cast<Instruction>(*U);
     ResLoadHelper ldHelper(ldInst, handle, coord, mipLevel);
     IRBuilder<> Builder(CI);
-    TranslateLoad(ldHelper, RK, Builder, hlslOP, helper.legacyDataLayout);
+    TranslateLoad(ldHelper, RK, Builder, hlslOP, helper.dataLayout);
     ldInst->eraseFromParent();
     Translated = true;
     return;
@@ -6386,11 +6387,11 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
       Type *RetTy = ObjTy->getStructElementType(0);
       if (RK == DxilResource::Kind::StructuredBuffer) {
         TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP,
-                                    helper.bNewDataLayout ? helper.newDataLayout : helper.legacyDataLayout);
+                                    helper.dataLayout);
       } else if (RetTy->isAggregateType() &&
                  RK == DxilResource::Kind::TypedBuffer) {
         TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP,
-                                    helper.bNewDataLayout ? helper.newDataLayout : helper.legacyDataLayout);
+                                    helper.dataLayout);
         // Clear offset for typed buf.
         for (auto User : handle->users()) {
           CallInst *CI = cast<CallInst>(User);
@@ -6413,6 +6414,22 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
           case DXIL::OpCode::AtomicCompareExchange: {
             CI->setArgOperand(DXIL::OperandIndex::kAtomicCmpExchangeCoord1OpIdx,
                               UndefValue::get(helper.i32Ty));
+          } break;
+          case DXIL::OpCode::RawBufferLoad: {
+            // Structured buffer inside a typed buffer must be converted to typed buffer load.
+            // Typed buffer load is equivalent to raw buffer load, except there is no mask.
+            StructType *STy = cast<StructType>(CI->getFunctionType()->getReturnType());
+            Type *ETy = STy->getElementType(0);
+            SmallVector<Value *, 4> Args;
+            Args.emplace_back(hlslOP->GetI32Const((unsigned)DXIL::OpCode::BufferLoad));
+            Args.emplace_back(CI->getArgOperand(1)); // handle
+            Args.emplace_back(CI->getArgOperand(2)); // index
+            Args.emplace_back(UndefValue::get(helper.i32Ty)); // offset
+            IRBuilder<> builder(CI);
+            Function *newFunction = hlslOP->GetOpFunc(DXIL::OpCode::BufferLoad, ETy);
+            CallInst *newCall = builder.CreateCall(newFunction, Args);
+            CI->replaceAllUsesWith(newCall);
+            CI->eraseFromParent();
           } break;
           default:
             DXASSERT(0, "Invalid operation on resource handle");
