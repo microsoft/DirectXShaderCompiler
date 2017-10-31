@@ -143,10 +143,10 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel) {
   OptimizerWhenSliceNThenOK(optLevel, SampleProgram, L"ps_6_0");
 }
 static bool IsPassMarkerFunction(LPCWSTR pName) {
-  return 0 == wcsicmp(pName, L"-opt-fn-passes");
+  return 0 == _wcsicmp(pName, L"-opt-fn-passes");
 }
 static bool IsPassMarkerNotFunction(LPCWSTR pName) {
-  return 0 == wcsnicmp(pName, L"-opt-", 5) && !IsPassMarkerFunction(pName);
+  return 0 == _wcsnicmp(pName, L"-opt-", 5) && !IsPassMarkerFunction(pName);
 }
 static void ExtractFunctionPasses(std::vector<LPCWSTR> &passes, std::vector<LPCWSTR> &functionPasses) {
   // Assumption: contiguous range
