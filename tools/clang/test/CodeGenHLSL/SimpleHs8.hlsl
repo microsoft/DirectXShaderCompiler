@@ -1,8 +1,8 @@
 // RUN: %dxc -E main -T hs_6_0  %s | FileCheck %s
 
-// CHECK: Patch Constant function HSPerPatchFunc should not have inout param
-// CHECK: Patch constant function's output patch input should have 3 elements, but has 5.
-// CHECK: Patch constant function's input patch input should have 3 elements, but has 12.
+// CHECK-DAG: Patch Constant function HSPerPatchFunc should not have inout param
+// CHECK-DAG: Patch constant function's input patch input should have 3 elements, but has 12.
+// CHECK-DAG: Patch constant function's output patch input should have 3 elements, but has 5.
 
 //--------------------------------------------------------------------------------------
 // SimpleTessellation.hlsl
