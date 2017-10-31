@@ -276,6 +276,33 @@ uint32_t TypeTranslator::getACSBufferCounter() {
                                   decorations);
 }
 
+uint32_t TypeTranslator::getGlPerVertexStruct(uint32_t clipArraySize,
+                                              uint32_t cullArraySize,
+                                              llvm::StringRef name) {
+  const uint32_t f32Type = theBuilder.getFloat32Type();
+  const uint32_t v4f32Type = theBuilder.getVecType(f32Type, 4);
+  const uint32_t clipType = theBuilder.getArrayType(
+      f32Type, theBuilder.getConstantUint32(clipArraySize));
+  const uint32_t cullType = theBuilder.getArrayType(
+      f32Type, theBuilder.getConstantUint32(cullArraySize));
+
+  auto &ctx = *theBuilder.getSPIRVContext();
+  llvm::SmallVector<const Decoration *, 1> decorations;
+
+  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::Position,
+                                               llvm::Optional<uint32_t>(0)));
+  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::PointSize,
+                                               llvm::Optional<uint32_t>(1)));
+  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::ClipDistance,
+                                               llvm::Optional<uint32_t>(2)));
+  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::CullDistance,
+                                               llvm::Optional<uint32_t>(3)));
+  decorations.push_back(Decoration::getBlock(ctx));
+
+  return theBuilder.getStructType({v4f32Type, f32Type, clipType, cullType},
+                                  name, {}, decorations);
+}
+
 bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
   bool isScalar = false;
   QualType ty = {};

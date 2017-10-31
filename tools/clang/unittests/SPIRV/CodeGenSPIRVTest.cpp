@@ -347,18 +347,8 @@ TEST_F(FileTest, ClassStaticMember) {
 }
 
 // For semantics
-TEST_F(FileTest, SemanticPositionVS) {
-  runFileTest("semantic.position.vs.hlsl");
-}
-TEST_F(FileTest, SemanticPositionPS) {
-  runFileTest("semantic.position.ps.hlsl");
-}
-TEST_F(FileTest, SemanticPositionDS) {
-  runFileTest("semantic.position.ds.hlsl");
-}
-TEST_F(FileTest, SemanticPositionGS) {
-  runFileTest("semantic.position.gs.hlsl");
-}
+// SV_Position, SV_ClipDistance, and SV_CullDistance are covered in
+// SpirvStageIOInterface* tests.
 TEST_F(FileTest, SemanticVertexIDVS) {
   runFileTest("semantic.vertex-id.vs.hlsl");
 }
@@ -716,7 +706,7 @@ TEST_F(FileTest, PrimitiveErrorGS) {
   runFileTest("primitive.error.gs.hlsl", /*expectSuccess*/ false);
 }
 
-// Vulkan/SPIR-V specific
+// SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
 TEST_F(FileTest, SpirvEntryFunctionWrapper) {
@@ -724,6 +714,21 @@ TEST_F(FileTest, SpirvEntryFunctionWrapper) {
 }
 TEST_F(FileTest, SpirvEntryFunctionInOut) {
   runFileTest("spirv.entry-function.inout.hlsl");
+}
+
+// For shader stage input/output interface
+// For semantic SV_Position, SV_ClipDistance, SV_CullDistance
+TEST_F(FileTest, SpirvStageIOInterfaceVS) {
+  runFileTest("spirv.interface.vs.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfaceHS) {
+  runFileTest("spirv.interface.hs.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfaceDS) {
+  runFileTest("spirv.interface.ds.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfacePS) {
+  runFileTest("spirv.interface.ps.hlsl");
 }
 
 TEST_F(FileTest, SpirvInterpolation) {
@@ -737,6 +742,7 @@ TEST_F(FileTest, VulkanAttributeErrors) {
   runFileTest("vk.attribute.error.hlsl", /*expectSuccess*/ false);
 }
 
+// Vulkan specific
 TEST_F(FileTest, VulkanLocation) { runFileTest("vk.location.hlsl"); }
 TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {
   runFileTest("vk.location.exp-in.hlsl");
@@ -814,13 +820,11 @@ TEST_F(FileTest, HullShaderPCFTakesOutputPatch) {
   runFileTest("hull.pcf.output-patch.hlsl");
 }
 TEST_F(FileTest, HullShaderPCFTakesPrimitiveId) {
-  runFileTest("hull.pcf.primitive-id.hlsl");
+  runFileTest("hull.pcf.primitive-id.1.hlsl");
 }
 TEST_F(FileTest, HullShaderPCFTakesPrimitiveIdButMainDoesnt) {
-  runFileTest("hull.pcf.primitive-id-2.hlsl");
+  runFileTest("hull.pcf.primitive-id.2.hlsl");
 }
-// For Hull Shader Output variables
-TEST_F(FileTest, HullShaderOutputVars) { runFileTest("hull.output-vars.hlsl"); }
 // For the structure of Hull Shaders
 TEST_F(FileTest, HullShaderStructure) { runFileTest("hull.structure.hlsl"); }
 

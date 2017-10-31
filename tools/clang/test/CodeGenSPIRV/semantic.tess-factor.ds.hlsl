@@ -1,6 +1,7 @@
 // Run: %dxc -T ds_6_0 -E BezierEvalDS
 
-// CHECK: OpEntryPoint TessellationEvaluation %BezierEvalDS "BezierEvalDS" %gl_TessLevelOuter {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}}
+// CHECK: OpEntryPoint TessellationEvaluation %BezierEvalDS "BezierEvalDS"
+// CHECK-SAME: %gl_TessLevelOuter
 
 // CHECK: OpDecorate %gl_TessLevelOuter BuiltIn TessLevelOuter
 // CHECK: OpDecorate %gl_TessLevelOuter Patch
@@ -27,7 +28,7 @@ struct DS_OUTPUT
 };
 
 [domain("quad")]
-DS_OUTPUT BezierEvalDS( HS_CONSTANT_DATA_OUTPUT input, 
+DS_OUTPUT BezierEvalDS( HS_CONSTANT_DATA_OUTPUT input,
                         float2 UV : SV_DomainLocation,
                         const OutputPatch<BEZIER_CONTROL_POINT, 16> bezpatch )
 {

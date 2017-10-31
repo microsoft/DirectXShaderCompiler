@@ -120,6 +120,182 @@ private:
   bool isCounterVar;                          ///< Couter variable or not
 };
 
+/// The class for representing special gl_PerVertex builtin interface block.
+/// The Position, PointSize, ClipDistance, and CullDistance builtin should
+/// be handled by this class, except for Position builtin used in GS output
+/// and PS input.
+///
+/// Although the Vulkan spec does not require this directly, it seems the only
+/// way to avoid violating the spec is to group the Position, ClipDistance, and
+/// CullDistance builtins together into a struct. That's also how GLSL handles
+/// these builtins. In GLSL, this struct is called gl_PerVertex.
+///
+/// This struct should appear as the entry point parameters but it should not
+/// have location assignment. We can have two such block at most: one for input,
+/// one for output.
+///
+/// Reading/writing of the ClipDistance/CullDistance builtin is not as
+/// straightforward as other builtins. This is because in HLSL, we can have
+/// multiple entities annotated with SV_ClipDistance/SV_CullDistance and they
+/// can be float or vector of float type. For example,
+///
+///   float2 var1 : SV_ClipDistance2,
+///   float  var2 : SV_ClipDistance0,
+///   float3 var3 : SV_ClipDistance1,
+///
+/// But in Vulkan, ClipDistance/CullDistance is required to be a float array.
+/// So we need to combine these variables into one single float array. The way
+/// we do it is to sort all entities according to the SV_ClipDistance/
+/// SV_CullDistance index, and concatenate them tightly. So for the above,
+/// var2 will take the first two floats in the array, var3 will take the next
+/// three, and var1 will take the next two. In total, we have an size-6 float
+/// array for ClipDistance builtin.
+class GlPerVertex {
+public:
+  GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
+              ModuleBuilder &builder, TypeTranslator &translator);
+
+  /// Records an declaration of SV_ClipDistance/SV_CullDistance so later
+  /// we can caculate the ClipDistance/CullDistance array layout.
+  bool recordClipCullDistanceDecl(const DeclaratorDecl *decl, bool asInput);
+
+  /// Calculates the layout for ClipDistance/CullDistance arrays.
+  void calculateClipCullDistanceArraySize();
+
+  /// Emits SPIR-V code for the input and/or ouput gl_PerVertex builtin
+  /// interface blocks. If inputArrayLength is not zero, the input gl_PerVertex
+  /// will have an additional arrayness of the given size. Similarly for
+  /// outputArrayLength.
+  ///
+  /// Note that this method should be called after recordClipCullDistanceDecl()
+  /// and calculateClipCullDistanceArraySize().
+  void generateVars(uint32_t inputArrayLength, uint32_t outputArrayLength);
+
+  /// Returns the <result-id>s for stage input variables.
+  llvm::SmallVector<uint32_t, 4> getStageInVars() const;
+  /// Returns the <result-id>s for stage output variables.
+  llvm::SmallVector<uint32_t, 4> getStageOutVars() const;
+
+  /// Tries to access the builtin translated from the given HLSL semantic of
+  /// the given index. If sigPoint dicates this is input, builtins will be read
+  /// to compose a new temporary value of the correct type and writes to *value.
+  /// Otherwise, the *value will be decomposed and writes to the builtins.
+  /// Emits SPIR-V instructions and returns true if we are accessing builtins
+  /// belonging to gl_PerVertex. Does nothing and returns true if we are
+  /// accessing builtins not in gl_PerVertex. Returns false if errors occurs.
+  bool tryToAccess(hlsl::Semantic::Kind, uint32_t semanticIndex,
+                   llvm::Optional<uint32_t> invocationId, uint32_t *value,
+                   hlsl::SigPoint::Kind sigPoint);
+
+private:
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N],
+                              SourceLocation loc = {}) {
+    const auto diagId = astContext.getDiagnostics().getCustomDiagID(
+        clang::DiagnosticsEngine::Error, message);
+    return astContext.getDiagnostics().Report(loc, diagId);
+  }
+
+  /// Creates a gl_PerVertex interface block variable. If arraySize is not zero,
+  /// The created variable will be an array of gl_PerVertex of the given size.
+  /// Otherwise, it will just be a plain struct.
+  uint32_t createBlockVar(bool asInput, uint32_t arraySize);
+  /// Creates a stand-alone Position builtin variable.
+  uint32_t createPositionVar(bool asInput);
+  /// Creates a stand-alone ClipDistance builtin variable.
+  uint32_t createClipDistanceVar(bool asInput, uint32_t arraySize);
+  /// Creates a stand-alone CullDistance builtin variable.
+  uint32_t createCullDistanceVar(bool asInput, uint32_t arraySize);
+
+  /// Emits SPIR-V instructions for reading the Position builtin.
+  uint32_t readPosition() const;
+  /// Emits SPIR-V instructions for reading the data starting from offset in
+  /// the ClipDistance/CullDistance builtin. For clipCullIndex, 2 means
+  /// ClipDistance; 3 means CullDistance. The data readed will be transformed
+  /// into the given type asType.
+  uint32_t readClipCullArrayAsType(uint32_t clipCullIndex, uint32_t offset,
+                                   QualType asType) const;
+  /// Emits SPIR-V instructions to read a field in gl_PerVertex.
+  bool readField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,
+                 uint32_t *value);
+
+  /// Emits SPIR-V instructions for writing the Position builtin.
+  void writePosition(llvm::Optional<uint32_t> invocationId,
+                     uint32_t value) const;
+  /// Emits SPIR-V instructions for writing data into the ClipDistance/
+  /// CullDistance builtin starting from offset. For clipCullIndex, 2 means
+  /// ClipDistance; 3 means CullDistance. The value to be written is fromValue,
+  /// whose type is fromType. Necessary transformations will be generated
+  /// to make sure type correctness.
+  void writeClipCullArrayFromType(llvm::Optional<uint32_t> invocationId,
+                                  uint32_t clipCullIndex, uint32_t offset,
+                                  QualType fromType, uint32_t fromValue) const;
+  /// Emits SPIR-V instructions to write a field in gl_PerVertex.
+  bool writeField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,
+
+                  llvm::Optional<uint32_t> invocationId, uint32_t *value);
+
+  /// Internal implementation for recordClipCullDistanceDecl().
+  bool doClipCullDistanceDecl(const DeclaratorDecl *decl, QualType type,
+                              bool asInput);
+
+private:
+  using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
+  using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
+
+  const hlsl::ShaderModel &shaderModel;
+  ASTContext &astContext;
+  ModuleBuilder &theBuilder;
+  TypeTranslator &typeTranslator;
+
+  /// We can have Position, ClipDistance, and CullDistance either grouped (G)
+  /// into the gl_PerVertex struct, or separated (S) as stand-alone variables.
+  /// The following table shows for each shader stage, which one is used:
+  ///
+  /// ===== ===== ======
+  /// Stage Input Output
+  /// ===== ===== ======
+  ///  VS     X     G
+  ///  HS     G     G
+  ///  DS     G     G
+  ///  GS     G     S
+  ///  PS     S     X
+  /// ===== ===== ======
+  ///
+  /// Note that when we use separated variables, there is no extra arrayness.
+  ///
+  /// So depending on the shader stage, we may use one of the following set
+  /// of variables to store <result-id>s of the variables:
+
+  /// Indicates which set of variables are used.
+  bool inIsGrouped, outIsGrouped;
+  /// Input/output gl_PerVertex block variable if grouped.
+  uint32_t inBlockVar, outBlockVar;
+  /// Input/output ClipDistance/CullDistance variable if separated.
+  uint32_t inClipVar, inCullVar;
+  uint32_t outClipVar, outCullVar;
+
+  /// The array size for the input/output gl_PerVertex block variabe.
+  /// HS input and output, DS input, GS input has an additional level of
+  /// arrayness. The array size is stored in this variable. Zero means
+  /// the corresponding variable is a plain struct, not an array.
+  uint32_t inArraySize, outArraySize;
+  /// The array size of input/output ClipDistance/CullDistance float arrays.
+  /// This is not the array size of the whole gl_PerVertex struct.
+  uint32_t inClipArraySize, outClipArraySize;
+  uint32_t inCullArraySize, outCullArraySize;
+
+  /// We need to record all SV_ClipDistance/SV_CullDistance decls' types
+  /// since we need to generate the necessary conversion instructions when
+  /// accessing the ClipDistance/CullDistance builtins.
+  SemanticIndexToTypeMap inClipType, outClipType;
+  SemanticIndexToTypeMap inCullType, outCullType;
+  /// We also need to keep track of all SV_ClipDistance/SV_CullDistance decls'
+  /// offsets in the float array.
+  SemanticIndexToArrayOffsetMap inClipOffset, outClipOffset;
+  SemanticIndexToArrayOffsetMap inCullOffset, outCullOffset;
+};
+
 /// \brief The class containing mappings from Clang frontend Decls to their
 /// corresponding SPIR-V <result-id>s.
 ///
@@ -133,7 +309,7 @@ private:
 /// is required because of the semantic differences between DirectX and
 /// Vulkan and the essence of HLSL as the front-end language for DirectX.
 /// A normal variable attached with some semantic will be translated into a
-/// single stage variables if it is of non-struct type. If it is of struct
+/// single stage variable if it is of non-struct type. If it is of struct
 /// type, the fields with attached semantics will need to be translated into
 /// stage variables per Vulkan's requirements.
 class DeclResultIdMapper {
@@ -147,8 +323,14 @@ public:
   /// true on success. SPIR-V instructions will also be generated to update the
   /// contents of the output variables by extracting sub-values from the given
   /// storedValue.
+  ///
+  /// Note that the control point stage output variable of HS should be created
+  /// by the other overload.
   bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t storedValue,
                             bool isPatchConstant);
+  /// \brief Overload for handling HS control point stage ouput variable.
+  bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t arraySize,
+                            uint32_t invocationId, uint32_t storedValue);
 
   /// \brief Creates the stage input variables by parsing the semantics attached
   /// to the given function's parameter and returns true on success. SPIR-V
@@ -156,16 +338,6 @@ public:
   /// variables and composite them into one and write to *loadedValue.
   bool createStageInputVar(const ParmVarDecl *paramDecl, uint32_t *loadedValue,
                            bool isPatchConstant);
-
-  /// \brief Creates an input/output stage variable which does not have any
-  /// semantics (such as InputPatch/OutputPatch in Hull shaders). This method
-  /// does not create a Load/Store from/to the created stage variable and leaves
-  /// it to the caller to do so as they see fit, because it is possible that the
-  /// stage variable may have to be accessed differently (using OpAccessChain
-  /// for example).
-  uint32_t createStageVarWithoutSemantics(bool isInput, uint32_t typeId,
-                                          const llvm::StringRef name,
-                                          const clang::VKLocationAttr *loc);
 
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its <result-id>.
@@ -207,7 +379,7 @@ public:
   /// \brief Sets the <result-id> of the entry function.
   void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
 
-public:
+private:
   /// The struct containing SPIR-V information of a AST Decl.
   struct DeclSpirvInfo {
     DeclSpirvInfo(uint32_t result = 0,
@@ -234,6 +406,7 @@ public:
   /// Returns nullptr if no such decl was previously registered.
   const DeclSpirvInfo *getDeclSpirvInfo(const NamedDecl *decl) const;
 
+public:
   /// \brief Returns the information for the given decl.
   ///
   /// This method will panic if the given decl is not registered.
@@ -289,10 +462,6 @@ private:
   /// construction.
   bool finalizeStageIOLocations(bool forInput);
 
-  /// Returns the type of the given decl. If the given decl is a FunctionDecl,
-  /// returns its result type.
-  QualType getFnParamOrRetType(const DeclaratorDecl *decl) const;
-
   /// Creates a variable of struct type with explicit layout decorations.
   /// The sub-Decls in the given DeclContext will be treated as the struct
   /// fields. The struct type will be named as typeName, and the variable
@@ -303,13 +472,29 @@ private:
                                            llvm::StringRef typeName,
                                            llvm::StringRef varName);
 
-  /// Creates all the stage variables mapped from semantics on the given decl
-  /// and returns true on success.
+  /// Creates all the stage variables mapped from semantics on the given decl.
+  /// Return true on sucess.
+  ///
+  /// If decl is of struct type, this means flattening it and create stand-
+  /// alone variables for each field. If arraySize is not zero, the created
+  /// stage variables will have an additional arrayness over its original type.
+  /// This is for supporting HS/DS/GS, which takes in primitives containing
+  /// multiple vertices. asType should be the type we are treating decl as;
+  /// For HS/DS/GS, the outermost arrayness should be discarded and use
+  /// arraySize instead.
+  ///
+  /// Also performs updating the stage variables (loading/storing from/to the
+  /// given value) depending on asInput.
+  ///
+  /// invocationId is only used for HS to indicate the index of the output
+  /// array element to write to.
   ///
   /// Assumes the decl has semantic attached to itself or to its fields.
-  bool createStageVars(const DeclaratorDecl *decl, uint32_t *value,
-                       bool asInput, const llvm::Twine &namePrefix,
-                       bool isPatchConstant, bool isOutputStream = false);
+  bool createStageVars(const DeclaratorDecl *decl,
+                       const hlsl::SigPoint *sigPoint, bool asInput,
+                       QualType type, uint32_t arraySize,
+                       llvm::Optional<uint32_t> invocationId, uint32_t *value,
+                       const llvm::Twine &namePrefix);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
@@ -320,6 +505,11 @@ private:
   /// Creates the associated counter variable for RW/Append/Consume
   /// structured buffer.
   uint32_t createCounterVar(const ValueDecl *decl);
+
+  /// Decorates varId of the given asType with proper interpolation modes
+  /// considering the attributes on the given decl.
+  void decoratePSInterpolationMode(const DeclaratorDecl *decl, QualType asType,
+                                   uint32_t varId);
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.
@@ -344,8 +534,13 @@ private:
   llvm::SmallVector<StageVar, 8> stageVars;
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
-  /// Mapping from {Append|Consume}StructuredBuffers to their counter variables
+  /// Mapping from {RW|Append|Consume}StructuredBuffers to their
+  /// counter variables
   llvm::DenseMap<const NamedDecl *, uint32_t> counterVars;
+
+public:
+  /// The gl_PerVertex structs for both input and output
+  GlPerVertex glPerVertex;
 };
 
 DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
@@ -354,7 +549,8 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        DiagnosticsEngine &diag,
                                        const EmitSPIRVOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
-      diags(diag), typeTranslator(context, builder, diag), entryFunctionId(0) {}
+      diags(diag), typeTranslator(context, builder, diag), entryFunctionId(0),
+      glPerVertex(model, context, builder, typeTranslator) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
   // Try both input and output even if input location assignment failed
