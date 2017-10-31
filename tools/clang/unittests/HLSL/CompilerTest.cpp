@@ -761,6 +761,7 @@ public:
   TEST_METHOD(CodeGenSimpleHS6)
   TEST_METHOD(CodeGenSimpleHS7)
   TEST_METHOD(CodeGenSimpleHS8)
+  TEST_METHOD(CodeGenSimpleHS9)
   TEST_METHOD(CodeGenSMFail)
   TEST_METHOD(CodeGenSrv_Ms_Load1)
   TEST_METHOD(CodeGenSrv_Ms_Load2)
@@ -4188,6 +4189,10 @@ TEST_F(CompilerTest, CodeGenSimpleHS7) {
 
 TEST_F(CompilerTest, CodeGenSimpleHS8) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS8.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleHS9) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS9.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSMFail) {

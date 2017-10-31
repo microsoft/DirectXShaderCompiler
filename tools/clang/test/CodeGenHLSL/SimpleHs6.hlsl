@@ -1,7 +1,6 @@
 // RUN: %dxc -E main -T hs_6_0 -Zi %s | FileCheck %s
 
 // CHECK: may only have one InputPatch parameter
-// CHECK: Patch constant function's output patch input should have 3 elements, but has 5.
 
 //--------------------------------------------------------------------------------------
 // SimpleTessellation.hlsl
@@ -64,7 +63,7 @@ HSPerPatchData HSPerPatchFunc( const InputPatch< PSSceneIn, 3 > points,  OutputP
 [patchconstantfunc("HSPerPatchFunc")]
 [outputcontrolpoints(3)]
 HSPerVertexData main( const uint id : SV_OutputControlPointID,
-                               const InputPatch< PSSceneIn, 3 > points, const InputPatch< PSSceneIn, 3 > points2 )
+                      const InputPatch< PSSceneIn, 3 > points, const InputPatch< PSSceneIn, 3 > points2 )
 {
     HSPerVertexData v;
 
