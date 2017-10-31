@@ -1492,8 +1492,9 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     }
   }
   default:
-    emitError("ImplictCast Kind '%0' is not supported yet.")
-        << expr->getCastKindName();
+    emitError("ImplictCast Kind '%0' is not supported yet.",
+              expr->getLocStart())
+        << expr->getCastKindName() << expr->getSourceRange();
     expr->dump();
     return 0;
   }
