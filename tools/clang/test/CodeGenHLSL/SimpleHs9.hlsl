@@ -1,6 +1,15 @@
-// RUN: %dxc -E main -T hs_6_0 -Zi %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0  %s | FileCheck %s
 
-// CHECK: may only have one InputPatch parameter
+// CHECK: SV_TessFactor 0
+// CHECK: SV_InsideTessFactor 0
+
+// CHECK: define void @main
+
+// CHECK: define void {{.*}}HSPerPatchFunc
+// CHECK: dx.op.storePatchConstant.f32{{.*}}float 1.0
+// CHECK: dx.op.storePatchConstant.f32{{.*}}float 2.0
+// CHECK: dx.op.storePatchConstant.f32{{.*}}float 3.0
+// CHECK: dx.op.storePatchConstant.f32{{.*}}float 4.0
 
 //--------------------------------------------------------------------------------------
 // SimpleTessellation.hlsl
@@ -12,11 +21,10 @@
 
 struct PSSceneIn
 {
-    float4 pos  : SV_Position;
-    float2 tex  : TEXCOORD0;
-    float3 norm : NORMAL;
-
-uint   RTIndex      : SV_RenderTargetArrayIndex;
+    float4 pos     : SV_Position;
+    float2 tex     : TEXCOORD0;
+    float3 norm    : NORMAL;
+    uint   RTIndex : SV_RenderTargetArrayIndex;
 };
 
 
@@ -35,25 +43,13 @@ struct HSPerPatchData
     // We at least have to specify tess factors per patch
     // As we're tesselating triangles, there will be 4 tess factors
     // In real life case this might contain face normal, for example
-	float	edges[ 3 ]	: SV_TessFactor;
-	float	inside		: SV_InsideTessFactor;
+	float	edges[3] : SV_TessFactor;
+	float	inside   : SV_InsideTessFactor;
 };
 
 float4 HSPerPatchFunc()
 {
     return 1.8;
-}
-
-HSPerPatchData HSPerPatchFunc( const InputPatch< PSSceneIn, 3 > points,  OutputPatch<HSPerVertexData, 5> outp )
-{
-    HSPerPatchData d;
-
-    d.edges[ 0 ] = 1;
-    d.edges[ 1 ] = 1;
-    d.edges[ 2 ] = 1;
-    d.inside = 1;
-
-    return d;
 }
 
 // hull per-control point shader
@@ -63,7 +59,7 @@ HSPerPatchData HSPerPatchFunc( const InputPatch< PSSceneIn, 3 > points,  OutputP
 [patchconstantfunc("HSPerPatchFunc")]
 [outputcontrolpoints(3)]
 HSPerVertexData main( const uint id : SV_OutputControlPointID,
-                      const InputPatch< PSSceneIn, 3 > points, const InputPatch< PSSceneIn, 3 > points2 )
+                      const InputPatch< PSSceneIn, 3 > points )
 {
     HSPerVertexData v;
 
@@ -73,4 +69,14 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,
 	return v;
 }
 
+HSPerPatchData HSPerPatchFunc(const InputPatch< PSSceneIn, 3 > points)
+{
+  HSPerPatchData d;
 
+  d.edges[0] = 1;
+  d.edges[1] = 2;
+  d.edges[2] = 3;
+  d.inside = 4;
+
+  return d;
+}
