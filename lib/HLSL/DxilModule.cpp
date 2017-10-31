@@ -1394,6 +1394,7 @@ MDTuple *DxilModule::EmitDxilResources() {
 
 void DxilModule::ReEmitDxilResources() {
   ClearDxilMetadata(*m_pModule);
+  m_pViewIdState->Compute();
   EmitDxilMetadata();
 }
 
