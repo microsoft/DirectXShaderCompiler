@@ -3813,7 +3813,9 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_texCUBEgrad:
   case hlsl::IntrinsicOp::IOP_texCUBElod:
   case hlsl::IntrinsicOp::IOP_texCUBEproj: {
-    emitError("intrinsic tex*() functions are deprecated");
+    emitError("deprecated intrinsic %0 function will not be not supported",
+              callExpr->getExprLoc())
+        << callee->getName();
     return 0;
   }
   case hlsl::IntrinsicOp::IOP_dot:
