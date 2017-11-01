@@ -648,12 +648,17 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC, Instruction
   case Type::TypeID::HalfTyID:
     addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC, Inst);
     break;
+  case Type::TypeID::PointerTyID:
+    // Skip pointer calculation instructions. They aren't particularly meaningful to the user (being a mere
+    // implementation detail for lookup tables, etc.), and their type is problematic from a UI point of view.
+    // The subsequent instructions that dereference the pointer will be properly instrumented and show the
+    // (meaningful) retrieved value.
+    break;
   case Type::TypeID::FP128TyID:
   case Type::TypeID::LabelTyID:
   case Type::TypeID::MetadataTyID:
   case Type::TypeID::FunctionTyID:
   case Type::TypeID::ArrayTyID:
-  case Type::TypeID::PointerTyID:
   case Type::TypeID::VectorTyID:
     assert(false);
   }
