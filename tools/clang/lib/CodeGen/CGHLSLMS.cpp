@@ -1689,6 +1689,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     Entry.SL = FD->getLocation();
     Entry.Func= F;
   }
+
+  // Add target-dependent experimental function attributes
+  for (const auto &Attr : FD->specific_attrs<HLSLExperimentalAttr>()) {
+    F->addFnAttr(Twine("exp-", Attr->getName()).str(), Attr->getValue());
+  }
 }
 
 void CGMSHLSLRuntime::EmitHLSLFunctionProlog(Function *F, const FunctionDecl *FD) {
