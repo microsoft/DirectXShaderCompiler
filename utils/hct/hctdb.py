@@ -1379,7 +1379,7 @@ class db_dxil(object):
             {'n':'lowerbitsets-avoid-reuse', 'i':'AvoidReuse', 't':'bool', 'd':'Try to avoid reuse of byte array addresses using aliases'}])
         add_pass('red', 'ReducibilityAnalysis', 'Reducibility Analysis', [])
         add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [])
-        add_pass('hlsl-translate-dxil-opcode-version', 'DxilTranslateOpCodeVersion', 'Translates one version of dxil to another', [])
+        add_pass('hlsl-translate-dxil-opcode-version', 'DxilTranslateRawBuffer', 'Translates one version of dxil to another', [])
         # TODO: turn STATISTICS macros into ETW events
         # assert no duplicate names
         self.pass_idx_args = set()

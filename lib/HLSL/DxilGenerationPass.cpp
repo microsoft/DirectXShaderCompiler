@@ -1822,42 +1822,54 @@ INITIALIZE_PASS(DxilLegalizeEvalOperations,
                 "DXIL legalize eval operations", false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
-// Translate DXIL Function.
-// Make sure that we have a correct DXIL ops for the given DXIL version
-// For example, the structured/raw buffer Load methods map to different DXIL
-// ops starting in SM 6.2. This pass is to map one op to another depending on the
-// shader model version.
+// Translate RawBufferLoad
+// This pass is to make sure that we generate correct buffer load for DXIL
+// For DXIL < 1.2, rawBufferLoad will be translated to BufferLoad instruction
+// without mask.
+// For DXIL >= 1.2, if min precision is enabled, currently generation pass is
+// producing i16/f16 return type for min precisions. For rawBufferLoad, we will
+// change this so that min precisions are returning its scalar type (i32/f32)
+// and will be truncated to their corresponding types.
 namespace {
 
-class DxilTranslateOpCodeVersion : public ModulePass {
+class DxilTranslateRawBuffer : public ModulePass {
 public:
   static char ID;
-  explicit DxilTranslateOpCodeVersion() : ModulePass(ID) {}
+  explicit DxilTranslateRawBuffer() : ModulePass(ID) {}
   bool runOnModule(Module &M) {
     unsigned major, minor;
     M.GetDxilModule().GetDxilVersion(major, minor);
+    DxilModule::ShaderFlags flag = M.GetDxilModule().m_ShaderFlags;
     if (major == 1 && minor < 2) {
       for (auto F = M.functions().begin(), E = M.functions().end(); F != E;) {
         Function *func = &*(F++);
-
         if (func->hasName() && func->getName().startswith("dx.op.rawBufferLoad")) {
           ReplaceRawBufferLoadWithBufferLoad(func, M);
           func->eraseFromParent();
         }
       }
     }
-    return true;
-  }
+    else if (!flag.GetUseNativeLowPrecision()) {
+      for (auto F = M.functions().begin(), E = M.functions().end(); F != E;) {
+        Function *func = &*(F++);
+        if (func->hasName() && func->getName().startswith("dx.op.rawBufferLoad")) {
+          ReplaceMinPrecisionRawBufferLoad(func, M);
+        }
+      }
+    }
+  return true;
+}
 private:
   void ReplaceRawBufferLoadWithBufferLoad(Function *F, Module &M);
+  void ReplaceMinPrecisionRawBufferLoad(Function *F, Module &M);
+  void ReplaceMinPrecisionRawBufferLoadByType(Function *F, Type *FromTy, Type *ToTy, OP *Op);
 };
 } // namespace
 
-void DxilTranslateOpCodeVersion::ReplaceRawBufferLoadWithBufferLoad(Function *F,
-                                                                    Module &M) {
+void DxilTranslateRawBuffer::ReplaceRawBufferLoadWithBufferLoad(Function *F,
+                                                                Module &M) {
   OP *op = M.GetDxilModule().GetOP();
   Type *RTy = F->getReturnType();
-
   if (StructType *STy = dyn_cast<StructType>(RTy)) {
     Type *ETy = STy->getElementType(0);
     Function *newFunction = op->GetOpFunc(hlsl::DXIL::OpCode::BufferLoad, ETy);
@@ -1873,21 +1885,75 @@ void DxilTranslateOpCodeVersion::ReplaceRawBufferLoadWithBufferLoad(Function *F,
         CallInst *newCall = Builder.CreateCall(newFunction, args);
         CI->replaceAllUsesWith(newCall);
         CI->eraseFromParent();
-      }
-      else {
+      } else {
         DXASSERT(false, "function can only be used with call instructions.");
       }
     }
   } else {
-    DXASSERT(false, "RawBufferLoad should return vector type.");
+    DXASSERT(false, "RawBufferLoad should return struct type.");
   }
 }
 
-char DxilTranslateOpCodeVersion::ID = 0;
-ModulePass *llvm::createDxilTranslateOpCodeVersionPass() {
-  return new DxilTranslateOpCodeVersion();
+void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferLoad(Function *F,
+                                                              Module &M) {
+  OP *Op = M.GetDxilModule().GetOP();
+  Type *RetTy = F->getReturnType();
+  if (StructType *STy = dyn_cast<StructType>(RetTy)) {
+    Type *EltTy = STy->getElementType(0);
+    if (EltTy->isHalfTy()) {
+      ReplaceMinPrecisionRawBufferLoadByType(F, Type::getHalfTy(M.getContext()),
+                                             Type::getFloatTy(M.getContext()),
+                                             Op);
+    } else if (EltTy == Type::getInt16Ty(M.getContext())) {
+      ReplaceMinPrecisionRawBufferLoadByType(
+          F, Type::getInt16Ty(M.getContext()), Type::getInt32Ty(M.getContext()),
+          Op);
+    }
+  } else {
+    DXASSERT(false, "RawBufferLoad should return struct type.");
+  }
 }
 
-INITIALIZE_PASS(DxilTranslateOpCodeVersion,
-                "hlsl-translate-dxil-opcode-version",
-                "Translate one version of DXIL op to another", false, false)
+void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferLoadByType(
+    Function *F, Type *FromTy, Type *ToTy, OP *Op) {
+  Function *newFunction = Op->GetOpFunc(DXIL::OpCode::RawBufferLoad, ToTy);
+  for (auto FUser = F->user_begin(), FEnd = F->user_end(); FUser != FEnd;) {
+    User *UserCI = *(FUser++);
+    if (CallInst *CI = dyn_cast<CallInst>(UserCI)) {
+      IRBuilder<> CIBuilder(CI);
+      SmallVector<Value *, 5> newFuncArgs;
+      for (unsigned i = 0; i < 5; ++i) {
+        newFuncArgs.emplace_back(CI->getArgOperand(i));
+      }
+      CallInst *newCI = CIBuilder.CreateCall(newFunction, newFuncArgs);
+      for (auto CIUser = CI->user_begin(), CIEnd = CI->user_end();
+           CIUser != CIEnd;) {
+        User *UserEV = *(CIUser++);
+        if (ExtractValueInst *EV = dyn_cast<ExtractValueInst>(UserEV)) {
+          IRBuilder<> EVBuilder(EV);
+          Value *newEV = EVBuilder.CreateExtractValue(newCI, EV->getIndices());
+          Value *newTruncV;
+          if (FromTy->isHalfTy()) {
+            newTruncV = EVBuilder.CreateFPTrunc(newEV, FromTy);
+          } else if (FromTy->isIntegerTy()) {
+            newTruncV = EVBuilder.CreateTrunc(newEV, FromTy);
+          } else {
+            DXASSERT(false, "unexpected type conversion");
+          }
+          EV->replaceAllUsesWith(newTruncV);
+          EV->eraseFromParent();
+        }
+      }
+      CI->eraseFromParent();
+    }
+  }
+  F->eraseFromParent();
+}
+
+char DxilTranslateRawBuffer::ID = 0;
+ModulePass *llvm::createDxilTranslateRawBuffer() {
+  return new DxilTranslateRawBuffer();
+}
+
+INITIALIZE_PASS(DxilTranslateRawBuffer, "hlsl-translate-dxil-raw-buffer",
+                "Translate raw buffer load", false, false)

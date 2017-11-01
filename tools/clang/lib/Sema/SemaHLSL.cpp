@@ -4911,8 +4911,17 @@ bool HLSLExternalSource::MatchArguments(
       if (pIntrinsic->pArgs[0].uComponentTypeId != INTRIN_COMPTYPE_FROM_TYPE_ELT0) {
         DXASSERT_NOMSG(pIntrinsic->pArgs[0].uComponentTypeId < MaxIntrinsicArgs);
         if (AR_BASIC_UNKNOWN == ComponentType[pIntrinsic->pArgs[0].uComponentTypeId]) {
-          ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
-            g_LegalIntrinsicCompTypes[pIntrinsic->pArgs[0].uLegalComponentTypes][0];
+          // half return type should map to float for min precision
+          if (pIntrinsic->pArgs[0].uLegalComponentTypes ==
+                  LEGAL_INTRINSIC_COMPTYPES::LICOMPTYPE_HALF &&
+              getSema()->getLangOpts().UseMinPrecision) {
+            ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
+                ArBasicKind::AR_BASIC_FLOAT32;
+          }
+          else {
+            ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
+              g_LegalIntrinsicCompTypes[pIntrinsic->pArgs[0].uLegalComponentTypes][0];
+          }
         }
       }
     }
