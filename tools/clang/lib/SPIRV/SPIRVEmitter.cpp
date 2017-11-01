@@ -3793,6 +3793,31 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_InterlockedCompareStore:
   case hlsl::IntrinsicOp::IOP_InterlockedCompareExchange:
     return processIntrinsicInterlockedMethod(callExpr, hlslOpcode);
+  case hlsl::IntrinsicOp::IOP_tex1D:
+  case hlsl::IntrinsicOp::IOP_tex1Dbias:
+  case hlsl::IntrinsicOp::IOP_tex1Dgrad:
+  case hlsl::IntrinsicOp::IOP_tex1Dlod:
+  case hlsl::IntrinsicOp::IOP_tex1Dproj:
+  case hlsl::IntrinsicOp::IOP_tex2D:
+  case hlsl::IntrinsicOp::IOP_tex2Dbias:
+  case hlsl::IntrinsicOp::IOP_tex2Dgrad:
+  case hlsl::IntrinsicOp::IOP_tex2Dlod:
+  case hlsl::IntrinsicOp::IOP_tex2Dproj:
+  case hlsl::IntrinsicOp::IOP_tex3D:
+  case hlsl::IntrinsicOp::IOP_tex3Dbias:
+  case hlsl::IntrinsicOp::IOP_tex3Dgrad:
+  case hlsl::IntrinsicOp::IOP_tex3Dlod:
+  case hlsl::IntrinsicOp::IOP_tex3Dproj:
+  case hlsl::IntrinsicOp::IOP_texCUBE:
+  case hlsl::IntrinsicOp::IOP_texCUBEbias:
+  case hlsl::IntrinsicOp::IOP_texCUBEgrad:
+  case hlsl::IntrinsicOp::IOP_texCUBElod:
+  case hlsl::IntrinsicOp::IOP_texCUBEproj: {
+    emitError("deprecated intrinsic %0 function will not be not supported",
+              callExpr->getExprLoc())
+        << callee->getName();
+    return 0;
+  }
   case hlsl::IntrinsicOp::IOP_dot:
     return processIntrinsicDot(callExpr);
   case hlsl::IntrinsicOp::IOP_mul:
