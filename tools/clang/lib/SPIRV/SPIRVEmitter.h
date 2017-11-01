@@ -349,6 +349,13 @@ private:
   uint32_t getMatElemValueOne(QualType type);
 
 private:
+  /// \brief Performs a FlatConversion implicit cast. Fills an instance of the
+  /// given type with initializer <result-id>. The initializer is of type
+  /// initType.
+  uint32_t processFlatConversion(const QualType type, const QualType initType,
+                                 uint32_t initId);
+
+private:
   /// Translates the given frontend APValue into its SPIR-V equivalent for the
   /// given targetType.
   uint32_t translateAPValue(const APValue &value, const QualType targetType);
