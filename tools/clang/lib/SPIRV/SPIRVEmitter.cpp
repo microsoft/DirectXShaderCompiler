@@ -1535,7 +1535,7 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         case BuiltinType::Min10Float:
           return castToFloat(initId, initType, ty);
         default:
-          emitError("getting a constant of type '%0' is not supported yet.")
+          emitError("flat conversion of type %0 unimplemented")
               << builtinType->getTypeClassName();
           return 0;
         }
@@ -1548,7 +1548,7 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
     uint32_t elemCount = {};
     if (TypeTranslator::isVectorType(type, &elemType, &elemCount)) {
       const uint32_t elemId = processFlatConversion(elemType, initType, initId);
-      std::vector<uint32_t> constituents(elemCount, elemId);
+      llvm::SmallVector<uint32_t, 4> constituents(size_t(elemCount), elemId);
       return theBuilder.createCompositeConstruct(
           typeTranslator.translateType(type), constituents);
     }
@@ -1560,19 +1560,21 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
     uint32_t rowCount = 0, colCount = 0;
     if (TypeTranslator::isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
       if (!elemType->isFloatingType()) {
-        emitError("Non-floating-point matrices not supported yet");
+        emitError("non-floating-point matrix type unimplemented");
         return 0;
       }
 
-      // HLSL matrices are row major, while SPIR-V matrices are column major.
-      // We are mapping what HLSL semantically mean a row into a column here.
+      // By default HLSL matrices are row major, while SPIR-V matrices are
+      // column major. We are mapping what HLSL semantically mean a row into a
+      // column here.
       const uint32_t vecType = theBuilder.getVecType(
           typeTranslator.translateType(elemType), colCount);
       const uint32_t elemId = processFlatConversion(elemType, initType, initId);
-      const std::vector<uint32_t> constituents(colCount, elemId);
+      const llvm::SmallVector<uint32_t, 4> constituents(size_t(colCount),
+                                                        elemId);
       const uint32_t colId =
           theBuilder.createCompositeConstruct(vecType, constituents);
-      const std::vector<uint32_t> rows(rowCount, colId);
+      const llvm::SmallVector<uint32_t, 4> rows(size_t(rowCount), colId);
       return theBuilder.createCompositeConstruct(
           typeTranslator.translateType(type), rows);
     }
@@ -1581,7 +1583,7 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
   // Struct type
   if (const auto *structType = type->getAs<RecordType>()) {
     const auto *decl = structType->getDecl();
-    std::vector<uint32_t> fields;
+    llvm::SmallVector<uint32_t, 4> fields;
     for (const auto *field : decl->fields())
       fields.push_back(
           processFlatConversion(field->getType(), initType, initId));
@@ -1595,12 +1597,12 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         static_cast<uint32_t>(arrayType->getSize().getZExtValue());
     const uint32_t elemId =
         processFlatConversion(arrayType->getElementType(), initType, initId);
-    std::vector<uint32_t> constituents(size, elemId);
+    llvm::SmallVector<uint32_t, 4> constituents(size_t(size), elemId);
     return theBuilder.createCompositeConstruct(
         typeTranslator.translateType(type), constituents);
   }
 
-  emitError("flat conversion for type '%0' is not supported yet.")
+  emitError("flat conversion of type %0 unimplemented")
       << type->getTypeClassName();
   type->dump();
   return 0;

@@ -347,7 +347,7 @@ private:
 
 private:
   /// \brief Performs a FlatConversion implicit cast. Fills an instance of the
-  /// given type with initializer result-id. The initializer is of type
+  /// given type with initializer <result-id>. The initializer is of type
   /// initType.
   uint32_t processFlatConversion(const QualType type, const QualType initType,
                                  uint32_t initId);
