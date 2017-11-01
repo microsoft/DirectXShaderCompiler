@@ -8930,13 +8930,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     if (const HLSLPatchConstantFuncAttr *Attr =
             pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
       NameLookup NL = GetSingleFunctionDeclByName(self, Attr->getFunctionName(), /*checkPatch*/ true);
-      if (NL.Found && NL.Other) {
-        unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-          "ambiguous patch constant function");
-        Diags.Report(NL.Found->getSourceRange().getBegin(), id);
-        Diags.Report(NL.Other->getLocation(), diag::note_previous_definition);
-        return;
-      }
       if (!NL.Found || !NL.Found->hasBody()) {
         unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
           "missing patch function definition");
