@@ -303,29 +303,6 @@ bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
   return isScalar;
 }
 
-bool TypeTranslator::isOutputStream(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    const auto name = rt->getDecl()->getName();
-    return name == "PointStream" || name == "LineStream" ||
-           name == "TriangleStream";
-  }
-  return false;
-}
-
-bool TypeTranslator::isOutputPatch(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == "OutputPatch";
-  }
-  return false;
-}
-
-bool TypeTranslator::isInputPatch(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == "InputPatch";
-  }
-  return false;
-}
-
 bool TypeTranslator::isRWByteAddressBuffer(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     return rt->getDecl()->getName() == "RWByteAddressBuffer";
