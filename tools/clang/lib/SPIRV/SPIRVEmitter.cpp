@@ -4882,16 +4882,8 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     else {
       const uint32_t uintVec4Type = theBuilder.getVecType(uintType, 4);
       const uint32_t doubleVec2Type = theBuilder.getVecType(doubleType, 2);
-      const uint32_t lowbits0 =
-          theBuilder.createCompositeExtract(uintType, lowbits, {0});
-      const uint32_t lowbits1 =
-          theBuilder.createCompositeExtract(uintType, lowbits, {1});
-      const uint32_t highbits0 =
-          theBuilder.createCompositeExtract(uintType, highbits, {0});
-      const uint32_t highbits1 =
-          theBuilder.createCompositeExtract(uintType, highbits, {1});
-      const uint32_t operand = theBuilder.createCompositeConstruct(
-          uintVec4Type, {lowbits0, highbits0, lowbits1, highbits1});
+      const uint32_t operand = theBuilder.createVectorShuffle(
+          uintVec4Type, lowbits, highbits, {0, 2, 1, 3});
       return theBuilder.createUnaryOp(spv::Op::OpBitcast, doubleVec2Type,
                                       operand);
     }

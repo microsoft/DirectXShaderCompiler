@@ -19,11 +19,7 @@ void main() {
 
 // CHECK:         [[low2:%\d+]] = OpLoad %v2uint %low2
 // CHECK-NEXT:   [[high2:%\d+]] = OpLoad %v2uint %high2
-// CHECK-NEXT:  [[low2_0:%\d+]] = OpCompositeExtract %uint [[low2]] 0
-// CHECK-NEXT:  [[low2_1:%\d+]] = OpCompositeExtract %uint [[low2]] 1
-// CHECK-NEXT: [[high2_0:%\d+]] = OpCompositeExtract %uint [[high2]] 0
-// CHECK-NEXT: [[high2_1:%\d+]] = OpCompositeExtract %uint [[high2]] 1
-// CHECK-NEXT:    [[arg3:%\d+]] = OpCompositeConstruct %v4uint [[low2_0]] [[high2_0]] [[low2_1]] [[high2_1]]
+// CHECK-NEXT:    [[arg3:%\d+]] = OpVectorShuffle %v4uint [[low2]] [[high2]] 0 2 1 3
 // CHECK-NEXT:         {{%\d+}} = OpBitcast %v2double [[arg3]]
   uint2 low2, high2;
   double2 c = asdouble(low2, high2);
