@@ -1072,6 +1072,7 @@ static const ArBasicKind g_HalfCT[] =
 {
   AR_BASIC_FLOAT16,
   AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_FLOAT32,
   AR_BASIC_UNKNOWN
 };
 
@@ -3058,15 +3059,14 @@ public:
       if (type == HLSLScalarType_float_min16) {
         m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16float" << "half";
       }
-// TODO: Enable this once we support true int16/uint16 support.
-#if 0
       else if (type == HLSLScalarType_int_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "int16";
+        // TODO: change promotion to short once we support int16
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "int";
       }
       else if (type == HLSLScalarType_uint_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "uint16";
+        // TODO: change promotion to unsigned short once we support int16
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "uint";
       }
-#endif
     }
   }
 
@@ -3563,7 +3563,7 @@ public:
   /// <param name="argCount">After execution, number of arguments in argTypes.</param>
   /// <remarks>On success, argTypes includes the clang Types to use for the signature, with the first being the return type.</remarks>
   bool MatchArguments(
-    _In_ const HLSL_INTRINSIC *pIntrinsic,
+    _In_ HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement,
     _In_ ArrayRef<Expr *> Args, 
     _Out_writes_(g_MaxIntrinsicParamCount + 1) QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
@@ -3636,7 +3636,7 @@ public:
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
       QualType functionArgTypes[g_MaxIntrinsicParamCount + 1];
       size_t functionArgTypeCount = 0;
-      if (!MatchArguments(pIntrinsic, QualType(), Args, functionArgTypes, &functionArgTypeCount))
+      if (!MatchArguments(const_cast<HLSL_INTRINSIC*>(pIntrinsic), QualType(), Args, functionArgTypes, &functionArgTypeCount))
       {
         ++cursor;
         continue;
@@ -4437,9 +4437,10 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_double] = m_context->DoubleTy;
   m_baseTypes[HLSLScalarType_float_min10] = m_context->HalfTy;
   m_baseTypes[HLSLScalarType_float_min16] = m_context->HalfTy;
-  m_baseTypes[HLSLScalarType_int_min12] = m_context->ShortTy;
-  m_baseTypes[HLSLScalarType_int_min16] = m_context->ShortTy;
-  m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
+   // TODO: Change promotion to other type once we introduce int16
+  m_baseTypes[HLSLScalarType_int_min12] = m_context->getLangOpts().UseMinPrecision ? m_context->ShortTy : m_context->IntTy;
+  m_baseTypes[HLSLScalarType_int_min16] = m_context->getLangOpts().UseMinPrecision ? m_context->ShortTy : m_context->IntTy;
+  m_baseTypes[HLSLScalarType_uint_min16] = m_context->getLangOpts().UseMinPrecision ? m_context->UnsignedShortTy : m_context->UnsignedIntTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
   m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
@@ -4732,7 +4733,7 @@ HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
 
 _Use_decl_annotations_
 bool HLSLExternalSource::MatchArguments(
-  const HLSL_INTRINSIC* pIntrinsic,
+  HLSL_INTRINSIC* pIntrinsic,
   QualType objectElement,
   ArrayRef<Expr *> Args,
   QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
@@ -4916,7 +4917,7 @@ bool HLSLExternalSource::MatchArguments(
                   LEGAL_INTRINSIC_COMPTYPES::LICOMPTYPE_HALF &&
               getSema()->getLangOpts().UseMinPrecision) {
             ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
-                ArBasicKind::AR_BASIC_FLOAT32;
+              ArBasicKind::AR_BASIC_FLOAT32;
           }
           else {
             ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
@@ -4951,7 +4952,7 @@ bool HLSLExternalSource::MatchArguments(
 
       if (AR_TOBJ_UNKNOWN == *pTT)
         return false;
-    }
+      }
     else if (pTT) {
       Template[i] = *pTT;
     }
@@ -8267,7 +8268,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 
   while (cursor != end)
   {
-    if (!MatchArguments(*cursor, objectElement, Args, argTypes, &argCount))
+    if (!MatchArguments(const_cast<HLSL_INTRINSIC*>(*cursor), objectElement, Args, argTypes, &argCount))
     {
       ++cursor;
       continue;

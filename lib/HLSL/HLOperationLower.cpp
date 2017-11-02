@@ -4400,8 +4400,6 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::MOP_Load4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadDouble, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadDouble2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadDouble3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadDouble4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadFloat, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadFloat2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadFloat3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},

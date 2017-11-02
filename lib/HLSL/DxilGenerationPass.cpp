@@ -1931,9 +1931,14 @@ void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferLoadByType(
         User *UserEV = *(CIUser++);
         if (ExtractValueInst *EV = dyn_cast<ExtractValueInst>(UserEV)) {
           IRBuilder<> EVBuilder(EV);
-          Value *newEV = EVBuilder.CreateExtractValue(newCI, EV->getIndices());
+          ArrayRef<unsigned> Indices = EV->getIndices();
+          DXASSERT(Indices.size() == 1, "Otherwise we have wrong extract value.");
+          Value *newEV = EVBuilder.CreateExtractValue(newCI, Indices);
           Value *newTruncV;
-          if (FromTy->isHalfTy()) {
+          if (4 == Indices[0]) { // Don't truncate status
+            newTruncV = newEV;
+          }
+          else if (FromTy->isHalfTy()) {
             newTruncV = EVBuilder.CreateFPTrunc(newEV, FromTy);
           } else if (FromTy->isIntegerTy()) {
             newTruncV = EVBuilder.CreateTrunc(newEV, FromTy);

@@ -700,6 +700,10 @@ public:
   TEST_METHOD(CodeGenPreserveAllOutputs)
   TEST_METHOD(CodeGenRaceCond2)
   TEST_METHOD(CodeGenRaw_Buf1)
+  TEST_METHOD(CodeGenRaw_Buf2)
+  TEST_METHOD(CodeGenRaw_Buf3)
+  TEST_METHOD(CodeGenRaw_Buf4)
+  TEST_METHOD(CodeGenRaw_Buf5)
   TEST_METHOD(CodeGenRcp1)
   TEST_METHOD(CodeGenReadFromOutput)
   TEST_METHOD(CodeGenReadFromOutput2)
@@ -777,6 +781,9 @@ public:
   TEST_METHOD(CodeGenStaticResource)
   TEST_METHOD(CodeGenStaticResource2)
   TEST_METHOD(CodeGenStruct_Buf1)
+  TEST_METHOD(CodeGenStruct_Buf2)
+  TEST_METHOD(CodeGenStruct_Buf3)
+  TEST_METHOD(CodeGenStruct_Buf4)
   TEST_METHOD(CodeGenStruct_Buf_New_Layout)
   TEST_METHOD(CodeGenStruct_BufHasCounter)
   TEST_METHOD(CodeGenStruct_BufHasCounter2)
@@ -3910,6 +3917,25 @@ TEST_F(CompilerTest, CodeGenRaw_Buf1) {
   CodeGenTest(L"..\\CodeGenHLSL\\raw_buf1.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenRaw_Buf2) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\raw_buf2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRaw_Buf3) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\raw_buf3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRaw_Buf4) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\raw_buf4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRaw_Buf5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\raw_buf5.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenRcp1) {
   CodeGenTest(L"..\\CodeGenHLSL\\rcp1.hlsl");
 }
@@ -4217,6 +4243,21 @@ TEST_F(CompilerTest, CodeGenStaticResource2) {
 
 TEST_F(CompilerTest, CodeGenStruct_Buf1) {
   CodeGenTest(L"..\\CodeGenHLSL\\struct_buf1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStruct_Buf2) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_buf2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStruct_Buf3) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_buf3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStruct_Buf4) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_buf4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStruct_Buf_New_Layout) {

@@ -90,10 +90,10 @@ void vector_out_of_bounds() {
 
 void vector_unsigned() {
    unsigned int4 intvector;
-   unsigned min16int4 min16vector;
+   unsigned min16int4 min16vector;                          /* expected-warning {{min16int is promoted to int}} */
    unsigned int64_t3 int64vector;
    unsigned uint3 uintvector;
-   unsigned min16uint4 min16uintvector;
+   unsigned min16uint4 min16uintvector;                     /* expected-warning {{min16uint is promoted to uint}} */
    unsigned uint64_t2 int64uintvector;
    unsigned dword3 dwordvector; /* fxc-error {{X3000: unrecognized identifier 'dword3'}} */
 

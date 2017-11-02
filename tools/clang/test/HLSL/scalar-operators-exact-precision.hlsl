@@ -25,9 +25,9 @@ float4 plain(float4 param4 : FOO) : FOO {
     double      doubles     = 0;
     min16float  min16floats = 0; /* expected-warning {{min16float is promoted to half}} */
     min10float  min10floats = 0; // expected-warning {{min10float is promoted to half}}
-    min16int    min16ints   = 0;
+    min16int    min16ints   = 0; /* expected-warning {{min16int is promoted to int}} */
     min12int    min12ints   = 0; // expected-warning {{min12int is promoted to min16int}}
-    min16uint   min16uints  = 0;
+    min16uint   min16uints  = 0; /* expected-warning {{min16uint is promoted to uint}} */
 
     // _Static_assert(std::is_same<bool, bool>::value, "bool, bool failed");
     _Static_assert(std::is_same<bool, __decltype(bools)>::value, "bool, __decltype(bools) failed");
@@ -35,7 +35,7 @@ float4 plain(float4 param4 : FOO) : FOO {
 
 
     // float result = ints + floats;
-    _Static_assert(std::is_same<min16uint, __decltype(min16ints  + min16uints)>::value, "");
+    _Static_assert(std::is_same<min16uint, __decltype(min16ints  + min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
 
     // Promotion cases with addition.
     // Two unsigned types will widen to widest type.
@@ -49,8 +49,8 @@ float4 plain(float4 param4 : FOO) : FOO {
     // Mixed signed-unsigned will widen to largest unsigned.
     _Static_assert(std::is_same<uint, __decltype(ints  + uints)>::value, "");
     _Static_assert(std::is_same<uint, __decltype(uints + ints )>::value, "");
-    _Static_assert(std::is_same<min16uint, __decltype(min16ints  + min16uints)>::value, "");
-    _Static_assert(std::is_same<min16uint, __decltype(min16uints + min16ints )>::value, "");
+    _Static_assert(std::is_same<min16uint, __decltype(min16ints  + min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+    _Static_assert(std::is_same<min16uint, __decltype(min16uints + min16ints )>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
 
     // Mixed integral/floating point will turn to floating-point.
     _Static_assert(std::is_same<float, __decltype(ints    + floats)>::value, "");
@@ -159,7 +159,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min10float, __decltype(min10floats + min16ints)>::value, "");  // expected-warning {{min10float is promoted to half}}
   _Static_assert(std::is_same<min10float, __decltype(min10floats + min12ints)>::value, "");  // expected-warning {{min10float is promoted to half}}
   _Static_assert(std::is_same<min10float, __decltype(min10floats + min16uints)>::value, ""); // expected-warning {{min10float is promoted to half}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints + bools)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints + bools)>::value, "");          /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<int, __decltype(min16ints + ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16ints + uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(min16ints + halfs)>::value, "");
@@ -167,9 +167,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<double, __decltype(min16ints + doubles)>::value, "");
   _Static_assert(std::is_same<min16float, __decltype(min16ints + min16floats)>::value, "");  /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min16ints + min10floats)>::value, "");  // expected-warning {{min10float is promoted to half}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints + min16ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints + min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16ints + min16uints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints + min16ints)>::value, "");      /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints + min12ints)>::value, "");      /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16ints + min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints + bools)>::value, "");   // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<int, __decltype(min12ints + ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min12ints + uints)>::value, "");
@@ -178,10 +178,10 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<double, __decltype(min12ints + doubles)>::value, "");
   _Static_assert(std::is_same<min16float, __decltype(min12ints + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min12ints + min10floats)>::value, "");  // expected-warning {{min10float is promoted to half}}
-  _Static_assert(std::is_same<min16int, __decltype(min12ints + min16ints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min12ints + min16ints)>::value, "");      /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints + min12ints)>::value, "");    // expected-warning {{min12int is promoted to min16int}}
-  _Static_assert(std::is_same<min16uint, __decltype(min12ints + min16uints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints + bools)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min12ints + min16uints)>::value, "");  /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints + bools)>::value, "");      /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<uint, __decltype(min16uints + ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16uints + uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(min16uints + halfs)>::value, "");
@@ -189,9 +189,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<double, __decltype(min16uints + doubles)>::value, "");
   _Static_assert(std::is_same<min16float, __decltype(min16uints + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min16uints + min10floats)>::value, "");   // expected-warning {{min10float is promoted to half}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints + min16ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints + min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints + min16uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints + min16ints)>::value, "");      /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints + min12ints)>::value, "");      /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints + min16uints)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<int, __decltype(bools - bools)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools - ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(bools - uints)>::value, "");
@@ -280,7 +280,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min10float, __decltype(min10floats - min16ints)>::value, "");    // expected-warning {{min10float is promoted to half}}
   _Static_assert(std::is_same<min10float, __decltype(min10floats - min12ints)>::value, "");    // expected-warning {{min10float is promoted to half}}
   _Static_assert(std::is_same<min10float, __decltype(min10floats - min16uints)>::value, "");   // expected-warning {{min10float is promoted to half}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints - bools)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints - bools)>::value, "");            /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<int, __decltype(min16ints - ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16ints - uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(min16ints - halfs)>::value, "");
@@ -288,9 +288,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<double, __decltype(min16ints - doubles)>::value, "");
   _Static_assert(std::is_same<min16float, __decltype(min16ints - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min16ints - min10floats)>::value, "");   // expected-warning {{min10float is promoted to half}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints - min16ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints - min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16ints - min16uints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints - min16ints)>::value, "");       /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints - min12ints)>::value, "");       /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16ints - min16uints)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints - bools)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<int, __decltype(min12ints - ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min12ints - uints)>::value, "");
@@ -299,10 +299,10 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<double, __decltype(min12ints - doubles)>::value, "");
   _Static_assert(std::is_same<min16float, __decltype(min12ints - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min12ints - min10floats)>::value, "");   // expected-warning {{min10float is promoted to half}}
-  _Static_assert(std::is_same<min16int, __decltype(min12ints - min16ints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min12ints - min16ints)>::value, "");       /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints - min12ints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
-  _Static_assert(std::is_same<min16uint, __decltype(min12ints - min16uints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints - bools)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min12ints - min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints - bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<uint, __decltype(min16uints - ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16uints - uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(min16uints - halfs)>::value, "");
@@ -310,9 +310,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<double, __decltype(min16uints - doubles)>::value, "");
   _Static_assert(std::is_same<min16float, __decltype(min16uints - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min16uints - min10floats)>::value, "");   // expected-warning {{min10float is promoted to half}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints - min16ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints - min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints - min16uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints - min16ints)>::value, "");      /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints - min12ints)>::value, "");      /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints - min16uints)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<int, __decltype(bools / bools)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools / ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(bools / uints)>::value, "");
@@ -402,7 +402,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min10float, __decltype(min10floats / min12ints)>::value, "");    // expected-warning {{min10float is promoted to half}}
   _Static_assert(std::is_same<min10float, __decltype(min10floats / min16uints)>::value, "");   // expected-warning {{min10float is promoted to half}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-52): error X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min16ints = (min16ints / bools); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  min16ints = (min16ints / bools); // fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
   _Static_assert(std::is_same<int, __decltype(min16ints / ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16ints / uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(min16ints / halfs)>::value, "");
@@ -411,12 +411,12 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min16float, __decltype(min16ints / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min16ints / min10floats)>::value, "");  // expected-warning {{min10float is promoted to half}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min16ints = (min16ints / min16ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  min16ints = (min16ints / min16ints); // fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min16ints = (min16ints / min12ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16ints / min16uints)>::value, "");
+  min16ints = (min16ints / min12ints); // fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  _Static_assert(std::is_same<min16uint, __decltype(min16ints / min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-52): error X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min12ints = (min12ints / bools); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  min12ints = (min12ints / bools); // fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
   _Static_assert(std::is_same<int, __decltype(min12ints / ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min12ints / uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(min12ints / halfs)>::value, "");
@@ -425,11 +425,11 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min16float, __decltype(min12ints / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min12ints / min10floats)>::value, "");  // expected-warning {{min10float is promoted to half}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min12ints = (min12ints / min16ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}}
+  min12ints = (min12ints / min16ints); // fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min12ints = (min12ints / min12ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
-  _Static_assert(std::is_same<min16uint, __decltype(min12ints / min16uints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints / bools)>::value, "");
+  min12ints = (min12ints / min12ints); // fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  _Static_assert(std::is_same<min16uint, __decltype(min12ints / min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints / bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<uint, __decltype(min16uints / ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16uints / uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(min16uints / halfs)>::value, "");
@@ -437,9 +437,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<double, __decltype(min16uints / doubles)>::value, "");
   _Static_assert(std::is_same<min16float, __decltype(min16uints / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min16uints / min10floats)>::value, "");  // expected-warning {{min10float is promoted to half}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints / min16ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints / min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints / min16uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints / min16ints)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints / min12ints)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints / min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<int, __decltype(bools % bools)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools % ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(bools % uints)>::value, "");
@@ -547,7 +547,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min10float, __decltype(min10floats % min12ints)>::value, "");  // expected-warning {{min10float is promoted to half}}
   _Static_assert(std::is_same<min10float, __decltype(min10floats % min16uints)>::value, "");  // expected-warning {{min10float is promoted to half}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-52): error X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min16ints = (min16ints % bools); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  min16ints = (min16ints % bools); // fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
   _Static_assert(std::is_same<int, __decltype(min16ints % ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16ints % uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(min16ints % halfs)>::value, "");
@@ -557,12 +557,12 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min16float, __decltype(min16ints % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min16ints % min10floats)>::value, "");  // expected-warning {{min10float is promoted to half}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min16ints = (min16ints % min16ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  min16ints = (min16ints % min16ints); // fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min16ints = (min16ints % min12ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16ints % min16uints)>::value, "");
+  min16ints = (min16ints % min12ints); // fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  _Static_assert(std::is_same<min16uint, __decltype(min16ints % min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-52): error X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min16ints = (min12ints % bools); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  min16ints = (min12ints % bools); // fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
   _Static_assert(std::is_same<int, __decltype(min12ints % ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min12ints % uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(min12ints % halfs)>::value, "");
@@ -572,11 +572,11 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min16float, __decltype(min12ints % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min12ints % min10floats)>::value, "");  // expected-warning {{min10float is promoted to half}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min16ints = (min12ints % min16ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  min16ints = (min12ints % min16ints); // fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min16ints = (min12ints % min12ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
-  _Static_assert(std::is_same<min16uint, __decltype(min12ints % min16uints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints % bools)>::value, "");
+  min16ints = (min12ints % min12ints); // fxc-error {{X3706: signed integer remainder is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
+  _Static_assert(std::is_same<min16uint, __decltype(min12ints % min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints % bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<uint, __decltype(min16uints % ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16uints % uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(min16uints % halfs)>::value, "");
@@ -585,9 +585,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16ints = (min16uints % doubles); // expected-error {{modulo cannot be used with doubles, cast to float first}} expected-warning {{conversion from larger type 'double' to smaller type 'min16int', possible loss of data}} fxc-error {{X3684: modulo cannot be used with doubles, cast to float first}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}}
   _Static_assert(std::is_same<min16float, __decltype(min16uints % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to half}} */
   _Static_assert(std::is_same<min10float, __decltype(min16uints % min10floats)>::value, "");  // expected-warning {{min10float is promoted to half}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints % min16ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints % min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints % min16uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints % min16ints)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints % min12ints)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints % min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<bool, __decltype(bools < bools)>::value, "bool, __decltype(bools < bools) failed");
   _Static_assert(std::is_same<bool, __decltype(bools < ints)>::value, "");
   _Static_assert(std::is_same<bool, __decltype(bools < uints)>::value, "");
@@ -1472,9 +1472,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min10floats = (min10floats << min12ints); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-60): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-61): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min10floats = (min10floats << min16uints); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints << bools)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints << ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints << uints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints << bools)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints << ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints << uints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-53): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-54): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16ints = (min16ints << halfs); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-54): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-55): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
@@ -1485,9 +1485,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16ints = (min16ints << min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-59): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-60): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16ints = (min16ints << min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints << min16ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints << min12ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints << min16uints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints << min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints << min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints << min16uints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints << bools)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<min12int, __decltype(min12ints << ints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<min12int, __decltype(min12ints << uints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
@@ -1504,9 +1504,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min12int, __decltype(min12ints << min16ints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<min12int, __decltype(min12ints << min12ints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<min12int, __decltype(min12ints << min16uints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints << bools)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints << ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints << uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints << bools)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints << ints)>::value, "");      /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints << uints)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-54): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-55): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16uints = (min16uints << halfs); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-55): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-56): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
@@ -1517,9 +1517,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16uints = (min16uints << min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-60): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-61): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16uints = (min16uints << min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints << min16ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints << min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints << min16uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints << min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints << min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints << min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<int, __decltype(bools >> bools)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools >> ints)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools >> uints)>::value, "");
@@ -1678,9 +1678,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min10floats = (min10floats >> min12ints); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-60): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-61): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min10floats = (min10floats >> min16uints); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints >> bools)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints >> ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints >> uints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints >> bools)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints >> ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints >> uints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-53): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-54): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16ints = (min16ints >> halfs); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-54): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-55): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
@@ -1691,9 +1691,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16ints = (min16ints >> min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-59): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-60): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16ints = (min16ints >> min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints >> min16ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints >> min12ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints >> min16uints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints >> min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints >> min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints >> min16uints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints >> bools)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<min12int, __decltype(min12ints >> ints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<min12int, __decltype(min12ints >> uints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
@@ -1710,9 +1710,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min12int, __decltype(min12ints >> min16ints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<min12int, __decltype(min12ints >> min12ints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<min12int, __decltype(min12ints >> min16uints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> bools)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> bools)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> ints)>::value, "");      /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> uints)>::value, "");     /* expected-warning {{min16uint is promoted to uint}} */
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-54): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-55): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16uints = (min16uints >> halfs); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-55): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-56): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
@@ -1723,9 +1723,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16uints = (min16uints >> min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-60): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-61): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16uints = (min16uints >> min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> min16ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> min16uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints >> min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<int, __decltype(bools & bools)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools & ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(bools & uints)>::value, "");
@@ -1884,7 +1884,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   min10floats = (min10floats & min12ints); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-59): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-60): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min10floats = (min10floats & min16uints); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints & bools)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints & bools)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<int, __decltype(min16ints & ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16ints & uints)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-52): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-53): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
@@ -1897,9 +1897,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16ints = (min16ints & min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-58): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-59): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16ints = (min16ints & min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints & min16ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints & min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16ints & min16uints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints & min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints & min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16ints & min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints & bools)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<int, __decltype(min12ints & ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min12ints & uints)>::value, "");
@@ -1913,10 +1913,10 @@ float4 plain(float4 param4 : FOO) : FOO {
   min12ints = (min12ints & min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-58): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-59): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min12ints = (min12ints & min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min12ints & min16ints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min12ints & min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints & min12ints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
-  _Static_assert(std::is_same<min16uint, __decltype(min12ints & min16uints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints & bools)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min12ints & min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints & bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<uint, __decltype(min16uints & ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16uints & uints)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-53): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-54): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
@@ -1929,9 +1929,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16uints = (min16uints & min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-59): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-60): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16uints = (min16uints & min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints & min16ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints & min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints & min16uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints & min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints & min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints & min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<int, __decltype(bools | bools)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools | ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(bools | uints)>::value, "");
@@ -2090,7 +2090,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   min10floats = (min10floats | min12ints); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-59): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-60): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min10floats = (min10floats | min16uints); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints | bools)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints | bools)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<int, __decltype(min16ints | ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16ints | uints)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-52): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-53): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
@@ -2103,9 +2103,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16ints = (min16ints | min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-58): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-59): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16ints = (min16ints | min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints | min16ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints | min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16ints | min16uints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints | min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints | min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16ints | min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints | bools)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<int, __decltype(min12ints | ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min12ints | uints)>::value, "");
@@ -2119,10 +2119,10 @@ float4 plain(float4 param4 : FOO) : FOO {
   min12ints = (min12ints | min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-58): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-59): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min12ints = (min12ints | min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min12ints | min16ints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min12ints | min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints | min12ints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
-  _Static_assert(std::is_same<min16uint, __decltype(min12ints | min16uints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints | bools)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min12ints | min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints | bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<uint, __decltype(min16uints | ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16uints | uints)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-53): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-54): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
@@ -2135,9 +2135,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16uints = (min16uints | min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-59): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-60): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16uints = (min16uints | min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints | min16ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints | min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints | min16uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints | min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints | min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints | min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<int, __decltype(bools ^ bools)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools ^ ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(bools ^ uints)>::value, "");
@@ -2296,7 +2296,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   min10floats = (min10floats ^ min12ints); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-59): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-60): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min10floats = (min10floats ^ min16uints); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints ^ bools)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints ^ bools)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<int, __decltype(min16ints ^ ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16ints ^ uints)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-52): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-53): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
@@ -2309,9 +2309,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16ints = (min16ints ^ min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-58): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-59): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16ints = (min16ints ^ min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min16ints ^ min16ints)>::value, "");
-  _Static_assert(std::is_same<min16int, __decltype(min16ints ^ min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16ints ^ min16uints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min16ints ^ min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16int, __decltype(min16ints ^ min12ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16ints ^ min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints ^ bools)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
   _Static_assert(std::is_same<int, __decltype(min12ints ^ ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min12ints ^ uints)>::value, "");
@@ -2325,10 +2325,10 @@ float4 plain(float4 param4 : FOO) : FOO {
   min12ints = (min12ints ^ min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-58): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-59): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min12ints = (min12ints ^ min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16int, __decltype(min12ints ^ min16ints)>::value, "");
+  _Static_assert(std::is_same<min16int, __decltype(min12ints ^ min16ints)>::value, "");    /* expected-warning {{min16int is promoted to int}} */
   _Static_assert(std::is_same<min12int, __decltype(min12ints ^ min12ints)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
-  _Static_assert(std::is_same<min16uint, __decltype(min12ints ^ min16uints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints ^ bools)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min12ints ^ min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints ^ bools)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<uint, __decltype(min16uints ^ ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(min16uints ^ uints)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-53): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-54): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
@@ -2341,9 +2341,9 @@ float4 plain(float4 param4 : FOO) : FOO {
   min16uints = (min16uints ^ min16floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-59): error X3082: int or unsigned int type required;X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,12-60): error X3013: 'get_value': no matching 1 parameter function;compilation failed; no code produced
   min16uints = (min16uints ^ min10floats); // expected-error {{int or unsigned int type required}} fxc-error {{X3082: int or unsigned int type required}}
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min16ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min12ints)>::value, "");
-  _Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min16uints)>::value, "");
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min16ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min12ints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
+  _Static_assert(std::is_same<min16uint, __decltype(min16uints ^ min16uints)>::value, "");    /* expected-warning {{min16uint is promoted to uint}} */
   _Static_assert(std::is_same<bool, __decltype(bools && bools)>::value, "");
   _Static_assert(std::is_same<bool, __decltype(bools && ints)>::value, "");
   _Static_assert(std::is_same<bool, __decltype(bools && uints)>::value, "");

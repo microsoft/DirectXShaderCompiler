@@ -726,8 +726,6 @@ float<3> [[ro]] LoadFloat3(in uint byteOffset) : byteaddress_load;
 float<4> [[ro]] LoadFloat4(in uint byteOffset) : byteaddress_load;
 double [[ro]] LoadDouble(in uint byteOffset) : byteaddress_load;
 double<2> [[ro]] LoadDouble2(in uint byteOffset) : byteaddress_load;
-double<3> [[ro]] LoadDouble3(in uint byteOffset) : byteaddress_load;
-double<4> [[ro]] LoadDouble4(in uint byteOffset) : byteaddress_load;
 int [[]] LoadInt(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 int<2> [[]] LoadInt2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 int<3> [[]] LoadInt3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
@@ -746,8 +744,6 @@ float<3> [[]] LoadFloat3(in uint byteOffset, out uint_only status) : byteaddress
 float<4> [[]] LoadFloat4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 double [[]] LoadDouble(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 double<2> [[]] LoadDouble2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-double<3> [[]] LoadDouble3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-double<4> [[]] LoadDouble4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 
 } namespace
 
@@ -772,8 +768,6 @@ float<3> [[ro]] LoadFloat3(in uint byteOffset) : byteaddress_load;
 float<4> [[ro]] LoadFloat4(in uint byteOffset) : byteaddress_load;
 double [[ro]] LoadDouble(in uint byteOffset) : byteaddress_load;
 double<2> [[ro]] LoadDouble2(in uint byteOffset) : byteaddress_load;
-double<3> [[ro]] LoadDouble3(in uint byteOffset) : byteaddress_load;
-double<4> [[ro]] LoadDouble4(in uint byteOffset) : byteaddress_load;
 int [[]] LoadInt(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 int<2> [[]] LoadInt2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 int<3> [[]] LoadInt3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
@@ -792,8 +786,6 @@ float<3> [[]] LoadFloat3(in uint byteOffset, out uint_only status) : byteaddress
 float<4> [[]] LoadFloat4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 double [[]] LoadDouble(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 double<2> [[]] LoadDouble2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-double<3> [[]] LoadDouble3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-double<4> [[]] LoadDouble4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 void [[]] Store(in uint byteOffset, in numeric value) : byteaddress_store;
 void [[]] Store2(in uint byteOffset, in numeric<2> value) : byteaddress_store;
 void [[]] Store3(in uint byteOffset, in numeric<3> value) : byteaddress_store;

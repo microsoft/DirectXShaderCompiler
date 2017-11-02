@@ -209,8 +209,6 @@ import hctdb_instrhelp
   MOP_Load4,
   MOP_LoadDouble,
   MOP_LoadDouble2,
-  MOP_LoadDouble3,
-  MOP_LoadDouble4,
   MOP_LoadFloat,
   MOP_LoadFloat2,
   MOP_LoadFloat3,
