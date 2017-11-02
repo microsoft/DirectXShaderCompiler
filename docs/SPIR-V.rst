@@ -1137,6 +1137,9 @@ extended instruction mapping, so they are handled with additional steps:
   conversion into integer matrices.
 - ``asuint``: converts the component type of a scalar/vector/matrix from float
   or int into uint. Uses ``OpBitcast``. This method currently does not support
+- ``asuint``: Converts a double into two 32-bit unsigned integers. Uses SPIR-V ``OpBitCast``.
+- ``asdouble``: Converts two 32-bit unsigned integers into a double, or four 32-bit unsigned
+  integers into two doubles. Uses SPIR-V ``OpVectorShuffle`` and ``OpBitCast``.
   conversion into unsigned integer matrices.
 - ``isfinite`` : Determines if the specified value is finite. Since ``OpIsFinite``
   requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and
