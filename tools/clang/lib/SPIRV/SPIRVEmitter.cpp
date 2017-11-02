@@ -3946,6 +3946,7 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     return processIntrinsicAllOrAny(callExpr, spv::Op::OpAll);
   case hlsl::IntrinsicOp::IOP_any:
     return processIntrinsicAllOrAny(callExpr, spv::Op::OpAny);
+  case hlsl::IntrinsicOp::IOP_asdouble:
   case hlsl::IntrinsicOp::IOP_asfloat:
   case hlsl::IntrinsicOp::IOP_asint:
   case hlsl::IntrinsicOp::IOP_asuint:
@@ -4808,27 +4809,114 @@ uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
 }
 
 uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
+  // This function handles 'asint', 'asuint', 'asfloat', and 'asdouble'.
+
+  // Method 1: ret asint(arg)
+  //    arg component type = {float, uint}
+  //    arg template  type = {scalar, vector, matrix}
+  //    ret template  type = same as arg template type.
+  //    ret component type = int
+
+  // Method 2: ret asuint(arg)
+  //    arg component type = {float, int}
+  //    arg template  type = {scalar, vector, matrix}
+  //    ret template  type = same as arg template type.
+  //    ret component type = uint
+
+  // Method 3: ret asfloat(arg)
+  //    arg component type = {float, uint, int}
+  //    arg template  type = {scalar, vector, matrix}
+  //    ret template  type = same as arg template type.
+  //    ret component type = float
+
+  // Method 4: double  asdouble(uint lowbits, uint highbits)
+  // Method 5: double2 asdouble(uint2 lowbits, uint2 highbits)
+  // Method 6:
+  //           void asuint(
+  //           in  double value,
+  //           out uint lowbits,
+  //           out uint highbits
+  //           );
+
   const QualType returnType = callExpr->getType();
+  const uint32_t numArgs = callExpr->getNumArgs();
   const uint32_t returnTypeId = typeTranslator.translateType(returnType);
-  assert(callExpr->getNumArgs() == 1u);
-  const Expr *arg = callExpr->getArg(0);
-  const QualType argType = arg->getType();
+  const Expr *arg0 = callExpr->getArg(0);
+  const QualType argType = arg0->getType();
 
-  // asfloat may take a float or a float vector or a float matrix as argument.
-  // These cases would be a no-op.
+  // Method 3 return type may be the same as arg type, so it would be a no-op.
   if (returnType.getCanonicalType() == argType.getCanonicalType())
-    return doExpr(arg);
+    return doExpr(arg0);
 
-  // SPIR-V does not support non-floating point matrices. So 'asint' and
-  // 'asuint' for MxN matrices are currently not supported.
+  // SPIR-V does not support non-floating point matrices. For the above methods
+  // that involve matrices, either the input or the output is a non-float
+  // matrix. (except for 'asfloat' taking a float matrix and returning a float
+  // matrix, which is a no-op and is handled by the condition above).
   if (TypeTranslator::isMxNMatrix(argType)) {
-    emitError("SPIR-V does not support non-floating point matrices. Thus, "
-              "'asint' and 'asuint' currently do not take matrix arguments.");
+    emitError("SPIR-V does not support non-floating point matrices needed in "
+              "intrinsic function %0",
+              callExpr->getExprLoc())
+        << callExpr->getDirectCallee()->getName();
     return 0;
   }
 
-  return theBuilder.createUnaryOp(spv::Op::OpBitcast, returnTypeId,
-                                  doExpr(arg));
+  switch (numArgs) {
+  case 1: {
+    // Handling Method 1, 2, and 3.
+    return theBuilder.createUnaryOp(spv::Op::OpBitcast, returnTypeId,
+                                    doExpr(arg0));
+  }
+  case 2: {
+    const uint32_t lowbits = doExpr(arg0);
+    const uint32_t highbits = doExpr(callExpr->getArg(1));
+    const uint32_t uintType = theBuilder.getUint32Type();
+    const uint32_t doubleType = theBuilder.getFloat64Type();
+    // Handling Method 4
+    if (argType->isUnsignedIntegerType()) {
+      const uint32_t uintVec2Type = theBuilder.getVecType(uintType, 2);
+      const uint32_t operand = theBuilder.createCompositeConstruct(
+          uintVec2Type, {lowbits, highbits});
+      return theBuilder.createUnaryOp(spv::Op::OpBitcast, doubleType, operand);
+    }
+    // Handling Method 5
+    else {
+      const uint32_t uintVec4Type = theBuilder.getVecType(uintType, 4);
+      const uint32_t doubleVec2Type = theBuilder.getVecType(doubleType, 2);
+      const uint32_t lowbits0 =
+          theBuilder.createCompositeExtract(uintType, lowbits, {0});
+      const uint32_t lowbits1 =
+          theBuilder.createCompositeExtract(uintType, lowbits, {1});
+      const uint32_t highbits0 =
+          theBuilder.createCompositeExtract(uintType, highbits, {0});
+      const uint32_t highbits1 =
+          theBuilder.createCompositeExtract(uintType, highbits, {1});
+      const uint32_t operand = theBuilder.createCompositeConstruct(
+          uintVec4Type, {lowbits0, highbits0, lowbits1, highbits1});
+      return theBuilder.createUnaryOp(spv::Op::OpBitcast, doubleVec2Type,
+                                      operand);
+    }
+  }
+  case 3: {
+    // Handling Method 6.
+    const uint32_t value = doExpr(arg0);
+    const uint32_t lowbits = doExpr(callExpr->getArg(1));
+    const uint32_t highbits = doExpr(callExpr->getArg(2));
+    const uint32_t uintType = theBuilder.getUint32Type();
+    const uint32_t uintVec2Type = theBuilder.getVecType(uintType, 2);
+    const uint32_t vecResult =
+        theBuilder.createUnaryOp(spv::Op::OpBitcast, uintVec2Type, value);
+    theBuilder.createStore(
+        lowbits, theBuilder.createCompositeExtract(uintType, vecResult, {0}));
+    theBuilder.createStore(
+        highbits, theBuilder.createCompositeExtract(uintType, vecResult, {1}));
+    return 0;
+  }
+  default:
+    emitError("unrecognized signature for intrinsic function %0",
+              callExpr->getExprLoc())
+        << callExpr->getDirectCallee()->getName();
+    return 0;
+  }
 }
 
 uint32_t SPIRVEmitter::processIntrinsicIsFinite(const CallExpr *callExpr) {

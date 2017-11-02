@@ -1,8 +1,17 @@
 // Run: %dxc -T vs_6_0 -E main
 
-// According to HLSL reference:
-// The 'asuint' function can only operate on int, float,
-// vector of these scalars, and matrix of these scalars.
+// Signature: ret asuint(arg)
+//    arg component type = {float, int}
+//    arg template  type = {scalar, vector, matrix}
+//    ret template  type = same as arg template type.
+//    ret component type = uint
+
+// Signature:
+//           void asuint(
+//           in  double value,
+//           out uint lowbits,
+//           out uint highbits
+//           )
 
 void main() {
     uint result;
@@ -43,4 +52,15 @@ void main() {
     // CHECK-NEXT: OpStore %result4 [[i_as_uint]]
     float4 i;
     result4 = asuint(i);
+
+    double value;
+    uint lowbits;
+    uint highbits;
+// CHECK-NEXT:      [[value:%\d+]] = OpLoad %double %value
+// CHECK-NEXT:  [[resultVec:%\d+]] = OpBitcast %v2uint [[value]]
+// CHECK-NEXT: [[resultVec0:%\d+]] = OpCompositeExtract %uint [[resultVec]] 0
+// CHECK-NEXT:                       OpStore %lowbits [[resultVec0]]
+// CHECK-NEXT: [[resultVec1:%\d+]] = OpCompositeExtract %uint [[resultVec]] 1
+// CHECK-NEXT:                       OpStore %highbits [[resultVec1]]
+    asuint(value, lowbits, highbits);
 }
