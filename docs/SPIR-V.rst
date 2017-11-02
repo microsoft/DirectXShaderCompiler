@@ -883,11 +883,11 @@ into a 2x3 matrix.
 
 .. code:: hlsl
 
-float3x4 m = { 1,  2,  3, 4,
-               5,  6,  7, 8,
-               9, 10, 11, 12 };
+  float3x4 m = { 1,  2,  3, 4,
+                 5,  6,  7, 8,
+                 9, 10, 11, 12 };
 
-float2x3 a = (float2x3)m;
+  float2x3 a = (float2x3)m;
 
 Such casting takes the upper-left most corner of the original matrix to generate the result.
 In the above example, matrix ``a`` will have 2 rows, with 3 columns each. First row will be
