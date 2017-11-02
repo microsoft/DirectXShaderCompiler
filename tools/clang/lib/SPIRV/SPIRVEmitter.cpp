@@ -244,6 +244,8 @@ spv::Op translateAtomicHlslOpcodeToSpirvOpcode(hlsl::IntrinsicOp opcode) {
   return Op::Max;
 }
 
+/// Returns true if the given function parameter can act as shader stage
+/// input parameter.
 inline bool canActAsInParmVar(const ParmVarDecl *param) {
   // If the parameter has no in/out/inout attribute, it is defaulted to
   // an in parameter.
@@ -253,6 +255,8 @@ inline bool canActAsInParmVar(const ParmVarDecl *param) {
          !hlsl::IsHLSLStreamOutputType(param->getType());
 }
 
+/// Returns true if the given function parameter can act as shader stage
+/// output parameter.
 inline bool canActAsOutParmVar(const ParmVarDecl *param) {
   return param->hasAttr<HLSLOutAttr>() || param->hasAttr<HLSLInOutAttr>();
 }

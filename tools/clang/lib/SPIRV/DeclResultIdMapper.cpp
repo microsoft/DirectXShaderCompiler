@@ -122,6 +122,10 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
   const auto *sigPoint = deduceSigPoint(decl, /*asInput=*/false,
                                         shaderModel.GetKind(), isPatchConstant);
 
+  // HS output variables are created using the other overload. For the rest,
+  // none of them should be created as arrays.
+  assert(sigPoint->GetKind() != hlsl::DXIL::SigPointKind::HSCPOut);
+
   return createStageVars(decl, sigPoint, /*asInput=*/false, type,
                          /*arraySize=*/0, llvm::None, &storedValue, "out.var");
 }
@@ -1058,8 +1062,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
   // According to DXIL spec, the IsFrontFace SV can only be used by GSOut and
   // PSIn.
-  // According to Vulkan spec, the FrontFacing BuitIn can only be used in
-  // PSIn.
+  // According to Vulkan spec, the FrontFacing BuitIn can only be used in PSIn.
   case hlsl::Semantic::Kind::IsFrontFace: {
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::PSIn:
@@ -1072,8 +1075,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     }
   }
   // According to DXIL spec, the Target SV can only be used by PSOut.
-  // There is no corresponding builtin decoration in SPIR-V. So generate
-  // normal
+  // There is no corresponding builtin decoration in SPIR-V. So generate normal
   // Vulkan stage input/output variables.
   case hlsl::Semantic::Kind::Target:
   // An arbitrary semantic is defined by users. Generate normal Vulkan stage
