@@ -44,7 +44,7 @@ bool hasSemantic(const DeclaratorDecl *decl,
 
 bool patchConstFuncTakesHullOutputPatch(FunctionDecl *pcf) {
   for (const auto *param : pcf->parameters())
-    if (TypeTranslator::isOutputPatch(param->getType()))
+    if (hlsl::IsHLSLOutputPatchType(param->getType()))
       return true;
   return false;
 }
@@ -1520,16 +1520,16 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         }
         case BuiltinType::Bool:
           return castToBool(initId, initType, ty);
-          // int, min16int (short), and min12int are all translated to 32-bit
-          // signed integers in SPIR-V.
+        // int, min16int (short), and min12int are all translated to 32-bit
+        // signed integers in SPIR-V.
         case BuiltinType::Int:
         case BuiltinType::Short:
         case BuiltinType::Min12Int:
         case BuiltinType::UShort:
         case BuiltinType::UInt:
           return castToInt(initId, initType, ty);
-          // float, min16float (half), and min10float are all translated to
-          // 32-bit float in SPIR-V.
+        // float, min16float (half), and min10float are all translated to
+        // 32-bit float in SPIR-V.
         case BuiltinType::Float:
         case BuiltinType::Half:
         case BuiltinType::Min10Float:
@@ -5530,8 +5530,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
                             hlsl::IsHLSLStreamOutputType(param->getType());
     if (!param->hasAttr<HLSLOutAttr>() && !isGSOutputStream) {
       uint32_t loadedValue = 0;
-      if (shaderModel.IsHS() &&
-          TypeTranslator::isInputPatch(param->getType())) {
+      if (shaderModel.IsHS() && hlsl::IsHLSLInputPatchType(param->getType())) {
         const uint32_t hullInputPatchId =
             declIdMapper.createStageVarWithoutSemantics(
                 /*isInput*/ true, typeId, "hullEntryPointInput",
@@ -5539,7 +5538,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
         loadedValue = theBuilder.createLoad(typeId, hullInputPatchId);
         hullMainInputPatchParam = tempVar;
       } else if (shaderModel.IsDS() &&
-                 TypeTranslator::isOutputPatch(param->getType())) {
+                 hlsl::IsHLSLOutputPatchType(param->getType())) {
         // OutputPatch is the output of the hull shader and an input to the
         // domain shader.
         const uint32_t hullOutputPatchId =
@@ -5711,9 +5710,9 @@ bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
     // ControlPoints as well as the PatchID (PrimitiveID). This does not
     // necessarily mean that they are present. There is also no requirement
     // for the order of parameters passed to PCF.
-    if (TypeTranslator::isInputPatch(param->getType()))
+    if (hlsl::IsHLSLInputPatchType(param->getType()))
       pcfParams.push_back(hullMainInputPatch);
-    if (TypeTranslator::isOutputPatch(param->getType()))
+    if (hlsl::IsHLSLOutputPatchType(param->getType()))
       pcfParams.push_back(hullMainOutputPatch);
     if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID)) {
       if (!primitiveId) {
