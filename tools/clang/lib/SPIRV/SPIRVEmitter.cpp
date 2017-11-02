@@ -4853,10 +4853,8 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   // matrix. (except for 'asfloat' taking a float matrix and returning a float
   // matrix, which is a no-op and is handled by the condition above).
   if (TypeTranslator::isMxNMatrix(argType)) {
-    emitError("SPIR-V does not support non-floating point matrices needed in "
-              "intrinsic function %0",
-              callExpr->getExprLoc())
-        << callExpr->getDirectCallee()->getName();
+    emitError("non-floating-point matrix type unimplemented",
+              callExpr->getExprLoc());
     return 0;
   }
 
