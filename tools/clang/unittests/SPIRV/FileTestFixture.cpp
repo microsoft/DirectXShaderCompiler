@@ -83,16 +83,22 @@ void FileTest::runFileTest(llvm::StringRef filename, bool expectSuccess,
     ASSERT_TRUE(utils::disassembleSpirvBinary(
         generatedBinary, &generatedSpirvAsm, true /* generateHeader */));
 
+    auto options = effcee::Options()
+                       .SetChecksName(filename.str())
+                       .SetInputName("<codegen>");
+
     // Run CHECK commands via effcee on disassembly.
-    result = effcee::Match(generatedSpirvAsm, checkCommands,
-                           effcee::Options().SetInputName(filename.str()));
+    result = effcee::Match(generatedSpirvAsm, checkCommands, options);
 
   } else {
     ASSERT_FALSE(compileOk);
 
+    auto options = effcee::Options()
+                       .SetChecksName(filename.str())
+                       .SetInputName("<message>");
+
     // Run CHECK commands via effcee on error messages.
-    result = effcee::Match(errorMessages, checkCommands,
-                           effcee::Options().SetInputName("<error-message>"));
+    result = effcee::Match(errorMessages, checkCommands, options);
   }
 
   // Print effcee's error message (if any).
