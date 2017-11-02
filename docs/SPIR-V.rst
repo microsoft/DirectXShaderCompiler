@@ -31,36 +31,120 @@ general graphics ecosystem.
 Note that this document is expected to be an ongoing effort and grow as we
 implement more and more HLSL features.
 
-Vulkan Semantics
-================
+Overview
+========
+
+Although they share the same basic concepts, DirectX and Vulkan are still
+different graphics APIs with semantic gaps. HLSL is the native shading language
+for DirectX, so certain HLSL features do not have corresponding mappings in
+Vulkan, and certain Vulkan specific information does not have native ways to
+express in HLSL source code. This section describes the general translation
+paradigms and how we close some of the major semantic gaps.
 
 Note that the term "semantic" is overloaded. In HLSL, it can mean the string
 attached to shader input or output. For such cases, we refer it as "HLSL
 semantic" or "semantic string". For other cases, we just use the normal
 "semantic" term.
 
-Due to the differences of semantics between DirectX and Vulkan, certain HLSL
-features do not have corresponding mappings in Vulkan, and certain Vulkan
-specific information does not have native ways to express in HLSL source code.
+Shader entry function
+---------------------
+
+HLSL entry functions can read data from the previous shader stage and write
+data to the next shader stage via function parameters and return value. On the
+contrary, Vulkan requires all SPIR-V entry functions taking no parameters and
+returning void. All data passing between stages should use global variables
+in the ``Input`` and ``Output`` storage class.
+
+To handle this difference, we emit an wrapper function as the SPIR-V entry
+function around the HLSL source code entry function. The wrapper function is
+responsible to read data from SPIR-V ``Input`` global variables and prepare
+them to the types required in the source code entry function signature, call
+the source code entry function, and then decompose the contents in return value
+(and ``out``/``inout`` parameters) to the types required by the SPIR-V
+``Output`` global variables, and then write out. For details about the wrapper
+function, please refer to the `entry function wrapper`_ section.
+
+Shader stage IO interface matching
+----------------------------------
+
+HLSL leverages semantic strings to link variables and pass data between shader
+stages. Great flexibility is allowed as for how to use the semantic strings.
+They can appear on function parameters, function returns, and struct members.
+In Vulkan, linking variables and passing data between shader stages is done via
+numeric ``Location`` decorations on SPIR-V global variables in the ``Input`` and
+``Output`` storage class.
+
+To help handling such differences, we provide `Vulkan specific attributes`_ to
+let the developer to express precisely their intents. The compiler will also try
+it best to deduce the mapping from semantic strings to SPIR-V ``Location``
+numbers when such explicit Vulkan specific attributes are absent. Please see the
+`HLSL semantic and Vulkan Location`_ section for more details about the mapping
+and ``Location`` assignment.
+
+What makes the story complicated is Vulkan's strict requirements on interface
+matching. Basically, a variable in the previous stage is considered a match to
+a variable in the next stage if and only if they are decorated with the same
+``Location`` number and with the exact same type, except for the outermost
+arrayness in hull/domain/geometry shader, which can be ignored regarding
+interface matching. This is causing problems together with the flexibility of
+HLSL semantic strings.
+
+Some HLSL system-value (SV) semantic strings will be mapped into SPIR-V
+variables with builtin decorations, some are not. HLSL non-SV semantic strings
+should all be mapped to SPIR-V variables without builtin decorations (but with
+``Location`` decorations).
+
+With these complications, if we are grouping multiple semantic strings in a
+struct in the HLSL source code, that struct should be flattened and each of
+its members should be mapped separately. For example, for the following:
+
+.. code:: hlsl
+
+  struct T {
+    float2 clip0 : SV_ClipDistance0;
+    float3 cull0 : SV_CullDistance0;
+    float4 foo   : FOO;
+  };
+
+  struct S {
+    float4 pos   : SV_Position;
+    float2 clip1 : SV_ClipDistance1;
+    float3 cull1 : SV_CullDistance1;
+    float4 bar   : BAR;
+    T      t;
+  };
+
+If we have an ``S`` input parameter in pixel shader, we should flatten it
+recursively to generate five SPIR-V ``Input`` variables. Three of them are
+decorated by the ``Position``, ``ClipDistance``, ``CullDistance`` builtin,
+and two of them are decorated by the ``Location`` decoration. (Note that
+``clip0`` and ``clip1`` are concatenated, also ``cull0`` and ``cull1``.
+The ``ClipDistance`` and ``CullDistance`` builtins are special and explained
+in the `gl_PerVertex`_ section.)
+
+Flattening is infective because of Vulkan interface matching rules. If we
+flatten a struct in the output of a previous stage, which may create multiple
+variables decorated with different ``Location`` numbers, we also need to
+flatten it in the input of the next stage. otherwise we may have ``Location``
+mismatch even if we share the same definition of the struct. Because
+hull/domain/geometry shader is optional, we can have different chains of shader
+stages, which means we need to flatten all shader stage interfaces. For
+hull/domain/geometry shader, their inputs/outputs have an additional arrayness.
+So if we are seeing an array of structs in these shaders, we need to flatten
+them into arrays of its fields.
+
+Lastly, to satisfy the type requirements on builtins, after flattening, the
+variables decorated with ``Position``, ``ClipDistance``, and ``CullDistance``
+builtins are grouped into struct, like ``gl_PerVertex``. More details in the
+`gl_PerVertex`_ section.
+
+Vulkan specific attributes
+--------------------------
 
 To provide additional information required by Vulkan in HLSL, we need to extend
 the syntax of HLSL.
 `C++ attribute specifier sequence <http://en.cppreference.com/w/cpp/language/attributes>`_
 is a non-intrusive way of achieving such purpose.
-
-For example, to specify the layout of resource variables and the location of
-interface variables:
-
-.. code:: hlsl
-
-  struct S { ... };
-
-  [[vk::binding(X, Y)]]
-  StructuredBuffer<S> mySBuffer;
-
-  [[vk::location(M)]] float4
-  main([[vk::location(N)]] float4 input: A) : B
-  { ... }
 
 The namespace ``vk`` will be used for all Vulkan attributes:
 
@@ -77,6 +161,20 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
 only trigger warnings and be ignored if not compiling towards SPIR-V.
+
+For example, to specify the layout of resource variables and the location of
+interface variables:
+
+.. code:: hlsl
+
+  struct S { ... };
+
+  [[vk::binding(X, Y), vk::counter_binding(Z)]]
+  RWStructuredBuffer<S> mySBuffer;
+
+  [[vk::location(M)]] float4
+  main([[vk::location(N)]] float4 input: A) : B
+  { ... }
 
 HLSL Types
 ==========
@@ -525,7 +623,7 @@ Type modifier
 [TODO]
 
 HLSL semantic and Vulkan ``Location``
-------------------------------------
+-------------------------------------
 
 Direct3D uses HLSL "`semantics <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509647(v=vs.85).aspx>`_"
 to compose and match the interfaces between subsequent stages. These semantic
@@ -652,6 +750,45 @@ flattening all structs if structs are used as function parameters or returns.
 
 There is an exception to the above rule for SV_Target[N]. It will always be
 mapped to ``Location`` number N.
+
+``gl_PerVertex``
+~~~~~~~~~~~~~~~~
+
+Variables annotated with ``SV_Position``, ``SV_ClipDistanceX``, and
+``SV_CullDistanceX`` are mapped into fields of a ``gl_PerVertex`` struct:
+
+.. code:: hlsl
+
+    struct gl_PerVertex {
+        float4 gl_Position;       // SPIR-V BuiltIn Position
+        float  gl_PointSize;      // No HLSL equivalent
+        float  gl_ClipDistance[]; // SPIR-V BuiltIn ClipDistance
+        float  gl_CullDistance[]; // SPIR-V BuiltIn CullDistance
+    };
+
+This mimics how these builtins are handled in GLSL.
+
+Variables decorated with ``SV_ClipDistanceX`` can be float or vector of float
+type. To map them into one float array in the struct, we firstly sort them
+asecendingly according to ``X``, and then concatenate them tightly. For example,
+
+.. code:: hlsl
+
+  struct T {
+    float clip0: SV_ClipDistance0,
+  };
+
+  struct S {
+    float3 clip5: SV_ClipDistance5;
+    ...
+  };
+
+  void main(T t, S s, float2 clip2 : SV_ClipDistance2) { ... }
+
+Then we have an float array of size (1 + 2 + 3 =) 6 for ``ClipDistance``, with
+``clip0`` at offset 0, ``clip2`` at offset 1, ``clip5`` at offset 3.
+
+Variables decorated with ``SV_CullDistanceX`` are mapped similarly as above.
 
 HLSL register and Vulkan binding
 --------------------------------
