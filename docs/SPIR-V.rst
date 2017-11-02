@@ -135,8 +135,22 @@ them into arrays of its fields.
 
 Lastly, to satisfy the type requirements on builtins, after flattening, the
 variables decorated with ``Position``, ``ClipDistance``, and ``CullDistance``
-builtins are grouped into struct, like ``gl_PerVertex``. More details in the
-`gl_PerVertex`_ section.
+builtins are grouped into struct, like ``gl_PerVertex`` for certain shader stage
+interface:
+
+============ ===== ======
+Shader Stage Input Output
+============ ===== ======
+    VS         X     G
+    HS         G     G
+    DS         G     G
+    GS         G     S
+    PS         S     X
+============ ===== ======
+
+(``X``: Not applicable, ``G``: Grouped, ``S``: separated)
+
+More details in the `gl_PerVertex`_ section.
 
 Vulkan specific attributes
 --------------------------

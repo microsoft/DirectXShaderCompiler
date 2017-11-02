@@ -8,6 +8,7 @@ add_clang_library(clangSPIRV
   DeclResultIdMapper.cpp
   Decoration.cpp
   EmitSPIRVAction.cpp
+  GlPerVertex.cpp
   InitListHandler.cpp
   InstBuilderAuto.cpp
   InstBuilderManual.cpp
