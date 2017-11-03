@@ -877,6 +877,22 @@ Casting between (vectors) of scalar types is translated according to the followi
 |   Float    |                   | ``OpConvertFToS`` | ``OpConvertFToU`` |      no-op        |
 +------------+-------------------+-------------------+-------------------+-------------------+
 
+It is also feasible in HLSL to cast a float matrix to another float matrix with a smaller size.
+This is known as matrix truncation cast. For instance, the following code casts a 3x4 matrix
+into a 2x3 matrix.
+
+.. code:: hlsl
+
+  float3x4 m = { 1,  2,  3, 4,
+                 5,  6,  7, 8,
+                 9, 10, 11, 12 };
+
+  float2x3 a = (float2x3)m;
+
+Such casting takes the upper-left most corner of the original matrix to generate the result.
+In the above example, matrix ``a`` will have 2 rows, with 3 columns each. First row will be
+``1, 2, 3`` and the second row will be ``5, 6, 7``.
+
 Indexing operator
 -----------------
 

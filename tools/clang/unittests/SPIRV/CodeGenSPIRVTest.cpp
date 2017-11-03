@@ -276,6 +276,7 @@ TEST_F(FileTest, CastImplicitFlatConversion) {
 
 // For vector/matrix splatting and trunction
 TEST_F(FileTest, CastTruncateVector) { runFileTest("cast.vector.trunc.hlsl"); }
+TEST_F(FileTest, CastTruncateMatrix) { runFileTest("cast.matrix.trunc.hlsl"); }
 TEST_F(FileTest, CastSplatVector) { runFileTest("cast.vector.splat.hlsl"); }
 TEST_F(FileTest, CastSplatMatrix) { runFileTest("cast.matrix.splat.hlsl"); }
 
