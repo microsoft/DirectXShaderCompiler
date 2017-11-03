@@ -2295,7 +2295,7 @@ Value *ScalarizeElements(Type *RetTy, ArrayRef<Value*> Elts, IRBuilder<> &Builde
 void UpdateStatus(Value *ResRet, Value *status, IRBuilder<> &Builder,
                   hlsl::OP *hlslOp) {
   if (status && !isa<UndefValue>(status)) {
-    Value *statusVal = Builder.CreateExtractValue(ResRet, 4);
+    Value *statusVal = Builder.CreateExtractValue(ResRet, DXIL::kResRetStatusIndex);
     Value *checkAccessOp = hlslOp->GetI32Const(
         static_cast<unsigned>(DXIL::OpCode::CheckAccessFullyMapped));
     Function *checkAccessFn = hlslOp->GetOpFunc(

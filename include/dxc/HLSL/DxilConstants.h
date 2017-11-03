@@ -81,6 +81,8 @@ namespace DXIL {
   const float kMaxMipLodBias = 15.99f;
   const float kMinMipLodBias = -16.0f;
 
+  const unsigned kResRetStatusIndex = 4;
+
   enum class ComponentType : uint8_t { 
     Invalid = 0,
     I1, I16, U16, I32, U32, I64, U64,

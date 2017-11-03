@@ -810,7 +810,7 @@ struct ResRetUsage {
 };
 
 static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
-                               ValidationContext &ValCtx) {
+                                     ValidationContext &ValCtx) {
   const unsigned kMaxResRetElementIndex = 5;
   for (User *U : ResRet->users()) {
     if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
@@ -828,7 +828,7 @@ static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
         case 3:
           usage.w = true;
           break;
-        case 4:
+        case DXIL::kResRetStatusIndex:
           usage.status = true;
           break;
         default:
@@ -855,7 +855,7 @@ static void ValidateStatus(Instruction *ResRet, ValidationContext &ValCtx) {
       if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
         for (unsigned idx : EVI->getIndices()) {
           switch (idx) {
-          case 4:
+          case DXIL::kResRetStatusIndex:
             for (User *SU : EVI->users()) {
               Instruction *I = cast<Instruction>(SU);
               // Make sure all use is CheckAccess.
@@ -1557,7 +1557,10 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
     } else {
       Value *V = EVI->getOperand(0);
-      if (!ValCtx.DxilMod.GetOP()->IsResRetType(V->getType())) {
+      bool isLegal = EVI->getNumIndices() != 1 &&
+                     EVI->getIndices()[0] != DXIL::kResRetStatusIndex &&
+                     ValCtx.DxilMod.GetOP()->IsResRetType(V->getType());
+      if (!isLegal) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
       }
     }
