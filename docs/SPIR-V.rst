@@ -2071,7 +2071,15 @@ given output stream.
 |``TriangleStream``   | ``OutputTriangleStrip``     |
 +---------------------+-----------------------------+
 
-TODO: Describe more details about how geometry shaders are translated. e.g. OutputStreams, etc.
+In other shader stages, stage output variables are only written in the `entry
+function wrapper`_ after calling the source code entry function. However,
+geometry shaders can output as many vertices as they wish, by calling the
+``.Append()`` method on the output stream object. Therefore, it is incorrect to
+have only one flush in the entry function wrapper like other stages. Instead,
+each time a ``*Stream<T>::Append()`` is encountered, all stage output variables
+behind ``T`` will be flushed before SPIR-V ``OpEmitVertex`` instruction is
+generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
+``OpEndPrimitive`` instruction.
 
 Vulkan Command-line Options
 ===========================

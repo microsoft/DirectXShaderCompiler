@@ -140,7 +140,7 @@ private:
 class DeclResultIdMapper {
 public:
   inline DeclResultIdMapper(const hlsl::ShaderModel &stage, ASTContext &context,
-                            ModuleBuilder &builder, DiagnosticsEngine &diag,
+                            ModuleBuilder &builder,
                             const EmitSPIRVOptions &spirvOptions);
 
   /// \brief Creates the stage output variables by parsing the semantics
@@ -252,6 +252,18 @@ public:
   /// mapper.
   std::vector<uint32_t> collectStageVars() const;
 
+  /// \brief Writes out the contents in the function parameter for the GS
+  /// stream output to the corresponding stage output variables in a recursive
+  /// manner. Returns true on success, false if errors occur.
+  ///
+  /// decl is the Decl with semantic string attached and will be used to find
+  /// the stage output variable to write to, value is the <result-id> for the
+  /// SPIR-V variable to read data from.
+  ///
+  /// This method is specially for writing back per-vertex data at the time of
+  /// OpEmitVertex in GS.
+  bool writeBackOutputStream(const ValueDecl *decl, uint32_t value);
+
   /// \brief Decorates all stage input and output variables with proper
   /// location and returns true on success.
   ///
@@ -310,18 +322,21 @@ private:
   /// For HS/DS/GS, the outermost arrayness should be discarded and use
   /// arraySize instead.
   ///
-  /// Also performs updating the stage variables (loading/storing from/to the
-  /// given value) depending on asInput.
+  /// Also performs reading the stage variables and compose a temporary value
+  /// of the given type and writing into *value, if asInput is true. Otherwise,
+  /// Decomposes the *value according to type and writes back into the stage
+  /// output variables, unless noWriteBack is set to true. noWriteBack is used
+  /// by GS since in GS we manually control write back using .Append() method.
   ///
   /// invocationId is only used for HS to indicate the index of the output
   /// array element to write to.
   ///
   /// Assumes the decl has semantic attached to itself or to its fields.
-  bool createStageVars(const DeclaratorDecl *decl,
-                       const hlsl::SigPoint *sigPoint, bool asInput,
-                       QualType type, uint32_t arraySize,
+  bool createStageVars(const hlsl::SigPoint *sigPoint,
+                       const DeclaratorDecl *decl, bool asInput, QualType type,
+                       uint32_t arraySize, const llvm::Twine &namePrefix,
                        llvm::Optional<uint32_t> invocationId, uint32_t *value,
-                       const llvm::Twine &namePrefix);
+                       bool noWriteBack);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
@@ -349,6 +364,7 @@ private:
   const hlsl::ShaderModel &shaderModel;
   ModuleBuilder &theBuilder;
   const EmitSPIRVOptions &spirvOptions;
+  ASTContext &astContext;
   DiagnosticsEngine &diags;
 
   TypeTranslator typeTranslator;
@@ -359,6 +375,14 @@ private:
   llvm::DenseMap<const NamedDecl *, DeclSpirvInfo> astDecls;
   /// Vector of all defined stage variables.
   llvm::SmallVector<StageVar, 8> stageVars;
+  /// Mapping from Clang AST decls to the corresponding stage variables'
+  /// <result-id>s.
+  /// This field is only used by GS for manually emitting vertices, when
+  /// we need to query the <result-id> of the output stage variables
+  /// involved in writing back. For other cases, stage variable reading
+  /// and writing is done at the time of creating that stage variables,
+  /// so that we does not need to query them again for reading and writing.
+  llvm::DenseMap<const NamedDecl *, uint32_t> stageVarIds;
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
@@ -373,10 +397,10 @@ public:
 DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        ASTContext &context,
                                        ModuleBuilder &builder,
-                                       DiagnosticsEngine &diag,
                                        const EmitSPIRVOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
-      diags(diag), typeTranslator(context, builder, diag), entryFunctionId(0),
+      astContext(context), diags(context.getDiagnostics()),
+      typeTranslator(context, builder, diags), entryFunctionId(0),
       glPerVertex(model, context, builder, typeTranslator) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
