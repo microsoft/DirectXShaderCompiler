@@ -2132,6 +2132,7 @@ ID  Name                          Description
 137 AttributeAtVertex_            returns the values of the attributes at the vertex.
 138 ViewID                        returns the view index
 139 RawBufferLoad                 reads from a raw buffer and structured buffer
+140 RawBufferStore                writes to a RWByteAddressBuffer or RWStructuredBuffer
 === ============================= =================================================================================================================
 
 

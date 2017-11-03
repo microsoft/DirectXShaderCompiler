@@ -238,7 +238,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Quaternary"
         for i in "Dot2,Dot3,Dot4".split(","):
             self.name_idx[i].category = "Dot"
-        for i in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad".split(","):
+        for i in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].category = "Resources"
         for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
@@ -283,7 +283,7 @@ class db_dxil(object):
                 i.category = "Bitcasts with different sizes"
         for i in "ViewID,AttributeAtVertex".split(","):
             self.name_idx[i].shader_model = 6,1
-        for i in "RawBufferLoad".split(","):
+        for i in "RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].shader_model = 6,2
 
     def populate_llvm_instructions(self):
@@ -1081,9 +1081,21 @@ class db_dxil(object):
             db_dxil_param(5, "i8", "mask", "loading value mask")])
         next_op_idx += 1
 
+        self.add_dxil_op("RawBufferStore", next_op_idx, "RawBufferStore", "writes to a RWByteAddressBuffer or RWStructuredBuffer", "hfwi", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
+            db_dxil_param(3, "i32", "coord0", "coordinate in elements"),
+            db_dxil_param(4, "i32", "coord1", "coordinate (unused?)"),
+            db_dxil_param(5, "$o", "value0", "value"),
+            db_dxil_param(6, "$o", "value1", "value"),
+            db_dxil_param(7, "$o", "value2", "value"),
+            db_dxil_param(8, "$o", "value3", "value"),
+            db_dxil_param(9, "i8", "mask", "written value mask")])
+        next_op_idx += 1
+
         # End of DXIL 1.2 opcodes.
         self.set_op_count_for_version(1, 2, next_op_idx)
-        assert next_op_idx == 140, "next operation index is %d rather than 140 and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 141, "next operation index is %d rather than 141 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()

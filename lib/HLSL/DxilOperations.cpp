@@ -249,6 +249,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // Resources                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::RawBufferLoad,           "RawBufferLoad",            OCC::RawBufferLoad,            "rawBufferLoad",              false,  true,  true, false, false, false,  true,  true, false, Attribute::ReadOnly, },
+  {  OC::RawBufferStore,          "RawBufferStore",           OCC::RawBufferStore,           "rawBufferStore",             false,  true,  true, false, false, false,  true,  true, false, Attribute::None,     },
 };
 // OPCODE-OLOADS:END
 
@@ -742,6 +743,7 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
 
     // Resources
   case OpCode::RawBufferLoad:          RRT(pETy);   A(pI32); A(pRes); A(pI32); A(pI32); A(pI8);  break;
+  case OpCode::RawBufferStore:         A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -823,6 +825,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::StoreOutput:
   case OpCode::BufferStore:
   case OpCode::StorePatchConstant:
+  case OpCode::RawBufferStore:
     DXASSERT_NOMSG(FT->getNumParams() > 4);
     return FT->getParamType(4);
   case OpCode::IsNaN:

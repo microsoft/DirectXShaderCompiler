@@ -50,6 +50,10 @@ struct MyStruct {
   float2 f2;
   float3 f3;
   float4 f4;
+  double d1;
+  double2 d2;
+  double3 d3;
+  double4 d4;
 };
 StructuredBuffer<MyStruct> buf1;
 RWStructuredBuffer<MyStruct> buf2;
@@ -88,5 +92,11 @@ int4 main(float idx1 : IDX1, float idx2 : IDX2) : SV_Target {
   r.xy += buf2.Load(idx2, status).f2;
   r.xyz += buf2.Load(idx2, status).f3;
   r.xyzw += buf2.Load(idx2, status).f4;
+  r.x += buf2.Load(idx2, status).d1;
+  r.xy += buf2.Load(idx2, status).d2;
+  r.xyz += buf2.Load(idx2, status).d3;
+  r.xyzw += buf2.Load(idx2, status).d4;
+
+  buf2[0].f4 = r;
   return r;
 }

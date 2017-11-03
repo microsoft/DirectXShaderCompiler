@@ -5288,58 +5288,6 @@ static const HLSL_INTRINSIC_ARGUMENT g_ByteAddressBufferMethods_Args28[] =
     {"status", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT_ONLY, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_ByteAddressBufferMethods_Args29[] =
-{
-    {"LoadInt", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_INT, 1, 1},
-    {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-};
-
-static const HLSL_INTRINSIC_ARGUMENT g_ByteAddressBufferMethods_Args30[] =
-{
-    {"LoadInt", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_INT, 1, 1},
-    {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"status", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT_ONLY, 1, 1},
-};
-
-static const HLSL_INTRINSIC_ARGUMENT g_ByteAddressBufferMethods_Args31[] =
-{
-    {"LoadInt2", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 2},
-    {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-};
-
-static const HLSL_INTRINSIC_ARGUMENT g_ByteAddressBufferMethods_Args32[] =
-{
-    {"LoadInt2", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 2},
-    {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"status", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT_ONLY, 1, 1},
-};
-
-static const HLSL_INTRINSIC_ARGUMENT g_ByteAddressBufferMethods_Args33[] =
-{
-    {"LoadInt3", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 3},
-    {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-};
-
-static const HLSL_INTRINSIC_ARGUMENT g_ByteAddressBufferMethods_Args34[] =
-{
-    {"LoadInt3", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 3},
-    {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"status", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT_ONLY, 1, 1},
-};
-
-static const HLSL_INTRINSIC_ARGUMENT g_ByteAddressBufferMethods_Args35[] =
-{
-    {"LoadInt4", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 4},
-    {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-};
-
-static const HLSL_INTRINSIC_ARGUMENT g_ByteAddressBufferMethods_Args36[] =
-{
-    {"LoadInt4", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 4},
-    {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"status", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT_ONLY, 1, 1},
-};
-
 static const HLSL_INTRINSIC g_ByteAddressBufferMethods[] =
 {
     {(UINT)hlsl::IntrinsicOp::MOP_GetDimensions, false, false, -1, 2, g_ByteAddressBufferMethods_Args0},
@@ -5371,14 +5319,6 @@ static const HLSL_INTRINSIC g_ByteAddressBufferMethods[] =
     {(UINT)hlsl::IntrinsicOp::MOP_LoadHalf3, false, false, -1, 3, g_ByteAddressBufferMethods_Args26},
     {(UINT)hlsl::IntrinsicOp::MOP_LoadHalf4, true, false, -1, 2, g_ByteAddressBufferMethods_Args27},
     {(UINT)hlsl::IntrinsicOp::MOP_LoadHalf4, false, false, -1, 3, g_ByteAddressBufferMethods_Args28},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt, true, false, -1, 2, g_ByteAddressBufferMethods_Args29},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt, false, false, -1, 3, g_ByteAddressBufferMethods_Args30},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt2, true, false, -1, 2, g_ByteAddressBufferMethods_Args31},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt2, false, false, -1, 3, g_ByteAddressBufferMethods_Args32},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt3, true, false, -1, 2, g_ByteAddressBufferMethods_Args33},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt3, false, false, -1, 3, g_ByteAddressBufferMethods_Args34},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt4, true, false, -1, 2, g_ByteAddressBufferMethods_Args35},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt4, false, false, -1, 3, g_ByteAddressBufferMethods_Args36},
 };
 
 //
@@ -5690,82 +5630,100 @@ static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args43[] =
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args44[] =
 {
-    {"LoadInt", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_INT, 1, 1},
+    {"Store", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args45[] =
 {
-    {"LoadInt", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_INT, 1, 1},
+    {"Store2", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"status", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT_ONLY, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_UINT, 1, 2},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args46[] =
 {
-    {"LoadInt2", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 2},
+    {"Store3", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_UINT, 1, 3},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args47[] =
 {
-    {"LoadInt2", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 2},
+    {"Store4", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"status", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT_ONLY, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_UINT, 1, 4},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args48[] =
 {
-    {"LoadInt3", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 3},
+    {"StoreDouble", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_DOUBLE, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args49[] =
 {
-    {"LoadInt3", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 3},
+    {"StoreDouble2", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"status", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT_ONLY, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_DOUBLE, 1, 2},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args50[] =
 {
-    {"LoadInt4", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 4},
+    {"StoreFloat", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_FLOAT, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args51[] =
 {
-    {"LoadInt4", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 4},
+    {"StoreFloat2", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"status", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT_ONLY, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT, 1, 2},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args52[] =
 {
-    {"Store", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"StoreFloat3", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_NUMERIC, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT, 1, 3},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args53[] =
 {
-    {"Store2", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"StoreFloat4", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_NUMERIC, 1, 2},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_FLOAT, 1, 4},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args54[] =
 {
-    {"Store3", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"StoreHalf", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_NUMERIC, 1, 3},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_HALF, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args55[] =
 {
-    {"Store4", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"StoreHalf2", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
-    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_NUMERIC, 1, 4},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_HALF, 1, 2},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args56[] =
+{
+    {"StoreHalf3", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_HALF, 1, 3},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args57[] =
+{
+    {"StoreHalf4", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+    {"value", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_HALF, 1, 4},
 };
 
 static const HLSL_INTRINSIC g_RWByteAddressBufferMethods[] =
@@ -5814,18 +5772,20 @@ static const HLSL_INTRINSIC g_RWByteAddressBufferMethods[] =
     {(UINT)hlsl::IntrinsicOp::MOP_LoadHalf3, false, false, -1, 3, g_RWByteAddressBufferMethods_Args41},
     {(UINT)hlsl::IntrinsicOp::MOP_LoadHalf4, true, false, -1, 2, g_RWByteAddressBufferMethods_Args42},
     {(UINT)hlsl::IntrinsicOp::MOP_LoadHalf4, false, false, -1, 3, g_RWByteAddressBufferMethods_Args43},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt, true, false, -1, 2, g_RWByteAddressBufferMethods_Args44},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt, false, false, -1, 3, g_RWByteAddressBufferMethods_Args45},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt2, true, false, -1, 2, g_RWByteAddressBufferMethods_Args46},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt2, false, false, -1, 3, g_RWByteAddressBufferMethods_Args47},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt3, true, false, -1, 2, g_RWByteAddressBufferMethods_Args48},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt3, false, false, -1, 3, g_RWByteAddressBufferMethods_Args49},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt4, true, false, -1, 2, g_RWByteAddressBufferMethods_Args50},
-    {(UINT)hlsl::IntrinsicOp::MOP_LoadInt4, false, false, -1, 3, g_RWByteAddressBufferMethods_Args51},
-    {(UINT)hlsl::IntrinsicOp::MOP_Store, false, false, -1, 3, g_RWByteAddressBufferMethods_Args52},
-    {(UINT)hlsl::IntrinsicOp::MOP_Store2, false, false, -1, 3, g_RWByteAddressBufferMethods_Args53},
-    {(UINT)hlsl::IntrinsicOp::MOP_Store3, false, false, -1, 3, g_RWByteAddressBufferMethods_Args54},
-    {(UINT)hlsl::IntrinsicOp::MOP_Store4, false, false, -1, 3, g_RWByteAddressBufferMethods_Args55},
+    {(UINT)hlsl::IntrinsicOp::MOP_Store, false, false, -1, 3, g_RWByteAddressBufferMethods_Args44},
+    {(UINT)hlsl::IntrinsicOp::MOP_Store2, false, false, -1, 3, g_RWByteAddressBufferMethods_Args45},
+    {(UINT)hlsl::IntrinsicOp::MOP_Store3, false, false, -1, 3, g_RWByteAddressBufferMethods_Args46},
+    {(UINT)hlsl::IntrinsicOp::MOP_Store4, false, false, -1, 3, g_RWByteAddressBufferMethods_Args47},
+    {(UINT)hlsl::IntrinsicOp::MOP_StoreDouble, false, false, -1, 3, g_RWByteAddressBufferMethods_Args48},
+    {(UINT)hlsl::IntrinsicOp::MOP_StoreDouble2, false, false, -1, 3, g_RWByteAddressBufferMethods_Args49},
+    {(UINT)hlsl::IntrinsicOp::MOP_StoreFloat, false, false, -1, 3, g_RWByteAddressBufferMethods_Args50},
+    {(UINT)hlsl::IntrinsicOp::MOP_StoreFloat2, false, false, -1, 3, g_RWByteAddressBufferMethods_Args51},
+    {(UINT)hlsl::IntrinsicOp::MOP_StoreFloat3, false, false, -1, 3, g_RWByteAddressBufferMethods_Args52},
+    {(UINT)hlsl::IntrinsicOp::MOP_StoreFloat4, false, false, -1, 3, g_RWByteAddressBufferMethods_Args53},
+    {(UINT)hlsl::IntrinsicOp::MOP_StoreHalf, false, false, -1, 3, g_RWByteAddressBufferMethods_Args54},
+    {(UINT)hlsl::IntrinsicOp::MOP_StoreHalf2, false, false, -1, 3, g_RWByteAddressBufferMethods_Args55},
+    {(UINT)hlsl::IntrinsicOp::MOP_StoreHalf3, false, false, -1, 3, g_RWByteAddressBufferMethods_Args56},
+    {(UINT)hlsl::IntrinsicOp::MOP_StoreHalf4, false, false, -1, 3, g_RWByteAddressBufferMethods_Args57},
 };
 
 //
@@ -5952,11 +5912,11 @@ static const HLSL_INTRINSIC g_ConsumeStructuredBufferMethods[] =
 // HLSL-INTRINSIC-STATS:BEGIN
 static const UINT g_uAppendStructuredBufferMethodsCount = 2;
 static const UINT g_uBufferMethodsCount = 3;
-static const UINT g_uByteAddressBufferMethodsCount = 37;
+static const UINT g_uByteAddressBufferMethodsCount = 29;
 static const UINT g_uConsumeStructuredBufferMethodsCount = 2;
 static const UINT g_uIntrinsicsCount = 179;
 static const UINT g_uRWBufferMethodsCount = 3;
-static const UINT g_uRWByteAddressBufferMethodsCount = 56;
+static const UINT g_uRWByteAddressBufferMethodsCount = 58;
 static const UINT g_uRWStructuredBufferMethodsCount = 5;
 static const UINT g_uRWTexture1DArrayMethodsCount = 4;
 static const UINT g_uRWTexture1DMethodsCount = 4;

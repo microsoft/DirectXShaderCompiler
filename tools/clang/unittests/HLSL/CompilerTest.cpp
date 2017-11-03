@@ -784,6 +784,8 @@ public:
   TEST_METHOD(CodeGenStruct_Buf2)
   TEST_METHOD(CodeGenStruct_Buf3)
   TEST_METHOD(CodeGenStruct_Buf4)
+  TEST_METHOD(CodeGenStruct_Buf5)
+  TEST_METHOD(CodeGenStruct_Buf6)
   TEST_METHOD(CodeGenStruct_Buf_New_Layout)
   TEST_METHOD(CodeGenStruct_BufHasCounter)
   TEST_METHOD(CodeGenStruct_BufHasCounter2)
@@ -809,6 +811,7 @@ public:
   TEST_METHOD(CodeGenUav_Raw1)
   TEST_METHOD(CodeGenUav_Typed_Load_Store1)
   TEST_METHOD(CodeGenUav_Typed_Load_Store2)
+  TEST_METHOD(CodeGenUav_Typed_Load_Store3)
   TEST_METHOD(CodeGenUint64_1)
   TEST_METHOD(CodeGenUint64_2)
   TEST_METHOD(CodeGenUintSample)
@@ -3923,7 +3926,6 @@ TEST_F(CompilerTest, CodeGenRaw_Buf2) {
 }
 
 TEST_F(CompilerTest, CodeGenRaw_Buf3) {
-  if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\raw_buf3.hlsl");
 }
 
@@ -3933,6 +3935,7 @@ TEST_F(CompilerTest, CodeGenRaw_Buf4) {
 }
 
 TEST_F(CompilerTest, CodeGenRaw_Buf5) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\raw_buf5.hlsl");
 }
 
@@ -4242,7 +4245,7 @@ TEST_F(CompilerTest, CodeGenStaticResource2) {
 }
 
 TEST_F(CompilerTest, CodeGenStruct_Buf1) {
-  CodeGenTest(L"..\\CodeGenHLSL\\struct_buf1.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_buf1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStruct_Buf2) {
@@ -4258,6 +4261,16 @@ TEST_F(CompilerTest, CodeGenStruct_Buf3) {
 TEST_F(CompilerTest, CodeGenStruct_Buf4) {
   if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_buf4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStruct_Buf5) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_buf5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStruct_Buf6) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_buf6.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStruct_Buf_New_Layout) {
@@ -4359,6 +4372,11 @@ TEST_F(CompilerTest, CodeGenUav_Typed_Load_Store1) {
 
 TEST_F(CompilerTest, CodeGenUav_Typed_Load_Store2) {
   CodeGenTest(L"..\\CodeGenHLSL\\uav_typed_load_store2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenUav_Typed_Load_Store3) {
+  if (m_ver.SkipDxilVersion(1,2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\uav_typed_load_store3.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenUint64_1) {

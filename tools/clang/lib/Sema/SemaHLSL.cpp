@@ -1072,7 +1072,6 @@ static const ArBasicKind g_HalfCT[] =
 {
   AR_BASIC_FLOAT16,
   AR_BASIC_LITERAL_FLOAT,
-  AR_BASIC_FLOAT32,
   AR_BASIC_UNKNOWN
 };
 

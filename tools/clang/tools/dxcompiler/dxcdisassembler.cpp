@@ -965,7 +965,8 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // WavePrefixBitCount
   "(inputSigId,inputRowIndex,inputColIndex,VertexID)",  // AttributeAtVertex
   "()",  // ViewID
-  "(srv,index,wot,mask)"  // RawBufferLoad
+  "(srv,index,wot,mask)",  // RawBufferLoad
+  "(uav,coord0,coord1,value0,value1,value2,value3,mask)"  // RawBufferStore
 };
 // OPCODE-SIGS:END
 

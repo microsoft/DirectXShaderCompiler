@@ -4480,5 +4480,49 @@ struct DxilInst_RawBufferLoad {
   llvm::Value *get_mask() const { return Instr->getOperand(4); }
   void set_mask(llvm::Value *val) { Instr->setOperand(4, val); }
 };
+
+/// This instruction writes to a RWByteAddressBuffer or RWStructuredBuffer
+struct DxilInst_RawBufferStore {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_RawBufferStore(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::RawBufferStore);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (9 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Operand indexes
+  enum OperandIdx {
+    arg_uav = 1,
+    arg_coord0 = 2,
+    arg_coord1 = 3,
+    arg_value0 = 4,
+    arg_value1 = 5,
+    arg_value2 = 6,
+    arg_value3 = 7,
+    arg_mask = 8,
+  };
+  // Accessors
+  llvm::Value *get_uav() const { return Instr->getOperand(1); }
+  void set_uav(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_coord0() const { return Instr->getOperand(2); }
+  void set_coord0(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_coord1() const { return Instr->getOperand(3); }
+  void set_coord1(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_value0() const { return Instr->getOperand(4); }
+  void set_value0(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_value1() const { return Instr->getOperand(5); }
+  void set_value1(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_value2() const { return Instr->getOperand(6); }
+  void set_value2(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_value3() const { return Instr->getOperand(7); }
+  void set_value3(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_mask() const { return Instr->getOperand(8); }
+  void set_mask(llvm::Value *val) { Instr->setOperand(8, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl

@@ -3042,54 +3042,68 @@ void Make64bitResultForLoad(Type *EltTy, ArrayRef<Value *> resultElts32,
   }
 }
 
-static Constant *GetRawBufferLoadMaskFromIOP(IntrinsicOp IOP, hlsl::OP *OP) {
+static uint8_t GetRawBufferMaskFromIOP(IntrinsicOp IOP, hlsl::OP *OP) {
   switch (IOP) {
     // one dword
     case IntrinsicOp::MOP_Load:
     case IntrinsicOp::MOP_LoadHalf:
-    case IntrinsicOp::MOP_LoadInt:
+    case IntrinsicOp::MOP_StoreHalf:
     case IntrinsicOp::MOP_LoadFloat:
-      return OP->GetI8Const(0x1);
+    case IntrinsicOp::MOP_StoreFloat:
+      return DXIL::kCompMask_X;
     // two dword
     case IntrinsicOp::MOP_Load2:
     case IntrinsicOp::MOP_LoadHalf2:
-    case IntrinsicOp::MOP_LoadInt2:
+    case IntrinsicOp::MOP_StoreHalf2:
     case IntrinsicOp::MOP_LoadFloat2:
+    case IntrinsicOp::MOP_StoreFloat2:
     case IntrinsicOp::MOP_LoadDouble:
-      return OP->GetI8Const(0x3);
+    case IntrinsicOp::MOP_StoreDouble:
+      return DXIL::kCompMask_X | DXIL::kCompMask_Y;
     // three dword
     case IntrinsicOp::MOP_Load3:
     case IntrinsicOp::MOP_LoadHalf3:
-    case IntrinsicOp::MOP_LoadInt3:
+    case IntrinsicOp::MOP_StoreHalf3:
     case IntrinsicOp::MOP_LoadFloat3:
-      return OP->GetI8Const(0x7);
+    case IntrinsicOp::MOP_StoreFloat3:
+      return DXIL::kCompMask_X | DXIL::kCompMask_Y | DXIL::kCompMask_Z;
     // three dword
     case IntrinsicOp::MOP_Load4:
     case IntrinsicOp::MOP_LoadHalf4:
-    case IntrinsicOp::MOP_LoadInt4:
+    case IntrinsicOp::MOP_StoreHalf4:
     case IntrinsicOp::MOP_LoadFloat4:
+    case IntrinsicOp::MOP_StoreFloat4:
     case IntrinsicOp::MOP_LoadDouble2:
-      return OP->GetI8Const(0xf);
+    case IntrinsicOp::MOP_StoreDouble2:
+      return DXIL::kCompMask_All;
     default:
       DXASSERT(false, "Invalid Intrinsic for computing load mask.");
-      return OP->GetI8Const(0x0);
+      return 0;
   }
 }
 
 static Constant *GetRawBufferLoadMaskForType(Type *Ty, hlsl::OP *OP) {
+  bool is64 = Ty->isDoubleTy() || Ty == Type::getInt64Ty(Ty->getContext());
   if (VectorType *vTy = dyn_cast<VectorType>(Ty)) {
+    is64 = vTy->getElementType()->isDoubleTy()
+      || vTy->getElementType() == Type::getInt64Ty(Ty->getContext());
     switch (vTy->getNumElements()) {
       case 1:
-        return OP->GetI8Const(0x1);
+        return is64 ? OP->GetI8Const(DXIL::kCompMask_X | DXIL::kCompMask_Y)
+          : OP->GetI8Const(DXIL::kCompMask_X);
       case 2:
-        return OP->GetI8Const(0x3);
+        return is64 ? OP->GetI8Const(DXIL::kCompMask_All)
+          : OP->GetI8Const(DXIL::kCompMask_X | DXIL::kCompMask_Y);
       case 3:
-        return OP->GetI8Const(0x7);
+        return is64 ? OP->GetI8Const(DXIL::kCompMask_All)
+          : OP->GetI8Const(DXIL::kCompMask_X | DXIL::kCompMask_Y | DXIL::kCompMask_Z);
       case 4:
-        return OP->GetI8Const(0xf);
+        return OP->GetI8Const(DXIL::kCompMask_All);
    }
   }
-  return OP->GetI8Const(0x1);
+
+  return is64 ? OP->GetI8Const(DXIL::kCompMask_X | DXIL::kCompMask_Y)
+    : OP->GetI8Const(DXIL::kCompMask_X);
 }
 
 void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
@@ -3174,7 +3188,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   // Offset 1
   if (RK == DxilResource::Kind::RawBuffer) {
     loadArgs.emplace_back(undefI);
-    loadArgs.emplace_back(GetRawBufferLoadMaskFromIOP(helper.intrinsicOpCode, OP));
+    loadArgs.emplace_back(OP->GetI8Const(GetRawBufferMaskFromIOP(helper.intrinsicOpCode, OP)));
   }
   else if (RK == DxilResource::Kind::TypedBuffer) {
     loadArgs.emplace_back(undefI);
@@ -3279,6 +3293,9 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   OP::OpCode opcode;
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
+  case DxilResource::Kind::StructuredBuffer:
+    opcode = OP::OpCode::RawBufferStore;
+    break;
   case DxilResource::Kind::TypedBuffer:
     opcode = OP::OpCode::BufferStore;
     break;
@@ -3380,12 +3397,11 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   }
 
   if (is64) {
-    DXASSERT(mask == DXIL::kCompMask_All, "only typed buffer could have 64bit");
     unsigned size = 1;
     if (Ty->isVectorTy()) {
       size = Ty->getVectorNumElements();
     }
-    DXASSERT(size <= 2, "typed buffer only allow 4 dwords");
+    DXASSERT(size <= 2, "raw/typed buffer only allow 4 dwords");
     unsigned val0OpIdx = opcode == DXIL::OpCode::TextureStore
                              ? DXIL::OperandIndex::kTextureStoreVal0OpIdx
                              : DXIL::OperandIndex::kBufferStoreVal0OpIdx;
@@ -3403,6 +3419,11 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     // Change valOp to 32 version.
     for (unsigned i = 0; i < 4; i++) {
       storeArgs[val0OpIdx + i] = vals32[i];
+    }
+    // change mask for double
+    if (opcode == DXIL::OpCode::RawBufferStore) {
+      mask = size == 1 ?
+        DXIL::kCompMask_X | DXIL::kCompMask_Y : DXIL::kCompMask_All;
     }
   }
 
@@ -4408,10 +4429,6 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::MOP_LoadHalf2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadHalf3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_LoadHalf4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadInt, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadInt2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadInt3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadInt4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedAdd, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedAnd, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedCompareExchange, TranslateMopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
@@ -4425,6 +4442,16 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::MOP_Store2, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Store3, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Store4, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_StoreDouble, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_StoreDouble2, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_StoreFloat, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_StoreFloat2, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_StoreFloat3, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_StoreFloat4, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_StoreHalf, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_StoreHalf2, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_StoreHalf3, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_StoreHalf4, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_DecrementCounter, GenerateUpdateCounter, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_IncrementCounter, GenerateUpdateCounter, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Consume, EmptyLower, DXIL::OpCode::NumOpCodes},
@@ -5516,7 +5543,7 @@ void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
 void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
                          Type *EltTy, hlsl::OP *OP, IRBuilder<> &Builder,
                          ArrayRef<Value *> vals, uint8_t mask) {
-  OP::OpCode opcode = OP::OpCode::BufferStore;
+  OP::OpCode opcode = OP::OpCode::RawBufferStore;
   DXASSERT(vals.size() == 4, "buffer store need 4 values");
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
