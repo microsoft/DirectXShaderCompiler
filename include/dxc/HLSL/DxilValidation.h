@@ -59,6 +59,7 @@ enum class ValidationRule : unsigned {
   InstrCBufferOutOfBound, // Cbuffer access out of bound
   InstrCallOload, // Call to DXIL intrinsic must match overload signature
   InstrCannotPullPosition, // pull-model evaluation of position disallowed
+  InstrCheckAccessFullyMapped, // CheckAccessFullyMapped should only used on resource status
   InstrCoordinateCountForRawTypedBuf, // raw/typed buffer don't need 2 coordinates
   InstrCoordinateCountForStructBuf, // structured buffer require 2 coordinates
   InstrDxilStructUser, // Dxil struct types should only used by ExtractValue
@@ -109,6 +110,7 @@ enum class ValidationRule : unsigned {
   InstrSamplerModeForLOD, // lod instruction requires sampler declared in default mode
   InstrSamplerModeForSample, // sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
   InstrSamplerModeForSampleC, // sample_c_*/gather_c instructions require sampler declared in comparison mode
+  InstrStatus, // Resource status should only used by CheckAccessFullyMapped
   InstrStructBitCast, // Bitcast on struct types is not allowed
   InstrTGSMRaceCond, // Race condition writing to shared memory detected, consider making this write conditional
   InstrTextureOffset, // offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7

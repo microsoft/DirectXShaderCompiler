@@ -115,6 +115,8 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
     case hlsl::ValidationRule::InstrMinPrecisonBitCast: return "Bitcast on minprecison types is not allowed";
     case hlsl::ValidationRule::InstrStructBitCast: return "Bitcast on struct types is not allowed";
+    case hlsl::ValidationRule::InstrStatus: return "Resource status should only used by CheckAccessFullyMapped";
+    case hlsl::ValidationRule::InstrCheckAccessFullyMapped: return "CheckAccessFullyMapped should only used on resource status";
     case hlsl::ValidationRule::InstrOpConst: return "%0 of %1 must be an immediate constant";
     case hlsl::ValidationRule::InstrAllowed: return "Instructions must be of an allowed type";
     case hlsl::ValidationRule::InstrOpCodeReserved: return "Instructions must not reference reserved opcodes";
@@ -845,6 +847,36 @@ static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
   }
 }
 
+static void ValidateStatus(Instruction *ResRet, ValidationContext &ValCtx) {
+  ResRetUsage usage;
+  CollectGetDimResRetUsage(usage, ResRet, ValCtx);
+  if (usage.status) {
+    for (User *U : ResRet->users()) {
+      if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
+        for (unsigned idx : EVI->getIndices()) {
+          switch (idx) {
+          case 4:
+            for (User *SU : EVI->users()) {
+              Instruction *I = cast<Instruction>(SU);
+              // Make sure all use is CheckAccess.
+              if (!isa<CallInst>(I)) {
+                ValCtx.EmitInstrError(I, ValidationRule::InstrStatus);
+                return;
+              }
+              if (!ValCtx.DxilMod.GetOP()->IsDxilOpFuncCallInst(
+                      I, DXIL::OpCode::CheckAccessFullyMapped)) {
+                ValCtx.EmitInstrError(I, ValidationRule::InstrStatus);
+                return;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+}
+
 static void ValidateResourceCoord(CallInst *CI, DXIL::ResourceKind resKind,
                                   ArrayRef<Value *> coords,
                                   ValidationContext &ValCtx) {
@@ -1517,6 +1549,18 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
          sample.get_coord3()},
         {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
         /*IsSampleC*/ false, ValCtx);
+  } break;
+  case DXIL::OpCode::CheckAccessFullyMapped: {
+    Value *Src = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
+    ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(Src);
+    if (!EVI) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
+    } else {
+      Value *V = EVI->getOperand(0);
+      if (!ValCtx.DxilMod.GetOP()->IsResRetType(V->getType())) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
+      }
+    }
   } break;
   case DXIL::OpCode::Barrier: {
     DxilInst_Barrier barrier(CI);
