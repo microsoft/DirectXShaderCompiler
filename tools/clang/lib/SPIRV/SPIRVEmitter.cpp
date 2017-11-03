@@ -5722,6 +5722,16 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     declIdMapper.glPerVertex.generateVars(inputArraySize, outputArraySize);
   }
 
+  // Require the ClipDistance/CullDistance capability if necessary.
+  // It is legal to just use the ClipDistance/CullDistance builtin without
+  // requiring the ClipDistance/CullDistance capability, as long as we don't
+  // read or write the builtin variable.
+  // For our CodeGen, that corresponds to not seeing SV_ClipDistance or
+  // SV_CullDistance at all. If we see them, we will generate code to read
+  // them to initialize temporary variable for calling the source code entry
+  // function or write to them after calling the source code entry function.
+  declIdMapper.glPerVertex.requireCapabilityIfNecessary();
+
   // The entry basic block.
   const uint32_t entryLabel = theBuilder.createBasicBlock();
   theBuilder.setInsertPoint(entryLabel);

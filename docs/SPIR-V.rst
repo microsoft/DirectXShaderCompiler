@@ -802,6 +802,14 @@ asecendingly according to ``X``, and then concatenate them tightly. For example,
 Then we have an float array of size (1 + 2 + 3 =) 6 for ``ClipDistance``, with
 ``clip0`` at offset 0, ``clip2`` at offset 1, ``clip5`` at offset 3.
 
+Decorating a variable or struct member with the ``ClipDistance`` builtin but not
+requiring the ``ClipDistance`` capability is legal as long as we don't read or
+write the variable or struct member. But as per the way we handle `shader entry
+function`_, this is not satisfied because we need to read their contents to
+prepare for the source code entry function call or write back them after the
+call. So annotating a variable or struct member with ``SV_ClipDistanceX`` means
+requiring the ``ClipDistance`` capability in the generated SPIR-V.
+
 Variables decorated with ``SV_CullDistanceX`` are mapped similarly as above.
 
 HLSL register and Vulkan binding

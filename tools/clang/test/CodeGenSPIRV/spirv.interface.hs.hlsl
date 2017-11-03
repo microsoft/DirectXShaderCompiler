@@ -4,6 +4,9 @@
 
 #define NumOutPoints 2
 
+// CHECK: OpCapability ClipDistance
+// CHECK: OpCapability CullDistance
+
 // Input control point
 struct HsCpIn
 {

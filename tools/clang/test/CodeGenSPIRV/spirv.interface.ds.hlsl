@@ -1,5 +1,8 @@
 // Run: %dxc -T ds_6_0 -E main
 
+// CHECK: OpCapability ClipDistance
+// CHECK: OpCapability CullDistance
+
 // HS PCF output
 
 struct HsPcfOut {
