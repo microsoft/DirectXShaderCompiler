@@ -11224,11 +11224,7 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Attr * noconst = const_cast<Attr*>(A);
     HLSLExperimentalAttr *ACast = static_cast<HLSLExperimentalAttr*>(noconst);
     Indent(Indentation, Out);
-    Out << "[experimental(\"" << ACast->getName() << "\"";
-    if (ACast->getValueLength())
-      Out << ", \"" << ACast->getValue() << "\")]\n";
-    else
-      Out << ")]\n";
+    Out << "[experimental(\"" << ACast->getName() << "\", \"" << ACast->getValue() << "\")]\n";
     break;
   }
 

@@ -6,10 +6,10 @@
 // CHECK: #0
 // CHECK: attributes #0
 // CHECK: "exp-foo"="bar"
-// CHECK: "exp-zzz"="false"
+// CHECK: "exp-zzz" "
 
 [experimental("foo", "bar")]
-[experimental("zzz", "false")]
+[experimental("zzz", "")]
 float4 fn1(float4 Input){
   return Input * 5.0f;
 }
