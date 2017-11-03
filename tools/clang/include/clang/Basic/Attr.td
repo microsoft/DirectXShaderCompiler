@@ -851,6 +851,14 @@ def HLSLShader : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// Add experimental target-dependent attribute to function for backend ("exp-name"="value")
+def HLSLExperimental : InheritableAttr {
+  let Spellings = [CXX11<"", "experimental", 2017>];
+  let Args = [StringArgument<"name">, StringArgument<"value">];
+  let Subjects = SubjectList<[Function], ErrorDiag, "ExpectedFunction">;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts

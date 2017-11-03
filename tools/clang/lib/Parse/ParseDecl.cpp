@@ -707,6 +707,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLMaxTessFactor:
     case AttributeList::AT_HLSLNumThreads:
     case AttributeList::AT_HLSLShader:
+    case AttributeList::AT_HLSLExperimental:
     case AttributeList::AT_HLSLRootSignature:
     case AttributeList::AT_HLSLOutputControlPoints:
     case AttributeList::AT_HLSLOutputTopology:
