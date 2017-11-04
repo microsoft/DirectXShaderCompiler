@@ -109,7 +109,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaBarycentricsInterpolation: return "SV_Barycentrics cannot be used with 'nointerpolation' type";
     case hlsl::ValidationRule::MetaBarycentricsFloat3: return "only 'float3' type is allowed for SV_Barycentrics.";
     case hlsl::ValidationRule::MetaBarycentricsTwoPerspectives: return "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.";
-    case hlsl::ValidationRule::MetaFPFlag: return "Invalid funciton floating point flag.";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
     case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
@@ -2786,27 +2785,9 @@ static void ValidateTypeAnnotation(ValidationContext &ValCtx) {
       ConstantInt *tag = mdconst::extract<ConstantInt>(TANode->getOperand(0));
       uint64_t tagValue = tag->getZExtValue();
       if (tagValue != DxilMDHelper::kDxilTypeSystemStructTag &&
-          tagValue != DxilMDHelper::kDxilTypeSystemFunctionTag &&
-          tagValue != DxilMDHelper::kDxilTypeSystemFunction2Tag) {
+          tagValue != DxilMDHelper::kDxilTypeSystemFunctionTag) {
           ValCtx.EmitMetaError(TANode, ValidationRule::MetaWellFormed);
           return;
-      }
-      if (tagValue == DxilMDHelper::kDxilTypeSystemFunction2Tag) {
-          for (unsigned j = 2, jEnd = TANode->getNumOperands();
-              j != jEnd; ++j) {
-            MDTuple *FA = dyn_cast<MDTuple>(TANode->getOperand(j));
-            if (FA == nullptr) {
-                ValCtx.EmitMetaError(FA, ValidationRule::MetaWellFormed);
-                return;
-            }
-            MDNode *FlagNode = dyn_cast<MDNode>(FA->getOperand(0));
-            uint64_t flagValue = mdconst::extract<ConstantInt>(FlagNode->getOperand(0))->getZExtValue();
-            if (flagValue != (uint64_t)DXIL::FPDenormMode::Any &&
-                flagValue != (uint64_t)DXIL::FPDenormMode::FTZ &&
-                flagValue != (uint64_t)DXIL::FPDenormMode::Preserve) {
-                ValCtx.EmitMetaError(FA->getOperand(0), ValidationRule::MetaFPFlag);
-            }
-          }
       }
     }
   }

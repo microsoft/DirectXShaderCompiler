@@ -216,10 +216,10 @@ namespace DXIL {
   };
   // PackingKind-ENUM:END
 
-  /* <py::lines('FPDenormMode-ENUM')>hctdb_instrhelp.get_enum_decl("FPDenormMode", hide_val=False, sort_val=False)</py>*/
+  /* <py::lines('FPDenormMode-ENUM')>hctdb_instrhelp.get_enum_decl("Float32DenormMode", hide_val=False, sort_val=False)</py>*/
   // FPDenormMode-ENUM:BEGIN
-  // Floating point behavior
-  enum class FPDenormMode : unsigned {
+  // float32 denorm behavior
+  enum class Float32DenormMode : unsigned {
     Any = 0, // Undefined behavior for denormal numbers
     Preserve = 1, // Preserve both input and output
     FTZ = 2, // Preserve denormal inputs. Flush denorm outputs

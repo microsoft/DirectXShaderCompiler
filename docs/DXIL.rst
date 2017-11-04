@@ -130,7 +130,8 @@ Main two features that were introduced for DXIL1.1 (Shader Model 6.1) are view i
 
 DXIL 1.2 Changes
 ----------------
-* New format for type-annotations_ for functions to indicate floating point operations behavior for per function basis.
+* RawBufferLoad and RawBufferStore DXIL operations for ByteAddressBuffer and StructuredBuffer
+* Denorm mode as a function attribute for float32 "fp32-denorm-mode"=<value>
 
 LLVM Bitcode version
 --------------------
@@ -447,7 +448,6 @@ Idx Type
 === =====================================================================
 0    Structure Annotation
 1    Function Annotation
-2    Function Annotation2 (Not available before DXIL 1.2)
 === =====================================================================
 
 The second value represents the name, the third is a corresponding type metadata node.
@@ -488,27 +488,6 @@ Each **Parameter Annotation** contains Input/Output type, field annotation, and 
   !13 = !{i32 0}
   !14 = !{i32 1, !15, !13}
   !15 = !{i32 4, !"SV_Target", i32 7, i32 9}
-
-**DXIL 1.2 Change**
-Prior to DXIL 1.2, function annotations metadata only contained a list of parameter annotations, starting with the input parameter
-For DXIL 1.2, **function annotation** will contain FunctionFPFlag, followed by parameter annotations::
-
-  !7 = !{i32 2, void (float, float*)* @"main", !8}
-  !8 = !{!9, !10}
-  !9 = !{i32 0}
-  !10 = !{!11, !13, !15}
-  
-FunctionFPFlag is a flag to control the behavior of the floating point operation::
-
-  !9 = !{i32 0}
-
-Currently three values are valid for floating point flag
-
-* 0: FP32 math operations on denorm may or may not flush to zero
-* 1: FP32 math operations perserve Denorms
-* 2: FP32 math operations flush denormal output numbers to zero
-
-For operations on FP16/FP64 denormal numbers will preserve denormal numbers.
 
 Shader Properties and Capabilities
 ==================================
@@ -2875,7 +2854,6 @@ META.DUPLICATESYSVALUE                 System value may only appear once in sign
 META.ENTRYFUNCTION                     entrypoint not found
 META.FLAGSUSAGE                        Flags must match usage
 META.FORCECASEONSWITCH                 Attribute forcecase only works for switch
-META.FPFLAG                            Invalid funciton floating point flag.
 META.FUNCTIONANNOTATION                Cannot find function annotation for %0
 META.GLCNOTONAPPENDCONSUME             globallycoherent cannot be used with append/consume buffers
 META.INTEGERINTERPMODE                 Interpolation mode on integer must be Constant

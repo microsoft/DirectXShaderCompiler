@@ -1445,7 +1445,7 @@ class db_dxil(object):
             (5, "Invalid", ""),
             ])
 
-        FPDenormMode = db_dxil_enum("FPDenormMode", "Floating point behavior", [
+        Float32DenormMode = db_dxil_enum("Float32DenormMode", "float32 denorm behavior", [
             (0, "Any", "Undefined behavior for denormal numbers"),
             (1, "Preserve", "Preserve both input and output"),
             (2, "FTZ", "Preserve denormal inputs. Flush denorm outputs"),
@@ -1455,7 +1455,7 @@ class db_dxil(object):
             (6, "Reserve6", "Reserved Value. Not used for now"),
             (7, "Reserve7", "Reserved Value. Not used for now"),
             ])
-        self.enums.append(FPDenormMode)
+        self.enums.append(Float32DenormMode)
 
 
         SigPointCSV = """
@@ -1596,7 +1596,6 @@ class db_dxil(object):
         self.add_valrule("Meta.BarycentricsInterpolation", "SV_Barycentrics cannot be used with 'nointerpolation' type")
         self.add_valrule("Meta.BarycentricsFloat3", "only 'float3' type is allowed for SV_Barycentrics.")
         self.add_valrule("Meta.BarycentricsTwoPerspectives", "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.")
-        self.add_valrule("Meta.FPFlag", "Invalid funciton floating point flag.")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")

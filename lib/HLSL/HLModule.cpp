@@ -359,13 +359,6 @@ DxilFunctionAnnotation *HLModule::AddFunctionAnnotation(llvm::Function *F) {
   return m_pTypeSystem->AddFunctionAnnotation(F);
 }
 
-DxilFunctionAnnotation *HLModule::AddFunctionAnnotationWithFPDenormMode(llvm::Function *F, DXIL::FPDenormMode mode) {
-  DXASSERT(m_pTypeSystem->GetFunctionAnnotation(F) == nullptr, "function annotataion already exist");
-  DxilFunctionFPFlag flag(0);
-  flag.SetFP32DenormMode(mode);
-  return m_pTypeSystem->AddFunctionAnnotationWithFPFlag(F, &flag);
-}
-
 void HLModule::AddResourceTypeAnnotation(llvm::Type *Ty,
                                          DXIL::ResourceClass resClass,
                                          DXIL::ResourceKind kind) {
@@ -400,12 +393,12 @@ static unsigned GetFloatAt(MDTuple *tuple, unsigned idx) {
   return DxilMDHelper::ConstMDToFloat(tuple->getOperand(idx));
 }
 
-DXIL::FPDenormMode HLModule::GetFPDenormMode() const {
-  return m_FPDenormMode;
+DXIL::Float32DenormMode HLModule::GetFloat32DenormMode() const {
+  return m_Float32DenormMode;
 }
 
-void HLModule::SetFPDenormMode(const DXIL::FPDenormMode mode) {
-  m_FPDenormMode = mode;
+void HLModule::SetFloat32DenormMode(const DXIL::Float32DenormMode mode) {
+  m_Float32DenormMode = mode;
 }
 
 static const StringRef kHLDxilFunctionPropertiesMDName           = "dx.fnprops";
