@@ -2807,6 +2807,7 @@ INSTR.CALLOLOAD                        Call to DXIL intrinsic must match overloa
 INSTR.CANNOTPULLPOSITION               pull-model evaluation of position disallowed
 INSTR.CBUFFERCLASSFORCBUFFERHANDLE     Expect Cbuffer for CBufferLoad handle
 INSTR.CBUFFEROUTOFBOUND                Cbuffer access out of bound
+INSTR.CHECKACCESSFULLYMAPPED           CheckAccessFullyMapped should only used on resource status
 INSTR.COORDINATECOUNTFORRAWTYPEDBUF    raw/typed buffer don't need 2 coordinates
 INSTR.COORDINATECOUNTFORSTRUCTBUF      structured buffer require 2 coordinates
 INSTR.DXILSTRUCTUSER                   Dxil struct types should only used by ExtractValue
@@ -2857,6 +2858,7 @@ INSTR.SAMPLEINDEXFORLOAD2DMS           load on Texture2DMS/2DMSArray require sam
 INSTR.SAMPLERMODEFORLOD                lod instruction requires sampler declared in default mode
 INSTR.SAMPLERMODEFORSAMPLE             sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
 INSTR.SAMPLERMODEFORSAMPLEC            sample_c_*/gather_c instructions require sampler declared in comparison mode
+INSTR.STATUS                           Resource status should only used by CheckAccessFullyMapped
 INSTR.STRUCTBITCAST                    Bitcast on struct types is not allowed
 INSTR.TEXTUREOFFSET                    offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
 INSTR.TGSMRACECOND                     Race condition writing to shared memory detected, consider making this write conditional

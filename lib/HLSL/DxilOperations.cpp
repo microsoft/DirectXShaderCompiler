@@ -941,6 +941,14 @@ Type *OP::GetInt4Type() const {
   return m_pInt4Type;
 }
 
+bool OP::IsResRetType(llvm::Type *Ty) {
+  for (Type *ResTy : m_pResRetType) {
+    if (Ty == ResTy)
+      return true;
+  }
+  return false;
+}
+
 Type *OP::GetResRetType(Type *pOverloadType) {
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
 

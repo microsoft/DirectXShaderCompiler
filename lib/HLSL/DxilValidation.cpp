@@ -115,6 +115,8 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
     case hlsl::ValidationRule::InstrMinPrecisonBitCast: return "Bitcast on minprecison types is not allowed";
     case hlsl::ValidationRule::InstrStructBitCast: return "Bitcast on struct types is not allowed";
+    case hlsl::ValidationRule::InstrStatus: return "Resource status should only used by CheckAccessFullyMapped";
+    case hlsl::ValidationRule::InstrCheckAccessFullyMapped: return "CheckAccessFullyMapped should only used on resource status";
     case hlsl::ValidationRule::InstrOpConst: return "%0 of %1 must be an immediate constant";
     case hlsl::ValidationRule::InstrAllowed: return "Instructions must be of an allowed type";
     case hlsl::ValidationRule::InstrOpCodeReserved: return "Instructions must not reference reserved opcodes";
@@ -808,7 +810,7 @@ struct ResRetUsage {
 };
 
 static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
-                               ValidationContext &ValCtx) {
+                                     ValidationContext &ValCtx) {
   const unsigned kMaxResRetElementIndex = 5;
   for (User *U : ResRet->users()) {
     if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
@@ -826,7 +828,7 @@ static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
         case 3:
           usage.w = true;
           break;
-        case 4:
+        case DXIL::kResRetStatusIndex:
           usage.status = true;
           break;
         default:
@@ -841,6 +843,36 @@ static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
     } else {
       Instruction *User = cast<Instruction>(U);
       ValCtx.EmitInstrError(User, ValidationRule::InstrDxilStructUser);
+    }
+  }
+}
+
+static void ValidateStatus(Instruction *ResRet, ValidationContext &ValCtx) {
+  ResRetUsage usage;
+  CollectGetDimResRetUsage(usage, ResRet, ValCtx);
+  if (usage.status) {
+    for (User *U : ResRet->users()) {
+      if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
+        for (unsigned idx : EVI->getIndices()) {
+          switch (idx) {
+          case DXIL::kResRetStatusIndex:
+            for (User *SU : EVI->users()) {
+              Instruction *I = cast<Instruction>(SU);
+              // Make sure all use is CheckAccess.
+              if (!isa<CallInst>(I)) {
+                ValCtx.EmitInstrError(I, ValidationRule::InstrStatus);
+                return;
+              }
+              if (!ValCtx.DxilMod.GetOP()->IsDxilOpFuncCallInst(
+                      I, DXIL::OpCode::CheckAccessFullyMapped)) {
+                ValCtx.EmitInstrError(I, ValidationRule::InstrStatus);
+                return;
+              }
+            }
+            break;
+          }
+        }
+      }
     }
   }
 }
@@ -1517,6 +1549,21 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
          sample.get_coord3()},
         {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
         /*IsSampleC*/ false, ValCtx);
+  } break;
+  case DXIL::OpCode::CheckAccessFullyMapped: {
+    Value *Src = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
+    ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(Src);
+    if (!EVI) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
+    } else {
+      Value *V = EVI->getOperand(0);
+      bool isLegal = EVI->getNumIndices() == 1 &&
+                     EVI->getIndices()[0] == DXIL::kResRetStatusIndex &&
+                     ValCtx.DxilMod.GetOP()->IsResRetType(V->getType());
+      if (!isLegal) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
+      }
+    }
   } break;
   case DXIL::OpCode::Barrier: {
     DxilInst_Barrier barrier(CI);
