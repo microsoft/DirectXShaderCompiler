@@ -1603,6 +1603,8 @@ class db_dxil(object):
         self.add_valrule("Instr.PtrBitCast", "Pointer type bitcast must be have same size")
         self.add_valrule("Instr.MinPrecisonBitCast", "Bitcast on minprecison types is not allowed")
         self.add_valrule("Instr.StructBitCast", "Bitcast on struct types is not allowed")
+        self.add_valrule("Instr.Status", "Resource status should only used by CheckAccessFullyMapped")
+        self.add_valrule("Instr.CheckAccessFullyMapped", "CheckAccessFullyMapped should only used on resource status")
         self.add_valrule_msg("Instr.OpConst", "DXIL intrinsic requires an immediate constant operand", "%0 of %1 must be an immediate constant")
         self.add_valrule("Instr.Allowed", "Instructions must be of an allowed type")
         self.add_valrule("Instr.OpCodeReserved", "Instructions must not reference reserved opcodes")

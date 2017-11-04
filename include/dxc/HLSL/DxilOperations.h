@@ -56,6 +56,7 @@ public:
 
   llvm::Type *GetResRetType(llvm::Type *pOverloadType);
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
+  bool IsResRetType(llvm::Type *Ty);
 
   // Try to get the opcode class for a function.
   // Return true and set `opClass` if the given function is a dxil function.
