@@ -1557,8 +1557,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
     } else {
       Value *V = EVI->getOperand(0);
-      bool isLegal = EVI->getNumIndices() != 1 &&
-                     EVI->getIndices()[0] != DXIL::kResRetStatusIndex &&
+      bool isLegal = EVI->getNumIndices() == 1 &&
+                     EVI->getIndices()[0] == DXIL::kResRetStatusIndex &&
                      ValCtx.DxilMod.GetOP()->IsResRetType(V->getType());
       if (!isLegal) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
