@@ -45,9 +45,9 @@
 // CHECK: fptrunc float %{{[a-zA-Z0-9]+}} to half
 // CHECK: fptrunc float %{{[a-zA-Z0-9]+}} to half
 
-// CHECK: sext i16 %{{[a-zA-Z0-9.]+}} to i32
+// CHECK: sext i16 %{{.*}} to i32
 // CHECK: call void @dx.op.rawBufferStore.i32
-// CHECK: zext i16 %{{[a-zA-Z0-9.]+}} to i32
+// CHECK: zext i16 %{{.*}} to i32
 // CHECK: call void @dx.op.rawBufferStore.i32
 
 struct MyStruct {

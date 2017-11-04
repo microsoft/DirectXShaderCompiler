@@ -1846,10 +1846,10 @@ public:
         Function *func = &*(F++);
         if (func->hasName()) {
           if (func->getName().startswith("dx.op.rawBufferLoad")) {
-            ReplaceRawBufferLoadWithBufferLoad(func, M);
+            ReplaceRawBufferLoad(func, M);
             func->eraseFromParent();
           } else if (func->getName().startswith("dx.op.rawBufferStore")) {
-            ReplaceRawBufferLoadWithBufferStore(func, M);
+            ReplaceRawBufferStore(func, M);
             func->eraseFromParent();
           }
         }
@@ -1870,15 +1870,17 @@ public:
   }
 
 private:
-  void ReplaceRawBufferLoadWithBufferLoad(Function *F, Module &M);
-  void ReplaceRawBufferLoadWithBufferStore(Function *F, Module &M);
+  // Replace RawBufferLoad/Store to BufferLoad/Store for DXIL < 1.2
+  void ReplaceRawBufferLoad(Function *F, Module &M);
+  void ReplaceRawBufferStore(Function *F, Module &M);
+  // Replace RawBufferLoad/Store of min-precision types to have its actual storage size
   void ReplaceMinPrecisionRawBufferLoad(Function *F, Module &M);
   void ReplaceMinPrecisionRawBufferStore(Function *F, Module &M);
   void ReplaceMinPrecisionRawBufferLoadByType(Function *F, Type *FromTy, Type *ToTy, OP *Op);
 };
 } // namespace
 
-void DxilTranslateRawBuffer::ReplaceRawBufferLoadWithBufferLoad(Function *F,
+void DxilTranslateRawBuffer::ReplaceRawBufferLoad(Function *F,
                                                                 Module &M) {
   OP *op = M.GetDxilModule().GetOP();
   Type *RTy = F->getReturnType();
@@ -1906,7 +1908,7 @@ void DxilTranslateRawBuffer::ReplaceRawBufferLoadWithBufferLoad(Function *F,
   }
 }
 
-void DxilTranslateRawBuffer::ReplaceRawBufferLoadWithBufferStore(Function *F,
+void DxilTranslateRawBuffer::ReplaceRawBufferStore(Function *F,
   Module &M) {
   OP *op = M.GetDxilModule().GetOP();
   Type *RTy = F->getReturnType();
@@ -1950,8 +1952,6 @@ void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferLoad(Function *F,
     DXASSERT(false, "RawBufferLoad should return struct type.");
   }
 }
-
-
 
 void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferStore(Function *F,
                                                               Module &M) {

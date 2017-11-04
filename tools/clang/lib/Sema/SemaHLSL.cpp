@@ -3562,7 +3562,7 @@ public:
   /// <param name="argCount">After execution, number of arguments in argTypes.</param>
   /// <remarks>On success, argTypes includes the clang Types to use for the signature, with the first being the return type.</remarks>
   bool MatchArguments(
-    _In_ HLSL_INTRINSIC *pIntrinsic,
+    const _In_ HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement,
     _In_ ArrayRef<Expr *> Args, 
     _Out_writes_(g_MaxIntrinsicParamCount + 1) QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
@@ -4184,6 +4184,24 @@ public:
     }
 
     IntrinsicOp intrinOp = static_cast<IntrinsicOp>(intrinsic->Op);
+
+    if (intrinOp == IntrinsicOp::MOP_LoadHalf ||
+      intrinOp == IntrinsicOp::MOP_LoadHalf2 ||
+      intrinOp == IntrinsicOp::MOP_LoadHalf3 ||
+      intrinOp == IntrinsicOp::MOP_LoadHalf4 ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf2 ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf3 ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf4
+      ) {
+      if (getSema()->getLangOpts().UseMinPrecision) {
+        DXASSERT(Args.size() >= 1, "Otherwise wrong load store call.");
+        getSema()->Diag(
+            Args.front()->getExprLoc(),
+            diag::err_hlsl_half_load_store);
+      }
+    }
+
     if (intrinOp == IntrinsicOp::MOP_SampleBias) {
       // Remove this when update intrinsic table not affect other things.
       // Change vector<float,1> into float for bias.
@@ -4732,7 +4750,7 @@ HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
 
 _Use_decl_annotations_
 bool HLSLExternalSource::MatchArguments(
-  HLSL_INTRINSIC* pIntrinsic,
+  const HLSL_INTRINSIC* pIntrinsic,
   QualType objectElement,
   ArrayRef<Expr *> Args,
   QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],

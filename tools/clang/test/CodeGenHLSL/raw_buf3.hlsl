@@ -39,16 +39,6 @@ float4 main(uint idx1 : IDX1, uint idx2 : IDX2) : SV_Target {
   r.xyz += buf2.LoadFloat3(idx2);
   r.xyzw += buf2.LoadFloat4(idx2, status);
 
-  r.x += buf1.LoadHalf(idx1, status);
-  r.xy += buf1.LoadHalf2(idx1);
-  r.xyz += buf1.LoadHalf3(idx1, status);
-  r.xyzw += buf1.LoadHalf4(idx1);
-
-  r.x += buf2.LoadHalf(idx2);
-  r.xy += buf2.LoadHalf2(idx2, status);
-  r.xyz += buf2.LoadHalf3(idx2);
-  r.xyzw += buf2.LoadHalf4(idx2, status);
-
   r.x += buf1.LoadDouble(idx1);
   r.xy += buf1.LoadDouble2(idx1, status);
 

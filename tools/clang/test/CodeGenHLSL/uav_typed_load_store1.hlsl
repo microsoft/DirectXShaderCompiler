@@ -8,8 +8,14 @@ float4 main(uint2 a : A, uint2 b : B) : SV_Target
   uint status;
   r += uav1[b];
   r += uav1.Load(a);
-  uav1.Load(a, status); r += status;
-  uav1.Load(a, status); r += status;
+  uav1.Load(a, status);
+  if (CheckAccessFullyMapped(status)) {
+    r += 3;
+  }
+  uav1.Load(a, status);
+  if (CheckAccessFullyMapped(status)) {
+    r += 3;
+  }
   uav1[b] = r;
   return r;
 }

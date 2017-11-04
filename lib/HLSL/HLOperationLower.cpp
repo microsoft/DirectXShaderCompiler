@@ -3044,36 +3044,36 @@ void Make64bitResultForLoad(Type *EltTy, ArrayRef<Value *> resultElts32,
 
 static uint8_t GetRawBufferMaskFromIOP(IntrinsicOp IOP, hlsl::OP *OP) {
   switch (IOP) {
-    // one dword
+    // one component
     case IntrinsicOp::MOP_Load:
     case IntrinsicOp::MOP_LoadHalf:
     case IntrinsicOp::MOP_StoreHalf:
     case IntrinsicOp::MOP_LoadFloat:
     case IntrinsicOp::MOP_StoreFloat:
       return DXIL::kCompMask_X;
-    // two dword
+    // two component
     case IntrinsicOp::MOP_Load2:
     case IntrinsicOp::MOP_LoadHalf2:
     case IntrinsicOp::MOP_StoreHalf2:
     case IntrinsicOp::MOP_LoadFloat2:
     case IntrinsicOp::MOP_StoreFloat2:
-    case IntrinsicOp::MOP_LoadDouble:
+    case IntrinsicOp::MOP_LoadDouble: // double takes 2 components
     case IntrinsicOp::MOP_StoreDouble:
       return DXIL::kCompMask_X | DXIL::kCompMask_Y;
-    // three dword
+    // three component
     case IntrinsicOp::MOP_Load3:
     case IntrinsicOp::MOP_LoadHalf3:
     case IntrinsicOp::MOP_StoreHalf3:
     case IntrinsicOp::MOP_LoadFloat3:
     case IntrinsicOp::MOP_StoreFloat3:
       return DXIL::kCompMask_X | DXIL::kCompMask_Y | DXIL::kCompMask_Z;
-    // three dword
+    // three component
     case IntrinsicOp::MOP_Load4:
     case IntrinsicOp::MOP_LoadHalf4:
     case IntrinsicOp::MOP_StoreHalf4:
     case IntrinsicOp::MOP_LoadFloat4:
     case IntrinsicOp::MOP_StoreFloat4:
-    case IntrinsicOp::MOP_LoadDouble2:
+    case IntrinsicOp::MOP_LoadDouble2: // double2 takes 4 components
     case IntrinsicOp::MOP_StoreDouble2:
       return DXIL::kCompMask_All;
     default:

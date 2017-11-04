@@ -4467,7 +4467,7 @@ struct DxilInst_RawBufferLoad {
   enum OperandIdx {
     arg_srv = 1,
     arg_index = 2,
-    arg_wot = 3,
+    arg_elementOffset = 3,
     arg_mask = 4,
   };
   // Accessors
@@ -4475,8 +4475,8 @@ struct DxilInst_RawBufferLoad {
   void set_srv(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_index() const { return Instr->getOperand(2); }
   void set_index(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_wot() const { return Instr->getOperand(3); }
-  void set_wot(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_elementOffset() const { return Instr->getOperand(3); }
+  void set_elementOffset(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_mask() const { return Instr->getOperand(4); }
   void set_mask(llvm::Value *val) { Instr->setOperand(4, val); }
 };
@@ -4498,8 +4498,8 @@ struct DxilInst_RawBufferStore {
   // Operand indexes
   enum OperandIdx {
     arg_uav = 1,
-    arg_coord0 = 2,
-    arg_coord1 = 3,
+    arg_index = 2,
+    arg_elementOffset = 3,
     arg_value0 = 4,
     arg_value1 = 5,
     arg_value2 = 6,
@@ -4509,10 +4509,10 @@ struct DxilInst_RawBufferStore {
   // Accessors
   llvm::Value *get_uav() const { return Instr->getOperand(1); }
   void set_uav(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_coord0() const { return Instr->getOperand(2); }
-  void set_coord0(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_coord1() const { return Instr->getOperand(3); }
-  void set_coord1(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_index() const { return Instr->getOperand(2); }
+  void set_index(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_elementOffset() const { return Instr->getOperand(3); }
+  void set_elementOffset(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_value0() const { return Instr->getOperand(4); }
   void set_value0(llvm::Value *val) { Instr->setOperand(4, val); }
   llvm::Value *get_value1() const { return Instr->getOperand(5); }
@@ -4523,6 +4523,8 @@ struct DxilInst_RawBufferStore {
   void set_value3(llvm::Value *val) { Instr->setOperand(7, val); }
   llvm::Value *get_mask() const { return Instr->getOperand(8); }
   void set_mask(llvm::Value *val) { Instr->setOperand(8, val); }
+  int8_t get_mask_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(8))->getZExtValue()); }
+  void set_mask_val(int8_t val) { Instr->setOperand(8, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
 };
 // INSTR-HELPER:END
 } // namespace hlsl
