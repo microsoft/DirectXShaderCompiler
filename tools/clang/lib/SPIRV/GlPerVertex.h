@@ -34,8 +34,8 @@ namespace spirv {
 /// these builtins. In GLSL, this struct is called gl_PerVertex.
 ///
 /// This struct should appear as the entry point parameters but it should not
-/// have location assignment. We can have two such block at most: one for input,
-/// one for output.
+/// have location assignment. We can have two such blocks at most: one for
+/// input, one for output.
 ///
 /// Reading/writing of the ClipDistance/CullDistance builtin is not as
 /// straightforward as other builtins. This is because in HLSL, we can have
@@ -48,8 +48,8 @@ namespace spirv {
 ///
 /// But in Vulkan, ClipDistance/CullDistance is required to be a float array.
 /// So we need to combine these variables into one single float array. The way
-/// we do it is to sort all entities according to the SV_ClipDistance/
-/// SV_CullDistance index, and concatenate them tightly. So for the above,
+/// we do it is by sorting all entities according to the SV_ClipDistance/
+/// SV_CullDistance index, and concatenating them tightly. So for the above,
 /// var2 will take the first two floats in the array, var3 will take the next
 /// three, and var1 will take the next two. In total, we have an size-6 float
 /// array for ClipDistance builtin.
@@ -58,7 +58,7 @@ public:
   GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
               ModuleBuilder &builder, TypeTranslator &translator);
 
-  /// Records an declaration of SV_ClipDistance/SV_CullDistance so later
+  /// Records a declaration of SV_ClipDistance/SV_CullDistance so later
   /// we can caculate the ClipDistance/CullDistance array layout.
   bool recordClipCullDistanceDecl(const DeclaratorDecl *decl, bool asInput);
 
@@ -79,8 +79,8 @@ public:
   /// Returns the <result-id>s for stage output variables.
   llvm::SmallVector<uint32_t, 4> getStageOutVars() const;
 
-  /// Tries to access the builtin translated from the given HLSL semantic of
-  /// the given index. If sigPoint dicates this is input, builtins will be read
+  /// Tries to access the builtin translated from the given HLSL semantic of the
+  /// given index. If sigPoint indicates this is input, builtins will be read
   /// to compose a new temporary value of the correct type and writes to *value.
   /// Otherwise, the *value will be decomposed and writes to the builtins.
   /// Emits SPIR-V instructions and returns true if we are accessing builtins
@@ -113,10 +113,9 @@ private:
   /// Emits SPIR-V instructions for reading the Position builtin.
   uint32_t readPosition() const;
   /// Emits SPIR-V instructions for reading the data starting from offset in
-  /// the ClipDistance/CullDistance builtin. For clipCullIndex, 2 means
-  /// ClipDistance; 3 means CullDistance. The data readed will be transformed
+  /// the ClipDistance/CullDistance builtin. The data read will be transformed
   /// into the given type asType.
-  uint32_t readClipCullArrayAsType(uint32_t clipCullIndex, uint32_t offset,
+  uint32_t readClipCullArrayAsType(bool isClip, uint32_t offset,
                                    QualType asType) const;
   /// Emits SPIR-V instructions to read a field in gl_PerVertex.
   bool readField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,
@@ -126,12 +125,11 @@ private:
   void writePosition(llvm::Optional<uint32_t> invocationId,
                      uint32_t value) const;
   /// Emits SPIR-V instructions for writing data into the ClipDistance/
-  /// CullDistance builtin starting from offset. For clipCullIndex, 2 means
-  /// ClipDistance; 3 means CullDistance. The value to be written is fromValue,
-  /// whose type is fromType. Necessary transformations will be generated
-  /// to make sure type correctness.
+  /// CullDistance builtin starting from offset. The value to be written is
+  /// fromValue, whose type is fromType. Necessary transformations will be
+  /// generated to make sure type correctness.
   void writeClipCullArrayFromType(llvm::Optional<uint32_t> invocationId,
-                                  uint32_t clipCullIndex, uint32_t offset,
+                                  bool isClip, uint32_t offset,
                                   QualType fromType, uint32_t fromValue) const;
   /// Emits SPIR-V instructions to write a field in gl_PerVertex.
   bool writeField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,

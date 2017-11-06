@@ -298,7 +298,7 @@ private:
                                            llvm::StringRef varName);
 
   /// Creates all the stage variables mapped from semantics on the given decl.
-  /// Return true on sucess.
+  /// Returns true on sucess.
   ///
   /// If decl is of struct type, this means flattening it and create stand-
   /// alone variables for each field. If arraySize is not zero, the created

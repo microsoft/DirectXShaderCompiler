@@ -5532,11 +5532,11 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       return false;
 
     // The input array size for HS is specified in the InputPatch parameter.
-    for (const auto *param : decl->params()) {
-      if (hlsl::IsHLSLInputPatchType(param->getType()))
+    for (const auto *param : decl->params())
+      if (hlsl::IsHLSLInputPatchType(param->getType())) {
         inputArraySize = hlsl::GetHLSLInputPatchCount(param->getType());
-      break;
-    }
+        break;
+      }
 
     outputArraySize = numOutputControlPoints;
   } else if (shaderModel.IsDS()) {
@@ -5544,11 +5544,11 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       return false;
 
     // The input array size for HS is specified in the OutputPatch parameter.
-    for (const auto *param : decl->params()) {
-      if (hlsl::IsHLSLOutputPatchType(param->getType()))
+    for (const auto *param : decl->params())
+      if (hlsl::IsHLSLOutputPatchType(param->getType())) {
         inputArraySize = hlsl::GetHLSLOutputPatchCount(param->getType());
-      break;
-    }
+        break;
+      }
     // The per-vertex output of DS is not an array.
   } else if (shaderModel.IsGS()) {
     if (!processGeometryShaderAttributes(decl, &inputArraySize))

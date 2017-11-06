@@ -15,7 +15,7 @@
 // CHECK:              [[id:%\d+]] = OpLoad %uint %gl_InvocationID
 // CHECK:      [[mainResult:%\d+]] = OpFunctionCall %BEZIER_CONTROL_POINT %src_main %param_var_ip %param_var_i %param_var_PatchID
 // CHECK:             [[loc:%\d+]] = OpAccessChain %_ptr_Function_BEZIER_CONTROL_POINT %temp_var_hullMainRetVal [[id]]
-// CHECK:                            OpStore [[loc]] {{%\d+}}
+// CHECK:                            OpStore [[loc]] [[mainResult]]
 
 // CHECK:                 {{%\d+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %PCF %temp_var_hullMainRetVal
 

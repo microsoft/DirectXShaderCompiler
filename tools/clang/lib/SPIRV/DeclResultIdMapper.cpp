@@ -92,6 +92,8 @@ hlsl::DxilParamInputQual deduceParamQual(const DeclaratorDecl *decl,
   return asInput ? hlsl::DxilParamInputQual::In : hlsl::DxilParamInputQual::Out;
 }
 
+/// \brief Deduces the HLSL SigPoint for the given decl appearing in the given
+/// shader model.
 const hlsl::SigPoint *deduceSigPoint(const DeclaratorDecl *decl, bool asInput,
                                      const hlsl::ShaderModel::Kind kind,
                                      bool isPatchConstant) {
@@ -142,8 +144,7 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
       hlsl::SigPoint::GetSigPoint(hlsl::DXIL::SigPointKind::HSCPOut);
 
   return createStageVars(decl, sigPoint, /*asInput=*/false, type, arraySize,
-                         llvm::Optional<uint32_t>(invocationId), &storedValue,
-                         "out.var");
+                         invocationId, &storedValue, "out.var");
 }
 
 bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
@@ -749,9 +750,9 @@ bool DeclResultIdMapper::createStageVars(
     QualType type, uint32_t arraySize, llvm::Optional<uint32_t> invocationId,
     uint32_t *value, const llvm::Twine &namePrefix) {
   // invocationId should only be used for handling HS per-vertex output.
-  assert(invocationId.hasValue() ? shaderModel.IsHS() : true);
-  assert(invocationId.hasValue() ? !asInput : true);
-  assert(invocationId.hasValue() ? arraySize != 0 : true);
+  if (invocationId.hasValue()) {
+    assert(shaderModel.IsHS() && arraySize != 0 && !asInput);
+  }
 
   if (type->isVoidType()) {
     // No stage variables will be created for void type.
@@ -1033,8 +1034,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
                                   spv::ExecutionMode::DepthLess, {});
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragDepth);
   }
-  // According to DXIL spec, the ClipDistance/CullDistance SV can be used by
-  // all
+  // According to DXIL spec, the ClipDistance/CullDistance SV can be used by all
   // SigPoints other than PCIn, HSIn, GSIn, PSOut, CSIn.
   // According to Vulkan spec, the ClipDistance/CullDistance BuiltIn can only
   // be

@@ -1,5 +1,7 @@
 // Run: %dxc -T hs_6_0 -E main
 
+// TODO: Handle the Patch decoration
+
 #define NumOutPoints 2
 
 // Input control point
@@ -45,12 +47,13 @@ struct HsPcfOut
   float4 weight      : WEIGHT;
 };
 
-// Per-vertex    input  builtin : gl_PerVertex (Position, ClipDistance, CullDistance)
+// Per-vertex    input  builtin : gl_PerVertex (Position, ClipDistance, CullDistance), InvocationID
 // Per-vertex    output builtin : gl_PerVertex (Position, ClipDistance, CullDistance)
 // Per-vertex    input  variable: BAZ
 // Per-vertex    output variable: FOO, BAR
 
-// Per-primitive output builtin : TessLevelInner, TessLevelOuter, PrimitiveID, InvocationID
+// Per-primitive input  builtin : PrimitiveID
+// Per-primitive output builtin : TessLevelInner, TessLevelOuter
 // Per-primitive output variable: TEXCOORD, WEIGHT
 
 // CHECK: OpEntryPoint TessellationControl %main "main" %gl_PerVertexIn %gl_PerVertexOut %in_var_BAZ %gl_InvocationID %gl_PrimitiveID %out_var_FOO %out_var_BAR %gl_TessLevelOuter %gl_TessLevelInner %out_var_TEXCOORD %out_var_WEIGHT

@@ -55,7 +55,7 @@ contrary, Vulkan requires all SPIR-V entry functions taking no parameters and
 returning void. All data passing between stages should use global variables
 in the ``Input`` and ``Output`` storage class.
 
-To handle this difference, we emit an wrapper function as the SPIR-V entry
+To handle this difference, we emit a wrapper function as the SPIR-V entry
 function around the HLSL source code entry function. The wrapper function is
 responsible to read data from SPIR-V ``Input`` global variables and prepare
 them to the types required in the source code entry function signature, call
@@ -76,7 +76,7 @@ numeric ``Location`` decorations on SPIR-V global variables in the ``Input`` and
 
 To help handling such differences, we provide `Vulkan specific attributes`_ to
 let the developer to express precisely their intents. The compiler will also try
-it best to deduce the mapping from semantic strings to SPIR-V ``Location``
+its best to deduce the mapping from semantic strings to SPIR-V ``Location``
 numbers when such explicit Vulkan specific attributes are absent. Please see the
 `HLSL semantic and Vulkan Location`_ section for more details about the mapping
 and ``Location`` assignment.

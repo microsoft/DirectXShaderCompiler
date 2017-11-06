@@ -289,14 +289,13 @@ uint32_t TypeTranslator::getGlPerVertexStruct(uint32_t clipArraySize,
   auto &ctx = *theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 1> decorations;
 
-  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::Position,
-                                               llvm::Optional<uint32_t>(0)));
-  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::PointSize,
-                                               llvm::Optional<uint32_t>(1)));
-  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::ClipDistance,
-                                               llvm::Optional<uint32_t>(2)));
-  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::CullDistance,
-                                               llvm::Optional<uint32_t>(3)));
+  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::Position, 0));
+  decorations.push_back(
+      Decoration::getBuiltIn(ctx, spv::BuiltIn::PointSize, 1));
+  decorations.push_back(
+      Decoration::getBuiltIn(ctx, spv::BuiltIn::ClipDistance, 2));
+  decorations.push_back(
+      Decoration::getBuiltIn(ctx, spv::BuiltIn::CullDistance, 3));
   decorations.push_back(Decoration::getBlock(ctx));
 
   return theBuilder.getStructType({v4f32Type, f32Type, clipType, cullType},

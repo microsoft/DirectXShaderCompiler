@@ -9,6 +9,8 @@
 
 #include "GlPerVertex.h"
 
+#include <algorithm>
+
 #include "clang/AST/HlslTypes.h"
 
 namespace clang {
@@ -260,24 +262,25 @@ void GlPerVertex::calculateClipCullDistanceArraySize() {
 
     *totalSize = 0;
 
-    // TODO: We are doing extra queries here. Should also report error if the
-    // index is > 9.
-    for (uint32_t i = 0; i < 10; ++i) {
-      const auto found = typeMap.find(i);
-      if (found != typeMap.end()) {
-        QualType elemType = {};
-        uint32_t count = 0;
+    // Collect all indices and sort them
+    llvm::SmallVector<uint32_t, 8> indices;
+    for (const auto &kv : typeMap)
+      indices.push_back(kv.first);
+    std::sort(indices.begin(), indices.end(), std::less<uint32_t>());
 
-        if (TypeTranslator::isScalarType(found->second)) {
-          (*offsetMap)[i] = (*totalSize)++;
-        } else if (TypeTranslator::isVectorType(found->second, &elemType,
-                                                &count)) {
-          (*offsetMap)[i] = *totalSize;
-          *totalSize += count;
-        } else {
-          llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or "
-                           "vector of float case sneaked in");
-        }
+    for (uint32_t index : indices) {
+      const auto type = typeMap.find(index)->second;
+      QualType elemType = {};
+      uint32_t count = 0;
+
+      if (TypeTranslator::isScalarType(type)) {
+        (*offsetMap)[index] = (*totalSize)++;
+      } else if (TypeTranslator::isVectorType(type, &elemType, &count)) {
+        (*offsetMap)[index] = *totalSize;
+        *totalSize += count;
+      } else {
+        llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or "
+                         "vector of float case sneaked in");
       }
     }
   };
@@ -415,9 +418,10 @@ uint32_t GlPerVertex::readPosition() const {
   return theBuilder.createCompositeConstruct(arrayType, elements);
 }
 
-uint32_t GlPerVertex::readClipCullArrayAsType(uint32_t clipCullIndex,
-                                              uint32_t offset,
+uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
                                               QualType asType) const {
+  const uint32_t clipCullIndex = isClip ? 2 : 3;
+
   // The ClipDistance/CullDistance is always an float array. We are accessing
   // it using pointers, which should be of pointer to float type.
   const uint32_t f32Type = theBuilder.getFloat32Type();
@@ -537,7 +541,8 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
     // We should have recorded all these semantics before.
     assert(offsetIter != inClipOffset.end());
     assert(typeIter != inClipType.end());
-    *value = readClipCullArrayAsType(2, offsetIter->second, typeIter->second);
+    *value = readClipCullArrayAsType(/*isClip=*/true, offsetIter->second,
+                                     typeIter->second);
     return true;
   }
   case hlsl::Semantic::Kind::CullDistance: {
@@ -546,7 +551,8 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
     // We should have recorded all these semantics before.
     assert(offsetIter != inCullOffset.end());
     assert(typeIter != inCullType.end());
-    *value = readClipCullArrayAsType(3, offsetIter->second, typeIter->second);
+    *value = readClipCullArrayAsType(/*isClip=*/false, offsetIter->second,
+                                     typeIter->second);
     return true;
   }
   }
@@ -591,8 +597,10 @@ void GlPerVertex::writePosition(llvm::Optional<uint32_t> invocationId,
 }
 
 void GlPerVertex::writeClipCullArrayFromType(
-    llvm::Optional<uint32_t> invocationId, uint32_t clipCullIndex,
-    uint32_t offset, QualType fromType, uint32_t fromValue) const {
+    llvm::Optional<uint32_t> invocationId, bool isClip, uint32_t offset,
+    QualType fromType, uint32_t fromValue) const {
+  const uint32_t clipCullIndex = isClip ? 2 : 3;
+
   // The ClipDistance/CullDistance is always an float array. We are accessing
   // it using pointers, which should be of pointer to float type.
   const uint32_t f32Type = theBuilder.getFloat32Type();
@@ -729,8 +737,8 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
     // We should have recorded all these semantics before.
     assert(offsetIter != outClipOffset.end());
     assert(typeIter != outClipType.end());
-    writeClipCullArrayFromType(invocationId, 2, offsetIter->second,
-                               typeIter->second, *value);
+    writeClipCullArrayFromType(invocationId, /*isClip=*/true,
+                               offsetIter->second, typeIter->second, *value);
     return true;
   }
   case hlsl::Semantic::Kind::CullDistance: {
@@ -739,8 +747,8 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
     // We should have recorded all these semantics before.
     assert(offsetIter != outCullOffset.end());
     assert(typeIter != outCullType.end());
-    writeClipCullArrayFromType(invocationId, 3, offsetIter->second,
-                               typeIter->second, *value);
+    writeClipCullArrayFromType(invocationId, /*isClip=*/false,
+                               offsetIter->second, typeIter->second, *value);
     return true;
   }
   }
