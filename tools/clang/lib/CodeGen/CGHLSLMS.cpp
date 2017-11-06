@@ -4083,12 +4083,10 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
   }
 
   if (Entry->second.NumOverloads != 1) {
-    DXASSERT(false,
-        "hlsl::DiagnoseTranslationUnit used to check for this condition.");
     DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID =
       Diags.getCustomDiagID(DiagnosticsEngine::Warning,
-        "Multiple functions match patchconstantfunc %0.");
+        "Multiple overloads of patchconstantfunc %0.");
     unsigned NoteID =
       Diags.getCustomDiagID(DiagnosticsEngine::Note,
         "This overload was selected.");
