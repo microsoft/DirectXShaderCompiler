@@ -7651,6 +7651,12 @@ def err_hlsl_unsupported_keyword_for_version : Error<
 def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
 }
+def err_hlsl_missing_maxvertexcount_attr: Error<
+   "GS entry point must have the maxvertexcount attribute">;
+def err_hlsl_missing_patchconstantfunc_attr: Error<
+   "HS entry point must have the patchconstantfunc attribute">;
+def err_hlsl_missing_inout_attr: Error<
+   "stream-output object must be an inout parameter">;
 // HLSL Change Ends
 
 let CategoryName = "OpenMP Issue" in {

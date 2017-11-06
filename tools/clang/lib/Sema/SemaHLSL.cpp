@@ -36,6 +36,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "gen_intrin_main_tables_15.h"
 #include "dxc/HLSL/HLOperations.h"
+#include "dxc/HLSL/DxilShaderModel.h"
 #include <array>
 
 enum ArBasicKind {
@@ -9006,16 +9007,34 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   // NOTE: the information gathered here could be used to bypass code generation
   // on functions that are unreachable (as an early form of dead code elimination).
   if (pEntryPointDecl) {
-    if (const HLSLPatchConstantFuncAttr *Attr =
-            pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
-      NameLookup NL = GetSingleFunctionDeclByName(self, Attr->getFunctionName(), /*checkPatch*/ true);
-      if (!NL.Found || !NL.Found->hasBody()) {
-        unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-          "missing patch function definition");
-        Diags.Report(id);
+    const auto *shaderModel =
+        hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
+
+    if (shaderModel->IsGS()) {
+      // Validate that GS has the maxvertexcount attribute
+      if (!pEntryPointDecl->hasAttr<HLSLMaxVertexCountAttr>()) {
+        self->Diag(pEntryPointDecl->getLocation(),
+                   diag::err_hlsl_missing_maxvertexcount_attr);
         return;
       }
-      pPatchFnDecl = NL.Found;
+    } else if (shaderModel->IsHS()) {
+      if (const HLSLPatchConstantFuncAttr *Attr =
+              pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
+        NameLookup NL = GetSingleFunctionDeclByName(
+            self, Attr->getFunctionName(), /*checkPatch*/ true);
+        if (!NL.Found || !NL.Found->hasBody()) {
+          unsigned id =
+              Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+                                    "missing patch function definition");
+          Diags.Report(id);
+          return;
+        }
+        pPatchFnDecl = NL.Found;
+      } else {
+        self->Diag(pEntryPointDecl->getLocation(),
+                   diag::err_hlsl_missing_patchconstantfunc_attr);
+        return;
+      }
     }
 
     hlsl::CallGraphWithRecurseGuard CG;
@@ -10687,10 +10706,11 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     }
   }
 
+  HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
+  ArBasicKind basicKind = hlslSource->GetTypeElementKind(qt);
+
   if (hasSignSpec) {
-     HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
      ArTypeObjectKind objKind = hlslSource->GetTypeObjectKind(qt);
-     ArBasicKind basicKind = hlslSource->GetTypeElementKind(qt);
      // vectors or matrices can only have unsigned integer types.
      if (objKind == AR_TOBJ_MATRIX || objKind == AR_TOBJ_VECTOR || objKind == AR_TOBJ_BASIC || objKind == AR_TOBJ_ARRAY) {
          if (!IS_BASIC_UNSIGNABLE(basicKind)) {
@@ -10922,6 +10942,15 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
           << pUniform->getRange();
       result = false;
     }
+  }
+
+  // Validate that stream-ouput objects are marked as inout
+  if (isParameter && !(usageIn && usageOut) &&
+      (basicKind == ArBasicKind::AR_OBJECT_LINESTREAM ||
+       basicKind == ArBasicKind::AR_OBJECT_POINTSTREAM ||
+       basicKind == ArBasicKind::AR_OBJECT_TRIANGLESTREAM)) {
+    Diag(D.getLocStart(), diag::err_hlsl_missing_inout_attr);
+    result = false;
   }
 
   // Validate unusual annotations.

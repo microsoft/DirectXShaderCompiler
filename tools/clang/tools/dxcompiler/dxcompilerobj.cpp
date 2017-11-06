@@ -391,6 +391,7 @@ public:
 
       compiler.getLangOpts().HLSLEntryFunction =
       compiler.getCodeGenOpts().HLSLEntryFunction = pUtf8EntryPoint.m_psz;
+      compiler.getLangOpts().HLSLProfile =
       compiler.getCodeGenOpts().HLSLProfile = pUtf8TargetProfile.m_psz;
 
       unsigned rootSigMajor = 0;

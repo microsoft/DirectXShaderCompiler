@@ -1291,6 +1291,16 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     isHS = true;
     funcProps->shaderKind = DXIL::ShaderKind::Hull;
     HSEntryPatchConstantFuncAttr[F] = Attr;
+  } else {
+    // TODO: This is a duplicate check. We also have this check in
+    // hlsl::DiagnoseTranslationUnit(clang::Sema*).
+    if (isEntry && SM->IsHS()) {
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "HS entry point must have the patchconstantfunc attribute");
+      Diags.Report(FD->getLocation(), DiagID);
+      return;
+    }
   }
 
   if (const HLSLOutputControlPointsAttr *Attr =
@@ -4065,14 +4075,8 @@ void CGMSHLSLRuntime::SetPatchConstantFunction(const EntryFunctionInfo &EntryFun
 
   auto AttrsIter = HSEntryPatchConstantFuncAttr.find(EntryFunc.Func);
 
-  if (AttrsIter == HSEntryPatchConstantFuncAttr.end()) {
-    DiagnosticsEngine &Diags = CGM.getDiags();
-    unsigned DiagID =
-      Diags.getCustomDiagID(DiagnosticsEngine::Error,
-        "HS entry is missing patchconstantfunc attribute.");
-    Diags.Report(EntryFunc.SL, DiagID);
-    return;
-  }
+  DXASSERT(AttrsIter != HSEntryPatchConstantFuncAttr.end(),
+           "we have checked this in AddHLSLFunctionInfo()");
 
   SetPatchConstantFunctionWithAttr(Entry, AttrsIter->second);
 }
