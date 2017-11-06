@@ -4,7 +4,7 @@
 // message.
 
 // CHECK: Multiple overloads of patchconstantfunc HSPerPatchFunc.
-// CHECK: 88:16: note: This overload was selected
+// CHECK: 87:16: note: This overload was selected
 
 //--------------------------------------------------------------------------------------
 // SimpleTessellation.hlsl
