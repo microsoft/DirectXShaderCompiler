@@ -49,13 +49,12 @@ float4 HSPerPatchFunc()
     return 1.8;
 }
 
-// The compiler should *not* select this overload as the patch constant
-// function. As far as the compiler is concerned, this is *not* used as
-// a patch constant function, and ergo may not conform with the
-// restrictions placed on those functions. To ensure the compiler is not
-// selecting this overload, the function signature has two semantic errors
-// (InputPatch<..., 32> should be InputPatch<..., 3> to match the shader
-// entry point; and no inout arguments to the method).
+// This overload is a patch constant function candidate because it has an
+// output with the SV_TessFactor semantic. However, the compiler should
+// *not* select it because there is another overload defined later in this
+// translation unit (which is the old compiler's behavior). If it did, then
+// the semantic checker will report an error due to this overload's input
+// having 32 elements (versus the expected 3).
 HSPerPatchData HSPerPatchFunc(const InputPatch< PSSceneIn, 32 > points)
 {
   HSPerPatchData d;
