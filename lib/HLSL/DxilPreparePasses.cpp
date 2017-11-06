@@ -153,10 +153,9 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
   NewFunc->getBasicBlockList().splice(NewFunc->begin(), F->getBasicBlockList());
 
   // Keep necessary function attributes
-  char *DenormKindStr = "fp32-denorm-mode";
   AttributeSet attributeSet = F->getAttributes();
-  if (attributeSet.hasAttribute(AttributeSet::FunctionIndex, DenormKindStr)) {
-    Attribute attribute = attributeSet.getAttribute(AttributeSet::FunctionIndex, DenormKindStr);
+  if (attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
+    Attribute attribute = attributeSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
     DXASSERT(attribute.isStringAttribute(), "otherwise we have wrong fp-denorm-mode attribute.");
     NewFunc->addFnAttr(attribute.getKindAsString(), attribute.getValueAsString());
   }
