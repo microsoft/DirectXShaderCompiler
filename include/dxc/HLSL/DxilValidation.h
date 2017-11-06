@@ -42,6 +42,7 @@ enum class ValidationRule : unsigned {
   // Declaration
   DeclDxilFnExtern, // External function must be a DXIL function
   DeclDxilNsReserved, // The DXIL reserved prefixes must only be used by built-in functions and types
+  DeclFnAttribute, // Functions should only contain known function attributes
   DeclFnFlattenParam, // Function parameters must not use struct types
   DeclFnIsCalled, // Functions can only be used by call instructions
   DeclNotUsedExternal, // External declaration should not be used

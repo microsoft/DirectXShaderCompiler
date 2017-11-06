@@ -245,6 +245,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::DeclUsedExternalFunction: return "External function '%0' is unused";
     case hlsl::ValidationRule::DeclFnIsCalled: return "Function '%0' is used for something other than calling";
     case hlsl::ValidationRule::DeclFnFlattenParam: return "Type '%0' is a struct type but is used as a parameter in function '%1'";
+    case hlsl::ValidationRule::DeclFnAttribute: return "Function '%0' contains invalid attribute '%1' with value '%2'";
   }
   // VALRULE-TEXT:END
   llvm_unreachable("invalid value");
@@ -549,6 +550,10 @@ struct ValidationContext {
     raw_string_ostream OSS(O);
     Ty->print(OSS);
     EmitFormatError(rule, { OSS.str() });
+  }
+
+  void EmitFnAttributeError(Function *F, StringRef Kind, StringRef Value) {
+    EmitFormatError(ValidationRule::DeclFnAttribute, { F->getName(), Kind, Value });
   }
 };
 
@@ -2312,6 +2317,21 @@ static void ValidateInstructionMetadata(Instruction *I,
   }
 }
 
+static void ValidateFunctionAttribute(Function *F, ValidationContext &ValCtx) {
+  AttributeSet attrSet = F->getAttributes();
+  // fp32-denorm-mode
+  if (attrSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
+    Attribute attr = attrSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
+    StringRef value = attr.getValueAsString();
+    if (!value.equals(DXIL::kFP32DenormValueAnyString) &&
+      !value.equals(DXIL::kFP32DenormValueFtzString) &&
+      !value.equals(DXIL::kFP32DenormValuePreserveString))
+    {
+      ValCtx.EmitFnAttributeError(F, attr.getKindAsString(), attr.getValueAsString());
+    }
+  }
+}
+
 static void ValidateFunctionMetadata(Function *F, ValidationContext &ValCtx) {
   SmallVector<std::pair<unsigned, MDNode *>, 2> MDNodes;
   F->getAllMetadata(MDNodes);
@@ -2612,6 +2632,8 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
 
     ValidateFunctionBody(&F, ValCtx);
   }
+
+  ValidateFunctionAttribute(&F, ValCtx);
 
   if (F.hasMetadata()) {
     ValidateFunctionMetadata(&F, ValCtx);

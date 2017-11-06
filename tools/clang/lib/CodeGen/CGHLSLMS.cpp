@@ -1136,13 +1136,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   if (m_pHLModule->GetFloat32DenormMode() == DXIL::Float32DenormMode::FTZ) {
-    F->addFnAttr("fp32-denorm-mode", "ftz");
+    F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValueFtzString);
   }
   else if (m_pHLModule->GetFloat32DenormMode() == DXIL::Float32DenormMode::Preserve) {
-    F->addFnAttr("fp32-denorm-mode", "preserve");
+    F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValuePreserveString);
   }
   else if (m_pHLModule->GetFloat32DenormMode() == DXIL::Float32DenormMode::Any) {
-    F->addFnAttr("fp32-denorm-mode", "any");
+    F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValueAnyString);
   }
   // Set entry function
   const std::string &entryName = m_pHLModule->GetEntryFunctionName();

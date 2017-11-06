@@ -2767,6 +2767,7 @@ CONTAINER.PARTREPEATED                 DXIL Container must have only one of each
 CONTAINER.ROOTSIGNATUREINCOMPATIBLE    Root Signature in DXIL Container must be compatible with shader
 DECL.DXILFNEXTERN                      External function must be a DXIL function
 DECL.DXILNSRESERVED                    The DXIL reserved prefixes must only be used by built-in functions and types
+DECL.FNATTRIBUTE                       Functions should only contain known function attributes
 DECL.FNFLATTENPARAM                    Function parameters must not use struct types
 DECL.FNISCALLED                        Functions can only be used by call instructions
 DECL.NOTUSEDEXTERNAL                   External declaration should not be used

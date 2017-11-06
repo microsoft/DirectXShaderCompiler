@@ -1761,7 +1761,8 @@ class db_dxil(object):
         self.add_valrule_msg("Decl.UsedExternalFunction", "External function must be used", "External function '%0' is unused")
         self.add_valrule_msg("Decl.FnIsCalled", "Functions can only be used by call instructions", "Function '%0' is used for something other than calling")
         self.add_valrule_msg("Decl.FnFlattenParam", "Function parameters must not use struct types", "Type '%0' is a struct type but is used as a parameter in function '%1'")
-        
+        self.add_valrule_msg("Decl.FnAttribute", "Functions should only contain known function attributes", "Function '%0' contains invalid attribute '%1' with value '%2'")
+
         # Assign sensible category names and build up an enumeration description
         cat_names = {
             "CONTAINER": "Container",
