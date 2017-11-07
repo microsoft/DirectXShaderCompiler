@@ -3122,6 +3122,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
   Type *EltTy = Ty->getScalarType();
+  Constant *Alignment = OP->GetI32Const(OP->GetAllocSizeForType(EltTy));
   bool is64 = EltTy == i64Ty || EltTy == doubleTy;
   if (is64) {
     EltTy = i32Ty;
@@ -3187,16 +3188,20 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
   // Offset 1
   if (RK == DxilResource::Kind::RawBuffer) {
+    // elementOffset, mask, alignment
     loadArgs.emplace_back(undefI);
     loadArgs.emplace_back(OP->GetI8Const(GetRawBufferMaskFromIOP(helper.intrinsicOpCode, OP)));
+    loadArgs.emplace_back(Alignment);
   }
   else if (RK == DxilResource::Kind::TypedBuffer) {
     loadArgs.emplace_back(undefI);
   }
   else if (RK == DxilResource::Kind::StructuredBuffer) {
+    // elementOffset, mask, alignment
     loadArgs.emplace_back(
       OP->GetU32Const(0)); // For case use built-in types in structure buffer.
     loadArgs.emplace_back(OP->GetU8Const(0)); // When is this case hit?
+    loadArgs.emplace_back(Alignment);
   }
   Value *ResRet =
       Builder.CreateCall(F, loadArgs, OP->GetOpCodeName(opcode));
@@ -3311,6 +3316,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
   Type *EltTy = Ty->getScalarType();
+  Constant *Alignment = OP->GetI32Const(OP->GetAllocSizeForType(EltTy));
   bool is64 = EltTy == i64Ty || EltTy == doubleTy;
   if (is64) {
     EltTy = i32Ty;
@@ -3427,8 +3433,9 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     }
   }
 
-  storeArgs.emplace_back(OP->GetU8Const(mask));
-
+  storeArgs.emplace_back(OP->GetU8Const(mask)); // mask
+  if (opcode == DXIL::OpCode::RawBufferStore)
+    storeArgs.emplace_back(Alignment); // alignment only for raw buffer
   Builder.CreateCall(F, storeArgs);
 }
 
@@ -5487,13 +5494,13 @@ Value *GEPIdxToOffset(GetElementPtrInst *GEP, IRBuilder<> &Builder,
 void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
                          Value *status, Type *EltTy,
                          MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
-                         IRBuilder<> &Builder, Constant *mask) {
+                         IRBuilder<> &Builder, Constant *mask, Constant *alignment) {
   OP::OpCode opcode = OP::OpCode::RawBufferLoad;
 
   DXASSERT(resultElts.size() <= 4,
            "buffer load cannot load more than 4 values");
 
-  Value *Args[] = {OP->GetU32Const((unsigned)opcode), handle, bufIdx, offset, mask};
+  Value *Args[] = {OP->GetU32Const((unsigned)opcode), handle, bufIdx, offset, mask, alignment};
 
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
@@ -5542,7 +5549,7 @@ void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
 
 void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
                          Type *EltTy, hlsl::OP *OP, IRBuilder<> &Builder,
-                         ArrayRef<Value *> vals, uint8_t mask) {
+                         ArrayRef<Value *> vals, uint8_t mask, Constant *alignment) {
   OP::OpCode opcode = OP::OpCode::RawBufferStore;
   DXASSERT(vals.size() == 4, "buffer store need 4 values");
   Type *i64Ty = Builder.getInt64Ty();
@@ -5557,7 +5564,8 @@ void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
                      vals[1],
                      vals[2],
                      vals[3],
-                     OP->GetU8Const(mask)};
+                     OP->GetU8Const(mask),
+                     alignment};
     Function *dxilF = OP->GetOpFunc(opcode, EltTy);
     Builder.CreateCall(dxilF, Args);
   } else {
@@ -5604,7 +5612,8 @@ void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
                      vals32[1],
                      vals32[2],
                      vals32[3],
-                     OP->GetU8Const(maskLo)};
+                     OP->GetU8Const(maskLo),
+                     alignment};
     Builder.CreateCall(dxilF, Args);
     if (maskHi) {
       // Update offset 4 by 4 bytes.
@@ -5617,7 +5626,8 @@ void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
                        vals32[5],
                        vals32[6],
                        vals32[7],
-                       OP->GetU8Const(maskHi)};
+                       OP->GetU8Const(maskHi),
+                       alignment};
       Builder.CreateCall(dxilF, Args);
     }
   }
@@ -5626,9 +5636,10 @@ void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
 Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
                                Value *handle, hlsl::OP *OP, Value *status,
                                Value *bufIdx, Value *baseOffset,
-                               bool colMajor) {
+                               bool colMajor, const DataLayout &DL) {
   unsigned col, row;
   Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
+  Constant* alignment = OP->GetI32Const(DL.getTypeAllocSize(EltTy));
 
   Value *offset = baseOffset;
   if (baseOffset == nullptr)
@@ -5643,7 +5654,7 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
     Constant *mask = OP->GetI8Const(rest == 1 ? 0x1 :
                                     rest == 2 ? 0x3
                                               : 0x7);
-    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, mask);
+    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, mask, alignment);
     for (unsigned i = 0; i < rest; i++)
       elts[i] = ResultElts[i];
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * rest));
@@ -5652,7 +5663,7 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
   for (unsigned i = rest; i < matSize; i += 4) {
     Value *ResultElts[4];
     Constant *mask = OP->GetI8Const(0xf);
-    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, mask);
+    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, mask, alignment);
     elts[i] = ResultElts[0];
     elts[i + 1] = ResultElts[1];
     elts[i + 2] = ResultElts[2];
@@ -5667,10 +5678,10 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
 
 void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
                              hlsl::OP *OP, Value *bufIdx, Value *baseOffset,
-                             Value *val, bool colMajor) {
+                             Value *val, bool colMajor, const DataLayout &DL) {
   unsigned col, row;
   Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
-
+  Constant *Alignment = OP->GetI32Const(DL.getTypeAllocSize(EltTy));
   Value *offset = baseOffset;
   if (baseOffset == nullptr)
     offset = OP->GetU32Const(0);
@@ -5703,7 +5714,8 @@ void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
         mask |= (1<<j);
     }
     GenerateStructBufSt(handle, bufIdx, offset, EltTy, OP, Builder,
-                        {elts[i], elts[i + 1], elts[i + 2], elts[i + 3]}, mask);
+                        {elts[i], elts[i + 1], elts[i + 2], elts[i + 3]}, mask,
+                        Alignment);
     // Update offset by 4*4bytes.
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * 4));
   }
@@ -5711,7 +5723,7 @@ void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
 
 void TranslateStructBufMatLdSt(CallInst *CI, Value *handle, hlsl::OP *OP,
                                Value *status, Value *bufIdx,
-                               Value *baseOffset) {
+                               Value *baseOffset, const DataLayout &DL) {
   IRBuilder<> Builder(CI);
   HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
   unsigned opcode = GetHLOpcode(CI);
@@ -5723,14 +5735,14 @@ void TranslateStructBufMatLdSt(CallInst *CI, Value *handle, hlsl::OP *OP,
     Value *ptr = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx);
     Value *NewLd = TranslateStructBufMatLd(
         ptr->getType()->getPointerElementType(), Builder, handle, OP, status,
-        bufIdx, baseOffset, /*colMajor*/ true);
+        bufIdx, baseOffset, /*colMajor*/ true, DL);
     CI->replaceAllUsesWith(NewLd);
   } break;
   case HLMatLoadStoreOpcode::RowMatLoad: {
     Value *ptr = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx);
     Value *NewLd = TranslateStructBufMatLd(
         ptr->getType()->getPointerElementType(), Builder, handle, OP, status,
-        bufIdx, baseOffset, /*colMajor*/ false);
+        bufIdx, baseOffset, /*colMajor*/ false, DL);
     CI->replaceAllUsesWith(NewLd);
   } break;
   case HLMatLoadStoreOpcode::ColMatStore: {
@@ -5738,14 +5750,14 @@ void TranslateStructBufMatLdSt(CallInst *CI, Value *handle, hlsl::OP *OP,
     Value *val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
     TranslateStructBufMatSt(ptr->getType()->getPointerElementType(), Builder,
                             handle, OP, bufIdx, baseOffset, val,
-                            /*colMajor*/ true);
+                            /*colMajor*/ true, DL);
   } break;
   case HLMatLoadStoreOpcode::RowMatStore: {
     Value *ptr = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx);
     Value *val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
     TranslateStructBufMatSt(ptr->getType()->getPointerElementType(), Builder,
                             handle, OP, bufIdx, baseOffset, val,
-                            /*colMajor*/ false);
+                            /*colMajor*/ false, DL);
   } break;
   }
 
@@ -5771,6 +5783,7 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
   Type *matType = basePtr->getType()->getPointerElementType();
   unsigned col, row;
   Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
+  Constant *alignment = hlslOP->GetI32Const(DL.getTypeAllocSize(EltTy));
 
   Value *EltByteSize = ConstantInt::get(
       baseOffset->getType(), GetEltTypeByteSizeForConstBuf(EltTy, DL));
@@ -5838,13 +5851,13 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
           uint8_t mask = DXIL::kCompMask_X;
           GenerateStructBufSt(handle, bufIdx, idxList[i], EltTy, hlslOP,
                               stBuilder, {EltVal, undefElt, undefElt, undefElt},
-                              mask);
+                              mask, alignment);
         }
       } else {
         uint8_t mask = DXIL::kCompMask_X;
         GenerateStructBufSt(handle, bufIdx, idxList[0], EltTy, hlslOP,
                             stBuilder, {Val, undefElt, undefElt, undefElt},
-                            mask);
+                            mask, alignment);
       }
 
       stUser->eraseFromParent();
@@ -5859,12 +5872,12 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
           Value *ResultElt;
           GenerateStructBufLd(handle, bufIdx, idxList[i],
                               /*status*/ nullptr, EltTy, ResultElt, hlslOP,
-                              ldBuilder, mask);
+                              ldBuilder, mask, alignment);
           ldData = ldBuilder.CreateInsertElement(ldData, ResultElt, i);
         }
       } else {
         GenerateStructBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
-                            EltTy, ldData, hlslOP, ldBuilder, mask);
+                            EltTy, ldData, hlslOP, ldBuilder, mask, alignment);
       }
       ldUser->replaceAllUsesWith(ldData);
       ldUser->eraseFromParent();
@@ -5965,7 +5978,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     } else if (group == HLOpcodeGroup::HLMatLoadStore)
       // TODO: support 64 bit.
       TranslateStructBufMatLdSt(userCall, handle, OP, status, bufIdx,
-                                baseOffset);
+                                baseOffset, DL);
     else if (group == HLOpcodeGroup::HLSubscript) {
       TranslateStructBufMatSubscript(userCall, handle, OP, bufIdx, baseOffset, status, DL);
     }
@@ -5994,8 +6007,10 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
       auto LdElement = [&](Value *offset, IRBuilder<> &Builder) -> Value * {
         Value *ResultElts[4];
         Constant *mask = GetRawBufferLoadMaskForType(Ty, OP);
+        Constant *alignment =
+            OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
         GenerateStructBufLd(handle, bufIdx, offset, status, pOverloadTy,
-                            ResultElts, OP, Builder, mask);
+                            ResultElts, OP, Builder, mask, alignment);
         return ScalarizeElements(Ty, ResultElts, Builder);
       };
 
@@ -6029,9 +6044,10 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
           vals[0] = val;
           mask = DXIL::kCompMask_X;
         }
-
+        Constant *alignment =
+          OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
         GenerateStructBufSt(handle, bufIdx, offset, pOverloadTy, OP, Builder,
-                            vals, mask);
+                            vals, mask, alignment);
       };
       if (arraySize > 1)
         val = Builder.CreateExtractValue(val, 0);

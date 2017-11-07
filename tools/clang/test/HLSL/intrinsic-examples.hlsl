@@ -23,10 +23,10 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   uav1[b] = r; // expected-error {{type 'RWByteAddressBuffer' does not provide a subscript operator}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
   uav1.Load(a.x, status);
   min16float4 h = min16float4(1,2,3,4);
-  uav1.LoadHalf(h.x, status);                               /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode.}} */
-  uav1.LoadHalf2(h.x);                                      /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode.}} expected-warning {{ignoring return value of function that only reads data}} */
-  uav1.StoreHalf3(4, h.xyz);                                /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode.}} */
-  uav1.StoreHalf4(8, h);                                    /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode.}} */
+  uav1.LoadHalf(h.x, status);                               /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode}} */
+  uav1.LoadHalf2(h.x);                                      /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode}} expected-warning {{ignoring return value of function that only reads data}} */
+  uav1.StoreHalf3(4, h.xyz);                                /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode}} */
+  uav1.StoreHalf4(8, h);                                    /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode}} */
   return r;
 }
 

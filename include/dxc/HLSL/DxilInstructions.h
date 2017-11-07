@@ -4460,7 +4460,7 @@ struct DxilInst_RawBufferLoad {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
   // Operand indexes
@@ -4469,6 +4469,7 @@ struct DxilInst_RawBufferLoad {
     arg_index = 2,
     arg_elementOffset = 3,
     arg_mask = 4,
+    arg_alignment = 5,
   };
   // Accessors
   llvm::Value *get_srv() const { return Instr->getOperand(1); }
@@ -4479,6 +4480,10 @@ struct DxilInst_RawBufferLoad {
   void set_elementOffset(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_mask() const { return Instr->getOperand(4); }
   void set_mask(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_alignment() const { return Instr->getOperand(5); }
+  void set_alignment(llvm::Value *val) { Instr->setOperand(5, val); }
+  int32_t get_alignment_val() const { return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))->getZExtValue()); }
+  void set_alignment_val(int32_t val) { Instr->setOperand(5, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 32), llvm::APInt(32, (uint64_t)val))); }
 };
 
 /// This instruction writes to a RWByteAddressBuffer or RWStructuredBuffer
@@ -4492,7 +4497,7 @@ struct DxilInst_RawBufferStore {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (9 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (10 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
   // Operand indexes
@@ -4505,6 +4510,7 @@ struct DxilInst_RawBufferStore {
     arg_value2 = 6,
     arg_value3 = 7,
     arg_mask = 8,
+    arg_alignment = 9,
   };
   // Accessors
   llvm::Value *get_uav() const { return Instr->getOperand(1); }
@@ -4525,6 +4531,10 @@ struct DxilInst_RawBufferStore {
   void set_mask(llvm::Value *val) { Instr->setOperand(8, val); }
   int8_t get_mask_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(8))->getZExtValue()); }
   void set_mask_val(int8_t val) { Instr->setOperand(8, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
+  llvm::Value *get_alignment() const { return Instr->getOperand(9); }
+  void set_alignment(llvm::Value *val) { Instr->setOperand(9, val); }
+  int32_t get_alignment_val() const { return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(9))->getZExtValue()); }
+  void set_alignment_val(int32_t val) { Instr->setOperand(9, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 32), llvm::APInt(32, (uint64_t)val))); }
 };
 // INSTR-HELPER:END
 } // namespace hlsl

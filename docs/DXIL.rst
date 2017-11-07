@@ -1719,6 +1719,7 @@ BufferLoad
 The following signature shows the operation syntax::
 
   ; overloads: SM5.1: f32|i32,  SM6.0: f32|i32
+  ; returns: status
   declare %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(
       i32,                  ; opcode
       %dx.types.Handle,     ; resource handle
@@ -1727,13 +1728,38 @@ The following signature shows the operation syntax::
 
 The call respects SM5.1 OOB and alignment rules.
 
-=================== =====================================================
-Valid resource type # of active coordinates
-=================== =====================================================
-[RW]TypedBuffer     1 (c0 in elements)
-[RW]RawBuffer       1 (c0 in bytes)
-[RW]TypedBuffer     2 (c0 in elements, c1 = byte offset into the element)
-=================== =====================================================
+====================  =====================================================
+Valid resource type   # of active coordinates
+====================  =====================================================
+[RW]TypedBuffer       1 (c0 in elements)
+[RW]RawBuffer         1 (c0 in bytes)
+[RW]StructuredBuffer  2 (c0 in elements, c1 = byte offset into the element)
+====================  =====================================================
+
+RawBufferLoad
+~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32|i32,  SM6.0: f32|i32
+  ; returns: status
+  declare %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; resource handle
+      i32,                  ; coordinate c0
+      i32,                  ; coordinate c1
+      i8,                   ; mask
+      i32,                  ; alignment
+  )
+
+The call respects SM5.1 OOB and alignment rules.
+
+====================  =====================================================
+Valid resource type   # of active coordinates
+====================  =====================================================
+[RW]RawBuffer         1 (c0 in bytes)
+[RW]StructuredBuffer  2 (c0 in elements, c1 = byte offset into the element)
+====================  =====================================================
 
 BufferStore
 ~~~~~~~~~~~
@@ -1741,7 +1767,6 @@ BufferStore
 The following signature shows the operation syntax::
 
   ; overloads: SM5.1: f32|i32,  SM6.0: f32|i32
-  ; returns: status
   declare void @dx.op.bufferStore.f32(
       i32,                  ; opcode
       %dx.types.Handle,     ; resource handle

@@ -742,8 +742,8 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::ViewID:                 A(pI32);     A(pI32); break;
 
     // Resources
-  case OpCode::RawBufferLoad:          RRT(pETy);   A(pI32); A(pRes); A(pI32); A(pI32); A(pI8);  break;
-  case OpCode::RawBufferStore:         A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  break;
+  case OpCode::RawBufferLoad:          RRT(pETy);   A(pI32); A(pRes); A(pI32); A(pI32); A(pI8);  A(pI32); break;
+  case OpCode::RawBufferStore:         A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -809,6 +809,10 @@ bool OP::UseMinPrecision() {
     }
   }
   return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
+}
+
+uint64_t OP::GetAllocSizeForType(llvm::Type *Ty) {
+  return m_pModule->getDataLayout().getTypeAllocSize(Ty);
 }
 
 llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {

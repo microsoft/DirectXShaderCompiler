@@ -7445,7 +7445,7 @@ def err_hlsl_attribute_valid_on_function_only: Error<
 def err_hlsl_cannot_convert: Error<
   "cannot %select{implicitly |}0convert %select{|output parameter }1from %2 to %3">;
 def err_hlsl_half_load_store: Error<
-  "HalfLoad/Store not allowed in min precision mode">;
+  "LoadHalf and StoreHalf are not supported for min precision mode">;
 def err_hlsl_interfaces_cannot_inherit: Error<
   "interfaces cannot inherit from other types">;
 def err_hlsl_invalid_range_1_4: Error<

@@ -1876,7 +1876,9 @@ private:
   // Replace RawBufferLoad/Store of min-precision types to have its actual storage size
   void ReplaceMinPrecisionRawBufferLoad(Function *F, Module &M);
   void ReplaceMinPrecisionRawBufferStore(Function *F, Module &M);
-  void ReplaceMinPrecisionRawBufferLoadByType(Function *F, Type *FromTy, Type *ToTy, OP *Op);
+  void ReplaceMinPrecisionRawBufferLoadByType(Function *F, Type *FromTy,
+                                              Type *ToTy, OP *Op,
+                                              const DataLayout &DL);
 };
 } // namespace
 
@@ -1942,11 +1944,11 @@ void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferLoad(Function *F,
     if (EltTy->isHalfTy()) {
       ReplaceMinPrecisionRawBufferLoadByType(F, Type::getHalfTy(M.getContext()),
                                              Type::getFloatTy(M.getContext()),
-                                             Op);
+                                             Op, M.getDataLayout());
     } else if (EltTy == Type::getInt16Ty(M.getContext())) {
       ReplaceMinPrecisionRawBufferLoadByType(
           F, Type::getInt16Ty(M.getContext()), Type::getInt32Ty(M.getContext()),
-          Op);
+          Op, M.getDataLayout());
     }
   } else {
     DXASSERT(false, "RawBufferLoad should return struct type.");
@@ -2036,6 +2038,9 @@ void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferStore(Function *F,
 
     // mask
     Args.emplace_back(CI->getArgOperand(8));
+    // alignment
+    Args.emplace_back(M.GetDxilModule().GetOP()->GetI32Const(
+        M.getDataLayout().getTypeAllocSize(NewETy)));
     CIBuilder.CreateCall(newFunction, Args);
     CI->eraseFromParent();
    }
@@ -2043,16 +2048,19 @@ void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferStore(Function *F,
 
 
 void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferLoadByType(
-    Function *F, Type *FromTy, Type *ToTy, OP *Op) {
+    Function *F, Type *FromTy, Type *ToTy, OP *Op, const DataLayout &DL) {
   Function *newFunction = Op->GetOpFunc(DXIL::OpCode::RawBufferLoad, ToTy);
   for (auto FUser = F->user_begin(), FEnd = F->user_end(); FUser != FEnd;) {
     User *UserCI = *(FUser++);
     if (CallInst *CI = dyn_cast<CallInst>(UserCI)) {
       IRBuilder<> CIBuilder(CI);
       SmallVector<Value *, 5> newFuncArgs;
+      // opcode, handle, index, elementOffset, mask
       for (unsigned i = 0; i < 5; ++i) {
         newFuncArgs.emplace_back(CI->getArgOperand(i));
       }
+      // new alignment for new type
+      newFuncArgs.emplace_back(Op->GetI32Const(DL.getTypeAllocSize(ToTy)));
       CallInst *newCI = CIBuilder.CreateCall(newFunction, newFuncArgs);
       for (auto CIUser = CI->user_begin(), CIEnd = CI->user_end();
            CIUser != CIEnd;) {
