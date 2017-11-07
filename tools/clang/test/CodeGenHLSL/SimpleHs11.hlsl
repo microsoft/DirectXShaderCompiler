@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T hs_6_1  %s 2>&1 | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0  %s 2>&1 | FileCheck %s
 
 // Same as SimpleHS10.hlsl, except that now we check that the compiler didn't
 // lie when it told us which overload it selected.
