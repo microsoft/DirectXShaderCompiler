@@ -765,13 +765,15 @@ bool DeclResultIdMapper::createStageVars(
   uint32_t semanticIndex = {};
 
   if (getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex)) {
+    const auto semanticKind = semantic->GetKind();
+
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
 
     // Error out when the given semantic is invalid in this shader model
-    if (hlsl::SigPoint::GetInterpretation(
-            semantic->GetKind(), sigPoint->GetKind(), shaderModel.GetMajor(),
-            shaderModel.GetMinor()) ==
+    if (hlsl::SigPoint::GetInterpretation(semanticKind, sigPoint->GetKind(),
+                                          shaderModel.GetMajor(),
+                                          shaderModel.GetMinor()) ==
         hlsl::DXIL::SemanticInterpretationKind::NA) {
       emitError("invalid semantic %0 for shader model %1")
           << semanticStr << shaderModel.GetName();
@@ -785,12 +787,24 @@ bool DeclResultIdMapper::createStageVars(
     // * SV_DomainLocation can refer to a float2, whereas TessCoord is a float3.
     //   To ensure SPIR-V validity, we must create a float3 and  extract a
     //   float2 from it before passing it to the main function.
-    if (glPerVertex.tryToAccess(semantic->GetKind(), semanticIndex,
-                                invocationId, value, sigPoint->GetKind()))
+    // * SV_TessFactor is an array of size 2 for isoline patch, array of size 3
+    //   for tri patch, and array of size 4 for quad patch, but it must always
+    //   be an array of size 4 in SPIR-V for Vulkan.
+    // * SV_InsideTessFactor is a single float for tri patch, and an array of
+    //   size 2 for a quad patch, but it must always be an array of size 2 in
+    //   SPIR-V for Vulkan.
+    if (glPerVertex.tryToAccess(semanticKind, semanticIndex, invocationId,
+                                value, sigPoint->GetKind()))
       return true;
 
-    if (semantic->GetKind() == hlsl::Semantic::Kind::DomainLocation)
+    if (semanticKind == hlsl::Semantic::Kind::DomainLocation)
       typeId = theBuilder.getVecType(theBuilder.getFloat32Type(), 3);
+    else if (semanticKind == hlsl::Semantic::Kind::TessFactor)
+      typeId = theBuilder.getArrayType(theBuilder.getFloat32Type(),
+                                       theBuilder.getConstantUint32(4));
+    else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor)
+      typeId = theBuilder.getArrayType(theBuilder.getFloat32Type(),
+                                       theBuilder.getConstantUint32(2));
 
     // Handle the extra arrayness
     const uint32_t elementTypeId = typeId;
@@ -820,17 +834,93 @@ bool DeclResultIdMapper::createStageVars(
 
     if (asInput) {
       *value = theBuilder.createLoad(typeId, varId);
+
+      // Fix ups for corner cases
+
+      // Special handling of SV_TessFactor DS patch constant input.
+      // TessLevelOuter is always an array of size 4 in SPIR-V, but
+      // SV_TessFactor could be an array of size 2, 3, or 4 in HLSL. Only the
+      // relevant indexes must be loaded.
+      if (semanticKind == hlsl::Semantic::Kind::TessFactor &&
+          hlsl::GetArraySize(type) != 4) {
+        llvm::SmallVector<uint32_t, 4> components;
+        const auto f32TypeId = theBuilder.getFloat32Type();
+        const auto tessFactorSize = hlsl::GetArraySize(type);
+        const auto arrType = theBuilder.getArrayType(
+            f32TypeId, theBuilder.getConstantUint32(tessFactorSize));
+        for (uint32_t i = 0; i < tessFactorSize; ++i)
+          components.push_back(
+              theBuilder.createCompositeExtract(f32TypeId, *value, {i}));
+        *value = theBuilder.createCompositeConstruct(arrType, components);
+      }
+      // Special handling of SV_InsideTessFactor DS patch constant input.
+      // TessLevelInner is always an array of size 2 in SPIR-V, but
+      // SV_InsideTessFactor could be an array of size 1 (scalar) or size 2 in
+      // HLSL. If SV_InsideTessFactor is a scalar, only extract index 0 of
+      // TessLevelInner.
+      else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor &&
+               !type->isArrayType()) {
+        *value = theBuilder.createCompositeExtract(theBuilder.getFloat32Type(),
+                                                   *value, {0});
+      }
+      // SV_DomainLocation can refer to a float2 or a float3, whereas TessCoord
+      // is always a float3. To ensure SPIR-V validity, a float3 stage variable
+      // is created, and we must extract a float2 from it before passing it to
+      // the main function.
+      else if (semanticKind == hlsl::Semantic::Kind::DomainLocation &&
+               hlsl::GetHLSLVecSize(type) != 3) {
+        const auto domainLocSize = hlsl::GetHLSLVecSize(type);
+        *value = theBuilder.createVectorShuffle(
+            theBuilder.getVecType(theBuilder.getFloat32Type(), domainLocSize),
+            *value, *value, {0, 1});
+      }
     } else {
       uint32_t ptr = varId;
-      if (invocationId.hasValue()) {
-        // Special handling of HS ouput, for which we write to only one element
-        // in the per-vertex data array: the one indexed by  SV_ControlPointID.
+
+      // Special handling of SV_TessFactor HS patch constant output.
+      // TessLevelOuter is always an array of size 4 in SPIR-V, but
+      // SV_TessFactor could be an array of size 2, 3, or 4 in HLSL. Only the
+      // relevant indexes must be written to.
+      if (semanticKind == hlsl::Semantic::Kind::TessFactor &&
+          hlsl::GetArraySize(type) != 4) {
+        const auto f32TypeId = theBuilder.getFloat32Type();
+        const auto tessFactorSize = hlsl::GetArraySize(type);
+        for (uint32_t i = 0; i < tessFactorSize; ++i) {
+          const uint32_t ptrType =
+              theBuilder.getPointerType(f32TypeId, spv::StorageClass::Output);
+          ptr = theBuilder.createAccessChain(ptrType, varId,
+                                             theBuilder.getConstantUint32(i));
+          theBuilder.createStore(
+              ptr, theBuilder.createCompositeExtract(f32TypeId, *value, i));
+        }
+      }
+      // Special handling of SV_InsideTessFactor HS patch constant output.
+      // TessLevelInner is always an array of size 2 in SPIR-V, but
+      // SV_InsideTessFactor could be an array of size 1 (scalar) or size 2 in
+      // HLSL. If SV_InsideTessFactor is a scalar, only write to index 0 of
+      // TessLevelInner.
+      else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor &&
+               !type->isArrayType()) {
+        ptr = theBuilder.createAccessChain(
+            theBuilder.getPointerType(theBuilder.getFloat32Type(),
+                                      spv::StorageClass::Output),
+            varId, theBuilder.getConstantUint32(0));
+        theBuilder.createStore(ptr, *value);
+      }
+      // Special handling of HS ouput, for which we write to only one
+      // element in the per-vertex data array: the one indexed by
+      // SV_ControlPointID.
+      else if (invocationId.hasValue()) {
         const uint32_t ptrType =
             theBuilder.getPointerType(elementTypeId, spv::StorageClass::Output);
         const uint32_t index = invocationId.getValue();
         ptr = theBuilder.createAccessChain(ptrType, varId, index);
+        theBuilder.createStore(ptr, *value);
       }
-      theBuilder.createStore(ptr, *value);
+      // For all normal cases
+      else {
+        theBuilder.createStore(ptr, *value);
+      }
     }
 
     return true;
