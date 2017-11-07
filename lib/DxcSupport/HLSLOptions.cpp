@@ -303,21 +303,21 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   opts.IgnoreLineDirectives = Args.hasFlag(OPT_ignore_line_directives, OPT_INVALID, false);
 
-  opts.FPDenormalMode = Args.getLastArgValue(OPT_denorm);
+  opts.FloatDenormalMode = Args.getLastArgValue(OPT_denorm);
   // Check if a given denormalized value is valid
-  if (!opts.FPDenormalMode.empty()) {
-    if (!(opts.FPDenormalMode.equals_lower("preserve") ||
-          opts.FPDenormalMode.equals_lower("ftz") ||
-          opts.FPDenormalMode.equals_lower("any"))) {
-      errors << "Unsupported value '" << opts.FPDenormalMode
+  if (!opts.FloatDenormalMode.empty()) {
+    if (!(opts.FloatDenormalMode.equals_lower("preserve") ||
+          opts.FloatDenormalMode.equals_lower("ftz") ||
+          opts.FloatDenormalMode.equals_lower("any"))) {
+      errors << "Unsupported value '" << opts.FloatDenormalMode
           << "' for denorm option.";
       return 1;
     }
   }
 
-  // Check options only allowed in shader model >= 6.2
+  // Check options only allowed in shader model >= 6.2FPDenormalMode
   if (opts.TargetProfile.empty() || !opts.TargetProfile.endswith_lower("6_2")) {
-    if (!opts.FPDenormalMode.empty()) {
+    if (!opts.FloatDenormalMode.empty()) {
       errors << "denorm option is only allowed for shader model 6.2 and above.";
       return 1;
     }
