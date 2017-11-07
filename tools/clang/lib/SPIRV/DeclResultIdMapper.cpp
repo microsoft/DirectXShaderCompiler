@@ -497,13 +497,13 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
 
     if (forInput && var.getSigPoint()->IsInput()) {
       if (seenSemantics.count(s)) {
-        emitError("input semantic '%0' used more than once") << s;
+        emitError("input semantic '%0' used more than once", {}) << s;
         success = false;
       }
       seenSemantics.insert(s);
     } else if (!forInput && var.getSigPoint()->IsOutput()) {
       if (seenSemantics.count(s)) {
-        emitError("output semantic '%0' used more than once") << s;
+        emitError("output semantic '%0' used more than once", {}) << s;
         success = false;
       }
       seenSemantics.insert(s);
@@ -580,7 +580,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
         // We have checked that not all of the stage variables have explicit
         // location assignment.
         emitError("partial explicit stage %select{output|input}0 location "
-                  "assignment via [[vk::location(X)]] unsupported")
+                  "assignment via [[vk::location(X)]] unsupported",
+                  {})
             << forInput;
         return false;
       }
@@ -787,7 +788,7 @@ bool DeclResultIdMapper::createStageVars(
                                           shaderModel.GetMajor(),
                                           shaderModel.GetMinor()) ==
         hlsl::DXIL::SemanticInterpretationKind::NA) {
-      emitError("invalid semantic %0 for shader model %1")
+      emitError("invalid semantic %0 for shader model %1", decl->getLocation())
           << semanticStr << shaderModel.GetName();
       return false;
     }
@@ -827,7 +828,8 @@ bool DeclResultIdMapper::createStageVars(
 
     StageVar stageVar(sigPoint, semanticStr, semantic, semanticIndex, typeId);
     llvm::Twine name = namePrefix + "." + semanticStr;
-    const uint32_t varId = createSpirvStageVar(&stageVar, name);
+    const uint32_t varId =
+        createSpirvStageVar(&stageVar, name, decl->getLocation());
 
     if (varId == 0)
       return false;
@@ -1128,14 +1130,16 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const DeclaratorDecl *decl,
 }
 
 uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
-                                                 const llvm::Twine &name) {
+                                                 const llvm::Twine &name,
+                                                 SourceLocation srcLoc) {
   using spv::BuiltIn;
   const auto sigPoint = stageVar->getSigPoint();
   const auto semanticKind = stageVar->getSemantic()->GetKind();
   const auto sigPointKind = sigPoint->GetKind();
   const uint32_t type = stageVar->getSpirvTypeId();
 
-  spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
+  spv::StorageClass sc = getStorageClassForSigPoint(
+      sigPoint, stageVar->getSemantic()->GetName(), srcLoc);
   if (sc == spv::StorageClass::Max)
     return 0;
   stageVar->setStorageClass(sc);
@@ -1189,7 +1193,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     case hlsl::SigPoint::Kind::PSIn:
       return theBuilder.addStageIOVar(type, sc, name.str());
     default:
-      emitError("semantic InstanceID for SigPoint %0 unimplemented yet")
+      emitError("semantic InstanceID for SigPoint %0 unimplemented yet", srcLoc)
           << sigPoint->GetName();
       break;
     }
@@ -1243,7 +1247,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing);
     default:
-      emitError("semantic IsFrontFace for SigPoint %0 unimplemented yet")
+      emitError("semantic IsFrontFace for SigPoint %0 unimplemented yet",
+                srcLoc)
           << sigPoint->GetName();
       break;
     }
@@ -1296,7 +1301,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessCoord);
   }
   default:
-    emitError("semantic %0 unimplemented yet")
+    emitError("semantic %0 unimplemented yet", srcLoc)
         << stageVar->getSemantic()->GetName();
     break;
   }
@@ -1305,7 +1310,9 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
 }
 
 spv::StorageClass
-DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint) {
+DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint,
+                                               const char *semanticName,
+                                               SourceLocation srcLoc) {
   // This translation is done based on the HLSL reference (see docs/dxil.rst).
   const auto sigPointKind = sigPoint->GetKind();
   const auto signatureKind = sigPoint->GetSignatureKind();
@@ -1328,7 +1335,8 @@ DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint) {
       sc = spv::StorageClass::Input;
       break;
     default:
-      emitError("Found invalid SigPoint kind for a semantic.");
+      emitError("SigPoint kind %0 is invalid for semantic %1", srcLoc)
+          << sigPoint->GetName() << semanticName;
     }
     break;
   }
@@ -1345,12 +1353,14 @@ DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint) {
       sc = spv::StorageClass::Input;
       break;
     default:
-      emitError("Found invalid SigPoint kind for a semantic.");
+      emitError("SigPoint kind %0 is invalid for semantic %1", srcLoc)
+          << sigPoint->GetName() << semanticName;
     }
     break;
   }
   default:
-    emitError("Found invalid SignatureKind for semantic.");
+    emitError("found invalid SignatureKind for semantic %0", srcLoc)
+        << semanticName;
   }
   return sc;
 }

@@ -275,7 +275,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       typeTranslator(astContext, theBuilder, diags), entryFunctionId(0),
       curFunction(nullptr), curThis(0), needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
-    emitError("unknown shader module: %0") << shaderModel.GetName();
+    emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
@@ -342,11 +342,11 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   const auto optLevel = theCompilerInstance.getCodeGenOpts().OptimizationLevel;
   if (needsLegalization || optLevel > 0) {
     if (needsLegalization && optLevel == 0)
-      emitWarning("-O0 ignored since SPIR-V legalization required");
+      emitWarning("-O0 ignored since SPIR-V legalization required", {});
 
     std::string messages;
     if (!spirvToolsOptimize(&m, &messages)) {
-      emitFatalError("failed to legalize/optimize SPIR-V: %0") << messages;
+      emitFatalError("failed to legalize/optimize SPIR-V: %0", {}) << messages;
       return;
     }
   }
@@ -364,7 +364,7 @@ void SPIRVEmitter::doDecl(const Decl *decl) {
     llvm_unreachable("HLSLBufferDecl should not be handled here");
   } else {
     // TODO: Implement handling of other Decl types.
-    emitWarning("Decl type '%0' is not supported yet.")
+    emitWarning("decl type %0 is not supported yet", decl->getLocation())
         << decl->getDeclKindName();
   }
 }
@@ -406,7 +406,8 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
   } else if (const auto *attrStmt = dyn_cast<AttributedStmt>(stmt)) {
     doStmt(attrStmt->getSubStmt(), attrStmt->getAttrs());
   } else {
-    emitError("Stmt '%0' is not supported yet.") << stmt->getStmtClassName();
+    emitError("Stmt '%0' is not supported yet.", stmt->getLocStart())
+        << stmt->getStmtClassName();
   }
 }
 
@@ -486,7 +487,8 @@ SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
     return curThis;
   }
 
-  emitError("Expr '%0' is not supported yet.") << expr->getStmtClassName();
+  emitError("Expr '%0' is not supported yet.", expr->getExprLoc())
+      << expr->getStmtClassName();
   return 0;
 }
 
@@ -501,9 +503,9 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr) {
 }
 
 uint32_t SPIRVEmitter::castToType(uint32_t value, QualType fromType,
-                                  QualType toType) {
+                                  QualType toType, SourceLocation srcLoc) {
   if (isFloatOrVecOfFloatType(toType))
-    return castToFloat(value, fromType, toType);
+    return castToFloat(value, fromType, toType, srcLoc);
 
   // Order matters here. Bool (vector) values will also be considered as uint
   // (vector) values. So given a bool (vector) argument, isUintOrVecOfUintType()
@@ -513,9 +515,9 @@ uint32_t SPIRVEmitter::castToType(uint32_t value, QualType fromType,
     return castToBool(value, fromType, toType);
 
   if (isSintOrVecOfSintType(toType) || isUintOrVecOfUintType(toType))
-    return castToInt(value, fromType, toType);
+    return castToInt(value, fromType, toType, srcLoc);
 
-  emitError("casting to type %0 unimplemented") << toType;
+  emitError("casting to type %0 unimplemented", {}) << toType;
   return 0;
 }
 
@@ -688,7 +690,8 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
     needsLegalization = true;
 }
 
-spv::LoopControlMask SPIRVEmitter::translateLoopAttribute(const Attr &attr) {
+spv::LoopControlMask SPIRVEmitter::translateLoopAttribute(const Stmt *stmt,
+                                                          const Attr &attr) {
   switch (attr.getKind()) {
   case attr::HLSLLoop:
   case attr::HLSLFastOpt:
@@ -696,10 +699,11 @@ spv::LoopControlMask SPIRVEmitter::translateLoopAttribute(const Attr &attr) {
   case attr::HLSLUnroll:
     return spv::LoopControlMask::Unroll;
   case attr::HLSLAllowUAVCondition:
-    emitWarning("Unsupported allow_uav_condition attribute ignored.");
+    emitWarning("unsupported allow_uav_condition attribute ignored",
+                stmt->getLocStart());
     break;
   default:
-    emitError("Found unknown loop attribute.");
+    emitError("found unknown loop attribute", stmt->getLocStart());
   }
   return spv::LoopControlMask::MaskNone;
 }
@@ -751,7 +755,7 @@ void SPIRVEmitter::doDoStmt(const DoStmt *theDoStmt,
 
   const spv::LoopControlMask loopControl =
       attrs.empty() ? spv::LoopControlMask::MaskNone
-                    : translateLoopAttribute(*attrs.front());
+                    : translateLoopAttribute(theDoStmt, *attrs.front());
 
   // Create basic blocks
   const uint32_t headerBB = theBuilder.createBasicBlock("do_while.header");
@@ -867,7 +871,7 @@ void SPIRVEmitter::doWhileStmt(const WhileStmt *whileStmt,
 
   const spv::LoopControlMask loopControl =
       attrs.empty() ? spv::LoopControlMask::MaskNone
-                    : translateLoopAttribute(*attrs.front());
+                    : translateLoopAttribute(whileStmt, *attrs.front());
 
   // Create basic blocks
   const uint32_t checkBB = theBuilder.createBasicBlock("while.check");
@@ -970,7 +974,7 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
   // For more details, see "2.11. Structured Control Flow" in the SPIR-V spec.
   const spv::LoopControlMask loopControl =
       attrs.empty() ? spv::LoopControlMask::MaskNone
-                    : translateLoopAttribute(*attrs.front());
+                    : translateLoopAttribute(forStmt, *attrs.front());
 
   // Create basic blocks
   const uint32_t checkBB = theBuilder.createBasicBlock("for.check");
@@ -1206,8 +1210,9 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
       allSwitchCasesAreIntegerLiterals(switchStmt->getBody());
 
   if (isAttrForceCase && !canUseSpirvOpSwitch)
-    emitWarning("Ignored 'forcecase' attribute for the switch statement "
-                "since one or more case values are not integer literals.");
+    emitWarning("ignored 'forcecase' attribute for the switch statement "
+                "since one or more case values are not integer literals",
+                switchStmt->getLocStart());
 
   if (canUseSpirvOpSwitch)
     processSwitchStmtUsingSpirvOpSwitch(switchStmt);
@@ -1250,7 +1255,8 @@ SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
   }
 
   const uint32_t resultType = typeTranslator.translateType(expr->getType());
-  return processBinaryOp(expr->getLHS(), expr->getRHS(), opcode, resultType);
+  return processBinaryOp(expr->getLHS(), expr->getRHS(), opcode, resultType,
+                         expr->getSourceRange());
 }
 
 SpirvEvalInfo SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
@@ -1345,7 +1351,7 @@ uint32_t SPIRVEmitter::processCall(const CallExpr *callExpr) {
     return retVal;
   }
 
-  emitError("calling non-function unimplemented");
+  emitError("calling non-function unimplemented", callExpr->getExprLoc());
   return 0;
 }
 
@@ -1400,7 +1406,8 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return translateAPInt(intValue, toType);
     }
 
-    return castToInt(doExpr(subExpr), subExpr->getType(), toType);
+    return castToInt(doExpr(subExpr), subExpr->getType(), toType,
+                     subExpr->getExprLoc());
   }
   case CastKind::CK_FloatingCast:
   case CastKind::CK_IntegralToFloating:
@@ -1414,7 +1421,8 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return translateAPFloat(evalResult.Val.getFloat(), toType);
     }
 
-    return castToFloat(doExpr(subExpr), subExpr->getType(), toType);
+    return castToFloat(doExpr(subExpr), subExpr->getType(), toType,
+                       subExpr->getExprLoc());
   }
   case CastKind::CK_IntegralToBoolean:
   case CastKind::CK_FloatingToBoolean:
@@ -1563,12 +1571,12 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
         intValue.getExtValue() == 0) {
       return theBuilder.getConstantNull(typeTranslator.translateType(toType));
     } else {
-      return processFlatConversion(toType, subExpr->getType(), doExpr(subExpr));
+      return processFlatConversion(toType, subExpr->getType(), doExpr(subExpr),
+                                   expr->getExprLoc());
     }
   }
   default:
-    emitError("ImplictCast Kind '%0' is not supported yet.",
-              expr->getLocStart())
+    emitError("ImplictCast Kind '%0' is not supported yet.", expr->getExprLoc())
         << expr->getCastKindName() << expr->getSourceRange();
     expr->dump();
     return 0;
@@ -1577,11 +1585,12 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
 
 uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
                                              const QualType initType,
-                                             const uint32_t initId) {
+                                             const uint32_t initId,
+                                             SourceLocation srcLoc) {
   // Try to translate the canonical type first
   const auto canonicalType = type.getCanonicalType();
   if (canonicalType != type)
-    return processFlatConversion(canonicalType, initType, initId);
+    return processFlatConversion(canonicalType, initType, initId, srcLoc);
 
   // Primitive types
   {
@@ -1590,7 +1599,7 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
       if (const auto *builtinType = ty->getAs<BuiltinType>()) {
         switch (builtinType->getKind()) {
         case BuiltinType::Void: {
-          emitError("cannot create a constant of void type");
+          emitError("cannot create a constant of void type", srcLoc);
           return 0;
         }
         case BuiltinType::Bool:
@@ -1602,15 +1611,15 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         case BuiltinType::Min12Int:
         case BuiltinType::UShort:
         case BuiltinType::UInt:
-          return castToInt(initId, initType, ty);
+          return castToInt(initId, initType, ty, srcLoc);
         // float, min16float (half), and min10float are all translated to
         // 32-bit float in SPIR-V.
         case BuiltinType::Float:
         case BuiltinType::Half:
         case BuiltinType::Min10Float:
-          return castToFloat(initId, initType, ty);
+          return castToFloat(initId, initType, ty, srcLoc);
         default:
-          emitError("flat conversion of type %0 unimplemented")
+          emitError("flat conversion of type %0 unimplemented", srcLoc)
               << builtinType->getTypeClassName();
           return 0;
         }
@@ -1622,7 +1631,8 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
     QualType elemType = {};
     uint32_t elemCount = {};
     if (TypeTranslator::isVectorType(type, &elemType, &elemCount)) {
-      const uint32_t elemId = processFlatConversion(elemType, initType, initId);
+      const uint32_t elemId =
+          processFlatConversion(elemType, initType, initId, srcLoc);
       llvm::SmallVector<uint32_t, 4> constituents(size_t(elemCount), elemId);
       return theBuilder.createCompositeConstruct(
           typeTranslator.translateType(type), constituents);
@@ -1635,7 +1645,7 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
     uint32_t rowCount = 0, colCount = 0;
     if (TypeTranslator::isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
       if (!elemType->isFloatingType()) {
-        emitError("non-floating-point matrix type unimplemented");
+        emitError("non-floating-point matrix type unimplemented", {});
         return 0;
       }
 
@@ -1644,7 +1654,8 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
       // column here.
       const uint32_t vecType = theBuilder.getVecType(
           typeTranslator.translateType(elemType), colCount);
-      const uint32_t elemId = processFlatConversion(elemType, initType, initId);
+      const uint32_t elemId =
+          processFlatConversion(elemType, initType, initId, srcLoc);
       const llvm::SmallVector<uint32_t, 4> constituents(size_t(colCount),
                                                         elemId);
       const uint32_t colId =
@@ -1661,7 +1672,7 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
     llvm::SmallVector<uint32_t, 4> fields;
     for (const auto *field : decl->fields())
       fields.push_back(
-          processFlatConversion(field->getType(), initType, initId));
+          processFlatConversion(field->getType(), initType, initId, srcLoc));
     return theBuilder.createCompositeConstruct(
         typeTranslator.translateType(type), fields);
   }
@@ -1670,14 +1681,14 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
   if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
     const auto size =
         static_cast<uint32_t>(arrayType->getSize().getZExtValue());
-    const uint32_t elemId =
-        processFlatConversion(arrayType->getElementType(), initType, initId);
+    const uint32_t elemId = processFlatConversion(arrayType->getElementType(),
+                                                  initType, initId, srcLoc);
     llvm::SmallVector<uint32_t, 4> constituents(size_t(size), elemId);
     return theBuilder.createCompositeConstruct(
         typeTranslator.translateType(type), constituents);
   }
 
-  emitError("flat conversion of type %0 unimplemented")
+  emitError("flat conversion of type %0 unimplemented", {})
       << type->getTypeClassName();
   type->dump();
   return 0;
@@ -1700,7 +1711,8 @@ SPIRVEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
 
   SpirvEvalInfo lhsPtr = 0;
   const uint32_t resultType = typeTranslator.translateType(expr->getType());
-  const auto result = processBinaryOp(lhs, rhs, opcode, resultType, &lhsPtr);
+  const auto result = processBinaryOp(lhs, rhs, opcode, resultType,
+                                      expr->getSourceRange(), &lhsPtr);
   return processAssignment(lhs, result, true, lhsPtr);
 }
 
@@ -2088,7 +2100,7 @@ uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
   } else if (elemType->isUnsignedIntegerType()) {
     elemTypeId = theBuilder.getUint32Type();
   } else {
-    emitError("Unimplemented Buffer/Texture type");
+    emitError("Unimplemented Buffer/Texture type", object->getExprLoc());
     return 0;
   }
   const uint32_t resultTypeId =
@@ -2140,7 +2152,8 @@ uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
     if (expr->getNumArgs() == 2) {
 
       emitError("Load(in Address, out Status) has not been implemented for "
-                "(RW)ByteAddressBuffer yet.");
+                "(RW)ByteAddressBuffer yet.",
+                expr->getExprLoc());
       return 0;
     }
   }
@@ -2215,7 +2228,8 @@ uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
 SpirvEvalInfo
 SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   if (expr->getNumArgs() == 2) {
-    emitError("Load(int, int) unimplemented for (RW)StructuredBuffer");
+    emitError("Load(int, int) unimplemented for (RW)StructuredBuffer",
+              expr->getExprLoc());
     return 0;
   }
 
@@ -2440,7 +2454,7 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return processRWByteAddressBufferAtomicMethods(opcode, expr);
   }
 
-  emitError("intrinsic '%0' method unimplemented")
+  emitError("intrinsic '%0' method unimplemented", expr->getExprLoc())
       << expr->getDirectCallee()->getName();
   return 0;
 }
@@ -2638,7 +2652,8 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
     return processBufferTextureLoad(object, coordinate, constOffset, varOffset,
                                     lod);
   }
-  emitError("Load() is not implemented for the given object type.");
+  emitError("Load() is not implemented for the given object type.",
+            object->getExprLoc());
   return 0;
 }
 
@@ -2656,7 +2671,8 @@ uint32_t SPIRVEmitter::processGetDimensions(const CXXMemberCallExpr *expr) {
              TypeTranslator::isConsumeStructuredBuffer(objectType)) {
     return processByteAddressBufferStructuredBufferGetDimensions(expr);
   } else {
-    emitError("GetDimensions not implmented for the given type yet.");
+    emitError("GetDimensions not implmented for the given type yet.",
+              expr->getExprLoc());
     return 0;
   }
 }
@@ -2923,7 +2939,7 @@ SpirvEvalInfo SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
     break;
   }
 
-  emitError("unary operator '%0' unimplemented yet")
+  emitError("unary operator '%0' unimplemented", expr->getExprLoc())
       << expr->getOpcodeStr(opcode);
   expr->dump();
   return 0;
@@ -3045,7 +3061,7 @@ case BO_##kind : {                                                             \
 #undef BIN_OP_CASE_SINT_UINT_FLOAT
 #undef BIN_OP_CASE_SINT_UINT
 
-  emitError("translating binary operator '%0' unimplemented")
+  emitError("translating binary operator '%0' unimplemented", {})
       << BinaryOperator::getOpcodeStr(op);
   return spv::Op::OpNop;
 }
@@ -3135,13 +3151,14 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
                  rhsVal.substResultId(subRhsVal), elemType);
     }
   } else {
-    emitError("storing value of type %0 unimplemented") << valType;
+    emitError("storing value of type %0 unimplemented", {}) << valType;
   }
 }
 
 SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
                                             const BinaryOperatorKind opcode,
                                             const uint32_t resultType,
+                                            SourceRange sourceRange,
                                             SpirvEvalInfo *lhsInfo,
                                             const spv::Op mandateGenOpcode) {
   // If the operands are of matrix type, we need to dispatch the operation
@@ -3149,7 +3166,7 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   // and we don't have a matrix specific SPIR-V instruction for the operation.
   if (!isSpirvMatrixOp(mandateGenOpcode) &&
       TypeTranslator::isSpirvAcceptableMatrixType(lhs->getType())) {
-    return processMatrixBinaryOp(lhs, rhs, opcode);
+    return processMatrixBinaryOp(lhs, rhs, opcode, sourceRange);
   }
 
   // Comma operator works differently from other binary operations as there is
@@ -3225,8 +3242,8 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
     break;
   }
 
-  emitError("BinaryOperator '%0' is not supported yet.")
-      << BinaryOperator::getOpcodeStr(opcode);
+  emitError("BinaryOperator '%0' is not supported yet.", lhs->getExprLoc())
+      << BinaryOperator::getOpcodeStr(opcode) << sourceRange;
   return 0;
 }
 
@@ -3459,6 +3476,8 @@ void SPIRVEmitter::splitVecLastElement(QualType vecType, uint32_t vec,
 SpirvEvalInfo
 SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
   const QualType type = expr->getType();
+  const SourceRange range = expr->getSourceRange();
+
   // We can only translate floatN * float into OpVectorTimesScalar.
   // So the result type must be floatN.
   if (!hlsl::IsHLSLVecType(type) ||
@@ -3479,13 +3498,13 @@ SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
         const uint32_t vecType = typeTranslator.translateType(expr->getType());
         if (isa<CompoundAssignOperator>(expr)) {
           SpirvEvalInfo lhsPtr = 0;
-          const auto result =
-              processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
-                              vecType, &lhsPtr, spv::Op::OpVectorTimesScalar);
+          const auto result = processBinaryOp(
+              lhs, cast->getSubExpr(), expr->getOpcode(), vecType, range,
+              &lhsPtr, spv::Op::OpVectorTimesScalar);
           return processAssignment(lhs, result, true, lhsPtr);
         } else {
           return processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
-                                 vecType, nullptr,
+                                 vecType, range, nullptr,
                                  spv::Op::OpVectorTimesScalar);
         }
       }
@@ -3501,7 +3520,8 @@ SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
         // OpVectorTimesScalar requires the first operand to be a vector and
         // the second to be a scalar.
         return processBinaryOp(rhs, cast->getSubExpr(), expr->getOpcode(),
-                               vecType, nullptr, spv::Op::OpVectorTimesScalar);
+                               vecType, range, nullptr,
+                               spv::Op::OpVectorTimesScalar);
       }
     }
   }
@@ -3512,6 +3532,8 @@ SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
 SpirvEvalInfo
 SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
   const QualType type = expr->getType();
+  const SourceRange range = expr->getSourceRange();
+
   // We can only translate floatMxN * float into OpMatrixTimesScalar.
   // So the result type must be floatMxN.
   if (!hlsl::IsHLSLMatType(type) ||
@@ -3543,11 +3565,11 @@ SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
           SpirvEvalInfo lhsPtr = 0;
           const auto result =
               processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
-                              matType, &lhsPtr, opcode);
+                              matType, range, &lhsPtr, opcode);
           return processAssignment(lhs, result, true, lhsPtr);
         } else {
           return processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
-                                 matType, nullptr, opcode);
+                                 matType, range, nullptr, opcode);
         }
       }
     }
@@ -3563,7 +3585,7 @@ SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
         // OpMatrixTimesScalar requires the first operand to be a matrix and
         // the second to be a scalar.
         return processBinaryOp(rhs, cast->getSubExpr(), expr->getOpcode(),
-                               matType, nullptr, opcode);
+                               matType, range, nullptr, opcode);
       }
     }
   }
@@ -3743,7 +3765,8 @@ uint32_t SPIRVEmitter::processEachVectorInMatrix(
 
 SpirvEvalInfo
 SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
-                                    const BinaryOperatorKind opcode) {
+                                    const BinaryOperatorKind opcode,
+                                    SourceRange range) {
   // TODO: some code are duplicated from processBinaryOp. Try to unify them.
   const auto lhsType = lhs->getType();
   assert(TypeTranslator::isSpirvAcceptableMatrixType(lhsType));
@@ -3791,8 +3814,9 @@ SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
     break;
   }
 
-  emitError("BinaryOperator '%0' for matrices not supported yet")
-      << BinaryOperator::getOpcodeStr(opcode);
+  emitError("BinaryOperator '%0' for matrices not supported yet",
+            lhs->getExprLoc())
+      << BinaryOperator::getOpcodeStr(opcode) << range;
   return 0;
 }
 
@@ -3882,7 +3906,7 @@ uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
 }
 
 uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
-                                 QualType toIntType) {
+                                 QualType toIntType, SourceLocation srcLoc) {
   if (isSameScalarOrVecType(fromType, toIntType))
     return fromVal;
 
@@ -3904,17 +3928,18 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
     } else if (isUintOrVecOfUintType(toIntType)) {
       return theBuilder.createUnaryOp(spv::Op::OpConvertFToU, intType, fromVal);
     } else {
-      emitError("unimplemented casting to integer from floating point");
+      emitError("unimplemented casting to integer from floating point", srcLoc);
     }
   } else {
-    emitError("unimplemented casting to integer");
+    emitError("unimplemented casting to integer", srcLoc);
   }
 
   return 0;
 }
 
 uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
-                                   QualType toFloatType) {
+                                   QualType toFloatType,
+                                   SourceLocation srcLoc) {
   if (isSameScalarOrVecType(fromType, toFloatType))
     return fromVal;
 
@@ -3935,11 +3960,11 @@ uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
-    emitError("casting between different fp bitwidth unimplemented");
+    emitError("casting between different fp bitwidth unimplemented", srcLoc);
     return 0;
   }
 
-  emitError("unimplemented casting to floating point");
+  emitError("unimplemented casting to floating point", srcLoc);
   return 0;
 }
 
@@ -4153,7 +4178,8 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(sqrt, Sqrt, true);
     INTRINSIC_OP_CASE(trunc, Trunc, true);
   default:
-    emitError("Intrinsic function '%0' not yet implemented.")
+    emitError("intrinsic function %0 not yet implemented",
+              callExpr->getExprLoc())
         << callee->getName();
     return 0;
   }
@@ -4208,16 +4234,18 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
 
     uint32_t argId = doExpr(valueExpr);
     if (valueExpr->getType() != baseType)
-      argId = castToInt(argId, valueExpr->getType(), baseType);
+      argId = castToInt(argId, valueExpr->getType(), baseType,
+                        valueExpr->getExprLoc());
     return argId;
   };
 
-  const auto writeToOutputArg = [&baseType, this](
-      uint32_t toWrite, const CallExpr *callExpr, uint32_t outputArgIndex) {
+  const auto writeToOutputArg = [&baseType, dest, this](
+                                    uint32_t toWrite, const CallExpr *callExpr,
+                                    uint32_t outputArgIndex) {
     const auto outputArg = callExpr->getArg(outputArgIndex);
     const auto outputArgType = outputArg->getType();
     if (baseType != outputArgType)
-      toWrite = castToInt(toWrite, baseType, outputArgType);
+      toWrite = castToInt(toWrite, baseType, outputArgType, dest->getExprLoc());
     theBuilder.createStore(doExpr(outputArg), toWrite);
   };
 
@@ -4311,7 +4339,7 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
   QualType ipElemType = {};
   if (TypeTranslator::isMxNMatrix(ipType, &ipElemType) &&
       !ipElemType->isFloatingType()) {
-    emitError("Non-FP matrices are currently not supported.");
+    emitError("non-floating-point matrix type unimplemented", {});
     return 0;
   }
 
@@ -4329,7 +4357,7 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
       auto ip = theBuilder.createCompositeExtract(argTypeId, modf, {1});
       // This will do nothing if the input number (x) and the ip are both of the
       // same type. Otherwise, it will convert the ip into int as necessary.
-      ip = castToInt(ip, argType, ipType);
+      ip = castToInt(ip, argType, ipType, arg->getExprLoc());
       theBuilder.createStore(ipId, ip);
       return theBuilder.createCompositeExtract(argTypeId, modf, {0});
     }
@@ -4363,7 +4391,8 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
     }
   }
 
-  emitError("Unknown argument type passed to Modf function.");
+  emitError("unknown argument type passed to Modf function",
+            callExpr->getExprLoc());
   return 0;
 }
 
@@ -4484,7 +4513,8 @@ uint32_t SPIRVEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
     }
   }
 
-  emitError("Unknown argument type passed to Frexp function.");
+  emitError("unknown argument type passed to Frexp function",
+            callExpr->getExprLoc());
   return 0;
 }
 
@@ -4539,7 +4569,7 @@ uint32_t SPIRVEmitter::processIntrinsicClip(const CallExpr *callExpr) {
         theBuilder.createCompositeConstruct(boolRowType, cmpResults);
     condition = theBuilder.createUnaryOp(spv::Op::OpAny, boolType, results);
   } else {
-    emitError("Invalid type passed to clip function.");
+    emitError("invalid type passed to clip function", callExpr->getExprLoc());
     return 0;
   }
 
@@ -4730,7 +4760,8 @@ uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
     }
   }
 
-  emitError("Unsupported arguments passed to mul() function.");
+  emitError("unsupported arguments passed to mul() function",
+            callExpr->getExprLoc());
   return 0;
 }
 
@@ -4873,7 +4904,8 @@ uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
                                     &matColCount)) {
       if (!elemType->isFloatingType()) {
         emitError("'all' and 'any' currently do not take non-floating point "
-                  "matrices as argument.");
+                  "matrices as argument",
+                  callExpr->getExprLoc());
         return 0;
       }
 
@@ -5089,7 +5121,8 @@ uint32_t SPIRVEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
     return processEachVectorInMatrix(arg, argId, actOnEachVec);
   }
 
-  emitError("Invalid argument type passed to saturate().");
+  emitError("invalid argument type passed to saturate()",
+            callExpr->getExprLoc());
   return 0;
 }
 
@@ -5117,7 +5150,8 @@ uint32_t SPIRVEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
         argTypeId, glslInstSetId, GLSLstd450::GLSLstd450FSign, {argId});
   }
 
-  return castToInt(floatSignResultId, arg->getType(), returnType);
+  return castToInt(floatSignResultId, arg->getType(), returnType,
+                   arg->getExprLoc());
 }
 
 uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
@@ -5157,7 +5191,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
     return theBuilder.createBinaryOp(opcode, returnType, arg0Id, arg1Id);
   }
 
-  emitError("Unsupported intrinsic function %0.")
+  emitError("unsupported intrinsic function %0", callExpr->getExprLoc())
       << cast<DeclRefExpr>(callExpr->getCallee())->getNameInfo().getAsString();
   return 0;
 }
@@ -5227,7 +5261,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
                                     {arg0Id, arg1Id, arg2Id});
   }
 
-  emitError("Unsupported intrinsic function %0.")
+  emitError("unsupported intrinsic function %0", callExpr->getExprLoc())
       << cast<DeclRefExpr>(callExpr->getCallee())->getNameInfo().getAsString();
   return 0;
 }
@@ -5277,7 +5311,7 @@ uint32_t SPIRVEmitter::getValueZero(QualType type) {
 
   // TODO: Handle getValueZero for MxN matrices.
 
-  emitError("getting value 0 for type '%0' unimplemented")
+  emitError("getting value 0 for type %0 unimplemented", {})
       << type.getAsString();
   return 0;
 }
@@ -5329,7 +5363,7 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
     }
   }
 
-  emitError("getting value 1 for type '%0' unimplemented") << type;
+  emitError("getting value 1 for type %0 unimplemented", {}) << type;
   return 0;
 }
 
@@ -5396,7 +5430,7 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
     return theBuilder.getConstantComposite(vecType, elements);
   }
 
-  emitError("APValue of type '%0' is not supported yet.") << value.getKind();
+  emitError("APValue of type %0 is not supported yet", {}) << value.getKind();
   value.dump();
   return 0;
 }
@@ -5415,7 +5449,7 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
           static_cast<uint32_t>(intValue.getZExtValue()));
   }
 
-  emitError("APInt for target bitwidth '%0' is not supported yet.")
+  emitError("APInt for target bitwidth %0 is not supported yet", {})
       << astContext.getIntWidth(targetType);
 
   return 0;
@@ -5435,7 +5469,7 @@ uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
     break;
   }
 
-  emitError("APFloat for target bitwidth '%0' is not supported yet.")
+  emitError("APFloat for target bitwidth %0 is not supported yet", {})
       << bitwidth;
   return 0;
 }
@@ -5564,12 +5598,14 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
   }
   if (inPoint + inLine + inLineAdj + inTriangle + inTriangleAdj > 1) {
     emitError("only one input primitive type can be specified in the geometry "
-              "shader");
+              "shader",
+              {});
     success = false;
   }
   if (outPoint + outTriangle + outLine > 1) {
     emitError("only one output primitive type can be specified in the geometry "
-              "shader");
+              "shader",
+              {});
     success = false;
   }
 
@@ -6025,7 +6061,8 @@ void SPIRVEmitter::discoverAllCaseStmtInSwitchStmt(
     auto bitWidth = astContext.getIntWidth(caseExpr->getType());
     if (bitWidth != 32)
       emitError("Switch statement translation currently only supports 32-bit "
-                "integer case values.");
+                "integer case values",
+                caseExpr->getExprLoc());
     Expr::EvalResult evalResult;
     caseExpr->EvaluateAsRValue(evalResult, astContext);
     const int64_t value = evalResult.Val.getInt().getSExtValue();

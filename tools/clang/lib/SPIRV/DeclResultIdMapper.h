@@ -283,7 +283,7 @@ private:
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],
-                              SourceLocation loc = {}) {
+                              SourceLocation loc) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
     return diags.Report(loc, diagId);
@@ -342,7 +342,8 @@ private:
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
   /// its storage class accordingly. name will be used as the debug name when
   /// creating a stage input/output variable.
-  uint32_t createSpirvStageVar(StageVar *, const llvm::Twine &name);
+  uint32_t createSpirvStageVar(StageVar *, const llvm::Twine &name,
+                               SourceLocation);
 
   /// Creates the associated counter variable for RW/Append/Consume
   /// structured buffer.
@@ -355,7 +356,9 @@ private:
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.
-  spv::StorageClass getStorageClassForSigPoint(const hlsl::SigPoint *);
+  spv::StorageClass getStorageClassForSigPoint(const hlsl::SigPoint *,
+                                               const char *semanticName,
+                                               SourceLocation);
 
   /// Returns true if the given SPIR-V stage variable has Input storage class.
   inline bool isInputStorageClass(const StageVar &v);
@@ -409,7 +412,8 @@ bool DeclResultIdMapper::decorateStageIOLocations() {
 }
 
 bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {
-  return getStorageClassForSigPoint(v.getSigPoint()) ==
+  return getStorageClassForSigPoint(v.getSigPoint(), v.getSemantic()->GetName(),
+                                    SourceLocation()) ==
          spv::StorageClass::Input;
 }
 
