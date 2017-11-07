@@ -1650,8 +1650,16 @@ public:
       IFR(DxcDiaSymbol::Create(m_pMalloc, m_pSession, index, SymTagCompilandEnv, &item));
       item->SetLexicalParent(HlslCompilandId);
       item->SetName(L"hlslArguments");
-      StringRef strRef = dyn_cast<MDString>(m_pSession->Arguments()->getOperand(0)->getOperand(0))->getString();
-      item->SetValue(strRef.str().c_str());
+      auto Arguments = m_pSession->Arguments()->getOperand(0);
+      auto NumArguments = Arguments->getNumOperands();
+      std::string args;
+      for (unsigned i = 0; i < NumArguments; ++i) {
+        StringRef strRef = dyn_cast<MDString>(Arguments->getOperand(i))->getString();
+        if (!args.empty())
+          args.push_back(' ');
+        args = args + strRef.str();
+      }
+      item->SetValue(args.c_str());
     }
 
     // TODO: add support for global data and functions as well as types.
