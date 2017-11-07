@@ -96,9 +96,9 @@ hlsl::DxilParamInputQual deduceParamQual(const DeclaratorDecl *decl,
 /// shader model.
 const hlsl::SigPoint *deduceSigPoint(const DeclaratorDecl *decl, bool asInput,
                                      const hlsl::ShaderModel::Kind kind,
-                                     bool isPatchConstant) {
+                                     bool forPCF) {
   return hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
-      deduceParamQual(decl, asInput), kind, isPatchConstant));
+      deduceParamQual(decl, asInput), kind, forPCF));
 }
 
 /// Returns the type of the given decl. If the given decl is a FunctionDecl,
@@ -113,7 +113,7 @@ inline QualType getTypeOrFnRetType(const DeclaratorDecl *decl) {
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
                                               uint32_t storedValue,
-                                              bool isPatchConstant) {
+                                              bool forPCF) {
   QualType type = getTypeOrFnRetType(decl);
 
   // Output stream types (PointStream, LineStream, TriangleStream) are
@@ -121,8 +121,8 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
   if (hlsl::IsHLSLStreamOutputType(type))
     type = hlsl::GetHLSLResourceResultType(type);
 
-  const auto *sigPoint = deduceSigPoint(decl, /*asInput=*/false,
-                                        shaderModel.GetKind(), isPatchConstant);
+  const auto *sigPoint =
+      deduceSigPoint(decl, /*asInput=*/false, shaderModel.GetKind(), forPCF);
 
   // HS output variables are created using the other overload. For the rest,
   // none of them should be created as arrays.
@@ -149,7 +149,7 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
 
 bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
                                              uint32_t *loadedValue,
-                                             bool isPatchConstant) {
+                                             bool forPCF) {
   uint32_t arraySize = 0;
   QualType type = paramDecl->getType();
 
@@ -164,7 +164,7 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
   }
 
   const auto *sigPoint = deduceSigPoint(paramDecl, /*asInput=*/true,
-                                        shaderModel.GetKind(), isPatchConstant);
+                                        shaderModel.GetKind(), forPCF);
 
   return createStageVars(paramDecl, sigPoint, /*asInput=*/true, type, arraySize,
                          llvm::None, loadedValue, "in.var");

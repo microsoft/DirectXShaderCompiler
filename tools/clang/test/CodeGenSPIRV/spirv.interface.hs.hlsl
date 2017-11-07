@@ -73,8 +73,11 @@ struct HsPcfOut
 // CHECK: OpDecorate %gl_InvocationID BuiltIn InvocationId
 // CHECK: OpDecorate %gl_PrimitiveID BuiltIn PrimitiveId
 // CHECK: OpDecorate %gl_TessLevelOuter BuiltIn TessLevelOuter
+// CHECK: OpDecorate %gl_TessLevelOuter Patch
 // CHECK: OpDecorate %gl_TessLevelInner BuiltIn TessLevelInner
-
+// CHECK: OpDecorate %gl_TessLevelInner Patch
+// CHECK: OpDecorate %out_var_TEXCOORD Patch
+// CHECK: OpDecorate %out_var_WEIGHT Patch
 // CHECK: OpDecorate %in_var_BAZ Location 0
 // CHECK: OpDecorate %out_var_FOO Location 0
 // CHECK: OpDecorate %out_var_BAR Location 1
