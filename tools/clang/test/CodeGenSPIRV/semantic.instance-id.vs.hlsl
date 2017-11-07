@@ -1,6 +1,7 @@
 // Run: %dxc -T vs_6_0 -E main
 
-// CHECK:                     OpEntryPoint Vertex %main "main" %gl_InstanceIndex %out_var_SV_InstanceID
+// CHECK:                     OpEntryPoint Vertex %main "main"
+// CHECK-SAME:                %gl_InstanceIndex
 
 // CHECK:                     OpDecorate %gl_InstanceIndex BuiltIn InstanceIndex
 // CHECK:                     OpDecorate %out_var_SV_InstanceID Location 0

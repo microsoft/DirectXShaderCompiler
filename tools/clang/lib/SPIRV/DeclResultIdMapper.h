@@ -25,6 +25,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
 
+#include "GlPerVertex.h"
 #include "SpirvEvalInfo.h"
 #include "TypeTranslator.h"
 
@@ -133,7 +134,7 @@ private:
 /// is required because of the semantic differences between DirectX and
 /// Vulkan and the essence of HLSL as the front-end language for DirectX.
 /// A normal variable attached with some semantic will be translated into a
-/// single stage variables if it is of non-struct type. If it is of struct
+/// single stage variable if it is of non-struct type. If it is of struct
 /// type, the fields with attached semantics will need to be translated into
 /// stage variables per Vulkan's requirements.
 class DeclResultIdMapper {
@@ -147,8 +148,14 @@ public:
   /// true on success. SPIR-V instructions will also be generated to update the
   /// contents of the output variables by extracting sub-values from the given
   /// storedValue.
+  ///
+  /// Note that the control point stage output variable of HS should be created
+  /// by the other overload.
   bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t storedValue,
                             bool isPatchConstant);
+  /// \brief Overload for handling HS control point stage ouput variable.
+  bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t arraySize,
+                            uint32_t invocationId, uint32_t storedValue);
 
   /// \brief Creates the stage input variables by parsing the semantics attached
   /// to the given function's parameter and returns true on success. SPIR-V
@@ -156,16 +163,6 @@ public:
   /// variables and composite them into one and write to *loadedValue.
   bool createStageInputVar(const ParmVarDecl *paramDecl, uint32_t *loadedValue,
                            bool isPatchConstant);
-
-  /// \brief Creates an input/output stage variable which does not have any
-  /// semantics (such as InputPatch/OutputPatch in Hull shaders). This method
-  /// does not create a Load/Store from/to the created stage variable and leaves
-  /// it to the caller to do so as they see fit, because it is possible that the
-  /// stage variable may have to be accessed differently (using OpAccessChain
-  /// for example).
-  uint32_t createStageVarWithoutSemantics(bool isInput, uint32_t typeId,
-                                          const llvm::StringRef name,
-                                          const clang::VKLocationAttr *loc);
 
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its <result-id>.
@@ -207,7 +204,7 @@ public:
   /// \brief Sets the <result-id> of the entry function.
   void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
 
-public:
+private:
   /// The struct containing SPIR-V information of a AST Decl.
   struct DeclSpirvInfo {
     DeclSpirvInfo(uint32_t result = 0,
@@ -234,6 +231,7 @@ public:
   /// Returns nullptr if no such decl was previously registered.
   const DeclSpirvInfo *getDeclSpirvInfo(const NamedDecl *decl) const;
 
+public:
   /// \brief Returns the information for the given decl.
   ///
   /// This method will panic if the given decl is not registered.
@@ -289,10 +287,6 @@ private:
   /// construction.
   bool finalizeStageIOLocations(bool forInput);
 
-  /// Returns the type of the given decl. If the given decl is a FunctionDecl,
-  /// returns its result type.
-  QualType getFnParamOrRetType(const DeclaratorDecl *decl) const;
-
   /// Creates a variable of struct type with explicit layout decorations.
   /// The sub-Decls in the given DeclContext will be treated as the struct
   /// fields. The struct type will be named as typeName, and the variable
@@ -303,13 +297,29 @@ private:
                                            llvm::StringRef typeName,
                                            llvm::StringRef varName);
 
-  /// Creates all the stage variables mapped from semantics on the given decl
-  /// and returns true on success.
+  /// Creates all the stage variables mapped from semantics on the given decl.
+  /// Returns true on sucess.
+  ///
+  /// If decl is of struct type, this means flattening it and create stand-
+  /// alone variables for each field. If arraySize is not zero, the created
+  /// stage variables will have an additional arrayness over its original type.
+  /// This is for supporting HS/DS/GS, which takes in primitives containing
+  /// multiple vertices. asType should be the type we are treating decl as;
+  /// For HS/DS/GS, the outermost arrayness should be discarded and use
+  /// arraySize instead.
+  ///
+  /// Also performs updating the stage variables (loading/storing from/to the
+  /// given value) depending on asInput.
+  ///
+  /// invocationId is only used for HS to indicate the index of the output
+  /// array element to write to.
   ///
   /// Assumes the decl has semantic attached to itself or to its fields.
-  bool createStageVars(const DeclaratorDecl *decl, uint32_t *value,
-                       bool asInput, const llvm::Twine &namePrefix,
-                       bool isPatchConstant, bool isOutputStream = false);
+  bool createStageVars(const DeclaratorDecl *decl,
+                       const hlsl::SigPoint *sigPoint, bool asInput,
+                       QualType type, uint32_t arraySize,
+                       llvm::Optional<uint32_t> invocationId, uint32_t *value,
+                       const llvm::Twine &namePrefix);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
@@ -320,6 +330,11 @@ private:
   /// Creates the associated counter variable for RW/Append/Consume
   /// structured buffer.
   uint32_t createCounterVar(const ValueDecl *decl);
+
+  /// Decorates varId of the given asType with proper interpolation modes
+  /// considering the attributes on the given decl.
+  void decoratePSInterpolationMode(const DeclaratorDecl *decl, QualType asType,
+                                   uint32_t varId);
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.
@@ -344,8 +359,13 @@ private:
   llvm::SmallVector<StageVar, 8> stageVars;
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
-  /// Mapping from {Append|Consume}StructuredBuffers to their counter variables
+  /// Mapping from {RW|Append|Consume}StructuredBuffers to their
+  /// counter variables
   llvm::DenseMap<const NamedDecl *, uint32_t> counterVars;
+
+public:
+  /// The gl_PerVertex structs for both input and output
+  GlPerVertex glPerVertex;
 };
 
 DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
@@ -354,7 +374,8 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        DiagnosticsEngine &diag,
                                        const EmitSPIRVOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
-      diags(diag), typeTranslator(context, builder, diag), entryFunctionId(0) {}
+      diags(diag), typeTranslator(context, builder, diag), entryFunctionId(0),
+      glPerVertex(model, context, builder, typeTranslator) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
   // Try both input and output even if input location assignment failed

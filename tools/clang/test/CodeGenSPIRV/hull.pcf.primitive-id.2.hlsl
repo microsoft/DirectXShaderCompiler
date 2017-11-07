@@ -3,10 +3,11 @@
 #include "bezier_common_hull.hlsl"
 
 // Test: PCF takes the PrimitiveID
-// Note that in this test, the main entry point has also taken the PrimitiveID as input.
+// Note that in this test, the main entry point *DOES NOT* take the PrimitiveID as input.
 
 
-// CHECK: OpEntryPoint TessellationControl %main "main" {{%\w+}} {{%\w+}} %gl_PrimitiveID {{%\w+}}
+// CHECK: OpEntryPoint TessellationControl %main "main"
+// CHECK-SAME: %gl_PrimitiveID
 
 // CHECK: OpDecorate %gl_PrimitiveID BuiltIn PrimitiveId
 
@@ -41,7 +42,7 @@ HS_CONSTANT_DATA_OUTPUT PCF(uint PatchID : SV_PrimitiveID) {
 [outputtopology("line")]
 [outputcontrolpoints(16)]
 [patchconstantfunc("PCF")]
-BEZIER_CONTROL_POINT main(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip, uint i : SV_OutputControlPointID, uint PatchID : SV_PrimitiveID) {
+BEZIER_CONTROL_POINT main(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip, uint i : SV_OutputControlPointID) {
   VS_CONTROL_POINT_OUTPUT vsOutput;
   BEZIER_CONTROL_POINT result;
   result.vPosition = vsOutput.vPosition;
