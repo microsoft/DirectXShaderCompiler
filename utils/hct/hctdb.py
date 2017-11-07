@@ -1078,7 +1078,7 @@ class db_dxil(object):
             db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
             db_dxil_param(3, "i32", "index", "element index for StructuredBuffer, or byte offset for ByteAddressBuffer"),
             db_dxil_param(4, "i32", "elementOffset", "offset into element for StructuredBuffer, or undef for ByteAddressBuffer"),
-            db_dxil_param(5, "i8", "mask", "loading value mask"),
+            db_dxil_param(5, "i8", "mask", "loading value mask", is_const=True),
             db_dxil_param(6, "i32", "alignment", "relative load access alignment", is_const=True)])
         next_op_idx += 1
 

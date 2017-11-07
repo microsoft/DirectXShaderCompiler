@@ -4480,6 +4480,8 @@ struct DxilInst_RawBufferLoad {
   void set_elementOffset(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_mask() const { return Instr->getOperand(4); }
   void set_mask(llvm::Value *val) { Instr->setOperand(4, val); }
+  int8_t get_mask_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(4))->getZExtValue()); }
+  void set_mask_val(int8_t val) { Instr->setOperand(4, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
   llvm::Value *get_alignment() const { return Instr->getOperand(5); }
   void set_alignment(llvm::Value *val) { Instr->setOperand(5, val); }
   int32_t get_alignment_val() const { return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))->getZExtValue()); }
