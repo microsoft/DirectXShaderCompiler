@@ -1,6 +1,7 @@
 // Run: %dxc -T hs_6_0 -E SubDToBezierHS
 
-// CHECK: OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS" {{%\w+}} %gl_InvocationID {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}}
+// CHECK: OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS"
+// CHECK-SAME: %gl_InvocationID
 
 // CHECK: OpDecorate %gl_InvocationID BuiltIn InvocationId
 

@@ -1,6 +1,6 @@
 // Run: %dxc -T vs_6_0 -E main
 
-// CHECK: OpEntryPoint Vertex %main "main" %in_var_AAA %in_var_B %in_var_CC %out_var_DDDD
+// CHECK: OpEntryPoint Vertex %main "main" %gl_PerVertexOut %in_var_AAA %in_var_B %in_var_CC %out_var_DDDD
 
 // CHECK: OpDecorate %in_var_AAA Location 0
 // CHECK: OpDecorate %in_var_B Location 1

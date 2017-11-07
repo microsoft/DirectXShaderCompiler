@@ -396,8 +396,14 @@ private:
                                            uint32_t *numOutputControlPoints);
 
   /// \brief Adds necessary execution modes for the geometry shader based on the
+  /// HLSL attributes of the entry point function. Also writes the array size of
+  /// the input, which depends on the primitive type, to *arraySize.
+  bool processGeometryShaderAttributes(const FunctionDecl *entryFunction,
+                                       uint32_t *arraySize);
+
+  /// \brief Adds necessary execution modes for the compute shader based on the
   /// HLSL attributes of the entry point function.
-  bool processGeometryShaderAttributes(const FunctionDecl *entryFunction);
+  void processComputeShaderAttributes(const FunctionDecl *entryFunction);
 
   /// \brief Emits a wrapper function for the entry function and returns true
   /// on success.
