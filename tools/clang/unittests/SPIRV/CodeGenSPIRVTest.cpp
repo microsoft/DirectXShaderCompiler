@@ -396,11 +396,17 @@ TEST_F(FileTest, SemanticDomainLocationDS) {
 TEST_F(FileTest, SemanticTessFactorDS) {
   runFileTest("semantic.tess-factor.ds.hlsl");
 }
+TEST_F(FileTest, SemanticTessFactorSizeMismatchDS) {
+  runFileTest("semantic.tess-factor.size-mismatch.ds.hlsl");
+}
 TEST_F(FileTest, SemanticInsideTessFactorDS) {
   runFileTest("semantic.inside-tess-factor.ds.hlsl");
 }
 TEST_F(FileTest, SemanticTessFactorHS) {
   runFileTest("semantic.tess-factor.hs.hlsl");
+}
+TEST_F(FileTest, SemanticTessFactorSizeMismatchHS) {
+  runFileTest("semantic.tess-factor.size-mismatch.hs.hlsl");
 }
 TEST_F(FileTest, SemanticInsideTessFactorHS) {
   runFileTest("semantic.inside-tess-factor.hs.hlsl");
