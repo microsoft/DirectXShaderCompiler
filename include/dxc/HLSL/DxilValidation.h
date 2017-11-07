@@ -42,6 +42,7 @@ enum class ValidationRule : unsigned {
   // Declaration
   DeclDxilFnExtern, // External function must be a DXIL function
   DeclDxilNsReserved, // The DXIL reserved prefixes must only be used by built-in functions and types
+  DeclFnAttribute, // Functions should only contain known function attributes
   DeclFnFlattenParam, // Function parameters must not use struct types
   DeclFnIsCalled, // Functions can only be used by call instructions
   DeclNotUsedExternal, // External declaration should not be used
@@ -129,7 +130,6 @@ enum class ValidationRule : unsigned {
   MetaDenseResIDs, // Resource identifiers must be zero-based and dense
   MetaDuplicateSysValue, // System value may only appear once in signature
   MetaEntryFunction, // entrypoint not found
-  MetaFPFlag, // Invalid funciton floating point flag.
   MetaFlagsUsage, // Flags must match usage
   MetaForceCaseOnSwitch, // Attribute forcecase only works for switch
   MetaFunctionAnnotation, // Cannot find function annotation for %0

@@ -555,6 +555,7 @@ public:
   TEST_METHOD(CodeGenFModPS)
   TEST_METHOD(CodeGenFuncCast)
   TEST_METHOD(CodeGenFunctionalCast)
+  TEST_METHOD(CodeGenFunctionAttribute)
   TEST_METHOD(CodeGenGather)
   TEST_METHOD(CodeGenGatherCmp)
   TEST_METHOD(CodeGenGatherCubeOffset)
@@ -3370,6 +3371,11 @@ TEST_F(CompilerTest, CodeGenFuncCast) {
 
 TEST_F(CompilerTest, CodeGenFunctionalCast) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\functionalCast.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFunctionAttribute) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\functionAttribute.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenGather) {

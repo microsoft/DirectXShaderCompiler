@@ -410,7 +410,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   DXVERIFY_NOMSG(globalCBIndex == m_pHLModule->AddCBuffer(std::move(CB)));
 
   // set Float Denorm Mode
-  m_pHLModule->SetFPDenormMode(CGM.getCodeGenOpts().HLSLFlushFPDenorm);
+  m_pHLModule->SetFloat32DenormMode(CGM.getCodeGenOpts().HLSLFloat32DenormMode);
 
 }
 
@@ -1135,6 +1135,15 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     return;
   }
 
+  if (m_pHLModule->GetFloat32DenormMode() == DXIL::Float32DenormMode::FTZ) {
+    F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValueFtzString);
+  }
+  else if (m_pHLModule->GetFloat32DenormMode() == DXIL::Float32DenormMode::Preserve) {
+    F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValuePreserveString);
+  }
+  else if (m_pHLModule->GetFloat32DenormMode() == DXIL::Float32DenormMode::Any) {
+    F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValueAnyString);
+  }
   // Set entry function
   const std::string &entryName = m_pHLModule->GetEntryFunctionName();
   bool isEntry = FD->getNameAsString() == entryName;
@@ -1413,7 +1422,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   DxilFunctionAnnotation *FuncAnnotation =
-      m_pHLModule->AddFunctionAnnotationWithFPDenormMode(F, m_pHLModule->GetFPDenormMode());
+      m_pHLModule->AddFunctionAnnotation(F);
   bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
 
   // Param Info
@@ -3869,7 +3878,7 @@ static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
 
   // Copy function annotation.
   DxilFunctionAnnotation *shaderAnnot = HLM.GetFunctionAnnotation(ShaderF);
-  DxilFunctionAnnotation *annot = HLM.AddFunctionAnnotationWithFPDenormMode(F, HLM.GetFPDenormMode());
+  DxilFunctionAnnotation *annot = HLM.AddFunctionAnnotation(F);
 
   DxilParameterAnnotation &retAnnot = shaderAnnot->GetRetTypeAnnotation();
   DxilParameterAnnotation &cloneRetAnnot = annot->GetRetTypeAnnotation();
