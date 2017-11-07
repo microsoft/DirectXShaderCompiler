@@ -40,6 +40,9 @@ void main() {
   min16float m16f;
   min10float m10f;
 
+  snorm float snf;
+  unorm float unf;
+
 // CHECK-DAG: %double = OpTypeFloat 64
 // CHECK-DAG: %_ptr_Function_double = OpTypePointer Function %double
   double doublevar;
@@ -56,6 +59,8 @@ void main() {
   half1       halfvar1;
   min16float1 m16f1;
   min10float1 m10f1;
+  snorm float1 snf1;
+  unorm float1 unf1;
   double1     doublevar1;
 
 // CHECK:         %boolvar = OpVariable %_ptr_Function_bool Function
@@ -69,6 +74,8 @@ void main() {
 // CHECK-NEXT:    %halfvar = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:       %m16f = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:       %m10f = OpVariable %_ptr_Function_float Function
+// CHECK-NEXT:        %snf = OpVariable %_ptr_Function_float Function
+// CHECK-NEXT:        %unf = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:  %doublevar = OpVariable %_ptr_Function_double Function
 // CHECK-NEXT:   %boolvar1 = OpVariable %_ptr_Function_bool Function
 // CHECK-NEXT:    %intvar1 = OpVariable %_ptr_Function_int Function
@@ -81,5 +88,7 @@ void main() {
 // CHECK-NEXT:   %halfvar1 = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:      %m16f1 = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:      %m10f1 = OpVariable %_ptr_Function_float Function
+// CHECK-NEXT:       %snf1 = OpVariable %_ptr_Function_float Function
+// CHECK-NEXT:       %unf1 = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT: %doublevar1 = OpVariable %_ptr_Function_double Function
 }

@@ -210,6 +210,8 @@ type instructions:
 ``uint``/``dword`` ``OpTypeInt 32 0``
 ``half``           ``OpTypeFloat 32``             ``RelexedPrecision``
 ``float``          ``OpTypeFloat 32``
+``snorm float``    ``OpTypeFloat 32``
+``unorm float``    ``OpTypeFloat 32``
 ``double``         ``OpTypeFloat 64`` ``Float64``
 ================== ================== =========== ====================
 
