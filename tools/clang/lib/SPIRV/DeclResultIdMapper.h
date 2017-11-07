@@ -147,12 +147,13 @@ public:
   /// attached to the given function's parameter or return value and returns
   /// true on success. SPIR-V instructions will also be generated to update the
   /// contents of the output variables by extracting sub-values from the given
-  /// storedValue.
+  /// storedValue. forPCF should be set to true for handling decls in patch
+  /// constant function.
   ///
   /// Note that the control point stage output variable of HS should be created
   /// by the other overload.
   bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t storedValue,
-                            bool isPatchConstant);
+                            bool forPCF);
   /// \brief Overload for handling HS control point stage ouput variable.
   bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t arraySize,
                             uint32_t invocationId, uint32_t storedValue);
@@ -160,9 +161,10 @@ public:
   /// \brief Creates the stage input variables by parsing the semantics attached
   /// to the given function's parameter and returns true on success. SPIR-V
   /// instructions will also be generated to load the contents from the input
-  /// variables and composite them into one and write to *loadedValue.
+  /// variables and composite them into one and write to *loadedValue. forPCF
+  /// should be set to true for handling decls in patch constant function.
   bool createStageInputVar(const ParmVarDecl *paramDecl, uint32_t *loadedValue,
-                           bool isPatchConstant);
+                           bool forPCF);
 
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its <result-id>.
