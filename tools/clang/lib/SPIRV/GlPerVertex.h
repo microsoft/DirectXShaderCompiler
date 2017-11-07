@@ -79,6 +79,10 @@ public:
   /// Returns the <result-id>s for stage output variables.
   llvm::SmallVector<uint32_t, 4> getStageOutVars() const;
 
+  /// Requires the ClipDistance/CullDistance capability if we've seen
+  /// definition of SV_ClipDistance/SV_CullDistance.
+  void requireCapabilityIfNecessary();
+
   /// Tries to access the builtin translated from the given HLSL semantic of the
   /// given index. If sigPoint indicates this is input, builtins will be read
   /// to compose a new temporary value of the correct type and writes to *value.

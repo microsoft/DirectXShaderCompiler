@@ -1,5 +1,8 @@
 // Run: %dxc -T vs_6_0 -E main
 
+// CHECK: OpCapability ClipDistance
+// CHECK: OpCapability CullDistance
+
 // CHECK: OpEntryPoint Vertex %main "main" %gl_PerVertexOut %in_var_TEXCOORD %in_var_SV_Position %out_var_COLOR %out_var_TEXCOORD
 
 // CHECK: OpMemberDecorate %type_gl_PerVertex 0 BuiltIn Position
