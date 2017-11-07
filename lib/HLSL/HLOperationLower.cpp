@@ -3103,28 +3103,45 @@ static uint8_t GetRawBufferMaskFromIOP(IntrinsicOp IOP, hlsl::OP *OP) {
   }
 }
 
-static Constant *GetRawBufferLoadMaskForType(Type *Ty, hlsl::OP *OP) {
-  bool is64 = Ty->isDoubleTy() || Ty == Type::getInt64Ty(Ty->getContext());
-  if (VectorType *vTy = dyn_cast<VectorType>(Ty)) {
-    is64 = vTy->getElementType()->isDoubleTy()
-      || vTy->getElementType() == Type::getInt64Ty(Ty->getContext());
-    switch (vTy->getNumElements()) {
-      case 1:
-        return is64 ? OP->GetI8Const(DXIL::kCompMask_X | DXIL::kCompMask_Y)
-          : OP->GetI8Const(DXIL::kCompMask_X);
-      case 2:
-        return is64 ? OP->GetI8Const(DXIL::kCompMask_All)
-          : OP->GetI8Const(DXIL::kCompMask_X | DXIL::kCompMask_Y);
-      case 3:
-        return is64 ? OP->GetI8Const(DXIL::kCompMask_All)
-          : OP->GetI8Const(DXIL::kCompMask_X | DXIL::kCompMask_Y | DXIL::kCompMask_Z);
-      case 4:
-        return OP->GetI8Const(DXIL::kCompMask_All);
-   }
+static Constant *GetRawBufferMaskForETy(Type *Ty, unsigned NumComponents, hlsl::OP *OP) {
+  Type *ETy = Ty->getScalarType();
+  bool is64 = ETy->isDoubleTy() || ETy == Type::getInt64Ty(ETy->getContext());
+  unsigned mask = 0;
+  if (is64) {
+    switch (NumComponents) {
+    case 0:
+      break;
+    case 1:
+      mask = DXIL::kCompMask_X | DXIL::kCompMask_Y;
+      break;
+    case 2:
+      mask = DXIL::kCompMask_All;
+      break;
+    default:
+      DXASSERT(false, "Cannot load more than 2 components for 64bit types.");
+    }
   }
-
-  return is64 ? OP->GetI8Const(DXIL::kCompMask_X | DXIL::kCompMask_Y)
-    : OP->GetI8Const(DXIL::kCompMask_X);
+  else {
+    switch (NumComponents) {
+    case 0:
+      break;
+    case 1:
+      mask = DXIL::kCompMask_X;
+      break;
+    case 2:
+      mask = DXIL::kCompMask_X | DXIL::kCompMask_Y;
+      break;
+    case 3:
+      mask = DXIL::kCompMask_X | DXIL::kCompMask_Y | DXIL::kCompMask_Z;
+      break;
+    case 4:
+      mask = DXIL::kCompMask_All;
+      break;
+    default:
+      DXASSERT(false, "Cannot load more than 2 components for 64bit types.");
+    }
+  }
+  return OP->GetI8Const(mask);
 }
 
 void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
@@ -5515,13 +5532,12 @@ Value *GEPIdxToOffset(GetElementPtrInst *GEP, IRBuilder<> &Builder,
 void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
                          Value *status, Type *EltTy,
                          MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
-                         IRBuilder<> &Builder, Constant *mask, Constant *alignment) {
+                         IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment) {
   OP::OpCode opcode = OP::OpCode::RawBufferLoad;
 
   DXASSERT(resultElts.size() <= 4,
            "buffer load cannot load more than 4 values");
 
-  Value *Args[] = {OP->GetU32Const((unsigned)opcode), handle, bufIdx, offset, mask, alignment};
 
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
@@ -5529,6 +5545,8 @@ void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
 
   if (!is64) {
     Function *dxilF = OP->GetOpFunc(opcode, EltTy);
+    Constant *mask = GetRawBufferMaskForETy(EltTy, NumComponents, OP);
+    Value *Args[] = {OP->GetU32Const((unsigned)opcode), handle, bufIdx, offset, mask, alignment};
     Value *Ld = Builder.CreateCall(dxilF, Args, OP::GetOpCodeName(opcode));
 
     for (unsigned i = 0; i < resultElts.size(); i++) {
@@ -5541,6 +5559,8 @@ void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
   } else {
     // 64 bit.
     Function *dxilF = OP->GetOpFunc(opcode, Builder.getInt32Ty());
+    Constant *mask = GetRawBufferMaskForETy(EltTy, NumComponents < 2 ? NumComponents : 2, OP);
+    Value *Args[] = {OP->GetU32Const((unsigned)opcode), handle, bufIdx, offset, mask, alignment};
     Value *Ld = Builder.CreateCall(dxilF, Args, OP::GetOpCodeName(opcode));
     Value *resultElts32[8];
     unsigned size = resultElts.size();
@@ -5548,8 +5568,11 @@ void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
     for (unsigned i = 0; i < size; i++) {
       if (i == 2) {
         // Update offset 4 by 4 bytes.
-        Args[DXIL::OperandIndex::kBufferLoadCoord1OpIdx] =
+        Args[DXIL::OperandIndex::kRawBufferLoadElementOffsetOpIdx] =
             Builder.CreateAdd(offset, Builder.getInt32(4 * 4));
+        // Update Mask
+        Args[DXIL::OperandIndex::kRawBufferLoadMaskOpIdx] =
+          GetRawBufferMaskForETy(EltTy, NumComponents < 3 ? 0 : NumComponents - 2, OP);
         Ld = Builder.CreateCall(dxilF, Args, OP::GetOpCodeName(opcode));
         eltBase = 4;
       }
@@ -5672,10 +5695,7 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
   unsigned rest = (matSize % 4);
   if (rest) {
     Value *ResultElts[4];
-    Constant *mask = OP->GetI8Const(rest == 1 ? 0x1 :
-                                    rest == 2 ? 0x3
-                                              : 0x7);
-    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, mask, alignment);
+    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, 3, alignment);
     for (unsigned i = 0; i < rest; i++)
       elts[i] = ResultElts[i];
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * rest));
@@ -5683,8 +5703,7 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
 
   for (unsigned i = rest; i < matSize; i += 4) {
     Value *ResultElts[4];
-    Constant *mask = OP->GetI8Const(0xf);
-    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, mask, alignment);
+    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, 4, alignment);
     elts[i] = ResultElts[0];
     elts[i + 1] = ResultElts[1];
     elts[i + 2] = ResultElts[2];
@@ -5887,18 +5906,18 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
       LoadInst *ldUser = cast<LoadInst>(subsUser);
       IRBuilder<> ldBuilder(ldUser);
       Value *ldData = UndefValue::get(resultType);
-      Constant *mask = GetRawBufferLoadMaskForType(resultType, hlslOP);
       if (resultType->isVectorTy()) {
         for (unsigned i = 0; i < resultSize; i++) {
           Value *ResultElt;
+          // TODO: This can be inefficient for row major matrix load
           GenerateStructBufLd(handle, bufIdx, idxList[i],
                               /*status*/ nullptr, EltTy, ResultElt, hlslOP,
-                              ldBuilder, mask, alignment);
+                              ldBuilder, 1, alignment);
           ldData = ldBuilder.CreateInsertElement(ldData, ResultElt, i);
         }
       } else {
         GenerateStructBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
-                            EltTy, ldData, hlslOP, ldBuilder, mask, alignment);
+                            EltTy, ldData, hlslOP, ldBuilder, 4, alignment);
       }
       ldUser->replaceAllUsesWith(ldData);
       ldUser->eraseFromParent();
@@ -6027,11 +6046,17 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     if (ldInst) {
       auto LdElement = [&](Value *offset, IRBuilder<> &Builder) -> Value * {
         Value *ResultElts[4];
-        Constant *mask = GetRawBufferLoadMaskForType(Ty, OP);
+        unsigned numComponents = 0;
+        if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
+          numComponents = VTy->getNumElements();
+        }
+        else {
+          numComponents = 1;
+        }
         Constant *alignment =
             OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
         GenerateStructBufLd(handle, bufIdx, offset, status, pOverloadTy,
-                            ResultElts, OP, Builder, mask, alignment);
+                            ResultElts, OP, Builder, numComponents, alignment);
         return ScalarizeElements(Ty, ResultElts, Builder);
       };
 

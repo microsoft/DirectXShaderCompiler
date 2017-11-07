@@ -18,9 +18,12 @@
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf1_texture_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 144, i8 3, i32 8)
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf1_texture_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 152, i8 15, i32 8)
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf1_texture_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 168, i8 15, i32 8)
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf1_texture_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 184, i8 15, i32 8)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf1_texture_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 184, i8 3, i32 8)
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf1_texture_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 192, i8 15, i32 8)
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf1_texture_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 208, i8 15, i32 8)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf1_texture_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 224, i8 1, i32 4)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf1_texture_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 236, i8 1, i32 4)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf1_texture_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 248, i8 1, i32 4)
 
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 0, i8 1, i32 4)
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 4, i8 3, i32 4)
@@ -41,9 +44,12 @@
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 144, i8 3, i32 8)
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 152, i8 15, i32 8)
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 168, i8 15, i32 8)
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 184, i8 15, i32 8)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 184, i8 3, i32 8)
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 192, i8 15, i32 8)
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 208, i8 15, i32 8)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 224, i8 1, i32 4)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 236, i8 1, i32 4)
+// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %buf2_UAV_structbuf, i32 %{{[a-zA-Z0-9]+}}, i32 248, i8 1, i32 4)
 
 struct MyStruct {
   int   i1;
@@ -66,6 +72,7 @@ struct MyStruct {
   double2 d2;
   double3 d3;
   double4 d4;
+  int3x3 i3x3;
 };
 StructuredBuffer<MyStruct> buf1;
 RWStructuredBuffer<MyStruct> buf2;
@@ -92,6 +99,7 @@ int4 main(float idx1 : IDX1, float idx2 : IDX2) : SV_Target {
   r.xy += buf1.Load(idx1, status).d2;
   r.xyz += buf1.Load(idx1, status).d3;
   r.xyzw += buf1.Load(idx1, status).d4;
+  r.xyz += buf1.Load(idx1, status).i3x3[0];
 
   r.x += buf2.Load(idx2, status).i1;
   r.xy += buf2.Load(idx2, status).i2;
@@ -113,6 +121,7 @@ int4 main(float idx1 : IDX1, float idx2 : IDX2) : SV_Target {
   r.xy += buf2.Load(idx2, status).d2;
   r.xyz += buf2.Load(idx2, status).d3;
   r.xyzw += buf2.Load(idx2, status).d4;
+  r.xyz += buf2.Load(idx2, status).i3x3[0];
 
   return r;
 }

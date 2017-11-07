@@ -693,6 +693,24 @@ namespace DXIL {
     const unsigned kBufferStoreVal3OpIdx = 7;
     const unsigned kBufferStoreMaskOpIdx = 8;
 
+    // RawBufferLoad.
+    const unsigned kRawBufferLoadHandleOpIdx        = 1;
+    const unsigned kRawBufferLoadIndexOpIdx         = 2;
+    const unsigned kRawBufferLoadElementOffsetOpIdx = 3;
+    const unsigned kRawBufferLoadMaskOpIdx          = 4;
+    const unsigned kRawBufferLoadAlignmentOpIdx     = 5;
+
+    // RawBufferStore
+    const unsigned kRawBufferStoreHandleOpIdx = 1;
+    const unsigned kRawBufferStoreIndexOpIdx = 2;
+    const unsigned kRawBufferStoreElementOffsetOpIdx = 3;
+    const unsigned kRawBufferStoreVal0OpIdx = 4;
+    const unsigned kRawBufferStoreVal1OpIdx = 5;
+    const unsigned kRawBufferStoreVal2OpIdx = 6;
+    const unsigned kRawBufferStoreVal3OpIdx = 7;
+    const unsigned kRawBufferStoreMaskOpIdx = 8;
+    const unsigned kRawBufferStoreAlignmentOpIdx = 8;
+
     // TextureStore.
     const unsigned kTextureStoreHandleOpIdx = 1;
     const unsigned kTextureStoreCoord0OpIdx = 2;

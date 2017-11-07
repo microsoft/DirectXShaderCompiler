@@ -3635,7 +3635,7 @@ public:
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
       QualType functionArgTypes[g_MaxIntrinsicParamCount + 1];
       size_t functionArgTypeCount = 0;
-      if (!MatchArguments(const_cast<HLSL_INTRINSIC*>(pIntrinsic), QualType(), Args, functionArgTypes, &functionArgTypeCount))
+      if (!MatchArguments(pIntrinsic, QualType(), Args, functionArgTypes, &functionArgTypeCount))
       {
         ++cursor;
         continue;
@@ -8290,7 +8290,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 
   while (cursor != end)
   {
-    if (!MatchArguments(const_cast<HLSL_INTRINSIC*>(*cursor), objectElement, Args, argTypes, &argCount))
+    if (!MatchArguments(*cursor, objectElement, Args, argTypes, &argCount))
     {
       ++cursor;
       continue;
