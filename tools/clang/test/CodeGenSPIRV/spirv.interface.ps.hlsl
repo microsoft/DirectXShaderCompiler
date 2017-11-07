@@ -1,5 +1,8 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: OpCapability ClipDistance
+// CHECK: OpCapability CullDistance
+
 struct Inner {
     float2 cull2 : SV_CullDistance2;            // Builtin CullDistance
     float3 foo   : FOO;                         // Input variable

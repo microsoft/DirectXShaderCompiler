@@ -122,6 +122,14 @@ llvm::SmallVector<uint32_t, 4> GlPerVertex::getStageOutVars() const {
   return vars;
 }
 
+void GlPerVertex::requireCapabilityIfNecessary() {
+  if (!inClipType.empty() || !outClipType.empty())
+    theBuilder.requireCapability(spv::Capability::ClipDistance);
+
+  if (!inCullType.empty() || !outCullType.empty())
+    theBuilder.requireCapability(spv::Capability::CullDistance);
+}
+
 bool GlPerVertex::recordClipCullDistanceDecl(const DeclaratorDecl *decl,
                                              bool asInput) {
   const QualType type = getTypeOrFnRetType(decl);
