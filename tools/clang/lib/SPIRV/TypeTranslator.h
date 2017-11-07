@@ -54,6 +54,17 @@ public:
   /// integer value. This type will be decorated with BufferBlock.
   uint32_t getACSBufferCounter();
 
+  /// \brief Returns the type for the gl_PerVertex struct:
+  ///
+  /// struct gl_PerVertex {
+  ///   float4 gl_Position;
+  ///   float  gl_PointSize;
+  ///   float  gl_ClipDistance[];
+  ///   float  gl_CullDistance[];
+  /// };
+  uint32_t getGlPerVertexStruct(uint32_t clipArraySize, uint32_t cullArraySize,
+                                llvm::StringRef structName);
+
   /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
   static bool isStructuredBuffer(QualType type);
 
@@ -85,17 +96,8 @@ public:
   /// \brief Returns true if the given type is an HLSL RWTexture type.
   static bool isRWTexture(QualType);
 
-  /// \brief Returns true if the given type is an HLSL output stream type.
-  static bool isOutputStream(QualType);
-
   /// \brief Returns true if the given type is an HLSL sampler type.
   static bool isSampler(QualType);
-
-  /// \brief Returns true if the given type is an HLSL OutputPatch type.
-  static bool isOutputPatch(QualType);
-
-  /// \brief Returns true if the given type is an HLSL InputPatch type.
-  static bool isInputPatch(QualType);
 
   /// \brief Returns true if the given type will be translated into a SPIR-V
   /// scalar type. This includes normal scalar types, vectors of size 1, and

@@ -263,6 +263,9 @@ private:
   /// Processes the 'frexp' intrinsic function.
   uint32_t processIntrinsicFrexp(const CallExpr *);
 
+  /// Processes the 'lit' intrinsic function.
+  uint32_t processIntrinsicLit(const CallExpr *);
+
   /// Processes the 'modf' intrinsic function.
   uint32_t processIntrinsicModf(const CallExpr *);
 
@@ -346,6 +349,13 @@ private:
   uint32_t getMatElemValueOne(QualType type);
 
 private:
+  /// \brief Performs a FlatConversion implicit cast. Fills an instance of the
+  /// given type with initializer <result-id>. The initializer is of type
+  /// initType.
+  uint32_t processFlatConversion(const QualType type, const QualType initType,
+                                 uint32_t initId);
+
+private:
   /// Translates the given frontend APValue into its SPIR-V equivalent for the
   /// given targetType.
   uint32_t translateAPValue(const APValue &value, const QualType targetType);
@@ -386,8 +396,14 @@ private:
                                            uint32_t *numOutputControlPoints);
 
   /// \brief Adds necessary execution modes for the geometry shader based on the
+  /// HLSL attributes of the entry point function. Also writes the array size of
+  /// the input, which depends on the primitive type, to *arraySize.
+  bool processGeometryShaderAttributes(const FunctionDecl *entryFunction,
+                                       uint32_t *arraySize);
+
+  /// \brief Adds necessary execution modes for the compute shader based on the
   /// HLSL attributes of the entry point function.
-  bool processGeometryShaderAttributes(const FunctionDecl *entryFunction);
+  void processComputeShaderAttributes(const FunctionDecl *entryFunction);
 
   /// \brief Emits a wrapper function for the entry function and returns true
   /// on success.

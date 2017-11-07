@@ -141,6 +141,7 @@ public:
   TEST_METHOD(WhenUnknownBlocksThenFail);
   TEST_METHOD(WhenZeroInputPatchCountWithInputThenFail);
 
+  TEST_METHOD(Float32DenormModeAttribute)
   TEST_METHOD(LoadOutputControlPointNotInPatchConstantFunction);
   TEST_METHOD(StorePatchControlNotInPatchConstantFunction);
   TEST_METHOD(OutputControlPointIDInPatchConstantFunction);
@@ -3118,6 +3119,15 @@ TEST_F(ValidationTest, BarycentricSamePerspectiveFail) {
       true);
 }
 
-
-
+TEST_F(ValidationTest, Float32DenormModeAttribute) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  std::vector<LPCWSTR> pArguments = { L"-denorm", L"ftz" };
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col: COL) : SV_Target { return col; }", "ps_6_2",
+    pArguments.data(), 2, nullptr, 0,
+    { "\"fp32-denorm-mode\"=\"ftz\"" },
+    { "\"fp32-denorm-mode\"=\"invalid_mode\"" },
+    "contains invalid attribute 'fp32-denorm-mode' with value 'invalid_mode'",
+    true);
+}
 // TODO: reject non-zero padding

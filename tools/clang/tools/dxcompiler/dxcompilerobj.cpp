@@ -810,15 +810,18 @@ public:
     if (Opts.IEEEStrict)
       compiler.getCodeGenOpts().UnsafeFPMath = true;
 
-    if (Opts.FPDenormalMode.empty() || Opts.FPDenormalMode.equals_lower(StringRef("any"))) {
-      compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::Any;
+    if (Opts.FloatDenormalMode.empty()) {
+      compiler.getCodeGenOpts().HLSLFloat32DenormMode = DXIL::Float32DenormMode::Reserve7; // undefined
     }
-    else if (Opts.FPDenormalMode.equals_lower(StringRef("ftz"))) {
-      compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::FTZ;
+    else if (Opts.FloatDenormalMode.equals_lower(StringRef("any"))) {
+      compiler.getCodeGenOpts().HLSLFloat32DenormMode = DXIL::Float32DenormMode::Any;
+    }
+    else if (Opts.FloatDenormalMode.equals_lower(StringRef("ftz"))) {
+      compiler.getCodeGenOpts().HLSLFloat32DenormMode = DXIL::Float32DenormMode::FTZ;
     }
     else {
-      DXASSERT(Opts.FPDenormalMode.equals_lower(StringRef("preserve")), "else opts should have been rejected");
-      compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::Preserve;
+      DXASSERT(Opts.FloatDenormalMode.equals_lower(StringRef("preserve")), "else opts should have been rejected");
+      compiler.getCodeGenOpts().HLSLFloat32DenormMode = DXIL::Float32DenormMode::Preserve;
     }
 
     if (Opts.DisableOptimizations)

@@ -108,7 +108,7 @@ public:
   llvm::StringRef RootSignatureSource; // OPT_setrootsignature
   llvm::StringRef VerifyRootSignatureSource; //OPT_verifyrootsignature
   llvm::StringRef RootSignatureDefine; // OPT_rootsig_define
-  llvm::StringRef FPDenormalMode; // OPT_fdenormal-fp-math
+  llvm::StringRef FloatDenormalMode; // OPT_denorm
 
   bool AllResourcesBound; // OPT_all_resources_bound
   bool AstDump; // OPT_ast_dump

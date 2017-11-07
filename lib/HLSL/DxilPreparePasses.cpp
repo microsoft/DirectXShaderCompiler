@@ -152,6 +152,14 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
   // Splice the body of the old function right into the new function.
   NewFunc->getBasicBlockList().splice(NewFunc->begin(), F->getBasicBlockList());
 
+  // Keep necessary function attributes
+  AttributeSet attributeSet = F->getAttributes();
+  if (attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
+    Attribute attribute = attributeSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
+    DXASSERT(attribute.isStringAttribute(), "otherwise we have wrong fp-denorm-mode attribute.");
+    NewFunc->addFnAttr(attribute.getKindAsString(), attribute.getValueAsString());
+  }
+
   // Patch the pointer to LLVM function in debug info descriptor.
   auto DI = FunctionDIs.find(F);
   if (DI != FunctionDIs.end()) {
@@ -167,12 +175,9 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
     DM.ReplaceDxilEntrySignature(F, NewFunc);
     DM.ReplaceDxilFunctionProps(F, NewFunc);
   }
-  // Save function fp flag
-  DxilFunctionFPFlag flag;
-  flag.SetFlagValue(DM.GetTypeSystem().GetFunctionAnnotation(F)->GetFlag().GetFlagValue());
   DM.GetTypeSystem().EraseFunctionAnnotation(F);
   F->eraseFromParent();
-  DM.GetTypeSystem().AddFunctionAnnotationWithFPFlag(NewFunc, &flag);
+  DM.GetTypeSystem().AddFunctionAnnotation(NewFunc);
   return NewFunc;
 }
 

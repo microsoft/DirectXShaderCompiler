@@ -2290,10 +2290,20 @@ Value *ScalarizeElements(Type *RetTy, ArrayRef<Value*> Elts, IRBuilder<> &Builde
   return retVal;
 }
 
-void UpdateStatus(Value *ResRet, Value *status, IRBuilder<> &Builder) {
+void UpdateStatus(Value *ResRet, Value *status, IRBuilder<> &Builder,
+                  hlsl::OP *hlslOp) {
   if (status && !isa<UndefValue>(status)) {
-    Value *statusVal = Builder.CreateExtractValue(ResRet, 4);
-    Builder.CreateStore(statusVal, status);
+    Value *statusVal = Builder.CreateExtractValue(ResRet, DXIL::kResRetStatusIndex);
+    Value *checkAccessOp = hlslOp->GetI32Const(
+        static_cast<unsigned>(DXIL::OpCode::CheckAccessFullyMapped));
+    Function *checkAccessFn = hlslOp->GetOpFunc(
+        DXIL::OpCode::CheckAccessFullyMapped, statusVal->getType());
+    // CheckAccess on status.
+    Value *bStatus =
+        Builder.CreateCall(checkAccessFn, {checkAccessOp, statusVal});
+    Value *extStatus =
+        Builder.CreateZExt(bStatus, Type::getInt32Ty(status->getContext()));
+    Builder.CreateStore(extStatus, status);
   }
 }
 
@@ -2479,8 +2489,19 @@ Value *TranslateCalculateLOD(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return LOD;
 }
 
+Value *TranslateCheckAccess(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                            HLOperationLowerHelper &helper,
+                            HLObjectOperationLowerHelper *pObjHelper,
+                            bool &Translated) {
+  // Translate CheckAccess into uint->bool, later optimization should remove it.
+  // Real checkaccess is generated in UpdateStatus.
+  IRBuilder<> Builder(CI);
+  Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  return Builder.CreateTrunc(V, helper.i1Ty);
+}
+
 void GenerateDxilSample(CallInst *CI, Function *F, ArrayRef<Value *> sampleArgs,
-                        Value *status) {
+                        Value *status, hlsl::OP *hlslOp) {
   IRBuilder<> Builder(CI);
 
   CallInst *call = Builder.CreateCall(F, sampleArgs);
@@ -2493,7 +2514,7 @@ void GenerateDxilSample(CallInst *CI, Function *F, ArrayRef<Value *> sampleArgs,
 
   // get status
   if (status) {
-    UpdateStatus(call, status, Builder);
+    UpdateStatus(call, status, Builder, hlslOp);
   }
 }
 
@@ -2523,7 +2544,7 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
         // Clamp.
         sampleHelper.clamp};
-    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status);
+    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   case OP::OpCode::SampleLevel: {
     Value *sampleArgs[] = {
@@ -2535,7 +2556,7 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
         // LOD.
         sampleHelper.special};
-    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status);
+    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   case OP::OpCode::SampleGrad: {
     Value *sampleArgs[] = {
@@ -2551,7 +2572,7 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         sampleHelper.ddy[0], sampleHelper.ddy[1], sampleHelper.ddy[2],
         // Clamp.
         sampleHelper.clamp};
-    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status);
+    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   case OP::OpCode::SampleBias: {
     // Clamp bias for immediate.
@@ -2574,7 +2595,7 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         bias,
         // Clamp.
         sampleHelper.clamp};
-    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status);
+    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   case OP::OpCode::SampleCmp: {
     Value *sampleArgs[] = {
@@ -2588,7 +2609,7 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         sampleHelper.special,
         // Clamp.
         sampleHelper.clamp};
-    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status);
+    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   case OP::OpCode::SampleCmpLevelZero:
   default: {
@@ -2602,7 +2623,7 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
         // CmpVal.
         sampleHelper.special};
-    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status);
+    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   }
   // CI is replaced in GenerateDxilSample.
@@ -2771,7 +2792,7 @@ GatherHelper::GatherHelper(
 
 void GenerateDxilGather(CallInst *CI, Function *F,
                         MutableArrayRef<Value *> gatherArgs,
-                        GatherHelper &helper) {
+                        GatherHelper &helper, hlsl::OP *hlslOp) {
   IRBuilder<> Builder(CI);
 
   CallInst *call = Builder.CreateCall(F, gatherArgs);
@@ -2807,7 +2828,7 @@ void GenerateDxilGather(CallInst *CI, Function *F,
   }
   // Get status
   if (helper.status) {
-    UpdateStatus(call, helper.status, Builder);
+    UpdateStatus(call, helper.status, Builder, hlslOp);
   }
 }
 
@@ -2865,7 +2886,7 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         gatherHelper.offset[0], gatherHelper.offset[1],
         // Channel.
         channelArg};
-    GenerateDxilGather(CI, F, gatherArgs, gatherHelper);
+    GenerateDxilGather(CI, F, gatherArgs, gatherHelper, hlslOP);
   } break;
   case OP::OpCode::TextureGatherCmp: {
     Value *gatherArgs[] = {
@@ -2879,7 +2900,7 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         channelArg,
         // CmpVal.
         gatherHelper.special};
-    GenerateDxilGather(CI, F, gatherArgs, gatherHelper);
+    GenerateDxilGather(CI, F, gatherArgs, gatherHelper, hlslOP);
   } break;
   default:
     DXASSERT(0, "invalid opcode for Gather");
@@ -3234,7 +3255,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   // Save new ret val.
   helper.retVal = retValNew;
   // get status
-  UpdateStatus(ResRet, helper.status, Builder);
+  UpdateStatus(ResRet, helper.status, Builder, OP);
 }
 
 Value *TranslateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -4242,7 +4263,7 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_AddUint64,  TranslateAddUint64,  DXIL::OpCode::UAddc},
     {IntrinsicOp::IOP_AllMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
-    {IntrinsicOp::IOP_CheckAccessFullyMapped, TrivialUnaryOperation, DXIL::OpCode::CheckAccessFullyMapped},
+    {IntrinsicOp::IOP_CheckAccessFullyMapped, TranslateCheckAccess, DXIL::OpCode::CheckAccessFullyMapped},
     {IntrinsicOp::IOP_D3DCOLORtoUBYTE4, TranslateD3DColorToUByte4, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_DeviceMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
@@ -5515,7 +5536,7 @@ void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
     }
 
     // status
-    UpdateStatus(Ld, status, Builder);
+    UpdateStatus(Ld, status, Builder, OP);
     return;
   } else {
     // 64 bit.
@@ -5541,7 +5562,7 @@ void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
     Make64bitResultForLoad(EltTy, resultElts32, size, resultElts, OP, Builder);
 
     // status
-    UpdateStatus(Ld, status, Builder);
+    UpdateStatus(Ld, status, Builder, OP);
 
     return;
   }

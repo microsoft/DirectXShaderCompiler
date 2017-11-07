@@ -1,6 +1,7 @@
 // Run: %dxc -T hs_6_0 -E SubDToBezierHS
 
-// CHECK: OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS" {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} %gl_TessLevelInner {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}}
+// CHECK: OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS"
+// CHECK-SAME: %gl_TessLevelInner
 
 // CHECK: OpDecorate %gl_TessLevelInner BuiltIn TessLevelInner
 // CHECK: OpDecorate %gl_TessLevelInner Patch

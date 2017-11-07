@@ -270,9 +270,13 @@ TEST_F(FileTest, CastImplicit2UInt) { runFileTest("cast.2uint.implicit.hlsl"); }
 TEST_F(FileTest, CastExplicit2UInt) { runFileTest("cast.2uint.explicit.hlsl"); }
 TEST_F(FileTest, CastImplicit2FP) { runFileTest("cast.2fp.implicit.hlsl"); }
 TEST_F(FileTest, CastExplicit2FP) { runFileTest("cast.2fp.explicit.hlsl"); }
+TEST_F(FileTest, CastImplicitFlatConversion) {
+  runFileTest("cast.flat-conversion.implicit.hlsl");
+}
 
 // For vector/matrix splatting and trunction
 TEST_F(FileTest, CastTruncateVector) { runFileTest("cast.vector.trunc.hlsl"); }
+TEST_F(FileTest, CastTruncateMatrix) { runFileTest("cast.matrix.trunc.hlsl"); }
 TEST_F(FileTest, CastSplatVector) { runFileTest("cast.vector.splat.hlsl"); }
 TEST_F(FileTest, CastSplatMatrix) { runFileTest("cast.matrix.splat.hlsl"); }
 
@@ -344,18 +348,8 @@ TEST_F(FileTest, ClassStaticMember) {
 }
 
 // For semantics
-TEST_F(FileTest, SemanticPositionVS) {
-  runFileTest("semantic.position.vs.hlsl");
-}
-TEST_F(FileTest, SemanticPositionPS) {
-  runFileTest("semantic.position.ps.hlsl");
-}
-TEST_F(FileTest, SemanticPositionDS) {
-  runFileTest("semantic.position.ds.hlsl");
-}
-TEST_F(FileTest, SemanticPositionGS) {
-  runFileTest("semantic.position.gs.hlsl");
-}
+// SV_Position, SV_ClipDistance, and SV_CullDistance are covered in
+// SpirvStageIOInterface* tests.
 TEST_F(FileTest, SemanticVertexIDVS) {
   runFileTest("semantic.vertex-id.vs.hlsl");
 }
@@ -402,11 +396,17 @@ TEST_F(FileTest, SemanticDomainLocationDS) {
 TEST_F(FileTest, SemanticTessFactorDS) {
   runFileTest("semantic.tess-factor.ds.hlsl");
 }
+TEST_F(FileTest, SemanticTessFactorSizeMismatchDS) {
+  runFileTest("semantic.tess-factor.size-mismatch.ds.hlsl");
+}
 TEST_F(FileTest, SemanticInsideTessFactorDS) {
   runFileTest("semantic.inside-tess-factor.ds.hlsl");
 }
 TEST_F(FileTest, SemanticTessFactorHS) {
   runFileTest("semantic.tess-factor.hs.hlsl");
+}
+TEST_F(FileTest, SemanticTessFactorSizeMismatchHS) {
+  runFileTest("semantic.tess-factor.size-mismatch.hs.hlsl");
 }
 TEST_F(FileTest, SemanticInsideTessFactorHS) {
   runFileTest("semantic.inside-tess-factor.hs.hlsl");
@@ -552,6 +552,9 @@ TEST_F(FileTest, IntrinsicsDot) { runFileTest("intrinsics.dot.hlsl"); }
 TEST_F(FileTest, IntrinsicsMul) { runFileTest("intrinsics.mul.hlsl"); }
 TEST_F(FileTest, IntrinsicsAll) { runFileTest("intrinsics.all.hlsl"); }
 TEST_F(FileTest, IntrinsicsAny) { runFileTest("intrinsics.any.hlsl"); }
+TEST_F(FileTest, IntrinsicsAsDouble) {
+  runFileTest("intrinsics.asdouble.hlsl");
+}
 TEST_F(FileTest, IntrinsicsAsfloat) { runFileTest("intrinsics.asfloat.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsint) { runFileTest("intrinsics.asint.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsuint) { runFileTest("intrinsics.asuint.hlsl"); }
@@ -611,6 +614,7 @@ TEST_F(FileTest, IntrinsicsLog) { runFileTest("intrinsics.log.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog10) { runFileTest("intrinsics.log10.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog2) { runFileTest("intrinsics.log2.hlsl"); }
 TEST_F(FileTest, IntrinsicsMin) { runFileTest("intrinsics.min.hlsl"); }
+TEST_F(FileTest, IntrinsicsLit) { runFileTest("intrinsics.lit.hlsl"); }
 TEST_F(FileTest, IntrinsicsModf) { runFileTest("intrinsics.modf.hlsl"); }
 TEST_F(FileTest, IntrinsicsMad) { runFileTest("intrinsics.mad.hlsl"); }
 TEST_F(FileTest, IntrinsicsMax) { runFileTest("intrinsics.max.hlsl"); }
@@ -712,7 +716,7 @@ TEST_F(FileTest, PrimitiveErrorGS) {
   runFileTest("primitive.error.gs.hlsl", /*expectSuccess*/ false);
 }
 
-// Vulkan/SPIR-V specific
+// SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
 TEST_F(FileTest, SpirvEntryFunctionWrapper) {
@@ -720,6 +724,21 @@ TEST_F(FileTest, SpirvEntryFunctionWrapper) {
 }
 TEST_F(FileTest, SpirvEntryFunctionInOut) {
   runFileTest("spirv.entry-function.inout.hlsl");
+}
+
+// For shader stage input/output interface
+// For semantic SV_Position, SV_ClipDistance, SV_CullDistance
+TEST_F(FileTest, SpirvStageIOInterfaceVS) {
+  runFileTest("spirv.interface.vs.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfaceHS) {
+  runFileTest("spirv.interface.hs.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfaceDS) {
+  runFileTest("spirv.interface.ds.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfacePS) {
+  runFileTest("spirv.interface.ps.hlsl");
 }
 
 TEST_F(FileTest, SpirvInterpolation) {
@@ -733,6 +752,7 @@ TEST_F(FileTest, VulkanAttributeErrors) {
   runFileTest("vk.attribute.error.hlsl", /*expectSuccess*/ false);
 }
 
+// Vulkan specific
 TEST_F(FileTest, VulkanLocation) { runFileTest("vk.location.hlsl"); }
 TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {
   runFileTest("vk.location.exp-in.hlsl");
@@ -810,13 +830,11 @@ TEST_F(FileTest, HullShaderPCFTakesOutputPatch) {
   runFileTest("hull.pcf.output-patch.hlsl");
 }
 TEST_F(FileTest, HullShaderPCFTakesPrimitiveId) {
-  runFileTest("hull.pcf.primitive-id.hlsl");
+  runFileTest("hull.pcf.primitive-id.1.hlsl");
 }
 TEST_F(FileTest, HullShaderPCFTakesPrimitiveIdButMainDoesnt) {
-  runFileTest("hull.pcf.primitive-id-2.hlsl");
+  runFileTest("hull.pcf.primitive-id.2.hlsl");
 }
-// For Hull Shader Output variables
-TEST_F(FileTest, HullShaderOutputVars) { runFileTest("hull.output-vars.hlsl"); }
 // For the structure of Hull Shaders
 TEST_F(FileTest, HullShaderStructure) { runFileTest("hull.structure.hlsl"); }
 

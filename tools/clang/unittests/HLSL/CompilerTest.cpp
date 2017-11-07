@@ -555,6 +555,7 @@ public:
   TEST_METHOD(CodeGenFModPS)
   TEST_METHOD(CodeGenFuncCast)
   TEST_METHOD(CodeGenFunctionalCast)
+  TEST_METHOD(CodeGenFunctionAttribute)
   TEST_METHOD(CodeGenGather)
   TEST_METHOD(CodeGenGatherCmp)
   TEST_METHOD(CodeGenGatherCubeOffset)
@@ -765,6 +766,9 @@ public:
   TEST_METHOD(CodeGenSimpleHS6)
   TEST_METHOD(CodeGenSimpleHS7)
   TEST_METHOD(CodeGenSimpleHS8)
+  TEST_METHOD(CodeGenSimpleHS9)
+  TEST_METHOD(CodeGenSimpleHS10)
+  TEST_METHOD(CodeGenSimpleHS11)
   TEST_METHOD(CodeGenSMFail)
   TEST_METHOD(CodeGenSrv_Ms_Load1)
   TEST_METHOD(CodeGenSrv_Ms_Load2)
@@ -1112,6 +1116,7 @@ public:
   TEST_METHOD(HoistConstantArray)
   TEST_METHOD(ViewID)
   TEST_METHOD(ShaderCompatSuite)
+  TEST_METHOD(QuickTest)
   BEGIN_TEST_METHOD(SingleFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
   END_TEST_METHOD()
@@ -1518,6 +1523,40 @@ public:
     CodeGenTestCheckFullPath(name);
 
     WEX::Logging::Log::EndGroup(name);
+  }
+
+  void CodeGenTestCheckBatchDir(std::wstring suitePath) {
+    using namespace llvm;
+    using namespace WEX::TestExecution;
+
+    ::llvm::sys::fs::MSFileSystem *msfPtr;
+    VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+    ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+    IFTLLVM(pts.error_code());
+
+    CW2A pUtf8Filename(suitePath.c_str());
+    if (!llvm::sys::path::is_absolute(pUtf8Filename.m_psz)) {
+      suitePath = hlsl_test::GetPathToHlslDataFile(suitePath.c_str());
+    }
+
+    CW2A utf8SuitePath(suitePath.c_str());
+
+    std::error_code EC;
+    llvm::SmallString<128> DirNative;
+    llvm::sys::path::native(utf8SuitePath.m_psz, DirNative);
+    for (llvm::sys::fs::recursive_directory_iterator Dir(DirNative, EC), DirEnd;
+         Dir != DirEnd && !EC; Dir.increment(EC)) {
+      // Check whether this entry has an extension typically associated with
+      // headers.
+      if (!llvm::StringSwitch<bool>(llvm::sys::path::extension(Dir->path()))
+               .Cases(".hlsl", ".hlsl", true)
+               .Default(false))
+        continue;
+      StringRef filename = Dir->path();
+      CA2W wRelPath(filename.data());
+      CodeGenTestCheckBatch(wRelPath.m_psz, 0);
+    }
   }
 
   std::string VerifyCompileFailed(LPCSTR pText, LPWSTR pTargetProfile, LPCSTR pErrorMsg) {
@@ -3344,6 +3383,11 @@ TEST_F(CompilerTest, CodeGenFunctionalCast) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\functionalCast.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenFunctionAttribute) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\functionAttribute.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenGather) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\gather.hlsl");
 }
@@ -4182,6 +4226,18 @@ TEST_F(CompilerTest, CodeGenSimpleHS7) {
 
 TEST_F(CompilerTest, CodeGenSimpleHS8) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS8.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleHS9) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS9.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleHS10) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS10.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleHS11) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS11.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSMFail) {
@@ -5706,15 +5762,7 @@ TEST_F(CompilerTest, ViewID) {
 }
 
 TEST_F(CompilerTest, ShaderCompatSuite) {
-  using namespace llvm;
   using namespace WEX::TestExecution;
-
-  ::llvm::sys::fs::MSFileSystem *msfPtr;
-  VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
-  std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
-  ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
-  IFTLLVM(pts.error_code());
-
   std::wstring suitePath = L"..\\CodeGenHLSL\\shader-compat-suite";
 
   WEX::Common::String value;
@@ -5723,28 +5771,11 @@ TEST_F(CompilerTest, ShaderCompatSuite) {
     suitePath = value;
   }
 
-  CW2A pUtf8Filename(suitePath.c_str());
-  if (!llvm::sys::path::is_absolute(pUtf8Filename.m_psz)) {
-    suitePath = hlsl_test::GetPathToHlslDataFile(suitePath.c_str());
-  }
+  CodeGenTestCheckBatchDir(suitePath);
+}
 
-  CW2A utf8SuitePath(suitePath.c_str());
-
-  std::error_code EC;
-  llvm::SmallString<128> DirNative;
-  llvm::sys::path::native(utf8SuitePath.m_psz, DirNative);
-  for (llvm::sys::fs::recursive_directory_iterator Dir(DirNative, EC), DirEnd;
-       Dir != DirEnd && !EC; Dir.increment(EC)) {
-    // Check whether this entry has an extension typically associated with
-    // headers.
-    if (!llvm::StringSwitch<bool>(llvm::sys::path::extension(Dir->path()))
-             .Cases(".hlsl", ".hlsl", true)
-             .Default(false))
-      continue;
-    StringRef filename = Dir->path();
-    CA2W wRelPath(filename.data());
-    CodeGenTestCheckBatch(wRelPath.m_psz, 0);
-  }
+TEST_F(CompilerTest, QuickTest) {
+  CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\quick-test");
 }
 
 TEST_F(CompilerTest, SingleFileCheckTest) {
