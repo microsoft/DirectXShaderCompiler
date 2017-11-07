@@ -5798,7 +5798,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
             outputControlPointIdVal, primitiveIdVar, hullMainInputPatchParam))
       return false;
   } else {
-    if (!declIdMapper.createStageOutputVar(decl, retVal, /*isPC*/ false))
+    if (!declIdMapper.createStageOutputVar(decl, retVal, /*forPCF*/ false))
       return false;
   }
 
@@ -5914,7 +5914,7 @@ bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
         std::string tempVarName = "param.var." + param->getNameAsString();
         const uint32_t tempVar = theBuilder.addFnVar(typeId, tempVarName);
         uint32_t loadedValue = 0;
-        declIdMapper.createStageInputVar(param, &loadedValue, /*isPC*/ true);
+        declIdMapper.createStageInputVar(param, &loadedValue, /*forPCF*/ true);
         theBuilder.createStore(tempVar, loadedValue);
         primitiveId = tempVar;
       }
@@ -5924,7 +5924,7 @@ bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
   const uint32_t pcfResultId =
       theBuilder.createFunctionCall(pcfRetType, pcfId, {pcfParams});
   if (!declIdMapper.createStageOutputVar(patchConstFunc, pcfResultId,
-                                         /*isPC*/ true))
+                                         /*forPCF*/ true))
     return false;
 
   theBuilder.createBranch(mergeBB);
