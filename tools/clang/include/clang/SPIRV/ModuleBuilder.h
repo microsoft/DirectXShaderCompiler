@@ -277,6 +277,9 @@ public:
   void addExecutionMode(uint32_t entryPointId, spv::ExecutionMode em,
                         llvm::ArrayRef<uint32_t> params);
 
+  /// \brief Adds an extension to the module under construction.
+  inline void addExtension(llvm::StringRef extension);
+
   /// \brief If not added already, adds an OpExtInstImport (import of extended
   /// instruction set) of the GLSL instruction set. Returns the <result-id> for
   /// the imported GLSL instruction set.
@@ -412,6 +415,10 @@ void ModuleBuilder::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
                                   std::string targetName,
                                   llvm::ArrayRef<uint32_t> interfaces) {
   theModule.addEntryPoint(em, targetId, std::move(targetName), interfaces);
+}
+
+void ModuleBuilder::addExtension(llvm::StringRef extension) {
+  theModule.addExtension(extension);
 }
 
 } // end namespace spirv

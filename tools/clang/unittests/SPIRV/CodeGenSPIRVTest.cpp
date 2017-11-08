@@ -447,6 +447,24 @@ TEST_F(FileTest, SemanticGSInstanceIDGS) {
 TEST_F(FileTest, SemanticSampleIndexPS) {
   runFileTest("semantic.sample-index.ps.hlsl");
 }
+TEST_F(FileTest, SemanticStencilRefPS) {
+  runFileTest("semantic.stencil-ref.ps.hlsl");
+}
+TEST_F(FileTest, SemanticRenderTargetArrayIndexVS) {
+  runFileTest("semantic.render-target-array-index.vs.hlsl");
+}
+TEST_F(FileTest, SemanticRenderTargetArrayIndexHS) {
+  runFileTest("semantic.render-target-array-index.hs.hlsl");
+}
+TEST_F(FileTest, SemanticRenderTargetArrayIndexDS) {
+  runFileTest("semantic.render-target-array-index.ds.hlsl");
+}
+TEST_F(FileTest, SemanticRenderTargetArrayIndexGS) {
+  runFileTest("semantic.render-target-array-index.gs.hlsl");
+}
+TEST_F(FileTest, SemanticRenderTargetArrayIndexPS) {
+  runFileTest("semantic.render-target-array-index.ps.hlsl");
+}
 
 // For texture methods
 TEST_F(FileTest, TextureSample) { runFileTest("texture.sample.hlsl"); }
