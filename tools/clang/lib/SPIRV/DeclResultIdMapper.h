@@ -356,9 +356,7 @@ private:
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.
-  spv::StorageClass getStorageClassForSigPoint(const hlsl::SigPoint *,
-                                               const char *semanticName,
-                                               SourceLocation);
+  spv::StorageClass getStorageClassForSigPoint(const hlsl::SigPoint *);
 
   /// Returns true if the given SPIR-V stage variable has Input storage class.
   inline bool isInputStorageClass(const StageVar &v);
@@ -412,8 +410,7 @@ bool DeclResultIdMapper::decorateStageIOLocations() {
 }
 
 bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {
-  return getStorageClassForSigPoint(v.getSigPoint(), v.getSemantic()->GetName(),
-                                    SourceLocation()) ==
+  return getStorageClassForSigPoint(v.getSigPoint()) ==
          spv::StorageClass::Input;
 }
 

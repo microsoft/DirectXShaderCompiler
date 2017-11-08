@@ -210,7 +210,7 @@ uint32_t InitListHandler::createInitForType(QualType type,
   if (type->isConstantArrayType())
     return createInitForConstantArrayType(type, srcLoc);
 
-  emitError("unimplemented initializer for type %0", srcLoc) << type;
+  emitError("initializer for type %0 unimplemented", srcLoc) << type;
   return 0;
 }
 

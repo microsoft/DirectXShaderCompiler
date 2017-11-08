@@ -1138,8 +1138,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   const auto sigPointKind = sigPoint->GetKind();
   const uint32_t type = stageVar->getSpirvTypeId();
 
-  spv::StorageClass sc = getStorageClassForSigPoint(
-      sigPoint, stageVar->getSemantic()->GetName(), srcLoc);
+  spv::StorageClass sc = getStorageClassForSigPoint(sigPoint);
   if (sc == spv::StorageClass::Max)
     return 0;
   stageVar->setStorageClass(sc);
@@ -1193,7 +1192,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     case hlsl::SigPoint::Kind::PSIn:
       return theBuilder.addStageIOVar(type, sc, name.str());
     default:
-      emitError("semantic InstanceID for SigPoint %0 unimplemented yet", srcLoc)
+      emitError("semantic InstanceID for SigPoint %0 unimplemented", srcLoc)
           << sigPoint->GetName();
       break;
     }
@@ -1247,7 +1246,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing);
     default:
-      emitError("semantic IsFrontFace for SigPoint %0 unimplemented yet",
+      emitError("semantic IsFrontFace for SigPoint %0 unimplemented",
                 srcLoc)
           << sigPoint->GetName();
       break;
@@ -1301,7 +1300,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessCoord);
   }
   default:
-    emitError("semantic %0 unimplemented yet", srcLoc)
+    emitError("semantic %0 unimplemented", srcLoc)
         << stageVar->getSemantic()->GetName();
     break;
   }
@@ -1310,9 +1309,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
 }
 
 spv::StorageClass
-DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint,
-                                               const char *semanticName,
-                                               SourceLocation srcLoc) {
+DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint) {
   // This translation is done based on the HLSL reference (see docs/dxil.rst).
   const auto sigPointKind = sigPoint->GetKind();
   const auto signatureKind = sigPoint->GetSignatureKind();
@@ -1335,8 +1332,7 @@ DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint,
       sc = spv::StorageClass::Input;
       break;
     default:
-      emitError("SigPoint kind %0 is invalid for semantic %1", srcLoc)
-          << sigPoint->GetName() << semanticName;
+      llvm_unreachable("Found invalid SigPoint kind for semantic");
     }
     break;
   }
@@ -1353,14 +1349,12 @@ DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint,
       sc = spv::StorageClass::Input;
       break;
     default:
-      emitError("SigPoint kind %0 is invalid for semantic %1", srcLoc)
-          << sigPoint->GetName() << semanticName;
+      llvm_unreachable("Found invalid SigPoint kind for semantic");
     }
     break;
   }
   default:
-    emitError("found invalid SignatureKind for semantic %0", srcLoc)
-        << semanticName;
+    llvm_unreachable("Found invalid SigPoint kind for semantic");
   }
   return sc;
 }
