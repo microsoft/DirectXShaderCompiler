@@ -380,8 +380,8 @@ private:
   /// This field is only used by GS for manually emitting vertices, when
   /// we need to query the <result-id> of the output stage variables
   /// involved in writing back. For other cases, stage variable reading
-  /// and writing is done at the time of creating that stage variables,
-  /// so that we does not need to query them again for reading and writing.
+  /// and writing is done at the time of creating that stage variable,
+  /// so that we don't need to query them again for reading and writing.
   llvm::DenseMap<const NamedDecl *, uint32_t> stageVarIds;
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
