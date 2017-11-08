@@ -429,4 +429,44 @@ bool DxilTypeSystem::UseMinPrecision() {
   return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
 }
 
+DxilStructTypeIterator::DxilStructTypeIterator(llvm::StructType *sTy, DxilStructAnnotation *sAnnotation,
+  unsigned idx)
+  : STy(sTy), SAnnotation(sAnnotation), index(idx) {
+  DXASSERT(
+    sTy->getNumElements() == sAnnotation->GetNumFields(),
+    "Otherwise the pairing of annotation and struct type does not match.");
+}
+
+// prefix
+DxilStructTypeIterator &DxilStructTypeIterator::operator++() {
+  index++;
+  return *this;
+}
+// postfix
+DxilStructTypeIterator DxilStructTypeIterator::operator++(int) {
+  DxilStructTypeIterator iter(STy, SAnnotation, index);
+  index++;
+  return iter;
+}
+
+bool DxilStructTypeIterator::operator==(DxilStructTypeIterator iter) {
+  return iter.STy == STy && iter.SAnnotation == SAnnotation &&
+    iter.index == index;
+}
+
+bool DxilStructTypeIterator::operator!=(DxilStructTypeIterator iter) { return !(operator==(iter)); }
+
+std::pair<llvm::Type *, DxilFieldAnnotation *> DxilStructTypeIterator::operator*() {
+  return std::pair<llvm::Type *, DxilFieldAnnotation *>(
+    STy->getElementType(index), &SAnnotation->GetFieldAnnotation(index));
+}
+
+DxilStructTypeIterator begin(llvm::StructType *STy, DxilStructAnnotation *SAnno) {
+  return { STy, SAnno, 0 };
+}
+
+DxilStructTypeIterator end(llvm::StructType *STy, DxilStructAnnotation *SAnno) {
+  return { STy, SAnno, STy->getNumElements() };
+}
+
 } // namespace hlsl

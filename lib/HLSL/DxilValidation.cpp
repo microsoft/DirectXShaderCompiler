@@ -599,6 +599,9 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if (op == 138)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
         && (pSM->IsVS() || pSM->IsHS() || pSM->IsDS() || pSM->IsGS() || pSM->IsPS());
+  // Instructions: RawBufferLoad=139, RawBufferStore=140
+  if (139 <= op && op <= 140)
+    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 2));
   return true;
   // VALOPCODESM-TEXT:END
 }

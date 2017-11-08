@@ -1068,6 +1068,13 @@ static const ArBasicKind g_UInt3264CT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_HalfCT[] =
+{
+  AR_BASIC_FLOAT16,
+  AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_UNKNOWN
+};
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind* g_LegalIntrinsicCompTypes[] =
 {
@@ -1097,7 +1104,8 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_StringCT,           // LICOMPTYPE_STRING
   g_WaveCT,             // LICOMPTYPE_WAVE
   g_UInt64CT,           // LICOMPTYPE_UINT64
-  g_UInt3264CT          // LICOMPTYPE_UINT32_64
+  g_UInt3264CT,         // LICOMPTYPE_UINT32_64
+  g_HalfCT              // LICOMPTYPE_HALF
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
 
@@ -3050,15 +3058,14 @@ public:
       if (type == HLSLScalarType_float_min16) {
         m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16float" << "half";
       }
-// TODO: Enable this once we support true int16/uint16 support.
-#if 0
       else if (type == HLSLScalarType_int_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "int16";
+        // TODO: change promotion to short once we support int16
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "int";
       }
       else if (type == HLSLScalarType_uint_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "uint16";
+        // TODO: change promotion to unsigned short once we support int16
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "uint";
       }
-#endif
     }
   }
 
@@ -3394,7 +3401,7 @@ public:
     case AR_OBJECT_NULL:          return m_context->VoidTy;
     case AR_BASIC_BOOL:           return m_context->BoolTy;
     case AR_BASIC_LITERAL_FLOAT:  return m_context->LitFloatTy;
-    case AR_BASIC_FLOAT16:        return m_context->getLangOpts().UseMinPrecision ? m_context->FloatTy : m_context->HalfTy;
+    case AR_BASIC_FLOAT16:        return m_context->HalfTy;
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->FloatTy;
     case AR_BASIC_FLOAT32:        return m_context->FloatTy;
     case AR_BASIC_FLOAT64:        return m_context->DoubleTy;
@@ -3555,7 +3562,7 @@ public:
   /// <param name="argCount">After execution, number of arguments in argTypes.</param>
   /// <remarks>On success, argTypes includes the clang Types to use for the signature, with the first being the return type.</remarks>
   bool MatchArguments(
-    _In_ const HLSL_INTRINSIC *pIntrinsic,
+    const _In_ HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement,
     _In_ ArrayRef<Expr *> Args, 
     _Out_writes_(g_MaxIntrinsicParamCount + 1) QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
@@ -4177,6 +4184,24 @@ public:
     }
 
     IntrinsicOp intrinOp = static_cast<IntrinsicOp>(intrinsic->Op);
+
+    if (intrinOp == IntrinsicOp::MOP_LoadHalf ||
+      intrinOp == IntrinsicOp::MOP_LoadHalf2 ||
+      intrinOp == IntrinsicOp::MOP_LoadHalf3 ||
+      intrinOp == IntrinsicOp::MOP_LoadHalf4 ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf2 ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf3 ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf4
+      ) {
+      if (getSema()->getLangOpts().UseMinPrecision) {
+        DXASSERT(Args.size() >= 1, "Otherwise wrong load store call.");
+        getSema()->Diag(
+            Args.front()->getExprLoc(),
+            diag::err_hlsl_half_load_store);
+      }
+    }
+
     if (intrinOp == IntrinsicOp::MOP_SampleBias) {
       // Remove this when update intrinsic table not affect other things.
       // Change vector<float,1> into float for bias.
@@ -4429,9 +4454,10 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_double] = m_context->DoubleTy;
   m_baseTypes[HLSLScalarType_float_min10] = m_context->HalfTy;
   m_baseTypes[HLSLScalarType_float_min16] = m_context->HalfTy;
-  m_baseTypes[HLSLScalarType_int_min12] = m_context->ShortTy;
-  m_baseTypes[HLSLScalarType_int_min16] = m_context->ShortTy;
-  m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
+   // TODO: Change promotion to other type once we introduce int16
+  m_baseTypes[HLSLScalarType_int_min12] = m_context->getLangOpts().UseMinPrecision ? m_context->ShortTy : m_context->IntTy;
+  m_baseTypes[HLSLScalarType_int_min16] = m_context->getLangOpts().UseMinPrecision ? m_context->ShortTy : m_context->IntTy;
+  m_baseTypes[HLSLScalarType_uint_min16] = m_context->getLangOpts().UseMinPrecision ? m_context->UnsignedShortTy : m_context->UnsignedIntTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
   m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
@@ -4903,8 +4929,17 @@ bool HLSLExternalSource::MatchArguments(
       if (pIntrinsic->pArgs[0].uComponentTypeId != INTRIN_COMPTYPE_FROM_TYPE_ELT0) {
         DXASSERT_NOMSG(pIntrinsic->pArgs[0].uComponentTypeId < MaxIntrinsicArgs);
         if (AR_BASIC_UNKNOWN == ComponentType[pIntrinsic->pArgs[0].uComponentTypeId]) {
-          ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
-            g_LegalIntrinsicCompTypes[pIntrinsic->pArgs[0].uLegalComponentTypes][0];
+          // half return type should map to float for min precision
+          if (pIntrinsic->pArgs[0].uLegalComponentTypes ==
+                  LEGAL_INTRINSIC_COMPTYPES::LICOMPTYPE_HALF &&
+              getSema()->getLangOpts().UseMinPrecision) {
+            ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
+              ArBasicKind::AR_BASIC_FLOAT32;
+          }
+          else {
+            ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
+              g_LegalIntrinsicCompTypes[pIntrinsic->pArgs[0].uLegalComponentTypes][0];
+          }
         }
       }
     }
@@ -4934,7 +4969,7 @@ bool HLSLExternalSource::MatchArguments(
 
       if (AR_TOBJ_UNKNOWN == *pTT)
         return false;
-    }
+      }
     else if (pTT) {
       Template[i] = *pTT;
     }

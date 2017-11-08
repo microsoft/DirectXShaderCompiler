@@ -263,6 +263,7 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
   MPM.add(createCFGSimplificationPass());
 
   MPM.add(createDeadCodeEliminationPass());
+  MPM.add(createDxilTranslateRawBuffer());
 }
 // HLSL Change Ends
 

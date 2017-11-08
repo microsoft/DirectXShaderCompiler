@@ -7444,7 +7444,9 @@ def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
 def err_hlsl_cannot_convert: Error<
   "cannot %select{implicitly |}0convert %select{|output parameter }1from %2 to %3">;
-def err_hlsl_interfaces_cannot_inherit : Error<
+def err_hlsl_half_load_store: Error<
+  "LoadHalf and StoreHalf are not supported for min precision mode">;
+def err_hlsl_interfaces_cannot_inherit: Error<
   "interfaces cannot inherit from other types">;
 def err_hlsl_invalid_range_1_4: Error<
   "invalid value, valid range is between 1 and 4 inclusive">;
@@ -7642,9 +7644,9 @@ def warn_hlsl_effect_object : Warning <
 def warn_hlsl_unused_call : Warning<
   "ignoring return value of function that only reads data">,
   InGroup<UnusedValue>;
-}
 def err_hlsl_func_in_func_decl : Error<
    "function declaration is not allowed in function parameters">;
+}
 // HLSL Change Ends
 
 let CategoryName = "OpenMP Issue" in {

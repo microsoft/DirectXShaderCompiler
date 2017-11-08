@@ -1,17 +1,17 @@
 // RUN: %dxc -E main -T ps_6_2 -no-min-precision %s  | FileCheck %s
 
-// CHECK: call void @dx.op.bufferStore.f16(i32 69, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 0, half 0xH3C00, half 0xH3C00, half 0xH3C00, half undef, i8 7)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 8, i32 2, i32 2, i32 2, i32 2, i8 15)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.f16(i32 69, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 24, half 0xH4200, half 0xH4200, half 0xH4200, half undef, i8 7)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.f16(i32 69, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 30, half 0xH4400, half 0xH4400, half 0xH4400, half 0xH4400, i8 15)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 40, i32 %1, i32 %2, i32 undef, i32 undef, i8 3)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.f16(i32 69, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 48, half 0xH4600, half undef, half undef, half undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.f16(i32 69, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 50, half 0xH4700, half undef, half undef, half undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.f16(i32 69, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 52, half 0xH4800, half undef, half undef, half undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 56, i32 9, i32 undef, i32 undef, i32 undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %g_sb2_UAV_structbuf, i32 0, i32 0, i32 %4, i32 %5, i32 undef, i32 undef, i8 3)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.f16(i32 69, %dx.types.Handle %g_sb2_UAV_structbuf, i32 0, i32 8, half 0xH4000, half 0xH4000, half 0xH4000, half undef, i8 7)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %g_sb2_UAV_structbuf, i32 0, i32 16, i32 3, i32 undef, i32 undef, i32 undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
+// CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 0, half 0xH3C00, half 0xH3C00, half 0xH3C00, half undef, i8 7, i32 2)
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 8, i32 2, i32 2, i32 2, i32 2, i8 15, i32 4)
+// CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 24, half 0xH4200, half 0xH4200, half 0xH4200, half undef, i8 7, i32 2)
+// CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 30, half 0xH4400, half 0xH4400, half 0xH4400, half 0xH4400, i8 15, i32 2)
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 40, i32 %1, i32 %2, i32 undef, i32 undef, i8 3, i32 8)
+// CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 48, half 0xH4600, half undef, half undef, half undef, i8 1, i32 2)
+// CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 50, half 0xH4700, half undef, half undef, half undef, i8 1, i32 2)
+// CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 52, half 0xH4800, half undef, half undef, half undef, i8 1, i32 2)
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %g_sb1_UAV_structbuf, i32 0, i32 56, i32 9, i32 undef, i32 undef, i32 undef, i8 1, i32 4)
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %g_sb2_UAV_structbuf, i32 0, i32 0, i32 %4, i32 %5, i32 undef, i32 undef, i8 3, i32 8)
+// CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %g_sb2_UAV_structbuf, i32 0, i32 8, half 0xH4000, half 0xH4000, half 0xH4000, half undef, i8 7, i32 2)
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %g_sb2_UAV_structbuf, i32 0, i32 16, i32 3, i32 undef, i32 undef, i32 undef, i8 1, i32 4)
 
 struct MyStruct1
 {
