@@ -788,7 +788,8 @@ bool DeclResultIdMapper::createStageVars(
                                           shaderModel.GetMajor(),
                                           shaderModel.GetMinor()) ==
         hlsl::DXIL::SemanticInterpretationKind::NA) {
-      emitError("invalid semantic %0 for shader model %1", decl->getLocation())
+      emitError("invalid usage of semantic '%0' in shader profile %1",
+                decl->getLocation())
           << semanticStr << shaderModel.GetName();
       return false;
     }
@@ -1175,10 +1176,13 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     }
   }
   // According to DXIL spec, the VertexID SV can only be used by VSIn.
-  case hlsl::Semantic::Kind::VertexID:
+  // According to Vulkan spec, the VertexIndex BuiltIn can only be used by
+  // VSIn.
+  case hlsl::Semantic::Kind::VertexID: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::VertexIndex);
-  // According to DXIL spec, the InstanceID SV can  be used by VSIn, VSOut,
+  }
+  // According to DXIL spec, the InstanceID SV can be used by VSIn, VSOut,
   // HSCPIn, HSCPOut, DSCPIn, DSOut, GSVIn, GSOut, PSIn.
   // According to Vulkan spec, the InstanceIndex BuitIn can only be used by
   // VSIn.
@@ -1188,17 +1192,21 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::InstanceIndex);
     case hlsl::SigPoint::Kind::VSOut:
-      return theBuilder.addStageIOVar(type, sc, name.str());
+    case hlsl::SigPoint::Kind::HSCPIn:
+    case hlsl::SigPoint::Kind::HSCPOut:
+    case hlsl::SigPoint::Kind::DSCPIn:
+    case hlsl::SigPoint::Kind::DSOut:
+    case hlsl::SigPoint::Kind::GSVIn:
+    case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::PSIn:
       return theBuilder.addStageIOVar(type, sc, name.str());
     default:
-      emitError("semantic InstanceID for SigPoint %0 unimplemented", srcLoc)
-          << sigPoint->GetName();
-      break;
+      llvm_unreachable("invalid usage of SV_InstanceID sneaked in");
     }
   }
   // According to DXIL spec, the Depth{|GreaterEqual|LessEqual} SV can only be
   // used by PSOut.
+  // According to Vulkan spec, the FragDepth BuiltIn can only be used by PSOut.
   case hlsl::Semantic::Kind::Depth:
   case hlsl::Semantic::Kind::DepthGreaterEqual:
   case hlsl::Semantic::Kind::DepthLessEqual: {
@@ -1242,14 +1250,13 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   // According to Vulkan spec, the FrontFacing BuitIn can only be used in PSIn.
   case hlsl::Semantic::Kind::IsFrontFace: {
     switch (sigPointKind) {
+    case hlsl::SigPoint::Kind::GSOut:
+      return theBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing);
     default:
-      emitError("semantic IsFrontFace for SigPoint %0 unimplemented",
-                srcLoc)
-          << sigPoint->GetName();
-      break;
+      llvm_unreachable("invalid usage of SV_IsFrontFace sneaked in");
     }
   }
   // According to DXIL spec, the Target SV can only be used by PSOut.
@@ -1262,42 +1269,89 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     return theBuilder.addStageIOVar(type, sc, name.str());
     // TODO: patch constant function in hull shader
   }
+  // According to DXIL spec, the DispatchThreadID SV can only be used by CSIn.
+  // According to Vulkan spec, the GlobalInvocationId can only be used in CSIn.
   case hlsl::Semantic::Kind::DispatchThreadID: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::GlobalInvocationId);
   }
+  // According to DXIL spec, the GroupID SV can only be used by CSIn.
+  // According to Vulkan spec, the WorkgroupId can only be used in CSIn.
   case hlsl::Semantic::Kind::GroupID: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::WorkgroupId);
   }
+  // According to DXIL spec, the GroupThreadID SV can only be used by CSIn.
+  // According to Vulkan spec, the LocalInvocationId can only be used in CSIn.
   case hlsl::Semantic::Kind::GroupThreadID: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::LocalInvocationId);
   }
+  // According to DXIL spec, the GroupIndex SV can only be used by CSIn.
+  // According to Vulkan spec, the LocalInvocationIndex can only be used in
+  // CSIn.
   case hlsl::Semantic::Kind::GroupIndex: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc,
                                          BuiltIn::LocalInvocationIndex);
   }
+  // According to DXIL spec, the OutputControlID SV can only be used by HSIn.
+  // According to Vulkan spec, the InvocationId BuiltIn can only be used in
+  // HS/GS In.
   case hlsl::Semantic::Kind::OutputControlPointID: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::InvocationId);
   }
+  // According to DXIL spec, the PrimitiveID SV can only be used by PCIn, HSIn,
+  // DSIn, GSIn, GSOut, and PSIn.
+  // According to Vulkan spec, the PrimitiveId BuiltIn can only be used in
+  // HS/DS/PS In, GS In/Out.
   case hlsl::Semantic::Kind::PrimitiveID: {
+    // PrimitiveId requires either Tessellation or Geometry capability.
+    // Need to require one for PSIn.
+    if (sigPointKind == hlsl::SigPoint::Kind::PSIn)
+      theBuilder.requireCapability(spv::Capability::Tessellation);
+
+    // Translate to PrimitiveId BuiltIn for all valid SigPoints.
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::PrimitiveId);
   }
+  // According to DXIL spec, the TessFactor SV can only be used by PCOut and
+  // DSIn.
+  // According to Vulkan spec, the TessLevelOuter BuiltIn can only be used in
+  // PCOut and DSIn.
   case hlsl::Semantic::Kind::TessFactor: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelOuter);
   }
+  // According to DXIL spec, the InsideTessFactor SV can only be used by PCOut
+  // and DSIn.
+  // According to Vulkan spec, the TessLevelInner BuiltIn can only be used in
+  // PCOut and DSIn.
   case hlsl::Semantic::Kind::InsideTessFactor: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessLevelInner);
   }
+  // According to DXIL spec, the DomainLocation SV can only be used by DSIn.
+  // According to Vulkan spec, the TessCoord BuiltIn can only be used in DSIn.
   case hlsl::Semantic::Kind::DomainLocation: {
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::TessCoord);
+  }
+  // According to DXIL spec, the GSInstanceID SV can only be used by GSIn.
+  // According to Vulkan spec, the InvocationId BuiltIn can only be used in
+  // HS/GS In.
+  case hlsl::Semantic::Kind::GSInstanceID: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::InvocationId);
+  }
+  // According to DXIL spec, the SampleIndex SV can only be used by PSIn.
+  // According to Vulkan spec, the SampleId BuiltIn can only be used in PSIn.
+  case hlsl::Semantic::Kind::SampleIndex: {
+    theBuilder.requireCapability(spv::Capability::SampleRateShading);
+
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleId);
   }
   default:
     emitError("semantic %0 unimplemented", srcLoc)
