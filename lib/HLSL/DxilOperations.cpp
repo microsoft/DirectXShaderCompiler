@@ -126,7 +126,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Resources                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::CreateHandle,            "CreateHandle",             OCC::CreateHandle,             "createHandle",                true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
   {  OC::CBufferLoad,             "CBufferLoad",              OCC::CBufferLoad,              "cbufferLoad",                false,  true,  true,  true, false,  true,  true,  true,  true, Attribute::ReadOnly, },
-  {  OC::CBufferLoadLegacy,       "CBufferLoadLegacy",        OCC::CBufferLoadLegacy,        "cbufferLoadLegacy",          false,  true,  true,  true, false, false,  true,  true, false, Attribute::ReadOnly, },
+  {  OC::CBufferLoadLegacy,       "CBufferLoadLegacy",        OCC::CBufferLoadLegacy,        "cbufferLoadLegacy",          false,  true,  true,  true, false, false,  true,  true,  true, Attribute::ReadOnly, },
 
   // Resources - sample                                                                                                     void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::Sample,                  "Sample",                   OCC::Sample,                   "sample",                     false,  true,  true, false, false, false, false, false, false, Attribute::ReadOnly, },
@@ -982,7 +982,8 @@ Type *OP::GetCBufferRetType(Type *pOverloadType) {
   if (m_pCBufferRetType[TypeSlot] == nullptr) {
     string TypeName("dx.types.CBufRet.");
     TypeName += GetOverloadTypeName(TypeSlot);
-    if (pOverloadType->isDoubleTy()) {
+    Type *i64Ty = Type::getInt64Ty(pOverloadType->getContext());
+    if (pOverloadType->isDoubleTy() || pOverloadType == i64Ty) {
       Type *FieldTypes[2] = { pOverloadType, pOverloadType };
       m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
     }
