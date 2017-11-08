@@ -61,10 +61,10 @@ void matrix_out_of_bounds() {
 
 void matrix_unsigned() {
    unsigned int4x2 intMatrix;
-   unsigned min16int4x3 min16Matrix;
+   unsigned min16int4x3 min16Matrix; /* expected-warning {{min16int is promoted to int}} */
    unsigned int64_t3x3 int64Matrix;
    unsigned uint3x4 uintMatrix;
-   unsigned min16uint4x1 min16uintMatrix;
+   unsigned min16uint4x1 min16uintMatrix;                   /* expected-warning {{min16uint is promoted to uint}} */
    unsigned uint64_t2x2 int64uintMatrix;
    unsigned dword3x2 dwordvector; /* fxc-error {{X3000: unrecognized identifier 'dword3x1'}} */
 

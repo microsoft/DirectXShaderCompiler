@@ -66,6 +66,9 @@ public:
   // To check if operation uses strict precision types
   bool UseMinPrecision();
 
+  // Get the size of the type for a given layout
+  uint64_t GetAllocSizeForType(llvm::Type *Ty);
+
   // LLVM helpers. Perhaps, move to a separate utility class.
   llvm::Constant *GetI1Const(bool v);
   llvm::Constant *GetI8Const(char v);

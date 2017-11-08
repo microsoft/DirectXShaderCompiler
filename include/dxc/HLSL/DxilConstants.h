@@ -395,6 +395,8 @@ namespace DXIL {
     CheckAccessFullyMapped = 71, // determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
     CreateHandle = 57, // creates the handle to a resource
     GetDimensions = 72, // gets texture size information
+    RawBufferLoad = 139, // reads from a raw buffer and structured buffer
+    RawBufferStore = 140, // writes to a RWByteAddressBuffer or RWStructuredBuffer
     TextureLoad = 66, // reads texel data without any filtering or sampling
     TextureStore = 67, // reads texel data without any filtering or sampling
   
@@ -477,8 +479,9 @@ namespace DXIL {
   
     NumOpCodes_Dxil_1_0 = 137,
     NumOpCodes_Dxil_1_1 = 139,
+    NumOpCodes_Dxil_1_2 = 141,
   
-    NumOpCodes = 139 // exclusive last value of enumeration
+    NumOpCodes = 141 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -591,6 +594,8 @@ namespace DXIL {
     CheckAccessFullyMapped,
     CreateHandle,
     GetDimensions,
+    RawBufferLoad,
+    RawBufferStore,
     TextureLoad,
     TextureStore,
   
@@ -635,8 +640,9 @@ namespace DXIL {
   
     NumOpClasses_Dxil_1_0 = 93,
     NumOpClasses_Dxil_1_1 = 95,
+    NumOpClasses_Dxil_1_2 = 97,
   
-    NumOpClasses = 95 // exclusive last value of enumeration
+    NumOpClasses = 97 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -686,6 +692,24 @@ namespace DXIL {
     const unsigned kBufferStoreVal2OpIdx = 6;
     const unsigned kBufferStoreVal3OpIdx = 7;
     const unsigned kBufferStoreMaskOpIdx = 8;
+
+    // RawBufferLoad.
+    const unsigned kRawBufferLoadHandleOpIdx        = 1;
+    const unsigned kRawBufferLoadIndexOpIdx         = 2;
+    const unsigned kRawBufferLoadElementOffsetOpIdx = 3;
+    const unsigned kRawBufferLoadMaskOpIdx          = 4;
+    const unsigned kRawBufferLoadAlignmentOpIdx     = 5;
+
+    // RawBufferStore
+    const unsigned kRawBufferStoreHandleOpIdx = 1;
+    const unsigned kRawBufferStoreIndexOpIdx = 2;
+    const unsigned kRawBufferStoreElementOffsetOpIdx = 3;
+    const unsigned kRawBufferStoreVal0OpIdx = 4;
+    const unsigned kRawBufferStoreVal1OpIdx = 5;
+    const unsigned kRawBufferStoreVal2OpIdx = 6;
+    const unsigned kRawBufferStoreVal3OpIdx = 7;
+    const unsigned kRawBufferStoreMaskOpIdx = 8;
+    const unsigned kRawBufferStoreAlignmentOpIdx = 8;
 
     // TextureStore.
     const unsigned kTextureStoreHandleOpIdx = 1;

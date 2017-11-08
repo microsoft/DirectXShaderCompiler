@@ -1,9 +1,9 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 %s | FileCheck %s
 
-// CHECK: @dx.op.bufferLoad
-// CHECK: @dx.op.bufferStore
-// CHECK-NOT: @dx.op.rawBufferLoad
-// CHECK-NOT: @dx.op.rawBufferStore
+// CHECK-NOT: @dx.op.bufferLoad
+// CHECK-NOT: @dx.op.bufferStore
+// CHECK: @dx.op.rawBufferLoad
+// CHECK: @dx.op.rawBufferStore
 
 struct Foo
 {

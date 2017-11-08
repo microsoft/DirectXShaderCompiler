@@ -202,4 +202,29 @@ private:
 
 DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind SK, bool isPC);
 
+class DxilStructTypeIterator
+    : public std::iterator<std::input_iterator_tag,
+                           std::pair<llvm::Type *, DxilFieldAnnotation *>> {
+private:
+  llvm::StructType *STy;
+  DxilStructAnnotation *SAnnotation;
+  unsigned index;
+
+public:
+  DxilStructTypeIterator(llvm::StructType *sTy,
+                         DxilStructAnnotation *sAnnotation, unsigned idx = 0);
+  // prefix
+  DxilStructTypeIterator &operator++();
+  // postfix
+  DxilStructTypeIterator operator++(int);
+
+  bool operator==(DxilStructTypeIterator iter);
+  bool operator!=(DxilStructTypeIterator iter);
+  std::pair<llvm::Type *, DxilFieldAnnotation *> operator*();
+};
+
+DxilStructTypeIterator begin(llvm::StructType *STy,
+                             DxilStructAnnotation *SAnno);
+DxilStructTypeIterator end(llvm::StructType *STy, DxilStructAnnotation *SAnno);
+
 } // namespace hlsl
