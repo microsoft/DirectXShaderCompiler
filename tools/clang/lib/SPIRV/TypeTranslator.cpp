@@ -885,6 +885,11 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
   // Rule 9
   if (const auto *structType = type->getAs<RecordType>()) {
+    // Special case for handling empty structs, whose size is 0 and has no
+    // requirement over alignment (thus 1).
+    if (structType->getDecl()->field_empty())
+      return {1, 0};
+
     uint32_t maxAlignment = 0;
     uint32_t structSize = 0;
 
