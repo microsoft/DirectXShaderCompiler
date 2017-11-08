@@ -68,6 +68,8 @@ const char* HLSLScalarTypeNames[] = {
   "literal float",
   "int64_t",
   "uint64_t",
+  "short",
+  "ushort"
 };
 
 static_assert(HLSLScalarTypeCount == _countof(HLSLScalarTypeNames), "otherwise scalar constants are not aligned");
@@ -99,7 +101,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
         return HLSLScalarType_half;
       }
       break;
-    case 5: // dword, float
+    case 5: // dword, float, short
       if (typeName[0] == 'd') {
         if (strncmp(typeName, "dword", 5))
           break;
@@ -110,12 +112,22 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
           break;
         return HLSLScalarType_float;
       }
+      else if (typeName[0] == 's') {
+        if (strncmp(typeName, "short", 5))
+          break;
+        return HLSLScalarType_short;
+      }
       break;
-    case 6: // double
+    case 6: // double, ushort
       if (typeName[0] == 'd') {
         if (strncmp(typeName, "double", 6))
           break;
         return HLSLScalarType_double;
+      }
+      else if (typeName[0] == 'u') {
+        if (strncmp(typeName, "ushort", 6))
+          break;
+        return HLSLScalarType_ushort;
       }
       break;
     case 7: // int64_t

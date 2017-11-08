@@ -3059,12 +3059,10 @@ public:
         m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16float" << "half";
       }
       else if (type == HLSLScalarType_int_min16) {
-        // TODO: change promotion to short once we support int16
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "int";
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "short";
       }
       else if (type == HLSLScalarType_uint_min16) {
-        // TODO: change promotion to unsigned short once we support int16
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "uint";
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "unsigned short";
       }
     }
   }
@@ -3297,8 +3295,8 @@ public:
       case BuiltinType::Half: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16FLOAT : AR_BASIC_FLOAT16;
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
-      case BuiltinType::Short: return AR_BASIC_MIN16INT;    // rather than AR_BASIC_INT16
-      case BuiltinType::UShort: return AR_BASIC_MIN16UINT;  // rather than AR_BASIC_UINT16
+      case BuiltinType::Short: return AR_BASIC_INT16;    // rather than AR_BASIC_INT16
+      case BuiltinType::UShort: return AR_BASIC_UINT16;  // rather than AR_BASIC_UINT16
       case BuiltinType::Long: return AR_BASIC_INT32;
       case BuiltinType::ULong: return AR_BASIC_UINT32;
       case BuiltinType::LongLong: return AR_BASIC_INT64;
@@ -3376,8 +3374,8 @@ public:
     case AR_BASIC_LITERAL_INT:    return HLSLScalarType_int_lit;
     case AR_BASIC_INT8:           return HLSLScalarType_int;
     case AR_BASIC_UINT8:          return HLSLScalarType_uint;
-    case AR_BASIC_INT16:          return HLSLScalarType_uint;
-    case AR_BASIC_UINT16:         return HLSLScalarType_uint;
+    case AR_BASIC_INT16:          return HLSLScalarType_short;
+    case AR_BASIC_UINT16:         return HLSLScalarType_ushort;
     case AR_BASIC_INT32:          return HLSLScalarType_int;
     case AR_BASIC_UINT32:         return HLSLScalarType_uint;
     case AR_BASIC_MIN10FLOAT:     return HLSLScalarType_float_min10;
@@ -3408,8 +3406,8 @@ public:
     case AR_BASIC_LITERAL_INT:    return m_context->LitIntTy;
     case AR_BASIC_INT8:           return m_context->IntTy;
     case AR_BASIC_UINT8:          return m_context->UnsignedIntTy;
-    case AR_BASIC_INT16:          return m_context->IntTy;
-    case AR_BASIC_UINT16:         return m_context->UnsignedIntTy;
+    case AR_BASIC_INT16:          return m_context->ShortTy;
+    case AR_BASIC_UINT16:         return m_context->UnsignedShortTy;
     case AR_BASIC_INT32:          return m_context->IntTy;
     case AR_BASIC_UINT32:         return m_context->UnsignedIntTy;
     case AR_BASIC_INT64:          return m_context->LongLongTy;
@@ -4454,14 +4452,15 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_double] = m_context->DoubleTy;
   m_baseTypes[HLSLScalarType_float_min10] = m_context->HalfTy;
   m_baseTypes[HLSLScalarType_float_min16] = m_context->HalfTy;
-   // TODO: Change promotion to other type once we introduce int16
-  m_baseTypes[HLSLScalarType_int_min12] = m_context->getLangOpts().UseMinPrecision ? m_context->ShortTy : m_context->IntTy;
-  m_baseTypes[HLSLScalarType_int_min16] = m_context->getLangOpts().UseMinPrecision ? m_context->ShortTy : m_context->IntTy;
-  m_baseTypes[HLSLScalarType_uint_min16] = m_context->getLangOpts().UseMinPrecision ? m_context->UnsignedShortTy : m_context->UnsignedIntTy;
+  m_baseTypes[HLSLScalarType_int_min12] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_int_min16] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
   m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
   m_baseTypes[HLSLScalarType_uint64] = m_context->UnsignedLongLongTy;
+  m_baseTypes[HLSLScalarType_short] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_ushort] = m_context->UnsignedShortTy;
 }
 
 void HLSLExternalSource::AddHLSLScalarTypes()
@@ -4473,6 +4472,8 @@ void HLSLExternalSource::AddHLSLScalarTypes()
   m_scalarTypes[HLSLScalarType_double] = m_baseTypes[HLSLScalarType_double];
   m_scalarTypes[HLSLScalarType_float_lit] = m_baseTypes[HLSLScalarType_float_lit];
   m_scalarTypes[HLSLScalarType_int_lit] = m_baseTypes[HLSLScalarType_int_lit];
+  m_scalarTypes[HLSLScalarType_short] = m_baseTypes[HLSLScalarType_short];
+  m_scalarTypes[HLSLScalarType_ushort] = m_baseTypes[HLSLScalarType_ushort];
 }
 
 FunctionDecl* HLSLExternalSource::AddSubscriptSpecialization(

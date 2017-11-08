@@ -2068,6 +2068,8 @@ void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferLoadByType(
       IRBuilder<> CIBuilder(CI);
       SmallVector<Value *, 5> newFuncArgs;
       // opcode, handle, index, elementOffset, mask
+      // Compiler is generating correct element offset even for min precision types
+      // So no need to recalculate here
       for (unsigned i = 0; i < 5; ++i) {
         newFuncArgs.emplace_back(CI->getArgOperand(i));
       }
