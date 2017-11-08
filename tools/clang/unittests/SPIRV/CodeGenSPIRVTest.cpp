@@ -737,6 +737,9 @@ TEST_F(FileTest, SpirvStageIOInterfaceHS) {
 TEST_F(FileTest, SpirvStageIOInterfaceDS) {
   runFileTest("spirv.interface.ds.hlsl");
 }
+TEST_F(FileTest, SpirvStageIOInterfaceGS) {
+  runFileTest("spirv.interface.gs.hlsl");
+}
 TEST_F(FileTest, SpirvStageIOInterfacePS) {
   runFileTest("spirv.interface.ps.hlsl");
 }
@@ -821,21 +824,24 @@ TEST_F(FileTest, VulkanLayoutConsumeSBufferStd430) {
   runFileTest("vk.layout.csbuffer.std430.hlsl");
 }
 
-// For different Patch Constant Functions (for Hull shaders)
-TEST_F(FileTest, HullShaderPCFVoid) { runFileTest("hull.pcf.void.hlsl"); }
+// HS: for different Patch Constant Functions
+TEST_F(FileTest, HullShaderPCFVoid) { runFileTest("hs.pcf.void.hlsl"); }
 TEST_F(FileTest, HullShaderPCFTakesInputPatch) {
-  runFileTest("hull.pcf.input-patch.hlsl");
+  runFileTest("hs.pcf.input-patch.hlsl");
 }
 TEST_F(FileTest, HullShaderPCFTakesOutputPatch) {
-  runFileTest("hull.pcf.output-patch.hlsl");
+  runFileTest("hs.pcf.output-patch.hlsl");
 }
 TEST_F(FileTest, HullShaderPCFTakesPrimitiveId) {
-  runFileTest("hull.pcf.primitive-id.1.hlsl");
+  runFileTest("hs.pcf.primitive-id.1.hlsl");
 }
 TEST_F(FileTest, HullShaderPCFTakesPrimitiveIdButMainDoesnt) {
-  runFileTest("hull.pcf.primitive-id.2.hlsl");
+  runFileTest("hs.pcf.primitive-id.2.hlsl");
 }
-// For the structure of Hull Shaders
-TEST_F(FileTest, HullShaderStructure) { runFileTest("hull.structure.hlsl"); }
+// HS: for the structure of hull shaders
+TEST_F(FileTest, HullShaderStructure) { runFileTest("hs.structure.hlsl"); }
+
+// GS: emit vertex and emit primitive
+TEST_F(FileTest, GeometryShaderEmit) { runFileTest("gs.emit.hlsl"); }
 
 } // namespace

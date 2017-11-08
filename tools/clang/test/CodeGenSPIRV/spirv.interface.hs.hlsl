@@ -6,6 +6,7 @@
 
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
+// CHECK: OpCapability Tessellation
 
 // Input control point
 struct HsCpIn

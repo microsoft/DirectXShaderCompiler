@@ -560,6 +560,18 @@ void ModuleBuilder::createControlBarrier(uint32_t execution, uint32_t memory,
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
+void ModuleBuilder::createEmitVertex() {
+  assert(insertPoint && "null insert point");
+  instBuilder.opEmitVertex().x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
+void ModuleBuilder::createEndPrimitive() {
+  assert(insertPoint && "null insert point");
+  instBuilder.opEndPrimitive().x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
 void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
                                      spv::ExecutionMode em,
                                      llvm::ArrayRef<uint32_t> params) {

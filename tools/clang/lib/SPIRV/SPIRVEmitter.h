@@ -617,6 +617,13 @@ private:
   /// the loaded value for .Consume; returns zero for .Append().
   SpirvEvalInfo processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
 
+  /// \brief Generates SPIR-V instructions to emit the current vertex in GS.
+  uint32_t processStreamOutputAppend(const CXXMemberCallExpr *expr);
+
+  /// \brief Generates SPIR-V instructions to end emitting the current
+  /// primitive in GS.
+  uint32_t processStreamOutputRestart(const CXXMemberCallExpr *expr);
+
 private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.

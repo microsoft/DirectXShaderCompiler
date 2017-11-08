@@ -84,15 +84,22 @@ public:
   void requireCapabilityIfNecessary();
 
   /// Tries to access the builtin translated from the given HLSL semantic of the
-  /// given index. If sigPoint indicates this is input, builtins will be read
-  /// to compose a new temporary value of the correct type and writes to *value.
-  /// Otherwise, the *value will be decomposed and writes to the builtins.
+  /// given index.
+  ///
+  /// If sigPoint indicates this is input, builtins will be read to compose a
+  /// new temporary value of the correct type and writes to *value. Otherwise,
+  /// the *value will be decomposed and writes to the builtins, unless
+  /// noWriteBack is true, which means do not write back the value.
+  ///
+  /// If invocation (should only be used for HS) is not llvm::None, only
+  /// accesses the element at the invocation offset in the gl_PerVeterx array.
+  ///
   /// Emits SPIR-V instructions and returns true if we are accessing builtins
   /// belonging to gl_PerVertex. Does nothing and returns true if we are
   /// accessing builtins not in gl_PerVertex. Returns false if errors occurs.
-  bool tryToAccess(hlsl::Semantic::Kind, uint32_t semanticIndex,
-                   llvm::Optional<uint32_t> invocationId, uint32_t *value,
-                   hlsl::SigPoint::Kind sigPoint);
+  bool tryToAccess(hlsl::SigPoint::Kind sigPoint, hlsl::Semantic::Kind,
+                   uint32_t semanticIndex, llvm::Optional<uint32_t> invocation,
+                   uint32_t *value, bool noWriteBack);
 
 private:
   template <unsigned N>

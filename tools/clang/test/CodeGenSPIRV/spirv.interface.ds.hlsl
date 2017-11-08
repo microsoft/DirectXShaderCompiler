@@ -2,6 +2,7 @@
 
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
+// CHECK: OpCapability Tessellation
 
 // HS PCF output
 

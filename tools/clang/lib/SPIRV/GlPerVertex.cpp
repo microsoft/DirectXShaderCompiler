@@ -11,6 +11,7 @@
 
 #include <algorithm>
 
+#include "clang/AST/Attr.h"
 #include "clang/AST/HlslTypes.h"
 
 namespace clang {
@@ -43,6 +44,15 @@ inline QualType getTypeOrFnRetType(const DeclaratorDecl *decl) {
     return funcDecl->getReturnType();
   }
   return decl->getType();
+}
+
+/// Returns true if the given declaration has a primitive type qualifier.
+/// Returns false otherwise.
+inline bool hasGSPrimitiveTypeQualifier(const DeclaratorDecl *decl) {
+  return decl->hasAttr<HLSLTriangleAttr>() ||
+         decl->hasAttr<HLSLTriangleAdjAttr>() ||
+         decl->hasAttr<HLSLPointAttr>() || decl->hasAttr<HLSLLineAttr>() ||
+         decl->hasAttr<HLSLLineAdjAttr>();
 }
 } // anonymous namespace
 
@@ -170,14 +180,21 @@ bool GlPerVertex::doClipCullDistanceDecl(const DeclaratorDecl *decl,
       return doClipCullDistanceDecl(
           decl, hlsl::GetHLSLOutputPatchElementType(baseType), asInput);
     }
+
     if (hlsl::IsHLSLStreamOutputType(baseType)) {
       return doClipCullDistanceDecl(
           decl, hlsl::GetHLSLOutputPatchElementType(baseType), asInput);
     }
+    if (hasGSPrimitiveTypeQualifier(decl)) {
+      // GS inputs have an additional arrayness that we should remove to check
+      // the underlying type instead.
+      baseType = astContext.getAsConstantArrayType(baseType)->getElementType();
+      return doClipCullDistanceDecl(decl, baseType, asInput);
+    }
 
     emitError("semantic string missing for shader %select{output|input}0 "
               "variable '%1'",
-              decl->getLocStart())
+              decl->getLocation())
         << asInput << decl->getName();
     return false;
   }
@@ -356,34 +373,52 @@ uint32_t GlPerVertex::createCullDistanceVar(bool asInput, uint32_t arraySize) {
   return theBuilder.addStageBuiltinVar(type, sc, spv::BuiltIn::CullDistance);
 }
 
-bool GlPerVertex::tryToAccess(hlsl::Semantic::Kind semanticKind,
+bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
+                              hlsl::Semantic::Kind semanticKind,
                               uint32_t semanticIndex,
                               llvm::Optional<uint32_t> invocationId,
-                              uint32_t *value,
-                              hlsl::SigPoint::Kind sigPointKind) {
+                              uint32_t *value, bool noWriteBack) {
   // invocationId should only be used for HSPCOut.
   assert(invocationId.hasValue() ? sigPointKind == hlsl::SigPoint::Kind::HSCPOut
                                  : true);
 
+  switch (semanticKind) {
+  case hlsl::Semantic::Kind::Position:
+  case hlsl::Semantic::Kind::ClipDistance:
+  case hlsl::Semantic::Kind::CullDistance:
+    // gl_PerVertex only cares about these builtins.
+    break;
+  default:
+    return false; // Fall back to the normal path
+  }
+
   switch (sigPointKind) {
+  case hlsl::SigPoint::Kind::PSIn:
+    // We don't handle stand-alone Position builtin in this class.
+    if (semanticKind == hlsl::Semantic::Kind::Position)
+      return false; // Fall back to the normal path
+
+  // Fall through
+
   case hlsl::SigPoint::Kind::HSCPIn:
   case hlsl::SigPoint::Kind::DSCPIn:
   case hlsl::SigPoint::Kind::GSVIn:
     return readField(semanticKind, semanticIndex, value);
-  case hlsl::SigPoint::Kind::PSIn:
+
+  case hlsl::SigPoint::Kind::GSOut:
     // We don't handle stand-alone Position builtin in this class.
-    return semanticKind == hlsl::Semantic::Kind::Position
-               ? 0 // Fall back to the normal path
-               : readField(semanticKind, semanticIndex, value);
+    if (semanticKind == hlsl::Semantic::Kind::Position)
+      return false; // Fall back to the normal path
+
+  // Fall through
+
   case hlsl::SigPoint::Kind::VSOut:
   case hlsl::SigPoint::Kind::HSCPOut:
   case hlsl::SigPoint::Kind::DSOut:
+    if (noWriteBack)
+      return true;
+
     return writeField(semanticKind, semanticIndex, invocationId, value);
-  case hlsl::SigPoint::Kind::GSOut:
-    // We don't handle stand-alone Position builtin in this class.
-    return semanticKind == hlsl::Semantic::Kind::Position
-               ? 0 // Fall back to the normal path
-               : writeField(semanticKind, semanticIndex, invocationId, value);
   }
 
   return false;
