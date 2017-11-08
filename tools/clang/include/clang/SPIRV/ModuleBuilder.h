@@ -254,6 +254,12 @@ public:
   /// \brief Creates an OpControlBarrier instruction with the given flags.
   void createControlBarrier(uint32_t exec, uint32_t memory, uint32_t semantics);
 
+  /// \brief Creates an OpEmitVertex instruction.
+  void createEmitVertex();
+
+  /// \brief Creates an OpEndPrimitive instruction.
+  void createEndPrimitive();
+
   // === SPIR-V Module Structure ===
 
   inline void requireCapability(spv::Capability);

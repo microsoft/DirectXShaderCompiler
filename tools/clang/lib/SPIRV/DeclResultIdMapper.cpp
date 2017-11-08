@@ -64,11 +64,11 @@ ResourceVar::Category getResourceCategory(QualType type) {
 
 /// \brief Returns true if the given declaration has a primitive type qualifier.
 /// Returns false otherwise.
-bool hasGSPrimitiveTypeQualifier(const Decl *decl) {
-  return (decl->hasAttr<HLSLTriangleAttr>() ||
-          decl->hasAttr<HLSLTriangleAdjAttr>() ||
-          decl->hasAttr<HLSLPointAttr>() || decl->hasAttr<HLSLLineAdjAttr>() ||
-          decl->hasAttr<HLSLLineAttr>());
+inline bool hasGSPrimitiveTypeQualifier(const Decl *decl) {
+  return decl->hasAttr<HLSLTriangleAttr>() ||
+         decl->hasAttr<HLSLTriangleAdjAttr>() ||
+         decl->hasAttr<HLSLPointAttr>() || decl->hasAttr<HLSLLineAttr>() ||
+         decl->hasAttr<HLSLLineAdjAttr>();
 }
 
 /// \brief Deduces the parameter qualifier for the given decl.
@@ -128,8 +128,13 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
   // none of them should be created as arrays.
   assert(sigPoint->GetKind() != hlsl::DXIL::SigPointKind::HSCPOut);
 
-  return createStageVars(decl, sigPoint, /*asInput=*/false, type,
-                         /*arraySize=*/0, llvm::None, &storedValue, "out.var");
+  return createStageVars(
+      sigPoint, decl, /*asInput=*/false, type,
+      /*arraySize=*/0, "out.var", llvm::None, &storedValue,
+      // Write back of stage output variables in GS is manually controlled by
+      // .Append() intrinsic method, implemented in writeBackOutputStream().
+      // So noWriteBack should be set to true for GS.
+      shaderModel.IsGS());
 }
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
@@ -143,8 +148,9 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
   const auto *sigPoint =
       hlsl::SigPoint::GetSigPoint(hlsl::DXIL::SigPointKind::HSCPOut);
 
-  return createStageVars(decl, sigPoint, /*asInput=*/false, type, arraySize,
-                         invocationId, &storedValue, "out.var");
+  return createStageVars(sigPoint, decl, /*asInput=*/false, type, arraySize,
+                         "out.var", invocationId, &storedValue,
+                         /*noWriteBack=*/false);
 }
 
 bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
@@ -162,12 +168,18 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
     arraySize = hlsl::GetHLSLOutputPatchCount(type);
     type = hlsl::GetHLSLOutputPatchElementType(type);
   }
+  if (hasGSPrimitiveTypeQualifier(paramDecl)) {
+    const auto *typeDecl = astContext.getAsConstantArrayType(type);
+    arraySize = static_cast<uint32_t>(typeDecl->getSize().getZExtValue());
+    type = typeDecl->getElementType();
+  }
 
   const auto *sigPoint = deduceSigPoint(paramDecl, /*asInput=*/true,
                                         shaderModel.GetKind(), forPCF);
 
-  return createStageVars(paramDecl, sigPoint, /*asInput=*/true, type, arraySize,
-                         llvm::None, loadedValue, "in.var");
+  return createStageVars(sigPoint, paramDecl, /*asInput=*/true, type, arraySize,
+                         "in.var", llvm::None, loadedValue,
+                         /*noWriteBack=*/false);
 }
 
 const DeclResultIdMapper::DeclSpirvInfo *
@@ -746,9 +758,9 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 }
 
 bool DeclResultIdMapper::createStageVars(
-    const DeclaratorDecl *decl, const hlsl::SigPoint *sigPoint, bool asInput,
-    QualType type, uint32_t arraySize, llvm::Optional<uint32_t> invocationId,
-    uint32_t *value, const llvm::Twine &namePrefix) {
+    const hlsl::SigPoint *sigPoint, const DeclaratorDecl *decl, bool asInput,
+    QualType type, uint32_t arraySize, const llvm::Twine &namePrefix,
+    llvm::Optional<uint32_t> invocationId, uint32_t *value, bool noWriteBack) {
   // invocationId should only be used for handling HS per-vertex output.
   if (invocationId.hasValue()) {
     assert(shaderModel.IsHS() && arraySize != 0 && !asInput);
@@ -793,8 +805,9 @@ bool DeclResultIdMapper::createStageVars(
     // * SV_InsideTessFactor is a single float for tri patch, and an array of
     //   size 2 for a quad patch, but it must always be an array of size 2 in
     //   SPIR-V for Vulkan.
-    if (glPerVertex.tryToAccess(semanticKind, semanticIndex, invocationId,
-                                value, sigPoint->GetKind()))
+    if (glPerVertex.tryToAccess(sigPoint->GetKind(), semanticKind,
+                                semanticIndex, invocationId, value,
+                                noWriteBack))
       return true;
 
     if (semanticKind == hlsl::Semantic::Kind::DomainLocation)
@@ -822,6 +835,7 @@ bool DeclResultIdMapper::createStageVars(
     stageVar.setSpirvId(varId);
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
     stageVars.push_back(stageVar);
+    stageVarIds[decl] = varId;
 
     // TODO: the following may not be correct?
     if (sigPoint->GetSignatureKind() ==
@@ -875,6 +889,9 @@ bool DeclResultIdMapper::createStageVars(
             *value, *value, {0, 1});
       }
     } else {
+      if (noWriteBack)
+        return true;
+
       uint32_t ptr = varId;
 
       // Special handling of SV_TessFactor HS patch constant output.
@@ -931,7 +948,7 @@ bool DeclResultIdMapper::createStageVars(
   if (!type->isStructureType()) {
     emitError("semantic string missing for shader %select{output|input}0 "
               "variable '%1'",
-              decl->getLocStart())
+              decl->getLocation())
         << asInput << decl->getName();
     return false;
   }
@@ -945,8 +962,9 @@ bool DeclResultIdMapper::createStageVars(
 
     for (const auto *field : structDecl->fields()) {
       uint32_t subValue = 0;
-      if (!createStageVars(field, sigPoint, asInput, field->getType(),
-                           arraySize, invocationId, &subValue, namePrefix))
+      if (!createStageVars(sigPoint, field, asInput, field->getType(),
+                           arraySize, namePrefix, invocationId, &subValue,
+                           noWriteBack))
         return false;
       subValues.push_back(subValue);
     }
@@ -999,12 +1017,78 @@ bool DeclResultIdMapper::createStageVars(
     // out the value to the correct array element.
     for (const auto *field : structDecl->fields()) {
       const uint32_t fieldType = typeTranslator.translateType(field->getType());
-      uint32_t subValue = theBuilder.createCompositeExtract(
-          fieldType, *value, {field->getFieldIndex()});
-      if (!createStageVars(field, sigPoint, asInput, field->getType(),
-                           arraySize, invocationId, &subValue, namePrefix))
+      uint32_t subValue = 0;
+      if (!noWriteBack)
+        subValue = theBuilder.createCompositeExtract(fieldType, *value,
+                                                     {field->getFieldIndex()});
+
+      if (!createStageVars(sigPoint, field, asInput, field->getType(),
+                           arraySize, namePrefix, invocationId, &subValue,
+                           noWriteBack))
         return false;
     }
+  }
+
+  return true;
+}
+
+bool DeclResultIdMapper::writeBackOutputStream(const ValueDecl *decl,
+                                               uint32_t value) {
+  assert(shaderModel.IsGS()); // Only for GS use
+
+  QualType type = decl->getType();
+
+  if (hlsl::IsHLSLStreamOutputType(type))
+    type = hlsl::GetHLSLResourceResultType(type);
+  if (hasGSPrimitiveTypeQualifier(decl))
+    type = astContext.getAsConstantArrayType(type)->getElementType();
+
+  llvm::StringRef semanticStr;
+  const hlsl::Semantic *semantic = {};
+  uint32_t semanticIndex = {};
+
+  if (getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex)) {
+    // Found semantic attached directly to this Decl. Write the value for this
+    // Decl to the corresponding stage output variable.
+
+    const uint32_t srcTypeId = typeTranslator.translateType(type);
+
+    // Handle SV_Position, SV_ClipDistance, and SV_CullDistance
+    if (glPerVertex.tryToAccess(hlsl::DXIL::SigPointKind::GSOut,
+                                semantic->GetKind(), semanticIndex, llvm::None,
+                                &value, /*noWriteBack=*/false))
+      return true;
+
+    // Query the <result-id> for the stage output variable generated out
+    // of this decl.
+    const auto found = stageVarIds.find(decl);
+
+    // We should have recorded its stage output variable previously.
+    assert(found != stageVarIds.end());
+
+    theBuilder.createStore(found->second, value);
+    return true;
+  }
+
+  // If the decl itself doesn't have semantic string attached, it should be
+  // a struct having all its fields with semantic strings.
+  if (!type->isStructureType()) {
+    emitError("semantic string missing for shader output variable '%0'",
+              decl->getLocation())
+        << decl->getName();
+    return false;
+  }
+
+  const auto *structDecl = cast<RecordType>(type.getTypePtr())->getDecl();
+
+  // Write out each field
+  for (const auto *field : structDecl->fields()) {
+    const uint32_t fieldType = typeTranslator.translateType(field->getType());
+    const uint32_t subValue = theBuilder.createCompositeExtract(
+        fieldType, value, {field->getFieldIndex()});
+
+    if (!writeBackOutputStream(field, subValue))
+      return false;
   }
 
   return true;

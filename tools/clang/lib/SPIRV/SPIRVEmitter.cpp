@@ -271,7 +271,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
       theContext(), theBuilder(&theContext),
-      declIdMapper(shaderModel, astContext, theBuilder, diags, spirvOptions),
+      declIdMapper(shaderModel, astContext, theBuilder, spirvOptions),
       typeTranslator(astContext, theBuilder, diags), entryFunctionId(0),
       curFunction(nullptr), curThis(0), needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
@@ -2309,6 +2309,27 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   }
 }
 
+uint32_t
+SPIRVEmitter::processStreamOutputAppend(const CXXMemberCallExpr *expr) {
+  // TODO: handle multiple stream-output objects
+  const auto *object =
+      expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
+  const auto *stream = cast<DeclRefExpr>(object)->getDecl();
+  const uint32_t value = doExpr(expr->getArg(0));
+
+  declIdMapper.writeBackOutputStream(stream, value);
+  theBuilder.createEmitVertex();
+
+  return 0;
+}
+
+uint32_t
+SPIRVEmitter::processStreamOutputRestart(const CXXMemberCallExpr *expr) {
+  // TODO: handle multiple stream-output objects
+  theBuilder.createEndPrimitive();
+  return 0;
+}
+
 SpirvEvalInfo SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
   const FunctionDecl *callee = expr->getDirectCallee();
 
@@ -2396,8 +2417,15 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
         spv::Op::OpBitcast, theBuilder.getUint32Type(),
         incDecRWACSBufferCounter(expr, /*isInc*/ false));
   case IntrinsicOp::MOP_Append:
+    if (hlsl::IsHLSLStreamOutputType(
+            expr->getImplicitObjectArgument()->getType()))
+      return processStreamOutputAppend(expr);
+    else
+      return processACSBufferAppendConsume(expr);
   case IntrinsicOp::MOP_Consume:
     return processACSBufferAppendConsume(expr);
+  case IntrinsicOp::MOP_RestartStrip:
+    return processStreamOutputRestart(expr);
   case IntrinsicOp::MOP_InterlockedAdd:
   case IntrinsicOp::MOP_InterlockedAnd:
   case IntrinsicOp::MOP_InterlockedOr:
@@ -2412,7 +2440,7 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return processRWByteAddressBufferAtomicMethods(opcode, expr);
   }
 
-  emitError("HLSL intrinsic member call unimplemented: %0")
+  emitError("intrinsic '%0' method unimplemented")
       << expr->getDirectCallee()->getName();
   return 0;
 }
@@ -5810,7 +5838,13 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     if (canActAsOutParmVar(param)) {
       // Load the value from the parameter after function call
       const uint32_t typeId = typeTranslator.translateType(param->getType());
-      const uint32_t loadedParam = theBuilder.createLoad(typeId, params[i]);
+      uint32_t loadedParam = 0;
+
+      // Write back of stage output variables in GS is manually controlled by
+      // .Append() intrinsic method. No need to load the parameter since we
+      // won't need to write back here.
+      if (!shaderModel.IsGS())
+        loadedParam = theBuilder.createLoad(typeId, params[i]);
 
       if (!declIdMapper.createStageOutputVar(param, loadedParam, false))
         return false;
