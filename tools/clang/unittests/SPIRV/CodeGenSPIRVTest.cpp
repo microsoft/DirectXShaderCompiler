@@ -743,6 +743,9 @@ TEST_F(FileTest, SpirvStageIOInterfaceGS) {
 TEST_F(FileTest, SpirvStageIOInterfacePS) {
   runFileTest("spirv.interface.ps.hlsl");
 }
+TEST_F(FileTest, SpirvStageIOInterfaceEmptyStructVS) {
+  runFileTest("spirv.interface.empty-struct.vs.hlsl");
+}
 
 TEST_F(FileTest, SpirvInterpolation) {
   runFileTest("spirv.interpolation.hlsl");
