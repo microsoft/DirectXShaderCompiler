@@ -43,6 +43,9 @@ TEST_F(WholeFileTest, BezierHullShader) {
 TEST_F(WholeFileTest, BezierDomainShader) {
   runWholeFileTest("bezier.domain.hlsl2spv");
 }
+TEST_F(WholeFileTest, EmptyStructInterfaceVS) {
+  runWholeFileTest("empty-struct-interface.vs.hlsl2spv");
+}
 
 // === Partial output tests ===
 
