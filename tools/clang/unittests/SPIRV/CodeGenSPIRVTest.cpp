@@ -61,6 +61,8 @@ TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
 }
+TEST_F(FileTest, TBufferType) { runFileTest("type.tbuffer.hlsl"); }
+TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
@@ -234,6 +236,10 @@ TEST_F(FileTest, OpRWBufferAccess) { runFileTest("op.rwbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
 TEST_F(FileTest, OpConstantBufferAccess) {
   runFileTest("op.constant-buffer.access.hlsl");
+}
+TEST_F(FileTest, OpTBufferAccess) { runFileTest("op.tbuffer.access.hlsl"); }
+TEST_F(FileTest, OpTextureBufferAccess) {
+  runFileTest("op.texture-buffer.access.hlsl");
 }
 TEST_F(FileTest, OpStructuredBufferAccess) {
   runFileTest("op.structured-buffer.access.hlsl");
@@ -825,6 +831,12 @@ TEST_F(FileTest, VulkanLayoutAppendSBufferStd430) {
 }
 TEST_F(FileTest, VulkanLayoutConsumeSBufferStd430) {
   runFileTest("vk.layout.csbuffer.std430.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutTBufferStd430) {
+  runFileTest("vk.layout.tbuffer.std430.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutTextureBufferStd430) {
+  runFileTest("vk.layout.texture-buffer.std430.hlsl");
 }
 
 // HS: for different Patch Constant Functions

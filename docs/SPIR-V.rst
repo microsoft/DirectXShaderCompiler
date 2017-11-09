@@ -389,6 +389,8 @@ Please see the following sections for the details of each type. As a summary:
 =========================== ================== ========================== ==================== =================
 ``cbuffer``                   Uniform Buffer      GLSL ``std140``            ``Uniform``        ``Block``
 ``ConstantBuffer``            Uniform Buffer      GLSL ``std140``            ``Uniform``        ``Block``
+``tbuffer``                   Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
+``TextureBuffer``             Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 ``StructuredBuffer``          Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 ``RWStructuredBuffer``        Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 ``AppendStructuredBuffer``    Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
@@ -437,6 +439,18 @@ will be translated into
 
   ; Variable
   %myCbuffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_T Uniform
+
+``tbuffer`` and ``TextureBuffer``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These two buffer types are treated as uniform buffers using Vulkan's
+terminology. They are translated into an ``OpTypeStruct`` with the
+necessary layout decorations (``Offset``, ``ArrayStride``, ``MatrixStride``,
+``RowMajor``, ``ColMajor``) and the ``BufferBlock`` decoration. All the struct
+members are also decorated with ``NonWritable`` decoration. The layout rule
+used is GLSL ``std430`` (by default). A variable declared as one of these
+types will be placed in the ``Uniform`` storage class.
+
 
 ``StructuredBuffer`` and ``RWStructuredBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
