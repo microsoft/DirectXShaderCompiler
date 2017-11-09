@@ -503,6 +503,7 @@ public:
   TEST_METHOD(CodeGenCbuffer3_51)
   TEST_METHOD(CodeGenCbuffer5_51)
   TEST_METHOD(CodeGenCbuffer6_51)
+  TEST_METHOD(CodeGenCbuffer64Types)
   TEST_METHOD(CodeGenCbufferAlloc)
   TEST_METHOD(CodeGenCbufferAllocLegacy)
   TEST_METHOD(CodeGenCbufferHalf)
@@ -3156,6 +3157,11 @@ TEST_F(CompilerTest, CodeGenCbuffer5_51) {
 
 TEST_F(CompilerTest, CodeGenCbuffer6_51) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer6.51.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbuffer64Types) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer64Types.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCbufferAlloc) {
