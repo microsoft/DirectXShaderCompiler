@@ -4,6 +4,8 @@
 
 // CHECK: OpExtension "SPV_EXT_shader_stencil_export"
 
+// TODO: we may need to check the StencilRefReplacingEXT execution mode here.
+
 // CHECK: OpEntryPoint Fragment %main "main" [[StencilRef:%\d+]]
 
 // CEHCK: OpDecorate [[StencilRef]] BuiltIn FragStencilRefEXT
