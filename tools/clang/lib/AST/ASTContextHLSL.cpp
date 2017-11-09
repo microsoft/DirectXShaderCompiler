@@ -113,16 +113,11 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
         return HLSLScalarType_float;
       }
       break;
-    case 6: // double, ushort
+    case 6: // double
       if (typeName[0] == 'd') {
         if (strncmp(typeName, "double", 6))
           break;
         return HLSLScalarType_double;
-      }
-      else if (typeName[0] == 'u') {
-        if (strncmp(typeName, "ushort", 6))
-          break;
-        return HLSLScalarType_uint16;
       }
       break;
     case 7: // int64_t, int16_t
