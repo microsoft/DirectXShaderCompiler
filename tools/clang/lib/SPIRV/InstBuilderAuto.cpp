@@ -16,7 +16,7 @@
 namespace clang {
 namespace spirv {
 
-static_assert(spv::Version == 0x00010000 && spv::Revision == 11,
+static_assert(spv::Version == 0x00010000 && spv::Revision == 12,
               "Needs to regenerate outdated InstBuilder");
 
 namespace {
@@ -7316,6 +7316,488 @@ InstBuilder &InstBuilder::opSubgroupReadInvocationKHR(uint32_t result_type,
   TheInst.emplace_back(result_id);
   TheInst.emplace_back(value);
   TheInst.emplace_back(index);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opGroupIAddNonUniformAMD(
+    uint32_t result_type, uint32_t result_id, uint32_t execution,
+    spv::GroupOperation operation, uint32_t x) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpGroupIAddNonUniformAMD));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(execution);
+  TheInst.emplace_back(static_cast<uint32_t>(operation));
+  TheInst.emplace_back(x);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opGroupFAddNonUniformAMD(
+    uint32_t result_type, uint32_t result_id, uint32_t execution,
+    spv::GroupOperation operation, uint32_t x) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpGroupFAddNonUniformAMD));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(execution);
+  TheInst.emplace_back(static_cast<uint32_t>(operation));
+  TheInst.emplace_back(x);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opGroupFMinNonUniformAMD(
+    uint32_t result_type, uint32_t result_id, uint32_t execution,
+    spv::GroupOperation operation, uint32_t x) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpGroupFMinNonUniformAMD));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(execution);
+  TheInst.emplace_back(static_cast<uint32_t>(operation));
+  TheInst.emplace_back(x);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opGroupUMinNonUniformAMD(
+    uint32_t result_type, uint32_t result_id, uint32_t execution,
+    spv::GroupOperation operation, uint32_t x) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpGroupUMinNonUniformAMD));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(execution);
+  TheInst.emplace_back(static_cast<uint32_t>(operation));
+  TheInst.emplace_back(x);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opGroupSMinNonUniformAMD(
+    uint32_t result_type, uint32_t result_id, uint32_t execution,
+    spv::GroupOperation operation, uint32_t x) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpGroupSMinNonUniformAMD));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(execution);
+  TheInst.emplace_back(static_cast<uint32_t>(operation));
+  TheInst.emplace_back(x);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opGroupFMaxNonUniformAMD(
+    uint32_t result_type, uint32_t result_id, uint32_t execution,
+    spv::GroupOperation operation, uint32_t x) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpGroupFMaxNonUniformAMD));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(execution);
+  TheInst.emplace_back(static_cast<uint32_t>(operation));
+  TheInst.emplace_back(x);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opGroupUMaxNonUniformAMD(
+    uint32_t result_type, uint32_t result_id, uint32_t execution,
+    spv::GroupOperation operation, uint32_t x) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpGroupUMaxNonUniformAMD));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(execution);
+  TheInst.emplace_back(static_cast<uint32_t>(operation));
+  TheInst.emplace_back(x);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opGroupSMaxNonUniformAMD(
+    uint32_t result_type, uint32_t result_id, uint32_t execution,
+    spv::GroupOperation operation, uint32_t x) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpGroupSMaxNonUniformAMD));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(execution);
+  TheInst.emplace_back(static_cast<uint32_t>(operation));
+  TheInst.emplace_back(x);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opFragmentMaskFetchAMD(uint32_t result_type,
+                                                 uint32_t result_id,
+                                                 uint32_t image,
+                                                 uint32_t coordinate) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(5);
+  TheInst.emplace_back(static_cast<uint32_t>(spv::Op::OpFragmentMaskFetchAMD));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(image);
+  TheInst.emplace_back(coordinate);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opFragmentFetchAMD(uint32_t result_type,
+                                             uint32_t result_id, uint32_t image,
+                                             uint32_t coordinate,
+                                             uint32_t fragment_index) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(static_cast<uint32_t>(spv::Op::OpFragmentFetchAMD));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(image);
+  TheInst.emplace_back(coordinate);
+  TheInst.emplace_back(fragment_index);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opSubgroupShuffleINTEL(uint32_t result_type,
+                                                 uint32_t result_id,
+                                                 uint32_t data,
+                                                 uint32_t invocation_id) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(5);
+  TheInst.emplace_back(static_cast<uint32_t>(spv::Op::OpSubgroupShuffleINTEL));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(data);
+  TheInst.emplace_back(invocation_id);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opSubgroupShuffleDownINTEL(uint32_t result_type,
+                                                     uint32_t result_id,
+                                                     uint32_t current,
+                                                     uint32_t next,
+                                                     uint32_t delta) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpSubgroupShuffleDownINTEL));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(current);
+  TheInst.emplace_back(next);
+  TheInst.emplace_back(delta);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opSubgroupShuffleUpINTEL(uint32_t result_type,
+                                                   uint32_t result_id,
+                                                   uint32_t previous,
+                                                   uint32_t current,
+                                                   uint32_t delta) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpSubgroupShuffleUpINTEL));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(previous);
+  TheInst.emplace_back(current);
+  TheInst.emplace_back(delta);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opSubgroupShuffleXorINTEL(uint32_t result_type,
+                                                    uint32_t result_id,
+                                                    uint32_t data,
+                                                    uint32_t value) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(5);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpSubgroupShuffleXorINTEL));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(data);
+  TheInst.emplace_back(value);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opSubgroupBlockReadINTEL(uint32_t result_type,
+                                                   uint32_t result_id,
+                                                   uint32_t ptr) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(4);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpSubgroupBlockReadINTEL));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(ptr);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opSubgroupBlockWriteINTEL(uint32_t ptr,
+                                                    uint32_t data) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+
+  TheInst.reserve(3);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpSubgroupBlockWriteINTEL));
+  TheInst.emplace_back(ptr);
+  TheInst.emplace_back(data);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opSubgroupImageBlockReadINTEL(uint32_t result_type,
+                                                        uint32_t result_id,
+                                                        uint32_t image,
+                                                        uint32_t coordinate) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(5);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpSubgroupImageBlockReadINTEL));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(image);
+  TheInst.emplace_back(coordinate);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opSubgroupImageBlockWriteINTEL(uint32_t image,
+                                                         uint32_t coordinate,
+                                                         uint32_t data) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+
+  TheInst.reserve(4);
+  TheInst.emplace_back(
+      static_cast<uint32_t>(spv::Op::OpSubgroupImageBlockWriteINTEL));
+  TheInst.emplace_back(image);
+  TheInst.emplace_back(coordinate);
+  TheInst.emplace_back(data);
 
   return *this;
 }
