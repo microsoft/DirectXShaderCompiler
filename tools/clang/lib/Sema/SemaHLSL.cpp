@@ -3067,6 +3067,37 @@ public:
     }
   }
 
+  void DiagnoseScalarType(HLSLScalarType type, SourceLocation Loc) {
+    if (getSema()->getLangOpts().HLSLVersion < 2018) {
+      switch (type) {
+      case HLSLScalarType_float16:
+      case HLSLScalarType_float32:
+      case HLSLScalarType_float64:
+      case HLSLScalarType_int16:
+      case HLSLScalarType_int32:
+      case HLSLScalarType_uint16:
+      case HLSLScalarType_uint32:
+        m_sema->Diag(Loc, diag::err_hlsl_unsupported_keyword_for_version)
+            << HLSLScalarTypeNames[type] << "2018";
+        break;
+      default:
+        break;
+      }
+    }
+    if (getSema()->getLangOpts().UseMinPrecision) {
+      switch (type) {
+      case HLSLScalarType_float16:
+      case HLSLScalarType_int16:
+      case HLSLScalarType_uint16:
+        m_sema->Diag(Loc, diag::err_hlsl_unsupported_keyword_for_min_precision)
+            << HLSLScalarTypeNames[type];
+        break;
+      default:
+        break;
+      }
+    }
+  }
+
   bool LookupUnqualified(LookupResult &R, Scope *S) override
   {
     const DeclarationNameInfo declName = R.getLookupNameInfo();
@@ -4457,10 +4488,15 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
-  m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
-  m_baseTypes[HLSLScalarType_uint64] = m_context->UnsignedLongLongTy;
   m_baseTypes[HLSLScalarType_int16] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_int32] = m_context->IntTy;
+  m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
   m_baseTypes[HLSLScalarType_uint16] = m_context->UnsignedShortTy;
+  m_baseTypes[HLSLScalarType_uint32] = m_context->IntTy;
+  m_baseTypes[HLSLScalarType_uint64] = m_context->UnsignedLongLongTy;
+  m_baseTypes[HLSLScalarType_float16] = m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_float32] = m_context->FloatTy;
+  m_baseTypes[HLSLScalarType_float64] = m_context->DoubleTy;
 }
 
 void HLSLExternalSource::AddHLSLScalarTypes()
@@ -10941,6 +10977,7 @@ bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
     if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
       HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
       hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
+      hlslExternalSource->DiagnoseScalarType(parsedType, R.getNameLoc());
     }
   }
   return true;

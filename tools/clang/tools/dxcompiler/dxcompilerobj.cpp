@@ -233,7 +233,7 @@ private:
       finished = true;
       return;
     }
-    DXASSERT(!opts.HLSL2015, "else ReadDxcOpts didn't fail for non-isense");
+    DXASSERT(opts.HLSLVersion > 2015, "else ReadDxcOpts didn't fail for non-isense");
     finished = false;
   }
 public:
@@ -792,9 +792,7 @@ public:
     }
     compiler.getLangOpts().RootSigMajor = 1;
     compiler.getLangOpts().RootSigMinor = rootSigMinor;
-    compiler.getLangOpts().HLSL2015 = Opts.HLSL2015;
-    compiler.getLangOpts().HLSL2016 = Opts.HLSL2016;
-    compiler.getLangOpts().HLSL2017 = Opts.HLSL2017;
+    compiler.getLangOpts().HLSLVersion = Opts.HLSLVersion;
 
     compiler.getLangOpts().UseMinPrecision = !Opts.NoMinPrecision;
 

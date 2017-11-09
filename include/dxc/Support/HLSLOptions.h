@@ -129,9 +129,7 @@ public:
   bool AvoidFlowControl;     // OPT_Gfa
   bool PreferFlowControl;    // OPT_Gfp
   bool EnableStrictMode;     // OPT_Ges
-  bool HLSL2015;  // OPT_hlsl_version (=2015)
-  bool HLSL2016;  // OPT_hlsl_version (=2016)
-  bool HLSL2017;  // OPT_hlsl_version (=2017)
+  unsigned HLSLVersion; // OPT_hlsl_version (2015-2018)
   bool NoMinPrecision; // OPT_no_min_precision
   bool OptDump; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings

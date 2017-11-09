@@ -64,12 +64,17 @@ const char* HLSLScalarTypeNames[] = {
   "min12int",
   "min16int",
   "min16uint",
-  "literal int",
   "literal float",
-  "int64_t",
-  "uint64_t",
+  "literal int",
   "int16_t",
-  "uint16_t"
+  "int32_t",
+  "int64_t",
+  "uint16_t",
+  "uint32_t",
+  "uint64_t",
+  "float16_t",
+  "float32_t",
+  "float64_t"
 };
 
 static_assert(HLSLScalarTypeCount == _countof(HLSLScalarTypeNames), "otherwise scalar constants are not aligned");
@@ -120,21 +125,26 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
         return HLSLScalarType_double;
       }
       break;
-    case 7: // int64_t, int16_t
+    case 7: // int16_t, int32_t, int64_t
       if (typeName[0] == 'i' && typeName[1] == 'n') {
-        if (typeName[3] == '6') {
-          if (strncmp(typeName, "int64_t", 7))
-            break;
-          return HLSLScalarType_int64;
-        }
-        else if (typeName[3] == '1') {
+        if (typeName[3] == '1') {
           if (strncmp(typeName, "int16_t", 7))
             break;
           return HLSLScalarType_int16;
         }
+        else if (typeName[3] == '3') {
+          if (strncmp(typeName, "int32_t", 7))
+            break;
+          return HLSLScalarType_int32;
+        }
+        else if (typeName[3] == '6') {
+          if (strncmp(typeName, "int64_t", 7))
+            break;
+          return HLSLScalarType_int64;
+        }
       }
       break;
-    case 8: // min12int, min16int, uint64_t, uint16_t
+    case 8: // min12int, min16int, uint16_t, uint32_t, uint64_t
       if (typeName[0] == 'm' && typeName[1] == 'i') {
         if (typeName[4] == '2') {
           if (strncmp(typeName, "min12int", 8))
@@ -147,24 +157,46 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
           return HLSLScalarType_int_min16;
         }
       }
-      if (typeName[0] == 'u' && typeName[1] == 'i') {
-        if (typeName[4] == '6') {
-          if (strncmp(typeName, "uint64_t", 7))
-            break;
-          return HLSLScalarType_uint64;
-        }
-        else if (typeName[4] == '1') {
-          if (strncmp(typeName, "uint16_t", 7))
+      else if (typeName[0] == 'u' && typeName[1] == 'i') {
+        if (typeName[4] == '1') {
+          if (strncmp(typeName, "uint16_t", 8))
             break;
           return HLSLScalarType_uint16;
         }
+        else if (typeName[4] == '3') {
+          if (strncmp(typeName, "uint32_t", 8))
+            break;
+          return HLSLScalarType_uint32;
+        }
+        else if (typeName[4] == '6') {
+          if (strncmp(typeName, "uint64_t", 8))
+            break;
+          return HLSLScalarType_uint64;
+        }
       }
       break;
-    case 9: // min16uint
+    case 9: // min16uint, float16_t, float32_t, float64_t
       if (typeName[0] == 'm' && typeName[1] == 'i') {
         if (strncmp(typeName, "min16uint", 9))
           break;
         return HLSLScalarType_uint_min16;
+      }
+      else if (typeName[0] == 'f' && typeName[1] == 'l') {
+        if (typeName[5] == '1') {
+          if (strncmp(typeName, "float16_t", 9))
+            break;
+          return HLSLScalarType_float16;
+        }
+        else if (typeName[5] == '3') {
+          if (strncmp(typeName, "float32_t", 9))
+            break;
+          return HLSLScalarType_float32;
+        }
+        else if (typeName[5] == '6') {
+          if (strncmp(typeName, "float64_t", 9))
+            break;
+          return HLSLScalarType_float64;
+        }
       }
       break;
     case 10: // min10float, min16float

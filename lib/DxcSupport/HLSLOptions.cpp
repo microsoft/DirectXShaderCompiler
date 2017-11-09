@@ -252,15 +252,26 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  opts.HLSL2015 = opts.HLSL2016 = opts.HLSL2017 = false;
-  if (ver.empty() || ver == "2016") { opts.HLSL2016 = true; }   // Default to 2016
-  else if           (ver == "2015") { opts.HLSL2015 = true; }
-  else if           (ver == "2017") { opts.HLSL2017 = true; }
+  if (ver.empty()) { opts.HLSLVersion = 2016; }   // Default to 2016
   else {
-    errors << "Unknown HLSL version";
-    return 1;
+    try {
+      opts.HLSLVersion = std::stoi(std::string(ver));
+      if (opts.HLSLVersion < 2015 || opts.HLSLVersion > 2018) {
+        errors << "Unknown HLSL version: " << opts.HLSLVersion;
+        return 1;
+      }
+    }
+    catch (const std::invalid_argument &) {
+      errors << "Invalid HLSL Version";
+      return 1;
+    }
+    catch (const std::out_of_range &) {
+      errors << "Invalid HLSL Version";
+      return 1;
+    }
   }
-  if (opts.HLSL2015 && !(flagsToInclude & HlslFlags::ISenseOption)) {
+
+  if (opts.HLSLVersion == 2015 && !(flagsToInclude & HlslFlags::ISenseOption)) {
     errors << "HLSL Version 2015 is only supported for language services";
     return 1;
   }
