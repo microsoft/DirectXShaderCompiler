@@ -206,13 +206,13 @@ void PrintSignature(LPCSTR pName, const DxilProgramSignature *pSignature,
       pFormat = "uint";
       break;
     case DxilProgramSigCompType::UInt16:
-      pFormat = "min16u";
+      pFormat = "uint16";
       break;
     case DxilProgramSigCompType::SInt16:
-      pFormat = "min16i";
+      pFormat = "int16";
       break;
     case DxilProgramSigCompType::Float16:
-      pFormat = "min16f";
+      pFormat = "fp16";
       break;
     case DxilProgramSigCompType::UInt64:
       pFormat = "uint64";

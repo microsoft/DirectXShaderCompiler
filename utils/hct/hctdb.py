@@ -557,7 +557,7 @@ class db_dxil(object):
             db_dxil_param(3, "u32", "byteOffset", "linear byte offset of value"),
             db_dxil_param(4, "u32", "alignment", "load access alignment", is_const=True)])
         next_op_idx += 1
-        self.add_dxil_op("CBufferLoadLegacy", next_op_idx, "CBufferLoadLegacy", "loads a value from a constant buffer resource", "hfdwi", "ro", [
+        self.add_dxil_op("CBufferLoadLegacy", next_op_idx, "CBufferLoadLegacy", "loads a value from a constant buffer resource", "hfdwil", "ro", [
             db_dxil_param(0, "$cb", "", "the value for the constant buffer variable"),
             db_dxil_param(2, "res", "handle", "cbuffer handle"),
             db_dxil_param(3, "u32", "regIndex", "0-based index into cbuffer instance")])
