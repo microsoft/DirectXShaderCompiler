@@ -503,11 +503,14 @@ public:
   TEST_METHOD(CodeGenCbuffer3_51)
   TEST_METHOD(CodeGenCbuffer5_51)
   TEST_METHOD(CodeGenCbuffer6_51)
+  TEST_METHOD(CodeGenCbuffer64Types)
   TEST_METHOD(CodeGenCbufferAlloc)
   TEST_METHOD(CodeGenCbufferAllocLegacy)
   TEST_METHOD(CodeGenCbufferHalf)
   TEST_METHOD(CodeGenCbufferHalfStruct)
   TEST_METHOD(CodeGenCbufferInLoop)
+  TEST_METHOD(CodeGenCbufferInt16)
+  TEST_METHOD(CodeGenCbufferInt16Struct)
   TEST_METHOD(CodeGenCbufferMinPrec)
   TEST_METHOD(CodeGenClass)
   TEST_METHOD(CodeGenClip)
@@ -3156,6 +3159,11 @@ TEST_F(CompilerTest, CodeGenCbuffer6_51) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer6.51.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenCbuffer64Types) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer64Types.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenCbufferAlloc) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferAlloc.hlsl");
 }
@@ -3176,6 +3184,16 @@ TEST_F(CompilerTest, CodeGenCbufferHalfStruct) {
 
 TEST_F(CompilerTest, CodeGenCbufferInLoop) {
   CodeGenTest(L"..\\CodeGenHLSL\\cbufferInLoop.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferInt16) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferInt16.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferInt16Struct) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferInt16-struct.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCbufferMinPrec) {

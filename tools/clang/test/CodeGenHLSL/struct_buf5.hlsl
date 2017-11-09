@@ -1,21 +1,21 @@
 // RUN: %dxc -E main -T ps_6_2 -no-min-precision %s | FileCheck %s
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
+// CHECK: call %dx.types.ResRet.i16 @dx.op.rawBufferLoad.i16
+// CHECK: call %dx.types.ResRet.i16 @dx.op.rawBufferLoad.i16
+// CHECK: call %dx.types.ResRet.i16 @dx.op.rawBufferLoad.i16
+// CHECK: call %dx.types.ResRet.i16 @dx.op.rawBufferLoad.i16
 
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
-// CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
+// CHECK: call %dx.types.ResRet.i16 @dx.op.rawBufferLoad.i16
+// CHECK: call %dx.types.ResRet.i16 @dx.op.rawBufferLoad.i16
+// CHECK: call %dx.types.ResRet.i16 @dx.op.rawBufferLoad.i16
+// CHECK: call %dx.types.ResRet.i16 @dx.op.rawBufferLoad.i16
 
 // CHECK: call %dx.types.ResRet.f16 @dx.op.rawBufferLoad.f16
 // CHECK: call %dx.types.ResRet.f16 @dx.op.rawBufferLoad.f16
 // CHECK: call %dx.types.ResRet.f16 @dx.op.rawBufferLoad.f16
 // CHECK: call %dx.types.ResRet.f16 @dx.op.rawBufferLoad.f16
 
-// CHECK: call void @dx.op.rawBufferStore.i32
-// CHECK: call void @dx.op.rawBufferStore.i32
+// CHECK: call void @dx.op.rawBufferStore.i16
+// CHECK: call void @dx.op.rawBufferStore.i16
 
 struct MyStruct {
   min16int mi1;

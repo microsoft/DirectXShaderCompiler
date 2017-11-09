@@ -1,9 +1,9 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: min16f
-// CHECK: min16u
-// CHECK: min16i
-// CHECK: min16i
+// CHECK: fp16
+// CHECK: uint16
+// CHECK: int16
+// CHECK: int16
 // CHECK: fadd float
 // CHECK: fadd float
 
