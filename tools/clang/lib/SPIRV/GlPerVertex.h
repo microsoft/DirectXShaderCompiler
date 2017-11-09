@@ -104,7 +104,7 @@ public:
 private:
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],
-                              SourceLocation loc = {}) {
+                              SourceLocation loc) {
     const auto diagId = astContext.getDiagnostics().getCustomDiagID(
         clang::DiagnosticsEngine::Error, message);
     return astContext.getDiagnostics().Report(loc, diagId);

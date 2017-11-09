@@ -70,7 +70,8 @@ public:
 
   /// Casts the given value from fromType to toType. fromType and toType should
   /// both be scalar or vector types of the same size.
-  uint32_t castToType(uint32_t value, QualType fromType, QualType toType);
+  uint32_t castToType(uint32_t value, QualType fromType, QualType toType,
+                      SourceLocation);
 
 private:
   void doFunctionDecl(const FunctionDecl *decl);
@@ -130,7 +131,7 @@ private:
   /// instead of deducing from Clang frontend opcode.
   SpirvEvalInfo processBinaryOp(const Expr *lhs, const Expr *rhs,
                                 BinaryOperatorKind opcode, uint32_t resultType,
-                                SpirvEvalInfo *lhsInfo = nullptr,
+                                SourceRange, SpirvEvalInfo *lhsInfo = nullptr,
                                 spv::Op mandateGenOpcode = spv::Op::Max);
 
   /// Generates SPIR-V instructions to initialize the given variable once.
@@ -227,7 +228,8 @@ private:
   ///
   /// This method expects that both lhs and rhs are SPIR-V acceptable matrices.
   SpirvEvalInfo processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
-                                      const BinaryOperatorKind opcode);
+                                      const BinaryOperatorKind opcode,
+                                      SourceRange);
 
   /// Collects all indices (SPIR-V constant values) from consecutive MemberExprs
   /// or ArraySubscriptExprs or operator[] calls and writes into indices.
@@ -243,11 +245,13 @@ private:
 
   /// Processes the given expr, casts the result into the given integer (vector)
   /// type and returns the <result-id> of the casted value.
-  uint32_t castToInt(uint32_t value, QualType fromType, QualType toType);
+  uint32_t castToInt(uint32_t value, QualType fromType, QualType toType,
+                     SourceLocation);
 
   /// Processes the given expr, casts the result into the given float (vector)
   /// type and returns the <result-id> of the casted value.
-  uint32_t castToFloat(uint32_t value, QualType fromType, QualType toType);
+  uint32_t castToFloat(uint32_t value, QualType fromType, QualType toType,
+                       SourceLocation);
 
 private:
   /// Processes HLSL instrinsic functions.
@@ -353,7 +357,7 @@ private:
   /// given type with initializer <result-id>. The initializer is of type
   /// initType.
   uint32_t processFlatConversion(const QualType type, const QualType initType,
-                                 uint32_t initId);
+                                 uint32_t initId, SourceLocation);
 
 private:
   /// Translates the given frontend APValue into its SPIR-V equivalent for the
@@ -376,7 +380,7 @@ private:
 private:
   /// Translates the given HLSL loop attribute into SPIR-V loop control mask.
   /// Emits an error if the given attribute is not a loop attribute.
-  spv::LoopControlMask translateLoopAttribute(const Attr &);
+  spv::LoopControlMask translateLoopAttribute(const Stmt *, const Attr &);
 
   static spv::ExecutionModel
   getSpirvShaderStage(const hlsl::ShaderModel &model);
@@ -628,17 +632,18 @@ private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>
-  DiagnosticBuilder emitFatalError(const char (&message)[N]) {
+  DiagnosticBuilder emitFatalError(const char (&message)[N],
+                                   SourceLocation loc) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Fatal, message);
-    return diags.Report(diagId);
+    return diags.Report(loc, diagId);
   }
 
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],
-                              SourceLocation loc = {}) {
+                              SourceLocation loc) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
     return diags.Report(loc, diagId);
@@ -647,10 +652,10 @@ private:
   /// \brief Wrapper method to create a warning message and report it
   /// in the diagnostic engine associated with this consumer
   template <unsigned N>
-  DiagnosticBuilder emitWarning(const char (&message)[N]) {
+  DiagnosticBuilder emitWarning(const char (&message)[N], SourceLocation loc) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Warning, message);
-    return diags.Report(diagId);
+    return diags.Report(loc, diagId);
   }
 
 private:
