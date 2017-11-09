@@ -1,0 +1,60 @@
+// Run: %dxc -T vs_6_0 -E main
+
+// There is no interface variable for VSIn or VSOut empty structs (See OpEntryPoint below).
+
+struct VSIn {};
+
+struct VSOut {};
+
+VSOut main(VSIn input)
+{
+  VSOut result;
+  return result;
+}
+
+// CHECK-WHOLE-SPIR-V:
+// OpCapability Shader
+// OpMemoryModel Logical GLSL450
+// OpEntryPoint Vertex %main "main" %gl_PerVertexOut
+// OpName %bb_entry "bb.entry"
+// OpName %src_main "src.main"
+// OpName %main "main"
+// OpName %type_gl_PerVertex "type.gl_PerVertex"
+// OpName %gl_PerVertexOut "gl_PerVertexOut"
+// OpName %VSIn "VSIn"
+// OpName %param_var_input "param.var.input"
+// OpName %input "input"
+// OpName %result "result"
+// OpMemberDecorate %type_gl_PerVertex 0 BuiltIn Position
+// OpMemberDecorate %type_gl_PerVertex 1 BuiltIn PointSize
+// OpMemberDecorate %type_gl_PerVertex 2 BuiltIn ClipDistance
+// OpMemberDecorate %type_gl_PerVertex 3 BuiltIn CullDistance
+// OpDecorate %type_gl_PerVertex Block
+// %uint = OpTypeInt 32 0
+// %void = OpTypeVoid
+// %3 = OpTypeFunction %void
+// %float = OpTypeFloat 32
+// %v4float = OpTypeVector %float 4
+// %uint_1 = OpConstant %uint 1
+// %_arr_float_uint_1 = OpTypeArray %float %uint_1
+// %type_gl_PerVertex = OpTypeStruct %v4float %float %_arr_float_uint_1 %_arr_float_uint_1
+// %_ptr_Output_type_gl_PerVertex = OpTypePointer Output %type_gl_PerVertex
+// %VSIn = OpTypeStruct
+// %_ptr_Function_VSIn = OpTypePointer Function %VSIn
+// %19 = OpTypeFunction %VSIn %_ptr_Function_VSIn
+// %gl_PerVertexOut = OpVariable %_ptr_Output_type_gl_PerVertex Output
+// %main = OpFunction %void None %3
+// %13 = OpLabel
+// %param_var_input = OpVariable %_ptr_Function_VSIn Function
+// %17 = OpCompositeConstruct %VSIn
+// OpStore %param_var_input %17
+// %18 = OpFunctionCall %VSIn %src_main %param_var_input
+// OpReturn
+// OpFunctionEnd
+// %src_main = OpFunction %VSIn None %19
+// %input = OpFunctionParameter %_ptr_Function_VSIn
+// %bb_entry = OpLabel
+// %result = OpVariable %_ptr_Function_VSIn Function
+// %23 = OpLoad %VSIn %result
+// OpReturnValue %23
+// OpFunctionEnd
