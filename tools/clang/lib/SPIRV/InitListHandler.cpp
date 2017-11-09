@@ -35,7 +35,7 @@ uint32_t InitListHandler::process(const InitListExpr *expr) {
   // tail of the vector. This is more efficient than using a deque.
   std::reverse(std::begin(initializers), std::end(initializers));
 
-  const uint32_t init = createInitForType(expr->getType());
+  const uint32_t init = createInitForType(expr->getType(), expr->getExprLoc());
 
   if (init) {
     // For successful translation, we should have consumed all initializers and
@@ -185,41 +185,43 @@ bool InitListHandler::tryToSplitConstantArray() {
   return true;
 }
 
-uint32_t InitListHandler::createInitForType(QualType type) {
+uint32_t InitListHandler::createInitForType(QualType type,
+                                            SourceLocation srcLoc) {
   type = type.getCanonicalType();
 
   if (type->isBuiltinType())
-    return createInitForBuiltinType(type);
+    return createInitForBuiltinType(type, srcLoc);
 
   if (hlsl::IsHLSLVecType(type))
     return createInitForVectorType(hlsl::GetHLSLVecElementType(type),
-                                   hlsl::GetHLSLVecSize(type));
+                                   hlsl::GetHLSLVecSize(type), srcLoc);
 
   if (hlsl::IsHLSLMatType(type)) {
     uint32_t rowCount = 0, colCount = 0;
     hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
     const QualType elemType = hlsl::GetHLSLMatElementType(type);
 
-    return createInitForMatrixType(elemType, rowCount, colCount);
+    return createInitForMatrixType(elemType, rowCount, colCount, srcLoc);
   }
 
   if (type->isStructureType())
     return createInitForStructType(type);
 
   if (type->isConstantArrayType())
-    return createInitForConstantArrayType(type);
+    return createInitForConstantArrayType(type, srcLoc);
 
-  emitError("unimplemented initializer for type %0") << type;
+  emitError("initializer for type %0 unimplemented", srcLoc) << type;
   return 0;
 }
 
-uint32_t InitListHandler::createInitForBuiltinType(QualType type) {
+uint32_t InitListHandler::createInitForBuiltinType(QualType type,
+                                                   SourceLocation srcLoc) {
   assert(type->isBuiltinType());
 
   if (!scalars.empty()) {
     const auto init = scalars.front();
     scalars.pop_front();
-    return theEmitter.castToType(init.first, init.second, type);
+    return theEmitter.castToType(init.first, init.second, type, srcLoc);
   }
 
   // Keep splitting structs or vectors
@@ -231,15 +233,16 @@ uint32_t InitListHandler::createInitForBuiltinType(QualType type) {
 
   if (!init->getType()->isBuiltinType()) {
     decompose(init);
-    return createInitForBuiltinType(type);
+    return createInitForBuiltinType(type, srcLoc);
   }
 
   const uint32_t value = theEmitter.loadIfGLValue(init);
-  return theEmitter.castToType(value, init->getType(), type);
+  return theEmitter.castToType(value, init->getType(), type, srcLoc);
 }
 
 uint32_t InitListHandler::createInitForVectorType(QualType elemType,
-                                                  uint32_t count) {
+                                                  uint32_t count,
+                                                  SourceLocation srcLoc) {
   // If we don't have leftover scalars, we can try to see if there is a vector
   // of the same size in the original initializer list so that we can use it
   // directly. For all other cases, we need to construct a new vector as the
@@ -261,18 +264,18 @@ uint32_t InitListHandler::createInitForVectorType(QualType elemType,
       const auto toVecType =
           theEmitter.getASTContext().getExtVectorType(elemType, count);
       return theEmitter.castToType(theEmitter.loadIfGLValue(init),
-                                   init->getType(), toVecType);
+                                   init->getType(), toVecType, srcLoc);
     }
   }
 
   if (count == 1)
-    return createInitForBuiltinType(elemType);
+    return createInitForBuiltinType(elemType, srcLoc);
 
   llvm::SmallVector<uint32_t, 4> elements;
   for (uint32_t i = 0; i < count; ++i) {
     // All elements are scalars, which should already be casted to the correct
     // type if necessary.
-    elements.push_back(createInitForBuiltinType(elemType));
+    elements.push_back(createInitForBuiltinType(elemType, srcLoc));
   }
 
   const uint32_t elemTypeId = typeTranslator.translateType(elemType);
@@ -284,7 +287,8 @@ uint32_t InitListHandler::createInitForVectorType(QualType elemType,
 
 uint32_t InitListHandler::createInitForMatrixType(QualType elemType,
                                                   uint32_t rowCount,
-                                                  uint32_t colCount) {
+                                                  uint32_t colCount,
+                                                  SourceLocation srcLoc) {
   // Same as the vector case, first try to see if we already have a matrix at
   // the beginning of the initializer queue.
   if (scalars.empty()) {
@@ -308,15 +312,15 @@ uint32_t InitListHandler::createInitForMatrixType(QualType elemType,
   }
 
   if (rowCount == 1)
-    return createInitForVectorType(elemType, colCount);
+    return createInitForVectorType(elemType, colCount, srcLoc);
   if (colCount == 1)
-    return createInitForVectorType(elemType, rowCount);
+    return createInitForVectorType(elemType, rowCount, srcLoc);
 
   llvm::SmallVector<uint32_t, 4> vectors;
   for (uint32_t i = 0; i < rowCount; ++i) {
     // All elements are vectors, which should already be casted to the correct
     // type if necessary.
-    vectors.push_back(createInitForVectorType(elemType, colCount));
+    vectors.push_back(createInitForVectorType(elemType, colCount, srcLoc));
   }
 
   const uint32_t elemTypeId = typeTranslator.translateType(elemType);
@@ -355,14 +359,16 @@ uint32_t InitListHandler::createInitForStructType(QualType type) {
   llvm::SmallVector<uint32_t, 4> fields;
   const RecordDecl *structDecl = type->getAsStructureType()->getDecl();
   for (const auto *field : structDecl->fields())
-    fields.push_back(createInitForType(field->getType()));
+    fields.push_back(createInitForType(field->getType(), field->getLocation()));
 
   const uint32_t typeId = typeTranslator.translateType(type);
   // TODO: use OpConstantComposite when all components are constants
   return theBuilder.createCompositeConstruct(typeId, fields);
 }
 
-uint32_t InitListHandler::createInitForConstantArrayType(QualType type) {
+uint32_t
+InitListHandler::createInitForConstantArrayType(QualType type,
+                                                SourceLocation srcLoc) {
   assert(type->isConstantArrayType());
 
   // Same as the vector case, first try to see if we already have an array at
@@ -394,7 +400,7 @@ uint32_t InitListHandler::createInitForConstantArrayType(QualType type) {
 
   llvm::SmallVector<uint32_t, 4> elements;
   for (uint32_t i = 0; i < size; ++i)
-    elements.push_back(createInitForType(elemType));
+    elements.push_back(createInitForType(elemType, srcLoc));
 
   const uint32_t typeId = typeTranslator.translateType(type);
   // TODO: use OpConstantComposite when all components are constants

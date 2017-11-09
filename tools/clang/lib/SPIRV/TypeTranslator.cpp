@@ -149,7 +149,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
         case BuiltinType::Double:
           return theBuilder.getFloat64Type();
         default:
-          emitError("Primitive type '%0' is not supported yet.")
+          emitError("primitive type %0 unimplemented")
               << builtinType->getTypeClassName();
           return 0;
         }
@@ -259,7 +259,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                    decorations);
   }
 
-  emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
+  emitError("type %0 unimplemented") << type->getTypeClassName();
   type->dump();
   return 0;
 }
@@ -765,7 +765,7 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
       }
     }
   }
-  emitError("Unimplemented resource result type was used.");
+  emitError("resource type %0 unimplemented") << sampledType.getAsString();
   return spv::ImageFormat::Unknown;
 }
 
@@ -841,7 +841,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
         case BuiltinType::Float:
           return {4, 4};
         default:
-          emitError("Primitive type '%0' is not supported yet.")
+          emitError("primitive type %0 unimplemented")
               << builtinType->getTypeClassName();
           return {0, 0};
         }
@@ -939,7 +939,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     return {alignment, size};
   }
 
-  emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
+  emitError("type %0 unimplemented") << type->getTypeClassName();
   return {0, 0};
 }
 
