@@ -43,6 +43,9 @@ TEST_F(WholeFileTest, BezierHullShader) {
 TEST_F(WholeFileTest, BezierDomainShader) {
   runWholeFileTest("bezier.domain.hlsl2spv");
 }
+TEST_F(WholeFileTest, EmptyStructInterfaceVS) {
+  runWholeFileTest("empty-struct-interface.vs.hlsl2spv");
+}
 
 // === Partial output tests ===
 
@@ -742,9 +745,6 @@ TEST_F(FileTest, SpirvStageIOInterfaceGS) {
 }
 TEST_F(FileTest, SpirvStageIOInterfacePS) {
   runFileTest("spirv.interface.ps.hlsl");
-}
-TEST_F(FileTest, SpirvStageIOInterfaceEmptyStructVS) {
-  runFileTest("spirv.interface.empty-struct.vs.hlsl");
 }
 
 TEST_F(FileTest, SpirvInterpolation) {
