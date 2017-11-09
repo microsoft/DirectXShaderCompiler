@@ -4905,15 +4905,19 @@ void TranslateCBOperations(Value *handle, Value *ptr, Value *offset, OP *hlslOP,
 Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
                             unsigned channelOffset, Type *EltTy, OP *hlslOP,
                             IRBuilder<> &Builder) {
-  DXASSERT((channelOffset) < 4, "legacy cbuffer don't across 16 bytes register.");
   Constant *OpArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CBufferLoadLegacy);
 
   Type *i1Ty = Type::getInt1Ty(EltTy->getContext());
   Type *doubleTy = Type::getDoubleTy(EltTy->getContext());
+  Type *halfTy = Type::getHalfTy(EltTy->getContext());
   Type *i64Ty = Type::getInt64Ty(EltTy->getContext());
+  Type *i16Ty = Type::getInt16Ty(EltTy->getContext());
   bool isBool = EltTy == i1Ty;
   bool is64 = (EltTy == doubleTy) | (EltTy == i64Ty);
+  bool is16 = (EltTy == halfTy || EltTy == i16Ty) && !hlslOP->UseMinPrecision();
   bool isNormal = !isBool && !is64;
+  DXASSERT((is16 && channelOffset < 8) || channelOffset < 4,
+           "legacy cbuffer don't across 16 bytes register.");
   if (isNormal) {
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
     Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
@@ -4945,12 +4949,15 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
   Type *doubleTy = Type::getDoubleTy(EltTy->getContext());
   Type *i64Ty = Type::getInt64Ty(EltTy->getContext());
   Type *halfTy = Type::getHalfTy(EltTy->getContext());
+  Type *shortTy = Type::getInt16Ty(EltTy->getContext());
 
   bool isBool = EltTy == i1Ty;
   bool is64 = (EltTy == doubleTy) | (EltTy == i64Ty);
-  bool is16 = EltTy == halfTy && !hlslOP->UseMinPrecision();
+  bool is16 = (EltTy == shortTy || EltTy == halfTy) && !hlslOP->UseMinPrecision();
   bool isNormal = !isBool && !is64 && !is16;
-  DXASSERT(is16 || (channelOffset + vecSize) <= 4, "legacy cbuffer don't across 16 bytes register.");
+  DXASSERT((is16 && channelOffset + vecSize <= 8) ||
+               (channelOffset + vecSize) <= 4,
+           "legacy cbuffer don't across 16 bytes register.");
   if (isNormal) {
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
     Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
@@ -4964,8 +4971,6 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
     Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
     Value *Result = UndefValue::get(VectorType::get(EltTy, vecSize));
-    // index aligned by 2 bytes not 4 bytes
-    channelOffset *= 2;
     for (unsigned i = 0; i < vecSize; ++i) {
       Value *NewElt = Builder.CreateExtractValue(loadLegacy, channelOffset + i);
       Result = Builder.CreateInsertElement(Result, NewElt, i);
@@ -5353,10 +5358,22 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
       StructType *ST = cast<StructType>(*GEPIt);
       DxilStructAnnotation *annotation = dxilTypeSys.GetStructAnnotation(ST);
       fieldAnnotation = &annotation->GetFieldAnnotation(immIdx);
-      unsigned structOffset = fieldAnnotation->GetCBufferOffset() >>2;
-      channel += structOffset;
-      unsigned idxInc = channel >> 2;
-      channel = channel & 3;
+
+      unsigned idxInc = 0;
+      unsigned structOffset = 0;
+      if (fieldAnnotation->GetCompType().Is16Bit() &&
+          !hlslOP->UseMinPrecision()) {
+        structOffset = fieldAnnotation->GetCBufferOffset() >> 1;
+        channel += structOffset;
+        idxInc = channel >> 3;
+        channel = channel & 0x7;
+      }
+      else {
+        structOffset = fieldAnnotation->GetCBufferOffset() >> 2;
+        channel += structOffset;
+        idxInc = channel >> 2;
+        channel = channel & 0x3;
+      }
       if (idxInc) 
         legacyIndex = Builder.CreateAdd(legacyIndex, hlslOP->GetU32Const(idxInc));
     } else if (GEPIt->isArrayTy()) {

@@ -500,6 +500,8 @@ HLSLScalarType MakeUnsigned(HLSLScalarType T) {
         return HLSLScalarType_uint_min16;
     case HLSLScalarType_int64:
         return HLSLScalarType_uint64;
+    case HLSLScalarType_int16:
+        return HLSLScalarType_uint16;
     }
     return T;
 }

@@ -68,8 +68,8 @@ const char* HLSLScalarTypeNames[] = {
   "literal float",
   "int64_t",
   "uint64_t",
-  "short",
-  "ushort"
+  "int16_t",
+  "uint16_t"
 };
 
 static_assert(HLSLScalarTypeCount == _countof(HLSLScalarTypeNames), "otherwise scalar constants are not aligned");
@@ -101,7 +101,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
         return HLSLScalarType_half;
       }
       break;
-    case 5: // dword, float, short
+    case 5: // dword, float
       if (typeName[0] == 'd') {
         if (strncmp(typeName, "dword", 5))
           break;
@@ -111,11 +111,6 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
         if (strncmp(typeName, "float", 5))
           break;
         return HLSLScalarType_float;
-      }
-      else if (typeName[0] == 's') {
-        if (strncmp(typeName, "short", 5))
-          break;
-        return HLSLScalarType_short;
       }
       break;
     case 6: // double, ushort
@@ -127,17 +122,24 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
       else if (typeName[0] == 'u') {
         if (strncmp(typeName, "ushort", 6))
           break;
-        return HLSLScalarType_ushort;
+        return HLSLScalarType_uint16;
       }
       break;
-    case 7: // int64_t
+    case 7: // int64_t, int16_t
       if (typeName[0] == 'i' && typeName[1] == 'n') {
-        if (strncmp(typeName, "int64_t", 7))
-          break;
-        return HLSLScalarType_int64;
+        if (typeName[3] == '6') {
+          if (strncmp(typeName, "int64_t", 7))
+            break;
+          return HLSLScalarType_int64;
+        }
+        else if (typeName[3] == '1') {
+          if (strncmp(typeName, "int16_t", 7))
+            break;
+          return HLSLScalarType_int16;
+        }
       }
       break;
-    case 8: // min12int, min16int, uint64_t
+    case 8: // min12int, min16int, uint64_t, uint16_t
       if (typeName[0] == 'm' && typeName[1] == 'i') {
         if (typeName[4] == '2') {
           if (strncmp(typeName, "min12int", 8))
@@ -151,9 +153,16 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
         }
       }
       if (typeName[0] == 'u' && typeName[1] == 'i') {
-        if (strncmp(typeName, "uint64_t", 8))
-          break;
-        return HLSLScalarType_uint64;
+        if (typeName[4] == '6') {
+          if (strncmp(typeName, "uint64_t", 7))
+            break;
+          return HLSLScalarType_uint64;
+        }
+        else if (typeName[4] == '1') {
+          if (strncmp(typeName, "uint16_t", 7))
+            break;
+          return HLSLScalarType_uint16;
+        }
       }
       break;
     case 9: // min16uint

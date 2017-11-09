@@ -568,7 +568,9 @@ static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size,
     if (BT->getKind() == clang::BuiltinType::Kind::Double ||
       BT->getKind() == clang::BuiltinType::Kind::LongLong)
       scalarSizeInBytes = 8;
-    else if (BT->getKind() == clang::BuiltinType::Kind::Half)
+    else if (BT->getKind() == clang::BuiltinType::Kind::Half ||
+      BT->getKind() == clang::BuiltinType::Kind::Short ||
+      BT->getKind() == clang::BuiltinType::Kind::UShort)
       scalarSizeInBytes = 2;
   }
 

@@ -508,6 +508,8 @@ public:
   TEST_METHOD(CodeGenCbufferHalf)
   TEST_METHOD(CodeGenCbufferHalfStruct)
   TEST_METHOD(CodeGenCbufferInLoop)
+  TEST_METHOD(CodeGenCbufferInt16)
+  TEST_METHOD(CodeGenCbufferInt16Struct)
   TEST_METHOD(CodeGenCbufferMinPrec)
   TEST_METHOD(CodeGenClass)
   TEST_METHOD(CodeGenClip)
@@ -3176,6 +3178,16 @@ TEST_F(CompilerTest, CodeGenCbufferHalfStruct) {
 
 TEST_F(CompilerTest, CodeGenCbufferInLoop) {
   CodeGenTest(L"..\\CodeGenHLSL\\cbufferInLoop.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferInt16) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferInt16.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferInt16Struct) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferInt16-struct.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCbufferMinPrec) {

@@ -3853,6 +3853,7 @@ HLSLReservedKeyword:
 
     // type-specifier
     case tok::kw_short:
+      if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
       isInvalid = DS.SetTypeSpecWidth(DeclSpec::TSW_short, Loc, PrevSpec,
                                       DiagID, Policy);
       break;
