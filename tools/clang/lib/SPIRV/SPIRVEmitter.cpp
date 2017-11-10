@@ -4069,9 +4069,19 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_dot:
     return processIntrinsicDot(callExpr);
   case hlsl::IntrinsicOp::IOP_GroupMemoryBarrier:
-    return processIntrinsicGroupMemoryBarrier(callExpr, /*groupSync*/ false);
+    return processIntrinsicGroupDeviceMemoryBarrier(callExpr,
+                                                    /*isDevice*/ false,
+                                                    /*groupSync*/ false);
   case hlsl::IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync:
-    return processIntrinsicGroupMemoryBarrier(callExpr, /*groupSync*/ true);
+    return processIntrinsicGroupDeviceMemoryBarrier(callExpr,
+                                                    /*isDevice*/ false,
+                                                    /*groupSync*/ true);
+  case hlsl::IntrinsicOp::IOP_DeviceMemoryBarrier:
+    return processIntrinsicGroupDeviceMemoryBarrier(callExpr, /*isDevice*/ true,
+                                                    /*groupSync*/ false);
+  case hlsl::IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync:
+    return processIntrinsicGroupDeviceMemoryBarrier(callExpr, /*isDevice*/ true,
+                                                    /*groupSync*/ true);
   case hlsl::IntrinsicOp::IOP_mul:
     return processIntrinsicMul(callExpr);
   case hlsl::IntrinsicOp::IOP_all:
@@ -4639,22 +4649,28 @@ uint32_t SPIRVEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
                                   {argXId, argMinId, argMaxId});
 }
 
-uint32_t
-SPIRVEmitter::processIntrinsicGroupMemoryBarrier(const CallExpr *callExpr,
-                                                 bool groupSync) {
-  if (groupSync) {
-    // Execution Barrier scope = Workgroup (0x2)
-    // Memory Barrier scope = Workgroup (0x2)
-    // Memory Semantics Barrier scope = WorkgroupMemory (0x100 = 256)
-    theBuilder.createBarrier(theBuilder.getConstantUint32(2),
-                             theBuilder.getConstantUint32(2),
-                             theBuilder.getConstantUint32(256));
-  }
-  // Execution Barrier scope = N/A (0)
-  // Memory Barrier scope = Workgroup (0x2)
-  // Memory Semantics Barrier scope = WorkgroupMemory (0x100 = 256)
-  theBuilder.createBarrier(0, theBuilder.getConstantUint32(2),
-                           theBuilder.getConstantUint32(256));
+uint32_t SPIRVEmitter::processIntrinsicGroupDeviceMemoryBarrier(
+    const CallExpr *callExpr, bool isDevice, bool groupSync) {
+  // Execution Barrier scope:
+  // Device    = 0x1 = 1
+  // Workgroup = 0x2 = 2
+  // Memory Barrier scope:
+  // Device    = 0x1 = 1
+  // Workgroup = 0x2 = 2
+  const auto deviceScope = theBuilder.getConstantUint32(1);
+  const auto workgroupScope = theBuilder.getConstantUint32(2);
+
+  // Memory Semantics Barrier scope:
+  // WorkgroupMemory      = 0x100 = 256
+  // CrossWorkgroupMemory = 0x200 = 512
+  const auto workgroupMemSema = theBuilder.getConstantUint32(256);
+  const auto crossWorkgroupMemSema = theBuilder.getConstantUint32(512);
+
+  const auto execScope =
+      !groupSync ? 0 : isDevice ? deviceScope : workgroupScope;
+  const auto memScope = isDevice ? deviceScope : workgroupScope;
+  const auto memSema = isDevice ? crossWorkgroupMemSema : workgroupMemSema;
+  theBuilder.createBarrier(execScope, memScope, memSema);
   return 0;
 }
 

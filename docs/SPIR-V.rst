@@ -1400,32 +1400,36 @@ Using SPIR-V opcode
 
 The following intrinsic HLSL functions have direct SPIR-V opcodes for them:
 
-============================== =================================
-   HLSL Intrinsic Function              SPIR-V Opcode
-============================== =================================
-``countbits``                  ``OpBitCount``
-``ddx``                        ``OpDPdx``
-``ddy``                        ``OpDPdy``
-``ddx_coarse``                 ``OpDPdxCoarse``
-``ddy_coarse``                 ``OpDPdyCoarse``
-``ddx_fine``                   ``OpDPdxFine``
-``ddy_fine``                   ``OpDPdyFine``
-``fmod``                       ``OpFMod``
-``fwidth``                     ``OpFwidth``
-``InterlockedAdd``             ``OpAtomicIAdd``
-``InterlockedAnd``             ``OpAtomicAnd``
-``InterlockedOr``              ``OpAtomicOr``
-``InterlockedXor``             ``OpAtomicXor``
-``InterlockedMin``             ``OpAtomicUMin``/``OpAtomicSMin``
-``InterlockedMax``             ``OpAtomicUMax``/``OpAtomicSMax``
-``InterlockedExchange``        ``OpAtomicExchange``
-``InterlockedCompareExchange`` ``OpAtomicCompareExchange``
-``InterlockedCompareStore``    ``OpAtomicCompareExchange``
-``isnan``                      ``OpIsNan``
-``isInf``                      ``OpIsInf``
-``reversebits``                ``OpBitReverse``
-``transpose``                  ``OpTranspose``
-============================== =================================
+==================================== =================================
+   HLSL Intrinsic Function                   SPIR-V Opcode
+==================================== =================================
+``countbits``                        ``OpBitCount``
+``DeviceMemoryBarrier``              ``OpMemoryBarrier``
+``DeviceMemoryBarrierWithGroupSync`` ``OpControlBarrier``
+``ddx``                              ``OpDPdx``
+``ddy``                              ``OpDPdy``
+``ddx_coarse``                       ``OpDPdxCoarse``
+``ddy_coarse``                       ``OpDPdyCoarse``
+``ddx_fine``                         ``OpDPdxFine``
+``ddy_fine``                         ``OpDPdyFine``
+``fmod``                             ``OpFMod``
+``fwidth``                           ``OpFwidth``
+``GroupMemoryBarrier``               ``OpMemoryBarrier``
+``GroupMemoryBarrierWithGroupSync``  ``OpControlBarrier``
+``InterlockedAdd``                   ``OpAtomicIAdd``
+``InterlockedAnd``                   ``OpAtomicAnd``
+``InterlockedOr``                    ``OpAtomicOr``
+``InterlockedXor``                   ``OpAtomicXor``
+``InterlockedMin``                   ``OpAtomicUMin``/``OpAtomicSMin``
+``InterlockedMax``                   ``OpAtomicUMax``/``OpAtomicSMax``
+``InterlockedExchange``              ``OpAtomicExchange``
+``InterlockedCompareExchange``       ``OpAtomicCompareExchange``
+``InterlockedCompareStore``          ``OpAtomicCompareExchange``
+``isnan``                            ``OpIsNan``
+``isInf``                            ``OpIsInf``
+``reversebits``                      ``OpBitReverse``
+``transpose``                        ``OpTranspose``
+==================================== =================================
 
 Using GLSL extended instructions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

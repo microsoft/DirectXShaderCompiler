@@ -270,9 +270,12 @@ private:
   /// Processes the 'lit' intrinsic function.
   uint32_t processIntrinsicLit(const CallExpr *);
 
-  /// Processes the 'GroupMemoryBarrier' and 'GroupMemoryBarrierWithGroupSync'
-  /// intrinsic functions.
-  uint32_t processIntrinsicGroupMemoryBarrier(const CallExpr *, bool groupSync);
+  /// Processes the 'GroupMemoryBarrier', 'GroupMemoryBarrierWithGroupSync',
+  /// 'DeviceMemoryBarrier', and 'DeviceMemoryBarrierWithGroupSync' intrinsic
+  /// functions.
+  uint32_t processIntrinsicGroupDeviceMemoryBarrier(const CallExpr *,
+                                                    bool isDevice,
+                                                    bool groupSync);
 
   /// Processes the 'modf' intrinsic function.
   uint32_t processIntrinsicModf(const CallExpr *);
