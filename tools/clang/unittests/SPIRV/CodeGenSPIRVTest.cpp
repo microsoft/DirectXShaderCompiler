@@ -883,4 +883,9 @@ TEST_F(FileTest, HullShaderStructure) { runFileTest("hs.structure.hlsl"); }
 // GS: emit vertex and emit primitive
 TEST_F(FileTest, GeometryShaderEmit) { runFileTest("gs.emit.hlsl"); }
 
+// CS: groupshared
+TEST_F(FileTest, ComputeShaderGroupShared) {
+  runFileTest("cs.groupshared.hlsl");
+}
+
 } // namespace
