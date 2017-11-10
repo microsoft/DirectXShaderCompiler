@@ -1386,6 +1386,8 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``determinant``         ``Determinant``
 ``exp``                 ``Exp``
 ``exp2``                ``exp2``
+``f16tof32``            ``UnpackHalf2x16``
+``f32tof16``            ``PackHalf2x16``
 ``faceforward``         ``FaceForward``
 ``firstbithigh``        ``FindSMsb`` / ``FindUMsb``
 ``firstbitlow``         ``FindILsb``
