@@ -306,10 +306,15 @@ private:
   /// fields. The struct type will be named as typeName, and the variable
   /// will be named as varName.
   ///
+  /// This method should only be used for cbuffers/ContantBuffers and
+  /// tbuffers/TextureBuffers. isCBuffer must be set appropriately based on the
+  /// type of the buffer.
+  ///
   /// Panics if the DeclContext is neither HLSLBufferDecl or RecordDecl.
   uint32_t createVarOfExplicitLayoutStruct(const DeclContext *decl,
                                            llvm::StringRef typeName,
-                                           llvm::StringRef varName);
+                                           llvm::StringRef varName,
+                                           bool isCBuffer);
 
   /// Creates all the stage variables mapped from semantics on the given decl.
   /// Returns true on sucess.
