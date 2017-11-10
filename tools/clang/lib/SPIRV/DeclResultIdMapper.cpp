@@ -203,9 +203,7 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
           cast<VarDecl>(decl)->getType(),
           // We need to set decorateLayout here to avoid creating SPIR-V
           // instructions for the current type without decorations.
-          // According to the Vulkan spec, cbuffer should follow standrad
-          // uniform buffer layout, which GLSL std140 rules statisfies.
-          LayoutRule::GLSLStd140);
+          info->layoutRule);
 
       const uint32_t elemId = theBuilder.createAccessChain(
           theBuilder.getPointerType(varType, info->storageClass),
@@ -290,13 +288,28 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   return id;
 }
 
-uint32_t
-DeclResultIdMapper::createVarOfExplicitLayoutStruct(const DeclContext *decl,
-                                                    llvm::StringRef typeName,
-                                                    llvm::StringRef varName) {
+uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
+    const DeclContext *decl, llvm::StringRef typeName, llvm::StringRef varName,
+    bool isCBuffer) {
+  LayoutRule layoutRule =
+      isCBuffer ? LayoutRule::GLSLStd140 : LayoutRule::GLSLStd430;
+  const auto *blockDec =
+      isCBuffer ? Decoration::getBlock(*theBuilder.getSPIRVContext())
+                : Decoration::getBufferBlock(*theBuilder.getSPIRVContext());
+
+  // Get the type for the whole buffer
+  // cbuffers are translated into OpTypeStruct with Block decoration.
+  // tbuffers are translated into OpTypeStruct with BufferBlock decoration.
+  // Both cbuffers and tbuffers have the SPIR-V Uniform storage class. cbuffers
+  // satisfy GLSL std140 layout rules, and tbuffers satisfy GLSL std430 layout
+  // rules.
+  auto decorations = typeTranslator.getLayoutDecorations(decl, layoutRule);
+  decorations.push_back(blockDec);
+
   // Collect the type and name for each field
   llvm::SmallVector<uint32_t, 4> fieldTypes;
   llvm::SmallVector<llvm::StringRef, 4> fieldNames;
+  uint32_t fieldIndex = 0;
   for (const auto *subDecl : decl->decls()) {
     // Ignore implicit generated struct declarations/constructors/destructors.
     if (subDecl->isImplicit())
@@ -311,19 +324,19 @@ DeclResultIdMapper::createVarOfExplicitLayoutStruct(const DeclContext *decl,
     auto varType = declDecl->getType();
     varType.removeLocalConst();
 
-    fieldTypes.push_back(
-        typeTranslator.translateType(varType, LayoutRule::GLSLStd140,
-                                     declDecl->hasAttr<HLSLRowMajorAttr>()));
+    fieldTypes.push_back(typeTranslator.translateType(
+        varType, layoutRule, declDecl->hasAttr<HLSLRowMajorAttr>()));
     fieldNames.push_back(declDecl->getName());
+
+    // tbuffer/TextureBuffers are non-writable SSBOs. OpMemberDecorate
+    // NonWritable must be applied to all fields.
+    if (!isCBuffer) {
+      decorations.push_back(Decoration::getNonWritable(
+          *theBuilder.getSPIRVContext(), fieldIndex));
+    }
+    ++fieldIndex;
   }
 
-  // Get the type for the whole buffer
-  // cbuffers are translated into OpTypeStruct with Block decoration. They
-  // should follow standard uniform buffer layout according to the Vulkan spec.
-  // GLSL std140 rules satisfies.
-  auto decorations =
-      typeTranslator.getLayoutDecorations(decl, LayoutRule::GLSLStd140);
-  decorations.push_back(Decoration::getBlock(*theBuilder.getSPIRVContext()));
   const uint32_t structType =
       theBuilder.getStructType(fieldTypes, typeName, fieldNames, decorations);
 
@@ -335,8 +348,8 @@ DeclResultIdMapper::createVarOfExplicitLayoutStruct(const DeclContext *decl,
 uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   const std::string structName = "type." + decl->getName().str();
   const std::string varName = "var." + decl->getName().str();
-  const uint32_t bufferVar =
-      createVarOfExplicitLayoutStruct(decl, structName, varName);
+  const uint32_t bufferVar = createVarOfExplicitLayoutStruct(
+      decl, structName, varName, decl->isCBuffer());
 
   // We still register all VarDecls seperately here. All the VarDecls are
   // mapped to the <result-id> of the buffer object, which means when querying
@@ -345,9 +358,10 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   int index = 0;
   for (const auto *subDecl : decl->decls()) {
     const auto *varDecl = cast<VarDecl>(subDecl);
-    // TODO: std140 rules may not suit tbuffers.
     astDecls[varDecl] = {bufferVar, spv::StorageClass::Uniform,
-                         LayoutRule::GLSLStd140, index++};
+                         decl->isCBuffer() ? LayoutRule::GLSLStd140
+                                           : LayoutRule::GLSLStd430,
+                         index++};
   }
   resourceVars.emplace_back(
       bufferVar, ResourceVar::Category::Other, getResourceBinding(decl),
@@ -363,15 +377,15 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   const bool isCBuffer = context->isCBuffer();
 
   const std::string structName =
-      "type." + std::string(isCBuffer ? "ConstantBuffer." : "TextureBuffer") +
+      "type." + std::string(isCBuffer ? "ConstantBuffer." : "TextureBuffer.") +
       recordType->getDecl()->getName().str();
   const uint32_t bufferVar = createVarOfExplicitLayoutStruct(
-      recordType->getDecl(), structName, decl->getName());
+      recordType->getDecl(), structName, decl->getName(), isCBuffer);
 
   // We register the VarDecl here.
-  // TODO: std140 rules may not suit tbuffers.
   astDecls[decl] = {bufferVar, spv::StorageClass::Uniform,
-                    LayoutRule::GLSLStd140};
+                    isCBuffer ? LayoutRule::GLSLStd140
+                              : LayoutRule::GLSLStd430};
   resourceVars.emplace_back(
       bufferVar, ResourceVar::Category::Other, getResourceBinding(context),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
