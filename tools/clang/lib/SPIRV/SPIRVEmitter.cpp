@@ -4060,7 +4060,7 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_texCUBEgrad:
   case hlsl::IntrinsicOp::IOP_texCUBElod:
   case hlsl::IntrinsicOp::IOP_texCUBEproj: {
-    emitError("deprecated intrinsic %0 function will not be not supported",
+    emitError("deprecated %0 intrinsic function will not be supported",
               callExpr->getExprLoc())
         << callee->getName();
     return 0;
@@ -4113,6 +4113,10 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_log10: {
     return processIntrinsicLog10(callExpr);
   }
+  case hlsl::IntrinsicOp::IOP_f16tof32:
+    return processIntrinsicF16ToF32(callExpr);
+  case hlsl::IntrinsicOp::IOP_f32tof16:
+    return processIntrinsicF32ToF16(callExpr);
     INTRINSIC_SPIRV_OP_CASE(transpose, Transpose, false);
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
     INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddx_coarse, DPdxCoarse, false,
@@ -4238,8 +4242,7 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   };
 
   const auto writeToOutputArg = [&baseType, dest, this](
-                                    uint32_t toWrite, const CallExpr *callExpr,
-                                    uint32_t outputArgIndex) {
+      uint32_t toWrite, const CallExpr *callExpr, uint32_t outputArgIndex) {
     const auto outputArg = callExpr->getArg(outputArgIndex);
     const auto outputArgType = outputArg->getType();
     if (baseType != outputArgType)
@@ -5151,6 +5154,80 @@ uint32_t SPIRVEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
 
   return castToInt(floatSignResultId, arg->getType(), returnType,
                    arg->getExprLoc());
+}
+
+uint32_t SPIRVEmitter::processIntrinsicF16ToF32(const CallExpr *callExpr) {
+  // f16tof32() takes in (vector of) uint and returns (vector of) float.
+  // The frontend should guarantee that by inserting implicit casts.
+  const uint32_t glsl = theBuilder.getGLSLExtInstSet();
+  const uint32_t f32TypeId = theBuilder.getFloat32Type();
+  const uint32_t u32TypeId = theBuilder.getUint32Type();
+  const uint32_t v2f32TypeId = theBuilder.getVecType(f32TypeId, 2);
+
+  const auto *arg = callExpr->getArg(0);
+  const uint32_t argId = doExpr(arg);
+
+  uint32_t elemCount = {};
+
+  if (TypeTranslator::isVectorType(arg->getType(), nullptr, &elemCount)) {
+    // The input is a vector. We need to handle each element separately.
+    llvm::SmallVector<uint32_t, 4> elements;
+
+    for (uint32_t i = 0; i < elemCount; ++i) {
+      const uint32_t srcElem =
+          theBuilder.createCompositeExtract(u32TypeId, argId, {i});
+      const uint32_t convert = theBuilder.createExtInst(
+          v2f32TypeId, glsl, GLSLstd450::GLSLstd450UnpackHalf2x16, srcElem);
+      elements.push_back(
+          theBuilder.createCompositeExtract(f32TypeId, convert, {0}));
+    }
+    return theBuilder.createCompositeConstruct(
+        theBuilder.getVecType(f32TypeId, elemCount), elements);
+  }
+
+  const uint32_t convert = theBuilder.createExtInst(
+      v2f32TypeId, glsl, GLSLstd450::GLSLstd450UnpackHalf2x16, argId);
+  // f16tof32() converts the float16 stored in the low-half of the uint to
+  // a float. So just need to return the first component.
+  return theBuilder.createCompositeExtract(f32TypeId, convert, {0});
+}
+
+uint32_t SPIRVEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
+  // f32tof16() takes in (vector of) float and returns (vector of) uint.
+  // The frontend should guarantee that by inserting implicit casts.
+  const uint32_t glsl = theBuilder.getGLSLExtInstSet();
+  const uint32_t f32TypeId = theBuilder.getFloat32Type();
+  const uint32_t u32TypeId = theBuilder.getUint32Type();
+  const uint32_t v2f32TypeId = theBuilder.getVecType(f32TypeId, 2);
+  const uint32_t zero = theBuilder.getConstantFloat32(0);
+
+  const auto *arg = callExpr->getArg(0);
+  const uint32_t argId = doExpr(arg);
+  uint32_t elemCount = {};
+
+  if (TypeTranslator::isVectorType(arg->getType(), nullptr, &elemCount)) {
+    // The input is a vector. We need to handle each element separately.
+    llvm::SmallVector<uint32_t, 4> elements;
+
+    for (uint32_t i = 0; i < elemCount; ++i) {
+      const uint32_t srcElem =
+          theBuilder.createCompositeExtract(f32TypeId, argId, {i});
+      const uint32_t srcVec =
+          theBuilder.createCompositeConstruct(v2f32TypeId, {srcElem, zero});
+
+      elements.push_back(theBuilder.createExtInst(
+          u32TypeId, glsl, GLSLstd450::GLSLstd450PackHalf2x16, srcVec));
+    }
+    return theBuilder.createCompositeConstruct(
+        theBuilder.getVecType(u32TypeId, elemCount), elements);
+  }
+
+  // f16tof32() stores the float into the low-half of the uint. So we need
+  // to supply another zero to take the other half.
+  const uint32_t srcVec =
+      theBuilder.createCompositeConstruct(v2f32TypeId, {argId, zero});
+  return theBuilder.createExtInst(u32TypeId, glsl,
+                                  GLSLstd450::GLSLstd450PackHalf2x16, srcVec);
 }
 
 uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(

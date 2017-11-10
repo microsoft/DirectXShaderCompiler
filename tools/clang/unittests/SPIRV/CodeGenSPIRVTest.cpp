@@ -614,6 +614,12 @@ TEST_F(FileTest, IntrinsicsDeterminant) {
 }
 TEST_F(FileTest, IntrinsicsExp) { runFileTest("intrinsics.exp.hlsl"); }
 TEST_F(FileTest, IntrinsicsExp2) { runFileTest("intrinsics.exp2.hlsl"); }
+TEST_F(FileTest, IntrinsicsF16ToF32) {
+  runFileTest("intrinsics.f16tof32.hlsl");
+}
+TEST_F(FileTest, IntrinsicsF32ToF16) {
+  runFileTest("intrinsics.f32tof16.hlsl");
+}
 TEST_F(FileTest, IntrinsicsFaceForward) {
   runFileTest("intrinsics.faceforward.hlsl");
 }

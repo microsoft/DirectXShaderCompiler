@@ -306,6 +306,11 @@ private:
   /// casting from float to integer is therefore performed by this method.
   uint32_t processIntrinsicFloatSign(const CallExpr *);
 
+  /// Processes the 'f16to32' intrinsic function.
+  uint32_t processIntrinsicF16ToF32(const CallExpr *);
+  /// Processes the 'f32tof16' intrinsic function.
+  uint32_t processIntrinsicF32ToF16(const CallExpr *);
+
   /// Processes the given intrinsic function call using the given GLSL
   /// extended instruction. If the given instruction cannot operate on matrices,
   /// it performs the instruction on each row of the matrix and uses composite
@@ -642,8 +647,7 @@ private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>
-  DiagnosticBuilder emitError(const char (&message)[N],
-                              SourceLocation loc) {
+  DiagnosticBuilder emitError(const char (&message)[N], SourceLocation loc) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
     return diags.Report(loc, diagId);
