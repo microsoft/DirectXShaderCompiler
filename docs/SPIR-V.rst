@@ -443,7 +443,7 @@ will be translated into
 ``tbuffer`` and ``TextureBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-These two buffer types are treated as uniform buffers using Vulkan's
+These two buffer types are treated as storage buffers using Vulkan's
 terminology. They are translated into an ``OpTypeStruct`` with the
 necessary layout decorations (``Offset``, ``ArrayStride``, ``MatrixStride``,
 ``RowMajor``, ``ColMajor``) and the ``BufferBlock`` decoration. All the struct

@@ -203,8 +203,6 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
           cast<VarDecl>(decl)->getType(),
           // We need to set decorateLayout here to avoid creating SPIR-V
           // instructions for the current type without decorations.
-          // According to the Vulkan spec, cbuffer should follow GLSL std140
-          // rules and tbuffer should follow GLSL std430 rules.
           info->layoutRule);
 
       const uint32_t elemId = theBuilder.createAccessChain(
