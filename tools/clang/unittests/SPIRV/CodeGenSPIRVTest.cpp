@@ -359,6 +359,15 @@ TEST_F(FileTest, SemanticVertexIDVS) {
 TEST_F(FileTest, SemanticInstanceIDVS) {
   runFileTest("semantic.instance-id.vs.hlsl");
 }
+TEST_F(FileTest, SemanticInstanceIDHS) {
+  runFileTest("semantic.instance-id.hs.hlsl");
+}
+TEST_F(FileTest, SemanticInstanceIDDS) {
+  runFileTest("semantic.instance-id.ds.hlsl");
+}
+TEST_F(FileTest, SemanticInstanceIDGS) {
+  runFileTest("semantic.instance-id.gs.hlsl");
+}
 TEST_F(FileTest, SemanticInstanceIDPS) {
   runFileTest("semantic.instance-id.ps.hlsl");
 }
@@ -369,6 +378,9 @@ TEST_F(FileTest, SemanticDepthGreaterEqualPS) {
 }
 TEST_F(FileTest, SemanticDepthLessEqualPS) {
   runFileTest("semantic.depth-less-equal.ps.hlsl");
+}
+TEST_F(FileTest, SemanticIsFrontFaceGS) {
+  runFileTest("semantic.is-front-face.gs.hlsl");
 }
 TEST_F(FileTest, SemanticIsFrontFacePS) {
   runFileTest("semantic.is-front-face.ps.hlsl");
@@ -417,8 +429,23 @@ TEST_F(FileTest, SemanticInsideTessFactorHS) {
 TEST_F(FileTest, SemanticPrimitiveIdHS) {
   runFileTest("semantic.primitive-id.hs.hlsl");
 }
+TEST_F(FileTest, SemanticPrimitiveIdDS) {
+  runFileTest("semantic.primitive-id.ds.hlsl");
+}
+TEST_F(FileTest, SemanticPrimitiveIdGS) {
+  runFileTest("semantic.primitive-id.gs.hlsl");
+}
+TEST_F(FileTest, SemanticPrimitiveIdPS) {
+  runFileTest("semantic.primitive-id.ps.hlsl");
+}
 TEST_F(FileTest, SemanticOutputControlPointIdHS) {
   runFileTest("semantic.output-control-point-id.hs.hlsl");
+}
+TEST_F(FileTest, SemanticGSInstanceIDGS) {
+  runFileTest("semantic.gs-instance-id.gs.hlsl");
+}
+TEST_F(FileTest, SemanticSampleIndexPS) {
+  runFileTest("semantic.sample-index.ps.hlsl");
 }
 
 // For texture methods

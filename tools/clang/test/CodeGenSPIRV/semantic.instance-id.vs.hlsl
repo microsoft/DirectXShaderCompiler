@@ -2,6 +2,7 @@
 
 // CHECK:                     OpEntryPoint Vertex %main "main"
 // CHECK-SAME:                %gl_InstanceIndex
+// CHECK-SAME:                %out_var_SV_InstanceID
 
 // CHECK:                     OpDecorate %gl_InstanceIndex BuiltIn InstanceIndex
 // CHECK:                     OpDecorate %out_var_SV_InstanceID Location 0
