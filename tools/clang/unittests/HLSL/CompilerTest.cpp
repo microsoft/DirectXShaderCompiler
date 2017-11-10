@@ -555,6 +555,7 @@ public:
   TEST_METHOD(CodeGenFloatToBool)
   TEST_METHOD(CodeGenFirstbitHi)
   TEST_METHOD(CodeGenFirstbitLo)
+  TEST_METHOD(CodeGenFixedWidthTypes)
   TEST_METHOD(CodeGenFloatMaxtessfactor)
   TEST_METHOD(CodeGenFModPS)
   TEST_METHOD(CodeGenFuncCast)
@@ -3403,6 +3404,11 @@ TEST_F(CompilerTest, CodeGenFirstbitHi) {
 
 TEST_F(CompilerTest, CodeGenFirstbitLo) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\firstbitLo.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFixedWidthTypes) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\fixedwidth.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFloatMaxtessfactor) {
