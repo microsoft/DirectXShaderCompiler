@@ -295,12 +295,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
         patchConstFunc = funcDecl;
       }
     } else if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      if (isa<HLSLBufferDecl>(varDecl->getDeclContext())) {
-        // This is a VarDecl of a ConstantBuffer/TextureBuffer type.
-        (void)declIdMapper.createCTBuffer(varDecl);
-      } else {
-        doVarDecl(varDecl);
-      }
+      doVarDecl(varDecl);
     } else if (auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
       // This is a cbuffer/tbuffer decl.
       (void)declIdMapper.createCTBuffer(bufferDecl);
@@ -625,6 +620,18 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 }
 
 void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
+  if (decl->hasAttr<VKPushConstantAttr>()) {
+    // This is a VarDecl for PushConstant block.
+    (void)declIdMapper.createPushConstant(decl);
+    return;
+  }
+
+  if (isa<HLSLBufferDecl>(decl->getDeclContext())) {
+    // This is a VarDecl of a ConstantBuffer/TextureBuffer type.
+    (void)declIdMapper.createCTBuffer(decl);
+    return;
+  }
+
   uint32_t varId = 0;
 
   // The contents in externally visible variables can be updated via the

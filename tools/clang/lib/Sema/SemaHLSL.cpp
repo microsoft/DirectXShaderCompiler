@@ -10222,6 +10222,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKCounterBindingAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKPushConstant:
+    declAttr = ::new (S.Context) VKPushConstantAttr(A.getRange(), S.Context,
+      A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     return;

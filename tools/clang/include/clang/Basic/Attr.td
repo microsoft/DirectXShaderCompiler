@@ -879,7 +879,7 @@ def VKBinding : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-// StructuredBuffer types that can have associated counters.
+// StructuredBuffer types that can have associated counters
 def CounterStructuredBuffer : SubsetSubject<
     Var,
     [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
@@ -891,6 +891,17 @@ def VKCounterBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "counter_binding">];
   let Subjects = SubjectList<[CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
   let Args = [IntArgument<"Binding">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+// Global variables that are of struct type
+def StructGlobalVar : SubsetSubject<Var, [{S->hasGlobalStorage() && S->getType()->isStructureType()}]>;
+
+def VKPushConstant : InheritableAttr {
+  let Spellings = [CXX11<"vk", "push_constant">];
+  let Subjects = SubjectList<[StructGlobalVar], ErrorDiag, "ExpectedStructGlobalVar">;
+  let Args = [];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }

@@ -289,20 +289,24 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
 }
 
 uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
-    const DeclContext *decl, llvm::StringRef typeName, llvm::StringRef varName,
-    bool isCBuffer) {
-  LayoutRule layoutRule =
-      isCBuffer ? LayoutRule::GLSLStd140 : LayoutRule::GLSLStd430;
-  const auto *blockDec =
-      isCBuffer ? Decoration::getBlock(*theBuilder.getSPIRVContext())
-                : Decoration::getBufferBlock(*theBuilder.getSPIRVContext());
-
-  // Get the type for the whole buffer
+    const DeclContext *decl, const ContextUsageKind usageKind,
+    llvm::StringRef typeName, llvm::StringRef varName) {
   // cbuffers are translated into OpTypeStruct with Block decoration.
   // tbuffers are translated into OpTypeStruct with BufferBlock decoration.
+  // PushConstants are translated into OpTypeStruct with Block decoration.
+  //
   // Both cbuffers and tbuffers have the SPIR-V Uniform storage class. cbuffers
-  // satisfy GLSL std140 layout rules, and tbuffers satisfy GLSL std430 layout
-  // rules.
+  // follow GLSL std140 layout rules, and tbuffers follow GLSL std430 layout
+  // rules. PushConstants follow GLSL std430 layout rules.
+
+  auto &context = *theBuilder.getSPIRVContext();
+  const LayoutRule layoutRule = usageKind == ContextUsageKind::CBuffer
+                                    ? LayoutRule::GLSLStd140
+                                    : LayoutRule::GLSLStd430;
+  const auto *blockDec = usageKind == ContextUsageKind::TBuffer
+                             ? Decoration::getBufferBlock(context)
+                             : Decoration::getBlock(context);
+
   auto decorations = typeTranslator.getLayoutDecorations(decl, layoutRule);
   decorations.push_back(blockDec);
 
@@ -330,26 +334,32 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
 
     // tbuffer/TextureBuffers are non-writable SSBOs. OpMemberDecorate
     // NonWritable must be applied to all fields.
-    if (!isCBuffer) {
+    if (usageKind == ContextUsageKind::TBuffer) {
       decorations.push_back(Decoration::getNonWritable(
           *theBuilder.getSPIRVContext(), fieldIndex));
     }
     ++fieldIndex;
   }
 
+  // Get the type for the whole struct
   const uint32_t structType =
       theBuilder.getStructType(fieldTypes, typeName, fieldNames, decorations);
 
-  // Create the variable for the whole buffer
-  return theBuilder.addModuleVar(structType, spv::StorageClass::Uniform,
-                                 varName);
+  const auto sc = usageKind == ContextUsageKind::PushConstant
+                      ? spv::StorageClass::PushConstant
+                      : spv::StorageClass::Uniform;
+
+  // Create the variable for the whole struct
+  return theBuilder.addModuleVar(structType, sc, varName);
 }
 
 uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
+  const auto usageKind =
+      decl->isCBuffer() ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
   const std::string structName = "type." + decl->getName().str();
   const std::string varName = "var." + decl->getName().str();
-  const uint32_t bufferVar = createVarOfExplicitLayoutStruct(
-      decl, structName, varName, decl->isCBuffer());
+  const uint32_t bufferVar =
+      createVarOfExplicitLayoutStruct(decl, usageKind, structName, varName);
 
   // We still register all VarDecls seperately here. All the VarDecls are
   // mapped to the <result-id> of the buffer object, which means when querying
@@ -374,23 +384,44 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   const auto *recordType = decl->getType()->getAs<RecordType>();
   assert(recordType);
   const auto *context = cast<HLSLBufferDecl>(decl->getDeclContext());
-  const bool isCBuffer = context->isCBuffer();
+  const auto usageKind = context->isCBuffer() ? ContextUsageKind::CBuffer
+                                              : ContextUsageKind::TBuffer;
 
   const std::string structName =
-      "type." + std::string(isCBuffer ? "ConstantBuffer." : "TextureBuffer.") +
+      "type." +
+      std::string(context->isCBuffer() ? "ConstantBuffer." : "TextureBuffer.") +
       recordType->getDecl()->getName().str();
   const uint32_t bufferVar = createVarOfExplicitLayoutStruct(
-      recordType->getDecl(), structName, decl->getName(), isCBuffer);
+      recordType->getDecl(), usageKind, structName, decl->getName());
 
   // We register the VarDecl here.
   astDecls[decl] = {bufferVar, spv::StorageClass::Uniform,
-                    isCBuffer ? LayoutRule::GLSLStd140
-                              : LayoutRule::GLSLStd430};
+                    context->isCBuffer() ? LayoutRule::GLSLStd140
+                                         : LayoutRule::GLSLStd430};
   resourceVars.emplace_back(
       bufferVar, ResourceVar::Category::Other, getResourceBinding(context),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
+}
+
+uint32_t DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
+  const auto *recordType = decl->getType()->getAs<RecordType>();
+  assert(recordType);
+
+  const std::string structName =
+      "type.PushConstant." + recordType->getDecl()->getName().str();
+  const uint32_t var = createVarOfExplicitLayoutStruct(
+      recordType->getDecl(), ContextUsageKind::PushConstant, structName,
+      decl->getName());
+
+  // Register the VarDecl
+  astDecls[decl] = {var, spv::StorageClass::PushConstant,
+                    LayoutRule::GLSLStd430};
+  // Do not push this variable into resourceVars since it does not need
+  // descriptor set.
+
+  return var;
 }
 
 uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {

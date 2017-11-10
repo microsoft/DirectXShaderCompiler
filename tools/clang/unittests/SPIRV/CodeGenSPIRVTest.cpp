@@ -847,6 +847,8 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
   runFileTest("vk.binding.counter.hlsl");
 }
 
+TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
+
 TEST_F(FileTest, VulkanLayoutCBufferStd140) {
   runFileTest("vk.layout.cbuffer.std140.hlsl");
 }
@@ -873,6 +875,10 @@ TEST_F(FileTest, VulkanLayoutTBufferStd430) {
 }
 TEST_F(FileTest, VulkanLayoutTextureBufferStd430) {
   runFileTest("vk.layout.texture-buffer.std430.hlsl");
+}
+
+TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
+  runFileTest("vk.layout.push-constant.std430.hlsl");
 }
 
 // HS: for different Patch Constant Functions
