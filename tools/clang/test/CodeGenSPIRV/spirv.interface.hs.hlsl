@@ -1,7 +1,5 @@
 // Run: %dxc -T hs_6_0 -E main
 
-// TODO: Handle the Patch decoration
-
 #define NumOutPoints 2
 
 // CHECK: OpCapability ClipDistance

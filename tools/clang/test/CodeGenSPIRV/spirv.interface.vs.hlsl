@@ -3,7 +3,7 @@
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
 
-// CHECK: OpEntryPoint Vertex %main "main" %gl_PerVertexOut %in_var_TEXCOORD %in_var_SV_Position %out_var_COLOR %out_var_TEXCOORD
+// CHECK: OpEntryPoint Vertex %main "main" %gl_PerVertexOut %in_var_TEXCOORD %in_var_SV_Position %in_var_SV_ClipDistance %in_var_SV_CullDistance0 %out_var_COLOR %out_var_TEXCOORD
 
 // CHECK: OpMemberDecorate %type_gl_PerVertex 0 BuiltIn Position
 // CHECK: OpMemberDecorate %type_gl_PerVertex 1 BuiltIn PointSize
@@ -13,6 +13,8 @@
 
 // CHECK: OpDecorate %in_var_TEXCOORD Location 0
 // CHECK: OpDecorate %in_var_SV_Position Location 1
+// CHECK: OpDecorate %in_var_SV_ClipDistance Location 2
+// CHECK: OpDecorate %in_var_SV_CullDistance0 Location 3
 // CHECK: OpDecorate %out_var_COLOR Location 0
 // CHECK: OpDecorate %out_var_TEXCOORD Location 1
 
@@ -24,6 +26,8 @@
 
 // CHECK: %in_var_TEXCOORD = OpVariable %_ptr_Input_v4float Input
 // CHECK: %in_var_SV_Position = OpVariable %_ptr_Input_v4float Input
+// CHECK: %in_var_SV_ClipDistance = OpVariable %_ptr_Input_v2float Input
+// CHECK: %in_var_SV_CullDistance0 = OpVariable %_ptr_Input_v3float Input
 // CHECK: %out_var_COLOR = OpVariable %_ptr_Output_v4float Output
 // CHECK: %out_var_TEXCOORD = OpVariable %_ptr_Output_v4float Output
 
@@ -47,7 +51,9 @@ void main(out VSOut  vsOut,
           out   float  culldis5 : SV_CullDistance5, // -> BuiltIn CullDistance in gl_PerVertex
           out   float  culldis3 : SV_CullDistance3, // -> BuiltIn CullDistance in gl_PerVertex
           out   float  culldis6 : SV_CullDistance6, // -> BuiltIn CullDistance in gl_PerVertex
-          in    float4 inPos    : SV_Position       // -> Input variable
+          in    float4 inPos    : SV_Position,      // -> Input variable
+          in    float2 inClip   : SV_ClipDistance,  // -> Input variable
+          in    float3 inCull   : SV_CullDistance0  // -> Input variable
          ) {
     vsOut    = (VSOut)0;
     clipdis0 = 1.;
@@ -70,6 +76,10 @@ void main(out VSOut  vsOut,
 // CHECK-NEXT:                     OpStore %param_var_coord [[texcoord]]
 // CHECK-NEXT:      [[pos:%\d+]] = OpLoad %v4float %in_var_SV_Position
 // CHECK-NEXT:                     OpStore %param_var_inPos [[pos]]
+// CHECK-NEXT:   [[inClip:%\d+]] = OpLoad %v2float %in_var_SV_ClipDistance
+// CHECK-NEXT:                     OpStore %param_var_inClip [[inClip]]
+// CHECK-NEXT:   [[inCull:%\d+]] = OpLoad %v3float %in_var_SV_CullDistance0
+// CHECK-NEXT:                     OpStore %param_var_inCull [[inCull]]
 
 // CHECK-NEXT: OpFunctionCall %void %src_main
 
