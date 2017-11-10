@@ -250,8 +250,10 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto rule = LayoutRule::Void;
   bool isACSBuffer = false; // Whether its {Append|Consume}StructuredBuffer
 
-  // TODO: Figure out other cases where the storage class should be Uniform.
-  if (auto *t = var->getType()->getAs<RecordType>()) {
+  if (var->getAttr<HLSLGroupSharedAttr>()) {
+    // For CS groupshared variables
+    storageClass = spv::StorageClass::Workgroup;
+  } else if (auto *t = var->getType()->getAs<RecordType>()) {
     const llvm::StringRef typeName = t->getDecl()->getName();
     if (typeName == "StructuredBuffer" || typeName == "RWStructuredBuffer" ||
         typeName == "ByteAddressBuffer" || typeName == "RWByteAddressBuffer" ||
