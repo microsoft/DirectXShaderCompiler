@@ -3067,7 +3067,7 @@ public:
     }
   }
 
-  void DiagnoseScalarType(HLSLScalarType type, SourceLocation Loc) {
+  void DiagnoseHLSLScalarType(HLSLScalarType type, SourceLocation Loc) {
     if (getSema()->getLangOpts().HLSLVersion < 2018) {
       switch (type) {
       case HLSLScalarType_float16:
@@ -4492,7 +4492,7 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_int32] = m_context->IntTy;
   m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
   m_baseTypes[HLSLScalarType_uint16] = m_context->UnsignedShortTy;
-  m_baseTypes[HLSLScalarType_uint32] = m_context->IntTy;
+  m_baseTypes[HLSLScalarType_uint32] = m_context->UnsignedIntTy;
   m_baseTypes[HLSLScalarType_uint64] = m_context->UnsignedLongLongTy;
   m_baseTypes[HLSLScalarType_float16] = m_context->HalfTy;
   m_baseTypes[HLSLScalarType_float32] = m_context->FloatTy;
@@ -10977,7 +10977,7 @@ bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
     if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
       HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
       hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
-      hlslExternalSource->DiagnoseScalarType(parsedType, R.getNameLoc());
+      hlslExternalSource->DiagnoseHLSLScalarType(parsedType, R.getNameLoc());
     }
   }
   return true;

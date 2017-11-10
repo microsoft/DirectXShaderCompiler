@@ -60,6 +60,7 @@ VerifierTests = {
     'RunPackReg': "packreg.hlsl",
     'RunScalarAssignments': "scalar-assignments.hlsl",
     'RunScalarOperatorsAssign': "scalar-operators-assign.hlsl",
+    'RunScalarOperatorsAssignExactPrecision': "scalar-operators-assign.hlsl",
     'RunScalarOperators': "scalar-operators.hlsl",
     'RunStructAssignments': "struct-assignments.hlsl",
     'RunTemplateChecks': "template-checks.hlsl",
