@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -no-min-precision -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -enable-16bit-types -fsyntax-only -ffreestanding -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T vs_5_1 scalar-assignments.hlsl

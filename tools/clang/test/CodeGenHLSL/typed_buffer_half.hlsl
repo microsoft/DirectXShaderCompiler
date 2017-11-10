@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_2 -no-min-precision %s  | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -enable-16bit-types %s  | FileCheck %s
 
 // CHECK: call void @dx.op.bufferStore.f16
 

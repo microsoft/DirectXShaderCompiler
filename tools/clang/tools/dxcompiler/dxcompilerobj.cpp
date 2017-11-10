@@ -735,7 +735,7 @@ public:
     // Setup a compiler instance.
     std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
     targetOptions->Triple = "dxil-ms-dx";
-    targetOptions->DescriptionString = Opts.NoMinPrecision
+    targetOptions->DescriptionString = Opts.Enable16BitTypes
       ? hlsl::DXIL::kNewLayoutString
       : hlsl::DXIL::kLegacyLayoutString;
     compiler.HlslLangExtensions = helper;
@@ -794,7 +794,7 @@ public:
     compiler.getLangOpts().RootSigMinor = rootSigMinor;
     compiler.getLangOpts().HLSLVersion = Opts.HLSLVersion;
 
-    compiler.getLangOpts().UseMinPrecision = !Opts.NoMinPrecision;
+    compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN

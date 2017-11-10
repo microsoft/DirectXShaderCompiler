@@ -1744,7 +1744,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   }
   // Enable low precision for HLSL 2018
   // TODO: should we tie low precision to HLSL2018 only?
-  Opts.UseMinPrecision = !Args.hasArg(options::OPT_no_min_precision);
+  Opts.UseMinPrecision = !Args.hasArg(options::OPT_enable_16bit_types);
 #endif // #ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 }
 

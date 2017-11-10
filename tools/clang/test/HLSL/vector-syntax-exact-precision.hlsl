@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -no-min-precision -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -enable-16bit-types -fsyntax-only -ffreestanding -verify %s
 
 float3 f3_ones = 1.0.xxx;
 float3 f3_ones_exp = 2.0e+2.rrr;

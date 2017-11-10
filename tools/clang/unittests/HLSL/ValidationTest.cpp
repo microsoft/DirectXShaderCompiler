@@ -1103,7 +1103,7 @@ TEST_F(ValidationTest, StreamIDOutOfBound) {
 
 TEST_F(ValidationTest, SignatureDataWidth) {
   if (m_ver.SkipDxilVersion(1, 2)) return;
-  std::vector<LPCWSTR> pArguments = { L"-no-min-precision", L"-HV", L"2018" };
+  std::vector<LPCWSTR> pArguments = { L"-enable-16bit-types", L"-HV", L"2018" };
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\signature_packing_by_width.hlsl", "ps_6_2",
       pArguments.data(), 3, nullptr, 0,

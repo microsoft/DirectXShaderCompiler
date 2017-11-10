@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -no-min-precision -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
+// RUN: %clang_cc1 -enable-16bit-types -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
 
 // we use -Wno-unused-value because we generate some no-op expressions to yield errors
 // without also putting them in a static assertion
