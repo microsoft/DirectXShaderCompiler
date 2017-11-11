@@ -129,7 +129,7 @@ public:
   bool AvoidFlowControl;     // OPT_Gfa
   bool PreferFlowControl;    // OPT_Gfp
   bool EnableStrictMode;     // OPT_Ges
-  unsigned HLSLVersion; // OPT_hlsl_version (2015-2018)
+  unsigned long HLSLVersion; // OPT_hlsl_version (2015-2018)
   bool Enable16BitTypes; // OPT_enable_16bit_types
   bool OptDump; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings

@@ -255,7 +255,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   if (ver.empty()) { opts.HLSLVersion = 2016; }   // Default to 2016
   else {
     try {
-      opts.HLSLVersion = std::stoi(std::string(ver));
+      opts.HLSLVersion = std::stoul(std::string(ver));
       if (opts.HLSLVersion < 2015 || opts.HLSLVersion > 2018) {
         errors << "Unknown HLSL version: " << opts.HLSLVersion;
         return 1;

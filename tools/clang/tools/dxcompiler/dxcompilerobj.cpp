@@ -792,7 +792,7 @@ public:
     }
     compiler.getLangOpts().RootSigMajor = 1;
     compiler.getLangOpts().RootSigMinor = rootSigMinor;
-    compiler.getLangOpts().HLSLVersion = Opts.HLSLVersion;
+    compiler.getLangOpts().HLSLVersion = (unsigned) Opts.HLSLVersion;
 
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 

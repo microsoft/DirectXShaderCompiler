@@ -875,6 +875,7 @@ public:
   TEST_METHOD(CodeGenToinclude2_Mod)
   TEST_METHOD(CodeGenTypemods_Syntax_Mod)
   TEST_METHOD(CodeGenTypedBufferHalf)
+  TEST_METHOD(CodeGenTypedefNewType)
   TEST_METHOD(CodeGenVarmods_Syntax_Mod)
   TEST_METHOD(CodeGenVector_Assignments_Mod)
   TEST_METHOD(CodeGenVector_Syntax_Mix_Mod)
@@ -4693,6 +4694,10 @@ TEST_F(CompilerTest, CodeGenTypemods_Syntax_Mod) {
 TEST_F(CompilerTest, CodeGenTypedBufferHalf) {
   if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\typed_buffer_half.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenTypedefNewType) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\typedef_new_type.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenVarmods_Syntax_Mod) {

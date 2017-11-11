@@ -101,8 +101,8 @@ void vector_unsigned() {
    unsigned bool3 boolvector;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned half4 halfvector;   /* expected-error {{'half' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned double1 doublevector;                           /* expected-error {{'double' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min12int2 min12intvector;                       /* expected-warning {{min12int is promoted to min16int}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min16float3 min16floatvector;                   /* expected-error {{'half' cannot be signed or unsigned}} expected-warning {{min16float is promoted to half}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min12int2 min12intvector;                       /* expected-warning {{min12int is promoted to int16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16float3 min16floatvector;                   /* expected-error {{'half' cannot be signed or unsigned}} expected-warning {{min16float is promoted to float16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
 
    unsigned int16_t1 int16_tvector;                         /* fxc-error {{X3000: syntax error: unexpected token 'int16_t1'}} */
    unsigned int32_t1 int32_tvector;                         /* fxc-error {{X3000: syntax error: unexpected token 'int32_t1'}} */

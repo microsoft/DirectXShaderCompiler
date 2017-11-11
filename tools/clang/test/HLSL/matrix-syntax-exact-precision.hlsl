@@ -61,10 +61,10 @@ void matrix_out_of_bounds() {
 
 void matrix_unsigned() {
    unsigned int4x2 intMatrix;
-   unsigned min16int4x3 min16Matrix; /* expected-warning {{min16int is promoted to int}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16int4x3 min16Matrix; /* expected-warning {{min16int is promoted to int16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned int64_t3x3 int64Matrix;  /* fxc-error {{X3000: syntax error: unexpected token 'int64_t3x3'}} */
    unsigned uint3x4 uintMatrix;      /* fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min16uint4x1 min16uintMatrix;                   /* expected-warning {{min16uint is promoted to uint}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16uint4x1 min16uintMatrix;                   /* expected-warning {{min16uint is promoted to uint16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned uint64_t2x2 int64uintMatrix;                    /* fxc-error {{X3000: syntax error: unexpected token 'uint64_t2x2'}} */
    unsigned dword3x2 dwordmector; /* fxc-error {{X3000: syntax error: unexpected token 'dword3x2'}} */
 
@@ -72,8 +72,8 @@ void matrix_unsigned() {
    unsigned bool3x4 boolMatirx;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned half4x1 halfMatrix;   /* expected-error {{'half' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned double1x2 doubleMatrix;                           /* expected-error {{'double' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min12int2x3 min12intMatrix;                       /* expected-warning {{min12int is promoted to min16int}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min16float3x4 min16floatMatrix;                   /* expected-error {{'half' cannot be signed or unsigned}} expected-warning {{min16float is promoted to half}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min12int2x3 min12intMatrix;                       /* expected-warning {{min12int is promoted to int16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16float3x4 min16floatMatrix;                   /* expected-error {{'half' cannot be signed or unsigned}} expected-warning {{min16float is promoted to float16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
 
    unsigned int16_t2x3 uint16_tMatrix1;                       /* fxc-error {{X3000: syntax error: unexpected token 'int16_t2x3'}} */
    unsigned int32_t4x2 uint32_tMatrix1;                       /* fxc-error {{X3000: syntax error: unexpected token 'int32_t4x2'}} */
