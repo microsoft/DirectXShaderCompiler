@@ -857,6 +857,7 @@ enum AttributeDeclKind {
   ExpectedKernelFunction
   // SPIRV Change Begins
   ,ExpectedField
+  ,ExpectedScalarGlobalVar
   ,ExpectedStructGlobalVar
   ,ExpectedGlobalVarOrCTBuffer
   ,ExpectedCounterStructuredBuffer

@@ -283,7 +283,7 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
   return nullptr;
 }
 
-SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const ValueDecl *decl,
+SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                                   bool checkRegistered) {
   if (const auto *info = getDeclSpirvInfo(decl))
     if (info->indexInCTBuffer >= 0) {
@@ -624,6 +624,11 @@ DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) {
     return &found->second;
 
   return nullptr;
+}
+
+void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
+                                              uint32_t specConstant) {
+  astDecls[decl].info.setResultId(specConstant).setRValue().setSpecConstant();
 }
 
 void DeclResultIdMapper::createCounterVar(

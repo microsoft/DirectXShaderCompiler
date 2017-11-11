@@ -11,6 +11,7 @@
 
 #include "TypeTranslator.h"
 #include "spirv/unified1//spirv.hpp11"
+#include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/InstBuilder.h"
 #include "llvm/llvm_assert/assert.h"
 
@@ -234,6 +235,15 @@ uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
     requireCapability(spv::Capability::ImageQuery);
     break;
   }
+  return id;
+}
+
+uint32_t ModuleBuilder::createSpecConstantBinaryOp(spv::Op op,
+                                                   uint32_t resultType,
+                                                   uint32_t lhs, uint32_t rhs) {
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.specConstantBinaryOp(op, resultType, id, lhs, rhs).x();
+  theModule.addVariable(std::move(constructSite));
   return id;
 }
 
@@ -768,6 +778,11 @@ void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
   theModule.addDecoration(d, targetId);
 }
 
+void ModuleBuilder::decorateSpecId(uint32_t targetId, uint32_t specId) {
+  const Decoration *d = Decoration::getSpecId(theContext, specId);
+  theModule.addDecoration(d, targetId);
+}
+
 void ModuleBuilder::decorate(uint32_t targetId, spv::Decoration decoration) {
   const Decoration *d = nullptr;
   switch (decoration) {
@@ -1063,7 +1078,19 @@ uint32_t ModuleBuilder::getByteAddressBufferType(bool isRW) {
   return typeId;
 }
 
-uint32_t ModuleBuilder::getConstantBool(bool value) {
+uint32_t ModuleBuilder::getConstantBool(bool value, bool isSpecConst) {
+  if (isSpecConst) {
+    const uint32_t constId = theContext.takeNextId();
+    if (value) {
+      instBuilder.opSpecConstantTrue(getBoolType(), constId).x();
+    } else {
+      instBuilder.opSpecConstantFalse(getBoolType(), constId).x();
+    }
+
+    theModule.addVariable(std::move(constructSite));
+    return constId;
+  }
+
   const uint32_t typeId = getBoolType();
   const Constant *constant = value ? Constant::getTrue(theContext, typeId)
                                    : Constant::getFalse(theContext, typeId);
@@ -1084,17 +1111,40 @@ uint32_t ModuleBuilder::getConstantBool(bool value) {
     return constId;                                                            \
   }
 
+#define IMPL_GET_PRIMITIVE_CONST_SPEC_CONST(builderTy, cppTy)                  \
+                                                                               \
+  uint32_t ModuleBuilder::getConstant##builderTy(cppTy value,                  \
+                                                 bool isSpecConst) {           \
+    if (isSpecConst) {                                                         \
+      const uint32_t constId = theContext.takeNextId();                        \
+      instBuilder                                                              \
+          .opSpecConstant(get##builderTy##Type(), constId,                     \
+                          cast::BitwiseCast<uint32_t>(value))                  \
+          .x();                                                                \
+      theModule.addVariable(std::move(constructSite));                         \
+      return constId;                                                          \
+    }                                                                          \
+                                                                               \
+    const uint32_t typeId = get##builderTy##Type();                            \
+    const Constant *constant =                                                 \
+        Constant::get##builderTy(theContext, typeId, value);                   \
+    const uint32_t constId = theContext.getResultIdForConstant(constant);      \
+    theModule.addConstant(constant, constId);                                  \
+    return constId;                                                            \
+  }
+
 IMPL_GET_PRIMITIVE_CONST(Int16, int16_t)
-IMPL_GET_PRIMITIVE_CONST(Int32, int32_t)
+IMPL_GET_PRIMITIVE_CONST_SPEC_CONST(Int32, int32_t)
 IMPL_GET_PRIMITIVE_CONST(Uint16, uint16_t)
-IMPL_GET_PRIMITIVE_CONST(Uint32, uint32_t)
+IMPL_GET_PRIMITIVE_CONST_SPEC_CONST(Uint32, uint32_t)
 IMPL_GET_PRIMITIVE_CONST(Float16, int16_t)
-IMPL_GET_PRIMITIVE_CONST(Float32, float)
+IMPL_GET_PRIMITIVE_CONST_SPEC_CONST(Float32, float)
 IMPL_GET_PRIMITIVE_CONST(Float64, double)
 IMPL_GET_PRIMITIVE_CONST(Int64, int64_t)
 IMPL_GET_PRIMITIVE_CONST(Uint64, uint64_t)
 
-#undef IMPL_GET_PRIMITIVE_VALUE
+#undef IMPL_GET_PRIMITIVE_CONST
+#undef IMPL_GET_PRIMITIVE_CONST_SPEC_CONST
 
 uint32_t
 ModuleBuilder::getConstantComposite(uint32_t typeId,

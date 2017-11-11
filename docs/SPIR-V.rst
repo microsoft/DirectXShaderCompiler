@@ -176,6 +176,18 @@ annotated with the ``[[vk::push_constant]]`` attribute.
 Please note as per the requirements of Vulkan, "there must be no more than one
 push constant block statically used per shader entry point."
 
+Specialization constants
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+To use Vulkan specialization constants, annotate global constants with the
+``[[vk::constant_id(X)]]`` attribute. For example,
+
+.. code:: hlsl
+
+  [[vk::constant_id(1)]] const bool  specConstBool  = true;
+  [[vk::constant_id(2)]] const int   specConstInt   = 42;
+  [[vk::constant_id(3)]] const float specConstFloat = 1.5;
+
 Builtin variables
 ~~~~~~~~~~~~~~~~~
 
@@ -209,6 +221,8 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``push_constant``: For marking a variable as the push constant block. Allowed
   on global variables of struct type. At most one variable can be marked as
   ``push_constant`` in a shader.
+- ``constant_id``: For marking a global constant as a specialization constant.
+  Allowed on global variables of boolean/integer/float types.
 - ``builtin("X")``: For specifying an entity should be translated into a certain
   Vulkan builtin variable. Allowed on function parameters, function returns,
   and struct fields.

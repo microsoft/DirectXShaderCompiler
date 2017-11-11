@@ -1115,6 +1115,16 @@ TEST_F(FileTest, VulkanMultiplePushConstant) {
   runFileTest("vk.push-constant.multiple.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, VulkanSpecConstantInit) {
+  runFileTest("vk.spec-constant.init.hlsl");
+}
+TEST_F(FileTest, VulkanSpecConstantUsage) {
+  runFileTest("vk.spec-constant.usage.hlsl");
+}
+TEST_F(FileTest, VulkanSpecConstantError) {
+  runFileTest("vk.spec-constant.error.hlsl", Expect::Failure);
+}
+
 TEST_F(FileTest, VulkanLayoutCBufferStd140) {
   runFileTest("vk.layout.cbuffer.std140.hlsl");
 }

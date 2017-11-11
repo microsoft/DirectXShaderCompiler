@@ -307,6 +307,65 @@ spv::Op translateAtomicHlslOpcodeToSpirvOpcode(hlsl::IntrinsicOp opcode) {
   return Op::Max;
 }
 
+// Returns true if the given opcode is an accepted binary opcode in
+// OpSpecConstantOp.
+bool isAcceptedSpecConstantBinaryOp(spv::Op op) {
+  switch (op) {
+  case spv::Op::OpIAdd:
+  case spv::Op::OpISub:
+  case spv::Op::OpIMul:
+  case spv::Op::OpUDiv:
+  case spv::Op::OpSDiv:
+  case spv::Op::OpUMod:
+  case spv::Op::OpSRem:
+  case spv::Op::OpSMod:
+  case spv::Op::OpShiftRightLogical:
+  case spv::Op::OpShiftRightArithmetic:
+  case spv::Op::OpShiftLeftLogical:
+  case spv::Op::OpBitwiseOr:
+  case spv::Op::OpBitwiseXor:
+  case spv::Op::OpBitwiseAnd:
+  case spv::Op::OpVectorShuffle:
+  case spv::Op::OpCompositeExtract:
+  case spv::Op::OpCompositeInsert:
+  case spv::Op::OpLogicalOr:
+  case spv::Op::OpLogicalAnd:
+  case spv::Op::OpLogicalNot:
+  case spv::Op::OpLogicalEqual:
+  case spv::Op::OpLogicalNotEqual:
+  case spv::Op::OpIEqual:
+  case spv::Op::OpINotEqual:
+  case spv::Op::OpULessThan:
+  case spv::Op::OpSLessThan:
+  case spv::Op::OpUGreaterThan:
+  case spv::Op::OpSGreaterThan:
+  case spv::Op::OpULessThanEqual:
+  case spv::Op::OpSLessThanEqual:
+  case spv::Op::OpUGreaterThanEqual:
+  case spv::Op::OpSGreaterThanEqual:
+    return true;
+  }
+  return false;
+}
+
+/// Returns true if the given expression is an accepted initializer for a spec
+/// constant.
+bool isAcceptedSpecConstantInit(const Expr *init) {
+  // Allow numeric casts
+  init = init->IgnoreParenCasts();
+
+  if (isa<CXXBoolLiteralExpr>(init) || isa<IntegerLiteral>(init) ||
+      isa<FloatingLiteral>(init))
+    return true;
+
+  // Allow the minus operator which is used to specify negative values
+  if (const auto *unaryOp = dyn_cast<UnaryOperator>(init))
+    return unaryOp->getOpcode() == UO_Minus &&
+           isAcceptedSpecConstantInit(unaryOp->getSubExpr());
+
+  return false;
+}
+
 /// Returns true if the given function parameter can act as shader stage
 /// input parameter.
 inline bool canActAsInParmVar(const ParmVarDecl *param) {
@@ -403,7 +462,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       declIdMapper(shaderModel, astContext, theBuilder, spirvOptions),
       typeTranslator(astContext, theBuilder, diags, options),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
-      seenPushConstantAt(), needsLegalization(false) {
+      seenPushConstantAt(), isSpecConstantMode(false),
+      needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
   if (options.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
@@ -583,14 +643,14 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
 
 SpirvEvalInfo SPIRVEmitter::doDeclRefExpr(const DeclRefExpr *expr) {
   const auto *decl = expr->getDecl();
-  auto id = declIdMapper.getDeclResultId(decl, false);
+  auto id = declIdMapper.getDeclEvalInfo(decl, false);
 
   if (spirvOptions.ignoreUnusedResources && !id) {
     // First time referencing a Decl inside TranslationUnit. Register
     // into DeclResultIdMapper and emit SPIR-V for it and then query
     // again.
     doDecl(decl);
-    id = declIdMapper.getDeclResultId(decl);
+    id = declIdMapper.getDeclEvalInfo(decl);
   }
 
   return id;
@@ -614,7 +674,8 @@ SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   } else if (const auto *initListExpr = dyn_cast<InitListExpr>(expr)) {
     result = doInitListExpr(initListExpr);
   } else if (const auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
-    const auto value = theBuilder.getConstantBool(boolLiteral->getValue());
+    const auto value =
+        theBuilder.getConstantBool(boolLiteral->getValue(), isSpecConstantMode);
     result = SpirvEvalInfo(value).setConstant().setRValue();
   } else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
     const auto value = translateAPInt(intLiteral->getValue(), expr->getType());
@@ -800,7 +861,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // Non-entry functions are added to the work queue following function
     // calls. We have already assigned <result-id>s for it when translating
     // its call site. Query it here.
-    funcId = declIdMapper.getDeclResultId(decl);
+    funcId = declIdMapper.getDeclEvalInfo(decl);
   }
 
   const uint32_t retType =
@@ -963,6 +1024,12 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
     emitWarning(
         "column_major attribute for stand-alone matrix is not supported",
         decl->getAttr<HLSLColumnMajorAttr>()->getLocation());
+  }
+
+  if (decl->hasAttr<VKConstantIdAttr>()) {
+    // This is a VarDecl for specialization constant.
+    createSpecConstant(decl);
+    return;
   }
 
   if (decl->hasAttr<VKPushConstantAttr>()) {
@@ -1760,7 +1827,7 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   }
 
   // Inherit the SpirvEvalInfo from the function definition
-  return declIdMapper.getDeclResultId(callee).setResultId(retVal);
+  return declIdMapper.getDeclEvalInfo(callee).setResultId(retVal);
 }
 
 SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
@@ -2917,8 +2984,6 @@ SPIRVEmitter::getFinalACSBufferCounter(const Expr *expr) {
           ? getOrCreateDeclForMethodObject(cast<CXXMethodDecl>(curFunction))
           : getReferencedDef(base);
   return declIdMapper.getCounterIdAliasPair(decl, &indices);
-
-  return nullptr;
 }
 
 const CounterVarFields *SPIRVEmitter::getIntermediateACSBufferCounter(
@@ -4438,17 +4503,26 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_XorAssign:
   case BO_ShlAssign:
   case BO_ShrAssign: {
+    // To evaluate this expression as an OpSpecConstantOp, we need to make sure
+    // both operands are constant and at least one of them is a spec constant.
+    if (lhsVal.isConstant() && rhsVal.isConstant() &&
+        (lhsVal.isSpecConstant() || rhsVal.isSpecConstant()) &&
+        isAcceptedSpecConstantBinaryOp(spvOp)) {
+      const auto valId = theBuilder.createSpecConstantBinaryOp(
+          spvOp, resultTypeId, lhsVal, rhsVal);
+      return SpirvEvalInfo(valId).setRValue().setSpecConstant();
+    }
+
+    // Normal binary operation
     const auto valId =
         theBuilder.createBinaryOp(spvOp, resultTypeId, lhsVal, rhsVal);
     auto result = SpirvEvalInfo(valId).setRValue();
-    return lhsVal.isRelaxedPrecision() || rhsVal.isRelaxedPrecision()
-               ? result.setRelaxedPrecision()
-               : result;
+    if (lhsVal.isRelaxedPrecision() || rhsVal.isRelaxedPrecision())
+      result.setRelaxedPrecision();
+    return result;
   }
   case BO_Assign:
     llvm_unreachable("assignment should not be handled here");
-  default:
-    break;
   }
 
   emitError("binary operator '%0' unimplemented", lhs->getExprLoc())
@@ -5029,6 +5103,71 @@ SpirvEvalInfo SPIRVEmitter::processEachVectorInMatrix(
   const auto valId = theBuilder.createCompositeConstruct(
       typeTranslator.translateType(matType), vectors);
   return SpirvEvalInfo(valId).setRValue();
+}
+
+void SPIRVEmitter::createSpecConstant(const VarDecl *varDecl) {
+  class SpecConstantEnvRAII {
+  public:
+    // Creates a new instance which sets mode to true on creation,
+    // and resets mode to false on destruction.
+    SpecConstantEnvRAII(bool *mode) : modeSlot(mode) { *modeSlot = true; }
+    ~SpecConstantEnvRAII() { *modeSlot = false; }
+
+  private:
+    bool *modeSlot;
+  };
+
+  const QualType varType = varDecl->getType();
+
+  bool hasError = false;
+
+  if (!varDecl->isExternallyVisible()) {
+    emitError("specialization constant must be externally visible",
+              varDecl->getLocation());
+    hasError = true;
+  }
+
+  if (const auto *builtinType = varType->getAs<BuiltinType>()) {
+    switch (builtinType->getKind()) {
+    case BuiltinType::Bool:
+    case BuiltinType::Int:
+    case BuiltinType::UInt:
+    case BuiltinType::Float:
+      break;
+    default:
+      emitError("unsupported specialization constant type",
+                varDecl->getLocStart());
+      hasError = true;
+    }
+  }
+
+  const auto *init = varDecl->getInit();
+
+  if (!init) {
+    emitError("missing default value for specialization constant",
+              varDecl->getLocation());
+    hasError = true;
+  } else if (!isAcceptedSpecConstantInit(init)) {
+    emitError("unsupported specialization constant initializer",
+              init->getLocStart())
+        << init->getSourceRange();
+    hasError = true;
+  }
+
+  if (hasError)
+    return;
+
+  SpecConstantEnvRAII specConstantEnvRAII(&isSpecConstantMode);
+
+  const auto specConstant = doExpr(init);
+
+  // We are not creating a variable to hold the spec constant, instead, we
+  // translate the varDecl directly into the spec constant here.
+
+  theBuilder.decorateSpecId(
+      specConstant, varDecl->getAttr<VKConstantIdAttr>()->getSpecConstId());
+
+  declIdMapper.registerSpecConstant(varDecl, specConstant);
 }
 
 SpirvEvalInfo
@@ -7185,7 +7324,8 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
   TypeTranslator::LiteralTypeHint hint(typeTranslator, targetType);
 
   if (targetType->isBooleanType()) {
-    result = theBuilder.getConstantBool(value.getInt().getBoolValue());
+    result = theBuilder.getConstantBool(value.getInt().getBoolValue(),
+                                        isSpecConstantMode);
   } else if (targetType->isIntegerType()) {
     result = translateAPInt(value.getInt(), targetType);
   } else if (targetType->isFloatingType()) {
@@ -7234,10 +7374,10 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
       // If enable16BitTypes option is not true, treat as 32-bit integer.
       if (isSigned)
         return theBuilder.getConstantInt32(
-            static_cast<int32_t>(intValue.getSExtValue()));
+            static_cast<int32_t>(intValue.getSExtValue()), isSpecConstantMode);
       else
         return theBuilder.getConstantUint32(
-            static_cast<uint32_t>(intValue.getZExtValue()));
+            static_cast<uint32_t>(intValue.getZExtValue()), isSpecConstantMode);
     }
   }
   case 32: {
@@ -7250,7 +7390,7 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
         return 0;
       }
       return theBuilder.getConstantInt32(
-          static_cast<int32_t>(intValue.getSExtValue()));
+          static_cast<int32_t>(intValue.getSExtValue()), isSpecConstantMode);
     } else {
       if (!intValue.isIntN(32)) {
         emitError("evaluating integer literal %0 as a 32-bit integer loses "
@@ -7260,7 +7400,7 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
         return 0;
       }
       return theBuilder.getConstantUint32(
-          static_cast<uint32_t>(intValue.getZExtValue()));
+          static_cast<uint32_t>(intValue.getZExtValue()), isSpecConstantMode);
     }
   }
   case 64: {
@@ -7325,7 +7465,8 @@ uint32_t SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
   const auto &semantics = floatValue.getSemantics();
   // If the given value is already a 32-bit float, there is no need to convert.
   if (&semantics == &llvm::APFloat::IEEEsingle) {
-    return theBuilder.getConstantFloat32(floatValue.convertToFloat());
+    return theBuilder.getConstantFloat32(floatValue.convertToFloat(),
+                                         isSpecConstantMode);
   }
 
   // Try to see if this literal float can be represented in 32-bit.
@@ -7370,12 +7511,10 @@ uint32_t SPIRVEmitter::translateAPFloat(llvm::APFloat floatValue,
       emitError(
           "evaluating float literal %0 at a lower bitwidth loses information",
           {})
-          << std::to_string(
-                 valueBitwidth == 16
-                     ? static_cast<float>(
-                           originalValue.bitcastToAPInt().getZExtValue())
-                     : valueBitwidth == 32 ? originalValue.convertToFloat()
-                                           : originalValue.convertToDouble());
+          // Converting from 32/64-bit to 16-bit won't lose information.
+          << std::to_string(valueBitwidth == 32
+                                ? originalValue.convertToFloat()
+                                : originalValue.convertToDouble());
       return 0;
     }
   }
@@ -7385,7 +7524,8 @@ uint32_t SPIRVEmitter::translateAPFloat(llvm::APFloat floatValue,
     return theBuilder.getConstantFloat16(
         static_cast<uint16_t>(floatValue.bitcastToAPInt().getZExtValue()));
   case 32:
-    return theBuilder.getConstantFloat32(floatValue.convertToFloat());
+    return theBuilder.getConstantFloat32(floatValue.convertToFloat(),
+                                         isSpecConstantMode);
   case 64:
     return theBuilder.getConstantFloat64(floatValue.convertToDouble());
   default:
@@ -7736,7 +7876,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
-    const auto varInfo = declIdMapper.getDeclResultId(varDecl);
+    const auto varInfo = declIdMapper.getDeclEvalInfo(varDecl);
     if (const auto *init = varDecl->getInit()) {
       storeValue(varInfo, doExpr(init), varDecl->getType());
 
