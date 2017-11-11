@@ -2200,3 +2200,31 @@ codegen for Vulkan:
 - ``-fvk-stage-io-order={alpha|decl}``: Assigns the stage input/output variable
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.
+
+Unsupported HLSL Features
+=========================
+
+The following HLSL language features are not supported in SPIR-V codegen,
+either because of no Vulkan equivalents at the moment, or because of deprecation.
+
+* Literal/immediate sampler state: deprecated feature. The compiler will
+  emit a warning and ignore it.
+* ``abort()`` intrinsic function: no Vulkan equivalent. The compiler will emit
+  an error.
+* ``GetRenderTargetSampleCount()`` intrinsic function: no Vulkan equivalent.
+  (Its GLSL counterpart is ``gl_NumSamples``, which is not available in GLSL for
+  Vulkan.) The compiler will emit an error.
+* ``GetRenderTargetSamplePosition()`` intrinsic function: no Vulkan equivalent.
+  (``gl_SamplePosition`` provides similar functionality but it's only for the
+  sample currently being processed.) The compiler will emit an error.
+* ``tex*()`` intrinsic functions: deprecated features. The compiler will
+  emit errors.
+* ``.GatherCmpGreen()``, ``.GatherCmpBlue()``, ``.GatherCmpAlpha()`` intrinsic
+  method: no Vulkan equivalent. (SPIR-V ``OpImageDrefGather`` instruction does
+  not take component as input.) The compiler will emit an error.
+* ``.CalculateLevelOfDetailUnclamped()`` intrinsic method: no Vulkan equivalent.
+  (SPIR-V ``OpImageQueryLod`` returns the clamped LOD in Vulkan.) The compiler
+  will emit an error.
+* ``.GetSamplePosition()`` intrinsic method: no Vulkan equivalent.
+  (``gl_SamplePosition`` provides similar functionality but it's only for the
+  sample currently being processed.) The compiler will emit an error.

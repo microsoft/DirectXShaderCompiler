@@ -488,8 +488,14 @@ TEST_F(FileTest, TextureArrayLoad) { runFileTest("texture.array.load.hlsl"); }
 TEST_F(FileTest, TextureGetDimensions) {
   runFileTest("texture.get-dimensions.hlsl");
 }
+TEST_F(FileTest, TextureGetSamplePosition) {
+  runFileTest("texture.get-sample-position.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, TextureCalculateLevelOfDetail) {
   runFileTest("texture.calculate-lod.hlsl");
+}
+TEST_F(FileTest, TextureCalculateLevelOfDetailUnclamped) {
+  runFileTest("texture.calculate-lod-unclamped.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, TextureGather) { runFileTest("texture.gather.hlsl"); }
 TEST_F(FileTest, TextureArrayGather) {
@@ -524,6 +530,15 @@ TEST_F(FileTest, TextureGatherCmpRed) {
 }
 TEST_F(FileTest, TextureArrayGatherCmpRed) {
   runFileTest("texture.array.gather-cmp-red.hlsl");
+}
+TEST_F(FileTest, TextureArrayGatherCmpGreen) {
+  runFileTest("texture.gather-cmp-green.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, TextureArrayGatherCmpBlue) {
+  runFileTest("texture.gather-cmp-blue.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, TextureArrayGatherCmpAlpha) {
+  runFileTest("texture.gather-cmp-alpha.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, TextureSampleLevel) {
   runFileTest("texture.sample-level.hlsl");
@@ -742,6 +757,19 @@ TEST_F(FileTest, IntrinsicsAsin) { runFileTest("intrinsics.asin.hlsl"); }
 TEST_F(FileTest, IntrinsicsAcos) { runFileTest("intrinsics.acos.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan) { runFileTest("intrinsics.atan.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan2) { runFileTest("intrinsics.atan2.hlsl"); }
+
+// Unspported intrinsic functions
+TEST_F(FileTest, IntrinsicsAbort) {
+  runFileTest("intrinsics.abort.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, IntrinsicsGetRenderTargetSampleCount) {
+  runFileTest("intrinsics.get-render-target-sample-count.hlsl",
+              Expect::Failure);
+}
+TEST_F(FileTest, IntrinsicsGetRenderTargetSamplePosition) {
+  runFileTest("intrinsics.get-render-target-sample-position.hlsl",
+              Expect::Failure);
+}
 
 // For attributes
 TEST_F(FileTest, AttributeNumThreads) {
