@@ -741,6 +741,12 @@ TEST_F(FileTest, AttributeOutputControlPoints) {
 TEST_F(FileTest, AttributeMaxVertexCount) {
   runFileTest("attribute.max-vertex-count.hlsl");
 }
+TEST_F(FileTest, AttributeInstanceGS) {
+  runFileTest("attribute.instance.gs.hlsl");
+}
+TEST_F(FileTest, AttributeInstanceMissingGS) {
+  runFileTest("attribute.instance.missing.gs.hlsl");
+}
 
 // For geometry shader primitive types
 TEST_F(FileTest, PrimitivePointGS) { runFileTest("primitive.point.gs.hlsl"); }
