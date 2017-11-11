@@ -862,6 +862,9 @@ TEST_F(FileTest, SpirvInterpolationError) {
 TEST_F(FileTest, VulkanAttributeErrors) {
   runFileTest("vk.attribute.error.hlsl", FileTest::Expect::Failure);
 }
+TEST_F(FileTest, VulkanAttributeInvalidUsages) {
+  runFileTest("vk.attribute.invalid.hlsl", FileTest::Expect::Failure);
+}
 
 // Vulkan specific
 TEST_F(FileTest, VulkanLocation) { runFileTest("vk.location.hlsl"); }
@@ -914,6 +917,9 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
 }
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
+TEST_F(FileTest, VulkanMultiplePushConstant) {
+  runFileTest("vk.push-constant.multiple.hlsl", FileTest::Expect::Failure);
+}
 
 TEST_F(FileTest, VulkanLayoutCBufferStd140) {
   runFileTest("vk.layout.cbuffer.std140.hlsl");

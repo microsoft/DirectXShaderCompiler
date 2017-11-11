@@ -273,7 +273,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       theContext(), theBuilder(&theContext),
       declIdMapper(shaderModel, astContext, theBuilder, spirvOptions),
       typeTranslator(astContext, theBuilder, diags), entryFunctionId(0),
-      curFunction(nullptr), curThis(0), needsLegalization(false) {
+      curFunction(nullptr), curThis(0), seenPushConstantAt(),
+      needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 }
@@ -309,6 +310,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
                         init->getExprLoc())
                 << bufferDecl->isCBuffer() << init->getSourceRange();
       }
+
+      validateVKAttributes(decl);
 
       (void)declIdMapper.createCTBuffer(bufferDecl);
     }
@@ -631,7 +634,42 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   curFunction = nullptr;
 }
 
+void SPIRVEmitter::validateVKAttributes(const Decl *decl) {
+  // The frontend will make sure that
+  // * vk::push_constant applies to global variables of struct type
+  // * vk::binding applies to global variables or cbuffers/tbuffers
+  // * vk::counter_binding applies to global variables of RW/Append/Consume
+  //   StructuredBuffer
+  // * vk::location applies to function parameters/returns and struct fields
+  // So the only case we need to check co-existence is vk::push_constant and
+  // vk::binding.
+
+  if (const auto *pcAttr = decl->getAttr<VKPushConstantAttr>()) {
+    if (seenPushConstantAt.isInvalid()) {
+      seenPushConstantAt = pcAttr->getLocation();
+    } else {
+      // TODO: Actually this is slightly incorrect. The Vulkan spec says:
+      //   There must be no more than one push constant block statically used
+      //   per shader entry point.
+      // But we are checking whether there are more than one push constant
+      // blocks defined. Tracking usage requires more work.
+      emitError("cannot have more than one push constant block",
+                pcAttr->getLocation());
+      emitNote("push constant block previously defined here",
+               seenPushConstantAt);
+    }
+
+    if (decl->hasAttr<VKBindingAttr>()) {
+      emitError("'push_constant' attribute cannot be used together with "
+                "'binding' attribute",
+                pcAttr->getLocation());
+    }
+  }
+}
+
 void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
+  validateVKAttributes(decl);
+
   if (decl->hasAttr<VKPushConstantAttr>()) {
     // This is a VarDecl for PushConstant block.
     (void)declIdMapper.createPushConstant(decl);
