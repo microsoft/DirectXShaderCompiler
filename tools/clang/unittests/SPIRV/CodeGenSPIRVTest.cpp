@@ -99,6 +99,12 @@ TEST_F(FileTest, VarInitMatrix1xN) { runFileTest("var.init.matrix.1xn.hlsl"); }
 TEST_F(FileTest, VarInitMatrix1x1) { runFileTest("var.init.matrix.1x1.hlsl"); }
 TEST_F(FileTest, VarInitStruct) { runFileTest("var.init.struct.hlsl"); }
 TEST_F(FileTest, VarInitArray) { runFileTest("var.init.array.hlsl"); }
+TEST_F(FileTest, VarInitCbuffer) {
+  runFileTest("var.init.cbuffer.hlsl", FileTest::Expect::Warning);
+}
+TEST_F(FileTest, VarInitTbuffer) {
+  runFileTest("var.init.tbuffer.hlsl", FileTest::Expect::Warning);
+}
 TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
 
 // For prefix/postfix increment/decrement
@@ -399,7 +405,7 @@ TEST_F(FileTest, SemanticArbitraryAlphaLocation) {
   runFileTest("semantic.arbitrary.location.alpha.hlsl");
 }
 TEST_F(FileTest, SemanticDuplication) {
-  runFileTest("semantic.duplication.hlsl", /*expectSuccess*/ false);
+  runFileTest("semantic.duplication.hlsl", FileTest::Expect::Failure);
 }
 TEST_F(FileTest, SemanticDispatchThreadId) {
   runFileTest("semantic.dispatch-thread-id.cs.hlsl");
@@ -761,7 +767,7 @@ TEST_F(FileTest, PrimitiveTriangleAdjGS) {
   runFileTest("primitive.triangleadj.gs.hlsl");
 }
 TEST_F(FileTest, PrimitiveErrorGS) {
-  runFileTest("primitive.error.gs.hlsl", /*expectSuccess*/ false);
+  runFileTest("primitive.error.gs.hlsl", FileTest::Expect::Failure);
 }
 
 // SPIR-V specific
@@ -796,11 +802,11 @@ TEST_F(FileTest, SpirvInterpolation) {
   runFileTest("spirv.interpolation.hlsl");
 }
 TEST_F(FileTest, SpirvInterpolationError) {
-  runFileTest("spirv.interpolation.error.hlsl", /*expectSuccess*/ false);
+  runFileTest("spirv.interpolation.error.hlsl", FileTest::Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanAttributeErrors) {
-  runFileTest("vk.attribute.error.hlsl", /*expectSuccess*/ false);
+  runFileTest("vk.attribute.error.hlsl", FileTest::Expect::Failure);
 }
 
 // Vulkan specific
@@ -812,13 +818,13 @@ TEST_F(FileTest, VulkanLocationInputImplicitOutputExplicit) {
   runFileTest("vk.location.exp-out.hlsl");
 }
 TEST_F(FileTest, VulkanLocationTooLarge) {
-  runFileTest("vk.location.large.hlsl", /*expectSuccess*/ false);
+  runFileTest("vk.location.large.hlsl", FileTest::Expect::Failure);
 }
 TEST_F(FileTest, VulkanLocationReassigned) {
-  runFileTest("vk.location.reassign.hlsl", /*expectSuccess*/ false);
+  runFileTest("vk.location.reassign.hlsl", FileTest::Expect::Failure);
 }
 TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
-  runFileTest("vk.location.mixed.hlsl", /*expectSuccess*/ false);
+  runFileTest("vk.location.mixed.hlsl", FileTest::Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanExplicitBinding) {
@@ -839,13 +845,13 @@ TEST_F(FileTest, VulkanRegisterBindingShift) {
   runFileTest("vk.binding.cl.hlsl");
 }
 TEST_F(FileTest, VulkanExplicitBindingReassigned) {
-  runFileTest("vk.binding.explicit.error.hlsl", /*expectSuccess*/ false);
+  runFileTest("vk.binding.explicit.error.hlsl", FileTest::Expect::Failure);
 }
 TEST_F(FileTest, VulkanRegisterBindingReassigned) {
-  runFileTest("vk.binding.register.error.hlsl", /*expectSuccess*/ false);
+  runFileTest("vk.binding.register.error.hlsl", FileTest::Expect::Failure);
 }
 TEST_F(FileTest, VulkanRegisterBindingShiftReassigned) {
-  runFileTest("vk.binding.cl.error.hlsl", /*expectSuccess*/ false);
+  runFileTest("vk.binding.cl.error.hlsl", FileTest::Expect::Failure);
 }
 TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
