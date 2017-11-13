@@ -1905,8 +1905,7 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   }
 
   const uint32_t query =
-      lod
-          ? theBuilder.createBinaryOp(spv::Op::OpImageQuerySizeLod,
+      lod ? theBuilder.createBinaryOp(spv::Op::OpImageQuerySizeLod,
                                       resultTypeId, objectId, lod)
           : theBuilder.createUnaryOp(spv::Op::OpImageQuerySize, resultTypeId,
                                      objectId);
@@ -2916,8 +2915,9 @@ SpirvEvalInfo SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
     uint32_t incValue = 0;
     if (TypeTranslator::isSpirvAcceptableMatrixType(subType)) {
       // For matrices, we can only increment/decrement each vector of it.
-      const auto actOnEachVec = [this, spvOp, one](
-          uint32_t /*index*/, uint32_t vecType, uint32_t lhsVec) {
+      const auto actOnEachVec = [this, spvOp, one](uint32_t /*index*/,
+                                                   uint32_t vecType,
+                                                   uint32_t lhsVec) {
         return theBuilder.createBinaryOp(spvOp, vecType, lhsVec, one);
       };
       incValue = processEachVectorInMatrix(subExpr, originValue, actOnEachVec);
@@ -3807,8 +3807,9 @@ SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_DivAssign:
   case BO_RemAssign: {
     const uint32_t vecType = typeTranslator.getComponentVectorType(lhsType);
-    const auto actOnEachVec = [this, spvOp, rhsVal](
-        uint32_t index, uint32_t vecType, uint32_t lhsVec) {
+    const auto actOnEachVec = [this, spvOp, rhsVal](uint32_t index,
+                                                    uint32_t vecType,
+                                                    uint32_t lhsVec) {
       // For each vector of lhs, we need to load the corresponding vector of
       // rhs and do the operation on them.
       const uint32_t rhsVec =
@@ -4079,6 +4080,32 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   }
   case hlsl::IntrinsicOp::IOP_dot:
     return processIntrinsicDot(callExpr);
+  case hlsl::IntrinsicOp::IOP_GroupMemoryBarrier:
+    return processIntrinsicMemoryBarrier(callExpr,
+                                         /*isDevice*/ false,
+                                         /*groupSync*/ false,
+                                         /*isAllBarrier*/ false);
+  case hlsl::IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync:
+    return processIntrinsicMemoryBarrier(callExpr,
+                                         /*isDevice*/ false,
+                                         /*groupSync*/ true,
+                                         /*isAllBarrier*/ false);
+  case hlsl::IntrinsicOp::IOP_DeviceMemoryBarrier:
+    return processIntrinsicMemoryBarrier(callExpr, /*isDevice*/ true,
+                                         /*groupSync*/ false,
+                                         /*isAllBarrier*/ false);
+  case hlsl::IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync:
+    return processIntrinsicMemoryBarrier(callExpr, /*isDevice*/ true,
+                                         /*groupSync*/ true,
+                                         /*isAllBarrier*/ false);
+  case hlsl::IntrinsicOp::IOP_AllMemoryBarrier:
+    return processIntrinsicMemoryBarrier(callExpr, /*isDevice*/ true,
+                                         /*groupSync*/ false,
+                                         /*isAllBarrier*/ true);
+  case hlsl::IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync:
+    return processIntrinsicMemoryBarrier(callExpr, /*isDevice*/ true,
+                                         /*groupSync*/ true,
+                                         /*isAllBarrier*/ true);
   case hlsl::IntrinsicOp::IOP_mul:
     return processIntrinsicMul(callExpr);
   case hlsl::IntrinsicOp::IOP_all:
@@ -4254,7 +4281,8 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   };
 
   const auto writeToOutputArg = [&baseType, dest, this](
-      uint32_t toWrite, const CallExpr *callExpr, uint32_t outputArgIndex) {
+                                    uint32_t toWrite, const CallExpr *callExpr,
+                                    uint32_t outputArgIndex) {
     const auto outputArg = callExpr->getArg(outputArgIndex);
     const auto outputArgType = outputArg->getType();
     if (baseType != outputArgType)
@@ -4645,6 +4673,31 @@ uint32_t SPIRVEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
                                   {argXId, argMinId, argMaxId});
 }
 
+uint32_t SPIRVEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
+                                                     bool isDevice,
+                                                     bool groupSync,
+                                                     bool isAllBarrier) {
+  // Execution Barrier scope:
+  // Device    = 1
+  // Workgroup = 2
+  // Memory Barrier scope:
+  // Device    = 1
+  // Workgroup = 2
+  // Memory Semantics Barrier scope:
+  // WorkgroupMemory      = 0x100 = 256
+  // CrossWorkgroupMemory = 0x200 = 512
+  // 'All Memory Barrier' must place barrier at several different levels, so
+  // several flags must be turned on:
+  // 0x10 | 0x40 | 0x80 | 0x100 | 0x200 | 0x400 | 0x800 = 0xFD0 = 4048.
+  const uint32_t memSemaMask = isAllBarrier ? 0xFD0 : isDevice ? 0x200 : 0x100;
+  const auto memSema = theBuilder.getConstantUint32(memSemaMask);
+  const auto memScope = isDevice ? theBuilder.getConstantUint32(1)
+                                 : theBuilder.getConstantUint32(2);
+  const auto execScope = groupSync ? memScope : 0;
+  theBuilder.createBarrier(execScope, memScope, memSema);
+  return 0;
+}
+
 uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   const QualType returnType = callExpr->getType();
   const uint32_t returnTypeId =
@@ -4864,8 +4917,9 @@ uint32_t SPIRVEmitter::processIntrinsicRcp(const CallExpr *callExpr) {
   uint32_t numRows = 0, numCols = 0;
   if (TypeTranslator::isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
     const uint32_t vecOne = getVecValueOne(elemType, numCols);
-    const auto actOnEachVec = [this, vecOne](
-        uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
+    const auto actOnEachVec = [this, vecOne](uint32_t /*index*/,
+                                             uint32_t vecType,
+                                             uint32_t curRowId) {
       return theBuilder.createBinaryOp(spv::Op::OpFDiv, vecType, vecOne,
                                        curRowId);
     };
@@ -5127,7 +5181,8 @@ uint32_t SPIRVEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
     const uint32_t vecZero = getVecValueZero(elemType, numCols);
     const uint32_t vecOne = getVecValueOne(elemType, numCols);
     const auto actOnEachVec = [this, vecZero, vecOne, glslInstSetId](
-        uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
+                                  uint32_t /*index*/, uint32_t vecType,
+                                  uint32_t curRowId) {
       return theBuilder.createExtInst(vecType, glslInstSetId,
                                       GLSLstd450::GLSLstd450FClamp,
                                       {curRowId, vecZero, vecOne});
@@ -5153,8 +5208,9 @@ uint32_t SPIRVEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
 
   // For matrices, we can perform the instruction on each vector of the matrix.
   if (TypeTranslator::isSpirvAcceptableMatrixType(argType)) {
-    const auto actOnEachVec = [this, glslInstSetId](
-        uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
+    const auto actOnEachVec = [this, glslInstSetId](uint32_t /*index*/,
+                                                    uint32_t vecType,
+                                                    uint32_t curRowId) {
       return theBuilder.createExtInst(vecType, glslInstSetId,
                                       GLSLstd450::GLSLstd450FSign, {curRowId});
     };
@@ -5253,8 +5309,9 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg->getType())) {
-      const auto actOnEachVec = [this, opcode](
-          uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
+      const auto actOnEachVec = [this, opcode](uint32_t /*index*/,
+                                               uint32_t vecType,
+                                               uint32_t curRowId) {
         return theBuilder.createUnaryOp(opcode, vecType, {curRowId});
       };
       return processEachVectorInMatrix(arg, argId, actOnEachVec);
@@ -5268,8 +5325,9 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg0->getType())) {
-      const auto actOnEachVec = [this, opcode, arg1Id](
-          uint32_t index, uint32_t vecType, uint32_t arg0RowId) {
+      const auto actOnEachVec = [this, opcode, arg1Id](uint32_t index,
+                                                       uint32_t vecType,
+                                                       uint32_t arg0RowId) {
         const uint32_t arg1RowId =
             theBuilder.createCompositeExtract(vecType, arg1Id, {index});
         return theBuilder.createBinaryOp(opcode, vecType, arg0RowId, arg1RowId);
@@ -5297,8 +5355,9 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg->getType())) {
-      const auto actOnEachVec = [this, glslInstSetId, opcode](
-          uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
+      const auto actOnEachVec = [this, glslInstSetId,
+                                 opcode](uint32_t /*index*/, uint32_t vecType,
+                                         uint32_t curRowId) {
         return theBuilder.createExtInst(vecType, glslInstSetId, opcode,
                                         {curRowId});
       };
@@ -5313,8 +5372,9 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg0->getType())) {
-      const auto actOnEachVec = [this, glslInstSetId, opcode, arg1Id](
-          uint32_t index, uint32_t vecType, uint32_t arg0RowId) {
+      const auto actOnEachVec = [this, glslInstSetId, opcode,
+                                 arg1Id](uint32_t index, uint32_t vecType,
+                                         uint32_t arg0RowId) {
         const uint32_t arg1RowId =
             theBuilder.createCompositeExtract(vecType, arg1Id, {index});
         return theBuilder.createExtInst(vecType, glslInstSetId, opcode,
@@ -6041,9 +6101,9 @@ bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
   // Execution Barrier scope = Workgroup (2)
   // Memory Barrier scope = Device (1)
   // Memory Semantics Barrier scope = None (0)
-  theBuilder.createControlBarrier(theBuilder.getConstantUint32(2),
-                                  theBuilder.getConstantUint32(1),
-                                  theBuilder.getConstantUint32(0));
+  theBuilder.createBarrier(theBuilder.getConstantUint32(2),
+                           theBuilder.getConstantUint32(1),
+                           theBuilder.getConstantUint32(0));
 
   // The PCF should be called only once. Therefore, we check the invocationID,
   // and we only allow ID 0 to call the PCF.
