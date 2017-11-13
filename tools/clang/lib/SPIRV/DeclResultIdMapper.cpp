@@ -1369,6 +1369,40 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleId);
   }
+  // According to DXIL spec, the StencilRef SV can only be used by PSOut.
+  case hlsl::Semantic::Kind::StencilRef: {
+    theBuilder.addExtension("SPV_EXT_shader_stencil_export");
+    theBuilder.requireCapability(spv::Capability::StencilExportEXT);
+
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragStencilRefEXT);
+  }
+  // According to DXIL spec, the RenderTargetArrayIndex SV can only be used by
+  // VSIn, VSOut, HSCPIn, HSCPOut, DSIn, DSOut, GSVIn, GSOut, PSIn.
+  // According to Vulkan spec, the Layer BuiltIn can only be used in GSOut and
+  // PSIn.
+  case hlsl::Semantic::Kind::RenderTargetArrayIndex: {
+    switch (sigPointKind) {
+    case hlsl::SigPoint::Kind::VSIn:
+    case hlsl::SigPoint::Kind::VSOut:
+    case hlsl::SigPoint::Kind::HSCPIn:
+    case hlsl::SigPoint::Kind::HSCPOut:
+    case hlsl::SigPoint::Kind::PCOut:
+    case hlsl::SigPoint::Kind::DSIn:
+    case hlsl::SigPoint::Kind::DSCPIn:
+    case hlsl::SigPoint::Kind::DSOut:
+    case hlsl::SigPoint::Kind::GSVIn:
+      return theBuilder.addStageIOVar(type, sc, name.str());
+    case hlsl::SigPoint::Kind::GSOut:
+    case hlsl::SigPoint::Kind::PSIn:
+      theBuilder.requireCapability(spv::Capability::Geometry);
+
+      stageVar->setIsSpirvBuiltin();
+      return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::Layer);
+    default:
+      llvm_unreachable("invalid usage of SV_RenderTargetArrayIndex sneaked in");
+    }
+  }
   default:
     emitError("semantic %0 unimplemented", srcLoc)
         << stageVar->getSemantic()->GetName();
