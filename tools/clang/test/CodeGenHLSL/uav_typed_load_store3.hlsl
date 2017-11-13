@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_2 -no-min-precision %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -enable-16bit-types %s | FileCheck %s
 
 // CHECK: call %dx.types.ResRet.f32 @dx.op.textureLoad.f32
 // CHECK: call i1 @dx.op.checkAccessFullyMapped.i32

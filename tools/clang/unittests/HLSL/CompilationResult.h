@@ -269,7 +269,7 @@ public:
     const int DisplayDiagnosticsToStdErrFalse = 0;
     const char* commandLineArgs[32];
     unsigned commandLineArgsCount = 0;
-    char* nextArg;
+    char* nextArg = arguments;
 
     // Set a very high number of errors to avoid giving up too early.
     commandLineArgs[commandLineArgsCount++] = "-ferror-limit=2000";
@@ -283,16 +283,20 @@ public:
     commandLineArgs[commandLineArgsCount++] = "-fno-color-diagnostics";
 
     IFE(isense->CreateIndex(&tuIndex));
-    while ((nextArg = strstr(arguments, "-")) != nullptr) {
-      commandLineArgs[commandLineArgsCount] = nextArg;
-      while (*nextArg && *nextArg != ' ')
-        ++nextArg;
-      if (*nextArg == ' ') {
-        *nextArg = 0;
-        ++nextArg;
+
+    // Split command line arguments by spaces
+    if (nextArg) {
+      // skip leading spaces
+      while (*nextArg == ' ')
+        nextArg++;
+      commandLineArgs[commandLineArgsCount++] = nextArg;
+      while ((*nextArg != '\0')) {
+        if (*nextArg == ' ') {
+          *nextArg = 0;
+          commandLineArgs[commandLineArgsCount++] = nextArg + 1;
+        }
+        nextArg++;
       }
-      arguments = nextArg;
-      ++commandLineArgsCount;
     }
 
     DxcTranslationUnitFlags options;

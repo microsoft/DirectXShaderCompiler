@@ -252,15 +252,26 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  opts.HLSL2015 = opts.HLSL2016 = opts.HLSL2017 = false;
-  if (ver.empty() || ver == "2016") { opts.HLSL2016 = true; }   // Default to 2016
-  else if           (ver == "2015") { opts.HLSL2015 = true; }
-  else if           (ver == "2017") { opts.HLSL2017 = true; }
+  if (ver.empty()) { opts.HLSLVersion = 2016; }   // Default to 2016
   else {
-    errors << "Unknown HLSL version";
-    return 1;
+    try {
+      opts.HLSLVersion = std::stoul(std::string(ver));
+      if (opts.HLSLVersion < 2015 || opts.HLSLVersion > 2018) {
+        errors << "Unknown HLSL version: " << opts.HLSLVersion;
+        return 1;
+      }
+    }
+    catch (const std::invalid_argument &) {
+      errors << "Invalid HLSL Version";
+      return 1;
+    }
+    catch (const std::out_of_range &) {
+      errors << "Invalid HLSL Version";
+      return 1;
+    }
   }
-  if (opts.HLSL2015 && !(flagsToInclude & HlslFlags::ISenseOption)) {
+
+  if (opts.HLSLVersion == 2015 && !(flagsToInclude & HlslFlags::ISenseOption)) {
     errors << "HLSL Version 2015 is only supported for language services";
     return 1;
   }
@@ -270,7 +281,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
   opts.DebugFile = Args.getLastArgValue(OPT_Fd);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
-  opts.NoMinPrecision = Args.hasFlag(OPT_no_min_precision, OPT_INVALID, false);
+  opts.Enable16BitTypes = Args.hasFlag(OPT_enable_16bit_types, OPT_INVALID, false);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
   opts.OutputHeader = Args.getLastArgValue(OPT_Fh);
   opts.OutputWarningsFile = Args.getLastArgValue(OPT_Fe);
@@ -321,8 +332,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       errors << "denorm option is only allowed for shader model 6.2 and above.";
       return 1;
     }
-    if (opts.NoMinPrecision) {
-      errors << "no min precision mode is only allowed for shader model 6.2 and above.";
+    if (opts.Enable16BitTypes) {
+      errors << "enable-16bit-types is only allowed for shader model 6.2 and above.";
       return 1;
     }
   }

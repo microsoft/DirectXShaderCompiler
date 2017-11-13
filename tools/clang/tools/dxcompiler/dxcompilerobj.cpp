@@ -233,7 +233,7 @@ private:
       finished = true;
       return;
     }
-    DXASSERT(!opts.HLSL2015, "else ReadDxcOpts didn't fail for non-isense");
+    DXASSERT(opts.HLSLVersion > 2015, "else ReadDxcOpts didn't fail for non-isense");
     finished = false;
   }
 public:
@@ -735,7 +735,7 @@ public:
     // Setup a compiler instance.
     std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
     targetOptions->Triple = "dxil-ms-dx";
-    targetOptions->DescriptionString = Opts.NoMinPrecision
+    targetOptions->DescriptionString = Opts.Enable16BitTypes
       ? hlsl::DXIL::kNewLayoutString
       : hlsl::DXIL::kLegacyLayoutString;
     compiler.HlslLangExtensions = helper;
@@ -792,11 +792,9 @@ public:
     }
     compiler.getLangOpts().RootSigMajor = 1;
     compiler.getLangOpts().RootSigMinor = rootSigMinor;
-    compiler.getLangOpts().HLSL2015 = Opts.HLSL2015;
-    compiler.getLangOpts().HLSL2016 = Opts.HLSL2016;
-    compiler.getLangOpts().HLSL2017 = Opts.HLSL2017;
+    compiler.getLangOpts().HLSLVersion = (unsigned) Opts.HLSLVersion;
 
-    compiler.getLangOpts().UseMinPrecision = !Opts.NoMinPrecision;
+    compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
