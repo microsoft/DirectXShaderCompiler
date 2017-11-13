@@ -638,6 +638,12 @@ TEST_F(FileTest, IntrinsicsFwidth) { runFileTest("intrinsics.fwidth.hlsl"); }
 TEST_F(FileTest, IntrinsicsDeviceMemoryBarrier) {
   runFileTest("intrinsics.devicememorybarrier.hlsl");
 }
+TEST_F(FileTest, IntrinsicsAllMemoryBarrier) {
+  runFileTest("intrinsics.allmemorybarrier.hlsl");
+}
+TEST_F(FileTest, IntrinsicsAllMemoryBarrierWithGroupSync) {
+  runFileTest("intrinsics.allmemorybarrierwithgroupsync.hlsl");
+}
 TEST_F(FileTest, IntrinsicsDeviceMemoryBarrierWithGroupSync) {
   runFileTest("intrinsics.devicememorybarrierwithgroupsync.hlsl");
 }

@@ -4069,19 +4069,31 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_dot:
     return processIntrinsicDot(callExpr);
   case hlsl::IntrinsicOp::IOP_GroupMemoryBarrier:
-    return processIntrinsicGroupDeviceMemoryBarrier(callExpr,
-                                                    /*isDevice*/ false,
-                                                    /*groupSync*/ false);
+    return processIntrinsicMemoryBarrier(callExpr,
+                                         /*isDevice*/ false,
+                                         /*groupSync*/ false,
+                                         /*isAllBarrier*/ false);
   case hlsl::IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync:
-    return processIntrinsicGroupDeviceMemoryBarrier(callExpr,
-                                                    /*isDevice*/ false,
-                                                    /*groupSync*/ true);
+    return processIntrinsicMemoryBarrier(callExpr,
+                                         /*isDevice*/ false,
+                                         /*groupSync*/ true,
+                                         /*isAllBarrier*/ false);
   case hlsl::IntrinsicOp::IOP_DeviceMemoryBarrier:
-    return processIntrinsicGroupDeviceMemoryBarrier(callExpr, /*isDevice*/ true,
-                                                    /*groupSync*/ false);
+    return processIntrinsicMemoryBarrier(callExpr, /*isDevice*/ true,
+                                         /*groupSync*/ false,
+                                         /*isAllBarrier*/ false);
   case hlsl::IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync:
-    return processIntrinsicGroupDeviceMemoryBarrier(callExpr, /*isDevice*/ true,
-                                                    /*groupSync*/ true);
+    return processIntrinsicMemoryBarrier(callExpr, /*isDevice*/ true,
+                                         /*groupSync*/ true,
+                                         /*isAllBarrier*/ false);
+  case hlsl::IntrinsicOp::IOP_AllMemoryBarrier:
+    return processIntrinsicMemoryBarrier(callExpr, /*isDevice*/ true,
+                                         /*groupSync*/ false,
+                                         /*isAllBarrier*/ true);
+  case hlsl::IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync:
+    return processIntrinsicMemoryBarrier(callExpr, /*isDevice*/ true,
+                                         /*groupSync*/ true,
+                                         /*isAllBarrier*/ true);
   case hlsl::IntrinsicOp::IOP_mul:
     return processIntrinsicMul(callExpr);
   case hlsl::IntrinsicOp::IOP_all:
@@ -4649,8 +4661,9 @@ uint32_t SPIRVEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
                                   {argXId, argMinId, argMaxId});
 }
 
-uint32_t SPIRVEmitter::processIntrinsicGroupDeviceMemoryBarrier(
-    const CallExpr *callExpr, bool isDevice, bool groupSync) {
+uint32_t SPIRVEmitter::processIntrinsicMemoryBarrier(
+    const CallExpr *callExpr, bool isDevice, bool groupSync,
+    bool isAllBarrier) {
   // Execution Barrier scope:
   // Device    = 0x1 = 1
   // Workgroup = 0x2 = 2
@@ -4663,13 +4676,19 @@ uint32_t SPIRVEmitter::processIntrinsicGroupDeviceMemoryBarrier(
   // Memory Semantics Barrier scope:
   // WorkgroupMemory      = 0x100 = 256
   // CrossWorkgroupMemory = 0x200 = 512
+  // 'All Memory Barrier' must place barrier at several different levels, so
+  // several flags must be turned on:
+  // 0x10 | 0x40 | 0x80 | 0x100 | 0x200 | 0x400 | 0x800 = 0xFD0 = 4048.
   const auto workgroupMemSema = theBuilder.getConstantUint32(256);
   const auto crossWorkgroupMemSema = theBuilder.getConstantUint32(512);
+  const auto allMemSema = theBuilder.getConstantUint32(4048);
 
   const auto execScope =
       !groupSync ? 0 : isDevice ? deviceScope : workgroupScope;
   const auto memScope = isDevice ? deviceScope : workgroupScope;
-  const auto memSema = isDevice ? crossWorkgroupMemSema : workgroupMemSema;
+  const auto memSema =
+      isAllBarrier ? allMemSema
+                   : isDevice ? crossWorkgroupMemSema : workgroupMemSema;
   theBuilder.createBarrier(execScope, memScope, memSema);
   return 0;
 }
