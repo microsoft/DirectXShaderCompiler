@@ -1403,6 +1403,8 @@ The following intrinsic HLSL functions have direct SPIR-V opcodes for them:
 ==================================== =================================
    HLSL Intrinsic Function                   SPIR-V Opcode
 ==================================== =================================
+``AllMemoryBarrier``                 ``OpMemoryBarrier``
+``AllMemoryBarrierWithGroupSync``    ``OpControlBarrier``
 ``countbits``                        ``OpBitCount``
 ``DeviceMemoryBarrier``              ``OpMemoryBarrier``
 ``DeviceMemoryBarrierWithGroupSync`` ``OpControlBarrier``
