@@ -4661,9 +4661,10 @@ uint32_t SPIRVEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
                                   {argXId, argMinId, argMaxId});
 }
 
-uint32_t SPIRVEmitter::processIntrinsicMemoryBarrier(
-    const CallExpr *callExpr, bool isDevice, bool groupSync,
-    bool isAllBarrier) {
+uint32_t SPIRVEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
+                                                     bool isDevice,
+                                                     bool groupSync,
+                                                     bool isAllBarrier) {
   // Execution Barrier scope:
   // Device    = 0x1 = 1
   // Workgroup = 0x2 = 2
