@@ -25,7 +25,7 @@ float4 plain(float4 param4 : FOO) : FOO {
     double      doubles     = 0;
     min16float  min16floats = 0; /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
     min10float  min10floats = 0; // expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}}
-    min16int    min16ints   = 0; /* expected-warning {{min16int is promoted to int}} fxc-pass {{}} */
+    min16int    min16ints   = 0; /* expected-warning {{min16int is promoted to int16_t}} fxc-pass {{}} */
     min12int    min12ints   = 0; // expected-warning {{min12int is promoted to int16_t}} fxc-pass {{}}
     min16uint   min16uints  = 0; /* expected-warning {{min16uint is promoted to uint16_t}} fxc-pass {{}} */
     int16_t     int16_ts    = 0; /* fxc-error {{X3000: unrecognized identifier 'int16_t'}} fxc-error {{X3000: unrecognized identifier 'int16_ts'}} */
