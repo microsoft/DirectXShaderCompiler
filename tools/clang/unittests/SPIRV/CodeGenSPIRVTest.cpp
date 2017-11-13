@@ -647,6 +647,24 @@ TEST_F(FileTest, IntrinsicsFmod) { runFileTest("intrinsics.fmod.hlsl"); }
 TEST_F(FileTest, IntrinsicsFrac) { runFileTest("intrinsics.frac.hlsl"); }
 TEST_F(FileTest, IntrinsicsFrexp) { runFileTest("intrinsics.frexp.hlsl"); }
 TEST_F(FileTest, IntrinsicsFwidth) { runFileTest("intrinsics.fwidth.hlsl"); }
+TEST_F(FileTest, IntrinsicsDeviceMemoryBarrier) {
+  runFileTest("intrinsics.devicememorybarrier.hlsl");
+}
+TEST_F(FileTest, IntrinsicsAllMemoryBarrier) {
+  runFileTest("intrinsics.allmemorybarrier.hlsl");
+}
+TEST_F(FileTest, IntrinsicsAllMemoryBarrierWithGroupSync) {
+  runFileTest("intrinsics.allmemorybarrierwithgroupsync.hlsl");
+}
+TEST_F(FileTest, IntrinsicsDeviceMemoryBarrierWithGroupSync) {
+  runFileTest("intrinsics.devicememorybarrierwithgroupsync.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGroupMemoryBarrier) {
+  runFileTest("intrinsics.groupmemorybarrier.hlsl");
+}
+TEST_F(FileTest, IntrinsicsGroupMemoryBarrierWithGroupSync) {
+  runFileTest("intrinsics.groupmemorybarrierwithgroupsync.hlsl");
+}
 TEST_F(FileTest, IntrinsicsIsFinite) {
   runFileTest("intrinsics.isfinite.hlsl");
 }

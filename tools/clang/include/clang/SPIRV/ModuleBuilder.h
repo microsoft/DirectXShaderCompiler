@@ -251,8 +251,10 @@ public:
   uint32_t createExtInst(uint32_t resultType, uint32_t setId, uint32_t instId,
                          llvm::ArrayRef<uint32_t> operands);
 
-  /// \brief Creates an OpControlBarrier instruction with the given flags.
-  void createControlBarrier(uint32_t exec, uint32_t memory, uint32_t semantics);
+  /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
+  /// given flags. If execution scope id (exec) is non-zero, an OpControlBarrier
+  /// is created; otherwise an OpMemoryBarrier is created.
+  void createBarrier(uint32_t exec, uint32_t memory, uint32_t semantics);
 
   /// \brief Creates an OpEmitVertex instruction.
   void createEmitVertex();

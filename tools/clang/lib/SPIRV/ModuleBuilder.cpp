@@ -553,10 +553,13 @@ uint32_t ModuleBuilder::createExtInst(uint32_t resultType, uint32_t setId,
   return resultId;
 }
 
-void ModuleBuilder::createControlBarrier(uint32_t execution, uint32_t memory,
-                                         uint32_t semantics) {
+void ModuleBuilder::createBarrier(uint32_t execution, uint32_t memory,
+                                  uint32_t semantics) {
   assert(insertPoint && "null insert point");
-  instBuilder.opControlBarrier(execution, memory, semantics).x();
+  if (execution)
+    instBuilder.opControlBarrier(execution, memory, semantics).x();
+  else
+    instBuilder.opMemoryBarrier(memory, semantics).x();
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
@@ -924,8 +927,8 @@ uint32_t ModuleBuilder::getByteAddressBufferType(bool isRW) {
   const Type *type = Type::getStruct(theContext, {raTypeId}, typeDecs);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
-  theModule.addDebugName(
-      typeId, isRW ? "type.RWByteAddressBuffer" : "type.ByteAddressBuffer");
+  theModule.addDebugName(typeId, isRW ? "type.RWByteAddressBuffer"
+                                      : "type.ByteAddressBuffer");
   return typeId;
 }
 
