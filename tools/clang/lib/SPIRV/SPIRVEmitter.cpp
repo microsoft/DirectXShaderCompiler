@@ -5615,6 +5615,13 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
                                 {static_cast<uint32_t>(vcAttr->getCount())});
   }
 
+  uint32_t invocations = 1;
+  if (auto *instanceAttr = decl->getAttr<HLSLInstanceAttr>()) {
+    invocations = static_cast<uint32_t>(instanceAttr->getCount());
+  }
+  theBuilder.addExecutionMode(entryFunctionId, spv::ExecutionMode::Invocations,
+                              {invocations});
+
   // Only one primitive type is permitted for the geometry shader.
   bool outPoint = false, outLine = false, outTriangle = false, inPoint = false,
        inLine = false, inTriangle = false, inLineAdj = false,
