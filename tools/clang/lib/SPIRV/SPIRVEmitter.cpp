@@ -4666,30 +4666,22 @@ uint32_t SPIRVEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
                                                      bool groupSync,
                                                      bool isAllBarrier) {
   // Execution Barrier scope:
-  // Device    = 0x1 = 1
-  // Workgroup = 0x2 = 2
+  // Device    = 1
+  // Workgroup = 2
   // Memory Barrier scope:
-  // Device    = 0x1 = 1
-  // Workgroup = 0x2 = 2
-  const auto deviceScope = theBuilder.getConstantUint32(1);
-  const auto workgroupScope = theBuilder.getConstantUint32(2);
-
+  // Device    = 1
+  // Workgroup = 2
   // Memory Semantics Barrier scope:
   // WorkgroupMemory      = 0x100 = 256
   // CrossWorkgroupMemory = 0x200 = 512
   // 'All Memory Barrier' must place barrier at several different levels, so
   // several flags must be turned on:
   // 0x10 | 0x40 | 0x80 | 0x100 | 0x200 | 0x400 | 0x800 = 0xFD0 = 4048.
-  const auto workgroupMemSema = theBuilder.getConstantUint32(256);
-  const auto crossWorkgroupMemSema = theBuilder.getConstantUint32(512);
-  const auto allMemSema = theBuilder.getConstantUint32(4048);
-
-  const auto execScope =
-      !groupSync ? 0 : isDevice ? deviceScope : workgroupScope;
-  const auto memScope = isDevice ? deviceScope : workgroupScope;
-  const auto memSema =
-      isAllBarrier ? allMemSema
-                   : isDevice ? crossWorkgroupMemSema : workgroupMemSema;
+  const uint32_t memSemaMask = isAllBarrier ? 0xFD0 : isDevice ? 0x200 : 0x100;
+  const auto memSema = theBuilder.getConstantUint32(memSemaMask);
+  const auto memScope = isDevice ? theBuilder.getConstantUint32(1)
+                                 : theBuilder.getConstantUint32(2);
+  const auto execScope = groupSync ? memScope : 0;
   theBuilder.createBarrier(execScope, memScope, memSema);
   return 0;
 }
