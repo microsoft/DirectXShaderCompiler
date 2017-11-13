@@ -303,6 +303,18 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
       }
     } else if (auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
       // This is a cbuffer/tbuffer decl.
+
+      // Check and emit warnings for member intializers which are not
+      // supported in Vulkan
+      for (const auto *member : bufferDecl->decls()) {
+        if (const auto *varMember = dyn_cast<VarDecl>(member))
+          if (const auto *init = varMember->getInit())
+            emitWarning("%select{tbuffer|cbuffer}0 member initializer "
+                        "ignored since no equivalent in Vulkan",
+                        init->getExprLoc())
+                << bufferDecl->isCBuffer() << init->getSourceRange();
+      }
+
       (void)declIdMapper.createCTBuffer(bufferDecl);
     }
   }
