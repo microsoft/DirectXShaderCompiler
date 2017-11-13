@@ -5575,7 +5575,7 @@ CXSourceRange clang_getTokenExtent(CXTranslationUnit TU, CXToken CXTok) {
 }
 
 // HLSL Change Starts
-static bool IsHLSLBuiltInType(IdentifierInfo* ii)
+static bool IsHLSLBuiltInType(IdentifierInfo* ii, const LangOptions &langOpts)
 {
   // Checks, purely by name, whether the specified identifier is considered a built-in type.
   clang::tok::TokenKind tokenKind = ii->getTokenID();
@@ -5591,7 +5591,7 @@ static bool IsHLSLBuiltInType(IdentifierInfo* ii)
   // Vectors and matrices can be parsed with internal lookup tables.
   hlsl::HLSLScalarType scalarType;
   int count;
-  return hlsl::TryParseAny(ii->getNameStart(), ii->getLength(), &scalarType, &count, &count);
+  return hlsl::TryParseAny(ii->getNameStart(), ii->getLength(), &scalarType, &count, &count, langOpts);
 }
 // HLSL Change Ends
 
@@ -5650,7 +5650,7 @@ static void getTokens(ASTUnit *CXXUnit, SourceRange Range,
         CXTok.int_data[0] = CXToken_Keyword;
       }
       // HLSL Change Starts - Check for HLSL built-in types
-      else if (IsHLSLBuiltInType(II)) {
+      else if (IsHLSLBuiltInType(II, CXXUnit->getLangOpts())) {
         CXTok.int_data[0] = CXToken_BuiltInType;
       }
       // HLSL Change Ends

@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_2 -no-min-precision %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -enable-16bit-types %s | FileCheck %s
 
 // CHECK: call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %buf1_texture_rawbuf, i32 %{{[0-9]+}}, i32 undef, i8 1, i32 4)
 // CHECK: call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %buf1_texture_rawbuf, i32 %{{[0-9]+}}, i32 undef, i8 3, i32 4)

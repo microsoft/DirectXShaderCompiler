@@ -427,7 +427,8 @@ public:
   TEST_METHOD(CompileHlsl2015ThenFail)
   TEST_METHOD(CompileHlsl2016ThenOK)
   TEST_METHOD(CompileHlsl2017ThenOK)
-  TEST_METHOD(CompileHlsl2018ThenFail)
+  TEST_METHOD(CompileHlsl2018ThenOK)
+  TEST_METHOD(CompileHlsl2019ThenFail)
   TEST_METHOD(CompileCBufferTBufferASTDump)
 
   TEST_METHOD(DiaLoadBadBitcodeThenFail)
@@ -554,6 +555,8 @@ public:
   TEST_METHOD(CodeGenFloatToBool)
   TEST_METHOD(CodeGenFirstbitHi)
   TEST_METHOD(CodeGenFirstbitLo)
+  TEST_METHOD(CodeGenFixedWidthTypes)
+  TEST_METHOD(CodeGenFixedWidthTypes16Bit)
   TEST_METHOD(CodeGenFloatMaxtessfactor)
   TEST_METHOD(CodeGenFModPS)
   TEST_METHOD(CodeGenFuncCast)
@@ -873,6 +876,7 @@ public:
   TEST_METHOD(CodeGenToinclude2_Mod)
   TEST_METHOD(CodeGenTypemods_Syntax_Mod)
   TEST_METHOD(CodeGenTypedBufferHalf)
+  TEST_METHOD(CodeGenTypedefNewType)
   TEST_METHOD(CodeGenVarmods_Syntax_Mod)
   TEST_METHOD(CodeGenVector_Assignments_Mod)
   TEST_METHOD(CodeGenVector_Syntax_Mix_Mod)
@@ -2788,7 +2792,7 @@ TEST_F(CompilerTest, CompileHlsl2017ThenOK) {
   VERIFY_SUCCEEDED(status);
 }
 
-TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
+TEST_F(CompilerTest, CompileHlsl2018ThenOK) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -2798,6 +2802,25 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   CreateBlobFromText("float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", &pSource);
 
   LPCWSTR args[2] = { L"-HV", L"2018" };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"ps_6_0", args, 2, nullptr, 0, nullptr, &pResult));
+
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+}
+
+TEST_F(CompilerTest, CompileHlsl2019ThenFail) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlobEncoding> pErrors;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", &pSource);
+
+  LPCWSTR args[2] = { L"-HV", L"2019" };
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
     L"ps_6_0", args, 2, nullptr, 0, nullptr, &pResult));
@@ -3383,6 +3406,16 @@ TEST_F(CompilerTest, CodeGenFirstbitHi) {
 
 TEST_F(CompilerTest, CodeGenFirstbitLo) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\firstbitLo.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFixedWidthTypes) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\fixedWidth.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFixedWidthTypes16Bit) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\fixedWidth16Bit.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFloatMaxtessfactor) {
@@ -4667,6 +4700,10 @@ TEST_F(CompilerTest, CodeGenTypemods_Syntax_Mod) {
 TEST_F(CompilerTest, CodeGenTypedBufferHalf) {
   if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\typed_buffer_half.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenTypedefNewType) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\typedef_new_type.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenVarmods_Syntax_Mod) {

@@ -456,7 +456,7 @@
       <RenderTarget Name="RTarget" />
     </RenderTargets>
 
-    <Shader Name="VS" Target="vs_6_2" Arguments="/no-min-precision">
+    <Shader Name="VS" Target="vs_6_2" Arguments="/enable-16bit-types">
     <!--<Shader Name="VS" Target="vs_6_0"> -->
     <![CDATA[
     struct PSInput {
@@ -474,7 +474,7 @@
     ]]>
     </Shader>
 
-    <Shader Name="PS" Target="ps_6_2" Arguments="/no-min-precision">
+    <Shader Name="PS" Target="ps_6_2" Arguments="/enable-16bit-types">
     <!--<Shader Name="PS" Target="ps_6_0">-->
     <![CDATA[
     struct PSInput {
@@ -510,8 +510,8 @@
     <RenderTargets>
       <RenderTarget Name="RTarget" />
     </RenderTargets>
-    <Shader Name='VS' Target='vs_6_2' EntryPoint='VSMain' Arguments='-no-min-precision' Text="@PS" />
-    <Shader Name='PS' Target='ps_6_2' EntryPoint='PSMain' Arguments='-no-min-precision'>
+    <Shader Name='VS' Target='vs_6_2' EntryPoint='VSMain' Arguments='-enable-16bit-types' Text="@PS" />
+    <Shader Name='PS' Target='ps_6_2' EntryPoint='PSMain' Arguments='-enable-16bit-types'>
       <![CDATA[
         cbuffer c_buf {
           half first;

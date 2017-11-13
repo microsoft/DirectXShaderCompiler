@@ -3047,22 +3047,62 @@ public:
     // TODO: enalbe this once we introduce precise master option
     bool UseMinPrecision = m_context->getLangOpts().UseMinPrecision;
     if (type == HLSLScalarType_int_min12) {
-      const char *PromotedType = "min16int"; // TODO: print int16 once we support true int16/uint16 support.
-      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min12int" << PromotedType;
-    }
-    else if (type == HLSLScalarType_float_min10) {
-      const char *PromotedType = UseMinPrecision ? "min16float": "half";
-      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << PromotedType;
+      const char *PromotedType =
+          UseMinPrecision ? HLSLScalarTypeNames[HLSLScalarType_int_min16]
+                          : HLSLScalarTypeNames[HLSLScalarType_int16];
+      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+          << HLSLScalarTypeNames[type] << PromotedType;
+    } else if (type == HLSLScalarType_float_min10) {
+      const char *PromotedType =
+          UseMinPrecision ? HLSLScalarTypeNames[HLSLScalarType_float_min16]
+                          : HLSLScalarTypeNames[HLSLScalarType_float16];
+      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+          << HLSLScalarTypeNames[type] << PromotedType;
     }
     if (!UseMinPrecision) {
       if (type == HLSLScalarType_float_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16float" << "half";
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << HLSLScalarTypeNames[type]
+            << HLSLScalarTypeNames[HLSLScalarType_float16];
+      } else if (type == HLSLScalarType_int_min16) {
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << HLSLScalarTypeNames[type]
+            << HLSLScalarTypeNames[HLSLScalarType_int16];
+      } else if (type == HLSLScalarType_uint_min16) {
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << HLSLScalarTypeNames[type]
+            << HLSLScalarTypeNames[HLSLScalarType_uint16];
       }
-      else if (type == HLSLScalarType_int_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "int16_t";
+    }
+  }
+
+  void DiagnoseHLSLScalarType(HLSLScalarType type, SourceLocation Loc) {
+    if (getSema()->getLangOpts().HLSLVersion < 2018) {
+      switch (type) {
+      case HLSLScalarType_float16:
+      case HLSLScalarType_float32:
+      case HLSLScalarType_float64:
+      case HLSLScalarType_int16:
+      case HLSLScalarType_int32:
+      case HLSLScalarType_uint16:
+      case HLSLScalarType_uint32:
+        m_sema->Diag(Loc, diag::err_hlsl_unsupported_keyword_for_version)
+            << HLSLScalarTypeNames[type] << "2018";
+        break;
+      default:
+        break;
       }
-      else if (type == HLSLScalarType_uint_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "uint16_t";
+    }
+    if (getSema()->getLangOpts().UseMinPrecision) {
+      switch (type) {
+      case HLSLScalarType_float16:
+      case HLSLScalarType_int16:
+      case HLSLScalarType_uint16:
+        m_sema->Diag(Loc, diag::err_hlsl_unsupported_keyword_for_min_precision)
+            << HLSLScalarTypeNames[type];
+        break;
+      default:
+        break;
       }
     }
   }
@@ -3088,7 +3128,7 @@ public:
     int colCount;
 
     // Try parsing hlsl scalar types that is not initialized at AST time.
-    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
+    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getSema()->getLangOpts())) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
       if (rowCount == 0 && colCount == 0) { // scalar
         TypedefDecl *typeDecl = LookupScalarType(parsedType);
@@ -4457,10 +4497,15 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
-  m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
-  m_baseTypes[HLSLScalarType_uint64] = m_context->UnsignedLongLongTy;
   m_baseTypes[HLSLScalarType_int16] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_int32] = m_context->IntTy;
+  m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
   m_baseTypes[HLSLScalarType_uint16] = m_context->UnsignedShortTy;
+  m_baseTypes[HLSLScalarType_uint32] = m_context->UnsignedIntTy;
+  m_baseTypes[HLSLScalarType_uint64] = m_context->UnsignedLongLongTy;
+  m_baseTypes[HLSLScalarType_float16] = m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_float32] = m_context->FloatTy;
+  m_baseTypes[HLSLScalarType_float64] = m_context->DoubleTy;
 }
 
 void HLSLExternalSource::AddHLSLScalarTypes()
@@ -10938,9 +10983,10 @@ bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
     StringRef nameIdentifier = idInfo->getName();
     HLSLScalarType parsedType;
     int rowCount, colCount;
-    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
+    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getLangOpts())) {
       HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
       hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
+      hlslExternalSource->DiagnoseHLSLScalarType(parsedType, R.getNameLoc());
     }
   }
   return true;
