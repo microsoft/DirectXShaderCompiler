@@ -3067,35 +3067,15 @@ static uint8_t GetRawBufferMaskFromIOP(IntrinsicOp IOP, hlsl::OP *OP) {
   switch (IOP) {
     // one component
     case IntrinsicOp::MOP_Load:
-    case IntrinsicOp::MOP_LoadHalf:
-    case IntrinsicOp::MOP_StoreHalf:
-    case IntrinsicOp::MOP_LoadFloat:
-    case IntrinsicOp::MOP_StoreFloat:
       return DXIL::kCompMask_X;
     // two component
     case IntrinsicOp::MOP_Load2:
-    case IntrinsicOp::MOP_LoadHalf2:
-    case IntrinsicOp::MOP_StoreHalf2:
-    case IntrinsicOp::MOP_LoadFloat2:
-    case IntrinsicOp::MOP_StoreFloat2:
-    case IntrinsicOp::MOP_LoadDouble: // double takes 2 components
-    case IntrinsicOp::MOP_StoreDouble:
       return DXIL::kCompMask_X | DXIL::kCompMask_Y;
     // three component
     case IntrinsicOp::MOP_Load3:
-    case IntrinsicOp::MOP_LoadHalf3:
-    case IntrinsicOp::MOP_StoreHalf3:
-    case IntrinsicOp::MOP_LoadFloat3:
-    case IntrinsicOp::MOP_StoreFloat3:
       return DXIL::kCompMask_X | DXIL::kCompMask_Y | DXIL::kCompMask_Z;
     // three component
     case IntrinsicOp::MOP_Load4:
-    case IntrinsicOp::MOP_LoadHalf4:
-    case IntrinsicOp::MOP_StoreHalf4:
-    case IntrinsicOp::MOP_LoadFloat4:
-    case IntrinsicOp::MOP_StoreFloat4:
-    case IntrinsicOp::MOP_LoadDouble2: // double2 takes 4 components
-    case IntrinsicOp::MOP_StoreDouble2:
       return DXIL::kCompMask_All;
     default:
       DXASSERT(false, "Invalid Intrinsic for computing load mask.");
@@ -3206,7 +3186,6 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
       loadArgs.emplace_back(helper.addr); // offset
     }
   }
-
   // offset 0
   if (opcode == OP::OpCode::TextureLoad) {
     if (helper.offset && !isa<llvm::UndefValue>(helper.offset)) {
@@ -4464,16 +4443,6 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::MOP_Load2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Load3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Load4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadDouble, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadDouble2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadFloat, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadFloat2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadFloat3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadFloat4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadHalf, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadHalf2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadHalf3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_LoadHalf4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedAdd, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedAnd, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedCompareExchange, TranslateMopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
@@ -4487,16 +4456,6 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::MOP_Store2, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Store3, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Store4, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_StoreDouble, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_StoreDouble2, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_StoreFloat, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_StoreFloat2, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_StoreFloat3, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_StoreFloat4, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_StoreHalf, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_StoreHalf2, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_StoreHalf3, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::MOP_StoreHalf4, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_DecrementCounter, GenerateUpdateCounter, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_IncrementCounter, GenerateUpdateCounter, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Consume, EmptyLower, DXIL::OpCode::NumOpCodes},

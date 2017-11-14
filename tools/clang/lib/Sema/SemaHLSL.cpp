@@ -4223,23 +4223,6 @@ public:
 
     IntrinsicOp intrinOp = static_cast<IntrinsicOp>(intrinsic->Op);
 
-    if (intrinOp == IntrinsicOp::MOP_LoadHalf ||
-      intrinOp == IntrinsicOp::MOP_LoadHalf2 ||
-      intrinOp == IntrinsicOp::MOP_LoadHalf3 ||
-      intrinOp == IntrinsicOp::MOP_LoadHalf4 ||
-      intrinOp == IntrinsicOp::MOP_StoreHalf ||
-      intrinOp == IntrinsicOp::MOP_StoreHalf2 ||
-      intrinOp == IntrinsicOp::MOP_StoreHalf3 ||
-      intrinOp == IntrinsicOp::MOP_StoreHalf4
-      ) {
-      if (getSema()->getLangOpts().UseMinPrecision) {
-        DXASSERT(Args.size() >= 1, "Otherwise wrong load store call.");
-        getSema()->Diag(
-            Args.front()->getExprLoc(),
-            diag::err_hlsl_half_load_store);
-      }
-    }
-
     if (intrinOp == IntrinsicOp::MOP_SampleBias) {
       // Remove this when update intrinsic table not affect other things.
       // Change vector<float,1> into float for bias.
