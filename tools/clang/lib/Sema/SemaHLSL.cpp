@@ -8246,10 +8246,6 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 {
   DXASSERT_NOMSG(FunctionTemplate != nullptr);
 
-  DXASSERT(
-    ExplicitTemplateArgs == nullptr ||
-    ExplicitTemplateArgs->size() == 0, "otherwise parser failed to reject explicit template argument syntax");
-
   // Get information about the function we have.
   CXXMethodDecl* functionMethod = dyn_cast<CXXMethodDecl>(FunctionTemplate->getTemplatedDecl());
   DXASSERT(functionMethod != nullptr,
@@ -8321,6 +8317,43 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     {
       ++cursor;
       continue;
+    }
+
+    // Currently only intrinsic we allow for explicit template arguments are
+    // for Load return types for ByteAddressBuffer/RWByteAddressBuffer
+    // TODO: handle template arguments for future intrinsics in a more natural way
+    if (strncmp(objectName,
+                g_ArBasicTypeNames[ArBasicKind::AR_OBJECT_BYTEADDRESS_BUFFER],
+                sizeof(g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER])) ==
+            0 ||
+        strncmp(objectName,
+                g_ArBasicTypeNames[ArBasicKind::AR_OBJECT_RWBYTEADDRESS_BUFFER],
+                sizeof(g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER])) ==
+            0) {
+      // Check if this is a Load Instruction
+      if ((*cursor)->Op == (UINT)IntrinsicOp::MOP_Load) {
+        // By default load returns uint
+        if (ExplicitTemplateArgs->size() > 1) {
+          getSema()->Diag(ExplicitTemplateArgs->getLAngleLoc(), diag::err_template_arg_template_params_mismatch);
+        }
+        else if (ExplicitTemplateArgs->size() == 1) {
+          QualType explicitType = (*ExplicitTemplateArgs)[0].getArgument().getAsType();
+          ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
+          if (explicitKind != AR_TOBJ_BASIC && explicitKind != AR_TOBJ_VECTOR) {
+            getSema()->Diag((*ExplicitTemplateArgs)[0].getLocation(), diag::err_template_arg_template_params_mismatch);
+            return Sema::TemplateDeductionResult::TDK_Invalid;
+          }
+          argTypes[0] = explicitType;
+        }
+      }
+      else if (ExplicitTemplateArgs->size() > 0) {
+        getSema()->Diag(ExplicitTemplateArgs->getLAngleLoc(), diag::err_hlsl_unsupported_template_for_intrinsic) << nameIdentifier;
+        return Sema::TemplateDeductionResult::TDK_Invalid;
+      }
+    }
+    else if (ExplicitTemplateArgs->size() > 0) {
+      getSema()->Diag(ExplicitTemplateArgs->getLAngleLoc(), diag::err_hlsl_unsupported_template_for_intrinsic) << nameIdentifier;
+      return Sema::TemplateDeductionResult::TDK_Invalid;
     }
 
     Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes, argCount);

@@ -708,28 +708,28 @@ $unspec [[]] Load(in int x, out uint_only status) : rwbuffer_load_s;
 namespace ByteAddressBufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-numeric [[ro]] Load(in uint byteOffset) : byteaddress_load;
-numeric<2> [[ro]] Load2(in uint byteOffset) : byteaddress_load;
-numeric<3> [[ro]] Load3(in uint byteOffset) : byteaddress_load;
-numeric<4> [[ro]] Load4(in uint byteOffset) : byteaddress_load;
-numeric [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-numeric<2> [[]] Load2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-numeric<3> [[]] Load3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-numeric<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+uint [[ro]] Load(in uint byteOffset) : byteaddress_load;
+uint<2> [[ro]] Load2(in uint byteOffset) : byteaddress_load;
+uint<3> [[ro]] Load3(in uint byteOffset) : byteaddress_load;
+uint<4> [[ro]] Load4(in uint byteOffset) : byteaddress_load;
+uint [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+uint<2> [[]] Load2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+uint<3> [[]] Load3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+uint<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 
 } namespace
 
 namespace RWByteAddressBufferMethods {
 
 void [[]] GetDimensions(out uint_only width) : bufinfo;
-numeric [[ro]] Load(in uint byteOffset) : byteaddress_load;
-numeric<2> [[ro]] Load2(in uint byteOffset) : byteaddress_load;
-numeric<3> [[ro]] Load3(in uint byteOffset) : byteaddress_load;
-numeric<4> [[ro]] Load4(in uint byteOffset) : byteaddress_load;
-numeric [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-numeric<2> [[]] Load2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-numeric<3> [[]] Load3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
-numeric<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+uint [[ro]] Load(in uint byteOffset) : byteaddress_load;
+uint<2> [[ro]] Load2(in uint byteOffset) : byteaddress_load;
+uint<3> [[ro]] Load3(in uint byteOffset) : byteaddress_load;
+uint<4> [[ro]] Load4(in uint byteOffset) : byteaddress_load;
+uint [[]] Load(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+uint<2> [[]] Load2(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+uint<3> [[]] Load3(in uint byteOffset, out uint_only status) : byteaddress_load_s;
+uint<4> [[]] Load4(in uint byteOffset, out uint_only status) : byteaddress_load_s;
 void [[]] Store(in uint byteOffset, in uint value) : byteaddress_store;
 void [[]] Store2(in uint byteOffset, in uint<2> value) : byteaddress_store;
 void [[]] Store3(in uint byteOffset, in uint<3> value) : byteaddress_store;
