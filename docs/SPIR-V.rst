@@ -833,6 +833,10 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 | SV_RenderTargetArrayIndex +-------------+--------------------------+-----------------------+
 |                           | PSIn        | ``Layer``                | N/A                   |
 +---------------------------+-------------+--------------------------+-----------------------+
+|                           | GSOut       | ``ViewportIndex``        | N/A                   |
+| SV_ViewportArrayIndex     +-------------+--------------------------+-----------------------+
+|                           | PSIn        | ``ViewportIndex``        | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
 
 [TODO] add other SV semantic strings in the above
 
