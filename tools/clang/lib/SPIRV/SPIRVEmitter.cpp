@@ -4137,6 +4137,8 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                            GLSLstd450::GLSLstd450SSign,
                                            /*actPerRowForMatrices*/ true);
   }
+  case hlsl::IntrinsicOp::IOP_D3DCOLORtoUBYTE4:
+    return processD3DCOLORtoUBYTE4(callExpr);
   case hlsl::IntrinsicOp::IOP_isfinite: {
     return processIntrinsicIsFinite(callExpr);
   }
@@ -5110,6 +5112,22 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
         << callExpr->getDirectCallee()->getName();
     return 0;
   }
+}
+
+uint32_t SPIRVEmitter::processD3DCOLORtoUBYTE4(const CallExpr *callExpr) {
+  // Should take a float4 and return an int4 by doing:
+  // int4 result = input.zyxw * 255.001953;
+  // Maximum float precision makes the scaling factor 255.002.
+  const auto arg = callExpr->getArg(0);
+  const auto argId = doExpr(arg);
+  const auto argTypeId = typeTranslator.translateType(arg->getType());
+  const auto swizzle =
+      theBuilder.createVectorShuffle(argTypeId, argId, argId, {2, 1, 0, 3});
+  const auto scaled = theBuilder.createBinaryOp(
+      spv::Op::OpVectorTimesScalar, argTypeId, swizzle,
+      theBuilder.getConstantFloat32(255.002f));
+  return castToInt(scaled, arg->getType(), callExpr->getType(),
+                   callExpr->getExprLoc());
 }
 
 uint32_t SPIRVEmitter::processIntrinsicIsFinite(const CallExpr *callExpr) {
