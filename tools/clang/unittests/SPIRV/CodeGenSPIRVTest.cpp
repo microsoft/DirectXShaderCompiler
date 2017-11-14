@@ -477,6 +477,21 @@ TEST_F(FileTest, SemanticRenderTargetArrayIndexGS) {
 TEST_F(FileTest, SemanticRenderTargetArrayIndexPS) {
   runFileTest("semantic.render-target-array-index.ps.hlsl");
 }
+TEST_F(FileTest, SemanticViewportArrayIndexVS) {
+  runFileTest("semantic.viewport-array-index.vs.hlsl");
+}
+TEST_F(FileTest, SemanticViewportArrayIndexHS) {
+  runFileTest("semantic.viewport-array-index.hs.hlsl");
+}
+TEST_F(FileTest, SemanticViewportArrayIndexDS) {
+  runFileTest("semantic.viewport-array-index.ds.hlsl");
+}
+TEST_F(FileTest, SemanticViewportArrayIndexGS) {
+  runFileTest("semantic.viewport-array-index.gs.hlsl");
+}
+TEST_F(FileTest, SemanticViewportArrayIndexPS) {
+  runFileTest("semantic.viewport-array-index.ps.hlsl");
+}
 
 // For texture methods
 TEST_F(FileTest, TextureSample) { runFileTest("texture.sample.hlsl"); }
