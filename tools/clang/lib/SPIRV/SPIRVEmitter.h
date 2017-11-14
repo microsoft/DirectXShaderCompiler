@@ -261,6 +261,9 @@ private:
   /// specified value is less than zero.
   uint32_t processIntrinsicClip(const CallExpr *);
 
+  /// Processes the 'dst' intrinsic function.
+  uint32_t processIntrinsicDst(const CallExpr *);
+
   /// Processes the 'clamp' intrinsic function.
   uint32_t processIntrinsicClamp(const CallExpr *);
 

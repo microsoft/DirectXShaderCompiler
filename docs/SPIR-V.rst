@@ -1421,6 +1421,9 @@ extended instruction mapping, so they are handled with additional steps:
 - ``D3DCOLORtoUBYTE4``: Converts a floating-point, 4D vector set by a D3DCOLOR to a UBYTE4.
   This is achieved by performing ``int4(input.zyxw * 255.002)`` using SPIR-V ``OpVectorShuffle``,
   ``OpVectorTimesScalar``, and ``OpConvertFToS``, respectively.
+- ``dst``: Calculates a distance vector. The resulting vector, ``dest``, has the following specifications:
+  ``dest.x = 1.0``, ``dest.y = src0.y * src1.y``, ``dest.z = src0.z``, and ``dest.w = src1.w``. 
+  Uses SPIR-V ``OpCompositeExtract`` and ``OpFMul``.
 
 Using SPIR-V opcode
 ~~~~~~~~~~~~~~~~~~~

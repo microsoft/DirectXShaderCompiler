@@ -4120,6 +4120,8 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_clip: {
     return processIntrinsicClip(callExpr);
   }
+  case hlsl::IntrinsicOp::IOP_dst:
+    return processIntrinsicDst(callExpr);
   case hlsl::IntrinsicOp::IOP_clamp:
   case hlsl::IntrinsicOp::IOP_uclamp:
     return processIntrinsicClamp(callExpr);
@@ -4559,6 +4561,26 @@ uint32_t SPIRVEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
   emitError("invalid argument type passed to Frexp intrinsic function",
             callExpr->getExprLoc());
   return 0;
+}
+
+uint32_t SPIRVEmitter::processIntrinsicDst(const CallExpr *callExpr) {
+  // Signature is float4 dst(float4 src0, float4 src1)
+  // result.x = 1;
+  // result.y = src0.y * src1.y;
+  // result.z = src0.z;
+  // result.w = src1.w;
+  const auto floatId = theBuilder.getFloat32Type();
+  const auto arg0Id = doExpr(callExpr->getArg(0));
+  const auto arg1Id = doExpr(callExpr->getArg(1));
+  const auto arg0y = theBuilder.createCompositeExtract(floatId, arg0Id, {1});
+  const auto arg1y = theBuilder.createCompositeExtract(floatId, arg1Id, {1});
+  const auto arg0z = theBuilder.createCompositeExtract(floatId, arg0Id, {2});
+  const auto arg1w = theBuilder.createCompositeExtract(floatId, arg1Id, {3});
+  const auto arg0yMularg1y =
+      theBuilder.createBinaryOp(spv::Op::OpFMul, floatId, arg0y, arg1y);
+  return theBuilder.createCompositeConstruct(
+      typeTranslator.translateType(callExpr->getType()),
+      {theBuilder.getConstantFloat32(1.0), arg0yMularg1y, arg0z, arg1w});
 }
 
 uint32_t SPIRVEmitter::processIntrinsicClip(const CallExpr *callExpr) {
