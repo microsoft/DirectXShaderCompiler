@@ -782,13 +782,7 @@ void DxilMDHelper::LoadDxilStructAnnotation(const MDOperand &MDO, DxilStructAnno
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
   IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   if (pTupleMD->getNumOperands() == 1) {
-    const StructType *ST = SA.GetStructType();
-    if (ST->getNumElements() == 1) {
-      Type *EltTy = ST->getElementType(0);
-      if (EltTy == Type::getInt8Ty(ST->getContext())) {
-        SA.MarkEmptyStruct();
-      }
-    }
+    SA.MarkEmptyStruct();
   }
   IFTBOOL(pTupleMD->getNumOperands() == SA.GetNumFields()+1, DXC_E_INCORRECT_DXIL_METADATA);
 
