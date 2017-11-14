@@ -563,6 +563,32 @@ void ModuleBuilder::createBarrier(uint32_t execution, uint32_t memory,
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
+uint32_t ModuleBuilder::createBitFieldExtract(uint32_t resultType,
+                                              uint32_t base, uint32_t offset,
+                                              uint32_t count, bool isSigned) {
+  assert(insertPoint && "null insert point");
+  uint32_t resultId = theContext.takeNextId();
+  if (isSigned)
+    instBuilder.opBitFieldSExtract(resultType, resultId, base, offset, count);
+  else
+    instBuilder.opBitFieldUExtract(resultType, resultId, base, offset, count);
+  instBuilder.x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
+uint32_t ModuleBuilder::createBitFieldInsert(uint32_t resultType, uint32_t base,
+                                             uint32_t insert, uint32_t offset,
+                                             uint32_t count) {
+  assert(insertPoint && "null insert point");
+  uint32_t resultId = theContext.takeNextId();
+  instBuilder
+      .opBitFieldInsert(resultType, resultId, base, insert, offset, count)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
 void ModuleBuilder::createEmitVertex() {
   assert(insertPoint && "null insert point");
   instBuilder.opEmitVertex().x();
