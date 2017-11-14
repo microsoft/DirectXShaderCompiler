@@ -686,7 +686,9 @@ void DxilMDHelper::EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, vector<GlobalV
   for (auto it = TypeMap.begin(); it != TypeMap.end(); ++it, GVIdx++) {
     StructType *pStructType = const_cast<StructType *>(it->first);
     DxilStructAnnotation *pA = it->second.get();
-
+    // Don't emit type annotation for empty struct.
+    if (pA->IsEmptyStruct())
+      continue;
     // Emit struct type field annotations.
     Metadata *pMD = EmitDxilStructAnnotation(*pA);
 
