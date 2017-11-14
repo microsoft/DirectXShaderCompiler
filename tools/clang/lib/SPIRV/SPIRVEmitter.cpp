@@ -4577,6 +4577,9 @@ uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   //   Step 3:
   //     msad o0.xyzw, v0.xxxx, t0.xyzw, v2.xyzw
 
+  const uint32_t glsl = theBuilder.getGLSLExtInstSet();
+  const auto boolType = theBuilder.getBoolType();
+  const auto intType = theBuilder.getInt32Type();
   const auto uintType = theBuilder.getUint32Type();
   const auto uint4Type = theBuilder.getVecType(uintType, 4);
   const uint32_t reference = doExpr(callExpr->getArg(0));
@@ -4616,32 +4619,10 @@ uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
       /*width*/ theBuilder.getConstantUint32(24));
 
   // Step 3. MSAD (Masked Sum of Absolute Differences)
-  const uint32_t accum0 =
-      theBuilder.createCompositeExtract(uintType, accum, {0});
-  const uint32_t accum1 =
-      theBuilder.createCompositeExtract(uintType, accum, {1});
-  const uint32_t accum2 =
-      theBuilder.createCompositeExtract(uintType, accum, {2});
-  const uint32_t accum3 =
-      theBuilder.createCompositeExtract(uintType, accum, {3});
 
-  const uint32_t msad0 =
-      processMakedSumOfAbsoluteDifference(reference, /*t0x*/ v1x, accum0);
-  const uint32_t msad1 =
-      processMakedSumOfAbsoluteDifference(reference, t0y, accum1);
-  const uint32_t msad2 =
-      processMakedSumOfAbsoluteDifference(reference, t0z, accum2);
-  const uint32_t msad3 =
-      processMakedSumOfAbsoluteDifference(reference, t0w, accum3);
-
-  return theBuilder.createCompositeConstruct(uint4Type,
-                                             {msad0, msad1, msad2, msad3});
-}
-
-uint32_t SPIRVEmitter::processMakedSumOfAbsoluteDifference(uint32_t ref,
-                                                           uint32_t src,
-                                                           uint32_t accum) {
+  // Now perform MSAD four times.
   // Need to mimic this algorithm in SPIR-V!
+  //
   // UINT msad( UINT ref, UINT src, UINT accum )
   // {
   //     for (UINT i = 0; i < 4; i++)
@@ -4680,45 +4661,57 @@ uint32_t SPIRVEmitter::processMakedSumOfAbsoluteDifference(uint32_t ref,
   //     return accum;
   // }
 
-  const uint32_t glsl = theBuilder.getGLSLExtInstSet();
-  const auto boolType = theBuilder.getBoolType();
-  const auto uintType = theBuilder.getUint32Type();
-  const auto intType = theBuilder.getInt32Type();
+  llvm::SmallVector<uint32_t, 4> result;
   const auto uint0 = theBuilder.getConstantUint32(0);
   const auto uint8 = theBuilder.getConstantUint32(8);
-
+  const uint32_t accum0 =
+      theBuilder.createCompositeExtract(uintType, accum, {0});
+  const uint32_t accum1 =
+      theBuilder.createCompositeExtract(uintType, accum, {1});
+  const uint32_t accum2 =
+      theBuilder.createCompositeExtract(uintType, accum, {2});
+  const uint32_t accum3 =
+      theBuilder.createCompositeExtract(uintType, accum, {3});
+  const llvm::SmallVector<uint32_t, 4> sources = {v1x, t0y, t0z, t0w};
+  llvm::SmallVector<uint32_t, 4> accums = {accum0, accum1, accum2, accum3};
+  llvm::SmallVector<uint32_t, 4> refBytes;
+  llvm::SmallVector<uint32_t, 4> signedRefBytes;
+  llvm::SmallVector<uint32_t, 4> isRefByteZero;
   for (uint32_t i = 0; i < 4; ++i) {
-    // 'count' is always 8 because we are extracting 8 bits out of 32.
-    const uint32_t refByte = theBuilder.createBitFieldExtract(
-        uintType, ref, /*offset*/ theBuilder.getConstantUint32(8 * i),
-        /*count*/ uint8, /*isSigned*/ false);
-
-    const uint32_t srcByte = theBuilder.createBitFieldExtract(
-        uintType, src, /*offset*/ theBuilder.getConstantUint32(8 * i),
-        /*count*/ uint8, /*isSigned*/ false);
-
-    const uint32_t signedRefByte =
-        theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, refByte);
-    const uint32_t signedSrcByte =
-        theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, srcByte);
-
-    const uint32_t sub = theBuilder.createBinaryOp(
-        spv::Op::OpISub, intType, signedRefByte, signedSrcByte);
-    const uint32_t absSub = theBuilder.createExtInst(
-        intType, glsl, GLSLstd450::GLSLstd450SAbs, {sub});
-
-    const uint32_t cond =
-        theBuilder.createBinaryOp(spv::Op::OpIEqual, boolType, refByte, uint0);
-    const uint32_t diff = theBuilder.createSelect(
-        uintType, cond, uint0,
-        theBuilder.createUnaryOp(spv::Op::OpBitcast, uintType, absSub));
-
-    // As pointed out by the DXIL reference above, it is *not* required to
-    // saturate the output to UINT_MAX in case of overflow. Wrapping around is
-    // also allowed. For simplicity, we will wrap around at this point.
-    accum = theBuilder.createBinaryOp(spv::Op::OpIAdd, uintType, accum, diff);
+    refBytes.push_back(theBuilder.createBitFieldExtract(
+        uintType, reference, /*offset*/ theBuilder.getConstantUint32(i * 8),
+        /*count*/ uint8, /*isSigned*/ false));
+    signedRefBytes.push_back(
+        theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, refBytes.back()));
+    isRefByteZero.push_back(theBuilder.createBinaryOp(
+        spv::Op::OpIEqual, boolType, refBytes.back(), uint0));
   }
-  return accum;
+
+  for (uint32_t msadNum = 0; msadNum < 4; ++msadNum) {
+    for (uint32_t byteCount = 0; byteCount < 4; ++byteCount) {
+      // 'count' is always 8 because we are extracting 8 bits out of 32.
+      const uint32_t srcByte = theBuilder.createBitFieldExtract(
+          uintType, sources[msadNum],
+          /*offset*/ theBuilder.getConstantUint32(8 * byteCount),
+          /*count*/ uint8, /*isSigned*/ false);
+      const uint32_t signedSrcByte =
+          theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, srcByte);
+      const uint32_t sub = theBuilder.createBinaryOp(
+          spv::Op::OpISub, intType, signedRefBytes[byteCount], signedSrcByte);
+      const uint32_t absSub = theBuilder.createExtInst(
+          intType, glsl, GLSLstd450::GLSLstd450SAbs, {sub});
+      const uint32_t diff = theBuilder.createSelect(
+          uintType, isRefByteZero[byteCount], uint0,
+          theBuilder.createUnaryOp(spv::Op::OpBitcast, uintType, absSub));
+
+      // As pointed out by the DXIL reference above, it is *not* required to
+      // saturate the output to UINT_MAX in case of overflow. Wrapping around is
+      // also allowed. For simplicity, we will wrap around at this point.
+      accums[msadNum] = theBuilder.createBinaryOp(spv::Op::OpIAdd, uintType,
+                                                  accums[msadNum], diff);
+    }
+  }
+  return theBuilder.createCompositeConstruct(uint4Type, accums);
 }
 
 uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {

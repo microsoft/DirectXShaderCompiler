@@ -290,11 +290,6 @@ private:
   /// Processes the 'modf' intrinsic function.
   uint32_t processIntrinsicModf(const CallExpr *);
 
-  /// Processes a single masked sum of absolute difference operation on the
-  /// given arguments (this is refered to as 'msad' in DXIL).
-  uint32_t processMakedSumOfAbsoluteDifference(uint32_t ref, uint32_t src,
-                                               uint32_t accum);
-
   /// Processes the 'msad4' intrinsic function.
   uint32_t processIntrinsicMsad4(const CallExpr *);
 
