@@ -639,6 +639,9 @@ TEST_F(FileTest, IntrinsicsCross) { runFileTest("intrinsics.cross.hlsl"); }
 TEST_F(FileTest, IntrinsicsCeil) { runFileTest("intrinsics.ceil.hlsl"); }
 TEST_F(FileTest, IntrinsicsClamp) { runFileTest("intrinsics.clamp.hlsl"); }
 TEST_F(FileTest, IntrinsicsClip) { runFileTest("intrinsics.clip.hlsl"); }
+TEST_F(FileTest, IntrinsicsD3DCOLORtoUBYTE4) {
+  runFileTest("intrinsics.D3DCOLORtoUBYTE4.hlsl");
+}
 TEST_F(FileTest, IntrinsicsDegrees) { runFileTest("intrinsics.degrees.hlsl"); }
 TEST_F(FileTest, IntrinsicsDistance) {
   runFileTest("intrinsics.distance.hlsl");

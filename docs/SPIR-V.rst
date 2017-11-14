@@ -1418,6 +1418,9 @@ extended instruction mapping, so they are handled with additional steps:
 - ``lit``: Returns a lighting coefficient vector. This vector is a float4 with
   components of (ambient, diffuse, specular, 1). How ``diffuse`` and ``specular``
   are calculated are explained `here <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509619(v=vs.85).aspx>`_.
+- ``D3DCOLORtoUBYTE4``: Converts a floating-point, 4D vector set by a D3DCOLOR to a UBYTE4.
+  This is achieved by performing ``int4(input.zyxw * 255.002)`` using SPIR-V ``OpVectorShuffle``,
+  ``OpVectorTimesScalar``, and ``OpConvertFToS``, respectively.
 
 Using SPIR-V opcode
 ~~~~~~~~~~~~~~~~~~~
