@@ -236,6 +236,8 @@ def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpTex
 // SPIRV Change Starts
 def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Generate SPIR-V code">;
+def fspirv_disable_legal : Flag<["-"], "fspirv-disable-legal">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Disable SPIR-V legalization (warning: may result in invalid SPIR-V code)">;
 def fvk_stage_io_order_EQ : Joined<["-"], "fvk-stage-io-order=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Specify Vulkan stage I/O location assignment order">;
 def fvk_b_shift : MultiArg<["-"], "fvk-b-shift", 2>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,

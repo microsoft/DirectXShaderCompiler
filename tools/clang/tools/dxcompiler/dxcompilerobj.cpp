@@ -463,6 +463,7 @@ public:
 #ifdef ENABLE_SPIRV_CODEGEN
       else if (opts.GenSPIRV) {
           clang::EmitSPIRVOptions spirvOpts;
+          spirvOpts.disableLegalization = opts.DisableSpirvLegal;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
           spirvOpts.bShift = opts.VkBShift;
           spirvOpts.tShift = opts.VkTShift;
