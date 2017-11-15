@@ -8336,9 +8336,11 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
       bool isLegalTemplate = false;
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
-      const char *TemplateDiagText = (Is2018 && IsBABLoad) ?
-        "One scalar or vector type argument up to 16 bytes in size" :
-        "No template arguments";
+      auto TemplateDiag =
+          !IsBAB
+              ? diag::err_hlsl_intrinsic_template_arg_unsupported
+              : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
+                        : diag::err_hlsl_intrinsic_template_arg_requires_2018;
       if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
         Loc = (*ExplicitTemplateArgs)[0].getLocation();
         QualType explicitType = (*ExplicitTemplateArgs)[0].getArgument().getAsType();
@@ -8353,18 +8355,30 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       }
 
       if (!isLegalTemplate) {
-        getSema()->Diag(Loc, diag::err_hlsl_unsupported_template_for_intrinsic) << intrinsicName << TemplateDiagText;
+        getSema()->Diag(Loc, TemplateDiag) << intrinsicName;
         return Sema::TemplateDeductionResult::TDK_Invalid;
       }
-    }
-    else if (IsBABStore && !Is2018) {
+    } else if (IsBABStore) {
       // Prior to HLSL 2018, Store operation only stored scalar uint.
-      if (GetNumElements(argTypes[2]) != 1) {
-        getSema()->Diag(Args[1]->getLocStart(), diag::err_ovl_no_viable_member_function_in_call)
-          << intrinsicName;
-        return Sema::TemplateDeductionResult::TDK_Invalid;
+      if (!Is2018) {
+        if (GetNumElements(argTypes[2]) != 1) {
+          getSema()->Diag(Args[1]->getLocStart(),
+                          diag::err_ovl_no_viable_member_function_in_call)
+              << intrinsicName;
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        }
+        argTypes[2] = getSema()->getASTContext().getIntTypeForBitwidth(
+            32, /*signed*/ false);
+      } else {
+        // not supporting types > 16 bytes yet.
+        if (GET_BASIC_BITS(GetTypeElementKind(argTypes[2])) == BPROP_BITS64 &&
+            GetNumElements(argTypes[2]) > 2) {
+          getSema()->Diag(Args[1]->getLocStart(),
+                          diag::err_ovl_no_viable_member_function_in_call)
+              << intrinsicName;
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        }
       }
-      argTypes[2] = getSema()->getASTContext().getIntTypeForBitwidth(32, /*signed*/ false);
     }
     Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes, argCount);
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
