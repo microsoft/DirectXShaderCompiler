@@ -2326,6 +2326,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "functions and global variables|structs, unions, and typedefs|structs and typedefs|"
   "interface or protocol declarations|kernel functions|"
   // SPIRV Change Starts
+  "global variables of struct type|"
   "global variables, cbuffers, and tbuffers|"
   "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
   // SPIRV Change Ends

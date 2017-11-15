@@ -203,6 +203,9 @@ public:
   /// VarDecl does not need an extra OpAccessChain.
   uint32_t createCTBuffer(const VarDecl *decl);
 
+  /// \brief Creates a PushConstant block from the given decl.
+  uint32_t createPushConstant(const VarDecl *decl);
+
   /// \brief Sets the <result-id> of the entry function.
   void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
 
@@ -282,8 +285,7 @@ private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>
-  DiagnosticBuilder emitError(const char (&message)[N],
-                              SourceLocation loc) {
+  DiagnosticBuilder emitError(const char (&message)[N], SourceLocation loc) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
     return diags.Report(loc, diagId);
@@ -301,20 +303,27 @@ private:
   /// construction.
   bool finalizeStageIOLocations(bool forInput);
 
+  /// \brief An enum class for representing what the DeclContext is used for
+  enum class ContextUsageKind {
+    CBuffer,
+    TBuffer,
+    PushConstant,
+  };
+
   /// Creates a variable of struct type with explicit layout decorations.
   /// The sub-Decls in the given DeclContext will be treated as the struct
   /// fields. The struct type will be named as typeName, and the variable
   /// will be named as varName.
   ///
-  /// This method should only be used for cbuffers/ContantBuffers and
-  /// tbuffers/TextureBuffers. isCBuffer must be set appropriately based on the
-  /// type of the buffer.
+  /// This method should only be used for cbuffers/ContantBuffers, tbuffers/
+  /// TextureBuffers, and PushConstants. usageKind must be set properly
+  /// depending on the usage kind.
   ///
   /// Panics if the DeclContext is neither HLSLBufferDecl or RecordDecl.
   uint32_t createVarOfExplicitLayoutStruct(const DeclContext *decl,
+                                           ContextUsageKind usageKind,
                                            llvm::StringRef typeName,
-                                           llvm::StringRef varName,
-                                           bool isCBuffer);
+                                           llvm::StringRef varName);
 
   /// Creates all the stage variables mapped from semantics on the given decl.
   /// Returns true on sucess.
