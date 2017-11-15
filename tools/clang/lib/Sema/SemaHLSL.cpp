@@ -1068,10 +1068,35 @@ static const ArBasicKind g_UInt3264CT[] =
   AR_BASIC_UNKNOWN
 };
 
-static const ArBasicKind g_HalfCT[] =
+static const ArBasicKind g_Float16CT[] =
 {
   AR_BASIC_FLOAT16,
   AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_Int16CT[] =
+{
+  AR_BASIC_INT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_UInt16CT[] =
+{
+  AR_BASIC_UINT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_Numeric16OnlyCT[] =
+{
+  AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_FLOAT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_INT16,
+  AR_BASIC_UINT16,
+  AR_BASIC_NOCAST,
   AR_BASIC_UNKNOWN
 };
 
@@ -1105,7 +1130,10 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_WaveCT,             // LICOMPTYPE_WAVE
   g_UInt64CT,           // LICOMPTYPE_UINT64
   g_UInt3264CT,         // LICOMPTYPE_UINT32_64
-  g_HalfCT              // LICOMPTYPE_HALF
+  g_Float16CT,          // LICOMPTYPE_FLOAT16
+  g_Int16CT,            // LICOMPTYPE_INT16
+  g_UInt16CT,           // LICOMPTYPE_UINT16
+  g_Numeric16OnlyCT     // LICOMPTYPE_NUMERIC16_ONLY
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
 
