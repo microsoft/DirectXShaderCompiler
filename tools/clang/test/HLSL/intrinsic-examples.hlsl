@@ -54,8 +54,8 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   uav1.Store3<float>(0, r.xyz);                             /* expected-error {{Explicit template arguments on intrinsic Store3 requires HLSL version 2018 or above.}} */
   uav1.Store4<float>(0, r);                                 /* expected-error {{Explicit template arguments on intrinsic Store4 requires HLSL version 2018 or above.}} */
   uav1.Store<float3x2>(0, float3x2(1,2,3,4,5,6));           /* expected-error {{no matching member function for call to 'Store'}} */
-  uav1.Store(0, (double3)r.xyz);                            /* expected-error {{no matching member function for call to 'Store'}} expected-error {{no matching member function for call to Store}} */
-  uav1.Store(0, (uint64_t4)r);                              /* expected-error {{no matching member function for call to 'Store'}} expected-error {{no matching member function for call to Store}} */
+  uav1.Store(0, (double3)r.xyz);                            /* expected-error {{no matching member function for call to 'Store'}} expected-error {{no matching member function for call to Store}} expected-note@? {{candidate template ignored: couldn't infer template argument 'TResult'}}*/
+  uav1.Store(0, (uint64_t4)r);                              /* expected-error {{no matching member function for call to 'Store'}} expected-error {{no matching member function for call to Store}} expected-note@? {{candidate template ignored: couldn't infer template argument 'TResult'}}*/
   MyStruct myStruct;
   uav1.Store(0, myStruct);                                  /* expected-error {{no matching member function for call to 'Store'}} */
   return r;
