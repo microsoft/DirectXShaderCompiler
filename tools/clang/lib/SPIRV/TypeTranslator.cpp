@@ -620,8 +620,12 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
 }
 
 uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
+  // Resource types are either represented like C struct or C++ class in the
+  // AST. Samplers are represented like C struct, so isStructureType() will
+  // return true for it; textures are represented like C++ class, so
+  // isClassType() will return true for it.
+
   const auto *recordType = type->getAs<RecordType>();
-  assert(recordType);
   const llvm::StringRef name = recordType->getDecl()->getName();
 
   // TODO: avoid string comparison once hlsl::IsHLSLResouceType() does that.
