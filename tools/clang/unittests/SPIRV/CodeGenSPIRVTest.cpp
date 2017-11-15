@@ -492,6 +492,15 @@ TEST_F(FileTest, SemanticViewportArrayIndexGS) {
 TEST_F(FileTest, SemanticViewportArrayIndexPS) {
   runFileTest("semantic.viewport-array-index.ps.hlsl");
 }
+TEST_F(FileTest, SemanticCoveragePS) {
+  runFileTest("semantic.coverage.ps.hlsl");
+}
+TEST_F(FileTest, SemanticCoverageTypeMismatchPS) {
+  runFileTest("semantic.coverage.type-mismatch.ps.hlsl");
+}
+TEST_F(FileTest, SemanticInnerCoveragePS) {
+  runFileTest("semantic.inner-coverage.ps.hlsl", Expect::Failure);
+}
 
 // For texture methods
 TEST_F(FileTest, TextureSample) { runFileTest("texture.sample.hlsl"); }

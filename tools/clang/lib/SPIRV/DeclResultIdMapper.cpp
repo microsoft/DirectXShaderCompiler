@@ -26,10 +26,11 @@ namespace spirv {
 
 namespace {
 /// \brief Returns true if the given decl has a semantic string attached and
-/// writes the info to *semanticStr, *semantic, and *semanticIndex.
+/// writes the info to *semanticStr, *semantic, *semanticIndex, and
+/// *semanticLoc.
 bool getStageVarSemantic(const NamedDecl *decl, llvm::StringRef *semanticStr,
                          const hlsl::Semantic **semantic,
-                         uint32_t *semanticIndex) {
+                         uint32_t *semanticIndex, SourceLocation *semanticLoc) {
   for (auto *annotation : decl->getUnusualAnnotations()) {
     if (auto *sema = dyn_cast<hlsl::SemanticDecl>(annotation)) {
       *semanticStr = sema->SemanticName;
@@ -37,6 +38,7 @@ bool getStageVarSemantic(const NamedDecl *decl, llvm::StringRef *semanticStr,
       hlsl::Semantic::DecomposeNameAndIndex(*semanticStr, &semanticName,
                                             semanticIndex);
       *semantic = hlsl::Semantic::GetByName(semanticName);
+      *semanticLoc = sema->Loc;
       return true;
     }
   }
@@ -823,8 +825,10 @@ bool DeclResultIdMapper::createStageVars(
   llvm::StringRef semanticStr;
   const hlsl::Semantic *semantic = {};
   uint32_t semanticIndex = {};
+  SourceLocation semanticLoc = {};
 
-  if (getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex)) {
+  if (getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex,
+                          &semanticLoc)) {
     const auto semanticKind = semantic->GetKind();
 
     // Found semantic attached directly to this Decl. This means we need to
@@ -841,8 +845,8 @@ bool DeclResultIdMapper::createStageVars(
       return false;
     }
 
-    // Special handling of certain mapping between HLSL semantics and
-    // SPIR-V builtin:
+    // Special handling of certain mappings between HLSL semantics and
+    // SPIR-V builtins:
     // * SV_Position/SV_CullDistance/SV_ClipDistance should be grouped into the
     //   gl_PerVertex struct in vertex processing stages.
     // * SV_DomainLocation can refer to a float2, whereas TessCoord is a float3.
@@ -854,30 +858,42 @@ bool DeclResultIdMapper::createStageVars(
     // * SV_InsideTessFactor is a single float for tri patch, and an array of
     //   size 2 for a quad patch, but it must always be an array of size 2 in
     //   SPIR-V for Vulkan.
+    // * SV_Coverage is an uint value, but the builtin it corresponds to,
+    //   SampleMask, must be an array of integers.
+
     if (glPerVertex.tryToAccess(sigPoint->GetKind(), semanticKind,
                                 semanticIndex, invocationId, value,
                                 noWriteBack))
       return true;
 
-    if (semanticKind == hlsl::Semantic::Kind::DomainLocation)
+    const uint32_t srcTypeId = typeId; // Variable type in source code
+
+    switch (semanticKind) {
+    case hlsl::Semantic::Kind::DomainLocation:
       typeId = theBuilder.getVecType(theBuilder.getFloat32Type(), 3);
-    else if (semanticKind == hlsl::Semantic::Kind::TessFactor)
+      break;
+    case hlsl::Semantic::Kind::TessFactor:
       typeId = theBuilder.getArrayType(theBuilder.getFloat32Type(),
                                        theBuilder.getConstantUint32(4));
-    else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor)
+      break;
+    case hlsl::Semantic::Kind::InsideTessFactor:
       typeId = theBuilder.getArrayType(theBuilder.getFloat32Type(),
                                        theBuilder.getConstantUint32(2));
+      break;
+    case hlsl::Semantic::Kind::Coverage:
+      typeId = theBuilder.getArrayType(typeId, theBuilder.getConstantUint32(1));
+      break;
+    }
 
     // Handle the extra arrayness
-    const uint32_t elementTypeId = typeId;
+    const uint32_t elementTypeId = typeId; // Array element's type
     if (arraySize != 0)
       typeId = theBuilder.getArrayType(typeId,
                                        theBuilder.getConstantUint32(arraySize));
 
     StageVar stageVar(sigPoint, semanticStr, semantic, semanticIndex, typeId);
     llvm::Twine name = namePrefix + "." + semanticStr;
-    const uint32_t varId =
-        createSpirvStageVar(&stageVar, name, decl->getLocation());
+    const uint32_t varId = createSpirvStageVar(&stageVar, name, semanticLoc);
 
     if (varId == 0)
       return false;
@@ -938,6 +954,11 @@ bool DeclResultIdMapper::createStageVars(
             theBuilder.getVecType(theBuilder.getFloat32Type(), domainLocSize),
             *value, *value, {0, 1});
       }
+      // Special handling of SV_Coverage, which is an uint value. We need to
+      // read SampleMask and extract its first element.
+      else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
+        *value = theBuilder.createCompositeExtract(srcTypeId, *value, {0});
+      }
     } else {
       if (noWriteBack)
         return true;
@@ -971,6 +992,14 @@ bool DeclResultIdMapper::createStageVars(
         ptr = theBuilder.createAccessChain(
             theBuilder.getPointerType(theBuilder.getFloat32Type(),
                                       spv::StorageClass::Output),
+            varId, theBuilder.getConstantUint32(0));
+        theBuilder.createStore(ptr, *value);
+      }
+      // Special handling of SV_Coverage, which is an unit value. We need to
+      // write it to the first element in the SampleMask builtin.
+      else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
+        ptr = theBuilder.createAccessChain(
+            theBuilder.getPointerType(srcTypeId, spv::StorageClass::Output),
             varId, theBuilder.getConstantUint32(0));
         theBuilder.createStore(ptr, *value);
       }
@@ -1096,8 +1125,10 @@ bool DeclResultIdMapper::writeBackOutputStream(const ValueDecl *decl,
   llvm::StringRef semanticStr;
   const hlsl::Semantic *semantic = {};
   uint32_t semanticIndex = {};
+  SourceLocation semanticLoc = {};
 
-  if (getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex)) {
+  if (getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex,
+                          &semanticLoc)) {
     // Found semantic attached directly to this Decl. Write the value for this
     // Decl to the corresponding stage output variable.
 
@@ -1357,7 +1388,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     // PrimitiveId requires either Tessellation or Geometry capability.
     // Need to require one for PSIn.
     if (sigPointKind == hlsl::SigPoint::Kind::PSIn)
-      theBuilder.requireCapability(spv::Capability::Tessellation);
+      theBuilder.requireCapability(spv::Capability::Geometry);
 
     // Translate to PrimitiveId BuiltIn for all valid SigPoints.
     stageVar->setIsSpirvBuiltin();
@@ -1459,6 +1490,17 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     default:
       llvm_unreachable("invalid usage of SV_ViewportArrayIndex sneaked in");
     }
+  }
+  // According to DXIL spec, the Coverage SV can only be used by PSIn and PSOut.
+  // According to Vulkan spec, the SampleMask BuiltIn can only be used in
+  // PSIn and PSOut.
+  case hlsl::Semantic::Kind::Coverage: {
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleMask);
+  }
+  case hlsl::Semantic::Kind::InnerCoverage: {
+    emitError("no equivalent for semantic SV_InnerCoverage in Vulkan", srcLoc);
+    return 0;
   }
   default:
     emitError("semantic %0 unimplemented", srcLoc)
