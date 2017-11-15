@@ -45,16 +45,17 @@ struct VSOut {
   InnerStruct s;
 };
 
-void main(out VSOut  vsOut,
-          out   float3 clipdis0 : SV_ClipDistance0, // -> BuiltIn ClipDistance in gl_PerVertex
-          inout float4 coord    : TEXCOORD,         // -> Input & output variable
-          out   float  culldis5 : SV_CullDistance5, // -> BuiltIn CullDistance in gl_PerVertex
-          out   float  culldis3 : SV_CullDistance3, // -> BuiltIn CullDistance in gl_PerVertex
-          out   float  culldis6 : SV_CullDistance6, // -> BuiltIn CullDistance in gl_PerVertex
-          in    float4 inPos    : SV_Position,      // -> Input variable
-          in    float2 inClip   : SV_ClipDistance,  // -> Input variable
-          in    float3 inCull   : SV_CullDistance0  // -> Input variable
-         ) {
+[[vk::builtin("PointSize")]]
+float main(out VSOut  vsOut,
+           out   float3 clipdis0 : SV_ClipDistance0, // -> BuiltIn ClipDistance in gl_PerVertex
+           inout float4 coord    : TEXCOORD,         // -> Input & output variable
+           out   float  culldis5 : SV_CullDistance5, // -> BuiltIn CullDistance in gl_PerVertex
+           out   float  culldis3 : SV_CullDistance3, // -> BuiltIn CullDistance in gl_PerVertex
+           out   float  culldis6 : SV_CullDistance6, // -> BuiltIn CullDistance in gl_PerVertex
+           in    float4 inPos    : SV_Position,      // -> Input variable
+           in    float2 inClip   : SV_ClipDistance,  // -> Input variable
+           in    float3 inCull   : SV_CullDistance0  // -> Input variable
+         ) : PSize {                                 // -> Builtin PointSize
     vsOut    = (VSOut)0;
     clipdis0 = 1.;
     coord    = 2.;
@@ -62,6 +63,8 @@ void main(out VSOut  vsOut,
     culldis3 = 4.;
     culldis6 = 5.;
     inPos    = 6.;
+
+    return 7.;
 
 // Layout of ClipDistance array:
 //   clipdis0: 3 floats, offset 0
@@ -81,7 +84,10 @@ void main(out VSOut  vsOut,
 // CHECK-NEXT:   [[inCull:%\d+]] = OpLoad %v3float %in_var_SV_CullDistance0
 // CHECK-NEXT:                     OpStore %param_var_inCull [[inCull]]
 
-// CHECK-NEXT: OpFunctionCall %void %src_main
+// CHECK-NEXT:   [[ptSize:%\d+]] = OpFunctionCall %float %src_main
+
+// CHECK-NEXT:      [[ptr:%\d+]] = OpAccessChain %_ptr_Output_float %gl_PerVertexOut %uint_1
+// CHECK-NEXT:                     OpStore [[ptr]] [[ptSize]]
 
 // Write out COLOR
 // CHECK-NEXT:    [[vsOut:%\d+]] = OpLoad %VSOut %param_var_vsOut

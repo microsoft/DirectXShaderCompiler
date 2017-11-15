@@ -31,6 +31,8 @@ struct PerVertexIn {
   float4              cull3 : SV_CullDistance3;     // Builtin CullDistance
   InnerPerVertexIn    s;
   float2              bar   : BAR;                  // Input variable
+  [[vk::builtin("PointSize")]]
+  float  ptSize             : PSIZE;                // Builtin PointSize
 };
 
 // Per-vertex output structs
@@ -45,6 +47,8 @@ struct InnerPerVertexOut {
   Inner2PerVertexOut s;
   float2 cull4              : SV_CullDistance4;     // Builtin CullDistance
   float4 bar                : BAR;                  // Output variable
+  [[vk::builtin("PointSize")]]
+  float  ptSize             : PSIZE;                // Builtin PointSize
 };
 
 struct DsOut {
@@ -280,22 +284,34 @@ DsOut main(    const OutputPatch<PerVertexIn, 3> patch,
 
 // CHECK-NEXT:     [[inBarArr:%\d+]] = OpLoad %_arr_v2float_uint_3 %in_var_BAR
 
+// Compose an array of input PointSize for later use
+// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_PerVertexIn %uint_0 %uint_1
+// CHECK-NEXT:         [[val0:%\d+]] = OpLoad %float [[ptr0]]
+// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_PerVertexIn %uint_1 %uint_1
+// CHECK-NEXT:         [[val1:%\d+]] = OpLoad %float [[ptr1]]
+// CHECK-NEXT:         [[ptr2:%\d+]] = OpAccessChain %_ptr_Input_float %gl_PerVertexIn %uint_2 %uint_1
+// CHECK-NEXT:         [[val2:%\d+]] = OpLoad %float [[ptr2]]
+// CHECK-NEXT:  [[inPtSizeArr:%\d+]] = OpCompositeConstruct %_arr_float_uint_3 [[val0]] [[val1]] [[val2]]
+
 // Decompose temporary arrays created before to compose PerVertexIn
 
 // CHECK-NEXT:       [[field0:%\d+]] = OpCompositeExtract %v4float [[inCull3Arr]] 0
 // CHECK-NEXT:       [[field1:%\d+]] = OpCompositeExtract %InnerPerVertexIn [[inInPVArr]] 0
 // CHECK-NEXT:       [[field2:%\d+]] = OpCompositeExtract %v2float [[inBarArr]] 0
-// CHECK-NEXT:         [[val0:%\d+]] = OpCompositeConstruct %PerVertexIn [[field0]] [[field1]] [[field2]]
+// CHECK-NEXT:       [[field3:%\d+]] = OpCompositeExtract %float [[inPtSizeArr]] 0
+// CHECK-NEXT:         [[val0:%\d+]] = OpCompositeConstruct %PerVertexIn [[field0]] [[field1]] [[field2]] [[field3]]
 
 // CHECK-NEXT:       [[field0:%\d+]] = OpCompositeExtract %v4float [[inCull3Arr]] 1
 // CHECK-NEXT:       [[field1:%\d+]] = OpCompositeExtract %InnerPerVertexIn [[inInPVArr]] 1
 // CHECK-NEXT:       [[field2:%\d+]] = OpCompositeExtract %v2float [[inBarArr]] 1
-// CHECK-NEXT:         [[val1:%\d+]] = OpCompositeConstruct %PerVertexIn [[field0]] [[field1]] [[field2]]
+// CHECK-NEXT:       [[field3:%\d+]] = OpCompositeExtract %float [[inPtSizeArr]] 1
+// CHECK-NEXT:         [[val1:%\d+]] = OpCompositeConstruct %PerVertexIn [[field0]] [[field1]] [[field2]] [[field3]]
 
 // CHECK-NEXT:       [[field0:%\d+]] = OpCompositeExtract %v4float [[inCull3Arr]] 2
 // CHECK-NEXT:       [[field1:%\d+]] = OpCompositeExtract %InnerPerVertexIn [[inInPVArr]] 2
 // CHECK-NEXT:       [[field2:%\d+]] = OpCompositeExtract %v2float [[inBarArr]] 2
-// CHECK-NEXT:         [[val2:%\d+]] = OpCompositeConstruct %PerVertexIn [[field0]] [[field1]] [[field2]]
+// CHECK-NEXT:       [[field3:%\d+]] = OpCompositeExtract %float [[inPtSizeArr]] 2
+// CHECK-NEXT:         [[val2:%\d+]] = OpCompositeConstruct %PerVertexIn [[field0]] [[field1]] [[field2]] [[field3]]
 
 // The final value for the patch parameter!
 // CHECK-NEXT:        [[patch:%\d+]] = OpCompositeConstruct %_arr_PerVertexIn_uint_3 [[val0]] [[val1]] [[val2]]
@@ -354,6 +370,11 @@ DsOut main(    const OutputPatch<PerVertexIn, 3> patch,
 // Decompose InnerPerVertexOut and write out DsOut.s.bar (BAR)
 // CHECK-NEXT:          [[bar:%\d+]] = OpCompositeExtract %v4float [[outInPV]] 2
 // CHECK-NEXT:                         OpStore %out_var_BAR [[bar]]
+
+// Decompose InnerPerVertexOut and write out DsOut.s.ptSize (PointSize)
+// CHECK-NEXT:       [[ptSize:%\d+]] = OpCompositeExtract %float [[outInPV]] 3
+// CHECK-NEXT:          [[ptr:%\d+]] = OpAccessChain %_ptr_Output_float %gl_PerVertexOut %uint_1
+// CHECK-NEXT:                         OpStore [[ptr]] [[ptSize]]
 
 // Write out clip5 (SV_ClipDistance5) at offset 1
 // CHECK-NEXT: [[clip5:%\d+]] = OpLoad %v3float %param_var_clip5

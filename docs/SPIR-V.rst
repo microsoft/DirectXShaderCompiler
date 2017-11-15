@@ -160,8 +160,8 @@ non-intrusive ways in HLSL, which means we will prefer native language
 constructs when possible. If that is inadequate, we then consider attaching
 `Vulkan specific attributes`_ to them, or introducing new syntax.
 
-Descriptor sets
-~~~~~~~~~~~~~~~
+Descriptors
+~~~~~~~~~~~
 
 To specify which Vulkan descriptor a particular resource binds to, use the
 ``[[vk::binding(X[, Y])]]`` attribute.
@@ -175,6 +175,19 @@ annotated with the ``[[vk::push_constant]]`` attribute.
 
 Please note as per the requirements of Vulkan, "there must be no more than one
 push constant block statically used per shader entry point."
+
+Builtin variables
+~~~~~~~~~~~~~~~~~
+
+Some of the Vulkan builtin variables have no equivalents in native HLSL
+language. To support them, ``[[vk::builtin("<builtin>")]]`` is introduced.
+Right now only two ``<builtin>`` are supported:
+
+* ``PointSize``: The GLSL equivalent is ``gl_PointSize``.
+* ``HelperInvocation``: The GLSL equivalent is ``gl_HelperInvocation``.
+
+Please see Vulkan spec. `14.6. Built-In Variables <https://www.khronos.org/registry/vulkan/specs/1.0/html/vkspec.html#interfaces-builtin-variables>`_
+for detailed explanation of these builtins.
 
 Vulkan specific attributes
 --------------------------
@@ -196,6 +209,9 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``push_constant``: For marking a variable as the push constant block. Allowed
   on global variables of struct type. At most one variable can be marked as
   ``push_constant`` in a shader.
+- ``builtin("X")``: For specifying an entity should be translated into a certain
+  Vulkan builtin variable. Allowed on function parameters, function returns,
+  and struct fields.
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will

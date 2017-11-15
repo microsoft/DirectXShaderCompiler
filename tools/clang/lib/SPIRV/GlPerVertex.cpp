@@ -397,7 +397,7 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
     if (semanticKind == hlsl::Semantic::Kind::Position)
       return false; // Fall back to the normal path
 
-  // Fall through
+    // Fall through
 
   case hlsl::SigPoint::Kind::HSCPIn:
   case hlsl::SigPoint::Kind::DSCPIn:
@@ -409,7 +409,7 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
     if (semanticKind == hlsl::Semantic::Kind::Position)
       return false; // Fall back to the normal path
 
-  // Fall through
+    // Fall through
 
   case hlsl::SigPoint::Kind::VSOut:
   case hlsl::SigPoint::Kind::HSCPOut:
@@ -423,15 +423,36 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
   return false;
 }
 
-uint32_t GlPerVertex::readPosition() const {
+bool GlPerVertex::tryToAccessPointSize(hlsl::SigPoint::Kind sigPointKind,
+                                       llvm::Optional<uint32_t> invocation,
+                                       uint32_t *value, bool noWriteBack) {
+  switch (sigPointKind) {
+  case hlsl::SigPoint::Kind::HSCPIn:
+  case hlsl::SigPoint::Kind::DSCPIn:
+  case hlsl::SigPoint::Kind::GSVIn:
+    *value = readPositionOrPointSize(/*isPosition=*/false);
+    return true;
+  case hlsl::SigPoint::Kind::VSOut:
+  case hlsl::SigPoint::Kind::HSCPOut:
+  case hlsl::SigPoint::Kind::DSOut:
+    writePositionOrPointSize(/*isPosition=*/false, invocation, *value);
+    return true;
+  }
+
+  return false; // Fall back to normal path: GSOut
+}
+
+uint32_t GlPerVertex::readPositionOrPointSize(bool isPosition) const {
   assert(inIsGrouped); // We do not handle stand-alone Position builtin here.
 
+  // The PointSize builtin is always of float type.
   // The Position builtin is always of float4 type.
+  const uint32_t f32Type = theBuilder.getFloat32Type();
   const uint32_t fieldType =
-      theBuilder.getVecType(theBuilder.getFloat32Type(), 4);
+      isPosition ? theBuilder.getVecType(f32Type, 4) : f32Type;
   const uint32_t ptrType =
       theBuilder.getPointerType(fieldType, spv::StorageClass::Input);
-  const uint32_t fieldIndex = theBuilder.getConstantUint32(0);
+  const uint32_t fieldIndex = theBuilder.getConstantUint32(isPosition ? 0 : 1);
 
   if (inArraySize == 0) {
     // The input builtin block is a single block. Only need one index to
@@ -575,7 +596,7 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
                             uint32_t semanticIndex, uint32_t *value) {
   switch (semanticKind) {
   case hlsl::Semantic::Kind::Position:
-    *value = readPosition();
+    *value = readPositionOrPointSize(/*isPosition=*/true);
     return true;
   case hlsl::Semantic::Kind::ClipDistance: {
     const auto offsetIter = inClipOffset.find(semanticIndex);
@@ -601,16 +622,19 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
   return false;
 }
 
-void GlPerVertex::writePosition(llvm::Optional<uint32_t> invocationId,
-                                uint32_t value) const {
+void GlPerVertex::writePositionOrPointSize(
+    bool isPosition, llvm::Optional<uint32_t> invocationId,
+    uint32_t value) const {
   assert(outIsGrouped); // We do not handle stand-alone Position builtin here.
 
   // The Position builtin is always of float4 type.
+  // The PointSize builtin is always of float type.
+  const uint32_t f32Type = theBuilder.getFloat32Type();
   const uint32_t fieldType =
-      theBuilder.getVecType(theBuilder.getFloat32Type(), 4);
+      isPosition ? theBuilder.getVecType(f32Type, 4) : f32Type;
   const uint32_t ptrType =
       theBuilder.getPointerType(fieldType, spv::StorageClass::Output);
-  const uint32_t fieldIndex = theBuilder.getConstantUint32(0);
+  const uint32_t fieldIndex = theBuilder.getConstantUint32(isPosition ? 0 : 1);
 
   if (outArraySize == 0) {
     // The input builtin block is a single block. Only need one index to
@@ -771,7 +795,7 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
   // out the value to the correct array element.
   switch (semanticKind) {
   case hlsl::Semantic::Kind::Position:
-    writePosition(invocationId, *value);
+    writePositionOrPointSize(/*isPosition=*/true, invocationId, *value);
     return true;
   case hlsl::Semantic::Kind::ClipDistance: {
     const auto offsetIter = outClipOffset.find(semanticIndex);
