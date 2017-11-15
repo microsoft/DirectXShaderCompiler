@@ -3074,7 +3074,7 @@ static uint8_t GetRawBufferMaskFromIOP(IntrinsicOp IOP, hlsl::OP *OP) {
     // three component
     case IntrinsicOp::MOP_Load3:
       return DXIL::kCompMask_X | DXIL::kCompMask_Y | DXIL::kCompMask_Z;
-    // three component
+    // four component
     case IntrinsicOp::MOP_Load4:
       return DXIL::kCompMask_All;
     default:

@@ -8325,103 +8325,47 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     // TODO: handle template arguments for future intrinsics in a more natural way
 
     // Check Explicit template arguments
+    UINT intrinsicOp = (*cursor)->Op;
     LPCSTR intrinsicName = (*cursor)->pArgs[0].pName;
-    if (ExplicitTemplateArgs) {
-      if (ExplicitTemplateArgs->size() > 1) {
-        getSema()->Diag(ExplicitTemplateArgs->getLAngleLoc(),
-          diag::err_hlsl_unsupported_template_for_intrinsic) << intrinsicName;
+    bool Is2018 = getSema()->getLangOpts().HLSLVersion >= 2018;
+    bool IsBAB =
+        objectName == g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER] ||
+        objectName == g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER];
+    bool IsBABLoad = IsBAB && intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
+    bool IsBABStore = IsBAB && intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
+    if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
+      bool isLegalTemplate = false;
+      SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
+      const char *TemplateDiagText = (Is2018 && IsBABLoad) ?
+        "One scalar or vector type argument up to 16 bytes in size" :
+        "No template arguments";
+      if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
+        Loc = (*ExplicitTemplateArgs)[0].getLocation();
+        QualType explicitType = (*ExplicitTemplateArgs)[0].getArgument().getAsType();
+        ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
+        if (explicitKind == AR_TOBJ_BASIC || explicitKind == AR_TOBJ_VECTOR) {
+          isLegalTemplate = GET_BASIC_BITS(GetTypeElementKind(explicitType)) != BPROP_BITS64 ||
+            GetNumElements(explicitType) <= 2;
+        }
+        if (isLegalTemplate) {
+          argTypes[0] = explicitType;
+        }
+      }
+
+      if (!isLegalTemplate) {
+        getSema()->Diag(Loc, diag::err_hlsl_unsupported_template_for_intrinsic) << intrinsicName << TemplateDiagText;
         return Sema::TemplateDeductionResult::TDK_Invalid;
       }
-      else if (ExplicitTemplateArgs->size() == 1) {
-        if (getSema()->getLangOpts().HLSLVersion < 2018) {
-          getSema()->Diag((*ExplicitTemplateArgs)[0].getLocation(),
-            diag::err_hlsl_unsupported_template_for_intrinsic) << intrinsicName;
-          return Sema::TemplateDeductionResult::TDK_Invalid;
-        }
-        if (strncmp(objectName,
-          g_ArBasicTypeNames[ArBasicKind::AR_OBJECT_BYTEADDRESS_BUFFER],
-          sizeof(g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER])) ==
-          0 ||
-          strncmp(
-            objectName,
-            g_ArBasicTypeNames[ArBasicKind::AR_OBJECT_RWBYTEADDRESS_BUFFER],
-            sizeof(g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER])) ==
-          0) {
-          UINT intrinsicOp = (*cursor)->Op;
-          if (intrinsicOp == (UINT)IntrinsicOp::MOP_Load) {
-            QualType explicitType =
-              (*ExplicitTemplateArgs)[0].getArgument().getAsType();
-            ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
-            if (explicitKind != AR_TOBJ_BASIC && explicitKind != AR_TOBJ_VECTOR) {
-              getSema()->Diag((*ExplicitTemplateArgs)[0].getLocation(),
-                diag::err_hlsl_unsupported_template_for_intrinsic) << intrinsicName;
-              return Sema::TemplateDeductionResult::TDK_Invalid;
-            }
-            if (GetNumElements(explicitType) > 2 &&
-                GET_BASIC_BITS(GetTypeElementKind(explicitType)) ==
-                    BPROP_BITS64) {
-              getSema()->Diag((*ExplicitTemplateArgs)[0].getLocation(),
-                diag::err_hlsl_unsupported_template_for_intrinsic) << intrinsicName;
-              return Sema::TemplateDeductionResult::TDK_Invalid;
-            }
-            argTypes[0] = explicitType;
-          }
-          else if (intrinsicOp == (UINT)IntrinsicOp::MOP_Store) {
-            QualType explicitType =
-              (*ExplicitTemplateArgs)[0].getArgument().getAsType();
-            ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
-            if (explicitKind != AR_TOBJ_BASIC && explicitKind != AR_TOBJ_VECTOR) {
-              getSema()->Diag((*ExplicitTemplateArgs)[0].getLocation(),
-                diag::err_hlsl_unsupported_template_for_intrinsic) << intrinsicName;
-              return Sema::TemplateDeductionResult::TDK_Invalid;
-            } else if (GetNumElements(explicitType) > 2 &&
-                       GET_BASIC_BITS(GetTypeElementKind(explicitType)) ==
-                           BPROP_BITS64) {
-              getSema()->Diag((*ExplicitTemplateArgs)[0].getLocation(),
-                              diag::err_hlsl_unsupported_template_for_intrinsic)
-                  << intrinsicName;
-              return Sema::TemplateDeductionResult::TDK_Invalid;
-            }
-            argTypes[2] = explicitType;
-          }
-          else {
-            getSema()->Diag(ExplicitTemplateArgs->getLAngleLoc(),
-              diag::err_hlsl_unsupported_template_for_intrinsic) << intrinsicName;
-            return Sema::TemplateDeductionResult::TDK_Invalid;
-          }
-        }
-        else {
-          getSema()->Diag(ExplicitTemplateArgs->getLAngleLoc(),
-            diag::err_hlsl_unsupported_template_for_intrinsic) << intrinsicName;
-          return Sema::TemplateDeductionResult::TDK_Invalid;
-        }
-      }
-      else {
-        if (getSema()->getLangOpts().HLSLVersion < 2018 &&
-          (strncmp(objectName, g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER],
-            sizeof(g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER])) ==
-            0 ||
-            strncmp(
-              objectName, g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER],
-              sizeof(g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER])) ==
-            0)) {
-          UINT intrinsicOp = (*cursor)->Op;
-          if (intrinsicOp == (UINT)IntrinsicOp::MOP_Store) {
-            QualType storeType = argTypes[2];
-            // Prior to HLSL 2018, Store operation for ByteAddressBuffer only stored
-            // uint.
-            // TODO: We need a better mechanism to check intrinsic for each language level.
-            if (GetNumElements(storeType) != 1) {
-              getSema()->Diag(Args[1]->getLocStart(), diag::err_ovl_no_viable_member_function_in_call)
-                << intrinsicName;
-              return Sema::TemplateDeductionResult::TDK_Invalid;
-            }
-            argTypes[2] = getSema()->getASTContext().getIntTypeForBitwidth(32, /*signed*/ false);
-          }
-        }
-      }
     }
-
+    else if (IsBABStore && !Is2018) {
+      // Prior to HLSL 2018, Store operation only stored scalar uint.
+      if (GetNumElements(argTypes[2]) != 1) {
+        getSema()->Diag(Args[1]->getLocStart(), diag::err_ovl_no_viable_member_function_in_call)
+          << intrinsicName;
+        return Sema::TemplateDeductionResult::TDK_Invalid;
+      }
+      argTypes[2] = getSema()->getASTContext().getIntTypeForBitwidth(32, /*signed*/ false);
+    }
     Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes, argCount);
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());

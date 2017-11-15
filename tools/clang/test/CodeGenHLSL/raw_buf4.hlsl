@@ -59,13 +59,13 @@ float4 main(uint idx1 : IDX1, uint idx2 : IDX2) : SV_Target {
   buf2.Store3(1, r.xyz);
   buf2.Store4(1, r);
 
-  buf2.Store<float>(1, r.x);
-  buf2.Store<float2>(1, r.xy);
-  buf2.Store<float3>(1, r.xyz);
-  buf2.Store<float4>(1, r);
+  buf2.Store(1, r.x);
+  buf2.Store(1, r.xy);
+  buf2.Store(1, r.xyz);
+  buf2.Store(1, r);
 
-  buf2.Store<double>(1, r.x);
-  buf2.Store<double2>(1, r.xy); 
+  buf2.Store(1, (double)r.x);
+  buf2.Store(1, (double2)r.xy);
 
   return r;
 }
