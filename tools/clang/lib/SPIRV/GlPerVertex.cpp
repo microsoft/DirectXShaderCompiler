@@ -443,7 +443,8 @@ bool GlPerVertex::tryToAccessPointSize(hlsl::SigPoint::Kind sigPointKind,
 }
 
 uint32_t GlPerVertex::readPositionOrPointSize(bool isPosition) const {
-  assert(inIsGrouped); // We do not handle stand-alone Position builtin here.
+  // We do not handle stand-alone Position/PointSize builtin here.
+  assert(inIsGrouped);
 
   // The PointSize builtin is always of float type.
   // The Position builtin is always of float4 type.
@@ -456,7 +457,7 @@ uint32_t GlPerVertex::readPositionOrPointSize(bool isPosition) const {
 
   if (inArraySize == 0) {
     // The input builtin block is a single block. Only need one index to
-    // locate the Position builtin.
+    // locate the Position/PointSize builtin.
     const uint32_t ptr =
         theBuilder.createAccessChain(ptrType, inBlockVar, {fieldIndex});
     return theBuilder.createLoad(fieldType, ptr);
@@ -469,13 +470,13 @@ uint32_t GlPerVertex::readPositionOrPointSize(bool isPosition) const {
   for (uint32_t i = 0; i < inArraySize; ++i) {
     const uint32_t arrayIndex = theBuilder.getConstantUint32(i);
     // Get pointer into the array of structs. We need two indices to locate
-    // the Position builtin now: the first one is the array index, and the
-    // second one is the struct index.
+    // the Position/PointSize builtin now: the first one is the array index,
+    // and the second one is the struct index.
     const uint32_t ptr = theBuilder.createAccessChain(ptrType, inBlockVar,
                                                       {arrayIndex, fieldIndex});
     elements.push_back(theBuilder.createLoad(fieldType, ptr));
   }
-  // Construct a new array of float4 for the Position builtins
+  // Construct a new array of float4/float for the Position/PointSize builtins
   const uint32_t arrayType = theBuilder.getArrayType(
       fieldType, theBuilder.getConstantUint32(inArraySize));
   return theBuilder.createCompositeConstruct(arrayType, elements);
@@ -625,7 +626,8 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
 void GlPerVertex::writePositionOrPointSize(
     bool isPosition, llvm::Optional<uint32_t> invocationId,
     uint32_t value) const {
-  assert(outIsGrouped); // We do not handle stand-alone Position builtin here.
+  // We do not handle stand-alone Position/PointSize builtin here.
+  assert(outIsGrouped);
 
   // The Position builtin is always of float4 type.
   // The PointSize builtin is always of float type.
@@ -638,7 +640,7 @@ void GlPerVertex::writePositionOrPointSize(
 
   if (outArraySize == 0) {
     // The input builtin block is a single block. Only need one index to
-    // locate the Position builtin.
+    // locate the Position/PointSize builtin.
     const uint32_t ptr =
         theBuilder.createAccessChain(ptrType, outBlockVar, {fieldIndex});
     theBuilder.createStore(ptr, value);
@@ -655,8 +657,8 @@ void GlPerVertex::writePositionOrPointSize(
 
   const uint32_t arrayIndex = invocationId.getValue();
   // Get pointer into the array of structs. We need two indices to locate
-  // the Position builtin now: the first one is the array index, and the
-  // second one is the struct index.
+  // the Position/PointSize builtin now: the first one is the array index,
+  // and the second one is the struct index.
   const uint32_t ptr = theBuilder.createAccessChain(ptrType, outBlockVar,
                                                     {arrayIndex, fieldIndex});
   theBuilder.createStore(ptr, value);
