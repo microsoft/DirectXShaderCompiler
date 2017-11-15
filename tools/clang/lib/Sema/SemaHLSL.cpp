@@ -6398,11 +6398,11 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT* count)
       { // Determine maximum count to prevent infinite loop on incomplete array
         FlattenedTypeIterator itCount(SourceLocation(), type, *this);
         maxCount = itCount.countRemaining();
+        if (!maxCount) {
+          return false; // empty struct.
+        }
       }
       FlattenedTypeIterator it(SourceLocation(), type, *this);
-      // Return false for empty struct.
-      if (!it.hasCurrentElement())
-        return false;
       while (it.hasCurrentElement()) {
         bool isFieldNumeric = IsTypeNumeric(it.getCurrentElement(), &subCount);
         if (!isFieldNumeric) {
