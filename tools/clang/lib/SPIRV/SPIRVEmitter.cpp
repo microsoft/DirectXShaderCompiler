@@ -620,9 +620,19 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     doStmt(decl->getBody());
 
     // We have processed all Stmts in this function and now in the last
-    // basic block. Make sure we have OpReturn if missing.
+    // basic block. Make sure we have a termination instruction.
     if (!theBuilder.isCurrentBasicBlockTerminated()) {
-      theBuilder.createReturn();
+      const auto retType = decl->getReturnType();
+
+      if (retType->isVoidType()) {
+        theBuilder.createReturn();
+      } else {
+        // If the source code does not provide a proper return value for some
+        // control flow path, it's undefined behavior. We just return null value
+        // here.
+        theBuilder.createReturnValue(
+            theBuilder.getConstantNull(typeTranslator.translateType(retType)));
+      }
     }
   }
 

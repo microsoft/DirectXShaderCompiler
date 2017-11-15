@@ -16,10 +16,6 @@ using clang::spirv::WholeFileTest;
 
 // === Whole output tests ===
 
-TEST_F(WholeFileTest, EmptyVoidMain) {
-  runWholeFileTest("empty-void-main.hlsl2spv", /*generateHeader*/ true);
-}
-
 TEST_F(WholeFileTest, PassThruPixelShader) {
   runWholeFileTest("passthru-ps.hlsl2spv", /*generateHeader*/ true);
 }
@@ -30,10 +26,6 @@ TEST_F(WholeFileTest, PassThruVertexShader) {
 
 TEST_F(WholeFileTest, PassThruComputeShader) {
   runWholeFileTest("passthru-cs.hlsl2spv", /*generateHeader*/ true);
-}
-
-TEST_F(WholeFileTest, ConstantPixelShader) {
-  runWholeFileTest("constant-ps.hlsl2spv", /*generateHeader*/ true);
 }
 
 TEST_F(WholeFileTest, BezierHullShader) {
@@ -826,6 +818,10 @@ TEST_F(FileTest, PrimitiveErrorGS) {
 
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
+
+TEST_F(FileTest, SpirvControlFlowMissingReturn) {
+  runFileTest("spirv.cf.ret-missing.hlsl");
+}
 
 TEST_F(FileTest, SpirvEntryFunctionWrapper) {
   runFileTest("spirv.entry-function.wrapper.hlsl");
