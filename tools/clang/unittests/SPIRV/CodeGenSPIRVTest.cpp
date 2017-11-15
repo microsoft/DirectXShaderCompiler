@@ -137,6 +137,11 @@ TEST_F(FileTest, BinaryOpAssign) { runFileTest("binary-op.assign.hlsl"); }
 TEST_F(FileTest, BinaryOpAssignComposite) {
   runFileTest("binary-op.assign.composite.hlsl");
 }
+TEST_F(FileTest, BinaryOpAssignResource) {
+  runFileTest("binary-op.assign.resource.hlsl", Expect::Success,
+              // It generates invalid SPIR-V code right now.
+              /*noValidation=*/true);
+}
 
 // For comma binary operator
 TEST_F(FileTest, BinaryOpComma) { runFileTest("binary-op.comma.hlsl"); }
