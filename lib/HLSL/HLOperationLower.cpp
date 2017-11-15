@@ -5347,8 +5347,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         unsigned idxInc = tempOffset >> 4;
         legacyIndex = Builder.CreateAdd(legacyIndex, hlslOP->GetU32Const(idxInc));
       } else {
-        Value *tempOffset = Builder.CreateMul(idx, hlslOP->GetU32Const(size));
-        Value *idxInc = Builder.CreateLShr(tempOffset, 4);
+        Value *idxInc = Builder.CreateMul(idx, hlslOP->GetU32Const(size>>4));
         legacyIndex = Builder.CreateAdd(legacyIndex, idxInc);
       }
 
@@ -5398,8 +5397,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         unsigned idxInc = tempOffset >> 4;
         legacyIndex = Builder.CreateAdd(legacyIndex, hlslOP->GetU32Const(idxInc));
       } else {
-        Value *tempOffset = Builder.CreateMul(idx, hlslOP->GetU32Const(size));
-        Value *idxInc = Builder.CreateLShr(tempOffset, 4);
+        Value *idxInc = Builder.CreateMul(idx, hlslOP->GetU32Const(size>>4));
         legacyIndex = Builder.CreateAdd(legacyIndex, idxInc);
       }
 
