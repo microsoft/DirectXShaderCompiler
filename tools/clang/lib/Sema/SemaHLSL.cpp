@@ -8337,7 +8337,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       bool isLegalTemplate = false;
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
       auto TemplateDiag =
-          !IsBAB
+          !IsBABLoad
               ? diag::err_hlsl_intrinsic_template_arg_unsupported
               : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
                         : diag::err_hlsl_intrinsic_template_arg_requires_2018;
