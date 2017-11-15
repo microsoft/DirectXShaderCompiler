@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// Run: %dxc -T ps_6_0 -E main
 
 // NOTE: According to Item "Data rules" of SPIR-V Spec 2.16.1 "Universal
 // Validation Rules":

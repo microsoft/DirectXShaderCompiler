@@ -54,6 +54,7 @@ public:
   TEST_METHOD(RunScalarAssignments);
   TEST_METHOD(RunScalarAssignmentsExactPrecision);
   TEST_METHOD(RunScalarOperatorsAssign);
+  TEST_METHOD(RunScalarOperatorsAssignExactPrecision);
   TEST_METHOD(RunScalarOperators);
   TEST_METHOD(RunScalarOperatorsExactPrecision);
   TEST_METHOD(RunString);
@@ -218,6 +219,10 @@ TEST_F(VerifierTest, RunScalarAssignmentsExactPrecision) {
 
 TEST_F(VerifierTest, RunScalarOperatorsAssign) {
   CheckVerifiesHLSL(L"scalar-operators-assign.hlsl");
+}
+
+TEST_F(VerifierTest, RunScalarOperatorsAssignExactPrecision) {
+  CheckVerifiesHLSL(L"scalar-operators-assign-exact-precision.hlsl");
 }
 
 TEST_F(VerifierTest, RunScalarOperators) {

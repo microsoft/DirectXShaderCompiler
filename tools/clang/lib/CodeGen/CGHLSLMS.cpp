@@ -410,7 +410,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   DXVERIFY_NOMSG(globalCBIndex == m_pHLModule->AddCBuffer(std::move(CB)));
 
   // set Float Denorm Mode
-  m_pHLModule->SetFPDenormMode(CGM.getCodeGenOpts().HLSLFlushFPDenorm);
+  m_pHLModule->SetFloat32DenormMode(CGM.getCodeGenOpts().HLSLFloat32DenormMode);
 
 }
 
@@ -568,7 +568,9 @@ static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size,
     if (BT->getKind() == clang::BuiltinType::Kind::Double ||
       BT->getKind() == clang::BuiltinType::Kind::LongLong)
       scalarSizeInBytes = 8;
-    else if (BT->getKind() == clang::BuiltinType::Kind::Half)
+    else if (BT->getKind() == clang::BuiltinType::Kind::Half ||
+      BT->getKind() == clang::BuiltinType::Kind::Short ||
+      BT->getKind() == clang::BuiltinType::Kind::UShort)
       scalarSizeInBytes = 2;
   }
 
@@ -1135,6 +1137,15 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     return;
   }
 
+  if (m_pHLModule->GetFloat32DenormMode() == DXIL::Float32DenormMode::FTZ) {
+    F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValueFtzString);
+  }
+  else if (m_pHLModule->GetFloat32DenormMode() == DXIL::Float32DenormMode::Preserve) {
+    F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValuePreserveString);
+  }
+  else if (m_pHLModule->GetFloat32DenormMode() == DXIL::Float32DenormMode::Any) {
+    F->addFnAttr(DXIL::kFP32DenormKindString, DXIL::kFP32DenormValueAnyString);
+  }
   // Set entry function
   const std::string &entryName = m_pHLModule->GetEntryFunctionName();
   bool isEntry = FD->getNameAsString() == entryName;
@@ -1413,7 +1424,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   DxilFunctionAnnotation *FuncAnnotation =
-      m_pHLModule->AddFunctionAnnotationWithFPDenormMode(F, m_pHLModule->GetFPDenormMode());
+      m_pHLModule->AddFunctionAnnotation(F);
   bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
 
   // Param Info
@@ -1688,6 +1699,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     auto &Entry = entryFunctionMap[FD->getNameAsString()];
     Entry.SL = FD->getLocation();
     Entry.Func= F;
+  }
+
+  // Add target-dependent experimental function attributes
+  for (const auto &Attr : FD->specific_attrs<HLSLExperimentalAttr>()) {
+    F->addFnAttr(Twine("exp-", Attr->getName()).str(), Attr->getValue());
   }
 }
 
@@ -3864,7 +3880,7 @@ static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
 
   // Copy function annotation.
   DxilFunctionAnnotation *shaderAnnot = HLM.GetFunctionAnnotation(ShaderF);
-  DxilFunctionAnnotation *annot = HLM.AddFunctionAnnotationWithFPDenormMode(F, HLM.GetFPDenormMode());
+  DxilFunctionAnnotation *annot = HLM.AddFunctionAnnotation(F);
 
   DxilParameterAnnotation &retAnnot = shaderAnnot->GetRetTypeAnnotation();
   DxilParameterAnnotation &cloneRetAnnot = annot->GetRetTypeAnnotation();
@@ -4078,12 +4094,10 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
   }
 
   if (Entry->second.NumOverloads != 1) {
-    DXASSERT(false,
-        "hlsl::DiagnoseTranslationUnit used to check for this condition.");
     DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID =
       Diags.getCustomDiagID(DiagnosticsEngine::Warning,
-        "Multiple functions match patchconstantfunc %0.");
+        "Multiple overloads of patchconstantfunc %0.");
     unsigned NoteID =
       Diags.getCustomDiagID(DiagnosticsEngine::Note,
         "This overload was selected.");

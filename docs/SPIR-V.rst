@@ -31,36 +31,134 @@ general graphics ecosystem.
 Note that this document is expected to be an ongoing effort and grow as we
 implement more and more HLSL features.
 
-Vulkan Semantics
-================
+Overview
+========
+
+Although they share the same basic concepts, DirectX and Vulkan are still
+different graphics APIs with semantic gaps. HLSL is the native shading language
+for DirectX, so certain HLSL features do not have corresponding mappings in
+Vulkan, and certain Vulkan specific information does not have native ways to
+express in HLSL source code. This section describes the general translation
+paradigms and how we close some of the major semantic gaps.
 
 Note that the term "semantic" is overloaded. In HLSL, it can mean the string
 attached to shader input or output. For such cases, we refer it as "HLSL
 semantic" or "semantic string". For other cases, we just use the normal
 "semantic" term.
 
-Due to the differences of semantics between DirectX and Vulkan, certain HLSL
-features do not have corresponding mappings in Vulkan, and certain Vulkan
-specific information does not have native ways to express in HLSL source code.
+Shader entry function
+---------------------
+
+HLSL entry functions can read data from the previous shader stage and write
+data to the next shader stage via function parameters and return value. On the
+contrary, Vulkan requires all SPIR-V entry functions taking no parameters and
+returning void. All data passing between stages should use global variables
+in the ``Input`` and ``Output`` storage class.
+
+To handle this difference, we emit a wrapper function as the SPIR-V entry
+function around the HLSL source code entry function. The wrapper function is
+responsible to read data from SPIR-V ``Input`` global variables and prepare
+them to the types required in the source code entry function signature, call
+the source code entry function, and then decompose the contents in return value
+(and ``out``/``inout`` parameters) to the types required by the SPIR-V
+``Output`` global variables, and then write out. For details about the wrapper
+function, please refer to the `entry function wrapper`_ section.
+
+Shader stage IO interface matching
+----------------------------------
+
+HLSL leverages semantic strings to link variables and pass data between shader
+stages. Great flexibility is allowed as for how to use the semantic strings.
+They can appear on function parameters, function returns, and struct members.
+In Vulkan, linking variables and passing data between shader stages is done via
+numeric ``Location`` decorations on SPIR-V global variables in the ``Input`` and
+``Output`` storage class.
+
+To help handling such differences, we provide `Vulkan specific attributes`_ to
+let the developer to express precisely their intents. The compiler will also try
+its best to deduce the mapping from semantic strings to SPIR-V ``Location``
+numbers when such explicit Vulkan specific attributes are absent. Please see the
+`HLSL semantic and Vulkan Location`_ section for more details about the mapping
+and ``Location`` assignment.
+
+What makes the story complicated is Vulkan's strict requirements on interface
+matching. Basically, a variable in the previous stage is considered a match to
+a variable in the next stage if and only if they are decorated with the same
+``Location`` number and with the exact same type, except for the outermost
+arrayness in hull/domain/geometry shader, which can be ignored regarding
+interface matching. This is causing problems together with the flexibility of
+HLSL semantic strings.
+
+Some HLSL system-value (SV) semantic strings will be mapped into SPIR-V
+variables with builtin decorations, some are not. HLSL non-SV semantic strings
+should all be mapped to SPIR-V variables without builtin decorations (but with
+``Location`` decorations).
+
+With these complications, if we are grouping multiple semantic strings in a
+struct in the HLSL source code, that struct should be flattened and each of
+its members should be mapped separately. For example, for the following:
+
+.. code:: hlsl
+
+  struct T {
+    float2 clip0 : SV_ClipDistance0;
+    float3 cull0 : SV_CullDistance0;
+    float4 foo   : FOO;
+  };
+
+  struct S {
+    float4 pos   : SV_Position;
+    float2 clip1 : SV_ClipDistance1;
+    float3 cull1 : SV_CullDistance1;
+    float4 bar   : BAR;
+    T      t;
+  };
+
+If we have an ``S`` input parameter in pixel shader, we should flatten it
+recursively to generate five SPIR-V ``Input`` variables. Three of them are
+decorated by the ``Position``, ``ClipDistance``, ``CullDistance`` builtin,
+and two of them are decorated by the ``Location`` decoration. (Note that
+``clip0`` and ``clip1`` are concatenated, also ``cull0`` and ``cull1``.
+The ``ClipDistance`` and ``CullDistance`` builtins are special and explained
+in the `gl_PerVertex`_ section.)
+
+Flattening is infective because of Vulkan interface matching rules. If we
+flatten a struct in the output of a previous stage, which may create multiple
+variables decorated with different ``Location`` numbers, we also need to
+flatten it in the input of the next stage. otherwise we may have ``Location``
+mismatch even if we share the same definition of the struct. Because
+hull/domain/geometry shader is optional, we can have different chains of shader
+stages, which means we need to flatten all shader stage interfaces. For
+hull/domain/geometry shader, their inputs/outputs have an additional arrayness.
+So if we are seeing an array of structs in these shaders, we need to flatten
+them into arrays of its fields.
+
+Lastly, to satisfy the type requirements on builtins, after flattening, the
+variables decorated with ``Position``, ``ClipDistance``, and ``CullDistance``
+builtins are grouped into struct, like ``gl_PerVertex`` for certain shader stage
+interface:
+
+============ ===== ======
+Shader Stage Input Output
+============ ===== ======
+    VS         X     G
+    HS         G     G
+    DS         G     G
+    GS         G     S
+    PS         S     X
+============ ===== ======
+
+(``X``: Not applicable, ``G``: Grouped, ``S``: separated)
+
+More details in the `gl_PerVertex`_ section.
+
+Vulkan specific attributes
+--------------------------
 
 To provide additional information required by Vulkan in HLSL, we need to extend
 the syntax of HLSL.
 `C++ attribute specifier sequence <http://en.cppreference.com/w/cpp/language/attributes>`_
 is a non-intrusive way of achieving such purpose.
-
-For example, to specify the layout of resource variables and the location of
-interface variables:
-
-.. code:: hlsl
-
-  struct S { ... };
-
-  [[vk::binding(X, Y)]]
-  StructuredBuffer<S> mySBuffer;
-
-  [[vk::location(M)]] float4
-  main([[vk::location(N)]] float4 input: A) : B
-  { ... }
 
 The namespace ``vk`` will be used for all Vulkan attributes:
 
@@ -77,6 +175,20 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
 only trigger warnings and be ignored if not compiling towards SPIR-V.
+
+For example, to specify the layout of resource variables and the location of
+interface variables:
+
+.. code:: hlsl
+
+  struct S { ... };
+
+  [[vk::binding(X, Y), vk::counter_binding(Z)]]
+  RWStructuredBuffer<S> mySBuffer;
+
+  [[vk::location(M)]] float4
+  main([[vk::location(N)]] float4 input: A) : B
+  { ... }
 
 HLSL Types
 ==========
@@ -98,6 +210,8 @@ type instructions:
 ``uint``/``dword`` ``OpTypeInt 32 0``
 ``half``           ``OpTypeFloat 32``             ``RelexedPrecision``
 ``float``          ``OpTypeFloat 32``
+``snorm float``    ``OpTypeFloat 32``
+``unorm float``    ``OpTypeFloat 32``
 ``double``         ``OpTypeFloat 64`` ``Float64``
 ================== ================== =========== ====================
 
@@ -275,6 +389,8 @@ Please see the following sections for the details of each type. As a summary:
 =========================== ================== ========================== ==================== =================
 ``cbuffer``                   Uniform Buffer      GLSL ``std140``            ``Uniform``        ``Block``
 ``ConstantBuffer``            Uniform Buffer      GLSL ``std140``            ``Uniform``        ``Block``
+``tbuffer``                   Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
+``TextureBuffer``             Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 ``StructuredBuffer``          Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 ``RWStructuredBuffer``        Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 ``AppendStructuredBuffer``    Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
@@ -323,6 +439,18 @@ will be translated into
 
   ; Variable
   %myCbuffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_T Uniform
+
+``tbuffer`` and ``TextureBuffer``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These two buffer types are treated as storage buffers using Vulkan's
+terminology. They are translated into an ``OpTypeStruct`` with the
+necessary layout decorations (``Offset``, ``ArrayStride``, ``MatrixStride``,
+``RowMajor``, ``ColMajor``) and the ``BufferBlock`` decoration. All the struct
+members are also decorated with ``NonWritable`` decoration. The layout rule
+used is GLSL ``std430`` (by default). A variable declared as one of these
+types will be placed in the ``Uniform`` storage class.
+
 
 ``StructuredBuffer`` and ``RWStructuredBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -525,7 +653,7 @@ Type modifier
 [TODO]
 
 HLSL semantic and Vulkan ``Location``
-------------------------------------
+-------------------------------------
 
 Direct3D uses HLSL "`semantics <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509647(v=vs.85).aspx>`_"
 to compose and match the interfaces between subsequent stages. These semantic
@@ -600,39 +728,115 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 
 .. table:: Mapping from HLSL SV semantic to SPIR-V builtin and execution mode
 
-+-------------------------+-------------+--------------------------+-----------------------+
-| HLSL Semantic           | SigPoint    | SPIR-V ``BuiltIn``       | SPIR-V Execution Mode |
-+=========================+=============+==========================+=======================+
-|                         | VSOut       | ``Position``             | N/A                   |
-| SV_Position             +-------------+--------------------------+-----------------------+
-|                         | PSIn        | ``FragCoord``            | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_VertexID             | VSIn        | ``VertexIndex``          | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_InstanceID           | VSIn        | ``InstanceIndex``        | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_Depth                | PSOut       | ``FragDepth``            | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_DepthGreaterEqual    | PSOut       | ``FragDepth``            | ``DepthGreater``      |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_DepthLessEqual       | PSOut       | ``FragDepth``            | ``DepthLess``         |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_DispatchThreadID     | CSIn        | ``GlobalInvocationId``   | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_GroupID              | CSIn        | ``WorkgroupId``          | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_GroupThreadID        | CSIn        | ``LocalInvocationId``    | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_GroupIndex           | CSIn        | ``LocalInvocationIndex`` | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_OutputControlPointID | HSIn        | ``InvocationId``         | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_PrimitiveID          | HSIn / PCIn | ``PrimitiveId``          | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_TessFactor           | PCOut       | ``TessLevelOuter``       | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
-| SV_InsideTessFactor     | PCOut       | ``TessLevelInner``       | N/A                   |
-+-------------------------+-------------+--------------------------+-----------------------+
++---------------------------+-------------+--------------------------+-----------------------+
+| HLSL Semantic             | SigPoint    | SPIR-V ``BuiltIn``       | SPIR-V Execution Mode |
++===========================+=============+==========================+=======================+
+|                           | VSOut       | ``Position``             | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | HSCPIn      | ``Position``             | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | HSCPOut     | ``Position``             | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | DSCPIn      | ``Position``             | N/A                   |
+| SV_Position               +-------------+--------------------------+-----------------------+
+|                           | DSOut       | ``Position``             | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | GSVIn       | ``Position``             | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | GSOut       | ``Position``             | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | PSIn        | ``FragCoord``            | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+|                           | VSOut       | ``ClipDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | HSCPIn      | ``ClipDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | HSCPOut     | ``ClipDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | DSCPIn      | ``ClipDistance``         | N/A                   |
+| SV_ClipDistance           +-------------+--------------------------+-----------------------+
+|                           | DSOut       | ``ClipDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | GSVIn       | ``ClipDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | GSOut       | ``ClipDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | PSIn        | ``ClipDistance``         | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+|                           | VSOut       | ``CullDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | HSCPIn      | ``CullDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | HSCPOut     | ``CullDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | DSCPIn      | ``CullDistance``         | N/A                   |
+| SV_CullDistance           +-------------+--------------------------+-----------------------+
+|                           | DSOut       | ``CullDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | GSVIn       | ``CullDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | GSOut       | ``CullDistance``         | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | PSIn        | ``CullDistance``         | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_VertexID               | VSIn        | ``VertexIndex``          | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_InstanceID             | VSIn        | ``InstanceIndex``        | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_Depth                  | PSOut       | ``FragDepth``            | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_DepthGreaterEqual      | PSOut       | ``FragDepth``            | ``DepthGreater``      |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_DepthLessEqual         | PSOut       | ``FragDepth``            | ``DepthLess``         |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_IsFrontFace            | PSIn        | ``FrontFacing``          | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_DispatchThreadID       | CSIn        | ``GlobalInvocationId``   | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_GroupID                | CSIn        | ``WorkgroupId``          | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_GroupThreadID          | CSIn        | ``LocalInvocationId``    | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_GroupIndex             | CSIn        | ``LocalInvocationIndex`` | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_OutputControlPointID   | HSIn        | ``InvocationId``         | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_GSInstanceID           | GSIn        | ``InvocationId``         | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_DomainLocation         | DSIn        | ``TessCoord``            | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+|                           | HSIn        | ``PrimitiveId``          | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | PCIn        | ``PrimitiveId``          | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | DsIn        | ``PrimitiveId``          | N/A                   |
+| SV_PrimitiveID            +-------------+--------------------------+-----------------------+
+|                           | GSIn        | ``PrimitiveId``          | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | GSOut       | ``PrimitiveId``          | N/A                   |
+|                           +-------------+--------------------------+-----------------------+
+|                           | PSIn        | ``PrimitiveId``          | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+|                           | PCOut       | ``TessLevelOuter``       | N/A                   |
+| SV_TessFactor             +-------------+--------------------------+-----------------------+
+|                           | DSIn        | ``TessLevelOuter``       | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+|                           | PCOut       | ``TessLevelInner``       | N/A                   |
+| SV_InsideTessFactor       +-------------+--------------------------+-----------------------+
+|                           | DSIn        | ``TessLevelInner``       | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_SampleIndex            | PSIn        | ``SampleId``             | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+| SV_StencilRef             | PSOut       | ``FragStencilRefEXT``    | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+|                           | GSOut       | ``Layer``                | N/A                   |
+| SV_RenderTargetArrayIndex +-------------+--------------------------+-----------------------+
+|                           | PSIn        | ``Layer``                | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
+|                           | GSOut       | ``ViewportIndex``        | N/A                   |
+| SV_ViewportArrayIndex     +-------------+--------------------------+-----------------------+
+|                           | PSIn        | ``ViewportIndex``        | N/A                   |
++---------------------------+-------------+--------------------------+-----------------------+
 
 [TODO] add other SV semantic strings in the above
 
@@ -652,6 +856,53 @@ flattening all structs if structs are used as function parameters or returns.
 
 There is an exception to the above rule for SV_Target[N]. It will always be
 mapped to ``Location`` number N.
+
+``gl_PerVertex``
+~~~~~~~~~~~~~~~~
+
+Variables annotated with ``SV_Position``, ``SV_ClipDistanceX``, and
+``SV_CullDistanceX`` are mapped into fields of a ``gl_PerVertex`` struct:
+
+.. code:: hlsl
+
+    struct gl_PerVertex {
+        float4 gl_Position;       // SPIR-V BuiltIn Position
+        float  gl_PointSize;      // No HLSL equivalent
+        float  gl_ClipDistance[]; // SPIR-V BuiltIn ClipDistance
+        float  gl_CullDistance[]; // SPIR-V BuiltIn CullDistance
+    };
+
+This mimics how these builtins are handled in GLSL.
+
+Variables decorated with ``SV_ClipDistanceX`` can be float or vector of float
+type. To map them into one float array in the struct, we firstly sort them
+asecendingly according to ``X``, and then concatenate them tightly. For example,
+
+.. code:: hlsl
+
+  struct T {
+    float clip0: SV_ClipDistance0,
+  };
+
+  struct S {
+    float3 clip5: SV_ClipDistance5;
+    ...
+  };
+
+  void main(T t, S s, float2 clip2 : SV_ClipDistance2) { ... }
+
+Then we have an float array of size (1 + 2 + 3 =) 6 for ``ClipDistance``, with
+``clip0`` at offset 0, ``clip2`` at offset 1, ``clip5`` at offset 3.
+
+Decorating a variable or struct member with the ``ClipDistance`` builtin but not
+requiring the ``ClipDistance`` capability is legal as long as we don't read or
+write the variable or struct member. But as per the way we handle `shader entry
+function`_, this is not satisfied because we need to read their contents to
+prepare for the source code entry function call or write back them after the
+call. So annotating a variable or struct member with ``SV_ClipDistanceX`` means
+requiring the ``ClipDistance`` capability in the generated SPIR-V.
+
+Variables decorated with ``SV_CullDistanceX`` are mapped similarly as above.
 
 HLSL register and Vulkan binding
 --------------------------------
@@ -876,6 +1127,22 @@ Casting between (vectors) of scalar types is translated according to the followi
 +------------+                   +-------------------+-------------------+-------------------+
 |   Float    |                   | ``OpConvertFToS`` | ``OpConvertFToU`` |      no-op        |
 +------------+-------------------+-------------------+-------------------+-------------------+
+
+It is also feasible in HLSL to cast a float matrix to another float matrix with a smaller size.
+This is known as matrix truncation cast. For instance, the following code casts a 3x4 matrix
+into a 2x3 matrix.
+
+.. code:: hlsl
+
+  float3x4 m = { 1,  2,  3, 4,
+                 5,  6,  7, 8,
+                 9, 10, 11, 12 };
+
+  float2x3 a = (float2x3)m;
+
+Such casting takes the upper-left most corner of the original matrix to generate the result.
+In the above example, matrix ``a`` will have 2 rows, with 3 columns each. First row will be
+``1, 2, 3`` and the second row will be ``5, 6, 7``.
 
 Indexing operator
 -----------------
@@ -1137,6 +1404,9 @@ extended instruction mapping, so they are handled with additional steps:
   conversion into integer matrices.
 - ``asuint``: converts the component type of a scalar/vector/matrix from float
   or int into uint. Uses ``OpBitcast``. This method currently does not support
+- ``asuint``: Converts a double into two 32-bit unsigned integers. Uses SPIR-V ``OpBitCast``.
+- ``asdouble``: Converts two 32-bit unsigned integers into a double, or four 32-bit unsigned
+  integers into two doubles. Uses SPIR-V ``OpVectorShuffle`` and ``OpBitCast``.
   conversion into unsigned integer matrices.
 - ``isfinite`` : Determines if the specified value is finite. Since ``OpIsFinite``
   requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and
@@ -1148,38 +1418,47 @@ extended instruction mapping, so they are handled with additional steps:
 - ``lit``: Returns a lighting coefficient vector. This vector is a float4 with
   components of (ambient, diffuse, specular, 1). How ``diffuse`` and ``specular``
   are calculated are explained `here <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509619(v=vs.85).aspx>`_.
+- ``D3DCOLORtoUBYTE4``: Converts a floating-point, 4D vector set by a D3DCOLOR to a UBYTE4.
+  This is achieved by performing ``int4(input.zyxw * 255.002)`` using SPIR-V ``OpVectorShuffle``,
+  ``OpVectorTimesScalar``, and ``OpConvertFToS``, respectively.
 
 Using SPIR-V opcode
 ~~~~~~~~~~~~~~~~~~~
 
 The following intrinsic HLSL functions have direct SPIR-V opcodes for them:
 
-============================== =================================
-   HLSL Intrinsic Function              SPIR-V Opcode
-============================== =================================
-``countbits``                  ``OpBitCount``
-``ddx``                        ``OpDPdx``
-``ddy``                        ``OpDPdy``
-``ddx_coarse``                 ``OpDPdxCoarse``
-``ddy_coarse``                 ``OpDPdyCoarse``
-``ddx_fine``                   ``OpDPdxFine``
-``ddy_fine``                   ``OpDPdyFine``
-``fmod``                       ``OpFMod``
-``fwidth``                     ``OpFwidth``
-``InterlockedAdd``             ``OpAtomicIAdd``
-``InterlockedAnd``             ``OpAtomicAnd``
-``InterlockedOr``              ``OpAtomicOr``
-``InterlockedXor``             ``OpAtomicXor``
-``InterlockedMin``             ``OpAtomicUMin``/``OpAtomicSMin``
-``InterlockedMax``             ``OpAtomicUMax``/``OpAtomicSMax``
-``InterlockedExchange``        ``OpAtomicExchange``
-``InterlockedCompareExchange`` ``OpAtomicCompareExchange``
-``InterlockedCompareStore``    ``OpAtomicCompareExchange``
-``isnan``                      ``OpIsNan``
-``isInf``                      ``OpIsInf``
-``reversebits``                ``OpBitReverse``
-``transpose``                  ``OpTranspose``
-============================== =================================
+==================================== =================================
+   HLSL Intrinsic Function                   SPIR-V Opcode
+==================================== =================================
+``AllMemoryBarrier``                 ``OpMemoryBarrier``
+``AllMemoryBarrierWithGroupSync``    ``OpControlBarrier``
+``countbits``                        ``OpBitCount``
+``DeviceMemoryBarrier``              ``OpMemoryBarrier``
+``DeviceMemoryBarrierWithGroupSync`` ``OpControlBarrier``
+``ddx``                              ``OpDPdx``
+``ddy``                              ``OpDPdy``
+``ddx_coarse``                       ``OpDPdxCoarse``
+``ddy_coarse``                       ``OpDPdyCoarse``
+``ddx_fine``                         ``OpDPdxFine``
+``ddy_fine``                         ``OpDPdyFine``
+``fmod``                             ``OpFMod``
+``fwidth``                           ``OpFwidth``
+``GroupMemoryBarrier``               ``OpMemoryBarrier``
+``GroupMemoryBarrierWithGroupSync``  ``OpControlBarrier``
+``InterlockedAdd``                   ``OpAtomicIAdd``
+``InterlockedAnd``                   ``OpAtomicAnd``
+``InterlockedOr``                    ``OpAtomicOr``
+``InterlockedXor``                   ``OpAtomicXor``
+``InterlockedMin``                   ``OpAtomicUMin``/``OpAtomicSMin``
+``InterlockedMax``                   ``OpAtomicUMax``/``OpAtomicSMax``
+``InterlockedExchange``              ``OpAtomicExchange``
+``InterlockedCompareExchange``       ``OpAtomicCompareExchange``
+``InterlockedCompareStore``          ``OpAtomicCompareExchange``
+``isnan``                            ``OpIsNan``
+``isInf``                            ``OpIsInf``
+``reversebits``                      ``OpBitReverse``
+``transpose``                        ``OpTranspose``
+==================================== =================================
 
 Using GLSL extended instructions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1206,6 +1485,8 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``determinant``         ``Determinant``
 ``exp``                 ``Exp``
 ``exp2``                ``exp2``
+``f16tof32``            ``UnpackHalf2x16``
+``f32tof16``            ``PackHalf2x16``
 ``faceforward``         ``FaceForward``
 ``firstbithigh``        ``FindSMsb`` / ``FindUMsb``
 ``firstbitlow``         ``FindILsb``
@@ -1845,6 +2126,8 @@ and is translated to SPIR-V execution mode as follows:
 +=========================+=====================+==========================+
 |``maxvertexcount``       | ``n``               | ``OutputVertices n``     |
 +-------------------------+---------------------+--------------------------+
+|``instance``             | ``n``               | ``Invocations n``        |
++-------------------------+---------------------+--------------------------+
 
 Translation for Primitive Types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1893,7 +2176,15 @@ given output stream.
 |``TriangleStream``   | ``OutputTriangleStrip``     |
 +---------------------+-----------------------------+
 
-TODO: Describe more details about how geometry shaders are translated. e.g. OutputStreams, etc.
+In other shader stages, stage output variables are only written in the `entry
+function wrapper`_ after calling the source code entry function. However,
+geometry shaders can output as many vertices as they wish, by calling the
+``.Append()`` method on the output stream object. Therefore, it is incorrect to
+have only one flush in the entry function wrapper like other stages. Instead,
+each time a ``*Stream<T>::Append()`` is encountered, all stage output variables
+behind ``T`` will be flushed before SPIR-V ``OpEmitVertex`` instruction is
+generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
+``OpEndPrimitive`` instruction.
 
 Vulkan Command-line Options
 ===========================

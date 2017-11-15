@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -no-min-precision -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -enable-16bit-types -fsyntax-only -ffreestanding -verify -HV 2018 %s
 
 
 // To test with the classic compiler, run
@@ -61,20 +61,23 @@ void matrix_out_of_bounds() {
 
 void matrix_unsigned() {
    unsigned int4x2 intMatrix;
-   unsigned min16int4x3 min16Matrix;
-   unsigned int64_t3x3 int64Matrix;
-   unsigned uint3x4 uintMatrix;
-   unsigned min16uint4x1 min16uintMatrix;
-   unsigned uint64_t2x2 int64uintMatrix;
-   unsigned dword3x2 dwordvector; /* fxc-error {{X3000: unrecognized identifier 'dword3x1'}} */
+   unsigned min16int4x3 min16Matrix; /* expected-warning {{min16int is promoted to int16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned int64_t3x3 int64Matrix;  /* fxc-error {{X3000: syntax error: unexpected token 'int64_t3x3'}} */
+   unsigned uint3x4 uintMatrix;      /* fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16uint4x1 min16uintMatrix;                   /* expected-warning {{min16uint is promoted to uint16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned uint64_t2x2 int64uintMatrix;                    /* fxc-error {{X3000: syntax error: unexpected token 'uint64_t2x2'}} */
+   unsigned dword3x2 dwordmector; /* fxc-error {{X3000: syntax error: unexpected token 'dword3x2'}} */
 
    unsigned float2x3 floatMatrix; /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned bool3x4 boolvector;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned half4x1 halfvector;   /* expected-error {{'half' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned double1x2 doublevector;                           /* expected-error {{'double' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min12int2x3 min12intvector;                       /* expected-warning {{min12int is promoted to min16int}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min16float3x4 min16floatvector;                   /* expected-error {{'half' cannot be signed or unsigned}} expected-warning {{min16float is promoted to half}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned bool3x4 boolMatirx;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned half4x1 halfMatrix;   /* expected-error {{'half' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned double1x2 doubleMatrix;                           /* expected-error {{'double' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min12int2x3 min12intMatrix;                       /* expected-warning {{min12int is promoted to int16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16float3x4 min16floatMatrix;                   /* expected-error {{'half' cannot be signed or unsigned}} expected-warning {{min16float is promoted to float16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
 
+   unsigned int16_t2x3 uint16_tMatrix1;                       /* fxc-error {{X3000: syntax error: unexpected token 'int16_t2x3'}} */
+   unsigned int32_t4x2 uint32_tMatrix1;                       /* fxc-error {{X3000: syntax error: unexpected token 'int32_t4x2'}} */
+   unsigned int64_t1x4 uint64_tMatrix1;                       /* fxc-error {{X3000: syntax error: unexpected token 'int64_t1x4'}} */
 }
 
 void main() {
@@ -157,4 +160,43 @@ void main() {
     myConstMatrix[0][0] = 3;                                /* expected-error {{cannot assign to variable 'myConstMatrix' with const-qualified type 'const matrix<float, 4, 4>'}} fxc-error {{X3025: l-value specifies const object}} */
     myConstMatrix[3] = float4(1,2,3,4);                     /* expected-error {{cannot assign to variable 'myConstMatrix' with const-qualified type 'const matrix<float, 4, 4>'}} fxc-error {{X3025: l-value specifies const object}} */
 
+    // vector for fixed width data types
+    int16_t1x3 int16_t1x3Matrix1 = 0;                       /* fxc-error {{X3000: unrecognized identifier 'int16_t1x3'}} fxc-error {{X3000: unrecognized identifier 'int16_t1x3Matrix1'}} */
+    int16_t2x4 int16_t1x3Matrix2 = 1;                       /* fxc-error {{X3000: unrecognized identifier 'int16_t1x3Matrix2'}} fxc-error {{X3000: unrecognized identifier 'int16_t2x4'}} */
+    int16_t3x2 int16_t1x3Matrix3 = 2;                       /* fxc-error {{X3000: unrecognized identifier 'int16_t1x3Matrix3'}} fxc-error {{X3000: unrecognized identifier 'int16_t3x2'}} */
+    int16_t4x2 int16_t1x3Matrix4 = 3;                       /* fxc-error {{X3000: unrecognized identifier 'int16_t1x3Matrix4'}} fxc-error {{X3000: unrecognized identifier 'int16_t4x2'}} */
+    int32_t1x3 int32_t1Matrix1 = 4;                         /* fxc-error {{X3000: unrecognized identifier 'int32_t1Matrix1'}} fxc-error {{X3000: unrecognized identifier 'int32_t1x3'}} */
+    int32_t2x2 int32_t1Matrix2 = 5;                         /* fxc-error {{X3000: unrecognized identifier 'int32_t1Matrix2'}} fxc-error {{X3000: unrecognized identifier 'int32_t2x2'}} */
+    int32_t3x4 int32_t1Matrix3 = 6;                         /* fxc-error {{X3000: unrecognized identifier 'int32_t1Matrix3'}} fxc-error {{X3000: unrecognized identifier 'int32_t3x4'}} */
+    int32_t4x1 int32_t1Matrix4 = 7;                         /* fxc-error {{X3000: unrecognized identifier 'int32_t1Matrix4'}} fxc-error {{X3000: unrecognized identifier 'int32_t4x1'}} */
+    int64_t1x2 int64_t1Matrix1 = 8;                         /* fxc-error {{X3000: unrecognized identifier 'int64_t1Matrix1'}} fxc-error {{X3000: unrecognized identifier 'int64_t1x2'}} */
+    int64_t2x3 int64_t1Matrix2 = 9;                         /* fxc-error {{X3000: unrecognized identifier 'int64_t1Matrix2'}} fxc-error {{X3000: unrecognized identifier 'int64_t2x3'}} */
+    int64_t3x3 int64_t1Matrix3 = 10;                        /* fxc-error {{X3000: unrecognized identifier 'int64_t1Matrix3'}} fxc-error {{X3000: unrecognized identifier 'int64_t3x3'}} */
+    int64_t4x4 int64_t1Matrix4 = 11;                        /* fxc-error {{X3000: unrecognized identifier 'int64_t1Matrix4'}} fxc-error {{X3000: unrecognized identifier 'int64_t4x4'}} */
+
+    uint16_t1x3 uint16_t1x3Matrix1 = 0;                     /* fxc-error {{X3000: unrecognized identifier 'uint16_t1x3'}} fxc-error {{X3000: unrecognized identifier 'uint16_t1x3Matrix1'}} */
+    uint16_t2x4 uint16_t1x3Matrix2 = 1;                     /* fxc-error {{X3000: unrecognized identifier 'uint16_t1x3Matrix2'}} fxc-error {{X3000: unrecognized identifier 'uint16_t2x4'}} */
+    uint16_t3x2 uint16_t1x3Matrix3 = 2;                     /* fxc-error {{X3000: unrecognized identifier 'uint16_t1x3Matrix3'}} fxc-error {{X3000: unrecognized identifier 'uint16_t3x2'}} */
+    uint16_t4x2 uint16_t1x3Matrix4 = 3;                     /* fxc-error {{X3000: unrecognized identifier 'uint16_t1x3Matrix4'}} fxc-error {{X3000: unrecognized identifier 'uint16_t4x2'}} */
+    uint32_t1x3 uint32_t1Matrix1 = 4;                       /* fxc-error {{X3000: unrecognized identifier 'uint32_t1Matrix1'}} fxc-error {{X3000: unrecognized identifier 'uint32_t1x3'}} */
+    uint32_t2x2 uint32_t1Matrix2 = 5;                       /* fxc-error {{X3000: unrecognized identifier 'uint32_t1Matrix2'}} fxc-error {{X3000: unrecognized identifier 'uint32_t2x2'}} */
+    uint32_t3x4 uint32_t1Matrix3 = 6;                       /* fxc-error {{X3000: unrecognized identifier 'uint32_t1Matrix3'}} fxc-error {{X3000: unrecognized identifier 'uint32_t3x4'}} */
+    uint32_t4x1 uint32_t1Matrix4 = 7;                       /* fxc-error {{X3000: unrecognized identifier 'uint32_t1Matrix4'}} fxc-error {{X3000: unrecognized identifier 'uint32_t4x1'}} */
+    uint64_t1x2 uint64_t1Matrix1 = 8;                       /* fxc-error {{X3000: unrecognized identifier 'uint64_t1Matrix1'}} fxc-error {{X3000: unrecognized identifier 'uint64_t1x2'}} */
+    uint64_t2x3 uint64_t1Matrix2 = 9;                       /* fxc-error {{X3000: unrecognized identifier 'uint64_t1Matrix2'}} fxc-error {{X3000: unrecognized identifier 'uint64_t2x3'}} */
+    uint64_t3x3 uint64_t1Matrix3 = 10;                      /* fxc-error {{X3000: unrecognized identifier 'uint64_t1Matrix3'}} fxc-error {{X3000: unrecognized identifier 'uint64_t3x3'}} */
+    uint64_t4x4 uint64_t1Matrix4 = 11;                      /* fxc-error {{X3000: unrecognized identifier 'uint64_t1Matrix4'}} fxc-error {{X3000: unrecognized identifier 'uint64_t4x4'}} */
+
+    float16_t1x3 float16_t1x3Matrix1 = 0;                   /* fxc-error {{X3000: unrecognized identifier 'float16_t1x3'}} fxc-error {{X3000: unrecognized identifier 'float16_t1x3Matrix1'}} */
+    float16_t2x4 float16_t1x3Matrix2 = 1;                   /* fxc-error {{X3000: unrecognized identifier 'float16_t1x3Matrix2'}} fxc-error {{X3000: unrecognized identifier 'float16_t2x4'}} */
+    float16_t3x2 float16_t1x3Matrix3 = 2;                   /* fxc-error {{X3000: unrecognized identifier 'float16_t1x3Matrix3'}} fxc-error {{X3000: unrecognized identifier 'float16_t3x2'}} */
+    float16_t4x2 float16_t1x3Matrix4 = 3;                   /* fxc-error {{X3000: unrecognized identifier 'float16_t1x3Matrix4'}} fxc-error {{X3000: unrecognized identifier 'float16_t4x2'}} */
+    float32_t1x3 float32_t1Matrix1 = 4;                     /* fxc-error {{X3000: unrecognized identifier 'float32_t1Matrix1'}} fxc-error {{X3000: unrecognized identifier 'float32_t1x3'}} */
+    float32_t2x2 float32_t1Matrix2 = 5;                     /* fxc-error {{X3000: unrecognized identifier 'float32_t1Matrix2'}} fxc-error {{X3000: unrecognized identifier 'float32_t2x2'}} */
+    float32_t3x4 float32_t1Matrix3 = 6;                     /* fxc-error {{X3000: unrecognized identifier 'float32_t1Matrix3'}} fxc-error {{X3000: unrecognized identifier 'float32_t3x4'}} */
+    float32_t4x1 float32_t1Matrix4 = 7;                     /* fxc-error {{X3000: unrecognized identifier 'float32_t1Matrix4'}} fxc-error {{X3000: unrecognized identifier 'float32_t4x1'}} */
+    float64_t1x2 float64_t1Matrix1 = 8;                     /* fxc-error {{X3000: unrecognized identifier 'float64_t1Matrix1'}} fxc-error {{X3000: unrecognized identifier 'float64_t1x2'}} */
+    float64_t2x3 float64_t1Matrix2 = 9;                     /* fxc-error {{X3000: unrecognized identifier 'float64_t1Matrix2'}} fxc-error {{X3000: unrecognized identifier 'float64_t2x3'}} */
+    float64_t3x3 float64_t1Matrix3 = 10;                    /* fxc-error {{X3000: unrecognized identifier 'float64_t1Matrix3'}} fxc-error {{X3000: unrecognized identifier 'float64_t3x3'}} */
+    float64_t4x4 float64_t1Matrix4 = 11;                    /* fxc-error {{X3000: unrecognized identifier 'float64_t1Matrix4'}} fxc-error {{X3000: unrecognized identifier 'float64_t4x4'}} */
 }

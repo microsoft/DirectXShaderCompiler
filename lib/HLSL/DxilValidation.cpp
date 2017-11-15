@@ -109,12 +109,13 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaBarycentricsInterpolation: return "SV_Barycentrics cannot be used with 'nointerpolation' type";
     case hlsl::ValidationRule::MetaBarycentricsFloat3: return "only 'float3' type is allowed for SV_Barycentrics.";
     case hlsl::ValidationRule::MetaBarycentricsTwoPerspectives: return "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.";
-    case hlsl::ValidationRule::MetaFPFlag: return "Invalid funciton floating point flag.";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
     case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
     case hlsl::ValidationRule::InstrMinPrecisonBitCast: return "Bitcast on minprecison types is not allowed";
     case hlsl::ValidationRule::InstrStructBitCast: return "Bitcast on struct types is not allowed";
+    case hlsl::ValidationRule::InstrStatus: return "Resource status should only used by CheckAccessFullyMapped";
+    case hlsl::ValidationRule::InstrCheckAccessFullyMapped: return "CheckAccessFullyMapped should only used on resource status";
     case hlsl::ValidationRule::InstrOpConst: return "%0 of %1 must be an immediate constant";
     case hlsl::ValidationRule::InstrAllowed: return "Instructions must be of an allowed type";
     case hlsl::ValidationRule::InstrOpCodeReserved: return "Instructions must not reference reserved opcodes";
@@ -246,6 +247,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::DeclUsedExternalFunction: return "External function '%0' is unused";
     case hlsl::ValidationRule::DeclFnIsCalled: return "Function '%0' is used for something other than calling";
     case hlsl::ValidationRule::DeclFnFlattenParam: return "Type '%0' is a struct type but is used as a parameter in function '%1'";
+    case hlsl::ValidationRule::DeclFnAttribute: return "Function '%0' contains invalid attribute '%1' with value '%2'";
   }
   // VALRULE-TEXT:END
   llvm_unreachable("invalid value");
@@ -551,6 +553,10 @@ struct ValidationContext {
     Ty->print(OSS);
     EmitFormatError(rule, { OSS.str() });
   }
+
+  void EmitFnAttributeError(Function *F, StringRef Kind, StringRef Value) {
+    EmitFormatError(ValidationRule::DeclFnAttribute, { F->getName(), Kind, Value });
+  }
 };
 
 static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
@@ -593,6 +599,9 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if (op == 138)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
         && (pSM->IsVS() || pSM->IsHS() || pSM->IsDS() || pSM->IsGS() || pSM->IsPS());
+  // Instructions: RawBufferLoad=139, RawBufferStore=140
+  if (139 <= op && op <= 140)
+    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 2));
   return true;
   // VALOPCODESM-TEXT:END
 }
@@ -808,7 +817,7 @@ struct ResRetUsage {
 };
 
 static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
-                               ValidationContext &ValCtx) {
+                                     ValidationContext &ValCtx) {
   const unsigned kMaxResRetElementIndex = 5;
   for (User *U : ResRet->users()) {
     if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
@@ -826,7 +835,7 @@ static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
         case 3:
           usage.w = true;
           break;
-        case 4:
+        case DXIL::kResRetStatusIndex:
           usage.status = true;
           break;
         default:
@@ -841,6 +850,36 @@ static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
     } else {
       Instruction *User = cast<Instruction>(U);
       ValCtx.EmitInstrError(User, ValidationRule::InstrDxilStructUser);
+    }
+  }
+}
+
+static void ValidateStatus(Instruction *ResRet, ValidationContext &ValCtx) {
+  ResRetUsage usage;
+  CollectGetDimResRetUsage(usage, ResRet, ValCtx);
+  if (usage.status) {
+    for (User *U : ResRet->users()) {
+      if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
+        for (unsigned idx : EVI->getIndices()) {
+          switch (idx) {
+          case DXIL::kResRetStatusIndex:
+            for (User *SU : EVI->users()) {
+              Instruction *I = cast<Instruction>(SU);
+              // Make sure all use is CheckAccess.
+              if (!isa<CallInst>(I)) {
+                ValCtx.EmitInstrError(I, ValidationRule::InstrStatus);
+                return;
+              }
+              if (!ValCtx.DxilMod.GetOP()->IsDxilOpFuncCallInst(
+                      I, DXIL::OpCode::CheckAccessFullyMapped)) {
+                ValCtx.EmitInstrError(I, ValidationRule::InstrStatus);
+                return;
+              }
+            }
+            break;
+          }
+        }
+      }
     }
   }
 }
@@ -1517,6 +1556,21 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
          sample.get_coord3()},
         {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
         /*IsSampleC*/ false, ValCtx);
+  } break;
+  case DXIL::OpCode::CheckAccessFullyMapped: {
+    Value *Src = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
+    ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(Src);
+    if (!EVI) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
+    } else {
+      Value *V = EVI->getOperand(0);
+      bool isLegal = EVI->getNumIndices() == 1 &&
+                     EVI->getIndices()[0] == DXIL::kResRetStatusIndex &&
+                     ValCtx.DxilMod.GetOP()->IsResRetType(V->getType());
+      if (!isLegal) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
+      }
+    }
   } break;
   case DXIL::OpCode::Barrier: {
     DxilInst_Barrier barrier(CI);
@@ -2313,6 +2367,21 @@ static void ValidateInstructionMetadata(Instruction *I,
   }
 }
 
+static void ValidateFunctionAttribute(Function *F, ValidationContext &ValCtx) {
+  AttributeSet attrSet = F->getAttributes();
+  // fp32-denorm-mode
+  if (attrSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
+    Attribute attr = attrSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
+    StringRef value = attr.getValueAsString();
+    if (!value.equals(DXIL::kFP32DenormValueAnyString) &&
+      !value.equals(DXIL::kFP32DenormValueFtzString) &&
+      !value.equals(DXIL::kFP32DenormValuePreserveString))
+    {
+      ValCtx.EmitFnAttributeError(F, attr.getKindAsString(), attr.getValueAsString());
+    }
+  }
+}
+
 static void ValidateFunctionMetadata(Function *F, ValidationContext &ValCtx) {
   SmallVector<std::pair<unsigned, MDNode *>, 2> MDNodes;
   F->getAllMetadata(MDNodes);
@@ -2614,6 +2683,8 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
     ValidateFunctionBody(&F, ValCtx);
   }
 
+  ValidateFunctionAttribute(&F, ValCtx);
+
   if (F.hasMetadata()) {
     ValidateFunctionMetadata(&F, ValCtx);
   }
@@ -2786,27 +2857,9 @@ static void ValidateTypeAnnotation(ValidationContext &ValCtx) {
       ConstantInt *tag = mdconst::extract<ConstantInt>(TANode->getOperand(0));
       uint64_t tagValue = tag->getZExtValue();
       if (tagValue != DxilMDHelper::kDxilTypeSystemStructTag &&
-          tagValue != DxilMDHelper::kDxilTypeSystemFunctionTag &&
-          tagValue != DxilMDHelper::kDxilTypeSystemFunction2Tag) {
+          tagValue != DxilMDHelper::kDxilTypeSystemFunctionTag) {
           ValCtx.EmitMetaError(TANode, ValidationRule::MetaWellFormed);
           return;
-      }
-      if (tagValue == DxilMDHelper::kDxilTypeSystemFunction2Tag) {
-          for (unsigned j = 2, jEnd = TANode->getNumOperands();
-              j != jEnd; ++j) {
-            MDTuple *FA = dyn_cast<MDTuple>(TANode->getOperand(j));
-            if (FA == nullptr) {
-                ValCtx.EmitMetaError(FA, ValidationRule::MetaWellFormed);
-                return;
-            }
-            MDNode *FlagNode = dyn_cast<MDNode>(FA->getOperand(0));
-            uint64_t flagValue = mdconst::extract<ConstantInt>(FlagNode->getOperand(0))->getZExtValue();
-            if (flagValue != (uint64_t)DXIL::FPDenormMode::Any &&
-                flagValue != (uint64_t)DXIL::FPDenormMode::FTZ &&
-                flagValue != (uint64_t)DXIL::FPDenormMode::Preserve) {
-                ValCtx.EmitMetaError(FA->getOperand(0), ValidationRule::MetaFPFlag);
-            }
-          }
       }
     }
   }

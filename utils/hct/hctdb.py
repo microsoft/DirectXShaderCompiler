@@ -1,4 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 ###############################################################################
 # DXIL information.                                                           #
@@ -239,7 +238,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Quaternary"
         for i in "Dot2,Dot3,Dot4".split(","):
             self.name_idx[i].category = "Dot"
-        for i in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions".split(","):
+        for i in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].category = "Resources"
         for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
@@ -284,6 +283,8 @@ class db_dxil(object):
                 i.category = "Bitcasts with different sizes"
         for i in "ViewID,AttributeAtVertex".split(","):
             self.name_idx[i].shader_model = 6,1
+        for i in "RawBufferLoad,RawBufferStore".split(","):
+            self.name_idx[i].shader_model = 6,2
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -556,7 +557,7 @@ class db_dxil(object):
             db_dxil_param(3, "u32", "byteOffset", "linear byte offset of value"),
             db_dxil_param(4, "u32", "alignment", "load access alignment", is_const=True)])
         next_op_idx += 1
-        self.add_dxil_op("CBufferLoadLegacy", next_op_idx, "CBufferLoadLegacy", "loads a value from a constant buffer resource", "hfdwi", "ro", [
+        self.add_dxil_op("CBufferLoadLegacy", next_op_idx, "CBufferLoadLegacy", "loads a value from a constant buffer resource", "hfdwil", "ro", [
             db_dxil_param(0, "$cb", "", "the value for the constant buffer variable"),
             db_dxil_param(2, "res", "handle", "cbuffer handle"),
             db_dxil_param(3, "u32", "regIndex", "0-based index into cbuffer instance")])
@@ -1072,7 +1073,31 @@ class db_dxil(object):
         # End of DXIL 1.1 opcodes.
         self.set_op_count_for_version(1, 1, next_op_idx)
 
-        assert next_op_idx == 139, "next operation index is %d rather than 139 and thus opcodes are broken" % next_op_idx
+        self.add_dxil_op("RawBufferLoad", next_op_idx, "RawBufferLoad", "reads from a raw buffer and structured buffer", "hfwi", "ro", [
+            db_dxil_param(0, "$r", "", "the loaded value"),
+            db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
+            db_dxil_param(3, "i32", "index", "element index for StructuredBuffer, or byte offset for ByteAddressBuffer"),
+            db_dxil_param(4, "i32", "elementOffset", "offset into element for StructuredBuffer, or undef for ByteAddressBuffer"),
+            db_dxil_param(5, "i8", "mask", "loading value mask", is_const=True),
+            db_dxil_param(6, "i32", "alignment", "relative load access alignment", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("RawBufferStore", next_op_idx, "RawBufferStore", "writes to a RWByteAddressBuffer or RWStructuredBuffer", "hfwi", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
+            db_dxil_param(3, "i32", "index", "element index for StructuredBuffer, or byte offset for ByteAddressBuffer"),
+            db_dxil_param(4, "i32", "elementOffset", "offset into element for StructuredBuffer, or undef for ByteAddressBuffer"),
+            db_dxil_param(5, "$o", "value0", "value"),
+            db_dxil_param(6, "$o", "value1", "value"),
+            db_dxil_param(7, "$o", "value2", "value"),
+            db_dxil_param(8, "$o", "value3", "value"),
+            db_dxil_param(9, "i8", "mask", "mask of contiguous components stored starting at first component (valid: 1, 3, 7, 15)", is_const=True),
+            db_dxil_param(10, "i32", "alignment", "relative store access alignment", is_const=True)])
+        next_op_idx += 1
+
+        # End of DXIL 1.2 opcodes.
+        self.set_op_count_for_version(1, 2, next_op_idx)
+        assert next_op_idx == 141, "next operation index is %d rather than 141 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -1368,6 +1393,7 @@ class db_dxil(object):
             {'n':'lowerbitsets-avoid-reuse', 'i':'AvoidReuse', 't':'bool', 'd':'Try to avoid reuse of byte array addresses using aliases'}])
         add_pass('red', 'ReducibilityAnalysis', 'Reducibility Analysis', [])
         add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [])
+        add_pass('hlsl-translate-dxil-opcode-version', 'DxilTranslateRawBuffer', 'Translates one version of dxil to another', [])
         # TODO: turn STATISTICS macros into ETW events
         # assert no duplicate names
         self.pass_idx_args = set()
@@ -1445,7 +1471,7 @@ class db_dxil(object):
             (5, "Invalid", ""),
             ])
 
-        FPDenormMode = db_dxil_enum("FPDenormMode", "Floating point behavior", [
+        Float32DenormMode = db_dxil_enum("Float32DenormMode", "float32 denorm behavior", [
             (0, "Any", "Undefined behavior for denormal numbers"),
             (1, "Preserve", "Preserve both input and output"),
             (2, "FTZ", "Preserve denormal inputs. Flush denorm outputs"),
@@ -1455,7 +1481,7 @@ class db_dxil(object):
             (6, "Reserve6", "Reserved Value. Not used for now"),
             (7, "Reserve7", "Reserved Value. Not used for now"),
             ])
-        self.enums.append(FPDenormMode)
+        self.enums.append(Float32DenormMode)
 
 
         SigPointCSV = """
@@ -1596,13 +1622,14 @@ class db_dxil(object):
         self.add_valrule("Meta.BarycentricsInterpolation", "SV_Barycentrics cannot be used with 'nointerpolation' type")
         self.add_valrule("Meta.BarycentricsFloat3", "only 'float3' type is allowed for SV_Barycentrics.")
         self.add_valrule("Meta.BarycentricsTwoPerspectives", "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.")
-        self.add_valrule("Meta.FPFlag", "Invalid funciton floating point flag.")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")
         self.add_valrule("Instr.PtrBitCast", "Pointer type bitcast must be have same size")
         self.add_valrule("Instr.MinPrecisonBitCast", "Bitcast on minprecison types is not allowed")
         self.add_valrule("Instr.StructBitCast", "Bitcast on struct types is not allowed")
+        self.add_valrule("Instr.Status", "Resource status should only used by CheckAccessFullyMapped")
+        self.add_valrule("Instr.CheckAccessFullyMapped", "CheckAccessFullyMapped should only used on resource status")
         self.add_valrule_msg("Instr.OpConst", "DXIL intrinsic requires an immediate constant operand", "%0 of %1 must be an immediate constant")
         self.add_valrule("Instr.Allowed", "Instructions must be of an allowed type")
         self.add_valrule("Instr.OpCodeReserved", "Instructions must not reference reserved opcodes")
@@ -1762,7 +1789,8 @@ class db_dxil(object):
         self.add_valrule_msg("Decl.UsedExternalFunction", "External function must be used", "External function '%0' is unused")
         self.add_valrule_msg("Decl.FnIsCalled", "Functions can only be used by call instructions", "Function '%0' is used for something other than calling")
         self.add_valrule_msg("Decl.FnFlattenParam", "Function parameters must not use struct types", "Type '%0' is a struct type but is used as a parameter in function '%1'")
-        
+        self.add_valrule_msg("Decl.FnAttribute", "Functions should only contain known function attributes", "Function '%0' contains invalid attribute '%1' with value '%2'")
+
         # Assign sensible category names and build up an enumeration description
         cat_names = {
             "CONTAINER": "Container",
@@ -1897,6 +1925,7 @@ class db_hlsl(object):
             "any_int": "LICOMPTYPE_ANY_INT",
             "any_int32": "LICOMPTYPE_ANY_INT32",
             "uint_only": "LICOMPTYPE_UINT_ONLY",
+            "half": "LICOMPTYPE_HALF",
             "float": "LICOMPTYPE_FLOAT",
             "fldbl": "LICOMPTYPE_FLOAT_DOUBLE",
             "any_float": "LICOMPTYPE_ANY_FLOAT",

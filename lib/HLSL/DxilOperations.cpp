@@ -126,7 +126,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Resources                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::CreateHandle,            "CreateHandle",             OCC::CreateHandle,             "createHandle",                true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
   {  OC::CBufferLoad,             "CBufferLoad",              OCC::CBufferLoad,              "cbufferLoad",                false,  true,  true,  true, false,  true,  true,  true,  true, Attribute::ReadOnly, },
-  {  OC::CBufferLoadLegacy,       "CBufferLoadLegacy",        OCC::CBufferLoadLegacy,        "cbufferLoadLegacy",          false,  true,  true,  true, false, false,  true,  true, false, Attribute::ReadOnly, },
+  {  OC::CBufferLoadLegacy,       "CBufferLoadLegacy",        OCC::CBufferLoadLegacy,        "cbufferLoadLegacy",          false,  true,  true,  true, false, false,  true,  true,  true, Attribute::ReadOnly, },
 
   // Resources - sample                                                                                                     void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::Sample,                  "Sample",                   OCC::Sample,                   "sample",                     false,  true,  true, false, false, false, false, false, false, Attribute::ReadOnly, },
@@ -246,6 +246,10 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // Graphics shader                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::ViewID,                  "ViewID",                   OCC::ViewID,                   "viewID",                     false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
+
+  // Resources                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::RawBufferLoad,           "RawBufferLoad",            OCC::RawBufferLoad,            "rawBufferLoad",              false,  true,  true, false, false, false,  true,  true, false, Attribute::ReadOnly, },
+  {  OC::RawBufferStore,          "RawBufferStore",           OCC::RawBufferStore,           "rawBufferStore",             false,  true,  true, false, false, false,  true,  true, false, Attribute::None,     },
 };
 // OPCODE-OLOADS:END
 
@@ -736,6 +740,10 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
 
     // Graphics shader
   case OpCode::ViewID:                 A(pI32);     A(pI32); break;
+
+    // Resources
+  case OpCode::RawBufferLoad:          RRT(pETy);   A(pI32); A(pRes); A(pI32); A(pI32); A(pI8);  A(pI32); break;
+  case OpCode::RawBufferStore:         A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -803,6 +811,10 @@ bool OP::UseMinPrecision() {
   return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
 }
 
+uint64_t OP::GetAllocSizeForType(llvm::Type *Ty) {
+  return m_pModule->getDataLayout().getTypeAllocSize(Ty);
+}
+
 llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   DXASSERT(F, "not work on nullptr");
   Type *Ty = F->getReturnType();
@@ -817,6 +829,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::StoreOutput:
   case OpCode::BufferStore:
   case OpCode::StorePatchConstant:
+  case OpCode::RawBufferStore:
     DXASSERT_NOMSG(FT->getNumParams() > 4);
     return FT->getParamType(4);
   case OpCode::IsNaN:
@@ -902,6 +915,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::BufferLoad:
   case OpCode::TextureGather:
   case OpCode::TextureGatherCmp:
+  case OpCode::RawBufferLoad:
   {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
@@ -941,6 +955,14 @@ Type *OP::GetInt4Type() const {
   return m_pInt4Type;
 }
 
+bool OP::IsResRetType(llvm::Type *Ty) {
+  for (Type *ResTy : m_pResRetType) {
+    if (Ty == ResTy)
+      return true;
+  }
+  return false;
+}
+
 Type *OP::GetResRetType(Type *pOverloadType) {
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
 
@@ -960,11 +982,13 @@ Type *OP::GetCBufferRetType(Type *pOverloadType) {
   if (m_pCBufferRetType[TypeSlot] == nullptr) {
     string TypeName("dx.types.CBufRet.");
     TypeName += GetOverloadTypeName(TypeSlot);
-    if (pOverloadType->isDoubleTy()) {
+    Type *i64Ty = Type::getInt64Ty(pOverloadType->getContext());
+    Type *i16Ty = Type::getInt16Ty(pOverloadType->getContext());
+    if (pOverloadType->isDoubleTy() || pOverloadType == i64Ty) {
       Type *FieldTypes[2] = { pOverloadType, pOverloadType };
       m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
     }
-    else if (!UseMinPrecision() && pOverloadType->isHalfTy()) {
+    else if (!UseMinPrecision() && (pOverloadType->isHalfTy() || pOverloadType == i16Ty)) {
       TypeName += ".8"; // dx.types.CBufRet.fp16.8 for buffer of 8 halves
       Type *FieldTypes[8] = {
           pOverloadType, pOverloadType, pOverloadType, pOverloadType,

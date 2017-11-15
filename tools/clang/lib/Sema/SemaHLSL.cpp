@@ -1068,6 +1068,13 @@ static const ArBasicKind g_UInt3264CT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_HalfCT[] =
+{
+  AR_BASIC_FLOAT16,
+  AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_UNKNOWN
+};
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind* g_LegalIntrinsicCompTypes[] =
 {
@@ -1097,7 +1104,8 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_StringCT,           // LICOMPTYPE_STRING
   g_WaveCT,             // LICOMPTYPE_WAVE
   g_UInt64CT,           // LICOMPTYPE_UINT64
-  g_UInt3264CT          // LICOMPTYPE_UINT32_64
+  g_UInt3264CT,         // LICOMPTYPE_UINT32_64
+  g_HalfCT              // LICOMPTYPE_HALF
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
 
@@ -3039,26 +3047,63 @@ public:
     // TODO: enalbe this once we introduce precise master option
     bool UseMinPrecision = m_context->getLangOpts().UseMinPrecision;
     if (type == HLSLScalarType_int_min12) {
-      const char *PromotedType = "min16int"; // TODO: print int16 once we support true int16/uint16 support.
-      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min12int" << PromotedType;
-    }
-    else if (type == HLSLScalarType_float_min10) {
-      const char *PromotedType = UseMinPrecision ? "min16float": "half";
-      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << PromotedType;
+      const char *PromotedType =
+          UseMinPrecision ? HLSLScalarTypeNames[HLSLScalarType_int_min16]
+                          : HLSLScalarTypeNames[HLSLScalarType_int16];
+      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+          << HLSLScalarTypeNames[type] << PromotedType;
+    } else if (type == HLSLScalarType_float_min10) {
+      const char *PromotedType =
+          UseMinPrecision ? HLSLScalarTypeNames[HLSLScalarType_float_min16]
+                          : HLSLScalarTypeNames[HLSLScalarType_float16];
+      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+          << HLSLScalarTypeNames[type] << PromotedType;
     }
     if (!UseMinPrecision) {
       if (type == HLSLScalarType_float_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16float" << "half";
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << HLSLScalarTypeNames[type]
+            << HLSLScalarTypeNames[HLSLScalarType_float16];
+      } else if (type == HLSLScalarType_int_min16) {
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << HLSLScalarTypeNames[type]
+            << HLSLScalarTypeNames[HLSLScalarType_int16];
+      } else if (type == HLSLScalarType_uint_min16) {
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << HLSLScalarTypeNames[type]
+            << HLSLScalarTypeNames[HLSLScalarType_uint16];
       }
-// TODO: Enable this once we support true int16/uint16 support.
-#if 0
-      else if (type == HLSLScalarType_int_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "int16";
+    }
+  }
+
+  void DiagnoseHLSLScalarType(HLSLScalarType type, SourceLocation Loc) {
+    if (getSema()->getLangOpts().HLSLVersion < 2018) {
+      switch (type) {
+      case HLSLScalarType_float16:
+      case HLSLScalarType_float32:
+      case HLSLScalarType_float64:
+      case HLSLScalarType_int16:
+      case HLSLScalarType_int32:
+      case HLSLScalarType_uint16:
+      case HLSLScalarType_uint32:
+        m_sema->Diag(Loc, diag::err_hlsl_unsupported_keyword_for_version)
+            << HLSLScalarTypeNames[type] << "2018";
+        break;
+      default:
+        break;
       }
-      else if (type == HLSLScalarType_uint_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "uint16";
+    }
+    if (getSema()->getLangOpts().UseMinPrecision) {
+      switch (type) {
+      case HLSLScalarType_float16:
+      case HLSLScalarType_int16:
+      case HLSLScalarType_uint16:
+        m_sema->Diag(Loc, diag::err_hlsl_unsupported_keyword_for_min_precision)
+            << HLSLScalarTypeNames[type];
+        break;
+      default:
+        break;
       }
-#endif
     }
   }
 
@@ -3083,7 +3128,7 @@ public:
     int colCount;
 
     // Try parsing hlsl scalar types that is not initialized at AST time.
-    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
+    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getSema()->getLangOpts())) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
       if (rowCount == 0 && colCount == 0) { // scalar
         TypedefDecl *typeDecl = LookupScalarType(parsedType);
@@ -3290,8 +3335,8 @@ public:
       case BuiltinType::Half: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16FLOAT : AR_BASIC_FLOAT16;
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
-      case BuiltinType::Short: return AR_BASIC_MIN16INT;    // rather than AR_BASIC_INT16
-      case BuiltinType::UShort: return AR_BASIC_MIN16UINT;  // rather than AR_BASIC_UINT16
+      case BuiltinType::Short: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16INT : AR_BASIC_INT16;
+      case BuiltinType::UShort: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16UINT : AR_BASIC_UINT16;
       case BuiltinType::Long: return AR_BASIC_INT32;
       case BuiltinType::ULong: return AR_BASIC_UINT32;
       case BuiltinType::LongLong: return AR_BASIC_INT64;
@@ -3369,8 +3414,8 @@ public:
     case AR_BASIC_LITERAL_INT:    return HLSLScalarType_int_lit;
     case AR_BASIC_INT8:           return HLSLScalarType_int;
     case AR_BASIC_UINT8:          return HLSLScalarType_uint;
-    case AR_BASIC_INT16:          return HLSLScalarType_uint;
-    case AR_BASIC_UINT16:         return HLSLScalarType_uint;
+    case AR_BASIC_INT16:          return HLSLScalarType_int16;
+    case AR_BASIC_UINT16:         return HLSLScalarType_uint16;
     case AR_BASIC_INT32:          return HLSLScalarType_int;
     case AR_BASIC_UINT32:         return HLSLScalarType_uint;
     case AR_BASIC_MIN10FLOAT:     return HLSLScalarType_float_min10;
@@ -3394,15 +3439,15 @@ public:
     case AR_OBJECT_NULL:          return m_context->VoidTy;
     case AR_BASIC_BOOL:           return m_context->BoolTy;
     case AR_BASIC_LITERAL_FLOAT:  return m_context->LitFloatTy;
-    case AR_BASIC_FLOAT16:        return m_context->getLangOpts().UseMinPrecision ? m_context->FloatTy : m_context->HalfTy;
+    case AR_BASIC_FLOAT16:        return m_context->HalfTy;
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->FloatTy;
     case AR_BASIC_FLOAT32:        return m_context->FloatTy;
     case AR_BASIC_FLOAT64:        return m_context->DoubleTy;
     case AR_BASIC_LITERAL_INT:    return m_context->LitIntTy;
     case AR_BASIC_INT8:           return m_context->IntTy;
     case AR_BASIC_UINT8:          return m_context->UnsignedIntTy;
-    case AR_BASIC_INT16:          return m_context->IntTy;
-    case AR_BASIC_UINT16:         return m_context->UnsignedIntTy;
+    case AR_BASIC_INT16:          return m_context->ShortTy;
+    case AR_BASIC_UINT16:         return m_context->UnsignedShortTy;
     case AR_BASIC_INT32:          return m_context->IntTy;
     case AR_BASIC_UINT32:         return m_context->UnsignedIntTy;
     case AR_BASIC_INT64:          return m_context->LongLongTy;
@@ -3555,7 +3600,7 @@ public:
   /// <param name="argCount">After execution, number of arguments in argTypes.</param>
   /// <remarks>On success, argTypes includes the clang Types to use for the signature, with the first being the return type.</remarks>
   bool MatchArguments(
-    _In_ const HLSL_INTRINSIC *pIntrinsic,
+    const _In_ HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement,
     _In_ ArrayRef<Expr *> Args, 
     _Out_writes_(g_MaxIntrinsicParamCount + 1) QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
@@ -4177,6 +4222,24 @@ public:
     }
 
     IntrinsicOp intrinOp = static_cast<IntrinsicOp>(intrinsic->Op);
+
+    if (intrinOp == IntrinsicOp::MOP_LoadHalf ||
+      intrinOp == IntrinsicOp::MOP_LoadHalf2 ||
+      intrinOp == IntrinsicOp::MOP_LoadHalf3 ||
+      intrinOp == IntrinsicOp::MOP_LoadHalf4 ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf2 ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf3 ||
+      intrinOp == IntrinsicOp::MOP_StoreHalf4
+      ) {
+      if (getSema()->getLangOpts().UseMinPrecision) {
+        DXASSERT(Args.size() >= 1, "Otherwise wrong load store call.");
+        getSema()->Diag(
+            Args.front()->getExprLoc(),
+            diag::err_hlsl_half_load_store);
+      }
+    }
+
     if (intrinOp == IntrinsicOp::MOP_SampleBias) {
       // Remove this when update intrinsic table not affect other things.
       // Change vector<float,1> into float for bias.
@@ -4434,8 +4497,15 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
+  m_baseTypes[HLSLScalarType_int16] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_int32] = m_context->IntTy;
   m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
+  m_baseTypes[HLSLScalarType_uint16] = m_context->UnsignedShortTy;
+  m_baseTypes[HLSLScalarType_uint32] = m_context->UnsignedIntTy;
   m_baseTypes[HLSLScalarType_uint64] = m_context->UnsignedLongLongTy;
+  m_baseTypes[HLSLScalarType_float16] = m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_float32] = m_context->FloatTy;
+  m_baseTypes[HLSLScalarType_float64] = m_context->DoubleTy;
 }
 
 void HLSLExternalSource::AddHLSLScalarTypes()
@@ -4903,8 +4973,17 @@ bool HLSLExternalSource::MatchArguments(
       if (pIntrinsic->pArgs[0].uComponentTypeId != INTRIN_COMPTYPE_FROM_TYPE_ELT0) {
         DXASSERT_NOMSG(pIntrinsic->pArgs[0].uComponentTypeId < MaxIntrinsicArgs);
         if (AR_BASIC_UNKNOWN == ComponentType[pIntrinsic->pArgs[0].uComponentTypeId]) {
-          ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
-            g_LegalIntrinsicCompTypes[pIntrinsic->pArgs[0].uLegalComponentTypes][0];
+          // half return type should map to float for min precision
+          if (pIntrinsic->pArgs[0].uLegalComponentTypes ==
+                  LEGAL_INTRINSIC_COMPTYPES::LICOMPTYPE_HALF &&
+              getSema()->getLangOpts().UseMinPrecision) {
+            ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
+              ArBasicKind::AR_BASIC_FLOAT32;
+          }
+          else {
+            ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
+              g_LegalIntrinsicCompTypes[pIntrinsic->pArgs[0].uLegalComponentTypes][0];
+          }
         }
       }
     }
@@ -4934,7 +5013,7 @@ bool HLSLExternalSource::MatchArguments(
 
       if (AR_TOBJ_UNKNOWN == *pTT)
         return false;
-    }
+      }
     else if (pTT) {
       Template[i] = *pTT;
     }
@@ -8940,13 +9019,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     if (const HLSLPatchConstantFuncAttr *Attr =
             pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
       NameLookup NL = GetSingleFunctionDeclByName(self, Attr->getFunctionName(), /*checkPatch*/ true);
-      if (NL.Found && NL.Other) {
-        unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-          "ambiguous patch constant function");
-        Diags.Report(NL.Found->getSourceRange().getBegin(), id);
-        Diags.Report(NL.Other->getLocation(), diag::note_previous_definition);
-        return;
-      }
       if (!NL.Found || !NL.Found->hasBody()) {
         unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
           "missing patch function definition");
@@ -9898,10 +9970,13 @@ static void ValidateAttributeOnSwitchOrIf(Sema& S, Stmt* St, const AttributeList
   }
 }
 
-static StringRef ValidateAttributeStringArg(Sema& S, const AttributeList &A, _In_opt_z_ const char* values)
+static StringRef ValidateAttributeStringArg(Sema& S, const AttributeList &A, _In_opt_z_ const char* values, unsigned index = 0)
 {
   // values is an optional comma-separated list of potential values.
-  Expr* E = A.getArgAsExpr(0);
+  if (A.getNumArgs() <= index)
+    return StringRef();
+
+  Expr* E = A.getArgAsExpr(index);
   if (E->isTypeDependent() || E->isValueDependent() || E->getStmtClass() != Stmt::StringLiteralClass)
   {
     S.Diag(E->getLocStart(), diag::err_hlsl_attribute_expects_string_literal)
@@ -10160,9 +10235,14 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLMaxVertexCount:
-	  declAttr = ::new (S.Context) HLSLMaxVertexCountAttr(A.getRange(), S.Context,
-		  ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
-	  break;
+    declAttr = ::new (S.Context) HLSLMaxVertexCountAttr(A.getRange(), S.Context,
+      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLExperimental:
+    declAttr = ::new (S.Context) HLSLExperimentalAttr(A.getRange(), S.Context,
+      ValidateAttributeStringArg(S, A, nullptr, 0), ValidateAttributeStringArg(S, A, nullptr, 1),
+      A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
@@ -10913,9 +10993,10 @@ bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
     StringRef nameIdentifier = idInfo->getName();
     HLSLScalarType parsedType;
     int rowCount, colCount;
-    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
+    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getLangOpts())) {
       HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
       hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
+      hlslExternalSource->DiagnoseHLSLScalarType(parsedType, R.getNameLoc());
     }
   }
   return true;
@@ -11220,7 +11301,16 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "[shader(\"" << ACast->getStage() << "\")]\n";
     break;
   }
-  
+
+  case clang::attr::HLSLExperimental:
+  {
+    Attr * noconst = const_cast<Attr*>(A);
+    HLSLExperimentalAttr *ACast = static_cast<HLSLExperimentalAttr*>(noconst);
+    Indent(Indentation, Out);
+    Out << "[experimental(\"" << ACast->getName() << "\", \"" << ACast->getValue() << "\")]\n";
+    break;
+  }
+
   case clang::attr::HLSLMaxVertexCount:
   {
     Attr * noconst = const_cast<Attr*>(A);

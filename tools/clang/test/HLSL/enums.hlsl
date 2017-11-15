@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -HV -2017 -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -HV 2017 -fsyntax-only -ffreestanding -verify %s
 
 enum MyEnum {
     ZERO,

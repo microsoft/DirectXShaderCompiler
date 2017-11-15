@@ -251,8 +251,16 @@ public:
   uint32_t createExtInst(uint32_t resultType, uint32_t setId, uint32_t instId,
                          llvm::ArrayRef<uint32_t> operands);
 
-  /// \brief Creates an OpControlBarrier instruction with the given flags.
-  void createControlBarrier(uint32_t exec, uint32_t memory, uint32_t semantics);
+  /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
+  /// given flags. If execution scope id (exec) is non-zero, an OpControlBarrier
+  /// is created; otherwise an OpMemoryBarrier is created.
+  void createBarrier(uint32_t exec, uint32_t memory, uint32_t semantics);
+
+  /// \brief Creates an OpEmitVertex instruction.
+  void createEmitVertex();
+
+  /// \brief Creates an OpEndPrimitive instruction.
+  void createEndPrimitive();
 
   // === SPIR-V Module Structure ===
 
@@ -270,6 +278,9 @@ public:
   /// \brief Adds an execution mode to the module under construction.
   void addExecutionMode(uint32_t entryPointId, spv::ExecutionMode em,
                         llvm::ArrayRef<uint32_t> params);
+
+  /// \brief Adds an extension to the module under construction.
+  inline void addExtension(llvm::StringRef extension);
 
   /// \brief If not added already, adds an OpExtInstImport (import of extended
   /// instruction set) of the GLSL instruction set. Returns the <result-id> for
@@ -406,6 +417,10 @@ void ModuleBuilder::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
                                   std::string targetName,
                                   llvm::ArrayRef<uint32_t> interfaces) {
   theModule.addEntryPoint(em, targetId, std::move(targetName), interfaces);
+}
+
+void ModuleBuilder::addExtension(llvm::StringRef extension) {
+  theModule.addExtension(extension);
 }
 
 } // end namespace spirv

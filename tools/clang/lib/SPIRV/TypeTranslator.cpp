@@ -149,7 +149,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
         case BuiltinType::Double:
           return theBuilder.getFloat64Type();
         default:
-          emitError("Primitive type '%0' is not supported yet.")
+          emitError("primitive type %0 unimplemented")
               << builtinType->getTypeClassName();
           return 0;
         }
@@ -259,7 +259,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                    decorations);
   }
 
-  emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
+  emitError("type %0 unimplemented") << type->getTypeClassName();
   type->dump();
   return 0;
 }
@@ -274,6 +274,32 @@ uint32_t TypeTranslator::getACSBufferCounter() {
 
   return theBuilder.getStructType(i32Type, "type.ACSBuffer.counter", {},
                                   decorations);
+}
+
+uint32_t TypeTranslator::getGlPerVertexStruct(uint32_t clipArraySize,
+                                              uint32_t cullArraySize,
+                                              llvm::StringRef name) {
+  const uint32_t f32Type = theBuilder.getFloat32Type();
+  const uint32_t v4f32Type = theBuilder.getVecType(f32Type, 4);
+  const uint32_t clipType = theBuilder.getArrayType(
+      f32Type, theBuilder.getConstantUint32(clipArraySize));
+  const uint32_t cullType = theBuilder.getArrayType(
+      f32Type, theBuilder.getConstantUint32(cullArraySize));
+
+  auto &ctx = *theBuilder.getSPIRVContext();
+  llvm::SmallVector<const Decoration *, 1> decorations;
+
+  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::Position, 0));
+  decorations.push_back(
+      Decoration::getBuiltIn(ctx, spv::BuiltIn::PointSize, 1));
+  decorations.push_back(
+      Decoration::getBuiltIn(ctx, spv::BuiltIn::ClipDistance, 2));
+  decorations.push_back(
+      Decoration::getBuiltIn(ctx, spv::BuiltIn::CullDistance, 3));
+  decorations.push_back(Decoration::getBlock(ctx));
+
+  return theBuilder.getStructType({v4f32Type, f32Type, clipType, cullType},
+                                  name, {}, decorations);
 }
 
 bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
@@ -739,7 +765,7 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
       }
     }
   }
-  emitError("Unimplemented resource result type was used.");
+  emitError("resource type %0 unimplemented") << sampledType.getAsString();
   return spv::ImageFormat::Unknown;
 }
 
@@ -815,7 +841,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
         case BuiltinType::Float:
           return {4, 4};
         default:
-          emitError("Primitive type '%0' is not supported yet.")
+          emitError("primitive type %0 unimplemented")
               << builtinType->getTypeClassName();
           return {0, 0};
         }
@@ -859,6 +885,11 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
   // Rule 9
   if (const auto *structType = type->getAs<RecordType>()) {
+    // Special case for handling empty structs, whose size is 0 and has no
+    // requirement over alignment (thus 1).
+    if (structType->getDecl()->field_empty())
+      return {1, 0};
+
     uint32_t maxAlignment = 0;
     uint32_t structSize = 0;
 
@@ -908,7 +939,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     return {alignment, size};
   }
 
-  emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
+  emitError("type %0 unimplemented") << type->getTypeClassName();
   return {0, 0};
 }
 

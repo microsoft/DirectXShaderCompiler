@@ -81,6 +81,8 @@ namespace DXIL {
   const float kMaxMipLodBias = 15.99f;
   const float kMinMipLodBias = -16.0f;
 
+  const unsigned kResRetStatusIndex = 4;
+
   enum class ComponentType : uint8_t { 
     Invalid = 0,
     I1, I16, U16, I32, U32, I64, U64,
@@ -216,10 +218,10 @@ namespace DXIL {
   };
   // PackingKind-ENUM:END
 
-  /* <py::lines('FPDenormMode-ENUM')>hctdb_instrhelp.get_enum_decl("FPDenormMode", hide_val=False, sort_val=False)</py>*/
+  /* <py::lines('FPDenormMode-ENUM')>hctdb_instrhelp.get_enum_decl("Float32DenormMode", hide_val=False, sort_val=False)</py>*/
   // FPDenormMode-ENUM:BEGIN
-  // Floating point behavior
-  enum class FPDenormMode : unsigned {
+  // float32 denorm behavior
+  enum class Float32DenormMode : unsigned {
     Any = 0, // Undefined behavior for denormal numbers
     Preserve = 1, // Preserve both input and output
     FTZ = 2, // Preserve denormal inputs. Flush denorm outputs
@@ -393,6 +395,8 @@ namespace DXIL {
     CheckAccessFullyMapped = 71, // determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
     CreateHandle = 57, // creates the handle to a resource
     GetDimensions = 72, // gets texture size information
+    RawBufferLoad = 139, // reads from a raw buffer and structured buffer
+    RawBufferStore = 140, // writes to a RWByteAddressBuffer or RWStructuredBuffer
     TextureLoad = 66, // reads texel data without any filtering or sampling
     TextureStore = 67, // reads texel data without any filtering or sampling
   
@@ -475,8 +479,9 @@ namespace DXIL {
   
     NumOpCodes_Dxil_1_0 = 137,
     NumOpCodes_Dxil_1_1 = 139,
+    NumOpCodes_Dxil_1_2 = 141,
   
-    NumOpCodes = 139 // exclusive last value of enumeration
+    NumOpCodes = 141 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -589,6 +594,8 @@ namespace DXIL {
     CheckAccessFullyMapped,
     CreateHandle,
     GetDimensions,
+    RawBufferLoad,
+    RawBufferStore,
     TextureLoad,
     TextureStore,
   
@@ -633,8 +640,9 @@ namespace DXIL {
   
     NumOpClasses_Dxil_1_0 = 93,
     NumOpClasses_Dxil_1_1 = 95,
+    NumOpClasses_Dxil_1_2 = 97,
   
-    NumOpClasses = 95 // exclusive last value of enumeration
+    NumOpClasses = 97 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -684,6 +692,24 @@ namespace DXIL {
     const unsigned kBufferStoreVal2OpIdx = 6;
     const unsigned kBufferStoreVal3OpIdx = 7;
     const unsigned kBufferStoreMaskOpIdx = 8;
+
+    // RawBufferLoad.
+    const unsigned kRawBufferLoadHandleOpIdx        = 1;
+    const unsigned kRawBufferLoadIndexOpIdx         = 2;
+    const unsigned kRawBufferLoadElementOffsetOpIdx = 3;
+    const unsigned kRawBufferLoadMaskOpIdx          = 4;
+    const unsigned kRawBufferLoadAlignmentOpIdx     = 5;
+
+    // RawBufferStore
+    const unsigned kRawBufferStoreHandleOpIdx = 1;
+    const unsigned kRawBufferStoreIndexOpIdx = 2;
+    const unsigned kRawBufferStoreElementOffsetOpIdx = 3;
+    const unsigned kRawBufferStoreVal0OpIdx = 4;
+    const unsigned kRawBufferStoreVal1OpIdx = 5;
+    const unsigned kRawBufferStoreVal2OpIdx = 6;
+    const unsigned kRawBufferStoreVal3OpIdx = 7;
+    const unsigned kRawBufferStoreMaskOpIdx = 8;
+    const unsigned kRawBufferStoreAlignmentOpIdx = 8;
 
     // TextureStore.
     const unsigned kTextureStoreHandleOpIdx = 1;
@@ -938,6 +964,13 @@ namespace DXIL {
 
   // New data layout with native low precision types
   static const char* kNewLayoutString = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64";
+
+  // Function Attributes
+  // TODO: consider generating attributes from hctdb
+  static const char* kFP32DenormKindString          = "fp32-denorm-mode";
+  static const char* kFP32DenormValueAnyString      = "any";
+  static const char* kFP32DenormValuePreserveString = "preserve";
+  static const char* kFP32DenormValueFtzString      = "ftz";
 
 } // namespace DXIL
 

@@ -252,15 +252,26 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  opts.HLSL2015 = opts.HLSL2016 = opts.HLSL2017 = false;
-  if (ver.empty() || ver == "2016") { opts.HLSL2016 = true; }   // Default to 2016
-  else if           (ver == "2015") { opts.HLSL2015 = true; }
-  else if           (ver == "2017") { opts.HLSL2017 = true; }
+  if (ver.empty()) { opts.HLSLVersion = 2016; }   // Default to 2016
   else {
-    errors << "Unknown HLSL version";
-    return 1;
+    try {
+      opts.HLSLVersion = std::stoul(std::string(ver));
+      if (opts.HLSLVersion < 2015 || opts.HLSLVersion > 2018) {
+        errors << "Unknown HLSL version: " << opts.HLSLVersion;
+        return 1;
+      }
+    }
+    catch (const std::invalid_argument &) {
+      errors << "Invalid HLSL Version";
+      return 1;
+    }
+    catch (const std::out_of_range &) {
+      errors << "Invalid HLSL Version";
+      return 1;
+    }
   }
-  if (opts.HLSL2015 && !(flagsToInclude & HlslFlags::ISenseOption)) {
+
+  if (opts.HLSLVersion == 2015 && !(flagsToInclude & HlslFlags::ISenseOption)) {
     errors << "HLSL Version 2015 is only supported for language services";
     return 1;
   }
@@ -270,7 +281,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
   opts.DebugFile = Args.getLastArgValue(OPT_Fd);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
-  opts.NoMinPrecision = Args.hasFlag(OPT_no_min_precision, OPT_INVALID, false);
+  opts.Enable16BitTypes = Args.hasFlag(OPT_enable_16bit_types, OPT_INVALID, false);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
   opts.OutputHeader = Args.getLastArgValue(OPT_Fh);
   opts.OutputWarningsFile = Args.getLastArgValue(OPT_Fe);
@@ -303,31 +314,32 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   opts.IgnoreLineDirectives = Args.hasFlag(OPT_ignore_line_directives, OPT_INVALID, false);
 
-  opts.FPDenormalMode = Args.getLastArgValue(OPT_denorm);
+  opts.FloatDenormalMode = Args.getLastArgValue(OPT_denorm);
   // Check if a given denormalized value is valid
-  if (!opts.FPDenormalMode.empty()) {
-    if (!(opts.FPDenormalMode.equals_lower("preserve") ||
-          opts.FPDenormalMode.equals_lower("ftz") ||
-          opts.FPDenormalMode.equals_lower("any"))) {
-      errors << "Unsupported value '" << opts.FPDenormalMode
+  if (!opts.FloatDenormalMode.empty()) {
+    if (!(opts.FloatDenormalMode.equals_lower("preserve") ||
+          opts.FloatDenormalMode.equals_lower("ftz") ||
+          opts.FloatDenormalMode.equals_lower("any"))) {
+      errors << "Unsupported value '" << opts.FloatDenormalMode
           << "' for denorm option.";
       return 1;
     }
   }
 
-  // Check options only allowed in shader model >= 6.2
+  // Check options only allowed in shader model >= 6.2FPDenormalMode
   if (opts.TargetProfile.empty() || !opts.TargetProfile.endswith_lower("6_2")) {
-    if (!opts.FPDenormalMode.empty()) {
+    if (!opts.FloatDenormalMode.empty()) {
       errors << "denorm option is only allowed for shader model 6.2 and above.";
       return 1;
     }
-    if (opts.NoMinPrecision) {
-      errors << "no min precision mode is only allowed for shader model 6.2 and above.";
+    if (opts.Enable16BitTypes) {
+      errors << "enable-16bit-types is only allowed for shader model 6.2 and above.";
       return 1;
     }
   }
 
-  if (Arg *A = Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3)) {
+  opts.DisableOptimizations = false;
+  if (Arg *A = Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3, OPT_Od)) {
     if (A->getOption().matches(OPT_O0))
       opts.OptLevel = 0;
     if (A->getOption().matches(OPT_O1))
@@ -336,14 +348,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       opts.OptLevel = 2;
     if (A->getOption().matches(OPT_O3))
       opts.OptLevel = 3;
+    if (A->getOption().matches(OPT_Od)) {
+      opts.DisableOptimizations = true;
+      opts.OptLevel = 0;
+    }
   }
   else
     opts.OptLevel = 3;
   opts.OptDump = Args.hasFlag(OPT_Odump, OPT_INVALID, false);
-
-  opts.DisableOptimizations = Args.hasFlag(OPT_Od, OPT_INVALID, false);
-  if (opts.DisableOptimizations)
-    opts.OptLevel = 0;
 
   opts.DisableValidation = Args.hasFlag(OPT_VD, OPT_INVALID, false);
 

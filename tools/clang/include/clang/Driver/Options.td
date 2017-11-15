@@ -678,8 +678,8 @@ def fmsc_version : Joined<["-"], "fmsc-version=">, Group<f_Group>, Flags<[Driver
   HelpText<"Microsoft compiler version number to report in _MSC_VER (0 = don't define it (default))">;
 def hlsl_version : Separate<["-", "/"], "HV">, Group<f_Group>, Flags<[DriverOption, CoreOption, CC1Option]>,
   HelpText<"HLSL version (2015, 2016, 2017)">; // HLSL Change - mimic the HLSLOptions.td flag
-def no_min_precision : Flag<["-", "/"], "no-min-precision">, Group<f_Group>, Flags<[CoreOption, DriverOption, HelpHidden, CC1Option]>,
-  HelpText<"Do not use min precision but use strict precision types.">; // HLSL Change - mimic the HLSLOptions.td flag
+def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Enable 16bit types and disable min precision types.">; // HLSL Change - mimic the HLSLOptions.td flag
 def fms_compatibility_version
     : Joined<["-"], "fms-compatibility-version=">,
       Group<f_Group>,
@@ -1278,7 +1278,7 @@ def munaligned_access : Flag<["-"], "munaligned-access">, Group<m_arm_Features_G
   HelpText<"Allow memory accesses to be unaligned (AArch32/AArch64 only)">;
 def mno_unaligned_access : Flag<["-"], "mno-unaligned-access">, Group<m_arm_Features_Group>,
   HelpText<"Force all memory accesses to be aligned (AArch32/AArch64 only)">;
-def mstrict_align : Flag<["-"], "mstrict-align">, Alias<mno_unaligned_access>, Flags<[CC1Option,HelpHidden]>,
+def mstrict_align : Flag<["-"], "mstrict-align">, Alias<mno_unaligned_access>, Flags<[CC1Option]>,
   HelpText<"Force all memory accesses to be aligned (same as mno-unaligned-access)">;
 def mno_thumb : Flag<["-"], "mno-thumb">, Group<m_arm_Features_Group>;
 def mrestrict_it: Flag<["-"], "mrestrict-it">, Group<m_arm_Features_Group>,

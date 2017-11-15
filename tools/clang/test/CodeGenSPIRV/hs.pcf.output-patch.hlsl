@@ -5,25 +5,19 @@
 // Test: PCF takes the output (OutputPatch) of the main entry point function.
 
 
-// CHECK: OpEntryPoint TessellationControl %main "main" {{%\w+}} {{%\w+}} {{%\w+}} %out_var_hullEntryPointOutput {{%\w+}}
-
 // CHECK:               %_arr_BEZIER_CONTROL_POINT_uint_16 = OpTypeArray %BEZIER_CONTROL_POINT %uint_16
-// CHECK:   %_ptr_Output__arr_BEZIER_CONTROL_POINT_uint_16 = OpTypePointer Output %_arr_BEZIER_CONTROL_POINT_uint_16
 // CHECK: %_ptr_Function__arr_BEZIER_CONTROL_POINT_uint_16 = OpTypePointer Function %_arr_BEZIER_CONTROL_POINT_uint_16
 // CHECK:                                   [[fType:%\d+]] = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT %_ptr_Function__arr_BEZIER_CONTROL_POINT_uint_16
-// CHECK:                    %out_var_hullEntryPointOutput = OpVariable %_ptr_Output__arr_BEZIER_CONTROL_POINT_uint_16 Output
 
-// CHECK:                             %main = OpFunction %void None {{%\d+}}
-// CHECK:    %temp_var_hullEntryPointOutput = OpVariable %_ptr_Function__arr_BEZIER_CONTROL_POINT_uint_16 Function
+// CHECK:                    %main = OpFunction %void None {{%\d+}}
+// CHECK: %temp_var_hullMainRetVal = OpVariable %_ptr_Function__arr_BEZIER_CONTROL_POINT_uint_16 Function
 
 // CHECK:              [[id:%\d+]] = OpLoad %uint %gl_InvocationID
 // CHECK:      [[mainResult:%\d+]] = OpFunctionCall %BEZIER_CONTROL_POINT %src_main %param_var_ip %param_var_i %param_var_PatchID
-// CHECK-NEXT:  [[outputLoc:%\d+]] = OpAccessChain %_ptr_Output_BEZIER_CONTROL_POINT %out_var_hullEntryPointOutput [[id]]
-// CHECK-NEXT:                       OpStore [[outputLoc]] [[mainResult]]
-// CHECK-NEXT:    [[tempLoc:%\d+]] = OpAccessChain %_ptr_Function_BEZIER_CONTROL_POINT %temp_var_hullEntryPointOutput [[id]]
-// CHECK-NEXT:                       OpStore [[tempLoc]] [[mainResult]]
+// CHECK:             [[loc:%\d+]] = OpAccessChain %_ptr_Function_BEZIER_CONTROL_POINT %temp_var_hullMainRetVal [[id]]
+// CHECK:                            OpStore [[loc]] [[mainResult]]
 
-// CHECK:                 {{%\d+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %PCF %temp_var_hullEntryPointOutput
+// CHECK:                 {{%\d+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %PCF %temp_var_hullMainRetVal
 
 // CHECK:      %PCF = OpFunction %HS_CONSTANT_DATA_OUTPUT None [[fType]]
 // CHECK-NEXT:  %op = OpFunctionParameter %_ptr_Function__arr_BEZIER_CONTROL_POINT_uint_16

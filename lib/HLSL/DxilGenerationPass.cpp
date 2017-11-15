@@ -37,6 +37,7 @@
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <memory>
 #include <unordered_set>
+#include <iterator>
 
 using namespace llvm;
 using namespace hlsl;
@@ -1832,3 +1833,282 @@ ModulePass *llvm::createDxilLegalizeEvalOperationsPass() {
 INITIALIZE_PASS(DxilLegalizeEvalOperations,
                 "hlsl-dxil-legalize-eval-operations",
                 "DXIL legalize eval operations", false, false)
+
+///////////////////////////////////////////////////////////////////////////////
+// Translate RawBufferLoad/RawBufferStore
+// This pass is to make sure that we generate correct buffer load for DXIL
+// For DXIL < 1.2, rawBufferLoad will be translated to BufferLoad instruction
+// without mask.
+// For DXIL >= 1.2, if min precision is enabled, currently generation pass is
+// producing i16/f16 return type for min precisions. For rawBuffer, we will
+// change this so that min precisions are returning its actual scalar type (i32/f32)
+// and will be truncated to their corresponding types after loading / before storing.
+namespace {
+
+class DxilTranslateRawBuffer : public ModulePass {
+public:
+  static char ID;
+  explicit DxilTranslateRawBuffer() : ModulePass(ID) {}
+  bool runOnModule(Module &M) {
+    unsigned major, minor;
+    M.GetDxilModule().GetDxilVersion(major, minor);
+    DxilModule::ShaderFlags flag = M.GetDxilModule().m_ShaderFlags;
+    if (major == 1 && minor < 2) {
+      for (auto F = M.functions().begin(), E = M.functions().end(); F != E;) {
+        Function *func = &*(F++);
+        if (func->hasName()) {
+          if (func->getName().startswith("dx.op.rawBufferLoad")) {
+            ReplaceRawBufferLoad(func, M);
+            func->eraseFromParent();
+          } else if (func->getName().startswith("dx.op.rawBufferStore")) {
+            ReplaceRawBufferStore(func, M);
+            func->eraseFromParent();
+          }
+        }
+      }
+    } else if (!flag.GetUseNativeLowPrecision()) {
+      for (auto F = M.functions().begin(), E = M.functions().end(); F != E;) {
+        Function *func = &*(F++);
+        if (func->hasName()) {
+          if (func->getName().startswith("dx.op.rawBufferLoad")) {
+            ReplaceMinPrecisionRawBufferLoad(func, M);
+          } else if (func->getName().startswith("dx.op.rawBufferStore")) {
+            ReplaceMinPrecisionRawBufferStore(func, M);
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+private:
+  // Replace RawBufferLoad/Store to BufferLoad/Store for DXIL < 1.2
+  void ReplaceRawBufferLoad(Function *F, Module &M);
+  void ReplaceRawBufferStore(Function *F, Module &M);
+  // Replace RawBufferLoad/Store of min-precision types to have its actual storage size
+  void ReplaceMinPrecisionRawBufferLoad(Function *F, Module &M);
+  void ReplaceMinPrecisionRawBufferStore(Function *F, Module &M);
+  void ReplaceMinPrecisionRawBufferLoadByType(Function *F, Type *FromTy,
+                                              Type *ToTy, OP *Op,
+                                              const DataLayout &DL);
+};
+} // namespace
+
+void DxilTranslateRawBuffer::ReplaceRawBufferLoad(Function *F,
+                                                                Module &M) {
+  OP *op = M.GetDxilModule().GetOP();
+  Type *RTy = F->getReturnType();
+  if (StructType *STy = dyn_cast<StructType>(RTy)) {
+    Type *ETy = STy->getElementType(0);
+    Function *newFunction = op->GetOpFunc(hlsl::DXIL::OpCode::BufferLoad, ETy);
+    for (auto U = F->user_begin(), E = F->user_end(); U != E;) {
+      User *user = *(U++);
+      if (CallInst *CI = dyn_cast<CallInst>(user)) {
+        IRBuilder<> Builder(CI);
+        SmallVector<Value *, 4> args;
+        args.emplace_back(op->GetI32Const((unsigned)DXIL::OpCode::BufferLoad));
+        for (unsigned i = 1; i < 4; ++i) {
+          args.emplace_back(CI->getArgOperand(i));
+        }
+        CallInst *newCall = Builder.CreateCall(newFunction, args);
+        CI->replaceAllUsesWith(newCall);
+        CI->eraseFromParent();
+      } else {
+        DXASSERT(false, "function can only be used with call instructions.");
+      }
+    }
+  } else {
+    DXASSERT(false, "RawBufferLoad should return struct type.");
+  }
+}
+
+void DxilTranslateRawBuffer::ReplaceRawBufferStore(Function *F,
+  Module &M) {
+  OP *op = M.GetDxilModule().GetOP();
+  Type *RTy = F->getReturnType();
+  DXASSERT(RTy->isVoidTy(), "rawBufferStore should return a void type.");
+  Type *ETy = F->getFunctionType()->getParamType(4); // value
+  Function *newFunction = op->GetOpFunc(hlsl::DXIL::OpCode::BufferStore, ETy);
+  for (auto U = F->user_begin(), E = F->user_end(); U != E;) {
+    User *user = *(U++);
+    if (CallInst *CI = dyn_cast<CallInst>(user)) {
+      IRBuilder<> Builder(CI);
+      SmallVector<Value *, 4> args;
+      args.emplace_back(op->GetI32Const((unsigned)DXIL::OpCode::BufferStore));
+      for (unsigned i = 1; i < 9; ++i) {
+        args.emplace_back(CI->getArgOperand(i));
+      }
+      Builder.CreateCall(newFunction, args);
+      CI->eraseFromParent();
+    }
+    else {
+      DXASSERT(false, "function can only be used with call instructions.");
+    }
+  }
+}
+
+void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferLoad(Function *F,
+                                                              Module &M) {
+  OP *Op = M.GetDxilModule().GetOP();
+  Type *RetTy = F->getReturnType();
+  if (StructType *STy = dyn_cast<StructType>(RetTy)) {
+    Type *EltTy = STy->getElementType(0);
+    if (EltTy->isHalfTy()) {
+      ReplaceMinPrecisionRawBufferLoadByType(F, Type::getHalfTy(M.getContext()),
+                                             Type::getFloatTy(M.getContext()),
+                                             Op, M.getDataLayout());
+    } else if (EltTy == Type::getInt16Ty(M.getContext())) {
+      ReplaceMinPrecisionRawBufferLoadByType(
+          F, Type::getInt16Ty(M.getContext()), Type::getInt32Ty(M.getContext()),
+          Op, M.getDataLayout());
+    }
+  } else {
+    DXASSERT(false, "RawBufferLoad should return struct type.");
+  }
+}
+
+void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferStore(Function *F,
+                                                              Module &M) {
+  Type *RetTy = F->getReturnType();
+  DXASSERT(RetTy->isVoidTy(), "rawBufferStore should return a void type.");
+  Type *ETy = F->getFunctionType()->getParamType(4); // value
+  Type *NewETy;
+  if (ETy->isHalfTy()) {
+    NewETy = Type::getFloatTy(M.getContext());
+  }
+  else if (ETy == Type::getInt16Ty(M.getContext())) {
+    NewETy = Type::getInt32Ty(M.getContext());
+  }
+  else {
+    return; // not a min precision type
+  }
+  Function *newFunction = M.GetDxilModule().GetOP()->GetOpFunc(
+      DXIL::OpCode::RawBufferStore, NewETy);
+  // for each function
+  // add argument 4-7 to its upconverted values
+  // replace function call
+  for (auto FuncUser = F->user_begin(), FuncEnd = F->user_end(); FuncUser != FuncEnd;) {
+    CallInst *CI = dyn_cast<CallInst>(*(FuncUser++));
+    DXASSERT(CI, "function user must be a call instruction.");
+    IRBuilder<> CIBuilder(CI);
+    SmallVector<Value *, 9> Args;
+    for (unsigned i = 0; i < 4; ++i) {
+      Args.emplace_back(CI->getArgOperand(i));
+    }
+    // values to store should be converted to its higher precision types
+    if (ETy->isHalfTy()) {
+      for (unsigned i = 4; i < 8; ++i) {
+        Value *NewV = CIBuilder.CreateFPExt(CI->getArgOperand(i),
+                                            Type::getFloatTy(M.getContext()));
+        Args.emplace_back(NewV);
+      }
+    }
+    else if (ETy == Type::getInt16Ty(M.getContext())) {
+      // This case only applies to typed buffer since Store operation of byte
+      // address buffer for min precision is handled by implicit conversion on
+      // intrinsic call. Since we are extending integer, we have to know if we
+      // should sign ext or zero ext. We can do this by iterating checking the
+      // size of the element at struct type and comp type at type annotation
+      CallInst *handleCI = dyn_cast<CallInst>(CI->getArgOperand(1));
+      DXASSERT(handleCI, "otherwise handle was not an argument to buffer store.");
+      ConstantInt *resClass = dyn_cast<ConstantInt>(handleCI->getArgOperand(1));
+      DXASSERT(resClass && resClass->getSExtValue() ==
+                               (unsigned)DXIL::ResourceClass::UAV,
+               "otherwise buffer store called on non uav kind.");
+      ConstantInt *rangeID = dyn_cast<ConstantInt>(handleCI->getArgOperand(2)); // range id or idx?
+      DXASSERT(rangeID, "wrong createHandle call.");
+      DxilResource dxilRes = M.GetDxilModule().GetUAV(rangeID->getSExtValue());
+      StructType *STy = dyn_cast<StructType>(dxilRes.GetRetType());
+      DxilStructAnnotation *SAnnot = M.GetDxilModule().GetTypeSystem().GetStructAnnotation(STy);
+      ConstantInt *offsetInt = dyn_cast<ConstantInt>(CI->getArgOperand(3));
+      unsigned offset = offsetInt->getSExtValue();
+      unsigned currentOffset = 0;
+      for (DxilStructTypeIterator iter = begin(STy, SAnnot), ItEnd = end(STy, SAnnot); iter != ItEnd; ++iter) {
+        std::pair<Type *, DxilFieldAnnotation*> pair = *iter;
+        currentOffset += M.getDataLayout().getTypeAllocSize(pair.first);
+        if (currentOffset > offset) {
+          if (pair.second->GetCompType().IsUIntTy()) {
+            for (unsigned i = 4; i < 8; ++i) {
+              Value *NewV = CIBuilder.CreateZExt(CI->getArgOperand(i), Type::getInt32Ty(M.getContext()));
+              Args.emplace_back(NewV);
+            }
+            break;
+          }
+          else if (pair.second->GetCompType().IsIntTy()) {
+            for (unsigned i = 4; i < 8; ++i) {
+              Value *NewV = CIBuilder.CreateSExt(CI->getArgOperand(i), Type::getInt32Ty(M.getContext()));
+              Args.emplace_back(NewV);
+            }
+            break;
+          }
+          else {
+            DXASSERT(false, "Invalid comp type");
+          }
+        }
+      }
+    }
+
+    // mask
+    Args.emplace_back(CI->getArgOperand(8));
+    // alignment
+    Args.emplace_back(M.GetDxilModule().GetOP()->GetI32Const(
+        M.getDataLayout().getTypeAllocSize(NewETy)));
+    CIBuilder.CreateCall(newFunction, Args);
+    CI->eraseFromParent();
+   }
+}
+
+
+void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferLoadByType(
+    Function *F, Type *FromTy, Type *ToTy, OP *Op, const DataLayout &DL) {
+  Function *newFunction = Op->GetOpFunc(DXIL::OpCode::RawBufferLoad, ToTy);
+  for (auto FUser = F->user_begin(), FEnd = F->user_end(); FUser != FEnd;) {
+    User *UserCI = *(FUser++);
+    if (CallInst *CI = dyn_cast<CallInst>(UserCI)) {
+      IRBuilder<> CIBuilder(CI);
+      SmallVector<Value *, 5> newFuncArgs;
+      // opcode, handle, index, elementOffset, mask
+      // Compiler is generating correct element offset even for min precision types
+      // So no need to recalculate here
+      for (unsigned i = 0; i < 5; ++i) {
+        newFuncArgs.emplace_back(CI->getArgOperand(i));
+      }
+      // new alignment for new type
+      newFuncArgs.emplace_back(Op->GetI32Const(DL.getTypeAllocSize(ToTy)));
+      CallInst *newCI = CIBuilder.CreateCall(newFunction, newFuncArgs);
+      for (auto CIUser = CI->user_begin(), CIEnd = CI->user_end();
+           CIUser != CIEnd;) {
+        User *UserEV = *(CIUser++);
+        if (ExtractValueInst *EV = dyn_cast<ExtractValueInst>(UserEV)) {
+          IRBuilder<> EVBuilder(EV);
+          ArrayRef<unsigned> Indices = EV->getIndices();
+          DXASSERT(Indices.size() == 1, "Otherwise we have wrong extract value.");
+          Value *newEV = EVBuilder.CreateExtractValue(newCI, Indices);
+          Value *newTruncV;
+          if (4 == Indices[0]) { // Don't truncate status
+            newTruncV = newEV;
+          }
+          else if (FromTy->isHalfTy()) {
+            newTruncV = EVBuilder.CreateFPTrunc(newEV, FromTy);
+          } else if (FromTy->isIntegerTy()) {
+            newTruncV = EVBuilder.CreateTrunc(newEV, FromTy);
+          } else {
+            DXASSERT(false, "unexpected type conversion");
+          }
+          EV->replaceAllUsesWith(newTruncV);
+          EV->eraseFromParent();
+        }
+      }
+      CI->eraseFromParent();
+    }
+  }
+  F->eraseFromParent();
+}
+
+char DxilTranslateRawBuffer::ID = 0;
+ModulePass *llvm::createDxilTranslateRawBuffer() {
+  return new DxilTranslateRawBuffer();
+}
+
+INITIALIZE_PASS(DxilTranslateRawBuffer, "hlsl-translate-dxil-raw-buffer",
+                "Translate raw buffer load", false, false)

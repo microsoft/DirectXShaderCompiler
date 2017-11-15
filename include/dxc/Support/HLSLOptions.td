@@ -224,13 +224,13 @@ def pack_prefix_stable : Flag<["-", "/"], "pack_prefix_stable">, Group<hlslcomp_
 def pack_optimized : Flag<["-", "/"], "pack_optimized">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Optimize signature packing assuming identical signature provided for each connecting stage">;
 def hlsl_version : Separate<["-", "/"], "HV">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
-  HelpText<"HLSL version (2016, 2017)">;
+  HelpText<"HLSL version (2016, 2017, 2018). Default is 2016">;
 def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Suppress warnings">;
 def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Read root signature from a #define">;
-def no_min_precision: Flag<["-", "/"], "no-min-precision">, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Do not use min precision but use strict precision types.">;
+def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>,
+  HelpText<"Enable 16bit types and disable min precision types.">;
 def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
 // SPIRV Change Starts
