@@ -6398,6 +6398,10 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT* count)
       // Return false for empty struct.
       if (!it.hasCurrentElement())
         return false;
+      // Return false for nest empty struct.
+      if (it.getCurrentElement() == type) {
+        return false;
+      }
       while (it.hasCurrentElement()) {
         bool isFieldNumeric = IsTypeNumeric(it.getCurrentElement(), &subCount);
         if (!isFieldNumeric) {
