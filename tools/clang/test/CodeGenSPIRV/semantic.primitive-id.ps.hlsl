@@ -1,6 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
 
-// CHECK: OpCapability Tessellation
+// CHECK: OpCapability Geometry
 
 // CHECK:      OpEntryPoint Fragment %main "main"
 // CHECK-SAME: %gl_PrimitiveID
