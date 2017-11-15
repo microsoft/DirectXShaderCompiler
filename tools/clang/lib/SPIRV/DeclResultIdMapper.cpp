@@ -507,16 +507,20 @@ private:
 class BindingSet {
 public:
   /// Tries to use the given set and binding number. Returns true if possible,
-  /// false otherwise.
+  /// false otherwise and writes the source location of where the binding number
+  /// is used to *usedLoc.
   bool tryToUseBinding(uint32_t binding, uint32_t set,
-                       ResourceVar::Category category) {
+                       ResourceVar::Category category, SourceLocation tryLoc,
+                       SourceLocation *usedLoc) {
     const auto cat = static_cast<uint32_t>(category);
     // Note that we will create the entry for binding in bindings[set] here.
     // But that should not have bad effects since it defaults to zero.
     if ((usedBindings[set][binding] & cat) == 0) {
       usedBindings[set][binding] |= cat;
+      whereUsed[set][binding] = tryLoc;
       return true;
     }
+    *usedLoc = whereUsed[set][binding];
     return false;
   }
 
@@ -533,6 +537,8 @@ public:
 private:
   ///< set number -> (binding number -> resource category)
   llvm::DenseMap<uint32_t, llvm::DenseMap<uint32_t, uint32_t>> usedBindings;
+  ///< set number -> (binding number -> source location)
+  llvm::DenseMap<uint32_t, llvm::DenseMap<uint32_t, SourceLocation>> whereUsed;
   ///< set number -> next available binding number
   llvm::DenseMap<uint32_t, uint32_t> nextBindings;
 };
@@ -686,7 +692,7 @@ private:
   uint32_t masterShift; /// Shift amount applies to all sets.
   llvm::DenseMap<uint32_t, uint32_t> perSetShift;
 };
-}
+} // namespace
 
 bool DeclResultIdMapper::decorateResourceBindings() {
   // For normal resource, we support 3 approaches of setting binding numbers:
@@ -713,14 +719,18 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   // Tries to decorate the given varId of the given category with set number
   // setNo, binding number bindingNo. Emits error on failure.
   const auto tryToDecorate = [this, &bindingSet, &noError](
-      const uint32_t varId, const uint32_t setNo, const uint32_t bindingNo,
-      const ResourceVar::Category cat, SourceLocation loc) {
-    if (bindingSet.tryToUseBinding(bindingNo, setNo, cat)) {
+                                 const uint32_t varId, const uint32_t setNo,
+                                 const uint32_t bindingNo,
+                                 const ResourceVar::Category cat,
+                                 SourceLocation loc) {
+    SourceLocation prevUseLoc;
+    if (bindingSet.tryToUseBinding(bindingNo, setNo, cat, loc, &prevUseLoc)) {
       theBuilder.decorateDSetBinding(varId, setNo, bindingNo);
     } else {
       emitError("resource binding #%0 in descriptor set #%1 already assigned",
                 loc)
           << bindingNo << setNo;
+      emitNote("binding number previously assigned here", prevUseLoc);
       noError = false;
     }
   };

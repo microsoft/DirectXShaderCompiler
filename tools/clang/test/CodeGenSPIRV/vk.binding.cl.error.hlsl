@@ -23,6 +23,7 @@ float4 main() : SV_Target {
 }
 
 //CHECK: :10:30: error: resource binding #2 in descriptor set #0 already assigned
+//CHECK:   :7:3: note: binding number previously assigned here
 
 //CHECK: :13:29: error: resource binding #2 in descriptor set #0 already assigned
 

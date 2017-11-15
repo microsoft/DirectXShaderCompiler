@@ -291,6 +291,15 @@ private:
     return diags.Report(loc, diagId);
   }
 
+  /// \brief Wrapper method to create a note message and report it
+  /// in the diagnostic engine associated with this consumer.
+  template <unsigned N>
+  DiagnosticBuilder emitNote(const char (&message)[N], SourceLocation loc) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Note, message);
+    return diags.Report(loc, diagId);
+  }
+
   /// \brief Checks whether some semantic is used more than once and returns
   /// true if no such cases. Returns false otherwise.
   bool checkSemanticDuplication(bool forInput);
