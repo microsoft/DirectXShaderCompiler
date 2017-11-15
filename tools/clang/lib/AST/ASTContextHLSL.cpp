@@ -185,38 +185,44 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
     switch (typeLen) {
     case 7: // int16_t, int32_t
       if (typeName[0] == 'i' && typeName[1] == 'n') {
-        if (typeName[3] == '1') {
-          if (strncmp(typeName, "int16_t", 7))
-            break;
-          return HLSLScalarType_int16;
+        if (!langOptions.UseMinPrecision) {
+          if (typeName[3] == '1') {
+            if (strncmp(typeName, "int16_t", 7))
+              break;
+            return HLSLScalarType_int16;
+          }
         }
-        else if (typeName[3] == '3') {
+        if (typeName[3] == '3') {
           if (strncmp(typeName, "int32_t", 7))
             break;
           return HLSLScalarType_int32;
         }
       }
     case 8: // uint16_t, uint32_t
-      if (typeName[0] == 'u' && typeName[1] == 'i') {
-        if (typeName[4] == '1') {
-          if (strncmp(typeName, "uint16_t", 8))
-            break;
-          return HLSLScalarType_uint16;
+      if (!langOptions.UseMinPrecision) {
+        if (typeName[0] == 'u' && typeName[1] == 'i') {
+          if (typeName[4] == '1') {
+            if (strncmp(typeName, "uint16_t", 8))
+              break;
+            return HLSLScalarType_uint16;
+          }
         }
-        else if (typeName[4] == '3') {
-          if (strncmp(typeName, "uint32_t", 8))
-            break;
-          return HLSLScalarType_uint32;
-        }
+      }
+      if (typeName[4] == '3') {
+        if (strncmp(typeName, "uint32_t", 8))
+          break;
+        return HLSLScalarType_uint32;
       }
     case 9: // float16_t, float32_t, float64_t
       if (typeName[0] == 'f' && typeName[1] == 'l') {
-        if (typeName[5] == '1') {
-          if (strncmp(typeName, "float16_t", 9))
-            break;
-          return HLSLScalarType_float16;
+        if (!langOptions.UseMinPrecision) {
+          if (typeName[5] == '1') {
+            if (strncmp(typeName, "float16_t", 9))
+              break;
+            return HLSLScalarType_float16;
+          }
         }
-        else if (typeName[5] == '3') {
+        if (typeName[5] == '3') {
           if (strncmp(typeName, "float32_t", 9))
             break;
           return HLSLScalarType_float32;

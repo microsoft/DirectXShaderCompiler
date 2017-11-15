@@ -3207,7 +3207,13 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (RK == DxilResource::Kind::RawBuffer) {
     // elementOffset, mask, alignment
     loadArgs.emplace_back(undefI);
-    loadArgs.emplace_back(OP->GetI8Const(GetRawBufferMaskFromIOP(helper.intrinsicOpCode, OP)));
+    Type *rtnTy = helper.retVal->getType();
+    unsigned numComponents = 1;
+    if (VectorType *VTy = dyn_cast<VectorType>(rtnTy)) {
+      rtnTy = VTy->getElementType();
+      numComponents = VTy->getNumElements();
+    }
+    loadArgs.emplace_back(GetRawBufferMaskForETy(rtnTy, numComponents, OP));
     loadArgs.emplace_back(Alignment);
   }
   else if (RK == DxilResource::Kind::TypedBuffer) {
