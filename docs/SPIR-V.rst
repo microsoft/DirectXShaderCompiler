@@ -152,13 +152,35 @@ Shader Stage Input Output
 
 More details in the `gl_PerVertex`_ section.
 
+Vulkan specific features
+------------------------
+
+We try to implement Vulkan specific features using the most intuitive and
+non-intrusive ways in HLSL, which means we will prefer native language
+constructs when possible. If that is inadequate, we then consider attaching
+`Vulkan specific attributes`_ to them, or introducing new syntax.
+
+Descriptor sets
+~~~~~~~~~~~~~~~
+
+To specify which Vulkan descriptor a particular resource binds to, use the
+``[[vk::binding(X[, Y])]]`` attribute.
+
+Push constants
+~~~~~~~~~~~~~~
+
+Vulkan push constant blocks are represented using normal global variables of
+struct types in HLSL. The variables (not the underlying struct types) should be
+annotated with the ``[[vk::push_constant]]`` attribute.
+
+Please note as per the requirements of Vulkan, "there must be no more than one
+push constant block statically used per shader entry point."
+
 Vulkan specific attributes
 --------------------------
 
-To provide additional information required by Vulkan in HLSL, we need to extend
-the syntax of HLSL.
 `C++ attribute specifier sequence <http://en.cppreference.com/w/cpp/language/attributes>`_
-is a non-intrusive way of achieving such purpose.
+is a non-intrusive way of providing Vulkan specific information in HLSL.
 
 The namespace ``vk`` will be used for all Vulkan attributes:
 
@@ -171,6 +193,9 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``counter_binding(X)``: For specifying the binding number (``X``) for the
   associated counter for RW/Append/Consume structured buffer. The descriptor
   set number for the associated counter is always the same as the main resource.
+- ``push_constant``: For marking a variable as the push constant block. Allowed
+  on global variables of struct type. At most one variable can be marked as
+  ``push_constant`` in a shader.
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
