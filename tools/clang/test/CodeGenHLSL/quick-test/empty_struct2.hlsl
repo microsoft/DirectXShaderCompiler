@@ -1,15 +1,20 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
-// CHECK: define void
-// CHECK: fn1
-// @"\01?fn1@@YA?AV?$vector@M$03@@V1@@Z"
-// CHECK: #0
-// CHECK: attributes #0
-// CHECK: "exp-foo"="bar"
-// CHECK: "exp-zzz" "
+// Make sure nest empty struct works.
+// CHECK: main
 
-[experimental("foo", "bar")]
-[experimental("zzz", "")]
-float4 fn1(float4 Input){
-  return Input * 5.0f;
-}
+struct KillerStruct {};
+
+struct InnerStruct {
+  KillerStruct s;
+};
+
+struct OuterStruct {
+  InnerStruct s;
+};
+
+cbuffer Params_cbuffer : register(b0) {
+  OuterStruct constants;
+};
+
+float4 main(float4 pos : POSITION) : SV_POSITION { return float4(0, 0, 0, 0); }
