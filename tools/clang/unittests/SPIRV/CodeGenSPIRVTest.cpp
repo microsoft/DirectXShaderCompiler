@@ -660,6 +660,7 @@ TEST_F(FileTest, IntrinsicsDdyFine) { runFileTest("intrinsics.ddy-fine.hlsl"); }
 TEST_F(FileTest, IntrinsicsDeterminant) {
   runFileTest("intrinsics.determinant.hlsl");
 }
+TEST_F(FileTest, IntrinsicsDst) { runFileTest("intrinsics.dst.hlsl"); }
 TEST_F(FileTest, IntrinsicsExp) { runFileTest("intrinsics.exp.hlsl"); }
 TEST_F(FileTest, IntrinsicsExp2) { runFileTest("intrinsics.exp2.hlsl"); }
 TEST_F(FileTest, IntrinsicsF16ToF32) {
