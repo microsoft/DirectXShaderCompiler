@@ -1078,14 +1078,12 @@ static const ArBasicKind g_Float16CT[] =
 static const ArBasicKind g_Int16CT[] =
 {
   AR_BASIC_INT16,
-  AR_BASIC_LITERAL_INT,
   AR_BASIC_UNKNOWN
 };
 
 static const ArBasicKind g_UInt16CT[] =
 {
   AR_BASIC_UINT16,
-  AR_BASIC_LITERAL_INT,
   AR_BASIC_UNKNOWN
 };
 
@@ -1093,7 +1091,6 @@ static const ArBasicKind g_Numeric16OnlyCT[] =
 {
   AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_FLOAT16,
-  AR_BASIC_LITERAL_INT,
   AR_BASIC_INT16,
   AR_BASIC_UINT16,
   AR_BASIC_NOCAST,
@@ -4987,7 +4984,7 @@ bool HLSLExternalSource::MatchArguments(
         if (AR_BASIC_UNKNOWN == ComponentType[pIntrinsic->pArgs[0].uComponentTypeId]) {
           // half return type should map to float for min precision
           if (pIntrinsic->pArgs[0].uLegalComponentTypes ==
-                  LEGAL_INTRINSIC_COMPTYPES::LICOMPTYPE_HALF &&
+                  LEGAL_INTRINSIC_COMPTYPES::LICOMPTYPE_FLOAT16 &&
               getSema()->getLangOpts().UseMinPrecision) {
             ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
               ArBasicKind::AR_BASIC_FLOAT32;
