@@ -7658,6 +7658,12 @@ def err_hlsl_intrinsic_template_arg_requires_2018: Error<
 def err_hlsl_intrinsic_template_arg_scalar_vector_16: Error<
    "Explicit template arguments on intrinsic %0 are limited one to scalar or vector type up to 16 bytes in size.">;
 }
+def err_hlsl_missing_maxvertexcount_attr: Error<
+   "GS entry point must have the maxvertexcount attribute">;
+def err_hlsl_missing_patchconstantfunc_attr: Error<
+   "HS entry point must have the patchconstantfunc attribute">;
+def err_hlsl_missing_inout_attr: Error<
+   "stream-output object must be an inout parameter">;
 // HLSL Change Ends
 
 let CategoryName = "OpenMP Issue" in {

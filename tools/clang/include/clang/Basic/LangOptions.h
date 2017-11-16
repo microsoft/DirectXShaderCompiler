@@ -151,6 +151,7 @@ public:
   // MS Change Starts
   unsigned HLSLVersion;  // Only supported for IntelliSense scenarios.
   std::string HLSLEntryFunction;
+  std::string HLSLProfile;
   unsigned RootSigMajor;
   unsigned RootSigMinor;
   bool IsHLSLLibrary;
