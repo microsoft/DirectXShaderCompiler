@@ -81,8 +81,8 @@ struct HsPcfOut
 // CHECK: OpDecorate %out_var_TEXCOORD Patch
 // CHECK: OpDecorate %out_var_WEIGHT Patch
 // CHECK: OpDecorate %in_var_BAZ Location 0
-// CHECK: OpDecorate %out_var_FOO Location 0
-// CHECK: OpDecorate %out_var_BAR Location 1
+// CHECK: OpDecorate %out_var_BAR Location 0
+// CHECK: OpDecorate %out_var_FOO Location 1
 // CHECK: OpDecorate %out_var_TEXCOORD Location 2
 // CHECK: OpDecorate %out_var_WEIGHT Location 3
 
