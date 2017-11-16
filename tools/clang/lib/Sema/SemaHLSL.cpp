@@ -3076,7 +3076,7 @@ public:
     }
   }
 
-  void DiagnoseHLSLScalarType(HLSLScalarType type, SourceLocation Loc) {
+  bool DiagnoseHLSLScalarType(HLSLScalarType type, SourceLocation Loc) {
     if (getSema()->getLangOpts().HLSLVersion < 2018) {
       switch (type) {
       case HLSLScalarType_float16:
@@ -3088,7 +3088,7 @@ public:
       case HLSLScalarType_uint32:
         m_sema->Diag(Loc, diag::err_hlsl_unsupported_keyword_for_version)
             << HLSLScalarTypeNames[type] << "2018";
-        break;
+        return false;
       default:
         break;
       }
@@ -3100,11 +3100,12 @@ public:
       case HLSLScalarType_uint16:
         m_sema->Diag(Loc, diag::err_hlsl_unsupported_keyword_for_min_precision)
             << HLSLScalarTypeNames[type];
-        break;
+        return false;
       default:
         break;
       }
     }
+    return true;
   }
 
   bool LookupUnqualified(LookupResult &R, Scope *S) override
@@ -4222,23 +4223,6 @@ public:
     }
 
     IntrinsicOp intrinOp = static_cast<IntrinsicOp>(intrinsic->Op);
-
-    if (intrinOp == IntrinsicOp::MOP_LoadHalf ||
-      intrinOp == IntrinsicOp::MOP_LoadHalf2 ||
-      intrinOp == IntrinsicOp::MOP_LoadHalf3 ||
-      intrinOp == IntrinsicOp::MOP_LoadHalf4 ||
-      intrinOp == IntrinsicOp::MOP_StoreHalf ||
-      intrinOp == IntrinsicOp::MOP_StoreHalf2 ||
-      intrinOp == IntrinsicOp::MOP_StoreHalf3 ||
-      intrinOp == IntrinsicOp::MOP_StoreHalf4
-      ) {
-      if (getSema()->getLangOpts().UseMinPrecision) {
-        DXASSERT(Args.size() >= 1, "Otherwise wrong load store call.");
-        getSema()->Diag(
-            Args.front()->getExprLoc(),
-            diag::err_hlsl_half_load_store);
-      }
-    }
 
     if (intrinOp == IntrinsicOp::MOP_SampleBias) {
       // Remove this when update intrinsic table not affect other things.
@@ -8263,10 +8247,6 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 {
   DXASSERT_NOMSG(FunctionTemplate != nullptr);
 
-  DXASSERT(
-    ExplicitTemplateArgs == nullptr ||
-    ExplicitTemplateArgs->size() == 0, "otherwise parser failed to reject explicit template argument syntax");
-
   // Get information about the function we have.
   CXXMethodDecl* functionMethod = dyn_cast<CXXMethodDecl>(FunctionTemplate->getTemplatedDecl());
   DXASSERT(functionMethod != nullptr,
@@ -8340,6 +8320,66 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       continue;
     }
 
+    // Currently only intrinsic we allow for explicit template arguments are
+    // for Load return types for ByteAddressBuffer/RWByteAddressBuffer
+    // TODO: handle template arguments for future intrinsics in a more natural way
+
+    // Check Explicit template arguments
+    UINT intrinsicOp = (*cursor)->Op;
+    LPCSTR intrinsicName = (*cursor)->pArgs[0].pName;
+    bool Is2018 = getSema()->getLangOpts().HLSLVersion >= 2018;
+    bool IsBAB =
+        objectName == g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER] ||
+        objectName == g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER];
+    bool IsBABLoad = IsBAB && intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
+    bool IsBABStore = IsBAB && intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
+    if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
+      bool isLegalTemplate = false;
+      SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
+      auto TemplateDiag =
+          !IsBABLoad
+              ? diag::err_hlsl_intrinsic_template_arg_unsupported
+              : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
+                        : diag::err_hlsl_intrinsic_template_arg_requires_2018;
+      if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
+        Loc = (*ExplicitTemplateArgs)[0].getLocation();
+        QualType explicitType = (*ExplicitTemplateArgs)[0].getArgument().getAsType();
+        ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
+        if (explicitKind == AR_TOBJ_BASIC || explicitKind == AR_TOBJ_VECTOR) {
+          isLegalTemplate = GET_BASIC_BITS(GetTypeElementKind(explicitType)) != BPROP_BITS64 ||
+            GetNumElements(explicitType) <= 2;
+        }
+        if (isLegalTemplate) {
+          argTypes[0] = explicitType;
+        }
+      }
+
+      if (!isLegalTemplate) {
+        getSema()->Diag(Loc, TemplateDiag) << intrinsicName;
+        return Sema::TemplateDeductionResult::TDK_Invalid;
+      }
+    } else if (IsBABStore) {
+      // Prior to HLSL 2018, Store operation only stored scalar uint.
+      if (!Is2018) {
+        if (GetNumElements(argTypes[2]) != 1) {
+          getSema()->Diag(Args[1]->getLocStart(),
+                          diag::err_ovl_no_viable_member_function_in_call)
+              << intrinsicName;
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        }
+        argTypes[2] = getSema()->getASTContext().getIntTypeForBitwidth(
+            32, /*signed*/ false);
+      } else {
+        // not supporting types > 16 bytes yet.
+        if (GET_BASIC_BITS(GetTypeElementKind(argTypes[2])) == BPROP_BITS64 &&
+            GetNumElements(argTypes[2]) > 2) {
+          getSema()->Diag(Args[1]->getLocStart(),
+                          diag::err_ovl_no_viable_member_function_in_call)
+              << intrinsicName;
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        }
+      }
+    }
     Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes, argCount);
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
@@ -10990,7 +11030,7 @@ bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
     if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getLangOpts())) {
       HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
       hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
-      hlslExternalSource->DiagnoseHLSLScalarType(parsedType, R.getNameLoc());
+      return hlslExternalSource->DiagnoseHLSLScalarType(parsedType, R.getNameLoc());
     }
   }
   return true;
