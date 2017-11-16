@@ -716,23 +716,22 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   BindingSet bindingSet;
   bool noError = true;
 
-  // Tries to decorate the given varId of the given category with set number
-  // setNo, binding number bindingNo. Emits error on failure.
+  // Decorates the given varId of the given category with set number
+  // setNo, binding number bindingNo. Emits warning if overlap.
   const auto tryToDecorate = [this, &bindingSet, &noError](
                                  const uint32_t varId, const uint32_t setNo,
                                  const uint32_t bindingNo,
                                  const ResourceVar::Category cat,
                                  SourceLocation loc) {
     SourceLocation prevUseLoc;
-    if (bindingSet.tryToUseBinding(bindingNo, setNo, cat, loc, &prevUseLoc)) {
-      theBuilder.decorateDSetBinding(varId, setNo, bindingNo);
-    } else {
-      emitError("resource binding #%0 in descriptor set #%1 already assigned",
-                loc)
+    if (!bindingSet.tryToUseBinding(bindingNo, setNo, cat, loc, &prevUseLoc)) {
+      emitWarning("resource binding #%0 in descriptor set #%1 already assigned",
+                  loc)
           << bindingNo << setNo;
       emitNote("binding number previously assigned here", prevUseLoc);
-      noError = false;
+      // noError = false;
     }
+    theBuilder.decorateDSetBinding(varId, setNo, bindingNo);
   };
 
   for (const auto &var : resourceVars) {
