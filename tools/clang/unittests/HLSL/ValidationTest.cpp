@@ -226,6 +226,10 @@ public:
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
   TEST_METHOD(DuplicateSysValue)
+  TEST_METHOD(GSMainMissingAttributeFail)
+  TEST_METHOD(GSOtherMissingAttributeFail)
+  TEST_METHOD(GSMissingMaxVertexCountFail)
+  TEST_METHOD(HSMissingPCFFail)
   TEST_METHOD(GetAttributeAtVertexInVSFail)
   TEST_METHOD(GetAttributeAtVertexIn60Fail)
   TEST_METHOD(GetAttributeAtVertexInterpFail)
@@ -3032,6 +3036,22 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
       "!1012 =" },
     "Pixel shader input signature lacks available space for ViewID",
     /*bRegex*/true);
+}
+
+TEST_F(ValidationTest, GSMainMissingAttributeFail) {
+  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-inout-main.hlsl");
+}
+
+TEST_F(ValidationTest, GSOtherMissingAttributeFail) {
+  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-inout-other.hlsl");
+}
+
+TEST_F(ValidationTest, GSMissingMaxVertexCountFail) {
+  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-maxvertexcount.hlsl");
+}
+
+TEST_F(ValidationTest, HSMissingPCFFail) {
+  TestCheck(L"..\\CodeGenHLSL\\attributes-hs-no-pcf.hlsl");
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
