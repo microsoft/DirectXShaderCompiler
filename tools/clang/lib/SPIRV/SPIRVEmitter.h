@@ -239,6 +239,10 @@ private:
                             llvm::SmallVectorImpl<uint32_t> *indices);
 
 private:
+  /// Validates that vk::* attributes are used correctly.
+  void validateVKAttributes(const Decl *decl);
+
+private:
   /// Processes the given expr, casts the result into the given bool (vector)
   /// type and returns the <result-id> of the casted value.
   uint32_t castToBool(uint32_t value, QualType fromType, QualType toType);
@@ -675,6 +679,15 @@ private:
     return diags.Report(loc, diagId);
   }
 
+  /// \brief Wrapper method to create a note message and report it
+  /// in the diagnostic engine associated with this consumer
+  template <unsigned N>
+  DiagnosticBuilder emitNote(const char (&message)[N], SourceLocation loc) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Note, message);
+    return diags.Report(loc, diagId);
+  }
+
 private:
   CompilerInstance &theCompilerInstance;
   ASTContext &astContext;
@@ -705,6 +718,10 @@ private:
   const FunctionDecl *curFunction;
   /// The SPIR-V function parameter for the current this object.
   uint32_t curThis;
+
+  /// The source location of a push constant block we have previously seen.
+  /// Invalid means no push constant blocks defined thus far.
+  SourceLocation seenPushConstantAt;
 
   /// Whether the translated SPIR-V binary needs legalization.
   ///
