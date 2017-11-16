@@ -29,14 +29,21 @@ enum class LayoutRule {
 /// Struct contains SPIR-V information from evaluating a Clang AST node.
 ///
 /// We need to report more information than just the <result-id> for SPIR-V:
-/// * Constness: enables generating SPIR-V constant instructions
+///
 /// * Storage class: for getting correct (pointer) types
 /// * Layout rule: for getting correct (pointer) types
+/// * LValue or RValue
+/// * Constness: enables generating SPIR-V constant instructions
 /// * Relaxed precision: for emitting PrelaxedPrecision decoration
 ///
 /// For most cases, the evaluation result of a Clang AST node will just be
-/// a SPIR-V <result-id> that is not a constant, with storage class Function,
-/// layout rule Void, and not relaxed precision.
+/// a SPIR-V <result-id> with storage class Function, layout rule Void,
+/// not constant, and not relaxed precision.
+///
+/// So the constructor only takes in a <result-id>. It initializes storage
+/// class to Function, layout rule to Void, constness to false, relaxed
+/// precision to false. It sets the <result-id> as lvalue. Setters are
+/// provided to tweak these bits.
 ///
 /// The evaluation result of a Clang Expr can be considered as SPIR-V constant
 /// as long as all its operands are SPIR-V constants and we are creating a
@@ -55,34 +62,16 @@ enum class LayoutRule {
 /// information out of evaluating a Clang AST node. When doing such construction
 /// or conversion, all other information are defaulted to what are meaningful
 /// for a function temporary variable.
-struct SpirvEvalInfo {
-  /// Constructor from various evaluation information
-  SpirvEvalInfo(uint32_t id)
-      : resultId(id), isConst(false), storageClass(spv::StorageClass::Function),
-        layoutRule(LayoutRule::Void), isRelaxedPrecision(false) {}
-  SpirvEvalInfo(uint32_t id, spv::StorageClass sc, LayoutRule rule)
-      : resultId(id), isConst(false), storageClass(sc), layoutRule(rule),
-        isRelaxedPrecision(false) {}
+class SpirvEvalInfo {
+public:
+  /// Implicit constructor
+  inline SpirvEvalInfo(uint32_t id);
 
-  static SpirvEvalInfo withConst(uint32_t id) {
-    SpirvEvalInfo info = id;
-    info.isConst = true;
-    return info;
-  }
-
-  static SpirvEvalInfo withRelaxedPrecision(uint32_t id) {
-    SpirvEvalInfo info = id;
-    info.isRelaxedPrecision = true;
-    return info;
-  }
-
-  /// Returns a new SpirvEvalInfo with an updated SPIR-V <result-id>. Keeps the
-  /// other fields the same.
-  SpirvEvalInfo substResultId(uint32_t newId) const {
-    SpirvEvalInfo info = *this;
-    info.resultId = newId;
-    return info;
-  }
+  /// Changes the <result-id> in this eval info.
+  inline SpirvEvalInfo &setResultId(uint32_t id);
+  /// Returns a new eval info with the given <result-id> and inheriting all
+  /// other bits from this eval info.
+  inline SpirvEvalInfo substResultId(uint32_t id) const;
 
   /// Handy implicit conversion to get the <result-id>.
   operator uint32_t() const { return resultId; }
@@ -90,12 +79,72 @@ struct SpirvEvalInfo {
   /// Handly implicit conversion to test whether the <result-id> is valid.
   operator bool() const { return resultId != 0; }
 
-  uint32_t resultId; ///< SPIR-V <result-id>
-  bool isConst;      ///< Whether the <result-id> is for a SPIR-V constant
+  inline SpirvEvalInfo &setStorageClass(spv::StorageClass sc);
+  spv::StorageClass getStorageClass() const { return storageClass; }
+
+  inline SpirvEvalInfo &setLayoutRule(LayoutRule rule);
+  LayoutRule getLayoutRule() const { return layoutRule; }
+
+  inline SpirvEvalInfo &setRValue();
+  bool isRValue() const { return isRValue_; }
+
+  inline SpirvEvalInfo &setConstant();
+  bool isConstant() const { return isConstant_; }
+
+  inline SpirvEvalInfo &setRelaxedPrecision();
+  bool isRelaxedPrecision() const { return isRelaxedPrecision_; }
+
+private:
+  uint32_t resultId;
+
   spv::StorageClass storageClass;
   LayoutRule layoutRule;
-  bool isRelaxedPrecision;
+
+  bool isRValue_;
+  bool isConstant_;
+  bool isRelaxedPrecision_;
 };
+
+SpirvEvalInfo::SpirvEvalInfo(uint32_t id)
+    : resultId(id), storageClass(spv::StorageClass::Function),
+      layoutRule(LayoutRule::Void), isRValue_(false), isConstant_(false),
+      isRelaxedPrecision_(false) {}
+
+SpirvEvalInfo &SpirvEvalInfo::setResultId(uint32_t id) {
+  resultId = id;
+  return *this;
+}
+
+SpirvEvalInfo SpirvEvalInfo::substResultId(uint32_t newId) const {
+  SpirvEvalInfo info = *this;
+  info.resultId = newId;
+  return info;
+}
+
+SpirvEvalInfo &SpirvEvalInfo::setStorageClass(spv::StorageClass sc) {
+  storageClass = sc;
+  return *this;
+}
+
+SpirvEvalInfo &SpirvEvalInfo::setLayoutRule(LayoutRule rule) {
+  layoutRule = rule;
+  return *this;
+}
+
+SpirvEvalInfo &SpirvEvalInfo::setRValue() {
+  isRValue_ = true;
+  return *this;
+}
+
+SpirvEvalInfo &SpirvEvalInfo::setConstant() {
+  isConstant_ = true;
+  return *this;
+}
+
+SpirvEvalInfo &SpirvEvalInfo::setRelaxedPrecision() {
+  isRelaxedPrecision_ = true;
+  return *this;
+}
 
 } // end namespace spirv
 } // end namespace clang

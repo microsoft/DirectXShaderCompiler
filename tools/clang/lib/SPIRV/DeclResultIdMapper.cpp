@@ -211,7 +211,9 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
           theBuilder.getPointerType(varType, info->storageClass),
           info->resultId, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
 
-      return {elemId, info->storageClass, info->layoutRule};
+      return SpirvEvalInfo(elemId)
+          .setStorageClass(info->storageClass)
+          .setLayoutRule(info->layoutRule);
     } else {
       return *info;
     }
