@@ -4333,7 +4333,7 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_asint, TranslateBitcast, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_asint16, TranslateBitcast, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_asuint, TranslateAsUint, DXIL::OpCode::SplitDouble},
-    {IntrinsicOp::IOP_asuint16, TranslateAsUint, DXIL::OpCode::SplitDouble},
+    {IntrinsicOp::IOP_asuint16, TranslateAsUint, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_atan, TrivialUnaryOperation, DXIL::OpCode::Atan},
     {IntrinsicOp::IOP_atan2, TranslateAtan2, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ceil, TrivialUnaryOperation, DXIL::OpCode::Round_pi},

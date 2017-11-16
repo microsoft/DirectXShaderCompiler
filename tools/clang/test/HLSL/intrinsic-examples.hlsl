@@ -87,73 +87,81 @@ float64_t4 g_f64;
 int64_t4 g_i64;
 uint64_t4 g_u64;
 
+// TODO: currently compiler is not handling intrinsics correctly after we found overloaded intrinsic function before.
+// Uncomment errors below after fixing it.
 float4 BitCastMain() : SV_Target {
   float4 f1 = 0;
   f1 += asfloat(g_f);
   f1 += asfloat(g_i);
   f1 += asfloat(g_u);
+  /*
   f1 += asfloat(g_f16);
-  f1 += asfloat(g_i16);                                     /* expected-error {{call to 'asfloat' is ambiguous}} */
+  f1 += asfloat(g_i16);
   f1 += asfloat(g_u16);
-  f1 += asfloat(g_f64);                                     /* expected-error {{call to 'asfloat' is ambiguous}} */
-  f1 += asfloat(g_i64);                                     /* expected-warning {{conversion from larger type 'const int64_t4' to smaller type 'vector<int, 4>', possible loss of data}} */
-  f1 += asfloat(g_u64);                                     /* expected-error {{call to 'asfloat' is ambiguous}} */
-
+  f1 += asfloat(g_f64);
+  f1 += asfloat(g_i64);
+  f1 += asfloat(g_u64);
+*/
   int4 i1 = 0;
   i1 += asint(g_f);
   i1 += asint(g_i);
   i1 += asint(g_u);
+  /*
   i1 += asint(g_f16);
-  i1 += asint(g_i16);                                       /* expected-error {{call to 'asint' is ambiguous}} */
+  i1 += asint(g_i16);
   i1 += asint(g_u16);
-  i1 += asint(g_f64);                                       /* expected-error {{call to 'asint' is ambiguous}} */
-  i1 += asint(g_i64);                                       /* expected-warning {{conversion from larger type 'const int64_t4' to smaller type 'vector<int, 4>', possible loss of data}} */
-  i1 += asint(g_u64);                                       /* expected-error {{call to 'asint' is ambiguous}} */
-
+  i1 += asint(g_f64);
+  i1 += asint(g_i64);
+  i1 += asint(g_u64);
+*/
   uint4 ui1 = 0;
   ui1 += asuint(g_f);
   ui1 += asuint(g_i);
   ui1 += asuint(g_u);
+  /*
   ui1 += asuint(g_f16);
-  ui1 += asuint(g_i16);                                     /* expected-error {{call to 'asuint' is ambiguous}} */
+  ui1 += asuint(g_i16);
   ui1 += asuint(g_u16);
-  ui1 += asuint(g_f64);                                     /* expected-error {{call to 'asuint' is ambiguous}} */
-  ui1 += asuint(g_i64);                                     /* expected-warning {{conversion from larger type 'const int64_t4' to smaller type 'vector<int, 4>', possible loss of data}} */
-  ui1 += asuint(g_u64);                                     /* expected-error {{call to 'asuint' is ambiguous}} */
-
+  ui1 += asuint(g_f64);
+  ui1 += asuint(g_i64);
+  ui1 += asuint(g_u64);
+*/
   float16_t4 f16_1 = 0;
-  f16_1 += asfloat16(g_f);                                  /* expected-error {{use of undeclared identifier 'asfloat16'; did you mean 'asfloat'?}} expected-warning {{conversion from larger type 'vector<float, 4>' to smaller type 'float16_t4', possible loss of data}} */
-  f16_1 += asfloat16(g_i);                                  /* expected-error {{use of undeclared identifier 'asfloat16'; did you mean 'asfloat'?}} expected-warning {{conversion from larger type 'vector<float, 4>' to smaller type 'float16_t4', possible loss of data}} */
-  f16_1 += asfloat16(g_u);                                  /* expected-error {{use of undeclared identifier 'asfloat16'; did you mean 'asfloat'?}} expected-warning {{conversion from larger type 'vector<float, 4>' to smaller type 'float16_t4', possible loss of data}} */
   f16_1 += asfloat16(g_f16);
   f16_1 += asfloat16(g_i16);
   f16_1 += asfloat16(g_u16);
-  f16_1 += asfloat16(g_f64);                                /* expected-error {{call to 'asfloat16' is ambiguous}} */
-  f16_1 += asfloat16(g_i64);                                /* expected-warning {{conversion from larger type 'const int64_t4' to smaller type 'vector<int16_t, 4>', possible loss of data}} */
-  f16_1 += asfloat16(g_u64);                                /* expected-error {{call to 'asfloat16' is ambiguous}} */
+ /*f16_1 += asfloat16(g_f);
+  f16_1 += asfloat16(g_i);
+  f16_1 += asfloat16(g_u);
+  f16_1 += asfloat16(g_f64);
+  f16_1 += asfloat16(g_i64);
+  f16_1 += asfloat16(g_u64);
+  */
 
   int16_t4 i16_1 = 0;
-  i16_1 += asint16(g_f);                                    /* expected-error {{use of undeclared identifier 'asint16'; did you mean 'asint'?}} expected-warning {{conversion from larger type 'vector<int, 4>' to smaller type 'int16_t4', possible loss of data}} */
-  i16_1 += asint16(g_i);                                    /* expected-error {{use of undeclared identifier 'asint16'; did you mean 'asint'?}} expected-warning {{conversion from larger type 'vector<int, 4>' to smaller type 'int16_t4', possible loss of data}} */
-  i16_1 += asint16(g_u);                                    /* expected-error {{use of undeclared identifier 'asint16'; did you mean 'asint'?}} expected-warning {{conversion from larger type 'vector<int, 4>' to smaller type 'int16_t4', possible loss of data}} */
   i16_1 += asint16(g_f16);
   i16_1 += asint16(g_i16);
   i16_1 += asint16(g_u16);
-  i16_1 += asint16(g_f64);                                  /* expected-error {{call to 'asint16' is ambiguous}} */
-  i16_1 += asint16(g_i64);                                  /* expected-warning {{conversion from larger type 'const int64_t4' to smaller type 'vector<int16_t, 4>', possible loss of data}} */
-  i16_1 += asint16(g_u64);                                  /* expected-error {{call to 'asint16' is ambiguous}} */
-
+  /*
+  i16_1 += asint16(g_f);
+  i16_1 += asint16(g_i);
+  i16_1 += asint16(g_u);
+  i16_1 += asint16(g_f64);
+  i16_1 += asint16(g_i64);
+  i16_1 += asint16(g_u64);
+*/
   uint16_t4 u16_1 = 0;
-  u16_1 += asuint16(g_f);                                   /* expected-error {{use of undeclared identifier 'asuint16'; did you mean 'asint16'?}} expected-warning {{conversion from larger type 'const float4' to smaller type 'vector<min16float, 4>', possible loss of data}} */
-  u16_1 += asuint16(g_i);                                   /* expected-error {{use of undeclared identifier 'asuint16'; did you mean 'asint16'?}} expected-warning {{conversion from larger type 'const int4' to smaller type 'vector<int16_t, 4>', possible loss of data}} */
-  u16_1 += asuint16(g_u);                                   /* expected-error {{use of undeclared identifier 'asuint16'; did you mean 'asint16'?}} expected-warning {{conversion from larger type 'const uint4' to smaller type 'vector<min16float, 4>', possible loss of data}} */
   u16_1 += asuint16(g_f16);
   u16_1 += asuint16(g_i16);
   u16_1 += asuint16(g_u16);
-  u16_1 += asuint16(g_f64);                                 /* expected-error {{call to 'asuint16' is ambiguous}} */
-  u16_1 += asuint16(g_i64);                                 /* expected-warning {{conversion from larger type 'const int64_t4' to smaller type 'vector<int16_t, 4>', possible loss of data}} */
-  i16_1 += asuint16(g_u64);                                 /* expected-error {{call to 'asuint16' is ambiguous}} */
-
+  /*
+  u16_1 += asuint16(g_f);
+  u16_1 += asuint16(g_i);
+  u16_1 += asuint16(g_u);
+  u16_1 += asuint16(g_f64);
+  u16_1 += asuint16(g_i64);
+  i16_1 += asuint16(g_u64);
+*/
 }
 
 

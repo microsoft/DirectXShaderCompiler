@@ -1078,21 +1078,24 @@ static const ArBasicKind g_Float16CT[] =
 static const ArBasicKind g_Int16CT[] =
 {
   AR_BASIC_INT16,
+  AR_BASIC_LITERAL_INT,
   AR_BASIC_UNKNOWN
 };
 
 static const ArBasicKind g_UInt16CT[] =
 {
   AR_BASIC_UINT16,
+  AR_BASIC_LITERAL_INT,
   AR_BASIC_UNKNOWN
 };
 
 static const ArBasicKind g_Numeric16OnlyCT[] =
 {
-  AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_FLOAT16,
   AR_BASIC_INT16,
   AR_BASIC_UINT16,
+  AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_LITERAL_INT,
   AR_BASIC_NOCAST,
   AR_BASIC_UNKNOWN
 };
