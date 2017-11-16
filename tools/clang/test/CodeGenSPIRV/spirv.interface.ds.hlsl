@@ -81,9 +81,9 @@ struct DsOut {
 // CHECK: OpDecorate %gl_TessLevelInner BuiltIn TessLevelInner
 // CHECK: OpDecorate %gl_TessLevelInner Patch
 // CHECK: OpDecorate %in_var_FOO Patch
-// CHECK: OpDecorate %in_var_TEXCOORD Location 0
-// CHECK: OpDecorate %in_var_BAR Location 1
-// CHECK: OpDecorate %in_var_FOO Location 2
+// CHECK: OpDecorate %in_var_BAR Location 0
+// CHECK: OpDecorate %in_var_FOO Location 1
+// CHECK: OpDecorate %in_var_TEXCOORD Location 2
 // CHECK: OpDecorate %out_var_FOO Location 0
 // CHECK: OpDecorate %out_var_BAR Location 1
 

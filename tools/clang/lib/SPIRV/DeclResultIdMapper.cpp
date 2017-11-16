@@ -656,7 +656,13 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     }
   }
 
-  if (spirvOptions.stageIoOrder == "alpha") {
+  // If alphabetical ordering was requested, sort by semantic string.
+  // Since HS includes 2 sets of outputs (patch-constant output and
+  // OutputPatch), running into location mismatches between HS and DS is very
+  // likely. In order to avoid location mismatches between HS and DS, use
+  // alphabetical ordering.
+  if (spirvOptions.stageIoOrder == "alpha" ||
+      (!forInput && shaderModel.IsHS()) || (forInput && shaderModel.IsDS())) {
     // Sort stage input/output variables alphabetically
     std::sort(vars.begin(), vars.end(),
               [](const StageVar *a, const StageVar *b) {
