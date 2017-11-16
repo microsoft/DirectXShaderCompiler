@@ -6406,14 +6406,24 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT* count)
     return false;
   case AR_TOBJ_COMPOUND:
     {
+      UINT maxCount = 0;
+      { // Determine maximum count to prevent infinite loop on incomplete array
+        FlattenedTypeIterator itCount(SourceLocation(), type, *this);
+        maxCount = itCount.countRemaining();
+        if (!maxCount) {
+          return false; // empty struct.
+        }
+      }
       FlattenedTypeIterator it(SourceLocation(), type, *this);
-      // Return false for empty struct.
-      if (!it.hasCurrentElement())
-        return false;
       while (it.hasCurrentElement()) {
         bool isFieldNumeric = IsTypeNumeric(it.getCurrentElement(), &subCount);
         if (!isFieldNumeric) {
           return false;
+        }
+        if (*count >= maxCount) {
+          // this element is an incomplete array at the end; iterator will not advance past this element.
+          // don't add to *count either, so *count will represent minimum size of the structure.
+          break;
         }
         *count += (subCount * it.getCurrentElementSize());
         it.advanceCurrentElement(it.getCurrentElementSize());
