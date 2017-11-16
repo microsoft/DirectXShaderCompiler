@@ -2513,9 +2513,19 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_InterlockedCompareExchange:
   case IntrinsicOp::MOP_InterlockedCompareStore:
     return processRWByteAddressBufferAtomicMethods(opcode, expr);
+  case IntrinsicOp::MOP_GatherCmpGreen:
+  case IntrinsicOp::MOP_GatherCmpBlue:
+  case IntrinsicOp::MOP_GatherCmpAlpha:
+  case IntrinsicOp::MOP_GetSamplePosition:
+  case IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped:
+    emitError("no equivalent for %0 intrinsic method in Vulkan",
+              expr->getCallee()->getExprLoc())
+        << expr->getMethodDecl()->getName();
+    return 0;
   }
 
-  emitError("intrinsic '%0' method unimplemented", expr->getExprLoc())
+  emitError("intrinsic '%0' method unimplemented",
+            expr->getCallee()->getExprLoc())
       << expr->getDirectCallee()->getName();
   return 0;
 }
@@ -4212,6 +4222,14 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     return processIntrinsicF16ToF32(callExpr);
   case hlsl::IntrinsicOp::IOP_f32tof16:
     return processIntrinsicF32ToF16(callExpr);
+  case hlsl::IntrinsicOp::IOP_abort:
+  case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
+  case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
+    emitError("no equivalent for %0 intrinsic function in Vulkan",
+              callExpr->getExprLoc())
+        << callee->getName();
+    return 0;
+  }
     INTRINSIC_SPIRV_OP_CASE(transpose, Transpose, false);
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
     INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddx_coarse, DPdxCoarse, false,
@@ -4276,7 +4294,7 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(sqrt, Sqrt, true);
     INTRINSIC_OP_CASE(trunc, Trunc, true);
   default:
-    emitError("intrinsic '%0' function unimplemented", callExpr->getExprLoc())
+    emitError("%0 intrinsic function unimplemented", callExpr->getExprLoc())
         << callee->getName();
     return 0;
   }
@@ -5181,7 +5199,7 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     return 0;
   }
   default:
-    emitError("unrecognized signature for intrinsic function %0",
+    emitError("unrecognized signature for %0 intrinsic function",
               callExpr->getExprLoc())
         << callExpr->getDirectCallee()->getName();
     return 0;
@@ -5429,7 +5447,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
     return theBuilder.createBinaryOp(opcode, returnType, arg0Id, arg1Id);
   }
 
-  emitError("unsupported intrinsic function %0", callExpr->getExprLoc())
+  emitError("unsupported %0 intrinsic function", callExpr->getExprLoc())
       << cast<DeclRefExpr>(callExpr->getCallee())->getNameInfo().getAsString();
   return 0;
 }
@@ -5501,7 +5519,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
                                     {arg0Id, arg1Id, arg2Id});
   }
 
-  emitError("unsupported intrinsic function %0", callExpr->getExprLoc())
+  emitError("unsupported %0 intrinsic function", callExpr->getExprLoc())
       << cast<DeclRefExpr>(callExpr->getCallee())->getNameInfo().getAsString();
   return 0;
 }
