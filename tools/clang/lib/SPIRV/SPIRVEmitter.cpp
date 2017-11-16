@@ -1326,10 +1326,8 @@ uint32_t SPIRVEmitter::processCall(const CallExpr *callExpr) {
       // 'inout' struct), the AST does not use a reference type in the function
       // signature. The LValueToRValue implicit cast should therefore be ignored
       // in these cases.
-      if (canActAsOutParmVar(param) && !param->getType()->isReferenceType()) {
-        assert(isa<ImplicitCastExpr>(arg));
-        arg = (dyn_cast<ImplicitCastExpr>(arg))->getSubExpr();
-      }
+      if (canActAsOutParmVar(param) && !param->getType()->isReferenceType())
+        arg = cast<ImplicitCastExpr>(arg)->getSubExpr();
 
       // We need to create variables for holding the values to be used as
       // arguments. The variables themselves are of pointer types.
