@@ -1357,8 +1357,15 @@ uint32_t SPIRVEmitter::processCall(const CallExpr *callExpr) {
 
     // Evaluate parameters
     for (uint32_t i = 0; i < numParams; ++i) {
-      const auto *arg = callExpr->getArg(i);
+      auto *arg = callExpr->getArg(i);
       const auto *param = callee->getParamDecl(i);
+
+      // In some cases where pass-by-reference should be done (such as an
+      // 'inout' struct), the AST does not use a reference type in the function
+      // signature. The LValueToRValue implicit cast should therefore be ignored
+      // in these cases.
+      if (canActAsOutParmVar(param) && !param->getType()->isReferenceType())
+        arg = cast<ImplicitCastExpr>(arg)->getSubExpr();
 
       // We need to create variables for holding the values to be used as
       // arguments. The variables themselves are of pointer types.
