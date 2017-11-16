@@ -76,6 +76,95 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   return r;
 }
 
+// BitCast intrinsics
+float4 g_f;
+int4 g_i;
+uint4 g_u;
+float16_t4 g_f16;
+int16_t4 g_i16;
+uint16_t4 g_u16;
+float64_t4 g_f64;
+int64_t4 g_i64;
+uint64_t4 g_u64;
+
+// TODO: currently compiler is not handling intrinsics correctly after we found overloaded intrinsic function before.
+// Uncomment errors below after fixing it.
+float4 BitCastMain() : SV_Target {
+  float4 f1 = 0;
+  f1 += asfloat(g_f);
+  f1 += asfloat(g_i);
+  f1 += asfloat(g_u);
+  /*
+  f1 += asfloat(g_f16);
+  f1 += asfloat(g_i16);
+  f1 += asfloat(g_u16);
+  f1 += asfloat(g_f64);
+  f1 += asfloat(g_i64);
+  f1 += asfloat(g_u64);
+*/
+  int4 i1 = 0;
+  i1 += asint(g_f);
+  i1 += asint(g_i);
+  i1 += asint(g_u);
+  /*
+  i1 += asint(g_f16);
+  i1 += asint(g_i16);
+  i1 += asint(g_u16);
+  i1 += asint(g_f64);
+  i1 += asint(g_i64);
+  i1 += asint(g_u64);
+*/
+  uint4 ui1 = 0;
+  ui1 += asuint(g_f);
+  ui1 += asuint(g_i);
+  ui1 += asuint(g_u);
+  /*
+  ui1 += asuint(g_f16);
+  ui1 += asuint(g_i16);
+  ui1 += asuint(g_u16);
+  ui1 += asuint(g_f64);
+  ui1 += asuint(g_i64);
+  ui1 += asuint(g_u64);
+*/
+  float16_t4 f16_1 = 0;
+  f16_1 += asfloat16(g_f16);
+  f16_1 += asfloat16(g_i16);
+  f16_1 += asfloat16(g_u16);
+ /*f16_1 += asfloat16(g_f);
+  f16_1 += asfloat16(g_i);
+  f16_1 += asfloat16(g_u);
+  f16_1 += asfloat16(g_f64);
+  f16_1 += asfloat16(g_i64);
+  f16_1 += asfloat16(g_u64);
+  */
+
+  int16_t4 i16_1 = 0;
+  i16_1 += asint16(g_f16);
+  i16_1 += asint16(g_i16);
+  i16_1 += asint16(g_u16);
+  /*
+  i16_1 += asint16(g_f);
+  i16_1 += asint16(g_i);
+  i16_1 += asint16(g_u);
+  i16_1 += asint16(g_f64);
+  i16_1 += asint16(g_i64);
+  i16_1 += asint16(g_u64);
+*/
+  uint16_t4 u16_1 = 0;
+  u16_1 += asuint16(g_f16);
+  u16_1 += asuint16(g_i16);
+  u16_1 += asuint16(g_u16);
+  /*
+  u16_1 += asuint16(g_f);
+  u16_1 += asuint16(g_i);
+  u16_1 += asuint16(g_u);
+  u16_1 += asuint16(g_f64);
+  u16_1 += asuint16(g_i64);
+  i16_1 += asuint16(g_u64);
+*/
+}
+
+
 // The following sample includes tex2D mixing new and old style of sampler types.
 
 //--------------------------------------------------------------------------------------

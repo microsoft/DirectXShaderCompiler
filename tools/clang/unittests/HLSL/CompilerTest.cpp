@@ -477,6 +477,8 @@ public:
   TEST_METHOD(CodeGenBarycentrics1)
   TEST_METHOD(CodeGenBarycentricsThreeSV)
   TEST_METHOD(CodeGenBinary1)
+  TEST_METHOD(CodeGenBitCast)
+  TEST_METHOD(CodeGenBitCast16Bits)
   TEST_METHOD(CodeGenBoolComb)
   TEST_METHOD(CodeGenBoolSvTarget)
   TEST_METHOD(CodeGenCalcLod2DArray)
@@ -3072,6 +3074,15 @@ TEST_F(CompilerTest, CodeGenBarycentricsThreeSV) {
 
 TEST_F(CompilerTest, CodeGenBinary1) {
   CodeGenTest(L"..\\CodeGenHLSL\\binary1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenBitCast) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\bitcast.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenBitCast16Bits) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\bitcast_16bits.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBoolComb) {

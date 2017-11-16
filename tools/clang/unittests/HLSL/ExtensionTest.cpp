@@ -731,11 +731,11 @@ TEST_F(ExtensionTest, UnsignedOpcodeIsUnchanged) {
 
   // - opcode is unchanged when it matches an hlsl intrinsic with
   //   an unsigned version.
-  // Note that 114 is the current opcode for IOP_min. If that opcode
+  // Note that 117 is the current opcode for IOP_min. If that opcode
   // changes the test will need to be updated to reflect the new opcode.
   VERIFY_IS_TRUE(
     disassembly.npos !=
-    disassembly.find("call i32 @test_unsigned(i32 114, "));
+    disassembly.find("call i32 @test_unsigned(i32 117, "));
 }
 
 TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
