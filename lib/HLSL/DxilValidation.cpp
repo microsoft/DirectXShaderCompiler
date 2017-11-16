@@ -2605,8 +2605,10 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           continue;
         }
 
-        bool IsMinPrecisionTy = ValCtx.DL.getTypeStoreSize(FromTy) < 4 ||
-                          ValCtx.DL.getTypeStoreSize(ToTy) < 4;
+        bool IsMinPrecisionTy =
+            (ValCtx.DL.getTypeStoreSize(FromTy) < 4 ||
+             ValCtx.DL.getTypeStoreSize(ToTy) < 4) &&
+            !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision();
         if (IsMinPrecisionTy) {
           ValCtx.EmitInstrError(Cast, ValidationRule::InstrMinPrecisonBitCast);
         }

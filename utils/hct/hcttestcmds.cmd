@@ -597,6 +597,13 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
+dxc.exe %script_dir%\smoke.hlsl /Tps_6_2 /enable-16bit-types /HV 2017 2>nul
+if %errorlevel% equ 0 (
+  echo dxc incorrectly compiled %script_dir%\smoke.hlsl shader model 6.2 with /enable-16bit-types and /HV 2017 option
+  call :cleanup 2>nul
+  exit /b 1
+)
+
 rem SPIR-V Change Starts
 echo Smoke test for SPIR-V CodeGen ...
 set spirv_smoke_success=0

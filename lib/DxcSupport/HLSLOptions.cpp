@@ -171,6 +171,20 @@ StringRefUtf16::StringRefUtf16(llvm::StringRef value) {
     m_value = Unicode::UTF8ToUTF16StringOrThrow(value.data());
 }
 
+static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *major, unsigned *minor) {
+  try {
+    *major = (unsigned)std::stoul(std::string(1, ref[ref.size() - 3]));
+    *minor = (unsigned)std::stoul(std::string(1, ref[ref.size() - 1]));
+    return true;
+  }
+  catch (std::invalid_argument &) {
+    return false;
+  }
+  catch (std::out_of_range &) {
+    return false;
+  }
+}
+
 namespace hlsl {
 namespace options {
 
@@ -252,7 +266,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  if (ver.empty()) { opts.HLSLVersion = 2016; }   // Default to 2016
+  if (ver.empty()) { opts.HLSLVersion = 2018; }   // Default to latest version
   else {
     try {
       opts.HLSLVersion = std::stoul(std::string(ver));
@@ -327,13 +341,24 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   // Check options only allowed in shader model >= 6.2FPDenormalMode
-  if (opts.TargetProfile.empty() || !opts.TargetProfile.endswith_lower("6_2")) {
+  unsigned Major = 0;
+  unsigned Minor = 0;
+  if (!opts.TargetProfile.empty()) {
+    GetTargetVersionFromString(opts.TargetProfile, &Major, &Minor);
+  }
+
+  if (opts.TargetProfile.empty() || Major < 6 || (Major == 6 && Minor < 2)) {
     if (!opts.FloatDenormalMode.empty()) {
       errors << "denorm option is only allowed for shader model 6.2 and above.";
       return 1;
     }
-    if (opts.Enable16BitTypes) {
-      errors << "enable-16bit-types is only allowed for shader model 6.2 and above.";
+  }
+
+  // /enable-16bit-types only allowed for HLSL 2018 and shader model 6.2
+  if (opts.Enable16BitTypes) {
+    if (opts.TargetProfile.empty() || opts.HLSLVersion < 2018
+      || Major < 6 || (Major == 6 && Minor < 2)) {
+      errors << "enable-16bit-types is only allowed for shader model >= 6.2 and HLSL Language >= 2018.";
       return 1;
     }
   }

@@ -7651,6 +7651,12 @@ def err_hlsl_unsupported_keyword_for_version : Error<
    "%0 is only allowed for HLSL %1 and above.">;
 def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
+def err_hlsl_intrinsic_template_arg_unsupported: Error<
+   "Explicit template arguments on intrinsic %0 are not supported.">;
+def err_hlsl_intrinsic_template_arg_requires_2018: Error<
+   "Explicit template arguments on intrinsic %0 requires HLSL version 2018 or above.">;
+def err_hlsl_intrinsic_template_arg_scalar_vector_16: Error<
+   "Explicit template arguments on intrinsic %0 are limited one to scalar or vector type up to 16 bytes in size.">;
 }
 // HLSL Change Ends
 

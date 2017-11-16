@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_2 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -HV 2017 %s | FileCheck %s
 
 // CHECK: error: unknown type name 'int16_t'
 // CHECK: error: unknown type name 'int32_t'

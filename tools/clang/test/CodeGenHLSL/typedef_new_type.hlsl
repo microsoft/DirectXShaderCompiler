@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0  %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2017 %s | FileCheck %s
 
 // Checking that typedef for fixed width types for HLSL before 2018 works properly
 

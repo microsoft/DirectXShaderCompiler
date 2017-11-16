@@ -1721,7 +1721,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.SanitizerBlacklistFiles = Args.getAllArgValues(OPT_fsanitize_blacklist);
 #else
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  if (ver.empty()) { Opts.HLSLVersion = 2016; }   // Default to 2016
+  if (ver.empty()) { Opts.HLSLVersion = 2018; }   // Default to latest
   else {
     try {
       Opts.HLSLVersion = std::stoi(std::string(ver));

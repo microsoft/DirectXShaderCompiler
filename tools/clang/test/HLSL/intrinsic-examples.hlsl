@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify -HV 2018 -enable-16bit-types %s
 
 // :FXC_VERIFY_ARGUMENTS: /E FontPixelShader /T ps_5_1 /Gec
 
@@ -22,11 +22,57 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   r += status;
   uav1[b] = r; // expected-error {{type 'RWByteAddressBuffer' does not provide a subscript operator}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
   uav1.Load(a.x, status);
-  min16float4 h = min16float4(1,2,3,4);
-  uav1.LoadHalf(h.x, status);                               /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode}} */
-  uav1.LoadHalf2(h.x);                                      /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode}} expected-warning {{ignoring return value of function that only reads data}} */
-  uav1.StoreHalf3(4, h.xyz);                                /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode}} */
-  uav1.StoreHalf4(8, h);                                    /* expected-error {{LoadHalf and StoreHalf are not supported for min precision mode}} */
+  min16float4 h = min16float4(1,2,3,4);                     /* expected-warning {{min16float is promoted to float16_t}} expected-warning {{min16float is promoted to float16_t}} */
+
+  // valid template argument
+  r += uav1.Load<half4>(0);
+  r += uav1.Load<float4>(12);
+  r += uav1.Load<int16_t2>(16).xyxy;
+  r += uav1.Load<int32_t3>(20).xyzx;
+  r += uav1.Load<float16_t>(20);
+  r += uav1.Load<float32_t1>(20);
+
+  r += uav1.Load<half4>(4, status);
+  r += uav1.Load<float4>(12, status);
+  r += uav1.Load<int16_t2>(16, status).xyxy;
+  r += uav1.Load<int32_t3>(20, status).xyzx;
+  r += uav1.Load<float16_t>(20, status);
+  r += uav1.Load<float32_t1>(20, status);
+
+  // errors
+  r += uav1.Load<float, float3>(16);                        /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} */
+  r += uav1.Load<double3>(16);                              /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'vector<double, 3>' to 'float4'}} */
+  r += uav1.Load2<float>(16);                               /* expected-error {{Explicit template arguments on intrinsic Load2 are not supported.}} */
+  r += uav1.Load3<int>(20);                                 /* expected-error {{Explicit template arguments on intrinsic Load3 are not supported.}} */
+  r += uav1.Load4<int16_t>(24);                             /* expected-error {{Explicit template arguments on intrinsic Load4 are not supported.}} */
+  r += uav1.Load<half3x4>(24);                              /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'matrix<__fp16, 3, 4>' to 'float4'}} */
+  r += uav1.Load<float, float3>(16, status);                /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} */
+  r += uav1.Load<double3>(16, status);                      /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'vector<double, 3>' to 'float4'}} */
+  r += uav1.Load2<float>(16, status);                       /* expected-error {{Explicit template arguments on intrinsic Load2 are not supported.}} */
+  r += uav1.Load3<int>(20, status);                         /* expected-error {{Explicit template arguments on intrinsic Load3 are not supported.}} */
+  r += uav1.Load4<int16_t>(24, status);                     /* expected-error {{Explicit template arguments on intrinsic Load4 are not supported.}} */
+  r += uav1.Load<half3x4>(24, status);                      /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'matrix<__fp16, 3, 4>' to 'float4'}} */
+  // valid template argument
+  uav1.Store(0, r);
+  uav1.Store(0, r.x);
+  uav1.Store(0, (half2)r.xy);
+  uav1.Store(0, (int3)r.xyz);
+  uav1.Store(0, (double2)r.xy);
+  // errors
+  struct MyStruct {
+    float4 x;
+  };
+  uav1.Store<float>(0, r);                                  /* expected-error {{Explicit template arguments on intrinsic Store are not supported.}} */
+  uav1.Store<int64_t4>(0, r);                               /* expected-error {{Explicit template arguments on intrinsic Store are not supported.}} */
+  uav1.Store2<float>(0, r.xy);                              /* expected-error {{Explicit template arguments on intrinsic Store2 are not supported.}} */
+  uav1.Store3<float>(0, r.xyz);                             /* expected-error {{Explicit template arguments on intrinsic Store3 are not supported.}} */
+  uav1.Store4<float>(0, r);                                 /* expected-error {{Explicit template arguments on intrinsic Store4 are not supported.}} */
+  uav1.Store(0, float2x4(1,2,3,4,5,6,7,8));                 /* expected-error {{no matching member function for call to 'Store'}} */
+  uav1.Store<float3x2>(0, float3x2(1,2,3,4,5,6));           /* expected-error {{no matching member function for call to 'Store'}} */
+  uav1.Store(0, (double3)r.xyz);                            /* expected-error {{no matching member function for call to 'Store'}} expected-error {{no matching member function for call to Store}} expected-note@? {{candidate template ignored: couldn't infer template argument 'TResult'}}*/
+  uav1.Store(0, (uint64_t4)r);                              /* expected-error {{no matching member function for call to 'Store'}} expected-error {{no matching member function for call to Store}} expected-note@? {{candidate template ignored: couldn't infer template argument 'TResult'}}*/
+  MyStruct myStruct;
+  uav1.Store(0, myStruct);                                  /* expected-error {{no matching member function for call to 'Store'}} */
   return r;
 }
 
