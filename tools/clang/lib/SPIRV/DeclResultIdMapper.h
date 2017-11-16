@@ -291,6 +291,15 @@ private:
     return diags.Report(loc, diagId);
   }
 
+  /// \brief Wrapper method to create a warning message and report it
+  /// in the diagnostic engine associated with this consumer.
+  template <unsigned N>
+  DiagnosticBuilder emitWarning(const char (&message)[N], SourceLocation loc) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Warning, message);
+    return diags.Report(loc, diagId);
+  }
+
   /// \brief Wrapper method to create a note message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>
