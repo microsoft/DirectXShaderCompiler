@@ -912,13 +912,13 @@ TEST_F(FileTest, VulkanRegisterBindingShift) {
   runFileTest("vk.binding.cl.hlsl");
 }
 TEST_F(FileTest, VulkanExplicitBindingReassigned) {
-  runFileTest("vk.binding.explicit.error.hlsl", FileTest::Expect::Failure);
+  runFileTest("vk.binding.explicit.error.hlsl", FileTest::Expect::Warning);
 }
 TEST_F(FileTest, VulkanRegisterBindingReassigned) {
-  runFileTest("vk.binding.register.error.hlsl", FileTest::Expect::Failure);
+  runFileTest("vk.binding.register.error.hlsl", FileTest::Expect::Warning);
 }
 TEST_F(FileTest, VulkanRegisterBindingShiftReassigned) {
-  runFileTest("vk.binding.cl.error.hlsl", FileTest::Expect::Failure);
+  runFileTest("vk.binding.cl.error.hlsl", FileTest::Expect::Warning);
 }
 TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
