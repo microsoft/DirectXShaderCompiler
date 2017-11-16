@@ -220,7 +220,9 @@ private:
 
     /// Implicit conversion to SpirvEvalInfo.
     operator SpirvEvalInfo() const {
-      return SpirvEvalInfo(resultId, storageClass, layoutRule);
+      return SpirvEvalInfo(resultId)
+          .setStorageClass(storageClass)
+          .setLayoutRule(layoutRule);
     }
 
     uint32_t resultId;
