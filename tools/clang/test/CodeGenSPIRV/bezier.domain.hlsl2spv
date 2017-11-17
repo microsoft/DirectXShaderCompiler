@@ -153,7 +153,6 @@ DS_OUTPUT BezierEvalDS( HS_CONSTANT_DATA_OUTPUT input,
 // %85 = OpTypeFunction %DS_OUTPUT %_ptr_Function_HS_CONSTANT_DATA_OUTPUT %_ptr_Function_v2float %_ptr_Function__arr_BEZIER_CONTROL_POINT_uint_4
 // %_ptr_Function_DS_OUTPUT = OpTypePointer Function %DS_OUTPUT
 // %uint_0 = OpConstant %uint 0
-// %94 = OpConstantNull %DS_OUTPUT
 // %gl_PerVertexIn = OpVariable %_ptr_Input__arr_type_gl_PerVertex_uint_4 Input
 // %gl_PerVertexOut = OpVariable %_ptr_Output_type_gl_PerVertex Output
 // %gl_TessLevelOuter = OpVariable %_ptr_Input__arr_float_uint_4 Input

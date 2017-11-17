@@ -17,7 +17,7 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // ; SPIR-V
 // ; Version: 1.0
 // ; Generator: Google spiregg; 0
-// ; Bound: 46
+// ; Bound: 44
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
@@ -65,7 +65,6 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // %uint_0 = OpConstant %uint 0
 // %int_0 = OpConstant %int 0
 // %int_1 = OpConstant %int 1
-// %45 = OpConstantNull %PSInput
 // %gl_PerVertexOut = OpVariable %_ptr_Output_type_gl_PerVertex Output
 // %in_var_POSITION = OpVariable %_ptr_Input_v4float Input
 // %in_var_COLOR = OpVariable %_ptr_Input_v4float Input
