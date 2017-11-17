@@ -456,7 +456,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
-  opts.DisableSpirvLegal = Args.hasFlag(OPT_fspirv_disable_legal, OPT_INVALID, false);
+  opts.DisableSpirvLegalization = Args.hasFlag(OPT_fcgl, OPT_INVALID, false);
 
   // Collects the arguments for -fvk-{b|s|t|u}-shift.
   const auto handleVkShiftArgs = [genSpirv, &Args, &errors](
@@ -494,7 +494,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fspirv_disable_legal, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
