@@ -4260,6 +4260,7 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_f32tof16:
     return processIntrinsicF32ToF16(callExpr);
   case hlsl::IntrinsicOp::IOP_abort:
+  case hlsl::IntrinsicOp::IOP_CheckAccessFullyMapped:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
     emitError("no equivalent for %0 intrinsic function in Vulkan",

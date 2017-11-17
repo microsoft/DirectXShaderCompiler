@@ -782,6 +782,9 @@ TEST_F(FileTest, IntrinsicsAtan2) { runFileTest("intrinsics.atan2.hlsl"); }
 TEST_F(FileTest, IntrinsicsAbort) {
   runFileTest("intrinsics.abort.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, IntrinsicsCheckAccessFullyMapped) {
+  runFileTest("intrinsics.check-access-fully-mapped.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, IntrinsicsGetRenderTargetSampleCount) {
   runFileTest("intrinsics.get-render-target-sample-count.hlsl",
               Expect::Failure);
