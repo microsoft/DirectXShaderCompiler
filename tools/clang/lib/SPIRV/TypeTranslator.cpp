@@ -625,7 +625,10 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   // return true for it; textures are represented like C++ class, so
   // isClassType() will return true for it.
 
+  assert(type->isStructureOrClassType());
+
   const auto *recordType = type->getAs<RecordType>();
+  assert(recordType);
   const llvm::StringRef name = recordType->getDecl()->getName();
 
   // TODO: avoid string comparison once hlsl::IsHLSLResouceType() does that.
