@@ -119,7 +119,9 @@ bool InitListHandler::tryToSplitStruct() {
 
   auto *init = const_cast<Expr *>(initializers.back());
   const QualType initType = init->getType();
-  if (!initType->isStructureType())
+  if (!initType->isStructureType() ||
+      // Sampler types will pass the above check but we cannot split it.
+      TypeTranslator::isSampler(initType))
     return false;
 
   // We are certain the current intializer will be replaced by now.
@@ -204,6 +206,11 @@ uint32_t InitListHandler::createInitForType(QualType type,
     return createInitForMatrixType(elemType, rowCount, colCount, srcLoc);
   }
 
+  // Samplers, (RW)Buffers, (RW)Textures
+  // It is important that this happens before checking of structure types.
+  if (TypeTranslator::isOpaqueType(type))
+    return createInitForSamplerImageType(type, srcLoc);
+
   if (type->isStructureType())
     return createInitForStructType(type);
 
@@ -224,7 +231,7 @@ uint32_t InitListHandler::createInitForBuiltinType(QualType type,
     return theEmitter.castToType(init.first, init.second, type, srcLoc);
   }
 
-  // Keep splitting structs or vectors
+  // Keep splitting structs or arrays
   while (tryToSplitStruct() || tryToSplitConstantArray())
     ;
 
@@ -248,7 +255,7 @@ uint32_t InitListHandler::createInitForVectorType(QualType elemType,
   // directly. For all other cases, we need to construct a new vector as the
   // initializer.
   if (scalars.empty()) {
-    // Keep splitting structs or vectors
+    // Keep splitting structs or arrays
     while (tryToSplitStruct() || tryToSplitConstantArray())
       ;
 
@@ -292,7 +299,7 @@ uint32_t InitListHandler::createInitForMatrixType(QualType elemType,
   // Same as the vector case, first try to see if we already have a matrix at
   // the beginning of the initializer queue.
   if (scalars.empty()) {
-    // Keep splitting structs or vectors
+    // Keep splitting structs or arrays
     while (tryToSplitStruct() || tryToSplitConstantArray())
       ;
 
@@ -332,7 +339,7 @@ uint32_t InitListHandler::createInitForMatrixType(QualType elemType,
 }
 
 uint32_t InitListHandler::createInitForStructType(QualType type) {
-  assert(type->isStructureType());
+  assert(type->isStructureType() && !TypeTranslator::isSampler(type));
 
   // Same as the vector case, first try to see if we already have a struct at
   // the beginning of the initializer queue.
@@ -405,6 +412,42 @@ InitListHandler::createInitForConstantArrayType(QualType type,
   const uint32_t typeId = typeTranslator.translateType(type);
   // TODO: use OpConstantComposite when all components are constants
   return theBuilder.createCompositeConstruct(typeId, elements);
+}
+
+uint32_t InitListHandler::createInitForSamplerImageType(QualType type,
+                                                        SourceLocation srcLoc) {
+  assert(TypeTranslator::isOpaqueType(type));
+
+  // Samplers, (RW)Buffers, and (RW)Textures are translated into OpTypeSampler
+  // and OpTypeImage. They should be treated similar as builtin types.
+
+  if (!scalars.empty()) {
+    const auto init = scalars.front();
+    scalars.pop_front();
+    // Require exact type match between the initializer and the target component
+    if (init.second.getCanonicalType() != type.getCanonicalType()) {
+      emitError("cannot cast initializer type %0 into variable type %1", srcLoc)
+          << init.second << type;
+      return 0;
+    }
+    return init.first;
+  }
+
+  // Keep splitting structs or arrays
+  while (tryToSplitStruct() || tryToSplitConstantArray())
+    ;
+
+  const Expr *init = initializers.back();
+  initializers.pop_back();
+
+  if (init->getType().getCanonicalType() != type.getCanonicalType()) {
+    init->dump();
+    emitError("cannot cast initializer type %0 into variable type %1",
+              init->getLocStart())
+        << init->getType() << type;
+    return 0;
+  }
+  return theEmitter.loadIfGLValue(init);
 }
 
 } // end namespace spirv

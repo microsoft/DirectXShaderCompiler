@@ -125,6 +125,7 @@ private:
                                    uint32_t colCount, SourceLocation);
   uint32_t createInitForStructType(QualType type);
   uint32_t createInitForConstantArrayType(QualType type, SourceLocation);
+  uint32_t createInitForSamplerImageType(QualType type, SourceLocation);
 
 private:
   SPIRVEmitter &theEmitter;
