@@ -174,7 +174,7 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
   return nullptr;
 }
 
-bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
+bool spirvToolsLegalize(std::vector<uint32_t> *module, std::string *messages) {
   spvtools::Optimizer optimizer(SPV_ENV_VULKAN_1_0);
 
   optimizer.SetMessageConsumer(
@@ -201,6 +201,19 @@ bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
   optimizer.RegisterPass(spvtools::CreateEliminateDeadConstantPass());
 
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
+
+  return optimizer.Run(module->data(), module->size(), module);
+}
+
+bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
+  spvtools::Optimizer optimizer(SPV_ENV_VULKAN_1_0);
+
+  optimizer.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  optimizer.RegisterPerformancePasses();
 
   return optimizer.Run(module->data(), module->size(), module);
 }
@@ -349,14 +362,21 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   // Output the constructed module.
   std::vector<uint32_t> m = theBuilder.takeModule();
 
-  const auto optLevel = theCompilerInstance.getCodeGenOpts().OptimizationLevel;
-  if (needsLegalization || optLevel > 0) {
-    if (needsLegalization && optLevel == 0)
-      emitWarning("-O0 ignored since SPIR-V legalization required", {});
+  // Run legalization passes
+  if (!spirvOptions.disableLegalization && needsLegalization) {
+    std::string messages;
+    if (!spirvToolsLegalize(&m, &messages)) {
+      emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
+      return;
+    }
+  }
 
+  const auto optLevel = theCompilerInstance.getCodeGenOpts().OptimizationLevel;
+
+  if (optLevel > 0) {
     std::string messages;
     if (!spirvToolsOptimize(&m, &messages)) {
-      emitFatalError("failed to legalize/optimize SPIR-V: %0", {}) << messages;
+      emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
       return;
     }
   }
