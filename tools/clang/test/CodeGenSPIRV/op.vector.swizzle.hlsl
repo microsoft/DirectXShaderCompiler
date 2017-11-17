@@ -125,10 +125,8 @@ void main() {
 // CHECK-NEXT: OpStore %v4f2 [[v24]]
     v4f2.wzyx.abgr.xywz.rgab = v4f1.xyzw.xyzw.rgab.rgab; // from original vector to original vector
 
-    // Note that we cannot generate OpAccessChain for v4f1 since v4f1.xzyx is
-    // already not a lvalue!
-// CHECK-NEXT: [[v24:%\d+]] = OpLoad %v4float %v4f1
-// CHECK-NEXT: [[ce1:%\d+]] = OpCompositeExtract %float [[v24]] 2
+// CHECK-NEXT: [[v24:%\d+]] = OpAccessChain %_ptr_Function_float %v4f1 %int_2
+// CHECK-NEXT: [[ce1:%\d+]] = OpLoad %float [[v24]]
 // CHECK-NEXT: [[ac4:%\d+]] = OpAccessChain %_ptr_Function_float %v4f2 %int_1
 // CHECK-NEXT: OpStore [[ac4]] [[ce1]]
     v4f2.wzyx.zy.x = v4f1.xzyx.y.x; // from one element (rvalue) to one element (lvalue)

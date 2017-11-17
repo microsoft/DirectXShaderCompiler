@@ -219,6 +219,12 @@ TEST_F(FileTest, OpVectorSwizzle) { runFileTest("op.vector.swizzle.hlsl"); }
 TEST_F(FileTest, OpVectorSwizzle1) {
   runFileTest("op.vector.swizzle.size1.hlsl");
 }
+TEST_F(FileTest, OpVectorSwizzleAfterBufferAccess) {
+  runFileTest("op.vector.swizzle.buffer-access.hlsl");
+}
+TEST_F(FileTest, OpVectorSwizzleAfterTextureAccess) {
+  runFileTest("op.vector.swizzle.texture-access.hlsl");
+}
 TEST_F(FileTest, OpVectorAccess) { runFileTest("op.vector.access.hlsl"); }
 
 // For matrix accessing/swizzling operators
