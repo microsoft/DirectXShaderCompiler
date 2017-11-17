@@ -391,10 +391,10 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   const auto usageKind = context->isCBuffer() ? ContextUsageKind::CBuffer
                                               : ContextUsageKind::TBuffer;
 
-  const std::string structName =
-      "type." +
-      std::string(context->isCBuffer() ? "ConstantBuffer." : "TextureBuffer.") +
-      recordType->getDecl()->getName().str();
+  const char *ctBufferName =
+      context->isCBuffer() ? "ConstantBuffer." : "TextureBuffer.";
+  const std::string structName = "type." + std::string(ctBufferName) +
+                                 recordType->getDecl()->getName().str();
   const uint32_t bufferVar = createVarOfExplicitLayoutStruct(
       recordType->getDecl(), usageKind, structName, decl->getName());
 
