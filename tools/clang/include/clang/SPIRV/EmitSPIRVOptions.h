@@ -15,6 +15,7 @@
 namespace clang {
 /// Structs for controlling behaviors of SPIR-V codegen.
 struct EmitSPIRVOptions {
+  bool disableLegalization;
   llvm::StringRef stageIoOrder;
   llvm::SmallVector<uint32_t, 4> bShift;
   llvm::SmallVector<uint32_t, 4> tShift;
