@@ -384,16 +384,17 @@ static const char *getOptionHelpGroup(const OptTable &Opts, OptSpecifier Id) {
 }
 
 void OptTable::PrintHelp(raw_ostream &OS, const char *Name, const char *Title,
-                         bool ShowHidden) const {
-  PrintHelp(OS, Name, Title, /*Include*/ 0, /*Exclude*/
+                         const char *VersionInfo, bool ShowHidden) const {
+  PrintHelp(OS, Name, Title, VersionInfo, /*Include*/ 0, /*Exclude*/
             (ShowHidden ? 0 : HelpHidden));
 }
 
-
 void OptTable::PrintHelp(raw_ostream &OS, const char *Name, const char *Title,
-                         unsigned FlagsToInclude,
+                         const char *VersionInfo, unsigned FlagsToInclude,
                          unsigned FlagsToExclude) const {
   OS << "OVERVIEW: " << Title << "\n";
+  OS << '\n';
+  OS << "Version: " << VersionInfo << "\n";
   OS << '\n';
   OS << "USAGE: " << Name << " [options] <inputs>\n";
   OS << '\n';

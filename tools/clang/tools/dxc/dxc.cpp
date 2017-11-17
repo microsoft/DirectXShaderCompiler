@@ -62,6 +62,8 @@
 #include <algorithm>
 #include <unordered_map>
 
+#pragma comment(lib, "version.lib")
+
 // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
 #include "spirv-tools/libspirv.hpp"
@@ -204,6 +206,7 @@ public:
   void Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcCompiler *pCompiler, std::vector<LPCWSTR> &args, IDxcOperationResult **pCompileResult);
   int DumpBinary();
   void Preprocess();
+  void GetCompilerVersionInfo(llvm::raw_string_ostream &OS);
 };
 
 static void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, llvm::StringRef FName) {
@@ -974,6 +977,65 @@ HRESULT DxcContext::GetDxcDiaTable(IDxcLibrary *pLibrary, IDxcBlob *pTargetBlob,
   return S_OK;
 }
 
+bool GetDLLFileVersionInfo(const char *dllPath, unsigned int version[4]) {
+  DWORD dwVerHnd = 0;
+  DWORD size = GetFileVersionInfoSize(dllPath, &dwVerHnd);
+  std::unique_ptr<int[]> VfInfo(new int[size]);
+  if (GetFileVersionInfo(dllPath, NULL, size, VfInfo.get())) {
+      LPVOID versionInfo;
+      UINT size;
+      if (VerQueryValue(VfInfo.get(), "\\", &versionInfo, &size)) {
+          if (size) {
+              VS_FIXEDFILEINFO *verInfo = (VS_FIXEDFILEINFO *)versionInfo;
+              version[0] = (verInfo->dwFileVersionMS >> 16) & 0xffff;
+              version[1] = (verInfo->dwFileVersionMS >> 0) & 0xffff;
+              version[2] = (verInfo->dwFileVersionLS >> 16) & 0xffff;
+              version[3] = (verInfo->dwFileVersionLS >> 0) & 0xffff;
+              return true;
+          }
+      }
+  }
+  return false;
+}
+
+void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
+  if (m_dxcSupport.IsEnabled()) {
+    UINT32 compilerMajor = 1;
+    UINT32 compilerMinor = 0;
+    CComPtr<IDxcVersionInfo> VerInfo;
+    if (SUCCEEDED(CreateInstance(CLSID_DxcCompiler, &VerInfo))) {
+      VerInfo->GetVersion(&compilerMajor, &compilerMinor);
+      const char *dllName = "dxcompiler.dll";
+      OS << dllName << ": " << compilerMajor << "." << compilerMinor;
+      unsigned int version[4];
+      if (GetDLLFileVersionInfo(dllName, version)) {
+        // unofficial version always have file version 3.7.0.0
+        if (version[0] == 3 && version[1] == 7 && version[2] == 0 && version[3] == 0) {
+          OS << "(unofficial)";
+        }
+        else {
+          OS << "(" << version[0] << "." << version[1] << "." << version[2] << "." << version[3] << ")";
+        }
+      }
+    }
+  }
+  DxcDllSupport DxilSupport;
+  DxilSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
+  if (DxilSupport.IsEnabled()) {
+    CComPtr<IDxcVersionInfo> VerInfo;
+    if (SUCCEEDED(DxilSupport.CreateInstance(CLSID_DxcValidator, &VerInfo))) {
+      UINT32 validatorMajor, validatorMinor = 0;
+      VerInfo->GetVersion(&validatorMajor, &validatorMinor);
+      const char *dllName = "dxil.dll";
+      OS << "; " << dllName << ": " << validatorMajor << "." << validatorMinor;
+      unsigned int version[4];
+      if (GetDLLFileVersionInfo(dllName, version)) {
+        OS << "(" << version[0] << "." << version[1] << "." << version[2] << "." << version[3] << ")";
+      }
+    }
+  }
+}
+
 int __cdecl wmain(int argc, const wchar_t **argv_) {
   const char *pStage = "Operation";
   int retVal = 0;
@@ -1005,16 +1067,6 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       }
     }
 
-    // Handle help request, which overrides any other processing.
-    if (dxcOpts.ShowHelp) {
-      std::string helpString;
-      llvm::raw_string_ostream helpStream(helpString);
-      optionTable->PrintHelp(helpStream, "dxc.exe", "HLSL Compiler");
-      helpStream.flush();
-      WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());
-      return 0;
-    }
-
     // Apply defaults.
     if (dxcOpts.EntryPoint.empty() && !dxcOpts.RecompileFromBinary) {
       dxcOpts.EntryPoint = "main";
@@ -1035,6 +1087,19 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
 
     EnsureEnabled(dxcSupport);
     DxcContext context(dxcOpts, dxcSupport);
+    // Handle help request, which overrides any other processing.
+    if (dxcOpts.ShowHelp) {
+      std::string helpString;
+      llvm::raw_string_ostream helpStream(helpString);
+      std::string version;
+      llvm::raw_string_ostream versionStream(version);
+      context.GetCompilerVersionInfo(versionStream);
+      optionTable->PrintHelp(helpStream, "dxc.exe", "HLSL Compiler", versionStream.str().c_str());
+      helpStream.flush();
+      WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());
+      return 0;
+    }
+
     // TODO: implement all other actions.
     if (!dxcOpts.Preprocess.empty()) {
       pStage = "Preprocessing";
