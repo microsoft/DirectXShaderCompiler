@@ -60,7 +60,8 @@ bool FileTest::parseInputFile() {
   return true;
 }
 
-void FileTest::runFileTest(llvm::StringRef filename, Expect expect) {
+void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
+                           bool noValidation) {
   inputFilePath = utils::getAbsPathOfInputDataFile(filename);
 
   // Parse the input file.
@@ -123,7 +124,7 @@ void FileTest::runFileTest(llvm::StringRef filename, Expect expect) {
   ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
 
   // Run SPIR-V validation for successful compilations
-  if (expect != Expect::Failure) {
+  if (!noValidation && expect != Expect::Failure) {
     EXPECT_TRUE(utils::validateSpirvBinary(generatedBinary));
   }
 }

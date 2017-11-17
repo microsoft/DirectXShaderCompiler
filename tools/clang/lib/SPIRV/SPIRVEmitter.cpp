@@ -3251,13 +3251,23 @@ SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
 void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
                               const SpirvEvalInfo &rhsVal,
                               const QualType valType) {
-  // If lhs and rhs has the same memory layout, we should be safe to load
-  // from rhs and directly store into lhs and avoid decomposing rhs.
-  // TODO: is this optimization always correct?
-  if (lhsPtr.getLayoutRule() == rhsVal.getLayoutRule() ||
-      typeTranslator.isScalarType(valType) ||
+  if (typeTranslator.isScalarType(valType) ||
       typeTranslator.isVectorType(valType) ||
       typeTranslator.isMxNMatrix(valType)) {
+    theBuilder.createStore(lhsPtr, rhsVal);
+  } else if (lhsPtr.getLayoutRule() == rhsVal.getLayoutRule()) {
+    // If lhs and rhs has the same memory layout, we should be safe to load
+    // from rhs and directly store into lhs and avoid decomposing rhs.
+    // TODO: is this optimization always correct?
+    theBuilder.createStore(lhsPtr, rhsVal);
+  } else if (hlsl::IsHLSLResourceType(valType)) {
+    // Resource types are represented using RecordType in the AST.
+    // Handle them before the general RecordType.
+    //
+    // HLSL allows to put resource types in structs, or assign to variables
+    // of resource types. These can all result in illegal SPIR-V for Vulkan.
+    // We just translate here literally and let SPIRV-Tools opt to do the
+    // legalization work.
     theBuilder.createStore(lhsPtr, rhsVal);
   } else if (const auto *recordType = valType->getAs<RecordType>()) {
     uint32_t index = 0;
@@ -3267,7 +3277,6 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
         continue;
 
       const auto *field = cast<FieldDecl>(decl);
-      assert(field);
 
       const auto subRhsValType = typeTranslator.translateType(
           field->getType(), rhsVal.getLayoutRule());
