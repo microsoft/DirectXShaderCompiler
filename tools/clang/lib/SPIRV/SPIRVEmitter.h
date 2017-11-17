@@ -94,7 +94,7 @@ private:
   SpirvEvalInfo doCallExpr(const CallExpr *callExpr);
   SpirvEvalInfo doCastExpr(const CastExpr *expr);
   SpirvEvalInfo doCompoundAssignOperator(const CompoundAssignOperator *expr);
-  uint32_t doConditionalOperator(const ConditionalOperator *expr);
+  SpirvEvalInfo doConditionalOperator(const ConditionalOperator *expr);
   SpirvEvalInfo doCXXMemberCallExpr(const CXXMemberCallExpr *expr);
   SpirvEvalInfo doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr);
   SpirvEvalInfo doExtMatrixElementExpr(const ExtMatrixElementExpr *expr);
@@ -110,7 +110,7 @@ private:
 
   /// Generates SPIR-V instructions for the given normal (non-intrinsic and
   /// non-operator) standalone or member function call.
-  uint32_t processCall(const CallExpr *expr);
+  SpirvEvalInfo processCall(const CallExpr *expr);
 
   /// Generates the necessary instructions for assigning rhs to lhs. If lhsPtr
   /// is not zero, it will be used as the pointer from lhs instead of evaluating
@@ -218,7 +218,7 @@ private:
   /// matrixVal should be the loaded value of the matrix. actOnEachVector takes
   /// three parameters for the current vector: the index, the <type-id>, and
   /// the value. It returns the <result-id> of the processed vector.
-  uint32_t processEachVectorInMatrix(
+  SpirvEvalInfo processEachVectorInMatrix(
       const Expr *matrix, const uint32_t matrixVal,
       llvm::function_ref<uint32_t(uint32_t, uint32_t, uint32_t)>
           actOnEachVector);
@@ -259,7 +259,7 @@ private:
 
 private:
   /// Processes HLSL instrinsic functions.
-  uint32_t processIntrinsicCallExpr(const CallExpr *);
+  SpirvEvalInfo processIntrinsicCallExpr(const CallExpr *);
 
   /// Processes the 'clip' intrinsic function. Discards the current pixel if the
   /// specified value is less than zero.
@@ -570,9 +570,10 @@ private:
   /// \brief Loads one element from the given Buffer/RWBuffer/Texture object at
   /// the given location. The type of the loaded element matches the type in the
   /// declaration for the Buffer/Texture object.
-  uint32_t processBufferTextureLoad(const Expr *object, uint32_t location,
-                                    uint32_t constOffset = 0,
-                                    uint32_t varOffst = 0, uint32_t lod = 0);
+  SpirvEvalInfo processBufferTextureLoad(const Expr *object, uint32_t location,
+                                         uint32_t constOffset = 0,
+                                         uint32_t varOffst = 0,
+                                         uint32_t lod = 0);
 
   /// \brief Processes .Sample() and .Gather() method calls for texture objects.
   uint32_t processTextureSampleGather(const CXXMemberCallExpr *expr,
@@ -625,8 +626,9 @@ private:
   /// ByteAddressBuffer. Loading is allowed from a ByteAddressBuffer or
   /// RWByteAddressBuffer. Storing is allowed only to RWByteAddressBuffer.
   /// Panics if it is not the case.
-  uint32_t processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
-                                             uint32_t numWords, bool doStore);
+  SpirvEvalInfo processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
+                                                  uint32_t numWords,
+                                                  bool doStore);
 
   /// \brief Processes the GetDimensions intrinsic function call on a
   /// (RW)ByteAddressBuffer by querying the image in the given expr.
