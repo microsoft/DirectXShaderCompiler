@@ -535,12 +535,28 @@ uint32_t SPIRVEmitter::castToType(uint32_t value, QualType fromType,
 }
 
 void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
+  // A RAII class for maintaining the current function under traversal.
+  class FnEnvRAII {
+  public:
+    // Creates a new instance which sets fnEnv to the newFn on creation,
+    // and resets fnEnv to its original value on destruction.
+    FnEnvRAII(const FunctionDecl **fnEnv, const FunctionDecl *newFn)
+        : oldFn(*fnEnv), fnSlot(fnEnv) {
+      *fnEnv = newFn;
+    }
+    ~FnEnvRAII() { *fnSlot = oldFn; }
+
+  private:
+    const FunctionDecl *oldFn;
+    const FunctionDecl **fnSlot;
+  };
+
+  FnEnvRAII fnEnvRAII(&curFunction, decl);
+
   // We are about to start translation for a new function. Clear the break stack
   // and the continue stack.
   breakStack = std::stack<uint32_t>();
   continueStack = std::stack<uint32_t>();
-
-  curFunction = decl;
 
   std::string funcName = decl->getName();
 
@@ -627,15 +643,23 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     doStmt(decl->getBody());
 
     // We have processed all Stmts in this function and now in the last
-    // basic block. Make sure we have OpReturn if missing.
+    // basic block. Make sure we have a termination instruction.
     if (!theBuilder.isCurrentBasicBlockTerminated()) {
-      theBuilder.createReturn();
+      const auto retType = decl->getReturnType();
+
+      if (retType->isVoidType()) {
+        theBuilder.createReturn();
+      } else {
+        // If the source code does not provide a proper return value for some
+        // control flow path, it's undefined behavior. We just return null
+        // value here.
+        theBuilder.createReturnValue(
+            theBuilder.getConstantNull(typeTranslator.translateType(retType)));
+      }
     }
   }
 
   theBuilder.endFunction();
-
-  curFunction = nullptr;
 }
 
 void SPIRVEmitter::validateVKAttributes(const Decl *decl) {
@@ -1199,6 +1223,13 @@ void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
   } else {
     theBuilder.createReturn();
   }
+
+  // We are translating a ReturnStmt, we should be in some function's body.
+  assert(curFunction->hasBody());
+  // If this return statement is the last statement in the function, then
+  // whe have no more work to do.
+  if (cast<CompoundStmt>(curFunction->getBody())->body_back() == stmt)
+    return;
 
   // Some statements that alter the control flow (break, continue, return, and
   // discard), require creation of a new basic block to hold any statement that
