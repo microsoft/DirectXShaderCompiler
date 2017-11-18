@@ -5,7 +5,8 @@
 // CHECK: sdiv i64
 // CHECK: shl i64
 // CHECK: mul i64
-// CHECK: xor i64
+// For iabs.
+// CHECK: IMax
 // CHECK: UMax
 // CHECK: UMin
 // CHECK: uitofp i64
