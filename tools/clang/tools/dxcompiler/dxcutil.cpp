@@ -137,7 +137,7 @@ HRESULT ValidateAndAssembleToContainer(
 
   CComPtr<IDxcValidator> pValidator;
   bool bInternalValidator = CreateValidator(pValidator);
-  // Warning on intrenal Validator
+  // Warning on internal Validator
 
   if (bInternalValidator) {
     unsigned diagID =

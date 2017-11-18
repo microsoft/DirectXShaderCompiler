@@ -977,15 +977,16 @@ HRESULT DxcContext::GetDxcDiaTable(IDxcLibrary *pLibrary, IDxcBlob *pTargetBlob,
   return S_OK;
 }
 
-bool GetDLLFileVersionInfo(const char *dllPath, unsigned int version[4]) {
+bool GetDLLFileVersionInfo(const char *dllPath, unsigned int *version) {
   DWORD dwVerHnd = 0;
   DWORD size = GetFileVersionInfoSize(dllPath, &dwVerHnd);
+  if (size == 0) return false;
   std::unique_ptr<int[]> VfInfo(new int[size]);
   if (GetFileVersionInfo(dllPath, NULL, size, VfInfo.get())) {
       LPVOID versionInfo;
       UINT size;
       if (VerQueryValue(VfInfo.get(), "\\", &versionInfo, &size)) {
-          if (size) {
+          if (size >= sizeof(VS_FIXEDFILEINFO)) {
               VS_FIXEDFILEINFO *verInfo = (VS_FIXEDFILEINFO *)versionInfo;
               version[0] = (verInfo->dwFileVersionMS >> 16) & 0xffff;
               version[1] = (verInfo->dwFileVersionMS >> 0) & 0xffff;
@@ -998,27 +999,36 @@ bool GetDLLFileVersionInfo(const char *dllPath, unsigned int version[4]) {
   return false;
 }
 
+// Collects compiler/validator version info
 void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
   if (m_dxcSupport.IsEnabled()) {
     UINT32 compilerMajor = 1;
     UINT32 compilerMinor = 0;
     CComPtr<IDxcVersionInfo> VerInfo;
+    const char *compilerName =
+        m_Opts.ExternalFn.empty() ? "dxcompiler.dll" : m_Opts.ExternalFn.data();
     if (SUCCEEDED(CreateInstance(CLSID_DxcCompiler, &VerInfo))) {
       VerInfo->GetVersion(&compilerMajor, &compilerMinor);
-      const char *dllName = "dxcompiler.dll";
-      OS << dllName << ": " << compilerMajor << "." << compilerMinor;
-      unsigned int version[4];
-      if (GetDLLFileVersionInfo(dllName, version)) {
-        // unofficial version always have file version 3.7.0.0
-        if (version[0] == 3 && version[1] == 7 && version[2] == 0 && version[3] == 0) {
-          OS << "(unofficial)";
-        }
-        else {
-          OS << "(" << version[0] << "." << version[1] << "." << version[2] << "." << version[3] << ")";
-        }
+      OS << compilerName << ": " << compilerMajor << "." << compilerMinor;
+    }
+    // compiler.dll 1.0 did not support IdxcVersionInfo
+    else if (m_Opts.ExternalFn.empty()) {
+      OS << compilerName << ": " << 1 << "." << 0;
+    }
+
+    unsigned int version[4];
+    if (GetDLLFileVersionInfo(compilerName, version)) {
+      // unofficial version always have file version 3.7.0.0
+      if (version[0] == 3 && version[1] == 7 && version[2] == 0 &&
+          version[3] == 0) {
+        OS << "(unofficial)";
+      } else {
+        OS << "(" << version[0] << "." << version[1] << "." << version[2] << "."
+           << version[3] << ")";
       }
     }
   }
+  // Print validator if exists
   DxcDllSupport DxilSupport;
   DxilSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
   if (DxilSupport.IsEnabled()) {
@@ -1026,12 +1036,20 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
     if (SUCCEEDED(DxilSupport.CreateInstance(CLSID_DxcValidator, &VerInfo))) {
       UINT32 validatorMajor, validatorMinor = 0;
       VerInfo->GetVersion(&validatorMajor, &validatorMinor);
-      const char *dllName = "dxil.dll";
-      OS << "; " << dllName << ": " << validatorMajor << "." << validatorMinor;
-      unsigned int version[4];
-      if (GetDLLFileVersionInfo(dllName, version)) {
-        OS << "(" << version[0] << "." << version[1] << "." << version[2] << "." << version[3] << ")";
-      }
+      OS << "; "
+         << "dxil.dll"
+         << ": " << validatorMajor << "." << validatorMinor;
+
+    }
+    // dxil.dll 1.0 did not support IdxcVersionInfo
+    else {
+      OS << "; "
+         << "dxil.dll: " << 1 << "." << 0;
+    }
+    unsigned int version[4];
+    if (GetDLLFileVersionInfo("dxil.dll", version)) {
+      OS << "(" << version[0] << "." << version[1] << "." << version[2] << "."
+         << version[3] << ")";
     }
   }
 }
