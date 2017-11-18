@@ -1086,21 +1086,6 @@ Value *TranslateWaveReadLaneFirst(CallInst *CI, IntrinsicOp IOP,
                               CI->getOperand(1)->getType(), CI, hlslOP);
 }
 
-Value *TranslateIAbs(CallInst *CI) {
-  Type *Ty = CI->getType();
-  Type *EltTy = Ty->getScalarType();
-  unsigned bitWidth = EltTy->getIntegerBitWidth();
-  uint64_t mask = ((uint64_t)1) << (bitWidth - 1);
-  Constant *opMask = ConstantInt::get(EltTy, mask);
-  if (Ty != EltTy) {
-    unsigned size = Ty->getVectorNumElements();
-    opMask = llvm::ConstantVector::getSplat(size, opMask);
-  }
-  IRBuilder<> Builder(CI);
-  return Builder.CreateXor(CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx),
-                           opMask);
-}
-
 Value *TransalteAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
@@ -1109,8 +1094,14 @@ Value *TransalteAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     Value *refArgs[] = {nullptr, CI->getOperand(1)};
     return TrivialDxilOperation(DXIL::OpCode::FAbs, refArgs, CI->getType(), CI,
                                 hlslOP);
-  } else
-    return TranslateIAbs(CI);
+  } else {
+    Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+    IRBuilder<> Builder(CI);
+    Value *neg = Builder.CreateNeg(src);
+    Value *refArgs[] = {nullptr, src, neg};
+    return TrivialDxilBinaryOperation(DXIL::OpCode::IMax, src, neg, hlslOP,
+                                      Builder);
+  }
 }
 
 Value *GenerateCmpNEZero(Value *val, IRBuilder<> Builder) {
