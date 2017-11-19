@@ -68,6 +68,7 @@ namespace MainNs
         public EditorForm()
         {
             InitializeComponent();
+            cbProfile.SelectedIndex = 0;
         }
 
         internal IDxcBlob SelectedShaderBlob
@@ -526,6 +527,9 @@ namespace MainNs
 
                 string fileName = "hlsl.hlsl";
                 HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+                fileVars.Target = cbProfile.SelectedItem.ToString();
+                fileVars.Entry = tbEntry.Text;
+                fileVars.Arguments = tbOptions.Text.Trim().Split();
                 bool isDxil = IsDxilTarget(fileVars.Target);
                 IDxcCompiler compiler = isDxil ? HlslDxcLib.CreateDxcCompiler() : null;
                 {
