@@ -509,6 +509,10 @@ SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
     return doConditionalOperator(condExpr);
   }
 
+  if (const auto *defaultArgExpr = dyn_cast<CXXDefaultArgExpr>(expr)) {
+    return doExpr(defaultArgExpr->getParam()->getDefaultArg());
+  }
+
   if (isa<CXXThisExpr>(expr)) {
     assert(curThis);
     return curThis;

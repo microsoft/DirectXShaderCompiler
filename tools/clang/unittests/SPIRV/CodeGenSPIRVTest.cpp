@@ -354,6 +354,7 @@ TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
 
 // For functions
 TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
+TEST_F(FileTest, FunctionDefaultArg) { runFileTest("fn.default-arg.hlsl"); }
 TEST_F(FileTest, FunctionInOutParam) { runFileTest("fn.param.inout.hlsl"); }
 
 // For OO features
