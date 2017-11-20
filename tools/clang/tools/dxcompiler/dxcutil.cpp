@@ -137,13 +137,23 @@ HRESULT ValidateAndAssembleToContainer(
 
   CComPtr<IDxcValidator> pValidator;
   bool bInternalValidator = CreateValidator(pValidator);
-  // If using the internal validator, we'll use the modules directly.
-  // In this case, we'll want to make a clone to avoid
-  // SerializeDxilContainerForModule stripping all the debug info. The debug
-  // info will be stripped from the orginal module, but preserved in the cloned
-  // module.
-  if (bInternalValidator && bDebugInfo)
-    llvmModule.CloneForDebugInfo();
+  // Warning on internal Validator
+
+  if (bInternalValidator) {
+    unsigned diagID =
+        Diag.getCustomDiagID(clang::DiagnosticsEngine::Level::Warning,
+                             "DXIL.dll not found.  Resulting DXIL will not be "
+                             "signed for use in release environments.\r\n");
+    Diag.Report(diagID);
+    // If using the internal validator, we'll use the modules directly.
+    // In this case, we'll want to make a clone to avoid
+    // SerializeDxilContainerForModule stripping all the debug info. The debug
+    // info will be stripped from the orginal module, but preserved in the cloned
+    // module.
+    if (bDebugInfo) {
+      llvmModule.CloneForDebugInfo();
+    }
+  }
 
   llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob,
                                        SerializeFlags);

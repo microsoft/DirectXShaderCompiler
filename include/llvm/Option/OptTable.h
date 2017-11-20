@@ -163,12 +163,13 @@ public:
   /// \param FlagsToInclude - If non-zero, only include options with any
   ///                         of these flags set.
   /// \param FlagsToExclude - Exclude options with any of these flags set.
-  void PrintHelp(raw_ostream &OS, const char *Name,
-                 const char *Title, unsigned FlagsToInclude,
-                 unsigned FlagsToExclude) const;
+  void PrintHelp(raw_ostream &OS, const char *Name, const char *Title,
+                 /* HLSL Change - version info */ const char *VersionInfo,
+                 unsigned FlagsToInclude, unsigned FlagsToExclude) const;
 
-  void PrintHelp(raw_ostream &OS, const char *Name,
-                  const char *Title, bool ShowHidden = false) const;
+  void PrintHelp(raw_ostream &OS, const char *Name, const char *Title,
+                 /* HLSL Change - version info */ const char *VersionInfo,
+                 bool ShowHidden = false) const;
 };
 } // end namespace opt
 } // end namespace llvm
