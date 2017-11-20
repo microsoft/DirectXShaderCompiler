@@ -597,7 +597,7 @@ namespace MainNs
             this.ASTTabPage.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.ASTTabPage.Name = "ASTTabPage";
             this.ASTTabPage.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            this.ASTTabPage.Size = new System.Drawing.Size(820, 338);
+            this.ASTTabPage.Size = new System.Drawing.Size(820, 273);
             this.ASTTabPage.TabIndex = 1;
             this.ASTTabPage.Text = "AST";
             this.ASTTabPage.UseVisualStyleBackColor = true;
@@ -609,7 +609,7 @@ namespace MainNs
             this.ASTDumpBox.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.ASTDumpBox.Name = "ASTDumpBox";
             this.ASTDumpBox.ReadOnly = true;
-            this.ASTDumpBox.Size = new System.Drawing.Size(812, 332);
+            this.ASTDumpBox.Size = new System.Drawing.Size(812, 267);
             this.ASTDumpBox.TabIndex = 0;
             this.ASTDumpBox.Text = "";
             // 
@@ -630,7 +630,7 @@ namespace MainNs
             this.OptimizerTabPage.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.OptimizerTabPage.Name = "OptimizerTabPage";
             this.OptimizerTabPage.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            this.OptimizerTabPage.Size = new System.Drawing.Size(820, 338);
+            this.OptimizerTabPage.Size = new System.Drawing.Size(820, 273);
             this.OptimizerTabPage.TabIndex = 2;
             this.OptimizerTabPage.Text = "Optimizer";
             this.OptimizerTabPage.UseVisualStyleBackColor = true;
@@ -638,7 +638,7 @@ namespace MainNs
             // InteractiveEditorButton
             // 
             this.InteractiveEditorButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.InteractiveEditorButton.Location = new System.Drawing.Point(473, 258);
+            this.InteractiveEditorButton.Location = new System.Drawing.Point(473, 193);
             this.InteractiveEditorButton.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.InteractiveEditorButton.Name = "InteractiveEditorButton";
             this.InteractiveEditorButton.Size = new System.Drawing.Size(244, 38);
@@ -650,7 +650,7 @@ namespace MainNs
             // ResetDefaultPassesButton
             // 
             this.ResetDefaultPassesButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.ResetDefaultPassesButton.Location = new System.Drawing.Point(473, 166);
+            this.ResetDefaultPassesButton.Location = new System.Drawing.Point(473, 101);
             this.ResetDefaultPassesButton.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.ResetDefaultPassesButton.Name = "ResetDefaultPassesButton";
             this.ResetDefaultPassesButton.Size = new System.Drawing.Size(244, 42);
@@ -663,7 +663,7 @@ namespace MainNs
             // 
             this.AnalyzeCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.AnalyzeCheckBox.AutoSize = true;
-            this.AnalyzeCheckBox.Location = new System.Drawing.Point(10, 116);
+            this.AnalyzeCheckBox.Location = new System.Drawing.Point(10, 51);
             this.AnalyzeCheckBox.Margin = new System.Windows.Forms.Padding(4, 6, 4, 6);
             this.AnalyzeCheckBox.Name = "AnalyzeCheckBox";
             this.AnalyzeCheckBox.Size = new System.Drawing.Size(176, 26);
@@ -674,7 +674,7 @@ namespace MainNs
             // AddPrintModuleButton
             // 
             this.AddPrintModuleButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.AddPrintModuleButton.Location = new System.Drawing.Point(6, 150);
+            this.AddPrintModuleButton.Location = new System.Drawing.Point(6, 85);
             this.AddPrintModuleButton.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.AddPrintModuleButton.Name = "AddPrintModuleButton";
             this.AddPrintModuleButton.Size = new System.Drawing.Size(244, 42);
@@ -686,7 +686,7 @@ namespace MainNs
             // RunPassesButton
             // 
             this.RunPassesButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.RunPassesButton.Location = new System.Drawing.Point(473, 210);
+            this.RunPassesButton.Location = new System.Drawing.Point(473, 145);
             this.RunPassesButton.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.RunPassesButton.Name = "RunPassesButton";
             this.RunPassesButton.Size = new System.Drawing.Size(244, 42);
@@ -698,7 +698,7 @@ namespace MainNs
             // SelectPassDownButton
             // 
             this.SelectPassDownButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.SelectPassDownButton.Location = new System.Drawing.Point(595, 113);
+            this.SelectPassDownButton.Location = new System.Drawing.Point(595, 48);
             this.SelectPassDownButton.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.SelectPassDownButton.Name = "SelectPassDownButton";
             this.SelectPassDownButton.Size = new System.Drawing.Size(124, 42);
@@ -710,7 +710,7 @@ namespace MainNs
             // SelectPassUpButton
             // 
             this.SelectPassUpButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.SelectPassUpButton.Location = new System.Drawing.Point(473, 113);
+            this.SelectPassUpButton.Location = new System.Drawing.Point(473, 48);
             this.SelectPassUpButton.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.SelectPassUpButton.Name = "SelectPassUpButton";
             this.SelectPassUpButton.Size = new System.Drawing.Size(116, 42);
@@ -729,7 +729,7 @@ namespace MainNs
             this.SelectedPassesBox.Location = new System.Drawing.Point(473, 51);
             this.SelectedPassesBox.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.SelectedPassesBox.Name = "SelectedPassesBox";
-            this.SelectedPassesBox.Size = new System.Drawing.Size(340, 26);
+            this.SelectedPassesBox.Size = new System.Drawing.Size(340, 4);
             this.SelectedPassesBox.TabIndex = 3;
             this.SelectedPassesBox.DoubleClick += new System.EventHandler(this.SelectedPassesBox_DoubleClick);
             this.SelectedPassesBox.KeyUp += new System.Windows.Forms.KeyEventHandler(this.SelectedPassesBox_KeyUp);
@@ -819,7 +819,7 @@ namespace MainNs
             this.AvailablePassesBox.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.AvailablePassesBox.Name = "AvailablePassesBox";
             this.AvailablePassesBox.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
-            this.AvailablePassesBox.Size = new System.Drawing.Size(451, 26);
+            this.AvailablePassesBox.Size = new System.Drawing.Size(451, 4);
             this.AvailablePassesBox.TabIndex = 0;
             this.AvailablePassesBox.DoubleClick += new System.EventHandler(this.AvailablePassesBox_DoubleClick);
             // 
@@ -841,7 +841,7 @@ namespace MainNs
             this.TopSplitContainer.Panel2.Controls.Add(this.OutputTabControl);
             this.TopSplitContainer.Panel2Collapsed = true;
             this.TopSplitContainer.Size = new System.Drawing.Size(1302, 395);
-            this.TopSplitContainer.SplitterDistance = 477;
+            this.TopSplitContainer.SplitterDistance = 370;
             this.TopSplitContainer.SplitterWidth = 3;
             this.TopSplitContainer.TabIndex = 3;
             // 
@@ -903,16 +903,28 @@ namespace MainNs
             // 
             // cbProfile
             // 
-            this.cbProfile.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cbProfile.FormattingEnabled = true;
             this.cbProfile.Items.AddRange(new object[] {
             "ps_6_0",
+            "ps_6_1",
+            "ps_6_2",
             "vs_6_0",
+            "vs_6_1",
+            "vs_6_2",
             "cs_6_0",
+            "cs_6_1",
+            "cs_6_2",
             "gs_6_0",
+            "gs_6_1",
+            "gs_6_2",
             "hs_6_0",
+            "hs_6_1",
+            "hs_6_2",
             "ds_6_0",
-            "lib_6_1"});
+            "ds_6_1",
+            "ds_6_2",
+            "lib_6_1",
+            "lib_6_2"});
             this.cbProfile.Location = new System.Drawing.Point(240, 28);
             this.cbProfile.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.cbProfile.Name = "cbProfile";
