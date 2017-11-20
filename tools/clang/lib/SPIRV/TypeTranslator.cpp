@@ -148,6 +148,14 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           return theBuilder.getFloat32Type();
         case BuiltinType::Double:
           return theBuilder.getFloat64Type();
+        case BuiltinType::LitFloat: {
+          const auto &semantics = astContext.getFloatTypeSemantics(type);
+          const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
+          if (bitwidth <= 32)
+            return theBuilder.getFloat32Type();
+          else
+            return theBuilder.getFloat64Type();
+        }
         default:
           emitError("primitive type %0 unimplemented")
               << builtinType->getTypeClassName();

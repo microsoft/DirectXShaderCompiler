@@ -223,6 +223,9 @@ TEST_F(FileTest, OpVectorSwizzleAfterBufferAccess) {
 TEST_F(FileTest, OpVectorSwizzleAfterTextureAccess) {
   runFileTest("op.vector.swizzle.texture-access.hlsl");
 }
+TEST_F(FileTest, OpVectorSwizzleConstScalar) {
+  runFileTest("op.vector.swizzle.const-scalar.hlsl");
+}
 TEST_F(FileTest, OpVectorAccess) { runFileTest("op.vector.access.hlsl"); }
 
 // For matrix accessing/swizzling operators
