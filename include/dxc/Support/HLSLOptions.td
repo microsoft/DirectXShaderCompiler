@@ -229,7 +229,7 @@ def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<
   HelpText<"Suppress warnings">;
 def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Read root signature from a #define">;
-def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>,
+def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, DriverOption, HelpHidden]>, Group<hlslcomp_Group>,
   HelpText<"Enable 16bit types and disable min precision types. Available in HLSL 2018 and shader model 6.2">;
 def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
@@ -252,7 +252,7 @@ def fvk_u_shift : MultiArg<["-"], "fvk-u-shift", 2>, MetaVarName<"<shift> <space
 // fxc-based flags that don't match those previously defined.
 
 def target_profile : JoinedOrSeparate<["-", "/"], "T">, Flags<[CoreOption]>, Group<hlslcomp_Group>, MetaVarName<"<profile>">,
-  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, vs_6_0, vs_6_1, vs_6_2, \n\t\t cs_6_0, cs_6_1, cs_6_2, gs_6_0, gs_6_1, gs_6_2, \n\t\t ds_6_0, ds_6_1, ds_6_2, hs_6_0, hs_6_1, hs_6_2, \n\t\t lib_6_0, lib_6_1, lib_6_2">;
+  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, vs_6_0, vs_6_1, \n\t\t cs_6_0, cs_6_1, gs_6_0, gs_6_1, \n\t\t ds_6_0, ds_6_1, hs_6_0, hs_6_1, \n\t\t lib_6_0, lib_6_1">;
 def entrypoint :  JoinedOrSeparate<["-", "/"], "E">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Entry point name">;
 // /I <include> - already defined above
@@ -284,7 +284,7 @@ def Gfp : Flag<["-", "/"], "Gfp">, HelpText<"Prefer flow control constructs">, F
 def Ges : Flag<["-", "/"], "Ges">, HelpText<"Enable strict mode">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def Gis : Flag<["-", "/"], "Gis">, HelpText<"Force IEEE strictness">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
-def denorm : JoinedOrSeparate<["-", "/"], "denorm">, HelpText<"select denormal value options (any, preserve, ftz). any is the default.">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
+def denorm : JoinedOrSeparate<["-", "/"], "denorm">, HelpText<"select denormal value options (any, preserve, ftz). any is the default.">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>;
 
 def Fo : JoinedOrSeparate<["-", "/"], "Fo">, MetaVarName<"<file>">, HelpText<"Output object file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 // def Fl : JoinedOrSeparate<["-", "/"], "Fl">, MetaVarName<"<file>">, HelpText<"Output a library">;
