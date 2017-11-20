@@ -2248,6 +2248,8 @@ either because of no Vulkan equivalents at the moment, or because of deprecation
   emit a warning and ignore it.
 * ``abort()`` intrinsic function: no Vulkan equivalent. The compiler will emit
   an error.
+* ``CheckAccessFullyMapped()`` intrinsic function: no Vulkan equivalent.
+  The compiler will emit an error.
 * ``GetRenderTargetSampleCount()`` intrinsic function: no Vulkan equivalent.
   (Its GLSL counterpart is ``gl_NumSamples``, which is not available in GLSL for
   Vulkan.) The compiler will emit an error.
@@ -2265,3 +2267,5 @@ either because of no Vulkan equivalents at the moment, or because of deprecation
 * ``.GetSamplePosition()`` intrinsic method: no Vulkan equivalent.
   (``gl_SamplePosition`` provides similar functionality but it's only for the
   sample currently being processed.) The compiler will emit an error.
+* ``SV_InnerCoverage`` semantic does not have a Vulkan equivalent. The compiler
+  will emit an error.
