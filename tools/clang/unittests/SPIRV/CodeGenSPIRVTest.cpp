@@ -402,16 +402,6 @@ TEST_F(FileTest, SemanticIsFrontFaceGS) {
 TEST_F(FileTest, SemanticIsFrontFacePS) {
   runFileTest("semantic.is-front-face.ps.hlsl");
 }
-TEST_F(FileTest, SemanticArbitrary) { runFileTest("semantic.arbitrary.hlsl"); }
-TEST_F(FileTest, SemanticArbitraryDeclLocation) {
-  runFileTest("semantic.arbitrary.location.decl.hlsl");
-}
-TEST_F(FileTest, SemanticArbitraryAlphaLocation) {
-  runFileTest("semantic.arbitrary.location.alpha.hlsl");
-}
-TEST_F(FileTest, SemanticDuplication) {
-  runFileTest("semantic.duplication.hlsl", FileTest::Expect::Failure);
-}
 TEST_F(FileTest, SemanticDispatchThreadId) {
   runFileTest("semantic.dispatch-thread-id.cs.hlsl");
 }
@@ -506,6 +496,17 @@ TEST_F(FileTest, SemanticCoverageTypeMismatchPS) {
 TEST_F(FileTest, SemanticInnerCoveragePS) {
   runFileTest("semantic.inner-coverage.ps.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, SemanticArbitrary) { runFileTest("semantic.arbitrary.hlsl"); }
+TEST_F(FileTest, SemanticArbitraryDeclLocation) {
+  runFileTest("semantic.arbitrary.location.decl.hlsl");
+}
+TEST_F(FileTest, SemanticArbitraryAlphaLocation) {
+  runFileTest("semantic.arbitrary.location.alpha.hlsl");
+}
+TEST_F(FileTest, SemanticDuplication) {
+  runFileTest("semantic.duplication.hlsl", FileTest::Expect::Failure);
+}
+TEST_F(FileTest, SemanticOnStruct) { runFileTest("semantic.on-struct.hlsl"); }
 
 // For texture methods
 TEST_F(FileTest, TextureSample) { runFileTest("texture.sample.hlsl"); }

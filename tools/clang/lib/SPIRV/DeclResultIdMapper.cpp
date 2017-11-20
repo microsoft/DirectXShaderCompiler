@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <sstream>
 #include <unordered_map>
 
 #include "dxc/HLSL/DxilConstants.h"
@@ -25,25 +26,6 @@ namespace clang {
 namespace spirv {
 
 namespace {
-/// \brief Returns true if the given decl has a semantic string attached and
-/// writes the info to *semanticStr, *semantic, *semanticIndex, and
-/// *semanticLoc.
-bool getStageVarSemantic(const NamedDecl *decl, llvm::StringRef *semanticStr,
-                         const hlsl::Semantic **semantic,
-                         uint32_t *semanticIndex, SourceLocation *semanticLoc) {
-  for (auto *annotation : decl->getUnusualAnnotations()) {
-    if (auto *sema = dyn_cast<hlsl::SemanticDecl>(annotation)) {
-      *semanticStr = sema->SemanticName;
-      llvm::StringRef semanticName;
-      hlsl::Semantic::DecomposeNameAndIndex(*semanticStr, &semanticName,
-                                            semanticIndex);
-      *semantic = hlsl::Semantic::GetByName(semanticName);
-      *semanticLoc = sema->Loc;
-      return true;
-    }
-  }
-  return false;
-}
 
 /// \brief Returns the stage variable's register assignment for the given Decl.
 const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
@@ -113,6 +95,34 @@ inline QualType getTypeOrFnRetType(const DeclaratorDecl *decl) {
 }
 } // anonymous namespace
 
+std::string StageVar::getSemanticStr() const {
+  // A special case for zero index, which is equivalent to no index.
+  // Use what is in the source code.
+  // TODO: this looks like a hack to make the current tests happy.
+  // Should consider remove it and fix all tests.
+  if (semanticIndex == 0)
+    return semanticStr;
+
+  std::ostringstream ss;
+  ss << semanticName.str() << semanticIndex;
+  return ss.str();
+}
+
+DeclResultIdMapper::SemanticInfo
+DeclResultIdMapper::getStageVarSemantic(const NamedDecl *decl) {
+  for (auto *annotation : decl->getUnusualAnnotations()) {
+    if (auto *sema = dyn_cast<hlsl::SemanticDecl>(annotation)) {
+      llvm::StringRef semanticStr = sema->SemanticName;
+      llvm::StringRef semanticName;
+      uint32_t index = 0;
+      hlsl::Semantic::DecomposeNameAndIndex(semanticStr, &semanticName, &index);
+      const auto *semantic = hlsl::Semantic::GetByName(semanticName);
+      return {semanticStr, semantic, semanticName, index, sema->Loc};
+    }
+  }
+  return {};
+}
+
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
                                               uint32_t storedValue,
                                               bool forPCF) {
@@ -130,13 +140,15 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
   // none of them should be created as arrays.
   assert(sigPoint->GetKind() != hlsl::DXIL::SigPointKind::HSCPOut);
 
+  SemanticInfo inheritSemantic = {};
+
   return createStageVars(
       sigPoint, decl, /*asInput=*/false, type,
       /*arraySize=*/0, "out.var", llvm::None, &storedValue,
       // Write back of stage output variables in GS is manually controlled by
       // .Append() intrinsic method, implemented in writeBackOutputStream().
       // So noWriteBack should be set to true for GS.
-      shaderModel.IsGS());
+      shaderModel.IsGS(), &inheritSemantic);
 }
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
@@ -150,9 +162,11 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
   const auto *sigPoint =
       hlsl::SigPoint::GetSigPoint(hlsl::DXIL::SigPointKind::HSCPOut);
 
+  SemanticInfo inheritSemantic = {};
+
   return createStageVars(sigPoint, decl, /*asInput=*/false, type, arraySize,
                          "out.var", invocationId, &storedValue,
-                         /*noWriteBack=*/false);
+                         /*noWriteBack=*/false, &inheritSemantic);
 }
 
 bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
@@ -179,9 +193,11 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
   const auto *sigPoint = deduceSigPoint(paramDecl, /*asInput=*/true,
                                         shaderModel.GetKind(), forPCF);
 
+  SemanticInfo inheritSemantic = {};
+
   return createStageVars(sigPoint, paramDecl, /*asInput=*/true, type, arraySize,
                          "in.var", llvm::None, loadedValue,
-                         /*noWriteBack=*/false);
+                         /*noWriteBack=*/false, &inheritSemantic);
 }
 
 const DeclResultIdMapper::DeclSpirvInfo *
@@ -827,11 +843,14 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 bool DeclResultIdMapper::createStageVars(
     const hlsl::SigPoint *sigPoint, const DeclaratorDecl *decl, bool asInput,
     QualType type, uint32_t arraySize, const llvm::Twine &namePrefix,
-    llvm::Optional<uint32_t> invocationId, uint32_t *value, bool noWriteBack) {
+    llvm::Optional<uint32_t> invocationId, uint32_t *value, bool noWriteBack,
+    SemanticInfo *inheritSemantic) {
   // invocationId should only be used for handling HS per-vertex output.
   if (invocationId.hasValue()) {
     assert(shaderModel.IsHS() && arraySize != 0 && !asInput);
   }
+
+  assert(inheritSemantic);
 
   if (type->isVoidType()) {
     // No stage variables will be created for void type.
@@ -839,17 +858,42 @@ bool DeclResultIdMapper::createStageVars(
   }
 
   uint32_t typeId = typeTranslator.translateType(type);
-  llvm::StringRef semanticStr;
-  const hlsl::Semantic *semantic = {};
-  uint32_t semanticIndex = {};
-  SourceLocation semanticLoc = {};
 
-  if (getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex,
-                          &semanticLoc)) {
-    const auto semanticKind = semantic->GetKind();
+  // We have several cases regarding HLSL semantics to handle here:
+  // * If the currrent decl inherits a semantic from some enclosing entity,
+  //   use the inherited semantic no matter whether there is a semantic
+  //   attached to the current decl.
+  // * If there is no semantic to inherit,
+  //   * If the current decl is a struct,
+  //     * If the current decl has a semantic, all its members inhert this
+  //       decl's semantic, with the index sequentially increasing;
+  //     * If the current decl does not have a semantic, all its members
+  //       should have semantics attached;
+  //   * If the current decl is not a struct, it should have semantic attached.
 
+  auto thisSemantic = getStageVarSemantic(decl);
+
+  // Which semantic we should use for this decl
+  auto *semanticToUse = &thisSemantic;
+
+  // Enclosing semantics override internal ones
+  if (inheritSemantic->isValid()) {
+    if (thisSemantic.isValid()) {
+      emitWarning(
+          "internal semantic '%0' overridden by enclosing semantic '%1'",
+          thisSemantic.loc)
+          << thisSemantic.str << inheritSemantic->str;
+    }
+    semanticToUse = inheritSemantic;
+  }
+
+  if (semanticToUse->isValid() &&
+      // Structs with attached semantics will be handled later.
+      !type->isStructureType()) {
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
+
+    const auto semanticKind = semanticToUse->semantic->GetKind();
 
     // Error out when the given semantic is invalid in this shader model
     if (hlsl::SigPoint::GetInterpretation(semanticKind, sigPoint->GetKind(),
@@ -858,7 +902,7 @@ bool DeclResultIdMapper::createStageVars(
         hlsl::DXIL::SemanticInterpretationKind::NA) {
       emitError("invalid usage of semantic '%0' in shader profile %1",
                 decl->getLocation())
-          << semanticStr << shaderModel.GetName();
+          << semanticToUse->str << shaderModel.GetName();
       return false;
     }
 
@@ -879,7 +923,7 @@ bool DeclResultIdMapper::createStageVars(
     //   SampleMask, must be an array of integers.
 
     if (glPerVertex.tryToAccess(sigPoint->GetKind(), semanticKind,
-                                semanticIndex, invocationId, value,
+                                semanticToUse->index, invocationId, value,
                                 noWriteBack))
       return true;
 
@@ -908,9 +952,14 @@ bool DeclResultIdMapper::createStageVars(
       typeId = theBuilder.getArrayType(typeId,
                                        theBuilder.getConstantUint32(arraySize));
 
-    StageVar stageVar(sigPoint, semanticStr, semantic, semanticIndex, typeId);
+    StageVar stageVar(sigPoint, semanticToUse->str, semanticToUse->semantic,
+                      semanticToUse->name, semanticToUse->index, typeId);
+    // Note: we must have a separate variable here otherwise name
+    // (of Twine type) won't work.
+    const std::string semanticStr = stageVar.getSemanticStr();
     llvm::Twine name = namePrefix + "." + semanticStr;
-    const uint32_t varId = createSpirvStageVar(&stageVar, name, semanticLoc);
+    const uint32_t varId =
+        createSpirvStageVar(&stageVar, name, semanticToUse->loc);
 
     if (varId == 0)
       return false;
@@ -919,6 +968,9 @@ bool DeclResultIdMapper::createStageVars(
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
     stageVars.push_back(stageVar);
     stageVarIds[decl] = varId;
+
+    // Mark that we have used one index for this semantic
+    ++semanticToUse->index;
 
     // TODO: the following may not be correct?
     if (sigPoint->GetSignatureKind() ==
@@ -1039,9 +1091,10 @@ bool DeclResultIdMapper::createStageVars(
     return true;
   }
 
-  // If the decl itself doesn't have semantic string attached, it should be
-  // a struct having all its fields with semantic strings.
-  if (!type->isStructureType()) {
+  // If the decl itself doesn't have semantic string attached and there is no
+  // one to inherit, it should be a struct having all its fields with semantic
+  // strings.
+  if (!semanticToUse->isValid() && !type->isStructureType()) {
     emitError("semantic string missing for shader %select{output|input}0 "
               "variable '%1'",
               decl->getLocation())
@@ -1060,7 +1113,7 @@ bool DeclResultIdMapper::createStageVars(
       uint32_t subValue = 0;
       if (!createStageVars(sigPoint, field, asInput, field->getType(),
                            arraySize, namePrefix, invocationId, &subValue,
-                           noWriteBack))
+                           noWriteBack, semanticToUse))
         return false;
       subValues.push_back(subValue);
     }
@@ -1120,7 +1173,7 @@ bool DeclResultIdMapper::createStageVars(
 
       if (!createStageVars(sigPoint, field, asInput, field->getType(),
                            arraySize, namePrefix, invocationId, &subValue,
-                           noWriteBack))
+                           noWriteBack, semanticToUse))
         return false;
     }
   }
@@ -1139,22 +1192,18 @@ bool DeclResultIdMapper::writeBackOutputStream(const ValueDecl *decl,
   if (hasGSPrimitiveTypeQualifier(decl))
     type = astContext.getAsConstantArrayType(type)->getElementType();
 
-  llvm::StringRef semanticStr;
-  const hlsl::Semantic *semantic = {};
-  uint32_t semanticIndex = {};
-  SourceLocation semanticLoc = {};
+  auto semanticInfo = getStageVarSemantic(decl);
 
-  if (getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex,
-                          &semanticLoc)) {
+  if (semanticInfo.isValid()) {
     // Found semantic attached directly to this Decl. Write the value for this
     // Decl to the corresponding stage output variable.
 
     const uint32_t srcTypeId = typeTranslator.translateType(type);
 
     // Handle SV_Position, SV_ClipDistance, and SV_CullDistance
-    if (glPerVertex.tryToAccess(hlsl::DXIL::SigPointKind::GSOut,
-                                semantic->GetKind(), semanticIndex, llvm::None,
-                                &value, /*noWriteBack=*/false))
+    if (glPerVertex.tryToAccess(
+            hlsl::DXIL::SigPointKind::GSOut, semanticInfo.semantic->GetKind(),
+            semanticInfo.index, llvm::None, &value, /*noWriteBack=*/false))
       return true;
 
     // Query the <result-id> for the stage output variable generated out
