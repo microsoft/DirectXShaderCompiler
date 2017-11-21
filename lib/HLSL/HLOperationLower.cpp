@@ -4875,7 +4875,7 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
   bool is64 = (EltTy == doubleTy) | (EltTy == i64Ty);
   bool is16 = (EltTy == halfTy || EltTy == i16Ty) && !hlslOP->UseMinPrecision();
   bool isNormal = !isBool && !is64;
-  DXASSERT((is16 && channelOffset < 8) || channelOffset < 4,
+  DXASSERT_LOCALVAR((is16 && channelOffset < 8) || channelOffset < 4,
            "legacy cbuffer don't across 16 bytes register.");
   if (isNormal) {
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
