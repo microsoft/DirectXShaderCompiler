@@ -2010,7 +2010,7 @@ void DxilTranslateRawBuffer::ReplaceMinPrecisionRawBufferStore(Function *F,
       CallInst *handleCI = dyn_cast<CallInst>(CI->getArgOperand(1));
       DXASSERT(handleCI, "otherwise handle was not an argument to buffer store.");
       ConstantInt *resClass = dyn_cast<ConstantInt>(handleCI->getArgOperand(1));
-      DXASSERT_LOCALVAR(resClass && resClass->getSExtValue() ==
+      DXASSERT_LOCALVAR(resClass, resClass && resClass->getSExtValue() ==
                                (unsigned)DXIL::ResourceClass::UAV,
                "otherwise buffer store called on non uav kind.");
       ConstantInt *rangeID = dyn_cast<ConstantInt>(handleCI->getArgOperand(2)); // range id or idx?
