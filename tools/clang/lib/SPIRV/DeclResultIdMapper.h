@@ -37,10 +37,12 @@ namespace spirv {
 class StageVar {
 public:
   inline StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
-                  const hlsl::Semantic *sema, uint32_t semaIndex, uint32_t type)
+                  const hlsl::Semantic *sema, llvm::StringRef semaName,
+                  uint32_t semaIndex, uint32_t type)
       : sigPoint(sig), semanticStr(semaStr), semantic(sema),
-        semanticIndex(semaIndex), typeId(type), valueId(0), isBuiltin(false),
-        storageClass(spv::StorageClass::Max), location(nullptr) {}
+        semanticName(semaName), semanticIndex(semaIndex), typeId(type),
+        valueId(0), isBuiltin(false), storageClass(spv::StorageClass::Max),
+        location(nullptr) {}
 
   const hlsl::SigPoint *getSigPoint() const { return sigPoint; }
   const hlsl::Semantic *getSemantic() const { return semantic; }
@@ -50,7 +52,7 @@ public:
   uint32_t getSpirvId() const { return valueId; }
   void setSpirvId(uint32_t id) { valueId = id; }
 
-  llvm::StringRef getSemanticStr() const { return semanticStr; }
+  std::string getSemanticStr() const;
   uint32_t getSemanticIndex() const { return semanticIndex; }
 
   bool isSpirvBuitin() const { return isBuiltin; }
@@ -70,6 +72,8 @@ private:
   llvm::StringRef semanticStr;
   /// HLSL semantic.
   const hlsl::Semantic *semantic;
+  /// Original HLSL semantic string (without index) in the source code.
+  llvm::StringRef semanticName;
   /// HLSL semantic index.
   uint32_t semanticIndex;
   /// SPIR-V <type-id>.
@@ -345,6 +349,20 @@ private:
                                            llvm::StringRef typeName,
                                            llvm::StringRef varName);
 
+  /// A struct containing information about a particular HLSL semantic.
+  struct SemanticInfo {
+    llvm::StringRef str;            ///< The original semantic string
+    const hlsl::Semantic *semantic; ///< The unique semantic object
+    llvm::StringRef name;           ///< The semantic string without index
+    uint32_t index;                 ///< The semantic index
+    SourceLocation loc;             ///< Source code location
+
+    bool isValid() const { return semantic != nullptr; }
+  };
+
+  /// Returns the given decl's HLSL semantic information.
+  static SemanticInfo getStageVarSemantic(const NamedDecl *decl);
+
   /// Creates all the stage variables mapped from semantics on the given decl.
   /// Returns true on sucess.
   ///
@@ -366,11 +384,14 @@ private:
   /// array element to write to.
   ///
   /// Assumes the decl has semantic attached to itself or to its fields.
+  /// If inheritSemantic is valid, it will override all semantics attached to
+  /// the children of this decl, and the children of this decl will be using
+  /// the semantic in inheritSemantic, with index increasing sequentially.
   bool createStageVars(const hlsl::SigPoint *sigPoint,
                        const DeclaratorDecl *decl, bool asInput, QualType type,
                        uint32_t arraySize, const llvm::Twine &namePrefix,
                        llvm::Optional<uint32_t> invocationId, uint32_t *value,
-                       bool noWriteBack);
+                       bool noWriteBack, SemanticInfo *inheritSemantic);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
