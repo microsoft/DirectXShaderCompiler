@@ -2190,6 +2190,8 @@ struct DxilInst_CreateHandle {
   void set_resourceClass_val(int8_t val) { Instr->setOperand(1, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
   llvm::Value *get_rangeId() const { return Instr->getOperand(2); }
   void set_rangeId(llvm::Value *val) { Instr->setOperand(2, val); }
+  int32_t get_rangeId_val() const { return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
+  void set_rangeId_val(int32_t val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 32), llvm::APInt(32, (uint64_t)val))); }
   llvm::Value *get_index() const { return Instr->getOperand(3); }
   void set_index(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_nonUniformIndex() const { return Instr->getOperand(4); }

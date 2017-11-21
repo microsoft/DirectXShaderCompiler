@@ -547,7 +547,7 @@ class db_dxil(object):
         self.add_dxil_op("CreateHandle", next_op_idx, "CreateHandle", "creates the handle to a resource", "v", "ro", [
             db_dxil_param(0, "res", "", "the handle to the resource"),
             db_dxil_param(2, "i8", "resourceClass", "the class of resource to create (SRV, UAV, CBuffer, Sampler)", is_const=True), # maps to DxilResourceBase::Class
-            db_dxil_param(3, "i32", "rangeId", "range identifier for resource"),
+            db_dxil_param(3, "i32", "rangeId", "range identifier for resource", is_const=True),
             db_dxil_param(4, "i32", "index", "zero-based index into range"),
             db_dxil_param(5, "i1", "nonUniformIndex", "non-uniform resource index", is_const=True)])
         next_op_idx += 1
