@@ -866,6 +866,16 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 | SV_Coverage               +-------------+--------------------------+-----------------------+-----------------------+
 |                           | PSOut       | ``SampleMask``           | N/A                   | ``Shader``            |
 +---------------------------+-------------+--------------------------+-----------------------+-----------------------+
+|                           | VSIn        | ``ViewIndex``            | N/A                   | ``MultiView``         |
+|                           +-------------+--------------------------+-----------------------+-----------------------+
+|                           | HSIn        | ``ViewIndex``            | N/A                   | ``MultiView``         |
+|                           +-------------+--------------------------+-----------------------+-----------------------+
+| SV_ViewID                 | DSIn        | ``ViewIndex``            | N/A                   | ``MultiView``         |
+|                           +-------------+--------------------------+-----------------------+-----------------------+
+|                           | GSIn        | ``ViewIndex``            | N/A                   | ``MultiView``         |
+|                           +-------------+--------------------------+-----------------------+-----------------------+
+|                           | PSIn        | ``ViewIndex``            | N/A                   | ``MultiView``         |
++---------------------------+-------------+--------------------------+-----------------------+-----------------------+
 
 For entities (function parameters, function return values, struct fields) with
 the above SV semantic strings attached, SPIR-V variables of the
@@ -1449,7 +1459,7 @@ extended instruction mapping, so they are handled with additional steps:
   This is achieved by performing ``int4(input.zyxw * 255.002)`` using SPIR-V ``OpVectorShuffle``,
   ``OpVectorTimesScalar``, and ``OpConvertFToS``, respectively.
 - ``dst``: Calculates a distance vector. The resulting vector, ``dest``, has the following specifications:
-  ``dest.x = 1.0``, ``dest.y = src0.y * src1.y``, ``dest.z = src0.z``, and ``dest.w = src1.w``. 
+  ``dest.x = 1.0``, ``dest.y = src0.y * src1.y``, ``dest.z = src0.z``, and ``dest.w = src1.w``.
   Uses SPIR-V ``OpCompositeExtract`` and ``OpFMul``.
 
 Using SPIR-V opcode

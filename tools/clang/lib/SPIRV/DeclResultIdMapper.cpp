@@ -1564,6 +1564,17 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleMask);
   }
+  // According to DXIL spec, the ViewID SV can only be used by VSIn, PCIn,
+  // HSIn, DSIn, GSIn, PSIn.
+  // According to Vulkan spec, the ViewIndex BuiltIn can only be used in
+  // VS/HS/DS/GS/PS input.
+  case hlsl::Semantic::Kind::ViewID: {
+    theBuilder.addExtension("SPV_KHR_multiview");
+    theBuilder.requireCapability(spv::Capability::MultiView);
+
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewIndex);
+  }
   case hlsl::Semantic::Kind::InnerCoverage: {
     emitError("no equivalent for semantic SV_InnerCoverage in Vulkan", srcLoc);
     return 0;

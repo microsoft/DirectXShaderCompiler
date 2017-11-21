@@ -6096,6 +6096,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   uint32_t numOutputControlPoints = 0;
   uint32_t outputControlPointIdVal = 0; // SV_OutputControlPointID value
   uint32_t primitiveIdVar = 0;          // SV_PrimitiveID variable
+  uint32_t viewIdVar = 0;               // SV_ViewID variable
   uint32_t hullMainInputPatchParam = 0; // Temporary parameter for InputPatch<>
 
   // The array size of per-vertex input/output variables
@@ -6224,12 +6225,15 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
       theBuilder.createStore(tempVar, loadedValue);
 
-      // Record the temporary variable holding SV_OutputControlPointID and
-      // SV_PrimitiveID. It may be used later in the patch constant function.
+      // Record the temporary variable holding SV_OutputControlPointID,
+      // SV_PrimitiveID, and SV_ViewID. It may be used later in the patch
+      // constant function.
       if (hasSemantic(param, hlsl::DXIL::SemanticKind::OutputControlPointID))
         outputControlPointIdVal = loadedValue;
-      if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID))
+      else if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID))
         primitiveIdVar = tempVar;
+      else if (hasSemantic(param, hlsl::DXIL::SemanticKind::ViewID))
+        viewIdVar = tempVar;
     }
   }
 
@@ -6249,9 +6253,10 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     if (!declIdMapper.createStageOutputVar(decl, numOutputControlPoints,
                                            outputControlPointIdVal, retVal))
       return false;
-    if (!processHullEntryPointOutputAndPatchConstFunc(
+    if (!processHSEntryPointOutputAndPCF(
             decl, retType, retVal, numOutputControlPoints,
-            outputControlPointIdVal, primitiveIdVar, hullMainInputPatchParam))
+            outputControlPointIdVal, primitiveIdVar, viewIdVar,
+            hullMainInputPatchParam))
       return false;
   } else {
     if (!declIdMapper.createStageOutputVar(decl, retVal, /*forPCF*/ false))
@@ -6289,10 +6294,10 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   return true;
 }
 
-bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
+bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
     const FunctionDecl *hullMainFuncDecl, uint32_t retType, uint32_t retVal,
     uint32_t numOutputControlPoints, uint32_t outputControlPointId,
-    uint32_t primitiveId, uint32_t hullMainInputPatch) {
+    uint32_t primitiveId, uint32_t viewId, uint32_t hullMainInputPatch) {
   // This method may only be called for Hull shaders.
   assert(shaderModel.IsHS());
 
@@ -6355,32 +6360,53 @@ bool SPIRVEmitter::processHullEntryPointOutputAndPatchConstFunc(
   theBuilder.setMergeTarget(mergeBB);
 
   theBuilder.setInsertPoint(thenBB);
+
   // Call the PCF. Since the function is not explicitly called, we must first
   // register an ID for it.
   const uint32_t pcfId = declIdMapper.getOrRegisterFnResultId(patchConstFunc);
   const uint32_t pcfRetType =
       typeTranslator.translateType(patchConstFunc->getReturnType());
+
   std::vector<uint32_t> pcfParams;
-  for (const auto *param : patchConstFunc->parameters()) {
-    // Note: According to the HLSL reference, the PCF takes an InputPatch of
-    // ControlPoints as well as the PatchID (PrimitiveID). This does not
-    // necessarily mean that they are present. There is also no requirement
-    // for the order of parameters passed to PCF.
-    if (hlsl::IsHLSLInputPatchType(param->getType()))
-      pcfParams.push_back(hullMainInputPatch);
-    if (hlsl::IsHLSLOutputPatchType(param->getType()))
-      pcfParams.push_back(hullMainOutputPatch);
-    if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID)) {
-      if (!primitiveId) {
+
+  // A lambda for creating a stage input variable and its associated temporary
+  // variable for function call. Also initializes the temporary variable using
+  // the contents loaded from the stage input variable. Returns the <result-id>
+  // of the temporary variable.
+  const auto createParmVarAndInitFromStageInputVar =
+      [this](const ParmVarDecl *param) {
         const uint32_t typeId = typeTranslator.translateType(param->getType());
         std::string tempVarName = "param.var." + param->getNameAsString();
         const uint32_t tempVar = theBuilder.addFnVar(typeId, tempVarName);
         uint32_t loadedValue = 0;
         declIdMapper.createStageInputVar(param, &loadedValue, /*forPCF*/ true);
         theBuilder.createStore(tempVar, loadedValue);
-        primitiveId = tempVar;
+        return tempVar;
+      };
+
+  for (const auto *param : patchConstFunc->parameters()) {
+    // Note: According to the HLSL reference, the PCF takes an InputPatch of
+    // ControlPoints as well as the PatchID (PrimitiveID). This does not
+    // necessarily mean that they are present. There is also no requirement
+    // for the order of parameters passed to PCF.
+    if (hlsl::IsHLSLInputPatchType(param->getType())) {
+      pcfParams.push_back(hullMainInputPatch);
+    } else if (hlsl::IsHLSLOutputPatchType(param->getType())) {
+      pcfParams.push_back(hullMainOutputPatch);
+    } else if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID)) {
+      if (!primitiveId) {
+        primitiveId = createParmVarAndInitFromStageInputVar(param);
       }
       pcfParams.push_back(primitiveId);
+    } else if (hasSemantic(param, hlsl::DXIL::SemanticKind::ViewID)) {
+      if (!viewId) {
+        viewId = createParmVarAndInitFromStageInputVar(param);
+      }
+      pcfParams.push_back(viewId);
+    } else {
+      emitError("patch constant function parameter '%0' unknown",
+                param->getLocation())
+          << param->getName();
     }
   }
   const uint32_t pcfResultId =
