@@ -944,6 +944,9 @@ bool DeclResultIdMapper::createStageVars(
     case hlsl::Semantic::Kind::Coverage:
       typeId = theBuilder.getArrayType(typeId, theBuilder.getConstantUint32(1));
       break;
+    case hlsl::Semantic::Kind::Barycentrics:
+      typeId = theBuilder.getVecType(theBuilder.getFloat32Type(), 2);
+      break;
     }
 
     // Handle the extra arrayness
@@ -959,7 +962,7 @@ bool DeclResultIdMapper::createStageVars(
     const std::string semanticStr = stageVar.getSemanticStr();
     llvm::Twine name = namePrefix + "." + semanticStr;
     const uint32_t varId =
-        createSpirvStageVar(&stageVar, name, semanticToUse->loc);
+        createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
 
     if (varId == 0)
       return false;
@@ -978,7 +981,9 @@ bool DeclResultIdMapper::createStageVars(
       theBuilder.decorate(varId, spv::Decoration::Patch);
 
     // Decorate with interpolation modes for pixel shader input variables
-    if (shaderModel.IsPS() && sigPoint->IsInput())
+    if (shaderModel.IsPS() && sigPoint->IsInput() &&
+        // BaryCoord*AMD buitins already encode the interpolation mode.
+        semanticKind != hlsl::Semantic::Kind::Barycentrics)
       decoratePSInterpolationMode(decl, type, varId);
 
     if (asInput) {
@@ -1027,6 +1032,21 @@ bool DeclResultIdMapper::createStageVars(
       // read SampleMask and extract its first element.
       else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
         *value = theBuilder.createCompositeExtract(srcTypeId, *value, {0});
+      }
+      // Special handling of SV_Barycentrics, which is a float3, but the
+      // underlying stage input variable is a float2 (only provides the first
+      // two components). Calculate the third element.
+      else if (semanticKind == hlsl::Semantic::Kind::Barycentrics) {
+        const auto f32Type = theBuilder.getFloat32Type();
+        const auto x = theBuilder.createCompositeExtract(f32Type, *value, {0});
+        const auto y = theBuilder.createCompositeExtract(f32Type, *value, {1});
+        const auto xy =
+            theBuilder.createBinaryOp(spv::Op::OpFAdd, f32Type, x, y);
+        const auto z = theBuilder.createBinaryOp(
+            spv::Op::OpFSub, f32Type, theBuilder.getConstantFloat32(1), xy);
+        const auto v3f32Type = theBuilder.getVecType(f32Type, 3);
+
+        *value = theBuilder.createCompositeConstruct(v3f32Type, {x, y, z});
       }
     } else {
       if (noWriteBack)
@@ -1275,6 +1295,7 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const DeclaratorDecl *decl,
 }
 
 uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
+                                                 const DeclaratorDecl *decl,
                                                  const llvm::Twine &name,
                                                  SourceLocation srcLoc) {
   using spv::BuiltIn;
@@ -1504,6 +1525,33 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
 
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragStencilRefEXT);
+  }
+  // According to DXIL spec, the ViewID SV can only be used by PSIn.
+  case hlsl::Semantic::Kind::Barycentrics: {
+    theBuilder.addExtension("SPV_AMD_shader_explicit_vertex_parameter");
+    stageVar->setIsSpirvBuiltin();
+
+    // Selecting the correct builtin according to interpolation mode
+    auto bi = BuiltIn::Max;
+    if (decl->hasAttr<HLSLNoPerspectiveAttr>()) {
+      if (decl->hasAttr<HLSLCentroidAttr>()) {
+        bi = BuiltIn::BaryCoordNoPerspCentroidAMD;
+      } else if (decl->hasAttr<HLSLSampleAttr>()) {
+        bi = BuiltIn::BaryCoordNoPerspSampleAMD;
+      } else {
+        bi = BuiltIn::BaryCoordNoPerspAMD;
+      }
+    } else {
+      if (decl->hasAttr<HLSLCentroidAttr>()) {
+        bi = BuiltIn::BaryCoordSmoothCentroidAMD;
+      } else if (decl->hasAttr<HLSLSampleAttr>()) {
+        bi = BuiltIn::BaryCoordSmoothSampleAMD;
+      } else {
+        bi = BuiltIn::BaryCoordSmoothAMD;
+      }
+    }
+
+    return theBuilder.addStageBuiltinVar(type, sc, bi);
   }
   // According to DXIL spec, the RenderTargetArrayIndex SV can only be used by
   // VSIn, VSOut, HSCPIn, HSCPOut, DSIn, DSOut, GSVIn, GSOut, PSIn.
