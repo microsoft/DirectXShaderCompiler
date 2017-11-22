@@ -1102,7 +1102,7 @@ bool DeclResultIdMapper::createStageVars(
     return false;
   }
 
-  const auto *structDecl = cast<RecordType>(type.getTypePtr())->getDecl();
+  const auto *structDecl = type->getAs<RecordType>()->getDecl();
 
   if (asInput) {
     // If this decl translates into multiple stage input variables, we need to
@@ -1226,7 +1226,7 @@ bool DeclResultIdMapper::writeBackOutputStream(const ValueDecl *decl,
     return false;
   }
 
-  const auto *structDecl = cast<RecordType>(type.getTypePtr())->getDecl();
+  const auto *structDecl = type->getAs<RecordType>()->getDecl();
 
   // Write out each field
   for (const auto *field : structDecl->fields()) {
