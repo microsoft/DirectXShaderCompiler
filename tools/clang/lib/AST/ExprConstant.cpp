@@ -5664,7 +5664,7 @@ bool VectorExprEvaluator::VisitHLSLVectorElementExpr(
   const Expr *baseExpr = E->getBase();
   // Handling cases where HLSLVectorElement access into constant vector.
   // For example: float4 a = (0.0).xxxx;
-  if (Evaluate(Result, Info, baseExpr) &&
+  if (Evaluate(Result, Info, baseExpr) && !Info.EvalStatus.HasSideEffects &&
       Result.getKind() == APValue::ValueKind::Vector) {
     hlsl::VectorMemberAccessPositions accessor = E->getEncodedElementAccess();
     for (uint32_t i = 0; i < accessor.Count; ++i) {
