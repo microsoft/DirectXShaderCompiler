@@ -159,8 +159,7 @@ bool GlPerVertex::doClipCullDistanceDecl(const DeclaratorDecl *decl,
 
   if (!getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex)) {
     if (baseType->isStructureType()) {
-      const auto *structDecl =
-          cast<RecordType>(baseType.getTypePtr())->getDecl();
+      const auto *structDecl = baseType->getAs<RecordType>()->getDecl();
       // Go through each field to see if there is any usage of
       // SV_ClipDistance/SV_CullDistance.
       for (const auto *field : structDecl->fields()) {
