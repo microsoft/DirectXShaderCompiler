@@ -290,6 +290,9 @@ private:
   /// Processes the 'modf' intrinsic function.
   uint32_t processIntrinsicModf(const CallExpr *);
 
+  /// Processes the 'msad4' intrinsic function.
+  uint32_t processIntrinsicMsad4(const CallExpr *);
+
   /// Processes the 'mul' intrinsic function.
   uint32_t processIntrinsicMul(const CallExpr *);
 

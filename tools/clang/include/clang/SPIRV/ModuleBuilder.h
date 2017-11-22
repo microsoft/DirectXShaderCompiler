@@ -256,6 +256,18 @@ public:
   /// is created; otherwise an OpMemoryBarrier is created.
   void createBarrier(uint32_t exec, uint32_t memory, uint32_t semantics);
 
+  /// \brief Creates an OpBitFieldInsert SPIR-V instruction for the given
+  /// arguments.
+  uint32_t createBitFieldInsert(uint32_t resultType, uint32_t base,
+                                uint32_t insert, uint32_t offset,
+                                uint32_t count);
+
+  /// \brief Creates an OpBitFieldUExtract or OpBitFieldSExtract SPIR-V
+  /// instruction for the given arguments.
+  uint32_t createBitFieldExtract(uint32_t resultType, uint32_t base,
+                                 uint32_t offset, uint32_t count,
+                                 bool isSigned);
+
   /// \brief Creates an OpEmitVertex instruction.
   void createEmitVertex();
 

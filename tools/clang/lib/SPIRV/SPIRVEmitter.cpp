@@ -4317,6 +4317,9 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_modf:
     retVal = processIntrinsicModf(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_msad4:
+    retVal = processIntrinsicMsad4(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_sign: {
     if (isFloatOrVecMatOfFloatType(callExpr->getArg(0)->getType()))
       retVal = processIntrinsicFloatSign(callExpr);
@@ -4545,6 +4548,170 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   }
 
   return 0;
+}
+
+uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
+  emitWarning("msad4 intrinsic function is emulated using many SPIR-V "
+              "instructions due to lack of direct SPIR-V equivalent",
+              callExpr->getExprLoc());
+
+  // Compares a 4-byte reference value and an 8-byte source value and
+  // accumulates a vector of 4 sums. Each sum corresponds to the masked sum
+  // of absolute differences of a different byte alignment between the
+  // reference value and the source value.
+
+  // If we have:
+  // uint  v0; // reference
+  // uint2 v1; // source
+  // uint4 v2; // accum
+  // uint4 o0; // result of msad4
+  // uint4 r0, t0; // temporary values
+  //
+  // Then msad4(v0, v1, v2) translates to the following SM5 assembly according
+  // to fxc:
+  //   Step 1:
+  //     ushr r0.xyz, v1.xxxx, l(8, 16, 24, 0)
+  //   Step 2:
+  //         [result], [    width    ], [    offset   ], [ insert ], [ base ]
+  //     bfi   t0.yzw, l(0, 8, 16, 24), l(0, 24, 16, 8),  v1.yyyy  , r0.xxyz
+  //     mov t0.x, v1.x
+  //   Step 3:
+  //     msad o0.xyzw, v0.xxxx, t0.xyzw, v2.xyzw
+
+  const uint32_t glsl = theBuilder.getGLSLExtInstSet();
+  const auto boolType = theBuilder.getBoolType();
+  const auto intType = theBuilder.getInt32Type();
+  const auto uintType = theBuilder.getUint32Type();
+  const auto uint4Type = theBuilder.getVecType(uintType, 4);
+  const uint32_t reference = doExpr(callExpr->getArg(0));
+  const uint32_t source = doExpr(callExpr->getArg(1));
+  const uint32_t accum = doExpr(callExpr->getArg(2));
+  const auto uint0 = theBuilder.getConstantUint32(0);
+  const auto uint8 = theBuilder.getConstantUint32(8);
+  const auto uint16 = theBuilder.getConstantUint32(16);
+  const auto uint24 = theBuilder.getConstantUint32(24);
+
+  // Step 1.
+  const uint32_t v1x = theBuilder.createCompositeExtract(uintType, source, {0});
+  // r0.x = v1xS8 = v1.x shifted by 8 bits
+  uint32_t v1xS8 = theBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
+                                             uintType, v1x, uint8);
+  // r0.y = v1xS16 = v1.x shifted by 16 bits
+  uint32_t v1xS16 = theBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
+                                              uintType, v1x, uint16);
+  // r0.z = v1xS24 = v1.x shifted by 24 bits
+  uint32_t v1xS24 = theBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
+                                              uintType, v1x, uint24);
+
+  // Step 2.
+  // Do bfi 3 times. DXIL bfi is equivalent to SPIR-V OpBitFieldInsert.
+  const uint32_t v1y = theBuilder.createCompositeExtract(uintType, source, {1});
+  // Note that t0.x = v1.x, nothing we need to do for that.
+  const uint32_t t0y =
+      theBuilder.createBitFieldInsert(uintType, /*base*/ v1xS8, /*insert*/ v1y,
+                                      /*offset*/ uint24,
+                                      /*width*/ uint8);
+  const uint32_t t0z =
+      theBuilder.createBitFieldInsert(uintType, /*base*/ v1xS16, /*insert*/ v1y,
+                                      /*offset*/ uint16,
+                                      /*width*/ uint16);
+  const uint32_t t0w =
+      theBuilder.createBitFieldInsert(uintType, /*base*/ v1xS24, /*insert*/ v1y,
+                                      /*offset*/ uint8,
+                                      /*width*/ uint24);
+
+  // Step 3. MSAD (Masked Sum of Absolute Differences)
+
+  // Now perform MSAD four times.
+  // Need to mimic this algorithm in SPIR-V!
+  //
+  // UINT msad( UINT ref, UINT src, UINT accum )
+  // {
+  //     for (UINT i = 0; i < 4; i++)
+  //     {
+  //         BYTE refByte, srcByte, absDiff;
+  // 
+  //         refByte = (BYTE)(ref >> (i * 8));
+  //         if (!refByte)
+  //         {
+  //             continue;
+  //         }
+  // 
+  //         srcByte = (BYTE)(src >> (i * 8));
+  //         if (refByte >= srcByte)
+  //         {
+  //             absDiff = refByte - srcByte;
+  //         }
+  //         else
+  //         {
+  //             absDiff = srcByte - refByte;
+  //         }
+  // 
+  //         // The recommended overflow behavior for MSAD is
+  //         // to do a 32-bit saturate. This is not
+  //         // required, however, and wrapping is allowed.
+  //         // So from an application point of view,
+  //         // overflow behavior is undefined.
+  //         if (UINT_MAX - accum < absDiff)
+  //         {
+  //             accum = UINT_MAX;
+  //             break;
+  //         }
+  //         accum += absDiff;
+  //     }
+  // 
+  //     return accum;
+  // }
+
+  llvm::SmallVector<uint32_t, 4> result;
+  const uint32_t accum0 =
+      theBuilder.createCompositeExtract(uintType, accum, {0});
+  const uint32_t accum1 =
+      theBuilder.createCompositeExtract(uintType, accum, {1});
+  const uint32_t accum2 =
+      theBuilder.createCompositeExtract(uintType, accum, {2});
+  const uint32_t accum3 =
+      theBuilder.createCompositeExtract(uintType, accum, {3});
+  const llvm::SmallVector<uint32_t, 4> sources = {v1x, t0y, t0z, t0w};
+  llvm::SmallVector<uint32_t, 4> accums = {accum0, accum1, accum2, accum3};
+  llvm::SmallVector<uint32_t, 4> refBytes;
+  llvm::SmallVector<uint32_t, 4> signedRefBytes;
+  llvm::SmallVector<uint32_t, 4> isRefByteZero;
+  for (uint32_t i = 0; i < 4; ++i) {
+    refBytes.push_back(theBuilder.createBitFieldExtract(
+        uintType, reference, /*offset*/ theBuilder.getConstantUint32(i * 8),
+        /*count*/ uint8, /*isSigned*/ false));
+    signedRefBytes.push_back(
+        theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, refBytes.back()));
+    isRefByteZero.push_back(theBuilder.createBinaryOp(
+        spv::Op::OpIEqual, boolType, refBytes.back(), uint0));
+  }
+
+  for (uint32_t msadNum = 0; msadNum < 4; ++msadNum) {
+    for (uint32_t byteCount = 0; byteCount < 4; ++byteCount) {
+      // 'count' is always 8 because we are extracting 8 bits out of 32.
+      const uint32_t srcByte = theBuilder.createBitFieldExtract(
+          uintType, sources[msadNum],
+          /*offset*/ theBuilder.getConstantUint32(8 * byteCount),
+          /*count*/ uint8, /*isSigned*/ false);
+      const uint32_t signedSrcByte =
+          theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, srcByte);
+      const uint32_t sub = theBuilder.createBinaryOp(
+          spv::Op::OpISub, intType, signedRefBytes[byteCount], signedSrcByte);
+      const uint32_t absSub = theBuilder.createExtInst(
+          intType, glsl, GLSLstd450::GLSLstd450SAbs, {sub});
+      const uint32_t diff = theBuilder.createSelect(
+          uintType, isRefByteZero[byteCount], uint0,
+          theBuilder.createUnaryOp(spv::Op::OpBitcast, uintType, absSub));
+
+      // As pointed out by the DXIL reference above, it is *not* required to
+      // saturate the output to UINT_MAX in case of overflow. Wrapping around is
+      // also allowed. For simplicity, we will wrap around at this point.
+      accums[msadNum] = theBuilder.createBinaryOp(spv::Op::OpIAdd, uintType,
+                                                  accums[msadNum], diff);
+    }
+  }
+  return theBuilder.createCompositeConstruct(uint4Type, accums);
 }
 
 uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
