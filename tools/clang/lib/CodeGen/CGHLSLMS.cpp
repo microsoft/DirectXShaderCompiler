@@ -6060,16 +6060,37 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const ParmVarDecl *Param = FD->getParamDecl(i);
     const Expr *Arg = E->getArg(i+ArgsToSkip);
     QualType ParamTy = Param->getType().getNonReferenceType();
-
+    bool RValOnRef = false;
     if (!Param->isModifierOut()) {
-      if (!ParamTy->isAggregateType() || hlsl::IsHLSLMatType(ParamTy))
-        continue;
+      if (!ParamTy->isAggregateType() || hlsl::IsHLSLMatType(ParamTy)) {
+        if (Arg->isRValue() && Param->getType()->isReferenceType()) {
+          // RValue on a reference type.
+          if (const CStyleCastExpr *cCast = dyn_cast<CStyleCastExpr>(Arg)) {
+            // Allow special case like cast uint to uint.
+            if (cCast->getCastKind() == CastKind::CK_NoOp) {
+              if (const ImplicitCastExpr *cast =
+                      dyn_cast<ImplicitCastExpr>(cCast->getSubExpr())) {
+                if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
+                  // update the arg
+                  argList[i] = cast->getSubExpr();
+                  continue;
+                }
+              }
+            }
+          }
+          // EmitLValue will report error.
+          // Mark RValOnRef to create tmpArg for it.
+          RValOnRef = true;
+        } else {
+          continue;
+        }
+      }
     }
 
     // get original arg
     LValue argLV = CGF.EmitLValue(Arg);
 
-    if (!Param->isModifierOut()) {
+    if (!Param->isModifierOut() && !RValOnRef) {
       bool isDefaultAddrSpace = true;
       if (argLV.isSimple()) {
         isDefaultAddrSpace =
