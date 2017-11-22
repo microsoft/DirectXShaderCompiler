@@ -310,6 +310,22 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
       }
     } else if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
       doVarDecl(varDecl);
+    } else if (auto *recordDecl = dyn_cast<RecordDecl>(decl)) {
+      // Ignore implict records
+      // Somehow we'll have implicit records with:
+      //   static const int Length = count;
+      // that can mess up with the normal CodeGen.
+      if (recordDecl->isImplicit())
+        continue;
+
+      // Handle each static member with inline initializer.
+      // Each static member has a corresponding VarDecl inside the
+      // RecordDecl. For those defined in the translation unit,
+      // their VarDecls do not have initializer.
+      for (auto *subDecl : recordDecl->decls())
+        if (auto *varDecl = dyn_cast<VarDecl>(subDecl))
+          if (varDecl->isStaticDataMember() && varDecl->hasInit())
+            doVarDecl(varDecl);
     } else if (auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
       // This is a cbuffer/tbuffer decl.
 
