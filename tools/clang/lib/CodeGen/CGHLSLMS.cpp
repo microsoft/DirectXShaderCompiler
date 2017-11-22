@@ -6066,7 +6066,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         if (Arg->isRValue() && Param->getType()->isReferenceType()) {
           // RValue on a reference type.
           if (const CStyleCastExpr *cCast = dyn_cast<CStyleCastExpr>(Arg)) {
-            // Allow special case like cast uint to uint.
+            // TODO: Evolving this to warn then fail in future language versions.
+            // Allow special case like cast uint to uint for back-compat.
             if (cCast->getCastKind() == CastKind::CK_NoOp) {
               if (const ImplicitCastExpr *cast =
                       dyn_cast<ImplicitCastExpr>(cCast->getSubExpr())) {
