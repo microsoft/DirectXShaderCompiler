@@ -487,6 +487,25 @@ TEST_F(FileTest, SemanticViewportArrayIndexGS) {
 TEST_F(FileTest, SemanticViewportArrayIndexPS) {
   runFileTest("semantic.viewport-array-index.ps.hlsl");
 }
+TEST_F(FileTest, SemanticBarycentricsSmoothPS) {
+  runFileTest("semantic.barycentrics.ps.s.hlsl");
+}
+TEST_F(FileTest, SemanticBarycentricsSmoothCentroidPS) {
+  runFileTest("semantic.barycentrics.ps.s-c.hlsl");
+}
+TEST_F(FileTest, SemanticBarycentricsSmoothSamplePS) {
+  runFileTest("semantic.barycentrics.ps.s-s.hlsl");
+}
+TEST_F(FileTest, SemanticBarycentricsNoPerspectivePS) {
+  runFileTest("semantic.barycentrics.ps.np.hlsl");
+}
+TEST_F(FileTest, SemanticBarycentricsNoPerspectiveCentroidPS) {
+  runFileTest("semantic.barycentrics.ps.np-c.hlsl");
+}
+TEST_F(FileTest, SemanticBarycentricsNoPerspectiveSamplePS) {
+  runFileTest("semantic.barycentrics.ps.np-s.hlsl");
+}
+
 TEST_F(FileTest, SemanticCoveragePS) {
   runFileTest("semantic.coverage.ps.hlsl");
 }
