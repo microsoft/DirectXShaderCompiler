@@ -1123,6 +1123,7 @@ public:
   TEST_METHOD(DxilGen_StoreOutput)
   TEST_METHOD(ConstantFolding)
   TEST_METHOD(HoistConstantArray)
+  TEST_METHOD(VecElemConstEval)
   TEST_METHOD(ViewID)
   TEST_METHOD(ShaderCompatSuite)
   TEST_METHOD(QuickTest)
@@ -5725,6 +5726,10 @@ TEST_F(CompilerTest, HoistConstantArray) {
   CodeGenTestCheck(L"hca\\12.hlsl");
   CodeGenTestCheck(L"hca\\13.hlsl");
   CodeGenTestCheck(L"hca\\14.hlsl");
+}
+
+TEST_F(CompilerTest, VecElemConstEval) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\vec_elem_const_eval.hlsl");
 }
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
