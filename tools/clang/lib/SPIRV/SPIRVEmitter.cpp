@@ -3273,6 +3273,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // We just translate here literally and let SPIRV-Tools opt to do the
     // legalization work.
     theBuilder.createStore(lhsPtr, rhsVal);
+    needsLegalization = true;
   } else if (const auto *recordType = valType->getAs<RecordType>()) {
     uint32_t index = 0;
     for (const auto *decl : recordType->getDecl()->decls()) {
