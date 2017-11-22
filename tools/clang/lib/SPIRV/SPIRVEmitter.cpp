@@ -4551,8 +4551,8 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
 }
 
 uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
-  emitWarning("usage of intrinsic msad4 is discouraged due to lack of SPIR-V "
-              "equivalent instruction",
+  emitWarning("msad4 intrinsic function is emulated using many SPIR-V "
+              "instructions due to lack of direct SPIR-V equivalent",
               callExpr->getExprLoc());
 
   // Compares a 4-byte reference value and an 8-byte source value and
@@ -4567,7 +4567,8 @@ uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   // uint4 o0; // result of msad4
   // uint4 r0, t0; // temporary values
   //
-  // Then msad(v0, v1, v2) translates to the following DXIL:
+  // Then msad4(v0, v1, v2) translates to the following SM5 assembly according
+  // to fxc:
   //   Step 1:
   //     ushr r0.xyz, v1.xxxx, l(8, 16, 24, 0)
   //   Step 2:
@@ -4585,38 +4586,39 @@ uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   const uint32_t reference = doExpr(callExpr->getArg(0));
   const uint32_t source = doExpr(callExpr->getArg(1));
   const uint32_t accum = doExpr(callExpr->getArg(2));
+  const auto uint0 = theBuilder.getConstantUint32(0);
+  const auto uint8 = theBuilder.getConstantUint32(8);
+  const auto uint16 = theBuilder.getConstantUint32(16);
+  const auto uint24 = theBuilder.getConstantUint32(24);
 
   // Step 1.
   const uint32_t v1x = theBuilder.createCompositeExtract(uintType, source, {0});
   // r0.x = v1xS8 = v1.x shifted by 8 bits
-  uint32_t v1xS8 =
-      theBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical, uintType, v1x,
-                                theBuilder.getConstantUint32(8));
+  uint32_t v1xS8 = theBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
+                                             uintType, v1x, uint8);
   // r0.y = v1xS16 = v1.x shifted by 16 bits
-  uint32_t v1xS16 =
-      theBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical, uintType, v1x,
-                                theBuilder.getConstantUint32(16));
+  uint32_t v1xS16 = theBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
+                                              uintType, v1x, uint16);
   // r0.z = v1xS24 = v1.x shifted by 24 bits
-  uint32_t v1xS24 =
-      theBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical, uintType, v1x,
-                                theBuilder.getConstantUint32(24));
+  uint32_t v1xS24 = theBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
+                                              uintType, v1x, uint24);
 
   // Step 2.
   // Do bfi 3 times. DXIL bfi is equivalent to SPIR-V OpBitFieldInsert.
   const uint32_t v1y = theBuilder.createCompositeExtract(uintType, source, {1});
   // Note that t0.x = v1.x, nothing we need to do for that.
-  const uint32_t t0y = theBuilder.createBitFieldInsert(
-      uintType, /*base*/ v1xS8, /*insert*/ v1y,
-      /*offset*/ theBuilder.getConstantUint32(24),
-      /*width*/ theBuilder.getConstantUint32(8));
-  const uint32_t t0z = theBuilder.createBitFieldInsert(
-      uintType, /*base*/ v1xS16, /*insert*/ v1y,
-      /*offset*/ theBuilder.getConstantUint32(16),
-      /*width*/ theBuilder.getConstantUint32(16));
-  const uint32_t t0w = theBuilder.createBitFieldInsert(
-      uintType, /*base*/ v1xS24, /*insert*/ v1y,
-      /*offset*/ theBuilder.getConstantUint32(8),
-      /*width*/ theBuilder.getConstantUint32(24));
+  const uint32_t t0y =
+      theBuilder.createBitFieldInsert(uintType, /*base*/ v1xS8, /*insert*/ v1y,
+                                      /*offset*/ uint24,
+                                      /*width*/ uint8);
+  const uint32_t t0z =
+      theBuilder.createBitFieldInsert(uintType, /*base*/ v1xS16, /*insert*/ v1y,
+                                      /*offset*/ uint16,
+                                      /*width*/ uint16);
+  const uint32_t t0w =
+      theBuilder.createBitFieldInsert(uintType, /*base*/ v1xS24, /*insert*/ v1y,
+                                      /*offset*/ uint8,
+                                      /*width*/ uint24);
 
   // Step 3. MSAD (Masked Sum of Absolute Differences)
 
@@ -4662,8 +4664,6 @@ uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   // }
 
   llvm::SmallVector<uint32_t, 4> result;
-  const auto uint0 = theBuilder.getConstantUint32(0);
-  const auto uint8 = theBuilder.getConstantUint32(8);
   const uint32_t accum0 =
       theBuilder.createCompositeExtract(uintType, accum, {0});
   const uint32_t accum1 =

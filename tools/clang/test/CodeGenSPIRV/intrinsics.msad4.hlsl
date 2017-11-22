@@ -188,5 +188,3 @@ uint4 main(uint reference : REF, uint2 source :SOURCE, uint4 accum : ACCUM) : MS
   uint4 result = msad4(reference, source, accum);
   return result;
 }
-
-// CHECK-WHOLE-SPIR-V:
