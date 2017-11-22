@@ -467,10 +467,12 @@ private:
   ///
   /// The method panics if it is called for any shader kind other than Hull
   /// shaders.
-  bool processHullEntryPointOutputAndPatchConstFunc(
-      const FunctionDecl *hullMainFuncDecl, uint32_t retType, uint32_t retVal,
-      uint32_t numOutputControlPoints, uint32_t outputControlPointId,
-      uint32_t primitiveId, uint32_t hullMainInputPatch);
+  bool processHSEntryPointOutputAndPCF(const FunctionDecl *hullMainFuncDecl,
+                                       uint32_t retType, uint32_t retVal,
+                                       uint32_t numOutputControlPoints,
+                                       uint32_t outputControlPointId,
+                                       uint32_t primitiveId, uint32_t viewId,
+                                       uint32_t hullMainInputPatch);
 
 private:
   /// \brief Returns true iff *all* the case values in the given switch

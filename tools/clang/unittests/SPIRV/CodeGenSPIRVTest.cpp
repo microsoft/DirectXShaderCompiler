@@ -496,6 +496,12 @@ TEST_F(FileTest, SemanticCoverageTypeMismatchPS) {
 TEST_F(FileTest, SemanticInnerCoveragePS) {
   runFileTest("semantic.inner-coverage.ps.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, SemanticViewIDVS) { runFileTest("semantic.view-id.vs.hlsl"); }
+TEST_F(FileTest, SemanticViewIDHS) { runFileTest("semantic.view-id.hs.hlsl"); }
+TEST_F(FileTest, SemanticViewIDDS) { runFileTest("semantic.view-id.ds.hlsl"); }
+TEST_F(FileTest, SemanticViewIDGS) { runFileTest("semantic.view-id.gs.hlsl"); }
+TEST_F(FileTest, SemanticViewIDPS) { runFileTest("semantic.view-id.ps.hlsl"); }
+
 TEST_F(FileTest, SemanticArbitrary) { runFileTest("semantic.arbitrary.hlsl"); }
 TEST_F(FileTest, SemanticArbitraryDeclLocation) {
   runFileTest("semantic.arbitrary.location.decl.hlsl");
@@ -1017,6 +1023,12 @@ TEST_F(FileTest, HullShaderPCFTakesPrimitiveId) {
 }
 TEST_F(FileTest, HullShaderPCFTakesPrimitiveIdButMainDoesnt) {
   runFileTest("hs.pcf.primitive-id.2.hlsl");
+}
+TEST_F(FileTest, HullShaderPCFTakesViewId) {
+  runFileTest("hs.pcf.view-id.1.hlsl");
+}
+TEST_F(FileTest, HullShaderPCFTakesViewIdButMainDoesnt) {
+  runFileTest("hs.pcf.view-id.2.hlsl");
 }
 // HS: for the structure of hull shaders
 TEST_F(FileTest, HullShaderStructure) { runFileTest("hs.structure.hlsl"); }
