@@ -843,7 +843,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
 bool DeclResultIdMapper::createStageVars(
     const hlsl::SigPoint *sigPoint, const DeclaratorDecl *decl, bool asInput,
-    QualType type, uint32_t arraySize, const llvm::Twine &namePrefix,
+    QualType type, uint32_t arraySize, const llvm::StringRef namePrefix,
     llvm::Optional<uint32_t> invocationId, uint32_t *value, bool noWriteBack,
     SemanticInfo *inheritSemantic) {
   // invocationId should only be used for handling HS per-vertex output.
@@ -958,10 +958,7 @@ bool DeclResultIdMapper::createStageVars(
 
     StageVar stageVar(sigPoint, semanticToUse->str, semanticToUse->semantic,
                       semanticToUse->name, semanticToUse->index, typeId);
-    // Note: we must have a separate variable here otherwise name
-    // (of Twine type) won't work.
-    const std::string semanticStr = stageVar.getSemanticStr();
-    llvm::Twine name = namePrefix + "." + semanticStr;
+    const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
     const uint32_t varId =
         createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
 
@@ -1297,7 +1294,7 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const DeclaratorDecl *decl,
 
 uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
                                                  const DeclaratorDecl *decl,
-                                                 const llvm::Twine &name,
+                                                 const llvm::StringRef name,
                                                  SourceLocation srcLoc) {
   using spv::BuiltIn;
   const auto sigPoint = stageVar->getSigPoint();

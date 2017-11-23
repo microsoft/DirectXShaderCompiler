@@ -381,6 +381,12 @@ bool BasicBlock::isEmpty() const {
   return labelId == 0 && instructions.empty();
 }
 
+void BasicBlock::clear() {
+  labelId = 0;
+  debugName = "";
+  instructions.clear();
+}
+
 void BasicBlock::appendInstruction(Instruction &&inst) {
   instructions.push_back(std::move(inst));
 }
