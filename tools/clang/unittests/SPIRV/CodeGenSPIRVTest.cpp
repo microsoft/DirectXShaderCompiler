@@ -366,6 +366,9 @@ TEST_F(FileTest, StructStaticMember) {
 TEST_F(FileTest, ClassStaticMember) {
   runFileTest("oo.struct.static.member.hlsl");
 }
+TEST_F(FileTest, StaticMemberInitializer) {
+  runFileTest("oo.static.member.init.hlsl");
+}
 
 // For semantics
 // SV_Position, SV_ClipDistance, and SV_CullDistance are covered in
