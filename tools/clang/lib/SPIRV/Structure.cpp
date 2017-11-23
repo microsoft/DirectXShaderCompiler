@@ -62,12 +62,6 @@ BasicBlock &BasicBlock::operator=(BasicBlock &&that) {
   return *this;
 }
 
-void BasicBlock::clear() {
-  labelId = 0;
-  debugName = "";
-  instructions.clear();
-}
-
 void BasicBlock::take(InstBuilder *builder) {
   // Make sure we have a terminator instruction at the end.
   assert(isTerminated() && "found basic block without terminator");
