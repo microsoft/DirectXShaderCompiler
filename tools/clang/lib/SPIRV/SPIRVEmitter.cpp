@@ -4139,6 +4139,11 @@ uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
 
   const uint32_t floatType = typeTranslator.translateType(toFloatType);
 
+  // AST may include a 'literal float' to 'float' conversion. No-op.
+  if (fromType->isLiteralType(astContext) && fromType->isFloatingType() &&
+      typeTranslator.translateType(fromType) == floatType)
+    return fromVal;
+
   if (isBoolOrVecOfBoolType(fromType)) {
     const uint32_t one = getValueOne(toFloatType);
     const uint32_t zero = getValueZero(toFloatType);
@@ -4154,9 +4159,7 @@ uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
-    emitError("casting between different floating point bitwidth unimplemented",
-              srcLoc);
-    return 0;
+    return theBuilder.createUnaryOp(spv::Op::OpFConvert, floatType, fromVal);
   }
 
   emitError("casting to floating point unimplemented", srcLoc);
