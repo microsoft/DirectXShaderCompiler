@@ -187,6 +187,7 @@ namespace MainNs
         private void compileToolStripMenuItem_Click(object sender, EventArgs e)
         {
             this.CompileDocument();
+            this.AnalysisTabControl.SelectedTab = this.DisassemblyTabPage;
         }
 
         private void errorListToolStripMenuItem_Click(object sender, EventArgs e)
