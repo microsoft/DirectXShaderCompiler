@@ -23,7 +23,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Twine.h"
 
 #include "GlPerVertex.h"
 #include "SpirvEvalInfo.h"
@@ -389,7 +388,7 @@ private:
   /// the semantic in inheritSemantic, with index increasing sequentially.
   bool createStageVars(const hlsl::SigPoint *sigPoint,
                        const DeclaratorDecl *decl, bool asInput, QualType type,
-                       uint32_t arraySize, const llvm::Twine &namePrefix,
+                       uint32_t arraySize, const llvm::StringRef namePrefix,
                        llvm::Optional<uint32_t> invocationId, uint32_t *value,
                        bool noWriteBack, SemanticInfo *inheritSemantic);
 
@@ -398,7 +397,7 @@ private:
   /// its storage class accordingly. name will be used as the debug name when
   /// creating a stage input/output variable.
   uint32_t createSpirvStageVar(StageVar *, const DeclaratorDecl *decl,
-                               const llvm::Twine &name, SourceLocation);
+                               const llvm::StringRef name, SourceLocation);
 
   /// Creates the associated counter variable for RW/Append/Consume
   /// structured buffer.
