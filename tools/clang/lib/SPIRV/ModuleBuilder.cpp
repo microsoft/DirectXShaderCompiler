@@ -722,10 +722,10 @@ IMPL_GET_PRIMITIVE_TYPE(Float32)
 
 #undef IMPL_GET_PRIMITIVE_TYPE
 
-#define IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(ty)                            \
+#define IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(ty, cap)                       \
   \
 uint32_t ModuleBuilder::get##ty##Type() {                                      \
-    requireCapability(spv::Capability::ty);                                    \
+    requireCapability(spv::Capability::cap);                                    \
     const Type *type = Type::get##ty(theContext);                              \
     const uint32_t typeId = theContext.getResultIdForType(type);               \
     theModule.addType(type, typeId);                                           \
@@ -733,7 +733,9 @@ uint32_t ModuleBuilder::get##ty##Type() {                                      \
   \
 }
 
-IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float64)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float64, Float64)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Int64, Int64)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Uint64, Int64)
 
 #undef IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY
 

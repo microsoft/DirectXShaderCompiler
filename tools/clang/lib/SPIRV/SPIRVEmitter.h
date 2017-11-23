@@ -390,8 +390,11 @@ private:
   uint32_t translateAPValue(const APValue &value, const QualType targetType);
 
   /// Translates the given frontend APInt into its SPIR-V equivalent for the
-  /// given targetType.
-  uint32_t translateAPInt(const llvm::APInt &intValue, QualType targetType);
+  /// given targetType. If the given APInt value can be represented in 32-bits,
+  /// it will first try to do so. If evaluatedType is not nullptr, the actual
+  /// type the value was evaluated as is also written to *evaluatedType.
+  uint32_t translateAPInt(const llvm::APInt &intValue, QualType targetType,
+                          QualType *evaluatedType = nullptr);
 
   /// Translates the given frontend APFloat into its SPIR-V equivalent for the
   /// given targetType.
@@ -401,6 +404,13 @@ private:
   /// Tries to evaluate the given Expr as a constant and returns the <result-id>
   /// if success. Otherwise, returns 0.
   uint32_t tryToEvaluateAsConst(const Expr *expr);
+
+  /// Tries to evaluate the given APFloat as a 32-bit float. If the evaluation
+  /// can be performed without loss, it returns the <result-id> of the SPIR-V
+  /// constant for that value. Returns zero otherwise. The QualType of the
+  /// resulting constant (32-bit float) is also written to *evaluatedType.
+  uint32_t tryToEvaluateAsFloat32(const llvm::APFloat &floatValue,
+                                  QualType targetType, QualType *evaluatedType);
 
 private:
   /// Translates the given HLSL loop attribute into SPIR-V loop control mask.

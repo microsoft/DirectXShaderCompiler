@@ -259,6 +259,21 @@ inline bool canActAsOutParmVar(const ParmVarDecl *param) {
   return param->hasAttr<HLSLOutAttr>() || param->hasAttr<HLSLInOutAttr>();
 }
 
+/// Returns true if the given expression can be evaluated to a constant zero.
+/// Returns false otherwise.
+inline bool evaluatesToConstZero(const Expr *expr, ASTContext &astContext) {
+  const auto type = expr->getType();
+  Expr::EvalResult evalResult;
+  if (expr->EvaluateAsRValue(evalResult, astContext) &&
+      !evalResult.HasSideEffects) {
+    const auto val = evalResult.Val;
+    return ((type->isBooleanType() && !val.getInt().getBoolValue()) ||
+            (type->isIntegerType() && !val.getInt().getBoolValue()) ||
+            (type->isFloatingType() && val.getFloat().isZero()));
+  }
+  return false;
+}
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
@@ -1493,6 +1508,7 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
 
 SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   const Expr *subExpr = expr->getSubExpr();
+  const QualType subExprType = subExpr->getType();
   const QualType toType = expr->getType();
 
   switch (expr->getCastKind()) {
@@ -1516,8 +1532,8 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return SpirvEvalInfo(valueId).setConstant().setRValue();
     }
 
-    const auto valueId = castToInt(doExpr(subExpr), subExpr->getType(), toType,
-                                   subExpr->getExprLoc());
+    const auto valueId =
+        castToInt(doExpr(subExpr), subExprType, toType, subExpr->getExprLoc());
     return SpirvEvalInfo(valueId).setRValue();
   }
   case CastKind::CK_FloatingCast:
@@ -1533,8 +1549,8 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return SpirvEvalInfo(valueId).setConstant().setRValue();
     }
 
-    const auto valueId = castToFloat(doExpr(subExpr), subExpr->getType(),
-                                     toType, subExpr->getExprLoc());
+    const auto valueId = castToFloat(doExpr(subExpr), subExprType, toType,
+                                     subExpr->getExprLoc());
     return SpirvEvalInfo(valueId).setRValue();
   }
   case CastKind::CK_IntegralToBoolean:
@@ -1549,8 +1565,7 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return SpirvEvalInfo(valueId).setConstant().setRValue();
     }
 
-    const auto valueId =
-        castToBool(doExpr(subExpr), subExpr->getType(), toType);
+    const auto valueId = castToBool(doExpr(subExpr), subExprType, toType);
     return SpirvEvalInfo(valueId).setRValue();
   }
   case CastKind::CK_HLSLVectorSplat: {
@@ -1580,7 +1595,7 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   }
   case CastKind::CK_HLSLVectorToScalarCast: {
     // The underlying should already be a vector of size 1.
-    assert(hlsl::GetHLSLVecSize(subExpr->getType()) == 1);
+    assert(hlsl::GetHLSLVecSize(subExprType) == 1);
     return doExpr(subExpr);
   }
   case CastKind::CK_HLSLVectorToMatrixCast: {
@@ -1617,7 +1632,7 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     }
   }
   case CastKind::CK_HLSLMatrixTruncationCast: {
-    const QualType srcType = subExpr->getType();
+    const QualType srcType = subExprType;
     const uint32_t srcId = doExpr(subExpr);
     const QualType elemType = hlsl::GetHLSLMatElementType(srcType);
     const uint32_t dstTypeId = typeTranslator.translateType(toType);
@@ -1674,32 +1689,44 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   }
   case CastKind::CK_HLSLMatrixToScalarCast: {
     // The underlying should already be a matrix of 1x1.
-    assert(TypeTranslator::is1x1Matrix(subExpr->getType()));
+    assert(TypeTranslator::is1x1Matrix(subExprType));
     return doExpr(subExpr);
   }
   case CastKind::CK_HLSLMatrixToVectorCast: {
     // The underlying should already be a matrix of 1xN.
-    assert(TypeTranslator::is1xNMatrix(subExpr->getType()) ||
-           TypeTranslator::isMx1Matrix(subExpr->getType()));
+    assert(TypeTranslator::is1xNMatrix(subExprType) ||
+           TypeTranslator::isMx1Matrix(subExprType));
     return doExpr(subExpr);
   }
   case CastKind::CK_FunctionToPointerDecay:
     // Just need to return the function id
     return doExpr(subExpr);
   case CastKind::CK_FlatConversion: {
+    uint32_t subExprId = 0;
+    QualType evalType = subExprType;
+
     // Optimization: we can use OpConstantNull for cases where we want to
     // initialize an entire data structure to zeros.
-    llvm::APSInt intValue;
-    if (subExpr->EvaluateAsInt(intValue, astContext, Expr::SE_NoSideEffects) &&
-        intValue.getExtValue() == 0) {
-      const auto valId =
+    if (evaluatesToConstZero(subExpr, astContext)) {
+      subExprId =
           theBuilder.getConstantNull(typeTranslator.translateType(toType));
-      return SpirvEvalInfo(valId).setConstant().setRValue();
-    } else {
-      const auto valId = processFlatConversion(
-          toType, subExpr->getType(), doExpr(subExpr), expr->getExprLoc());
-      return SpirvEvalInfo(valId).setRValue();
+      return SpirvEvalInfo(subExprId).setRValue().setConstant();
     }
+
+    // Try to evaluate 'literal float' as float rather than double.
+    if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(subExpr))
+      subExprId = tryToEvaluateAsFloat32(floatLiteral->getValue(), subExprType,
+                                         &evalType);
+    // Try to evaluate 'literal int' as 32-bit int rather than 64-bit int.
+    else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(subExpr))
+      subExprId =
+          translateAPInt(intLiteral->getValue(), subExprType, &evalType);
+
+    if (!subExprId)
+      subExprId = doExpr(subExpr);
+    const auto valId =
+        processFlatConversion(toType, evalType, subExprId, expr->getExprLoc());
+    return SpirvEvalInfo(valId).setRValue();
   }
   default:
     emitError("implicit cast kind '%0' unimplemented", expr->getExprLoc())
@@ -1730,16 +1757,16 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         }
         case BuiltinType::Bool:
           return castToBool(initId, initType, ty);
-        // int, min16int (short), and min12int are all translated to 32-bit
-        // signed integers in SPIR-V.
+        // Target type is an integer variant.
+        // TODO: Add long and ulong.
         case BuiltinType::Int:
         case BuiltinType::Short:
         case BuiltinType::Min12Int:
         case BuiltinType::UShort:
         case BuiltinType::UInt:
           return castToInt(initId, initType, ty, srcLoc);
-        // float, min16float (half), and min10float are all translated to
-        // 32-bit float in SPIR-V.
+        // Target type is a float variant.
+        // TODO: Add double.
         case BuiltinType::Float:
         case BuiltinType::Half:
         case BuiltinType::Min10Float:
@@ -4107,6 +4134,12 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
     return fromVal;
 
   const uint32_t intType = typeTranslator.translateType(toIntType);
+
+  // AST may include a 'literal int' to 'int' conversion. No-op.
+  if (fromType->isLiteralType(astContext) && fromType->isIntegerType() &&
+      typeTranslator.translateType(fromType) == intType)
+    return fromVal;
+
   if (isBoolOrVecOfBoolType(fromType)) {
     const uint32_t one = getValueOne(toIntType);
     const uint32_t zero = getValueZero(toIntType);
@@ -5981,8 +6014,7 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
   }
 
   if (targetType->isFloatingType()) {
-    const llvm::APFloat &floatValue = value.getFloat();
-    return translateAPFloat(floatValue, targetType);
+    return translateAPFloat(value.getFloat(), targetType);
   }
 
   if (hlsl::IsHLSLVecType(targetType)) {
@@ -6010,17 +6042,24 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
 }
 
 uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
-                                      QualType targetType) {
+                                      QualType targetType,
+                                      QualType *evaluatedType) {
   if (targetType->isSignedIntegerType()) {
-    // Try to see if this integer can be represented in 32-bit
-    if (intValue.isSignedIntN(32))
+    // Try to see if this integer can be represented in 32-bit.
+    if (intValue.isSignedIntN(32)) {
+      if (evaluatedType)
+        *evaluatedType = astContext.IntTy;
       return theBuilder.getConstantInt32(
           static_cast<int32_t>(intValue.getSExtValue()));
+    }
   } else {
-    // Try to see if this integer can be represented in 32-bit
-    if (intValue.isIntN(32))
+    // Try to see if this integer can be represented in 32-bit.
+    if (intValue.isIntN(32)) {
+      if (evaluatedType)
+        *evaluatedType = astContext.UnsignedIntTy;
       return theBuilder.getConstantUint32(
           static_cast<uint32_t>(intValue.getZExtValue()));
+    }
   }
 
   emitError("APInt for target bitwidth %0 unimplemented", {})
@@ -6029,11 +6068,39 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
   return 0;
 }
 
+uint32_t SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue,
+                                              QualType targetType,
+                                              QualType *evaluatedType) {
+  const auto &semantics = astContext.getFloatTypeSemantics(targetType);
+  const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
+
+  // If the given value is already a 32-bit float, there is no need to convert.
+  if (bitwidth == 32u) {
+    *evaluatedType = targetType;
+    return theBuilder.getConstantFloat32(floatValue.convertToFloat());
+  }
+
+  // Try to see if this literal float can be represented in 32-bit.
+  // Since the convert function below may modify the fp value, we call it on a
+  // temporary copy.
+  llvm::APFloat eval = floatValue;
+  bool losesInfo = false;
+  const auto convertStatus =
+      eval.convert(llvm::APFloat::IEEEsingle,
+                   llvm::APFloat::rmNearestTiesToEven, &losesInfo);
+  if (convertStatus == llvm::APFloat::opOK && !losesInfo) {
+    *evaluatedType = astContext.FloatTy;
+    return theBuilder.getConstantFloat32(eval.convertToFloat());
+  }
+
+  // Couldn't evaluate as a 32-bit float without losing information.
+  return 0;
+}
+
 uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
                                         QualType targetType) {
   const auto &semantics = astContext.getFloatTypeSemantics(targetType);
   const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
-
   switch (bitwidth) {
   case 32:
     return theBuilder.getConstantFloat32(floatValue.convertToFloat());
@@ -6042,7 +6109,6 @@ uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
   default:
     break;
   }
-
   emitError("APFloat for target bitwidth %0 unimplemented", {}) << bitwidth;
   return 0;
 }
