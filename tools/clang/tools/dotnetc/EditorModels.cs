@@ -304,4 +304,47 @@ namespace MainNs
 
         #endregion Private methods.
     }
+
+    class ContainerData
+    {
+        public static System.Windows.Forms.DataFormats.Format DataFormat =
+            System.Windows.Forms.DataFormats.GetFormat("DXBC");
+
+        public static string BlobToBase64(IDxcBlob blob)
+        {
+            return System.Convert.ToBase64String(BlobToBytes(blob));
+        }
+
+        public static byte[] BlobToBytes(IDxcBlob blob)
+        {
+            byte[] bytes;
+            unsafe
+            {
+                char* pBuffer = blob.GetBufferPointer();
+                uint size = blob.GetBufferSize();
+                bytes = new byte[size];
+                IntPtr ptr = new IntPtr(pBuffer);
+                System.Runtime.InteropServices.Marshal.Copy(ptr, bytes, 0, (int)size);
+            }
+            return bytes;
+        }
+
+        public static byte[] DataObjectToBytes(object data)
+        {
+            System.IO.Stream stream = data as System.IO.Stream;
+            if (stream == null)
+                return null;
+            byte[] bytes = new byte[stream.Length];
+            stream.Read(bytes, 0, (int)stream.Length);
+            return bytes;
+        }
+
+        public static string DataObjectToString(object data)
+        {
+            byte[] bytes = DataObjectToBytes(data);
+            if (bytes == null)
+                return "";
+            return System.Convert.ToBase64String(bytes);
+        }
+    }
 }

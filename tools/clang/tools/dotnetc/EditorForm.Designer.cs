@@ -123,6 +123,7 @@ namespace MainNs
             this.RenderLogTabPage = new System.Windows.Forms.TabPage();
             this.RenderLogBox = new System.Windows.Forms.TextBox();
             this.RewriterOutputTextBox = new System.Windows.Forms.RichTextBox();
+            this.bitstreamFromClipboardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.TheStatusStrip.SuspendLayout();
             this.TheMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -173,7 +174,7 @@ namespace MainNs
             this.helpToolStripMenuItem});
             this.TheMenuStrip.Location = new System.Drawing.Point(0, 0);
             this.TheMenuStrip.Name = "TheMenuStrip";
-            this.TheMenuStrip.Size = new System.Drawing.Size(1302, 40);
+            this.TheMenuStrip.Size = new System.Drawing.Size(1302, 42);
             this.TheMenuStrip.TabIndex = 1;
             this.TheMenuStrip.Text = "menuStrip1";
             // 
@@ -189,7 +190,7 @@ namespace MainNs
             this.toolStripMenuItem4,
             this.exitToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
-            this.fileToolStripMenuItem.Size = new System.Drawing.Size(64, 36);
+            this.fileToolStripMenuItem.Size = new System.Drawing.Size(64, 38);
             this.fileToolStripMenuItem.Text = "&File";
             this.fileToolStripMenuItem.DropDownOpening += new System.EventHandler(this.fileToolStripMenuItem_DropDownOpening);
             // 
@@ -265,7 +266,7 @@ namespace MainNs
             this.FontGrowToolStripMenuItem,
             this.FontShrinkToolStripMenuItem});
             this.editToolStripMenuItem.Name = "editToolStripMenuItem";
-            this.editToolStripMenuItem.Size = new System.Drawing.Size(67, 36);
+            this.editToolStripMenuItem.Size = new System.Drawing.Size(67, 38);
             this.editToolStripMenuItem.Text = "&Edit";
             // 
             // undoToolStripMenuItem
@@ -386,61 +387,62 @@ namespace MainNs
             this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.autoUpdateToolStripMenuItem,
             this.bitstreamToolStripMenuItem,
+            this.bitstreamFromClipboardToolStripMenuItem,
             this.ColorMenuItem,
             this.debugInformationToolStripMenuItem,
             this.errorListToolStripMenuItem,
             this.renderToolStripMenuItem,
             this.outputToolStripMenuItem});
             this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
-            this.viewToolStripMenuItem.Size = new System.Drawing.Size(78, 36);
+            this.viewToolStripMenuItem.Size = new System.Drawing.Size(78, 38);
             this.viewToolStripMenuItem.Text = "&View";
             // 
             // autoUpdateToolStripMenuItem
             // 
             this.autoUpdateToolStripMenuItem.Name = "autoUpdateToolStripMenuItem";
-            this.autoUpdateToolStripMenuItem.Size = new System.Drawing.Size(318, 38);
+            this.autoUpdateToolStripMenuItem.Size = new System.Drawing.Size(378, 38);
             this.autoUpdateToolStripMenuItem.Text = "&Auto-Update";
             this.autoUpdateToolStripMenuItem.Click += new System.EventHandler(this.autoUpdateToolStripMenuItem_Click);
             // 
             // bitstreamToolStripMenuItem
             // 
             this.bitstreamToolStripMenuItem.Name = "bitstreamToolStripMenuItem";
-            this.bitstreamToolStripMenuItem.Size = new System.Drawing.Size(318, 38);
+            this.bitstreamToolStripMenuItem.Size = new System.Drawing.Size(378, 38);
             this.bitstreamToolStripMenuItem.Text = "&Bitstream";
             this.bitstreamToolStripMenuItem.Click += new System.EventHandler(this.bitstreamToolStripMenuItem_Click);
             // 
             // ColorMenuItem
             // 
             this.ColorMenuItem.Name = "ColorMenuItem";
-            this.ColorMenuItem.Size = new System.Drawing.Size(318, 38);
+            this.ColorMenuItem.Size = new System.Drawing.Size(378, 38);
             this.ColorMenuItem.Text = "&Color";
             this.ColorMenuItem.Click += new System.EventHandler(this.colorToolStripMenuItem_Click);
             // 
             // debugInformationToolStripMenuItem
             // 
             this.debugInformationToolStripMenuItem.Name = "debugInformationToolStripMenuItem";
-            this.debugInformationToolStripMenuItem.Size = new System.Drawing.Size(318, 38);
+            this.debugInformationToolStripMenuItem.Size = new System.Drawing.Size(378, 38);
             this.debugInformationToolStripMenuItem.Text = "&Debug Information";
             this.debugInformationToolStripMenuItem.Click += new System.EventHandler(this.debugInformationToolStripMenuItem_Click);
             // 
             // errorListToolStripMenuItem
             // 
             this.errorListToolStripMenuItem.Name = "errorListToolStripMenuItem";
-            this.errorListToolStripMenuItem.Size = new System.Drawing.Size(318, 38);
+            this.errorListToolStripMenuItem.Size = new System.Drawing.Size(378, 38);
             this.errorListToolStripMenuItem.Text = "Error L&ist";
             this.errorListToolStripMenuItem.Click += new System.EventHandler(this.errorListToolStripMenuItem_Click);
             // 
             // renderToolStripMenuItem
             // 
             this.renderToolStripMenuItem.Name = "renderToolStripMenuItem";
-            this.renderToolStripMenuItem.Size = new System.Drawing.Size(318, 38);
+            this.renderToolStripMenuItem.Size = new System.Drawing.Size(378, 38);
             this.renderToolStripMenuItem.Text = "&Render";
             this.renderToolStripMenuItem.Click += new System.EventHandler(this.renderToolStripMenuItem_Click);
             // 
             // outputToolStripMenuItem
             // 
             this.outputToolStripMenuItem.Name = "outputToolStripMenuItem";
-            this.outputToolStripMenuItem.Size = new System.Drawing.Size(318, 38);
+            this.outputToolStripMenuItem.Size = new System.Drawing.Size(378, 38);
             this.outputToolStripMenuItem.Text = "&Output";
             this.outputToolStripMenuItem.Click += new System.EventHandler(this.outputToolStripMenuItem_Click);
             // 
@@ -450,7 +452,7 @@ namespace MainNs
             this.compileToolStripMenuItem,
             this.exportCompiledObjectToolStripMenuItem});
             this.buildToolStripMenuItem.Name = "buildToolStripMenuItem";
-            this.buildToolStripMenuItem.Size = new System.Drawing.Size(81, 36);
+            this.buildToolStripMenuItem.Size = new System.Drawing.Size(81, 38);
             this.buildToolStripMenuItem.Text = "&Build";
             // 
             // compileToolStripMenuItem
@@ -475,7 +477,7 @@ namespace MainNs
             this.rewriterToolStripMenuItem,
             this.rewriteNobodyToolStripMenuItem});
             this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
-            this.toolsToolStripMenuItem.Size = new System.Drawing.Size(82, 36);
+            this.toolsToolStripMenuItem.Size = new System.Drawing.Size(82, 38);
             this.toolsToolStripMenuItem.Text = "&Tools";
             // 
             // optionsToolStripMenuItem
@@ -504,7 +506,7 @@ namespace MainNs
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.aboutToolStripMenuItem});
             this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
-            this.helpToolStripMenuItem.Size = new System.Drawing.Size(77, 36);
+            this.helpToolStripMenuItem.Size = new System.Drawing.Size(77, 38);
             this.helpToolStripMenuItem.Text = "&Help";
             // 
             // aboutToolStripMenuItem
@@ -528,7 +530,7 @@ namespace MainNs
             // splitContainer1.Panel2
             // 
             this.splitContainer1.Panel2.Controls.Add(this.AnalysisTabControl);
-            this.splitContainer1.Size = new System.Drawing.Size(1302, 373);
+            this.splitContainer1.Size = new System.Drawing.Size(1302, 371);
             this.splitContainer1.SplitterDistance = 470;
             this.splitContainer1.TabIndex = 2;
             // 
@@ -539,7 +541,7 @@ namespace MainNs
             this.CodeBox.Location = new System.Drawing.Point(0, 0);
             this.CodeBox.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.CodeBox.Name = "CodeBox";
-            this.CodeBox.Size = new System.Drawing.Size(470, 373);
+            this.CodeBox.Size = new System.Drawing.Size(470, 371);
             this.CodeBox.TabIndex = 0;
             this.CodeBox.Text = "";
             this.CodeBox.WordWrap = false;
@@ -557,7 +559,7 @@ namespace MainNs
             this.AnalysisTabControl.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.AnalysisTabControl.Name = "AnalysisTabControl";
             this.AnalysisTabControl.SelectedIndex = 0;
-            this.AnalysisTabControl.Size = new System.Drawing.Size(828, 373);
+            this.AnalysisTabControl.Size = new System.Drawing.Size(828, 371);
             this.AnalysisTabControl.TabIndex = 0;
             this.AnalysisTabControl.Selecting += new System.Windows.Forms.TabControlCancelEventHandler(this.AnalysisTabControl_Selecting);
             // 
@@ -572,7 +574,7 @@ namespace MainNs
             this.CompilationTabPage.Controls.Add(this.label4);
             this.CompilationTabPage.Location = new System.Drawing.Point(8, 42);
             this.CompilationTabPage.Name = "CompilationTabPage";
-            this.CompilationTabPage.Size = new System.Drawing.Size(812, 323);
+            this.CompilationTabPage.Size = new System.Drawing.Size(812, 321);
             this.CompilationTabPage.TabIndex = 3;
             this.CompilationTabPage.Text = "Compilation";
             this.CompilationTabPage.UseVisualStyleBackColor = true;
@@ -928,7 +930,7 @@ namespace MainNs
             // 
             this.TopSplitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
             this.TopSplitContainer.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
-            this.TopSplitContainer.Location = new System.Drawing.Point(0, 40);
+            this.TopSplitContainer.Location = new System.Drawing.Point(0, 42);
             this.TopSplitContainer.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.TopSplitContainer.Name = "TopSplitContainer";
             this.TopSplitContainer.Orientation = System.Windows.Forms.Orientation.Horizontal;
@@ -942,7 +944,7 @@ namespace MainNs
             this.TopSplitContainer.Panel2.Controls.Add(this.OutputTabControl);
             this.TopSplitContainer.Panel2Collapsed = true;
             this.TopSplitContainer.Panel2MinSize = 75;
-            this.TopSplitContainer.Size = new System.Drawing.Size(1302, 373);
+            this.TopSplitContainer.Size = new System.Drawing.Size(1302, 371);
             this.TopSplitContainer.SplitterDistance = 25;
             this.TopSplitContainer.SplitterWidth = 3;
             this.TopSplitContainer.TabIndex = 3;
@@ -993,6 +995,13 @@ namespace MainNs
             this.RewriterOutputTextBox.TabIndex = 1;
             this.RewriterOutputTextBox.Text = "";
             this.RewriterOutputTextBox.WordWrap = false;
+            // 
+            // bitstreamFromClipboardToolStripMenuItem
+            // 
+            this.bitstreamFromClipboardToolStripMenuItem.Name = "bitstreamFromClipboardToolStripMenuItem";
+            this.bitstreamFromClipboardToolStripMenuItem.Size = new System.Drawing.Size(378, 38);
+            this.bitstreamFromClipboardToolStripMenuItem.Text = "Bitstream from clipboard";
+            this.bitstreamFromClipboardToolStripMenuItem.Click += new System.EventHandler(this.bitstreamFromClipboardToolStripMenuItem_Click);
             // 
             // EditorForm
             // 
@@ -1126,5 +1135,6 @@ namespace MainNs
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.TabPage CompilationTabPage;
+        private System.Windows.Forms.ToolStripMenuItem bitstreamFromClipboardToolStripMenuItem;
     }
 }
