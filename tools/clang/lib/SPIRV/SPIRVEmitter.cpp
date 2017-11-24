@@ -182,24 +182,9 @@ bool spirvToolsLegalize(std::vector<uint32_t> *module, std::string *messages) {
                  const spv_position_t & /*position*/,
                  const char *message) { *messages += message; });
 
-  optimizer.RegisterPass(spvtools::CreateInlineExhaustivePass());
-  optimizer.RegisterPass(spvtools::CreateLocalAccessChainConvertPass());
-  optimizer.RegisterPass(spvtools::CreateLocalSingleBlockLoadStoreElimPass());
-  optimizer.RegisterPass(spvtools::CreateLocalSingleStoreElimPass());
-  optimizer.RegisterPass(spvtools::CreateInsertExtractElimPass());
-  optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
-
-  optimizer.RegisterPass(spvtools::CreateDeadBranchElimPass());
-  optimizer.RegisterPass(spvtools::CreateBlockMergePass());
-  optimizer.RegisterPass(spvtools::CreateLocalMultiStoreElimPass());
-  optimizer.RegisterPass(spvtools::CreateInsertExtractElimPass());
-  optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+  optimizer.RegisterLegalizationPasses();
 
   optimizer.RegisterPass(spvtools::CreateEliminateDeadFunctionsPass());
-  optimizer.RegisterPass(spvtools::CreateCFGCleanupPass());
-  optimizer.RegisterPass(spvtools::CreateDeadVariableEliminationPass());
-  optimizer.RegisterPass(spvtools::CreateEliminateDeadConstantPass());
-
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
   return optimizer.Run(module->data(), module->size(), module);
@@ -378,22 +363,23 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   // Output the constructed module.
   std::vector<uint32_t> m = theBuilder.takeModule();
 
-  // Run legalization passes
-  if (!spirvOptions.disableLegalization && needsLegalization) {
-    std::string messages;
-    if (!spirvToolsLegalize(&m, &messages)) {
-      emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
-      return;
+  if (!spirvOptions.codeGenHighLevel) {
+    // Run legalization passes
+    if (needsLegalization) {
+      std::string messages;
+      if (!spirvToolsLegalize(&m, &messages)) {
+        emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
+        return;
+      }
     }
-  }
 
-  const auto optLevel = theCompilerInstance.getCodeGenOpts().OptimizationLevel;
-
-  if (optLevel > 0) {
-    std::string messages;
-    if (!spirvToolsOptimize(&m, &messages)) {
-      emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
-      return;
+    // Run optimization passes
+    if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
+      std::string messages;
+      if (!spirvToolsOptimize(&m, &messages)) {
+        emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
+        return;
+      }
     }
   }
 
@@ -4649,13 +4635,13 @@ uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   //     for (UINT i = 0; i < 4; i++)
   //     {
   //         BYTE refByte, srcByte, absDiff;
-  // 
+  //
   //         refByte = (BYTE)(ref >> (i * 8));
   //         if (!refByte)
   //         {
   //             continue;
   //         }
-  // 
+  //
   //         srcByte = (BYTE)(src >> (i * 8));
   //         if (refByte >= srcByte)
   //         {
@@ -4665,7 +4651,7 @@ uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   //         {
   //             absDiff = srcByte - refByte;
   //         }
-  // 
+  //
   //         // The recommended overflow behavior for MSAD is
   //         // to do a 32-bit saturate. This is not
   //         // required, however, and wrapping is allowed.
@@ -4678,7 +4664,7 @@ uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   //         }
   //         accum += absDiff;
   //     }
-  // 
+  //
   //     return accum;
   // }
 
