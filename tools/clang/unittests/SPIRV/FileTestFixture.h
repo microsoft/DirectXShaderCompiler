@@ -27,7 +27,7 @@ public:
 
   /// \brief Runs a File Test! (See class description for more info)
   void runFileTest(llvm::StringRef path, Expect expect = Expect::Success,
-                   bool noValidation = false);
+                   bool runValidation = true);
 
 private:
   /// \brief Reads in the given input file.
