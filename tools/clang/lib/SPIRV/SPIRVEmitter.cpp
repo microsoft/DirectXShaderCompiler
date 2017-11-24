@@ -445,8 +445,8 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
 SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   expr = expr->IgnoreParens();
 
-  if (const auto *delRefExpr = dyn_cast<DeclRefExpr>(expr)) {
-    return declIdMapper.getDeclResultId(delRefExpr->getFoundDecl());
+  if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
+    return declIdMapper.getDeclResultId(declRefExpr->getDecl());
   }
 
   if (const auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
@@ -557,6 +557,8 @@ uint32_t SPIRVEmitter::castToType(uint32_t value, QualType fromType,
 }
 
 void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
+  assert(decl->isThisDeclarationADefinition());
+
   // A RAII class for maintaining the current function under traversal.
   class FnEnvRAII {
   public:
@@ -1390,6 +1392,20 @@ SpirvEvalInfo SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
 
 SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   const FunctionDecl *callee = callExpr->getDirectCallee();
+
+  // If we are calling a forward-declared function, callee will be the
+  // FunctionDecl for the foward-declared function, not the actual
+  // definition. The foward-delcaration and defintion are two completely
+  // different AST nodes.
+  // Note that we always want the defintion because Stmts/Exprs in the
+  // function body references the parameters in the definition.
+  if (!callee->isThisDeclarationADefinition()) {
+    // We need to update callee to the actual definition here
+    if (!callee->isDefined(callee)) {
+      emitError("found undefined function", callExpr->getExprLoc());
+      return 0;
+    }
+  }
 
   if (callee) {
     const auto numParams = callee->getNumParams();
