@@ -140,6 +140,32 @@ namespace MainNs
         {
             EditorForm.HandleCodeSelectionChanged(this.CodeBox, null);
         }
+
+        private void CopyContainerButton_Click(object sender, EventArgs e)
+        {
+            // The intent is to copy compiled code (possibly customized) into the
+            // clipboard so it can be pasted into an XML file to be run interactively.
+
+            var text = this.CodeBox.Text;
+            var source = EditorForm.CreateBlobForText(this.Library, text);
+            var assembler = HlslDxcLib.CreateDxcAssembler();
+            var assembleResult = assembler.AssembleToContainer(source);
+            if (assembleResult.GetStatus() < 0)
+            {
+                var errors = assembleResult.GetErrors();
+                MessageBox.Show(EditorForm.GetStringFromBlob(this.Library, errors));
+                return;
+            }
+            var container = assembleResult.GetResult();
+
+            // Now copy that to the clipboard.
+            var bytes = ContainerData.BlobToBytes(container);
+            var stream = new System.IO.MemoryStream(bytes);
+            var dataObj = new DataObject();
+            dataObj.SetData(ContainerData.DataFormat.Name, stream);
+            dataObj.SetText(text);
+            Clipboard.SetDataObject(dataObj, true);
+        }
     }
 
     public class TextSection
