@@ -217,9 +217,11 @@ cmake --version | findstr 3.4.3 1>nul 2>nul
 if "0"=="%ERRORLEVEL%" exit /b 0
 cmake --version | findstr 3.7.2 1>nul 2>nul
 if "0"=="%ERRORLEVEL%" exit /b 0
+cmake --version | findstr 3.9.0-MSVC 1>nul 2>nul
+if "0"=="%ERRORLEVEL%" exit /b 0
 cmake --version | findstr /R 3.6.*MSVC 1>nul 2>nul
 if errorlevel 1 (
-  echo CMake 3.4.3 or 3.7.2 are the currently supported versions for VS 2015 and VS 2017 - your installed cmake is not supported.
+  echo CMake 3.4.3, 3.7.2, or 3.9.0 are the currently supported versions for VS 2015 and VS 2017 - your installed cmake is not supported.
   echo See README.md at the root for an explanation of dependencies.
   exit /b 1
 )
