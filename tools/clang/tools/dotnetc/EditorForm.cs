@@ -187,6 +187,7 @@ namespace MainNs
         private void compileToolStripMenuItem_Click(object sender, EventArgs e)
         {
             this.CompileDocument();
+            this.AnalysisTabControl.SelectedTab = this.DisassemblyTabPage;
         }
 
         private void errorListToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1225,7 +1226,16 @@ namespace MainNs
             RichTextBox rtb = this.DeepActiveControl as RichTextBox;
             if (rtb != null)
             {
-                rtb.Paste(DataFormats.GetFormat(DataFormats.UnicodeText));
+                // Handle the container format.
+                if (Clipboard.ContainsData(ContainerData.DataFormat.Name))
+                {
+                    object o = Clipboard.GetData(ContainerData.DataFormat.Name);
+                    rtb.SelectedText = ContainerData.DataObjectToString(o);
+                }
+                else
+                {
+                    rtb.Paste(DataFormats.GetFormat(DataFormats.UnicodeText));
+                }
                 return;
             }
             TextBoxBase tb = this.ActiveControl as TextBoxBase;
@@ -2095,16 +2105,23 @@ namespace MainNs
                 return;
             }
 
-            byte[] bytes;
-            unsafe
+            DisplayBitstream(ContainerData.BlobToBytes(this.SelectedShaderBlob), "Bitstream Viewer - Selected Shader");
+        }
+
+        private void bitstreamFromClipboardToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!Clipboard.ContainsData(ContainerData.DataFormat.Name))
             {
-                char* pBuffer = this.SelectedShaderBlob.GetBufferPointer();
-                uint size = this.SelectedShaderBlob.GetBufferSize();
-                bytes = new byte[size];
-                IntPtr ptr = new IntPtr(pBuffer);
-                System.Runtime.InteropServices.Marshal.Copy(ptr, bytes, 0, (int)size);
+                MessageBox.Show(this, "No shader blob on clipboard. Try pasting from the optimizer view.");
+                return;
             }
 
+            DisplayBitstream(ContainerData.DataObjectToBytes(Clipboard.GetData(ContainerData.DataFormat.Name)),
+                "Bitstream Viewer - Clipboard");
+        }
+
+        private void DisplayBitstream(byte[] bytes, string title)
+        {
             StatusBar statusBar = new StatusBar();
             statusBar.Dock = DockStyle.Bottom;
 
@@ -2154,7 +2171,7 @@ namespace MainNs
             container.Dock = DockStyle.Fill;
 
             Form form = new Form();
-            form.Text = "Bitstream Viewer";
+            form.Text = title;
             form.Controls.Add(container);
             form.Controls.Add(statusBar);
             binaryView.Bytes = bytes;

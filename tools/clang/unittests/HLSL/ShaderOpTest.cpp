@@ -15,6 +15,7 @@
 #include <D3dx12.h>
 #include <d3dcompiler.h>
 #include <atlbase.h>
+#include <atlenc.h>
 
 #include "ShaderOpTest.h"
 
@@ -650,7 +651,21 @@ void ShaderOpTest::CreateShaders() {
     CComPtr<ID3DBlob> pCode;
     HRESULT hr = S_OK;
     LPCSTR pText = m_pShaderOp->GetShaderText(&S);
-    if (TargetUsesDxil(S.Target)) {
+    if (S.Compiled) {
+      int textLen = (int)strlen(pText);
+      int decodedLen = Base64DecodeGetRequiredLength(textLen);
+      // Length is an approximation, so we can't creat the final blob yet.
+      std::vector<BYTE> decoded;
+      decoded.resize(decodedLen);
+      if (!Base64Decode(pText, textLen, decoded.data(), &decodedLen)) {
+        ShaderOpLogFmt(L"Failed to decode compiled shader: %S\r\n", S.Name);
+        CHECK_HR(E_FAIL);
+      }
+      // decodedLen should have the correct size now.
+      CHECK_HR(D3DCreateBlob(decodedLen, &pCode));
+      memcpy(pCode->GetBufferPointer(), decoded.data(), decodedLen);
+    }
+    else if (TargetUsesDxil(S.Target)) {
       CComPtr<IDxcCompiler> pCompiler;
       CComPtr<IDxcLibrary> pLibrary;
       CComPtr<IDxcBlobEncoding> pTextBlob;
@@ -2038,7 +2053,8 @@ void ShaderOpParser::ParseShader(IXmlReader *pReader, ShaderOpShader *pShader) {
   CHECK_HR(ReadAttrStr(pReader, L"Name", &pShader->Name));
   CHECK_HR(ReadAttrStr(pReader, L"EntryPoint", &pShader->EntryPoint));
   CHECK_HR(ReadAttrStr(pReader, L"Target", &pShader->Target));
-  CHECK_HR(ReadAttrStr(pReader, L"Arguments", &pShader->Arguments))
+  CHECK_HR(ReadAttrStr(pReader, L"Arguments", &pShader->Arguments));
+  CHECK_HR(ReadAttrBOOL(pReader, L"Compiled", &pShader->Compiled))
 
   ReadElementContentStr(pReader, &pShader->Text);
   bool hasText = pShader->Text && *pShader->Text;

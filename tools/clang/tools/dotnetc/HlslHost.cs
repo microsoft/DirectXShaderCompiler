@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Provides support for working with an out-of-process rendering host.      //
+// Provides support for working with an out-of-process rendering host.       //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
