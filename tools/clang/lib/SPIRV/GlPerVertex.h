@@ -25,8 +25,9 @@ namespace spirv {
 
 /// The class for representing special gl_PerVertex builtin interface block.
 /// The Position, PointSize, ClipDistance, and CullDistance builtin should
-/// be handled by this class, except for Position builtin used in GS output
-/// and PS input.
+/// be handled by this class, except for
+/// * Position builtin used in GS output and PS input,
+/// * PointSize builtin used in GS output.
 ///
 /// Although the Vulkan spec does not require this directly, it seems the only
 /// way to avoid violating the spec is to group the Position, ClipDistance, and
@@ -101,10 +102,14 @@ public:
                    uint32_t semanticIndex, llvm::Optional<uint32_t> invocation,
                    uint32_t *value, bool noWriteBack);
 
+  /// Similar to tryToAccess, but only used for the PointSize builtin.
+  bool tryToAccessPointSize(hlsl::SigPoint::Kind sigPoint,
+                            llvm::Optional<uint32_t> invocation,
+                            uint32_t *value, bool noWriteBack);
+
 private:
   template <unsigned N>
-  DiagnosticBuilder emitError(const char (&message)[N],
-                              SourceLocation loc) {
+  DiagnosticBuilder emitError(const char (&message)[N], SourceLocation loc) {
     const auto diagId = astContext.getDiagnostics().getCustomDiagID(
         clang::DiagnosticsEngine::Error, message);
     return astContext.getDiagnostics().Report(loc, diagId);
@@ -121,8 +126,8 @@ private:
   /// Creates a stand-alone CullDistance builtin variable.
   uint32_t createCullDistanceVar(bool asInput, uint32_t arraySize);
 
-  /// Emits SPIR-V instructions for reading the Position builtin.
-  uint32_t readPosition() const;
+  /// Emits SPIR-V instructions for reading the Position/PointSize builtin.
+  uint32_t readPositionOrPointSize(bool isPosition) const;
   /// Emits SPIR-V instructions for reading the data starting from offset in
   /// the ClipDistance/CullDistance builtin. The data read will be transformed
   /// into the given type asType.
@@ -132,9 +137,10 @@ private:
   bool readField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,
                  uint32_t *value);
 
-  /// Emits SPIR-V instructions for writing the Position builtin.
-  void writePosition(llvm::Optional<uint32_t> invocationId,
-                     uint32_t value) const;
+  /// Emits SPIR-V instructions for writing the Position/PointSize builtin.
+  void writePositionOrPointSize(bool isPosition,
+                                llvm::Optional<uint32_t> invocationId,
+                                uint32_t value) const;
   /// Emits SPIR-V instructions for writing data into the ClipDistance/
   /// CullDistance builtin starting from offset. The value to be written is
   /// fromValue, whose type is fromType. Necessary transformations will be

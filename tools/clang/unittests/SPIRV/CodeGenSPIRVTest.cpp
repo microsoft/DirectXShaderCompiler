@@ -936,6 +936,10 @@ TEST_F(FileTest, SpirvEntryFunctionInOut) {
   runFileTest("spirv.entry-function.inout.hlsl");
 }
 
+TEST_F(FileTest, SpirvBuiltInHelperInvocation) {
+  runFileTest("spirv.builtin.helper-invocation.hlsl");
+}
+
 // For shader stage input/output interface
 // For semantic SV_Position, SV_ClipDistance, SV_CullDistance
 TEST_F(FileTest, SpirvStageIOInterfaceVS) {
