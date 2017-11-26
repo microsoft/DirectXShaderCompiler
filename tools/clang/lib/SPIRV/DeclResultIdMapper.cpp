@@ -739,11 +739,10 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   // - m3, mX * c2
 
   BindingSet bindingSet;
-  bool noError = true;
 
   // Decorates the given varId of the given category with set number
   // setNo, binding number bindingNo. Emits warning if overlap.
-  const auto tryToDecorate = [this, &bindingSet, &noError](
+  const auto tryToDecorate = [this, &bindingSet](
                                  const uint32_t varId, const uint32_t setNo,
                                  const uint32_t bindingNo,
                                  const ResourceVar::Category cat,
@@ -754,7 +753,6 @@ bool DeclResultIdMapper::decorateResourceBindings() {
                   loc)
           << bindingNo << setNo;
       emitNote("binding number previously assigned here", prevUseLoc);
-      // noError = false;
     }
     theBuilder.decorateDSetBinding(varId, setNo, bindingNo);
   };
@@ -838,7 +836,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     }
   }
 
-  return noError;
+  return true;
 }
 
 bool DeclResultIdMapper::createStageVars(
@@ -907,6 +905,16 @@ bool DeclResultIdMapper::createStageVars(
       return false;
     }
 
+    const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
+
+    // For VS/HS/DS, the PointSize builtin is handled in gl_PerVertex.
+    // For GSVIn also in gl_PerVertex; for GSOut, it's a stand-alone
+    // variable handled below.
+    if (builtinAttr && builtinAttr->getBuiltIn() == "PointSize" &&
+        glPerVertex.tryToAccessPointSize(sigPoint->GetKind(), invocationId,
+                                         value, noWriteBack))
+      return true;
+
     // Special handling of certain mappings between HLSL semantics and
     // SPIR-V builtins:
     // * SV_Position/SV_CullDistance/SV_ClipDistance should be grouped into the
@@ -957,7 +965,8 @@ bool DeclResultIdMapper::createStageVars(
                                        theBuilder.getConstantUint32(arraySize));
 
     StageVar stageVar(sigPoint, semanticToUse->str, semanticToUse->semantic,
-                      semanticToUse->name, semanticToUse->index, typeId);
+                      semanticToUse->name, semanticToUse->index, builtinAttr,
+                      typeId);
     const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
     const uint32_t varId =
         createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
@@ -1297,6 +1306,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
                                                  const llvm::StringRef name,
                                                  SourceLocation srcLoc) {
   using spv::BuiltIn;
+
   const auto sigPoint = stageVar->getSigPoint();
   const auto semanticKind = stageVar->getSemantic()->GetKind();
   const auto sigPointKind = sigPoint->GetKind();
@@ -1306,6 +1316,19 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   if (sc == spv::StorageClass::Max)
     return 0;
   stageVar->setStorageClass(sc);
+
+  // [[vk::builtin(...)]] takes precedence.
+  if (const auto *builtinAttr = stageVar->getBuiltInAttr()) {
+    const auto spvBuiltIn =
+        llvm::StringSwitch<BuiltIn>(builtinAttr->getBuiltIn())
+            .Case("PointSize", BuiltIn::PointSize)
+            .Case("HelperInvocation", BuiltIn::HelperInvocation)
+            .Default(BuiltIn::Max);
+
+    assert(spvBuiltIn != BuiltIn::Max); // The frontend should guarantee this.
+
+    return theBuilder.addStageBuiltinVar(type, sc, spvBuiltIn);
+  }
 
   // The following translation assumes that semantic validity in the current
   // shader model is already checked, so it only covers valid SigPoints for

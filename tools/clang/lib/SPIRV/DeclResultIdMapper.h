@@ -37,11 +37,14 @@ class StageVar {
 public:
   inline StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
                   const hlsl::Semantic *sema, llvm::StringRef semaName,
-                  uint32_t semaIndex, uint32_t type)
+                  uint32_t semaIndex, const VKBuiltInAttr *builtin,
+                  uint32_t type)
       : sigPoint(sig), semanticStr(semaStr), semantic(sema),
-        semanticName(semaName), semanticIndex(semaIndex), typeId(type),
-        valueId(0), isBuiltin(false), storageClass(spv::StorageClass::Max),
-        location(nullptr) {}
+        semanticName(semaName), semanticIndex(semaIndex), builtinAttr(builtin),
+        typeId(type), valueId(0), isBuiltin(false),
+        storageClass(spv::StorageClass::Max), location(nullptr) {
+    isBuiltin = builtinAttr != nullptr;
+  }
 
   const hlsl::SigPoint *getSigPoint() const { return sigPoint; }
   const hlsl::Semantic *getSemantic() const { return semantic; }
@@ -50,6 +53,8 @@ public:
 
   uint32_t getSpirvId() const { return valueId; }
   void setSpirvId(uint32_t id) { valueId = id; }
+
+  const VKBuiltInAttr *getBuiltInAttr() const { return builtinAttr; }
 
   std::string getSemanticStr() const;
   uint32_t getSemanticIndex() const { return semanticIndex; }
@@ -75,6 +80,8 @@ private:
   llvm::StringRef semanticName;
   /// HLSL semantic index.
   uint32_t semanticIndex;
+  /// SPIR-V BuiltIn attribute.
+  const VKBuiltInAttr *builtinAttr;
   /// SPIR-V <type-id>.
   uint32_t typeId;
   /// SPIR-V <result-id>.

@@ -9,12 +9,18 @@ struct GsPerVertexIn {
     float3 clip2 : SV_ClipDistance2; // Builtin ClipDistance
     float2 clip0 : SV_ClipDistance0; // Builtin ClipDistance
     float3 foo   : FOO;              // Input variable
+
+    [[vk::builtin("PointSize")]]
+    float ptSize : PSIZE;            // Builtin PointSize
 };
 
 struct GsInnerOut {
     float4 pos   : SV_Position;      // Builtion Position
     float2 foo   : FOO;              // Output variable
     float2 cull3 : SV_CullDistance3; // Builtin CullDistance
+
+    [[vk::builtin("PointSize")]]
+    float ptSize : PSIZE;            // Builtin PointSize
 };
 
 struct GsPerVertexOut {
@@ -29,7 +35,7 @@ struct GsPerVertexOut {
 // Input  variable: FOO, BAR
 // Output variable: FOO, BAR
 
-// CHECK: OpEntryPoint Geometry %main "main" %gl_PerVertexIn %gl_ClipDistance %gl_CullDistance %in_var_BAR %in_var_FOO %gl_Position %out_var_FOO %out_var_BAR
+// CHECK: OpEntryPoint Geometry %main "main" %gl_PerVertexIn %gl_ClipDistance %gl_CullDistance %in_var_BAR %in_var_FOO %gl_Position %out_var_FOO %gl_PointSize %out_var_BAR
 
 // CHECK: OpMemberDecorate %type_gl_PerVertex 0 BuiltIn Position
 // CHECK: OpMemberDecorate %type_gl_PerVertex 1 BuiltIn PointSize
@@ -40,6 +46,7 @@ struct GsPerVertexOut {
 // CHECK: OpDecorate %gl_ClipDistance BuiltIn ClipDistance
 // CHECK: OpDecorate %gl_CullDistance BuiltIn CullDistance
 // CHECK: OpDecorate %gl_Position BuiltIn Position
+// CHECK: OpDecorate %gl_PointSize BuiltIn PointSize
 
 // CHECK: OpDecorate %in_var_BAR Location 0
 // CHECK: OpDecorate %in_var_FOO Location 1
@@ -61,6 +68,7 @@ struct GsPerVertexOut {
 // CHECK: %in_var_FOO = OpVariable %_ptr_Input__arr_v3float_uint_2 Input
 // CHECK: %gl_Position = OpVariable %_ptr_Output_v4float Output
 // CHECK: %out_var_FOO = OpVariable %_ptr_Output_v2float Output
+// CHECK: %gl_PointSize = OpVariable %_ptr_Output_float Output
 // CHECK: %out_var_BAR = OpVariable %_ptr_Output_v4float Output
 
 [maxvertexcount(2)]
@@ -128,16 +136,25 @@ void main(in    line float2                     bar   [2] : BAR,
 
 // CHECK-NEXT:   [[inFooArr:%\d+]] = OpLoad %_arr_v3float_uint_2 %in_var_FOO
 
+// Compose an array for GsPerVertexIn::ptSize
+// CHECK-NEXT:      [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_PerVertexIn %uint_0 %uint_1
+// CHECK-NEXT:      [[val0:%\d+]] = OpLoad %float [[ptr0]]
+// CHECK-NEXT:      [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_PerVertexIn %uint_1 %uint_1
+// CHECK-NEXT:      [[val1:%\d+]] = OpLoad %float [[ptr1]]
+// CHECK-NEXT: [[inPtSzArr:%\d+]] = OpCompositeConstruct %_arr_float_uint_2 [[val0]] [[val1]]
+
 // CHECK-NEXT:      [[val0:%\d+]] = OpCompositeExtract %v4float [[inPosArr]] 0
 // CHECK-NEXT:      [[val1:%\d+]] = OpCompositeExtract %v3float [[inClip2Arr]] 0
 // CHECK-NEXT:      [[val2:%\d+]] = OpCompositeExtract %v2float [[inClip0Arr]] 0
 // CHECK-NEXT:      [[val3:%\d+]] = OpCompositeExtract %v3float [[inFooArr]] 0
-// CHECK-NEXT:   [[inData0:%\d+]] = OpCompositeConstruct %GsPerVertexIn [[val0]] [[val1]] [[val2]] [[val3]]
+// CHECK-NEXT:      [[val4:%\d+]] = OpCompositeExtract %float [[inPtSzArr]] 0
+// CHECK-NEXT:   [[inData0:%\d+]] = OpCompositeConstruct %GsPerVertexIn [[val0]] [[val1]] [[val2]] [[val3]] [[val4]]
 // CHECK-NEXT:      [[val0:%\d+]] = OpCompositeExtract %v4float [[inPosArr]] 1
 // CHECK-NEXT:      [[val1:%\d+]] = OpCompositeExtract %v3float [[inClip2Arr]] 1
 // CHECK-NEXT:      [[val2:%\d+]] = OpCompositeExtract %v2float [[inClip0Arr]] 1
 // CHECK-NEXT:      [[val3:%\d+]] = OpCompositeExtract %v3float [[inFooArr]] 1
-// CHECK-NEXT:   [[inData1:%\d+]] = OpCompositeConstruct %GsPerVertexIn [[val0]] [[val1]] [[val2]] [[val3]]
+// CHECK-NEXT:      [[val4:%\d+]] = OpCompositeExtract %float [[inPtSzArr]] 1
+// CHECK-NEXT:   [[inData1:%\d+]] = OpCompositeConstruct %GsPerVertexIn [[val0]] [[val1]] [[val2]] [[val3]] [[val4]]
 
 // CHECK-NEXT:    [[inData:%\d+]] = OpCompositeConstruct %_arr_GsPerVertexIn_uint_2 [[inData0]] [[inData1]]
 // CHECK-NEXT:                      OpStore %param_var_inData [[inData]]
