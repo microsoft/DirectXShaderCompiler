@@ -905,6 +905,9 @@ bool DeclResultIdMapper::createStageVars(
       return false;
     }
 
+    if (!validateVKBuiltins(decl, sigPoint))
+      return false;
+
     const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
 
     // For VS/HS/DS, the PointSize builtin is handled in gl_PerVertex.
@@ -1655,6 +1658,59 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
 
   return 0;
+}
+
+bool DeclResultIdMapper::validateVKBuiltins(const DeclaratorDecl *decl,
+                                            const hlsl::SigPoint *sigPoint) {
+  bool success = true;
+
+  if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
+    const auto loc = builtinAttr->getLocation();
+
+    if (decl->hasAttr<VKLocationAttr>()) {
+      emitError("cannot use vk::builtin and vk::location together", loc);
+      success = false;
+    }
+
+    const llvm::StringRef builtin = builtinAttr->getBuiltIn();
+
+    if (builtin == "HelperInvocation") {
+      if (!decl->getType()->isBooleanType()) {
+        emitError("HelperInvocation builtin must be of boolean type", loc);
+        success = false;
+      }
+
+      if (sigPoint->GetKind() != hlsl::SigPoint::Kind::PSIn) {
+        emitError(
+            "HelperInvocation builtin can only be used as pixel shader input",
+            loc);
+        success = false;
+      }
+    } else if (builtin == "PointSize") {
+      if (!decl->getType()->isFloatingType()) {
+        emitError("PointSize builtin must be of float type", loc);
+        success = false;
+      }
+
+      switch (sigPoint->GetKind()) {
+      case hlsl::SigPoint::Kind::VSOut:
+      case hlsl::SigPoint::Kind::HSCPIn:
+      case hlsl::SigPoint::Kind::HSCPOut:
+      case hlsl::SigPoint::Kind::DSCPIn:
+      case hlsl::SigPoint::Kind::DSOut:
+      case hlsl::SigPoint::Kind::GSVIn:
+      case hlsl::SigPoint::Kind::GSOut:
+      case hlsl::SigPoint::Kind::PSIn:
+        break;
+      default:
+        emitError("PointSize builtin cannot be used as %0", loc)
+            << sigPoint->GetName();
+        success = false;
+      }
+    }
+  }
+
+  return success;
 }
 
 spv::StorageClass

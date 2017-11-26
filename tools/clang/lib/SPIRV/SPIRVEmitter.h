@@ -240,7 +240,7 @@ private:
 
 private:
   /// Validates that vk::* attributes are used correctly.
-  void validateVKAttributes(const Decl *decl);
+  void validateVKAttributes(const NamedDecl *decl);
 
 private:
   /// Processes the given expr, casts the result into the given bool (vector)
