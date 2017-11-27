@@ -263,10 +263,11 @@ inline bool canActAsOutParmVar(const ParmVarDecl *param) {
 /// Returns false otherwise.
 inline bool evaluatesToConstZero(const Expr *expr, ASTContext &astContext) {
   const auto type = expr->getType();
+  assert(type->isBuiltinType());
   Expr::EvalResult evalResult;
   if (expr->EvaluateAsRValue(evalResult, astContext) &&
       !evalResult.HasSideEffects) {
-    const auto val = evalResult.Val;
+    const auto &val = evalResult.Val;
     return ((type->isBooleanType() && !val.getInt().getBoolValue()) ||
             (type->isIntegerType() && !val.getInt().getBoolValue()) ||
             (type->isFloatingType() && val.getFloat().isZero()));
@@ -1714,13 +1715,18 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     }
 
     // Try to evaluate 'literal float' as float rather than double.
-    if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(subExpr))
-      subExprId = tryToEvaluateAsFloat32(floatLiteral->getValue(), subExprType,
-                                         &evalType);
+    if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(subExpr)) {
+      subExprId = tryToEvaluateAsFloat32(floatLiteral->getValue());
+      if (subExprId)
+        evalType = astContext.FloatTy;
+    }
     // Try to evaluate 'literal int' as 32-bit int rather than 64-bit int.
-    else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(subExpr))
-      subExprId =
-          translateAPInt(intLiteral->getValue(), subExprType, &evalType);
+    else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(subExpr)) {
+      const bool isSigned = subExprType->isSignedIntegerType();
+      subExprId = tryToEvaluateAsInt32(intLiteral->getValue(), isSigned);
+      if (subExprId)
+        evalType = isSigned ? astContext.IntTy : astContext.UnsignedIntTy;
+    }
 
     if (!subExprId)
       subExprId = doExpr(subExpr);
@@ -6068,15 +6074,25 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
   return 0;
 }
 
-uint32_t SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue,
-                                              QualType targetType,
-                                              QualType *evaluatedType) {
-  const auto &semantics = astContext.getFloatTypeSemantics(targetType);
-  const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
+uint32_t SPIRVEmitter::tryToEvaluateAsInt32(const llvm::APInt &intValue,
+                                            bool isSigned) {
+  if (isSigned && intValue.isSignedIntN(32)) {
+    return theBuilder.getConstantInt32(
+        static_cast<int32_t>(intValue.getSExtValue()));
+  }
+  if (!isSigned && intValue.isIntN(32)) {
+    return theBuilder.getConstantUint32(
+        static_cast<uint32_t>(intValue.getZExtValue()));
+  }
 
+  // Couldn't evaluate as a 32-bit int without losing information.
+  return 0;
+}
+
+uint32_t SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
+  const auto &semantics = floatValue.getSemantics();
   // If the given value is already a 32-bit float, there is no need to convert.
-  if (bitwidth == 32u) {
-    *evaluatedType = targetType;
+  if (&semantics == &llvm::APFloat::IEEEsingle) {
     return theBuilder.getConstantFloat32(floatValue.convertToFloat());
   }
 
@@ -6088,10 +6104,8 @@ uint32_t SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue,
   const auto convertStatus =
       eval.convert(llvm::APFloat::IEEEsingle,
                    llvm::APFloat::rmNearestTiesToEven, &losesInfo);
-  if (convertStatus == llvm::APFloat::opOK && !losesInfo) {
-    *evaluatedType = astContext.FloatTy;
+  if (convertStatus == llvm::APFloat::opOK && !losesInfo)
     return theBuilder.getConstantFloat32(eval.convertToFloat());
-  }
 
   // Couldn't evaluate as a 32-bit float without losing information.
   return 0;

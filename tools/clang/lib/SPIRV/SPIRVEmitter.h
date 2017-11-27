@@ -407,10 +407,13 @@ private:
 
   /// Tries to evaluate the given APFloat as a 32-bit float. If the evaluation
   /// can be performed without loss, it returns the <result-id> of the SPIR-V
-  /// constant for that value. Returns zero otherwise. The QualType of the
-  /// resulting constant (32-bit float) is also written to *evaluatedType.
-  uint32_t tryToEvaluateAsFloat32(const llvm::APFloat &floatValue,
-                                  QualType targetType, QualType *evaluatedType);
+  /// constant for that value. Returns zero otherwise.
+  uint32_t tryToEvaluateAsFloat32(const llvm::APFloat &);
+
+  /// Tries to evaluate the given APInt as a 32-bit integer. If the evaluation
+  /// can be performed without loss, it returns the <result-id> of the SPIR-V
+  /// constant for that value.
+  uint32_t tryToEvaluateAsInt32(const llvm::APInt &, bool isSigned);
 
 private:
   /// Translates the given HLSL loop attribute into SPIR-V loop control mask.
