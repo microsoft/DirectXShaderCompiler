@@ -390,11 +390,8 @@ private:
   uint32_t translateAPValue(const APValue &value, const QualType targetType);
 
   /// Translates the given frontend APInt into its SPIR-V equivalent for the
-  /// given targetType. If the given APInt value can be represented in 32-bits,
-  /// it will first try to do so. If evaluatedType is not nullptr, the actual
-  /// type the value was evaluated as is also written to *evaluatedType.
-  uint32_t translateAPInt(const llvm::APInt &intValue, QualType targetType,
-                          QualType *evaluatedType = nullptr);
+  /// given targetType.
+  uint32_t translateAPInt(const llvm::APInt &intValue, QualType targetType);
 
   /// Translates the given frontend APFloat into its SPIR-V equivalent for the
   /// given targetType.

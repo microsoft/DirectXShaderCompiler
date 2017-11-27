@@ -6048,21 +6048,16 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
 }
 
 uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
-                                      QualType targetType,
-                                      QualType *evaluatedType) {
+                                      QualType targetType) {
   if (targetType->isSignedIntegerType()) {
     // Try to see if this integer can be represented in 32-bit.
     if (intValue.isSignedIntN(32)) {
-      if (evaluatedType)
-        *evaluatedType = astContext.IntTy;
       return theBuilder.getConstantInt32(
           static_cast<int32_t>(intValue.getSExtValue()));
     }
   } else {
     // Try to see if this integer can be represented in 32-bit.
     if (intValue.isIntN(32)) {
-      if (evaluatedType)
-        *evaluatedType = astContext.UnsignedIntTy;
       return theBuilder.getConstantUint32(
           static_cast<uint32_t>(intValue.getZExtValue()));
     }
