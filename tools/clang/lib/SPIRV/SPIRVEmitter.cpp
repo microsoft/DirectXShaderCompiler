@@ -309,27 +309,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
       if (context.IsPatchConstantFunctionDecl(funcDecl)) {
         patchConstFunc = funcDecl;
       }
-    } else if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      doVarDecl(varDecl);
-    } else if (auto *recordDecl = dyn_cast<RecordDecl>(decl)) {
-      doRecordDecl(recordDecl);
-    } else if (auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
-      // This is a cbuffer/tbuffer decl.
-
-      // Check and emit warnings for member intializers which are not
-      // supported in Vulkan
-      for (const auto *member : bufferDecl->decls()) {
-        if (const auto *varMember = dyn_cast<VarDecl>(member))
-          if (const auto *init = varMember->getInit())
-            emitWarning("%select{tbuffer|cbuffer}0 member initializer "
-                        "ignored since no equivalent in Vulkan",
-                        init->getExprLoc())
-                << bufferDecl->isCBuffer() << init->getSourceRange();
-      }
-
-      validateVKAttributes(bufferDecl);
-
-      (void)declIdMapper.createCTBuffer(bufferDecl);
+    } else {
+      doDecl(decl);
     }
   }
 
@@ -390,12 +371,15 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
 }
 
 void SPIRVEmitter::doDecl(const Decl *decl) {
+  if (decl->isImplicit() || isa<EmptyDecl>(decl) || isa<TypedefDecl>(decl))
+    return;
+
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
     doVarDecl(varDecl);
   } else if (const auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
     doFunctionDecl(funcDecl);
-  } else if (dyn_cast<HLSLBufferDecl>(decl)) {
-    llvm_unreachable("HLSLBufferDecl should not be handled here");
+  } else if (const auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
+    doHLSLBufferDecl(bufferDecl);
   } else if (const auto *recordDecl = dyn_cast<RecordDecl>(decl)) {
     doRecordDecl(recordDecl);
   } else {
@@ -722,6 +706,22 @@ void SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
                 loc);
     }
   }
+}
+
+void SPIRVEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
+  // This is a cbuffer/tbuffer decl.
+  // Check and emit warnings for member intializers which are not
+  // supported in Vulkan
+  for (const auto *member : bufferDecl->decls()) {
+    if (const auto *varMember = dyn_cast<VarDecl>(member))
+      if (const auto *init = varMember->getInit())
+        emitWarning("%select{tbuffer|cbuffer}0 member initializer "
+                    "ignored since no equivalent in Vulkan",
+                    init->getExprLoc())
+            << bufferDecl->isCBuffer() << init->getSourceRange();
+  }
+  validateVKAttributes(bufferDecl);
+  (void)declIdMapper.createCTBuffer(bufferDecl);
 }
 
 void SPIRVEmitter::doRecordDecl(const RecordDecl *recordDecl) {
