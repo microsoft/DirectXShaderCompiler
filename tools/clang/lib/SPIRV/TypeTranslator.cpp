@@ -140,6 +140,10 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
         case BuiltinType::UShort:
         case BuiltinType::UInt:
           return theBuilder.getUint32Type();
+        case BuiltinType::LongLong:
+          return theBuilder.getInt64Type();
+        case BuiltinType::ULongLong:
+          return theBuilder.getUint64Type();
         // float, min16float (half), and min10float are all translated to 32-bit
         // float in SPIR-V.
         case BuiltinType::Float:
@@ -155,6 +159,19 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
             return theBuilder.getFloat32Type();
           else
             return theBuilder.getFloat64Type();
+        }
+        case BuiltinType::LitInt: {
+          const auto bitwidth = astContext.getIntWidth(type);
+          // All integer variants with bitwidth larger than 32 are represented
+          // as 64-bit int in SPIR-V.
+          // All integer variants with bitwidth of 32 or less are represented as
+          // 32-bit int in SPIR-V.
+          if (type->isSignedIntegerType())
+            return bitwidth > 32 ? theBuilder.getInt64Type()
+                                 : theBuilder.getInt32Type();
+          else
+            return bitwidth > 32 ? theBuilder.getUint64Type()
+                                 : theBuilder.getUint32Type();
         }
         default:
           emitError("primitive type %0 unimplemented")

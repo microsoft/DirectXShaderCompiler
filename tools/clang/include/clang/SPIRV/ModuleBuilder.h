@@ -339,7 +339,9 @@ public:
   uint32_t getVoidType();
   uint32_t getBoolType();
   uint32_t getInt32Type();
+  uint32_t getInt64Type();
   uint32_t getUint32Type();
+  uint32_t getUint64Type();
   uint32_t getFloat32Type();
   uint32_t getFloat64Type();
   uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
