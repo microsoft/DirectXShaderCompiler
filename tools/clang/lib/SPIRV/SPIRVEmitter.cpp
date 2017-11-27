@@ -1584,9 +1584,34 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     return doExpr(subExpr);
   }
   case CastKind::CK_HLSLVectorToMatrixCast: {
-    // The target type should already be a 1xN matrix type.
-    assert(TypeTranslator::is1xNMatrix(toType));
-    return doExpr(subExpr);
+    // If target type is already an 1xN matrix type, we just return the
+    // underlying vector.
+    if (TypeTranslator::is1xNMatrix(toType))
+      return doExpr(subExpr);
+
+    // A vector can have no more than 4 elements. The only remaining case
+    // is casting from size-4 vector to size-2-by-2 matrix.
+
+    const auto vec = loadIfGLValue(subExpr);
+
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0;
+    const bool isMat =
+        TypeTranslator::isMxNMatrix(toType, &elemType, &rowCount, &colCount);
+
+    assert(isMat && rowCount == 2 && colCount == 2);
+
+    uint32_t vec2Type =
+        theBuilder.getVecType(typeTranslator.translateType(elemType), 2);
+    const auto subVec1 =
+        theBuilder.createVectorShuffle(vec2Type, vec, vec, {0, 1});
+    const auto subVec2 =
+        theBuilder.createVectorShuffle(vec2Type, vec, vec, {2, 3});
+
+    const auto mat = theBuilder.createCompositeConstruct(
+        theBuilder.getMatType(vec2Type, 2), {subVec1, subVec2});
+
+    return SpirvEvalInfo(mat).setRValue();
   }
   case CastKind::CK_HLSLMatrixSplat: {
     // From scalar to matrix
