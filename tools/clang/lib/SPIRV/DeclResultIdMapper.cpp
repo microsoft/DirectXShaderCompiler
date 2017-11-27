@@ -1665,6 +1665,7 @@ bool DeclResultIdMapper::validateVKBuiltins(const DeclaratorDecl *decl,
   bool success = true;
 
   if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
+    const auto declType = getTypeOrFnRetType(decl);
     const auto loc = builtinAttr->getLocation();
 
     if (decl->hasAttr<VKLocationAttr>()) {
@@ -1675,7 +1676,7 @@ bool DeclResultIdMapper::validateVKBuiltins(const DeclaratorDecl *decl,
     const llvm::StringRef builtin = builtinAttr->getBuiltIn();
 
     if (builtin == "HelperInvocation") {
-      if (!decl->getType()->isBooleanType()) {
+      if (!declType->isBooleanType()) {
         emitError("HelperInvocation builtin must be of boolean type", loc);
         success = false;
       }
@@ -1687,7 +1688,7 @@ bool DeclResultIdMapper::validateVKBuiltins(const DeclaratorDecl *decl,
         success = false;
       }
     } else if (builtin == "PointSize") {
-      if (!decl->getType()->isFloatingType()) {
+      if (!declType->isFloatingType()) {
         emitError("PointSize builtin must be of float type", loc);
         success = false;
       }
