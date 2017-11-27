@@ -13,17 +13,17 @@
 // CHECK-NEXT: OpMemberName %T 2 "z"
 
 // CHECK:      %N = OpTypeStruct
-struct N {};
+class N {};
 
 // CHECK:      %S = OpTypeStruct %uint %v4float %mat2v3float
-struct S {
+class S {
   uint a;
   float4 b;
   float2x3 c;
 };
 
 // CHECK:      %T = OpTypeStruct %S %v3int %S
-struct T {
+class T {
   S x;
   int3 y;
   S z;
@@ -36,7 +36,7 @@ void main() {
 
 // CHECK: %R = OpTypeStruct %v2float
 // CHECK: %r0 = OpVariable %_ptr_Function_R Function
-  struct R {
+  class R {
     float2 rVal;
   } r0;
 
