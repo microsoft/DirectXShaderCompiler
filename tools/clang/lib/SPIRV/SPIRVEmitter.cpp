@@ -341,7 +341,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
                 << bufferDecl->isCBuffer() << init->getSourceRange();
       }
 
-      validateVKAttributes(decl);
+      validateVKAttributes(bufferDecl);
 
       (void)declIdMapper.createCTBuffer(bufferDecl);
     }
@@ -702,7 +702,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   theBuilder.endFunction();
 }
 
-void SPIRVEmitter::validateVKAttributes(const Decl *decl) {
+void SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
   // The frontend will make sure that
   // * vk::push_constant applies to global variables of struct type
   // * vk::binding applies to global variables or cbuffers/tbuffers
@@ -713,16 +713,17 @@ void SPIRVEmitter::validateVKAttributes(const Decl *decl) {
   // vk::binding.
 
   if (const auto *pcAttr = decl->getAttr<VKPushConstantAttr>()) {
+    const auto loc = pcAttr->getLocation();
+
     if (seenPushConstantAt.isInvalid()) {
-      seenPushConstantAt = pcAttr->getLocation();
+      seenPushConstantAt = loc;
     } else {
       // TODO: Actually this is slightly incorrect. The Vulkan spec says:
       //   There must be no more than one push constant block statically used
       //   per shader entry point.
       // But we are checking whether there are more than one push constant
       // blocks defined. Tracking usage requires more work.
-      emitError("cannot have more than one push constant block",
-                pcAttr->getLocation());
+      emitError("cannot have more than one push constant block", loc);
       emitNote("push constant block previously defined here",
                seenPushConstantAt);
     }
@@ -730,7 +731,7 @@ void SPIRVEmitter::validateVKAttributes(const Decl *decl) {
     if (decl->hasAttr<VKBindingAttr>()) {
       emitError("'push_constant' attribute cannot be used together with "
                 "'binding' attribute",
-                pcAttr->getLocation());
+                loc);
     }
   }
 }
@@ -4058,7 +4059,6 @@ SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
       const auto valId =
           theBuilder.createBinaryOp(spvOp, vecType, lhsVec, rhsVec);
       return SpirvEvalInfo(valId).setRValue();
-
     };
     return processEachVectorInMatrix(lhs, lhsVal, actOnEachVec);
   }

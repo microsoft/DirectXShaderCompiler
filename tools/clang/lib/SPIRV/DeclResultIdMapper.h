@@ -406,6 +406,10 @@ private:
   uint32_t createSpirvStageVar(StageVar *, const DeclaratorDecl *decl,
                                const llvm::StringRef name, SourceLocation);
 
+  /// Returns true if all vk::builtin usages are valid.
+  bool validateVKBuiltins(const DeclaratorDecl *decl,
+                          const hlsl::SigPoint *sigPoint);
+
   /// Creates the associated counter variable for RW/Append/Consume
   /// structured buffer.
   uint32_t createCounterVar(const ValueDecl *decl);

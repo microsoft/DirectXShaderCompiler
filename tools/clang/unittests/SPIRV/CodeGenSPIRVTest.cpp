@@ -942,6 +942,12 @@ TEST_F(FileTest, SpirvEntryFunctionInOut) {
 TEST_F(FileTest, SpirvBuiltInHelperInvocation) {
   runFileTest("spirv.builtin.helper-invocation.hlsl");
 }
+TEST_F(FileTest, SpirvBuiltInHelperInvocationInvalidUsage) {
+  runFileTest("spirv.builtin.helper-invocation.invalid.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvBuiltInPointSizeInvalidUsage) {
+  runFileTest("spirv.builtin.point-size.invalid.hlsl", Expect::Failure);
+}
 
 // For shader stage input/output interface
 // For semantic SV_Position, SV_ClipDistance, SV_CullDistance
