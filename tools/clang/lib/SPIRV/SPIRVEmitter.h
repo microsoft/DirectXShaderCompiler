@@ -77,6 +77,7 @@ private:
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);
   void doRecordDecl(const RecordDecl *decl);
+  void doHLSLBufferDecl(const HLSLBufferDecl *decl);
 
   void doBreakStmt(const BreakStmt *stmt);
   void doDiscardStmt(const DiscardStmt *stmt);
