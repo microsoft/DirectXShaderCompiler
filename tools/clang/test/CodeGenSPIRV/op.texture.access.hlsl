@@ -22,6 +22,7 @@ void main() {
 // CHECK-NEXT:                    OpStore %a1 [[result1]]
   float  a1 = t1[5];
 
+// CHECK-NEXT:                    OpStore %pos2 [[cu12]]
 // CHECK-NEXT:    [[pos2:%\d+]] = OpLoad %v2uint %pos2
 // CHECK-NEXT:      [[t2:%\d+]] = OpLoad %type_2d_image %t2
 // CHECK-NEXT:      [[f2:%\d+]] = OpImageFetch %v4int [[t2]] [[pos2]] Lod %uint_0
@@ -30,6 +31,7 @@ void main() {
   uint2 pos2 = uint2(1,2);
   int2    a2 = t2[pos2];
 
+// CHECK-NEXT:                    OpStore %pos3 [[cu123]]
 // CHECK-NEXT:    [[pos3:%\d+]] = OpLoad %v3uint %pos3
 // CHECK-NEXT:      [[t3:%\d+]] = OpLoad %type_3d_image %t3
 // CHECK-NEXT:      [[f3:%\d+]] = OpImageFetch %v4uint [[t3]] [[pos3]] Lod %uint_0

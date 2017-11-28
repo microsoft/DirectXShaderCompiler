@@ -16,22 +16,21 @@ class T {
 
 // CHECK: [[v4fc:%\d+]] = OpConstantComposite %v4float %float_1 %float_2 %float_3 %float_4
 
-// CHECK: %M = OpVariable %_ptr_Private_v4float Private [[v4fc]]
+// CHECK: %M = OpVariable %_ptr_Private_v4float Private
 // CHECK: %N = OpVariable %_ptr_Private_S Private
-// CHECK: %U = OpVariable %_ptr_Private_v4float Private [[v4fc]]
+// CHECK: %U = OpVariable %_ptr_Private_v4float Private
 
 float4 T::M = float4(1., 2., 3., 4.);
 S      T::N = {5.0, 1., 2., 3., 4.};
 
 const float4 T::U = float4(1., 2., 3., 4.);
 
-// T::M is intialized using embeded initializer in the variable declaration.
-// T::N is intialized at the beginning of the main function.
-
 // CHECK-LABEL: %main = OpFunction
-// CHECK:      [[v1to4:%\d+]] = OpCompositeConstruct %v4float %float_1 %float_2 %float_3 %float_4
+// CHECK:                       OpStore %M [[v4fc]]
+// CHECK-NEXT: [[v1to4:%\d+]] = OpCompositeConstruct %v4float %float_1 %float_2 %float_3 %float_4
 // CHECK-NEXT: [[v1to5:%\d+]] = OpCompositeConstruct %S %float_5 [[v1to4]]
 // CHECK-NEXT:                  OpStore %N [[v1to5]]
+// CHECK-NEXT:                  OpStore %U [[v4fc]]
 
 // CHECK-LABEL: %src_main = OpFunction
 float4 main(float4 input: A) : SV_Target {

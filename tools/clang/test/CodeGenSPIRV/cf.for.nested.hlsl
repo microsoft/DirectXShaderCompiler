@@ -2,12 +2,10 @@
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
-// CHECK-NEXT: %val = OpVariable %_ptr_Function_int Function %int_0
     int val = 0;
 
-// CHECK-NEXT: %i = OpVariable %_ptr_Function_int Function %int_0
-// CHECK-NEXT: %j = OpVariable %_ptr_Function_int Function %int_0
-// CHECK-NEXT: %k = OpVariable %_ptr_Function_int Function %int_0
+// CHECK:      OpStore %val %int_0
+// CHECK-NEXT: OpStore %i %int_0
 // CHECK-NEXT: OpBranch %for_check
 
 // CHECK-LABEL: %for_check = OpLabel
@@ -22,6 +20,7 @@ void main() {
 // CHECK-NEXT: [[add0:%\d+]] = OpIAdd %int [[val0]] [[i1]]
 // CHECK-NEXT: OpStore %val [[add0]]
         val = val + i;
+// CHECK-NEXT: OpStore %j %int_0
 // CHECK-NEXT: OpBranch %for_check_0
 
 // CHECK-LABEL: %for_check_0 = OpLabel
@@ -31,6 +30,7 @@ void main() {
 // CHECK-NEXT: OpBranchConditional [[lt1]] %for_body_0 %for_merge_0
         [loop] for (int j = 0; j < 10; ++j) {
 // CHECK-LABEL: %for_body_0 = OpLabel
+// CHECK-NEXT: OpStore %k %int_0
 // CHECK-NEXT: OpBranch %for_check_1
 
 // CHECK-LABEL: %for_check_1 = OpLabel
