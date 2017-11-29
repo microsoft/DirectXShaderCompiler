@@ -16,11 +16,21 @@ const int T::SIX = 6;
 
 int foo(int val) { return val; }
 
-// CHECK:   %FIVE = OpVariable %_ptr_Private_int Private %int_5
-// CHECK:    %SIX = OpVariable %_ptr_Private_int Private %int_6
-// CHECK: %FIVE_0 = OpVariable %_ptr_Private_int Private %int_5
-// CHECK:  %SIX_0 = OpVariable %_ptr_Private_int Private %int_6
+// CHECK:   %FIVE = OpVariable %_ptr_Private_int Private
+// CHECK:    %SIX = OpVariable %_ptr_Private_int Private
+// CHECK: %FIVE_0 = OpVariable %_ptr_Private_int Private
+// CHECK:  %SIX_0 = OpVariable %_ptr_Private_int Private
 int main() : A {
+// CHECK-LABEL: %main = OpFunction
+
+// CHECK: OpStore %FIVE %int_5
+// CHECK: OpStore %SIX %int_6
+// CHECK: OpStore %FIVE_0 %int_5
+// CHECK: OpStore %SIX_0 %int_6
+// CHECK: OpFunctionCall %int %src_main
+
+// CHECK-LABEL: %src_main = OpFunction
+
 // CHECK: OpLoad %int %FIVE
 // CHECK: OpLoad %int %SIX
 // CHECK: OpLoad %int %FIVE_0

@@ -6,12 +6,12 @@
 
 void main() {
 
-// CHECK: %a = OpVariable %_ptr_Function_v4float Function [[v4f1]]
+// CHECK: OpStore %a [[v4f1]]
   float4 a = (1).xxxx;
 
-// CHECK: %b = OpVariable %_ptr_Function_v4float Function [[v4f25]]
+// CHECK: OpStore %b [[v4f25]]
   float4 b = (2.5).xxxx;
 
-// CHECK: %c = OpVariable %_ptr_Function_v4float Function [[v4f0]]
+// CHECK: OpStore %c [[v4f0]]
   float4 c = (false).xxxx;
 }

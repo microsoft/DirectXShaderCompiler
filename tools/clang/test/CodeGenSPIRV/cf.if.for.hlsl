@@ -3,11 +3,8 @@
 float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-LABEL: %bb_entry = OpLabel
 
-// CHECK-NEXT: %val = OpVariable %_ptr_Function_float Function %float_0
+// CHECK: OpStore %val %float_0
     float val = 0.;
-// CHECK-NEXT: %i = OpVariable %_ptr_Function_int Function %int_0
-// CHECK-NEXT: %j = OpVariable %_ptr_Function_int Function %int_0
-// CHECK-NEXT: %k = OpVariable %_ptr_Function_int Function %int_0
 
 // CHECK-NEXT: [[color0:%\d+]] = OpLoad %float %color
 // CHECK-NEXT: [[lt0:%\d+]] = OpFOrdLessThan %bool [[color0]] %float_0_3
@@ -20,6 +17,7 @@ float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-NEXT: OpBranch %if_merge
     }
 // CHECK-LABEL: %if_merge = OpLabel
+// CHECK-NEXT: OpStore %i %int_0
 // CHECK-NEXT: OpBranch %for_check
 
     // for-stmt following if-stmt
@@ -38,6 +36,7 @@ float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-LABEL: %if_true_0 = OpLabel
 // CHECK: OpStore %val
             val = val + 1.;
+// CHECK-NEXT: OpStore %j %int_0
 // CHECK-NEXT: OpBranch %for_check_0
 
 // CHECK-LABEL: %for_check_0 = OpLabel
@@ -76,6 +75,7 @@ float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-NEXT: OpBranch %if_merge_2
         } else {
 // CHECK-LABEL: %if_false = OpLabel
+// CHECK-NEXT: OpStore %k %int_0
 // CHECK-NEXT: OpBranch %for_check_1
 
 // CHECK-LABEL: %for_check_1 = OpLabel

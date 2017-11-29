@@ -12,7 +12,7 @@ void main() {
   // Has a 'default' case   //
   // All cases have 'break' //
   ////////////////////////////
-  
+
   int a = 0;
 // CHECK: [[a:%\d+]] = OpLoad %int %a
 // CHECK-NEXT: OpSelectionMerge %switch_merge None
@@ -57,7 +57,7 @@ void main() {
   ////////////////////////////////////
   // The selector is a statement    //
   // Does not have a 'default' case //
-  // All cases have 'break'         //  
+  // All cases have 'break'         //
   ////////////////////////////////////
 
 // CHECK-NEXT: [[a1:%\d+]] = OpLoad %int %a
@@ -68,7 +68,7 @@ void main() {
   switch(int c = a) {
 // CHECK-NEXT: %switch_n4 = OpLabel
 // CHECK-NEXT: OpStore %result %int_n400
-// CHECK-NEXT: OpBranch %switch_merge_0  
+// CHECK-NEXT: OpBranch %switch_merge_0
     case -4:
       result = -400;
       break;
@@ -253,7 +253,7 @@ void main() {
       }
     }
   }
-// CHECK-NEXT: %switch_merge_5 = OpLabel    
+// CHECK-NEXT: %switch_merge_5 = OpLabel
 
 
 
@@ -322,7 +322,7 @@ void main() {
   const int s = 45;
   const int t = 2*r + s;  // evaluates to 115.
 
-// CHECK-NEXT: [[a8:%\d+]] = OpLoad %int %a
+// CHECK:      [[a8:%\d+]] = OpLoad %int %a
 // CHECK-NEXT: OpSelectionMerge %switch_merge_8 None
 // CHECK-NEXT: OpSwitch [[a8]] %switch_merge_8 35 %switch_35 115 %switch_115
   switch(a) {
