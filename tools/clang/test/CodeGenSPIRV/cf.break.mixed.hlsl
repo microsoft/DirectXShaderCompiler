@@ -39,6 +39,7 @@ void main() {
         a = 6;     // No SPIR-V should be emitted for this statement.
       }
 // CHECK-NEXT: %switch_default = OpLabel
+// CHECK-NEXT: OpStore %i %int_0
 // CHECK-NEXT: OpBranch %for_check
       default:
       // CHECK-NEXT: %for_check = OpLabel

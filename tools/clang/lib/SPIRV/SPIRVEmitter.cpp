@@ -775,39 +775,31 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
     // not have local storage, it should be file scope variable.
     const bool isFileScopeVar = !decl->hasLocalStorage();
 
-    // Handle initializer. SPIR-V requires that "initializer must be an <id>
-    // from a constant instruction or a global (module scope) OpVariable
-    // instruction."
-    llvm::Optional<uint32_t> constInit;
-    if (decl->hasInit()) {
-      if (const uint32_t id = tryToEvaluateAsConst(decl->getInit()))
-        constInit = llvm::Optional<uint32_t>(id);
-    } else if (isFileScopeVar) {
-      // For static variables, if no initializers are provided, we should
-      // initialize them to zero values.
-      constInit = llvm::Optional<uint32_t>(theBuilder.getConstantNull(varType));
-    }
-
     if (isFileScopeVar)
-      varId = declIdMapper.createFileVar(varType, decl, constInit);
+      varId = declIdMapper.createFileVar(varType, decl, llvm::None);
     else
-      varId = declIdMapper.createFnVar(varType, decl, constInit);
+      varId = declIdMapper.createFnVar(varType, decl, llvm::None);
 
-    // If we cannot evaluate the initializer as a constant expression, we'll
-    // need to use OpStore to write the initializer to the variable.
-    // Also we should only evaluate the initializer once for a static variable.
-    if (decl->hasInit() && !constInit.hasValue()) {
-      if (isFileScopeVar) {
-        if (decl->isStaticLocal()) {
-          initOnce(decl->getName(), varId, decl->getInit());
-        } else {
-          // Defer to initialize these global variables at the beginning of the
-          // entry function.
-          toInitGloalVars.push_back(decl);
-        }
+    // Emit OpStore to initialize the variable
+    // TODO: revert back to use OpVariable initializer
+
+    // We should only evaluate the initializer once for a static variable.
+    if (isFileScopeVar) {
+      if (decl->isStaticLocal()) {
+        initOnce(decl->getType(), decl->getName(), varId, decl->getInit());
       } else {
-        storeValue(varId, loadIfGLValue(decl->getInit()), decl->getType());
+        // Defer to initialize these global variables at the beginning of the
+        // entry function.
+        toInitGloalVars.push_back(decl);
       }
+
+    }
+    // Function local variables. Just emit OpStore at the current insert point.
+    else if (decl->hasInit()) {
+      if (const auto constId = tryToEvaluateAsConst(decl->getInit()))
+        theBuilder.createStore(varId, constId);
+      else
+        storeValue(varId, loadIfGLValue(decl->getInit()), decl->getType());
     }
   } else {
     varId = declIdMapper.createExternVar(decl);
@@ -3500,8 +3492,8 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   return 0;
 }
 
-void SPIRVEmitter::initOnce(std::string varName, uint32_t varPtr,
-                            const Expr *varInit) {
+void SPIRVEmitter::initOnce(QualType varType, std::string varName,
+                            uint32_t varPtr, const Expr *varInit) {
   const uint32_t boolType = theBuilder.getBoolType();
   varName = "init.done." + varName;
 
@@ -3522,7 +3514,12 @@ void SPIRVEmitter::initOnce(std::string varName, uint32_t varPtr,
 
   theBuilder.setInsertPoint(thenBB);
   // Do initialization and mark done
-  theBuilder.createStore(varPtr, doExpr(varInit));
+  if (varInit) {
+    theBuilder.createStore(varPtr, doExpr(varInit));
+  } else {
+    const auto typeId = typeTranslator.translateType(varType);
+    theBuilder.createStore(varPtr, theBuilder.getConstantNull(typeId));
+  }
   theBuilder.createStore(initDoneVar, theBuilder.getConstantBool(true));
   theBuilder.createBranch(mergeBB);
   theBuilder.addSuccessor(mergeBB);
@@ -6488,9 +6485,15 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   theBuilder.setInsertPoint(entryLabel);
 
   // Initialize all global variables at the beginning of the wrapper
-  for (const VarDecl *varDecl : toInitGloalVars)
-    theBuilder.createStore(declIdMapper.getDeclResultId(varDecl),
-                           doExpr(varDecl->getInit()));
+  for (const VarDecl *varDecl : toInitGloalVars) {
+    const auto id = declIdMapper.getDeclResultId(varDecl);
+    if (const auto *init = varDecl->getInit()) {
+      theBuilder.createStore(id, doExpr(init));
+    } else {
+      const auto typeId = typeTranslator.translateType(varDecl->getType());
+      theBuilder.createStore(id, theBuilder.getConstantNull(typeId));
+    }
+  }
 
   // Create temporary variables for holding function call arguments
   llvm::SmallVector<uint32_t, 4> params;

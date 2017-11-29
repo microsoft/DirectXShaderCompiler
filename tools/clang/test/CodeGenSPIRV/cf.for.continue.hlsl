@@ -2,7 +2,7 @@
 
 void main() {
   int val = 0;
-  
+
 // CHECK:      OpBranch %for_check
 // CHECK-NEXT: %for_check = OpLabel
 // CHECK:      OpLoopMerge %for_merge %for_continue None
@@ -29,6 +29,7 @@ void main() {
   }
 // CHECK-NEXT: %for_merge = OpLabel
 
+// CHECK-NEXT: OpStore %j %int_0
 // CHECK-NEXT: OpBranch %for_check_0
 
 

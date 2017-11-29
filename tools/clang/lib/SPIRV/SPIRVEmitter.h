@@ -137,7 +137,8 @@ private:
                                 spv::Op mandateGenOpcode = spv::Op::Max);
 
   /// Generates SPIR-V instructions to initialize the given variable once.
-  void initOnce(std::string varName, uint32_t varPtr, const Expr *varInit);
+  void initOnce(QualType varType, std::string varName, uint32_t varPtr,
+                const Expr *varInit);
 
   /// Returns true if the given expression will be translated into a vector
   /// shuffle instruction in SPIR-V.

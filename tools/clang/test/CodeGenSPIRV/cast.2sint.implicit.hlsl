@@ -16,8 +16,6 @@ void main() {
     bool1 vfrom1;
     uint2 vfrom2;
     float3 vfrom3;
-// CHECK: %vic2 = OpVariable %_ptr_Function_v2int Function [[v2int_1_0]]
-// CHECK: %vic3 = OpVariable %_ptr_Function_v3int Function [[v3int_0_2_n3]]
 
     // From constant (implicit)
 // CHECK: OpStore %i %int_1
@@ -45,7 +43,8 @@ void main() {
 
     // Vector cases
 
-    // See the beginning for generated code
+// CHECK: OpStore %vic2 [[v2int_1_0]]
+// CHECK: OpStore %vic3 [[v3int_0_2_n3]]
     int2 vic2 = {true, false};
     int3 vic3 = {false, 1.1 + 1.2, -3}; // Mixed
 

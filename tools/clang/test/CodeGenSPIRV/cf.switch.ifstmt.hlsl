@@ -8,11 +8,6 @@ void main() {
 // CHECK-NEXT: %b = OpVariable %_ptr_Function_int Function
 // CHECK-NEXT: %c = OpVariable %_ptr_Function_int Function
 
-// TODO: We should try not to emit OpVariable for constant variables.
-// CHECK-NEXT: %r = OpVariable %_ptr_Function_int Function %int_20
-// CHECK-NEXT: %s = OpVariable %_ptr_Function_int Function %int_40
-// CHECK-NEXT: %t = OpVariable %_ptr_Function_int Function %int_140
-// CHECK-NEXT: %d = OpVariable %_ptr_Function_int Function %int_5
   int a,b,c;
   const int r = 20;
   const int s = 40;
@@ -23,7 +18,7 @@ void main() {
   // DefaultStmt is the first statement //
   ////////////////////////////////////////
 
-// CHECK-NEXT: [[a0:%\d+]] = OpLoad %int %a
+// CHECK:      [[a0:%\d+]] = OpLoad %int %a
 // CHECK-NEXT: [[is_a_1:%\d+]] = OpIEqual %bool [[a0]] %int_1
 // CHECK-NEXT: OpSelectionMerge %if_merge_0 None
 // CHECK-NEXT: OpBranchConditional [[is_a_1]] %if_true %if_false
@@ -99,7 +94,7 @@ void main() {
   // DefaultStmt is the last statement         //
   ///////////////////////////////////////////////
 
-// CHECK-NEXT: [[d0:%\d+]] = OpLoad %int %d
+// CHECK:      [[d0:%\d+]] = OpLoad %int %d
 // CHECK-NEXT: [[is_d_1:%\d+]] = OpIEqual %bool [[d0]] %int_1
 // CHECK-NEXT: OpSelectionMerge %if_merge_10 None
 // CHECK-NEXT: OpBranchConditional [[is_d_1]] %if_true_3 %if_false_3
