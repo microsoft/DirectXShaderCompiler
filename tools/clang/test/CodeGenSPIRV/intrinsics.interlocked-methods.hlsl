@@ -18,6 +18,8 @@ RWTexture2DArray <uint>  g_tTex2du1a;
 RWBuffer <int>   g_tBuffI;
 RWBuffer <uint>  g_tBuffU;
 
+RWStructuredBuffer<uint> g_tRWBuffU;
+
 void main()
 {
   uint out_u1;
@@ -237,6 +239,13 @@ void main()
 // CHECK-NEXT:  [[ae26:%\d+]] = OpAtomicExchange %uint [[ptr26]] %uint_1 %uint_0 [[u1_26]]
 // CHECK-NEXT:                  OpStore %out_u1 [[ae26]]
   InterlockedExchange(g_tBuffU[u1], u1, out_u1);
+
+// CHECK-NEXT:    [[u1:%\d+]] = OpLoad %uint %u1
+// CHECK-NEXT:   [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %g_tRWBuffU %int_0 [[u1]]
+// CHECK-NEXT:    [[u1:%\d+]] = OpLoad %uint %u1
+// CHECK-NEXT:   [[add:%\d+]] = OpAtomicIAdd %uint [[ptr]] %uint_1 %uint_0 [[u1]]
+// CHECK-NEXT:                  OpStore %out_u1 [[add]]
+  InterlockedAdd(g_tRWBuffU[u1], u1, out_u1);
 
   //////////////////////////////////////////////////////////////////////////
   ///////      Test all Interlocked* functions on primitive types     //////
