@@ -68,9 +68,9 @@
 #ifdef ENABLE_SPIRV_CODEGEN
 #include "spirv-tools/libspirv.hpp"
 
-static bool DisassembleSpirv(IDxcBlob *binaryBlob,
-                             IDxcLibrary *library,
-                             IDxcBlobEncoding **assemblyBlob) {
+static bool DisassembleSpirv(IDxcBlob *binaryBlob, IDxcLibrary *library,
+                             IDxcBlobEncoding **assemblyBlob,
+                             bool withByteOffset) {
   if (!binaryBlob)
     return true;
 
@@ -87,6 +87,9 @@ static bool DisassembleSpirv(IDxcBlob *binaryBlob,
   spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
   uint32_t options = (SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
                       SPV_BINARY_TO_TEXT_OPTION_INDENT);
+  if (withByteOffset)
+    options |= SPV_BINARY_TO_TEXT_OPTION_SHOW_BYTE_OFFSET;
+
   if (!spirvTools.Disassemble(words, &assembly, options))
     return false;
 
@@ -317,7 +320,8 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
     CComPtr<IDxcLibrary> pLibrary;
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
 
-    if (DisassembleSpirv(pBlob, pLibrary, &pDisassembleResult)) {
+    if (DisassembleSpirv(pBlob, pLibrary, &pDisassembleResult,
+                         m_Opts.DisassembleByteOffset)) {
       if (!m_Opts.AssemblyCode.empty()) {
         WriteBlobToFile(pDisassembleResult, m_Opts.AssemblyCode);
       } else {
