@@ -1035,6 +1035,7 @@ if __name__ == "__main__":
             'include/dxc/HlslIntrinsicOp.h',
             'tools/clang/tools/dxcompiler/dxcdisassembler.cpp',
             'include/dxc/HLSL/DxilSigPoint.inl',
+            'tools/clang/test/HLSL/ShaderOpArithTableTest.xml',
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))

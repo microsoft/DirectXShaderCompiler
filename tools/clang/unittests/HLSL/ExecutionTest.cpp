@@ -2377,7 +2377,6 @@ void ExecutionTest::BasicTriangleTestSetup(LPCSTR ShaderOpName, LPCWSTR FileName
   data.reset();
   test.reset();
   ReportLiveObjects();
-
 }
 
 TEST_F(ExecutionTest, BasicTriangleOpTest) {
