@@ -4596,9 +4596,9 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       const auto coordId = doExpr(index);
       ptr = theBuilder.createImageTexelPointer(ptrType, baseId, coordId, zero);
     }
-  } else {
-    ptr = doExpr(dest);
   }
+  if (!ptr)
+    ptr = doExpr(dest);
 
   const bool isCompareExchange =
       opcode == hlsl::IntrinsicOp::IOP_InterlockedCompareExchange;
