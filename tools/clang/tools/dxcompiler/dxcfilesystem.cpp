@@ -123,7 +123,7 @@ const DxcArgsHandle OutputHandle(SpecialValue::Output);
 /// Max number of included files (1:1 to their directories) or search directories.
 /// If programs include more than a handful, DxcArgsFileSystem will need to do better than linear scans.
 /// If this is fired, ERROR_OUT_OF_STRUCTURES will be returned by an attempt to open a file.
-static const size_t MaxIncludedFiles = 200;
+static const size_t MaxIncludedFiles = 1000;
 
 bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
   if (!Path || !Path[0]) return FALSE;
