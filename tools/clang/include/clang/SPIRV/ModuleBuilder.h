@@ -196,14 +196,15 @@ public:
 
   /// \brief Creates SPIR-V instructions for gathering the given image.
   ///
-  /// If compareVal is given a non-zero value, OpImageDrefGather will be
-  /// generated; otherwise, OpImageGather will be generated.
+  /// If compareVal is given a non-zero value, OpImageDrefGather or
+  /// OpImageSparseDrefGather will be generated; otherwise, OpImageGather or
+  /// OpImageSparseGather will be generated.
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t component,
                              uint32_t compareVal, uint32_t constOffset,
                              uint32_t varOffset, uint32_t constOffsets,
-                             uint32_t sample);
+                             uint32_t sample, bool isSparse);
 
   /// \brief Creates a select operation with the given values for true and false
   /// cases and returns the <result-id> for the result.
