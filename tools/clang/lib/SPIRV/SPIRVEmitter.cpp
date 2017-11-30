@@ -2292,22 +2292,15 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(const Expr *object,
       elemCount == 1 ? elemTypeId
                      : theBuilder.getVecType(elemTypeId, elemCount);
 
-  // OpImageFetch can only fetch a vector of 4 elements. OpImageRead can load a
-  // vector of any size.
-  const uint32_t fetchTypeId = theBuilder.getVecType(elemTypeId, 4u);
+  // OpImageFetch and OpImageRead can only fetch a vector of 4 elements.
+  const uint32_t texelTypeId = theBuilder.getVecType(elemTypeId, 4u);
   const uint32_t texel = theBuilder.createImageFetchOrRead(
-      doFetch, doFetch ? fetchTypeId : resultTypeId, objectId, locationId, lod,
-      constOffset, varOffset, /*constOffsets*/ 0, sampleNumber);
-
-  // OpImageRead can load a vector of any size. So we can return the result of
-  // the instruction directly.
-  if (!doFetch) {
-    return SpirvEvalInfo(texel).setRValue();
-  }
+      doFetch, texelTypeId, objectId, locationId, lod, constOffset, varOffset,
+      /*constOffsets*/ 0, sampleNumber);
 
   uint32_t retVal = texel;
-  // OpImageFetch can only fetch vec4. If the result type is a vec1, vec2, or
-  // vec3, some extra processing (extraction) is required.
+  // If the result type is a vec1, vec2, or vec3, some extra processing
+  // (extraction) is required.
   switch (elemCount) {
   case 1:
     retVal = theBuilder.createCompositeExtract(elemTypeId, texel, {0});

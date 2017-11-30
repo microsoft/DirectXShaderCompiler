@@ -274,8 +274,7 @@ TEST_F(FileTest, OpRWStructuredBufferAccess) {
 // For Texture/RWTexture accessing operator (operator[])
 TEST_F(FileTest, OpTextureAccess) { runFileTest("op.texture.access.hlsl"); }
 TEST_F(FileTest, OpRWTextureAccessRead) {
-  runFileTest("op.rwtexture.access.read.hlsl", Expect::Success,
-              /*runValidation=*/false);
+  runFileTest("op.rwtexture.access.read.hlsl");
 }
 TEST_F(FileTest, OpRWTextureAccessWrite) {
   runFileTest("op.rwtexture.access.write.hlsl", Expect::Success,
