@@ -69,7 +69,7 @@
 #include "spirv-tools/libspirv.hpp"
 
 static bool DisassembleSpirv(IDxcBlob *binaryBlob, IDxcLibrary *library,
-                             IDxcBlobEncoding **assemblyBlob,
+                             IDxcBlobEncoding **assemblyBlob, bool withColor,
                              bool withByteOffset) {
   if (!binaryBlob)
     return true;
@@ -87,6 +87,8 @@ static bool DisassembleSpirv(IDxcBlob *binaryBlob, IDxcLibrary *library,
   spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
   uint32_t options = (SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
                       SPV_BINARY_TO_TEXT_OPTION_INDENT);
+  if (withColor)
+    options |= SPV_BINARY_TO_TEXT_OPTION_COLOR;
   if (withByteOffset)
     options |= SPV_BINARY_TO_TEXT_OPTION_SHOW_BYTE_OFFSET;
 
@@ -321,6 +323,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
 
     if (DisassembleSpirv(pBlob, pLibrary, &pDisassembleResult,
+                         m_Opts.ColorCodeAssembly,
                          m_Opts.DisassembleByteOffset)) {
       if (!m_Opts.AssemblyCode.empty()) {
         WriteBlobToFile(pDisassembleResult, m_Opts.AssemblyCode);

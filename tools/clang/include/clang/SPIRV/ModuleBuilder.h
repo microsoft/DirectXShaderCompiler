@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "clang/AST/Type.h"
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/Structure.h"
@@ -186,13 +187,14 @@ public:
   /// OpImageFetch should be used for sampled images. OpImageRead should be used
   /// for images without a sampler.
   uint32_t createImageFetchOrRead(bool doImageFetch, uint32_t texelType,
-                                  uint32_t image, uint32_t coordinate,
-                                  uint32_t lod, uint32_t constOffset,
-                                  uint32_t varOffset, uint32_t constOffsets,
-                                  uint32_t sample);
+                                  QualType imageType, uint32_t image,
+                                  uint32_t coordinate, uint32_t lod,
+                                  uint32_t constOffset, uint32_t varOffset,
+                                  uint32_t constOffsets, uint32_t sample);
 
   /// \brief Creates SPIR-V instructions for writing to the given image.
-  void createImageWrite(uint32_t imageId, uint32_t coordId, uint32_t texelId);
+  void createImageWrite(QualType imageType, uint32_t imageId, uint32_t coordId,
+                        uint32_t texelId);
 
   /// \brief Creates SPIR-V instructions for gathering the given image.
   ///
@@ -424,7 +426,8 @@ void ModuleBuilder::setMemoryModel(spv::MemoryModel mm) {
 }
 
 void ModuleBuilder::requireCapability(spv::Capability cap) {
-  theModule.addCapability(cap);
+  if (cap != spv::Capability::Max)
+    theModule.addCapability(cap);
 }
 
 void ModuleBuilder::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,

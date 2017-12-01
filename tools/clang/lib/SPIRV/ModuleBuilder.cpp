@@ -9,6 +9,7 @@
 
 #include "clang/SPIRV/ModuleBuilder.h"
 
+#include "TypeTranslator.h"
 #include "spirv/1.0//spirv.hpp11"
 #include "clang/SPIRV/InstBuilder.h"
 #include "llvm/llvm_assert/assert.h"
@@ -395,16 +396,18 @@ uint32_t ModuleBuilder::createImageSample(
   return texelId;
 }
 
-void ModuleBuilder::createImageWrite(uint32_t imageId, uint32_t coordId,
-                                     uint32_t texelId) {
+void ModuleBuilder::createImageWrite(QualType imageType, uint32_t imageId,
+                                     uint32_t coordId, uint32_t texelId) {
   assert(insertPoint && "null insert point");
+  requireCapability(
+      TypeTranslator::getCapabilityForStorageImageReadWrite(imageType));
   instBuilder.opImageWrite(imageId, coordId, texelId, llvm::None).x();
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
 uint32_t ModuleBuilder::createImageFetchOrRead(
-    bool doImageFetch, uint32_t texelType, uint32_t image, uint32_t coordinate,
-    uint32_t lod, uint32_t constOffset, uint32_t varOffset,
+    bool doImageFetch, uint32_t texelType, QualType imageType, uint32_t image,
+    uint32_t coordinate, uint32_t lod, uint32_t constOffset, uint32_t varOffset,
     uint32_t constOffsets, uint32_t sample) {
   assert(insertPoint && "null insert point");
 
@@ -415,10 +418,13 @@ uint32_t ModuleBuilder::createImageFetchOrRead(
           constOffsets, sample, &params));
 
   const uint32_t texelId = theContext.takeNextId();
-  if (doImageFetch)
+  if (doImageFetch) {
     instBuilder.opImageFetch(texelType, texelId, image, coordinate, mask);
-  else
+  } else {
+    requireCapability(
+        TypeTranslator::getCapabilityForStorageImageReadWrite(imageType));
     instBuilder.opImageRead(texelType, texelId, image, coordinate, mask);
+  }
 
   for (const auto param : params)
     instBuilder.idRef(param);

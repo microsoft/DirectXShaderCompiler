@@ -1,5 +1,7 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: OpCapability ImageBuffer
+
 Buffer<int> intbuf;
 Buffer<uint> uintbuf;
 Buffer<float> floatbuf;

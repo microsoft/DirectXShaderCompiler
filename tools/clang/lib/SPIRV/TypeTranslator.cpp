@@ -584,6 +584,20 @@ uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
   return theBuilder.getVecType(elemType, colCount);
 }
 
+spv::Capability
+TypeTranslator::getCapabilityForStorageImageReadWrite(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    // RWBuffer translates into OpTypeImage Buffer with Sampled = 2
+    if (name == "RWBuffer")
+      return spv::Capability::ImageBuffer;
+    // RWBuffer translates into OpTypeImage 1D with Sampled = 2
+    if (name == "RWTexture1D" || name == "RWTexture1DArray")
+      return spv::Capability::Image1D;
+  }
+  return spv::Capability::Max;
+}
+
 llvm::SmallVector<const Decoration *, 4>
 TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
   const auto spirvContext = theBuilder.getSPIRVContext();
