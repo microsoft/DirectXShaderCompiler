@@ -670,55 +670,6 @@
            ]]>
             </Parameter>
         </Row>
-        <Row Name="rsqrt">
-            <Parameter Name="Validation.Type">ulp</Parameter>
-            <Parameter Name="Validation.Tolerance">1</Parameter>
-            <Parameter Name="Validation.NumInput">11</Parameter>
-            <Parameter Name="Validation.Input">
-                <Value>NaN</Value>
-                <Value>-Inf</Value>
-                <Value>-denorm</Value>
-                <Value>-0</Value>
-                <Value>0</Value>
-                <Value>denorm</Value>
-                <Value>Inf</Value>
-                <Value>-1</Value>
-                <Value>16.0</Value>
-                <Value>256.0</Value>
-                <Value>65536.0</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected">
-                <Value>NaN</Value>
-                <Value>NaN</Value>
-                <Value>-Inf</Value>
-                <Value>-Inf</Value>
-                <Value>Inf</Value>
-                <Value>Inf</Value>
-                <Value>0</Value>
-                <Value>NaN</Value>
-                <Value>0.25</Value>
-                <Value>0.0625</Value>
-                <Value>0.00390625</Value>
-            </Parameter>
-            <Parameter Name="ShaderOp.Name">rsqrt</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
-            <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
-            <Parameter Name="ShaderOp.Text">
-                <![CDATA[
-            struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = rsqrt(l.input);
-                g_buf[GI] = l;
-            }
-           ]]>
-            </Parameter>
-        </Row>
         <Row Name="round_ne">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
@@ -1256,41 +1207,7 @@
             ]]>
             </Parameter>
         </Row>
-        <Row Name="Add">
-            <Parameter Name="Validation.Type">epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="Validation.NumInput">17</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>125</Value>
-                <Value>1.1754946E-38</Value>
-            </Parameter>
-            <Parameter Name="Validation.Input2">
-                <Value>125</Value>
-                <Value>1.1754946E-38</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>250</Value>
-                <Value>2.3509893E-38</Value>
-            </Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
-            <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
-            <Parameter Name="ShaderOp.Text">
-                <![CDATA[
-            struct SBinaryFPOp {
-                float input1;
-                float input2;
-                float output1;
-            };
-            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryFPOp l = g_buf[GI];
-                l.output1 = l.input1 + l.input2;
-                g_buf[GI] = l;
-            };
-            ]]>
-            </Parameter>
-        </Row>
+        
     </Table>
     <Table Id="TertiaryFloatOpTable">
         <ParameterTypes>
@@ -2373,7 +2290,6 @@
             <ParameterType Name="Validation.Source" Array="true">String</ParameterType>
             <ParameterType Name="Validation.Accum" Array="true">String</ParameterType>
             <ParameterType Name="Validation.Expected" Array="true">String</ParameterType>
-            <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
         </ParameterTypes>
         <Row Name="MSad4">
             <Parameter Name="Description">Msad4 intrinsic calls both Bfi and Msad</Parameter>
@@ -2395,7 +2311,6 @@
                 ]]>
             </Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="Validation.NumInput">4</Parameter>
             <Parameter Name="Validation.Reference">
                 <Value>0xA100B2C3</Value>
                 <Value>0x00000000</Value>
