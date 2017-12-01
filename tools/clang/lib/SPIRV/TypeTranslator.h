@@ -167,6 +167,10 @@ public:
   /// matrix type.
   uint32_t getComponentVectorType(QualType matrixType);
 
+  /// \brief Returns the capability required for the given storage image type.
+  /// Returns Capability::Max to mean no capability requirements.
+  static spv::Capability getCapabilityForStorageImageReadWrite(QualType type);
+
   /// \brief Generates layout decorations (Offset, MatrixStride, RowMajor,
   /// ColMajor) for the given type.
   ///
