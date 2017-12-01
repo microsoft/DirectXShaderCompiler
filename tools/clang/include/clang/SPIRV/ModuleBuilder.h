@@ -424,7 +424,8 @@ void ModuleBuilder::setMemoryModel(spv::MemoryModel mm) {
 }
 
 void ModuleBuilder::requireCapability(spv::Capability cap) {
-  theModule.addCapability(cap);
+  if (cap != spv::Capability::Max)
+    theModule.addCapability(cap);
 }
 
 void ModuleBuilder::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,

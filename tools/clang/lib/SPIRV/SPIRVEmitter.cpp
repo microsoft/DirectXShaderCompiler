@@ -275,6 +275,22 @@ inline bool evaluatesToConstZero(const Expr *expr, ASTContext &astContext) {
   return false;
 }
 
+/// Returns the capability required for the given storage image type.
+/// Returns Capability::Max to mean no capability requirements.
+spv::Capability getCapabilityForStorageImageReadWrite(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    // RWBuffer translates into OpTypeImage Buffer with Sampled = 2
+    if (name == "RWBuffer")
+      return spv::Capability::ImageBuffer;
+    // RWBuffer translates into OpTypeImage 1D with Sampled = 2
+    if (name == "RWTexture1D")
+      return spv::Capability::Image1D;
+    // TODO: SPIR-V spec is unclear about the rest right now.
+  }
+  return spv::Capability::Max;
+}
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
@@ -2264,6 +2280,12 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(const Expr *object,
   const bool doFetch =
       TypeTranslator::isBuffer(type) || TypeTranslator::isTexture(type);
 
+  if (!doFetch) {
+    // Potentially require additional capability for OpImage with Sampled = 2
+    const auto cap = getCapabilityForStorageImageReadWrite(type);
+    theBuilder.requireCapability(cap);
+  }
+
   const uint32_t objectId = loadIfGLValue(object);
 
   // For Texture2DMS and Texture2DMSArray, Sample must be used rather than Lod.
@@ -3916,9 +3938,16 @@ SPIRVEmitter::tryToAssignToRWBufferRWTexture(const Expr *lhs,
   const auto lhsExpr = dyn_cast<CXXOperatorCallExpr>(lhs);
   if (isBufferTextureIndexing(lhsExpr, &baseExpr, &indexExpr)) {
     const uint32_t locId = doExpr(indexExpr);
+    const QualType imageType = baseExpr->getType();
     const uint32_t imageId = theBuilder.createLoad(
-        typeTranslator.translateType(baseExpr->getType()), doExpr(baseExpr));
+        typeTranslator.translateType(imageType), doExpr(baseExpr));
+
     theBuilder.createImageWrite(imageId, locId, rhs);
+
+    // Potentially require additional capability for OpImage with Sampled = 2
+    const auto cap = getCapabilityForStorageImageReadWrite(imageType);
+    theBuilder.requireCapability(cap);
+
     return rhs;
   }
   return 0;

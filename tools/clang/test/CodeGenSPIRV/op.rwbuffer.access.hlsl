@@ -1,5 +1,7 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: OpCapability ImageBuffer
+
 RWBuffer<int> intbuf;
 RWBuffer<uint> uintbuf;
 RWBuffer<float> floatbuf;

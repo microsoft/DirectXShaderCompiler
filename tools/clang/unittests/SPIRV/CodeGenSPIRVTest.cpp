@@ -248,14 +248,8 @@ TEST_F(FileTest, OpStructAccess) { runFileTest("op.struct.access.hlsl"); }
 TEST_F(FileTest, OpArrayAccess) { runFileTest("op.array.access.hlsl"); }
 
 // For buffer accessing operator
-TEST_F(FileTest, OpBufferAccess) {
-  runFileTest("op.buffer.access.hlsl", Expect::Success,
-              /*runValidation=*/false);
-}
-TEST_F(FileTest, OpRWBufferAccess) {
-  runFileTest("op.rwbuffer.access.hlsl", Expect::Success,
-              /*runValidation=*/false);
-}
+TEST_F(FileTest, OpBufferAccess) { runFileTest("op.buffer.access.hlsl"); }
+TEST_F(FileTest, OpRWBufferAccess) { runFileTest("op.rwbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
 TEST_F(FileTest, OpConstantBufferAccess) {
   runFileTest("op.constant-buffer.access.hlsl");
@@ -277,8 +271,7 @@ TEST_F(FileTest, OpRWTextureAccessRead) {
   runFileTest("op.rwtexture.access.read.hlsl");
 }
 TEST_F(FileTest, OpRWTextureAccessWrite) {
-  runFileTest("op.rwtexture.access.write.hlsl", Expect::Success,
-              /*runValidation=*/false);
+  runFileTest("op.rwtexture.access.write.hlsl");
 }
 
 // For Texture.mips[][] operator
@@ -601,12 +594,10 @@ TEST_F(FileTest, TextureArrayGatherCmp) {
   runFileTest("texture.array.gather-cmp.hlsl");
 }
 TEST_F(FileTest, TextureGatherCmpRed) {
-  runFileTest("texture.gather-cmp-red.hlsl", Expect::Success,
-              /*runValidation=*/false);
+  runFileTest("texture.gather-cmp-red.hlsl");
 }
 TEST_F(FileTest, TextureArrayGatherCmpRed) {
-  runFileTest("texture.array.gather-cmp-red.hlsl", Expect::Success,
-              /*runValidation=*/false);
+  runFileTest("texture.array.gather-cmp-red.hlsl");
 }
 TEST_F(FileTest, TextureArrayGatherCmpGreen) {
   runFileTest("texture.gather-cmp-green.hlsl", Expect::Failure);
@@ -680,19 +671,13 @@ TEST_F(FileTest, RWByteAddressBufferAtomicMethods) {
 }
 
 // For Buffer/RWBuffer methods
-TEST_F(FileTest, BufferLoad) {
-  runFileTest("method.buffer.load.hlsl", Expect::Success,
-              /*runValidation=*/false);
-}
+TEST_F(FileTest, BufferLoad) { runFileTest("method.buffer.load.hlsl"); }
 TEST_F(FileTest, BufferGetDimensions) {
   runFileTest("method.buffer.get-dimensions.hlsl");
 }
 
 // For RWTexture methods
-TEST_F(FileTest, RWTextureLoad) {
-  runFileTest("method.rwtexture.load.hlsl", Expect::Success,
-              /*runValidation=*/false);
-}
+TEST_F(FileTest, RWTextureLoad) { runFileTest("method.rwtexture.load.hlsl"); }
 TEST_F(FileTest, RWTextureGetDimensions) {
   runFileTest("method.rwtexture.get-dimensions.hlsl");
 }
