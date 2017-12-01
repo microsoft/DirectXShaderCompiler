@@ -2294,9 +2294,10 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(const Expr *object,
 
   // OpImageFetch and OpImageRead can only fetch a vector of 4 elements.
   const uint32_t texelTypeId = theBuilder.getVecType(elemTypeId, 4u);
-  const uint32_t texel = theBuilder.createImageFetchOrRead(
-      doFetch, texelTypeId, objectId, locationId, lod, constOffset, varOffset,
-      /*constOffsets*/ 0, sampleNumber);
+  const uint32_t texel =
+      theBuilder.createImageFetchOrRead(doFetch, texelTypeId, type, objectId,
+                                        locationId, lod, constOffset, varOffset,
+                                        /*constOffsets*/ 0, sampleNumber);
 
   uint32_t retVal = texel;
   // If the result type is a vec1, vec2, or vec3, some extra processing
@@ -3916,9 +3917,10 @@ SPIRVEmitter::tryToAssignToRWBufferRWTexture(const Expr *lhs,
   const auto lhsExpr = dyn_cast<CXXOperatorCallExpr>(lhs);
   if (isBufferTextureIndexing(lhsExpr, &baseExpr, &indexExpr)) {
     const uint32_t locId = doExpr(indexExpr);
+    const QualType imageType = baseExpr->getType();
     const uint32_t imageId = theBuilder.createLoad(
-        typeTranslator.translateType(baseExpr->getType()), doExpr(baseExpr));
-    theBuilder.createImageWrite(imageId, locId, rhs);
+        typeTranslator.translateType(imageType), doExpr(baseExpr));
+    theBuilder.createImageWrite(imageType, imageId, locId, rhs);
     return rhs;
   }
   return 0;
