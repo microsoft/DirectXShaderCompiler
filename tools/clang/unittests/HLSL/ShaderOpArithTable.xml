@@ -1222,7 +1222,6 @@
             <ParameterType Name="Validation.Input2" Array="true">String</ParameterType>
             <ParameterType Name="Validation.Input3" Array="true">String</ParameterType>
             <ParameterType Name="Validation.Expected" Array="true">String</ParameterType>
-            <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
         </ParameterTypes>
         <Row Name="FMad">
             <Parameter Name="ShaderOp.Name">FMad</Parameter>
@@ -1303,7 +1302,6 @@
                 <Value>1</Value>
                 <Value>9.5</Value>
             </Parameter>
-            <Parameter Name="Validation.NumInput">12</Parameter>
         </Row>
     </Table>
     <Table Id="UnaryIntOpTable">

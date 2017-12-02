@@ -32,7 +32,7 @@ class db_dxil_inst(object):
         self.is_bb_terminator = False   # whether this is a basic block terminator
         self.is_binary = False          # whether this is an arithmetic binary/logical operator
         self.is_memory = False          # whether this is a memory manipulator operator
-        self.is_cast = True             # whether this is a casting operator
+        self.is_cast = False            # whether this is a casting operator
         self.is_dxil_op = False         # whether this is a call into a built-in DXIL function
         self.dxil_op = ""               # name of DXIL operation
         self.dxil_opid = 0              # ID of DXIL operation 
@@ -514,7 +514,7 @@ class db_dxil(object):
             db_dxil_param(5, "$o", "replacedValue", "the number with bits to be replaced")])
         next_op_idx += 1
 
-        # Dot.
+        # Dot
         self.add_dxil_op("Dot2", next_op_idx, "Dot2", "two-dimensional vector dot-product", "hf", "rn", [
             db_dxil_param(0, "$o", "", "the operation result"),
             db_dxil_param(2, "$o", "ax", "the first component of the first vector"),
