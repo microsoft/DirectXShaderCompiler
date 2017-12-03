@@ -282,6 +282,18 @@ turnIntoElementPtr(SpirvEvalInfo &info, QualType elemType,
   return info.setResultId(builder.createAccessChain(ptrType, info, indices));
 }
 
+/// Returns the HLSLBufferDecl if the given VarDecl is inside a cbuffer/tbuffer.
+/// Returns nullptr otherwise, including varDecl is a ConstantBuffer or
+/// TextureBuffer itself.
+inline const HLSLBufferDecl *getCTBufferContext(const VarDecl *varDecl) {
+  if (const auto *bufferDecl =
+          dyn_cast<HLSLBufferDecl>(varDecl->getDeclContext()))
+    // Filter ConstantBuffer/TextureBuffer
+    if (!bufferDecl->isConstantBufferView())
+      return bufferDecl;
+  return nullptr;
+}
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
@@ -317,7 +329,11 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
         patchConstFunc = funcDecl;
       }
     } else {
-      doDecl(decl);
+      // If ignoring unused resources, defer Decl handling inside
+      // TranslationUnit to the time of first referencing.
+      if (!spirvOptions.ignoreUnusedResources) {
+        doDecl(decl);
+      }
     }
   }
 
@@ -382,7 +398,14 @@ void SPIRVEmitter::doDecl(const Decl *decl) {
     return;
 
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-    doVarDecl(varDecl);
+    // We can have VarDecls inside cbuffer/tbuffer. For those VarDecls, we need
+    // to emit their cbuffer/tbuffer as a whole and access each individual one
+    // using access chains.
+    if (const auto *bufferDecl = getCTBufferContext(varDecl)) {
+      doHLSLBufferDecl(bufferDecl);
+    } else {
+      doVarDecl(varDecl);
+    }
   } else if (const auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
     doFunctionDecl(funcDecl);
   } else if (const auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
@@ -437,11 +460,28 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
   }
 }
 
+SpirvEvalInfo SPIRVEmitter::doDeclRefExpr(const DeclRefExpr *expr) {
+  const auto *decl = expr->getDecl();
+  auto id = declIdMapper.getDeclResultId(decl);
+
+  if (spirvOptions.ignoreUnusedResources && !id) {
+    // First time referencing a Decl inside TranslationUnit. Register
+    // into DeclResultIdMapper and emit SPIR-V for it and then query
+    // again.
+    doDecl(decl);
+    id = declIdMapper.getDeclResultId(decl);
+  }
+
+  assert(id && "found unregistered decl");
+
+  return id;
+}
+
 SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   expr = expr->IgnoreParens();
 
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
-    return declIdMapper.getDeclResultId(declRefExpr->getDecl());
+    return doDeclRefExpr(declRefExpr);
   }
 
   if (const auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
@@ -596,6 +636,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // calls. We have already assigned <result-id>s for it when translating
     // its call site. Query it here.
     funcId = declIdMapper.getDeclResultId(decl);
+    assert(funcId);
   }
 
   if (!needsLegalization &&
@@ -2532,11 +2573,9 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
 
   const auto *object =
       expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
-  const auto *buffer = cast<DeclRefExpr>(object)->getDecl();
+  auto bufferInfo = doDeclRefExpr(cast<DeclRefExpr>(object));
 
   uint32_t index = incDecRWACSBufferCounter(expr, isAppend);
-
-  auto bufferInfo = declIdMapper.getDeclResultId(buffer);
 
   const auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
 
@@ -6541,6 +6580,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
     const auto id = declIdMapper.getDeclResultId(varDecl);
+    assert(id);
     if (const auto *init = varDecl->getInit()) {
       theBuilder.createStore(id, doExpr(init));
     } else {

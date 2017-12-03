@@ -234,8 +234,6 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
       return *info;
     }
 
-  assert(false && "found unregistered decl");
-  decl->dump();
   return 0;
 }
 
