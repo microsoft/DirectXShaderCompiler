@@ -158,6 +158,7 @@ public:
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   bool GenSPIRV; // OPT_spirv
+  bool VkIgnoreUnusedResources; // OPT_fvk_ignore_used_resources
   llvm::StringRef VkStageIoOrder; // OPT_fvk_stage_io_order
   llvm::SmallVector<uint32_t, 4> VkBShift; // OPT_fvk_b_shift
   llvm::SmallVector<uint32_t, 4> VkTShift; // OPT_fvk_t_shift
