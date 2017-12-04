@@ -73,10 +73,6 @@ float4 main(float3 location: A) : SV_Target {
 // CHECK-NEXT:                         OpStore %f [[result]]
     uint4 f = t2u1.GatherRed(gSampler, location, int2(1, 2), int2(3, 4), int2(5, 6), int2(7, 8), status);
 
-// NOTE: The HLSL reference states that the location parameter should be a scalar float.
-// However, the AST injects a VectorSplat that converts it into a float4. Either the 
-// documentation, or the AST representation is incorrect. Filed issue #871.
-
 // CHECK:        [[tCubeArray:%\d+]] = OpLoad %type_cube_image_array %tCubeArray
 // CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
 // CHECK-NEXT:   [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_1 [[tCubeArray]] [[gSampler]]
@@ -85,7 +81,7 @@ float4 main(float3 location: A) : SV_Target {
 // CHECK-NEXT:                         OpStore %status [[status]]
 // CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4int [[structResult]] 1
 // CHECK-NEXT:                         OpStore %g [[result]]
-    int4 g = tCubeArray.GatherRed(gSampler, /*location*/ 1.5, status);
+    int4 g = tCubeArray.GatherRed(gSampler, /*location*/ float4(1.5, 1.5, 1.5, 1.5), status);
 
     return 1.0;
 }
