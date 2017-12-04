@@ -366,6 +366,9 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
   const uint32_t structType =
       theBuilder.getStructType(fieldTypes, typeName, fieldNames, decorations);
 
+  // Register the <type-id> for this decl
+  ctBufferPCTypeIds[decl] = structType;
+
   const auto sc = usageKind == ContextUsageKind::PushConstant
                       ? spv::StorageClass::PushConstant
                       : spv::StorageClass::Uniform;
@@ -474,6 +477,13 @@ uint32_t DeclResultIdMapper::createCounterVar(const ValueDecl *decl) {
                             decl->getAttr<VKBindingAttr>(),
                             decl->getAttr<VKCounterBindingAttr>(), true);
   return counterVars[decl] = counterId;
+}
+
+uint32_t
+DeclResultIdMapper::getCTBufferPushConstantTypeId(const DeclContext *decl) {
+  const auto found = ctBufferPCTypeIds.find(decl);
+  assert(found != ctBufferPCTypeIds.end());
+  return found->second;
 }
 
 std::vector<uint32_t> DeclResultIdMapper::collectStageVars() const {

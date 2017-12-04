@@ -139,11 +139,6 @@ TEST_F(FileTest, BinaryOpAssign) { runFileTest("binary-op.assign.hlsl"); }
 TEST_F(FileTest, BinaryOpAssignComposite) {
   runFileTest("binary-op.assign.composite.hlsl");
 }
-TEST_F(FileTest, BinaryOpAssignResource) {
-  runFileTest("binary-op.assign.resource.hlsl", Expect::Success,
-              // It generates invalid SPIR-V code right now.
-              /*runValidation=*/false);
-}
 
 // For comma binary operator
 TEST_F(FileTest, BinaryOpComma) { runFileTest("binary-op.comma.hlsl"); }
@@ -957,6 +952,22 @@ TEST_F(FileTest, SpirvInterpolation) {
 }
 TEST_F(FileTest, SpirvInterpolationError) {
   runFileTest("spirv.interpolation.error.hlsl", FileTest::Expect::Failure);
+}
+
+TEST_F(FileTest, SpirvLegalizationStructuredBuffer) {
+  runFileTest("spirv.legal.sbuffer.hlsl", Expect::Success,
+              // The generated SPIR-V needs legalization.
+              /*runValidation=*/false);
+}
+TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
+  runFileTest("spirv.legal.cbuffer.hlsl", Expect::Success,
+              // The generated SPIR-V needs legalization.
+              /*runValidation=*/false);
+}
+TEST_F(FileTest, SpirvLegalizationTextureBuffer) {
+  runFileTest("spirv.legal.tbuffer.hlsl", Expect::Success,
+              // The generated SPIR-V needs legalization.
+              /*runValidation=*/false);
 }
 
 TEST_F(FileTest, VulkanAttributeErrors) {

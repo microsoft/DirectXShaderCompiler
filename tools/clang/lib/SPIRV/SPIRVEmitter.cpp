@@ -168,6 +168,37 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
   return nullptr;
 }
 
+/// Returns the referenced variable's DeclContext if the given expr is
+/// a DeclRefExpr referencing a ConstantBuffer/TextureBuffer. Otherwise,
+/// returns nullptr.
+const DeclContext *isConstantTextureBufferDeclRef(const Expr *expr) {
+  if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr->IgnoreParenCasts()))
+    if (const auto *varDecl = dyn_cast<VarDecl>(declRefExpr->getFoundDecl()))
+      if (const auto *bufferDecl =
+              dyn_cast<HLSLBufferDecl>(varDecl->getDeclContext()))
+        // Make sure we are not returning true for VarDecls inside
+        // cbuffer/tbuffer.
+        if (bufferDecl->isConstantBufferView())
+          return varDecl->getType()->getAs<RecordType>()->getDecl();
+
+  return nullptr;
+}
+
+/// Returns true if the given expr is loading a ConstantBuffer/TextureBuffer
+/// as a whole.
+bool isConstantTextureBufferLoad(const Expr *expr) {
+  if (!expr)
+    return false;
+
+  // The expression should be a LValueToRValue implict cast from a DeclRefExpr
+  // referencing a ConstantBuffer or TextureBuffer variable.
+  if (const auto *castExpr = dyn_cast<ImplicitCastExpr>(expr))
+    if (castExpr->getCastKind() == CK_LValueToRValue)
+      return isConstantTextureBufferDeclRef(castExpr);
+
+  return false;
+}
+
 bool spirvToolsLegalize(std::vector<uint32_t> *module, std::string *messages) {
   spvtools::Optimizer optimizer(SPV_ENV_VULKAN_1_0);
 
@@ -524,8 +555,16 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr) {
   auto info = doExpr(expr);
 
   if (!info.isRValue()) {
-    const uint32_t valType =
-        typeTranslator.translateType(expr->getType(), info.getLayoutRule());
+    uint32_t valType = 0;
+    // TODO: Ouch. Very hacky. We need special path to get the value type if
+    // we are loading a whole ConstantBuffer/TextureBuffer since the normal
+    // type translation path won't work.
+    if (const auto *declContext = isConstantTextureBufferDeclRef(expr)) {
+      valType = declIdMapper.getCTBufferPushConstantTypeId(declContext);
+    } else {
+      valType =
+          typeTranslator.translateType(expr->getType(), info.getLayoutRule());
+    }
     info.setResultId(theBuilder.createLoad(valType, info)).setRValue();
   }
 
@@ -802,11 +841,11 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
 
     }
     // Function local variables. Just emit OpStore at the current insert point.
-    else if (decl->hasInit()) {
-      if (const auto constId = tryToEvaluateAsConst(decl->getInit()))
+    else if (const Expr *init = decl->getInit()) {
+      if (const auto constId = tryToEvaluateAsConst(init))
         theBuilder.createStore(varId, constId);
       else
-        storeValue(varId, loadIfGLValue(decl->getInit()), decl->getType());
+        storeValue(varId, loadIfGLValue(init), decl->getType(), init);
     }
   } else {
     varId = declIdMapper.createExternVar(decl);
@@ -1260,7 +1299,7 @@ void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
       // class and then return.
       const uint32_t valType = typeTranslator.translateType(retType);
       const uint32_t tempVar = theBuilder.addFnVar(valType, "temp.var.ret");
-      storeValue(tempVar, retInfo, retType);
+      storeValue(tempVar, retInfo, retType, retVal);
 
       theBuilder.createReturnValue(theBuilder.createLoad(valType, tempVar));
     } else {
@@ -1377,7 +1416,8 @@ SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
   // For other binary operations, we need to evaluate lhs before rhs.
   if (opcode == BO_Assign) {
     return processAssignment(expr->getLHS(), loadIfGLValue(expr->getRHS()),
-                             false);
+                             /*isCompoundAssignment=*/false, /*lhsPtr=*/0,
+                             expr->getRHS());
   }
 
   // Try to optimize floatMxN * float and floatN * float case
@@ -2545,6 +2585,13 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
 
   if (isAppend) {
     // Write out the value
+    // Note: we don't want to supply the rhsExpr here to give storeValue() hints
+    // about loading a ConstantBuffer/TextureBuffer. We want it to decompose
+    // and write each component out even if the rhs is indeed a ConstantBuffer
+    // or TextureBuffer. That is because if the source code is .Append()ing some
+    // ConstantBuffer or TextureBuffer, the intent is almost surely write out
+    // the whole struct instead of creating a temporary copy and eliminate
+    // later.
     storeValue(bufferInfo, doExpr(expr->getArg(0)), bufferElemTy);
     return 0;
   } else {
@@ -3354,7 +3401,8 @@ case BO_##kind : {                                                             \
 SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
                                               const SpirvEvalInfo &rhs,
                                               const bool isCompoundAssignment,
-                                              SpirvEvalInfo lhsPtr) {
+                                              SpirvEvalInfo lhsPtr,
+                                              const Expr *rhsExpr) {
   // Assigning to vector swizzling should be handled differently.
   if (SpirvEvalInfo result = tryToAssignToVectorElements(lhs, rhs))
     return result;
@@ -3372,7 +3420,7 @@ SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
   if (!lhsPtr)
     lhsPtr = doExpr(lhs);
 
-  storeValue(lhsPtr, rhs, lhs->getType());
+  storeValue(lhsPtr, rhs, lhs->getType(), rhsExpr);
 
   // Plain assignment returns a rvalue, while compound assignment returns
   // lvalue.
@@ -3381,17 +3429,18 @@ SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
 
 void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
                               const SpirvEvalInfo &rhsVal,
-                              const QualType valType) {
-  if (typeTranslator.isScalarType(valType) ||
-      typeTranslator.isVectorType(valType) ||
-      typeTranslator.isMxNMatrix(valType)) {
+                              const QualType lhsValType, const Expr *rhsExpr) {
+  if (typeTranslator.isScalarType(lhsValType) ||
+      typeTranslator.isVectorType(lhsValType) ||
+      typeTranslator.isMxNMatrix(lhsValType)) {
     theBuilder.createStore(lhsPtr, rhsVal);
   } else if (lhsPtr.getLayoutRule() == rhsVal.getLayoutRule()) {
     // If lhs and rhs has the same memory layout, we should be safe to load
     // from rhs and directly store into lhs and avoid decomposing rhs.
     // TODO: is this optimization always correct?
     theBuilder.createStore(lhsPtr, rhsVal);
-  } else if (hlsl::IsHLSLResourceType(valType)) {
+  } else if (hlsl::IsHLSLResourceType(lhsValType) ||
+             isConstantTextureBufferLoad(rhsExpr)) {
     // Resource types are represented using RecordType in the AST.
     // Handle them before the general RecordType.
     //
@@ -3399,9 +3448,18 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // of resource types. These can all result in illegal SPIR-V for Vulkan.
     // We just translate here literally and let SPIRV-Tools opt to do the
     // legalization work.
+    //
+    // TODO: this is very hacky, especially using isConstantTextureBufferLoad()
+    // to check whether we are loading from a ConstantBuffer or TextureBuffer.
+    // The frontend forbids declaring ConstantBuffer<T> or TextureBuffer<T>
+    // variables as function parameters/returns/variables, but happily accepts
+    // assignments/returns from ConstantBuffer<T>/TextureBuffer<T> to function
+    // parameters/returns/variables of type T. And ConstantBuffer<T> is not
+    // represented differently as struct T. Those together cause a great amount
+    // of nastiness.
     theBuilder.createStore(lhsPtr, rhsVal);
     needsLegalization = true;
-  } else if (const auto *recordType = valType->getAs<RecordType>()) {
+  } else if (const auto *recordType = lhsValType->getAs<RecordType>()) {
     uint32_t index = 0;
     for (const auto *decl : recordType->getDecl()->decls()) {
       // Ignore implicit generated struct declarations/constructors/destructors.
@@ -3426,7 +3484,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
       ++index;
     }
   } else if (const auto *arrayType =
-                 astContext.getAsConstantArrayType(valType)) {
+                 astContext.getAsConstantArrayType(lhsValType)) {
     const auto elemType = arrayType->getElementType();
     // TODO: handle extra large array size?
     const auto size =
@@ -3447,7 +3505,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
                  rhsVal.substResultId(subRhsVal), elemType);
     }
   } else {
-    emitError("storing value of type %0 unimplemented", {}) << valType;
+    emitError("storing value of type %0 unimplemented", {}) << lhsValType;
   }
 }
 
