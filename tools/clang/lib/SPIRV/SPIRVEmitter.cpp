@@ -1357,6 +1357,7 @@ SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   auto info = doExpr(base);
 
   if (!indices.empty()) {
+    assert(!info.isRValue());
     const uint32_t ptrType = theBuilder.getPointerType(
         typeTranslator.translateType(expr->getType(), info.getLayoutRule()),
         info.getStorageClass());
@@ -2493,12 +2494,9 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
     // Write out the value
     bufferInfo.setResultId(bufferElemPtr);
     storeValue(bufferInfo, doExpr(expr->getArg(0)), bufferElemTy);
-
     return 0;
   } else {
-    return bufferInfo
-        .setResultId(theBuilder.createLoad(bufferElemType, bufferElemPtr))
-        .setRValue();
+    return bufferInfo.setResultId(bufferElemPtr);
   }
 }
 
@@ -2973,6 +2971,7 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
       const uint32_t ptrType =
           theBuilder.getPointerType(elemType, baseInfo.getStorageClass());
       if (!indices.empty()) {
+        assert(!baseInfo.isRValue());
         // Load the element via access chain
         elem = theBuilder.createAccessChain(ptrType, baseInfo, indices);
       } else {
@@ -3934,7 +3933,7 @@ SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
     return 0;
 
   const Expr *baseMat = lhsExpr->getBase();
-  const auto &base = doExpr(baseMat);
+  const auto base = doExpr(baseMat);
   const QualType elemType = hlsl::GetHLSLMatElementType(baseMat->getType());
   const uint32_t elemTypeId = typeTranslator.translateType(elemType);
 
@@ -3975,6 +3974,7 @@ SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
     // chain. base is already the dest pointer.
     uint32_t lhsElemPtr = base;
     if (!indices.empty()) {
+      assert(!base.isRValue());
       // Load the element via access chain
       lhsElemPtr = theBuilder.createAccessChain(ptrType, lhsElemPtr, indices);
     }
