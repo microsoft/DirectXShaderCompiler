@@ -2151,42 +2151,51 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   // * SamplerState s, float2 location, int2 offset0, int2 offset1,
   //   int offset2, int2 offset3
   //
-  // An additional out uint status parameter can appear in both of the above,
-  // which we does not support yet.
+  // An additional 'out uint status' parameter can appear in both of the above.
   //
   // Parameters for .GatherCmp{Red|Green|Blue|Alpha}() are one of the following
   // two sets:
-  // * SamplerState s, float2 location, int2 offset
-  // * SamplerState s, float2 location, int2 offset0, int2 offset1,
-  //   int offset2, int2 offset3
+  // * SamplerState s, float2 location, float compare_value, int2 offset
+  // * SamplerState s, float2 location, float compare_value, int2 offset1,
+  //   int2 offset2, int2 offset3, int2 offset4
   //
-  // An additional out uint status parameter can appear in both of the above,
-  // which we does not support yet.
+  // An additional 'out uint status' parameter can appear in both of the above.
+  //
+  // TextureCube's signature is somewhat different from the rest.
+  // Parameters for .Gather{Red|Green|Blue|Alpha}() for TextureCube are:
+  // * SamplerState s, float2 location, out uint status
+  // Parameters for .GatherCmp{Red|Green|Blue|Alpha}() for TextureCube are:
+  // * SamplerState s, float2 location, float compare_value, out uint status
   //
   // Return type is always a 4-component vector.
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto numArgs = expr->getNumArgs();
-
-  if (numArgs != 3 + isCmp && numArgs != 6 + isCmp) {
-    emitError("unsupported '%0' method call with status parameter",
-              expr->getExprLoc())
-        << callee->getName() << expr->getSourceRange();
-    return 0;
-  }
-
   const auto *imageExpr = expr->getImplicitObjectArgument();
+  const QualType imageType = imageExpr->getType();
+  const auto imageTypeId = typeTranslator.translateType(imageType);
+  const auto retTypeId = typeTranslator.translateType(callee->getReturnType());
+
+  // If the last arg is an unsigned integer, it must be the status.
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+
+  // Subtract 1 for status arg (if it exists), subtract 1 for compare_value (if
+  // it exists), and subtract 2 for SamplerState and location.
+  const auto numOffsetArgs = numArgs - hasStatusArg - isCmp - 2;
+  // No offset args for TextureCube, 1 or 4 offset args for the rest.
+  assert(numOffsetArgs == 0 || numOffsetArgs == 1 || numOffsetArgs == 4);
 
   const uint32_t image = loadIfGLValue(imageExpr);
   const uint32_t sampler = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
   const uint32_t compareVal = isCmp ? doExpr(expr->getArg(2)) : 0;
 
+  // Handle offsets (if any).
   uint32_t constOffset = 0, varOffset = 0, constOffsets = 0;
-  if (numArgs == 3 + isCmp) {
-    // One offset parameter
-    handleOptionalOffsetInMethodCall(expr, 2 + isCmp, &constOffset, &varOffset);
-  } else {
-    // Four offset parameters
+  if (numOffsetArgs == 1) {
+    // The offset arg is not optional.
+    handleOffsetInMethodCall(expr, 2 + isCmp, &constOffset, &varOffset);
+  } else if(numOffsetArgs == 4) {
     const auto offset0 = tryToEvaluateAsConst(expr->getArg(2 + isCmp));
     const auto offset1 = tryToEvaluateAsConst(expr->getArg(3 + isCmp));
     const auto offset2 = tryToEvaluateAsConst(expr->getArg(4 + isCmp));
@@ -2206,13 +2215,31 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
         offsetType, {offset0, offset1, offset2, offset3});
   }
 
-  const auto retType = typeTranslator.translateType(callee->getReturnType());
-  const auto imageType = typeTranslator.translateType(imageExpr->getType());
+  if (!hasStatusArg)
+    return theBuilder.createImageGather(
+        retTypeId, imageTypeId, image, sampler, coordinate,
+        theBuilder.getConstantInt32(component), compareVal, constOffset,
+        varOffset, constOffsets, /*sampleNumber*/ 0, /*isSparse*/ false);
 
-  return theBuilder.createImageGather(
-      retType, imageType, image, sampler, coordinate,
+  // If the Status parameter is present, OpImageSparseGather should be used.
+  // The result type of this SPIR-V instruction is a struct in which the first
+  // member is an integer that holds the Residency Code.
+  const auto uintType = theBuilder.getUint32Type();
+  const auto sparseRetType =
+      theBuilder.getStructType({uintType, retTypeId}, "SparseResidencyStruct",
+                               {"Residency.Code", "Result.Type"});
+
+  // Perform ImageSparseGather
+  const auto sparseGather = theBuilder.createImageGather(
+      sparseRetType, imageTypeId, image, sampler, coordinate,
       theBuilder.getConstantInt32(component), compareVal, constOffset,
-      varOffset, constOffsets, /*sampleNumber*/ 0);
+      varOffset, constOffsets, /*sampleNumber*/ 0, /*isSparse*/ true);
+  // Write the Residency Code
+  const auto status =
+      theBuilder.createCompositeExtract(uintType, sparseGather, {0});
+  theBuilder.createStore(doExpr(expr->getArg(numArgs - 1)), status);
+  // Return the results
+  return theBuilder.createCompositeExtract(retTypeId, sparseGather, {1});
 }
 
 uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
@@ -2246,10 +2273,11 @@ uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
   const auto retType = typeTranslator.translateType(callee->getReturnType());
   const auto imageType = typeTranslator.translateType(imageExpr->getType());
 
+  // TODO: Update this function to include sparse cases.
   return theBuilder.createImageGather(
       retType, imageType, image, sampler, coordinate,
       /*component*/ 0, comparator, constOffset, varOffset, /*constOffsets*/ 0,
-      /*sampleNumber*/ 0);
+      /*sampleNumber*/ 0, /*isSparse*/ false);
 }
 
 SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(const Expr *object,
@@ -2534,6 +2562,21 @@ SpirvEvalInfo SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
 
   return processCall(expr);
 }
+
+void SPIRVEmitter::handleOffsetInMethodCall(const CXXMemberCallExpr *expr,
+                                            uint32_t index,
+                                            uint32_t *constOffset,
+                                            uint32_t *varOffset) {
+  // Ensure the given arg index is not out-of-range.
+  assert(index < expr->getNumArgs());
+
+  *constOffset = *varOffset = 0; // Initialize both first
+  if (*constOffset = tryToEvaluateAsConst(expr->getArg(index)))
+    return; // Constant offset
+  else
+    *varOffset = doExpr(expr->getArg(index));
+};
+
 void SPIRVEmitter::handleOptionalOffsetInMethodCall(
     const CXXMemberCallExpr *expr, uint32_t index, uint32_t *constOffset,
     uint32_t *varOffset) {
@@ -2680,7 +2723,6 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   //                                [, int2 Offset]);
 
   const auto *imageExpr = expr->getImplicitObjectArgument();
-
   const uint32_t imageType = typeTranslator.translateType(imageExpr->getType());
 
   const uint32_t image = loadIfGLValue(imageExpr);
@@ -2699,11 +2741,12 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
         /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
         /*constOffsets*/ 0, /*sampleNumber*/ 0);
   } else {
+    // TODO: update this function to handle sparse cases.
     return theBuilder.createImageGather(
         retType, imageType, image, sampler, coordinate,
         // .Gather() doc says we return four components of red data.
         theBuilder.getConstantInt32(0), /*compareVal*/ 0, constOffset,
-        varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0);
+        varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0, /*isSparse*/ false);
   }
 }
 
@@ -2816,7 +2859,7 @@ SpirvEvalInfo
 SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
   // Signature:
   // ret Object.Load(int Location
-  //                 [, int SampleIndex,]
+  //                 [, int SampleIndex]
   //                 [, int Offset]);
 
   const auto *object = expr->getImplicitObjectArgument();

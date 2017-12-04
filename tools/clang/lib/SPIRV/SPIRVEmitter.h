@@ -581,6 +581,13 @@ private:
                                         uint32_t index, uint32_t *constOffset,
                                         uint32_t *varOffset);
 
+  /// Handles the offset argument in the given method call at the given argument
+  /// index. Panics if the argument at the given index does not exist. Writes
+  /// the <result-id> to either *constOffset or *varOffset, depending on the
+  /// constantness of the offset.
+  void handleOffsetInMethodCall(const CXXMemberCallExpr *expr, uint32_t index,
+                                uint32_t *constOffset, uint32_t *varOffset);
+
   /// \brief Processes .Load() method call for Buffer/RWBuffer and texture
   /// objects.
   SpirvEvalInfo processBufferTextureLoad(const CXXMemberCallExpr *);
