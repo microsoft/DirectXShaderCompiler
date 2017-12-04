@@ -82,7 +82,11 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::Bfrev,                   "Bfrev",                    OCC::Unary,                    "unary",                      false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
   {  OC::Countbits,               "Countbits",                OCC::UnaryBits,                "unaryBits",                  false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
   {  OC::FirstbitLo,              "FirstbitLo",               OCC::UnaryBits,                "unaryBits",                  false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
+
+  // Unary uint                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::FirstbitHi,              "FirstbitHi",               OCC::UnaryBits,                "unaryBits",                  false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
+
+  // Unary int                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::FirstbitSHi,             "FirstbitSHi",              OCC::UnaryBits,                "unaryBits",                  false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
 
   // Binary float                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
@@ -92,11 +96,15 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Binary int                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::IMax,                    "IMax",                     OCC::Binary,                   "binary",                     false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
   {  OC::IMin,                    "IMin",                     OCC::Binary,                   "binary",                     false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
+
+  // Binary uint                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::UMax,                    "UMax",                     OCC::Binary,                   "binary",                     false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
   {  OC::UMin,                    "UMin",                     OCC::Binary,                   "binary",                     false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
 
   // Binary int with two outputs                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::IMul,                    "IMul",                     OCC::BinaryWithTwoOuts,        "binaryWithTwoOuts",          false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
+
+  // Binary uint with two outputs                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::UMul,                    "UMul",                     OCC::BinaryWithTwoOuts,        "binaryWithTwoOuts",          false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
   {  OC::UDiv,                    "UDiv",                     OCC::BinaryWithTwoOuts,        "binaryWithTwoOuts",          false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
 
@@ -110,7 +118,11 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // Tertiary int                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::IMad,                    "IMad",                     OCC::Tertiary,                 "tertiary",                   false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
+
+  // Tertiary uint                                                                                                          void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::UMad,                    "UMad",                     OCC::Tertiary,                 "tertiary",                   false, false, false, false, false, false,  true,  true,  true, Attribute::ReadNone, },
+
+  // Tertiary int                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::Msad,                    "Msad",                     OCC::Tertiary,                 "tertiary",                   false, false, false, false, false, false, false,  true,  true, Attribute::ReadNone, },
   {  OC::Ibfe,                    "Ibfe",                     OCC::Tertiary,                 "tertiary",                   false, false, false, false, false, false, false,  true,  true, Attribute::ReadNone, },
   {  OC::Ubfe,                    "Ubfe",                     OCC::Tertiary,                 "tertiary",                   false, false, false, false, false, false, false,  true,  true, Attribute::ReadNone, },
@@ -576,7 +588,11 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::Bfrev:                  A(pETy);     A(pI32); A(pETy); break;
   case OpCode::Countbits:              A(pI32);     A(pI32); A(pETy); break;
   case OpCode::FirstbitLo:             A(pI32);     A(pI32); A(pETy); break;
+
+    // Unary uint
   case OpCode::FirstbitHi:             A(pI32);     A(pI32); A(pETy); break;
+
+    // Unary int
   case OpCode::FirstbitSHi:            A(pI32);     A(pI32); A(pETy); break;
 
     // Binary float
@@ -586,11 +602,15 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
     // Binary int
   case OpCode::IMax:                   A(pETy);     A(pI32); A(pETy); A(pETy); break;
   case OpCode::IMin:                   A(pETy);     A(pI32); A(pETy); A(pETy); break;
+
+    // Binary uint
   case OpCode::UMax:                   A(pETy);     A(pI32); A(pETy); A(pETy); break;
   case OpCode::UMin:                   A(pETy);     A(pI32); A(pETy); A(pETy); break;
 
     // Binary int with two outputs
   case OpCode::IMul:                   A(p2I32);    A(pI32); A(pETy); A(pETy); break;
+
+    // Binary uint with two outputs
   case OpCode::UMul:                   A(p2I32);    A(pI32); A(pETy); A(pETy); break;
   case OpCode::UDiv:                   A(p2I32);    A(pI32); A(pETy); A(pETy); break;
 
@@ -604,7 +624,11 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
 
     // Tertiary int
   case OpCode::IMad:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
+
+    // Tertiary uint
   case OpCode::UMad:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
+
+    // Tertiary int
   case OpCode::Msad:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
   case OpCode::Ibfe:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
   case OpCode::Ubfe:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
