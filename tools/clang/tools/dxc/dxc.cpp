@@ -322,18 +322,11 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
     CComPtr<IDxcLibrary> pLibrary;
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
 
-    if (DisassembleSpirv(pBlob, pLibrary, &pDisassembleResult,
-                         m_Opts.ColorCodeAssembly,
-                         m_Opts.DisassembleByteOffset)) {
-      if (!m_Opts.AssemblyCode.empty()) {
-        WriteBlobToFile(pDisassembleResult, m_Opts.AssemblyCode);
-      } else {
-        WriteBlobToConsole(pDisassembleResult);
-      }
-      return 0;
-    }
-    return 1;
-  }
+    if (!DisassembleSpirv(pBlob, pLibrary, &pDisassembleResult,
+                          m_Opts.ColorCodeAssembly,
+                          m_Opts.DisassembleByteOffset))
+      return 1;
+  } else {
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV Change Ends
 
@@ -349,6 +342,12 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
       IFT(pCompiler->Disassemble(pBlob, &pDisassembleResult));
   }
   
+  // SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  }
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV Change Ends
+
   if (!m_Opts.OutputHeader.empty()) {
     llvm::Twine varName = m_Opts.VariableName.empty()
                               ? llvm::Twine("g_", m_Opts.EntryPoint)
