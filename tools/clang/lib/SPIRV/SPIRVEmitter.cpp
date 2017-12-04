@@ -2243,41 +2243,70 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
 }
 
 uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
-  // Signature:
+  // Signature for Texture2D/Texture2DArray:
   //
   // float4 GatherCmp(
   //   in SamplerComparisonState s,
   //   in float2 location,
   //   in float compare_value
   //   [,in int2 offset]
+  //   [,out uint Status]
   // );
+  //
+  // Signature for TextureCube/TextureCubeArray:
+  //
+  // float4 GatherCmp(
+  //   in SamplerComparisonState s,
+  //   in float2 location,
+  //   in float compare_value,
+  //   out uint Status
+  // );
+  //
+  // Other Texture types do not have the GatherCmp method.
+
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto numArgs = expr->getNumArgs();
-
-  if (expr->getNumArgs() > 4) {
-    emitError("unsupported '%0' method call with status parameter",
-              expr->getExprLoc())
-        << callee->getName() << expr->getSourceRange();
-    return 0;
-  }
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  const bool hasOffsetArg = (numArgs == 5) || (numArgs == 4 && !hasStatusArg);
 
   const auto *imageExpr = expr->getImplicitObjectArgument();
-
   const uint32_t image = loadIfGLValue(imageExpr);
   const uint32_t sampler = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
   const uint32_t comparator = doExpr(expr->getArg(2));
   uint32_t constOffset = 0, varOffset = 0;
-  handleOptionalOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+  if(hasOffsetArg)
+    handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
 
   const auto retType = typeTranslator.translateType(callee->getReturnType());
   const auto imageType = typeTranslator.translateType(imageExpr->getType());
 
-  // TODO: Update this function to include sparse cases.
-  return theBuilder.createImageGather(
-      retType, imageType, image, sampler, coordinate,
+  if(!hasStatusArg)
+    return theBuilder.createImageGather(
+        retType, imageType, image, sampler, coordinate,
+        /*component*/ 0, comparator, constOffset, varOffset, /*constOffsets*/ 0,
+        /*sampleNumber*/ 0, /*isSparse*/ false);
+
+  // If the Status parameter is present, OpImageSparseGather should be used.
+  // The result type of this SPIR-V instruction is a struct in which the first
+  // member is an integer that holds the Residency Code.
+  const auto uintType = theBuilder.getUint32Type();
+  const auto sparseRetType =
+      theBuilder.getStructType({uintType, retType}, "SparseResidencyStruct",
+                               {"Residency.Code", "Result.Type"});
+
+  // Perform ImageSparseGather
+  const auto sparseGather = theBuilder.createImageGather(
+      sparseRetType, imageType, image, sampler, coordinate,
       /*component*/ 0, comparator, constOffset, varOffset, /*constOffsets*/ 0,
-      /*sampleNumber*/ 0, /*isSparse*/ false);
+      /*sampleNumber*/ 0, /*isSparse*/ true);
+  // Write the Residency Code
+  const auto status =
+      theBuilder.createCompositeExtract(uintType, sparseGather, {0});
+  theBuilder.createStore(doExpr(expr->getArg(numArgs - 1)), status);
+  // Return the results
+  return theBuilder.createCompositeExtract(retType, sparseGather, {1});
 }
 
 SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(const Expr *object,
