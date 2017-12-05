@@ -9,6 +9,7 @@ TextureCubeArray <float>  t8 : register(t8);
 // .Gather() does not support Texture1DArray.
 
 // CHECK: OpCapability ImageGatherExtended
+// CHECK: OpCapability SparseResidency
 
 // CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
 // CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4float

@@ -8,6 +8,8 @@ Texture2D   <int2>   t6 : register(t6);
 TextureCube <float>  t8 : register(t8);
 // .Gather() does not support Texture1D and Texture3D.
 
+// CHECK: OpCapability SparseResidency
+
 // CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
 // CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4float
 
