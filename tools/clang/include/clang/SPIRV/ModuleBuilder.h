@@ -180,7 +180,8 @@ public:
                              uint32_t compareVal, uint32_t lod,
                              std::pair<uint32_t, uint32_t> grad,
                              uint32_t constOffset, uint32_t varOffset,
-                             uint32_t constOffsets, uint32_t sample);
+                             uint32_t constOffsets, uint32_t sample,
+                             uint32_t minLod);
 
   /// \brief Creates SPIR-V instructions for reading a texel from an image. If
   /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
@@ -403,7 +404,8 @@ private:
   spv::ImageOperandsMask composeImageOperandsMask(
       uint32_t bias, uint32_t lod, const std::pair<uint32_t, uint32_t> &grad,
       uint32_t constOffset, uint32_t varOffset, uint32_t constOffsets,
-      uint32_t sample, llvm::SmallVectorImpl<uint32_t> *orderedParams);
+      uint32_t sample, uint32_t minLod,
+      llvm::SmallVectorImpl<uint32_t> *orderedParams);
 
   SPIRVContext &theContext; ///< The SPIR-V context.
   SPIRVModule theModule;    ///< The module under building.

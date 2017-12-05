@@ -284,7 +284,8 @@ uint32_t ModuleBuilder::createAtomicCompareExchange(
 spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
     uint32_t bias, uint32_t lod, const std::pair<uint32_t, uint32_t> &grad,
     uint32_t constOffset, uint32_t varOffset, uint32_t constOffsets,
-    uint32_t sample, llvm::SmallVectorImpl<uint32_t> *orderedParams) {
+    uint32_t sample, uint32_t minLod,
+    llvm::SmallVectorImpl<uint32_t> *orderedParams) {
   using spv::ImageOperandsMask;
   // SPIR-V Image Operands from least significant bit to most significant bit
   // Bias, Lod, Grad, ConstOffset, Offset, ConstOffsets, Sample, MinLod
@@ -329,6 +330,12 @@ spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
     orderedParams->push_back(sample);
   }
 
+  if (minLod) {
+    requireCapability(spv::Capability::MinLod);
+    mask = mask | ImageOperandsMask::MinLod;
+    orderedParams->push_back(minLod);
+  }
+
   return mask;
 }
 
@@ -348,8 +355,17 @@ uint32_t ModuleBuilder::createImageSample(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
     uint32_t coordinate, uint32_t compareVal, uint32_t bias, uint32_t lod,
     std::pair<uint32_t, uint32_t> grad, uint32_t constOffset,
-    uint32_t varOffset, uint32_t constOffsets, uint32_t sample) {
+    uint32_t varOffset, uint32_t constOffsets, uint32_t sample, uint32_t minLod) {
   assert(insertPoint && "null insert point");
+
+  // The Lod and Grad image operands requires explicit-lod instructions.
+  // Otherwise we use implicit-lod instructions.
+  const bool mustUseExplicitInstr = lod || (grad.first && grad.second);
+
+  // minLod is only valid with Implicit instructions and Grad instructions.
+  // This means that we cannot have Lod and minLod together because Lod requires
+  // explicit insturctions. So either lod or minLod or both must be zero.
+  assert(lod == 0 || minLod == 0);
 
   // An OpSampledImage is required to do the image sampling.
   const uint32_t sampledImgId = theContext.takeNextId();
@@ -359,15 +375,14 @@ uint32_t ModuleBuilder::createImageSample(
 
   const uint32_t texelId = theContext.takeNextId();
   llvm::SmallVector<uint32_t, 4> params;
-  const auto mask = composeImageOperandsMask(
-      bias, lod, grad, constOffset, varOffset, constOffsets, sample, &params);
+  const auto mask =
+      composeImageOperandsMask(bias, lod, grad, constOffset, varOffset,
+                               constOffsets, sample, minLod, &params);
 
   // If depth-comparison is needed when sampling, we use the OpImageSampleDref*
   // instructions.
   if (compareVal) {
-    // The Lod and Grad image operands requires explicit-lod instructions.
-    // Otherwise we use implicit-lod instructions.
-    if (lod || (grad.first && grad.second)) {
+    if (mustUseExplicitInstr) {
       instBuilder.opImageSampleDrefExplicitLod(texelType, texelId, sampledImgId,
                                                coordinate, compareVal, mask);
     } else {
@@ -376,9 +391,7 @@ uint32_t ModuleBuilder::createImageSample(
           llvm::Optional<spv::ImageOperandsMask>(mask));
     }
   } else {
-    // The Lod and Grad image operands requires explicit-lod instructions.
-    // Otherwise we use implicit-lod instructions.
-    if (lod || (grad.first && grad.second)) {
+    if (mustUseExplicitInstr) {
       instBuilder.opImageSampleExplicitLod(texelType, texelId, sampledImgId,
                                            coordinate, mask);
     } else {
@@ -411,11 +424,12 @@ uint32_t ModuleBuilder::createImageFetchOrRead(
     uint32_t constOffsets, uint32_t sample) {
   assert(insertPoint && "null insert point");
 
+  // TODO: Update ImageFetch/ImageRead to accept minLod if necessary.
   llvm::SmallVector<uint32_t, 2> params;
   const auto mask =
       llvm::Optional<spv::ImageOperandsMask>(composeImageOperandsMask(
           /*bias*/ 0, lod, std::make_pair(0, 0), constOffset, varOffset,
-          constOffsets, sample, &params));
+          constOffsets, sample, /*minLod*/ 0, &params));
 
   const uint32_t texelId = theContext.takeNextId();
   if (doImageFetch) {
@@ -455,10 +469,11 @@ uint32_t ModuleBuilder::createImageGather(
 
   llvm::SmallVector<uint32_t, 2> params;
 
+  // TODO: Update ImageGather to accept minLod if necessary.
   const auto mask =
       llvm::Optional<spv::ImageOperandsMask>(composeImageOperandsMask(
           /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
-          constOffsets, sample, &params));
+          constOffsets, sample, /*minLod*/ 0, &params));
   uint32_t texelId = theContext.takeNextId();
 
   if (compareVal) {
