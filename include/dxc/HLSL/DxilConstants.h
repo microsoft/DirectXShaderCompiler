@@ -286,18 +286,22 @@ namespace DXIL {
   
     // Binary int with two outputs
     IMul = 41, // multiply of 32-bit operands to produce the correct full 64-bit result.
-    UDiv = 43, // unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
-    UMul = 42, // multiply of 32-bit operands to produce the correct full 64-bit result.
   
     // Binary int
     IMax = 37, // IMax(a,b) returns a if a > b, else b
     IMin = 38, // IMin(a,b) returns a if a < b, else b
-    UMax = 39, // unsigned integer maximum. UMax(a,b) = a > b ? a : b
-    UMin = 40, // unsigned integer minimum. UMin(a,b) = a < b ? a : b
   
     // Binary uint with carry or borrow
     UAddc = 44, // unsigned add of 32-bit operand with the carry
     USubb = 45, // unsigned subtract of 32-bit operands with the borrow
+  
+    // Binary uint with two outputs
+    UDiv = 43, // unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
+    UMul = 42, // multiply of 32-bit operands to produce the correct full 64-bit result.
+  
+    // Binary uint
+    UMax = 39, // unsigned integer maximum. UMax(a,b) = a > b ? a : b
+    UMin = 40, // unsigned integer minimum. UMin(a,b) = a < b ? a : b
   
     // Bitcasts with different sizes
     BitcastF16toI16 = 125, // bitcast between different sizes
@@ -421,6 +425,8 @@ namespace DXIL {
     IMad = 48, // Signed integer multiply & add
     Ibfe = 51, // Integer bitfield extract
     Msad = 50, // masked Sum of Absolute Differences.
+  
+    // Tertiary uint
     UMad = 49, // Unsigned integer multiply & add
     Ubfe = 52, // Unsigned integer bitfield extract
   
@@ -455,9 +461,11 @@ namespace DXIL {
     // Unary int
     Bfrev = 30, // Reverses the order of the bits.
     Countbits = 31, // Counts the number of bits in the input integer.
-    FirstbitHi = 33, // Returns the location of the first set bit starting from the highest order bit and working downward.
     FirstbitLo = 32, // Returns the location of the first set bit starting from the lowest order bit and working upward.
     FirstbitSHi = 34, // Returns the location of the first set bit from the highest order bit based on the sign.
+  
+    // Unary uint
+    FirstbitHi = 33, // Returns the location of the first set bit starting from the highest order bit and working downward.
   
     // Wave
     QuadOp = 123, // returns the result of a quad-level operation
@@ -489,14 +497,14 @@ namespace DXIL {
   // OPCODECLASS-ENUM:BEGIN
   // Groups for DXIL operations with equivalent function templates
   enum class OpCodeClass : unsigned {
-    // Binary int with two outputs
-    BinaryWithTwoOuts,
-  
-    // Binary int
-    Binary,
-  
     // Binary uint with carry or borrow
     BinaryWithCarryOrBorrow,
+  
+    // Binary uint with two outputs
+    BinaryWithTwoOuts,
+  
+    // Binary uint
+    Binary,
   
     // Bitcasts with different sizes
     BitcastF16toI16,
@@ -612,7 +620,7 @@ namespace DXIL {
     TempRegLoad,
     TempRegStore,
   
-    // Tertiary int
+    // Tertiary uint
     Tertiary,
   
     // Unary float
