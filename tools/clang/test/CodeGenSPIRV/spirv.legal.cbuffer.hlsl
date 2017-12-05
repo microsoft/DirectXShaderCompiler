@@ -10,7 +10,7 @@
 
 // CHECK:     OpMemberDecorate %type_ConstantBuffer_S 0 Offset 0
 // CHECK:     OpMemberDecorate %S 0 Offset 0
-// CHECK-NOT: OpMemberDecorate %S 0 Offset 0
+// CHECK-NOT: OpMemberDecorate %S_0 0 Offset 0
 
 // CHECK:     %type_ConstantBuffer_S = OpTypeStruct %v4float
 // CHECK:     %S = OpTypeStruct %v4float
