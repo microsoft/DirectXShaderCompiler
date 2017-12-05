@@ -425,10 +425,10 @@ namespace DXIL {
     IMad = 48, // Signed integer multiply & add
     Ibfe = 51, // Integer bitfield extract
     Msad = 50, // masked Sum of Absolute Differences.
-    Ubfe = 52, // Unsigned integer bitfield extract
   
     // Tertiary uint
     UMad = 49, // Unsigned integer multiply & add
+    Ubfe = 52, // Unsigned integer bitfield extract
   
     // Unary float - rounding
     Round_ne = 26, // floating-point round to integral float.
@@ -620,7 +620,7 @@ namespace DXIL {
     TempRegLoad,
     TempRegStore,
   
-    // Tertiary int
+    // Tertiary uint
     Tertiary,
   
     // Unary float

@@ -238,9 +238,9 @@ class db_dxil(object):
             self.name_idx[i].category = "Binary uint with carry or borrow"
         for i in "FMad,Fma".split(","):
             self.name_idx[i].category = "Tertiary float"
-        for i in "IMad,Msad,Ibfe,Ubfe".split(","):
+        for i in "IMad,Msad,Ibfe".split(","):
             self.name_idx[i].category = "Tertiary int"
-        for i in "UMad".split(","):
+        for i in "UMad,Ubfe".split(","):
             self.name_idx[i].category = "Tertiary uint"
         for i in "Bfi".split(","):
             self.name_idx[i].category = "Quaternary"

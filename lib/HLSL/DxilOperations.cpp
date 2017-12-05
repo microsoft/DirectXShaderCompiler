@@ -125,6 +125,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Tertiary int                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::Msad,                    "Msad",                     OCC::Tertiary,                 "tertiary",                   false, false, false, false, false, false, false,  true,  true, Attribute::ReadNone, },
   {  OC::Ibfe,                    "Ibfe",                     OCC::Tertiary,                 "tertiary",                   false, false, false, false, false, false, false,  true,  true, Attribute::ReadNone, },
+
+  // Tertiary uint                                                                                                          void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::Ubfe,                    "Ubfe",                     OCC::Tertiary,                 "tertiary",                   false, false, false, false, false, false, false,  true,  true, Attribute::ReadNone, },
 
   // Quaternary                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
@@ -631,6 +633,8 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
     // Tertiary int
   case OpCode::Msad:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
   case OpCode::Ibfe:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
+
+    // Tertiary uint
   case OpCode::Ubfe:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
 
     // Quaternary

@@ -5,7 +5,10 @@
 
 from hctdb import *
 import xml.etree.ElementTree as ET
-from xml.sax.saxutils import unescape
+import argparse
+
+parser = argparse.ArgumentParser(description="contains information about dxil op test cases.")
+parser.add_argument('mode', help='mode')
 
 g_db_dxil = None
 
@@ -1314,7 +1317,8 @@ def add_test_cases():
 
 
 # generating xml file for execution test using data driven method
-
+# TODO: ElementTree is not generating formatted XML. Currently xml file is checked in after VS Code formatter.
+# Implement xml formatter or import formatter library and use that instead.
 
 def generate_parameter_types(table, num_inputs, num_outputs):
     param_types = ET.SubElement(table, "ParameterTypes")
@@ -1648,7 +1652,7 @@ def generate_table_for_taef():
         f.close()
 
 
-def print_missing_tests():
+def print_untested_inst():
     count = 0
     for name in [
             case.inst.name for case in g_tests.values()
@@ -1666,7 +1670,15 @@ if __name__ == "__main__":
     db = get_db_dxil()
     for inst in db.instr:
         g_tests[inst.name] = inst_test_cases(inst)
-
     add_test_cases()
-    generate_table_for_taef()
-    #print_missing_tests()
+
+    args = vars(parser.parse_args())
+    mode = args['mode']
+    if mode == "untested":
+        print_untested_inst()
+    elif mode == "gen-xml":
+        generate_table_for_taef()
+    else:
+        print("unknown mode: " + mode)
+        exit(1)
+    exit(0)
