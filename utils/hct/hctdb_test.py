@@ -487,6 +487,66 @@ def add_test_cases():
                 l.output2 = max(l.input1, l.input2);
                 g_buf[GI] = l;
             };''')
+    add_test_case('FAdd', 'FAdd', 'ulp', 1, [['-1.0', '1.0', '32.5', '1.0000001000'],['4', '5.5', '334.7', '0.5000001000']], [['3.0', '6.5', '367.2', '1.5000002000']],
+    'cs_6_0', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 + l.input2;
+                g_buf[GI] = l;
+            }; '''
+    )
+    add_test_case('FSub', 'FSub', 'ulp', 1, [['-1.0', '5.5', '32.5', '1.0000001000'],['4', '1.25', '334.7', '0.5000001000']], [['-5', '4.25', '-302.2', '0.5000']],
+    'cs_6_0', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 - l.input2;
+                g_buf[GI] = l;
+            }; '''
+    )
+    add_test_case('FMul', 'FMul', 'ulp', 1, [['-1.0', '5.5', '1.0000001'],['4', '1.25', '2.0']], [['-4.0', '6.875', '2.0000002']],
+    'cs_6_0', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 * l.input2;
+                g_buf[GI] = l;
+            }; '''
+    )
+    add_test_case('FDiv', 'FDiv', 'ulp', 1, [['-1.0', '5.5', '1.0000001'],['4', '1.25', '2.0']], [['-0.25', '4.4', '0.50000006']],
+    'cs_6_0', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 / l.input2;
+                g_buf[GI] = l;
+            }; '''
+    )
     # Tertiary Float
     add_test_case('FMad', 'FMad', 'epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0',

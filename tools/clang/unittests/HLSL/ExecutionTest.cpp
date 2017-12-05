@@ -2722,7 +2722,7 @@ static TableParameter BinaryFPOpParameters[] = {
     { L"Validation.Input1", TableParameter::STRING_TABLE, true },
     { L"Validation.Input2", TableParameter::STRING_TABLE, true },
     { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
-    { L"Validation.Expected2", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected2", TableParameter::STRING_TABLE, false },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
 };
@@ -3246,7 +3246,7 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
         float val;
         VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
         LogCommentFmt(
-            L"element #%u, input = %10f, output = %10f, expected = %10f", i,
+            L"element #%u, input = %6.8f, output = %6.8f, expected = %6.8f", i,
             p->input, p->output, val);
         VerifyOutputWithExpectedValueFloat(p->output, val, Validation_Type, Validation_Tolerance);
     }
@@ -3316,22 +3316,40 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
 
     SBinaryFPOp *pPrimitives = (SBinaryFPOp *)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
-
-    for (unsigned i = 0; i < count; ++i) {
+    unsigned numExpected = Validation_Expected2->size() == 0 ? 1 : 2;
+    if (numExpected == 2) {
+      for (unsigned i = 0; i < count; ++i) {
         SBinaryFPOp *p = &pPrimitives[i];
         LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
         LPCWSTR str2 = (*Validation_Expected2)[i % Validation_Expected2->size()];
         float val1, val2;
         VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
         VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
-        LogCommentFmt(L"element #%u, input1 = %10f, input2 = %10f, output1 = "
-            L"%10f, expected1 = %10f, output2 = %10f, expected2 = %10f",
+        LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, output1 = "
+            L"%6.8f, expected1 = %6.8f, output2 = %6.8f, expected2 = %6.8f",
             i, p->input1, p->input2, p->output1, val1, p->output2,
             val2);
         VerifyOutputWithExpectedValueFloat(p->output1, val1, Validation_Type,
-            Validation_Tolerance);
+          Validation_Tolerance);
         VerifyOutputWithExpectedValueFloat(p->output2, val2, Validation_Type,
-            Validation_Tolerance);
+          Validation_Tolerance);
+      }
+    }
+    else if (numExpected == 1) {
+      for (unsigned i = 0; i < count; ++i) {
+        SBinaryFPOp *p = &pPrimitives[i];
+        LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
+        float val1;
+        VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+        LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, output1 = "
+          L"%6.8f, expected1 = %6.8f",
+          i, p->input1, p->input2, p->output1, val1);
+        VerifyOutputWithExpectedValueFloat(p->output1, val1, Validation_Type,
+          Validation_Tolerance);
+      }
+    }
+    else {
+      LogErrorFmt(L"Unexpected number of expected values for operation %i", numExpected);
     }
 }
 
@@ -3408,8 +3426,8 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
       LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->size()];
       float val;
       VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
-      LogCommentFmt(L"element #%u, input1 = %10f, input2 = %10f, input3 = %10f, output1 = "
-                    L"%10f, expected = %10f",
+      LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, input3 = %6.8f, output1 = "
+                    L"%6.8f, expected = %6.8f",
                     i, p->input1, p->input2, p->input3, p->output, val);
       VerifyOutputWithExpectedValueFloat(p->output, val, Validation_Type,
                                Validation_Tolerance);

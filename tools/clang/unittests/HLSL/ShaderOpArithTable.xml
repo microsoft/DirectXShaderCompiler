@@ -984,6 +984,108 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
+        <Row Name="FMul">
+            <Parameter Name="Validation.Type">ulp</Parameter>
+            <Parameter Name="Validation.Tolerance">1</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer&lt;SBinaryFPOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 * l.input2;
+                g_buf[GI] = l;
+            }; </Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-1.0</Value>
+                <Value>5.5</Value>
+                <Value>1.0000001</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>4</Value>
+                <Value>1.25</Value>
+                <Value>2.0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>-4.0</Value>
+                <Value>6.875</Value>
+                <Value>2.0000002</Value>
+            </Parameter>
+        </Row>
+        <Row Name="FAdd">
+            <Parameter Name="Validation.Type">ulp</Parameter>
+            <Parameter Name="Validation.Tolerance">1</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer&lt;SBinaryFPOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 + l.input2;
+                g_buf[GI] = l;
+            }; </Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-1.0</Value>
+                <Value>1.0</Value>
+                <Value>32.5</Value>
+                <Value>1.0000001000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>4</Value>
+                <Value>5.5</Value>
+                <Value>334.7</Value>
+                <Value>0.5000001000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>3.0</Value>
+                <Value>6.5</Value>
+                <Value>367.2</Value>
+                <Value>1.5000002000</Value>
+            </Parameter>
+        </Row>
+        <Row Name="FDiv">
+            <Parameter Name="Validation.Type">ulp</Parameter>
+            <Parameter Name="Validation.Tolerance">1</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer&lt;SBinaryFPOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 / l.input2;
+                g_buf[GI] = l;
+            }; </Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-1.0</Value>
+                <Value>5.5</Value>
+                <Value>1.0000001</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>4</Value>
+                <Value>1.25</Value>
+                <Value>2.0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>-0.25</Value>
+                <Value>4.4</Value>
+                <Value>0.50000006</Value>
+            </Parameter>
+        </Row>
         <Row Name="FMin">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
@@ -1077,6 +1179,42 @@
                 <Value>1.0</Value>
                 <Value>-1.0</Value>
                 <Value>1.0</Value>
+            </Parameter>
+        </Row>
+        <Row Name="FSub">
+            <Parameter Name="Validation.Type">ulp</Parameter>
+            <Parameter Name="Validation.Tolerance">1</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer&lt;SBinaryFPOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 - l.input2;
+                g_buf[GI] = l;
+            }; </Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-1.0</Value>
+                <Value>5.5</Value>
+                <Value>32.5</Value>
+                <Value>1.0000001000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>4</Value>
+                <Value>1.25</Value>
+                <Value>334.7</Value>
+                <Value>0.5000001000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>-5</Value>
+                <Value>4.25</Value>
+                <Value>-302.2</Value>
+                <Value>0.5000</Value>
             </Parameter>
         </Row>
     </Table>
