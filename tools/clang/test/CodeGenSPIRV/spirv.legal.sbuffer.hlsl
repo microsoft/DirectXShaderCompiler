@@ -18,9 +18,6 @@ struct ResourceBundle {
     RWBuffer<float3>           rwbuf;
     Texture2D<float>           tex2d;
     RWTexture2D<float4>        rwtex2d;
-    // The frontend does not allow ConstantBuffers and TextureBuffers to be in a struct.
-    //ConstantBuffer<T>          cbuf;
-    //TextureBuffer<T>           tbuf;
     StructuredBuffer<T>        sbuf;
     RWStructuredBuffer<T>      rwsbuf;
     AppendStructuredBuffer<T>  asbuf;
@@ -34,8 +31,6 @@ Buffer<float3>             g_buf;
 RWBuffer<float3>           g_rwbuf;
 Texture2D<float>           g_tex2d;
 RWTexture2D<float4>        g_rwtex2d;
-//ConstantBuffer<T>          g_cbuf;
-//TextureBuffer<T>           g_tbuf;
 StructuredBuffer<T>        g_sbuf;
 RWStructuredBuffer<T>      g_rwsbuf;
 AppendStructuredBuffer<T>  g_asbuf;
@@ -70,9 +65,6 @@ void main() {
 // CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_type_2d_image_0 %b %int_4
 // CHECK-NEXT:                OpStore [[ptr]] [[val]]
     b.rwtex2d = g_rwtex2d;
-
-    //b.cbuf    = g_cbuf;
-    //b.tbuf    = g_tbuf;
 
 // CHECK-NEXT: [[val:%\d+]] = OpLoad %type_StructuredBuffer_T %g_sbuf
 // CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_type_StructuredBuffer_T_0 %b %int_5
