@@ -12,7 +12,7 @@
         <Row Name="Log">
             <Parameter Name="Validation.Type">Relative</Parameter>
             <Parameter Name="Validation.Tolerance">21</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -22,7 +22,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = log(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -54,7 +54,7 @@
         <Row Name="Atan">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -64,7 +64,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = atan(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -92,7 +92,7 @@
         <Row Name="Tan">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -102,7 +102,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = tan(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -130,7 +130,7 @@
         <Row Name="Round_ni">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -140,7 +140,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = floor(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -180,7 +180,7 @@
         <Row Name="Round_ne">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -190,7 +190,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = round(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -232,7 +232,7 @@
         <Row Name="Round_z">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -242,7 +242,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = trunc(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -282,7 +282,7 @@
         <Row Name="IsInf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -295,7 +295,7 @@
                 else
                     l.output = 0;
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -323,7 +323,7 @@
         <Row Name="Exp">
             <Parameter Name="Validation.Type">Relative</Parameter>
             <Parameter Name="Validation.Tolerance">21</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -333,7 +333,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = exp(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -361,7 +361,7 @@
         <Row Name="Frc">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -371,7 +371,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = frac(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -403,7 +403,7 @@
         <Row Name="Asin">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -413,7 +413,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = asin(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -445,7 +445,7 @@
         <Row Name="Htan">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -455,7 +455,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = tanh(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -483,7 +483,7 @@
         <Row Name="Sqrt">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -493,7 +493,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = sqrt(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -525,7 +525,7 @@
         <Row Name="Hcos">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -535,7 +535,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = cosh(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -563,7 +563,7 @@
         <Row Name="Acos">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -573,7 +573,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = acos(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -605,7 +605,7 @@
         <Row Name="Round_pi">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -615,7 +615,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = ceil(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -655,7 +655,7 @@
         <Row Name="IsFinite">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -668,7 +668,7 @@
                 else
                     l.output = 0;
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -696,7 +696,7 @@
         <Row Name="IsNaN">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -709,7 +709,7 @@
                 else
                     l.output = 0;
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -737,7 +737,7 @@
         <Row Name="Hsin">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -747,7 +747,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = sinh(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -775,7 +775,7 @@
         <Row Name="Sin">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -786,7 +786,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = sin(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -814,7 +814,7 @@
         <Row Name="Rsqrt">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -824,7 +824,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = rsqrt(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -856,7 +856,7 @@
         <Row Name="Rsqrt">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -866,7 +866,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = rsqrt(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -898,7 +898,7 @@
         <Row Name="Cos">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -908,7 +908,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = cos(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -936,7 +936,7 @@
         <Row Name="FAbs">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
             };
@@ -946,7 +946,7 @@
                 SUnaryFPOp l = g_buf[GI];
                 l.output = abs(l.input);
                 g_buf[GI] = l;
-            }</Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -987,7 +987,7 @@
         <Row Name="FMin">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SBinaryFPOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
                 float input1;
                 float input2;
                 float output1;
@@ -1095,7 +1095,7 @@
         <Row Name="FMad">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct STertiaryFloatOp {
+            <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
                     float input1;
                     float input2;
                     float input3;
@@ -1180,7 +1180,7 @@
         <Row Name="FirstbitLo">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryIntOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryIntOp {
                 int input;
                 int output;
             };
@@ -1218,7 +1218,7 @@
         <Row Name="FirstbitSHi">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryIntOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryIntOp {
                 int input;
                 int output;
             };
@@ -1256,7 +1256,7 @@
         <Row Name="Countbits">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryIntOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryIntOp {
                 int input;
                 int output;
             };
@@ -1294,7 +1294,7 @@
         <Row Name="Bfrev">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryIntOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryIntOp {
                 int input;
                 int output;
             };
@@ -1345,7 +1345,7 @@
         <Row Name="IMul">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SBinaryIntOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
                 int input1;
                 int input2;
                 int output1;
@@ -1396,7 +1396,7 @@
         <Row Name="IMax">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SBinaryIntOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
                 int input1;
                 int input2;
                 int output1;
@@ -1438,7 +1438,7 @@
         <Row Name="IMin">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SBinaryIntOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
                 int input1;
                 int input2;
                 int output1;
@@ -1493,7 +1493,7 @@
         <Row Name="IMad">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct STertiaryIntOp {
+            <Parameter Name="ShaderOp.Text"> struct STertiaryIntOp {
                 int input1;
                 int input2;
                 int input3;
@@ -1578,7 +1578,7 @@
         <Row Name="FirstbitHi">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SUnaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SUnaryUintOp {
                 uint input;
                 uint output;
             };
@@ -1623,7 +1623,7 @@
         <Row Name="UMax">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
                 uint input1;
                 uint input2;
                 uint output1;
@@ -1665,7 +1665,7 @@
         <Row Name="UAddc">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
                 uint input1;
                 uint input2;
                 uint output1;
@@ -1718,7 +1718,7 @@
         <Row Name="UMin">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
                 uint input1;
                 uint input2;
                 uint output1;
@@ -1760,7 +1760,7 @@
         <Row Name="UMul">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
                 uint input1;
                 uint input2;
                 uint output1;
@@ -1799,7 +1799,7 @@
         <Row Name="UDiv">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
                 uint input1;
                 uint input2;
                 uint output1;
@@ -1867,7 +1867,7 @@
         <Row Name="UMad">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct STertiaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct STertiaryUintOp {
                     uint input1;
                     uint input2;
                     uint input3;
@@ -1935,7 +1935,7 @@
         <Row Name="Dot2">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.008</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SDotOp {
+            <Parameter Name="ShaderOp.Text"> struct SDotOp {
                    float4 input1;
                    float4 input2;
                    float o_dot2;
@@ -2026,7 +2026,7 @@
         <Row Name="Bfi">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text">struct SMsad4 {
+            <Parameter Name="ShaderOp.Text"> struct SMsad4 {
                         uint ref;
                         uint2 source;
                         uint4 accum;
@@ -2038,7 +2038,7 @@
                         SMsad4 l = g_buf[GI];
                         l.result = msad4(l.ref, l.source, l.accum);
                         g_buf[GI] = l;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0xA100B2C3</Value>
@@ -2078,7 +2078,7 @@
         </ParameterTypes>
         <Row Name="WaveActiveSum">
             <Parameter Name="ShaderOp.Name">WaveActiveSum</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2098,7 +2098,7 @@
                             pts.output = WaveActiveSum(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2118,7 +2118,7 @@
         </Row>
         <Row Name="WaveActiveProduct">
             <Parameter Name="ShaderOp.Name">WaveActiveProduct</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2138,7 +2138,7 @@
                             pts.output = WaveActiveProduct(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2158,7 +2158,7 @@
         </Row>
         <Row Name="WaveActiveCountBits">
             <Parameter Name="ShaderOp.Name">WaveActiveCountBits</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2178,7 +2178,7 @@
                             pts.output = WaveActiveCountBits(pts.input &gt; 3);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">4</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2203,7 +2203,7 @@
         </Row>
         <Row Name="WaveActiveMax">
             <Parameter Name="ShaderOp.Name">WaveActiveMax</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2223,7 +2223,7 @@
                             pts.output = WaveActiveMax(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">4</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2248,7 +2248,7 @@
         </Row>
         <Row Name="WaveActiveMin">
             <Parameter Name="ShaderOp.Name">WaveActiveMin</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2268,7 +2268,7 @@
                             pts.output = WaveActiveMin(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">4</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2299,7 +2299,7 @@
         </Row>
         <Row Name="WaveActiveAllEqual">
             <Parameter Name="ShaderOp.Name">WaveActiveAllEqual</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2319,7 +2319,7 @@
                             pts.output = WaveActiveAllEqual(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2340,7 +2340,7 @@
         </Row>
         <Row Name="WaveActiveAnyTrue">
             <Parameter Name="ShaderOp.Name">WaveActiveAnyTrue</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2360,7 +2360,7 @@
                             pts.output = WaveActiveAnyTrue(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2378,7 +2378,7 @@
         </Row>
         <Row Name="WaveActiveAllTrue">
             <Parameter Name="ShaderOp.Name">WaveActiveAllTrue</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2398,7 +2398,7 @@
                             pts.output = WaveActiveAllTrue(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2427,7 +2427,7 @@
         </ParameterTypes>
         <Row Name="WaveActiveBitOr">
             <Parameter Name="ShaderOp.Name">WaveActiveBitOr</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2447,7 +2447,7 @@
                             pts.output = WaveActiveBitOr(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">4</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>0xe0000000</Value>
@@ -2478,7 +2478,7 @@
         </Row>
         <Row Name="WaveActiveBitAnd">
             <Parameter Name="ShaderOp.Name">WaveActiveBitAnd</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2498,7 +2498,7 @@
                             pts.output = WaveActiveBitAnd(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">4</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>0xefffffff</Value>
@@ -2529,7 +2529,7 @@
         </Row>
         <Row Name="WaveActiveBitXor">
             <Parameter Name="ShaderOp.Name">WaveActiveBitXor</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2549,7 +2549,7 @@
                             pts.output = WaveActiveBitXor(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">4</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>0xe0000000</Value>
@@ -2580,7 +2580,7 @@
         </Row>
         <Row Name="WaveActiveUSum">
             <Parameter Name="ShaderOp.Name">WaveActiveUSum</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2600,7 +2600,7 @@
                             pts.output = WaveActiveSum(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2620,7 +2620,7 @@
         </Row>
         <Row Name="WaveActiveUProduct">
             <Parameter Name="ShaderOp.Name">WaveActiveUProduct</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2640,7 +2640,7 @@
                             pts.output = WaveActiveProduct(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2660,7 +2660,7 @@
         </Row>
         <Row Name="WaveActiveUMax">
             <Parameter Name="ShaderOp.Name">WaveActiveUMax</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2680,7 +2680,7 @@
                             pts.output = WaveActiveMax(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2700,7 +2700,7 @@
         </Row>
         <Row Name="WaveActiveUMin">
             <Parameter Name="ShaderOp.Name">WaveActiveUMin</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2720,7 +2720,7 @@
                             pts.output = WaveActiveMin(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2757,7 +2757,7 @@
         </ParameterTypes>
         <Row Name="WavePrefixCountBits">
             <Parameter Name="ShaderOp.Name">WavePrefixCountBits</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2777,7 +2777,7 @@
                             pts.output = WavePrefixCountBits(pts.input &gt; 3);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">4</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2803,7 +2803,7 @@
         </Row>
         <Row Name="WavePrefixSum">
             <Parameter Name="ShaderOp.Name">WavePrefixSum</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2823,7 +2823,7 @@
                             pts.output = WavePrefixSum(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2846,7 +2846,7 @@
         </Row>
         <Row Name="WavePrefixProduct">
             <Parameter Name="ShaderOp.Name">WavePrefixProduct</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2866,7 +2866,7 @@
                             pts.output = WavePrefixProduct(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2900,7 +2900,7 @@
         </ParameterTypes>
         <Row Name="WavePrefixUSum">
             <Parameter Name="ShaderOp.Name">WavePrefixUSum</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2920,7 +2920,7 @@
                             pts.output = WavePrefixSum(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
@@ -2942,7 +2942,7 @@
         </Row>
         <Row Name="WavePrefixUProduct">
             <Parameter Name="ShaderOp.Name">WavePrefixUProduct</Parameter>
-            <Parameter Name="ShaderOp.Text">struct PerThreadData {
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
@@ -2962,7 +2962,7 @@
                             pts.output = WavePrefixProduct(pts.input);
                         }
                         g_sb[GI] = pts;
-                    }</Parameter>
+                    };</Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
