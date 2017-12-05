@@ -226,9 +226,9 @@ class db_dxil(object):
             self.name_idx[i].category = "Unary uint"
         for i in "FMax,FMin".split(","):
             self.name_idx[i].category = "Binary float"
-        for i in "IMax,IMin".split(","):
+        for i in "IMax,IMin,Add,Sub,Mul,SDiv,SRem".split(","):
             self.name_idx[i].category = "Binary int"
-        for i in "UMax,UMin".split(","):
+        for i in "UMax,UMin,UMul,UDiv,URem".split(","):
             self.name_idx[i].category = "Binary uint"
         for i in "IMul".split(","):
             self.name_idx[i].category = "Binary int with two outputs"
