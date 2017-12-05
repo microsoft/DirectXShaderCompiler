@@ -2215,31 +2215,11 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
         offsetType, {offset0, offset1, offset2, offset3});
   }
 
-  if (!hasStatusArg)
-    return theBuilder.createImageGather(
-        retTypeId, imageTypeId, image, sampler, coordinate,
-        theBuilder.getConstantInt32(component), compareVal, constOffset,
-        varOffset, constOffsets, /*sampleNumber*/ 0, /*isSparse*/ false);
-
-  // If the Status parameter is present, OpImageSparseGather should be used.
-  // The result type of this SPIR-V instruction is a struct in which the first
-  // member is an integer that holds the Residency Code.
-  const auto uintType = theBuilder.getUint32Type();
-  const auto sparseRetType =
-      theBuilder.getStructType({uintType, retTypeId}, "SparseResidencyStruct",
-                               {"Residency.Code", "Result.Type"});
-
-  // Perform ImageSparseGather
-  const auto sparseGather = theBuilder.createImageGather(
-      sparseRetType, imageTypeId, image, sampler, coordinate,
+  const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
+  return theBuilder.createImageGather(
+      retTypeId, imageTypeId, image, sampler, coordinate,
       theBuilder.getConstantInt32(component), compareVal, constOffset,
-      varOffset, constOffsets, /*sampleNumber*/ 0, /*isSparse*/ true);
-  // Write the Residency Code
-  const auto status =
-      theBuilder.createCompositeExtract(uintType, sparseGather, {0});
-  theBuilder.createStore(doExpr(expr->getArg(numArgs - 1)), status);
-  // Return the results
-  return theBuilder.createCompositeExtract(retTypeId, sparseGather, {1});
+      varOffset, constOffsets, /*sampleNumber*/ 0, status);
 }
 
 uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
@@ -2281,32 +2261,12 @@ uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
 
   const auto retType = typeTranslator.translateType(callee->getReturnType());
   const auto imageType = typeTranslator.translateType(imageExpr->getType());
+  const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
 
-  if(!hasStatusArg)
-    return theBuilder.createImageGather(
-        retType, imageType, image, sampler, coordinate,
-        /*component*/ 0, comparator, constOffset, varOffset, /*constOffsets*/ 0,
-        /*sampleNumber*/ 0, /*isSparse*/ false);
-
-  // If the Status parameter is present, OpImageSparseGather should be used.
-  // The result type of this SPIR-V instruction is a struct in which the first
-  // member is an integer that holds the Residency Code.
-  const auto uintType = theBuilder.getUint32Type();
-  const auto sparseRetType =
-      theBuilder.getStructType({uintType, retType}, "SparseResidencyStruct",
-                               {"Residency.Code", "Result.Type"});
-
-  // Perform ImageSparseGather
-  const auto sparseGather = theBuilder.createImageGather(
-      sparseRetType, imageType, image, sampler, coordinate,
+  return theBuilder.createImageGather(
+      retType, imageType, image, sampler, coordinate,
       /*component*/ 0, comparator, constOffset, varOffset, /*constOffsets*/ 0,
-      /*sampleNumber*/ 0, /*isSparse*/ true);
-  // Write the Residency Code
-  const auto status =
-      theBuilder.createCompositeExtract(uintType, sparseGather, {0});
-  theBuilder.createStore(doExpr(expr->getArg(numArgs - 1)), status);
-  // Return the results
-  return theBuilder.createCompositeExtract(retType, sparseGather, {1});
+      /*sampleNumber*/ 0, status);
 }
 
 SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(const Expr *object,
@@ -2763,6 +2723,7 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   const auto numArgs = expr->getNumArgs();
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
 
   // Subtract 1 for status (if it exists), and 2 for sampler_state and location.
   const bool hasOffsetArg = numArgs - hasStatusArg - 2 > 0;
@@ -2787,35 +2748,11 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
         /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
         /*constOffsets*/ 0, /*sampleNumber*/ 0);
   } else {
-    if (!hasStatusArg)
-      return theBuilder.createImageGather(
-          retType, imageType, image, sampler, coordinate,
-          // .Gather() doc says we return four components of red data.
-          theBuilder.getConstantInt32(0), /*compareVal*/ 0, constOffset,
-          varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0,
-          /*isSparse*/ false);
-
-    // If the Status parameter is present, OpImageSparseGather should be used.
-    // The result type of this SPIR-V instruction is a struct in which the first
-    // member is an integer that holds the Residency Code.
-    const auto uintType = theBuilder.getUint32Type();
-    const auto sparseRetType =
-        theBuilder.getStructType({uintType, retType}, "SparseResidencyStruct",
-                                 {"Residency.Code", "Result.Type"});
-
-    // Perform ImageSparseGather
-    const auto sparseGather = theBuilder.createImageGather(
-        sparseRetType, imageType, image, sampler, coordinate,
+    return theBuilder.createImageGather(
+        retType, imageType, image, sampler, coordinate,
         // .Gather() doc says we return four components of red data.
         theBuilder.getConstantInt32(0), /*compareVal*/ 0, constOffset,
-        varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0, /*isSparse*/ true);
-
-    // Write the Residency Code
-    const auto status =
-        theBuilder.createCompositeExtract(uintType, sparseGather, {0});
-    theBuilder.createStore(doExpr(expr->getArg(numArgs - 1)), status);
-    // Return the results
-    return theBuilder.createCompositeExtract(retType, sparseGather, {1});
+        varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0, status);
   }
 }
 

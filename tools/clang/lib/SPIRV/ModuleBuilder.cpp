@@ -438,11 +438,14 @@ uint32_t ModuleBuilder::createImageGather(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
     uint32_t coordinate, uint32_t component, uint32_t compareVal,
     uint32_t constOffset, uint32_t varOffset, uint32_t constOffsets,
-    uint32_t sample, bool isSparse) {
+    uint32_t sample, uint32_t residencyCodeId) {
   assert(insertPoint && "null insert point");
 
-  if (isSparse)
+  uint32_t sparseRetType = 0;
+  if (residencyCodeId) {
     requireCapability(spv::Capability::SparseResidency);
+    sparseRetType = getSparseResidencyStructType(texelType);
+  }
 
   // An OpSampledImage is required to do the image sampling.
   const uint32_t sampledImgId = theContext.takeNextId();
@@ -456,12 +459,12 @@ uint32_t ModuleBuilder::createImageGather(
       llvm::Optional<spv::ImageOperandsMask>(composeImageOperandsMask(
           /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
           constOffsets, sample, &params));
-  const uint32_t texelId = theContext.takeNextId();
+  uint32_t texelId = theContext.takeNextId();
 
   if (compareVal) {
-    if (isSparse) {
+    if (residencyCodeId) {
       // Note: OpImageSparseDrefGather does not take the component parameter.
-      instBuilder.opImageSparseDrefGather(texelType, texelId, sampledImgId,
+      instBuilder.opImageSparseDrefGather(sparseRetType, texelId, sampledImgId,
                                           coordinate, compareVal, mask);
     } else {
       // Note: OpImageDrefGather does not take the component parameter.
@@ -469,8 +472,8 @@ uint32_t ModuleBuilder::createImageGather(
                                     coordinate, compareVal, mask);
     }
   } else {
-    if (isSparse) {
-      instBuilder.opImageSparseGather(texelType, texelId, sampledImgId,
+    if (residencyCodeId) {
+      instBuilder.opImageSparseGather(sparseRetType, texelId, sampledImgId,
                                       coordinate, component, mask);
     } else {
       instBuilder.opImageGather(texelType, texelId, sampledImgId, coordinate,
@@ -482,6 +485,14 @@ uint32_t ModuleBuilder::createImageGather(
     instBuilder.idRef(param);
   instBuilder.x();
   insertPoint->appendInstruction(std::move(constructSite));
+
+  if (residencyCodeId) {
+    // Write the Residency Code
+    const auto status = createCompositeExtract(getUint32Type(), texelId, {0});
+    createStore(residencyCodeId, status);
+    // Extract the real result from the struct
+    texelId = createCompositeExtract(texelType, texelId, {1});
+  }
 
   return texelId;
 }
@@ -818,6 +829,12 @@ ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
     }
   }
   return typeId;
+}
+
+uint32_t ModuleBuilder::getSparseResidencyStructType(uint32_t type) {
+  const auto uintType = getUint32Type();
+  return getStructType({uintType, type}, "SparseResidencyStruct",
+                       {"Residency.Code", "Result.Type"});
 }
 
 uint32_t ModuleBuilder::getArrayType(uint32_t elemType, uint32_t count,
