@@ -966,6 +966,10 @@ TEST_F(FileTest, VulkanAttributeInvalidUsages) {
   runFileTest("vk.attribute.invalid.hlsl", FileTest::Expect::Failure);
 }
 
+TEST_F(FileTest, VulkanCLOptionIgnoreUnusedResources) {
+  runFileTest("vk.cloption.ignore-unused-resources.hlsl");
+}
+
 // Vulkan specific
 TEST_F(FileTest, VulkanLocation) { runFileTest("vk.location.hlsl"); }
 TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {

@@ -99,6 +99,7 @@ private:
   SpirvEvalInfo doConditionalOperator(const ConditionalOperator *expr);
   SpirvEvalInfo doCXXMemberCallExpr(const CXXMemberCallExpr *expr);
   SpirvEvalInfo doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr);
+  SpirvEvalInfo doDeclRefExpr(const DeclRefExpr *expr);
   SpirvEvalInfo doExtMatrixElementExpr(const ExtMatrixElementExpr *expr);
   SpirvEvalInfo doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr);
   SpirvEvalInfo doInitListExpr(const InitListExpr *expr);

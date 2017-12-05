@@ -465,6 +465,7 @@ public:
       else if (opts.GenSPIRV) {
           clang::EmitSPIRVOptions spirvOpts;
           spirvOpts.codeGenHighLevel = opts.CodeGenHighLevel;
+          spirvOpts.ignoreUnusedResources = opts.VkIgnoreUnusedResources;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
           spirvOpts.bShift = opts.VkBShift;
           spirvOpts.tShift = opts.VkTShift;
