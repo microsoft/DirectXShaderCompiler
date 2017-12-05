@@ -266,6 +266,19 @@ public:
   /// {RW|Append|Consume}StructuredBuffer variable.
   uint32_t getOrCreateCounterId(const ValueDecl *decl);
 
+  /// \brief Returns the <type-id> for the given cbuffer, tbuffer,
+  /// ConstantBuffer, TextureBuffer, or push constant block.
+  ///
+  /// Note: we need this method because constant/texture buffers and push
+  /// constant blocks are all represented as normal struct types upon which
+  /// they are parameterized. That is different from structured buffers,
+  /// for which we can tell they are not normal structs by investigating
+  /// the name. But for constant/texture buffers and push constant blocks,
+  /// we need to have the additional Block/BufferBlock decoration to keep
+  /// type consistent. Normal translation path for structs via TypeTranslator
+  /// won't attach Block/BufferBlock decoration.
+  uint32_t getCTBufferPushConstantTypeId(const DeclContext *decl);
+
   /// \brief Returns all defined stage (builtin/input/ouput) variables in this
   /// mapper.
   std::vector<uint32_t> collectStageVars() const;
@@ -467,6 +480,10 @@ private:
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
   /// counter variables
   llvm::DenseMap<const NamedDecl *, uint32_t> counterVars;
+
+  /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
+  /// to the <type-id>
+  llvm::DenseMap<const DeclContext *, uint32_t> ctBufferPCTypeIds;
 
 public:
   /// The gl_PerVertex structs for both input and output

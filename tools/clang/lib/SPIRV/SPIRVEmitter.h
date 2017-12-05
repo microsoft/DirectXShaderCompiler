@@ -120,12 +120,14 @@ private:
   /// lhs again.
   SpirvEvalInfo processAssignment(const Expr *lhs, const SpirvEvalInfo &rhs,
                                   bool isCompoundAssignment,
-                                  SpirvEvalInfo lhsPtr = 0);
+                                  SpirvEvalInfo lhsPtr = 0,
+                                  const Expr *rhsExpr = nullptr);
 
   /// Generates SPIR-V instructions to store rhsVal into lhsPtr. This will be
-  /// recursive if valType is a composite type.
+  /// recursive if lhsValType is a composite type. rhsExpr will be used as a
+  /// reference to adjust the CodeGen if not nullptr.
   void storeValue(const SpirvEvalInfo &lhsPtr, const SpirvEvalInfo &rhsVal,
-                  QualType valType);
+                  QualType lhsValType, const Expr *rhsExpr = nullptr);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs. If lhsResultId is not nullptr, the evaluated
