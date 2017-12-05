@@ -249,10 +249,13 @@ private:
   const DeclSpirvInfo *getDeclSpirvInfo(const NamedDecl *decl) const;
 
 public:
-  /// \brief Returns the information for the given decl.
+  /// \brief Returns the information for the given decl. If the decl is not
+  /// registered previously, return an invalid SpirvEvalInfo.
   ///
-  /// This method will panic if the given decl is not registered.
-  SpirvEvalInfo getDeclResultId(const NamedDecl *decl);
+  /// This method will emit a fatal error if checkRegistered is true and the
+  /// decl is not registered.
+  SpirvEvalInfo getDeclResultId(const NamedDecl *decl,
+                                bool checkRegistered = true);
 
   /// \brief Returns the <result-id> for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and
@@ -294,6 +297,16 @@ public:
   bool decorateResourceBindings();
 
 private:
+  /// \brief Wrapper method to create a fatal error message and report it
+  /// in the diagnostic engine associated with this consumer.
+  template <unsigned N>
+  DiagnosticBuilder emitFatalError(const char (&message)[N],
+                                   SourceLocation loc) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Fatal, message);
+    return diags.Report(loc, diagId);
+  }
+
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>

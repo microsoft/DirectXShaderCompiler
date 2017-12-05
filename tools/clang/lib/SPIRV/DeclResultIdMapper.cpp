@@ -209,7 +209,8 @@ DeclResultIdMapper::getDeclSpirvInfo(const NamedDecl *decl) const {
   return nullptr;
 }
 
-SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
+SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl,
+                                                  bool checkRegistered) {
   if (const auto *info = getDeclSpirvInfo(decl))
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
@@ -234,8 +235,11 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
       return *info;
     }
 
-  assert(false && "found unregistered decl");
-  decl->dump();
+  if (checkRegistered) {
+    emitFatalError("found unregistered decl", decl->getLocation())
+        << decl->getName();
+  }
+
   return 0;
 }
 

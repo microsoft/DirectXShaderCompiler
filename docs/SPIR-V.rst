@@ -2262,6 +2262,9 @@ codegen for Vulkan:
 - ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
 - ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
 - ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.
+- ``-fvk-ignore-unused-resources``: Avoids emitting SPIR-V code for resources
+  defined but not statically referenced by the call tree of the entry point
+  in question.
 - ``-fvk-stage-io-order={alpha|decl}``: Assigns the stage input/output variable
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.
