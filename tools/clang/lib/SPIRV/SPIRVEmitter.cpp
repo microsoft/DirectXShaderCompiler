@@ -462,7 +462,7 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
 
 SpirvEvalInfo SPIRVEmitter::doDeclRefExpr(const DeclRefExpr *expr) {
   const auto *decl = expr->getDecl();
-  auto id = declIdMapper.getDeclResultId(decl);
+  auto id = declIdMapper.getDeclResultId(decl, false);
 
   if (spirvOptions.ignoreUnusedResources && !id) {
     // First time referencing a Decl inside TranslationUnit. Register
@@ -471,8 +471,6 @@ SpirvEvalInfo SPIRVEmitter::doDeclRefExpr(const DeclRefExpr *expr) {
     doDecl(decl);
     id = declIdMapper.getDeclResultId(decl);
   }
-
-  assert(id && "found unregistered decl");
 
   return id;
 }
@@ -636,7 +634,6 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // calls. We have already assigned <result-id>s for it when translating
     // its call site. Query it here.
     funcId = declIdMapper.getDeclResultId(decl);
-    assert(funcId);
   }
 
   if (!needsLegalization &&
@@ -6580,7 +6577,6 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
     const auto id = declIdMapper.getDeclResultId(varDecl);
-    assert(id);
     if (const auto *init = varDecl->getInit()) {
       theBuilder.createStore(id, doExpr(init));
     } else {
