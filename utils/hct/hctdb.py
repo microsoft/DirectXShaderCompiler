@@ -226,13 +226,13 @@ class db_dxil(object):
             self.name_idx[i].category = "Unary uint"
         for i in "FMax,FMin".split(","):
             self.name_idx[i].category = "Binary float"
-        for i in "IMax,IMin,Add,Sub,Mul,SDiv,SRem".split(","):
+        for i in "IMax,IMin,Add,Sub,Mul,SDiv,SRem,And,Or,Xor,AShr,LShr,Shl".split(","):
             self.name_idx[i].category = "Binary int"
         for i in "UMax,UMin,UMul,UDiv,URem".split(","):
             self.name_idx[i].category = "Binary uint"
         for i in "IMul".split(","):
             self.name_idx[i].category = "Binary int with two outputs"
-        for i in "UMul,UDiv".split(","):
+        for i in "UMul,UDiv".split(","): # Rename this UDiv OpCode to UDivMod
             self.name_idx[i].category = "Binary uint with two outputs"
         for i in "UAddc,USubb".split(","):
             self.name_idx[i].category = "Binary uint with carry or borrow"
