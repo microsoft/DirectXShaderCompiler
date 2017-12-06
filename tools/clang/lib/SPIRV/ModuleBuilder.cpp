@@ -339,6 +339,17 @@ spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
   return mask;
 }
 
+uint32_t
+ModuleBuilder::createImageSparseTexelsResident(uint32_t resident_code) {
+  assert(insertPoint && "null insert point");
+  // Result type must be a boolean
+  const uint32_t result_type = getBoolType();
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.opImageSparseTexelsResident(result_type, id, resident_code).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 uint32_t ModuleBuilder::createImageTexelPointer(uint32_t resultType,
                                                 uint32_t imageId,
                                                 uint32_t coordinate,
