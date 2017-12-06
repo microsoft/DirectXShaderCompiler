@@ -79,6 +79,9 @@ public:
   /// Handly implicit conversion to test whether the <result-id> is valid.
   operator bool() const { return resultId != 0; }
 
+  inline SpirvEvalInfo &setValTypeId(uint32_t id);
+  uint32_t getValTypeId() const { return valTypeId; }
+
   inline SpirvEvalInfo &setStorageClass(spv::StorageClass sc);
   spv::StorageClass getStorageClass() const { return storageClass; }
 
@@ -96,6 +99,14 @@ public:
 
 private:
   uint32_t resultId;
+  /// The value's <type-id> for this variable.
+  ///
+  /// This field should only be non-zero for original alias variables, which is
+  /// of pointer-to-pointer type. After dereferencing the alias variable, this
+  /// should be set to zero to let CodeGen fall back to normal handling path.
+  ///
+  /// Note: legalization specific code
+  uint32_t valTypeId;
 
   spv::StorageClass storageClass;
   LayoutRule layoutRule;
@@ -106,7 +117,7 @@ private:
 };
 
 SpirvEvalInfo::SpirvEvalInfo(uint32_t id)
-    : resultId(id), storageClass(spv::StorageClass::Function),
+    : resultId(id), valTypeId(0), storageClass(spv::StorageClass::Function),
       layoutRule(LayoutRule::Void), isRValue_(false), isConstant_(false),
       isRelaxedPrecision_(false) {}
 
@@ -119,6 +130,11 @@ SpirvEvalInfo SpirvEvalInfo::substResultId(uint32_t newId) const {
   SpirvEvalInfo info = *this;
   info.resultId = newId;
   return info;
+}
+
+SpirvEvalInfo &SpirvEvalInfo::setValTypeId(uint32_t id) {
+  valTypeId = id;
+  return *this;
 }
 
 SpirvEvalInfo &SpirvEvalInfo::setStorageClass(spv::StorageClass sc) {

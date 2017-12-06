@@ -244,30 +244,42 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const ValueDecl *decl,
 }
 
 uint32_t DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
-  const uint32_t type = typeTranslator.translateType(param->getType());
+  bool isAlias = false;
+  const uint32_t type = getTypeForPotentialAliasVar(param, &isAlias);
   const uint32_t ptrType =
       theBuilder.getPointerType(type, spv::StorageClass::Function);
   const uint32_t id = theBuilder.addFnParam(ptrType, param->getName());
-  astDecls[param] = SpirvEvalInfo(id);
+  astDecls[param] = SpirvEvalInfo(id)
+                        .setStorageClass(isAlias ? spv::StorageClass::Uniform
+                                                 : spv::StorageClass::Function)
+                        .setValTypeId(isAlias ? type : 0);
 
   return id;
 }
 
 uint32_t DeclResultIdMapper::createFnVar(const VarDecl *var,
                                          llvm::Optional<uint32_t> init) {
-  const uint32_t type = typeTranslator.translateType(var->getType());
+  bool isAlias = false;
+  const uint32_t type = getTypeForPotentialAliasVar(var, &isAlias);
   const uint32_t id = theBuilder.addFnVar(type, var->getName(), init);
-  astDecls[var] = SpirvEvalInfo(id);
+  astDecls[var] = SpirvEvalInfo(id)
+                      .setStorageClass(isAlias ? spv::StorageClass::Uniform
+                                               : spv::StorageClass::Function)
+                      .setValTypeId(isAlias ? type : 0);
 
   return id;
 }
 
 uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
                                            llvm::Optional<uint32_t> init) {
-  const uint32_t type = typeTranslator.translateType(var->getType());
+  bool isAlias = false;
+  const uint32_t type = getTypeForPotentialAliasVar(var, &isAlias);
   const uint32_t id = theBuilder.addModuleVar(type, spv::StorageClass::Private,
                                               var->getName(), init);
-  astDecls[var] = SpirvEvalInfo(id).setStorageClass(spv::StorageClass::Private);
+  astDecls[var] = SpirvEvalInfo(id)
+                      .setStorageClass(isAlias ? spv::StorageClass::Uniform
+                                               : spv::StorageClass::Private)
+                      .setValTypeId(isAlias ? type : 0);
 
   return id;
 }
@@ -1790,6 +1802,49 @@ DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint) {
     llvm_unreachable("Found invalid SigPoint kind for semantic");
   }
   return sc;
+}
+
+uint32_t
+DeclResultIdMapper::getTypeForPotentialAliasVar(const DeclaratorDecl *decl,
+                                                bool *shouldBeAlias) {
+  if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
+    // This method is only intended to be used to create SPIR-V variables in the
+    // Function or Private storage class.
+    assert(!varDecl->isExceptionVariable() || varDecl->isStaticDataMember());
+  }
+
+  const QualType type = getTypeOrFnRetType(decl);
+  // Whether we should generate this decl as an alias variable.
+  bool genAlias = false;
+  // All texture/structured/byte buffers use GLSL std430 rules.
+  LayoutRule rule = LayoutRule::GLSLStd430;
+
+  if (const auto *buffer = dyn_cast<HLSLBufferDecl>(decl->getDeclContext())) {
+    // For ConstantBuffer and TextureBuffer
+    if (buffer->isConstantBufferView())
+      genAlias = true;
+    // ConstantBuffer uses GLSL std140 rules.
+    // TODO: do we actually want to include constant/texture buffers
+    // in this method?
+    if (buffer->isCBuffer())
+      rule = LayoutRule::GLSLStd140;
+  } else if (TypeTranslator::isAKindOfStructuredOrByteBuffer(type)) {
+    genAlias = true;
+  }
+
+  if (shouldBeAlias)
+    *shouldBeAlias = genAlias;
+
+  if (genAlias) {
+    needsLegalization = true;
+
+    const uint32_t valType = typeTranslator.translateType(type, rule);
+    // All constant/texture/structured/byte buffers are in the Uniform
+    // storage class.
+    return theBuilder.getPointerType(valType, spv::StorageClass::Uniform);
+  }
+
+  return typeTranslator.translateType(type);
 }
 
 } // end namespace spirv
