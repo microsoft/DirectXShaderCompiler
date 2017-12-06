@@ -3157,6 +3157,10 @@ static HRESULT ParseTableRow(TableParameter *table, unsigned int size) {
     default:
       DXASSERT_NOMSG("Invalid Parameter Type");
     }
+    if (errno == ERANGE) {
+      LogErrorFmt(L"got out of range value for table %s", table[i].m_name);
+      return E_FAIL;
+    }
   }
   return S_OK;
 }

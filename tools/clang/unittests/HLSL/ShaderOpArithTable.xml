@@ -1687,32 +1687,32 @@
                 <Value>10000</Value>
                 <Value>2147483647</Value>
                 <Value>2147483647</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Input2">
-                <Value>0</Value>
+                <Value>1</Value>
                 <Value>256</Value>
                 <Value>4</Value>
                 <Value>10001</Value>
-                <Value>0</Value>
+                <Value>2</Value>
                 <Value>2147483647</Value>
                 <Value>1</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
-                <Value>0xffffffff</Value>
+                <Value>1</Value>
                 <Value>0</Value>
                 <Value>2</Value>
                 <Value>0</Value>
-                <Value>0xffffffff</Value>
+                <Value>1073741823</Value>
                 <Value>1</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Expected2">
-                <Value>0xffffffff</Value>
+                <Value>0</Value>
                 <Value>1</Value>
                 <Value>2</Value>
                 <Value>10000</Value>
-                <Value>0xffffffff</Value>
+                <Value>1</Value>
                 <Value>0</Value>
                 <Value>0</Value>
             </Parameter>
