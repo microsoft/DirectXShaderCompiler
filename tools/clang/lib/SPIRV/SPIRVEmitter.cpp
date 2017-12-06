@@ -2841,7 +2841,7 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
     return theBuilder.createImageSample(
         retType, imageType, image, sampler, coordinate, /*compareVal*/ 0,
         /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
-        /*constOffsets*/ 0, /*sampleNumber*/ 0, /*minLod*/ clamp);
+        /*constOffsets*/ 0, /*sampleNumber*/ 0, /*minLod*/ clamp, status);
   } else {
     return theBuilder.createImageGather(
         retType, imageType, image, sampler, coordinate,
@@ -2886,6 +2886,7 @@ SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   const auto numArgs = expr->getNumArgs();
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
 
   uint32_t clamp = 0;
   // The .SampleLevel() methods do not take the clamp argument.
@@ -2924,7 +2925,7 @@ SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   return theBuilder.createImageSample(
       retType, imageType, image, sampler, coordinate, /*compareVal*/ 0, bias,
       lod, std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
-      /*sampleNumber*/ 0, /*minLod*/ clamp);
+      /*sampleNumber*/ 0, /*minLod*/ clamp, status);
 }
 
 uint32_t SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
@@ -2949,6 +2950,7 @@ uint32_t SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
   const auto numArgs = expr->getNumArgs();
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
 
   uint32_t clamp = 0;
   if (numArgs > 4 && expr->getArg(4)->getType()->isFloatingType())
@@ -2979,7 +2981,7 @@ uint32_t SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
   return theBuilder.createImageSample(
       retType, imageType, image, sampler, coordinate, /*compareVal*/ 0,
       /*bias*/ 0, /*lod*/ 0, std::make_pair(ddx, ddy), constOffset, varOffset,
-      /*constOffsets*/ 0, /*sampleNumber*/ 0, /*minLod*/ clamp);
+      /*constOffsets*/ 0, /*sampleNumber*/ 0, /*minLod*/ clamp, status);
 }
 
 uint32_t
@@ -3032,6 +3034,7 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
   const auto numArgs = expr->getNumArgs();
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
 
   uint32_t clamp = 0;
   // The .SampleCmpLevelZero() methods do not take the clamp argument.
@@ -3065,7 +3068,7 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
   return theBuilder.createImageSample(
       retType, imageType, image, sampler, coordinate, compareVal, /*bias*/ 0,
       lod, std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
-      /*sampleNumber*/ 0, /*minLod*/ clamp);
+      /*sampleNumber*/ 0, /*minLod*/ clamp, status);
 }
 
 SpirvEvalInfo

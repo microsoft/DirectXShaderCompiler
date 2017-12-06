@@ -858,6 +858,13 @@ public:
   InstBuilder &opConstant(uint32_t result_type, uint32_t result_id,
                           uint32_t value);
 
+  // All-in-one method for creating different types of OpImageSample*.
+  InstBuilder &
+  opImageSample(uint32_t result_type, uint32_t result_id,
+                uint32_t sampled_image, uint32_t coordinate, uint32_t dref,
+                llvm::Optional<spv::ImageOperandsMask> image_operands,
+                bool isExplicit, bool isSparse);
+
   // Methods for supplying additional parameters.
   InstBuilder &fPFastMathMode(spv::FPFastMathModeMask);
   InstBuilder &fPRoundingMode(spv::FPRoundingMode);
