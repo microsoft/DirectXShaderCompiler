@@ -74,6 +74,9 @@ def add_test_case(test_name, inst_names, validation_type, validation_tolerance,
 
 
 # This is a collection of test case for driver tests per instruction
+# Warning: For test cases, when you want to pass in signed integer,
+# make sure to pass in negative numbers with decimal values instead of hexadecimal representation.
+# For some reason, TAEF is not handling them properly.
 def add_test_cases():
     nan = float('nan')
     p_inf = float('inf')
