@@ -178,16 +178,14 @@ public:
 
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its <result-id>.
-  uint32_t createFnParam(uint32_t paramType, const ParmVarDecl *param);
+  uint32_t createFnParam(const ParmVarDecl *param);
 
   /// \brief Creates a function-scope variable in the current function and
   /// returns its <result-id>.
-  uint32_t createFnVar(uint32_t varType, const VarDecl *variable,
-                       llvm::Optional<uint32_t> init);
+  uint32_t createFnVar(const VarDecl *var, llvm::Optional<uint32_t> init);
 
   /// \brief Creates a file-scope variable and returns its <result-id>.
-  uint32_t createFileVar(uint32_t varType, const VarDecl *variable,
-                         llvm::Optional<uint32_t> init);
+  uint32_t createFileVar(const VarDecl *var, llvm::Optional<uint32_t> init);
 
   /// \brief Creates an external-visible variable and returns its <result-id>.
   uint32_t createExternVar(const VarDecl *var);
@@ -222,23 +220,16 @@ public:
 private:
   /// The struct containing SPIR-V information of a AST Decl.
   struct DeclSpirvInfo {
-    DeclSpirvInfo(uint32_t result = 0,
-                  spv::StorageClass sc = spv::StorageClass::Function,
-                  LayoutRule lr = LayoutRule::Void, int indexInCTB = -1)
-        : resultId(result), storageClass(sc), layoutRule(lr),
-          indexInCTBuffer(indexInCTB) {}
+    /// Default constructor to satisfy DenseMap
+    DeclSpirvInfo() : info(0), indexInCTBuffer(-1) {}
+
+    DeclSpirvInfo(const SpirvEvalInfo &info_, int index = -1)
+        : info(info_), indexInCTBuffer(index) {}
 
     /// Implicit conversion to SpirvEvalInfo.
-    operator SpirvEvalInfo() const {
-      return SpirvEvalInfo(resultId)
-          .setStorageClass(storageClass)
-          .setLayoutRule(layoutRule);
-    }
+    operator SpirvEvalInfo() const { return info; }
 
-    uint32_t resultId;
-    spv::StorageClass storageClass;
-    /// Layout rule for this decl.
-    LayoutRule layoutRule;
+    SpirvEvalInfo info;
     /// Value >= 0 means that this decl is a VarDecl inside a cbuffer/tbuffer
     /// and this is the index; value < 0 means this is just a standalone decl.
     int indexInCTBuffer;
