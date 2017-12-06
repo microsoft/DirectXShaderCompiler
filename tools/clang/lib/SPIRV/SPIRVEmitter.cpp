@@ -168,6 +168,12 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
   return nullptr;
 }
 
+/// Returns true if the given VarDecl will be translated into a SPIR-V variable
+/// in Private or Function storage class.
+inline bool isNonExternalVar(const VarDecl *var) {
+  return !var->isExternallyVisible() || var->isStaticDataMember();
+}
+
 /// Returns the referenced variable's DeclContext if the given expr is
 /// a DeclRefExpr referencing a ConstantBuffer/TextureBuffer. Otherwise,
 /// returns nullptr.
@@ -726,8 +732,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // Create all parameters.
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const ParmVarDecl *paramDecl = decl->getParamDecl(i);
-    (void)declIdMapper.createFnParam(paramTypes[i + isNonStaticMemberFn],
-                                     paramDecl);
+    (void)declIdMapper.createFnParam(paramDecl);
   }
 
   if (decl->hasBody()) {
@@ -849,20 +854,15 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   // File scope variables (static "global" and "local" variables) belongs to
   // the Private storage class, while function scope variables (normal "local"
   // variables) belongs to the Function storage class.
-  if (!decl->isExternallyVisible() || decl->isStaticDataMember()) {
-    // Note: cannot move varType outside of this scope because it generates
-    // SPIR-V types without decorations, while external visible variable should
-    // have SPIR-V type with decorations.
-    const uint32_t varType = typeTranslator.translateType(decl->getType());
-
+  if (isNonExternalVar(decl)) {
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.
     const bool isFileScopeVar = !decl->hasLocalStorage();
 
     if (isFileScopeVar)
-      varId = declIdMapper.createFileVar(varType, decl, llvm::None);
+      varId = declIdMapper.createFileVar(decl, llvm::None);
     else
-      varId = declIdMapper.createFnVar(varType, decl, llvm::None);
+      varId = declIdMapper.createFnVar(decl, llvm::None);
 
     // Emit OpStore to initialize the variable
     // TODO: revert back to use OpVariable initializer
@@ -2276,7 +2276,7 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   if (numOffsetArgs == 1) {
     // The offset arg is not optional.
     handleOffsetInMethodCall(expr, 2 + isCmp, &constOffset, &varOffset);
-  } else if(numOffsetArgs == 4) {
+  } else if (numOffsetArgs == 4) {
     const auto offset0 = tryToEvaluateAsConst(expr->getArg(2 + isCmp));
     const auto offset1 = tryToEvaluateAsConst(expr->getArg(3 + isCmp));
     const auto offset2 = tryToEvaluateAsConst(expr->getArg(4 + isCmp));
@@ -2337,7 +2337,7 @@ uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
   const uint32_t coordinate = doExpr(expr->getArg(1));
   const uint32_t comparator = doExpr(expr->getArg(2));
   uint32_t constOffset = 0, varOffset = 0;
-  if(hasOffsetArg)
+  if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
 
   const auto retType = typeTranslator.translateType(callee->getReturnType());
@@ -2813,7 +2813,7 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   const uint32_t coordinate = doExpr(expr->getArg(1));
   // .Sample()/.Gather() may have a third optional paramter for offset.
   uint32_t constOffset = 0, varOffset = 0;
-  if(hasOffsetArg)
+  if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
 
   const auto retType =
@@ -3296,20 +3296,19 @@ spv::Op SPIRVEmitter::translateOp(BinaryOperator::Opcode op, QualType type) {
   const bool isFloatType = isFloatOrVecMatOfFloatType(type);
 
 #define BIN_OP_CASE_INT_FLOAT(kind, intBinOp, floatBinOp)                      \
-  \
-case BO_##kind : {                                                             \
+                                                                               \
+  case BO_##kind: {                                                            \
     if (isSintType || isUintType) {                                            \
       return spv::Op::Op##intBinOp;                                            \
     }                                                                          \
     if (isFloatType) {                                                         \
       return spv::Op::Op##floatBinOp;                                          \
     }                                                                          \
-  }                                                                            \
-  break
+  } break
 
 #define BIN_OP_CASE_SINT_UINT_FLOAT(kind, sintBinOp, uintBinOp, floatBinOp)    \
-  \
-case BO_##kind : {                                                             \
+                                                                               \
+  case BO_##kind: {                                                            \
     if (isSintType) {                                                          \
       return spv::Op::Op##sintBinOp;                                           \
     }                                                                          \
@@ -3319,20 +3318,18 @@ case BO_##kind : {                                                             \
     if (isFloatType) {                                                         \
       return spv::Op::Op##floatBinOp;                                          \
     }                                                                          \
-  }                                                                            \
-  break
+  } break
 
 #define BIN_OP_CASE_SINT_UINT(kind, sintBinOp, uintBinOp)                      \
-  \
-case BO_##kind : {                                                             \
+                                                                               \
+  case BO_##kind: {                                                            \
     if (isSintType) {                                                          \
       return spv::Op::Op##sintBinOp;                                           \
     }                                                                          \
     if (isUintType) {                                                          \
       return spv::Op::Op##uintBinOp;                                           \
     }                                                                          \
-  }                                                                            \
-  break
+  } break
 
   switch (op) {
   case BO_EQ: {

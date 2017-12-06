@@ -142,13 +142,13 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
 
   SemanticInfo inheritSemantic = {};
 
-  return createStageVars(
-      sigPoint, decl, /*asInput=*/false, type,
-      /*arraySize=*/0, "out.var", llvm::None, &storedValue,
-      // Write back of stage output variables in GS is manually controlled by
-      // .Append() intrinsic method, implemented in writeBackOutputStream().
-      // So noWriteBack should be set to true for GS.
-      shaderModel.IsGS(), &inheritSemantic);
+  return createStageVars(sigPoint, decl, /*asInput=*/false, type,
+                         /*arraySize=*/0, "out.var", llvm::None, &storedValue,
+                         // Write back of stage output variables in GS is
+                         // manually controlled by .Append() intrinsic method,
+                         // implemented in writeBackOutputStream(). So
+                         // noWriteBack should be set to true for GS.
+                         shaderModel.IsGS(), &inheritSemantic);
 }
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
@@ -222,15 +222,15 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl,
           cast<VarDecl>(decl)->getType(),
           // We need to set decorateLayout here to avoid creating SPIR-V
           // instructions for the current type without decorations.
-          info->layoutRule);
+          info->info.getLayoutRule());
 
       const uint32_t elemId = theBuilder.createAccessChain(
-          theBuilder.getPointerType(varType, info->storageClass),
-          info->resultId, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
+          theBuilder.getPointerType(varType, info->info.getStorageClass()),
+          info->info, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
 
       return SpirvEvalInfo(elemId)
-          .setStorageClass(info->storageClass)
-          .setLayoutRule(info->layoutRule);
+          .setStorageClass(info->info.getStorageClass())
+          .setLayoutRule(info->info.getLayoutRule());
     } else {
       return *info;
     }
@@ -243,27 +243,31 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl,
   return 0;
 }
 
-uint32_t DeclResultIdMapper::createFnParam(uint32_t paramType,
-                                           const ParmVarDecl *param) {
-  const uint32_t id = theBuilder.addFnParam(paramType, param->getName());
-  astDecls[param] = {id, spv::StorageClass::Function};
+uint32_t DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
+  const uint32_t type = typeTranslator.translateType(param->getType());
+  const uint32_t ptrType =
+      theBuilder.getPointerType(type, spv::StorageClass::Function);
+  const uint32_t id = theBuilder.addFnParam(ptrType, param->getName());
+  astDecls[param] = SpirvEvalInfo(id);
 
   return id;
 }
 
-uint32_t DeclResultIdMapper::createFnVar(uint32_t varType, const VarDecl *var,
+uint32_t DeclResultIdMapper::createFnVar(const VarDecl *var,
                                          llvm::Optional<uint32_t> init) {
-  const uint32_t id = theBuilder.addFnVar(varType, var->getName(), init);
-  astDecls[var] = {id, spv::StorageClass::Function};
+  const uint32_t type = typeTranslator.translateType(var->getType());
+  const uint32_t id = theBuilder.addFnVar(type, var->getName(), init);
+  astDecls[var] = SpirvEvalInfo(id);
 
   return id;
 }
 
-uint32_t DeclResultIdMapper::createFileVar(uint32_t varType, const VarDecl *var,
+uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
                                            llvm::Optional<uint32_t> init) {
-  const uint32_t id = theBuilder.addModuleVar(
-      varType, spv::StorageClass::Private, var->getName(), init);
-  astDecls[var] = {id, spv::StorageClass::Private};
+  const uint32_t type = typeTranslator.translateType(var->getType());
+  const uint32_t id = theBuilder.addModuleVar(type, spv::StorageClass::Private,
+                                              var->getName(), init);
+  astDecls[var] = SpirvEvalInfo(id).setStorageClass(spv::StorageClass::Private);
 
   return id;
 }
@@ -295,7 +299,8 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto varType = typeTranslator.translateType(var->getType(), rule);
   const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
                                               var->getName(), llvm::None);
-  astDecls[var] = {id, storageClass, rule};
+  astDecls[var] =
+      SpirvEvalInfo(id).setStorageClass(storageClass).setLayoutRule(rule);
 
   const auto *regAttr = getResourceBinding(var);
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
@@ -396,9 +401,11 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   int index = 0;
   for (const auto *subDecl : decl->decls()) {
     const auto *varDecl = cast<VarDecl>(subDecl);
-    astDecls[varDecl] = {bufferVar, spv::StorageClass::Uniform,
-                         decl->isCBuffer() ? LayoutRule::GLSLStd140
-                                           : LayoutRule::GLSLStd430,
+    astDecls[varDecl] = {SpirvEvalInfo(bufferVar)
+                             .setStorageClass(spv::StorageClass::Uniform)
+                             .setLayoutRule(decl->isCBuffer()
+                                                ? LayoutRule::GLSLStd140
+                                                : LayoutRule::GLSLStd430),
                          index++};
   }
   resourceVars.emplace_back(
@@ -423,9 +430,11 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
       recordType->getDecl(), usageKind, structName, decl->getName());
 
   // We register the VarDecl here.
-  astDecls[decl] = {bufferVar, spv::StorageClass::Uniform,
-                    context->isCBuffer() ? LayoutRule::GLSLStd140
-                                         : LayoutRule::GLSLStd430};
+  astDecls[decl] =
+      SpirvEvalInfo(bufferVar)
+          .setStorageClass(spv::StorageClass::Uniform)
+          .setLayoutRule(context->isCBuffer() ? LayoutRule::GLSLStd140
+                                              : LayoutRule::GLSLStd430);
   resourceVars.emplace_back(
       bufferVar, ResourceVar::Category::Other, getResourceBinding(context),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
@@ -444,8 +453,9 @@ uint32_t DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
       decl->getName());
 
   // Register the VarDecl
-  astDecls[decl] = {var, spv::StorageClass::PushConstant,
-                    LayoutRule::GLSLStd430};
+  astDecls[decl] = SpirvEvalInfo(var)
+                       .setStorageClass(spv::StorageClass::PushConstant)
+                       .setLayoutRule(LayoutRule::GLSLStd430);
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
 
@@ -454,10 +464,10 @@ uint32_t DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
 
 uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
   if (const auto *info = getDeclSpirvInfo(fn))
-    return info->resultId;
+    return info->info;
 
   const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
-  astDecls[fn] = {id, spv::StorageClass::Function};
+  astDecls[fn] = SpirvEvalInfo(id);
 
   return id;
 }
@@ -473,8 +483,8 @@ uint32_t DeclResultIdMapper::createCounterVar(const ValueDecl *decl) {
   const auto *info = getDeclSpirvInfo(decl);
   const uint32_t counterType = typeTranslator.getACSBufferCounter();
   const std::string counterName = "counter.var." + decl->getName().str();
-  const uint32_t counterId =
-      theBuilder.addModuleVar(counterType, info->storageClass, counterName);
+  const uint32_t counterId = theBuilder.addModuleVar(
+      counterType, info->info.getStorageClass(), counterName);
 
   resourceVars.emplace_back(counterId, ResourceVar::Category::Other,
                             getResourceBinding(decl),
