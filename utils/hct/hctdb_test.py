@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import argparse
 
 parser = argparse.ArgumentParser(description="contains information about dxil op test cases.")
-parser.add_argument('mode', help='mode')
+parser.add_argument('mode', help="'gen-xml' or 'info'")
 
 g_db_dxil = None
 
@@ -750,6 +750,96 @@ def add_test_cases():
                 l.output2 = l.input1 % l.input2;
                 g_buf[GI] = l;
             };''')
+    add_test_case('Shl', ['Shl'], 'Epsilon', 0,
+        [['1', '1', '0x1010', '0xa', '0x7fffffff', '0x12341234', '0xffffffff'],
+         ['0', '259', '4', '2', '0', '15', '3']],
+        [['0x1', '0x8', '0x10100', '0x28', '0x7fffffff','0x091a0000', '-8']], 'cs_6_0',
+        ''' struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 << l.input2;
+                g_buf[GI] = l;
+            };''')
+    add_test_case("LShr", ['LShr'], 'Epsilon', 0,
+        [['1', '1', '0xffff', '0x7fffffff', '0x80001234', '0x12340ab3', '0x7fffffff'],
+        ['0', '1', '4', '30', '15', '16', '1']],
+        [['1', '0', '0xfff', '1', '0x0ffff', '0x1234', '0x3fffffff']], 'cs_6_0',
+        ''' struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 >> l.input2;
+                g_buf[GI] = l;
+            };'''
+    )
+    add_test_case("And", ['And'], 'Epsilon', 0,
+        [['0x1', '0x01', '0x7fff0000', '0x33333333', '0x137f', '0x12345678', '0xa341', '0xffffffff'],
+         ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '0xffffffff', '0x3471', '0xffffffff']],
+        [['0x1', '0x00', '0x0', '0x22222222', '0x0', '0x12345678', '0x2041', '0xffffffff']], 'cs_6_0',
+        ''' struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 & l.input2;
+                g_buf[GI] = l;
+            };'''
+    )
+    add_test_case("Or", ['Or'], 'Epsilon', 0,
+        [['0x1', '0x01', '0x7fff0000', '0x11111111', '0x137f', '0x0', '0x12345678', '0xa341', '0xffffffff'],
+         ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '0x0', '0x00000000', '0x3471', '0xffffffff']],
+        [['0x1', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0xb771', '0xffffffff']], 'cs_6_0',
+        ''' struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 | l.input2;
+                g_buf[GI] = l;
+            };'''
+    )
+    add_test_case("Xor", ['Xor'], 'Epsilon', 0,
+        [['0x1', '0x01', '0x7fff0000', '0x11111111', '0x137f', '0x0', '0x12345678', '0xa341', '0xffffffff'],
+         ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '0x0', '0x00000000', '0x3471', '0xffffffff']],
+        [['0x0', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0x9730', '0x00000000']], 'cs_6_0',
+        ''' struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 ^ l.input2;
+                g_buf[GI] = l;
+            };'''
+    )
+
     # Binary Uint
     add_test_case('UAdd', ['Add'], 'Epsilon', 0,
                   [['2147483648', '4294967285', '0', '0', '10', '2147483647', '486'],
