@@ -1939,11 +1939,7 @@ Value *TranslateSmoothStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   // return s * s *(3-2*s).
   Constant *c2 = ConstantFP::get(CI->getType(),2);
   Constant *c3 = ConstantFP::get(CI->getType(),3);
-  if (s->getType()->isVectorTy()) {
-    unsigned vecSize = s->getType()->getVectorNumElements();
-    c2 = ConstantVector::getSplat(vecSize, c2);
-    c3 = ConstantVector::getSplat(vecSize, c3);
-  }
+
   Value *sMul2 = Builder.CreateFMul(s, c2);
   Value *result = Builder.CreateFSub(c3, sMul2);
   result = Builder.CreateFMul(s, result);
