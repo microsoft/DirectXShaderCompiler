@@ -1998,7 +1998,7 @@ SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
 uint32_t SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
     const CXXMemberCallExpr *expr) {
   const auto *object = expr->getImplicitObjectArgument();
-  const auto objectId = loadIfGLValue(object);
+  const auto objectId = doExpr(object);
   const auto type = object->getType();
   const bool isByteAddressBuffer = TypeTranslator::isByteAddressBuffer(type) ||
                                    TypeTranslator::isRWByteAddressBuffer(type);

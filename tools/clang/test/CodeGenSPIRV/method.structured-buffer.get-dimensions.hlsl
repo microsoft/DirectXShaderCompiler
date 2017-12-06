@@ -11,14 +11,12 @@ RWStructuredBuffer<SBuffer> mySBuffer2;
 void main() {
   uint numStructs, stride;
 
-// CHECK:       [[sb1:%\d+]] = OpLoad %type_StructuredBuffer_SBuffer %mySBuffer1
-// CHECK-NEXT: [[len1:%\d+]] = OpArrayLength %uint [[sb1]] 0
+// CHECK:      [[len1:%\d+]] = OpArrayLength %uint %mySBuffer1 0
 // CHECK-NEXT:                 OpStore %numStructs [[len1]]
 // CHECK-NEXT:                 OpStore %stride %uint_96
   mySBuffer1.GetDimensions(numStructs, stride);
 
-// CHECK:       [[sb2:%\d+]] = OpLoad %type_RWStructuredBuffer_SBuffer %mySBuffer2
-// CHECK-NEXT: [[len2:%\d+]] = OpArrayLength %uint [[sb2]] 0
+// CHECK:      [[len2:%\d+]] = OpArrayLength %uint %mySBuffer2 0
 // CHECK-NEXT:                 OpStore %numStructs [[len2]]
 // CHECK-NEXT:                 OpStore %stride %uint_96
   mySBuffer2.GetDimensions(numStructs, stride);

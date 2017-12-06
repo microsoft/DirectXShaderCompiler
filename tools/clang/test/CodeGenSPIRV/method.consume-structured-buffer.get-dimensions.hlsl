@@ -10,9 +10,8 @@ ConsumeStructuredBuffer<S> buffer;
 
 void main() {
   uint numStructs, stride;
-  
-// CHECK:      [[buf:%\d+]] = OpLoad %type_ConsumeStructuredBuffer_S %buffer
-// CHECK-NEXT: [[len:%\d+]] = OpArrayLength %uint [[buf]] 0
+
+// CHECK:      [[len:%\d+]] = OpArrayLength %uint %buffer 0
 // CHECK-NEXT: OpStore %numStructs [[len]]
 // CHECK-NEXT: OpStore %stride %uint_64
   buffer.GetDimensions(numStructs, stride);
