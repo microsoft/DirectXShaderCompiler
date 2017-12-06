@@ -2781,9 +2781,18 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
 uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
                                                   const bool isSample) {
   // Signatures:
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray, Texture3D:
   // DXGI_FORMAT Object.Sample(sampler_state S,
   //                           float Location
-  //                           [, int Offset]);
+  //                           [, int Offset]
+  //                           [, float Clamp]
+  //                           [, out uint Status]);
+  //
+  // For TextureCube and TextureCubeArray:
+  // DXGI_FORMAT Object.Sample(sampler_state S,
+  //                           float Location
+  //                           [, float Clamp]
+  //                           [, out uint Status]);
   //
   // For Texture2D/Texture2DArray:
   // <Template Type>4 Object.Gather(sampler_state S,
@@ -2801,10 +2810,18 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   const auto numArgs = expr->getNumArgs();
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+
+  uint32_t clamp = 0;
+  if (numArgs > 2 && expr->getArg(2)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(2));
+  else if(numArgs > 3 && expr->getArg(3)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(3));
+  const bool hasClampArg = (clamp != 0);
   const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
 
-  // Subtract 1 for status (if it exists), and 2 for sampler_state and location.
-  const bool hasOffsetArg = numArgs - hasStatusArg - 2 > 0;
+  // Subtract 1 for status (if it exists), subtract 1 for clamp (if it exists),
+  // and subtract 2 for sampler_state and location.
+  const bool hasOffsetArg = numArgs - hasStatusArg - hasClampArg - 2 > 0;
 
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const uint32_t imageType = typeTranslator.translateType(imageExpr->getType());
@@ -2824,7 +2841,7 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
     return theBuilder.createImageSample(
         retType, imageType, image, sampler, coordinate, /*compareVal*/ 0,
         /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
-        /*constOffsets*/ 0, /*sampleNumber*/ 0);
+        /*constOffsets*/ 0, /*sampleNumber*/ 0, /*minLod*/ clamp);
   } else {
     return theBuilder.createImageGather(
         retType, imageType, image, sampler, coordinate,
@@ -2838,19 +2855,54 @@ uint32_t
 SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
                                             const bool isBias) {
   // Signatures:
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray, and Texture3D:
   // DXGI_FORMAT Object.SampleBias(sampler_state S,
   //                               float Location,
   //                               float Bias
-  //                               [, int Offset]);
+  //                               [, int Offset]
+  //                               [, float clamp]
+  //                               [, out uint Status]);
   //
+  // For TextureCube and TextureCubeArray:
+  // DXGI_FORMAT Object.SampleBias(sampler_state S,
+  //                               float Location,
+  //                               float Bias
+  //                               [, float clamp]
+  //                               [, out uint Status]);
+  //
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray, and Texture3D:
   // DXGI_FORMAT Object.SampleLevel(sampler_state S,
   //                                float Location,
   //                                float LOD
-  //                                [, int Offset]);
+  //                                [, int Offset]
+  //                                [, out uint Status]);
+  //
+  // For TextureCube and TextureCubeArray:
+  // DXGI_FORMAT Object.SampleLevel(sampler_state S,
+  //                                float Location,
+  //                                float LOD
+  //                                [, out uint Status]);
+
+  const auto numArgs = expr->getNumArgs();
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+
+  uint32_t clamp = 0;
+  // The .SampleLevel() methods do not take the clamp argument.
+  if (isBias) {
+    if (numArgs > 3 && expr->getArg(3)->getType()->isFloatingType())
+      clamp = doExpr(expr->getArg(3));
+    else if (numArgs > 4 && expr->getArg(4)->getType()->isFloatingType())
+      clamp = doExpr(expr->getArg(4));
+  }
+  const bool hasClampArg = clamp != 0;
+
+  // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
+  // and 3 for sampler_state, location, and Bias/LOD.
+  const bool hasOffsetArg = numArgs - hasClampArg - hasStatusArg - 3 > 0;
+
   const auto *imageExpr = expr->getImplicitObjectArgument();
-
   const uint32_t imageType = typeTranslator.translateType(imageExpr->getType());
-
   const uint32_t image = loadIfGLValue(imageExpr);
   const uint32_t sampler = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
@@ -2861,9 +2913,10 @@ SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   } else {
     lod = doExpr(expr->getArg(2));
   }
-  // .Bias()/.SampleLevel() has a fourth optional paramter for offset.
+  // If offset is present in .Bias()/.SampleLevel(), it is the fourth argument.
   uint32_t constOffset = 0, varOffset = 0;
-  handleOptionalOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+  if(hasOffsetArg)
+    handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
 
   const auto retType =
       typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
@@ -2871,29 +2924,54 @@ SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   return theBuilder.createImageSample(
       retType, imageType, image, sampler, coordinate, /*compareVal*/ 0, bias,
       lod, std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
-      /*sampleNumber*/ 0);
+      /*sampleNumber*/ 0, /*minLod*/ clamp);
 }
 
 uint32_t SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
   // Signature:
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray, and Texture3D:
   // DXGI_FORMAT Object.SampleGrad(sampler_state S,
   //                               float Location,
   //                               float DDX,
   //                               float DDY
-  //                               [, int Offset]);
+  //                               [, int Offset]
+  //                               [, float Clamp]
+  //                               [, out uint Status]);
+  //
+  // For TextureCube and TextureCubeArray:
+  // DXGI_FORMAT Object.SampleGrad(sampler_state S,
+  //                               float Location,
+  //                               float DDX,
+  //                               float DDY
+  //                               [, float Clamp]
+  //                               [, out uint Status]);
+
+  const auto numArgs = expr->getNumArgs();
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+
+  uint32_t clamp = 0;
+  if (numArgs > 4 && expr->getArg(4)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(4));
+  else if (numArgs > 5 && expr->getArg(5)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(5));
+  const bool hasClampArg = clamp != 0;
+
+  // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
+  // and 4 for sampler_state, location, DDX, and DDY;
+  const bool hasOffsetArg = numArgs - hasClampArg - hasStatusArg - 4 > 0;
 
   const auto *imageExpr = expr->getImplicitObjectArgument();
-
   const uint32_t imageType = typeTranslator.translateType(imageExpr->getType());
-
   const uint32_t image = loadIfGLValue(imageExpr);
   const uint32_t sampler = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
   const uint32_t ddx = doExpr(expr->getArg(2));
   const uint32_t ddy = doExpr(expr->getArg(3));
-  // .SampleGrad() has a fifth optional paramter for offset.
+  // If offset is present in .SampleGrad(), it is the fifth argument.
   uint32_t constOffset = 0, varOffset = 0;
-  handleOptionalOffsetInMethodCall(expr, 4, &constOffset, &varOffset);
+  if (hasOffsetArg)
+    handleOffsetInMethodCall(expr, 4, &constOffset, &varOffset);
 
   const auto retType =
       typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
@@ -2901,8 +2979,7 @@ uint32_t SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
   return theBuilder.createImageSample(
       retType, imageType, image, sampler, coordinate, /*compareVal*/ 0,
       /*bias*/ 0, /*lod*/ 0, std::make_pair(ddx, ddy), constOffset, varOffset,
-      /*constOffsets*/ 0,
-      /*sampleNumber*/ 0);
+      /*constOffsets*/ 0, /*sampleNumber*/ 0, /*minLod*/ clamp);
 }
 
 uint32_t
@@ -2910,23 +2987,75 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
                                                   const bool isCmp) {
   // .SampleCmp() Signature:
   //
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray:
   // float Object.SampleCmp(
   //   SamplerComparisonState S,
   //   float Location,
-  //   float CompareValue,
-  //   [int Offset]
+  //   float CompareValue
+  //   [, int Offset]
+  //   [, float Clamp]
+  //   [, out uint Status]
+  // );
+  //
+  // For TextureCube and TextureCubeArray:
+  // float Object.SampleCmp(
+  //   SamplerComparisonState S,
+  //   float Location,
+  //   float CompareValue
+  //   [, float Clamp]
+  //   [, out uint Status]
   // );
   //
   // .SampleCmpLevelZero() is identical to .SampleCmp() on mipmap level 0 only.
-  const auto *imageExpr = expr->getImplicitObjectArgument();
+  // It never takes a clamp argument, which is good because lod and clamp may
+  // not be used together.
+  //
+  // .SampleCmpLevelZero() Signature:
+  //
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray:
+  // float Object.SampleCmpLevelZero(
+  //   SamplerComparisonState S,
+  //   float Location,
+  //   float CompareValue
+  //   [, int Offset]
+  //   [, out uint Status]
+  // );
+  //
+  // For TextureCube and TextureCubeArray:
+  // float Object.SampleCmpLevelZero(
+  //   SamplerComparisonState S,
+  //   float Location,
+  //   float CompareValue
+  //   [, out uint Status]
+  // );
 
+  const auto numArgs = expr->getNumArgs();
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+
+  uint32_t clamp = 0;
+  // The .SampleCmpLevelZero() methods do not take the clamp argument.
+  if (isCmp) {
+    if (numArgs > 3 && expr->getArg(3)->getType()->isFloatingType())
+      clamp = doExpr(expr->getArg(3));
+    else if (numArgs > 4 && expr->getArg(4)->getType()->isFloatingType())
+      clamp = doExpr(expr->getArg(4));
+  }
+  const bool hasClampArg = clamp != 0;
+
+  // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
+  // and 3 for sampler_state, location, and compare_value.
+  const bool hasOffsetArg = numArgs - hasClampArg - hasStatusArg - 3 > 0;
+
+  const auto *imageExpr = expr->getImplicitObjectArgument();
   const uint32_t image = loadIfGLValue(imageExpr);
   const uint32_t sampler = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
   const uint32_t compareVal = doExpr(expr->getArg(2));
-  // .SampleCmp() has a fourth optional paramter for offset.
+  // If offset is present in .SampleCmp(), it will be the fourth argument.
   uint32_t constOffset = 0, varOffset = 0;
-  handleOptionalOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+  if(hasOffsetArg)
+    handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
   const uint32_t lod = isCmp ? 0 : theBuilder.getConstantFloat32(0);
 
   const auto retType =
@@ -2935,8 +3064,8 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
 
   return theBuilder.createImageSample(
       retType, imageType, image, sampler, coordinate, compareVal, /*bias*/ 0,
-      lod, std::make_pair(0, 0), constOffset, varOffset,
-      /*constOffsets*/ 0, /*sampleNumber*/ 0);
+      lod, std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
+      /*sampleNumber*/ 0, /*minLod*/ clamp);
 }
 
 SpirvEvalInfo
