@@ -39,7 +39,7 @@ shader_text: hlsl file that is used for testing dxil op
 
 class test_case(object):
     def __init__(self, test_name, insts, validation_type, validation_tolerance,
-                 input_lists, output_lists, shader_target, shader_text):
+                 input_lists, output_lists, shader_target, shader_text, **kwargs):
         self.test_name = test_name
         self.validation_type = validation_type
         self.validation_tolerance = validation_tolerance
@@ -48,6 +48,9 @@ class test_case(object):
         self.shader_target = shader_target
         self.shader_text = shader_text
         self.insts = insts # list of instructions each test case cover
+        self.warp_version = -1 # known warp version that works
+        for k,v in kwargs.items():
+            setattr(self, k, v)
 
 # Wrapper for each DXIL instruction
 class inst_node(object):
@@ -56,14 +59,14 @@ class inst_node(object):
         self.test_cases = []  # list of test_case
 
 def add_test_case(test_name, inst_names, validation_type, validation_tolerance,
-                  input_lists, output_lists, shader_target, shader_text, ):
+                  input_lists, output_lists, shader_target, shader_text, **kwargs):
     insts = []
     for inst_name in inst_names:
         assert (inst_name in g_instruction_nodes)
         insts += [g_instruction_nodes[inst_name].inst]
     case = test_case(test_name, insts, validation_type,
                     validation_tolerance, input_lists, output_lists,
-                    shader_target, shader_text)
+                    shader_target, shader_text, **kwargs)
     g_test_cases[test_name] = case
     # update instruction nodes
     for inst_name in inst_names:
@@ -174,7 +177,7 @@ def add_test_cases():
                 SUnaryFPOp l = g_buf[GI];
                 l.output = tanh(l.input);
                 g_buf[GI] = l;
-            };''')
+            };''', warp_version=16202)
     add_test_case('Acos', ['Acos'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1', '1.5',
         '-1.5'
@@ -223,7 +226,7 @@ def add_test_cases():
                 SUnaryFPOp l = g_buf[GI];
                 l.output = atan(l.input);
                 g_buf[GI] = l;
-            };''')
+            };''', warp_version=16202)
     add_test_case('Exp', ['Exp'], 'Relative', 21,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '10']],
         [['NaN', '0', '1', '1', '1', '1', 'Inf', '0.367879441', '22026.46579']
@@ -441,7 +444,7 @@ def add_test_cases():
                 else
                     l.output = 0;
                 g_buf[GI] = l;
-            };''')
+            };''', warp_version=16202)
     add_test_case('FAbs', ['FAbs'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0']
          ], [['NaN', 'Inf', 'denorm', '0', '0', 'denorm', 'Inf', '1', '1']],
@@ -1456,7 +1459,7 @@ def add_test_cases():
 # TODO: ElementTree is not generating formatted XML. Currently xml file is checked in after VS Code formatter.
 # Implement xml formatter or import formatter library and use that instead.
 
-def generate_parameter_types(table, num_inputs, num_outputs):
+def generate_parameter_types(table, num_inputs, num_outputs, has_known_warp_issue=False):
     param_types = ET.SubElement(table, "ParameterTypes")
     ET.SubElement(
         param_types, "ParameterType", attrib={
@@ -1474,10 +1477,6 @@ def generate_parameter_types(table, num_inputs, num_outputs):
         param_types, "ParameterType", attrib={
             "Name": "Validation.Tolerance"
         }).text = "double"
-    ET.SubElement(
-        param_types, "ParameterType", attrib={
-            "Name": "Warp.Version"
-        }).text = "unsigned int"  # warp version that is known to pass
     for i in range(0, num_inputs):
         ET.SubElement(
             param_types,
@@ -1494,7 +1493,8 @@ def generate_parameter_types(table, num_inputs, num_outputs):
                 "Name": 'Validation.Expected{}'.format(i + 1),
                 'Array': 'true'
             }).text = "String"
-
+    if has_known_warp_issue:
+        ET.SubElement(param_types, "ParameterType", attrib={"Name":"Warp.Version"}).text = "unsigned int"
 
 def generate_parameter_types_wave(table):
     param_types = ET.SubElement(table, "ParameterTypes")
@@ -1608,7 +1608,8 @@ def generate_row(table, case):
         })
         for val in case.output_lists[i]:
             ET.SubElement(outputs, "Value").text = str(val)
-
+    if case.warp_version > 0:
+        ET.SubElement(row, "Parameter", {"Name":"Warp.Version"}).text = str(case.warp_version)
 
 def generate_row_wave(table, case):
     row = ET.SubElement(table, "Row", {"Name": case.test_name})
@@ -1638,7 +1639,7 @@ def generate_table_for_taef():
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
                 "Id": "UnaryFloatOpTable"
-            }), 1, 1)
+            }), 1, 1, True)
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
                 "Id": "BinaryFloatOpTable"
