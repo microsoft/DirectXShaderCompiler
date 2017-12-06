@@ -1463,7 +1463,7 @@
                 <Value>0x0</Value>
                 <Value>0x12345678</Value>
                 <Value>0xa341</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Input2">
                 <Value>0x1</Value>
@@ -1474,7 +1474,7 @@
                 <Value>0x0</Value>
                 <Value>0x00000000</Value>
                 <Value>0x3471</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>0x0</Value>
@@ -1510,7 +1510,7 @@
                 <Value>1</Value>
                 <Value>0xffff</Value>
                 <Value>0x7fffffff</Value>
-                <Value>0x80001234</Value>
+                <Value>0x70001234</Value>
                 <Value>0x12340ab3</Value>
                 <Value>0x7fffffff</Value>
             </Parameter>
@@ -1528,7 +1528,7 @@
                 <Value>0</Value>
                 <Value>0xfff</Value>
                 <Value>1</Value>
-                <Value>0x0ffff</Value>
+                <Value>0xe000</Value>
                 <Value>0x1234</Value>
                 <Value>0x3fffffff</Value>
             </Parameter>
@@ -1645,7 +1645,7 @@
                 <Value>0x137f</Value>
                 <Value>0x12345678</Value>
                 <Value>0xa341</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Input2">
                 <Value>0x1</Value>
@@ -1653,9 +1653,9 @@
                 <Value>0x0000ffff</Value>
                 <Value>0x22222222</Value>
                 <Value>0xec80</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
                 <Value>0x3471</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>0x1</Value>
@@ -1665,7 +1665,7 @@
                 <Value>0x0</Value>
                 <Value>0x12345678</Value>
                 <Value>0x2041</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
         </Row>
         <Row Name="IMul">
@@ -1741,9 +1741,9 @@
                 <Value>1</Value>
                 <Value>0x1010</Value>
                 <Value>0xa</Value>
-                <Value>0x7fffffff</Value>
+                <Value>-1</Value>
                 <Value>0x12341234</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Input2">
                 <Value>0</Value>
@@ -1759,7 +1759,7 @@
                 <Value>0x8</Value>
                 <Value>0x10100</Value>
                 <Value>0x28</Value>
-                <Value>0x7fffffff</Value>
+                <Value>-1</Value>
                 <Value>0x091a0000</Value>
                 <Value>-8</Value>
             </Parameter>
@@ -1790,7 +1790,7 @@
                 <Value>0x0</Value>
                 <Value>0x12345678</Value>
                 <Value>0xa341</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Input2">
                 <Value>0x1</Value>
@@ -1801,7 +1801,7 @@
                 <Value>0x0</Value>
                 <Value>0x00000000</Value>
                 <Value>0x3471</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>0x1</Value>
@@ -1812,7 +1812,7 @@
                 <Value>0x0</Value>
                 <Value>0x12345678</Value>
                 <Value>0xb771</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
         </Row>
         <Row Name="IAdd">
