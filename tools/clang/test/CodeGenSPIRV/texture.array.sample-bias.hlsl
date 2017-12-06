@@ -9,6 +9,7 @@ Texture2DArray   <float4> t2 : register(t2);
 TextureCubeArray <float4> t3 : register(t3);
 
 // CHECK: OpCapability ImageGatherExtended
+// CHECK: OpCapability MinLod
 
 // CHECK: %type_sampled_image = OpTypeSampledImage %type_1d_image_array
 // CHECK: %type_sampled_image_0 = OpTypeSampledImage %type_2d_image_array
@@ -37,6 +38,20 @@ float4 main(int2 offset : A) : SV_Target {
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_1 [[t3]] [[gSampler]]
 // CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v4fc]] Bias %float_0_5
     float4 val3 = t3.SampleBias(gSampler, float4(0.1, 0.2, 0.3, 1), 0.5);
+
+    float clamp;
+// CHECK:           [[clamp:%\d+]] = OpLoad %float %clamp
+// CHECK-NEXT:         [[t1:%\d+]] = OpLoad %type_1d_image_array %t1
+// CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image [[t1]] [[gSampler]]
+// CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v2fc]] Bias|ConstOffset|MinLod %float_0_5 %int_1 [[clamp]]
+    float4 val4 = t1.SampleBias(gSampler, float2(0.1, 1), 0.5, 1, clamp);
+
+// CHECK:              [[t3:%\d+]] = OpLoad %type_cube_image_array %t3
+// CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_1 [[t3]] [[gSampler]]
+// CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v4fc]] Bias|MinLod %float_0_5 %float_2_5
+    float4 val5 = t3.SampleBias(gSampler, float4(0.1, 0.2, 0.3, 1), 0.5, /*clamp*/ 2.5f);
 
     return 1.0;
 }
