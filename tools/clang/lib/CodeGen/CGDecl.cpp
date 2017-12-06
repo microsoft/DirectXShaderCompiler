@@ -138,6 +138,18 @@ void CodeGenFunction::EmitVarDecl(const VarDecl &D) {
 
     return EmitStaticVarDecl(D, Linkage);
   }
+  // HLSL Change Begin - treat local constant as static.
+  // Global variable will be generated instead of alloca.
+  if (D.getType().isConstQualified() && D.isLocalVarDecl()) {
+    llvm::Constant *Init = CGM.EmitConstantInit(D, this);
+    // Only create global when has constant init.
+    if (Init) {
+      llvm::GlobalValue::LinkageTypes Linkage =
+          CGM.getLLVMLinkageVarDefinition(&D, /*isConstant=*/false);
+      return EmitStaticVarDecl(D, Linkage);
+    }
+  }
+  // HLSL Change End.
 
   if (D.hasExternalStorage())
     // Don't emit it now, allow it to be emitted lazily on its first use.
