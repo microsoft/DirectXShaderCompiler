@@ -109,7 +109,7 @@ std::string StageVar::getSemanticStr() const {
 }
 
 DeclResultIdMapper::SemanticInfo
-DeclResultIdMapper::getStageVarSemantic(const NamedDecl *decl) {
+DeclResultIdMapper::getStageVarSemantic(const ValueDecl *decl) {
   for (auto *annotation : decl->getUnusualAnnotations()) {
     if (auto *sema = dyn_cast<hlsl::SemanticDecl>(annotation)) {
       llvm::StringRef semanticStr = sema->SemanticName;
@@ -201,7 +201,7 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
 }
 
 const DeclResultIdMapper::DeclSpirvInfo *
-DeclResultIdMapper::getDeclSpirvInfo(const NamedDecl *decl) const {
+DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
   auto it = astDecls.find(decl);
   if (it != astDecls.end())
     return &it->second;
@@ -209,7 +209,7 @@ DeclResultIdMapper::getDeclSpirvInfo(const NamedDecl *decl) const {
   return nullptr;
 }
 
-SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const NamedDecl *decl,
+SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const ValueDecl *decl,
                                                   bool checkRegistered) {
   if (const auto *info = getDeclSpirvInfo(decl))
     if (info->indexInCTBuffer >= 0) {

@@ -237,7 +237,7 @@ private:
 
   /// \brief Returns the SPIR-V information for the given decl.
   /// Returns nullptr if no such decl was previously registered.
-  const DeclSpirvInfo *getDeclSpirvInfo(const NamedDecl *decl) const;
+  const DeclSpirvInfo *getDeclSpirvInfo(const ValueDecl *decl) const;
 
 public:
   /// \brief Returns the information for the given decl. If the decl is not
@@ -245,7 +245,7 @@ public:
   ///
   /// This method will emit a fatal error if checkRegistered is true and the
   /// decl is not registered.
-  SpirvEvalInfo getDeclResultId(const NamedDecl *decl,
+  SpirvEvalInfo getDeclResultId(const ValueDecl *decl,
                                 bool checkRegistered = true);
 
   /// \brief Returns the <result-id> for the given function if already
@@ -384,7 +384,7 @@ private:
   };
 
   /// Returns the given decl's HLSL semantic information.
-  static SemanticInfo getStageVarSemantic(const NamedDecl *decl);
+  static SemanticInfo getStageVarSemantic(const ValueDecl *decl);
 
   /// Creates all the stage variables mapped from semantics on the given decl.
   /// Returns true on sucess.
@@ -455,7 +455,7 @@ private:
   uint32_t entryFunctionId;
 
   /// Mapping of all Clang AST decls to their <result-id>s.
-  llvm::DenseMap<const NamedDecl *, DeclSpirvInfo> astDecls;
+  llvm::DenseMap<const ValueDecl *, DeclSpirvInfo> astDecls;
   /// Vector of all defined stage variables.
   llvm::SmallVector<StageVar, 8> stageVars;
   /// Mapping from Clang AST decls to the corresponding stage variables'
@@ -465,12 +465,12 @@ private:
   /// involved in writing back. For other cases, stage variable reading
   /// and writing is done at the time of creating that stage variable,
   /// so that we don't need to query them again for reading and writing.
-  llvm::DenseMap<const NamedDecl *, uint32_t> stageVarIds;
+  llvm::DenseMap<const ValueDecl *, uint32_t> stageVarIds;
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
   /// counter variables
-  llvm::DenseMap<const NamedDecl *, uint32_t> counterVars;
+  llvm::DenseMap<const ValueDecl *, uint32_t> counterVars;
 
   /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
   /// to the <type-id>
