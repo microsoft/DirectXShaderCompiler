@@ -596,6 +596,11 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
 
+  BEGIN_TEST_METHOD(DenormTertiaryFloatOpTest)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#DenormTertiaryFloatOpTable")
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
+  END_TEST_METHOD()
+
   dxc::DxcDllSupport m_support;
   VersionSupportInfo m_ver;
   bool m_ExperimentalModeEnabled = false;
@@ -2885,6 +2890,18 @@ static TableParameter DenormBinaryFPOpParameters[] = {
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
 };
 
+static TableParameter DenormTertiaryFPOpParameters[] = {
+    { L"ShaderOp.Target", TableParameter::STRING, true },
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"ShaderOp.Arguments", TableParameter::STRING, true },
+    { L"Validation.Input1", TableParameter::STRING_TABLE, true },
+    { L"Validation.Input2", TableParameter::STRING_TABLE, true },
+    { L"Validation.Input3", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
+    { L"Validation.Type", TableParameter::STRING, true },
+    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+};
+
 static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
@@ -4158,6 +4175,98 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
       i, p->input1, p->input2, p->output1, val1);
     VerifyOutputWithExpectedValueFloat(p->output1, val1, Validation_Type,
       Validation_Tolerance, mode);
+  }
+}
+
+TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+    WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice)) {
+    return;
+  }
+  // Read data from the table
+
+  int tableSize = sizeof(DenormTertiaryFPOpParameters) / sizeof(TableParameter);
+  TableParameterHandler handler(DenormTertiaryFPOpParameters, tableSize);
+  handler.clearTableParameter();
+  VERIFY_SUCCEEDED(ParseTableRow(DenormTertiaryFPOpParameters, tableSize));
+
+  CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
+  CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
+  CW2A Arguments(handler.GetTableParamByName(L"ShaderOp.Arguments")->m_str);
+
+  std::vector<WEX::Common::String> *Validation_Input1 =
+    &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
+  std::vector<WEX::Common::String> *Validation_Input2 =
+    &(handler.GetTableParamByName(L"Validation.Input2")->m_StringTable);
+  std::vector<WEX::Common::String> *Validation_Input3 =
+    &(handler.GetTableParamByName(L"Validation.Input3")->m_StringTable);
+
+  std::vector<WEX::Common::String> *Validation_Expected =
+    &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
+
+  LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
+  double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
+  size_t count = Validation_Input1->size();
+
+  using namespace hlsl::DXIL;
+  Float32DenormMode mode = Float32DenormMode::Any;
+  if (strcmp(Arguments.m_psz, "-denorm preserve") == 0) {
+    mode = Float32DenormMode::Preserve;
+  }
+  else if (strcmp(Arguments.m_psz, "-denorm ftz") == 0) {
+    mode = Float32DenormMode::FTZ;
+  }
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+    pDevice, m_support, pStream, "TertiaryFPOp",
+    // this callbacked is called when the test
+    // is creating the resource to run the test
+    [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+    VERIFY_IS_TRUE(0 == _stricmp(Name, "STertiaryFPOp"));
+    size_t size = sizeof(STertiaryFPOp) * count;
+    Data.resize(size);
+    STertiaryFPOp *pPrimitives = (STertiaryFPOp *)Data.data();
+    for (size_t i = 0; i < count; ++i) {
+      STertiaryFPOp *p = &pPrimitives[i];
+      PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->size()];
+      PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->size()];
+      PCWSTR str3 = (*Validation_Input3)[i % Validation_Input3->size()];
+      float val1, val2, val3;
+      VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+      VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
+      VERIFY_SUCCEEDED(ParseDataToFloat(str3, val3));
+      p->input1 = val1;
+      p->input2 = val2;
+      p->input3 = val3;
+    }
+
+    // use shader from data table
+    pShaderOp->Shaders.at(0).Target = Target.m_psz;
+    pShaderOp->Shaders.at(0).Text = Text.m_psz;
+    pShaderOp->Shaders.at(0).Arguments = Text.m_psz;
+  });
+
+  MappedData data;
+  test->Test->GetReadBackData("STertiaryFPOp", &data);
+
+  STertiaryFPOp *pPrimitives = (STertiaryFPOp *)data.data();
+  WEX::TestExecution::DisableVerifyExceptions dve;
+
+  for (unsigned i = 0; i < count; ++i) {
+    STertiaryFPOp *p = &pPrimitives[i];
+    LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->size()];
+    float val;
+    VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
+    LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, input3 = %6.8f, output1 = "
+      L"%6.8f, expected = %6.8f",
+      i, p->input1, p->input2, p->input3, p->output, val);
+    VerifyOutputWithExpectedValueFloat(p->output, val, Validation_Type,
+      Validation_Tolerance);
   }
 }
 // A framework for testing individual wave intrinsics tests.

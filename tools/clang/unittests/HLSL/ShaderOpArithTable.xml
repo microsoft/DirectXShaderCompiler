@@ -1193,8 +1193,8 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
         <Row Name="FMad">
-            <Parameter Name="Validation.Type">epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+            <Parameter Name="Validation.Type">ulp</Parameter>
+            <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
                     float input1;
                     float input2;
@@ -3051,57 +3051,6 @@
                 <Value>0xffffffff</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveBitXor">
-            <Parameter Name="ShaderOp.Name">WaveActiveBitXor</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        uint input;
-                        uint output;
-                    };
-                    RWStructuredBuffer&lt;PerThreadData&gt; g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveBitXor(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveBitXor(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };</Parameter>
-            <Parameter Name="Validation.NumInputSet">4</Parameter>
-            <Parameter Name="Validation.InputSet1">
-                <Value>0xe0000000</Value>
-                <Value>0x0d000000</Value>
-                <Value>0x00b00000</Value>
-                <Value>0x00070000</Value>
-                <Value>0x0000e000</Value>
-                <Value>0x00000d00</Value>
-                <Value>0x000000b0</Value>
-                <Value>0x00000007</Value>
-            </Parameter>
-            <Parameter Name="Validation.InputSet2">
-                <Value>0xedb7edb7</Value>
-                <Value>0xdb7edb7e</Value>
-                <Value>0xb7edb7ed</Value>
-                <Value>0x7edb7edb</Value>
-            </Parameter>
-            <Parameter Name="Validation.InputSet3">
-                <Value>0x12481248</Value>
-                <Value>0x24812481</Value>
-                <Value>0x48124812</Value>
-                <Value>0x81248124</Value>
-            </Parameter>
-            <Parameter Name="Validation.InputSet4">
-                <Value>0x00000000</Value>
-                <Value>0xffffffff</Value>
-            </Parameter>
-        </Row>
         <Row Name="WaveActiveBitOr">
             <Parameter Name="ShaderOp.Name">WaveActiveBitOr</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
@@ -3277,6 +3226,57 @@
                 <Value>4</Value>
                 <Value>8</Value>
                 <Value>64</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveActiveBitXor">
+            <Parameter Name="ShaderOp.Name">WaveActiveBitXor</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
+                        uint firstLaneId;
+                        uint laneIndex;
+                        int mask;
+                        uint input;
+                        uint output;
+                    };
+                    RWStructuredBuffer&lt;PerThreadData&gt; g_sb : register(u0);
+                    [numthreads(8,12,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveBitXor(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveBitXor(pts.input);
+                        }
+                        g_sb[GI] = pts;
+                    };</Parameter>
+            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>0xe0000000</Value>
+                <Value>0x0d000000</Value>
+                <Value>0x00b00000</Value>
+                <Value>0x00070000</Value>
+                <Value>0x0000e000</Value>
+                <Value>0x00000d00</Value>
+                <Value>0x000000b0</Value>
+                <Value>0x00000007</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>0xedb7edb7</Value>
+                <Value>0xdb7edb7e</Value>
+                <Value>0xb7edb7ed</Value>
+                <Value>0x7edb7edb</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>0x12481248</Value>
+                <Value>0x24812481</Value>
+                <Value>0x48124812</Value>
+                <Value>0x81248124</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet4">
+                <Value>0x00000000</Value>
+                <Value>0xffffffff</Value>
             </Parameter>
         </Row>
         <Row Name="WaveActiveUProduct">
@@ -4022,6 +4022,136 @@
                 <Value>0x32400000</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm preserve</Parameter>
+        </Row>
+    </Table>
+    <Table Id="DenormTertiaryFloatOpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Arguments">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">double</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="FMadDenormPreserve">
+            <Parameter Name="Validation.Type">epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
+                    float input1;
+                    float input2;
+                    float input3;
+                    float output;
+                };
+                RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    STertiaryFloatOp l = g_buf[GI];
+                    l.output = mad(l.input1, l.input2, l.input3);
+                    g_buf[GI] = l;
+                };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x80780000</Value>
+                <Value>0x80780000</Value>
+                <Value>0x00780000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>2</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>0x80780000</Value>
+                <Value>0x00800000</Value>
+                <Value>0x00800000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0x80780000</Value>
+                <Value>0x80700000</Value>
+                <Value>0x01380000</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-denorm preserve</Parameter>
+        </Row>
+        <Row Name="FMadDenormAny">
+            <Parameter Name="Validation.Type">epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
+                    float input1;
+                    float input2;
+                    float input3;
+                    float output;
+                };
+                RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    STertiaryFloatOp l = g_buf[GI];
+                    l.output = mad(l.input1, l.input2, l.input3);
+                    g_buf[GI] = l;
+                };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x80780000</Value>
+                <Value>0x80780000</Value>
+                <Value>0x00780000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>2</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>0x80780000</Value>
+                <Value>0x00800000</Value>
+                <Value>0x00800000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0x80780000</Value>
+                <Value>0x80700000</Value>
+                <Value>0x01380000</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-denorm any</Parameter>
+        </Row>
+        <Row Name="FMadDenormFTZ">
+            <Parameter Name="Validation.Type">ulp</Parameter>
+            <Parameter Name="Validation.Tolerance">1</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
+                    float input1;
+                    float input2;
+                    float input3;
+                    float output;
+                };
+                RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    STertiaryFloatOp l = g_buf[GI];
+                    l.output = mad(l.input1, l.input2, l.input3);
+                    g_buf[GI] = l;
+                };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x80780000</Value>
+                <Value>0x80780000</Value>
+                <Value>0x00780000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>2</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>0x80780000</Value>
+                <Value>0x00800000</Value>
+                <Value>0x00800000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0x01380000</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-denorm ftz</Parameter>
         </Row>
     </Table>
 </Data>

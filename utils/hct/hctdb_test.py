@@ -73,7 +73,14 @@ def add_test_case(test_name, inst_names, validation_type, validation_tolerance,
     for inst_name in inst_names:
         g_instruction_nodes[inst_name].test_cases += [case]
 
-
+g_denorm_tests = ["FAddDenormAny", "FAddDenormFTZ", "FAddDenormPreserve",
+                "FSubDenormAny", "FSubDenormFTZ", "FSubDenormPreserve",
+                "FMulDenormAny", "FMulDenormFTZ", "FMulDenormPreserve",
+                "FDivDenormAny", "FDivDenormFTZ", "FDivDenormPreserve",
+                "FMadDenormAny", "FMadDenormFTZ", "FMadDenormPreserve",
+                "FAbsDenormAny", "FAbsDenormFTZ", "FAbsDenormPreserve",
+                "FMinDenormAny", "FMinDenormFTZ", "FMinDenormPreserve",
+                "FMaxDenormAny", "FMaxDenormFTZ", "FMaxDenormPreserve"]
 # This is a collection of test case for driver tests per instruction
 # Warning: For test cases, when you want to pass in signed integer,
 # make sure to pass in negative numbers with decimal values instead of hexadecimal representation.
@@ -759,9 +766,9 @@ def add_test_cases():
                 g_buf[GI] = l;
             }; '''
     , shader_arguments="-denorm any")
-    
+
     # Tertiary Float
-    add_test_case('FMad', ['FMad'], 'epsilon', 0.0008, [[
+    add_test_case('FMad', ['FMad'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0',
         '0', '1', '1.5'
     ], [
@@ -784,6 +791,71 @@ def add_test_cases():
                     l.output = mad(l.input1, l.input2, l.input3);
                     g_buf[GI] = l;
                 };''')
+
+    # Denorm Tertiary Float
+    add_test_case('FMadDenormFTZ', ['FMad'], 'ulp', 1, [[
+       '0x80780000', '0x80780000', '0x00780000'
+    ], [
+        '1', '2', '2'
+    ], [
+        '0x80780000', '0x00800000', '0x00800000'
+    ]], [['0', '0', '0x01380000']],
+                  'cs_6_2', ''' struct STertiaryFloatOp {
+                    float input1;
+                    float input2;
+                    float input3;
+                    float output;
+                };
+                RWStructuredBuffer<STertiaryFloatOp> g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    STertiaryFloatOp l = g_buf[GI];
+                    l.output = mad(l.input1, l.input2, l.input3);
+                    g_buf[GI] = l;
+                };''', shader_arguments="-denorm ftz")
+
+    add_test_case('FMadDenormPreserve', ['FMad'], 'epsilon', 0.0008, [[
+        '0x80780000', '0x80780000', '0x00780000'
+    ], [
+        '1', '2', '2'
+    ], [
+        '0x80780000', '0x00800000', '0x00800000'
+    ]], [['0x80780000', '0x80700000', '0x01380000']],
+                  'cs_6_2', ''' struct STertiaryFloatOp {
+                    float input1;
+                    float input2;
+                    float input3;
+                    float output;
+                };
+                RWStructuredBuffer<STertiaryFloatOp> g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    STertiaryFloatOp l = g_buf[GI];
+                    l.output = mad(l.input1, l.input2, l.input3);
+                    g_buf[GI] = l;
+                };''', shader_arguments="-denorm preserve")
+
+    add_test_case('FMadDenormAny', ['FMad'], 'epsilon', 0.0008, [[
+       '0x80780000', '0x80780000', '0x00780000'
+    ], [
+        '1', '2', '2'
+    ], [
+        '0x80780000', '0x00800000', '0x00800000'
+    ]], [['0x80780000', '0x80700000', '0x01380000']],
+                  'cs_6_2', ''' struct STertiaryFloatOp {
+                    float input1;
+                    float input2;
+                    float input3;
+                    float output;
+                };
+                RWStructuredBuffer<STertiaryFloatOp> g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    STertiaryFloatOp l = g_buf[GI];
+                    l.output = mad(l.input1, l.input2, l.input3);
+                    g_buf[GI] = l;
+                };''', shader_arguments="-denorm any")
+
     # Unary Int
     add_test_case('Bfrev', ['Bfrev'], 'Epsilon', 0, [[
         '-2147483648', '-65536', '-8', '-1', '0', '1', '8', '65536',
@@ -2016,6 +2088,11 @@ def generate_table_for_taef():
                 root, "Table", attrib={
                     "Id": "DenormBinaryFloatOpTable"
                 }), 2, 1)
+        generate_parameter_types(
+            ET.SubElement(
+                root, "Table", attrib={
+                    "Id": "DenormTertiaryFloatOpTable"
+                }), 3, 1)
 
         for case in g_test_cases.values():
             cur_inst = case.insts[0]
@@ -2039,10 +2116,7 @@ def generate_table_for_taef():
             elif cur_inst.is_binary or cur_inst.category.startswith(
                     "Binary"):
                 if "f" in cur_inst.oload_types:
-                    if case.test_name in ["FAddDenormAny", "FAddDenormFTZ", "FAddDenormPreserve",
-                                    "FSubDenormAny", "FSubDenormFTZ", "FSubDenormPreserve",
-                                    "FMulDenormAny", "FMulDenormFTZ", "FMulDenormPreserve",
-                                    "FDivDenormAny", "FDivDenormFTZ", "FDivDenormPreserve"]: # for denorm tests
+                    if case.test_name in g_denorm_tests: # for denorm tests
                         generate_row(
                             root.find("./Table[@Id='DenormBinaryFloatOpTable']"),
                             case)
@@ -2070,9 +2144,14 @@ def generate_table_for_taef():
 
             elif cur_inst.category.startswith("Tertiary"):
                 if "f" in cur_inst.oload_types:
-                    generate_row(
-                        root.find("./Table[@Id='TertiaryFloatOpTable']"),
-                        case)
+                    if case.test_name in g_denorm_tests: # for denorm tests
+                        generate_row(
+                            root.find("./Table[@Id='DenormTertiaryFloatOpTable']"),
+                            case)
+                    else:
+                        generate_row(
+                            root.find("./Table[@Id='TertiaryFloatOpTable']"),
+                            case)
                 elif "i" in cur_inst.oload_types:
                     if cur_inst.category.startswith("Tertiary int"):
                         generate_row(
