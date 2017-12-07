@@ -49,6 +49,7 @@ class test_case(object):
         self.shader_text = shader_text
         self.insts = insts # list of instructions each test case cover
         self.warp_version = -1 # known warp version that works
+        self.shader_arguments = ""
         for k,v in kwargs.items():
             setattr(self, k, v)
 
@@ -549,6 +550,216 @@ def add_test_cases():
                 g_buf[GI] = l;
             }; '''
     )
+
+    # Denorm Binary Float
+    add_test_case('FAddDenormFTZ', ['FAdd'], 'ulp', 1,
+    [['0x007E0000', '0x00200000', '0x007E0000', '0x007E0000'],['0x007E0000','0x00200000', '0x807E0000', '0x800E0000']],
+    [['0x00FC0000','0', '0', '0']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 + l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm ftz")
+    add_test_case('FAddDenormPreserve', ['FAdd'], 'ulp', 1,
+    [['0x007E0000', '0x00200000', '0x007E0000', '0x007E0000'],['0x007E0000','0x00200000', '0x807E0000', '0x800E0000']],
+    [['0x00FC0000','0', '0', '0x00700000']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 + l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm preserve")
+    add_test_case('FAddDenormAny', ['FAdd'], 'ulp', 1,
+    [['0x007E0000', '0x00200000', '0x007E0000', '0x007E0000'],['0x007E0000','0x00200000', '0x807E0000', '0x800E0000']],
+    [['0x00FC0000','0', '0', '0x00700000']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 + l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm any")
+
+    add_test_case('FSubDenormFTZ', ['FSub'], 'ulp', 1,
+    [['0x007E0000', '0x007F0000', '0x00FF0000', '0x007A0000'],['0x007E0000', '0x807F0000', '0x00800000', '0']],
+    [['0x0', '0x00FE0000', '0', '0']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 - l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm ftz")
+    add_test_case('FSubDenormPreserve', ['FSub'], 'ulp', 1,
+    [['0x007E0000', '0x007F0000', '0x00FF0000', '0x007A0000'],['0x007E0000', '0x807F0000', '0x00800000', '0']],
+    [['0x0', '0x00FE0000', '0x007F0000', '0x007A0000']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 - l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm preserve")
+    add_test_case('FSubDenormAny', ['FSub'], 'ulp', 1,
+    [['0x007E0000', '0x007F0000', '0x00FF0000', '0x007A0000'],['0x007E0000', '0x807F0000', '0x00800000', '0']],
+    [['0x0', '0x00FE0000', '0x007F0000', '0x007A0000']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 - l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm any")
+
+    add_test_case('FDivDenormFTZ', ['FDiv'], 'ulp', 1,
+    [['0x007F0000', '0x007F0000', '0x40000000', '0x00800000'],['1', '0x007F0000', '0x7F7F0000', '0x40000000']],
+    [['0', '1', '0', '0']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 / l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm ftz")
+    add_test_case('FDivDenormPreserve', ['FDiv'], 'ulp', 1,
+    [['0x007F0000', '0x007F0000', '0x40000000', '0x00800000'],['1','0x007F0000', '0x7F7F0000', '0x40000000']],
+    [['0x007F0000', '1', '0x00404040', '0x00400000']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 / l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm preserve")
+    add_test_case('FDivDenormAny', ['FDiv'], 'ulp', 1,
+    [['0x007F0000', '0x007F0000', '0x40000000', '0x00800000'],['1', '0x007F0000', '0x7F7F0000', '0x40000000']],
+    [['0x007F0000', '1', '0x00404040', '0x00400000']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 / l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm any")
+
+    add_test_case('FMulDenormFTZ', ['FMul'], 'ulp', 1,
+    [['0x00000300', '0x007F0000', '0x007F0000', '0x001E0000', '0x00000300'],['128', '1', '0x007F0000', '20', '0x78000000']],
+    [['0', '0', '0', '0x01960000', '0x00400000', '0x32400000']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 * l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm ftz")
+    add_test_case('FMulDenormPreserve', ['FMul'], 'ulp', 1,
+    [['0x00000300','0x007F0000', '0x007F0000', '0x001E0000', '0x00000300'],['128','1','0x007F0000', '20', '0x78000000']],
+    [['0x00018000','0x007F0000', '0', '0x01960000', '0x32400000']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 * l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm preserve")
+    add_test_case('FMulDenormAny', ['FMul'], 'ulp', 1,
+    [['0x00000300','0x007F0000', '0x007F0000', '0x001E0000', '0x00000300'],['128','1','0x007F0000', '20', '0x78000000']],
+    [['0x00018000','0x007F0000', '0', '0x01960000', '0x32400000']],
+    'cs_6_2', ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 * l.input2;
+                g_buf[GI] = l;
+            }; '''
+    , shader_arguments="-denorm any")
+    
     # Tertiary Float
     add_test_case('FMad', ['FMad'], 'epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0',
@@ -1560,6 +1771,10 @@ def generate_parameter_types(table, num_inputs, num_outputs, has_known_warp_issu
         }).text = "String"
     ET.SubElement(
         param_types, "ParameterType", attrib={
+            "Name": "ShaderOp.Arguments"
+        }).text = "String"
+    ET.SubElement(
+        param_types, "ParameterType", attrib={
             "Name": "ShaderOp.Text"
         }).text = "String"
     ET.SubElement(
@@ -1701,8 +1916,11 @@ def generate_row(table, case):
         })
         for val in case.output_lists[i]:
             ET.SubElement(outputs, "Value").text = str(val)
+    # Optional parameters
     if case.warp_version > 0:
         ET.SubElement(row, "Parameter", {"Name":"Warp.Version"}).text = str(case.warp_version)
+    if case.shader_arguments != "":
+        ET.SubElement(row, "Parameter", {"Name":"ShaderOp.Arguments"}).text = case.shader_arguments
 
 def generate_row_wave(table, case):
     row = ET.SubElement(table, "Row", {"Name": case.test_name})
@@ -1721,7 +1939,6 @@ def generate_row_wave(table, case):
         })
         for val in case.input_lists[i]:
             ET.SubElement(inputs, "Value").text = str(val)
-
 
 def generate_table_for_taef():
     with open("..\\..\\tools\\clang\\unittests\\HLSL\\ShaderOpArithTable.xml",
@@ -1794,6 +2011,11 @@ def generate_table_for_taef():
                 root, "Table", attrib={
                     "Id": "WaveIntrinsicsPrefixUintTable"
                 }))
+        generate_parameter_types(
+            ET.SubElement(
+                root, "Table", attrib={
+                    "Id": "DenormBinaryFloatOpTable"
+                }), 2, 1)
 
         for case in g_test_cases.values():
             cur_inst = case.insts[0]
@@ -1817,9 +2039,17 @@ def generate_table_for_taef():
             elif cur_inst.is_binary or cur_inst.category.startswith(
                     "Binary"):
                 if "f" in cur_inst.oload_types:
-                    generate_row(
-                        root.find("./Table[@Id='BinaryFloatOpTable']"),
-                        case)
+                    if case.test_name in ["FAddDenormAny", "FAddDenormFTZ", "FAddDenormPreserve",
+                                    "FSubDenormAny", "FSubDenormFTZ", "FSubDenormPreserve",
+                                    "FMulDenormAny", "FMulDenormFTZ", "FMulDenormPreserve",
+                                    "FDivDenormAny", "FDivDenormFTZ", "FDivDenormPreserve"]: # for denorm tests
+                        generate_row(
+                            root.find("./Table[@Id='DenormBinaryFloatOpTable']"),
+                            case)
+                    else:
+                        generate_row(
+                            root.find("./Table[@Id='BinaryFloatOpTable']"),
+                            case)
                 elif "i" in cur_inst.oload_types:
                     if cur_inst.category.startswith("Binary int"):
                         if case.test_name in ['UAdd', 'USub', 'UMul']: # Add, Sub, Mul use same operations for int and uint.
