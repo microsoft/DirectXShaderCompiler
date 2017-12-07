@@ -1201,7 +1201,8 @@ def NoDuplicate : InheritableAttr {
 }
 
 def NoInline : InheritableAttr {
-  let Spellings = [GCC<"noinline">, Declspec<"noinline">];
+  let Spellings = [GCC<"noinline">, Declspec<"noinline">,
+    CXX11<"", "noinline", 2017>]; // HLSL Change
   let Subjects = SubjectList<[Function]>;
   let Documentation = [Undocumented];
 }
