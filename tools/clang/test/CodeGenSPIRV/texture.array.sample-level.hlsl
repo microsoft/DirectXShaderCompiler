@@ -9,10 +9,13 @@ Texture2DArray   <float4> t2 : register(t2);
 TextureCubeArray <float4> t3 : register(t3);
 
 // CHECK: OpCapability ImageGatherExtended
+// CHECK: OpCapability SparseResidency
 
 // CHECK: %type_sampled_image = OpTypeSampledImage %type_1d_image_array
 // CHECK: %type_sampled_image_0 = OpTypeSampledImage %type_2d_image_array
 // CHECK: %type_sampled_image_1 = OpTypeSampledImage %type_cube_image_array
+
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
 
 // CHECK: [[v2fc:%\d+]] = OpConstantComposite %v2float %float_0_1 %float_1
 // CHECK: [[v3fc:%\d+]] = OpConstantComposite %v3float %float_0_1 %float_0_2 %float_1
@@ -37,6 +40,28 @@ float4 main(int2 offset : A) : SV_Target {
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_1 [[t3]] [[gSampler]]
 // CHECK-NEXT:            {{%\d+}} = OpImageSampleExplicitLod %v4float [[sampledImg]] [[v4fc]] Lod %float_30
     float4 val3 = t3.SampleLevel(gSampler, float4(0.1, 0.2, 0.3, 1), 30);
+
+    uint status;
+// CHECK:                [[t2:%\d+]] = OpLoad %type_2d_image_array %t2
+// CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT:       [[offset:%\d+]] = OpLoad %v2int %offset
+// CHECK-NEXT:   [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_0 [[t2]] [[gSampler]]
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseSampleExplicitLod %SparseResidencyStruct [[sampledImg]] [[v3fc]] Lod|Offset %float_20 [[offset]]
+// CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
+// CHECK-NEXT:                         OpStore %status [[status]]
+// CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
+// CHECK-NEXT:                         OpStore %val4 [[result]]
+    float4 val4 = t2.SampleLevel(gSampler, float3(0.1, 0.2, 1), 20, offset, status);
+
+// CHECK:                [[t3:%\d+]] = OpLoad %type_cube_image_array %t3
+// CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT:   [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_1 [[t3]] [[gSampler]]
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseSampleExplicitLod %SparseResidencyStruct [[sampledImg]] [[v4fc]] Lod %float_30
+// CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
+// CHECK-NEXT:                         OpStore %status [[status]]
+// CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
+// CHECK-NEXT:                         OpStore %val5 [[result]]
+    float4 val5 = t3.SampleLevel(gSampler, float4(0.1, 0.2, 0.3, 1), 30, status);
 
     return 1.0;
 }

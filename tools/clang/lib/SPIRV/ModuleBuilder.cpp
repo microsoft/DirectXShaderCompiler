@@ -355,17 +355,25 @@ uint32_t ModuleBuilder::createImageSample(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
     uint32_t coordinate, uint32_t compareVal, uint32_t bias, uint32_t lod,
     std::pair<uint32_t, uint32_t> grad, uint32_t constOffset,
-    uint32_t varOffset, uint32_t constOffsets, uint32_t sample, uint32_t minLod) {
+    uint32_t varOffset, uint32_t constOffsets, uint32_t sample, uint32_t minLod,
+    uint32_t residencyCodeId) {
   assert(insertPoint && "null insert point");
 
   // The Lod and Grad image operands requires explicit-lod instructions.
   // Otherwise we use implicit-lod instructions.
-  const bool mustUseExplicitInstr = lod || (grad.first && grad.second);
+  const bool isExplicit = lod || (grad.first && grad.second);
+  const bool isSparse = (residencyCodeId != 0);
 
   // minLod is only valid with Implicit instructions and Grad instructions.
   // This means that we cannot have Lod and minLod together because Lod requires
   // explicit insturctions. So either lod or minLod or both must be zero.
   assert(lod == 0 || minLod == 0);
+
+  uint32_t retType = texelType;
+  if (isSparse) {
+    requireCapability(spv::Capability::SparseResidency);
+    retType = getSparseResidencyStructType(texelType);
+  }
 
   // An OpSampledImage is required to do the image sampling.
   const uint32_t sampledImgId = theContext.takeNextId();
@@ -373,38 +381,27 @@ uint32_t ModuleBuilder::createImageSample(
   instBuilder.opSampledImage(sampledImgTy, sampledImgId, image, sampler).x();
   insertPoint->appendInstruction(std::move(constructSite));
 
-  const uint32_t texelId = theContext.takeNextId();
+  uint32_t texelId = theContext.takeNextId();
   llvm::SmallVector<uint32_t, 4> params;
   const auto mask =
       composeImageOperandsMask(bias, lod, grad, constOffset, varOffset,
                                constOffsets, sample, minLod, &params);
 
-  // If depth-comparison is needed when sampling, we use the OpImageSampleDref*
-  // instructions.
-  if (compareVal) {
-    if (mustUseExplicitInstr) {
-      instBuilder.opImageSampleDrefExplicitLod(texelType, texelId, sampledImgId,
-                                               coordinate, compareVal, mask);
-    } else {
-      instBuilder.opImageSampleDrefImplicitLod(
-          texelType, texelId, sampledImgId, coordinate, compareVal,
-          llvm::Optional<spv::ImageOperandsMask>(mask));
-    }
-  } else {
-    if (mustUseExplicitInstr) {
-      instBuilder.opImageSampleExplicitLod(texelType, texelId, sampledImgId,
-                                           coordinate, mask);
-    } else {
-      instBuilder.opImageSampleImplicitLod(
-          texelType, texelId, sampledImgId, coordinate,
-          llvm::Optional<spv::ImageOperandsMask>(mask));
-    }
-  }
+  instBuilder.opImageSample(retType, texelId, sampledImgId, coordinate,
+                            compareVal, mask, isExplicit, isSparse);
 
   for (const auto param : params)
     instBuilder.idRef(param);
   instBuilder.x();
   insertPoint->appendInstruction(std::move(constructSite));
+
+  if (isSparse) {
+    // Write the Residency Code
+    const auto status = createCompositeExtract(getUint32Type(), texelId, {0});
+    createStore(residencyCodeId, status);
+    // Extract the real result from the struct
+    texelId = createCompositeExtract(texelType, texelId, {1});
+  }
 
   return texelId;
 }

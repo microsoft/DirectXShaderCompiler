@@ -171,9 +171,13 @@ public:
   /// OpImageSample* will be generated; otherwise, *ImplicitLod variant will
   /// be generated.
   ///
-  /// If bias, lod, or grad is given a non-zero value, an additional image
-  /// operands, Bias, Lod, or Grad, will be attached to the current instruction,
-  /// respectively.
+  /// If bias, lod, grad, or minLod is given a non-zero value, an additional
+  /// image operands, Bias, Lod, Grad, or minLod will be attached to the current
+  /// instruction, respectively. Panics if both lod and minLod are non-zero.
+  ///
+  /// If residencyCodeId is not zero, the sparse version of the instructions
+  /// will be used, and the SPIR-V instruction for storing the resulting
+  /// residency code will also be emitted.
   uint32_t createImageSample(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t bias,
@@ -181,7 +185,7 @@ public:
                              std::pair<uint32_t, uint32_t> grad,
                              uint32_t constOffset, uint32_t varOffset,
                              uint32_t constOffsets, uint32_t sample,
-                             uint32_t minLod);
+                             uint32_t minLod, uint32_t residencyCodeId);
 
   /// \brief Creates SPIR-V instructions for reading a texel from an image. If
   /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
