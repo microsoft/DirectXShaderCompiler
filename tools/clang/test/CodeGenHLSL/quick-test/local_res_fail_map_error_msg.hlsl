@@ -2,12 +2,11 @@
 
 // Make sure line number is show for resource failed to map.
 
-// CHECK:line:11 col:3 local resource not guaranteed to map to unique global resource.
+// CHECK:line:11 col:10 local resource not guaranteed to map to unique global resource.
 
 SamplerState samp1 : register(s5);
 
 float4 main(float2 a : A) : SV_Target {
   Texture2D text2;
-  text2.Sample(samp1, a);
-  return 0;
+  return text2.Sample(samp1, a);
 }

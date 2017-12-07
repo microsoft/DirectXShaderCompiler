@@ -357,7 +357,7 @@ static void EmitResMappingError(Instruction *Res) {
         " col:" + std::to_string(DL.getCol()) + " " +
         Twine(kResourceMapErrorMsg));
   } else {
-    Res->getContext().emitError(kResourceMapErrorMsg);
+    Res->getContext().emitError(Twine(kResourceMapErrorMsg) + " With /Zi to show more information.");
   }
 }
 static Value *SelectOnOperand(Value *Cond, CallInst *CIT, CallInst *CIF,
