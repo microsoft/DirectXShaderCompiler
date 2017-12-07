@@ -350,7 +350,16 @@ static Value *MergeImmResClass(Value *resClass) {
 }
 
 static const StringRef kResourceMapErrorMsg = "local resource not guaranteed to map to unique global resource.";
-
+static void EmitResMappingError(Instruction *Res) {
+  const DebugLoc &DL = Res->getDebugLoc();
+  if (DL.get()) {
+    Res->getContext().emitError("line:" + std::to_string(DL.getLine()) +
+        " col:" + std::to_string(DL.getCol()) + " " +
+        Twine(kResourceMapErrorMsg));
+  } else {
+    Res->getContext().emitError(kResourceMapErrorMsg);
+  }
+}
 static Value *SelectOnOperand(Value *Cond, CallInst *CIT, CallInst *CIF,
                               unsigned idx, IRBuilder<> &Builder) {
   Value *OpT = CIT->getArgOperand(idx);
@@ -741,7 +750,7 @@ UpdateHandleOperands(Instruction *Res,
 
   for (unsigned i = startOpIdx; i < numOperands; i++) {
     if (!isa<Instruction>(Res->getOperand(i))) {
-      Res->getContext().emitError(Res, kResourceMapErrorMsg);
+      EmitResMappingError(Res);
       continue;
     }
     Instruction *ResOp = cast<Instruction>(Res->getOperand(i));
@@ -749,7 +758,7 @@ UpdateHandleOperands(Instruction *Res,
 
     if (!HandleOp) {
       if (handleMap.count(ResOp)) {
-        Res->getContext().emitError(Res, kResourceMapErrorMsg);
+        EmitResMappingError(Res);
         continue;
       }
       HandleOp = handleMap[ResOp];
@@ -877,7 +886,7 @@ void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
       if (!nonUniformOps.empty() && !bIsLib) {
         for (Instruction *I : nonUniformOps) {
           // Non uniform res class or res id.
-          FT->getContext().emitError(I, kResourceMapErrorMsg);
+          EmitResMappingError(I);
         }
         return;
       }
@@ -1543,7 +1552,10 @@ public:
       for (User *U : UndefHandle->users()) {
         // Report error if undef handle used for function call.
         if (isa<CallInst>(U)) {
-          M.getContext().emitError(kResourceMapErrorMsg);
+          if (Instruction *UI = dyn_cast<Instruction>(U))
+            EmitResMappingError(UI);
+          else
+            M.getContext().emitError(kResourceMapErrorMsg);
         }
       }
     }
