@@ -5,9 +5,9 @@
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">double</ParameterType>
-            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
         </ParameterTypes>
         <Row Name="Frc">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
@@ -171,6 +171,7 @@
                 <Value>0.761594</Value>
                 <Value>-0.761594</Value>
             </Parameter>
+            <Parameter Name="Warp.Version">16202</Parameter>
         </Row>
         <Row Name="Sqrt">
             <Parameter Name="Validation.Type">ulp</Parameter>
@@ -420,6 +421,7 @@
                 <Value>0.785398163</Value>
                 <Value>-0.785398163</Value>
             </Parameter>
+            <Parameter Name="Warp.Version">16202</Parameter>
         </Row>
         <Row Name="Rsqrt">
             <Parameter Name="Validation.Type">ulp</Parameter>
@@ -928,6 +930,7 @@
                 <Value>1</Value>
                 <Value>1</Value>
             </Parameter>
+            <Parameter Name="Warp.Version">16202</Parameter>
         </Row>
     </Table>
     <Table Id="BinaryFloatOpTable">
@@ -936,7 +939,6 @@
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">double</ParameterType>
-            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
@@ -1182,7 +1184,6 @@
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">double</ParameterType>
-            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
@@ -1269,7 +1270,6 @@
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">double</ParameterType>
-            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
@@ -1432,12 +1432,107 @@
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">double</ParameterType>
-            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
+        <Row Name="Xor">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 ^ l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x1</Value>
+                <Value>0x01</Value>
+                <Value>0x7fff0000</Value>
+                <Value>0x11111111</Value>
+                <Value>0x137f</Value>
+                <Value>0x0</Value>
+                <Value>0x12345678</Value>
+                <Value>0xa341</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0x1</Value>
+                <Value>0xf0</Value>
+                <Value>0x0000ffff</Value>
+                <Value>0x22222222</Value>
+                <Value>0xec80</Value>
+                <Value>0x0</Value>
+                <Value>0x00000000</Value>
+                <Value>0x3471</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0x0</Value>
+                <Value>0xf1</Value>
+                <Value>0x7fffffff</Value>
+                <Value>0x33333333</Value>
+                <Value>0xffff</Value>
+                <Value>0x0</Value>
+                <Value>0x12345678</Value>
+                <Value>0x9730</Value>
+                <Value>0x00000000</Value>
+            </Parameter>
+        </Row>
+        <Row Name="LShr">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 &gt;&gt; l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>0xffff</Value>
+                <Value>0x7fffffff</Value>
+                <Value>0x70001234</Value>
+                <Value>0x12340ab3</Value>
+                <Value>0x7fffffff</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>4</Value>
+                <Value>30</Value>
+                <Value>15</Value>
+                <Value>16</Value>
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>0xfff</Value>
+                <Value>1</Value>
+                <Value>0xe000</Value>
+                <Value>0x1234</Value>
+                <Value>0x3fffffff</Value>
+            </Parameter>
+        </Row>
         <Row Name="IMax">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
@@ -1525,6 +1620,54 @@
                 <Value>-53752</Value>
             </Parameter>
         </Row>
+        <Row Name="And">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 &amp; l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x1</Value>
+                <Value>0x01</Value>
+                <Value>0x7fff0000</Value>
+                <Value>0x33333333</Value>
+                <Value>0x137f</Value>
+                <Value>0x12345678</Value>
+                <Value>0xa341</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0x1</Value>
+                <Value>0xf0</Value>
+                <Value>0x0000ffff</Value>
+                <Value>0x22222222</Value>
+                <Value>0xec80</Value>
+                <Value>-1</Value>
+                <Value>0x3471</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0x1</Value>
+                <Value>0x00</Value>
+                <Value>0x0</Value>
+                <Value>0x22222222</Value>
+                <Value>0x0</Value>
+                <Value>0x12345678</Value>
+                <Value>0x2041</Value>
+                <Value>-1</Value>
+            </Parameter>
+        </Row>
         <Row Name="IMul">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
@@ -1574,6 +1717,102 @@
                 <Value>100010000</Value>
                 <Value>0</Value>
                 <Value>1</Value>
+            </Parameter>
+        </Row>
+        <Row Name="Shl">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 &lt;&lt; l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>0x1010</Value>
+                <Value>0xa</Value>
+                <Value>-1</Value>
+                <Value>0x12341234</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>259</Value>
+                <Value>4</Value>
+                <Value>2</Value>
+                <Value>0</Value>
+                <Value>15</Value>
+                <Value>3</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0x1</Value>
+                <Value>0x8</Value>
+                <Value>0x10100</Value>
+                <Value>0x28</Value>
+                <Value>-1</Value>
+                <Value>0x091a0000</Value>
+                <Value>-8</Value>
+            </Parameter>
+        </Row>
+        <Row Name="Or">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 | l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x1</Value>
+                <Value>0x01</Value>
+                <Value>0x7fff0000</Value>
+                <Value>0x11111111</Value>
+                <Value>0x137f</Value>
+                <Value>0x0</Value>
+                <Value>0x12345678</Value>
+                <Value>0xa341</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0x1</Value>
+                <Value>0xf0</Value>
+                <Value>0x0000ffff</Value>
+                <Value>0x22222222</Value>
+                <Value>0xec80</Value>
+                <Value>0x0</Value>
+                <Value>0x00000000</Value>
+                <Value>0x3471</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0x1</Value>
+                <Value>0xf1</Value>
+                <Value>0x7fffffff</Value>
+                <Value>0x33333333</Value>
+                <Value>0xffff</Value>
+                <Value>0x0</Value>
+                <Value>0x12345678</Value>
+                <Value>0xb771</Value>
+                <Value>-1</Value>
             </Parameter>
         </Row>
         <Row Name="IAdd">
@@ -1688,32 +1927,32 @@
                 <Value>10000</Value>
                 <Value>2147483647</Value>
                 <Value>2147483647</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Input2">
-                <Value>0</Value>
+                <Value>1</Value>
                 <Value>256</Value>
                 <Value>4</Value>
                 <Value>10001</Value>
-                <Value>0</Value>
+                <Value>2</Value>
                 <Value>2147483647</Value>
                 <Value>1</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
-                <Value>0xffffffff</Value>
+                <Value>1</Value>
                 <Value>0</Value>
                 <Value>2</Value>
                 <Value>0</Value>
-                <Value>0xffffffff</Value>
+                <Value>1073741823</Value>
                 <Value>1</Value>
-                <Value>0xffffffff</Value>
+                <Value>-1</Value>
             </Parameter>
             <Parameter Name="Validation.Expected2">
-                <Value>0xffffffff</Value>
+                <Value>0</Value>
                 <Value>1</Value>
                 <Value>2</Value>
                 <Value>10000</Value>
-                <Value>0xffffffff</Value>
+                <Value>1</Value>
                 <Value>0</Value>
                 <Value>0</Value>
             </Parameter>
@@ -1725,7 +1964,6 @@
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">double</ParameterType>
-            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
@@ -1812,7 +2050,6 @@
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">double</ParameterType>
-            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
@@ -1855,12 +2092,50 @@
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">double</ParameterType>
-            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
+        <Row Name="UMul">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+                uint input1;
+                uint input2;
+                uint output1;
+                uint output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 * l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>10</Value>
+                <Value>10000</Value>
+                <Value>2147483647</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>256</Value>
+                <Value>4</Value>
+                <Value>10001</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>256</Value>
+                <Value>40</Value>
+                <Value>100010000</Value>
+                <Value>0</Value>
+            </Parameter>
+        </Row>
         <Row Name="UMin">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
@@ -1943,6 +2218,61 @@
                 <Value>10001</Value>
                 <Value>2147483647</Value>
                 <Value>4294967295</Value>
+            </Parameter>
+        </Row>
+        <Row Name="UDiv">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+                uint input1;
+                uint input2;
+                uint output1;
+                uint output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 / l.input2;
+                l.output2 = l.input1 % l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>10</Value>
+                <Value>10000</Value>
+                <Value>2147483647</Value>
+                <Value>2147483647</Value>
+                <Value>0xffffffff</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>256</Value>
+                <Value>4</Value>
+                <Value>10001</Value>
+                <Value>0</Value>
+                <Value>2147483647</Value>
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0xffffffff</Value>
+                <Value>0</Value>
+                <Value>2</Value>
+                <Value>0</Value>
+                <Value>0xffffffff</Value>
+                <Value>1</Value>
+                <Value>0xffffffff</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected2">
+                <Value>0xffffffff</Value>
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>10000</Value>
+                <Value>0xffffffff</Value>
+                <Value>0</Value>
+                <Value>0</Value>
             </Parameter>
         </Row>
         <Row Name="USub">
@@ -2035,45 +2365,6 @@
                 <Value>54724</Value>
             </Parameter>
         </Row>
-        <Row Name="UMul">
-            <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
-                uint input1;
-                uint input2;
-                uint output1;
-                uint output2;
-            };
-            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = l.input1 * l.input2;
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>0</Value>
-                <Value>1</Value>
-                <Value>10</Value>
-                <Value>10000</Value>
-                <Value>2147483647</Value>
-            </Parameter>
-            <Parameter Name="Validation.Input2">
-                <Value>0</Value>
-                <Value>256</Value>
-                <Value>4</Value>
-                <Value>10001</Value>
-                <Value>0</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>0</Value>
-                <Value>256</Value>
-                <Value>40</Value>
-                <Value>100010000</Value>
-                <Value>0</Value>
-            </Parameter>
-        </Row>
         <Row Name="UAddc">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
@@ -2127,61 +2418,6 @@
                 <Value>0xffffffff</Value>
             </Parameter>
         </Row>
-        <Row Name="UDiv">
-            <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
-                uint input1;
-                uint input2;
-                uint output1;
-                uint output2;
-            };
-            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = l.input1 / l.input2;
-                l.output2 = l.input1 % l.input2;
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>1</Value>
-                <Value>1</Value>
-                <Value>10</Value>
-                <Value>10000</Value>
-                <Value>2147483647</Value>
-                <Value>2147483647</Value>
-                <Value>0xffffffff</Value>
-            </Parameter>
-            <Parameter Name="Validation.Input2">
-                <Value>0</Value>
-                <Value>256</Value>
-                <Value>4</Value>
-                <Value>10001</Value>
-                <Value>0</Value>
-                <Value>2147483647</Value>
-                <Value>1</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>0xffffffff</Value>
-                <Value>0</Value>
-                <Value>2</Value>
-                <Value>0</Value>
-                <Value>0xffffffff</Value>
-                <Value>1</Value>
-                <Value>0xffffffff</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected2">
-                <Value>0xffffffff</Value>
-                <Value>1</Value>
-                <Value>2</Value>
-                <Value>10000</Value>
-                <Value>0xffffffff</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-            </Parameter>
-        </Row>
     </Table>
     <Table Id="TertiaryUintOpTable">
         <ParameterTypes>
@@ -2189,7 +2425,6 @@
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">double</ParameterType>
-            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
@@ -2256,7 +2491,6 @@
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">double</ParameterType>
-            <ParameterType Name="Warp.Version">unsigned int</ParameterType>
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
@@ -2407,44 +2641,6 @@
             <ParameterType Array="true" Name="Validation.InputSet3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.InputSet4">String</ParameterType>
         </ParameterTypes>
-        <Row Name="WaveActiveAnyTrue">
-            <Parameter Name="ShaderOp.Name">WaveActiveAnyTrue</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        bool input;
-                        bool output;
-                    };
-                    RWStructuredBuffer&lt;PerThreadData&gt; g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveAnyTrue(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveAnyTrue(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };</Parameter>
-            <Parameter Name="Validation.NumInputSet">3</Parameter>
-            <Parameter Name="Validation.InputSet1">
-                <Value>1</Value>
-                <Value>0</Value>
-                <Value>1</Value>
-                <Value>0</Value>
-                <Value>1</Value>
-            </Parameter>
-            <Parameter Name="Validation.InputSet2">
-                <Value>1</Value>
-            </Parameter>
-            <Parameter Name="Validation.InputSet3">
-                <Value>0</Value>
-            </Parameter>
-        </Row>
         <Row Name="WaveActiveAllTrue">
             <Parameter Name="ShaderOp.Name">WaveActiveAllTrue</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
@@ -2481,6 +2677,44 @@
             </Parameter>
             <Parameter Name="Validation.InputSet3">
                 <Value>1</Value>
+            </Parameter>
+        </Row>
+        <Row Name="WaveActiveAnyTrue">
+            <Parameter Name="ShaderOp.Name">WaveActiveAnyTrue</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct PerThreadData {
+                        uint firstLaneId;
+                        uint laneIndex;
+                        int mask;
+                        bool input;
+                        bool output;
+                    };
+                    RWStructuredBuffer&lt;PerThreadData&gt; g_sb : register(u0);
+                    [numthreads(8,12,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveAnyTrue(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveAnyTrue(pts.input);
+                        }
+                        g_sb[GI] = pts;
+                    };</Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>0</Value>
             </Parameter>
         </Row>
         <Row Name="WaveActiveMin">
