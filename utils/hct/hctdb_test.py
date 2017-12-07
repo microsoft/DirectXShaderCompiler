@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import argparse
 
 parser = argparse.ArgumentParser(description="contains information about dxil op test cases.")
-parser.add_argument('mode', help='mode')
+parser.add_argument('mode', help="'gen-xml' or 'info'")
 
 g_db_dxil = None
 
@@ -39,7 +39,7 @@ shader_text: hlsl file that is used for testing dxil op
 
 class test_case(object):
     def __init__(self, test_name, insts, validation_type, validation_tolerance,
-                 input_lists, output_lists, shader_target, shader_text):
+                 input_lists, output_lists, shader_target, shader_text, **kwargs):
         self.test_name = test_name
         self.validation_type = validation_type
         self.validation_tolerance = validation_tolerance
@@ -48,6 +48,9 @@ class test_case(object):
         self.shader_target = shader_target
         self.shader_text = shader_text
         self.insts = insts # list of instructions each test case cover
+        self.warp_version = -1 # known warp version that works
+        for k,v in kwargs.items():
+            setattr(self, k, v)
 
 # Wrapper for each DXIL instruction
 class inst_node(object):
@@ -56,14 +59,14 @@ class inst_node(object):
         self.test_cases = []  # list of test_case
 
 def add_test_case(test_name, inst_names, validation_type, validation_tolerance,
-                  input_lists, output_lists, shader_target, shader_text, ):
+                  input_lists, output_lists, shader_target, shader_text, **kwargs):
     insts = []
     for inst_name in inst_names:
         assert (inst_name in g_instruction_nodes)
         insts += [g_instruction_nodes[inst_name].inst]
     case = test_case(test_name, insts, validation_type,
                     validation_tolerance, input_lists, output_lists,
-                    shader_target, shader_text)
+                    shader_target, shader_text, **kwargs)
     g_test_cases[test_name] = case
     # update instruction nodes
     for inst_name in inst_names:
@@ -71,6 +74,9 @@ def add_test_case(test_name, inst_names, validation_type, validation_tolerance,
 
 
 # This is a collection of test case for driver tests per instruction
+# Warning: For test cases, when you want to pass in signed integer,
+# make sure to pass in negative numbers with decimal values instead of hexadecimal representation.
+# For some reason, TAEF is not handling them properly.
 def add_test_cases():
     nan = float('nan')
     p_inf = float('inf')
@@ -174,7 +180,7 @@ def add_test_cases():
                 SUnaryFPOp l = g_buf[GI];
                 l.output = tanh(l.input);
                 g_buf[GI] = l;
-            };''')
+            };''', warp_version=16202)
     add_test_case('Acos', ['Acos'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1', '1.5',
         '-1.5'
@@ -223,7 +229,7 @@ def add_test_cases():
                 SUnaryFPOp l = g_buf[GI];
                 l.output = atan(l.input);
                 g_buf[GI] = l;
-            };''')
+            };''', warp_version=16202)
     add_test_case('Exp', ['Exp'], 'Relative', 21,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '10']],
         [['NaN', '0', '1', '1', '1', '1', 'Inf', '0.367879441', '22026.46579']
@@ -441,7 +447,7 @@ def add_test_cases():
                 else
                     l.output = 0;
                 g_buf[GI] = l;
-            };''')
+            };''', warp_version=16202)
     add_test_case('FAbs', ['FAbs'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0']
          ], [['NaN', 'Inf', 'denorm', '0', '0', 'denorm', 'Inf', '1', '1']],
@@ -732,10 +738,10 @@ def add_test_cases():
                 g_buf[GI] = l;
             };''')
     add_test_case('IDiv', ['SDiv', 'SRem'], 'Epsilon', 0,
-        [['1', '1', '10', '10000', '2147483647', '2147483647', '0xffffffff'],
-         ['0', '256', '4', '10001', '0', '2147483647', '1']],
-        [['0xffffffff', '0', '2', '0', '0xffffffff', '1', '0xffffffff'],
-         ['0xffffffff', '1', '2', '10000', '0xffffffff', '0', '0']], 'cs_6_0',
+        [['1', '1', '10', '10000', '2147483647', '2147483647', '-1'],
+         ['1', '256', '4', '10001', '2', '2147483647', '1']],
+        [['1', '0', '2', '0', '1073741823', '1', '-1'],
+         ['0', '1', '2', '10000', '1', '0', '0']], 'cs_6_0',
         ''' struct SBinaryUintOp {
                 int input1;
                 int input2;
@@ -750,6 +756,96 @@ def add_test_cases():
                 l.output2 = l.input1 % l.input2;
                 g_buf[GI] = l;
             };''')
+    add_test_case('Shl', ['Shl'], 'Epsilon', 0,
+        [['1', '1', '0x1010', '0xa', '-1', '0x12341234', '-1'],
+         ['0', '259', '4', '2', '0', '15', '3']],
+        [['0x1', '0x8', '0x10100', '0x28', '-1','0x091a0000', '-8']], 'cs_6_0',
+        ''' struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 << l.input2;
+                g_buf[GI] = l;
+            };''')
+    add_test_case("LShr", ['LShr'], 'Epsilon', 0,
+        [['1', '1', '0xffff', '0x7fffffff', '0x70001234', '0x12340ab3', '0x7fffffff'],
+        ['0', '1', '4', '30', '15', '16', '1']],
+        [['1', '0', '0xfff', '1', '0xe000', '0x1234', '0x3fffffff']], 'cs_6_0',
+        ''' struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 >> l.input2;
+                g_buf[GI] = l;
+            };'''
+    )
+    add_test_case("And", ['And'], 'Epsilon', 0,
+        [['0x1', '0x01', '0x7fff0000', '0x33333333', '0x137f', '0x12345678', '0xa341', '-1'],
+         ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '-1', '0x3471', '-1']],
+        [['0x1', '0x00', '0x0', '0x22222222', '0x0', '0x12345678', '0x2041', '-1']], 'cs_6_0',
+        ''' struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 & l.input2;
+                g_buf[GI] = l;
+            };'''
+    )
+    add_test_case("Or", ['Or'], 'Epsilon', 0,
+        [['0x1', '0x01', '0x7fff0000', '0x11111111', '0x137f', '0x0', '0x12345678', '0xa341', '-1'],
+         ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '0x0', '0x00000000', '0x3471', '-1']],
+        [['0x1', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0xb771', '-1']], 'cs_6_0',
+        ''' struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 | l.input2;
+                g_buf[GI] = l;
+            };'''
+    )
+    add_test_case("Xor", ['Xor'], 'Epsilon', 0,
+        [['0x1', '0x01', '0x7fff0000', '0x11111111', '0x137f', '0x0', '0x12345678', '0xa341', '-1'],
+         ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '0x0', '0x00000000', '0x3471', '-1']],
+        [['0x0', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0x9730', '0x00000000']], 'cs_6_0',
+        ''' struct SBinaryUintOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 ^ l.input2;
+                g_buf[GI] = l;
+            };'''
+    )
+
     # Binary Uint
     add_test_case('UAdd', ['Add'], 'Epsilon', 0,
                   [['2147483648', '4294967285', '0', '0', '10', '2147483647', '486'],
@@ -1456,7 +1552,7 @@ def add_test_cases():
 # TODO: ElementTree is not generating formatted XML. Currently xml file is checked in after VS Code formatter.
 # Implement xml formatter or import formatter library and use that instead.
 
-def generate_parameter_types(table, num_inputs, num_outputs):
+def generate_parameter_types(table, num_inputs, num_outputs, has_known_warp_issue=False):
     param_types = ET.SubElement(table, "ParameterTypes")
     ET.SubElement(
         param_types, "ParameterType", attrib={
@@ -1474,10 +1570,6 @@ def generate_parameter_types(table, num_inputs, num_outputs):
         param_types, "ParameterType", attrib={
             "Name": "Validation.Tolerance"
         }).text = "double"
-    ET.SubElement(
-        param_types, "ParameterType", attrib={
-            "Name": "Warp.Version"
-        }).text = "unsigned int"  # warp version that is known to pass
     for i in range(0, num_inputs):
         ET.SubElement(
             param_types,
@@ -1494,7 +1586,8 @@ def generate_parameter_types(table, num_inputs, num_outputs):
                 "Name": 'Validation.Expected{}'.format(i + 1),
                 'Array': 'true'
             }).text = "String"
-
+    if has_known_warp_issue:
+        ET.SubElement(param_types, "ParameterType", attrib={"Name":"Warp.Version"}).text = "unsigned int"
 
 def generate_parameter_types_wave(table):
     param_types = ET.SubElement(table, "ParameterTypes")
@@ -1608,7 +1701,8 @@ def generate_row(table, case):
         })
         for val in case.output_lists[i]:
             ET.SubElement(outputs, "Value").text = str(val)
-
+    if case.warp_version > 0:
+        ET.SubElement(row, "Parameter", {"Name":"Warp.Version"}).text = str(case.warp_version)
 
 def generate_row_wave(table, case):
     row = ET.SubElement(table, "Row", {"Name": case.test_name})
@@ -1638,7 +1732,7 @@ def generate_table_for_taef():
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
                 "Id": "UnaryFloatOpTable"
-            }), 1, 1)
+            }), 1, 1, True)
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
                 "Id": "BinaryFloatOpTable"
