@@ -362,7 +362,7 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
 
     FunctionDecl* fnDecl = dyn_cast_or_null<FunctionDecl>(*tuDecl);
     if (fnDecl != nullptr) {
-      if (fnDecl->hasBody()) {
+      if (fnDecl->doesThisDeclarationHaveABody()) {
         unusedFunctions.insert(fnDecl);
       }
     }
@@ -404,9 +404,8 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
         w << "//found " << unusedGlobals.size() << " globals to remove\n";
 
         // Don't remove visited functions.
-        auto visitedFunctionsEnd = visitedFunctions.end();
-        for (auto && visitedFn = visitedFunctions.begin(); visitedFn != visitedFunctionsEnd; ++visitedFn) {
-          unusedFunctions.erase(*visitedFn);
+        for (FunctionDecl *visitedFn : visitedFunctions) {
+          unusedFunctions.erase(visitedFn);
         }
         w << "//found " << unusedFunctions.size() << " functions to remove\n";
 
@@ -416,9 +415,8 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
           tu->removeDecl(*unusedGlobal);
         }
 
-        auto functionsEnd = unusedFunctions.end();
-        for (auto && unusedFn = unusedFunctions.begin(); unusedFn != functionsEnd; ++unusedFn) {
-          tu->removeDecl(*unusedFn);
+        for (FunctionDecl *unusedFn : unusedFunctions) {
+          tu->removeDecl(unusedFn);
         }
 
         o << "// Rewrite unused globals result:\n";
