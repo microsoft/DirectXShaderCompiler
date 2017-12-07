@@ -2350,11 +2350,9 @@ uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
       /*sampleNumber*/ 0, status);
 }
 
-SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(const Expr *object,
-                                                     const uint32_t locationId,
-                                                     uint32_t constOffset,
-                                                     uint32_t varOffset,
-                                                     uint32_t lod) {
+SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
+    const Expr *object, const uint32_t locationId, uint32_t constOffset,
+    uint32_t varOffset, uint32_t lod, uint32_t residencyCode) {
   // Loading for Buffer and RWBuffer translates to an OpImageFetch.
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
@@ -2393,10 +2391,9 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(const Expr *object,
 
   // OpImageFetch and OpImageRead can only fetch a vector of 4 elements.
   const uint32_t texelTypeId = theBuilder.getVecType(elemTypeId, 4u);
-  const uint32_t texel =
-      theBuilder.createImageFetchOrRead(doFetch, texelTypeId, type, objectId,
-                                        locationId, lod, constOffset, varOffset,
-                                        /*constOffsets*/ 0, sampleNumber);
+  const uint32_t texel = theBuilder.createImageFetchOrRead(
+      doFetch, texelTypeId, type, objectId, locationId, lod, constOffset,
+      varOffset, /*constOffsets*/ 0, sampleNumber, residencyCode);
 
   uint32_t retVal = texel;
   // If the result type is a vec1, vec2, or vec3, some extra processing
@@ -2436,7 +2433,7 @@ SpirvEvalInfo SPIRVEmitter::processByteAddressBufferLoadStore(
            typeTranslator.isByteAddressBuffer(type));
     if (expr->getNumArgs() == 2) {
       emitError(
-          "(RW)ByteAddressBuffer::Load(in address, out status) unimplemented",
+          "(RW)ByteAddressBuffer::Load(in address, out status) not supported",
           expr->getExprLoc());
       return 0;
     }
@@ -2512,8 +2509,9 @@ SpirvEvalInfo SPIRVEmitter::processByteAddressBufferLoadStore(
 SpirvEvalInfo
 SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   if (expr->getNumArgs() == 2) {
-    emitError("(RW)StructuredBuffer::Load(int, int) unimplemented",
-              expr->getExprLoc());
+    emitError(
+        "(RW)StructuredBuffer::Load(in location, out status) not supported",
+        expr->getExprLoc());
     return 0;
   }
 
@@ -2643,19 +2641,6 @@ void SPIRVEmitter::handleOffsetInMethodCall(const CXXMemberCallExpr *expr,
   else
     *varOffset = doExpr(expr->getArg(index));
 };
-
-void SPIRVEmitter::handleOptionalOffsetInMethodCall(
-    const CXXMemberCallExpr *expr, uint32_t index, uint32_t *constOffset,
-    uint32_t *varOffset) {
-  *constOffset = *varOffset = 0; // Initialize both first
-
-  if (expr->getNumArgs() == index + 1) { // Has offset argument
-    if (*constOffset = tryToEvaluateAsConst(expr->getArg(index)))
-      return; // Constant offset
-    else
-      *varOffset = doExpr(expr->getArg(index));
-  }
-}
 
 SpirvEvalInfo
 SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
@@ -3074,12 +3059,38 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
 SpirvEvalInfo
 SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
   // Signature:
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray, Texture3D:
+  // ret Object.Load(int Location
+  //                 [, int Offset]
+  //                 [, uint status]);
+  //
+  // For Texture2DMS and Texture2DMSArray, there is one additional argument:
   // ret Object.Load(int Location
   //                 [, int SampleIndex]
-  //                 [, int Offset]);
+  //                 [, int Offset]
+  //                 [, uint status]);
+  //
+  // For (RW)Buffer, RWTexture1D, RWTexture1DArray, RWTexture2D,
+  // RWTexture2DArray, RWTexture3D: 
+  // ret Object.Load (int Location
+  //                  [, uint status]);
+  //
+  // Note: (RW)ByteAddressBuffer and (RW)StructuredBuffer types also have Load
+  // methods that take an additional Status argument. However, since these types
+  // are not represented as OpTypeImage in SPIR-V, we don't have a way of
+  // figuring out the Residency Code for them. Therefore having the Status
+  // argument for these types is not supported.
+  //
+  // For (RW)ByteAddressBuffer:
+  // ret Object.{Load,Load2,Load3,Load4} (int Location
+  //                                      [, uint status]);
+  //
+  // For (RW)StructuredBuffer:
+  // ret Object.Load (int Location
+  //                  [, uint status]);
+  //
 
   const auto *object = expr->getImplicitObjectArgument();
-  const auto *location = expr->getArg(0);
   const auto objectType = object->getType();
 
   if (typeTranslator.isRWByteAddressBuffer(objectType) ||
@@ -3089,10 +3100,23 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
   if (TypeTranslator::isStructuredBuffer(objectType))
     return processStructuredBufferLoad(expr);
 
+  const auto numArgs = expr->getNumArgs();
+  const auto *location = expr->getArg(0);
+  const bool isTextureMS = TypeTranslator::isTextureMS(objectType);
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
+
   if (TypeTranslator::isBuffer(objectType) ||
-      TypeTranslator::isRWBuffer(objectType) ||
-      TypeTranslator::isRWTexture(objectType))
-    return processBufferTextureLoad(object, doExpr(location));
+    TypeTranslator::isRWBuffer(objectType) ||
+    TypeTranslator::isRWTexture(objectType))
+    return processBufferTextureLoad(object, doExpr(location), /*constOffset*/ 0,
+                                    /*varOffset*/ 0, /*lod*/ 0,
+                                    /*residencyCode*/ status);
+
+  // Subtract 1 for status (if it exists), and 1 for sampleIndex (if it exists),
+  // and 1 for location.
+  const bool hasOffsetArg = numArgs - hasStatusArg - isTextureMS - 1 > 0;
 
   if (TypeTranslator::isTexture(objectType)) {
     // .Load() has a second optional paramter for offset.
@@ -3100,12 +3124,13 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
     uint32_t constOffset = 0, varOffset = 0;
     uint32_t coordinate = locationId, lod = 0;
 
-    if (TypeTranslator::isTextureMS(objectType)) {
+    if (isTextureMS) {
       // SampleIndex is only available when the Object is of Texture2DMS or
       // Texture2DMSArray types. Under those cases, Offset will be the third
       // parameter (index 2).
       lod = doExpr(expr->getArg(1));
-      handleOptionalOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
+      if(hasOffsetArg)
+        handleOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
     } else {
       // For Texture Load() functions, the location parameter is a vector
       // that consists of both the coordinate and the mipmap level (via the
@@ -3114,11 +3139,12 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
       splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
       // For textures other than Texture2DMS(Array), offset should be the
       // second parameter (index 1).
-      handleOptionalOffsetInMethodCall(expr, 1, &constOffset, &varOffset);
+      if(hasOffsetArg)
+        handleOffsetInMethodCall(expr, 1, &constOffset, &varOffset);
     }
 
     return processBufferTextureLoad(object, coordinate, constOffset, varOffset,
-                                    lod);
+                                    lod, status);
   }
   emitError("Load() of the given object type unimplemented",
             object->getExprLoc());
@@ -3158,13 +3184,15 @@ SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
                                ? theBuilder.getConstantUint32(0)
                                : 0;
       return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
-                                      /*constOffset*/ 0, /*varOffset*/ 0, lod);
+                                      /*constOffset*/ 0, /*varOffset*/ 0, lod,
+                                      /*residencyCode*/ 0);
     }
     // .mips[][] or .sample[][] must use the correct slice.
     if (isTextureMipsSampleIndexing(expr, &baseExpr, &indexExpr, &lodExpr)) {
       const uint32_t lod = doExpr(lodExpr);
       return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
-                                      /*constOffset*/ 0, /*varOffset*/ 0, lod);
+                                      /*constOffset*/ 0, /*varOffset*/ 0, lod,
+                                      /*residencyCode*/ 0);
     }
   }
 
