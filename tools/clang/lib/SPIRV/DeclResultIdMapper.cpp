@@ -275,24 +275,27 @@ uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
 uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
   auto rule = LayoutRule::Void;
-  bool isACSBuffer = false; // Whether its {Append|Consume}StructuredBuffer
+  bool isACRWSBuffer = false; // Whether its {Append|Consume|RW}StructuredBuffer
 
   if (var->getAttr<HLSLGroupSharedAttr>()) {
     // For CS groupshared variables
     storageClass = spv::StorageClass::Workgroup;
   } else if (auto *t = var->getType()->getAs<RecordType>()) {
     const llvm::StringRef typeName = t->getDecl()->getName();
-    if (typeName == "StructuredBuffer" || typeName == "RWStructuredBuffer" ||
-        typeName == "ByteAddressBuffer" || typeName == "RWByteAddressBuffer" ||
-        typeName == "AppendStructuredBuffer" ||
-        typeName == "ConsumeStructuredBuffer") {
-      // These types are all translated into OpTypeStruct with BufferBlock
-      // decoration. They should follow standard storage buffer layout,
-      // which GLSL std430 rules statisfies.
+
+    // These types are all translated into OpTypeStruct with BufferBlock
+    // decoration. They should follow standard storage buffer layout,
+    // which GLSL std430 rules statisfies.
+    if (typeName == "StructuredBuffer" || typeName == "ByteAddressBuffer" ||
+        typeName == "RWByteAddressBuffer") {
       storageClass = spv::StorageClass::Uniform;
       rule = LayoutRule::GLSLStd430;
-      isACSBuffer =
-          typeName.startswith("Append") || typeName.startswith("Consume");
+    } else if (typeName == "RWStructuredBuffer" ||
+               typeName == "AppendStructuredBuffer" ||
+               typeName == "ConsumeStructuredBuffer") {
+      storageClass = spv::StorageClass::Uniform;
+      rule = LayoutRule::GLSLStd430;
+      isACRWSBuffer = true;
     }
   }
 
@@ -309,8 +312,8 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   resourceVars.emplace_back(id, getResourceCategory(var->getType()), regAttr,
                             bindingAttr, counterBindingAttr);
 
-  if (isACSBuffer) {
-    // For {Append|Consume}StructuredBuffer, we need to always create another
+  if (isACRWSBuffer) {
+    // For {Append|Consume|RW}StructuredBuffer, we need to always create another
     // variable for its associated counter.
     createCounterVar(var);
   }

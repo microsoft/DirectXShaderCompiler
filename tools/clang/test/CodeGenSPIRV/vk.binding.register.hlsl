@@ -71,6 +71,9 @@ ConsumeStructuredBuffer<S> csbuffer : register(u7);
 // CHECK:      OpDecorate %sampler4 DescriptorSet 0
 // CHECK-NEXT: OpDecorate %sampler4 Binding 2
 
+// CHECK-NEXT: OpDecorate %counter_var_sbuffer2 DescriptorSet 1
+// CHECK-NEXT: OpDecorate %counter_var_sbuffer2 Binding 0
+
 // CHECK-NEXT: OpDecorate %counter_var_abuffer DescriptorSet 0
 // CHECK-NEXT: OpDecorate %counter_var_abuffer Binding 4
 
