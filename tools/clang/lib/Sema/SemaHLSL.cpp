@@ -10330,6 +10330,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
       ValidateAttributeStringArg(S, A, nullptr, 0), ValidateAttributeStringArg(S, A, nullptr, 1),
       A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_NoInline:
+    declAttr = ::new (S.Context) NoInlineAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
@@ -11425,7 +11428,12 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "[maxvertexcount(" << ACast->getCount() << ")]\n";
     break;
   }
-  
+
+  case clang::attr::NoInline:
+    Indent(Indentation, Out);
+    Out << "[noinline]\n";
+    break;
+
   // Statement attributes
   case clang::attr::HLSLAllowUAVCondition:
     Indent(Indentation, Out);
@@ -11573,6 +11581,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLTriangle:
   case clang::attr::HLSLTriangleAdj:
   case clang::attr::HLSLGloballyCoherent:
+  case clang::attr::NoInline:
     return true;
   }
   

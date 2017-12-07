@@ -141,13 +141,13 @@ int uav() {
       |-BinaryOperator <col:8, col:12> 'uint':'unsigned int' '='
       | |-DeclRefExpr <col:8> 'uint':'unsigned int' lvalue Var 'i' 'uint':'unsigned int'
       | `-ImplicitCastExpr <col:12> 'uint':'unsigned int' <LValueToRValue>
-      |   `-DeclRefExpr <col:12> 'uint':'unsigned int' lvalue Var 'g_dealiasTableOffset' 'uint':'unsigned int'
+      |   `-DeclRefExpr <col:12> 'const uint':'const unsigned int' lvalue Var 'g_dealiasTableOffset' 'const uint':'const unsigned int'
       |-<<<NULL>>>
       |-BinaryOperator <col:34, col:38> 'const bool' '<'
       | |-ImplicitCastExpr <col:34> 'uint':'unsigned int' <LValueToRValue>
       | | `-DeclRefExpr <col:34> 'uint':'unsigned int' lvalue Var 'i' 'uint':'unsigned int'
       | `-ImplicitCastExpr <col:38> 'uint':'unsigned int' <LValueToRValue>
-      |   `-DeclRefExpr <col:38> 'uint':'unsigned int' lvalue Var 'g_dealiasTableSize' 'uint':'unsigned int'
+      |   `-DeclRefExpr <col:38> 'const uint':'const unsigned int' lvalue Var 'g_dealiasTableSize' 'const uint':'const unsigned int'
       |-UnaryOperator <col:58, col:60> 'uint':'unsigned int' lvalue prefix '++'
       | `-DeclRefExpr <col:60> 'uint':'unsigned int' lvalue Var 'i' 'uint':'unsigned int'
       `-CompoundStmt <col:63, line:156:3>
@@ -201,31 +201,31 @@ void all_wrong() { }
 [patchconstantfunc("PatchFoo")]
 HSFoo HSMain( InputPatch<HSFoo, 16> p,
 /*verify-ast
-  FunctionDecl <col:1, line:229:1> line:202:7 HSMain 'HSFoo (InputPatch<HSFoo, 16>, uint, uint)'
+  FunctionDecl <col:1, line:276:1> line:202:7 HSMain 'HSFoo (InputPatch<HSFoo, 16>, uint, uint)'
   |-ParmVarDecl <col:15, col:37> col:37 used p 'InputPatch<HSFoo, 16>':'InputPatch<HSFoo, 16>'
-  |-ParmVarDecl <line:221:15, col:20> col:20 used i 'uint':'unsigned int'
+  |-ParmVarDecl <line:268:15, col:20> col:20 used i 'uint':'unsigned int'
   | `-SemanticDecl <col:24> "SV_OutputControlPointID"
-  |-ParmVarDecl <line:222:15, col:20> col:20 used PatchID 'uint':'unsigned int'
+  |-ParmVarDecl <line:269:15, col:20> col:20 used PatchID 'uint':'unsigned int'
   | `-SemanticDecl <col:30> "SV_PrimitiveID"
-  |-CompoundStmt <line:223:1, line:229:1>
-  | |-DeclStmt <line:224:5, col:17>
+  |-CompoundStmt <line:270:1, line:276:1>
+  | |-DeclStmt <line:271:5, col:17>
   | | `-VarDecl <col:5, col:11> col:11 used output 'HSFoo' nrvo
-  | |-DeclStmt <line:225:5, col:41>
+  | |-DeclStmt <line:272:5, col:41>
   | | `-VarDecl <col:5, col:40> col:12 used r 'float4':'vector<float, 4>' cinit
   | |   `-CXXFunctionalCastExpr <col:16, col:40> 'float4':'vector<float, 4>' functional cast to float4 <NoOp>
   | |     `-InitListExpr <col:23, col:39> 'float4':'vector<float, 4>'
-  | |       |-MemberExpr <col:23, col:34> 'float3':'vector<float, 3>' .pos
-  | |       | `-CXXOperatorCallExpr <col:23, col:32> 'HSFoo'
-  | |       |   |-ImplicitCastExpr <col:24, col:32> 'HSFoo (*)(vector<uint, 1>) const' <FunctionToPointerDecay>
-  | |       |   | `-DeclRefExpr <col:24, col:32> 'HSFoo (vector<uint, 1>) const' lvalue CXXMethod 'operator[]' 'HSFoo (vector<uint, 1>) const'
-  | |       |   |-ImplicitCastExpr <col:23> 'const InputPatch<HSFoo, 16>' lvalue <NoOp>
-  | |       |   | `-DeclRefExpr <col:23> 'InputPatch<HSFoo, 16>':'InputPatch<HSFoo, 16>' lvalue ParmVar 'p' 'InputPatch<HSFoo, 16>':'InputPatch<HSFoo, 16>'
-  | |       |   `-ImplicitCastExpr <col:25> 'vector<uint, 1>':'vector<unsigned int, 1>' <HLSLVectorSplat>
+  | |       |-ImplicitCastExpr <col:23, col:34> 'const float3':'const vector<float, 3>' <LValueToRValue>
+  | |       | `-MemberExpr <col:23, col:34> 'const float3':'const vector<float, 3>' lvalue .pos
+  | |       |   `-CXXOperatorCallExpr <col:23, col:32> 'const HSFoo' lvalue
+  | |       |     |-ImplicitCastExpr <col:24, col:32> 'const HSFoo &(*)(unsigned int) const' <FunctionToPointerDecay>
+  | |       |     | `-DeclRefExpr <col:24, col:32> 'const HSFoo &(unsigned int) const' lvalue CXXMethod 'operator[]' 'const HSFoo &(unsigned int) const'
+  | |       |     |-ImplicitCastExpr <col:23> 'const InputPatch<HSFoo, 16>' lvalue <NoOp>
+  | |       |     | `-DeclRefExpr <col:23> 'InputPatch<HSFoo, 16>':'InputPatch<HSFoo, 16>' lvalue ParmVar 'p' 'InputPatch<HSFoo, 16>':'InputPatch<HSFoo, 16>'
   | |       |     `-ImplicitCastExpr <col:25> 'uint':'unsigned int' <LValueToRValue>
   | |       |       `-DeclRefExpr <col:25> 'uint':'unsigned int' lvalue ParmVar 'PatchID' 'uint':'unsigned int'
   | |       `-ImplicitCastExpr <col:39> 'float' <IntegralToFloating>
   | |         `-IntegerLiteral <col:39> 'literal int' 1
-  | |-CompoundAssignOperator <line:226:5, col:30> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+  | |-CompoundAssignOperator <line:273:5, col:30> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
   | | |-DeclRefExpr <col:5> 'float4':'vector<float, 4>' lvalue Var 'r' 'float4':'vector<float, 4>'
   | | `-CXXMemberCallExpr <col:10, col:30> 'vector<float, 4>'
   | |   |-MemberExpr <col:10, col:20> '<bound member function type>' .Load
@@ -240,24 +240,25 @@ HSFoo HSMain( InputPatch<HSFoo, 16> p,
   | |     `-ImplicitCastExpr <col:25, col:27> 'vector<float, 3>':'vector<float, 3>' <LValueToRValue>
   | |       `-HLSLVectorElementExpr <col:25, col:27> 'vector<float, 3>':'vector<float, 3>' lvalue vectorcomponent xyz
   | |         `-DeclRefExpr <col:25> 'float4':'vector<float, 4>' lvalue Var 'r' 'float4':'vector<float, 4>'
-  | |-BinaryOperator <line:227:5, col:31> 'float3':'vector<float, 3>' '='
+  | |-BinaryOperator <line:274:5, col:31> 'float3':'vector<float, 3>' '='
   | | |-MemberExpr <col:5, col:12> 'float3':'vector<float, 3>' lvalue .pos
   | | | `-DeclRefExpr <col:5> 'HSFoo' lvalue Var 'output' 'HSFoo'
   | | `-BinaryOperator <col:18, col:31> 'vector<float, 3>' '+'
-  | |   |-MemberExpr <col:18, col:23> 'float3':'vector<float, 3>' .pos
-  | |   | `-CXXOperatorCallExpr <col:18, col:21> 'HSFoo'
-  | |   |   |-ImplicitCastExpr <col:19, col:21> 'HSFoo (*)(vector<uint, 1>) const' <FunctionToPointerDecay>
-  | |   |   | `-DeclRefExpr <col:19, col:21> 'HSFoo (vector<uint, 1>) const' lvalue CXXMethod 'operator[]' 'HSFoo (vector<uint, 1>) const'
-  | |   |   |-ImplicitCastExpr <col:18> 'const InputPatch<HSFoo, 16>' lvalue <NoOp>
-  | |   |   | `-DeclRefExpr <col:18> 'InputPatch<HSFoo, 16>':'InputPatch<HSFoo, 16>' lvalue ParmVar 'p' 'InputPatch<HSFoo, 16>':'InputPatch<HSFoo, 16>'
-  | |   |   `-ImplicitCastExpr <col:20> 'vector<uint, 1>':'vector<unsigned int, 1>' <HLSLVectorSplat>
+  | |   |-ImplicitCastExpr <col:18, col:23> 'float3':'vector<float, 3>' <LValueToRValue>
+  | |   | `-MemberExpr <col:18, col:23> 'const float3':'const vector<float, 3>' lvalue .pos
+  | |   |   `-CXXOperatorCallExpr <col:18, col:21> 'const HSFoo' lvalue
+  | |   |     |-ImplicitCastExpr <col:19, col:21> 'const HSFoo &(*)(unsigned int) const' <FunctionToPointerDecay>
+  | |   |     | `-DeclRefExpr <col:19, col:21> 'const HSFoo &(unsigned int) const' lvalue CXXMethod 'operator[]' 'const HSFoo &(unsigned int) const'
+  | |   |     |-ImplicitCastExpr <col:18> 'const InputPatch<HSFoo, 16>' lvalue <NoOp>
+  | |   |     | `-DeclRefExpr <col:18> 'InputPatch<HSFoo, 16>':'InputPatch<HSFoo, 16>' lvalue ParmVar 'p' 'InputPatch<HSFoo, 16>':'InputPatch<HSFoo, 16>'
   | |   |     `-ImplicitCastExpr <col:20> 'uint':'unsigned int' <LValueToRValue>
   | |   |       `-DeclRefExpr <col:20> 'uint':'unsigned int' lvalue ParmVar 'i' 'uint':'unsigned int'
   | |   `-ImplicitCastExpr <col:29, col:31> 'vector<float, 3>':'vector<float, 3>' <LValueToRValue>
   | |     `-HLSLVectorElementExpr <col:29, col:31> 'vector<float, 3>':'vector<float, 3>' lvalue vectorcomponent xyz
   | |       `-DeclRefExpr <col:29> 'float4':'vector<float, 4>' lvalue Var 'r' 'float4':'vector<float, 4>'
-  | `-ReturnStmt <line:228:5, col:12>
-  |   `-DeclRefExpr <col:12> 'HSFoo' lvalue Var 'output' 'HSFoo'
+  | `-ReturnStmt <line:275:5, col:12>
+  |   `-ImplicitCastExpr <col:12> 'HSFoo' <LValueToRValue>
+  |     `-DeclRefExpr <col:12> 'HSFoo' lvalue Var 'output' 'HSFoo'
   |-HLSLPatchConstantFuncAttr <line:201:2, col:30> "PatchFoo"
   |-HLSLOutputControlPointsAttr <line:200:2, col:24> 16
   |-HLSLOutputTopologyAttr <line:199:2, col:30> "triangle_cw"
@@ -368,16 +369,16 @@ void clipplanes_bad_scalar_swizzle();
 
 [clipplanes(
 /*verify-ast
-  HLSLClipPlanesAttr <col:2, line:343:3>
-  |-DeclRefExpr <line:340:3> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
-  |-ArraySubscriptExpr <line:341:3, col:8> 'float4':'vector<float, 4>' lvalue
-  | |-ImplicitCastExpr <col:3> 'float4 [2]' <LValueToRValue>
-  | | `-DeclRefExpr <col:3> 'float4 [2]' lvalue Var 'cp4' 'float4 [2]'
+  HLSLClipPlanesAttr <col:2, line:390:3>
+  |-DeclRefExpr <line:387:3> 'const float4':'const vector<float, 4>' lvalue Var 'f4' 'const float4':'const vector<float, 4>'
+  |-ArraySubscriptExpr <line:388:3, col:8> 'const float4':'const vector<float, 4>' lvalue
+  | |-ImplicitCastExpr <col:3> 'const float4 [2]' <LValueToRValue>
+  | | `-DeclRefExpr <col:3> 'const float4 [2]' lvalue Var 'cp4' 'const float4 [2]'
   | `-IntegerLiteral <col:7> 'literal int' 0
-  |-ArraySubscriptExpr <line:342:3, col:11> 'float4':'vector<float, 4>' lvalue
+  |-ArraySubscriptExpr <line:389:3, col:11> 'float4':'vector<float, 4>' lvalue
   | |-ImplicitCastExpr <col:3, col:6> 'float4 [5]' <LValueToRValue>
-  | | `-MemberExpr <col:3, col:6> 'float4 [5]' lvalue .cp5
-  | |   `-DeclRefExpr <col:3> 'global_struct' lvalue Var 'gs' 'global_struct'
+  | | `-MemberExpr <col:3, col:6> 'float4 const[5]' lvalue .cp5
+  | |   `-DeclRefExpr <col:3> 'const global_struct' lvalue Var 'gs' 'const global_struct'
   | `-IntegerLiteral <col:10> 'literal int' 2
   |-<<<NULL>>>
   |-<<<NULL>>>
@@ -392,26 +393,26 @@ float4 clipplanes_good();
 
 [clipplanes(
 /*verify-ast
-  HLSLClipPlanesAttr <col:2, line:377:3>
-  |-ParenExpr <line:373:3, col:6> 'float4':'vector<float, 4>' lvalue
-  | `-DeclRefExpr <col:4> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
-  |-ArraySubscriptExpr <line:374:3, col:10> 'float4':'vector<float, 4>' lvalue
-  | |-ImplicitCastExpr <col:3> 'float4 [2]' <LValueToRValue>
-  | | `-DeclRefExpr <col:3> 'float4 [2]' lvalue Var 'cp4' 'float4 [2]'
+  HLSLClipPlanesAttr <col:2, line:424:3>
+  |-ParenExpr <line:420:3, col:6> 'const float4':'const vector<float, 4>' lvalue
+  | `-DeclRefExpr <col:4> 'const float4':'const vector<float, 4>' lvalue Var 'f4' 'const float4':'const vector<float, 4>'
+  |-ArraySubscriptExpr <line:421:3, col:10> 'const float4':'const vector<float, 4>' lvalue
+  | |-ImplicitCastExpr <col:3> 'const float4 [2]' <LValueToRValue>
+  | | `-DeclRefExpr <col:3> 'const float4 [2]' lvalue Var 'cp4' 'const float4 [2]'
   | `-ParenExpr <col:7, col:9> 'literal int'
   |   `-IntegerLiteral <col:8> 'literal int' 0
-  |-ArraySubscriptExpr <line:375:3, col:13> 'float4':'vector<float, 4>' lvalue
+  |-ArraySubscriptExpr <line:422:3, col:13> 'float4':'vector<float, 4>' lvalue
   | |-ImplicitCastExpr <col:3, col:8> 'float4 [5]' <LValueToRValue>
-  | | `-MemberExpr <col:3, col:8> 'float4 [5]' lvalue .cp5
-  | |   `-ParenExpr <col:3, col:6> 'global_struct' lvalue
-  | |     `-DeclRefExpr <col:4> 'global_struct' lvalue Var 'gs' 'global_struct'
+  | | `-MemberExpr <col:3, col:8> 'float4 const[5]' lvalue .cp5
+  | |   `-ParenExpr <col:3, col:6> 'const global_struct' lvalue
+  | |     `-DeclRefExpr <col:4> 'const global_struct' lvalue Var 'gs' 'const global_struct'
   | `-IntegerLiteral <col:12> 'literal int' 2
-  |-ParenExpr <line:376:3, col:15> 'float4':'vector<float, 4>' lvalue
+  |-ParenExpr <line:423:3, col:15> 'float4':'vector<float, 4>' lvalue
   | `-ArraySubscriptExpr <col:4, col:14> 'float4':'vector<float, 4>' lvalue
   |   |-ImplicitCastExpr <col:4, col:9> 'float4 [5]' <LValueToRValue>
-  |   | `-MemberExpr <col:4, col:9> 'float4 [5]' lvalue .cp5
-  |   |   `-ParenExpr <col:4, col:7> 'global_struct' lvalue
-  |   |     `-DeclRefExpr <col:5> 'global_struct' lvalue Var 'gs' 'global_struct'
+  |   | `-MemberExpr <col:4, col:9> 'float4 const[5]' lvalue .cp5
+  |   |   `-ParenExpr <col:4, col:7> 'const global_struct' lvalue
+  |   |     `-DeclRefExpr <col:5> 'const global_struct' lvalue Var 'gs' 'const global_struct'
   |   `-IntegerLiteral <col:13> 'literal int' 2
   |-<<<NULL>>>
   `-<<<NULL>>>
@@ -729,4 +730,9 @@ bool Test_Unroll() {
   [Unroll] while (g_bool) return g_bool;
 }
 
-
+// Test NoInline
+[noinline] bool Test_noinline() {
+  [noinline] bool b = false;                  /* expected-warning {{'noinline' attribute only applies to functions}} fxc-pass {{}} */
+  [noinline] while (g_bool) return g_bool;    /* expected-error {{'noinline' attribute cannot be applied to a statement}} fxc-pass {{}} */
+  return true;
+}
