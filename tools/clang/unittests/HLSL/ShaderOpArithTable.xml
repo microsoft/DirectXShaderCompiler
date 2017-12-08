@@ -785,7 +785,6 @@
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
-            [RootSignature("RootFlags(0), UAV(u0)")]
             void main(uint GI : SV_GroupIndex) {
                 SUnaryFPOp l = g_buf[GI];
                 l.output = sin(l.input);
@@ -961,7 +960,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 * l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>-1.0</Value>
@@ -994,7 +993,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 + l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>-1.0</Value>
@@ -1030,7 +1029,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 / l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>-1.0</Value>
@@ -1158,7 +1157,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 - l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>-1.0</Value>
@@ -1196,18 +1195,18 @@
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
-                    float input1;
-                    float input2;
-                    float input3;
-                    float output;
-                };
-                RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
-                [numthreads(8,8,1)]
-                void main(uint GI : SV_GroupIndex) {
-                    STertiaryFloatOp l = g_buf[GI];
-                    l.output = mad(l.input1, l.input2, l.input3);
-                    g_buf[GI] = l;
-                };</Parameter>
+                float input1;
+                float input2;
+                float input3;
+                float output;
+            };
+            RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryFloatOp l = g_buf[GI];
+                l.output = mad(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
@@ -1496,16 +1495,16 @@
         <Row Name="Shl">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
                 int input1;
                 int input2;
                 int output1;
                 int output2;
             };
-            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
+                SBinaryIntOp l = g_buf[GI];
                 l.output1 = l.input1 &lt;&lt; l.input2;
                 g_buf[GI] = l;
             };</Parameter>
@@ -1541,16 +1540,16 @@
         <Row Name="Or">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
                 int input1;
                 int input2;
                 int output1;
                 int output2;
             };
-            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
+                SBinaryIntOp l = g_buf[GI];
                 l.output1 = l.input1 | l.input2;
                 g_buf[GI] = l;
             };</Parameter>
@@ -1637,16 +1636,16 @@
         <Row Name="LShr">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
                 int input1;
                 int input2;
                 int output1;
                 int output2;
             };
-            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
+                SBinaryIntOp l = g_buf[GI];
                 l.output1 = l.input1 &gt;&gt; l.input2;
                 g_buf[GI] = l;
             };</Parameter>
@@ -1692,7 +1691,7 @@
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 SBinaryIntOp l = g_buf[GI];
-                l.output1 = max(l.input1, l.input2);
+                l.output1 = max(l.input1,l.input2);
                 g_buf[GI] = l;
             };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
@@ -1769,16 +1768,16 @@
         <Row Name="IDiv">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
                 int input1;
                 int input2;
                 int output1;
                 int output2;
             };
-            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
+                SBinaryIntOp l = g_buf[GI];
                 l.output1 = l.input1 / l.input2;
                 l.output2 = l.input1 % l.input2;
                 g_buf[GI] = l;
@@ -1824,16 +1823,16 @@
         <Row Name="And">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
                 int input1;
                 int input2;
                 int output1;
                 int output2;
             };
-            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
+                SBinaryIntOp l = g_buf[GI];
                 l.output1 = l.input1 &amp; l.input2;
                 g_buf[GI] = l;
             };</Parameter>
@@ -1882,7 +1881,7 @@
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 SBinaryIntOp l = g_buf[GI];
-                l.output1 = min(l.input1, l.input2);
+                l.output1 = min(l.input1,l.input2);
                 g_buf[GI] = l;
             };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
@@ -1914,16 +1913,16 @@
         <Row Name="Xor">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
                 int input1;
                 int input2;
                 int output1;
                 int output2;
             };
-            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
+                SBinaryIntOp l = g_buf[GI];
                 l.output1 = l.input1 ^ l.input2;
                 g_buf[GI] = l;
             };</Parameter>
@@ -2210,7 +2209,7 @@
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 SBinaryUintOp l = g_buf[GI];
-                l.output1 = min(l.input1, l.input2);
+                l.output1 = min(l.input1,l.input2);
                 g_buf[GI] = l;
             };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
@@ -2252,7 +2251,7 @@
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 SBinaryUintOp l = g_buf[GI];
-                l.output1 = max(l.input1, l.input2);
+                l.output1 = max(l.input1,l.input2);
                 g_buf[GI] = l;
             };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
@@ -2284,16 +2283,16 @@
         <Row Name="USub">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
                 uint input1;
                 uint input2;
                 uint output1;
                 uint output2;
             };
-            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
+            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
+                SBinaryUintOp l = g_buf[GI];
                 l.output1 = l.input1 - l.input2;
                 g_buf[GI] = l;
             };</Parameter>
@@ -2329,16 +2328,16 @@
         <Row Name="UAdd">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
                 uint input1;
                 uint input2;
                 uint output1;
                 uint output2;
             };
-            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
+            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
+                SBinaryUintOp l = g_buf[GI];
                 l.output1 = l.input1 + l.input2;
                 g_buf[GI] = l;
             };</Parameter>
@@ -2443,18 +2442,18 @@
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryUintOp {
-                    uint input1;
-                    uint input2;
-                    uint input3;
-                    uint output;
-                };
-                RWStructuredBuffer&lt;STertiaryUintOp&gt; g_buf : register(u0);
-                [numthreads(8,8,1)]
-                void main(uint GI : SV_GroupIndex) {
-                    STertiaryUintOp l = g_buf[GI];
-                    l.output = mad(l.input1, l.input2, l.input3);
-                    g_buf[GI] = l;
-                };</Parameter>
+                uint input1;
+                uint input2;
+                uint input3;
+                uint output;
+            };
+            RWStructuredBuffer&lt;STertiaryUintOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryUintOp l = g_buf[GI];
+                l.output = mad(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0</Value>
@@ -2698,8 +2697,8 @@
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
-                        bool input;
-                        bool output;
+                        int input;
+                        int output;
                     };
                     RWStructuredBuffer&lt;PerThreadData&gt; g_sb : register(u0);
                     [numthreads(8,12,1)]
@@ -2872,8 +2871,8 @@
                         uint firstLaneId;
                         uint laneIndex;
                         int mask;
-                        bool input;
-                        bool output;
+                        int input;
+                        int output;
                     };
                     RWStructuredBuffer&lt;PerThreadData&gt; g_sb : register(u0);
                     [numthreads(8,12,1)]
@@ -3584,7 +3583,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 / l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007F0000</Value>
@@ -3621,7 +3620,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 / l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007F0000</Value>
@@ -3658,7 +3657,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 + l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007E0000</Value>
@@ -3695,7 +3694,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 * l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x00000300</Value>
@@ -3735,7 +3734,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 * l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x00000300</Value>
@@ -3775,7 +3774,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 / l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007F0000</Value>
@@ -3812,7 +3811,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 - l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007E0000</Value>
@@ -3849,7 +3848,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 - l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007E0000</Value>
@@ -3886,7 +3885,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 - l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007E0000</Value>
@@ -3923,7 +3922,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 + l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007E0000</Value>
@@ -3960,7 +3959,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 + l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007E0000</Value>
@@ -3997,7 +3996,7 @@
                 SBinaryFPOp l = g_buf[GI];
                 l.output1 = l.input1 * l.input2;
                 g_buf[GI] = l;
-            }; </Parameter>
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x00000300</Value>
@@ -4039,18 +4038,18 @@
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
-                    float input1;
-                    float input2;
-                    float input3;
-                    float output;
-                };
-                RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
-                [numthreads(8,8,1)]
-                void main(uint GI : SV_GroupIndex) {
-                    STertiaryFloatOp l = g_buf[GI];
-                    l.output = mad(l.input1, l.input2, l.input3);
-                    g_buf[GI] = l;
-                };</Parameter>
+                float input1;
+                float input2;
+                float input3;
+                float output;
+            };
+            RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryFloatOp l = g_buf[GI];
+                l.output = mad(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x80780000</Value>
@@ -4078,18 +4077,18 @@
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
-                    float input1;
-                    float input2;
-                    float input3;
-                    float output;
-                };
-                RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
-                [numthreads(8,8,1)]
-                void main(uint GI : SV_GroupIndex) {
-                    STertiaryFloatOp l = g_buf[GI];
-                    l.output = mad(l.input1, l.input2, l.input3);
-                    g_buf[GI] = l;
-                };</Parameter>
+                float input1;
+                float input2;
+                float input3;
+                float output;
+            };
+            RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryFloatOp l = g_buf[GI];
+                l.output = mad(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x80780000</Value>
@@ -4117,18 +4116,18 @@
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
-                    float input1;
-                    float input2;
-                    float input3;
-                    float output;
-                };
-                RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
-                [numthreads(8,8,1)]
-                void main(uint GI : SV_GroupIndex) {
-                    STertiaryFloatOp l = g_buf[GI];
-                    l.output = mad(l.input1, l.input2, l.input3);
-                    g_buf[GI] = l;
-                };</Parameter>
+                float input1;
+                float input2;
+                float input3;
+                float output;
+            };
+            RWStructuredBuffer&lt;STertiaryFloatOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryFloatOp l = g_buf[GI];
+                l.output = mad(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x80780000</Value>
