@@ -3756,7 +3756,6 @@
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>0x01960000</Value>
-                <Value>0x00400000</Value>
                 <Value>0x32400000</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm ftz</Parameter>
@@ -4037,8 +4036,8 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
         <Row Name="FMadDenormPreserve">
-            <Parameter Name="Validation.Type">epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+            <Parameter Name="Validation.Type">ulp</Parameter>
+            <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
                     float input1;
                     float input2;
@@ -4076,8 +4075,8 @@
             <Parameter Name="ShaderOp.Arguments">-denorm preserve</Parameter>
         </Row>
         <Row Name="FMadDenormAny">
-            <Parameter Name="Validation.Type">epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+            <Parameter Name="Validation.Type">ulp</Parameter>
+            <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
                     float input1;
                     float input2;
