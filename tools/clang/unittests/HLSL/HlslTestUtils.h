@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include "dxc/Support/Unicode.h"
+#include "dxc/HLSL/DxilConstants.h" // DenormMode
 #include <dxgiformat.h>
 
 // If TAEF verify macros are available, use them to alias other legacy
@@ -203,34 +204,56 @@ inline bool ifdenorm_flushf_eq_or_nans(float a, float b) {
   return ifdenorm_flushf(a) == ifdenorm_flushf(b);
 }
 
-inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance) {
-    if (isnan(fsrc)) {
-        return isnan(fref);
-    }
-    if (isdenorm(fref)) { // Arithmetic operations of denorm may flush to sign-preserved zero
-        return (isdenorm(fsrc) || fsrc == 0) && (signbit(fsrc) == signbit(fref));
-    }
-    if (fsrc == fref) {
-        return true;
-    }
-    int diff = *((DWORD *)&fsrc) - *((DWORD *)&fref);
-    unsigned int uDiff = diff < 0 ? -diff : diff;
-    return uDiff <= (unsigned int)ULPTolerance;
+using namespace hlsl::DXIL;
+
+inline bool CompareFloatULP(const float &fsrc, const float &fref,
+                            int ULPTolerance,
+                            Float32DenormMode mode = Float32DenormMode::Any) {
+  if (fsrc == fref) {
+    return true;
+  }
+  if (isnan(fsrc)) {
+    return isnan(fref);
+  }
+  if (mode == Float32DenormMode::Any) {
+    // If denorm expected, output can be sign preserved zero. Otherwise output
+    // should pass the regular ulp testing.
+    if (isdenorm(fref) && fsrc == 0 && signbit(fsrc) == signbit(fref))
+      return true;
+  }
+  // For FTZ or Preserve mode, we should get the expected number within
+  // ULPTolerance for any operations.
+  int diff = *((DWORD *)&fsrc) - *((DWORD *)&fref);
+  unsigned int uDiff = diff < 0 ? -diff : diff;
+  return uDiff <= (unsigned int)ULPTolerance;
 }
 
-inline bool CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon) {
-    if (isnan(fsrc)) {
-        return isnan(fref);
-    }
-    if (isdenorm(fref)) { // Arithmetic operations of denorm may flush to sign-preserved zero
-        return (isdenorm(fsrc) || fsrc == 0) && (signbit(fsrc) == signbit(fref));
-    }
-    return fsrc == fref || fabsf(fsrc - fref) < epsilon;
+inline bool
+CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon,
+                    Float32DenormMode mode = Float32DenormMode::Any) {
+  if (fsrc == fref) {
+    return true;
+  }
+  if (isnan(fsrc)) {
+    return isnan(fref);
+  }
+  if (mode == Float32DenormMode::Any) {
+    // If denorm expected, output can be sign preserved zero. Otherwise output
+    // should pass the regular epsilon testing.
+    if (isdenorm(fref) && fsrc == 0 && signbit(fsrc) == signbit(fref))
+      return true;
+  }
+  // For FTZ or Preserve mode, we should get the expected number within
+  // epsilon for any operations.
+  return fabsf(fsrc - fref) < epsilon;
 }
 
 // Compare using relative error (relative error < 2^{nRelativeExp})
-inline bool CompareFloatRelativeEpsilon(const float &fsrc, const float &fref, int nRelativeExp) {
-    return CompareFloatULP(fsrc, fref, 23 - nRelativeExp);
+inline bool
+CompareFloatRelativeEpsilon(const float &fsrc, const float &fref,
+                            int nRelativeExp,
+                            Float32DenormMode mode = Float32DenormMode::Any) {
+  return CompareFloatULP(fsrc, fref, 23 - nRelativeExp, mode);
 }
 
 // returns the number of bytes per pixel for a given dxgi format
