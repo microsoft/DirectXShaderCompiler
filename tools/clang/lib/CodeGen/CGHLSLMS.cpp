@@ -3397,7 +3397,8 @@ static Value *CastLdValue(Value *Ptr, llvm::Type *FromTy, llvm::Type *ToTy, IRBu
       Value *V = Builder.CreateLoad(Ptr);
       // VectorTrunc
       // Change vector into vec1.
-      return Builder.CreateShuffleVector(V, V, {0});
+      int mask[] = {0};
+      return Builder.CreateShuffleVector(V, V, mask);
     } else if (FromTy->isArrayTy()) {
       llvm::Type *FromEltTy = FromTy->getArrayElementType();
 
