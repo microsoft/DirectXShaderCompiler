@@ -301,8 +301,8 @@ void ParseShaderOpSetFromXml(IXmlReader *pReader, ShaderOpSet *pShaderOpSet);
 static const uint16_t Float16NaN = 0xff80;
 static const uint16_t Float16PosInf = 0x7c00;
 static const uint16_t Float16NegInf = 0xfc00;
-static const uint16_t Float16PosDenorm = 0x0001;
-static const uint16_t Float16NegDenorm = 0x8001;
+static const uint16_t Float16PosDenorm = 0x0008;
+static const uint16_t Float16NegDenorm = 0x8008;
 static const uint16_t Float16PosZero = 0x0000;
 static const uint16_t Float16NegZero = 0x8000;
 
@@ -313,7 +313,7 @@ int GetMantissa(float x);
 int GetExponent(float x);
 
 uint16_t ConvertFloat32ToFloat16(float x);
-
+float ConvertFloat16ToFloat32(uint16_t);
 } // namespace st
 
 #endif __SHADEROPTEST_H__

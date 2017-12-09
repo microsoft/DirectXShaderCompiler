@@ -256,6 +256,20 @@ CompareFloatRelativeEpsilon(const float &fsrc, const float &fref,
   return CompareFloatULP(fsrc, fref, 23 - nRelativeExp, mode);
 }
 
+inline bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref, float ULPTolerance) {
+  return true;
+}
+
+inline bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float epsilon) {
+  return true;
+}
+
+inline bool
+CompareHalfRelativeEpsilon(const uint16_t &fsrc, const uint16_t &fref,
+  int nRelativeExp) {
+  return true;
+}
+
 // returns the number of bytes per pixel for a given dxgi format
 // add more cases if different format needed to copy back resources
 inline UINT GetByteSizeForFormat(DXGI_FORMAT value) {

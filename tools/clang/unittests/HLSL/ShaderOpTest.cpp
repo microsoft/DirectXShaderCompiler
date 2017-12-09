@@ -1880,6 +1880,81 @@ DXIL::ComponentType GetCompType(LPCWSTR pText, LPCWSTR pEnd) {
   }
 }
 
+
+
+// Adapted from https://stackoverflow.com/a/3542975
+class Float16Compressor
+{
+  union Bits
+  {
+    float f;
+    int32_t si;
+    uint32_t ui;
+  };
+
+  static int const shift = 13;
+  static int const shiftSign = 16;
+
+  static int32_t const infN = 0x7F800000; // flt32 infinity
+  static int32_t const maxN = 0x477FE000; // max flt16 normal as a flt32
+  static int32_t const minN = 0x38800000; // min flt16 normal as a flt32
+  static int32_t const signN = 0x80000000; // flt32 sign bit
+
+  static int32_t const infC = infN >> shift;
+  static int32_t const nanN = (infC + 1) << shift; // minimum flt16 nan as a flt32
+  static int32_t const maxC = maxN >> shift;
+  static int32_t const minC = minN >> shift;
+  static int32_t const signC = signN >> shiftSign; // flt16 sign bit
+
+  static int32_t const mulN = 0x52000000; // (1 << 23) / minN
+  static int32_t const mulC = 0x33800000; // minN / (1 << (23 - shift))
+
+  static int32_t const subC = 0x003FF; // max flt32 subnormal down shifted
+  static int32_t const norC = 0x00400; // min flt32 normal down shifted
+
+  static int32_t const maxD = infC - maxC - 1;
+  static int32_t const minD = minC - subC - 1;
+
+public:
+
+  static uint16_t compress(float value)
+  {
+    Bits v, s;
+    v.f = value;
+    uint32_t sign = v.si & signN;
+    v.si ^= sign;
+    sign >>= shiftSign; // logical shift
+    s.si = mulN;
+    s.si = s.f * v.f; // correct subnormals
+    v.si ^= (s.si ^ v.si) & -(minN > v.si);
+    v.si ^= (infN ^ v.si) & -((infN > v.si) & (v.si > maxN));
+    v.si ^= (nanN ^ v.si) & -((nanN > v.si) & (v.si > infN));
+    v.ui >>= shift; // logical shift
+    v.si ^= ((v.si - maxD) ^ v.si) & -(v.si > maxC);
+    v.si ^= ((v.si - minD) ^ v.si) & -(v.si > subC);
+    return v.ui | sign;
+  }
+
+  static float decompress(uint16_t value)
+  {
+    Bits v;
+    v.ui = value;
+    int32_t sign = v.si & signC;
+    v.si ^= sign;
+    sign <<= shiftSign;
+    v.si ^= ((v.si + minD) ^ v.si) & -(v.si > subC);
+    v.si ^= ((v.si + maxD) ^ v.si) & -(v.si > maxC);
+    Bits s;
+    s.si = mulC;
+    s.f *= v.si;
+    int32_t mask = -(norC > v.si);
+    v.si <<= shift;
+    v.si ^= (s.si ^ v.si) & mask;
+    v.si |= sign;
+    return v.f;
+  }
+};
+
 bool GetSign(float x) {
   return std::signbit(x);
 }
@@ -1900,6 +1975,8 @@ int GetExponent(float x) {
 // So special values (nan, denorm, inf) for float32 will map to their corresponding bits in float16,
 // and it will not handle true conversions that spans float16 denorms and float32 non-denorms.
 uint16_t ConvertFloat32ToFloat16(float x) {
+  return Float16Compressor::compress(x);
+#if 0
   bool isNeg = GetSign(x);
   int exp = GetExponent(x);
   int mantissa = GetMantissa(x);
@@ -1917,6 +1994,54 @@ uint16_t ConvertFloat32ToFloat16(float x) {
     val |= mantissa >> 13; // only first 10 significands taken
     return val;
   }
+#endif
+}
+#define FLOAT16_BIT_SIGN 0x8000
+#define FLOAT16_BIT_EXP 0x7c00
+#define FLOAT16_BIT_MANTISSA 0x03ff
+
+static_assert((FLOAT16_BIT_SIGN | FLOAT16_BIT_EXP | FLOAT16_BIT_MANTISSA) == 0xffff, "otherwise wrong bit values");
+static_assert((FLOAT16_BIT_SIGN & FLOAT16_BIT_EXP & FLOAT16_BIT_MANTISSA) == 0x0000, "otherwise wrong bit values");
+
+bool GetFloat16Sign(uint16_t x) {
+  return x & FLOAT16_BIT_SIGN;
+}
+
+int GetFloat16Mantissa(uint16_t x) {
+  return x & FLOAT16_BIT_MANTISSA;
+}
+
+int GetFloat16Exponent(uint16_t x) {
+  return x & FLOAT16_BIT_EXP;
+}
+
+float ConvertFloat16ToFloat32(uint16_t x) {
+  return Float16Compressor::decompress(x);
+#if 0
+  // nan -> exponent all set and mantisa is non zero
+  // +/-inf -> exponent all set and mantissa is zero
+  // denorm -> exponent zero and significand nonzero
+  bool isNeg = GetFloat16Sign(x);
+  int mantissa = GetFloat16Mantissa(x);
+  int exponent = GetFloat16Exponent(x);
+  if (exponent == FLOAT16_BIT_EXP) {
+    return mantissa != 0 ? NAN
+      : isNeg ? -INFINITY
+      : INFINITY;
+  }
+  else if (exponent == 0) {
+    if (mantissa == 0)
+      return isNeg ? -0 : 0;
+    else
+      return isNeg ? -FLT_MIN / 2 : FLT_MIN / 2;
+  }
+
+  uint32_t bits = 0;
+  bits |= isNeg ? FLOAT16_BIT_SIGN : 0;
+  bits |= (exponent - 15 + 127) << 23;
+  bits |= mantissa;
+  return reinterpret_cast<float&>(bits);
+#endif
 }
 
 void ParseDataFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType, std::vector<BYTE> &V) {

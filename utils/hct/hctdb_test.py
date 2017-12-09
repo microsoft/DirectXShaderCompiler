@@ -73,6 +73,13 @@ def add_test_case(test_name, inst_names, validation_type, validation_tolerance,
     for inst_name in inst_names:
         g_instruction_nodes[inst_name].test_cases += [case]
 
+def add_test_case_float_half(test_name, inst_names, validation_type, validation_tolerance,
+                  input_lists, output_lists, shader_key, shader_op_name, **kwargs):
+    add_test_case(test_name, inst_names, validation_type, validation_tolerance,
+                  input_lists, output_lists, "cs_6_0", get_shader_text(shader_key, shader_op_name), **kwargs)
+    add_test_case(test_name + "Half", inst_names, validation_type, validation_tolerance,
+                  input_lists, output_lists, "cs_6_0", get_shader_text(shader_key.replace("float","half"), shader_op_name), **kwargs)
+
 def add_test_case_denorm(test_name, inst_names, validation_type, validation_tolerance, input_lists, output_lists_ftz, output_lists_preserve, shader_target, shader_text, **kwargs):
     add_test_case(test_name + "FTZ", inst_names, validation_type, validation_tolerance, input_lists,
                   output_lists_ftz, shader_target, shader_text, shader_arguments="-denorm ftz")
@@ -134,6 +141,34 @@ g_shader_texts = {
                     l.output = 0;
                 g_buf[GI] = l;
             };''',
+
+    "unary half": ''' struct SUnaryFPOp {
+                half input;
+                half output;
+            };
+            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                l.output = %s(l.input);
+                g_buf[GI] = l;
+            };''',
+
+    "unary half bool": ''' struct SUnaryFPOp {
+                half input;
+                half output;
+            };
+            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                if (%s(l.input))
+                    l.output = 1;
+                else
+                    l.output = 0;
+                g_buf[GI] = l;
+            };''',
+
      "binary int": ''' struct SBinaryIntOp {
                 int input1;
                 int input2;
@@ -175,7 +210,6 @@ g_shader_texts = {
                 l.output1 = l.input1 %s l.input2;
                 g_buf[GI] = l;
             };''',
-
 
     "binary uint call": ''' struct SBinaryUintOp {
                 uint input1;
@@ -219,7 +253,35 @@ g_shader_texts = {
                 g_buf[GI] = l;
             };''',
 
-    "tertiary int": ''' struct STertiaryIntOp {
+    "binary half": ''' struct SBinaryFPOp {
+                half input1;
+                half input2;
+                half output1;
+                half output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 %s l.input2;
+                g_buf[GI] = l;
+            };''',
+
+    "binary half call": ''' struct SBinaryFPOp {
+                half input1;
+                half input2;
+                half output1;
+                half output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = %s(l.input1,l.input2);
+                g_buf[GI] = l;
+            };''',
+
+     "tertiary int": ''' struct STertiaryIntOp {
                 int input1;
                 int input2;
                 int input3;
@@ -257,6 +319,19 @@ g_shader_texts = {
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 STertiaryFloatOp l = g_buf[GI];
+                l.output = %s(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };''',
+    'tertiary half': ''' struct STertiaryHalfOp {
+                half input1;
+                half input2;
+                half input3;
+                half output;
+            };
+            RWStructuredBuffer<STertiaryHalfOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryHalfOp l = g_buf[GI];
                 l.output = %s(l.input1, l.input2, l.input3);
                 g_buf[GI] = l;
             };''',
@@ -350,142 +425,136 @@ def add_test_cases():
     p_denorm = float('1e-38')
     n_denorm = float('-1e-38')
     # Unary Float
-    add_test_case('Sin', ['Sin'], 'Epsilon', 0.0008, [[
+    add_test_case_float_half('Sin', ['Sin'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314.16',
         '314.16'
     ]], [[
         'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '-0.0007346401',
         '0.0007346401'
-    ]], 'cs_6_0', get_shader_text("unary float", "sin"))
-    add_test_case('Cos', ['Cos'], 'Epsilon', 0.0008, [[
+    ]], "unary float", "sin")
+    add_test_case_float_half('Cos', ['Cos'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314.16',
         '314.16'
     ]], [[
         'NaN', 'NaN', '1.0', '1.0', '1.0', '1.0', 'NaN', '0.99999973015',
         '0.99999973015'
-    ]], 'cs_6_0', get_shader_text("unary float", "cos"))
-    add_test_case('Tan', ['Tan'], 'Epsilon', 0.0008, [[
+    ]], "unary float", "cos")
+    add_test_case_float_half('Tan', ['Tan'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314.16',
         '314.16'
     ]], [[
         'NaN', 'NaN', '-0.0', '-0.0', '0.0', '0.0', 'NaN', '-0.000735',
         '0.000735'
-    ]], 'cs_6_0', get_shader_text("unary float", "tan"))
-    add_test_case('Hcos', ['Hcos'], 'Epsilon', 0.0008,
+    ]], "unary float", "tan")
+    add_test_case_float_half('Hcos', ['Hcos'], 'Epsilon', 0.0008,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1']], [[
             'NaN', 'Inf', '1.0', '1.0', '1.0', '1.0', 'Inf', '1.543081',
             '1.543081'
-        ]], 'cs_6_0', get_shader_text("unary float", "cosh"))
-    add_test_case('Hsin', ['Hsin'], 'Epsilon', 0.0008,
+        ]], "unary float", "cosh")
+    add_test_case_float_half('Hsin', ['Hsin'], 'Epsilon', 0.0008,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1']], [[
             'NaN', '-Inf', '0.0', '0.0', '0.0', '0.0', 'Inf', '1.175201',
             '-1.175201'
-        ]], 'cs_6_0', get_shader_text("unary float", "sinh"))
-    add_test_case('Htan', ['Htan'], 'Epsilon', 0.0008,
+        ]], "unary float", "sinh")
+    add_test_case_float_half('Htan', ['Htan'], 'Epsilon', 0.0008,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1']], [[
             'NaN', '-1', '-0.0', '-0.0', '0.0', '0.0', '1', '0.761594',
             '-0.761594'
-        ]], 'cs_6_0', get_shader_text("unary float", "tanh"), warp_version=16202)
-    add_test_case('Acos', ['Acos'], 'Epsilon', 0.0008, [[
+        ]], "unary float", "tanh", warp_version=16202)
+    add_test_case_float_half('Acos', ['Acos'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1', '1.5',
         '-1.5'
     ]], [[
         'NaN', 'NaN', '1.570796', '1.570796', '1.570796', '1.570796', 'NaN',
         '0', '3.1415926', 'NaN', 'NaN'
-    ]], 'cs_6_0', get_shader_text("unary float", "acos"))
-    add_test_case('Asin', ['Asin'], 'Epsilon', 0.0008, [[
+    ]], "unary float", "acos")
+    add_test_case_float_half('Asin', ['Asin'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1', '1.5',
         '-1.5'
     ]], [[
         'NaN', 'NaN', '0.0', '0.0', '0.0', '0.0', 'NaN', '1.570796',
         '-1.570796', 'NaN', 'NaN'
-    ]], 'cs_6_0', get_shader_text("unary float", "asin"))
-    add_test_case('Atan', ['Atan'], 'Epsilon', 0.0008,
+    ]], "unary float", "asin")
+    add_test_case_float_half('Atan', ['Atan'], 'Epsilon', 0.0008,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1']], [[
             'NaN', '-1.570796', '0.0', '0.0', '0.0', '0.0', '1.570796',
             '0.785398163', '-0.785398163'
-        ]], 'cs_6_0', get_shader_text("unary float", "atan"), warp_version=16202)
-    add_test_case('Exp', ['Exp'], 'Relative', 21,
+        ]], "unary float", "atan", warp_version=16202)
+    add_test_case_float_half('Exp', ['Exp'], 'Relative', 21,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '10']],
         [['NaN', '0', '1', '1', '1', '1', 'Inf', '0.367879441', '22026.46579']
-         ], 'cs_6_0', get_shader_text("unary float", "exp"))
-    add_test_case('Frc', ['Frc'], 'Epsilon', 0.0008, [[
+         ], "unary float", "exp")
+    add_test_case_float_half('Frc', ['Frc'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2.718280',
         '1000.599976', '-7.389'
     ]], [[
         'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.718280', '0.599976',
         '0.611'
-    ]], 'cs_6_0', get_shader_text("unary float", "frac"))
-    add_test_case('Log', ['Log'], 'Relative', 21, [[
+    ]], "unary float", "frac")
+    add_test_case_float_half('Log', ['Log'], 'Relative', 21, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1',
         '2.718281828', '7.389056', '100'
     ]], [[
         'NaN', 'NaN', '-Inf', '-Inf', '-Inf', '-Inf', 'Inf', 'NaN', '1.0',
         '1.99999998', '4.6051701'
-    ]], 'cs_6_0', get_shader_text("unary float", "log"))
-    add_test_case('Sqrt', ['Sqrt'], 'ulp', 1, [[
+    ]], "unary float", "log")
+    add_test_case_float_half('Sqrt', ['Sqrt'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2',
         '16.0', '256.0'
     ]], [[
         'NaN', 'NaN', '-0', '-0', '0', '0', 'Inf', 'NaN', '1.41421356237',
         '4.0', '16.0'
-    ]], 'cs_6_0', get_shader_text("unary float", "sqrt"))
-    add_test_case('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
+    ]], "unary float", "sqrt")
+    add_test_case_float_half('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
         '256.0', '65536.0'
     ]], [[
         'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
         '0.0625', '0.00390625'
-    ]], 'cs_6_0', get_shader_text("unary float", "rsqrt"))
-    add_test_case('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
+    ]], "unary float", "rsqrt")
+    add_test_case_float_half('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
         '256.0', '65536.0'
     ]], [[
         'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
         '0.0625', '0.00390625'
-    ]], 'cs_6_0', get_shader_text("unary float", "rsqrt"))
-    add_test_case('Round_ne', ['Round_ne'], 'Epsilon', 0, [[
+    ]], "unary float", "rsqrt")
+    add_test_case_float_half('Round_ne', ['Round_ne'], 'Epsilon', 0, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '11.5', '-10.0', '-10.4', '-10.5', '-10.6'
     ]], [[
         'NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
         '11.0', '12.0', '-10.0', '-10.0', '-10.0', '-11.0'
-    ]], 'cs_6_0', get_shader_text("unary float", "round"))
-    add_test_case('Round_ni', ['Round_ni'], 'Epsilon', 0, [[
+    ]], "unary float", "round")
+    add_test_case_float_half('Round_ni', ['Round_ni'], 'Epsilon', 0, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6'
     ]], [[
         'NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
         '10.0', '-10.0', '-11.0', '-11.0', '-11.0'
-    ]], 'cs_6_0', get_shader_text("unary float", "floor"))
-    add_test_case('Round_pi', ['Round_pi'], 'Epsilon', 0,
+    ]], "unary float", "floor")
+    add_test_case_float_half('Round_pi', ['Round_pi'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6']],
         [['NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '11.0', '11.0',
-        '11.0', '-10.0', '-10.0', '-10.0', '-10.0']], 'cs_6_0',
-        get_shader_text("unary float", "ceil"))
-    add_test_case('Round_z', ['Round_z'], 'Epsilon', 0,
+        '11.0', '-10.0', '-10.0', '-10.0', '-10.0']], "unary float", "ceil")
+    add_test_case_float_half('Round_z', ['Round_z'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6']],
         [['NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
-        '10.0', '-10.0', '-10.0', '-10.0', '-10.0']],'cs_6_0',
-        get_shader_text("unary float", "trunc"))
-    add_test_case('IsNaN', ['IsNaN'], 'Epsilon', 0,
+        '10.0', '-10.0', '-10.0', '-10.0', '-10.0']], "unary float", "trunc")
+    add_test_case_float_half('IsNaN', ['IsNaN'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0']
-         ], [['1', '0', '0', '0', '0', '0', '0', '0', '0']], 'cs_6_0',
-        get_shader_text("unary float bool", "isnan"))
-    add_test_case('IsInf', ['IsInf'], 'Epsilon', 0,
+         ], [['1', '0', '0', '0', '0', '0', '0', '0', '0']], "unary float bool", "isnan")
+    add_test_case_float_half('IsInf', ['IsInf'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0']
-         ], [['0', '1', '0', '0', '0', '0', '1', '0', '0']], 'cs_6_0',
-        get_shader_text("unary float bool", "isinf"))
-    add_test_case('IsFinite', ['IsFinite'], 'Epsilon', 0,
+         ], [['0', '1', '0', '0', '0', '0', '1', '0', '0']], "unary float bool", "isinf")
+    add_test_case_float_half('IsFinite', ['IsFinite'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0']
-         ], [['0', '0', '1', '1', '1', '1', '0', '1', '1']], 'cs_6_0',
-        get_shader_text("unary float bool", "isfinite"), warp_version=16202)
-    add_test_case('FAbs', ['FAbs'], 'Epsilon', 0,
+         ], [['0', '0', '1', '1', '1', '1', '0', '1', '1']], "unary float bool", "isfinite", warp_version=16202)
+    add_test_case_float_half('FAbs', ['FAbs'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0']
-         ], [['NaN', 'Inf', 'denorm', '0', '0', 'denorm', 'Inf', '1', '1']],
-        'cs_6_0', get_shader_text("unary float", "abs"))
+         ], [['NaN', 'Inf', 'denorm', '0', '0', 'denorm', 'Inf', '1', '1']], "unary float", "abs")
     # Binary Float
     add_test_case('FMin', ['FMin','FMax'], 'epsilon', 0, [[
         '-inf', '-inf', '-inf', '-inf', 'inf', 'inf', 'inf', 'inf', 'NaN',
@@ -513,14 +582,40 @@ def add_test_cases():
                 l.output2 = max(l.input1, l.input2);
                 g_buf[GI] = l;
             };''')
-    add_test_case('FAdd', ['FAdd'], 'ulp', 1, [['-1.0', '1.0', '32.5', '1.0000001000'],['4', '5.5', '334.7', '0.5000001000']], [['3.0', '6.5', '367.2', '1.5000002000']],
-    'cs_6_0', get_shader_text("binary float", "+"))
-    add_test_case('FSub', ['FSub'], 'ulp', 1, [['-1.0', '5.5', '32.5', '1.0000001000'],['4', '1.25', '334.7', '0.5000001000']], [['-5', '4.25', '-302.2', '0.5000']],
-    'cs_6_0', get_shader_text("binary float", "-"))
-    add_test_case('FMul', ['FMul'], 'ulp', 1, [['-1.0', '5.5', '1.0000001'],['4', '1.25', '2.0']], [['-4.0', '6.875', '2.0000002']],
-    'cs_6_0', get_shader_text("binary float", "*"))
-    add_test_case('FDiv', ['FDiv'], 'ulp', 1, [['-1.0', '5.5', '1.0000001'],['4', '1.25', '2.0']], [['-0.25', '4.4', '0.50000006']],
-    'cs_6_0', get_shader_text("binary float", "/"))
+    add_test_case('FMinHalf', ['FMin','FMax'], 'epsilon', 0, [[
+        '-inf', '-inf', '-inf', '-inf', 'inf', 'inf', 'inf', 'inf', 'NaN',
+        'NaN', 'NaN', 'NaN', '1.0', '1.0', '-1.0', '-1.0', '1.0'
+    ], [
+        '-inf', 'inf', '1.0', 'NaN', '-inf', 'inf', '1.0', 'NaN', '-inf',
+        'inf', '1.0', 'NaN', '-inf', 'inf', '1.0', 'NaN', '-1.0'
+    ]], [[
+        '-inf', '-inf', '-inf', '-inf', '-inf', 'inf', '1.0', 'inf', '-inf',
+        'inf', '1.0', 'NaN', '-inf', '1.0', '-1.0', '-1.0', '-1.0'
+    ], [
+        '-inf', 'inf', '1.0', '-inf', 'inf', 'inf', 'inf', 'inf', '-inf',
+        'inf', '1.0', 'NaN', '1.0', 'inf', '1.0', '-1.0', '1.0'
+    ]], 'cs_6_0', ''' struct SBinaryHalfOp {
+                half input1;
+                half input2;
+                half output1;
+                half output2;
+            };
+            RWStructuredBuffer<SBinaryHalfOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryHalfOp l = g_buf[GI];
+                l.output1 = min(l.input1, l.input2);
+                l.output2 = max(l.input1, l.input2);
+                g_buf[GI] = l;
+            };''')
+    add_test_case_float_half('FAdd', ['FAdd'], 'ulp', 1, [['-1.0', '1.0', '32.5', '1.0000001000'],['4', '5.5', '334.7', '0.5000001000']], [['3.0', '6.5', '367.2', '1.5000002000']],
+    "binary float", "+")
+    add_test_case_float_half('FSub', ['FSub'], 'ulp', 1, [['-1.0', '5.5', '32.5', '1.0000001000'],['4', '1.25', '334.7', '0.5000001000']], [['-5', '4.25', '-302.2', '0.5000']],
+    "binary float", "-")
+    add_test_case_float_half('FMul', ['FMul'], 'ulp', 1, [['-1.0', '5.5', '1.0000001'],['4', '1.25', '2.0']], [['-4.0', '6.875', '2.0000002']],
+    "binary float", "*")
+    add_test_case_float_half('FDiv', ['FDiv'], 'ulp', 1, [['-1.0', '5.5', '1.0000001'],['4', '1.25', '2.0']], [['-0.25', '4.4', '0.50000006']],
+    "binary float", "/")
 
     # Denorm Binary Float
     add_test_case_denorm('FAddDenorm', ['FAdd'], 'ulp', 1,
@@ -544,7 +639,7 @@ def add_test_cases():
     [['0x00018000','0x007F0000', '0', '0x01960000', '0x32400000']],
     'cs_6_2', get_shader_text("binary float", "*"))
     # Tertiary Float
-    add_test_case('FMad', ['FMad'], 'ulp', 1, [[
+    add_test_case_float_half('FMad', ['FMad'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0',
         '0', '1', '1.5'
     ], [
@@ -554,7 +649,7 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0',
         '1', '0', '-5.5'
     ]], [['NaN', 'NaN', '0', '0', '0', '0', 'Inf', '2', '0', '1', '1', '9.5']],
-                  'cs_6_0', get_shader_text("tertiary float", "mad"))
+                  "tertiary float", "mad")
 
     # Denorm Tertiary Float
     add_test_case_denorm('FMadDenorm', ['FMad'], 'ulp', 1,
@@ -1085,10 +1180,21 @@ def generate_table_for_taef():
                 "Id": "BinaryFloatOpTable"
             }), 2, 2)
         generate_parameter_types(
-            ET.SubElement(
-                root, "Table", attrib={
-                    "Id": "TertiaryFloatOpTable"
-                }), 3, 1)
+            ET.SubElement(root, "Table", attrib={
+                "Id": "TertiaryFloatOpTable"
+            }), 3, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "UnaryHalfOpTable"
+            }), 1, 1, True)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "BinaryHalfOpTable"
+            }), 2, 2)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "TertiaryHalfOpTable"
+            }), 3, 1)
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
                 "Id": "UnaryIntOpTable"
@@ -1155,10 +1261,12 @@ def generate_table_for_taef():
         for case in g_test_cases.values():
             cur_inst = case.insts[0]
             if cur_inst.is_cast or cur_inst.category.startswith("Unary"):
-                if "f" in cur_inst.oload_types:
+                if "f" in cur_inst.oload_types and not "Half" in case.test_name:
                     generate_row(
                         root.find("./Table[@Id='UnaryFloatOpTable']"),
                         case)
+                if "h" in cur_inst.oload_types and "Half" in case.test_name:
+                    generate_row(root.find("./Table[@Id='UnaryHalfOpTable']"),case)
                 if "i" in cur_inst.oload_types:
                     if cur_inst.category.startswith("Unary int"):
                         generate_row(
@@ -1173,7 +1281,7 @@ def generate_table_for_taef():
                         print(cur_inst.dxil_class)
             elif cur_inst.is_binary or cur_inst.category.startswith(
                     "Binary"):
-                if "f" in cur_inst.oload_types:
+                if "f" in cur_inst.oload_types and not "Half" in case.test_name:
                     if case.test_name in g_denorm_tests: # for denorm tests
                         generate_row(
                             root.find("./Table[@Id='DenormBinaryFloatOpTable']"),
@@ -1182,7 +1290,9 @@ def generate_table_for_taef():
                         generate_row(
                             root.find("./Table[@Id='BinaryFloatOpTable']"),
                             case)
-                elif "i" in cur_inst.oload_types:
+                if "h" in cur_inst.oload_types and "Half" in case.test_name:
+                    generate_row(root.find("./Table[@Id='BinaryHalfOpTable']"),case)
+                if "i" in cur_inst.oload_types:
                     if cur_inst.category.startswith("Binary int"):
                         if case.test_name in ['UAdd', 'USub', 'UMul']: # Add, Sub, Mul use same operations for int and uint.
                             generate_row(
@@ -1201,16 +1311,16 @@ def generate_table_for_taef():
                         print(cur_inst.dxil_class)
 
             elif cur_inst.category.startswith("Tertiary"):
-                if "f" in cur_inst.oload_types:
+                if "f" in cur_inst.oload_types and not "Half" in case.test_name:
                     if case.test_name in g_denorm_tests: # for denorm tests
                         generate_row(
-                            root.find("./Table[@Id='DenormTertiaryFloatOpTable']"),
-                            case)
+                            root.find("./Table[@Id='DenormTertiaryFloatOpTable']"),case)
                     else:
                         generate_row(
-                            root.find("./Table[@Id='TertiaryFloatOpTable']"),
-                            case)
-                elif "i" in cur_inst.oload_types:
+                            root.find("./Table[@Id='TertiaryFloatOpTable']"),case)
+                if "h" in cur_inst.oload_types and "Half" in case.test_name:
+                    generate_row(root.find("./Table[@Id='TertiaryHalfOpTable']"),case)
+                if "i" in cur_inst.oload_types:
                     if cur_inst.category.startswith("Tertiary int"):
                         generate_row(
                             root.find("./Table[@Id='TertiaryIntOpTable']"),
@@ -1223,9 +1333,6 @@ def generate_table_for_taef():
                     else:
                         print("unknown op: " + cur_inst.name)
                         print(cur_inst.dxil_class)
-                else:
-                    print("unknown op: " + cur_inst.name)
-                    print(cur_inst.dxil_class)
             elif cur_inst.category.startswith("Quaternary"):
                 if cur_inst.name == "Bfi":
                     generate_row(
