@@ -2340,6 +2340,9 @@ static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsi
   unsigned ptrSize = DL.getTypeAllocSize(Ty);
   // Size match, return current level.
   if (ptrSize == size) {
+    // Not go deeper for matrix.
+    if (HLMatrixLower::IsMatrixType(Ty))
+      return level;
     // For struct, go deeper if size not change.
     // This will leave memcpy to deeper level when flatten.
     if (StructType *ST = dyn_cast<StructType>(Ty)) {
