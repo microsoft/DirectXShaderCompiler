@@ -1339,6 +1339,32 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *value, LValue lvalue,
                     lvalue.getTBAAOffset());
 }
 
+// HLSL Change Begin - find immediate value for literal.
+static llvm::Value *GetStoredValue(llvm::Value *Ptr) {
+  llvm::Value *V = nullptr;
+  for (llvm::User *U : Ptr->users()) {
+    if (llvm::StoreInst *ST = dyn_cast<llvm::StoreInst>(U)) {
+      if (V) {
+        // More than one store.
+        // Skip.
+        V = nullptr;
+        break;
+      }
+      V = ST->getValueOperand();
+    }
+  }
+  return V;
+}
+static bool IsLiteralType(QualType QT) {
+  if (const BuiltinType *BTy = QT->getAs<BuiltinType>()) {
+    if (BTy->getKind() == BuiltinType::LitFloat ||
+        BTy->getKind() == BuiltinType::LitInt)
+      return true;
+  }
+  return false;
+}
+// HLSL Change End.
+
 /// EmitLoadOfLValue - Given an expression that represents a value lvalue, this
 /// method emits the address of the lvalue, then loads the result as an rvalue,
 /// returning the rvalue.
@@ -1357,12 +1383,33 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
 
   if (LV.isSimple()) {
     assert(!LV.getType()->isFunctionType());
+    // HLSL Change Begin - find immediate value for literal.
+    if (IsLiteralType(LV.getType())) {
+      // The value must be stored only once.
+      // Scan all use to find it.
+      llvm::Value *Ptr = LV.getAddress();
+      if (llvm::Value *V = GetStoredValue(Ptr)) {
+        return RValue::get(V);
+      }
+    }
+    // HLSL Change End.
 
     // Everything needs a load.
     return RValue::get(EmitLoadOfScalar(LV, Loc));
   }
 
   if (LV.isVectorElt()) {
+    // HLSL Change Begin - find immediate value for literal.
+    if (IsLiteralType(LV.getType())) {
+      // The value must be stored only once.
+      // Scan all use to find it.
+      llvm::Value *Ptr = LV.getAddress();
+      if (llvm::Value *V = GetStoredValue(Ptr)) {
+        return RValue::get(Builder.CreateExtractElement(V,
+               LV.getVectorIdx(), "vecext"));
+      }
+    }
+    // HLSL Change End.
     llvm::LoadInst *Load = Builder.CreateLoad(LV.getVectorAddr(),
                                               LV.isVolatileQualified());
     Load->setAlignment(LV.getAlignment().getQuantity());
@@ -1438,6 +1485,22 @@ RValue CodeGenFunction::EmitLoadOfExtVectorElementLValue(LValue LV) {
     ExprVT =
         hlsl::ConvertHLSLVecMatTypeToExtVectorType(getContext(), LV.getType());
   // HLSL Change Ends
+
+  // HLSL Change Begin - find immediate value for literal.
+  QualType QT = LV.getType();
+  if (ExprVT) {
+    QT = ExprVT->getElementType();
+  }
+  if (IsLiteralType(QT)) {
+    // The value must be stored only once.
+    // Scan all use to find it.
+    llvm::Value *Ptr = LV.getExtVectorAddr();
+    if (llvm::Value *V = GetStoredValue(Ptr)) {
+      Vec = V;
+    }
+  }
+  // HLSL Change End.
+
   if (!ExprVT) {
     unsigned InIdx = getAccessedFieldNo(0, Elts);
     llvm::Value *Elt = llvm::ConstantInt::get(SizeTy, InIdx);
