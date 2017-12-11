@@ -954,8 +954,8 @@ TEST_F(FileTest, SpirvInterpolationError) {
   runFileTest("spirv.interpolation.error.hlsl", FileTest::Expect::Failure);
 }
 
-TEST_F(FileTest, SpirvLegalizationStructuredBuffer) {
-  runFileTest("spirv.legal.sbuffer.hlsl", Expect::Success,
+TEST_F(FileTest, SpirvLegalizationOpaqueStruct) {
+  runFileTest("spirv.legal.opaque-struct.hlsl", Expect::Success,
               // The generated SPIR-V needs legalization.
               /*runValidation=*/false);
 }
