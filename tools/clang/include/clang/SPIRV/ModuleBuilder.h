@@ -172,7 +172,7 @@ public:
   /// be generated.
   ///
   /// If bias, lod, grad, or minLod is given a non-zero value, an additional
-  /// image operands, Bias, Lod, Grad, or minLod will be attached to the current
+  /// image operands, Bias, Lod, Grad, or MinLod will be attached to the current
   /// instruction, respectively. Panics if both lod and minLod are non-zero.
   ///
   /// If residencyCodeId is not zero, the sparse version of the instructions
@@ -215,6 +215,10 @@ public:
                              uint32_t compareVal, uint32_t constOffset,
                              uint32_t varOffset, uint32_t constOffsets,
                              uint32_t sample, uint32_t residencyCodeId);
+
+  /// \brief Creates an OpImageSparseTexelsResident SPIR-V instruction for the
+  /// given Resident Code and returns the <result-id> of the instruction.
+  uint32_t createImageSparseTexelsResident(uint32_t resident_code);
 
   /// \brief Creates a select operation with the given values for true and false
   /// cases and returns the <result-id> for the result.
