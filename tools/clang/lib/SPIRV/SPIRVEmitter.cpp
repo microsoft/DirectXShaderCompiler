@@ -4625,6 +4625,10 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                            /*groupSync*/ true,
                                            /*isAllBarrier*/ true);
     break;
+  case hlsl::IntrinsicOp::IOP_CheckAccessFullyMapped:
+    retVal =
+        theBuilder.createImageSparseTexelsResident(doExpr(callExpr->getArg(0)));
+    break;
   case hlsl::IntrinsicOp::IOP_mul:
     retVal = processIntrinsicMul(callExpr);
     break;
@@ -4695,7 +4699,6 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processIntrinsicF32ToF16(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_abort:
-  case hlsl::IntrinsicOp::IOP_CheckAccessFullyMapped:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
     emitError("no equivalent for %0 intrinsic function in Vulkan",

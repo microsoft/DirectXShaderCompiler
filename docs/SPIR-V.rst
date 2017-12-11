@@ -1516,6 +1516,7 @@ The following intrinsic HLSL functions have direct SPIR-V opcodes for them:
 ``isInf``                            ``OpIsInf``
 ``reversebits``                      ``OpBitReverse``
 ``transpose``                        ``OpTranspose``
+``CheckAccessFullyMapped``           ``OpImageSparseTexelsResident``
 ==================================== =================================
 
 Using GLSL extended instructions
@@ -2279,8 +2280,6 @@ either because of no Vulkan equivalents at the moment, or because of deprecation
   emit a warning and ignore it.
 * ``abort()`` intrinsic function: no Vulkan equivalent. The compiler will emit
   an error.
-* ``CheckAccessFullyMapped()`` intrinsic function: no Vulkan equivalent.
-  The compiler will emit an error.
 * ``GetRenderTargetSampleCount()`` intrinsic function: no Vulkan equivalent.
   (Its GLSL counterpart is ``gl_NumSamples``, which is not available in GLSL for
   Vulkan.) The compiler will emit an error.
