@@ -1880,45 +1880,6 @@ DXIL::ComponentType GetCompType(LPCWSTR pText, LPCWSTR pEnd) {
   }
 }
 
-bool GetSign(float x) {
-  return std::signbit(x);
-}
-
-int GetMantissa(float x) {
-  int bits = reinterpret_cast<int &>(x);
-  return bits & 0x7fffff;
-}
-
-int GetExponent(float x) {
-  int bits = reinterpret_cast<int &>(x);
-  return (bits >> 23) & 0xff;
-}
-
-
-// Note: This is not a precise float32 to float16 conversion.
-// This function should be used to convert float values read from ShaderOp data that were intended to be used for halves.
-// So special values (nan, denorm, inf) for float32 will map to their corresponding bits in float16,
-// and it will not handle true conversions that spans float16 denorms and float32 non-denorms.
-uint16_t ConvertFloat32ToFloat16(float x) {
-  bool isNeg = GetSign(x);
-  int exp = GetExponent(x);
-  int mantissa = GetMantissa(x);
-  if (isnan(x)) return Float16NaN;
-  if (isinf(x) || exp - 127 > 15) {
-    return isNeg ? Float16NegInf : Float16PosInf;
-  }
-  if (isdenorm(x)) return isNeg ? Float16NegDenorm : Float16PosDenorm;
-  if (exp == 0 && mantissa == 0) return isNeg ? Float16NegZero : Float16PosZero;
-  else {
-    DXASSERT(exp - 127 <= 15, "else invalid float conversion");
-    uint16_t val = 0;
-    val |= isNeg ? 0x8000 : 0;
-    val |= (exp - 127 + 15) << 10; // subtract from float32 exponent bias and add float16 exponent bias
-    val |= mantissa >> 13; // only first 10 significands taken
-    return val;
-  }
-}
-
 void ParseDataFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType, std::vector<BYTE> &V) {
   BYTE *pB;
   if (compType == DXIL::ComponentType::F16 || compType == DXIL::ComponentType::F32) {
