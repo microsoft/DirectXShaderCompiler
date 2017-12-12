@@ -12,7 +12,7 @@ set TEST_ALL=1
 set TEST_CLANG=0
 set TEST_CMD=0
 set TEST_EXEC=0
-set TEST_EXEC_EXP=0
+set TEST_EXEC_FUTURE=0
 set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
 set TEST_CLANG_FILTER= /select: "@Priority<1"
@@ -111,15 +111,15 @@ if "%1"=="-clean" (
   set TEST_EXEC_FILTER=ExecutionTest::%2
   set TEST_EXEC_REQUIRED=1
   shift /1
-) else if "%1"=="exec-exp" (
+) else if "%1"=="exec-future" (
   set TEST_ALL=0
   set TEST_EXEC=1
-  set TEST_EXEC_EXP=1
+  set TEST_EXEC_FUTURE=1
   set TEST_EXEC_REQUIRED=1
-) else if "%1"=="exec-exp-filter" (
+) else if "%1"=="exec-future-filter" (
   set TEST_ALL=0
   set TEST_EXEC=1
-  set TEST_EXEC_EXP=1
+  set TEST_EXEC_FUTURE=1
   set TEST_EXEC_FILTER=ExecutionTest::%2
   set TEST_EXEC_REQUIRED=1
   shift /1
@@ -260,7 +260,7 @@ if "%TEST_EXEC%"=="1" (
 )
 
 if "%TEST_EXEC%"=="1" (
-  if "%TEST_EXEC_EXP%"=="1" (
+  if "%TEST_EXEC_FUTURE%"=="1" (
     call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority=2" /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %ADDITIONAL_OPTS%
   ) else (
     call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority<2" /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %ADDITIONAL_OPTS%
@@ -348,7 +348,7 @@ echo                - hcttest compat-suite "..\CodeGenHLSL\shader-compat-suite\l
 echo  cmd           - run command line tool tests.
 echo  v             - run the subset of clang tests that are verified-based.
 echo  exec          - run execution tests.
-echo  exec-exp      - run execution tests for future releases.
+echo  exec-future   - run execution tests for future releases.
 echo  extras        - run hcttest-extras tests.
 echo  noexec        - all except exec and extras tests.
 echo.
