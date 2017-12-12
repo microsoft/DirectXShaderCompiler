@@ -565,14 +565,17 @@ public:
 
   BEGIN_TEST_METHOD(UnaryHalfOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#UnaryHalfOpTable")
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(BinaryHalfOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#BinaryHalfOpTable")
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(TertiaryHalfOpTest)
-
-  TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#TertiaryHalfOpTable")
-  END_TEST_METHOD()  BEGIN_TEST_METHOD(UnaryIntOpTest)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#TertiaryHalfOpTable")
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(UnaryIntOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#UnaryIntOpTable")
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(BinaryIntOpTest)
@@ -2746,8 +2749,8 @@ public:
 static TableParameter UnaryFPOpParameters[] = {
     { L"ShaderOp.Target", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Input1", TableParameter::STRING_TABLE, true },
-    { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
+    { L"Validation.Input1", TableParameter::FLOAT_TABLE, true },
+    { L"Validation.Expected1", TableParameter::FLOAT_TABLE, true },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
     { L"Warp.Version", TableParameter::UINT, false }
@@ -2756,10 +2759,10 @@ static TableParameter UnaryFPOpParameters[] = {
 static TableParameter BinaryFPOpParameters[] = {
     { L"ShaderOp.Target", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Input1", TableParameter::STRING_TABLE, true },
-    { L"Validation.Input2", TableParameter::STRING_TABLE, true },
-    { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
-    { L"Validation.Expected2", TableParameter::STRING_TABLE, false },
+    { L"Validation.Input1", TableParameter::FLOAT_TABLE, true },
+    { L"Validation.Input2", TableParameter::FLOAT_TABLE, true },
+    { L"Validation.Expected1", TableParameter::FLOAT_TABLE, true },
+    { L"Validation.Expected2", TableParameter::FLOAT_TABLE, false },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
 };
@@ -2767,10 +2770,10 @@ static TableParameter BinaryFPOpParameters[] = {
 static TableParameter TertiaryFPOpParameters[] = {
     { L"ShaderOp.Target", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Input1", TableParameter::STRING_TABLE, true },
-    { L"Validation.Input2", TableParameter::STRING_TABLE, true },
-    { L"Validation.Input3", TableParameter::STRING_TABLE, true },
-    { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
+    { L"Validation.Input1", TableParameter::FLOAT_TABLE, true },
+    { L"Validation.Input2", TableParameter::FLOAT_TABLE, true },
+    { L"Validation.Input3", TableParameter::FLOAT_TABLE, true },
+    { L"Validation.Expected1", TableParameter::FLOAT_TABLE, true },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
 };
@@ -3173,7 +3176,10 @@ static HRESULT ParseTableRow(TableParameter *table, unsigned int size) {
       for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
         float val;
         ParseDataToFloat(tempTable[j], val);
-        table[i].m_halfTable[j] = st::ConvertFloat32ToFloat16(val);
+        if (isdenorm(val))
+          table[i].m_halfTable[j] = signbit(val) ? Float16NegDenorm : Float16PosDenorm;
+        else
+          table[i].m_halfTable[j] = ConvertFloat32ToFloat16(val);
       }
       break;
     }
@@ -3288,10 +3294,10 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
         return;
     }
 
-    std::vector<WEX::Common::String> *Validation_Input =
-        &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
-    std::vector<WEX::Common::String> *Validation_Expected =
-        &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
+    std::vector<float> *Validation_Input =
+        &(handler.GetTableParamByName(L"Validation.Input1")->m_floatTable);
+    std::vector<float> *Validation_Expected =
+        &(handler.GetTableParamByName(L"Validation.Expected1")->m_floatTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
     double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
@@ -3309,10 +3315,7 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
           SUnaryFPOp *pPrimitives = (SUnaryFPOp *)Data.data();
           for (size_t i = 0; i < count; ++i) {
             SUnaryFPOp *p = &pPrimitives[i];
-            PCWSTR str = (*Validation_Input)[i % Validation_Input->size()];
-            float val;
-            VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
-            p->input = val;
+            p->input = (*Validation_Input)[i % Validation_Input->size()];
           }
           // use shader from data table
           pShaderOp->Shaders.at(0).Target = Target.m_psz;
@@ -3326,9 +3329,7 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
         SUnaryFPOp *p = &pPrimitives[i];
-        LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->size()];
-        float val;
-        VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
+        float val = (*Validation_Expected)[i % Validation_Expected->size()];
         LogCommentFmt(
             L"element #%u, input = %6.8f, output = %6.8f, expected = %6.8f", i,
             p->input, p->output, val);
@@ -3355,16 +3356,16 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
 
-    std::vector<WEX::Common::String> *Validation_Input1 =
-        &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
-    std::vector<WEX::Common::String> *Validation_Input2 =
-        &(handler.GetTableParamByName(L"Validation.Input2")->m_StringTable);
+    std::vector<float> *Validation_Input1 =
+        &(handler.GetTableParamByName(L"Validation.Input1")->m_floatTable);
+    std::vector<float> *Validation_Input2 =
+        &(handler.GetTableParamByName(L"Validation.Input2")->m_floatTable);
 
-    std::vector<WEX::Common::String> *Validation_Expected1 =
-        &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
+    std::vector<float> *Validation_Expected1 =
+        &(handler.GetTableParamByName(L"Validation.Expected1")->m_floatTable);
 
-    std::vector<WEX::Common::String> *Validation_Expected2 =
-        &(handler.GetTableParamByName(L"Validation.Expected2")->m_StringTable);
+    std::vector<float> *Validation_Expected2 =
+        &(handler.GetTableParamByName(L"Validation.Expected2")->m_floatTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
     double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
@@ -3381,13 +3382,8 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
         SBinaryFPOp *pPrimitives = (SBinaryFPOp *)Data.data();
         for (size_t i = 0; i < count; ++i) {
             SBinaryFPOp *p = &pPrimitives[i];
-            PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->size()];
-            PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->size()];
-            float val1, val2;
-            VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
-            VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
-            p->input1 = val1;
-            p->input2 = val2;
+            p->input1 = (*Validation_Input1)[i % Validation_Input1->size()];
+            p->input2 = (*Validation_Input2)[i % Validation_Input2->size()];
         }
 
         // use shader from data table
@@ -3404,11 +3400,8 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
     if (numExpected == 2) {
       for (unsigned i = 0; i < count; ++i) {
         SBinaryFPOp *p = &pPrimitives[i];
-        LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
-        LPCWSTR str2 = (*Validation_Expected2)[i % Validation_Expected2->size()];
-        float val1, val2;
-        VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
-        VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
+        float val1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
+        float val2 = (*Validation_Expected2)[i % Validation_Expected2->size()];
         LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, output1 = "
             L"%6.8f, expected1 = %6.8f, output2 = %6.8f, expected2 = %6.8f",
             i, p->input1, p->input2, p->output1, val1, p->output2,
@@ -3422,9 +3415,7 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
     else if (numExpected == 1) {
       for (unsigned i = 0; i < count; ++i) {
         SBinaryFPOp *p = &pPrimitives[i];
-        LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
-        float val1;
-        VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+        float val1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
         LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, output1 = "
           L"%6.8f, expected1 = %6.8f",
           i, p->input1, p->input2, p->output1, val1);
@@ -3457,15 +3448,15 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
 
-    std::vector<WEX::Common::String> *Validation_Input1 =
-        &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
-    std::vector<WEX::Common::String> *Validation_Input2 =
-        &(handler.GetTableParamByName(L"Validation.Input2")->m_StringTable);
-    std::vector<WEX::Common::String> *Validation_Input3 =
-        &(handler.GetTableParamByName(L"Validation.Input3")->m_StringTable);
+    std::vector<float> *Validation_Input1 =
+        &(handler.GetTableParamByName(L"Validation.Input1")->m_floatTable);
+    std::vector<float> *Validation_Input2 =
+        &(handler.GetTableParamByName(L"Validation.Input2")->m_floatTable);
+    std::vector<float> *Validation_Input3 =
+        &(handler.GetTableParamByName(L"Validation.Input3")->m_floatTable);
 
-    std::vector<WEX::Common::String> *Validation_Expected =
-        &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
+    std::vector<float> *Validation_Expected =
+        &(handler.GetTableParamByName(L"Validation.Expected1")->m_floatTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
     double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
@@ -3482,16 +3473,9 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
         STertiaryFPOp *pPrimitives = (STertiaryFPOp *)Data.data();
         for (size_t i = 0; i < count; ++i) {
             STertiaryFPOp *p = &pPrimitives[i];
-            PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->size()];
-            PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->size()];
-            PCWSTR str3 = (*Validation_Input3)[i % Validation_Input3->size()];
-            float val1, val2, val3;
-            VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
-            VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
-            VERIFY_SUCCEEDED(ParseDataToFloat(str3, val3));
-            p->input1 = val1;
-            p->input2 = val2;
-            p->input3 = val3;
+            p->input1 = (*Validation_Input1)[i % Validation_Input1->size()];
+            p->input2 = (*Validation_Input2)[i % Validation_Input2->size()];
+            p->input3 = (*Validation_Input3)[i % Validation_Input3->size()];
         }
 
         // use shader from data table
@@ -3507,9 +3491,7 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
 
     for (unsigned i = 0; i < count; ++i) {
       STertiaryFPOp *p = &pPrimitives[i];
-      LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->size()];
-      float val;
-      VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
+      float val = (*Validation_Expected)[i % Validation_Expected->size()];
       LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, input3 = %6.8f, output1 = "
                     L"%6.8f, expected = %6.8f",
                     i, p->input1, p->input2, p->input3, p->output, val);
@@ -3542,10 +3524,10 @@ TEST_F(ExecutionTest, UnaryHalfOpTest) {
         return;
     }
 
-    std::vector<WEX::Common::String> *Validation_Input =
-        &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
-    std::vector<WEX::Common::String> *Validation_Expected =
-        &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
+    std::vector<uint16_t> *Validation_Input =
+        &(handler.GetTableParamByName(L"Validation.Input1")->m_halfTable);
+    std::vector<uint16_t> *Validation_Expected =
+        &(handler.GetTableParamByName(L"Validation.Expected1")->m_halfTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
     double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
@@ -3563,11 +3545,7 @@ TEST_F(ExecutionTest, UnaryHalfOpTest) {
           SUnaryHalfOp *pPrimitives = (SUnaryHalfOp *)Data.data();
           for (size_t i = 0; i < count; ++i) {
             SUnaryHalfOp *p = &pPrimitives[i];
-            PCWSTR str = (*Validation_Input)[i % Validation_Input->size()];
-            float val;
-            VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
-            uint16_t converted = st::ConvertFloat32ToFloat16(val);
-            p->input = converted;
+            p->input = (*Validation_Input)[i % Validation_Input->size()];
           }
           // use shader from data table
           pShaderOp->Shaders.at(0).Target = Target.m_psz;
@@ -3581,15 +3559,12 @@ TEST_F(ExecutionTest, UnaryHalfOpTest) {
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
         SUnaryHalfOp *p = &pPrimitives[i];
-        LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->size()];
-        float expected_fp32;
-        VERIFY_SUCCEEDED(ParseDataToFloat(str, expected_fp32));
-        uint16_t expected = st::ConvertFloat32ToFloat16(expected_fp32);
+        uint16_t expected = (*Validation_Expected)[i % Validation_Input->size()];
         LogCommentFmt(L"element #%u, input = %6.8f(0x%04x), output = "
                       L"%6.8f(0x%04x), expected = %6.8f(0x%04x)",
-                      i, st::ConvertFloat16ToFloat32(p->input), p->input,
-                      st::ConvertFloat16ToFloat32(p->output), p->output,
-                      expected_fp32, expected_fp32);
+                      i, ConvertFloat16ToFloat32(p->input), p->input,
+                      ConvertFloat16ToFloat32(p->output), p->output,
+                      ConvertFloat16ToFloat32(expected), expected);
         VerifyOutputWithExpectedValueHalf(p->output, expected, Validation_Type, Validation_Tolerance);
     }
 }
@@ -3613,16 +3588,16 @@ TEST_F(ExecutionTest, BinaryHalfOpTest) {
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
 
-    std::vector<WEX::Common::String> *Validation_Input1 =
-        &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
-    std::vector<WEX::Common::String> *Validation_Input2 =
-        &(handler.GetTableParamByName(L"Validation.Input2")->m_StringTable);
+    std::vector<uint16_t> *Validation_Input1 =
+        &(handler.GetTableParamByName(L"Validation.Input1")->m_halfTable);
+    std::vector<uint16_t> *Validation_Input2 =
+        &(handler.GetTableParamByName(L"Validation.Input2")->m_halfTable);
 
-    std::vector<WEX::Common::String> *Validation_Expected1 =
-        &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
+    std::vector<uint16_t> *Validation_Expected1 =
+        &(handler.GetTableParamByName(L"Validation.Expected1")->m_halfTable);
 
-    std::vector<WEX::Common::String> *Validation_Expected2 =
-        &(handler.GetTableParamByName(L"Validation.Expected2")->m_StringTable);
+    std::vector<uint16_t> *Validation_Expected2 =
+        &(handler.GetTableParamByName(L"Validation.Expected2")->m_halfTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
     double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
@@ -3639,13 +3614,8 @@ TEST_F(ExecutionTest, BinaryHalfOpTest) {
         SBinaryHalfOp *pPrimitives = (SBinaryHalfOp *)Data.data();
         for (size_t i = 0; i < count; ++i) {
             SBinaryHalfOp *p = &pPrimitives[i];
-            PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->size()];
-            PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->size()];
-            float val1, val2;
-            VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
-            VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
-            p->input1 = st::ConvertFloat32ToFloat16(val1);
-            p->input2 = st::ConvertFloat32ToFloat16(val2);
+            p->input1 = (*Validation_Input1)[i % Validation_Input1->size()];
+            p->input2 = (*Validation_Input1)[i % Validation_Input1->size()];
         }
 
         // use shader from data table
@@ -3662,37 +3632,29 @@ TEST_F(ExecutionTest, BinaryHalfOpTest) {
     if (numExpected == 2) {
       for (unsigned i = 0; i < count; ++i) {
         SBinaryHalfOp *p = &pPrimitives[i];
-        LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
-        LPCWSTR str2 = (*Validation_Expected2)[i % Validation_Expected2->size()];
-        float expected1_fp32, expected2_fp32;
-        VERIFY_SUCCEEDED(ParseDataToFloat(str1, expected1_fp32));
-        VERIFY_SUCCEEDED(ParseDataToFloat(str2, expected2_fp32));
+        uint16_t expected1 = (*Validation_Expected1)[i % Validation_Input1->size()];
+        uint16_t expected2 = (*Validation_Expected2)[i % Validation_Input2->size()];
         LogCommentFmt(L"element #%u, input1 = %6.8f(0x%04x), input2 = %6.8f(0x%04x), output1 = "
-            L"%6.8f(0x%04x), expected1 = %6.8f(0x%04x), output2 = %6.8f(0x%04x), expected2 = %6.8f(0x%04x)",
-            i, st::ConvertFloat16ToFloat32(p->input1), p->input1,
-            st::ConvertFloat16ToFloat32(p->input2), p->input2,
-            st::ConvertFloat16ToFloat32(p->output1), p->output1,
-            st::ConvertFloat16ToFloat32(p->output2), p->output2,
-            expected1_fp32, expected1_fp32,
-            expected2_fp32, expected2_fp32);
-        uint16_t expected1 = st::ConvertFloat32ToFloat16(expected1_fp32);
-        uint16_t expected2 = st::ConvertFloat32ToFloat16(expected2_fp32);
+          L"%6.8f(0x%04x), expected1 = %6.8f(0x%04x), output2 = %6.8f(0x%04x), expected2 = %6.8f(0x%04x)",
+          i, ConvertFloat16ToFloat32(p->input1), p->input1,
+          ConvertFloat16ToFloat32(p->input2), p->input2,
+          ConvertFloat16ToFloat32(p->output1), p->output1,
+          ConvertFloat16ToFloat32(p->output2), p->output2,
+          ConvertFloat16ToFloat32(expected1), expected1,
+          ConvertFloat16ToFloat32(expected2), expected2);
         VerifyOutputWithExpectedValueHalf(p->output1, expected1, Validation_Type, Validation_Tolerance);
         VerifyOutputWithExpectedValueHalf(p->output2, expected2, Validation_Type, Validation_Tolerance);
       }
     }
     else if (numExpected == 1) {
       for (unsigned i = 0; i < count; ++i) {
+        uint16_t expected = (*Validation_Expected1)[i % Validation_Input1->size()];
         SBinaryHalfOp *p = &pPrimitives[i];
-        LPCWSTR str = (*Validation_Expected1)[i % Validation_Expected1->size()];
-        float expected_fp32;
-        VERIFY_SUCCEEDED(ParseDataToFloat(str, expected_fp32));
-        uint16_t expected = st::ConvertFloat32ToFloat16(expected_fp32);
         LogCommentFmt(L"element #%u, input = %6.8f(0x%04x), output = "
           L"%6.8f(0x%04x), expected = %6.8f(0x%04x)",
-          i, st::ConvertFloat16ToFloat32(p->input1), p->input1,
-          st::ConvertFloat16ToFloat32(p->output1), p->output1,
-          expected_fp32, expected_fp32);
+          i, ConvertFloat16ToFloat32(p->input1), p->input1,
+          ConvertFloat16ToFloat32(p->output1), p->output1,
+          ConvertFloat16ToFloat32(expected), expected);
         VerifyOutputWithExpectedValueHalf(p->output1, expected, Validation_Type, Validation_Tolerance);
       }
     }
@@ -3721,15 +3683,15 @@ TEST_F(ExecutionTest, TertiaryHalfOpTest) {
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
 
-    std::vector<WEX::Common::String> *Validation_Input1 =
-        &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
-    std::vector<WEX::Common::String> *Validation_Input2 =
-        &(handler.GetTableParamByName(L"Validation.Input2")->m_StringTable);
-    std::vector<WEX::Common::String> *Validation_Input3 =
-        &(handler.GetTableParamByName(L"Validation.Input3")->m_StringTable);
+    std::vector<uint16_t> *Validation_Input1 =
+        &(handler.GetTableParamByName(L"Validation.Input1")->m_halfTable);
+    std::vector<uint16_t> *Validation_Input2 =
+        &(handler.GetTableParamByName(L"Validation.Input2")->m_halfTable);
+    std::vector<uint16_t> *Validation_Input3 =
+        &(handler.GetTableParamByName(L"Validation.Input3")->m_halfTable);
 
-    std::vector<WEX::Common::String> *Validation_Expected =
-        &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
+    std::vector<uint16_t> *Validation_Expected =
+        &(handler.GetTableParamByName(L"Validation.Expected1")->m_halfTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
     double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
@@ -3746,16 +3708,9 @@ TEST_F(ExecutionTest, TertiaryHalfOpTest) {
         STertiaryHalfOp *pPrimitives = (STertiaryHalfOp *)Data.data();
         for (size_t i = 0; i < count; ++i) {
             STertiaryHalfOp *p = &pPrimitives[i];
-            PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->size()];
-            PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->size()];
-            PCWSTR str3 = (*Validation_Input3)[i % Validation_Input3->size()];
-            float val1, val2, val3;
-            VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
-            VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
-            VERIFY_SUCCEEDED(ParseDataToFloat(str3, val3));
-            p->input1 = st::ConvertFloat32ToFloat16(val1);
-            p->input2 = st::ConvertFloat32ToFloat16(val2);
-            p->input3 = st::ConvertFloat32ToFloat16(val3);
+            p->input1 = (*Validation_Input1)[i % Validation_Input1->size()];
+            p->input2 = (*Validation_Input2)[i % Validation_Input2->size()];
+            p->input3 = (*Validation_Input3)[i % Validation_Input3->size()];
         }
 
         // use shader from data table
@@ -3771,17 +3726,14 @@ TEST_F(ExecutionTest, TertiaryHalfOpTest) {
 
     for (unsigned i = 0; i < count; ++i) {
       STertiaryHalfOp *p = &pPrimitives[i];
-      LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->size()];
-      float expected_fp32;
-      VERIFY_SUCCEEDED(ParseDataToFloat(str, expected_fp32));
-      uint16_t expected = st::ConvertFloat32ToFloat16(expected_fp32);
+      uint16_t expected = (*Validation_Expected)[i % Validation_Expected->size()];
       LogCommentFmt(L"element #%u,  input1 = %6.8f(0x%04x), input2 = %6.8f(0x%04x), input3 = %6.8f(0x%04x), output = "
         L"%6.8f(0x%04x), expected = %6.8f(0x%04x)",
-        i, st::ConvertFloat16ToFloat32(p->input1), p->input1,
-        st::ConvertFloat16ToFloat32(p->input2), p->input2,
-        st::ConvertFloat16ToFloat32(p->input3), p->input3,
-        st::ConvertFloat16ToFloat32(p->output), p->output,
-        expected_fp32, expected_fp32);
+        i, ConvertFloat16ToFloat32(p->input1), p->input1,
+        ConvertFloat16ToFloat32(p->input2), p->input2,
+        ConvertFloat16ToFloat32(p->input3), p->input3,
+        ConvertFloat16ToFloat32(p->output), p->output,
+        ConvertFloat16ToFloat32(expected), expected);
       VerifyOutputWithExpectedValueHalf(p->output, expected, Validation_Type, Validation_Tolerance);
     }
 }

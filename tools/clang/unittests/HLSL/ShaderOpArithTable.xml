@@ -10,9 +10,9 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Name="Warp.Version">unsigned int</ParameterType>
         </ParameterTypes>
-        <Row Name="Log">
-            <Parameter Name="Validation.Type">Relative</Parameter>
-            <Parameter Name="Validation.Tolerance">21</Parameter>
+        <Row Name="Htan">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
@@ -21,7 +21,7 @@
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 SUnaryFPOp l = g_buf[GI];
-                l.output = log(l.input);
+                l.output = tanh(l.input);
                 g_buf[GI] = l;
             };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
@@ -33,24 +33,21 @@
                 <Value>0</Value>
                 <Value>denorm</Value>
                 <Value>Inf</Value>
+                <Value>1</Value>
                 <Value>-1</Value>
-                <Value>2.718281828</Value>
-                <Value>7.389056</Value>
-                <Value>100</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
-                <Value>NaN</Value>
-                <Value>-Inf</Value>
-                <Value>-Inf</Value>
-                <Value>-Inf</Value>
-                <Value>-Inf</Value>
-                <Value>Inf</Value>
-                <Value>NaN</Value>
-                <Value>1.0</Value>
-                <Value>1.99999998</Value>
-                <Value>4.6051701</Value>
+                <Value>-1</Value>
+                <Value>-0.0</Value>
+                <Value>-0.0</Value>
+                <Value>0.0</Value>
+                <Value>0.0</Value>
+                <Value>1</Value>
+                <Value>0.761594</Value>
+                <Value>-0.761594</Value>
             </Parameter>
+            <Parameter Name="Warp.Version">16202</Parameter>
         </Row>
         <Row Name="Atan">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
@@ -444,9 +441,9 @@
                 <Value>NaN</Value>
             </Parameter>
         </Row>
-        <Row Name="Htan">
-            <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Row Name="Log">
+            <Parameter Name="Validation.Type">Relative</Parameter>
+            <Parameter Name="Validation.Tolerance">21</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
@@ -455,7 +452,7 @@
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 SUnaryFPOp l = g_buf[GI];
-                l.output = tanh(l.input);
+                l.output = log(l.input);
                 g_buf[GI] = l;
             };</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
@@ -467,21 +464,24 @@
                 <Value>0</Value>
                 <Value>denorm</Value>
                 <Value>Inf</Value>
-                <Value>1</Value>
                 <Value>-1</Value>
+                <Value>2.718281828</Value>
+                <Value>7.389056</Value>
+                <Value>100</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
-                <Value>-1</Value>
-                <Value>-0.0</Value>
-                <Value>-0.0</Value>
-                <Value>0.0</Value>
-                <Value>0.0</Value>
-                <Value>1</Value>
-                <Value>0.761594</Value>
-                <Value>-0.761594</Value>
+                <Value>NaN</Value>
+                <Value>-Inf</Value>
+                <Value>-Inf</Value>
+                <Value>-Inf</Value>
+                <Value>-Inf</Value>
+                <Value>Inf</Value>
+                <Value>NaN</Value>
+                <Value>1.0</Value>
+                <Value>1.99999998</Value>
+                <Value>4.6051701</Value>
             </Parameter>
-            <Parameter Name="Warp.Version">16202</Parameter>
         </Row>
         <Row Name="Sqrt">
             <Parameter Name="Validation.Type">ulp</Parameter>
@@ -1277,44 +1277,6 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Name="Warp.Version">unsigned int</ParameterType>
         </ParameterTypes>
-        <Row Name="ExpHalf">
-            <Parameter Name="Validation.Type">Relative</Parameter>
-            <Parameter Name="Validation.Tolerance">21</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
-            };
-            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = exp(l.input);
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>NaN</Value>
-                <Value>-Inf</Value>
-                <Value>-denorm</Value>
-                <Value>-0</Value>
-                <Value>0</Value>
-                <Value>denorm</Value>
-                <Value>Inf</Value>
-                <Value>-1</Value>
-                <Value>10</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>NaN</Value>
-                <Value>0</Value>
-                <Value>1</Value>
-                <Value>1</Value>
-                <Value>1</Value>
-                <Value>1</Value>
-                <Value>Inf</Value>
-                <Value>0.367879441</Value>
-                <Value>22026.46579</Value>
-            </Parameter>
-        </Row>
         <Row Name="Round_neHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
@@ -1329,7 +1291,7 @@
                 l.output = round(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1384,7 +1346,7 @@
                     l.output = 0;
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1422,7 +1384,7 @@
                 l.output = tan(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1431,19 +1393,19 @@
                 <Value>0</Value>
                 <Value>denorm</Value>
                 <Value>Inf</Value>
-                <Value>-314.16</Value>
-                <Value>314.16</Value>
+                <Value>-314</Value>
+                <Value>314</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>-0.0</Value>
-                <Value>-0.0</Value>
-                <Value>0.0</Value>
-                <Value>0.0</Value>
+                <Value>-0</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
                 <Value>NaN</Value>
-                <Value>-0.000735</Value>
-                <Value>0.000735</Value>
+                <Value>0.1606257</Value>
+                <Value>-0.1606257</Value>
             </Parameter>
         </Row>
         <Row Name="Round_piHalf">
@@ -1460,7 +1422,7 @@
                 l.output = ceil(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1510,7 +1472,7 @@
                 l.output = atan(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1552,7 +1514,7 @@
                     l.output = 0;
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1591,7 +1553,7 @@
                 l.output = acos(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1633,7 +1595,7 @@
                 l.output = sqrt(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1678,7 +1640,7 @@
                     l.output = 0;
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1716,7 +1678,7 @@
                 l.output = floor(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1766,7 +1728,7 @@
                 l.output = sin(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1775,8 +1737,8 @@
                 <Value>0</Value>
                 <Value>denorm</Value>
                 <Value>Inf</Value>
-                <Value>-314.16</Value>
-                <Value>314.16</Value>
+                <Value>-314</Value>
+                <Value>314</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
@@ -1786,8 +1748,8 @@
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>NaN</Value>
-                <Value>-0.0007346401</Value>
-                <Value>0.0007346401</Value>
+                <Value>-0.1585929</Value>
+                <Value>0.1585929</Value>
             </Parameter>
         </Row>
         <Row Name="HsinHalf">
@@ -1804,7 +1766,7 @@
                 l.output = sinh(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1842,7 +1804,7 @@
                 l.output = cosh(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1880,7 +1842,7 @@
                 l.output = trunc(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1930,7 +1892,7 @@
                 l.output = frac(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -1940,9 +1902,9 @@
                 <Value>denorm</Value>
                 <Value>Inf</Value>
                 <Value>-1</Value>
-                <Value>2.718280</Value>
-                <Value>1000.599976</Value>
-                <Value>-7.389</Value>
+                <Value>2.719</Value>
+                <Value>1000.5</Value>
+                <Value>-7.39</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
@@ -1953,51 +1915,9 @@
                 <Value>0</Value>
                 <Value>NaN</Value>
                 <Value>0</Value>
-                <Value>0.718280</Value>
-                <Value>0.599976</Value>
-                <Value>0.611</Value>
-            </Parameter>
-        </Row>
-        <Row Name="LogHalf">
-            <Parameter Name="Validation.Type">Relative</Parameter>
-            <Parameter Name="Validation.Tolerance">21</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
-            };
-            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = log(l.input);
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>NaN</Value>
-                <Value>-Inf</Value>
-                <Value>-denorm</Value>
-                <Value>-0</Value>
-                <Value>0</Value>
-                <Value>denorm</Value>
-                <Value>Inf</Value>
-                <Value>-1</Value>
-                <Value>2.718281828</Value>
-                <Value>7.389056</Value>
-                <Value>100</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>NaN</Value>
-                <Value>NaN</Value>
-                <Value>-Inf</Value>
-                <Value>-Inf</Value>
-                <Value>-Inf</Value>
-                <Value>-Inf</Value>
-                <Value>Inf</Value>
-                <Value>NaN</Value>
-                <Value>1.0</Value>
-                <Value>1.99999998</Value>
-                <Value>4.6051701</Value>
+                <Value>0.719</Value>
+                <Value>0.5</Value>
+                <Value>0.61</Value>
             </Parameter>
         </Row>
         <Row Name="FAbsHalf">
@@ -2014,7 +1934,7 @@
                 l.output = abs(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -2052,7 +1972,7 @@
                 l.output = asin(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -2094,7 +2014,7 @@
                 l.output = cos(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -2103,19 +2023,19 @@
                 <Value>0</Value>
                 <Value>denorm</Value>
                 <Value>Inf</Value>
-                <Value>-314.16</Value>
-                <Value>314.16</Value>
+                <Value>-314</Value>
+                <Value>314</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>1.0</Value>
-                <Value>1.0</Value>
-                <Value>1.0</Value>
-                <Value>1.0</Value>
+                <Value>-0</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
                 <Value>NaN</Value>
-                <Value>0.99999973015</Value>
-                <Value>0.99999973015</Value>
+                <Value>0.987344</Value>
+                <Value>0.987344</Value>
             </Parameter>
         </Row>
         <Row Name="HtanHalf">
@@ -2132,7 +2052,7 @@
                 l.output = tanh(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -2171,7 +2091,7 @@
                 l.output = rsqrt(l.input);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
@@ -2183,7 +2103,7 @@
                 <Value>-1</Value>
                 <Value>16.0</Value>
                 <Value>256.0</Value>
-                <Value>65536.0</Value>
+                <Value>65500</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
@@ -2196,7 +2116,7 @@
                 <Value>NaN</Value>
                 <Value>0.25</Value>
                 <Value>0.0625</Value>
-                <Value>0.00390625</Value>
+                <Value>0.00001526</Value>
             </Parameter>
         </Row>
     </Table>
@@ -2228,7 +2148,7 @@
                 l.output1 = l.input1 / l.input2;
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>-1.0</Value>
                 <Value>5.5</Value>
@@ -2356,7 +2276,7 @@
                 l.output1 = l.input1 * l.input2;
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>-1.0</Value>
                 <Value>5.5</Value>
@@ -2389,7 +2309,7 @@
                 l.output1 = l.input1 + l.input2;
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>-1.0</Value>
                 <Value>1.0</Value>
@@ -2425,7 +2345,7 @@
                 l.output1 = l.input1 - l.input2;
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>-1.0</Value>
                 <Value>5.5</Value>
@@ -2474,7 +2394,7 @@
                 l.output = mad(l.input1, l.input2, l.input3);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>

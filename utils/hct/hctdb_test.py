@@ -74,11 +74,19 @@ def add_test_case(test_name, inst_names, validation_type, validation_tolerance,
         g_instruction_nodes[inst_name].test_cases += [case]
 
 def add_test_case_float_half(test_name, inst_names, validation_type, validation_tolerance,
-                  input_lists, output_lists, shader_key, shader_op_name, **kwargs):
+                  float_input_lists, float_output_lists, shader_key, shader_op_name, **kwargs):
     add_test_case(test_name, inst_names, validation_type, validation_tolerance,
-                  input_lists, output_lists, "cs_6_0", get_shader_text(shader_key, shader_op_name), **kwargs)
-    add_test_case(test_name + "Half", inst_names, validation_type, validation_tolerance,
-                  input_lists, output_lists, "cs_6_0", get_shader_text(shader_key.replace("float","half"), shader_op_name), **kwargs)
+                  float_input_lists, float_output_lists, "cs_6_0", get_shader_text(shader_key, shader_op_name), **kwargs)
+    # if half test cases are different from float input lists, use those lists instead for half testings
+    half_input_lists, half_output_lists = float_input_lists, float_output_lists
+    if "half_inputs" in kwargs:
+        half_input_lists = kwargs["half_inputs"]
+    if "half_outputs" in kwargs:
+        half_output_lists = kwargs["half_outputs"]
+    # skip relative error test check for half for now
+    if validation_type != "Relative":
+        add_test_case(test_name + "Half", inst_names, validation_type, validation_tolerance,
+                    half_input_lists, half_output_lists, "cs_6_2", get_shader_text(shader_key.replace("float","half"), shader_op_name), **kwargs)
 
 def add_test_case_denorm(test_name, inst_names, validation_type, validation_tolerance, input_lists, output_lists_ftz, output_lists_preserve, shader_target, shader_text, **kwargs):
     add_test_case(test_name + "FTZ", inst_names, validation_type, validation_tolerance, input_lists,
@@ -431,21 +439,39 @@ def add_test_cases():
     ]], [[
         'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '-0.0007346401',
         '0.0007346401'
-    ]], "unary float", "sin")
+    ]], "unary float", "sin", half_inputs=[[
+        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314',
+        '314'
+    ]], half_outputs=[[
+        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '-0.1585929',
+        '0.1585929'
+    ]])
     add_test_case_float_half('Cos', ['Cos'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314.16',
         '314.16'
     ]], [[
         'NaN', 'NaN', '1.0', '1.0', '1.0', '1.0', 'NaN', '0.99999973015',
         '0.99999973015'
-    ]], "unary float", "cos")
+    ]], "unary float", "cos", half_inputs=[[
+        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314',
+        '314'
+    ]], half_outputs=[[
+        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '0.987344',
+        '0.987344'
+    ]])
     add_test_case_float_half('Tan', ['Tan'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314.16',
         '314.16'
     ]], [[
         'NaN', 'NaN', '-0.0', '-0.0', '0.0', '0.0', 'NaN', '-0.000735',
         '0.000735'
-    ]], "unary float", "tan")
+    ]], "unary float", "tan", half_inputs=[[
+        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314',
+        '314'
+    ]], half_outputs=[[
+        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '0.1606257',
+        '-0.1606257'
+    ]])
     add_test_case_float_half('Hcos', ['Hcos'], 'Epsilon', 0.0008,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1']], [[
             'NaN', 'Inf', '1.0', '1.0', '1.0', '1.0', 'Inf', '1.543081',
@@ -490,14 +516,25 @@ def add_test_cases():
     ]], [[
         'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.718280', '0.599976',
         '0.611'
-    ]], "unary float", "frac")
+    ]], "unary float", "frac", 
+        half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2.719',
+        '1000.5', '-7.39']], 
+        half_outputs=[[
+         'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.719', '0.5',
+        '0.61']])
     add_test_case_float_half('Log', ['Log'], 'Relative', 21, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1',
         '2.718281828', '7.389056', '100'
     ]], [[
         'NaN', 'NaN', '-Inf', '-Inf', '-Inf', '-Inf', 'Inf', 'NaN', '1.0',
         '1.99999998', '4.6051701'
-    ]], "unary float", "log")
+    ]],"unary float", "log", half_inputs=[[
+        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1',
+        '2.719', '7.39', '100'
+    ]], half_outputs=[[
+        'NaN', 'NaN', '-Inf', '-Inf', '-Inf', '-Inf', 'Inf', 'NaN', '1.0',
+        '2', '4.605'
+    ]])
     add_test_case_float_half('Sqrt', ['Sqrt'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2',
         '16.0', '256.0'
@@ -511,14 +548,13 @@ def add_test_cases():
     ]], [[
         'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
         '0.0625', '0.00390625'
-    ]], "unary float", "rsqrt")
-    add_test_case_float_half('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
+    ]], "unary float", "rsqrt", half_inputs=[[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
-        '256.0', '65536.0'
-    ]], [[
+        '256.0', '65500'
+    ]], half_outputs=[[
         'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
-        '0.0625', '0.00390625'
-    ]], "unary float", "rsqrt")
+        '0.0625', '0.00001526'
+    ]])
     add_test_case_float_half('Round_ne', ['Round_ne'], 'Epsilon', 0, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '11.5', '-10.0', '-10.4', '-10.5', '-10.6'
