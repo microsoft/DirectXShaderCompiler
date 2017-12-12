@@ -6,6 +6,12 @@ RWTexture3D<float3> float3buf;
 RWTexture1DArray<float4> float4buf;
 RWTexture2DArray<int3> int3buf;
 
+// CHECK: OpCapability SparseResidency
+
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
+// CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4uint
+// CHECK: %SparseResidencyStruct_1 = OpTypeStruct %uint %v4float
+
 void main() {
 
 // CHECK:      [[img1:%\d+]] = OpLoad %type_1d_image %intbuf
@@ -36,4 +42,49 @@ void main() {
 // CHECK-NEXT: [[r5:%\d+]] = OpVectorShuffle %v3int [[ret5]] [[ret5]] 0 1 2
 // CHECK-NEXT: OpStore %e [[r5]]
   int3 e   = int3buf.Load(0);
+
+  uint status;
+// CHECK:              [[img1:%\d+]] = OpLoad %type_1d_image %intbuf
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseRead %SparseResidencyStruct [[img1]] %int_0 None
+// CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
+// CHECK-NEXT:                         OpStore %status [[status]]
+// CHECK-NEXT:     [[v4result:%\d+]] = OpCompositeExtract %v4int [[structResult]] 1
+// CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %int [[v4result]] 0
+// CHECK-NEXT:                         OpStore %a2 [[result]]
+  int    a2 = intbuf.Load(0, status);
+
+// CHECK:              [[img2:%\d+]] = OpLoad %type_2d_image %uint2buf
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseRead %SparseResidencyStruct_0 [[img2]] {{%\d+}} None
+// CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
+// CHECK-NEXT:                         OpStore %status [[status]]
+// CHECK-NEXT:     [[v4result:%\d+]] = OpCompositeExtract %v4uint [[structResult]] 1
+// CHECK-NEXT:       [[result:%\d+]] = OpVectorShuffle %v2uint [[v4result]] [[v4result]] 0 1
+// CHECK-NEXT:                         OpStore %b2 [[result]]
+  uint2  b2 = uint2buf.Load(0, status);
+
+// CHECK:              [[img3:%\d+]] = OpLoad %type_3d_image %float3buf
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseRead %SparseResidencyStruct_1 [[img3]] {{%\d+}} None
+// CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
+// CHECK-NEXT:                         OpStore %status [[status]]
+// CHECK-NEXT:     [[v4result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
+// CHECK-NEXT:       [[result:%\d+]] = OpVectorShuffle %v3float [[v4result]] [[v4result]] 0 1 2
+// CHECK-NEXT:                         OpStore %c2 [[result]]
+  float3 c2 = float3buf.Load(0, status);
+
+// CHECK:              [[img4:%\d+]] = OpLoad %type_1d_image_array %float4buf
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseRead %SparseResidencyStruct_1 [[img4]] {{%\d+}} None
+// CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
+// CHECK-NEXT:                         OpStore %status [[status]]
+// CHECK-NEXT:     [[v4result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
+// CHECK-NEXT:                         OpStore %d2 [[v4result]]
+  float4 d2 = float4buf.Load(0, status);
+
+// CHECK:              [[img5:%\d+]] = OpLoad %type_2d_image_array %int3buf
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseRead %SparseResidencyStruct [[img5]] {{%\d+}} None
+// CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
+// CHECK-NEXT:                         OpStore %status [[status]]
+// CHECK-NEXT:     [[v4result:%\d+]] = OpCompositeExtract %v4int [[structResult]] 1
+// CHECK-NEXT:       [[result:%\d+]] = OpVectorShuffle %v3int [[v4result]] [[v4result]] 0 1 2
+// CHECK-NEXT:                         OpStore %e2 [[result]]
+  int3   e2 = int3buf.Load(0, status);
 }

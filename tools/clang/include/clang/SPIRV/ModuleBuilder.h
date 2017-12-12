@@ -191,11 +191,16 @@ public:
   /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
   /// OpImageFetch should be used for sampled images. OpImageRead should be used
   /// for images without a sampler.
+  ///
+  /// If residencyCodeId is not zero, the sparse version of the instructions
+  /// will be used, and the SPIR-V instruction for storing the resulting
+  /// residency code will also be emitted.
   uint32_t createImageFetchOrRead(bool doImageFetch, uint32_t texelType,
                                   QualType imageType, uint32_t image,
                                   uint32_t coordinate, uint32_t lod,
                                   uint32_t constOffset, uint32_t varOffset,
-                                  uint32_t constOffsets, uint32_t sample);
+                                  uint32_t constOffsets, uint32_t sample,
+                                  uint32_t residencyCodeId);
 
   /// \brief Creates SPIR-V instructions for writing to the given image.
   void createImageWrite(QualType imageType, uint32_t imageId, uint32_t coordId,
