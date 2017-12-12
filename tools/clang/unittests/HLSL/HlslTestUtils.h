@@ -237,14 +237,6 @@ inline bool isnanFloat16(uint16_t val) {
 }
 
 inline uint16_t ConvertFloat32ToFloat16(float val) {
-  //  Hint table:         f16exp  f16man      f32exp      f32man
-  //  Zero                0x0000  0x0000      0x00000000  0x00000000
-  //  Smallest denormal   0x0000  0x0001      0x33800000  0x00000000
-  //  Biggest denormal    0x0000  0x03FF      0x38000000  0x007fc000
-  //  Smallest normal     0x0400  0x0000      0x38800000  0x00000000
-  //  Biggest normal      0x7800  0x03FF      0x47000000  0x007fe000
-  //  Infinity            0x7C00  0x0000      0x7f800000  0x00000000
-  //  Not a number        0x7C00   != 0       0x7f800000   != 0
   union Bits {
     uint32_t u_bits;
     float f_bits;
@@ -295,17 +287,16 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
 }
 
 inline float ConvertFloat16ToFloat32(uint16_t x) {
-  //return Float16Compressor::decompress(x);
-  // nan -> exponent all set and mantisa is non zero
-  // +/-inf -> exponent all set and mantissa is zero
-  // denorm -> exponent zero and significand nonzero
-  union Bits {
+ union Bits {
     float f_bits;
     uint32_t u_bits;
   };
 
   uint32_t Sign = (x & FLOAT16_BIT_SIGN) << 16;
 
+  // nan -> exponent all set and mantisa is non zero
+  // +/-inf -> exponent all set and mantissa is zero
+  // denorm -> exponent zero and significand nonzero
   uint32_t Abs = (x & 0x7fff);
   uint32_t IsNormal = Abs > FLOAT16_BIGGEST_DENORM;
   uint32_t IsInfOrNaN = Abs > FLOAT16_BIGGEST_NORMAL;
