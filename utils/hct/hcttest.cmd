@@ -12,6 +12,7 @@ set TEST_ALL=1
 set TEST_CLANG=0
 set TEST_CMD=0
 set TEST_EXEC=0
+set TEST_EXEC_EXP=0
 set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
 set TEST_CLANG_FILTER= /select: "@Priority<1"
@@ -107,6 +108,18 @@ if "%1"=="-clean" (
 ) else if "%1"=="exec-filter" (
   set TEST_ALL=0
   set TEST_EXEC=1
+  set TEST_EXEC_FILTER=ExecutionTest::%2
+  set TEST_EXEC_REQUIRED=1
+  shift /1
+) else if "%1"=="exec-exp" (
+  set TEST_ALL=0
+  set TEST_EXEC=1
+  set TEST_EXEC_EXP=1
+  set TEST_EXEC_REQUIRED=1
+) else if "%1"=="exec-exp-filter" (
+  set TEST_ALL=0
+  set TEST_EXEC=1
+  set TEST_EXEC_EXP=1
   set TEST_EXEC_FILTER=ExecutionTest::%2
   set TEST_EXEC_REQUIRED=1
   shift /1
@@ -247,7 +260,11 @@ if "%TEST_EXEC%"=="1" (
 )
 
 if "%TEST_EXEC%"=="1" (
-  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority<2" /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %ADDITIONAL_OPTS%
+  if "%TEST_EXEC_EXP%"=="1" (
+    call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority=2" /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %ADDITIONAL_OPTS%
+  ) else (
+    call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority<2" /runIgnoredTests /p:"ExperimentalShaders=*" %TEST_ADAPTER% %ADDITIONAL_OPTS%
+  )
   set RES_EXEC=!ERRORLEVEL!
 )
 

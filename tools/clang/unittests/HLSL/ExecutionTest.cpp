@@ -2778,6 +2778,38 @@ static TableParameter TertiaryFPOpParameters[] = {
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
 };
 
+static TableParameter UnaryHalfOpParameters[] = {
+    { L"ShaderOp.Target", TableParameter::STRING, true },
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Input1", TableParameter::HALF_TABLE, true },
+    { L"Validation.Expected1", TableParameter::HALF_TABLE, true },
+    { L"Validation.Type", TableParameter::STRING, true },
+    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+    { L"Warp.Version", TableParameter::UINT, false }
+};
+
+static TableParameter BinaryHalfOpParameters[] = {
+    { L"ShaderOp.Target", TableParameter::STRING, true },
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Input1", TableParameter::HALF_TABLE, true },
+    { L"Validation.Input2", TableParameter::HALF_TABLE, true },
+    { L"Validation.Expected1", TableParameter::HALF_TABLE, true },
+    { L"Validation.Expected2", TableParameter::HALF_TABLE, false },
+    { L"Validation.Type", TableParameter::STRING, true },
+    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+};
+
+static TableParameter TertiaryHalfOpParameters[] = {
+    { L"ShaderOp.Target", TableParameter::STRING, true },
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Input1", TableParameter::HALF_TABLE, true },
+    { L"Validation.Input2", TableParameter::HALF_TABLE, true },
+    { L"Validation.Input3", TableParameter::HALF_TABLE, true },
+    { L"Validation.Expected1", TableParameter::HALF_TABLE, true },
+    { L"Validation.Type", TableParameter::STRING, true },
+    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+};
+
 static TableParameter UnaryIntOpParameters[] = {
     { L"ShaderOp.Target", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
@@ -3511,10 +3543,10 @@ TEST_F(ExecutionTest, UnaryHalfOpTest) {
       return;
     }
     // Read data from the table
-    int tableSize = sizeof(UnaryFPOpParameters) / sizeof(TableParameter);
-    TableParameterHandler handler(UnaryFPOpParameters, tableSize);
+    int tableSize = sizeof(UnaryHalfOpParameters) / sizeof(TableParameter);
+    TableParameterHandler handler(UnaryHalfOpParameters, tableSize);
     handler.clearTableParameter();
-    VERIFY_SUCCEEDED(ParseTableRow(UnaryFPOpParameters, tableSize));
+    VERIFY_SUCCEEDED(ParseTableRow(UnaryHalfOpParameters, tableSize));
 
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
@@ -3580,10 +3612,10 @@ TEST_F(ExecutionTest, BinaryHalfOpTest) {
         return;
     }
     // Read data from the table
-    int tableSize = sizeof(BinaryFPOpParameters) / sizeof(TableParameter);
-    TableParameterHandler handler(BinaryFPOpParameters, tableSize);
+    int tableSize = sizeof(BinaryHalfOpParameters) / sizeof(TableParameter);
+    TableParameterHandler handler(BinaryHalfOpParameters, tableSize);
     handler.clearTableParameter();
-    VERIFY_SUCCEEDED(ParseTableRow(BinaryFPOpParameters, tableSize));
+    VERIFY_SUCCEEDED(ParseTableRow(BinaryHalfOpParameters, tableSize));
 
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
@@ -3624,7 +3656,7 @@ TEST_F(ExecutionTest, BinaryHalfOpTest) {
     });
 
     MappedData data;
-    test->Test->GetReadBackData("SBinaryHalfOp", &data);
+    test->Test->GetReadBackData("SBinaryFPOp", &data);
 
     SBinaryHalfOp *pPrimitives = (SBinaryHalfOp *)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
@@ -3675,10 +3707,10 @@ TEST_F(ExecutionTest, TertiaryHalfOpTest) {
     }
     // Read data from the table
     
-    int tableSize = sizeof(TertiaryFPOpParameters) / sizeof(TableParameter);
-    TableParameterHandler handler(TertiaryFPOpParameters, tableSize);
+    int tableSize = sizeof(TertiaryHalfOpParameters) / sizeof(TableParameter);
+    TableParameterHandler handler(TertiaryHalfOpParameters, tableSize);
     handler.clearTableParameter();
-    VERIFY_SUCCEEDED(ParseTableRow(TertiaryFPOpParameters, tableSize));
+    VERIFY_SUCCEEDED(ParseTableRow(TertiaryHalfOpParameters, tableSize));
 
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
@@ -3698,11 +3730,11 @@ TEST_F(ExecutionTest, TertiaryHalfOpTest) {
     size_t count = Validation_Input1->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
-        pDevice, m_support, pStream, "TertiaryHalfOp",
+        pDevice, m_support, pStream, "TertiaryFPOp",
         // this callbacked is called when the test
         // is creating the resource to run the test
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-        VERIFY_IS_TRUE(0 == _stricmp(Name, "STertiaryHalfOp"));
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "STertiaryFPOp"));
         size_t size = sizeof(STertiaryHalfOp) * count;
         Data.resize(size);
         STertiaryHalfOp *pPrimitives = (STertiaryHalfOp *)Data.data();
@@ -3719,7 +3751,7 @@ TEST_F(ExecutionTest, TertiaryHalfOpTest) {
     });
 
     MappedData data;
-    test->Test->GetReadBackData("STertiaryHalfOp", &data);
+    test->Test->GetReadBackData("STertiaryFPOp", &data);
 
     STertiaryHalfOp *pPrimitives = (STertiaryHalfOp *)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
