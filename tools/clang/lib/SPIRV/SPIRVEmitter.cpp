@@ -1518,7 +1518,23 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
         // For non-static member calls, evaluate the object and pass it as the
         // first argument.
         const auto *object = memberCall->getImplicitObjectArgument();
-        args.push_back(doExpr(object));
+        const auto objectEvalInfo = doExpr(object);
+        uint32_t objectId = objectEvalInfo;
+
+        // If not already a variable, we need to create a temporary variable and
+        // pass the object pointer to the function. Example:
+        // getObject().objectMethod();
+        if (objectEvalInfo.isRValue()) {
+          const auto objType = object->getType();
+          const uint32_t varType = typeTranslator.translateType(objType);
+          const std::string varName =
+              "temp.var." + TypeTranslator::getName(objType);
+          const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
+          theBuilder.createStore(tempVarId, objectEvalInfo);
+          objectId = tempVarId;
+        }
+
+        args.push_back(objectId);
         // We do not need to create a new temporary variable for the this
         // object. Use the evaluated argument.
         params.push_back(args.back());

@@ -156,6 +156,9 @@ public:
   /// (in a recursive away).
   static bool isOpaqueStructType(QualType tye);
 
+  /// \brief Returns a string name for the given type.
+  static std::string getName(QualType type);
+
   /// \brief Returns the the element type for the given scalar/vector/matrix
   /// type. Returns empty QualType for other cases.
   QualType getElementType(QualType type);
@@ -197,9 +200,6 @@ private:
   /// \bried For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
   spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
-
-  /// \brief Returns a string name for the given type.
-  static std::string getName(QualType type);
 
 public:
   /// \brief Returns the alignment and size in bytes for the given type
