@@ -1213,6 +1213,7 @@ void DxilModule::ClearDxilMetadata(Module &M) {
       name == DxilMDHelper::kDxilViewIdStateMDName ||
       name == DxilMDHelper::kDxilFunctionPropertiesMDName || // used in libraries
       name == DxilMDHelper::kDxilEntrySignaturesMDName || // used in libraries
+      name == DxilMDHelper::kDxilResourcesLinkInfoMDName || // used in libraries
       name.startswith(DxilMDHelper::kDxilTypeSystemHelperVariablePrefix)) {
       nodes.push_back(b);
     }
@@ -1234,7 +1235,7 @@ void DxilModule::EmitDxilMetadata() {
   if (pMDResources)
     m_pMDHelper->EmitDxilResources(pMDResources);
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
-  if (!m_pSM->IsCS() &&
+  if (!m_pSM->IsLib() && !m_pSM->IsCS() &&
       ((m_ValMajor == 0 &&  m_ValMinor == 0) ||
        (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1)))) {
     m_pMDHelper->EmitDxilViewIdState(GetViewIdState());
@@ -1394,7 +1395,8 @@ MDTuple *DxilModule::EmitDxilResources() {
 
 void DxilModule::ReEmitDxilResources() {
   ClearDxilMetadata(*m_pModule);
-  m_pViewIdState->Compute();
+  if (!m_pSM->IsCS() && !m_pSM->IsLib())
+    m_pViewIdState->Compute();
   EmitDxilMetadata();
 }
 
