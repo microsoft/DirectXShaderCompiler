@@ -1611,6 +1611,8 @@ Since Buffers are represented as ``OpTypeImage`` with ``Sampled`` set to 1
 operation. The return value of ``OpImageFetch`` is always a four-component
 vector; so proper additional instructions are generated to truncate the vector
 and return the desired number of elements.
+If an output unsigned integer ``status`` argument is present, ``OpImageSparseFetch``
+is used instead. The resulting SPIR-V ``Residency Code`` will be written to ``status``.
 
 ``operator[]``
 ++++++++++++++
@@ -1628,7 +1630,8 @@ Since Buffers are represented as ``OpTypeImage`` with dimension of ``Buffer``,
 +++++++++++
 Since RWBuffers are represented as ``OpTypeImage`` with ``Sampled`` set to 2
 (meaning to be used without a sampler), ``OpImageRead`` is used to perform this
-operation.
+operation. If an output unsigned integer ``status`` argument is present, ``OpImageSparseRead``
+is used instead. The resulting SPIR-V ``Residency Code`` will be written to ``status``.
 
 ``operator[]``
 ++++++++++++++
@@ -1780,8 +1783,8 @@ for that texture type.
 Common texture methods
 ~~~~~~~~~~~~~~~~~~~~~~
 
-``.Sample(sampler, location[, offset])``
-++++++++++++++++++++++++++++++++++++++++
+``.Sample(sampler, location[, offset][, clamp][, Status])``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
@@ -1790,12 +1793,15 @@ since texture types are represented as ``OpTypeImage``. An ``OpSampledImage`` is
 created based on the ``sampler`` passed to the function. The resulting sampled
 image and the ``location`` passed to the function are used as arguments to
 ``OpImageSampleImplicitLod``, with the optional ``offset`` tranlated into
-addtional SPIR-V image operands ``ConstOffset`` or ``Offset`` on it.
+addtional SPIR-V image operands ``ConstOffset`` or ``Offset`` on it. The optional
+``clamp`` argument will be translated to the ``MinLod`` image operand.
 
-The overload with the status parameter are not supported.
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleImplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
 
-``.SampleLevel(sampler, location, lod[, offset])``
-++++++++++++++++++++++++++++++++++++++++++++++++++
+``.SampleLevel(sampler, location, lod[, offset][, Status])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
@@ -1807,21 +1813,26 @@ is attached to the instruction as an SPIR-V image operands ``Lod``. The optional
 ``offset`` is also tranlated into addtional SPIR-V image operands ``ConstOffset``
 or ``Offset`` on it.
 
-The overload with the status parameter are not supported.
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleExplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
 
-``.SampleGrad(sampler, location, ddx, ddy[, offset])``
-++++++++++++++++++++++++++++++++++++++++++++++++++++++
+``.SampleGrad(sampler, location, ddx, ddy[, offset][, clamp][, Status])``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
 Similarly to ``.SampleLevel``, the ``ddx`` and ``ddy`` parameter are attached to
 the ``OpImageSampleExplicitLod`` instruction as an SPIR-V image operands
-``Grad``.
+``Grad``. The optional ``clamp`` argument will be translated into the ``MinLod``
+image operand.
 
-The overload with the status parameter are not supported.
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleExplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
 
-``.SampleBias(sampler, location, bias[, offset])``
-++++++++++++++++++++++++++++++++++++++++++++++++++
+``.SampleBias(sampler, location, bias[, offset][, clamp][, Status])``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
@@ -1829,24 +1840,34 @@ The translation is similar to ``.Sample()``, with the ``bias`` parameter
 attached to the ``OpImageSampleImplicitLod`` instruction as an SPIR-V image
 operands ``Bias``.
 
-The overload with the status parameter are not supported.
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleImplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
 
-``.SampleCmp(sampler, location, comparator[, offset])``
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+``.SampleCmp(sampler, location, comparator[, offset][, clamp][, Status])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Not available to ``Texture3D``, ``Texture2DMS``, and ``Texture2DMSArray``.
 
 The translation is similar to ``.Sample()``, but the
 ``OpImageSampleDrefImplicitLod`` instruction are used.
 
-``.SampleCmpLevelZero(sampler, location, comparator[, offset])``
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleDrefImplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
+
+``.SampleCmpLevelZero(sampler, location, comparator[, offset][, Status])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Not available to ``Texture3D``, ``Texture2DMS``, and ``Texture2DMSArray``.
 
 The translation is similar to ``.Sample()``, but the
 ``OpImageSampleDrefExplicitLod`` instruction are used, with the additional
 ``Lod`` image operands set to 0.0.
+
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleDrefExplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
 
 ``.Gather()``
 +++++++++++++
@@ -1857,7 +1878,9 @@ Available to ``Texture2D``, ``Texture2DArray``, ``TextureCube``, and
 The translation is similar to ``.Sample()``, but the ``OpImageGather``
 instruction is used, with component setting to 0.
 
-The overload with the status parameter are not supported.
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseGather`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
 
 ``.GatherRed()``, ``.GatherGreen()``, ``.GatherBlue()``, ``.GatherAlpha()``
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1873,7 +1896,9 @@ There are a few overloads for these functions:
 - For those overloads taking 4 offset parameters, those offset parameters will
   be conveyed as an additional ``ConstOffsets`` image operands to the
   instruction. So those offset parameters must all be constant values.
-- Those overloads with the status parameter are not supported.
+- For those overloads with the ``status`` parameter, ``OpImageSparseGather``
+  is used instead, and the resulting SPIR-V ``Residency Code`` will be
+  written to ``status``.
 
 ``.GatherCmp()``
 ++++++++++++++++
@@ -1884,7 +1909,10 @@ Available to ``Texture2D``, ``Texture2DArray``, ``TextureCube``, and
 The translation is similar to ``.Sample()``, but the ``OpImageDrefGather``
 instruction is used.
 
-The overload with the status parameter are not supported.
+For the overload with the output unsigned integer ``status`` argument,
+``OpImageSparseDrefGather`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
+
 
 ``.GatherCmpRed()``
 +++++++++++++++++++
@@ -1893,8 +1921,6 @@ Available to ``Texture2D``, ``Texture2DArray``, ``TextureCube``, and
 ``TextureCubeArray``.
 
 The translation is the same as ``.GatherCmp()``.
-
-The overload with the status parameter are not supported.
 
 ``.Load(location[, sampleIndex][, offset])``
 ++++++++++++++++++++++++++++++++++++++++++++
@@ -1908,7 +1934,9 @@ The return value of ``OpImageFetch`` is always a four-component vector; so
 proper additional instructions are generated to truncate the vector and return
 the desired number of elements.
 
-The overload with the status parameter are not supported.
+For the overload with the output unsigned integer ``status`` argument,
+``OpImageSparseFetch`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
 
 ``operator[]``
 ++++++++++++++
@@ -2033,6 +2061,10 @@ Common texture methods
 Since read-write texture types are represented as ``OpTypeImage`` with
 ``Sampled`` set to 2 (meaning to be used without a sampler), ``OpImageRead`` is
 used to perform this operation.
+
+For the overload with the output unsigned integer ``status`` argument,
+``OpImageSparseRead`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
 
 ``operator[]``
 ++++++++++++++
@@ -2299,3 +2331,7 @@ either because of no Vulkan equivalents at the moment, or because of deprecation
   sample currently being processed.) The compiler will emit an error.
 * ``SV_InnerCoverage`` semantic does not have a Vulkan equivalent. The compiler
   will emit an error.
+* Since ``StructuredBuffer``, ``RWStructuredBuffer``, ``ByteAddressBuffer``, and
+  ``RWByteAddressBuffer`` are not represented as image types in SPIR-V, using the
+  output unsigned integer ``status`` argument in their ``Load*`` methods is not
+  supported. Using these methods with the ``status`` argument will cause a compiler error.
