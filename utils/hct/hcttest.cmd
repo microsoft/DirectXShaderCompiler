@@ -348,12 +348,14 @@ echo                - hcttest compat-suite "..\CodeGenHLSL\shader-compat-suite\l
 echo  cmd           - run command line tool tests.
 echo  v             - run the subset of clang tests that are verified-based.
 echo  exec          - run execution tests.
+echo  exec-exp      - run execution tests for future releases.
 echo  extras        - run hcttest-extras tests.
 echo  noexec        - all except exec and extras tests.
 echo.
 echo Select clang or exec targets with filter by test name:
 echo  clang-filter Name
 echo  exec-filter Name
+echo  exec-exp-filter Name
 echo.
 echo Use the HCT_EXTRAS environment variable to add hcttest-before and hcttest-after hooks.
 echo.
