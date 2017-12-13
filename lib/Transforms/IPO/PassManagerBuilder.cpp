@@ -210,6 +210,8 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
     return;
   }
 
+  MPM.add(createHLPreprocessPass());
+
   if (!NoOpt) {
     MPM.add(createHLDeadFunctionEliminationPass());
   }
