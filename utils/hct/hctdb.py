@@ -1330,6 +1330,7 @@ class db_dxil(object):
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
         add_pass('dxil-dfe', 'DxilDeadFunctionElimination', 'Remove all unused function except entry from DxilModule', [])
         add_pass('hl-dfe', 'HLDeadFunctionElimination', 'Remove all unused function except entry from HLModule', [])
+        add_pass('hl-preprocess', 'HLPreprocess', 'Preprocess HLModule after inline', [])
         add_pass('hlsl-dxil-expand-trig', 'DxilExpandTrigIntrinsics', 'DXIL expand trig intrinsics', [])
         add_pass('hlsl-hca', 'HoistConstantArray', 'HLSL constant array hoisting', [])
         add_pass('hlsl-dxil-preserve-all-outputs', 'DxilPreserveAllOutputs', 'DXIL write to all outputs in signature', [])
