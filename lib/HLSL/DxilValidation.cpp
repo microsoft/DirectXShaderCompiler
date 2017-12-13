@@ -360,6 +360,7 @@ struct ValidationContext {
   const unsigned kLLVMLoopMDKind;
   bool m_bCoverageIn, m_bInnerCoverageIn;
   unsigned m_DxilMajor, m_DxilMinor;
+  unsigned m_ValMajor, m_ValMinor;
 
   ValidationContext(Module &llvmModule, Module *DebugModule,
                     DxilModule &dxilModule,
@@ -375,6 +376,7 @@ struct ValidationContext {
         m_bCoverageIn(false), m_bInnerCoverageIn(false),
         hasViewID(false) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
+    DxilMod.GetValidatorVersion(m_ValMajor, m_ValMinor);
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;
       OutputPositionMask[i] = 0;
@@ -3347,12 +3349,23 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     }
     // NOTE: clip cull distance size is checked at ValidateSignature.
     break;
-  case DXIL::SemanticKind::IsFrontFace:
-    if (!compBool || SE.GetCols() != 1) {
-      ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
-                             {SE.GetSemantic()->GetName(), "bool"});
+  case DXIL::SemanticKind::IsFrontFace: {
+    bool compCheck = true;
+    char * boolName = "bool";
+    char * uintName = "uint";
+    char * targetTy = nullptr;
+    if (ValCtx.m_ValMajor >= 1 && ValCtx.m_ValMinor >= 2) {
+      compCheck = compInt && compWidth == 32;
+      targetTy = uintName;
+    } else {
+      compCheck = compBool;
+      targetTy = boolName;
     }
-    break;
+    if (!compCheck || SE.GetCols() != 1) {
+      ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
+                             {SE.GetSemantic()->GetName(), targetTy});
+    }
+  } break;
   case DXIL::SemanticKind::RenderTargetArrayIndex:
   case DXIL::SemanticKind::ViewPortArrayIndex:
   case DXIL::SemanticKind::VertexID:
