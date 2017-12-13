@@ -1504,104 +1504,104 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
     }
   }
 
-  if (callee) {
-    const auto numParams = callee->getNumParams();
-    bool isNonStaticMemberCall = false;
-
-    llvm::SmallVector<uint32_t, 4> params; // Temporary variables
-    llvm::SmallVector<uint32_t, 4> args;   // Evaluated arguments
-
-    if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr)) {
-      isNonStaticMemberCall =
-          !cast<CXXMethodDecl>(memberCall->getCalleeDecl())->isStatic();
-      if (isNonStaticMemberCall) {
-        // For non-static member calls, evaluate the object and pass it as the
-        // first argument.
-        const auto *object = memberCall->getImplicitObjectArgument();
-        const auto objectEvalInfo = doExpr(object);
-        uint32_t objectId = objectEvalInfo;
-
-        // If not already a variable, we need to create a temporary variable and
-        // pass the object pointer to the function. Example:
-        // getObject().objectMethod();
-        if (objectEvalInfo.isRValue()) {
-          const auto objType = object->getType();
-          const uint32_t varType = typeTranslator.translateType(objType);
-          const std::string varName =
-              "temp.var." + TypeTranslator::getName(objType);
-          const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
-          theBuilder.createStore(tempVarId, objectEvalInfo);
-          objectId = tempVarId;
-        }
-
-        args.push_back(objectId);
-        // We do not need to create a new temporary variable for the this
-        // object. Use the evaluated argument.
-        params.push_back(args.back());
-      }
-    }
-
-    // Evaluate parameters
-    for (uint32_t i = 0; i < numParams; ++i) {
-      auto *arg = callExpr->getArg(i);
-      const auto *param = callee->getParamDecl(i);
-
-      // In some cases where pass-by-reference should be done (such as an
-      // 'inout' struct), the AST does not use a reference type in the function
-      // signature. The LValueToRValue implicit cast should therefore be ignored
-      // in these cases.
-      if (canActAsOutParmVar(param) && !param->getType()->isReferenceType())
-        arg = cast<ImplicitCastExpr>(arg)->getSubExpr();
-
-      // We need to create variables for holding the values to be used as
-      // arguments. The variables themselves are of pointer types.
-      const uint32_t varType = typeTranslator.translateType(arg->getType());
-      const std::string varName = "param.var." + param->getNameAsString();
-      const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
-
-      params.push_back(tempVarId);
-      args.push_back(doExpr(arg));
-
-      if (canActAsOutParmVar(param)) {
-        // The current parameter is marked as out/inout. The argument then is
-        // essentially passed in by reference. We need to load the value
-        // explicitly here since the AST won't inject LValueToRValue implicit
-        // cast for this case.
-        const uint32_t value = theBuilder.createLoad(varType, args.back());
-        theBuilder.createStore(tempVarId, value);
-      } else {
-        theBuilder.createStore(tempVarId, args.back());
-      }
-    }
-
-    // Push the callee into the work queue if it is not there.
-    if (!workQueue.count(callee)) {
-      workQueue.insert(callee);
-    }
-
-    const uint32_t retType = typeTranslator.translateType(callExpr->getType());
-    // Get or forward declare the function <result-id>
-    const uint32_t funcId = declIdMapper.getOrRegisterFnResultId(callee);
-
-    const uint32_t retVal =
-        theBuilder.createFunctionCall(retType, funcId, params);
-
-    // Go through all parameters and write those marked as out/inout
-    for (uint32_t i = 0; i < numParams; ++i) {
-      const auto *param = callee->getParamDecl(i);
-      if (canActAsOutParmVar(param)) {
-        const uint32_t index = i + isNonStaticMemberCall;
-        const uint32_t typeId = typeTranslator.translateType(param->getType());
-        const uint32_t value = theBuilder.createLoad(typeId, params[index]);
-        theBuilder.createStore(args[index], value);
-      }
-    }
-
-    return SpirvEvalInfo(retVal).setRValue();
+  if (!callee) {
+    emitError("calling non-function unimplemented", callExpr->getExprLoc());
+    return 0;
   }
 
-  emitError("calling non-function unimplemented", callExpr->getExprLoc());
-  return 0;
+  const auto numParams = callee->getNumParams();
+  bool isNonStaticMemberCall = false;
+
+  llvm::SmallVector<uint32_t, 4> params; // Temporary variables
+  llvm::SmallVector<uint32_t, 4> args;   // Evaluated arguments
+
+  if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr)) {
+    isNonStaticMemberCall =
+        !cast<CXXMethodDecl>(memberCall->getCalleeDecl())->isStatic();
+    if (isNonStaticMemberCall) {
+      // For non-static member calls, evaluate the object and pass it as the
+      // first argument.
+      const auto *object = memberCall->getImplicitObjectArgument();
+      const auto objectEvalInfo = doExpr(object);
+      uint32_t objectId = objectEvalInfo;
+
+      // If not already a variable, we need to create a temporary variable and
+      // pass the object pointer to the function. Example:
+      // getObject().objectMethod();
+      if (objectEvalInfo.isRValue()) {
+        const auto objType = object->getType();
+        const uint32_t varType = typeTranslator.translateType(objType);
+        const std::string varName =
+            "temp.var." + TypeTranslator::getName(objType);
+        const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
+        theBuilder.createStore(tempVarId, objectEvalInfo);
+        objectId = tempVarId;
+      }
+
+      args.push_back(objectId);
+      // We do not need to create a new temporary variable for the this
+      // object. Use the evaluated argument.
+      params.push_back(args.back());
+    }
+  }
+
+  // Evaluate parameters
+  for (uint32_t i = 0; i < numParams; ++i) {
+    auto *arg = callExpr->getArg(i);
+    const auto *param = callee->getParamDecl(i);
+
+    // In some cases where pass-by-reference should be done (such as an
+    // 'inout' struct), the AST does not use a reference type in the function
+    // signature. The LValueToRValue implicit cast should therefore be ignored
+    // in these cases.
+    if (canActAsOutParmVar(param) && !param->getType()->isReferenceType())
+      arg = cast<ImplicitCastExpr>(arg)->getSubExpr();
+
+    // We need to create variables for holding the values to be used as
+    // arguments. The variables themselves are of pointer types.
+    const uint32_t varType = typeTranslator.translateType(arg->getType());
+    const std::string varName = "param.var." + param->getNameAsString();
+    const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
+
+    params.push_back(tempVarId);
+    args.push_back(doExpr(arg));
+
+    if (canActAsOutParmVar(param)) {
+      // The current parameter is marked as out/inout. The argument then is
+      // essentially passed in by reference. We need to load the value
+      // explicitly here since the AST won't inject LValueToRValue implicit
+      // cast for this case.
+      const uint32_t value = theBuilder.createLoad(varType, args.back());
+      theBuilder.createStore(tempVarId, value);
+    } else {
+      theBuilder.createStore(tempVarId, args.back());
+    }
+  }
+
+  // Push the callee into the work queue if it is not there.
+  if (!workQueue.count(callee)) {
+    workQueue.insert(callee);
+  }
+
+  const uint32_t retType = typeTranslator.translateType(callExpr->getType());
+  // Get or forward declare the function <result-id>
+  const uint32_t funcId = declIdMapper.getOrRegisterFnResultId(callee);
+
+  const uint32_t retVal =
+      theBuilder.createFunctionCall(retType, funcId, params);
+
+  // Go through all parameters and write those marked as out/inout
+  for (uint32_t i = 0; i < numParams; ++i) {
+    const auto *param = callee->getParamDecl(i);
+    if (canActAsOutParmVar(param)) {
+      const uint32_t index = i + isNonStaticMemberCall;
+      const uint32_t typeId = typeTranslator.translateType(param->getType());
+      const uint32_t value = theBuilder.createLoad(typeId, params[index]);
+      theBuilder.createStore(args[index], value);
+    }
+  }
+
+  return SpirvEvalInfo(retVal).setRValue();
 }
 
 SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
@@ -2815,7 +2815,7 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   uint32_t clamp = 0;
   if (numArgs > 2 && expr->getArg(2)->getType()->isFloatingType())
     clamp = doExpr(expr->getArg(2));
-  else if(numArgs > 3 && expr->getArg(3)->getType()->isFloatingType())
+  else if (numArgs > 3 && expr->getArg(3)->getType()->isFloatingType())
     clamp = doExpr(expr->getArg(3));
   const bool hasClampArg = (clamp != 0);
   const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
@@ -2917,7 +2917,7 @@ SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   }
   // If offset is present in .Bias()/.SampleLevel(), it is the fourth argument.
   uint32_t constOffset = 0, varOffset = 0;
-  if(hasOffsetArg)
+  if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
 
   const auto retType =
@@ -3058,7 +3058,7 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
   const uint32_t compareVal = doExpr(expr->getArg(2));
   // If offset is present in .SampleCmp(), it will be the fourth argument.
   uint32_t constOffset = 0, varOffset = 0;
-  if(hasOffsetArg)
+  if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
   const uint32_t lod = isCmp ? 0 : theBuilder.getConstantFloat32(0);
 
@@ -3087,7 +3087,7 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
   //                 [, uint status]);
   //
   // For (RW)Buffer, RWTexture1D, RWTexture1DArray, RWTexture2D,
-  // RWTexture2DArray, RWTexture3D: 
+  // RWTexture2DArray, RWTexture3D:
   // ret Object.Load (int Location
   //                  [, uint status]);
   //
@@ -3124,8 +3124,8 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
   const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
 
   if (TypeTranslator::isBuffer(objectType) ||
-    TypeTranslator::isRWBuffer(objectType) ||
-    TypeTranslator::isRWTexture(objectType))
+      TypeTranslator::isRWBuffer(objectType) ||
+      TypeTranslator::isRWTexture(objectType))
     return processBufferTextureLoad(object, doExpr(location), /*constOffset*/ 0,
                                     /*varOffset*/ 0, /*lod*/ 0,
                                     /*residencyCode*/ status);
@@ -3145,7 +3145,7 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
       // Texture2DMSArray types. Under those cases, Offset will be the third
       // parameter (index 2).
       lod = doExpr(expr->getArg(1));
-      if(hasOffsetArg)
+      if (hasOffsetArg)
         handleOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
     } else {
       // For Texture Load() functions, the location parameter is a vector
@@ -3155,7 +3155,7 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
       splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
       // For textures other than Texture2DMS(Array), offset should be the
       // second parameter (index 1).
-      if(hasOffsetArg)
+      if (hasOffsetArg)
         handleOffsetInMethodCall(expr, 1, &constOffset, &varOffset);
     }
 
