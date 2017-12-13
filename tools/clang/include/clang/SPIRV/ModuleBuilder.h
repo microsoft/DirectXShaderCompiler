@@ -172,7 +172,7 @@ public:
   /// be generated.
   ///
   /// If bias, lod, grad, or minLod is given a non-zero value, an additional
-  /// image operands, Bias, Lod, Grad, or minLod will be attached to the current
+  /// image operands, Bias, Lod, Grad, or MinLod will be attached to the current
   /// instruction, respectively. Panics if both lod and minLod are non-zero.
   ///
   /// If residencyCodeId is not zero, the sparse version of the instructions
@@ -191,11 +191,16 @@ public:
   /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
   /// OpImageFetch should be used for sampled images. OpImageRead should be used
   /// for images without a sampler.
+  ///
+  /// If residencyCodeId is not zero, the sparse version of the instructions
+  /// will be used, and the SPIR-V instruction for storing the resulting
+  /// residency code will also be emitted.
   uint32_t createImageFetchOrRead(bool doImageFetch, uint32_t texelType,
                                   QualType imageType, uint32_t image,
                                   uint32_t coordinate, uint32_t lod,
                                   uint32_t constOffset, uint32_t varOffset,
-                                  uint32_t constOffsets, uint32_t sample);
+                                  uint32_t constOffsets, uint32_t sample,
+                                  uint32_t residencyCodeId);
 
   /// \brief Creates SPIR-V instructions for writing to the given image.
   void createImageWrite(QualType imageType, uint32_t imageId, uint32_t coordId,
@@ -215,6 +220,10 @@ public:
                              uint32_t compareVal, uint32_t constOffset,
                              uint32_t varOffset, uint32_t constOffsets,
                              uint32_t sample, uint32_t residencyCodeId);
+
+  /// \brief Creates an OpImageSparseTexelsResident SPIR-V instruction for the
+  /// given Resident Code and returns the <result-id> of the instruction.
+  uint32_t createImageSparseTexelsResident(uint32_t resident_code);
 
   /// \brief Creates a select operation with the given values for true and false
   /// cases and returns the <result-id> for the result.

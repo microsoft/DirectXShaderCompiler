@@ -576,14 +576,6 @@ private:
   void processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt);
 
 private:
-  /// Handles the optional offset argument in the given method call at the given
-  /// argument index.
-  /// If there exists an offset argument, writes the <result-id> to either
-  /// *constOffset or *varOffset, depending on the constantness of the offset.
-  void handleOptionalOffsetInMethodCall(const CXXMemberCallExpr *expr,
-                                        uint32_t index, uint32_t *constOffset,
-                                        uint32_t *varOffset);
-
   /// Handles the offset argument in the given method call at the given argument
   /// index. Panics if the argument at the given index does not exist. Writes
   /// the <result-id> to either *constOffset or *varOffset, depending on the
@@ -598,10 +590,12 @@ private:
   /// \brief Loads one element from the given Buffer/RWBuffer/Texture object at
   /// the given location. The type of the loaded element matches the type in the
   /// declaration for the Buffer/Texture object.
+  /// If residencyCodeId is not zero,  the SPIR-V instruction for storing the
+  /// resulting residency code will also be emitted.
   SpirvEvalInfo processBufferTextureLoad(const Expr *object, uint32_t location,
-                                         uint32_t constOffset = 0,
-                                         uint32_t varOffst = 0,
-                                         uint32_t lod = 0);
+                                         uint32_t constOffset,
+                                         uint32_t varOffset, uint32_t lod,
+                                         uint32_t residencyCode);
 
   /// \brief Processes .Sample() and .Gather() method calls for texture objects.
   uint32_t processTextureSampleGather(const CXXMemberCallExpr *expr,

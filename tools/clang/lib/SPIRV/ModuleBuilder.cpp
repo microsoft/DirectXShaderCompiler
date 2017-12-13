@@ -339,6 +339,17 @@ spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
   return mask;
 }
 
+uint32_t
+ModuleBuilder::createImageSparseTexelsResident(uint32_t resident_code) {
+  assert(insertPoint && "null insert point");
+  // Result type must be a boolean
+  const uint32_t result_type = getBoolType();
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.opImageSparseTexelsResident(result_type, id, resident_code).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 uint32_t ModuleBuilder::createImageTexelPointer(uint32_t resultType,
                                                 uint32_t imageId,
                                                 uint32_t coordinate,
@@ -418,29 +429,43 @@ void ModuleBuilder::createImageWrite(QualType imageType, uint32_t imageId,
 uint32_t ModuleBuilder::createImageFetchOrRead(
     bool doImageFetch, uint32_t texelType, QualType imageType, uint32_t image,
     uint32_t coordinate, uint32_t lod, uint32_t constOffset, uint32_t varOffset,
-    uint32_t constOffsets, uint32_t sample) {
+    uint32_t constOffsets, uint32_t sample, uint32_t residencyCodeId) {
   assert(insertPoint && "null insert point");
 
-  // TODO: Update ImageFetch/ImageRead to accept minLod if necessary.
   llvm::SmallVector<uint32_t, 2> params;
   const auto mask =
       llvm::Optional<spv::ImageOperandsMask>(composeImageOperandsMask(
           /*bias*/ 0, lod, std::make_pair(0, 0), constOffset, varOffset,
           constOffsets, sample, /*minLod*/ 0, &params));
 
-  const uint32_t texelId = theContext.takeNextId();
-  if (doImageFetch) {
-    instBuilder.opImageFetch(texelType, texelId, image, coordinate, mask);
-  } else {
+  const bool isSparse = (residencyCodeId != 0);
+  uint32_t retType = texelType;
+  if (isSparse) {
+    requireCapability(spv::Capability::SparseResidency);
+    retType = getSparseResidencyStructType(texelType);
+  }
+
+  if (!doImageFetch) {
     requireCapability(
         TypeTranslator::getCapabilityForStorageImageReadWrite(imageType));
-    instBuilder.opImageRead(texelType, texelId, image, coordinate, mask);
   }
+
+  uint32_t texelId = theContext.takeNextId();
+  instBuilder.opImageFetchRead(retType, texelId, image, coordinate, mask,
+                               doImageFetch, isSparse);
 
   for (const auto param : params)
     instBuilder.idRef(param);
   instBuilder.x();
   insertPoint->appendInstruction(std::move(constructSite));
+
+  if (isSparse) {
+    // Write the Residency Code
+    const auto status = createCompositeExtract(getUint32Type(), texelId, {0});
+    createStore(residencyCodeId, status);
+    // Extract the real result from the struct
+    texelId = createCompositeExtract(texelType, texelId, {1});
+  }
 
   return texelId;
 }

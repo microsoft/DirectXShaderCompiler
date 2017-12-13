@@ -8576,6 +8576,14 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
         return true;
     if (E->getStmtClass() == Stmt::InitListExprClass && !E->getType()->isScalarType())
       return false;
+    if (E->getStmtClass() == Stmt::DeclRefExprClass) {
+      const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(E);
+      const ValueDecl *VD = DRE->getDecl();
+      // External variable is in cbuffer, cannot use as immediate.
+      if (VD->hasExternalFormalLinkage() &&
+          !isa<EnumConstantDecl>(VD))
+        return false;
+    }
   }
   // HLSL Change Ends.
   QualType T = E->getType();
