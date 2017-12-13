@@ -984,9 +984,7 @@ TEST_F(FileTest, SpirvLegalizationStructuredBufferCounter) {
               /*runValidation=*/false);
 }
 TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
-  runFileTest("spirv.legal.cbuffer.hlsl", Expect::Success,
-              // The generated SPIR-V needs legalization.
-              /*runValidation=*/false);
+  runFileTest("spirv.legal.cbuffer.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationTextureBuffer) {
   runFileTest("spirv.legal.tbuffer.hlsl", Expect::Success,

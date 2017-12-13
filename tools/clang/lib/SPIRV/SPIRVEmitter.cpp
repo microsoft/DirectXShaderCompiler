@@ -199,21 +199,6 @@ const DeclContext *isConstantTextureBufferDeclRef(const Expr *expr) {
   return nullptr;
 }
 
-/// Returns true if the given expr is loading a ConstantBuffer/TextureBuffer
-/// as a whole.
-bool isConstantTextureBufferLoad(const Expr *expr) {
-  if (!expr)
-    return false;
-
-  // The expression should be a LValueToRValue implict cast from a DeclRefExpr
-  // referencing a ConstantBuffer or TextureBuffer variable.
-  if (const auto *castExpr = dyn_cast<ImplicitCastExpr>(expr))
-    if (castExpr->getCastKind() == CK_LValueToRValue)
-      return isConstantTextureBufferDeclRef(castExpr);
-
-  return false;
-}
-
 /// Returns true if
 /// * the given expr is an DeclRefExpr referencing a kind of structured or byte
 /// buffer and it is non-alias one, or
@@ -646,8 +631,8 @@ SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   return 0;
 }
 
-SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr) {
-  auto info = doExpr(expr);
+SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
+                                          SpirvEvalInfo info) {
 
   if (!info.isRValue()) {
     // Check whether we are trying to load an externally visible structured/byte
@@ -981,7 +966,7 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
       if (const auto constId = tryToEvaluateAsConst(init))
         theBuilder.createStore(varId, constId);
       else
-        storeValue(varId, loadIfGLValue(init), decl->getType(), init);
+        storeValue(varId, loadIfGLValue(init), decl->getType());
 
       // Update counter variable associatd with local variables
       tryToAssignCounterVar(decl, init);
@@ -1439,7 +1424,7 @@ void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
       // class and then return.
       const uint32_t valType = typeTranslator.translateType(retType);
       const uint32_t tempVar = theBuilder.addFnVar(valType, "temp.var.ret");
-      storeValue(tempVar, retInfo, retType, retVal);
+      storeValue(tempVar, retInfo, retType);
 
       theBuilder.createReturnValue(theBuilder.createLoad(valType, tempVar));
     } else {
@@ -1559,8 +1544,7 @@ SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
       tryToAssignCounterVar(dstDecl, expr->getRHS());
 
     return processAssignment(expr->getLHS(), loadIfGLValue(expr->getRHS()),
-                             /*isCompoundAssignment=*/false, /*lhsPtr=*/0,
-                             expr->getRHS());
+                             /*isCompoundAssignment=*/false);
   }
 
   // Try to optimize floatMxN * float and floatN * float case
@@ -1605,8 +1589,8 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   const auto numParams = callee->getNumParams();
   bool isNonStaticMemberCall = false;
 
-  llvm::SmallVector<uint32_t, 4> params; // Temporary variables
-  llvm::SmallVector<uint32_t, 4> args;   // Evaluated arguments
+  llvm::SmallVector<uint32_t, 4> params;    // Temporary variables
+  llvm::SmallVector<SpirvEvalInfo, 4> args; // Evaluated arguments
 
   if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr)) {
     isNonStaticMemberCall =
@@ -1658,16 +1642,9 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
     // Update counter variable associated with function parameters
     tryToAssignCounterVar(param, arg);
 
-    if (canActAsOutParmVar(param)) {
-      // The current parameter is marked as out/inout. The argument then is
-      // essentially passed in by reference. We need to load the value
-      // explicitly here since the AST won't inject LValueToRValue implicit
-      // cast for this case.
-      const uint32_t value = theBuilder.createLoad(varType, args.back());
-      theBuilder.createStore(tempVarId, value);
-    } else {
-      theBuilder.createStore(tempVarId, args.back());
-    }
+    const auto rhsVal = loadIfGLValue(arg, args.back());
+    // Initialize the temporary variables using the contents of the arguments
+    storeValue(tempVarId, rhsVal, param->getType());
   }
 
   // Push the callee into the work queue if it is not there.
@@ -1689,7 +1666,7 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
       const uint32_t index = i + isNonStaticMemberCall;
       const uint32_t typeId = typeTranslator.translateType(param->getType());
       const uint32_t value = theBuilder.createLoad(typeId, params[index]);
-      theBuilder.createStore(args[index], value);
+      storeValue(args[index], value, param->getType());
     }
   }
 
@@ -2690,13 +2667,6 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
 
   if (isAppend) {
     // Write out the value
-    // Note: we don't want to supply the rhsExpr here to give storeValue() hints
-    // about loading a ConstantBuffer/TextureBuffer. We want it to decompose
-    // and write each component out even if the rhs is indeed a ConstantBuffer
-    // or TextureBuffer. That is because if the source code is .Append()ing some
-    // ConstantBuffer or TextureBuffer, the intent is almost surely write out
-    // the whole struct instead of creating a temporary copy and eliminate
-    // later.
     storeValue(bufferInfo, doExpr(expr->getArg(0)), bufferElemTy);
     return 0;
   } else {
@@ -3741,8 +3711,7 @@ spv::Op SPIRVEmitter::translateOp(BinaryOperator::Opcode op, QualType type) {
 SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
                                               const SpirvEvalInfo &rhs,
                                               const bool isCompoundAssignment,
-                                              SpirvEvalInfo lhsPtr,
-                                              const Expr *rhsExpr) {
+                                              SpirvEvalInfo lhsPtr) {
   // Assigning to vector swizzling should be handled differently.
   if (SpirvEvalInfo result = tryToAssignToVectorElements(lhs, rhs))
     return result;
@@ -3760,7 +3729,7 @@ SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
   if (!lhsPtr)
     lhsPtr = doExpr(lhs);
 
-  storeValue(lhsPtr, rhs, lhs->getType(), rhsExpr);
+  storeValue(lhsPtr, rhs, lhs->getType());
 
   // Plain assignment returns a rvalue, while compound assignment returns
   // lvalue.
@@ -3769,7 +3738,7 @@ SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
 
 void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
                               const SpirvEvalInfo &rhsVal,
-                              const QualType lhsValType, const Expr *rhsExpr) {
+                              const QualType lhsValType) {
   if (typeTranslator.isScalarType(lhsValType) ||
       typeTranslator.isVectorType(lhsValType) ||
       typeTranslator.isMxNMatrix(lhsValType)) {
@@ -3779,26 +3748,35 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // from rhs and directly store into lhs and avoid decomposing rhs.
     // TODO: is this optimization always correct?
     theBuilder.createStore(lhsPtr, rhsVal);
-  } else if (hlsl::IsHLSLResourceType(lhsValType) ||
-             isConstantTextureBufferLoad(rhsExpr)) {
+  } else if (TypeTranslator::isOpaqueType(lhsValType)) {
     // Resource types are represented using RecordType in the AST.
     // Handle them before the general RecordType.
     //
-    // HLSL allows to put resource types in structs, or assign to variables
-    // of resource types. These can all result in illegal SPIR-V for Vulkan.
-    // We just translate here literally and let SPIRV-Tools opt to do the
-    // legalization work.
+    // HLSL allows to put resource types that translating into SPIR-V opaque
+    // types in structs, or assign to variables of resource types. These can all
+    // result in illegal SPIR-V for Vulkan. We just translate here literally and
+    // let SPIRV-Tools opt to do the legalization work.
     //
-    // TODO: this is very hacky, especially using isConstantTextureBufferLoad()
-    // to check whether we are loading from a ConstantBuffer or TextureBuffer.
+    // Note: legalization specific code
+    theBuilder.createStore(lhsPtr, rhsVal);
+    needsLegalization = true;
+  } else if (TypeTranslator::isAKindOfStructuredOrByteBuffer(lhsValType)) {
+    // The rhs should be a pointer and the lhs should be a pointer-to-pointer.
+    // Directly store the pointer here and let SPIRV-Tools opt to do the clean
+    // up.
+    //
+    // Note: legalization specific code
+    theBuilder.createStore(lhsPtr, rhsVal);
+    needsLegalization = true;
+
+    // For ConstantBuffers/TextureBuffers, we decompose and assign each field
+    // recursively like normal structs using the following logic.
+    //
     // The frontend forbids declaring ConstantBuffer<T> or TextureBuffer<T>
     // variables as function parameters/returns/variables, but happily accepts
     // assignments/returns from ConstantBuffer<T>/TextureBuffer<T> to function
     // parameters/returns/variables of type T. And ConstantBuffer<T> is not
-    // represented differently as struct T. Those together cause a great amount
-    // of nastiness.
-    theBuilder.createStore(lhsPtr, rhsVal);
-    needsLegalization = true;
+    // represented differently as struct T.
   } else if (const auto *recordType = lhsValType->getAs<RecordType>()) {
     uint32_t index = 0;
     for (const auto *decl : recordType->getDecl()->decls()) {

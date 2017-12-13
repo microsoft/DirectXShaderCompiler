@@ -66,7 +66,7 @@ public:
   /// not be wrapped in ImplicitCastExpr (LValueToRValue) when appearing in
   /// HLSLVectorElementExpr since the generated HLSLVectorElementExpr itself can
   /// be lvalue or rvalue.
-  SpirvEvalInfo loadIfGLValue(const Expr *expr);
+  inline SpirvEvalInfo loadIfGLValue(const Expr *expr);
 
   /// Casts the given value from fromType to toType. fromType and toType should
   /// both be scalar or vector types of the same size.
@@ -106,6 +106,11 @@ private:
   SpirvEvalInfo doMemberExpr(const MemberExpr *expr);
   SpirvEvalInfo doUnaryOperator(const UnaryOperator *expr);
 
+  /// Overload with pre computed SpirvEvalInfo.
+  ///
+  /// The given expr will not be evaluated again.
+  SpirvEvalInfo loadIfGLValue(const Expr *expr, SpirvEvalInfo info);
+
   /// Loads the pointer of the aliased-to-variable if the given expression is a
   /// DeclRefExpr referencing an alias variable. See DeclResultIdMapper for
   /// more explanation regarding this.
@@ -127,14 +132,13 @@ private:
   /// lhs again.
   SpirvEvalInfo processAssignment(const Expr *lhs, const SpirvEvalInfo &rhs,
                                   bool isCompoundAssignment,
-                                  SpirvEvalInfo lhsPtr = 0,
-                                  const Expr *rhsExpr = nullptr);
+                                  SpirvEvalInfo lhsPtr = 0);
 
   /// Generates SPIR-V instructions to store rhsVal into lhsPtr. This will be
   /// recursive if lhsValType is a composite type. rhsExpr will be used as a
   /// reference to adjust the CodeGen if not nullptr.
   void storeValue(const SpirvEvalInfo &lhsPtr, const SpirvEvalInfo &rhsVal,
-                  QualType lhsValType, const Expr *rhsExpr = nullptr);
+                  QualType lhsValType);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs. If lhsResultId is not nullptr, the evaluated
@@ -852,6 +856,10 @@ private:
 void SPIRVEmitter::doDeclStmt(const DeclStmt *declStmt) {
   for (auto *decl : declStmt->decls())
     doDecl(decl);
+}
+
+SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr) {
+  return loadIfGLValue(expr, doExpr(expr));
 }
 
 } // end namespace spirv
