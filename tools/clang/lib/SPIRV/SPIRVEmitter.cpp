@@ -5455,24 +5455,65 @@ uint32_t SPIRVEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
                                                      bool isDevice,
                                                      bool groupSync,
                                                      bool isAllBarrier) {
-  // Execution Barrier scope:
-  // Device    = 1
-  // Workgroup = 2
-  // Memory Barrier scope:
-  // Device    = 1
-  // Workgroup = 2
-  // Memory Semantics Barrier scope:
-  // WorkgroupMemory      = 0x100 = 256
-  // CrossWorkgroupMemory = 0x200 = 512
-  // 'All Memory Barrier' must place barrier at several different levels, so
-  // several flags must be turned on:
-  // 0x10 | 0x40 | 0x80 | 0x100 | 0x200 | 0x400 | 0x800 = 0xFD0 = 4048.
-  const uint32_t memSemaMask = isAllBarrier ? 0xFD0 : isDevice ? 0x200 : 0x100;
-  const auto memSema = theBuilder.getConstantUint32(memSemaMask);
-  const auto memScope = isDevice ? theBuilder.getConstantUint32(1)
-                                 : theBuilder.getConstantUint32(2);
-  const auto execScope = groupSync ? memScope : 0;
-  theBuilder.createBarrier(execScope, memScope, memSema);
+  // * DeviceMemoryBarrier =
+  // OpMemoryBarrier (memScope=Device,
+  //                  sem=Image|Uniform|AcquireRelease)
+  //
+  // * DeviceMemoryBarrierWithGroupSync =
+  // OpControlBarrier(execScope = Workgroup,
+  //                  memScope=Device,
+  //                  sem=Image|Uniform|AcquireRelease)
+  const spv::MemorySemanticsMask deviceMemoryBarrierSema =
+      spv::MemorySemanticsMask::ImageMemory |
+      spv::MemorySemanticsMask::UniformMemory |
+      spv::MemorySemanticsMask::AcquireRelease;
+
+  // * GroupMemoryBarrier =
+  // OpMemoryBarrier (memScope=Workgroup,
+  //                  sem = Workgroup|AcquireRelease)
+  //
+  // * GroupMemoryBarrierWithGroupSync =
+  // OpControlBarrier (execScope = Workgroup,
+  //                   memScope = Workgroup,
+  //                   sem = Workgroup|AcquireRelease)
+  const spv::MemorySemanticsMask groupMemoryBarrierSema =
+      spv::MemorySemanticsMask::WorkgroupMemory |
+      spv::MemorySemanticsMask::AcquireRelease;
+
+  // * AllMemoryBarrier =
+  // OpMemoryBarrier(memScope = Device,
+  //                 sem = Image|Uniform|Workgroup|AcquireRelease)
+  //
+  // * AllMemoryBarrierWithGroupSync =
+  // OpControlBarrier(execScope = Workgroup,
+  //                  memScope = Device,
+  //                  sem = Image|Uniform|Workgroup|AcquireRelease)
+  const spv::MemorySemanticsMask allMemoryBarrierSema =
+      spv::MemorySemanticsMask::ImageMemory |
+      spv::MemorySemanticsMask::UniformMemory |
+      spv::MemorySemanticsMask::WorkgroupMemory |
+      spv::MemorySemanticsMask::AcquireRelease;
+
+  // Get <result-id> for execution scope.
+  // If present, execution scope is always Workgroup!
+  const uint32_t execScopeId =
+      groupSync ? theBuilder.getConstantUint32(
+                      static_cast<uint32_t>(spv::Scope::Workgroup))
+                : 0;
+
+  // Get <result-id> for memory scope
+  const spv::Scope memScope =
+      (isDevice || isAllBarrier) ? spv::Scope::Device : spv::Scope::Workgroup;
+  const uint32_t memScopeId =
+      theBuilder.getConstantUint32(static_cast<uint32_t>(memScope));
+
+  // Get <result-id> for memory semantics
+  const auto memSemaMask = isAllBarrier ? allMemoryBarrierSema
+                                        : isDevice ? deviceMemoryBarrierSema
+                                                   : groupMemoryBarrierSema;
+  const uint32_t memSema =
+      theBuilder.getConstantUint32(static_cast<uint32_t>(memSemaMask));
+  theBuilder.createBarrier(execScopeId, memScopeId, memSema);
   return 0;
 }
 
