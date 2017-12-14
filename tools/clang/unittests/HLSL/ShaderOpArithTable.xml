@@ -1281,8 +1281,8 @@
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1328,13 +1328,14 @@
                 <Value>-10.0</Value>
                 <Value>-11.0</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="IsInfHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1369,13 +1370,14 @@
                 <Value>0</Value>
                 <Value>0</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="TanHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1407,13 +1409,14 @@
                 <Value>0.1606257</Value>
                 <Value>-0.1606257</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="Round_piHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1457,13 +1460,14 @@
                 <Value>-10.0</Value>
                 <Value>-10.0</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="AtanHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1496,13 +1500,14 @@
                 <Value>-0.785398163</Value>
             </Parameter>
             <Parameter Name="Warp.Version">16202</Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="IsFiniteHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1538,13 +1543,14 @@
                 <Value>1</Value>
             </Parameter>
             <Parameter Name="Warp.Version">16202</Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="AcosHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1580,55 +1586,14 @@
                 <Value>NaN</Value>
                 <Value>NaN</Value>
             </Parameter>
-        </Row>
-        <Row Name="SqrtHalf">
-            <Parameter Name="Validation.Type">ulp</Parameter>
-            <Parameter Name="Validation.Tolerance">1</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
-            };
-            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = sqrt(l.input);
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>NaN</Value>
-                <Value>-Inf</Value>
-                <Value>-denorm</Value>
-                <Value>-0</Value>
-                <Value>0</Value>
-                <Value>denorm</Value>
-                <Value>Inf</Value>
-                <Value>-1</Value>
-                <Value>2</Value>
-                <Value>16.0</Value>
-                <Value>256.0</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>NaN</Value>
-                <Value>NaN</Value>
-                <Value>-0</Value>
-                <Value>-0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>Inf</Value>
-                <Value>NaN</Value>
-                <Value>1.41421356237</Value>
-                <Value>4.0</Value>
-                <Value>16.0</Value>
-            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="IsNaNHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1663,13 +1628,14 @@
                 <Value>0</Value>
                 <Value>0</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="Round_niHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1713,13 +1679,14 @@
                 <Value>-11.0</Value>
                 <Value>-11.0</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="SinHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1751,13 +1718,14 @@
                 <Value>-0.1585929</Value>
                 <Value>0.1585929</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="HsinHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1789,13 +1757,14 @@
                 <Value>1.175201</Value>
                 <Value>-1.175201</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="HcosHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1827,13 +1796,14 @@
                 <Value>1.543081</Value>
                 <Value>1.543081</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="Round_zHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1877,13 +1847,14 @@
                 <Value>-10.0</Value>
                 <Value>-10.0</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="FrcHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1919,13 +1890,14 @@
                 <Value>0.5</Value>
                 <Value>0.61</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="FAbsHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1957,13 +1929,14 @@
                 <Value>1</Value>
                 <Value>1</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="AsinHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -1999,13 +1972,14 @@
                 <Value>NaN</Value>
                 <Value>NaN</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="CosHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -2037,13 +2011,14 @@
                 <Value>0.987344</Value>
                 <Value>0.987344</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="HtanHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -2076,13 +2051,14 @@
                 <Value>-0.761594</Value>
             </Parameter>
             <Parameter Name="Warp.Version">16202</Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="RsqrtHalf">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -2118,6 +2094,50 @@
                 <Value>0.0625</Value>
                 <Value>0.00001526</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="SqrtHalf">
+            <Parameter Name="Validation.Type">ulp</Parameter>
+            <Parameter Name="Validation.Tolerance">1</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
+                float16_t input;
+                float16_t output;
+            };
+            RWStructuredBuffer&lt;SUnaryFPOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                l.output = sqrt(l.input);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>NaN</Value>
+                <Value>-Inf</Value>
+                <Value>-denorm</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>denorm</Value>
+                <Value>Inf</Value>
+                <Value>-1</Value>
+                <Value>2</Value>
+                <Value>16.0</Value>
+                <Value>256.0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>NaN</Value>
+                <Value>NaN</Value>
+                <Value>-0</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>Inf</Value>
+                <Value>NaN</Value>
+                <Value>1.41421356237</Value>
+                <Value>4.0</Value>
+                <Value>16.0</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
     </Table>
     <Table Id="BinaryHalfOpTable">
@@ -2164,6 +2184,7 @@
                 <Value>4.4</Value>
                 <Value>0.50000006</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="FMinHalf">
             <Parameter Name="Validation.Type">epsilon</Parameter>
@@ -2292,6 +2313,7 @@
                 <Value>6.875</Value>
                 <Value>2.0000002</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="FAddHalf">
             <Parameter Name="Validation.Type">ulp</Parameter>
@@ -2328,6 +2350,7 @@
                 <Value>367.2</Value>
                 <Value>1.5000002000</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="FSubHalf">
             <Parameter Name="Validation.Type">ulp</Parameter>
@@ -2364,6 +2387,7 @@
                 <Value>-302.2</Value>
                 <Value>0.5000</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
     </Table>
     <Table Id="TertiaryHalfOpTable">
@@ -2451,6 +2475,7 @@
                 <Value>1</Value>
                 <Value>9.5</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
     </Table>
     <Table Id="UnaryIntOpTable">
@@ -2820,6 +2845,51 @@
                 <Value>0x3fffffff</Value>
             </Parameter>
         </Row>
+        <Row Name="ISub">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryIntOp l = g_buf[GI];
+                l.output1 = l.input1 - l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-2147483648</Value>
+                <Value>-10</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>2147483647</Value>
+                <Value>486</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>-10</Value>
+                <Value>10</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+                <Value>54238</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>-2147483648</Value>
+                <Value>-20</Value>
+                <Value>10</Value>
+                <Value>-10</Value>
+                <Value>0</Value>
+                <Value>2147483647</Value>
+                <Value>-53752</Value>
+            </Parameter>
+        </Row>
         <Row Name="IDiv">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
@@ -2873,6 +2943,51 @@
                 <Value>1</Value>
                 <Value>0</Value>
                 <Value>0</Value>
+            </Parameter>
+        </Row>
+        <Row Name="IAdd">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryIntOp l = g_buf[GI];
+                l.output1 = l.input1 + l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-2147483648</Value>
+                <Value>-10</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>2147483647</Value>
+                <Value>486</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>-10</Value>
+                <Value>10</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+                <Value>54238</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>-2147483648</Value>
+                <Value>0</Value>
+                <Value>-10</Value>
+                <Value>10</Value>
+                <Value>20</Value>
+                <Value>2147483647</Value>
+                <Value>54724</Value>
             </Parameter>
         </Row>
         <Row Name="And">
@@ -3058,96 +3173,6 @@
                 <Value>0x00000000</Value>
             </Parameter>
         </Row>
-        <Row Name="ISub">
-            <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
-                l.output1 = l.input1 - l.input2;
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>-2147483648</Value>
-                <Value>-10</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>10</Value>
-                <Value>2147483647</Value>
-                <Value>486</Value>
-            </Parameter>
-            <Parameter Name="Validation.Input2">
-                <Value>0</Value>
-                <Value>10</Value>
-                <Value>-10</Value>
-                <Value>10</Value>
-                <Value>10</Value>
-                <Value>0</Value>
-                <Value>54238</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>-2147483648</Value>
-                <Value>-20</Value>
-                <Value>10</Value>
-                <Value>-10</Value>
-                <Value>0</Value>
-                <Value>2147483647</Value>
-                <Value>-53752</Value>
-            </Parameter>
-        </Row>
-        <Row Name="IAdd">
-            <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer&lt;SBinaryIntOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
-                l.output1 = l.input1 + l.input2;
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>-2147483648</Value>
-                <Value>-10</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>10</Value>
-                <Value>2147483647</Value>
-                <Value>486</Value>
-            </Parameter>
-            <Parameter Name="Validation.Input2">
-                <Value>0</Value>
-                <Value>10</Value>
-                <Value>-10</Value>
-                <Value>10</Value>
-                <Value>10</Value>
-                <Value>0</Value>
-                <Value>54238</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>-2147483648</Value>
-                <Value>0</Value>
-                <Value>-10</Value>
-                <Value>10</Value>
-                <Value>20</Value>
-                <Value>2147483647</Value>
-                <Value>54724</Value>
-            </Parameter>
-        </Row>
     </Table>
     <Table Id="TertiaryIntOpTable">
         <ParameterTypes>
@@ -3236,6 +3261,802 @@
             </Parameter>
         </Row>
     </Table>
+    <Table Id="UnaryInt16OpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Arguments">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">double</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="BfrevBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SUnaryInt16Op {
+                int16_t input;
+                int16_t output;
+            };
+            RWStructuredBuffer&lt;SUnaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryInt16Op l = g_buf[GI];
+                l.output = reversebits(l.input);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-32768</Value>
+                <Value>-256</Value>
+                <Value>-8</Value>
+                <Value>-1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>8</Value>
+                <Value>256</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>1</Value>
+                <Value>255</Value>
+                <Value>8191</Value>
+                <Value>-1</Value>
+                <Value>0</Value>
+                <Value>-32768</Value>
+                <Value>4096</Value>
+                <Value>128</Value>
+                <Value>-2</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="FirstbitSHiBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SUnaryInt16Op {
+                int16_t input;
+                int16_t output;
+            };
+            RWStructuredBuffer&lt;SUnaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryInt16Op l = g_buf[GI];
+                l.output = firstbithigh(l.input);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-32768</Value>
+                <Value>-256</Value>
+                <Value>-8</Value>
+                <Value>-1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>8</Value>
+                <Value>256</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>14</Value>
+                <Value>7</Value>
+                <Value>2</Value>
+                <Value>-1</Value>
+                <Value>-1</Value>
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>8</Value>
+                <Value>14</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="FirstbitLoBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SUnaryInt16Op {
+                int16_t input;
+                int16_t output;
+            };
+            RWStructuredBuffer&lt;SUnaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryInt16Op l = g_buf[GI];
+                l.output = firstbitlow(l.input);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-32768</Value>
+                <Value>-256</Value>
+                <Value>-8</Value>
+                <Value>-1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>8</Value>
+                <Value>256</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>15</Value>
+                <Value>8</Value>
+                <Value>3</Value>
+                <Value>0</Value>
+                <Value>-1</Value>
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>8</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+    </Table>
+    <Table Id="BinaryInt16OpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Arguments">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">double</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="XorBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = l.input1 ^ l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x1</Value>
+                <Value>0x01</Value>
+                <Value>0x7fff</Value>
+                <Value>0x1111</Value>
+                <Value>0x137f</Value>
+                <Value>0x0</Value>
+                <Value>0x1234</Value>
+                <Value>0xa341</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0x1</Value>
+                <Value>0xf0</Value>
+                <Value>0x0000</Value>
+                <Value>0x2222</Value>
+                <Value>0xec80</Value>
+                <Value>0x0</Value>
+                <Value>0x0000</Value>
+                <Value>0x3471</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0x0</Value>
+                <Value>0xf1</Value>
+                <Value>0x7fff</Value>
+                <Value>0x3333</Value>
+                <Value>0xffff</Value>
+                <Value>0x0</Value>
+                <Value>0x1234</Value>
+                <Value>0x9730</Value>
+                <Value>0x0000</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="AndBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = l.input1 &amp; l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x1</Value>
+                <Value>0x01</Value>
+                <Value>0x7fff</Value>
+                <Value>0x3333</Value>
+                <Value>0x137f</Value>
+                <Value>0x1234</Value>
+                <Value>0xa341</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0x1</Value>
+                <Value>0xf0</Value>
+                <Value>0x0000</Value>
+                <Value>0x2222</Value>
+                <Value>0xec80</Value>
+                <Value>-1</Value>
+                <Value>0x3471</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0x1</Value>
+                <Value>0x00</Value>
+                <Value>0x0</Value>
+                <Value>0x2222</Value>
+                <Value>0x0</Value>
+                <Value>0x1234</Value>
+                <Value>0x2041</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="UMulBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t output1;
+                uint16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUint16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUint16Op l = g_buf[GI];
+                l.output1 = l.input1 * l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>100</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>256</Value>
+                <Value>4</Value>
+                <Value>101</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>40</Value>
+                <Value>10001</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="IMaxBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = max(l.input1,l.input2);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-32768</Value>
+                <Value>-10</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>-3114</Value>
+                <Value>272</Value>
+                <Value>15</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+                <Value>272</Value>
+                <Value>15</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="USubBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t output1;
+                uint16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUint16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUint16Op l = g_buf[GI];
+                l.output1 = l.input1 - l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>323</Value>
+                <Value>65535</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>65535</Value>
+                <Value>486</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+                <Value>334</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>323</Value>
+                <Value>0xfff5</Value>
+                <Value>0</Value>
+                <Value>-10</Value>
+                <Value>0</Value>
+                <Value>65535</Value>
+                <Value>152</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="IMinBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = min(l.input1,l.input2);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-32768</Value>
+                <Value>-10</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>-3114</Value>
+                <Value>272</Value>
+                <Value>15</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>-32768</Value>
+                <Value>-10</Value>
+                <Value>-3114</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="UAddBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t output1;
+                uint16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUint16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUint16Op l = g_buf[GI];
+                l.output1 = l.input1 + l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>323</Value>
+                <Value>0xfff5</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>65535</Value>
+                <Value>486</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+                <Value>334</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>323</Value>
+                <Value>65535</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>20</Value>
+                <Value>65535</Value>
+                <Value>820</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="ShlBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = l.input1 &lt;&lt; l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>0x0101</Value>
+                <Value>0xa</Value>
+                <Value>-1</Value>
+                <Value>0x1234</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>259</Value>
+                <Value>4</Value>
+                <Value>2</Value>
+                <Value>0</Value>
+                <Value>13</Value>
+                <Value>3</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0x1</Value>
+                <Value>0x8</Value>
+                <Value>0x1010</Value>
+                <Value>0x28</Value>
+                <Value>-1</Value>
+                <Value>0x8000</Value>
+                <Value>-8</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="LShrBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = l.input1 &gt;&gt; l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>0x7fff</Value>
+                <Value>0x7fff</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>4</Value>
+                <Value>14</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>0x07ff</Value>
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="ISubBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = l.input1 - l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-32768</Value>
+                <Value>-10</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>-3114</Value>
+                <Value>272</Value>
+                <Value>15</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>-32768</Value>
+                <Value>-20</Value>
+                <Value>-3114</Value>
+                <Value>-272</Value>
+                <Value>-5</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="IAddBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = l.input1 + l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-32768</Value>
+                <Value>-10</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>-3114</Value>
+                <Value>272</Value>
+                <Value>15</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>-32768</Value>
+                <Value>0</Value>
+                <Value>-3114</Value>
+                <Value>272</Value>
+                <Value>25</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="IMulBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = l.input1 * l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-32768</Value>
+                <Value>-10</Value>
+                <Value>-1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>10</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>-10</Value>
+                <Value>-10</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+                <Value>256</Value>
+                <Value>4</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>100</Value>
+                <Value>-10</Value>
+                <Value>0</Value>
+                <Value>256</Value>
+                <Value>40</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="OrBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = l.input1 | l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0x1</Value>
+                <Value>0x01</Value>
+                <Value>0x7fff</Value>
+                <Value>0x3333</Value>
+                <Value>0x137f</Value>
+                <Value>0x1234</Value>
+                <Value>0xa341</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0x1</Value>
+                <Value>0xf0</Value>
+                <Value>0x0000</Value>
+                <Value>0x2222</Value>
+                <Value>0xec80</Value>
+                <Value>0xffff</Value>
+                <Value>0x3471</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0x1</Value>
+                <Value>0xf1</Value>
+                <Value>0x7fff</Value>
+                <Value>0x3333</Value>
+                <Value>0xffff</Value>
+                <Value>0xffff</Value>
+                <Value>0xb771</Value>
+                <Value>-1</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+    </Table>
+    <Table Id="TertiaryInt16OpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Arguments">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">double</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="IMadBit16">
+            <Parameter Name="Validation.Type">epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct STertiaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t input3;
+                int16_t output;
+            };
+            RWStructuredBuffer&lt;STertiaryInt16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryInt16Op l = g_buf[GI];
+                l.output = mad(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>-32768</Value>
+                <Value>-256</Value>
+                <Value>-1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>16</Value>
+                <Value>32767</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>1</Value>
+                <Value>8</Value>
+                <Value>-1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>3</Value>
+                <Value>16</Value>
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>3</Value>
+                <Value>250</Value>
+                <Value>-30</Value>
+                <Value>-32768</Value>
+                <Value>-50</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>-32768</Value>
+                <Value>-2048</Value>
+                <Value>2</Value>
+                <Value>3</Value>
+                <Value>251</Value>
+                <Value>-24</Value>
+                <Value>-32512</Value>
+                <Value>32717</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+    </Table>
     <Table Id="UnaryUintOpTable">
         <ParameterTypes>
             <ParameterType Name="ShaderOp.Target">String</ParameterType>
@@ -3291,6 +4112,51 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
+        <Row Name="USub">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
+                uint input1;
+                uint input2;
+                uint output1;
+                uint output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 - l.input2;
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>2147483648</Value>
+                <Value>4294967295</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>30</Value>
+                <Value>2147483647</Value>
+                <Value>54724</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>10</Value>
+                <Value>0</Value>
+                <Value>54238</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>2147483648</Value>
+                <Value>4294967285</Value>
+                <Value>0</Value>
+                <Value>4294967286</Value>
+                <Value>20</Value>
+                <Value>2147483647</Value>
+                <Value>486</Value>
+            </Parameter>
+        </Row>
         <Row Name="UMul">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
@@ -3467,51 +4333,6 @@
                 <Value>4294967295</Value>
             </Parameter>
         </Row>
-        <Row Name="USub">
-            <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0</Parameter>
-            <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
-                uint input1;
-                uint input2;
-                uint output1;
-                uint output2;
-            };
-            RWStructuredBuffer&lt;SBinaryUintOp&gt; g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = l.input1 - l.input2;
-                g_buf[GI] = l;
-            };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
-            <Parameter Name="Validation.Input1">
-                <Value>2147483648</Value>
-                <Value>4294967295</Value>
-                <Value>0</Value>
-                <Value>0</Value>
-                <Value>30</Value>
-                <Value>2147483647</Value>
-                <Value>54724</Value>
-            </Parameter>
-            <Parameter Name="Validation.Input2">
-                <Value>0</Value>
-                <Value>10</Value>
-                <Value>0</Value>
-                <Value>10</Value>
-                <Value>10</Value>
-                <Value>0</Value>
-                <Value>54238</Value>
-            </Parameter>
-            <Parameter Name="Validation.Expected1">
-                <Value>2147483648</Value>
-                <Value>4294967285</Value>
-                <Value>0</Value>
-                <Value>4294967286</Value>
-                <Value>20</Value>
-                <Value>2147483647</Value>
-                <Value>486</Value>
-            </Parameter>
-        </Row>
         <Row Name="UAdd">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
@@ -3678,6 +4499,213 @@
                 <Value>10</Value>
                 <Value>110</Value>
             </Parameter>
+        </Row>
+    </Table>
+    <Table Id="UnaryUint16OpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Arguments">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">double</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="FirstbitHiBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SUnaryUint16Op {
+                uint16_t input;
+                uint16_t output;
+            };
+            RWStructuredBuffer&lt;SUnaryUint16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryUint16Op l = g_buf[GI];
+                l.output = firstbithigh(l.input);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>8</Value>
+                <Value>65535</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>-1</Value>
+                <Value>0</Value>
+                <Value>3</Value>
+                <Value>15</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+    </Table>
+    <Table Id="BinaryUint16OpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Arguments">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">double</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="UMaxBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t output1;
+                uint16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUint16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUint16Op l = g_buf[GI];
+                l.output1 = max(l.input1,l.input2);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>10000</Value>
+                <Value>32767</Value>
+                <Value>65535</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>256</Value>
+                <Value>4</Value>
+                <Value>10001</Value>
+                <Value>0</Value>
+                <Value>65535</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>256</Value>
+                <Value>10</Value>
+                <Value>10001</Value>
+                <Value>32767</Value>
+                <Value>65535</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+        <Row Name="UMinBit16">
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct SBinaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t output1;
+                uint16_t output2;
+            };
+            RWStructuredBuffer&lt;SBinaryUint16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUint16Op l = g_buf[GI];
+                l.output1 = min(l.input1,l.input2);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>10000</Value>
+                <Value>32767</Value>
+                <Value>65535</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>256</Value>
+                <Value>4</Value>
+                <Value>10001</Value>
+                <Value>0</Value>
+                <Value>65535</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>4</Value>
+                <Value>10000</Value>
+                <Value>0</Value>
+                <Value>65535</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
+        </Row>
+    </Table>
+    <Table Id="TertiaryUint16OpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.Arguments">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">double</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input2">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
+            <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="UMadBit16">
+            <Parameter Name="Validation.Type">epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text"> struct STertiaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t input3;
+                uint16_t output;
+            };
+            RWStructuredBuffer&lt;STertiaryUint16Op&gt; g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryUint16Op l = g_buf[GI];
+                l.output = mad(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>16</Value>
+                <Value>32767</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>16</Value>
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>15</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected1">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>271</Value>
+                <Value>32767</Value>
+                <Value>10</Value>
+                <Value>110</Value>
+            </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
     </Table>
     <Table Id="DotOpTable">
