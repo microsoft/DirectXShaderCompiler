@@ -4475,7 +4475,19 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
   if (isBoolOrVecOfBoolType(fromType)) {
     const uint32_t one = getValueOne(toIntType);
     const uint32_t zero = getValueZero(toIntType);
-    return theBuilder.createSelect(intType, fromVal, one, zero);
+    if (toIntType->isScalarType() && toIntType->isLiteralType(astContext)) {
+      // Special case for handling casting from boolean values to literal ints.
+      // For source code like (a == b) != 5, an IntegralCast will be inserted
+      // for (a == b), whose return type will be 64-bit integer if following the
+      // normal path.
+      // TODO: This is not beautiful. But other ways are even worse.
+      const uint32_t retType = toIntType->isSignedIntegerType()
+                                   ? theBuilder.getInt32Type()
+                                   : theBuilder.getUint32Type();
+      return theBuilder.createSelect(retType, fromVal, one, zero);
+    } else {
+      return theBuilder.createSelect(intType, fromVal, one, zero);
+    }
   }
 
   if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
