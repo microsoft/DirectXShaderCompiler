@@ -2038,6 +2038,11 @@ static bool evaluateVarDeclInit(EvalInfo &Info, const Expr *E,
     Info.Diag(E, diag::note_invalid_subexpr_in_const_expr);
     return false;
   }
+  // HLSL Change Begin - External variable is in cbuffer, cannot use as immediate.
+  if (VD->hasExternalFormalLinkage() &&
+      !isa<EnumConstantDecl>(VD))
+    return false;
+  // HLSL Change End.
 
   // Check that we can fold the initializer. In C++, we will have already done
   // this in the cases where it matters for conformance.
