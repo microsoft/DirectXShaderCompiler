@@ -3347,12 +3347,12 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     }
     // NOTE: clip cull distance size is checked at ValidateSignature.
     break;
-  case DXIL::SemanticKind::IsFrontFace:
-    if (!compBool || SE.GetCols() != 1) {
+  case DXIL::SemanticKind::IsFrontFace: {
+    if (!(compInt && compWidth == 32) || SE.GetCols() != 1) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
-                             {SE.GetSemantic()->GetName(), "bool"});
+                             {SE.GetSemantic()->GetName(), "uint"});
     }
-    break;
+  } break;
   case DXIL::SemanticKind::RenderTargetArrayIndex:
   case DXIL::SemanticKind::ViewPortArrayIndex:
   case DXIL::SemanticKind::VertexID:
