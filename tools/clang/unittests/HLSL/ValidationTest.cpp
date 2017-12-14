@@ -2051,11 +2051,11 @@ float4 main( \
 
     "= !{i32 1, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 2, i32 1, i8 0, null}\n"
     "!([0-9]+) = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
-    "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
+    "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 5, i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
 
     "= !{i32 1, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 2, i32 1, i8 2, null}\n"
     "!\\2 = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !\\3, i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
-    "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !\\5, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n",
+    "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 5, i8 13, !\\5, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n",
 
     "signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
     "signature element SV_IsFrontFace at location \\(1,1\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
@@ -2078,13 +2078,13 @@ float4 main( \
 
     { "= !{i32 1, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
       "!([0-9]+) = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 1, null}\n"
-      "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
+      "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 5, i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
       "!([0-9]+) = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 2, i8 0, null}\n",
       "?!dx.viewIdState ="},
 
     { "= !{i32 1, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n"
       "!\\2 = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !\\3, i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
-      "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !\\5, i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
+      "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 5, i8 13, !\\5, i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
       "!\\6 = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !\\7, i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
       "!1012 ="},
 

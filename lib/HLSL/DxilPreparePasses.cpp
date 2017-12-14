@@ -416,13 +416,49 @@ public:
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
       DxilModule::ClearDxilMetadata(M);
+      patchIsFrontfaceTy(M);
       M.GetDxilModule().EmitDxilMetadata();
       return true;
     }
 
     return false;
   }
+private:
+  void patchIsFrontfaceTy(Module &M);
 };
+
+void patchIsFrontface(DxilSignatureElement &Elt, bool bForceUint) {
+  // If force to uint, change i1 to u32.
+  // If not force to uint, change u32 to i1.
+  if (bForceUint && Elt.GetCompType() == CompType::Kind::I1)
+    Elt.SetCompType(CompType::Kind::U32);
+  else if (!bForceUint && Elt.GetCompType() == CompType::Kind::U32)
+    Elt.SetCompType(CompType::Kind::I1);
+}
+
+void patchIsFrontface(DxilSignature &sig, bool bForceUint) {
+  for (auto &Elt : sig.GetElements()) {
+    if (Elt->GetSemantic()->GetKind() == Semantic::Kind::IsFrontFace) {
+      patchIsFrontface(*Elt, bForceUint);
+    }
+  }
+}
+
+void DxilEmitMetadata::patchIsFrontfaceTy(Module &M) {
+  DxilModule &DM = M.GetDxilModule();
+  const ShaderModel *pSM = DM.GetShaderModel();
+  if (!pSM->IsGS() && !pSM->IsPS())
+    return;
+  unsigned ValMajor, ValMinor;
+  DM.GetValidatorVersion(ValMajor, ValMinor);
+  bool bForceUint = ValMajor >= 1 && ValMinor >= 2;
+  if (pSM->IsPS()) {
+    patchIsFrontface(DM.GetInputSignature(), bForceUint);
+  } else if (pSM->IsGS()) {
+    patchIsFrontface(DM.GetOutputSignature(), bForceUint);
+  }
+}
+
 }
 
 char DxilEmitMetadata::ID = 0;
