@@ -140,6 +140,10 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
         case BuiltinType::UShort:
         case BuiltinType::UInt:
           return theBuilder.getUint32Type();
+        case BuiltinType::LongLong:
+          return theBuilder.getInt64Type();
+        case BuiltinType::ULongLong:
+          return theBuilder.getUint64Type();
         // float, min16float (half), and min10float are all translated to 32-bit
         // float in SPIR-V.
         case BuiltinType::Float:
@@ -148,8 +152,29 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           return theBuilder.getFloat32Type();
         case BuiltinType::Double:
           return theBuilder.getFloat64Type();
+        case BuiltinType::LitFloat: {
+          const auto &semantics = astContext.getFloatTypeSemantics(type);
+          const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
+          if (bitwidth <= 32)
+            return theBuilder.getFloat32Type();
+          else
+            return theBuilder.getFloat64Type();
+        }
+        case BuiltinType::LitInt: {
+          const auto bitwidth = astContext.getIntWidth(type);
+          // All integer variants with bitwidth larger than 32 are represented
+          // as 64-bit int in SPIR-V.
+          // All integer variants with bitwidth of 32 or less are represented as
+          // 32-bit int in SPIR-V.
+          if (type->isSignedIntegerType())
+            return bitwidth > 32 ? theBuilder.getInt64Type()
+                                 : theBuilder.getInt32Type();
+          else
+            return bitwidth > 32 ? theBuilder.getUint64Type()
+                                 : theBuilder.getUint32Type();
+        }
         default:
-          emitError("Primitive type '%0' is not supported yet.")
+          emitError("primitive type %0 unimplemented")
               << builtinType->getTypeClassName();
           return 0;
         }
@@ -259,7 +284,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                    decorations);
   }
 
-  emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
+  emitError("type %0 unimplemented") << type->getTypeClassName();
   type->dump();
   return 0;
 }
@@ -274,6 +299,32 @@ uint32_t TypeTranslator::getACSBufferCounter() {
 
   return theBuilder.getStructType(i32Type, "type.ACSBuffer.counter", {},
                                   decorations);
+}
+
+uint32_t TypeTranslator::getGlPerVertexStruct(uint32_t clipArraySize,
+                                              uint32_t cullArraySize,
+                                              llvm::StringRef name) {
+  const uint32_t f32Type = theBuilder.getFloat32Type();
+  const uint32_t v4f32Type = theBuilder.getVecType(f32Type, 4);
+  const uint32_t clipType = theBuilder.getArrayType(
+      f32Type, theBuilder.getConstantUint32(clipArraySize));
+  const uint32_t cullType = theBuilder.getArrayType(
+      f32Type, theBuilder.getConstantUint32(cullArraySize));
+
+  auto &ctx = *theBuilder.getSPIRVContext();
+  llvm::SmallVector<const Decoration *, 1> decorations;
+
+  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::Position, 0));
+  decorations.push_back(
+      Decoration::getBuiltIn(ctx, spv::BuiltIn::PointSize, 1));
+  decorations.push_back(
+      Decoration::getBuiltIn(ctx, spv::BuiltIn::ClipDistance, 2));
+  decorations.push_back(
+      Decoration::getBuiltIn(ctx, spv::BuiltIn::CullDistance, 3));
+  decorations.push_back(Decoration::getBlock(ctx));
+
+  return theBuilder.getStructType({v4f32Type, f32Type, clipType, cullType},
+                                  name, {}, decorations);
 }
 
 bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
@@ -301,29 +352,6 @@ bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
     *scalarType = ty;
 
   return isScalar;
-}
-
-bool TypeTranslator::isOutputStream(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    const auto name = rt->getDecl()->getName();
-    return name == "PointStream" || name == "LineStream" ||
-           name == "TriangleStream";
-  }
-  return false;
-}
-
-bool TypeTranslator::isOutputPatch(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == "OutputPatch";
-  }
-  return false;
-}
-
-bool TypeTranslator::isInputPatch(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == "InputPatch";
-  }
-  return false;
 }
 
 bool TypeTranslator::isRWByteAddressBuffer(QualType type) {
@@ -556,6 +584,20 @@ uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
   return theBuilder.getVecType(elemType, colCount);
 }
 
+spv::Capability
+TypeTranslator::getCapabilityForStorageImageReadWrite(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    // RWBuffer translates into OpTypeImage Buffer with Sampled = 2
+    if (name == "RWBuffer")
+      return spv::Capability::ImageBuffer;
+    // RWBuffer translates into OpTypeImage 1D with Sampled = 2
+    if (name == "RWTexture1D" || name == "RWTexture1DArray")
+      return spv::Capability::Image1D;
+  }
+  return spv::Capability::Max;
+}
+
 llvm::SmallVector<const Decoration *, 4>
 TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
   const auto spirvContext = theBuilder.getSPIRVContext();
@@ -617,6 +659,13 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
 }
 
 uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
+  // Resource types are either represented like C struct or C++ class in the
+  // AST. Samplers are represented like C struct, so isStructureType() will
+  // return true for it; textures are represented like C++ class, so
+  // isClassType() will return true for it.
+
+  assert(type->isStructureOrClassType());
+
   const auto *recordType = type->getAs<RecordType>();
   assert(recordType);
   const llvm::StringRef name = recordType->getDecl()->getName();
@@ -762,7 +811,7 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
       }
     }
   }
-  emitError("Unimplemented resource result type was used.");
+  emitError("resource type %0 unimplemented") << sampledType.getAsString();
   return spv::ImageFormat::Unknown;
 }
 
@@ -838,7 +887,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
         case BuiltinType::Float:
           return {4, 4};
         default:
-          emitError("Primitive type '%0' is not supported yet.")
+          emitError("primitive type %0 unimplemented")
               << builtinType->getTypeClassName();
           return {0, 0};
         }
@@ -882,6 +931,11 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
   // Rule 9
   if (const auto *structType = type->getAs<RecordType>()) {
+    // Special case for handling empty structs, whose size is 0 and has no
+    // requirement over alignment (thus 1).
+    if (structType->getDecl()->field_empty())
+      return {1, 0};
+
     uint32_t maxAlignment = 0;
     uint32_t structSize = 0;
 
@@ -931,7 +985,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     return {alignment, size};
   }
 
-  emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
+  emitError("type %0 unimplemented") << type->getTypeClassName();
   return {0, 0};
 }
 

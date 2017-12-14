@@ -28,6 +28,20 @@ float4 main([[vk::binding(15)]] float4 a: A // error
  return 1.0;
 }
 
+struct T {
+    [[vk::push_constant]] // error
+    float4 f;
+};
+
+[[vk::push_constant]] // error
+float foo([[vk::push_constant]] int param) // error
+{
+    return param;
+}
+
+[[vk::push_constant(5)]]
+T pcs;
+
 // CHECK:   :4:7: error: 'binding' attribute only applies to global variables, cbuffers, and tbuffers
 // CHECK:   :6:7: error: 'counter_binding' attribute only applies to RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers
 // CHECK:  :10:3: error: 'counter_binding' attribute only applies to RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers
@@ -37,3 +51,7 @@ float4 main([[vk::binding(15)]] float4 a: A // error
 // CHECK:  :20:3: error: 'location' attribute only applies to functions, parameters, and fields
 // CHECK: :26:15: error: 'binding' attribute only applies to global variables, cbuffers, and tbuffers
 // CHECK:  :25:3: error: 'binding' attribute only applies to global variables, cbuffers, and tbuffers
+// CHECK:  :32:7: error: 'push_constant' attribute only applies to global variables of struct type
+// CHECK: :37:13: error: 'push_constant' attribute only applies to global variables of struct type
+// CHECK:  :36:3: error: 'push_constant' attribute only applies to global variables of struct type
+// CHECK:  :42:3: error: 'push_constant' attribute takes no arguments

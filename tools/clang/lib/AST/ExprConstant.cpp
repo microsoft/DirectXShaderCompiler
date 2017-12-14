@@ -5645,6 +5645,7 @@ namespace {
       { return Visit(E->getSubExpr()); }
     bool VisitCastExpr(const CastExpr* E);
     bool VisitInitListExpr(const InitListExpr *E);
+    bool VisitHLSLVectorElementExpr(const HLSLVectorElementExpr *E);
     bool VisitUnaryImag(const UnaryOperator *E);
     // FIXME: Missing: unary -, unary ~, binary add/sub/mul/div,
     //                 binary comparisons, binary and/or/xor,
@@ -5655,6 +5656,26 @@ namespace {
 static bool EvaluateVector(const Expr* E, APValue& Result, EvalInfo &Info) {
   assert(E->isRValue() && (E->getType()->isVectorType() || hlsl::IsHLSLVecType(E->getType())) &&"not a vector rvalue"); // HLSL Change
   return VectorExprEvaluator(Info, Result).Visit(E);
+}
+
+bool VectorExprEvaluator::VisitHLSLVectorElementExpr(
+    const HLSLVectorElementExpr *E) {
+  SmallVector<APValue, 4> Elts;
+  const Expr *baseExpr = E->getBase();
+  // Handling cases where HLSLVectorElement access into constant vector.
+  // For example: float4 a = (0.0).xxxx;
+  if (Evaluate(Result, Info, baseExpr) && !Info.EvalStatus.HasSideEffects &&
+      Result.getKind() == APValue::ValueKind::Vector) {
+    hlsl::VectorMemberAccessPositions accessor = E->getEncodedElementAccess();
+    for (uint32_t i = 0; i < accessor.Count; ++i) {
+      uint32_t selector;
+      accessor.GetPosition(i, &selector);
+      Elts.push_back(Result.getVectorElt(selector));
+    }
+    return Success(Elts, E);
+  }
+  // TODO: Other cases may be added for other APValue::ValueKind.
+  return false;
 }
 
 bool VectorExprEvaluator::VisitCastExpr(const CastExpr* E) {
@@ -5672,6 +5693,50 @@ bool VectorExprEvaluator::VisitCastExpr(const CastExpr* E) {
   QualType SETy = SE->getType();
 
   switch (E->getCastKind()) {
+  // HLSL Change Begins.
+  case CK_HLSLCC_FloatingCast: {
+    if (!Visit(SE))
+      return Error(E);
+    SmallVector<APValue, 4> Elts;
+    for (uint32_t i = 0; i < Result.getVectorLength(); ++i) {
+      APValue Elem = Result.getVectorElt(i);
+      HandleFloatToFloatCast(
+          Info, E, hlsl::GetHLSLVecElementType(SE->getType()),
+          hlsl::GetHLSLVecElementType(E->getType()), Elem.getFloat());
+      Elts.push_back(Elem);
+    }
+    const auto EltsSize = Elts.size();
+    return Success(Elts, E);
+  }
+  case CK_HLSLCC_IntegralToFloating: {
+    if (!Visit(SE))
+      return Error(E);
+    SmallVector<APValue, 4> Elts;
+    for (uint32_t i = 0; i < Result.getVectorLength(); ++i) {
+      APFloat ElemFloat(0.0);
+      HandleIntToFloatCast(Info, E, hlsl::GetHLSLVecElementType(SE->getType()),
+                           Result.getVectorElt(i).getInt(),
+                           hlsl::GetHLSLVecElementType(E->getType()),
+                           ElemFloat);
+      Elts.push_back(APValue(ElemFloat));
+    }
+    const auto EltsSize = Elts.size();
+    return Success(Elts, E);
+  }
+  case CK_HLSLCC_FloatingToIntegral: {
+    if (!Visit(SE))
+      return Error(E);
+    SmallVector<APValue, 4> Elts;
+    for (uint32_t i = 0; i < Result.getVectorLength(); ++i) {
+      APSInt ElemInt;
+      HandleFloatToIntCast(Info, E, hlsl::GetHLSLVecElementType(SE->getType()),
+                           Result.getVectorElt(i).getFloat(),
+                           hlsl::GetHLSLVecElementType(E->getType()), ElemInt);
+      Elts.push_back(APValue(ElemInt));
+    }
+    return Success(Elts, E);
+  }
+  // HLSL Change Ends.
   case CK_HLSLVectorSplat: // HLSL Change
   case CK_VectorSplat: {
     APValue Val = APValue();

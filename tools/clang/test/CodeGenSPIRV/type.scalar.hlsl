@@ -1,5 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: OpCapability Int64
 // CHECK: OpCapability Float64
 
 // CHECK: OpDecorate %m16i RelaxedPrecision
@@ -33,12 +34,23 @@ void main() {
   dword     dwordvar;
   min16uint m16u;
 
+// CHECK-DAG: %long = OpTypeInt 64 1
+// CHECK-DAG: %_ptr_Function_long = OpTypePointer Function %long
+  int64_t    int64var;
+
+// CHECK-DAG: %ulong = OpTypeInt 64 0
+// CHECK-DAG: %_ptr_Function_ulong = OpTypePointer Function %ulong
+  uint64_t   uint64var;
+
 // CHECK-DAG: %float = OpTypeFloat 32
 // CHECK-DAG: %_ptr_Function_float = OpTypePointer Function %float
   float      floatvar;
   half       halfvar;
   min16float m16f;
   min10float m10f;
+
+  snorm float snf;
+  unorm float unf;
 
 // CHECK-DAG: %double = OpTypeFloat 64
 // CHECK-DAG: %_ptr_Function_double = OpTypePointer Function %double
@@ -56,6 +68,8 @@ void main() {
   half1       halfvar1;
   min16float1 m16f1;
   min10float1 m10f1;
+  snorm float1 snf1;
+  unorm float1 unf1;
   double1     doublevar1;
 
 // CHECK:         %boolvar = OpVariable %_ptr_Function_bool Function
@@ -65,10 +79,14 @@ void main() {
 // CHECK-NEXT:    %uintvar = OpVariable %_ptr_Function_uint Function
 // CHECK-NEXT:   %dwordvar = OpVariable %_ptr_Function_uint Function
 // CHECK-NEXT:       %m16u = OpVariable %_ptr_Function_uint Function
+// CHECK-NEXT:   %int64var = OpVariable %_ptr_Function_long Function
+// CHECK-NEXT:  %uint64var = OpVariable %_ptr_Function_ulong Function
 // CHECK-NEXT:   %floatvar = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:    %halfvar = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:       %m16f = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:       %m10f = OpVariable %_ptr_Function_float Function
+// CHECK-NEXT:        %snf = OpVariable %_ptr_Function_float Function
+// CHECK-NEXT:        %unf = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:  %doublevar = OpVariable %_ptr_Function_double Function
 // CHECK-NEXT:   %boolvar1 = OpVariable %_ptr_Function_bool Function
 // CHECK-NEXT:    %intvar1 = OpVariable %_ptr_Function_int Function
@@ -81,5 +99,7 @@ void main() {
 // CHECK-NEXT:   %halfvar1 = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:      %m16f1 = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:      %m10f1 = OpVariable %_ptr_Function_float Function
+// CHECK-NEXT:       %snf1 = OpVariable %_ptr_Function_float Function
+// CHECK-NEXT:       %unf1 = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT: %doublevar1 = OpVariable %_ptr_Function_double Function
 }

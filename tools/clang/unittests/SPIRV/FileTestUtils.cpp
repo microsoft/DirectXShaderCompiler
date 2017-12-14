@@ -137,7 +137,8 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     flags.push_back(L"-T");
     flags.push_back(profile.c_str());
     flags.push_back(L"-spirv");
-    flags.push_back(L"-O0"); // Disable optimization for testing
+    // Disable legalization and optimization for testing
+    flags.push_back(L"-fcgl");
     for (const auto &arg : rest)
       flags.push_back(arg.c_str());
 

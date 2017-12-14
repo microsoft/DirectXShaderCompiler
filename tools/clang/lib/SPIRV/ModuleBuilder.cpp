@@ -9,6 +9,7 @@
 
 #include "clang/SPIRV/ModuleBuilder.h"
 
+#include "TypeTranslator.h"
 #include "spirv/1.0//spirv.hpp11"
 #include "clang/SPIRV/InstBuilder.h"
 #include "llvm/llvm_assert/assert.h"
@@ -283,7 +284,8 @@ uint32_t ModuleBuilder::createAtomicCompareExchange(
 spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
     uint32_t bias, uint32_t lod, const std::pair<uint32_t, uint32_t> &grad,
     uint32_t constOffset, uint32_t varOffset, uint32_t constOffsets,
-    uint32_t sample, llvm::SmallVectorImpl<uint32_t> *orderedParams) {
+    uint32_t sample, uint32_t minLod,
+    llvm::SmallVectorImpl<uint32_t> *orderedParams) {
   using spv::ImageOperandsMask;
   // SPIR-V Image Operands from least significant bit to most significant bit
   // Bias, Lod, Grad, ConstOffset, Offset, ConstOffsets, Sample, MinLod
@@ -328,6 +330,12 @@ spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
     orderedParams->push_back(sample);
   }
 
+  if (minLod) {
+    requireCapability(spv::Capability::MinLod);
+    mask = mask | ImageOperandsMask::MinLod;
+    orderedParams->push_back(minLod);
+  }
+
   return mask;
 }
 
@@ -347,8 +355,25 @@ uint32_t ModuleBuilder::createImageSample(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
     uint32_t coordinate, uint32_t compareVal, uint32_t bias, uint32_t lod,
     std::pair<uint32_t, uint32_t> grad, uint32_t constOffset,
-    uint32_t varOffset, uint32_t constOffsets, uint32_t sample) {
+    uint32_t varOffset, uint32_t constOffsets, uint32_t sample, uint32_t minLod,
+    uint32_t residencyCodeId) {
   assert(insertPoint && "null insert point");
+
+  // The Lod and Grad image operands requires explicit-lod instructions.
+  // Otherwise we use implicit-lod instructions.
+  const bool isExplicit = lod || (grad.first && grad.second);
+  const bool isSparse = (residencyCodeId != 0);
+
+  // minLod is only valid with Implicit instructions and Grad instructions.
+  // This means that we cannot have Lod and minLod together because Lod requires
+  // explicit insturctions. So either lod or minLod or both must be zero.
+  assert(lod == 0 || minLod == 0);
+
+  uint32_t retType = texelType;
+  if (isSparse) {
+    requireCapability(spv::Capability::SparseResidency);
+    retType = getSparseResidencyStructType(texelType);
+  }
 
   // An OpSampledImage is required to do the image sampling.
   const uint32_t sampledImgId = theContext.takeNextId();
@@ -356,69 +381,61 @@ uint32_t ModuleBuilder::createImageSample(
   instBuilder.opSampledImage(sampledImgTy, sampledImgId, image, sampler).x();
   insertPoint->appendInstruction(std::move(constructSite));
 
-  const uint32_t texelId = theContext.takeNextId();
+  uint32_t texelId = theContext.takeNextId();
   llvm::SmallVector<uint32_t, 4> params;
-  const auto mask = composeImageOperandsMask(
-      bias, lod, grad, constOffset, varOffset, constOffsets, sample, &params);
+  const auto mask =
+      composeImageOperandsMask(bias, lod, grad, constOffset, varOffset,
+                               constOffsets, sample, minLod, &params);
 
-  // If depth-comparison is needed when sampling, we use the OpImageSampleDref*
-  // instructions.
-  if (compareVal) {
-    // The Lod and Grad image operands requires explicit-lod instructions.
-    // Otherwise we use implicit-lod instructions.
-    if (lod || (grad.first && grad.second)) {
-      instBuilder.opImageSampleDrefExplicitLod(texelType, texelId, sampledImgId,
-                                               coordinate, compareVal, mask);
-    } else {
-      instBuilder.opImageSampleDrefImplicitLod(
-          texelType, texelId, sampledImgId, coordinate, compareVal,
-          llvm::Optional<spv::ImageOperandsMask>(mask));
-    }
-  } else {
-    // The Lod and Grad image operands requires explicit-lod instructions.
-    // Otherwise we use implicit-lod instructions.
-    if (lod || (grad.first && grad.second)) {
-      instBuilder.opImageSampleExplicitLod(texelType, texelId, sampledImgId,
-                                           coordinate, mask);
-    } else {
-      instBuilder.opImageSampleImplicitLod(
-          texelType, texelId, sampledImgId, coordinate,
-          llvm::Optional<spv::ImageOperandsMask>(mask));
-    }
-  }
+  instBuilder.opImageSample(retType, texelId, sampledImgId, coordinate,
+                            compareVal, mask, isExplicit, isSparse);
 
   for (const auto param : params)
     instBuilder.idRef(param);
   instBuilder.x();
   insertPoint->appendInstruction(std::move(constructSite));
 
+  if (isSparse) {
+    // Write the Residency Code
+    const auto status = createCompositeExtract(getUint32Type(), texelId, {0});
+    createStore(residencyCodeId, status);
+    // Extract the real result from the struct
+    texelId = createCompositeExtract(texelType, texelId, {1});
+  }
+
   return texelId;
 }
 
-void ModuleBuilder::createImageWrite(uint32_t imageId, uint32_t coordId,
-                                     uint32_t texelId) {
+void ModuleBuilder::createImageWrite(QualType imageType, uint32_t imageId,
+                                     uint32_t coordId, uint32_t texelId) {
   assert(insertPoint && "null insert point");
+  requireCapability(
+      TypeTranslator::getCapabilityForStorageImageReadWrite(imageType));
   instBuilder.opImageWrite(imageId, coordId, texelId, llvm::None).x();
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
 uint32_t ModuleBuilder::createImageFetchOrRead(
-    bool doImageFetch, uint32_t texelType, uint32_t image, uint32_t coordinate,
-    uint32_t lod, uint32_t constOffset, uint32_t varOffset,
+    bool doImageFetch, uint32_t texelType, QualType imageType, uint32_t image,
+    uint32_t coordinate, uint32_t lod, uint32_t constOffset, uint32_t varOffset,
     uint32_t constOffsets, uint32_t sample) {
   assert(insertPoint && "null insert point");
 
+  // TODO: Update ImageFetch/ImageRead to accept minLod if necessary.
   llvm::SmallVector<uint32_t, 2> params;
   const auto mask =
       llvm::Optional<spv::ImageOperandsMask>(composeImageOperandsMask(
           /*bias*/ 0, lod, std::make_pair(0, 0), constOffset, varOffset,
-          constOffsets, sample, &params));
+          constOffsets, sample, /*minLod*/ 0, &params));
 
   const uint32_t texelId = theContext.takeNextId();
-  if (doImageFetch)
+  if (doImageFetch) {
     instBuilder.opImageFetch(texelType, texelId, image, coordinate, mask);
-  else
+  } else {
+    requireCapability(
+        TypeTranslator::getCapabilityForStorageImageReadWrite(imageType));
     instBuilder.opImageRead(texelType, texelId, image, coordinate, mask);
+  }
 
   for (const auto param : params)
     instBuilder.idRef(param);
@@ -432,8 +449,14 @@ uint32_t ModuleBuilder::createImageGather(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
     uint32_t coordinate, uint32_t component, uint32_t compareVal,
     uint32_t constOffset, uint32_t varOffset, uint32_t constOffsets,
-    uint32_t sample) {
+    uint32_t sample, uint32_t residencyCodeId) {
   assert(insertPoint && "null insert point");
+
+  uint32_t sparseRetType = 0;
+  if (residencyCodeId) {
+    requireCapability(spv::Capability::SparseResidency);
+    sparseRetType = getSparseResidencyStructType(texelType);
+  }
 
   // An OpSampledImage is required to do the image sampling.
   const uint32_t sampledImgId = theContext.takeNextId();
@@ -443,25 +466,45 @@ uint32_t ModuleBuilder::createImageGather(
 
   llvm::SmallVector<uint32_t, 2> params;
 
+  // TODO: Update ImageGather to accept minLod if necessary.
   const auto mask =
       llvm::Optional<spv::ImageOperandsMask>(composeImageOperandsMask(
           /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
-          constOffsets, sample, &params));
-  const uint32_t texelId = theContext.takeNextId();
+          constOffsets, sample, /*minLod*/ 0, &params));
+  uint32_t texelId = theContext.takeNextId();
 
   if (compareVal) {
-    // Note: OpImageDrefGather does not take the component parameter.
-    instBuilder.opImageDrefGather(texelType, texelId, sampledImgId, coordinate,
-                                  compareVal, mask);
+    if (residencyCodeId) {
+      // Note: OpImageSparseDrefGather does not take the component parameter.
+      instBuilder.opImageSparseDrefGather(sparseRetType, texelId, sampledImgId,
+                                          coordinate, compareVal, mask);
+    } else {
+      // Note: OpImageDrefGather does not take the component parameter.
+      instBuilder.opImageDrefGather(texelType, texelId, sampledImgId,
+                                    coordinate, compareVal, mask);
+    }
   } else {
-    instBuilder.opImageGather(texelType, texelId, sampledImgId, coordinate,
-                              component, mask);
+    if (residencyCodeId) {
+      instBuilder.opImageSparseGather(sparseRetType, texelId, sampledImgId,
+                                      coordinate, component, mask);
+    } else {
+      instBuilder.opImageGather(texelType, texelId, sampledImgId, coordinate,
+                                component, mask);
+    }
   }
 
   for (const auto param : params)
     instBuilder.idRef(param);
   instBuilder.x();
   insertPoint->appendInstruction(std::move(constructSite));
+
+  if (residencyCodeId) {
+    // Write the Residency Code
+    const auto status = createCompositeExtract(getUint32Type(), texelId, {0});
+    createStore(residencyCodeId, status);
+    // Extract the real result from the struct
+    texelId = createCompositeExtract(texelType, texelId, {1});
+  }
 
   return texelId;
 }
@@ -553,10 +596,51 @@ uint32_t ModuleBuilder::createExtInst(uint32_t resultType, uint32_t setId,
   return resultId;
 }
 
-void ModuleBuilder::createControlBarrier(uint32_t execution, uint32_t memory,
-                                         uint32_t semantics) {
+void ModuleBuilder::createBarrier(uint32_t execution, uint32_t memory,
+                                  uint32_t semantics) {
   assert(insertPoint && "null insert point");
-  instBuilder.opControlBarrier(execution, memory, semantics).x();
+  if (execution)
+    instBuilder.opControlBarrier(execution, memory, semantics).x();
+  else
+    instBuilder.opMemoryBarrier(memory, semantics).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
+uint32_t ModuleBuilder::createBitFieldExtract(uint32_t resultType,
+                                              uint32_t base, uint32_t offset,
+                                              uint32_t count, bool isSigned) {
+  assert(insertPoint && "null insert point");
+  uint32_t resultId = theContext.takeNextId();
+  if (isSigned)
+    instBuilder.opBitFieldSExtract(resultType, resultId, base, offset, count);
+  else
+    instBuilder.opBitFieldUExtract(resultType, resultId, base, offset, count);
+  instBuilder.x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
+uint32_t ModuleBuilder::createBitFieldInsert(uint32_t resultType, uint32_t base,
+                                             uint32_t insert, uint32_t offset,
+                                             uint32_t count) {
+  assert(insertPoint && "null insert point");
+  uint32_t resultId = theContext.takeNextId();
+  instBuilder
+      .opBitFieldInsert(resultType, resultId, base, insert, offset, count)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
+void ModuleBuilder::createEmitVertex() {
+  assert(insertPoint && "null insert point");
+  instBuilder.opEmitVertex().x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
+void ModuleBuilder::createEndPrimitive() {
+  assert(insertPoint && "null insert point");
+  instBuilder.opEndPrimitive().x();
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
@@ -681,10 +765,10 @@ IMPL_GET_PRIMITIVE_TYPE(Float32)
 
 #undef IMPL_GET_PRIMITIVE_TYPE
 
-#define IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(ty)                            \
+#define IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(ty, cap)                       \
   \
 uint32_t ModuleBuilder::get##ty##Type() {                                      \
-    requireCapability(spv::Capability::ty);                                    \
+    requireCapability(spv::Capability::cap);                                    \
     const Type *type = Type::get##ty(theContext);                              \
     const uint32_t typeId = theContext.getResultIdForType(type);               \
     theModule.addType(type, typeId);                                           \
@@ -692,7 +776,9 @@ uint32_t ModuleBuilder::get##ty##Type() {                                      \
   \
 }
 
-IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float64)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float64, Float64)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Int64, Int64)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Uint64, Int64)
 
 #undef IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY
 
@@ -755,6 +841,12 @@ ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
     }
   }
   return typeId;
+}
+
+uint32_t ModuleBuilder::getSparseResidencyStructType(uint32_t type) {
+  const auto uintType = getUint32Type();
+  return getStructType({uintType, type}, "SparseResidencyStruct",
+                       {"Residency.Code", "Result.Type"});
 }
 
 uint32_t ModuleBuilder::getArrayType(uint32_t elemType, uint32_t count,
@@ -912,8 +1004,8 @@ uint32_t ModuleBuilder::getByteAddressBufferType(bool isRW) {
   const Type *type = Type::getStruct(theContext, {raTypeId}, typeDecs);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
-  theModule.addDebugName(
-      typeId, isRW ? "type.RWByteAddressBuffer" : "type.ByteAddressBuffer");
+  theModule.addDebugName(typeId, isRW ? "type.RWByteAddressBuffer"
+                                      : "type.ByteAddressBuffer");
   return typeId;
 }
 

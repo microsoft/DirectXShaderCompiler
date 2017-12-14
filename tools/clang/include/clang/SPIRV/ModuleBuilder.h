@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "clang/AST/Type.h"
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/Structure.h"
@@ -170,40 +171,50 @@ public:
   /// OpImageSample* will be generated; otherwise, *ImplicitLod variant will
   /// be generated.
   ///
-  /// If bias, lod, or grad is given a non-zero value, an additional image
-  /// operands, Bias, Lod, or Grad, will be attached to the current instruction,
-  /// respectively.
+  /// If bias, lod, grad, or minLod is given a non-zero value, an additional
+  /// image operands, Bias, Lod, Grad, or minLod will be attached to the current
+  /// instruction, respectively. Panics if both lod and minLod are non-zero.
+  ///
+  /// If residencyCodeId is not zero, the sparse version of the instructions
+  /// will be used, and the SPIR-V instruction for storing the resulting
+  /// residency code will also be emitted.
   uint32_t createImageSample(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t bias,
                              uint32_t compareVal, uint32_t lod,
                              std::pair<uint32_t, uint32_t> grad,
                              uint32_t constOffset, uint32_t varOffset,
-                             uint32_t constOffsets, uint32_t sample);
+                             uint32_t constOffsets, uint32_t sample,
+                             uint32_t minLod, uint32_t residencyCodeId);
 
   /// \brief Creates SPIR-V instructions for reading a texel from an image. If
   /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
   /// OpImageFetch should be used for sampled images. OpImageRead should be used
   /// for images without a sampler.
   uint32_t createImageFetchOrRead(bool doImageFetch, uint32_t texelType,
-                                  uint32_t image, uint32_t coordinate,
-                                  uint32_t lod, uint32_t constOffset,
-                                  uint32_t varOffset, uint32_t constOffsets,
-                                  uint32_t sample);
+                                  QualType imageType, uint32_t image,
+                                  uint32_t coordinate, uint32_t lod,
+                                  uint32_t constOffset, uint32_t varOffset,
+                                  uint32_t constOffsets, uint32_t sample);
 
   /// \brief Creates SPIR-V instructions for writing to the given image.
-  void createImageWrite(uint32_t imageId, uint32_t coordId, uint32_t texelId);
+  void createImageWrite(QualType imageType, uint32_t imageId, uint32_t coordId,
+                        uint32_t texelId);
 
   /// \brief Creates SPIR-V instructions for gathering the given image.
   ///
-  /// If compareVal is given a non-zero value, OpImageDrefGather will be
-  /// generated; otherwise, OpImageGather will be generated.
+  /// If compareVal is given a non-zero value, OpImageDrefGather or
+  /// OpImageSparseDrefGather will be generated; otherwise, OpImageGather or
+  /// OpImageSparseGather will be generated.
+  /// If residencyCodeId is not zero, the sparse version of the instructions will
+  /// be used, and the SPIR-V instruction for storing the resulting residency
+  /// code will also be emitted.
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t component,
                              uint32_t compareVal, uint32_t constOffset,
                              uint32_t varOffset, uint32_t constOffsets,
-                             uint32_t sample);
+                             uint32_t sample, uint32_t residencyCodeId);
 
   /// \brief Creates a select operation with the given values for true and false
   /// cases and returns the <result-id> for the result.
@@ -251,8 +262,28 @@ public:
   uint32_t createExtInst(uint32_t resultType, uint32_t setId, uint32_t instId,
                          llvm::ArrayRef<uint32_t> operands);
 
-  /// \brief Creates an OpControlBarrier instruction with the given flags.
-  void createControlBarrier(uint32_t exec, uint32_t memory, uint32_t semantics);
+  /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
+  /// given flags. If execution scope id (exec) is non-zero, an OpControlBarrier
+  /// is created; otherwise an OpMemoryBarrier is created.
+  void createBarrier(uint32_t exec, uint32_t memory, uint32_t semantics);
+
+  /// \brief Creates an OpBitFieldInsert SPIR-V instruction for the given
+  /// arguments.
+  uint32_t createBitFieldInsert(uint32_t resultType, uint32_t base,
+                                uint32_t insert, uint32_t offset,
+                                uint32_t count);
+
+  /// \brief Creates an OpBitFieldUExtract or OpBitFieldSExtract SPIR-V
+  /// instruction for the given arguments.
+  uint32_t createBitFieldExtract(uint32_t resultType, uint32_t base,
+                                 uint32_t offset, uint32_t count,
+                                 bool isSigned);
+
+  /// \brief Creates an OpEmitVertex instruction.
+  void createEmitVertex();
+
+  /// \brief Creates an OpEndPrimitive instruction.
+  void createEndPrimitive();
 
   // === SPIR-V Module Structure ===
 
@@ -270,6 +301,9 @@ public:
   /// \brief Adds an execution mode to the module under construction.
   void addExecutionMode(uint32_t entryPointId, spv::ExecutionMode em,
                         llvm::ArrayRef<uint32_t> params);
+
+  /// \brief Adds an extension to the module under construction.
+  inline void addExtension(llvm::StringRef extension);
 
   /// \brief If not added already, adds an OpExtInstImport (import of extended
   /// instruction set) of the GLSL instruction set. Returns the <result-id> for
@@ -316,7 +350,9 @@ public:
   uint32_t getVoidType();
   uint32_t getBoolType();
   uint32_t getInt32Type();
+  uint32_t getInt64Type();
   uint32_t getUint32Type();
+  uint32_t getUint64Type();
   uint32_t getFloat32Type();
   uint32_t getFloat64Type();
   uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
@@ -338,6 +374,11 @@ public:
   uint32_t getSamplerType();
   uint32_t getSampledImageType(uint32_t imageType);
   uint32_t getByteAddressBufferType(bool isRW);
+
+  /// \brief Returns a struct type with 2 members. The first member is an
+  /// unsigned integer type which can hold the 'Residency Code'. The second
+  /// member will be of the given type.
+  uint32_t getSparseResidencyStructType(uint32_t type);
 
   // === Constant ===
   uint32_t getConstantBool(bool value);
@@ -367,7 +408,8 @@ private:
   spv::ImageOperandsMask composeImageOperandsMask(
       uint32_t bias, uint32_t lod, const std::pair<uint32_t, uint32_t> &grad,
       uint32_t constOffset, uint32_t varOffset, uint32_t constOffsets,
-      uint32_t sample, llvm::SmallVectorImpl<uint32_t> *orderedParams);
+      uint32_t sample, uint32_t minLod,
+      llvm::SmallVectorImpl<uint32_t> *orderedParams);
 
   SPIRVContext &theContext; ///< The SPIR-V context.
   SPIRVModule theModule;    ///< The module under building.
@@ -399,13 +441,18 @@ void ModuleBuilder::setMemoryModel(spv::MemoryModel mm) {
 }
 
 void ModuleBuilder::requireCapability(spv::Capability cap) {
-  theModule.addCapability(cap);
+  if (cap != spv::Capability::Max)
+    theModule.addCapability(cap);
 }
 
 void ModuleBuilder::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
                                   std::string targetName,
                                   llvm::ArrayRef<uint32_t> interfaces) {
   theModule.addEntryPoint(em, targetId, std::move(targetName), interfaces);
+}
+
+void ModuleBuilder::addExtension(llvm::StringRef extension) {
+  theModule.addExtension(extension);
 }
 
 } // end namespace spirv

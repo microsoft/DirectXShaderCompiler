@@ -141,6 +141,7 @@ public:
   TEST_METHOD(WhenUnknownBlocksThenFail);
   TEST_METHOD(WhenZeroInputPatchCountWithInputThenFail);
 
+  TEST_METHOD(Float32DenormModeAttribute)
   TEST_METHOD(LoadOutputControlPointNotInPatchConstantFunction);
   TEST_METHOD(StorePatchControlNotInPatchConstantFunction);
   TEST_METHOD(OutputControlPointIDInPatchConstantFunction);
@@ -225,6 +226,10 @@ public:
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
   TEST_METHOD(DuplicateSysValue)
+  TEST_METHOD(GSMainMissingAttributeFail)
+  TEST_METHOD(GSOtherMissingAttributeFail)
+  TEST_METHOD(GSMissingMaxVertexCountFail)
+  TEST_METHOD(HSMissingPCFFail)
   TEST_METHOD(GetAttributeAtVertexInVSFail)
   TEST_METHOD(GetAttributeAtVertexIn60Fail)
   TEST_METHOD(GetAttributeAtVertexInterpFail)
@@ -1102,10 +1107,10 @@ TEST_F(ValidationTest, StreamIDOutOfBound) {
 
 TEST_F(ValidationTest, SignatureDataWidth) {
   if (m_ver.SkipDxilVersion(1, 2)) return;
-  std::vector<LPCWSTR> pArguments = { L"-no-min-precision" };
+  std::vector<LPCWSTR> pArguments = { L"-enable-16bit-types", L"-HV", L"2018" };
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\signature_packing_by_width.hlsl", "ps_6_2",
-      pArguments.data(), 1, nullptr, 0,
+      pArguments.data(), 3, nullptr, 0,
       {"i8 8, i8 0, (![0-9]+), i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
       {"i8 9, i8 0, \\1, i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
       "signature element F at location \\(0, 2\\) size \\(1, 2\\) has data "
@@ -3033,6 +3038,22 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
     /*bRegex*/true);
 }
 
+TEST_F(ValidationTest, GSMainMissingAttributeFail) {
+  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-inout-main.hlsl");
+}
+
+TEST_F(ValidationTest, GSOtherMissingAttributeFail) {
+  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-inout-other.hlsl");
+}
+
+TEST_F(ValidationTest, GSMissingMaxVertexCountFail) {
+  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-maxvertexcount.hlsl");
+}
+
+TEST_F(ValidationTest, HSMissingPCFFail) {
+  TestCheck(L"..\\CodeGenHLSL\\attributes-hs-no-pcf.hlsl");
+}
+
 TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
   if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg(
@@ -3118,6 +3139,15 @@ TEST_F(ValidationTest, BarycentricSamePerspectiveFail) {
       true);
 }
 
-
-
+TEST_F(ValidationTest, Float32DenormModeAttribute) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  std::vector<LPCWSTR> pArguments = { L"-denorm", L"ftz" };
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col: COL) : SV_Target { return col; }", "ps_6_2",
+    pArguments.data(), 2, nullptr, 0,
+    { "\"fp32-denorm-mode\"=\"ftz\"" },
+    { "\"fp32-denorm-mode\"=\"invalid_mode\"" },
+    "contains invalid attribute 'fp32-denorm-mode' with value 'invalid_mode'",
+    true);
+}
 // TODO: reject non-zero padding

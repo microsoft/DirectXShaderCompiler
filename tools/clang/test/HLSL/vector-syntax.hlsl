@@ -91,10 +91,10 @@ void vector_out_of_bounds() {
 void vector_unsigned() {
    unsigned int4 intvector;
    unsigned min16int4 min16vector;
-   unsigned int64_t3 int64vector;
+   unsigned int64_t3 int64vector; /* */
    unsigned uint3 uintvector;
    unsigned min16uint4 min16uintvector;
-   unsigned uint64_t2 int64uintvector;
+   unsigned uint64_t2 int64uintvector;                      /* */
    unsigned dword3 dwordvector; /* fxc-error {{X3000: unrecognized identifier 'dword3'}} */
 
    unsigned float2 floatvector; /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */

@@ -1,5 +1,7 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: OpCapability ImageBuffer
+
 Buffer<int> intbuf;
 Buffer<uint> uintbuf;
 Buffer<float> floatbuf;
@@ -32,15 +34,18 @@ void main() {
   float float1 = floatbuf.Load(address);
 
 // CHECK:      [[img4:%\d+]] = OpLoad %type_buffer_image_2 %int2buf
-// CHECK:      {{%\d+}} = OpImageRead %v2int [[img4]] {{%\d+}} None
+// CHECK:      [[f4:%\d+]] = OpImageRead %v4int [[img4]] {{%\d+}} None
+// CHECK-NEXT: {{%\d+}} = OpVectorShuffle %v2int [[f4]] [[f4]] 0 1
   int2 int2 = int2buf.Load(address);
 
 // CHECK:      [[img5:%\d+]] = OpLoad %type_buffer_image_3 %uint2buf
-// CHECK:      {{%\d+}} = OpImageRead %v2uint [[img5]] {{%\d+}} None
+// CHECK:      [[f5:%\d+]] = OpImageRead %v4uint [[img5]] {{%\d+}} None
+// CHECK-NEXT: {{%\d+}} = OpVectorShuffle %v2uint [[f5]] [[f5]] 0 1
   uint2 uint2 = uint2buf.Load(address);
 
 // CHECK:      [[img6:%\d+]] = OpLoad %type_buffer_image_4 %float2buf
-// CHECK:      {{%\d+}} = OpImageRead %v2float [[img6]] {{%\d+}} None
+// CHECK:      [[f6:%\d+]] = OpImageRead %v4float [[img6]] {{%\d+}} None
+// CHECK-NEXT: {{%\d+}} = OpVectorShuffle %v2float [[f6]] [[f6]] 0 1
   float2 float2 = float2buf.Load(address);
 
 // CHECK:      [[img7:%\d+]] = OpLoad %type_buffer_image_5 %int3buf

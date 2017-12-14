@@ -534,7 +534,6 @@ public:
   TEST_METHOD(PartialDerivTest);
 
   BEGIN_TEST_METHOD(CBufferTestHalf)
-    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#CBufferTestHalf")
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
 
@@ -1897,13 +1896,12 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
     "  result.position = position;\r\n"
     "  return result;\r\n"
     "}\r\n\r\n"
-    "typedef uint uint32_t;\r\n"
     "uint pos_to_id(float4 pos) { return pos.x * 128 + pos.y; }\r\n"
     "struct PerPixelData {\r\n"
     " float4 position;\r\n"
-    " uint32_t id, flags, laneIndex, laneCount, firstLaneId, sum1;\r\n"
-    " uint32_t id0, id1, id2, id3;\r\n"
-    " uint32_t acrossX, acrossY, acrossDiag, quadActiveCount;\r\n"
+    " uint id, flags, laneIndex, laneCount, firstLaneId, sum1;\r\n"
+    " uint id0, id1, id2, id3;\r\n"
+    " uint acrossX, acrossY, acrossDiag, quadActiveCount;\r\n"
     "};\r\n"
     "AppendStructuredBuffer<PerPixelData> g_sb : register(u1);\r\n"
     "float4 PSMain(PSInput input) : SV_TARGET {\r\n"
@@ -2709,145 +2707,112 @@ public:
 };
 
 static TableParameter UnaryFPOpParameters[] = {
-    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Input", TableParameter::STRING_TABLE, true },
-    { L"Validation.Expected", TableParameter::STRING_TABLE, true },
+    { L"Validation.Input1", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
-    { L"Validation.NumInput", TableParameter::UINT, true },
     { L"Warp.Version", TableParameter::UINT, false }
 };
 
 static TableParameter BinaryFPOpParameters[] = {
-    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Input1", TableParameter::STRING_TABLE, true },
     { L"Validation.Input2", TableParameter::STRING_TABLE, true },
     { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
-    { L"Validation.Expected2", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected2", TableParameter::STRING_TABLE, false },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
-    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter TertiaryFPOpParameters[] = {
-    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Input1", TableParameter::STRING_TABLE, true },
     { L"Validation.Input2", TableParameter::STRING_TABLE, true },
     { L"Validation.Input3", TableParameter::STRING_TABLE, true },
-    { L"Validation.Expected", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
-    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter UnaryIntOpParameters[] = {
-    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Input", TableParameter::INT32_TABLE, true },
-    { L"Validation.Expected", TableParameter::INT32_TABLE, true },
+    { L"Validation.Input1", TableParameter::INT32_TABLE, true },
+    { L"Validation.Expected1", TableParameter::INT32_TABLE, true },
     { L"Validation.Tolerance", TableParameter::INT32, true },
-    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter UnaryUintOpParameters[] = {
-    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Input", TableParameter::UINT_TABLE, true },
-    { L"Validation.Expected", TableParameter::UINT_TABLE, true },
+    { L"Validation.Input1", TableParameter::UINT_TABLE, true },
+    { L"Validation.Expected1", TableParameter::UINT_TABLE, true },
     { L"Validation.Tolerance", TableParameter::INT32, true },
-    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter BinaryIntOpParameters[] = {
-    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Input1", TableParameter::INT32_TABLE, true },
     { L"Validation.Input2", TableParameter::INT32_TABLE, true },
     { L"Validation.Expected1", TableParameter::INT32_TABLE, true },
     { L"Validation.Expected2", TableParameter::INT32_TABLE, false },
     { L"Validation.Tolerance", TableParameter::INT32, true },
-    { L"Validation.NumInput", TableParameter::UINT, true },
-    { L"Validation.NumExpected", TableParameter::INT32, true }
 };
 
 static TableParameter TertiaryIntOpParameters[] = {
-    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Input1", TableParameter::INT32_TABLE, true },
     { L"Validation.Input2", TableParameter::INT32_TABLE, true },
     { L"Validation.Input3", TableParameter::INT32_TABLE, true },
-    { L"Validation.Expected", TableParameter::INT32_TABLE, true },
+    { L"Validation.Expected1", TableParameter::INT32_TABLE, true },
     { L"Validation.Tolerance", TableParameter::INT32, true },
-    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter BinaryUintOpParameters[] = {
-    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Input1", TableParameter::UINT_TABLE, true },
     { L"Validation.Input2", TableParameter::UINT_TABLE, true },
     { L"Validation.Expected1", TableParameter::UINT_TABLE, true },
     { L"Validation.Expected2", TableParameter::UINT_TABLE, false },
     { L"Validation.Tolerance", TableParameter::INT32, true },
-    { L"Validation.NumInput", TableParameter::UINT, true },
-    { L"Validation.NumExpected", TableParameter::INT32, true },
 };
 
 static TableParameter TertiaryUintOpParameters[] = {
-    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Input1", TableParameter::UINT_TABLE, true },
     { L"Validation.Input2", TableParameter::UINT_TABLE, true },
     { L"Validation.Input3", TableParameter::UINT_TABLE, true },
-    { L"Validation.Expected", TableParameter::UINT_TABLE, true },
+    { L"Validation.Expected1", TableParameter::UINT_TABLE, true },
     { L"Validation.Tolerance", TableParameter::INT32, true },
-    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter DotOpParameters[] = {
-    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Target", TableParameter::STRING, true },
-    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Input1", TableParameter::STRING_TABLE, true },
     { L"Validation.Input2", TableParameter::STRING_TABLE, true },
-    { L"Validation.dot2", TableParameter::STRING_TABLE, true },
-    { L"Validation.dot3", TableParameter::STRING_TABLE, true },
-    { L"Validation.dot4", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected2", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected3", TableParameter::STRING_TABLE, true },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
-    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter Msad4OpParameters[] = {
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
-    { L"Validation.NumInput", TableParameter::UINT, true },
-    { L"Validation.Reference", TableParameter::UINT_TABLE, true},
-    { L"Validation.Source", TableParameter::STRING_TABLE, true },
-    { L"Validation.Accum", TableParameter::STRING_TABLE, true },
-    { L"Validation.Expected", TableParameter::STRING_TABLE, true }
+    { L"Validation.Input1", TableParameter::UINT_TABLE, true},
+    { L"Validation.Input2", TableParameter::STRING_TABLE, true },
+    { L"Validation.Input3", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected1", TableParameter::STRING_TABLE, true }
 };
 
 static TableParameter WaveIntrinsicsActiveIntParameters[] = {
@@ -3192,6 +3157,10 @@ static HRESULT ParseTableRow(TableParameter *table, unsigned int size) {
     default:
       DXASSERT_NOMSG("Invalid Parameter Type");
     }
+    if (errno == ERANGE) {
+      LogErrorFmt(L"got out of range value for table %s", table[i].m_name);
+      return E_FAIL;
+    }
   }
   return S_OK;
 }
@@ -3231,16 +3200,8 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     handler.clearTableParameter();
     VERIFY_SUCCEEDED(ParseTableRow(UnaryFPOpParameters, tableSize));
 
-    st::ShaderOpShader shader;
-
-    CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-    CW2A EntryPoint(handler.GetTableParamByName(L"ShaderOp.EntryPoint")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-    shader.Name = Name.m_psz;
-    shader.Target = Target.m_psz;
-    shader.EntryPoint = EntryPoint.m_psz;
-    shader.Text = Text.m_psz;
 
     unsigned int WarpVersion = handler.GetTableParamByName(L"Warp.Version")->m_uint;
     if (GetTestParamUseWARP(true) && !IsValidWarpDllVersion(WarpVersion)) {
@@ -3248,14 +3209,14 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     }
 
     std::vector<WEX::Common::String> *Validation_Input =
-        &(handler.GetTableParamByName(L"Validation.Input")->m_StringTable);
+        &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
     std::vector<WEX::Common::String> *Validation_Expected =
-        &(handler.GetTableParamByName(L"Validation.Expected")->m_StringTable);
+        &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
     double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
 
-    size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
+    size_t count = Validation_Input->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "UnaryFPOp",
@@ -3274,9 +3235,8 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
             p->input = val;
           }
           // use shader from data table
-          pShaderOp->Shaders.at(0).Target = shader.Target;
-          pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
-          pShaderOp->Shaders.at(0).Text = shader.Text;
+          pShaderOp->Shaders.at(0).Target = Target.m_psz;
+          pShaderOp->Shaders.at(0).Text = Text.m_psz;
         });
 
     MappedData data;
@@ -3290,7 +3250,7 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
         float val;
         VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
         LogCommentFmt(
-            L"element #%u, input = %10f, output = %10f, expected = %10f", i,
+            L"element #%u, input = %6.8f, output = %6.8f, expected = %6.8f", i,
             p->input, p->output, val);
         VerifyOutputWithExpectedValueFloat(p->output, val, Validation_Type, Validation_Tolerance);
     }
@@ -3312,17 +3272,8 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
     handler.clearTableParameter();
     VERIFY_SUCCEEDED(ParseTableRow(BinaryFPOpParameters, tableSize));
 
-
-    st::ShaderOpShader shader;
-
-    CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-    CW2A EntryPoint(handler.GetTableParamByName(L"ShaderOp.EntryPoint")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-    shader.Name = Name.m_psz;
-    shader.Target = Target.m_psz;
-    shader.EntryPoint = EntryPoint.m_psz;
-    shader.Text = Text.m_psz;
 
     std::vector<WEX::Common::String> *Validation_Input1 =
         &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
@@ -3337,7 +3288,7 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
     double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
-    size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
+    size_t count = Validation_Input1->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "BinaryFPOp", 
@@ -3360,9 +3311,8 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
         }
 
         // use shader from data table
-        pShaderOp->Shaders.at(0).Target = shader.Target;
-        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
-        pShaderOp->Shaders.at(0).Text = shader.Text;
+        pShaderOp->Shaders.at(0).Target = Target.m_psz;
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
     });
 
     MappedData data;
@@ -3370,22 +3320,40 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
 
     SBinaryFPOp *pPrimitives = (SBinaryFPOp *)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
-
-    for (unsigned i = 0; i < count; ++i) {
+    unsigned numExpected = Validation_Expected2->size() == 0 ? 1 : 2;
+    if (numExpected == 2) {
+      for (unsigned i = 0; i < count; ++i) {
         SBinaryFPOp *p = &pPrimitives[i];
         LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
         LPCWSTR str2 = (*Validation_Expected2)[i % Validation_Expected2->size()];
         float val1, val2;
         VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
         VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
-        LogCommentFmt(L"element #%u, input1 = %10f, input2 = %10f, output1 = "
-            L"%10f, expected1 = %10f, output2 = %10f, expected2 = %10f",
+        LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, output1 = "
+            L"%6.8f, expected1 = %6.8f, output2 = %6.8f, expected2 = %6.8f",
             i, p->input1, p->input2, p->output1, val1, p->output2,
             val2);
         VerifyOutputWithExpectedValueFloat(p->output1, val1, Validation_Type,
-            Validation_Tolerance);
+          Validation_Tolerance);
         VerifyOutputWithExpectedValueFloat(p->output2, val2, Validation_Type,
-            Validation_Tolerance);
+          Validation_Tolerance);
+      }
+    }
+    else if (numExpected == 1) {
+      for (unsigned i = 0; i < count; ++i) {
+        SBinaryFPOp *p = &pPrimitives[i];
+        LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
+        float val1;
+        VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+        LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, output1 = "
+          L"%6.8f, expected1 = %6.8f",
+          i, p->input1, p->input2, p->output1, val1);
+        VerifyOutputWithExpectedValueFloat(p->output1, val1, Validation_Type,
+          Validation_Tolerance);
+      }
+    }
+    else {
+      LogErrorFmt(L"Unexpected number of expected values for operation %i", numExpected);
     }
 }
 
@@ -3406,16 +3374,8 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
     handler.clearTableParameter();
     VERIFY_SUCCEEDED(ParseTableRow(TertiaryFPOpParameters, tableSize));
 
-    st::ShaderOpShader shader;
-
-    CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-    CW2A EntryPoint(handler.GetTableParamByName(L"ShaderOp.EntryPoint")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-    shader.Name = Name.m_psz;
-    shader.Target = Target.m_psz;
-    shader.EntryPoint = EntryPoint.m_psz;
-    shader.Text = Text.m_psz;
 
     std::vector<WEX::Common::String> *Validation_Input1 =
         &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
@@ -3425,11 +3385,11 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
         &(handler.GetTableParamByName(L"Validation.Input3")->m_StringTable);
 
     std::vector<WEX::Common::String> *Validation_Expected =
-        &(handler.GetTableParamByName(L"Validation.Expected")->m_StringTable);
+        &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
     double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
-    size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
+    size_t count = Validation_Input1->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "TertiaryFPOp",
@@ -3455,9 +3415,8 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
         }
 
         // use shader from data table
-        pShaderOp->Shaders.at(0).Target = shader.Target;
-        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
-        pShaderOp->Shaders.at(0).Text = shader.Text;
+        pShaderOp->Shaders.at(0).Target = Target.m_psz;
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
     });
 
     MappedData data;
@@ -3471,8 +3430,8 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
       LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->size()];
       float val;
       VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
-      LogCommentFmt(L"element #%u, input1 = %10f, input2 = %10f, input3 = %10f, output1 = "
-                    L"%10f, expected = %10f",
+      LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, input3 = %6.8f, output1 = "
+                    L"%6.8f, expected = %6.8f",
                     i, p->input1, p->input2, p->input3, p->output, val);
       VerifyOutputWithExpectedValueFloat(p->output, val, Validation_Type,
                                Validation_Tolerance);
@@ -3496,23 +3455,15 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
     handler.clearTableParameter();
     VERIFY_SUCCEEDED(ParseTableRow(UnaryIntOpParameters, tableSize));
 
-    st::ShaderOpShader shader;
-
-    CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-    CW2A EntryPoint(handler.GetTableParamByName(L"ShaderOp.EntryPoint")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-    shader.Name = Name.m_psz;
-    shader.Target = Target.m_psz;
-    shader.EntryPoint = EntryPoint.m_psz;
-    shader.Text = Text.m_psz;
 
     std::vector<int> *Validation_Input =
-        &handler.GetTableParamByName(L"Validation.Input")->m_int32Table;
+        &handler.GetTableParamByName(L"Validation.Input1")->m_int32Table;
     std::vector<int> *Validation_Expected =
-        &handler.GetTableParamByName(L"Validation.Expected")->m_int32Table;
+        &handler.GetTableParamByName(L"Validation.Expected1")->m_int32Table;
     int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
-    size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
+    size_t count = Validation_Input->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "UnaryIntOp",
@@ -3529,9 +3480,8 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
             p->input = val;
           }
           // use shader data table
-          pShaderOp->Shaders.at(0).Target = shader.Target;
-          pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
-          pShaderOp->Shaders.at(0).Text = shader.Text;
+          pShaderOp->Shaders.at(0).Target = Target.m_psz;
+          pShaderOp->Shaders.at(0).Text = Text.m_psz;
         });
 
     MappedData data;
@@ -3566,23 +3516,15 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
     handler.clearTableParameter();
     VERIFY_SUCCEEDED(ParseTableRow(UnaryUintOpParameters, tableSize));
 
-    st::ShaderOpShader shader;
-
-    CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-    CW2A EntryPoint(handler.GetTableParamByName(L"ShaderOp.EntryPoint")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-    shader.Name = Name.m_psz;
-    shader.Target = Target.m_psz;
-    shader.EntryPoint = EntryPoint.m_psz;
-    shader.Text = Text.m_psz;
 
     std::vector<unsigned int> *Validation_Input =
-        &handler.GetTableParamByName(L"Validation.Input")->m_uintTable;
+        &handler.GetTableParamByName(L"Validation.Input1")->m_uintTable;
     std::vector<unsigned int> *Validation_Expected =
-        &handler.GetTableParamByName(L"Validation.Expected")->m_uintTable;
+        &handler.GetTableParamByName(L"Validation.Expected1")->m_uintTable;
     int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
-    size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
+    size_t count = Validation_Input->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "UnaryUintOp",
@@ -3599,9 +3541,8 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
             p->input = val;
         }
         // use shader data table
-        pShaderOp->Shaders.at(0).Target = shader.Target;
-        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
-        pShaderOp->Shaders.at(0).Text = shader.Text;
+        pShaderOp->Shaders.at(0).Target = Target.m_psz;
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
     });
 
     MappedData data;
@@ -3635,18 +3576,9 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
     handler.clearTableParameter();
     VERIFY_SUCCEEDED(ParseTableRow(BinaryIntOpParameters,tableSize));
 
-    st::ShaderOpShader shader;
-
-    CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-    CW2A EntryPoint(handler.GetTableParamByName(L"ShaderOp.EntryPoint")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-    shader.Name = Name.m_psz;
-    shader.Target = Target.m_psz;
-    shader.EntryPoint = EntryPoint.m_psz;
-    shader.Text = Text.m_psz;
 
-    int numExpected = handler.GetTableParamByName(L"Validation.NumExpected")->m_int32;
 
     std::vector<int> *Validation_Input1 =
         &handler.GetTableParamByName(L"Validation.Input1")->m_int32Table;
@@ -3657,7 +3589,9 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
     std::vector<int> *Validation_Expected2 =
         &handler.GetTableParamByName(L"Validation.Expected2")->m_int32Table;
     int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
-    size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
+    size_t count = Validation_Input1->size();
+
+    size_t numExpected = Validation_Expected2->size() == 0 ? 1 : 2;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "BinaryIntOp",
@@ -3677,9 +3611,8 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
           }
 
           // use shader from data table
-          pShaderOp->Shaders.at(0).Target = shader.Target;
-          pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
-          pShaderOp->Shaders.at(0).Text = shader.Text;
+          pShaderOp->Shaders.at(0).Target = Target.m_psz;
+          pShaderOp->Shaders.at(0).Text = Text.m_psz;
         });
 
     MappedData data;
@@ -3737,16 +3670,8 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
     handler.clearTableParameter();
     VERIFY_SUCCEEDED(ParseTableRow(TertiaryIntOpParameters, tableSize));
 
-    st::ShaderOpShader shader;
-
-    CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-    CW2A EntryPoint(handler.GetTableParamByName(L"ShaderOp.EntryPoint")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-    shader.Name = Name.m_psz;
-    shader.Target = Target.m_psz;
-    shader.EntryPoint = EntryPoint.m_psz;
-    shader.Text = Text.m_psz;
 
     std::vector<int> *Validation_Input1 =
         &handler.GetTableParamByName(L"Validation.Input1")->m_int32Table;
@@ -3755,9 +3680,9 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
     std::vector<int> *Validation_Input3 =
         &handler.GetTableParamByName(L"Validation.Input3")->m_int32Table;
     std::vector<int> *Validation_Expected =
-        &handler.GetTableParamByName(L"Validation.Expected")->m_int32Table;
+        &handler.GetTableParamByName(L"Validation.Expected1")->m_int32Table;
     int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
-    size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
+    size_t count = Validation_Input1->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "TertiaryIntOp",
@@ -3779,9 +3704,8 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
         }
 
         // use shader from data table
-        pShaderOp->Shaders.at(0).Target = shader.Target;
-        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
-        pShaderOp->Shaders.at(0).Text = shader.Text;
+        pShaderOp->Shaders.at(0).Target = Target.m_psz;
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
     });
 
     MappedData data;
@@ -3818,18 +3742,9 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
     handler.clearTableParameter();
     VERIFY_SUCCEEDED(ParseTableRow(BinaryUintOpParameters, tableSize));
 
-    st::ShaderOpShader shader;
-
-    CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-    CW2A EntryPoint(handler.GetTableParamByName(L"ShaderOp.EntryPoint")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-    shader.Name = Name.m_psz;
-    shader.Target = Target.m_psz;
-    shader.EntryPoint = EntryPoint.m_psz;
-    shader.Text = Text.m_psz;
 
-    int numExpected = handler.GetTableParamByName(L"Validation.NumExpected")->m_int32;
 
     std::vector<unsigned int> *Validation_Input1 =
         &handler.GetTableParamByName(L"Validation.Input1")->m_uintTable;
@@ -3840,8 +3755,8 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
     std::vector<unsigned int> *Validation_Expected2 =
         &handler.GetTableParamByName(L"Validation.Expected2")->m_uintTable;
     int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
-    size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
-
+    size_t count = Validation_Input1->size();
+    int numExpected = Validation_Expected2->size() == 0 ? 1 : 2;
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "BinaryUintOp",
         // this callbacked is called when the test
@@ -3860,9 +3775,8 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
         }
 
         // use shader from data table
-        pShaderOp->Shaders.at(0).Target = shader.Target;
-        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
-        pShaderOp->Shaders.at(0).Text = shader.Text;
+        pShaderOp->Shaders.at(0).Target = Target.m_psz;
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
     });
 
     MappedData data;
@@ -3919,16 +3833,8 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
     handler.clearTableParameter();
     VERIFY_SUCCEEDED(ParseTableRow(TertiaryUintOpParameters, tableSize));
 
-    st::ShaderOpShader shader;
-
-    CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-    CW2A EntryPoint(handler.GetTableParamByName(L"ShaderOp.EntryPoint")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-    shader.Name = Name.m_psz;
-    shader.Target = Target.m_psz;
-    shader.EntryPoint = EntryPoint.m_psz;
-    shader.Text = Text.m_psz;
 
     std::vector<unsigned int> *Validation_Input1 =
         &handler.GetTableParamByName(L"Validation.Input1")->m_uintTable;
@@ -3937,9 +3843,9 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
     std::vector<unsigned int> *Validation_Input3 =
         &handler.GetTableParamByName(L"Validation.Input3")->m_uintTable;
     std::vector<unsigned int> *Validation_Expected =
-        &handler.GetTableParamByName(L"Validation.Expected")->m_uintTable;
+        &handler.GetTableParamByName(L"Validation.Expected1")->m_uintTable;
     int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
-    size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
+    size_t count = Validation_Input1->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "TertiaryUintOp",
@@ -3961,9 +3867,8 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
         }
 
         // use shader from data table
-        pShaderOp->Shaders.at(0).Target = shader.Target;
-        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
-        pShaderOp->Shaders.at(0).Text = shader.Text;
+        pShaderOp->Shaders.at(0).Target = Target.m_psz;
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
     });
 
     MappedData data;
@@ -3999,31 +3904,23 @@ TEST_F(ExecutionTest, DotTest) {
     handler.clearTableParameter();
     VERIFY_SUCCEEDED(ParseTableRow(DotOpParameters, tableSize));
 
-    st::ShaderOpShader shader;
-
-    CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
     CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
-    CW2A EntryPoint(handler.GetTableParamByName(L"ShaderOp.EntryPoint")->m_str);
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
-    shader.Name = Name.m_psz;
-    shader.Target = Target.m_psz;
-    shader.EntryPoint = EntryPoint.m_psz;
-    shader.Text = Text.m_psz;
 
     std::vector<WEX::Common::String> *Validation_Input1 =
         &handler.GetTableParamByName(L"Validation.Input1")->m_StringTable;
     std::vector<WEX::Common::String> *Validation_Input2 =
         &handler.GetTableParamByName(L"Validation.Input2")->m_StringTable;
     std::vector<WEX::Common::String> *Validation_dot2 =
-        &handler.GetTableParamByName(L"Validation.dot2")->m_StringTable;
+        &handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable;
     std::vector<WEX::Common::String> *Validation_dot3 =
-        &handler.GetTableParamByName(L"Validation.dot3")->m_StringTable;
+        &handler.GetTableParamByName(L"Validation.Expected2")->m_StringTable;
     std::vector<WEX::Common::String> *Validation_dot4 =
-        &handler.GetTableParamByName(L"Validation.dot4")->m_StringTable;
+        &handler.GetTableParamByName(L"Validation.Expected3")->m_StringTable;
 
     PCWSTR Validation_type = handler.GetTableParamByName(L"Validation.Type")->m_str;
     double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
-    unsigned int count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
+    unsigned int count = Validation_Input1->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "DotOp",
@@ -4045,9 +3942,8 @@ TEST_F(ExecutionTest, DotTest) {
             p->input2 = val2;
         }
         // use shader from data table
-        pShaderOp->Shaders.at(0).Target = shader.Target;
-        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
-        pShaderOp->Shaders.at(0).Text = shader.Text;
+        pShaderOp->Shaders.at(0).Target = Target.m_psz;
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
     });
 
     MappedData data;
@@ -4094,16 +3990,17 @@ TEST_F(ExecutionTest, Msad4Test) {
 
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
     double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
-    unsigned int count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
 
     std::vector<unsigned int> *Validation_Reference =
-        &handler.GetTableParamByName(L"Validation.Reference")->m_uintTable;
+        &handler.GetTableParamByName(L"Validation.Input1")->m_uintTable;
     std::vector<WEX::Common::String> *Validation_Source =
-        &handler.GetTableParamByName(L"Validation.Source")->m_StringTable;
+        &handler.GetTableParamByName(L"Validation.Input2")->m_StringTable;
     std::vector<WEX::Common::String> *Validation_Accum =
-        &handler.GetTableParamByName(L"Validation.Accum")->m_StringTable;
+        &handler.GetTableParamByName(L"Validation.Input3")->m_StringTable;
     std::vector<WEX::Common::String> *Validation_Expected =
-        &handler.GetTableParamByName(L"Validation.Expected")->m_StringTable;
+        &handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable;
+
+    size_t count = Validation_Expected->size();
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "Msad4",
@@ -4389,11 +4286,7 @@ TEST_F(ExecutionTest, CBufferTestHalf) {
   if (!CreateDevice(&pDevice))
     return;
 
-  int tableSize = sizeof(CBufferTestHalfParameters) / sizeof(TableParameter);
-  TableParameterHandler handler(CBufferTestHalfParameters, tableSize);
-  handler.clearTableParameter();
-  VERIFY_SUCCEEDED(ParseTableRow(CBufferTestHalfParameters, tableSize));
-  std::vector<uint16_t> *InputData = handler.GetDataArray<uint16_t>(L"Validation.InputSet");
+  std::vector<uint16_t> InputData = { 0x3F80, 0x3F00, 0x3D80, 0x7BFF };
 
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "CBufferTestHalf",
     [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
@@ -4402,7 +4295,7 @@ TEST_F(ExecutionTest, CBufferTestHalf) {
     Data.resize(4 * sizeof(uint16_t));
     for (size_t i = 0; i < 4; ++i) {
       // pack two halves in 32 bits
-      uint16_t val = (*InputData)[i];
+      uint16_t val = InputData[i];
       Data.at(2*i) = val & 0xff;
       Data.at(2*i + 1) = val >> 8;
     }
@@ -4421,10 +4314,10 @@ TEST_F(ExecutionTest, CBufferTestHalf) {
     LogCommentFmt(L"third %f", third);
     LogCommentFmt(L"fourth %f", fourth);
 
-    VERIFY_ARE_EQUAL(first, (*InputData)[0]);
-    VERIFY_ARE_EQUAL(second, (*InputData)[1]);
-    VERIFY_ARE_EQUAL(third, (*InputData)[2]);
-    VERIFY_ARE_EQUAL(fourth, (*InputData)[3]);
+    VERIFY_ARE_EQUAL(first, InputData[0]);
+    VERIFY_ARE_EQUAL(second, InputData[1]);
+    VERIFY_ARE_EQUAL(third, InputData[2]);
+    VERIFY_ARE_EQUAL(fourth, InputData[3]);
   }
 }
 

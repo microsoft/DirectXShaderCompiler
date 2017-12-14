@@ -707,6 +707,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLMaxTessFactor:
     case AttributeList::AT_HLSLNumThreads:
     case AttributeList::AT_HLSLShader:
+    case AttributeList::AT_HLSLExperimental:
     case AttributeList::AT_HLSLRootSignature:
     case AttributeList::AT_HLSLOutputControlPoints:
     case AttributeList::AT_HLSLOutputTopology:
@@ -714,6 +715,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLPatchConstantFunc:
     case AttributeList::AT_HLSLMaxVertexCount:
     case AttributeList::AT_HLSLUnroll:
+    case AttributeList::AT_NoInline:
     // The following are not accepted in [attribute(param)] syntax:
     //case AttributeList::AT_HLSLCentroid:
     //case AttributeList::AT_HLSLGroupShared:
@@ -4419,7 +4421,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
                                 const ParsedTemplateInfo &TemplateInfo,
                                 AccessSpecifier AS, DeclSpecContext DSC) {
   // HLSL Change Starts
-  if (getLangOpts().HLSL && !getLangOpts().HLSL2017) {
+  if (getLangOpts().HLSL && getLangOpts().HLSLVersion < 2017) {
     Diag(Tok, diag::err_hlsl_enum);
     // Skip the rest of this declarator, up until the comma or semicolon.
     SkipUntil(tok::comma, StopAtSemi);
@@ -4479,7 +4481,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 
   bool AllowFixedUnderlyingType = AllowDeclaration &&
     (getLangOpts().CPlusPlus11 || getLangOpts().MicrosoftExt ||
-     getLangOpts().ObjC2 || getLangOpts().HLSL2017);
+     getLangOpts().ObjC2 || getLangOpts().HLSLVersion >= 2017);
 
   CXXScopeSpec &SS = DS.getTypeSpecScope();
   if (getLangOpts().CPlusPlus) {
@@ -4781,7 +4783,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 ///         identifier
 ///
 void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
-  assert(getLangOpts().HLSL2017 && "HLSL does not support enums before 2017"); // HLSL Change
+  assert(getLangOpts().HLSLVersion >= 2017 && "HLSL does not support enums before 2017"); // HLSL Change
 
   // Enter the scope of the enum body and start the definition.
   ParseScope EnumScope(this, Scope::DeclScope | Scope::EnumScope);

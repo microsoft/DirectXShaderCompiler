@@ -6,8 +6,13 @@ struct S {
     float2x3 c;
 };
 
+struct T {
+    S        s[5];
+};
+
 ConsumeStructuredBuffer<float4> buffer1;
 ConsumeStructuredBuffer<S>      buffer2;
+ConsumeStructuredBuffer<T>      buffer3;
 
 float4 main() : A {
 // CHECK:      [[counter:%\d+]] = OpAccessChain %_ptr_Uniform_int %counter_var_buffer1 %uint_0
@@ -39,6 +44,15 @@ float4 main() : A {
 // CHECK-NEXT: [[s2:%\d+]] = OpAccessChain %_ptr_Function_mat2v3float %s %uint_2
 // CHECK-NEXT: OpStore [[s2]] [[buffer22]]
     s = buffer2.Consume();
+
+// CHECK:      [[counter:%\d+]] = OpAccessChain %_ptr_Uniform_int %counter_var_buffer3 %uint_0
+// CHECK-NEXT: [[prev:%\d+]] = OpAtomicISub %int [[counter]] %uint_1 %uint_0 %int_1
+// CHECK-NEXT: [[index:%\d+]] = OpISub %int [[prev]] %int_1
+// CHECK-NEXT: [[buffer3:%\d+]] = OpAccessChain %_ptr_Uniform_T %buffer3 %uint_0 [[index]]
+// CHECK-NEXT: [[ac:%\d+]] = OpAccessChain %_ptr_Uniform_v3float [[buffer3]] %int_0 %int_3 %int_1
+// CHECK-NEXT: [[val:%\d+]] = OpLoad %v3float [[ac]]
+// CHECK-NEXT: OpStore %val [[val]]
+    float3 val = buffer3.Consume().s[3].b;
 
     return v;
 }

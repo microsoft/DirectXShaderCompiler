@@ -68,6 +68,7 @@ namespace MainNs
         public EditorForm()
         {
             InitializeComponent();
+            cbProfile.SelectedIndex = 0;
         }
 
         internal IDxcBlob SelectedShaderBlob
@@ -186,6 +187,7 @@ namespace MainNs
         private void compileToolStripMenuItem_Click(object sender, EventArgs e)
         {
             this.CompileDocument();
+            this.AnalysisTabControl.SelectedTab = this.DisassemblyTabPage;
         }
 
         private void errorListToolStripMenuItem_Click(object sender, EventArgs e)
@@ -216,7 +218,7 @@ namespace MainNs
         private void fileVariablesToolStripMenuItem_Click(object sender, EventArgs e)
         {
             string codeText = this.CodeBox.Text;
-            HlslFileVariables fileVars = HlslFileVariables.FromText(codeText);
+            HlslFileVariables fileVars = GetFileVars();
             using (Form form = new Form())
             {
                 PropertyGrid grid = new PropertyGrid()
@@ -334,7 +336,7 @@ namespace MainNs
             }
             try
             {
-                System.IO.File.WriteAllText(this.DocFileName, this.CodeBox.Text);
+                System.IO.File.WriteAllText(this.DocFileName, GetCodeWithFileVars());
             }
             catch (System.IO.IOException)
             {
@@ -360,7 +362,7 @@ namespace MainNs
                     return;
                 this.DocFileName = dialog.FileName;
             }
-            System.IO.File.WriteAllText(this.DocFileName, this.CodeBox.Text);
+            System.IO.File.WriteAllText(this.DocFileName, GetCodeWithFileVars());
             this.DocModified = false;
         }
 
@@ -525,7 +527,7 @@ namespace MainNs
                 var source = this.CreateBlobForText(text);
 
                 string fileName = "hlsl.hlsl";
-                HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+                HlslFileVariables fileVars = GetFileVars();
                 bool isDxil = IsDxilTarget(fileVars.Target);
                 IDxcCompiler compiler = isDxil ? HlslDxcLib.CreateDxcCompiler() : null;
                 {
@@ -937,11 +939,52 @@ namespace MainNs
                 {
                     new TrivialDxcUnsavedFile("hlsl.hlsl", this.CodeBox.Text)
                 };
-                HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+                HlslFileVariables fileVars = GetFileVars();
                 this.lastTU = this.lastIndex.ParseTranslationUnit("hlsl.hlsl", fileVars.Arguments, fileVars.Arguments.Length,
                     unsavedFiles, (uint)unsavedFiles.Length, (uint)DxcTranslationUnitFlags.DxcTranslationUnitFlags_UseCallerThread);
             }
             return this.lastTU;
+        }
+
+        private HlslFileVariables GetFileVars()
+        {
+            HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+            if (fileVars.SetFromText)
+            {
+                tbEntry.Text = fileVars.Entry;
+                cbProfile.Text = fileVars.Target;
+                tbOptions.Text = string.Join(" ", fileVars.Arguments);
+            }
+            else
+            {
+                fileVars.Arguments = tbOptions.Text.Split();
+                fileVars.Entry = tbEntry.Text;
+                fileVars.Target = cbProfile.Text;
+            }
+            return fileVars;
+        }
+
+        private string GetCodeWithFileVars()
+        {
+            HlslFileVariables fileVars = GetFileVars();
+            string codeText = CodeBox.Text;
+            if (fileVars.SetFromText)
+            {
+                int firstEnd = codeText.IndexOf('\n');
+                if (firstEnd == 0)
+                {
+                    codeText = "// " + fileVars.ToString();
+                }
+                else
+                {
+                    codeText = "// " + fileVars.ToString() + "\r\n" + codeText.Substring(firstEnd + 1);
+                }
+            }
+            else
+            {
+                codeText = "// " + fileVars.ToString() + "\r\n" + codeText;
+            }
+            return codeText;
         }
 
         internal void InvalidateTU()
@@ -1183,7 +1226,16 @@ namespace MainNs
             RichTextBox rtb = this.DeepActiveControl as RichTextBox;
             if (rtb != null)
             {
-                rtb.Paste(DataFormats.GetFormat(DataFormats.UnicodeText));
+                // Handle the container format.
+                if (Clipboard.ContainsData(ContainerData.DataFormat.Name))
+                {
+                    object o = Clipboard.GetData(ContainerData.DataFormat.Name);
+                    rtb.SelectedText = ContainerData.DataObjectToString(o);
+                }
+                else
+                {
+                    rtb.Paste(DataFormats.GetFormat(DataFormats.UnicodeText));
+                }
                 return;
             }
             TextBoxBase tb = this.ActiveControl as TextBoxBase;
@@ -1438,7 +1490,7 @@ namespace MainNs
             List<string> args;
             try
             {
-                HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+                HlslFileVariables fileVars = GetFileVars();
                 args = fileVars.Arguments.Where(a => !String.IsNullOrWhiteSpace(a)).ToList();
             }
             catch (Exception)
@@ -2053,16 +2105,23 @@ namespace MainNs
                 return;
             }
 
-            byte[] bytes;
-            unsafe
+            DisplayBitstream(ContainerData.BlobToBytes(this.SelectedShaderBlob), "Bitstream Viewer - Selected Shader");
+        }
+
+        private void bitstreamFromClipboardToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!Clipboard.ContainsData(ContainerData.DataFormat.Name))
             {
-                char* pBuffer = this.SelectedShaderBlob.GetBufferPointer();
-                uint size = this.SelectedShaderBlob.GetBufferSize();
-                bytes = new byte[size];
-                IntPtr ptr = new IntPtr(pBuffer);
-                System.Runtime.InteropServices.Marshal.Copy(ptr, bytes, 0, (int)size);
+                MessageBox.Show(this, "No shader blob on clipboard. Try pasting from the optimizer view.");
+                return;
             }
 
+            DisplayBitstream(ContainerData.DataObjectToBytes(Clipboard.GetData(ContainerData.DataFormat.Name)),
+                "Bitstream Viewer - Clipboard");
+        }
+
+        private void DisplayBitstream(byte[] bytes, string title)
+        {
             StatusBar statusBar = new StatusBar();
             statusBar.Dock = DockStyle.Bottom;
 
@@ -2112,7 +2171,7 @@ namespace MainNs
             container.Dock = DockStyle.Fill;
 
             Form form = new Form();
-            form.Text = "Bitstream Viewer";
+            form.Text = title;
             form.Controls.Add(container);
             form.Controls.Add(statusBar);
             binaryView.Bytes = bytes;
@@ -3217,7 +3276,7 @@ namespace MainNs
         {
             IDxcCompiler compiler = HlslDxcLib.CreateDxcCompiler();
             string fileName = "hlsl.hlsl";
-            HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+            HlslFileVariables fileVars = GetFileVars();
             string[] args = new string[] { "-fcgl" };
             string resultText = "";
             IDxcBlob source = null;

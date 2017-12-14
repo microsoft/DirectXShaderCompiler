@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify -HV 2018 -enable-16bit-types %s
 
 // :FXC_VERIFY_ARGUMENTS: /E FontPixelShader /T ps_5_1 /Gec
 
@@ -22,8 +22,148 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   r += status;
   uav1[b] = r; // expected-error {{type 'RWByteAddressBuffer' does not provide a subscript operator}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
   uav1.Load(a.x, status);
+  min16float4 h = min16float4(1,2,3,4);                     /* expected-warning {{min16float is promoted to float16_t}} expected-warning {{min16float is promoted to float16_t}} */
+
+  // valid template argument
+  r += uav1.Load<half4>(0);
+  r += uav1.Load<float4>(12);
+  r += uav1.Load<int16_t2>(16).xyxy;
+  r += uav1.Load<int32_t3>(20).xyzx;
+  r += uav1.Load<float16_t>(20);
+  r += uav1.Load<float32_t1>(20);
+
+  r += uav1.Load<half4>(4, status);
+  r += uav1.Load<float4>(12, status);
+  r += uav1.Load<int16_t2>(16, status).xyxy;
+  r += uav1.Load<int32_t3>(20, status).xyzx;
+  r += uav1.Load<float16_t>(20, status);
+  r += uav1.Load<float32_t1>(20, status);
+
+  // errors
+  r += uav1.Load<float, float3>(16);                        /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} */
+  r += uav1.Load<double3>(16);                              /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'vector<double, 3>' to 'float4'}} */
+  r += uav1.Load2<float>(16);                               /* expected-error {{Explicit template arguments on intrinsic Load2 are not supported.}} */
+  r += uav1.Load3<int>(20);                                 /* expected-error {{Explicit template arguments on intrinsic Load3 are not supported.}} */
+  r += uav1.Load4<int16_t>(24);                             /* expected-error {{Explicit template arguments on intrinsic Load4 are not supported.}} */
+  r += uav1.Load<half3x4>(24);                              /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'matrix<__fp16, 3, 4>' to 'float4'}} */
+  r += uav1.Load<float, float3>(16, status);                /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} */
+  r += uav1.Load<double3>(16, status);                      /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'vector<double, 3>' to 'float4'}} */
+  r += uav1.Load2<float>(16, status);                       /* expected-error {{Explicit template arguments on intrinsic Load2 are not supported.}} */
+  r += uav1.Load3<int>(20, status);                         /* expected-error {{Explicit template arguments on intrinsic Load3 are not supported.}} */
+  r += uav1.Load4<int16_t>(24, status);                     /* expected-error {{Explicit template arguments on intrinsic Load4 are not supported.}} */
+  r += uav1.Load<half3x4>(24, status);                      /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'matrix<__fp16, 3, 4>' to 'float4'}} */
+  // valid template argument
+  uav1.Store(0, r);
+  uav1.Store(0, r.x);
+  uav1.Store(0, (half2)r.xy);
+  uav1.Store(0, (int3)r.xyz);
+  uav1.Store(0, (double2)r.xy);
+  // errors
+  struct MyStruct {
+    float4 x;
+  };
+  uav1.Store<float>(0, r);                                  /* expected-error {{Explicit template arguments on intrinsic Store are not supported.}} */
+  uav1.Store<int64_t4>(0, r);                               /* expected-error {{Explicit template arguments on intrinsic Store are not supported.}} */
+  uav1.Store2<float>(0, r.xy);                              /* expected-error {{Explicit template arguments on intrinsic Store2 are not supported.}} */
+  uav1.Store3<float>(0, r.xyz);                             /* expected-error {{Explicit template arguments on intrinsic Store3 are not supported.}} */
+  uav1.Store4<float>(0, r);                                 /* expected-error {{Explicit template arguments on intrinsic Store4 are not supported.}} */
+  uav1.Store(0, float2x4(1,2,3,4,5,6,7,8));                 /* expected-error {{no matching member function for call to 'Store'}} */
+  uav1.Store<float3x2>(0, float3x2(1,2,3,4,5,6));           /* expected-error {{no matching member function for call to 'Store'}} */
+  uav1.Store(0, (double3)r.xyz);                            /* expected-error {{no matching member function for call to 'Store'}} expected-error {{no matching member function for call to Store}} expected-note@? {{candidate template ignored: couldn't infer template argument 'TResult'}}*/
+  uav1.Store(0, (uint64_t4)r);                              /* expected-error {{no matching member function for call to 'Store'}} expected-error {{no matching member function for call to Store}} expected-note@? {{candidate template ignored: couldn't infer template argument 'TResult'}}*/
+  MyStruct myStruct;
+  uav1.Store(0, myStruct);                                  /* expected-error {{no matching member function for call to 'Store'}} */
   return r;
 }
+
+// BitCast intrinsics
+float4 g_f;
+int4 g_i;
+uint4 g_u;
+float16_t4 g_f16;
+int16_t4 g_i16;
+uint16_t4 g_u16;
+float64_t4 g_f64;
+int64_t4 g_i64;
+uint64_t4 g_u64;
+
+// TODO: currently compiler is not handling intrinsics correctly after we found overloaded intrinsic function before.
+// Uncomment errors below after fixing it.
+float4 BitCastMain() : SV_Target {
+  float4 f1 = 0;
+  f1 += asfloat(g_f);
+  f1 += asfloat(g_i);
+  f1 += asfloat(g_u);
+  /*
+  f1 += asfloat(g_f16);
+  f1 += asfloat(g_i16);
+  f1 += asfloat(g_u16);
+  f1 += asfloat(g_f64);
+  f1 += asfloat(g_i64);
+  f1 += asfloat(g_u64);
+*/
+  int4 i1 = 0;
+  i1 += asint(g_f);
+  i1 += asint(g_i);
+  i1 += asint(g_u);
+  /*
+  i1 += asint(g_f16);
+  i1 += asint(g_i16);
+  i1 += asint(g_u16);
+  i1 += asint(g_f64);
+  i1 += asint(g_i64);
+  i1 += asint(g_u64);
+*/
+  uint4 ui1 = 0;
+  ui1 += asuint(g_f);
+  ui1 += asuint(g_i);
+  ui1 += asuint(g_u);
+  /*
+  ui1 += asuint(g_f16);
+  ui1 += asuint(g_i16);
+  ui1 += asuint(g_u16);
+  ui1 += asuint(g_f64);
+  ui1 += asuint(g_i64);
+  ui1 += asuint(g_u64);
+*/
+  float16_t4 f16_1 = 0;
+  f16_1 += asfloat16(g_f16);
+  f16_1 += asfloat16(g_i16);
+  f16_1 += asfloat16(g_u16);
+ /*f16_1 += asfloat16(g_f);
+  f16_1 += asfloat16(g_i);
+  f16_1 += asfloat16(g_u);
+  f16_1 += asfloat16(g_f64);
+  f16_1 += asfloat16(g_i64);
+  f16_1 += asfloat16(g_u64);
+  */
+
+  int16_t4 i16_1 = 0;
+  i16_1 += asint16(g_f16);
+  i16_1 += asint16(g_i16);
+  i16_1 += asint16(g_u16);
+  /*
+  i16_1 += asint16(g_f);
+  i16_1 += asint16(g_i);
+  i16_1 += asint16(g_u);
+  i16_1 += asint16(g_f64);
+  i16_1 += asint16(g_i64);
+  i16_1 += asint16(g_u64);
+*/
+  uint16_t4 u16_1 = 0;
+  u16_1 += asuint16(g_f16);
+  u16_1 += asuint16(g_i16);
+  u16_1 += asuint16(g_u16);
+  /*
+  u16_1 += asuint16(g_f);
+  u16_1 += asuint16(g_i);
+  u16_1 += asuint16(g_u);
+  u16_1 += asuint16(g_f64);
+  u16_1 += asuint16(g_i64);
+  i16_1 += asuint16(g_u64);
+*/
+}
+
 
 // The following sample includes tex2D mixing new and old style of sampler types.
 

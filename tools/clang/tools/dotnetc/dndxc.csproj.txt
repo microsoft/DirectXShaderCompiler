@@ -42,6 +42,12 @@
   <PropertyGroup>
     <StartupObject />
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationManifest>${DOS_STYLE_SOURCE_DIR}\app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>${DOS_STYLE_SOURCE_DIR}\dxc.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
@@ -103,6 +109,12 @@
     <EmbeddedResource Include="${DOS_STYLE_SOURCE_DIR}\OptEditorForm.resx">
       <DependentUpon>OptEditorForm.cs</DependentUpon>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="${DOS_STYLE_SOURCE_DIR}\app.manifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="${DOS_STYLE_SOURCE_DIR}\dxc.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -686,7 +686,9 @@ void DxilMDHelper::EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, vector<GlobalV
   for (auto it = TypeMap.begin(); it != TypeMap.end(); ++it, GVIdx++) {
     StructType *pStructType = const_cast<StructType *>(it->first);
     DxilStructAnnotation *pA = it->second.get();
-
+    // Don't emit type annotation for empty struct.
+    if (pA->IsEmptyStruct())
+      continue;
     // Emit struct type field annotations.
     Metadata *pMD = EmitDxilStructAnnotation(*pA);
 
@@ -696,27 +698,14 @@ void DxilMDHelper::EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, vector<GlobalV
 
   auto &FuncMap = TypeSystem.GetFunctionAnnotationMap();
   vector<Metadata *> MDFuncVals;
-  unsigned major, minor;
-  LoadDxilVersion(major, minor);
-  if (major == 1 && minor <= 1) {
-    MDFuncVals.emplace_back(Uint32ToConstMD(kDxilTypeSystemFunctionTag)); // Tag
-  }
-  else {
-    DXASSERT(major == 1 && minor >= 2, "Invalid DXIL Version.");
-    MDFuncVals.emplace_back(Uint32ToConstMD(kDxilTypeSystemFunction2Tag));
-  }
+  MDFuncVals.emplace_back(Uint32ToConstMD(kDxilTypeSystemFunctionTag)); // Tag
   for (auto it = FuncMap.begin(); it != FuncMap.end(); ++it) {
     DxilFunctionAnnotation *pA = it->second.get();
     MDFuncVals.push_back(ValueAsMetadata::get(const_cast<Function*>(pA->GetFunction())));
     // Emit function annotations.
 
    Metadata *pMD;
-    if (major == 1 && minor <= 1) {
-      pMD = EmitDxilFunctionAnnotation(*pA);
-    }
-    else {
-      pMD = EmitDxilFunctionAnnotation2(*pA);
-    }
+    pMD = EmitDxilFunctionAnnotation(*pA);
     MDFuncVals.push_back(pMD);
   }
 
@@ -757,19 +746,12 @@ void DxilMDHelper::LoadDxilTypeSystemNode(const llvm::MDTuple &MDT,
       DxilStructAnnotation *pSA = TypeSystem.AddStructAnnotation(pGVType);
       LoadDxilStructAnnotation(MDT.getOperand(i + 1), *pSA);
     }
-  } else if (Tag == kDxilTypeSystemFunctionTag) {
+  } else {
     IFTBOOL((MDT.getNumOperands() & 0x1) == 1, DXC_E_INCORRECT_DXIL_METADATA);
     for (unsigned i = 1; i < MDT.getNumOperands(); i += 2) {
       Function *F = dyn_cast<Function>(ValueMDToValue(MDT.getOperand(i)));
       DxilFunctionAnnotation *pFA = TypeSystem.AddFunctionAnnotation(F);
       LoadDxilFunctionAnnotation(MDT.getOperand(i + 1), *pFA);
-    }
-  } else {
-    IFTBOOL(Tag == kDxilTypeSystemFunction2Tag, DXC_E_INCORRECT_DXIL_METADATA);
-    for (unsigned i = 1; i < MDT.getNumOperands(); i += 2) {
-      Function *F = dyn_cast<Function>(ValueMDToValue(MDT.getOperand(i)));
-      DxilFunctionAnnotation *pFA = TypeSystem.AddFunctionAnnotation(F);
-      LoadDxilFunctionAnnotation2(MDT.getOperand(i + 1), *pFA);
     }
   }
 }
@@ -802,13 +784,7 @@ void DxilMDHelper::LoadDxilStructAnnotation(const MDOperand &MDO, DxilStructAnno
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
   IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   if (pTupleMD->getNumOperands() == 1) {
-    const StructType *ST = SA.GetStructType();
-    if (ST->getNumElements() == 1) {
-      Type *EltTy = ST->getElementType(0);
-      if (EltTy == Type::getInt8Ty(ST->getContext())) {
-        SA.MarkEmptyStruct();
-      }
-    }
+    SA.MarkEmptyStruct();
   }
   IFTBOOL(pTupleMD->getNumOperands() == SA.GetNumFields()+1, DXC_E_INCORRECT_DXIL_METADATA);
 
@@ -820,7 +796,6 @@ void DxilMDHelper::LoadDxilStructAnnotation(const MDOperand &MDO, DxilStructAnno
   }
 }
 
-// For <= 1.1: Function Annotation is a tuple of Parameter Annotataions, starting with the return type.
 Metadata *
 DxilMDHelper::EmitDxilFunctionAnnotation(const DxilFunctionAnnotation &FA) {
   return EmitDxilParamAnnotations(FA);
@@ -829,23 +804,6 @@ DxilMDHelper::EmitDxilFunctionAnnotation(const DxilFunctionAnnotation &FA) {
 void DxilMDHelper::LoadDxilFunctionAnnotation(const MDOperand &MDO,
                                               DxilFunctionAnnotation &FA) {
   LoadDxilParamAnnotations(MDO, FA);
-}
-
-// For >= 1.2: Function Annotation is a tuple of 1) FunctionFPFlag and 2) Parameter Annotations
-llvm::Metadata *DxilMDHelper::EmitDxilFunctionAnnotation2(const DxilFunctionAnnotation &FA) {
-  vector<Metadata *> MDVals(2);
-  MDVals[0] = EmitDxilFunctionFPFlag(FA.GetFlag());
-  MDVals[1] = EmitDxilParamAnnotations(FA);
-  return MDNode::get(m_Ctx, MDVals);
-}
-
-void DxilMDHelper::LoadDxilFunctionAnnotation2(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA) {
-  IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
-  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
-  LoadDxilFunctionFPFlag(pTupleMD->getOperand(0), FA);
-  LoadDxilParamAnnotations(pTupleMD->getOperand(1), FA);
 }
 
 llvm::Metadata *
@@ -872,19 +830,6 @@ void DxilMDHelper::LoadDxilParamAnnotations(const llvm::MDOperand &MDO,
     DxilParameterAnnotation &PA = FA.GetParameterAnnotation(i);
     LoadDxilParamAnnotation(MDO, PA);
   }
-}
-
-Metadata *DxilMDHelper::EmitDxilFunctionFPFlag(const DxilFunctionFPFlag &flag) {
-  return MDNode::get(m_Ctx, Int32ToConstMD(flag.GetFlagValue()));
-}
-
-void DxilMDHelper::LoadDxilFunctionFPFlag(const llvm::MDOperand &MDO,
-                                          DxilFunctionAnnotation &FA) {
-  IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
-  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  IFTBOOL(pTupleMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
-  FA.GetFlag().SetFlagValue(ConstMDToUint32(pTupleMD->getOperand(0)));
 }
 
 Metadata *

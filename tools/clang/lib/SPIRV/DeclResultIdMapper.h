@@ -23,8 +23,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Twine.h"
 
+#include "GlPerVertex.h"
 #include "SpirvEvalInfo.h"
 #include "TypeTranslator.h"
 
@@ -36,10 +36,15 @@ namespace spirv {
 class StageVar {
 public:
   inline StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
-                  const hlsl::Semantic *sema, uint32_t semaIndex, uint32_t type)
+                  const hlsl::Semantic *sema, llvm::StringRef semaName,
+                  uint32_t semaIndex, const VKBuiltInAttr *builtin,
+                  uint32_t type)
       : sigPoint(sig), semanticStr(semaStr), semantic(sema),
-        semanticIndex(semaIndex), typeId(type), valueId(0), isBuiltin(false),
-        storageClass(spv::StorageClass::Max), location(nullptr) {}
+        semanticName(semaName), semanticIndex(semaIndex), builtinAttr(builtin),
+        typeId(type), valueId(0), isBuiltin(false),
+        storageClass(spv::StorageClass::Max), location(nullptr) {
+    isBuiltin = builtinAttr != nullptr;
+  }
 
   const hlsl::SigPoint *getSigPoint() const { return sigPoint; }
   const hlsl::Semantic *getSemantic() const { return semantic; }
@@ -49,7 +54,9 @@ public:
   uint32_t getSpirvId() const { return valueId; }
   void setSpirvId(uint32_t id) { valueId = id; }
 
-  llvm::StringRef getSemanticStr() const { return semanticStr; }
+  const VKBuiltInAttr *getBuiltInAttr() const { return builtinAttr; }
+
+  std::string getSemanticStr() const;
   uint32_t getSemanticIndex() const { return semanticIndex; }
 
   bool isSpirvBuitin() const { return isBuiltin; }
@@ -69,8 +76,12 @@ private:
   llvm::StringRef semanticStr;
   /// HLSL semantic.
   const hlsl::Semantic *semantic;
+  /// Original HLSL semantic string (without index) in the source code.
+  llvm::StringRef semanticName;
   /// HLSL semantic index.
   uint32_t semanticIndex;
+  /// SPIR-V BuiltIn attribute.
+  const VKBuiltInAttr *builtinAttr;
   /// SPIR-V <type-id>.
   uint32_t typeId;
   /// SPIR-V <result-id>.
@@ -133,52 +144,48 @@ private:
 /// is required because of the semantic differences between DirectX and
 /// Vulkan and the essence of HLSL as the front-end language for DirectX.
 /// A normal variable attached with some semantic will be translated into a
-/// single stage variables if it is of non-struct type. If it is of struct
+/// single stage variable if it is of non-struct type. If it is of struct
 /// type, the fields with attached semantics will need to be translated into
 /// stage variables per Vulkan's requirements.
 class DeclResultIdMapper {
 public:
   inline DeclResultIdMapper(const hlsl::ShaderModel &stage, ASTContext &context,
-                            ModuleBuilder &builder, DiagnosticsEngine &diag,
+                            ModuleBuilder &builder,
                             const EmitSPIRVOptions &spirvOptions);
 
   /// \brief Creates the stage output variables by parsing the semantics
   /// attached to the given function's parameter or return value and returns
   /// true on success. SPIR-V instructions will also be generated to update the
   /// contents of the output variables by extracting sub-values from the given
-  /// storedValue.
+  /// storedValue. forPCF should be set to true for handling decls in patch
+  /// constant function.
+  ///
+  /// Note that the control point stage output variable of HS should be created
+  /// by the other overload.
   bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t storedValue,
-                            bool isPatchConstant);
+                            bool forPCF);
+  /// \brief Overload for handling HS control point stage ouput variable.
+  bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t arraySize,
+                            uint32_t invocationId, uint32_t storedValue);
 
   /// \brief Creates the stage input variables by parsing the semantics attached
   /// to the given function's parameter and returns true on success. SPIR-V
   /// instructions will also be generated to load the contents from the input
-  /// variables and composite them into one and write to *loadedValue.
+  /// variables and composite them into one and write to *loadedValue. forPCF
+  /// should be set to true for handling decls in patch constant function.
   bool createStageInputVar(const ParmVarDecl *paramDecl, uint32_t *loadedValue,
-                           bool isPatchConstant);
-
-  /// \brief Creates an input/output stage variable which does not have any
-  /// semantics (such as InputPatch/OutputPatch in Hull shaders). This method
-  /// does not create a Load/Store from/to the created stage variable and leaves
-  /// it to the caller to do so as they see fit, because it is possible that the
-  /// stage variable may have to be accessed differently (using OpAccessChain
-  /// for example).
-  uint32_t createStageVarWithoutSemantics(bool isInput, uint32_t typeId,
-                                          const llvm::StringRef name,
-                                          const clang::VKLocationAttr *loc);
+                           bool forPCF);
 
   /// \brief Creates a function-scope paramter in the current function and
   /// returns its <result-id>.
-  uint32_t createFnParam(uint32_t paramType, const ParmVarDecl *param);
+  uint32_t createFnParam(const ParmVarDecl *param);
 
   /// \brief Creates a function-scope variable in the current function and
   /// returns its <result-id>.
-  uint32_t createFnVar(uint32_t varType, const VarDecl *variable,
-                       llvm::Optional<uint32_t> init);
+  uint32_t createFnVar(const VarDecl *var, llvm::Optional<uint32_t> init);
 
   /// \brief Creates a file-scope variable and returns its <result-id>.
-  uint32_t createFileVar(uint32_t varType, const VarDecl *variable,
-                         llvm::Optional<uint32_t> init);
+  uint32_t createFileVar(const VarDecl *var, llvm::Optional<uint32_t> init);
 
   /// \brief Creates an external-visible variable and returns its <result-id>.
   uint32_t createExternVar(const VarDecl *var);
@@ -204,27 +211,25 @@ public:
   /// VarDecl does not need an extra OpAccessChain.
   uint32_t createCTBuffer(const VarDecl *decl);
 
+  /// \brief Creates a PushConstant block from the given decl.
+  uint32_t createPushConstant(const VarDecl *decl);
+
   /// \brief Sets the <result-id> of the entry function.
   void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
 
-public:
+private:
   /// The struct containing SPIR-V information of a AST Decl.
   struct DeclSpirvInfo {
-    DeclSpirvInfo(uint32_t result = 0,
-                  spv::StorageClass sc = spv::StorageClass::Function,
-                  LayoutRule lr = LayoutRule::Void, int indexInCTB = -1)
-        : resultId(result), storageClass(sc), layoutRule(lr),
-          indexInCTBuffer(indexInCTB) {}
+    /// Default constructor to satisfy DenseMap
+    DeclSpirvInfo() : info(0), indexInCTBuffer(-1) {}
+
+    DeclSpirvInfo(const SpirvEvalInfo &info_, int index = -1)
+        : info(info_), indexInCTBuffer(index) {}
 
     /// Implicit conversion to SpirvEvalInfo.
-    operator SpirvEvalInfo() const {
-      return SpirvEvalInfo(resultId, storageClass, layoutRule);
-    }
+    operator SpirvEvalInfo() const { return info; }
 
-    uint32_t resultId;
-    spv::StorageClass storageClass;
-    /// Layout rule for this decl.
-    LayoutRule layoutRule;
+    SpirvEvalInfo info;
     /// Value >= 0 means that this decl is a VarDecl inside a cbuffer/tbuffer
     /// and this is the index; value < 0 means this is just a standalone decl.
     int indexInCTBuffer;
@@ -232,12 +237,16 @@ public:
 
   /// \brief Returns the SPIR-V information for the given decl.
   /// Returns nullptr if no such decl was previously registered.
-  const DeclSpirvInfo *getDeclSpirvInfo(const NamedDecl *decl) const;
+  const DeclSpirvInfo *getDeclSpirvInfo(const ValueDecl *decl) const;
 
-  /// \brief Returns the information for the given decl.
+public:
+  /// \brief Returns the information for the given decl. If the decl is not
+  /// registered previously, return an invalid SpirvEvalInfo.
   ///
-  /// This method will panic if the given decl is not registered.
-  SpirvEvalInfo getDeclResultId(const NamedDecl *decl);
+  /// This method will emit a fatal error if checkRegistered is true and the
+  /// decl is not registered.
+  SpirvEvalInfo getDeclResultId(const ValueDecl *decl,
+                                bool checkRegistered = true);
 
   /// \brief Returns the <result-id> for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and
@@ -248,9 +257,34 @@ public:
   /// {RW|Append|Consume}StructuredBuffer variable.
   uint32_t getOrCreateCounterId(const ValueDecl *decl);
 
+  /// \brief Returns the <type-id> for the given cbuffer, tbuffer,
+  /// ConstantBuffer, TextureBuffer, or push constant block.
+  ///
+  /// Note: we need this method because constant/texture buffers and push
+  /// constant blocks are all represented as normal struct types upon which
+  /// they are parameterized. That is different from structured buffers,
+  /// for which we can tell they are not normal structs by investigating
+  /// the name. But for constant/texture buffers and push constant blocks,
+  /// we need to have the additional Block/BufferBlock decoration to keep
+  /// type consistent. Normal translation path for structs via TypeTranslator
+  /// won't attach Block/BufferBlock decoration.
+  uint32_t getCTBufferPushConstantTypeId(const DeclContext *decl);
+
   /// \brief Returns all defined stage (builtin/input/ouput) variables in this
   /// mapper.
   std::vector<uint32_t> collectStageVars() const;
+
+  /// \brief Writes out the contents in the function parameter for the GS
+  /// stream output to the corresponding stage output variables in a recursive
+  /// manner. Returns true on success, false if errors occur.
+  ///
+  /// decl is the Decl with semantic string attached and will be used to find
+  /// the stage output variable to write to, value is the <result-id> for the
+  /// SPIR-V variable to read data from.
+  ///
+  /// This method is specially for writing back per-vertex data at the time of
+  /// OpEmitVertex in GS.
+  bool writeBackOutputStream(const ValueDecl *decl, uint32_t value);
 
   /// \brief Decorates all stage input and output variables with proper
   /// location and returns true on success.
@@ -267,13 +301,40 @@ public:
   bool decorateResourceBindings();
 
 private:
+  /// \brief Wrapper method to create a fatal error message and report it
+  /// in the diagnostic engine associated with this consumer.
+  template <unsigned N>
+  DiagnosticBuilder emitFatalError(const char (&message)[N],
+                                   SourceLocation loc) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Fatal, message);
+    return diags.Report(loc, diagId);
+  }
+
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>
-  DiagnosticBuilder emitError(const char (&message)[N],
-                              SourceLocation loc = {}) {
+  DiagnosticBuilder emitError(const char (&message)[N], SourceLocation loc) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
+    return diags.Report(loc, diagId);
+  }
+
+  /// \brief Wrapper method to create a warning message and report it
+  /// in the diagnostic engine associated with this consumer.
+  template <unsigned N>
+  DiagnosticBuilder emitWarning(const char (&message)[N], SourceLocation loc) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Warning, message);
+    return diags.Report(loc, diagId);
+  }
+
+  /// \brief Wrapper method to create a note message and report it
+  /// in the diagnostic engine associated with this consumer.
+  template <unsigned N>
+  DiagnosticBuilder emitNote(const char (&message)[N], SourceLocation loc) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Note, message);
     return diags.Report(loc, diagId);
   }
 
@@ -289,37 +350,91 @@ private:
   /// construction.
   bool finalizeStageIOLocations(bool forInput);
 
-  /// Returns the type of the given decl. If the given decl is a FunctionDecl,
-  /// returns its result type.
-  QualType getFnParamOrRetType(const DeclaratorDecl *decl) const;
+  /// \brief An enum class for representing what the DeclContext is used for
+  enum class ContextUsageKind {
+    CBuffer,
+    TBuffer,
+    PushConstant,
+  };
 
   /// Creates a variable of struct type with explicit layout decorations.
   /// The sub-Decls in the given DeclContext will be treated as the struct
   /// fields. The struct type will be named as typeName, and the variable
   /// will be named as varName.
   ///
+  /// This method should only be used for cbuffers/ContantBuffers, tbuffers/
+  /// TextureBuffers, and PushConstants. usageKind must be set properly
+  /// depending on the usage kind.
+  ///
   /// Panics if the DeclContext is neither HLSLBufferDecl or RecordDecl.
   uint32_t createVarOfExplicitLayoutStruct(const DeclContext *decl,
+                                           ContextUsageKind usageKind,
                                            llvm::StringRef typeName,
                                            llvm::StringRef varName);
 
-  /// Creates all the stage variables mapped from semantics on the given decl
-  /// and returns true on success.
+  /// A struct containing information about a particular HLSL semantic.
+  struct SemanticInfo {
+    llvm::StringRef str;            ///< The original semantic string
+    const hlsl::Semantic *semantic; ///< The unique semantic object
+    llvm::StringRef name;           ///< The semantic string without index
+    uint32_t index;                 ///< The semantic index
+    SourceLocation loc;             ///< Source code location
+
+    bool isValid() const { return semantic != nullptr; }
+  };
+
+  /// Returns the given decl's HLSL semantic information.
+  static SemanticInfo getStageVarSemantic(const ValueDecl *decl);
+
+  /// Creates all the stage variables mapped from semantics on the given decl.
+  /// Returns true on sucess.
+  ///
+  /// If decl is of struct type, this means flattening it and create stand-
+  /// alone variables for each field. If arraySize is not zero, the created
+  /// stage variables will have an additional arrayness over its original type.
+  /// This is for supporting HS/DS/GS, which takes in primitives containing
+  /// multiple vertices. asType should be the type we are treating decl as;
+  /// For HS/DS/GS, the outermost arrayness should be discarded and use
+  /// arraySize instead.
+  ///
+  /// Also performs reading the stage variables and compose a temporary value
+  /// of the given type and writing into *value, if asInput is true. Otherwise,
+  /// Decomposes the *value according to type and writes back into the stage
+  /// output variables, unless noWriteBack is set to true. noWriteBack is used
+  /// by GS since in GS we manually control write back using .Append() method.
+  ///
+  /// invocationId is only used for HS to indicate the index of the output
+  /// array element to write to.
   ///
   /// Assumes the decl has semantic attached to itself or to its fields.
-  bool createStageVars(const DeclaratorDecl *decl, uint32_t *value,
-                       bool asInput, const llvm::Twine &namePrefix,
-                       bool isPatchConstant, bool isOutputStream = false);
+  /// If inheritSemantic is valid, it will override all semantics attached to
+  /// the children of this decl, and the children of this decl will be using
+  /// the semantic in inheritSemantic, with index increasing sequentially.
+  bool createStageVars(const hlsl::SigPoint *sigPoint,
+                       const DeclaratorDecl *decl, bool asInput, QualType type,
+                       uint32_t arraySize, const llvm::StringRef namePrefix,
+                       llvm::Optional<uint32_t> invocationId, uint32_t *value,
+                       bool noWriteBack, SemanticInfo *inheritSemantic);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
   /// its storage class accordingly. name will be used as the debug name when
   /// creating a stage input/output variable.
-  uint32_t createSpirvStageVar(StageVar *, const llvm::Twine &name);
+  uint32_t createSpirvStageVar(StageVar *, const DeclaratorDecl *decl,
+                               const llvm::StringRef name, SourceLocation);
+
+  /// Returns true if all vk::builtin usages are valid.
+  bool validateVKBuiltins(const DeclaratorDecl *decl,
+                          const hlsl::SigPoint *sigPoint);
 
   /// Creates the associated counter variable for RW/Append/Consume
   /// structured buffer.
   uint32_t createCounterVar(const ValueDecl *decl);
+
+  /// Decorates varId of the given asType with proper interpolation modes
+  /// considering the attributes on the given decl.
+  void decoratePSInterpolationMode(const DeclaratorDecl *decl, QualType asType,
+                                   uint32_t varId);
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.
@@ -332,6 +447,7 @@ private:
   const hlsl::ShaderModel &shaderModel;
   ModuleBuilder &theBuilder;
   const EmitSPIRVOptions &spirvOptions;
+  ASTContext &astContext;
   DiagnosticsEngine &diags;
 
   TypeTranslator typeTranslator;
@@ -339,22 +455,40 @@ private:
   uint32_t entryFunctionId;
 
   /// Mapping of all Clang AST decls to their <result-id>s.
-  llvm::DenseMap<const NamedDecl *, DeclSpirvInfo> astDecls;
+  llvm::DenseMap<const ValueDecl *, DeclSpirvInfo> astDecls;
   /// Vector of all defined stage variables.
   llvm::SmallVector<StageVar, 8> stageVars;
+  /// Mapping from Clang AST decls to the corresponding stage variables'
+  /// <result-id>s.
+  /// This field is only used by GS for manually emitting vertices, when
+  /// we need to query the <result-id> of the output stage variables
+  /// involved in writing back. For other cases, stage variable reading
+  /// and writing is done at the time of creating that stage variable,
+  /// so that we don't need to query them again for reading and writing.
+  llvm::DenseMap<const ValueDecl *, uint32_t> stageVarIds;
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
-  /// Mapping from {Append|Consume}StructuredBuffers to their counter variables
-  llvm::DenseMap<const NamedDecl *, uint32_t> counterVars;
+  /// Mapping from {RW|Append|Consume}StructuredBuffers to their
+  /// counter variables
+  llvm::DenseMap<const ValueDecl *, uint32_t> counterVars;
+
+  /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
+  /// to the <type-id>
+  llvm::DenseMap<const DeclContext *, uint32_t> ctBufferPCTypeIds;
+
+public:
+  /// The gl_PerVertex structs for both input and output
+  GlPerVertex glPerVertex;
 };
 
 DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        ASTContext &context,
                                        ModuleBuilder &builder,
-                                       DiagnosticsEngine &diag,
                                        const EmitSPIRVOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
-      diags(diag), typeTranslator(context, builder, diag), entryFunctionId(0) {}
+      astContext(context), diags(context.getDiagnostics()),
+      typeTranslator(context, builder, diags), entryFunctionId(0),
+      glPerVertex(model, context, builder, typeTranslator) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
   // Try both input and output even if input location assignment failed

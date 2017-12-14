@@ -154,6 +154,7 @@ public:
   LPCSTR  Text;       // HLSL Shader Text.
   LPCSTR  Arguments;  // Command line Arguments.
   LPCSTR  Defines;    // HLSL Defines.
+  BOOL    Compiled;   // Whether text is a base64-encoded value.
 };
 
 // Use this class to represent a value in the root signature.

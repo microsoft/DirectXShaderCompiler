@@ -90,10 +90,11 @@ public:
 private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
-  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N], SourceLocation loc) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
-    return diags.Report(diagId);
+    return diags.Report(loc, diagId);
   }
 
   /// Flattens the given InitListExpr and puts all non-InitListExpr AST nodes
@@ -116,13 +117,15 @@ private:
   /// Emits the necessary SPIR-V instructions to create a SPIR-V value of the
   /// given type. The scalars and initializers queue will be used to fetch the
   /// next value.
-  uint32_t createInitForType(QualType type);
-  uint32_t createInitForBuiltinType(QualType type);
-  uint32_t createInitForVectorType(QualType elemType, uint32_t count);
+  uint32_t createInitForType(QualType type, SourceLocation);
+  uint32_t createInitForBuiltinType(QualType type, SourceLocation);
+  uint32_t createInitForVectorType(QualType elemType, uint32_t count,
+                                   SourceLocation);
   uint32_t createInitForMatrixType(QualType elemType, uint32_t rowCount,
-                                   uint32_t colCount);
+                                   uint32_t colCount, SourceLocation);
   uint32_t createInitForStructType(QualType type);
-  uint32_t createInitForConstantArrayType(QualType type);
+  uint32_t createInitForConstantArrayType(QualType type, SourceLocation);
+  uint32_t createInitForSamplerImageType(QualType type, SourceLocation);
 
 private:
   SPIRVEmitter &theEmitter;

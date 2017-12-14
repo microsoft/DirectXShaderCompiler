@@ -336,3 +336,10 @@ float4 main() : SV_Target0 {
     
     return val;
 }
+
+// Test NoInline
+[noinline] bool Test_noinline() {
+  //[noinline] bool b = false;                  /* expected-warning {{'noinline' attribute only applies to functions}} fxc-pass {{}} */
+  //[noinline] while (g_bool) return g_bool;    /* expected-error {{'noinline' attribute cannot be applied to a statement}} fxc-pass {{}} */
+  return true;
+}

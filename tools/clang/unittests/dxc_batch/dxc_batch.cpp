@@ -891,7 +891,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     if (dxcOpts.ShowHelp) {
       std::string helpString;
       llvm::raw_string_ostream helpStream(helpString);
-      optionTable->PrintHelp(helpStream, "dxc_bach.exe", "HLSL Compiler");
+      optionTable->PrintHelp(helpStream, "dxc_bach.exe", "HLSL Compiler", "");
       helpStream << "multi-thread";
       helpStream.flush();
       dxc::WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());

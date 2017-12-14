@@ -851,9 +851,25 @@ def HLSLShader : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// Add experimental target-dependent attribute to function for backend ("exp-name"="value")
+def HLSLExperimental : InheritableAttr {
+  let Spellings = [CXX11<"", "experimental", 2017>];
+  let Args = [StringArgument<"name">, StringArgument<"value">];
+  let Subjects = SubjectList<[Function], ErrorDiag, "ExpectedFunction">;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts
+
+def VKBuiltIn : InheritableAttr {
+  let Spellings = [CXX11<"vk", "builtin">];
+  let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
+  let Args = [StringArgument<"BuiltIn">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
 
 def VKLocation : InheritableAttr {
   let Spellings = [CXX11<"vk", "location">];
@@ -871,7 +887,7 @@ def VKBinding : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-// StructuredBuffer types that can have associated counters.
+// StructuredBuffer types that can have associated counters
 def CounterStructuredBuffer : SubsetSubject<
     Var,
     [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
@@ -883,6 +899,17 @@ def VKCounterBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "counter_binding">];
   let Subjects = SubjectList<[CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
   let Args = [IntArgument<"Binding">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+// Global variables that are of struct type
+def StructGlobalVar : SubsetSubject<Var, [{S->hasGlobalStorage() && S->getType()->isStructureType()}]>;
+
+def VKPushConstant : InheritableAttr {
+  let Spellings = [CXX11<"vk", "push_constant">];
+  let Subjects = SubjectList<[StructGlobalVar], ErrorDiag, "ExpectedStructGlobalVar">;
+  let Args = [];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
@@ -1174,7 +1201,8 @@ def NoDuplicate : InheritableAttr {
 }
 
 def NoInline : InheritableAttr {
-  let Spellings = [GCC<"noinline">, Declspec<"noinline">];
+  let Spellings = [GCC<"noinline">, Declspec<"noinline">,
+    CXX11<"", "noinline", 2017>]; // HLSL Change
   let Subjects = SubjectList<[Function]>;
   let Documentation = [Undocumented];
 }

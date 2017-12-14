@@ -296,7 +296,7 @@ public:
   inline void setBound(uint32_t newBound);
 
   inline void addCapability(spv::Capability);
-  inline void addExtension(std::string extension);
+  inline void addExtension(llvm::StringRef extension);
   inline void addExtInstSet(uint32_t setId, llvm::StringRef extInstSet);
   inline void setAddressingModel(spv::AddressingModel);
   inline void setMemoryModel(spv::MemoryModel);
@@ -338,7 +338,7 @@ private:
 private:
   Header header; ///< SPIR-V module header.
   llvm::SetVector<spv::Capability> capabilities;
-  std::vector<std::string> extensions;
+  llvm::SetVector<std::string> extensions;
   llvm::MapVector<const char *, uint32_t> extInstSets;
   // Addressing and memory model must exist for a valid SPIR-V module.
   // We make them optional here just to provide extra flexibility of
@@ -379,6 +379,12 @@ BasicBlock::BasicBlock(uint32_t id, llvm::StringRef name)
 
 bool BasicBlock::isEmpty() const {
   return labelId == 0 && instructions.empty();
+}
+
+void BasicBlock::clear() {
+  labelId = 0;
+  debugName = "";
+  instructions.clear();
 }
 
 void BasicBlock::appendInstruction(Instruction &&inst) {
@@ -457,8 +463,8 @@ void SPIRVModule::addCapability(spv::Capability cap) {
   capabilities.insert(cap);
 }
 
-void SPIRVModule::addExtension(std::string ext) {
-  extensions.push_back(std::move(ext));
+void SPIRVModule::addExtension(llvm::StringRef ext) {
+  extensions.insert(ext.str());
 }
 
 uint32_t SPIRVModule::getExtInstSetId(llvm::StringRef setName) {

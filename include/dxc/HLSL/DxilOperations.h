@@ -56,6 +56,7 @@ public:
 
   llvm::Type *GetResRetType(llvm::Type *pOverloadType);
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
+  bool IsResRetType(llvm::Type *Ty);
 
   // Try to get the opcode class for a function.
   // Return true and set `opClass` if the given function is a dxil function.
@@ -64,6 +65,9 @@ public:
 
   // To check if operation uses strict precision types
   bool UseMinPrecision();
+
+  // Get the size of the type for a given layout
+  uint64_t GetAllocSizeForType(llvm::Type *Ty);
 
   // LLVM helpers. Perhaps, move to a separate utility class.
   llvm::Constant *GetI1Const(bool v);

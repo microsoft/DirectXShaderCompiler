@@ -224,18 +224,20 @@ def pack_prefix_stable : Flag<["-", "/"], "pack_prefix_stable">, Group<hlslcomp_
 def pack_optimized : Flag<["-", "/"], "pack_optimized">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Optimize signature packing assuming identical signature provided for each connecting stage">;
 def hlsl_version : Separate<["-", "/"], "HV">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
-  HelpText<"HLSL version (2016, 2017)">;
+  HelpText<"HLSL version (2016, 2017, 2018). Default is 2018">;
 def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Suppress warnings">;
 def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Read root signature from a #define">;
-def no_min_precision: Flag<["-", "/"], "no-min-precision">, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Do not use min precision but use strict precision types.">;
+def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>,
+  HelpText<"Enable 16bit types and disable min precision types. Available in HLSL 2018 and shader model 6.2">;
 def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
 // SPIRV Change Starts
 def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Generate SPIR-V code">;
+def fvk_ignore_unused_resources : Flag<["-"], "fvk-ignore-unused-resources">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Do not emit SPIR-V code for unused resources">;
 def fvk_stage_io_order_EQ : Joined<["-"], "fvk-stage-io-order=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Specify Vulkan stage I/O location assignment order">;
 def fvk_b_shift : MultiArg<["-"], "fvk-b-shift", 2>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
@@ -251,8 +253,8 @@ def fvk_u_shift : MultiArg<["-"], "fvk-u-shift", 2>, MetaVarName<"<shift> <space
 //////////////////////////////////////////////////////////////////////////////
 // fxc-based flags that don't match those previously defined.
 
-def target_profile : JoinedOrSeparate<["-", "/"], "T">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
-  HelpText<"Target profile">;
+def target_profile : JoinedOrSeparate<["-", "/"], "T">, Flags<[CoreOption]>, Group<hlslcomp_Group>, MetaVarName<"<profile>">,
+  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, vs_6_0, vs_6_1, vs_6_2, \n\t\t cs_6_0, cs_6_1, cs_6_2, gs_6_0, gs_6_1, gs_6_2, \n\t\t ds_6_0, ds_6_1, ds_6_2, hs_6_0, hs_6_1, hs_6_2, \n\t\t lib_6_0, lib_6_1, lib_6_2">;
 def entrypoint :  JoinedOrSeparate<["-", "/"], "E">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Entry point name">;
 // /I <include> - already defined above

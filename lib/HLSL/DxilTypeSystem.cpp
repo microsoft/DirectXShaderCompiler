@@ -158,39 +158,6 @@ const Function *DxilFunctionAnnotation::GetFunction() const {
   return m_pFunction;
 }
 
-DxilFunctionFPFlag &DxilFunctionAnnotation::GetFlag() {
-  return m_fpFlag;
-}
-
-const DxilFunctionFPFlag &DxilFunctionAnnotation::GetFlag() const {
-  return m_fpFlag;
-}
-
-//------------------------------------------------------------------------------
-//
-// DxilFunctionFPFlag class methods.
-//
-
-void DxilFunctionFPFlag::SetFP32DenormMode(const DXIL::FPDenormMode mode) {
-  m_flag |= ((uint32_t)mode & kFPDenormMask) << kFPDenormOffset;
-}
-
-DXIL::FPDenormMode DxilFunctionFPFlag::GetFP32DenormMode() {
-  return (DXIL::FPDenormMode)((m_flag >> kFPDenormOffset) & kFPDenormMask);
-}
-
-uint32_t DxilFunctionFPFlag::GetFlagValue() {
-  return m_flag;
-}
-
-const uint32_t DxilFunctionFPFlag::GetFlagValue() const {
-  return m_flag;
-}
-
-void DxilFunctionFPFlag::SetFlagValue(const uint32_t flag) {
-  m_flag = flag;
-}
-
 //------------------------------------------------------------------------------
 //
 // DxilStructAnnotationSystem class methods.
@@ -239,19 +206,11 @@ DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
 }
 
 DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotation(const Function *pFunction) {
-  DxilFunctionFPFlag flag;
-  flag.SetFlagValue(0);
-  DxilFunctionAnnotation *pA = AddFunctionAnnotationWithFPFlag(pFunction, &flag);
-  return pA;
-}
-
-DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotationWithFPFlag(const Function *pFunction, const DxilFunctionFPFlag *pFlag) {
   DXASSERT_NOMSG(m_FunctionAnnotations.find(pFunction) == m_FunctionAnnotations.end());
   DxilFunctionAnnotation *pA = new DxilFunctionAnnotation();
   m_FunctionAnnotations[pFunction] = unique_ptr<DxilFunctionAnnotation>(pA);
   pA->m_pFunction = pFunction;
   pA->m_parameterAnnotations.resize(pFunction->getFunctionType()->getNumParams());
-  pA->GetFlag().SetFlagValue(pFlag->GetFlagValue());
   return pA;
 }
 
@@ -355,7 +314,7 @@ void DxilTypeSystem::CopyFunctionAnnotation(const llvm::Function *pDstFunction,
   if (GetFunctionAnnotation(pDstFunction))
     return;
 
-  DxilFunctionAnnotation *dstAnnot = AddFunctionAnnotationWithFPFlag(pDstFunction, &src.GetFunctionAnnotation(pSrcFunction)->GetFlag());
+  DxilFunctionAnnotation *dstAnnot = AddFunctionAnnotation(pDstFunction);
 
   // Copy the annotation.
   *dstAnnot = *annot;
@@ -468,6 +427,46 @@ bool DxilTypeSystem::UseMinPrecision() {
     }
   }
   return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
+}
+
+DxilStructTypeIterator::DxilStructTypeIterator(llvm::StructType *sTy, DxilStructAnnotation *sAnnotation,
+  unsigned idx)
+  : STy(sTy), SAnnotation(sAnnotation), index(idx) {
+  DXASSERT(
+    sTy->getNumElements() == sAnnotation->GetNumFields(),
+    "Otherwise the pairing of annotation and struct type does not match.");
+}
+
+// prefix
+DxilStructTypeIterator &DxilStructTypeIterator::operator++() {
+  index++;
+  return *this;
+}
+// postfix
+DxilStructTypeIterator DxilStructTypeIterator::operator++(int) {
+  DxilStructTypeIterator iter(STy, SAnnotation, index);
+  index++;
+  return iter;
+}
+
+bool DxilStructTypeIterator::operator==(DxilStructTypeIterator iter) {
+  return iter.STy == STy && iter.SAnnotation == SAnnotation &&
+    iter.index == index;
+}
+
+bool DxilStructTypeIterator::operator!=(DxilStructTypeIterator iter) { return !(operator==(iter)); }
+
+std::pair<llvm::Type *, DxilFieldAnnotation *> DxilStructTypeIterator::operator*() {
+  return std::pair<llvm::Type *, DxilFieldAnnotation *>(
+    STy->getElementType(index), &SAnnotation->GetFieldAnnotation(index));
+}
+
+DxilStructTypeIterator begin(llvm::StructType *STy, DxilStructAnnotation *SAnno) {
+  return { STy, SAnno, 0 };
+}
+
+DxilStructTypeIterator end(llvm::StructType *STy, DxilStructAnnotation *SAnno) {
+  return { STy, SAnno, STy->getNumElements() };
 }
 
 } // namespace hlsl

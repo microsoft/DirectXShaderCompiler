@@ -790,6 +790,63 @@ public:
   InstBuilder &opSubgroupReadInvocationKHR(uint32_t result_type,
                                            uint32_t result_id, uint32_t value,
                                            uint32_t index);
+  InstBuilder &opGroupIAddNonUniformAMD(uint32_t result_type,
+                                        uint32_t result_id, uint32_t execution,
+                                        spv::GroupOperation operation,
+                                        uint32_t x);
+  InstBuilder &opGroupFAddNonUniformAMD(uint32_t result_type,
+                                        uint32_t result_id, uint32_t execution,
+                                        spv::GroupOperation operation,
+                                        uint32_t x);
+  InstBuilder &opGroupFMinNonUniformAMD(uint32_t result_type,
+                                        uint32_t result_id, uint32_t execution,
+                                        spv::GroupOperation operation,
+                                        uint32_t x);
+  InstBuilder &opGroupUMinNonUniformAMD(uint32_t result_type,
+                                        uint32_t result_id, uint32_t execution,
+                                        spv::GroupOperation operation,
+                                        uint32_t x);
+  InstBuilder &opGroupSMinNonUniformAMD(uint32_t result_type,
+                                        uint32_t result_id, uint32_t execution,
+                                        spv::GroupOperation operation,
+                                        uint32_t x);
+  InstBuilder &opGroupFMaxNonUniformAMD(uint32_t result_type,
+                                        uint32_t result_id, uint32_t execution,
+                                        spv::GroupOperation operation,
+                                        uint32_t x);
+  InstBuilder &opGroupUMaxNonUniformAMD(uint32_t result_type,
+                                        uint32_t result_id, uint32_t execution,
+                                        spv::GroupOperation operation,
+                                        uint32_t x);
+  InstBuilder &opGroupSMaxNonUniformAMD(uint32_t result_type,
+                                        uint32_t result_id, uint32_t execution,
+                                        spv::GroupOperation operation,
+                                        uint32_t x);
+  InstBuilder &opFragmentMaskFetchAMD(uint32_t result_type, uint32_t result_id,
+                                      uint32_t image, uint32_t coordinate);
+  InstBuilder &opFragmentFetchAMD(uint32_t result_type, uint32_t result_id,
+                                  uint32_t image, uint32_t coordinate,
+                                  uint32_t fragment_index);
+  InstBuilder &opSubgroupShuffleINTEL(uint32_t result_type, uint32_t result_id,
+                                      uint32_t data, uint32_t invocation_id);
+  InstBuilder &opSubgroupShuffleDownINTEL(uint32_t result_type,
+                                          uint32_t result_id, uint32_t current,
+                                          uint32_t next, uint32_t delta);
+  InstBuilder &opSubgroupShuffleUpINTEL(uint32_t result_type,
+                                        uint32_t result_id, uint32_t previous,
+                                        uint32_t current, uint32_t delta);
+  InstBuilder &opSubgroupShuffleXorINTEL(uint32_t result_type,
+                                         uint32_t result_id, uint32_t data,
+                                         uint32_t value);
+  InstBuilder &opSubgroupBlockReadINTEL(uint32_t result_type,
+                                        uint32_t result_id, uint32_t ptr);
+  InstBuilder &opSubgroupBlockWriteINTEL(uint32_t ptr, uint32_t data);
+  InstBuilder &opSubgroupImageBlockReadINTEL(uint32_t result_type,
+                                             uint32_t result_id, uint32_t image,
+                                             uint32_t coordinate);
+  InstBuilder &opSubgroupImageBlockWriteINTEL(uint32_t image,
+                                              uint32_t coordinate,
+                                              uint32_t data);
 
   // All-in-one methods for creating unary and binary operations.
   InstBuilder &unaryOp(spv::Op op, uint32_t result_type, uint32_t result_id,
@@ -800,6 +857,13 @@ public:
   // Methods for building constants.
   InstBuilder &opConstant(uint32_t result_type, uint32_t result_id,
                           uint32_t value);
+
+  // All-in-one method for creating different types of OpImageSample*.
+  InstBuilder &
+  opImageSample(uint32_t result_type, uint32_t result_id,
+                uint32_t sampled_image, uint32_t coordinate, uint32_t dref,
+                llvm::Optional<spv::ImageOperandsMask> image_operands,
+                bool isExplicit, bool isSparse);
 
   // Methods for supplying additional parameters.
   InstBuilder &fPFastMathMode(spv::FPFastMathModeMask);

@@ -22,8 +22,9 @@ float4 main() : SV_Target {
     return cbuffer1.f;
 }
 
-//CHECK: :10:30: error: resource binding #2 in descriptor set #0 already assigned
+//CHECK: :10:30: warning: resource binding #2 in descriptor set #0 already assigned
+//CHECK:   :7:3: note: binding number previously assigned here
 
-//CHECK: :13:29: error: resource binding #2 in descriptor set #0 already assigned
+//CHECK: :13:29: warning: resource binding #2 in descriptor set #0 already assigned
 
-//CHECK: :19:30: error: resource binding #3 in descriptor set #0 already assigned
+//CHECK: :19:30: warning: resource binding #3 in descriptor set #0 already assigned

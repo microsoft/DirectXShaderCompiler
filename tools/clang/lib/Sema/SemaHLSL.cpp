@@ -36,6 +36,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "gen_intrin_main_tables_15.h"
 #include "dxc/HLSL/HLOperations.h"
+#include "dxc/HLSL/DxilShaderModel.h"
 #include <array>
 
 enum ArBasicKind {
@@ -1068,6 +1069,38 @@ static const ArBasicKind g_UInt3264CT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_Float16CT[] =
+{
+  AR_BASIC_FLOAT16,
+  AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_Int16CT[] =
+{
+  AR_BASIC_INT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_UInt16CT[] =
+{
+  AR_BASIC_UINT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_Numeric16OnlyCT[] =
+{
+  AR_BASIC_FLOAT16,
+  AR_BASIC_INT16,
+  AR_BASIC_UINT16,
+  AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind* g_LegalIntrinsicCompTypes[] =
 {
@@ -1097,7 +1130,11 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_StringCT,           // LICOMPTYPE_STRING
   g_WaveCT,             // LICOMPTYPE_WAVE
   g_UInt64CT,           // LICOMPTYPE_UINT64
-  g_UInt3264CT          // LICOMPTYPE_UINT32_64
+  g_UInt3264CT,         // LICOMPTYPE_UINT32_64
+  g_Float16CT,          // LICOMPTYPE_FLOAT16
+  g_Int16CT,            // LICOMPTYPE_INT16
+  g_UInt16CT,           // LICOMPTYPE_UINT16
+  g_Numeric16OnlyCT     // LICOMPTYPE_NUMERIC16_ONLY
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
 
@@ -3039,27 +3076,65 @@ public:
     // TODO: enalbe this once we introduce precise master option
     bool UseMinPrecision = m_context->getLangOpts().UseMinPrecision;
     if (type == HLSLScalarType_int_min12) {
-      const char *PromotedType = "min16int"; // TODO: print int16 once we support true int16/uint16 support.
-      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min12int" << PromotedType;
-    }
-    else if (type == HLSLScalarType_float_min10) {
-      const char *PromotedType = UseMinPrecision ? "min16float": "half";
-      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << PromotedType;
+      const char *PromotedType =
+          UseMinPrecision ? HLSLScalarTypeNames[HLSLScalarType_int_min16]
+                          : HLSLScalarTypeNames[HLSLScalarType_int16];
+      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+          << HLSLScalarTypeNames[type] << PromotedType;
+    } else if (type == HLSLScalarType_float_min10) {
+      const char *PromotedType =
+          UseMinPrecision ? HLSLScalarTypeNames[HLSLScalarType_float_min16]
+                          : HLSLScalarTypeNames[HLSLScalarType_float16];
+      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+          << HLSLScalarTypeNames[type] << PromotedType;
     }
     if (!UseMinPrecision) {
       if (type == HLSLScalarType_float_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16float" << "half";
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << HLSLScalarTypeNames[type]
+            << HLSLScalarTypeNames[HLSLScalarType_float16];
+      } else if (type == HLSLScalarType_int_min16) {
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << HLSLScalarTypeNames[type]
+            << HLSLScalarTypeNames[HLSLScalarType_int16];
+      } else if (type == HLSLScalarType_uint_min16) {
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion)
+            << HLSLScalarTypeNames[type]
+            << HLSLScalarTypeNames[HLSLScalarType_uint16];
       }
-// TODO: Enable this once we support true int16/uint16 support.
-#if 0
-      else if (type == HLSLScalarType_int_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "int16";
-      }
-      else if (type == HLSLScalarType_uint_min16) {
-        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "uint16";
-      }
-#endif
     }
+  }
+
+  bool DiagnoseHLSLScalarType(HLSLScalarType type, SourceLocation Loc) {
+    if (getSema()->getLangOpts().HLSLVersion < 2018) {
+      switch (type) {
+      case HLSLScalarType_float16:
+      case HLSLScalarType_float32:
+      case HLSLScalarType_float64:
+      case HLSLScalarType_int16:
+      case HLSLScalarType_int32:
+      case HLSLScalarType_uint16:
+      case HLSLScalarType_uint32:
+        m_sema->Diag(Loc, diag::err_hlsl_unsupported_keyword_for_version)
+            << HLSLScalarTypeNames[type] << "2018";
+        return false;
+      default:
+        break;
+      }
+    }
+    if (getSema()->getLangOpts().UseMinPrecision) {
+      switch (type) {
+      case HLSLScalarType_float16:
+      case HLSLScalarType_int16:
+      case HLSLScalarType_uint16:
+        m_sema->Diag(Loc, diag::err_hlsl_unsupported_keyword_for_min_precision)
+            << HLSLScalarTypeNames[type];
+        return false;
+      default:
+        break;
+      }
+    }
+    return true;
   }
 
   bool LookupUnqualified(LookupResult &R, Scope *S) override
@@ -3083,7 +3158,7 @@ public:
     int colCount;
 
     // Try parsing hlsl scalar types that is not initialized at AST time.
-    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
+    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getSema()->getLangOpts())) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
       if (rowCount == 0 && colCount == 0) { // scalar
         TypedefDecl *typeDecl = LookupScalarType(parsedType);
@@ -3290,8 +3365,8 @@ public:
       case BuiltinType::Half: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16FLOAT : AR_BASIC_FLOAT16;
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
-      case BuiltinType::Short: return AR_BASIC_MIN16INT;    // rather than AR_BASIC_INT16
-      case BuiltinType::UShort: return AR_BASIC_MIN16UINT;  // rather than AR_BASIC_UINT16
+      case BuiltinType::Short: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16INT : AR_BASIC_INT16;
+      case BuiltinType::UShort: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16UINT : AR_BASIC_UINT16;
       case BuiltinType::Long: return AR_BASIC_INT32;
       case BuiltinType::ULong: return AR_BASIC_UINT32;
       case BuiltinType::LongLong: return AR_BASIC_INT64;
@@ -3369,8 +3444,8 @@ public:
     case AR_BASIC_LITERAL_INT:    return HLSLScalarType_int_lit;
     case AR_BASIC_INT8:           return HLSLScalarType_int;
     case AR_BASIC_UINT8:          return HLSLScalarType_uint;
-    case AR_BASIC_INT16:          return HLSLScalarType_uint;
-    case AR_BASIC_UINT16:         return HLSLScalarType_uint;
+    case AR_BASIC_INT16:          return HLSLScalarType_int16;
+    case AR_BASIC_UINT16:         return HLSLScalarType_uint16;
     case AR_BASIC_INT32:          return HLSLScalarType_int;
     case AR_BASIC_UINT32:         return HLSLScalarType_uint;
     case AR_BASIC_MIN10FLOAT:     return HLSLScalarType_float_min10;
@@ -3394,15 +3469,15 @@ public:
     case AR_OBJECT_NULL:          return m_context->VoidTy;
     case AR_BASIC_BOOL:           return m_context->BoolTy;
     case AR_BASIC_LITERAL_FLOAT:  return m_context->LitFloatTy;
-    case AR_BASIC_FLOAT16:        return m_context->getLangOpts().UseMinPrecision ? m_context->FloatTy : m_context->HalfTy;
+    case AR_BASIC_FLOAT16:        return m_context->HalfTy;
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->FloatTy;
     case AR_BASIC_FLOAT32:        return m_context->FloatTy;
     case AR_BASIC_FLOAT64:        return m_context->DoubleTy;
     case AR_BASIC_LITERAL_INT:    return m_context->LitIntTy;
     case AR_BASIC_INT8:           return m_context->IntTy;
     case AR_BASIC_UINT8:          return m_context->UnsignedIntTy;
-    case AR_BASIC_INT16:          return m_context->IntTy;
-    case AR_BASIC_UINT16:         return m_context->UnsignedIntTy;
+    case AR_BASIC_INT16:          return m_context->ShortTy;
+    case AR_BASIC_UINT16:         return m_context->UnsignedShortTy;
     case AR_BASIC_INT32:          return m_context->IntTy;
     case AR_BASIC_UINT32:         return m_context->UnsignedIntTy;
     case AR_BASIC_INT64:          return m_context->LongLongTy;
@@ -3555,7 +3630,7 @@ public:
   /// <param name="argCount">After execution, number of arguments in argTypes.</param>
   /// <remarks>On success, argTypes includes the clang Types to use for the signature, with the first being the return type.</remarks>
   bool MatchArguments(
-    _In_ const HLSL_INTRINSIC *pIntrinsic,
+    const _In_ HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement,
     _In_ ArrayRef<Expr *> Args, 
     _Out_writes_(g_MaxIntrinsicParamCount + 1) QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
@@ -4177,6 +4252,7 @@ public:
     }
 
     IntrinsicOp intrinOp = static_cast<IntrinsicOp>(intrinsic->Op);
+
     if (intrinOp == IntrinsicOp::MOP_SampleBias) {
       // Remove this when update intrinsic table not affect other things.
       // Change vector<float,1> into float for bias.
@@ -4434,8 +4510,15 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
+  m_baseTypes[HLSLScalarType_int16] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_int32] = m_context->IntTy;
   m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
+  m_baseTypes[HLSLScalarType_uint16] = m_context->UnsignedShortTy;
+  m_baseTypes[HLSLScalarType_uint32] = m_context->UnsignedIntTy;
   m_baseTypes[HLSLScalarType_uint64] = m_context->UnsignedLongLongTy;
+  m_baseTypes[HLSLScalarType_float16] = m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_float32] = m_context->FloatTy;
+  m_baseTypes[HLSLScalarType_float64] = m_context->DoubleTy;
 }
 
 void HLSLExternalSource::AddHLSLScalarTypes()
@@ -4903,8 +4986,17 @@ bool HLSLExternalSource::MatchArguments(
       if (pIntrinsic->pArgs[0].uComponentTypeId != INTRIN_COMPTYPE_FROM_TYPE_ELT0) {
         DXASSERT_NOMSG(pIntrinsic->pArgs[0].uComponentTypeId < MaxIntrinsicArgs);
         if (AR_BASIC_UNKNOWN == ComponentType[pIntrinsic->pArgs[0].uComponentTypeId]) {
-          ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
-            g_LegalIntrinsicCompTypes[pIntrinsic->pArgs[0].uLegalComponentTypes][0];
+          // half return type should map to float for min precision
+          if (pIntrinsic->pArgs[0].uLegalComponentTypes ==
+                  LEGAL_INTRINSIC_COMPTYPES::LICOMPTYPE_FLOAT16 &&
+              getSema()->getLangOpts().UseMinPrecision) {
+            ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
+              ArBasicKind::AR_BASIC_FLOAT32;
+          }
+          else {
+            ComponentType[pIntrinsic->pArgs[0].uComponentTypeId] =
+              g_LegalIntrinsicCompTypes[pIntrinsic->pArgs[0].uLegalComponentTypes][0];
+          }
         }
       }
     }
@@ -4934,7 +5026,7 @@ bool HLSLExternalSource::MatchArguments(
 
       if (AR_TOBJ_UNKNOWN == *pTT)
         return false;
-    }
+      }
     else if (pTT) {
       Template[i] = *pTT;
     }
@@ -6315,14 +6407,24 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT* count)
     return false;
   case AR_TOBJ_COMPOUND:
     {
+      UINT maxCount = 0;
+      { // Determine maximum count to prevent infinite loop on incomplete array
+        FlattenedTypeIterator itCount(SourceLocation(), type, *this);
+        maxCount = itCount.countRemaining();
+        if (!maxCount) {
+          return false; // empty struct.
+        }
+      }
       FlattenedTypeIterator it(SourceLocation(), type, *this);
-      // Return false for empty struct.
-      if (!it.hasCurrentElement())
-        return false;
       while (it.hasCurrentElement()) {
         bool isFieldNumeric = IsTypeNumeric(it.getCurrentElement(), &subCount);
         if (!isFieldNumeric) {
           return false;
+        }
+        if (*count >= maxCount) {
+          // this element is an incomplete array at the end; iterator will not advance past this element.
+          // don't add to *count either, so *count will represent minimum size of the structure.
+          break;
         }
         *count += (subCount * it.getCurrentElementSize());
         it.advanceCurrentElement(it.getCurrentElementSize());
@@ -7697,6 +7799,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(
   case BO_ShlAssign:
   case BO_ShrAssign:
   case BO_SubAssign:
+  case BO_OrAssign:
   case BO_XorAssign: {
     extern bool CheckForModifiableLvalue(Expr * E, SourceLocation Loc,
                                          Sema & S);
@@ -7834,12 +7937,16 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     // element kind may be taken from one side and the dimensions from the
     // other.
 
-    // Legal dimension combinations are identical, splat, and truncation.
-    // ResultTy will be set to whichever type can be converted to, if legal,
-    // with preference for leftType if both are possible.
-    if (FAILED(CombineDimensions(leftType, rightType, &ResultTy))) {
-      m_sema->Diag(OpLoc, diag::err_hlsl_type_mismatch);
-      return;
+    if (!isCompoundAssignment) {
+      // Legal dimension combinations are identical, splat, and truncation.
+      // ResultTy will be set to whichever type can be converted to, if legal,
+      // with preference for leftType if both are possible.
+      if (FAILED(CombineDimensions(leftType, rightType, &ResultTy))) {
+        m_sema->Diag(OpLoc, diag::err_hlsl_type_mismatch);
+        return;
+      }
+    } else {
+      ResultTy = LHS.get()->getType();
     }
 
     // Here, element kind is combined with dimensions for computation type.
@@ -8179,10 +8286,6 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 {
   DXASSERT_NOMSG(FunctionTemplate != nullptr);
 
-  DXASSERT(
-    ExplicitTemplateArgs == nullptr ||
-    ExplicitTemplateArgs->size() == 0, "otherwise parser failed to reject explicit template argument syntax");
-
   // Get information about the function we have.
   CXXMethodDecl* functionMethod = dyn_cast<CXXMethodDecl>(FunctionTemplate->getTemplatedDecl());
   DXASSERT(functionMethod != nullptr,
@@ -8256,6 +8359,66 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       continue;
     }
 
+    // Currently only intrinsic we allow for explicit template arguments are
+    // for Load return types for ByteAddressBuffer/RWByteAddressBuffer
+    // TODO: handle template arguments for future intrinsics in a more natural way
+
+    // Check Explicit template arguments
+    UINT intrinsicOp = (*cursor)->Op;
+    LPCSTR intrinsicName = (*cursor)->pArgs[0].pName;
+    bool Is2018 = getSema()->getLangOpts().HLSLVersion >= 2018;
+    bool IsBAB =
+        objectName == g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER] ||
+        objectName == g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER];
+    bool IsBABLoad = IsBAB && intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
+    bool IsBABStore = IsBAB && intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
+    if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
+      bool isLegalTemplate = false;
+      SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
+      auto TemplateDiag =
+          !IsBABLoad
+              ? diag::err_hlsl_intrinsic_template_arg_unsupported
+              : !Is2018 ? diag::err_hlsl_intrinsic_template_arg_requires_2018
+                        : diag::err_hlsl_intrinsic_template_arg_requires_2018;
+      if (IsBABLoad && Is2018 && ExplicitTemplateArgs->size() == 1) {
+        Loc = (*ExplicitTemplateArgs)[0].getLocation();
+        QualType explicitType = (*ExplicitTemplateArgs)[0].getArgument().getAsType();
+        ArTypeObjectKind explicitKind = GetTypeObjectKind(explicitType);
+        if (explicitKind == AR_TOBJ_BASIC || explicitKind == AR_TOBJ_VECTOR) {
+          isLegalTemplate = GET_BASIC_BITS(GetTypeElementKind(explicitType)) != BPROP_BITS64 ||
+            GetNumElements(explicitType) <= 2;
+        }
+        if (isLegalTemplate) {
+          argTypes[0] = explicitType;
+        }
+      }
+
+      if (!isLegalTemplate) {
+        getSema()->Diag(Loc, TemplateDiag) << intrinsicName;
+        return Sema::TemplateDeductionResult::TDK_Invalid;
+      }
+    } else if (IsBABStore) {
+      // Prior to HLSL 2018, Store operation only stored scalar uint.
+      if (!Is2018) {
+        if (GetNumElements(argTypes[2]) != 1) {
+          getSema()->Diag(Args[1]->getLocStart(),
+                          diag::err_ovl_no_viable_member_function_in_call)
+              << intrinsicName;
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        }
+        argTypes[2] = getSema()->getASTContext().getIntTypeForBitwidth(
+            32, /*signed*/ false);
+      } else {
+        // not supporting types > 16 bytes yet.
+        if (GET_BASIC_BITS(GetTypeElementKind(argTypes[2])) == BPROP_BITS64 &&
+            GetNumElements(argTypes[2]) > 2) {
+          getSema()->Diag(Args[1]->getLocStart(),
+                          diag::err_ovl_no_viable_member_function_in_call)
+              << intrinsicName;
+          return Sema::TemplateDeductionResult::TDK_Invalid;
+        }
+      }
+    }
     Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes, argCount);
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
@@ -8922,23 +9085,34 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   // NOTE: the information gathered here could be used to bypass code generation
   // on functions that are unreachable (as an early form of dead code elimination).
   if (pEntryPointDecl) {
-    if (const HLSLPatchConstantFuncAttr *Attr =
-            pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
-      NameLookup NL = GetSingleFunctionDeclByName(self, Attr->getFunctionName(), /*checkPatch*/ true);
-      if (NL.Found && NL.Other) {
-        unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-          "ambiguous patch constant function");
-        Diags.Report(NL.Found->getSourceRange().getBegin(), id);
-        Diags.Report(NL.Other->getLocation(), diag::note_previous_definition);
+    const auto *shaderModel =
+        hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
+
+    if (shaderModel->IsGS()) {
+      // Validate that GS has the maxvertexcount attribute
+      if (!pEntryPointDecl->hasAttr<HLSLMaxVertexCountAttr>()) {
+        self->Diag(pEntryPointDecl->getLocation(),
+                   diag::err_hlsl_missing_maxvertexcount_attr);
         return;
       }
-      if (!NL.Found || !NL.Found->hasBody()) {
-        unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-          "missing patch function definition");
-        Diags.Report(id);
+    } else if (shaderModel->IsHS()) {
+      if (const HLSLPatchConstantFuncAttr *Attr =
+              pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
+        NameLookup NL = GetSingleFunctionDeclByName(
+            self, Attr->getFunctionName(), /*checkPatch*/ true);
+        if (!NL.Found || !NL.Found->hasBody()) {
+          unsigned id =
+              Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+                                    "missing patch function definition");
+          Diags.Report(id);
+          return;
+        }
+        pPatchFnDecl = NL.Found;
+      } else {
+        self->Diag(pEntryPointDecl->getLocation(),
+                   diag::err_hlsl_missing_patchconstantfunc_attr);
         return;
       }
-      pPatchFnDecl = NL.Found;
     }
 
     hlsl::CallGraphWithRecurseGuard CG;
@@ -9883,10 +10057,13 @@ static void ValidateAttributeOnSwitchOrIf(Sema& S, Stmt* St, const AttributeList
   }
 }
 
-static StringRef ValidateAttributeStringArg(Sema& S, const AttributeList &A, _In_opt_z_ const char* values)
+static StringRef ValidateAttributeStringArg(Sema& S, const AttributeList &A, _In_opt_z_ const char* values, unsigned index = 0)
 {
   // values is an optional comma-separated list of potential values.
-  Expr* E = A.getArgAsExpr(0);
+  if (A.getNumArgs() <= index)
+    return StringRef();
+
+  Expr* E = A.getArgAsExpr(index);
   if (E->isTypeDependent() || E->isValueDependent() || E->getStmtClass() != Stmt::StringLiteralClass)
   {
     S.Diag(E->getLocStart(), diag::err_hlsl_attribute_expects_string_literal)
@@ -10145,9 +10322,17 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLMaxVertexCount:
-	  declAttr = ::new (S.Context) HLSLMaxVertexCountAttr(A.getRange(), S.Context,
-		  ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
-	  break;
+    declAttr = ::new (S.Context) HLSLMaxVertexCountAttr(A.getRange(), S.Context,
+      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLExperimental:
+    declAttr = ::new (S.Context) HLSLExperimentalAttr(A.getRange(), S.Context,
+      ValidateAttributeStringArg(S, A, nullptr, 0), ValidateAttributeStringArg(S, A, nullptr, 1),
+      A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_NoInline:
+    declAttr = ::new (S.Context) NoInlineAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
@@ -10169,6 +10354,11 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   Handled = true;
   switch (A.getKind())
   {
+  case AttributeList::AT_VKBuiltIn:
+    declAttr = ::new (S.Context) VKBuiltInAttr(A.getRange(), S.Context,
+      ValidateAttributeStringArg(S, A, "PointSize,HelperInvocation"),
+      A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKLocation:
     declAttr = ::new (S.Context) VKLocationAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
@@ -10181,6 +10371,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_VKCounterBinding:
     declAttr = ::new (S.Context) VKCounterBindingAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKPushConstant:
+    declAttr = ::new (S.Context) VKPushConstantAttr(A.getRange(), S.Context,
+      A.getAttributeSpellingListIndex());
     break;
   default:
     Handled = false;
@@ -10602,10 +10796,11 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     }
   }
 
+  HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
+  ArBasicKind basicKind = hlslSource->GetTypeElementKind(qt);
+
   if (hasSignSpec) {
-     HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
      ArTypeObjectKind objKind = hlslSource->GetTypeObjectKind(qt);
-     ArBasicKind basicKind = hlslSource->GetTypeElementKind(qt);
      // vectors or matrices can only have unsigned integer types.
      if (objKind == AR_TOBJ_MATRIX || objKind == AR_TOBJ_VECTOR || objKind == AR_TOBJ_BASIC || objKind == AR_TOBJ_ARRAY) {
          if (!IS_BASIC_UNSIGNABLE(basicKind)) {
@@ -10839,6 +11034,15 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     }
   }
 
+  // Validate that stream-ouput objects are marked as inout
+  if (isParameter && !(usageIn && usageOut) &&
+      (basicKind == ArBasicKind::AR_OBJECT_LINESTREAM ||
+       basicKind == ArBasicKind::AR_OBJECT_POINTSTREAM ||
+       basicKind == ArBasicKind::AR_OBJECT_TRIANGLESTREAM)) {
+    Diag(D.getLocStart(), diag::err_hlsl_missing_inout_attr);
+    result = false;
+  }
+
   // Validate unusual annotations.
   hlsl::DiagnoseUnusualAnnotationsForHLSL(*this, D.UnusualAnnotations);
   auto && unusualIter = D.UnusualAnnotations.begin();
@@ -10898,9 +11102,10 @@ bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
     StringRef nameIdentifier = idInfo->getName();
     HLSLScalarType parsedType;
     int rowCount, colCount;
-    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
+    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getLangOpts())) {
       HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
       hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
+      return hlslExternalSource->DiagnoseHLSLScalarType(parsedType, R.getNameLoc());
     }
   }
   return true;
@@ -11205,7 +11410,16 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "[shader(\"" << ACast->getStage() << "\")]\n";
     break;
   }
-  
+
+  case clang::attr::HLSLExperimental:
+  {
+    Attr * noconst = const_cast<Attr*>(A);
+    HLSLExperimentalAttr *ACast = static_cast<HLSLExperimentalAttr*>(noconst);
+    Indent(Indentation, Out);
+    Out << "[experimental(\"" << ACast->getName() << "\", \"" << ACast->getValue() << "\")]\n";
+    break;
+  }
+
   case clang::attr::HLSLMaxVertexCount:
   {
     Attr * noconst = const_cast<Attr*>(A);
@@ -11214,7 +11428,12 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "[maxvertexcount(" << ACast->getCount() << ")]\n";
     break;
   }
-  
+
+  case clang::attr::NoInline:
+    Indent(Indentation, Out);
+    Out << "[noinline]\n";
+    break;
+
   // Statement attributes
   case clang::attr::HLSLAllowUAVCondition:
     Indent(Indentation, Out);
@@ -11362,6 +11581,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLTriangle:
   case clang::attr::HLSLTriangleAdj:
   case clang::attr::HLSLGloballyCoherent:
+  case clang::attr::NoInline:
     return true;
   }
   

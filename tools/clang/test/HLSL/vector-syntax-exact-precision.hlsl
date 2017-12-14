@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -no-min-precision -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -enable-16bit-types -fsyntax-only -ffreestanding -verify -HV 2018 %s
 
 float3 f3_ones = 1.0.xxx;
 float3 f3_ones_exp = 2.0e+2.rrr;
@@ -90,19 +90,24 @@ void vector_out_of_bounds() {
 
 void vector_unsigned() {
    unsigned int4 intvector;
-   unsigned min16int4 min16vector;
-   unsigned int64_t3 int64vector;
-   unsigned uint3 uintvector;
-   unsigned min16uint4 min16uintvector;
-   unsigned uint64_t2 int64uintvector;
-   unsigned dword3 dwordvector; /* fxc-error {{X3000: unrecognized identifier 'dword3'}} */
+   unsigned min16int4 min16vector;                          /* expected-warning {{min16int is promoted to int}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned int64_t3 int64vector;                           /* fxc-error {{X3000: syntax error: unexpected token 'int64_t3'}} */
+   unsigned uint3 uintvector;                               /* fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16uint4 min16uintvector;                     /* expected-warning {{min16uint is promoted to uint}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned uint64_t2 int64uintvector;                      /* fxc-error {{X3000: syntax error: unexpected token 'uint64_t2'}} */
+   unsigned dword3 dwordvector; /* fxc-error {{X3000: syntax error: unexpected token 'dword3'}} */
 
    unsigned float2 floatvector; /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned bool3 boolvector;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned half4 halfvector;   /* expected-error {{'half' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned double1 doublevector;                           /* expected-error {{'double' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min12int2 min12intvector;                       /* expected-warning {{min12int is promoted to min16int}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min16float3 min16floatvector;                   /* expected-error {{'half' cannot be signed or unsigned}} expected-warning {{min16float is promoted to half}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min12int2 min12intvector;                       /* expected-warning {{min12int is promoted to int16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16float3 min16floatvector;                   /* expected-error {{'half' cannot be signed or unsigned}} expected-warning {{min16float is promoted to float16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
+
+   unsigned int16_t1 int16_tvector;                         /* fxc-error {{X3000: syntax error: unexpected token 'int16_t1'}} */
+   unsigned int32_t1 int32_tvector;                         /* fxc-error {{X3000: syntax error: unexpected token 'int32_t1'}} */
+   unsigned int64_t1 int64_tvector;                         /* fxc-error {{X3000: syntax error: unexpected token 'int64_t1'}} */
+
 }
 
 float fn() {
@@ -173,6 +178,47 @@ float fn() {
     */
     f.xx = 2; // expected-error {{vector is not assignable (contains duplicate components)}} fxc-error {{X3025: l-value specifies const object}}
     u3.x = u3.w;                                            /* expected-error {{vector swizzle 'w' is out of bounds}} fxc-error {{X3018: invalid subscript 'w'}} */
+
+
+    // vector for fixed width data types
+    int16_t1 int16_t1Vector1 = 0;                           /* fxc-error {{X3000: unrecognized identifier 'int16_t1'}} fxc-error {{X3000: unrecognized identifier 'int16_t1Vector1'}} */
+    int16_t2 int16_t1Vector2 = 1;                           /* fxc-error {{X3000: unrecognized identifier 'int16_t1Vector2'}} fxc-error {{X3000: unrecognized identifier 'int16_t2'}} */
+    int16_t3 int16_t1Vector3 = 2;                           /* fxc-error {{X3000: unrecognized identifier 'int16_t1Vector3'}} fxc-error {{X3000: unrecognized identifier 'int16_t3'}} */
+    int16_t4 int16_t1Vector4 = 3;                           /* fxc-error {{X3000: unrecognized identifier 'int16_t1Vector4'}} fxc-error {{X3000: unrecognized identifier 'int16_t4'}} */
+    int32_t1 int32_t1Vector1 = 4;                           /* fxc-error {{X3000: unrecognized identifier 'int32_t1'}} fxc-error {{X3000: unrecognized identifier 'int32_t1Vector1'}} */
+    int32_t2 int32_t1Vector2 = 5;                           /* fxc-error {{X3000: unrecognized identifier 'int32_t1Vector2'}} fxc-error {{X3000: unrecognized identifier 'int32_t2'}} */
+    int32_t3 int32_t1Vector3 = 6;                           /* fxc-error {{X3000: unrecognized identifier 'int32_t1Vector3'}} fxc-error {{X3000: unrecognized identifier 'int32_t3'}} */
+    int32_t4 int32_t1Vector4 = 7;                           /* fxc-error {{X3000: unrecognized identifier 'int32_t1Vector4'}} fxc-error {{X3000: unrecognized identifier 'int32_t4'}} */
+    int64_t1 int64_t1Vector1 = 8;                           /* fxc-error {{X3000: unrecognized identifier 'int64_t1'}} fxc-error {{X3000: unrecognized identifier 'int64_t1Vector1'}} */
+    int64_t2 int64_t1Vector2 = 9;                           /* fxc-error {{X3000: unrecognized identifier 'int64_t1Vector2'}} fxc-error {{X3000: unrecognized identifier 'int64_t2'}} */
+    int64_t3 int64_t1Vector3 = 10;                          /* fxc-error {{X3000: unrecognized identifier 'int64_t1Vector3'}} fxc-error {{X3000: unrecognized identifier 'int64_t3'}} */
+    int64_t4 int64_t1Vector4 = 11;                          /* fxc-error {{X3000: unrecognized identifier 'int64_t1Vector4'}} fxc-error {{X3000: unrecognized identifier 'int64_t4'}} */
+
+    uint16_t1 uint16_t1Vector1 = 0;                         /* fxc-error {{X3000: unrecognized identifier 'uint16_t1'}} fxc-error {{X3000: unrecognized identifier 'uint16_t1Vector1'}} */
+    uint16_t2 uint16_t1Vector2 = 1;                         /* fxc-error {{X3000: unrecognized identifier 'uint16_t1Vector2'}} fxc-error {{X3000: unrecognized identifier 'uint16_t2'}} */
+    uint16_t3 uint16_t1Vector3 = 2;                         /* fxc-error {{X3000: unrecognized identifier 'uint16_t1Vector3'}} fxc-error {{X3000: unrecognized identifier 'uint16_t3'}} */
+    uint16_t4 uint16_t1Vector4 = 3;                         /* fxc-error {{X3000: unrecognized identifier 'uint16_t1Vector4'}} fxc-error {{X3000: unrecognized identifier 'uint16_t4'}} */
+    uint32_t1 uint32_t1Vector1 = 4;                         /* fxc-error {{X3000: unrecognized identifier 'uint32_t1'}} fxc-error {{X3000: unrecognized identifier 'uint32_t1Vector1'}} */
+    uint32_t2 uint32_t1Vector2 = 5;                         /* fxc-error {{X3000: unrecognized identifier 'uint32_t1Vector2'}} fxc-error {{X3000: unrecognized identifier 'uint32_t2'}} */
+    uint32_t3 uint32_t1Vector3 = 6;                         /* fxc-error {{X3000: unrecognized identifier 'uint32_t1Vector3'}} fxc-error {{X3000: unrecognized identifier 'uint32_t3'}} */
+    uint32_t4 uint32_t1Vector4 = 7;                         /* fxc-error {{X3000: unrecognized identifier 'uint32_t1Vector4'}} fxc-error {{X3000: unrecognized identifier 'uint32_t4'}} */
+    uint64_t1 uint64_t1Vector1 = 8;                         /* fxc-error {{X3000: unrecognized identifier 'uint64_t1'}} fxc-error {{X3000: unrecognized identifier 'uint64_t1Vector1'}} */
+    uint64_t2 uint64_t1Vector2 = 9;                         /* fxc-error {{X3000: unrecognized identifier 'uint64_t1Vector2'}} fxc-error {{X3000: unrecognized identifier 'uint64_t2'}} */
+    uint64_t3 uint64_t1Vector3 = 10;                        /* fxc-error {{X3000: unrecognized identifier 'uint64_t1Vector3'}} fxc-error {{X3000: unrecognized identifier 'uint64_t3'}} */
+    uint64_t4 uint64_t1Vector4 = 11;                        /* fxc-error {{X3000: unrecognized identifier 'uint64_t1Vector4'}} fxc-error {{X3000: unrecognized identifier 'uint64_t4'}} */
+
+    float16_t1 float16_t1Vector1 = 1;                       /* fxc-error {{X3000: unrecognized identifier 'float16_t1'}} fxc-error {{X3000: unrecognized identifier 'float16_t1Vector1'}} */
+    float16_t2 float16_t1Vector2 = 2;                       /* fxc-error {{X3000: unrecognized identifier 'float16_t1Vector2'}} fxc-error {{X3000: unrecognized identifier 'float16_t2'}} */
+    float16_t3 float16_t1Vector3 = 3;                       /* fxc-error {{X3000: unrecognized identifier 'float16_t1Vector3'}} fxc-error {{X3000: unrecognized identifier 'float16_t3'}} */
+    float16_t4 float16_t1Vector4 = 4;                       /* fxc-error {{X3000: unrecognized identifier 'float16_t1Vector4'}} fxc-error {{X3000: unrecognized identifier 'float16_t4'}} */
+    float32_t1 float32_t1Vector1 = 5;                       /* fxc-error {{X3000: unrecognized identifier 'float32_t1'}} fxc-error {{X3000: unrecognized identifier 'float32_t1Vector1'}} */
+    float32_t2 float32_t1Vector2 = 6;                       /* fxc-error {{X3000: unrecognized identifier 'float32_t1Vector2'}} fxc-error {{X3000: unrecognized identifier 'float32_t2'}} */
+    float32_t3 float32_t1Vector3 = 7;                       /* fxc-error {{X3000: unrecognized identifier 'float32_t1Vector3'}} fxc-error {{X3000: unrecognized identifier 'float32_t3'}} */
+    float32_t4 float32_t1Vector4 = 8;                       /* fxc-error {{X3000: unrecognized identifier 'float32_t1Vector4'}} fxc-error {{X3000: unrecognized identifier 'float32_t4'}} */
+    float64_t1 float64_t1Vector1 = 9;                       /* fxc-error {{X3000: unrecognized identifier 'float64_t1'}} fxc-error {{X3000: unrecognized identifier 'float64_t1Vector1'}} */
+    float64_t2 float64_t1Vector2 = 10;                      /* fxc-error {{X3000: unrecognized identifier 'float64_t1Vector2'}} fxc-error {{X3000: unrecognized identifier 'float64_t2'}} */
+    float64_t3 float64_t1Vector3 = 11;                      /* fxc-error {{X3000: unrecognized identifier 'float64_t1Vector3'}} fxc-error {{X3000: unrecognized identifier 'float64_t3'}} */
+    float64_t4 float64_t1Vector4 = 12;                      /* fxc-error {{X3000: unrecognized identifier 'float64_t1Vector4'}} fxc-error {{X3000: unrecognized identifier 'float64_t4'}} */
 
     return f.x;
 }

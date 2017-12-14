@@ -18,15 +18,16 @@ namespace spirv {
 
 class FileTest : public ::testing::Test {
 public:
+  /// \brief Expected test result to be
+  enum class Expect {
+    Success, // Success (with or without warnings) - check disassembly
+    Warning, // Success (with warnings) - check warning message
+    Failure, // Failure (with errors) - check error message
+  };
+
   /// \brief Runs a File Test! (See class description for more info)
-  ///
-  /// If the compilation is expected to fail, expectedSuccess should be
-  /// set to false.
-  /// It is important that all generated SPIR-V code is valid. Users of
-  /// FileTest may choose not to run the SPIR-V validator (for cases where
-  /// a certain feature has not been added to the validator yet).
-  void runFileTest(llvm::StringRef path, bool expectSuccess = true,
-                   bool runSpirvValidation = true);
+  void runFileTest(llvm::StringRef path, Expect expect = Expect::Success,
+                   bool runValidation = true);
 
 private:
   /// \brief Reads in the given input file.

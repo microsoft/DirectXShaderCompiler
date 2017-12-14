@@ -583,16 +583,23 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
-dxc.exe %script_dir%\smoke.hlsl /Tps_6_2 /no-min-precision 1>nul
+dxc.exe %script_dir%\smoke.hlsl /Tps_6_2 /enable-16bit-types 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to compile %script_dir%\smoke.hlsl with /no-min-precision option
+  echo Failed to compile %script_dir%\smoke.hlsl with /enable-16bit-types option
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe %script_dir%\smoke.hlsl /Tps_6_1 /no-min-precision 2>nul
+dxc.exe %script_dir%\smoke.hlsl /Tps_6_1 /enable-16bit-types 2>nul
 if %errorlevel% equ 0 (
-  echo dxc incorrectly compiled %script_dir%\smoke.hlsl shader model 6.1 with /no-min-precision option
+  echo dxc incorrectly compiled %script_dir%\smoke.hlsl shader model 6.1 with /enable-16bit-types option
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+dxc.exe %script_dir%\smoke.hlsl /Tps_6_2 /enable-16bit-types /HV 2017 2>nul
+if %errorlevel% equ 0 (
+  echo dxc incorrectly compiled %script_dir%\smoke.hlsl shader model 6.2 with /enable-16bit-types and /HV 2017 option
   call :cleanup 2>nul
   exit /b 1
 )

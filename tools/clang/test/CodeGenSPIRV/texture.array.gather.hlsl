@@ -9,6 +9,10 @@ TextureCubeArray <float>  t8 : register(t8);
 // .Gather() does not support Texture1DArray.
 
 // CHECK: OpCapability ImageGatherExtended
+// CHECK: OpCapability SparseResidency
+
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
+// CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4float
 
 // CHECK: [[v4fc:%\d+]] = OpConstantComposite %v4float %float_0_1 %float_0_2 %float_0_3 %float_0_4
 
@@ -42,5 +46,29 @@ float4 main(float3 location: A, int2 offset: B) : SV_Target {
 // CHECK-NEXT:            {{%\d+}} = OpImageGather %v4float [[sampledImg]] [[v4fc]] %int_0
     float4 val8 = t8.Gather(gSampler, float4(0.1, 0.2, 0.3, 0.4));
 
+    uint status;
+// CHECK:                [[t6:%\d+]] = OpLoad %type_2d_image_array_0 %t6
+// CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT:          [[loc:%\d+]] = OpLoad %v3float %location
+// CHECK-NEXT:       [[offset:%\d+]] = OpLoad %v2int %offset
+// CHECK-NEXT:   [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_1 [[t6]] [[gSampler]]
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseGather %SparseResidencyStruct [[sampledImg]] [[loc]] %int_0 Offset [[offset]]
+// CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
+// CHECK-NEXT:                         OpStore %status [[status]]
+// CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4int [[structResult]] 1
+// CHECK-NEXT:                         OpStore %val9 [[result]]
+    int4 val9 = t6.Gather(gSampler, location, offset, status);
+
+// CHECK:                [[t8:%\d+]] = OpLoad %type_cube_image_array_0 %t8
+// CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT:   [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_2 [[t8]] [[gSampler]]
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseGather %SparseResidencyStruct_0 [[sampledImg]] [[v4fc]] %int_0 None
+// CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
+// CHECK-NEXT:                         OpStore %status [[status]]
+// CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
+// CHECK-NEXT:                         OpStore %val10 [[result]]
+    float4 val10 = t8.Gather(gSampler, float4(0.1, 0.2, 0.3, 0.4), status);
+
     return 1.0;
 }
+

@@ -138,25 +138,6 @@ private:
   std::vector<unsigned> m_semanticIndex;
 };
 
-/// Use this class to represent floating point operations flags for LLVM function
-class DxilFunctionFPFlag {
-  friend class DxilFunctionAnnotation;
-public:
-  static const unsigned kFPDenormMask      = 0x00000007;
-  static const unsigned kFPDenormOffset    = 0;
-
-  void SetFP32DenormMode(const DXIL::FPDenormMode mode);
-  DXIL::FPDenormMode GetFP32DenormMode();
-
-  uint32_t GetFlagValue();
-  const uint32_t GetFlagValue() const;
-  void SetFlagValue(const uint32_t flag);
-
-  DxilFunctionFPFlag(uint32_t flag = 0) : m_flag(flag) {}
-private:
-  uint32_t m_flag;
-};
-
 /// Use this class to represent LLVM function annotation.
 class DxilFunctionAnnotation {
   friend class DxilTypeSystem;
@@ -168,13 +149,10 @@ public:
   const llvm::Function *GetFunction() const;
   DxilParameterAnnotation &GetRetTypeAnnotation();
   const DxilParameterAnnotation &GetRetTypeAnnotation() const;
-  DxilFunctionFPFlag &GetFlag();
-  const DxilFunctionFPFlag &GetFlag() const;
 private:
   const llvm::Function *m_pFunction;
   std::vector<DxilParameterAnnotation> m_parameterAnnotations;
   DxilParameterAnnotation m_retTypeAnnotation;
-  DxilFunctionFPFlag m_fpFlag;
 };
 
 /// Use this class to represent structure type annotations in HL and DXIL.
@@ -193,7 +171,6 @@ public:
   StructAnnotationMap &GetStructAnnotationMap();
 
   DxilFunctionAnnotation *AddFunctionAnnotation(const llvm::Function *pFunction);
-  DxilFunctionAnnotation *AddFunctionAnnotationWithFPFlag(const llvm::Function *pFunction, const DxilFunctionFPFlag *flag);
   DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction);
   const DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction) const;
   void EraseFunctionAnnotation(const llvm::Function *pFunction);
@@ -224,5 +201,30 @@ private:
 };
 
 DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind SK, bool isPC);
+
+class DxilStructTypeIterator
+    : public std::iterator<std::input_iterator_tag,
+                           std::pair<llvm::Type *, DxilFieldAnnotation *>> {
+private:
+  llvm::StructType *STy;
+  DxilStructAnnotation *SAnnotation;
+  unsigned index;
+
+public:
+  DxilStructTypeIterator(llvm::StructType *sTy,
+                         DxilStructAnnotation *sAnnotation, unsigned idx = 0);
+  // prefix
+  DxilStructTypeIterator &operator++();
+  // postfix
+  DxilStructTypeIterator operator++(int);
+
+  bool operator==(DxilStructTypeIterator iter);
+  bool operator!=(DxilStructTypeIterator iter);
+  std::pair<llvm::Type *, DxilFieldAnnotation *> operator*();
+};
+
+DxilStructTypeIterator begin(llvm::StructType *STy,
+                             DxilStructAnnotation *SAnno);
+DxilStructTypeIterator end(llvm::StructType *STy, DxilStructAnnotation *SAnno);
 
 } // namespace hlsl

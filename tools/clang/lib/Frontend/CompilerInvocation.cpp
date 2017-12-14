@@ -1720,20 +1720,31 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       getLastArgIntValue(Args, OPT_fsanitize_address_field_padding, 0, Diags);
   Opts.SanitizerBlacklistFiles = Args.getAllArgValues(OPT_fsanitize_blacklist);
 #else
-  StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  Opts.HLSL2015 = Opts.HLSL2016 = Opts.HLSL2017 = false;
-  if (ver.empty() || ver == "2016" || ver == "-2016") { Opts.HLSL2016 = true; }   // Default to 2016
-  else if           (ver == "2015" || ver == "-2015") { Opts.HLSL2015 = true; }
-  else if           (ver == "2017" || ver == "-2017") { Opts.HLSL2017 = true; }
+  llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
+  if (ver.empty()) { Opts.HLSLVersion = 2018; }   // Default to latest
   else {
-    Diags.Report(diag::err_drv_invalid_value)
-      << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
-      << ver;
+    try {
+      Opts.HLSLVersion = std::stoi(std::string(ver));
+      if (Opts.HLSLVersion < 2015 || Opts.HLSLVersion > 2018) {
+       Diags.Report(diag::err_drv_invalid_value)
+        << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
+        << ver;
+      }
+    }
+    catch (const std::invalid_argument &) {
+      Diags.Report(diag::err_drv_invalid_value)
+        << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
+        << ver;
+    }
+    catch (const std::out_of_range &) {
+      Diags.Report(diag::err_drv_invalid_value)
+        << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
+        << ver;
+    }
   }
-
   // Enable low precision for HLSL 2018
   // TODO: should we tie low precision to HLSL2018 only?
-  Opts.UseMinPrecision = !Args.hasArg(options::OPT_no_min_precision);
+  Opts.UseMinPrecision = !Args.hasArg(options::OPT_enable_16bit_types);
 #endif // #ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 }
 

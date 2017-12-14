@@ -206,13 +206,13 @@ void PrintSignature(LPCSTR pName, const DxilProgramSignature *pSignature,
       pFormat = "uint";
       break;
     case DxilProgramSigCompType::UInt16:
-      pFormat = "min16u";
+      pFormat = "uint16";
       break;
     case DxilProgramSigCompType::SInt16:
-      pFormat = "min16i";
+      pFormat = "int16";
       break;
     case DxilProgramSigCompType::Float16:
-      pFormat = "min16f";
+      pFormat = "fp16";
       break;
     case DxilProgramSigCompType::UInt64:
       pFormat = "uint64";
@@ -964,7 +964,9 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // WaveAllBitCount
   "(value)",  // WavePrefixBitCount
   "(inputSigId,inputRowIndex,inputColIndex,VertexID)",  // AttributeAtVertex
-  "()"  // ViewID
+  "()",  // ViewID
+  "(srv,index,elementOffset,mask,alignment)",  // RawBufferLoad
+  "(uav,index,elementOffset,value0,value1,value2,value3,mask,alignment)"  // RawBufferStore
 };
 // OPCODE-SIGS:END
 

@@ -64,16 +64,24 @@ const char* HLSLScalarTypeNames[] = {
   "min12int",
   "min16int",
   "min16uint",
-  "literal int",
   "literal float",
+  "literal int",
+  "int16_t",
+  "int32_t",
   "int64_t",
+  "uint16_t",
+  "uint32_t",
   "uint64_t",
+  "float16_t",
+  "float32_t",
+  "float64_t"
 };
 
 static_assert(HLSLScalarTypeCount == _countof(HLSLScalarTypeNames), "otherwise scalar constants are not aligned");
 
-static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t typeLen) {
+static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t typeLen, const LangOptions& langOptions) {
   // skipped HLSLScalarType: unknown, literal int, literal float
+
   switch (typeLen) {
     case 3: // int
       if (typeName[0] == 'i') {
@@ -120,11 +128,12 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
       break;
     case 7: // int64_t
       if (typeName[0] == 'i' && typeName[1] == 'n') {
-        if (strncmp(typeName, "int64_t", 7))
-          break;
-        return HLSLScalarType_int64;
+        if (typeName[3] == '6') {
+          if (strncmp(typeName, "int64_t", 7))
+            break;
+          return HLSLScalarType_int64;
+        }
       }
-      break;
     case 8: // min12int, min16int, uint64_t
       if (typeName[0] == 'm' && typeName[1] == 'i') {
         if (typeName[4] == '2') {
@@ -138,10 +147,12 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
           return HLSLScalarType_int_min16;
         }
       }
-      if (typeName[0] == 'u' && typeName[1] == 'i') {
-        if (strncmp(typeName, "uint64_t", 8))
-          break;
-        return HLSLScalarType_uint64;
+      else if (typeName[0] == 'u' && typeName[1] == 'i') {
+        if (typeName[4] == '6') {
+          if (strncmp(typeName, "uint64_t", 8))
+            break;
+          return HLSLScalarType_uint64;
+        }
       }
       break;
     case 9: // min16uint
@@ -167,6 +178,62 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
       break;
     default:
       break;
+  }
+  // fixed width types (int16_t, uint16_t, int32_t, uint32_t, float16_t, float32_t, float64_t)
+  // are only supported in HLSL 2018
+  if (langOptions.HLSLVersion >= 2018) {
+    switch (typeLen) {
+    case 7: // int16_t, int32_t
+      if (typeName[0] == 'i' && typeName[1] == 'n') {
+        if (!langOptions.UseMinPrecision) {
+          if (typeName[3] == '1') {
+            if (strncmp(typeName, "int16_t", 7))
+              break;
+            return HLSLScalarType_int16;
+          }
+        }
+        if (typeName[3] == '3') {
+          if (strncmp(typeName, "int32_t", 7))
+            break;
+          return HLSLScalarType_int32;
+        }
+      }
+    case 8: // uint16_t, uint32_t
+      if (!langOptions.UseMinPrecision) {
+        if (typeName[0] == 'u' && typeName[1] == 'i') {
+          if (typeName[4] == '1') {
+            if (strncmp(typeName, "uint16_t", 8))
+              break;
+            return HLSLScalarType_uint16;
+          }
+        }
+      }
+      if (typeName[4] == '3') {
+        if (strncmp(typeName, "uint32_t", 8))
+          break;
+        return HLSLScalarType_uint32;
+      }
+    case 9: // float16_t, float32_t, float64_t
+      if (typeName[0] == 'f' && typeName[1] == 'l') {
+        if (!langOptions.UseMinPrecision) {
+          if (typeName[5] == '1') {
+            if (strncmp(typeName, "float16_t", 9))
+              break;
+            return HLSLScalarType_float16;
+          }
+        }
+        if (typeName[5] == '3') {
+          if (strncmp(typeName, "float32_t", 9))
+            break;
+          return HLSLScalarType_float32;
+        }
+        else if (typeName[5] == '6') {
+          if (strncmp(typeName, "float64_t", 9))
+            break;
+          return HLSLScalarType_float64;
+        }
+      }
+    }
   }
   return HLSLScalarType_unknown;
 }
@@ -880,7 +947,8 @@ bool hlsl::TryParseMatrixShorthand(
   size_t typeNameLen,
   HLSLScalarType* parsedType,
   int* rowCount,
-  int* colCount
+  int* colCount,
+  const clang::LangOptions& langOptions
 )
 {
   //
@@ -889,10 +957,10 @@ bool hlsl::TryParseMatrixShorthand(
   // x is a literal 'x' character.
   // PrimitiveType is one of the HLSLScalarTypeNames values.
   //
-  if (TryParseMatrixOrVectorDimension(typeName, typeNameLen, rowCount, colCount) &&
+  if (TryParseMatrixOrVectorDimension(typeName, typeNameLen, rowCount, colCount, langOptions) &&
     *rowCount != 0 && *colCount != 0) {
     // compare scalar component
-    HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen-3);
+    HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen-3, langOptions);
     if (type!= HLSLScalarType_unknown) {
       *parsedType = type;
       return true;
@@ -908,13 +976,14 @@ bool hlsl::TryParseVectorShorthand(
   const char* typeName,
   size_t typeNameLen,
   HLSLScalarType* parsedType,
-  int* elementCount
+  int* elementCount,
+  const clang::LangOptions& langOptions
   )
 {
   // At least *something*N characters necessary, where something is at least 'int'
   if (TryParseColOrRowChar(typeName[typeNameLen - 1], elementCount)) {
     // compare scalar component
-    HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen-1);
+    HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen-1, langOptions);
     if (type!= HLSLScalarType_unknown) {
       *parsedType = type;
       return true;
@@ -930,9 +999,9 @@ bool hlsl::TryParseScalar(
   _In_count_(typenameLen)
             const char* typeName,
             size_t typeNameLen,
-  _Out_     HLSLScalarType *parsedType
-) {
-  HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen);
+  _Out_     HLSLScalarType *parsedType,
+  _In_      const clang::LangOptions& langOptions) {
+  HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen, langOptions);
   if (type!= HLSLScalarType_unknown) {
     *parsedType = type;
     return true;
@@ -948,15 +1017,15 @@ bool hlsl::TryParseAny(
   size_t typeNameLen,
   _Out_ HLSLScalarType *parsedType,
   int *rowCount,
-  int *colCount
-) {
+  int *colCount,
+  _In_ const clang::LangOptions& langOptions) {
   // at least 'int'
   const size_t MinValidLen = 3;
   if (typeNameLen >= MinValidLen) {
-    TryParseMatrixOrVectorDimension(typeName, typeNameLen, rowCount, colCount);
+    TryParseMatrixOrVectorDimension(typeName, typeNameLen, rowCount, colCount, langOptions);
     int suffixLen = *colCount == 0 ? 0 :
                     *rowCount == 0 ? 1 : 3;
-    HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen-suffixLen);
+    HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen-suffixLen, langOptions);
     if (type!= HLSLScalarType_unknown) {
       *parsedType = type;
       return true;
@@ -974,8 +1043,8 @@ bool hlsl::TryParseMatrixOrVectorDimension(
     const char *typeName,
     size_t typeNameLen,
     _Out_opt_ int *rowCount,
-    _Out_opt_ int *colCount
-) {
+    _Out_opt_ int *colCount,
+  _In_      const clang::LangOptions& langOptions) {
   *rowCount = 0;
   *colCount = 0;
   size_t MinValidLen = 3; // at least int

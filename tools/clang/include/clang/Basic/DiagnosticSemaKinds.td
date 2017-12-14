@@ -2326,6 +2326,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "functions and global variables|structs, unions, and typedefs|structs and typedefs|"
   "interface or protocol declarations|kernel functions|"
   // SPIRV Change Starts
+  "global variables of struct type|"
   "global variables, cbuffers, and tbuffers|"
   "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
   // SPIRV Change Ends
@@ -7444,7 +7445,9 @@ def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
 def err_hlsl_cannot_convert: Error<
   "cannot %select{implicitly |}0convert %select{|output parameter }1from %2 to %3">;
-def err_hlsl_interfaces_cannot_inherit : Error<
+def err_hlsl_half_load_store: Error<
+  "LoadHalf and StoreHalf are not supported for min precision mode">;
+def err_hlsl_interfaces_cannot_inherit: Error<
   "interfaces cannot inherit from other types">;
 def err_hlsl_invalid_range_1_4: Error<
   "invalid value, valid range is between 1 and 4 inclusive">;
@@ -7642,9 +7645,25 @@ def warn_hlsl_effect_object : Warning <
 def warn_hlsl_unused_call : Warning<
   "ignoring return value of function that only reads data">,
   InGroup<UnusedValue>;
-}
 def err_hlsl_func_in_func_decl : Error<
    "function declaration is not allowed in function parameters">;
+def err_hlsl_unsupported_keyword_for_version : Error<
+   "%0 is only allowed for HLSL %1 and above.">;
+def err_hlsl_unsupported_keyword_for_min_precision : Error<
+   "%0 is only supported with -enable-16bit-types option">;
+def err_hlsl_intrinsic_template_arg_unsupported: Error<
+   "Explicit template arguments on intrinsic %0 are not supported.">;
+def err_hlsl_intrinsic_template_arg_requires_2018: Error<
+   "Explicit template arguments on intrinsic %0 requires HLSL version 2018 or above.">;
+def err_hlsl_intrinsic_template_arg_scalar_vector_16: Error<
+   "Explicit template arguments on intrinsic %0 are limited one to scalar or vector type up to 16 bytes in size.">;
+}
+def err_hlsl_missing_maxvertexcount_attr: Error<
+   "GS entry point must have the maxvertexcount attribute">;
+def err_hlsl_missing_patchconstantfunc_attr: Error<
+   "HS entry point must have the patchconstantfunc attribute">;
+def err_hlsl_missing_inout_attr: Error<
+   "stream-output object must be an inout parameter">;
 // HLSL Change Ends
 
 let CategoryName = "OpenMP Issue" in {

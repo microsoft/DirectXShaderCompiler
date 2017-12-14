@@ -47,7 +47,6 @@ class DxilStructAnnotation;
 class DxilFieldAnnotation;
 class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
-class DxilFunctionFPFlag;
 class RootSignatureHandle;
 class DxilViewIdState;
 struct DxilFunctionProps;
@@ -171,8 +170,7 @@ public:
   static const char kDxilTypeSystemMDName[];
   static const char kDxilTypeSystemHelperVariablePrefix[];
   static const unsigned kDxilTypeSystemStructTag                  = 0;
-  static const unsigned kDxilTypeSystemFunctionTag                = 1; // For DXIL <= 1.1
-  static const unsigned kDxilTypeSystemFunction2Tag               = 2; // For DXIL >= 1.2
+  static const unsigned kDxilTypeSystemFunctionTag                = 1;
   static const unsigned kDxilFieldAnnotationSNormTag              = 0;
   static const unsigned kDxilFieldAnnotationUNormTag              = 1;
   static const unsigned kDxilFieldAnnotationMatrixTag             = 2;
@@ -335,14 +333,10 @@ public:
   void LoadDxilFieldAnnotation(const llvm::MDOperand &MDO, DxilFieldAnnotation &FA);
   llvm::Metadata *EmitDxilFunctionAnnotation(const DxilFunctionAnnotation &FA);
   void LoadDxilFunctionAnnotation(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
-  llvm::Metadata *EmitDxilFunctionAnnotation2(const DxilFunctionAnnotation &FA);
-  void LoadDxilFunctionAnnotation2(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
   llvm::Metadata *EmitDxilParamAnnotation(const DxilParameterAnnotation &PA);
   void LoadDxilParamAnnotation(const llvm::MDOperand &MDO, DxilParameterAnnotation &PA);
   llvm::Metadata *EmitDxilParamAnnotations(const DxilFunctionAnnotation &FA);
   void LoadDxilParamAnnotations(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
-  llvm::Metadata *EmitDxilFunctionFPFlag(const DxilFunctionFPFlag &flag);
-  void LoadDxilFunctionFPFlag(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
