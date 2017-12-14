@@ -31,7 +31,8 @@ struct isPodLike {
   // std::is_trivially_copyable is available in libc++ with clang, libstdc++
   // that comes with GCC 5.
 #if (__has_feature(is_trivially_copyable) && defined(_LIBCPP_VERSION)) ||      \
-    (defined(__GNUC__) && __GNUC__ >= 5)
+    (defined(__GNUC__) && __GNUC__ >= 5) || \
+    (_MSC_VER >= 1900)  // HLSL Change
   // If the compiler supports the is_trivially_copyable trait use it, as it
   // matches the definition of isPodLike closely.
   static const bool value = std::is_trivially_copyable<T>::value;
