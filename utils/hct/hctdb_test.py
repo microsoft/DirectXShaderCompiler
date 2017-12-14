@@ -73,6 +73,19 @@ def add_test_case(test_name, inst_names, validation_type, validation_tolerance,
     for inst_name in inst_names:
         g_instruction_nodes[inst_name].test_cases += [case]
 
+def add_test_case_int(test_name, inst_names, validation_type, validation_tolerance,
+                  input_lists, output_lists, shader_key, shader_op_name, **kwargs):
+    add_test_case(test_name, inst_names, validation_type, validation_tolerance,
+                  input_lists, output_lists, "cs_6_0", get_shader_text(shader_key, shader_op_name), **kwargs)
+    input_lists_16, output_lists_16 = input_lists, output_lists
+    if "input_16" in kwargs:
+        input_lists_16 = kwargs["input_16"]
+    if "output_16" in kwargs:
+        output_lists_16 = kwargs["output_16"]
+    add_test_case(test_name + "Bit16", inst_names, validation_type, validation_tolerance,
+                  input_lists_16, output_lists_16, "cs_6_2", get_shader_text(shader_key.replace("int","int16_t"), shader_op_name),
+                  shader_arguments="-enable-16bit-types", **kwargs)
+
 def add_test_case_float_half(test_name, inst_names, validation_type, validation_tolerance,
                   float_input_lists, float_output_lists, shader_key, shader_op_name, **kwargs):
     add_test_case(test_name, inst_names, validation_type, validation_tolerance,
@@ -86,9 +99,11 @@ def add_test_case_float_half(test_name, inst_names, validation_type, validation_
     # skip relative error test check for half for now
     if validation_type != "Relative":
         add_test_case(test_name + "Half", inst_names, validation_type, validation_tolerance,
-                    half_input_lists, half_output_lists, "cs_6_2", get_shader_text(shader_key.replace("float","half"), shader_op_name), **kwargs)
+                    half_input_lists, half_output_lists, "cs_6_2",
+                    get_shader_text(shader_key.replace("float","half"), shader_op_name), shader_arguments="-enable-16bit-types", **kwargs)
 
-def add_test_case_denorm(test_name, inst_names, validation_type, validation_tolerance, input_lists, output_lists_ftz, output_lists_preserve, shader_target, shader_text, **kwargs):
+def add_test_case_denorm(test_name, inst_names, validation_type, validation_tolerance, input_lists,
+                    output_lists_ftz, output_lists_preserve, shader_target, shader_text, **kwargs):
     add_test_case(test_name + "FTZ", inst_names, validation_type, validation_tolerance, input_lists,
                   output_lists_ftz, shader_target, shader_text, shader_arguments="-denorm ftz")
     add_test_case(test_name + "Preserve", inst_names, validation_type, validation_tolerance, input_lists,
@@ -111,6 +126,18 @@ g_shader_texts = {
                 g_buf[GI] = l;
             };''',
 
+    "unary int16_t": ''' struct SUnaryInt16Op {
+                int16_t input;
+                int16_t output;
+            };
+            RWStructuredBuffer<SUnaryInt16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryInt16Op l = g_buf[GI];
+                l.output = %s(l.input);
+                g_buf[GI] = l;
+            };''',
+
     "unary uint": ''' struct SUnaryUintOp {
                 uint input;
                 uint output;
@@ -119,6 +146,18 @@ g_shader_texts = {
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 SUnaryUintOp l = g_buf[GI];
+                l.output = %s(l.input);
+                g_buf[GI] = l;
+            };''',
+
+    "unary uint16_t": ''' struct SUnaryUint16Op {
+                uint16_t input;
+                uint16_t output;
+            };
+            RWStructuredBuffer<SUnaryUint16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryUint16Op l = g_buf[GI];
                 l.output = %s(l.input);
                 g_buf[GI] = l;
             };''',
@@ -151,8 +190,8 @@ g_shader_texts = {
             };''',
 
     "unary half": ''' struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -163,8 +202,8 @@ g_shader_texts = {
             };''',
 
     "unary half bool": ''' struct SUnaryFPOp {
-                half input;
-                half output;
+                float16_t input;
+                float16_t output;
             };
             RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
             [numthreads(8,8,1)]
@@ -191,6 +230,20 @@ g_shader_texts = {
                 g_buf[GI] = l;
             };''',
 
+     "binary int16_t": ''' struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer<SBinaryInt16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = l.input1 %s l.input2;
+                g_buf[GI] = l;
+            };''',
+
     "binary int call": ''' struct SBinaryIntOp {
                 int input1;
                 int input2;
@@ -201,6 +254,20 @@ g_shader_texts = {
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 SBinaryIntOp l = g_buf[GI];
+                l.output1 = %s(l.input1,l.input2);
+                g_buf[GI] = l;
+            };''',
+
+    "binary int16_t call": ''' struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer<SBinaryInt16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
                 l.output1 = %s(l.input1,l.input2);
                 g_buf[GI] = l;
             };''',
@@ -219,6 +286,20 @@ g_shader_texts = {
                 g_buf[GI] = l;
             };''',
 
+    "binary uint16_t": ''' struct SBinaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t output1;
+                uint16_t output2;
+            };
+            RWStructuredBuffer<SBinaryUint16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUint16Op l = g_buf[GI];
+                l.output1 = l.input1 %s l.input2;
+                g_buf[GI] = l;
+            };''',
+
     "binary uint call": ''' struct SBinaryUintOp {
                 uint input1;
                 uint input2;
@@ -229,6 +310,20 @@ g_shader_texts = {
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 SBinaryUintOp l = g_buf[GI];
+                l.output1 = %s(l.input1,l.input2);
+                g_buf[GI] = l;
+            };''',
+
+    "binary uint16_t call": ''' struct SBinaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t output1;
+                uint16_t output2;
+            };
+            RWStructuredBuffer<SBinaryUint16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUint16Op l = g_buf[GI];
                 l.output1 = %s(l.input1,l.input2);
                 g_buf[GI] = l;
             };''',
@@ -303,6 +398,20 @@ g_shader_texts = {
                 g_buf[GI] = l;
             };''',
 
+     "tertiary int16_t": ''' struct STertiaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t input3;
+                int16_t output;
+            };
+            RWStructuredBuffer<STertiaryInt16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryInt16Op l = g_buf[GI];
+                l.output = %s(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };''',
+
      "tertiary uint": ''' struct STertiaryUintOp {
                 uint input1;
                 uint input2;
@@ -313,6 +422,20 @@ g_shader_texts = {
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
                 STertiaryUintOp l = g_buf[GI];
+                l.output = %s(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };''',
+
+     "tertiary uint16_t": ''' struct STertiaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t input3;
+                uint16_t output;
+            };
+            RWStructuredBuffer<STertiaryUint16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryUint16Op l = g_buf[GI];
                 l.output = %s(l.input1, l.input2, l.input3);
                 g_buf[GI] = l;
             };''',
@@ -516,9 +639,9 @@ def add_test_cases():
     ]], [[
         'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.718280', '0.599976',
         '0.611'
-    ]], "unary float", "frac", 
+    ]], "unary float", "frac",
         half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2.719',
-        '1000.5', '-7.39']], 
+        '1000.5', '-7.39']],
         half_outputs=[[
          'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.719', '0.5',
         '0.61']])
@@ -697,67 +820,98 @@ def add_test_cases():
                   'cs_6_2', get_shader_text("tertiary float", "mad"))
 
     # Unary Int
-    add_test_case('Bfrev', ['Bfrev'], 'Epsilon', 0, [[
-        '-2147483648', '-65536', '-8', '-1', '0', '1', '8', '65536',
-        '2147483647'
+    int8_min, int8_max = '-128', '127'
+    int16_min, int16_max = '-32768', '32767'
+    int32_min, int32_max = '-2147483648', '2147483647'
+    uint16_max = '65535'
+    uint32_max = '4294967295'
+    add_test_case_int('Bfrev', ['Bfrev'], 'Epsilon', 0, [[
+        int32_min, '-65536', '-8', '-1', '0', '1', '8', '65536',
+        int32_max
     ]], [[
-        '1', '65535', '536870911', '-1', '0', '-2147483648', '268435456',
+        '1', '65535', '536870911', '-1', '0', int32_min, '268435456',
         '32768', '-2'
-    ]], 'cs_6_0', get_shader_text("unary int", "reversebits"))
-
-    add_test_case('FirstbitSHi', ['FirstbitSHi'], 'Epsilon', 0, [[
-        '-2147483648', '-65536', '-8', '-1', '0', '1', '8', '65536',
-        '2147483647'
-    ]], [['30', '15', '2', '-1', '-1', '0', '3', '16', '30']], 'cs_6_0',
-         get_shader_text("unary int", "firstbithigh"))
-    add_test_case('FirstbitLo', ['FirstbitLo'], 'Epsilon', 0, [[
-        '-2147483648', '-65536', '-8', '-1', '0', '1', '8', '65536',
-        '2147483647'
-    ]], [['31', '16', '3', '0', '-1', '0', '3', '16', '0']], 'cs_6_0',
-         get_shader_text("unary int", "firstbitlow"))
+    ]], "unary int", "reversebits",
+        input_16=[[int16_min, '-256', '-8', '-1', '0', '1', '8', '256', int16_max]],
+        output_16=[['1', '255', '8191', '-1', '0', int16_min, '4096', '128', '-2']])
+    # firstbit_shi (s for signed) returns the
+    # first 0 from the MSB if the number is negative,
+    # else the first 1 from the MSB.
+    # all the variants of the instruction return ~0 if no match was found
+    add_test_case_int('FirstbitSHi', ['FirstbitSHi'], 'Epsilon', 0, [[
+        int32_min, '-65536', '-8', '-1', '0', '1', '8', '65536',
+        int32_max
+    ]], [['30', '15', '2', '-1', '-1', '0', '3', '16', '30']],
+        "unary int", "firstbithigh",
+        input_16=[[int16_min, '-256', '-8', '-1', '0', '1', '8', '256', int16_max]],
+        output_16=[['14', '7', '2', '-1', '-1', '0', '3', '8', '14']])
+    add_test_case_int('FirstbitLo', ['FirstbitLo'], 'Epsilon', 0, [[
+        int32_min, '-65536', '-8', '-1', '0', '1', '8', '65536',
+        int32_max
+    ]], [['31', '16', '3', '0', '-1', '0', '3', '16', '0']],
+        "unary int", "firstbitlow",
+        input_16=[[int16_min, '-256', '-8', '-1', '0', '1', '8', '256', int16_max]],
+        output_16=[['15', '8', '3', '0', '-1', '0', '3', '8', '0']])
+    # TODO: there is a known bug in countbits when passing in immediate values.
+    # Fix this later
     add_test_case('Countbits', ['Countbits'], 'Epsilon', 0, [[
-        '-2147483648', '-65536', '-8', '-1', '0', '1', '8', '65536',
-        '2147483647'
-    ]], [['1', '16', '29', '32', '0', '1', '1', '1', '31']], 'cs_6_0',
-         get_shader_text("unary int", "countbits"))
+        int32_min, '-65536', '-8', '-1', '0', '1', '8', '65536',
+        int32_max
+    ]], [['1', '16', '29', '32', '0', '1', '1', '1', '31']],
+         "cs_6_0", get_shader_text("unary int", "countbits"))
     # Unary uint
-    add_test_case('FirstbitHi', ['FirstbitHi'], 'Epsilon', 0,
-                  [['0', '1', '8', '65536', '2147483647', '4294967295']],
-                  [['-1', '0', '3', '16', '30', '31']], 'cs_6_0',
-         get_shader_text("unary uint", "firstbithigh"))
+    add_test_case_int('FirstbitHi', ['FirstbitHi'], 'Epsilon', 0,
+                  [['0', '1', '8', '65536', int32_max, uint32_max]],
+                  [['-1', '0', '3', '16', '30', '31']],
+         "unary uint", "firstbithigh",
+        input_16=[['0', '1', '8', uint16_max]],
+        output_16=[['-1', '0', '3', '15']])
     # Binary Int
-    add_test_case('IAdd', ['Add'], 'Epsilon', 0,
-                  [['-2147483648', '-10', '0', '0', '10', '2147483647', '486'],
+    add_test_case_int('IAdd', ['Add'], 'Epsilon', 0,
+                  [[int32_min, '-10', '0', '0', '10', int32_max, '486'],
                    ['0', '10', '-10', '10', '10', '0', '54238']],
-                  [['-2147483648', '0', '-10', '10', '20', '2147483647', '54724']], 'cs_6_0',
-            get_shader_text("binary int", "+"))
-    add_test_case('ISub', ['Sub'], 'Epsilon', 0,
-                  [['-2147483648', '-10', '0', '0', '10', '2147483647', '486'],
+                  [[int32_min, '0', '-10', '10', '20', int32_max, '54724']],
+            "binary int", "+",
+            input_16=[[int16_min, '-10', '0', '0', '10', int16_max],
+                      ['0', '10', '-3114', '272', '15', '0']],
+            output_16=[[int16_min, '0', '-3114', '272', '25', int16_max]])
+    add_test_case_int('ISub', ['Sub'], 'Epsilon', 0,
+                  [[int32_min, '-10', '0', '0', '10', int32_max, '486'],
                    ['0', '10', '-10', '10', '10', '0', '54238']],
-                  [['-2147483648', '-20', '10', '-10', '0', '2147483647', '-53752']], 'cs_6_0',
-            get_shader_text("binary int", "-"))
-    add_test_case('IMax', ['IMax'], 'Epsilon', 0,
-                  [['-2147483648', '-10', '0', '0', '10', '2147483647'],
+                  [[int32_min, '-20', '10', '-10', '0', int32_max, '-53752']],
+            "binary int", "-",
+            input_16=[[int16_min, '-10', '0', '0', '10', int16_max],
+                      ['0', '10', '-3114', '272', '15', '0']],
+            output_16=[[int16_min, '-20', '-3114', '-272', '-5', int16_max]])
+    add_test_case_int('IMax', ['IMax'], 'Epsilon', 0,
+                  [[int32_min, '-10', '0', '0', '10', int32_max],
                    ['0', '10', '-10', '10', '10', '0']],
-                  [['0', '10', '0', '10', '10', '2147483647']], 'cs_6_0',
-            get_shader_text("binary int call", "max"))
-    add_test_case('IMin', ['IMin'], 'Epsilon', 0,
-                  [['-2147483648', '-10', '0', '0', '10', '2147483647'],
+                  [['0', '10', '0', '10', '10', int32_max]],
+            "binary int call", "max",
+            input_16=[[int16_min, '-10', '0', '0', '10', int16_max],
+                      ['0', '10', '-3114', '272', '15', '0']],
+            output_16=[['0', '10', '0', '272', '15', int16_max]])
+    add_test_case_int('IMin', ['IMin'], 'Epsilon', 0,
+                  [[int32_min, '-10', '0', '0', '10', int32_max],
                    ['0', '10', '-10', '10', '10', '0']],
-                  [['-2147483648', '-10', '-10', '0', '10', '0']], 'cs_6_0',
-            get_shader_text("binary int call", "min"))
-    add_test_case('IMul', ['Mul'], 'Epsilon', 0, [[
-            '-2147483648', '-10', '-1', '0', '1', '10', '10000', '2147483647',
-            '2147483647'
-        ], ['-10', '-10', '10', '0', '256', '4', '10001', '0', '2147483647']],
-        [['0', '100', '-10', '0', '256', '40', '100010000', '0', '1']],
-        'cs_6_0',
-            get_shader_text("binary int", "*"))
+                  [[int32_min, '-10', '-10', '0', '10', '0']],
+            "binary int call", "min",
+            input_16=[[int16_min, '-10', '0', '0', '10', int16_max],
+                      ['0', '10', '-3114', '272', '15', '0']],
+            output_16=[[int16_min, '-10', '-3114', '0', '10', '0']])
+    add_test_case_int('IMul', ['Mul'], 'Epsilon', 0, [
+         [ int32_min, '-10', '-1', '0', '1', '10', '10000', int32_max, int32_max ],
+         ['-10', '-10', '10', '0', '256', '4', '10001', '0', int32_max]],
+         [['0', '100', '-10', '0', '256', '40', '100010000', '0', '1']],
+            "binary int", "*",
+         input_16=[[ int16_min, '-10', '-1', '0', '1', '10', int16_max],
+         ['-10', '-10', '10', '0', '256', '4', '0']],
+         output_16=[['0', '100', '-10', '0', '256', '40', '0']])
     add_test_case('IDiv', ['SDiv', 'SRem'], 'Epsilon', 0,
-        [['1', '1', '10', '10000', '2147483647', '2147483647', '-1'],
-         ['1', '256', '4', '10001', '2', '2147483647', '1']],
+        [['1', '1', '10', '10000', int32_max, int32_max, '-1'],
+         ['1', '256', '4', '10001', '2', int32_max, '1']],
         [['1', '0', '2', '0', '1073741823', '1', '-1'],
-         ['0', '1', '2', '10000', '1', '0', '0']], 'cs_6_0',
+         ['0', '1', '2', '10000', '1', '0', '0']], "cs_6_0",
         ''' struct SBinaryIntOp {
                 int input1;
                 int input2;
@@ -772,67 +926,95 @@ def add_test_cases():
                 l.output2 = l.input1 % l.input2;
                 g_buf[GI] = l;
             };''')
-    add_test_case('Shl', ['Shl'], 'Epsilon', 0,
+    add_test_case_int('Shl', ['Shl'], 'Epsilon', 0,
         [['1', '1', '0x1010', '0xa', '-1', '0x12341234', '-1'],
          ['0', '259', '4', '2', '0', '15', '3']],
-        [['0x1', '0x8', '0x10100', '0x28', '-1','0x091a0000', '-8']], 'cs_6_0',
-        get_shader_text("binary int", "<<"))
-    add_test_case("LShr", ['LShr'], 'Epsilon', 0,
+        [['0x1', '0x8', '0x10100', '0x28', '-1','0x091a0000', '-8']],
+        "binary int", "<<",
+        input_16=[['1', '1', '0x0101', '0xa', '-1', '0x1234', '-1'],
+         ['0', '259', '4', '2', '0', '13', '3']],
+        output_16=[['0x1', '0x8', '0x1010', '0x28', '-1','0x8000', '-8']])
+    add_test_case_int("LShr", ['LShr'], 'Epsilon', 0,
         [['1', '1', '0xffff', '0x7fffffff', '0x70001234', '0x12340ab3', '0x7fffffff'],
         ['0', '1', '4', '30', '15', '16', '1']],
-        [['1', '0', '0xfff', '1', '0xe000', '0x1234', '0x3fffffff']], 'cs_6_0',
-        get_shader_text("binary int", ">>")
+        [['1', '0', '0xfff', '1', '0xe000', '0x1234', '0x3fffffff']],
+        "binary int", ">>",
+        input_16=[['1', '1', '0x7fff', '0x7fff'],
+        ['0', '1', '4', '14']],
+        output_16=[['1', '0', '0x07ff', '1']]
     )
-    add_test_case("And", ['And'], 'Epsilon', 0,
+    add_test_case_int("And", ['And'], 'Epsilon', 0,
         [['0x1', '0x01', '0x7fff0000', '0x33333333', '0x137f', '0x12345678', '0xa341', '-1'],
          ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '-1', '0x3471', '-1']],
-        [['0x1', '0x00', '0x0', '0x22222222', '0x0', '0x12345678', '0x2041', '-1']], 'cs_6_0',
-        get_shader_text("binary int", "&")
-    )
-    add_test_case("Or", ['Or'], 'Epsilon', 0,
+        [['0x1', '0x00', '0x0', '0x22222222', '0x0', '0x12345678', '0x2041', '-1']],
+        "binary int", "&",
+        input_16=[['0x1', '0x01', '0x7fff', '0x3333', '0x137f', '0x1234', '0xa341', '-1'],
+         ['0x1', '0xf0', '0x0000', '0x2222', '0xec80', '-1', '0x3471', '-1']],
+        output_16=[['0x1', '0x00', '0x0', '0x2222', '0x0', '0x1234', '0x2041', '-1']],
+     )
+    add_test_case_int("Or", ['Or'], 'Epsilon', 0,
         [['0x1', '0x01', '0x7fff0000', '0x11111111', '0x137f', '0x0', '0x12345678', '0xa341', '-1'],
          ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '0x0', '0x00000000', '0x3471', '-1']],
-        [['0x1', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0xb771', '-1']], 'cs_6_0',
-        get_shader_text("binary int", "|")
-    )
-    add_test_case("Xor", ['Xor'], 'Epsilon', 0,
+        [['0x1', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0xb771', '-1']],
+        "binary int", "|",
+        input_16=[['0x1', '0x01', '0x7fff', '0x3333', '0x137f', '0x1234', '0xa341', '-1'],
+         ['0x1', '0xf0', '0x0000', '0x2222', '0xec80', '0xffff', '0x3471', '-1']],
+        output_16=[['0x1', '0xf1', '0x7fff', '0x3333', '0xffff', '0xffff', '0xb771', '-1']],
+     )
+    add_test_case_int("Xor", ['Xor'], 'Epsilon', 0,
         [['0x1', '0x01', '0x7fff0000', '0x11111111', '0x137f', '0x0', '0x12345678', '0xa341', '-1'],
          ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '0x0', '0x00000000', '0x3471', '-1']],
-        [['0x0', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0x9730', '0x00000000']], 'cs_6_0',
-        get_shader_text("binary int", "^")
+        [['0x0', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0x9730', '0x00000000']],
+        "binary int", "^",
+        input_16=[['0x1', '0x01', '0x7fff', '0x1111', '0x137f', '0x0', '0x1234', '0xa341', '-1'],
+                  ['0x1', '0xf0', '0x0000', '0x2222', '0xec80', '0x0', '0x0000', '0x3471', '-1']],
+        output_16=[['0x0', '0xf1', '0x7fff', '0x3333', '0xffff', '0x0', '0x1234', '0x9730', '0x0000']],
     )
 
     # Binary Uint
-    add_test_case('UAdd', ['Add'], 'Epsilon', 0,
-                  [['2147483648', '4294967285', '0', '0', '10', '2147483647', '486'],
+    add_test_case_int('UAdd', ['Add'], 'Epsilon', 0,
+                  [['2147483648', '4294967285', '0', '0', '10', int32_max, '486'],
                    ['0', '10', '0', '10', '10', '0', '54238']],
-                  [['2147483648', '4294967295', '0', '10', '20', '2147483647', '54724']], 'cs_6_0',
-                  get_shader_text("binary uint", "+"))
-    add_test_case('USub', ['Sub'], 'Epsilon', 0,
-                  [['2147483648', '4294967295', '0', '0', '30', '2147483647', '54724'],
+                  [['2147483648', uint32_max, '0', '10', '20', int32_max, '54724']],
+                  "binary uint", "+",
+                  input_16=[['323', '0xfff5', '0', '0', '10', uint16_max, '486'],
+                            ['0', '10', '0', '10', '10', '0', '334']],
+                  output_16=[['323', uint16_max, '0', '10', '20', uint16_max, '820']])
+    add_test_case_int('USub', ['Sub'], 'Epsilon', 0,
+                  [['2147483648', uint32_max, '0', '0', '30', int32_max, '54724'],
                    ['0', '10', '0', '10', '10', '0', '54238']],
-                  [['2147483648', '4294967285', '0', '4294967286', '20', '2147483647', '486']], 'cs_6_0',
-                  get_shader_text("binary uint", "-"))
-    add_test_case('UMax', ['UMax'], 'Epsilon', 0,
-                  [['0', '0', '10', '10000', '2147483647', '4294967295'],
-                   ['0', '256', '4', '10001', '0', '4294967295']],
-                  [['0', '256', '10', '10001', '2147483647', '4294967295']],
-                  'cs_6_0',
-                  get_shader_text("binary uint call", "max")
-                  )
-    add_test_case('UMin', ['UMin'], 'Epsilon', 0,
-                  [['0', '0', '10', '10000', '2147483647', '4294967295'],
-                   ['0', '256', '4', '10001', '0', '4294967295']],
-                  [['0', '0', '4', '10000', '0', '4294967295']], 'cs_6_0',
-                  get_shader_text("binary uint call", "min"))
-    add_test_case('UMul', ['Mul'], 'Epsilon', 0,
-                  [['0', '1', '10', '10000', '2147483647'],
+                  [['2147483648', '4294967285', '0', '4294967286', '20', int32_max, '486']],
+                  "binary uint", "-",
+                  input_16=[['323', uint16_max, '0', '0', '10', uint16_max, '486'],
+                            ['0', '10', '0', '10', '10', '0', '334']],
+                  output_16=[['323', '0xfff5', '0', '-10', '0', uint16_max, '152']])
+    add_test_case_int('UMax', ['UMax'], 'Epsilon', 0,
+                  [['0', '0', '10', '10000', int32_max, uint32_max],
+                   ['0', '256', '4', '10001', '0', uint32_max]],
+                  [['0', '256', '10', '10001', int32_max, uint32_max]],
+                  "binary uint call", "max",
+                  input_16=[['0', '0', '10', '10000', int16_max, uint16_max],
+                            ['0', '256', '4', '10001', '0', uint16_max]],
+                  output_16=[['0', '256', '10', '10001', int16_max, uint16_max]])
+    add_test_case_int('UMin', ['UMin'], 'Epsilon', 0,
+                  [['0', '0', '10', '10000', int32_max, uint32_max],
+                   ['0', '256', '4', '10001', '0', uint32_max]],
+                  [['0', '0', '4', '10000', '0', uint32_max]],
+                  "binary uint call", "min",
+                  input_16=[['0', '0', '10', '10000', int16_max, uint16_max],
+                            ['0', '256', '4', '10001', '0', uint16_max]],
+                  output_16=[['0', '0', '4', '10000', '0', uint16_max]])
+    add_test_case_int('UMul', ['Mul'], 'Epsilon', 0,
+                  [['0', '1', '10', '10000', int32_max],
                    ['0', '256', '4', '10001', '0']],
-                  [['0', '256', '40', '100010000', '0']], 'cs_6_0',
-                  get_shader_text("binary uint", "*"))
+                  [['0', '256', '40', '100010000', '0']],
+                  "binary uint", "*",
+                  input_16=[['0', '0', '10', '100', int16_max],
+                            ['0', '256', '4', '101', '0']],
+                  output_16=[['0', '0', '40', '10001', '0']])
     add_test_case('UDiv', ['UDiv', 'URem'], 'Epsilon', 0,
-        [['1', '1', '10', '10000', '2147483647', '2147483647', '0xffffffff'],
-         ['0', '256', '4', '10001', '0', '2147483647', '1']],
+        [['1', '1', '10', '10000', int32_max, int32_max, '0xffffffff'],
+         ['0', '256', '4', '10001', '0', int32_max, '1']],
         [['0xffffffff', '0', '2', '0', '0xffffffff', '1', '0xffffffff'],
          ['0xffffffff', '1', '2', '10000', '0xffffffff', '0', '0']], 'cs_6_0',
         ''' struct SBinaryUintOp {
@@ -872,23 +1054,33 @@ def add_test_cases():
             };''')
 
     # Tertiary Int
-    add_test_case('IMad', ['IMad'], 'epsilon', 0, [[
-        '-2147483647', '-256', '-1', '0', '1', '2', '16', '2147483647', '1',
+    add_test_case_int('IMad', ['IMad'], 'epsilon', 0, [[
+        '-2147483647', '-256', '-1', '0', '1', '2', '16', int32_max, '1',
         '-1', '1', '10'
     ], ['1', '-256', '-1', '0', '1', '3', '16', '0', '1', '-1', '10', '100'], [
         '0', '0', '0', '0', '1', '3', '1', '255', '2147483646', '-2147483647',
         '-10', '-2000'
     ]], [[
-        '-2147483647', '65536', '1', '0', '2', '9', '257', '255', '2147483647',
+        '-2147483647', '65536', '1', '0', '2', '9', '257', '255', int32_max,
         '-2147483646', '0', '-1000'
-    ]], 'cs_6_0', get_shader_text("tertiary int", "mad"))
+    ]], "tertiary int", "mad",
+    input_16=[[int16_min, '-256', '-1', '0', '1', '2', '16', int16_max],
+                  ['1','8','-1', '0', '1', '3', '16','1'],
+                  ['0', '0', '1', '3', '250', '-30', int16_min, '-50']],
+    output_16=[[int16_min, '-2048', '2', '3', '251', '-24', '-32512', '32717']]
+    )
 
-    add_test_case('UMad', ['UMad'], 'epsilon', 0,
-                  [['0', '1', '2', '16', '2147483647', '0', '10'], [
+    add_test_case_int('UMad', ['UMad'], 'epsilon', 0,
+                  [['0', '1', '2', '16', int32_max, '0', '10'], [
                       '0', '1', '2', '16', '1', '0', '10'
                   ], ['0', '0', '1', '15', '0', '10', '10']],
-                  [['0', '1', '5', '271', '2147483647', '10', '110']],
-                  'cs_6_0', get_shader_text("tertiary uint", "mad"))
+                  [['0', '1', '5', '271', int32_max, '10', '110']],
+                  "tertiary uint", "mad",
+                  input_16=[['0', '1', '2', '16', int16_max, '0', '10'], [
+                      '0', '1', '2', '16', '1', '0', '10'
+                  ], ['0', '0', '1', '15', '0', '10', '10']],
+                  output_16=[['0', '1', '5', '271', int16_max, '10', '110']],
+    )
 
     # Dot
     add_test_case('Dot', ['Dot2', 'Dot3', 'Dot4'], 'epsilon', 0.008, [[
@@ -1245,6 +1437,18 @@ def generate_table_for_taef():
             }), 3, 1)
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
+                "Id": "UnaryInt16OpTable"
+            }), 1, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "BinaryInt16OpTable"
+            }), 2, 2)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "TertiaryInt16OpTable"
+            }), 3, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
                 "Id": "UnaryUintOpTable"
             }), 1, 1)
         generate_parameter_types(
@@ -1254,6 +1458,18 @@ def generate_table_for_taef():
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
                 "Id": "TertiaryUintOpTable"
+            }), 3, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "UnaryUint16OpTable"
+            }), 1, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "BinaryUint16OpTable"
+            }), 2, 2)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "TertiaryUint16OpTable"
             }), 3, 1)
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
@@ -1303,7 +1519,7 @@ def generate_table_for_taef():
                         case)
                 if "h" in cur_inst.oload_types and "Half" in case.test_name:
                     generate_row(root.find("./Table[@Id='UnaryHalfOpTable']"),case)
-                if "i" in cur_inst.oload_types:
+                if "i" in cur_inst.oload_types and "Bit16" not in case.test_name:
                     if cur_inst.category.startswith("Unary int"):
                         generate_row(
                             root.find("./Table[@Id='UnaryIntOpTable']"),
@@ -1315,6 +1531,19 @@ def generate_table_for_taef():
                     else:
                         print("unknown op: " + cur_inst.name)
                         print(cur_inst.dxil_class)
+                if "w" in cur_inst.oload_types and "Bit16" in case.test_name:
+                    if cur_inst.category.startswith("Unary int"):
+                        generate_row(
+                            root.find("./Table[@Id='UnaryInt16OpTable']"),
+                            case)
+                    elif cur_inst.category.startswith("Unary uint"):
+                        generate_row(
+                            root.find("./Table[@Id='UnaryUint16OpTable']"),
+                            case)
+                    else:
+                        print("unknown op: " + cur_inst.name)
+                        print(cur_inst.dxil_class)
+
             elif cur_inst.is_binary or cur_inst.category.startswith(
                     "Binary"):
                 if "f" in cur_inst.oload_types and not "Half" in case.test_name:
@@ -1328,7 +1557,7 @@ def generate_table_for_taef():
                             case)
                 if "h" in cur_inst.oload_types and "Half" in case.test_name:
                     generate_row(root.find("./Table[@Id='BinaryHalfOpTable']"),case)
-                if "i" in cur_inst.oload_types:
+                if "i" in cur_inst.oload_types and "Bit16" not in case.test_name:
                     if cur_inst.category.startswith("Binary int"):
                         if case.test_name in ['UAdd', 'USub', 'UMul']: # Add, Sub, Mul use same operations for int and uint.
                             generate_row(
@@ -1345,6 +1574,23 @@ def generate_table_for_taef():
                     else:
                         print("unknown op: " + cur_inst.name)
                         print(cur_inst.dxil_class)
+                if "w" in cur_inst.oload_types and "Bit16" in case.test_name:
+                    if cur_inst.category.startswith("Binary int"):
+                        if case.test_name in ['UAdd', 'USub', 'UMul']: # Add, Sub, Mul use same operations for int and uint.
+                            generate_row(
+                                root.find("./Table[@Id='BinaryUint16OpTable']"),
+                                case)
+                        else:
+                            generate_row(
+                                root.find("./Table[@Id='BinaryInt16OpTable']"),
+                                case)
+                    elif cur_inst.category.startswith("Binary uint"):
+                        generate_row(
+                            root.find("./Table[@Id='BinaryUint16OpTable']"),
+                            case)
+                    else:
+                        print("unknown op: " + cur_inst.name)
+                        print(cur_inst.dxil_class)
 
             elif cur_inst.category.startswith("Tertiary"):
                 if "f" in cur_inst.oload_types and not "Half" in case.test_name:
@@ -1356,7 +1602,7 @@ def generate_table_for_taef():
                             root.find("./Table[@Id='TertiaryFloatOpTable']"),case)
                 if "h" in cur_inst.oload_types and "Half" in case.test_name:
                     generate_row(root.find("./Table[@Id='TertiaryHalfOpTable']"),case)
-                if "i" in cur_inst.oload_types:
+                if "i" in cur_inst.oload_types and "Bit16" not in case.test_name:
                     if cur_inst.category.startswith("Tertiary int"):
                         generate_row(
                             root.find("./Table[@Id='TertiaryIntOpTable']"),
@@ -1365,6 +1611,19 @@ def generate_table_for_taef():
                         generate_row(
                             root.find(
                                 "./Table[@Id='TertiaryUintOpTable']"),
+                            case)
+                    else:
+                        print("unknown op: " + cur_inst.name)
+                        print(cur_inst.dxil_class)
+                if "w" in cur_inst.oload_types and "Bit16" in case.test_name:
+                    if cur_inst.category.startswith("Tertiary int"):
+                        generate_row(
+                            root.find("./Table[@Id='TertiaryInt16OpTable']"),
+                            case)
+                    elif cur_inst.category.startswith("Tertiary uint"):
+                        generate_row(
+                            root.find(
+                                "./Table[@Id='TertiaryUint16OpTable']"),
                             case)
                     else:
                         print("unknown op: " + cur_inst.name)

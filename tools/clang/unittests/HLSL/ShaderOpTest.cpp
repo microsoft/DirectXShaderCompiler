@@ -697,6 +697,13 @@ void ShaderOpTest::CreateShaders() {
       }
       CHECK_HR(resultCode);
       CHECK_HR(pResult->GetResult((IDxcBlob **)&pCode));
+#if 0 // use the following code to test compiled shader
+      CComPtr<IDxcBlob> pCode;
+      CHECK_HR(pResult->GetResult(&pCode));
+      CComPtr<IDxcBlobEncoding> pBlob;
+      CHECK_HR(pCompiler->Disassemble((IDxcBlob *)pCode, (IDxcBlobEncoding **)&pBlob));
+      dxc::WriteUtf8ToConsoleSizeT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+#endif
     } else {
       CComPtr<ID3DBlob> pError;
       hr = D3DCompile(pText, strlen(pText), S.Name, nullptr, nullptr,
