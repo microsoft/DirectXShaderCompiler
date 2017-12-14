@@ -13500,6 +13500,14 @@ static void DoMarkVarDeclReferenced(Sema &SemaRef, SourceLocation Loc,
 
   if(!MarkODRUsed) return;
 
+  // HLSL Change Begin -External variable is in cbuffer, cannot use as immediate.
+  // Mark used for referenced external variable.
+  if (SemaRef.getLangOpts().HLSL && Var->hasExternalFormalLinkage() &&
+      !isa<EnumConstantDecl>(Var))
+    MarkVarDeclODRUsed(Var, Loc, SemaRef,
+                       /*MaxFunctionScopeIndex ptr*/ nullptr);
+  // HLSL Change End.
+
   // Per C++11 [basic.def.odr], a variable is odr-used "unless it satisfies
   // the requirements for appearing in a constant expression (5.19) and, if
   // it is an object, the lvalue-to-rvalue conversion (4.1)
