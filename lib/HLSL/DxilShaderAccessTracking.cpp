@@ -430,45 +430,39 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
           }
 
           auto slot = m_slotAssignments.find({ RegisterTypeFromResourceClass(ResClass), res->GetSpaceID() });
-          ThrowIf(slot == m_slotAssignments.end());
+          // If the assignment isn't found, we assume 
+          if(slot != m_slotAssignments.end()) {
 
-          IRBuilder<> Builder(instruction);
-          Value * slotIndex;
+            IRBuilder<> Builder(instruction);
+            Value * slotIndex;
 
-          if (isa<ConstantInt>(createHandle.get_index())) {
-            unsigned index = cast<ConstantInt>(createHandle.get_index())->getLimitedValue();
-            if (index > slot->second.numSlots) {
-              // out-of-range accesses are written to slot zero:
-              slotIndex = HlslOP->GetU32Const(0);
+            if (isa<ConstantInt>(createHandle.get_index())) {
+              unsigned index = cast<ConstantInt>(createHandle.get_index())->getLimitedValue();
+              if (index > slot->second.numSlots) {
+                // out-of-range accesses are written to slot zero:
+                slotIndex = HlslOP->GetU32Const(0);
+              }
+              else {
+                slotIndex = HlslOP->GetU32Const(slot->second.startSlot + index);
+              }
             }
             else {
-              slotIndex = HlslOP->GetU32Const(slot->second.startSlot + index);
+              // CompareWithSlotLimit will contain 1 if the access is out-of-bounds (both over- and and under-flow 
+              // via the unsigned >= with slot count)
+              auto CompareWithSlotLimit = Builder.CreateICmpUGE(createHandle.get_index(), HlslOP->GetU32Const(slot->second.numSlots), "CompareWithSlotLimit");
+              auto CompareWithSlotLimitAsUint = Builder.CreateCast(Instruction::CastOps::ZExt, CompareWithSlotLimit, Type::getInt32Ty(Ctx), "CompareWithSlotLimitAsUint");
+
+              // IsInBounds will therefore contain 0 if the access is out-of-bounds, and 1 otherwise.
+              auto IsInBounds = Builder.CreateSub(HlslOP->GetU32Const(1), CompareWithSlotLimitAsUint, "IsInBounds");
+
+              auto SlotOffset = Builder.CreateAdd(createHandle.get_index(), HlslOP->GetU32Const(slot->second.startSlot), "SlotOffset");
+
+              // This will drive an out-of-bounds access slot down to 0
+              slotIndex = Builder.CreateMul(SlotOffset, IsInBounds, "slotIndex");
             }
+
+            EmitAccess(Ctx, HlslOP, Builder, slotIndex, raFunction.readWrite);
           }
-          else {
-            auto SlotOffset = Builder.CreateAdd(createHandle.get_index(), HlslOP->GetU32Const(slot->second.startSlot));
-
-            Function* UMinFunc = HlslOP->GetOpFunc(OP::OpCode::UMin, Type::getInt32Ty(Ctx));
-            Constant* UMinOpcode = HlslOP->GetU32Const((unsigned)OP::OpCode::UMin);
-            Constant* MinValue = HlslOP->GetU32Const(slot->second.startSlot + slot->second.numSlots);
-            auto MinResult = Builder.CreateCall(UMinFunc, {
-              UMinOpcode,     // i32, ; opcode
-              MinValue,       // i32,
-              SlotOffset,     // i32,
-            }, "UMinResult");
-
-            Function* UMaxFunc = HlslOP->GetOpFunc(OP::OpCode::UMax, Type::getInt32Ty(Ctx));
-            Constant* UMaxOpcode = HlslOP->GetU32Const((unsigned)OP::OpCode::UMax);
-            Constant* MaxValue = HlslOP->GetU32Const(slot->second.startSlot);
-            slotIndex = Builder.CreateCall(UMaxFunc, {
-              UMaxOpcode,     // i32, ; opcode
-              MaxValue,       // i32,
-              MinResult,      // i32,
-            }, "UMinResult");
-
-          }
-
-          EmitAccess(Ctx, HlslOP, Builder, slotIndex, raFunction.readWrite);
         }
       }
     }
@@ -483,64 +477,6 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
 
     Modified = true;
   }
-  // todo: is it a reasonable assumption that there will be a "Ret" in the entry block, and that these are the only
-  // points from which the shader can exit (except for a pixel-kill?)
-  //// Start adding instructions right before the Ret:
-  //      IRBuilder<> Builder(ThisInstruction);
-  //
-  //      // ------------------------------------------------------------------------------------------------------------
-  //      // Generate instructions to increment (by one) a UAV value corresponding to the pixel currently being rendered
-  //      // ------------------------------------------------------------------------------------------------------------
-  //
-  //      // Useful constants
-  //      Constant* Zero32Arg = HlslOP->GetU32Const(0);
-  //      Constant* Zero8Arg = HlslOP->GetI8Const(0);
-  //      Constant* One32Arg = HlslOP->GetU32Const(1);
-  //      Constant* One8Arg = HlslOP->GetI8Const(1);
-  //      UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
-  //      Constant* NumPixelsByteOffsetArg = HlslOP->GetU32Const(NumPixels * 4);
-  //
-  //      // Step 1: Convert SV_POSITION to UINT          
-  //      Value * XAsInt;
-  //      Value * YAsInt;
-  //      {
-  //        auto LoadInputOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::LoadInput, Type::getFloatTy(Ctx));
-  //        Constant* LoadInputOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::LoadInput);
-  //        Constant*  SV_Pos_ID = HlslOP->GetU32Const(SV_Position_ID);
-  //        auto XPos = Builder.CreateCall(LoadInputOpFunc,
-  //        { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, Zero8Arg /*column*/, UndefArg }, "XPos");
-  //        auto YPos = Builder.CreateCall(LoadInputOpFunc,
-  //        { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, One8Arg /*column*/, UndefArg }, "YPos");
-  //
-  //        XAsInt = Builder.CreateCast(Instruction::CastOps::FPToUI, XPos, Type::getInt32Ty(Ctx), "XIndex");
-  //        YAsInt = Builder.CreateCast(Instruction::CastOps::FPToUI, YPos, Type::getInt32Ty(Ctx), "YIndex");
-  //      }
-  //
-  //      // Step 2: Calculate pixel index
-  //      Value * Index;
-  //      {
-  //        Constant* RTWidthArg = HlslOP->GetI32Const(RTWidth);
-  //        auto YOffset = Builder.CreateMul(YAsInt, RTWidthArg, "YOffset");
-  //        auto Elementoffset = Builder.CreateAdd(XAsInt, YOffset, "ElementOffset");
-  //        Index = Builder.CreateMul(Elementoffset, HlslOP->GetU32Const(4), "ByteIndex");
-  //      }
-  //
-  //      // Insert the UAV increment instruction:
-  //      Function* AtomicOpFunc = HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(Ctx));
-  //      Constant* AtomicBinOpcode = HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
-  //      Constant* AtomicAdd = HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
-  //      {
-  //        (void)Builder.CreateCall(AtomicOpFunc, {
-  //          AtomicBinOpcode,// i32, ; opcode
-  //          HandleForUAV,   // %dx.types.Handle, ; resource handle
-  //          AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
-  //          Index,          // i32, ; coordinate c0: byte offset
-  //          UndefArg,       // i32, ; coordinate c1 (unused)
-  //          UndefArg,       // i32, ; coordinate c2 (unused)
-  //          One32Arg        // i32); increment value
-  //        }, "UAVIncResult");
-  //      }
-  //
 
   return Modified;
 }
