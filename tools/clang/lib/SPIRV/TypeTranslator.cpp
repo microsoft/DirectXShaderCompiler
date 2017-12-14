@@ -140,6 +140,10 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
         case BuiltinType::UShort:
         case BuiltinType::UInt:
           return theBuilder.getUint32Type();
+        case BuiltinType::LongLong:
+          return theBuilder.getInt64Type();
+        case BuiltinType::ULongLong:
+          return theBuilder.getUint64Type();
         // float, min16float (half), and min10float are all translated to 32-bit
         // float in SPIR-V.
         case BuiltinType::Float:
@@ -148,6 +152,27 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           return theBuilder.getFloat32Type();
         case BuiltinType::Double:
           return theBuilder.getFloat64Type();
+        case BuiltinType::LitFloat: {
+          const auto &semantics = astContext.getFloatTypeSemantics(type);
+          const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
+          if (bitwidth <= 32)
+            return theBuilder.getFloat32Type();
+          else
+            return theBuilder.getFloat64Type();
+        }
+        case BuiltinType::LitInt: {
+          const auto bitwidth = astContext.getIntWidth(type);
+          // All integer variants with bitwidth larger than 32 are represented
+          // as 64-bit int in SPIR-V.
+          // All integer variants with bitwidth of 32 or less are represented as
+          // 32-bit int in SPIR-V.
+          if (type->isSignedIntegerType())
+            return bitwidth > 32 ? theBuilder.getInt64Type()
+                                 : theBuilder.getInt32Type();
+          else
+            return bitwidth > 32 ? theBuilder.getUint64Type()
+                                 : theBuilder.getUint32Type();
+        }
         default:
           emitError("primitive type %0 unimplemented")
               << builtinType->getTypeClassName();
@@ -559,6 +584,20 @@ uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
   return theBuilder.getVecType(elemType, colCount);
 }
 
+spv::Capability
+TypeTranslator::getCapabilityForStorageImageReadWrite(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    // RWBuffer translates into OpTypeImage Buffer with Sampled = 2
+    if (name == "RWBuffer")
+      return spv::Capability::ImageBuffer;
+    // RWBuffer translates into OpTypeImage 1D with Sampled = 2
+    if (name == "RWTexture1D" || name == "RWTexture1DArray")
+      return spv::Capability::Image1D;
+  }
+  return spv::Capability::Max;
+}
+
 llvm::SmallVector<const Decoration *, 4>
 TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
   const auto spirvContext = theBuilder.getSPIRVContext();
@@ -620,6 +659,13 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
 }
 
 uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
+  // Resource types are either represented like C struct or C++ class in the
+  // AST. Samplers are represented like C struct, so isStructureType() will
+  // return true for it; textures are represented like C++ class, so
+  // isClassType() will return true for it.
+
+  assert(type->isStructureOrClassType());
+
   const auto *recordType = type->getAs<RecordType>();
   assert(recordType);
   const llvm::StringRef name = recordType->getDecl()->getName();

@@ -15,6 +15,7 @@
 #include <D3dx12.h>
 #include <d3dcompiler.h>
 #include <atlbase.h>
+#include <atlenc.h>
 
 #include "ShaderOpTest.h"
 
@@ -650,7 +651,21 @@ void ShaderOpTest::CreateShaders() {
     CComPtr<ID3DBlob> pCode;
     HRESULT hr = S_OK;
     LPCSTR pText = m_pShaderOp->GetShaderText(&S);
-    if (TargetUsesDxil(S.Target)) {
+    if (S.Compiled) {
+      int textLen = (int)strlen(pText);
+      int decodedLen = Base64DecodeGetRequiredLength(textLen);
+      // Length is an approximation, so we can't creat the final blob yet.
+      std::vector<BYTE> decoded;
+      decoded.resize(decodedLen);
+      if (!Base64Decode(pText, textLen, decoded.data(), &decodedLen)) {
+        ShaderOpLogFmt(L"Failed to decode compiled shader: %S\r\n", S.Name);
+        CHECK_HR(E_FAIL);
+      }
+      // decodedLen should have the correct size now.
+      CHECK_HR(D3DCreateBlob(decodedLen, &pCode));
+      memcpy(pCode->GetBufferPointer(), decoded.data(), decodedLen);
+    }
+    else if (TargetUsesDxil(S.Target)) {
       CComPtr<IDxcCompiler> pCompiler;
       CComPtr<IDxcLibrary> pLibrary;
       CComPtr<IDxcBlobEncoding> pTextBlob;
@@ -682,6 +697,13 @@ void ShaderOpTest::CreateShaders() {
       }
       CHECK_HR(resultCode);
       CHECK_HR(pResult->GetResult((IDxcBlob **)&pCode));
+#if 0 // use the following code to test compiled shader
+      CComPtr<IDxcBlob> pCode;
+      CHECK_HR(pResult->GetResult(&pCode));
+      CComPtr<IDxcBlobEncoding> pBlob;
+      CHECK_HR(pCompiler->Disassemble((IDxcBlob *)pCode, (IDxcBlobEncoding **)&pBlob));
+      dxc::WriteUtf8ToConsoleSizeT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+#endif
     } else {
       CComPtr<ID3DBlob> pError;
       hr = D3DCompile(pText, strlen(pText), S.Name, nullptr, nullptr,
@@ -1865,45 +1887,6 @@ DXIL::ComponentType GetCompType(LPCWSTR pText, LPCWSTR pEnd) {
   }
 }
 
-bool GetSign(float x) {
-  return std::signbit(x);
-}
-
-int GetMantissa(float x) {
-  int bits = reinterpret_cast<int &>(x);
-  return bits & 0x7fffff;
-}
-
-int GetExponent(float x) {
-  int bits = reinterpret_cast<int &>(x);
-  return (bits >> 23) & 0xff;
-}
-
-
-// Note: This is not a precise float32 to float16 conversion.
-// This function should be used to convert float values read from ShaderOp data that were intended to be used for halves.
-// So special values (nan, denorm, inf) for float32 will map to their corresponding bits in float16,
-// and it will not handle true conversions that spans float16 denorms and float32 non-denorms.
-uint16_t ConvertFloat32ToFloat16(float x) {
-  bool isNeg = GetSign(x);
-  int exp = GetExponent(x);
-  int mantissa = GetMantissa(x);
-  if (isnan(x)) return Float16NaN;
-  if (isinf(x) || exp - 127 > 15) {
-    return isNeg ? Float16NegInf : Float16PosInf;
-  }
-  if (isdenorm(x)) return isNeg ? Float16NegDenorm : Float16PosDenorm;
-  if (exp == 0 && mantissa == 0) return isNeg ? Float16NegZero : Float16PosZero;
-  else {
-    DXASSERT(exp - 127 <= 15, "else invalid float conversion");
-    uint16_t val = 0;
-    val |= isNeg ? 0x8000 : 0;
-    val |= (exp - 127 + 15) << 10; // subtract from float32 exponent bias and add float16 exponent bias
-    val |= mantissa >> 13; // only first 10 significands taken
-    return val;
-  }
-}
-
 void ParseDataFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType, std::vector<BYTE> &V) {
   BYTE *pB;
   if (compType == DXIL::ComponentType::F16 || compType == DXIL::ComponentType::F32) {
@@ -2038,7 +2021,8 @@ void ShaderOpParser::ParseShader(IXmlReader *pReader, ShaderOpShader *pShader) {
   CHECK_HR(ReadAttrStr(pReader, L"Name", &pShader->Name));
   CHECK_HR(ReadAttrStr(pReader, L"EntryPoint", &pShader->EntryPoint));
   CHECK_HR(ReadAttrStr(pReader, L"Target", &pShader->Target));
-  CHECK_HR(ReadAttrStr(pReader, L"Arguments", &pShader->Arguments))
+  CHECK_HR(ReadAttrStr(pReader, L"Arguments", &pShader->Arguments));
+  CHECK_HR(ReadAttrBOOL(pReader, L"Compiled", &pShader->Compiled))
 
   ReadElementContentStr(pReader, &pShader->Text);
   bool hasText = pShader->Text && *pShader->Text;

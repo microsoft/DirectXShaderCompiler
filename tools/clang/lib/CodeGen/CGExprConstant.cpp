@@ -743,6 +743,12 @@ public:
     case CK_ZeroToOCLEvent:
       return nullptr;
     // HLSL Change Begins.
+    case CK_HLSLCC_FloatingCast:
+    case CK_HLSLCC_IntegralToFloating:
+    case CK_HLSLCC_FloatingToIntegral:
+      // Since these cast kinds have already been handled in ExprConstant.cpp,
+      // we can reuse the logic there.
+      return CGM.EmitConstantExpr(E, E->getType(), CGF);
     case CK_FlatConversion:
       return nullptr;
     case CK_HLSLVectorSplat: {
@@ -1203,7 +1209,13 @@ llvm::Constant *CodeGenModule::EmitConstantInit(const VarDecl &D,
           return EmitNullConstant(D.getType());
       }
   }
-  
+
+  // HLSL Change Begin - External variable is in cbuffer, cannot use as immediate.
+  if (D.hasExternalFormalLinkage() &&
+      !isa<EnumConstantDecl>(&D))
+    return nullptr;
+  // HLSL Change End.
+
   if (const APValue *Value = D.evaluateValue())
     return EmitConstantValueForMemory(*Value, D.getType(), CGF);
 

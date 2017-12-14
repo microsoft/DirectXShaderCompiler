@@ -361,12 +361,19 @@ namespace DotNetDxc
         [DllImport("kernel32.dll", CallingConvention = CallingConvention.Winapi, SetLastError =true, CharSet=CharSet.Unicode, ExactSpelling = true)]
         private static extern IntPtr LoadLibraryW([MarshalAs(UnmanagedType.LPWStr)] string fileName);
 
+        [DllImport("kernel32.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true, CharSet = CharSet.Unicode, ExactSpelling = true)]
+        private static extern IntPtr LoadLibraryExW([MarshalAs(UnmanagedType.LPWStr)] string fileName, IntPtr reserved, UInt32 flags);
+
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling =true)]
         private static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
 
+        private const UInt32 LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR = 0x0100;
+        private const UInt32 LOAD_LIBRARY_DEFAULT_DIRS = 0x1000;
+
         public static DxcCreateInstanceFn LoadDxcCreateInstance(string dllPath, string fnName)
         {
-            IntPtr handle = LoadLibraryW(dllPath);
+            UInt32 flags = LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_DEFAULT_DIRS;
+            IntPtr handle = LoadLibraryExW(dllPath, IntPtr.Zero, flags);
             if (handle == IntPtr.Zero)
             {
                 throw new System.ComponentModel.Win32Exception();

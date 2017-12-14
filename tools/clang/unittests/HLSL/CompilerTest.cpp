@@ -602,6 +602,7 @@ public:
   TEST_METHOD(CodeGenInput1)
   TEST_METHOD(CodeGenInput2)
   TEST_METHOD(CodeGenInput3)
+  TEST_METHOD(CodeGenInt16Op)
   TEST_METHOD(CodeGenIntrinsic1)
   TEST_METHOD(CodeGenIntrinsic1Minprec)
   TEST_METHOD(CodeGenIntrinsic2)
@@ -1123,6 +1124,7 @@ public:
   TEST_METHOD(DxilGen_StoreOutput)
   TEST_METHOD(ConstantFolding)
   TEST_METHOD(HoistConstantArray)
+  TEST_METHOD(VecElemConstEval)
   TEST_METHOD(ViewID)
   TEST_METHOD(ShaderCompatSuite)
   TEST_METHOD(QuickTest)
@@ -3584,6 +3586,11 @@ TEST_F(CompilerTest, CodeGenInput3) {
   CodeGenTest(L"..\\CodeGenHLSL\\input3.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenInt16Op) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\int16Op.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenIntrinsic1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\intrinsic1.hlsl");
 }
@@ -5725,6 +5732,10 @@ TEST_F(CompilerTest, HoistConstantArray) {
   CodeGenTestCheck(L"hca\\12.hlsl");
   CodeGenTestCheck(L"hca\\13.hlsl");
   CodeGenTestCheck(L"hca\\14.hlsl");
+}
+
+TEST_F(CompilerTest, VecElemConstEval) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\vec_elem_const_eval.hlsl");
 }
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {

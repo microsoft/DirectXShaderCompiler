@@ -1,5 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: OpCapability Int64
 // CHECK: OpCapability Float64
 
 // CHECK: OpDecorate %m16i RelaxedPrecision
@@ -32,6 +33,14 @@ void main() {
   uint      uintvar;
   dword     dwordvar;
   min16uint m16u;
+
+// CHECK-DAG: %long = OpTypeInt 64 1
+// CHECK-DAG: %_ptr_Function_long = OpTypePointer Function %long
+  int64_t    int64var;
+
+// CHECK-DAG: %ulong = OpTypeInt 64 0
+// CHECK-DAG: %_ptr_Function_ulong = OpTypePointer Function %ulong
+  uint64_t   uint64var;
 
 // CHECK-DAG: %float = OpTypeFloat 32
 // CHECK-DAG: %_ptr_Function_float = OpTypePointer Function %float
@@ -70,6 +79,8 @@ void main() {
 // CHECK-NEXT:    %uintvar = OpVariable %_ptr_Function_uint Function
 // CHECK-NEXT:   %dwordvar = OpVariable %_ptr_Function_uint Function
 // CHECK-NEXT:       %m16u = OpVariable %_ptr_Function_uint Function
+// CHECK-NEXT:   %int64var = OpVariable %_ptr_Function_long Function
+// CHECK-NEXT:  %uint64var = OpVariable %_ptr_Function_ulong Function
 // CHECK-NEXT:   %floatvar = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:    %halfvar = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT:       %m16f = OpVariable %_ptr_Function_float Function

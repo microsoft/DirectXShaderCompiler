@@ -20,9 +20,9 @@ HS_CONSTANT_DATA_OUTPUT PCF() {
   return Output;
 }
 
-[domain("isoline")]
+[domain("quad")]
 [partitioning("fractional_odd")]
-[outputtopology("line")]
+[outputtopology("triangle_cw")]
 [outputcontrolpoints(16)]
 [patchconstantfunc("PCF")]
 BEZIER_CONTROL_POINT main(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip, uint i : SV_OutputControlPointID, uint PatchID : SV_PrimitiveID) {

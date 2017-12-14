@@ -175,7 +175,7 @@ std::string getClangFullCPPVersion() {
 #ifdef CLANG_VENDOR
   OS << CLANG_VENDOR;
 #endif
-  OS << "Clang " CLANG_VERSION_STRING " " << getClangFullRepositoryVersion();
+  OS << "unofficial";
   return OS.str();
 #endif // HLSL Change Ends
 }

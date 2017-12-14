@@ -611,11 +611,21 @@ public:
 
     FormatTypeNameAndPreamble(sod, typeName, &preambleDecl);
 
+    std::string parmType = typeName;
+    // Stream-output objects must be declared as inout.
+    switch (sod.Kind) {
+    case SOK_StreamOutputLine:
+    case SOK_StreamOutputPoint:
+    case SOK_StreamOutputTriangle:
+      parmType = "inout " + parmType;
+      break;
+    }
+
     sprintf_s(result, _countof(result),
               "%s"
               "void f(%s parameter) { }\n"
               "float ps(float4 color : COLOR) { %s localVar; f(localVar); return 0; }",
-              preambleDecl, typeName, typeName);
+              preambleDecl, parmType.c_str(), typeName);
 
     return std::string(result);
   }
@@ -769,6 +779,16 @@ TEST_F(ObjectTest, PassToInoutArgs) {
     std::stringstream programText;
     unsigned uniqueId = 0;
     for (const auto &iop : InOutParameterModifierData) {
+
+      switch (sod.Kind) {
+      case SOK_StreamOutputLine:
+      case SOK_StreamOutputPoint:
+      case SOK_StreamOutputTriangle:
+        // Stream-output objects can only be inout. Skip other cases.
+        if (std::string(iop.Keyword) != "inout")
+          continue;
+      }
+
       char typeName[64];
       const char* preambleDecl;
 

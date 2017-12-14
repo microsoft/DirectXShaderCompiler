@@ -148,3 +148,9 @@ float4 main() : SV_Target0 {
 }
 
 
+[noinline]
+bool Test_noinline() {
+  return true;
+}
+
+

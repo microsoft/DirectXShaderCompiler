@@ -558,7 +558,8 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
                                       F->getName(), pM.get());
     NewF->setAttributes(F->getAttributes());
 
-    NewF->addFnAttr(llvm::Attribute::AlwaysInline);
+    if (!NewF->hasFnAttribute(llvm::Attribute::NoInline))
+      NewF->addFnAttr(llvm::Attribute::AlwaysInline);
 
     if (DxilFunctionAnnotation *funcAnnotation =
             tmpTypeSys.GetFunctionAnnotation(F)) {
@@ -586,14 +587,16 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
     DM.ResetEntrySignature(newSig.release());
   }
 
-  NewEntryFunc->removeFnAttr(llvm::Attribute::AlwaysInline);
+  if (NewEntryFunc->hasFnAttribute(llvm::Attribute::AlwaysInline))
+    NewEntryFunc->removeFnAttr(llvm::Attribute::AlwaysInline);
   if (props.IsHS()) {
     Function *patchConstantFunc = props.ShaderProps.HS.patchConstantFunc;
     Function *newPatchConstantFunc =
         m_newFunctions[patchConstantFunc->getName()];
     props.ShaderProps.HS.patchConstantFunc = newPatchConstantFunc;
 
-    newPatchConstantFunc->removeFnAttr(llvm::Attribute::AlwaysInline);
+    if (newPatchConstantFunc->hasFnAttribute(llvm::Attribute::AlwaysInline))
+      newPatchConstantFunc->removeFnAttr(llvm::Attribute::AlwaysInline);
   }
   // Set EntryProps
   DM.SetShaderProperties(&props);

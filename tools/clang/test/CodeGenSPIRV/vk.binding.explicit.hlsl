@@ -59,6 +59,8 @@ RWStructuredBuffer<S> sbuffer2 : register(u6);
 // CHECK-NEXT: OpDecorate %asbuffer Binding 1
 // CHECK-NEXT: OpDecorate %csbuffer DescriptorSet 1
 // CHECK-NEXT: OpDecorate %csbuffer Binding 21
+// CHECK-NEXT: OpDecorate %counter_var_sbuffer2 DescriptorSet 3
+// CHECK-NEXT: OpDecorate %counter_var_sbuffer2 Binding 0
 // CHECK-NEXT: OpDecorate %counter_var_asbuffer DescriptorSet 1
 // CHECK-NEXT: OpDecorate %counter_var_asbuffer Binding 0
 // CHECK-NEXT: OpDecorate %counter_var_csbuffer DescriptorSet 1

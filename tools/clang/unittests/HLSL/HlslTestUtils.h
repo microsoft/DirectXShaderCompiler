@@ -8,11 +8,11 @@
 // Provides utility functions for HLSL tests.                                //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
-
 #include <string>
 #include <sstream>
 #include <fstream>
 #include "dxc/Support/Unicode.h"
+#include "dxc/HLSL/DxilConstants.h" // DenormMode
 #include <dxgiformat.h>
 
 // If TAEF verify macros are available, use them to alias other legacy
@@ -203,34 +203,202 @@ inline bool ifdenorm_flushf_eq_or_nans(float a, float b) {
   return ifdenorm_flushf(a) == ifdenorm_flushf(b);
 }
 
-inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance) {
-    if (isnan(fsrc)) {
-        return isnan(fref);
-    }
-    if (isdenorm(fref)) { // Arithmetic operations of denorm may flush to sign-preserved zero
-        return (isdenorm(fsrc) || fsrc == 0) && (signbit(fsrc) == signbit(fref));
-    }
-    if (fsrc == fref) {
-        return true;
-    }
-    int diff = *((DWORD *)&fsrc) - *((DWORD *)&fref);
-    unsigned int uDiff = diff < 0 ? -diff : diff;
-    return uDiff <= (unsigned int)ULPTolerance;
+static const uint16_t Float16NaN = 0xff80;
+static const uint16_t Float16PosInf = 0x7c00;
+static const uint16_t Float16NegInf = 0xfc00;
+static const uint16_t Float16PosDenorm = 0x0008;
+static const uint16_t Float16NegDenorm = 0x8008;
+static const uint16_t Float16PosZero = 0x0000;
+static const uint16_t Float16NegZero = 0x8000;
+
+inline bool GetSign(float x) {
+  return std::signbit(x);
 }
 
-inline bool CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon) {
-    if (isnan(fsrc)) {
-        return isnan(fref);
-    }
-    if (isdenorm(fref)) { // Arithmetic operations of denorm may flush to sign-preserved zero
-        return (isdenorm(fsrc) || fsrc == 0) && (signbit(fsrc) == signbit(fref));
-    }
-    return fsrc == fref || fabsf(fsrc - fref) < epsilon;
+inline int GetMantissa(float x) {
+  int bits = reinterpret_cast<int &>(x);
+  return bits & 0x7fffff;
+}
+
+inline int GetExponent(float x) {
+  int bits = reinterpret_cast<int &>(x);
+  return (bits >> 23) & 0xff;
+}
+
+#define FLOAT16_BIT_SIGN 0x8000
+#define FLOAT16_BIT_EXP 0x7c00
+#define FLOAT16_BIT_MANTISSA 0x03ff
+#define FLOAT16_BIGGEST_DENORM FLOAT16_BIT_MANTISSA
+#define FLOAT16_BIGGEST_NORMAL 0x7bff
+
+inline bool isnanFloat16(uint16_t val) {
+  return (val & FLOAT16_BIT_EXP) == FLOAT16_BIT_EXP &&
+         (val & FLOAT16_BIT_MANTISSA) != 0;
+}
+
+inline uint16_t ConvertFloat32ToFloat16(float val) {
+  union Bits {
+    uint32_t u_bits;
+    float f_bits;
+  };
+
+  static const uint32_t SignMask = 0x8000;
+
+  // Maximum f32 value representable in f16 format
+  static const uint32_t Max16in32 = 0x477fe000;
+
+  // Minimum f32 value representable in f16 format without denormalizing
+  static const uint32_t Min16in32 = 0x38800000;
+
+  // Maximum f32 value (next to infinity)
+  static const uint32_t Max32 = 0x7f7FFFFF;
+
+  // Mask for f32 mantissa
+  static const uint32_t Fraction32Mask = 0x007FFFFF;
+
+  // pow(2,24)
+  static const uint32_t DenormalRatio = 0x4B800000;
+
+  static const uint32_t NormalDelta = 0x38000000;
+
+  Bits bits;
+  bits.f_bits = val;
+  uint32_t sign = bits.u_bits & (SignMask << 16);
+  Bits Abs;
+  Abs.u_bits = bits.u_bits ^ sign;
+
+  bool isLessThanNormal = Abs.f_bits < *(float*)&Min16in32;
+  bool isInfOrNaN = Abs.u_bits > Max32;
+
+  if (isLessThanNormal) {
+    // Compute Denormal result
+    return (uint16_t)(Abs.f_bits * *(float*)(&DenormalRatio)) | sign;
+  }
+  else if (isInfOrNaN) {
+    // Compute Inf or Nan result
+    uint32_t Fraction = Abs.u_bits & Fraction32Mask;
+    uint16_t IsNaN = Fraction == 0 ? 0 : 0xffff;
+    return (IsNaN & FLOAT16_BIT_MANTISSA) | FLOAT16_BIT_EXP | (sign >> 16);
+  }
+  else {
+    // Compute Normal result
+    return (uint16_t)((Abs.u_bits - NormalDelta) >> 13) | (sign >> 16);
+  }
+}
+
+inline float ConvertFloat16ToFloat32(uint16_t x) {
+ union Bits {
+    float f_bits;
+    uint32_t u_bits;
+  };
+
+  uint32_t Sign = (x & FLOAT16_BIT_SIGN) << 16;
+
+  // nan -> exponent all set and mantisa is non zero
+  // +/-inf -> exponent all set and mantissa is zero
+  // denorm -> exponent zero and significand nonzero
+  uint32_t Abs = (x & 0x7fff);
+  uint32_t IsNormal = Abs > FLOAT16_BIGGEST_DENORM;
+  uint32_t IsInfOrNaN = Abs > FLOAT16_BIGGEST_NORMAL;
+
+  // Signless Result for normals
+  uint32_t DenormRatio = 0x33800000;
+  float DenormResult = Abs * (*(float*)&DenormRatio);
+
+  uint32_t AbsShifted = Abs << 13;
+  // Signless Result for normals
+  uint32_t NormalResult = AbsShifted + 0x38000000;
+  // Signless Result for int & nans
+  uint32_t InfResult = AbsShifted + 0x70000000;
+
+  Bits bits;
+  bits.u_bits = 0;
+  if (IsInfOrNaN)
+    bits.u_bits |= InfResult;
+  else if (IsNormal)
+    bits.u_bits |= NormalResult;
+  else
+    bits.f_bits = DenormResult;
+  bits.u_bits |= Sign;
+  return bits.f_bits;
+}
+uint16_t ConvertFloat32ToFloat16(float val);
+float ConvertFloat16ToFloat32(uint16_t val);
+inline bool CompareFloatULP(const float &fsrc, const float &fref,
+                            int ULPTolerance,
+                            hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
+  if (fsrc == fref) {
+    return true;
+  }
+  if (isnan(fsrc)) {
+    return isnan(fref);
+  }
+  if (mode == hlsl::DXIL::Float32DenormMode::Any) {
+    // If denorm expected, output can be sign preserved zero. Otherwise output
+    // should pass the regular ulp testing.
+    if (isdenorm(fref) && fsrc == 0 && signbit(fsrc) == signbit(fref))
+      return true;
+  }
+  // For FTZ or Preserve mode, we should get the expected number within
+  // ULPTolerance for any operations.
+  int diff = *((DWORD *)&fsrc) - *((DWORD *)&fref);
+  unsigned int uDiff = diff < 0 ? -diff : diff;
+  return uDiff <= (unsigned int)ULPTolerance;
+}
+
+inline bool
+CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon,
+                    hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
+  if (fsrc == fref) {
+    return true;
+  }
+  if (isnan(fsrc)) {
+    return isnan(fref);
+  }
+  if (mode == hlsl::DXIL::Float32DenormMode::Any) {
+    // If denorm expected, output can be sign preserved zero. Otherwise output
+    // should pass the regular epsilon testing.
+    if (isdenorm(fref) && fsrc == 0 && signbit(fsrc) == signbit(fref))
+      return true;
+  }
+  // For FTZ or Preserve mode, we should get the expected number within
+  // epsilon for any operations.
+  return fabsf(fsrc - fref) < epsilon;
 }
 
 // Compare using relative error (relative error < 2^{nRelativeExp})
-inline bool CompareFloatRelativeEpsilon(const float &fsrc, const float &fref, int nRelativeExp) {
-    return CompareFloatULP(fsrc, fref, 23 - nRelativeExp);
+inline bool
+CompareFloatRelativeEpsilon(const float &fsrc, const float &fref,
+                            int nRelativeExp,
+                            hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
+  return CompareFloatULP(fsrc, fref, 23 - nRelativeExp, mode);
+}
+
+inline bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref, float ULPTolerance) {
+  if (fsrc == fref)
+    return true;
+  if (isnanFloat16(fsrc))
+    return isnanFloat16(fref);
+  // 16-bit floating point numbers must preserve denorms
+  int diff = *((DWORD *)&fsrc) - *((DWORD *)&fref);
+  unsigned int uDiff = diff < 0 ? -diff : diff;
+  return uDiff <= (unsigned int)ULPTolerance;
+}
+
+inline bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float epsilon) {
+  if (fsrc == fref)
+    return true;
+  if (isnanFloat16(fsrc))
+    return isnanFloat16(fref);
+  float src_f32 = ConvertFloat16ToFloat32(fsrc);
+  float ref_f32 = ConvertFloat16ToFloat32(fref);
+  return abs(src_f32-ref_f32) < epsilon;
+}
+
+inline bool
+CompareHalfRelativeEpsilon(const uint16_t &fsrc, const uint16_t &fref,
+  int nRelativeExp) {
+  return CompareHalfULP(fsrc, fref, 10 - nRelativeExp);
 }
 
 // returns the number of bytes per pixel for a given dxgi format

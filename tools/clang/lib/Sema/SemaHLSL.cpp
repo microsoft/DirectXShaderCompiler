@@ -36,6 +36,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "gen_intrin_main_tables_15.h"
 #include "dxc/HLSL/HLOperations.h"
+#include "dxc/HLSL/DxilShaderModel.h"
 #include <array>
 
 enum ArBasicKind {
@@ -857,7 +858,9 @@ static const ArBasicKind g_UIntCT[] =
 
 static const ArBasicKind g_AnyIntCT[] =
 {
+  AR_BASIC_INT16,
   AR_BASIC_INT32,
+  AR_BASIC_UINT16,
   AR_BASIC_UINT32,
   AR_BASIC_INT64,
   AR_BASIC_UINT64,
@@ -946,7 +949,9 @@ static const ArBasicKind g_NumericCT[] =
   AR_BASIC_MIN10FLOAT,
   AR_BASIC_MIN16FLOAT,
   AR_BASIC_LITERAL_INT,
+  AR_BASIC_INT16,
   AR_BASIC_INT32,
+  AR_BASIC_UINT16,
   AR_BASIC_UINT32,
   AR_BASIC_MIN12INT,
   AR_BASIC_MIN16INT,
@@ -1060,9 +1065,10 @@ static const ArBasicKind g_UInt64CT[] =
   AR_BASIC_UNKNOWN
 };
 
-static const ArBasicKind g_UInt3264CT[] =
+static const ArBasicKind g_UInt163264CT[] =
 {
   AR_BASIC_UINT32,
+  AR_BASIC_UINT16,
   AR_BASIC_UINT64,
   AR_BASIC_LITERAL_INT,
   AR_BASIC_UNKNOWN
@@ -1129,7 +1135,7 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_StringCT,           // LICOMPTYPE_STRING
   g_WaveCT,             // LICOMPTYPE_WAVE
   g_UInt64CT,           // LICOMPTYPE_UINT64
-  g_UInt3264CT,         // LICOMPTYPE_UINT32_64
+  g_UInt163264CT,       // LICOMPTYPE_UINT16_32_64
   g_Float16CT,          // LICOMPTYPE_FLOAT16
   g_Int16CT,            // LICOMPTYPE_INT16
   g_UInt16CT,           // LICOMPTYPE_UINT16
@@ -9084,16 +9090,34 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   // NOTE: the information gathered here could be used to bypass code generation
   // on functions that are unreachable (as an early form of dead code elimination).
   if (pEntryPointDecl) {
-    if (const HLSLPatchConstantFuncAttr *Attr =
-            pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
-      NameLookup NL = GetSingleFunctionDeclByName(self, Attr->getFunctionName(), /*checkPatch*/ true);
-      if (!NL.Found || !NL.Found->hasBody()) {
-        unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-          "missing patch function definition");
-        Diags.Report(id);
+    const auto *shaderModel =
+        hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
+
+    if (shaderModel->IsGS()) {
+      // Validate that GS has the maxvertexcount attribute
+      if (!pEntryPointDecl->hasAttr<HLSLMaxVertexCountAttr>()) {
+        self->Diag(pEntryPointDecl->getLocation(),
+                   diag::err_hlsl_missing_maxvertexcount_attr);
         return;
       }
-      pPatchFnDecl = NL.Found;
+    } else if (shaderModel->IsHS()) {
+      if (const HLSLPatchConstantFuncAttr *Attr =
+              pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
+        NameLookup NL = GetSingleFunctionDeclByName(
+            self, Attr->getFunctionName(), /*checkPatch*/ true);
+        if (!NL.Found || !NL.Found->hasBody()) {
+          unsigned id =
+              Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+                                    "missing patch function definition");
+          Diags.Report(id);
+          return;
+        }
+        pPatchFnDecl = NL.Found;
+      } else {
+        self->Diag(pEntryPointDecl->getLocation(),
+                   diag::err_hlsl_missing_patchconstantfunc_attr);
+        return;
+      }
     }
 
     hlsl::CallGraphWithRecurseGuard CG;
@@ -10311,6 +10335,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
       ValidateAttributeStringArg(S, A, nullptr, 0), ValidateAttributeStringArg(S, A, nullptr, 1),
       A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_NoInline:
+    declAttr = ::new (S.Context) NoInlineAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
@@ -10332,6 +10359,11 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   Handled = true;
   switch (A.getKind())
   {
+  case AttributeList::AT_VKBuiltIn:
+    declAttr = ::new (S.Context) VKBuiltInAttr(A.getRange(), S.Context,
+      ValidateAttributeStringArg(S, A, "PointSize,HelperInvocation"),
+      A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKLocation:
     declAttr = ::new (S.Context) VKLocationAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
@@ -10769,10 +10801,11 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     }
   }
 
+  HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
+  ArBasicKind basicKind = hlslSource->GetTypeElementKind(qt);
+
   if (hasSignSpec) {
-     HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
      ArTypeObjectKind objKind = hlslSource->GetTypeObjectKind(qt);
-     ArBasicKind basicKind = hlslSource->GetTypeElementKind(qt);
      // vectors or matrices can only have unsigned integer types.
      if (objKind == AR_TOBJ_MATRIX || objKind == AR_TOBJ_VECTOR || objKind == AR_TOBJ_BASIC || objKind == AR_TOBJ_ARRAY) {
          if (!IS_BASIC_UNSIGNABLE(basicKind)) {
@@ -11004,6 +11037,15 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
           << pUniform->getRange();
       result = false;
     }
+  }
+
+  // Validate that stream-ouput objects are marked as inout
+  if (isParameter && !(usageIn && usageOut) &&
+      (basicKind == ArBasicKind::AR_OBJECT_LINESTREAM ||
+       basicKind == ArBasicKind::AR_OBJECT_POINTSTREAM ||
+       basicKind == ArBasicKind::AR_OBJECT_TRIANGLESTREAM)) {
+    Diag(D.getLocStart(), diag::err_hlsl_missing_inout_attr);
+    result = false;
   }
 
   // Validate unusual annotations.
@@ -11391,7 +11433,12 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "[maxvertexcount(" << ACast->getCount() << ")]\n";
     break;
   }
-  
+
+  case clang::attr::NoInline:
+    Indent(Indentation, Out);
+    Out << "[noinline]\n";
+    break;
+
   // Statement attributes
   case clang::attr::HLSLAllowUAVCondition:
     Indent(Indentation, Out);
@@ -11539,6 +11586,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLTriangle:
   case clang::attr::HLSLTriangleAdj:
   case clang::attr::HLSLGloballyCoherent:
+  case clang::attr::NoInline:
     return true;
   }
   

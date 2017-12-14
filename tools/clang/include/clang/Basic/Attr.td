@@ -863,6 +863,14 @@ def HLSLExperimental : InheritableAttr {
 
 // SPIRV Change Starts
 
+def VKBuiltIn : InheritableAttr {
+  let Spellings = [CXX11<"vk", "builtin">];
+  let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
+  let Args = [StringArgument<"BuiltIn">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 def VKLocation : InheritableAttr {
   let Spellings = [CXX11<"vk", "location">];
   let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
@@ -1193,7 +1201,8 @@ def NoDuplicate : InheritableAttr {
 }
 
 def NoInline : InheritableAttr {
-  let Spellings = [GCC<"noinline">, Declspec<"noinline">];
+  let Spellings = [GCC<"noinline">, Declspec<"noinline">,
+    CXX11<"", "noinline", 2017>]; // HLSL Change
   let Subjects = SubjectList<[Function]>;
   let Documentation = [Undocumented];
 }

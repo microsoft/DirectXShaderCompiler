@@ -1086,21 +1086,6 @@ Value *TranslateWaveReadLaneFirst(CallInst *CI, IntrinsicOp IOP,
                               CI->getOperand(1)->getType(), CI, hlslOP);
 }
 
-Value *TranslateIAbs(CallInst *CI) {
-  Type *Ty = CI->getType();
-  Type *EltTy = Ty->getScalarType();
-  unsigned bitWidth = EltTy->getIntegerBitWidth();
-  uint64_t mask = ((uint64_t)1) << (bitWidth - 1);
-  Constant *opMask = ConstantInt::get(EltTy, mask);
-  if (Ty != EltTy) {
-    unsigned size = Ty->getVectorNumElements();
-    opMask = llvm::ConstantVector::getSplat(size, opMask);
-  }
-  IRBuilder<> Builder(CI);
-  return Builder.CreateXor(CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx),
-                           opMask);
-}
-
 Value *TransalteAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
@@ -1109,8 +1094,14 @@ Value *TransalteAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     Value *refArgs[] = {nullptr, CI->getOperand(1)};
     return TrivialDxilOperation(DXIL::OpCode::FAbs, refArgs, CI->getType(), CI,
                                 hlslOP);
-  } else
-    return TranslateIAbs(CI);
+  } else {
+    Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+    IRBuilder<> Builder(CI);
+    Value *neg = Builder.CreateNeg(src);
+    Value *refArgs[] = {nullptr, src, neg};
+    return TrivialDxilBinaryOperation(DXIL::OpCode::IMax, src, neg, hlslOP,
+                                      Builder);
+  }
 }
 
 Value *GenerateCmpNEZero(Value *val, IRBuilder<> Builder) {
@@ -1948,11 +1939,7 @@ Value *TranslateSmoothStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   // return s * s *(3-2*s).
   Constant *c2 = ConstantFP::get(CI->getType(),2);
   Constant *c3 = ConstantFP::get(CI->getType(),3);
-  if (s->getType()->isVectorTy()) {
-    unsigned vecSize = s->getType()->getVectorNumElements();
-    c2 = ConstantVector::getSplat(vecSize, c2);
-    c3 = ConstantVector::getSplat(vecSize, c3);
-  }
+
   Value *sMul2 = Builder.CreateFMul(s, c2);
   Value *result = Builder.CreateFSub(c3, sMul2);
   result = Builder.CreateFMul(s, result);
@@ -4884,7 +4871,7 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
   bool is64 = (EltTy == doubleTy) | (EltTy == i64Ty);
   bool is16 = (EltTy == halfTy || EltTy == i16Ty) && !hlslOP->UseMinPrecision();
   bool isNormal = !isBool && !is64;
-  DXASSERT((is16 && channelOffset < 8) || channelOffset < 4,
+  DXASSERT_LOCALVAR(is16, (is16 && channelOffset < 8) || channelOffset < 4,
            "legacy cbuffer don't across 16 bytes register.");
   if (isNormal) {
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
@@ -5315,8 +5302,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         unsigned idxInc = tempOffset >> 4;
         legacyIndex = Builder.CreateAdd(legacyIndex, hlslOP->GetU32Const(idxInc));
       } else {
-        Value *tempOffset = Builder.CreateMul(idx, hlslOP->GetU32Const(size));
-        Value *idxInc = Builder.CreateLShr(tempOffset, 4);
+        Value *idxInc = Builder.CreateMul(idx, hlslOP->GetU32Const(size>>4));
         legacyIndex = Builder.CreateAdd(legacyIndex, idxInc);
       }
 
@@ -5366,8 +5352,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         unsigned idxInc = tempOffset >> 4;
         legacyIndex = Builder.CreateAdd(legacyIndex, hlslOP->GetU32Const(idxInc));
       } else {
-        Value *tempOffset = Builder.CreateMul(idx, hlslOP->GetU32Const(size));
-        Value *idxInc = Builder.CreateLShr(tempOffset, 4);
+        Value *idxInc = Builder.CreateMul(idx, hlslOP->GetU32Const(size>>4));
         legacyIndex = Builder.CreateAdd(legacyIndex, idxInc);
       }
 

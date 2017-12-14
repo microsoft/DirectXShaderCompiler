@@ -80,6 +80,60 @@ InstBuilder &InstBuilder::opConstant(uint32_t resultType, uint32_t resultId,
   return *this;
 }
 
+InstBuilder &InstBuilder::opImageSample(
+    uint32_t result_type, uint32_t result_id, uint32_t sampled_image,
+    uint32_t coordinate, uint32_t dref,
+    llvm::Optional<spv::ImageOperandsMask> image_operands, bool is_explicit,
+    bool is_sparse) {
+  spv::Op op = spv::Op::Max;
+  if (dref) {
+    op = is_explicit ? (is_sparse ? spv::Op::OpImageSparseSampleDrefExplicitLod
+                                  : spv::Op::OpImageSampleDrefExplicitLod)
+                     : (is_sparse ? spv::Op::OpImageSparseSampleDrefImplicitLod
+                                  : spv::Op::OpImageSampleDrefImplicitLod);
+  } else {
+    op = is_explicit ? (is_sparse ? spv::Op::OpImageSparseSampleExplicitLod
+                                  : spv::Op::OpImageSampleExplicitLod)
+                     : (is_sparse ? spv::Op::OpImageSparseSampleImplicitLod
+                                  : spv::Op::OpImageSampleImplicitLod);
+  }
+
+  TheInst.emplace_back(static_cast<uint32_t>(op));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(sampled_image);
+  TheInst.emplace_back(coordinate);
+  if (dref)
+    TheInst.emplace_back(dref);
+  if (image_operands.hasValue()) {
+    const auto &val = image_operands.getValue();
+    encodeImageOperands(val);
+  }
+  return *this;
+}
+
+InstBuilder &InstBuilder::opImageFetchRead(
+    uint32_t result_type, uint32_t result_id, uint32_t image,
+    uint32_t coordinate, llvm::Optional<spv::ImageOperandsMask> image_operands,
+    bool is_fetch, bool is_sparse) {
+  spv::Op op =
+      is_fetch
+          ? (is_sparse ? spv::Op::OpImageSparseFetch : spv::Op::OpImageFetch)
+          : (is_sparse ? spv::Op::OpImageSparseRead : spv::Op::OpImageRead);
+
+  TheInst.emplace_back(static_cast<uint32_t>(op));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(image);
+  TheInst.emplace_back(coordinate);
+  if (image_operands.hasValue()) {
+    const auto &val = image_operands.getValue();
+    encodeImageOperands(val);
+  }
+
+  return *this;
+}
+
 void InstBuilder::encodeString(std::string value) {
   const auto &words = string::encodeSPIRVString(value);
   TheInst.insert(TheInst.end(), words.begin(), words.end());

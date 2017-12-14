@@ -159,8 +159,7 @@ bool GlPerVertex::doClipCullDistanceDecl(const DeclaratorDecl *decl,
 
   if (!getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex)) {
     if (baseType->isStructureType()) {
-      const auto *structDecl =
-          cast<RecordType>(baseType.getTypePtr())->getDecl();
+      const auto *structDecl = baseType->getAs<RecordType>()->getDecl();
       // Go through each field to see if there is any usage of
       // SV_ClipDistance/SV_CullDistance.
       for (const auto *field : structDecl->fields()) {
@@ -398,7 +397,7 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
     if (semanticKind == hlsl::Semantic::Kind::Position)
       return false; // Fall back to the normal path
 
-  // Fall through
+    // Fall through
 
   case hlsl::SigPoint::Kind::HSCPIn:
   case hlsl::SigPoint::Kind::DSCPIn:
@@ -410,7 +409,7 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
     if (semanticKind == hlsl::Semantic::Kind::Position)
       return false; // Fall back to the normal path
 
-  // Fall through
+    // Fall through
 
   case hlsl::SigPoint::Kind::VSOut:
   case hlsl::SigPoint::Kind::HSCPOut:
@@ -424,19 +423,41 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
   return false;
 }
 
-uint32_t GlPerVertex::readPosition() const {
-  assert(inIsGrouped); // We do not handle stand-alone Position builtin here.
+bool GlPerVertex::tryToAccessPointSize(hlsl::SigPoint::Kind sigPointKind,
+                                       llvm::Optional<uint32_t> invocation,
+                                       uint32_t *value, bool noWriteBack) {
+  switch (sigPointKind) {
+  case hlsl::SigPoint::Kind::HSCPIn:
+  case hlsl::SigPoint::Kind::DSCPIn:
+  case hlsl::SigPoint::Kind::GSVIn:
+    *value = readPositionOrPointSize(/*isPosition=*/false);
+    return true;
+  case hlsl::SigPoint::Kind::VSOut:
+  case hlsl::SigPoint::Kind::HSCPOut:
+  case hlsl::SigPoint::Kind::DSOut:
+    writePositionOrPointSize(/*isPosition=*/false, invocation, *value);
+    return true;
+  }
 
+  return false; // Fall back to normal path: GSOut
+}
+
+uint32_t GlPerVertex::readPositionOrPointSize(bool isPosition) const {
+  // We do not handle stand-alone Position/PointSize builtin here.
+  assert(inIsGrouped);
+
+  // The PointSize builtin is always of float type.
   // The Position builtin is always of float4 type.
+  const uint32_t f32Type = theBuilder.getFloat32Type();
   const uint32_t fieldType =
-      theBuilder.getVecType(theBuilder.getFloat32Type(), 4);
+      isPosition ? theBuilder.getVecType(f32Type, 4) : f32Type;
   const uint32_t ptrType =
       theBuilder.getPointerType(fieldType, spv::StorageClass::Input);
-  const uint32_t fieldIndex = theBuilder.getConstantUint32(0);
+  const uint32_t fieldIndex = theBuilder.getConstantUint32(isPosition ? 0 : 1);
 
   if (inArraySize == 0) {
     // The input builtin block is a single block. Only need one index to
-    // locate the Position builtin.
+    // locate the Position/PointSize builtin.
     const uint32_t ptr =
         theBuilder.createAccessChain(ptrType, inBlockVar, {fieldIndex});
     return theBuilder.createLoad(fieldType, ptr);
@@ -449,13 +470,13 @@ uint32_t GlPerVertex::readPosition() const {
   for (uint32_t i = 0; i < inArraySize; ++i) {
     const uint32_t arrayIndex = theBuilder.getConstantUint32(i);
     // Get pointer into the array of structs. We need two indices to locate
-    // the Position builtin now: the first one is the array index, and the
-    // second one is the struct index.
+    // the Position/PointSize builtin now: the first one is the array index,
+    // and the second one is the struct index.
     const uint32_t ptr = theBuilder.createAccessChain(ptrType, inBlockVar,
                                                       {arrayIndex, fieldIndex});
     elements.push_back(theBuilder.createLoad(fieldType, ptr));
   }
-  // Construct a new array of float4 for the Position builtins
+  // Construct a new array of float4/float for the Position/PointSize builtins
   const uint32_t arrayType = theBuilder.getArrayType(
       fieldType, theBuilder.getConstantUint32(inArraySize));
   return theBuilder.createCompositeConstruct(arrayType, elements);
@@ -576,7 +597,7 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
                             uint32_t semanticIndex, uint32_t *value) {
   switch (semanticKind) {
   case hlsl::Semantic::Kind::Position:
-    *value = readPosition();
+    *value = readPositionOrPointSize(/*isPosition=*/true);
     return true;
   case hlsl::Semantic::Kind::ClipDistance: {
     const auto offsetIter = inClipOffset.find(semanticIndex);
@@ -602,20 +623,24 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
   return false;
 }
 
-void GlPerVertex::writePosition(llvm::Optional<uint32_t> invocationId,
-                                uint32_t value) const {
-  assert(outIsGrouped); // We do not handle stand-alone Position builtin here.
+void GlPerVertex::writePositionOrPointSize(
+    bool isPosition, llvm::Optional<uint32_t> invocationId,
+    uint32_t value) const {
+  // We do not handle stand-alone Position/PointSize builtin here.
+  assert(outIsGrouped);
 
   // The Position builtin is always of float4 type.
+  // The PointSize builtin is always of float type.
+  const uint32_t f32Type = theBuilder.getFloat32Type();
   const uint32_t fieldType =
-      theBuilder.getVecType(theBuilder.getFloat32Type(), 4);
+      isPosition ? theBuilder.getVecType(f32Type, 4) : f32Type;
   const uint32_t ptrType =
       theBuilder.getPointerType(fieldType, spv::StorageClass::Output);
-  const uint32_t fieldIndex = theBuilder.getConstantUint32(0);
+  const uint32_t fieldIndex = theBuilder.getConstantUint32(isPosition ? 0 : 1);
 
   if (outArraySize == 0) {
     // The input builtin block is a single block. Only need one index to
-    // locate the Position builtin.
+    // locate the Position/PointSize builtin.
     const uint32_t ptr =
         theBuilder.createAccessChain(ptrType, outBlockVar, {fieldIndex});
     theBuilder.createStore(ptr, value);
@@ -632,8 +657,8 @@ void GlPerVertex::writePosition(llvm::Optional<uint32_t> invocationId,
 
   const uint32_t arrayIndex = invocationId.getValue();
   // Get pointer into the array of structs. We need two indices to locate
-  // the Position builtin now: the first one is the array index, and the
-  // second one is the struct index.
+  // the Position/PointSize builtin now: the first one is the array index,
+  // and the second one is the struct index.
   const uint32_t ptr = theBuilder.createAccessChain(ptrType, outBlockVar,
                                                     {arrayIndex, fieldIndex});
   theBuilder.createStore(ptr, value);
@@ -772,7 +797,7 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
   // out the value to the correct array element.
   switch (semanticKind) {
   case hlsl::Semantic::Kind::Position:
-    writePosition(invocationId, *value);
+    writePositionOrPointSize(/*isPosition=*/true, invocationId, *value);
     return true;
   case hlsl::Semantic::Kind::ClipDistance: {
     const auto offsetIter = outClipOffset.find(semanticIndex);

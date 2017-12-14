@@ -12,8 +12,7 @@ environment:
   HLSL_BLD_DIR: c:\projects\DirectXShaderCompiler\build
 
 install:
-- ps: c:\projects\DirectXShaderCompiler\utils\appveyor\appveyor_setup.ps1
-- git submodule update --init --recursive
+- cmd: git submodule update --init
 
 before_build:
 - cmd: call utils\hct\hctstart %HLSL_SRC_DIR% %HLSL_BLD_DIR%
@@ -22,7 +21,7 @@ build_script:
 - cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -vs2017 -spirvtest
 
 test_script:
-- cmd: powershell utils\appveyor\appveyor_test.ps1
+- ps:  utils\appveyor\appveyor_test.ps1
 - cmd: call utils\hct\hcttest spirv_only
 
 after_test:

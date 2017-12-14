@@ -391,6 +391,7 @@ public:
 
       compiler.getLangOpts().HLSLEntryFunction =
       compiler.getCodeGenOpts().HLSLEntryFunction = pUtf8EntryPoint.m_psz;
+      compiler.getLangOpts().HLSLProfile =
       compiler.getCodeGenOpts().HLSLProfile = pUtf8TargetProfile.m_psz;
 
       unsigned rootSigMajor = 0;
@@ -463,6 +464,8 @@ public:
 #ifdef ENABLE_SPIRV_CODEGEN
       else if (opts.GenSPIRV) {
           clang::EmitSPIRVOptions spirvOpts;
+          spirvOpts.codeGenHighLevel = opts.CodeGenHighLevel;
+          spirvOpts.ignoreUnusedResources = opts.VkIgnoreUnusedResources;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
           spirvOpts.bShift = opts.VkBShift;
           spirvOpts.tShift = opts.VkTShift;

@@ -16,12 +16,18 @@ struct HsCpIn
     float3 cull3   : SV_CullDistance3; // Builtin CullDistance
 
     float3 baz     : BAZ;              // Input variable
+
+    [[vk::builtin("PointSize")]]
+    float  ptSize  : PSIZE;            // Builtin PointSize
 };
 
 struct CpInner2 {
     float1 clip8   : SV_ClipDistance8; // Builtin ClipDistance
     float2 cull6   : SV_CullDistance6; // Builtin CullDistance
     float3 foo     : FOO;              // Output variable
+
+    [[vk::builtin("PointSize")]]
+    float  ptSize  : PSIZE;            // Builtin PointSize
 };
 
 struct CpInner1 {
@@ -81,8 +87,8 @@ struct HsPcfOut
 // CHECK: OpDecorate %out_var_TEXCOORD Patch
 // CHECK: OpDecorate %out_var_WEIGHT Patch
 // CHECK: OpDecorate %in_var_BAZ Location 0
-// CHECK: OpDecorate %out_var_FOO Location 0
-// CHECK: OpDecorate %out_var_BAR Location 1
+// CHECK: OpDecorate %out_var_BAR Location 0
+// CHECK: OpDecorate %out_var_FOO Location 1
 // CHECK: OpDecorate %out_var_TEXCOORD Location 2
 // CHECK: OpDecorate %out_var_WEIGHT Location 3
 
@@ -203,6 +209,13 @@ HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch, uint cpId : SV_OutputContro
 
 // CHECK-NEXT:   [[inBazArr:%\d+]] = OpLoad %_arr_v3float_uint_2 %in_var_BAZ
 
+// Read gl_PerVertex[].gl_PointSize[] to compose a new array for HsCpIn::ptSize
+// CHECK-NEXT:       [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_PerVertexIn %uint_0 %uint_1
+// CHECK-NEXT:       [[val0:%\d+]] = OpLoad %float [[ptr0]]
+// CHECK-NEXT:       [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_PerVertexIn %uint_1 %uint_1
+// CHECK-NEXT:       [[val1:%\d+]] = OpLoad %float [[ptr1]]
+// CHECK-NEXT:  [[inPtSzArr:%\d+]] = OpCompositeConstruct %_arr_float_uint_2 [[val0]] [[val1]]
+
 // Compose a temporary HsCpIn value out of the temporary arrays constructed before
 // CHECK-NEXT:       [[val0:%\d+]] = OpCompositeExtract %v4float [[inPosArr]] 0
 // CHECK-NEXT:       [[val1:%\d+]] = OpCompositeExtract %v2float [[inClip0Arr]] 0
@@ -210,7 +223,8 @@ HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch, uint cpId : SV_OutputContro
 // CHECK-NEXT:       [[val3:%\d+]] = OpCompositeExtract %float [[inClip2Arr]] 0
 // CHECK-NEXT:       [[val4:%\d+]] = OpCompositeExtract %v3float [[inCull3Arr]] 0
 // CHECK-NEXT:       [[val5:%\d+]] = OpCompositeExtract %v3float [[inBazArr]] 0
-// CHECK-NEXT:    [[hscpin0:%\d+]] = OpCompositeConstruct %HsCpIn [[val0]] [[val1]] [[val2]] [[val3]] [[val4]] [[val5]]
+// CHECK-NEXT:       [[val6:%\d+]] = OpCompositeExtract %float [[inPtSzArr]] 0
+// CHECK-NEXT:    [[hscpin0:%\d+]] = OpCompositeConstruct %HsCpIn [[val0]] [[val1]] [[val2]] [[val3]] [[val4]] [[val5]] [[val6]]
 
 // Compose a temporary HsCpIn value out of the temporary arrays constructed before
 // CHECK-NEXT:       [[val0:%\d+]] = OpCompositeExtract %v4float [[inPosArr]] 1
@@ -219,7 +233,8 @@ HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch, uint cpId : SV_OutputContro
 // CHECK-NEXT:       [[val3:%\d+]] = OpCompositeExtract %float [[inClip2Arr]] 1
 // CHECK-NEXT:       [[val4:%\d+]] = OpCompositeExtract %v3float [[inCull3Arr]] 1
 // CHECK-NEXT:       [[val5:%\d+]] = OpCompositeExtract %v3float [[inBazArr]] 1
-// CHECK-NEXT:    [[hscpin1:%\d+]] = OpCompositeConstruct %HsCpIn [[val0]] [[val1]] [[val2]] [[val3]] [[val4]] [[val5]]
+// CHECK-NEXT:       [[val6:%\d+]] = OpCompositeExtract %float [[inPtSzArr]] 1
+// CHECK-NEXT:    [[hscpin1:%\d+]] = OpCompositeConstruct %HsCpIn [[val0]] [[val1]] [[val2]] [[val3]] [[val4]] [[val5]] [[val6]]
 
 // Populate the temporary variables for function call
 
@@ -272,6 +287,11 @@ HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch, uint cpId : SV_OutputContro
 // CHECK-NEXT:        [[foo:%\d+]] = OpCompositeExtract %v3float [[outInner2]] 2
 // CHECK-NEXT:        [[ptr:%\d+]] = OpAccessChain %_ptr_Output_v3float %out_var_FOO [[invoId]]
 // CHECK-NEXT:                       OpStore [[ptr]] [[foo]]
+
+// Write out HsCpOut::CpInner1::CpInner2::PointSize to gl_PerVertex[].gl_PointSize
+// CHECK-NEXT:     [[ptSize:%\d+]] = OpCompositeExtract %float [[outInner2]] 3
+// CHECK-NEXT:        [[ptr:%\d+]] = OpAccessChain %_ptr_Output_float %gl_PerVertexOut [[invoId]] %uint_1
+// CHECK-NEXT:                       OpStore [[ptr]] [[ptSize]]
 
 // Write out HsCpOut::CpInner1::clip6 to gl_PerVertex[].gl_ClipDistance
 // CHECK-NEXT:      [[clip6:%\d+]] = OpCompositeExtract %float [[outInner1]] 2

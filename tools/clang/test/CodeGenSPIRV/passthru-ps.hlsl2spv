@@ -9,7 +9,7 @@ float4 main(float4 input: COLOR): SV_Target
 // ; SPIR-V
 // ; Version: 1.0
 // ; Generator: Google spiregg; 0
-// ; Bound: 21
+// ; Bound: 20
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450

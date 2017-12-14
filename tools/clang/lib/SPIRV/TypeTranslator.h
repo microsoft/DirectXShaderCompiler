@@ -156,6 +156,9 @@ public:
   /// (in a recursive away).
   static bool isOpaqueStructType(QualType tye);
 
+  /// \brief Returns a string name for the given type.
+  static std::string getName(QualType type);
+
   /// \brief Returns the the element type for the given scalar/vector/matrix
   /// type. Returns empty QualType for other cases.
   QualType getElementType(QualType type);
@@ -166,6 +169,10 @@ public:
   /// This method will panic if the given matrix type is not a SPIR-V acceptable
   /// matrix type.
   uint32_t getComponentVectorType(QualType matrixType);
+
+  /// \brief Returns the capability required for the given storage image type.
+  /// Returns Capability::Max to mean no capability requirements.
+  static spv::Capability getCapabilityForStorageImageReadWrite(QualType type);
 
   /// \brief Generates layout decorations (Offset, MatrixStride, RowMajor,
   /// ColMajor) for the given type.
@@ -193,9 +200,6 @@ private:
   /// \bried For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
   spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
-
-  /// \brief Returns a string name for the given type.
-  static std::string getName(QualType type);
 
 public:
   /// \brief Returns the alignment and size in bytes for the given type

@@ -32,7 +32,7 @@ class db_dxil_inst(object):
         self.is_bb_terminator = False   # whether this is a basic block terminator
         self.is_binary = False          # whether this is an arithmetic binary/logical operator
         self.is_memory = False          # whether this is a memory manipulator operator
-        self.is_cast = True             # whether this is a casting operator
+        self.is_cast = False            # whether this is a casting operator
         self.is_dxil_op = False         # whether this is a call into a built-in DXIL function
         self.dxil_op = ""               # name of DXIL operation
         self.dxil_opid = 0              # ID of DXIL operation 
@@ -220,20 +220,28 @@ class db_dxil(object):
             self.name_idx[i].category = "Unary float"
         for i in "Round_ne,Round_ni,Round_pi,Round_z".split(","):
             self.name_idx[i].category = "Unary float - rounding"
-        for i in "Bfrev,Countbits,FirstbitLo,FirstbitHi,FirstbitSHi".split(","):
+        for i in "Bfrev,Countbits,FirstbitLo,FirstbitSHi".split(","):
             self.name_idx[i].category = "Unary int"
+        for i in "FirstbitHi".split(","):
+            self.name_idx[i].category = "Unary uint"
         for i in "FMax,FMin".split(","):
             self.name_idx[i].category = "Binary float"
-        for i in "IMax,IMin,UMax,UMin".split(","):
+        for i in "IMax,IMin,Add,Sub,Mul,SDiv,SRem,And,Or,Xor,AShr,LShr,Shl".split(","):
             self.name_idx[i].category = "Binary int"
-        for i in "IMul,UMul,UDiv".split(","):
+        for i in "UMax,UMin,UMul,UDiv,URem".split(","):
+            self.name_idx[i].category = "Binary uint"
+        for i in "IMul".split(","):
             self.name_idx[i].category = "Binary int with two outputs"
+        for i in "UMul,UDiv".split(","): # Rename this UDiv OpCode to UDivMod
+            self.name_idx[i].category = "Binary uint with two outputs"
         for i in "UAddc,USubb".split(","):
             self.name_idx[i].category = "Binary uint with carry or borrow"
         for i in "FMad,Fma".split(","):
             self.name_idx[i].category = "Tertiary float"
-        for i in "IMad,UMad,Msad,Ibfe,Ubfe".split(","):
+        for i in "IMad,Msad,Ibfe".split(","):
             self.name_idx[i].category = "Tertiary int"
+        for i in "UMad,Ubfe".split(","):
+            self.name_idx[i].category = "Tertiary uint"
         for i in "Bfi".split(","):
             self.name_idx[i].category = "Quaternary"
         for i in "Dot2,Dot3,Dot4".split(","):
@@ -443,6 +451,7 @@ class db_dxil(object):
                 db_dxil_param(0, "i32", "", "operation result"),
                 db_dxil_param(2, "$o", "value", "input value")])
             next_op_idx += 1
+
         # Binary float operations
         for i in "FMax,FMin".split(","):
             self.add_dxil_op(i, next_op_idx, "Binary", "returns the " + i + " of the input values", "hfd", "rn", [
@@ -514,7 +523,7 @@ class db_dxil(object):
             db_dxil_param(5, "$o", "replacedValue", "the number with bits to be replaced")])
         next_op_idx += 1
 
-        # Dot.
+        # Dot
         self.add_dxil_op("Dot2", next_op_idx, "Dot2", "two-dimensional vector dot-product", "hf", "rn", [
             db_dxil_param(0, "$o", "", "the operation result"),
             db_dxil_param(2, "$o", "ax", "the first component of the first vector"),
@@ -547,7 +556,7 @@ class db_dxil(object):
         self.add_dxil_op("CreateHandle", next_op_idx, "CreateHandle", "creates the handle to a resource", "v", "ro", [
             db_dxil_param(0, "res", "", "the handle to the resource"),
             db_dxil_param(2, "i8", "resourceClass", "the class of resource to create (SRV, UAV, CBuffer, Sampler)", is_const=True), # maps to DxilResourceBase::Class
-            db_dxil_param(3, "i32", "rangeId", "range identifier for resource"),
+            db_dxil_param(3, "i32", "rangeId", "range identifier for resource", is_const=True),
             db_dxil_param(4, "i32", "index", "zero-based index into range"),
             db_dxil_param(5, "i1", "nonUniformIndex", "non-uniform resource index", is_const=True)])
         next_op_idx += 1
@@ -1321,6 +1330,7 @@ class db_dxil(object):
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
         add_pass('dxil-dfe', 'DxilDeadFunctionElimination', 'Remove all unused function except entry from DxilModule', [])
         add_pass('hl-dfe', 'HLDeadFunctionElimination', 'Remove all unused function except entry from HLModule', [])
+        add_pass('hl-preprocess', 'HLPreprocess', 'Preprocess HLModule after inline', [])
         add_pass('hlsl-dxil-expand-trig', 'DxilExpandTrigIntrinsics', 'DXIL expand trig intrinsics', [])
         add_pass('hlsl-hca', 'HoistConstantArray', 'HLSL constant array hoisting', [])
         add_pass('hlsl-dxil-preserve-all-outputs', 'DxilPreserveAllOutputs', 'DXIL write to all outputs in signature', [])
@@ -1923,7 +1933,7 @@ class db_hlsl(object):
             "uint": "LICOMPTYPE_UINT",
             "uint16_t": "LICOMPTYPE_UINT16",
             "u64": "LICOMPTYPE_UINT64",
-            "u32_64": "LICOMPTYPE_UINT32_64",
+            "u16_32_64": "LICOMPTYPE_UINT16_32_64",
             "any_int": "LICOMPTYPE_ANY_INT",
             "any_int32": "LICOMPTYPE_ANY_INT32",
             "uint_only": "LICOMPTYPE_UINT_ONLY",

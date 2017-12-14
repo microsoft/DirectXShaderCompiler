@@ -3338,6 +3338,17 @@ Expr::isNullPointerConstant(ASTContext &Ctx,
       (Ctx.getLangOpts().CPlusPlus && getType()->isEnumeralType()))
     return NPCK_NotNull;
 
+  // HLSL Change Begin -External variable is in cbuffer, cannot use as immediate.
+  if (getStmtClass() == Stmt::DeclRefExprClass && Ctx.getLangOpts().HLSL) {
+    const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(this);
+    const ValueDecl *VD = DRE->getDecl();
+    // External variable is in cbuffer, cannot use as immediate.
+    if (VD->hasExternalFormalLinkage() &&
+        !isa<EnumConstantDecl>(VD))
+      return NPCK_NotNull;
+  }
+  // HLSL Change End.
+
   if (Ctx.getLangOpts().CPlusPlus11) {
     // C++11 [conv.ptr]p1: A null pointer constant is an integer literal with
     // value zero or a prvalue of type std::nullptr_t.

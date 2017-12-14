@@ -168,7 +168,7 @@ bool clang::ExecuteCompilerInvocation(CompilerInstance *Clang) {
   if (Clang->getFrontendOpts().ShowHelp) {
     std::unique_ptr<OptTable> Opts(driver::createDriverOptTable());
     Opts->PrintHelp(llvm::outs(), "clang -cc1",
-                    "LLVM 'Clang' Compiler: http://clang.llvm.org",
+                    "LLVM 'Clang' Compiler: http://clang.llvm.org", "",
                     /*Include=*/ driver::options::CC1Option, /*Exclude=*/ 0);
     return true;
   }

@@ -76,6 +76,8 @@ public:
 private:
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);
+  void doRecordDecl(const RecordDecl *decl);
+  void doHLSLBufferDecl(const HLSLBufferDecl *decl);
 
   void doBreakStmt(const BreakStmt *stmt);
   void doDiscardStmt(const DiscardStmt *stmt);
@@ -94,9 +96,10 @@ private:
   SpirvEvalInfo doCallExpr(const CallExpr *callExpr);
   SpirvEvalInfo doCastExpr(const CastExpr *expr);
   SpirvEvalInfo doCompoundAssignOperator(const CompoundAssignOperator *expr);
-  uint32_t doConditionalOperator(const ConditionalOperator *expr);
+  SpirvEvalInfo doConditionalOperator(const ConditionalOperator *expr);
   SpirvEvalInfo doCXXMemberCallExpr(const CXXMemberCallExpr *expr);
   SpirvEvalInfo doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr);
+  SpirvEvalInfo doDeclRefExpr(const DeclRefExpr *expr);
   SpirvEvalInfo doExtMatrixElementExpr(const ExtMatrixElementExpr *expr);
   SpirvEvalInfo doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr);
   SpirvEvalInfo doInitListExpr(const InitListExpr *expr);
@@ -110,19 +113,21 @@ private:
 
   /// Generates SPIR-V instructions for the given normal (non-intrinsic and
   /// non-operator) standalone or member function call.
-  uint32_t processCall(const CallExpr *expr);
+  SpirvEvalInfo processCall(const CallExpr *expr);
 
   /// Generates the necessary instructions for assigning rhs to lhs. If lhsPtr
   /// is not zero, it will be used as the pointer from lhs instead of evaluating
   /// lhs again.
   SpirvEvalInfo processAssignment(const Expr *lhs, const SpirvEvalInfo &rhs,
                                   bool isCompoundAssignment,
-                                  SpirvEvalInfo lhsPtr = 0);
+                                  SpirvEvalInfo lhsPtr = 0,
+                                  const Expr *rhsExpr = nullptr);
 
   /// Generates SPIR-V instructions to store rhsVal into lhsPtr. This will be
-  /// recursive if valType is a composite type.
+  /// recursive if lhsValType is a composite type. rhsExpr will be used as a
+  /// reference to adjust the CodeGen if not nullptr.
   void storeValue(const SpirvEvalInfo &lhsPtr, const SpirvEvalInfo &rhsVal,
-                  QualType valType);
+                  QualType lhsValType, const Expr *rhsExpr = nullptr);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs. If lhsResultId is not nullptr, the evaluated
@@ -135,7 +140,8 @@ private:
                                 spv::Op mandateGenOpcode = spv::Op::Max);
 
   /// Generates SPIR-V instructions to initialize the given variable once.
-  void initOnce(std::string varName, uint32_t varPtr, const Expr *varInit);
+  void initOnce(QualType varType, std::string varName, uint32_t varPtr,
+                const Expr *varInit);
 
   /// Returns true if the given expression will be translated into a vector
   /// shuffle instruction in SPIR-V.
@@ -218,7 +224,7 @@ private:
   /// matrixVal should be the loaded value of the matrix. actOnEachVector takes
   /// three parameters for the current vector: the index, the <type-id>, and
   /// the value. It returns the <result-id> of the processed vector.
-  uint32_t processEachVectorInMatrix(
+  SpirvEvalInfo processEachVectorInMatrix(
       const Expr *matrix, const uint32_t matrixVal,
       llvm::function_ref<uint32_t(uint32_t, uint32_t, uint32_t)>
           actOnEachVector);
@@ -240,7 +246,7 @@ private:
 
 private:
   /// Validates that vk::* attributes are used correctly.
-  void validateVKAttributes(const Decl *decl);
+  void validateVKAttributes(const NamedDecl *decl);
 
 private:
   /// Processes the given expr, casts the result into the given bool (vector)
@@ -259,7 +265,7 @@ private:
 
 private:
   /// Processes HLSL instrinsic functions.
-  uint32_t processIntrinsicCallExpr(const CallExpr *);
+  SpirvEvalInfo processIntrinsicCallExpr(const CallExpr *);
 
   /// Processes the 'clip' intrinsic function. Discards the current pixel if the
   /// specified value is less than zero.
@@ -289,6 +295,9 @@ private:
 
   /// Processes the 'modf' intrinsic function.
   uint32_t processIntrinsicModf(const CallExpr *);
+
+  /// Processes the 'msad4' intrinsic function.
+  uint32_t processIntrinsicMsad4(const CallExpr *);
 
   /// Processes the 'mul' intrinsic function.
   uint32_t processIntrinsicMul(const CallExpr *);
@@ -399,6 +408,16 @@ private:
   /// if success. Otherwise, returns 0.
   uint32_t tryToEvaluateAsConst(const Expr *expr);
 
+  /// Tries to evaluate the given APFloat as a 32-bit float. If the evaluation
+  /// can be performed without loss, it returns the <result-id> of the SPIR-V
+  /// constant for that value. Returns zero otherwise.
+  uint32_t tryToEvaluateAsFloat32(const llvm::APFloat &);
+
+  /// Tries to evaluate the given APInt as a 32-bit integer. If the evaluation
+  /// can be performed without loss, it returns the <result-id> of the SPIR-V
+  /// constant for that value.
+  uint32_t tryToEvaluateAsInt32(const llvm::APInt &, bool isSigned);
+
 private:
   /// Translates the given HLSL loop attribute into SPIR-V loop control mask.
   /// Emits an error if the given attribute is not a loop attribute.
@@ -467,10 +486,12 @@ private:
   ///
   /// The method panics if it is called for any shader kind other than Hull
   /// shaders.
-  bool processHullEntryPointOutputAndPatchConstFunc(
-      const FunctionDecl *hullMainFuncDecl, uint32_t retType, uint32_t retVal,
-      uint32_t numOutputControlPoints, uint32_t outputControlPointId,
-      uint32_t primitiveId, uint32_t hullMainInputPatch);
+  bool processHSEntryPointOutputAndPCF(const FunctionDecl *hullMainFuncDecl,
+                                       uint32_t retType, uint32_t retVal,
+                                       uint32_t numOutputControlPoints,
+                                       uint32_t outputControlPointId,
+                                       uint32_t primitiveId, uint32_t viewId,
+                                       uint32_t hullMainInputPatch);
 
 private:
   /// \brief Returns true iff *all* the case values in the given switch
@@ -555,13 +576,12 @@ private:
   void processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt);
 
 private:
-  /// Handles the optional offset argument in the given method call at the given
-  /// argument index.
-  /// If there exists an offset argument, writes the <result-id> to either
-  /// *constOffset or *varOffset, depending on the constantness of the offset.
-  void handleOptionalOffsetInMethodCall(const CXXMemberCallExpr *expr,
-                                        uint32_t index, uint32_t *constOffset,
-                                        uint32_t *varOffset);
+  /// Handles the offset argument in the given method call at the given argument
+  /// index. Panics if the argument at the given index does not exist. Writes
+  /// the <result-id> to either *constOffset or *varOffset, depending on the
+  /// constantness of the offset.
+  void handleOffsetInMethodCall(const CXXMemberCallExpr *expr, uint32_t index,
+                                uint32_t *constOffset, uint32_t *varOffset);
 
   /// \brief Processes .Load() method call for Buffer/RWBuffer and texture
   /// objects.
@@ -570,9 +590,12 @@ private:
   /// \brief Loads one element from the given Buffer/RWBuffer/Texture object at
   /// the given location. The type of the loaded element matches the type in the
   /// declaration for the Buffer/Texture object.
-  uint32_t processBufferTextureLoad(const Expr *object, uint32_t location,
-                                    uint32_t constOffset = 0,
-                                    uint32_t varOffst = 0, uint32_t lod = 0);
+  /// If residencyCodeId is not zero,  the SPIR-V instruction for storing the
+  /// resulting residency code will also be emitted.
+  SpirvEvalInfo processBufferTextureLoad(const Expr *object, uint32_t location,
+                                         uint32_t constOffset,
+                                         uint32_t varOffset, uint32_t lod,
+                                         uint32_t residencyCode);
 
   /// \brief Processes .Sample() and .Gather() method calls for texture objects.
   uint32_t processTextureSampleGather(const CXXMemberCallExpr *expr,
@@ -625,8 +648,9 @@ private:
   /// ByteAddressBuffer. Loading is allowed from a ByteAddressBuffer or
   /// RWByteAddressBuffer. Storing is allowed only to RWByteAddressBuffer.
   /// Panics if it is not the case.
-  uint32_t processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
-                                             uint32_t numWords, bool doStore);
+  SpirvEvalInfo processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
+                                                  uint32_t numWords,
+                                                  bool doStore);
 
   /// \brief Processes the GetDimensions intrinsic function call on a
   /// (RW)ByteAddressBuffer by querying the image in the given expr.

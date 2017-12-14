@@ -198,6 +198,24 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   unsigned missingArgIndex = 0, missingArgCount = 0;
   InputArgList Args = optionTable->ParseArgs(
     argStrings.getArrayRef(), missingArgIndex, missingArgCount, flagsToInclude);
+  // Verify consistency for external library support.
+  opts.ExternalLib = Args.getLastArgValue(OPT_external_lib);
+  opts.ExternalFn = Args.getLastArgValue(OPT_external_fn);
+  if (opts.ExternalLib.empty()) {
+    if (!opts.ExternalFn.empty()) {
+      errors << "External function cannot be specified without an external "
+        "library name.";
+      return 1;
+    }
+  }
+  else {
+    if (opts.ExternalFn.empty()) {
+      errors << "External library name requires specifying an external "
+        "function name.";
+      return 1;
+    }
+  }
+
   opts.ShowHelp = Args.hasFlag(OPT_help, OPT_INVALID, false);
   if (opts.ShowHelp) {
     return 0;
@@ -224,24 +242,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
   opts.Defines.BuildDefines(); // Must be called after all defines are pushed back
 
-  opts.ExternalLib = Args.getLastArgValue(OPT_external_lib);
-  opts.ExternalFn = Args.getLastArgValue(OPT_external_fn);
-
-  // Verify consistency for external library support.
-  if (opts.ExternalLib.empty()) {
-    if (!opts.ExternalFn.empty()) {
-      errors << "External function cannot be specified without an external "
-        "library name.";
-      return 1;
-    }
-  }
-  else {
-    if (opts.ExternalFn.empty()) {
-      errors << "External library name requires specifying an external "
-        "function name.";
-      return 1;
-    }
-  }
   DXASSERT(opts.ExternalLib.empty() == opts.ExternalFn.empty(),
            "else flow above is incorrect");
 
@@ -481,6 +481,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
+  opts.VkIgnoreUnusedResources = Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false);
 
   // Collects the arguments for -fvk-{b|s|t|u}-shift.
   const auto handleVkShiftArgs = [genSpirv, &Args, &errors](
@@ -518,6 +519,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
