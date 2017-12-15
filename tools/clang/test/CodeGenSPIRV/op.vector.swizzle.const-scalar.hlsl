@@ -4,7 +4,7 @@
 // CHECK: [[v4f25:%\d+]] = OpConstantComposite %v4float %float_2_5 %float_2_5 %float_2_5 %float_2_5
 // CHECK:  [[v4f0:%\d+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
 
-void main() {
+float4 main() : SV_Target {
 
 // CHECK: OpStore %a [[v4f1]]
   float4 a = (1).xxxx;
@@ -14,4 +14,7 @@ void main() {
 
 // CHECK: OpStore %c [[v4f0]]
   float4 c = (false).xxxx;
+
+// CHECK: OpReturnValue [[v4f0]]
+  return 0.0.xxxx;
 }
