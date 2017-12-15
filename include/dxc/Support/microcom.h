@@ -88,9 +88,10 @@ public:
 
 template <typename T, typename... Args>
 inline T *CreateOnMalloc(IMalloc * pMalloc, Args&&... args) {
-  void *P = pMalloc->Alloc(sizeof(T)); \
-  if (P) new (P)T(pMalloc, std::forward<Args>(args)...); \
-  return (T *)P; \
+  void *P = pMalloc->Alloc(sizeof(T));
+  try { if (P) new (P)T(pMalloc, std::forward<Args>(args)...); }
+  catch (...) { pMalloc->Free(P); throw; }
+  return (T *)P;
 }
 
 template<typename T>
@@ -116,10 +117,16 @@ void DxcCallDestructor(T *obj) {
       return result; \
     }
 #define DXC_MICROCOM_TM_CTOR(T) \
-  T(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) { } \
-  static T* Alloc(IMalloc *pMalloc) { \
+  DXC_MICROCOM_TM_CTOR_ONLY(T) \
+  DXC_MICROCOM_TM_ALLOC(T)
+#define DXC_MICROCOM_TM_CTOR_ONLY(T) \
+  T(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) { }
+#define DXC_MICROCOM_TM_ALLOC(T) \
+  template <typename... Args> \
+  static T* Alloc(IMalloc *pMalloc, Args&&... args) { \
     void *P = pMalloc->Alloc(sizeof(T)); \
-    try { if (P) new (P)T(pMalloc); } catch (...) { operator delete(P); throw; } \
+    try { if (P) new (P)T(pMalloc, std::forward<Args>(args)...); } \
+    catch (...) { pMalloc->Free(P); throw; } \
     return (T *)P; \
   }
 
