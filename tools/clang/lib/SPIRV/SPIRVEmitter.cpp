@@ -1624,11 +1624,8 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     // a 64bit constant and then explicit casting in SPIR-V requires Int64
     // capability. We should avoid introducing unnecessary capabilities to
     // our best.
-    llvm::APSInt intValue;
-    if (expr->EvaluateAsInt(intValue, astContext, Expr::SE_NoSideEffects)) {
-      const auto valueId = translateAPInt(intValue, toType);
+    if (const uint32_t valueId = tryToEvaluateAsConst(expr))
       return SpirvEvalInfo(valueId).setConstant().setRValue();
-    }
 
     const auto valueId =
         castToInt(doExpr(subExpr), subExprType, toType, subExpr->getExprLoc());
@@ -1640,12 +1637,8 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   case CastKind::CK_HLSLCC_IntegralToFloating: {
     // First try to see if we can do constant folding for floating point
     // numbers like what we are doing for integers in the above.
-    Expr::EvalResult evalResult;
-    if (expr->EvaluateAsRValue(evalResult, astContext) &&
-        !evalResult.HasSideEffects) {
-      const auto valueId = translateAPFloat(evalResult.Val.getFloat(), toType);
+    if (const uint32_t valueId = tryToEvaluateAsConst(expr))
       return SpirvEvalInfo(valueId).setConstant().setRValue();
-    }
 
     const auto valueId = castToFloat(doExpr(subExpr), subExprType, toType,
                                      subExpr->getExprLoc());
@@ -1656,12 +1649,8 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   case CastKind::CK_HLSLCC_IntegralToBoolean:
   case CastKind::CK_HLSLCC_FloatingToBoolean: {
     // First try to see if we can do constant folding.
-    bool boolVal;
-    if (!expr->HasSideEffects(astContext) &&
-        expr->EvaluateAsBooleanCondition(boolVal, astContext)) {
-      const auto valueId = theBuilder.getConstantBool(boolVal);
+    if (const uint32_t valueId = tryToEvaluateAsConst(expr))
       return SpirvEvalInfo(valueId).setConstant().setRValue();
-    }
 
     const auto valueId = castToBool(doExpr(subExpr), subExprType, toType);
     return SpirvEvalInfo(valueId).setRValue();
