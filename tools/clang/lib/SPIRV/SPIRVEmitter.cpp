@@ -4465,7 +4465,7 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
   if (isSameScalarOrVecType(fromType, toIntType))
     return fromVal;
 
-  const uint32_t intType = typeTranslator.translateType(toIntType);
+  uint32_t intType = typeTranslator.translateType(toIntType);
 
   // AST may include a 'literal int' to 'int' conversion. No-op.
   if (fromType->isLiteralType(astContext) && fromType->isIntegerType() &&
@@ -4481,13 +4481,10 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
       // for (a == b), whose return type will be 64-bit integer if following the
       // normal path.
       // TODO: This is not beautiful. But other ways are even worse.
-      const uint32_t retType = toIntType->isSignedIntegerType()
-                                   ? theBuilder.getInt32Type()
-                                   : theBuilder.getUint32Type();
-      return theBuilder.createSelect(retType, fromVal, one, zero);
-    } else {
-      return theBuilder.createSelect(intType, fromVal, one, zero);
+      intType = toIntType->isSignedIntegerType() ? theBuilder.getInt32Type()
+                                                 : theBuilder.getUint32Type();
     }
+    return theBuilder.createSelect(intType, fromVal, one, zero);
   }
 
   if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
