@@ -319,7 +319,11 @@ void Scalarizer::gather(Instruction *Op, const ValueVector &CV) {
   ValueVector &SV = Scattered[Op];
   if (!SV.empty()) {
     for (unsigned I = 0, E = SV.size(); I != E; ++I) {
-      Instruction *Old = cast<Instruction>(SV[I]);
+      Instruction *Old = dyn_cast_or_null<Instruction>(SV[I]);
+      // HLSL Change Begin - skip unused scatter elt.
+      if (!Old)
+        continue;
+      // HLSL Change End.
       CV[I]->takeName(Old);
       Old->replaceAllUsesWith(CV[I]);
       Old->eraseFromParent();
