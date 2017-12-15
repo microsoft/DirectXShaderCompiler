@@ -458,6 +458,7 @@ public:
   TEST_METHOD(PixDebugPreexistingSVPosition)
   TEST_METHOD(PixDebugPreexistingSVVertex)
   TEST_METHOD(PixDebugPreexistingSVInstance)
+  TEST_METHOD(PixAccessTracking)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -2999,6 +3000,10 @@ TEST_F(CompilerTest, PixDebugPreexistingSVVertex) {
 
 TEST_F(CompilerTest, PixDebugPreexistingSVInstance) {
   CodeGenTestCheck(L"pix\\DebugPreexistingSVInstance.hlsl");
+}
+
+TEST_F(CompilerTest, PixAccessTracking) {
+  CodeGenTestCheck(L"pix\\AccessTracking.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
