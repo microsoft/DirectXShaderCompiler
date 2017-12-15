@@ -8,6 +8,8 @@ Texture1D   <float4> t1 : register(t1);
 Texture2D   <float4> t2 : register(t2);
 Texture3D   <float4> t3 : register(t3);
 TextureCube <float4> t4 : register(t4);
+Texture3D   <float>  t5 : register(t5);
+TextureCube <float2> t6 : register(t6);
 
 // CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability SparseResidency
@@ -70,6 +72,20 @@ float4 main(int3 offset: A) : SV_Target {
 // CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
 // CHECK-NEXT:                         OpStore %val6 [[result]]
     float4 val6 = t4.SampleLevel(gSampler, float3(0.1, 0.2, 0.3), 10, status);
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Make sure OpImageSampleExplicitLod returns a vec4.
+// Make sure OpImageSparseSampleExplicitLod returns a struct, in which the second member is a vec4.
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// CHECK: [[v4result:%\d+]] = OpImageSampleExplicitLod %v4float {{%\d+}} {{%\d+}} Lod|Offset %float_10 {{%\d+}}
+// CHECK:          {{%\d+}} = OpCompositeExtract %float [[v4result]] 0
+    float  val7 = t5.SampleLevel(gSampler, float3(0.1, 0.2, 0.3), 10, offset);
+
+// CHECK: [[structResult:%\d+]] = OpImageSparseSampleExplicitLod %SparseResidencyStruct {{%\d+}} {{%\d+}} Lod %float_10
+// CHECK:     [[v4result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
+// CHECK:              {{%\d+}} = OpVectorShuffle %v2float [[v4result]] [[v4result]] 0 1
+    float2 val8 = t6.SampleLevel(gSampler, float3(0.1, 0.2, 0.3), 10, status);
 
     return 1.0;
 }

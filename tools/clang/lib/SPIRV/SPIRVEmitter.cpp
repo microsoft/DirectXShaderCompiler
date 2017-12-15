@@ -2361,8 +2361,8 @@ uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
   const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
 
   return theBuilder.createImageGather(
-      retType, imageType, image, sampler, coordinate,
-      /*component*/ 0, comparator, constOffset, varOffset, /*constOffsets*/ 0,
+      retType, imageType, image, sampler, coordinate, /*component*/ 0,
+      comparator, constOffset, varOffset, /*constOffsets*/ 0,
       /*sampleNumber*/ 0, status);
 }
 
@@ -2401,9 +2401,6 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
     emitError("buffer/texture type unimplemented", object->getExprLoc());
     return 0;
   }
-  const uint32_t resultTypeId =
-      elemCount == 1 ? elemTypeId
-                     : theBuilder.getVecType(elemTypeId, elemCount);
 
   // OpImageFetch and OpImageRead can only fetch a vector of 4 elements.
   const uint32_t texelTypeId = theBuilder.getVecType(elemTypeId, 4u);
@@ -2411,26 +2408,9 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
       doFetch, texelTypeId, type, objectId, locationId, lod, constOffset,
       varOffset, /*constOffsets*/ 0, sampleNumber, residencyCode);
 
-  uint32_t retVal = texel;
   // If the result type is a vec1, vec2, or vec3, some extra processing
   // (extraction) is required.
-  switch (elemCount) {
-  case 1:
-    retVal = theBuilder.createCompositeExtract(elemTypeId, texel, {0});
-    break;
-  case 2:
-    retVal = theBuilder.createVectorShuffle(resultTypeId, texel, texel, {0, 1});
-    break;
-  case 3:
-    retVal =
-        theBuilder.createVectorShuffle(resultTypeId, texel, texel, {0, 1, 2});
-    break;
-  case 4:
-    break;
-  default:
-    llvm_unreachable("vector element count must be 1, 2, 3, or 4");
-  }
-
+  uint32_t retVal = extractVecFromVec4(texel, elemCount, elemTypeId);
   return SpirvEvalInfo(retVal).setRValue();
 }
 
@@ -2779,6 +2759,52 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   return SpirvEvalInfo(retVal).setRValue();
 }
 
+uint32_t SPIRVEmitter::createImageSample(
+    QualType retType, uint32_t imageType, uint32_t image, uint32_t sampler,
+    uint32_t coordinate, uint32_t compareVal, uint32_t bias, uint32_t lod,
+    std::pair<uint32_t, uint32_t> grad, uint32_t constOffset,
+    uint32_t varOffset, uint32_t constOffsets, uint32_t sample, uint32_t minLod,
+    uint32_t residencyCodeId) {
+
+  const auto retTypeId = typeTranslator.translateType(retType);
+
+  // SampleDref* instructions in SPIR-V always return a scalar.
+  // They also have the correct type in HLSL.
+  if (compareVal) {
+    return theBuilder.createImageSample(retTypeId, imageType, image, sampler,
+                                        coordinate, compareVal, bias, lod, grad,
+                                        constOffset, varOffset, constOffsets,
+                                        sample, minLod, residencyCodeId);
+  }
+
+  // Non-Dref Sample instructions in SPIR-V must always return a vec4.
+  auto texelTypeId = retTypeId;
+  QualType elemType = {};
+  uint32_t elemTypeId = 0;
+  uint32_t retVecSize = 0;
+  if (TypeTranslator::isVectorType(retType, &elemType, &retVecSize) &&
+      retVecSize != 4) {
+    elemTypeId = typeTranslator.translateType(elemType);
+    texelTypeId = theBuilder.getVecType(elemTypeId, 4);
+  } else if (TypeTranslator::isScalarType(retType)) {
+    retVecSize = 1;
+    elemTypeId = typeTranslator.translateType(retType);
+    texelTypeId = theBuilder.getVecType(elemTypeId, 4);
+  }
+
+  uint32_t retVal = theBuilder.createImageSample(
+      texelTypeId, imageType, image, sampler, coordinate, compareVal, bias, lod,
+      grad, constOffset, varOffset, constOffsets, sample, minLod,
+      residencyCodeId);
+
+  // Extract smaller vector from the vec4 result if necessary.
+  if (texelTypeId != retTypeId) {
+    retVal = extractVecFromVec4(retVal, retVecSize, elemTypeId);
+  }
+
+  return retVal;
+}
+
 uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
                                                   const bool isSample) {
   // Signatures:
@@ -2834,18 +2860,16 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
 
-  const auto retType =
-      typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
-
+  const auto retType = expr->getDirectCallee()->getReturnType();
+  const auto retTypeId = typeTranslator.translateType(retType);
   if (isSample) {
-    // TODO: Handle sparse cases for this method.
-    return theBuilder.createImageSample(
+    return createImageSample(
         retType, imageType, image, sampler, coordinate, /*compareVal*/ 0,
         /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
         /*constOffsets*/ 0, /*sampleNumber*/ 0, /*minLod*/ clamp, status);
   } else {
     return theBuilder.createImageGather(
-        retType, imageType, image, sampler, coordinate,
+        retTypeId, imageType, image, sampler, coordinate,
         // .Gather() doc says we return four components of red data.
         theBuilder.getConstantInt32(0), /*compareVal*/ 0, constOffset,
         varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0, status);
@@ -2920,13 +2944,12 @@ SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
 
-  const auto retType =
-      typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
+  const auto retType = expr->getDirectCallee()->getReturnType();
 
-  return theBuilder.createImageSample(
-      retType, imageType, image, sampler, coordinate, /*compareVal*/ 0, bias,
-      lod, std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
-      /*sampleNumber*/ 0, /*minLod*/ clamp, status);
+  return createImageSample(retType, imageType, image, sampler, coordinate,
+                           /*compareVal*/ 0, bias, lod, std::make_pair(0, 0),
+                           constOffset, varOffset, /*constOffsets*/ 0,
+                           /*sampleNumber*/ 0, /*minLod*/ clamp, status);
 }
 
 uint32_t SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
@@ -2976,10 +2999,8 @@ uint32_t SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
   if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 4, &constOffset, &varOffset);
 
-  const auto retType =
-      typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
-
-  return theBuilder.createImageSample(
+  const auto retType = expr->getDirectCallee()->getReturnType();
+  return createImageSample(
       retType, imageType, image, sampler, coordinate, /*compareVal*/ 0,
       /*bias*/ 0, /*lod*/ 0, std::make_pair(ddx, ddy), constOffset, varOffset,
       /*constOffsets*/ 0, /*sampleNumber*/ 0, /*minLod*/ clamp, status);
@@ -3062,14 +3083,13 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
     handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
   const uint32_t lod = isCmp ? 0 : theBuilder.getConstantFloat32(0);
 
-  const auto retType =
-      typeTranslator.translateType(expr->getDirectCallee()->getReturnType());
+  const auto retType = expr->getDirectCallee()->getReturnType();
   const auto imageType = typeTranslator.translateType(imageExpr->getType());
 
-  return theBuilder.createImageSample(
-      retType, imageType, image, sampler, coordinate, compareVal, /*bias*/ 0,
-      lod, std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
-      /*sampleNumber*/ 0, /*minLod*/ clamp, status);
+  return createImageSample(retType, imageType, image, sampler, coordinate,
+                           compareVal, /*bias*/ 0, lod, std::make_pair(0, 0),
+                           constOffset, varOffset, /*constOffsets*/ 0,
+                           /*sampleNumber*/ 0, /*minLod*/ clamp, status);
 }
 
 SpirvEvalInfo
@@ -7265,6 +7285,31 @@ void SPIRVEmitter::processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt) {
   // default case.
   else if (defaultBody)
     doStmt(defaultBody);
+}
+
+uint32_t SPIRVEmitter::extractVecFromVec4(uint32_t fromId,
+                                          uint32_t targetVecSize,
+                                          uint32_t targetElemTypeId) {
+  assert(targetVecSize > 0 && targetVecSize < 5);
+  const uint32_t retType =
+      targetVecSize == 1
+          ? targetElemTypeId
+          : theBuilder.getVecType(targetElemTypeId, targetVecSize);
+  switch (targetVecSize) {
+  case 1:
+    return theBuilder.createCompositeExtract(retType, fromId, {0});
+    break;
+  case 2:
+    return theBuilder.createVectorShuffle(retType, fromId, fromId, {0, 1});
+    break;
+  case 3:
+    return theBuilder.createVectorShuffle(retType, fromId, fromId, {0, 1, 2});
+    break;
+  case 4:
+    return fromId;
+  default:
+    llvm_unreachable("vector element count must be 1, 2, 3, or 4");
+  }
 }
 
 } // end namespace spirv
