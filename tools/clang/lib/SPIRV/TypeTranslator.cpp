@@ -619,7 +619,11 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
         getAlignmentAndSize(fieldType, rule, isRowMajor, &stride);
 
     // Each structure-type member must have an Offset Decoration.
-    roundToPow2(&offset, memberAlignment);
+    const auto *offsetAttr = field->getAttr<VKOffsetAttr>();
+    if (offsetAttr)
+        offset = offsetAttr->getOffset();
+    else
+        roundToPow2(&offset, memberAlignment);
     decorations.push_back(Decoration::getOffset(*spirvContext, offset, index));
     offset += memberSize;
 
