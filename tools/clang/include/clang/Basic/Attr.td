@@ -914,6 +914,13 @@ def VKPushConstant : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKOffset : InheritableAttr {
+  let Spellings = [CXX11<"vk", "offset">];
+  let Args = [IntArgument<"Offset">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 // SPIRV Change Ends
 
 def C11NoReturn : InheritableAttr {

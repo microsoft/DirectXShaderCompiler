@@ -1035,6 +1035,7 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
 }
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
+TEST_F(FileTest, VulkanPushConstantOffset) { runFileTest("vk.push-constant.offset.hlsl"); }
 TEST_F(FileTest, VulkanMultiplePushConstant) {
   runFileTest("vk.push-constant.multiple.hlsl", FileTest::Expect::Failure);
 }
