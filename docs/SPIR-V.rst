@@ -2335,3 +2335,6 @@ either because of no Vulkan equivalents at the moment, or because of deprecation
   ``RWByteAddressBuffer`` are not represented as image types in SPIR-V, using the
   output unsigned integer ``status`` argument in their ``Load*`` methods is not
   supported. Using these methods with the ``status`` argument will cause a compiler error.
+* Applying ``row_major`` or ``column_major`` attributes to a stand-alone matrix will be
+  ignored by the compiler because ``RowMajor`` and ``ColMajor`` decorations in SPIR-V are
+  only allowed to be applied to members of structures. A warning will be issued by the compiler.
