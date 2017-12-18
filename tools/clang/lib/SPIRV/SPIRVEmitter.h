@@ -237,12 +237,25 @@ private:
                                       const BinaryOperatorKind opcode,
                                       SourceRange);
 
+  /// Creates a temporary local variable in the current function of the given
+  /// varType and varName. Initializes the variable with the given initValue.
+  /// Returns the <result-id> of the variable.
+  uint32_t SPIRVEmitter::createTemporaryVar(QualType varType,
+                                            llvm::StringRef varName,
+                                            uint32_t initValue);
+
   /// Collects all indices (SPIR-V constant values) from consecutive MemberExprs
   /// or ArraySubscriptExprs or operator[] calls and writes into indices.
   /// Returns the real base.
   const Expr *
   collectArrayStructIndices(const Expr *expr,
                             llvm::SmallVectorImpl<uint32_t> *indices);
+
+  /// Creates an access chain to index into the given SPIR-V evaluation result
+  /// and overwrites and returns the new SPIR-V evaluation result.
+  SpirvEvalInfo &
+  turnIntoElementPtr(SpirvEvalInfo &info, QualType elemType,
+                     const llvm::SmallVector<uint32_t, 4> &indices);
 
 private:
   /// Validates that vk::* attributes are used correctly.
