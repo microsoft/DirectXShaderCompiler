@@ -306,19 +306,6 @@ inline bool evaluatesToConstZero(const Expr *expr, ASTContext &astContext) {
   return false;
 }
 
-/// Creates an access chain to index into the given SPIR-V evaluation result
-/// and overwrites and returns the new SPIR-V evaluation result.
-inline SpirvEvalInfo &
-turnIntoElementPtr(SpirvEvalInfo &info, QualType elemType,
-                   const llvm::SmallVector<uint32_t, 4> &indices,
-                   ModuleBuilder &builder, TypeTranslator &translator) {
-  assert(!info.isRValue());
-  const uint32_t ptrType = builder.getPointerType(
-      translator.translateType(elemType, info.getLayoutRule()),
-      info.getStorageClass());
-  return info.setResultId(builder.createAccessChain(ptrType, info, indices));
-}
-
 /// Returns the HLSLBufferDecl if the given VarDecl is inside a cbuffer/tbuffer.
 /// Returns nullptr otherwise, including varDecl is a ConstantBuffer or
 /// TextureBuffer itself.
@@ -1440,8 +1427,7 @@ SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   auto info = doExpr(collectArrayStructIndices(expr, &indices));
 
   if (!indices.empty()) {
-    (void)turnIntoElementPtr(info, expr->getType(), indices, theBuilder,
-                             typeTranslator);
+    (void)turnIntoElementPtr(info, expr->getType(), indices);
   }
 
   return info;
@@ -1530,12 +1516,8 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
       // getObject().objectMethod();
       if (objectEvalInfo.isRValue()) {
         const auto objType = object->getType();
-        const uint32_t varType = typeTranslator.translateType(objType);
-        const std::string varName =
-            "temp.var." + TypeTranslator::getName(objType);
-        const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
-        theBuilder.createStore(tempVarId, objectEvalInfo);
-        objectId = tempVarId;
+        objectId = createTemporaryVar(objType, TypeTranslator::getName(objType),
+                                      objectEvalInfo);
       }
 
       args.push_back(objectId);
@@ -2509,8 +2491,7 @@ SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   const uint32_t zero = theBuilder.getConstantInt32(0);
   const uint32_t index = doExpr(expr->getArg(0));
 
-  return turnIntoElementPtr(info, structType, {zero, index}, theBuilder,
-                            typeTranslator);
+  return turnIntoElementPtr(info, structType, {zero, index});
 }
 
 uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
@@ -2559,8 +2540,7 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
 
   const auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
 
-  (void)turnIntoElementPtr(bufferInfo, bufferElemTy, {zero, index}, theBuilder,
-                           typeTranslator);
+  (void)turnIntoElementPtr(bufferInfo, bufferElemTy, {zero, index});
 
   if (isAppend) {
     // Write out the value
@@ -3233,14 +3213,10 @@ SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
   // TODO: We can optimize the codegen by emitting OpCompositeExtract if
   // all indices are contant integers.
   if (!baseExpr->isGLValue()) {
-    const uint32_t baseType = typeTranslator.translateType(baseExpr->getType());
-    const uint32_t tempVar = theBuilder.addFnVar(baseType, "temp.var");
-    theBuilder.createStore(tempVar, base);
-    base = tempVar;
+    base = createTemporaryVar(baseExpr->getType(), "vector", base);
   }
 
-  return turnIntoElementPtr(base, expr->getType(), indices, theBuilder,
-                            typeTranslator);
+  return turnIntoElementPtr(base, expr->getType(), indices);
 }
 
 SpirvEvalInfo
@@ -3393,14 +3369,35 @@ SpirvEvalInfo SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
 
 SpirvEvalInfo SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
-  auto info = doExpr(collectArrayStructIndices(expr, &indices));
+  const Expr *base = collectArrayStructIndices(expr, &indices);
+  auto info = doExpr(base);
 
   if (!indices.empty()) {
-    (void)turnIntoElementPtr(info, expr->getType(), indices, theBuilder,
-                             typeTranslator);
+    // Sometime we are accessing the member of a rvalue, e.g.,
+    // <some-function-returing-a-struct>().<some-field>
+    // Create a temporary variable to hold the rvalue so that we can use access
+    // chain to index into it.
+    if (info.isRValue()) {
+      SpirvEvalInfo tempVar = createTemporaryVar(
+          base->getType(), TypeTranslator::getName(base->getType()), info);
+      (void)turnIntoElementPtr(tempVar, expr->getType(), indices);
+      info.setResultId(theBuilder.createLoad(
+          typeTranslator.translateType(expr->getType()), tempVar));
+    } else {
+      (void)turnIntoElementPtr(info, expr->getType(), indices);
+    }
   }
 
   return info;
+}
+
+uint32_t SPIRVEmitter::createTemporaryVar(QualType type, llvm::StringRef name,
+                                          uint32_t init) {
+  const uint32_t varType = typeTranslator.translateType(type);
+  const std::string varName = "temp.var." + name.str();
+  const uint32_t varId = theBuilder.addFnVar(varType, varName);
+  theBuilder.createStore(varId, init);
+  return varId;
 }
 
 SpirvEvalInfo SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
@@ -4454,6 +4451,16 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
 
   // This the deepest we can go. No more array or struct indexing.
   return expr;
+}
+
+SpirvEvalInfo &SPIRVEmitter::turnIntoElementPtr(
+    SpirvEvalInfo &info, QualType elemType,
+    const llvm::SmallVector<uint32_t, 4> &indices) {
+  assert(!info.isRValue());
+  const uint32_t ptrType = theBuilder.getPointerType(
+      typeTranslator.translateType(elemType, info.getLayoutRule()),
+      info.getStorageClass());
+  return info.setResultId(theBuilder.createAccessChain(ptrType, info, indices));
 }
 
 uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
