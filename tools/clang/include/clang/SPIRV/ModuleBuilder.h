@@ -180,8 +180,8 @@ public:
   /// residency code will also be emitted.
   uint32_t createImageSample(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
-                             uint32_t coordinate, uint32_t bias,
-                             uint32_t compareVal, uint32_t lod,
+                             uint32_t coordinate, uint32_t compareVal,
+                             uint32_t bias, uint32_t lod,
                              std::pair<uint32_t, uint32_t> grad,
                              uint32_t constOffset, uint32_t varOffset,
                              uint32_t constOffsets, uint32_t sample,

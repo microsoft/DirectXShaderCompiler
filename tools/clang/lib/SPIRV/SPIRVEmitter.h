@@ -675,6 +675,30 @@ private:
   uint32_t processStreamOutputRestart(const CXXMemberCallExpr *expr);
 
 private:
+  /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3
+  /// or 4. Creates a CompositeExtract or VectorShuffle instruction to extract
+  /// a scalar or smaller vector from the beginning of the input vector if
+  /// necessary. Assumes that 'fromId' is the <result-id> of a vector of size 4.
+  /// Panics if the target vector size is not 1, 2, 3, or 4.
+  uint32_t extractVecFromVec4(uint32_t fromId, uint32_t targetVecSize,
+                              uint32_t targetElemTypeId);
+
+  /// \brief Creates SPIR-V instructions for sampling the given image.
+  /// It utilizes the ModuleBuilder's createImageSample and it ensures that the
+  /// returned type is handled correctly.
+  /// HLSL image sampling methods may return a scalar, vec1, vec2, vec3, or
+  /// vec4. But non-Dref image sampling instructions in SPIR-V must always
+  /// return a vec4. As a result, an extra processing step is necessary.
+  uint32_t createImageSample(QualType retType, uint32_t imageType,
+                             uint32_t image, uint32_t sampler,
+                             uint32_t coordinate, uint32_t compareVal,
+                             uint32_t bias, uint32_t lod,
+                             std::pair<uint32_t, uint32_t> grad,
+                             uint32_t constOffset, uint32_t varOffset,
+                             uint32_t constOffsets, uint32_t sample,
+                             uint32_t minLod, uint32_t residencyCodeId);
+
+private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N>
