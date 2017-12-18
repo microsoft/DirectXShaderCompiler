@@ -1,9 +1,10 @@
-// Run: %dxc -T vs_6_0 -E main
+// Run: %dxc -T ps_6_0 -E main
 
 struct S {
     bool a;
     uint2 b;
     float2x3 c;
+    float4 d;
 };
 
 struct T {
@@ -11,7 +12,12 @@ struct T {
     S i;
 };
 
-void main() {
+T foo() {
+    T ret = (T)0;
+    return ret;
+}
+
+float4 main() : SV_Target {
     T t;
 
 // CHECK:      [[h:%\d+]] = OpAccessChain %_ptr_Function_int %t %int_0
@@ -68,4 +74,11 @@ void main() {
 // CHECK:      [[c0:%\d+]] = OpAccessChain %_ptr_Function_v3float %t %int_1 %int_2 %uint_0
 // CHECK-NEXT: OpStore [[c0]] {{%\d+}}
     t.i.c[0] = v6;
+
+// CHECK:      [[ret:%\d+]] = OpFunctionCall %T %foo
+// CHECK-NEXT: OpStore %temp_var_T [[ret]]
+// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_v4float %temp_var_T %int_1 %int_3
+// CHECK-NEXT: [[val:%\d+]] = OpLoad %v4float [[ptr]]
+// CHECK-NEXT: OpReturnValue [[val]]
+    return foo().i.d;
 }
