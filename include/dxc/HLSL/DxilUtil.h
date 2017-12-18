@@ -31,6 +31,7 @@ namespace dxilutil {
   GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
                                    llvm::Type *Ty, DxilTypeSystem &typeSys);
   llvm::Type *GetArrayEltTy(llvm::Type *Ty);
+  bool HasDynamicIndexing(llvm::Value *V);
 
   bool IsStaticGlobal(llvm::GlobalVariable *GV);
   bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);
