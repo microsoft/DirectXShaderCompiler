@@ -176,7 +176,7 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // %95 = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 %_ptr_Function_uint
 // %_ptr_Function_HS_CONSTANT_DATA_OUTPUT = OpTypePointer Function %HS_CONSTANT_DATA_OUTPUT
 // %_ptr_Function_float = OpTypePointer Function %float
-// %118 = OpTypeFunction %BEZIER_CONTROL_POINT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 %_ptr_Function_uint %_ptr_Function_uint
+// %120 = OpTypeFunction %BEZIER_CONTROL_POINT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 %_ptr_Function_uint %_ptr_Function_uint
 // %_ptr_Function_VS_CONTROL_POINT_OUTPUT = OpTypePointer Function %VS_CONTROL_POINT_OUTPUT
 // %_ptr_Function_BEZIER_CONTROL_POINT = OpTypePointer Function %BEZIER_CONTROL_POINT
 // %_ptr_Function_v3float = OpTypePointer Function %v3float
@@ -184,10 +184,12 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // %float_1 = OpConstant %float 1
 // %int_0 = OpConstant %int 0
 // %float_2 = OpConstant %float 2
-// %float_3 = OpConstant %float 3
-// %float_4 = OpConstant %float 4
-// %float_5 = OpConstant %float 5
 // %int_1 = OpConstant %int 1
+// %float_3 = OpConstant %float 3
+// %int_2 = OpConstant %int 2
+// %float_4 = OpConstant %float 4
+// %int_3 = OpConstant %int 3
+// %float_5 = OpConstant %float 5
 // %float_6 = OpConstant %float 6
 // %gl_PerVertexIn = OpVariable %_ptr_Input__arr_type_gl_PerVertex_uint_3 Input
 // %gl_PerVertexOut = OpVariable %_ptr_Output__arr_type_gl_PerVertex_uint_3 Output
@@ -263,32 +265,32 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // %PatchID = OpFunctionParameter %_ptr_Function_uint
 // %bb_entry = OpLabel
 // %Output = OpVariable %_ptr_Function_HS_CONSTANT_DATA_OUTPUT Function
-// %105 = OpAccessChain %_ptr_Function_float %Output %int_0 %uint_0
+// %105 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_0
 // OpStore %105 %float_1
-// %107 = OpAccessChain %_ptr_Function_float %Output %int_0 %uint_1
-// OpStore %107 %float_2
-// %109 = OpAccessChain %_ptr_Function_float %Output %int_0 %uint_2
-// OpStore %109 %float_3
-// %111 = OpAccessChain %_ptr_Function_float %Output %int_0 %uint_3
-// OpStore %111 %float_4
-// %114 = OpAccessChain %_ptr_Function_float %Output %int_1 %uint_0
-// OpStore %114 %float_5
-// %116 = OpAccessChain %_ptr_Function_float %Output %int_1 %uint_1
-// OpStore %116 %float_6
-// %117 = OpLoad %HS_CONSTANT_DATA_OUTPUT %Output
-// OpReturnValue %117
+// %108 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_1
+// OpStore %108 %float_2
+// %111 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_2
+// OpStore %111 %float_3
+// %114 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_3
+// OpStore %114 %float_4
+// %116 = OpAccessChain %_ptr_Function_float %Output %int_1 %int_0
+// OpStore %116 %float_5
+// %118 = OpAccessChain %_ptr_Function_float %Output %int_1 %int_1
+// OpStore %118 %float_6
+// %119 = OpLoad %HS_CONSTANT_DATA_OUTPUT %Output
+// OpReturnValue %119
 // OpFunctionEnd
-// %src_SubDToBezierHS = OpFunction %BEZIER_CONTROL_POINT None %118
+// %src_SubDToBezierHS = OpFunction %BEZIER_CONTROL_POINT None %120
 // %ip_0 = OpFunctionParameter %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3
 // %cpid = OpFunctionParameter %_ptr_Function_uint
 // %PatchID_0 = OpFunctionParameter %_ptr_Function_uint
 // %bb_entry_0 = OpLabel
 // %vsOutput = OpVariable %_ptr_Function_VS_CONTROL_POINT_OUTPUT Function
 // %result = OpVariable %_ptr_Function_BEZIER_CONTROL_POINT Function
-// %128 = OpAccessChain %_ptr_Function_v3float %vsOutput %int_0
-// %129 = OpLoad %v3float %128
-// %130 = OpAccessChain %_ptr_Function_v3float %result %int_0
-// OpStore %130 %129
-// %131 = OpLoad %BEZIER_CONTROL_POINT %result
-// OpReturnValue %131
+// %130 = OpAccessChain %_ptr_Function_v3float %vsOutput %int_0
+// %131 = OpLoad %v3float %130
+// %132 = OpAccessChain %_ptr_Function_v3float %result %int_0
+// OpStore %132 %131
+// %133 = OpLoad %BEZIER_CONTROL_POINT %result
+// OpReturnValue %133
 // OpFunctionEnd

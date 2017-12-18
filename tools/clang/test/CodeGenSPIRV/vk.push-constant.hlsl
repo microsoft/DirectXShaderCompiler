@@ -32,7 +32,7 @@ float main() : A {
         pcs.f2.z +
 // CHECK:     {{%\d+}} = OpAccessChain %_ptr_PushConstant_float %pcs %int_2 %uint_1 %uint_2
         pcs.f3[1][2] +
-// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_PushConstant_v2float %pcs %int_3 %int_0 %uint_2
+// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_PushConstant_v2float %pcs %int_3 %int_0 %int_2
 // CHECK:     {{%\d+}} = OpAccessChain %_ptr_PushConstant_float [[ptr]] %int_1
         pcs.f4.val[2].y;
 }

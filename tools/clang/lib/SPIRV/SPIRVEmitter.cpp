@@ -403,9 +403,9 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
           ci.getCodeGenOpts().HLSLProfile.c_str())),
       theContext(), theBuilder(&theContext),
       declIdMapper(shaderModel, astContext, theBuilder, spirvOptions),
-      typeTranslator(astContext, theBuilder, diags), entryFunctionId(0),
-      curFunction(nullptr), curThis(0), seenPushConstantAt(),
-      needsLegalization(false) {
+      typeTranslator(astContext, theBuilder, diags, options),
+      entryFunctionId(0), curFunction(nullptr), curThis(0),
+      seenPushConstantAt(), needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 }
@@ -1553,6 +1553,10 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
 
 SpirvEvalInfo
 SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
+  // Provide a hint to the TypeTranslator that an integer literal is used to
+  // index into the array.
+  typeTranslator.pushIntendedLiteralType(astContext.IntTy);
+
   llvm::SmallVector<uint32_t, 4> indices;
   auto info = doExpr(collectArrayStructIndices(expr, &indices));
 
@@ -6696,18 +6700,42 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
 uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
                                       QualType targetType) {
   targetType = typeTranslator.getIntendedLiteralType(targetType);
-  if (targetType->isSignedIntegerType()) {
-    // Try to see if this integer can be represented in 32-bit.
-    if (intValue.isSignedIntN(32)) {
+  const auto targetTypeBitWidth = astContext.getTypeSize(targetType);
+  const bool isSigned = targetType->isSignedIntegerType();
+  switch (targetTypeBitWidth) {
+  case 16: {
+    if (spirvOptions.enable16BitTypes) {
+      if (isSigned) {
+        return theBuilder.getConstantInt16(
+            static_cast<int16_t>(intValue.getSExtValue()));
+      } else {
+        return theBuilder.getConstantUint16(
+            static_cast<uint16_t>(intValue.getZExtValue()));
+      }
+    } else {
+      // If enable16BitTypes option is not true, treat as 32-bit integer.
+      if (isSigned)
+        return theBuilder.getConstantInt32(
+            static_cast<int32_t>(intValue.getSExtValue()));
+      else
+        return theBuilder.getConstantUint32(
+            static_cast<uint32_t>(intValue.getZExtValue()));
+    }
+  }
+  case 32: {
+    if (isSigned)
       return theBuilder.getConstantInt32(
           static_cast<int32_t>(intValue.getSExtValue()));
-    }
-  } else {
-    // Try to see if this integer can be represented in 32-bit.
-    if (intValue.isIntN(32)) {
+    else
       return theBuilder.getConstantUint32(
           static_cast<uint32_t>(intValue.getZExtValue()));
-    }
+  }
+  case 64: {
+    if (isSigned)
+      return theBuilder.getConstantInt64(intValue.getSExtValue());
+    else
+      return theBuilder.getConstantUint64(intValue.getZExtValue());
+  }
   }
 
   emitError("APInt for target bitwidth %0 unimplemented", {})
@@ -6759,6 +6787,22 @@ uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
   const auto &semantics = astContext.getFloatTypeSemantics(targetType);
   const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
   switch (bitwidth) {
+  case 16: {
+    if (spirvOptions.enable16BitTypes) {
+      return theBuilder.getConstantFloat16(
+          static_cast<uint16_t>(floatValue.bitcastToAPInt().getZExtValue()));
+    } else {
+      // If 16-bit types are not enabled, treat as 32-bit float.
+      llvm::APFloat f32 = floatValue;
+      bool losesInfo = false;
+      f32.convert(llvm::APFloat::IEEEsingle,
+                  llvm::APFloat::roundingMode::rmTowardZero, &losesInfo);
+      // Conversion from 16-bit float value to 32-bit float value should be
+      // loss-less.
+      assert(!losesInfo);
+      return theBuilder.getConstantFloat32(f32.convertToFloat());
+    }
+  }
   case 32:
     return theBuilder.getConstantFloat32(floatValue.convertToFloat());
   case 64:

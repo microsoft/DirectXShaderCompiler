@@ -597,7 +597,7 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        const EmitSPIRVOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
       astContext(context), diags(context.getDiagnostics()),
-      typeTranslator(context, builder, diags), entryFunctionId(0),
+      typeTranslator(context, builder, diags, options), entryFunctionId(0),
       needsLegalization(false),
       glPerVertex(model, context, builder, typeTranslator) {}
 

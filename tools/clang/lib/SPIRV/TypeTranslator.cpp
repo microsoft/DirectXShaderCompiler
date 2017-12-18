@@ -154,29 +154,48 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           return theBuilder.getVoidType();
         case BuiltinType::Bool:
           return theBuilder.getBoolType();
-          // int, min16int (short), and min12int are all translated to 32-bit
-          // signed integers in SPIR-V.
         case BuiltinType::Int:
-        case BuiltinType::Short:
-        case BuiltinType::Min12Int:
           return theBuilder.getInt32Type();
-          // uint and min16uint (ushort) are both translated to 32-bit unsigned
-          // integers in SPIR-V.
-        case BuiltinType::UShort:
         case BuiltinType::UInt:
           return theBuilder.getUint32Type();
+        case BuiltinType::Float:
+          return theBuilder.getFloat32Type();
+        case BuiltinType::Double:
+          return theBuilder.getFloat64Type();
         case BuiltinType::LongLong:
           return theBuilder.getInt64Type();
         case BuiltinType::ULongLong:
           return theBuilder.getUint64Type();
-          // float, min16float (half), and min10float are all translated to
-          // 32-bit float in SPIR-V.
-        case BuiltinType::Float:
+        // min16int (short), and min12int are treated as 16-bit Int if
+        // '-enable-16bit-types' option is enabled. They are treated as 32-bit
+        // Int otherwise.
+        case BuiltinType::Short:
+        case BuiltinType::Min12Int: {
+          if (spirvOptions.enable16BitTypes)
+            return theBuilder.getInt16Type();
+          else
+            return theBuilder.getInt32Type();
+        }
+        // min16uint (short) is treated as 16-bit Uint if '-enable-16bit-types'
+        // option is enabled. It is treated as 32-bit Uint otherwise.
+        case BuiltinType::UShort: {
+          if (spirvOptions.enable16BitTypes)
+            return theBuilder.getUint16Type();
+          else
+            return theBuilder.getUint32Type();
+        }
+        // min16float (half), and min10float are all translated to
+        // 32-bit float in SPIR-V.
+        // min16float (half), and min10float are treated as 16-bit float if
+        // '-enable-16bit-types' option is enabled. They are treated as 32-bit
+        // float otherwise.
         case BuiltinType::Half:
-        case BuiltinType::Min10Float:
-          return theBuilder.getFloat32Type();
-        case BuiltinType::Double:
-          return theBuilder.getFloat64Type();
+        case BuiltinType::Min10Float: {
+          if (spirvOptions.enable16BitTypes)
+            return theBuilder.getFloat16Type();
+          else
+            return theBuilder.getFloat32Type();
+        }
         case BuiltinType::LitFloat: {
           // First try to see if there are any hints about how this literal type
           // is going to be used. If so, use the hint.
