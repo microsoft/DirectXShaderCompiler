@@ -2338,3 +2338,6 @@ either because of no Vulkan equivalents at the moment, or because of deprecation
 * Applying ``row_major`` or ``column_major`` attributes to a stand-alone matrix will be
   ignored by the compiler because ``RowMajor`` and ``ColMajor`` decorations in SPIR-V are
   only allowed to be applied to members of structures. A warning will be issued by the compiler.
+* The Hull shader ``partitioning`` attribute may not have the ``pow2`` value. The compiler
+  will emit an error. Other attribute values are supported and described in the
+  `Hull Entry Point Attributes`_ section.
