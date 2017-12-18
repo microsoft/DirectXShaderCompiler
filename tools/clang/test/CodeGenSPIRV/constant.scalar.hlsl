@@ -61,4 +61,16 @@ void main() {
   double c_large  =  1234567898765.32;
 // CHECK-DAG: %double_n1234567898765_32 = OpConstant %double -1234567898765.32
   double c_nlarge = -1234567898765.32;
+
+// Since we translate HLSL 'half' to 32-bit float in SPIR-V, float constants are generated.
+// CHECK-DAG: %float_7_7 = OpConstant %float 7.7
+  half c_half_4_5 = 7.7;
+// CHECK-DAG: %float_n8_8 = OpConstant %float -8.8
+  half c_half_n8_2 = -8.8;
+
+// Since we translate HLSL 'short' to 32-bit int in SPIR-V, integer constants are generated.
+// CHECK-DAG: %int_n3 = OpConstant %int -3
+  min16int c_short_n3 = -3;
+// CHECK-DAG: %uint_5 = OpConstant %uint 5
+  min16uint c_ushort_5 = 5;
 }
