@@ -836,12 +836,12 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
 
   if (decl->hasAttr<HLSLRowMajorAttr>()) {
     emitWarning("row_major attribute for stand-alone matrix is not supported",
-                decl->getLocation());
+                decl->getAttr<HLSLRowMajorAttr>()->getLocation());
   }
   if (decl->hasAttr<HLSLColumnMajorAttr>()) {
     emitWarning(
         "column_major attribute for stand-alone matrix is not supported",
-        decl->getLocation());
+        decl->getAttr<HLSLColumnMajorAttr>()->getLocation());
   }
 
   if (decl->hasAttr<VKPushConstantAttr>()) {
