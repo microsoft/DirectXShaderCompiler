@@ -834,6 +834,16 @@ void SPIRVEmitter::doRecordDecl(const RecordDecl *recordDecl) {
 void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   validateVKAttributes(decl);
 
+  if (decl->hasAttr<HLSLRowMajorAttr>()) {
+    emitWarning("row_major attribute for stand-alone matrix is not supported",
+                decl->getLocation());
+  }
+  if (decl->hasAttr<HLSLColumnMajorAttr>()) {
+    emitWarning(
+        "column_major attribute for stand-alone matrix is not supported",
+        decl->getLocation());
+  }
+
   if (decl->hasAttr<VKPushConstantAttr>()) {
     // This is a VarDecl for PushConstant block.
     (void)declIdMapper.createPushConstant(decl);
