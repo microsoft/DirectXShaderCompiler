@@ -566,8 +566,22 @@ public:
       }
 
       hr = S_OK;
+    } catch (std::bad_alloc &) {
+      hr = E_OUTOFMEMORY;
+    } catch (hlsl::Exception &e) {
+      _Analysis_assume_(DXC_FAILED(e.hr));
+      hr = e.hr;
     }
-    CATCH_CPP_ASSIGN_HRESULT();
+    catch (hlsl::FinishCompileException &fe) {
+      hr = S_OK;
+      CComPtr<IDxcBlobEncoding> pErrorBlob;
+      IFT(DxcCreateBlobWithEncodingOnHeapCopy(fe.msg.c_str(), fe.msg.size(),
+                                              CP_UTF8, &pErrorBlob));
+      IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlob,
+          DXC_E_GENERAL_INTERNAL_ERROR, ppResult));
+    } catch (...) {
+      hr = E_FAIL;
+    }
   Cleanup:
     DxcEtw_DXCompilerCompile_Stop(hr);
     return hr;

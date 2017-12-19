@@ -36,4 +36,17 @@ struct Exception : public std::exception
   virtual const char *what() const throw() { return msg.c_str(); }
 };
 
+/// <summary>
+/// Exception finish compile and store error message.
+/// </summary>
+struct FinishCompileException {
+  std::string msg;
+
+  FinishCompileException(const std::string &errMsg) : msg(errMsg) {}
+
+  // what returns a formatted message with the error code and the message used
+  // to create the message.
+  virtual const char *what() const throw() { return msg.c_str(); }
+};
+
 }  // namespace hlsl
