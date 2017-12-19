@@ -534,16 +534,22 @@ namespace MainNs
                     string[] arguments = fileVars.Arguments;
                     if (isDxil)
                     {
-                        var result = compiler.Compile(source, fileName, fileVars.Entry, fileVars.Target, arguments, arguments.Length, null, 0, library.CreateIncludeHandler());
-                        if (result.GetStatus() == 0)
+                        try
                         {
-                            this.SelectedShaderBlob = result.GetResult();
-                            this.DisassembleSelectedShaderBlob();
-                        }
-                        else
+                            var result = compiler.Compile(source, fileName, fileVars.Entry, fileVars.Target, arguments, arguments.Length, null, 0, library.CreateIncludeHandler());
+                            if (result.GetStatus() == 0)
+                            {
+                                this.SelectedShaderBlob = result.GetResult();
+                                this.DisassembleSelectedShaderBlob();
+                            }
+                            else
+                            {
+                                this.colorizationService.ClearColorization(this.DisassemblyTextBox);
+                                this.DisassemblyTextBox.Text = GetStringFromBlob(result.GetErrors());
+                            }
+                        } catch (Exception e)
                         {
-                            this.colorizationService.ClearColorization(this.DisassemblyTextBox);
-                            this.DisassemblyTextBox.Text = GetStringFromBlob(result.GetErrors());
+                            DisassemblyTextBox.Text = e.ToString();
                         }
                     }
                     else

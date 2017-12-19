@@ -21,6 +21,7 @@
 #include "dxc/HLSL/HLOperationLower.h"
 #include "HLSignatureLower.h"
 #include "dxc/HLSL/DxilUtil.h"
+#include "dxc/Support/exception.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -1626,7 +1627,14 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
           // Skip for unpromotable for lib.
           if (!isAllocaPromotable(AI) && IsLib)
             continue;
-          DXASSERT(isAllocaPromotable(AI), "otherwise, non-promotable resource array alloca found");
+          if (!isAllocaPromotable(AI)) {
+            static const StringRef kNonPromotableLocalResourceErrorMsg =
+                "non-promotable local resource found.";
+            F.getContext().emitError(kNonPromotableLocalResourceErrorMsg);
+            throw hlsl::Exception(DXC_E_ABORT_COMPILATION_ERROR,
+                                  kNonPromotableLocalResourceErrorMsg);
+            continue;
+          }
           Allocas.push_back(AI);
         }
       }
