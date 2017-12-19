@@ -6702,7 +6702,7 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
             .Default(ExecutionMode::Max);
     if (hsExecMode == ExecutionMode::Max) {
       emitError("unknown domain type specified for entry function",
-                decl->getLocation());
+                domain->getLocation());
       return false;
     }
     theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
@@ -6714,9 +6714,13 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
     return true;
 
   if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
-    // TODO: Could not find an equivalent of "pow2" partitioning scheme in
-    // SPIR-V.
     const auto scheme = partitioning->getScheme().lower();
+    if (scheme == "pow2") {
+      emitError("pow2 partitioning scheme is not supported since there is no "
+                "equivalent in Vulkan",
+                partitioning->getLocation());
+      return false;
+    }
     const ExecutionMode hsExecMode =
         llvm::StringSwitch<ExecutionMode>(scheme)
             .Case("fractional_even", ExecutionMode::SpacingFractionalEven)
@@ -6725,7 +6729,7 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
             .Default(ExecutionMode::Max);
     if (hsExecMode == ExecutionMode::Max) {
       emitError("unknown partitioning scheme in hull shader",
-                decl->getLocation());
+                partitioning->getLocation());
       return false;
     }
     theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
@@ -6745,7 +6749,7 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
         theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
       } else {
         emitError("unknown output topology in hull shader",
-                  decl->getLocation());
+                  outputTopology->getLocation());
         return false;
       }
     }
