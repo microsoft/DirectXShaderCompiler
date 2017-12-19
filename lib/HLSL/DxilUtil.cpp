@@ -21,6 +21,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -36,6 +38,18 @@ Type *GetArrayEltTy(Type *Ty) {
     Ty = Ty->getArrayElementType();
   }
   return Ty;
+}
+
+bool HasDynamicIndexing(Value *V) {
+  for (auto User : V->users()) {
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
+      for (auto Idx = GEP->idx_begin(); Idx != GEP->idx_end(); ++Idx) {
+        if (!isa<ConstantInt>(Idx))
+          return true;
+      }
+    }
+  }
+  return false;
 }
 
 unsigned
