@@ -1631,8 +1631,8 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
             static const StringRef kNonPromotableLocalResourceErrorMsg =
                 "non-promotable local resource found.";
             F.getContext().emitError(kNonPromotableLocalResourceErrorMsg);
-            throw hlsl::FinishCompileException(
-                kNonPromotableLocalResourceErrorMsg);
+            throw hlsl::Exception(DXC_E_ABORT_COMPILATION_ERROR,
+                                  kNonPromotableLocalResourceErrorMsg);
             continue;
           }
           Allocas.push_back(AI);

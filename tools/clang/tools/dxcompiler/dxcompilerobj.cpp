@@ -570,15 +570,15 @@ public:
       hr = E_OUTOFMEMORY;
     } catch (hlsl::Exception &e) {
       _Analysis_assume_(DXC_FAILED(e.hr));
+      if (e.hr == DXC_E_ABORT_COMPILATION_ERROR) {
+        e.hr = S_OK;
+        CComPtr<IDxcBlobEncoding> pErrorBlob;
+        IFT(DxcCreateBlobWithEncodingOnHeapCopy(e.msg.c_str(), e.msg.size(),
+                                                CP_UTF8, &pErrorBlob));
+        IFT(DxcOperationResult::CreateFromResultErrorStatus(
+            nullptr, pErrorBlob, DXC_E_GENERAL_INTERNAL_ERROR, ppResult));
+      }
       hr = e.hr;
-    }
-    catch (hlsl::FinishCompileException &fe) {
-      hr = S_OK;
-      CComPtr<IDxcBlobEncoding> pErrorBlob;
-      IFT(DxcCreateBlobWithEncodingOnHeapCopy(fe.msg.c_str(), fe.msg.size(),
-                                              CP_UTF8, &pErrorBlob));
-      IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlob,
-          DXC_E_GENERAL_INTERNAL_ERROR, ppResult));
     } catch (...) {
       hr = E_FAIL;
     }
