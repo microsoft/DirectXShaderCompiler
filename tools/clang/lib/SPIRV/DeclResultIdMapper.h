@@ -306,7 +306,9 @@ public:
 
   /// \brief Returns the associated counter's (<result-id>, is-alias-or-not)
   /// pair for the given {RW|Append|Consume}StructuredBuffer variable.
-  const CounterIdAliasPair &getCounterIdAliasPair(const ValueDecl *decl);
+  /// Returns nullptr if the given decl has no associated counter variable
+  /// created.
+  const CounterIdAliasPair *getCounterIdAliasPair(const ValueDecl *decl);
 
   /// \brief Returns the <type-id> for the given cbuffer, tbuffer,
   /// ConstantBuffer, TextureBuffer, or push constant block.

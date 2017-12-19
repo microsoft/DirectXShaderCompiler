@@ -671,10 +671,11 @@ private:
 
   /// Assigns the counter variable associated with srcExpr to the one associated
   /// with dstDecl if the dstDecl is an internal RW/Append/Consume structured
-  /// buffer.
+  /// buffer. Returns false if there is no associated counter variable for
+  /// srcExpr or dstDecl.
   ///
   /// Note: legalization specific code
-  void tryToAssignCounterVar(const ValueDecl *dstDecl, const Expr *srcExpr);
+  bool tryToAssignCounterVar(const ValueDecl *dstDecl, const Expr *srcExpr);
 
   /// \brief Loads numWords 32-bit unsigned integers or stores numWords 32-bit
   /// unsigned integers (based on the doStore parameter) to the given

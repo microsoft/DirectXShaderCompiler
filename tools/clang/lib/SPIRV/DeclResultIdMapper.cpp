@@ -521,11 +521,12 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
   return id;
 }
 
-const CounterIdAliasPair &
+const CounterIdAliasPair *
 DeclResultIdMapper::getCounterIdAliasPair(const ValueDecl *decl) {
   const auto counter = counterVars.find(decl);
-  assert(counter != counterVars.end());
-  return counter->second;
+  if (counter != counterVars.end())
+    return &counter->second;
+  return nullptr;
 }
 
 void DeclResultIdMapper::createCounterVar(const ValueDecl *decl, bool isAlias) {
