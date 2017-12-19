@@ -6714,9 +6714,13 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
     return true;
 
   if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
-    // TODO: Could not find an equivalent of "pow2" partitioning scheme in
-    // SPIR-V.
     const auto scheme = partitioning->getScheme().lower();
+    if (scheme == "pow2") {
+      emitError("pow2 partitioning scheme is not supported since there is no "
+                "equivalent in Vulkan",
+                decl->getLocation());
+      return false;
+    }
     const ExecutionMode hsExecMode =
         llvm::StringSwitch<ExecutionMode>(scheme)
             .Case("fractional_even", ExecutionMode::SpacingFractionalEven)
