@@ -504,6 +504,12 @@ the ``BufferBlock`` decoration.  The default layout rule used is GLSL
 ``std430``. A variable declared as one of these types will be placed in the
 ``Uniform`` storage class.
 
+For ``RWStructuredBuffer<T>``, each variable will have an associated counter
+variable generated. The counter variable will be of ``OpTypeStruct`` type, which
+only contains a 32-bit integer. The counter variable takes its own binding
+number. ``.IncrementCounter()``/``.DecrementCounter()`` will modify this counter
+variable.
+
 For example, for the following HLSL source code:
 
 .. code:: hlsl
@@ -536,11 +542,6 @@ will be translated into
 
   ; Variable
   %myCbuffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_T Uniform
-
-If ``.IncrementCounter()`` or ``.DecrementCounter()`` is used in the source
-code, an additional associated counter variable will be created for manipulating
-the counter. The counter variable will be of ``OpTypeStruct`` type, which only
-contains a 32-bit integer. The counter variable takes its own binding number.
 
 ``AppendStructuredBuffer`` and ``ConsumeStructuredBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -655,43 +656,50 @@ HLSL Variables and Resources
 
 This section lists how various HLSL variables and resources are mapped.
 
-Variables are defined in HLSL using the following
-`syntax <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509706(v=vs.85).aspx>`_
-rules::
-
-  [StorageClass] [TypeModifier] Type Name[Index]
-      [: Semantic]
-      [: Packoffset]
-      [: Register];
-      [Annotations]
-      [= InitialValue]
-
 Storage class
 -------------
 
 Normal local variables (without any modifier) will be placed in the ``Function``
-SPIR-V storage class.
+SPIR-V storage class. Normal global variables (without any modifer) will be
+placed in the ``Uniform`` or ``UniformConstant`` storage class.
 
-``static``
-~~~~~~~~~~
+- ``static``
 
-- Global variables with ``static`` modifier will be placed in the ``Private``
-  SPIR-V storage class. Initalizers of such global variables will be translated
-  into SPIR-V ``OpVariable`` initializers if possible; otherwise, they will be
-  initialized at the very beginning of the `entry function wrapper`_ using
-  SPIR-V ``OpStore``.
-- Local variables with ``static`` modifier will also be placed in the
-  ``Private`` SPIR-V storage class. initializers of such local variables will
-  also be translated into SPIR-V ``OpVariable`` initializers if possible;
-  otherwise, they will be initialized at the very beginning of the enclosing
-  function. To make sure that such a local variable is only initialized once,
-  a second boolean variable of the ``Private`` SPIR-V storage class will be
-  generated to mark its initialization status.
+  - Global variables with ``static`` modifier will be placed in the ``Private``
+    SPIR-V storage class. Initalizers of such global variables will be translated
+    into SPIR-V ``OpVariable`` initializers if possible; otherwise, they will be
+    initialized at the very beginning of the `entry function wrapper`_ using
+    SPIR-V ``OpStore``.
+  - Local variables with ``static`` modifier will also be placed in the
+    ``Private`` SPIR-V storage class. initializers of such local variables will
+    also be translated into SPIR-V ``OpVariable`` initializers if possible;
+    otherwise, they will be initialized at the very beginning of the enclosing
+    function. To make sure that such a local variable is only initialized once,
+    a second boolean variable of the ``Private`` SPIR-V storage class will be
+    generated to mark its initialization status.
 
-Type modifier
--------------
+- ``groupshared``
 
-[TODO]
+  - Global variables with ``groupshared`` modifier will be placed in the
+    ``Workgroup`` storage class.
+
+- ``uinform``
+
+  - This does not affect codegen. Variables will be treated like normal global
+    variables.
+
+- ``extern``
+
+  - This does not affect codegen. Variables will be treated like normal global
+    variables.
+
+- ``shared``
+
+  - This is a hint to the compiler. It will be ingored.
+
+- ``volatile``
+
+  - This is a hint to the compiler. It will be ingored.
 
 HLSL semantic and Vulkan ``Location``
 -------------------------------------
