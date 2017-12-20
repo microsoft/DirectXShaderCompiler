@@ -1713,6 +1713,7 @@ class db_dxil(object):
         self.add_valrule("Instr.ExtractValue", "ExtractValue should only be used on dxil struct types and cmpxchg")
         self.add_valrule("Instr.TGSMRaceCond", "Race condition writing to shared memory detected, consider making this write conditional")
         self.add_valrule("Instr.AttributeAtVertexNoInterpolation", "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.")
+        self.add_valrule("Instr.CreateHandleImmRangeID", "Local resource must map to global resource.")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher

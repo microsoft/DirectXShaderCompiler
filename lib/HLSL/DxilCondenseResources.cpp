@@ -514,7 +514,6 @@ static Value *PatchRangeIDForLib(DxilModule &DM, IRBuilder<> &Builder,
         linkRangeID =
             Builder.CreateSelect(cast->getOperand(0), trueVal, falseVal);
       }
-    } else {
     }
   }
   return linkRangeID;
