@@ -47,6 +47,7 @@ public:
   TEST_METHOD(RunLinkFailReDefineGlobal);
   TEST_METHOD(RunLinkFailProfileMismatch);
   TEST_METHOD(RunLinkFailEntryNoProps);
+  TEST_METHOD(RunLinkFailSelectRes);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -277,4 +278,23 @@ TEST_F(LinkerTest, RunLinkNoAlloca) {
   RegisterDxcModule(libName2, pLib, pLinker);
 
   Link(L"ps_main", L"ps_6_0", pLinker, {libName, libName2}, {}, {"alloca"});
+}
+
+TEST_F(LinkerTest, RunLinkFailSelectRes) {
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\lib_select_res_entry.hlsl", &pEntryLib);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(L"..\\CodeGenHLSL\\lib_select_res.hlsl", &pLib);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+
+  LinkCheckMsg(L"main", L"ps_6_0", pLinker, {libName, libName2},
+               {"Local resource must map to global resource"});
 }
