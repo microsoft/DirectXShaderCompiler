@@ -227,9 +227,16 @@ bool spirvToolsLegalize(std::vector<uint32_t> *module, std::string *messages) {
                  const spv_position_t & /*position*/,
                  const char *message) { *messages += message; });
 
-  optimizer.RegisterLegalizationPasses();
-
+  optimizer.RegisterPass(spvtools::CreateInlineExhaustivePass());
   optimizer.RegisterPass(spvtools::CreateEliminateDeadFunctionsPass());
+  optimizer.RegisterPass(spvtools::CreatePrivateToLocalPass());
+  optimizer.RegisterPass(spvtools::CreateScalarReplacementPass());
+  optimizer.RegisterPass(spvtools::CreateLocalMultiStoreElimPass());
+  optimizer.RegisterPass(spvtools::CreateInsertExtractElimPass());
+  optimizer.RegisterPass(spvtools::CreateDeadBranchElimPass());
+  optimizer.RegisterPass(spvtools::CreateCFGCleanupPass());
+  optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+  optimizer.RegisterPass(spvtools::CreateDeadVariableEliminationPass());
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
   return optimizer.Run(module->data(), module->size(), module);
@@ -244,6 +251,8 @@ bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
                  const char *message) { *messages += message; });
 
   optimizer.RegisterPerformancePasses();
+
+  optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
   return optimizer.Run(module->data(), module->size(), module);
 }
