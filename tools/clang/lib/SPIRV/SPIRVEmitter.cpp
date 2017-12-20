@@ -3816,15 +3816,17 @@ void SPIRVEmitter::initOnce(QualType varType, std::string varName,
 
   const uint32_t condition = theBuilder.createLoad(boolType, initDoneVar);
 
-  const uint32_t thenBB = theBuilder.createBasicBlock("if.true");
-  const uint32_t mergeBB = theBuilder.createBasicBlock("if.merge");
+  const uint32_t todoBB = theBuilder.createBasicBlock("if.init.todo");
+  const uint32_t doneBB = theBuilder.createBasicBlock("if.init.done");
 
-  theBuilder.createConditionalBranch(condition, thenBB, mergeBB, mergeBB);
-  theBuilder.addSuccessor(thenBB);
-  theBuilder.addSuccessor(mergeBB);
-  theBuilder.setMergeTarget(mergeBB);
+  // If initDoneVar contains true, we jump to the "done" basic block; otherwise,
+  // jump to the "todo" basic block.
+  theBuilder.createConditionalBranch(condition, doneBB, todoBB, doneBB);
+  theBuilder.addSuccessor(todoBB);
+  theBuilder.addSuccessor(doneBB);
+  theBuilder.setMergeTarget(doneBB);
 
-  theBuilder.setInsertPoint(thenBB);
+  theBuilder.setInsertPoint(todoBB);
   // Do initialization and mark done
   if (varInit) {
     theBuilder.createStore(varPtr, doExpr(varInit));
@@ -3833,10 +3835,10 @@ void SPIRVEmitter::initOnce(QualType varType, std::string varName,
     theBuilder.createStore(varPtr, theBuilder.getConstantNull(typeId));
   }
   theBuilder.createStore(initDoneVar, theBuilder.getConstantBool(true));
-  theBuilder.createBranch(mergeBB);
-  theBuilder.addSuccessor(mergeBB);
+  theBuilder.createBranch(doneBB);
+  theBuilder.addSuccessor(doneBB);
 
-  theBuilder.setInsertPoint(mergeBB);
+  theBuilder.setInsertPoint(doneBB);
 }
 
 bool SPIRVEmitter::isVectorShuffle(const Expr *expr) {
