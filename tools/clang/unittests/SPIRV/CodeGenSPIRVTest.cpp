@@ -774,8 +774,11 @@ TEST_F(FileTest, IntrinsicsGroupMemoryBarrierWithGroupSync) {
 TEST_F(FileTest, IntrinsicsIsFinite) {
   runFileTest("intrinsics.isfinite.hlsl");
 }
-TEST_F(FileTest, IntrinsicsInterlockedMethods) {
-  runFileTest("intrinsics.interlocked-methods.hlsl");
+TEST_F(FileTest, IntrinsicsInterlockedMethodsPS) {
+  runFileTest("intrinsics.interlocked-methods.ps.hlsl");
+}
+TEST_F(FileTest, IntrinsicsInterlockedMethodsCS) {
+  runFileTest("intrinsics.interlocked-methods.cs.hlsl");
 }
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
