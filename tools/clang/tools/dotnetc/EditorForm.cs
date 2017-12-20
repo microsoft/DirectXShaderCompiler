@@ -489,6 +489,9 @@ namespace MainNs
             if (target != null && target.Length == 6)
                 if (Int32.TryParse(new string(target[3], 1), out major))
                     return major >= 6;
+            if (target.StartsWith("lib"))
+                if (Int32.TryParse(new string(target[4], 1), out major))
+                    return major >= 6;
             return false;
         }
 
