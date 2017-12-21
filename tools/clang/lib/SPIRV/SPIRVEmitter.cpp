@@ -2076,7 +2076,7 @@ SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
 
   // The SPIR-V OpSelect instruction must have a selection argument that is the
   // same size as the return type. If the return type is a vector, the selection
-  // must be a vector of booleans (one per output componenet).
+  // must be a vector of booleans (one per output component).
   uint32_t count = 0;
   if (TypeTranslator::isVectorType(expr->getType(), nullptr, &count) &&
       !TypeTranslator::isVectorType(expr->getCond()->getType())) {
