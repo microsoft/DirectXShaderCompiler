@@ -214,6 +214,15 @@ public:
   /// \brief Creates a PushConstant block from the given decl.
   uint32_t createPushConstant(const VarDecl *decl);
 
+  /// \brief Returns the suitable type for the given decl, considering the
+  /// given decl could possibly be created as an alias variable. If true, a
+  /// pointer-to-the-value type will be returned, otherwise, just return the
+  /// normal value type.
+  ///
+  /// Note: legalization specific code
+  uint32_t getTypeForPotentialAliasVar(const DeclaratorDecl *var,
+                                       bool *shouldBeAlias = nullptr);
+
   /// \brief Sets the <result-id> of the entry function.
   void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
 
@@ -299,6 +308,8 @@ public:
   /// This method will write the set and binding number assignment into the
   /// module under construction.
   bool decorateResourceBindings();
+
+  bool requiresLegalization() const { return needsLegalization; }
 
 private:
   /// \brief Wrapper method to create a fatal error message and report it
@@ -476,6 +487,56 @@ private:
   /// to the <type-id>
   llvm::DenseMap<const DeclContext *, uint32_t> ctBufferPCTypeIds;
 
+  /// Whether the translated SPIR-V binary needs legalization.
+  ///
+  /// The following cases will require legalization:
+  ///
+  /// 1. Opaque types (textures, samplers) within structs
+  /// 2. Structured buffer assignments
+  ///
+  /// This covers the second case:
+  ///
+  /// When we have a kind of structured or byte buffer, meaning one of the
+  /// following
+  ///
+  /// * StructuredBuffer
+  /// * RWStructuredBuffer
+  /// * AppendStructuredBuffer
+  /// * ConsumeStructuredBuffer
+  /// * ByteAddressStructuredBuffer
+  /// * RWByteAddressStructuredBuffer
+  ///
+  /// and assigning to them (using operator=, passing in as function parameter,
+  /// returning as function return), we need legalization.
+  ///
+  /// All variable definitions (including static/non-static local/global
+  /// variables, function parameters/returns) will gain another level of
+  /// pointerness, unless they will generate externally visible SPIR-V
+  /// variables. So variables and parameters will be of pointer-to-pointer type,
+  /// while function returns will be of pointer type. We adopt this mechanism to
+  /// convey to the legalization passes that they are *alias* variables, and
+  /// all accesses should happen to the aliased-to-variables. Loading such an
+  /// alias variable will give the pointer to the aliased-to-variable, while
+  /// storing into such an alias variable should write the pointer to the
+  /// aliased-to-variable.
+  ///
+  /// Based on the above, CodeGen should take care of the following AST nodes:
+  ///
+  /// * Definition of alias variables: should add another level of pointers
+  /// * Assigning non-alias variables to alias variables: should avoid the load
+  ///   over the non-alias variables
+  /// * Accessing alias variables: should load the pointer first and then
+  ///   further compose access chains.
+  ///
+  /// Note that the associated counters bring about their own complication.
+  /// We also need to apply the alias mechanism for them.
+  ///
+  /// If this is true, SPIRV-Tools legalization passes will be executed after
+  /// the translation to legalize the generated SPIR-V binary.
+  ///
+  /// Note: legalization specific code
+  bool needsLegalization;
+
 public:
   /// The gl_PerVertex structs for both input and output
   GlPerVertex glPerVertex;
@@ -488,6 +549,7 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
       astContext(context), diags(context.getDiagnostics()),
       typeTranslator(context, builder, diags), entryFunctionId(0),
+      needsLegalization(false),
       glPerVertex(model, context, builder, typeTranslator) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {

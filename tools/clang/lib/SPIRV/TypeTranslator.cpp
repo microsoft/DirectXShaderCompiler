@@ -377,6 +377,17 @@ bool TypeTranslator::isConsumeStructuredBuffer(QualType type) {
   return name == "ConsumeStructuredBuffer";
 }
 
+bool TypeTranslator::isAKindOfStructuredOrByteBuffer(QualType type) {
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    StringRef name = recordType->getDecl()->getName();
+    return name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+           name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+           name == "AppendStructuredBuffer" ||
+           name == "ConsumeStructuredBuffer";
+  }
+  return false;
+}
+
 bool TypeTranslator::isStructuredBuffer(QualType type) {
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
