@@ -106,6 +106,13 @@ private:
   SpirvEvalInfo doMemberExpr(const MemberExpr *expr);
   SpirvEvalInfo doUnaryOperator(const UnaryOperator *expr);
 
+  /// Loads the pointer of the aliased-to-variable if the given expression is a
+  /// DeclRefExpr referencing an alias variable. See DeclResultIdMapper for
+  /// more explanation regarding this.
+  ///
+  /// Note: legalization specific code
+  SpirvEvalInfo loadIfAliasVarRef(const Expr *expr);
+
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
@@ -787,10 +794,16 @@ private:
   /// Whether the translated SPIR-V binary needs legalization.
   ///
   /// The following cases will require legalization:
-  /// * Opaque types (textures, samplers) within structs
+  ///
+  /// 1. Opaque types (textures, samplers) within structs
+  /// 2. Structured buffer assignments
+  ///
+  /// This covers the first case.
   ///
   /// If this is true, SPIRV-Tools legalization passes will be executed after
   /// the translation to legalize the generated SPIR-V binary.
+  ///
+  /// Note: legalization specific code
   bool needsLegalization;
 
   /// Global variables that should be initialized once at the begining of the

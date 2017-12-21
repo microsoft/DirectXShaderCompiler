@@ -80,6 +80,10 @@ public:
   /// \brief Returns true if the given type is the HLSL RWByteAddressBufferType.
   static bool isRWByteAddressBuffer(QualType type);
 
+  /// \brief Returns true if the given type is the HLSL (RW)StructuredBuffer,
+  /// (RW)ByteAddressBuffer, or {Append|Consume}StructuredBuffer.
+  static bool isAKindOfStructuredOrByteBuffer(QualType type);
+
   /// \brief Returns true if the given type is the HLSL Buffer type.
   static bool isBuffer(QualType type);
 
@@ -150,10 +154,14 @@ public:
 
   /// Returns true if the given type will be translated into a SPIR-V image,
   /// sampler or struct containing images or samplers.
+  ///
+  /// Note: legalization specific code
   static bool isOpaqueType(QualType type);
 
   /// Returns true if the given type is a struct type who has an opaque field
   /// (in a recursive away).
+  ///
+  /// Note: legalization specific code
   static bool isOpaqueStructType(QualType tye);
 
   /// \brief Returns a string name for the given type.

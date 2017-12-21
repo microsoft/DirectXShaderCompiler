@@ -968,6 +968,16 @@ TEST_F(FileTest, SpirvLegalizationOpaqueStruct) {
               // The generated SPIR-V needs legalization.
               /*runValidation=*/false);
 }
+TEST_F(FileTest, SpirvLegalizationStructuredBufferUsage) {
+  runFileTest("spirv.legal.sbuffer.usage.hlsl", Expect::Success,
+              // The generated SPIR-V needs legalization.
+              /*runValidation=*/false);
+}
+TEST_F(FileTest, SpirvLegalizationStructuredBufferMethods) {
+  runFileTest("spirv.legal.sbuffer.methods.hlsl", Expect::Success,
+              // The generated SPIR-V needs legalization.
+              /*runValidation=*/false);
+}
 TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
   runFileTest("spirv.legal.cbuffer.hlsl", Expect::Success,
               // The generated SPIR-V needs legalization.

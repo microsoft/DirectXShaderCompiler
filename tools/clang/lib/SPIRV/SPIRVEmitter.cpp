@@ -169,9 +169,9 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
 }
 
 /// Returns true if the given VarDecl will be translated into a SPIR-V variable
-/// in Private or Function storage class.
-inline bool isNonExternalVar(const VarDecl *var) {
-  return !var->isExternallyVisible() || var->isStaticDataMember();
+/// not in the Private or Function storage class.
+inline bool isExternalVar(const VarDecl *var) {
+  return var->isExternallyVisible() && !var->isStaticDataMember();
 }
 
 /// Returns the referenced variable's DeclContext if the given expr is
@@ -202,6 +202,19 @@ bool isConstantTextureBufferLoad(const Expr *expr) {
     if (castExpr->getCastKind() == CK_LValueToRValue)
       return isConstantTextureBufferDeclRef(castExpr);
 
+  return false;
+}
+
+/// Returns true if the given expr is an DeclRefExpr referencing a kind of
+/// structured or byte buffer and it is non-alias one.
+///
+/// Note: legalization specific code
+bool isReferencingNonAliasStructuredOrByteBuffer(const Expr *expr) {
+  if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr->IgnoreParenCasts()))
+    if (const auto *varDecl = dyn_cast<VarDecl>(declRefExpr->getFoundDecl()))
+      if (TypeTranslator::isAKindOfStructuredOrByteBuffer(varDecl->getType())) {
+        return isExternalVar(varDecl);
+      }
   return false;
 }
 
@@ -395,7 +408,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
 
   if (!spirvOptions.codeGenHighLevel) {
     // Run legalization passes
-    if (needsLegalization) {
+    if (needsLegalization || declIdMapper.requiresLegalization()) {
       std::string messages;
       if (!spirvToolsLegalize(&m, &messages)) {
         emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
@@ -586,17 +599,48 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr) {
   auto info = doExpr(expr);
 
   if (!info.isRValue()) {
+    // Check whether we are trying to load an externally visible structured/byte
+    // buffer as a whole. If true, it means we are creating alias for it. Avoid
+    // the load and write the pointer directly to the alias variable then.
+    //
+    // Note: legalization specific code
+    if (isReferencingNonAliasStructuredOrByteBuffer(expr)) {
+      return info.setRValue();
+    }
+
     uint32_t valType = 0;
+    if (valType = info.getValTypeId()) {
+      // We are loading an alias variable as a whole here. This is likely for
+      // wholesale assignments or function returns. Need to load the pointer.
+      //
+      // Note: legalization specific code
+    }
     // TODO: Ouch. Very hacky. We need special path to get the value type if
     // we are loading a whole ConstantBuffer/TextureBuffer since the normal
     // type translation path won't work.
-    if (const auto *declContext = isConstantTextureBufferDeclRef(expr)) {
+    else if (const auto *declContext = isConstantTextureBufferDeclRef(expr)) {
       valType = declIdMapper.getCTBufferPushConstantTypeId(declContext);
     } else {
       valType =
           typeTranslator.translateType(expr->getType(), info.getLayoutRule());
     }
     info.setResultId(theBuilder.createLoad(valType, info)).setRValue();
+  }
+
+  return info;
+}
+
+SpirvEvalInfo SPIRVEmitter::loadIfAliasVarRef(const Expr *expr) {
+  auto info = doExpr(expr);
+
+  if (const auto valTypeId = info.getValTypeId()) {
+    return info
+        // Load the pointer of the aliased-to-variable
+        .setResultId(theBuilder.createLoad(valTypeId, info))
+        // Set the value's <type-id> to zero to indicate that we've performed
+        // dereference over the pointer-to-pointer and now should fallback to
+        // the normal path
+        .setValTypeId(0);
   }
 
   return info;
@@ -672,7 +716,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
       TypeTranslator::isOpaqueStructType(decl->getReturnType()))
     needsLegalization = true;
 
-  const uint32_t retType = typeTranslator.translateType(decl->getReturnType());
+  const uint32_t retType = declIdMapper.getTypeForPotentialAliasVar(decl);
 
   // Construct the function signature.
   llvm::SmallVector<uint32_t, 4> paramTypes;
@@ -697,7 +741,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   }
 
   for (const auto *param : decl->params()) {
-    const uint32_t valueType = typeTranslator.translateType(param->getType());
+    const uint32_t valueType = declIdMapper.getTypeForPotentialAliasVar(param);
     const uint32_t ptrType =
         theBuilder.getPointerType(valueType, spv::StorageClass::Function);
     paramTypes.push_back(ptrType);
@@ -851,7 +895,9 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   // File scope variables (static "global" and "local" variables) belongs to
   // the Private storage class, while function scope variables (normal "local"
   // variables) belongs to the Function storage class.
-  if (isNonExternalVar(decl)) {
+  if (isExternalVar(decl)) {
+    varId = declIdMapper.createExternVar(decl);
+  } else {
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.
     const bool isFileScopeVar = !decl->hasLocalStorage();
@@ -882,8 +928,6 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
       else
         storeValue(varId, loadIfGLValue(init), decl->getType(), init);
     }
-  } else {
-    varId = declIdMapper.createExternVar(decl);
   }
 
   if (TypeTranslator::isRelaxedPrecisionType(decl->getType())) {
@@ -1551,7 +1595,7 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
 
     // We need to create variables for holding the values to be used as
     // arguments. The variables themselves are of pointer types.
-    const uint32_t varType = typeTranslator.translateType(arg->getType());
+    const uint32_t varType = declIdMapper.getTypeForPotentialAliasVar(param);
     const std::string varName = "param.var." + param->getNameAsString();
     const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
 
@@ -1575,7 +1619,7 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
     workQueue.insert(callee);
   }
 
-  const uint32_t retType = typeTranslator.translateType(callExpr->getType());
+  const uint32_t retType = declIdMapper.getTypeForPotentialAliasVar(callee);
   // Get or forward declare the function <result-id>
   const uint32_t funcId = declIdMapper.getOrRegisterFnResultId(callee);
 
@@ -1995,7 +2039,7 @@ SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
 uint32_t SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
     const CXXMemberCallExpr *expr) {
   const auto *object = expr->getImplicitObjectArgument();
-  const auto objectId = doExpr(object);
+  const auto objectId = loadIfAliasVarRef(object);
   const auto type = object->getType();
   const bool isByteAddressBuffer = TypeTranslator::isByteAddressBuffer(type) ||
                                    TypeTranslator::isRWByteAddressBuffer(type);
@@ -2040,8 +2084,7 @@ uint32_t SPIRVEmitter::processRWByteAddressBufferAtomicMethods(
   // void Interlocked*(in UINT dest, in UINT value, out UINT original_value);
 
   const auto *object = expr->getImplicitObjectArgument();
-  // We do not need to load the object since we are using its pointers.
-  const auto objectInfo = doExpr(object);
+  const auto objectInfo = loadIfAliasVarRef(object);
 
   const auto uintType = theBuilder.getUint32Type();
   const uint32_t zero = theBuilder.getConstantUint32(0);
@@ -2400,7 +2443,7 @@ SpirvEvalInfo SPIRVEmitter::processByteAddressBufferLoadStore(
   uint32_t resultId = 0;
   const auto object = expr->getImplicitObjectArgument();
   const auto type = object->getType();
-  const auto objectInfo = doExpr(object);
+  const auto objectInfo = loadIfAliasVarRef(object);
   assert(numWords >= 1 && numWords <= 4);
   if (doStore) {
     assert(typeTranslator.isRWByteAddressBuffer(type));
@@ -2493,7 +2536,7 @@ SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   }
 
   const auto *buffer = expr->getImplicitObjectArgument();
-  auto info = doExpr(buffer);
+  auto info = loadIfAliasVarRef(buffer);
 
   const QualType structType =
       hlsl::GetHLSLResourceResultType(buffer->getType());
@@ -3214,9 +3257,11 @@ SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
   const Expr *baseExpr = collectArrayStructIndices(expr, &indices);
 
-  auto base = doExpr(baseExpr);
+  auto base = loadIfAliasVarRef(baseExpr);
+
   if (indices.empty())
     return base; // For indexing into size-1 vectors and 1xN matrices
+
   // If we are indexing into a rvalue, to use OpAccessChain, we first need
   // to create a local variable to hold the rvalue.
   //
@@ -3380,7 +3425,7 @@ SpirvEvalInfo SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
 SpirvEvalInfo SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
   const Expr *base = collectArrayStructIndices(expr, &indices);
-  auto info = doExpr(base);
+  auto info = loadIfAliasVarRef(base);
 
   if (!indices.empty()) {
     // Sometime we are accessing the member of a rvalue, e.g.,
