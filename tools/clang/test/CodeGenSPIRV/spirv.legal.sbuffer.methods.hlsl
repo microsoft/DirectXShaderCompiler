@@ -68,24 +68,14 @@ float4 main() : SV_Target {
 // CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_v4float [[ptr1]] %int_0 %uint_4 %int_0
 // CHECK-NEXT:                 OpStore [[ptr2]] {{%\d+}}
     localRWSBuffer[4].f = 42.;
-    // TODO
-    counter = localRWSBuffer.IncrementCounter();
-    // TODO
-    counter = localRWSBuffer.DecrementCounter();
 
 // CHECK:      [[ptr:%\d+]] = OpLoad %_ptr_Uniform_type_AppendStructuredBuffer_T1 %localASBuffer
 // CHECK-NEXT:     {{%\d+}} = OpArrayLength %uint [[ptr]] 0
     localASBuffer.GetDimensions(numStructs, stride);
-    // TODO
-    counter = localRWSBuffer.DecrementCounter();
-    localASBuffer.Append(t1);
 
 // CHECK:      [[ptr:%\d+]] = OpLoad %_ptr_Uniform_type_ConsumeStructuredBuffer_T2 %localCSBuffer
 // CHECK-NEXT:     {{%\d+}} = OpArrayLength %uint [[ptr]] 0
     localCSBuffer.GetDimensions(numStructs, stride);
-    // TODO
-    counter = localRWSBuffer.DecrementCounter();
-    t2 = localCSBuffer.Consume();
 
     uint  byte;
     uint2 byte2;

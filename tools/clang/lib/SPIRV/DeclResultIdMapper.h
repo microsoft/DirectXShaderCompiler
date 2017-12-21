@@ -131,6 +131,38 @@ private:
   bool isCounterVar;                          ///< Couter variable or not
 };
 
+/// A (<result-id>, is-alias-or-not) pair for counter variables
+class CounterIdAliasPair {
+public:
+  /// Default constructor to satisfy llvm::DenseMap
+  CounterIdAliasPair() : resultId(0), isAlias(false) {}
+  CounterIdAliasPair(uint32_t id, bool alias) : resultId(id), isAlias(alias) {}
+
+  /// Returns the pointer to the counter variable. Dereferences first if this is
+  /// an alias to a counter variable.
+  uint32_t get(ModuleBuilder &builder, TypeTranslator &translator) const {
+    if (isAlias) {
+      const uint32_t counterVarType = builder.getPointerType(
+          translator.getACSBufferCounter(), spv::StorageClass::Uniform);
+      return builder.createLoad(counterVarType, resultId);
+    }
+    return resultId;
+  }
+
+  /// Stores the counter variable's pointer in srcPair to the curent counter
+  /// variable. The current counter variable must be an alias.
+  void assign(const CounterIdAliasPair &srcPair, ModuleBuilder &builder,
+              TypeTranslator &translator) const {
+    assert(isAlias);
+    builder.createStore(resultId, srcPair.get(builder, translator));
+  }
+
+private:
+  uint32_t resultId;
+  /// Note: legalization specific code
+  bool isAlias;
+};
+
 /// \brief The class containing mappings from Clang frontend Decls to their
 /// corresponding SPIR-V <result-id>s.
 ///
@@ -180,6 +212,12 @@ public:
   /// returns its <result-id>.
   uint32_t createFnParam(const ParmVarDecl *param);
 
+  /// \brief Creates the counter variable associated with the given param.
+  /// This is meant to be used for forward-declared functions.
+  ///
+  /// Note: legalization specific code
+  void createFnParamCounterVar(const ParmVarDecl *param);
+
   /// \brief Creates a function-scope variable in the current function and
   /// returns its <result-id>.
   uint32_t createFnVar(const VarDecl *var, llvm::Optional<uint32_t> init);
@@ -219,9 +257,13 @@ public:
   /// pointer-to-the-value type will be returned, otherwise, just return the
   /// normal value type.
   ///
+  /// If the type is for an alias variable, writes true to *shouldBeAlias and
+  /// writes storage class, layout rule, and valTypeId to *info.
+  ///
   /// Note: legalization specific code
   uint32_t getTypeForPotentialAliasVar(const DeclaratorDecl *var,
-                                       bool *shouldBeAlias = nullptr);
+                                       bool *shouldBeAlias = nullptr,
+                                       SpirvEvalInfo *info = nullptr);
 
   /// \brief Sets the <result-id> of the entry function.
   void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
@@ -262,9 +304,9 @@ public:
   /// returns a newly assigned <result-id> for it.
   uint32_t getOrRegisterFnResultId(const FunctionDecl *fn);
 
-  /// \brief Returns the associated counter's <result-id> for the given
-  /// {RW|Append|Consume}StructuredBuffer variable.
-  uint32_t getOrCreateCounterId(const ValueDecl *decl);
+  /// \brief Returns the associated counter's (<result-id>, is-alias-or-not)
+  /// pair for the given {RW|Append|Consume}StructuredBuffer variable.
+  const CounterIdAliasPair &getCounterIdAliasPair(const ValueDecl *decl);
 
   /// \brief Returns the <type-id> for the given cbuffer, tbuffer,
   /// ConstantBuffer, TextureBuffer, or push constant block.
@@ -440,7 +482,12 @@ private:
 
   /// Creates the associated counter variable for RW/Append/Consume
   /// structured buffer.
-  uint32_t createCounterVar(const ValueDecl *decl);
+  ///
+  /// The counter variable will be created as an alias variable (of
+  /// pointer-to-pointer type in Private storage class) if isAlias is true.
+  ///
+  /// Note: isAlias - legalization specific code
+  void createCounterVar(const ValueDecl *decl, bool isAlias);
 
   /// Decorates varId of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
@@ -480,8 +527,8 @@ private:
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
-  /// counter variables
-  llvm::DenseMap<const ValueDecl *, uint32_t> counterVars;
+  /// counter variables' (<result-id>, is-alias-or-not) pairs
+  llvm::DenseMap<const ValueDecl *, CounterIdAliasPair> counterVars;
 
   /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
   /// to the <type-id>
