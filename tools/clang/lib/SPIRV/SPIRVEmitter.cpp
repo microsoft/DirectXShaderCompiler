@@ -233,6 +233,7 @@ bool spirvToolsLegalize(std::vector<uint32_t> *module, std::string *messages) {
   optimizer.RegisterPass(spvtools::CreateScalarReplacementPass());
   optimizer.RegisterPass(spvtools::CreateLocalMultiStoreElimPass());
   optimizer.RegisterPass(spvtools::CreateInsertExtractElimPass());
+  optimizer.RegisterPass(spvtools::CreateCCPPass());
   optimizer.RegisterPass(spvtools::CreateDeadBranchElimPass());
   optimizer.RegisterPass(spvtools::CreateCFGCleanupPass());
   optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
