@@ -74,6 +74,10 @@ public:
   /// \brief Returns true if the given type is a ConsumeStructuredBuffer type.
   static bool isConsumeStructuredBuffer(QualType type);
 
+  /// \brief Returns true if the given type is a RW/Append/Consume
+  /// StructuredBuffer type.
+  static bool isRWAppendConsumeSBuffer(QualType type);
+
   /// \brief Returns true if the given type is the HLSL ByteAddressBufferType.
   static bool isByteAddressBuffer(QualType type);
 

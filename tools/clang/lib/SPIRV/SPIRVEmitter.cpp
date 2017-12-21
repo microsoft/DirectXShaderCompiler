@@ -24,6 +24,15 @@ namespace spirv {
 
 namespace {
 
+/// Returns the type of the given decl. If the given decl is a FunctionDecl,
+/// returns its result type.
+inline QualType getTypeOrFnRetType(const ValueDecl *decl) {
+  if (const auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
+    return funcDecl->getReturnType();
+  }
+  return decl->getType();
+}
+
 // Returns true if the given decl has the given semantic.
 bool hasSemantic(const DeclaratorDecl *decl,
                  hlsl::DXIL::SemanticKind semanticKind) {
@@ -205,16 +214,23 @@ bool isConstantTextureBufferLoad(const Expr *expr) {
   return false;
 }
 
-/// Returns true if the given expr is an DeclRefExpr referencing a kind of
-/// structured or byte buffer and it is non-alias one.
+/// Returns true if
+/// * the given expr is an DeclRefExpr referencing a kind of structured or byte
+/// buffer and it is non-alias one, or
+/// * the given expr is an CallExpr returning a kind of structured or byte
+/// buffer.
 ///
 /// Note: legalization specific code
 bool isReferencingNonAliasStructuredOrByteBuffer(const Expr *expr) {
-  if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr->IgnoreParenCasts()))
+  expr = expr->IgnoreParenCasts();
+  if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
     if (const auto *varDecl = dyn_cast<VarDecl>(declRefExpr->getFoundDecl()))
-      if (TypeTranslator::isAKindOfStructuredOrByteBuffer(varDecl->getType())) {
+      if (TypeTranslator::isAKindOfStructuredOrByteBuffer(varDecl->getType()))
         return isExternalVar(varDecl);
-      }
+  } else if (const auto *callExpr = dyn_cast<CallExpr>(expr)) {
+    if (TypeTranslator::isAKindOfStructuredOrByteBuffer(callExpr->getType()))
+      return true;
+  }
   return false;
 }
 
@@ -328,6 +344,41 @@ inline const HLSLBufferDecl *getCTBufferContext(const VarDecl *varDecl) {
     // Filter ConstantBuffer/TextureBuffer
     if (!bufferDecl->isConstantBufferView())
       return bufferDecl;
+  return nullptr;
+}
+
+/// Returns the real definition of the callee of the given CallExpr.
+///
+/// If we are calling a forward-declared function, callee will be the
+/// FunctionDecl for the foward-declared function, not the actual
+/// definition. The foward-delcaration and defintion are two completely
+/// different AST nodes.
+inline const FunctionDecl *getCalleeDefinition(const CallExpr *expr) {
+  const auto *callee = expr->getDirectCallee();
+
+  if (callee->isThisDeclarationADefinition())
+    return callee;
+
+  // We need to update callee to the actual definition here
+  if (!callee->isDefined(callee))
+    return nullptr;
+
+  return callee;
+}
+
+/// Returns the referenced definition. The given expr is expected to be a
+/// DeclRefExpr or CallExpr after ignoring casts. Returns nullptr otherwise.
+const ValueDecl *getReferencedDef(const Expr *expr) {
+  expr = expr->IgnoreParenCasts();
+
+  if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
+    return declRefExpr->getDecl();
+  }
+
+  if (const auto *callExpr = dyn_cast<CallExpr>(expr)) {
+    return getCalleeDefinition(callExpr);
+  }
+
   return nullptr;
 }
 
@@ -602,6 +653,10 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr) {
     // Check whether we are trying to load an externally visible structured/byte
     // buffer as a whole. If true, it means we are creating alias for it. Avoid
     // the load and write the pointer directly to the alias variable then.
+    //
+    // Also for the case of alias function returns. If we are trying to load an
+    // alias function return as a whole, it means we are assigning it to another
+    // alias variable. Avoid the load and write the pointer directly.
     //
     // Note: legalization specific code
     if (isReferencingNonAliasStructuredOrByteBuffer(expr)) {
@@ -927,6 +982,9 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
         theBuilder.createStore(varId, constId);
       else
         storeValue(varId, loadIfGLValue(init), decl->getType(), init);
+
+      // Update counter variable associatd with local variables
+      tryToAssignCounterVar(decl, init);
     }
   }
 
@@ -1369,6 +1427,9 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
 
 void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
   if (const auto *retVal = stmt->getRetValue()) {
+    // Update counter variable associatd with function returns
+    tryToAssignCounterVar(curFunction, retVal);
+
     const auto retInfo = doExpr(retVal);
     const auto retType = retVal->getType();
     if (retInfo.getStorageClass() != spv::StorageClass::Function &&
@@ -1493,6 +1554,10 @@ SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
   // Handle assignment first since we need to evaluate rhs before lhs.
   // For other binary operations, we need to evaluate lhs before rhs.
   if (opcode == BO_Assign) {
+    if (const auto *dstDecl = getReferencedDef(expr->getLHS()))
+      // Update counter variable associatd with lhs of assignments
+      tryToAssignCounterVar(dstDecl, expr->getRHS());
+
     return processAssignment(expr->getLHS(), loadIfGLValue(expr->getRHS()),
                              /*isCompoundAssignment=*/false, /*lhsPtr=*/0,
                              expr->getRHS());
@@ -1528,24 +1593,12 @@ SpirvEvalInfo SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
 }
 
 SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
-  const FunctionDecl *callee = callExpr->getDirectCallee();
+  const FunctionDecl *callee = getCalleeDefinition(callExpr);
 
-  // If we are calling a forward-declared function, callee will be the
-  // FunctionDecl for the foward-declared function, not the actual
-  // definition. The foward-delcaration and defintion are two completely
-  // different AST nodes.
   // Note that we always want the defintion because Stmts/Exprs in the
   // function body references the parameters in the definition.
-  if (!callee->isThisDeclarationADefinition()) {
-    // We need to update callee to the actual definition here
-    if (!callee->isDefined(callee)) {
-      emitError("found undefined function", callExpr->getExprLoc());
-      return 0;
-    }
-  }
-
   if (!callee) {
-    emitError("calling non-function unimplemented", callExpr->getExprLoc());
+    emitError("found undefined function", callExpr->getExprLoc());
     return 0;
   }
 
@@ -1602,6 +1655,9 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
     params.push_back(tempVarId);
     args.push_back(doExpr(arg));
 
+    // Update counter variable associated with function parameters
+    tryToAssignCounterVar(param, arg);
+
     if (canActAsOutParmVar(param)) {
       // The current parameter is marked as out/inout. The argument then is
       // essentially passed in by reference. We need to load the value
@@ -1637,7 +1693,8 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
     }
   }
 
-  return SpirvEvalInfo(retVal).setRValue();
+  // Inherit the SpirvEvalInfo from the function definition
+  return declIdMapper.getDeclResultId(callee).setResultId(retVal);
 }
 
 SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
@@ -2548,7 +2605,7 @@ SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
 }
 
 uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
-                                                bool isInc) {
+                                                bool isInc, bool loadObject) {
   const uint32_t i32Type = theBuilder.getInt32Type();
   const uint32_t one = theBuilder.getConstantUint32(1);  // As scope: Device
   const uint32_t zero = theBuilder.getConstantUint32(0); // As memory sema: None
@@ -2556,13 +2613,26 @@ uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
 
   const auto *object =
       expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
-  const auto *buffer = cast<DeclRefExpr>(object)->getDecl();
 
-  const uint32_t counterVar = declIdMapper.getOrCreateCounterId(buffer);
+  if (loadObject) {
+    // We don't need the object's <result-id> here since counter variable is a
+    // separate variable. But we still need the side effects of evaluating the
+    // object, e.g., if the source code is foo(...).IncrementCounter(), we still
+    // want to emit the code for foo(...).
+    (void)doExpr(object);
+  }
+
+  const ValueDecl *buffer = getReferencedDef(object);
+  if (!buffer) {
+    emitError("method call syntax unimplemented", expr->getExprLoc());
+    return 0;
+  }
+
+  const auto &counterPair = declIdMapper.getCounterIdAliasPair(buffer);
   const uint32_t counterPtrType = theBuilder.getPointerType(
       theBuilder.getInt32Type(), spv::StorageClass::Uniform);
-  const uint32_t counterPtr =
-      theBuilder.createAccessChain(counterPtrType, counterVar, {zero});
+  const uint32_t counterPtr = theBuilder.createAccessChain(
+      counterPtrType, counterPair.get(theBuilder, typeTranslator), {zero});
 
   uint32_t index = 0;
   if (isInc) {
@@ -2579,6 +2649,25 @@ uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
   return index;
 }
 
+void SPIRVEmitter::tryToAssignCounterVar(const ValueDecl *dstDecl,
+                                         const Expr *srcExpr) {
+  // For parameters of forward-declared functions. We must make sure the
+  // associated counter variable is created. But for forward-declared functions,
+  // the translation of the real definition may not be started yet.
+  if (const auto *param = dyn_cast<ParmVarDecl>(dstDecl))
+    declIdMapper.createFnParamCounterVar(param);
+
+  if (TypeTranslator::isRWAppendConsumeSBuffer(getTypeOrFnRetType(dstDecl))) {
+    // Internal RW/Append/Consume StructuredBuffer. We also need to
+    // initialize the associated counter.
+    const auto &srcPair =
+        declIdMapper.getCounterIdAliasPair(getReferencedDef(srcExpr));
+    const auto &dstPair = declIdMapper.getCounterIdAliasPair(dstDecl);
+
+    dstPair.assign(srcPair, theBuilder, typeTranslator);
+  }
+}
+
 SpirvEvalInfo
 SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   const bool isAppend = expr->getNumArgs() == 1;
@@ -2587,9 +2676,13 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
 
   const auto *object =
       expr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
-  auto bufferInfo = doDeclRefExpr(cast<DeclRefExpr>(object));
 
-  uint32_t index = incDecRWACSBufferCounter(expr, isAppend);
+  auto bufferInfo = loadIfAliasVarRef(object);
+
+  uint32_t index = incDecRWACSBufferCounter(
+      expr, isAppend,
+      // We have already translated the object in the above. Avoid duplication.
+      /*loadObject=*/false);
 
   const auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
 
@@ -6918,6 +7011,9 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     const auto id = declIdMapper.getDeclResultId(varDecl);
     if (const auto *init = varDecl->getInit()) {
       theBuilder.createStore(id, doExpr(init));
+
+      // Update counter variable associatd with global variables
+      tryToAssignCounterVar(varDecl, init);
     } else {
       const auto typeId = typeTranslator.translateType(varDecl->getType());
       theBuilder.createStore(id, theBuilder.getConstantNull(typeId));

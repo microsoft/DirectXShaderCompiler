@@ -660,8 +660,17 @@ private:
   SpirvEvalInfo processStructuredBufferLoad(const CXXMemberCallExpr *expr);
 
   /// \brief Increments or decrements the counter for RW/Append/Consume
-  /// structured buffer.
-  uint32_t incDecRWACSBufferCounter(const CXXMemberCallExpr *, bool isInc);
+  /// structured buffer. If loadObject is true, the object upon which the call
+  /// is made will be evaluated and translated into SPIR-V.
+  uint32_t incDecRWACSBufferCounter(const CXXMemberCallExpr *call, bool isInc,
+                                    bool loadObject = true);
+
+  /// Assigns the counter variable associated with srcExpr to the one associated
+  /// with dstDecl if the dstDecl is an internal RW/Append/Consume structured
+  /// buffer.
+  ///
+  /// Note: legalization specific code
+  void tryToAssignCounterVar(const ValueDecl *dstDecl, const Expr *srcExpr);
 
   /// \brief Loads numWords 32-bit unsigned integers or stores numWords 32-bit
   /// unsigned integers (based on the doStore parameter) to the given
