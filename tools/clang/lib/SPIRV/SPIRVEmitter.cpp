@@ -2609,7 +2609,7 @@ uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
   const uint32_t counterPtrType = theBuilder.getPointerType(
       theBuilder.getInt32Type(), spv::StorageClass::Uniform);
   const uint32_t counterPtr = theBuilder.createAccessChain(
-      counterPtrType, counterPair.get(theBuilder, typeTranslator), {zero});
+      counterPtrType, counterPair->get(theBuilder, typeTranslator), {zero});
 
   uint32_t index = 0;
   if (isInc) {
@@ -2626,7 +2626,7 @@ uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
   return index;
 }
 
-void SPIRVEmitter::tryToAssignCounterVar(const ValueDecl *dstDecl,
+bool SPIRVEmitter::tryToAssignCounterVar(const ValueDecl *dstDecl,
                                          const Expr *srcExpr) {
   // For parameters of forward-declared functions. We must make sure the
   // associated counter variable is created. But for forward-declared functions,
@@ -2637,12 +2637,28 @@ void SPIRVEmitter::tryToAssignCounterVar(const ValueDecl *dstDecl,
   if (TypeTranslator::isRWAppendConsumeSBuffer(getTypeOrFnRetType(dstDecl))) {
     // Internal RW/Append/Consume StructuredBuffer. We also need to
     // initialize the associated counter.
-    const auto &srcPair =
+    const auto *srcPair =
         declIdMapper.getCounterIdAliasPair(getReferencedDef(srcExpr));
-    const auto &dstPair = declIdMapper.getCounterIdAliasPair(dstDecl);
+    const auto *dstPair = declIdMapper.getCounterIdAliasPair(dstDecl);
 
-    dstPair.assign(srcPair, theBuilder, typeTranslator);
+    if (!srcPair) {
+      emitFatalError(
+          "cannot handle counter variable associated with the given expr",
+          srcExpr->getLocStart())
+          << srcExpr->getSourceRange();
+      return false;
+    }
+    if (!dstDecl) {
+      emitFatalError(
+          "cannot handle counter variable associated with the given decl",
+          dstDecl->getLocation());
+      return false;
+    }
+
+    dstPair->assign(*srcPair, theBuilder, typeTranslator);
   }
+
+  return true;
 }
 
 SpirvEvalInfo
