@@ -2197,6 +2197,24 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
 
   // For Texture2DMSArray, arguments are: width, height, elements, NumSamples
 
+  // Note: SPIR-V Spec requires return type of OpImageQuerySize(Lod) to be a
+  // scalar/vector of integers. SPIR-V Spec also requires return type of
+  // OpImageQueryLevels and OpImageQuerySamples to be scalar integers.
+  // The HLSL methods, however, have overloaded functions which have float
+  // output arguments. Since the AST naturally won't have casting AST nodes for
+  // such cases, we'll have to perform the cast ourselves.
+  const auto storeToOutputArg = [this](const Expr *outputArg,
+                                       uint32_t toStoreId) {
+    const auto outputArgType = outputArg->getType();
+    // Perform cast to float if necessary.
+    if (isFloatOrVecMatOfFloatType(outputArgType)) {
+      toStoreId = theBuilder.createUnaryOp(
+          spv::Op::OpConvertUToF, typeTranslator.translateType(outputArgType),
+          toStoreId);
+    }
+    theBuilder.createStore(doExpr(outputArg), toStoreId);
+  };
+
   if ((typeName == "Texture1D" && numArgs > 1) ||
       (typeName == "Texture2D" && numArgs > 2) ||
       (typeName == "Texture3D" && numArgs > 3) ||
@@ -2243,7 +2261,7 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
 
   if (querySize == 1) {
     const uint32_t argIndex = mipLevel ? 1 : 0;
-    theBuilder.createStore(doExpr(expr->getArg(argIndex)), query);
+    storeToOutputArg(expr->getArg(argIndex), query);
   } else {
     for (uint32_t i = 0; i < querySize; ++i) {
       const uint32_t component =
@@ -2251,7 +2269,7 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
       // If the first arg is the mipmap level, we must write the results
       // starting from Arg(i+1), not Arg(i).
       const uint32_t argIndex = mipLevel ? i + 1 : i;
-      theBuilder.createStore(doExpr(expr->getArg(argIndex)), component);
+      storeToOutputArg(expr->getArg(argIndex), component);
     }
   }
 
@@ -2259,11 +2277,9 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
     const Expr *numLevelsSamplesArg = numLevels ? numLevels : numSamples;
     const spv::Op opcode =
         numLevels ? spv::Op::OpImageQueryLevels : spv::Op::OpImageQuerySamples;
-    const uint32_t resultType =
-        typeTranslator.translateType(numLevelsSamplesArg->getType());
     const uint32_t numLevelsSamplesQuery =
-        theBuilder.createUnaryOp(opcode, resultType, objectId);
-    theBuilder.createStore(doExpr(numLevelsSamplesArg), numLevelsSamplesQuery);
+        theBuilder.createUnaryOp(opcode, uintId, objectId);
+    storeToOutputArg(numLevelsSamplesArg, numLevelsSamplesQuery);
   }
 
   return 0;
