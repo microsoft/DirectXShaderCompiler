@@ -2070,9 +2070,21 @@ SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   // According to HLSL doc, all sides of the ?: expression are always
   // evaluated.
   const uint32_t type = typeTranslator.translateType(expr->getType());
-  const uint32_t condition = doExpr(expr->getCond());
+  uint32_t condition = doExpr(expr->getCond());
   const uint32_t trueBranch = doExpr(expr->getTrueExpr());
   const uint32_t falseBranch = doExpr(expr->getFalseExpr());
+
+  // The SPIR-V OpSelect instruction must have a selection argument that is the
+  // same size as the return type. If the return type is a vector, the selection
+  // must be a vector of booleans (one per output componenet).
+  uint32_t count = 0;
+  if (TypeTranslator::isVectorType(expr->getType(), nullptr, &count) &&
+      !TypeTranslator::isVectorType(expr->getCond()->getType())) {
+    const uint32_t condVecType =
+        theBuilder.getVecType(theBuilder.getBoolType(), count);
+    const llvm::SmallVector<uint32_t, 4> components(size_t(count), condition);
+    condition = theBuilder.createCompositeConstruct(condVecType, components);
+  }
 
   auto valueId =
       theBuilder.createSelect(type, condition, trueBranch, falseBranch);

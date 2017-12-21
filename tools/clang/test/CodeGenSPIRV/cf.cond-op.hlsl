@@ -5,6 +5,8 @@ bool fn() { return true; }
 bool fn1() { return false; }
 bool fn2() { return true; }
 
+// CHECK: [[v3i0:%\d+]] = OpConstantComposite %v3int %int_0 %int_0 %int_0
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
@@ -30,4 +32,40 @@ void main() {
 // CHECK-NEXT: OpSelectionMerge %if_merge_0 None
 // CHECK-NEXT: OpBranchConditional [[s1]] %if_true_0 %if_merge_0
     if (fn() ? fn1() : fn2()) val++;
+
+    // Try condition with various type.
+    // Note: the SPIR-V OpSelect selection argument must be the same size as the return type.
+    int3 r, s, t;
+    bool  cond;
+    bool3 cond3;
+    float floatCond;
+    int3 int3Cond;
+ 
+// CHECK:      [[cond3:%\d+]] = OpLoad %v3bool %cond3
+// CHECK-NEXT:     [[r:%\d+]] = OpLoad %v3int %r
+// CHECK-NEXT:     [[s:%\d+]] = OpLoad %v3int %s
+// CHECK-NEXT:       {{%\d+}} = OpSelect %v3int [[cond3]] [[r]] [[s]]
+    t = cond3 ? r : s;
+
+// CHECK:       [[cond:%\d+]] = OpLoad %bool %cond
+// CHECK-NEXT:     [[r:%\d+]] = OpLoad %v3int %r
+// CHECK-NEXT:     [[s:%\d+]] = OpLoad %v3int %s
+// CHECK-NEXT: [[splat:%\d+]] = OpCompositeConstruct %v3bool [[cond]] [[cond]] [[cond]]
+// CHECK-NEXT:       {{%\d+}} = OpSelect %v3int [[splat]] [[r]] [[s]]
+    t = cond  ? r : s;
+
+// CHECK:      [[floatCond:%\d+]] = OpLoad %float %floatCond
+// CHECK-NEXT:  [[boolCond:%\d+]] = OpFOrdNotEqual %bool [[floatCond]] %float_0
+// CHECK-NEXT: [[bool3Cond:%\d+]] = OpCompositeConstruct %v3bool [[boolCond]] [[boolCond]] [[boolCond]]
+// CHECK-NEXT:         [[r:%\d+]] = OpLoad %v3int %r
+// CHECK-NEXT:         [[s:%\d+]] = OpLoad %v3int %s
+// CHECK-NEXT:           {{%\d+}} = OpSelect %v3int [[bool3Cond]] [[r]] [[s]]
+    t = floatCond ? r : s;
+
+// CHECK:       [[int3Cond:%\d+]] = OpLoad %v3int %int3Cond
+// CHECK-NEXT: [[bool3Cond:%\d+]] = OpINotEqual %v3bool [[int3Cond]] [[v3i0]]
+// CHECK-NEXT:         [[r:%\d+]] = OpLoad %v3int %r
+// CHECK-NEXT:         [[s:%\d+]] = OpLoad %v3int %s
+// CHECK-NEXT:           {{%\d+}} = OpSelect %v3int [[bool3Cond]] [[r]] [[s]]
+    t = int3Cond ? r : s;
 }
