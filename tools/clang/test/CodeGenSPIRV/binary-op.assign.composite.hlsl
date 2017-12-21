@@ -74,7 +74,7 @@ void main(uint index: A) {
     BufferType lbuf;                  // %BufferType_0                   & %SubBuffer_1
     sbuf[5]  = lbuf;             // %BufferType <- %BufferType_0
 
-// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_SubBuffer_0 %cbuf %int_3 %int_0
+// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_SubBuffer_0 %cbuf %int_3 %uint_0
 // CHECK-NEXT: [[cbuf_d0:%\d+]] = OpLoad %SubBuffer_0 [[ptr]]
 
     // sub.a[0] <- cbuf.d[0].a[0]
