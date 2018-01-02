@@ -2349,3 +2349,7 @@ either because of no Vulkan equivalents at the moment, or because of deprecation
 * The Hull shader ``partitioning`` attribute may not have the ``pow2`` value. The compiler
   will emit an error. Other attribute values are supported and described in the
   `Hull Entry Point Attributes`_ section.
+* ``cbuffer``/``tbuffer`` member initializer: no Vulkan equivalent. The compiler
+  will emit an warning and ignore it.
+* ``:packoffset()``: Not supported right now. The compiler will emit an warning
+  and ignore it.
