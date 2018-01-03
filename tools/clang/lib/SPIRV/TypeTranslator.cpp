@@ -626,7 +626,8 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
 
   for (const auto *field : decl->decls()) {
     // Ignore implicit generated struct declarations/constructors/destructors.
-    if (field->isImplicit())
+    // Ignore embedded struct/union/class/enum decls.
+    if (field->isImplicit() || isa<TagDecl>(field))
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
@@ -639,11 +640,10 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
         getAlignmentAndSize(fieldType, rule, isRowMajor, &stride);
 
     // Each structure-type member must have an Offset Decoration.
-    const auto *offsetAttr = field->getAttr<VKOffsetAttr>();
-    if (offsetAttr)
-        offset = offsetAttr->getOffset();
+    if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>())
+      offset = offsetAttr->getOffset();
     else
-        roundToPow2(&offset, memberAlignment);
+      roundToPow2(&offset, memberAlignment);
     decorations.push_back(Decoration::getOffset(*spirvContext, offset, index));
     offset += memberSize;
 
