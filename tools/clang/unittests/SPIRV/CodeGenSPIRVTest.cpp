@@ -1091,6 +1091,10 @@ TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
   runFileTest("vk.layout.push-constant.std430.hlsl");
 }
 
+TEST_F(FileTest, VulkanLayoutCBufferPackOffset) {
+  runFileTest("vk.layout.cbuffer.packoffset.hlsl", Expect::Warning);
+}
+
 // HS: for different Patch Constant Functions
 TEST_F(FileTest, HullShaderPCFVoid) { runFileTest("hs.pcf.void.hlsl"); }
 TEST_F(FileTest, HullShaderPCFTakesInputPatch) {
