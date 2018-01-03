@@ -258,6 +258,17 @@ bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
   return optimizer.Run(module->data(), module->size(), module);
 }
 
+bool spirvToolsValidate(std::vector<uint32_t> *module, std::string *messages) {
+  spvtools::SpirvTools tools(SPV_ENV_VULKAN_1_0);
+
+  tools.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  return tools.Validate(module->data(), module->size());
+}
+
 /// Translates atomic HLSL opcodes into the equivalent SPIR-V opcode.
 spv::Op translateAtomicHlslOpcodeToSpirvOpcode(hlsl::IntrinsicOp opcode) {
   using namespace hlsl;
@@ -458,6 +469,10 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
       std::string messages;
       if (!spirvToolsLegalize(&m, &messages)) {
         emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
+        emitNote("please file a bug report on "
+                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+                 "with source code if possible",
+                 {});
         return;
       }
     }
@@ -467,6 +482,23 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
       std::string messages;
       if (!spirvToolsOptimize(&m, &messages)) {
         emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
+        emitNote("please file a bug report on "
+                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+                 "with source code if possible",
+                 {});
+        return;
+      }
+    }
+
+    // Validate the generated SPIR-V code
+    if (!spirvOptions.disableValidation) {
+      std::string messages;
+      if (!spirvToolsValidate(&m, &messages)) {
+        emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
+        emitNote("please file a bug report on "
+                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+                 "with source code if possible",
+                 {});
         return;
       }
     }
