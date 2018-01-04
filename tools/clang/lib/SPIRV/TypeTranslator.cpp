@@ -633,7 +633,7 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
     auto fieldType = cast<DeclaratorDecl>(field)->getType();
-    const bool isRowMajor = field->hasAttr<HLSLRowMajorAttr>();
+    const bool isRowMajor = field->hasAttr<HLSLRowMajorAttr>() || !field->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.HLSLDefaultRowMajor;
 
     uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
     std::tie(memberAlignment, memberSize) =
@@ -965,8 +965,9 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
     for (const auto *field : structType->getDecl()->fields()) {
       uint32_t memberAlignment = 0, memberSize = 0;
+    const bool isRowMajor = field->hasAttr<HLSLRowMajorAttr>() || !field->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.HLSLDefaultRowMajor;
       std::tie(memberAlignment, memberSize) = getAlignmentAndSize(
-          field->getType(), rule, field->hasAttr<HLSLRowMajorAttr>(), stride);
+          field->getType(), rule, isRowMajor, stride);
 
       // The base alignment of the structure is N, where N is the largest
       // base alignment value of any of its members...

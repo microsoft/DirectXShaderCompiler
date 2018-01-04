@@ -18,6 +18,7 @@ struct EmitSPIRVOptions {
   /// Disable legalization and optimization and emit raw SPIR-V
   bool codeGenHighLevel;
   bool ignoreUnusedResources;
+  bool HLSLDefaultRowMajor;
   llvm::StringRef stageIoOrder;
   llvm::SmallVector<uint32_t, 4> bShift;
   llvm::SmallVector<uint32_t, 4> tShift;

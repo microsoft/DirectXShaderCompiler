@@ -15,6 +15,7 @@
 #include "clang/AST/Type.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/SPIRV/ModuleBuilder.h"
+#include "clang/SPIRV/EmitSPIRVOptions.h"
 
 #include "SpirvEvalInfo.h"
 
@@ -31,8 +32,8 @@ namespace spirv {
 class TypeTranslator {
 public:
   TypeTranslator(ASTContext &context, ModuleBuilder &builder,
-                 DiagnosticsEngine &diag)
-      : astContext(context), theBuilder(builder), diags(diag) {}
+                 DiagnosticsEngine &diag, const EmitSPIRVOptions& opt)
+      : astContext(context), theBuilder(builder), diags(diag), spirvOptions(opt) {}
 
   /// \brief Generates the corresponding SPIR-V type for the given Clang
   /// frontend type and returns the type's <result-id>. On failure, reports
@@ -234,6 +235,7 @@ private:
   ASTContext &astContext;
   ModuleBuilder &theBuilder;
   DiagnosticsEngine &diags;
+  const EmitSPIRVOptions& spirvOptions;
 };
 
 } // end namespace spirv

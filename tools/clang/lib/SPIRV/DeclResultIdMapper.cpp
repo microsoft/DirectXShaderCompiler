@@ -392,8 +392,9 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
     auto varType = declDecl->getType();
     varType.removeLocalConst();
 
+    const bool isRowMajor = declDecl->hasAttr<HLSLRowMajorAttr>() || !declDecl->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.HLSLDefaultRowMajor;
     fieldTypes.push_back(typeTranslator.translateType(
-        varType, layoutRule, declDecl->hasAttr<HLSLRowMajorAttr>()));
+        varType, layoutRule, isRowMajor));
     fieldNames.push_back(declDecl->getName());
 
     // tbuffer/TextureBuffers are non-writable SSBOs. OpMemberDecorate

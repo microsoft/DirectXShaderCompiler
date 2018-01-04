@@ -388,7 +388,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
           ci.getCodeGenOpts().HLSLProfile.c_str())),
       theContext(), theBuilder(&theContext),
       declIdMapper(shaderModel, astContext, theBuilder, spirvOptions),
-      typeTranslator(astContext, theBuilder, diags), entryFunctionId(0),
+      typeTranslator(astContext, theBuilder, diags, spirvOptions), entryFunctionId(0),
       curFunction(nullptr), curThis(0), seenPushConstantAt(),
       needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
