@@ -31,7 +31,7 @@ float4 main(int index: A) : SV_Target {
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[x]]
 
 // CHECK:      [[index:%\d+]] = OpLoad %int %index
-// CHECK-NEXT: [[f012:%\d+]] = OpAccessChain %_ptr_Uniform_float %mySBuffer2 %int_0 [[index]] %int_1 %int_0 %uint_1 %uint_2
+// CHECK-NEXT: [[f012:%\d+]] = OpAccessChain %_ptr_Uniform_float %mySBuffer2 %int_0 [[index]] %int_1 %uint_0 %uint_1 %uint_2
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[f012]]
     return mySBuffer1.Load(5).f1.x + mySBuffer2.Load(index).f2[0][1][2];
 }

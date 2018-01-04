@@ -464,7 +464,9 @@ public:
 #ifdef ENABLE_SPIRV_CODEGEN
       else if (opts.GenSPIRV) {
           clang::EmitSPIRVOptions spirvOpts;
+
           spirvOpts.codeGenHighLevel = opts.CodeGenHighLevel;
+          spirvOpts.disableValidation = opts.DisableValidation;
           spirvOpts.ignoreUnusedResources = opts.VkIgnoreUnusedResources;
           spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
@@ -472,6 +474,7 @@ public:
           spirvOpts.tShift = opts.VkTShift;
           spirvOpts.sShift = opts.VkSShift;
           spirvOpts.uShift = opts.VkUShift;
+
           clang::EmitSPIRVAction action(spirvOpts);
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
           action.BeginSourceFile(compiler, file);

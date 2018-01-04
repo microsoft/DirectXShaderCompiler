@@ -29,7 +29,7 @@ float main() : A {
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[s0]]
 
 // CHECK:      [[t:%\d+]] = OpAccessChain %_ptr_Uniform__arr_float_uint_4 %var_MyTbuffer %int_4
-// CHECK-NEXT: [[t3:%\d+]] = OpAccessChain %_ptr_Uniform_float [[t]] %int_3
+// CHECK-NEXT: [[t3:%\d+]] = OpAccessChain %_ptr_Uniform_float [[t]] %uint_3
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[t3]]
     return a + b.x + c[1][2] + s.f + t[3];
 }

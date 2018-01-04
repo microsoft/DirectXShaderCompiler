@@ -108,6 +108,31 @@ bool TypeTranslator::isOpaqueStructType(QualType type) {
   return false;
 }
 
+void TypeTranslator::pushIntendedLiteralType(QualType type) {
+  QualType elemType = {};
+  if (isVectorType(type, &elemType)) {
+    type = elemType;
+  } else if (isMxNMatrix(type, &elemType)) {
+    type = elemType;
+  }
+  assert(!type->isSpecificBuiltinType(BuiltinType::LitInt) &&
+         !type->isSpecificBuiltinType(BuiltinType::LitFloat));
+  intendedLiteralTypes.push(type);
+}
+
+QualType TypeTranslator::getIntendedLiteralType(QualType type) {
+  if (!intendedLiteralTypes.empty())
+    return intendedLiteralTypes.top();
+
+  // We don't have any useful hints, return the given type itself.
+  return type;
+}
+
+void TypeTranslator::popIntendedLiteralType() {
+  if (!intendedLiteralTypes.empty())
+    intendedLiteralTypes.pop();
+}
+
 uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                        bool isRowMajor) {
   // We can only apply row_major to matrices or arrays of matrices.
@@ -122,21 +147,21 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
   // Primitive types
   {
     QualType ty = {};
-    if (isScalarType(type, &ty))
-      if (const auto *builtinType = ty->getAs<BuiltinType>())
+    if (isScalarType(type, &ty)) {
+      if (const auto *builtinType = ty->getAs<BuiltinType>()) {
         switch (builtinType->getKind()) {
         case BuiltinType::Void:
           return theBuilder.getVoidType();
         case BuiltinType::Bool:
           return theBuilder.getBoolType();
-        // int, min16int (short), and min12int are all translated to 32-bit
-        // signed integers in SPIR-V.
+          // int, min16int (short), and min12int are all translated to 32-bit
+          // signed integers in SPIR-V.
         case BuiltinType::Int:
         case BuiltinType::Short:
         case BuiltinType::Min12Int:
           return theBuilder.getInt32Type();
-        // uint and min16uint (ushort) are both translated to 32-bit unsigned
-        // integers in SPIR-V.
+          // uint and min16uint (ushort) are both translated to 32-bit unsigned
+          // integers in SPIR-V.
         case BuiltinType::UShort:
         case BuiltinType::UInt:
           return theBuilder.getUint32Type();
@@ -144,8 +169,8 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           return theBuilder.getInt64Type();
         case BuiltinType::ULongLong:
           return theBuilder.getUint64Type();
-        // float, min16float (half), and min10float are all translated to 32-bit
-        // float in SPIR-V.
+          // float, min16float (half), and min10float are all translated to
+          // 32-bit float in SPIR-V.
         case BuiltinType::Float:
         case BuiltinType::Half:
         case BuiltinType::Min10Float:
@@ -153,6 +178,12 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
         case BuiltinType::Double:
           return theBuilder.getFloat64Type();
         case BuiltinType::LitFloat: {
+          // First try to see if there are any hints about how this literal type
+          // is going to be used. If so, use the hint.
+          if (getIntendedLiteralType(ty) != ty) {
+            return translateType(getIntendedLiteralType(ty));
+          }
+
           const auto &semantics = astContext.getFloatTypeSemantics(type);
           const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
           if (bitwidth <= 32)
@@ -161,6 +192,12 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
             return theBuilder.getFloat64Type();
         }
         case BuiltinType::LitInt: {
+          // First try to see if there are any hints about how this literal type
+          // is going to be used. If so, use the hint.
+          if (getIntendedLiteralType(ty) != ty) {
+            return translateType(getIntendedLiteralType(ty));
+          }
+
           const auto bitwidth = astContext.getIntWidth(type);
           // All integer variants with bitwidth larger than 32 are represented
           // as 64-bit int in SPIR-V.
@@ -178,6 +215,8 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
               << builtinType->getTypeClassName();
           return 0;
         }
+      }
+    }
   }
 
   // Typedefs

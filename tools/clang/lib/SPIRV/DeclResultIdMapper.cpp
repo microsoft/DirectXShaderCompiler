@@ -238,6 +238,10 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const ValueDecl *decl,
   if (checkRegistered) {
     emitFatalError("found unregistered decl", decl->getLocation())
         << decl->getName();
+    emitNote("please file a bug report on "
+             "https://github.com/Microsoft/DirectXShaderCompiler/issues with "
+             "source code if possible",
+             {});
   }
 
   return 0;

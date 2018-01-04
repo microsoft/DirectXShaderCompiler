@@ -304,6 +304,9 @@ private:
   /// Processes the 'frexp' intrinsic function.
   uint32_t processIntrinsicFrexp(const CallExpr *);
 
+  /// Processes the 'ldexp' intrinsic function.
+  uint32_t processIntrinsicLdexp(const CallExpr *);
+
   /// Processes the 'D3DCOLORtoUBYTE4' intrinsic function.
   uint32_t processD3DCOLORtoUBYTE4(const CallExpr *);
 
