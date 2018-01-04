@@ -777,10 +777,6 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     funcId = declIdMapper.getDeclResultId(decl);
   }
 
-  if (!needsLegalization &&
-      TypeTranslator::isOpaqueStructType(decl->getReturnType()))
-    needsLegalization = true;
-
   const uint32_t retType = declIdMapper.getTypeForPotentialAliasVar(decl);
 
   // Construct the function signature.
@@ -810,10 +806,6 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     const uint32_t ptrType =
         theBuilder.getPointerType(valueType, spv::StorageClass::Function);
     paramTypes.push_back(ptrType);
-
-    if (!needsLegalization &&
-        TypeTranslator::isOpaqueStructType(param->getType()))
-      needsLegalization = true;
   }
 
   const uint32_t funcType = theBuilder.getFunctionType(retType, paramTypes);
@@ -1001,12 +993,18 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
       // Update counter variable associatd with local variables
       tryToAssignCounterVar(decl, init);
     }
+
+    // Variables that are not externally visible and of opaque types should
+    // request legalization.
+    if (!needsLegalization && TypeTranslator::isOpaqueType(decl->getType()))
+      needsLegalization = true;
   }
 
   if (TypeTranslator::isRelaxedPrecisionType(decl->getType())) {
     theBuilder.decorate(varId, spv::Decoration::RelaxedPrecision);
   }
 
+  // All variables that are of opaque struct types should request legalization.
   if (!needsLegalization && TypeTranslator::isOpaqueStructType(decl->getType()))
     needsLegalization = true;
 }
@@ -3817,11 +3815,6 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
       typeTranslator.isVectorType(lhsValType) ||
       typeTranslator.isMxNMatrix(lhsValType)) {
     theBuilder.createStore(lhsPtr, rhsVal);
-  } else if (lhsPtr.getLayoutRule() == rhsVal.getLayoutRule()) {
-    // If lhs and rhs has the same memory layout, we should be safe to load
-    // from rhs and directly store into lhs and avoid decomposing rhs.
-    // TODO: is this optimization always correct?
-    theBuilder.createStore(lhsPtr, rhsVal);
   } else if (TypeTranslator::isOpaqueType(lhsValType)) {
     // Resource types are represented using RecordType in the AST.
     // Handle them before the general RecordType.
@@ -3851,6 +3844,12 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // assignments/returns from ConstantBuffer<T>/TextureBuffer<T> to function
     // parameters/returns/variables of type T. And ConstantBuffer<T> is not
     // represented differently as struct T.
+  } else if (lhsPtr.getLayoutRule() == rhsVal.getLayoutRule()) {
+    // If lhs and rhs has the same memory layout, we should be safe to load
+    // from rhs and directly store into lhs and avoid decomposing rhs.
+    // Note: this check should happen after those setting needsLegalization.
+    // TODO: is this optimization always correct?
+    theBuilder.createStore(lhsPtr, rhsVal);
   } else if (const auto *recordType = lhsValType->getAs<RecordType>()) {
     uint32_t index = 0;
     for (const auto *decl : recordType->getDecl()->decls()) {
