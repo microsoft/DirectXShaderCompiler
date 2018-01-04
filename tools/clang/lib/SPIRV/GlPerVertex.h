@@ -57,7 +57,7 @@ namespace spirv {
 class GlPerVertex {
 public:
   GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
-              ModuleBuilder &builder, TypeTranslator &translator);
+              ModuleBuilder &builder, TypeTranslator &translator, bool negateY);
 
   /// Records a declaration of SV_ClipDistance/SV_CullDistance so later
   /// we can caculate the ClipDistance/CullDistance array layout.
@@ -140,7 +140,7 @@ private:
   /// Emits SPIR-V instructions for writing the Position/PointSize builtin.
   void writePositionOrPointSize(bool isPosition,
                                 llvm::Optional<uint32_t> invocationId,
-                                uint32_t value) const;
+                                uint32_t value);
   /// Emits SPIR-V instructions for writing data into the ClipDistance/
   /// CullDistance builtin starting from offset. The value to be written is
   /// fromValue, whose type is fromType. Necessary transformations will be
@@ -165,6 +165,10 @@ private:
   ASTContext &astContext;
   ModuleBuilder &theBuilder;
   TypeTranslator &typeTranslator;
+
+  /// Indicates whether to invert SV_Position.y to accommodate Vulkan's
+  /// coordinate system
+  bool invertY;
 
   /// We can have Position, ClipDistance, and CullDistance either grouped (G)
   /// into the gl_PerVertex struct, or separated (S) as stand-alone variables.

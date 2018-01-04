@@ -1017,6 +1017,16 @@ TEST_F(FileTest, VulkanCLOptionIgnoreUnusedResources) {
   runFileTest("vk.cloption.ignore-unused-resources.hlsl");
 }
 
+TEST_F(FileTest, VulkanCLOptionInvertYVS) {
+  runFileTest("vk.cloption.invert-y.vs.hlsl");
+}
+TEST_F(FileTest, VulkanCLOptionInvertYDS) {
+  runFileTest("vk.cloption.invert-y.ds.hlsl");
+}
+TEST_F(FileTest, VulkanCLOptionInvertYGS) {
+  runFileTest("vk.cloption.invert-y.gs.hlsl");
+}
+
 // Vulkan specific
 TEST_F(FileTest, VulkanLocation) { runFileTest("vk.location.hlsl"); }
 TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {
@@ -1068,7 +1078,9 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
 }
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
-TEST_F(FileTest, VulkanPushConstantOffset) { runFileTest("vk.push-constant.offset.hlsl"); }
+TEST_F(FileTest, VulkanPushConstantOffset) {
+  runFileTest("vk.push-constant.offset.hlsl");
+}
 TEST_F(FileTest, VulkanMultiplePushConstant) {
   runFileTest("vk.push-constant.multiple.hlsl", FileTest::Expect::Failure);
 }

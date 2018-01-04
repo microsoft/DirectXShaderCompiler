@@ -481,6 +481,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
+  opts.VkInvertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
   opts.VkIgnoreUnusedResources = Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false);
 
   // Collects the arguments for -fvk-{b|s|t|u}-shift.
@@ -519,6 +520,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||

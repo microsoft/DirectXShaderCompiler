@@ -1342,6 +1342,18 @@ bool DeclResultIdMapper::writeBackOutputStream(const ValueDecl *decl,
     // We should have recorded its stage output variable previously.
     assert(found != stageVarIds.end());
 
+    // Negate SV_Position.y if requested
+    if (spirvOptions.invertY &&
+        semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position) {
+
+      const auto f32Type = theBuilder.getFloat32Type();
+      const auto v4f32Type = theBuilder.getVecType(f32Type, 4);
+      const auto oldY = theBuilder.createCompositeExtract(f32Type, value, {1});
+      const auto newY =
+          theBuilder.createUnaryOp(spv::Op::OpFNegate, f32Type, oldY);
+      value = theBuilder.createCompositeInsert(v4f32Type, value, {1}, newY);
+    }
+
     theBuilder.createStore(found->second, value);
     return true;
   }
