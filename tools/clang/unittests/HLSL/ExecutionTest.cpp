@@ -883,12 +883,12 @@ public:
   "uint QuadReadAcrossDiagonal(uint u) { return 1; }\r\n" \
   "#endif\r\n"
 
-
-static void SetupComputeValuePattern(std::vector<uint32_t> &values, size_t count) {
-    values.resize(count); // one element per dispatch group, in bytes
-    for (size_t i = 0; i < count; ++i) {
-        values[i] = (uint32_t)i;
-    }
+static void SetupComputeValuePattern(std::vector<uint32_t> &values,
+                                     size_t count) {
+  values.resize(count); // one element per dispatch group, in bytes
+  for (size_t i = 0; i < count; ++i) {
+    values[i] = (uint32_t)i;
+  }
 }
 
 bool ExecutionTest::ExecutionTestClassSetup() {
@@ -2009,11 +2009,11 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
 }
 
 struct ShaderOpTestResult {
-    st::ShaderOp *ShaderOp;
-    std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
-    std::shared_ptr<st::ShaderOpTest> Test;
+  st::ShaderOp *ShaderOp;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
+  std::shared_ptr<st::ShaderOpTest> Test;
 };
-    
+
 struct SPrimitives {
   float f_float;
   float f_float2;
@@ -5436,206 +5436,206 @@ TEST_F(ExecutionTest, CBufferTestHalf) {
 #ifndef _HLK_CONF
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
     char **pReadBackDump) {
-    std::stringstream str;
+  std::stringstream str;
 
-    unsigned count = 0;
-    for (auto &R : pShaderOp->Resources) {
-        if (!R.ReadBack)
-            continue;
-        ++count;
-        str << "Resource: " << R.Name << "\r\n";
-        // Find a descriptor that can tell us how to dump this resource.
-        bool found = false;
-        for (auto &Heaps : pShaderOp->DescriptorHeaps) {
-            for (auto &D : Heaps.Descriptors) {
-                if (_stricmp(D.ResName, R.Name) != 0) {
-                    continue;
-                }
-                found = true;
-                if (_stricmp(D.Kind, "UAV") != 0) {
-                    str << "Resource dump for kind " << D.Kind << " not implemented yet.\r\n";
-                    break;
-                }
-                if (D.UavDesc.ViewDimension != D3D12_UAV_DIMENSION_BUFFER) {
-                    str << "Resource dump for this kind of view dimension not implemented yet.\r\n";
-                    break;
-                }
-                // We can map back to the structure if a structured buffer via the shader, but
-                // we'll keep this simple and simply dump out 32-bit uint/float representations.
-                MappedData data;
-                pTest->GetReadBackData(R.Name, &data);
-                uint32_t *pData = (uint32_t *)data.data();
-                size_t u32_count = R.Desc.Width / sizeof(uint32_t);
-                for (size_t i = 0; i < u32_count; ++i) {
-                    float f = *(float *)pData;
-                    str << i << ": 0n" << *pData << "   0x" << std::hex << *pData
-                        << std::dec << "   " << f << "\r\n";
-                    ++pData;
-                }
-                break;
-            }
-            if (found) break;
-        }
-        if (!found) {
-            str << "Unable to find a view for the resource.\r\n";
-        }
-    }
+  unsigned count = 0;
+  for (auto &R : pShaderOp->Resources) {
+      if (!R.ReadBack)
+          continue;
+      ++count;
+      str << "Resource: " << R.Name << "\r\n";
+      // Find a descriptor that can tell us how to dump this resource.
+      bool found = false;
+      for (auto &Heaps : pShaderOp->DescriptorHeaps) {
+          for (auto &D : Heaps.Descriptors) {
+              if (_stricmp(D.ResName, R.Name) != 0) {
+                  continue;
+              }
+              found = true;
+              if (_stricmp(D.Kind, "UAV") != 0) {
+                  str << "Resource dump for kind " << D.Kind << " not implemented yet.\r\n";
+                  break;
+              }
+              if (D.UavDesc.ViewDimension != D3D12_UAV_DIMENSION_BUFFER) {
+                  str << "Resource dump for this kind of view dimension not implemented yet.\r\n";
+                  break;
+              }
+              // We can map back to the structure if a structured buffer via the shader, but
+              // we'll keep this simple and simply dump out 32-bit uint/float representations.
+              MappedData data;
+              pTest->GetReadBackData(R.Name, &data);
+              uint32_t *pData = (uint32_t *)data.data();
+              size_t u32_count = R.Desc.Width / sizeof(uint32_t);
+              for (size_t i = 0; i < u32_count; ++i) {
+                  float f = *(float *)pData;
+                  str << i << ": 0n" << *pData << "   0x" << std::hex << *pData
+                      << std::dec << "   " << f << "\r\n";
+                  ++pData;
+              }
+              break;
+          }
+          if (found) break;
+      }
+      if (!found) {
+          str << "Unable to find a view for the resource.\r\n";
+      }
+  }
 
-    str << "Resources read back: " << count << "\r\n";
+  str << "Resources read back: " << count << "\r\n";
 
-    std::string s(str.str());
-    CComHeapPtr<char> pDump;
-    if (!pDump.Allocate(s.size() + 1))
-        throw std::bad_alloc();
-    memcpy(pDump.m_pData, s.data(), s.size());
-    pDump.m_pData[s.size()] = '\0';
-    *pReadBackDump = pDump.Detach();
+  std::string s(str.str());
+  CComHeapPtr<char> pDump;
+  if (!pDump.Allocate(s.size() + 1))
+      throw std::bad_alloc();
+  memcpy(pDump.m_pData, s.data(), s.size());
+  pDump.m_pData[s.size()] = '\0';
+  *pReadBackDump = pDump.Detach();
 }
 
 // This is the exported interface by use from HLSLHost.exe.
 // It's exclusive with the use of the DLL as a TAEF target.
 extern "C" {
-    __declspec(dllexport) HRESULT WINAPI InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
-        HRESULT hr = EnableExperimentalShaderModels();
-        if (FAILED(hr)) {
-            pOutputStrFn(pStrCtx, L"Unable to enable experimental shader models.\r\n.");
-        }
-        return S_OK;
-    }
+  __declspec(dllexport) HRESULT WINAPI InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
+      HRESULT hr = EnableExperimentalShaderModels();
+      if (FAILED(hr)) {
+          pOutputStrFn(pStrCtx, L"Unable to enable experimental shader models.\r\n.");
+      }
+      return S_OK;
+  }
 
-    __declspec(dllexport) HRESULT WINAPI
-        RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
-            ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
-            ID3D12Resource *pRenderTarget, char **pReadBackDump) {
+  __declspec(dllexport) HRESULT WINAPI
+      RunOpTest(void *pStrCtx, st::OutputStringFn pOutputStrFn, LPCSTR pText,
+          ID3D12Device *pDevice, ID3D12CommandQueue *pCommandQueue,
+          ID3D12Resource *pRenderTarget, char **pReadBackDump) {
 
-        HRESULT hr;
-        if (pReadBackDump) *pReadBackDump = nullptr;
-        st::SetOutputFn(pStrCtx, pOutputStrFn);
-        CComPtr<ID3D12InfoQueue> pInfoQueue;
-        CComHeapPtr<char> pDump;
-        bool FilterCreation = false;
-        if (SUCCEEDED(pDevice->QueryInterface(&pInfoQueue))) {
-            // Creation is largely driven by inputs, so don't log create/destroy messages.
-            pInfoQueue->PushEmptyStorageFilter();
-            pInfoQueue->PushEmptyRetrievalFilter();
-            if (FilterCreation) {
-                D3D12_INFO_QUEUE_FILTER filter;
-                D3D12_MESSAGE_CATEGORY denyCategories[] = { D3D12_MESSAGE_CATEGORY_STATE_CREATION };
-                ZeroMemory(&filter, sizeof(filter));
-                filter.DenyList.NumCategories = _countof(denyCategories);
-                filter.DenyList.pCategoryList = denyCategories;
-                pInfoQueue->PushStorageFilter(&filter);
-            }
-        }
-        else {
-            pOutputStrFn(pStrCtx, L"Unable to enable info queue for D3D.\r\n.");
-        }
-        try {
-            dxc::DxcDllSupport m_support;
-            m_support.Initialize();
+      HRESULT hr;
+      if (pReadBackDump) *pReadBackDump = nullptr;
+      st::SetOutputFn(pStrCtx, pOutputStrFn);
+      CComPtr<ID3D12InfoQueue> pInfoQueue;
+      CComHeapPtr<char> pDump;
+      bool FilterCreation = false;
+      if (SUCCEEDED(pDevice->QueryInterface(&pInfoQueue))) {
+          // Creation is largely driven by inputs, so don't log create/destroy messages.
+          pInfoQueue->PushEmptyStorageFilter();
+          pInfoQueue->PushEmptyRetrievalFilter();
+          if (FilterCreation) {
+              D3D12_INFO_QUEUE_FILTER filter;
+              D3D12_MESSAGE_CATEGORY denyCategories[] = { D3D12_MESSAGE_CATEGORY_STATE_CREATION };
+              ZeroMemory(&filter, sizeof(filter));
+              filter.DenyList.NumCategories = _countof(denyCategories);
+              filter.DenyList.pCategoryList = denyCategories;
+              pInfoQueue->PushStorageFilter(&filter);
+          }
+      }
+      else {
+          pOutputStrFn(pStrCtx, L"Unable to enable info queue for D3D.\r\n.");
+      }
+      try {
+          dxc::DxcDllSupport m_support;
+          m_support.Initialize();
 
-            const char *pName = nullptr;
-            CComPtr<IStream> pStream = SHCreateMemStream((BYTE *)pText, strlen(pText));
-            std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
-                std::make_shared<st::ShaderOpSet>();
-            st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
-            st::ShaderOp *pShaderOp;
-            if (pName == nullptr) {
-                if (ShaderOpSet->ShaderOps.size() != 1) {
-                    pOutputStrFn(pStrCtx, L"Expected a single shader operation.\r\n");
-                    return E_FAIL;
-                }
-                pShaderOp = ShaderOpSet->ShaderOps[0].get();
-            }
-            else {
-                pShaderOp = ShaderOpSet->GetShaderOp(pName);
-            }
-            if (pShaderOp == nullptr) {
-                std::string msg = "Unable to find shader op ";
-                msg += pName;
-                msg += "; available ops";
-                const char sep = ':';
-                for (auto &pAvailOp : ShaderOpSet->ShaderOps) {
-                    msg += sep;
-                    msg += pAvailOp->Name ? pAvailOp->Name : "[n/a]";
-                }
-                CA2W msgWide(msg.c_str());
-                pOutputStrFn(pStrCtx, msgWide);
-                return E_FAIL;
-            }
+          const char *pName = nullptr;
+          CComPtr<IStream> pStream = SHCreateMemStream((BYTE *)pText, strlen(pText));
+          std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+              std::make_shared<st::ShaderOpSet>();
+          st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+          st::ShaderOp *pShaderOp;
+          if (pName == nullptr) {
+              if (ShaderOpSet->ShaderOps.size() != 1) {
+                  pOutputStrFn(pStrCtx, L"Expected a single shader operation.\r\n");
+                  return E_FAIL;
+              }
+              pShaderOp = ShaderOpSet->ShaderOps[0].get();
+          }
+          else {
+              pShaderOp = ShaderOpSet->GetShaderOp(pName);
+          }
+          if (pShaderOp == nullptr) {
+              std::string msg = "Unable to find shader op ";
+              msg += pName;
+              msg += "; available ops";
+              const char sep = ':';
+              for (auto &pAvailOp : ShaderOpSet->ShaderOps) {
+                  msg += sep;
+                  msg += pAvailOp->Name ? pAvailOp->Name : "[n/a]";
+              }
+              CA2W msgWide(msg.c_str());
+              pOutputStrFn(pStrCtx, msgWide);
+              return E_FAIL;
+          }
 
-            std::shared_ptr<st::ShaderOpTest> test = std::make_shared<st::ShaderOpTest>();
-            test->SetupRenderTarget(pShaderOp, pDevice, pCommandQueue, pRenderTarget);
-            test->SetDxcSupport(&m_support);
-            test->RunShaderOp(pShaderOp);
-            test->PresentRenderTarget(pShaderOp, pCommandQueue, pRenderTarget);
+          std::shared_ptr<st::ShaderOpTest> test = std::make_shared<st::ShaderOpTest>();
+          test->SetupRenderTarget(pShaderOp, pDevice, pCommandQueue, pRenderTarget);
+          test->SetDxcSupport(&m_support);
+          test->RunShaderOp(pShaderOp);
+          test->PresentRenderTarget(pShaderOp, pCommandQueue, pRenderTarget);
 
-            pOutputStrFn(pStrCtx, L"Rendering complete.\r\n");
+          pOutputStrFn(pStrCtx, L"Rendering complete.\r\n");
 
-            if (!pShaderOp->IsCompute()) {
-                D3D12_QUERY_DATA_PIPELINE_STATISTICS stats;
-                test->GetPipelineStats(&stats);
-                wchar_t statsText[400];
-                StringCchPrintfW(statsText, _countof(statsText),
-                    L"Vertices/primitives read by input assembler: %I64u/%I64u\r\n"
-                    L"Vertex shader invocations: %I64u\r\n"
-                    L"Geometry shader invocations/output primitive: %I64u/%I64u\r\n"
-                    L"Primitives sent to rasterizer/rendered: %I64u/%I64u\r\n"
-                    L"PS/HS/DS/CS invocations: %I64u/%I64u/%I64u/%I64u\r\n",
-                    stats.IAVertices, stats.IAPrimitives, stats.VSInvocations,
-                    stats.GSInvocations, stats.GSPrimitives, stats.CInvocations,
-                    stats.CPrimitives, stats.PSInvocations, stats.HSInvocations,
-                    stats.DSInvocations, stats.CSInvocations);
-                pOutputStrFn(pStrCtx, statsText);
-            }
+          if (!pShaderOp->IsCompute()) {
+              D3D12_QUERY_DATA_PIPELINE_STATISTICS stats;
+              test->GetPipelineStats(&stats);
+              wchar_t statsText[400];
+              StringCchPrintfW(statsText, _countof(statsText),
+                  L"Vertices/primitives read by input assembler: %I64u/%I64u\r\n"
+                  L"Vertex shader invocations: %I64u\r\n"
+                  L"Geometry shader invocations/output primitive: %I64u/%I64u\r\n"
+                  L"Primitives sent to rasterizer/rendered: %I64u/%I64u\r\n"
+                  L"PS/HS/DS/CS invocations: %I64u/%I64u/%I64u/%I64u\r\n",
+                  stats.IAVertices, stats.IAPrimitives, stats.VSInvocations,
+                  stats.GSInvocations, stats.GSPrimitives, stats.CInvocations,
+                  stats.CPrimitives, stats.PSInvocations, stats.HSInvocations,
+                  stats.DSInvocations, stats.CSInvocations);
+              pOutputStrFn(pStrCtx, statsText);
+          }
 
-            if (pReadBackDump) {
-                WriteReadBackDump(pShaderOp, test.get(), &pDump);
-            }
+          if (pReadBackDump) {
+              WriteReadBackDump(pShaderOp, test.get(), &pDump);
+          }
 
-            hr = S_OK;
-        }
-        catch (const CAtlException &E)
-        {
-            hr = E.m_hr;
-        }
-        catch (const std::bad_alloc &)
-        {
-            hr = E_OUTOFMEMORY;
-        }
-        catch (const std::exception &)
-        {
-            hr = E_FAIL;
-        }
+          hr = S_OK;
+      }
+      catch (const CAtlException &E)
+      {
+          hr = E.m_hr;
+      }
+      catch (const std::bad_alloc &)
+      {
+          hr = E_OUTOFMEMORY;
+      }
+      catch (const std::exception &)
+      {
+          hr = E_FAIL;
+      }
 
-        // Drain the device message queue if available.
-        if (pInfoQueue != nullptr) {
-            wchar_t buf[200];
-            StringCchPrintfW(buf, _countof(buf),
-                L"NumStoredMessages=%u limit/discarded by limit=%u/%u "
-                L"allowed/denied by storage filter=%u/%u "
-                L"NumStoredMessagesAllowedByRetrievalFilter=%u\r\n",
-                (unsigned)pInfoQueue->GetNumStoredMessages(),
-                (unsigned)pInfoQueue->GetMessageCountLimit(),
-                (unsigned)pInfoQueue->GetNumMessagesDiscardedByMessageCountLimit(),
-                (unsigned)pInfoQueue->GetNumMessagesAllowedByStorageFilter(),
-                (unsigned)pInfoQueue->GetNumMessagesDeniedByStorageFilter(),
-                (unsigned)pInfoQueue->GetNumStoredMessagesAllowedByRetrievalFilter());
-            pOutputStrFn(pStrCtx, buf);
+      // Drain the device message queue if available.
+      if (pInfoQueue != nullptr) {
+          wchar_t buf[200];
+          StringCchPrintfW(buf, _countof(buf),
+              L"NumStoredMessages=%u limit/discarded by limit=%u/%u "
+              L"allowed/denied by storage filter=%u/%u "
+              L"NumStoredMessagesAllowedByRetrievalFilter=%u\r\n",
+              (unsigned)pInfoQueue->GetNumStoredMessages(),
+              (unsigned)pInfoQueue->GetMessageCountLimit(),
+              (unsigned)pInfoQueue->GetNumMessagesDiscardedByMessageCountLimit(),
+              (unsigned)pInfoQueue->GetNumMessagesAllowedByStorageFilter(),
+              (unsigned)pInfoQueue->GetNumMessagesDeniedByStorageFilter(),
+              (unsigned)pInfoQueue->GetNumStoredMessagesAllowedByRetrievalFilter());
+          pOutputStrFn(pStrCtx, buf);
 
-            WriteInfoQueueMessages(pStrCtx, pOutputStrFn, pInfoQueue);
+          WriteInfoQueueMessages(pStrCtx, pOutputStrFn, pInfoQueue);
 
-            pInfoQueue->ClearStoredMessages();
-            pInfoQueue->PopRetrievalFilter();
-            pInfoQueue->PopStorageFilter();
-            if (FilterCreation) {
-                pInfoQueue->PopStorageFilter();
-            }
-        }
+          pInfoQueue->ClearStoredMessages();
+          pInfoQueue->PopRetrievalFilter();
+          pInfoQueue->PopStorageFilter();
+          if (FilterCreation) {
+              pInfoQueue->PopStorageFilter();
+          }
+      }
 
-        if (pReadBackDump) *pReadBackDump = pDump.Detach();
+      if (pReadBackDump) *pReadBackDump = pDump.Detach();
 
-        return hr;
-    }
+      return hr;
+  }
 }
 #endif
