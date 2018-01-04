@@ -87,22 +87,22 @@ namespace {
       I->replaceUsesOfWith(P, Load);
     }
 
-	// Iterate over each operand inserting a store in each predecessor.
-	// This should be done after load inserting because store for phi must be
-	// after all other instructions of the incoming block.
-	for (unsigned i = 0, e = P->getNumIncomingValues(); i < e; ++i) {
-		if (InvokeInst *II = dyn_cast<InvokeInst>(P->getIncomingValue(i))) {
-			assert(II->getParent() != P->getIncomingBlock(i) &&
-				"Invoke edge not supported yet");
-			(void)II;
-		}
-		Value *V = P->getIncomingValue(i);
-		// Skip undef
-		if (isa<UndefValue>(V))
-			continue;
-		new StoreInst(P->getIncomingValue(i), Slot,
-			P->getIncomingBlock(i)->getTerminator());
-	}
+    // Iterate over each operand inserting a store in each predecessor.
+    // This should be done after load inserting because store for phi must be
+    // after all other instructions of the incoming block.
+    for (unsigned i = 0, e = P->getNumIncomingValues(); i < e; ++i) {
+      if (InvokeInst *II = dyn_cast<InvokeInst>(P->getIncomingValue(i))) {
+        assert(II->getParent() != P->getIncomingBlock(i) &&
+               "Invoke edge not supported yet");
+        (void)II;
+      }
+      Value *V = P->getIncomingValue(i);
+      // Skip undef
+      if (isa<UndefValue>(V))
+        continue;
+      new StoreInst(P->getIncomingValue(i), Slot,
+                    P->getIncomingBlock(i)->getTerminator());
+    }
 
     // Delete PHI.
     P->eraseFromParent();
