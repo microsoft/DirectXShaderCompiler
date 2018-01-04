@@ -227,17 +227,8 @@ bool spirvToolsLegalize(std::vector<uint32_t> *module, std::string *messages) {
                  const spv_position_t & /*position*/,
                  const char *message) { *messages += message; });
 
-  optimizer.RegisterPass(spvtools::CreateInlineExhaustivePass());
-  optimizer.RegisterPass(spvtools::CreateEliminateDeadFunctionsPass());
-  optimizer.RegisterPass(spvtools::CreatePrivateToLocalPass());
-  optimizer.RegisterPass(spvtools::CreateScalarReplacementPass());
-  optimizer.RegisterPass(spvtools::CreateLocalMultiStoreElimPass());
-  optimizer.RegisterPass(spvtools::CreateInsertExtractElimPass());
-  optimizer.RegisterPass(spvtools::CreateCCPPass());
-  optimizer.RegisterPass(spvtools::CreateDeadBranchElimPass());
-  optimizer.RegisterPass(spvtools::CreateCFGCleanupPass());
-  optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
-  optimizer.RegisterPass(spvtools::CreateDeadVariableEliminationPass());
+  optimizer.RegisterLegalizationPasses();
+
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
   return optimizer.Run(module->data(), module->size(), module);
@@ -4945,6 +4936,9 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_frexp:
     retVal = processIntrinsicFrexp(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_ldexp:
+    retVal = processIntrinsicLdexp(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_lit:
     retVal = processIntrinsicLit(callExpr);
     break;
@@ -5034,7 +5028,6 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(fma, Fma, true);
     INTRINSIC_OP_CASE(frac, Fract, true);
     INTRINSIC_OP_CASE(length, Length, false);
-    INTRINSIC_OP_CASE(ldexp, Ldexp, true);
     INTRINSIC_OP_CASE(lerp, FMix, true);
     INTRINSIC_OP_CASE(log, Log, true);
     INTRINSIC_OP_CASE(log2, Log2, true);
@@ -5557,6 +5550,50 @@ uint32_t SPIRVEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
   }
 
   emitError("invalid argument type passed to Frexp intrinsic function",
+            callExpr->getExprLoc());
+  return 0;
+}
+
+uint32_t SPIRVEmitter::processIntrinsicLdexp(const CallExpr *callExpr) {
+  // Signature: ret ldexp(x, exp)
+  // This function uses the following formula: x * 2^exp.
+  // Note that we cannot use GLSL extended instruction Ldexp since it requires
+  // the exponent to be an integer (vector) but HLSL takes an float (vector)
+  // exponent. So we must calculate the result manually.
+  const uint32_t glsl = theBuilder.getGLSLExtInstSet();
+  const Expr *x = callExpr->getArg(0);
+  const auto paramType = x->getType();
+  const uint32_t xId = doExpr(x);
+  const uint32_t expId = doExpr(callExpr->getArg(1));
+
+  // For scalar and vector argument types.
+  if (TypeTranslator::isScalarType(paramType) ||
+      TypeTranslator::isVectorType(paramType)) {
+    const auto paramTypeId = typeTranslator.translateType(paramType);
+    const auto twoExp = theBuilder.createExtInst(
+        paramTypeId, glsl, GLSLstd450::GLSLstd450Exp2, {expId});
+    return theBuilder.createBinaryOp(spv::Op::OpFMul, paramTypeId, xId, twoExp);
+  }
+
+  // For matrix argument types.
+  {
+    uint32_t rowCount = 0, colCount = 0;
+    if (TypeTranslator::isMxNMatrix(paramType, nullptr, &rowCount, &colCount)) {
+      const auto actOnEachVec = [this, glsl, expId](uint32_t index,
+                                                    uint32_t vecType,
+                                                    uint32_t xRowId) {
+        const auto expRowId =
+            theBuilder.createCompositeExtract(vecType, expId, {index});
+        const auto twoExp = theBuilder.createExtInst(
+            vecType, glsl, GLSLstd450::GLSLstd450Exp2, {expRowId});
+        return theBuilder.createBinaryOp(spv::Op::OpFMul, vecType, xRowId,
+                                         twoExp);
+      };
+      return processEachVectorInMatrix(x, xId, actOnEachVec);
+    }
+  }
+
+  emitError("invalid argument type passed to ldexp intrinsic function",
             callExpr->getExprLoc());
   return 0;
 }

@@ -12,25 +12,29 @@ void main() {
   
 // CHECK:          [[a1:%\d+]] = OpLoad %float %a1
 // CHECK-NEXT:     [[a2:%\d+]] = OpLoad %float %a2
-// CHECK-NEXT:[[ldexp_a:%\d+]] = OpExtInst %float [[glsl]] Ldexp [[a1]] [[a2]]
-// CHECK-NEXT:                   OpStore %ldexp_a [[ldexp_a]]
+// CHECK-NEXT:    [[exp:%\d+]] = OpExtInst %float [[glsl]] Exp2 [[a2]]
+// CHECK-NEXT:    [[res:%\d+]] = OpFMul %float [[a1]] [[exp]]
+// CHECK-NEXT:                   OpStore %ldexp_a [[res]]
   ldexp_a = ldexp(a1, a2);
 
 // CHECK:          [[b1:%\d+]] = OpLoad %v4float %b1
 // CHECK-NEXT:     [[b2:%\d+]] = OpLoad %v4float %b2
-// CHECK-NEXT:[[ldexp_b:%\d+]] = OpExtInst %v4float [[glsl]] Ldexp [[b1]] [[b2]]
-// CHECK-NEXT:                   OpStore %ldexp_b [[ldexp_b]]
+// CHECK-NEXT:    [[exp:%\d+]] = OpExtInst %v4float [[glsl]] Exp2 [[b2]]
+// CHECK-NEXT:    [[res:%\d+]] = OpFMul %v4float [[b1]] [[exp]]
+// CHECK-NEXT:                   OpStore %ldexp_b [[res]]
   ldexp_b = ldexp(b1, b2);
 
 // CHECK:               [[c1:%\d+]] = OpLoad %mat2v3float %c1
 // CHECK-NEXT:          [[c2:%\d+]] = OpLoad %mat2v3float %c2
 // CHECK-NEXT:     [[c1_row0:%\d+]] = OpCompositeExtract %v3float [[c1]] 0
 // CHECK-NEXT:     [[c2_row0:%\d+]] = OpCompositeExtract %v3float [[c2]] 0
-// CHECK-NEXT: [[ldexp_c_row0:%\d+]] = OpExtInst %v3float [[glsl]] Ldexp [[c1_row0]] [[c2_row0]]
+// CHECK-NEXT:         [[exp:%\d+]] = OpExtInst %v3float [[glsl]] Exp2 [[c2_row0]]
+// CHECK-NEXT:        [[res0:%\d+]] = OpFMul %v3float [[c1_row0]] [[exp]]
 // CHECK-NEXT:     [[c1_row1:%\d+]] = OpCompositeExtract %v3float [[c1]] 1
 // CHECK-NEXT:     [[c2_row1:%\d+]] = OpCompositeExtract %v3float [[c2]] 1
-// CHECK-NEXT: [[ldexp_c_row1:%\d+]] = OpExtInst %v3float [[glsl]] Ldexp [[c1_row1]] [[c2_row1]]
-// CHECK-NEXT:      [[ldexp_c:%\d+]] = OpCompositeConstruct %mat2v3float [[ldexp_c_row0]] [[ldexp_c_row1]]
+// CHECK-NEXT:         [[exp:%\d+]] = OpExtInst %v3float [[glsl]] Exp2 [[c2_row1]]
+// CHECK-NEXT:        [[res1:%\d+]] = OpFMul %v3float [[c1_row1]] [[exp]]
+// CHECK-NEXT:     [[ldexp_c:%\d+]] = OpCompositeConstruct %mat2v3float [[res0]] [[res1]]
 // CHECK-NEXT:                        OpStore %ldexp_c [[ldexp_c]]
   ldexp_c = ldexp(c1, c2);
 }
