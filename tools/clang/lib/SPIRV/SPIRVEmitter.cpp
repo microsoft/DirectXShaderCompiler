@@ -388,6 +388,19 @@ const ValueDecl *getReferencedDef(const Expr *expr) {
   return nullptr;
 }
 
+bool isLiteralType(QualType type) {
+  if (type->isSpecificBuiltinType(BuiltinType::LitInt) ||
+      type->isSpecificBuiltinType(BuiltinType::LitFloat))
+    return true;
+
+  // For cases such as 'vector<literal int, 2>'
+  QualType elemType = {};
+  if (TypeTranslator::isVectorType(type, &elemType))
+    return isLiteralType(elemType);
+
+  return false;
+}
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
@@ -591,86 +604,65 @@ SpirvEvalInfo SPIRVEmitter::doDeclRefExpr(const DeclRefExpr *expr) {
 }
 
 SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
+  SpirvEvalInfo result(/*id*/ 0);
+
+  const bool isNonLiteralType = !isLiteralType(expr->getType());
+  if (isNonLiteralType)
+    typeTranslator.pushIntendedLiteralType(expr->getType());
+
   expr = expr->IgnoreParens();
 
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
-    return doDeclRefExpr(declRefExpr);
-  }
-
-  if (const auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
-    return doMemberExpr(memberExpr);
-  }
-
-  if (const auto *castExpr = dyn_cast<CastExpr>(expr)) {
-    return doCastExpr(castExpr);
-  }
-
-  if (const auto *initListExpr = dyn_cast<InitListExpr>(expr)) {
-    return doInitListExpr(initListExpr);
-  }
-
-  if (const auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
+    result = doDeclRefExpr(declRefExpr);
+  } else if (const auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
+    result = doMemberExpr(memberExpr);
+  } else if (const auto *castExpr = dyn_cast<CastExpr>(expr)) {
+    result = doCastExpr(castExpr);
+  } else if (const auto *initListExpr = dyn_cast<InitListExpr>(expr)) {
+    result = doInitListExpr(initListExpr);
+  } else if (const auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
     const auto value = theBuilder.getConstantBool(boolLiteral->getValue());
-    return SpirvEvalInfo(value).setConstant().setRValue();
-  }
-
-  if (const auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
+    result = SpirvEvalInfo(value).setConstant().setRValue();
+  } else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
     const auto value = translateAPInt(intLiteral->getValue(), expr->getType());
-    return SpirvEvalInfo(value).setConstant().setRValue();
-  }
-
-  if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
+    result = SpirvEvalInfo(value).setConstant().setRValue();
+  } else if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
     const auto value =
         translateAPFloat(floatLiteral->getValue(), expr->getType());
-    return SpirvEvalInfo(value).setConstant().setRValue();
-  }
-
-  // CompoundAssignOperator is a subclass of BinaryOperator. It should be
-  // checked before BinaryOperator.
-  if (const auto *compoundAssignOp = dyn_cast<CompoundAssignOperator>(expr)) {
-    return doCompoundAssignOperator(compoundAssignOp);
-  }
-
-  if (const auto *binOp = dyn_cast<BinaryOperator>(expr)) {
-    return doBinaryOperator(binOp);
-  }
-
-  if (const auto *unaryOp = dyn_cast<UnaryOperator>(expr)) {
-    return doUnaryOperator(unaryOp);
-  }
-
-  if (const auto *vecElemExpr = dyn_cast<HLSLVectorElementExpr>(expr)) {
-    return doHLSLVectorElementExpr(vecElemExpr);
-  }
-
-  if (const auto *matElemExpr = dyn_cast<ExtMatrixElementExpr>(expr)) {
-    return doExtMatrixElementExpr(matElemExpr);
-  }
-
-  if (const auto *funcCall = dyn_cast<CallExpr>(expr)) {
-    return doCallExpr(funcCall);
-  }
-
-  if (const auto *subscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
-    return doArraySubscriptExpr(subscriptExpr);
-  }
-
-  if (const auto *condExpr = dyn_cast<ConditionalOperator>(expr)) {
-    return doConditionalOperator(condExpr);
-  }
-
-  if (const auto *defaultArgExpr = dyn_cast<CXXDefaultArgExpr>(expr)) {
-    return doExpr(defaultArgExpr->getParam()->getDefaultArg());
-  }
-
-  if (isa<CXXThisExpr>(expr)) {
+    result = SpirvEvalInfo(value).setConstant().setRValue();
+  } else if (const auto *compoundAssignOp =
+                 dyn_cast<CompoundAssignOperator>(expr)) {
+    // CompoundAssignOperator is a subclass of BinaryOperator. It should be
+    // checked before BinaryOperator.
+    result = doCompoundAssignOperator(compoundAssignOp);
+  } else if (const auto *binOp = dyn_cast<BinaryOperator>(expr)) {
+    result = doBinaryOperator(binOp);
+  } else if (const auto *unaryOp = dyn_cast<UnaryOperator>(expr)) {
+    result = doUnaryOperator(unaryOp);
+  } else if (const auto *vecElemExpr = dyn_cast<HLSLVectorElementExpr>(expr)) {
+    result = doHLSLVectorElementExpr(vecElemExpr);
+  } else if (const auto *matElemExpr = dyn_cast<ExtMatrixElementExpr>(expr)) {
+    result = doExtMatrixElementExpr(matElemExpr);
+  } else if (const auto *funcCall = dyn_cast<CallExpr>(expr)) {
+    result = doCallExpr(funcCall);
+  } else if (const auto *subscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
+    result = doArraySubscriptExpr(subscriptExpr);
+  } else if (const auto *condExpr = dyn_cast<ConditionalOperator>(expr)) {
+    result = doConditionalOperator(condExpr);
+  } else if (const auto *defaultArgExpr = dyn_cast<CXXDefaultArgExpr>(expr)) {
+    result = doExpr(defaultArgExpr->getParam()->getDefaultArg());
+  } else if (isa<CXXThisExpr>(expr)) {
     assert(curThis);
-    return curThis;
+    result = curThis;
+  } else {
+    emitError("expression class '%0' unimplemented", expr->getExprLoc())
+        << expr->getStmtClassName() << expr->getSourceRange();
   }
 
-  emitError("expression class '%0' unimplemented", expr->getExprLoc())
-      << expr->getStmtClassName() << expr->getSourceRange();
-  return 0;
+  if (isNonLiteralType)
+    typeTranslator.popIntendedLiteralType();
+
+  return result;
 }
 
 SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
@@ -4703,7 +4695,7 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
   uint32_t intType = typeTranslator.translateType(toIntType);
 
   // AST may include a 'literal int' to 'int' conversion. No-op.
-  if (fromType->isLiteralType(astContext) && fromType->isIntegerType() &&
+  if (fromType->isSpecificBuiltinType(BuiltinType::LitInt) &&
       typeTranslator.translateType(fromType) == intType)
     return fromVal;
 
@@ -6624,37 +6616,39 @@ uint32_t SPIRVEmitter::getMatElemValueOne(QualType type) {
 
 uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
                                         const QualType targetType) {
+  uint32_t result = 0;
+  const bool isNonLiteralType = !isLiteralType(targetType);
+
+  if (isNonLiteralType)
+    typeTranslator.pushIntendedLiteralType(targetType);
+
   if (targetType->isBooleanType()) {
-    const bool boolValue = value.getInt().getBoolValue();
-    return theBuilder.getConstantBool(boolValue);
-  }
-
-  if (targetType->isIntegerType()) {
-    const llvm::APInt &intValue = value.getInt();
-    return translateAPInt(intValue, targetType);
-  }
-
-  if (targetType->isFloatingType()) {
-    return translateAPFloat(value.getFloat(), targetType);
-  }
-
-  if (hlsl::IsHLSLVecType(targetType)) {
+    result = theBuilder.getConstantBool(value.getInt().getBoolValue());
+  } else if (targetType->isIntegerType()) {
+    result = translateAPInt(value.getInt(), targetType);
+  } else if (targetType->isFloatingType()) {
+    result = translateAPFloat(value.getFloat(), targetType);
+  } else if (hlsl::IsHLSLVecType(targetType)) {
     const uint32_t vecType = typeTranslator.translateType(targetType);
     const QualType elemType = hlsl::GetHLSLVecElementType(targetType);
-
     const auto numElements = value.getVectorLength();
     // Special case for vectors of size 1. SPIR-V doesn't support this vector
     // size so we need to translate it to scalar values.
     if (numElements == 1) {
-      return translateAPValue(value.getVectorElt(0), elemType);
+      result = translateAPValue(value.getVectorElt(0), elemType);
+    } else {
+      llvm::SmallVector<uint32_t, 4> elements;
+      for (uint32_t i = 0; i < numElements; ++i) {
+        elements.push_back(translateAPValue(value.getVectorElt(i), elemType));
+      }
+      result = theBuilder.getConstantComposite(vecType, elements);
     }
+  }
 
-    llvm::SmallVector<uint32_t, 4> elements;
-    for (uint32_t i = 0; i < numElements; ++i) {
-      elements.push_back(translateAPValue(value.getVectorElt(i), elemType));
-    }
-
-    return theBuilder.getConstantComposite(vecType, elements);
+  if (result) {
+    if (isNonLiteralType)
+      typeTranslator.popIntendedLiteralType();
+    return result;
   }
 
   emitError("APValue of type %0 unimplemented", {}) << value.getKind();
@@ -6664,6 +6658,7 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
 
 uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
                                       QualType targetType) {
+  targetType = typeTranslator.getIntendedLiteralType(targetType);
   if (targetType->isSignedIntegerType()) {
     // Try to see if this integer can be represented in 32-bit.
     if (intValue.isSignedIntN(32)) {
@@ -6723,6 +6718,7 @@ uint32_t SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
 
 uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
                                         QualType targetType) {
+  targetType = typeTranslator.getIntendedLiteralType(targetType);
   const auto &semantics = astContext.getFloatTypeSemantics(targetType);
   const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
   switch (bitwidth) {

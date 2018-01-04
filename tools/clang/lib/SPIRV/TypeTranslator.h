@@ -230,10 +230,31 @@ public:
                                                     bool isRowMajor,
                                                     uint32_t *stride);
 
+public:
+  /// \brief Adds the given type to the intendedLiteralTypes stack. This will be
+  /// used as a hint regarding usage of literal types.
+  void pushIntendedLiteralType(QualType type);
+
+  /// \brief If a hint exists regarding the usage of literal types, it
+  /// is returned. Otherwise, the given type itself is returned.
+  /// The hint is the type on top of the intendedLiteralTypes stack. This is the
+  /// type we suspect the literal under question should be interpreted as.
+  QualType getIntendedLiteralType(QualType type);
+
+  /// \brief Removes the type at the top of the intendedLiteralTypes stack.
+  void popIntendedLiteralType();
+
 private:
   ASTContext &astContext;
   ModuleBuilder &theBuilder;
   DiagnosticsEngine &diags;
+
+  /// \brief This is a stack which is used to track the intended usage type for
+  /// literals. For example: while a floating literal is being visited, if the
+  /// top of the stack is a float type, the literal should be evaluated as
+  /// float; but if the top of the stack is a double type, the literal should be
+  /// evaluated as a double.
+  std::stack<QualType> intendedLiteralTypes;
 };
 
 } // end namespace spirv
