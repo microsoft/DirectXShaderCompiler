@@ -67,19 +67,19 @@ void main() {
     T2 val2[2] = {val1};
 
 // val3[0]: Construct T3.h from T1.c.b[0]
-// CHECK-NEXT:     [[b_0:%\d+]] = OpAccessChain %_ptr_Function_v2float %val1 %int_0 %int_0 %int_0 %uint_0
+// CHECK-NEXT:     [[b_0:%\d+]] = OpAccessChain %_ptr_Function_v2float %val1 %uint_0 %int_0 %int_0 %uint_0
 // CHECK-NEXT:   [[h_val:%\d+]] = OpLoad %v2float [[b_0]]
 
 // val3[0]: Construct T3.i from T1.c.b[1]
-// CHECK-NEXT:     [[b_1:%\d+]] = OpAccessChain %_ptr_Function_v2float %val1 %int_0 %int_0 %int_0 %uint_1
+// CHECK-NEXT:     [[b_1:%\d+]] = OpAccessChain %_ptr_Function_v2float %val1 %uint_0 %int_0 %int_0 %uint_1
 // CHECK-NEXT:   [[i_val:%\d+]] = OpLoad %v2float [[b_1]]
 
 // val3[0]: Construct T3.j from T1.d.b[0]
-// CHECK-NEXT:     [[b_0:%\d+]] = OpAccessChain %_ptr_Function_v2float %val1 %int_0 %int_1 %int_0 %uint_0
+// CHECK-NEXT:     [[b_0:%\d+]] = OpAccessChain %_ptr_Function_v2float %val1 %uint_0 %int_1 %int_0 %uint_0
 // CHECK-NEXT:   [[j_val:%\d+]] = OpLoad %v2float [[b_0]]
 
 // val3[0]: Construct T3.k from T1.d.b[1]
-// CHECK-NEXT:     [[b_1:%\d+]] = OpAccessChain %_ptr_Function_v2float %val1 %int_0 %int_1 %int_0 %uint_1
+// CHECK-NEXT:     [[b_1:%\d+]] = OpAccessChain %_ptr_Function_v2float %val1 %uint_0 %int_1 %int_0 %uint_1
 // CHECK-NEXT:   [[k_val:%\d+]] = OpLoad %v2float [[b_1]]
 
 // CHECK-NEXT:  [[val3_0:%\d+]] = OpCompositeConstruct %T3 [[h_val]] [[i_val]] [[j_val]] [[k_val]]

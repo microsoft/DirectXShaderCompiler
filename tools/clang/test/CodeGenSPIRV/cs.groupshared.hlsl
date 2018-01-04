@@ -20,7 +20,7 @@ groupshared              S        s;
 void main(uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID) {
 // Make sure pointers have the correct storage class
 // CHECK:    {{%\d+}} = OpAccessChain %_ptr_Workgroup_float %s %int_0
-// CHECK: [[d0:%\d+]] = OpAccessChain %_ptr_Workgroup_v2float %d %int_0
+// CHECK: [[d0:%\d+]] = OpAccessChain %_ptr_Workgroup_v2float %d %uint_0
 // CHECK:    {{%\d+}} = OpAccessChain %_ptr_Workgroup_float [[d0]] %int_1
     d[0].y = s.f1;
 }

@@ -29,7 +29,7 @@ float main() : A {
 // CHECK:      [[s:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyCbuffer %int_3 %int_0
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[s]]
 
-// CHECK:      [[t:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyCbuffer %int_4 %int_3
+// CHECK:      [[t:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyCbuffer %int_4 %uint_3
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[t]]
     return MyCbuffer.a + MyCbuffer.b.x + MyCbuffer.c[1][2] + MyCbuffer.s.f + MyCbuffer.t[3];
 }
