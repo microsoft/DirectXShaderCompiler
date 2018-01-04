@@ -392,7 +392,8 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
     auto varType = declDecl->getType();
     varType.removeLocalConst();
 
-    const bool isRowMajor = declDecl->hasAttr<HLSLRowMajorAttr>() || !declDecl->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.HLSLDefaultRowMajor;
+    const bool isRowMajor = typeTranslator.isRowMajorMatrix(
+        varType, declDecl);
     fieldTypes.push_back(typeTranslator.translateType(
         varType, layoutRule, isRowMajor));
     fieldNames.push_back(declDecl->getName());

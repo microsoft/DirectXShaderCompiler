@@ -147,6 +147,10 @@ public:
                           uint32_t *rowCount = nullptr,
                           uint32_t *colCount = nullptr);
 
+  /// \broef returns true if type is a matrix and matrix is row major
+  /// If decl is not nullptr, is is checked for attributes specifying majorness
+  bool isRowMajorMatrix(QualType type, const Decl *decl = nullptr) const;
+
   /// \brief Returns true if the given type is a SPIR-V acceptable matrix type,
   /// i.e., with floating point elements and greater than 1 row and column
   /// counts.

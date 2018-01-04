@@ -466,7 +466,7 @@ public:
           clang::EmitSPIRVOptions spirvOpts;
           spirvOpts.codeGenHighLevel = opts.CodeGenHighLevel;
           spirvOpts.ignoreUnusedResources = opts.VkIgnoreUnusedResources;
-          spirvOpts.HLSLDefaultRowMajor = opts.DefaultRowMajor;
+          spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
           spirvOpts.bShift = opts.VkBShift;
           spirvOpts.tShift = opts.VkTShift;

@@ -580,6 +580,16 @@ bool TypeTranslator::isMxNMatrix(QualType type, QualType *elemType,
   return true;
 }
 
+bool TypeTranslator::isRowMajorMatrix(QualType type, const Decl *decl) const {
+  if (!isMxNMatrix(type) && !type->isArrayType())
+    return false;
+  if (!decl)
+    return spirvOptions.defaultRowMajor;
+  return  decl->hasAttr<HLSLRowMajorAttr>() ||
+         !decl->hasAttr<HLSLColumnMajorAttr>() &&
+          spirvOptions.defaultRowMajor;
+}
+
 bool TypeTranslator::isSpirvAcceptableMatrixType(QualType type) {
   QualType elemType = {};
   return isMxNMatrix(type, &elemType) && elemType->isFloatingType();
@@ -633,7 +643,7 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
     auto fieldType = cast<DeclaratorDecl>(field)->getType();
-    const bool isRowMajor = field->hasAttr<HLSLRowMajorAttr>() || !field->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.HLSLDefaultRowMajor;
+    const bool isRowMajor = isRowMajorMatrix(fieldType, field);
 
     uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
     std::tie(memberAlignment, memberSize) =
@@ -965,7 +975,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
     for (const auto *field : structType->getDecl()->fields()) {
       uint32_t memberAlignment = 0, memberSize = 0;
-    const bool isRowMajor = field->hasAttr<HLSLRowMajorAttr>() || !field->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.HLSLDefaultRowMajor;
+      const bool isRowMajor = isRowMajorMatrix(field->getType(), field);
       std::tie(memberAlignment, memberSize) = getAlignmentAndSize(
           field->getType(), rule, isRowMajor, stride);
 
