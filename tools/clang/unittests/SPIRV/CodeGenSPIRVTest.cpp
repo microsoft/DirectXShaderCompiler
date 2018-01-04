@@ -45,9 +45,11 @@ TEST_F(WholeFileTest, EmptyStructInterfaceVS) {
 TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
 TEST_F(FileTest, VectorTypes) { runFileTest("type.vector.hlsl"); }
 TEST_F(FileTest, MatrixTypes) { runFileTest("type.matrix.hlsl"); }
+TEST_F(FileTest, MatrixTypesMajornessZpr) { 
+  runFileTest("type.matrix.majorness.zpr.hlsl");
+}
 TEST_F(FileTest, MatrixTypesMajorness) {
   runFileTest("type.matrix.majorness.hlsl", FileTest::Expect::Warning);
-  runFileTest("type.matrix.default_majorness.hlsl");
 }
 TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
 TEST_F(FileTest, ClassTypes) { runFileTest("type.class.hlsl"); }
