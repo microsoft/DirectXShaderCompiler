@@ -226,6 +226,7 @@ public:
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
   TEST_METHOD(DuplicateSysValue)
+  TEST_METHOD(FunctionAttributes)
   TEST_METHOD(GSMainMissingAttributeFail)
   TEST_METHOD(GSOtherMissingAttributeFail)
   TEST_METHOD(GSMissingMaxVertexCountFail)
@@ -3150,4 +3151,15 @@ TEST_F(ValidationTest, Float32DenormModeAttribute) {
     "contains invalid attribute 'fp32-denorm-mode' with value 'invalid_mode'",
     true);
 }
-// TODO: reject non-zero padding
+
+TEST_F(ValidationTest, FunctionAttributes) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  std::vector<LPCWSTR> pArguments = { L"-denorm", L"ftz" };
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col: COL) : SV_Target { return col; }", "ps_6_2",
+    pArguments.data(), 2, nullptr, 0,
+    { "\"fp32-denorm-mode\"=\"ftz\"" },
+    { "\"dummy_attribute\"=\"invalid_mode\"" },
+    "contains invalid attribute 'dummy_attribute' with value 'invalid_mode'",
+    true);
+}// TODO: reject non-zero padding
