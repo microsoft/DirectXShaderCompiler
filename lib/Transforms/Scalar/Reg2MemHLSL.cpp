@@ -69,21 +69,6 @@ namespace {
     // Create a stack slot to hold the value.
     AllocaInst *Slot = Builder.CreateAlloca(P->getType(), nullptr, P->getName() + ".reg2mem");
 
-    // Iterate over each operand inserting a store in each predecessor.
-    for (unsigned i = 0, e = P->getNumIncomingValues(); i < e; ++i) {
-      if (InvokeInst *II = dyn_cast<InvokeInst>(P->getIncomingValue(i))) {
-        assert(II->getParent() != P->getIncomingBlock(i) &&
-               "Invoke edge not supported yet");
-        (void)II;
-      }
-      Value *V = P->getIncomingValue(i);
-      // Skip undef
-      if (isa<UndefValue>(V))
-        continue;
-      new StoreInst(P->getIncomingValue(i), Slot,
-                    P->getIncomingBlock(i)->getTerminator());
-    }
-
     // Insert a load in place of the PHI and replace all uses.
     BasicBlock::iterator InsertPt = P;
 
@@ -100,6 +85,23 @@ namespace {
       IRBuilder<> Builder(I);
       Value *Load = Builder.CreateLoad(Slot);
       I->replaceUsesOfWith(P, Load);
+    }
+
+    // Iterate over each operand inserting a store in each predecessor.
+    // This should be done after load inserting because store for phi must be
+    // after all other instructions of the incoming block.
+    for (unsigned i = 0, e = P->getNumIncomingValues(); i < e; ++i) {
+      if (InvokeInst *II = dyn_cast<InvokeInst>(P->getIncomingValue(i))) {
+        assert(II->getParent() != P->getIncomingBlock(i) &&
+               "Invoke edge not supported yet");
+        (void)II;
+      }
+      Value *V = P->getIncomingValue(i);
+      // Skip undef
+      if (isa<UndefValue>(V))
+        continue;
+      new StoreInst(P->getIncomingValue(i), Slot,
+                    P->getIncomingBlock(i)->getTerminator());
     }
 
     // Delete PHI.
