@@ -102,6 +102,9 @@ TEST_F(FileTest, VarInitTbuffer) {
   runFileTest("var.init.tbuffer.hlsl", FileTest::Expect::Warning);
 }
 TEST_F(FileTest, VarInitOpaque) { runFileTest("var.init.opaque.hlsl"); }
+TEST_F(FileTest, VarInitCrossStorageClass) {
+  runFileTest("var.init.cross-storage-class.hlsl");
+}
 TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
 
 // For prefix/postfix increment/decrement
