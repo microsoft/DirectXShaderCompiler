@@ -42,20 +42,20 @@ bool TypeTranslator::isRelaxedPrecisionType(QualType type,
     if (isScalarType(type, &ty))
       if (const auto *builtinType = ty->getAs<BuiltinType>())
         switch (builtinType->getKind()) {
+        // TODO: Figure out why 'min16float' and 'half' share an enum.
+        // 'half' should not get RelaxedPrecision decoration, but due to the
+        // shared enum, we currently do so.
+        case BuiltinType::Half:
         case BuiltinType::Short:
         case BuiltinType::UShort:
         case BuiltinType::Min12Int:
-        case BuiltinType::Min10Float:
-        case BuiltinType::Half: {
+        case BuiltinType::Min10Float: {
           // If '-enable-16bit-types' options is enabled, these types are
           // translated to real 16-bit type, and therefore are not
           // RelaxedPrecision.
           // If the options is not enabled, these types are translated to 32-bit
           // types with the added RelaxedPrecision decoration.
-          if (opts.enable16BitTypes)
-            return false;
-          else
-            return true;
+          return !opts.enable16BitTypes;
         }
         }
   }

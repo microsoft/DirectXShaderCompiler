@@ -9,8 +9,8 @@
 
 // CHECK-NOT: OpDecorate %c_half_4_5 RelaxedPrecision
 // CHECK-NOT: OpDecorate %c_half_n8_2 RelaxedPrecision
-// CHECK: OpDecorate %c_min10float_3_4 RelaxedPrecision
-// CHECK: OpDecorate %c_min16float_n2_1 RelaxedPrecision
+// CHECK: OpDecorate %c_min10float RelaxedPrecision
+// CHECK: OpDecorate %c_min16float RelaxedPrecision
 // CHECK: OpDecorate %c_min16int_n3 RelaxedPrecision
 // CHECK: OpDecorate %c_min16uint_5 RelaxedPrecision
 // CHECK: OpDecorate %c_min12int RelaxedPrecision
@@ -27,9 +27,9 @@ void main() {
 // 'min{10|16}float' are translated to
 // 32-bit float in SPIR-V with RelaxedPrecision decoration (checked above).
 // CHECK: %float_1_5 = OpConstant %float 1.5
-  min10float c_min10float_3_4 = 1.5;
+  min10float c_min10float = 1.5;
 // CHECK: %float_n1 = OpConstant %float -1
-  min16float c_min16float_n2_1 = -1.0;
+  min16float c_min16float = -1.0;
 
 // Note: in the absence of "-enable-16bit-type" option,
 // 'min12{uint|int}' and 'min16{uint|int}' are translated to

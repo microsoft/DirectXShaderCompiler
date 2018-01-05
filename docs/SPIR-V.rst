@@ -243,27 +243,26 @@ Normal scalar types
 in HLSL are relatively easy to handle and can be mapped directly to SPIR-V
 type instructions:
 
-============================== ======================= ================== ==================== =========== =================================
-      HLSL                      Command Line Option           SPIR-V           Decoration       Capability       Extension
-============================== ======================= ================== ==================== =========== =================================
+============================== ======================= ================== =========== =================================
+      HLSL                      Command Line Option           SPIR-V       Capability       Extension
+============================== ======================= ================== =========== =================================
 ``bool``                                               ``OpTypeBool``
 ``int``/``int32_t``                                    ``OpTypeInt 32 1``
-``int16_t``                    ``-enable-16bit-types`` ``OpTypeInt 16 1``                      ``Int16``
+``int16_t``                    ``-enable-16bit-types`` ``OpTypeInt 16 1`` ``Int16``
 ``uint``/``dword``/``uin32_t``                         ``OpTypeInt 32 0``
-``uint16_t``                   ``-enable-16bit-types`` ``OpTypeInt 16 0``                      ``Int16``
-``half``                                               ``OpTypeFloat 32`` ``RelaxedPrecision``
-``half``/``float16_t``         ``-enable-16bit-types`` ``OpTypeFloat 16``                      ``Float16`` ``SPV_AMD_gpu_shader_half_float``
+``uint16_t``                   ``-enable-16bit-types`` ``OpTypeInt 16 0`` ``Int16``
+``half``                                               ``OpTypeFloat 32`` 
+``half``/``float16_t``         ``-enable-16bit-types`` ``OpTypeFloat 16`` ``Float16`` ``SPV_AMD_gpu_shader_half_float``
 ``float``/``float32_t``                                ``OpTypeFloat 32``
 ``snorm float``                                        ``OpTypeFloat 32``
 ``unorm float``                                        ``OpTypeFloat 32``
-``double``/``float64_t``                               ``OpTypeFloat 64``                      ``Float64``
-============================== ======================= ================== ==================== =========== =================================
+``double``/``float64_t``                               ``OpTypeFloat 64`` ``Float64``
+============================== ======================= ================== =========== =================================
 
 Please note that ``half`` is translated into 32-bit floating point numbers
 right now because MSDN says that "this data type is provided only for language
 compatibility. Direct3D 10 shader targets map all ``half`` data types to
-``float`` data types." This may change in the future to map to 16-bit floating
-point numbers (possibly via a command-line option).
+``float`` data types."
 
 Minimal precision scalar types
 ------------------------------
