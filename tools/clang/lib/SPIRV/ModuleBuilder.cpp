@@ -791,19 +791,23 @@ IMPL_GET_PRIMITIVE_TYPE(Float32)
 #undef IMPL_GET_PRIMITIVE_TYPE
 
 #define IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(ty, cap)                       \
-  \
-uint32_t ModuleBuilder::get##ty##Type() {                                      \
-    requireCapability(spv::Capability::cap);                                    \
+                                                                               \
+  uint32_t ModuleBuilder::get##ty##Type() {                                    \
+    requireCapability(spv::Capability::cap);                                   \
+    if (spv::Capability::cap == spv::Capability::Float16)                      \
+      theModule.addExtension("SPV_AMD_gpu_shader_half_float");                 \
     const Type *type = Type::get##ty(theContext);                              \
     const uint32_t typeId = theContext.getResultIdForType(type);               \
     theModule.addType(type, typeId);                                           \
     return typeId;                                                             \
-  \
-}
+  }
 
-IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float64, Float64)
 IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Int64, Int64)
 IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Uint64, Int64)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float64, Float64)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Int16, Int16)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Uint16, Int16)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float16, Float16)
 
 #undef IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY
 
@@ -1056,10 +1060,15 @@ uint32_t ModuleBuilder::getConstant##builderTy(cppTy value) {                  \
   \
 }
 
+IMPL_GET_PRIMITIVE_CONST(Int16, int16_t)
 IMPL_GET_PRIMITIVE_CONST(Int32, int32_t)
+IMPL_GET_PRIMITIVE_CONST(Uint16, uint16_t)
 IMPL_GET_PRIMITIVE_CONST(Uint32, uint32_t)
+IMPL_GET_PRIMITIVE_CONST(Float16, int16_t)
 IMPL_GET_PRIMITIVE_CONST(Float32, float)
 IMPL_GET_PRIMITIVE_CONST(Float64, double)
+IMPL_GET_PRIMITIVE_CONST(Int64, int64_t)
+IMPL_GET_PRIMITIVE_CONST(Uint64, uint64_t)
 
 #undef IMPL_GET_PRIMITIVE_VALUE
 

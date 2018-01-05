@@ -358,10 +358,13 @@ public:
 
   uint32_t getVoidType();
   uint32_t getBoolType();
+  uint32_t getInt16Type();
   uint32_t getInt32Type();
   uint32_t getInt64Type();
+  uint32_t getUint16Type();
   uint32_t getUint32Type();
   uint32_t getUint64Type();
+  uint32_t getFloat16Type();
   uint32_t getFloat32Type();
   uint32_t getFloat64Type();
   uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
@@ -391,8 +394,13 @@ public:
 
   // === Constant ===
   uint32_t getConstantBool(bool value);
+  uint32_t getConstantInt16(int16_t value);
   uint32_t getConstantInt32(int32_t value);
+  uint32_t getConstantInt64(int64_t value);
+  uint32_t getConstantUint16(uint16_t value);
   uint32_t getConstantUint32(uint32_t value);
+  uint32_t getConstantUint64(uint64_t value);
+  uint32_t getConstantFloat16(int16_t value);
   uint32_t getConstantFloat32(float value);
   uint32_t getConstantFloat64(double value);
   uint32_t getConstantComposite(uint32_t typeId,

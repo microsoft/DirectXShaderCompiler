@@ -243,24 +243,26 @@ Normal scalar types
 in HLSL are relatively easy to handle and can be mapped directly to SPIR-V
 type instructions:
 
-================== ================== =========== ====================
-      HLSL               SPIR-V       Capability       Decoration
-================== ================== =========== ====================
-``bool``           ``OpTypeBool``
-``int``            ``OpTypeInt 32 1``
-``uint``/``dword`` ``OpTypeInt 32 0``
-``half``           ``OpTypeFloat 32``             ``RelexedPrecision``
-``float``          ``OpTypeFloat 32``
-``snorm float``    ``OpTypeFloat 32``
-``unorm float``    ``OpTypeFloat 32``
-``double``         ``OpTypeFloat 64`` ``Float64``
-================== ================== =========== ====================
+============================== ======================= ================== =========== =================================
+      HLSL                      Command Line Option           SPIR-V       Capability       Extension
+============================== ======================= ================== =========== =================================
+``bool``                                               ``OpTypeBool``
+``int``/``int32_t``                                    ``OpTypeInt 32 1``
+``int16_t``                    ``-enable-16bit-types`` ``OpTypeInt 16 1`` ``Int16``
+``uint``/``dword``/``uin32_t``                         ``OpTypeInt 32 0``
+``uint16_t``                   ``-enable-16bit-types`` ``OpTypeInt 16 0`` ``Int16``
+``half``                                               ``OpTypeFloat 32`` 
+``half``/``float16_t``         ``-enable-16bit-types`` ``OpTypeFloat 16`` ``Float16`` ``SPV_AMD_gpu_shader_half_float``
+``float``/``float32_t``                                ``OpTypeFloat 32``
+``snorm float``                                        ``OpTypeFloat 32``
+``unorm float``                                        ``OpTypeFloat 32``
+``double``/``float64_t``                               ``OpTypeFloat 64`` ``Float64``
+============================== ======================= ================== =========== =================================
 
 Please note that ``half`` is translated into 32-bit floating point numbers
 right now because MSDN says that "this data type is provided only for language
 compatibility. Direct3D 10 shader targets map all ``half`` data types to
-``float`` data types." This may change in the future to map to 16-bit floating
-point numbers (possibly via a command-line option).
+``float`` data types."
 
 Minimal precision scalar types
 ------------------------------
@@ -270,17 +272,25 @@ HLSL also supports various
 which graphics drivers can implement by using any precision greater than or
 equal to their specified bit precision.
 There are no direct mappings in SPIR-V for these types. We translate them into
-the corresponding 32-bit scalar types with the ``RelexedPrecision`` decoration:
+the corresponding 16-bit or 32-bit scalar types with the ``RelaxedPrecision`` decoration.
+We use the 16-bit variants if '-enable-16bit-types' command line option is present.
+For more information on these types, please refer to:
+https://github.com/Microsoft/DirectXShaderCompiler/wiki/16-Bit-Scalar-Types
 
-============== ================== ====================
-    HLSL            SPIR-V            Decoration
-============== ================== ====================
-``min16float`` ``OpTypeFloat 32`` ``RelexedPrecision``
-``min10float`` ``OpTypeFloat 32`` ``RelexedPrecision``
-``min16int``   ``OpTypeInt 32 1`` ``RelexedPrecision``
-``min12int``   ``OpTypeInt 32 1`` ``RelexedPrecision``
-``min16uint``  ``OpTypeInt 32 0`` ``RelexedPrecision``
-============== ================== ====================
+============== ======================= ================== ==================== ============ =================================
+    HLSL        Command Line Option          SPIR-V            Decoration       Capability        Extension
+============== ======================= ================== ==================== ============ =================================
+``min16float``                         ``OpTypeFloat 32`` ``RelaxedPrecision``
+``min10float``                         ``OpTypeFloat 32`` ``RelaxedPrecision``
+``min16int``                           ``OpTypeInt 32 1`` ``RelaxedPrecision``
+``min12int``                           ``OpTypeInt 32 1`` ``RelaxedPrecision``
+``min16uint``                          ``OpTypeInt 32 0`` ``RelaxedPrecision``
+``min16float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                      ``Float16``  ``SPV_AMD_gpu_shader_half_float``
+``min10float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                      ``Float16``  ``SPV_AMD_gpu_shader_half_float``
+``min16int``   ``-enable-16bit-types`` ``OpTypeInt 16 1``                      ``Int16``
+``min12int``   ``-enable-16bit-types`` ``OpTypeInt 16 1``                      ``Int16``
+``min16uint``  ``-enable-16bit-types`` ``OpTypeInt 16 0``                      ``Int16``
+============== ======================= ================== ==================== ============ =================================
 
 Vectors and matrices
 --------------------

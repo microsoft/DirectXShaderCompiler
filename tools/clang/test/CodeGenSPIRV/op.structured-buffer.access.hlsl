@@ -19,7 +19,7 @@ float4 main(uint index: A) : SV_Target {
 // CHECK:      [[a:%\d+]] = OpAccessChain %_ptr_Uniform_float %MySbuffer %int_0 %uint_0 %int_0
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[a]]
 
-// CHECK:      [[b1:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %MySbuffer %int_0 %uint_1 %int_1 %uint_1
+// CHECK:      [[b1:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %MySbuffer %int_0 %uint_1 %int_1 %int_1
 // CHECK-NEXT: [[x:%\d+]] = OpAccessChain %_ptr_Uniform_float [[b1]] %int_0
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[x]]
 
@@ -30,7 +30,7 @@ float4 main(uint index: A) : SV_Target {
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[s]]
 
 // CHECK:      [[index:%\d+]] = OpLoad %uint %index
-// CHECK-NEXT: [[t:%\d+]] = OpAccessChain %_ptr_Uniform_float %MySbuffer %int_0 [[index]] %int_4 %uint_3
+// CHECK-NEXT: [[t:%\d+]] = OpAccessChain %_ptr_Uniform_float %MySbuffer %int_0 [[index]] %int_4 %int_3
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[t]]
     return MySbuffer[0].a + MySbuffer[1].b[1].x + MySbuffer[2].c[2][1][2] +
            MySbuffer[3].s[0].f + MySbuffer[index].t[3];
