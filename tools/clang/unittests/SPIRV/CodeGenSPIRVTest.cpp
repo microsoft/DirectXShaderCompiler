@@ -1000,6 +1000,11 @@ TEST_F(FileTest, SpirvLegalizationStructuredBufferCounter) {
               // The generated SPIR-V needs legalization.
               /*runValidation=*/false);
 }
+TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
+  runFileTest("spirv.legal.sbuffer.struct.hlsl", Expect::Success,
+              // The generated SPIR-V needs legalization.
+              /*runValidation=*/false);
+}
 TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
   runFileTest("spirv.legal.cbuffer.hlsl");
 }
