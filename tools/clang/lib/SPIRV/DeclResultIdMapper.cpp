@@ -396,10 +396,9 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
     auto varType = declDecl->getType();
     varType.removeLocalConst();
 
-    const bool isRowMajor = typeTranslator.isRowMajorMatrix(
-        varType, declDecl);
-    fieldTypes.push_back(typeTranslator.translateType(
-        varType, layoutRule, isRowMajor));
+    const bool isRowMajor = typeTranslator.isRowMajorMatrix(varType, declDecl);
+    fieldTypes.push_back(
+        typeTranslator.translateType(varType, layoutRule, isRowMajor));
     fieldNames.push_back(declDecl->getName());
 
     // tbuffer/TextureBuffers are non-writable SSBOs. OpMemberDecorate

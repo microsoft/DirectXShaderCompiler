@@ -624,9 +624,8 @@ bool TypeTranslator::isRowMajorMatrix(QualType type, const Decl *decl) const {
     return false;
   if (!decl)
     return spirvOptions.defaultRowMajor;
-  return  decl->hasAttr<HLSLRowMajorAttr>() ||
-         !decl->hasAttr<HLSLColumnMajorAttr>() &&
-          spirvOptions.defaultRowMajor;
+  return decl->hasAttr<HLSLRowMajorAttr>() ||
+         !decl->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.defaultRowMajor;
 }
 
 bool TypeTranslator::isSpirvAcceptableMatrixType(QualType type) {
@@ -1015,8 +1014,8 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     for (const auto *field : structType->getDecl()->fields()) {
       uint32_t memberAlignment = 0, memberSize = 0;
       const bool isRowMajor = isRowMajorMatrix(field->getType(), field);
-      std::tie(memberAlignment, memberSize) = getAlignmentAndSize(
-          field->getType(), rule, isRowMajor, stride);
+      std::tie(memberAlignment, memberSize) =
+          getAlignmentAndSize(field->getType(), rule, isRowMajor, stride);
 
       // The base alignment of the structure is N, where N is the largest
       // base alignment value of any of its members...

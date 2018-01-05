@@ -14,8 +14,8 @@
 
 #include "clang/AST/Type.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/SPIRV/ModuleBuilder.h"
 #include "clang/SPIRV/EmitSPIRVOptions.h"
+#include "clang/SPIRV/ModuleBuilder.h"
 
 #include "SpirvEvalInfo.h"
 
@@ -32,8 +32,9 @@ namespace spirv {
 class TypeTranslator {
 public:
   TypeTranslator(ASTContext &context, ModuleBuilder &builder,
-                 DiagnosticsEngine &diag, const EmitSPIRVOptions& opt)
-      : astContext(context), theBuilder(builder), diags(diag), spirvOptions(opt) {}
+                 DiagnosticsEngine &diag, const EmitSPIRVOptions &opt)
+      : astContext(context), theBuilder(builder), diags(diag),
+        spirvOptions(opt) {}
 
   /// \brief Generates the corresponding SPIR-V type for the given Clang
   /// frontend type and returns the type's <result-id>. On failure, reports
@@ -253,7 +254,7 @@ private:
   ASTContext &astContext;
   ModuleBuilder &theBuilder;
   DiagnosticsEngine &diags;
-  const EmitSPIRVOptions& spirvOptions;
+  const EmitSPIRVOptions &spirvOptions;
 
   /// \brief This is a stack which is used to track the intended usage type for
   /// literals. For example: while a floating literal is being visited, if the
