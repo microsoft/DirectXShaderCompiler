@@ -4018,7 +4018,10 @@ void SPIRVEmitter::initOnce(QualType varType, std::string varName,
   theBuilder.setInsertPoint(todoBB);
   // Do initialization and mark done
   if (varInit) {
-    theBuilder.createStore(varPtr, doExpr(varInit));
+    storeValue(
+        // Static function variable are of private storage class
+        SpirvEvalInfo(varPtr).setStorageClass(spv::StorageClass::Private),
+        doExpr(varInit), varInit->getType());
   } else {
     const auto typeId = typeTranslator.translateType(varType);
     theBuilder.createStore(varPtr, theBuilder.getConstantNull(typeId));
@@ -7109,15 +7112,15 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
-    const auto id = declIdMapper.getDeclResultId(varDecl);
+    const auto varInfo = declIdMapper.getDeclResultId(varDecl);
     if (const auto *init = varDecl->getInit()) {
-      theBuilder.createStore(id, doExpr(init));
+      storeValue(varInfo, doExpr(init), varDecl->getType());
 
       // Update counter variable associatd with global variables
       tryToAssignCounterVar(varDecl, init);
     } else {
       const auto typeId = typeTranslator.translateType(varDecl->getType());
-      theBuilder.createStore(id, theBuilder.getConstantNull(typeId));
+      theBuilder.createStore(varInfo, theBuilder.getConstantNull(typeId));
     }
   }
 
