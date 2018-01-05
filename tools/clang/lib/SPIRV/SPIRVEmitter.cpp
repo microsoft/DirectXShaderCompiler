@@ -379,19 +379,6 @@ const ValueDecl *getReferencedDef(const Expr *expr) {
   return nullptr;
 }
 
-bool isLiteralType(QualType type) {
-  if (type->isSpecificBuiltinType(BuiltinType::LitInt) ||
-      type->isSpecificBuiltinType(BuiltinType::LitFloat))
-    return true;
-
-  // For cases such as 'vector<literal int, 2>'
-  QualType elemType = {};
-  if (TypeTranslator::isVectorType(type, &elemType))
-    return isLiteralType(elemType);
-
-  return false;
-}
-
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
@@ -597,9 +584,9 @@ SpirvEvalInfo SPIRVEmitter::doDeclRefExpr(const DeclRefExpr *expr) {
 SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   SpirvEvalInfo result(/*id*/ 0);
 
-  const bool isNonLiteralType = !isLiteralType(expr->getType());
-  if (isNonLiteralType)
-    typeTranslator.pushIntendedLiteralType(expr->getType());
+  // Provide a hint to the typeTranslator that if a literal is discovered, its
+  // intended usage is as this expression type.
+  TypeTranslator::LiteralTypeHint hint(typeTranslator, expr->getType());
 
   expr = expr->IgnoreParens();
 
@@ -649,9 +636,6 @@ SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
     emitError("expression class '%0' unimplemented", expr->getExprLoc())
         << expr->getStmtClassName() << expr->getSourceRange();
   }
-
-  if (isNonLiteralType)
-    typeTranslator.popIntendedLiteralType();
 
   return result;
 }
@@ -1003,7 +987,7 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
     }
   }
 
-  if (TypeTranslator::isRelaxedPrecisionType(decl->getType())) {
+  if (TypeTranslator::isRelaxedPrecisionType(decl->getType(), spirvOptions)) {
     theBuilder.decorate(varId, spv::Decoration::RelaxedPrecision);
   }
 
@@ -1553,9 +1537,9 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
 
 SpirvEvalInfo
 SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
-  // Provide a hint to the TypeTranslator that an integer literal is used to
-  // index into the array.
-  typeTranslator.pushIntendedLiteralType(astContext.IntTy);
+  // Provide a hint to the TypeTranslator that the integer literal used to
+  // index into the array should be translated as a 32-bit integer.
+  TypeTranslator::LiteralTypeHint hint(typeTranslator, astContext.IntTy);
 
   llvm::SmallVector<uint32_t, 4> indices;
   auto info = doExpr(collectArrayStructIndices(expr, &indices));
@@ -6658,10 +6642,10 @@ uint32_t SPIRVEmitter::getMatElemValueOne(QualType type) {
 uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
                                         const QualType targetType) {
   uint32_t result = 0;
-  const bool isNonLiteralType = !isLiteralType(targetType);
 
-  if (isNonLiteralType)
-    typeTranslator.pushIntendedLiteralType(targetType);
+  // Provide a hint to the typeTranslator that if a literal is discovered, its
+  // intended usage is targetType.
+  TypeTranslator::LiteralTypeHint hint(typeTranslator, targetType);
 
   if (targetType->isBooleanType()) {
     result = theBuilder.getConstantBool(value.getInt().getBoolValue());
@@ -6686,11 +6670,8 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
     }
   }
 
-  if (result) {
-    if (isNonLiteralType)
-      typeTranslator.popIntendedLiteralType();
+  if (result)
     return result;
-  }
 
   emitError("APValue of type %0 unimplemented", {}) << value.getKind();
   value.dump();

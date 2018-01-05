@@ -34,7 +34,8 @@ inline void roundToPow2(uint32_t *val, uint32_t pow2) {
 }
 } // anonymous namespace
 
-bool TypeTranslator::isRelaxedPrecisionType(QualType type) {
+bool TypeTranslator::isRelaxedPrecisionType(QualType type,
+                                            const EmitSPIRVOptions &opts) {
   // Primitive types
   {
     QualType ty = {};
@@ -45,8 +46,17 @@ bool TypeTranslator::isRelaxedPrecisionType(QualType type) {
         case BuiltinType::UShort:
         case BuiltinType::Min12Int:
         case BuiltinType::Min10Float:
-        case BuiltinType::Half:
-          return true;
+        case BuiltinType::Half: {
+          // If '-enable-16bit-types' options is enabled, these types are
+          // translated to real 16-bit type, and therefore are not
+          // RelaxedPrecision.
+          // If the options is not enabled, these types are translated to 32-bit
+          // types with the added RelaxedPrecision decoration.
+          if (opts.enable16BitTypes)
+            return false;
+          else
+            return true;
+        }
         }
   }
 
@@ -55,7 +65,7 @@ bool TypeTranslator::isRelaxedPrecisionType(QualType type) {
   {
     QualType elemType = {};
     if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType))
-      return isRelaxedPrecisionType(elemType);
+      return isRelaxedPrecisionType(elemType, opts);
   }
 
   return false;
@@ -108,6 +118,29 @@ bool TypeTranslator::isOpaqueStructType(QualType type) {
   return false;
 }
 
+TypeTranslator::LiteralTypeHint::LiteralTypeHint(TypeTranslator &t, QualType ty)
+    : translator(t), type(ty) {
+  if (!isLiteralType(type))
+    translator.pushIntendedLiteralType(type);
+}
+TypeTranslator::LiteralTypeHint::~LiteralTypeHint() {
+  if (!isLiteralType(type))
+    translator.popIntendedLiteralType();
+}
+
+bool TypeTranslator::LiteralTypeHint::isLiteralType(QualType type) {
+  if (type->isSpecificBuiltinType(BuiltinType::LitInt) ||
+      type->isSpecificBuiltinType(BuiltinType::LitFloat))
+    return true;
+
+  // For cases such as 'vector<literal int, 2>'
+  QualType elemType = {};
+  if (isVectorType(type, &elemType))
+    return isLiteralType(elemType);
+
+  return false;
+}
+
 void TypeTranslator::pushIntendedLiteralType(QualType type) {
   QualType elemType = {};
   if (isVectorType(type, &elemType)) {
@@ -129,8 +162,8 @@ QualType TypeTranslator::getIntendedLiteralType(QualType type) {
 }
 
 void TypeTranslator::popIntendedLiteralType() {
-  if (!intendedLiteralTypes.empty())
-    intendedLiteralTypes.pop();
+  assert(!intendedLiteralTypes.empty());
+  intendedLiteralTypes.pop();
 }
 
 uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
@@ -176,7 +209,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           else
             return theBuilder.getInt32Type();
         }
-        // min16uint (short) is treated as 16-bit Uint if '-enable-16bit-types'
+        // min16uint (ushort) is treated as 16-bit Uint if '-enable-16bit-types'
         // option is enabled. It is treated as 32-bit Uint otherwise.
         case BuiltinType::UShort: {
           if (spirvOptions.enable16BitTypes)

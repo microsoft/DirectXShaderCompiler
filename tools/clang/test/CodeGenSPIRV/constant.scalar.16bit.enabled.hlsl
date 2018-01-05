@@ -18,6 +18,20 @@
 // CHECK: OpCapability Float16
 // CHECK: OpCapability Int16
 
+// CHECK-NOT: OpDecorate %c_half RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_min10float RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_min16float RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_float16t RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_min16int_n3 RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_min16int_3 RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_min16uint_5 RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_min12int_n9 RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_min12int_9 RelaxedPrecision
+// XXXXX-NOT: OpDecorate %c_min12uint RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_uint16_16 RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_int16_n16 RelaxedPrecision
+// CHECK-NOT: OpDecorate %c_int16_16 RelaxedPrecision
+
 // CHECK: %short = OpTypeInt 16 1
 // CHECK: %ushort = OpTypeInt 16 0
 // CHECK: %half = OpTypeFloat 16

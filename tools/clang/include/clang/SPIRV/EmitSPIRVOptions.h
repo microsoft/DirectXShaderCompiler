@@ -19,12 +19,12 @@ struct EmitSPIRVOptions {
   bool codeGenHighLevel;
   bool disableValidation;
   bool ignoreUnusedResources;
+  bool enable16BitTypes;
   llvm::StringRef stageIoOrder;
   llvm::SmallVector<uint32_t, 4> bShift;
   llvm::SmallVector<uint32_t, 4> tShift;
   llvm::SmallVector<uint32_t, 4> sShift;
   llvm::SmallVector<uint32_t, 4> uShift;
-  bool enable16BitTypes;
 };
 } // end namespace clang
 
