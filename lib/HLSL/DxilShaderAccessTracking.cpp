@@ -430,7 +430,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
           }
 
           auto slot = m_slotAssignments.find({ RegisterTypeFromResourceClass(ResClass), res->GetSpaceID() });
-          // If the assignment isn't found, we assume 
+          // If the assignment isn't found, we assume it's not accessed
           if(slot != m_slotAssignments.end()) {
 
             IRBuilder<> Builder(instruction);
@@ -463,6 +463,30 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
 
             EmitAccess(Ctx, HlslOP, Builder, slotIndex, raFunction.readWrite);
           }
+        }
+      }
+    }
+
+    // StoreOutput for render-targets:
+    for (const auto & Overload : f16f32i16i32) {
+      Function * TheFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Overload);
+      auto FunctionUses = TheFunction->uses();
+      for (auto FI = FunctionUses.begin(); FI != FunctionUses.end(); ) {
+        auto & FunctionUse = *FI++;
+        auto FunctionUser = FunctionUse.getUser();
+        auto instruction = cast<Instruction>(FunctionUser);
+
+        unsigned outputId = cast<ConstantInt>(instruction->getOperand(1))->getLimitedValue();
+
+        const DxilSignatureElement & sig = DM.GetOutputSignature().GetElement(outputId);
+
+        if (sig.GetSemantic()->GetKind() == DXIL::SemanticKind::Target)
+        {
+          auto slot = m_slotAssignments.find({ RegisterType::RTV, 0 });
+
+          IRBuilder<> Builder(instruction);
+
+          EmitAccess(Ctx, HlslOP, Builder, HlslOP->GetU32Const(slot->second.startSlot), ShaderAccessFlags::Write);
         }
       }
     }
