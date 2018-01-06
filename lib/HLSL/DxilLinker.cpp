@@ -510,7 +510,9 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
   DxilFunctionProps props = entryDM.GetDxilFunctionProps(entryFunc);
   if (props.shaderKind == DXIL::ShaderKind::Library ||
-      props.shaderKind == DXIL::ShaderKind::Invalid) {
+      props.shaderKind == DXIL::ShaderKind::Invalid ||
+      (props.shaderKind >= DXIL::ShaderKind::RayGeneration &&
+      props.shaderKind <= DXIL::ShaderKind::Callable)) {
     m_ctx.emitError(profile + Twine(kInvalidProfile));
     // Invalid profile.
     return nullptr;

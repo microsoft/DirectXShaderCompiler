@@ -10409,7 +10409,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLShaderAttr(
         A.getRange(), S.Context,
         ValidateAttributeStringArg(S, A,
-                                   "compute,vertex,pixel,hull,domain,geometry"),
+                                   "compute,vertex,pixel,hull,domain,geometry,raygeneration,intersection,anyhit,closesthit,miss,callable"),
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLMaxVertexCount:

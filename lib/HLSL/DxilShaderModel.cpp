@@ -63,6 +63,11 @@ bool ShaderModel::IsValidForDxil() const {
   return false;
 }
 
+bool ShaderModel::IsValidForModule() const {
+  // Ray tracing shader model should only be used on functions in a lib
+  return IsValid() && !IsRay();
+}
+
 const ShaderModel *ShaderModel::Get(unsigned Idx) {
   DXASSERT_NOMSG(Idx < kNumShaderModels - 1);
   if (Idx < kNumShaderModels - 1)

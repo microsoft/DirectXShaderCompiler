@@ -1165,13 +1165,28 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   bool isDS = false;
   bool isVS = false;
   bool isPS = false;
+  bool isRay = false;
   if (const HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>()) {
     // Stage is already validate in HandleDeclAttributeForHLSL.
-    // Here just check first letter.
+    // Here just check first letter (or two).
     switch (Attr->getStage()[0]) {
     case 'c':
-      isCS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Compute;
+      switch (Attr->getStage()[1]) {
+      case 'o':
+        isCS = true;
+        funcProps->shaderKind = DXIL::ShaderKind::Compute;
+        break;
+      case 'l':
+        isRay = true;
+        funcProps->shaderKind = DXIL::ShaderKind::ClosestHit;
+        break;
+      case 'a':
+        isRay = true;
+        funcProps->shaderKind = DXIL::ShaderKind::Callable;
+        break;
+      default:
+        break;
+      }
       break;
     case 'v':
       isVS = true;
@@ -1193,11 +1208,34 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       isPS = true;
       funcProps->shaderKind = DXIL::ShaderKind::Pixel;
       break;
-    default: {
+    case 'r':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::RayGeneration;
+      break;
+    case 'i':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Intersection;
+      break;
+    case 'a':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::AnyHit;
+      break;
+    case 'm':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Miss;
+      break;
+    default:
+      break;
+    }
+    if (funcProps->shaderKind == DXIL::ShaderKind::Invalid) {
       unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "Invalid profile for shader attribute");
+        DiagnosticsEngine::Error, "Invalid profile for shader attribute");
       Diags.Report(Attr->getLocation(), DiagID);
-    } break;
+    }
+    if (isEntry && isRay) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "Ray function cannot be used as a global entry point");
+      Diags.Report(Attr->getLocation(), DiagID);
     }
   }
 
@@ -1414,7 +1452,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->shaderKind = DXIL::ShaderKind::Pixel;
   }
 
-  const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS;
+  const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS + isRay;
 
   // TODO: check this in front-end and report error.
   DXASSERT(profileAttributes < 2, "profile attributes are mutual exclusive");
