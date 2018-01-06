@@ -65,14 +65,10 @@ struct DxilFunctionProps {
   bool IsDS() const     { return shaderKind == DXIL::ShaderKind::Domain; }
   bool IsCS() const     { return shaderKind == DXIL::ShaderKind::Compute; }
   bool IsGraphics() const {
-    switch (shaderKind) {
-    case DXIL::ShaderKind::Compute:
-    case DXIL::ShaderKind::Library:
-    case DXIL::ShaderKind::Invalid:
-      return false;
-    default:
-      return true;
-    }
+    return (shaderKind >= DXIL::ShaderKind::Pixel && shaderKind <= DXIL::ShaderKind::Domain);
+  }
+  bool IsRay() const {
+    return (shaderKind >= DXIL::ShaderKind::RayGeneration && shaderKind <= DXIL::ShaderKind::Callable);
   }
 };
 

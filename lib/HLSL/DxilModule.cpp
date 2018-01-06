@@ -137,6 +137,7 @@ OP *DxilModule::GetOP() const { return m_pOP.get(); }
 void DxilModule::SetShaderModel(const ShaderModel *pSM) {
   DXASSERT(m_pSM == nullptr || (pSM != nullptr && *m_pSM == *pSM), "shader model must not change for the module");
   DXASSERT(pSM != nullptr && pSM->IsValidForDxil(), "shader model must be valid");
+  DXASSERT(pSM->IsValidForModule(), "shader model must be valid for top-level module use");
   m_pSM = pSM;
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);

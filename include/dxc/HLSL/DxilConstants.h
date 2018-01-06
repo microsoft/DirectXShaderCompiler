@@ -124,6 +124,12 @@ namespace DXIL {
     Domain,
     Compute,
     Library,
+    RayGeneration,
+    Intersection,
+    AnyHit,
+    ClosestHit,
+    Miss,
+    Callable,
     Invalid,
   };
 
