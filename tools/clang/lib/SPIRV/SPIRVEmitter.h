@@ -253,7 +253,7 @@ private:
   /// Returns the <result-id> of the variable.
   uint32_t SPIRVEmitter::createTemporaryVar(QualType varType,
                                             llvm::StringRef varName,
-                                            uint32_t initValue);
+                                            const SpirvEvalInfo &initValue);
 
   /// Collects all indices (SPIR-V constant values) from consecutive MemberExprs
   /// or ArraySubscriptExprs or operator[] calls and writes into indices.

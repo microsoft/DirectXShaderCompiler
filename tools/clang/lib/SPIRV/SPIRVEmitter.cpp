@@ -1603,7 +1603,11 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   }
 
   const auto numParams = callee->getNumParams();
+
   bool isNonStaticMemberCall = false;
+  QualType objectType = {};         // Type of the object (if exists)
+  SpirvEvalInfo objectEvalInfo = 0; // EvalInfo for the object (if exists)
+  bool objectNeedsTempVar = false;  // Temporary variable for lvalue object
 
   llvm::SmallVector<uint32_t, 4> params;    // Temporary variables
   llvm::SmallVector<SpirvEvalInfo, 4> args; // Evaluated arguments
@@ -1615,16 +1619,32 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
       // For non-static member calls, evaluate the object and pass it as the
       // first argument.
       const auto *object = memberCall->getImplicitObjectArgument();
-      const auto objectEvalInfo = doExpr(object);
+      object = object->IgnoreParenNoopCasts(astContext);
+
+      objectType = object->getType();
+      objectEvalInfo = doExpr(object);
       uint32_t objectId = objectEvalInfo;
 
       // If not already a variable, we need to create a temporary variable and
       // pass the object pointer to the function. Example:
       // getObject().objectMethod();
-      if (objectEvalInfo.isRValue()) {
-        const auto objType = object->getType();
-        objectId = createTemporaryVar(objType, TypeTranslator::getName(objType),
-                                      objectEvalInfo);
+      bool needsTempVar = objectEvalInfo.isRValue();
+
+      // Try to see if we are calling methods on a global variable, which is put
+      // in the Private storage class. We also need to create temporary variable
+      // for it since the function signature expects all arguments in the
+      // Function storage class.
+      if (!needsTempVar)
+        if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(object))
+          if (const auto *refDecl = declRefExpr->getFoundDecl())
+            if (const auto *varDecl = dyn_cast<VarDecl>(refDecl))
+              needsTempVar = objectNeedsTempVar = varDecl->hasGlobalStorage();
+
+      if (needsTempVar) {
+        objectId =
+            createTemporaryVar(objectType, TypeTranslator::getName(objectType),
+                               // May need to load to use as initializer
+                               loadIfGLValue(object, objectEvalInfo));
       }
 
       args.push_back(objectId);
@@ -1674,6 +1694,15 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
 
   const uint32_t retVal =
       theBuilder.createFunctionCall(retType, funcId, params);
+
+  // If we created a temporary variable for the object this method is invoked
+  // upon, we need to copy the contents in the temporary variable back to the
+  // original object's variable in case there are side effects.
+  if (objectNeedsTempVar) {
+    const uint32_t typeId = typeTranslator.translateType(objectType);
+    const uint32_t value = theBuilder.createLoad(typeId, params.front());
+    storeValue(objectEvalInfo, value, objectType);
+  }
 
   // Go through all parameters and write those marked as out/inout
   for (uint32_t i = 0; i < numParams; ++i) {
@@ -3570,8 +3599,9 @@ SpirvEvalInfo SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
 }
 
 uint32_t SPIRVEmitter::createTemporaryVar(QualType type, llvm::StringRef name,
-                                          uint32_t init) {
-  const uint32_t varType = typeTranslator.translateType(type);
+                                          const SpirvEvalInfo &init) {
+  const uint32_t varType =
+      typeTranslator.translateType(type, init.getLayoutRule());
   const std::string varName = "temp.var." + name.str();
   const uint32_t varId = theBuilder.addFnVar(varType, varName);
   theBuilder.createStore(varId, init);
