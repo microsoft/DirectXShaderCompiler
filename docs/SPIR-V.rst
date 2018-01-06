@@ -2316,6 +2316,9 @@ codegen for Vulkan:
 - ``-fvk-ignore-unused-resources``: Avoids emitting SPIR-V code for resources
   defined but not statically referenced by the call tree of the entry point
   in question.
+- ``-fvk-invert-y``: Inverts SV_Position.y before writing to stage output.
+  Used to accommodate the difference between Vulkan's coordinate system and
+  DirectX's. Only allowed in VS/DS/GS.
 - ``-fvk-stage-io-order={alpha|decl}``: Assigns the stage input/output variable
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.
