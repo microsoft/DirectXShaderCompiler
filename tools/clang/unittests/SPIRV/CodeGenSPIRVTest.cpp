@@ -45,6 +45,9 @@ TEST_F(WholeFileTest, EmptyStructInterfaceVS) {
 TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
 TEST_F(FileTest, VectorTypes) { runFileTest("type.vector.hlsl"); }
 TEST_F(FileTest, MatrixTypes) { runFileTest("type.matrix.hlsl"); }
+TEST_F(FileTest, MatrixTypesMajornessZpr) {
+  runFileTest("type.matrix.majorness.zpr.hlsl");
+}
 TEST_F(FileTest, MatrixTypesMajorness) {
   runFileTest("type.matrix.majorness.hlsl", FileTest::Expect::Warning);
 }
@@ -1068,7 +1071,9 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
 }
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
-TEST_F(FileTest, VulkanPushConstantOffset) { runFileTest("vk.push-constant.offset.hlsl"); }
+TEST_F(FileTest, VulkanPushConstantOffset) {
+  runFileTest("vk.push-constant.offset.hlsl");
+}
 TEST_F(FileTest, VulkanMultiplePushConstant) {
   runFileTest("vk.push-constant.multiple.hlsl", FileTest::Expect::Failure);
 }

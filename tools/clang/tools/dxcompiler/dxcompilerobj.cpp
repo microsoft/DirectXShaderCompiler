@@ -468,6 +468,7 @@ public:
           spirvOpts.codeGenHighLevel = opts.CodeGenHighLevel;
           spirvOpts.disableValidation = opts.DisableValidation;
           spirvOpts.ignoreUnusedResources = opts.VkIgnoreUnusedResources;
+          spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
           spirvOpts.bShift = opts.VkBShift;
           spirvOpts.tShift = opts.VkTShift;
