@@ -61,10 +61,20 @@ public:
                                  DecorationSet dec = {});
   static const Constant *getFalse(SPIRVContext &ctx, uint32_t type_id,
                                   DecorationSet dec = {});
+  static const Constant *getInt16(SPIRVContext &ctx, uint32_t type_id,
+                                  int16_t value, DecorationSet dec = {});
   static const Constant *getInt32(SPIRVContext &ctx, uint32_t type_id,
                                   int32_t value, DecorationSet dec = {});
+  static const Constant *getInt64(SPIRVContext &ctx, uint32_t type_id,
+                                  int64_t value, DecorationSet dec = {});
+  static const Constant *getUint16(SPIRVContext &ctx, uint32_t type_id,
+                                   uint16_t value, DecorationSet dec = {});
   static const Constant *getUint32(SPIRVContext &ctx, uint32_t type_id,
                                    uint32_t value, DecorationSet dec = {});
+  static const Constant *getUint64(SPIRVContext &ctx, uint32_t type_id,
+                                   uint64_t value, DecorationSet dec = {});
+  static const Constant *getFloat16(SPIRVContext &ctx, uint32_t type_id,
+                                    int16_t value, DecorationSet dec = {});
   static const Constant *getFloat32(SPIRVContext &ctx, uint32_t type_id,
                                     float value, DecorationSet dec = {});
   static const Constant *getFloat64(SPIRVContext &ctx, uint32_t type_id,

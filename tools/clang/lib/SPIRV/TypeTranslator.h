@@ -32,9 +32,14 @@ namespace spirv {
 class TypeTranslator {
 public:
   TypeTranslator(ASTContext &context, ModuleBuilder &builder,
-                 DiagnosticsEngine &diag, const EmitSPIRVOptions &opt)
+                 DiagnosticsEngine &diag, const EmitSPIRVOptions &opts)
       : astContext(context), theBuilder(builder), diags(diag),
-        spirvOptions(opt) {}
+        spirvOptions(opts) {}
+
+  ~TypeTranslator() {
+    // Perform any sanity checks.
+    assert(intendedLiteralTypes.empty());
+  }
 
   /// \brief Generates the corresponding SPIR-V type for the given Clang
   /// frontend type and returns the type's <result-id>. On failure, reports
@@ -160,7 +165,7 @@ public:
   /// \brief Returns true if the given type can use relaxed precision
   /// decoration. Integer and float types with lower than 32 bits can be
   /// operated on with a relaxed precision.
-  static bool isRelaxedPrecisionType(QualType);
+  static bool isRelaxedPrecisionType(QualType, const EmitSPIRVOptions &);
 
   /// Returns true if the given type will be translated into a SPIR-V image,
   /// sampler or struct containing images or samplers.
@@ -237,15 +242,34 @@ public:
                                                     uint32_t *stride);
 
 public:
-  /// \brief Adds the given type to the intendedLiteralTypes stack. This will be
-  /// used as a hint regarding usage of literal types.
-  void pushIntendedLiteralType(QualType type);
-
   /// \brief If a hint exists regarding the usage of literal types, it
   /// is returned. Otherwise, the given type itself is returned.
   /// The hint is the type on top of the intendedLiteralTypes stack. This is the
   /// type we suspect the literal under question should be interpreted as.
   QualType getIntendedLiteralType(QualType type);
+
+public:
+  // A RAII class for maintaining the intendedLiteralTypes stack.
+  // Instantiating an object of this class ensures that as long as the
+  // object lives, the hint lives in the TypeTranslator, and once the object is
+  // destroyed, the hint is automatically removed from the stack.
+  class LiteralTypeHint {
+  public:
+    LiteralTypeHint(TypeTranslator &t, QualType ty);
+    ~LiteralTypeHint();
+
+  private:
+    static bool isLiteralType(QualType type);
+
+  private:
+    QualType type;
+    TypeTranslator &translator;
+  };
+
+private:
+  /// \brief Adds the given type to the intendedLiteralTypes stack. This will be
+  /// used as a hint regarding usage of literal types.
+  void pushIntendedLiteralType(QualType type);
 
   /// \brief Removes the type at the top of the intendedLiteralTypes stack.
   void popIntendedLiteralType();

@@ -11,6 +11,37 @@
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/SPIRVContext.h"
 
+namespace {
+uint32_t zeroExtendTo32Bits(uint16_t value) {
+  // TODO: The ordering of the 2 words depends on the endian-ness of the host
+  // machine. Assuming Little Endian at the moment.
+  struct two16Bits {
+    uint16_t low;
+    uint16_t high;
+  };
+
+  two16Bits result = {value, 0};
+  return clang::spirv::cast::BitwiseCast<uint32_t, two16Bits>(result);
+}
+
+uint32_t signExtendTo32Bits(int16_t value) {
+  // TODO: The ordering of the 2 words depends on the endian-ness of the host
+  // machine. Assuming Little Endian at the moment.
+  struct two16Bits {
+    int16_t low;
+    uint16_t high;
+  };
+
+  two16Bits result = {value, 0};
+
+  // Sign bit is 1
+  if (value >> 15) {
+    result.high = 0xffff;
+  }
+  return clang::spirv::cast::BitwiseCast<uint32_t, two16Bits>(result);
+}
+}
+
 namespace clang {
 namespace spirv {
 
@@ -37,6 +68,17 @@ const Constant *Constant::getFalse(SPIRVContext &ctx, uint32_t type_id,
   return getUniqueConstant(ctx, c);
 }
 
+const Constant *Constant::getFloat16(SPIRVContext &ctx, uint32_t type_id,
+                                     int16_t value, DecorationSet dec) {
+  // According to the SPIR-V Spec:
+  // When the type's bit width is less than 32-bits, the literal's value appears
+  // in the low-order bits of the word, and the high-order bits must be 0 for a
+  // floating-point type.
+  Constant c = Constant(spv::Op::OpConstant, type_id,
+                        {zeroExtendTo32Bits(value)}, dec);
+  return getUniqueConstant(ctx, c);
+}
+
 const Constant *Constant::getFloat32(SPIRVContext &ctx, uint32_t type_id,
                                      float value, DecorationSet dec) {
   Constant c = Constant(spv::Op::OpConstant, type_id,
@@ -58,9 +100,43 @@ const Constant *Constant::getFloat64(SPIRVContext &ctx, uint32_t type_id,
   return getUniqueConstant(ctx, c);
 }
 
+const Constant *Constant::getUint16(SPIRVContext &ctx, uint32_t type_id,
+                                    uint16_t value, DecorationSet dec) {
+  // According to the SPIR-V Spec:
+  // When the type's bit width is less than 32-bits, the literal's value appears
+  // in the low-order bits of the word, and the high-order bits must be 0 for an
+  // integer type with Signedness of 0.
+  Constant c = Constant(spv::Op::OpConstant, type_id,
+                        {zeroExtendTo32Bits(value)}, dec);
+  return getUniqueConstant(ctx, c);
+}
+
 const Constant *Constant::getUint32(SPIRVContext &ctx, uint32_t type_id,
                                     uint32_t value, DecorationSet dec) {
   Constant c = Constant(spv::Op::OpConstant, type_id, {value}, dec);
+  return getUniqueConstant(ctx, c);
+}
+
+const Constant *Constant::getUint64(SPIRVContext &ctx, uint32_t type_id,
+                                    uint64_t value, DecorationSet dec) {
+  struct wideInt {
+    uint32_t word0;
+    uint32_t word1;
+  };
+  wideInt words = cast::BitwiseCast<wideInt, uint64_t>(value);
+  Constant c =
+      Constant(spv::Op::OpConstant, type_id, {words.word0, words.word1}, dec);
+  return getUniqueConstant(ctx, c);
+}
+
+const Constant *Constant::getInt16(SPIRVContext &ctx, uint32_t type_id,
+                                    int16_t value, DecorationSet dec) {
+  // According to the SPIR-V Spec:
+  // When the type's bit width is less than 32-bits, the literal's value appears
+  // in the low-order bits of the word, and the high-order bits must be
+  // sign-extended for integers with Signedness of 1.
+  Constant c = Constant(spv::Op::OpConstant, type_id,
+                        {signExtendTo32Bits(value)}, dec);
   return getUniqueConstant(ctx, c);
 }
 
@@ -68,6 +144,18 @@ const Constant *Constant::getInt32(SPIRVContext &ctx, uint32_t type_id,
                                    int32_t value, DecorationSet dec) {
   Constant c = Constant(spv::Op::OpConstant, type_id,
                         {cast::BitwiseCast<uint32_t, int32_t>(value)}, dec);
+  return getUniqueConstant(ctx, c);
+}
+
+const Constant *Constant::getInt64(SPIRVContext &ctx, uint32_t type_id,
+                                   int64_t value, DecorationSet dec) {
+  struct wideInt {
+    uint32_t word0;
+    uint32_t word1;
+  };
+  wideInt words = cast::BitwiseCast<wideInt, int64_t>(value);
+  Constant c =
+      Constant(spv::Op::OpConstant, type_id, {words.word0, words.word1}, dec);
   return getUniqueConstant(ctx, c);
 }
 

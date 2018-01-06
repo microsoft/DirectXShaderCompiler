@@ -34,19 +34,29 @@ inline void roundToPow2(uint32_t *val, uint32_t pow2) {
 }
 } // anonymous namespace
 
-bool TypeTranslator::isRelaxedPrecisionType(QualType type) {
+bool TypeTranslator::isRelaxedPrecisionType(QualType type,
+                                            const EmitSPIRVOptions &opts) {
   // Primitive types
   {
     QualType ty = {};
     if (isScalarType(type, &ty))
       if (const auto *builtinType = ty->getAs<BuiltinType>())
         switch (builtinType->getKind()) {
+        // TODO: Figure out why 'min16float' and 'half' share an enum.
+        // 'half' should not get RelaxedPrecision decoration, but due to the
+        // shared enum, we currently do so.
+        case BuiltinType::Half:
         case BuiltinType::Short:
         case BuiltinType::UShort:
         case BuiltinType::Min12Int:
-        case BuiltinType::Min10Float:
-        case BuiltinType::Half:
-          return true;
+        case BuiltinType::Min10Float: {
+          // If '-enable-16bit-types' options is enabled, these types are
+          // translated to real 16-bit type, and therefore are not
+          // RelaxedPrecision.
+          // If the options is not enabled, these types are translated to 32-bit
+          // types with the added RelaxedPrecision decoration.
+          return !opts.enable16BitTypes;
+        }
         }
   }
 
@@ -55,7 +65,7 @@ bool TypeTranslator::isRelaxedPrecisionType(QualType type) {
   {
     QualType elemType = {};
     if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType))
-      return isRelaxedPrecisionType(elemType);
+      return isRelaxedPrecisionType(elemType, opts);
   }
 
   return false;
@@ -108,6 +118,29 @@ bool TypeTranslator::isOpaqueStructType(QualType type) {
   return false;
 }
 
+TypeTranslator::LiteralTypeHint::LiteralTypeHint(TypeTranslator &t, QualType ty)
+    : translator(t), type(ty) {
+  if (!isLiteralType(type))
+    translator.pushIntendedLiteralType(type);
+}
+TypeTranslator::LiteralTypeHint::~LiteralTypeHint() {
+  if (!isLiteralType(type))
+    translator.popIntendedLiteralType();
+}
+
+bool TypeTranslator::LiteralTypeHint::isLiteralType(QualType type) {
+  if (type->isSpecificBuiltinType(BuiltinType::LitInt) ||
+      type->isSpecificBuiltinType(BuiltinType::LitFloat))
+    return true;
+
+  // For cases such as 'vector<literal int, 2>'
+  QualType elemType = {};
+  if (isVectorType(type, &elemType))
+    return isLiteralType(elemType);
+
+  return false;
+}
+
 void TypeTranslator::pushIntendedLiteralType(QualType type) {
   QualType elemType = {};
   if (isVectorType(type, &elemType)) {
@@ -129,8 +162,8 @@ QualType TypeTranslator::getIntendedLiteralType(QualType type) {
 }
 
 void TypeTranslator::popIntendedLiteralType() {
-  if (!intendedLiteralTypes.empty())
-    intendedLiteralTypes.pop();
+  assert(!intendedLiteralTypes.empty());
+  intendedLiteralTypes.pop();
 }
 
 uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
@@ -154,29 +187,48 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           return theBuilder.getVoidType();
         case BuiltinType::Bool:
           return theBuilder.getBoolType();
-          // int, min16int (short), and min12int are all translated to 32-bit
-          // signed integers in SPIR-V.
         case BuiltinType::Int:
-        case BuiltinType::Short:
-        case BuiltinType::Min12Int:
           return theBuilder.getInt32Type();
-          // uint and min16uint (ushort) are both translated to 32-bit unsigned
-          // integers in SPIR-V.
-        case BuiltinType::UShort:
         case BuiltinType::UInt:
           return theBuilder.getUint32Type();
+        case BuiltinType::Float:
+          return theBuilder.getFloat32Type();
+        case BuiltinType::Double:
+          return theBuilder.getFloat64Type();
         case BuiltinType::LongLong:
           return theBuilder.getInt64Type();
         case BuiltinType::ULongLong:
           return theBuilder.getUint64Type();
-          // float, min16float (half), and min10float are all translated to
-          // 32-bit float in SPIR-V.
-        case BuiltinType::Float:
+        // min16int (short), and min12int are treated as 16-bit Int if
+        // '-enable-16bit-types' option is enabled. They are treated as 32-bit
+        // Int otherwise.
+        case BuiltinType::Short:
+        case BuiltinType::Min12Int: {
+          if (spirvOptions.enable16BitTypes)
+            return theBuilder.getInt16Type();
+          else
+            return theBuilder.getInt32Type();
+        }
+        // min16uint (ushort) is treated as 16-bit Uint if '-enable-16bit-types'
+        // option is enabled. It is treated as 32-bit Uint otherwise.
+        case BuiltinType::UShort: {
+          if (spirvOptions.enable16BitTypes)
+            return theBuilder.getUint16Type();
+          else
+            return theBuilder.getUint32Type();
+        }
+        // min16float (half), and min10float are all translated to
+        // 32-bit float in SPIR-V.
+        // min16float (half), and min10float are treated as 16-bit float if
+        // '-enable-16bit-types' option is enabled. They are treated as 32-bit
+        // float otherwise.
         case BuiltinType::Half:
-        case BuiltinType::Min10Float:
-          return theBuilder.getFloat32Type();
-        case BuiltinType::Double:
-          return theBuilder.getFloat64Type();
+        case BuiltinType::Min10Float: {
+          if (spirvOptions.enable16BitTypes)
+            return theBuilder.getFloat16Type();
+          else
+            return theBuilder.getFloat32Type();
+        }
         case BuiltinType::LitFloat: {
           // First try to see if there are any hints about how this literal type
           // is going to be used. If so, use the hint.
@@ -290,8 +342,8 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     llvm::SmallVector<uint32_t, 4> fieldTypes;
     llvm::SmallVector<llvm::StringRef, 4> fieldNames;
     for (const auto *field : decl->fields()) {
-      fieldTypes.push_back(translateType(field->getType(), rule,
-                                         field->hasAttr<HLSLRowMajorAttr>()));
+      fieldTypes.push_back(translateType(
+          field->getType(), rule, isRowMajorMatrix(field->getType(), field)));
       fieldNames.push_back(field->getName());
     }
 

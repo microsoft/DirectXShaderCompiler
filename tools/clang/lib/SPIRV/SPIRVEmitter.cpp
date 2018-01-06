@@ -379,19 +379,6 @@ const ValueDecl *getReferencedDef(const Expr *expr) {
   return nullptr;
 }
 
-bool isLiteralType(QualType type) {
-  if (type->isSpecificBuiltinType(BuiltinType::LitInt) ||
-      type->isSpecificBuiltinType(BuiltinType::LitFloat))
-    return true;
-
-  // For cases such as 'vector<literal int, 2>'
-  QualType elemType = {};
-  if (TypeTranslator::isVectorType(type, &elemType))
-    return isLiteralType(elemType);
-
-  return false;
-}
-
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
@@ -403,9 +390,9 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
           ci.getCodeGenOpts().HLSLProfile.c_str())),
       theContext(), theBuilder(&theContext),
       declIdMapper(shaderModel, astContext, theBuilder, spirvOptions),
-      typeTranslator(astContext, theBuilder, diags, spirvOptions), entryFunctionId(0),
-      curFunction(nullptr), curThis(0), seenPushConstantAt(),
-      needsLegalization(false) {
+      typeTranslator(astContext, theBuilder, diags, options),
+      entryFunctionId(0), curFunction(nullptr), curThis(0),
+      seenPushConstantAt(), needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 }
@@ -597,9 +584,9 @@ SpirvEvalInfo SPIRVEmitter::doDeclRefExpr(const DeclRefExpr *expr) {
 SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   SpirvEvalInfo result(/*id*/ 0);
 
-  const bool isNonLiteralType = !isLiteralType(expr->getType());
-  if (isNonLiteralType)
-    typeTranslator.pushIntendedLiteralType(expr->getType());
+  // Provide a hint to the typeTranslator that if a literal is discovered, its
+  // intended usage is as this expression type.
+  TypeTranslator::LiteralTypeHint hint(typeTranslator, expr->getType());
 
   expr = expr->IgnoreParens();
 
@@ -649,9 +636,6 @@ SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
     emitError("expression class '%0' unimplemented", expr->getExprLoc())
         << expr->getStmtClassName() << expr->getSourceRange();
   }
-
-  if (isNonLiteralType)
-    typeTranslator.popIntendedLiteralType();
 
   return result;
 }
@@ -777,10 +761,6 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     funcId = declIdMapper.getDeclResultId(decl);
   }
 
-  if (!needsLegalization &&
-      TypeTranslator::isOpaqueStructType(decl->getReturnType()))
-    needsLegalization = true;
-
   const uint32_t retType = declIdMapper.getTypeForPotentialAliasVar(decl);
 
   // Construct the function signature.
@@ -810,10 +790,6 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     const uint32_t ptrType =
         theBuilder.getPointerType(valueType, spv::StorageClass::Function);
     paramTypes.push_back(ptrType);
-
-    if (!needsLegalization &&
-        TypeTranslator::isOpaqueStructType(param->getType()))
-      needsLegalization = true;
   }
 
   const uint32_t funcType = theBuilder.getFunctionType(retType, paramTypes);
@@ -1001,12 +977,18 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
       // Update counter variable associatd with local variables
       tryToAssignCounterVar(decl, init);
     }
+
+    // Variables that are not externally visible and of opaque types should
+    // request legalization.
+    if (!needsLegalization && TypeTranslator::isOpaqueType(decl->getType()))
+      needsLegalization = true;
   }
 
-  if (TypeTranslator::isRelaxedPrecisionType(decl->getType())) {
+  if (TypeTranslator::isRelaxedPrecisionType(decl->getType(), spirvOptions)) {
     theBuilder.decorate(varId, spv::Decoration::RelaxedPrecision);
   }
 
+  // All variables that are of opaque struct types should request legalization.
   if (!needsLegalization && TypeTranslator::isOpaqueStructType(decl->getType()))
     needsLegalization = true;
 }
@@ -1553,6 +1535,10 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
 
 SpirvEvalInfo
 SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
+  // Provide a hint to the TypeTranslator that the integer literal used to
+  // index into the array should be translated as a 32-bit integer.
+  TypeTranslator::LiteralTypeHint hint(typeTranslator, astContext.IntTy);
+
   llvm::SmallVector<uint32_t, 4> indices;
   auto info = doExpr(collectArrayStructIndices(expr, &indices));
 
@@ -3817,11 +3803,6 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
       typeTranslator.isVectorType(lhsValType) ||
       typeTranslator.isMxNMatrix(lhsValType)) {
     theBuilder.createStore(lhsPtr, rhsVal);
-  } else if (lhsPtr.getLayoutRule() == rhsVal.getLayoutRule()) {
-    // If lhs and rhs has the same memory layout, we should be safe to load
-    // from rhs and directly store into lhs and avoid decomposing rhs.
-    // TODO: is this optimization always correct?
-    theBuilder.createStore(lhsPtr, rhsVal);
   } else if (TypeTranslator::isOpaqueType(lhsValType)) {
     // Resource types are represented using RecordType in the AST.
     // Handle them before the general RecordType.
@@ -3851,6 +3832,12 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // assignments/returns from ConstantBuffer<T>/TextureBuffer<T> to function
     // parameters/returns/variables of type T. And ConstantBuffer<T> is not
     // represented differently as struct T.
+  } else if (lhsPtr.getLayoutRule() == rhsVal.getLayoutRule()) {
+    // If lhs and rhs has the same memory layout, we should be safe to load
+    // from rhs and directly store into lhs and avoid decomposing rhs.
+    // Note: this check should happen after those setting needsLegalization.
+    // TODO: is this optimization always correct?
+    theBuilder.createStore(lhsPtr, rhsVal);
   } else if (const auto *recordType = lhsValType->getAs<RecordType>()) {
     uint32_t index = 0;
     for (const auto *decl : recordType->getDecl()->decls()) {
@@ -4019,7 +4006,10 @@ void SPIRVEmitter::initOnce(QualType varType, std::string varName,
   theBuilder.setInsertPoint(todoBB);
   // Do initialization and mark done
   if (varInit) {
-    theBuilder.createStore(varPtr, doExpr(varInit));
+    storeValue(
+        // Static function variable are of private storage class
+        SpirvEvalInfo(varPtr).setStorageClass(spv::StorageClass::Private),
+        doExpr(varInit), varInit->getType());
   } else {
     const auto typeId = typeTranslator.translateType(varType);
     theBuilder.createStore(varPtr, theBuilder.getConstantNull(typeId));
@@ -6654,10 +6644,10 @@ uint32_t SPIRVEmitter::getMatElemValueOne(QualType type) {
 uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
                                         const QualType targetType) {
   uint32_t result = 0;
-  const bool isNonLiteralType = !isLiteralType(targetType);
 
-  if (isNonLiteralType)
-    typeTranslator.pushIntendedLiteralType(targetType);
+  // Provide a hint to the typeTranslator that if a literal is discovered, its
+  // intended usage is targetType.
+  TypeTranslator::LiteralTypeHint hint(typeTranslator, targetType);
 
   if (targetType->isBooleanType()) {
     result = theBuilder.getConstantBool(value.getInt().getBoolValue());
@@ -6682,11 +6672,8 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
     }
   }
 
-  if (result) {
-    if (isNonLiteralType)
-      typeTranslator.popIntendedLiteralType();
+  if (result)
     return result;
-  }
 
   emitError("APValue of type %0 unimplemented", {}) << value.getKind();
   value.dump();
@@ -6696,18 +6683,42 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
 uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
                                       QualType targetType) {
   targetType = typeTranslator.getIntendedLiteralType(targetType);
-  if (targetType->isSignedIntegerType()) {
-    // Try to see if this integer can be represented in 32-bit.
-    if (intValue.isSignedIntN(32)) {
+  const auto targetTypeBitWidth = astContext.getTypeSize(targetType);
+  const bool isSigned = targetType->isSignedIntegerType();
+  switch (targetTypeBitWidth) {
+  case 16: {
+    if (spirvOptions.enable16BitTypes) {
+      if (isSigned) {
+        return theBuilder.getConstantInt16(
+            static_cast<int16_t>(intValue.getSExtValue()));
+      } else {
+        return theBuilder.getConstantUint16(
+            static_cast<uint16_t>(intValue.getZExtValue()));
+      }
+    } else {
+      // If enable16BitTypes option is not true, treat as 32-bit integer.
+      if (isSigned)
+        return theBuilder.getConstantInt32(
+            static_cast<int32_t>(intValue.getSExtValue()));
+      else
+        return theBuilder.getConstantUint32(
+            static_cast<uint32_t>(intValue.getZExtValue()));
+    }
+  }
+  case 32: {
+    if (isSigned)
       return theBuilder.getConstantInt32(
           static_cast<int32_t>(intValue.getSExtValue()));
-    }
-  } else {
-    // Try to see if this integer can be represented in 32-bit.
-    if (intValue.isIntN(32)) {
+    else
       return theBuilder.getConstantUint32(
           static_cast<uint32_t>(intValue.getZExtValue()));
-    }
+  }
+  case 64: {
+    if (isSigned)
+      return theBuilder.getConstantInt64(intValue.getSExtValue());
+    else
+      return theBuilder.getConstantUint64(intValue.getZExtValue());
+  }
   }
 
   emitError("APInt for target bitwidth %0 unimplemented", {})
@@ -6759,6 +6770,22 @@ uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
   const auto &semantics = astContext.getFloatTypeSemantics(targetType);
   const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
   switch (bitwidth) {
+  case 16: {
+    if (spirvOptions.enable16BitTypes) {
+      return theBuilder.getConstantFloat16(
+          static_cast<uint16_t>(floatValue.bitcastToAPInt().getZExtValue()));
+    } else {
+      // If 16-bit types are not enabled, treat as 32-bit float.
+      llvm::APFloat f32 = floatValue;
+      bool losesInfo = false;
+      f32.convert(llvm::APFloat::IEEEsingle,
+                  llvm::APFloat::roundingMode::rmTowardZero, &losesInfo);
+      // Conversion from 16-bit float value to 32-bit float value should be
+      // loss-less.
+      assert(!losesInfo);
+      return theBuilder.getConstantFloat32(f32.convertToFloat());
+    }
+  }
   case 32:
     return theBuilder.getConstantFloat32(floatValue.convertToFloat());
   case 64:
@@ -7110,15 +7137,15 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
-    const auto id = declIdMapper.getDeclResultId(varDecl);
+    const auto varInfo = declIdMapper.getDeclResultId(varDecl);
     if (const auto *init = varDecl->getInit()) {
-      theBuilder.createStore(id, doExpr(init));
+      storeValue(varInfo, doExpr(init), varDecl->getType());
 
       // Update counter variable associatd with global variables
       tryToAssignCounterVar(varDecl, init);
     } else {
       const auto typeId = typeTranslator.translateType(varDecl->getType());
-      theBuilder.createStore(id, theBuilder.getConstantNull(typeId));
+      theBuilder.createStore(varInfo, theBuilder.getConstantNull(typeId));
     }
   }
 

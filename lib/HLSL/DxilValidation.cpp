@@ -2371,16 +2371,33 @@ static void ValidateInstructionMetadata(Instruction *I,
 }
 
 static void ValidateFunctionAttribute(Function *F, ValidationContext &ValCtx) {
-  AttributeSet attrSet = F->getAttributes();
+  AttributeSet attrSet = F->getAttributes().getFnAttributes();
   // fp32-denorm-mode
-  if (attrSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
-    Attribute attr = attrSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
+  if (attrSet.hasAttribute(AttributeSet::FunctionIndex,
+                           DXIL::kFP32DenormKindString)) {
+    Attribute attr = attrSet.getAttribute(AttributeSet::FunctionIndex,
+                                          DXIL::kFP32DenormKindString);
     StringRef value = attr.getValueAsString();
     if (!value.equals(DXIL::kFP32DenormValueAnyString) &&
-      !value.equals(DXIL::kFP32DenormValueFtzString) &&
-      !value.equals(DXIL::kFP32DenormValuePreserveString))
-    {
-      ValCtx.EmitFnAttributeError(F, attr.getKindAsString(), attr.getValueAsString());
+        !value.equals(DXIL::kFP32DenormValueFtzString) &&
+        !value.equals(DXIL::kFP32DenormValuePreserveString)) {
+      ValCtx.EmitFnAttributeError(F, attr.getKindAsString(),
+                                  attr.getValueAsString());
+    }
+  }
+  // TODO: If validating libraries, we should remove all unknown function attributes.
+  // For each attribute, check if it is a known attribute
+  for (unsigned I = 0, E = attrSet.getNumSlots(); I != E; ++I) {
+    for (auto AttrIter = attrSet.begin(I), AttrEnd = attrSet.end(I);
+         AttrIter != AttrEnd; ++AttrIter) {
+      if (!AttrIter->isStringAttribute()) {
+        continue;
+      }
+      StringRef kind = AttrIter->getKindAsString();
+      if (!kind.equals(DXIL::kFP32DenormKindString)) {
+        ValCtx.EmitFnAttributeError(F, AttrIter->getKindAsString(),
+                                    AttrIter->getValueAsString());
+      }
     }
   }
 }

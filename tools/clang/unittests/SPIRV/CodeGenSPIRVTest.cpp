@@ -45,7 +45,7 @@ TEST_F(WholeFileTest, EmptyStructInterfaceVS) {
 TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
 TEST_F(FileTest, VectorTypes) { runFileTest("type.vector.hlsl"); }
 TEST_F(FileTest, MatrixTypes) { runFileTest("type.matrix.hlsl"); }
-TEST_F(FileTest, MatrixTypesMajornessZpr) { 
+TEST_F(FileTest, MatrixTypesMajornessZpr) {
   runFileTest("type.matrix.majorness.zpr.hlsl");
 }
 TEST_F(FileTest, MatrixTypesMajorness) {
@@ -85,6 +85,17 @@ TEST_F(FileTest, TriangleStreamTypes) {
 
 // For constants
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
+TEST_F(FileTest, 16BitDisabledScalarConstants) {
+  runFileTest("constant.scalar.16bit.disabled.hlsl");
+}
+TEST_F(FileTest, 16BitEnabledScalarConstants) {
+  // TODO: Fix spirv-val to make sure it respects the 16-bit extension.
+  runFileTest("constant.scalar.16bit.enabled.hlsl", FileTest::Expect::Success,
+              /*runValidation*/ false);
+}
+TEST_F(FileTest, 64BitScalarConstants) {
+  runFileTest("constant.scalar.64bit.hlsl");
+}
 TEST_F(FileTest, VectorConstants) { runFileTest("constant.vector.hlsl"); }
 TEST_F(FileTest, MatrixConstants) { runFileTest("constant.matrix.hlsl"); }
 TEST_F(FileTest, StructConstants) { runFileTest("constant.struct.hlsl"); }
@@ -105,6 +116,9 @@ TEST_F(FileTest, VarInitTbuffer) {
   runFileTest("var.init.tbuffer.hlsl", FileTest::Expect::Warning);
 }
 TEST_F(FileTest, VarInitOpaque) { runFileTest("var.init.opaque.hlsl"); }
+TEST_F(FileTest, VarInitCrossStorageClass) {
+  runFileTest("var.init.cross-storage-class.hlsl");
+}
 TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
 
 // For prefix/postfix increment/decrement
@@ -1057,7 +1071,9 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
 }
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
-TEST_F(FileTest, VulkanPushConstantOffset) { runFileTest("vk.push-constant.offset.hlsl"); }
+TEST_F(FileTest, VulkanPushConstantOffset) {
+  runFileTest("vk.push-constant.offset.hlsl");
+}
 TEST_F(FileTest, VulkanMultiplePushConstant) {
   runFileTest("vk.push-constant.multiple.hlsl", FileTest::Expect::Failure);
 }
