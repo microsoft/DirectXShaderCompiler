@@ -342,8 +342,8 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     llvm::SmallVector<uint32_t, 4> fieldTypes;
     llvm::SmallVector<llvm::StringRef, 4> fieldNames;
     for (const auto *field : decl->fields()) {
-      fieldTypes.push_back(translateType(field->getType(), rule,
-                                         field->hasAttr<HLSLRowMajorAttr>()));
+      fieldTypes.push_back(translateType(
+          field->getType(), rule, isRowMajorMatrix(field->getType(), field)));
       fieldNames.push_back(field->getName());
     }
 
@@ -671,6 +671,15 @@ bool TypeTranslator::isMxNMatrix(QualType type, QualType *elemType,
   return true;
 }
 
+bool TypeTranslator::isRowMajorMatrix(QualType type, const Decl *decl) const {
+  if (!isMxNMatrix(type) && !type->isArrayType())
+    return false;
+  if (!decl)
+    return spirvOptions.defaultRowMajor;
+  return decl->hasAttr<HLSLRowMajorAttr>() ||
+         !decl->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.defaultRowMajor;
+}
+
 bool TypeTranslator::isSpirvAcceptableMatrixType(QualType type) {
   QualType elemType = {};
   return isMxNMatrix(type, &elemType) && elemType->isFloatingType();
@@ -724,7 +733,7 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
     auto fieldType = cast<DeclaratorDecl>(field)->getType();
-    const bool isRowMajor = field->hasAttr<HLSLRowMajorAttr>();
+    const bool isRowMajor = isRowMajorMatrix(fieldType, field);
 
     uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
     std::tie(memberAlignment, memberSize) =
@@ -1056,8 +1065,9 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
     for (const auto *field : structType->getDecl()->fields()) {
       uint32_t memberAlignment = 0, memberSize = 0;
-      std::tie(memberAlignment, memberSize) = getAlignmentAndSize(
-          field->getType(), rule, field->hasAttr<HLSLRowMajorAttr>(), stride);
+      const bool isRowMajor = isRowMajorMatrix(field->getType(), field);
+      std::tie(memberAlignment, memberSize) =
+          getAlignmentAndSize(field->getType(), rule, isRowMajor, stride);
 
       // The base alignment of the structure is N, where N is the largest
       // base alignment value of any of its members...
