@@ -19,25 +19,71 @@ namespace MainNs
 {
     class Program
     {
+        static string TakeNextArg(string[] args, ref int idx)
+        {
+            if (idx >= args.Length)
+                return null;
+            string result = args[idx];
+            idx++;
+            return result;
+        }
+
+        static void ShowHelp()
+        {
+            Console.WriteLine("Prints out the color information for each token in a file.");
+            Console.WriteLine();
+            Console.WriteLine("USAGE:");
+            Console.WriteLine("  dndxc.exe [-w] [-s width height] filename.hlsl");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  -w    window user interface mode");
+            Console.WriteLine("  -s    set window width and height in pixels");
+        }
+
         [STAThread]
         static int Main(string[] args)
         {
             string firstArg = (args.Length < 1) ? "-w" : args[0];
             if (firstArg == "-?" || firstArg == "/?" || firstArg == "-help")
             {
-                Console.WriteLine("Prints out the color information for each token in a file.");
-                Console.WriteLine();
-                Console.WriteLine("USAGE:");
-                Console.WriteLine("  dndxc.exe [-w] filename.hlsl");
-                Console.WriteLine();
-                Console.WriteLine("Options:");
-                Console.WriteLine("  -w    window user interface mode");
+                ShowHelp();
                 return 1;
             }
 
-            if (firstArg == "-w")
+            int width = -1, height = -1;
+            bool showWindow = args.Length == 0;
+            for (int i = 0; i < args.Length;)
             {
-                new EditorForm().ShowDialog();
+                if (args[i] == "-w")
+                {
+                    showWindow = true;
+                    i++;
+                    continue;
+                }
+                if (args[i] == "-s")
+                {
+                    i++;
+                    string widthText = TakeNextArg(args, ref i);
+                    string heightText = TakeNextArg(args, ref i);
+                    if (widthText == null || heightText == null ||
+                        !Int32.TryParse(widthText, out width) ||
+                        !Int32.TryParse(heightText, out height))
+                    {
+                        ShowHelp();
+                        return 1;
+                    }
+                }
+            }
+
+            if (showWindow)
+            {
+                var form = new EditorForm();
+                if (width > 0)
+                {
+                    //form.ClientSize = new System.Drawing.Size(width, height);
+                    form.Size = new System.Drawing.Size(width, height);
+                }
+                form.ShowDialog();
                 return 0;
             }
 
