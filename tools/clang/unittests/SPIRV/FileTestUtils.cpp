@@ -32,12 +32,15 @@ bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
   return spirvTools.Disassemble(binary, generatedSpirvAsm, options);
 }
 
-bool validateSpirvBinary(std::vector<uint32_t> &binary) {
+bool validateSpirvBinary(std::vector<uint32_t> &binary,
+                         bool relaxLogicalPointer) {
+  spvtools::ValidatorOptions options;
+  options.SetRelaxLogicalPointer(relaxLogicalPointer);
   spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
   spirvTools.SetMessageConsumer(
       [](spv_message_level_t, const char *, const spv_position_t &,
          const char *message) { fprintf(stdout, "%s\n", message); });
-  return spirvTools.Validate(binary);
+  return spirvTools.Validate(binary.data(), binary.size(), options);
 }
 
 bool processRunCommandArgs(const llvm::StringRef runCommandLine,

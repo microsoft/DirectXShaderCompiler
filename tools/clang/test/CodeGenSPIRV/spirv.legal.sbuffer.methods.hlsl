@@ -131,15 +131,15 @@ float4 main() : SV_Target {
 // CHECK:      [[ptr1:%\d+]] = OpLoad %_ptr_Uniform_type_RWByteAddressBuffer %localRWBABuffer
 // CHECK:      [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_uint [[ptr1]] %uint_0 {{%\d+}}
 // CHECK-NEXT:                 OpStore [[ptr2]] {{%\d+}}
-    localRWBABuffer.Store(13, byte2);
+    localRWBABuffer.Store2(13, byte2);
 // CHECK:      [[ptr1:%\d+]] = OpLoad %_ptr_Uniform_type_RWByteAddressBuffer %localRWBABuffer
 // CHECK:      [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_uint [[ptr1]] %uint_0 {{%\d+}}
 // CHECK-NEXT:                 OpStore [[ptr2]] {{%\d+}}
-    localRWBABuffer.Store(14, byte3);
+    localRWBABuffer.Store3(14, byte3);
 // CHECK:      [[ptr1:%\d+]] = OpLoad %_ptr_Uniform_type_RWByteAddressBuffer %localRWBABuffer
 // CHECK:      [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_uint [[ptr1]] %uint_0 {{%\d+}}
 // CHECK-NEXT:                 OpStore [[ptr2]] {{%\d+}}
-    localRWBABuffer.Store(15, byte4);
+    localRWBABuffer.Store4(15, byte4);
 // CHECK:      [[ptr1:%\d+]] = OpLoad %_ptr_Uniform_type_RWByteAddressBuffer %localRWBABuffer
 // CHECK:      [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_uint [[ptr1]] %uint_0 {{%\d+}}
     localRWBABuffer.InterlockedAdd(dest, value, origin);
