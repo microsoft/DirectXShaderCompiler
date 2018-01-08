@@ -395,6 +395,9 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       seenPushConstantAt(), needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
+  if (options.invertY &&
+      !(shaderModel.IsVS() || shaderModel.IsDS() || shaderModel.IsGS()))
+    emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {

@@ -111,6 +111,13 @@ public:
   uint32_t createCompositeExtract(uint32_t resultType, uint32_t composite,
                                   llvm::ArrayRef<uint32_t> indexes);
 
+  /// \brief Creates a composite insert instruction. The given object will
+  /// replace the component in the composite at the given indices. Returns the
+  /// <result-id> for the new composite.
+  uint32_t createCompositeInsert(uint32_t resultType, uint32_t composite,
+                                 llvm::ArrayRef<uint32_t> indices,
+                                 uint32_t object);
+
   /// \brief Creates a vector shuffle instruction of selecting from the two
   /// vectors using selectors and returns the <result-id> of the result vector.
   uint32_t createVectorShuffle(uint32_t resultType, uint32_t vector1,
@@ -211,9 +218,9 @@ public:
   /// If compareVal is given a non-zero value, OpImageDrefGather or
   /// OpImageSparseDrefGather will be generated; otherwise, OpImageGather or
   /// OpImageSparseGather will be generated.
-  /// If residencyCodeId is not zero, the sparse version of the instructions will
-  /// be used, and the SPIR-V instruction for storing the resulting residency
-  /// code will also be emitted.
+  /// If residencyCodeId is not zero, the sparse version of the instructions
+  /// will be used, and the SPIR-V instruction for storing the resulting
+  /// residency code will also be emitted.
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t component,

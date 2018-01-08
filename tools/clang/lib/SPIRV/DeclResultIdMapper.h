@@ -599,7 +599,7 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
       astContext(context), diags(context.getDiagnostics()),
       typeTranslator(context, builder, diags, options), entryFunctionId(0),
       needsLegalization(false),
-      glPerVertex(model, context, builder, typeTranslator) {}
+      glPerVertex(model, context, builder, typeTranslator, options.invertY) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
   // Try both input and output even if input location assignment failed
