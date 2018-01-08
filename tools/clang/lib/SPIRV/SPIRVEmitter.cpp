@@ -3448,7 +3448,7 @@ SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
   //
   // TODO: We can optimize the codegen by emitting OpCompositeExtract if
   // all indices are contant integers.
-  if (!baseExpr->isGLValue()) {
+  if (base.isRValue()) {
     base = createTemporaryVar(baseExpr->getType(), "vector", base);
   }
 
