@@ -136,6 +136,7 @@ private:
   std::map<RegisterTypeAndSpace, SlotRange> m_slotAssignments;
   std::vector<unsigned> m_testOutput;
   CallInst *m_HandleForUAV;
+  std::wostringstream m_DynamicallyIndexedBindPoints;
 };
 
 static unsigned DeserializeInt(std::deque<wchar_t> & q)
@@ -172,6 +173,22 @@ RegisterType ParseRegisterType(std::deque<wchar_t> & q) {
   default: return RegisterType::Terminator;
   }
 }
+
+wchar_t EncodeRegisterType(RegisterType r)
+{
+  switch (r)
+  {
+  case RegisterType::CBV:     return L'C';
+  case RegisterType::SRV:     return L'S';
+  case RegisterType::UAV:     return L'U';
+  case RegisterType::RTV:     return L'R';
+  case RegisterType::DSV:     return L'D';
+  case RegisterType::Sampler: return L'M';
+  case RegisterType::SOV:     return L'O';
+  case RegisterType::Invalid: return L'I';
+  }
+  return L'.';
+};
 
 void ValidateDelimiter(std::deque<wchar_t> & q, wchar_t d) {
   ThrowIf(q.front() != d);
@@ -291,7 +308,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
     if (FoundDynamicIndexing) {
       if (OSOverride != nullptr) {
         formatted_raw_ostream FOS(*OSOverride);
-        FOS << "true";
+        FOS << "FoundDynamicIndexing";
       }
     }
   }
@@ -429,7 +446,9 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
             continue;
           }
 
-          auto slot = m_slotAssignments.find({ RegisterTypeFromResourceClass(ResClass), res->GetSpaceID() });
+          RegisterTypeAndSpace typAndSpace{ RegisterTypeFromResourceClass(ResClass), res->GetSpaceID() };
+
+          auto slot = m_slotAssignments.find(typAndSpace);
           // If the assignment isn't found, we assume it's not accessed
           if(slot != m_slotAssignments.end()) {
 
@@ -447,6 +466,11 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
               }
             }
             else {
+              m_DynamicallyIndexedBindPoints << 
+                EncodeRegisterType(typAndSpace.Type) << typAndSpace.Space << L':' << 
+                slot->second.startSlot << L":" << slot->second.numSlots << 
+                L';';
+
               // CompareWithSlotLimit will contain 1 if the access is out-of-bounds (both over- and and under-flow 
               // via the unsigned >= with slot count)
               auto CompareWithSlotLimit = Builder.CreateICmpUGE(createHandle.get_index(), HlslOP->GetU32Const(slot->second.numSlots), "CompareWithSlotLimit");
@@ -462,10 +486,13 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
             }
 
             EmitAccess(Ctx, HlslOP, Builder, slotIndex, raFunction.readWrite);
+            Modified = true;
           }
         }
       }
     }
+
+    m_DynamicallyIndexedBindPoints << L'.';
 
     // StoreOutput for render-targets:
     for (const auto & Overload : f16f32i16i32) {
@@ -484,22 +511,50 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
         {
           auto slot = m_slotAssignments.find({ RegisterType::RTV, 0 });
 
-          IRBuilder<> Builder(instruction);
-
-          EmitAccess(Ctx, HlslOP, Builder, HlslOP->GetU32Const(slot->second.startSlot), ShaderAccessFlags::Write);
+          if (slot != m_slotAssignments.end()) {
+            IRBuilder<> Builder(instruction);
+            EmitAccess(
+              Ctx, 
+              HlslOP, 
+              Builder, 
+              HlslOP->GetU32Const(slot->second.startSlot + sig.GetSemanticStartIndex()), 
+              ShaderAccessFlags::Write);
+            Modified = true;
+          }
         }
       }
     }
 
-    std::ostringstream s;
-    for (auto a : m_testOutput)
+    // EmitStream for stream out
     {
-      s << a << " ";
-    }
-    s << "\n";
-    OutputDebugStringA(s.str().c_str());
+      Function * TheFunction = HlslOP->GetOpFunc(DXIL::OpCode::EmitStream, Type::getVoidTy(Ctx));
+      auto FunctionUses = TheFunction->uses();
+      for (auto FI = FunctionUses.begin(); FI != FunctionUses.end(); ) {
+        auto & FunctionUse = *FI++;
+        auto FunctionUser = FunctionUse.getUser();
+        auto instruction = cast<Instruction>(FunctionUser);
 
-    Modified = true;
+        unsigned outputId = cast<ConstantInt>(instruction->getOperand(DXIL::OperandIndex::kStreamEmitCutIDOpIdx))->getLimitedValue();
+
+        auto slot = m_slotAssignments.find({ RegisterType::SOV, 0 /* register space */ });
+
+        if (slot != m_slotAssignments.end()) {
+          IRBuilder<> Builder(instruction);
+          EmitAccess(
+            Ctx, 
+            HlslOP, 
+            Builder, 
+            HlslOP->GetU32Const(slot->second.startSlot + outputId),
+            ShaderAccessFlags::Write);
+          Modified = true;
+        }
+      }
+    }
+
+    if (OSOverride != nullptr) {
+      formatted_raw_ostream FOS(*OSOverride);
+      FOS << L"DynamicallyIndexedBindPoints=" << m_DynamicallyIndexedBindPoints.str().c_str();
+    }
   }
 
   return Modified;
