@@ -148,6 +148,19 @@ ModuleBuilder::createCompositeExtract(uint32_t resultType, uint32_t composite,
   return resultId;
 }
 
+uint32_t ModuleBuilder::createCompositeInsert(uint32_t resultType,
+                                              uint32_t composite,
+                                              llvm::ArrayRef<uint32_t> indices,
+                                              uint32_t object) {
+  assert(insertPoint && "null insert point");
+  const uint32_t resultId = theContext.takeNextId();
+  instBuilder
+      .opCompositeInsert(resultType, resultId, object, composite, indices)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
 uint32_t
 ModuleBuilder::createVectorShuffle(uint32_t resultType, uint32_t vector1,
                                    uint32_t vector2,
@@ -773,14 +786,13 @@ void ModuleBuilder::decorate(uint32_t targetId, spv::Decoration decoration) {
 }
 
 #define IMPL_GET_PRIMITIVE_TYPE(ty)                                            \
-  \
-uint32_t ModuleBuilder::get##ty##Type() {                                      \
+                                                                               \
+  uint32_t ModuleBuilder::get##ty##Type() {                                    \
     const Type *type = Type::get##ty(theContext);                              \
     const uint32_t typeId = theContext.getResultIdForType(type);               \
     theModule.addType(type, typeId);                                           \
     return typeId;                                                             \
-  \
-}
+  }
 
 IMPL_GET_PRIMITIVE_TYPE(Void)
 IMPL_GET_PRIMITIVE_TYPE(Bool)
@@ -1049,16 +1061,15 @@ uint32_t ModuleBuilder::getConstantBool(bool value) {
 }
 
 #define IMPL_GET_PRIMITIVE_CONST(builderTy, cppTy)                             \
-  \
-uint32_t ModuleBuilder::getConstant##builderTy(cppTy value) {                  \
+                                                                               \
+  uint32_t ModuleBuilder::getConstant##builderTy(cppTy value) {                \
     const uint32_t typeId = get##builderTy##Type();                            \
     const Constant *constant =                                                 \
         Constant::get##builderTy(theContext, typeId, value);                   \
     const uint32_t constId = theContext.getResultIdForConstant(constant);      \
     theModule.addConstant(constant, constId);                                  \
     return constId;                                                            \
-  \
-}
+  }
 
 IMPL_GET_PRIMITIVE_CONST(Int16, int16_t)
 IMPL_GET_PRIMITIVE_CONST(Int32, int32_t)

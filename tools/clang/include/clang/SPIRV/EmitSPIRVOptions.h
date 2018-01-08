@@ -19,6 +19,7 @@ struct EmitSPIRVOptions {
   bool codeGenHighLevel;
   bool defaultRowMajor;
   bool disableValidation;
+  bool invertY;
   bool ignoreUnusedResources;
   bool enable16BitTypes;
   llvm::StringRef stageIoOrder;

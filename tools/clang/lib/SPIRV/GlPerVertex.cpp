@@ -57,12 +57,14 @@ inline bool hasGSPrimitiveTypeQualifier(const DeclaratorDecl *decl) {
 } // anonymous namespace
 
 GlPerVertex::GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
-                         ModuleBuilder &builder, TypeTranslator &translator)
+                         ModuleBuilder &builder, TypeTranslator &translator,
+                         bool negateY)
     : shaderModel(sm), astContext(context), theBuilder(builder),
-      typeTranslator(translator), inIsGrouped(true), outIsGrouped(true),
-      inBlockVar(0), outBlockVar(0), inClipVar(0), inCullVar(0), outClipVar(0),
-      outCullVar(0), inArraySize(0), outArraySize(0), inClipArraySize(1),
-      outClipArraySize(1), inCullArraySize(1), outCullArraySize(1) {}
+      typeTranslator(translator), invertY(negateY), inIsGrouped(true),
+      outIsGrouped(true), inBlockVar(0), outBlockVar(0), inClipVar(0),
+      inCullVar(0), outClipVar(0), outCullVar(0), inArraySize(0),
+      outArraySize(0), inClipArraySize(1), outClipArraySize(1),
+      inCullArraySize(1), outCullArraySize(1) {}
 
 void GlPerVertex::generateVars(uint32_t inArrayLen, uint32_t outArrayLen) {
   // Calling this method twice is an internal error.
@@ -624,8 +626,7 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
 }
 
 void GlPerVertex::writePositionOrPointSize(
-    bool isPosition, llvm::Optional<uint32_t> invocationId,
-    uint32_t value) const {
+    bool isPosition, llvm::Optional<uint32_t> invocationId, uint32_t value) {
   // We do not handle stand-alone Position/PointSize builtin here.
   assert(outIsGrouped);
 
@@ -643,6 +644,17 @@ void GlPerVertex::writePositionOrPointSize(
     // locate the Position/PointSize builtin.
     const uint32_t ptr =
         theBuilder.createAccessChain(ptrType, outBlockVar, {fieldIndex});
+
+    if (isPosition && invertY) {
+      if (shaderModel.IsVS() || shaderModel.IsDS()) {
+        const auto oldY =
+            theBuilder.createCompositeExtract(f32Type, value, {1});
+        const auto newY =
+            theBuilder.createUnaryOp(spv::Op::OpFNegate, f32Type, oldY);
+        value = theBuilder.createCompositeInsert(fieldType, value, {1}, newY);
+      }
+    }
+
     theBuilder.createStore(ptr, value);
     return;
   }
@@ -661,6 +673,7 @@ void GlPerVertex::writePositionOrPointSize(
   // and the second one is the struct index.
   const uint32_t ptr = theBuilder.createAccessChain(ptrType, outBlockVar,
                                                     {arrayIndex, fieldIndex});
+
   theBuilder.createStore(ptr, value);
 }
 
