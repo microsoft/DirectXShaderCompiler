@@ -52,7 +52,8 @@ float4 main(in float4 pos : SV_Position) : SV_Target
     S buffer3;
     buffer3 = retStuff();
 
-// The underlying struct type has the same layout. Can write out as a whole.
+// TODO: The underlying struct type has the same layout but %type_TextureBuffer_S
+// has an additional BufferBlock decoration. So this causes an validation error.
 // CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %myASBuffer %uint_0 {{%\d+}}
 // CHECK-NEXT: [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
 // CHECK-NEXT:                OpStore [[ptr]] [[val]]
