@@ -488,6 +488,22 @@ bool TypeTranslator::isAKindOfStructuredOrByteBuffer(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    StringRef name = recordType->getDecl()->getName();
+    if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+        name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+        name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer")
+      return true;
+
+    for (const auto *field : recordType->getDecl()->fields()) {
+      if (isOrContainsAKindOfStructuredOrByteBuffer(field->getType()))
+        return true;
+    }
+  }
+  return false;
+}
+
 bool TypeTranslator::isStructuredBuffer(QualType type) {
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
@@ -836,10 +852,20 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
 
   if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
       name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {
-    auto &context = *theBuilder.getSPIRVContext();
     // StructureBuffer<S> will be translated into an OpTypeStruct with one
     // field, which is an OpTypeRuntimeArray of OpTypeStruct (S).
 
+    // If layout rule is void, it means these resource types are used for
+    // declaring local resources, which should be created as alias variables.
+    // The aliased-to variable should surely be in the Uniform storage class,
+    // which has layout decorations.
+    bool asAlias = false;
+    if (rule == LayoutRule::Void) {
+      asAlias = true;
+      rule = LayoutRule::GLSLStd430;
+    }
+
+    auto &context = *theBuilder.getSPIRVContext();
     const auto s = hlsl::GetHLSLResourceResultType(type);
     const uint32_t structType = translateType(s, rule);
     std::string structName;
@@ -864,16 +890,36 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
       decorations.push_back(Decoration::getNonWritable(context, 0));
     decorations.push_back(Decoration::getBufferBlock(context));
     const std::string typeName = "type." + name.str() + "." + structName;
-    return theBuilder.getStructType(raType, typeName, {}, decorations);
+    const auto valType =
+        theBuilder.getStructType(raType, typeName, {}, decorations);
+
+    if (asAlias) {
+      // All structured buffers are in the Uniform storage class.
+      return theBuilder.getPointerType(valType, spv::StorageClass::Uniform);
+    } else {
+      return valType;
+    }
   }
 
   // ByteAddressBuffer types.
   if (name == "ByteAddressBuffer") {
-    return theBuilder.getByteAddressBufferType(/*isRW*/ false);
+    const auto bufferType = theBuilder.getByteAddressBufferType(/*isRW*/ false);
+    if (rule == LayoutRule::Void) {
+      // All byte address buffers are in the Uniform storage class.
+      return theBuilder.getPointerType(bufferType, spv::StorageClass::Uniform);
+    } else {
+      return bufferType;
+    }
   }
   // RWByteAddressBuffer types.
   if (name == "RWByteAddressBuffer") {
-    return theBuilder.getByteAddressBufferType(/*isRW*/ true);
+    const auto bufferType = theBuilder.getByteAddressBufferType(/*isRW*/ true);
+    if (rule == LayoutRule::Void) {
+      // All byte address buffers are in the Uniform storage class.
+      return theBuilder.getPointerType(bufferType, spv::StorageClass::Uniform);
+    } else {
+      return bufferType;
+    }
   }
 
   // Buffer and RWBuffer types

@@ -95,6 +95,11 @@ public:
   /// (RW)ByteAddressBuffer, or {Append|Consume}StructuredBuffer.
   static bool isAKindOfStructuredOrByteBuffer(QualType type);
 
+  /// \brief Returns true if the given type is the HLSL (RW)StructuredBuffer,
+  /// (RW)ByteAddressBuffer, {Append|Consume}StructuredBuffer, or a struct
+  /// containing one of the above.
+  static bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type);
+
   /// \brief Returns true if the given type is the HLSL Buffer type.
   static bool isBuffer(QualType type);
 

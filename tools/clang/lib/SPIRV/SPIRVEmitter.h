@@ -118,6 +118,13 @@ private:
   /// Note: legalization specific code
   SpirvEvalInfo loadIfAliasVarRef(const Expr *expr);
 
+  /// Loads the pointer of the aliased-to-variable and ajusts aliasVarInfo
+  /// accordingly if aliasVarExpr is referencing an alias variable. Returns true
+  /// if aliasVarInfo is changed, false otherwise.
+  ///
+  /// Note: legalization specific code
+  bool loadIfAliasVarRef(const Expr *aliasVarExpr, SpirvEvalInfo &aliasVarInfo);
+
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.

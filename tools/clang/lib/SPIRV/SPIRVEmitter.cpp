@@ -660,17 +660,22 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
       return info.setRValue();
     }
 
-    uint32_t valType = 0;
-    if (valType = info.getValTypeId()) {
+    if (loadIfAliasVarRef(expr, info)) {
       // We are loading an alias variable as a whole here. This is likely for
       // wholesale assignments or function returns. Need to load the pointer.
       //
       // Note: legalization specific code
+      // TODO: It seems we should not set rvalue here since info is still
+      // holding a pointer. But it fails structured buffer assignment because
+      // of double loadIfGLValue() calls if we do not. Fix it.
+      return info.setRValue();
     }
+
+    uint32_t valType = 0;
     // TODO: Ouch. Very hacky. We need special path to get the value type if
     // we are loading a whole ConstantBuffer/TextureBuffer since the normal
     // type translation path won't work.
-    else if (const auto *declContext = isConstantTextureBufferDeclRef(expr)) {
+    if (const auto *declContext = isConstantTextureBufferDeclRef(expr)) {
       valType = declIdMapper.getCTBufferPushConstantTypeId(declContext);
     } else {
       valType =
@@ -684,18 +689,34 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
 
 SpirvEvalInfo SPIRVEmitter::loadIfAliasVarRef(const Expr *expr) {
   auto info = doExpr(expr);
+  loadIfAliasVarRef(expr, info);
+  return info;
+}
 
-  if (const auto valTypeId = info.getValTypeId()) {
-    return info
-        // Load the pointer of the aliased-to-variable
-        .setResultId(theBuilder.createLoad(valTypeId, info))
-        // Set the value's <type-id> to zero to indicate that we've performed
-        // dereference over the pointer-to-pointer and now should fallback to
-        // the normal path
-        .setValTypeId(0);
+bool SPIRVEmitter::loadIfAliasVarRef(const Expr *varExpr, SpirvEvalInfo &info) {
+  if (info.containsAliasComponent() &&
+      TypeTranslator::isAKindOfStructuredOrByteBuffer(varExpr->getType())) {
+    // Aliased-to variables are all in the Uniform storage class with GLSL
+    // std430 layout rules.
+    const auto ptrType = typeTranslator.translateType(varExpr->getType());
+
+    // Load the pointer of the aliased-to-variable if the expression has a
+    // pointer to pointer type. That is, the expression itself is a lvalue.
+    // (Note that we translate alias function return values as pointer types,
+    // not pointer to pointer types.)
+    if (varExpr->isGLValue())
+      info.setResultId(theBuilder.createLoad(ptrType, info));
+
+    info.setStorageClass(spv::StorageClass::Uniform)
+        .setLayoutRule(LayoutRule::GLSLStd430)
+        // Set to false to indicate that we've performed dereference over the
+        // pointer-to-pointer and now should fallback to the normal path
+        .setContainsAliasComponent(false);
+
+    return true;
   }
 
-  return info;
+  return false;
 }
 
 uint32_t SPIRVEmitter::castToType(uint32_t value, QualType fromType,
@@ -977,7 +998,7 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
       else
         storeValue(varId, loadIfGLValue(init), decl->getType());
 
-      // Update counter variable associatd with local variables
+      // Update counter variable associated with local variables
       tryToAssignCounterVar(decl, init);
     }
 
@@ -1427,7 +1448,7 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
 
 void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
   if (const auto *retVal = stmt->getRetValue()) {
-    // Update counter variable associatd with function returns
+    // Update counter variable associated with function returns
     tryToAssignCounterVar(curFunction, retVal);
 
     const auto retInfo = doExpr(retVal);
@@ -1559,7 +1580,7 @@ SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
   // For other binary operations, we need to evaluate lhs before rhs.
   if (opcode == BO_Assign) {
     if (const auto *dstDecl = getReferencedDef(expr->getLHS()))
-      // Update counter variable associatd with lhs of assignments
+      // Update counter variable associated with lhs of assignments
       tryToAssignCounterVar(dstDecl, expr->getRHS());
 
     return processAssignment(expr->getLHS(), loadIfGLValue(expr->getRHS()),
@@ -4645,6 +4666,18 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
       const auto thisBaseType = thisBase->getType();
       const Expr *base = collectArrayStructIndices(thisBase, indices);
 
+      if (thisBaseType != base->getType() &&
+          TypeTranslator::isAKindOfStructuredOrByteBuffer(thisBaseType)) {
+        // The immediate base is a kind of structured or byte buffer. It should
+        // be an alias variable. Break the normal index collecting chain.
+        // Return the immediate base as the base so that we can apply other
+        // hacks for legalization over it.
+        //
+        // Note: legalization specific code
+        indices->clear();
+        base = thisBase;
+      }
+
       // If the base is a StructureType, we need to push an addtional index 0
       // here. This is because we created an additional OpTypeRuntimeArray
       // in the structure.
@@ -7174,7 +7207,7 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     if (const auto *init = varDecl->getInit()) {
       storeValue(varInfo, doExpr(init), varDecl->getType());
 
-      // Update counter variable associatd with global variables
+      // Update counter variable associated with global variables
       tryToAssignCounterVar(varDecl, init);
     } else {
       const auto typeId = typeTranslator.translateType(varDecl->getType());
