@@ -1737,10 +1737,12 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   for (uint32_t i = 0; i < numParams; ++i) {
     const auto *param = callee->getParamDecl(i);
     if (canActAsOutParmVar(param)) {
+      const auto *arg = callExpr->getArg(i);
       const uint32_t index = i + isNonStaticMemberCall;
       const uint32_t typeId = typeTranslator.translateType(param->getType());
       const uint32_t value = theBuilder.createLoad(typeId, params[index]);
-      storeValue(args[index], value, param->getType());
+
+      processAssignment(arg, value, false, args[index]);
     }
   }
 
