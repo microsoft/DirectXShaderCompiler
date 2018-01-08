@@ -517,12 +517,10 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
 
   const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
   info.setResultId(id);
-  if (isAlias)
-    // No need to dereference to get the pointer. Alias function returns
-    // themselves are already pointers to values.
-    info.setValTypeId(0);
-  else
-    // All other cases should be normal rvalues.
+  // No need to dereference to get the pointer. Alias function returns
+  // themselves are already pointers to values. All other cases should be
+  // normal rvalues.
+  if (!isAlias)
     info.setRValue();
 
   // Create alias counter variable if suitable
@@ -1882,25 +1880,18 @@ uint32_t DeclResultIdMapper::getTypeForPotentialAliasVar(
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
     // This method is only intended to be used to create SPIR-V variables in the
     // Function or Private storage class.
-    assert(!varDecl->isExceptionVariable() || varDecl->isStaticDataMember());
+    assert(!varDecl->isExternallyVisible() || varDecl->isStaticDataMember());
   }
 
   const QualType type = getTypeOrFnRetType(decl);
   // Whether we should generate this decl as an alias variable.
   bool genAlias = false;
-  // All texture/structured/byte buffers use GLSL std430 rules.
-  LayoutRule rule = LayoutRule::GLSLStd430;
 
   if (const auto *buffer = dyn_cast<HLSLBufferDecl>(decl->getDeclContext())) {
     // For ConstantBuffer and TextureBuffer
     if (buffer->isConstantBufferView())
       genAlias = true;
-    // ConstantBuffer uses GLSL std140 rules.
-    // TODO: do we actually want to include constant/texture buffers
-    // in this method?
-    if (buffer->isCBuffer())
-      rule = LayoutRule::GLSLStd140;
-  } else if (TypeTranslator::isAKindOfStructuredOrByteBuffer(type)) {
+  } else if (TypeTranslator::isOrContainsAKindOfStructuredOrByteBuffer(type)) {
     genAlias = true;
   }
 
@@ -1910,18 +1901,8 @@ uint32_t DeclResultIdMapper::getTypeForPotentialAliasVar(
   if (genAlias) {
     needsLegalization = true;
 
-    const uint32_t valType = typeTranslator.translateType(type, rule);
-    // All constant/texture/structured/byte buffers are in the Uniform
-    // storage class.
-    const auto ptrType =
-        theBuilder.getPointerType(valType, spv::StorageClass::Uniform);
-
     if (info)
-      info->setStorageClass(spv::StorageClass::Uniform)
-          .setLayoutRule(rule)
-          .setValTypeId(ptrType);
-
-    return ptrType;
+      info->setContainsAliasComponent(true);
   }
 
   return typeTranslator.translateType(type);
