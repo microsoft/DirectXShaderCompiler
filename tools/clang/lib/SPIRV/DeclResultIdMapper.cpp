@@ -517,10 +517,11 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
 
   const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
   info.setResultId(id);
-  // No need to dereference to get the pointer. Alias function returns
-  // themselves are already pointers to values. All other cases should be
-  // normal rvalues.
-  if (!isAlias)
+  // No need to dereference to get the pointer. Function returns that are
+  // stand-alone aliases are already pointers to values. All other cases should
+  // be normal rvalues.
+  if (!isAlias ||
+      !TypeTranslator::isAKindOfStructuredOrByteBuffer(fn->getReturnType()))
     info.setRValue();
 
   // Create alias counter variable if suitable

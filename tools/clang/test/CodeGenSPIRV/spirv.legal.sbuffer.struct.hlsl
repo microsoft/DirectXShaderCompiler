@@ -11,10 +11,14 @@ struct S {
     ConsumeStructuredBuffer<float4> consume;
 };
 
-// CHECK: %T = OpTypeStruct %_ptr_Uniform_type_StructuredBuffer_Basic %_ptr_Uniform_type_RWStructuredBuffer_Basic
+// CHECK: %T = OpTypeStruct %_ptr_Uniform_type_StructuredBuffer_Basic %_ptr_Uniform_type_RWStructuredBuffer_Basic %_ptr_Uniform_type_StructuredBuffer_int
 struct T {
       StructuredBuffer<Basic> ro;
     RWStructuredBuffer<Basic> rw;
+      StructuredBuffer<int>   ro2;
+
+    StructuredBuffer<Basic> getSBuffer() { return ro; }
+    StructuredBuffer<int>   getSBuffer2() { return ro2; }
 };
 
 // CHECK: %Combine = OpTypeStruct %S %T %_ptr_Uniform_type_ByteAddressBuffer %_ptr_Uniform_type_RWByteAddressBuffer
@@ -23,6 +27,8 @@ struct Combine {
                       T t;
       ByteAddressBuffer ro;
     RWByteAddressBuffer rw;
+
+    T getT() { return t; }
 };
 
        StructuredBuffer<Basic>  gSBuffer;
@@ -62,6 +68,20 @@ float4 main() : SV_Target {
 // CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Function__ptr_Uniform_type_RWByteAddressBuffer %c %int_3
 // CHECK-NEXT:                OpStore [[ptr]] %gRWBABuffer
     c.rw = gRWBABuffer;
+
+// Make sure that we create temporary variable for intermediate objects since
+// the function expect pointers as parameters.
+// CHECK:     [[call1:%\d+]] = OpFunctionCall %T %Combine_getT %c
+// CHECK-NEXT:                 OpStore %temp_var_T [[call1]]
+// CHECK-NEXT:[[call2:%\d+]] = OpFunctionCall %_ptr_Uniform_type_StructuredBuffer_Basic %T_getSBuffer %temp_var_T
+// CHECK-NEXT:  [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_v4float [[call2]] %int_0 %uint_10 %int_1
+// CHECK-NEXT:      {{%\d+}} = OpLoad %v4float [[ptr]]
+    float4 val = c.getT().getSBuffer()[10].b;
+
+// Check StructuredBuffer of scalar type
+// CHECK:     [[call2:%\d+]] = OpFunctionCall %_ptr_Uniform_type_StructuredBuffer_int %T_getSBuffer2 %temp_var_T_0
+// CHECK-NEXT:      {{%\d+}} = OpAccessChain %_ptr_Uniform_int [[call2]] %int_0 %uint_42
+    int index = c.getT().getSBuffer2()[42];
 
 // CHECK:      [[val:%\d+]] = OpLoad %Combine %c
 // CHECK-NEXT:                OpStore %param_var_comb [[val]]
