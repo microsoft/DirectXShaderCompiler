@@ -480,18 +480,18 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
         return;
       }
     }
+  }
 
-    // Validate the generated SPIR-V code
-    if (!spirvOptions.disableValidation) {
-      std::string messages;
-      if (!spirvToolsValidate(&m, &messages)) {
-        emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
-        emitNote("please file a bug report on "
-                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
-                 "with source code if possible",
-                 {});
-        return;
-      }
+  // Validate the generated SPIR-V code
+  if (!spirvOptions.disableValidation) {
+    std::string messages;
+    if (!spirvToolsValidate(&m, &messages)) {
+      emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
+      emitNote("please file a bug report on "
+               "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+               "with source code if possible",
+               {});
+      return;
     }
   }
 
