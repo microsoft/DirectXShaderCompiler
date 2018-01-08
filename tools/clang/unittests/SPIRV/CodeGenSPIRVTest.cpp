@@ -49,7 +49,7 @@ TEST_F(FileTest, MatrixTypesMajornessZpr) {
   runFileTest("type.matrix.majorness.zpr.hlsl");
 }
 TEST_F(FileTest, MatrixTypesMajorness) {
-  runFileTest("type.matrix.majorness.hlsl", FileTest::Expect::Warning);
+  runFileTest("type.matrix.majorness.hlsl", Expect::Warning);
 }
 TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
 TEST_F(FileTest, ClassTypes) { runFileTest("type.class.hlsl"); }
@@ -90,7 +90,7 @@ TEST_F(FileTest, 16BitDisabledScalarConstants) {
 }
 TEST_F(FileTest, 16BitEnabledScalarConstants) {
   // TODO: Fix spirv-val to make sure it respects the 16-bit extension.
-  runFileTest("constant.scalar.16bit.enabled.hlsl", FileTest::Expect::Success,
+  runFileTest("constant.scalar.16bit.enabled.hlsl", Expect::Success,
               /*runValidation*/ false);
 }
 TEST_F(FileTest, 64BitScalarConstants) {
@@ -110,10 +110,10 @@ TEST_F(FileTest, VarInitMatrix1x1) { runFileTest("var.init.matrix.1x1.hlsl"); }
 TEST_F(FileTest, VarInitStruct) { runFileTest("var.init.struct.hlsl"); }
 TEST_F(FileTest, VarInitArray) { runFileTest("var.init.array.hlsl"); }
 TEST_F(FileTest, VarInitCbuffer) {
-  runFileTest("var.init.cbuffer.hlsl", FileTest::Expect::Warning);
+  runFileTest("var.init.cbuffer.hlsl", Expect::Warning);
 }
 TEST_F(FileTest, VarInitTbuffer) {
-  runFileTest("var.init.tbuffer.hlsl", FileTest::Expect::Warning);
+  runFileTest("var.init.tbuffer.hlsl", Expect::Warning);
 }
 TEST_F(FileTest, VarInitOpaque) { runFileTest("var.init.opaque.hlsl"); }
 TEST_F(FileTest, VarInitCrossStorageClass) {
@@ -563,7 +563,7 @@ TEST_F(FileTest, SemanticArbitraryAlphaLocation) {
   runFileTest("semantic.arbitrary.location.alpha.hlsl");
 }
 TEST_F(FileTest, SemanticDuplication) {
-  runFileTest("semantic.duplication.hlsl", FileTest::Expect::Failure);
+  runFileTest("semantic.duplication.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, SemanticOnStruct) { runFileTest("semantic.on-struct.hlsl"); }
 
@@ -931,7 +931,7 @@ TEST_F(FileTest, PrimitiveTriangleAdjGS) {
   runFileTest("primitive.triangleadj.gs.hlsl");
 }
 TEST_F(FileTest, PrimitiveErrorGS) {
-  runFileTest("primitive.error.gs.hlsl", FileTest::Expect::Failure);
+  runFileTest("primitive.error.gs.hlsl", Expect::Failure);
 }
 
 // SPIR-V specific
@@ -980,48 +980,43 @@ TEST_F(FileTest, SpirvInterpolation) {
   runFileTest("spirv.interpolation.hlsl");
 }
 TEST_F(FileTest, SpirvInterpolationError) {
-  runFileTest("spirv.interpolation.error.hlsl", FileTest::Expect::Failure);
+  runFileTest("spirv.interpolation.error.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, SpirvLegalizationOpaqueStruct) {
   runFileTest("spirv.legal.opaque-struct.hlsl", Expect::Success,
-              // The generated SPIR-V needs legalization.
-              /*runValidation=*/false);
+              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferUsage) {
   runFileTest("spirv.legal.sbuffer.usage.hlsl", Expect::Success,
-              // The generated SPIR-V needs legalization.
-              /*runValidation=*/false);
+              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferMethods) {
   runFileTest("spirv.legal.sbuffer.methods.hlsl", Expect::Success,
-              // The generated SPIR-V needs legalization.
-              /*runValidation=*/false);
+              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounter) {
   runFileTest("spirv.legal.sbuffer.counter.hlsl", Expect::Success,
-              // The generated SPIR-V needs legalization.
-              /*runValidation=*/false);
+              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
   runFileTest("spirv.legal.sbuffer.struct.hlsl", Expect::Success,
-              // The generated SPIR-V needs legalization.
-              /*runValidation=*/false);
+              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
 }
 TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
   runFileTest("spirv.legal.cbuffer.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationTextureBuffer) {
   runFileTest("spirv.legal.tbuffer.hlsl", Expect::Success,
-              // The generated SPIR-V needs legalization.
+              // TODO: fix the different type error for OpStore
               /*runValidation=*/false);
 }
 
 TEST_F(FileTest, VulkanAttributeErrors) {
-  runFileTest("vk.attribute.error.hlsl", FileTest::Expect::Failure);
+  runFileTest("vk.attribute.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, VulkanAttributeInvalidUsages) {
-  runFileTest("vk.attribute.invalid.hlsl", FileTest::Expect::Failure);
+  runFileTest("vk.attribute.invalid.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanCLOptionIgnoreUnusedResources) {
@@ -1047,13 +1042,13 @@ TEST_F(FileTest, VulkanLocationInputImplicitOutputExplicit) {
   runFileTest("vk.location.exp-out.hlsl");
 }
 TEST_F(FileTest, VulkanLocationTooLarge) {
-  runFileTest("vk.location.large.hlsl", FileTest::Expect::Failure);
+  runFileTest("vk.location.large.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, VulkanLocationReassigned) {
-  runFileTest("vk.location.reassign.hlsl", FileTest::Expect::Failure);
+  runFileTest("vk.location.reassign.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
-  runFileTest("vk.location.mixed.hlsl", FileTest::Expect::Failure);
+  runFileTest("vk.location.mixed.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanExplicitBinding) {
@@ -1074,13 +1069,13 @@ TEST_F(FileTest, VulkanRegisterBindingShift) {
   runFileTest("vk.binding.cl.hlsl");
 }
 TEST_F(FileTest, VulkanExplicitBindingReassigned) {
-  runFileTest("vk.binding.explicit.error.hlsl", FileTest::Expect::Warning);
+  runFileTest("vk.binding.explicit.error.hlsl", Expect::Warning);
 }
 TEST_F(FileTest, VulkanRegisterBindingReassigned) {
-  runFileTest("vk.binding.register.error.hlsl", FileTest::Expect::Warning);
+  runFileTest("vk.binding.register.error.hlsl", Expect::Warning);
 }
 TEST_F(FileTest, VulkanRegisterBindingShiftReassigned) {
-  runFileTest("vk.binding.cl.error.hlsl", FileTest::Expect::Warning);
+  runFileTest("vk.binding.cl.error.hlsl", Expect::Warning);
 }
 TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
@@ -1093,7 +1088,7 @@ TEST_F(FileTest, VulkanPushConstantOffset) {
   runFileTest("vk.push-constant.offset.hlsl");
 }
 TEST_F(FileTest, VulkanMultiplePushConstant) {
-  runFileTest("vk.push-constant.multiple.hlsl", FileTest::Expect::Failure);
+  runFileTest("vk.push-constant.multiple.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanLayoutCBufferStd140) {

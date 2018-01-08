@@ -249,7 +249,8 @@ bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
   return optimizer.Run(module->data(), module->size(), module);
 }
 
-bool spirvToolsValidate(std::vector<uint32_t> *module, std::string *messages) {
+bool spirvToolsValidate(std::vector<uint32_t> *module, std::string *messages,
+                        bool relaxLogicalPointer) {
   spvtools::SpirvTools tools(SPV_ENV_VULKAN_1_0);
 
   tools.SetMessageConsumer(
@@ -257,7 +258,10 @@ bool spirvToolsValidate(std::vector<uint32_t> *module, std::string *messages) {
                  const spv_position_t & /*position*/,
                  const char *message) { *messages += message; });
 
-  return tools.Validate(module->data(), module->size());
+  spvtools::ValidatorOptions options;
+  options.SetRelaxLogicalPointer(relaxLogicalPointer);
+
+  return tools.Validate(module->data(), module->size(), options);
 }
 
 /// Translates atomic HLSL opcodes into the equivalent SPIR-V opcode.
@@ -395,8 +399,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       seenPushConstantAt(), needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
-  if (options.invertY &&
-      !(shaderModel.IsVS() || shaderModel.IsDS() || shaderModel.IsGS()))
+  if (options.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
+      !shaderModel.IsGS())
     emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
 }
 
@@ -488,7 +492,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   // Validate the generated SPIR-V code
   if (!spirvOptions.disableValidation) {
     std::string messages;
-    if (!spirvToolsValidate(&m, &messages)) {
+    if (!spirvToolsValidate(&m, &messages,
+                            declIdMapper.requiresLegalization())) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
       emitNote("please file a bug report on "
                "https://github.com/Microsoft/DirectXShaderCompiler/issues "
