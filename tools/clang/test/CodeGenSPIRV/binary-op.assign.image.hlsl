@@ -50,4 +50,20 @@ void main() {
 // CHECK-NEXT: [[tex:%\d+]] = OpLoad %type_3d_image %MyRWTexture3
 // CHECK-NEXT:                OpImageWrite [[tex]] {{%\d+}} [[new]]
     MyRWTexture3[uint3(8, 9, 10)].xy = 28;
+
+// CHECK:      [[buf:%\d+]] = OpLoad %type_buffer_image %MyRWBuffer
+// CHECK-NEXT: [[old:%\d+]] = OpImageRead %v4uint [[buf]] %uint_11 None
+// CHECK-NEXT: [[val:%\d+]] = OpCompositeExtract %uint [[old]] 0
+// CHECK-NEXT: [[add:%\d+]] = OpIAdd %uint [[val]] %uint_30
+// CHECK-NEXT: [[buf:%\d+]] = OpLoad %type_buffer_image %MyRWBuffer
+// CHECK-NEXT:                OpImageWrite [[buf]] %uint_11 [[add]]
+    MyRWBuffer[11] += 30;
+
+// CHECK:      [[tex:%\d+]] = OpLoad %type_2d_image %MyRWTexture
+// CHECK-NEXT: [[old:%\d+]] = OpImageRead %v4int [[tex]] {{%\d+}} None
+// CHECK-NEXT: [[val:%\d+]] = OpCompositeExtract %int [[old]] 0
+// CHECK-NEXT: [[mul:%\d+]] = OpIMul %int [[val]] %int_31
+// CHECK-NEXT: [[tex:%\d+]] = OpLoad %type_2d_image %MyRWTexture
+// CHECK-NEXT:                OpImageWrite [[tex]] {{%\d+}} [[mul]]
+    MyRWTexture[uint2(12, 13)] *= 31;
 }

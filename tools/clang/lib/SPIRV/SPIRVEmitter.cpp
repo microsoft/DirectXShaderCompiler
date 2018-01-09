@@ -3981,8 +3981,8 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
     rhsVal = doExpr(rhs);
     lhsVal = lhsPtr = doExpr(lhs);
     // This is a compound assignment. We need to load the lhs value if lhs
-    // does not generate a vector shuffle.
-    if (!isVectorShuffle(lhs)) {
+    // is not already rvalue and does not generate a vector shuffle.
+    if (!lhsPtr.isRValue() && !isVectorShuffle(lhs)) {
       const uint32_t lhsTy = typeTranslator.translateType(lhs->getType());
       lhsVal = theBuilder.createLoad(lhsTy, lhsPtr);
     }
