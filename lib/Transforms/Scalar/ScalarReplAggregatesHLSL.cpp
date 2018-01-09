@@ -5060,7 +5060,9 @@ void SROA_Parameter_HLSL::flattenArgument(
   Function *Entry = m_pHLModule->GetEntryFunction();
   bool hasShaderInputOutput = F == Entry;
   if (m_pHLModule->HasDxilFunctionProps(F)) {
-    hasShaderInputOutput = true;
+    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
+    if (!funcProps.IsRay())
+      hasShaderInputOutput = true;
   }
   if (m_pHLModule->HasDxilFunctionProps(Entry)) {
     DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(Entry);

@@ -4263,6 +4263,10 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     }
   } else {
     for (auto &it : entryFunctionMap) {
+      // skip clone if RT entry
+      if (m_pHLModule->GetDxilFunctionProps(it.second.Func).IsRay())
+        continue;
+
       CloneShaderEntry(it.second.Func, it.getKey(), *m_pHLModule);
 
       auto AttrIter = HSEntryPatchConstantFuncAttr.find(it.second.Func);
