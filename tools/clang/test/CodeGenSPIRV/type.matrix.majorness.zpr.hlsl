@@ -21,7 +21,7 @@ cbuffer MyCBuffer {
 }
 
 struct T {
-               float    f;
+               float    f[2]; // Make sure that arrays of non-matrices work
 // CHECK: OpMemberDecorate %T 1 ColMajor
                float2x3 mat1;
 // CHECK: OpMemberDecorate %T 2 ColMajor

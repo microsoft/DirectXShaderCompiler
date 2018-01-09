@@ -690,8 +690,14 @@ bool TypeTranslator::isMxNMatrix(QualType type, QualType *elemType,
 bool TypeTranslator::isRowMajorMatrix(QualType type, const Decl *decl) const {
   if (!isMxNMatrix(type) && !type->isArrayType())
     return false;
+
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type))
+    if (!isMxNMatrix(arrayType->getElementType()))
+      return false;
+
   if (!decl)
     return spirvOptions.defaultRowMajor;
+
   return decl->hasAttr<HLSLRowMajorAttr>() ||
          !decl->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.defaultRowMajor;
 }
