@@ -1569,7 +1569,7 @@ SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   TypeTranslator::LiteralTypeHint hint(typeTranslator, astContext.IntTy);
 
   llvm::SmallVector<uint32_t, 4> indices;
-  auto info = doExpr(collectArrayStructIndices(expr, &indices));
+  auto info = loadIfAliasVarRef(collectArrayStructIndices(expr, &indices));
 
   if (!indices.empty()) {
     (void)turnIntoElementPtr(info, expr->getType(), indices);
