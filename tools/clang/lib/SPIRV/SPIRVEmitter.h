@@ -220,10 +220,6 @@ private:
   /// Tries to emit instructions for assigning to the given vector element
   /// accessing expression. Returns 0 if the trial fails and no instructions
   /// are generated.
-  ///
-  /// This method handles the cases that we are writing to neither one element
-  /// or all elements in their original order. For other cases, 0 will be
-  /// returned and the normal assignment process should be used.
   SpirvEvalInfo tryToAssignToVectorElements(const Expr *lhs,
                                             const SpirvEvalInfo &rhs);
 
