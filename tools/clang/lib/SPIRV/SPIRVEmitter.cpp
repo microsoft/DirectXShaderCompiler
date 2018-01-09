@@ -4426,11 +4426,14 @@ SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
   if (!lhsExpr)
     return 0;
 
-  if (!isVectorShuffle(lhs)) {
-    // No vector shuffle needed to be generated for this assignment.
-    // Should fall back to the normal handling of assignment.
-    return 0;
-  }
+  // Special case for <scalar-value>.x, which will have an AST of
+  // HLSLVectorElementExpr whose base is an ImplicitCastExpr
+  // (CK_HLSLVectorSplat). We just need to assign to <scalar-value>
+  // for such case.
+  if (const auto *baseCast = dyn_cast<CastExpr>(lhsExpr->getBase()))
+    if (baseCast->getCastKind() == CastKind::CK_HLSLVectorSplat &&
+        hlsl::GetHLSLVecSize(baseCast->getType()) == 1)
+      return processAssignment(baseCast->getSubExpr(), rhs, false);
 
   const Expr *base = nullptr;
   hlsl::VectorMemberAccessPositions accessor;
@@ -4438,12 +4441,50 @@ SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
 
   const QualType baseType = base->getType();
   assert(hlsl::IsHLSLVecType(baseType));
-  const auto baseSizse = hlsl::GetHLSLVecSize(baseType);
+  const uint32_t baseTypeId = typeTranslator.translateType(baseType);
+  const auto baseSize = hlsl::GetHLSLVecSize(baseType);
+  const auto accessorSize = accessor.Count;
+  // Whether selecting the whole original vector
+  bool isSelectOrigin = accessorSize == baseSize;
+
+  // Assigning to one component
+  if (accessorSize == 1) {
+    if (isBufferTextureIndexing(dyn_cast_or_null<CXXOperatorCallExpr>(base))) {
+      // Assigning to one component of a RWBuffer/RWTexture element
+      // We need to use OpImageWrite here.
+      // Compose the new vector value first
+      const uint32_t oldVec = doExpr(base);
+      const uint32_t newVec = theBuilder.createCompositeInsert(
+          baseTypeId, oldVec, {accessor.Swz0}, rhs);
+      const auto result = tryToAssignToRWBufferRWTexture(base, newVec);
+      assert(result); // Definitely RWBuffer/RWTexture assignment
+      return rhs;     // TODO: incorrect for compound assignments
+    } else {
+      // Assigning to one normal vector component. Nothing special, just fall
+      // back to the normal CodeGen path.
+      return 0;
+    }
+  }
+
+  if (isSelectOrigin) {
+    for (uint32_t i = 0; i < accessorSize; ++i) {
+      uint32_t position;
+      accessor.GetPosition(i, &position);
+      if (position != i)
+        isSelectOrigin = false;
+    }
+  }
+
+  // Assigning to the original vector
+  if (isSelectOrigin) {
+    // Ignore this HLSLVectorElementExpr and dispatch to base
+    return processAssignment(base, rhs, false);
+  }
 
   llvm::SmallVector<uint32_t, 4> selectors;
-  selectors.resize(baseSizse);
+  selectors.resize(baseSize);
   // Assume we are selecting all original elements first.
-  for (uint32_t i = 0; i < baseSizse; ++i) {
+  for (uint32_t i = 0; i < baseSize; ++i) {
     selectors[i] = i;
   }
 
@@ -4453,16 +4494,17 @@ SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
   for (uint32_t i = 0; i < accessor.Count; ++i) {
     uint32_t position;
     accessor.GetPosition(i, &position);
-    selectors[position] = baseSizse + i;
+    selectors[position] = baseSize + i;
   }
 
-  const uint32_t baseTypeId = typeTranslator.translateType(baseType);
-  const uint32_t vec1 = doExpr(base);
-  const uint32_t vec1Val = theBuilder.createLoad(baseTypeId, vec1);
+  const auto vec1 = doExpr(base);
+  const uint32_t vec1Val =
+      vec1.isRValue() ? vec1 : theBuilder.createLoad(baseTypeId, vec1);
   const uint32_t shuffle =
       theBuilder.createVectorShuffle(baseTypeId, vec1Val, rhs, selectors);
 
-  theBuilder.createStore(vec1, shuffle);
+  if (!tryToAssignToRWBufferRWTexture(base, shuffle))
+    theBuilder.createStore(vec1, shuffle);
 
   // TODO: OK, this return value is incorrect for compound assignments, for
   // which cases we should return lvalues. Should at least emit errors if
