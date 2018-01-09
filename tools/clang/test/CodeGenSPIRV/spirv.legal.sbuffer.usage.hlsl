@@ -2,6 +2,7 @@
 
 struct S {
     float4 f;
+    float  v[128];
 };
 
 // Signature for returnRWSBuffer(). Both the function parameter and return gain
@@ -61,6 +62,10 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 // CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_v4float [[ptr1]] %int_0 %uint_2 %int_0
 // CHECK-NEXT:      {{%\d+}} = OpLoad %v4float [[ptr2]]
         localRWSBuffer[2].f +
+// CHECK:      [[ptr1:%\d+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %localRWSBuffer
+// CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_float [[ptr1]] %int_0 %uint_33 %int_1 %int_44
+// CHECK-NEXT:      {{%\d+}} = OpLoad %float [[ptr2]]
+        localRWSBuffer[33].v[44] +
 // CHECK:      [[ptr1:%\d+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_v4float %localv4f32RWSBuffer
 // CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Uniform_v4float [[ptr1]] %int_0 %uint_3
 // CHECK-NEXT:      {{%\d+}} = OpLoad %v4float [[ptr2]]
