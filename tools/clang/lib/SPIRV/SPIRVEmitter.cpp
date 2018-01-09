@@ -1564,9 +1564,6 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
 
 SpirvEvalInfo
 SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
-  // Provide a hint to the TypeTranslator that the integer literal used to
-  // index into the array should be translated as a 32-bit integer.
-  TypeTranslator::LiteralTypeHint hint(typeTranslator, astContext.IntTy);
 
   llvm::SmallVector<uint32_t, 4> indices;
   auto info = doExpr(collectArrayStructIndices(expr, &indices));
@@ -2132,6 +2129,30 @@ SPIRVEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
 
 SpirvEvalInfo
 SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
+  // Enhancement for special case when the ConditionalOperator return type is a
+  // literal type. For example:
+  //
+  // float a = cond ? 1 : 2;
+  // int   b = cond ? 1.5 : 2.5;
+  //
+  // There will be no indications about whether '1' and '2' should be used as
+  // 32-bit or 64-bit integers. Similarly, there will be no indication about
+  // whether '1.5' and '2.5' should be used as 32-bit or 64-bit floats.
+  //
+  // We want to avoid using 64-bit int and 64-bit float as much as possible.
+  //
+  // Note that if the literal is in fact large enough that it can't be
+  // represented in 32 bits (e.g. integer larger than 3e+9), we should *not*
+  // provide a hint.
+  TypeTranslator::LiteralTypeHint hint(typeTranslator);
+  if (canBeRepresentedIn32Bits(expr->getTrueExpr()) &&
+      canBeRepresentedIn32Bits(expr->getFalseExpr())) {
+    if (expr->getType()->isSpecificBuiltinType(BuiltinType::LitInt))
+      hint.setHint(astContext.IntTy);
+    else if (expr->getType()->isSpecificBuiltinType(BuiltinType::LitFloat))
+      hint.setHint(astContext.FloatTy);
+  }
+
   // According to HLSL doc, all sides of the ?: expression are always
   // evaluated.
   const uint32_t type = typeTranslator.translateType(expr->getType());
@@ -4655,6 +4676,10 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
     return base;
   }
 
+  // Provide a hint to the TypeTranslator that the integer literal used to
+  // index into the following cases should be translated as a 32-bit integer.
+  TypeTranslator::LiteralTypeHint hint(typeTranslator, astContext.IntTy);
+
   if (const auto *indexing = dyn_cast<ArraySubscriptExpr>(expr)) {
     // The base of an ArraySubscriptExpr has a wrapping LValueToRValue implicit
     // cast. We need to ingore it to avoid creating OpLoad.
@@ -6798,6 +6823,34 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
   return 0;
 }
 
+bool SPIRVEmitter::canBeRepresentedIn32Bits(const Expr *expr) {
+  if (const auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
+    const bool isSigned = expr->getType()->isSignedIntegerType();
+    const llvm::APInt &value = intLiteral->getValue();
+    return (isSigned && value.isSignedIntN(32)) ||
+           (!isSigned && value.isIntN(32));
+  }
+
+  if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
+    llvm::APFloat value = floatLiteral->getValue();
+    const auto &semantics = value.getSemantics();
+    // regular 'half' and 'float' can be represented in 32 bits.
+    if (&semantics == &llvm::APFloat::IEEEsingle ||
+        &semantics == &llvm::APFloat::IEEEhalf)
+      return true;
+
+    // See if 'double' value can be represented in 32 bits without losing info.
+    bool losesInfo = false;
+    const auto convertStatus =
+        value.convert(llvm::APFloat::IEEEsingle,
+                      llvm::APFloat::rmNearestTiesToEven, &losesInfo);
+    if (convertStatus == llvm::APFloat::opOK && !losesInfo)
+      return true;
+  }
+
+  return false;
+}
+
 uint32_t SPIRVEmitter::tryToEvaluateAsInt32(const llvm::APInt &intValue,
                                             bool isSigned) {
   if (isSigned && intValue.isSignedIntN(32)) {
@@ -6837,34 +6890,41 @@ uint32_t SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
 
 uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
                                         QualType targetType) {
+  // The float value may have to go through conversion, so work on a local copy.
+  llvm::APFloat value = floatValue;
+  const auto valueBitwidth = llvm::APFloat::getSizeInBits(value.getSemantics());
+
+  // Find out the target bitwidth.
   targetType = typeTranslator.getIntendedLiteralType(targetType);
-  const auto &semantics = astContext.getFloatTypeSemantics(targetType);
-  const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
-  switch (bitwidth) {
-  case 16: {
-    if (spirvOptions.enable16BitTypes) {
-      return theBuilder.getConstantFloat16(
-          static_cast<uint16_t>(floatValue.bitcastToAPInt().getZExtValue()));
-    } else {
-      // If 16-bit types are not enabled, treat as 32-bit float.
-      llvm::APFloat f32 = floatValue;
-      bool losesInfo = false;
-      f32.convert(llvm::APFloat::IEEEsingle,
-                  llvm::APFloat::roundingMode::rmTowardZero, &losesInfo);
-      // Conversion from 16-bit float value to 32-bit float value should be
-      // loss-less.
-      assert(!losesInfo);
-      return theBuilder.getConstantFloat32(f32.convertToFloat());
-    }
+  auto targetBitwidth = llvm::APFloat::getSizeInBits(
+      astContext.getFloatTypeSemantics(targetType));
+  // If 16-bit types are not enabled, treat them as 32-bit float.
+  if (targetBitwidth == 16 && !spirvOptions.enable16BitTypes)
+    targetBitwidth = 32;
+
+  if (targetBitwidth != valueBitwidth) {
+    bool losesInfo = false;
+    const llvm::fltSemantics &targetSemantics =
+        targetBitwidth == 16 ? llvm::APFloat::IEEEhalf
+                             : targetBitwidth == 32 ? llvm::APFloat::IEEEsingle
+                                                    : llvm::APFloat::IEEEdouble;
+    value.convert(targetSemantics, llvm::APFloat::roundingMode::rmTowardZero,
+                  &losesInfo);
   }
+
+  switch (targetBitwidth) {
+  case 16:
+    return theBuilder.getConstantFloat16(
+        static_cast<uint16_t>(value.bitcastToAPInt().getZExtValue()));
   case 32:
-    return theBuilder.getConstantFloat32(floatValue.convertToFloat());
+    return theBuilder.getConstantFloat32(value.convertToFloat());
   case 64:
-    return theBuilder.getConstantFloat64(floatValue.convertToDouble());
+    return theBuilder.getConstantFloat64(value.convertToDouble());
   default:
     break;
   }
-  emitError("APFloat for target bitwidth %0 unimplemented", {}) << bitwidth;
+  emitError("APFloat for target bitwidth %0 unimplemented", {})
+      << targetBitwidth;
   return 0;
 }
 

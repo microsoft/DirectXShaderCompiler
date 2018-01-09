@@ -452,6 +452,12 @@ private:
   /// constant for that value.
   uint32_t tryToEvaluateAsInt32(const llvm::APInt &, bool isSigned);
 
+  /// Returns true iff the given expression is a literal integer that can be
+  /// represented in a 32-bit integer type or a literal float that can be
+  /// represented in a 32-bit float type without losing info. Returns false
+  /// otherwise.
+  bool canBeRepresentedIn32Bits(const Expr* expr);
+
 private:
   /// Translates the given HLSL loop attribute into SPIR-V loop control mask.
   /// Emits an error if the given attribute is not a loop attribute.
