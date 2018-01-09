@@ -156,8 +156,8 @@ TEST_F(FileTest, UnaryOpLogicalNot) {
 
 // For assignments
 TEST_F(FileTest, BinaryOpAssign) { runFileTest("binary-op.assign.hlsl"); }
-TEST_F(FileTest, BinaryOpAssignVector) {
-  runFileTest("binary-op.assign.vector.hlsl");
+TEST_F(FileTest, BinaryOpAssignImage) {
+  runFileTest("binary-op.assign.image.hlsl");
 }
 TEST_F(FileTest, BinaryOpAssignComposite) {
   runFileTest("binary-op.assign.composite.hlsl");
