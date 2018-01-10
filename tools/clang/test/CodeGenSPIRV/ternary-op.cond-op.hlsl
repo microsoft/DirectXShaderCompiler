@@ -5,6 +5,8 @@
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
+// CHECK: %temp_var_ternary = OpVariable %_ptr_Function_mat2v3float Function
+
     bool b0;
     int m, n, o;
     // Plain assign (scalar)
@@ -88,4 +90,22 @@ void main() {
 // CHECK:      [[d_int:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_0
 // CHECK-NEXT:       {{%\d+}} = OpBitcast %uint [[d_int]]
     uint d = cond ? 1 : 0;
+
+    float2x3 e;
+    float2x3 f;
+// CHECK:     [[cond:%\d+]] = OpLoad %bool %cond
+// CHECK-NEXT:   [[e:%\d+]] = OpLoad %mat2v3float %e
+// CHECK-NEXT:   [[f:%\d+]] = OpLoad %mat2v3float %f
+// CHECK-NEXT:                OpSelectionMerge %if_merge None
+// CHECK-NEXT:                OpBranchConditional [[cond]] %if_true %if_false
+// CHECK-NEXT:     %if_true = OpLabel
+// CHECK-NEXT:                OpStore %temp_var_ternary [[e]]
+// CHECK-NEXT:                OpBranch %if_merge
+// CHECK-NEXT:    %if_false = OpLabel
+// CHECK-NEXT:                OpStore %temp_var_ternary [[f]]
+// CHECK-NEXT:                OpBranch %if_merge
+// CHECK-NEXT:    %if_merge = OpLabel
+// CHECK-NEXT:[[temp:%\d+]] = OpLoad %mat2v3float %temp_var_ternary
+// CHECK-NEXT:                OpStore %g [[temp]]
+    float2x3 g = cond ? e : f;
 }
