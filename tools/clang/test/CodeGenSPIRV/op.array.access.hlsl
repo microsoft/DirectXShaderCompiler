@@ -57,4 +57,3 @@ float main(float val: A, uint index: B) : C {
 
     return r;
 }
-// CHECK-WHOLE-SPIR-V:

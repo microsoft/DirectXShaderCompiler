@@ -4820,8 +4820,9 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
   uint32_t intType = typeTranslator.translateType(toIntType);
 
   // AST may include a 'literal int' to 'int' conversion. No-op.
+  // 'literal int' to 'uint' must still go through conversion.
   if (fromType->isSpecificBuiltinType(BuiltinType::LitInt) &&
-      typeTranslator.translateType(fromType) == intType)
+      toIntType->isSignedIntegerType())
     return fromVal;
 
   if (isBoolOrVecOfBoolType(fromType)) {
@@ -6936,11 +6937,10 @@ uint32_t SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
   return 0;
 }
 
-uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
+uint32_t SPIRVEmitter::translateAPFloat(llvm::APFloat floatValue,
                                         QualType targetType) {
-  // The float value may have to go through conversion, so work on a local copy.
-  llvm::APFloat value = floatValue;
-  const auto valueBitwidth = llvm::APFloat::getSizeInBits(value.getSemantics());
+  const auto valueBitwidth =
+      llvm::APFloat::getSizeInBits(floatValue.getSemantics());
 
   // Find out the target bitwidth.
   targetType = typeTranslator.getIntendedLiteralType(targetType);
@@ -6956,18 +6956,18 @@ uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
         targetBitwidth == 16 ? llvm::APFloat::IEEEhalf
                              : targetBitwidth == 32 ? llvm::APFloat::IEEEsingle
                                                     : llvm::APFloat::IEEEdouble;
-    value.convert(targetSemantics, llvm::APFloat::roundingMode::rmTowardZero,
-                  &losesInfo);
+    floatValue.convert(targetSemantics,
+                       llvm::APFloat::roundingMode::rmTowardZero, &losesInfo);
   }
 
   switch (targetBitwidth) {
   case 16:
     return theBuilder.getConstantFloat16(
-        static_cast<uint16_t>(value.bitcastToAPInt().getZExtValue()));
+        static_cast<uint16_t>(floatValue.bitcastToAPInt().getZExtValue()));
   case 32:
-    return theBuilder.getConstantFloat32(value.convertToFloat());
+    return theBuilder.getConstantFloat32(floatValue.convertToFloat());
   case 64:
-    return theBuilder.getConstantFloat64(value.convertToDouble());
+    return theBuilder.getConstantFloat64(floatValue.convertToDouble());
   default:
     break;
   }
