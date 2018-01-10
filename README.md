@@ -78,6 +78,16 @@ current as of this update) are provided below:
 
 AMD's latest driver with support for DXIL 1.0 and Shader Model 6 in experimental mode is [Radeon Software Crimson ReLive Edition 17.4.2](http://support.amd.com/en-us/kb-articles/Pages/Radeon-Software-Crimson-ReLive-Edition-17.4.2-Release-Notes.aspx).
 
+Intel's 15.60 drivers (15.60.0.4849 and later) support release mode for DXIL 1.0 and Shader Model 6.0 as well as
+release mode for DXIL 1.1 and Shader Model 6.1 (View Instancing support only).
+
+Drivers can be downloaded from the following link [Intel Graphics Drivers](https://downloadcenter.intel.com/product/80939/Graphics-Drivers)
+
+Direct access to 15.60 driver (latest as of of this update) is provided below:
+
+[Installer](https://downloadmirror.intel.com/27412/a08/win64_15.60.2.4901.exe)
+
+[Release Notes related to DXIL](https://downloadmirror.intel.com/27266/eng/ReleaseNotes_GFX_15600.4849.pdf)
 
 ### Software Rendering
 
