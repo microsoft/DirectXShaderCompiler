@@ -268,6 +268,7 @@ public:
   TEST_METHOD(InvalidSigCompTyFail);
   TEST_METHOD(MultiStream2Fail);
   TEST_METHOD(PhiTGSMFail);
+  TEST_METHOD(QuadOpInCS);
   TEST_METHOD(ReducibleFail);
   TEST_METHOD(SampleBiasFail);
   TEST_METHOD(SamplerKindFail);
@@ -867,6 +868,20 @@ TEST_F(ValidationTest, PhiTGSMFail) {
       "ret void",
       "TGSM pointers must originate from an unambiguous TGSM global variable");
 }
+
+TEST_F(ValidationTest, QuadOpInCS) {
+  RewriteAssemblyCheckMsg(
+      "struct PerThreadData { int "
+      "input; int output; }; RWStructuredBuffer<PerThreadData> g_sb; "
+      "[numthreads(8, 12, 1)] void main(uint GI : SV_GroupIndex) "
+      "{ PerThreadData pts = g_sb[GI]; pts.output = "
+      "WaveActiveSum(pts.input); g_sb[GI] = pts; }; ",
+      "cs_6_0", {"@dx.op.waveActiveOp.i32(i32 119", "declare i32 @dx.op.waveActiveOp.i32(i32, i32, i8, i8)"},
+      {"@dx.op.quadOp.i32(i32 123", "declare i32 @dx.op.quadOp.i32(i32, i32, i8, i8)"},
+      "'QuadReadAcross' should only be used in 'Pixel Shader'"
+      );
+}
+
 TEST_F(ValidationTest, ReducibleFail) {
   if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
@@ -1674,7 +1689,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
       "hs_6_0", 
       "dx.op.storeOutput.f32(i32 5",
       "dx.op.storePatchConstant.f32(i32 106",
-      "opcode 'StorePatchConstant' should only used in 'PatchConstant function'");
+      "opcode 'StorePatchConstant' should only be used in 'PatchConstant function'");
 }
 
 TEST_F(ValidationTest, LoadOutputControlPointNotInPatchConstantFunction) {
@@ -1725,7 +1740,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
       "hs_6_0",
       "dx.op.loadInput.f32(i32 4",
       "dx.op.loadOutputControlPoint.f32(i32 103",
-      "opcode 'LoadOutputControlPoint' should only used in 'PatchConstant function'");
+      "opcode 'LoadOutputControlPoint' should only be used in 'PatchConstant function'");
 }
 
 TEST_F(ValidationTest, OutputControlPointIDInPatchConstantFunction) {
@@ -1776,7 +1791,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
       "hs_6_0",
       "ret void",
       "call i32 @dx.op.outputControlPointID.i32(i32 107)\n ret void",
-      "opcode 'OutputControlPointID' should only used in 'hull function'");
+      "opcode 'OutputControlPointID' should only be used in 'hull function'");
 }
 
 TEST_F(ValidationTest, ClipCullMaxComponents) {
