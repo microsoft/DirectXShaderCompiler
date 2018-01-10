@@ -870,6 +870,7 @@ TEST_F(ValidationTest, PhiTGSMFail) {
 }
 
 TEST_F(ValidationTest, QuadOpInCS) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
   RewriteAssemblyCheckMsg(
       "struct PerThreadData { int "
       "input; int output; }; RWStructuredBuffer<PerThreadData> g_sb; "
@@ -1642,6 +1643,7 @@ TEST_F(ValidationTest, WhenMetaFlagsUsageThenFail) {
 }
 
 TEST_F(ValidationTest, StorePatchControlNotInPatchConstantFunction) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
   RewriteAssemblyCheckMsg(
       "struct PSSceneIn \
     { \
@@ -1693,6 +1695,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
 }
 
 TEST_F(ValidationTest, LoadOutputControlPointNotInPatchConstantFunction) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
   RewriteAssemblyCheckMsg(
       "struct PSSceneIn \
     { \
@@ -1744,6 +1747,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
 }
 
 TEST_F(ValidationTest, OutputControlPointIDInPatchConstantFunction) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
   RewriteAssemblyCheckMsg(
       "struct PSSceneIn \
     { \
