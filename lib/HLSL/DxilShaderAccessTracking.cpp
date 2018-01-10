@@ -106,6 +106,13 @@ struct RSRegisterIdentifier
   RegisterType Type;
   unsigned     Space;
   unsigned     Index;
+
+  bool operator < (const RSRegisterIdentifier & o) const {
+    return
+      static_cast<unsigned>(Type) < static_cast<unsigned>(o.Type) &&
+      Space < o.Space &&
+      Index < o.Index;
+  }
 };
 
 struct SlotRange
@@ -136,61 +143,61 @@ private:
   std::map<RegisterTypeAndSpace, SlotRange> m_slotAssignments;
   std::vector<unsigned> m_testOutput;
   CallInst *m_HandleForUAV;
-  std::wostringstream m_DynamicallyIndexedBindPoints;
+  std::set<RSRegisterIdentifier> m_DynamicallyIndexedBindPoints;
 };
 
-static unsigned DeserializeInt(std::deque<wchar_t> & q)
+static unsigned DeserializeInt(std::deque<char> & q)
 {
   unsigned i = 0;
 
-  while(!q.empty() && iswdigit(q.front()))
+  while(!q.empty() && isdigit(q.front()))
   {
     i *= 10;
-    i += q.front() - L'0';
+    i += q.front() - '0';
     q.pop_front();
   }
   return i;
 }
 
-static wchar_t DequeFront(std::deque<wchar_t> & q) {
+static char DequeFront(std::deque<char> & q) {
   ThrowIf(q.empty());
   auto c = q.front();
   q.pop_front();
   return c;
 }
 
-RegisterType ParseRegisterType(std::deque<wchar_t> & q) {
+static RegisterType ParseRegisterType(std::deque<char> & q) {
   switch (DequeFront(q))
   {
-  case L'C': return RegisterType::CBV;
-  case L'S': return RegisterType::SRV;
-  case L'U': return RegisterType::UAV;
-  case L'R': return RegisterType::RTV;
-  case L'D': return RegisterType::DSV;
-  case L'M': return RegisterType::Sampler;
-  case L'O': return RegisterType::SOV;
-  case L'I': return RegisterType::Invalid;
+  case 'C': return RegisterType::CBV;
+  case 'S': return RegisterType::SRV;
+  case 'U': return RegisterType::UAV;
+  case 'R': return RegisterType::RTV;
+  case 'D': return RegisterType::DSV;
+  case 'M': return RegisterType::Sampler;
+  case 'O': return RegisterType::SOV;
+  case 'I': return RegisterType::Invalid;
   default: return RegisterType::Terminator;
   }
 }
 
-wchar_t EncodeRegisterType(RegisterType r)
+static char EncodeRegisterType(RegisterType r)
 {
   switch (r)
   {
-  case RegisterType::CBV:     return L'C';
-  case RegisterType::SRV:     return L'S';
-  case RegisterType::UAV:     return L'U';
-  case RegisterType::RTV:     return L'R';
-  case RegisterType::DSV:     return L'D';
-  case RegisterType::Sampler: return L'M';
-  case RegisterType::SOV:     return L'O';
-  case RegisterType::Invalid: return L'I';
+  case RegisterType::CBV:     return 'C';
+  case RegisterType::SRV:     return 'S';
+  case RegisterType::UAV:     return 'U';
+  case RegisterType::RTV:     return 'R';
+  case RegisterType::DSV:     return 'D';
+  case RegisterType::Sampler: return 'M';
+  case RegisterType::SOV:     return 'O';
+  case RegisterType::Invalid: return 'I';
   }
-  return L'.';
+  return '.';
 };
 
-void ValidateDelimiter(std::deque<wchar_t> & q, wchar_t d) {
+static void ValidateDelimiter(std::deque<char> & q, char d) {
   ThrowIf(q.front() != d);
   q.pop_front();
 }
@@ -202,7 +209,7 @@ void DxilShaderAccessTracking::applyOptions(PassOptions O) {
 
   StringRef configOption;
   if (GetPassOption(O, "config", &configOption)) {
-    std::deque<wchar_t> config;
+    std::deque<char> config;
     config.assign(configOption.begin(), configOption.end());
 
     // Parse slot assignments. Compare with PIX's ShaderAccessHelpers.cpp (TrackingConfiguration::SerializedRepresentation)
@@ -213,17 +220,17 @@ void DxilShaderAccessTracking::applyOptions(PassOptions O) {
       rst.Type = rt;
 
       rst.Space = DeserializeInt(config);
-      ValidateDelimiter(config, L':');
+      ValidateDelimiter(config, ':');
 
       SlotRange sr;
       sr.startSlot = DeserializeInt(config);
-      ValidateDelimiter(config, L':');
+      ValidateDelimiter(config, ':');
 
       sr.numSlots = DeserializeInt(config);
-      ValidateDelimiter(config, L'i');
+      ValidateDelimiter(config, 'i');
 
       sr.numInvariableSlots = DeserializeInt(config);
-      ValidateDelimiter(config, L';');
+      ValidateDelimiter(config, ';');
 
       m_slotAssignments[rst] = sr;
 
@@ -238,13 +245,13 @@ void DxilShaderAccessTracking::applyOptions(PassOptions O) {
       rid.Type = rt;
 
       rid.Space = DeserializeInt(config);
-      ValidateDelimiter(config, L':');
+      ValidateDelimiter(config, ':');
 
       rid.Index = DeserializeInt(config);
-      ValidateDelimiter(config, L':');
+      ValidateDelimiter(config, ':');
 
       unsigned AccessFlags = DeserializeInt(config);
-      ValidateDelimiter(config, L';');
+      ValidateDelimiter(config, ';');
 
       m_limitedAccessOutputs.emplace_back(rid, static_cast<ShaderAccessFlags>(AccessFlags));
 
@@ -466,10 +473,9 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
               }
             }
             else {
-              m_DynamicallyIndexedBindPoints << 
-                EncodeRegisterType(typAndSpace.Type) << typAndSpace.Space << L':' << 
-                slot->second.startSlot << L":" << slot->second.numSlots << 
-                L';';
+              RSRegisterIdentifier id{ typAndSpace.Type, typAndSpace.Space,  res->GetID() };
+              m_DynamicallyIndexedBindPoints.emplace(std::move(id));
+
 
               // CompareWithSlotLimit will contain 1 if the access is out-of-bounds (both over- and and under-flow 
               // via the unsigned >= with slot count)
@@ -492,7 +498,6 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
       }
     }
 
-    m_DynamicallyIndexedBindPoints << L'.';
 
     // StoreOutput for render-targets:
     for (const auto & Overload : f16f32i16i32) {
@@ -553,7 +558,11 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
 
     if (OSOverride != nullptr) {
       formatted_raw_ostream FOS(*OSOverride);
-      FOS << L"DynamicallyIndexedBindPoints=" << m_DynamicallyIndexedBindPoints.str().c_str();
+      FOS << "DynamicallyIndexedBindPoints=";
+      for (auto const & bp : m_DynamicallyIndexedBindPoints) {
+        FOS << EncodeRegisterType(bp.Type) << bp.Space << ':' << bp.Index <<';';
+      }
+      FOS << ".";
     }
   }
 
