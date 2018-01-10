@@ -62,6 +62,10 @@ bool patchConstFuncTakesHullOutputPatch(FunctionDecl *pcf) {
 
 /// Returns true if the two types are the same scalar or vector type.
 bool isSameScalarOrVecType(QualType type1, QualType type2) {
+  // Consider cases such as 'const bool' and 'bool' to be the same type.
+  type1.removeLocalConst();
+  type2.removeLocalConst();
+
   {
     QualType scalarType1 = {}, scalarType2 = {};
     if (TypeTranslator::isScalarType(type1, &scalarType1) &&
