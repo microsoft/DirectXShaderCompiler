@@ -23,10 +23,10 @@ float4 main(uint index: A) : SV_Target {
 // CHECK-NEXT: [[x:%\d+]] = OpAccessChain %_ptr_Uniform_float [[b1]] %int_0
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[x]]
 
-// CHECK:      [[c12:%\d+]] = OpAccessChain %_ptr_Uniform_float %MySbuffer %int_0 %uint_2 %int_2 %uint_2 %uint_1 %uint_2
+// CHECK:      [[c12:%\d+]] = OpAccessChain %_ptr_Uniform_float %MySbuffer %int_0 %uint_2 %int_2 %int_2 %uint_1 %uint_2
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[c12]]
 
-// CHECK:      [[s:%\d+]] = OpAccessChain %_ptr_Uniform_float %MySbuffer %int_0 %uint_3 %int_3 %uint_0 %int_0
+// CHECK:      [[s:%\d+]] = OpAccessChain %_ptr_Uniform_float %MySbuffer %int_0 %uint_3 %int_3 %int_0 %int_0
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[s]]
 
 // CHECK:      [[index:%\d+]] = OpLoad %uint %index

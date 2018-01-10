@@ -261,6 +261,8 @@ public:
   class LiteralTypeHint {
   public:
     LiteralTypeHint(TypeTranslator &t, QualType ty);
+    LiteralTypeHint(TypeTranslator &t);
+    void setHint(QualType ty);
     ~LiteralTypeHint();
 
   private:
