@@ -35,7 +35,7 @@ float main(float val: A, uint index: B) : C {
 // CHECK-NEXT:  [[res:%\d+]] = OpVectorShuffle %v4float [[vec4]] [[vec2]] 0 1 5 4
 // CHECK-NEXT:                 OpStore [[ptr0]] [[res]]
     vecvar[3].ab = val;
-// CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Function_float %vecvar %uint_2 %uint_1
+// CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Function_float %vecvar %int_2 %uint_1
 // CHECK-NEXT: [[load:%\d+]] = OpLoad %float [[ptr2]]
 // CHECK-NEXT:                 OpStore %r [[load]]
     r = vecvar[2][1];
@@ -50,10 +50,11 @@ float main(float val: A, uint index: B) : C {
 // CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Function_float [[ptr0]] %int_1 %int_2
 // CHECK-NEXT:                 OpStore [[ptr2]] [[val1]]
     matvar[2]._12_23 = val;
-// CHECK-NEXT: [[ptr4:%\d+]] = OpAccessChain %_ptr_Function_float %matvar %uint_0 %uint_1 %uint_2
+// CHECK-NEXT: [[ptr4:%\d+]] = OpAccessChain %_ptr_Function_float %matvar %int_0 %uint_1 %uint_2
 // CHECK-NEXT: [[load:%\d+]] = OpLoad %float [[ptr4]]
 // CHECK-NEXT:                 OpStore %r [[load]]
     r = matvar[0][1][2];
 
     return r;
 }
+// CHECK-WHOLE-SPIR-V:

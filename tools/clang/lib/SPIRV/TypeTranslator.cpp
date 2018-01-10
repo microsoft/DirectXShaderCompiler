@@ -118,13 +118,24 @@ bool TypeTranslator::isOpaqueStructType(QualType type) {
   return false;
 }
 
+void TypeTranslator::LiteralTypeHint::setHint(QualType ty) {
+  // You can set hint only once for each object.
+  assert(type == QualType());
+  type = ty;
+  translator.pushIntendedLiteralType(type);
+}
+
+TypeTranslator::LiteralTypeHint::LiteralTypeHint(TypeTranslator &t)
+    : translator(t), type({}) {}
+
 TypeTranslator::LiteralTypeHint::LiteralTypeHint(TypeTranslator &t, QualType ty)
     : translator(t), type(ty) {
   if (!isLiteralType(type))
     translator.pushIntendedLiteralType(type);
 }
+
 TypeTranslator::LiteralTypeHint::~LiteralTypeHint() {
-  if (!isLiteralType(type))
+  if (type != QualType() && !isLiteralType(type))
     translator.popIntendedLiteralType();
 }
 
@@ -154,8 +165,34 @@ void TypeTranslator::pushIntendedLiteralType(QualType type) {
 }
 
 QualType TypeTranslator::getIntendedLiteralType(QualType type) {
-  if (!intendedLiteralTypes.empty())
-    return intendedLiteralTypes.top();
+  if (!intendedLiteralTypes.empty()) {
+    // If the stack is not empty, there is potentially a useful hint about how a
+    // given literal should be translated.
+    //
+    // However, a hint should not be returned blindly. It is possible that casts
+    // are occuring. For Example:
+    //
+    //   TU
+    //    |_ n1: <IntegralToFloating> float
+    //       |_ n2: ConditionalOperator 'literal int'
+    //          |_ n3: cond, bool
+    //          |_ n4: 'literal int' 2
+    //          |_ n5: 'literal int' 3
+    //
+    // When evaluating the return type of ConditionalOperator, we shouldn't
+    // provide 'float' as hint. The cast AST node should take care of that.
+    // In the above example, we have no hints about how '2' or '3' should be
+    // used.
+    QualType potentialHint = intendedLiteralTypes.top();
+    const bool isDifferentBasicType =
+        (type->isSpecificBuiltinType(BuiltinType::LitInt) &&
+         !potentialHint->isIntegerType()) ||
+        (type->isSpecificBuiltinType(BuiltinType::LitFloat) &&
+         !potentialHint->isFloatingType());
+
+    if (!isDifferentBasicType)
+      return intendedLiteralTypes.top();
+  }
 
   // We don't have any useful hints, return the given type itself.
   return type;

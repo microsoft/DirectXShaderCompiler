@@ -49,7 +49,7 @@ float4 main() : A {
 // CHECK-NEXT: [[prev:%\d+]] = OpAtomicISub %int [[counter]] %uint_1 %uint_0 %int_1
 // CHECK-NEXT: [[index:%\d+]] = OpISub %int [[prev]] %int_1
 // CHECK-NEXT: [[buffer3:%\d+]] = OpAccessChain %_ptr_Uniform_T %buffer3 %uint_0 [[index]]
-// CHECK-NEXT: [[ac:%\d+]] = OpAccessChain %_ptr_Uniform_v3float [[buffer3]] %int_0 %uint_3 %int_1
+// CHECK-NEXT: [[ac:%\d+]] = OpAccessChain %_ptr_Uniform_v3float [[buffer3]] %int_0 %int_3 %int_1
 // CHECK-NEXT: [[val:%\d+]] = OpLoad %v3float [[ac]]
 // CHECK-NEXT: OpStore %val [[val]]
     float3 val = buffer3.Consume().s[3].b;
