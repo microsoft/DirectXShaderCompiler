@@ -863,7 +863,15 @@ public:
   opImageSample(uint32_t result_type, uint32_t result_id,
                 uint32_t sampled_image, uint32_t coordinate, uint32_t dref,
                 llvm::Optional<spv::ImageOperandsMask> image_operands,
-                bool isExplicit, bool isSparse);
+                bool is_explicit, bool is_sparse);
+
+  // All-in-one method for creating different types of
+  // OpImageRead*/OpImageFetch*.
+  InstBuilder &
+  opImageFetchRead(uint32_t result_type, uint32_t result_id, uint32_t image,
+                   uint32_t coordinate,
+                   llvm::Optional<spv::ImageOperandsMask> image_operands,
+                   bool is_fetch, bool is_sparse);
 
   // Methods for supplying additional parameters.
   InstBuilder &fPFastMathMode(spv::FPFastMathModeMask);

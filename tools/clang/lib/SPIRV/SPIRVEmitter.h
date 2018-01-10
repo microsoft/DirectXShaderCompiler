@@ -66,7 +66,7 @@ public:
   /// not be wrapped in ImplicitCastExpr (LValueToRValue) when appearing in
   /// HLSLVectorElementExpr since the generated HLSLVectorElementExpr itself can
   /// be lvalue or rvalue.
-  SpirvEvalInfo loadIfGLValue(const Expr *expr);
+  inline SpirvEvalInfo loadIfGLValue(const Expr *expr);
 
   /// Casts the given value from fromType to toType. fromType and toType should
   /// both be scalar or vector types of the same size.
@@ -106,6 +106,25 @@ private:
   SpirvEvalInfo doMemberExpr(const MemberExpr *expr);
   SpirvEvalInfo doUnaryOperator(const UnaryOperator *expr);
 
+  /// Overload with pre computed SpirvEvalInfo.
+  ///
+  /// The given expr will not be evaluated again.
+  SpirvEvalInfo loadIfGLValue(const Expr *expr, SpirvEvalInfo info);
+
+  /// Loads the pointer of the aliased-to-variable if the given expression is a
+  /// DeclRefExpr referencing an alias variable. See DeclResultIdMapper for
+  /// more explanation regarding this.
+  ///
+  /// Note: legalization specific code
+  SpirvEvalInfo loadIfAliasVarRef(const Expr *expr);
+
+  /// Loads the pointer of the aliased-to-variable and ajusts aliasVarInfo
+  /// accordingly if aliasVarExpr is referencing an alias variable. Returns true
+  /// if aliasVarInfo is changed, false otherwise.
+  ///
+  /// Note: legalization specific code
+  bool loadIfAliasVarRef(const Expr *aliasVarExpr, SpirvEvalInfo &aliasVarInfo);
+
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
@@ -120,14 +139,13 @@ private:
   /// lhs again.
   SpirvEvalInfo processAssignment(const Expr *lhs, const SpirvEvalInfo &rhs,
                                   bool isCompoundAssignment,
-                                  SpirvEvalInfo lhsPtr = 0,
-                                  const Expr *rhsExpr = nullptr);
+                                  SpirvEvalInfo lhsPtr = 0);
 
   /// Generates SPIR-V instructions to store rhsVal into lhsPtr. This will be
   /// recursive if lhsValType is a composite type. rhsExpr will be used as a
   /// reference to adjust the CodeGen if not nullptr.
   void storeValue(const SpirvEvalInfo &lhsPtr, const SpirvEvalInfo &rhsVal,
-                  QualType lhsValType, const Expr *rhsExpr = nullptr);
+                  QualType lhsValType);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs. If lhsResultId is not nullptr, the evaluated
@@ -202,10 +220,6 @@ private:
   /// Tries to emit instructions for assigning to the given vector element
   /// accessing expression. Returns 0 if the trial fails and no instructions
   /// are generated.
-  ///
-  /// This method handles the cases that we are writing to neither one element
-  /// or all elements in their original order. For other cases, 0 will be
-  /// returned and the normal assignment process should be used.
   SpirvEvalInfo tryToAssignToVectorElements(const Expr *lhs,
                                             const SpirvEvalInfo &rhs);
 
@@ -237,12 +251,25 @@ private:
                                       const BinaryOperatorKind opcode,
                                       SourceRange);
 
+  /// Creates a temporary local variable in the current function of the given
+  /// varType and varName. Initializes the variable with the given initValue.
+  /// Returns the <result-id> of the variable.
+  uint32_t SPIRVEmitter::createTemporaryVar(QualType varType,
+                                            llvm::StringRef varName,
+                                            const SpirvEvalInfo &initValue);
+
   /// Collects all indices (SPIR-V constant values) from consecutive MemberExprs
   /// or ArraySubscriptExprs or operator[] calls and writes into indices.
   /// Returns the real base.
   const Expr *
   collectArrayStructIndices(const Expr *expr,
                             llvm::SmallVectorImpl<uint32_t> *indices);
+
+  /// Creates an access chain to index into the given SPIR-V evaluation result
+  /// and overwrites and returns the new SPIR-V evaluation result.
+  SpirvEvalInfo &
+  turnIntoElementPtr(SpirvEvalInfo &info, QualType elemType,
+                     const llvm::SmallVector<uint32_t, 4> &indices);
 
 private:
   /// Validates that vk::* attributes are used correctly.
@@ -279,6 +306,9 @@ private:
 
   /// Processes the 'frexp' intrinsic function.
   uint32_t processIntrinsicFrexp(const CallExpr *);
+
+  /// Processes the 'ldexp' intrinsic function.
+  uint32_t processIntrinsicLdexp(const CallExpr *);
 
   /// Processes the 'D3DCOLORtoUBYTE4' intrinsic function.
   uint32_t processD3DCOLORtoUBYTE4(const CallExpr *);
@@ -576,14 +606,6 @@ private:
   void processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt);
 
 private:
-  /// Handles the optional offset argument in the given method call at the given
-  /// argument index.
-  /// If there exists an offset argument, writes the <result-id> to either
-  /// *constOffset or *varOffset, depending on the constantness of the offset.
-  void handleOptionalOffsetInMethodCall(const CXXMemberCallExpr *expr,
-                                        uint32_t index, uint32_t *constOffset,
-                                        uint32_t *varOffset);
-
   /// Handles the offset argument in the given method call at the given argument
   /// index. Panics if the argument at the given index does not exist. Writes
   /// the <result-id> to either *constOffset or *varOffset, depending on the
@@ -598,10 +620,12 @@ private:
   /// \brief Loads one element from the given Buffer/RWBuffer/Texture object at
   /// the given location. The type of the loaded element matches the type in the
   /// declaration for the Buffer/Texture object.
+  /// If residencyCodeId is not zero,  the SPIR-V instruction for storing the
+  /// resulting residency code will also be emitted.
   SpirvEvalInfo processBufferTextureLoad(const Expr *object, uint32_t location,
-                                         uint32_t constOffset = 0,
-                                         uint32_t varOffst = 0,
-                                         uint32_t lod = 0);
+                                         uint32_t constOffset,
+                                         uint32_t varOffset, uint32_t lod,
+                                         uint32_t residencyCode);
 
   /// \brief Processes .Sample() and .Gather() method calls for texture objects.
   uint32_t processTextureSampleGather(const CXXMemberCallExpr *expr,
@@ -646,8 +670,18 @@ private:
   SpirvEvalInfo processStructuredBufferLoad(const CXXMemberCallExpr *expr);
 
   /// \brief Increments or decrements the counter for RW/Append/Consume
-  /// structured buffer.
-  uint32_t incDecRWACSBufferCounter(const CXXMemberCallExpr *, bool isInc);
+  /// structured buffer. If loadObject is true, the object upon which the call
+  /// is made will be evaluated and translated into SPIR-V.
+  uint32_t incDecRWACSBufferCounter(const CXXMemberCallExpr *call, bool isInc,
+                                    bool loadObject = true);
+
+  /// Assigns the counter variable associated with srcExpr to the one associated
+  /// with dstDecl if the dstDecl is an internal RW/Append/Consume structured
+  /// buffer. Returns false if there is no associated counter variable for
+  /// srcExpr or dstDecl.
+  ///
+  /// Note: legalization specific code
+  bool tryToAssignCounterVar(const ValueDecl *dstDecl, const Expr *srcExpr);
 
   /// \brief Loads numWords 32-bit unsigned integers or stores numWords 32-bit
   /// unsigned integers (based on the doStore parameter) to the given
@@ -679,6 +713,30 @@ private:
   /// \brief Generates SPIR-V instructions to end emitting the current
   /// primitive in GS.
   uint32_t processStreamOutputRestart(const CXXMemberCallExpr *expr);
+
+private:
+  /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3
+  /// or 4. Creates a CompositeExtract or VectorShuffle instruction to extract
+  /// a scalar or smaller vector from the beginning of the input vector if
+  /// necessary. Assumes that 'fromId' is the <result-id> of a vector of size 4.
+  /// Panics if the target vector size is not 1, 2, 3, or 4.
+  uint32_t extractVecFromVec4(uint32_t fromId, uint32_t targetVecSize,
+                              uint32_t targetElemTypeId);
+
+  /// \brief Creates SPIR-V instructions for sampling the given image.
+  /// It utilizes the ModuleBuilder's createImageSample and it ensures that the
+  /// returned type is handled correctly.
+  /// HLSL image sampling methods may return a scalar, vec1, vec2, vec3, or
+  /// vec4. But non-Dref image sampling instructions in SPIR-V must always
+  /// return a vec4. As a result, an extra processing step is necessary.
+  uint32_t createImageSample(QualType retType, uint32_t imageType,
+                             uint32_t image, uint32_t sampler,
+                             uint32_t coordinate, uint32_t compareVal,
+                             uint32_t bias, uint32_t lod,
+                             std::pair<uint32_t, uint32_t> grad,
+                             uint32_t constOffset, uint32_t varOffset,
+                             uint32_t constOffsets, uint32_t sample,
+                             uint32_t minLod, uint32_t residencyCodeId);
 
 private:
   /// \brief Wrapper method to create a fatal error message and report it
@@ -756,10 +814,16 @@ private:
   /// Whether the translated SPIR-V binary needs legalization.
   ///
   /// The following cases will require legalization:
-  /// * Opaque types (textures, samplers) within structs
+  ///
+  /// 1. Opaque types (textures, samplers) within structs
+  /// 2. Structured buffer assignments
+  ///
+  /// This covers the first case.
   ///
   /// If this is true, SPIRV-Tools legalization passes will be executed after
   /// the translation to legalize the generated SPIR-V binary.
+  ///
+  /// Note: legalization specific code
   bool needsLegalization;
 
   /// Global variables that should be initialized once at the begining of the
@@ -799,6 +863,10 @@ private:
 void SPIRVEmitter::doDeclStmt(const DeclStmt *declStmt) {
   for (auto *decl : declStmt->decls())
     doDecl(decl);
+}
+
+SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr) {
+  return loadIfGLValue(expr, doExpr(expr));
 }
 
 } // end namespace spirv

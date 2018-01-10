@@ -3397,7 +3397,8 @@ static Value *CastLdValue(Value *Ptr, llvm::Type *FromTy, llvm::Type *ToTy, IRBu
       Value *V = Builder.CreateLoad(Ptr);
       // VectorTrunc
       // Change vector into vec1.
-      return Builder.CreateShuffleVector(V, V, {0});
+      int mask[] = {0};
+      return Builder.CreateShuffleVector(V, V, mask);
     } else if (FromTy->isArrayTy()) {
       llvm::Type *FromEltTy = FromTy->getArrayElementType();
 
@@ -3584,28 +3585,64 @@ typedef double(__cdecl *DoubleUnaryEvalFuncType)(double);
 typedef float(__cdecl *FloatBinaryEvalFuncType)(float, float);
 typedef double(__cdecl *DoubleBinaryEvalFuncType)(double, double);
 
-static Value * EvalUnaryIntrinsic(CallInst *CI,
+static Value * EvalUnaryIntrinsic(ConstantFP *fpV,
                                FloatUnaryEvalFuncType floatEvalFunc,
                                DoubleUnaryEvalFuncType doubleEvalFunc) {
-  Value *V = CI->getArgOperand(0);
-  ConstantFP *fpV = cast<ConstantFP>(V);
-  llvm::Type *Ty = CI->getType();
+  llvm::Type *Ty = fpV->getType();
   Value *Result = nullptr;
   if (Ty->isDoubleTy()) {
     double dV = fpV->getValueAPF().convertToDouble();
-    Value *dResult = ConstantFP::get(V->getType(), doubleEvalFunc(dV));
-
-    CI->replaceAllUsesWith(dResult);
+    Value *dResult = ConstantFP::get(Ty, doubleEvalFunc(dV));
     Result = dResult;
   } else {
     DXASSERT_NOMSG(Ty->isFloatTy());
     float fV = fpV->getValueAPF().convertToFloat();
-    Value *dResult = ConstantFP::get(V->getType(), floatEvalFunc(fV));
-
-    CI->replaceAllUsesWith(dResult);
+    Value *dResult = ConstantFP::get(Ty, floatEvalFunc(fV));
     Result = dResult;
   }
+  return Result;
+}
 
+static Value * EvalBinaryIntrinsic(ConstantFP *fpV0, ConstantFP *fpV1,
+                               FloatBinaryEvalFuncType floatEvalFunc,
+                               DoubleBinaryEvalFuncType doubleEvalFunc) {
+  llvm::Type *Ty = fpV0->getType();
+  Value *Result = nullptr;
+  if (Ty->isDoubleTy()) {
+    double dV0 = fpV0->getValueAPF().convertToDouble();
+    double dV1 = fpV1->getValueAPF().convertToDouble();
+    Value *dResult = ConstantFP::get(Ty, doubleEvalFunc(dV0, dV1));
+    Result = dResult;
+  } else {
+    DXASSERT_NOMSG(Ty->isFloatTy());
+    float fV0 = fpV0->getValueAPF().convertToFloat();
+    float fV1 = fpV1->getValueAPF().convertToFloat();
+    Value *dResult = ConstantFP::get(Ty, floatEvalFunc(fV0, fV1));
+    Result = dResult;
+  }
+  return Result;
+}
+
+static Value * EvalUnaryIntrinsic(CallInst *CI,
+                               FloatUnaryEvalFuncType floatEvalFunc,
+                               DoubleUnaryEvalFuncType doubleEvalFunc) {
+  Value *V = CI->getArgOperand(0);
+  llvm::Type *Ty = CI->getType();
+  Value *Result = nullptr;
+  if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
+    Result = UndefValue::get(Ty);
+    Constant *CV = cast<Constant>(V);
+    IRBuilder<> Builder(CI);
+    for (unsigned i=0;i<VT->getNumElements();i++) {
+      ConstantFP *fpV = cast<ConstantFP>(CV->getAggregateElement(i));
+      Value *EltResult = EvalUnaryIntrinsic(fpV, floatEvalFunc, doubleEvalFunc);
+      Result = Builder.CreateInsertElement(Result, EltResult, i);
+    }
+  } else {
+    ConstantFP *fpV = cast<ConstantFP>(V);
+    Result = EvalUnaryIntrinsic(fpV, floatEvalFunc, doubleEvalFunc);
+  }
+  CI->replaceAllUsesWith(Result);
   CI->eraseFromParent();
   return Result;
 }
@@ -3614,26 +3651,28 @@ static Value * EvalBinaryIntrinsic(CallInst *CI,
                                FloatBinaryEvalFuncType floatEvalFunc,
                                DoubleBinaryEvalFuncType doubleEvalFunc) {
   Value *V0 = CI->getArgOperand(0);
-  ConstantFP *fpV0 = cast<ConstantFP>(V0);
   Value *V1 = CI->getArgOperand(1);
-  ConstantFP *fpV1 = cast<ConstantFP>(V1);
   llvm::Type *Ty = CI->getType();
   Value *Result = nullptr;
-  if (Ty->isDoubleTy()) {
-    double dV0 = fpV0->getValueAPF().convertToDouble();
-    double dV1 = fpV1->getValueAPF().convertToDouble();
-    Value *dResult = ConstantFP::get(V0->getType(), doubleEvalFunc(dV0, dV1));
-    CI->replaceAllUsesWith(dResult);
-    Result = dResult;
+  if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
+    Result = UndefValue::get(Ty);
+    Constant *CV0 = cast<Constant>(V0);
+    Constant *CV1 = cast<Constant>(V1);
+    IRBuilder<> Builder(CI);
+    for (unsigned i=0;i<VT->getNumElements();i++) {
+      ConstantFP *fpV0 = cast<ConstantFP>(CV0->getAggregateElement(i));
+      ConstantFP *fpV1 = cast<ConstantFP>(CV1->getAggregateElement(i));
+      Value *EltResult = EvalBinaryIntrinsic(fpV0, fpV1, floatEvalFunc, doubleEvalFunc);
+      Result = Builder.CreateInsertElement(Result, EltResult, i);
+    }
   } else {
-    DXASSERT_NOMSG(Ty->isFloatTy());
-    float fV0 = fpV0->getValueAPF().convertToFloat();
-    float fV1 = fpV1->getValueAPF().convertToFloat();
-    Value *dResult = ConstantFP::get(V0->getType(), floatEvalFunc(fV0, fV1));
-
-    CI->replaceAllUsesWith(dResult);
-    Result = dResult;
+    ConstantFP *fpV0 = cast<ConstantFP>(V0);
+    ConstantFP *fpV1 = cast<ConstantFP>(V1);
+    Result = EvalBinaryIntrinsic(fpV0, fpV1, floatEvalFunc, doubleEvalFunc);
   }
+  CI->replaceAllUsesWith(Result);
+  CI->eraseFromParent();
+  return Result;
 
   CI->eraseFromParent();
   return Result;
@@ -4301,7 +4340,8 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
       if (group == HLOpcodeGroup::HLIntrinsic) {
         bool allOperandImm = true;
         for (auto &operand : CI->arg_operands()) {
-          bool isImm = isa<ConstantInt>(operand) || isa<ConstantFP>(operand);
+          bool isImm = isa<ConstantInt>(operand) || isa<ConstantFP>(operand) ||
+              isa<ConstantAggregateZero>(operand) || isa<ConstantDataVector>(operand);
           if (!isImm) {
             allOperandImm = false;
             break;

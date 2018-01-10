@@ -32,12 +32,15 @@ bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
   return spirvTools.Disassemble(binary, generatedSpirvAsm, options);
 }
 
-bool validateSpirvBinary(std::vector<uint32_t> &binary) {
+bool validateSpirvBinary(std::vector<uint32_t> &binary,
+                         bool relaxLogicalPointer) {
+  spvtools::ValidatorOptions options;
+  options.SetRelaxLogicalPointer(relaxLogicalPointer);
   spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
   spirvTools.SetMessageConsumer(
       [](spv_message_level_t, const char *, const spv_position_t &,
          const char *message) { fprintf(stdout, "%s\n", message); });
-  return spirvTools.Validate(binary);
+  return spirvTools.Validate(binary.data(), binary.size(), options);
 }
 
 bool processRunCommandArgs(const llvm::StringRef runCommandLine,
@@ -139,6 +142,8 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     flags.push_back(L"-spirv");
     // Disable legalization and optimization for testing
     flags.push_back(L"-fcgl");
+    // Disable validation. We'll run it manually.
+    flags.push_back(L"-Vd");
     for (const auto &arg : rest)
       flags.push_back(arg.c_str());
 

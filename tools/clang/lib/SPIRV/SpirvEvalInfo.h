@@ -79,6 +79,9 @@ public:
   /// Handly implicit conversion to test whether the <result-id> is valid.
   operator bool() const { return resultId != 0; }
 
+  inline SpirvEvalInfo &setContainsAliasComponent(bool);
+  bool containsAliasComponent() const { return containsAlias; }
+
   inline SpirvEvalInfo &setStorageClass(spv::StorageClass sc);
   spv::StorageClass getStorageClass() const { return storageClass; }
 
@@ -96,6 +99,15 @@ public:
 
 private:
   uint32_t resultId;
+  /// Indicates whether this evaluation result contains alias variables
+  ///
+  /// This field should only be true for stand-alone alias variables, which is
+  /// of pointer-to-pointer type, or struct variables containing alias fields.
+  /// After dereferencing the alias variable, this should be set to false to let
+  /// CodeGen fall back to normal handling path.
+  ///
+  /// Note: legalization specific code
+  bool containsAlias;
 
   spv::StorageClass storageClass;
   LayoutRule layoutRule;
@@ -106,9 +118,9 @@ private:
 };
 
 SpirvEvalInfo::SpirvEvalInfo(uint32_t id)
-    : resultId(id), storageClass(spv::StorageClass::Function),
-      layoutRule(LayoutRule::Void), isRValue_(false), isConstant_(false),
-      isRelaxedPrecision_(false) {}
+    : resultId(id), containsAlias(false),
+      storageClass(spv::StorageClass::Function), layoutRule(LayoutRule::Void),
+      isRValue_(false), isConstant_(false), isRelaxedPrecision_(false) {}
 
 SpirvEvalInfo &SpirvEvalInfo::setResultId(uint32_t id) {
   resultId = id;
@@ -119,6 +131,11 @@ SpirvEvalInfo SpirvEvalInfo::substResultId(uint32_t newId) const {
   SpirvEvalInfo info = *this;
   info.resultId = newId;
   return info;
+}
+
+SpirvEvalInfo &SpirvEvalInfo::setContainsAliasComponent(bool contains) {
+  containsAlias = contains;
+  return *this;
 }
 
 SpirvEvalInfo &SpirvEvalInfo::setStorageClass(spv::StorageClass sc) {

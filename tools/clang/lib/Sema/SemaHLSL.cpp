@@ -858,7 +858,9 @@ static const ArBasicKind g_UIntCT[] =
 
 static const ArBasicKind g_AnyIntCT[] =
 {
+  AR_BASIC_INT16,
   AR_BASIC_INT32,
+  AR_BASIC_UINT16,
   AR_BASIC_UINT32,
   AR_BASIC_INT64,
   AR_BASIC_UINT64,
@@ -947,7 +949,9 @@ static const ArBasicKind g_NumericCT[] =
   AR_BASIC_MIN10FLOAT,
   AR_BASIC_MIN16FLOAT,
   AR_BASIC_LITERAL_INT,
+  AR_BASIC_INT16,
   AR_BASIC_INT32,
+  AR_BASIC_UINT16,
   AR_BASIC_UINT32,
   AR_BASIC_MIN12INT,
   AR_BASIC_MIN16INT,
@@ -1061,9 +1065,10 @@ static const ArBasicKind g_UInt64CT[] =
   AR_BASIC_UNKNOWN
 };
 
-static const ArBasicKind g_UInt3264CT[] =
+static const ArBasicKind g_UInt163264CT[] =
 {
   AR_BASIC_UINT32,
+  AR_BASIC_UINT16,
   AR_BASIC_UINT64,
   AR_BASIC_LITERAL_INT,
   AR_BASIC_UNKNOWN
@@ -1130,7 +1135,7 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_StringCT,           // LICOMPTYPE_STRING
   g_WaveCT,             // LICOMPTYPE_WAVE
   g_UInt64CT,           // LICOMPTYPE_UINT64
-  g_UInt3264CT,         // LICOMPTYPE_UINT32_64
+  g_UInt163264CT,       // LICOMPTYPE_UINT16_32_64
   g_Float16CT,          // LICOMPTYPE_FLOAT16
   g_Int16CT,            // LICOMPTYPE_INT16
   g_UInt16CT,           // LICOMPTYPE_UINT16
@@ -10375,6 +10380,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_VKPushConstant:
     declAttr = ::new (S.Context) VKPushConstantAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKOffset:
+    declAttr = ::new (S.Context) VKOffsetAttr(A.getRange(), S.Context,
+      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
   default:
     Handled = false;

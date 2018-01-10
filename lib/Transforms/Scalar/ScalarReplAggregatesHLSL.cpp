@@ -2340,6 +2340,9 @@ static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsi
   unsigned ptrSize = DL.getTypeAllocSize(Ty);
   // Size match, return current level.
   if (ptrSize == size) {
+    // Not go deeper for matrix.
+    if (HLMatrixLower::IsMatrixType(Ty))
+      return level;
     // For struct, go deeper if size not change.
     // This will leave memcpy to deeper level when flatten.
     if (StructType *ST = dyn_cast<StructType>(Ty)) {
@@ -2567,7 +2570,9 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
   } else {
     // End at array of basic type.
     Type *Ty = GEP->getType()->getPointerElementType();
-    if (Ty->isVectorTy() || Ty->isStructTy() || Ty->isArrayTy()) {
+    if (Ty->isVectorTy() ||
+        (Ty->isStructTy() && !HLModule::IsHLSLObjectType(Ty)) ||
+        Ty->isArrayTy()) {
       SmallVector<Value *, 8> NewArgs;
       NewArgs.append(GEP->idx_begin(), GEP->idx_end());
 
@@ -3222,32 +3227,41 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
         !HLMatrixLower::IsMatrixType(ElTy)) {
-      // Skip HLSL object types.
-      if (HLModule::IsHLSLObjectType(ElTy)) {
-        return false;
-      }
-
-      // for array of struct
-      // split into arrays of struct elements
-      StructType *ElST = cast<StructType>(ElTy);
-      unsigned numTypes = ElST->getNumContainedTypes();
-      Elts.reserve(numTypes);
-      DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ElST);
-      // Skip empty struct.
-      if (SA && SA->IsEmptyStruct())
-        return true;
-      for (int i = 0, e = numTypes; i != e; ++i) {
-        AllocaInst *NA = Builder.CreateAlloca(
-            CreateNestArrayTy(ElST->getContainedType(i), nestArrayTys), nullptr,
-            V->getName() + "." + Twine(i));
-        bool markPrecise = hasPrecise;
-        if (SA) {
-          DxilFieldAnnotation &FA = SA->GetFieldAnnotation(i);
-          markPrecise |= FA.IsPrecise();
+      if (!HLModule::IsHLSLObjectType(ElTy)) {
+        // for array of struct
+        // split into arrays of struct elements
+        StructType *ElST = cast<StructType>(ElTy);
+        unsigned numTypes = ElST->getNumContainedTypes();
+        Elts.reserve(numTypes);
+        DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ElST);
+        // Skip empty struct.
+        if (SA && SA->IsEmptyStruct())
+          return true;
+        for (int i = 0, e = numTypes; i != e; ++i) {
+          AllocaInst *NA = Builder.CreateAlloca(
+              CreateNestArrayTy(ElST->getContainedType(i), nestArrayTys),
+              nullptr, V->getName() + "." + Twine(i));
+          bool markPrecise = hasPrecise;
+          if (SA) {
+            DxilFieldAnnotation &FA = SA->GetFieldAnnotation(i);
+            markPrecise |= FA.IsPrecise();
+          }
+          if (markPrecise)
+            HLModule::MarkPreciseAttributeWithMetadata(NA);
+          Elts.push_back(NA);
         }
-        if (markPrecise)
-          HLModule::MarkPreciseAttributeWithMetadata(NA);
-        Elts.push_back(NA);
+      } else {
+        // For local resource array which not dynamic indexing,
+        // split it.
+        if (dxilutil::HasDynamicIndexing(V) ||
+            // Only support 1 dim split.
+            nestArrayTys.size() > 1)
+          return false;
+        for (int i = 0, e = AT->getNumElements(); i != e; ++i) {
+          AllocaInst *NA = Builder.CreateAlloca(ElTy, nullptr,
+                                                V->getName() + "." + Twine(i));
+          Elts.push_back(NA);
+        }
       }
     } else if (ElTy->isVectorTy()) {
       // Skip vector if required.
@@ -6724,15 +6738,7 @@ Constant *DynamicIndexingVectorToArray::lowerInitVal(Constant *InitVal, Type *Ne
 }
 
 bool DynamicIndexingVectorToArray::HasVectorDynamicIndexing(Value *V) {
-  for (auto User : V->users()) {
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
-      for (auto Idx = GEP->idx_begin(); Idx != GEP->idx_end(); ++Idx) {
-        if (!isa<ConstantInt>(Idx))
-          return true;
-      }
-    }
-  }
-  return false;
+  return dxilutil::HasDynamicIndexing(V);
 }
 
 }

@@ -1333,6 +1333,7 @@ class db_dxil(object):
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
         add_pass('dxil-dfe', 'DxilDeadFunctionElimination', 'Remove all unused function except entry from DxilModule', [])
         add_pass('hl-dfe', 'HLDeadFunctionElimination', 'Remove all unused function except entry from HLModule', [])
+        add_pass('hl-preprocess', 'HLPreprocess', 'Preprocess HLModule after inline', [])
         add_pass('hlsl-dxil-expand-trig', 'DxilExpandTrigIntrinsics', 'DXIL expand trig intrinsics', [])
         add_pass('hlsl-hca', 'HoistConstantArray', 'HLSL constant array hoisting', [])
         add_pass('hlsl-dxil-preserve-all-outputs', 'DxilPreserveAllOutputs', 'DXIL write to all outputs in signature', [])
@@ -1715,6 +1716,7 @@ class db_dxil(object):
         self.add_valrule("Instr.ExtractValue", "ExtractValue should only be used on dxil struct types and cmpxchg")
         self.add_valrule("Instr.TGSMRaceCond", "Race condition writing to shared memory detected, consider making this write conditional")
         self.add_valrule("Instr.AttributeAtVertexNoInterpolation", "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.")
+        self.add_valrule("Instr.CreateHandleImmRangeID", "Local resource must map to global resource.")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
@@ -1935,7 +1937,7 @@ class db_hlsl(object):
             "uint": "LICOMPTYPE_UINT",
             "uint16_t": "LICOMPTYPE_UINT16",
             "u64": "LICOMPTYPE_UINT64",
-            "u32_64": "LICOMPTYPE_UINT32_64",
+            "u16_32_64": "LICOMPTYPE_UINT16_32_64",
             "any_int": "LICOMPTYPE_ANY_INT",
             "any_int32": "LICOMPTYPE_ANY_INT32",
             "uint_only": "LICOMPTYPE_UINT_ONLY",

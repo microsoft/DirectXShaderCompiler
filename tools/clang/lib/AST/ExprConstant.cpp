@@ -2038,6 +2038,11 @@ static bool evaluateVarDeclInit(EvalInfo &Info, const Expr *E,
     Info.Diag(E, diag::note_invalid_subexpr_in_const_expr);
     return false;
   }
+  // HLSL Change Begin - External variable is in cbuffer, cannot use as immediate.
+  if (VD->hasExternalFormalLinkage() &&
+      !isa<EnumConstantDecl>(VD))
+    return false;
+  // HLSL Change End.
 
   // Check that we can fold the initializer. In C++, we will have already done
   // this in the cases where it matters for conformance.
@@ -8576,6 +8581,14 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
         return true;
     if (E->getStmtClass() == Stmt::InitListExprClass && !E->getType()->isScalarType())
       return false;
+    if (E->getStmtClass() == Stmt::DeclRefExprClass) {
+      const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(E);
+      const ValueDecl *VD = DRE->getDecl();
+      // External variable is in cbuffer, cannot use as immediate.
+      if (VD->hasExternalFormalLinkage() &&
+          !isa<EnumConstantDecl>(VD))
+        return false;
+    }
   }
   // HLSL Change Ends.
   QualType T = E->getType();

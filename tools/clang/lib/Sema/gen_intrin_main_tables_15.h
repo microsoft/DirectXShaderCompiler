@@ -601,7 +601,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args85[] =
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args86[] =
 {
     {"countbits", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 0, LICOMPTYPE_UINT, IA_R, IA_C},
-    {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT32_64, IA_R, IA_C},
+    {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT16_32_64, IA_R, IA_C},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args87[] =
@@ -721,7 +721,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args104[] =
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args105[] =
 {
     {"firstbitlow", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 0, LICOMPTYPE_UINT, IA_R, IA_C},
-    {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT32_64, IA_R, IA_C},
+    {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT16_32_64, IA_R, IA_C},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args106[] =
@@ -971,8 +971,8 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args141[] =
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args142[] =
 {
-    {"reversebits", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT32_64, IA_R, IA_C},
-    {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT32_64, IA_R, IA_C},
+    {"reversebits", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT16_32_64, IA_R, IA_C},
+    {"x", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT16_32_64, IA_R, IA_C},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args143[] =

@@ -36,6 +36,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include <chrono>
 
 #include <d3dcompiler.h>
 #pragma comment(lib, "d3dcompiler.lib")
@@ -900,6 +901,22 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   std::wstring codeGenPath = hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\Samples");
+  // This test was running at about three minutes; that can be enabled with TestAll=True,
+  // otherwise the much shorter list is used.
+  const bool TestAll = false;
+  LPCWSTR PreApprovedPaths[] = {
+    L"2DQuadShaders_VS.hlsl",
+    L"BC6HEncode_TryModeLE10CS.hlsl",
+    L"DepthViewerVS.hlsl",
+    L"DetailTessellation11_DS.hlsl",
+    L"GenerateHistogramCS.hlsl",
+    L"OIT_PS.hlsl",
+    L"PNTriangles11_DS.hlsl",
+    L"PerfGraphPS.hlsl",
+    L"PerfGraphVS.hlsl",
+    L"ScreenQuadVS.hlsl",
+    L"SimpleBezier11HS.hlsl"
+  };
   for (auto &p: recursive_directory_iterator(path(codeGenPath))) {
     if (is_regular_file(p)) {
       LPCWSTR fullPath = p.path().c_str();
@@ -907,8 +924,23 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
       if (wcsstr(fullPath, L"TessellatorCS40_defines.h") != nullptr) continue;
       // Skip failed tests.
       if (wcsstr(fullPath, L"SubD11_SubDToBezierHS") != nullptr) continue;
-
+      if (!TestAll) {
+        bool shouldTest = false;
+        LPCWSTR *PreApprovedEnd = PreApprovedPaths + _countof(PreApprovedPaths);
+        shouldTest = PreApprovedEnd == std::find_if(PreApprovedPaths, PreApprovedEnd,
+          [&](LPCWSTR candidate) { return nullptr != wcsstr(fullPath, candidate); });
+        if (!shouldTest) {
+          break;
+        }
+      }
+      auto start = std::chrono::system_clock::now();
       ReflectionTest(fullPath, true);
+      if (TestAll) {
+        // If testing all cases, print out their timing.
+        auto end = std::chrono::system_clock::now();
+        auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        LogCommentFmt(L"%s,%u", fullPath, (unsigned)dur.count());
+      }
     }
   }
 }

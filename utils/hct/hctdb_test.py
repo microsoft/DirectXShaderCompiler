@@ -1,4 +1,4 @@
-# This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
+# This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details
 ###############################################################################
 # This file contains driver test information for DXIL operations              #
 ###############################################################################
@@ -49,6 +49,7 @@ class test_case(object):
         self.shader_text = shader_text
         self.insts = insts # list of instructions each test case cover
         self.warp_version = -1 # known warp version that works
+        self.shader_arguments = ""
         for k,v in kwargs.items():
             setattr(self, k, v)
 
@@ -72,7 +73,478 @@ def add_test_case(test_name, inst_names, validation_type, validation_tolerance,
     for inst_name in inst_names:
         g_instruction_nodes[inst_name].test_cases += [case]
 
+def add_test_case_int(test_name, inst_names, validation_type, validation_tolerance,
+                  input_lists, output_lists, shader_key, shader_op_name, **kwargs):
+    add_test_case(test_name, inst_names, validation_type, validation_tolerance,
+                  input_lists, output_lists, "cs_6_0", get_shader_text(shader_key, shader_op_name), **kwargs)
+    input_lists_16, output_lists_16 = input_lists, output_lists
+    if "input_16" in kwargs:
+        input_lists_16 = kwargs["input_16"]
+    if "output_16" in kwargs:
+        output_lists_16 = kwargs["output_16"]
+    add_test_case(test_name + "Bit16", inst_names, validation_type, validation_tolerance,
+                  input_lists_16, output_lists_16, "cs_6_2", get_shader_text(shader_key.replace("int","int16_t"), shader_op_name),
+                  shader_arguments="-enable-16bit-types", **kwargs)
 
+def add_test_case_float_half(test_name, inst_names, validation_type, validation_tolerance,
+                  float_input_lists, float_output_lists, shader_key, shader_op_name, **kwargs):
+    add_test_case(test_name, inst_names, validation_type, validation_tolerance,
+                  float_input_lists, float_output_lists, "cs_6_0", get_shader_text(shader_key, shader_op_name), **kwargs)
+    # if half test cases are different from float input lists, use those lists instead for half testings
+    half_input_lists, half_output_lists = float_input_lists, float_output_lists
+    if "half_inputs" in kwargs:
+        half_input_lists = kwargs["half_inputs"]
+    if "half_outputs" in kwargs:
+        half_output_lists = kwargs["half_outputs"]
+    # skip relative error test check for half for now
+    if validation_type != "Relative":
+        add_test_case(test_name + "Half", inst_names, validation_type, validation_tolerance,
+                    half_input_lists, half_output_lists, "cs_6_2",
+                    get_shader_text(shader_key.replace("float","half"), shader_op_name), shader_arguments="-enable-16bit-types", **kwargs)
+
+def add_test_case_denorm(test_name, inst_names, validation_type, validation_tolerance, input_lists,
+                    output_lists_ftz, output_lists_preserve, shader_target, shader_text, **kwargs):
+    add_test_case(test_name + "FTZ", inst_names, validation_type, validation_tolerance, input_lists,
+                  output_lists_ftz, shader_target, shader_text, shader_arguments="-denorm ftz")
+    add_test_case(test_name + "Preserve", inst_names, validation_type, validation_tolerance, input_lists,
+                  output_lists_preserve, shader_target, shader_text, shader_arguments="-denorm preserve")
+    # we can expect the same output for "any" and "preserve" mode. We should make sure that for validation zero are accepted outputs for denormal outputs.
+    add_test_case(test_name + "Any", inst_names, validation_type, validation_tolerance, input_lists,
+                  output_lists_preserve, shader_target, shader_text, shader_arguments="-denorm any")
+
+
+g_shader_texts = {
+    "unary int": ''' struct SUnaryIntOp {
+                int input;
+                int output;
+            };
+            RWStructuredBuffer<SUnaryIntOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryIntOp l = g_buf[GI];
+                l.output = %s(l.input);
+                g_buf[GI] = l;
+            };''',
+
+    "unary int16_t": ''' struct SUnaryInt16Op {
+                int16_t input;
+                int16_t output;
+            };
+            RWStructuredBuffer<SUnaryInt16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryInt16Op l = g_buf[GI];
+                l.output = %s(l.input);
+                g_buf[GI] = l;
+            };''',
+
+    "unary uint": ''' struct SUnaryUintOp {
+                uint input;
+                uint output;
+            };
+            RWStructuredBuffer<SUnaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryUintOp l = g_buf[GI];
+                l.output = %s(l.input);
+                g_buf[GI] = l;
+            };''',
+
+    "unary uint16_t": ''' struct SUnaryUint16Op {
+                uint16_t input;
+                uint16_t output;
+            };
+            RWStructuredBuffer<SUnaryUint16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryUint16Op l = g_buf[GI];
+                l.output = %s(l.input);
+                g_buf[GI] = l;
+            };''',
+
+    "unary float": ''' struct SUnaryFPOp {
+                float input;
+                float output;
+            };
+            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                l.output = %s(l.input);
+                g_buf[GI] = l;
+            };''',
+
+    "unary float bool": ''' struct SUnaryFPOp {
+                float input;
+                float output;
+            };
+            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                if (%s(l.input))
+                    l.output = 1;
+                else
+                    l.output = 0;
+                g_buf[GI] = l;
+            };''',
+
+    "unary half": ''' struct SUnaryFPOp {
+                float16_t input;
+                float16_t output;
+            };
+            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                l.output = %s(l.input);
+                g_buf[GI] = l;
+            };''',
+
+    "unary half bool": ''' struct SUnaryFPOp {
+                float16_t input;
+                float16_t output;
+            };
+            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SUnaryFPOp l = g_buf[GI];
+                if (%s(l.input))
+                    l.output = 1;
+                else
+                    l.output = 0;
+                g_buf[GI] = l;
+            };''',
+
+     "binary int": ''' struct SBinaryIntOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryIntOp l = g_buf[GI];
+                l.output1 = l.input1 %s l.input2;
+                g_buf[GI] = l;
+            };''',
+
+     "binary int16_t": ''' struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer<SBinaryInt16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = l.input1 %s l.input2;
+                g_buf[GI] = l;
+            };''',
+
+    "binary int call": ''' struct SBinaryIntOp {
+                int input1;
+                int input2;
+                int output1;
+                int output2;
+            };
+            RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryIntOp l = g_buf[GI];
+                l.output1 = %s(l.input1,l.input2);
+                g_buf[GI] = l;
+            };''',
+
+    "binary int16_t call": ''' struct SBinaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t output1;
+                int16_t output2;
+            };
+            RWStructuredBuffer<SBinaryInt16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryInt16Op l = g_buf[GI];
+                l.output1 = %s(l.input1,l.input2);
+                g_buf[GI] = l;
+            };''',
+
+    "binary uint": ''' struct SBinaryUintOp {
+                uint input1;
+                uint input2;
+                uint output1;
+                uint output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = l.input1 %s l.input2;
+                g_buf[GI] = l;
+            };''',
+
+    "binary uint16_t": ''' struct SBinaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t output1;
+                uint16_t output2;
+            };
+            RWStructuredBuffer<SBinaryUint16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUint16Op l = g_buf[GI];
+                l.output1 = l.input1 %s l.input2;
+                g_buf[GI] = l;
+            };''',
+
+    "binary uint call": ''' struct SBinaryUintOp {
+                uint input1;
+                uint input2;
+                uint output1;
+                uint output2;
+            };
+            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUintOp l = g_buf[GI];
+                l.output1 = %s(l.input1,l.input2);
+                g_buf[GI] = l;
+            };''',
+
+    "binary uint16_t call": ''' struct SBinaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t output1;
+                uint16_t output2;
+            };
+            RWStructuredBuffer<SBinaryUint16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryUint16Op l = g_buf[GI];
+                l.output1 = %s(l.input1,l.input2);
+                g_buf[GI] = l;
+            };''',
+
+    "binary float": ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 %s l.input2;
+                g_buf[GI] = l;
+            };''',
+
+    "binary float call": ''' struct SBinaryFPOp {
+                float input1;
+                float input2;
+                float output1;
+                float output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = %s(l.input1,l.input2);
+                g_buf[GI] = l;
+            };''',
+
+    "binary half": ''' struct SBinaryFPOp {
+                half input1;
+                half input2;
+                half output1;
+                half output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = l.input1 %s l.input2;
+                g_buf[GI] = l;
+            };''',
+
+    "binary half call": ''' struct SBinaryFPOp {
+                half input1;
+                half input2;
+                half output1;
+                half output2;
+            };
+            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                SBinaryFPOp l = g_buf[GI];
+                l.output1 = %s(l.input1,l.input2);
+                g_buf[GI] = l;
+            };''',
+
+     "tertiary int": ''' struct STertiaryIntOp {
+                int input1;
+                int input2;
+                int input3;
+                int output;
+            };
+            RWStructuredBuffer<STertiaryIntOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryIntOp l = g_buf[GI];
+                l.output = %s(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };''',
+
+     "tertiary int16_t": ''' struct STertiaryInt16Op {
+                int16_t input1;
+                int16_t input2;
+                int16_t input3;
+                int16_t output;
+            };
+            RWStructuredBuffer<STertiaryInt16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryInt16Op l = g_buf[GI];
+                l.output = %s(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };''',
+
+     "tertiary uint": ''' struct STertiaryUintOp {
+                uint input1;
+                uint input2;
+                uint input3;
+                uint output;
+            };
+            RWStructuredBuffer<STertiaryUintOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryUintOp l = g_buf[GI];
+                l.output = %s(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };''',
+
+     "tertiary uint16_t": ''' struct STertiaryUint16Op {
+                uint16_t input1;
+                uint16_t input2;
+                uint16_t input3;
+                uint16_t output;
+            };
+            RWStructuredBuffer<STertiaryUint16Op> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryUint16Op l = g_buf[GI];
+                l.output = %s(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };''',
+
+    "tertiary float": ''' struct STertiaryFloatOp {
+                float input1;
+                float input2;
+                float input3;
+                float output;
+            };
+            RWStructuredBuffer<STertiaryFloatOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryFloatOp l = g_buf[GI];
+                l.output = %s(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };''',
+    'tertiary half': ''' struct STertiaryHalfOp {
+                half input1;
+                half input2;
+                half input3;
+                half output;
+            };
+            RWStructuredBuffer<STertiaryHalfOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryHalfOp l = g_buf[GI];
+                l.output = %s(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };''',
+    "wave op int" :''' struct PerThreadData {
+                        uint firstLaneId;
+                        uint laneIndex;
+                        int mask;
+                        int input;
+                        int output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,12,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
+                        if (pts.mask != 0) {
+                            pts.output = %s(pts.input);
+                        }
+                        else {
+                            pts.output = %s(pts.input);
+                        }
+                        g_sb[GI] = pts;
+                    };''',
+    "wave op uint" :''' struct PerThreadData {
+                        uint firstLaneId;
+                        uint laneIndex;
+                        int mask;
+                        uint input;
+                        uint output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,12,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
+                        if (pts.mask != 0) {
+                            pts.output = %s(pts.input);
+                        }
+                        else {
+                            pts.output = %s(pts.input);
+                        }
+                        g_sb[GI] = pts;
+                    };''',
+    "wave op int count": ''' struct PerThreadData {
+                        uint firstLaneId;
+                        uint laneIndex;
+                        int mask;
+                        int input;
+                        int output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,12,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
+                        if (pts.mask != 0) {
+                            pts.output = %s(pts.input > 3);
+                        }
+                        else {
+                            pts.output = %s(pts.input > 3);
+                        }
+                        g_sb[GI] = pts;
+                    };'''
+}
+
+def get_shader_text(op_type, op_call):
+    assert(op_type in g_shader_texts)
+    if op_type.startswith("wave op"):
+        return g_shader_texts[op_type] % (op_call, op_call)
+    return g_shader_texts[op_type] % (op_call)
+
+g_denorm_tests = ["FAddDenormAny", "FAddDenormFTZ", "FAddDenormPreserve",
+                "FSubDenormAny", "FSubDenormFTZ", "FSubDenormPreserve",
+                "FMulDenormAny", "FMulDenormFTZ", "FMulDenormPreserve",
+                "FDivDenormAny", "FDivDenormFTZ", "FDivDenormPreserve",
+                "FMadDenormAny", "FMadDenormFTZ", "FMadDenormPreserve",
+                "FAbsDenormAny", "FAbsDenormFTZ", "FAbsDenormPreserve",
+                "FMinDenormAny", "FMinDenormFTZ", "FMinDenormPreserve",
+                "FMaxDenormAny", "FMaxDenormFTZ", "FMaxDenormPreserve"]
 # This is a collection of test case for driver tests per instruction
 # Warning: For test cases, when you want to pass in signed integer,
 # make sure to pass in negative numbers with decimal values instead of hexadecimal representation.
@@ -84,384 +556,164 @@ def add_test_cases():
     p_denorm = float('1e-38')
     n_denorm = float('-1e-38')
     # Unary Float
-    add_test_case('Sin', ['Sin'], 'Epsilon', 0.0008, [[
+    add_test_case_float_half('Sin', ['Sin'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314.16',
         '314.16'
     ]], [[
         'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '-0.0007346401',
         '0.0007346401'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            [RootSignature("RootFlags(0), UAV(u0)")]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = sin(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Cos', ['Cos'], 'Epsilon', 0.0008, [[
+    ]], "unary float", "sin", half_inputs=[[
+        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314',
+        '314'
+    ]], half_outputs=[[
+        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '-0.1585929',
+        '0.1585929'
+    ]])
+    add_test_case_float_half('Cos', ['Cos'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314.16',
         '314.16'
     ]], [[
         'NaN', 'NaN', '1.0', '1.0', '1.0', '1.0', 'NaN', '0.99999973015',
         '0.99999973015'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = cos(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Tan', ['Tan'], 'Epsilon', 0.0008, [[
+    ]], "unary float", "cos", half_inputs=[[
+        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314',
+        '314'
+    ]], half_outputs=[[
+        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '0.987344',
+        '0.987344'
+    ]])
+    add_test_case_float_half('Tan', ['Tan'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314.16',
         '314.16'
     ]], [[
         'NaN', 'NaN', '-0.0', '-0.0', '0.0', '0.0', 'NaN', '-0.000735',
         '0.000735'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = tan(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Hcos', ['Hcos'], 'Epsilon', 0.0008,
+    ]], "unary float", "tan", half_inputs=[[
+        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314',
+        '314'
+    ]], half_outputs=[[
+        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '0.1606257',
+        '-0.1606257'
+    ]])
+    add_test_case_float_half('Hcos', ['Hcos'], 'Epsilon', 0.0008,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1']], [[
             'NaN', 'Inf', '1.0', '1.0', '1.0', '1.0', 'Inf', '1.543081',
             '1.543081'
-        ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = cosh(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Hsin', ['Hsin'], 'Epsilon', 0.0008,
+        ]], "unary float", "cosh")
+    add_test_case_float_half('Hsin', ['Hsin'], 'Epsilon', 0.0008,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1']], [[
             'NaN', '-Inf', '0.0', '0.0', '0.0', '0.0', 'Inf', '1.175201',
             '-1.175201'
-        ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = sinh(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Htan', ['Htan'], 'Epsilon', 0.0008,
+        ]], "unary float", "sinh")
+    add_test_case_float_half('Htan', ['Htan'], 'Epsilon', 0.0008,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1']], [[
             'NaN', '-1', '-0.0', '-0.0', '0.0', '0.0', '1', '0.761594',
             '-0.761594'
-        ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = tanh(l.input);
-                g_buf[GI] = l;
-            };''', warp_version=16202)
-    add_test_case('Acos', ['Acos'], 'Epsilon', 0.0008, [[
+        ]], "unary float", "tanh", warp_version=16202)
+    add_test_case_float_half('Acos', ['Acos'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1', '1.5',
         '-1.5'
     ]], [[
         'NaN', 'NaN', '1.570796', '1.570796', '1.570796', '1.570796', 'NaN',
         '0', '3.1415926', 'NaN', 'NaN'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = acos(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Asin', ['Asin'], 'Epsilon', 0.0008, [[
+    ]], "unary float", "acos")
+    add_test_case_float_half('Asin', ['Asin'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1', '1.5',
         '-1.5'
     ]], [[
         'NaN', 'NaN', '0.0', '0.0', '0.0', '0.0', 'NaN', '1.570796',
         '-1.570796', 'NaN', 'NaN'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = asin(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Atan', ['Atan'], 'Epsilon', 0.0008,
+    ]], "unary float", "asin")
+    add_test_case_float_half('Atan', ['Atan'], 'Epsilon', 0.0008,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1']], [[
             'NaN', '-1.570796', '0.0', '0.0', '0.0', '0.0', '1.570796',
             '0.785398163', '-0.785398163'
-        ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = atan(l.input);
-                g_buf[GI] = l;
-            };''', warp_version=16202)
-    add_test_case('Exp', ['Exp'], 'Relative', 21,
+        ]], "unary float", "atan", warp_version=16202)
+    add_test_case_float_half('Exp', ['Exp'], 'Relative', 21,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '10']],
         [['NaN', '0', '1', '1', '1', '1', 'Inf', '0.367879441', '22026.46579']
-         ], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = exp(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Frc', ['Frc'], 'Epsilon', 0.0008, [[
+         ], "unary float", "exp")
+    add_test_case_float_half('Frc', ['Frc'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2.718280',
         '1000.599976', '-7.389'
     ]], [[
         'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.718280', '0.599976',
         '0.611'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = frac(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Log', ['Log'], 'Relative', 21, [[
+    ]], "unary float", "frac",
+        half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2.719',
+        '1000.5', '-7.39']],
+        half_outputs=[[
+         'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.719', '0.5',
+        '0.61']])
+    add_test_case_float_half('Log', ['Log'], 'Relative', 21, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1',
         '2.718281828', '7.389056', '100'
     ]], [[
         'NaN', 'NaN', '-Inf', '-Inf', '-Inf', '-Inf', 'Inf', 'NaN', '1.0',
         '1.99999998', '4.6051701'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = log(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Sqrt', ['Sqrt'], 'ulp', 1, [[
+    ]],"unary float", "log", half_inputs=[[
+        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1',
+        '2.719', '7.39', '100'
+    ]], half_outputs=[[
+        'NaN', 'NaN', '-Inf', '-Inf', '-Inf', '-Inf', 'Inf', 'NaN', '1.0',
+        '2', '4.605'
+    ]])
+    add_test_case_float_half('Sqrt', ['Sqrt'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2',
         '16.0', '256.0'
     ]], [[
         'NaN', 'NaN', '-0', '-0', '0', '0', 'Inf', 'NaN', '1.41421356237',
         '4.0', '16.0'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = sqrt(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
+    ]], "unary float", "sqrt")
+    add_test_case_float_half('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
         '256.0', '65536.0'
     ]], [[
         'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
         '0.0625', '0.00390625'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = rsqrt(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
+    ]], "unary float", "rsqrt", half_inputs=[[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
-        '256.0', '65536.0'
-    ]], [[
+        '256.0', '65500'
+    ]], half_outputs=[[
         'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
-        '0.0625', '0.00390625'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = rsqrt(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Round_ne', ['Round_ne'], 'Epsilon', 0, [[
+        '0.0625', '0.00001526'
+    ]])
+    add_test_case_float_half('Round_ne', ['Round_ne'], 'Epsilon', 0, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '11.5', '-10.0', '-10.4', '-10.5', '-10.6'
     ]], [[
         'NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
         '11.0', '12.0', '-10.0', '-10.0', '-10.0', '-11.0'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = round(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Round_ni', ['Round_ni'], 'Epsilon', 0, [[
+    ]], "unary float", "round")
+    add_test_case_float_half('Round_ni', ['Round_ni'], 'Epsilon', 0, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6'
     ]], [[
         'NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
         '10.0', '-10.0', '-11.0', '-11.0', '-11.0'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = floor(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Round_pi', ['Round_pi'], 'Epsilon', 0, [[
-        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
-        '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6'
-    ]], [[
-        'NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '11.0', '11.0',
-        '11.0', '-10.0', '-10.0', '-10.0', '-10.0'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = ceil(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('Round_z', ['Round_z'], 'Epsilon', 0, [[
-        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
-        '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6'
-    ]], [[
-        'NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
-        '10.0', '-10.0', '-10.0', '-10.0', '-10.0'
-    ]], 'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = trunc(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('IsNaN', ['IsNaN'], 'Epsilon', 0,
+    ]], "unary float", "floor")
+    add_test_case_float_half('Round_pi', ['Round_pi'], 'Epsilon', 0,
+        [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
+        '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6']],
+        [['NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '11.0', '11.0',
+        '11.0', '-10.0', '-10.0', '-10.0', '-10.0']], "unary float", "ceil")
+    add_test_case_float_half('Round_z', ['Round_z'], 'Epsilon', 0,
+        [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
+        '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6']],
+        [['NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
+        '10.0', '-10.0', '-10.0', '-10.0', '-10.0']], "unary float", "trunc")
+    add_test_case_float_half('IsNaN', ['IsNaN'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0']
-         ], [['1', '0', '0', '0', '0', '0', '0', '0', '0']], 'cs_6_0',
-        ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                if (isnan(l.input))
-                    l.output = 1;
-                else
-                    l.output = 0;
-                g_buf[GI] = l;
-            };''')
-    add_test_case('IsInf', ['IsInf'], 'Epsilon', 0,
+         ], [['1', '0', '0', '0', '0', '0', '0', '0', '0']], "unary float bool", "isnan")
+    add_test_case_float_half('IsInf', ['IsInf'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0']
-         ], [['0', '1', '0', '0', '0', '0', '1', '0', '0']], 'cs_6_0',
-        ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                if (isinf(l.input))
-                    l.output = 1;
-                else
-                    l.output = 0;
-                g_buf[GI] = l;
-            };''')
-    add_test_case('IsFinite', ['IsFinite'], 'Epsilon', 0,
+         ], [['0', '1', '0', '0', '0', '0', '1', '0', '0']], "unary float bool", "isinf")
+    add_test_case_float_half('IsFinite', ['IsFinite'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0']
-         ], [['0', '0', '1', '1', '1', '1', '0', '1', '1']], 'cs_6_0',
-        ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                if (isfinite(l.input))
-                    l.output = 1;
-                else
-                    l.output = 0;
-                g_buf[GI] = l;
-            };''', warp_version=16202)
-    add_test_case('FAbs', ['FAbs'], 'Epsilon', 0,
+         ], [['0', '0', '1', '1', '1', '1', '0', '1', '1']], "unary float bool", "isfinite", warp_version=16202)
+    add_test_case_float_half('FAbs', ['FAbs'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0']
-         ], [['NaN', 'Inf', 'denorm', '0', '0', 'denorm', 'Inf', '1', '1']],
-        'cs_6_0', ''' struct SUnaryFPOp {
-                float input;
-                float output;
-            };
-            RWStructuredBuffer<SUnaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryFPOp l = g_buf[GI];
-                l.output = abs(l.input);
-                g_buf[GI] = l;
-            };''')
+         ], [['NaN', 'Inf', 'denorm', '0', '0', 'denorm', 'Inf', '1', '1']], "unary float", "abs")
     # Binary Float
     add_test_case('FMin', ['FMin','FMax'], 'epsilon', 0, [[
         '-inf', '-inf', '-inf', '-inf', 'inf', 'inf', 'inf', 'inf', 'NaN',
@@ -489,68 +741,64 @@ def add_test_cases():
                 l.output2 = max(l.input1, l.input2);
                 g_buf[GI] = l;
             };''')
-    add_test_case('FAdd', ['FAdd'], 'ulp', 1, [['-1.0', '1.0', '32.5', '1.0000001000'],['4', '5.5', '334.7', '0.5000001000']], [['3.0', '6.5', '367.2', '1.5000002000']],
-    'cs_6_0', ''' struct SBinaryFPOp {
-                float input1;
-                float input2;
-                float output1;
-                float output2;
+    add_test_case('FMinHalf', ['FMin','FMax'], 'epsilon', 0, [[
+        '-inf', '-inf', '-inf', '-inf', 'inf', 'inf', 'inf', 'inf', 'NaN',
+        'NaN', 'NaN', 'NaN', '1.0', '1.0', '-1.0', '-1.0', '1.0'
+    ], [
+        '-inf', 'inf', '1.0', 'NaN', '-inf', 'inf', '1.0', 'NaN', '-inf',
+        'inf', '1.0', 'NaN', '-inf', 'inf', '1.0', 'NaN', '-1.0'
+    ]], [[
+        '-inf', '-inf', '-inf', '-inf', '-inf', 'inf', '1.0', 'inf', '-inf',
+        'inf', '1.0', 'NaN', '-inf', '1.0', '-1.0', '-1.0', '-1.0'
+    ], [
+        '-inf', 'inf', '1.0', '-inf', 'inf', 'inf', 'inf', 'inf', '-inf',
+        'inf', '1.0', 'NaN', '1.0', 'inf', '1.0', '-1.0', '1.0'
+    ]], 'cs_6_0', ''' struct SBinaryHalfOp {
+                half input1;
+                half input2;
+                half output1;
+                half output2;
             };
-            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
+            RWStructuredBuffer<SBinaryHalfOp> g_buf : register(u0);
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
-                SBinaryFPOp l = g_buf[GI];
-                l.output1 = l.input1 + l.input2;
+                SBinaryHalfOp l = g_buf[GI];
+                l.output1 = min(l.input1, l.input2);
+                l.output2 = max(l.input1, l.input2);
                 g_buf[GI] = l;
-            }; '''
-    )
-    add_test_case('FSub', ['FSub'], 'ulp', 1, [['-1.0', '5.5', '32.5', '1.0000001000'],['4', '1.25', '334.7', '0.5000001000']], [['-5', '4.25', '-302.2', '0.5000']],
-    'cs_6_0', ''' struct SBinaryFPOp {
-                float input1;
-                float input2;
-                float output1;
-                float output2;
-            };
-            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryFPOp l = g_buf[GI];
-                l.output1 = l.input1 - l.input2;
-                g_buf[GI] = l;
-            }; '''
-    )
-    add_test_case('FMul', ['FMul'], 'ulp', 1, [['-1.0', '5.5', '1.0000001'],['4', '1.25', '2.0']], [['-4.0', '6.875', '2.0000002']],
-    'cs_6_0', ''' struct SBinaryFPOp {
-                float input1;
-                float input2;
-                float output1;
-                float output2;
-            };
-            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryFPOp l = g_buf[GI];
-                l.output1 = l.input1 * l.input2;
-                g_buf[GI] = l;
-            }; '''
-    )
-    add_test_case('FDiv', ['FDiv'], 'ulp', 1, [['-1.0', '5.5', '1.0000001'],['4', '1.25', '2.0']], [['-0.25', '4.4', '0.50000006']],
-    'cs_6_0', ''' struct SBinaryFPOp {
-                float input1;
-                float input2;
-                float output1;
-                float output2;
-            };
-            RWStructuredBuffer<SBinaryFPOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryFPOp l = g_buf[GI];
-                l.output1 = l.input1 / l.input2;
-                g_buf[GI] = l;
-            }; '''
-    )
+            };''')
+    add_test_case_float_half('FAdd', ['FAdd'], 'ulp', 1, [['-1.0', '1.0', '32.5', '1.0000001000'],['4', '5.5', '334.7', '0.5000001000']], [['3.0', '6.5', '367.2', '1.5000002000']],
+    "binary float", "+")
+    add_test_case_float_half('FSub', ['FSub'], 'ulp', 1, [['-1.0', '5.5', '32.5', '1.0000001000'],['4', '1.25', '334.7', '0.5000001000']], [['-5', '4.25', '-302.2', '0.5000']],
+    "binary float", "-")
+    add_test_case_float_half('FMul', ['FMul'], 'ulp', 1, [['-1.0', '5.5', '1.0000001'],['4', '1.25', '2.0']], [['-4.0', '6.875', '2.0000002']],
+    "binary float", "*")
+    add_test_case_float_half('FDiv', ['FDiv'], 'ulp', 1, [['-1.0', '5.5', '1.0000001'],['4', '1.25', '2.0']], [['-0.25', '4.4', '0.50000006']],
+    "binary float", "/")
+
+    # Denorm Binary Float
+    add_test_case_denorm('FAddDenorm', ['FAdd'], 'ulp', 1,
+    [['0x007E0000', '0x00200000', '0x007E0000', '0x007E0000'],['0x007E0000','0x00200000', '0x807E0000', '0x800E0000']],
+    [['0x00FC0000','0', '0', '0']],
+    [['0x00FC0000','0', '0', '0x00700000']],
+    'cs_6_2', get_shader_text("binary float", "+"))
+    add_test_case_denorm('FSubDenorm', ['FSub'], 'ulp', 1,
+    [['0x007E0000', '0x007F0000', '0x00FF0000', '0x007A0000'],['0x007E0000', '0x807F0000', '0x00800000', '0']],
+    [['0x0', '0x00FE0000', '0', '0']],
+    [['0x0', '0x00FE0000', '0x007F0000', '0x007A0000']],
+    'cs_6_2', get_shader_text("binary float", "-"))
+    add_test_case_denorm('FDivDenorm', ['FDiv'], 'ulp', 1,
+    [['0x007F0000', '0x007F0000', '0x40000000', '0x00800000'],['1', '0x007F0000', '0x7F7F0000', '0x40000000']],
+    [['0', '1', '0', '0']],
+    [['0x007F0000', '1', '0x00404040', '0x00400000']],
+    'cs_6_2', get_shader_text("binary float", "/"))
+    add_test_case_denorm('FMulDenorm', ['FMul'], 'ulp', 1,
+    [['0x00000300', '0x007F0000', '0x007F0000', '0x001E0000', '0x00000300'],['128', '1', '0x007F0000', '20', '0x78000000']],
+    [['0', '0', '0', '0x01960000', '0x32400000']],
+    [['0x00018000','0x007F0000', '0', '0x01960000', '0x32400000']],
+    'cs_6_2', get_shader_text("binary float", "*"))
     # Tertiary Float
-    add_test_case('FMad', ['FMad'], 'epsilon', 0.0008, [[
+    add_test_case_float_half('FMad', ['FMad'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0',
         '0', '1', '1.5'
     ], [
@@ -560,381 +808,213 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0',
         '1', '0', '-5.5'
     ]], [['NaN', 'NaN', '0', '0', '0', '0', 'Inf', '2', '0', '1', '1', '9.5']],
-                  'cs_6_0', ''' struct STertiaryFloatOp {
-                    float input1;
-                    float input2;
-                    float input3;
-                    float output;
-                };
-                RWStructuredBuffer<STertiaryFloatOp> g_buf : register(u0);
-                [numthreads(8,8,1)]
-                void main(uint GI : SV_GroupIndex) {
-                    STertiaryFloatOp l = g_buf[GI];
-                    l.output = mad(l.input1, l.input2, l.input3);
-                    g_buf[GI] = l;
-                };''')
+                  "tertiary float", "mad")
+
+    # Denorm Tertiary Float
+    add_test_case_denorm('FMadDenorm', ['FMad'], 'ulp', 1,
+    [['0x80780000', '0x80780000', '0x00780000'],
+     ['1', '2', '2'],
+     ['0x80780000', '0x00800000', '0x00800000']],
+    [['0', '0', '0x01380000']],
+     [['0x80780000', '0x80700000', '0x01380000']],
+                  'cs_6_2', get_shader_text("tertiary float", "mad"))
+
     # Unary Int
-    add_test_case('Bfrev', ['Bfrev'], 'Epsilon', 0, [[
-        '-2147483648', '-65536', '-8', '-1', '0', '1', '8', '65536',
-        '2147483647'
+    int8_min, int8_max = '-128', '127'
+    int16_min, int16_max = '-32768', '32767'
+    int32_min, int32_max = '-2147483648', '2147483647'
+    uint16_max = '65535'
+    uint32_max = '4294967295'
+    add_test_case_int('Bfrev', ['Bfrev'], 'Epsilon', 0, [[
+        int32_min, '-65536', '-8', '-1', '0', '1', '8', '65536',
+        int32_max
     ]], [[
-        '1', '65535', '536870911', '-1', '0', '-2147483648', '268435456',
+        '1', '65535', '536870911', '-1', '0', int32_min, '268435456',
         '32768', '-2'
-    ]], 'cs_6_0', ''' struct SUnaryIntOp {
-                int input;
-                int output;
-            };
-            RWStructuredBuffer<SUnaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryIntOp l = g_buf[GI];
-                l.output = reversebits(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('FirstbitSHi', ['FirstbitSHi'], 'Epsilon', 0, [[
-        '-2147483648', '-65536', '-8', '-1', '0', '1', '8', '65536',
-        '2147483647'
-    ]], [['30', '15', '2', '-1', '-1', '0', '3', '16', '30']], 'cs_6_0',
-                  ''' struct SUnaryIntOp {
-                int input;
-                int output;
-            };
-            RWStructuredBuffer<SUnaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryIntOp l = g_buf[GI];
-                l.output = firstbithigh(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('FirstbitLo', ['FirstbitLo'], 'Epsilon', 0, [[
-        '-2147483648', '-65536', '-8', '-1', '0', '1', '8', '65536',
-        '2147483647'
-    ]], [['31', '16', '3', '0', '-1', '0', '3', '16', '0']], 'cs_6_0',
-                  ''' struct SUnaryIntOp {
-                int input;
-                int output;
-            };
-            RWStructuredBuffer<SUnaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryIntOp l = g_buf[GI];
-                l.output = firstbitlow(l.input);
-                g_buf[GI] = l;
-            };''')
+    ]], "unary int", "reversebits",
+        input_16=[[int16_min, '-256', '-8', '-1', '0', '1', '8', '256', int16_max]],
+        output_16=[['1', '255', '8191', '-1', '0', int16_min, '4096', '128', '-2']])
+    # firstbit_shi (s for signed) returns the
+    # first 0 from the MSB if the number is negative,
+    # else the first 1 from the MSB.
+    # all the variants of the instruction return ~0 if no match was found
+    add_test_case_int('FirstbitSHi', ['FirstbitSHi'], 'Epsilon', 0, [[
+        int32_min, '-65536', '-8', '-1', '0', '1', '8', '65536',
+        int32_max
+    ]], [['30', '15', '2', '-1', '-1', '0', '3', '16', '30']],
+        "unary int", "firstbithigh",
+        input_16=[[int16_min, '-256', '-8', '-1', '0', '1', '8', '256', int16_max]],
+        output_16=[['14', '7', '2', '-1', '-1', '0', '3', '8', '14']])
+    add_test_case_int('FirstbitLo', ['FirstbitLo'], 'Epsilon', 0, [[
+        int32_min, '-65536', '-8', '-1', '0', '1', '8', '65536',
+        int32_max
+    ]], [['31', '16', '3', '0', '-1', '0', '3', '16', '0']],
+        "unary int", "firstbitlow",
+        input_16=[[int16_min, '-256', '-8', '-1', '0', '1', '8', '256', int16_max]],
+        output_16=[['15', '8', '3', '0', '-1', '0', '3', '8', '0']])
+    # TODO: there is a known bug in countbits when passing in immediate values.
+    # Fix this later
     add_test_case('Countbits', ['Countbits'], 'Epsilon', 0, [[
-        '-2147483648', '-65536', '-8', '-1', '0', '1', '8', '65536',
-        '2147483647'
-    ]], [['1', '16', '29', '32', '0', '1', '1', '1', '31']], 'cs_6_0',
-                  ''' struct SUnaryIntOp {
-                int input;
-                int output;
-            };
-            RWStructuredBuffer<SUnaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryIntOp l = g_buf[GI];
-                l.output = countbits(l.input);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('FirstbitHi', ['FirstbitHi'], 'Epsilon', 0,
-                  [['0', '1', '8', '65536', '2147483647', '4294967295']],
-                  [['-1', '0', '3', '16', '30', '31']], 'cs_6_0',
-                  ''' struct SUnaryUintOp {
-                uint input;
-                uint output;
-            };
-            RWStructuredBuffer<SUnaryUintOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SUnaryUintOp l = g_buf[GI];
-                l.output = firstbithigh(l.input);
-                g_buf[GI] = l;
-            };''')
+        int32_min, '-65536', '-8', '-1', '0', '1', '8', '65536',
+        int32_max
+    ]], [['1', '16', '29', '32', '0', '1', '1', '1', '31']],
+         "cs_6_0", get_shader_text("unary int", "countbits"))
+    # Unary uint
+    add_test_case_int('FirstbitHi', ['FirstbitHi'], 'Epsilon', 0,
+                  [['0', '1', '8', '65536', int32_max, uint32_max]],
+                  [['-1', '0', '3', '16', '30', '31']],
+         "unary uint", "firstbithigh",
+        input_16=[['0', '1', '8', uint16_max]],
+        output_16=[['-1', '0', '3', '15']])
     # Binary Int
-    add_test_case('IAdd', ['Add'], 'Epsilon', 0,
-                  [['-2147483648', '-10', '0', '0', '10', '2147483647', '486'],
+    add_test_case_int('IAdd', ['Add'], 'Epsilon', 0,
+                  [[int32_min, '-10', '0', '0', '10', int32_max, '486'],
                    ['0', '10', '-10', '10', '10', '0', '54238']],
-                  [['-2147483648', '0', '-10', '10', '20', '2147483647', '54724']], 'cs_6_0',
-                  ''' struct SBinaryIntOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
-                l.output1 = l.input1 + l.input2;
-                g_buf[GI] = l;
-            };''')
-    add_test_case('ISub', ['Sub'], 'Epsilon', 0,
-                  [['-2147483648', '-10', '0', '0', '10', '2147483647', '486'],
+                  [[int32_min, '0', '-10', '10', '20', int32_max, '54724']],
+            "binary int", "+",
+            input_16=[[int16_min, '-10', '0', '0', '10', int16_max],
+                      ['0', '10', '-3114', '272', '15', '0']],
+            output_16=[[int16_min, '0', '-3114', '272', '25', int16_max]])
+    add_test_case_int('ISub', ['Sub'], 'Epsilon', 0,
+                  [[int32_min, '-10', '0', '0', '10', int32_max, '486'],
                    ['0', '10', '-10', '10', '10', '0', '54238']],
-                  [['-2147483648', '-20', '10', '-10', '0', '2147483647', '-53752']], 'cs_6_0',
-                  ''' struct SBinaryIntOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
-                l.output1 = l.input1 - l.input2;
-                g_buf[GI] = l;
-            };''')
-    add_test_case('IMax', ['IMax'], 'Epsilon', 0,
-                  [['-2147483648', '-10', '0', '0', '10', '2147483647'],
+                  [[int32_min, '-20', '10', '-10', '0', int32_max, '-53752']],
+            "binary int", "-",
+            input_16=[[int16_min, '-10', '0', '0', '10', int16_max],
+                      ['0', '10', '-3114', '272', '15', '0']],
+            output_16=[[int16_min, '-20', '-3114', '-272', '-5', int16_max]])
+    add_test_case_int('IMax', ['IMax'], 'Epsilon', 0,
+                  [[int32_min, '-10', '0', '0', '10', int32_max],
                    ['0', '10', '-10', '10', '10', '0']],
-                  [['0', '10', '0', '10', '10', '2147483647']], 'cs_6_0',
-                  ''' struct SBinaryIntOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
-                l.output1 = max(l.input1, l.input2);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('IMin', ['IMin'], 'Epsilon', 0,
-                  [['-2147483648', '-10', '0', '0', '10', '2147483647'],
+                  [['0', '10', '0', '10', '10', int32_max]],
+            "binary int call", "max",
+            input_16=[[int16_min, '-10', '0', '0', '10', int16_max],
+                      ['0', '10', '-3114', '272', '15', '0']],
+            output_16=[['0', '10', '0', '272', '15', int16_max]])
+    add_test_case_int('IMin', ['IMin'], 'Epsilon', 0,
+                  [[int32_min, '-10', '0', '0', '10', int32_max],
                    ['0', '10', '-10', '10', '10', '0']],
-                  [['-2147483648', '-10', '-10', '0', '10', '0']], 'cs_6_0',
-                  ''' struct SBinaryIntOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
-                l.output1 = min(l.input1, l.input2);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('IMul', ['Mul'], 'Epsilon', 0, [[
-            '-2147483648', '-10', '-1', '0', '1', '10', '10000', '2147483647',
-            '2147483647'
-        ], ['-10', '-10', '10', '0', '256', '4', '10001', '0', '2147483647']],
-        [['0', '100', '-10', '0', '256', '40', '100010000', '0', '1']],
-        'cs_6_0', ''' struct SBinaryIntOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
-                l.output1 = l.input1 * l.input2;
-                g_buf[GI] = l;
-            };''')
+                  [[int32_min, '-10', '-10', '0', '10', '0']],
+            "binary int call", "min",
+            input_16=[[int16_min, '-10', '0', '0', '10', int16_max],
+                      ['0', '10', '-3114', '272', '15', '0']],
+            output_16=[[int16_min, '-10', '-3114', '0', '10', '0']])
+    add_test_case_int('IMul', ['Mul'], 'Epsilon', 0, [
+         [ int32_min, '-10', '-1', '0', '1', '10', '10000', int32_max, int32_max ],
+         ['-10', '-10', '10', '0', '256', '4', '10001', '0', int32_max]],
+         [['0', '100', '-10', '0', '256', '40', '100010000', '0', '1']],
+            "binary int", "*",
+         input_16=[[ int16_min, '-10', '-1', '0', '1', '10', int16_max],
+         ['-10', '-10', '10', '0', '256', '4', '0']],
+         output_16=[['0', '100', '-10', '0', '256', '40', '0']])
     add_test_case('IDiv', ['SDiv', 'SRem'], 'Epsilon', 0,
-        [['1', '1', '10', '10000', '2147483647', '2147483647', '-1'],
-         ['1', '256', '4', '10001', '2', '2147483647', '1']],
+        [['1', '1', '10', '10000', int32_max, int32_max, '-1'],
+         ['1', '256', '4', '10001', '2', int32_max, '1']],
         [['1', '0', '2', '0', '1073741823', '1', '-1'],
-         ['0', '1', '2', '10000', '1', '0', '0']], 'cs_6_0',
-        ''' struct SBinaryUintOp {
+         ['0', '1', '2', '10000', '1', '0', '0']], "cs_6_0",
+        ''' struct SBinaryIntOp {
                 int input1;
                 int input2;
                 int output1;
                 int output2;
             };
-            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
+            RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
             [numthreads(8,8,1)]
             void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
+                SBinaryIntOp l = g_buf[GI];
                 l.output1 = l.input1 / l.input2;
                 l.output2 = l.input1 % l.input2;
                 g_buf[GI] = l;
             };''')
-    add_test_case('Shl', ['Shl'], 'Epsilon', 0,
+    add_test_case_int('Shl', ['Shl'], 'Epsilon', 0,
         [['1', '1', '0x1010', '0xa', '-1', '0x12341234', '-1'],
          ['0', '259', '4', '2', '0', '15', '3']],
-        [['0x1', '0x8', '0x10100', '0x28', '-1','0x091a0000', '-8']], 'cs_6_0',
-        ''' struct SBinaryUintOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = l.input1 << l.input2;
-                g_buf[GI] = l;
-            };''')
-    add_test_case("LShr", ['LShr'], 'Epsilon', 0,
+        [['0x1', '0x8', '0x10100', '0x28', '-1','0x091a0000', '-8']],
+        "binary int", "<<",
+        input_16=[['1', '1', '0x0101', '0xa', '-1', '0x1234', '-1'],
+         ['0', '259', '4', '2', '0', '13', '3']],
+        output_16=[['0x1', '0x8', '0x1010', '0x28', '-1','0x8000', '-8']])
+    add_test_case_int("LShr", ['LShr'], 'Epsilon', 0,
         [['1', '1', '0xffff', '0x7fffffff', '0x70001234', '0x12340ab3', '0x7fffffff'],
         ['0', '1', '4', '30', '15', '16', '1']],
-        [['1', '0', '0xfff', '1', '0xe000', '0x1234', '0x3fffffff']], 'cs_6_0',
-        ''' struct SBinaryUintOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = l.input1 >> l.input2;
-                g_buf[GI] = l;
-            };'''
+        [['1', '0', '0xfff', '1', '0xe000', '0x1234', '0x3fffffff']],
+        "binary int", ">>",
+        input_16=[['1', '1', '0x7fff', '0x7fff'],
+        ['0', '1', '4', '14']],
+        output_16=[['1', '0', '0x07ff', '1']]
     )
-    add_test_case("And", ['And'], 'Epsilon', 0,
+    add_test_case_int("And", ['And'], 'Epsilon', 0,
         [['0x1', '0x01', '0x7fff0000', '0x33333333', '0x137f', '0x12345678', '0xa341', '-1'],
          ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '-1', '0x3471', '-1']],
-        [['0x1', '0x00', '0x0', '0x22222222', '0x0', '0x12345678', '0x2041', '-1']], 'cs_6_0',
-        ''' struct SBinaryUintOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = l.input1 & l.input2;
-                g_buf[GI] = l;
-            };'''
-    )
-    add_test_case("Or", ['Or'], 'Epsilon', 0,
+        [['0x1', '0x00', '0x0', '0x22222222', '0x0', '0x12345678', '0x2041', '-1']],
+        "binary int", "&",
+        input_16=[['0x1', '0x01', '0x7fff', '0x3333', '0x137f', '0x1234', '0xa341', '-1'],
+         ['0x1', '0xf0', '0x0000', '0x2222', '0xec80', '-1', '0x3471', '-1']],
+        output_16=[['0x1', '0x00', '0x0', '0x2222', '0x0', '0x1234', '0x2041', '-1']],
+     )
+    add_test_case_int("Or", ['Or'], 'Epsilon', 0,
         [['0x1', '0x01', '0x7fff0000', '0x11111111', '0x137f', '0x0', '0x12345678', '0xa341', '-1'],
          ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '0x0', '0x00000000', '0x3471', '-1']],
-        [['0x1', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0xb771', '-1']], 'cs_6_0',
-        ''' struct SBinaryUintOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = l.input1 | l.input2;
-                g_buf[GI] = l;
-            };'''
-    )
-    add_test_case("Xor", ['Xor'], 'Epsilon', 0,
+        [['0x1', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0xb771', '-1']],
+        "binary int", "|",
+        input_16=[['0x1', '0x01', '0x7fff', '0x3333', '0x137f', '0x1234', '0xa341', '-1'],
+         ['0x1', '0xf0', '0x0000', '0x2222', '0xec80', '0xffff', '0x3471', '-1']],
+        output_16=[['0x1', '0xf1', '0x7fff', '0x3333', '0xffff', '0xffff', '0xb771', '-1']],
+     )
+    add_test_case_int("Xor", ['Xor'], 'Epsilon', 0,
         [['0x1', '0x01', '0x7fff0000', '0x11111111', '0x137f', '0x0', '0x12345678', '0xa341', '-1'],
          ['0x1', '0xf0', '0x0000ffff', '0x22222222', '0xec80', '0x0', '0x00000000', '0x3471', '-1']],
-        [['0x0', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0x9730', '0x00000000']], 'cs_6_0',
-        ''' struct SBinaryUintOp {
-                int input1;
-                int input2;
-                int output1;
-                int output2;
-            };
-            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = l.input1 ^ l.input2;
-                g_buf[GI] = l;
-            };'''
+        [['0x0', '0xf1', '0x7fffffff', '0x33333333', '0xffff', '0x0', '0x12345678', '0x9730', '0x00000000']],
+        "binary int", "^",
+        input_16=[['0x1', '0x01', '0x7fff', '0x1111', '0x137f', '0x0', '0x1234', '0xa341', '-1'],
+                  ['0x1', '0xf0', '0x0000', '0x2222', '0xec80', '0x0', '0x0000', '0x3471', '-1']],
+        output_16=[['0x0', '0xf1', '0x7fff', '0x3333', '0xffff', '0x0', '0x1234', '0x9730', '0x0000']],
     )
 
     # Binary Uint
-    add_test_case('UAdd', ['Add'], 'Epsilon', 0,
-                  [['2147483648', '4294967285', '0', '0', '10', '2147483647', '486'],
+    add_test_case_int('UAdd', ['Add'], 'Epsilon', 0,
+                  [['2147483648', '4294967285', '0', '0', '10', int32_max, '486'],
                    ['0', '10', '0', '10', '10', '0', '54238']],
-                  [['2147483648', '4294967295', '0', '10', '20', '2147483647', '54724']], 'cs_6_0',
-                  ''' struct SBinaryIntOp {
-                uint input1;
-                uint input2;
-                uint output1;
-                uint output2;
-            };
-            RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
-                l.output1 = l.input1 + l.input2;
-                g_buf[GI] = l;
-            };''')
-    add_test_case('USub', ['Sub'], 'Epsilon', 0,
-                  [['2147483648', '4294967295', '0', '0', '30', '2147483647', '54724'],
+                  [['2147483648', uint32_max, '0', '10', '20', int32_max, '54724']],
+                  "binary uint", "+",
+                  input_16=[['323', '0xfff5', '0', '0', '10', uint16_max, '486'],
+                            ['0', '10', '0', '10', '10', '0', '334']],
+                  output_16=[['323', uint16_max, '0', '10', '20', uint16_max, '820']])
+    add_test_case_int('USub', ['Sub'], 'Epsilon', 0,
+                  [['2147483648', uint32_max, '0', '0', '30', int32_max, '54724'],
                    ['0', '10', '0', '10', '10', '0', '54238']],
-                  [['2147483648', '4294967285', '0', '4294967286', '20', '2147483647', '486']], 'cs_6_0',
-                  ''' struct SBinaryIntOp {
-                uint input1;
-                uint input2;
-                uint output1;
-                uint output2;
-            };
-            RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryIntOp l = g_buf[GI];
-                l.output1 = l.input1 - l.input2;
-                g_buf[GI] = l;
-            };''')
-    add_test_case('UMax', ['UMax'], 'Epsilon', 0,
-                  [['0', '0', '10', '10000', '2147483647', '4294967295'],
-                   ['0', '256', '4', '10001', '0', '4294967295']],
-                  [['0', '256', '10', '10001', '2147483647', '4294967295']],
-                  'cs_6_0', ''' struct SBinaryUintOp {
-                uint input1;
-                uint input2;
-                uint output1;
-                uint output2;
-            };
-            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = max(l.input1, l.input2);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('UMin', ['UMin'], 'Epsilon', 0,
-                  [['0', '0', '10', '10000', '2147483647', '4294967295'],
-                   ['0', '256', '4', '10001', '0', '4294967295']],
-                  [['0', '0', '4', '10000', '0', '4294967295']], 'cs_6_0',
-                  ''' struct SBinaryUintOp {
-                uint input1;
-                uint input2;
-                uint output1;
-                uint output2;
-            };
-            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = min(l.input1, l.input2);
-                g_buf[GI] = l;
-            };''')
-    add_test_case('UMul', ['Mul'], 'Epsilon', 0,
-                  [['0', '1', '10', '10000', '2147483647'],
+                  [['2147483648', '4294967285', '0', '4294967286', '20', int32_max, '486']],
+                  "binary uint", "-",
+                  input_16=[['323', uint16_max, '0', '0', '10', uint16_max, '486'],
+                            ['0', '10', '0', '10', '10', '0', '334']],
+                  output_16=[['323', '0xfff5', '0', '-10', '0', uint16_max, '152']])
+    add_test_case_int('UMax', ['UMax'], 'Epsilon', 0,
+                  [['0', '0', '10', '10000', int32_max, uint32_max],
+                   ['0', '256', '4', '10001', '0', uint32_max]],
+                  [['0', '256', '10', '10001', int32_max, uint32_max]],
+                  "binary uint call", "max",
+                  input_16=[['0', '0', '10', '10000', int16_max, uint16_max],
+                            ['0', '256', '4', '10001', '0', uint16_max]],
+                  output_16=[['0', '256', '10', '10001', int16_max, uint16_max]])
+    add_test_case_int('UMin', ['UMin'], 'Epsilon', 0,
+                  [['0', '0', '10', '10000', int32_max, uint32_max],
+                   ['0', '256', '4', '10001', '0', uint32_max]],
+                  [['0', '0', '4', '10000', '0', uint32_max]],
+                  "binary uint call", "min",
+                  input_16=[['0', '0', '10', '10000', int16_max, uint16_max],
+                            ['0', '256', '4', '10001', '0', uint16_max]],
+                  output_16=[['0', '0', '4', '10000', '0', uint16_max]])
+    add_test_case_int('UMul', ['Mul'], 'Epsilon', 0,
+                  [['0', '1', '10', '10000', int32_max],
                    ['0', '256', '4', '10001', '0']],
-                  [['0', '256', '40', '100010000', '0']], 'cs_6_0',
-                  ''' struct SBinaryUintOp {
-                uint input1;
-                uint input2;
-                uint output1;
-                uint output2;
-            };
-            RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                SBinaryUintOp l = g_buf[GI];
-                l.output1 = l.input1 * l.input2;
-                g_buf[GI] = l;
-            };''')
+                  [['0', '256', '40', '100010000', '0']],
+                  "binary uint", "*",
+                  input_16=[['0', '0', '10', '100', int16_max],
+                            ['0', '256', '4', '101', '0']],
+                  output_16=[['0', '0', '40', '10001', '0']])
     add_test_case('UDiv', ['UDiv', 'URem'], 'Epsilon', 0,
-        [['1', '1', '10', '10000', '2147483647', '2147483647', '0xffffffff'],
-         ['0', '256', '4', '10001', '0', '2147483647', '1']],
+        [['1', '1', '10', '10000', int32_max, int32_max, '0xffffffff'],
+         ['0', '256', '4', '10001', '0', int32_max, '1']],
         [['0xffffffff', '0', '2', '0', '0xffffffff', '1', '0xffffffff'],
          ['0xffffffff', '1', '2', '10000', '0xffffffff', '0', '0']], 'cs_6_0',
         ''' struct SBinaryUintOp {
@@ -974,47 +1054,33 @@ def add_test_cases():
             };''')
 
     # Tertiary Int
-    add_test_case('IMad', ['IMad'], 'epsilon', 0, [[
-        '-2147483647', '-256', '-1', '0', '1', '2', '16', '2147483647', '1',
+    add_test_case_int('IMad', ['IMad'], 'epsilon', 0, [[
+        '-2147483647', '-256', '-1', '0', '1', '2', '16', int32_max, '1',
         '-1', '1', '10'
     ], ['1', '-256', '-1', '0', '1', '3', '16', '0', '1', '-1', '10', '100'], [
         '0', '0', '0', '0', '1', '3', '1', '255', '2147483646', '-2147483647',
         '-10', '-2000'
     ]], [[
-        '-2147483647', '65536', '1', '0', '2', '9', '257', '255', '2147483647',
+        '-2147483647', '65536', '1', '0', '2', '9', '257', '255', int32_max,
         '-2147483646', '0', '-1000'
-    ]], 'cs_6_0', ''' struct STertiaryIntOp {
-                int input1;
-                int input2;
-                int input3;
-                int output;
-            };
-            RWStructuredBuffer<STertiaryIntOp> g_buf : register(u0);
-            [numthreads(8,8,1)]
-            void main(uint GI : SV_GroupIndex) {
-                STertiaryIntOp l = g_buf[GI];
-                l.output = mad(l.input1, l.input2, l.input3);
-                g_buf[GI] = l;
-            };''')
+    ]], "tertiary int", "mad",
+    input_16=[[int16_min, '-256', '-1', '0', '1', '2', '16', int16_max],
+                  ['1','8','-1', '0', '1', '3', '16','1'],
+                  ['0', '0', '1', '3', '250', '-30', int16_min, '-50']],
+    output_16=[[int16_min, '-2048', '2', '3', '251', '-24', '-32512', '32717']]
+    )
 
-    add_test_case('UMad', ['UMad'], 'epsilon', 0,
-                  [['0', '1', '2', '16', '2147483647', '0', '10'], [
+    add_test_case_int('UMad', ['UMad'], 'epsilon', 0,
+                  [['0', '1', '2', '16', int32_max, '0', '10'], [
                       '0', '1', '2', '16', '1', '0', '10'
                   ], ['0', '0', '1', '15', '0', '10', '10']],
-                  [['0', '1', '5', '271', '2147483647', '10', '110']],
-                  'cs_6_0', ''' struct STertiaryUintOp {
-                    uint input1;
-                    uint input2;
-                    uint input3;
-                    uint output;
-                };
-                RWStructuredBuffer<STertiaryUintOp> g_buf : register(u0);
-                [numthreads(8,8,1)]
-                void main(uint GI : SV_GroupIndex) {
-                    STertiaryUintOp l = g_buf[GI];
-                    l.output = mad(l.input1, l.input2, l.input3);
-                    g_buf[GI] = l;
-                };''')
+                  [['0', '1', '5', '271', int32_max, '10', '110']],
+                  "tertiary uint", "mad",
+                  input_16=[['0', '1', '2', '16', int16_max, '0', '10'], [
+                      '0', '1', '2', '16', '1', '0', '10'
+                  ], ['0', '0', '1', '15', '0', '10', '10']],
+                  output_16=[['0', '1', '5', '271', int16_max, '10', '110']],
+    )
 
     # Dot
     add_test_case('Dot', ['Dot2', 'Dot3', 'Dot4'], 'epsilon', 0.008, [[
@@ -1072,480 +1138,80 @@ def add_test_cases():
     # Wave Active Tests
     add_test_case('WaveActiveSum', ['WaveActiveOp', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '2', '3', '4'], ['0'], ['2', '4', '8', '-64']], [],
-                  'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        int input;
-                        int output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveSum(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveSum(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  'cs_6_0', get_shader_text("wave op int", "WaveActiveSum"))
     add_test_case('WaveActiveProduct', ['WaveActiveOp', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '2', '3', '4'], ['0'], ['1', '2', '4', '-64']], [],
-                  'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        int input;
-                        int output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveProduct(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveProduct(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  'cs_6_0', get_shader_text("wave op int", "WaveActiveProduct"))
 
     add_test_case('WaveActiveCountBits', ['WaveAllBitCount', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '2', '3', '4'], ['0'], ['1', '10', '-4', '-64'],
                    ['-100', '-1000', '300']], [], 'cs_6_0',
-                  ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        int input;
-                        int output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveCountBits(pts.input > 3);
-                        }
-                        else {
-                            pts.output = WaveActiveCountBits(pts.input > 3);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  get_shader_text("wave op int count", "WaveActiveCountBits"))
     add_test_case('WaveActiveMax', ['WaveActiveOp', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '2', '3', '4'], ['0'], ['1', '10', '-4', '-64'],
                    ['-100', '-1000', '300']], [], 'cs_6_0',
-                  ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        int input;
-                        int output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveMax(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveMax(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  get_shader_text("wave op int", "WaveActiveMax"))
     add_test_case('WaveActiveMin', ['WaveActiveOp', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], ['0'],
                    ['1', '10', '-4', '-64'], ['-100', '-1000', '300']], [],
-                  'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        int input;
-                        int output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveMin(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveMin(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  'cs_6_0', get_shader_text("wave op int", "WaveActiveMin"))
     add_test_case('WaveActiveAllEqual', ['WaveActiveAllEqual'], 'Epsilon', 0,
                   [['1', '2', '3', '4', '1', '1', '1', '1'], ['3'], ['-10']],
-                  [], 'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        int input;
-                        int output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveAllEqual(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveAllEqual(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  [], 'cs_6_0', get_shader_text("wave op int", "WaveActiveAllEqual"))
     add_test_case('WaveActiveAnyTrue', ['WaveAnyTrue', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '0', '1', '0', '1'], ['1'], ['0']], [], 'cs_6_0',
-                  ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        bool input;
-                        bool output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveAnyTrue(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveAnyTrue(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  get_shader_text("wave op int", "WaveActiveAnyTrue"))
     add_test_case('WaveActiveAllTrue', ['WaveAllTrue', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '0', '1', '0', '1'], ['1'], ['1']], [], 'cs_6_0',
-                  ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        bool input;
-                        bool output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveAllTrue(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveAllTrue(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  get_shader_text("wave op int", "WaveActiveAllTrue"))
 
     add_test_case('WaveActiveUSum', ['WaveActiveOp', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '2', '3', '4'], ['0'], ['2', '4', '8', '64']], [],
-                  'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        uint input;
-                        uint output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveSum(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveSum(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  'cs_6_0', get_shader_text("wave op uint", "WaveActiveSum"))
     add_test_case('WaveActiveUProduct', ['WaveActiveOp', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '2', '3', '4'], ['0'], ['1', '2', '4', '64']], [],
-                  'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        uint input;
-                        uint output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveProduct(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveProduct(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  'cs_6_0', get_shader_text("wave op uint", "WaveActiveProduct"))
     add_test_case('WaveActiveUMax', ['WaveActiveOp', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '2', '3', '4'], ['0'], ['1', '10', '4', '64']], [],
-                  'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        uint input;
-                        uint output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveMax(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveMax(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  'cs_6_0', get_shader_text("wave op uint", "WaveActiveMax"))
     add_test_case('WaveActiveUMin', ['WaveActiveOp', 'WaveReadLaneFirst', 'WaveReadLaneAt'], 'Epsilon', 0,
                   [['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], ['0'],
                    ['1', '10', '4', '64']], [], 'cs_6_0',
-                  ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        uint input;
-                        uint output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveMin(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveMin(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  get_shader_text("wave op uint", "WaveActiveMin"))
     add_test_case('WaveActiveBitOr', ['WaveActiveBit'], 'Epsilon', 0, [[
         '0xe0000000', '0x0d000000', '0x00b00000', '0x00070000', '0x0000e000',
         '0x00000d00', '0x000000b0', '0x00000007'
     ], ['0xedb7edb7', '0xdb7edb7e', '0xb7edb7ed', '0x7edb7edb'], [
         '0x12481248', '0x24812481', '0x48124812', '0x81248124'
-    ], ['0x00000000', '0xffffffff']], [], 'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        uint input;
-                        uint output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveBitOr(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveBitOr(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+    ], ['0x00000000', '0xffffffff']], [], 'cs_6_0', get_shader_text("wave op uint", "WaveActiveBitOr"))
     add_test_case('WaveActiveBitAnd', ['WaveActiveBit'], 'Epsilon', 0, [[
         '0xefffffff', '0xfdffffff', '0xffbfffff', '0xfff7ffff', '0xffffefff',
         '0xfffffdff', '0xffffffbf', '0xfffffff7'
     ], ['0xedb7edb7', '0xdb7edb7e', '0xb7edb7ed', '0x7edb7edb'], [
         '0x12481248', '0x24812481', '0x48124812', '0x81248124'
-    ], ['0x00000000', '0xffffffff']], [], 'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        uint input;
-                        uint output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveBitAnd(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveBitAnd(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+    ], ['0x00000000', '0xffffffff']], [], 'cs_6_0', get_shader_text("wave op uint", "WaveActiveBitAnd"))
     add_test_case('WaveActiveBitXor', ['WaveActiveBit'], 'Epsilon', 0, [[
         '0xe0000000', '0x0d000000', '0x00b00000', '0x00070000', '0x0000e000',
         '0x00000d00', '0x000000b0', '0x00000007'
     ], ['0xedb7edb7', '0xdb7edb7e', '0xb7edb7ed', '0x7edb7edb'], [
         '0x12481248', '0x24812481', '0x48124812', '0x81248124'
-    ], ['0x00000000', '0xffffffff']], [], 'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        uint input;
-                        uint output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WaveActiveBitXor(pts.input);
-                        }
-                        else {
-                            pts.output = WaveActiveBitXor(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+    ], ['0x00000000', '0xffffffff']], [], 'cs_6_0', get_shader_text("wave op uint", "WaveActiveBitXor"))
     add_test_case('WavePrefixCountBits', ['WavePrefixBitCount'], 'Epsilon', 0,
                   [['1', '2', '3', '4', '5'], ['0'], ['1', '10', '-4', '-64'],
                    ['-100', '-1000', '300']], [], 'cs_6_0',
-                  ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        int input;
-                        int output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WavePrefixCountBits(pts.input > 3);
-                        }
-                        else {
-                            pts.output = WavePrefixCountBits(pts.input > 3);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+                  get_shader_text("wave op int count", "WavePrefixCountBits"))
     add_test_case('WavePrefixSum', ['WavePrefixOp'], 'Epsilon', 0,
         [['1', '2', '3', '4', '5'], ['0', '1'], ['1', '2', '4', '-64', '128']],
-        [], 'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        int input;
-                        int output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WavePrefixSum(pts.input);
-                        }
-                        else {
-                            pts.output = WavePrefixSum(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+        [], 'cs_6_0', get_shader_text("wave op int", "WavePrefixSum"))
     add_test_case('WavePrefixProduct', ['WavePrefixOp'], 'Epsilon', 0,
         [['1', '2', '3', '4', '5'], ['0', '1'], ['1', '2', '4', '-64', '128']],
-        [], 'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        int input;
-                        int output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WavePrefixProduct(pts.input);
-                        }
-                        else {
-                            pts.output = WavePrefixProduct(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+        [], 'cs_6_0', get_shader_text("wave op int", "WavePrefixProduct"))
     add_test_case('WavePrefixUSum', ['WavePrefixOp'], 'Epsilon', 0,
         [['1', '2', '3', '4', '5'], ['0', '1'], ['1', '2', '4', '128']], [],
-        'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        uint input;
-                        uint output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WavePrefixSum(pts.input);
-                        }
-                        else {
-                            pts.output = WavePrefixSum(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+        'cs_6_0', get_shader_text("wave op uint", "WavePrefixSum"))
     add_test_case('WavePrefixUProduct', ['WavePrefixOp'], 'Epsilon', 0,
         [['1', '2', '3', '4', '5'], ['0', '1'], ['1', '2', '4', '128']], [],
-        'cs_6_0', ''' struct PerThreadData {
-                        uint firstLaneId;
-                        uint laneIndex;
-                        int mask;
-                        uint input;
-                        uint output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,12,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(GI);
-                        pts.laneIndex = WaveGetLaneIndex();
-                        if (pts.mask != 0) {
-                            pts.output = WavePrefixProduct(pts.input);
-                        }
-                        else {
-                            pts.output = WavePrefixProduct(pts.input);
-                        }
-                        g_sb[GI] = pts;
-                    };''')
+        'cs_6_0', get_shader_text("wave op uint", "WavePrefixProduct"))
 
 
 # generating xml file for execution test using data driven method
@@ -1557,6 +1223,10 @@ def generate_parameter_types(table, num_inputs, num_outputs, has_known_warp_issu
     ET.SubElement(
         param_types, "ParameterType", attrib={
             "Name": "ShaderOp.Target"
+        }).text = "String"
+    ET.SubElement(
+        param_types, "ParameterType", attrib={
+            "Name": "ShaderOp.Arguments"
         }).text = "String"
     ET.SubElement(
         param_types, "ParameterType", attrib={
@@ -1634,7 +1304,6 @@ def generate_parameter_types_wave(table):
             "Array": "true"
         }).text = "String"
 
-
 def generate_parameter_types_msad(table):
     param_types = ET.SubElement(table, "ParameterTypes")
     ET.SubElement(
@@ -1674,7 +1343,6 @@ def generate_parameter_types_msad(table):
             "Array": "true"
         }).text = "String"
 
-
 def generate_row(table, case):
     row = ET.SubElement(table, "Row", {"Name": case.test_name})
     ET.SubElement(row, "Parameter", {
@@ -1701,8 +1369,11 @@ def generate_row(table, case):
         })
         for val in case.output_lists[i]:
             ET.SubElement(outputs, "Value").text = str(val)
+    # Optional parameters
     if case.warp_version > 0:
         ET.SubElement(row, "Parameter", {"Name":"Warp.Version"}).text = str(case.warp_version)
+    if case.shader_arguments != "":
+        ET.SubElement(row, "Parameter", {"Name":"ShaderOp.Arguments"}).text = case.shader_arguments
 
 def generate_row_wave(table, case):
     row = ET.SubElement(table, "Row", {"Name": case.test_name})
@@ -1722,7 +1393,6 @@ def generate_row_wave(table, case):
         for val in case.input_lists[i]:
             ET.SubElement(inputs, "Value").text = str(val)
 
-
 def generate_table_for_taef():
     with open("..\\..\\tools\\clang\\unittests\\HLSL\\ShaderOpArithTable.xml",
               'w') as f:
@@ -1738,10 +1408,21 @@ def generate_table_for_taef():
                 "Id": "BinaryFloatOpTable"
             }), 2, 2)
         generate_parameter_types(
-            ET.SubElement(
-                root, "Table", attrib={
-                    "Id": "TertiaryFloatOpTable"
-                }), 3, 1)
+            ET.SubElement(root, "Table", attrib={
+                "Id": "TertiaryFloatOpTable"
+            }), 3, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "UnaryHalfOpTable"
+            }), 1, 1, True)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "BinaryHalfOpTable"
+            }), 2, 2)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "TertiaryHalfOpTable"
+            }), 3, 1)
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
                 "Id": "UnaryIntOpTable"
@@ -1756,6 +1437,18 @@ def generate_table_for_taef():
             }), 3, 1)
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
+                "Id": "UnaryInt16OpTable"
+            }), 1, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "BinaryInt16OpTable"
+            }), 2, 2)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "TertiaryInt16OpTable"
+            }), 3, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
                 "Id": "UnaryUintOpTable"
             }), 1, 1)
         generate_parameter_types(
@@ -1765,6 +1458,18 @@ def generate_table_for_taef():
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
                 "Id": "TertiaryUintOpTable"
+            }), 3, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "UnaryUint16OpTable"
+            }), 1, 1)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "BinaryUint16OpTable"
+            }), 2, 2)
+        generate_parameter_types(
+            ET.SubElement(root, "Table", attrib={
+                "Id": "TertiaryUint16OpTable"
             }), 3, 1)
         generate_parameter_types(
             ET.SubElement(root, "Table", attrib={
@@ -1794,15 +1499,27 @@ def generate_table_for_taef():
                 root, "Table", attrib={
                     "Id": "WaveIntrinsicsPrefixUintTable"
                 }))
+        generate_parameter_types(
+            ET.SubElement(
+                root, "Table", attrib={
+                    "Id": "DenormBinaryFloatOpTable"
+                }), 2, 1)
+        generate_parameter_types(
+            ET.SubElement(
+                root, "Table", attrib={
+                    "Id": "DenormTertiaryFloatOpTable"
+                }), 3, 1)
 
         for case in g_test_cases.values():
             cur_inst = case.insts[0]
             if cur_inst.is_cast or cur_inst.category.startswith("Unary"):
-                if "f" in cur_inst.oload_types:
+                if "f" in cur_inst.oload_types and not "Half" in case.test_name:
                     generate_row(
                         root.find("./Table[@Id='UnaryFloatOpTable']"),
                         case)
-                if "i" in cur_inst.oload_types:
+                if "h" in cur_inst.oload_types and "Half" in case.test_name:
+                    generate_row(root.find("./Table[@Id='UnaryHalfOpTable']"),case)
+                if "i" in cur_inst.oload_types and "Bit16" not in case.test_name:
                     if cur_inst.category.startswith("Unary int"):
                         generate_row(
                             root.find("./Table[@Id='UnaryIntOpTable']"),
@@ -1814,13 +1531,33 @@ def generate_table_for_taef():
                     else:
                         print("unknown op: " + cur_inst.name)
                         print(cur_inst.dxil_class)
+                if "w" in cur_inst.oload_types and "Bit16" in case.test_name:
+                    if cur_inst.category.startswith("Unary int"):
+                        generate_row(
+                            root.find("./Table[@Id='UnaryInt16OpTable']"),
+                            case)
+                    elif cur_inst.category.startswith("Unary uint"):
+                        generate_row(
+                            root.find("./Table[@Id='UnaryUint16OpTable']"),
+                            case)
+                    else:
+                        print("unknown op: " + cur_inst.name)
+                        print(cur_inst.dxil_class)
+
             elif cur_inst.is_binary or cur_inst.category.startswith(
                     "Binary"):
-                if "f" in cur_inst.oload_types:
-                    generate_row(
-                        root.find("./Table[@Id='BinaryFloatOpTable']"),
-                        case)
-                elif "i" in cur_inst.oload_types:
+                if "f" in cur_inst.oload_types and not "Half" in case.test_name:
+                    if case.test_name in g_denorm_tests: # for denorm tests
+                        generate_row(
+                            root.find("./Table[@Id='DenormBinaryFloatOpTable']"),
+                            case)
+                    else:
+                        generate_row(
+                            root.find("./Table[@Id='BinaryFloatOpTable']"),
+                            case)
+                if "h" in cur_inst.oload_types and "Half" in case.test_name:
+                    generate_row(root.find("./Table[@Id='BinaryHalfOpTable']"),case)
+                if "i" in cur_inst.oload_types and "Bit16" not in case.test_name:
                     if cur_inst.category.startswith("Binary int"):
                         if case.test_name in ['UAdd', 'USub', 'UMul']: # Add, Sub, Mul use same operations for int and uint.
                             generate_row(
@@ -1837,13 +1574,35 @@ def generate_table_for_taef():
                     else:
                         print("unknown op: " + cur_inst.name)
                         print(cur_inst.dxil_class)
+                if "w" in cur_inst.oload_types and "Bit16" in case.test_name:
+                    if cur_inst.category.startswith("Binary int"):
+                        if case.test_name in ['UAdd', 'USub', 'UMul']: # Add, Sub, Mul use same operations for int and uint.
+                            generate_row(
+                                root.find("./Table[@Id='BinaryUint16OpTable']"),
+                                case)
+                        else:
+                            generate_row(
+                                root.find("./Table[@Id='BinaryInt16OpTable']"),
+                                case)
+                    elif cur_inst.category.startswith("Binary uint"):
+                        generate_row(
+                            root.find("./Table[@Id='BinaryUint16OpTable']"),
+                            case)
+                    else:
+                        print("unknown op: " + cur_inst.name)
+                        print(cur_inst.dxil_class)
 
             elif cur_inst.category.startswith("Tertiary"):
-                if "f" in cur_inst.oload_types:
-                    generate_row(
-                        root.find("./Table[@Id='TertiaryFloatOpTable']"),
-                        case)
-                elif "i" in cur_inst.oload_types:
+                if "f" in cur_inst.oload_types and not "Half" in case.test_name:
+                    if case.test_name in g_denorm_tests: # for denorm tests
+                        generate_row(
+                            root.find("./Table[@Id='DenormTertiaryFloatOpTable']"),case)
+                    else:
+                        generate_row(
+                            root.find("./Table[@Id='TertiaryFloatOpTable']"),case)
+                if "h" in cur_inst.oload_types and "Half" in case.test_name:
+                    generate_row(root.find("./Table[@Id='TertiaryHalfOpTable']"),case)
+                if "i" in cur_inst.oload_types and "Bit16" not in case.test_name:
                     if cur_inst.category.startswith("Tertiary int"):
                         generate_row(
                             root.find("./Table[@Id='TertiaryIntOpTable']"),
@@ -1856,9 +1615,19 @@ def generate_table_for_taef():
                     else:
                         print("unknown op: " + cur_inst.name)
                         print(cur_inst.dxil_class)
-                else:
-                    print("unknown op: " + cur_inst.name)
-                    print(cur_inst.dxil_class)
+                if "w" in cur_inst.oload_types and "Bit16" in case.test_name:
+                    if cur_inst.category.startswith("Tertiary int"):
+                        generate_row(
+                            root.find("./Table[@Id='TertiaryInt16OpTable']"),
+                            case)
+                    elif cur_inst.category.startswith("Tertiary uint"):
+                        generate_row(
+                            root.find(
+                                "./Table[@Id='TertiaryUint16OpTable']"),
+                            case)
+                    else:
+                        print("unknown op: " + cur_inst.name)
+                        print(cur_inst.dxil_class)
             elif cur_inst.category.startswith("Quaternary"):
                 if cur_inst.name == "Bfi":
                     generate_row(

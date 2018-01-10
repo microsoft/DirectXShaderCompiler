@@ -489,6 +489,9 @@ namespace MainNs
             if (target != null && target.Length == 6)
                 if (Int32.TryParse(new string(target[3], 1), out major))
                     return major >= 6;
+            if (target.StartsWith("lib"))
+                if (Int32.TryParse(new string(target[4], 1), out major))
+                    return major >= 6;
             return false;
         }
 
@@ -534,16 +537,22 @@ namespace MainNs
                     string[] arguments = fileVars.Arguments;
                     if (isDxil)
                     {
-                        var result = compiler.Compile(source, fileName, fileVars.Entry, fileVars.Target, arguments, arguments.Length, null, 0, library.CreateIncludeHandler());
-                        if (result.GetStatus() == 0)
+                        try
                         {
-                            this.SelectedShaderBlob = result.GetResult();
-                            this.DisassembleSelectedShaderBlob();
-                        }
-                        else
+                            var result = compiler.Compile(source, fileName, fileVars.Entry, fileVars.Target, arguments, arguments.Length, null, 0, library.CreateIncludeHandler());
+                            if (result.GetStatus() == 0)
+                            {
+                                this.SelectedShaderBlob = result.GetResult();
+                                this.DisassembleSelectedShaderBlob();
+                            }
+                            else
+                            {
+                                this.colorizationService.ClearColorization(this.DisassemblyTextBox);
+                                this.DisassemblyTextBox.Text = GetStringFromBlob(result.GetErrors());
+                            }
+                        } catch (Exception e)
                         {
-                            this.colorizationService.ClearColorization(this.DisassemblyTextBox);
-                            this.DisassemblyTextBox.Text = GetStringFromBlob(result.GetErrors());
+                            DisassemblyTextBox.Text = e.ToString();
                         }
                     }
                     else
@@ -638,16 +647,16 @@ namespace MainNs
         class RtbColorization
         {
             private RichTextBox rtb;
+            private NumericRanges colored;
             private AsmColorizer colorizer;
             private string text;
-            private int maxColored;
 
             public RtbColorization(RichTextBox rtb, string text)
             {
                 this.rtb = rtb;
                 this.colorizer = new AsmColorizer();
                 this.text = text;
-                this.maxColored = 0;
+                this.colored = new NumericRanges();
             }
 
             public void Start()
@@ -675,44 +684,47 @@ namespace MainNs
                 int firstCharIdx = rtb.GetCharIndexFromPosition(new Point(0, 0));
                 firstCharIdx = rtb.GetFirstCharIndexFromLine(rtb.GetLineFromCharIndex(firstCharIdx));
                 int lastCharIdx = rtb.GetCharIndexFromPosition(new Point(rtb.ClientSize));
+                NumericRange visibleRange = new NumericRange(firstCharIdx, lastCharIdx + 1);
 
-                // See whether we grow our simple range or skip all work.
-                if (lastCharIdx <= maxColored) return;
-                if (firstCharIdx <= maxColored)
+                if (this.colored.Contains(visibleRange))
                 {
-                    maxColored = Math.Max(maxColored, lastCharIdx);
+                    return;
                 }
 
                 var doc = GetTextDocument(rtb);
                 using (new RichTextBoxEditAction(rtb))
                 {
-                    foreach (var range in this.colorizer.GetColorRanges(this.text, firstCharIdx, lastCharIdx))
+                    foreach (var idxRange in this.colored.ListGaps(visibleRange))
                     {
-                        if (range.RangeKind == AsmRangeKind.WS) continue;
-                        if (range.Start + range.Length < firstCharIdx) continue;
-                        if (lastCharIdx < range.Start) return;
-                        Color color;
-                        switch (range.RangeKind)
+                        this.colored.Add(idxRange);
+                        foreach (var range in this.colorizer.GetColorRanges(this.text, idxRange.Lo, idxRange.Hi - 1))
                         {
-                            case AsmRangeKind.Comment:
-                                color = Color.DarkGreen;
-                                break;
-                            case AsmRangeKind.LLVMTypeName:
-                            case AsmRangeKind.Keyword:
-                            case AsmRangeKind.Instruction:
-                                color = Color.Blue;
-                                break;
-                            case AsmRangeKind.StringConstant:
-                                color = Color.DarkRed;
-                                break;
-                            case AsmRangeKind.Metadata:
-                                color = Color.DarkOrange;
-                                break;
-                            default:
-                                color = Color.Black;
-                                break;
+                            if (range.RangeKind == AsmRangeKind.WS) continue;
+                            if (range.Start + range.Length < firstCharIdx) continue;
+                            if (lastCharIdx < range.Start) return;
+                            Color color;
+                            switch (range.RangeKind)
+                            {
+                                case AsmRangeKind.Comment:
+                                    color = Color.DarkGreen;
+                                    break;
+                                case AsmRangeKind.LLVMTypeName:
+                                case AsmRangeKind.Keyword:
+                                case AsmRangeKind.Instruction:
+                                    color = Color.Blue;
+                                    break;
+                                case AsmRangeKind.StringConstant:
+                                    color = Color.DarkRed;
+                                    break;
+                                case AsmRangeKind.Metadata:
+                                    color = Color.DarkOrange;
+                                    break;
+                                default:
+                                    color = Color.Black;
+                                    break;
+                            }
+                            SetStartLengthColor(doc, range.Start, range.Length, color);
                         }
-                        SetStartLengthColor(doc, range.Start, range.Length, color);
                     }
                 }
             }
@@ -1329,10 +1341,14 @@ namespace MainNs
             return range;
         }
 
+        private static Regex dbgLineRegEx;
+        private static Regex DbgLineRegEx { get { return (dbgLineRegEx = dbgLineRegEx ?? new Regex(@"line: (\d+)")); } }
+        private static Regex dbgColRegEx;
+        private static Regex DbgColRegEx { get { return (dbgColRegEx = dbgColRegEx ?? new Regex(@"column: (\d+)")); } }
+
         private static void HandleDebugMetadata(string dbgLine, RichTextBox sourceBox)
         {
-            Regex lineRE = new Regex(@"line: (\d+)");
-            Match lineMatch = lineRE.Match(dbgLine);
+            Match lineMatch = DbgLineRegEx.Match(dbgLine);
             if (!lineMatch.Success)
             {
                 return;
@@ -1341,10 +1357,19 @@ namespace MainNs
             int lineVal = Int32.Parse(lineMatch.Groups[1].Value) - 1;
             int targetStart = sourceBox.GetFirstCharIndexFromLine(lineVal);
             int targetEnd = sourceBox.GetFirstCharIndexFromLine(lineVal + 1);
+            Match colMatch = DbgColRegEx.Match(dbgLine);
+            if (colMatch.Success)
+            {
+                targetStart += Int32.Parse(colMatch.Groups[1].Value) - 1;
+            }
+
             var highlights = SelectionHighlightData.FromRtb(sourceBox);
             highlights.ClearFromRtb(sourceBox);
             highlights.Add(targetStart, targetEnd - targetStart);
             highlights.ApplyToRtb(sourceBox, Color.Yellow);
+
+            sourceBox.SelectionStart = targetStart;
+            sourceBox.ScrollToCaret();
         }
 
         private static void HandleDebugTokenOnDisassemblyLine(RichTextBox rtb, RichTextBox sourceBox)

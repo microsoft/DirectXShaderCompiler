@@ -148,6 +148,19 @@ ModuleBuilder::createCompositeExtract(uint32_t resultType, uint32_t composite,
   return resultId;
 }
 
+uint32_t ModuleBuilder::createCompositeInsert(uint32_t resultType,
+                                              uint32_t composite,
+                                              llvm::ArrayRef<uint32_t> indices,
+                                              uint32_t object) {
+  assert(insertPoint && "null insert point");
+  const uint32_t resultId = theContext.takeNextId();
+  instBuilder
+      .opCompositeInsert(resultType, resultId, object, composite, indices)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
 uint32_t
 ModuleBuilder::createVectorShuffle(uint32_t resultType, uint32_t vector1,
                                    uint32_t vector2,
@@ -339,6 +352,17 @@ spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
   return mask;
 }
 
+uint32_t
+ModuleBuilder::createImageSparseTexelsResident(uint32_t resident_code) {
+  assert(insertPoint && "null insert point");
+  // Result type must be a boolean
+  const uint32_t result_type = getBoolType();
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.opImageSparseTexelsResident(result_type, id, resident_code).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 uint32_t ModuleBuilder::createImageTexelPointer(uint32_t resultType,
                                                 uint32_t imageId,
                                                 uint32_t coordinate,
@@ -418,29 +442,43 @@ void ModuleBuilder::createImageWrite(QualType imageType, uint32_t imageId,
 uint32_t ModuleBuilder::createImageFetchOrRead(
     bool doImageFetch, uint32_t texelType, QualType imageType, uint32_t image,
     uint32_t coordinate, uint32_t lod, uint32_t constOffset, uint32_t varOffset,
-    uint32_t constOffsets, uint32_t sample) {
+    uint32_t constOffsets, uint32_t sample, uint32_t residencyCodeId) {
   assert(insertPoint && "null insert point");
 
-  // TODO: Update ImageFetch/ImageRead to accept minLod if necessary.
   llvm::SmallVector<uint32_t, 2> params;
   const auto mask =
       llvm::Optional<spv::ImageOperandsMask>(composeImageOperandsMask(
           /*bias*/ 0, lod, std::make_pair(0, 0), constOffset, varOffset,
           constOffsets, sample, /*minLod*/ 0, &params));
 
-  const uint32_t texelId = theContext.takeNextId();
-  if (doImageFetch) {
-    instBuilder.opImageFetch(texelType, texelId, image, coordinate, mask);
-  } else {
+  const bool isSparse = (residencyCodeId != 0);
+  uint32_t retType = texelType;
+  if (isSparse) {
+    requireCapability(spv::Capability::SparseResidency);
+    retType = getSparseResidencyStructType(texelType);
+  }
+
+  if (!doImageFetch) {
     requireCapability(
         TypeTranslator::getCapabilityForStorageImageReadWrite(imageType));
-    instBuilder.opImageRead(texelType, texelId, image, coordinate, mask);
   }
+
+  uint32_t texelId = theContext.takeNextId();
+  instBuilder.opImageFetchRead(retType, texelId, image, coordinate, mask,
+                               doImageFetch, isSparse);
 
   for (const auto param : params)
     instBuilder.idRef(param);
   instBuilder.x();
   insertPoint->appendInstruction(std::move(constructSite));
+
+  if (isSparse) {
+    // Write the Residency Code
+    const auto status = createCompositeExtract(getUint32Type(), texelId, {0});
+    createStore(residencyCodeId, status);
+    // Extract the real result from the struct
+    texelId = createCompositeExtract(texelType, texelId, {1});
+  }
 
   return texelId;
 }
@@ -748,14 +786,13 @@ void ModuleBuilder::decorate(uint32_t targetId, spv::Decoration decoration) {
 }
 
 #define IMPL_GET_PRIMITIVE_TYPE(ty)                                            \
-  \
-uint32_t ModuleBuilder::get##ty##Type() {                                      \
+                                                                               \
+  uint32_t ModuleBuilder::get##ty##Type() {                                    \
     const Type *type = Type::get##ty(theContext);                              \
     const uint32_t typeId = theContext.getResultIdForType(type);               \
     theModule.addType(type, typeId);                                           \
     return typeId;                                                             \
-  \
-}
+  }
 
 IMPL_GET_PRIMITIVE_TYPE(Void)
 IMPL_GET_PRIMITIVE_TYPE(Bool)
@@ -766,19 +803,23 @@ IMPL_GET_PRIMITIVE_TYPE(Float32)
 #undef IMPL_GET_PRIMITIVE_TYPE
 
 #define IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(ty, cap)                       \
-  \
-uint32_t ModuleBuilder::get##ty##Type() {                                      \
-    requireCapability(spv::Capability::cap);                                    \
+                                                                               \
+  uint32_t ModuleBuilder::get##ty##Type() {                                    \
+    requireCapability(spv::Capability::cap);                                   \
+    if (spv::Capability::cap == spv::Capability::Float16)                      \
+      theModule.addExtension("SPV_AMD_gpu_shader_half_float");                 \
     const Type *type = Type::get##ty(theContext);                              \
     const uint32_t typeId = theContext.getResultIdForType(type);               \
     theModule.addType(type, typeId);                                           \
     return typeId;                                                             \
-  \
-}
+  }
 
-IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float64, Float64)
 IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Int64, Int64)
 IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Uint64, Int64)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float64, Float64)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Int16, Int16)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Uint16, Int16)
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float16, Float16)
 
 #undef IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY
 
@@ -1020,21 +1061,25 @@ uint32_t ModuleBuilder::getConstantBool(bool value) {
 }
 
 #define IMPL_GET_PRIMITIVE_CONST(builderTy, cppTy)                             \
-  \
-uint32_t ModuleBuilder::getConstant##builderTy(cppTy value) {                  \
+                                                                               \
+  uint32_t ModuleBuilder::getConstant##builderTy(cppTy value) {                \
     const uint32_t typeId = get##builderTy##Type();                            \
     const Constant *constant =                                                 \
         Constant::get##builderTy(theContext, typeId, value);                   \
     const uint32_t constId = theContext.getResultIdForConstant(constant);      \
     theModule.addConstant(constant, constId);                                  \
     return constId;                                                            \
-  \
-}
+  }
 
+IMPL_GET_PRIMITIVE_CONST(Int16, int16_t)
 IMPL_GET_PRIMITIVE_CONST(Int32, int32_t)
+IMPL_GET_PRIMITIVE_CONST(Uint16, uint16_t)
 IMPL_GET_PRIMITIVE_CONST(Uint32, uint32_t)
+IMPL_GET_PRIMITIVE_CONST(Float16, int16_t)
 IMPL_GET_PRIMITIVE_CONST(Float32, float)
 IMPL_GET_PRIMITIVE_CONST(Float64, double)
+IMPL_GET_PRIMITIVE_CONST(Int64, int64_t)
+IMPL_GET_PRIMITIVE_CONST(Uint64, uint64_t)
 
 #undef IMPL_GET_PRIMITIVE_VALUE
 

@@ -37,35 +37,35 @@ int main(int input: A) : B {
 // CHECK-LABEL: %bb_entry = OpLabel
 
 // CHECK-NEXT: [[initdonea:%\d+]] = OpLoad %bool %init_done_a
-// CHECK-NEXT: OpSelectionMerge %if_merge None
-// CHECK-NEXT: OpBranchConditional [[initdonea]] %if_true %if_merge
-// CHECK-NEXT: %if_true = OpLabel
+// CHECK-NEXT: OpSelectionMerge %if_init_done None
+// CHECK-NEXT: OpBranchConditional [[initdonea]] %if_init_done %if_init_todo
+// CHECK-NEXT: %if_init_todo = OpLabel
 // CHECK-NEXT: OpStore %a %uint_5
 // CHECK-NEXT: OpStore %init_done_a %true
-// CHECK-NEXT: OpBranch %if_merge
+// CHECK-NEXT: OpBranch %if_init_done
     static uint a = 5;    // const init
-// CHECK-NEXT: %if_merge = OpLabel
+// CHECK-NEXT: %if_init_done = OpLabel
 
 // CHECK-NEXT: [[initdoneb:%\d+]] = OpLoad %bool %init_done_b
-// CHECK-NEXT: OpSelectionMerge %if_merge_0 None
-// CHECK-NEXT: OpBranchConditional [[initdoneb]] %if_true_0 %if_merge_0
-// CHECK-NEXT: %if_true_0 = OpLabel
+// CHECK-NEXT: OpSelectionMerge %if_init_done_0 None
+// CHECK-NEXT: OpBranchConditional [[initdoneb]] %if_init_done_0 %if_init_todo_0
+// CHECK-NEXT: %if_init_todo_0 = OpLabel
 // CHECK-NEXT: OpStore %b [[v4f0]]
 // CHECK-NEXT: OpStore %init_done_b %true
-// CHECK-NEXT: OpBranch %if_merge_0
+// CHECK-NEXT: OpBranch %if_init_done_0
     static float4 b;      // no init
-// CHECK-NEXT: %if_merge_0 = OpLabel
+// CHECK-NEXT: %if_init_done_0 = OpLabel
 
 // CHECK-NEXT: [[initdonec:%\d+]] = OpLoad %bool %init_done_c
-// CHECK-NEXT: OpSelectionMerge %if_merge_1 None
-// CHECK-NEXT: OpBranchConditional [[initdonec]] %if_true_1 %if_merge_1
-// CHECK-NEXT: %if_true_1 = OpLabel
+// CHECK-NEXT: OpSelectionMerge %if_init_done_1 None
+// CHECK-NEXT: OpBranchConditional [[initdonec]] %if_init_done_1 %if_init_todo_1
+// CHECK-NEXT: %if_init_todo_1 = OpLabel
 // CHECK-NEXT: [[initc:%\d+]] = OpLoad %int %input
 // CHECK-NEXT: OpStore %c [[initc]]
 // CHECK-NEXT: OpStore %init_done_c %true
-// CHECK-NEXT: OpBranch %if_merge_1
+// CHECK-NEXT: OpBranch %if_init_done_1
     static int c = input; // var init
-// CHECK-NEXT: %if_merge_1 = OpLabel
+// CHECK-NEXT: %if_init_done_1 = OpLabel
 
     return input;
 }

@@ -111,6 +111,13 @@ public:
   uint32_t createCompositeExtract(uint32_t resultType, uint32_t composite,
                                   llvm::ArrayRef<uint32_t> indexes);
 
+  /// \brief Creates a composite insert instruction. The given object will
+  /// replace the component in the composite at the given indices. Returns the
+  /// <result-id> for the new composite.
+  uint32_t createCompositeInsert(uint32_t resultType, uint32_t composite,
+                                 llvm::ArrayRef<uint32_t> indices,
+                                 uint32_t object);
+
   /// \brief Creates a vector shuffle instruction of selecting from the two
   /// vectors using selectors and returns the <result-id> of the result vector.
   uint32_t createVectorShuffle(uint32_t resultType, uint32_t vector1,
@@ -172,7 +179,7 @@ public:
   /// be generated.
   ///
   /// If bias, lod, grad, or minLod is given a non-zero value, an additional
-  /// image operands, Bias, Lod, Grad, or minLod will be attached to the current
+  /// image operands, Bias, Lod, Grad, or MinLod will be attached to the current
   /// instruction, respectively. Panics if both lod and minLod are non-zero.
   ///
   /// If residencyCodeId is not zero, the sparse version of the instructions
@@ -180,8 +187,8 @@ public:
   /// residency code will also be emitted.
   uint32_t createImageSample(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
-                             uint32_t coordinate, uint32_t bias,
-                             uint32_t compareVal, uint32_t lod,
+                             uint32_t coordinate, uint32_t compareVal,
+                             uint32_t bias, uint32_t lod,
                              std::pair<uint32_t, uint32_t> grad,
                              uint32_t constOffset, uint32_t varOffset,
                              uint32_t constOffsets, uint32_t sample,
@@ -191,11 +198,16 @@ public:
   /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
   /// OpImageFetch should be used for sampled images. OpImageRead should be used
   /// for images without a sampler.
+  ///
+  /// If residencyCodeId is not zero, the sparse version of the instructions
+  /// will be used, and the SPIR-V instruction for storing the resulting
+  /// residency code will also be emitted.
   uint32_t createImageFetchOrRead(bool doImageFetch, uint32_t texelType,
                                   QualType imageType, uint32_t image,
                                   uint32_t coordinate, uint32_t lod,
                                   uint32_t constOffset, uint32_t varOffset,
-                                  uint32_t constOffsets, uint32_t sample);
+                                  uint32_t constOffsets, uint32_t sample,
+                                  uint32_t residencyCodeId);
 
   /// \brief Creates SPIR-V instructions for writing to the given image.
   void createImageWrite(QualType imageType, uint32_t imageId, uint32_t coordId,
@@ -206,15 +218,19 @@ public:
   /// If compareVal is given a non-zero value, OpImageDrefGather or
   /// OpImageSparseDrefGather will be generated; otherwise, OpImageGather or
   /// OpImageSparseGather will be generated.
-  /// If residencyCodeId is not zero, the sparse version of the instructions will
-  /// be used, and the SPIR-V instruction for storing the resulting residency
-  /// code will also be emitted.
+  /// If residencyCodeId is not zero, the sparse version of the instructions
+  /// will be used, and the SPIR-V instruction for storing the resulting
+  /// residency code will also be emitted.
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t component,
                              uint32_t compareVal, uint32_t constOffset,
                              uint32_t varOffset, uint32_t constOffsets,
                              uint32_t sample, uint32_t residencyCodeId);
+
+  /// \brief Creates an OpImageSparseTexelsResident SPIR-V instruction for the
+  /// given Resident Code and returns the <result-id> of the instruction.
+  uint32_t createImageSparseTexelsResident(uint32_t resident_code);
 
   /// \brief Creates a select operation with the given values for true and false
   /// cases and returns the <result-id> for the result.
@@ -349,10 +365,13 @@ public:
 
   uint32_t getVoidType();
   uint32_t getBoolType();
+  uint32_t getInt16Type();
   uint32_t getInt32Type();
   uint32_t getInt64Type();
+  uint32_t getUint16Type();
   uint32_t getUint32Type();
   uint32_t getUint64Type();
+  uint32_t getFloat16Type();
   uint32_t getFloat32Type();
   uint32_t getFloat64Type();
   uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
@@ -382,8 +401,13 @@ public:
 
   // === Constant ===
   uint32_t getConstantBool(bool value);
+  uint32_t getConstantInt16(int16_t value);
   uint32_t getConstantInt32(int32_t value);
+  uint32_t getConstantInt64(int64_t value);
+  uint32_t getConstantUint16(uint16_t value);
   uint32_t getConstantUint32(uint32_t value);
+  uint32_t getConstantUint64(uint64_t value);
+  uint32_t getConstantFloat16(int16_t value);
   uint32_t getConstantFloat32(float value);
   uint32_t getConstantFloat64(double value);
   uint32_t getConstantComposite(uint32_t typeId,

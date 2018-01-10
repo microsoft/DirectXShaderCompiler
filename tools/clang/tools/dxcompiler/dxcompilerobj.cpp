@@ -464,13 +464,18 @@ public:
 #ifdef ENABLE_SPIRV_CODEGEN
       else if (opts.GenSPIRV) {
           clang::EmitSPIRVOptions spirvOpts;
+
           spirvOpts.codeGenHighLevel = opts.CodeGenHighLevel;
+          spirvOpts.disableValidation = opts.DisableValidation;
+          spirvOpts.invertY = opts.VkInvertY;
           spirvOpts.ignoreUnusedResources = opts.VkIgnoreUnusedResources;
+          spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
           spirvOpts.bShift = opts.VkBShift;
           spirvOpts.tShift = opts.VkTShift;
           spirvOpts.sShift = opts.VkSShift;
           spirvOpts.uShift = opts.VkUShift;
+          spirvOpts.enable16BitTypes = opts.Enable16BitTypes;
           clang::EmitSPIRVAction action(spirvOpts);
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
           action.BeginSourceFile(compiler, file);
@@ -566,8 +571,22 @@ public:
       }
 
       hr = S_OK;
+    } catch (std::bad_alloc &) {
+      hr = E_OUTOFMEMORY;
+    } catch (hlsl::Exception &e) {
+      _Analysis_assume_(DXC_FAILED(e.hr));
+      if (e.hr == DXC_E_ABORT_COMPILATION_ERROR) {
+        e.hr = S_OK;
+        CComPtr<IDxcBlobEncoding> pErrorBlob;
+        IFT(DxcCreateBlobWithEncodingOnHeapCopy(e.msg.c_str(), e.msg.size(),
+                                                CP_UTF8, &pErrorBlob));
+        IFT(DxcOperationResult::CreateFromResultErrorStatus(
+            nullptr, pErrorBlob, DXC_E_GENERAL_INTERNAL_ERROR, ppResult));
+      }
+      hr = e.hr;
+    } catch (...) {
+      hr = E_FAIL;
     }
-    CATCH_CPP_ASSIGN_HRESULT();
   Cleanup:
     DxcEtw_DXCompilerCompile_Stop(hr);
     return hr;

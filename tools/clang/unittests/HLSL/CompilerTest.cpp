@@ -605,6 +605,7 @@ public:
   TEST_METHOD(CodeGenInput1)
   TEST_METHOD(CodeGenInput2)
   TEST_METHOD(CodeGenInput3)
+  TEST_METHOD(CodeGenInt16Op)
   TEST_METHOD(CodeGenIntrinsic1)
   TEST_METHOD(CodeGenIntrinsic1Minprec)
   TEST_METHOD(CodeGenIntrinsic2)
@@ -1130,6 +1131,7 @@ public:
   TEST_METHOD(ViewID)
   TEST_METHOD(ShaderCompatSuite)
   TEST_METHOD(QuickTest)
+  TEST_METHOD(QuickLlTest)
   BEGIN_TEST_METHOD(SingleFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
   END_TEST_METHOD()
@@ -1564,6 +1566,7 @@ public:
       // headers.
       if (!llvm::StringSwitch<bool>(llvm::sys::path::extension(Dir->path()))
                .Cases(".hlsl", ".hlsl", true)
+		       .Cases(".ll", ".ll", true)
                .Default(false))
         continue;
       StringRef filename = Dir->path();
@@ -3598,6 +3601,11 @@ TEST_F(CompilerTest, CodeGenInput2) {
 
 TEST_F(CompilerTest, CodeGenInput3) {
   CodeGenTest(L"..\\CodeGenHLSL\\input3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenInt16Op) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\int16Op.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenIntrinsic1) {
@@ -5862,6 +5870,10 @@ TEST_F(CompilerTest, ShaderCompatSuite) {
 
 TEST_F(CompilerTest, QuickTest) {
   CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\quick-test");
+}
+
+TEST_F(CompilerTest, QuickLlTest) {
+	CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\quick-ll-test");
 }
 
 TEST_F(CompilerTest, SingleFileCheckTest) {

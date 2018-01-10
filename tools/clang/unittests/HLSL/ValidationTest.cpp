@@ -226,6 +226,7 @@ public:
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
   TEST_METHOD(DuplicateSysValue)
+  TEST_METHOD(FunctionAttributes)
   TEST_METHOD(GSMainMissingAttributeFail)
   TEST_METHOD(GSOtherMissingAttributeFail)
   TEST_METHOD(GSMissingMaxVertexCountFail)
@@ -2051,11 +2052,11 @@ float4 main( \
 
     "= !{i32 1, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 2, i32 1, i8 0, null}\n"
     "!([0-9]+) = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
-    "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
+    "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 ([15]), i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
 
     "= !{i32 1, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 2, i32 1, i8 2, null}\n"
     "!\\2 = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !\\3, i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
-    "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !\\5, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n",
+    "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 \\5, i8 13, !\\6, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n",
 
     "signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
     "signature element SV_IsFrontFace at location \\(1,1\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
@@ -2078,14 +2079,14 @@ float4 main( \
 
     { "= !{i32 1, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
       "!([0-9]+) = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 1, null}\n"
-      "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
+      "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 ([15]), i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
       "!([0-9]+) = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 2, i8 0, null}\n",
       "?!dx.viewIdState ="},
 
     { "= !{i32 1, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n"
       "!\\2 = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !\\3, i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
-      "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !\\5, i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
-      "!\\6 = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !\\7, i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
+      "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 \\5, i8 13, !\\6, i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
+      "!\\7 = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !\\8, i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
       "!1012 ="},
 
     "signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
@@ -3150,4 +3151,15 @@ TEST_F(ValidationTest, Float32DenormModeAttribute) {
     "contains invalid attribute 'fp32-denorm-mode' with value 'invalid_mode'",
     true);
 }
-// TODO: reject non-zero padding
+
+TEST_F(ValidationTest, FunctionAttributes) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  std::vector<LPCWSTR> pArguments = { L"-denorm", L"ftz" };
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col: COL) : SV_Target { return col; }", "ps_6_2",
+    pArguments.data(), 2, nullptr, 0,
+    { "\"fp32-denorm-mode\"=\"ftz\"" },
+    { "\"dummy_attribute\"=\"invalid_mode\"" },
+    "contains invalid attribute 'dummy_attribute' with value 'invalid_mode'",
+    true);
+}// TODO: reject non-zero padding

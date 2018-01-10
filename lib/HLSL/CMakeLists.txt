@@ -46,6 +46,7 @@ add_llvm_library(LLVMHLSL
   HLOperations.cpp
   HLOperationLower.cpp
   HLOperationLowerExtension.cpp
+  HLPreprocess.cpp
   HLResource.cpp
   HLSignatureLower.cpp
   PauseResumePasses.cpp

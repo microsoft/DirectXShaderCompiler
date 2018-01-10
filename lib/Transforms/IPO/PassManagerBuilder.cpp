@@ -203,13 +203,15 @@ void PassManagerBuilder::populateFunctionPassManager(
 }
 
 // HLSL Change Starts
-static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
+static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
   // Don't do any lowering if we're targeting high-level.
   if (HLSLHighLevel) {
     MPM.add(createHLEmitMetadataPass());
     return;
   }
 
+  MPM.add(createHLPreprocessPass());
+  bool NoOpt = OptLevel == 0;
   if (!NoOpt) {
     MPM.add(createHLDeadFunctionEliminationPass());
   }
@@ -242,7 +244,12 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
     MPM.add(createPromoteMemoryToRegisterPass());
   }
 
+  if (OptLevel > 2) {
+    MPM.add(createLoopRotatePass());
+    MPM.add(createLoopUnrollPass());
+  }
   MPM.add(createSimplifyInstPass());
+
   MPM.add(createCFGSimplificationPass());
 
   MPM.add(createDxilLegalizeResourceUsePass());
@@ -293,7 +300,7 @@ void PassManagerBuilder::populateModulePassManager(
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
     // HLSL Change Begins.
-    addHLSLPasses(HLSLHighLevel, true/*NoOpt*/, HLSLExtensionsCodeGen, MPM);
+    addHLSLPasses(HLSLHighLevel, OptLevel, HLSLExtensionsCodeGen, MPM);
     if (!HLSLHighLevel) {
       MPM.add(createMultiDimArrayToOneDimArrayPass());
       MPM.add(createDxilCondenseResourcesPass());
@@ -318,7 +325,7 @@ void PassManagerBuilder::populateModulePassManager(
     delete Inliner;
     Inliner = nullptr;
   }
-  addHLSLPasses(HLSLHighLevel, false/*NoOpt*/, HLSLExtensionsCodeGen, MPM); // HLSL Change
+  addHLSLPasses(HLSLHighLevel, OptLevel, HLSLExtensionsCodeGen, MPM); // HLSL Change
   // HLSL Change Ends
 
   // Add LibraryInfo if we have some.
@@ -569,6 +576,7 @@ void PassManagerBuilder::populateModulePassManager(
   if (!HLSLHighLevel) {
     MPM.add(createMultiDimArrayToOneDimArrayPass());
     MPM.add(createDxilCondenseResourcesPass());
+    MPM.add(createDeadCodeEliminationPass());
     if (DisableUnrollLoops)
       MPM.add(createDxilLegalizeSampleOffsetPass());
     MPM.add(createDxilFinalizeModulePass());

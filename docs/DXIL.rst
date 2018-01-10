@@ -2817,6 +2817,7 @@ INSTR.CBUFFEROUTOFBOUND                Cbuffer access out of bound
 INSTR.CHECKACCESSFULLYMAPPED           CheckAccessFullyMapped should only used on resource status
 INSTR.COORDINATECOUNTFORRAWTYPEDBUF    raw/typed buffer don't need 2 coordinates
 INSTR.COORDINATECOUNTFORSTRUCTBUF      structured buffer require 2 coordinates
+INSTR.CREATEHANDLEIMMRANGEID           Local resource must map to global resource.
 INSTR.DXILSTRUCTUSER                   Dxil struct types should only used by ExtractValue
 INSTR.DXILSTRUCTUSEROUTOFBOUND         Index out of bound when extract value from dxil struct types
 INSTR.EVALINTERPOLATIONMODE            Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample

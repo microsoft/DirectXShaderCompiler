@@ -17,7 +17,11 @@ namespace clang {
 struct EmitSPIRVOptions {
   /// Disable legalization and optimization and emit raw SPIR-V
   bool codeGenHighLevel;
+  bool defaultRowMajor;
+  bool disableValidation;
+  bool invertY;
   bool ignoreUnusedResources;
+  bool enable16BitTypes;
   llvm::StringRef stageIoOrder;
   llvm::SmallVector<uint32_t, 4> bShift;
   llvm::SmallVector<uint32_t, 4> tShift;

@@ -246,51 +246,5 @@ void main()
 // CHECK-NEXT:   [[add:%\d+]] = OpAtomicIAdd %uint [[ptr]] %uint_1 %uint_0 [[u1]]
 // CHECK-NEXT:                  OpStore %out_u1 [[add]]
   InterlockedAdd(g_tRWBuffU[u1], u1, out_u1);
-
-  //////////////////////////////////////////////////////////////////////////
-  ///////      Test all Interlocked* functions on primitive types     //////
-  ///////                Only int and uint are allowd                 //////
-  //////////////////////////////////////////////////////////////////////////
-
-// CHECK:      [[i1b_27:%\d+]] = OpLoad %int %i1b
-// CHECK-NEXT: [[iadd27:%\d+]] = OpAtomicIAdd %int %i1 %uint_1 %uint_0 [[i1b_27]]
-// CHECK-NEXT:                   OpStore %out_i1 [[iadd27]]
-  InterlockedAdd(i1, i1b, out_i1);
-
-// CHECK:      [[and28:%\d+]] = OpAtomicAnd %uint %u1 %uint_1 %uint_0 %uint_10
-// CHECK-NEXT:                  OpStore %out_u1 [[and28]]
-  InterlockedAnd(u1, 10,  out_u1);
-
-// CHECK:       [[uint10:%\d+]] = OpBitcast %int %uint_10
-// CHECK-NEXT: [[asmax29:%\d+]] = OpAtomicSMax %int %i1 %uint_1 %uint_0 [[uint10]]
-// CHECK-NEXT:                    OpStore %out_i1 [[asmax29]]
-  InterlockedMax(i1, 10,  out_i1);
-
-// CHECK:      [[umin30:%\d+]] = OpAtomicUMin %uint %u1 %uint_1 %uint_0 %uint_10
-// CHECK-NEXT:                   OpStore %out_u1 [[umin30]]
-  InterlockedMin(u1, 10,  out_u1);
-
-// CHECK:      [[i1c_31:%\d+]] = OpLoad %int %i1c
-// CHECK-NEXT:   [[or31:%\d+]] = OpAtomicOr %int %i1 %uint_1 %uint_0 [[i1c_31]]
-// CHECK-NEXT:                   OpStore %out_i1 [[or31]]
-  InterlockedOr (i1, i1c, out_i1);
-
-// CHECK:      [[xor32:%\d+]] = OpAtomicXor %uint %u1 %uint_1 %uint_0 %uint_10
-// CHECK-NEXT:                  OpStore %out_u1 [[xor32]]
-  InterlockedXor(u1, 10,  out_u1);
-
-// CHECK:      [[i1b_33:%\d+]] = OpLoad %int %i1b
-// CHECK-NEXT: [[i1c_33:%\d+]] = OpLoad %int %i1c
-// CHECK-NEXT:        {{%\d+}} = OpAtomicCompareExchange %int %i1 %uint_1 %uint_0 %uint_0 [[i1c_33]] [[i1b_33]]
-  InterlockedCompareStore(i1, i1b, i1c);
-
-// CHECK:      [[ace34:%\d+]] = OpAtomicCompareExchange %uint %u1 %uint_1 %uint_0 %uint_0 %uint_20 %uint_15
-// CHECK-NEXT:                  OpStore %out_u1 [[ace34]]
-  InterlockedCompareExchange(u1, 15, 20, out_u1);
-
-// CHECK:      [[i1c_35:%\d+]] = OpLoad %int %i1c
-// CHECK-NEXT:  [[ace35:%\d+]] = OpAtomicExchange %int %i1 %uint_1 %uint_0 [[i1c_35]]
-// CHECK-NEXT:                   OpStore %out_i1 [[ace35]]
-  InterlockedExchange(i1, i1c, out_i1);
 }
 

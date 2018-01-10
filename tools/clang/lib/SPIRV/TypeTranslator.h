@@ -14,6 +14,7 @@
 
 #include "clang/AST/Type.h"
 #include "clang/Basic/Diagnostic.h"
+#include "clang/SPIRV/EmitSPIRVOptions.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 
 #include "SpirvEvalInfo.h"
@@ -31,8 +32,14 @@ namespace spirv {
 class TypeTranslator {
 public:
   TypeTranslator(ASTContext &context, ModuleBuilder &builder,
-                 DiagnosticsEngine &diag)
-      : astContext(context), theBuilder(builder), diags(diag) {}
+                 DiagnosticsEngine &diag, const EmitSPIRVOptions &opts)
+      : astContext(context), theBuilder(builder), diags(diag),
+        spirvOptions(opts) {}
+
+  ~TypeTranslator() {
+    // Perform any sanity checks.
+    assert(intendedLiteralTypes.empty());
+  }
 
   /// \brief Generates the corresponding SPIR-V type for the given Clang
   /// frontend type and returns the type's <result-id>. On failure, reports
@@ -74,11 +81,24 @@ public:
   /// \brief Returns true if the given type is a ConsumeStructuredBuffer type.
   static bool isConsumeStructuredBuffer(QualType type);
 
+  /// \brief Returns true if the given type is a RW/Append/Consume
+  /// StructuredBuffer type.
+  static bool isRWAppendConsumeSBuffer(QualType type);
+
   /// \brief Returns true if the given type is the HLSL ByteAddressBufferType.
   static bool isByteAddressBuffer(QualType type);
 
   /// \brief Returns true if the given type is the HLSL RWByteAddressBufferType.
   static bool isRWByteAddressBuffer(QualType type);
+
+  /// \brief Returns true if the given type is the HLSL (RW)StructuredBuffer,
+  /// (RW)ByteAddressBuffer, or {Append|Consume}StructuredBuffer.
+  static bool isAKindOfStructuredOrByteBuffer(QualType type);
+
+  /// \brief Returns true if the given type is the HLSL (RW)StructuredBuffer,
+  /// (RW)ByteAddressBuffer, {Append|Consume}StructuredBuffer, or a struct
+  /// containing one of the above.
+  static bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type);
 
   /// \brief Returns true if the given type is the HLSL Buffer type.
   static bool isBuffer(QualType type);
@@ -138,6 +158,10 @@ public:
                           uint32_t *rowCount = nullptr,
                           uint32_t *colCount = nullptr);
 
+  /// \broef returns true if type is a matrix and matrix is row major
+  /// If decl is not nullptr, is is checked for attributes specifying majorness
+  bool isRowMajorMatrix(QualType type, const Decl *decl = nullptr) const;
+
   /// \brief Returns true if the given type is a SPIR-V acceptable matrix type,
   /// i.e., with floating point elements and greater than 1 row and column
   /// counts.
@@ -146,15 +170,22 @@ public:
   /// \brief Returns true if the given type can use relaxed precision
   /// decoration. Integer and float types with lower than 32 bits can be
   /// operated on with a relaxed precision.
-  static bool isRelaxedPrecisionType(QualType);
+  static bool isRelaxedPrecisionType(QualType, const EmitSPIRVOptions &);
 
   /// Returns true if the given type will be translated into a SPIR-V image,
   /// sampler or struct containing images or samplers.
+  ///
+  /// Note: legalization specific code
   static bool isOpaqueType(QualType type);
 
   /// Returns true if the given type is a struct type who has an opaque field
   /// (in a recursive away).
+  ///
+  /// Note: legalization specific code
   static bool isOpaqueStructType(QualType tye);
+
+  /// \brief Returns a string name for the given type.
+  static std::string getName(QualType type);
 
   /// \brief Returns the the element type for the given scalar/vector/matrix
   /// type. Returns empty QualType for other cases.
@@ -198,9 +229,6 @@ private:
   /// that can be used to create an image object.
   spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
 
-  /// \brief Returns a string name for the given type.
-  static std::string getName(QualType type);
-
 public:
   /// \brief Returns the alignment and size in bytes for the given type
   /// according to the given LayoutRule.
@@ -218,10 +246,51 @@ public:
                                                     bool isRowMajor,
                                                     uint32_t *stride);
 
+public:
+  /// \brief If a hint exists regarding the usage of literal types, it
+  /// is returned. Otherwise, the given type itself is returned.
+  /// The hint is the type on top of the intendedLiteralTypes stack. This is the
+  /// type we suspect the literal under question should be interpreted as.
+  QualType getIntendedLiteralType(QualType type);
+
+public:
+  // A RAII class for maintaining the intendedLiteralTypes stack.
+  // Instantiating an object of this class ensures that as long as the
+  // object lives, the hint lives in the TypeTranslator, and once the object is
+  // destroyed, the hint is automatically removed from the stack.
+  class LiteralTypeHint {
+  public:
+    LiteralTypeHint(TypeTranslator &t, QualType ty);
+    ~LiteralTypeHint();
+
+  private:
+    static bool isLiteralType(QualType type);
+
+  private:
+    QualType type;
+    TypeTranslator &translator;
+  };
+
+private:
+  /// \brief Adds the given type to the intendedLiteralTypes stack. This will be
+  /// used as a hint regarding usage of literal types.
+  void pushIntendedLiteralType(QualType type);
+
+  /// \brief Removes the type at the top of the intendedLiteralTypes stack.
+  void popIntendedLiteralType();
+
 private:
   ASTContext &astContext;
   ModuleBuilder &theBuilder;
   DiagnosticsEngine &diags;
+  const EmitSPIRVOptions &spirvOptions;
+
+  /// \brief This is a stack which is used to track the intended usage type for
+  /// literals. For example: while a floating literal is being visited, if the
+  /// top of the stack is a float type, the literal should be evaluated as
+  /// float; but if the top of the stack is a double type, the literal should be
+  /// evaluated as a double.
+  std::stack<QualType> intendedLiteralTypes;
 };
 
 } // end namespace spirv

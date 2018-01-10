@@ -177,6 +177,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrExtractValue: return "ExtractValue should only be used on dxil struct types and cmpxchg";
     case hlsl::ValidationRule::InstrTGSMRaceCond: return "Race condition writing to shared memory detected, consider making this write conditional";
     case hlsl::ValidationRule::InstrAttributeAtVertexNoInterpolation: return "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.";
+    case hlsl::ValidationRule::InstrCreateHandleImmRangeID: return "Local resource must map to global resource.";
     case hlsl::ValidationRule::TypesNoVector: return "Vector type '%0' is not allowed";
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
@@ -762,6 +763,8 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
 
   Value *rangeIndex = createHandle.get_rangeId();
   if (!isa<ConstantInt>(rangeIndex)) {
+    ValCtx.EmitInstrError(cast<CallInst>(handle),
+                          ValidationRule::InstrCreateHandleImmRangeID);
     // must be constant
     return DXIL::ResourceKind::Invalid;
   }
@@ -2368,16 +2371,33 @@ static void ValidateInstructionMetadata(Instruction *I,
 }
 
 static void ValidateFunctionAttribute(Function *F, ValidationContext &ValCtx) {
-  AttributeSet attrSet = F->getAttributes();
+  AttributeSet attrSet = F->getAttributes().getFnAttributes();
   // fp32-denorm-mode
-  if (attrSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
-    Attribute attr = attrSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
+  if (attrSet.hasAttribute(AttributeSet::FunctionIndex,
+                           DXIL::kFP32DenormKindString)) {
+    Attribute attr = attrSet.getAttribute(AttributeSet::FunctionIndex,
+                                          DXIL::kFP32DenormKindString);
     StringRef value = attr.getValueAsString();
     if (!value.equals(DXIL::kFP32DenormValueAnyString) &&
-      !value.equals(DXIL::kFP32DenormValueFtzString) &&
-      !value.equals(DXIL::kFP32DenormValuePreserveString))
-    {
-      ValCtx.EmitFnAttributeError(F, attr.getKindAsString(), attr.getValueAsString());
+        !value.equals(DXIL::kFP32DenormValueFtzString) &&
+        !value.equals(DXIL::kFP32DenormValuePreserveString)) {
+      ValCtx.EmitFnAttributeError(F, attr.getKindAsString(),
+                                  attr.getValueAsString());
+    }
+  }
+  // TODO: If validating libraries, we should remove all unknown function attributes.
+  // For each attribute, check if it is a known attribute
+  for (unsigned I = 0, E = attrSet.getNumSlots(); I != E; ++I) {
+    for (auto AttrIter = attrSet.begin(I), AttrEnd = attrSet.end(I);
+         AttrIter != AttrEnd; ++AttrIter) {
+      if (!AttrIter->isStringAttribute()) {
+        continue;
+      }
+      StringRef kind = AttrIter->getKindAsString();
+      if (!kind.equals(DXIL::kFP32DenormKindString)) {
+        ValCtx.EmitFnAttributeError(F, AttrIter->getKindAsString(),
+                                    AttrIter->getValueAsString());
+      }
     }
   }
 }
@@ -3347,12 +3367,12 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     }
     // NOTE: clip cull distance size is checked at ValidateSignature.
     break;
-  case DXIL::SemanticKind::IsFrontFace:
-    if (!compBool || SE.GetCols() != 1) {
+  case DXIL::SemanticKind::IsFrontFace: {
+    if (!(compInt && compWidth == 32) || SE.GetCols() != 1) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
-                             {SE.GetSemantic()->GetName(), "bool"});
+                             {SE.GetSemantic()->GetName(), "uint"});
     }
-    break;
+  } break;
   case DXIL::SemanticKind::RenderTargetArrayIndex:
   case DXIL::SemanticKind::ViewPortArrayIndex:
   case DXIL::SemanticKind::VertexID:

@@ -1209,7 +1209,13 @@ llvm::Constant *CodeGenModule::EmitConstantInit(const VarDecl &D,
           return EmitNullConstant(D.getType());
       }
   }
-  
+
+  // HLSL Change Begin - External variable is in cbuffer, cannot use as immediate.
+  if (D.hasExternalFormalLinkage() &&
+      !isa<EnumConstantDecl>(&D))
+    return nullptr;
+  // HLSL Change End.
+
   if (const APValue *Value = D.evaluateValue())
     return EmitConstantValueForMemory(*Value, D.getType(), CGF);
 

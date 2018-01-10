@@ -259,12 +259,12 @@ void ShaderOpTest::CopyBackResources() {
       pList->CopyResource(D.ReadBack, D.Resource);
     }
     else {
-      UINT rowPitch = Desc.Width * GetByteSizeForFormat(Desc.Format);
+      UINT64 rowPitch = Desc.Width * GetByteSizeForFormat(Desc.Format);
       if (rowPitch % D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
         rowPitch += D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (rowPitch % D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
       D3D12_PLACED_SUBRESOURCE_FOOTPRINT Footprint;
       Footprint.Offset = 0;
-      Footprint.Footprint = CD3DX12_SUBRESOURCE_FOOTPRINT(Desc.Format, Desc.Width, Desc.Height, 1, rowPitch);
+      Footprint.Footprint = CD3DX12_SUBRESOURCE_FOOTPRINT(Desc.Format, (UINT)Desc.Width, Desc.Height, 1, (UINT)rowPitch);
       CD3DX12_TEXTURE_COPY_LOCATION DstLoc(D.ReadBack, Footprint);
       CD3DX12_TEXTURE_COPY_LOCATION SrcLoc(D.Resource, 0);
       pList->CopyTextureRegion(&DstLoc, 0, 0, 0, &SrcLoc, nullptr);
@@ -329,7 +329,7 @@ void ShaderOpTest::CreateDescriptorHeaps() {
       else if (0 == _stricmp(D.Kind, "CBV")) {
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
         cbvDesc.BufferLocation = Data.Resource->GetGPUVirtualAddress();
-        cbvDesc.SizeInBytes = Data.Resource->GetDesc().Width;
+        cbvDesc.SizeInBytes = (UINT)Data.Resource->GetDesc().Width;
         m_pDevice->CreateConstantBufferView(&cbvDesc, cpuHandle);
       }
 
@@ -417,10 +417,10 @@ void ShaderOpTest::CreatePipelineState() {
     ZeroMemory(&GDesc, sizeof(GDesc));
     InitByteCode(&GDesc.VS, pVS);
     InitByteCode(&GDesc.PS, pPS);
-    GDesc.InputLayout.NumElements = m_pShaderOp->InputElements.size();
+    GDesc.InputLayout.NumElements = (UINT)m_pShaderOp->InputElements.size();
     GDesc.InputLayout.pInputElementDescs = m_pShaderOp->InputElements.data();
     GDesc.PrimitiveTopologyType = m_pShaderOp->PrimitiveTopologyType;
-    GDesc.NumRenderTargets = m_pShaderOp->RenderTargets.size();
+    GDesc.NumRenderTargets = (UINT)m_pShaderOp->RenderTargets.size();
     GDesc.SampleMask = m_pShaderOp->SampleMask;
     for (size_t i = 0; i < m_pShaderOp->RenderTargets.size(); ++i) {
       ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[i]);
@@ -697,6 +697,13 @@ void ShaderOpTest::CreateShaders() {
       }
       CHECK_HR(resultCode);
       CHECK_HR(pResult->GetResult((IDxcBlob **)&pCode));
+#if 0 // use the following code to test compiled shader
+      CComPtr<IDxcBlob> pCode;
+      CHECK_HR(pResult->GetResult(&pCode));
+      CComPtr<IDxcBlobEncoding> pBlob;
+      CHECK_HR(pCompiler->Disassemble((IDxcBlob *)pCode, (IDxcBlobEncoding **)&pBlob));
+      dxc::WriteUtf8ToConsoleSizeT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+#endif
     } else {
       CComPtr<ID3DBlob> pError;
       hr = D3DCompile(pText, strlen(pText), S.Name, nullptr, nullptr,
@@ -761,19 +768,19 @@ void ShaderOpTest::RunCommandList() {
       D3D12_RECT scissorRect;
 
       memset(&viewport, 0, sizeof(viewport));
-      viewport.Height = R->Desc.Height;
-      viewport.Width = R->Desc.Width;
+      viewport.Height = (FLOAT)R->Desc.Height;
+      viewport.Width = (FLOAT)R->Desc.Width;
       viewport.MaxDepth = 1.0f;
       memset(&scissorRect, 0, sizeof(scissorRect));
-      scissorRect.right = viewport.Width;
-      scissorRect.bottom = viewport.Height;
+      scissorRect.right = (LONG)viewport.Width;
+      scissorRect.bottom = (LONG)viewport.Height;
       pList->RSSetViewports(1, &viewport);
       pList->RSSetScissorRects(1, &scissorRect);
     }
 
     // Indicate that the buffers will be used as render targets.
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[8];
-    UINT rtvHandleCount = m_pShaderOp->RenderTargets.size();
+    UINT rtvHandleCount = (UINT)m_pShaderOp->RenderTargets.size();
     for (size_t i = 0; i < rtvHandleCount; ++i) {
       auto &rt = m_pShaderOp->RenderTargets[i];
       ShaderOpDescriptorData &DData = m_DescriptorData[rt];
@@ -810,7 +817,7 @@ void ShaderOpTest::RunCommandList() {
     D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
     vertexBufferView.BufferLocation = VBufferData.Resource->GetGPUVirtualAddress();
     vertexBufferView.StrideInBytes = strideInBytes;
-    vertexBufferView.SizeInBytes = VBufferData.ShaderOpRes->Desc.Width;
+    vertexBufferView.SizeInBytes = (UINT)VBufferData.ShaderOpRes->Desc.Width;
     pList->IASetVertexBuffers(0, 1, &vertexBufferView);
     UINT vertexCount = vertexBufferView.SizeInBytes / vertexBufferView.StrideInBytes;
     UINT instanceCount = 1;
@@ -964,6 +971,7 @@ void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
 void ShaderOpTest::PresentRenderTarget(ShaderOp *pShaderOp,
                                        ID3D12CommandQueue *pCommandQueue,
                                        ID3D12Resource *pRenderTarget) {
+  UNREFERENCED_PARAMETER(pShaderOp);
   CommandListRefs ResCommandList;
   ResCommandList.Queue = pCommandQueue;
   ResCommandList.CreateForDevice(m_pDevice, m_pShaderOp->IsCompute());
@@ -1877,45 +1885,6 @@ DXIL::ComponentType GetCompType(LPCWSTR pText, LPCWSTR pEnd) {
   case L'F':
   default:
     return DXIL::ComponentType::F32;
-  }
-}
-
-bool GetSign(float x) {
-  return std::signbit(x);
-}
-
-int GetMantissa(float x) {
-  int bits = reinterpret_cast<int &>(x);
-  return bits & 0x7fffff;
-}
-
-int GetExponent(float x) {
-  int bits = reinterpret_cast<int &>(x);
-  return (bits >> 23) & 0xff;
-}
-
-
-// Note: This is not a precise float32 to float16 conversion.
-// This function should be used to convert float values read from ShaderOp data that were intended to be used for halves.
-// So special values (nan, denorm, inf) for float32 will map to their corresponding bits in float16,
-// and it will not handle true conversions that spans float16 denorms and float32 non-denorms.
-uint16_t ConvertFloat32ToFloat16(float x) {
-  bool isNeg = GetSign(x);
-  int exp = GetExponent(x);
-  int mantissa = GetMantissa(x);
-  if (isnan(x)) return Float16NaN;
-  if (isinf(x) || exp - 127 > 15) {
-    return isNeg ? Float16NegInf : Float16PosInf;
-  }
-  if (isdenorm(x)) return isNeg ? Float16NegDenorm : Float16PosDenorm;
-  if (exp == 0 && mantissa == 0) return isNeg ? Float16NegZero : Float16PosZero;
-  else {
-    DXASSERT(exp - 127 <= 15, "else invalid float conversion");
-    uint16_t val = 0;
-    val |= isNeg ? 0x8000 : 0;
-    val |= (exp - 127 + 15) << 10; // subtract from float32 exponent bias and add float16 exponent bias
-    val |= mantissa >> 13; // only first 10 significands taken
-    return val;
   }
 }
 

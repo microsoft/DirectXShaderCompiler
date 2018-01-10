@@ -131,6 +131,38 @@ private:
   bool isCounterVar;                          ///< Couter variable or not
 };
 
+/// A (<result-id>, is-alias-or-not) pair for counter variables
+class CounterIdAliasPair {
+public:
+  /// Default constructor to satisfy llvm::DenseMap
+  CounterIdAliasPair() : resultId(0), isAlias(false) {}
+  CounterIdAliasPair(uint32_t id, bool alias) : resultId(id), isAlias(alias) {}
+
+  /// Returns the pointer to the counter variable. Dereferences first if this is
+  /// an alias to a counter variable.
+  uint32_t get(ModuleBuilder &builder, TypeTranslator &translator) const {
+    if (isAlias) {
+      const uint32_t counterVarType = builder.getPointerType(
+          translator.getACSBufferCounter(), spv::StorageClass::Uniform);
+      return builder.createLoad(counterVarType, resultId);
+    }
+    return resultId;
+  }
+
+  /// Stores the counter variable's pointer in srcPair to the curent counter
+  /// variable. The current counter variable must be an alias.
+  void assign(const CounterIdAliasPair &srcPair, ModuleBuilder &builder,
+              TypeTranslator &translator) const {
+    assert(isAlias);
+    builder.createStore(resultId, srcPair.get(builder, translator));
+  }
+
+private:
+  uint32_t resultId;
+  /// Note: legalization specific code
+  bool isAlias;
+};
+
 /// \brief The class containing mappings from Clang frontend Decls to their
 /// corresponding SPIR-V <result-id>s.
 ///
@@ -180,6 +212,12 @@ public:
   /// returns its <result-id>.
   uint32_t createFnParam(const ParmVarDecl *param);
 
+  /// \brief Creates the counter variable associated with the given param.
+  /// This is meant to be used for forward-declared functions.
+  ///
+  /// Note: legalization specific code
+  void createFnParamCounterVar(const ParmVarDecl *param);
+
   /// \brief Creates a function-scope variable in the current function and
   /// returns its <result-id>.
   uint32_t createFnVar(const VarDecl *var, llvm::Optional<uint32_t> init);
@@ -213,6 +251,19 @@ public:
 
   /// \brief Creates a PushConstant block from the given decl.
   uint32_t createPushConstant(const VarDecl *decl);
+
+  /// \brief Returns the suitable type for the given decl, considering the
+  /// given decl could possibly be created as an alias variable. If true, a
+  /// pointer-to-the-value type will be returned, otherwise, just return the
+  /// normal value type.
+  ///
+  /// If the type is for an alias variable, writes true to *shouldBeAlias and
+  /// writes storage class, layout rule, and valTypeId to *info.
+  ///
+  /// Note: legalization specific code
+  uint32_t getTypeForPotentialAliasVar(const DeclaratorDecl *var,
+                                       bool *shouldBeAlias = nullptr,
+                                       SpirvEvalInfo *info = nullptr);
 
   /// \brief Sets the <result-id> of the entry function.
   void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
@@ -253,9 +304,11 @@ public:
   /// returns a newly assigned <result-id> for it.
   uint32_t getOrRegisterFnResultId(const FunctionDecl *fn);
 
-  /// \brief Returns the associated counter's <result-id> for the given
-  /// {RW|Append|Consume}StructuredBuffer variable.
-  uint32_t getOrCreateCounterId(const ValueDecl *decl);
+  /// \brief Returns the associated counter's (<result-id>, is-alias-or-not)
+  /// pair for the given {RW|Append|Consume}StructuredBuffer variable.
+  /// Returns nullptr if the given decl has no associated counter variable
+  /// created.
+  const CounterIdAliasPair *getCounterIdAliasPair(const ValueDecl *decl);
 
   /// \brief Returns the <type-id> for the given cbuffer, tbuffer,
   /// ConstantBuffer, TextureBuffer, or push constant block.
@@ -299,6 +352,8 @@ public:
   /// This method will write the set and binding number assignment into the
   /// module under construction.
   bool decorateResourceBindings();
+
+  bool requiresLegalization() const { return needsLegalization; }
 
 private:
   /// \brief Wrapper method to create a fatal error message and report it
@@ -429,7 +484,12 @@ private:
 
   /// Creates the associated counter variable for RW/Append/Consume
   /// structured buffer.
-  uint32_t createCounterVar(const ValueDecl *decl);
+  ///
+  /// The counter variable will be created as an alias variable (of
+  /// pointer-to-pointer type in Private storage class) if isAlias is true.
+  ///
+  /// Note: isAlias - legalization specific code
+  void createCounterVar(const ValueDecl *decl, bool isAlias);
 
   /// Decorates varId of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
@@ -469,12 +529,62 @@ private:
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
-  /// counter variables
-  llvm::DenseMap<const ValueDecl *, uint32_t> counterVars;
+  /// counter variables' (<result-id>, is-alias-or-not) pairs
+  llvm::DenseMap<const ValueDecl *, CounterIdAliasPair> counterVars;
 
   /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
   /// to the <type-id>
   llvm::DenseMap<const DeclContext *, uint32_t> ctBufferPCTypeIds;
+
+  /// Whether the translated SPIR-V binary needs legalization.
+  ///
+  /// The following cases will require legalization:
+  ///
+  /// 1. Opaque types (textures, samplers) within structs
+  /// 2. Structured buffer assignments
+  ///
+  /// This covers the second case:
+  ///
+  /// When we have a kind of structured or byte buffer, meaning one of the
+  /// following
+  ///
+  /// * StructuredBuffer
+  /// * RWStructuredBuffer
+  /// * AppendStructuredBuffer
+  /// * ConsumeStructuredBuffer
+  /// * ByteAddressStructuredBuffer
+  /// * RWByteAddressStructuredBuffer
+  ///
+  /// and assigning to them (using operator=, passing in as function parameter,
+  /// returning as function return), we need legalization.
+  ///
+  /// All variable definitions (including static/non-static local/global
+  /// variables, function parameters/returns) will gain another level of
+  /// pointerness, unless they will generate externally visible SPIR-V
+  /// variables. So variables and parameters will be of pointer-to-pointer type,
+  /// while function returns will be of pointer type. We adopt this mechanism to
+  /// convey to the legalization passes that they are *alias* variables, and
+  /// all accesses should happen to the aliased-to-variables. Loading such an
+  /// alias variable will give the pointer to the aliased-to-variable, while
+  /// storing into such an alias variable should write the pointer to the
+  /// aliased-to-variable.
+  ///
+  /// Based on the above, CodeGen should take care of the following AST nodes:
+  ///
+  /// * Definition of alias variables: should add another level of pointers
+  /// * Assigning non-alias variables to alias variables: should avoid the load
+  ///   over the non-alias variables
+  /// * Accessing alias variables: should load the pointer first and then
+  ///   further compose access chains.
+  ///
+  /// Note that the associated counters bring about their own complication.
+  /// We also need to apply the alias mechanism for them.
+  ///
+  /// If this is true, SPIRV-Tools legalization passes will be executed after
+  /// the translation to legalize the generated SPIR-V binary.
+  ///
+  /// Note: legalization specific code
+  bool needsLegalization;
 
 public:
   /// The gl_PerVertex structs for both input and output
@@ -487,8 +597,9 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        const EmitSPIRVOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
       astContext(context), diags(context.getDiagnostics()),
-      typeTranslator(context, builder, diags), entryFunctionId(0),
-      glPerVertex(model, context, builder, typeTranslator) {}
+      typeTranslator(context, builder, diags, options), entryFunctionId(0),
+      needsLegalization(false),
+      glPerVertex(model, context, builder, typeTranslator, options.invertY) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
   // Try both input and output even if input location assignment failed

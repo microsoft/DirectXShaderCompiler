@@ -12,6 +12,29 @@
 // CHECK-NEXT: OpMemberName %T 1 "y"
 // CHECK-NEXT: OpMemberName %T 2 "z"
 
+// CHECK:      %X = OpTypeStruct %v4float %v3float
+// CHECK:      %_struct_[[num:\d+]] = OpTypeStruct %v2float
+// CHECK:      %type_MyCBuffer = OpTypeStruct %X %_struct_[[num]]
+cbuffer MyCBuffer {
+  struct X {
+    float4 a;
+    float3 b;
+  } x1;
+
+  struct {
+    float2 c;
+  } y1;
+};
+
+// CHECK:      %type_MyTBuffer = OpTypeStruct %X %_struct_[[num]]
+tbuffer MyTBuffer {
+  X x2;
+
+  struct {
+    float2 c;
+  } y2;
+};
+
 // CHECK:      %N = OpTypeStruct
 struct N {};
 

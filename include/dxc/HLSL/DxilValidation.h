@@ -63,6 +63,7 @@ enum class ValidationRule : unsigned {
   InstrCheckAccessFullyMapped, // CheckAccessFullyMapped should only used on resource status
   InstrCoordinateCountForRawTypedBuf, // raw/typed buffer don't need 2 coordinates
   InstrCoordinateCountForStructBuf, // structured buffer require 2 coordinates
+  InstrCreateHandleImmRangeID, // Local resource must map to global resource.
   InstrDxilStructUser, // Dxil struct types should only used by ExtractValue
   InstrDxilStructUserOutOfBound, // Index out of bound when extract value from dxil struct types
   InstrEvalInterpolationMode, // Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample

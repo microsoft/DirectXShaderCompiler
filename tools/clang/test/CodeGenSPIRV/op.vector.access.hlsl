@@ -47,8 +47,8 @@ void main() {
 // CHECK-NEXT: [[a2:%\d+]] = OpLoad %v4float %a
 // CHECK-NEXT: [[a3:%\d+]] = OpLoad %v4float %a
 // CHECK-NEXT: [[add:%\d+]] = OpFAdd %v4float [[a2]] [[a3]]
-// CHECK-NEXT: OpStore %temp_var [[add]]
-// CHECK-NEXT: [[access4:%\d+]] = OpAccessChain %_ptr_Function_float %temp_var %uint_0
+// CHECK-NEXT: OpStore %temp_var_vector [[add]]
+// CHECK-NEXT: [[access4:%\d+]] = OpAccessChain %_ptr_Function_float %temp_var_vector %uint_0
 // CHECK-NEXT: [[s4:%\d+]] = OpLoad %float [[access4]]
 // CHECK-NEXT: OpStore %s [[s4]]
     s = (a + a)[0];
@@ -56,8 +56,8 @@ void main() {
 // CHECK-NEXT: [[a4:%\d+]] = OpLoad %v4float %a
 // CHECK-NEXT: [[a5:%\d+]] = OpLoad %v4float %a
 // CHECK-NEXT: [[mul:%\d+]] = OpFMul %v4float [[a4]] [[a5]]
-// CHECK-NEXT: OpStore %temp_var_0 [[mul]]
-// CHECK-NEXT: [[access5:%\d+]] = OpAccessChain %_ptr_Function_float %temp_var_0 [[index2]]
+// CHECK-NEXT: OpStore %temp_var_vector_0 [[mul]]
+// CHECK-NEXT: [[access5:%\d+]] = OpAccessChain %_ptr_Function_float %temp_var_vector_0 [[index2]]
 // CHECK-NEXT: [[s5:%\d+]] = OpLoad %float [[access5]]
 // CHECK-NEXT: OpStore %s [[s5]]
     s = (a * a)[index];
