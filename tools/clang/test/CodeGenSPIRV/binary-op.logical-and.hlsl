@@ -24,4 +24,12 @@ void main() {
 // CHECK-NEXT: OpStore %q [[and2]]
     k = i && j;
     q = o && p;
+
+// The result of '&&' could be 'const bool'. In such cases, make sure
+// the result type is correct.
+// CHECK:        [[a1:%\d+]] = OpLoad %bool %a
+// CHECK-NEXT:   [[b1:%\d+]] = OpLoad %bool %b
+// CHECK-NEXT: [[and3:%\d+]] = OpLogicalAnd %bool [[a1]] [[b1]]
+// CHECK-NEXT:      {{%\d+}} = OpCompositeConstruct %v2bool [[and3]] %true
+    bool2 t = bool2(a&&b, true);
 }
