@@ -80,9 +80,12 @@ void main() {
 // CHECK-NEXT:       {{%\d+}} = OpConvertSToF %float [[a_int]]
     float a = cond ? 1 : 0;
 
-
 // CHECK:      [[c_long:%\d+]] = OpSelect %long {{%\d+}} %long_3000000000 %long_4000000000
 // CHECK-NEXT:        {{%\d+}} = OpConvertSToF %float [[c_long]]
     // TODO: Use OpSConvert to first convert long to int. Then use OpConvertSToF.
     float c = cond ? 3000000000 : 4000000000;
+
+// CHECK:      [[d_int:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_0
+// CHECK-NEXT:       {{%\d+}} = OpBitcast %uint [[d_int]]
+    uint d = cond ? 1 : 0;
 }

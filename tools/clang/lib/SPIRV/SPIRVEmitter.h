@@ -431,8 +431,7 @@ private:
 
   /// Translates the given frontend APFloat into its SPIR-V equivalent for the
   /// given targetType.
-  uint32_t translateAPFloat(const llvm::APFloat &floatValue,
-                            QualType targetType);
+  uint32_t translateAPFloat(llvm::APFloat floatValue, QualType targetType);
 
   /// Tries to evaluate the given Expr as a constant and returns the <result-id>
   /// if success. Otherwise, returns 0.
