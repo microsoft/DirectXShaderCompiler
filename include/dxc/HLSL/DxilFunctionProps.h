@@ -56,8 +56,14 @@ struct DxilFunctionProps {
     struct {
       bool EarlyDepthStencil;
     } PS;
+    // Ray Tracing shaders
+    struct {
+      unsigned payloadParamCount;
+      unsigned attributeParamCount;
+    } AnyHit, ClosestHit;
   } ShaderProps;
   DXIL::ShaderKind shaderKind;
+  // TODO: Should we have an unmangled name here for ray tracing shaders?
   bool IsPS() const     { return shaderKind == DXIL::ShaderKind::Pixel; }
   bool IsVS() const     { return shaderKind == DXIL::ShaderKind::Vertex; }
   bool IsGS() const     { return shaderKind == DXIL::ShaderKind::Geometry; }
@@ -67,6 +73,12 @@ struct DxilFunctionProps {
   bool IsGraphics() const {
     return (shaderKind >= DXIL::ShaderKind::Pixel && shaderKind <= DXIL::ShaderKind::Domain);
   }
+  bool IsRayGeneration() const { return shaderKind == DXIL::ShaderKind::RayGeneration; }
+  bool IsIntersection() const { return shaderKind == DXIL::ShaderKind::Intersection; }
+  bool IsAnyHit() const { return shaderKind == DXIL::ShaderKind::AnyHit; }
+  bool IsClosestHit() const { return shaderKind == DXIL::ShaderKind::ClosestHit; }
+  bool IsMiss() const { return shaderKind == DXIL::ShaderKind::Miss; }
+  bool IsCallable() const { return shaderKind == DXIL::ShaderKind::Callable; }
   bool IsRay() const {
     return (shaderKind >= DXIL::ShaderKind::RayGeneration && shaderKind <= DXIL::ShaderKind::Callable);
   }

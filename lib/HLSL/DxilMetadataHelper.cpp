@@ -1006,6 +1006,18 @@ Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
     props->ShaderProps.PS.EarlyDepthStencil =
         ConstMDToUint32(pProps->getOperand(idx++));
     break;
+  case DXIL::ShaderKind::AnyHit:
+    props->ShaderProps.AnyHit.payloadParamCount =
+      ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.AnyHit.attributeParamCount =
+      ConstMDToUint32(pProps->getOperand(idx++));
+    break;
+  case DXIL::ShaderKind::ClosestHit:
+    props->ShaderProps.ClosestHit.payloadParamCount =
+      ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.ClosestHit.attributeParamCount =
+      ConstMDToUint32(pProps->getOperand(idx++));
+    break;
   default:
     break;
   }
@@ -1056,6 +1068,14 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
     break;
   case DXIL::ShaderKind::Pixel:
     MDVals[valIdx++] = BoolToConstMD(props->ShaderProps.PS.EarlyDepthStencil);
+    break;
+  case DXIL::ShaderKind::AnyHit:
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AnyHit.payloadParamCount);
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AnyHit.attributeParamCount);
+    break;
+  case DXIL::ShaderKind::ClosestHit:
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.ClosestHit.payloadParamCount);
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.ClosestHit.attributeParamCount);
     break;
   default:
     break;
