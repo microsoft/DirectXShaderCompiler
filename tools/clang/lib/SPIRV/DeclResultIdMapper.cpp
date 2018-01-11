@@ -108,6 +108,35 @@ std::string StageVar::getSemanticStr() const {
   return ss.str();
 }
 
+uint32_t CounterIdAliasPair::get(ModuleBuilder &builder,
+                                 TypeTranslator &translator) const {
+  if (isAlias) {
+    const uint32_t counterVarType = builder.getPointerType(
+        translator.getACSBufferCounter(), spv::StorageClass::Uniform);
+    return builder.createLoad(counterVarType, resultId);
+  }
+  return resultId;
+}
+
+const CounterIdAliasPair *
+CounterVarFields::get(const llvm::SmallVectorImpl<uint32_t> &indices) const {
+  for (const auto &field : fields)
+    if (field.indices == indices)
+      return &field.counterVar;
+  return nullptr;
+}
+
+void CounterVarFields::assign(const CounterVarFields &srcFields,
+                              ModuleBuilder &builder,
+                              TypeTranslator &translator) const {
+  for (const auto &field : fields) {
+    const auto *srcField = srcFields.get(field.indices);
+    // TODO: this will fail for AssocCounter#4.
+    assert(srcField);
+    field.counterVar.assign(*srcField, builder, translator);
+  }
+}
+
 DeclResultIdMapper::SemanticInfo
 DeclResultIdMapper::getStageVarSemantic(const ValueDecl *decl) {
   for (auto *annotation : decl->getUnusualAnnotations()) {
@@ -260,12 +289,17 @@ uint32_t DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
   return id;
 }
 
-void DeclResultIdMapper::createFnParamCounterVar(const ParmVarDecl *param) {
-  if (counterVars.count(param))
-    return;
+void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
+  const QualType declType = getTypeOrFnRetType(decl);
 
-  if (TypeTranslator::isRWAppendConsumeSBuffer(param->getType()))
-    createCounterVar(param, /*isAlias=*/true);
+  if (!counterVars.count(decl) &&
+      TypeTranslator::isRWAppendConsumeSBuffer(declType)) {
+    createCounterVar(decl, /*isAlias=*/true);
+  } else if (!fieldCounterVars.count(decl) && declType->isStructureType() &&
+             // Exclude other resource types which are represented as structs
+             !hlsl::IsHLSLResourceType(declType)) {
+    createFieldCounterVars(decl);
+  }
 }
 
 uint32_t DeclResultIdMapper::createFnVar(const VarDecl *var,
@@ -288,9 +322,7 @@ uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
       getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias, &info);
   const uint32_t id = theBuilder.addModuleVar(type, spv::StorageClass::Private,
                                               var->getName(), init);
-  info.setResultId(id);
-  if (!isAlias)
-    info.setStorageClass(spv::StorageClass::Private);
+  info.setResultId(id).setStorageClass(spv::StorageClass::Private);
 
   return id;
 }
@@ -517,17 +549,41 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
   return id;
 }
 
-const CounterIdAliasPair *
-DeclResultIdMapper::getCounterIdAliasPair(const DeclaratorDecl *decl) {
-  const auto counter = counterVars.find(decl);
-  if (counter != counterVars.end())
-    return &counter->second;
+const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
+    const DeclaratorDecl *decl,
+    const llvm::SmallVector<uint32_t, 4> *indices) const {
+  if (indices) {
+    // Indices are provided. Walk through the fields of the decl.
+    const auto counter = fieldCounterVars.find(decl);
+    if (counter != fieldCounterVars.end())
+      return counter->second.get(*indices);
+  } else {
+    // No indices. Check the stand-alone entities.
+    const auto counter = counterVars.find(decl);
+    if (counter != counterVars.end())
+      return &counter->second;
+  }
   return nullptr;
 }
 
-void DeclResultIdMapper::createCounterVar(const DeclaratorDecl *decl,
-                                          bool isAlias) {
-  const std::string counterName = "counter.var." + decl->getName().str();
+const CounterVarFields *
+DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) const {
+  const auto found = fieldCounterVars.find(decl);
+  if (found != fieldCounterVars.end())
+    return &found->second;
+  return nullptr;
+}
+
+void DeclResultIdMapper::createCounterVar(
+    const DeclaratorDecl *decl, bool isAlias,
+    const llvm::SmallVector<uint32_t, 4> *indices) {
+  std::string counterName = "counter.var." + decl->getName().str();
+  if (indices) {
+    // Append field indices to the name
+    for (const auto index : *indices)
+      counterName += "." + std::to_string(index);
+  }
+
   uint32_t counterType = typeTranslator.getACSBufferCounter();
   // {RW|Append|Consume}StructuredBuffer are all in Uniform storage class.
   // Alias counter variables should be created into the Private storage class.
@@ -552,7 +608,33 @@ void DeclResultIdMapper::createCounterVar(const DeclaratorDecl *decl,
                               decl->getAttr<VKCounterBindingAttr>(), true);
   }
 
-  counterVars[decl] = {counterId, isAlias};
+  if (indices)
+    fieldCounterVars[decl].append(*indices, counterId);
+  else
+    counterVars[decl] = {counterId, isAlias};
+}
+
+void DeclResultIdMapper::createFieldCounterVars(
+    const DeclaratorDecl *rootDecl, const DeclaratorDecl *decl,
+    llvm::SmallVector<uint32_t, 4> *indices) {
+  const QualType type = getTypeOrFnRetType(decl);
+  const auto *recordType = type->getAs<RecordType>();
+  assert(recordType);
+  const auto *recordDecl = recordType->getDecl();
+
+  for (const auto *field : recordDecl->fields()) {
+    indices->push_back(field->getFieldIndex()); // Build up the index chain
+
+    const QualType fieldType = field->getType();
+    if (TypeTranslator::isRWAppendConsumeSBuffer(fieldType))
+      createCounterVar(rootDecl, /*isAlias=*/true, indices);
+    else if (fieldType->isStructureType() &&
+             !hlsl::IsHLSLResourceType(fieldType))
+      // Go recursively into all nested structs
+      createFieldCounterVars(rootDecl, field, indices);
+
+    indices->pop_back();
+  }
 }
 
 uint32_t
@@ -1889,9 +1971,7 @@ uint32_t DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
   if (genAlias) {
     needsLegalization = true;
 
-    if (!counterVars.count(decl) &&
-        TypeTranslator::isRWAppendConsumeSBuffer(type))
-      createCounterVar(decl, /*isAlias=*/true);
+    createCounterVarForDecl(decl);
 
     if (info)
       info->setContainsAliasComponent(true);

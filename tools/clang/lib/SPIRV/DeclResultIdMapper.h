@@ -140,27 +140,90 @@ public:
 
   /// Returns the pointer to the counter variable. Dereferences first if this is
   /// an alias to a counter variable.
-  uint32_t get(ModuleBuilder &builder, TypeTranslator &translator) const {
-    if (isAlias) {
-      const uint32_t counterVarType = builder.getPointerType(
-          translator.getACSBufferCounter(), spv::StorageClass::Uniform);
-      return builder.createLoad(counterVarType, resultId);
-    }
-    return resultId;
-  }
+  uint32_t get(ModuleBuilder &builder, TypeTranslator &translator) const;
 
   /// Stores the counter variable's pointer in srcPair to the curent counter
   /// variable. The current counter variable must be an alias.
-  void assign(const CounterIdAliasPair &srcPair, ModuleBuilder &builder,
-              TypeTranslator &translator) const {
-    assert(isAlias);
-    builder.createStore(resultId, srcPair.get(builder, translator));
-  }
+  inline void assign(const CounterIdAliasPair &srcPair, ModuleBuilder &builder,
+                     TypeTranslator &translator) const;
 
 private:
   uint32_t resultId;
   /// Note: legalization specific code
   bool isAlias;
+};
+
+/// A class for holding all the counter variables associated with a struct's
+/// fields
+///
+/// A alias local RW/Append/Consume structured buffer will need an associated
+/// counter variable generated. There are four forms such an alias buffer can
+/// be:
+///
+/// 1 (AssocCounter#1). A stand-alone variable,
+/// 2 (AssocCounter#2). A struct field,
+/// 3 (AssocCounter#3). A struct containing alias fields,
+/// 4 (AssocCounter#4). A nested struct containing alias fields.
+///
+/// We consider the first two cases as *final* alias entities; The last two
+/// cases are called as *intermediate* alias entities, since we can still
+/// decompose them and get final alias entities.
+///
+/// We need to create an associated counter variable no matter which form the
+/// alias buffer is in, which means we need to recursively visit all fields of a
+/// struct to discover if it's not AssocCounter#1. That means a hierarchy.
+///
+/// The purpose of this class is to provide such hierarchy in a *flattened* way.
+/// Each field's associated counter is represented with an index vector and the
+/// counter's <result-id>. For example, for the following structs,
+///
+/// struct S {
+///       RWStructuredBuffer s1;
+///   AppendStructuredBuffer s2;
+/// };
+///
+/// struct T {
+///   S t1;
+///   S t2;
+/// };
+///
+/// An instance of T will have four associated counters for
+///   field: indices, <result-id>
+///   t1.s1: [0, 0], <id-1>
+///   t1.s2: [0, 1], <id-2>
+///   t2.s1: [1, 0], <id-3>
+///   t2.s2: [1, 1], <id-4>
+class CounterVarFields {
+public:
+  CounterVarFields() = default;
+
+  /// Registers a field's associated counter.
+  void append(const llvm::SmallVector<uint32_t, 4> &indices, uint32_t counter) {
+    fields.emplace_back(indices, counter);
+  }
+
+  /// Returns the counter associated with the field at the given indices if it
+  /// has. Returns nullptr otherwise.
+  const CounterIdAliasPair *
+  get(const llvm::SmallVectorImpl<uint32_t> &indices) const;
+
+  /// Assigns to all the fields' associated counter from the srcFields.
+  /// This is for assigning a struct as whole: we need to update all the
+  /// associated counters in the target struct.
+  void assign(const CounterVarFields &srcFields, ModuleBuilder &builder,
+              TypeTranslator &translator) const;
+
+private:
+  struct IndexCounterPair {
+    IndexCounterPair(const llvm::SmallVector<uint32_t, 4> &idx,
+                     uint32_t counter)
+        : indices(idx), counterVar(counter, true) {}
+
+    llvm::SmallVector<uint32_t, 4> indices; ///< Index vector
+    CounterIdAliasPair counterVar;          ///< Counter variable information
+  };
+
+  llvm::SmallVector<IndexCounterPair, 4> fields;
 };
 
 /// \brief The class containing mappings from Clang frontend Decls to their
@@ -216,7 +279,7 @@ public:
   /// This is meant to be used for forward-declared functions.
   ///
   /// Note: legalization specific code
-  void createFnParamCounterVar(const ParmVarDecl *param);
+  inline void createFnParamCounterVar(const ParmVarDecl *param);
 
   /// \brief Creates a function-scope variable in the current function and
   /// returns its <result-id>.
@@ -308,9 +371,17 @@ public:
 
   /// \brief Returns the associated counter's (<result-id>, is-alias-or-not)
   /// pair for the given {RW|Append|Consume}StructuredBuffer variable.
-  /// Returns nullptr if the given decl has no associated counter variable
-  /// created.
-  const CounterIdAliasPair *getCounterIdAliasPair(const DeclaratorDecl *decl);
+  /// If indices is not nullptr, walks trhough the fields of the decl, expected
+  /// to be of struct type, using the indices to find the field. Returns nullptr
+  /// if the given decl has no associated counter variable created.
+  const CounterIdAliasPair *getCounterIdAliasPair(
+      const DeclaratorDecl *decl,
+      const llvm::SmallVector<uint32_t, 4> *indices = nullptr) const;
+
+  /// \brief Returns all the associated counters for the given decl. The decl is
+  /// expected to be a struct containing alias RW/Append/Consume structured
+  /// buffers. Returns nullptr if it does not.
+  const CounterVarFields *getCounterVarFields(const DeclaratorDecl *decl) const;
 
   /// \brief Returns the <type-id> for the given cbuffer, tbuffer,
   /// ConstantBuffer, TextureBuffer, or push constant block.
@@ -484,14 +555,29 @@ private:
   bool validateVKBuiltins(const DeclaratorDecl *decl,
                           const hlsl::SigPoint *sigPoint);
 
-  /// Creates the associated counter variable for RW/Append/Consume
-  /// structured buffer.
+  /// Methods for creating counter variables associated with the given decl.
+
+  /// Creates assoicated counter variables for all AssocCounter cases (see the
+  /// comment of CounterVarFields). fields.
+  void createCounterVarForDecl(const DeclaratorDecl *decl);
+  /// Creates the associated counter variable for final RW/Append/Consume
+  /// structured buffer. Handles AssocCounter#1 and AssocCounter#2 (see the
+  /// comment of CounterVarFields).
   ///
   /// The counter variable will be created as an alias variable (of
   /// pointer-to-pointer type in Private storage class) if isAlias is true.
   ///
   /// Note: isAlias - legalization specific code
-  void createCounterVar(const DeclaratorDecl *decl, bool isAlias);
+  void
+  createCounterVar(const DeclaratorDecl *decl, bool isAlias,
+                   const llvm::SmallVector<uint32_t, 4> *indices = nullptr);
+  /// Creates all assoicated counter variables by recursively visiting decl's
+  /// fields. Handles AssocCounter#3 and AssocCounter#4 (see the comment of
+  /// CounterVarFields).
+  inline void createFieldCounterVars(const DeclaratorDecl *decl);
+  void createFieldCounterVars(const DeclaratorDecl *rootDecl,
+                              const DeclaratorDecl *decl,
+                              llvm::SmallVector<uint32_t, 4> *indices);
 
   /// Decorates varId of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
@@ -532,7 +618,11 @@ private:
   llvm::SmallVector<ResourceVar, 8> resourceVars;
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
   /// counter variables' (<result-id>, is-alias-or-not) pairs
+  ///
+  /// conterVars holds entities of AssocCounter#1, fieldCounterVars holds
+  /// entities of the rest.
   llvm::DenseMap<const DeclaratorDecl *, CounterIdAliasPair> counterVars;
+  llvm::DenseMap<const DeclaratorDecl *, CounterVarFields> fieldCounterVars;
 
   /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
   /// to the <type-id>
@@ -593,6 +683,13 @@ public:
   GlPerVertex glPerVertex;
 };
 
+void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
+                                ModuleBuilder &builder,
+                                TypeTranslator &translator) const {
+  assert(isAlias);
+  builder.createStore(resultId, srcPair.get(builder, translator));
+}
+
 DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        ASTContext &context,
                                        ModuleBuilder &builder,
@@ -611,6 +708,15 @@ bool DeclResultIdMapper::decorateStageIOLocations() {
 bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {
   return getStorageClassForSigPoint(v.getSigPoint()) ==
          spv::StorageClass::Input;
+}
+
+void DeclResultIdMapper::createFnParamCounterVar(const ParmVarDecl *param) {
+  return createCounterVarForDecl(param);
+}
+
+void DeclResultIdMapper::createFieldCounterVars(const DeclaratorDecl *decl) {
+  llvm::SmallVector<uint32_t, 4> indices;
+  createFieldCounterVars(decl, decl, &indices);
 }
 
 } // end namespace spirv
