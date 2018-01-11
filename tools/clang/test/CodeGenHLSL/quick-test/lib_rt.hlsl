@@ -16,9 +16,6 @@ typedef uint RAY_FLAG;
 #define RAY_FLAG_CULL_OPAQUE                  0x40
 #define RAY_FLAG_CULL_NON_OPAQUE              0x80
 
-#define SV_RayPayload RT_RayPayload
-#define SV_IntersectionAttributes RT_IntersectionAttributes
-
 struct RayDesc
 {
     float3 Origin;
