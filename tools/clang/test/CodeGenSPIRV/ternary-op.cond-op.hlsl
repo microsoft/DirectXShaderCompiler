@@ -2,6 +2,9 @@
 
 // CHECK: [[v3i0:%\d+]] = OpConstantComposite %v3int %int_0 %int_0 %int_0
 
+uint foo() { return 1; }
+float bar() { return 3.0; }
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
@@ -87,8 +90,7 @@ void main() {
     // TODO: Use OpSConvert to first convert long to int. Then use OpConvertSToF.
     float c = cond ? 3000000000 : 4000000000;
 
-// CHECK:      [[d_int:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_0
-// CHECK-NEXT:       {{%\d+}} = OpBitcast %uint [[d_int]]
+// CHECK:      [[d_int:%\d+]] = OpSelect %uint {{%\d+}} %uint_1 %uint_0
     uint d = cond ? 1 : 0;
 
     float2x3 e;
@@ -108,4 +110,21 @@ void main() {
 // CHECK-NEXT:[[temp:%\d+]] = OpLoad %mat2v3float %temp_var_ternary
 // CHECK-NEXT:                OpStore %g [[temp]]
     float2x3 g = cond ? e : f;
+
+// CHECK:      [[inner:%\d+]] = OpSelect %uint {{%\d+}} %uint_1 %uint_2
+// CHECK-NEXT:       {{%\d+}} = OpSelect %uint {{%\d+}} %uint_9 [[inner]]
+    uint h = cond ? 9 : (cond ? 1 : 2);
+
+//CHECK:      [[i_int:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_0
+//CHECK-NEXT:       {{%\d+}} = OpINotEqual %bool [[i_int]] %int_0
+    bool i = cond ? 1 : 0;
+
+// CHECK:     [[foo:%\d+]] = OpFunctionCall %uint %foo
+// CHECKNEXT:     {{%\d+}} = OpSelect %uint {{%\d+}} %uint_3 [[foo]]
+    uint j = cond ? 3 : foo();
+
+// CHECK:          [[bar:%\d+]] = OpFunctionCall %float %bar
+// CHECK-NEXT: [[k_float:%\d+]] = OpSelect %float {{%\d+}} %float_4 [[bar]]
+// CHECK-NEXT:         {{%\d+}} = OpConvertFToU %uint [[k_float]]
+    uint k = cond ? 4 : bar();
 }

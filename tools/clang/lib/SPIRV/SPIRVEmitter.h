@@ -153,7 +153,7 @@ private:
   /// mandateGenOpcode is not spv::Op::Max, it will used as the SPIR-V opcode
   /// instead of deducing from Clang frontend opcode.
   SpirvEvalInfo processBinaryOp(const Expr *lhs, const Expr *rhs,
-                                BinaryOperatorKind opcode, uint32_t resultType,
+                                BinaryOperatorKind opcode, QualType resultType,
                                 SourceRange, SpirvEvalInfo *lhsInfo = nullptr,
                                 spv::Op mandateGenOpcode = spv::Op::Max);
 
@@ -450,11 +450,11 @@ private:
   /// constant for that value.
   uint32_t tryToEvaluateAsInt32(const llvm::APInt &, bool isSigned);
 
-  /// Returns true iff the given expression is a literal integer that can be
-  /// represented in a 32-bit integer type or a literal float that can be
+  /// Returns true iff the given expression is a literal integer that cannot be
+  /// represented in a 32-bit integer type or a literal float that cannot be
   /// represented in a 32-bit float type without losing info. Returns false
   /// otherwise.
-  bool canBeRepresentedIn32Bits(const Expr *expr);
+  bool isLiteralLargerThan32Bits(const Expr *expr);
 
 private:
   /// Translates the given HLSL loop attribute into SPIR-V loop control mask.
