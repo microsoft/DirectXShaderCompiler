@@ -373,11 +373,14 @@ inline const FunctionDecl *getCalleeDefinition(const CallExpr *expr) {
 
 /// Returns the referenced definition. The given expr is expected to be a
 /// DeclRefExpr or CallExpr after ignoring casts. Returns nullptr otherwise.
-const ValueDecl *getReferencedDef(const Expr *expr) {
+const DeclaratorDecl *getReferencedDef(const Expr *expr) {
+  if (!expr)
+    return nullptr;
+
   expr = expr->IgnoreParenCasts();
 
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
-    return declRefExpr->getDecl();
+    return dyn_cast_or_null<DeclaratorDecl>(declRefExpr->getDecl());
   }
 
   if (const auto *callExpr = dyn_cast<CallExpr>(expr)) {
@@ -655,45 +658,45 @@ SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
 SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
                                           SpirvEvalInfo info) {
 
-  if (!info.isRValue()) {
-    // Check whether we are trying to load an externally visible structured/byte
-    // buffer as a whole. If true, it means we are creating alias for it. Avoid
-    // the load and write the pointer directly to the alias variable then.
-    //
-    // Also for the case of alias function returns. If we are trying to load an
-    // alias function return as a whole, it means we are assigning it to another
-    // alias variable. Avoid the load and write the pointer directly.
-    //
-    // Note: legalization specific code
-    if (isReferencingNonAliasStructuredOrByteBuffer(expr)) {
-      return info.setRValue();
-    }
+  // Do nothing if this is already rvalue
+  if (info.isRValue())
+    return info;
 
-    if (loadIfAliasVarRef(expr, info)) {
-      // We are loading an alias variable as a whole here. This is likely for
-      // wholesale assignments or function returns. Need to load the pointer.
-      //
-      // Note: legalization specific code
-      // TODO: It seems we should not set rvalue here since info is still
-      // holding a pointer. But it fails structured buffer assignment because
-      // of double loadIfGLValue() calls if we do not. Fix it.
-      return info.setRValue();
-    }
-
-    uint32_t valType = 0;
-    // TODO: Ouch. Very hacky. We need special path to get the value type if
-    // we are loading a whole ConstantBuffer/TextureBuffer since the normal
-    // type translation path won't work.
-    if (const auto *declContext = isConstantTextureBufferDeclRef(expr)) {
-      valType = declIdMapper.getCTBufferPushConstantTypeId(declContext);
-    } else {
-      valType =
-          typeTranslator.translateType(expr->getType(), info.getLayoutRule());
-    }
-    info.setResultId(theBuilder.createLoad(valType, info)).setRValue();
+  // Check whether we are trying to load an externally visible structured/byte
+  // buffer as a whole. If true, it means we are creating alias for it. Avoid
+  // the load and write the pointer directly to the alias variable then.
+  //
+  // Also for the case of alias function returns. If we are trying to load an
+  // alias function return as a whole, it means we are assigning it to another
+  // alias variable. Avoid the load and write the pointer directly.
+  //
+  // Note: legalization specific code
+  if (isReferencingNonAliasStructuredOrByteBuffer(expr)) {
+    return info.setRValue();
   }
 
-  return info;
+  if (loadIfAliasVarRef(expr, info)) {
+    // We are loading an alias variable as a whole here. This is likely for
+    // wholesale assignments or function returns. Need to load the pointer.
+    //
+    // Note: legalization specific code
+    // TODO: It seems we should not set rvalue here since info is still
+    // holding a pointer. But it fails structured buffer assignment because
+    // of double loadIfGLValue() calls if we do not. Fix it.
+    return info.setRValue();
+  }
+
+  uint32_t valType = 0;
+  // TODO: Ouch. Very hacky. We need special path to get the value type if
+  // we are loading a whole ConstantBuffer/TextureBuffer since the normal
+  // type translation path won't work.
+  if (const auto *declContext = isConstantTextureBufferDeclRef(expr)) {
+    valType = declIdMapper.getCTBufferPushConstantTypeId(declContext);
+  } else {
+    valType =
+        typeTranslator.translateType(expr->getType(), info.getLayoutRule());
+  }
+  return info.setResultId(theBuilder.createLoad(valType, info)).setRValue();
 }
 
 SpirvEvalInfo SPIRVEmitter::loadIfAliasVarRef(const Expr *expr) {
@@ -794,7 +797,8 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     funcId = declIdMapper.getDeclResultId(decl);
   }
 
-  const uint32_t retType = declIdMapper.getTypeForPotentialAliasVar(decl);
+  const uint32_t retType =
+      declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(decl);
 
   // Construct the function signature.
   llvm::SmallVector<uint32_t, 4> paramTypes;
@@ -819,7 +823,8 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   }
 
   for (const auto *param : decl->params()) {
-    const uint32_t valueType = declIdMapper.getTypeForPotentialAliasVar(param);
+    const uint32_t valueType =
+        declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(param);
     const uint32_t ptrType =
         theBuilder.getPointerType(valueType, spv::StorageClass::Function);
     paramTypes.push_back(ptrType);
@@ -1698,7 +1703,8 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
 
     // We need to create variables for holding the values to be used as
     // arguments. The variables themselves are of pointer types.
-    const uint32_t varType = declIdMapper.getTypeForPotentialAliasVar(param);
+    const uint32_t varType =
+        declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(param);
     const std::string varName = "param.var." + param->getNameAsString();
     const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
 
@@ -1718,7 +1724,8 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
     workQueue.insert(callee);
   }
 
-  const uint32_t retType = declIdMapper.getTypeForPotentialAliasVar(callee);
+  const uint32_t retType =
+      declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(callee);
   // Get or forward declare the function <result-id>
   const uint32_t funcId = declIdMapper.getOrRegisterFnResultId(callee);
 
@@ -2761,7 +2768,7 @@ uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
     (void)doExpr(object);
   }
 
-  const ValueDecl *buffer = getReferencedDef(object);
+  const auto *buffer = getReferencedDef(object);
   if (!buffer) {
     emitError("method call syntax unimplemented", expr->getExprLoc());
     return 0;
@@ -2788,7 +2795,7 @@ uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
   return index;
 }
 
-bool SPIRVEmitter::tryToAssignCounterVar(const ValueDecl *dstDecl,
+bool SPIRVEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
                                          const Expr *srcExpr) {
   // For parameters of forward-declared functions. We must make sure the
   // associated counter variable is created. But for forward-declared functions,
@@ -3959,13 +3966,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     theBuilder.createStore(lhsPtr, rhsVal);
   } else if (const auto *recordType = lhsValType->getAs<RecordType>()) {
     uint32_t index = 0;
-    for (const auto *decl : recordType->getDecl()->decls()) {
-      // Ignore implicit generated struct declarations/constructors/destructors.
-      if (decl->isImplicit())
-        continue;
-
-      const auto *field = cast<FieldDecl>(decl);
-
+    for (const auto *field : recordType->getDecl()->fields()) {
       const auto subRhsValType = typeTranslator.translateType(
           field->getType(), rhsVal.getLayoutRule());
       const auto subRhsVal =
@@ -4735,7 +4736,7 @@ SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
 }
 
 const Expr *SPIRVEmitter::collectArrayStructIndices(
-    const Expr *expr, llvm::SmallVectorImpl<uint32_t> *indices) {
+    const Expr *expr, llvm::SmallVectorImpl<uint32_t> *indices, bool rawIndex) {
   if (const auto *indexing = dyn_cast<MemberExpr>(expr)) {
     // First check whether this is referring to a static member. If it is, we
     // create a DeclRefExpr for it.
@@ -4747,12 +4748,14 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
             varDecl->getType(), VK_LValue);
 
     const Expr *base = collectArrayStructIndices(
-        indexing->getBase()->IgnoreParenNoopCasts(astContext), indices);
+        indexing->getBase()->IgnoreParenNoopCasts(astContext), indices,
+        rawIndex);
 
     // Append the index of the current level
     const auto *fieldDecl = cast<FieldDecl>(indexing->getMemberDecl());
     assert(fieldDecl);
-    indices->push_back(theBuilder.getConstantInt32(fieldDecl->getFieldIndex()));
+    const uint32_t index = fieldDecl->getFieldIndex();
+    indices->push_back(rawIndex ? index : theBuilder.getConstantInt32(index));
 
     return base;
   }
@@ -4762,20 +4765,26 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
   TypeTranslator::LiteralTypeHint hint(typeTranslator, astContext.IntTy);
 
   if (const auto *indexing = dyn_cast<ArraySubscriptExpr>(expr)) {
+    if (rawIndex)
+      return nullptr; // TODO: handle constant array index
+
     // The base of an ArraySubscriptExpr has a wrapping LValueToRValue implicit
     // cast. We need to ingore it to avoid creating OpLoad.
     const Expr *thisBase = indexing->getBase()->IgnoreParenLValueCasts();
-    const Expr *base = collectArrayStructIndices(thisBase, indices);
+    const Expr *base = collectArrayStructIndices(thisBase, indices, rawIndex);
     indices->push_back(doExpr(indexing->getIdx()));
     return base;
   }
 
   if (const auto *indexing = dyn_cast<CXXOperatorCallExpr>(expr))
     if (indexing->getOperator() == OverloadedOperatorKind::OO_Subscript) {
+      if (rawIndex)
+        return nullptr; // TODO: handle constant array index
+
       const Expr *thisBase =
           indexing->getArg(0)->IgnoreParenNoopCasts(astContext);
       const auto thisBaseType = thisBase->getType();
-      const Expr *base = collectArrayStructIndices(thisBase, indices);
+      const Expr *base = collectArrayStructIndices(thisBase, indices, rawIndex);
 
       if (thisBaseType != base->getType() &&
           TypeTranslator::isAKindOfStructuredOrByteBuffer(thisBaseType)) {
@@ -4810,6 +4819,9 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
     const Expr *index = nullptr;
     // TODO: the following is duplicating the logic in doCXXMemberCallExpr.
     if (const auto *object = isStructuredBufferLoad(expr, &index)) {
+      if (rawIndex)
+        return nullptr; // TODO: handle constant array index
+
       // For object.Load(index), there should be no more indexing into the
       // object.
       indices->push_back(theBuilder.getConstantInt32(0));
