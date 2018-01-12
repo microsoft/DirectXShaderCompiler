@@ -31,10 +31,8 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include <memory>
 #include <map>
-#include <sstream> //test-remove
 #include <deque>
 
-//#include "dxc/Support/WinIncludes.h"
 #include <winerror.h>
 
 using namespace llvm;
@@ -75,8 +73,7 @@ enum class RegisterType
   Terminator
 };
 
-RegisterType RegisterTypeFromResourceClass(DXIL::ResourceClass c)
-{
+RegisterType RegisterTypeFromResourceClass(DXIL::ResourceClass c) {
   switch (c)
   {
   case DXIL::ResourceClass::SRV    : return RegisterType::SRV    ; break;
@@ -124,6 +121,13 @@ struct SlotRange
   unsigned numInvariableSlots;
 };
 
+
+struct DxilResourceAndClass {
+  DxilResourceBase * resource;
+  Value * index;
+  DXIL::ResourceClass resClass;
+};
+
 //---------------------------------------------------------------------------------------------------------------------------------
 
 class DxilShaderAccessTracking : public ModulePass {
@@ -136,18 +140,17 @@ public:
 
 private:
   void EmitAccess(LLVMContext & Ctx, OP *HlslOP, IRBuilder<> &, Value *slot, ShaderAccessFlags access);
+  bool EmitResourceAccess(DxilResourceAndClass &res, Instruction * instruction, OP * HlslOP, LLVMContext & Ctx, ShaderAccessFlags readWrite);
 
 private:
   bool m_CheckForDynamicIndexing = false;
   std::vector<std::pair<RSRegisterIdentifier, ShaderAccessFlags>> m_limitedAccessOutputs;
   std::map<RegisterTypeAndSpace, SlotRange> m_slotAssignments;
-  std::vector<unsigned> m_testOutput;
   CallInst *m_HandleForUAV;
   std::set<RSRegisterIdentifier> m_DynamicallyIndexedBindPoints;
 };
 
-static unsigned DeserializeInt(std::deque<char> & q)
-{
+static unsigned DeserializeInt(std::deque<char> & q) {
   unsigned i = 0;
 
   while(!q.empty() && isdigit(q.front()))
@@ -181,8 +184,7 @@ static RegisterType ParseRegisterType(std::deque<char> & q) {
   }
 }
 
-static char EncodeRegisterType(RegisterType r)
-{
+static char EncodeRegisterType(RegisterType r) {
   switch (r)
   {
   case RegisterType::CBV:     return 'C';
@@ -214,8 +216,8 @@ void DxilShaderAccessTracking::applyOptions(PassOptions O) {
 
     // Parse slot assignments. Compare with PIX's ShaderAccessHelpers.cpp (TrackingConfiguration::SerializedRepresentation)
     RegisterType rt = ParseRegisterType(config);
-    while (rt != RegisterType::Terminator)
-    {
+    while (rt != RegisterType::Terminator) {
+
       RegisterTypeAndSpace rst;
       rst.Type = rt;
 
@@ -239,8 +241,8 @@ void DxilShaderAccessTracking::applyOptions(PassOptions O) {
 
     // Parse limited access outputs
     rt = ParseRegisterType(config);
-    while (rt != RegisterType::Terminator)
-    {
+    while (rt != RegisterType::Terminator) {
+
       RSRegisterIdentifier rid;
       rid.Type = rt;
 
@@ -285,6 +287,96 @@ void DxilShaderAccessTracking::EmitAccess(LLVMContext & Ctx, OP *HlslOP, IRBuild
   }, "UAVOrResult");
 }
 
+bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res, Instruction * instruction, OP * HlslOP, LLVMContext & Ctx, ShaderAccessFlags readWrite) {
+
+  RegisterTypeAndSpace typeAndSpace{ RegisterTypeFromResourceClass(res.resClass), res.resource->GetSpaceID() };
+
+  auto slot = m_slotAssignments.find(typeAndSpace);
+  // If the assignment isn't found, we assume it's not accessed
+  if (slot != m_slotAssignments.end()) {
+
+    IRBuilder<> Builder(instruction);
+    Value * slotIndex;
+
+    if (isa<ConstantInt>(res.index)) {
+      unsigned index = cast<ConstantInt>(res.index)->getLimitedValue();
+      if (index > slot->second.numSlots) {
+        // out-of-range accesses are written to slot zero:
+        slotIndex = HlslOP->GetU32Const(0);
+      }
+      else {
+        slotIndex = HlslOP->GetU32Const(slot->second.startSlot + index);
+      }
+    }
+    else {
+      RSRegisterIdentifier id{ typeAndSpace.Type, typeAndSpace.Space,  res.resource->GetID() };
+      m_DynamicallyIndexedBindPoints.emplace(std::move(id));
+
+
+      // CompareWithSlotLimit will contain 1 if the access is out-of-bounds (both over- and and under-flow 
+      // via the unsigned >= with slot count)
+      auto CompareWithSlotLimit = Builder.CreateICmpUGE(res.index, HlslOP->GetU32Const(slot->second.numSlots), "CompareWithSlotLimit");
+      auto CompareWithSlotLimitAsUint = Builder.CreateCast(Instruction::CastOps::ZExt, CompareWithSlotLimit, Type::getInt32Ty(Ctx), "CompareWithSlotLimitAsUint");
+
+      // IsInBounds will therefore contain 0 if the access is out-of-bounds, and 1 otherwise.
+      auto IsInBounds = Builder.CreateSub(HlslOP->GetU32Const(1), CompareWithSlotLimitAsUint, "IsInBounds");
+
+      auto SlotOffset = Builder.CreateAdd(res.index, HlslOP->GetU32Const(slot->second.startSlot), "SlotOffset");
+
+      // This will drive an out-of-bounds access slot down to 0
+      slotIndex = Builder.CreateMul(SlotOffset, IsInBounds, "slotIndex");
+    }
+
+    EmitAccess(Ctx, HlslOP, Builder, slotIndex, readWrite);
+
+    return true; // did modify
+  }
+  return false; // did not modify
+}
+
+
+DxilResourceAndClass GetResourceFromHandle(Value * resHandle, DxilModule &DM) {
+
+  DxilResourceAndClass ret{ nullptr, nullptr, DXIL::ResourceClass::Invalid };
+
+  CallInst *handle = cast<CallInst>(resHandle);
+  DxilInst_CreateHandle createHandle(handle);
+
+
+  // Dynamic rangeId is not supported - skip and let validation report the
+  // error.
+  if (!isa<ConstantInt>(createHandle.get_rangeId()))
+    return ret;
+
+  unsigned rangeId =
+    cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
+
+  auto resClass = static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
+
+  switch (resClass) {
+  case DXIL::ResourceClass::SRV:
+    ret.resource = &DM.GetSRV(rangeId);
+    break;
+  case DXIL::ResourceClass::UAV:
+    ret.resource = &DM.GetUAV(rangeId);
+    break;
+  case DXIL::ResourceClass::CBuffer:
+    ret.resource = &DM.GetCBuffer(rangeId);
+    break;
+  case DXIL::ResourceClass::Sampler:
+    ret.resource = &DM.GetSampler(rangeId);
+    break;
+  default:
+    DXASSERT(0, "invalid res class");
+    return ret;
+  }
+
+  ret.index = createHandle.get_index();
+  ret.resClass = resClass;
+
+  return ret;
+}
+
 bool DxilShaderAccessTracking::runOnModule(Module &M)
 {
   // This pass adds instrumentation for shader access to resources
@@ -321,56 +413,63 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
   }
   else {
     {
-        IRBuilder<> Builder(DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt());
-
-        unsigned int UAVResourceHandle = static_cast<unsigned int>(DM.GetUAVs().size());
-
-        // Set up a UAV with structure of a single int
-        SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(Ctx) };
-        llvm::StructType *UAVStructTy = llvm::StructType::create(Elements, "class.RWStructuredBuffer");
-        std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
-        pUAV->SetGlobalName("PIX_CountUAVName");
-        pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
-        pUAV->SetID(UAVResourceHandle);
-        pUAV->SetSpaceID((unsigned int)-2); // This is the reserved-for-tools register space
-        pUAV->SetSampleCount(1);
-        pUAV->SetGloballyCoherent(false);
-        pUAV->SetHasCounter(false);
-        pUAV->SetCompType(CompType::getI32());
-        pUAV->SetLowerBound(0);
-        pUAV->SetRangeSize(1);
-        pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
-
-        auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
-        if (pAnnotation == nullptr)
-        {
-            pAnnotation = DM.GetTypeSystem().AddStructAnnotation(UAVStructTy);
-            pAnnotation->GetFieldAnnotation(0).SetCBufferOffset(0);
-            pAnnotation->GetFieldAnnotation(0).SetCompType(hlsl::DXIL::ComponentType::I32);
-            pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
+      if (DM.m_ShaderFlags.GetForceEarlyDepthStencil()) {
+        if (OSOverride != nullptr) {
+          formatted_raw_ostream FOS(*OSOverride);
+          FOS << "ShouldAssumeDsvAccess";
         }
+      }
+      IRBuilder<> Builder(DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt());
 
-        ID = DM.AddUAV(std::move(pUAV));
+      unsigned int UAVResourceHandle = static_cast<unsigned int>(DM.GetUAVs().size());
 
-        assert(ID == UAVResourceHandle);
+      // Set up a UAV with structure of a single int
+      SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(Ctx) };
+      llvm::StructType *UAVStructTy = llvm::StructType::create(Elements, "class.RWStructuredBuffer");
+      std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
+      pUAV->SetGlobalName("PIX_CountUAVName");
+      pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
+      pUAV->SetID(UAVResourceHandle);
+      pUAV->SetSpaceID((unsigned int)-2); // This is the reserved-for-tools register space
+      pUAV->SetSampleCount(1);
+      pUAV->SetGloballyCoherent(false);
+      pUAV->SetHasCounter(false);
+      pUAV->SetCompType(CompType::getI32());
+      pUAV->SetLowerBound(0);
+      pUAV->SetRangeSize(1);
+      pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
 
-        // Create handle for the newly-added UAV
-        Function* CreateHandleOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-        Constant* CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-        Constant* UAVArg = HlslOP->GetI8Const(static_cast<std::underlying_type<DxilResourceBase::Class>::type>(DXIL::ResourceClass::UAV));
-        Constant* MetaDataArg = HlslOP->GetU32Const(ID); // position of the metadata record in the corresponding metadata list
-        Constant* IndexArg = HlslOP->GetU32Const(0); // 
-        Constant* FalseArg = HlslOP->GetI1Const(0); // non-uniform resource index: false
-        m_HandleForUAV = Builder.CreateCall(CreateHandleOpFunc,
-        { CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg }, "PIX_CountUAV_Handle");
+      auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
+      if (pAnnotation == nullptr) {
 
-        DM.ReEmitDxilResources();
+          pAnnotation = DM.GetTypeSystem().AddStructAnnotation(UAVStructTy);
+          pAnnotation->GetFieldAnnotation(0).SetCBufferOffset(0);
+          pAnnotation->GetFieldAnnotation(0).SetCompType(hlsl::DXIL::ComponentType::I32);
+          pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
+      }
+
+      ID = DM.AddUAV(std::move(pUAV));
+
+      assert(ID == UAVResourceHandle);
+
+      // Create handle for the newly-added UAV
+      Function* CreateHandleOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
+      Constant* CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
+      Constant* UAVArg = HlslOP->GetI8Const(static_cast<std::underlying_type<DxilResourceBase::Class>::type>(DXIL::ResourceClass::UAV));
+      Constant* MetaDataArg = HlslOP->GetU32Const(ID); // position of the metadata record in the corresponding metadata list
+      Constant* IndexArg = HlslOP->GetU32Const(0); // 
+      Constant* FalseArg = HlslOP->GetI1Const(0); // non-uniform resource index: false
+      m_HandleForUAV = Builder.CreateCall(CreateHandleOpFunc,
+      { CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg }, "PIX_CountUAV_Handle");
+
+      DM.ReEmitDxilResources();
     }
 
     struct ResourceAccessFunction
     {
       DXIL::OpCode opcode;
       ShaderAccessFlags readWrite;
+      bool functionUsesSamplerAtIndex2;
       std::vector<Type*> overloads;
     };
 
@@ -385,27 +484,25 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
 
     // todo: should "GetDimensions" mean a resource access?
     ResourceAccessFunction raFunctions[] = {
-      { DXIL::OpCode::CBufferLoadLegacy     , ShaderAccessFlags::Read , f32i32f64 },
-      { DXIL::OpCode::CBufferLoad           , ShaderAccessFlags::Read , f16f32f64i16i32i64 },
-      { DXIL::OpCode::Sample                , ShaderAccessFlags::Read , f16f32 },
-      { DXIL::OpCode::SampleBias            , ShaderAccessFlags::Read , f16f32 },
-      { DXIL::OpCode::SampleLevel           , ShaderAccessFlags::Read , f16f32 },
-      { DXIL::OpCode::SampleGrad            , ShaderAccessFlags::Read , f16f32 },
-      { DXIL::OpCode::SampleCmp             , ShaderAccessFlags::Read , f16f32 },
-      { DXIL::OpCode::SampleCmpLevelZero    , ShaderAccessFlags::Read , f16f32 },
-      { DXIL::OpCode::TextureLoad           , ShaderAccessFlags::Read , f16f32i16i32 },
-      { DXIL::OpCode::TextureStore          , ShaderAccessFlags::Write, f16f32i16i32 },
-      { DXIL::OpCode::TextureGather         , ShaderAccessFlags::Read , f32i32 }, // todo: SM6: f16f32i16i32 },
-      { DXIL::OpCode::TextureGatherCmp      , ShaderAccessFlags::Read , f32i32 }, // todo: SM6: f16f32i16i32 },
-      { DXIL::OpCode::BufferLoad            , ShaderAccessFlags::Read , f32i32 },
-      { DXIL::OpCode::RawBufferLoad         , ShaderAccessFlags::Read , f32i32 },
-      { DXIL::OpCode::BufferStore           , ShaderAccessFlags::Write, f32i32 },
-      { DXIL::OpCode::BufferUpdateCounter   , ShaderAccessFlags::Counter, voidType },
-      { DXIL::OpCode::AtomicBinOp           , ShaderAccessFlags::Write, i32 },
-      { DXIL::OpCode::AtomicCompareExchange , ShaderAccessFlags::Write, i32 },
+      { DXIL::OpCode::CBufferLoadLegacy     , ShaderAccessFlags::Read   , false, f32i32f64 },
+      { DXIL::OpCode::CBufferLoad           , ShaderAccessFlags::Read   , false, f16f32f64i16i32i64 },
+      { DXIL::OpCode::Sample                , ShaderAccessFlags::Read   , true , f16f32 },
+      { DXIL::OpCode::SampleBias            , ShaderAccessFlags::Read   , true , f16f32 },
+      { DXIL::OpCode::SampleLevel           , ShaderAccessFlags::Read   , true , f16f32 },
+      { DXIL::OpCode::SampleGrad            , ShaderAccessFlags::Read   , true , f16f32 },
+      { DXIL::OpCode::SampleCmp             , ShaderAccessFlags::Read   , true , f16f32 },
+      { DXIL::OpCode::SampleCmpLevelZero    , ShaderAccessFlags::Read   , true , f16f32 },
+      { DXIL::OpCode::TextureLoad           , ShaderAccessFlags::Read   , false, f16f32i16i32 },
+      { DXIL::OpCode::TextureStore          , ShaderAccessFlags::Write  , false, f16f32i16i32 },
+      { DXIL::OpCode::TextureGather         , ShaderAccessFlags::Read   , true , f32i32 }, // todo: SM6: f16f32i16i32 },
+      { DXIL::OpCode::TextureGatherCmp      , ShaderAccessFlags::Read   , false, f32i32 }, // todo: SM6: f16f32i16i32 },
+      { DXIL::OpCode::BufferLoad            , ShaderAccessFlags::Read   , false, f32i32 },
+      { DXIL::OpCode::RawBufferLoad         , ShaderAccessFlags::Read   , false, f32i32 },
+      { DXIL::OpCode::BufferStore           , ShaderAccessFlags::Write  , false, f32i32 },
+      { DXIL::OpCode::BufferUpdateCounter   , ShaderAccessFlags::Counter, false, voidType },
+      { DXIL::OpCode::AtomicBinOp           , ShaderAccessFlags::Write  , false, i32 },
+      { DXIL::OpCode::AtomicCompareExchange , ShaderAccessFlags::Write  , false, i32 },
     };
-
-    //todo: don't forget StoreOutput
 
     for (const auto & raFunction : raFunctions) {
       for (const auto & Overload : raFunction.overloads) {
@@ -416,88 +513,26 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
           auto FunctionUser = FunctionUse.getUser();
           auto instruction = cast<Instruction>(FunctionUser);
 
-          auto * resHandle = instruction->getOperand(1);
-          CallInst *handle = cast<CallInst>(resHandle);
-          DxilInst_CreateHandle createHandle(handle);
-          DXIL::ResourceClass ResClass =
-            static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
-          // Dynamic rangeId is not supported - skip and let validation report the
-          // error.
-          if (!isa<ConstantInt>(createHandle.get_rangeId()))
-            return false;
-
-          unsigned rangeId =
-            cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
-
-          DxilResourceBase *res = nullptr;
-          switch (ResClass) {
-          case DXIL::ResourceClass::SRV:
-            res = &DM.GetSRV(rangeId);
-            break;
-          case DXIL::ResourceClass::UAV:
-            res = &DM.GetUAV(rangeId);
-            break;
-          case DXIL::ResourceClass::CBuffer:
-            res = &DM.GetCBuffer(rangeId);
-            break;
-          case DXIL::ResourceClass::Sampler:
-            res = &DM.GetSampler(rangeId);
-            break;
-          default:
-            DXASSERT(0, "invalid res class");
-            return false;
-          }
+          auto res = GetResourceFromHandle(instruction->getOperand(1), DM);
 
           // Don't instrument the accesses to the UAV that we just added
-          if (res->GetSpaceID() == (unsigned)-2) {
+          if (res.resource->GetSpaceID() == (unsigned)-2) {
             continue;
           }
 
-          RegisterTypeAndSpace typAndSpace{ RegisterTypeFromResourceClass(ResClass), res->GetSpaceID() };
-
-          auto slot = m_slotAssignments.find(typAndSpace);
-          // If the assignment isn't found, we assume it's not accessed
-          if(slot != m_slotAssignments.end()) {
-
-            IRBuilder<> Builder(instruction);
-            Value * slotIndex;
-
-            if (isa<ConstantInt>(createHandle.get_index())) {
-              unsigned index = cast<ConstantInt>(createHandle.get_index())->getLimitedValue();
-              if (index > slot->second.numSlots) {
-                // out-of-range accesses are written to slot zero:
-                slotIndex = HlslOP->GetU32Const(0);
-              }
-              else {
-                slotIndex = HlslOP->GetU32Const(slot->second.startSlot + index);
-              }
-            }
-            else {
-              RSRegisterIdentifier id{ typAndSpace.Type, typAndSpace.Space,  res->GetID() };
-              m_DynamicallyIndexedBindPoints.emplace(std::move(id));
-
-
-              // CompareWithSlotLimit will contain 1 if the access is out-of-bounds (both over- and and under-flow 
-              // via the unsigned >= with slot count)
-              auto CompareWithSlotLimit = Builder.CreateICmpUGE(createHandle.get_index(), HlslOP->GetU32Const(slot->second.numSlots), "CompareWithSlotLimit");
-              auto CompareWithSlotLimitAsUint = Builder.CreateCast(Instruction::CastOps::ZExt, CompareWithSlotLimit, Type::getInt32Ty(Ctx), "CompareWithSlotLimitAsUint");
-
-              // IsInBounds will therefore contain 0 if the access is out-of-bounds, and 1 otherwise.
-              auto IsInBounds = Builder.CreateSub(HlslOP->GetU32Const(1), CompareWithSlotLimitAsUint, "IsInBounds");
-
-              auto SlotOffset = Builder.CreateAdd(createHandle.get_index(), HlslOP->GetU32Const(slot->second.startSlot), "SlotOffset");
-
-              // This will drive an out-of-bounds access slot down to 0
-              slotIndex = Builder.CreateMul(SlotOffset, IsInBounds, "slotIndex");
-            }
-
-            EmitAccess(Ctx, HlslOP, Builder, slotIndex, raFunction.readWrite);
+          if (EmitResourceAccess(res, instruction, HlslOP, Ctx, raFunction.readWrite)) {
             Modified = true;
+          }
+
+          if (raFunction.functionUsesSamplerAtIndex2) {
+            auto sampler = GetResourceFromHandle(instruction->getOperand(2), DM);
+            if (EmitResourceAccess(sampler, instruction, HlslOP, Ctx, ShaderAccessFlags::Read)) {
+              Modified = true;
+            }
           }
         }
       }
     }
-
 
     // StoreOutput for render-targets:
     for (const auto & Overload : f16f32i16i32) {
@@ -512,8 +547,8 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
 
         const DxilSignatureElement & sig = DM.GetOutputSignature().GetElement(outputId);
 
-        if (sig.GetSemantic()->GetKind() == DXIL::SemanticKind::Target)
-        {
+        if (sig.GetSemantic()->GetKind() == DXIL::SemanticKind::Target){
+
           auto slot = m_slotAssignments.find({ RegisterType::RTV, 0 });
 
           if (slot != m_slotAssignments.end()) {
@@ -526,6 +561,26 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
               ShaderAccessFlags::Write);
             Modified = true;
           }
+
+          for (auto const & limited : m_limitedAccessOutputs) {
+
+            auto slot = m_slotAssignments.find({ limited.first.Type, limited.first.Space });
+
+            if (slot != m_slotAssignments.end()) {
+              IRBuilder<> Builder(instruction);
+              EmitAccess(
+                Ctx,
+                HlslOP,
+                Builder,
+                HlslOP->GetU32Const(slot->second.startSlot),
+                ShaderAccessFlags::Write);
+              Modified = true;
+            }
+          }
+
+          // We do the limited access outputs (e.g. depth) on the first StoreOutput to the render target,
+          // a moment in the shader which is a good proxy for "this invocation hasn't been discarded".
+          m_limitedAccessOutputs.clear();
         }
       }
     }
