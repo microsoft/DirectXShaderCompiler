@@ -283,10 +283,11 @@ public:
   uint32_t createFnParam(const ParmVarDecl *param);
 
   /// \brief Creates the counter variable associated with the given param.
-  /// This is meant to be used for forward-declared functions.
+  /// This is meant to be used for forward-declared functions and this objects
+  /// of methods.
   ///
   /// Note: legalization specific code
-  inline void createFnParamCounterVar(const ParmVarDecl *param);
+  inline void createFnParamCounterVar(const VarDecl *param);
 
   /// \brief Creates a function-scope variable in the current function and
   /// returns its <result-id>.
@@ -383,12 +384,12 @@ public:
   /// if the given decl has no associated counter variable created.
   const CounterIdAliasPair *getCounterIdAliasPair(
       const DeclaratorDecl *decl,
-      const llvm::SmallVector<uint32_t, 4> *indices = nullptr) const;
+      const llvm::SmallVector<uint32_t, 4> *indices = nullptr);
 
   /// \brief Returns all the associated counters for the given decl. The decl is
   /// expected to be a struct containing alias RW/Append/Consume structured
   /// buffers. Returns nullptr if it does not.
-  const CounterVarFields *getCounterVarFields(const DeclaratorDecl *decl) const;
+  const CounterVarFields *getCounterVarFields(const DeclaratorDecl *decl);
 
   /// \brief Returns the <type-id> for the given cbuffer, tbuffer,
   /// ConstantBuffer, TextureBuffer, or push constant block.
@@ -717,8 +718,8 @@ bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {
          spv::StorageClass::Input;
 }
 
-void DeclResultIdMapper::createFnParamCounterVar(const ParmVarDecl *param) {
-  return createCounterVarForDecl(param);
+void DeclResultIdMapper::createFnParamCounterVar(const VarDecl *param) {
+  createCounterVarForDecl(param);
 }
 
 void DeclResultIdMapper::createFieldCounterVars(const DeclaratorDecl *decl) {

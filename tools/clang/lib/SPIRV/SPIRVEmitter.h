@@ -698,7 +698,16 @@ private:
   ///
   /// This method only handles final alias structured buffers, which means
   /// AssocCounter#1 and AssocCounter#2.
-  const CounterIdAliasPair *getFinalACSBufferCounter(const Expr *decl);
+  const CounterIdAliasPair *getFinalACSBufferCounter(const Expr *expr);
+  /// This method handles AssocCounter#3 and AssocCounter#4.
+  const CounterVarFields *
+  getIntermediateACSBufferCounter(const Expr *expr,
+                                  llvm::SmallVector<uint32_t, 4> *indices);
+
+  /// Gets or creates an ImplicitParamDecl to represent the implicit object
+  /// parameter of the given method.
+  const ImplicitParamDecl *
+  getOrCreateDeclForMethodObject(const CXXMethodDecl *method);
 
   /// \brief Loads numWords 32-bit unsigned integers or stores numWords 32-bit
   /// unsigned integers (based on the doStore parameter) to the given
@@ -842,6 +851,17 @@ private:
   ///
   /// Note: legalization specific code
   bool needsLegalization;
+
+  /// Mapping from methods to the decls to represent their implicit object
+  /// parameters
+  ///
+  /// We need this map because that we need to update the associated counters on
+  /// the implicit object when invoking method calls. The ImplicitParamDecl
+  /// mapped to serves as a key to find the associated counters in
+  /// DeclResultIdMapper.
+  ///
+  /// Note: legalization specific code
+  llvm::DenseMap<const CXXMethodDecl *, const ImplicitParamDecl *> thisDecls;
 
   /// Global variables that should be initialized once at the begining of the
   /// entry function.

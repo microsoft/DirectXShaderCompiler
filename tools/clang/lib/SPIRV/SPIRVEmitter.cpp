@@ -1653,13 +1653,17 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   llvm::SmallVector<SpirvEvalInfo, 4> args; // Evaluated arguments
 
   if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr)) {
-    isNonStaticMemberCall =
-        !cast<CXXMethodDecl>(memberCall->getCalleeDecl())->isStatic();
+    const auto *memberFn = cast<CXXMethodDecl>(memberCall->getCalleeDecl());
+    isNonStaticMemberCall = !memberFn->isStatic();
+
     if (isNonStaticMemberCall) {
       // For non-static member calls, evaluate the object and pass it as the
       // first argument.
       const auto *object = memberCall->getImplicitObjectArgument();
       object = object->IgnoreParenNoopCasts(astContext);
+
+      // Update counter variable associated with the implicit object
+      tryToAssignCounterVar(getOrCreateDeclForMethodObject(memberFn), object);
 
       objectType = object->getType();
       objectEvalInfo = doExpr(object);
@@ -2808,6 +2812,9 @@ bool SPIRVEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
   // the translation of the real definition may not be started yet.
   if (const auto *param = dyn_cast<ParmVarDecl>(dstDecl))
     declIdMapper.createFnParamCounterVar(param);
+  // For implicit objects of methods. Similar to the above.
+  else if (const auto *thisObject = dyn_cast<ImplicitParamDecl>(dstDecl))
+    declIdMapper.createFnParamCounterVar(thisObject);
 
   // Handle AssocCounter#1 (see CounterVarFields comment)
   if (const auto *dstPair = declIdMapper.getCounterIdAliasPair(dstDecl)) {
@@ -2822,11 +2829,9 @@ bool SPIRVEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
   }
 
   // Handle AssocCounter#3
-  const auto *dstFields = declIdMapper.getCounterVarFields(dstDecl);
   llvm::SmallVector<uint32_t, 4> srcIndices;
-  const auto *srcDecl = getReferencedDef(
-      collectArrayStructIndices(srcExpr, &srcIndices, /*rawIndex=*/true));
-  const auto *srcFields = declIdMapper.getCounterVarFields(srcDecl);
+  const auto *dstFields = declIdMapper.getCounterVarFields(dstDecl);
+  const auto *srcFields = getIntermediateACSBufferCounter(srcExpr, &srcIndices);
 
   if (dstFields && srcFields) {
     if (!dstFields->assign(*srcFields, theBuilder, typeTranslator)) {
@@ -2866,12 +2871,8 @@ bool SPIRVEmitter::tryToAssignCounterVar(const Expr *dstExpr,
   // Handle AssocCounter#3 & AssocCounter#4
   llvm::SmallVector<uint32_t, 4> dstIndices;
   llvm::SmallVector<uint32_t, 4> srcIndices;
-  const auto *dstDecl = getReferencedDef(
-      collectArrayStructIndices(dstExpr, &dstIndices, /*rawIndex=*/true));
-  const auto *srcDecl = getReferencedDef(
-      collectArrayStructIndices(srcExpr, &srcIndices, /*rawIndex=*/true));
-  const auto *dstFields = declIdMapper.getCounterVarFields(dstDecl);
-  const auto *srcFields = declIdMapper.getCounterVarFields(srcDecl);
+  const auto *srcFields = getIntermediateACSBufferCounter(srcExpr, &srcIndices);
+  const auto *dstFields = getIntermediateACSBufferCounter(dstExpr, &dstIndices);
 
   if (dstFields && srcFields) {
     return dstFields->assign(*srcFields, dstIndices, srcIndices, theBuilder,
@@ -2889,11 +2890,45 @@ SPIRVEmitter::getFinalACSBufferCounter(const Expr *expr) {
 
   // AssocCounter#2: referencing some non-struct field
   llvm::SmallVector<uint32_t, 4> indices;
-  if (const auto *decl = getReferencedDef(
-          collectArrayStructIndices(expr, &indices, /*rawIndex=*/true)))
-    return declIdMapper.getCounterIdAliasPair(decl, &indices);
+
+  const auto *base =
+      collectArrayStructIndices(expr, &indices, /*rawIndex=*/true);
+  const auto *decl =
+      (base && isa<CXXThisExpr>(base))
+          ? getOrCreateDeclForMethodObject(cast<CXXMethodDecl>(curFunction))
+          : getReferencedDef(base);
+  return declIdMapper.getCounterIdAliasPair(decl, &indices);
 
   return nullptr;
+}
+
+const CounterVarFields *SPIRVEmitter::getIntermediateACSBufferCounter(
+    const Expr *expr, llvm::SmallVector<uint32_t, 4> *indices) {
+  const auto *base =
+      collectArrayStructIndices(expr, indices, /*rawIndex=*/true);
+  const auto *decl =
+      (base && isa<CXXThisExpr>(base))
+          // Use the decl we created to represent the implicit object
+          ? getOrCreateDeclForMethodObject(cast<CXXMethodDecl>(curFunction))
+          // Find the referenced decl from the original source code
+          : getReferencedDef(base);
+
+  return declIdMapper.getCounterVarFields(decl);
+}
+
+const ImplicitParamDecl *
+SPIRVEmitter::getOrCreateDeclForMethodObject(const CXXMethodDecl *method) {
+  const auto found = thisDecls.find(method);
+  if (found != thisDecls.end())
+    return found->second;
+
+  const std::string name = method->getName().str() + ".this";
+  // Create a new identifier to convey the name
+  auto &identifier = astContext.Idents.get(name);
+
+  return thisDecls[method] = ImplicitParamDecl::Create(
+             astContext, /*DC=*/nullptr, SourceLocation(), &identifier,
+             method->getThisType(astContext)->getPointeeType());
 }
 
 SpirvEvalInfo
