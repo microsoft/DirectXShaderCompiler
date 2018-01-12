@@ -88,7 +88,7 @@ public:
   inline SpirvEvalInfo &setLayoutRule(LayoutRule rule);
   LayoutRule getLayoutRule() const { return layoutRule; }
 
-  inline SpirvEvalInfo &setRValue();
+  inline SpirvEvalInfo &setRValue(bool rvalue = true);
   bool isRValue() const { return isRValue_; }
 
   inline SpirvEvalInfo &setConstant();
@@ -148,8 +148,8 @@ SpirvEvalInfo &SpirvEvalInfo::setLayoutRule(LayoutRule rule) {
   return *this;
 }
 
-SpirvEvalInfo &SpirvEvalInfo::setRValue() {
-  isRValue_ = true;
+SpirvEvalInfo &SpirvEvalInfo::setRValue(bool rvalue) {
+  isRValue_ = rvalue;
   return *this;
 }
 
