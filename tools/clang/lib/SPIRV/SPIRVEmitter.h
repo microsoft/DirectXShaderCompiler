@@ -874,10 +874,6 @@ void SPIRVEmitter::doDeclStmt(const DeclStmt *declStmt) {
     doDecl(decl);
 }
 
-SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr) {
-  return loadIfGLValue(expr, doExpr(expr));
-}
-
 } // end namespace spirv
 } // end namespace clang
 

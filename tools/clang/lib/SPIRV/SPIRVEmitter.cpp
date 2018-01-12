@@ -655,9 +655,16 @@ SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   return result;
 }
 
+SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr) {
+  // We are trying to load the value here, which is what an LValueToRValue
+  // implicit cast is intended to do. We can ignore the cast if exists.
+  expr = expr->IgnoreParenLValueCasts();
+
+  return loadIfGLValue(expr, doExpr(expr));
+}
+
 SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
                                           SpirvEvalInfo info) {
-
   // Do nothing if this is already rvalue
   if (info.isRValue())
     return info;
@@ -680,10 +687,7 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
     // wholesale assignments or function returns. Need to load the pointer.
     //
     // Note: legalization specific code
-    // TODO: It seems we should not set rvalue here since info is still
-    // holding a pointer. But it fails structured buffer assignment because
-    // of double loadIfGLValue() calls if we do not. Fix it.
-    return info.setRValue();
+    return info;
   }
 
   uint32_t valType = 0;
@@ -721,6 +725,8 @@ bool SPIRVEmitter::loadIfAliasVarRef(const Expr *varExpr, SpirvEvalInfo &info) {
 
     info.setStorageClass(spv::StorageClass::Uniform)
         .setLayoutRule(LayoutRule::GLSLStd430)
+        // Now it is a pointer to the global resource, which is lvalue.
+        .setRValue(false)
         // Set to false to indicate that we've performed dereference over the
         // pointer-to-pointer and now should fallback to the normal path
         .setContainsAliasComponent(false);
@@ -1465,7 +1471,7 @@ void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
     // Update counter variable associated with function returns
     tryToAssignCounterVar(curFunction, retVal);
 
-    const auto retInfo = doExpr(retVal);
+    const auto retInfo = loadIfGLValue(retVal);
     const auto retType = retVal->getType();
     if (retInfo.getStorageClass() != spv::StorageClass::Function &&
         retType->isStructureType()) {
@@ -1691,15 +1697,11 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
 
   // Evaluate parameters
   for (uint32_t i = 0; i < numParams; ++i) {
-    auto *arg = callExpr->getArg(i);
+    // We want the argument variable here so that we can write back to it
+    // later. We will do the OpLoad of this argument manually. So ingore
+    // the LValueToRValue implicit cast here.
+    auto *arg = callExpr->getArg(i)->IgnoreParenLValueCasts();
     const auto *param = callee->getParamDecl(i);
-
-    // In some cases where pass-by-reference should be done (such as an
-    // 'inout' struct), the AST does not use a reference type in the function
-    // signature. The LValueToRValue implicit cast should therefore be ignored
-    // in these cases.
-    if (canActAsOutParmVar(param) && !param->getType()->isReferenceType())
-      arg = cast<ImplicitCastExpr>(arg)->getSubExpr();
 
     // We need to create variables for holding the values to be used as
     // arguments. The variables themselves are of pointer types.
@@ -1714,6 +1716,7 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
     // Update counter variable associated with function parameters
     tryToAssignCounterVar(param, arg);
 
+    // Manually load the argument here
     const auto rhsVal = loadIfGLValue(arg, args.back());
     // Initialize the temporary variables using the contents of the arguments
     storeValue(tempVarId, rhsVal, param->getType());
@@ -2855,6 +2858,9 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
     storeValue(bufferInfo, doExpr(expr->getArg(0)), bufferElemTy);
     return 0;
   } else {
+    // Note that we are returning a pointer (lvalue) here inorder to further
+    // acess the fields in this element, e.g., buffer.Consume().a.b. So we
+    // cannot forcefully set all normal function calls as returning rvalue.
     return bufferInfo;
   }
 }
