@@ -126,15 +126,60 @@ CounterVarFields::get(const llvm::SmallVectorImpl<uint32_t> &indices) const {
   return nullptr;
 }
 
-void CounterVarFields::assign(const CounterVarFields &srcFields,
+bool CounterVarFields::assign(const CounterVarFields &srcFields,
                               ModuleBuilder &builder,
                               TypeTranslator &translator) const {
   for (const auto &field : fields) {
     const auto *srcField = srcFields.get(field.indices);
-    // TODO: this will fail for AssocCounter#4.
-    assert(srcField);
+    if (!srcField)
+      return false;
+
     field.counterVar.assign(*srcField, builder, translator);
   }
+
+  return true;
+}
+
+bool CounterVarFields::assign(const CounterVarFields &srcFields,
+                              const llvm::SmallVector<uint32_t, 4> &dstPrefix,
+                              const llvm::SmallVector<uint32_t, 4> &srcPrefix,
+                              ModuleBuilder &builder,
+                              TypeTranslator &translator) const {
+  if (dstPrefix.empty() && srcPrefix.empty())
+    return assign(srcFields, builder, translator);
+
+  llvm::SmallVector<uint32_t, 4> srcIndices = srcPrefix;
+
+  // If whole has the given prefix, appends all elements after the prefix in
+  // whole to srcIndices.
+  const auto applyDiff =
+      [&srcIndices](const llvm::SmallVector<uint32_t, 4> &whole,
+                    const llvm::SmallVector<uint32_t, 4> &prefix) -> bool {
+    uint32_t i = 0;
+    for (; i < prefix.size(); ++i)
+      if (whole[i] != prefix[i]) {
+        break;
+      }
+    if (i == prefix.size()) {
+      for (; i < whole.size(); ++i)
+        srcIndices.push_back(whole[i]);
+      return true;
+    }
+    return false;
+  };
+
+  for (const auto &field : fields)
+    if (applyDiff(field.indices, dstPrefix)) {
+      const auto *srcField = srcFields.get(srcIndices);
+      if (!srcField)
+        return false;
+
+      field.counterVar.assign(*srcField, builder, translator);
+      for (uint32_t i = srcPrefix.size(); i < srcIndices.size(); ++i)
+        srcIndices.pop_back();
+    }
+
+  return true;
 }
 
 DeclResultIdMapper::SemanticInfo
@@ -568,9 +613,13 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
 
 const CounterVarFields *
 DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) const {
+  if (!decl)
+    return nullptr;
+
   const auto found = fieldCounterVars.find(decl);
   if (found != fieldCounterVars.end())
     return &found->second;
+
   return nullptr;
 }
 

@@ -177,13 +177,31 @@ Wrapper CreateWrapper() {
 // CHECK-NEXT:                OpStore %counter_var_w_0_0_2 [[src]]
     w.b.b1.consume = staticBundle.consume;
 
-    // TODO:
-
     // Assign to intermediate structs whose fields have associated counters
-    //w.b.b2         = staticBundle;
+// CHECK:      [[src:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_staticBundle_0
+// CHECK-NEXT:                OpStore %counter_var_w_0_1_0 [[src]]
+// CHECK-NEXT: [[src:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_staticBundle_1
+// CHECK-NEXT:                OpStore %counter_var_w_0_1_1 [[src]]
+// CHECK-NEXT: [[src:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_staticBundle_2
+// CHECK-NEXT:                OpStore %counter_var_w_0_1_2 [[src]]
+    w.b.b2         = staticBundle;
 
     // Assign from intermediate structs whose fields have associated counters
-    //staticBundle   = w.b.b1;
+// CHECK:      [[src:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_w_0_0_0
+// CHECK-NEXT:                OpStore %counter_var_staticBundle_0 [[src]]
+// CHECK-NEXT: [[src:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_w_0_0_1
+// CHECK-NEXT:                OpStore %counter_var_staticBundle_1 [[src]]
+// CHECK-NEXT: [[src:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_w_0_0_2
+// CHECK-NEXT:                OpStore %counter_var_staticBundle_2 [[src]]
+    staticBundle   = w.b.b1;
+
+// CHECK:      [[src:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_w_0_1_0
+// CHECK-NEXT:                OpStore %counter_var_w_0_0_0 [[src]]
+// CHECK-NEXT: [[src:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_w_0_1_1
+// CHECK-NEXT:                OpStore %counter_var_w_0_0_1 [[src]]
+// CHECK-NEXT: [[src:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_w_0_1_2
+// CHECK-NEXT:                OpStore %counter_var_w_0_0_2 [[src]]
+    w.b.b1         = w.b.b2;
 
     return w;
 }
