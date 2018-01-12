@@ -260,10 +260,13 @@ private:
 
   /// Collects all indices (SPIR-V constant values) from consecutive MemberExprs
   /// or ArraySubscriptExprs or operator[] calls and writes into indices.
-  /// Returns the real base.
+  /// Returns the real base. If rawIndex is set to true, the indices collected
+  /// will not be turned into SPIR-V constant values, and the base returned can
+  /// be nullptr, which means some indices are not constant.
   const Expr *
   collectArrayStructIndices(const Expr *expr,
-                            llvm::SmallVectorImpl<uint32_t> *indices);
+                            llvm::SmallVectorImpl<uint32_t> *indices,
+                            bool rawIndex = false);
 
   /// Creates an access chain to index into the given SPIR-V evaluation result
   /// and overwrites and returns the new SPIR-V evaluation result.
@@ -451,7 +454,7 @@ private:
   /// represented in a 32-bit integer type or a literal float that can be
   /// represented in a 32-bit float type without losing info. Returns false
   /// otherwise.
-  bool canBeRepresentedIn32Bits(const Expr* expr);
+  bool canBeRepresentedIn32Bits(const Expr *expr);
 
 private:
   /// Translates the given HLSL loop attribute into SPIR-V loop control mask.
@@ -686,7 +689,8 @@ private:
   /// srcExpr or dstDecl.
   ///
   /// Note: legalization specific code
-  bool tryToAssignCounterVar(const ValueDecl *dstDecl, const Expr *srcExpr);
+  bool tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
+                             const Expr *srcExpr);
 
   /// \brief Loads numWords 32-bit unsigned integers or stores numWords 32-bit
   /// unsigned integers (based on the doStore parameter) to the given

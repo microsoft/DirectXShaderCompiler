@@ -255,15 +255,17 @@ public:
   /// \brief Returns the suitable type for the given decl, considering the
   /// given decl could possibly be created as an alias variable. If true, a
   /// pointer-to-the-value type will be returned, otherwise, just return the
-  /// normal value type.
+  /// normal value type. For an alias variable having a associated counter, the
+  /// counter variable will also be emitted.
   ///
   /// If the type is for an alias variable, writes true to *shouldBeAlias and
   /// writes storage class, layout rule, and valTypeId to *info.
   ///
   /// Note: legalization specific code
-  uint32_t getTypeForPotentialAliasVar(const DeclaratorDecl *var,
-                                       bool *shouldBeAlias = nullptr,
-                                       SpirvEvalInfo *info = nullptr);
+  uint32_t
+  getTypeAndCreateCounterForPotentialAliasVar(const DeclaratorDecl *var,
+                                              bool *shouldBeAlias = nullptr,
+                                              SpirvEvalInfo *info = nullptr);
 
   /// \brief Sets the <result-id> of the entry function.
   void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
@@ -308,7 +310,7 @@ public:
   /// pair for the given {RW|Append|Consume}StructuredBuffer variable.
   /// Returns nullptr if the given decl has no associated counter variable
   /// created.
-  const CounterIdAliasPair *getCounterIdAliasPair(const ValueDecl *decl);
+  const CounterIdAliasPair *getCounterIdAliasPair(const DeclaratorDecl *decl);
 
   /// \brief Returns the <type-id> for the given cbuffer, tbuffer,
   /// ConstantBuffer, TextureBuffer, or push constant block.
@@ -489,7 +491,7 @@ private:
   /// pointer-to-pointer type in Private storage class) if isAlias is true.
   ///
   /// Note: isAlias - legalization specific code
-  void createCounterVar(const ValueDecl *decl, bool isAlias);
+  void createCounterVar(const DeclaratorDecl *decl, bool isAlias);
 
   /// Decorates varId of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
@@ -530,7 +532,7 @@ private:
   llvm::SmallVector<ResourceVar, 8> resourceVars;
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
   /// counter variables' (<result-id>, is-alias-or-not) pairs
-  llvm::DenseMap<const ValueDecl *, CounterIdAliasPair> counterVars;
+  llvm::DenseMap<const DeclaratorDecl *, CounterIdAliasPair> counterVars;
 
   /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
   /// to the <type-id>

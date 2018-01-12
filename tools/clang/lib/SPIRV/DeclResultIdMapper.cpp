@@ -250,17 +250,12 @@ SpirvEvalInfo DeclResultIdMapper::getDeclResultId(const ValueDecl *decl,
 uint32_t DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
   bool isAlias = false;
   auto &info = astDecls[param].info;
-  const uint32_t type = getTypeForPotentialAliasVar(param, &isAlias, &info);
+  const uint32_t type =
+      getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias, &info);
   const uint32_t ptrType =
       theBuilder.getPointerType(type, spv::StorageClass::Function);
   const uint32_t id = theBuilder.addFnParam(ptrType, param->getName());
   info.setResultId(id);
-
-  // The counter variable may be created before by forward declaration.
-  if (!counterVars.count(param))
-    // Create alias counter variable if suitable
-    if (isAlias && TypeTranslator::isRWAppendConsumeSBuffer(param->getType()))
-      createCounterVar(param, /*isAlias=*/true);
 
   return id;
 }
@@ -277,13 +272,10 @@ uint32_t DeclResultIdMapper::createFnVar(const VarDecl *var,
                                          llvm::Optional<uint32_t> init) {
   bool isAlias = false;
   auto &info = astDecls[var].info;
-  const uint32_t type = getTypeForPotentialAliasVar(var, &isAlias, &info);
+  const uint32_t type =
+      getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias, &info);
   const uint32_t id = theBuilder.addFnVar(type, var->getName(), init);
   info.setResultId(id);
-
-  // Create alias counter variable if suitable
-  if (isAlias && TypeTranslator::isRWAppendConsumeSBuffer(var->getType()))
-    createCounterVar(var, /*isAlias=*/true);
 
   return id;
 }
@@ -292,16 +284,13 @@ uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
                                            llvm::Optional<uint32_t> init) {
   bool isAlias = false;
   auto &info = astDecls[var].info;
-  const uint32_t type = getTypeForPotentialAliasVar(var, &isAlias, &info);
+  const uint32_t type =
+      getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias, &info);
   const uint32_t id = theBuilder.addModuleVar(type, spv::StorageClass::Private,
                                               var->getName(), init);
   info.setResultId(id);
   if (!isAlias)
     info.setStorageClass(spv::StorageClass::Private);
-
-  // Create alias counter variable if suitable
-  if (isAlias && TypeTranslator::isRWAppendConsumeSBuffer(var->getType()))
-    createCounterVar(var, /*isAlias=*/true);
 
   return id;
 }
@@ -513,7 +502,8 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
   auto &info = astDecls[fn].info;
 
   bool isAlias = false;
-  const uint32_t type = getTypeForPotentialAliasVar(fn, &isAlias, &info);
+  const uint32_t type =
+      getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias, &info);
 
   const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
   info.setResultId(id);
@@ -524,22 +514,19 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
       !TypeTranslator::isAKindOfStructuredOrByteBuffer(fn->getReturnType()))
     info.setRValue();
 
-  // Create alias counter variable if suitable
-  if (TypeTranslator::isRWAppendConsumeSBuffer(fn->getReturnType()))
-    createCounterVar(fn, /*isAlias=*/true);
-
   return id;
 }
 
 const CounterIdAliasPair *
-DeclResultIdMapper::getCounterIdAliasPair(const ValueDecl *decl) {
+DeclResultIdMapper::getCounterIdAliasPair(const DeclaratorDecl *decl) {
   const auto counter = counterVars.find(decl);
   if (counter != counterVars.end())
     return &counter->second;
   return nullptr;
 }
 
-void DeclResultIdMapper::createCounterVar(const ValueDecl *decl, bool isAlias) {
+void DeclResultIdMapper::createCounterVar(const DeclaratorDecl *decl,
+                                          bool isAlias) {
   const std::string counterName = "counter.var." + decl->getName().str();
   uint32_t counterType = typeTranslator.getACSBufferCounter();
   // {RW|Append|Consume}StructuredBuffer are all in Uniform storage class.
@@ -1876,7 +1863,7 @@ DeclResultIdMapper::getStorageClassForSigPoint(const hlsl::SigPoint *sigPoint) {
   return sc;
 }
 
-uint32_t DeclResultIdMapper::getTypeForPotentialAliasVar(
+uint32_t DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
     const DeclaratorDecl *decl, bool *shouldBeAlias, SpirvEvalInfo *info) {
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
     // This method is only intended to be used to create SPIR-V variables in the
@@ -1901,6 +1888,10 @@ uint32_t DeclResultIdMapper::getTypeForPotentialAliasVar(
 
   if (genAlias) {
     needsLegalization = true;
+
+    if (!counterVars.count(decl) &&
+        TypeTranslator::isRWAppendConsumeSBuffer(type))
+      createCounterVar(decl, /*isAlias=*/true);
 
     if (info)
       info->setContainsAliasComponent(true);

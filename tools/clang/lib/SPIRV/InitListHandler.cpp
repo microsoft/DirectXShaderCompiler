@@ -211,6 +211,12 @@ uint32_t InitListHandler::createInitForType(QualType type,
   if (TypeTranslator::isOpaqueType(type))
     return createInitForSamplerImageType(type, srcLoc);
 
+  // This should happen before the check for normal struct types
+  if (TypeTranslator::isAKindOfStructuredOrByteBuffer(type)) {
+    emitError("cannot handle structured/byte buffer as initializer", srcLoc);
+    return 0;
+  }
+
   if (type->isStructureType())
     return createInitForStructType(type);
 
@@ -365,8 +371,11 @@ uint32_t InitListHandler::createInitForStructType(QualType type) {
 
   llvm::SmallVector<uint32_t, 4> fields;
   const RecordDecl *structDecl = type->getAsStructureType()->getDecl();
-  for (const auto *field : structDecl->fields())
+  for (const auto *field : structDecl->fields()) {
     fields.push_back(createInitForType(field->getType(), field->getLocation()));
+    if (!fields.back())
+      return 0;
+  }
 
   const uint32_t typeId = typeTranslator.translateType(type);
   // TODO: use OpConstantComposite when all components are constants
