@@ -11,7 +11,7 @@
 
 #include <vector>
 
-#include "spirv/1.0/spirv.hpp11"
+#include "spirv/unified1/spirv.hpp11"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 
