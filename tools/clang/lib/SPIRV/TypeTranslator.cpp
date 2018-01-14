@@ -613,6 +613,20 @@ bool TypeTranslator::isSampler(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isSubpassInput(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>())
+    return rt->getDecl()->getName() == "SubpassInput";
+
+  return false;
+}
+
+bool TypeTranslator::isSubpassInputMS(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>())
+    return rt->getDecl()->getName() == "SubpassInputMS";
+
+  return false;
+}
+
 bool TypeTranslator::isVectorType(QualType type, QualType *elemType,
                                   uint32_t *elemCount) {
   bool isVec = false;
@@ -997,6 +1011,14 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   if (name == "TriangleStream" || name == "LineStream" ||
       name == "PointStream") {
     return translateType(hlsl::GetHLSLResourceResultType(type), rule);
+  }
+
+  if (name == "SubpassInput" || name == "SubpassInputMS") {
+    const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+    return theBuilder.getImageType(
+        translateType(getElementType(sampledType)), spv::Dim::SubpassData,
+        /*depth*/ 0, /*isArray*/ false, /*ms*/ name == "SubpassInputMS",
+        /*sampled*/ 2);
   }
 
   return 0;

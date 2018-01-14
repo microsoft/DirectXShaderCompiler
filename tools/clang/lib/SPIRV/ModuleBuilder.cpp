@@ -761,6 +761,11 @@ void ModuleBuilder::decorateDSetBinding(uint32_t targetId, uint32_t setNumber,
   d = Decoration::getBinding(theContext, bindingNumber);
   theModule.addDecoration(d, targetId);
 }
+void ModuleBuilder::decorateInputAttachmentIndex(uint32_t targetId,
+                                                 uint32_t indexNumber) {
+  const auto *d = Decoration::getInputAttachmentIndex(theContext, indexNumber);
+  theModule.addDecoration(d, targetId);
+}
 
 void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
   const Decoration *d =
@@ -973,10 +978,10 @@ uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
     } else {
       requireCapability(spv::Capability::Sampled1D);
     }
-  }
-
-  if (dim == spv::Dim::Buffer) {
+  } else if (dim == spv::Dim::Buffer) {
     requireCapability(spv::Capability::SampledBuffer);
+  } else if (dim == spv::Dim::SubpassData) {
+    requireCapability(spv::Capability::InputAttachment);
   }
 
   if (isArray && ms) {
