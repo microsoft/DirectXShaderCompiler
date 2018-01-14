@@ -2326,9 +2326,11 @@ def warn_attribute_wrong_decl_type : Warning<
   "functions and global variables|structs, unions, and typedefs|structs and typedefs|"
   "interface or protocol declarations|kernel functions|"
   // SPIRV Change Starts
+  "fields|"
   "global variables of struct type|"
   "global variables, cbuffers, and tbuffers|"
   "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
+  "SubpassInput, SubpassInputMS|"
   // SPIRV Change Ends
   // HLSL Change Starts - add 3 more enum values
   "varibales and parameters|functions, parameters, and fields|"
@@ -7665,6 +7667,10 @@ def err_hlsl_missing_patchconstantfunc_attr: Error<
 def err_hlsl_missing_inout_attr: Error<
    "stream-output object must be an inout parameter">;
 // HLSL Change Ends
+
+// SPIRV Change Starts
+def err_hlsl_vulkan_specific_feature: Error<"%0 is a Vulkan specific feature">;
+// SPIRV Change Ends
 
 let CategoryName = "OpenMP Issue" in {
 // OpenMP support.

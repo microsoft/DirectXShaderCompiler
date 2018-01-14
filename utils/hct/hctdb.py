@@ -1901,6 +1901,7 @@ class db_hlsl_intrinsic(object):
             self.unsigned_op = "%s_%s" % (id_prefix, unsigned_op)
         self.overload_param_index = overload_idx        # Parameter determines the overload type, -1 means ret type
         self.key = ("%3d" % ns_idx) + "!" + name + "!" + ("%2d" % len(params)) + "!" + ("%3d" % idx)    # Unique key
+        self.vulkanSpecific = ns.startswith("Vk")       # Vulkan specific intrinsic - SPIRV change
 
 class db_hlsl_namespace(object):
     "A grouping of HLSL intrinsics"

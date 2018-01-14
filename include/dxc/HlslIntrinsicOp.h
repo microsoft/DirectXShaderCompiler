@@ -226,6 +226,9 @@ import hctdb_instrhelp
   MOP_DecrementCounter,
   MOP_IncrementCounter,
   MOP_Consume,
+#ifdef ENABLE_SPIRV_CODEGEN
+  MOP_SubpassLoad,
+#endif // ENABLE_SPIRV_CODEGEN
   // unsigned
   IOP_InterlockedUMax,
   IOP_InterlockedUMin,

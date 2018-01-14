@@ -647,6 +647,7 @@ def get_hlsl_intrinsics():
     result = ""
     last_ns = ""
     ns_table = ""
+    is_vk_table = False  # SPIRV Change
     id_prefix = ""
     arg_idx = 0
     opcode_namespace = db.opcode_namespace
@@ -656,9 +657,19 @@ def get_hlsl_intrinsics():
             id_prefix = "IOP" if last_ns == "Intrinsics" else "MOP"
             if (len(ns_table)):
                 result += ns_table + "};\n"
+                # SPIRV Change Starts
+                if is_vk_table:
+                    result += "\n#endif // ENABLE_SPIRV_CODEGEN\n"
+                    is_vk_table = False
+                # SPIRV Change Ends
             result += "\n//\n// Start of %s\n//\n\n" % (last_ns)
             # This used to be qualified as __declspec(selectany), but that's no longer necessary.
             ns_table = "static const HLSL_INTRINSIC g_%s[] =\n{\n" % (last_ns)
+            # SPIRV Change Starts
+            if (i.vulkanSpecific):
+                is_vk_table = True
+                result += "#ifdef ENABLE_SPIRV_CODEGEN\n\n"
+            # SPIRV Change Ends
             arg_idx = 0
         ns_table += "    {(UINT)%s::%s_%s, %s, %s, %d, %d, g_%s_Args%s},\n" % (opcode_namespace, id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
         result += "static const HLSL_INTRINSIC_ARGUMENT g_%s_Args%s[] =\n{\n" % (last_ns, arg_idx)
@@ -669,7 +680,15 @@ def get_hlsl_intrinsics():
         result += "};\n\n"
         arg_idx += 1
     result += ns_table + "};\n"
+    result += "\n#endif // ENABLE_SPIRV_CODEGEN\n" if is_vk_table else ""  # SPIRV Change
     return result
+
+# SPIRV Change Starts
+def wrap_with_ifdef_if_vulkan_specific(intrinsic, text):
+    if intrinsic.vulkanSpecific:
+        return "#ifdef ENABLE_SPIRV_CODEGEN\n" + text + "#endif // ENABLE_SPIRV_CODEGEN\n"
+    return text
+# SPIRV Change Ends
 
 def enum_hlsl_intrinsics():
     db = get_db_hlsl()
@@ -677,7 +696,8 @@ def enum_hlsl_intrinsics():
     enumed = []
     for i in sorted(db.intrinsics, key=lambda x: x.key):
         if (i.enum_name not in enumed):
-            result += "  %s,\n" % (i.enum_name)
+            enumerant = "  %s,\n" % (i.enum_name)
+            result += wrap_with_ifdef_if_vulkan_specific(i, enumerant)  # SPIRV Change
             enumed.append(i.enum_name)
     # unsigned
     result += "  // unsigned\n"
