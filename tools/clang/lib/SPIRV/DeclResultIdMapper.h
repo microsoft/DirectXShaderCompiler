@@ -208,10 +208,17 @@ public:
   get(const llvm::SmallVectorImpl<uint32_t> &indices) const;
 
   /// Assigns to all the fields' associated counter from the srcFields.
-  /// This is for assigning a struct as whole: we need to update all the
-  /// associated counters in the target struct.
-  void assign(const CounterVarFields &srcFields, ModuleBuilder &builder,
+  /// Returns true if there are no errors during the assignment.
+  ///
+  /// This first overload is for assigning a struct as whole: we need to update
+  /// all the associated counters in the target struct. This second overload is
+  /// for assigning a potentially nested struct.
+  bool assign(const CounterVarFields &srcFields, ModuleBuilder &builder,
               TypeTranslator &translator) const;
+  bool assign(const CounterVarFields &srcFields,
+              const llvm::SmallVector<uint32_t, 4> &dstPrefix,
+              const llvm::SmallVector<uint32_t, 4> &srcPrefix,
+              ModuleBuilder &builder, TypeTranslator &translator) const;
 
 private:
   struct IndexCounterPair {
