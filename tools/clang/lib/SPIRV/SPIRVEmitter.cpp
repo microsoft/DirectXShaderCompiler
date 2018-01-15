@@ -2821,26 +2821,26 @@ bool SPIRVEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
     return true;
   }
 
-  // AssocCounter#2 for the lhs cannot happen since the lhs is a stand-alone
-  // decl in this method.
-
   // Handle AssocCounter#3
-  if (const auto *dstFields = declIdMapper.getCounterVarFields(dstDecl)) {
-    if (const auto *srcDecl = getReferencedDef(srcExpr)) {
-      const auto *srcFields = declIdMapper.getCounterVarFields(srcDecl);
-      if (!srcFields) {
-        emitFatalError("cannot find the associated counter variable",
-                       srcExpr->getExprLoc());
-        return false;
-      }
-      dstFields->assign(*srcFields, theBuilder, typeTranslator);
-      return true;
+  const auto *dstFields = declIdMapper.getCounterVarFields(dstDecl);
+  llvm::SmallVector<uint32_t, 4> srcIndices;
+  const auto *srcDecl = getReferencedDef(
+      collectArrayStructIndices(srcExpr, &srcIndices, /*rawIndex=*/true));
+  const auto *srcFields = declIdMapper.getCounterVarFields(srcDecl);
+
+  if (dstFields && srcFields) {
+    if (!dstFields->assign(*srcFields, theBuilder, typeTranslator)) {
+      emitFatalError("cannot handle associated counter variable assignment",
+                     srcExpr->getExprLoc());
+      return false;
     }
+    return true;
   }
 
-  // Handle AssocCounter#4: TODO
+  // AssocCounter#2 and AssocCounter#4 for the lhs cannot happen since the lhs
+  // is a stand-alone decl in this method.
 
-  return true;
+  return false;
 }
 
 bool SPIRVEmitter::tryToAssignCounterVar(const Expr *dstExpr,
@@ -2863,28 +2863,20 @@ bool SPIRVEmitter::tryToAssignCounterVar(const Expr *dstExpr,
     return true;
   }
 
-  // Handle AssocCounter#3
-  if (const auto *dstDecl = getReferencedDef(dstExpr))
-    if (const auto *dstFields = declIdMapper.getCounterVarFields(dstDecl)) {
-      const auto *srcDecl = getReferencedDef(srcExpr);
-      if (!srcDecl) {
-        emitFatalError("cannot find the associated counter variable",
-                       srcExpr->getExprLoc());
-        return false;
-      }
+  // Handle AssocCounter#3 & AssocCounter#4
+  llvm::SmallVector<uint32_t, 4> dstIndices;
+  llvm::SmallVector<uint32_t, 4> srcIndices;
+  const auto *dstDecl = getReferencedDef(
+      collectArrayStructIndices(dstExpr, &dstIndices, /*rawIndex=*/true));
+  const auto *srcDecl = getReferencedDef(
+      collectArrayStructIndices(srcExpr, &srcIndices, /*rawIndex=*/true));
+  const auto *dstFields = declIdMapper.getCounterVarFields(dstDecl);
+  const auto *srcFields = declIdMapper.getCounterVarFields(srcDecl);
 
-      const auto *srcFields = declIdMapper.getCounterVarFields(srcDecl);
-      if (!srcFields) {
-        emitFatalError("cannot find the associated counter variable",
-                       srcExpr->getExprLoc());
-        return false;
-      }
-
-      dstFields->assign(*srcFields, theBuilder, typeTranslator);
-      return true;
-    }
-
-  // Handle AssocCounter#4: TODO
+  if (dstFields && srcFields) {
+    return dstFields->assign(*srcFields, dstIndices, srcIndices, theBuilder,
+                             typeTranslator);
+  }
 
   return false;
 }
