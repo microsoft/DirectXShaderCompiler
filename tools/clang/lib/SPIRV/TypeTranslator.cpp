@@ -184,11 +184,12 @@ QualType TypeTranslator::getIntendedLiteralType(QualType type) {
     // In the above example, we have no hints about how '2' or '3' should be
     // used.
     QualType potentialHint = intendedLiteralTypes.top();
+    const bool hintIsInteger =
+        potentialHint->isIntegerType() && !potentialHint->isBooleanType();
+    const bool hintIsFloating = potentialHint->isFloatingType();
     const bool isDifferentBasicType =
-        (type->isSpecificBuiltinType(BuiltinType::LitInt) &&
-         !potentialHint->isIntegerType()) ||
-        (type->isSpecificBuiltinType(BuiltinType::LitFloat) &&
-         !potentialHint->isFloatingType());
+        (type->isSpecificBuiltinType(BuiltinType::LitInt) && !hintIsInteger) ||
+        (type->isSpecificBuiltinType(BuiltinType::LitFloat) && !hintIsFloating);
 
     if (!isDifferentBasicType)
       return intendedLiteralTypes.top();
