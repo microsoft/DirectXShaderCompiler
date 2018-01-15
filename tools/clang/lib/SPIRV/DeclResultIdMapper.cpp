@@ -595,8 +595,10 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
 }
 
 const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
-    const DeclaratorDecl *decl,
-    const llvm::SmallVector<uint32_t, 4> *indices) const {
+    const DeclaratorDecl *decl, const llvm::SmallVector<uint32_t, 4> *indices) {
+  if (!decl)
+    return nullptr;
+
   if (indices) {
     // Indices are provided. Walk through the fields of the decl.
     const auto counter = fieldCounterVars.find(decl);
@@ -608,11 +610,12 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
     if (counter != counterVars.end())
       return &counter->second;
   }
+
   return nullptr;
 }
 
 const CounterVarFields *
-DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) const {
+DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) {
   if (!decl)
     return nullptr;
 
