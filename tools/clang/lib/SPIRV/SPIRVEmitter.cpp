@@ -1596,9 +1596,8 @@ SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
   // Handle assignment first since we need to evaluate rhs before lhs.
   // For other binary operations, we need to evaluate lhs before rhs.
   if (opcode == BO_Assign) {
-    if (const auto *dstDecl = getReferencedDef(expr->getLHS()))
-      // Update counter variable associated with lhs of assignments
-      tryToAssignCounterVar(dstDecl, expr->getRHS());
+    // Update counter variable associated with lhs of assignments
+    tryToAssignCounterVar(expr->getLHS(), expr->getRHS());
 
     return processAssignment(expr->getLHS(), loadIfGLValue(expr->getRHS()),
                              /*isCompoundAssignment=*/false);
@@ -2771,13 +2770,13 @@ uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
     (void)doExpr(object);
   }
 
-  const auto *buffer = getReferencedDef(object);
-  if (!buffer) {
-    emitError("method call syntax unimplemented", expr->getExprLoc());
+  const auto *counterPair = getFinalACSBufferCounter(object);
+  if (!counterPair) {
+    emitFatalError("cannot find the associated counter variable",
+                   object->getExprLoc());
     return 0;
   }
 
-  const auto &counterPair = declIdMapper.getCounterIdAliasPair(buffer);
   const uint32_t counterPtrType = theBuilder.getPointerType(
       theBuilder.getInt32Type(), spv::StorageClass::Uniform);
   const uint32_t counterPtr = theBuilder.createAccessChain(
@@ -2800,37 +2799,109 @@ uint32_t SPIRVEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
 
 bool SPIRVEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
                                          const Expr *srcExpr) {
+  // We are handling associated counters here. Casts should not alter which
+  // associated counter to manipulate.
+  srcExpr = srcExpr->IgnoreParenCasts();
+
   // For parameters of forward-declared functions. We must make sure the
   // associated counter variable is created. But for forward-declared functions,
   // the translation of the real definition may not be started yet.
   if (const auto *param = dyn_cast<ParmVarDecl>(dstDecl))
     declIdMapper.createFnParamCounterVar(param);
 
-  if (TypeTranslator::isRWAppendConsumeSBuffer(getTypeOrFnRetType(dstDecl))) {
-    // Internal RW/Append/Consume StructuredBuffer. We also need to
-    // initialize the associated counter.
-    const auto *srcPair =
-        declIdMapper.getCounterIdAliasPair(getReferencedDef(srcExpr));
-    const auto *dstPair = declIdMapper.getCounterIdAliasPair(dstDecl);
-
+  // Handle AssocCounter#1 (see CounterVarFields comment)
+  if (const auto *dstPair = declIdMapper.getCounterIdAliasPair(dstDecl)) {
+    const auto *srcPair = getFinalACSBufferCounter(srcExpr);
     if (!srcPair) {
-      emitFatalError(
-          "cannot handle counter variable associated with the given expr",
-          srcExpr->getLocStart())
-          << srcExpr->getSourceRange();
+      emitFatalError("cannot find the associated counter variable",
+                     srcExpr->getExprLoc());
       return false;
     }
-    if (!dstDecl) {
-      emitFatalError(
-          "cannot handle counter variable associated with the given decl",
-          dstDecl->getLocation());
-      return false;
-    }
-
     dstPair->assign(*srcPair, theBuilder, typeTranslator);
+    return true;
   }
 
+  // AssocCounter#2 for the lhs cannot happen since the lhs is a stand-alone
+  // decl in this method.
+
+  // Handle AssocCounter#3
+  if (const auto *dstFields = declIdMapper.getCounterVarFields(dstDecl)) {
+    if (const auto *srcDecl = getReferencedDef(srcExpr)) {
+      const auto *srcFields = declIdMapper.getCounterVarFields(srcDecl);
+      if (!srcFields) {
+        emitFatalError("cannot find the associated counter variable",
+                       srcExpr->getExprLoc());
+        return false;
+      }
+      dstFields->assign(*srcFields, theBuilder, typeTranslator);
+      return true;
+    }
+  }
+
+  // Handle AssocCounter#4: TODO
+
   return true;
+}
+
+bool SPIRVEmitter::tryToAssignCounterVar(const Expr *dstExpr,
+                                         const Expr *srcExpr) {
+  dstExpr = dstExpr->IgnoreParenCasts();
+  srcExpr = srcExpr->IgnoreParenCasts();
+
+  const auto *dstPair = getFinalACSBufferCounter(dstExpr);
+  const auto *srcPair = getFinalACSBufferCounter(srcExpr);
+
+  if ((dstPair == nullptr) != (srcPair == nullptr)) {
+    emitFatalError("cannot handle associated counter variable assignment",
+                   srcExpr->getExprLoc());
+    return false;
+  }
+
+  // Handle AssocCounter#1 & AssocCounter#2
+  if (dstPair && srcPair) {
+    dstPair->assign(*srcPair, theBuilder, typeTranslator);
+    return true;
+  }
+
+  // Handle AssocCounter#3
+  if (const auto *dstDecl = getReferencedDef(dstExpr))
+    if (const auto *dstFields = declIdMapper.getCounterVarFields(dstDecl)) {
+      const auto *srcDecl = getReferencedDef(srcExpr);
+      if (!srcDecl) {
+        emitFatalError("cannot find the associated counter variable",
+                       srcExpr->getExprLoc());
+        return false;
+      }
+
+      const auto *srcFields = declIdMapper.getCounterVarFields(srcDecl);
+      if (!srcFields) {
+        emitFatalError("cannot find the associated counter variable",
+                       srcExpr->getExprLoc());
+        return false;
+      }
+
+      dstFields->assign(*srcFields, theBuilder, typeTranslator);
+      return true;
+    }
+
+  // Handle AssocCounter#4: TODO
+
+  return false;
+}
+
+const CounterIdAliasPair *
+SPIRVEmitter::getFinalACSBufferCounter(const Expr *expr) {
+  // AssocCounter#1: referencing some stand-alone variable
+  if (const auto *decl = getReferencedDef(expr))
+    return declIdMapper.getCounterIdAliasPair(decl);
+
+  // AssocCounter#2: referencing some non-struct field
+  llvm::SmallVector<uint32_t, 4> indices;
+  if (const auto *decl = getReferencedDef(
+          collectArrayStructIndices(expr, &indices, /*rawIndex=*/true)))
+    return declIdMapper.getCounterIdAliasPair(decl, &indices);
+
+  return nullptr;
 }
 
 SpirvEvalInfo

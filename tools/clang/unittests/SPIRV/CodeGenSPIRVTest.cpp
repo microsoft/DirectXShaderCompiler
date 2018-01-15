@@ -1005,6 +1005,10 @@ TEST_F(FileTest, SpirvLegalizationStructuredBufferCounter) {
   runFileTest("spirv.legal.sbuffer.counter.hlsl", Expect::Success,
               /*runValidation=*/true, /*relaxLogicalPointer=*/true);
 }
+TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInStruct) {
+  runFileTest("spirv.legal.sbuffer.counter.struct.hlsl", Expect::Success,
+              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+}
 TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
   runFileTest("spirv.legal.sbuffer.struct.hlsl", Expect::Success,
               /*runValidation=*/true, /*relaxLogicalPointer=*/true);
