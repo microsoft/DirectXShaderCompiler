@@ -6912,9 +6912,10 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
   case 32: {
     if (isSigned) {
       if (!intValue.isSignedIntN(32)) {
-        emitError("evaluating this integer literal as a 32-bit integer loses "
+        emitError("evaluating integer literal %0 as a 32-bit integer loses "
                   "inforamtion",
-                  {});
+                  {})
+            << std::to_string(intValue.getSExtValue());
         return 0;
       }
       return theBuilder.getConstantInt32(
@@ -6922,9 +6923,10 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
     }
     else {
       if (!intValue.isIntN(32)) {
-        emitError("evaluating this integer literal as a 32-bit integer loses "
+        emitError("evaluating integer literal %0 as a 32-bit integer loses "
                   "inforamtion",
-                  {});
+                  {})
+            << std::to_string(intValue.getZExtValue());
         return 0;
       }
       return theBuilder.getConstantUint32(
@@ -7014,6 +7016,7 @@ uint32_t SPIRVEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
 uint32_t SPIRVEmitter::translateAPFloat(llvm::APFloat floatValue,
                                         QualType targetType) {
   using llvm::APFloat;
+  const auto originalValue = floatValue;
   const auto valueBitwidth = APFloat::getSizeInBits(floatValue.getSemantics());
 
   // Find out the target bitwidth.
@@ -7035,7 +7038,14 @@ uint32_t SPIRVEmitter::translateAPFloat(llvm::APFloat floatValue,
     if (status != APFloat::opStatus::opOK &&
         status != APFloat::opStatus::opInexact) {
       emitError(
-          "evaluating float literal at a lower bitwidth loses information", {});
+          "evaluating float literal %0 at a lower bitwidth loses information",
+          {})
+          << std::to_string(
+                 valueBitwidth == 16
+                     ? static_cast<float>(
+                           originalValue.bitcastToAPInt().getZExtValue())
+                     : valueBitwidth == 32 ? originalValue.convertToFloat()
+                                           : originalValue.convertToDouble());
       return 0;
     }
   }
