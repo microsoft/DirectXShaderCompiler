@@ -691,6 +691,14 @@ private:
   /// Note: legalization specific code
   bool tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
                              const Expr *srcExpr);
+  bool tryToAssignCounterVar(const Expr *dstExpr, const Expr *srcExpr);
+
+  /// Returns the counter variable's information associated with the entity
+  /// represented by the given decl.
+  ///
+  /// This method only handles final alias structured buffers, which means
+  /// AssocCounter#1 and AssocCounter#2.
+  const CounterIdAliasPair *getFinalACSBufferCounter(const Expr *decl);
 
   /// \brief Loads numWords 32-bit unsigned integers or stores numWords 32-bit
   /// unsigned integers (based on the doStore parameter) to the given

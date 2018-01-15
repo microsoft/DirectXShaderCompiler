@@ -84,15 +84,10 @@ float4 main() : SV_Target {
     int index = c.getT().getSBuffer2()[42];
 
 // CHECK:      [[val:%\d+]] = OpLoad %Combine %c
-// CHECK-NEXT:                OpStore %param_var_comb [[val]]
+// CHECK:                     OpStore %param_var_comb [[val]]
     return foo(c);
 }
 float4 foo(Combine comb) {
-    // TODO: add support for associated counters of struct fields
-    // comb.s.append.Append(float4(1, 2, 3, 4));
-    // float4 val = comb.s.consume.Consume();
-    // comb.t.rw[5].a = 4.2;
-
 // CHECK:      [[ptr1:%\d+]] = OpAccessChain %_ptr_Function__ptr_Uniform_type_ByteAddressBuffer %comb %int_2
 // CHECK-NEXT: [[ptr2:%\d+]] = OpLoad %_ptr_Uniform_type_ByteAddressBuffer [[ptr1]]
 // CHECK-NEXT:  [[idx:%\d+]] = OpShiftRightLogical %uint %uint_5 %uint_2
