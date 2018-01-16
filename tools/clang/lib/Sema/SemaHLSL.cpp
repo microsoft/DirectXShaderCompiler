@@ -3648,6 +3648,7 @@ public:
     _In_ const HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement);
 
+  // Returns the iterator with the first entry that matches the requirement
   IntrinsicDefIter FindIntrinsicByNameAndArgCount(
     _In_count_(tableSize) const HLSL_INTRINSIC* table,
     size_t tableSize,
@@ -3655,7 +3656,14 @@ public:
     StringRef nameIdentifier,
     size_t argumentCount)
   {
-    // TODO: avoid linear scan
+    // This is implemented by a linear scan for now.
+    // We tested binary search on tables, and there was no performance gain on
+    // samples probably for the following reasons.
+    // 1. The tables are not big enough to make noticable difference
+    // 2. The user of this function assumes that it returns the first entry in
+    // the table that matches name and argument count. So even in the binary
+    // search, we have to scan backwards until the entry does not match the name
+    // or arg count. For linear search this is not a problem
     for (unsigned int i = 0; i < tableSize; i++) {
       const HLSL_INTRINSIC* pIntrinsic = &table[i];
 
