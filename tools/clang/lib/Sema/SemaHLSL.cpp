@@ -3046,7 +3046,10 @@ public:
       m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, HLSLScalarTypeNames[scalarType], m_baseTypes[scalarType]);
       m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
     }
-    DXASSERT(m_scalarTypeDefs[scalarType], "Otherwise we did not build scalar types correctly.");
+    // For Potential Sema::CorrectTypo lookup for base types
+    if (!m_scalarTypeDefs[scalarType]) {
+      m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, HLSLScalarTypeNames[scalarType], m_baseTypes[scalarType]);
+    }
     return m_scalarTypeDefs[scalarType];
   }
 
