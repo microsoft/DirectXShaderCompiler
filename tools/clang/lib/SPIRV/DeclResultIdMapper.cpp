@@ -1243,9 +1243,14 @@ bool DeclResultIdMapper::createStageVars(
       // HLSL. If SV_InsideTessFactor is a scalar, only extract index 0 of
       // TessLevelInner.
       else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor &&
-               !type->isArrayType()) {
-        *value = theBuilder.createCompositeExtract(theBuilder.getFloat32Type(),
-                                                   *value, {0});
+               // Some developers use float[1] instead of a scalar float.
+               (!type->isArrayType() || hlsl::GetArraySize(type) == 1)) {
+        const auto f32Type = theBuilder.getFloat32Type();
+        *value = theBuilder.createCompositeExtract(f32Type, *value, {0});
+        if (type->isArrayType()) // float[1]
+          *value = theBuilder.createCompositeConstruct(
+              theBuilder.getArrayType(f32Type, theBuilder.getConstantUint32(1)),
+              {*value});
       }
       // SV_DomainLocation can refer to a float2 or a float3, whereas TessCoord
       // is always a float3. To ensure SPIR-V validity, a float3 stage variable
@@ -1307,11 +1312,14 @@ bool DeclResultIdMapper::createStageVars(
       // HLSL. If SV_InsideTessFactor is a scalar, only write to index 0 of
       // TessLevelInner.
       else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor &&
-               !type->isArrayType()) {
+               // Some developers use float[1] instead of a scalar float.
+               (!type->isArrayType() || hlsl::GetArraySize(type) == 1)) {
+        const auto f32Type = theBuilder.getFloat32Type();
         ptr = theBuilder.createAccessChain(
-            theBuilder.getPointerType(theBuilder.getFloat32Type(),
-                                      spv::StorageClass::Output),
+            theBuilder.getPointerType(f32Type, spv::StorageClass::Output),
             varId, theBuilder.getConstantUint32(0));
+        if (type->isArrayType()) // float[1]
+          *value = theBuilder.createCompositeExtract(f32Type, *value, {0});
         theBuilder.createStore(ptr, *value);
       }
       // Special handling of SV_Coverage, which is an unit value. We need to

@@ -464,6 +464,10 @@ TEST_F(FileTest, SemanticTessFactorSizeMismatchDS) {
 TEST_F(FileTest, SemanticInsideTessFactorDS) {
   runFileTest("semantic.inside-tess-factor.ds.hlsl");
 }
+TEST_F(FileTest, SemanticInsideTessFactorDSArray1) {
+  // Test that SV_InsideTessFactor is of type float[1]
+  runFileTest("semantic.inside-tess-factor.ds.array1.hlsl");
+}
 TEST_F(FileTest, SemanticTessFactorHS) {
   runFileTest("semantic.tess-factor.hs.hlsl");
 }
@@ -472,6 +476,10 @@ TEST_F(FileTest, SemanticTessFactorSizeMismatchHS) {
 }
 TEST_F(FileTest, SemanticInsideTessFactorHS) {
   runFileTest("semantic.inside-tess-factor.hs.hlsl");
+}
+TEST_F(FileTest, SemanticInsideTessFactorHSArray1) {
+  // Test that SV_InsideTessFactor is of type float[1]
+  runFileTest("semantic.inside-tess-factor.hs.array1.hlsl");
 }
 TEST_F(FileTest, SemanticPrimitiveIdHS) {
   runFileTest("semantic.primitive-id.hs.hlsl");
