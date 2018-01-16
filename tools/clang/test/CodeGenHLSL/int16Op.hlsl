@@ -11,7 +11,7 @@
 
 
 struct SUnaryUintOp {
-    uint16_t4 input1;
+    uint16_t input1;
     uint16_t4 input2;
     uint16_t4 output;
 };
