@@ -234,7 +234,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmResourceRangeOverlap: return "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5";
     case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1";
     case hlsl::ValidationRule::SmCBufferElementOverflow: return "CBuffer %0 size insufficient for element at offset %1";
-    case hlsl::ValidationRule::SmOpcodeInInvalidFunction: return "opcode '%0' should only used in '%1'";
+    case hlsl::ValidationRule::SmOpcodeInInvalidFunction: return "opcode '%0' should only be used in '%1'";
     case hlsl::ValidationRule::SmViewIDNeedsSlot: return "Pixel shader input signature lacks available space for ViewID";
     case hlsl::ValidationRule::UniNoWaveSensitiveGradient: return "Gradient operations are not affected by wave-sensitive data or control flow.";
     case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
@@ -1919,6 +1919,16 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     break;
   case DXIL::OpCode::ViewID:
     ValCtx.hasViewID = true;
+    break;
+  case DXIL::OpCode::QuadOp:
+    if (!pSM->IsPS())
+      ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
+                             {"QuadReadAcross", "Pixel Shader"});
+    break;
+  case DXIL::OpCode::QuadReadLaneAt:
+    if (!pSM->IsPS())
+      ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
+                             {"QuadReadLaneAt", "Pixel Shader"});
     break;
   default:
     // Skip opcodes don't need special check.
