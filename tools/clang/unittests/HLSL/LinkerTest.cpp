@@ -281,6 +281,7 @@ TEST_F(LinkerTest, RunLinkNoAlloca) {
 }
 
 TEST_F(LinkerTest, RunLinkFailSelectRes) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
   CComPtr<IDxcBlob> pEntryLib;
   CompileLib(L"..\\CodeGenHLSL\\lib_select_res_entry.hlsl", &pEntryLib);
   CComPtr<IDxcBlob> pLib;
