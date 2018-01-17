@@ -3041,12 +3041,14 @@ public:
     return m_sema;
   }
 
-  TypedefDecl* LookupScalarType(HLSLScalarType scalarType) {
+  TypedefDecl* LookupScalarTypeDef(HLSLScalarType scalarType) {
+    // We shouldn't create Typedef for built in scalar types.
+    // For built in scalar types, this funciton may be called for
+    // TypoCorrection. In that case, we return a nullptr.
     if (m_scalarTypes[scalarType].isNull()) {
       m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, HLSLScalarTypeNames[scalarType], m_baseTypes[scalarType]);
       m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
     }
-    DXASSERT(m_scalarTypeDefs[scalarType], "Otherwise we did not build scalar types correctly.");
     return m_scalarTypeDefs[scalarType];
   }
 
@@ -3056,7 +3058,7 @@ public:
     if (qt.isNull()) {
       // lazy initialization of scalar types 
       if (m_scalarTypes[scalarType].isNull()) {
-        LookupScalarType(scalarType);
+        LookupScalarTypeDef(scalarType);
       }
       qt = GetOrCreateMatrixSpecialization(*m_context, m_sema, m_matrixTemplateDecl, m_scalarTypes[scalarType], rowCount, colCount);
       m_matrixTypes[scalarType][rowCount - 1][colCount - 1] = qt;
@@ -3069,7 +3071,7 @@ public:
     QualType qt = m_vectorTypes[scalarType][colCount - 1];
     if (qt.isNull()) {
       if (m_scalarTypes[scalarType].isNull()) {
-        LookupScalarType(scalarType);
+        LookupScalarTypeDef(scalarType);
       }
       qt = GetOrCreateVectorSpecialization(*m_context, m_sema, m_vectorTemplateDecl, m_scalarTypes[scalarType], colCount);
       m_vectorTypes[scalarType][colCount - 1] = qt;
@@ -3166,7 +3168,8 @@ public:
     if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getSema()->getLangOpts())) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
       if (rowCount == 0 && colCount == 0) { // scalar
-        TypedefDecl *typeDecl = LookupScalarType(parsedType);
+        TypedefDecl *typeDecl = LookupScalarTypeDef(parsedType);
+        if (!typeDecl) return false;
         R.addDecl(typeDecl);
       }
       else if (rowCount == 0) { // vector
