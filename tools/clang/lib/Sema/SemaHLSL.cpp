@@ -3041,15 +3041,12 @@ public:
     return m_sema;
   }
 
-  TypedefDecl* LookupScalarType(HLSLScalarType scalarType) {
+  TypedefDecl* LookupScalarTypeDef(HLSLScalarType scalarType) {
     if (m_scalarTypes[scalarType].isNull()) {
       m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, HLSLScalarTypeNames[scalarType], m_baseTypes[scalarType]);
       m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
     }
-    // For Potential Sema::CorrectTypo lookup for base types
-    if (!m_scalarTypeDefs[scalarType]) {
-      m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, HLSLScalarTypeNames[scalarType], m_baseTypes[scalarType]);
-    }
+    // typedefs may be null for basic types
     return m_scalarTypeDefs[scalarType];
   }
 
@@ -3059,7 +3056,7 @@ public:
     if (qt.isNull()) {
       // lazy initialization of scalar types 
       if (m_scalarTypes[scalarType].isNull()) {
-        LookupScalarType(scalarType);
+        LookupScalarTypeDef(scalarType);
       }
       qt = GetOrCreateMatrixSpecialization(*m_context, m_sema, m_matrixTemplateDecl, m_scalarTypes[scalarType], rowCount, colCount);
       m_matrixTypes[scalarType][rowCount - 1][colCount - 1] = qt;
@@ -3072,7 +3069,7 @@ public:
     QualType qt = m_vectorTypes[scalarType][colCount - 1];
     if (qt.isNull()) {
       if (m_scalarTypes[scalarType].isNull()) {
-        LookupScalarType(scalarType);
+        LookupScalarTypeDef(scalarType);
       }
       qt = GetOrCreateVectorSpecialization(*m_context, m_sema, m_vectorTemplateDecl, m_scalarTypes[scalarType], colCount);
       m_vectorTypes[scalarType][colCount - 1] = qt;
@@ -3169,8 +3166,9 @@ public:
     if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount, getSema()->getLangOpts())) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
       if (rowCount == 0 && colCount == 0) { // scalar
-        TypedefDecl *typeDecl = LookupScalarType(parsedType);
-        R.addDecl(typeDecl);
+        TypedefDecl *typeDecl = LookupScalarTypeDef(parsedType);
+        if (typeDecl)
+          R.addDecl(typeDecl);
       }
       else if (rowCount == 0) { // vector
         QualType qt = LookupVectorType(parsedType, colCount);
