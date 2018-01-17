@@ -3042,11 +3042,13 @@ public:
   }
 
   TypedefDecl* LookupScalarTypeDef(HLSLScalarType scalarType) {
+    // We shouldn't create Typedef for built in scalar types.
+    // For built in scalar types, this funciton may be called for
+    // TypoCorrection. In that case, we return a nullptr.
     if (m_scalarTypes[scalarType].isNull()) {
       m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, HLSLScalarTypeNames[scalarType], m_baseTypes[scalarType]);
       m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
     }
-    // typedefs may be null for basic types
     return m_scalarTypeDefs[scalarType];
   }
 
@@ -3167,8 +3169,8 @@ public:
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
       if (rowCount == 0 && colCount == 0) { // scalar
         TypedefDecl *typeDecl = LookupScalarTypeDef(parsedType);
-        if (typeDecl)
-          R.addDecl(typeDecl);
+        if (!typeDecl) return false;
+        R.addDecl(typeDecl);
       }
       else if (rowCount == 0) { // vector
         QualType qt = LookupVectorType(parsedType, colCount);
