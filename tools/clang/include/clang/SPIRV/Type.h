@@ -13,7 +13,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "spirv/1.0/spirv.hpp11"
+#include "spirv/unified1/spirv.hpp11"
 #include "clang/SPIRV/Decoration.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"

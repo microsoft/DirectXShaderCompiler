@@ -171,7 +171,9 @@ void Function::getReachableBasicBlocks(std::vector<BasicBlock *> *bbVec) const {
 // === Module components implementations ===
 
 Header::Header()
-    : magicNumber(spv::MagicNumber), version(spv::Version),
+    // We are using the unfied header, which shows spv::Version as the newest
+    // version. But we need to stick to 1.0 for Vulkan consumption.
+    : magicNumber(spv::MagicNumber), version(0x00010000),
       generator((kGeneratorNumber << 16) | kToolVersion), bound(0),
       reserved(0) {}
 

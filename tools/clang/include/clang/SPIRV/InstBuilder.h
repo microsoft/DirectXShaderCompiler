@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-#include "spirv/1.0/spirv.hpp11"
+#include "spirv/unified1/spirv.hpp11"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 
@@ -86,6 +86,7 @@ public:
   /// \brief Finalizes the building and returns the generated SPIR-V words.
   /// Returns an empty vector if errors happened during the construction.
   std::vector<uint32_t> take();
+
   /// \brief Clears the current instruction under building.
   void clear();
 
@@ -777,6 +778,34 @@ public:
   opImageSparseRead(uint32_t result_type, uint32_t result_id, uint32_t image,
                     uint32_t coordinate,
                     llvm::Optional<spv::ImageOperandsMask> image_operands);
+  InstBuilder &opSizeOf(uint32_t result_type, uint32_t result_id,
+                        uint32_t pointer);
+  InstBuilder &opTypePipeStorage(uint32_t result_id);
+  InstBuilder &opConstantPipeStorage(uint32_t result_type, uint32_t result_id,
+                                     uint32_t packet_size,
+                                     uint32_t packet_alignment,
+                                     uint32_t capacity);
+  InstBuilder &opCreatePipeFromPipeStorage(uint32_t result_type,
+                                           uint32_t result_id,
+                                           uint32_t pipe_storage);
+  InstBuilder &
+  opGetKernelLocalSizeForSubgroupCount(uint32_t result_type, uint32_t result_id,
+                                       uint32_t subgroup_count, uint32_t invoke,
+                                       uint32_t param, uint32_t param_size,
+                                       uint32_t param_align);
+  InstBuilder &opGetKernelMaxNumSubgroups(uint32_t result_type,
+                                          uint32_t result_id, uint32_t invoke,
+                                          uint32_t param, uint32_t param_size,
+                                          uint32_t param_align);
+  InstBuilder &opTypeNamedBarrier(uint32_t result_id);
+  InstBuilder &opNamedBarrierInitialize(uint32_t result_type,
+                                        uint32_t result_id,
+                                        uint32_t subgroup_count);
+  InstBuilder &opMemoryNamedBarrier(uint32_t named_barrier, uint32_t memory,
+                                    uint32_t semantics);
+  InstBuilder &opModuleProcessed(std::string process);
+  InstBuilder &opExecutionModeId(uint32_t entry_point, spv::ExecutionMode mode);
+  InstBuilder &opDecorateId(uint32_t target, spv::Decoration decoration);
   InstBuilder &opSubgroupBallotKHR(uint32_t result_type, uint32_t result_id,
                                    uint32_t predicate);
   InstBuilder &opSubgroupFirstInvocationKHR(uint32_t result_type,
@@ -896,6 +925,7 @@ private:
   };
 
   void encodeImageOperands(spv::ImageOperandsMask value);
+  void encodeLoopControl(spv::LoopControlMask value);
   void encodeMemoryAccess(spv::MemoryAccessMask value);
   void encodeExecutionMode(spv::ExecutionMode value);
   void encodeDecoration(spv::Decoration value);

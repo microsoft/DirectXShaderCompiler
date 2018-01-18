@@ -24,7 +24,7 @@
 #include <string>
 #include <vector>
 
-#include "spirv/1.0/spirv.hpp11"
+#include "spirv/unified1/spirv.hpp11"
 #include "clang/SPIRV/Constant.h"
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/Type.h"

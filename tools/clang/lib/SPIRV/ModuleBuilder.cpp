@@ -10,7 +10,7 @@
 #include "clang/SPIRV/ModuleBuilder.h"
 
 #include "TypeTranslator.h"
-#include "spirv/1.0//spirv.hpp11"
+#include "spirv/unified1//spirv.hpp11"
 #include "clang/SPIRV/InstBuilder.h"
 #include "llvm/llvm_assert/assert.h"
 

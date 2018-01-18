@@ -18,7 +18,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-#include "spirv/1.0/spirv.hpp11"
+#include "spirv/unified1/spirv.hpp11"
 #include "clang/SPIRV/InstBuilder.h"
 #include "llvm/ADT/ArrayRef.h"
 
@@ -35,7 +35,7 @@ inline InstBuilder constructInstBuilder(std::vector<uint32_t> &binary) {
 
 /// Returns the words in SPIR-V module header with the given id bound.
 inline std::vector<uint32_t> getModuleHeader(uint32_t bound) {
-  return {spv::MagicNumber, spv::Version, 14u << 16, bound, 0};
+  return {spv::MagicNumber, 0x00010000, 14u << 16, bound, 0};
 }
 
 /// Creates a SPIR-V instruction.
