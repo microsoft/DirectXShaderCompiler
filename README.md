@@ -58,14 +58,13 @@ Some tests will run shaders and verify their behavior. These tests also involve 
 
 ## Running Shaders
 
-To run shaders compiled as DXIL, you will need support from the operating system as well as from the driver for your graphics adapter. Windows 10 Creators Update is the first version to support DXIL shaders.
-
-Drivers indicate they can run DXIL by reporting support for Shader Model 6, possibly in experimental mode. To enable support in these cases, the [Developer mode](https://msdn.microsoft.com/windows/uwp/get-started/enable-your-device-for-development) setting must be enabled.
+To run shaders compiled as DXIL, you will need support from the operating system as well as from the driver for your graphics adapter. Windows 10 Creators Update is the first version to support DXIL shaders. See the [Wiki](https://github.com/Microsoft/DirectXShaderCompiler/wiki/Running-Shaders) for information on using experimental support or the software adapter.
 
 ### Hardware Support
 
 Hardware GPU support for DXIL is provided by the following vendors:
 
+#### NVIDIA
 NVIDIA's r387 drivers (r387.92 and later) provide release mode support for DXIL
 1.0 and Shader Model 6.0 on Win10 FCU and later, and experimental mode support
 for DXIL 1.1 and Shader Model 6.1. This driver can be downloaded from
@@ -76,8 +75,10 @@ current as of this update) are provided below:
 
 [Release Notes](http://us.download.nvidia.com/Windows/388.59/388.59-win10-win8-win7-desktop-release-notes.pdf)
 
+#### AMD
 AMD's latest driver with support for DXIL 1.0 and Shader Model 6 in experimental mode is [Radeon Software Crimson ReLive Edition 17.4.2](http://support.amd.com/en-us/kb-articles/Pages/Radeon-Software-Crimson-ReLive-Edition-17.4.2-Release-Notes.aspx).
 
+### Intel
 Intel's 15.60 drivers (15.60.0.4849 and later) support release mode for DXIL 1.0 and Shader Model 6.0 as well as
 release mode for DXIL 1.1 and Shader Model 6.1 (View Instancing support only).
 
@@ -88,12 +89,6 @@ Direct access to 15.60 driver (latest as of of this update) is provided below:
 [Installer](https://downloadmirror.intel.com/27412/a08/win64_15.60.2.4901.exe)
 
 [Release Notes related to DXIL](https://downloadmirror.intel.com/27266/eng/ReleaseNotes_GFX_15600.4849.pdf)
-
-### Software Rendering
-
-In the absence of hardware support, tests will run using the Windows Advanced Rasterization Platform (WARP) adapter. To get the correct version of WARP working, in addition to setting Developer mode, you should install the 'Graphics Tools' optional feature via the Settings app (click the 'Apps' icon, then the 'Manage optional features' link, then 'Add a feature', and select 'Graphics Tools' from the list).
-
-For more information, see this [Wiki page](https://github.com/Microsoft/DirectXShaderCompiler/wiki/Running-Shaders).
 
 ## Making Changes
 
