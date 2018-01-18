@@ -21,7 +21,7 @@
 
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HlslIntrinsicOp.h"
-#include "spirv/1.0/GLSL.std.450.h"
+#include "spirv/unified1/GLSL.std.450.h"
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"

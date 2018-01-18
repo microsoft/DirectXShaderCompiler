@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "spirv/1.0/spirv.hpp11"
+#include "spirv/unified1/spirv.hpp11"
 #include "clang/SPIRV/ModuleBuilder.h"
 
 #include "SPIRVTestUtils.h"
@@ -24,7 +24,7 @@ TEST(ModuleBuilder, TakeModuleDirectlyCreatesHeader) {
   ModuleBuilder builder(&context);
 
   EXPECT_THAT(builder.takeModule(),
-              ElementsAre(spv::MagicNumber, spv::Version, 14u << 16, 1u, 0u));
+              ElementsAre(spv::MagicNumber, 0x00010000, 14u << 16, 1u, 0u));
 }
 
 TEST(ModuleBuilder, CreateFunction) {

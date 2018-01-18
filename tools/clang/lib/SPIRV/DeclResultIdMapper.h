@@ -16,7 +16,7 @@
 #include "dxc/HLSL/DxilSemantic.h"
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilSigPoint.h"
-#include "spirv/1.0/spirv.hpp11"
+#include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Attr.h"
 #include "clang/SPIRV/EmitSPIRVOptions.h"
 #include "clang/SPIRV/ModuleBuilder.h"

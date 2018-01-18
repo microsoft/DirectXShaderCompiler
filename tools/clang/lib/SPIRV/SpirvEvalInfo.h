@@ -14,7 +14,7 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_SPIRVEVALINFO_H
 #define LLVM_CLANG_LIB_SPIRV_SPIRVEVALINFO_H
 
-#include "spirv/1.0/spirv.hpp11"
+#include "spirv/unified1/spirv.hpp11"
 
 namespace clang {
 namespace spirv {
