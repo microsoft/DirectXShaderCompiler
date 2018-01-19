@@ -251,7 +251,7 @@ type instructions:
 ``int16_t``                    ``-enable-16bit-types`` ``OpTypeInt 16 1`` ``Int16``
 ``uint``/``dword``/``uin32_t``                         ``OpTypeInt 32 0``
 ``uint16_t``                   ``-enable-16bit-types`` ``OpTypeInt 16 0`` ``Int16``
-``half``                                               ``OpTypeFloat 32`` 
+``half``                                               ``OpTypeFloat 32``
 ``half``/``float16_t``         ``-enable-16bit-types`` ``OpTypeFloat 16`` ``Float16`` ``SPV_AMD_gpu_shader_half_float``
 ``float``/``float32_t``                                ``OpTypeFloat 32``
 ``snorm float``                                        ``OpTypeFloat 32``
@@ -2043,6 +2043,52 @@ the instruction directly.
 Since Texture2DMS is represented as ``OpTypeImage`` with ``MS`` of ``1``, the ``OpImageQuerySize`` instruction
 is used to get the width and the height. Furthermore, ``OpImageQuerySamples`` is used to get the numSamples.
 
+``.GetSamplePosition(index)``
++++++++++++++++++++++++++++++
+There are no direct mapping SPIR-V instructions for this method. Right now, it
+is translated into the SPIR-V code for the following HLSL source code:
+
+.. code:: hlsl
+
+  // count is the number of samples in the Texture2DMS(Array)
+  // index is the index of the sample we are trying to get the position
+
+  static const float2 pos2[] = {
+      { 4.0/16.0,  4.0/16.0 }, {-4.0/16.0, -4.0/16.0 },
+  };
+
+  static const float2 pos4[] = {
+      {-2.0/16.0, -6.0/16.0 }, { 6.0/16.0, -2.0/16.0 }, {-6.0/16.0,  2.0/16.0 }, { 2.0/16.0,  6.0/16.0 },
+  };
+
+  static const float2 pos8[] = {
+      { 1.0/16.0, -3.0/16.0 }, {-1.0/16.0,  3.0/16.0 }, { 5.0/16.0,  1.0/16.0 }, {-3.0/16.0, -5.0/16.0 },
+      {-5.0/16.0,  5.0/16.0 }, {-7.0/16.0, -1.0/16.0 }, { 3.0/16.0,  7.0/16.0 }, { 7.0/16.0, -7.0/16.0 },
+  };
+
+  static const float2 pos16[] = {
+      { 1.0/16.0,  1.0/16.0 }, {-1.0/16.0, -3.0/16.0 }, {-3.0/16.0,  2.0/16.0 }, { 4.0/16.0, -1.0/16.0 },
+      {-5.0/16.0, -2.0/16.0 }, { 2.0/16.0,  5.0/16.0 }, { 5.0/16.0,  3.0/16.0 }, { 3.0/16.0, -5.0/16.0 },
+      {-2.0/16.0,  6.0/16.0 }, { 0.0/16.0, -7.0/16.0 }, {-4.0/16.0, -6.0/16.0 }, {-6.0/16.0,  4.0/16.0 },
+      {-8.0/16.0,  0.0/16.0 }, { 7.0/16.0, -4.0/16.0 }, { 6.0/16.0,  7.0/16.0 }, {-7.0/16.0, -8.0/16.0 },
+  };
+
+  float2 position = float2(0.0f, 0.0f);
+
+  if (count == 2) {
+      position = pos2[index];
+  } else if (count == 4) {
+      position = pos4[index];
+  } else if (count == 8) {
+      position = pos8[index];
+  } else if (count == 16) {
+      position = pos16[index];
+  }
+
+From the above, it's clear that the current implementation only supports standard
+sample settings, i.e., with 1, 2, 4, 8, or 16 samples. For other cases, the
+implementation will just return `(float2)0`.
+
 ``Texture2DMSArray``
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -2057,6 +2103,10 @@ the instruction directly.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Since Texture2DMS is represented as ``OpTypeImage`` with ``MS`` of ``1``, the ``OpImageQuerySize`` instruction
 is used to get the width, the height, and the elements. Furthermore, ``OpImageQuerySamples`` is used to get the numSamples.
+
+``.GetSamplePosition(index)``
++++++++++++++++++++++++++++++
+Similar to Texture2D.
 
 ``TextureCube``
 ~~~~~~~~~~~~~~~
@@ -2347,9 +2397,6 @@ either because of no Vulkan equivalents at the moment, or because of deprecation
 * ``.CalculateLevelOfDetailUnclamped()`` intrinsic method: no Vulkan equivalent.
   (SPIR-V ``OpImageQueryLod`` returns the clamped LOD in Vulkan.) The compiler
   will emit an error.
-* ``.GetSamplePosition()`` intrinsic method: no Vulkan equivalent.
-  (``gl_SamplePosition`` provides similar functionality but it's only for the
-  sample currently being processed.) The compiler will emit an error.
 * ``SV_InnerCoverage`` semantic does not have a Vulkan equivalent. The compiler
   will emit an error.
 * Since ``StructuredBuffer``, ``RWStructuredBuffer``, ``ByteAddressBuffer``, and
