@@ -728,6 +728,10 @@ private:
   uint32_t processRWByteAddressBufferAtomicMethods(hlsl::IntrinsicOp opcode,
                                                    const CXXMemberCallExpr *);
 
+  /// \brief Processes the GetSamplePosition intrinsic method call on a
+  /// Texture2DMS(Array).
+  uint32_t processGetSamplePosition(const CXXMemberCallExpr *);
+
   /// \brief Generates SPIR-V instructions for the .Append()/.Consume() call on
   /// the given {Append|Consume}StructuredBuffer. Returns the <result-id> of
   /// the loaded value for .Consume; returns zero for .Append().
@@ -739,6 +743,10 @@ private:
   /// \brief Generates SPIR-V instructions to end emitting the current
   /// primitive in GS.
   uint32_t processStreamOutputRestart(const CXXMemberCallExpr *expr);
+
+  /// \brief Emulates GetSamplePosition() for standard sample settings, i.e.,
+  /// with 1, 2, 4, 8, or 16 samples. Returns float2(0) for other cases.
+  uint32_t emitGetSamplePosition(uint32_t sampleCount, uint32_t sampleIndex);
 
 private:
   /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3

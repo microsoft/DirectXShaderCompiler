@@ -212,6 +212,13 @@ uint32_t ModuleBuilder::createUnaryOp(spv::Op op, uint32_t resultType,
   const uint32_t id = theContext.takeNextId();
   instBuilder.unaryOp(op, resultType, id, operand).x();
   insertPoint->appendInstruction(std::move(constructSite));
+  switch (op) {
+  case spv::Op::OpImageQuerySize:
+  case spv::Op::OpImageQueryLevels:
+  case spv::Op::OpImageQuerySamples:
+    requireCapability(spv::Capability::ImageQuery);
+    break;
+  }
   return id;
 }
 
@@ -221,6 +228,12 @@ uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
   const uint32_t id = theContext.takeNextId();
   instBuilder.binaryOp(op, resultType, id, lhs, rhs).x();
   insertPoint->appendInstruction(std::move(constructSite));
+  switch (op) {
+  case spv::Op::OpImageQueryLod:
+  case spv::Op::OpImageQuerySizeLod:
+    requireCapability(spv::Capability::ImageQuery);
+    break;
+  }
   return id;
 }
 

@@ -2326,9 +2326,20 @@ uint32_t SPIRVEmitter::processRWByteAddressBufferAtomicMethods(
   return 0;
 }
 
+uint32_t SPIRVEmitter::processGetSamplePosition(const CXXMemberCallExpr *expr) {
+  const auto *object = expr->getImplicitObjectArgument()->IgnoreParens();
+  const auto sampleCount = theBuilder.createUnaryOp(
+      spv::Op::OpImageQuerySamples, theBuilder.getUint32Type(),
+      loadIfGLValue(object));
+  emitWarning(
+      "GetSamplePosition only supports standard sample settings with 1, 2, 4, "
+      "8, or 16 samples and will return float2(0, 0) for other cases",
+      expr->getCallee()->getExprLoc());
+  return emitGetSamplePosition(sampleCount, doExpr(expr->getArg(0)));
+}
+
 uint32_t
 SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
-  theBuilder.requireCapability(spv::Capability::ImageQuery);
   const auto *object = expr->getImplicitObjectArgument();
   const auto objectId = loadIfGLValue(object);
   const auto type = object->getType();
@@ -2462,7 +2473,6 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr) {
   // Texture3D.CalculateLevelOfDetail(SamplerState S, float3 xyz);
   // Return type is always a single float (LOD).
   assert(expr->getNumArgs() == 2u);
-  theBuilder.requireCapability(spv::Capability::ImageQuery);
   const auto *object = expr->getImplicitObjectArgument();
   const uint32_t objectId = loadIfGLValue(object);
   const uint32_t samplerState = doExpr(expr->getArg(0));
@@ -2993,6 +3003,219 @@ SPIRVEmitter::processStreamOutputRestart(const CXXMemberCallExpr *expr) {
   return 0;
 }
 
+uint32_t SPIRVEmitter::emitGetSamplePosition(const uint32_t sampleCount,
+                                             const uint32_t sampleIndex) {
+  struct Float2 {
+    float x;
+    float y;
+  };
+
+  static const Float2 pos2[] = {
+      {4.0 / 16.0, 4.0 / 16.0},
+      {-4.0 / 16.0, -4.0 / 16.0},
+  };
+
+  static const Float2 pos4[] = {
+      {-2.0 / 16.0, -6.0 / 16.0},
+      {6.0 / 16.0, -2.0 / 16.0},
+      {-6.0 / 16.0, 2.0 / 16.0},
+      {2.0 / 16.0, 6.0 / 16.0},
+  };
+
+  static const Float2 pos8[] = {
+      {1.0 / 16.0, -3.0 / 16.0}, {-1.0 / 16.0, 3.0 / 16.0},
+      {5.0 / 16.0, 1.0 / 16.0},  {-3.0 / 16.0, -5.0 / 16.0},
+      {-5.0 / 16.0, 5.0 / 16.0}, {-7.0 / 16.0, -1.0 / 16.0},
+      {3.0 / 16.0, 7.0 / 16.0},  {7.0 / 16.0, -7.0 / 16.0},
+  };
+
+  static const Float2 pos16[] = {
+      {1.0 / 16.0, 1.0 / 16.0},   {-1.0 / 16.0, -3.0 / 16.0},
+      {-3.0 / 16.0, 2.0 / 16.0},  {4.0 / 16.0, -1.0 / 16.0},
+      {-5.0 / 16.0, -2.0 / 16.0}, {2.0 / 16.0, 5.0 / 16.0},
+      {5.0 / 16.0, 3.0 / 16.0},   {3.0 / 16.0, -5.0 / 16.0},
+      {-2.0 / 16.0, 6.0 / 16.0},  {0.0 / 16.0, -7.0 / 16.0},
+      {-4.0 / 16.0, -6.0 / 16.0}, {-6.0 / 16.0, 4.0 / 16.0},
+      {-8.0 / 16.0, 0.0 / 16.0},  {7.0 / 16.0, -4.0 / 16.0},
+      {6.0 / 16.0, 7.0 / 16.0},   {-7.0 / 16.0, -8.0 / 16.0},
+  };
+
+  // We are emitting the SPIR-V for the following HLSL source code:
+  //
+  //   float2 position;
+  //
+  //   if (count == 2) {
+  //     position = pos2[index];
+  //   }
+  //   else if (count == 4) {
+  //     position = pos4[index];
+  //   }
+  //   else if (count == 8) {
+  //     position = pos8[index];
+  //   }
+  //   else if (count == 16) {
+  //     position = pos16[index];
+  //   }
+  //   else {
+  //     position = float2(0.0f, 0.0f);
+  //   }
+
+  const uint32_t boolType = theBuilder.getBoolType();
+  const auto v2f32Type = theBuilder.getVecType(theBuilder.getFloat32Type(), 2);
+  const uint32_t ptrType =
+      theBuilder.getPointerType(v2f32Type, spv::StorageClass::Function);
+
+  // Creates a SPIR-V function scope variable of type float2[len].
+  const auto createArray = [this, v2f32Type](const Float2 *ptr, uint32_t len) {
+    llvm::SmallVector<uint32_t, 16> components;
+    for (uint32_t i = 0; i < len; ++i) {
+      const auto x = theBuilder.getConstantFloat32(ptr[i].x);
+      const auto y = theBuilder.getConstantFloat32(ptr[i].y);
+      components.push_back(theBuilder.getConstantComposite(v2f32Type, {x, y}));
+    }
+
+    const auto arrType =
+        theBuilder.getArrayType(v2f32Type, theBuilder.getConstantUint32(len));
+    const auto val = theBuilder.getConstantComposite(arrType, components);
+
+    const std::string varName =
+        "var.GetSamplePosition.data." + std::to_string(len);
+    return theBuilder.addFnVar(arrType, varName, val);
+  };
+
+  const uint32_t pos2Arr = createArray(pos2, 2);
+  const uint32_t pos4Arr = createArray(pos4, 4);
+  const uint32_t pos8Arr = createArray(pos8, 8);
+  const uint32_t pos16Arr = createArray(pos16, 16);
+
+  const uint32_t resultVar =
+      theBuilder.addFnVar(v2f32Type, "var.GetSamplePosition.result");
+
+  const uint32_t then2BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.then2");
+  const uint32_t then4BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.then4");
+  const uint32_t then8BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.then8");
+  const uint32_t then16BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.then16");
+
+  const uint32_t else2BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.else2");
+  const uint32_t else4BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.else4");
+  const uint32_t else8BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.else8");
+  const uint32_t else16BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.else16");
+
+  const uint32_t merge2BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.merge2");
+  const uint32_t merge4BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.merge4");
+  const uint32_t merge8BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.merge8");
+  const uint32_t merge16BB =
+      theBuilder.createBasicBlock("if.GetSamplePosition.merge16");
+
+  //   if (count == 2) {
+  const auto check2 =
+      theBuilder.createBinaryOp(spv::Op::OpIEqual, boolType, sampleCount,
+                                theBuilder.getConstantUint32(2));
+  theBuilder.createConditionalBranch(check2, then2BB, else2BB, merge2BB);
+  theBuilder.addSuccessor(then2BB);
+  theBuilder.addSuccessor(else2BB);
+  theBuilder.setMergeTarget(merge2BB);
+
+  //     position = pos2[index];
+  //   }
+  theBuilder.setInsertPoint(then2BB);
+  auto ac = theBuilder.createAccessChain(ptrType, pos2Arr, {sampleIndex});
+  theBuilder.createStore(resultVar, theBuilder.createLoad(v2f32Type, ac));
+  theBuilder.createBranch(merge2BB);
+  theBuilder.addSuccessor(merge2BB);
+
+  //   else if (count == 4) {
+  theBuilder.setInsertPoint(else2BB);
+  const auto check4 =
+      theBuilder.createBinaryOp(spv::Op::OpIEqual, boolType, sampleCount,
+                                theBuilder.getConstantUint32(4));
+  theBuilder.createConditionalBranch(check4, then4BB, else4BB, merge4BB);
+  theBuilder.addSuccessor(then4BB);
+  theBuilder.addSuccessor(else4BB);
+  theBuilder.setMergeTarget(merge4BB);
+
+  //     position = pos4[index];
+  //   }
+  theBuilder.setInsertPoint(then4BB);
+  ac = theBuilder.createAccessChain(ptrType, pos4Arr, {sampleIndex});
+  theBuilder.createStore(resultVar, theBuilder.createLoad(v2f32Type, ac));
+  theBuilder.createBranch(merge4BB);
+  theBuilder.addSuccessor(merge4BB);
+
+  //   else if (count == 8) {
+  theBuilder.setInsertPoint(else4BB);
+  const auto check8 =
+      theBuilder.createBinaryOp(spv::Op::OpIEqual, boolType, sampleCount,
+                                theBuilder.getConstantUint32(8));
+  theBuilder.createConditionalBranch(check8, then8BB, else8BB, merge8BB);
+  theBuilder.addSuccessor(then8BB);
+  theBuilder.addSuccessor(else8BB);
+  theBuilder.setMergeTarget(merge8BB);
+
+  //     position = pos8[index];
+  //   }
+  theBuilder.setInsertPoint(then8BB);
+  ac = theBuilder.createAccessChain(ptrType, pos8Arr, {sampleIndex});
+  theBuilder.createStore(resultVar, theBuilder.createLoad(v2f32Type, ac));
+  theBuilder.createBranch(merge8BB);
+  theBuilder.addSuccessor(merge8BB);
+
+  //   else if (count == 16) {
+  theBuilder.setInsertPoint(else8BB);
+  const auto check16 =
+      theBuilder.createBinaryOp(spv::Op::OpIEqual, boolType, sampleCount,
+                                theBuilder.getConstantUint32(16));
+  theBuilder.createConditionalBranch(check16, then16BB, else16BB, merge16BB);
+  theBuilder.addSuccessor(then16BB);
+  theBuilder.addSuccessor(else16BB);
+  theBuilder.setMergeTarget(merge16BB);
+
+  //     position = pos16[index];
+  //   }
+  theBuilder.setInsertPoint(then16BB);
+  ac = theBuilder.createAccessChain(ptrType, pos16Arr, {sampleIndex});
+  theBuilder.createStore(resultVar, theBuilder.createLoad(v2f32Type, ac));
+  theBuilder.createBranch(merge16BB);
+  theBuilder.addSuccessor(merge16BB);
+
+  //   else {
+  //     position = float2(0.0f, 0.0f);
+  //   }
+  theBuilder.setInsertPoint(else16BB);
+  const auto zero = theBuilder.getConstantFloat32(0);
+  const auto v2f32Zero =
+      theBuilder.getConstantComposite(v2f32Type, {zero, zero});
+  theBuilder.createStore(resultVar, v2f32Zero);
+  theBuilder.createBranch(merge16BB);
+  theBuilder.addSuccessor(merge16BB);
+
+  theBuilder.setInsertPoint(merge16BB);
+  theBuilder.createBranch(merge8BB);
+  theBuilder.addSuccessor(merge8BB);
+
+  theBuilder.setInsertPoint(merge8BB);
+  theBuilder.createBranch(merge4BB);
+  theBuilder.addSuccessor(merge4BB);
+
+  theBuilder.setInsertPoint(merge4BB);
+  theBuilder.createBranch(merge2BB);
+  theBuilder.addSuccessor(merge2BB);
+
+  theBuilder.setInsertPoint(merge2BB);
+  return theBuilder.createLoad(v2f32Type, resultVar);
+}
+
 SpirvEvalInfo SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
   const FunctionDecl *callee = expr->getDirectCallee();
 
@@ -3123,10 +3346,12 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_InterlockedCompareStore:
     retVal = processRWByteAddressBufferAtomicMethods(opcode, expr);
     break;
+  case IntrinsicOp::MOP_GetSamplePosition:
+    retVal = processGetSamplePosition(expr);
+    break;
   case IntrinsicOp::MOP_GatherCmpGreen:
   case IntrinsicOp::MOP_GatherCmpBlue:
   case IntrinsicOp::MOP_GatherCmpAlpha:
-  case IntrinsicOp::MOP_GetSamplePosition:
   case IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped:
     emitError("no equivalent for %0 intrinsic method in Vulkan",
               expr->getCallee()->getExprLoc())
@@ -7024,8 +7249,7 @@ uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
       }
       return theBuilder.getConstantInt32(
           static_cast<int32_t>(intValue.getSExtValue()));
-    }
-    else {
+    } else {
       if (!intValue.isIntN(32)) {
         emitError("evaluating integer literal %0 as a 32-bit integer loses "
                   "inforamtion",
