@@ -38,6 +38,8 @@ bool DxilReduceMSAAToSingleSample::runOnModule(Module &M)
   OP *HlslOP = DM.GetOP();
 
   // FP16 type doesn't have its own identity, and is covered by float type... 
+
+
   auto TextureLoadOverloads = std::vector<Type*>{ Type::getFloatTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx) };
 
   bool Modified = false;
