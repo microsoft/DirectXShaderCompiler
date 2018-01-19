@@ -2,11 +2,11 @@
 
 // Check that the instance/primid detection was emitted:
 
-// CHECK: %PrimId = call i32 @dx.op.primitiveID.i32(i32 108)
-// CHECK: %CompareToPrimId = icmp eq i32 %PrimId, 1
-// CHECK: %GSInstanceId = call i32 @dx.op.gsInstanceID.i32(i32 100)
-// CHECK: %CompareToInstanceId = icmp eq i32 %GSInstanceId, 2
-// CHECK: %CompareBoth = and i1 %CompareToPrimId, %CompareToInstanceId
+// CHECK: [[PrimId:[^ ]+]] = call i32 @dx.op.primitiveID.i32(i32 108)
+// CHECK: [[CompareToPrimId:[^ ]+]] = icmp eq i32 [[PrimId]], 1
+// CHECK: [[GSInstanceId:[^ ]+]] = call i32 @dx.op.gsInstanceID.i32(i32 100)
+// CHECK: [[CompareToInstanceId:[^ ]+]] = icmp eq i32 [[GSInstanceId]], 2
+// CHECK: [[CompareBoth:[^ ]+]] = and i1 [[CompareToPrimId]], [[CompareToInstanceId]]
 
 struct MyStruct
 {
