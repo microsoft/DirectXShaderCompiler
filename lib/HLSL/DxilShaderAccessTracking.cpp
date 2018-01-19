@@ -271,7 +271,7 @@ void DxilShaderAccessTracking::EmitAccess(LLVMContext & Ctx, OP *HlslOP, IRBuild
 
   Function* AtomicOpFunc = HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(Ctx));
   Constant* AtomicBinOpcode = HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
-  Constant* AtomicAdd = HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Or);
+  Constant* AtomicOr = HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Or);
 
   Constant* AccessValue = HlslOP->GetU32Const(static_cast<unsigned>(access));
   UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
@@ -279,11 +279,11 @@ void DxilShaderAccessTracking::EmitAccess(LLVMContext & Ctx, OP *HlslOP, IRBuild
   (void)Builder.CreateCall(AtomicOpFunc, {
       AtomicBinOpcode,// i32, ; opcode
       m_HandleForUAV, // %dx.types.Handle, ; resource handle
-      AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
+      AtomicOr,       // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
       ByteIndex,      // i32, ; coordinate c0: byte offset
       UndefArg,       // i32, ; coordinate c1 (unused)
       UndefArg,       // i32, ; coordinate c2 (unused)
-      AccessValue     // i32); increment value
+      AccessValue     // i32) ; OR value
   }, "UAVOrResult");
 }
 
