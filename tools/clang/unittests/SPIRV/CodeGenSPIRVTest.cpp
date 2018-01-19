@@ -592,7 +592,7 @@ TEST_F(FileTest, TextureGetDimensions) {
   runFileTest("texture.get-dimensions.hlsl");
 }
 TEST_F(FileTest, TextureGetSamplePosition) {
-  runFileTest("texture.get-sample-position.hlsl", Expect::Failure);
+  runFileTest("texture.get-sample-position.hlsl");
 }
 TEST_F(FileTest, TextureCalculateLevelOfDetail) {
   runFileTest("texture.calculate-lod.hlsl");
