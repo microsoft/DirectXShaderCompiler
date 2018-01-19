@@ -104,6 +104,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilPreserveAllOutputsPass(Registry);
     initializeDxilReduceMSAAToSingleSamplePass(Registry);
     initializeDxilRemoveDiscardsPass(Registry);
+    initializeDxilShaderAccessTrackingPass(Registry);
     initializeDxilTranslateRawBufferPass(Registry);
     initializeDynamicIndexingVectorToArrayPass(Registry);
     initializeEarlyCSELegacyPassPass(Registry);
@@ -187,6 +188,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR DxilDebugInstrumentationArgs[] = { "UAVSize", "parameter0", "parameter1", "parameter2" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
+  static const LPCSTR DxilShaderAccessTrackingArgs[] = { "config", "checkForDynamicIndexing" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
   static const LPCSTR Float2IntArgs[] = { "float2int-max-integer-bw" };
   static const LPCSTR GVNArgs[] = { "noloads", "enable-pre", "enable-load-pre", "max-recurse-depth" };
@@ -219,6 +221,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   if (strcmp(passName, "hlsl-dxil-debug-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilDebugInstrumentationArgs, _countof(DxilDebugInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
+  if (strcmp(passName, "hlsl-dxil-pix-shader-access-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilShaderAccessTrackingArgs, _countof(DxilShaderAccessTrackingArgs));
   if (strcmp(passName, "dynamic-vector-to-array") == 0) return ArrayRef<LPCSTR>(DynamicIndexingVectorToArrayArgs, _countof(DynamicIndexingVectorToArrayArgs));
   if (strcmp(passName, "float2int") == 0) return ArrayRef<LPCSTR>(Float2IntArgs, _countof(Float2IntArgs));
   if (strcmp(passName, "gvn") == 0) return ArrayRef<LPCSTR>(GVNArgs, _countof(GVNArgs));
@@ -258,6 +261,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR DxilDebugInstrumentationArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
+  static const LPCSTR DxilShaderAccessTrackingArgs[] = { "None", "None" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "None" };
   static const LPCSTR Float2IntArgs[] = { "Max integer bitwidth to consider in float2int" };
   static const LPCSTR GVNArgs[] = { "None", "None", "None", "Max recurse depth" };
@@ -290,6 +294,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   if (strcmp(passName, "hlsl-dxil-debug-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilDebugInstrumentationArgs, _countof(DxilDebugInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
+  if (strcmp(passName, "hlsl-dxil-pix-shader-access-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilShaderAccessTrackingArgs, _countof(DxilShaderAccessTrackingArgs));
   if (strcmp(passName, "dynamic-vector-to-array") == 0) return ArrayRef<LPCSTR>(DynamicIndexingVectorToArrayArgs, _countof(DynamicIndexingVectorToArrayArgs));
   if (strcmp(passName, "float2int") == 0) return ArrayRef<LPCSTR>(Float2IntArgs, _countof(Float2IntArgs));
   if (strcmp(passName, "gvn") == 0) return ArrayRef<LPCSTR>(GVNArgs, _countof(GVNArgs));
@@ -343,6 +348,8 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("UAVSize")
     ||  S.equals("add-pixel-cost")
     ||  S.equals("bonus-inst-threshold")
+    ||  S.equals("checkForDynamicIndexing")
+    ||  S.equals("config")
     ||  S.equals("constant-alpha")
     ||  S.equals("constant-blue")
     ||  S.equals("constant-green")
