@@ -52,10 +52,10 @@ void main(int index : INDEX) {
 // CHECK:        [[tex:%\d+]] = OpLoad %type_2d_image %myTexture
 // CHECK-NEXT: [[count:%\d+]] = OpImageQuerySamples %uint [[tex]]
 // CHECK-NEXT: [[index:%\d+]] = OpLoad %int %index
-// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_2 %34
-// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_4 %47
-// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_8 %68
-// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_16 %91
+// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_2 [[pos2]]
+// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_4 [[pos4]]
+// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_8 [[pos8]]
+// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_16 [[pos16]]
 
 // CHECK-NEXT:   [[eq2:%\d+]] = OpIEqual %bool [[count]] %uint_2
 // CHECK-NEXT:                  OpSelectionMerge %if_GetSamplePosition_merge2 None
