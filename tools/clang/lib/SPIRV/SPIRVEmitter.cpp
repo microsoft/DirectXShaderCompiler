@@ -3080,7 +3080,9 @@ uint32_t SPIRVEmitter::emitGetSamplePosition(const uint32_t sampleCount,
 
     const std::string varName =
         "var.GetSamplePosition.data." + std::to_string(len);
-    return theBuilder.addFnVar(arrType, varName, val);
+    const auto var = theBuilder.addFnVar(arrType, varName);
+    theBuilder.createStore(var, val);
+    return var;
   };
 
   const uint32_t pos2Arr = createArray(pos2, 2);

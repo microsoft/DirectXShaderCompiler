@@ -43,15 +43,20 @@ Texture2DMS       <float> myTexture;
 // CHECK:     [[zero:%\d+]] = OpConstantComposite %v2float %float_0 %float_0
 
 void main(int index : INDEX) {
-// CHECK:  %var_GetSamplePosition_data_2 = OpVariable %_ptr_Function__arr_v2float_uint_2 Function [[pos2]]
-// CHECK:  %var_GetSamplePosition_data_4 = OpVariable %_ptr_Function__arr_v2float_uint_4 Function [[pos4]]
-// CHECK:  %var_GetSamplePosition_data_8 = OpVariable %_ptr_Function__arr_v2float_uint_8 Function [[pos8]]
-// CHECK: %var_GetSamplePosition_data_16 = OpVariable %_ptr_Function__arr_v2float_uint_16 Function [[pos16]]
+// CHECK:  %var_GetSamplePosition_data_2 = OpVariable %_ptr_Function__arr_v2float_uint_2 Function
+// CHECK:  %var_GetSamplePosition_data_4 = OpVariable %_ptr_Function__arr_v2float_uint_4 Function
+// CHECK:  %var_GetSamplePosition_data_8 = OpVariable %_ptr_Function__arr_v2float_uint_8 Function
+// CHECK: %var_GetSamplePosition_data_16 = OpVariable %_ptr_Function__arr_v2float_uint_16 Function
 // CHECK:  %var_GetSamplePosition_result = OpVariable %_ptr_Function_v2float Function
 
 // CHECK:        [[tex:%\d+]] = OpLoad %type_2d_image %myTexture
 // CHECK-NEXT: [[count:%\d+]] = OpImageQuerySamples %uint [[tex]]
 // CHECK-NEXT: [[index:%\d+]] = OpLoad %int %index
+// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_2 %34
+// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_4 %47
+// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_8 %68
+// CHECK-NEXT:                  OpStore %var_GetSamplePosition_data_16 %91
+
 // CHECK-NEXT:   [[eq2:%\d+]] = OpIEqual %bool [[count]] %uint_2
 // CHECK-NEXT:                  OpSelectionMerge %if_GetSamplePosition_merge2 None
 // CHECK-NEXT:                  OpBranchConditional [[eq2]] %if_GetSamplePosition_then2 %if_GetSamplePosition_else2
