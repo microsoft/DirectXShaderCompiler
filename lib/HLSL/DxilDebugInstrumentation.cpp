@@ -153,6 +153,10 @@ private:
       unsigned ThreadIdY;
       unsigned ThreadIdZ;
     } ComputeShader;
+    struct GeometryShaderParameters {
+      unsigned PrimitiveId;
+      unsigned InstanceId;
+    } GeometryShader;
   } m_Parameters = { 0,0,0 };
 
   union SystemValueIndices {
@@ -163,6 +167,10 @@ private:
       unsigned VertexId;
       unsigned InstanceId;
     } VertexShader;
+    struct GeometryShaderParameters {
+      unsigned PrimitiveId;
+      unsigned InstanceId;
+    } GeometryShader;
   };
 
   uint64_t m_UAVSize = 1024*1024;
@@ -210,6 +218,7 @@ private:
   void addUAV(BuilderContext &BC);
   void addInvocationSelectionProlog(BuilderContext &BC, SystemValueIndices SVIndices);
   Value * addPixelShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
+  Value * addGeometryShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
   Value * addComputeShaderProlog(BuilderContext &BC);
   Value * addVertexShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
   void addDebugEntryValue(BuilderContext &BC, Value * TheValue);
@@ -320,6 +329,9 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
     }
   }
   break;
+  case DXIL::ShaderKind::Geometry: 
+    // GS Instance Id and Primitive Id are not in the input signature
+  break;
   case DXIL::ShaderKind::Compute:
     // Compute thread Id is not in the input signature
   break;
@@ -372,6 +384,31 @@ Value * DxilDebugInstrumentation::addVertexShaderProlog(BuilderContext &BC, Syst
   auto CompareToVert = BC.Builder.CreateICmpEQ(VertId, BC.HlslOP->GetU32Const(m_Parameters.VertexShader.VertexId), "CompareToVertId");
   auto CompareToInstance = BC.Builder.CreateICmpEQ(InstanceId, BC.HlslOP->GetU32Const(m_Parameters.VertexShader.InstanceId), "CompareToInstanceId");
   auto CompareBoth = BC.Builder.CreateAnd(CompareToVert, CompareToInstance, "CompareBoth");
+
+  return CompareBoth;
+}
+
+Value * DxilDebugInstrumentation::addGeometryShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices) {
+
+  auto PrimitiveIdOpFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::PrimitiveID, Type::getInt32Ty(BC.Ctx));
+  Constant* PrimitiveIdOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::PrimitiveID);
+  auto PrimId = BC.Builder.CreateCall(PrimitiveIdOpFunc,
+  { PrimitiveIdOpcode }, "PrimId");
+
+  auto CompareToPrim = BC.Builder.CreateICmpEQ(PrimId, BC.HlslOP->GetU32Const(m_Parameters.GeometryShader.PrimitiveId), "CompareToPrimId");
+
+  if (BC.DM.GetGSInstanceCount() <= 1) {
+    return CompareToPrim;
+  }
+
+  auto GSInstanceIdOpFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::GSInstanceID, Type::getInt32Ty(BC.Ctx));
+  Constant* GSInstanceIdOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::GSInstanceID);
+  auto GSInstanceId = BC.Builder.CreateCall(GSInstanceIdOpFunc,
+  { GSInstanceIdOpcode }, "GSInstanceId");
+
+  // Compare to expected vertex ID and instance ID
+  auto CompareToInstance = BC.Builder.CreateICmpEQ(GSInstanceId, BC.HlslOP->GetU32Const(m_Parameters.GeometryShader.InstanceId), "CompareToInstanceId");
+  auto CompareBoth = BC.Builder.CreateAnd(CompareToPrim, CompareToInstance, "CompareBoth");
 
   return CompareBoth;
 }
@@ -450,10 +487,13 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext &BC, 
   case DXIL::ShaderKind::Pixel:
     ParameterTestResult = addPixelShaderProlog(BC, SVIndices);
     break;
-    case DXIL::ShaderKind::Vertex:
-      ParameterTestResult = addVertexShaderProlog(BC, SVIndices);
+  case DXIL::ShaderKind::Geometry:
+    ParameterTestResult = addGeometryShaderProlog(BC, SVIndices);
     break;
-    case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Vertex:
+    ParameterTestResult = addVertexShaderProlog(BC, SVIndices);
+    break;
+  case DXIL::ShaderKind::Compute:
       ParameterTestResult = addComputeShaderProlog(BC);
     break;
   default:
@@ -675,6 +715,7 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Vertex:
   case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Geometry:
     break;
   default:
     return false;

@@ -451,6 +451,7 @@ public:
   TEST_METHOD(PixForceEarlyZ)
   TEST_METHOD(PixDebugBasic)
   TEST_METHOD(PixDebugUAVSize)
+  TEST_METHOD(PixDebugGSParameters)
   TEST_METHOD(PixDebugPSParameters)
   TEST_METHOD(PixDebugVSParameters)
   TEST_METHOD(PixDebugCSParameters)
@@ -2974,6 +2975,10 @@ TEST_F(CompilerTest, PixDebugBasic) {
 
 TEST_F(CompilerTest, PixDebugUAVSize) {
   CodeGenTestCheck(L"pix\\DebugUAVSize.hlsl");
+}
+
+TEST_F(CompilerTest, PixDebugGSParameters) {
+  CodeGenTestCheck(L"pix\\DebugGSParameters.hlsl");
 }
 
 TEST_F(CompilerTest, PixDebugPSParameters) {
