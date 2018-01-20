@@ -309,6 +309,7 @@ public:
     CComPtr<AbstractMemoryStream> pOutputStream;
     CHeapPtr<wchar_t> DebugBlobName;
     DxcEtw_DXCompilerCompile_Start();
+    pSourceName = (pSourceName && *pSourceName) ? pSourceName : L"hlsl.hlsl"; // declared optional, so pick a default
     DxcThreadMalloc TM(m_pMalloc);
     IFC(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 

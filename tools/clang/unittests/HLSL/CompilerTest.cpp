@@ -1924,16 +1924,50 @@ TEST_F(CompilerTest, CompileWhenEmptyThenFails) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
   CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlobEncoding> pSourceBad;
+  LPCWSTR pProfile = L"ps_6_0";
+  LPCWSTR pEntryPoint = L"main";
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
+  CreateBlobFromText("float4 main() : SV_Target { return undef; }", &pSourceBad);
+
+  // correct version
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", pEntryPoint,
+                                      pProfile, nullptr, 0, nullptr, 0, nullptr,
+                                      &pResult));
+  pResult.Release();
+
+  // correct version with compilation errors
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSourceBad, L"source.hlsl", pEntryPoint,
+                                      pProfile, nullptr, 0, nullptr, 0, nullptr,
+                                      &pResult));
+  pResult.Release();
 
   // null source
-  VERIFY_FAILED(pCompiler->Compile(nullptr, L"source.hlsl", nullptr, nullptr,
+  VERIFY_FAILED(pCompiler->Compile(nullptr, L"source.hlsl", pEntryPoint, pProfile,
                                    nullptr, 0, nullptr, 0, nullptr, &pResult));
+
+  // null profile
+  VERIFY_FAILED(pCompiler->Compile(pSourceBad, L"source.hlsl", pEntryPoint,
+                                   nullptr, nullptr, 0, nullptr, 0, nullptr,
+                                   &pResult));
+
+  // null source name succeeds
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSourceBad, nullptr, pEntryPoint, pProfile,
+                                   nullptr, 0, nullptr, 0, nullptr, &pResult));
+  pResult.Release();
+
+  // empty source name (as opposed to null) also suceeds
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSourceBad, L"", pEntryPoint, pProfile,
+                                      nullptr, 0, nullptr, 0, nullptr,
+                                      &pResult));
+  pResult.Release();
+
   // null result
-  VERIFY_FAILED(pCompiler->Compile(pSource, L"source.hlsl", nullptr, nullptr,
-                                   nullptr, 0, nullptr, 0, nullptr, nullptr));
+  VERIFY_FAILED(pCompiler->Compile(pSource, L"source.hlsl", pEntryPoint,
+                                   pProfile, nullptr, 0, nullptr, 0, nullptr,
+                                   nullptr));
 }
 
 TEST_F(CompilerTest, CompileWhenIncorrectThenFails) {
