@@ -787,3 +787,15 @@ void [[]] GetDimensions(out uint_only count, out uint_only stride) : bufinfo;
 $unspec [[]] Consume() : structuredbuffer_consume;
 
 } namespace
+
+// SPIRV Change Starts
+
+namespace VkSubpassInputMethods {
+$unspec [[]] SubpassLoad() : subpassinput_load;
+} namespace
+
+namespace VkSubpassInputMSMethods {
+$unspec [[]] SubpassLoad(in int sample) : subpassinputms_load;
+} namespace
+
+// SPIRV Change Ends

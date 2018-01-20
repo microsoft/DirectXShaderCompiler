@@ -5555,6 +5555,43 @@ static const HLSL_INTRINSIC g_ConsumeStructuredBufferMethods[] =
     {(UINT)hlsl::IntrinsicOp::MOP_Consume, false, false, -1, 1, g_ConsumeStructuredBufferMethods_Args0},
     {(UINT)hlsl::IntrinsicOp::MOP_GetDimensions, false, false, -1, 3, g_ConsumeStructuredBufferMethods_Args1},
 };
+
+//
+// Start of VkSubpassInputMethods
+//
+
+#ifdef ENABLE_SPIRV_CODEGEN
+
+static const HLSL_INTRINSIC_ARGUMENT g_VkSubpassInputMethods_Args0[] =
+{
+    {"SubpassLoad", AR_QUAL_OUT, INTRIN_TEMPLATE_FROM_TYPE, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+};
+
+static const HLSL_INTRINSIC g_VkSubpassInputMethods[] =
+{
+    {(UINT)hlsl::IntrinsicOp::MOP_SubpassLoad, false, false, -1, 1, g_VkSubpassInputMethods_Args0},
+};
+
+#endif // ENABLE_SPIRV_CODEGEN
+
+//
+// Start of VkSubpassInputMSMethods
+//
+
+#ifdef ENABLE_SPIRV_CODEGEN
+
+static const HLSL_INTRINSIC_ARGUMENT g_VkSubpassInputMSMethods_Args0[] =
+{
+    {"SubpassLoad", AR_QUAL_OUT, INTRIN_TEMPLATE_FROM_TYPE, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
+    {"sample", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_INT, 1, 1},
+};
+
+static const HLSL_INTRINSIC g_VkSubpassInputMSMethods[] =
+{
+    {(UINT)hlsl::IntrinsicOp::MOP_SubpassLoad, false, false, -1, 2, g_VkSubpassInputMSMethods_Args0},
+};
+
+#endif // ENABLE_SPIRV_CODEGEN
 // HLSL-INTRINSICS:END
 
 /* <py::lines('HLSL-INTRINSIC-STATS')>hctdb_instrhelp.get_hlsl_intrinsic_stats()</py>*/
@@ -5583,6 +5620,8 @@ static const UINT g_uTexture2DMethodsCount = 77;
 static const UINT g_uTexture3DMethodsCount = 24;
 static const UINT g_uTextureCUBEArrayMethodsCount = 42;
 static const UINT g_uTextureCUBEMethodsCount = 42;
+static const UINT g_uVkSubpassInputMSMethodsCount = 1;
+static const UINT g_uVkSubpassInputMethodsCount = 1;
 
 static const int g_MaxIntrinsicName = 32; // Count of characters for longest intrinsic name - 'DeviceMemoryBarrierWithGroupSync'
 static const int g_MaxIntrinsicParamName = 22; // Count of characters for longest intrinsic parameter name - 'UnroundedInsideFactors'
