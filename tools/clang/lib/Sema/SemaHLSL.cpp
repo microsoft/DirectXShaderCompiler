@@ -167,6 +167,13 @@ enum ArBasicKind {
   AR_OBJECT_ROVTEXTURE2D_ARRAY,
   AR_OBJECT_ROVTEXTURE3D,
 
+  // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  AR_OBJECT_VK_SUBPASS_INPUT,
+  AR_OBJECT_VK_SUBPASS_INPUT_MS,
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV change ends
+
   AR_OBJECT_INNER,       // Used for internal type object
 
   AR_OBJECT_LEGACY_EFFECT,
@@ -417,6 +424,13 @@ const UINT g_uBasicKindProps[] =
   BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER,    // AR_OBJECT_ROVTEXTURE2D
   BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER,    // AR_OBJECT_ROVTEXTURE2D_ARRAY
   BPROP_OBJECT | BPROP_RWBUFFER | BPROP_ROVBUFFER,    // AR_OBJECT_ROVTEXTURE3D
+
+  // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT
+  BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT_MS
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV change ends
 
   BPROP_OBJECT,   // AR_OBJECT_INNER
 
@@ -1203,6 +1217,13 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_ROVTEXTURE2D_ARRAY,
   AR_OBJECT_ROVTEXTURE3D,
 
+  // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  AR_OBJECT_VK_SUBPASS_INPUT,
+  AR_OBJECT_VK_SUBPASS_INPUT_MS,
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV change ends
+
   AR_OBJECT_LEGACY_EFFECT,      // Used for all unsupported but ignored legacy effect types
 
   AR_OBJECT_WAVE
@@ -1263,6 +1284,13 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   1, // AR_OBJECT_ROVTEXTURE2D
   1, // AR_OBJECT_ROVTEXTURE2D_ARRAY
   1, // AR_OBJECT_ROVTEXTURE3D
+
+  // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  1, // AR_OBJECT_VK_SUBPASS_INPUT
+  1, // AR_OBJECT_VK_SUBPASS_INPUT_MS
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV change ends
 
   0, // AR_OBJECT_LEGACY_EFFECT   // Used for all unsupported but ignored legacy effect types
   0, // AR_OBJECT_WAVE
@@ -1333,6 +1361,13 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 2, MipsFalse, SampleFalse }, // AR_OBJECT_ROVTEXTURE2D (ROVTexture2D)
   { 3, MipsFalse, SampleFalse }, // AR_OBJECT_ROVTEXTURE2D_ARRAY (ROVTexture2DArray)
   { 3, MipsFalse, SampleFalse }, // AR_OBJECT_ROVTEXTURE3D (ROVTexture3D)
+
+  // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT_MS (SubpassInputMS)
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV change ends
 
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_LEGACY_EFFECT (legacy effect objects)
   { 0, MipsFalse, SampleFalse }  // AR_OBJECT_WAVE
@@ -1422,6 +1457,13 @@ const char* g_ArBasicTypeNames[] =
   "RasterizerOrderedTexture2D",
   "RasterizerOrderedTexture2DArray",
   "RasterizerOrderedTexture3D",
+
+  // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  "SubpassInput",
+  "SubpassInputMS",
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV change ends
 
   "<internal inner type object>",
 
@@ -2023,6 +2065,18 @@ void GetIntrinsicMethods(ArBasicKind kind, _Outptr_result_buffer_(*intrinsicCoun
     *intrinsics = g_ConsumeStructuredBufferMethods;
     *intrinsicCount = _countof(g_ConsumeStructuredBufferMethods);
     break;
+  // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  case AR_OBJECT_VK_SUBPASS_INPUT:
+    *intrinsics = g_VkSubpassInputMethods;
+    *intrinsicCount = _countof(g_VkSubpassInputMethods);
+    break;
+  case AR_OBJECT_VK_SUBPASS_INPUT_MS:
+    *intrinsics = g_VkSubpassInputMSMethods;
+    *intrinsicCount = _countof(g_VkSubpassInputMSMethods);
+    break;
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV change ends
   default:
     *intrinsics = nullptr;
     *intrinsicCount = 0;
@@ -2102,11 +2156,24 @@ bool DoesIntrinsicRequireTemplate(const HLSL_INTRINSIC* intrinsic)
 static
 bool TemplateHasDefaultType(ArBasicKind kind)
 {
-  return
-    kind == AR_OBJECT_BUFFER ||
-    kind == AR_OBJECT_TEXTURE1D || kind == AR_OBJECT_TEXTURE2D || kind == AR_OBJECT_TEXTURE3D ||
-    kind == AR_OBJECT_TEXTURE1D_ARRAY || kind == AR_OBJECT_TEXTURE2D_ARRAY ||
-    kind == AR_OBJECT_TEXTURECUBE || kind == AR_OBJECT_TEXTURECUBE_ARRAY;
+  switch (kind) {
+  case AR_OBJECT_BUFFER:
+  case AR_OBJECT_TEXTURE1D:
+  case AR_OBJECT_TEXTURE2D:
+  case AR_OBJECT_TEXTURE3D:
+  case AR_OBJECT_TEXTURE1D_ARRAY:
+  case AR_OBJECT_TEXTURE2D_ARRAY:
+  case AR_OBJECT_TEXTURECUBE:
+  case AR_OBJECT_TEXTURECUBE_ARRAY:
+  // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  case AR_OBJECT_VK_SUBPASS_INPUT:
+  case AR_OBJECT_VK_SUBPASS_INPUT_MS:
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV change ends
+    return true;
+  }
+  return false;
 }
 
 /// <summary>
@@ -10398,6 +10465,11 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKOffsetAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKInputAttachmentIndex:
+    declAttr = ::new (S.Context) VKInputAttachmentIndexAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     return;
@@ -11064,6 +11136,20 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     Diag(D.getLocStart(), diag::err_hlsl_missing_inout_attr);
     result = false;
   }
+
+  // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  // Validate that Vulkan specific feature is only used when targeting SPIR-V
+  if (!getLangOpts().SPIRV) {
+    if (basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT ||
+        basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT_MS) {
+      Diag(D.getLocStart(), diag::err_hlsl_vulkan_specific_feature)
+          << g_ArBasicTypeNames[basicKind];
+      result = false;
+    }
+  }
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV change ends
 
   // Validate unusual annotations.
   hlsl::DiagnoseUnusualAnnotationsForHLSL(*this, D.UnusualAnnotations);

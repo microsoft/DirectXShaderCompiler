@@ -916,7 +916,22 @@ def VKPushConstant : InheritableAttr {
 
 def VKOffset : InheritableAttr {
   let Spellings = [CXX11<"vk", "offset">];
+  let Subjects = SubjectList<[Field], ErrorDiag, "ExpectedField">;
   let Args = [IntArgument<"Offset">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def SubpassInput : SubsetSubject<
+    Var,
+    [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+      (S->getType()->getAs<RecordType>()->getDecl()->getName() == "SubpassInput" ||
+       S->getType()->getAs<RecordType>()->getDecl()->getName() == "SubpassInputMS")}]>;
+
+def VKInputAttachmentIndex : InheritableAttr {
+  let Spellings = [CXX11<"vk", "input_attachment_index">];
+  let Subjects = SubjectList<[SubpassInput], ErrorDiag, "ExpectedSubpassInput">;
+  let Args = [IntArgument<"index">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
