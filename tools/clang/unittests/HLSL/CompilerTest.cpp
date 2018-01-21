@@ -500,6 +500,8 @@ public:
   TEST_METHOD(CodeGenCbufferCopy2)
   TEST_METHOD(CodeGenCbufferCopy3)
   TEST_METHOD(CodeGenCbufferCopy4)
+  TEST_METHOD(CodeGenCbufferWithFunction)
+  TEST_METHOD(CodeGenCbufferWithFunctionCopy)
   TEST_METHOD(CodeGenCbuffer_unused)
   TEST_METHOD(CodeGenCbuffer1_50)
   TEST_METHOD(CodeGenCbuffer1_51)
@@ -3174,6 +3176,14 @@ TEST_F(CompilerTest, CodeGenCbufferCopy3) {
 
 TEST_F(CompilerTest, CodeGenCbufferCopy4) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer_copy4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferWithFunction) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer_fn.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferWithFunctionCopy) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer_fn_copy.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCbuffer_unused) {
