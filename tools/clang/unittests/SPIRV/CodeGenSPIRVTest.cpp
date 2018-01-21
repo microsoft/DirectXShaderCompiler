@@ -390,6 +390,7 @@ TEST_F(FileTest, FunctionInOutParamVector) {
 TEST_F(FileTest, FunctionFowardDeclaration) {
   runFileTest("fn.foward-declaration.hlsl");
 }
+TEST_F(FileTest, FunctionInCTBuffer) { runFileTest("fn.ctbuffer.hlsl"); }
 
 // For OO features
 TEST_F(FileTest, StructMethodCall) { runFileTest("oo.struct.method.hlsl"); }

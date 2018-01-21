@@ -449,8 +449,9 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
   uint32_t fieldIndex = 0;
   for (const auto *subDecl : decl->decls()) {
     // Ignore implicit generated struct declarations/constructors/destructors.
-    // Ignore embedded struct/union/class/enum decls.
-    if (subDecl->isImplicit() || isa<TagDecl>(subDecl))
+    // Ignore embedded struct/union/class/enum/function decls.
+    if (subDecl->isImplicit() || isa<TagDecl>(subDecl) ||
+        isa<FunctionDecl>(subDecl))
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
@@ -506,8 +507,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   int index = 0;
   for (const auto *subDecl : decl->decls()) {
     // Ignore implicit generated struct declarations/constructors/destructors.
-    // Ignore embedded struct/union/class/enum decls.
-    if (subDecl->isImplicit() || isa<TagDecl>(subDecl))
+    // Ignore embedded struct/union/class/enum/function decls.
+    if (subDecl->isImplicit() || isa<TagDecl>(subDecl) ||
+        isa<FunctionDecl>(subDecl))
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);

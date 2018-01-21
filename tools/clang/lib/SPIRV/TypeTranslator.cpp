@@ -786,8 +786,8 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
 
   for (const auto *field : decl->decls()) {
     // Ignore implicit generated struct declarations/constructors/destructors.
-    // Ignore embedded struct/union/class/enum decls.
-    if (field->isImplicit() || isa<TagDecl>(field))
+    // Ignore embedded struct/union/class/enum/function decls.
+    if (field->isImplicit() || isa<TagDecl>(field) || isa<FunctionDecl>(field))
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
