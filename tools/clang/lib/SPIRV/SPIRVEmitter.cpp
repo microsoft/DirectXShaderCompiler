@@ -4192,11 +4192,12 @@ SpirvEvalInfo SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
 
 uint32_t SPIRVEmitter::createTemporaryVar(QualType type, llvm::StringRef name,
                                           const SpirvEvalInfo &init) {
-  const uint32_t varType =
-      typeTranslator.translateType(type, init.getLayoutRule());
+  // We are creating a temporary variable in the Function storage class here,
+  // which means it has void layout rule.
+  const uint32_t varType = typeTranslator.translateType(type);
   const std::string varName = "temp.var." + name.str();
   const uint32_t varId = theBuilder.addFnVar(varType, varName);
-  theBuilder.createStore(varId, init);
+  storeValue(varId, init, type);
   return varId;
 }
 
