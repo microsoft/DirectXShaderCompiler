@@ -46,12 +46,11 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // OpDecorate %in_var_POSITION Location 0
 // OpDecorate %in_var_COLOR Location 1
 // OpDecorate %out_var_COLOR Location 0
-// %uint = OpTypeInt 32 0
-// %int = OpTypeInt 32 1
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void
 // %float = OpTypeFloat 32
 // %v4float = OpTypeVector %float 4
+// %uint = OpTypeInt 32 0
 // %uint_1 = OpConstant %uint 1
 // %_arr_float_uint_1 = OpTypeArray %float %uint_1
 // %type_gl_PerVertex = OpTypeStruct %v4float %float %_arr_float_uint_1 %_arr_float_uint_1
@@ -60,9 +59,10 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // %_ptr_Input_v4float = OpTypePointer Input %v4float
 // %PSInput = OpTypeStruct %v4float %v4float
 // %_ptr_Output_v4float = OpTypePointer Output %v4float
+// %uint_0 = OpConstant %uint 0
 // %30 = OpTypeFunction %PSInput %_ptr_Function_v4float %_ptr_Function_v4float
 // %_ptr_Function_PSInput = OpTypePointer Function %PSInput
-// %uint_0 = OpConstant %uint 0
+// %int = OpTypeInt 32 1
 // %int_0 = OpConstant %int 0
 // %int_1 = OpConstant %int 1
 // %gl_PerVertexOut = OpVariable %_ptr_Output_type_gl_PerVertex Output

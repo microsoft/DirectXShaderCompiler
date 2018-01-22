@@ -29,6 +29,7 @@
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/Type.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
@@ -311,29 +312,16 @@ public:
   inline void addDecoration(const Decoration *decoration, uint32_t targetId);
   /// \brief Adds a type to the module. Also adds the type's decorations to the
   /// set of decorations of the module.
-  inline void addType(const Type *type, uint32_t resultId);
+  void addType(const Type *type, uint32_t resultId);
   /// \brief Adds a constant to the module. Also adds the constant's decorations
   /// to the set of decorations of the module.
-  inline void addConstant(const Constant *constant, uint32_t resultId);
+  void addConstant(const Constant *constant, uint32_t resultId);
   inline void addVariable(Instruction &&);
   inline void addFunction(std::unique_ptr<Function>);
 
   /// \brief Returns the <result-id> of the given extended instruction set.
   /// Returns 0 if the given set has not been imported.
   inline uint32_t getExtInstSetId(llvm::StringRef setName);
-
-private:
-  /// \brief Collects all the Integer type definitions in this module and
-  /// consumes them using the consumer within the given InstBuilder.
-  /// After this method is called, all integer types are remove from the list of
-  /// types in this object.
-  void takeIntegerTypes(InstBuilder *builder);
-
-  /// \brief Finds the constant on which the given array type depends.
-  /// If found, (a) defines the constant by passing it to the consumer in the
-  /// given InstBuilder. (b) Removes the constant from the list of constants
-  /// in this object.
-  void takeConstantForArrayType(const Type &arrType, InstBuilder *ib);
 
 private:
   Header header; ///< SPIR-V module header.
@@ -353,10 +341,12 @@ private:
 
   // Note that types and constants are interdependent; Types like arrays have
   // <result-id>s for constants in their definition, and constants all have
-  // their corresponding types. We store types and constants separately, but
-  // they should be handled together.
-  llvm::MapVector<const Type *, uint32_t> types;
-  llvm::MapVector<const Constant *, uint32_t> constants;
+  // their corresponding types. They should be handled together.
+  std::vector<Instruction> typeConstant;
+  // Keep track of whether we have already emitted code into the above vector
+  // for a certain type or constant.
+  llvm::DenseSet<const Type *> types;
+  llvm::DenseSet<const Constant *> constants;
 
   std::vector<Instruction> variables;
   std::vector<std::unique_ptr<Function>> functions;
@@ -508,17 +498,6 @@ void SPIRVModule::addDecoration(const Decoration *decoration,
                                 uint32_t targetId) {
   decorations.insert(std::make_pair(targetId, decoration));
 }
-
-void SPIRVModule::addType(const Type *type, uint32_t resultId) {
-  types.insert(std::make_pair(type, resultId));
-  for (const Decoration *d : type->getDecorations()) {
-    addDecoration(d, resultId);
-  }
-}
-
-void SPIRVModule::addConstant(const Constant *constant, uint32_t resultId) {
-  constants.insert(std::make_pair(constant, resultId));
-};
 
 void SPIRVModule::addVariable(Instruction &&var) {
   variables.push_back(std::move(var));

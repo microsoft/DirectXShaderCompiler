@@ -276,11 +276,11 @@ TEST(Structure, TakeModuleWithArrayAndConstantDependency) {
   sib.inst(
       spv::Op::OpDecorate,
       {secondArrId, static_cast<uint32_t>(spv::Decoration::ArrayStride), 4});
-  // Now the expected order: int64, int32, void, float, constant(8), array
-  sib.inst(spv::Op::OpTypeInt, {i64Id, 64, 1});
-  sib.inst(spv::Op::OpTypeInt, {i32Id, 32, 1});
+  // Now the expected order: void, float, int64, int32, constant(8), array
   sib.inst(spv::Op::OpTypeVoid, {voidId});
   sib.inst(spv::Op::OpTypeFloat, {f32Id, 32});
+  sib.inst(spv::Op::OpTypeInt, {i64Id, 64, 1});
+  sib.inst(spv::Op::OpTypeInt, {i32Id, 32, 1});
   sib.inst(spv::Op::OpConstant, {i32Id, constantId, 8});
   sib.inst(spv::Op::OpTypeArray, {arrId, i32Id, constantId});
   sib.inst(spv::Op::OpTypeArray, {secondArrId, i32Id, constantId});
