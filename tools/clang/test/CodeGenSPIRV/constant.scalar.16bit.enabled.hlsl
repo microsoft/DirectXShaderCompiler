@@ -32,11 +32,9 @@
 // CHECK-NOT: OpDecorate %c_int16_n16 RelaxedPrecision
 // CHECK-NOT: OpDecorate %c_int16_16 RelaxedPrecision
 
-// CHECK: %short = OpTypeInt 16 1
-// CHECK: %ushort = OpTypeInt 16 0
+void main() {
 // CHECK: %half = OpTypeFloat 16
 
-void main() {
 // CHECK: %half_0x1_2p_0 = OpConstant %half 0x1.2p+0
   half       c_half = 1.125;
 // CHECK: %half_0x1_ep_3 = OpConstant %half 0x1.ep+3
@@ -46,10 +44,15 @@ void main() {
 // CHECK: %half_0x1_8p_0 = OpConstant %half 0x1.8p+0
   float16_t  c_float16t = 1.5;
 
+// CHECK: %short = OpTypeInt 16 1
+
 // CHECK: %short_n3 = OpConstant %short -3
   min16int   c_min16int_n3 = -3;
 // CHECK: %short_3 = OpConstant %short 3
   min16int   c_min16int_3 = 3;
+
+// CHECK: %ushort = OpTypeInt 16 0
+
 // CHECK: %ushort_5 = OpConstant %ushort 5
   min16uint  c_min16uint_5 = 5;
 
@@ -58,7 +61,7 @@ void main() {
 // CHECK: %short_9 = OpConstant %short 9
   min12int   c_min12int_9 = 9;
 // It seems that min12uint is still not supported by the front-end.
-// XXXXX: %short_12 = OpConstant %short 12 
+// XXXXX: %short_12 = OpConstant %short 12
 //  min12uint   c_min12uint = 12;
 
 // CHECK: %ushort_16 = OpConstant %ushort 16

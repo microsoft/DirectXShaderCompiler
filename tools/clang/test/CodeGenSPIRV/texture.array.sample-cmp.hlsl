@@ -9,11 +9,11 @@ TextureCubeArray <float>  t3 : register(t3);
 // CHECK: OpCapability MinLod
 // CHECK: OpCapability SparseResidency
 
-// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %float
-
 // CHECK: [[v2fc:%\d+]] = OpConstantComposite %v2float %float_0_1 %float_1
 // CHECK: [[v3fc:%\d+]] = OpConstantComposite %v3float %float_0_1 %float_0_2 %float_1
 // CHECK: [[v4fc:%\d+]] = OpConstantComposite %v4float %float_0_1 %float_0_2 %float_0_3 %float_1
+
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %float
 
 float4 main(int2 offset: A, float comparator: B) : SV_Target {
 // CHECK:              [[t1:%\d+]] = OpLoad %type_1d_image_array %t1
@@ -79,6 +79,6 @@ float4 main(int2 offset: A, float comparator: B) : SV_Target {
 // CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %float [[structResult]] 1
 // CHECK-NEXT:                         OpStore %val7 [[result]]
     float val7 = t3.SampleCmp(gSampler, float4(0.1, 0.2, 0.3, 1), comparator, /*clamp*/ 1.5, status);
-    
+
     return 1.0;
 }

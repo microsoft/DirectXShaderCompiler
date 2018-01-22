@@ -4,11 +4,11 @@
 // The 'all' function can only operate on int, bool, float,
 // vector of these scalars, and matrix of these scalars.
 
-// CHECK:      [[v4int_0:%\d+]] = OpConstantComposite %v4int %int_0 %int_0 %int_0 %int_0
-// CHECK-NEXT: [[v4uint_0:%\d+]] = OpConstantComposite %v4uint %uint_0 %uint_0 %uint_0 %uint_0
-// CHECK-NEXT: [[v4float_0:%\d+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
-// CHECK-NEXT: [[v3float_0:%\d+]] = OpConstantComposite %v3float %float_0 %float_0 %float_0
-// CHECK-NEXT: [[v2float_0:%\d+]] = OpConstantComposite %v2float %float_0 %float_0
+// CHECK:   [[v4int_0:%\d+]] = OpConstantComposite %v4int %int_0 %int_0 %int_0 %int_0
+// CHECK:  [[v4uint_0:%\d+]] = OpConstantComposite %v4uint %uint_0 %uint_0 %uint_0 %uint_0
+// CHECK: [[v4float_0:%\d+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
+// CHECK: [[v3float_0:%\d+]] = OpConstantComposite %v3float %float_0 %float_0 %float_0
+// CHECK: [[v2float_0:%\d+]] = OpConstantComposite %v2float %float_0 %float_0
 
 void main() {
     bool result;

@@ -15,19 +15,20 @@ TextureCubeArray <float2> t5 : register(t5);
 // CHECK: OpCapability MinLod
 // CHECK: OpCapability SparseResidency
 
-// CHECK: %type_sampled_image = OpTypeSampledImage %type_1d_image
-// CHECK: %type_sampled_image_0 = OpTypeSampledImage %type_2d_image
-// CHECK: %type_sampled_image_1 = OpTypeSampledImage %type_cube_image
-
-// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
-
 // CHECK: [[v2f_0_1:%\d+]] = OpConstantComposite %v2float %float_0_1 %float_0_1
+// CHECK: %type_sampled_image = OpTypeSampledImage %type_1d_image_array
+
 // CHECK: [[v3f_0_1:%\d+]] = OpConstantComposite %v3float %float_0_1 %float_0_1 %float_0_1
 // CHECK: [[v2f_0_2:%\d+]] = OpConstantComposite %v2float %float_0_2 %float_0_2
 // CHECK: [[v2f_0_3:%\d+]] = OpConstantComposite %v2float %float_0_3 %float_0_3
+// CHECK: %type_sampled_image_0 = OpTypeSampledImage %type_2d_image_array
+
 // CHECK: [[v4f_0_1:%\d+]] = OpConstantComposite %v4float %float_0_1 %float_0_1 %float_0_1 %float_0_1
 // CHECK: [[v3f_0_2:%\d+]] = OpConstantComposite %v3float %float_0_2 %float_0_2 %float_0_2
 // CHECK: [[v3f_0_3:%\d+]] = OpConstantComposite %v3float %float_0_3 %float_0_3 %float_0_3
+// CHECK: %type_sampled_image_1 = OpTypeSampledImage %type_cube_image_array
+
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
 
 float4 main(int2 offset : A) : SV_Target {
 // CHECK:              [[t1:%\d+]] = OpLoad %type_1d_image_array %t1

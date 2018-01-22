@@ -313,21 +313,8 @@ void SPIRVModule::take(InstBuilder *builder) {
   // array is defined. The integer type should also be defined before the
   // constant integer is defined.
 
-  // First define all integer types
-  takeIntegerTypes(builder);
-
-  for (const auto &t : types) {
-    // If we have an array type, we must first define the integer constant that
-    // defines its length.
-    if (t.first->isArrayType()) {
-      takeConstantForArrayType(*t.first, builder);
-    }
-
-    consumer(t.first->withResultId(t.second));
-  }
-
-  for (const auto &c : constants) {
-    consumer(c.first->withResultId(c.second));
+  for (auto &v : typeConstant) {
+    consumer(v.take());
   }
 
   for (auto &v : variables) {
@@ -341,34 +328,23 @@ void SPIRVModule::take(InstBuilder *builder) {
   clear();
 }
 
-void SPIRVModule::takeIntegerTypes(InstBuilder *ib) {
-  const auto &consumer = ib->getConsumer();
-  // If it finds any integer type, feeds it into the consumer, and removes it
-  // from the types collection.
-  types.remove_if([&consumer](std::pair<const Type *, uint32_t> &item) {
-    const bool isInteger = item.first->isIntegerType();
-    if (isInteger)
-      consumer(item.first->withResultId(item.second));
-    return isInteger;
-  });
+void SPIRVModule::addType(const Type *type, uint32_t resultId) {
+  bool inserted = false;
+  std::tie(std::ignore, inserted) = types.insert(type);
+  if (inserted) {
+    typeConstant.push_back(type->withResultId(resultId));
+    for (const Decoration *d : type->getDecorations()) {
+      addDecoration(d, resultId);
+    }
+  }
 }
 
-void SPIRVModule::takeConstantForArrayType(const Type &arrType,
-                                           InstBuilder *ib) {
-  assert(arrType.isArrayType());
-
-  const auto &consumer = ib->getConsumer();
-  const uint32_t arrayLengthResultId = arrType.getArgs().back();
-
-  // If it finds the constant, feeds it into the consumer, and removes it
-  // from the constants collection.
-  constants.remove_if([&consumer, arrayLengthResultId](
-      std::pair<const Constant *, uint32_t> &item) {
-    const bool isArrayLengthConstant = (item.second == arrayLengthResultId);
-    if (isArrayLengthConstant)
-      consumer(item.first->withResultId(item.second));
-    return isArrayLengthConstant;
-  });
+void SPIRVModule::addConstant(const Constant *constant, uint32_t resultId) {
+  bool inserted = false;
+  std::tie(std::ignore, inserted) = constants.insert(constant);
+  if (inserted) {
+    typeConstant.push_back(constant->withResultId(resultId));
+  }
 }
 
 } // end namespace spirv

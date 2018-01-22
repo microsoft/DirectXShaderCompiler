@@ -30,11 +30,11 @@ VSOut main(VSIn input)
 // OpMemberDecorate %type_gl_PerVertex 2 BuiltIn ClipDistance
 // OpMemberDecorate %type_gl_PerVertex 3 BuiltIn CullDistance
 // OpDecorate %type_gl_PerVertex Block
-// %uint = OpTypeInt 32 0
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void
 // %float = OpTypeFloat 32
 // %v4float = OpTypeVector %float 4
+// %uint = OpTypeInt 32 0
 // %uint_1 = OpConstant %uint 1
 // %_arr_float_uint_1 = OpTypeArray %float %uint_1
 // %type_gl_PerVertex = OpTypeStruct %v4float %float %_arr_float_uint_1 %_arr_float_uint_1
