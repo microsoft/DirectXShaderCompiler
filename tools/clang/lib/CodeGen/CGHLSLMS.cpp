@@ -2546,10 +2546,16 @@ uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
     auto declsEnds = D->decls_end();
     CB->SetRangeSize(1);
     for (auto it = D->decls_begin(); it != declsEnds; it++) {
-      if (VarDecl *constDecl = dyn_cast<VarDecl>(*it))
+      if (VarDecl *constDecl = dyn_cast<VarDecl>(*it)) {
         AddConstant(constDecl, *CB.get());
-      else if (isa<EmptyDecl>(*it)) {
+      } else if (isa<EmptyDecl>(*it)) {
+        // Nothing to do for this declaration.
       } else if (isa<CXXRecordDecl>(*it)) {
+        // Nothing to do for this declaration.
+      } else if (isa<FunctionDecl>(*it)) {
+        // A function within an cbuffer is effectively a top-level function,
+        // as it only refers to globally scoped declarations.
+        this->CGM.EmitTopLevelDecl(*it);
       } else {
         HLSLBufferDecl *inner = cast<HLSLBufferDecl>(*it);
         GetOrCreateCBuffer(inner);
