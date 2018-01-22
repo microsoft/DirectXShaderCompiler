@@ -260,10 +260,11 @@ public:
   QualType getIntendedLiteralType(QualType type);
 
 public:
-  // A RAII class for maintaining the intendedLiteralTypes stack.
-  // Instantiating an object of this class ensures that as long as the
-  // object lives, the hint lives in the TypeTranslator, and once the object is
-  // destroyed, the hint is automatically removed from the stack.
+  /// A RAII class for maintaining the intendedLiteralTypes stack.
+  ///
+  /// Instantiating an object of this class ensures that as long as the
+  /// object lives, the hint lives in the TypeTranslator, and once the object is
+  /// destroyed, the hint is automatically removed from the stack.
   class LiteralTypeHint {
   public:
     LiteralTypeHint(TypeTranslator &t, QualType ty);

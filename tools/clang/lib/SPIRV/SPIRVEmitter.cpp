@@ -4041,7 +4041,8 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
   }
 
   if (baseSize == 1) {
-    // Selecting one element from a size-1 vector. Construct the vector.
+    // Selecting more than one element from a size-1 vector, for example,
+    // <scalar>.xx. Construct the vector.
     auto info = loadIfGLValue(baseExpr);
     llvm::SmallVector<uint32_t, 4> components(accessorSize, info);
     return info
