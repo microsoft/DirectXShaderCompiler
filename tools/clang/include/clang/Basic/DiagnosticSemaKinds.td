@@ -2327,6 +2327,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "interface or protocol declarations|kernel functions|"
   // SPIRV Change Starts
   "fields|"
+  "global variables of scalar type|"
   "global variables of struct type|"
   "global variables, cbuffers, and tbuffers|"
   "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"

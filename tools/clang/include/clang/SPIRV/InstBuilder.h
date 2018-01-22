@@ -882,10 +882,15 @@ public:
                        uint32_t operand);
   InstBuilder &binaryOp(spv::Op op, uint32_t result_type, uint32_t result_id,
                         uint32_t lhs, uint32_t rhs);
+  InstBuilder &specConstantBinaryOp(spv::Op op, uint32_t result_type,
+                                    uint32_t result_id, uint32_t lhs,
+                                    uint32_t rhs);
 
   // Methods for building constants.
   InstBuilder &opConstant(uint32_t result_type, uint32_t result_id,
                           uint32_t value);
+  InstBuilder &opSpecConstant(uint32_t result_type, uint32_t result_id,
+                              uint32_t value);
 
   // All-in-one method for creating different types of OpImageSample*.
   InstBuilder &
