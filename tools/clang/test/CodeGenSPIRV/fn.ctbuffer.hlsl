@@ -5,7 +5,7 @@
 cbuffer MyCBuffer {
     float4 cb_val;
 
-// CHECK:      %get_cb_val = OpFunction %v4float None %17
+// CHECK:      %get_cb_val = OpFunction %v4float None {{%\d+}}
 // CHECK:         {{%\d+}} = OpAccessChain %_ptr_Uniform_v4float %var_MyCBuffer %int_0
     float4 get_cb_val() { return cb_val; }
 }
@@ -13,7 +13,7 @@ cbuffer MyCBuffer {
 tbuffer MyTBuffer {
     float tb_val;
 
-// CHECK:      %get_tb_val = OpFunction %float None %30
+// CHECK:      %get_tb_val = OpFunction %float None {{%\d+}}
 // CHECK:         {{%\d+}} = OpAccessChain %_ptr_Uniform_float %var_MyTBuffer %int_0
     float get_tb_val() { return tb_val; }
 }
