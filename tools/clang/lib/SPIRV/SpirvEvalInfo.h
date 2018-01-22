@@ -94,6 +94,9 @@ public:
   inline SpirvEvalInfo &setConstant();
   bool isConstant() const { return isConstant_; }
 
+  inline SpirvEvalInfo &setSpecConstant();
+  bool isSpecConstant() const { return isSpecConstant_; }
+
   inline SpirvEvalInfo &setRelaxedPrecision();
   bool isRelaxedPrecision() const { return isRelaxedPrecision_; }
 
@@ -114,6 +117,7 @@ private:
 
   bool isRValue_;
   bool isConstant_;
+  bool isSpecConstant_;
   bool isRelaxedPrecision_;
 };
 
@@ -155,6 +159,12 @@ SpirvEvalInfo &SpirvEvalInfo::setRValue(bool rvalue) {
 
 SpirvEvalInfo &SpirvEvalInfo::setConstant() {
   isConstant_ = true;
+  return *this;
+}
+
+SpirvEvalInfo &SpirvEvalInfo::setSpecConstant() {
+  // Specialization constant is also a kind of constant.
+  isConstant_ = isSpecConstant_ = true;
   return *this;
 }
 

@@ -64,6 +64,27 @@ InstBuilder &InstBuilder::binaryOp(spv::Op op, uint32_t result_type,
   return *this;
 }
 
+InstBuilder &InstBuilder::specConstantBinaryOp(spv::Op op, uint32_t result_type,
+                                               uint32_t result_id, uint32_t lhs,
+                                               uint32_t rhs) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+
+  // TODO: check op range
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(static_cast<uint32_t>(spv::Op::OpSpecConstantOp));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(static_cast<uint32_t>(op));
+  TheInst.emplace_back(lhs);
+  TheInst.emplace_back(rhs);
+
+  return *this;
+}
+
 InstBuilder &InstBuilder::opConstant(uint32_t resultType, uint32_t resultId,
                                      uint32_t value) {
   if (!TheInst.empty()) {
@@ -130,6 +151,22 @@ InstBuilder &InstBuilder::opImageFetchRead(
     const auto &val = image_operands.getValue();
     encodeImageOperands(val);
   }
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::opSpecConstant(uint32_t resultType, uint32_t resultId,
+                                         uint32_t value) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+
+  TheInst.reserve(4);
+  TheInst.emplace_back(static_cast<uint32_t>(spv::Op::OpSpecConstant));
+  TheInst.emplace_back(resultType);
+  TheInst.emplace_back(resultId);
+  TheInst.emplace_back(value);
 
   return *this;
 }

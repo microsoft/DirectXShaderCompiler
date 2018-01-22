@@ -243,6 +243,9 @@ private:
       llvm::function_ref<uint32_t(uint32_t, uint32_t, uint32_t)>
           actOnEachVector);
 
+  /// Translates the given varDecl into a spec constant.
+  void createSpecConstant(const VarDecl *varDecl);
+
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs.
   ///
@@ -849,6 +852,10 @@ private:
   /// The source location of a push constant block we have previously seen.
   /// Invalid means no push constant blocks defined thus far.
   SourceLocation seenPushConstantAt;
+
+  /// Indicates whether the current emitter is in specialization constant mode:
+  /// all 32-bit scalar constants will be translated into OpSpecConstant.
+  bool isSpecConstantMode;
 
   /// Whether the translated SPIR-V binary needs legalization.
   ///

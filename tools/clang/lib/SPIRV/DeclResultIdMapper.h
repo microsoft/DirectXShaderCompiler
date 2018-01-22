@@ -369,13 +369,17 @@ public:
   ///
   /// This method will emit a fatal error if checkRegistered is true and the
   /// decl is not registered.
-  SpirvEvalInfo getDeclResultId(const ValueDecl *decl,
+  SpirvEvalInfo getDeclEvalInfo(const ValueDecl *decl,
                                 bool checkRegistered = true);
 
   /// \brief Returns the <result-id> for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and
   /// returns a newly assigned <result-id> for it.
   uint32_t getOrRegisterFnResultId(const FunctionDecl *fn);
+
+  /// Registers that the given decl should be translated into the given spec
+  /// constant.
+  void registerSpecConstant(const VarDecl *decl, uint32_t specConstant);
 
   /// \brief Returns the associated counter's (<result-id>, is-alias-or-not)
   /// pair for the given {RW|Append|Consume}StructuredBuffer variable.
