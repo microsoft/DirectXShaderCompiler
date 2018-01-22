@@ -518,9 +518,6 @@ void SPIRVModule::addType(const Type *type, uint32_t resultId) {
 
 void SPIRVModule::addConstant(const Constant *constant, uint32_t resultId) {
   constants.insert(std::make_pair(constant, resultId));
-  for (const Decoration *d : constant->getDecorations()) {
-    addDecoration(d, resultId);
-  }
 };
 
 void SPIRVModule::addVariable(Instruction &&var) {

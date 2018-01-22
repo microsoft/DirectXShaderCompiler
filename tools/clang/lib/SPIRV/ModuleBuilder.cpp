@@ -1094,7 +1094,7 @@ IMPL_GET_PRIMITIVE_CONST(Float64, double)
 IMPL_GET_PRIMITIVE_CONST(Int64, int64_t)
 IMPL_GET_PRIMITIVE_CONST(Uint64, uint64_t)
 
-#undef IMPL_GET_PRIMITIVE_VALUE
+#undef IMPL_GET_PRIMITIVE_CONST
 
 uint32_t
 ModuleBuilder::getConstantComposite(uint32_t typeId,
