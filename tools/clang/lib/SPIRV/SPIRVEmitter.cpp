@@ -4529,12 +4529,12 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
     // This is a compound assignment. We need to load the lhs value if lhs
     // is not already rvalue and does not generate a vector shuffle.
     if (!lhsPtr.isRValue() && !isVectorShuffle(lhs)) {
-      const uint32_t lhsTy = typeTranslator.translateType(lhs->getType());
-      lhsVal = theBuilder.createLoad(lhsTy, lhsPtr);
+      lhsVal = loadIfGLValue(lhs, lhsPtr);
     }
   } else {
     // Evalute lhs before rhs
-    lhsVal = lhsPtr = doExpr(lhs);
+    lhsPtr = doExpr(lhs);
+    lhsVal = loadIfGLValue(lhs, lhsPtr);
     rhsVal = loadIfGLValue(rhs);
   }
 

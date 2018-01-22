@@ -5,6 +5,7 @@ StructuredBuffer<S> PerFrame;
 
 void main(float4 input: INPUT) {
 // CHECK-LABEL: %bb_entry = OpLabel
+    float4 v4f;
     float2 v2f;
     float1 v1f1, v1f2;
     float sf;
@@ -44,5 +45,9 @@ void main(float4 input: INPUT) {
 // CHECK:      [[fptr:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %PerFrame %int_0 %uint_5 %int_0
 // CHECK-NEXT: [[elem:%\d+]] = OpAccessChain %_ptr_Uniform_float [[fptr]] %int_3
 // CHECK-NEXT:      {{%\d+}} = OpLoad %float [[elem]]
-    float4  v4f = input * PerFrame[5].f.www.r;
+    v4f = input * PerFrame[5].f.www.r;
+// CHECK:      [[fptr:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %PerFrame %int_0 %uint_6 %int_0
+// CHECK-NEXT: [[elem:%\d+]] = OpAccessChain %_ptr_Uniform_float [[fptr]] %int_2
+// CHECK-NEXT:      {{%\d+}} = OpLoad %float [[elem]]
+    sf = PerFrame[6].f.zzz.r * input.y;
 }
