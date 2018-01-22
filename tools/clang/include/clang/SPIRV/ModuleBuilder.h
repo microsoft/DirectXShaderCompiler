@@ -357,6 +357,10 @@ public:
   void decorateDSetBinding(uint32_t targetId, uint32_t setNumber,
                            uint32_t bindingNumber);
 
+  /// \brief Decorates the given target <result-id> with the given input
+  /// attchment index number.
+  void decorateInputAttachmentIndex(uint32_t targetId, uint32_t indexNumber);
+
   /// \brief Decorates the given target <result-id> with the given decoration
   /// (without additional parameters).
   void decorate(uint32_t targetId, spv::Decoration);

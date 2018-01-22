@@ -166,6 +166,44 @@ Descriptors
 To specify which Vulkan descriptor a particular resource binds to, use the
 ``[[vk::binding(X[, Y])]]`` attribute.
 
+Subpass inputs
+~~~~~~~~~~~~~~
+
+Within a Vulkan `rendering pass <https://www.khronos.org/registry/vulkan/specs/1.0/html/vkspec.html#renderpass>`_,
+a subpass can write results to an output target that can then be read by the
+next subpass as an input subpass. The "Subpass Input" feature regards the
+ability to read an output target.
+
+Subpasses are read through two new builtin resource types, available only in
+pixel shader:
+
+.. code:: hlsl
+
+  class SubpassInput<T> {
+    T SubpassLoad();
+  };
+
+  class SubpassInputMS<T> {
+    T SubpassLoad(int sampleIndex);
+  };
+
+In the above, ``T`` is a scalar or vector type. If omitted, it will defaults to
+``float4``.
+
+Subpass inputs are implicitly addressed by the pixel's (x, y, layer) coordinate.
+These objects support reading the subpass input through the methods as shown
+in the above.
+
+A subpass input is selected by using a new attribute ``vk::input_attachment_index``.
+For example:
+
+.. code:: hlsl
+
+  [[vk::input_attachment_index(i)]] SubpassInput input;
+
+An ``vk::input_attachment_index`` of ``i`` selects the ith entry in the input
+pass list. (See Vulkan API spec for more information.)
+
 Push constants
 ~~~~~~~~~~~~~~
 
@@ -209,6 +247,9 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``push_constant``: For marking a variable as the push constant block. Allowed
   on global variables of struct type. At most one variable can be marked as
   ``push_constant`` in a shader.
+- ``input_attachment_index(X)``: To associate the Xth entry in the input pass
+  list to the annotated object. Only allowed on objects whose type are
+  ``SubpassInput`` or ``SubpassInputMS``.
 - ``builtin("X")``: For specifying an entity should be translated into a certain
   Vulkan builtin variable. Allowed on function parameters, function returns,
   and struct fields.
