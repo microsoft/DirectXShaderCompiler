@@ -115,11 +115,11 @@ DS_OUTPUT BezierEvalDS( HS_CONSTANT_DATA_OUTPUT input,
 // OpDecorate %out_var_TEXCOORD Location 1
 // OpDecorate %out_var_TANGENT Location 2
 // OpDecorate %out_var_BITANGENT Location 3
-// %uint = OpTypeInt 32 0
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void
 // %float = OpTypeFloat 32
 // %v4float = OpTypeVector %float 4
+// %uint = OpTypeInt 32 0
 // %uint_1 = OpConstant %uint 1
 // %_arr_float_uint_1 = OpTypeArray %float %uint_1
 // %type_gl_PerVertex = OpTypeStruct %v4float %float %_arr_float_uint_1 %_arr_float_uint_1
@@ -150,9 +150,9 @@ DS_OUTPUT BezierEvalDS( HS_CONSTANT_DATA_OUTPUT input,
 // %_ptr_Output_v3float = OpTypePointer Output %v3float
 // %_ptr_Output_v2float = OpTypePointer Output %v2float
 // %_ptr_Output_v4float = OpTypePointer Output %v4float
+// %uint_0 = OpConstant %uint 0
 // %85 = OpTypeFunction %DS_OUTPUT %_ptr_Function_HS_CONSTANT_DATA_OUTPUT %_ptr_Function_v2float %_ptr_Function__arr_BEZIER_CONTROL_POINT_uint_4
 // %_ptr_Function_DS_OUTPUT = OpTypePointer Function %DS_OUTPUT
-// %uint_0 = OpConstant %uint 0
 // %gl_PerVertexIn = OpVariable %_ptr_Input__arr_type_gl_PerVertex_uint_4 Input
 // %gl_PerVertexOut = OpVariable %_ptr_Output_type_gl_PerVertex Output
 // %gl_TessLevelOuter = OpVariable %_ptr_Input__arr_float_uint_4 Input

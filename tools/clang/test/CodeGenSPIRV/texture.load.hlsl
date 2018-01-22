@@ -15,13 +15,13 @@ Texture2DMSArray<float3> t8 : register(t8);
 // CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability SparseResidency
 
-// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
-// CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4int
-// CHECK: %SparseResidencyStruct_1 = OpTypeStruct %uint %v4uint
-
 // CHECK: [[v2ic:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
 // CHECK: [[v4ic:%\d+]] = OpConstantComposite %v4int %int_1 %int_2 %int_3 %int_4
 // CHECK: [[v3ic:%\d+]] = OpConstantComposite %v3int %int_3 %int_3 %int_3
+
+// CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
+// CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4int
+// CHECK: %SparseResidencyStruct_1 = OpTypeStruct %uint %v4uint
 
 float4 main(int3 location: A, int offset: B) : SV_Target {
     uint status;
@@ -155,6 +155,6 @@ float4 main(int3 location: A, int offset: B) : SV_Target {
 // CHECK-NEXT:      [[result:%\d+]] = OpVectorShuffle %v3float [[v4result]] [[v4result]] 0 1 2
 // CHECK-NEXT:                        OpStore %val18 [[result]]
     float3 val18 = t8.Load(pos3, sampleIndex, int2(1,2), status);
-    
+
     return 1.0;
 }

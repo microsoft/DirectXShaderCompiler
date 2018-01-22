@@ -6,9 +6,10 @@ Texture2DArray <float4> t2 : register(t2);
 
 // CHECK: OpCapability SparseResidency
 
+// CHECK: [[v3ic:%\d+]] = OpConstantComposite %v3int %int_1 %int_2 %int_3
+
 // CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
 
-// CHECK: [[v3ic:%\d+]] = OpConstantComposite %v3int %int_1 %int_2 %int_3
 // CHECK: [[v2ic:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
 
 float4 main(int4 location: A) : SV_Target {
@@ -47,6 +48,6 @@ float4 main(int4 location: A) : SV_Target {
 // CHECK-NEXT:      [[result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
 // CHECK-NEXT:                        OpStore %val4 [[result]]
     float4 val4 = t2.Load(location, int2(1, 2), status);
-    
+
     return 1.0;
 }
