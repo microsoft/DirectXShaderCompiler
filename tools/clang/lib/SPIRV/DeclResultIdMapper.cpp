@@ -412,6 +412,9 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   resourceVars.emplace_back(id, getResourceCategory(var->getType()), regAttr,
                             bindingAttr, counterBindingAttr);
 
+  if (const auto *inputAttachment = var->getAttr<VKInputAttachmentIndexAttr>())
+    theBuilder.decorateInputAttachmentIndex(id, inputAttachment->getIndex());
+
   if (isACRWSBuffer) {
     // For {Append|Consume|RW}StructuredBuffer, we need to always create another
     // variable for its associated counter.
@@ -879,7 +882,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
         // We have checked that not all of the stage variables have explicit
         // location assignment.
         emitError("partial explicit stage %select{output|input}0 location "
-                  "assignment via [[vk::location(X)]] unsupported",
+                  "assignment via vk::location(X) unsupported",
                   {})
             << forInput;
         return false;

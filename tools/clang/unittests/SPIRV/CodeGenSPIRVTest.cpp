@@ -1161,6 +1161,14 @@ TEST_F(FileTest, VulkanLayoutCBufferPackOffset) {
   runFileTest("vk.layout.cbuffer.packoffset.hlsl", Expect::Warning);
 }
 
+TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
+TEST_F(FileTest, VulkanSubpassInputBinding) {
+  runFileTest("vk.subpass-input.binding.hlsl");
+}
+TEST_F(FileTest, VulkanSubpassInputError) {
+  runFileTest("vk.subpass-input.error.hlsl", Expect::Failure);
+}
+
 // HS: for different Patch Constant Functions
 TEST_F(FileTest, HullShaderPCFVoid) { runFileTest("hs.pcf.void.hlsl"); }
 TEST_F(FileTest, HullShaderPCFTakesInputPatch) {

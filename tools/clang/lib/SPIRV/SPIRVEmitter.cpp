@@ -940,7 +940,59 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   theBuilder.endFunction();
 }
 
-void SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
+bool SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
+  bool success = true;
+
+  if (decl->hasAttr<HLSLRowMajorAttr>()) {
+    emitWarning("row_major attribute for stand-alone matrix is not supported",
+                decl->getAttr<HLSLRowMajorAttr>()->getLocation());
+  }
+  if (decl->hasAttr<HLSLColumnMajorAttr>()) {
+    emitWarning(
+        "column_major attribute for stand-alone matrix is not supported",
+        decl->getAttr<HLSLColumnMajorAttr>()->getLocation());
+  }
+
+  if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
+    const auto varType = varDecl->getType();
+    if ((TypeTranslator::isSubpassInput(varType) ||
+         TypeTranslator::isSubpassInputMS(varType)) &&
+        !varDecl->hasAttr<VKInputAttachmentIndexAttr>()) {
+      emitError("missing vk::input_attachment_index attribute",
+                varDecl->getLocation());
+      success = false;
+    }
+  }
+
+  if (const auto *iaiAttr = decl->getAttr<VKInputAttachmentIndexAttr>()) {
+    if (!shaderModel.IsPS()) {
+      emitError("SubpassInput(MS) only allowed in pixel shader",
+                decl->getLocation());
+      success = false;
+    }
+
+    if (!decl->isExternallyVisible()) {
+      emitError("SubpassInput(MS) must be externally visible",
+                decl->getLocation());
+      success = false;
+    }
+
+    // We only allow VKInputAttachmentIndexAttr to be attached to global
+    // variables. So it should be fine to cast here.
+    const auto elementType =
+        hlsl::GetHLSLResourceResultType(cast<VarDecl>(decl)->getType());
+
+    if (!TypeTranslator::isScalarType(elementType) &&
+        !TypeTranslator::isVectorType(elementType)) {
+      emitError(
+          "only scalar/vector types allowed as SubpassInput(MS) parameter type",
+          decl->getLocation());
+      // Return directly to avoid further type processing, which will hit
+      // asserts in TypeTranslator.
+      return false;
+    }
+  }
+
   // The frontend will make sure that
   // * vk::push_constant applies to global variables of struct type
   // * vk::binding applies to global variables or cbuffers/tbuffers
@@ -964,14 +1016,18 @@ void SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
       emitError("cannot have more than one push constant block", loc);
       emitNote("push constant block previously defined here",
                seenPushConstantAt);
+      success = false;
     }
 
     if (decl->hasAttr<VKBindingAttr>()) {
-      emitError("'push_constant' attribute cannot be used together with "
-                "'binding' attribute",
+      emitError("vk::push_constant attribute cannot be used together with "
+                "vk::binding attribute",
                 loc);
+      success = false;
     }
   }
+
+  return success;
 }
 
 void SPIRVEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
@@ -991,7 +1047,8 @@ void SPIRVEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
           emitWarning("packoffset ignored since not supported", packing->Loc);
     }
   }
-  validateVKAttributes(bufferDecl);
+  if (!validateVKAttributes(bufferDecl))
+    return;
   (void)declIdMapper.createCTBuffer(bufferDecl);
 }
 
@@ -1014,17 +1071,8 @@ void SPIRVEmitter::doRecordDecl(const RecordDecl *recordDecl) {
 }
 
 void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
-  validateVKAttributes(decl);
-
-  if (decl->hasAttr<HLSLRowMajorAttr>()) {
-    emitWarning("row_major attribute for stand-alone matrix is not supported",
-                decl->getAttr<HLSLRowMajorAttr>()->getLocation());
-  }
-  if (decl->hasAttr<HLSLColumnMajorAttr>()) {
-    emitWarning(
-        "column_major attribute for stand-alone matrix is not supported",
-        decl->getAttr<HLSLColumnMajorAttr>()->getLocation());
-  }
+  if (!validateVKAttributes(decl))
+    return;
 
   if (decl->hasAttr<VKConstantIdAttr>()) {
     // This is a VarDecl for specialization constant.
@@ -2405,6 +2453,18 @@ uint32_t SPIRVEmitter::processGetSamplePosition(const CXXMemberCallExpr *expr) {
   return emitGetSamplePosition(sampleCount, doExpr(expr->getArg(0)));
 }
 
+SpirvEvalInfo SPIRVEmitter::processSubpassLoad(const CXXMemberCallExpr *expr) {
+  const auto *object = expr->getImplicitObjectArgument()->IgnoreParens();
+  const uint32_t sample = expr->getNumArgs() == 1 ? doExpr(expr->getArg(0)) : 0;
+  const uint32_t zero = theBuilder.getConstantInt32(0);
+  const uint32_t location = theBuilder.getConstantComposite(
+      theBuilder.getVecType(theBuilder.getInt32Type(), 2), {zero, zero});
+
+  return processBufferTextureLoad(object, location, /*constOffset*/ 0,
+                                  /*varOffset*/ 0, /*lod*/ sample,
+                                  /*residencyCode*/ 0);
+}
+
 uint32_t
 SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   const auto *object = expr->getImplicitObjectArgument();
@@ -2692,7 +2752,10 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
   assert(TypeTranslator::isBuffer(type) || TypeTranslator::isRWBuffer(type) ||
-         TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type));
+         TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type) ||
+         TypeTranslator::isSubpassInput(type) ||
+         TypeTranslator::isSubpassInputMS(type));
+
   const bool doFetch =
       TypeTranslator::isBuffer(type) || TypeTranslator::isTexture(type);
 
@@ -2700,7 +2763,8 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
 
   // For Texture2DMS and Texture2DMSArray, Sample must be used rather than Lod.
   uint32_t sampleNumber = 0;
-  if (TypeTranslator::isTextureMS(type)) {
+  if (TypeTranslator::isTextureMS(type) ||
+      TypeTranslator::isSubpassInputMS(type)) {
     sampleNumber = lod;
     lod = 0;
   }
@@ -3415,6 +3479,9 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     break;
   case IntrinsicOp::MOP_GetSamplePosition:
     retVal = processGetSamplePosition(expr);
+    break;
+  case IntrinsicOp::MOP_SubpassLoad:
+    retVal = processSubpassLoad(expr);
     break;
   case IntrinsicOp::MOP_GatherCmpGreen:
   case IntrinsicOp::MOP_GatherCmpBlue:
