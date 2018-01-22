@@ -7578,7 +7578,8 @@ uint32_t SPIRVEmitter::translateAPFloat(llvm::APFloat floatValue,
       emitError(
           "evaluating float literal %0 at a lower bitwidth loses information",
           {})
-          // Converting from 32/64-bit to 16-bit won't lose information.
+          // Converting from 16bit to 32/64-bit won't lose information.
+          // So only 32/64-bit values can reach here.
           << std::to_string(valueBitwidth == 32
                                 ? originalValue.convertToFloat()
                                 : originalValue.convertToDouble());
