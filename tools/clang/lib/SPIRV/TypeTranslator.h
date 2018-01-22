@@ -119,6 +119,12 @@ public:
   /// \brief Returns true if the given type is an HLSL sampler type.
   static bool isSampler(QualType);
 
+  /// \brief Returns true if the given type is SubpassInput.
+  static bool isSubpassInput(QualType);
+
+  /// \brief Returns true if the given type is SubpassInputMS.
+  static bool isSubpassInputMS(QualType);
+
   /// \brief Returns true if the given type will be translated into a SPIR-V
   /// scalar type. This includes normal scalar types, vectors of size 1, and
   /// 1x1 matrices. If scalarType is not nullptr, writes the scalar type to

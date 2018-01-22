@@ -275,8 +275,9 @@ private:
                      const llvm::SmallVector<uint32_t, 4> &indices);
 
 private:
-  /// Validates that vk::* attributes are used correctly.
-  void validateVKAttributes(const NamedDecl *decl);
+  /// Validates that vk::* attributes are used correctly and returns false if
+  /// errors are found.
+  bool validateVKAttributes(const NamedDecl *decl);
 
 private:
   /// Processes the given expr, casts the result into the given bool (vector)
@@ -731,6 +732,10 @@ private:
   /// \brief Processes the GetSamplePosition intrinsic method call on a
   /// Texture2DMS(Array).
   uint32_t processGetSamplePosition(const CXXMemberCallExpr *);
+
+  /// \brief Processes the SubpassLoad intrinsic function call on a
+  /// SubpassInput(MS).
+  SpirvEvalInfo processSubpassLoad(const CXXMemberCallExpr *);
 
   /// \brief Generates SPIR-V instructions for the .Append()/.Consume() call on
   /// the given {Append|Consume}StructuredBuffer. Returns the <result-id> of
