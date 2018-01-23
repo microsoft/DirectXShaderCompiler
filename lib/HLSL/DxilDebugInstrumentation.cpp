@@ -10,8 +10,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/DxilOperations.h"
+#include "dxc/HLSL/DxilPIXPasses.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -232,19 +233,12 @@ private:
 };
 
 void DxilDebugInstrumentation::applyOptions(PassOptions O) {
-  for (const auto & option : O) {
-    if (0 == option.first.compare("parameter0")) {
-      m_Parameters.Parameters[0] = atoi(option.second.data());
-    }
-    else if (0 == option.first.compare("parameter1")) {
-      m_Parameters.Parameters[1] = atoi(option.second.data()); 
-    }
-    else if (0 == option.first.compare("parameter2")) {
-      m_Parameters.Parameters[2] = atoi(option.second.data());
-    }
-    else if (0 == option.first.compare("UAVSize")) {
-      m_UAVSize = std::stoull(option.second.data());
-    }
+  GetPassOptionUnsigned(O, "parameter0", &m_Parameters.Parameters[0], 0);
+  GetPassOptionUnsigned(O, "parameter1", &m_Parameters.Parameters[1], 0);
+  GetPassOptionUnsigned(O, "parameter2", &m_Parameters.Parameters[2], 0);
+  StringRef val;
+  if (GetPassOption(O, "UAVSize", &val)) {
+    val.getAsInteger<unsigned long long>(10, m_UAVSize);
   }
 }
 

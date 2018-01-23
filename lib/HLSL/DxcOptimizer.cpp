@@ -16,6 +16,7 @@
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/DxilPIXPasses.h"
 #include "dxc/HLSL/ReducibilityAnalysis.h"
 #include "dxc/HLSL/HLMatrixLowerPass.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
