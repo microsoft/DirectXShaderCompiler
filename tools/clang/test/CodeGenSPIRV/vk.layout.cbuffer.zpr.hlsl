@@ -3,6 +3,10 @@
 // CHECK: OpDecorate %_arr_mat2v3float_uint_5 ArrayStride 32
 // CHECK: OpDecorate %_arr_mat2v3float_uint_5_0 ArrayStride 48
 
+// CHECK: OpMemberDecorate %type_MyCBuffer 0 ColMajor
+// CHECK: OpMemberDecorate %type_MyCBuffer 1 RowMajor
+// CHECK: OpMemberDecorate %type_MyCBuffer 2 ColMajor
+
 // CHECK: %type_MyCBuffer = OpTypeStruct %_arr_mat2v3float_uint_5 %_arr_mat2v3float_uint_5_0 %_arr_mat2v3float_uint_5
 cbuffer MyCBuffer {
     row_major    float2x3 matrices1[5];
