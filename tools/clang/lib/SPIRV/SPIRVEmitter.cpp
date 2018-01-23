@@ -7864,7 +7864,8 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
     llvm::StringRef pcf_name = pcf->getFunctionName();
     for (auto *decl : astContext.getTranslationUnitDecl()->decls())
       if (auto *funcDecl = dyn_cast<FunctionDecl>(decl))
-        if (funcDecl->getName() == pcf_name)
+        if (astContext.IsPatchConstantFunctionDecl(funcDecl) &&
+            funcDecl->getName() == pcf_name)
           patchConstFunc = funcDecl;
   }
 
