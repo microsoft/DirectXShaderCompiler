@@ -9,6 +9,8 @@ Texture2DArray   <float> t4;
 Texture3D        <float> t5;
 Texture2DMS      <float> t6;
 Texture2DMSArray <float> t7;
+TextureCube      <float> t8;
+TextureCubeArray <float> t9;
 
 void main() {
   uint mipLevel = 1;
@@ -289,4 +291,45 @@ void main() {
 // CHECK-NEXT:                      OpStore %f_numSamples [[f_query17]]
   t7.GetDimensions(f_width, f_height, f_elements, f_numSamples);
 
+// CHECK:             [[t8:%\d+]] = OpLoad %type_cube_image %t8
+// CHECK-NEXT:   [[query18:%\d+]] = OpImageQuerySizeLod %v2uint [[t8]] %int_0
+// CHECK-NEXT: [[query18_0:%\d+]] = OpCompositeExtract %uint [[query18]] 0
+// CHECK-NEXT:                      OpStore %width [[query18_0]]
+// CHECK-NEXT: [[query18_1:%\d+]] = OpCompositeExtract %uint [[query18]] 1
+// CHECK-NEXT:                      OpStore %height [[query18_1]]
+  t8.GetDimensions(width, height);
+  
+// CHECK:             [[t8:%\d+]] = OpLoad %type_cube_image %t8
+// CHECK-NEXT:       [[mip:%\d+]] = OpLoad %uint %mipLevel
+// CHECK-NEXT:   [[query19:%\d+]] = OpImageQuerySizeLod %v2uint [[t8]] [[mip]]
+// CHECK-NEXT: [[query19_0:%\d+]] = OpCompositeExtract %uint [[query19]] 0
+// CHECK-NEXT:                      OpStore %width [[query19_0]]
+// CHECK-NEXT: [[query19_1:%\d+]] = OpCompositeExtract %uint [[query19]] 1
+// CHECK-NEXT:                      OpStore %height [[query19_1]]
+// CHECK-NEXT:   [[query20:%\d+]] = OpImageQueryLevels %uint [[t8]]
+// CHECK-NEXT:                      OpStore %numLevels [[query20]]
+  t8.GetDimensions(mipLevel, width, height, numLevels);
+
+// CHECK:             [[t9:%\d+]] = OpLoad %type_cube_image_array %t9
+// CHECK-NEXT:   [[query21:%\d+]] = OpImageQuerySizeLod %v3uint [[t9]] %int_0
+// CHECK-NEXT: [[query21_0:%\d+]] = OpCompositeExtract %uint [[query21]] 0
+// CHECK-NEXT:                      OpStore %width [[query21_0]]
+// CHECK-NEXT: [[query21_1:%\d+]] = OpCompositeExtract %uint [[query21]] 1
+// CHECK-NEXT:                      OpStore %height [[query21_1]]
+// CHECK-NEXT: [[query21_2:%\d+]] = OpCompositeExtract %uint [[query21]] 2
+// CHECK-NEXT:                      OpStore %elements [[query21_2]]
+  t9.GetDimensions(width, height, elements);
+  
+// CHECK:             [[t9:%\d+]] = OpLoad %type_cube_image_array %t9
+// CHECK-NEXT:       [[mip:%\d+]] = OpLoad %uint %mipLevel
+// CHECK-NEXT:   [[query22:%\d+]] = OpImageQuerySizeLod %v3uint [[t9]] [[mip]]
+// CHECK-NEXT: [[query22_0:%\d+]] = OpCompositeExtract %uint [[query22]] 0
+// CHECK-NEXT:                      OpStore %width [[query22_0]]
+// CHECK-NEXT: [[query22_1:%\d+]] = OpCompositeExtract %uint [[query22]] 1
+// CHECK-NEXT:                      OpStore %height [[query22_1]]
+// CHECK-NEXT: [[query22_2:%\d+]] = OpCompositeExtract %uint [[query22]] 2
+// CHECK-NEXT:                      OpStore %elements [[query22_2]]
+// CHECK-NEXT:   [[query23:%\d+]] = OpImageQueryLevels %uint [[t9]]
+// CHECK-NEXT:                      OpStore %numLevels [[query23]]
+  t9.GetDimensions(mipLevel, width, height, elements, numLevels);
 }

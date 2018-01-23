@@ -2519,6 +2519,14 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
 
   // For Texture2DMSArray, arguments are: width, height, elements, NumSamples
 
+  // For TextureCube, arguments are either:
+  // a) width, height
+  // b) MipLevel, width, height, NumLevels
+
+  // For TextureCubeArray, arguments are either:
+  // a) width, height, elements
+  // b) MipLevel, width, height, elements, NumLevels
+
   // Note: SPIR-V Spec requires return type of OpImageQuerySize(Lod) to be a
   // scalar/vector of integers. SPIR-V Spec also requires return type of
   // OpImageQueryLevels and OpImageQuerySamples to be scalar integers.
@@ -2539,8 +2547,10 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
 
   if ((typeName == "Texture1D" && numArgs > 1) ||
       (typeName == "Texture2D" && numArgs > 2) ||
+      (typeName == "TextureCube" && numArgs > 2) ||
       (typeName == "Texture3D" && numArgs > 3) ||
       (typeName == "Texture1DArray" && numArgs > 2) ||
+      (typeName == "TextureCubeArray" && numArgs > 3) ||
       (typeName == "Texture2DArray" && numArgs > 3)) {
     mipLevel = expr->getArg(0);
     numLevels = expr->getArg(numArgs - 1);
