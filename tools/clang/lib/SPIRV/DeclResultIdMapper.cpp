@@ -296,7 +296,7 @@ SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
           cast<VarDecl>(decl)->getType(),
           // We need to set decorateLayout here to avoid creating SPIR-V
           // instructions for the current type without decorations.
-          info->info.getLayoutRule());
+          info->info.getLayoutRule(), info->isRowMajor);
 
       const uint32_t elemId = theBuilder.createAccessChain(
           theBuilder.getPointerType(varType, info->info.getStorageClass()),
@@ -516,12 +516,14 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
+    const bool isRowMajor =
+        typeTranslator.isRowMajorMatrix(varDecl->getType(), varDecl);
     astDecls[varDecl] = {SpirvEvalInfo(bufferVar)
                              .setStorageClass(spv::StorageClass::Uniform)
                              .setLayoutRule(decl->isCBuffer()
                                                 ? LayoutRule::GLSLStd140
                                                 : LayoutRule::GLSLStd430),
-                         index++};
+                         index++, isRowMajor};
   }
   resourceVars.emplace_back(
       bufferVar, ResourceVar::Category::Other, getResourceBinding(decl),

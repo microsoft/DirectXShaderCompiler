@@ -347,8 +347,8 @@ private:
     /// Default constructor to satisfy DenseMap
     DeclSpirvInfo() : info(0), indexInCTBuffer(-1) {}
 
-    DeclSpirvInfo(const SpirvEvalInfo &info_, int index = -1)
-        : info(info_), indexInCTBuffer(index) {}
+    DeclSpirvInfo(const SpirvEvalInfo &info_, int index = -1, bool row = false)
+        : info(info_), indexInCTBuffer(index), isRowMajor(row) {}
 
     /// Implicit conversion to SpirvEvalInfo.
     operator SpirvEvalInfo() const { return info; }
@@ -357,6 +357,8 @@ private:
     /// Value >= 0 means that this decl is a VarDecl inside a cbuffer/tbuffer
     /// and this is the index; value < 0 means this is just a standalone decl.
     int indexInCTBuffer;
+    /// Whether this decl should be row major.
+    bool isRowMajor;
   };
 
   /// \brief Returns the SPIR-V information for the given decl.
