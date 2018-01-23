@@ -144,10 +144,9 @@ bool TypeTranslator::LiteralTypeHint::isLiteralType(QualType type) {
       type->isSpecificBuiltinType(BuiltinType::LitFloat))
     return true;
 
-  // For cases such as 'vector<literal int, 2>'
-  QualType elemType = {};
-  if (isVectorType(type, &elemType))
-    return isLiteralType(elemType);
+  // For cases such as 'vector<literal int, 2>' or 'vector<literal float, 1>'
+  if (hlsl::IsHLSLVecType(type))
+    return isLiteralType(hlsl::GetHLSLVecElementType(type));
 
   return false;
 }
