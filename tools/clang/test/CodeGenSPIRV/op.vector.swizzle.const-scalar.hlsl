@@ -4,7 +4,7 @@
 // CHECK: [[v4f25:%\d+]] = OpConstantComposite %v4float %float_2_5 %float_2_5 %float_2_5 %float_2_5
 // CHECK:  [[v4f0:%\d+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
 
-float4 main() : SV_Target {
+float4 main(float input: INPUT) : SV_Target {
 
 // CHECK: OpStore %a [[v4f1]]
   float4 a = (1).xxxx;
@@ -14,6 +14,13 @@ float4 main() : SV_Target {
 
 // CHECK: OpStore %c [[v4f0]]
   float4 c = (false).xxxx;
+
+// CHECK:       [[cc:%\d+]] = OpCompositeConstruct %v2float %float_0 %float_0
+// CHECK-NEXT: [[cc0:%\d+]] = OpCompositeExtract %float [[cc]] 0
+// CHECK-NEXT: [[cc1:%\d+]] = OpCompositeExtract %float [[cc]] 1
+// CHECK-NEXT: [[rhs:%\d+]] = OpCompositeConstruct %v4float {{%\d+}} {{%\d+}} [[cc0]] [[cc1]]
+// CHECK-NEXT:                OpStore %d [[rhs]]
+  float4 d = float4(input, input, 0.0.xx);
 
 // CHECK: OpReturnValue [[v4f0]]
   return 0.0.xxxx;
