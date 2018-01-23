@@ -2301,9 +2301,12 @@ SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   // According to HLSL doc, all sides of the ?: expression are always
   // evaluated.
   const uint32_t typeId = typeTranslator.translateType(type);
-  uint32_t condition = doExpr(expr->getCond());
-  const uint32_t trueBranch = doExpr(expr->getTrueExpr());
-  const uint32_t falseBranch = doExpr(expr->getFalseExpr());
+
+  // If we are selecting between two SampleState objects, none of the three
+  // operands has a LValueToRValue implicit cast.
+  uint32_t condition = loadIfGLValue(expr->getCond());
+  const auto trueBranch = loadIfGLValue(expr->getTrueExpr());
+  const auto falseBranch = loadIfGLValue(expr->getFalseExpr());
 
   // For cases where the return type is a scalar or a vector, we can use
   // OpSelect to choose between the two. OpSelect's return type must be either
