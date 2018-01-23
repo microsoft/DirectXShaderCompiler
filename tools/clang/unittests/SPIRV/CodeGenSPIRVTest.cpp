@@ -1129,6 +1129,12 @@ TEST_F(FileTest, VulkanSpecConstantError) {
   runFileTest("vk.spec-constant.error.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, VulkanLayoutCBufferMatrixZpr) {
+  runFileTest("vk.layout.cbuffer.zpr.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutCBufferMatrixZpc) {
+  runFileTest("vk.layout.cbuffer.zpc.hlsl");
+}
 TEST_F(FileTest, VulkanLayoutCBufferStd140) {
   runFileTest("vk.layout.cbuffer.std140.hlsl");
 }
