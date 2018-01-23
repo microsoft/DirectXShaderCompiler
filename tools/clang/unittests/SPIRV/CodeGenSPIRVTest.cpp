@@ -317,6 +317,9 @@ TEST_F(FileTest, CastImplicit2LiteralInt) {
 TEST_F(FileTest, CastImplicitFlatConversion) {
   runFileTest("cast.flat-conversion.implicit.hlsl");
 }
+TEST_F(FileTest, CastFlatConversionStruct) {
+  runFileTest("cast.flat-conversion.struct.hlsl");
+}
 TEST_F(FileTest, CastExplicitVecToMat) {
   runFileTest("cast.vec-to-mat.explicit.hlsl");
 }

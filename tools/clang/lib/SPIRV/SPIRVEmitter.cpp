@@ -383,11 +383,13 @@ inline bool canActAsOutParmVar(const ParmVarDecl *param) {
   return param->hasAttr<HLSLOutAttr>() || param->hasAttr<HLSLInOutAttr>();
 }
 
-/// Returns true if the given expression can be evaluated to a constant zero.
-/// Returns false otherwise.
+/// Returns true if the given expression is of builtin type and can be evaluated
+/// to a constant zero. Returns false otherwise.
 inline bool evaluatesToConstZero(const Expr *expr, ASTContext &astContext) {
   const auto type = expr->getType();
-  assert(type->isBuiltinType());
+  if (!type->isBuiltinType())
+    return false;
+
   Expr::EvalResult evalResult;
   if (expr->EvaluateAsRValue(evalResult, astContext) &&
       !evalResult.HasSideEffects) {
@@ -2214,9 +2216,20 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
   if (const auto *structType = type->getAs<RecordType>()) {
     const auto *decl = structType->getDecl();
     llvm::SmallVector<uint32_t, 4> fields;
-    for (const auto *field : decl->fields())
-      fields.push_back(
-          processFlatConversion(field->getType(), initType, initId, srcLoc));
+
+    for (const auto *field : decl->fields()) {
+      // There is a special case for FlatConversion. If T is a struct with only
+      // one member, S, then (T)<an-instance-of-S> is allowed, which essentially
+      // constructs a new T instance using the instance of S as its only member.
+      // Check whether we are handling that case here first.
+      if (field->getType().getCanonicalType() == initType.getCanonicalType()) {
+        fields.push_back(initId);
+      } else {
+        fields.push_back(
+            processFlatConversion(field->getType(), initType, initId, srcLoc));
+      }
+    }
+
     return theBuilder.createCompositeConstruct(
         typeTranslator.translateType(type), fields);
   }
