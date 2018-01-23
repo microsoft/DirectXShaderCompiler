@@ -103,6 +103,8 @@ bool GetPassOptionBool(PassOptions &O, llvm::StringRef name, bool *pValue, bool 
 bool GetPassOptionUnsigned(PassOptions &O, llvm::StringRef name, unsigned *pValue, unsigned defaultValue);
 bool GetPassOptionInt(PassOptions &O, llvm::StringRef name, int *pValue, int defaultValue);
 bool GetPassOptionUInt32(PassOptions &O, llvm::StringRef name, uint32_t *pValue, uint32_t defaultValue);
+bool GetPassOptionUInt64(PassOptions &O, llvm::StringRef name, uint64_t *pValue, uint64_t defaultValue);
+bool GetPassOptionFloat(PassOptions &O, llvm::StringRef name, float *pValue, float defaultValue);
 // HLSL Change Ends
 
 //===----------------------------------------------------------------------===//

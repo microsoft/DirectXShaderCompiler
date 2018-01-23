@@ -236,10 +236,7 @@ void DxilDebugInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionUnsigned(O, "parameter0", &m_Parameters.Parameters[0], 0);
   GetPassOptionUnsigned(O, "parameter1", &m_Parameters.Parameters[1], 0);
   GetPassOptionUnsigned(O, "parameter2", &m_Parameters.Parameters[2], 0);
-  StringRef val;
-  if (GetPassOption(O, "UAVSize", &val)) {
-    val.getAsInteger<unsigned long long>(10, m_UAVSize);
-  }
+  GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 0);
 }
 
 uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {

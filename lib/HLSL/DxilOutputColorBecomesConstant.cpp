@@ -51,25 +51,13 @@ public:
   bool runOnModule(Module &M) override;
 };
 
-float GetPassOptionAsFloat(PassOptions & O, const char * name, float deflt) {
-  std::string str;
-  StringRef ref;
-  float val = deflt;
-  if (GetPassOption(O, name, &ref)) {
-    str.assign(ref.begin(), ref.end());
-    val = atof(str.data());
-  }
-  return val;
-}
+void DxilOutputColorBecomesConstant::applyOptions(PassOptions O) {
+  GetPassOptionFloat(O, "constant-red", &Red, 1.f);
+  GetPassOptionFloat(O, "constant-green", &Green, 1.f);
+  GetPassOptionFloat(O, "constant-blue", &Blue, 1.f);
+  GetPassOptionFloat(O, "constant-alpha", &Alpha, 1.f);
 
-void DxilOutputColorBecomesConstant::applyOptions(PassOptions O)
-{
-  Red = GetPassOptionAsFloat(O, "constant-red", 1.f);
-  Green = GetPassOptionAsFloat(O, "constant-green", 1.f);
-  Blue = GetPassOptionAsFloat(O, "constant-blue", 1.f);
-  Alpha = GetPassOptionAsFloat(O, "constant-alpha", 1.f);
-
-  int mode;
+  int mode = 0;
   GetPassOptionInt(O, "mod-mode", &mode, 0);
   Mode = static_cast<VisualizerInstrumentationMode>(mode);
 }
