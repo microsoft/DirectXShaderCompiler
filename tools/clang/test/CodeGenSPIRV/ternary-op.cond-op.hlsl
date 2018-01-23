@@ -1,6 +1,10 @@
 // Run: %dxc -T ps_6_0 -E main
 
 // CHECK: [[v3i0:%\d+]] = OpConstantComposite %v3int %int_0 %int_0 %int_0
+SamplerState gSS1;
+SamplerState gSS2;
+
+Texture2D gTex;
 
 uint foo() { return 1; }
 float bar() { return 3.0; }
@@ -46,7 +50,7 @@ void main() {
     bool3 cond3;
     float floatCond;
     int3 int3Cond;
- 
+
 // CHECK:      [[cond3:%\d+]] = OpLoad %v3bool %cond3
 // CHECK-NEXT:     [[u:%\d+]] = OpLoad %v3int %u
 // CHECK-NEXT:     [[v:%\d+]] = OpLoad %v3int %v
@@ -127,4 +131,26 @@ void main() {
 // CHECK-NEXT: [[k_float:%\d+]] = OpSelect %float {{%\d+}} %float_4 [[bar]]
 // CHECK-NEXT:         {{%\d+}} = OpConvertFToU %uint [[k_float]]
     uint k = cond ? 4 : bar();
+
+// AST looks like:
+// |-ConditionalOperator 'SamplerState'
+// | |-DeclRefExpr 'bool' lvalue Var 0x1476949e328 'cond' 'bool'
+// | |-DeclRefExpr 'SamplerState' lvalue Var 0x1476742e498 'gSS1' 'SamplerState'
+// | `-DeclRefExpr 'SamplerState' lvalue Var 0x1476742e570 'gSS2' 'SamplerState'
+
+// CHECK:      [[cond:%\d+]] = OpLoad %bool %cond
+// CHECK-NEXT: [[gSS1:%\d+]] = OpLoad %type_sampler %gSS1
+// CHECK-NEXT: [[gSS2:%\d+]] = OpLoad %type_sampler %gSS2
+// CHECK-NEXT:                 OpSelectionMerge %if_merge_0 None
+// CHECK-NEXT:                 OpBranchConditional [[cond]] %if_true_0 %if_false_0
+// CHECK-NEXT:    %if_true_0 = OpLabel
+// CHECK-NEXT:                 OpStore %temp_var_ternary_0 [[gSS1]]
+// CHECK-NEXT:                 OpBranch %if_merge_0
+// CHECK-NEXT:   %if_false_0 = OpLabel
+// CHECK-NEXT:                 OpStore %temp_var_ternary_0 [[gSS2]]
+// CHECK-NEXT:                 OpBranch %if_merge_0
+// CHECK-NEXT:   %if_merge_0 = OpLabel
+// CHECK-NEXT:   [[ss:%\d+]] = OpLoad %type_sampler %temp_var_ternary_0
+// CHECK-NEXT:      {{%\d+}} = OpSampledImage %type_sampled_image {{%\d+}} [[ss]]
+    float4 l = gTex.Sample(cond ? gSS1 : gSS2, float2(1., 2.));
 }
