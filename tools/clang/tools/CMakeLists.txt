@@ -34,3 +34,5 @@ add_subdirectory(dxv)
 add_subdirectory(dotnetc)
 add_subdirectory(dxlib-sample)
 # HLSL Change Ends
+
+add_subdirectory(SecureHLSL)
