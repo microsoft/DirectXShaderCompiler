@@ -160,8 +160,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::GetDimensions,           "GetDimensions",            OCC::GetDimensions,            "getDimensions",               true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
 
   // Resources - gather                                                                                                     void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
-  {  OC::TextureGather,           "TextureGather",            OCC::TextureGather,            "textureGather",              false, false,  true, false, false, false, false,  true, false, Attribute::ReadOnly, },
-  {  OC::TextureGatherCmp,        "TextureGatherCmp",         OCC::TextureGatherCmp,         "textureGatherCmp",           false, false,  true, false, false, false, false,  true, false, Attribute::ReadOnly, },
+  {  OC::TextureGather,           "TextureGather",            OCC::TextureGather,            "textureGather",              false,  true,  true, false, false, false,  true,  true, false, Attribute::ReadOnly, },
+  {  OC::TextureGatherCmp,        "TextureGatherCmp",         OCC::TextureGatherCmp,         "textureGatherCmp",           false,  true,  true, false, false, false,  true,  true, false, Attribute::ReadOnly, },
 
   // Resources - sample                                                                                                     void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::Texture2DMSGetSamplePosition, "Texture2DMSGetSamplePosition", OCC::Texture2DMSGetSamplePosition, "texture2DMSGetSamplePosition",   true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
