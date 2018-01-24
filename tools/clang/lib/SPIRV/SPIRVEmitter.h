@@ -66,7 +66,7 @@ public:
   /// not be wrapped in ImplicitCastExpr (LValueToRValue) when appearing in
   /// HLSLVectorElementExpr since the generated HLSLVectorElementExpr itself can
   /// be lvalue or rvalue.
-  inline SpirvEvalInfo loadIfGLValue(const Expr *expr);
+  SpirvEvalInfo loadIfGLValue(const Expr *expr);
 
   /// Casts the given value from fromType to toType. fromType and toType should
   /// both be scalar or vector types of the same size.
