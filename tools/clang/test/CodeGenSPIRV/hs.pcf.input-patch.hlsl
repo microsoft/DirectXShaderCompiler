@@ -27,6 +27,20 @@ HS_CONSTANT_DATA_OUTPUT PCF(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip) 
   return Output;
 }
 
+// Note: This second patch constant function is placed here, but should not be used
+// because the "patchconstantfunc" attribute does not point to this function.
+HS_CONSTANT_DATA_OUTPUT PCF_2(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip) {
+  HS_CONSTANT_DATA_OUTPUT Output;
+  // Must initialize Edges and Inside; otherwise HLSL validation will fail.
+  Output.Edges[0]  = 2.0;
+  Output.Edges[1]  = 3.0;
+  Output.Edges[2]  = 4.0;
+  Output.Edges[3]  = 5.0;
+  Output.Inside[0] = 6.0;
+  Output.Inside[1] = 7.0;
+  return Output;
+}
+
 [domain("isoline")]
 [partitioning("fractional_odd")]
 [outputtopology("line")]
