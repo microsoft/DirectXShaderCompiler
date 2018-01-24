@@ -486,9 +486,6 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
       if (funcDecl->getName() == entryFunctionName) {
         workQueue.insert(funcDecl);
       }
-      if (context.IsPatchConstantFunctionDecl(funcDecl)) {
-        patchConstFunc = funcDecl;
-      }
     } else {
       // If ignoring unused resources, defer Decl handling inside
       // TranslationUnit to the time of first referencing.
@@ -7862,6 +7859,14 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
     theBuilder.addExecutionMode(entryFunctionId,
                                 spv::ExecutionMode::OutputVertices,
                                 {*numOutputControlPoints});
+  }
+  if (auto *pcf = decl->getAttr<HLSLPatchConstantFuncAttr>()) {
+    llvm::StringRef pcf_name = pcf->getFunctionName();
+    for (auto *decl : astContext.getTranslationUnitDecl()->decls())
+      if (auto *funcDecl = dyn_cast<FunctionDecl>(decl))
+        if (astContext.IsPatchConstantFunctionDecl(funcDecl) &&
+            funcDecl->getName() == pcf_name)
+          patchConstFunc = funcDecl;
   }
 
   return true;
