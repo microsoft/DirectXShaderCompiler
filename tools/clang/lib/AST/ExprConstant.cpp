@@ -3774,6 +3774,21 @@ static bool HandleIntrinsicCall(SourceLocation CallLoc, unsigned opcode,
     return false;
 
   switch ((hlsl::IntrinsicOp)opcode) {
+  case hlsl::IntrinsicOp::IOP_asuint:
+    assert(Args.size() == 1 && "else call should be invalid");
+    if (ArgValues[0].isInt()) {
+      Result = ArgValues[0];
+    }
+    else if (ArgValues[0].isFloat()) {
+      const bool isUnsignedTrue = true;
+      Result = APValue(APSInt(ArgValues[0].getFloat().bitcastToAPInt(), isUnsignedTrue));
+    }
+    else {
+      // TODO: consider a better error message here
+      Info.Diag(CallLoc, diag::note_invalid_subexpr_in_const_expr);
+      return false;
+    }
+    return true;
   case hlsl::IntrinsicOp::IOP_max:
     assert(Args.size() == 2 && "else call should be invalid");
     assert(ArgValues[0].getKind() == ArgValues[1].getKind() && "else call is invalid");

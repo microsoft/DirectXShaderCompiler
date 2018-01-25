@@ -49,7 +49,7 @@ class NumericLiteralParser {
 
   unsigned radix;
 
-  bool saw_exponent, saw_period, saw_ud_suffix;
+  bool saw_exponent, saw_period, saw_ud_suffix, saw_inf;
 
   SmallString<32> UDSuffixBuf;
 

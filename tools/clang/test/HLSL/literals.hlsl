@@ -5,7 +5,6 @@
 
 // we use -Wno-unused-value because we generate some no-op expressions to yield errors
 // without also putting them in a static assertion
-
 // __decltype is the GCC way of saying 'decltype', but doesn't require C++11
 // _Static_assert is the C11 way of saying 'static_assert', but doesn't require C++11
 #ifdef VERIFY_FXC
@@ -138,6 +137,19 @@ float test() {
   VERIFY_TYPES(float, 1.5 * 2 * 2UL);
   VERIFY_TYPES(float, 1.5 * 2 * 2L);
   VERIFY_TYPES(float, m16f * (1.5 * 2 * 2L));
+
+  // Infinity literals are floats.
+  _Static_assert(0x7f800000 == asuint(1.#INF), "inf bit pattern");
+  _Static_assert(0xff800000 == asuint(-1.#INF), "-inf bit pattern");
+  float3 vec_syn = 1.#INF.xxx; // vector syntax
+  float bad_inf_0 = 1#;      /* expected-error {{invalid suffix '#' on integer constant}} */
+  float bad_inf_1 = 1#INF;   /* expected-error {{invalid suffix '#INF' on integer constant}} */
+  float bad_inf_2 = 1.#;     /* expected-error {{invalid suffix '#' on floating constant}} */
+  float bad_inf_3 = 1.#I;    /* expected-error {{invalid suffix '#I' on floating constant}} */
+  float bad_inf_4 = 1.#IN;   /* expected-error {{invalid suffix '#IN' on floating constant}} */
+  float bad_inf_5 = 1.#INFI; /* expected-error {{invalid suffix 'I' on floating constant}} */
+  float bad_inf_6 = 0#INF;   /* expected-error {{invalid suffix '#INF' on integer constant}} */
+  float bad_inf_7 = 0.#INF;  /* expected-error {{invalid suffix '#INF' on floating constant}} */
 
   // Combination of literal float + literal int to literal float, then combined with
   // min-precision float matrix to produce min-precision float matrix - ensures that
