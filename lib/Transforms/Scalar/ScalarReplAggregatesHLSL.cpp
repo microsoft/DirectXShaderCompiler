@@ -4031,7 +4031,11 @@ private:
                   DxilParameterAnnotation &paramAnnotation,
                   std::vector<Value *> &FlatParamList,
                   std::vector<DxilParameterAnnotation> &FlatRetAnnotationList,
-                  IRBuilder<> &Builder, DbgDeclareInst *DDI);
+                  IRBuilder<> &Builder, DbgDeclareInst *DDI,
+                  bool hasShaderInputOutput);
+  Value *castResourceArgIfRequired(Value *V, Type *Ty, bool bOut,
+                                   DxilParamInputQual inputQual,
+                                   IRBuilder<> &Builder);
   Value *castArgumentIfRequired(Value *V, Type *Ty, bool bOut,
                                 bool hasShaderInputOutput,
                                 DxilParamInputQual inputQual,
@@ -4841,11 +4845,48 @@ void SROA_Parameter_HLSL::replaceCastParameter(
   }
 }
 
+Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
+    Value *V, Type *Ty, bool bOut,
+    DxilParamInputQual inputQual,
+    IRBuilder<> &Builder) {
+  Type *HandleTy = m_pHLModule->GetOP()->GetHandleType();
+  Module &M = *m_pHLModule->GetModule();
+  // Lower resource type to handle ty.
+  if (HLModule::IsHLSLObjectType(Ty) &&
+    !HLModule::IsStreamOutputPtrType(V->getType())) {
+    Value *Res = V;
+    if (!bOut) {
+      Value *LdRes = Builder.CreateLoad(Res);
+      V = m_pHLModule->EmitHLOperationCall(Builder,
+        HLOpcodeGroup::HLCreateHandle,
+        /*opcode*/ 0, HandleTy, { LdRes }, M);
+    }
+    else {
+      V = Builder.CreateAlloca(HandleTy);
+    }
+    castParamMap[V] = std::make_pair(Res, inputQual);
+  }
+  else if (Ty->isArrayTy()) {
+    unsigned arraySize = 1;
+    Type *AT = Ty;
+    while (AT->isArrayTy()) {
+      arraySize *= AT->getArrayNumElements();
+      AT = AT->getArrayElementType();
+    }
+    if (HLModule::IsHLSLObjectType(AT)) {
+      Value *Res = V;
+      Type *Ty = ArrayType::get(HandleTy, arraySize);
+      V = Builder.CreateAlloca(Ty);
+      castParamMap[V] = std::make_pair(Res, inputQual);
+    }
+  }
+  return V;
+}
+
 Value *SROA_Parameter_HLSL::castArgumentIfRequired(
     Value *V, Type *Ty, bool bOut, bool hasShaderInputOutput,
     DxilParamInputQual inputQual, DxilFieldAnnotation &annotation,
     std::deque<Value *> &WorkList, IRBuilder<> &Builder) {
-  Type *HandleTy = m_pHLModule->GetOP()->GetHandleType();
   Module &M = *m_pHLModule->GetModule();
   // Remove pointer for vector/scalar which is not out.
   if (V->getType()->isPointerTy() && !Ty->isAggregateType() && !bOut) {
@@ -4868,33 +4909,7 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
     castParamMap[V] = std::make_pair(Ptr, inputQual);
   }
 
-  // Lower resource type to handle ty.
-  if (HLModule::IsHLSLObjectType(Ty) &&
-      !HLModule::IsStreamOutputPtrType(V->getType())) {
-    Value *Res = V;
-    if (!bOut) {
-      Value *LdRes = Builder.CreateLoad(Res);
-      V = m_pHLModule->EmitHLOperationCall(Builder,
-                                           HLOpcodeGroup::HLCreateHandle,
-                                           /*opcode*/ 0, HandleTy, {LdRes}, M);
-    } else {
-      V = Builder.CreateAlloca(HandleTy);
-    }
-    castParamMap[V] = std::make_pair(Res, inputQual);
-  } else if (Ty->isArrayTy()) {
-    unsigned arraySize = 1;
-    Type *AT = Ty;
-    while (AT->isArrayTy()) {
-      arraySize *= AT->getArrayNumElements();
-      AT = AT->getArrayElementType();
-    }
-    if (HLModule::IsHLSLObjectType(AT)) {
-      Value *Res = V;
-      Type *Ty = ArrayType::get(HandleTy, arraySize);
-      V = Builder.CreateAlloca(Ty);
-      castParamMap[V] = std::make_pair(Res, inputQual);
-    }
-  }
+  V = castResourceArgIfRequired(V, Ty, bOut, inputQual, Builder);
 
   if (!hasShaderInputOutput) {
     if (Ty->isVectorTy()) {
@@ -5053,24 +5068,10 @@ void SROA_Parameter_HLSL::flattenArgument(
     DxilParameterAnnotation &paramAnnotation,
     std::vector<Value *> &FlatParamList,
     std::vector<DxilParameterAnnotation> &FlatAnnotationList,
-    IRBuilder<> &Builder, DbgDeclareInst *DDI) {
+    IRBuilder<> &Builder, DbgDeclareInst *DDI,
+    bool hasShaderInputOutput) {
   std::deque<Value *> WorkList;
   WorkList.push_back(Arg);
-
-  Function *Entry = m_pHLModule->GetEntryFunction();
-  bool hasShaderInputOutput = F == Entry;
-  if (m_pHLModule->HasDxilFunctionProps(F)) {
-    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
-    if (!funcProps.IsRay())
-      hasShaderInputOutput = true;
-  }
-  if (m_pHLModule->HasDxilFunctionProps(Entry)) {
-    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(Entry);
-    if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
-      Function *patchConstantFunc = funcProps.ShaderProps.HS.patchConstantFunc;
-      hasShaderInputOutput |= F == patchConstantFunc;
-    }
-  }
 
   unsigned startArgIndex = FlatAnnotationList.size();
 
@@ -5115,6 +5116,53 @@ void SROA_Parameter_HLSL::flattenArgument(
   unsigned debugOffset = 0;
   const DataLayout &DL = F->getParent()->getDataLayout();
 
+  if (!hasShaderInputOutput) {
+    Value *V = Arg;
+    DxilFieldAnnotation &annotation = annotationMap[V];
+    Type *Ty = V->getType();
+    if (Ty->isPointerTy())
+      Ty = Ty->getPointerElementType();
+    V = castResourceArgIfRequired(V, Ty, bOut, inputQual, Builder);
+
+    // Cannot SROA, save it to final parameter list.
+    FlatParamList.emplace_back(V);
+    // Create ParamAnnotation for V.
+    FlatAnnotationList.emplace_back(DxilParameterAnnotation());
+    DxilParameterAnnotation &flatParamAnnotation = FlatAnnotationList.back();
+
+    flatParamAnnotation.SetParamInputQual(paramAnnotation.GetParamInputQual());
+
+    flatParamAnnotation.SetInterpolationMode(annotation.GetInterpolationMode());
+    flatParamAnnotation.SetSemanticString(annotation.GetSemanticString());
+    flatParamAnnotation.SetCompType(annotation.GetCompType().GetKind());
+    flatParamAnnotation.SetMatrixAnnotation(annotation.GetMatrixAnnotation());
+    flatParamAnnotation.SetPrecise(annotation.IsPrecise());
+    flatParamAnnotation.SetResourceAttribute(annotation.GetResourceAttribute());
+
+    // Add debug info.
+    if (DDI && V != Arg) {
+      Value *TmpV = V;
+      // If V is casted, add debug into to original V.
+      if (castParamMap.count(V)) {
+        TmpV = castParamMap[V].first;
+        // One more level for ptr of input vector.
+        // It cast from ptr to non-ptr then cast to scalars.
+        if (castParamMap.count(TmpV)) {
+          TmpV = castParamMap[TmpV].first;
+        }
+      }
+      Type *Ty = TmpV->getType();
+      if (Ty->isPointerTy())
+        Ty = Ty->getPointerElementType();
+      unsigned size = DL.getTypeAllocSize(Ty);
+      DIExpression *DDIExp = DIB.createBitPieceExpression(debugOffset, size);
+      debugOffset += size;
+      DIB.insertDeclare(TmpV, DDI->getVariable(), DDIExp, DDI->getDebugLoc(),
+        Builder.GetInsertPoint());
+    }
+    return;
+  }
+
   // Process the worklist
   while (!WorkList.empty()) {
     Value *V = WorkList.front();
@@ -5127,6 +5175,7 @@ void SROA_Parameter_HLSL::flattenArgument(
     SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, bAllowReplace);
 
     std::vector<Value *> Elts;
+
     // Not flat vector for entry function currently.
     bool SROAed = SROA_Helper::DoScalarReplacement(
         V, Elts, Builder, /*bFlatVector*/ false, annotation.IsPrecise(),
@@ -5722,11 +5771,27 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
 
   LLVMContext &Ctx = m_pHLModule->GetCtx();
   std::unique_ptr<BasicBlock> TmpBlockForFuncDecl;
+  bool hasShaderInputOutput = false;
   if (F->isDeclaration()) {
     TmpBlockForFuncDecl.reset(BasicBlock::Create(Ctx));
     // Create return as terminator.
     IRBuilder<> RetBuilder(TmpBlockForFuncDecl.get());
     RetBuilder.CreateRetVoid();
+  } else {
+    Function *Entry = m_pHLModule->GetEntryFunction();
+    hasShaderInputOutput = F == Entry;
+    if (m_pHLModule->HasDxilFunctionProps(F)) {
+      DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
+      if (!funcProps.IsRay())
+        hasShaderInputOutput = true;
+    }
+    if (m_pHLModule->HasDxilFunctionProps(Entry)) {
+      DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(Entry);
+      if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
+        Function *patchConstantFunc = funcProps.ShaderProps.HS.patchConstantFunc;
+        hasShaderInputOutput |= F == patchConstantFunc;
+      }
+    }
   }
 
   std::vector<Value *> FlatParamList;
@@ -5753,7 +5818,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         funcAnnotation->GetParameterAnnotation(Arg.getArgNo());
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&Arg);
     flattenArgument(F, &Arg, bForParamTrue, paramAnnotation, FlatParamList,
-                    FlatParamAnnotationList, Builder, DDI);
+                    FlatParamAnnotationList, Builder, DDI,
+                    hasShaderInputOutput);
 
     unsigned newFlatParamCount = FlatParamList.size() - prevFlatParamCount;
     for (unsigned i = 0; i < newFlatParamCount; i++) {
@@ -5762,91 +5828,95 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   }
 
   Type *retType = F->getReturnType();
-  std::vector<Value *> FlatRetList;
-  std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
-  // Split and change to out parameter.
-  if (!retType->isVoidTy()) {
-    IRBuilder<> Builder(Ctx);
-    if (!F->isDeclaration()) {
-      Builder.SetInsertPoint(F->getEntryBlock().getFirstInsertionPt());
-    } else {
-      Builder.SetInsertPoint(TmpBlockForFuncDecl->getFirstInsertionPt());
-    }
-    Value *retValAddr = Builder.CreateAlloca(retType);
-    DxilParameterAnnotation &retAnnotation =
-        funcAnnotation->GetRetTypeAnnotation();
-    Module &M = *m_pHLModule->GetModule();
-    Type *voidTy = Type::getVoidTy(m_pHLModule->GetCtx());
-    // Create DbgDecl for the ret value.
-    if (DISubprogram *funcDI = getDISubprogram(F)) {
-       DITypeRef RetDITyRef = funcDI->getType()->getTypeArray()[0];
-       DITypeIdentifierMap EmptyMap;
-       DIType * RetDIType = RetDITyRef.resolve(EmptyMap);
-       DIBuilder DIB(*F->getParent(), /*AllowUnresolved*/ false);
-       DILocalVariable *RetVar = DIB.createLocalVariable(llvm::dwarf::Tag::DW_TAG_arg_variable, funcDI, F->getName().str() + ".Ret", funcDI->getFile(),
-           funcDI->getLine(), RetDIType);
-       DIExpression *Expr = nullptr;
-       // TODO: how to get col?
-       DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0,  funcDI);
-       DIB.insertDeclare(retValAddr, RetVar, Expr, DL, Builder.GetInsertPoint());
-    }
-    for (BasicBlock &BB : F->getBasicBlockList()) {
-      if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
-        // Create store for return.
-        IRBuilder<> RetBuilder(RI);
-        if (!retAnnotation.HasMatrixAnnotation()) {
-          RetBuilder.CreateStore(RI->getReturnValue(), retValAddr);
-        } else {
-          bool isRowMajor = retAnnotation.GetMatrixAnnotation().Orientation ==
-                            MatrixOrientation::RowMajor;
-          Value *RetVal = RI->getReturnValue();
-          if (!isRowMajor) {
-            // Matrix value is row major. ColMatStore require col major.
-            // Cast before store.
-            RetVal = HLModule::EmitHLOperationCall(
-                RetBuilder, HLOpcodeGroup::HLCast,
-                static_cast<unsigned>(HLCastOpcode::RowMatrixToColMatrix),
-                RetVal->getType(), {RetVal}, M);
+  if (hasShaderInputOutput) {
+    // Only flatten return parameter if this is a shader entry function using signatures
+    std::vector<Value *> FlatRetList;
+    std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
+    // Split and change to out parameter.
+    if (!retType->isVoidTy()) {
+      IRBuilder<> Builder(Ctx);
+      if (!F->isDeclaration()) {
+        Builder.SetInsertPoint(F->getEntryBlock().getFirstInsertionPt());
+      } else {
+        Builder.SetInsertPoint(TmpBlockForFuncDecl->getFirstInsertionPt());
+      }
+      Value *retValAddr = Builder.CreateAlloca(retType);
+      DxilParameterAnnotation &retAnnotation =
+          funcAnnotation->GetRetTypeAnnotation();
+      Module &M = *m_pHLModule->GetModule();
+      Type *voidTy = Type::getVoidTy(m_pHLModule->GetCtx());
+      // Create DbgDecl for the ret value.
+      if (DISubprogram *funcDI = getDISubprogram(F)) {
+         DITypeRef RetDITyRef = funcDI->getType()->getTypeArray()[0];
+         DITypeIdentifierMap EmptyMap;
+         DIType * RetDIType = RetDITyRef.resolve(EmptyMap);
+         DIBuilder DIB(*F->getParent(), /*AllowUnresolved*/ false);
+         DILocalVariable *RetVar = DIB.createLocalVariable(llvm::dwarf::Tag::DW_TAG_arg_variable, funcDI, F->getName().str() + ".Ret", funcDI->getFile(),
+             funcDI->getLine(), RetDIType);
+         DIExpression *Expr = nullptr;
+         // TODO: how to get col?
+         DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0,  funcDI);
+         DIB.insertDeclare(retValAddr, RetVar, Expr, DL, Builder.GetInsertPoint());
+      }
+      for (BasicBlock &BB : F->getBasicBlockList()) {
+        if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
+          // Create store for return.
+          IRBuilder<> RetBuilder(RI);
+          if (!retAnnotation.HasMatrixAnnotation()) {
+            RetBuilder.CreateStore(RI->getReturnValue(), retValAddr);
+          } else {
+            bool isRowMajor = retAnnotation.GetMatrixAnnotation().Orientation ==
+                              MatrixOrientation::RowMajor;
+            Value *RetVal = RI->getReturnValue();
+            if (!isRowMajor) {
+              // Matrix value is row major. ColMatStore require col major.
+              // Cast before store.
+              RetVal = HLModule::EmitHLOperationCall(
+                  RetBuilder, HLOpcodeGroup::HLCast,
+                  static_cast<unsigned>(HLCastOpcode::RowMatrixToColMatrix),
+                  RetVal->getType(), {RetVal}, M);
+            }
+            unsigned opcode = static_cast<unsigned>(
+                isRowMajor ? HLMatLoadStoreOpcode::RowMatStore
+                           : HLMatLoadStoreOpcode::ColMatStore);
+            HLModule::EmitHLOperationCall(RetBuilder,
+                                          HLOpcodeGroup::HLMatLoadStore, opcode,
+                                          voidTy, {retValAddr, RetVal}, M);
           }
-          unsigned opcode = static_cast<unsigned>(
-              isRowMajor ? HLMatLoadStoreOpcode::RowMatStore
-                         : HLMatLoadStoreOpcode::ColMatStore);
-          HLModule::EmitHLOperationCall(RetBuilder,
-                                        HLOpcodeGroup::HLMatLoadStore, opcode,
-                                        voidTy, {retValAddr, RetVal}, M);
         }
       }
+      // Create a fake store to keep retValAddr so it can be flattened.
+      if (retValAddr->user_empty()) {
+        Builder.CreateStore(UndefValue::get(retType), retValAddr);
+      }
+
+      DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(retValAddr);
+      flattenArgument(F, retValAddr, bForParamTrue,
+                      funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
+                      FlatRetAnnotationList, Builder, DDI,
+                      hasShaderInputOutput);
+
+      const int kRetArgNo = -1;
+      for (unsigned i = 0; i < FlatRetList.size(); i++) {
+        FlatParamOriArgNoList.emplace_back(kRetArgNo);
+      }
     }
-    // Create a fake store to keep retValAddr so it can be flattened.
-    if (retValAddr->user_empty()) {
-      Builder.CreateStore(UndefValue::get(retType), retValAddr);
+
+    // Always change return type as parameter.
+    // By doing this, no need to check return when generate storeOutput.
+    if (FlatRetList.size() ||
+        // For empty struct return type.
+        !retType->isVoidTy()) {
+      // Return value is flattened.
+      // Change return value into out parameter.
+      retType = Type::getVoidTy(retType->getContext());
+      // Merge return data info param data.
+      FlatParamList.insert(FlatParamList.end(), FlatRetList.begin(), FlatRetList.end());
+
+      FlatParamAnnotationList.insert(FlatParamAnnotationList.end(),
+                                     FlatRetAnnotationList.begin(),
+                                     FlatRetAnnotationList.end());
     }
-
-    DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(retValAddr);
-    flattenArgument(F, retValAddr, bForParamTrue,
-                    funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
-                    FlatRetAnnotationList, Builder, DDI);
-
-    const int kRetArgNo = -1;
-    for (unsigned i = 0; i < FlatRetList.size(); i++) {
-      FlatParamOriArgNoList.emplace_back(kRetArgNo);
-    }
-  }
-
-  // Always change return type as parameter.
-  // By doing this, no need to check return when generate storeOutput.
-  if (FlatRetList.size() ||
-      // For empty struct return type.
-      !retType->isVoidTy()) {
-    // Return value is flattened.
-    // Change return value into out parameter.
-    retType = Type::getVoidTy(retType->getContext());
-    // Merge return data info param data.
-    FlatParamList.insert(FlatParamList.end(), FlatRetList.begin(), FlatRetList.end());
-
-    FlatParamAnnotationList.insert(FlatParamAnnotationList.end(),
-                                   FlatRetAnnotationList.begin(),
-                                   FlatRetAnnotationList.end());
   }
 
   std::vector<Type *> FinalTypeList;
@@ -5885,7 +5955,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         }
       }
     }
-    if (!F->isDeclaration()) {
+    if (!F->isDeclaration() && hasShaderInputOutput) {
       // Support store to input and load from output.
       LegalizeDxilInputOutputs(F, funcAnnotation, typeSys);
     }
@@ -6037,10 +6107,11 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
   IRBuilder<> CallBuilder(CI);
   IRBuilder<> RetBuilder(CI->getNextNode());
 
+  const bool bForParamFalse = false;
+#if 0 // Disable return parameter movement to argument and flattening
   Type *retType = F->getReturnType();
   std::vector<Value *> FlatRetList;
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
-  const bool bForParamFalse = false;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
     Value *retValAddr = AllocaBuilder.CreateAlloca(retType);
@@ -6087,8 +6158,10 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
     flattenArgument(flatF, retValAddr, bForParamFalse,
                     funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
                     FlatRetAnnotationList, AllocaBuilder,
-                    /*DbgDeclareInst*/ nullptr);
+                    /*DbgDeclareInst*/ nullptr,
+                    /*hasShaderInputOutput*/false);
   }
+#endif // Disable return parameter movement to argument and flattening
 
   std::vector<Value *> args;
   for (auto &arg : CI->arg_operands()) {
@@ -6130,7 +6203,8 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
       arg = tempArg;
       flattenArgument(flatF, arg, bForParamFalse, paramAnnotation,
                       FlatParamList, FlatParamAnnotationList, AllocaBuilder,
-                      /*DbgDeclareInst*/ nullptr);
+                      /*DbgDeclareInst*/ nullptr,
+                      /*hasShaderInputOutput*/false);
     } else {
       // Cast vector into array.
       if (Ty->isVectorTy()) {
@@ -6140,9 +6214,9 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
           // Cannot SROA, save it to final parameter list.
           FlatParamList.emplace_back(Elt);
           // Create ParamAnnotation for V.
-          FlatRetAnnotationList.emplace_back(DxilParameterAnnotation());
+          FlatParamAnnotationList.emplace_back(DxilParameterAnnotation());
           DxilParameterAnnotation &flatParamAnnotation =
-              FlatRetAnnotationList.back();
+            FlatParamAnnotationList.back();
           flatParamAnnotation = paramAnnotation;
         }
       } else if (HLMatrixLower::IsMatrixType(Ty)) {
@@ -6165,22 +6239,23 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
         // Cannot SROA, save it to final parameter list.
         FlatParamList.emplace_back(arg);
         // Create ParamAnnotation for V.
-        FlatRetAnnotationList.emplace_back(DxilParameterAnnotation());
+        FlatParamAnnotationList.emplace_back(DxilParameterAnnotation());
         DxilParameterAnnotation &flatParamAnnotation =
-            FlatRetAnnotationList.back();
+          FlatParamAnnotationList.back();
         flatParamAnnotation = paramAnnotation;
       } else {
         // Cannot SROA, save it to final parameter list.
         FlatParamList.emplace_back(arg);
         // Create ParamAnnotation for V.
-        FlatRetAnnotationList.emplace_back(DxilParameterAnnotation());
+        FlatParamAnnotationList.emplace_back(DxilParameterAnnotation());
         DxilParameterAnnotation &flatParamAnnotation =
-            FlatRetAnnotationList.back();
+          FlatParamAnnotationList.back();
         flatParamAnnotation = paramAnnotation;
       }
     }
   }
 
+#if 0 // Disable return parameter movement to argument and flattening
   // Always change return type as parameter.
   // By doing this, no need to check return when generate storeOutput.
   if (FlatRetList.size() ||
@@ -6193,6 +6268,7 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
                                    FlatRetAnnotationList.begin(),
                                    FlatRetAnnotationList.end());
   }
+#endif // Disable return parameter movement to argument and flattening
 
   RetBuilder.SetInsertPoint(CI->getNextNode());
   unsigned paramSize = FlatParamList.size();
