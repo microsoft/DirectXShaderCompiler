@@ -90,6 +90,68 @@ bool IsHLSLVecType(clang::QualType type) {
   return false;
 }
 
+clang::QualType GetElementTypeOrType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+      dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
+      // TODO: check pointer instead of name
+      if (templateDecl->getName() == "vector") {
+        const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+        return argList[0].getAsType();
+      }
+      else if (templateDecl->getName() == "matrix") {
+        const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+        return argList[0].getAsType();
+      }
+    }
+  }
+  return type;
+}
+
+bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor) {
+  const AttributedType *AT = type->getAs<AttributedType>();
+  while (AT) {
+    AttributedType::Kind kind = AT->getAttrKind();
+    switch (kind) {
+    case AttributedType::attr_hlsl_row_major:
+      if (pIsRowMajor) *pIsRowMajor = true;
+      return true;
+    case AttributedType::attr_hlsl_column_major:
+      if (pIsRowMajor) *pIsRowMajor = false;
+      return true;
+    }
+    AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()->getAs<AttributedType>();
+  }
+  return false;
+}
+
+bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {
+  clang::QualType elementType = GetElementTypeOrType(type);
+  const AttributedType *AT = type->getAs<AttributedType>();
+  bool bFirst = true;
+  while (bFirst) {
+    while (AT) {
+      AttributedType::Kind kind = AT->getAttrKind();
+      switch (kind) {
+      case AttributedType::attr_hlsl_snorm:
+        if (pIsSNorm) *pIsSNorm = true;
+        return true;
+      case AttributedType::attr_hlsl_unorm:
+        if (pIsSNorm) *pIsSNorm = false;
+        return true;
+      }
+      AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()->getAs<AttributedType>();
+    }
+    if (bFirst && type != elementType) {
+      AT = elementType->getAs<AttributedType>();
+    } else {
+      break;
+    }
+    bFirst = false;
+  }
+  return false;
+}
+
 /// Checks whether the pAttributes indicate a parameter is inout or out; if
 /// inout, pIsIn will be set to true.
 bool IsParamAttributedAsOut(_In_opt_ clang::AttributeList *pAttributes,
