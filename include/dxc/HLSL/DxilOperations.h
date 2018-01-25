@@ -94,6 +94,7 @@ public:
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode);
   static bool IsDxilOpWave(OpCode C);
   static bool IsDxilOpGradient(OpCode C);
+  static bool IsDxilOpTypeName(llvm::StringRef name);
   static bool IsDxilOpType(llvm::StructType *ST);
   static bool IsDupDxilOpType(llvm::StructType *ST);
   static llvm::StructType *GetOriginalDxilOpType(llvm::StructType *ST,
@@ -140,6 +141,7 @@ private:
   static const char *m_OverloadTypeName[kNumTypeOverloads];
   static const char *m_NamePrefix;
   static const char *m_TypePrefix;
+  static const char *m_MatrixTypePrefix;
   static unsigned GetTypeSlot(llvm::Type *pType);
   static const char *GetOverloadTypeName(unsigned TypeSlot);
 };
