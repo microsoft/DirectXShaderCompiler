@@ -586,7 +586,7 @@ public:
 
   DxcDiaEnumTables(IMalloc *pMalloc, DxcDiaSession *pSession)
       : m_pMalloc(pMalloc), m_pSession(pSession), m_dwRef(0), m_next(0) {
-    m_tables.assign(nullptr);
+    m_tables.fill(nullptr);
   }
 
   __override STDMETHODIMP get__NewEnum(
