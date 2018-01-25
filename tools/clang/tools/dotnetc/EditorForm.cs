@@ -3051,6 +3051,7 @@ namespace MainNs
                     if (TryDumpDiaObject(o as dia2.IDiaSymbol, output)) continue;
                     if (TryDumpDiaObject(o as dia2.IDiaSourceFile, output)) continue;
                     if (TryDumpDiaObject(o as dia2.IDiaLineNumber, output)) continue;
+                    if (TryDumpDiaObject(o as dia2.IDiaInjectedSource, output)) continue;
                     if (TryDumpDiaObject(o as dia2.IDiaSectionContrib, output)) continue;
                     if (TryDumpDiaObject(o as dia2.IDiaSegment, output)) continue;
                 }

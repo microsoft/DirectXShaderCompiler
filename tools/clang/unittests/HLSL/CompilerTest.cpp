@@ -1872,6 +1872,13 @@ TEST_F(CompilerTest, CompileDebugLines) {
   VERIFY_SUCCEEDED(pSession->findLinesByAddr(0, 0, numExpectedRVAs, &pEnumLineNumbers));
   linesByAddr = ReadLineNumbers(pEnumLineNumbers);
   verifyLines(linesByAddr);
+
+  // Verify findFileById.
+  CComPtr<IDiaSourceFile> pFile;
+  VERIFY_SUCCEEDED(pSession->findFileById(0, &pFile));
+  CComBSTR pName;
+  VERIFY_SUCCEEDED(pFile->get_fileName(&pName));
+  VERIFY_ARE_EQUAL_WSTR(pName, L"source.hlsl");
 }
 
 TEST_F(CompilerTest, CompileWhenDefinesThenApplied) {
