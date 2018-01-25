@@ -464,6 +464,27 @@ namespace dia2
     }
 
     [ComImport]
+    [Guid("AE605CDC-8105-4a23-B710-3259F1E26112")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDiaInjectedSource
+    {
+        uint get_crc();
+        uint get_length();
+
+        [return: MarshalAs(UnmanagedType.BStr)]
+        string get_fileName();
+        [return: MarshalAs(UnmanagedType.BStr)]
+        string get_objectFilename();
+        [return: MarshalAs(UnmanagedType.BStr)]
+        string get_virtualFilename();
+        uint get_sourceCompression();
+        [PreserveSig]
+        int get_source(uint cbData, out uint pcbData,
+            [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.U8, SizeParamIndex = 0)] byte[] pbData);
+
+    }
+
+    [ComImport]
     [Guid("4A59FB77-ABAC-469b-A30B-9ECC85BFEF14")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     public interface IDiaTable // : IEnumUnknown - need to replay vtable

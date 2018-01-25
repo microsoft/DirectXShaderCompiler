@@ -38,6 +38,7 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include <algorithm>
+#include <array>
 #include <comdef.h>
 #include "dxcutil.h"
 
@@ -164,6 +165,7 @@ public:
   void Init(std::shared_ptr<llvm::LLVMContext> context,
       std::shared_ptr<llvm::Module> module,
       std::shared_ptr<llvm::DebugInfoFinder> finder) {
+    m_pEnumTables = nullptr;
     m_module = module;
     m_context = context;
     m_finder = finder;
@@ -248,8 +250,13 @@ public:
 
   __override STDMETHODIMP getEnumTables(
     _COM_Outptr_ IDiaEnumTables **ppEnumTables) {
-    DxcThreadMalloc TM(m_pMalloc);
-    return CreateDxcDiaEnumTables(this, ppEnumTables);
+    if (!m_pEnumTables) {
+      DxcThreadMalloc TM(m_pMalloc);
+      IFR(CreateDxcDiaEnumTables(this, &m_pEnumTables));
+    }
+    m_pEnumTables.p->AddRef();
+    *ppEnumTables = m_pEnumTables;
+    return S_OK;
   }
 
   __override STDMETHODIMP getSymbolsByAddr(
@@ -343,7 +350,19 @@ public:
 
   __override STDMETHODIMP findFileById(
     /* [in] */ DWORD uniqueId,
-    /* [out] */ IDiaSourceFile **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaSourceFile **ppResult) {
+    if (!m_pEnumTables) {
+      return E_INVALIDARG;
+    }
+    CComPtr<IDiaTable> pTable;
+    VARIANT vtIndex;
+    vtIndex.vt = VT_UI4;
+    vtIndex.uintVal = (int)DiaTableKind::SourceFiles;
+    IFR(m_pEnumTables->Item(vtIndex, &pTable));
+    CComPtr<IUnknown> pElt;
+    IFR(pTable->Item(uniqueId, &pElt));
+    return pElt->QueryInterface(ppResult);
+  }
 
   __override STDMETHODIMP findLines(
     /* [in] */ IDiaSymbol *compiland,
@@ -546,6 +565,8 @@ public:
   __override STDMETHODIMP findInputAssemblyFile(
     /* [in] */ IDiaSymbol *pSymbol,
     /* [out] */ IDiaInputAssemblyFile **ppResult) { return E_NOTIMPL; }
+private:
+  CComPtr<IDiaEnumTables> m_pEnumTables;
 };
 
 class DxcDiaEnumTables : public IDiaEnumTables {
@@ -562,7 +583,9 @@ public:
   }
 
   DxcDiaEnumTables(IMalloc *pMalloc, DxcDiaSession *pSession)
-      : m_pMalloc(pMalloc), m_pSession(pSession), m_dwRef(0), m_next(0) {}
+      : m_pMalloc(pMalloc), m_pSession(pSession), m_dwRef(0), m_next(0) {
+    m_tables.fill(nullptr);
+  }
 
   __override STDMETHODIMP get__NewEnum(
     /* [retval][out] */ IUnknown **pRetVal) { return E_NOTIMPL; }
@@ -590,8 +613,14 @@ public:
     if (indexVal > (unsigned)LastTableKind) {
       return E_INVALIDARG;
     }
-    DxcThreadMalloc TM(m_pMalloc);
-    return CreateDxcDiaTable(m_pSession, (DiaTableKind)indexVal, table);
+    HRESULT hr = S_OK;
+    if (!m_tables[indexVal]) {
+      DxcThreadMalloc TM(m_pMalloc);
+      hr = CreateDxcDiaTable(m_pSession, (DiaTableKind)indexVal, &m_tables[indexVal]);
+    }
+    m_tables[indexVal].p->AddRef();
+    *table = m_tables[indexVal];
+    return hr;
   }
 
   __override STDMETHODIMP Next(
@@ -601,10 +630,16 @@ public:
     DxcThreadMalloc TM(m_pMalloc);
     ULONG fetched = 0;
     while (fetched < celt && m_next <= (unsigned)LastTableKind) {
-      HRESULT hr = CreateDxcDiaTable(m_pSession, (DiaTableKind)m_next, &rgelt[fetched]);
-      if (FAILED(hr)) {
-        return hr; // TODO: this leaks prior tables.
+      HRESULT hr = S_OK;
+      if (!m_tables[m_next]) {
+        DxcThreadMalloc TM(m_pMalloc);
+        hr = CreateDxcDiaTable(m_pSession, (DiaTableKind)m_next, &m_tables[m_next]);
+        if (FAILED(hr)) {
+          return hr; // TODO: this leaks prior tables.
+        }
       }
+      m_tables[m_next].p->AddRef();
+      rgelt[fetched] = m_tables[m_next];
       ++m_next, ++fetched;
     }
     if (pceltFetched != nullptr)
@@ -619,6 +654,8 @@ public:
 
   __override STDMETHODIMP Clone(
     /* [out] */ IDiaEnumTables **ppenum) { return E_NOTIMPL; }
+private:
+  std::array<CComPtr<IDiaTable>, (int)LastTableKind+1> m_tables;
 };
 
 static HRESULT CreateDxcDiaEnumTables(DxcDiaSession *pSession, IDiaEnumTables **ppEnumTables) {
@@ -1724,15 +1761,22 @@ public:
   DxcDiaTableSourceFiles(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::SourceFiles) { 
     m_count =
       (m_pSession->Contents() == nullptr) ? 0 : m_pSession->Contents()->getNumOperands();
+    m_items.assign(m_count, nullptr);
   }
 
   __override HRESULT GetItem(DWORD index, IDiaSourceFile **ppItem) {
-    *ppItem = CreateOnMalloc<DxcDiaSourceFile>(m_pMalloc, m_pSession, index);
-    if (*ppItem == nullptr)
-      return E_OUTOFMEMORY;
+    if (!m_items[index]) {
+      m_items[index] = CreateOnMalloc<DxcDiaSourceFile>(m_pMalloc, m_pSession, index);
+      if (m_items[index] == nullptr)
+        return E_OUTOFMEMORY;
+    }
+    m_items[index].p->AddRef();
+    *ppItem = m_items[index];
     (*ppItem)->AddRef();
     return S_OK;
   }
+private:
+  std::vector<CComPtr<IDiaSourceFile>> m_items;
 };
 
 class DxcDiaLineNumber : public IDiaLineNumber {
@@ -1757,7 +1801,13 @@ public:
     /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
 
   __override STDMETHODIMP get_sourceFile(
-    /* [retval][out] */ IDiaSourceFile **pRetVal) { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaSourceFile **pRetVal) {
+    DWORD id;
+    HRESULT hr = get_sourceFileId(&id);
+    if (hr != S_OK)
+      return hr;
+    return m_pSession->findFileById(id, pRetVal);
+  }
 
   __override STDMETHODIMP get_lineNumber(
     /* [retval][out] */ DWORD *pRetVal) {
