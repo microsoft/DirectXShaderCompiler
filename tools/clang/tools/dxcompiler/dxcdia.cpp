@@ -250,14 +250,13 @@ public:
 
   __override STDMETHODIMP getEnumTables(
     _COM_Outptr_ IDiaEnumTables **ppEnumTables) {
-    HRESULT hr = S_OK;
     if (!m_pEnumTables) {
       DxcThreadMalloc TM(m_pMalloc);
-      hr = CreateDxcDiaEnumTables(this, &m_pEnumTables);
-      m_pEnumTables.p->AddRef();
+      IFR(CreateDxcDiaEnumTables(this, &m_pEnumTables));
     }
+    m_pEnumTables.p->AddRef();
     *ppEnumTables = m_pEnumTables;
-    return hr;
+    return S_OK;
   }
 
   __override STDMETHODIMP getSymbolsByAddr(
@@ -355,15 +354,14 @@ public:
     if (!m_pEnumTables) {
       return E_INVALIDARG;
     }
-    IDiaTable *pTable;
+    CComPtr<IDiaTable> pTable;
     VARIANT vtIndex;
     vtIndex.vt = VT_UI4;
     vtIndex.uintVal = (int)DiaTableKind::SourceFiles;
-    HRESULT hr = m_pEnumTables->Item(vtIndex, &pTable);
-    if (hr != S_OK)
-      return hr;
-    IUnknown **ppElt = (IUnknown **)ppResult;
-    return pTable->Item(uniqueId, ppElt);
+    IFR(m_pEnumTables->Item(vtIndex, &pTable));
+    CComPtr<IUnknown> pElt;
+    IFR(pTable->Item(uniqueId, &pElt));
+    return pElt->QueryInterface(ppResult);
   }
 
   __override STDMETHODIMP findLines(
@@ -619,8 +617,8 @@ public:
     if (!m_tables[indexVal]) {
       DxcThreadMalloc TM(m_pMalloc);
       hr = CreateDxcDiaTable(m_pSession, (DiaTableKind)indexVal, &m_tables[indexVal]);
-      m_tables[indexVal].p->AddRef();
     }
+    m_tables[indexVal].p->AddRef();
     *table = m_tables[indexVal];
     return hr;
   }
@@ -636,11 +634,11 @@ public:
       if (!m_tables[m_next]) {
         DxcThreadMalloc TM(m_pMalloc);
         hr = CreateDxcDiaTable(m_pSession, (DiaTableKind)m_next, &m_tables[m_next]);
-        m_tables[m_next].p->AddRef();
         if (FAILED(hr)) {
           return hr; // TODO: this leaks prior tables.
         }
       }
+      m_tables[m_next].p->AddRef();
       rgelt[fetched] = m_tables[m_next];
       ++m_next, ++fetched;
     }
@@ -1772,6 +1770,7 @@ public:
       if (m_items[index] == nullptr)
         return E_OUTOFMEMORY;
     }
+    m_items[index].p->AddRef();
     *ppItem = m_items[index];
     (*ppItem)->AddRef();
     return S_OK;
