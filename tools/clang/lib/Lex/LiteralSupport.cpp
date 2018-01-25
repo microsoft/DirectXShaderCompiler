@@ -513,9 +513,10 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   // and FP constants (specifically, the 'pp-number' regex), and assumes that
   // the byte at "*end" is both valid and not part of the regex.  Because of
   // this, it doesn't have to check for 'overscan' in various places.
-  assert(!isPreprocessingNumberBody(*ThisTokEnd) || *ThisTokEnd == '.' && "didn't maximally munch?"); // HLSL Change - '.' might be a second '.' for a '1.2.x' literal
+  assert(!isPreprocessingNumberBody(*ThisTokEnd) || *ThisTokEnd == '.' || *ThisTokEnd == '#' && "didn't maximally munch?"); // HLSL Change - '.' might be a second '.' for a '1.2.x' literal
 
   s = DigitsBegin = ThisTokBegin;
+  saw_inf = false;
   saw_exponent = false;
   saw_period = false;
   saw_ud_suffix = false;
@@ -566,6 +567,22 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
         return;
       }
     }
+    // HLSL Change Starts
+    else if (*s == '#') {
+      const char *InfBegin = s;
+      if (s[1] == 'I' && s[2] == 'N' && s[3] == 'F') {
+        saw_inf = true;
+        if (!saw_period) {
+          PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, InfBegin - ThisTokBegin),
+                  diag::err_invalid_suffix_integer_constant)
+              << StringRef(InfBegin, ThisTokEnd - InfBegin);
+          hadError = true;
+          return;
+        }
+        s += 4;
+      }
+    }
+    // HLSL Change Ends
   }
 
   SuffixBegin = s;
@@ -668,6 +685,15 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       if (isImaginary) break;   // Cannot be repeated.
       isImaginary = true;
       ImaginarySuffixLoc = s;
+      // HLSL Change Starts.
+      if (PP.getLangOpts().HLSL) {
+        // Don't advance; this leaves us with an invalid suffix.
+        // Great if imaginary literals are implemented at some point, in
+        // the meantime catches '.#INFI' as an error rather than a suffix
+        // on an INF literal.
+        break;
+      }
+      // HLSL Change Ends.
       continue;  // Success.
     }
     // If we reached here, there was an error or a ud-suffix.

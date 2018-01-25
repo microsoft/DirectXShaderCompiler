@@ -4785,6 +4785,8 @@ static ArBasicKind LiteralToConcrete(Expr *litExpr,
         kind = ArBasicKind::AR_BASIC_INT64;
     }
     return kind;
+  } else if (HLSLVectorElementExpr *VEE = dyn_cast<HLSLVectorElementExpr>(litExpr)) {
+    return pHLSLExternalSource->GetTypeElementKind(VEE->getType());
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(litExpr)) {
     ArBasicKind kind = LiteralToConcrete(BO->getLHS(), pHLSLExternalSource);
     ArBasicKind kind1 = LiteralToConcrete(BO->getRHS(), pHLSLExternalSource);

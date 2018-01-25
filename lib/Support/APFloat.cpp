@@ -2618,12 +2618,12 @@ APFloat::convertFromDecimalString(StringRef str, roundingMode rounding_mode)
 
 bool
 APFloat::convertFromStringSpecials(StringRef str) {
-  if (str.equals("inf") || str.equals("INFINITY")) {
+  if (str.equals("inf") || str.equals("INFINITY") || str.equals("1.#INF")) { // HLSL Change - support 1.#INF
     makeInf(false);
     return true;
   }
 
-  if (str.equals("-inf") || str.equals("-INFINITY")) {
+  if (str.equals("-inf") || str.equals("-INFINITY") || str.equals("-1.#INF")) { // HLSL Change - support 1.#INF
     makeInf(true);
     return true;
   }
