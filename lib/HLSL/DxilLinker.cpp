@@ -727,15 +727,25 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   legacy::PassManager PM;
 
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
+
+  // Remove unused functions.
   PM.add(createDxilDeadFunctionEliminationPass());
+
+  // SROA
+  PM.add(createSROAPass(/*RequiresDomTree*/false));
+
   // mem2reg.
   PM.add(createPromoteMemoryToRegisterPass());
-  // Remove unused functions.
-  PM.add(createDeadCodeEliminationPass());
-  PM.add(createGlobalDCEPass());
+
+  // Clean up vectors, and run mem2reg again
+  PM.add(createScalarizerPass());
+  PM.add(createPromoteMemoryToRegisterPass());
 
   PM.add(createSimplifyInstPass());
   PM.add(createCFGSimplificationPass());
+
+  PM.add(createDeadCodeEliminationPass());
+  PM.add(createGlobalDCEPass());
 
   PM.add(createDxilCondenseResourcesPass());
   PM.add(createDxilFinalizeModulePass());
