@@ -127,7 +127,7 @@ struct DxilLinkJob;
 
 class DxilLinkerImpl : public hlsl::DxilLinker {
 public:
-  DxilLinkerImpl(LLVMContext &Ctx) : DxilLinker(Ctx) {}
+  DxilLinkerImpl(LLVMContext &Ctx, unsigned valMajor, unsigned valMinor) : DxilLinker(Ctx, valMajor, valMinor) {}
   virtual ~DxilLinkerImpl() {}
   bool HasLibNameRegistered(StringRef name) override;
   bool RegisterLib(StringRef name, std::unique_ptr<llvm::Module> pModule,
@@ -315,7 +315,7 @@ DxilResourceBase *DxilLib::GetResource(const llvm::Constant *GV) {
 namespace {
 // Create module from link defines.
 struct DxilLinkJob {
-  DxilLinkJob(LLVMContext &Ctx) : m_ctx(Ctx) {}
+  DxilLinkJob(LLVMContext &Ctx, unsigned valMajor, unsigned valMinor) : m_ctx(Ctx), m_valMajor(valMajor), m_valMinor(valMinor) {}
   std::unique_ptr<llvm::Module>
   Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
        StringRef profile);
@@ -336,6 +336,7 @@ private:
   llvm::StringMap<std::pair<DxilResourceBase *, llvm::GlobalVariable *>>
       m_resourceMap;
   LLVMContext &m_ctx;
+  unsigned m_valMajor, m_valMinor;
 };
 } // namespace
 
@@ -350,6 +351,7 @@ const char kNoEntryProps[] =
     "Cannot find function property for entry function ";
 const char kRedefineResource[] =
     "Resource already exists as ";
+const char kInvalidValidatorVersion[] = "Validator version does not support target profile ";
 } // namespace
 //------------------------------------------------------------------------------
 //
@@ -540,6 +542,16 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   const bool bSkipInit = true;
   DxilModule &DM = pM->GetOrCreateDxilModule(bSkipInit);
   DM.SetShaderModel(pSM);
+
+  // Set Validator version, verifying that it supports the requested profile
+  unsigned minValMajor, minValMinor;
+  DM.GetMinValidatorVersion(minValMajor, minValMinor);
+  if (minValMajor > m_valMajor || (minValMajor == m_valMajor && minValMinor > m_valMinor)) {
+    m_ctx.emitError(Twine(kInvalidValidatorVersion) + profile);
+    return nullptr;
+  }
+  DM.SetValidatorVersion(m_valMajor, m_valMinor);
+
   // Add type sys
   DxilTypeSystem &typeSys = DM.GetTypeSystem();
 
@@ -891,7 +903,7 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
   SmallVector<StringRef, 4> workList;
   workList.emplace_back(entry);
 
-  DxilLinkJob linkJob(m_ctx);
+  DxilLinkJob linkJob(m_ctx, m_valMajor, m_valMinor);
 
   DenseSet<DxilLib *> libSet;
   if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
@@ -922,7 +934,7 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
 
 namespace hlsl {
 
-DxilLinker *DxilLinker::CreateLinker(LLVMContext &Ctx) {
-  return new DxilLinkerImpl(Ctx);
+DxilLinker *DxilLinker::CreateLinker(LLVMContext &Ctx, unsigned valMajor, unsigned valMinor) {
+  return new DxilLinkerImpl(Ctx, valMajor, valMinor);
 }
 } // namespace hlsl
