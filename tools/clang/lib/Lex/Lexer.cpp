@@ -1564,7 +1564,7 @@ bool Lexer::LexNumericConstant(Token &Result, const char *CurPtr, unsigned Perio
   unsigned Size;
   char C = getCharAndSize(CurPtr, Size);
   char PrevCh = 0;
-  while (isPreprocessingNumberBody(C) && !(C == '.' && Periods)) { // HLSL Change - support '1.0.xxx' floating point swizzle
+  while ((C == '#' || isPreprocessingNumberBody(C)) && !(C == '.' && Periods)) { // HLSL Change - support '1.0.xxx' floating point swizzle, and '#' for '#INF'
     CurPtr = ConsumeChar(CurPtr, Size, Result);
     PrevCh = C;
     // HLSL Change Begin.
