@@ -758,6 +758,58 @@ Instruction *HLMatrixLowerPass::TrivialMatBinOpToVec(CallInst *CI) {
   return Result;
 }
 
+// Create BitCast if ptr, otherwise, create alloca of new type, write to bitcast of alloca, and return load from alloca
+// If bOrigAllocaTy is true: create alloca of old type instead, write to alloca, and return load from bitcast of alloca
+static Instruction *BitCastValueOrPtr(Value* V, Instruction *Insert, Type *Ty, bool bOrigAllocaTy = false, const Twine &Name = "") {
+  if (Ty->isPointerTy()) {
+    // If pointer, we can bitcast directly
+    IRBuilder<> Builder(Insert);
+    return cast<Instruction>(Builder.CreateBitCast(V, Ty, Name));
+  }
+  else {
+    // If value, we have to alloca, store to bitcast ptr, and load
+    IRBuilder<> EntryBuilder(Insert->getParent()->getParent()->getEntryBlock().begin());
+    Type *allocaTy = bOrigAllocaTy ? V->getType() : Ty;
+    Type *otherTy = bOrigAllocaTy ? Ty : V->getType();
+    Instruction *allocaInst = EntryBuilder.CreateAlloca(allocaTy);
+    IRBuilder<> Builder(Insert);
+    Instruction *bitCast = cast<Instruction>(Builder.CreateBitCast(allocaInst, otherTy->getPointerTo()));
+    Builder.CreateStore(V, bOrigAllocaTy ? allocaInst : bitCast);
+    return Builder.CreateLoad(bOrigAllocaTy ? bitCast : allocaInst, Name);
+  }
+}
+
+static bool IsUserCall(Value *V) {
+  if (CallInst *CI = dyn_cast<CallInst>(V)) {
+    if (GetHLOpcodeGroupByName(CI->getCalledFunction()) == HLOpcodeGroup::NotHL) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool UsedByUserCall(Value *V) {
+  for (auto U : V->users()) {
+    if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      if (IsUserCall(U)) {
+        return true;
+      }
+    }
+    else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+      if (UsedByUserCall(U))
+        return true;
+    }
+    else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      if (IsUserCall(SI->getValueOperand()))
+        return true;
+    }
+    if (UsedByUserCall(U)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void HLMatrixLowerPass::lowerToVec(Instruction *matInst) {
   Value *vecVal = nullptr;
 
