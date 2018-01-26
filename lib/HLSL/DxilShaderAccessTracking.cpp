@@ -12,25 +12,14 @@
 
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilSignatureElement.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
-#include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilInstructions.h"
+#include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/DxilPIXPasses.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
 
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include <memory>
-#include <map>
 #include <deque>
 
 #include <winerror.h>

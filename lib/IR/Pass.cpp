@@ -353,5 +353,25 @@ bool llvm::GetPassOptionUInt32(PassOptions &O, llvm::StringRef name, uint32_t *p
   *pValue = defaultValue;
   return false;
 }
+bool llvm::GetPassOptionUInt64(PassOptions &O, llvm::StringRef name, uint64_t *pValue, uint64_t defaultValue) {
+  StringRef val;
+  if (GetPassOption(O, name, &val)) {
+    val.getAsInteger<uint64_t>(0, *pValue);
+    return true;
+  }
+  *pValue = defaultValue;
+  return false;
+}
+bool llvm::GetPassOptionFloat(PassOptions &O, llvm::StringRef name, float *pValue, float defaultValue) {
+  StringRef val;
+  if (GetPassOption(O, name, &val)) {
+    std::string str;
+    str.assign(val.begin(), val.end());
+    *pValue = atof(str.c_str());
+    return true;
+  }
+  *pValue = defaultValue;
+  return false;
+}
 
 // HLSL Changes End

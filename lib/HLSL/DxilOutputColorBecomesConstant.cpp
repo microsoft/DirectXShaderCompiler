@@ -11,24 +11,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilSignatureElement.h"
 #include "dxc/HLSL/DxilModule.h"
-#include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
-#include "dxc/HLSL/DxilInstructions.h"
+#include "dxc/HLSL/DxilOperations.h"
+#include "dxc/HLSL/DxilPIXPasses.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
 
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include <memory>
-#include <unordered_set>
 #include <array>
 
 using namespace llvm;
@@ -62,31 +51,15 @@ public:
   bool runOnModule(Module &M) override;
 };
 
-void DxilOutputColorBecomesConstant::applyOptions(PassOptions O)
-{
-  for (const auto & option : O)
-  {
-    if (0 == option.first.compare("constant-red"))
-    {
-      Red = atof(option.second.data());
-    }
-    else if (0 == option.first.compare("constant-green"))
-    {
-      Green = atof(option.second.data());
-    }
-    else if (0 == option.first.compare("constant-blue"))
-    {
-      Blue = atof(option.second.data());
-    }
-    else if (0 == option.first.compare("constant-alpha"))
-    {
-      Alpha = atof(option.second.data());
-    }
-    else if (0 == option.first.compare("mod-mode"))
-    {
-      Mode = static_cast<VisualizerInstrumentationMode>(atoi(option.second.data()));
-    }
-  }
+void DxilOutputColorBecomesConstant::applyOptions(PassOptions O) {
+  GetPassOptionFloat(O, "constant-red", &Red, 1.f);
+  GetPassOptionFloat(O, "constant-green", &Green, 1.f);
+  GetPassOptionFloat(O, "constant-blue", &Blue, 1.f);
+  GetPassOptionFloat(O, "constant-alpha", &Alpha, 1.f);
+
+  int mode = 0;
+  GetPassOptionInt(O, "mod-mode", &mode, 0);
+  Mode = static_cast<VisualizerInstrumentationMode>(mode);
 }
 
 void DxilOutputColorBecomesConstant::visitOutputInstructionCallers(
