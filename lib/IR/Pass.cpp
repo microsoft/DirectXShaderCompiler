@@ -356,7 +356,7 @@ bool llvm::GetPassOptionUInt32(PassOptions &O, llvm::StringRef name, uint32_t *p
 bool llvm::GetPassOptionUInt64(PassOptions &O, llvm::StringRef name, uint64_t *pValue, uint64_t defaultValue) {
   StringRef val;
   if (GetPassOption(O, name, &val)) {
-    val.getAsInteger<uint64_t>(10, *pValue);
+    val.getAsInteger<uint64_t>(0, *pValue);
     return true;
   }
   *pValue = defaultValue;
