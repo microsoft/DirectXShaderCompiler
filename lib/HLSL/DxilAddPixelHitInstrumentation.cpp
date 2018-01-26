@@ -12,25 +12,12 @@
 
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilSignatureElement.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
-#include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilInstructions.h"
-#include "dxc/HLSL/DxilSpanAllocator.h"
+#include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/DxilPIXPasses.h"
 
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include <memory>
-#include <unordered_set>
-#include <array>
 
 using namespace llvm;
 using namespace hlsl;
@@ -53,29 +40,11 @@ public:
 
 void DxilAddPixelHitInstrumentation::applyOptions(PassOptions O)
 {
-  for (const auto & option : O)
-  {
-    if (0 == option.first.compare("force-early-z"))
-    {
-      ForceEarlyZ = atoi(option.second.data()) != 0;
-    }
-    else if (0 == option.first.compare("rt-width"))
-    {
-      RTWidth = atoi(option.second.data());
-    }
-    else if (0 == option.first.compare("num-pixels"))
-    {
-      NumPixels = atoi(option.second.data());
-    }
-    else if (0 == option.first.compare("add-pixel-cost"))
-    {
-      AddPixelCost = atoi(option.second.data()) != 0;
-    }
-    else if (0 == option.first.compare("sv-position-index"))
-    {
-      SVPositionIndex = atoi(option.second.data());
-    }
-  }
+  GetPassOptionBool(O, "force-early-z", &ForceEarlyZ, false);
+  GetPassOptionBool(O, "add-pixel-cost", &AddPixelCost, false);
+  GetPassOptionInt(O, "rt-width", &RTWidth, 0);
+  GetPassOptionInt(O, "num-pixels", &NumPixels, 0);
+  GetPassOptionInt(O, "sv-position-index", &SVPositionIndex, 0);
 }
 
 bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
