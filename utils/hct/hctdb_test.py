@@ -676,7 +676,7 @@ def add_test_cases():
         '256.0', '65500'
     ]], half_outputs=[[
         'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
-        '0.0625', '0.00001526'
+        '0.0625', '0.0039073'
     ]])
     add_test_case_float_half('Round_ne', ['Round_ne'], 'Epsilon', 0, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',

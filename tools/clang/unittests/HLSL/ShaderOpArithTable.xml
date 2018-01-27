@@ -2092,7 +2092,7 @@
                 <Value>NaN</Value>
                 <Value>0.25</Value>
                 <Value>0.0625</Value>
-                <Value>0.00001526</Value>
+                <Value>0.0039073</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
