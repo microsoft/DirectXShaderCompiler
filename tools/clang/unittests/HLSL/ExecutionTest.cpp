@@ -3543,7 +3543,7 @@ TEST_F(ExecutionTest, BinaryHalfOpTest) {
         for (size_t i = 0; i < count; ++i) {
             SBinaryHalfOp *p = &pPrimitives[i];
             p->input1 = (*Validation_Input1)[i % Validation_Input1->size()];
-            p->input2 = (*Validation_Input1)[i % Validation_Input1->size()];
+            p->input2 = (*Validation_Input2)[i % Validation_Input2->size()];
         }
 
         // use shader from data table

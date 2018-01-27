@@ -1715,8 +1715,8 @@
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>NaN</Value>
-                <Value>-0.1585929</Value>
                 <Value>0.1585929</Value>
+                <Value>-0.1585929</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
@@ -2003,10 +2003,10 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>-0</Value>
-                <Value>-0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
+                <Value>1.0</Value>
+                <Value>1.0</Value>
+                <Value>1.0</Value>
+                <Value>1.0</Value>
                 <Value>NaN</Value>
                 <Value>0.987344</Value>
                 <Value>0.987344</Value>
@@ -2280,6 +2280,7 @@
                 <Value>-1.0</Value>
                 <Value>1.0</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="FMulHalf">
             <Parameter Name="Validation.Type">ulp</Parameter>

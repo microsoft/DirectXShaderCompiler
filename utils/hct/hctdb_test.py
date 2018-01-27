@@ -566,8 +566,8 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314',
         '314'
     ]], half_outputs=[[
-        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '-0.1585929',
-        '0.1585929'
+        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '0.1585929',
+        '-0.1585929'
     ]])
     add_test_case_float_half('Cos', ['Cos'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314.16',
@@ -579,7 +579,7 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314',
         '314'
     ]], half_outputs=[[
-        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '0.987344',
+        'NaN', 'NaN', '1.0', '1.0', '1.0', '1.0', 'NaN', '0.987344',
         '0.987344'
     ]])
     add_test_case_float_half('Tan', ['Tan'], 'Epsilon', 0.0008, [[
@@ -766,7 +766,7 @@ def add_test_cases():
                 l.output1 = min(l.input1, l.input2);
                 l.output2 = max(l.input1, l.input2);
                 g_buf[GI] = l;
-            };''')
+            };''', shader_arguments="-enable-16bit-types")
     add_test_case_float_half('FAdd', ['FAdd'], 'ulp', 1, [['-1.0', '1.0', '32.5', '1.0000001000'],['4', '5.5', '334.7', '0.5000001000']], [['3.0', '6.5', '367.2', '1.5000002000']],
     "binary float", "+")
     add_test_case_float_half('FSub', ['FSub'], 'ulp', 1, [['-1.0', '5.5', '32.5', '1.0000001000'],['4', '1.25', '334.7', '0.5000001000']], [['-5', '4.25', '-302.2', '0.5000']],
