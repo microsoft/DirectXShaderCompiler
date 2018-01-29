@@ -664,9 +664,11 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2',
         '16.0', '256.0'
     ]], [[
-        'NaN', 'NaN', '-0', '-0', '0', '0', 'Inf', 'NaN', '1.41421356237',
+        'NaN', 'NaN', 'NaN', '-0', '0', '0', 'Inf', 'NaN', '1.41421356237',
         '4.0', '16.0'
-    ]], "unary float", "sqrt")
+    ]], "unary float", "sqrt",
+    half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', '0x03FF', 'Inf', '-1', '2', '16.0', '256.0']],
+    half_outputs=[['NaN', 'NaN', 'NaN', '0', '0', '0x1FFF', 'Inf', 'NaN', '1.41421', '4.0', '16.0']])
     add_test_case_float_half('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
         '256.0', '65536.0'
@@ -674,10 +676,10 @@ def add_test_cases():
         'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
         '0.0625', '0.00390625'
     ]], "unary float", "rsqrt", half_inputs=[[
-        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
+        'NaN', '-Inf', '-denorm', '-0', '0', '0x03FF', 'Inf', '-1', '16.0',
         '256.0', '0x7bff'
     ]], half_outputs=[[
-        'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
+        'NaN', 'NaN', 'NaN', '-Inf', 'Inf', '0x5800', '0', 'NaN', '0.25',
         '0.0625', '0x1C00'
     ]])
     add_test_case_float_half('Round_ne', ['Round_ne'], 'Epsilon', 0, [[
@@ -693,12 +695,22 @@ def add_test_cases():
     ]], [[
         'NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
         '10.0', '-10.0', '-11.0', '-11.0', '-11.0'
-    ]], "unary float", "floor")
+    ]], "unary float", "floor", half_inputs=[[
+        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
+        '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6'
+    ]], half_outputs=[[
+        'NaN', '-Inf', '-1', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
+        '10.0', '-10.0', '-11.0', '-11.0', '-11.0'
+    ]])
     add_test_case_float_half('Round_pi', ['Round_pi'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6']],
         [['NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '11.0', '11.0',
-        '11.0', '-10.0', '-10.0', '-10.0', '-10.0']], "unary float", "ceil")
+        '11.0', '-10.0', '-10.0', '-10.0', '-10.0']], "unary float", "ceil",
+        half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
+        '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6']],
+        half_outputs=[['NaN', '-Inf', '-0', '-0', '0', '1', 'Inf', '10.0', '11.0', '11.0',
+        '11.0', '-10.0', '-10.0', '-10.0', '-10.0']])
     add_test_case_float_half('Round_z', ['Round_z'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6']],
@@ -810,7 +822,18 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0',
         '1', '0', '-5.5'
     ]], [['NaN', 'NaN', '0', '0', '0', '0', 'Inf', '2', '0', '1', '1', '9.5']],
-                  "tertiary float", "mad")
+                 "tertiary float", "mad",
+    half_inputs=[[
+        'NaN', '-Inf', '0x03FF', '-0', '0', 'Inf', '1.0', '-1.0',
+        '0', '1', '1.5'
+    ], [
+        'NaN', '-Inf', '1', '-0', '0', 'Inf', '1.0', '-1.0',
+        '0', '1', '10'
+    ], [
+        'NaN', '-Inf', '0x03FF', '-0', '0', 'Inf', '1.0', '-1.0',
+        '1', '0', '-5.5'
+    ]],
+    half_outputs=[['NaN', 'NaN', '0x07FE', '0', '0', 'Inf', '2', '0', '1', '1', '9.5']],)
 
     # Denorm Tertiary Float
     add_test_case_denorm('FMadDenorm', ['FMad'], 'ulp', 1,

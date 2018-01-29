@@ -514,7 +514,7 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>-0</Value>
+                <Value>NaN</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
                 <Value>0</Value>
@@ -1449,7 +1449,7 @@
                 <Value>-0</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>0</Value>
+                <Value>1</Value>
                 <Value>Inf</Value>
                 <Value>10.0</Value>
                 <Value>11.0</Value>
@@ -1665,7 +1665,7 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
-                <Value>-0</Value>
+                <Value>-1</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
                 <Value>0</Value>
@@ -2074,7 +2074,7 @@
                 <Value>-denorm</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
+                <Value>0x03FF</Value>
                 <Value>Inf</Value>
                 <Value>-1</Value>
                 <Value>16.0</Value>
@@ -2084,10 +2084,10 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>-Inf</Value>
+                <Value>NaN</Value>
                 <Value>-Inf</Value>
                 <Value>Inf</Value>
-                <Value>Inf</Value>
+                <Value>0x5800</Value>
                 <Value>0</Value>
                 <Value>NaN</Value>
                 <Value>0.25</Value>
@@ -2117,7 +2117,7 @@
                 <Value>-denorm</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
+                <Value>0x03FF</Value>
                 <Value>Inf</Value>
                 <Value>-1</Value>
                 <Value>2</Value>
@@ -2127,13 +2127,13 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>-0</Value>
-                <Value>-0</Value>
+                <Value>NaN</Value>
                 <Value>0</Value>
                 <Value>0</Value>
+                <Value>0x1FFF</Value>
                 <Value>Inf</Value>
                 <Value>NaN</Value>
-                <Value>1.41421356237</Value>
+                <Value>1.41421</Value>
                 <Value>4.0</Value>
                 <Value>16.0</Value>
             </Parameter>
@@ -2423,10 +2423,9 @@
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
-                <Value>-denorm</Value>
+                <Value>0x03FF</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
                 <Value>Inf</Value>
                 <Value>1.0</Value>
                 <Value>-1.0</Value>
@@ -2437,10 +2436,9 @@
             <Parameter Name="Validation.Input2">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
-                <Value>-denorm</Value>
+                <Value>1</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
                 <Value>Inf</Value>
                 <Value>1.0</Value>
                 <Value>-1.0</Value>
@@ -2451,10 +2449,9 @@
             <Parameter Name="Validation.Input3">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
-                <Value>-denorm</Value>
+                <Value>0x03FF</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
                 <Value>Inf</Value>
                 <Value>1.0</Value>
                 <Value>-1.0</Value>
@@ -2465,8 +2462,7 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>0</Value>
-                <Value>0</Value>
+                <Value>0x07FE</Value>
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>Inf</Value>
