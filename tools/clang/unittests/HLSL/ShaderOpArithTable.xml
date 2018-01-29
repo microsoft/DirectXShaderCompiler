@@ -1875,7 +1875,7 @@
                 <Value>-1</Value>
                 <Value>2.719</Value>
                 <Value>1000.5</Value>
-                <Value>-7.39</Value>
+                <Value>0xC764</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
@@ -1888,7 +1888,7 @@
                 <Value>0</Value>
                 <Value>0.719</Value>
                 <Value>0.5</Value>
-                <Value>0.61</Value>
+                <Value>0x38E1</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
@@ -2079,7 +2079,7 @@
                 <Value>-1</Value>
                 <Value>16.0</Value>
                 <Value>256.0</Value>
-                <Value>65500</Value>
+                <Value>0x7bff</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
@@ -2092,7 +2092,7 @@
                 <Value>NaN</Value>
                 <Value>0.25</Value>
                 <Value>0.0625</Value>
-                <Value>0.0039073</Value>
+                <Value>0x1C00</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>

@@ -546,9 +546,11 @@ g_denorm_tests = ["FAddDenormAny", "FAddDenormFTZ", "FAddDenormPreserve",
                 "FMinDenormAny", "FMinDenormFTZ", "FMinDenormPreserve",
                 "FMaxDenormAny", "FMaxDenormFTZ", "FMaxDenormPreserve"]
 # This is a collection of test case for driver tests per instruction
-# Warning: For test cases, when you want to pass in signed integer,
+# Warning: For test cases, when you want to pass in signed 32-bit integer,
 # make sure to pass in negative numbers with decimal values instead of hexadecimal representation.
 # For some reason, TAEF is not handling them properly.
+# For half values, hex is preferable since the test framework will read string as float values
+# and convert them to float16, possibly losing precision. The test will read hex values as it is.
 def add_test_cases():
     nan = float('nan')
     p_inf = float('inf')
@@ -641,10 +643,10 @@ def add_test_cases():
         '0.611'
     ]], "unary float", "frac",
         half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2.719',
-        '1000.5', '-7.39']],
+        '1000.5', '0xC764']],
         half_outputs=[[
          'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.719', '0.5',
-        '0.61']])
+        '0x38E1']])
     add_test_case_float_half('Log', ['Log'], 'Relative', 21, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1',
         '2.718281828', '7.389056', '100'
@@ -673,10 +675,10 @@ def add_test_cases():
         '0.0625', '0.00390625'
     ]], "unary float", "rsqrt", half_inputs=[[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
-        '256.0', '65500'
+        '256.0', '0x7bff'
     ]], half_outputs=[[
         'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
-        '0.0625', '0.0039073'
+        '0.0625', '0x1C00'
     ]])
     add_test_case_float_half('Round_ne', ['Round_ne'], 'Epsilon', 0, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
@@ -1669,6 +1671,7 @@ def generate_table_for_taef():
                 print(cur_inst.dxil_class)
         tree._setroot(root)
         tree.write(f)
+        print("Saved file at: " + f.name)
         f.close()
 
 def print_untested_inst():
