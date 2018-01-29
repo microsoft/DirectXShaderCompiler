@@ -60,7 +60,29 @@ bool patchConstFuncTakesHullOutputPatch(FunctionDecl *pcf) {
 
 // TODO: Maybe we should move these type probing functions to TypeTranslator.
 
-/// Returns true if the two types are the same scalar or vector type.
+/// Returns true if the two types can be treated as the same scalar type:
+/// * Having the same canonical type
+/// * Literal vs no-literal
+bool canTreatAsSameScalarType(QualType type1, QualType type2) {
+  return (type1.getCanonicalType() == type2.getCanonicalType()) ||
+         // Treat 'literal float' and 'float' as the same
+         (type1->isSpecificBuiltinType(BuiltinType::LitFloat) &&
+          type2->isFloatingType()) ||
+         (type2->isSpecificBuiltinType(BuiltinType::LitFloat) &&
+          type1->isFloatingType()) ||
+         // Treat 'literal int' and 'int'/'uint' as the same
+         (type1->isSpecificBuiltinType(BuiltinType::LitInt) &&
+          type2->isIntegerType() &&
+          // Disallow boolean types
+          !type2->isSpecificBuiltinType(BuiltinType::Bool)) ||
+         (type2->isSpecificBuiltinType(BuiltinType::LitInt) &&
+          type1->isIntegerType() &&
+          // Disallow boolean types
+          !type1->isSpecificBuiltinType(BuiltinType::Bool));
+}
+
+/// Returns true if the two types are the same scalar or vector type,
+/// disregarding constness and literalness.
 bool isSameScalarOrVecType(QualType type1, QualType type2) {
   // Consider cases such as 'const bool' and 'bool' to be the same type.
   type1.removeLocalConst();
@@ -70,7 +92,7 @@ bool isSameScalarOrVecType(QualType type1, QualType type2) {
     QualType scalarType1 = {}, scalarType2 = {};
     if (TypeTranslator::isScalarType(type1, &scalarType1) &&
         TypeTranslator::isScalarType(type2, &scalarType2))
-      return scalarType1.getCanonicalType() == scalarType2.getCanonicalType();
+      return canTreatAsSameScalarType(scalarType1, scalarType2);
   }
 
   {
@@ -78,8 +100,7 @@ bool isSameScalarOrVecType(QualType type1, QualType type2) {
     uint32_t count1 = {}, count2 = {};
     if (TypeTranslator::isVectorType(type1, &elemType1, &count1) &&
         TypeTranslator::isVectorType(type2, &elemType2, &count2))
-      return count1 == count2 &&
-             elemType1.getCanonicalType() == elemType2.getCanonicalType();
+      return count1 == count2 && canTreatAsSameScalarType(elemType1, elemType2);
   }
 
   return false;
@@ -5450,11 +5471,6 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
 
   uint32_t intType = typeTranslator.translateType(toIntType);
 
-  // AST may include a 'literal int' to 'int' conversion. No-op.
-  if (fromType->isSpecificBuiltinType(BuiltinType::LitInt) &&
-      toIntType->isIntegerType())
-    return fromVal;
-
   if (isBoolOrVecOfBoolType(fromType)) {
     const uint32_t one = getValueOne(toIntType);
     const uint32_t zero = getValueZero(toIntType);
@@ -5488,11 +5504,6 @@ uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
     return fromVal;
 
   const uint32_t floatType = typeTranslator.translateType(toFloatType);
-
-  // AST may include a 'literal float' to 'float' conversion. No-op.
-  if (fromType->isSpecificBuiltinType(BuiltinType::LitFloat) &&
-      toFloatType->isFloatingType())
-    return fromVal;
 
   if (isBoolOrVecOfBoolType(fromType)) {
     const uint32_t one = getValueOne(toFloatType);

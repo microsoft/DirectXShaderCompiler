@@ -25,4 +25,12 @@ void main() {
     int1 si1;
     int3 vi3;
     vi3 = si1;
+
+// CHECK-NEXT: [[v0p55:%\d+]] = OpCompositeConstruct %v4float %float_0_55 %float_0_55 %float_0_55 %float_0_55
+// CHECK-NEXT: OpStore %vf4 [[v0p55]]
+    vf4 = float4(0.55.xxxx);
+
+// CHECK-NEXT: [[v3:%\d+]] = OpCompositeConstruct %v3int %int_3 %int_3 %int_3
+// CHECK-NEXT: OpStore %vi3 [[v3]]
+    vi3 = int3(3.xxx);
 }
