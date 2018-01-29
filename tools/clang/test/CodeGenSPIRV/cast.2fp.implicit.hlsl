@@ -60,4 +60,11 @@ void main() {
 // CHECK-NEXT: [[vc3:%\d+]] = OpConvertSToF %v3float [[vfrom3]]
 // CHECK-NEXT: OpStore %vf3 [[vc3]]
     vf3 = vfrom3;
+
+// CHECK:                 [[a:%\d+]] = OpLoad %bool %a
+// CHECK-NEXT:        [[int_a:%\d+]] = OpSelect %int [[a]] %int_1 %int_0
+// CHECK-NEXT: [[zero_minus_a:%\d+]] = OpISub %int %int_0 [[int_a]]
+// CHECK-NEXT:              {{%\d+}} = OpConvertSToF %float [[zero_minus_a]]
+    bool a = false;
+    float c = 0-a;
 }
