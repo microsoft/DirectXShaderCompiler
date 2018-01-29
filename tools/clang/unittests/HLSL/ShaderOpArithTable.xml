@@ -2203,7 +2203,7 @@
                 l.output2 = max(l.input1, l.input2);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>-inf</Value>
                 <Value>-inf</Value>

@@ -755,7 +755,7 @@ def add_test_cases():
     ], [
         '-inf', 'inf', '1.0', '-inf', 'inf', 'inf', 'inf', 'inf', '-inf',
         'inf', '1.0', 'NaN', '1.0', 'inf', '1.0', '-1.0', '1.0'
-    ]], 'cs_6_0', ''' struct SBinaryHalfOp {
+    ]], 'cs_6_2', ''' struct SBinaryHalfOp {
                 half input1;
                 half input2;
                 half output1;
