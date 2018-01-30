@@ -758,6 +758,76 @@ bool TypeTranslator::isSpirvAcceptableMatrixType(QualType type) {
   return isMxNMatrix(type, &elemType) && elemType->isFloatingType();
 }
 
+bool TypeTranslator::canTreatAsSameScalarType(QualType type1, QualType type2) {
+  // Treat const int/float the same as const int/float
+  type1.removeLocalConst();
+  type2.removeLocalConst();
+
+  return (type1.getCanonicalType() == type2.getCanonicalType()) ||
+         // Treat 'literal float' and 'float' as the same
+         (type1->isSpecificBuiltinType(BuiltinType::LitFloat) &&
+          type2->isFloatingType()) ||
+         (type2->isSpecificBuiltinType(BuiltinType::LitFloat) &&
+          type1->isFloatingType()) ||
+         // Treat 'literal int' and 'int'/'uint' as the same
+         (type1->isSpecificBuiltinType(BuiltinType::LitInt) &&
+          type2->isIntegerType() &&
+          // Disallow boolean types
+          !type2->isSpecificBuiltinType(BuiltinType::Bool)) ||
+         (type2->isSpecificBuiltinType(BuiltinType::LitInt) &&
+          type1->isIntegerType() &&
+          // Disallow boolean types
+          !type1->isSpecificBuiltinType(BuiltinType::Bool));
+}
+
+bool TypeTranslator::isSameScalarOrVecType(QualType type1, QualType type2) {
+  { // Scalar types
+    QualType scalarType1 = {}, scalarType2 = {};
+    if (TypeTranslator::isScalarType(type1, &scalarType1) &&
+        TypeTranslator::isScalarType(type2, &scalarType2))
+      return canTreatAsSameScalarType(scalarType1, scalarType2);
+  }
+
+  { // Vector types
+    QualType elemType1 = {}, elemType2 = {};
+    uint32_t count1 = {}, count2 = {};
+    if (TypeTranslator::isVectorType(type1, &elemType1, &count1) &&
+        TypeTranslator::isVectorType(type2, &elemType2, &count2))
+      return count1 == count2 && canTreatAsSameScalarType(elemType1, elemType2);
+  }
+
+  return false;
+}
+
+bool TypeTranslator::isSameType(QualType type1, QualType type2) {
+  if (isSameScalarOrVecType(type1, type2))
+    return true;
+
+  type1.removeLocalConst();
+  type2.removeLocalConst();
+
+  { // Matrix types
+    QualType elemType1 = {}, elemType2 = {};
+    uint32_t row1 = 0, row2 = 0, col1 = 0, col2 = 0;
+    if (TypeTranslator::isMxNMatrix(type1, &elemType1, &row1, &col1) &&
+        TypeTranslator::isMxNMatrix(type2, &elemType2, &row2, &col2))
+      return row1 == row2 && col1 == col2 &&
+             canTreatAsSameScalarType(elemType1, elemType2);
+  }
+
+  { // Array types
+    if (const auto *arrType1 = astContext.getAsConstantArrayType(type1))
+      if (const auto *arrType2 = astContext.getAsConstantArrayType(type2))
+        return hlsl::GetArraySize(type1) == hlsl::GetArraySize(type2) &&
+               isSameType(arrType1->getElementType(),
+                          arrType2->getElementType());
+  }
+
+  // TODO: support other types if needed
+
+  return false;
+}
+
 QualType TypeTranslator::getElementType(QualType type) {
   QualType elemType = {};
   (void)(isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
