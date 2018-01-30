@@ -932,16 +932,24 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
     else
       structName = getName(innerType);
 
+    const bool isRowMajor = isRowMajorMatrix(s);
     llvm::SmallVector<const Decoration *, 4> decorations;
+
     // The stride for the runtime array is the size of S.
     uint32_t size = 0, stride = 0;
     std::tie(std::ignore, size) =
-        getAlignmentAndSize(s, rule, /*isRowMajor*/ false, &stride);
+        getAlignmentAndSize(s, rule, isRowMajor, &stride);
     decorations.push_back(Decoration::getArrayStride(context, size));
     const uint32_t raType =
         theBuilder.getRuntimeArrayType(structType, decorations);
 
     decorations.clear();
+
+    // Attach majorness decoration if this is a *StructuredBuffer<matrix>.
+    if (TypeTranslator::isMxNMatrix(s))
+      decorations.push_back(isRowMajor ? Decoration::getColMajor(context, 0)
+                                       : Decoration::getRowMajor(context, 0));
+
     decorations.push_back(Decoration::getOffset(context, 0, 0));
     if (name == "StructuredBuffer")
       decorations.push_back(Decoration::getNonWritable(context, 0));
