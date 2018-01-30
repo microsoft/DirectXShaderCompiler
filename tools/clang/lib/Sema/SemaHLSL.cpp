@@ -870,12 +870,14 @@ static const ArBasicKind g_UIntCT[] =
   AR_BASIC_UNKNOWN
 };
 
+// We use the first element for default if matching kind is missing in the list.
+// AR_BASIC_INT32 should be the default for any int since min precision integers should map to int32, not int16 or int64
 static const ArBasicKind g_AnyIntCT[] =
 {
-  AR_BASIC_INT16,
   AR_BASIC_INT32,
-  AR_BASIC_UINT16,
+  AR_BASIC_INT16,
   AR_BASIC_UINT32,
+  AR_BASIC_UINT16,
   AR_BASIC_INT64,
   AR_BASIC_UINT64,
   AR_BASIC_LITERAL_INT,
@@ -1081,15 +1083,6 @@ static const ArBasicKind g_UInt64CT[] =
   AR_BASIC_UNKNOWN
 };
 
-static const ArBasicKind g_UInt163264CT[] =
-{
-  AR_BASIC_UINT32,
-  AR_BASIC_UINT16,
-  AR_BASIC_UINT64,
-  AR_BASIC_LITERAL_INT,
-  AR_BASIC_UNKNOWN
-};
-
 static const ArBasicKind g_Float16CT[] =
 {
   AR_BASIC_FLOAT16,
@@ -1151,7 +1144,6 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_StringCT,           // LICOMPTYPE_STRING
   g_WaveCT,             // LICOMPTYPE_WAVE
   g_UInt64CT,           // LICOMPTYPE_UINT64
-  g_UInt163264CT,       // LICOMPTYPE_UINT16_32_64
   g_Float16CT,          // LICOMPTYPE_FLOAT16
   g_Int16CT,            // LICOMPTYPE_INT16
   g_UInt16CT,           // LICOMPTYPE_UINT16
