@@ -609,6 +609,7 @@ public:
   TEST_METHOD(CodeGenInput2)
   TEST_METHOD(CodeGenInput3)
   TEST_METHOD(CodeGenInt16Op)
+  TEST_METHOD(CodeGenInt16OpBits)
   TEST_METHOD(CodeGenIntrinsic1)
   TEST_METHOD(CodeGenIntrinsic1Minprec)
   TEST_METHOD(CodeGenIntrinsic2)
@@ -3662,6 +3663,11 @@ TEST_F(CompilerTest, CodeGenInput3) {
 TEST_F(CompilerTest, CodeGenInt16Op) {
   if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\int16Op.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenInt16OpBits) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\int16OpBits.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenIntrinsic1) {

@@ -1938,7 +1938,6 @@ class db_hlsl(object):
             "uint": "LICOMPTYPE_UINT",
             "uint16_t": "LICOMPTYPE_UINT16",
             "u64": "LICOMPTYPE_UINT64",
-            "u16_32_64": "LICOMPTYPE_UINT16_32_64",
             "any_int": "LICOMPTYPE_ANY_INT",
             "any_int32": "LICOMPTYPE_ANY_INT32",
             "uint_only": "LICOMPTYPE_UINT_ONLY",
