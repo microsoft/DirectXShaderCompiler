@@ -833,7 +833,7 @@ def add_test_cases():
         'NaN', '-Inf', '0x03FF', '-0', '0', 'Inf', '1.0', '-1.0',
         '1', '0', '-5.5'
     ]],
-    half_outputs=[['NaN', 'NaN', '0x07FE', '0', '0', 'Inf', '2', '0', '1', '1', '9.5']],)
+    half_outputs=[['NaN', 'NaN', '0x07FE', '0', '0', 'Inf', '2', '0', '1', '1', '9.5']])
 
     # Denorm Tertiary Float
     add_test_case_denorm('FMadDenorm', ['FMad'], 'ulp', 1,
@@ -907,7 +907,7 @@ def add_test_cases():
             "binary int", "-",
             input_16=[[int16_min, '-10', '0', '0', '10', int16_max],
                       ['0', '10', '-3114', '272', '15', '0']],
-            output_16=[[int16_min, '-20', '-3114', '-272', '-5', int16_max]])
+            output_16=[[int16_min, '-20', '3114', '-272', '-5', int16_max]])
     add_test_case_int('IMax', ['IMax'], 'Epsilon', 0,
                   [[int32_min, '-10', '0', '0', '10', int32_max],
                    ['0', '10', '-10', '10', '10', '0']],
