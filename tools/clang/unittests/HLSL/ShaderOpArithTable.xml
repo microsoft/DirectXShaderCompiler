@@ -3534,7 +3534,7 @@
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>40</Value>
-                <Value>10001</Value>
+                <Value>10100</Value>
                 <Value>0</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
