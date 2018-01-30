@@ -34,7 +34,7 @@
 //
 // Basic types are bool, int, uint, u64, float, sampler1d, sampler2d,
 // sampler3d, sampler_cube, sampler_cmp, sampler, wave and void.
-// There are meta-types too: any_int, u16_32_64, uint_only, numeric and any.
+// There are meta-types too: any_int, uint_only, numeric and any.
 //
 // Along with a type and layout you can also give relations
 // between types in an intrinsic.  The types of an intrinsic
@@ -105,7 +105,7 @@ $type1 [[rn,unsigned_op=uclamp]] clamp(in numeric<> x, in $type1 min, in $type1 
 void [[]] clip(in float<> x);
 $type1 [[rn]] cos(in float_like<> x);
 $type1 [[rn]] cosh(in float_like<> x);
-$match<1, 0> uint<> [[rn]] countbits(in u16_32_64<> x);
+$match<1, 0> uint<> [[rn]] countbits(in any_int<> x);
 $type1 [[rn]] cross(in float_like<3> a, in $type1 b);
 $type1 [[rn]] ddx(in float_like<> x);
 $type1 [[rn]] ddx_coarse(in float_like<> x);
@@ -132,7 +132,7 @@ float<> [[rn]] f16tof32(in uint<> x);
 uint<> [[rn]] f32tof16(in float<> x);
 $type1 [[rn]] faceforward(in float_like<c> N, in $type1 I, in $type1 Ng);
 $match<1, 0> uint<> [[rn,unsigned_op=ufirstbithigh,overload=0]] firstbithigh(in any_int<> x);
-$match<1, 0> uint<> [[rn]] firstbitlow(in u16_32_64<> x);
+$match<1, 0> uint<> [[rn]] firstbitlow(in any_int<> x);
 $type1 [[rn]] floor(in float_like<> x);
 $type1 [[rn]] fma(in double_only<> a, in $type1 b, in $type1 c);
 $type1 [[rn]] fmod(in float_like<> a, in $type1 b);
@@ -197,7 +197,7 @@ $type1 [[rn]] radians(in float_like<> x);
 $type1 [[rn]] rcp(in any_float<> x) : rcp_approx;
 $type1 [[rn]] reflect(in float_like<c> i, in $type1 n);
 $type1 [[rn]] refract(in float_like<c> i, in $type1 n, in float_like ri);
-$type1 [[rn]] reversebits(in u16_32_64<> x);
+$type1 [[rn]] reversebits(in any_int<> x);
 $type1 [[rn]] round(in float_like<> x);
 $type1 [[rn]] rsqrt(in float_like<> x);
 $type1 [[rn]] saturate(in any_float<> x);
