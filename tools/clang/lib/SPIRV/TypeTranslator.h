@@ -173,6 +173,14 @@ public:
   /// counts.
   static bool isSpirvAcceptableMatrixType(QualType type);
 
+  /// \brief Returns true if the two types are the same scalar or vector type,
+  /// regardless of constness and literalness.
+  static bool isSameScalarOrVecType(QualType type1, QualType type2);
+
+  /// \brief Returns true if the two types are the same type, regardless of
+  /// constness and literalness.
+  bool isSameType(QualType type1, QualType type2);
+
   /// \brief Returns true if the given type can use relaxed precision
   /// decoration. Integer and float types with lower than 32 bits can be
   /// operated on with a relaxed precision.
@@ -226,6 +234,11 @@ private:
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
     return diags.Report(diagId);
   }
+
+  /// \brief Returns true if the two types can be treated as the same scalar
+  /// type, which means they have the same canonical type, regardless of
+  /// constnesss and literalness.
+  static bool canTreatAsSameScalarType(QualType type1, QualType type2);
 
   /// \brief Translates the given HLSL resource type into its SPIR-V
   /// instructions and returns the <result-id>. Returns 0 on failure.

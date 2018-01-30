@@ -60,52 +60,6 @@ bool patchConstFuncTakesHullOutputPatch(FunctionDecl *pcf) {
 
 // TODO: Maybe we should move these type probing functions to TypeTranslator.
 
-/// Returns true if the two types can be treated as the same scalar type:
-/// * Having the same canonical type
-/// * Literal vs no-literal
-bool canTreatAsSameScalarType(QualType type1, QualType type2) {
-  return (type1.getCanonicalType() == type2.getCanonicalType()) ||
-         // Treat 'literal float' and 'float' as the same
-         (type1->isSpecificBuiltinType(BuiltinType::LitFloat) &&
-          type2->isFloatingType()) ||
-         (type2->isSpecificBuiltinType(BuiltinType::LitFloat) &&
-          type1->isFloatingType()) ||
-         // Treat 'literal int' and 'int'/'uint' as the same
-         (type1->isSpecificBuiltinType(BuiltinType::LitInt) &&
-          type2->isIntegerType() &&
-          // Disallow boolean types
-          !type2->isSpecificBuiltinType(BuiltinType::Bool)) ||
-         (type2->isSpecificBuiltinType(BuiltinType::LitInt) &&
-          type1->isIntegerType() &&
-          // Disallow boolean types
-          !type1->isSpecificBuiltinType(BuiltinType::Bool));
-}
-
-/// Returns true if the two types are the same scalar or vector type,
-/// disregarding constness and literalness.
-bool isSameScalarOrVecType(QualType type1, QualType type2) {
-  // Consider cases such as 'const bool' and 'bool' to be the same type.
-  type1.removeLocalConst();
-  type2.removeLocalConst();
-
-  {
-    QualType scalarType1 = {}, scalarType2 = {};
-    if (TypeTranslator::isScalarType(type1, &scalarType1) &&
-        TypeTranslator::isScalarType(type2, &scalarType2))
-      return canTreatAsSameScalarType(scalarType1, scalarType2);
-  }
-
-  {
-    QualType elemType1 = {}, elemType2 = {};
-    uint32_t count1 = {}, count2 = {};
-    if (TypeTranslator::isVectorType(type1, &elemType1, &count1) &&
-        TypeTranslator::isVectorType(type2, &elemType2, &count2))
-      return count1 == count2 && canTreatAsSameScalarType(elemType1, elemType2);
-  }
-
-  return false;
-}
-
 /// Returns true if the given type is a bool or vector of bool type.
 bool isBoolOrVecOfBoolType(QualType type) {
   QualType elemType = {};
@@ -2149,6 +2103,18 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       subExprId = tryToEvaluateAsInt32(intLiteral->getValue(), isSigned);
       if (subExprId)
         evalType = isSigned ? astContext.IntTy : astContext.UnsignedIntTy;
+    }
+    // For assigning one array instance to another one with the same array type
+    // (regardless of constness and literalness), the rhs will be wrapped in a
+    // FlatConversion:
+    //  |- <lhs>
+    //  `- ImplicitCastExpr <FlatConversion>
+    //     `- ImplicitCastExpr <LValueToRValue>
+    //        `- <rhs>
+    // This FlatConversion does not affect CodeGen, so that we can ignore it.
+    else if (subExprType->isArrayType() &&
+             typeTranslator.isSameType(expr->getType(), subExprType)) {
+      return doExpr(subExpr);
     }
 
     if (!subExprId)
@@ -5471,7 +5437,7 @@ SpirvEvalInfo &SPIRVEmitter::turnIntoElementPtr(
 
 uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
                                   QualType toBoolType) {
-  if (isSameScalarOrVecType(fromType, toBoolType))
+  if (TypeTranslator::isSameScalarOrVecType(fromType, toBoolType))
     return fromVal;
 
   // Converting to bool means comparing with value zero.
@@ -5484,7 +5450,7 @@ uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
 
 uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
                                  QualType toIntType, SourceLocation srcLoc) {
-  if (isSameScalarOrVecType(fromType, toIntType))
+  if (TypeTranslator::isSameScalarOrVecType(fromType, toIntType))
     return fromVal;
 
   uint32_t intType = typeTranslator.translateType(toIntType);
@@ -5518,7 +5484,7 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
 uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
                                    QualType toFloatType,
                                    SourceLocation srcLoc) {
-  if (isSameScalarOrVecType(fromType, toFloatType))
+  if (TypeTranslator::isSameScalarOrVecType(fromType, toFloatType))
     return fromVal;
 
   const uint32_t floatType = typeTranslator.translateType(toFloatType);
