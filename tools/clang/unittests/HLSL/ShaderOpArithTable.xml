@@ -514,7 +514,7 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>NaN</Value>
+                <Value>-0</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
                 <Value>0</Value>
@@ -1867,10 +1867,9 @@
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
-                <Value>-denorm</Value>
+                <Value>0x03FF</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
                 <Value>Inf</Value>
                 <Value>-1</Value>
                 <Value>2.719</Value>
@@ -1880,8 +1879,7 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>0</Value>
-                <Value>0</Value>
+                <Value>0x03FF</Value>
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>NaN</Value>
