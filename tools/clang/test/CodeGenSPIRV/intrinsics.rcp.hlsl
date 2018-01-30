@@ -45,4 +45,9 @@ void main() {
 // CHECK-NEXT: [[rcpf1:%\d+]] = OpFDiv %v3double [[v3d1]] [[f1]]
 // CHECK-NEXT:       {{%\d+}} = OpCompositeConstruct %mat2v3double [[rcpf0]] [[rcpf1]]
   rcpf = rcp(f);
+
+// Case with literal float argument.
+// CHECK:      [[one_plus_two:%\d+]] = OpFAdd %float %float_1 %float_2
+// CHECK-NEXT:              {{%\d+}} = OpFDiv %float %float_1 [[one_plus_two]]
+  float g = rcp(1.0 + 2.0);
 }

@@ -1868,6 +1868,14 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       llvm::APFloat::getSizeInBits(astContext.getFloatTypeSemantics(toType)) ==
           32)
     hint.setHint(astContext.IntTy);
+  // 'literal float' to 'float' conversion where intended type is float32.
+  if (toType->isFloatingType() &&
+      subExprType->isSpecificBuiltinType(BuiltinType::LitFloat) &&
+      llvm::APFloat::getSizeInBits(astContext.getFloatTypeSemantics(toType)) ==
+          32)
+    hint.setHint(astContext.FloatTy);
+
+
   // TODO: We could provide other useful hints. For instance:
   // For the case of toType being a boolean, if the fromType is a literal float,
   // we could provide a FloatTy hint and if the fromType is a literal integer,
@@ -7351,6 +7359,8 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
         return theBuilder.getConstantUint32(1);
       }
 
+      if (scalarType->isSpecificBuiltinType(BuiltinType::LitFloat))
+        scalarType = typeTranslator.getIntendedLiteralType(scalarType);
       if (const auto *builtinType = scalarType->getAs<BuiltinType>()) {
         // TODO: Add support for other types that are not covered yet.
         switch (builtinType->getKind()) {
