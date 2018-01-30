@@ -272,7 +272,7 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
 
   if (isLessThanNormal) {
     // Compute Denormal result
-    return (uint16_t)(Abs.f_bits * *(float*)(&DenormalRatio)) | sign;
+    return (uint16_t)(Abs.f_bits * *(float*)(&DenormalRatio)) | (sign >> 16);
   }
   else if (isInfOrNaN) {
     // Compute Inf or Nan result
