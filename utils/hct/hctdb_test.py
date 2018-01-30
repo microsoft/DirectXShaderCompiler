@@ -546,9 +546,11 @@ g_denorm_tests = ["FAddDenormAny", "FAddDenormFTZ", "FAddDenormPreserve",
                 "FMinDenormAny", "FMinDenormFTZ", "FMinDenormPreserve",
                 "FMaxDenormAny", "FMaxDenormFTZ", "FMaxDenormPreserve"]
 # This is a collection of test case for driver tests per instruction
-# Warning: For test cases, when you want to pass in signed integer,
+# Warning: For test cases, when you want to pass in signed 32-bit integer,
 # make sure to pass in negative numbers with decimal values instead of hexadecimal representation.
 # For some reason, TAEF is not handling them properly.
+# For half values, hex is preferable since the test framework will read string as float values
+# and convert them to float16, possibly losing precision. The test will read hex values as it is.
 def add_test_cases():
     nan = float('nan')
     p_inf = float('inf')
@@ -566,8 +568,8 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314',
         '314'
     ]], half_outputs=[[
-        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '-0.1585929',
-        '0.1585929'
+        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '0.1585929',
+        '-0.1585929'
     ]])
     add_test_case_float_half('Cos', ['Cos'], 'Epsilon', 0.0008, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314.16',
@@ -579,7 +581,7 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-314',
         '314'
     ]], half_outputs=[[
-        'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '0.987344',
+        'NaN', 'NaN', '1.0', '1.0', '1.0', '1.0', 'NaN', '0.987344',
         '0.987344'
     ]])
     add_test_case_float_half('Tan', ['Tan'], 'Epsilon', 0.0008, [[
@@ -641,10 +643,10 @@ def add_test_cases():
         '0.611'
     ]], "unary float", "frac",
         half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2.719',
-        '1000.5', '-7.39']],
+        '1000.5', '0xC764']],
         half_outputs=[[
          'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.719', '0.5',
-        '0.61']])
+        '0x38E1']])
     add_test_case_float_half('Log', ['Log'], 'Relative', 21, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1',
         '2.718281828', '7.389056', '100'
@@ -662,9 +664,11 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2',
         '16.0', '256.0'
     ]], [[
-        'NaN', 'NaN', '-0', '-0', '0', '0', 'Inf', 'NaN', '1.41421356237',
+        'NaN', 'NaN', 'NaN', '-0', '0', '0', 'Inf', 'NaN', '1.41421356237',
         '4.0', '16.0'
-    ]], "unary float", "sqrt")
+    ]], "unary float", "sqrt",
+    half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', '0x03FF', 'Inf', '-1', '2', '16.0', '256.0']],
+    half_outputs=[['NaN', 'NaN', 'NaN', '0', '0', '0x1FFF', 'Inf', 'NaN', '1.41421', '4.0', '16.0']])
     add_test_case_float_half('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
         '256.0', '65536.0'
@@ -672,11 +676,11 @@ def add_test_cases():
         'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
         '0.0625', '0.00390625'
     ]], "unary float", "rsqrt", half_inputs=[[
-        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
-        '256.0', '65500'
+        'NaN', '-Inf', '-denorm', '-0', '0', '0x03FF', 'Inf', '-1', '16.0',
+        '256.0', '0x7bff'
     ]], half_outputs=[[
-        'NaN', 'NaN', '-Inf', '-Inf', 'Inf', 'Inf', '0', 'NaN', '0.25',
-        '0.0625', '0.00001526'
+        'NaN', 'NaN', 'NaN', '-Inf', 'Inf', '0x5800', '0', 'NaN', '0.25',
+        '0.0625', '0x1C00'
     ]])
     add_test_case_float_half('Round_ne', ['Round_ne'], 'Epsilon', 0, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
@@ -691,12 +695,22 @@ def add_test_cases():
     ]], [[
         'NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
         '10.0', '-10.0', '-11.0', '-11.0', '-11.0'
-    ]], "unary float", "floor")
+    ]], "unary float", "floor", half_inputs=[[
+        'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
+        '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6'
+    ]], half_outputs=[[
+        'NaN', '-Inf', '-1', '-0', '0', '0', 'Inf', '10.0', '10.0', '10.0',
+        '10.0', '-10.0', '-11.0', '-11.0', '-11.0'
+    ]])
     add_test_case_float_half('Round_pi', ['Round_pi'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6']],
         [['NaN', '-Inf', '-0', '-0', '0', '0', 'Inf', '10.0', '11.0', '11.0',
-        '11.0', '-10.0', '-10.0', '-10.0', '-10.0']], "unary float", "ceil")
+        '11.0', '-10.0', '-10.0', '-10.0', '-10.0']], "unary float", "ceil",
+        half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
+        '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6']],
+        half_outputs=[['NaN', '-Inf', '-0', '-0', '0', '1', 'Inf', '10.0', '11.0', '11.0',
+        '11.0', '-10.0', '-10.0', '-10.0', '-10.0']])
     add_test_case_float_half('Round_z', ['Round_z'], 'Epsilon', 0,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '10.0', '10.4',
         '10.5', '10.6', '-10.0', '-10.4', '-10.5', '-10.6']],
@@ -753,7 +767,7 @@ def add_test_cases():
     ], [
         '-inf', 'inf', '1.0', '-inf', 'inf', 'inf', 'inf', 'inf', '-inf',
         'inf', '1.0', 'NaN', '1.0', 'inf', '1.0', '-1.0', '1.0'
-    ]], 'cs_6_0', ''' struct SBinaryHalfOp {
+    ]], 'cs_6_2', ''' struct SBinaryHalfOp {
                 half input1;
                 half input2;
                 half output1;
@@ -766,7 +780,7 @@ def add_test_cases():
                 l.output1 = min(l.input1, l.input2);
                 l.output2 = max(l.input1, l.input2);
                 g_buf[GI] = l;
-            };''')
+            };''', shader_arguments="-enable-16bit-types")
     add_test_case_float_half('FAdd', ['FAdd'], 'ulp', 1, [['-1.0', '1.0', '32.5', '1.0000001000'],['4', '5.5', '334.7', '0.5000001000']], [['3.0', '6.5', '367.2', '1.5000002000']],
     "binary float", "+")
     add_test_case_float_half('FSub', ['FSub'], 'ulp', 1, [['-1.0', '5.5', '32.5', '1.0000001000'],['4', '1.25', '334.7', '0.5000001000']], [['-5', '4.25', '-302.2', '0.5000']],
@@ -808,7 +822,18 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1.0', '-1.0',
         '1', '0', '-5.5'
     ]], [['NaN', 'NaN', '0', '0', '0', '0', 'Inf', '2', '0', '1', '1', '9.5']],
-                  "tertiary float", "mad")
+                 "tertiary float", "mad",
+    half_inputs=[[
+        'NaN', '-Inf', '0x03FF', '-0', '0', 'Inf', '1.0', '-1.0',
+        '0', '1', '1.5'
+    ], [
+        'NaN', '-Inf', '1', '-0', '0', 'Inf', '1.0', '-1.0',
+        '0', '1', '10'
+    ], [
+        'NaN', '-Inf', '0x03FF', '-0', '0', 'Inf', '1.0', '-1.0',
+        '1', '0', '-5.5'
+    ]],
+    half_outputs=[['NaN', 'NaN', '0x07FE', '0', '0', 'Inf', '2', '0', '1', '1', '9.5']])
 
     # Denorm Tertiary Float
     add_test_case_denorm('FMadDenorm', ['FMad'], 'ulp', 1,
@@ -882,7 +907,7 @@ def add_test_cases():
             "binary int", "-",
             input_16=[[int16_min, '-10', '0', '0', '10', int16_max],
                       ['0', '10', '-3114', '272', '15', '0']],
-            output_16=[[int16_min, '-20', '-3114', '-272', '-5', int16_max]])
+            output_16=[[int16_min, '-20', '3114', '-272', '-5', int16_max]])
     add_test_case_int('IMax', ['IMax'], 'Epsilon', 0,
                   [[int32_min, '-10', '0', '0', '10', int32_max],
                    ['0', '10', '-10', '10', '10', '0']],
@@ -1011,7 +1036,7 @@ def add_test_cases():
                   "binary uint", "*",
                   input_16=[['0', '0', '10', '100', int16_max],
                             ['0', '256', '4', '101', '0']],
-                  output_16=[['0', '0', '40', '10001', '0']])
+                  output_16=[['0', '0', '40', '10100', '0']])
     add_test_case('UDiv', ['UDiv', 'URem'], 'Epsilon', 0,
         [['1', '1', '10', '10000', int32_max, int32_max, '0xffffffff'],
          ['0', '256', '4', '10001', '0', int32_max, '1']],
@@ -1669,6 +1694,7 @@ def generate_table_for_taef():
                 print(cur_inst.dxil_class)
         tree._setroot(root)
         tree.write(f)
+        print("Saved file at: " + f.name)
         f.close()
 
 def print_untested_inst():
