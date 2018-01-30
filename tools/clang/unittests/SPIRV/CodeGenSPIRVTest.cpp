@@ -48,6 +48,9 @@ TEST_F(FileTest, MatrixTypes) { runFileTest("type.matrix.hlsl"); }
 TEST_F(FileTest, MatrixTypesMajornessZpr) {
   runFileTest("type.matrix.majorness.zpr.hlsl");
 }
+TEST_F(FileTest, MatrixTypesMajornessZpc) {
+  runFileTest("type.matrix.majorness.zpc.hlsl");
+}
 TEST_F(FileTest, MatrixTypesMajorness) {
   runFileTest("type.matrix.majorness.hlsl", Expect::Warning);
 }
