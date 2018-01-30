@@ -526,7 +526,7 @@ private:
   };
 
   /// Returns the given decl's HLSL semantic information.
-  static SemanticInfo getStageVarSemantic(const ValueDecl *decl);
+  static SemanticInfo getStageVarSemantic(const NamedDecl *decl);
 
   /// Creates all the stage variables mapped from semantics on the given decl.
   /// Returns true on sucess.
@@ -552,9 +552,9 @@ private:
   /// If inheritSemantic is valid, it will override all semantics attached to
   /// the children of this decl, and the children of this decl will be using
   /// the semantic in inheritSemantic, with index increasing sequentially.
-  bool createStageVars(const hlsl::SigPoint *sigPoint,
-                       const DeclaratorDecl *decl, bool asInput, QualType type,
-                       uint32_t arraySize, const llvm::StringRef namePrefix,
+  bool createStageVars(const hlsl::SigPoint *sigPoint, const NamedDecl *decl,
+                       bool asInput, QualType type, uint32_t arraySize,
+                       const llvm::StringRef namePrefix,
                        llvm::Optional<uint32_t> invocationId, uint32_t *value,
                        bool noWriteBack, SemanticInfo *inheritSemantic);
 
@@ -562,11 +562,11 @@ private:
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
   /// its storage class accordingly. name will be used as the debug name when
   /// creating a stage input/output variable.
-  uint32_t createSpirvStageVar(StageVar *, const DeclaratorDecl *decl,
+  uint32_t createSpirvStageVar(StageVar *, const NamedDecl *decl,
                                const llvm::StringRef name, SourceLocation);
 
   /// Returns true if all vk::builtin usages are valid.
-  bool validateVKBuiltins(const DeclaratorDecl *decl,
+  bool validateVKBuiltins(const NamedDecl *decl,
                           const hlsl::SigPoint *sigPoint);
 
   /// Methods for creating counter variables associated with the given decl.
@@ -595,7 +595,7 @@ private:
 
   /// Decorates varId of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
-  void decoratePSInterpolationMode(const DeclaratorDecl *decl, QualType asType,
+  void decoratePSInterpolationMode(const NamedDecl *decl, QualType asType,
                                    uint32_t varId);
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
