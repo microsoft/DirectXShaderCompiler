@@ -416,6 +416,7 @@ TEST_F(FileTest, StaticMemberInitializer) {
 TEST_F(FileTest, MethodCallOnStaticVar) {
   runFileTest("oo.method.on-static-var.hlsl");
 }
+TEST_F(FileTest, Inheritance) { runFileTest("oo.inheritance.hlsl"); }
 
 // For semantics
 // SV_Position, SV_ClipDistance, and SV_CullDistance are covered in

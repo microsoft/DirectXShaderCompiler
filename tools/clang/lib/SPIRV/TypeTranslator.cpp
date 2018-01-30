@@ -378,6 +378,16 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     // Collect all fields' types and names.
     llvm::SmallVector<uint32_t, 4> fieldTypes;
     llvm::SmallVector<llvm::StringRef, 4> fieldNames;
+
+    // If this struct is derived from some other struct, place an implicit field
+    // at the very beginning for the base struct.
+    if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(decl))
+      for (const auto base : cxxDecl->bases()) {
+        fieldTypes.push_back(translateType(base.getType(), rule));
+        fieldNames.push_back("");
+      }
+
+    // Create fields for all members of this struct
     for (const auto *field : decl->fields()) {
       fieldTypes.push_back(translateType(
           field->getType(), rule, isRowMajorMatrix(field->getType(), field)));
