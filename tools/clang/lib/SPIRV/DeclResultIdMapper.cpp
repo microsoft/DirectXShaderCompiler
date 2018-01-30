@@ -93,6 +93,14 @@ inline QualType getTypeOrFnRetType(const DeclaratorDecl *decl) {
   }
   return decl->getType();
 }
+
+/// Returns the number of base classes if this type is a derived class/struct.
+/// Returns zero otherwise.
+inline uint32_t getNumBaseClasses(QualType type) {
+  if (const auto *cxxDecl = type->getAsCXXRecordDecl())
+    return cxxDecl->getNumBases();
+  return 0;
+}
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -687,7 +695,8 @@ void DeclResultIdMapper::createFieldCounterVars(
   const auto *recordDecl = recordType->getDecl();
 
   for (const auto *field : recordDecl->fields()) {
-    indices->push_back(field->getFieldIndex()); // Build up the index chain
+    // Build up the index chain
+    indices->push_back(getNumBaseClasses(type) + field->getFieldIndex());
 
     const QualType fieldType = field->getType();
     if (TypeTranslator::isRWAppendConsumeSBuffer(fieldType))
@@ -1412,7 +1421,9 @@ bool DeclResultIdMapper::createStageVars(
         const uint32_t fieldType =
             typeTranslator.translateType(field->getType());
         fields.push_back(theBuilder.createCompositeExtract(
-            fieldType, subValues[field->getFieldIndex()], {arrayIndex}));
+            fieldType,
+            subValues[getNumBaseClasses(type) + field->getFieldIndex()],
+            {arrayIndex}));
       }
       // Compose a new struct out of them
       arrayElements.push_back(
@@ -1438,8 +1449,9 @@ bool DeclResultIdMapper::createStageVars(
       const uint32_t fieldType = typeTranslator.translateType(field->getType());
       uint32_t subValue = 0;
       if (!noWriteBack)
-        subValue = theBuilder.createCompositeExtract(fieldType, *value,
-                                                     {field->getFieldIndex()});
+        subValue = theBuilder.createCompositeExtract(
+            fieldType, *value,
+            {getNumBaseClasses(type) + field->getFieldIndex()});
 
       if (!createStageVars(sigPoint, field, asInput, field->getType(),
                            arraySize, namePrefix, invocationId, &subValue,
@@ -1514,7 +1526,7 @@ bool DeclResultIdMapper::writeBackOutputStream(const ValueDecl *decl,
   for (const auto *field : structDecl->fields()) {
     const uint32_t fieldType = typeTranslator.translateType(field->getType());
     const uint32_t subValue = theBuilder.createCompositeExtract(
-        fieldType, value, {field->getFieldIndex()});
+        fieldType, value, {getNumBaseClasses(type) + field->getFieldIndex()});
 
     if (!writeBackOutputStream(field, subValue))
       return false;
