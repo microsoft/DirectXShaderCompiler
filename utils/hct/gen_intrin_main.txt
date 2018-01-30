@@ -34,7 +34,7 @@
 //
 // Basic types are bool, int, uint, u64, float, sampler1d, sampler2d,
 // sampler3d, sampler_cube, sampler_cmp, sampler, wave and void.
-// There are meta-types too: any_int, u16_32_64, uint_only, numeric and any.
+// There are meta-types too: any_int, uint_only, numeric and any.
 //
 // Along with a type and layout you can also give relations
 // between types in an intrinsic.  The types of an intrinsic
