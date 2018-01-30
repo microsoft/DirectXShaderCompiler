@@ -426,6 +426,49 @@ const DeclaratorDecl *getReferencedDef(const Expr *expr) {
   return nullptr;
 }
 
+/// Returns the number of base classes if this type is a derived class/struct.
+/// Returns zero otherwise.
+inline uint32_t getNumBaseClasses(QualType type) {
+  if (const auto *cxxDecl = type->getAsCXXRecordDecl())
+    return cxxDecl->getNumBases();
+  return 0;
+}
+
+/// Gets the index sequence of casting a derived object to a base object by
+/// following the cast chain.
+void getBaseClassIndices(const CastExpr *expr,
+                         llvm::SmallVectorImpl<uint32_t> *indices) {
+  assert(expr->getCastKind() == CK_UncheckedDerivedToBase);
+
+  indices->clear();
+
+  QualType derivedType = expr->getSubExpr()->getType();
+  const auto *derivedDecl = derivedType->getAsCXXRecordDecl();
+
+  // Go through the base cast chain: for each of the derived to base cast, find
+  // the index of the base in question in the derived's bases.
+  for (auto pathIt = expr->path_begin(), pathIe = expr->path_end();
+       pathIt != pathIe; ++pathIt) {
+    // The type of the base in question
+    const auto baseType = (*pathIt)->getType();
+
+    uint32_t index = 0;
+    for (auto baseIt = derivedDecl->bases_begin(),
+              baseIe = derivedDecl->bases_end();
+         baseIt != baseIe; ++baseIt, ++index)
+      if (baseIt->getType() == baseType) {
+        indices->push_back(index);
+        break;
+      }
+
+    assert(index < derivedDecl->getNumBases());
+
+    // Continue to proceed the next base in the chain
+    derivedType = baseType;
+    derivedDecl = derivedType->getAsCXXRecordDecl();
+  }
+}
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
@@ -2122,6 +2165,18 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     const auto valId =
         processFlatConversion(toType, evalType, subExprId, expr->getExprLoc());
     return SpirvEvalInfo(valId).setRValue();
+  }
+  case CastKind::CK_UncheckedDerivedToBase: {
+    // Find the index sequence of the base to which we are casting
+    llvm::SmallVector<uint32_t, 4> baseIndices;
+    getBaseClassIndices(expr, &baseIndices);
+
+    // Turn them in to SPIR-V constants
+    for (uint32_t i = 0; i < baseIndices.size(); ++i)
+      baseIndices[i] = theBuilder.getConstantUint32(baseIndices[i]);
+
+    auto derivedInfo = doExpr(subExpr);
+    return turnIntoElementPtr(derivedInfo, expr->getType(), baseIndices);
   }
   default:
     emitError("implicit cast kind '%0' unimplemented", expr->getExprLoc())
@@ -5345,7 +5400,11 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
     // Append the index of the current level
     const auto *fieldDecl = cast<FieldDecl>(indexing->getMemberDecl());
     assert(fieldDecl);
-    const uint32_t index = fieldDecl->getFieldIndex();
+    // If we are accessing a derived struct, we need to account for the number
+    // of base structs, since they are placed as fields at the beginning of the
+    // derived struct.
+    const uint32_t index = getNumBaseClasses(indexing->getBase()->getType()) +
+                           fieldDecl->getFieldIndex();
     indices->push_back(rawIndex ? index : theBuilder.getConstantInt32(index));
 
     return base;
