@@ -870,12 +870,14 @@ static const ArBasicKind g_UIntCT[] =
   AR_BASIC_UNKNOWN
 };
 
+// We use the first element for default if matching kind is missing in the list.
+// AR_BASIC_INT32 should be the default for any int since min precision integers should map to int32, not int16 or int64
 static const ArBasicKind g_AnyIntCT[] =
 {
-  AR_BASIC_INT16,
   AR_BASIC_INT32,
-  AR_BASIC_UINT16,
+  AR_BASIC_INT16,
   AR_BASIC_UINT32,
+  AR_BASIC_UINT16,
   AR_BASIC_INT64,
   AR_BASIC_UINT64,
   AR_BASIC_LITERAL_INT,
