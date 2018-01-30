@@ -18,6 +18,7 @@ struct Derived : Base {
     Base   x;
 };
 
+// CHECK: %DerivedAgain = OpTypeStruct %Derived %v4float %v4float
 struct DerivedAgain : Derived {
     float4 c;
     float4 d;
