@@ -2838,6 +2838,17 @@ static TableParameter DenormTertiaryFPOpParameters[] = {
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
 };
 
+static bool IsHexString(PCWSTR str, uint16_t *value) {
+  std::wstring wString(str);
+  wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
+  LPCWSTR wstr = wString.c_str();
+  if (wcsncmp(wstr, L"0x", 2) == 0 || wcsncmp(wstr, L"0b", 2) == 0) {
+    *value = (uint16_t)wcstol(wstr, NULL, 0);
+    return true;
+  }
+  return false;
+}
+
 static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
@@ -3109,13 +3120,19 @@ HRESULT TableParameterHandler::ParseTableRow() {
       }
       table[i].m_halfTable.resize(tempTable.GetSize());
       for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
-        float val;
-        ParseDataToFloat(tempTable[j], val);
-        if (isdenorm(val))
-          table[i].m_halfTable[j] = signbit(val) ? Float16NegDenorm : Float16PosDenorm;
-        else
-          table[i].m_halfTable[j] = ConvertFloat32ToFloat16(val);
-      }
+        uint16_t value = 0;
+        if (IsHexString(tempTable[j], &value)) {
+          table[i].m_halfTable[j] = value;
+        }
+        else {
+          float val;
+          ParseDataToFloat(tempTable[j], val);
+          if (isdenorm(val))
+            table[i].m_halfTable[j] = signbit(val) ? Float16NegDenorm : Float16PosDenorm;
+          else
+            table[i].m_halfTable[j] = ConvertFloat32ToFloat16(val);
+        }
+     }
       break;
     }
     case TableParameter::DOUBLE_TABLE: {
@@ -3543,7 +3560,7 @@ TEST_F(ExecutionTest, BinaryHalfOpTest) {
         for (size_t i = 0; i < count; ++i) {
             SBinaryHalfOp *p = &pPrimitives[i];
             p->input1 = (*Validation_Input1)[i % Validation_Input1->size()];
-            p->input2 = (*Validation_Input1)[i % Validation_Input1->size()];
+            p->input2 = (*Validation_Input2)[i % Validation_Input2->size()];
         }
 
         // use shader from data table

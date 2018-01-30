@@ -514,7 +514,7 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>-0</Value>
+                <Value>NaN</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
                 <Value>0</Value>
@@ -1449,7 +1449,7 @@
                 <Value>-0</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>0</Value>
+                <Value>1</Value>
                 <Value>Inf</Value>
                 <Value>10.0</Value>
                 <Value>11.0</Value>
@@ -1665,7 +1665,7 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
-                <Value>-0</Value>
+                <Value>-1</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
                 <Value>0</Value>
@@ -1715,8 +1715,8 @@
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>NaN</Value>
-                <Value>-0.1585929</Value>
                 <Value>0.1585929</Value>
+                <Value>-0.1585929</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
@@ -1875,7 +1875,7 @@
                 <Value>-1</Value>
                 <Value>2.719</Value>
                 <Value>1000.5</Value>
-                <Value>-7.39</Value>
+                <Value>0xC764</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
@@ -1888,7 +1888,7 @@
                 <Value>0</Value>
                 <Value>0.719</Value>
                 <Value>0.5</Value>
-                <Value>0.61</Value>
+                <Value>0x38E1</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
@@ -2003,10 +2003,10 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>-0</Value>
-                <Value>-0</Value>
-                <Value>0</Value>
-                <Value>0</Value>
+                <Value>1.0</Value>
+                <Value>1.0</Value>
+                <Value>1.0</Value>
+                <Value>1.0</Value>
                 <Value>NaN</Value>
                 <Value>0.987344</Value>
                 <Value>0.987344</Value>
@@ -2074,25 +2074,25 @@
                 <Value>-denorm</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
+                <Value>0x03FF</Value>
                 <Value>Inf</Value>
                 <Value>-1</Value>
                 <Value>16.0</Value>
                 <Value>256.0</Value>
-                <Value>65500</Value>
+                <Value>0x7bff</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>-Inf</Value>
+                <Value>NaN</Value>
                 <Value>-Inf</Value>
                 <Value>Inf</Value>
-                <Value>Inf</Value>
+                <Value>0x5800</Value>
                 <Value>0</Value>
                 <Value>NaN</Value>
                 <Value>0.25</Value>
                 <Value>0.0625</Value>
-                <Value>0.00001526</Value>
+                <Value>0x1C00</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
@@ -2117,7 +2117,7 @@
                 <Value>-denorm</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
+                <Value>0x03FF</Value>
                 <Value>Inf</Value>
                 <Value>-1</Value>
                 <Value>2</Value>
@@ -2127,13 +2127,13 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>-0</Value>
-                <Value>-0</Value>
+                <Value>NaN</Value>
                 <Value>0</Value>
                 <Value>0</Value>
+                <Value>0x1FFF</Value>
                 <Value>Inf</Value>
                 <Value>NaN</Value>
-                <Value>1.41421356237</Value>
+                <Value>1.41421</Value>
                 <Value>4.0</Value>
                 <Value>16.0</Value>
             </Parameter>
@@ -2203,7 +2203,7 @@
                 l.output2 = max(l.input1, l.input2);
                 g_buf[GI] = l;
             };</Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>-inf</Value>
                 <Value>-inf</Value>
@@ -2280,6 +2280,7 @@
                 <Value>-1.0</Value>
                 <Value>1.0</Value>
             </Parameter>
+            <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
         <Row Name="FMulHalf">
             <Parameter Name="Validation.Type">ulp</Parameter>
@@ -2422,10 +2423,9 @@
             <Parameter Name="Validation.Input1">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
-                <Value>-denorm</Value>
+                <Value>0x03FF</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
                 <Value>Inf</Value>
                 <Value>1.0</Value>
                 <Value>-1.0</Value>
@@ -2436,10 +2436,9 @@
             <Parameter Name="Validation.Input2">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
-                <Value>-denorm</Value>
+                <Value>1</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
                 <Value>Inf</Value>
                 <Value>1.0</Value>
                 <Value>-1.0</Value>
@@ -2450,10 +2449,9 @@
             <Parameter Name="Validation.Input3">
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
-                <Value>-denorm</Value>
+                <Value>0x03FF</Value>
                 <Value>-0</Value>
                 <Value>0</Value>
-                <Value>denorm</Value>
                 <Value>Inf</Value>
                 <Value>1.0</Value>
                 <Value>-1.0</Value>
@@ -2464,8 +2462,7 @@
             <Parameter Name="Validation.Expected1">
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>0</Value>
-                <Value>0</Value>
+                <Value>0x07FE</Value>
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>Inf</Value>
@@ -3537,7 +3534,7 @@
                 <Value>0</Value>
                 <Value>0</Value>
                 <Value>40</Value>
-                <Value>10001</Value>
+                <Value>10100</Value>
                 <Value>0</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
@@ -3839,7 +3836,7 @@
             <Parameter Name="Validation.Expected1">
                 <Value>-32768</Value>
                 <Value>-20</Value>
-                <Value>-3114</Value>
+                <Value>3114</Value>
                 <Value>-272</Value>
                 <Value>-5</Value>
                 <Value>32767</Value>
