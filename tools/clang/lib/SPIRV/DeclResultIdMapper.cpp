@@ -1432,6 +1432,16 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     for (uint32_t arrayIndex = 0; arrayIndex < arraySize; ++arrayIndex) {
       llvm::SmallVector<uint32_t, 8> fields;
 
+      // If we have base classes, we need to handle them first.
+      if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
+        uint32_t baseIndex = 0;
+        for (auto base : cxxDecl->bases()) {
+          const auto baseType = typeTranslator.translateType(base.getType());
+          fields.push_back(theBuilder.createCompositeExtract(
+              baseType, subValues[baseIndex++], {arrayIndex}));
+        }
+      }
+
       // Extract the element at index arrayIndex from each field
       for (const auto *field : structDecl->fields()) {
         const uint32_t fieldType =
@@ -1497,11 +1507,9 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
   return true;
 }
 
-bool DeclResultIdMapper::writeBackOutputStream(const ValueDecl *decl,
-                                               uint32_t value) {
+bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
+                                               QualType type, uint32_t value) {
   assert(shaderModel.IsGS()); // Only for GS use
-
-  QualType type = decl->getType();
 
   if (hlsl::IsHLSLStreamOutputType(type))
     type = hlsl::GetHLSLResourceResultType(type);
@@ -1524,7 +1532,9 @@ bool DeclResultIdMapper::writeBackOutputStream(const ValueDecl *decl,
 
     // Query the <result-id> for the stage output variable generated out
     // of this decl.
-    const auto found = stageVarIds.find(decl);
+    // We have semantic string attached to this decl; therefore, it must be a
+    // DeclaratorDecl.
+    const auto found = stageVarIds.find(cast<DeclaratorDecl>(decl));
 
     // We should have recorded its stage output variable previously.
     assert(found != stageVarIds.end());
@@ -1554,6 +1564,20 @@ bool DeclResultIdMapper::writeBackOutputStream(const ValueDecl *decl,
     return false;
   }
 
+  // If we have base classes, we need to handle them first.
+  if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
+    uint32_t baseIndex = 0;
+    for (auto base : cxxDecl->bases()) {
+      const auto baseType = typeTranslator.translateType(base.getType());
+      const auto subValue =
+          theBuilder.createCompositeExtract(baseType, value, {baseIndex++});
+
+      if (!writeBackOutputStream(base.getType()->getAsCXXRecordDecl(),
+                                 base.getType(), subValue))
+        return false;
+    }
+  }
+
   const auto *structDecl = type->getAs<RecordType>()->getDecl();
 
   // Write out each field
@@ -1562,7 +1586,7 @@ bool DeclResultIdMapper::writeBackOutputStream(const ValueDecl *decl,
     const uint32_t subValue = theBuilder.createCompositeExtract(
         fieldType, value, {getNumBaseClasses(type) + field->getFieldIndex()});
 
-    if (!writeBackOutputStream(field, subValue))
+    if (!writeBackOutputStream(field, field->getType(), subValue))
       return false;
   }
 

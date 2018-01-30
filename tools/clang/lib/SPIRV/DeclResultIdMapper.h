@@ -424,7 +424,8 @@ public:
   ///
   /// This method is specially for writing back per-vertex data at the time of
   /// OpEmitVertex in GS.
-  bool writeBackOutputStream(const ValueDecl *decl, uint32_t value);
+  bool writeBackOutputStream(const NamedDecl *decl, QualType type,
+                             uint32_t value);
 
   /// \brief Decorates all stage input and output variables with proper
   /// location and returns true on success.
