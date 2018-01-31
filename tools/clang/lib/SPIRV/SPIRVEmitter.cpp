@@ -6876,13 +6876,6 @@ uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
     uint32_t matRowCount = 0, matColCount = 0;
     if (TypeTranslator::isMxNMatrix(argType, &elemType, &matRowCount,
                                     &matColCount)) {
-      if (!elemType->isFloatingType()) {
-        emitError("non-floating-point matrix arguments in all/any intrinsic "
-                  "function unimplemented",
-                  callExpr->getExprLoc());
-        return 0;
-      }
-
       uint32_t matrixId = doExpr(arg);
       const uint32_t vecType = typeTranslator.getComponentVectorType(argType);
       llvm::SmallVector<uint32_t, 4> rowResults;

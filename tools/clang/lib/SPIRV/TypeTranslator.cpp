@@ -753,8 +753,7 @@ bool TypeTranslator::isRowMajorMatrix(QualType type, const Decl *decl) const {
 }
 
 bool TypeTranslator::isSpirvAcceptableMatrixType(QualType type) {
-  QualType elemType = {};
-  return isMxNMatrix(type, &elemType) && elemType->isFloatingType();
+  return isMxNMatrix(type);
 }
 
 bool TypeTranslator::canTreatAsSameScalarType(QualType type1, QualType type2) {
