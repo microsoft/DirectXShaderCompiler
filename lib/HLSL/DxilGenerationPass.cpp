@@ -238,7 +238,7 @@ public:
       for (auto It = M.begin(); It != M.end();) {
         Function &F = *(It++);
         // Lower signature for each entry function.
-        if (m_pHLModule->HasDxilFunctionProps(&F)) {
+        if (m_pHLModule->IsEntryThatUsesSignatures(&F)) {
           DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(&F);
           std::unique_ptr<DxilEntrySignature> pSig =
               llvm::make_unique<DxilEntrySignature>(props.shaderKind, m_pHLModule->GetHLOptions().bUseMinPrecision);

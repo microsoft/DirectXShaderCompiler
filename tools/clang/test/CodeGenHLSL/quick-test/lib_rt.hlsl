@@ -2,19 +2,19 @@
 
 ////////////////////////////////////////////////////////////////////////////
 // Prototype header contents to be removed on implementation of features:
-#define HIT_KIND_TRIANGLE_FRONT_FACE    0xFE
-#define HIT_KIND_TRIANGLE_BACK_FACE     0xFF
+#define HIT_KIND_TRIANGLE_FRONT_FACE              0xFE
+#define HIT_KIND_TRIANGLE_BACK_FACE               0xFF
 
 typedef uint RAY_FLAG;
-#define RAY_FLAG_NONE                         0x00
-#define RAY_FLAG_FORCE_OPAQUE                 0x01
-#define RAY_FLAG_FORCE_NON_OPAQUE             0x02
-#define RAY_FLAG_TERMINATE_ON_FIRST_HIT       0x04
-#define RAY_FLAG_SKIP_CLOSEST_HIT_SHADER      0x08
-#define RAY_FLAG_CULL_BACK_FACING_TRIANGLES   0x10
-#define RAY_FLAG_CULL_FRONT_FACING_TRIANGLES  0x20
-#define RAY_FLAG_CULL_OPAQUE                  0x40
-#define RAY_FLAG_CULL_NON_OPAQUE              0x80
+#define RAY_FLAG_NONE                             0x00
+#define RAY_FLAG_FORCE_OPAQUE                     0x01
+#define RAY_FLAG_FORCE_NON_OPAQUE                 0x02
+#define RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH  0x04
+#define RAY_FLAG_SKIP_CLOSEST_HIT_SHADER          0x08
+#define RAY_FLAG_CULL_BACK_FACING_TRIANGLES       0x10
+#define RAY_FLAG_CULL_FRONT_FACING_TRIANGLES      0x20
+#define RAY_FLAG_CULL_OPAQUE                      0x40
+#define RAY_FLAG_CULL_NON_OPAQUE                  0x80
 
 struct RayDesc
 {
@@ -29,38 +29,46 @@ struct BuiltInTriangleIntersectionAttributes
     float2 barycentrics;
 };
 
-typedef ByteAddressBuffer RayTracingAccelerationStructure;
+typedef ByteAddressBuffer RaytracingAccelerationStructure;
 
+// group: Indirect Shader Invocation
 // Declare TraceRay overload for given payload structure
 #define Declare_TraceRay(payload_t) \
-    void TraceRay(RayTracingAccelerationStructure, uint RayFlags, uint InstanceCullMask, uint RayContributionToHitGroupIndex, uint MultiplierForGeometryContributionToHitGroupIndex, uint MissShaderIndex, RayDesc, inout payload_t);
+    void TraceRay(RaytracingAccelerationStructure, uint RayFlags, uint InstanceInclusionMask, uint RayContributionToHitGroupIndex, uint MultiplierForGeometryContributionToHitGroupIndex, uint MissShaderIndex, RayDesc, inout payload_t);
 
-// Declare ReportIntersection overload for given attribute structure
-#define Declare_ReportIntersection(attr_t) \
-    bool ReportIntersection(float HitT, uint HitKind, attr_t);
+// Declare ReportHit overload for given attribute structure
+#define Declare_ReportHit(attr_t) \
+    bool ReportHit(float HitT, uint HitKind, attr_t);
 
 // Declare CallShader overload for given param structure
 #define Declare_CallShader(param_t) \
     void CallShader(uint ShaderIndex, inout param_t);
 
-void IgnoreIntersection();
-void TerminateRay();
+// group: AnyHit Terminals
+void IgnoreHit();
+void AcceptHitAndEndSearch();
 
 // System Value retrieval functions
+// group: Ray Dispatch Arguments
 uint2 RayDispatchIndex();
 uint2 RayDispatchDimension();
+// group: Ray Vectors
 float3 WorldRayOrigin();
 float3 WorldRayDirection();
-float RayTMin();
-float CurrentRayT();
-uint PrimitiveID();
-uint InstanceID();
-uint InstanceIndex();
 float3 ObjectRayOrigin();
 float3 ObjectRayDirection();
+// group: RayT
+float RayTMin();
+float CurrentRayT();
+// group: Raytracing uint System Values
+uint PrimitiveID(); // watch for existing
+uint InstanceID();
+uint InstanceIndex();
+uint HitKind();
+uint RayFlag();
+// group: Ray Transforms
 row_major float3x4 ObjectToWorld();
 row_major float3x4 WorldToObject();
-uint HitKind();
 ////////////////////////////////////////////////////////////////////////////
 
 struct MyPayload {
@@ -79,7 +87,7 @@ struct MyParam {
 };
 
 Declare_TraceRay(MyPayload);
-Declare_ReportIntersection(MyAttributes);
+Declare_ReportHit(MyAttributes);
 Declare_CallShader(MyParam);
 
 // CHECK: ; S                                 sampler      NA          NA      S0             s1     1
@@ -90,7 +98,7 @@ Declare_CallShader(MyParam);
 // CHECK: @T_rangeID = external constant i32
 // CHECK: @S_rangeID = external constant i32
 
-RayTracingAccelerationStructure RTAS : register(t5);
+RaytracingAccelerationStructure RTAS : register(t5);
 
 // CHECK: define void [[raygen1:@"\\01\?raygen1@[^\"]+"]]() {
 // CHECK:   [[RAWBUF_ID:[^ ]+]] = load i32, i32* @RTAS_rangeID
@@ -114,7 +122,7 @@ void raygen1()
 // CHECK: define void [[intersection1:@"\\01\?intersection1@[^\"]+"]]() {
 // CHECK:   call void {{.*}}CurrentRayT{{.*}}(float* nonnull [[pCurrentRayT:%[^)]+]])
 // CHECK:   [[CurrentRayT:%[^ ]+]] = load float, float* [[pCurrentRayT]], align 4
-// CHECK:   call void {{.*}}ReportIntersection{{.*}}(float [[CurrentRayT]], i32 0, float 0.000000e+00, float 0.000000e+00, i32 0, i1* nonnull {{.*}})
+// CHECK:   call void {{.*}}ReportHit{{.*}}(float [[CurrentRayT]], i32 0, float 0.000000e+00, float 0.000000e+00, i32 0, i1* nonnull {{.*}})
 // CHECK:   ret void
 
 [shader("intersection")]
@@ -122,15 +130,15 @@ void intersection1()
 {
   float hitT = CurrentRayT();
   MyAttributes attr = (MyAttributes)0;
-  bool bReported = ReportIntersection(hitT, 0, attr);
+  bool bReported = ReportHit(hitT, 0, attr);
 }
 
 // CHECK: define void [[anyhit1:@"\\01\?anyhit1@[^\"]+"]](float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, i32* noalias nocapture, i32* noalias nocapture, float, float, i32)
 // CHECK:   call void {{.*}}ObjectRayOrigin{{.*}}(float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}})
 // CHECK:   call void {{.*}}ObjectRayDirection{{.*}}(float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}})
 // CHECK:   call void {{.*}}CurrentRayT{{.*}}(float* nonnull {{.*}})
-// CHECK:   call void {{.*}}TerminateRay{{.*}}()
-// CHECK:   call void {{.*}}IgnoreIntersection{{.*}}()
+// CHECK:   call void {{.*}}AcceptHitAndEndSearch{{.*}}()
+// CHECK:   call void {{.*}}IgnoreHit{{.*}}()
 // CHECK:   store float {{.*}}, float* %0, align 4
 // CHECK:   store float {{.*}}, float* %1, align 4
 // CHECK:   store float {{.*}}, float* %2, align 4
@@ -145,9 +153,9 @@ void anyhit1( inout MyPayload payload : SV_RayPayload,
 {
   float3 hitLocation = ObjectRayOrigin() + ObjectRayDirection() * CurrentRayT();
   if (hitLocation.z < attr.bary.x)
-    TerminateRay();         // aborts function
+    AcceptHitAndEndSearch();         // aborts function
   if (hitLocation.z < attr.bary.y)
-    IgnoreIntersection();   // aborts function
+    IgnoreHit();   // aborts function
   payload.color += float4(0.125, 0.25, 0.5, 1.0);
 }
 

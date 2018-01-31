@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace llvm {
 class LLVMContext;
@@ -127,6 +128,14 @@ public:
   bool HasDxilFunctionProps(llvm::Function *F);
   DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
   void AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info);
+  void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc);
+  bool IsGraphicsShader(llvm::Function *F); // vs,hs,ds,gs,ps
+  bool IsPatchConstantShader(llvm::Function *F);
+  bool IsComputeShader(llvm::Function *F);
+
+  // Is an entry function that uses input/output signature conventions?
+  // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
+  bool IsEntryThatUsesSignatures(llvm::Function *F);
 
   DxilFunctionAnnotation *GetFunctionAnnotation(llvm::Function *F);
   DxilFunctionAnnotation *AddFunctionAnnotation(llvm::Function *F);
@@ -238,6 +247,7 @@ private:
 
   // High level function info.
   std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>  m_DxilFunctionPropsMap;
+  std::unordered_set<llvm::Function *>  m_PatchConstantFunctions;
 
   // Resource type annotation.
   std::unordered_map<llvm::Type *, std::pair<DXIL::ResourceClass, DXIL::ResourceKind>> m_ResTypeAnnotation;

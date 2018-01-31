@@ -5173,6 +5173,9 @@ void SROA_Parameter_HLSL::flattenArgument(
     Type *Ty = V->getType();
     if (Ty->isPointerTy())
       Ty = Ty->getPointerElementType();
+
+    // Stop doing this when preserving resource types and using new
+    // createHandleFrom??? whatever it's going to be called...
     V = castResourceArgIfRequired(V, Ty, bOut, inputQual, Builder);
 
     // Cannot SROA, save it to final parameter list.
@@ -5829,20 +5832,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     IRBuilder<> RetBuilder(TmpBlockForFuncDecl.get());
     RetBuilder.CreateRetVoid();
   } else {
-    Function *Entry = m_pHLModule->GetEntryFunction();
-    hasShaderInputOutput = F == Entry;
-    if (m_pHLModule->HasDxilFunctionProps(F)) {
-      DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
-      if (!funcProps.IsRay())
-        hasShaderInputOutput = true;
-    }
-    if (m_pHLModule->HasDxilFunctionProps(Entry)) {
-      DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(Entry);
-      if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
-        Function *patchConstantFunc = funcProps.ShaderProps.HS.patchConstantFunc;
-        hasShaderInputOutput |= F == patchConstantFunc;
-      }
-    }
+    hasShaderInputOutput = F == m_pHLModule->GetEntryFunction() ||
+                           m_pHLModule->IsEntryThatUsesSignatures(F);
   }
 
   std::vector<Value *> FlatParamList;
@@ -6361,9 +6352,9 @@ void SROA_Parameter_HLSL::replaceCall(Function *F, Function *flatF) {
     if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
       Function *oldPatchConstantFunc =
           funcProps.ShaderProps.HS.patchConstantFunc;
-      if (funcMap.count(oldPatchConstantFunc))
-        funcProps.ShaderProps.HS.patchConstantFunc =
-            funcMap[oldPatchConstantFunc];
+      if (funcMap.count(oldPatchConstantFunc)) {
+        m_pHLModule->SetPatchConstantFunctionForHS(flatF, funcMap[oldPatchConstantFunc]);
+      }
     }
   }
   // TODO: flatten vector argument and lower resource argument when flatten
