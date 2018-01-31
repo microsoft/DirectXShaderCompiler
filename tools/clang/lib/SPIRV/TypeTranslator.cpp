@@ -840,8 +840,13 @@ bool TypeTranslator::isSameType(QualType type1, QualType type2) {
 
 QualType TypeTranslator::getElementType(QualType type) {
   QualType elemType = {};
-  (void)(isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
-         isMxNMatrix(type, &elemType));
+  if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
+      isMxNMatrix(type, &elemType)) {
+  } else if (const auto *arrType = astContext.getAsConstantArrayType(type)) {
+    elemType = arrType->getElementType();
+  } else {
+    assert(false && "unhandled type");
+  }
   return elemType;
 }
 

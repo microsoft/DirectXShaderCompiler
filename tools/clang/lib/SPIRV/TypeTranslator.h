@@ -201,8 +201,8 @@ public:
   /// \brief Returns a string name for the given type.
   static std::string getName(QualType type);
 
-  /// \brief Returns the the element type for the given scalar/vector/matrix
-  /// type. Returns empty QualType for other cases.
+  /// \brief Returns the the element type for the given scalar, vector, matrix,
+  /// or array type. Returns empty QualType for other cases.
   QualType getElementType(QualType type);
 
   /// \brief Generates the corresponding SPIR-V vector type for the given Clang
