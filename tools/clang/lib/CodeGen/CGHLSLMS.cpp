@@ -1129,7 +1129,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         break;
       }
     }
-
+    if (intrinsicOpcode == (unsigned)IntrinsicOp::IOP_TraceRay) {
+      QualType recordTy = FD->getParamDecl(0)->getType();
+      llvm::Type *Ty = CGM.getTypes().ConvertType(recordTy);
+      MDNode *MD = GetOrAddResTypeMD(recordTy);
+      DXASSERT(MD, "else invalid resource type");
+      resMetadataMap[Ty] = MD;
+    }
     StringRef lower;
     if (hlsl::GetIntrinsicLowering(FD, lower))
       hlsl::SetHLLowerStrategy(F, lower);
