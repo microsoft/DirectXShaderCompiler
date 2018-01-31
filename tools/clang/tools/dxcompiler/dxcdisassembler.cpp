@@ -966,7 +966,26 @@ static const char *OpCodeSignatures[] = {
   "(inputSigId,inputRowIndex,inputColIndex,VertexID)",  // AttributeAtVertex
   "()",  // ViewID
   "(srv,index,elementOffset,mask,alignment)",  // RawBufferLoad
-  "(uav,index,elementOffset,value0,value1,value2,value3,mask,alignment)"  // RawBufferStore
+  "(uav,index,elementOffset,value0,value1,value2,value3,mask,alignment)",  // RawBufferStore
+  "()",  // InstanceIndex
+  "()",  // HitKind
+  "()",  // RayFlag
+  "(col)",  // RayDispatchIndex
+  "(col)",  // RayDispatchDimension
+  "(col)",  // WorldRayOrigin
+  "(col)",  // WorldRayDirection
+  "(col)",  // ObjectRayOrigin
+  "(col)",  // ObjectRayDirection
+  "(row,col)",  // ObjectToWorld
+  "(row,col)",  // WorldToObject
+  "()",  // RayTMin
+  "()",  // CurrentRayT
+  "()",  // IgnoreIntersection
+  "()",  // TerminateRay
+  "(AccelerationStructure,RayFlags,InstanceInclusionMask,RayContributionToHitGroupIndex,MultiplierForGeometryContributionToShaderIndex,MissShaderIndex,Origin_X,Origin_Y,Origin_Z,TMin,Direction_X,Direction_Y,Direction_Z,TMax,payload)",  // TraceRay
+  "(THit,HitKind,Attributes)",  // ReportIntersection
+  "(ShaderIndex,Parameter)",  // CallShader
+  "()"  // ReservedForLibCreateHandleFromResourceStruct
 };
 // OPCODE-SIGS:END
 

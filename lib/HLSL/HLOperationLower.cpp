@@ -4229,6 +4229,82 @@ Value *TranslateProcessTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpCode opc
 
 }
 
+// Ray Tracing.
+namespace {
+Value *TranslateReportIntersection(CallInst *CI, IntrinsicOp IOP,
+                                   OP::OpCode opcode,
+                                   HLOperationLowerHelper &helper,
+                                   HLObjectOperationLowerHelper *pObjHelper,
+                                   bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *THit = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
+  Value *HitKind = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
+  Value *Attr = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
+  Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+
+  Type *Ty = Attr->getType();
+  Function *F = hlslOP->GetOpFunc(opcode, Ty);
+
+  IRBuilder<> Builder(CI);
+  return Builder.CreateCall(F, {opArg, THit, HitKind, Attr});
+}
+Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                         HLOperationLowerHelper &helper,
+                         HLObjectOperationLowerHelper *pObjHelper,
+                         bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+
+  Value *rayDesc = CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx);
+  Value *payLoad = CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx);
+
+  Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+
+  Value *Args[DXIL::OperandIndex::kTraceRayNumOp];
+  Args[0] = opArg;
+  for (unsigned i = 1; i < HLOperandIndex::kTraceRayRayDescOpIdx; i++) {
+    Args[i] = CI->getArgOperand(i);
+  }
+  IRBuilder<> Builder(CI);
+  // struct RayDesc
+  //{
+  //    float3 Origin;
+  //    float  TMin;
+  //    float3 Direction;
+  //    float  TMax;
+  //};
+  Value *zeroIdx = hlslOP->GetU32Const(0);
+  Value *origin = Builder.CreateGEP(rayDesc, {zeroIdx, zeroIdx});
+  origin = Builder.CreateLoad(origin);
+  unsigned index = DXIL::OperandIndex::kTraceRayRayDescOpIdx;
+  Args[index++] = Builder.CreateExtractElement(origin, (uint64_t)0);
+  Args[index++] = Builder.CreateExtractElement(origin, 1);
+  Args[index++] = Builder.CreateExtractElement(origin, 2);
+
+  Value *tmin = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(1)});
+  tmin = Builder.CreateLoad(tmin);
+  Args[index++] = tmin;
+
+  Value *direction = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(2)});
+  direction = Builder.CreateLoad(direction);
+
+  Args[index++] = Builder.CreateExtractElement(direction, (uint64_t)0);
+  Args[index++] = Builder.CreateExtractElement(direction, 1);
+  Args[index++] = Builder.CreateExtractElement(direction, 2);
+
+  Value *tmax = Builder.CreateGEP(rayDesc, {zeroIdx, hlslOP->GetU32Const(3)});
+  tmax = Builder.CreateLoad(tmax);
+  Args[index++] = tmax;
+
+  Args[DXIL::OperandIndex::kTraceRayPayloadOpIdx] = payLoad;
+
+  Type *Ty = payLoad->getType();
+  Function *F = hlslOP->GetOpFunc(opcode, Ty);
+
+
+  return Builder.CreateCall(F, Args);
+}
+} // namespace
+
 // Lower table.
 namespace {
 
@@ -4301,8 +4377,8 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_QuadReadAcrossX, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadAcrossY, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadLaneAt,  TranslateQuadReadLaneAt, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_ReportIntersection, EmptyLower, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_TraceRay, EmptyLower, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_ReportIntersection, TranslateReportIntersection, DXIL::OpCode::ReportIntersection},
+    {IntrinsicOp::IOP_TraceRay, TranslateTraceRay, DXIL::OpCode::TraceRay},
     {IntrinsicOp::IOP_WaveActiveAllEqual, TranslateWaveAllEqual, DXIL::OpCode::WaveActiveAllEqual},
     {IntrinsicOp::IOP_WaveActiveAllTrue, TranslateWaveA2B, DXIL::OpCode::WaveAllTrue},
     {IntrinsicOp::IOP_WaveActiveAnyTrue, TranslateWaveA2B, DXIL::OpCode::WaveAnyTrue},
