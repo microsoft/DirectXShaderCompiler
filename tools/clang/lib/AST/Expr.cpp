@@ -1701,6 +1701,8 @@ const char *CastExpr::getCastKindName() const {
     return "HLSLVectorToMatrixCast";
   case CK_HLSLMatrixToVectorCast:
     return "HLSLMatrixToVectorCast";
+  case CK_HLSLDerivedToBase:
+    return "HLSLDerivedToBase";
   case CK_HLSLCC_IntegralCast:
     return "HLSLCC_IntegralCast";
   case CK_HLSLCC_IntegralToBoolean:
