@@ -4317,11 +4317,11 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
   }
 
   Function *patchConstFunc = Entry->second.Func;
-  DxilFunctionProps *HSProps = &m_pHLModule->GetDxilFunctionProps(EntryFunc.Func);
-  DXASSERT(HSProps != nullptr,
+  DXASSERT(m_pHLModule->HasDxilFunctionProps(EntryFunc.Func),
     " else AddHLSLFunctionInfo did not save the dxil function props for the "
     "HS entry.");
-  HSProps->ShaderProps.HS.patchConstantFunc = patchConstFunc;
+  DxilFunctionProps *HSProps = &m_pHLModule->GetDxilFunctionProps(EntryFunc.Func);
+  m_pHLModule->SetPatchConstantFunctionForHS(EntryFunc.Func, patchConstFunc);
   DXASSERT_NOMSG(patchConstantFunctionPropsMap.count(patchConstFunc));
   // Check no inout parameter for patch constant function.
   DxilFunctionAnnotation *patchConstFuncAnnotation =

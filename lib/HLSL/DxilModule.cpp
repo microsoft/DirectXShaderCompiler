@@ -1102,6 +1102,35 @@ void DxilModule::ReplaceDxilFunctionProps(llvm::Function *F,
   m_DxilFunctionPropsMap.erase(F);
   m_DxilFunctionPropsMap[NewF] = std::move(props);
 }
+void DxilModule::SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc) {
+  auto propIter = m_DxilFunctionPropsMap.find(hullShaderFunc);
+  DXASSERT(propIter != m_DxilFunctionPropsMap.end(), "Hull shader must already have function props!");
+  DxilFunctionProps &props = *(propIter->second);
+  DXASSERT(props.IsHS(), "else hullShaderFunc is not a Hull Shader");
+  if (props.ShaderProps.HS.patchConstantFunc)
+    m_PatchConstantFunctions.erase(props.ShaderProps.HS.patchConstantFunc);
+  props.ShaderProps.HS.patchConstantFunc = patchConstantFunc;
+  if (patchConstantFunc)
+    m_PatchConstantFunctions.insert(patchConstantFunc);
+}
+bool DxilModule::IsGraphicsShader(llvm::Function *F) {
+  return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsGraphics();
+}
+bool DxilModule::IsPatchConstantShader(llvm::Function *F) {
+  return m_PatchConstantFunctions.count(F) != 0;
+}
+bool DxilModule::IsComputeShader(llvm::Function *F) {
+  return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsCS();
+}
+bool DxilModule::IsEntryThatUsesSignatures(llvm::Function *F) {
+  auto propIter = m_DxilFunctionPropsMap.find(F);
+  if (propIter != m_DxilFunctionPropsMap.end()) {
+    DxilFunctionProps &props = *(propIter->second);
+    return props.IsGraphics() || props.IsCS();
+  }
+  // Otherwise, return true if patch constant function
+  return IsPatchConstantShader(F);
+}
 
 void DxilModule::StripRootSignatureFromMetadata() {
   NamedMDNode *pRootSignatureNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilRootSignatureMDName);
@@ -1318,6 +1347,11 @@ void DxilModule::LoadDxilMetadata() {
           llvm::make_unique<hlsl::DxilFunctionProps>();
 
       Function *F = m_pMDHelper->LoadDxilFunctionProps(pProps, props.get());
+
+      if (props->IsHS() && props->ShaderProps.HS.patchConstantFunc) {
+        // Add patch constant function to m_PatchConstantFunctions
+        m_PatchConstantFunctions.insert(props->ShaderProps.HS.patchConstantFunc);
+      }
 
       m_DxilFunctionPropsMap[F] = std::move(props);
     }

@@ -607,7 +607,8 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
     Function *patchConstantFunc = props.ShaderProps.HS.patchConstantFunc;
     Function *newPatchConstantFunc =
         m_newFunctions[patchConstantFunc->getName()];
-    props.ShaderProps.HS.patchConstantFunc = newPatchConstantFunc;
+    DM.SetPatchConstantFunctionForHS(entryFunc, nullptr);
+    DM.SetPatchConstantFunctionForHS(NewEntryFunc, newPatchConstantFunc);
 
     if (newPatchConstantFunc->hasFnAttribute(llvm::Attribute::AlwaysInline))
       newPatchConstantFunc->removeFnAttr(llvm::Attribute::AlwaysInline);

@@ -374,7 +374,7 @@ private:
     } else {
       std::vector<Function *> entries;
       for (iplist<Function>::iterator F : M.getFunctionList()) {
-        if (DM.HasDxilFunctionProps(F)) {
+        if (DM.IsEntryThatUsesSignatures(F)) {
           entries.emplace_back(F);
         }
       }
@@ -384,7 +384,7 @@ private:
           // Strip patch constant function first.
           Function *patchConstFunc = StripFunctionParameter(
               props.ShaderProps.HS.patchConstantFunc, DM, FunctionDIs);
-          props.ShaderProps.HS.patchConstantFunc = patchConstFunc;
+          DM.SetPatchConstantFunctionForHS(entry, patchConstFunc);
         }
         StripFunctionParameter(entry, DM, FunctionDIs);
       }

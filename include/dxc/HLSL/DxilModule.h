@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace llvm {
 class LLVMContext;
@@ -132,6 +133,14 @@ public:
   DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
   // Move DxilFunctionProps of F to NewF.
   void ReplaceDxilFunctionProps(llvm::Function *F, llvm::Function *NewF);
+  void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc);
+  bool IsGraphicsShader(llvm::Function *F); // vs,hs,ds,gs,ps
+  bool IsPatchConstantShader(llvm::Function *F);
+  bool IsComputeShader(llvm::Function *F);
+
+  // Is an entry function that uses input/output signature conventions?
+  // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
+  bool IsEntryThatUsesSignatures(llvm::Function *F);
 
   // Remove Root Signature from module metadata
   void StripRootSignatureFromMetadata();
@@ -435,6 +444,9 @@ private:
   // EntrySig for shader functions.
   std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
       m_DxilEntrySignatureMap;
+
+  // Keeps track of patch constant functions used by hull shaders
+  std::unordered_set<llvm::Function *>  m_PatchConstantFunctions;
 
   // ViewId state.
   std::unique_ptr<DxilViewIdState> m_pViewIdState;
