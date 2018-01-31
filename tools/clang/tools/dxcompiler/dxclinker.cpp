@@ -91,7 +91,9 @@ public:
   }
 
   void Initialize() {
-    m_pLinker.reset(DxilLinker::CreateLinker(m_Ctx));
+    UINT32 valMajor, valMinor;
+    dxcutil::GetValidatorVersion(&valMajor, &valMinor);
+    m_pLinker.reset(DxilLinker::CreateLinker(m_Ctx, valMajor, valMinor));
   }
 
   ~DxcLinker() {
@@ -182,19 +184,8 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
     std::string warnings;
     llvm::raw_string_ostream w(warnings);
-
-    {
-      UINT32 majorVer, minorVer;
-      dxcutil::GetValidatorVersion(&majorVer, &minorVer);
-      // TODO: use validation version when link.
-      (majorVer);
-      (minorVer);
-    }
-
     IFT(CreateMemoryStream(pMalloc, &pDiagStream));
-
     raw_stream_ostream DiagStream(pDiagStream);
-
     llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
     PrintDiagnosticContext DiagContext(DiagPrinter);
     m_Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
