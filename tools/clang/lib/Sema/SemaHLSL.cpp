@@ -7058,7 +7058,13 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
       break;
     }
     case ICK_HLSL_Derived_To_Base: {
-      From = m_sema->ImpCastExprToType(From, targetType.getUnqualifiedType(), CK_HLSLDerivedToBase, From->getValueKind(), /*BasePath=*/0, CCK).get();
+      CXXCastPath BasePath;
+      if (m_sema->CheckDerivedToBaseConversion(
+              sourceType, targetType.getNonReferenceType(), From->getLocStart(),
+              From->getSourceRange(), &BasePath, /*IgnoreAccess=*/true))
+        return ExprError();
+
+      From = m_sema->ImpCastExprToType(From, targetType.getUnqualifiedType(), CK_HLSLDerivedToBase, From->getValueKind(), &BasePath, CCK).get();
       break;
     }
     case ICK_HLSLVector_Splat: {
@@ -7672,7 +7678,13 @@ lSuccess:
     if (sourceExpr->isLValue())
     {
       if (needsLValueToRValue) {
-        standard->First = ICK_Lvalue_To_Rvalue;
+        // We don't need LValueToRValue cast before casting a derived object
+        // to its base.
+        if (Second == ICK_HLSL_Derived_To_Base) {
+          standard->First = ICK_Identity;
+        } else {
+          standard->First = ICK_Lvalue_To_Rvalue;
+        }
       } else {
         switch (Second)
         {
