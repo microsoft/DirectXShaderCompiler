@@ -267,6 +267,11 @@ $type1 [[]] QuadReadAcrossX(in numeric<> value);
 $type1 [[]] QuadReadAcrossY(in numeric<> value);
 $type1 [[]] QuadReadAcrossDiagonal(in numeric<> value);
 
+// RayTracing
+void [[]]  TraceRay(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in uint RayContributionToHitGroupIndex, in uint MultiplierForGeometryContributionToHitGroupIndex, in uint MissShaderIndex, in ray_desc Ray, inout udt Payload);
+
+bool [[]]  ReportIntersection(in float THit, in uint HitKind, in udt Attributes);
+
 } namespace
 
 namespace StreamMethods {

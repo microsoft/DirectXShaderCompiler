@@ -60,6 +60,8 @@ import hctdb_instrhelp
   IOP_QuadReadAcrossX,
   IOP_QuadReadAcrossY,
   IOP_QuadReadLaneAt,
+  IOP_ReportIntersection,
+  IOP_TraceRay,
   IOP_WaveActiveAllEqual,
   IOP_WaveActiveAllTrue,
   IOP_WaveActiveAnyTrue,

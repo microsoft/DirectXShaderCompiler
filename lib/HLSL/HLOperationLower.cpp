@@ -4301,6 +4301,8 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_QuadReadAcrossX, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadAcrossY, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadLaneAt,  TranslateQuadReadLaneAt, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_ReportIntersection, EmptyLower, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_TraceRay, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_WaveActiveAllEqual, TranslateWaveAllEqual, DXIL::OpCode::WaveActiveAllEqual},
     {IntrinsicOp::IOP_WaveActiveAllTrue, TranslateWaveA2B, DXIL::OpCode::WaveAllTrue},
     {IntrinsicOp::IOP_WaveActiveAnyTrue, TranslateWaveA2B, DXIL::OpCode::WaveAnyTrue},

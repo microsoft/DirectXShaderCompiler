@@ -781,6 +781,8 @@ bool HLModule::IsHLSLObjectType(llvm::Type *Ty) {
     name = name.ltrim("RW");
     if (name == "ByteAddressBuffer")
       return true;
+    if (name == "RayTracingAccelerationStructure")
+      return true;
 
     if (name.startswith("Buffer"))
       return true;

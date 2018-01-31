@@ -1077,7 +1077,8 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
   isBuffer |= keyword == "RasterizerOrderedBuffer";
   if (isBuffer)
     return DxilResource::Kind::TypedBuffer;
-
+  if (keyword == "RayTracingAccelerationStructure")
+    return DxilResource::Kind::RTAccelerationStructure;
   return DxilResource::Kind::Invalid;
 }
 
@@ -2109,6 +2110,7 @@ static DxilResourceBase::Class KeywordToClass(const std::string &keyword) {
 
   bool isSRV = keyword == "Buffer";
   isSRV |= keyword == "ByteAddressBuffer";
+  isSRV |= keyword == "RayTracingAccelerationStructure";
   isSRV |= keyword == "StructuredBuffer";
   isSRV |= keyword == "Texture1D";
   isSRV |= keyword == "Texture1DArray";
