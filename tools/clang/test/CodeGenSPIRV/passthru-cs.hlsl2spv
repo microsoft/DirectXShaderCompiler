@@ -27,6 +27,7 @@ void main( uint3 DTid : SV_DispatchThreadID )
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint GLCompute %main "main" %gl_GlobalInvocationID
 // OpExecutionMode %main LocalSize 1 1 1
+// OpSource HLSL 600
 // OpName %bb_entry "bb.entry"
 // OpName %type_ByteAddressBuffer "type.ByteAddressBuffer"
 // OpName %Buffer0 "Buffer0"

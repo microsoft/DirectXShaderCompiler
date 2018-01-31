@@ -16,6 +16,7 @@ VSOut main(VSIn input)
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Vertex %main "main" %gl_PerVertexOut
+// OpSource HLSL 600
 // OpName %bb_entry "bb.entry"
 // OpName %src_main "src.main"
 // OpName %main "main"

@@ -537,6 +537,9 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   if (context.getDiagnostics().hasErrorOccurred())
     return;
 
+  theBuilder.setShaderModelVersion(shaderModel.GetMajor(),
+                                   shaderModel.GetMinor());
+
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
 
   // The entry function is the seed of the queue.
