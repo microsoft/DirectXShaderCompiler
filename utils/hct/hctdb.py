@@ -1959,6 +1959,9 @@ class db_hlsl(object):
             "sampler_cube": "LICOMPTYPE_SAMPLERCUBE",
             "sampler_cmp": "LICOMPTYPE_SAMPLERCMP",
             "sampler": "LICOMPTYPE_SAMPLER",
+            "ray_desc" : "LICOMPTYPE_RAYDESC",
+            "acceleration_struct" : "LICOMPTYPE_ACCELERATION_STRUCT",
+            "udt" : "LICOMPTYPE_USER_DEFINE_TYPE",
             "void": "LICOMPTYPE_VOID",
             "string": "LICOMPTYPE_STRING",
             "wave": "LICOMPTYPE_WAVE"}
@@ -2085,7 +2088,7 @@ class db_hlsl(object):
                         template_list = "LITEMPLATE_ANY"
                     else:
                         base_type = type_name
-                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("wave"):
+                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc"):
                             template_list = "LITEMPLATE_OBJECT"
                         else:
                             template_list = "LITEMPLATE_SCALAR"
