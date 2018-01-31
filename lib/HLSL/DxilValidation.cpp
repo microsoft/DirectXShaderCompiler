@@ -603,6 +603,16 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: RawBufferLoad=139, RawBufferStore=140
   if (139 <= op && op <= 140)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 2));
+  // Instructions: InstanceIndex=141, HitKind=142, RayFlag=143,
+  // RayDispatchIndex=144, RayDispatchDimension=145, WorldRayOrigin=146,
+  // WorldRayDirection=147, ObjectRayOrigin=148, ObjectRayDirection=149,
+  // ObjectToWorld=150, WorldToObject=151, RayTMin=152, CurrentRayT=153,
+  // IgnoreIntersection=154, TerminateRay=155, TraceRay=156,
+  // ReportIntersection=157, CallShader=158,
+  // ReservedForLibCreateHandleFromResourceStruct=159
+  if (141 <= op && op <= 159)
+    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
+        && (pSM->IsLib());
   return true;
   // VALOPCODESM-TEXT:END
 }

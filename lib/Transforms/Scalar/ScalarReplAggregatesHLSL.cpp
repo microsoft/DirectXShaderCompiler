@@ -107,9 +107,10 @@ private:
   void RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder);
   void RewriteForLoad(LoadInst *loadInst);
   void RewriteForStore(StoreInst *storeInst);
-  void RewriteMemIntrin(MemIntrinsic *MI, Instruction *Inst);
+  void RewriteMemIntrin(MemIntrinsic *MI, Value *OldV);
   void RewriteCall(CallInst *CI);
   void RewriteBitCast(BitCastInst *BCI);
+  void RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn, bool bOut);
 };
 
 struct SROA_HLSL : public FunctionPass {
@@ -2818,7 +2819,7 @@ void SROA_Helper::RewriteForStore(StoreInst *SI) {
 }
 /// RewriteMemIntrin - MI is a memcpy/memset/memmove from or to AI.
 /// Rewrite it to copy or set the elements of the scalarized memory.
-void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Instruction *Inst) {
+void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Value *OldV) {
   // If this is a memcpy/memmove, construct the other pointer as the
   // appropriate type.  The "Other" pointer is the pointer that goes to memory
   // that doesn't have anything to do with the alloca that we are promoting. For
@@ -2826,10 +2827,10 @@ void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Instruction *Inst) {
   Value *OtherPtr = nullptr;
   unsigned MemAlignment = MI->getAlignment();
   if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(MI)) { // memmove/memcopy
-    if (Inst == MTI->getRawDest())
+    if (OldV == MTI->getRawDest())
       OtherPtr = MTI->getRawSource();
     else {
-      assert(Inst == MTI->getRawSource());
+      assert(OldV == MTI->getRawSource());
       OtherPtr = MTI->getRawDest();
     }
   }
@@ -2871,7 +2872,7 @@ void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Instruction *Inst) {
   }
 
   // Process each element of the aggregate.
-  bool SROADest = MI->getRawDest() == Inst;
+  bool SROADest = MI->getRawDest() == OldV;
 
   Constant *Zero = Constant::getNullValue(Type::getInt32Ty(MI->getContext()));
   const DataLayout &DL = MI->getModule()->getDataLayout();
@@ -3050,6 +3051,35 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   RewriteForGEP(cast<GEPOperator>(GEP), GEPBuilder);
 }
 
+/// RewriteCallArg - For Functions which don't flat,
+///                  replace OldVal with alloca and
+///                  copy in copy out data between alloca and flattened NewElts
+///                  in CallInst.
+void SROA_Helper::RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn,
+                                 bool bOut) {
+  Function *F = CI->getParent()->getParent();
+  IRBuilder<> AllocaBuilder(F->getEntryBlock().getFirstInsertionPt());
+  const DataLayout &DL = F->getParent()->getDataLayout();
+
+  Value *userTyV = CI->getArgOperand(ArgIdx);
+  PointerType *userTy = cast<PointerType>(userTyV->getType());
+  Type *userTyElt = userTy->getElementType();
+  Value *Alloca = AllocaBuilder.CreateAlloca(userTyElt);
+  IRBuilder<> Builder(CI);
+  if (bIn) {
+    MemCpyInst *cpy = cast<MemCpyInst>(Builder.CreateMemCpy(
+        Alloca, userTyV, DL.getTypeAllocSize(userTyElt), false));
+    RewriteMemIntrin(cpy, cpy->getRawSource());
+  }
+  CI->setArgOperand(ArgIdx, Alloca);
+  if (bOut) {
+    Builder.SetInsertPoint(CI->getNextNode());
+    MemCpyInst *cpy = cast<MemCpyInst>(Builder.CreateMemCpy(
+        userTyV, Alloca, DL.getTypeAllocSize(userTyElt), false));
+    RewriteMemIntrin(cpy, cpy->getRawSource());
+  }
+}
+
 /// RewriteCall - Replace OldVal with flattened NewElts in CallInst.
 void SROA_Helper::RewriteCall(CallInst *CI) {
   HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
@@ -3087,6 +3117,23 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         Builder.CreateCall(flatF, flatArgs);
 
         DeadInsts.push_back(CI);
+      } break;
+      case IntrinsicOp::IOP_TraceRay: {
+        if (OldVal ==
+            CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx)) {
+          RewriteCallArg(CI, HLOperandIndex::kTraceRayRayDescOpIdx,
+                         /*bIn*/ true, /*bOut*/ false);
+        } else {
+          DXASSERT(OldVal ==
+                       CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx),
+                   "else invalid TraceRay");
+          RewriteCallArg(CI, HLOperandIndex::kTraceRayPayLoadOpIdx,
+                         /*bIn*/ true, /*bOut*/ true);
+        }
+      } break;
+      case IntrinsicOp::IOP_ReportIntersection: {
+        RewriteCallArg(CI, HLOperandIndex::kReportIntersectionAttributeOpIdx,
+                       /*bIn*/ true, /*bOut*/ false);
       } break;
       default:
         DXASSERT(0, "cannot flatten hlsl intrinsic.");
