@@ -32,6 +32,9 @@ struct PSInput {
                        bool  bool_a: BOOLA;
 // CHECK: OpDecorate %in_var_BOOLD Flat
   nointerpolation      bool3 bool_d: BOOLD;
+
+// CHECK: OpDecorate %in_var_FPH Flat
+  nointerpolation      float4 fp_h[1]: FPH;
 };
 
 float4 main(                     PSInput input,
