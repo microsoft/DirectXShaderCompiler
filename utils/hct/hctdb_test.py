@@ -642,10 +642,10 @@ def add_test_cases():
         'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.718280', '0.599976',
         '0.611'
     ]], "unary float", "frac",
-        half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2.719',
+        half_inputs=[['NaN', '-Inf', '0x03FF', '-0', '0', 'Inf', '-1', '2.719',
         '1000.5', '0xC764']],
         half_outputs=[[
-         'NaN', 'NaN', '0', '0', '0', '0', 'NaN', '0', '0.719', '0.5',
+         'NaN', 'NaN', '0x03FF', '0', '0', 'NaN', '0', '0.719', '0.5',
         '0x38E1']])
     add_test_case_float_half('Log', ['Log'], 'Relative', 21, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1',
@@ -664,7 +664,7 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '2',
         '16.0', '256.0'
     ]], [[
-        'NaN', 'NaN', 'NaN', '-0', '0', '0', 'Inf', 'NaN', '1.41421356237',
+        'NaN', 'NaN', '-0', '-0', '0', '0', 'Inf', 'NaN', '1.41421356237',
         '4.0', '16.0'
     ]], "unary float", "sqrt",
     half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', '0x03FF', 'Inf', '-1', '2', '16.0', '256.0']],
