@@ -72,6 +72,20 @@ float4 main() : SV_Target {
 // CHECK-NEXT:                   OpStore [[d]] {{%\d+}}
     dd.d  = 9.;
 
+    DerivedAgain dd2;
+
+// CHECK-NEXT:  [[dd_base_ptr:%\d+]] = OpAccessChain %_ptr_Function_Derived %dd %uint_0
+// CHECK-NEXT:      [[dd_base:%\d+]] = OpLoad %Derived [[dd_base_ptr]]
+// CHECK-NEXT: [[dd2_base_ptr:%\d+]] = OpAccessChain %_ptr_Function_Derived %dd2 %uint_0
+// CHECK-NEXT:                         OpStore [[dd2_base_ptr]] [[dd_base]]
+    (Derived)dd2 = (Derived)dd;
+
+// CHECK-NEXT:   [[d_base_ptr:%\d+]] = OpAccessChain %_ptr_Function_Base %d %uint_0
+// CHECK-NEXT:       [[d_base:%\d+]] = OpLoad %Base [[d_base_ptr]]
+// CHECK-NEXT: [[dd2_base_ptr:%\d+]] = OpAccessChain %_ptr_Function_Base %dd2 %uint_0 %uint_0
+// CHECK-NEXT:                         OpStore [[dd2_base_ptr]] [[d_base]]
+    (Base)dd2    = (Base)d;
+
     // Make sure reads are good
 // CHECK:        [[base:%\d+]] = OpAccessChain %_ptr_Function_Base %d %uint_0
 // CHECK-NEXT:        {{%\d+}} = OpAccessChain %_ptr_Function_v4float [[base]] %int_0
