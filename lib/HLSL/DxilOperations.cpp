@@ -273,6 +273,7 @@ const char *OP::m_OverloadTypeName[kNumTypeOverloads] = {
 
 const char *OP::m_NamePrefix = "dx.op.";
 const char *OP::m_TypePrefix = "dx.types.";
+const char *OP::m_MatrixTypePrefix = "class.matrix."; // Allowed in library
 
 // Keep sync with DXIL::AtomicBinOpCode
 static const char *AtomicBinOpCodeName[] = {
@@ -363,18 +364,22 @@ bool OP::IsDxilOpFunc(const llvm::Function *F) {
   return IsDxilOpFuncName(F->getName());
 }
 
+bool OP::IsDxilOpTypeName(StringRef name) {
+  return name.startswith(m_TypePrefix) || name.startswith(m_MatrixTypePrefix);
+}
+
 bool OP::IsDxilOpType(llvm::StructType *ST) {
   if (!ST->hasName())
     return false;
   StringRef Name = ST->getName();
-  return Name.startswith(m_TypePrefix);
+  return IsDxilOpTypeName(Name);
 }
 
 bool OP::IsDupDxilOpType(llvm::StructType *ST) {
   if (!ST->hasName())
     return false;
   StringRef Name = ST->getName();
-  if (!Name.startswith(m_TypePrefix))
+  if (!IsDxilOpTypeName(Name))
     return false;
   size_t DotPos = Name.rfind('.');
   if (DotPos == 0 || DotPos == StringRef::npos || Name.back() == '.' ||

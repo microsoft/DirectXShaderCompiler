@@ -1486,8 +1486,8 @@ std::error_code BitcodeReader::parseTypeTableBody() {
         Res = createIdentifiedStructType(Context, TypeName);
       // HLSL Change Begin - avoid name collision for dxil types.
       bool bNameCollision = Res->getName().size() > TypeName.size();
+      //TypeName.clear();
       // HLSL Change End.
-      TypeName.clear();
 
       SmallVector<Type*, 8> EltTys;
       for (unsigned i = 1, e = Record.size(); i != e; ++i) {
@@ -1501,10 +1501,12 @@ std::error_code BitcodeReader::parseTypeTableBody() {
       Res->setBody(EltTys, Record[0]);
       // HLSL Change Begin - avoid name collision for dxil types.
       if (bNameCollision) {
-        if (hlsl::OP::IsDupDxilOpType(Res)) {
-          Res = hlsl::OP::GetOriginalDxilOpType(Res, *TheModule);
+        StructType *otherType = TheModule->getTypeByName(TypeName);
+        if (otherType->isLayoutIdentical(Res)) {
+          Res = otherType;
         }
       }
+      TypeName.clear();
       // HLSL Change End.
       ResultTy = Res;
       break;
