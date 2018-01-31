@@ -3210,7 +3210,7 @@ SPIRVEmitter::processStreamOutputAppend(const CXXMemberCallExpr *expr) {
   const auto *stream = cast<DeclRefExpr>(object)->getDecl();
   const uint32_t value = doExpr(expr->getArg(0));
 
-  declIdMapper.writeBackOutputStream(stream, value);
+  declIdMapper.writeBackOutputStream(stream, stream->getType(), value);
   theBuilder.createEmitVertex();
 
   return 0;
