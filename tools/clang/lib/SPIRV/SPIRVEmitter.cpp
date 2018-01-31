@@ -2022,7 +2022,7 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
         theBuilder.createVectorShuffle(vec2Type, vec, vec, {2, 3});
 
     const auto mat = theBuilder.createCompositeConstruct(
-        theBuilder.getMatType(vec2Type, 2), {subVec1, subVec2});
+        theBuilder.getMatType(elemType, vec2Type, 2), {subVec1, subVec2});
 
     return SpirvEvalInfo(mat).setRValue();
   }
