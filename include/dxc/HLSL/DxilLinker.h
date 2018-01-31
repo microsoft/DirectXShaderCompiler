@@ -33,7 +33,7 @@ class DxilResourceBase;
 class DxilLinker {
 public:
   virtual ~DxilLinker() {}
-  static DxilLinker *CreateLinker(llvm::LLVMContext &Ctx);
+  static DxilLinker *CreateLinker(llvm::LLVMContext &Ctx, unsigned valMajor, unsigned valMinor);
 
   virtual bool HasLibNameRegistered(llvm::StringRef name) = 0;
   virtual bool RegisterLib(llvm::StringRef name,
@@ -47,8 +47,9 @@ public:
                                              llvm::StringRef profile) = 0;
 
 protected:
-  DxilLinker(llvm::LLVMContext &Ctx) : m_ctx(Ctx) {}
+  DxilLinker(llvm::LLVMContext &Ctx, unsigned valMajor, unsigned valMinor) : m_ctx(Ctx), m_valMajor(valMajor), m_valMinor(valMinor) {}
   llvm::LLVMContext &m_ctx;
+  unsigned m_valMajor, m_valMinor;
 };
 
 } // namespace hlsl
