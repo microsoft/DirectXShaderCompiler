@@ -6789,6 +6789,42 @@ static void TranslateHLExtension(Function *F,
   }
 }
 
+namespace {
+void TranslateHLCreateHandle(Function *F, HLOperationLowerHelper &helper,
+                             hlsl::HLOpcodeGroup group,
+                             HLObjectOperationLowerHelper *pObjHelper) {
+  hlsl::OP &hlslOP = helper.hlslOP;
+  Value *opArg = hlslOP.GetU32Const(
+      (unsigned)DXIL::OpCode::CreateHandleFromResourceStructForLib);
+  for (auto U = F->user_begin(); U != F->user_end();) {
+    Value *user = *(U++);
+    if (!isa<Instruction>(user))
+      continue;
+    // must be call inst
+    CallInst *CI = cast<CallInst>(user);
+    Value *res = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+    Value *newHandle = nullptr;
+    if (LoadInst *LI = dyn_cast<LoadInst>(res)) {
+      Value *resPtr = LI->getPointerOperand();
+      Function *createHandle =
+          hlslOP.GetOpFunc(DXIL::OpCode::CreateHandleFromResourceStructForLib,
+                           resPtr->getType());
+      IRBuilder<> Builder(CI);
+      newHandle = Builder.CreateCall(createHandle, {opArg, resPtr});
+    } else {
+      // A handle to res.
+      CallInst *resCall = cast<CallInst>(res);
+      Function *F = resCall->getCalledFunction();
+      HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
+      DXASSERT(group == HLOpcodeGroup::HLCast, "must be a handleToRes");
+      newHandle = resCall->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+      DXASSERT(newHandle->getType() == CI->getType(), "must be a handleToRes");
+    }
+    CI->replaceAllUsesWith(newHandle);
+    CI->eraseFromParent();
+  }
+}
+} // namespace
 
 namespace hlsl {
 
@@ -6805,22 +6841,22 @@ void TranslateBuiltinOperations(
 
   // generate dxil operation
   for (iplist<Function>::iterator F : M->getFunctionList()) {
-    if (!F->isDeclaration()) {
-      continue;
-    }
     if (F->user_empty())
       continue;
     hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
+    if (!F->isDeclaration()) {
+      if (group == HLOpcodeGroup::HLCreateHandle) {
+        // Will lower in later pass.
+        TranslateHLCreateHandle(F, helper, group, &objHelper);
+      }
+      continue;
+    }
     if (group == HLOpcodeGroup::NotHL) {
       // Nothing to do.
       continue;
     }
     if (group == HLOpcodeGroup::HLExtIntrinsic) {
       TranslateHLExtension(F, extCodegenHelper, helper.hlslOP);
-      continue;
-    }
-    if (group == HLOpcodeGroup::HLCreateHandle) {
-      // Will lower in later pass.
       continue;
     }
     TranslateHLBuiltinOperation(F, helper, group, &objHelper);
