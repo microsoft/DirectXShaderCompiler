@@ -382,6 +382,8 @@ Doing so may require special handling of certain matrix operations:
   row/column becomes SPIR-V matrix column/row. If elements in a row/column are
   packed together, they should be loaded into a column/row correspondingly.
 
+See `Appendix A. Matrix Representation`_ for further explanation regarding these design choices.
+
 Structs
 -------
 
@@ -2468,3 +2470,76 @@ either because of no Vulkan equivalents at the moment, or because of deprecation
   will emit an warning and ignore it.
 * ``:packoffset()``: Not supported right now. The compiler will emit an warning
   and ignore it.
+
+Appendix
+==========
+
+Appendix A. Matrix Representation
+---------------------------------
+Consider a matrix in HLSL defined as ``float2x3 m;``. Conceptually, this is a matrix with 2 rows and 3 columns.
+This means that you can access its elements via expressions such as ``m[i][j]``, where ``i`` can be ``{0, 1}`` and ``j`` can be ``{1, 2, 3}``.
+
+Now let's look how matrices are defined in SPIR-V:
+
+.. code:: spirv
+
+  %columnType = OpTypeVector %float      <number of rows>
+     %matType = OpTypeMatrix %columnType <number of columns>
+
+As you can see, SPIR-V conceptually represents matrices as a collection of vectors where each vector is a *column*.
+
+Now, let's represent our float2x3 matrix in SPIR-V. If we choose a naive translation (3 columns, each of which is a vector of size 2), we get:
+
+.. code:: spirv
+
+      %v2float = OpTypeVector %float 2
+  %mat3v2float = OpTypeMatrix %v2float 3
+
+Now, let's use this naive translation to access into the matrix (e.g. ``m[0][2]``). This is evaluated by first finding ``n = m[0]``, and then finding ``n[2]``.
+Notice that in HLSL, ``m[0]`` represents a row, which is a vector of size 3. But accessing the first dimension of the SPIR-V matrix give us
+the first column which is a vector of size 2.
+
+.. code:: spirv
+  
+  ; n is a vector of size 2
+  %n = OpAccessChain %v2float %m %int_0
+
+Notice that in HLSL access ``m[i][j]``, ``i`` can be ``{0, 1}`` and ``j`` can be ``{0, 1, 2}``.
+But in SPIR-V OpAccessChain access, the first index (``i``) can be ``{0, 1, 2}`` and the second index (``j``) can be ``{1, 0}``.
+Therefore, the naive translation does not work well with indexing.
+
+As a result, we must translate a given HLSL float2x3 matrix (with 2 rows and 3 columns) as a SPIR-V matrix with 3 rows and 2 columns:
+
+.. code:: spirv
+
+      %v3float = OpTypeVector %float 3
+  %mat2v3float = OpTypeMatrix %v3float 2
+
+This way, all accesses into the matrix can be naturally handled correctly.
+
+Packing
+~~~~~~~
+The HLSL ``row_major`` and ``column_major`` type modifiers change the way packing is done.
+The following table provides an example which should make our translation more clear:
+
++------------------+---------------------------+---------------------------+-----------------------------+-------------------+
+| Host CPU Data    | HLSL Variable             | GPU (HLSL Representation) | GPU (SPIR-V Representation) | SPIR-V Decoration |
++==================+===========================+===========================+=============================+===================+
+|``{1,2,3,4,5,6}`` |          ``float2x3``     |  ``[1 3 5]``              |  ``[1 2]``                  |                   |
+|                  |                           |                           |                             |                   |
+|                  |                           |  ``[2 4 6]``              |  ``[3 4]``                  |  ``RowMajor``     |
+|                  |                           |                           |                             |                   |
+|                  |                           |                           |  ``[5 6]``                  |                   |
++------------------+---------------------------+---------------------------+-----------------------------+-------------------+
+|``{1,2,3,4,5,6}`` | ``column_major float2x3`` |  ``[1 3 5]``              |  ``[1 2]``                  |                   |
+|                  |                           |                           |                             |                   |
+|                  |                           |  ``[2 4 6]``              |  ``[3 4]``                  | ``RowMajor``      |
+|                  |                           |                           |                             |                   |
+|                  |                           |                           |  ``[5 6]``                  |                   |
++------------------+---------------------------+---------------------------+-----------------------------+-------------------+
+|``{1,2,3,4,5,6}`` |    ``row_major float2x3`` |  ``[1 2 3]``              |  ``[1 4]``                  |                   |
+|                  |                           |                           |                             |                   |
+|                  |                           |  ``[4 5 6]``              |  ``[2 5]``                  | ``ColMajor``      |
+|                  |                           |                           |                             |                   |
+|                  |                           |                           |  ``[3 6]``                  |                   |
++------------------+---------------------------+---------------------------+-----------------------------+-------------------+
