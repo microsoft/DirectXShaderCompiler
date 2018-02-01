@@ -1207,7 +1207,9 @@ void HLMatrixLowerPass::TranslateMatMajorCast(CallInst *matInst,
     unsigned srcCol, srcRow;
     Type *srcTy = GetMatrixInfo(matInst->getType(), srcCol, srcRow);
     DXASSERT(srcTy == castTy, "type must match");
-    DXASSERT(castCol == srcRow && castRow == srcCol, "col row must match");
+	(void)castTy;
+	(void)srcTy;
+	DXASSERT(castCol == srcRow && castRow == srcCol, "col row must match");
     col = srcCol;
     row = srcRow;
   }
