@@ -274,6 +274,25 @@ bool [[]]  ReportHit(in float THit, in uint HitKind, in udt Attributes);
 void [[]]  CallShader(in uint ShaderIndex, inout udt Parameter);
 void [[]]  AcceptHitAndEndSearch();
 void [[]]  CommitHitAndStopRay();
+uint<2> [[rn]] RayDispatchIndex();
+uint<2> [[rn]] RayDispatchDimension();
+// group: Ray Vectors
+float<3> [[rn]] WorldRayOrigin();
+float<3> [[rn]] WorldRayDirection();
+float<3> [[rn]] ObjectRayOrigin();
+float<3> [[rn]] ObjectRayDirection();
+// group: RayT
+float [[rn]] RayTMin();
+float [[rn]] CurrentRayT();
+// group: Raytracing uint System Values
+uint [[rn]] PrimitiveID();
+uint [[rn]] InstanceID();
+uint [[rn]] InstanceIndex();
+uint [[rn]] HitKind();
+uint [[rn]] RayFlag();
+// group: Ray Transforms
+row_major float<3,4> [[rn]] ObjectToWorld();
+row_major float<3,4> [[rn]] WorldToObject();
 } namespace
 
 namespace StreamMethods {
