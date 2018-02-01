@@ -735,7 +735,7 @@ TEST_F(ExtensionTest, UnsignedOpcodeIsUnchanged) {
   // changes the test will need to be updated to reflect the new opcode.
   VERIFY_IS_TRUE(
     disassembly.npos !=
-    disassembly.find("call i32 @test_unsigned(i32 122, "));
+    disassembly.find("call i32 @test_unsigned(i32 137, "));
 }
 
 TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {

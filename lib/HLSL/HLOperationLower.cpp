@@ -887,6 +887,19 @@ Value *TrivialNoArgOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return dxilOp;
 }
 
+Value *TrivialNoArgWithRetOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                             HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Type *Ty = CI->getType();
+
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  Value *args[] = {opArg};
+  IRBuilder<> Builder(CI);
+  Value *dxilOp = TrivialDxilOperation(opcode, args, Ty, Ty, hlslOP, Builder);
+
+  return dxilOp;
+}
+
 Value *TranslateGetRTSamplePos(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                                HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
@@ -4326,6 +4339,26 @@ Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   return Builder.CreateCall(F, Args);
 }
+
+Value *TranslateNoArgVectorOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                         HLOperationLowerHelper &helper,
+                         HLObjectOperationLowerHelper *pObjHelper,
+                         bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  uint8_t vals[] = {0,1,2,3};
+  Constant *src = ConstantDataVector::get(CI->getContext(), vals);
+  Value *retVal = TrivialDxilOperation(opcode, {nullptr, src}, Ty, CI, hlslOP);
+  return retVal;
+}
+
+Value *TranslateNoArgMatrixOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                         HLOperationLowerHelper &helper,
+                         HLObjectOperationLowerHelper *pObjHelper,
+                         bool &Translated) {
+  return nullptr;
+}
+
 } // namespace
 
 // Lower table.
@@ -4368,6 +4401,7 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_CallShader, TranslateCallShader, DXIL::OpCode::CallShader},
     {IntrinsicOp::IOP_CheckAccessFullyMapped, TranslateCheckAccess, DXIL::OpCode::CheckAccessFullyMapped},
     {IntrinsicOp::IOP_CommitHitAndStopRay, TrivialNoArgOperation, DXIL::OpCode::CommitHitAndStopRay},
+    {IntrinsicOp::IOP_CurrentRayT, TrivialNoArgWithRetOperation, DXIL::OpCode::CurrentRayT},
     {IntrinsicOp::IOP_D3DCOLORtoUBYTE4, TranslateD3DColorToUByte4, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_DeviceMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
@@ -4379,6 +4413,9 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_GetRenderTargetSamplePosition, TranslateGetRTSamplePos, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_GroupMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
+    {IntrinsicOp::IOP_HitKind, TrivialNoArgWithRetOperation, DXIL::OpCode::HitKind},
+    {IntrinsicOp::IOP_InstanceID, TrivialNoArgWithRetOperation, DXIL::OpCode::InstanceID},
+    {IntrinsicOp::IOP_InstanceIndex, TrivialNoArgWithRetOperation, DXIL::OpCode::InstanceIndex},
     {IntrinsicOp::IOP_InterlockedAdd, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedAnd, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedCompareExchange, TranslateIopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
@@ -4389,6 +4426,10 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_InterlockedOr, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedXor, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_NonUniformResourceIndex, TranslateNonUniformResourceIndex, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_ObjectRayDirection, TranslateNoArgVectorOperation, DXIL::OpCode::ObjectRayDirection},
+    {IntrinsicOp::IOP_ObjectRayOrigin, TranslateNoArgVectorOperation, DXIL::OpCode::ObjectRayOrigin},
+    {IntrinsicOp::IOP_ObjectToWorld, TranslateNoArgMatrixOperation, DXIL::OpCode::ObjectToWorld},
+    {IntrinsicOp::IOP_PrimitiveID, TrivialNoArgWithRetOperation, DXIL::OpCode::PrimitiveID},
     {IntrinsicOp::IOP_Process2DQuadTessFactorsAvg, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_Process2DQuadTessFactorsMax, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_Process2DQuadTessFactorsMin, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
@@ -4403,6 +4444,10 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_QuadReadAcrossX, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadAcrossY, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadLaneAt,  TranslateQuadReadLaneAt, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_RayDispatchDimension, TranslateNoArgVectorOperation, DXIL::OpCode::RayDispatchDimension},
+    {IntrinsicOp::IOP_RayDispatchIndex, TranslateNoArgVectorOperation, DXIL::OpCode::RayDispatchIndex},
+    {IntrinsicOp::IOP_RayFlag, TrivialNoArgWithRetOperation, DXIL::OpCode::RayFlag},
+    {IntrinsicOp::IOP_RayTMin, TrivialNoArgWithRetOperation, DXIL::OpCode::RayTMin},
     {IntrinsicOp::IOP_ReportHit, TranslateReportIntersection, DXIL::OpCode::ReportHit},
     {IntrinsicOp::IOP_TraceRay, TranslateTraceRay, DXIL::OpCode::TraceRay},
     {IntrinsicOp::IOP_WaveActiveAllEqual, TranslateWaveAllEqual, DXIL::OpCode::WaveActiveAllEqual},
@@ -4425,6 +4470,9 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_WavePrefixSum, TranslateWaveA2A, DXIL::OpCode::WavePrefixOp},
     {IntrinsicOp::IOP_WaveReadLaneAt, TranslateWaveReadLaneAt, DXIL::OpCode::WaveReadLaneAt},
     {IntrinsicOp::IOP_WaveReadLaneFirst, TranslateWaveReadLaneFirst, DXIL::OpCode::WaveReadLaneFirst},
+    {IntrinsicOp::IOP_WorldRayDirection, TranslateNoArgVectorOperation, DXIL::OpCode::WorldRayDirection},
+    {IntrinsicOp::IOP_WorldRayOrigin, TranslateNoArgVectorOperation, DXIL::OpCode::WorldRayOrigin},
+    {IntrinsicOp::IOP_WorldToObject, TranslateNoArgMatrixOperation, DXIL::OpCode::WorldToObject},
     {IntrinsicOp::IOP_abort, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_abs, TransalteAbs, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_acos, TrivialUnaryOperation, DXIL::OpCode::Acos},
