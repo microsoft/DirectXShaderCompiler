@@ -4356,7 +4356,15 @@ Value *TranslateNoArgMatrixOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode o
                          HLOperationLowerHelper &helper,
                          HLObjectOperationLowerHelper *pObjHelper,
                          bool &Translated) {
-  return nullptr;
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  uint32_t rVals[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
+  Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
+  uint8_t cVals[] = {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
+  Constant *cols = ConstantDataVector::get(CI->getContext(), cVals);
+  Value *retVal =
+      TrivialDxilOperation(opcode, {nullptr, rows, cols}, Ty, CI, hlslOP);
+  return retVal;
 }
 
 } // namespace
