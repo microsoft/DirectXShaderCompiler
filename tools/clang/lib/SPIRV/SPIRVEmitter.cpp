@@ -5536,8 +5536,35 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
     } else {
       emitError("casting from floating point to integer unimplemented", srcLoc);
     }
-  } else {
-    emitError("casting to integer unimplemented", srcLoc);
+  }
+
+  {
+    QualType elemType = {};
+    uint32_t numRows = 0, numCols = 0;
+    if (TypeTranslator::isMxNMatrix(fromType, &elemType, &numRows, &numCols)) {
+      // The source matrix and the target matrix must have the same dimensions.
+      QualType toElemType = {};
+      uint32_t toNumRows = 0, toNumCols = 0;
+      const bool toMatType = TypeTranslator::isMxNMatrix(
+          toIntType, &toElemType, &toNumRows, &toNumCols);
+      assert(toMatType && numRows == toNumRows && numCols == toNumCols);
+
+      // Casting to a matrix of integers: Cast each row and construct a
+      // composite.
+      llvm::SmallVector<uint32_t, 4> castedRows;
+      const uint32_t vecType = typeTranslator.getComponentVectorType(fromType);
+      const auto fromVecQualType =
+          astContext.getExtVectorType(elemType, numCols);
+      const auto toIntVecQualType =
+          astContext.getExtVectorType(toElemType, numCols);
+      for (uint32_t row = 0; row < numRows; ++row) {
+        const auto rowId =
+            theBuilder.createCompositeExtract(vecType, fromVal, {row});
+        castedRows.push_back(
+            castToInt(rowId, fromVecQualType, toIntVecQualType, srcLoc));
+      }
+      return theBuilder.createCompositeConstruct(intType, castedRows);
+    }
   }
 
   return 0;
@@ -6176,14 +6203,6 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
   const uint32_t argId = doExpr(arg);
   const uint32_t ipId = doExpr(ipArg);
 
-  // TODO: We currently do not support non-float matrices.
-  QualType ipElemType = {};
-  if (TypeTranslator::isMxNMatrix(ipType, &ipElemType) &&
-      !ipElemType->isFloatingType()) {
-    emitError("non-floating-point matrix type unimplemented", {});
-    return 0;
-  }
-
   // For scalar and vector argument types.
   {
     if (TypeTranslator::isScalarType(argType) ||
@@ -6222,12 +6241,20 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
             modfStructTypeId, glslInstSetId, GLSLstd450::GLSLstd450ModfStruct,
             {curRow});
         auto ip = theBuilder.createCompositeExtract(colTypeId, modf, {1});
+
         ips.push_back(ip);
         fracs.push_back(
             theBuilder.createCompositeExtract(colTypeId, modf, {0}));
       }
-      theBuilder.createStore(
-          ipId, theBuilder.createCompositeConstruct(returnTypeId, ips));
+
+      uint32_t ip = theBuilder.createCompositeConstruct(
+          typeTranslator.translateType(argType), ips);
+      // If the 'ip' is not a float type, the AST will not contain a CastExpr
+      // because this is internal to the intrinsic function. So, in such a
+      // case we need to cast manually.
+      if (!isFloatOrVecMatOfFloatType(ipType))
+        ip = castToInt(ip, argType, ipType, ipArg->getExprLoc());
+      theBuilder.createStore(ipId, ip);
       return theBuilder.createCompositeConstruct(returnTypeId, fracs);
     }
   }
