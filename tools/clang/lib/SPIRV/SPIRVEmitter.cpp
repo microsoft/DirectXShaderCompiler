@@ -960,16 +960,6 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 bool SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
   bool success = true;
 
-  if (decl->hasAttr<HLSLRowMajorAttr>()) {
-    emitWarning("row_major attribute for stand-alone matrix is not supported",
-                decl->getAttr<HLSLRowMajorAttr>()->getLocation());
-  }
-  if (decl->hasAttr<HLSLColumnMajorAttr>()) {
-    emitWarning(
-        "column_major attribute for stand-alone matrix is not supported",
-        decl->getAttr<HLSLColumnMajorAttr>()->getLocation());
-  }
-
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
     const auto varType = varDecl->getType();
     if ((TypeTranslator::isSubpassInput(varType) ||

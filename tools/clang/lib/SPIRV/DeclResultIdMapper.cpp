@@ -383,11 +383,21 @@ uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
 uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
   auto rule = LayoutRule::Void;
+  bool isMatType = false;     // Whether this var is of matrix type
   bool isACRWSBuffer = false; // Whether its {Append|Consume|RW}StructuredBuffer
 
   if (var->getAttr<HLSLGroupSharedAttr>()) {
     // For CS groupshared variables
     storageClass = spv::StorageClass::Workgroup;
+  } else if (TypeTranslator::isMxNMatrix(var->getType())) {
+    isMatType = true;
+    // According to HLSL doc:
+    //   Variables that are placed in the global scope are added implicitly to
+    //   the $Global cbuffer, using the same packing method that is used for
+    //   cbuffers.
+    // So we should translate stand-alone matrices like cbuffer.
+    storageClass = spv::StorageClass::Uniform;
+    rule = LayoutRule::GLSLStd140;
   } else if (auto *t = var->getType()->getAs<RecordType>()) {
     const llvm::StringRef typeName = t->getDecl()->getName();
 
@@ -407,11 +417,25 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
     }
   }
 
-  const auto varType = typeTranslator.translateType(var->getType(), rule);
+  uint32_t varType = 0;
+
+  if (isMatType) {
+    // For stand-alone matrices, we need to wrap it in a struct so that we can
+    // annotate the majorness decoration.
+    varType = getMatrixStructType(var, storageClass, rule);
+  } else {
+    varType = typeTranslator.translateType(var->getType(), rule);
+  }
+
   const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
                                               var->getName(), llvm::None);
   astDecls[var] =
       SpirvEvalInfo(id).setStorageClass(storageClass).setLayoutRule(rule);
+  if (isMatType) {
+    // We have wrapped the stand-alone matrix inside a struct. Mark it as
+    // needing an extra index to access.
+    astDecls[var].indexInCTBuffer = 0;
+  }
 
   const auto *regAttr = getResourceBinding(var);
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
@@ -430,6 +454,30 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   }
 
   return id;
+}
+
+uint32_t DeclResultIdMapper::getMatrixStructType(const VarDecl *matVar,
+                                                 spv::StorageClass sc,
+                                                 LayoutRule rule) {
+  const auto matType = matVar->getType();
+  assert(TypeTranslator::isMxNMatrix(matType));
+
+  auto &context = *theBuilder.getSPIRVContext();
+  llvm::SmallVector<const Decoration *, 4> decorations;
+  const bool isRowMajor = typeTranslator.isRowMajorMatrix(matType, matVar);
+
+  uint32_t stride;
+  (void)typeTranslator.getAlignmentAndSize(matType, rule, isRowMajor, &stride);
+  decorations.push_back(Decoration::getOffset(context, 0, 0));
+  decorations.push_back(Decoration::getMatrixStride(context, stride, 0));
+  decorations.push_back(isRowMajor ? Decoration::getColMajor(context, 0)
+                                   : Decoration::getRowMajor(context, 0));
+  decorations.push_back(Decoration::getBlock(context));
+
+  // Get the type for the wrapping struct
+  const std::string structName = "type." + matVar->getName().str();
+  return theBuilder.getStructType({typeTranslator.translateType(matType)},
+                                  structName, {}, decorations);
 }
 
 uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(

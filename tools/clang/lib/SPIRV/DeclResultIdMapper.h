@@ -493,6 +493,11 @@ private:
   /// construction.
   bool finalizeStageIOLocations(bool forInput);
 
+  /// \brief Wraps the given matrix type with a struct and returns the struct
+  /// type's <result-id>.
+  uint32_t getMatrixStructType(const VarDecl *matVar, spv::StorageClass,
+                               LayoutRule);
+
   /// \brief An enum class for representing what the DeclContext is used for
   enum class ContextUsageKind {
     CBuffer,

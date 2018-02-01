@@ -51,9 +51,6 @@ TEST_F(FileTest, MatrixTypesMajornessZpr) {
 TEST_F(FileTest, MatrixTypesMajornessZpc) {
   runFileTest("type.matrix.majorness.zpc.hlsl");
 }
-TEST_F(FileTest, MatrixTypesMajorness) {
-  runFileTest("type.matrix.majorness.hlsl", Expect::Warning);
-}
 TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
 TEST_F(FileTest, ClassTypes) { runFileTest("type.class.hlsl"); }
 TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
@@ -123,6 +120,7 @@ TEST_F(FileTest, VarInitCrossStorageClass) {
   runFileTest("var.init.cross-storage-class.hlsl");
 }
 TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
+TEST_F(FileTest, GlobalMatrixVar) { runFileTest("var.global-mat.hlsl"); }
 
 // For prefix/postfix increment/decrement
 TEST_F(FileTest, UnaryOpPrefixIncrement) {
