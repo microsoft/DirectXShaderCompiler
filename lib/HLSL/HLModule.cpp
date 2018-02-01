@@ -777,7 +777,7 @@ bool HLModule::IsHLSLObjectType(llvm::Type *Ty) {
     if (name.startswith("ConstantBuffer"))
       return true;
 
-    if (name == "RayTracingAccelerationStructure")
+    if (name == "RaytracingAccelerationStructure")
       return true;
 
     name = name.ltrim("RasterizerOrdered");

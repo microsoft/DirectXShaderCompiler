@@ -1496,7 +1496,7 @@ const char* g_ArBasicTypeNames[] =
   "deprecated effect object",
   "wave_t",
   "ray_desc",
-  "RayTracingAccelerationStructure",
+  "RaytracingAccelerationStructure",
   "UserDefineType"
 };
 

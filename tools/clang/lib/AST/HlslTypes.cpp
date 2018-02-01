@@ -380,7 +380,7 @@ bool IsHLSLResourceType(clang::QualType type) {
     if (name == "ConstantBuffer")
       return true;
 
-    if (name == "RayTracingAccelerationStructure")
+    if (name == "RaytracingAccelerationStructure")
       return true;
   }
   return false;

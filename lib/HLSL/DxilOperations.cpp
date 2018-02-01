@@ -265,25 +265,40 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::RawBufferLoad,           "RawBufferLoad",            OCC::RawBufferLoad,            "rawBufferLoad",              false,  true,  true, false, false, false,  true,  true, false, false, Attribute::ReadOnly, },
   {  OC::RawBufferStore,          "RawBufferStore",           OCC::RawBufferStore,           "rawBufferStore",             false,  true,  true, false, false, false,  true,  true, false, false, Attribute::None,     },
 
-  // Ray Tracing                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
+  // Raytracing uint System Values                                                                                          void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
+  {  OC::InstanceID,              "InstanceID",               OCC::InstanceID,               "instanceID",                 false, false, false, false, false, false, false,  true, false, false, Attribute::ReadNone, },
   {  OC::InstanceIndex,           "InstanceIndex",            OCC::InstanceIndex,            "instanceIndex",              false, false, false, false, false, false, false,  true, false, false, Attribute::ReadNone, },
   {  OC::HitKind,                 "HitKind",                  OCC::HitKind,                  "hitKind",                    false, false, false, false, false, false, false,  true, false, false, Attribute::ReadNone, },
   {  OC::RayFlag,                 "RayFlag",                  OCC::RayFlag,                  "rayFlag",                    false, false, false, false, false, false, false,  true, false, false, Attribute::ReadNone, },
+
+  // Ray Dispatch Arguments                                                                                                 void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
   {  OC::RayDispatchIndex,        "RayDispatchIndex",         OCC::RayDispatchIndex,         "rayDispatchIndex",           false, false, false, false, false, false, false,  true, false, false, Attribute::ReadNone, },
   {  OC::RayDispatchDimension,    "RayDispatchDimension",     OCC::RayDispatchDimension,     "rayDispatchDimension",       false, false, false, false, false, false, false,  true, false, false, Attribute::ReadNone, },
+
+  // Ray Vectors                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
   {  OC::WorldRayOrigin,          "WorldRayOrigin",           OCC::WorldRayOrigin,           "worldRayOrigin",             false, false,  true, false, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::WorldRayDirection,       "WorldRayDirection",        OCC::WorldRayDirection,        "worldRayDirection",          false, false,  true, false, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::ObjectRayOrigin,         "ObjectRayOrigin",          OCC::ObjectRayOrigin,          "objectRayOrigin",            false, false,  true, false, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::ObjectRayDirection,      "ObjectRayDirection",       OCC::ObjectRayDirection,       "objectRayDirection",         false, false,  true, false, false, false, false, false, false, false, Attribute::ReadNone, },
+
+  // Ray Transforms                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
   {  OC::ObjectToWorld,           "ObjectToWorld",            OCC::ObjectToWorld,            "objectToWorld",              false, false,  true, false, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::WorldToObject,           "WorldToObject",            OCC::WorldToObject,            "worldToObject",              false, false,  true, false, false, false, false, false, false, false, Attribute::ReadNone, },
+
+  // RayT                                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
   {  OC::RayTMin,                 "RayTMin",                  OCC::RayTMin,                  "rayTMin",                    false, false,  true, false, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::CurrentRayT,             "CurrentRayT",              OCC::CurrentRayT,              "currentRayT",                false, false,  true, false, false, false, false, false, false, false, Attribute::ReadNone, },
-  {  OC::IgnoreIntersection,      "IgnoreIntersection",       OCC::IgnoreIntersection,       "ignoreIntersection",          true, false, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
-  {  OC::TerminateRay,            "TerminateRay",             OCC::TerminateRay,             "terminateRay",                true, false, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
+
+  // AnyHit Terminals                                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
+  {  OC::AcceptHitAndEndSearch,   "AcceptHitAndEndSearch",    OCC::AcceptHitAndEndSearch,    "acceptHitAndEndSearch",       true, false, false, false, false, false, false, false, false, false, Attribute::NoReturn, },
+  {  OC::CommitHitAndStopRay,     "CommitHitAndStopRay",      OCC::CommitHitAndStopRay,      "commitHitAndStopRay",         true, false, false, false, false, false, false, false, false, false, Attribute::NoReturn, },
+
+  // Indirect Shader Invocation                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
   {  OC::TraceRay,                "TraceRay",                 OCC::TraceRay,                 "traceRay",                   false, false, false, false, false, false, false, false, false,  true, Attribute::None,     },
-  {  OC::ReportIntersection,      "ReportIntersection",       OCC::ReportIntersection,       "reportIntersection",         false, false, false, false, false, false, false, false, false,  true, Attribute::ReadOnly, },
-  {  OC::CallShader,              "CallShader",               OCC::CallShader,               "callShader",                  true, false, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::ReportHit,               "ReportHit",                OCC::ReportHit,                "reportHit",                  false, false, false, false, false, false, false, false, false,  true, Attribute::None,     },
+  {  OC::CallShader,              "CallShader",               OCC::CallShader,               "callShader",                 false, false, false, false, false, false, false, false, false,  true, Attribute::None,     },
+
+  // Library create handle from resource struct (like HL intrinsic)                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
   {  OC::ReservedForLibCreateHandleFromResourceStruct, "ReservedForLibCreateHandleFromResourceStruct", OCC::ReservedForLibCreateHandleFromResourceStruct, "reservedForLibCreateHandleFromResourceStruct",  false, false, false, false, false, false, false,  true, false, false, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
@@ -813,25 +828,40 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::RawBufferLoad:          RRT(pETy);   A(pI32); A(pRes); A(pI32); A(pI32); A(pI8);  A(pI32); break;
   case OpCode::RawBufferStore:         A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  A(pI32); break;
 
-    // Ray Tracing
+    // Raytracing uint System Values
+  case OpCode::InstanceID:             A(pI32);     A(pI32); break;
   case OpCode::InstanceIndex:          A(pI32);     A(pI32); break;
   case OpCode::HitKind:                A(pI32);     A(pI32); break;
   case OpCode::RayFlag:                A(pI32);     A(pI32); break;
+
+    // Ray Dispatch Arguments
   case OpCode::RayDispatchIndex:       A(pI32);     A(pI32); A(pI8);  break;
   case OpCode::RayDispatchDimension:   A(pI32);     A(pI32); A(pI8);  break;
+
+    // Ray Vectors
   case OpCode::WorldRayOrigin:         A(pF32);     A(pI32); A(pI8);  break;
   case OpCode::WorldRayDirection:      A(pF32);     A(pI32); A(pI8);  break;
   case OpCode::ObjectRayOrigin:        A(pF32);     A(pI32); A(pI8);  break;
   case OpCode::ObjectRayDirection:     A(pF32);     A(pI32); A(pI8);  break;
+
+    // Ray Transforms
   case OpCode::ObjectToWorld:          A(pF32);     A(pI32); A(pI32); A(pI8);  break;
   case OpCode::WorldToObject:          A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+
+    // RayT
   case OpCode::RayTMin:                A(pF32);     A(pI32); break;
   case OpCode::CurrentRayT:            A(pF32);     A(pI32); break;
-  case OpCode::IgnoreIntersection:     A(pV);       A(pI32); break;
-  case OpCode::TerminateRay:           A(pV);       A(pI32); break;
+
+    // AnyHit Terminals
+  case OpCode::AcceptHitAndEndSearch:  A(pV);       A(pI32); break;
+  case OpCode::CommitHitAndStopRay:    A(pV);       A(pI32); break;
+
+    // Indirect Shader Invocation
   case OpCode::TraceRay:               A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(udt);  break;
-  case OpCode::ReportIntersection:     A(pI1);      A(pI32); A(pF32); A(pI32); A(udt);  break;
+  case OpCode::ReportHit:              A(pI1);      A(pI32); A(pF32); A(pI32); A(udt);  break;
   case OpCode::CallShader:             A(pV);       A(pI32); A(pI32); A(udt);  break;
+
+    // Library create handle from resource struct (like HL intrinsic)
   case OpCode::ReservedForLibCreateHandleFromResourceStruct:A(pI32);     A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
@@ -948,7 +978,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::TraceRay:
     DXASSERT_NOMSG(FT->getNumParams() > 15);
     return FT->getParamType(15);
-  case OpCode::ReportIntersection:
+  case OpCode::ReportHit:
     DXASSERT_NOMSG(FT->getNumParams() > 3);
     return FT->getParamType(3);
   case OpCode::CreateHandle:
@@ -982,8 +1012,8 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::LegacyDoubleToUInt32:
   case OpCode::WaveAllBitCount:
   case OpCode::WavePrefixBitCount:
-  case OpCode::IgnoreIntersection:
-  case OpCode::TerminateRay:
+  case OpCode::AcceptHitAndEndSearch:
+  case OpCode::CommitHitAndStopRay:
     return Type::getVoidTy(m_Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::AtomicBinOp:
@@ -999,6 +1029,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::OutputControlPointID:
   case OpCode::PrimitiveID:
   case OpCode::ViewID:
+  case OpCode::InstanceID:
   case OpCode::InstanceIndex:
   case OpCode::HitKind:
   case OpCode::RayFlag:

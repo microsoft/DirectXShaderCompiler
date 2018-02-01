@@ -1,6 +1,6 @@
 // RUN: %dxc -T lib_6_2 %s | FileCheck %s
 
-// CHECK: call i1 @"dx.op.reportIntersection.%struct.Attr*"(i32 157
+// CHECK: call i1 @"dx.op.reportHit.%struct.Attr*"(i32 158
 
 struct Attr {
    float2 t;
@@ -8,5 +8,5 @@ struct Attr {
 };
 
 float emit(float THit : t, uint HitKind : h, Attr a : A) {
-  return ReportIntersection(THit, HitKind, a);
+  return ReportHit(THit, HitKind, a);
 }

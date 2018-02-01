@@ -21,10 +21,13 @@ import hctdb_instrhelp
 
 /* <py::lines('HLSL-INTRINSICS')>hctdb_instrhelp.enum_hlsl_intrinsics()</py>*/
 // HLSL-INTRINSICS:BEGIN
+  IOP_AcceptHitAndEndSearch,
   IOP_AddUint64,
   IOP_AllMemoryBarrier,
   IOP_AllMemoryBarrierWithGroupSync,
+  IOP_CallShader,
   IOP_CheckAccessFullyMapped,
+  IOP_CommitHitAndStopRay,
   IOP_D3DCOLORtoUBYTE4,
   IOP_DeviceMemoryBarrier,
   IOP_DeviceMemoryBarrierWithGroupSync,
@@ -60,7 +63,7 @@ import hctdb_instrhelp
   IOP_QuadReadAcrossX,
   IOP_QuadReadAcrossY,
   IOP_QuadReadLaneAt,
-  IOP_ReportIntersection,
+  IOP_ReportHit,
   IOP_TraceRay,
   IOP_WaveActiveAllEqual,
   IOP_WaveActiveAllTrue,

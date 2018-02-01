@@ -361,7 +361,7 @@ class db_oload_gen:
         f = lambda i,c : "true," if i.oload_types.find(c) >= 0 else "false,"
         lower_exceptions = { "CBufferLoad" : "cbufferLoad", "CBufferLoadLegacy" : "cbufferLoadLegacy", "GSInstanceID" : "gsInstanceID" }
         lower_fn = lambda t: lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
-        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate" }
+        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate", "nr": "NoReturn" }
         attr_fn = lambda i : "Attribute::" + attr_dict[i.fn_attr] + ","
         for i in self.instrs:
             if last_category != i.category:
@@ -936,10 +936,7 @@ def get_valopcode_sm_text():
             model_cond = "pSM->GetMajor() > %d || (pSM->GetMajor() == %d && pSM->GetMinor() >= %d)" % (
                 last_model[0], last_model[0], last_model[1])
         if last_stage != "*":
-            if last_stage != "lib":
-                stage_cond = ' || '.join(["pSM->Is%sS()" % c.upper() for c in last_stage])
-            else:
-                stage_cond = ' || '.join(["pSM->IsLib()"])
+            stage_cond = ' || '.join(["pSM->Is%sS()" % c.upper() for c in last_stage])
         if model_cond or stage_cond:
             result += '\n      && '.join(
                 ["(%s)" % expr for expr in (model_cond, stage_cond) if expr] )
