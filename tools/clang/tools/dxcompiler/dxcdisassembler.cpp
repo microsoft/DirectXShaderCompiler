@@ -986,7 +986,7 @@ static const char *OpCodeSignatures[] = {
   "(AccelerationStructure,RayFlags,InstanceInclusionMask,RayContributionToHitGroupIndex,MultiplierForGeometryContributionToShaderIndex,MissShaderIndex,Origin_X,Origin_Y,Origin_Z,TMin,Direction_X,Direction_Y,Direction_Z,TMax,payload)",  // TraceRay
   "(THit,HitKind,Attributes)",  // ReportHit
   "(ShaderIndex,Parameter)",  // CallShader
-  "()"  // ReservedForLibCreateHandleFromResourceStruct
+  "(Resource)"  // CreateHandleFromResourceStructForLib
 };
 // OPCODE-SIGS:END
 

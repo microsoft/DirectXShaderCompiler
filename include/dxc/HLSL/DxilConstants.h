@@ -371,7 +371,7 @@ namespace DXIL {
     LegacyF32ToF16 = 130, // legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
   
     // Library create handle from resource struct (like HL intrinsic)
-    ReservedForLibCreateHandleFromResourceStruct = 160, // returns the view index
+    CreateHandleFromResourceStructForLib = 160, // create resource handle from resource struct for library
   
     // Other
     CycleCounterLegacy = 109, // CycleCounterLegacy
@@ -613,7 +613,7 @@ namespace DXIL {
     LegacyF32ToF16,
   
     // Library create handle from resource struct (like HL intrinsic)
-    ReservedForLibCreateHandleFromResourceStruct,
+    CreateHandleFromResourceStructForLib,
   
     // Other
     CycleCounterLegacy,

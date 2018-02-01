@@ -4979,20 +4979,27 @@ struct DxilInst_CallShader {
   void set_Parameter(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
-/// This instruction returns the view index
-struct DxilInst_ReservedForLibCreateHandleFromResourceStruct {
+/// This instruction create resource handle from resource struct for library
+struct DxilInst_CreateHandleFromResourceStructForLib {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_ReservedForLibCreateHandleFromResourceStruct(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_CreateHandleFromResourceStructForLib(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::ReservedForLibCreateHandleFromResourceStruct);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleFromResourceStructForLib);
   }
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Operand indexes
+  enum OperandIdx {
+    arg_Resource = 1,
+  };
+  // Accessors
+  llvm::Value *get_Resource() const { return Instr->getOperand(1); }
+  void set_Resource(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 // INSTR-HELPER:END
 } // namespace hlsl

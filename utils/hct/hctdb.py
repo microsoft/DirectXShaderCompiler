@@ -314,7 +314,7 @@ class db_dxil(object):
         for i in "TraceRay,ReportHit,CallShader".split(","):
             self.name_idx[i].category = "Indirect Shader Invocation"
             self.name_idx[i].shader_model = 6,3
-        for i in "ReservedForLibCreateHandleFromResourceStruct".split(","):
+        for i in "CreateHandleFromResourceStructForLib".split(","):
             self.name_idx[i].category = "Library create handle from resource struct (like HL intrinsic)"
             self.name_idx[i].shader_model = 6,3
 
@@ -1238,8 +1238,9 @@ class db_dxil(object):
             db_dxil_param(3, "udt", "Parameter", "User-defined parameters to pass to the callable shader,This parameter structure must match the parameter structure used in the callable shader pointed to in the shader table")])
         next_op_idx += 1
 
-        self.add_dxil_op("ReservedForLibCreateHandleFromResourceStruct", next_op_idx, "ReservedForLibCreateHandleFromResourceStruct", "returns the view index", "i", "rn", [
-            db_dxil_param(0, "i32", "", "result")])
+        self.add_dxil_op("CreateHandleFromResourceStructForLib", next_op_idx, "CreateHandleFromResourceStructForLib", "create resource handle from resource struct for library", "u", "rn", [
+            db_dxil_param(0, "res", "", "result"),
+            db_dxil_param(2, "udt", "Resource", "resource to create the handle")])
         next_op_idx += 1
 
         # Set interesting properties.

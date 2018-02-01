@@ -299,7 +299,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::CallShader,              "CallShader",               OCC::CallShader,               "callShader",                 false, false, false, false, false, false, false, false, false,  true, Attribute::None,     },
 
   // Library create handle from resource struct (like HL intrinsic)                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
-  {  OC::ReservedForLibCreateHandleFromResourceStruct, "ReservedForLibCreateHandleFromResourceStruct", OCC::ReservedForLibCreateHandleFromResourceStruct, "reservedForLibCreateHandleFromResourceStruct",  false, false, false, false, false, false, false,  true, false, false, Attribute::ReadNone, },
+  {  OC::CreateHandleFromResourceStructForLib, "CreateHandleFromResourceStructForLib", OCC::CreateHandleFromResourceStructForLib, "createHandleFromResourceStructForLib",  false, false, false, false, false, false, false, false, false,  true, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
 
@@ -862,7 +862,7 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::CallShader:             A(pV);       A(pI32); A(pI32); A(udt);  break;
 
     // Library create handle from resource struct (like HL intrinsic)
-  case OpCode::ReservedForLibCreateHandleFromResourceStruct:A(pI32);     A(pI32); break;
+  case OpCode::CreateHandleFromResourceStructForLib:A(pRes);     A(pI32); A(udt);  break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -970,6 +970,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::UAddc:
   case OpCode::USubb:
   case OpCode::WaveActiveAllEqual:
+  case OpCode::CreateHandleFromResourceStructForLib:
     DXASSERT_NOMSG(FT->getNumParams() > 1);
     return FT->getParamType(1);
   case OpCode::TextureStore:
@@ -1035,7 +1036,6 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::RayFlag:
   case OpCode::RayDispatchIndex:
   case OpCode::RayDispatchDimension:
-  case OpCode::ReservedForLibCreateHandleFromResourceStruct:
     return IntegerType::get(m_Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:
