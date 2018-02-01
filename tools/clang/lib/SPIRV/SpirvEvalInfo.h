@@ -124,7 +124,8 @@ private:
 SpirvEvalInfo::SpirvEvalInfo(uint32_t id)
     : resultId(id), containsAlias(false),
       storageClass(spv::StorageClass::Function), layoutRule(LayoutRule::Void),
-      isRValue_(false), isConstant_(false), isRelaxedPrecision_(false) {}
+      isRValue_(false), isConstant_(false), isSpecConstant_(false),
+      isRelaxedPrecision_(false) {}
 
 SpirvEvalInfo &SpirvEvalInfo::setResultId(uint32_t id) {
   resultId = id;
