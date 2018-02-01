@@ -3131,9 +3131,13 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
                          /*bIn*/ true, /*bOut*/ true);
         }
       } break;
-      case IntrinsicOp::IOP_ReportIntersection: {
+      case IntrinsicOp::IOP_ReportHit: {
         RewriteCallArg(CI, HLOperandIndex::kReportIntersectionAttributeOpIdx,
                        /*bIn*/ true, /*bOut*/ false);
+      } break;
+      case IntrinsicOp::IOP_CallShader: {
+        RewriteCallArg(CI, HLOperandIndex::kBinaryOpSrc1Idx,
+                       /*bIn*/ true, /*bOut*/ true);
       } break;
       default:
         DXASSERT(0, "cannot flatten hlsl intrinsic.");

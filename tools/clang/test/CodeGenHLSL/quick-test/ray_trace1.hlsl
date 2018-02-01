@@ -1,13 +1,13 @@
 // RUN: %dxc -T lib_6_2 %s | FileCheck %s
 
-// CHECK: call void @"dx.op.traceRay.%struct.Payload*"(i32 156,
+// CHECK: call void @"dx.op.traceRay.%struct.Payload*"(i32 157,
 
 struct Payload {
    float2 t;
    int3 t2;
 };
 
-RayTracingAccelerationStructure Acc;
+RaytracingAccelerationStructure Acc;
 
 uint RayFlags;
 uint InstanceInclusionMask;

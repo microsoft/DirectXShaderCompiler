@@ -408,9 +408,14 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode, ArrayRef<Valu
     }
     return retVal;
   } else {
-    Value *retVal =
-        Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
-    return retVal;
+    if (!RetTy->isVoidTy()) {
+      Value *retVal =
+          Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
+      return retVal;
+    } else {
+      // Cannot add name to void.
+      return Builder.CreateCall(dxilFunc, args);
+    }
   }
 }
 // Generates a DXIL operation over an overloaded type (Ty), returning a
@@ -4248,6 +4253,24 @@ Value *TranslateReportIntersection(CallInst *CI, IntrinsicOp IOP,
   IRBuilder<> Builder(CI);
   return Builder.CreateCall(F, {opArg, THit, HitKind, Attr});
 }
+
+Value *TranslateCallShader(CallInst *CI, IntrinsicOp IOP,
+                                   OP::OpCode opcode,
+                                   HLOperationLowerHelper &helper,
+                                   HLObjectOperationLowerHelper *pObjHelper,
+                                   bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *ShaderIndex = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
+  Value *Parameter = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+  Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(opcode));
+
+  Type *Ty = Parameter->getType();
+  Function *F = hlslOP->GetOpFunc(opcode, Ty);
+
+  IRBuilder<> Builder(CI);
+  return Builder.CreateCall(F, {opArg, ShaderIndex, Parameter});
+}
+
 Value *TranslateTraceRay(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                          HLOperationLowerHelper &helper,
                          HLObjectOperationLowerHelper *pObjHelper,
@@ -4338,10 +4361,13 @@ Value *StreamOutputLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
 
 // This table has to match IntrinsicOp orders
 IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] = {
+    {IntrinsicOp::IOP_AcceptHitAndEndSearch, TrivialNoArgOperation, DXIL::OpCode::AcceptHitAndEndSearch},
     {IntrinsicOp::IOP_AddUint64,  TranslateAddUint64,  DXIL::OpCode::UAddc},
     {IntrinsicOp::IOP_AllMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
+    {IntrinsicOp::IOP_CallShader, TranslateCallShader, DXIL::OpCode::CallShader},
     {IntrinsicOp::IOP_CheckAccessFullyMapped, TranslateCheckAccess, DXIL::OpCode::CheckAccessFullyMapped},
+    {IntrinsicOp::IOP_CommitHitAndStopRay, TrivialNoArgOperation, DXIL::OpCode::CommitHitAndStopRay},
     {IntrinsicOp::IOP_D3DCOLORtoUBYTE4, TranslateD3DColorToUByte4, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_DeviceMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
@@ -4377,7 +4403,7 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_QuadReadAcrossX, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadAcrossY, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadLaneAt,  TranslateQuadReadLaneAt, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_ReportIntersection, TranslateReportIntersection, DXIL::OpCode::ReportIntersection},
+    {IntrinsicOp::IOP_ReportHit, TranslateReportIntersection, DXIL::OpCode::ReportHit},
     {IntrinsicOp::IOP_TraceRay, TranslateTraceRay, DXIL::OpCode::TraceRay},
     {IntrinsicOp::IOP_WaveActiveAllEqual, TranslateWaveAllEqual, DXIL::OpCode::WaveActiveAllEqual},
     {IntrinsicOp::IOP_WaveActiveAllTrue, TranslateWaveA2B, DXIL::OpCode::WaveAllTrue},
