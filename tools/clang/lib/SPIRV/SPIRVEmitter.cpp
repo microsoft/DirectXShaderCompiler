@@ -440,7 +440,8 @@ inline uint32_t getNumBaseClasses(QualType type) {
 /// following the cast chain.
 void getBaseClassIndices(const CastExpr *expr,
                          llvm::SmallVectorImpl<uint32_t> *indices) {
-  assert(expr->getCastKind() == CK_UncheckedDerivedToBase);
+  assert(expr->getCastKind() == CK_UncheckedDerivedToBase ||
+         expr->getCastKind() == CK_HLSLDerivedToBase);
 
   indices->clear();
 
@@ -2177,7 +2178,8 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
         processFlatConversion(toType, evalType, subExprId, expr->getExprLoc());
     return SpirvEvalInfo(valId).setRValue();
   }
-  case CastKind::CK_UncheckedDerivedToBase: {
+  case CastKind::CK_UncheckedDerivedToBase:
+  case CastKind::CK_HLSLDerivedToBase: {
     // Find the index sequence of the base to which we are casting
     llvm::SmallVector<uint32_t, 4> baseIndices;
     getBaseClassIndices(expr, &baseIndices);
