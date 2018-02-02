@@ -460,8 +460,6 @@ public:
   TEST_METHOD(PixDebugPreexistingSVVertex)
   TEST_METHOD(PixDebugPreexistingSVInstance)
   TEST_METHOD(PixAccessTracking)
-  TEST_METHOD(PixAccessTrackingRTV)
-  TEST_METHOD(PixAccessTrackingStreamOut)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -3058,14 +3056,6 @@ TEST_F(CompilerTest, PixDebugPreexistingSVInstance) {
 
 TEST_F(CompilerTest, PixAccessTracking) {
   CodeGenTestCheck(L"pix\\AccessTracking.hlsl");
-}
-
-TEST_F(CompilerTest, PixAccessTrackingRTV) {
-  CodeGenTestCheck(L"pix\\AccessTrackingRTV.hlsl");
-}
-
-TEST_F(CompilerTest, PixAccessTrackingStreamOut) {
-  CodeGenTestCheck(L"pix\\AccessTrackingStreamOut.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
