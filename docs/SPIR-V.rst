@@ -723,6 +723,22 @@ HLSL Variables and Resources
 
 This section lists how various HLSL variables and resources are mapped.
 
+According to `Shader Constants <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509581(v=vs.85).aspx>`_,
+
+  There are two default constant buffers available, $Global and $Param. Variables
+  that are placed in the global scope are added implicitly to the $Global cbuffer,
+  using the same packing method that is used for cbuffers. Uniform parameters in
+  the parameter list of a function appear in the $Param constant buffer when a
+  shader is compiled outside of the effects framework.
+
+However, when targeting SPIR-V, all externally visible variables are translated
+into stand-alone SPIR-V variables of their original types; they are not grouped
+together into a struct. There is one exception regarding matrix variables,
+though. For an externally visible matrix, we wrap it in a struct; the struct has
+no other members but the matrix. The reason of this behavior is to enable
+translating the ``row_major``/``column_major`` annotation since SPIR-V only
+allows ``RowMajor``/``ColMajor`` decorations to appear on struct members.
+
 Storage class
 -------------
 
@@ -2500,7 +2516,7 @@ Notice that in HLSL, ``m[0]`` represents a row, which is a vector of size 3. But
 the first column which is a vector of size 2.
 
 .. code:: spirv
-  
+
   ; n is a vector of size 2
   %n = OpAccessChain %v2float %m %int_0
 
