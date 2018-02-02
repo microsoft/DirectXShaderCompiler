@@ -208,6 +208,8 @@ bool spirvToolsLegalize(std::vector<uint32_t> *module, std::string *messages) {
 
   optimizer.RegisterLegalizationPasses();
 
+  optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
+
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
   return optimizer.Run(module->data(), module->size(), module);
@@ -556,6 +558,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
                  "with source code if possible",
                  {});
         return;
+      } else if (!messages.empty()) {
+        emitWarning("SPIR-V legalization: %0", {}) << messages;
       }
     }
 
@@ -1917,7 +1921,6 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       llvm::APFloat::getSizeInBits(astContext.getFloatTypeSemantics(toType)) ==
           32)
     hint.setHint(astContext.FloatTy);
-
 
   // TODO: We could provide other useful hints. For instance:
   // For the case of toType being a boolean, if the fromType is a literal float,
