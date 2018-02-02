@@ -16,59 +16,11 @@ typedef uint RAY_FLAG;
 #define RAY_FLAG_CULL_OPAQUE                      0x40
 #define RAY_FLAG_CULL_NON_OPAQUE                  0x80
 
-struct RayDesc
-{
-    float3 Origin;
-    float TMin;
-    float3 Direction;
-    float TMax;
-};
-
 struct BuiltInTriangleIntersectionAttributes
 {
     float2 barycentrics;
 };
 
-typedef ByteAddressBuffer RaytracingAccelerationStructure;
-
-// group: Indirect Shader Invocation
-// Declare TraceRay overload for given payload structure
-#define Declare_TraceRay(payload_t) \
-    void TraceRay(RaytracingAccelerationStructure, uint RayFlags, uint InstanceInclusionMask, uint RayContributionToHitGroupIndex, uint MultiplierForGeometryContributionToHitGroupIndex, uint MissShaderIndex, RayDesc, inout payload_t);
-
-// Declare ReportHit overload for given attribute structure
-#define Declare_ReportHit(attr_t) \
-    bool ReportHit(float HitT, uint HitKind, attr_t);
-
-// Declare CallShader overload for given param structure
-#define Declare_CallShader(param_t) \
-    void CallShader(uint ShaderIndex, inout param_t);
-
-// group: AnyHit Terminals
-void IgnoreHit();
-void AcceptHitAndEndSearch();
-
-// System Value retrieval functions
-// group: Ray Dispatch Arguments
-uint2 RayDispatchIndex();
-uint2 RayDispatchDimension();
-// group: Ray Vectors
-float3 WorldRayOrigin();
-float3 WorldRayDirection();
-float3 ObjectRayOrigin();
-float3 ObjectRayDirection();
-// group: RayT
-float RayTMin();
-float CurrentRayT();
-// group: Raytracing uint System Values
-uint PrimitiveID(); // watch for existing
-uint InstanceID();
-uint InstanceIndex();
-uint HitKind();
-uint RayFlag();
-// group: Ray Transforms
-row_major float3x4 ObjectToWorld();
-row_major float3x4 WorldToObject();
 ////////////////////////////////////////////////////////////////////////////
 
 struct MyPayload {
@@ -86,9 +38,9 @@ struct MyParam {
   float4 output;
 };
 
-Declare_TraceRay(MyPayload);
-Declare_ReportHit(MyAttributes);
-Declare_CallShader(MyParam);
+// Declare_TraceRay(MyPayload);
+// Declare_ReportHit(MyAttributes);
+// Declare_CallShader(MyParam);
 
 // CHECK: ; S                                 sampler      NA          NA      S0             s1     1
 // CHECK: ; RTAS                              texture    byte         r/o      T0             t5     1
