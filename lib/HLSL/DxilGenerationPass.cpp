@@ -237,12 +237,13 @@ public:
     } else {
       for (auto It = M.begin(); It != M.end();) {
         Function &F = *(It++);
-        // Lower signature for each entry function.
-        if (m_pHLModule->IsEntryThatUsesSignatures(&F)) {
+        // Lower signature for each graphics or compute entry function.
+        if (m_pHLModule->IsGraphicsShader(&F) || m_pHLModule->IsComputeShader(&F)) {
           DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(&F);
           std::unique_ptr<DxilEntrySignature> pSig =
               llvm::make_unique<DxilEntrySignature>(props.shaderKind, m_pHLModule->GetHLOptions().bUseMinPrecision);
           HLSignatureLower sigLower(&F, *m_pHLModule, *pSig);
+          // TODO: BUG: This will lower patch constant function sigs twice if used by two hull shaders!
           sigLower.Run();
           DxilEntrySignatureMap[&F] = std::move(pSig);
         }
