@@ -68,6 +68,7 @@ public:
   TEST_METHOD(RunTypemodsSyntax);
   TEST_METHOD(RunSemantics);
   TEST_METHOD(RunImplicitCasts);
+  TEST_METHOD(RunDerivedToBaseCasts);
   TEST_METHOD(RunLiterals);
   TEST_METHOD(RunEffectsSyntax);
   TEST_METHOD(RunVectorConditional);
@@ -275,6 +276,10 @@ TEST_F(VerifierTest, RunSemantics) {
 
 TEST_F(VerifierTest, RunImplicitCasts) {
   CheckVerifiesHLSL(L"implicit-casts.hlsl");
+}
+
+TEST_F(VerifierTest, RunDerivedToBaseCasts) {
+  CheckVerifiesHLSL(L"derived-to-base.hlsl");
 }
 
 TEST_F(VerifierTest, RunLiterals) {
