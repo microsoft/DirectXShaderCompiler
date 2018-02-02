@@ -49,12 +49,18 @@ enum class ShaderAccessFlags : uint32_t
   Counter = 1 << 2
 };
 
+// This enum doesn't have to match PIX's version, because the values are received from PIX encoded in ASCII.
+// However, for ease of comparing this code with PIX, and to be less confusing to future maintainers, this
+// enum does indeed match the same-named enum in PIX.
 enum class RegisterType
 {
   CBV,
   SRV,
   UAV,
+  RTV, // not used. 
+  DSV, // not used. 
   Sampler,
+  SOV, // not used.
   Invalid,
   Terminator
 };
