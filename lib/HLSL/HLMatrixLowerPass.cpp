@@ -2546,6 +2546,10 @@ void HLMatrixLowerPass::TranslateLibraryArgs(Function &F) {
 }
 
 void HLMatrixLowerPass::runOnFunction(Function &F) {
+  // Skip hl function definition (like createhandle)
+  if (hlsl::GetHLOpcodeGroupByName(&F) != HLOpcodeGroup::NotHL)
+    return;
+
   // Create vector version of matrix instructions first.
   // The matrix operands will be undefval for these instructions.
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
