@@ -3975,6 +3975,11 @@ public:
       if (F.getReturnType()->isVoidTy() && F.arg_size() == 0)
         continue;
 
+      // Skip library functions
+      if (&F == m_pHLModule->GetEntryFunction() ||
+          !m_pHLModule->IsEntryThatUsesSignatures(&F))
+        continue;
+
       WorkList.emplace_back(&F);
     }
 
@@ -5167,56 +5172,6 @@ void SROA_Parameter_HLSL::flattenArgument(
   unsigned debugOffset = 0;
   const DataLayout &DL = F->getParent()->getDataLayout();
 
-  if (!hasShaderInputOutput) {
-    Value *V = Arg;
-    DxilFieldAnnotation &annotation = annotationMap[V];
-    Type *Ty = V->getType();
-    if (Ty->isPointerTy())
-      Ty = Ty->getPointerElementType();
-
-    // Stop doing this when preserving resource types and using new
-    // createHandleFrom??? whatever it's going to be called...
-    V = castResourceArgIfRequired(V, Ty, bOut, inputQual, Builder);
-
-    // Cannot SROA, save it to final parameter list.
-    FlatParamList.emplace_back(V);
-    // Create ParamAnnotation for V.
-    FlatAnnotationList.emplace_back(DxilParameterAnnotation());
-    DxilParameterAnnotation &flatParamAnnotation = FlatAnnotationList.back();
-
-    flatParamAnnotation.SetParamInputQual(paramAnnotation.GetParamInputQual());
-
-    flatParamAnnotation.SetInterpolationMode(annotation.GetInterpolationMode());
-    flatParamAnnotation.SetSemanticString(annotation.GetSemanticString());
-    flatParamAnnotation.SetCompType(annotation.GetCompType().GetKind());
-    flatParamAnnotation.SetMatrixAnnotation(annotation.GetMatrixAnnotation());
-    flatParamAnnotation.SetPrecise(annotation.IsPrecise());
-    flatParamAnnotation.SetResourceAttribute(annotation.GetResourceAttribute());
-
-    // Add debug info.
-    if (DDI && V != Arg) {
-      Value *TmpV = V;
-      // If V is casted, add debug into to original V.
-      if (castParamMap.count(V)) {
-        TmpV = castParamMap[V].first;
-        // One more level for ptr of input vector.
-        // It cast from ptr to non-ptr then cast to scalars.
-        if (castParamMap.count(TmpV)) {
-          TmpV = castParamMap[TmpV].first;
-        }
-      }
-      Type *Ty = TmpV->getType();
-      if (Ty->isPointerTy())
-        Ty = Ty->getPointerElementType();
-      unsigned size = DL.getTypeAllocSize(Ty);
-      DIExpression *DDIExp = DIB.createBitPieceExpression(debugOffset, size);
-      debugOffset += size;
-      DIB.insertDeclare(TmpV, DDI->getVariable(), DDIExp, DDI->getDebugLoc(),
-        Builder.GetInsertPoint());
-    }
-    return;
-  }
-
   // Process the worklist
   while (!WorkList.empty()) {
     Value *V = WorkList.front();
@@ -5835,6 +5790,10 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     hasShaderInputOutput = F == m_pHLModule->GetEntryFunction() ||
                            m_pHLModule->IsEntryThatUsesSignatures(F);
   }
+
+  // Skip flattenning for library functions
+  if (!hasShaderInputOutput)
+    return;
 
   std::vector<Value *> FlatParamList;
   std::vector<DxilParameterAnnotation> FlatParamAnnotationList;
