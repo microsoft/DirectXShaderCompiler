@@ -668,7 +668,7 @@ def add_test_cases():
         '4.0', '16.0'
     ]], "unary float", "sqrt",
     half_inputs=[['NaN', '-Inf', '-denorm', '-0', '0', '0x03FF', 'Inf', '-1', '2', '16.0', '256.0']],
-    half_outputs=[['NaN', 'NaN', 'NaN', '0', '0', '0x1FFF', 'Inf', 'NaN', '1.41421', '4.0', '16.0']])
+    half_outputs=[['NaN', 'NaN', 'NaN', '-0', '0', '0x1FFF', 'Inf', 'NaN', '1.41421', '4.0', '16.0']])
     add_test_case_float_half('Rsqrt', ['Rsqrt'], 'ulp', 1, [[
         'NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '-1', '16.0',
         '256.0', '65536.0'
@@ -679,7 +679,7 @@ def add_test_cases():
         'NaN', '-Inf', '-denorm', '-0', '0', '0x03FF', 'Inf', '-1', '16.0',
         '256.0', '0x7bff'
     ]], half_outputs=[[
-        'NaN', 'NaN', 'NaN', '-Inf', 'Inf', '0x5800', '0', 'NaN', '0.25',
+        'NaN', 'NaN', 'NaN', '-Inf', 'Inf', '0x5801', '0', 'NaN', '0.25',
         '0.0625', '0x1C00'
     ]])
     add_test_case_float_half('Round_ne', ['Round_ne'], 'Epsilon', 0, [[

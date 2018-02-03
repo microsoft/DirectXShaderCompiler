@@ -380,7 +380,7 @@ inline bool CompareHalfULP(const uint16_t &fsrc, const uint16_t &fref, float ULP
   if (isnanFloat16(fsrc))
     return isnanFloat16(fref);
   // 16-bit floating point numbers must preserve denorms
-  int diff = *((DWORD *)&fsrc) - *((DWORD *)&fref);
+  int diff = fsrc - fref;
   unsigned int uDiff = diff < 0 ? -diff : diff;
   return uDiff <= (unsigned int)ULPTolerance;
 }
