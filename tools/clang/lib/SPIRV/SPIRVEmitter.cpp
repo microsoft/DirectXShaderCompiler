@@ -4687,6 +4687,11 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
 
 void SPIRVEmitter::initOnce(QualType varType, std::string varName,
                             uint32_t varPtr, const Expr *varInit) {
+  // For uninitialized resource objects, we do nothing since there is no
+  // meaningful zero values for them.
+  if (!varInit && hlsl::IsHLSLResourceType(varType))
+    return;
+
   const uint32_t boolType = theBuilder.getBoolType();
   varName = "init.done." + varName;
 
@@ -8042,7 +8047,10 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
       // Update counter variable associated with global variables
       tryToAssignCounterVar(varDecl, init);
-    } else {
+    }
+    // If not explicitly initialized, initialize with their zero values if not
+    // resource objects
+    else if (!hlsl::IsHLSLResourceType(varDecl->getType())) {
       const auto typeId = typeTranslator.translateType(varDecl->getType());
       theBuilder.createStore(varInfo, theBuilder.getConstantNull(typeId));
     }
