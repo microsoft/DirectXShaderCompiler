@@ -73,4 +73,59 @@ void main() {
 // CHECK:      [[o:%\d+]] = OpLoad %v3float %o
 // CHECK-NEXT:   {{%\d+}} = OpVectorShuffle %v2float [[o]] [[o]] 0 1
   float2x1 g = (float2x1)o;
+
+  // Non-floating point matrices
+  int3x4 h;
+  int2x3 i;
+  int3x1 j;
+  int1x4 k;
+// CHECK:       [[h:%\d+]] = OpLoad %_arr_v4int_uint_3 %h
+// CHECK-NEXT: [[h0:%\d+]] = OpCompositeExtract %v4int [[h]] 0
+// CHECK-NEXT: [[i0:%\d+]] = OpVectorShuffle %v3int [[h0]] [[h0]] 0 1 2
+// CHECK-NEXT: [[h1:%\d+]] = OpCompositeExtract %v4int [[h]] 1
+// CHECK-NEXT: [[i1:%\d+]] = OpVectorShuffle %v3int [[h1]] [[h1]] 0 1 2
+// CHECK-NEXT:  [[i:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[i0]] [[i1]]
+// CHECK-NEXT:               OpStore %i [[i]]
+  i = (int2x3)h;
+// CHECK:         [[h:%\d+]] = OpLoad %_arr_v4int_uint_3 %h
+// CHECK-NEXT:   [[h0:%\d+]] = OpCompositeExtract %v4int [[h]] 0
+// CHECK-NEXT: [[h0e0:%\d+]] = OpCompositeExtract %int [[h0]] 0
+// CHECK-NEXT:   [[h1:%\d+]] = OpCompositeExtract %v4int [[h]] 1
+// CHECK-NEXT: [[h1e0:%\d+]] = OpCompositeExtract %int [[h1]] 0
+// CHECK-NEXT:   [[h2:%\d+]] = OpCompositeExtract %v4int [[h]] 2
+// CHECK-NEXT: [[h2e0:%\d+]] = OpCompositeExtract %int [[h2]] 0
+// CHECK-NEXT:    [[j:%\d+]] = OpCompositeConstruct %v3int [[h0e0]] [[h1e0]] [[h2e0]]
+// CHECK-NEXT:                 OpStore %j [[j]]
+  j = (int3x1)h;
+// CHECK:       [[h:%\d+]] = OpLoad %_arr_v4int_uint_3 %h
+// CHECK-NEXT: [[h0:%\d+]] = OpCompositeExtract %v4int [[h]] 0
+// CHECK-NEXT:               OpStore %k [[h0]]
+  k = (int1x4)h;
+
+  bool3x4 p;
+  bool2x3 q;
+  bool3x1 r;
+  bool1x4 s;
+// CHECK:       [[p:%\d+]] = OpLoad %_arr_v4bool_uint_3 %p
+// CHECK-NEXT: [[p0:%\d+]] = OpCompositeExtract %v4bool [[p]] 0
+// CHECK-NEXT: [[q0:%\d+]] = OpVectorShuffle %v3bool [[p0]] [[p0]] 0 1 2
+// CHECK-NEXT: [[p1:%\d+]] = OpCompositeExtract %v4bool [[p]] 1
+// CHECK-NEXT: [[q1:%\d+]] = OpVectorShuffle %v3bool [[p1]] [[p1]] 0 1 2
+// CHECK-NEXT:  [[q:%\d+]] = OpCompositeConstruct %_arr_v3bool_uint_2 [[q0]] [[q1]]
+// CHECK-NEXT:               OpStore %q [[q]]
+  q = (bool2x3)p;
+// CHECK:         [[p:%\d+]] = OpLoad %_arr_v4bool_uint_3 %p
+// CHECK-NEXT:   [[p0:%\d+]] = OpCompositeExtract %v4bool [[p]] 0
+// CHECK-NEXT: [[p0e0:%\d+]] = OpCompositeExtract %bool [[p0]] 0
+// CHECK-NEXT:   [[p1:%\d+]] = OpCompositeExtract %v4bool [[p]] 1
+// CHECK-NEXT: [[p1e0:%\d+]] = OpCompositeExtract %bool [[p1]] 0
+// CHECK-NEXT:   [[p2:%\d+]] = OpCompositeExtract %v4bool [[p]] 2
+// CHECK-NEXT: [[p2e0:%\d+]] = OpCompositeExtract %bool [[p2]] 0
+// CHECK-NEXT:    [[r:%\d+]] = OpCompositeConstruct %v3bool [[p0e0]] [[p1e0]] [[p2e0]]
+// CHECK-NEXT:                 OpStore %r [[r]]
+  r = (bool3x1)p;
+// CHECK:       [[p:%\d+]] = OpLoad %_arr_v4bool_uint_3 %p
+// CHECK-NEXT: [[p0:%\d+]] = OpCompositeExtract %v4bool [[p]] 0
+// CHECK-NEXT:               OpStore %s [[p0]]
+  s = (bool1x4)p;
 }

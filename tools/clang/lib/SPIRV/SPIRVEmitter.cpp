@@ -5502,11 +5502,31 @@ uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
   if (TypeTranslator::isSameScalarOrVecType(fromType, toBoolType))
     return fromVal;
 
+  const uint32_t boolType = typeTranslator.translateType(toBoolType);
+
+  { // Special case handling for converting to a matrix of booleans.
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0;
+    if (TypeTranslator::isMxNMatrix(fromType, &elemType, &rowCount,
+                                    &colCount)) {
+      // EHSAN: TODO
+      const auto fromRowQualType =
+          astContext.getExtVectorType(elemType, colCount);
+      const auto toBoolRowQualType =
+          astContext.getExtVectorType(astContext.BoolTy, colCount);
+      llvm::SmallVector<uint32_t, 4> rows;
+      for (uint32_t i = 0; i < rowCount; ++i) {
+        const auto row = theBuilder.createCompositeExtract(
+            typeTranslator.translateType(fromRowQualType), fromVal, {i});
+        rows.push_back(castToBool(row, fromRowQualType, toBoolRowQualType));
+      }
+      return theBuilder.createCompositeConstruct(boolType, rows);
+    }
+  }
+
   // Converting to bool means comparing with value zero.
   const spv::Op spvOp = translateOp(BO_NE, fromType);
-  const uint32_t boolType = typeTranslator.translateType(toBoolType);
   const uint32_t zeroVal = getValueZero(fromType);
-
   return theBuilder.createBinaryOp(spvOp, boolType, fromVal, zeroVal);
 }
 
@@ -7399,7 +7419,16 @@ uint32_t SPIRVEmitter::getValueZero(QualType type) {
     }
   }
 
-  // TODO: Handle getValueZero for MxN matrices.
+  {
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0;
+    if (TypeTranslator::isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+      const auto row = getVecValueZero(elemType, colCount);
+      llvm::SmallVector<uint32_t, 4> rows((size_t)rowCount, row);
+      return theBuilder.createCompositeConstruct(
+          typeTranslator.translateType(type), rows);
+    }
+  }
 
   emitError("getting value 0 for type %0 unimplemented", {})
       << type.getAsString();
