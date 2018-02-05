@@ -2250,11 +2250,6 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
     if (TypeTranslator::isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
-      if (!elemType->isFloatingType()) {
-        emitError("non-floating-point matrix type unimplemented", {});
-        return 0;
-      }
-
       // By default HLSL matrices are row major, while SPIR-V matrices are
       // column major. We are mapping what HLSL semantically mean a row into a
       // column here.
