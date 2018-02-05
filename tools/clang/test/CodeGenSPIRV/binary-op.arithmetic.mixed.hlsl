@@ -130,7 +130,7 @@ void main() {
     int2x3 q, r;
     int2x3 qr = q * r;
 
-// Note: The AST includes a MatrixSplat, therefore we splat the scalar to a matrix. So we cannot use OpVectorTimesSclar.
+// Note: The AST includes a MatrixSplat, therefore we splat the scalar to a matrix. So we cannot use OpVectorTimesScalar.
 // CHECK:          [[t:%\d+]] = OpLoad %int %t
 // CHECK-NEXT:  [[tvec:%\d+]] = OpCompositeConstruct %v3int [[t]] [[t]] [[t]]
 // CHECK-NEXT:  [[tmat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[tvec]] [[tvec]]
@@ -174,7 +174,7 @@ void main() {
     bool2x3 x, y;
     bool2x3 xy = x * y;
 
-// Note: The AST includes a MatrixSplat, therefore we splat the scalar to a matrix. So we cannot use OpVectorTimesSclar.
+// Note: The AST includes a MatrixSplat, therefore we splat the scalar to a matrix. So we cannot use OpVectorTimesScalar.
 // CHECK:                [[z:%\d+]] = OpLoad %bool %z
 // CHECK-NEXT:        [[zint:%\d+]] = OpSelect %int [[z]] %int_1 %int_0
 // CHECK-NEXT:        [[zvec:%\d+]] = OpCompositeConstruct %v3int [[zint]] [[zint]] [[zint]]

@@ -75,4 +75,36 @@ void main() {
 // CHECK-NEXT: [[mul14:%\d+]] = OpFMul %float [[o0]] [[s10]]
 // CHECK-NEXT: OpStore %o [[mul14]]
     o *= s;
+
+// Non-floating point matrices
+
+// CHECK:           [[q:%\d+]] = OpLoad %_arr_v3int_uint_2 %q
+// CHECK-NEXT:      [[p:%\d+]] = OpLoad %_arr_v3int_uint_2 %p
+// CHECK-NEXT:     [[p0:%\d+]] = OpCompositeExtract %v3int [[p]] 0
+// CHECK-NEXT:     [[q0:%\d+]] = OpCompositeExtract %v3int [[q]] 0
+// CHECK-NEXT: [[new_p0:%\d+]] = OpIMul %v3int [[p0]] [[q0]]
+// CHECK-NEXT:     [[p1:%\d+]] = OpCompositeExtract %v3int [[p]] 1
+// CHECK-NEXT:     [[q1:%\d+]] = OpCompositeExtract %v3int [[q]] 1
+// CHECK-NEXT: [[new_p1:%\d+]] = OpIMul %v3int %74 %75
+// CHECK-NEXT:  [[new_p:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[new_p0]] [[new_p1]]
+// CHECK-NEXT:                   OpStore %p [[new_p]]
+    int2x3 p, q;
+    p *= q;
+
+// Note: The AST includes a MatrixSplat, therefore we splat the scalar to a matrix. So we cannot use OpVectorTimesScalar.
+// CHECK-NEXT:      [[t:%\d+]] = OpLoad %int %t
+// CHECK-NEXT:   [[tvec:%\d+]] = OpCompositeConstruct %v3int [[t]] [[t]] [[t]]
+// CHECK-NEXT:   [[tmat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[tvec]] [[tvec]]
+// CHECK-NEXT:      [[p:%\d+]] = OpLoad %_arr_v3int_uint_2 %p
+// CHECK-NEXT:     [[p0:%\d+]] = OpCompositeExtract %v3int [[p]] 0
+// CHECK-NEXT:  [[tmat0:%\d+]] = OpCompositeExtract %v3int [[tmat]] 0
+// CHECK-NEXT: [[new_p0:%\d+]] = OpIMul %v3int [[p0]] [[tmat0]]
+// CHECK-NEXT:     [[p1:%\d+]] = OpCompositeExtract %v3int [[p]] 1
+// CHECK-NEXT:  [[tmat1:%\d+]] = OpCompositeExtract %v3int [[tmat]] 1
+// CHECK-NEXT: [[new_p1:%\d+]] = OpIMul %v3int [[p1]] [[tmat1]]
+// CHECK-NEXT:  [[new_p:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[new_p0]] [[new_p1]]
+// CHECK-NEXT:                   OpStore %p [[new_p]]
+    p *= t;
+
+// Note: Boolean matrix not allowed by the front-end for these operations.
 }
