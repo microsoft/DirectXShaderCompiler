@@ -3976,7 +3976,7 @@ public:
         continue;
 
       // Skip library functions
-      if (&F == m_pHLModule->GetEntryFunction() ||
+      if (&F != m_pHLModule->GetEntryFunction() &&
           !m_pHLModule->IsEntryThatUsesSignatures(&F))
         continue;
 
