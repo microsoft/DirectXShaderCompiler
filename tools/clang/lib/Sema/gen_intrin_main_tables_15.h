@@ -54,81 +54,81 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args5[] =
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args6[] =
 {
-    {"CommitHitAndStopRay", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
-};
-
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args7[] =
-{
     {"CurrentRayT", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_FLOAT, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args8[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args7[] =
 {
     {"D3DCOLORtoUBYTE4", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_INT, 1, 4},
     {"x", AR_QUAL_IN, 0, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT, 1, 4},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args9[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args8[] =
 {
     {"DeviceMemoryBarrier", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args10[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args9[] =
 {
     {"DeviceMemoryBarrierWithGroupSync", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args11[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args10[] =
 {
     {"EvaluateAttributeAtSample", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"index", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args12[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args11[] =
 {
     {"EvaluateAttributeCentroid", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args13[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args12[] =
 {
     {"EvaluateAttributeSnapped", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"offset", AR_QUAL_IN, 2, LITEMPLATE_VECTOR, 2, LICOMPTYPE_INT, 1, 2},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args14[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args13[] =
 {
     {"GetAttributeAtVertex", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, IA_R, IA_C},
     {"VertexID", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_UINT, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args15[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args14[] =
 {
     {"GetRenderTargetSampleCount", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args16[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args15[] =
 {
     {"GetRenderTargetSamplePosition", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2},
     {"s", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_INT, 1, 1},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args17[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args16[] =
 {
     {"GroupMemoryBarrier", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args18[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args17[] =
 {
     {"GroupMemoryBarrierWithGroupSync", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
 };
 
-static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args19[] =
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args18[] =
 {
     {"HitKind", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1},
+};
+
+static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args19[] =
+{
+    {"IgnoreHit", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args20[] =
@@ -1374,20 +1374,20 @@ static const HLSL_INTRINSIC g_Intrinsics[] =
     {(UINT)hlsl::IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync, false, false, -1, 1, g_Intrinsics_Args3},
     {(UINT)hlsl::IntrinsicOp::IOP_CallShader, false, false, -1, 3, g_Intrinsics_Args4},
     {(UINT)hlsl::IntrinsicOp::IOP_CheckAccessFullyMapped, false, true, -1, 2, g_Intrinsics_Args5},
-    {(UINT)hlsl::IntrinsicOp::IOP_CommitHitAndStopRay, false, false, -1, 1, g_Intrinsics_Args6},
-    {(UINT)hlsl::IntrinsicOp::IOP_CurrentRayT, false, true, -1, 1, g_Intrinsics_Args7},
-    {(UINT)hlsl::IntrinsicOp::IOP_D3DCOLORtoUBYTE4, false, true, -1, 2, g_Intrinsics_Args8},
-    {(UINT)hlsl::IntrinsicOp::IOP_DeviceMemoryBarrier, false, false, -1, 1, g_Intrinsics_Args9},
-    {(UINT)hlsl::IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync, false, false, -1, 1, g_Intrinsics_Args10},
-    {(UINT)hlsl::IntrinsicOp::IOP_EvaluateAttributeAtSample, false, true, -1, 3, g_Intrinsics_Args11},
-    {(UINT)hlsl::IntrinsicOp::IOP_EvaluateAttributeCentroid, false, true, -1, 2, g_Intrinsics_Args12},
-    {(UINT)hlsl::IntrinsicOp::IOP_EvaluateAttributeSnapped, false, true, -1, 3, g_Intrinsics_Args13},
-    {(UINT)hlsl::IntrinsicOp::IOP_GetAttributeAtVertex, false, true, -1, 3, g_Intrinsics_Args14},
-    {(UINT)hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount, false, true, -1, 1, g_Intrinsics_Args15},
-    {(UINT)hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition, false, true, -1, 2, g_Intrinsics_Args16},
-    {(UINT)hlsl::IntrinsicOp::IOP_GroupMemoryBarrier, false, false, -1, 1, g_Intrinsics_Args17},
-    {(UINT)hlsl::IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync, false, false, -1, 1, g_Intrinsics_Args18},
-    {(UINT)hlsl::IntrinsicOp::IOP_HitKind, false, true, -1, 1, g_Intrinsics_Args19},
+    {(UINT)hlsl::IntrinsicOp::IOP_CurrentRayT, false, true, -1, 1, g_Intrinsics_Args6},
+    {(UINT)hlsl::IntrinsicOp::IOP_D3DCOLORtoUBYTE4, false, true, -1, 2, g_Intrinsics_Args7},
+    {(UINT)hlsl::IntrinsicOp::IOP_DeviceMemoryBarrier, false, false, -1, 1, g_Intrinsics_Args8},
+    {(UINT)hlsl::IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync, false, false, -1, 1, g_Intrinsics_Args9},
+    {(UINT)hlsl::IntrinsicOp::IOP_EvaluateAttributeAtSample, false, true, -1, 3, g_Intrinsics_Args10},
+    {(UINT)hlsl::IntrinsicOp::IOP_EvaluateAttributeCentroid, false, true, -1, 2, g_Intrinsics_Args11},
+    {(UINT)hlsl::IntrinsicOp::IOP_EvaluateAttributeSnapped, false, true, -1, 3, g_Intrinsics_Args12},
+    {(UINT)hlsl::IntrinsicOp::IOP_GetAttributeAtVertex, false, true, -1, 3, g_Intrinsics_Args13},
+    {(UINT)hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount, false, true, -1, 1, g_Intrinsics_Args14},
+    {(UINT)hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition, false, true, -1, 2, g_Intrinsics_Args15},
+    {(UINT)hlsl::IntrinsicOp::IOP_GroupMemoryBarrier, false, false, -1, 1, g_Intrinsics_Args16},
+    {(UINT)hlsl::IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync, false, false, -1, 1, g_Intrinsics_Args17},
+    {(UINT)hlsl::IntrinsicOp::IOP_HitKind, false, true, -1, 1, g_Intrinsics_Args18},
+    {(UINT)hlsl::IntrinsicOp::IOP_IgnoreHit, false, false, -1, 1, g_Intrinsics_Args19},
     {(UINT)hlsl::IntrinsicOp::IOP_InstanceID, false, true, -1, 1, g_Intrinsics_Args20},
     {(UINT)hlsl::IntrinsicOp::IOP_InstanceIndex, false, true, -1, 1, g_Intrinsics_Args21},
     {(UINT)hlsl::IntrinsicOp::IOP_InterlockedAdd, false, false, -1, 3, g_Intrinsics_Args22},

@@ -288,8 +288,8 @@ namespace DXIL {
   // Enumeration for operations specified by DXIL
   enum class OpCode : unsigned {
     // AnyHit Terminals
-    AcceptHitAndEndSearch = 155, // Used in an any hit shader to reject an intersection and terminate the shader
-    CommitHitAndStopRay = 156, // Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
+    AcceptHitAndEndSearch = 156, // Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
+    IgnoreHit = 155, // Used in an any hit shader to reject an intersection and terminate the shader
   
     // Binary float
     FMax = 35, // returns a if a >= b, else b
@@ -542,7 +542,7 @@ namespace DXIL {
   enum class OpCodeClass : unsigned {
     // AnyHit Terminals
     AcceptHitAndEndSearch,
-    CommitHitAndStopRay,
+    IgnoreHit,
   
     // Binary uint with carry or borrow
     BinaryWithCarryOrBorrow,

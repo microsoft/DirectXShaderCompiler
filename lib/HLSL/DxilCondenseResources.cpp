@@ -206,8 +206,6 @@ public:
       if (!DM.GetShaderModel()->IsLib()) {
         AllocateDxilResources(DM);
         PatchCreateHandle(DM);
-      } else {
-        PatchCreateHandleForLib(DM);
       }
     }
     return true;
@@ -222,8 +220,6 @@ private:
   void ApplyRewriteMap(DxilModule &DM);
   // Add lowbound to create handle range index.
   void PatchCreateHandle(DxilModule &DM);
-  // Add lowbound to create handle range index for library.
-  void PatchCreateHandleForLib(DxilModule &DM);
 };
 
 void DxilCondenseResources::ApplyRewriteMap(DxilModule &DM) {
@@ -421,100 +417,6 @@ void DxilCondenseResources::PatchCreateHandle(DxilModule &DM) {
   }
 }
 
-static Value *PatchRangeIDForLib(DxilModule &DM, IRBuilder<> &Builder,
-                                 Value *rangeIdVal,
-                                 std::unordered_map<PHINode *, Value *> &phiMap,
-                                 DXIL::ResourceClass ResClass) {
-  Value *linkRangeID = nullptr;
-  if (isa<ConstantInt>(rangeIdVal)) {
-    unsigned rangeId = cast<ConstantInt>(rangeIdVal)->getLimitedValue();
-
-    const DxilModule::ResourceLinkInfo &linkInfo =
-        DM.GetResourceLinkInfo(ResClass, rangeId);
-    linkRangeID = Builder.CreateLoad(linkInfo.ResRangeID);
-  } else {
-    if (PHINode *phi = dyn_cast<PHINode>(rangeIdVal)) {
-      auto it = phiMap.find(phi);
-      if (it == phiMap.end()) {
-        unsigned numOperands = phi->getNumOperands();
-
-        PHINode *phiRangeID = Builder.CreatePHI(phi->getType(), numOperands);
-        phiMap[phi] = phiRangeID;
-
-        std::vector<Value *> rangeIDs(numOperands);
-        for (unsigned i = 0; i < numOperands; i++) {
-          Value *V = phi->getOperand(i);
-          BasicBlock *BB = phi->getIncomingBlock(i);
-          IRBuilder<> Builder(BB->getTerminator());
-          rangeIDs[i] = PatchRangeIDForLib(DM, Builder, V, phiMap, ResClass);
-        }
-
-        for (unsigned i = 0; i < numOperands; i++) {
-          Value *V = rangeIDs[i];
-          BasicBlock *BB = phi->getIncomingBlock(i);
-          phiRangeID->addIncoming(V, BB);
-        }
-        linkRangeID = phiRangeID;
-      } else {
-        linkRangeID = it->second;
-      }
-    } else if (SelectInst *si = dyn_cast<SelectInst>(rangeIdVal)) {
-      IRBuilder<> Builder(si);
-      Value *trueVal =
-          PatchRangeIDForLib(DM, Builder, si->getTrueValue(), phiMap, ResClass);
-      Value *falseVal = PatchRangeIDForLib(DM, Builder, si->getFalseValue(),
-                                           phiMap, ResClass);
-      linkRangeID = Builder.CreateSelect(si->getCondition(), trueVal, falseVal);
-    } else if (CastInst *cast = dyn_cast<CastInst>(rangeIdVal)) {
-      if (cast->getOpcode() == CastInst::CastOps::ZExt &&
-          cast->getOperand(0)->getType() == Type::getInt1Ty(DM.GetCtx())) {
-        // select cond, 1, 0.
-        IRBuilder<> Builder(cast);
-        Value *trueVal = PatchRangeIDForLib(
-            DM, Builder, ConstantInt::get(cast->getType(), 1), phiMap,
-            ResClass);
-        Value *falseVal = PatchRangeIDForLib(
-            DM, Builder, ConstantInt::get(cast->getType(), 0), phiMap,
-            ResClass);
-        linkRangeID =
-            Builder.CreateSelect(cast->getOperand(0), trueVal, falseVal);
-      }
-    }
-  }
-  return linkRangeID;
-}
-
-void DxilCondenseResources::PatchCreateHandleForLib(DxilModule &DM) {
-  Function *createHandle = DM.GetOP()->GetOpFunc(DXIL::OpCode::CreateHandle,
-                                                 Type::getVoidTy(DM.GetCtx()));
-  DM.CreateResourceLinkInfo();
-  for (User *U : createHandle->users()) {
-    CallInst *handle = cast<CallInst>(U);
-    DxilInst_CreateHandle createHandle(handle);
-    DXASSERT_NOMSG(createHandle);
-
-    DXIL::ResourceClass ResClass =
-        static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
-
-    std::unordered_map<PHINode *, Value*> phiMap;
-    Value *rangeID = createHandle.get_rangeId();
-    IRBuilder<> Builder(handle);
-    Value *linkRangeID = PatchRangeIDForLib(
-        DM, Builder, rangeID, phiMap, ResClass);
-
-    // Dynamic rangeId is not supported - skip and let validation report the
-    // error.
-    if (!linkRangeID)
-      continue;
-    // Update rangeID to linkinfo rangeID.
-    handle->setArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx,
-                          linkRangeID);
-    if (rangeID->user_empty() && isa<Instruction>(rangeID)) {
-      cast<Instruction>(rangeID)->eraseFromParent();
-    }
-  }
-}
-
 char DxilCondenseResources::ID = 0;
 
 bool llvm::AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense) {
@@ -567,11 +469,6 @@ public:
 
     bool hasResource = DM.GetCBuffers().size() || DM.GetUAVs().size() ||
                        DM.GetSRVs().size() || DM.GetSamplers().size();
-
-    // TODO: remove this.
-    // Create resoure link info for lib.
-    if (hasResource && m_bIsLib)
-      DM.CreateResourceLinkInfo();
 
     if (!hasResource || m_bIsLib)
       return false;

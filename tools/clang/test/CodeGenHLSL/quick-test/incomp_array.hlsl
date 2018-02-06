@@ -21,7 +21,7 @@ Special c_special;
 
 static const Special s_special = { { 1, 2, 3, 4}, { 1, 2, 3 } };
 
-// CHECK: define void
+// CHECK: define <4 x float>
 // CHECK: fn1
 // @"\01?fn1@@YA?AV?$vector@M$03@@USpecial@@@Z"
 float4 fn1(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
@@ -36,7 +36,7 @@ float4 fn1(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   return in1.member + (float)s_testa[i];
 }
 
-// CHECK: define void
+// CHECK: define <4 x float>
 // CHECK: fn2
 // @"\01?fn2@@YA?AV?$vector@M$03@@USpecial@@@Z"
 float4 fn2(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
@@ -44,7 +44,7 @@ float4 fn2(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   return in1.member + (float)s_special.a[i];
 }
 
-// CHECK: define void
+// CHECK: define <4 x float>
 // CHECK: fn3
 // @"\01?fn3@@YA?AV?$vector@M$03@@USpecial@@@Z"
 float4 fn3(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
@@ -59,7 +59,7 @@ float4 fn3(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   return in1.member + (float)in1.a[i];
 }
 
-// CHECK: define void
+// CHECK: define <4 x float>
 // CHECK: fn4
 // @"\01?fn4@@YA?AV?$vector@M$03@@USpecial@@@Z"
 float4 fn4(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
