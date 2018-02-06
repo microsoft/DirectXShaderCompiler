@@ -4,10 +4,10 @@
 // CHECK: emit
 
 struct M {
-   float2 a;
+   float3 a;
    Texture2D<float4> tex;
 };
 
 float4 emit(M m)  {
-   return tex.Load(a);
+   return m.tex.Load(m.a);
 }

@@ -4828,12 +4828,12 @@ struct DxilInst_CurrentRayT {
 };
 
 /// This instruction Used in an any hit shader to reject an intersection and terminate the shader
-struct DxilInst_AcceptHitAndEndSearch {
+struct DxilInst_IgnoreHit {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_AcceptHitAndEndSearch(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_IgnoreHit(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::AcceptHitAndEndSearch);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::IgnoreHit);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -4844,12 +4844,12 @@ struct DxilInst_AcceptHitAndEndSearch {
 };
 
 /// This instruction Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
-struct DxilInst_CommitHitAndStopRay {
+struct DxilInst_AcceptHitAndEndSearch {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_CommitHitAndStopRay(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_AcceptHitAndEndSearch(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CommitHitAndStopRay);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::AcceptHitAndEndSearch);
   }
   // Validation support
   bool isAllowed() const { return true; }

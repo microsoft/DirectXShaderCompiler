@@ -308,7 +308,7 @@ class db_dxil(object):
         for i in "RayTMin,CurrentRayT".split(","):
             self.name_idx[i].category = "RayT"
             self.name_idx[i].shader_model = 6,3
-        for i in "AcceptHitAndEndSearch,CommitHitAndStopRay".split(","):
+        for i in "IgnoreHit,AcceptHitAndEndSearch".split(","):
             self.name_idx[i].category = "AnyHit Terminals"
             self.name_idx[i].shader_model = 6,3
         for i in "TraceRay,ReportHit,CallShader".split(","):
@@ -1198,11 +1198,11 @@ class db_dxil(object):
             db_dxil_param(0, "f", "", "result")])
         next_op_idx += 1
 
-        self.add_dxil_op("AcceptHitAndEndSearch", next_op_idx, "AcceptHitAndEndSearch", "Used in an any hit shader to reject an intersection and terminate the shader", "v", "nr", [
+        self.add_dxil_op("IgnoreHit", next_op_idx, "IgnoreHit", "Used in an any hit shader to reject an intersection and terminate the shader", "v", "nr", [
             db_dxil_param(0, "v", "", "")])
         next_op_idx += 1
 
-        self.add_dxil_op("CommitHitAndStopRay", next_op_idx, "CommitHitAndStopRay", "Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far", "v", "nr", [
+        self.add_dxil_op("AcceptHitAndEndSearch", next_op_idx, "AcceptHitAndEndSearch", "Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far", "v", "nr", [
             db_dxil_param(0, "v", "", "")])
         next_op_idx += 1
 

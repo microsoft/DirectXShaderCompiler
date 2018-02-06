@@ -9814,7 +9814,12 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
   }
 
   ArTypeObjectKind objectKind = m_source.GetTypeObjectKind(type);
-
+  if (objectKind == ArTypeObjectKind::AR_TOBJ_OBJECT) {
+    // Treat ray desc as compound.
+    ArBasicKind kind = m_source.GetTypeElementKind(type);
+    if (kind == AR_OBJECT_RAY_DESC)
+      objectKind = AR_TOBJ_COMPOUND;
+  }
   QualType elementType;
   unsigned int elementCount;
   const RecordType* recordType;
@@ -9883,10 +9888,12 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
       m_source.GetMatrixOrVectorElementType(type),
       GetHLSLVecSize(type), nullptr));
     return true;
-  case ArTypeObjectKind::AR_TOBJ_OBJECT:
+  case ArTypeObjectKind::AR_TOBJ_OBJECT: {
     // Object have no sub-types.
-    m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(type.getCanonicalType(), 1, expression));
+    m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(
+        type.getCanonicalType(), 1, expression));
     return true;
+  }
   default:
     DXASSERT(false, "unreachable");
     return false;

@@ -290,8 +290,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::CurrentRayT,             "CurrentRayT",              OCC::CurrentRayT,              "currentRayT",                false, false,  true, false, false, false, false, false, false, false, Attribute::ReadNone, },
 
   // AnyHit Terminals                                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
+  {  OC::IgnoreHit,               "IgnoreHit",                OCC::IgnoreHit,                "ignoreHit",                   true, false, false, false, false, false, false, false, false, false, Attribute::NoReturn, },
   {  OC::AcceptHitAndEndSearch,   "AcceptHitAndEndSearch",    OCC::AcceptHitAndEndSearch,    "acceptHitAndEndSearch",       true, false, false, false, false, false, false, false, false, false, Attribute::NoReturn, },
-  {  OC::CommitHitAndStopRay,     "CommitHitAndStopRay",      OCC::CommitHitAndStopRay,      "commitHitAndStopRay",         true, false, false, false, false, false, false, false, false, false, Attribute::NoReturn, },
 
   // Indirect Shader Invocation                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
   {  OC::TraceRay,                "TraceRay",                 OCC::TraceRay,                 "traceRay",                   false, false, false, false, false, false, false, false, false,  true, Attribute::None,     },
@@ -853,8 +853,8 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::CurrentRayT:            A(pF32);     A(pI32); break;
 
     // AnyHit Terminals
+  case OpCode::IgnoreHit:              A(pV);       A(pI32); break;
   case OpCode::AcceptHitAndEndSearch:  A(pV);       A(pI32); break;
-  case OpCode::CommitHitAndStopRay:    A(pV);       A(pI32); break;
 
     // Indirect Shader Invocation
   case OpCode::TraceRay:               A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(udt);  break;
@@ -1013,8 +1013,8 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::LegacyDoubleToUInt32:
   case OpCode::WaveAllBitCount:
   case OpCode::WavePrefixBitCount:
+  case OpCode::IgnoreHit:
   case OpCode::AcceptHitAndEndSearch:
-  case OpCode::CommitHitAndStopRay:
     return Type::getVoidTy(m_Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::AtomicBinOp:

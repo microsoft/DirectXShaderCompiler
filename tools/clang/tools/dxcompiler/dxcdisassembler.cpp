@@ -981,8 +981,8 @@ static const char *OpCodeSignatures[] = {
   "(row,col)",  // WorldToObject
   "()",  // RayTMin
   "()",  // CurrentRayT
+  "()",  // IgnoreHit
   "()",  // AcceptHitAndEndSearch
-  "()",  // CommitHitAndStopRay
   "(AccelerationStructure,RayFlags,InstanceInclusionMask,RayContributionToHitGroupIndex,MultiplierForGeometryContributionToShaderIndex,MissShaderIndex,Origin_X,Origin_Y,Origin_Z,TMin,Direction_X,Direction_Y,Direction_Z,TMax,payload)",  // TraceRay
   "(THit,HitKind,Attributes)",  // ReportHit
   "(ShaderIndex,Parameter)",  // CallShader

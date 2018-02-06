@@ -2151,8 +2151,8 @@ ID  Name                                 Description
 152 WorldToObject                        Matrix for transforming from world-space to object-space.
 153 RayTMin                              float representing the parametric starting point for the ray.
 154 CurrentRayT                          float representing the current parametric ending point for the ray
-155 AcceptHitAndEndSearch                Used in an any hit shader to reject an intersection and terminate the shader
-156 CommitHitAndStopRay                  Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
+155 IgnoreHit                            Used in an any hit shader to reject an intersection and terminate the shader
+156 AcceptHitAndEndSearch                Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
 157 TraceRay                             returns the view index
 158 ReportHit                            returns true if hit was accepted
 159 CallShader                           Call a shader in the callable shader table supplied through the DispatchRays() API

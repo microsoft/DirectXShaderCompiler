@@ -43,7 +43,7 @@ struct MyParam {
 // Declare_CallShader(MyParam);
 
 // CHECK: ; S                                 sampler      NA          NA      S0             s1     1
-// CHECK: ; RTAS                              texture    byte         r/o      T0             t5     1
+// CHECK: ; RTAS                              texture     i32         ras      T0             t5     1
 // CHECK: ; T                                 texture     f32          2d      T1             t1     1
 
 // CHECK: @RTAS_rangeID = external constant i32
