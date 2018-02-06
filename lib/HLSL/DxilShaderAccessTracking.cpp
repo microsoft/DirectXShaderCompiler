@@ -49,15 +49,18 @@ enum class ShaderAccessFlags : uint32_t
   Counter = 1 << 2
 };
 
+// This enum doesn't have to match PIX's version, because the values are received from PIX encoded in ASCII.
+// However, for ease of comparing this code with PIX, and to be less confusing to future maintainers, this
+// enum does indeed match the same-named enum in PIX.
 enum class RegisterType
 {
   CBV,
   SRV,
   UAV,
-  RTV,
-  DSV,
+  RTV, // not used. 
+  DSV, // not used. 
   Sampler,
-  SOV,
+  SOV, // not used.
   Invalid,
   Terminator
 };
@@ -133,7 +136,6 @@ private:
 
 private:
   bool m_CheckForDynamicIndexing = false;
-  std::vector<std::pair<RSRegisterIdentifier, ShaderAccessFlags>> m_limitedAccessOutputs;
   std::map<RegisterTypeAndSpace, SlotRange> m_slotAssignments;
   CallInst *m_HandleForUAV;
   std::set<RSRegisterIdentifier> m_DynamicallyIndexedBindPoints;
@@ -164,10 +166,7 @@ static RegisterType ParseRegisterType(std::deque<char> & q) {
   case 'C': return RegisterType::CBV;
   case 'S': return RegisterType::SRV;
   case 'U': return RegisterType::UAV;
-  case 'R': return RegisterType::RTV;
-  case 'D': return RegisterType::DSV;
   case 'M': return RegisterType::Sampler;
-  case 'O': return RegisterType::SOV;
   case 'I': return RegisterType::Invalid;
   default: return RegisterType::Terminator;
   }
@@ -179,10 +178,7 @@ static char EncodeRegisterType(RegisterType r) {
   case RegisterType::CBV:     return 'C';
   case RegisterType::SRV:     return 'S';
   case RegisterType::UAV:     return 'U';
-  case RegisterType::RTV:     return 'R';
-  case RegisterType::DSV:     return 'D';
   case RegisterType::Sampler: return 'M';
-  case RegisterType::SOV:     return 'O';
   case RegisterType::Invalid: return 'I';
   }
   return '.';
@@ -224,27 +220,6 @@ void DxilShaderAccessTracking::applyOptions(PassOptions O) {
       ValidateDelimiter(config, ';');
 
       m_slotAssignments[rst] = sr;
-
-      rt = ParseRegisterType(config);
-    }
-
-    // Parse limited access outputs
-    rt = ParseRegisterType(config);
-    while (rt != RegisterType::Terminator) {
-
-      RSRegisterIdentifier rid;
-      rid.Type = rt;
-
-      rid.Space = DeserializeInt(config);
-      ValidateDelimiter(config, ':');
-
-      rid.Index = DeserializeInt(config);
-      ValidateDelimiter(config, ':');
-
-      unsigned AccessFlags = DeserializeInt(config);
-      ValidateDelimiter(config, ';');
-
-      m_limitedAccessOutputs.emplace_back(rid, static_cast<ShaderAccessFlags>(AccessFlags));
 
       rt = ParseRegisterType(config);
     }
@@ -519,83 +494,6 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
               Modified = true;
             }
           }
-        }
-      }
-    }
-
-    // StoreOutput for render-targets:
-    for (const auto & Overload : f16f32i16i32) {
-      Function * TheFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Overload);
-      auto FunctionUses = TheFunction->uses();
-      for (auto FI = FunctionUses.begin(); FI != FunctionUses.end(); ) {
-        auto & FunctionUse = *FI++;
-        auto FunctionUser = FunctionUse.getUser();
-        auto instruction = cast<Instruction>(FunctionUser);
-
-        unsigned outputId = cast<ConstantInt>(instruction->getOperand(1))->getLimitedValue();
-
-        const DxilSignatureElement & sig = DM.GetOutputSignature().GetElement(outputId);
-
-        if (sig.GetSemantic()->GetKind() == DXIL::SemanticKind::Target){
-
-          auto slot = m_slotAssignments.find({ RegisterType::RTV, 0 });
-
-          if (slot != m_slotAssignments.end()) {
-            IRBuilder<> Builder(instruction);
-            EmitAccess(
-              Ctx, 
-              HlslOP, 
-              Builder, 
-              HlslOP->GetU32Const(slot->second.startSlot + sig.GetSemanticStartIndex()), 
-              ShaderAccessFlags::Write);
-            Modified = true;
-          }
-
-          for (auto const & limited : m_limitedAccessOutputs) {
-
-            auto slot = m_slotAssignments.find({ limited.first.Type, limited.first.Space });
-
-            if (slot != m_slotAssignments.end()) {
-              IRBuilder<> Builder(instruction);
-              EmitAccess(
-                Ctx,
-                HlslOP,
-                Builder,
-                HlslOP->GetU32Const(slot->second.startSlot),
-                ShaderAccessFlags::Write);
-              Modified = true;
-            }
-          }
-
-          // We do the limited access outputs (e.g. depth) on the first StoreOutput to the render target,
-          // a moment in the shader which is a good proxy for "this invocation hasn't been discarded".
-          m_limitedAccessOutputs.clear();
-        }
-      }
-    }
-
-    // EmitStream for stream out
-    {
-      Function * TheFunction = HlslOP->GetOpFunc(DXIL::OpCode::EmitStream, Type::getVoidTy(Ctx));
-      auto FunctionUses = TheFunction->uses();
-      for (auto FI = FunctionUses.begin(); FI != FunctionUses.end(); ) {
-        auto & FunctionUse = *FI++;
-        auto FunctionUser = FunctionUse.getUser();
-        auto instruction = cast<Instruction>(FunctionUser);
-
-        unsigned outputId = cast<ConstantInt>(instruction->getOperand(DXIL::OperandIndex::kStreamEmitCutIDOpIdx))->getLimitedValue();
-
-        auto slot = m_slotAssignments.find({ RegisterType::SOV, 0 /* register space */ });
-
-        if (slot != m_slotAssignments.end()) {
-          IRBuilder<> Builder(instruction);
-          EmitAccess(
-            Ctx, 
-            HlslOP, 
-            Builder, 
-            HlslOP->GetU32Const(slot->second.startSlot + outputId),
-            ShaderAccessFlags::Write);
-          Modified = true;
         }
       }
     }
