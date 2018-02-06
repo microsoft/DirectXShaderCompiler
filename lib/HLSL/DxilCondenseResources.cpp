@@ -594,6 +594,10 @@ public:
     // Change resource symbol into undef.
     UpdateResourceSymbols();
 
+    // Remove unused createHandleForLib functions.
+    dxilutil::RemoveUnusedFunctions(M, DM.GetEntryFunction(),
+                                    DM.GetPatchConstantFunction(), m_bIsLib);
+
     return true;
   }
 
