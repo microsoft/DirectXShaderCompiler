@@ -58,9 +58,7 @@ void AddResourceMap(
     std::unordered_map<const llvm::Constant *, DxilResourceBase *> &resMap,
     DxilModule &DM) {
   for (auto &Res : resTab) {
-    const DxilModule::ResourceLinkInfo &linkInfo =
-        DM.GetResourceLinkInfo(resClass, Res->GetID());
-    resMap[linkInfo.ResRangeID] = Res.get();
+    resMap[Res->GetGlobalSymbol()] = Res.get();
   }
 }
 
@@ -488,11 +486,8 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
     }
     // Update ID.
     basePtr->SetID(ID);
-    Constant *rangeID = ConstantInt::get(GV->getType()->getElementType(), ID);
-    for (User *U : GV->users()) {
-      LoadInst *LI = cast<LoadInst>(U);
-      LI->replaceAllUsesWith(rangeID);
-    }
+
+    basePtr->SetGlobalSymbol(GV);
   }
 }
 
@@ -623,7 +618,8 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   for (auto &it : m_functionDefs) {
     DxilFunctionLinkInfo *linkInfo = it.first;
     DxilLib *pLib = it.second;
-
+    DxilModule &tmpDM = pLib->GetDxilModule();
+    DxilTypeSystem &tmpTypeSys = tmpDM.GetTypeSystem();
     for (GlobalVariable *GV : linkInfo->usedGVs) {
       // Skip added globals.
       if (m_newGlobals.count(GV->getName())) {
@@ -650,8 +646,9 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
       if (GV->hasInitializer())
         Initializer = GV->getInitializer();
 
+      Type *Ty = GV->getType()->getElementType();
       GlobalVariable *NewGV = new GlobalVariable(
-          *pM, GV->getType()->getElementType(), GV->isConstant(),
+          *pM, Ty, GV->isConstant(),
           GV->getLinkage(), Initializer, GV->getName(),
           /*InsertBefore*/ nullptr, GV->getThreadLocalMode(),
           GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
@@ -659,6 +656,8 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
       m_newGlobals[GV->getName()] = NewGV;
 
       vmap[GV] = NewGV;
+
+      typeSys.CopyTypeAnnotation(Ty, tmpTypeSys);
 
       if (DxilResourceBase *res = pLib->GetResource(GV)) {
         bSuccess &= AddResource(res, NewGV);
@@ -748,7 +747,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createDeadCodeEliminationPass());
   PM.add(createGlobalDCEPass());
 
-  PM.add(createDxilCondenseResourcesPass());
+  PM.add(createDxilLowerCreateHandleForLibPass());
   PM.add(createDxilFinalizeModulePass());
   PM.add(createComputeViewIdStatePass());
   PM.add(createDxilDeadFunctionEliminationPass());

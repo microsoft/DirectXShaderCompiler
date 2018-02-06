@@ -1238,7 +1238,7 @@ class db_dxil(object):
             db_dxil_param(3, "udt", "Parameter", "User-defined parameters to pass to the callable shader,This parameter structure must match the parameter structure used in the callable shader pointed to in the shader table")])
         next_op_idx += 1
 
-        self.add_dxil_op("CreateHandleFromResourceStructForLib", next_op_idx, "CreateHandleFromResourceStructForLib", "create resource handle from resource struct for library", "u", "rn", [
+        self.add_dxil_op("CreateHandleFromResourceStructForLib", next_op_idx, "CreateHandleFromResourceStructForLib", "create resource handle from resource struct for library", "u", "ro", [
             db_dxil_param(0, "res", "", "result"),
             db_dxil_param(2, "udt", "Resource", "resource to create the handle")])
         next_op_idx += 1
@@ -1439,6 +1439,7 @@ class db_dxil(object):
         add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [])
         add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [])
         add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
+        add_pass('hlsl-dxil-lower-handle-for-lib', 'DxilLowerCreateHandleForLib', 'DXIL Lower createHandleForLib', [])
         add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
         add_pass('hlsl-dxil-add-pixel-hit-instrmentation', 'DxilAddPixelHitInstrumentation', 'DXIL Count completed PS invocations and costs', [
             {'n':'force-early-z','t':'int','c':1},

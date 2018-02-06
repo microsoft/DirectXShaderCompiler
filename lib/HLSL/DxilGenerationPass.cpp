@@ -118,46 +118,28 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   DxilFunctionProps *FnProps = H.HasDxilFunctionProps(EntryFn) ? &H.GetDxilFunctionProps(EntryFn) : nullptr;
   M.SetEntryFunction(EntryFn);
   M.SetEntryFunctionName(H.GetEntryFunctionName());
-  
-  std::vector<GlobalVariable* > &LLVMUsed = M.GetLLVMUsed();
 
   // Resources
   for (auto && C : H.GetCBuffers()) {
     auto b = make_unique<DxilCBuffer>();
     InitResourceBase(C.get(), b.get());
     b->SetSize(C->GetSize());
-    if (HasDebugInfo)
-      LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-
-    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddCBuffer(std::move(b));
   }
   for (auto && C : H.GetUAVs()) {
     auto b = make_unique<DxilResource>();
     InitResource(C.get(), b.get());
-    if (HasDebugInfo)
-      LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-
-    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddUAV(std::move(b));
   }
   for (auto && C : H.GetSRVs()) {
     auto b = make_unique<DxilResource>();
     InitResource(C.get(), b.get());
-    if (HasDebugInfo)
-      LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-
-    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddSRV(std::move(b));
   }
   for (auto && C : H.GetSamplers()) {
     auto b = make_unique<DxilSampler>();
     InitResourceBase(C.get(), b.get());
     b->SetSamplerKind(C->GetSamplerKind());
-    if (HasDebugInfo)
-      LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-
-    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddSampler(std::move(b));
   }
 
@@ -255,11 +237,9 @@ public:
 
     GenerateDxilOperations(M, UpdateCounterSet, NonUniformSet);
 
-    std::unordered_map<Instruction *, Value *> handleMap;
     GenerateDxilCBufferHandles(NonUniformSet);
-    GenerateParamDxilResourceHandles(handleMap);
-    GenerateDxilResourceHandles(UpdateCounterSet, NonUniformSet);
-    AddCreateHandleForPhiNodeAndSelect(m_pHLModule->GetOP());
+    MarkUpdateCounter(UpdateCounterSet);
+    LowerHLCreateHandle();
 
     // For module which not promote mem2reg.
     // Remove local resource alloca/load/store/phi.
@@ -280,9 +260,6 @@ public:
     // Translate precise on allocas into function call to keep the information after mem2reg.
     // The function calls will be removed after propagate precise attribute.
     TranslatePreciseAttribute();
-    // Change struct type to legacy layout for cbuf and struct buf for min precision data types.
-    if (M.GetHLModule().GetHLOptions().bUseMinPrecision)
-      UpdateStructTypeForLegacyLayout();
 
     // High-level metadata should now be turned into low-level metadata.
     const bool SkipInit = true;
@@ -307,6 +284,7 @@ public:
 
 private:
   void RemoveLocalDxilResourceAllocas(Function *F);
+  void MarkUpdateCounter(std::unordered_set<LoadInst *> &UpdateCounterSet);
   void
   TranslateDxilResourceUses(DxilResourceBase &res,
                             std::unordered_set<LoadInst *> &UpdateCounterSet,
@@ -326,7 +304,7 @@ private:
   void GenerateDxilOperations(Module &M,
                               std::unordered_set<LoadInst *> &UpdateCounterSet,
                               std::unordered_set<Value *> &NonUniformSet);
-
+  void LowerHLCreateHandle();
   // Change struct type to legacy layout for cbuf and struct buf.
   void UpdateStructTypeForLegacyLayout();
 
@@ -336,6 +314,63 @@ private:
   // Input module is not optimized.
   bool NotOptimized;
 };
+}
+
+namespace {
+void TranslateHLCreateHandle(Function *F, hlsl::OP &hlslOP) {
+  Value *opArg = hlslOP.GetU32Const(
+      (unsigned)DXIL::OpCode::CreateHandleFromResourceStructForLib);
+  for (auto U = F->user_begin(); U != F->user_end();) {
+    Value *user = *(U++);
+    if (!isa<Instruction>(user))
+      continue;
+    // must be call inst
+    CallInst *CI = cast<CallInst>(user);
+    Value *res = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+    Value *newHandle = nullptr;
+    IRBuilder<> Builder(CI);
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res)) {
+      // For cbuffer, res is global variable.
+      Function *createHandle = hlslOP.GetOpFunc(
+          DXIL::OpCode::CreateHandleFromResourceStructForLib, res->getType());
+      newHandle = Builder.CreateCall(createHandle, {opArg, res});
+    } else if (LoadInst *LI = dyn_cast<LoadInst>(res)) {
+      Value *resPtr = LI->getPointerOperand();
+      Function *createHandle =
+          hlslOP.GetOpFunc(DXIL::OpCode::CreateHandleFromResourceStructForLib,
+                           resPtr->getType());
+      newHandle = Builder.CreateCall(createHandle, {opArg, resPtr});
+    } else {
+      //// Just create alloca to save the res might be cheaper?
+      // IRBuilder<>
+      // AllocaBuilder(CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
+      // Value *resPtr = AllocaBuilder.CreateAlloca(res->getType());
+      // Builder.CreateStore(res,resPtr);
+      // newHandle = Builder.CreateCall(createHandle, {opArg, resPtr});
+      newHandle =
+          dxilutil::SelectOnOperation(CI, HLOperandIndex::kUnaryOpSrc0Idx);
+    }
+    CI->replaceAllUsesWith(newHandle);
+    CI->eraseFromParent();
+  }
+}
+} // namespace
+
+void DxilGenerationPass::LowerHLCreateHandle() {
+  Module *M = m_pHLModule->GetModule();
+  hlsl::OP &hlslOP = *m_pHLModule->GetOP();
+  // generate dxil operation
+  for (iplist<Function>::iterator F : M->getFunctionList()) {
+    if (F->user_empty())
+      continue;
+    if (!F->isDeclaration()) {
+      hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
+      if (group == HLOpcodeGroup::HLCreateHandle) {
+        // Will lower in later pass.
+        TranslateHLCreateHandle(F, hlslOP);
+      }
+    }
+  }
 }
 
 static Value *MergeImmResClass(Value *resClass) {
@@ -502,6 +537,47 @@ void DxilGenerationPass::GenerateParamDxilResourceHandles(
   for (Function &F : M.functions()) {
     if (!F.isDeclaration())
       TranslateParamDxilResourceHandles(&F, handleMap);
+  }
+}
+
+static void
+MarkUavUpdateCounter(DxilResource &res,
+                     std::unordered_set<LoadInst *> &UpdateCounterSet) {
+  Value *GV = res.GetGlobalSymbol();
+  for (auto U = GV->user_begin(), E = GV->user_end(); U != E;) {
+    User *user = *(U++);
+    // Skip unused user.
+    if (user->user_empty())
+      continue;
+
+    if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
+      if (UpdateCounterSet.count(ldInst)) {
+        DXASSERT_NOMSG(res.GetClass() == DXIL::ResourceClass::UAV);
+        res.SetHasCounter(true);
+      }
+    } else {
+      DXASSERT(dyn_cast<GEPOperator>(user) != nullptr,
+               "else AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
+               "to only have ld/st refer to temp object");
+      GEPOperator *GEP = cast<GEPOperator>(user);
+      for (auto GEPU = GEP->user_begin(), GEPE = GEP->user_end();
+           GEPU != GEPE;) {
+        // Must be load inst.
+        LoadInst *ldInst = cast<LoadInst>(*(GEPU++));
+        if (UpdateCounterSet.count(ldInst)) {
+          DXASSERT_NOMSG(res.GetClass() == DXIL::ResourceClass::UAV);
+          res.SetHasCounter(true);
+        }
+      }
+    }
+  }
+}
+
+void DxilGenerationPass::MarkUpdateCounter(
+    std::unordered_set<LoadInst *> &UpdateCounterSet) {
+  for (size_t i = 0; i < m_pHLModule->GetUAVs().size(); i++) {
+    HLResource &UAV = m_pHLModule->GetUAV(i);
+    MarkUavUpdateCounter(UAV, UpdateCounterSet);
   }
 }
 
@@ -906,24 +982,17 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
     std::unordered_set<Value *> &NonUniformSet) {
   // For CBuffer, handle are mapped to HLCreateHandle.
   OP *hlslOP = m_pHLModule->GetOP();
-  Function *createHandle = hlslOP->GetOpFunc(
-      OP::OpCode::CreateHandle, llvm::Type::getVoidTy(m_pHLModule->GetCtx()));
-  Value *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CreateHandle);
-
-  Value *resClassArg = hlslOP->GetU8Const(
-      static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
-          DXIL::ResourceClass::CBuffer));
-
+  Value *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CreateHandleFromResourceStructForLib);
+  LLVMContext &Ctx = hlslOP->GetCtx();
+  Value *zeroIdx = hlslOP->GetU32Const(0);
 
   for (size_t i = 0; i < m_pHLModule->GetCBuffers().size(); i++) {
     DxilCBuffer &CB = m_pHLModule->GetCBuffer(i);
     GlobalVariable *GV = cast<GlobalVariable>(CB.GetGlobalSymbol());
     // Remove GEP created in HLObjectOperationLowerHelper::UniformCbPtr.
     GV->removeDeadConstantUsers();
-    std::string handleName = std::string(GV->getName()) + "_buffer";
+    std::string handleName = std::string(GV->getName());// + "_buffer";
 
-    Value *args[] = {opArg, resClassArg, nullptr, nullptr,
-                     hlslOP->GetI1Const(0)};
     DIVariable *DIV = nullptr;
     DILocation *DL = nullptr;
     if (m_HasDbgInfo) {
@@ -931,18 +1000,13 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
       DIV = HLModule::FindGlobalVariableDebugInfo(GV, Finder);
       if (DIV)
         // TODO: how to get col?
-        DL = DILocation::get(createHandle->getContext(), DIV->getLine(), 1,
+        DL = DILocation::get(Ctx, DIV->getLine(), 1,
                              DIV->getScope());
     }
 
-    Value *resIDArg = hlslOP->GetU32Const(CB.GetID());
-    args[DXIL::OperandIndex::kCreateHandleResIDOpIdx] = resIDArg;
-
-    // resLowerBound will be added after allocation in DxilCondenseResources.
-    Value *resLowerBound = hlslOP->GetU32Const(0);
-
     if (CB.GetRangeSize() == 1) {
-      args[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] = resLowerBound;
+      Function *createHandle = hlslOP->GetOpFunc(
+          OP::OpCode::CreateHandleFromResourceStructForLib, GV->getType());
       for (auto U = GV->user_begin(); U != GV->user_end(); ) {
         // Must HLCreateHandle.
         CallInst *CI = cast<CallInst>(*(U++));
@@ -951,7 +1015,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
             CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt();
         IRBuilder<> Builder(InsertPt);
 
-        CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
+        CallInst *handle = Builder.CreateCall(createHandle, {opArg, GV}, handleName);
         if (m_HasDbgInfo) {
           // TODO: add debug info.
           //handle->setDebugLoc(DL);
@@ -960,13 +1024,17 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
         CI->eraseFromParent();
       }
     } else {
-      for (auto U = GV->user_begin(); U != GV->user_end(); ) {
+      PointerType *Ty = GV->getType();
+      Type *EltTy = Ty->getElementType()->getArrayElementType()->getPointerTo(
+          Ty->getAddressSpace());
+      Function *createHandle = hlslOP->GetOpFunc(
+          OP::OpCode::CreateHandleFromResourceStructForLib, EltTy);
+
+      for (auto U = GV->user_begin(); U != GV->user_end();) {
         // Must HLCreateHandle.
         CallInst *CI = cast<CallInst>(*(U++));
         IRBuilder<> Builder(CI);
         Value *CBIndex = CI->getArgOperand(HLOperandIndex::kCreateHandleIndexOpIdx);
-        args[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
-            CBIndex;
         if (isa<ConstantInt>(CBIndex)) {
           // Put createHandle to entry block for const index.
           auto InsertPt = CI->getParent()
@@ -975,14 +1043,17 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
                               .getFirstInsertionPt();
           Builder.SetInsertPoint(InsertPt);
         }
+        // Add GEP for cbv array use.
+        Value *GEP = Builder.CreateGEP(GV, {zeroIdx, CBIndex});
+        /*
         if (!NonUniformSet.count(CBIndex))
           args[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
               hlslOP->GetI1Const(0);
         else
           args[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
-              hlslOP->GetI1Const(1);
+              hlslOP->GetI1Const(1);*/
 
-        CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
+        CallInst *handle = Builder.CreateCall(createHandle, {opArg, GEP}, handleName);
         CI->replaceAllUsesWith(handle);
         CI->eraseFromParent();
       }

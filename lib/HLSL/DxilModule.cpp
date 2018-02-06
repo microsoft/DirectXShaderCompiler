@@ -1043,6 +1043,27 @@ void DxilModule::RemoveUnusedResources() {
   RemoveResources(m_CBuffers, immCBufID);
 }
 
+namespace {
+template <typename TResource>
+static void RemoveResourceSymbols(std::vector<std::unique_ptr<TResource>> &vec) {
+  for (std::vector<std::unique_ptr<TResource>>::iterator p = vec.begin(); p != vec.end();) {
+    std::vector<std::unique_ptr<TResource>>::iterator c = p++;
+    GlobalVariable *GV = cast<GlobalVariable>((*c)->GetGlobalSymbol());
+    GV->removeDeadConstantUsers();
+    if (GV->user_empty()) {
+      p = vec.erase(c);
+    }
+  }
+}
+}
+
+void DxilModule::RemoveUnusedResourceSymbols() {
+  RemoveResourceSymbols(m_SRVs);
+  RemoveResourceSymbols(m_UAVs);
+  RemoveResourceSymbols(m_CBuffers);
+  RemoveResourceSymbols(m_Samplers);
+}
+
 DxilSignature &DxilModule::GetInputSignature() {
   return m_EntrySignature->InputSignature;
 }
