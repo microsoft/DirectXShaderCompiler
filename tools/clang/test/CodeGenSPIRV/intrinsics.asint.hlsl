@@ -43,4 +43,24 @@ void main() {
     // CHECK-NEXT: OpStore %result4 [[i_as_int]]
     float4 i;
     result4 = asint(i);
+
+    float2x3 floatMat;
+    uint2x3 uintMat;
+
+// CHECK:       [[floatMat:%\d+]] = OpLoad %mat2v3float %floatMat
+// CHECK-NEXT: [[floatMat0:%\d+]] = OpCompositeExtract %v3float [[floatMat]] 0
+// CHECK-NEXT:      [[row0:%\d+]] = OpBitcast %v3int [[floatMat0]]
+// CHECK-NEXT: [[floatMat1:%\d+]] = OpCompositeExtract %v3float [[floatMat]] 1
+// CHECK-NEXT:      [[row1:%\d+]] = OpBitcast %v3int [[floatMat1]]
+// CHECK-NEXT:         [[j:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[row0]] [[row1]]
+// CHECK-NEXT:                      OpStore %j [[j]]
+    int2x3 j = asint(floatMat);
+// CHECK:       [[uintMat:%\d+]] = OpLoad %_arr_v3uint_uint_2 %uintMat
+// CHECK-NEXT: [[uintMat0:%\d+]] = OpCompositeExtract %v3uint [[uintMat]] 0
+// CHECK-NEXT:     [[row0:%\d+]] = OpBitcast %v3int [[uintMat0]]
+// CHECK-NEXT: [[uintMat1:%\d+]] = OpCompositeExtract %v3uint [[uintMat]] 1
+// CHECK-NEXT:     [[row1:%\d+]] = OpBitcast %v3int [[uintMat1]]
+// CHECK-NEXT:        [[k:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[row0]] [[row1]]
+// CHECK-NEXT:                     OpStore %k [[k]]
+    int2x3 k = asint(uintMat);
 }

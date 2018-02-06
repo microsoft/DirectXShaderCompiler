@@ -6989,24 +6989,36 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   const QualType argType = arg0->getType();
 
   // Method 3 return type may be the same as arg type, so it would be a no-op.
-  if (returnType.getCanonicalType() == argType.getCanonicalType())
+  if(typeTranslator.isSameType(returnType, argType))
     return doExpr(arg0);
-
-  // SPIR-V does not support non-floating point matrices. For the above methods
-  // that involve matrices, either the input or the output is a non-float
-  // matrix. (except for 'asfloat' taking a float matrix and returning a float
-  // matrix, which is a no-op and is handled by the condition above).
-  if (TypeTranslator::isMxNMatrix(argType)) {
-    emitError("non-floating-point matrix type unimplemented",
-              callExpr->getExprLoc());
-    return 0;
-  }
 
   switch (numArgs) {
   case 1: {
     // Handling Method 1, 2, and 3.
-    return theBuilder.createUnaryOp(spv::Op::OpBitcast, returnTypeId,
-                                    doExpr(arg0));
+    const auto argId = doExpr(arg0);
+    QualType fromElemType = {};
+    uint32_t numRows = 0, numCols = 0;
+    // For non-matrix arguments (scalar or vector), just do an OpBitCast.
+    if (!TypeTranslator::isMxNMatrix(argType, &fromElemType, &numRows,
+                                     &numCols)) {
+      return theBuilder.createUnaryOp(spv::Op::OpBitcast, returnTypeId, argId);
+    }
+
+    // Input or output type is a matrix.
+    QualType toElemType = {};
+    (void)TypeTranslator::isMxNMatrix(returnType, &toElemType);
+    llvm::SmallVector<uint32_t, 4> castedRows;
+    const auto fromVecQualType = astContext.getExtVectorType(fromElemType, numCols);
+    const auto toVecQualType = astContext.getExtVectorType(toElemType, numCols);
+    const auto fromVecTypeId = typeTranslator.translateType(fromVecQualType);
+    const auto toVecTypeId = typeTranslator.translateType(toVecQualType);
+    for (uint32_t row = 0; row < numRows; ++row) {
+      const auto rowId =
+          theBuilder.createCompositeExtract(fromVecTypeId, argId, {row});
+      castedRows.push_back(
+          theBuilder.createUnaryOp(spv::Op::OpBitcast, toVecTypeId, rowId));
+    }
+    return theBuilder.createCompositeConstruct(returnTypeId, castedRows);
   }
   case 2: {
     const uint32_t lowbits = doExpr(arg0);
