@@ -2085,7 +2085,7 @@
                 <Value>NaN</Value>
                 <Value>-Inf</Value>
                 <Value>Inf</Value>
-                <Value>0x5800</Value>
+                <Value>0x5801</Value>
                 <Value>0</Value>
                 <Value>NaN</Value>
                 <Value>0.25</Value>
@@ -2126,7 +2126,7 @@
                 <Value>NaN</Value>
                 <Value>NaN</Value>
                 <Value>NaN</Value>
-                <Value>0</Value>
+                <Value>-0</Value>
                 <Value>0</Value>
                 <Value>0x1FFF</Value>
                 <Value>Inf</Value>
