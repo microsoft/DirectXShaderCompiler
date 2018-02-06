@@ -303,7 +303,7 @@ void PassManagerBuilder::populateModulePassManager(
     addHLSLPasses(HLSLHighLevel, OptLevel, HLSLExtensionsCodeGen, MPM);
     if (!HLSLHighLevel) {
       MPM.add(createMultiDimArrayToOneDimArrayPass());
-      MPM.add(createDxilCondenseResourcesPass());
+      MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilLegalizeSampleOffsetPass());
       MPM.add(createDxilFinalizeModulePass());
       MPM.add(createComputeViewIdStatePass());
@@ -575,7 +575,7 @@ void PassManagerBuilder::populateModulePassManager(
   // HLSL Change Begins.
   if (!HLSLHighLevel) {
     MPM.add(createMultiDimArrayToOneDimArrayPass());
-    MPM.add(createDxilCondenseResourcesPass());
+    MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDeadCodeEliminationPass());
     if (DisableUnrollLoops)
       MPM.add(createDxilLegalizeSampleOffsetPass());

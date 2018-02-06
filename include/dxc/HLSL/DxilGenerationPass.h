@@ -44,6 +44,7 @@ namespace llvm {
 /// \brief Create and return a pass that tranform the module into a DXIL module
 /// Note that this pass is designed for use with the legacy pass manager.
 ModulePass *createDxilCondenseResourcesPass();
+ModulePass *createDxilLowerCreateHandleForLibPass();
 ModulePass *createDxilEliminateOutputDynamicIndexingPass();
 ModulePass *createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper);
 ModulePass *createHLEmitMetadataPass();
@@ -68,6 +69,7 @@ ModulePass *createPausePassesPass();
 ModulePass *createResumePassesPass();
 
 void initializeDxilCondenseResourcesPass(llvm::PassRegistry&);
+void initializeDxilLowerCreateHandleForLibPass(llvm::PassRegistry&);
 void initializeDxilEliminateOutputDynamicIndexingPass(llvm::PassRegistry&);
 void initializeDxilGenerationPassPass(llvm::PassRegistry&);
 void initializeHLEnsureMetadataPass(llvm::PassRegistry&);

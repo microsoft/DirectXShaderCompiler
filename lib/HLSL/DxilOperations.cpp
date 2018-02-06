@@ -299,7 +299,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::CallShader,              "CallShader",               OCC::CallShader,               "callShader",                 false, false, false, false, false, false, false, false, false,  true, Attribute::None,     },
 
   // Library create handle from resource struct (like HL intrinsic)                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute
-  {  OC::CreateHandleFromResourceStructForLib, "CreateHandleFromResourceStructForLib", OCC::CreateHandleFromResourceStructForLib, "createHandleFromResourceStructForLib",  false, false, false, false, false, false, false, false, false,  true, Attribute::ReadNone, },
+  {  OC::CreateHandleFromResourceStructForLib, "CreateHandleFromResourceStructForLib", OCC::CreateHandleFromResourceStructForLib, "createHandleFromResourceStructForLib",  false, false, false, false, false, false, false, false, false,  true, Attribute::ReadOnly, },
 };
 // OPCODE-OLOADS:END
 

@@ -113,6 +113,7 @@ public:
   void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
 
   void RemoveUnusedResources();
+  void RemoveUnusedResourceSymbols();
   void RemoveFunction(llvm::Function *F);
 
   // Signatures.
