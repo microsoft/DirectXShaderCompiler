@@ -3222,7 +3222,7 @@ static void VerifyOutputWithExpectedValueFloat(
   }
 }
 
-static bool VerifyOutputWithExpectedValueFloatBool(
+static bool CompareOutputWithExpectedValueFloat(
     float output, float ref, LPCWSTR type, double tolerance,
     hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
   if (_wcsicmp(type, L"Relative") == 0) {
@@ -4843,9 +4843,9 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
          L"%6.8f, expected = %6.8f(%x) or %6.8f(%x)",
          i, p->input1, p->input2, p->output1, val1, *(int *)&val1, val2, *(int *)&val2);
        VERIFY_IS_TRUE(
-           VerifyOutputWithExpectedValueFloatBool(
+           CompareOutputWithExpectedValueFloat(
                p->output1, val1, Validation_Type, Validation_Tolerance, mode) ||
-           VerifyOutputWithExpectedValueFloatBool(
+           CompareOutputWithExpectedValueFloat(
                p->output1, val2, Validation_Type, Validation_Tolerance, mode));
     }
     else {
@@ -4889,7 +4889,7 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
 
   std::vector<WEX::Common::String> *Validation_Expected1 =
     &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
-
+  
   // two expected outputs for any mode
   std::vector<WEX::Common::String> *Validation_Expected2 =
     &(handler.GetTableParamByName(L"Validation.Expected2")->m_StringTable);
@@ -4957,9 +4957,9 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
             L"%6.8f, expected = %6.8f(%x) or %6.8f(%x)",
             i, p->input1, p->input2, p->input3, p->output, val1, *(int *)&val1, val2, *(int *)&val2);
         VERIFY_IS_TRUE(
-            VerifyOutputWithExpectedValueFloatBool(
+            CompareOutputWithExpectedValueFloat(
                 p->output, val1, Validation_Type, Validation_Tolerance, mode) ||
-            VerifyOutputWithExpectedValueFloatBool(
+            CompareOutputWithExpectedValueFloat(
                 p->output, val2, Validation_Type, Validation_Tolerance, mode));
     }
     else {
