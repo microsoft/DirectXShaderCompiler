@@ -356,18 +356,23 @@ const char *OP::GetOverloadTypeName(unsigned TypeSlot) {
   return m_OverloadTypeName[TypeSlot];
 }
 
-const char * OP::GetTypeName(Type *Ty, std::string &str) {
+llvm::StringRef OP::GetTypeName(Type *Ty, std::string &str) {
   unsigned TypeSlot = OP::GetTypeSlot(Ty);
   if (TypeSlot < kUserDefineTypeSlot) {
     return GetOverloadTypeName(TypeSlot);
+  } else if (TypeSlot == kUserDefineTypeSlot) {
+    if (Ty->isPointerTy())
+      Ty = Ty->getPointerElementType();
+    StructType *ST = cast<StructType>(Ty);
+    return ST->getStructName();
   } else if (TypeSlot == kObjectTypeSlot) {
     StructType *ST = cast<StructType>(Ty);
-    return ST->getStructName().data();
+    return ST->getStructName();
   } else {
     raw_string_ostream os(str);
     Ty->print(os);
     os.flush();
-    return str.c_str();
+    return str;
   }
 }
 
