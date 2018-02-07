@@ -1,9 +1,9 @@
 // RUN: %dxc -T lib_6_1 %s | FileCheck %s
 
 // Make sure createHandleFromResourceStructForLib is used for resource.
-// CHECK:call %dx.types.Handle @"dx.op.createHandleFromResourceStructForLib.%struct.ByteAddressBuffer*
-// CHECK:call %dx.types.Handle @"dx.op.createHandleFromResourceStructForLib.%struct.ByteAddressBuffer*
-// CHECK:call %dx.types.Handle @"dx.op.createHandleFromResourceStructForLib.%struct.RWByteAddressBuffer*
+// CHECK:call %dx.types.Handle @"dx.op.createHandleFromResourceStructForLib.%struct.ByteAddressBuffer
+// CHECK:call %dx.types.Handle @"dx.op.createHandleFromResourceStructForLib.%struct.ByteAddressBuffer
+// CHECK:call %dx.types.Handle @"dx.op.createHandleFromResourceStructForLib.%struct.RWByteAddressBuffer
 
 RWByteAddressBuffer outputBuffer : register(u0);
 ByteAddressBuffer ReadBuffer : register(t0);

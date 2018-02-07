@@ -741,8 +741,8 @@ TEST_F(ValidationTest, BarrierFail) {
 TEST_F(ValidationTest, CBufferLegacyOutOfBoundFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\cbuffer1.50.hlsl", "ps_6_0",
-      "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_buffer, i32 0)",
-      "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_buffer, i32 6)",
+      "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_cbuffer, i32 0)",
+      "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_cbuffer, i32 6)",
       "Cbuffer access out of bound");
 }
 

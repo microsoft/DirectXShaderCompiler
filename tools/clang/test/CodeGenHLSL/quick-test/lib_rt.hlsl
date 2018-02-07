@@ -46,18 +46,17 @@ struct MyParam {
 // CHECK: ; RTAS                              texture     i32         ras      T0             t5     1
 // CHECK: ; T                                 texture     f32          2d      T1             t1     1
 
-// CHECK: @RTAS_rangeID = external constant i32
-// CHECK: @T_rangeID = external constant i32
-// CHECK: @S_rangeID = external constant i32
+// CHECK:@"\01?RTAS@@3URaytracingAccelerationStructure@@A" = external global %struct.RaytracingAccelerationStructure, align 4
+// CHECK:@"\01?T@@3V?$Texture2D@V?$vector@M$03@@@@A" = external global %class.Texture2D, align 4
+// CHECK:@"\01?S@@3USamplerState@@A" = external global %struct.SamplerState, align 4
 
 RaytracingAccelerationStructure RTAS : register(t5);
 
 // CHECK: define void [[raygen1:@"\\01\?raygen1@[^\"]+"]]() {
-// CHECK:   [[RAWBUF_ID:[^ ]+]] = load i32, i32* @RTAS_rangeID
-// CHECK:   %RTAS_texture_rawbuf = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 [[RAWBUF_ID]], i32 0, i1 false)
-// CHECK:   call void {{.*}}RayDispatchIndex{{.*}}
-// CHECK:   call void {{.*}}RayDispatchDimension{{.*}}
-// CHECK:   call void {{.*}}TraceRay{{.*}}(%dx.types.Handle %RTAS_texture_rawbuf, i32 0, i32 0, i32 0, i32 1, i32 0, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.250000e-01, float {{.*}}, float {{.*}}, float {{.*}}, float 1.280000e+02, float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}}, i32* nonnull {{.*}}, i32* nonnull {{.*}})
+// CHECK:   call void {{.*}}rayDispatchIndex{{.*}}
+// CHECK:   call void {{.*}}rayDispatchDimension{{.*}}
+// CHECK:   call %dx.types.Handle @"dx.op.createHandleFromResourceStructForLib.%struct.RaytracingAccelerationStructure*"(i32 160, %struct.RaytracingAccelerationStructure* nonnull @"\01?RTAS@@3URaytracingAccelerationStructure@@A")
+// CHECK:   call void {{.*}}traceRay{{.*}}(%dx.types.Handle {{*.}}, i32 0, i32 0, i32 0, i32 1, i32 0, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.250000e-01, float {{.*}}, float {{.*}}, float {{.*}}, float 1.280000e+02, float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}}, i32* nonnull {{.*}}, i32* nonnull {{.*}})
 // CHECK:   ret void
 
 [shader("raygeneration")]
@@ -72,9 +71,8 @@ void raygen1()
 }
 
 // CHECK: define void [[intersection1:@"\\01\?intersection1@[^\"]+"]]() {
-// CHECK:   call void {{.*}}CurrentRayT{{.*}}(float* nonnull [[pCurrentRayT:%[^)]+]])
-// CHECK:   [[CurrentRayT:%[^ ]+]] = load float, float* [[pCurrentRayT]], align 4
-// CHECK:   call void {{.*}}ReportHit{{.*}}(float [[CurrentRayT]], i32 0, float 0.000000e+00, float 0.000000e+00, i32 0, i1* nonnull {{.*}})
+// CHECK:   [[CurrentRayT:%[^ ]+]] = call float {{.*}}currentRayT{{.*}}(i32 154)
+// CHECK:   call void {{.*}}ReportHit{{.*}}(i32 158, float [[CurrentRayT]], i32 0, float 0.000000e+00, float 0.000000e+00, i32 0, i1* nonnull {{.*}})
 // CHECK:   ret void
 
 [shader("intersection")]
