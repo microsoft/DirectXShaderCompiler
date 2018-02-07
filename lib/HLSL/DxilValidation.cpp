@@ -358,6 +358,7 @@ struct ValidationContext {
   unsigned domainLocSize;
   const unsigned kDxilControlFlowHintMDKind;
   const unsigned kDxilPreciseMDKind;
+  const unsigned kDxilNonUniformMDKind;
   const unsigned kLLVMLoopMDKind;
   bool m_bCoverageIn, m_bInnerCoverageIn;
   unsigned m_DxilMajor, m_DxilMinor;
@@ -371,10 +372,11 @@ struct ValidationContext {
             DxilMDHelper::kDxilControlFlowHintMDName)),
         kDxilPreciseMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilPreciseAttributeMDName)),
+        kDxilNonUniformMDKind(llvmModule.getContext().getMDKindID(
+            DxilMDHelper::kDxilNonUniformAttributeMDName)),
         kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
         DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1),
-        m_bCoverageIn(false), m_bInnerCoverageIn(false),
-        hasViewID(false) {
+        m_bCoverageIn(false), m_bInnerCoverageIn(false), hasViewID(false) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;
@@ -2373,6 +2375,7 @@ static void ValidateInstructionMetadata(Instruction *I,
       }
     } else if (MD.first == ValCtx.kDxilPreciseMDKind) {
       // Validated in IsPrecise.
+    } else if (MD.first == ValCtx.kDxilNonUniformMDKind) {
     } else if (MD.first == ValCtx.kLLVMLoopMDKind) {
       ValidateLoopMetadata(MD.second, ValCtx);
     } else if (MD.first == LLVMContext::MD_tbaa) {
