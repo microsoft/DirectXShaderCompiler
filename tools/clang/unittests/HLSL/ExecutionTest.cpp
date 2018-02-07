@@ -71,6 +71,7 @@ static const GUID D3D12ExperimentalShaderModelsID = { /* 76f5573e-f13a-40f5-b297
 using namespace DirectX;
 using namespace hlsl_test;
 
+
 template <typename TSequence, typename T>
 static bool contains(TSequence s, const T &val) {
   return std::cend(s) != std::find(std::cbegin(s), std::cend(s), val);
@@ -359,8 +360,9 @@ public:
     D3D_SHADER_MODEL_6_1 = 0x61,
     D3D_SHADER_MODEL_6_2 = 0x62
   } D3D_SHADER_MODEL;
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_2;
 
- dxc::DxcDllSupport m_support;
+  dxc::DxcDllSupport m_support;
   VersionSupportInfo m_ver;
   bool m_ExperimentalModeEnabled = false;
 
@@ -433,6 +435,7 @@ public:
 
   bool CreateDevice(_COM_Outptr_ ID3D12Device **ppDevice,
                     D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0) {
+    DXASSERT_NOMSG(testModel <= HIGHEST_SHADER_MODEL);
     const D3D_FEATURE_LEVEL FeatureLevelRequired = D3D_FEATURE_LEVEL_11_0;
     CComPtr<IDXGIFactory4> factory;
     CComPtr<ID3D12Device> pDevice;
@@ -477,10 +480,10 @@ public:
       } D3D12_FEATURE_DATA_SHADER_MODEL;
       const UINT D3D12_FEATURE_SHADER_MODEL = 7;
       D3D12_FEATURE_DATA_SHADER_MODEL SMData;
-      SMData.HighestShaderModel = D3D_SHADER_MODEL_6_0;
+      SMData.HighestShaderModel = HIGHEST_SHADER_MODEL;
       VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport(
         (D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL, &SMData, sizeof(SMData)));
-      if (SMData.HighestShaderModel != testModel) {
+      if (SMData.HighestShaderModel < testModel) {
         UINT minor = testModel & 0x0f;
         LogCommentFmt(L"The selected device does not support "
                       L"shader model 6.%1u", minor);
