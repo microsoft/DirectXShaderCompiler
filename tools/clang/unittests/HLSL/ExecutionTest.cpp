@@ -446,6 +446,7 @@ public:
       UINT minor = testModel & 0x0f;
       LogCommentFmt(L"Installed SDK does not support "
           L"shader model 6.%1u", minor);
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Blocked);
       return false;
     }
     const D3D_FEATURE_LEVEL FeatureLevelRequired = D3D_FEATURE_LEVEL_11_0;
