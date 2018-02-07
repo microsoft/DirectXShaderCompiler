@@ -1118,7 +1118,9 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       std::string version;
       llvm::raw_string_ostream versionStream(version);
       context.GetCompilerVersionInfo(versionStream);
-      optionTable->PrintHelp(helpStream, "dxc.exe", "HLSL Compiler", versionStream.str().c_str());
+      optionTable->PrintHelp(helpStream, "dxc.exe", "HLSL Compiler",
+                             versionStream.str().c_str(),
+                             dxcOpts.ShowHelpHidden);
       helpStream.flush();
       WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());
       return 0;

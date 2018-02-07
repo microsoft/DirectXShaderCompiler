@@ -134,6 +134,7 @@ public:
   bool OptDump; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings
   bool ShowHelp = false;  // OPT_help
+  bool ShowHelpHidden = false; // OPT__help_hidden
   bool UseColor; // OPT_Cc
   bool UseHexLiterals; // OPT_Lx
   bool UseInstructionByteOffsets; // OPT_No
