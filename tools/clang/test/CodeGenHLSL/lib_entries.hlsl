@@ -1,10 +1,15 @@
 // RUN: %dxc -T lib_6_1 %s | FileCheck %s
 
+
 // Make sure entry function exist.
 // CHECK: @cs_main()
 // Make sure signatures are lowered.
 // CHECK: dx.op.threadId
 // CHECK: dx.op.groupId
+
+
+// Make sure cloned function exist.
+// CHECK: @"\01?ps_main
 
 // Make sure entry function exist.
 // CHECK: @gs_main()
@@ -55,8 +60,6 @@
 // CHECK-NOT: call void @dx.op.storeOutput
 
 
-// Make sure cloned function exist.
-// CHECK: @"\01?ps_main
 
 
 // Make sure function entrys exist.
