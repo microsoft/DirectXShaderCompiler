@@ -48,6 +48,7 @@ const char DxilMDHelper::kDxilTypeSystemMDName[]                      = "dx.type
 const char DxilMDHelper::kDxilTypeSystemHelperVariablePrefix[]        = "dx.typevar.";
 const char DxilMDHelper::kDxilControlFlowHintMDName[]                 = "dx.controlflow.hints";
 const char DxilMDHelper::kDxilPreciseAttributeMDName[]                = "dx.precise";
+const char DxilMDHelper::kDxilNonUniformAttributeMDName[]             = "dx.nonuniform";
 const char DxilMDHelper::kHLDxilResourceAttributeMDName[]             = "dx.hl.resource.attribute";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";
 
@@ -1539,6 +1540,14 @@ bool DxilMDHelper::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
   return false;
 }
 
+void DxilMDHelper::combineDxilMetadata(llvm::Instruction *K,
+                                       const llvm::Instruction *J) {
+  if (IsMarkedNonUniform(J))
+    MarkNonUniform(K);
+  if (IsMarkedPrecise(J))
+    MarkPrecise(K);
+}
+
 ConstantAsMetadata *DxilMDHelper::Int32ToConstMD(int32_t v, LLVMContext &Ctx) {
   return ConstantAsMetadata::get(Constant::getIntegerValue(IntegerType::get(Ctx, 32), APInt(32, v)));
 }
@@ -1671,6 +1680,24 @@ void DxilMDHelper::MarkPrecise(Instruction *I) {
     { ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), 1)) });
 
   I->setMetadata(DxilMDHelper::kDxilPreciseAttributeMDName, preciseNode);
+}
+
+bool DxilMDHelper::IsMarkedNonUniform(const Instruction *inst) {
+  int32_t val = 0;
+  if (MDNode *precise = inst->getMetadata(kDxilNonUniformAttributeMDName)) {
+    assert(precise->getNumOperands() == 1);
+    val = ConstMDToInt32(precise->getOperand(0));
+  }
+  return val;
+}
+
+void DxilMDHelper::MarkNonUniform(Instruction *I) {
+  LLVMContext &Ctx = I->getContext();
+  MDNode *preciseNode = MDNode::get(
+    Ctx,
+    { ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), 1)) });
+
+  I->setMetadata(DxilMDHelper::kDxilNonUniformAttributeMDName, preciseNode);
 }
 
 } // namespace hlsl
