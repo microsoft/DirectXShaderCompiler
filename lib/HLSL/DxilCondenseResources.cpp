@@ -769,8 +769,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
   Value *resIDArg = hlslOP->GetU32Const(res.GetID());
   // resLowerBound will be added after allocation in DxilCondenseResources.
   Value *resLowerBound = hlslOP->GetU32Const(res.GetLowerBound());
-  // TODO: Set Non-uniform resource bit based on whether index comes from
-  // IOP_NonUniformResourceIndex.
+
   Value *isUniformRes = hlslOP->GetI1Const(0);
 
   Value *GV = res.GetGlobalSymbol();
@@ -851,16 +850,18 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
       }
 
       createHandleArgs[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] = idx;
-      //if (!NonUniformSet.count(idx))
-      //  createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
-      //      isUniformRes;
-      //else
-      //  createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
-      //      hlslOP->GetI1Const(1);
+
+      createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
+          isUniformRes;
 
       Value *handle = nullptr;
       if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
         IRBuilder<> Builder = IRBuilder<>(GEPInst);
+        if (DxilMDHelper::IsMarkedNonUniform(GEPInst)) {
+          // Mark nonUniform.
+          createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
+              hlslOP->GetI1Const(1);
+        }
         createHandleArgs[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
             Builder.CreateAdd(idx, resLowerBound);
         handle = Builder.CreateCall(createHandle, createHandleArgs, handleName);
