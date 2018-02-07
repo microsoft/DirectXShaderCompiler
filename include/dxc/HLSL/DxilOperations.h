@@ -147,7 +147,7 @@ private:
   static const char *m_MatrixTypePrefix;
   static unsigned GetTypeSlot(llvm::Type *pType);
   static const char *GetOverloadTypeName(unsigned TypeSlot);
-  static const char *GetTypeName(llvm::Type *Ty, std::string &str);
+  static llvm::StringRef GetTypeName(llvm::Type *Ty, std::string &str);
 };
 
 } // namespace hlsl
