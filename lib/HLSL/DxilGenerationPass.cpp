@@ -28,7 +28,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/PassManager.h"
@@ -83,14 +82,6 @@ public:
 };
 
 void SimplifyGlobalSymbol(GlobalVariable *GV) {
-  GlobalStatus GS;
-
-  if (GlobalStatus::analyzeGlobal(GV, GS))
-    return;
-  if (GS.StoredType == GS.NotStored || GS.StoredType == GS.InitializerStored) {
-    GV->setConstant(true);
-    GV->setInitializer(nullptr);
-  }
   Type *Ty = GV->getType()->getElementType();
   if (!Ty->isArrayTy()) {
     // Make sure only 1 load of GV in each function.
