@@ -3935,6 +3935,10 @@ bool SROA_Helper::IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys) {
 // SROA on function parameters.
 //===----------------------------------------------------------------------===//
 
+static void LegalizeDxilInputOutputs(Function *F,
+  DxilFunctionAnnotation *EntryAnnotation,
+  DxilTypeSystem &typeSys);
+
 namespace {
 class SROA_Parameter_HLSL : public ModulePass {
   HLModule *m_pHLModule;
@@ -3975,10 +3979,13 @@ public:
       if (F.getReturnType()->isVoidTy() && F.arg_size() == 0)
         continue;
 
-      // Skip library functions
+      // Skip library function, except to LegalizeDxilInputOutputs
       if (&F != m_pHLModule->GetEntryFunction() &&
-          !m_pHLModule->IsEntryThatUsesSignatures(&F))
+          !m_pHLModule->IsEntryThatUsesSignatures(&F)) {
+        if (!F.isDeclaration())
+          LegalizeDxilInputOutputs(&F, m_pHLModule->GetFunctionAnnotation(&F), m_pHLModule->GetTypeSystem());
         continue;
+      }
 
       WorkList.emplace_back(&F);
     }
