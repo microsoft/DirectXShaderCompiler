@@ -110,7 +110,7 @@ def add_test_case_denorm(test_name, inst_names, validation_type, validation_tole
                   output_lists_preserve, shader_target, shader_text, shader_arguments="-denorm preserve")
     # we can expect the same output for "any" and "preserve" mode. We should make sure that for validation zero are accepted outputs for denormal outputs.
     add_test_case(test_name + "Any", inst_names, validation_type, validation_tolerance, input_lists,
-                  output_lists_preserve, shader_target, shader_text, shader_arguments="-denorm any")
+                  output_lists_preserve + output_lists_ftz, shader_target, shader_text, shader_arguments="-denorm any")
 
 
 g_shader_texts = {
@@ -793,22 +793,22 @@ def add_test_cases():
     # Denorm Binary Float
     add_test_case_denorm('FAddDenorm', ['FAdd'], 'ulp', 1,
     [['0x007E0000', '0x00200000', '0x007E0000', '0x007E0000'],['0x007E0000','0x00200000', '0x807E0000', '0x800E0000']],
-    [['0x00FC0000','0', '0', '0']],
-    [['0x00FC0000','0', '0', '0x00700000']],
+    [['0','0', '0', '0']],
+    [['0x00FC0000','0x00400000', '0', '0x00700000']],
     'cs_6_2', get_shader_text("binary float", "+"))
     add_test_case_denorm('FSubDenorm', ['FSub'], 'ulp', 1,
     [['0x007E0000', '0x007F0000', '0x00FF0000', '0x007A0000'],['0x007E0000', '0x807F0000', '0x00800000', '0']],
-    [['0x0', '0x00FE0000', '0', '0']],
+    [['0x0', '0', '0', '0']],
     [['0x0', '0x00FE0000', '0x007F0000', '0x007A0000']],
     'cs_6_2', get_shader_text("binary float", "-"))
     add_test_case_denorm('FDivDenorm', ['FDiv'], 'ulp', 1,
     [['0x007F0000', '0x007F0000', '0x40000000', '0x00800000'],['1', '0x007F0000', '0x7F7F0000', '0x40000000']],
-    [['0', '1', '0', '0']],
+    [['0', 'NaN', '0', '0']],
     [['0x007F0000', '1', '0x00404040', '0x00400000']],
     'cs_6_2', get_shader_text("binary float", "/"))
     add_test_case_denorm('FMulDenorm', ['FMul'], 'ulp', 1,
     [['0x00000300', '0x007F0000', '0x007F0000', '0x001E0000', '0x00000300'],['128', '1', '0x007F0000', '20', '0x78000000']],
-    [['0', '0', '0', '0x01960000', '0x32400000']],
+    [['0', '0', '0', '0', '0']],
     [['0x00018000','0x007F0000', '0', '0x01960000', '0x32400000']],
     'cs_6_2', get_shader_text("binary float", "*"))
     # Tertiary Float
@@ -840,7 +840,7 @@ def add_test_cases():
     [['0x80780000', '0x80780000', '0x00780000'],
      ['1', '2', '2'],
      ['0x80780000', '0x00800000', '0x00800000']],
-    [['0', '0', '0x01380000']],
+    [['0', '0x00800000', '0x00800000']],
      [['0x80780000', '0x80700000', '0x01380000']],
                   'cs_6_2', get_shader_text("tertiary float", "mad"))
 
@@ -1528,12 +1528,12 @@ def generate_table_for_taef():
             ET.SubElement(
                 root, "Table", attrib={
                     "Id": "DenormBinaryFloatOpTable"
-                }), 2, 1)
+                }), 2, 2) # 2 sets of expected values for any mode
         generate_parameter_types(
             ET.SubElement(
                 root, "Table", attrib={
                     "Id": "DenormTertiaryFloatOpTable"
-                }), 3, 1)
+                }), 3, 2)
 
         for case in g_test_cases.values():
             cur_inst = case.insts[0]
