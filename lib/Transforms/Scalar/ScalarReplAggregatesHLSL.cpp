@@ -7001,18 +7001,23 @@ private:
 
   Type *m_HandleTy;
   HLModule *m_pHLM;
+  bool  m_bIsLib;
 };
 
 void ResourceToHandle::initialize(Module &M) {
   DXASSERT(M.HasHLModule(), "require HLModule");
   m_pHLM = &M.GetHLModule();
   m_HandleTy = m_pHLM->GetOP()->GetHandleType();
+  m_bIsLib = m_pHLM->GetShaderModel()->IsLib();
 }
 
 bool ResourceToHandle::needToLower(Value *V) {
   Type *Ty = V->getType()->getPointerElementType();
   Ty = dxilutil::GetArrayEltTy(Ty);
-  return (HLModule::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty));
+  return (HLModule::IsHLSLObjectType(Ty) &&
+          !HLModule::IsStreamOutputType(Ty)) &&
+         // Skip lib profile.
+         !m_bIsLib;
 }
 
 Type *ResourceToHandle::lowerType(Type *Ty) {
@@ -7079,7 +7084,16 @@ void ResourceToHandle::ReplaceResourceWithHandle(Value *ResPtr,
       // Remove resource Store.
       SI->eraseFromParent();
     } else {
-      DXASSERT(0, "invalid operation on resource");
+      CallInst *CI = cast<CallInst>(U);
+      IRBuilder<> Builder(CI);
+      HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+      // Allow user function to use res ptr as argument.
+      if (group == HLOpcodeGroup::NotHL) {
+          Value *TmpResPtr = Builder.CreateBitCast(HandlePtr, ResPtr->getType());
+          CI->replaceUsesOfWith(ResPtr, TmpResPtr);
+      } else {
+        DXASSERT(0, "invalid operation on resource");
+      }
     }
   }
 }

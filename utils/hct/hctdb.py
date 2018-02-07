@@ -1238,9 +1238,9 @@ class db_dxil(object):
             db_dxil_param(3, "udt", "Parameter", "User-defined parameters to pass to the callable shader,This parameter structure must match the parameter structure used in the callable shader pointed to in the shader table")])
         next_op_idx += 1
 
-        self.add_dxil_op("CreateHandleFromResourceStructForLib", next_op_idx, "CreateHandleFromResourceStructForLib", "create resource handle from resource struct for library", "u", "ro", [
+        self.add_dxil_op("CreateHandleFromResourceStructForLib", next_op_idx, "CreateHandleFromResourceStructForLib", "create resource handle from resource struct for library", "o", "ro", [
             db_dxil_param(0, "res", "", "result"),
-            db_dxil_param(2, "udt", "Resource", "resource to create the handle")])
+            db_dxil_param(2, "obj", "Resource", "resource to create the handle")])
         next_op_idx += 1
 
         # Set interesting properties.

@@ -189,6 +189,9 @@ public:
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
+    // Skip lib.
+    if (DM.GetShaderModel()->IsLib())
+      return false;
 
     // Remove unused resource.
     DM.RemoveUnusedResources();
@@ -445,7 +448,6 @@ private:
   DxilModule *m_DM;
   bool m_HasDbgInfo;
   bool m_bIsLib;
-
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilLowerCreateHandleForLib() : ModulePass(ID) {}
@@ -482,7 +484,6 @@ public:
 
     AllocateDxilResources(DM);
 
-    GenerateDxilCBufferHandles();
     GenerateDxilResourceHandles();
     AddCreateHandleForPhiNodeAndSelect(DM.GetOP());
 
@@ -503,8 +504,6 @@ private:
   void TranslateDxilResourceUses(DxilResourceBase &res);
   void GenerateDxilResourceHandles();
   void AddCreateHandleForPhiNodeAndSelect(OP *hlslOP);
-  // Generate DXIL cbuffer handles.
-  void GenerateDxilCBufferHandles();
   void UpdateStructTypeForLegacyLayout();
   // Switch CBuffer for SRV for TBuffers.
   void PatchTBuffers(DxilModule &DM);
@@ -718,11 +717,11 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
 // Lower createHandleForLib
 namespace {
 
-void ReplaceResourceUserWithHandle(LoadInst *Res, Value *handle) {
+void ReplaceResourceUserWithHandle(
+    LoadInst *Res, Value *handle) {
   for (auto resUser = Res->user_begin(); resUser != Res->user_end();) {
     CallInst *CI = dyn_cast<CallInst>(*(resUser++));
     DxilInst_CreateHandleFromResourceStructForLib createHandle(CI);
-
     DXASSERT(createHandle, "must be createHandle");
     CI->replaceAllUsesWith(handle);
     CI->eraseFromParent();
@@ -814,12 +813,11 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     if (user->user_empty())
       continue;
 
-    if (CallInst *CI = dyn_cast<CallInst>(user)) {
-      Function *userF = CI->getParent()->getParent();
+    if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
+      Function *userF = ldInst->getParent()->getParent();
       DXASSERT(handleMapOnFunction.count(userF), "must exist");
       Value *handle = handleMapOnFunction[userF];
-      CI->replaceAllUsesWith(handle);
-      CI->eraseFromParent();
+      ReplaceResourceUserWithHandle(ldInst, handle);
     } else {
       DXASSERT(dyn_cast<GEPOperator>(user) != nullptr,
                "else AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
@@ -832,16 +830,16 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
       } else {
         gep_type_iterator GEPIt = gep_type_begin(GEP), E = gep_type_end(GEP);
         // Must be instruction for multi dim array.
-        std::unique_ptr<IRBuilder<>> Builder;
+        std::unique_ptr<IRBuilder<> > Builder;
         if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
-          Builder = std::make_unique<IRBuilder<>>(GEPInst);
+          Builder = std::make_unique<IRBuilder<> >(GEPInst);
         } else {
-          Builder = std::make_unique<IRBuilder<>>(GV->getContext());
+          Builder = std::make_unique<IRBuilder<> >(GV->getContext());
         }
         for (; GEPIt != E; ++GEPIt) {
           if (GEPIt->isArrayTy()) {
             unsigned arraySize = GEPIt->getArrayNumElements();
-            Value *tmpIdx = GEPIt.getOperand();
+            Value * tmpIdx = GEPIt.getOperand();
             if (idx == nullptr)
               idx = tmpIdx;
             else {
@@ -851,11 +849,12 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
           }
         }
       }
+
       createHandleArgs[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] = idx;
-      // if (!NonUniformSet.count(idx))
+      //if (!NonUniformSet.count(idx))
       //  createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
       //      isUniformRes;
-      // else
+      //else
       //  createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
       //      hlslOP->GetI1Const(1);
 
@@ -870,18 +869,17 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
       for (auto GEPU = GEP->user_begin(), GEPE = GEP->user_end();
            GEPU != GEPE;) {
         // Must be load inst.
-        CallInst *CI = cast<CallInst>(*(GEPU++));
-        if (!handle) {
-          IRBuilder<> Builder = IRBuilder<>(CI);
+        LoadInst *ldInst = cast<LoadInst>(*(GEPU++));
+        if (handle) {
+          ReplaceResourceUserWithHandle(ldInst, handle);
+        } else {
+          IRBuilder<> Builder = IRBuilder<>(ldInst);
           createHandleArgs[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
               Builder.CreateAdd(idx, resLowerBound);
           Value *localHandle =
               Builder.CreateCall(createHandle, createHandleArgs, handleName);
-          CI->replaceAllUsesWith(localHandle);
-        } else {
-          CI->replaceAllUsesWith(handle);
+          ReplaceResourceUserWithHandle(ldInst, localHandle);
         }
-        CI->eraseFromParent();
       }
 
       if (Instruction *I = dyn_cast<Instruction>(GEP)) {
@@ -898,6 +896,10 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
 }
 
 void DxilLowerCreateHandleForLib::GenerateDxilResourceHandles() {
+  for (size_t i = 0; i < m_DM->GetCBuffers().size(); i++) {
+    DxilCBuffer &C = m_DM->GetCBuffer(i);
+    TranslateDxilResourceUses(C);
+  }
   // Create sampler handle first, may be used by SRV operations.
   for (size_t i = 0; i < m_DM->GetSamplers().size(); i++) {
     DxilSampler &S = m_DM->GetSampler(i);
@@ -912,102 +914,6 @@ void DxilLowerCreateHandleForLib::GenerateDxilResourceHandles() {
   for (size_t i = 0; i < m_DM->GetUAVs().size(); i++) {
     DxilResource &UAV = m_DM->GetUAV(i);
     TranslateDxilResourceUses(UAV);
-  }
-}
-
-void DxilLowerCreateHandleForLib::GenerateDxilCBufferHandles() {
-  // For CBuffer, handle are mapped to HLCreateHandle.
-  OP *hlslOP = m_DM->GetOP();
-  Function *createHandle = hlslOP->GetOpFunc(
-      OP::OpCode::CreateHandle, llvm::Type::getVoidTy(m_DM->GetCtx()));
-  Value *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CreateHandle);
-
-  Value *resClassArg = hlslOP->GetU8Const(
-      static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
-          DXIL::ResourceClass::CBuffer));
-
-  for (size_t i = 0; i < m_DM->GetCBuffers().size(); i++) {
-    DxilCBuffer &CB = m_DM->GetCBuffer(i);
-    GlobalVariable *GV = cast<GlobalVariable>(CB.GetGlobalSymbol());
-    // Remove GEP created in HLObjectOperationLowerHelper::UniformCbPtr.
-    GV->removeDeadConstantUsers();
-    std::string handleName = std::string(GV->getName()) + "_buffer";
-
-    Value *args[] = {opArg, resClassArg, nullptr, nullptr,
-                     hlslOP->GetI1Const(0)};
-    DIVariable *DIV = nullptr;
-    DILocation *DL = nullptr;
-    if (m_HasDbgInfo) {
-      DebugInfoFinder &Finder = m_DM->GetOrCreateDebugInfoFinder();
-      DIV = FindGlobalVariableDebugInfo(GV, Finder);
-      if (DIV)
-        // TODO: how to get col?
-        DL = DILocation::get(createHandle->getContext(), DIV->getLine(), 1,
-                             DIV->getScope());
-    }
-
-    Value *resIDArg = hlslOP->GetU32Const(CB.GetID());
-    args[DXIL::OperandIndex::kCreateHandleResIDOpIdx] = resIDArg;
-
-    // resLowerBound will be added after allocation in DxilCondenseResources.
-    Value *resLowerBound = hlslOP->GetU32Const(CB.GetLowerBound());
-
-    if (CB.GetRangeSize() == 1) {
-      args[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] = resLowerBound;
-      for (auto U = GV->user_begin(); U != GV->user_end();) {
-        // Must CreateHandleForLib.
-        CallInst *CI = cast<CallInst>(*(U++));
-        DxilInst_CreateHandleFromResourceStructForLib createHandleForLib(CI);
-        // Put createHandle to entry block.
-        auto InsertPt =
-            CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt();
-        IRBuilder<> Builder(InsertPt);
-
-        CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
-        if (m_HasDbgInfo) {
-          // TODO: add debug info.
-          // handle->setDebugLoc(DL);
-        }
-        CI->replaceAllUsesWith(handle);
-        CI->eraseFromParent();
-      }
-    } else {
-      for (auto U = GV->user_begin(); U != GV->user_end();) {
-        // Must GEP
-        GEPOperator *GEP = cast<GEPOperator>(*(U++));
-        DXASSERT(GEP->getNumIndices() == 2, "else invalid cbv array ptr");
-        auto *it = GEP->idx_begin();
-        it++;
-        Value *CBIndex = *it;
-        for (auto GEPU = GEP->user_begin(); GEPU != GEP->user_end();) {
-          CallInst *CI = cast<CallInst>(*(GEPU++));
-          IRBuilder<> Builder(CI);
-          args[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
-              Builder.CreateAdd(CBIndex, resLowerBound);
-          if (isa<ConstantInt>(CBIndex)) {
-            // Put createHandle to entry block for const index.
-            auto InsertPt = CI->getParent()
-                                ->getParent()
-                                ->getEntryBlock()
-                                .getFirstInsertionPt();
-            Builder.SetInsertPoint(InsertPt);
-          }
-          // if (!NonUniformSet.count(CBIndex))
-          //  args[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
-          //      hlslOP->GetI1Const(0);
-          // else
-          //  args[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
-          //      hlslOP->GetI1Const(1);
-
-          CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
-          CI->replaceAllUsesWith(handle);
-          CI->eraseFromParent();
-        }
-        if (Instruction *I = dyn_cast<Instruction>(GEP)) {
-          I->eraseFromParent();
-        }
-      }
-    }
   }
 }
 
@@ -1421,6 +1327,7 @@ void DxilLowerCreateHandleForLib::AddCreateHandleForPhiNodeAndSelect(
     Res->eraseFromParent();
   }
 }
+
 } // namespace
 
 char DxilLowerCreateHandleForLib::ID = 0;
