@@ -360,7 +360,7 @@ const char * OP::GetTypeName(Type *Ty, std::string &str) {
   unsigned TypeSlot = OP::GetTypeSlot(Ty);
   if (TypeSlot < kUserDefineTypeSlot) {
     return GetOverloadTypeName(TypeSlot);
-  } else if (TypeSlot = kObjectTypeSlot) {
+  } else if (TypeSlot == kObjectTypeSlot) {
     StructType *ST = cast<StructType>(Ty);
     return ST->getStructName().data();
   } else {
