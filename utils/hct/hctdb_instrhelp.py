@@ -350,7 +350,7 @@ class db_oload_gen:
 
     def print_opfunc_props(self):
         print("const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {")
-        print("//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute")
+        print("//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,  function attribute")
         # Example formatted string:
         #   {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",                false,  true,  true, false,  true, false,  true,  true, false, Attribute::ReadOnly, },
         # 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
@@ -367,11 +367,11 @@ class db_oload_gen:
             if last_category != i.category:
                 if last_category != None:
                     print("")
-                print("  // {category:118} void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  function attribute".format(category=i.category))
+                print("  // {category:118} void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute".format(category=i.category))
                 last_category = i.category
-            print("  {{  OC::{name:24} {quotName:27} OCC::{className:25} {classNameQuot:28} {v:>7}{h:>7}{f:>7}{d:>7}{b:>7}{e:>7}{w:>7}{i:>7}{l:>7}{u:>7} {attr:20} }},".format(
+            print("  {{  OC::{name:24} {quotName:27} OCC::{className:25} {classNameQuot:28} {v:>7}{h:>7}{f:>7}{d:>7}{b:>7}{e:>7}{w:>7}{i:>7}{l:>7}{u:>7}{o:>7} {attr:20} }},".format(
                 name=i.name+",", quotName='"'+i.name+'",', className=i.dxil_class+",", classNameQuot='"'+lower_fn(i.dxil_class)+'",',
-                v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), u=f(i,"u"), attr=attr_fn(i)))
+                v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), u=f(i,"u"), o=f(i,"o"), attr=attr_fn(i)))
         print("};")
 
     def print_opfunc_table(self):
@@ -405,6 +405,7 @@ class db_oload_gen:
             "w": "A(pWav);",
             "SamplePos": "A(pPos);",
             "udt": "A(udt);",
+            "obj": "A(obj);",
         }
         last_category = None
         for i in self.instrs:
@@ -430,6 +431,7 @@ class db_oload_gen:
         res_ret_ty = "$r"
         cb_ret_ty = "$cb"
         udt_ty = "udt"
+        obj_ty = "obj"
 
         last_category = None
 
@@ -471,7 +473,7 @@ class db_oload_gen:
                         index_dict[index].append(instr.name)
                     in_param_ty = True
                     break
-                if (op_type == udt_ty):
+                if (op_type == udt_ty or op_type == obj_ty):
                     # Skip return op
                     index = index - 1
                     if index not in index_dict:
@@ -498,6 +500,7 @@ class db_oload_gen:
             "l": "IntegerType::get(m_Ctx, 64)",
             "v": "Type::getVoidTy(m_Ctx)",
             "u": "Type::getInt32PtrTy(m_Ctx)",
+            "o": "Type::getInt32PtrTy(m_Ctx)",
             }
             assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
             ty_code = type_code_texts[ty]
