@@ -117,7 +117,8 @@ private:
   DXIL::LowPrecisionMode m_LowPrecisionMode;
 
   static const unsigned kUserDefineTypeSlot = 9;
-  static const unsigned kNumTypeOverloads = 10; // void, h,f,d, i1, i8,i16,i32,i64, udt
+  static const unsigned kObjectTypeSlot = 10;
+  static const unsigned kNumTypeOverloads = 11; // void, h,f,d, i1, i8,i16,i32,i64, udt, obj
 
   llvm::Type *m_pResRetType[kNumTypeOverloads];
   llvm::Type *m_pCBufferRetType[kNumTypeOverloads];

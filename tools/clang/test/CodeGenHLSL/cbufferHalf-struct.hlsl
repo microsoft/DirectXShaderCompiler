@@ -114,43 +114,43 @@ ConstantBuffer<Bar> b : register(b1);
 
 float4 main() : SV_Target  {
   return f.h1 + f.f3.x
-  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %f_buffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %f_cbuffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 0
-  // CHECK: call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %f_buffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %f_cbuffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f32 {{%[0-9]+}}, 1
   + f.h2.x + f.h2.y + f.f3_1.z
-  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %f_buffer, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %f_cbuffer, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 0
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 1
-  // CHECK: call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %f_buffer, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %f_cbuffer, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f32 {{%[0-9]+}}, 3
   + f.f2.x + f.h4.x + f.h4.y + f.h4.z + f.h4.w
-  // CHECK: call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %f_buffer, i32 2)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %f_cbuffer, i32 2)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f32 {{%[0-9]+}}, 0
-  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %f_buffer, i32 2)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %f_cbuffer, i32 2)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 4
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 5
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 6
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 7
   + f.h2_1.x + f.h2_1.y + f.h3.x + f.h3.y + f.h3.z
-  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %f_buffer, i32 3)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %f_cbuffer, i32 3)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 0
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 1
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 2
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 3
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 4
   + f.d1 + f.h3_1.x
-  // CHECK: call %dx.types.CBufRet.f64 @dx.op.cbufferLoadLegacy.f64(i32 59, %dx.types.Handle %f_buffer, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f64 @dx.op.cbufferLoadLegacy.f64(i32 59, %dx.types.Handle %f_cbuffer, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f64 {{%[0-9]+}}, 0
-  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %f_buffer, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %f_cbuffer, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 4
   + f.i1 + f.d2
-  // CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32 59, %dx.types.Handle %f_buffer, i32 5)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(i32 59, %dx.types.Handle %f_cbuffer, i32 5)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.i32 {{%[0-9]+}}, 0
-  // CHECK: call %dx.types.CBufRet.f64 @dx.op.cbufferLoadLegacy.f64(i32 59, %dx.types.Handle %f_buffer, i32 5)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f64 @dx.op.cbufferLoadLegacy.f64(i32 59, %dx.types.Handle %f_cbuffer, i32 5)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f64 {{%[0-9]+}}, 1
   + b.h1 + b.h2 + b.h3 + b.h4.x + b.h5.y + b.h5.x + b.h5.y + b.h5.z +
-  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_buffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_cbuffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 0
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 1
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 2
@@ -159,7 +159,7 @@ float4 main() : SV_Target  {
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 5
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 7
   + b.h6.x + b.h6.y + b.h6.z + b.h7.x + b.h7.y + b.h7.z + b.h7.w + b.h8
-  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_buffer, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_cbuffer, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 0
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 1
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 2
@@ -169,7 +169,7 @@ float4 main() : SV_Target  {
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 6
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 7
   + b.h9.x + b.h9.y + b.h9.z + b.h9.w + b.h10.x + b.h10.y + b.h10.z
-  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_buffer, i32 2)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_cbuffer, i32 2)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 0
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 1
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 2
@@ -178,7 +178,7 @@ float4 main() : SV_Target  {
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 5
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 6
   + b.h11.x + b.h11.y + b.h12.x + b.h12.y + b.h12.z + b.h13.x + b.h13.y + b.h14
-  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_buffer, i32 3)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_cbuffer, i32 3)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 0
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 1
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 2
@@ -187,7 +187,7 @@ float4 main() : SV_Target  {
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 5
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 6
   + b.h16 + b.h17 + b.h18 + b.h19 + b.h20 + b.h21 + b.h22 + b.h23;
-  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_buffer, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
+  // CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %b_cbuffer, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 0
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 1
   // CHECK: extractvalue %dx.types.CBufRet.f16.8 {{%[0-9]+}}, 2
