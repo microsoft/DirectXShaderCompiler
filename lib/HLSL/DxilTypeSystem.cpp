@@ -318,7 +318,7 @@ void DxilTypeSystem::CopyFunctionAnnotation(const llvm::Function *pDstFunction,
 
   // Copy the annotation.
   *dstAnnot = *annot;
-
+  dstAnnot->m_pFunction = pDstFunction;
   // Clone ret type annotation.
   CopyTypeAnnotation(pDstFunction->getReturnType(), src);
   // Clone param type annotations.
