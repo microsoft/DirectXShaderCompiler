@@ -406,6 +406,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DisassembleInstNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID, false);
   opts.DisassembleByteOffset = Args.hasFlag(OPT_No, OPT_INVALID, false);
   opts.DisaseembleHex = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
+  opts.ExpandTokPasteArg = Args.hasFlag(OPT_fexpand_token_pasting_operand, OPT_INVALID, false);
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";

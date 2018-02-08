@@ -152,6 +152,8 @@ public:
   bool DisassembleInstNumbers; //OPT_Ni
   bool DisassembleByteOffset; //OPT_No
   bool DisaseembleHex; //OPT_Lx
+  bool ExpandTokPasteArg; // OPT_fexpand_token_pasting_operand
+
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();
 

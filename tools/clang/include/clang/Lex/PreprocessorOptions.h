@@ -58,6 +58,8 @@ public:
   // HLSL Change Begin - ignore line directives.
   /// \brief Whether we should ignore #line directives.
   unsigned IgnoreLineDirectives : 1;
+  /// \brief Expand the operands before performing token-pasting (fxc behavior)
+  unsigned ExpandTokPastingArg : 1;
   // HLSL Change End
 
   /// The implicit PCH included at the start of the translation unit, or empty.

@@ -420,6 +420,8 @@ public:
         compiler.getCodeGenOpts().HLSLValidatorMinorVer = minorVer;
       }
 
+      compiler.getPreprocessorOpts().ExpandTokPastingArg = opts.ExpandTokPasteArg;
+
       if (opts.AstDump) {
         clang::ASTDumpAction dumpAction;
         // Consider - ASTDumpFilter, ASTDumpLookups
