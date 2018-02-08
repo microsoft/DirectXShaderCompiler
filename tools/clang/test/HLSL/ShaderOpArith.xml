@@ -533,6 +533,69 @@
       ]]>
     </Shader>
   </ShaderOp>
+
+  <ShaderOp Name="Barycentrics" PS="PS" VS="VS">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)</RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes" ReadBack="true">
+        { {   0.0f,  1.0f , 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { {   1.0f, -1.0f , 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { {  -1.0f, -1.0f , 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+      </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="5120" Height="9600" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="COLOR" Format="R32G32B32A32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget" />
+    </RenderTargets>
+    <Shader Name="VS" Target="vs_6_1">
+      <![CDATA[
+      struct PSInput {
+        float4 position : SV_POSITION;
+        float4 color : COLOR;
+      };
+      PSInput main(float4 position : POSITION, float4 color : COLOR) {
+        PSInput result;
+        result.position = position;
+        result.color = color;
+        return result;
+      }
+      /* For Tier 2
+      struct PSInput {
+        nointerpolation float4 color : COLOR;
+      };
+      PSInput main(float4 position : POSITION, float4 color : COLOR) {
+        PSInput result;
+        result.color = color;
+        return result;
+      }
+      */
+      ]]>
+    </Shader>
+    <Shader Name="PS" Target="ps_6_1">
+      <![CDATA[
+      struct PSInput {
+        float4 position : SV_POSITION;
+        float4 color : COLOR;
+      };
+      float4 main(PSInput input, float3 bary : SV_Barycentrics) : SV_TARGET {
+        return float4(bary, 1);
+      }
+      /* For Tier 2
+      float4 main(PSInput input, float3 bary : SV_Barycentrics) : SV_Target {
+        float4 vColor0 = GetAttributeAtVertex(input.color, 0);
+        float4 vColor1 = GetAttributeAtVertex(input.color, 1);
+        float4 vColor2 = GetAttributeAtVertex(input.color, 2);
+        return bary.x * vColor0 + bary.y * vColor1 + bary.z * vColor2;
+      }
+      */
+      ]]>
+    </Shader>
+  </ShaderOp>
   <!--
   TODO: Dynamically index into tables
   -->

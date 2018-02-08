@@ -215,6 +215,57 @@ bool IsValidWarpDllVersion(unsigned int minBuildNumber) {
     return false;
 }
 
+#if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS2
+#define D3D12_FEATURE_D3D12_OPTIONS3 ((D3D12_FEATURE)21)
+#define NTDDI_WIN10_RS3                     0x0A000004  /* ABRACADABRA_WIN10_RS2 */
+typedef
+enum D3D12_COMMAND_LIST_SUPPORT_FLAGS
+{
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_NONE = 0,
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_DIRECT = (1 << D3D12_COMMAND_LIST_TYPE_DIRECT),
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_BUNDLE = (1 << D3D12_COMMAND_LIST_TYPE_BUNDLE),
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_COMPUTE = (1 << D3D12_COMMAND_LIST_TYPE_COMPUTE),
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_COPY = (1 << D3D12_COMMAND_LIST_TYPE_COPY),
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_DECODE = (1 << 4),
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_PROCESS = (1 << 5)
+} 	D3D12_COMMAND_LIST_SUPPORT_FLAGS;
+
+typedef
+enum D3D12_VIEW_INSTANCING_TIER
+{
+  D3D12_VIEW_INSTANCING_TIER_NOT_SUPPORTED = 0,
+  D3D12_VIEW_INSTANCING_TIER_1 = 1,
+  D3D12_VIEW_INSTANCING_TIER_2 = 2,
+  D3D12_VIEW_INSTANCING_TIER_3 = 3
+} 	D3D12_VIEW_INSTANCING_TIER;
+
+typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS3
+{
+  _Out_  BOOL CopyQueueTimestampQueriesSupported;
+  _Out_  BOOL CastingFullyTypedFormatSupported;
+  _Out_  DWORD WriteBufferImmediateSupportFlags;
+  _Out_  D3D12_VIEW_INSTANCING_TIER ViewInstancingTier;
+  _Out_  BOOL BarycentricsSupported;
+} 	D3D12_FEATURE_DATA_D3D12_OPTIONS3;
+#endif
+
+#if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS3
+#define D3D12_FEATURE_D3D12_OPTIONS4 ((D3D12_FEATURE)23)
+typedef enum D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER
+{
+    D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER_0,
+    D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER_1,
+} D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER;
+
+typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS4
+{
+    _Out_ BOOL ReservedBufferPlacementSupported;
+    _Out_ D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER SharedResourceCompatibilityTier;
+    _Out_ BOOL Native16BitShaderOpsSupported;
+} D3D12_FEATURE_DATA_D3D12_OPTIONS4;
+
+#endif
+
 // Virtual class to compute the expected result given a set of inputs
 struct TableParameter;
 
@@ -350,6 +401,10 @@ public:
   BEGIN_TEST_METHOD(DenormTertiaryFloatOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#DenormTertiaryFloatOpTable")
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(BarycentricsTest)
+    TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   // This is defined in d3d.h for Windows 10 Anniversary Edition SDK, but we only
@@ -5526,6 +5581,69 @@ TEST_F(ExecutionTest, CBufferTestHalf) {
     VERIFY_ARE_EQUAL(third, InputData[2]);
     VERIFY_ARE_EQUAL(fourth, InputData[3]);
   }
+}
+
+TEST_F(ExecutionTest, BarycentricsTest) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_1))
+        return;
+    // TODO: check feature support for different tier. This test does not assume vertex ordering and only tests SV_Barycentrics yet
+    // Split this test into 2 for different tiers.
+
+    // Tier 1: Index 0-2 for GetAttributeAtVertex returns values for three different vertices
+    // Tier 2: Match the provoking vertex (index 0 is a provoking vertex)
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "Barycentrics", nullptr);
+    MappedData data;
+    D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
+    UINT width = (UINT64)D.Width;
+    UINT height = (UINT64)D.Height;
+    UINT pixelSize = GetByteSizeForFormat(D.Format);
+
+    test->Test->GetReadBackData("RTarget", &data);
+    //const uint8_t *pPixels = (uint8_t *)data.data();
+    const float *pPixels = (float *)data.data();
+    // Get the vertex of barycentric coordinate using VBuffer
+    MappedData triangleData;
+    test->Test->GetReadBackData("VBuffer", &triangleData);
+    const float *pTriangleData = (float*)triangleData.data();
+    // get the size of the input data
+    unsigned triangleVertexSizeInFloat = 0;
+    for (auto element : test->ShaderOp->InputElements)
+        triangleVertexSizeInFloat += GetByteSizeForFormat(element.Format) / 4;
+
+    XMFLOAT2 p0(pTriangleData[0], pTriangleData[1]);
+    XMFLOAT2 p1(pTriangleData[triangleVertexSizeInFloat], pTriangleData[triangleVertexSizeInFloat + 1]);
+    XMFLOAT2 p2(pTriangleData[triangleVertexSizeInFloat * 2], pTriangleData[triangleVertexSizeInFloat * 2 + 1]);
+
+    XMFLOAT3 barycentricWeights[4] = {
+        XMFLOAT3(0.3333f, 0.3333f, 0.3333f),
+        XMFLOAT3(0.5f, 0.25f, 0.25f),
+        XMFLOAT3(0.25f, 0.5f, 0.25f),
+        XMFLOAT3(0.25f, 0.25f, 0.50f)
+    };
+
+    float tolerance = 0.001f;
+    for (unsigned i = 0; i < sizeof(barycentricWeights) / sizeof(XMFLOAT3); ++i) {
+        float w0 = barycentricWeights[i].x;
+        float w1 = barycentricWeights[i].y;
+        float w2 = barycentricWeights[i].z;
+        float x1 = w0 * p0.x + w1 * p1.x + w2 * p2.x;
+        float y1 = w0 * p0.y + w1 * p1.y + w2 * p2.y;
+        // map from x1 y1 to rtv pixels
+        int pixelX = (x1 + 1) * (width - 1) / 2;
+        int pixelY = (1 - y1) * (height - 1) / 2;
+        int offset = pixelSize * (pixelX + pixelY * width) / sizeof(pPixels[0]);
+        LogCommentFmt(L"location  %u %u, value %f, %f, %f", pixelX, pixelY, pPixels[offset], pPixels[offset + 1], pPixels[offset + 2]);
+        VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset], w0, tolerance));
+        VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset + 1], w1, tolerance));
+        VERIFY_IS_TRUE(CompareFloatEpsilon(pPixels[offset + 2], w2, tolerance));
+    }
+    //SavePixelsToFile(pPixels, DXGI_FORMAT_R32G32B32A32_FLOAT, width, height, L"barycentric.bmp");
 }
 
 #ifndef _HLK_CONF
