@@ -339,6 +339,43 @@ private:
   /// Processes the 'mul' intrinsic function.
   uint32_t processIntrinsicMul(const CallExpr *);
 
+  /// Transposes a non-floating point matrix and returns the result-id of the
+  /// transpose.
+  uint32_t processNonFpMatrixTranspose(QualType matType, uint32_t matId);
+
+  /// Processes the dot product of two non-floating point vectors. The SPIR-V
+  /// OpDot only accepts float vectors. Assumes that the two vectors are of the
+  /// same size and have the same element type (elemType).
+  uint32_t processNonFpDot(uint32_t vec1Id, uint32_t vec2Id, uint32_t vecSize,
+                           QualType elemType);
+
+  /// Processes the multiplication of a *non-floating point* matrix by a scalar.
+  /// Assumes that the matrix element type and the scalar type are the same.
+  uint32_t processNonFpScalarTimesMatrix(QualType scalarType, uint32_t scalarId,
+                                         QualType matType, uint32_t matId);
+
+  /// Processes the multiplication of a *non-floating point* matrix by a vector.
+  /// Assumes the matrix element type and the vector element type are the same.
+  /// Notice that the vector in this case is a "row vector" and will be
+  /// multiplied by the matrix columns (dot product). As a result, the given
+  /// matrix must be transposed in order to easily get each column. If
+  /// 'matTransposeId' is non-zero, it will be used as the transpose matrix
+  /// result-id; otherwise the function will perform the transpose itself.
+  uint32_t processNonFpVectorTimesMatrix(QualType vecType, uint32_t vecId,
+                                         QualType matType, uint32_t matId,
+                                         uint32_t matTransposeId = 0);
+
+  /// Processes the multiplication of a vector by a *non-floating point* matrix.
+  /// Assumes the matrix element type and the vector element type are the same.
+  uint32_t processNonFpMatrixTimesVector(QualType matType, uint32_t matId,
+                                         QualType vecType, uint32_t vecId);
+
+  /// Processes a non-floating point matrix multiplication. Assumes that the
+  /// number of columns in lhs matrix is the same as number of rows in the rhs
+  /// matrix. Also assumes that the two matrices have the same element type.
+  uint32_t processNonFpMatrixTimesMatrix(QualType lhsType, uint32_t lhsId,
+                                         QualType rhsType, uint32_t rhsId);
+
   /// Processes the 'dot' intrinsic function.
   uint32_t processIntrinsicDot(const CallExpr *);
 

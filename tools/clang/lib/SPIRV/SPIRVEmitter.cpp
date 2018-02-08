@@ -5504,7 +5504,6 @@ uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
     uint32_t rowCount = 0, colCount = 0;
     if (TypeTranslator::isMxNMatrix(fromType, &elemType, &rowCount,
                                     &colCount)) {
-      // EHSAN: TODO
       const auto fromRowQualType =
           astContext.getExtVectorType(elemType, colCount);
       const auto toBoolRowQualType =
@@ -5609,6 +5608,36 @@ uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
 
   if (isFloatOrVecOfFloatType(fromType)) {
     return theBuilder.createUnaryOp(spv::Op::OpFConvert, floatType, fromVal);
+  }
+
+  // Casting matrix types
+  {
+    QualType elemType = {};
+    uint32_t numRows = 0, numCols = 0;
+    if (TypeTranslator::isMxNMatrix(fromType, &elemType, &numRows, &numCols)) {
+      // The source matrix and the target matrix must have the same dimensions.
+      QualType toElemType = {};
+      uint32_t toNumRows = 0, toNumCols = 0;
+      const bool toMatType = TypeTranslator::isMxNMatrix(
+          toFloatType, &toElemType, &toNumRows, &toNumCols);
+      assert(toMatType && numRows == toNumRows && numCols == toNumCols);
+
+      // Casting to a matrix of integers: Cast each row and construct a
+      // composite.
+      llvm::SmallVector<uint32_t, 4> castedRows;
+      const uint32_t vecType = typeTranslator.getComponentVectorType(fromType);
+      const auto fromVecQualType =
+          astContext.getExtVectorType(elemType, numCols);
+      const auto toIntVecQualType =
+          astContext.getExtVectorType(toElemType, numCols);
+      for (uint32_t row = 0; row < numRows; ++row) {
+        const auto rowId =
+            theBuilder.createCompositeExtract(vecType, fromVal, {row});
+        castedRows.push_back(
+            castToFloat(rowId, fromVecQualType, toIntVecQualType, srcLoc));
+      }
+      return theBuilder.createCompositeConstruct(floatType, castedRows);
+    }
   }
 
   emitError("casting to floating point unimplemented", srcLoc);
@@ -5755,7 +5784,9 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal =
         theBuilder.createImageSparseTexelsResident(doExpr(callExpr->getArg(0)));
     break;
+  
   case hlsl::IntrinsicOp::IOP_mul:
+  case hlsl::IntrinsicOp::IOP_umul:
     retVal = processIntrinsicMul(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_all:
@@ -5835,7 +5866,17 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
         << callee->getName();
     return 0;
   }
-    INTRINSIC_SPIRV_OP_CASE(transpose, Transpose, false);
+  case hlsl::IntrinsicOp::IOP_transpose: {
+    const Expr *mat = callExpr->getArg(0);
+    const QualType matType = mat->getType();
+    if (isFloatOrVecMatOfFloatType(matType))
+      retVal =
+          processIntrinsicUsingSpirvInst(callExpr, spv::Op::OpTranspose, false);
+    else
+      retVal = processNonFpMatrixTranspose(matType, doExpr(mat));
+
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
     INTRINSIC_SPIRV_OP_WITH_CAP_CASE(ddx_coarse, DPdxCoarse, false,
                                      spv::Capability::DerivativeControl);
@@ -6646,6 +6687,209 @@ uint32_t SPIRVEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
   return 0;
 }
 
+uint32_t SPIRVEmitter::processNonFpMatrixTranspose(QualType matType,
+                                                   uint32_t matId) {
+  // Simplest way is to flatten the matrix construct a new matrix from the
+  // flattened elements. (for a mat4x4).
+  QualType elemType = {};
+  uint32_t numRows = 0, numCols = 0;
+  const bool isMat =
+      TypeTranslator::isMxNMatrix(matType, &elemType, &numRows, &numCols);
+  assert(isMat);
+
+  const auto rowQualType = astContext.getExtVectorType(elemType, numCols);
+  const auto colQualType = astContext.getExtVectorType(elemType, numRows);
+  const uint32_t rowTypeId = typeTranslator.translateType(rowQualType);
+  const uint32_t colTypeId = typeTranslator.translateType(colQualType);
+  const uint32_t elemTypeId = typeTranslator.translateType(elemType);
+
+  // You cannot perform a composite construct of an array using a few vectors.
+  // The number of constutients passed to OpCompositeConstruct must be equal to
+  // the number of array elements.
+  llvm::SmallVector<uint32_t, 4> elems;
+  for (uint32_t i = 0; i < numRows; ++i) {
+    const auto row = theBuilder.createCompositeExtract(rowTypeId, matId, {i});
+    for (uint32_t j = 0; j < numCols; ++j)
+      elems.push_back(theBuilder.createCompositeExtract(elemTypeId, row, {j}));
+  }
+
+  llvm::SmallVector<uint32_t, 4> cols;
+  for (uint32_t i = 0; i < numCols; ++i) {
+    // The current index group into the array starts at i*numRows
+    llvm::SmallVector<uint32_t, 4> indexes;
+    for (uint32_t j = 0; j < numRows; ++j)
+      indexes.push_back(elems[i+(j*numCols)]);
+
+    cols.push_back(theBuilder.createCompositeConstruct(colTypeId, indexes));
+  }
+
+  const auto transposeTypeId =
+      theBuilder.getArrayType(colTypeId, theBuilder.getConstantUint32(numCols));
+  return theBuilder.createCompositeConstruct(transposeTypeId, cols);
+}
+
+uint32_t SPIRVEmitter::processNonFpDot(uint32_t vec1Id, uint32_t vec2Id,
+                                       uint32_t vecSize, QualType elemType) {
+  const auto elemTypeId = typeTranslator.translateType(elemType);
+  llvm::SmallVector<uint32_t, 4> muls;
+  for (uint32_t i = 0; i < vecSize; ++i) {
+    const auto elem1 =
+        theBuilder.createCompositeExtract(elemTypeId, vec1Id, {i});
+    const auto elem2 =
+        theBuilder.createCompositeExtract(elemTypeId, vec2Id, {i});
+    muls.push_back(theBuilder.createBinaryOp(translateOp(BO_Mul, elemType),
+                                             elemTypeId, elem1, elem2));
+  }
+  uint32_t sum = muls[0];
+  for (uint32_t i = 1; i < vecSize; ++i) {
+    sum = theBuilder.createBinaryOp(translateOp(BO_Add, elemType), elemTypeId,
+                                    sum, muls[i]);
+  }
+  return sum;
+}
+
+uint32_t SPIRVEmitter::processNonFpScalarTimesMatrix(QualType scalarType,
+                                                     uint32_t scalarId,
+                                                     QualType matrixType,
+                                                     uint32_t matrixId) {
+  assert(TypeTranslator::isScalarType(scalarType));
+  QualType elemType = {};
+  uint32_t numRows = 0, numCols = 0;
+  const bool isMat =
+      TypeTranslator::isMxNMatrix(matrixType, &elemType, &numRows, &numCols);
+  assert(isMat);
+  assert(typeTranslator.isSameType(scalarType, elemType));
+
+  // We need to multiply the scalar by each vector of the matrix.
+  // The front-end guarantees that the scalar and matrix element type are
+  // the same. For example, if the scalar is a float, the matrix is casted
+  // to a float matrix before being passed to mul(). It is also guaranteed
+  // that types such as bool are casted to float or int before being
+  // passed to mul().
+  const auto rowType = astContext.getExtVectorType(elemType, numCols);
+  const auto rowTypeId = typeTranslator.translateType(rowType);
+  llvm::SmallVector<uint32_t, 4> splat(size_t(numCols), scalarId);
+  const auto scalarSplat =
+      theBuilder.createCompositeConstruct(rowTypeId, splat);
+  llvm::SmallVector<uint32_t, 4> mulRows;
+  for (uint32_t row = 0; row < numRows; ++row) {
+    const auto rowId =
+        theBuilder.createCompositeExtract(rowTypeId, matrixId, {row});
+    mulRows.push_back(theBuilder.createBinaryOp(translateOp(BO_Mul, scalarType),
+                                                rowTypeId, rowId, scalarSplat));
+  }
+  return theBuilder.createCompositeConstruct(
+      typeTranslator.translateType(matrixType), mulRows);
+}
+
+uint32_t SPIRVEmitter::processNonFpVectorTimesMatrix(QualType vecType,
+                                                     uint32_t vecId,
+                                                     QualType matType,
+                                                     uint32_t matId,
+                                                     uint32_t matTransposeId) {
+  // This function assumes that the vector element type and matrix elemet type
+  // are the same.
+  QualType vecElemType = {}, matElemType = {};
+  uint32_t vecSize = 0, numRows = 0, numCols = 0;
+  const bool isVec =
+      TypeTranslator::isVectorType(vecType, &vecElemType, &vecSize);
+  const bool isMat =
+      TypeTranslator::isMxNMatrix(matType, &matElemType, &numRows, &numCols);
+  assert(typeTranslator.isSameType(vecElemType, matElemType));
+  assert(isVec);
+  assert(isMat);
+  assert(vecSize == numRows);
+
+  // When processing vector times matrix, the vector is a row vector, and it
+  // should be multiplied by the matrix *columns*. The most efficient way to
+  // handle this in SPIR-V would be to first transpose the matrix, and then use
+  // OpAccessChain.
+  if (!matTransposeId)
+    matTransposeId = processNonFpMatrixTranspose(matType, matId);
+
+  const auto vecTypeId = typeTranslator.translateType(vecType);
+  llvm::SmallVector<uint32_t, 4> resultRows;
+  for (uint32_t col = 0; col < numCols; ++col) {
+    const auto colId =
+        theBuilder.createCompositeExtract(vecTypeId, matTransposeId, {col});
+    resultRows.push_back(processNonFpDot(vecId, colId, vecSize, vecElemType));
+  }
+  return theBuilder.createCompositeConstruct(
+      typeTranslator.translateType(
+          astContext.getExtVectorType(vecElemType, numCols)),
+      resultRows);
+}
+
+uint32_t SPIRVEmitter::processNonFpMatrixTimesVector(QualType matType,
+                                                     uint32_t matId,
+                                                     QualType vecType,
+                                                     uint32_t vecId) {
+  // This function assumes that the vector element type and matrix elemet type
+  // are the same.
+  QualType vecElemType = {}, matElemType = {};
+  uint32_t vecSize = 0, numRows = 0, numCols = 0;
+  const bool isVec =
+      TypeTranslator::isVectorType(vecType, &vecElemType, &vecSize);
+  const bool isMat =
+      TypeTranslator::isMxNMatrix(matType, &matElemType, &numRows, &numCols);
+  assert(typeTranslator.isSameType(vecElemType, matElemType));
+  assert(isVec);
+  assert(isMat);
+  assert(vecSize == numCols);
+
+  // When processing matrix times vector, the vector is a column vector. So we
+  // simply get each row of the matrix and perform a dot product with the
+  // vector.
+  const auto vecTypeId = typeTranslator.translateType(vecType);
+  llvm::SmallVector<uint32_t, 4> resultRows;
+  for (uint32_t row = 0; row < numRows; ++row) {
+    const auto rowId =
+        theBuilder.createCompositeExtract(vecTypeId, matId, {row});
+    resultRows.push_back(processNonFpDot(rowId, vecId, vecSize, vecElemType));
+  }
+  return theBuilder.createCompositeConstruct(
+      typeTranslator.translateType(
+          astContext.getExtVectorType(vecElemType, numRows)),
+      resultRows);
+}
+
+uint32_t SPIRVEmitter::processNonFpMatrixTimesMatrix(QualType lhsType,
+                                                     uint32_t lhsId,
+                                                     QualType rhsType,
+                                                     uint32_t rhsId) {
+  // This function assumes that the vector element type and matrix elemet type
+  // are the same.
+  QualType lhsElemType = {}, rhsElemType = {};
+  uint32_t lhsNumRows = 0, lhsNumCols = 0;
+  uint32_t rhsNumRows = 0, rhsNumCols = 0;
+  const bool lhsIsMat = TypeTranslator::isMxNMatrix(lhsType, &lhsElemType,
+                                                    &lhsNumRows, &lhsNumCols);
+  const bool rhsIsMat = TypeTranslator::isMxNMatrix(rhsType, &rhsElemType,
+                                                    &rhsNumRows, &rhsNumCols);
+  assert(typeTranslator.isSameType(lhsElemType, rhsElemType));
+  assert(lhsIsMat && rhsIsMat);
+  assert(lhsNumCols == rhsNumRows);
+
+  const uint32_t rhsTranspose = processNonFpMatrixTranspose(rhsType, rhsId);
+
+  const auto vecType = astContext.getExtVectorType(lhsElemType, lhsNumCols);
+  const auto vecTypeId = typeTranslator.translateType(vecType);
+  llvm::SmallVector<uint32_t, 4> resultRows;
+  for (uint32_t row = 0; row < lhsNumRows; ++row) {
+    const auto rowId =
+        theBuilder.createCompositeExtract(vecTypeId, lhsId, {row});
+    resultRows.push_back(processNonFpVectorTimesMatrix(vecType, rowId, rhsType,
+                                                       rhsId, rhsTranspose));
+  }
+
+  // The resulting matrix will have 'lhsNumRows' rows and 'rhsNumCols' columns.
+  const auto elemTypeId = typeTranslator.translateType(lhsElemType);
+  const auto resultNumRows = theBuilder.getConstantUint32(lhsNumRows);
+  const auto resultColType = theBuilder.getVecType(elemTypeId, rhsNumCols);
+  const auto resultType = theBuilder.getArrayType(resultColType, resultNumRows);
+  return theBuilder.createCompositeConstruct(resultType, resultRows);
+}
+
 uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   const QualType returnType = callExpr->getType();
   const uint32_t returnTypeId =
@@ -6717,61 +6961,85 @@ uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
                                      returnTypeId, arg0Id, arg1Id);
 
   // mul(scalar, matrix)
-  if (TypeTranslator::isScalarType(arg0Type) &&
-      TypeTranslator::isMxNMatrix(arg1Type)) {
-    // We currently only support float matrices. So we can use
-    // OpMatrixTimesScalar
-    if (arg0Type->isFloatingType())
-      return theBuilder.createBinaryOp(spv::Op::OpMatrixTimesScalar,
-                                       returnTypeId, arg1Id, arg0Id);
+  {
+    QualType elemType = {};
+    if (TypeTranslator::isScalarType(arg0Type) &&
+        TypeTranslator::isMxNMatrix(arg1Type, &elemType)) {
+      // OpMatrixTimesScalar can only be used if *both* the matrix element type
+      // and the scalar type are float.
+      if (arg0Type->isFloatingType() && elemType->isFloatingType())
+        return theBuilder.createBinaryOp(spv::Op::OpMatrixTimesScalar,
+                                         returnTypeId, arg1Id, arg0Id);
+      else
+        return processNonFpScalarTimesMatrix(arg0Type, arg0Id, arg1Type,
+                                             arg1Id);
+    }
   }
 
   // mul(matrix, scalar)
-  if (TypeTranslator::isScalarType(arg1Type) &&
-      TypeTranslator::isMxNMatrix(arg0Type)) {
-    // We currently only support float matrices. So we can use
-    // OpMatrixTimesScalar
-    if (arg1Type->isFloatingType())
-      return theBuilder.createBinaryOp(spv::Op::OpMatrixTimesScalar,
-                                       returnTypeId, arg0Id, arg1Id);
+  {
+    QualType elemType = {};
+    if (TypeTranslator::isScalarType(arg1Type) &&
+        TypeTranslator::isMxNMatrix(arg0Type, &elemType)) {
+      // OpMatrixTimesScalar can only be used if *both* the matrix element type
+      // and the scalar type are float.
+      if (arg1Type->isFloatingType() && elemType->isFloatingType())
+        return theBuilder.createBinaryOp(spv::Op::OpMatrixTimesScalar,
+                                         returnTypeId, arg0Id, arg1Id);
+      else
+        return processNonFpScalarTimesMatrix(arg1Type, arg1Id, arg0Type,
+                                             arg0Id);
+    }
   }
 
   // mul(vector, matrix)
   {
-    QualType elemType = {};
+    QualType vecElemType = {}, matElemType = {};
     uint32_t elemCount = 0, numRows = 0;
-    if (TypeTranslator::isVectorType(arg0Type, &elemType, &elemCount) &&
-        TypeTranslator::isMxNMatrix(arg1Type, nullptr, &numRows, nullptr) &&
-        elemType->isFloatingType()) {
+    if (TypeTranslator::isVectorType(arg0Type, &vecElemType, &elemCount) &&
+        TypeTranslator::isMxNMatrix(arg1Type, &matElemType, &numRows)) {
       assert(elemCount == numRows);
-      return theBuilder.createBinaryOp(spv::Op::OpMatrixTimesVector,
-                                       returnTypeId, arg1Id, arg0Id);
+
+      if (vecElemType->isFloatingType() && matElemType->isFloatingType())
+        return theBuilder.createBinaryOp(spv::Op::OpMatrixTimesVector,
+                                         returnTypeId, arg1Id, arg0Id);
+      else
+        return processNonFpVectorTimesMatrix(arg0Type, arg0Id, arg1Type,
+                                             arg1Id);
     }
   }
 
   // mul(matrix, vector)
   {
-    QualType elemType = {};
+    QualType vecElemType = {}, matElemType = {};
     uint32_t elemCount = 0, numCols = 0;
-    if (TypeTranslator::isMxNMatrix(arg0Type, nullptr, nullptr, &numCols) &&
-        TypeTranslator::isVectorType(arg1Type, &elemType, &elemCount) &&
-        elemType->isFloatingType()) {
+    if (TypeTranslator::isMxNMatrix(arg0Type, &matElemType, nullptr,
+                                    &numCols) &&
+        TypeTranslator::isVectorType(arg1Type, &vecElemType, &elemCount)) {
       assert(elemCount == numCols);
-      return theBuilder.createBinaryOp(spv::Op::OpVectorTimesMatrix,
-                                       returnTypeId, arg1Id, arg0Id);
+      if (vecElemType->isFloatingType() && matElemType->isFloatingType())
+        return theBuilder.createBinaryOp(spv::Op::OpVectorTimesMatrix,
+                                         returnTypeId, arg1Id, arg0Id);
+      else
+        return processNonFpMatrixTimesVector(arg0Type, arg0Id, arg1Type,
+                                             arg1Id);
     }
   }
 
   // mul(matrix, matrix)
   {
+    // The front-end ensures that the two matrix element types match.
     QualType elemType = {};
-    uint32_t arg0Cols = 0, arg1Rows = 0;
-    if (TypeTranslator::isMxNMatrix(arg0Type, &elemType, nullptr, &arg0Cols) &&
-        TypeTranslator::isMxNMatrix(arg1Type, nullptr, &arg1Rows, nullptr) &&
-        elemType->isFloatingType()) {
-      assert(arg0Cols == arg1Rows);
-      return theBuilder.createBinaryOp(spv::Op::OpMatrixTimesMatrix,
-                                       returnTypeId, arg1Id, arg0Id);
+    uint32_t lhsCols = 0, rhsRows = 0;
+    if (TypeTranslator::isMxNMatrix(arg0Type, &elemType, nullptr, &lhsCols) &&
+        TypeTranslator::isMxNMatrix(arg1Type, nullptr, &rhsRows, nullptr)) {
+      assert(lhsCols == rhsRows);
+      if (elemType->isFloatingType())
+        return theBuilder.createBinaryOp(spv::Op::OpMatrixTimesMatrix,
+                                         returnTypeId, arg1Id, arg0Id);
+      else
+        return processNonFpMatrixTimesMatrix(arg0Type, arg0Id, arg1Type,
+                                             arg1Id);
     }
   }
 
