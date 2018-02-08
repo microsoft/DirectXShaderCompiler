@@ -383,7 +383,7 @@ public:
                        float &MaxTessFactor);
 
   // Utility functions.
-  static bool IsKnownNamedMetaData(llvm::NamedMDNode &Node);
+  static bool IsKnownNamedMetaData(const llvm::NamedMDNode &Node);
   static void combineDxilMetadata(llvm::Instruction *K, const llvm::Instruction *J);
   static llvm::ConstantAsMetadata *Int32ToConstMD(int32_t v, llvm::LLVMContext &Ctx);
   llvm::ConstantAsMetadata *Int32ToConstMD(int32_t v);
