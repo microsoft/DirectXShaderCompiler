@@ -1066,6 +1066,13 @@ DxilFunctionProps &DxilModule::GetDxilFunctionProps(llvm::Function *F) {
   DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");
   return *m_DxilFunctionPropsMap[F];
 }
+void DxilModule::AddDxilFunctionProps(
+    llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info) {
+  DXASSERT(m_DxilFunctionPropsMap.count(F) == 0,
+           "F already in map, info will be overwritten");
+  DXASSERT_NOMSG(info->shaderKind != DXIL::ShaderKind::Invalid);
+  m_DxilFunctionPropsMap[F] = std::move(info);
+}
 void DxilModule::ReplaceDxilFunctionProps(llvm::Function *F,
                                           llvm::Function *NewF) {
   DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");

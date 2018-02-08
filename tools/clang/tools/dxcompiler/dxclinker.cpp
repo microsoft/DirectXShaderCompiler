@@ -164,10 +164,15 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 ) {
   DxcThreadMalloc TM(m_pMalloc);
   // Prepare UTF8-encoded versions of API values.
-  CW2A pUtf8EntryPoint(pEntryName, CP_UTF8);
   CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
+  CW2A pUtf8EntryPoint(pEntryName, CP_UTF8);
   // TODO: read and validate options.
-
+  bool bIsLib = StringRef(pUtf8TargetProfile.m_psz).startswith_lower("lib");
+  if (bIsLib) {
+    if (StringRef(pUtf8EntryPoint.m_psz).size() > 0) {
+      return E_INVALIDARG;
+    }
+  }
   CComPtr<AbstractMemoryStream> pOutputStream;
 
   // Detach previous libraries.
@@ -218,11 +223,17 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         outStream.flush();
 
         // Validation.
-        HRESULT valHR = dxcutil::ValidateAndAssembleToContainer(
-            std::move(pM), pOutputBlob, pMalloc, SerializeDxilFlags::None,
-            pOutputStream,
-            /*bDebugInfo*/ false, Diag);
-
+        HRESULT valHR = S_OK;
+        // Skip validation on lib for now.
+        if (!bIsLib) {
+          valHR = dxcutil::ValidateAndAssembleToContainer(
+              std::move(pM), pOutputBlob, pMalloc, SerializeDxilFlags::None,
+              pOutputStream,
+              /*bDebugInfo*/ false, Diag);
+        } else {
+          dxcutil::AssembleToContainer(std::move(pM), pOutputBlob, m_pMalloc,
+                                       SerializeDxilFlags::None, pOutputStream);
+        }
         // Callback after valid DXIL is produced
         if (SUCCEEDED(valHR)) {
           CComPtr<IDxcBlob> pTargetBlob;
