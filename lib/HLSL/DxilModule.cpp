@@ -137,6 +137,7 @@ OP *DxilModule::GetOP() const { return m_pOP.get(); }
 void DxilModule::SetShaderModel(const ShaderModel *pSM) {
   DXASSERT(m_pSM == nullptr || (pSM != nullptr && *m_pSM == *pSM), "shader model must not change for the module");
   DXASSERT(pSM != nullptr && pSM->IsValidForDxil(), "shader model must be valid");
+  DXASSERT(pSM->IsValidForModule(), "shader model must be valid for top-level module use");
   m_pSM = pSM;
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
@@ -863,55 +864,6 @@ const vector<unique_ptr<DxilResource> > &DxilModule::GetUAVs() const {
   return m_UAVs;
 }
 
-static void CreateResourceLinkConstant(Module &M, DxilResourceBase *pRes,
-    std::vector<DxilModule::ResourceLinkInfo> &resLinkInfo) {
-  Type *i32Ty = Type::getInt32Ty(M.getContext());
-  const bool IsConstantTrue = true;
-  Constant *NullInitVal = nullptr;
-  GlobalVariable *rangeID = new GlobalVariable(
-      M, i32Ty, IsConstantTrue, llvm::GlobalValue::ExternalLinkage, NullInitVal,
-      pRes->GetGlobalName() + "_rangeID");
-
-  resLinkInfo.emplace_back(DxilModule::ResourceLinkInfo{rangeID});
-}
-
-void DxilModule::CreateResourceLinkInfo() {
-  DXASSERT(GetShaderModel()->IsLib(), "only for library profile");
-  DXASSERT(m_SRVsLinkInfo.empty() && m_UAVsLinkInfo.empty() &&
-               m_CBuffersLinkInfo.empty() && m_SamplersLinkInfo.empty(),
-           "else resource link info was already created");
-  Module &M = *m_pModule;
-  for (auto &SRV : m_SRVs) {
-    CreateResourceLinkConstant(M, SRV.get(), m_SRVsLinkInfo);
-  }
-  for (auto &UAV : m_UAVs) {
-    CreateResourceLinkConstant(M, UAV.get(), m_UAVsLinkInfo);
-  }
-  for (auto &CBuffer : m_CBuffers) {
-    CreateResourceLinkConstant(M, CBuffer.get(), m_CBuffersLinkInfo);
-  }
-  for (auto &Sampler : m_Samplers) {
-    CreateResourceLinkConstant(M, Sampler.get(), m_SamplersLinkInfo);
-  }
-}
-
-const DxilModule::ResourceLinkInfo &
-DxilModule::GetResourceLinkInfo(DXIL::ResourceClass resClass,
-                                unsigned rangeID) const {
-  switch (resClass) {
-  case DXIL::ResourceClass::UAV:
-    return m_UAVsLinkInfo[rangeID];
-  case DXIL::ResourceClass::CBuffer:
-    return m_CBuffersLinkInfo[rangeID];
-  case DXIL::ResourceClass::Sampler:
-    return m_SamplersLinkInfo[rangeID];
-  default:
-    DXASSERT(DXIL::ResourceClass::SRV == resClass,
-             "else invalid resource class");
-    return m_SRVsLinkInfo[rangeID];
-  }
-}
-
 void DxilModule::LoadDxilResourceBaseFromMDNode(MDNode *MD, DxilResourceBase &R) {
   return m_pMDHelper->LoadDxilResourceBaseFromMDNode(MD, R);
 }
@@ -1042,6 +994,27 @@ void DxilModule::RemoveUnusedResources() {
   RemoveResources(m_CBuffers, immCBufID);
 }
 
+namespace {
+template <typename TResource>
+static void RemoveResourceSymbols(std::vector<std::unique_ptr<TResource>> &vec) {
+  for (std::vector<std::unique_ptr<TResource>>::iterator p = vec.begin(); p != vec.end();) {
+    std::vector<std::unique_ptr<TResource>>::iterator c = p++;
+    GlobalVariable *GV = cast<GlobalVariable>((*c)->GetGlobalSymbol());
+    GV->removeDeadConstantUsers();
+    if (GV->user_empty()) {
+      p = vec.erase(c);
+    }
+  }
+}
+}
+
+void DxilModule::RemoveUnusedResourceSymbols() {
+  RemoveResourceSymbols(m_SRVs);
+  RemoveResourceSymbols(m_UAVs);
+  RemoveResourceSymbols(m_CBuffers);
+  RemoveResourceSymbols(m_Samplers);
+}
+
 DxilSignature &DxilModule::GetInputSignature() {
   return m_EntrySignature->InputSignature;
 }
@@ -1093,6 +1066,13 @@ DxilFunctionProps &DxilModule::GetDxilFunctionProps(llvm::Function *F) {
   DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");
   return *m_DxilFunctionPropsMap[F];
 }
+void DxilModule::AddDxilFunctionProps(
+    llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info) {
+  DXASSERT(m_DxilFunctionPropsMap.count(F) == 0,
+           "F already in map, info will be overwritten");
+  DXASSERT_NOMSG(info->shaderKind != DXIL::ShaderKind::Invalid);
+  m_DxilFunctionPropsMap[F] = std::move(info);
+}
 void DxilModule::ReplaceDxilFunctionProps(llvm::Function *F,
                                           llvm::Function *NewF) {
   DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");
@@ -1100,6 +1080,35 @@ void DxilModule::ReplaceDxilFunctionProps(llvm::Function *F,
       std::move(m_DxilFunctionPropsMap[F]);
   m_DxilFunctionPropsMap.erase(F);
   m_DxilFunctionPropsMap[NewF] = std::move(props);
+}
+void DxilModule::SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc) {
+  auto propIter = m_DxilFunctionPropsMap.find(hullShaderFunc);
+  DXASSERT(propIter != m_DxilFunctionPropsMap.end(), "Hull shader must already have function props!");
+  DxilFunctionProps &props = *(propIter->second);
+  DXASSERT(props.IsHS(), "else hullShaderFunc is not a Hull Shader");
+  if (props.ShaderProps.HS.patchConstantFunc)
+    m_PatchConstantFunctions.erase(props.ShaderProps.HS.patchConstantFunc);
+  props.ShaderProps.HS.patchConstantFunc = patchConstantFunc;
+  if (patchConstantFunc)
+    m_PatchConstantFunctions.insert(patchConstantFunc);
+}
+bool DxilModule::IsGraphicsShader(llvm::Function *F) {
+  return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsGraphics();
+}
+bool DxilModule::IsPatchConstantShader(llvm::Function *F) {
+  return m_PatchConstantFunctions.count(F) != 0;
+}
+bool DxilModule::IsComputeShader(llvm::Function *F) {
+  return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsCS();
+}
+bool DxilModule::IsEntryThatUsesSignatures(llvm::Function *F) {
+  auto propIter = m_DxilFunctionPropsMap.find(F);
+  if (propIter != m_DxilFunctionPropsMap.end()) {
+    DxilFunctionProps &props = *(propIter->second);
+    return props.IsGraphics() || props.IsCS();
+  }
+  // Otherwise, return true if patch constant function
+  return IsPatchConstantShader(F);
 }
 
 void DxilModule::StripRootSignatureFromMetadata() {
@@ -1250,7 +1259,6 @@ void DxilModule::EmitDxilMetadata() {
     m_pMDHelper->EmitRootSignature(*m_RootSignature.get());
   }
   if (m_pSM->IsLib()) {
-    EmitDxilResourcesLinkInfo();
     NamedMDNode *fnProps = m_pModule->getOrInsertNamedMetadata(
         DxilMDHelper::kDxilFunctionPropertiesMDName);
     for (auto &&pair : m_DxilFunctionPropsMap) {
@@ -1306,7 +1314,6 @@ void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadDxilViewIdState(*m_pViewIdState.get());
 
   if (loadedModule->IsLib()) {
-    LoadDxilResourcesLinkInfo();
     NamedMDNode *fnProps = m_pModule->getNamedMetadata(
         DxilMDHelper::kDxilFunctionPropertiesMDName);
     size_t propIdx = 0;
@@ -1317,6 +1324,11 @@ void DxilModule::LoadDxilMetadata() {
           llvm::make_unique<hlsl::DxilFunctionProps>();
 
       Function *F = m_pMDHelper->LoadDxilFunctionProps(pProps, props.get());
+
+      if (props->IsHS() && props->ShaderProps.HS.patchConstantFunc) {
+        // Add patch constant function to m_PatchConstantFunctions
+        m_PatchConstantFunctions.insert(props->ShaderProps.HS.patchConstantFunc);
+      }
 
       m_DxilFunctionPropsMap[F] = std::move(props);
     }
@@ -1442,82 +1454,6 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
       AddSampler(std::move(pSampler));
     }
   }
-}
-
-static MDTuple *CreateResourcesLinkInfo(std::vector<DxilModule::ResourceLinkInfo> &LinkInfoList,
-                                    unsigned size, LLVMContext &Ctx) {
-  DXASSERT(size == LinkInfoList.size(), "link info size must match resource size");
-  if (LinkInfoList.empty())
-    return nullptr;
-
-  vector<Metadata *> MDVals;
-  for (size_t i = 0; i < size; i++) {
-    MDVals.emplace_back(ValueAsMetadata::get(LinkInfoList[i].ResRangeID));
-  }
-  return MDNode::get(Ctx, MDVals);
-}
-
-void DxilModule::EmitDxilResourcesLinkInfo() {
-  // Emit SRV base records.
-  MDTuple *pTupleSRVs =
-      CreateResourcesLinkInfo(m_SRVsLinkInfo, m_SRVs.size(), m_Ctx);
-
-  // Emit UAV base records.
-  MDTuple *pTupleUAVs =
-      CreateResourcesLinkInfo(m_UAVsLinkInfo, m_UAVs.size(), m_Ctx);
-
-  // Emit CBuffer base records.
-  MDTuple *pTupleCBuffers =
-      CreateResourcesLinkInfo(m_CBuffersLinkInfo, m_CBuffers.size(), m_Ctx);
-
-  // Emit Sampler records.
-  MDTuple *pTupleSamplers =
-      CreateResourcesLinkInfo(m_SamplersLinkInfo, m_Samplers.size(), m_Ctx);
-
-  if (pTupleSRVs != nullptr || pTupleUAVs != nullptr ||
-      pTupleCBuffers != nullptr || pTupleSamplers != nullptr) {
-    m_pMDHelper->EmitDxilResourceLinkInfoTuple(pTupleSRVs, pTupleUAVs,
-                                               pTupleCBuffers, pTupleSamplers);
-  }
-}
-
-static void
-LoadResourcesLinkInfo(const llvm::MDTuple *pMD,
-                      std::vector<DxilModule::ResourceLinkInfo> &LinkInfoList,
-                      unsigned size, DxilMDHelper *pMDHelper) {
-  if (!pMD) {
-    IFTBOOL(size == 0, DXC_E_INCORRECT_DXIL_METADATA);
-    return;
-  }
-  unsigned operandSize = pMD->getNumOperands();
-  IFTBOOL(operandSize == size, DXC_E_INCORRECT_DXIL_METADATA);
-  for (unsigned i = 0; i < operandSize; i++) {
-    Constant *rangeID =
-        dyn_cast<Constant>(pMDHelper->ValueMDToValue(pMD->getOperand(i)));
-    LinkInfoList.emplace_back(DxilModule::ResourceLinkInfo{rangeID});
-  }
-}
-
-void DxilModule::LoadDxilResourcesLinkInfo() {
-  const llvm::MDTuple *pSRVs, *pUAVs, *pCBuffers, *pSamplers;
-  m_pMDHelper->LoadDxilResourceLinkInfoTuple(pSRVs, pUAVs, pCBuffers,
-                                             pSamplers);
-
-  // Load SRV base records.
-  LoadResourcesLinkInfo(pSRVs, m_SRVsLinkInfo, m_SRVs.size(),
-                        m_pMDHelper.get());
-
-  // Load UAV base records.
-  LoadResourcesLinkInfo(pUAVs, m_UAVsLinkInfo, m_UAVs.size(),
-                        m_pMDHelper.get());
-
-  // Load CBuffer records.
-  LoadResourcesLinkInfo(pCBuffers, m_CBuffersLinkInfo, m_CBuffers.size(),
-                        m_pMDHelper.get());
-
-  // Load Sampler records.
-  LoadResourcesLinkInfo(pSamplers, m_SamplersLinkInfo, m_Samplers.size(),
-                        m_pMDHelper.get());
 }
 
 MDTuple *DxilModule::EmitDxilShaderProperties() {

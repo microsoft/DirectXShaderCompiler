@@ -270,7 +270,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   MPM.add(createCFGSimplificationPass());
 
   MPM.add(createDeadCodeEliminationPass());
-  MPM.add(createDxilTranslateRawBuffer());
 }
 // HLSL Change Ends
 
@@ -303,7 +302,8 @@ void PassManagerBuilder::populateModulePassManager(
     addHLSLPasses(HLSLHighLevel, OptLevel, HLSLExtensionsCodeGen, MPM);
     if (!HLSLHighLevel) {
       MPM.add(createMultiDimArrayToOneDimArrayPass());
-      MPM.add(createDxilCondenseResourcesPass());
+      MPM.add(createDxilLowerCreateHandleForLibPass());
+      MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
       MPM.add(createDxilFinalizeModulePass());
       MPM.add(createComputeViewIdStatePass());
@@ -575,7 +575,8 @@ void PassManagerBuilder::populateModulePassManager(
   // HLSL Change Begins.
   if (!HLSLHighLevel) {
     MPM.add(createMultiDimArrayToOneDimArrayPass());
-    MPM.add(createDxilCondenseResourcesPass());
+    MPM.add(createDxilLowerCreateHandleForLibPass());
+    MPM.add(createDxilTranslateRawBuffer());
     MPM.add(createDeadCodeEliminationPass());
     if (DisableUnrollLoops)
       MPM.add(createDxilLegalizeSampleOffsetPass());

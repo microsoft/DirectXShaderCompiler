@@ -3,8 +3,6 @@
 // Make sure struct param used as out arg works.
 
 // CHECK: call void @"\01?getT@@YA?AUT@@XZ"
-// CHECK: store
-// CHECK: store
 
 struct T {
   float a;

@@ -23,6 +23,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/SetVector.h"
 #include <memory>
 #include <vector>
 
@@ -58,9 +59,7 @@ void AddResourceMap(
     std::unordered_map<const llvm::Constant *, DxilResourceBase *> &resMap,
     DxilModule &DM) {
   for (auto &Res : resTab) {
-    const DxilModule::ResourceLinkInfo &linkInfo =
-        DM.GetResourceLinkInfo(resClass, Res->GetID());
-    resMap[linkInfo.ResRangeID] = Res.get();
+    resMap[Res->GetGlobalSymbol()] = Res.get();
   }
 }
 
@@ -318,12 +317,19 @@ struct DxilLinkJob {
   DxilLinkJob(LLVMContext &Ctx, unsigned valMajor, unsigned valMinor) : m_ctx(Ctx), m_valMajor(valMajor), m_valMinor(valMinor) {}
   std::unique_ptr<llvm::Module>
   Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
-       StringRef profile);
+       const ShaderModel *pSM);
+  std::unique_ptr<llvm::Module> LinkToLib(const ShaderModel *pSM);
   void RunPreparePass(llvm::Module &M);
   void AddFunction(std::pair<DxilFunctionLinkInfo *, DxilLib *> &linkPair);
   void AddFunction(llvm::Function *F);
 
 private:
+  void LinkNamedMDNodes(Module *pM, ValueToValueMapTy &vmap);
+  void AddDxilOperations(Module *pM);
+  bool AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap);
+  void CloneFunctions(ValueToValueMapTy &vmap);
+  void AddFunctions(DxilModule &DM, ValueToValueMapTy &vmap,
+                    std::unordered_set<Function *> &initFuncSet);
   bool AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV);
   void AddResourceToDM(DxilModule &DM);
   std::unordered_map<DxilFunctionLinkInfo *, DxilLib *> m_functionDefs;
@@ -488,77 +494,145 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
     }
     // Update ID.
     basePtr->SetID(ID);
-    Constant *rangeID = ConstantInt::get(GV->getType()->getElementType(), ID);
-    for (User *U : GV->users()) {
-      LoadInst *LI = cast<LoadInst>(U);
-      LI->replaceAllUsesWith(rangeID);
+
+    basePtr->SetGlobalSymbol(GV);
+  }
+}
+
+void DxilLinkJob::LinkNamedMDNodes(Module *pM, ValueToValueMapTy &vmap) {
+  SetVector<Module *> moduleSet;
+  for (auto &it : m_functionDefs) {
+    DxilLib *pLib = it.second;
+    moduleSet.insert(pLib->GetDxilModule().GetModule());
+  }
+  // Link normal NamedMDNode.
+  // TODO: skip duplicate operands.
+  for (Module *pSrcM : moduleSet) {
+    const NamedMDNode *pSrcModFlags = pSrcM->getModuleFlagsMetadata();
+    for (const NamedMDNode &NMD : pSrcM->named_metadata()) {
+      // Don't link module flags here. Do them separately.
+      if (&NMD == pSrcModFlags)
+        continue;
+      // Skip dxil metadata which will be regenerated.
+      if (DxilMDHelper::IsKnownNamedMetaData(NMD))
+        continue;
+      NamedMDNode *DestNMD = pM->getOrInsertNamedMetadata(NMD.getName());
+      // Add Src elements into Dest node.
+      for (const MDNode *op : NMD.operands())
+        DestNMD->addOperand(MapMetadata(op, vmap, RF_None, /*TypeMap*/ nullptr,
+                                        /*ValMaterializer*/ nullptr));
+    }
+  }
+  // Link mod flags.
+  SetVector<MDNode *> flagSet;
+  for (Module *pSrcM : moduleSet) {
+    NamedMDNode *pSrcModFlags = pSrcM->getModuleFlagsMetadata();
+    if (pSrcModFlags) {
+      for (MDNode *flag : pSrcModFlags->operands()) {
+        flagSet.insert(flag);
+      }
+    }
+  }
+  // TODO: check conflict in flags.
+  if (!flagSet.empty()) {
+    NamedMDNode *ModFlags = pM->getOrInsertModuleFlagsMetadata();
+    for (MDNode *flag : flagSet) {
+      ModFlags->addOperand(flag);
     }
   }
 }
 
-std::unique_ptr<Module>
-DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
-                  StringRef profile) {
-
-  Function *entryFunc = entryLinkPair.first->func;
-  DxilModule &entryDM = entryLinkPair.second->GetDxilModule();
-  if (!entryDM.HasDxilFunctionProps(entryFunc)) {
-    // Cannot get function props.
-    m_ctx.emitError(Twine(kNoEntryProps) + entryFunc->getName());
-    return nullptr;
-  }
-
-  DxilFunctionProps props = entryDM.GetDxilFunctionProps(entryFunc);
-  if (props.shaderKind == DXIL::ShaderKind::Library ||
-      props.shaderKind == DXIL::ShaderKind::Invalid) {
-    m_ctx.emitError(profile + Twine(kInvalidProfile));
-    // Invalid profile.
-    return nullptr;
-  }
-
-  const ShaderModel *pSM = ShaderModel::GetByName(profile.data());
-  if (pSM->GetKind() != props.shaderKind) {
-    // Shader kind mismatch.
-    m_ctx.emitError(Twine(kShaderKindMismatch) + profile + " and " +
-                    ShaderModel::GetKindName(props.shaderKind));
-    return nullptr;
-  }
-
-  // Create new module.
-  std::unique_ptr<Module> pM =
-      llvm::make_unique<Module>(entryFunc->getName(), entryDM.GetCtx());
-  // Set target.
-  pM->setTargetTriple(entryDM.GetModule()->getTargetTriple());
-  // Add dxil operation functions before create DxilModule.
+void DxilLinkJob::AddDxilOperations(Module *pM) {
   for (auto &it : m_dxilFunctions) {
     Function *F = it.second;
     Function *NewF = Function::Create(F->getFunctionType(), F->getLinkage(),
-                                      F->getName(), pM.get());
+                                      F->getName(), pM);
     NewF->setAttributes(F->getAttributes());
     m_newFunctions[NewF->getName()] = NewF;
   }
+}
 
-  // Create DxilModule.
-  const bool bSkipInit = true;
-  DxilModule &DM = pM->GetOrCreateDxilModule(bSkipInit);
-  DM.SetShaderModel(pSM);
-
-  // Set Validator version, verifying that it supports the requested profile
-  unsigned minValMajor, minValMinor;
-  DM.GetMinValidatorVersion(minValMajor, minValMinor);
-  if (minValMajor > m_valMajor || (minValMajor == m_valMajor && minValMinor > m_valMinor)) {
-    m_ctx.emitError(Twine(kInvalidValidatorVersion) + profile);
-    return nullptr;
-  }
-  DM.SetValidatorVersion(m_valMajor, m_valMinor);
-
-  // Add type sys
+bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
   DxilTypeSystem &typeSys = DM.GetTypeSystem();
+  Module *pM = DM.GetModule();
+  bool bSuccess = true;
+  for (auto &it : m_functionDefs) {
+    DxilFunctionLinkInfo *linkInfo = it.first;
+    DxilLib *pLib = it.second;
+    DxilModule &tmpDM = pLib->GetDxilModule();
+    DxilTypeSystem &tmpTypeSys = tmpDM.GetTypeSystem();
+    for (GlobalVariable *GV : linkInfo->usedGVs) {
+      // Skip added globals.
+      if (m_newGlobals.count(GV->getName())) {
+        if (vmap.find(GV) == vmap.end()) {
+          if (DxilResourceBase *res = pLib->GetResource(GV)) {
+            // For resource of same name, if class and type match, just map to
+            // same NewGV.
+            GlobalVariable *NewGV = m_newGlobals[GV->getName()];
+            if (AddResource(res, NewGV)) {
+              vmap[GV] = NewGV;
+            } else {
+              bSuccess = false;
+            }
+            continue;
+          }
 
-  ValueToValueMapTy vmap;
+          // Redefine of global.
+          m_ctx.emitError(Twine(kRedefineGlobal) + GV->getName());
+          bSuccess = false;
+        }
+        continue;
+      }
+      Constant *Initializer = nullptr;
+      if (GV->hasInitializer())
+        Initializer = GV->getInitializer();
 
-  std::unordered_set<Function *> initFuncSet;
-  // Add function
+      Type *Ty = GV->getType()->getElementType();
+      GlobalVariable *NewGV = new GlobalVariable(
+          *pM, Ty, GV->isConstant(), GV->getLinkage(), Initializer,
+          GV->getName(),
+          /*InsertBefore*/ nullptr, GV->getThreadLocalMode(),
+          GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
+
+      m_newGlobals[GV->getName()] = NewGV;
+
+      vmap[GV] = NewGV;
+
+      typeSys.CopyTypeAnnotation(Ty, tmpTypeSys);
+
+      if (DxilResourceBase *res = pLib->GetResource(GV)) {
+        bSuccess &= AddResource(res, NewGV);
+      }
+    }
+  }
+  return bSuccess;
+}
+
+void DxilLinkJob::CloneFunctions(ValueToValueMapTy &vmap) {
+  for (auto &it : m_functionDefs) {
+    DxilFunctionLinkInfo *linkInfo = it.first;
+
+    Function *F = linkInfo->func;
+    Function *NewF = m_newFunctions[F->getName()];
+
+    // Add dxil functions to vmap.
+    for (Function *UsedF : linkInfo->usedFunctions) {
+      if (!vmap.count(UsedF)) {
+        // Extern function need match by name
+        DXASSERT(m_newFunctions.count(UsedF->getName()),
+                 "Must have new function.");
+        vmap[UsedF] = m_newFunctions[UsedF->getName()];
+      }
+    }
+
+    CloneFunction(F, NewF, vmap);
+  }
+}
+
+void DxilLinkJob::AddFunctions(DxilModule &DM, ValueToValueMapTy &vmap,
+                               std::unordered_set<Function *> &initFuncSet) {
+  DxilTypeSystem &typeSys = DM.GetTypeSystem();
+  Module *pM = DM.GetModule();
   for (auto &it : m_functionDefs) {
     DxilFunctionLinkInfo *linkInfo = it.first;
     DxilLib *pLib = it.second;
@@ -567,7 +641,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
     Function *F = linkInfo->func;
     Function *NewF = Function::Create(F->getFunctionType(), F->getLinkage(),
-                                      F->getName(), pM.get());
+                                      F->getName(), pM);
     NewF->setAttributes(F->getAttributes());
 
     if (!NewF->hasFnAttribute(llvm::Attribute::NoInline))
@@ -586,6 +660,50 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
     vmap[F] = NewF;
   }
+}
+
+std::unique_ptr<Module>
+DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
+                  const ShaderModel *pSM) {
+  Function *entryFunc = entryLinkPair.first->func;
+  DxilModule &entryDM = entryLinkPair.second->GetDxilModule();
+  if (!entryDM.HasDxilFunctionProps(entryFunc)) {
+    // Cannot get function props.
+    m_ctx.emitError(Twine(kNoEntryProps) + entryFunc->getName());
+    return nullptr;
+  }
+
+  DxilFunctionProps props = entryDM.GetDxilFunctionProps(entryFunc);
+
+  if (pSM->GetKind() != props.shaderKind) {
+    // Shader kind mismatch.
+    m_ctx.emitError(Twine(kShaderKindMismatch) +
+                    ShaderModel::GetKindName(pSM->GetKind()) + " and " +
+                    ShaderModel::GetKindName(props.shaderKind));
+    return nullptr;
+  }
+
+  // Create new module.
+  std::unique_ptr<Module> pM =
+      llvm::make_unique<Module>(entryFunc->getName(), entryDM.GetCtx());
+  // Set target.
+  pM->setTargetTriple(entryDM.GetModule()->getTargetTriple());
+  // Add dxil operation functions before create DxilModule.
+  AddDxilOperations(pM.get());
+
+  // Create DxilModule.
+  const bool bSkipInit = true;
+  DxilModule &DM = pM->GetOrCreateDxilModule(bSkipInit);
+  DM.SetShaderModel(pSM);
+
+  // Set Validator version.
+  DM.SetValidatorVersion(m_valMajor, m_valMinor);
+
+  ValueToValueMapTy vmap;
+
+  std::unordered_set<Function *> initFuncSet;
+  // Add function
+  AddFunctions(DM, vmap, initFuncSet);
 
   // Set Entry
   Function *NewEntryFunc = m_newFunctions[entryFunc->getName()];
@@ -613,78 +731,13 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   // Set EntryProps
   DM.SetShaderProperties(&props);
 
-  // Debug info.
-
   // Add global
-  bool bSuccess = true;
-  for (auto &it : m_functionDefs) {
-    DxilFunctionLinkInfo *linkInfo = it.first;
-    DxilLib *pLib = it.second;
-
-    for (GlobalVariable *GV : linkInfo->usedGVs) {
-      // Skip added globals.
-      if (m_newGlobals.count(GV->getName())) {
-        if (vmap.find(GV) == vmap.end()) {
-          if (DxilResourceBase *res = pLib->GetResource(GV)) {
-            // For resource of same name, if class and type match, just map to
-            // same NewGV.
-            GlobalVariable *NewGV = m_newGlobals[GV->getName()];
-            if (AddResource(res, NewGV)) {
-              vmap[GV] = NewGV;
-            } else {
-              bSuccess = false;
-            }
-            continue;
-          }
-
-          // Redefine of global.
-          m_ctx.emitError(Twine(kRedefineGlobal) + GV->getName());
-          bSuccess = false;
-        }
-        continue;
-      }
-      Constant *Initializer = nullptr;
-      if (GV->hasInitializer())
-        Initializer = GV->getInitializer();
-
-      GlobalVariable *NewGV = new GlobalVariable(
-          *pM, GV->getType()->getElementType(), GV->isConstant(),
-          GV->getLinkage(), Initializer, GV->getName(),
-          /*InsertBefore*/ nullptr, GV->getThreadLocalMode(),
-          GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
-
-      m_newGlobals[GV->getName()] = NewGV;
-
-      vmap[GV] = NewGV;
-
-      if (DxilResourceBase *res = pLib->GetResource(GV)) {
-        bSuccess &= AddResource(res, NewGV);
-      }
-    }
-  }
-
+  bool bSuccess = AddGlobals(DM, vmap);
   if (!bSuccess)
     return nullptr;
 
   // Clone functions.
-  for (auto &it : m_functionDefs) {
-    DxilFunctionLinkInfo *linkInfo = it.first;
-
-    Function *F = linkInfo->func;
-    Function *NewF = m_newFunctions[F->getName()];
-
-    // Add dxil functions to vmap.
-    for (Function *UsedF : linkInfo->usedFunctions) {
-      if (!vmap.count(UsedF)) {
-        // Extern function need match by name
-        DXASSERT(m_newFunctions.count(UsedF->getName()),
-                 "Must have new function.");
-        vmap[UsedF] = m_newFunctions[UsedF->getName()];
-      }
-    }
-
-    CloneFunction(F, NewF, vmap);
-  }
+  CloneFunctions(vmap);
 
   // Call global constrctor.
   IRBuilder<> Builder(
@@ -706,6 +759,85 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   // Add resource to DM.
   // This should be after functions cloned.
   AddResourceToDM(DM);
+  
+  // Link metadata like debug info.
+  LinkNamedMDNodes(pM.get(), vmap);
+
+  RunPreparePass(*pM);
+
+  return pM;
+}
+
+std::unique_ptr<Module>
+DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
+  DxilLib *pLib = m_functionDefs.begin()->second;
+  DxilModule &tmpDM = pLib->GetDxilModule();
+  // Create new module.
+  std::unique_ptr<Module> pM =
+      llvm::make_unique<Module>("merged_lib", tmpDM.GetCtx());
+  // Set target.
+  pM->setTargetTriple(tmpDM.GetModule()->getTargetTriple());
+  // Add dxil operation functions before create DxilModule.
+  AddDxilOperations(pM.get());
+
+  // Create DxilModule.
+  const bool bSkipInit = true;
+  DxilModule &DM = pM->GetOrCreateDxilModule(bSkipInit);
+  DM.SetShaderModel(pSM);
+
+  // Set Validator version.
+  DM.SetValidatorVersion(m_valMajor, m_valMinor);
+
+  ValueToValueMapTy vmap;
+
+  std::unordered_set<Function *> initFuncSet;
+  // Add function
+  AddFunctions(DM, vmap, initFuncSet);
+
+  // Set DxilFunctionProps.
+  std::unordered_map<Function *, std::unique_ptr<DxilEntrySignature>>
+      DxilEntrySignatureMap;
+  for (auto &it : m_functionDefs) {
+    DxilFunctionLinkInfo *linkInfo = it.first;
+    DxilLib *pLib = it.second;
+    DxilModule &tmpDM = pLib->GetDxilModule();
+
+    Function *F = linkInfo->func;
+    if (tmpDM.HasDxilFunctionProps(F)) {
+      Function *NewF = m_newFunctions[F->getName()];
+      DxilFunctionProps props = tmpDM.GetDxilFunctionProps(F);
+      std::unique_ptr<DxilFunctionProps> pProps =
+          std::make_unique<DxilFunctionProps>();
+      *pProps = props;
+      DM.AddDxilFunctionProps(NewF, pProps);
+    }
+
+    if (tmpDM.HasDxilEntrySignature(F)) {
+      Function *NewF = m_newFunctions[F->getName()];
+      std::unique_ptr<DxilEntrySignature> pSig =
+          llvm::make_unique<DxilEntrySignature>(tmpDM.GetDxilEntrySignature(F));
+      DxilEntrySignatureMap[NewF] = std::move(pSig);
+    }
+  }
+  DM.ResetEntrySignatureMap(std::move(DxilEntrySignatureMap));
+
+  // Add global
+  bool bSuccess = AddGlobals(DM, vmap);
+  if (!bSuccess)
+    return nullptr;
+
+  // Clone functions.
+  CloneFunctions(vmap);
+
+  // Refresh intrinsic cache.
+  DM.GetOP()->RefreshCache();
+
+  // Add resource to DM.
+  // This should be after functions cloned.
+  AddResourceToDM(DM);
+
+  // Link metadata like debug info.
+  LinkNamedMDNodes(pM.get(), vmap);
 
   RunPreparePass(*pM);
 
@@ -725,17 +857,27 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   legacy::PassManager PM;
 
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
+
+  // Remove unused functions.
   PM.add(createDxilDeadFunctionEliminationPass());
+
+  // SROA
+  PM.add(createSROAPass(/*RequiresDomTree*/false));
+
   // mem2reg.
   PM.add(createPromoteMemoryToRegisterPass());
-  // Remove unused functions.
-  PM.add(createDeadCodeEliminationPass());
-  PM.add(createGlobalDCEPass());
+
+  // Clean up vectors, and run mem2reg again
+  PM.add(createScalarizerPass());
+  PM.add(createPromoteMemoryToRegisterPass());
 
   PM.add(createSimplifyInstPass());
   PM.add(createCFGSimplificationPass());
 
-  PM.add(createDxilCondenseResourcesPass());
+  PM.add(createDeadCodeEliminationPass());
+  PM.add(createGlobalDCEPass());
+
+  PM.add(createDxilLowerCreateHandleForLibPass());
   PM.add(createDxilFinalizeModulePass());
   PM.add(createComputeViewIdStatePass());
   PM.add(createDxilDeadFunctionEliminationPass());
@@ -883,7 +1025,7 @@ bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
       pLib->LazyLoadFunction(F);
     }
     for (Function *F : linkPair.first->usedFunctions) {
-      if (hlsl::OP::IsDxilOpFunc(F)) {
+      if (hlsl::OP::IsDxilOpFunc(F) || F->isIntrinsic()) {
         // Add dxil operations directly.
         linkJob.AddFunction(F);
       } else {
@@ -899,22 +1041,78 @@ bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
 
 std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
                                                StringRef profile) {
-  StringSet<> addedFunctionSet;
-  SmallVector<StringRef, 4> workList;
-  workList.emplace_back(entry);
+  const ShaderModel *pSM = ShaderModel::GetByName(profile.data());
+  DXIL::ShaderKind kind = pSM->GetKind();
+  if (kind == DXIL::ShaderKind::Invalid ||
+      (kind >= DXIL::ShaderKind::RayGeneration &&
+       kind <= DXIL::ShaderKind::Callable)) {
+    m_ctx.emitError(profile + Twine(kInvalidProfile));
+    // Invalid profile.
+    return nullptr;
+  }
+
+  // Skip validation for lib target until implemented.
+  if (!pSM->IsLib()) {
+    // Verifying validator version supports the requested profile
+    unsigned minValMajor, minValMinor;
+    pSM->GetMinValidatorVersion(minValMajor, minValMinor);
+    if (minValMajor > m_valMajor ||
+        (minValMajor == m_valMajor && minValMinor > m_valMinor)) {
+      m_ctx.emitError(Twine(kInvalidValidatorVersion) + profile);
+      return nullptr;
+    }
+  }
 
   DxilLinkJob linkJob(m_ctx, m_valMajor, m_valMinor);
 
   DenseSet<DxilLib *> libSet;
-  if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
-                    /*bLazyLoadDone*/ false))
-    return nullptr;
+  StringSet<> addedFunctionSet;
+
+  bool bIsLib = pSM->IsLib();
+  if (!bIsLib) {
+    SmallVector<StringRef, 4> workList;
+    workList.emplace_back(entry);
+
+    if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
+                      /*bLazyLoadDone*/ false))
+      return nullptr;
+
+  } else {
+    // Add every function for lib profile.
+    for (auto &it : m_functionNameMap) {
+      StringRef name = it.getKey();
+      std::pair<DxilFunctionLinkInfo *, DxilLib *> &linkPair = it.second;
+      DxilFunctionLinkInfo *linkInfo = linkPair.first;
+      DxilLib *pLib = linkPair.second;
+
+      Function *F = linkInfo->func;
+      pLib->LazyLoadFunction(F);
+
+      linkJob.AddFunction(linkPair);
+
+      libSet.insert(pLib);
+
+      addedFunctionSet.insert(name);
+    }
+    // Add every dxil functions and llvm intrinsic.
+    for (auto *pLib : libSet) {
+      auto &DM = pLib->GetDxilModule();
+      DM.GetOP();
+      auto *pM = DM.GetModule();
+      for (Function &F : pM->functions()) {
+        if (hlsl::OP::IsDxilOpFunc(&F) || F.isIntrinsic()) {
+          linkJob.AddFunction(&F);
+        }
+      }
+    }
+  }
 
   // Save global users.
   for (auto &pLib : libSet) {
     pLib->BuildGlobalUsage();
   }
 
+  SmallVector<StringRef, 4> workList;
   // Save global ctor users.
   for (auto &pLib : libSet) {
     pLib->CollectUsedInitFunctions(addedFunctionSet, workList);
@@ -926,10 +1124,14 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
                     /*bLazyLoadDone*/ true))
     return nullptr;
 
-  std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair =
-      m_functionNameMap[entry];
+  if (!bIsLib) {
+    std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair =
+        m_functionNameMap[entry];
 
-  return linkJob.Link(entryLinkPair, profile);
+    return linkJob.Link(entryLinkPair, pSM);
+  } else {
+    return linkJob.LinkToLib(pSM);
+  }
 }
 
 namespace hlsl {

@@ -23,6 +23,7 @@ class Instruction;
 };
 #include "llvm/IR/Attributes.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/DenseMap.h"
 
 #include "DxilConstants.h"
 #include <unordered_map>
@@ -42,7 +43,7 @@ public:
   void RefreshCache();
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
-  llvm::ArrayRef<llvm::Function *> GetOpFuncList(OpCode OpCode) const;
+  const llvm::SmallDenseMap<llvm::Type *, llvm::Function *, 8> &GetOpFuncList(OpCode OpCode) const;
   void RemoveFunction(llvm::Function *F);
   llvm::Type *GetOverloadType(OpCode OpCode, llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
@@ -115,17 +116,19 @@ private:
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;
 
-  static const unsigned kNumTypeOverloads = 9;
+  static const unsigned kUserDefineTypeSlot = 9;
+  static const unsigned kObjectTypeSlot = 10;
+  static const unsigned kNumTypeOverloads = 11; // void, h,f,d, i1, i8,i16,i32,i64, udt, obj
 
   llvm::Type *m_pResRetType[kNumTypeOverloads];
   llvm::Type *m_pCBufferRetType[kNumTypeOverloads];
 
   struct OpCodeCacheItem {
-    llvm::Function *pOverloads[kNumTypeOverloads];
+    llvm::SmallDenseMap<llvm::Type *, llvm::Function *, 8> pOverloads;
   };
   OpCodeCacheItem m_OpCodeClassCache[(unsigned)OpCodeClass::NumOpClasses];
   std::unordered_map<const llvm::Function *, OpCodeClass> m_FunctionToOpClass;
-  void UpdateCache(OpCodeClass opClass, unsigned typeSlot, llvm::Function *F);
+  void UpdateCache(OpCodeClass opClass, llvm::Type * Ty, llvm::Function *F);
 private:
   // Static properties.
   struct OpCodeProperty {
@@ -133,7 +136,7 @@ private:
     const char *pOpCodeName;
     OpCodeClass OpCodeClass;
     const char *pOpCodeClassName;
-    bool bAllowOverload[kNumTypeOverloads];   // void, h,f,d, i1, i8,i16,i32,i64
+    bool bAllowOverload[kNumTypeOverloads];   // void, h,f,d, i1, i8,i16,i32,i64, udt
     llvm::Attribute::AttrKind FuncAttr;
   };
   static const OpCodeProperty m_OpCodeProps[(unsigned)OpCode::NumOpCodes];
@@ -144,6 +147,7 @@ private:
   static const char *m_MatrixTypePrefix;
   static unsigned GetTypeSlot(llvm::Type *pType);
   static const char *GetOverloadTypeName(unsigned TypeSlot);
+  static llvm::StringRef GetTypeName(llvm::Type *Ty, std::string &str);
 };
 
 } // namespace hlsl

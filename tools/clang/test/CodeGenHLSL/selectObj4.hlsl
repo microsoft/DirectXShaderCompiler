@@ -1,9 +1,9 @@
 // RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
-// CHECK: select
-// CHECK: i32 2, i32 1
-// CHECK: select
-// CHECK: i32 0, i32 3
+// Make sure select on resource index.
+// TODO: transform phi into selectInst.
+// CHECK: phi i32 [ 2, {{.*}} ], [ 1, {{.*}} ]
+// CHECK: phi i32 [ 0, {{.*}} ], [ 3, {{.*}} ]
 
 
 RWStructuredBuffer<float2x2> o[6];

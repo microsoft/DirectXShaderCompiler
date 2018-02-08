@@ -100,11 +100,12 @@ public:
 bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
     hlsl::OP *hlslOP, DXIL::OpCode opcode, DxilSignature &outputSig,
     Function *Entry) {
-  ArrayRef<llvm::Function *> storeOutputs =
+  auto &storeOutputs =
       hlslOP->GetOpFuncList(opcode);
 
   MapVector<Value *, Type *> dynamicSigSet;
-  for (Function *F : storeOutputs) {
+  for (auto it : storeOutputs) {
+    Function *F = it.second;
     // Skip overload not used.
     if (!F)
       continue;

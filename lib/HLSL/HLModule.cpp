@@ -350,6 +350,35 @@ void HLModule::AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunct
   DXASSERT_NOMSG(info->shaderKind != DXIL::ShaderKind::Invalid);
   m_DxilFunctionPropsMap[F] = std::move(info);
 }
+void HLModule::SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc) {
+  auto propIter = m_DxilFunctionPropsMap.find(hullShaderFunc);
+  DXASSERT(propIter != m_DxilFunctionPropsMap.end(), "else Hull Shader missing function props");
+  DxilFunctionProps &props = *(propIter->second);
+  DXASSERT(props.IsHS(), "else hullShaderFunc is not a Hull Shader");
+  if (props.ShaderProps.HS.patchConstantFunc)
+    m_PatchConstantFunctions.erase(props.ShaderProps.HS.patchConstantFunc);
+  props.ShaderProps.HS.patchConstantFunc = patchConstantFunc;
+  if (patchConstantFunc)
+    m_PatchConstantFunctions.insert(patchConstantFunc);
+}
+bool HLModule::IsGraphicsShader(llvm::Function *F) {
+  return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsGraphics();
+}
+bool HLModule::IsPatchConstantShader(llvm::Function *F) {
+  return m_PatchConstantFunctions.count(F) != 0;
+}
+bool HLModule::IsComputeShader(llvm::Function *F) {
+  return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsCS();
+}
+bool HLModule::IsEntryThatUsesSignatures(llvm::Function *F) {
+  auto propIter = m_DxilFunctionPropsMap.find(F);
+  if (propIter != m_DxilFunctionPropsMap.end()) {
+    DxilFunctionProps &props = *(propIter->second);
+    return props.IsGraphics() || props.IsCS();
+  }
+  // Otherwise, return true if patch constant function
+  return IsPatchConstantShader(F);
+}
 
 DxilFunctionAnnotation *HLModule::GetFunctionAnnotation(llvm::Function *F) {
   return m_pTypeSystem->GetFunctionAnnotation(F);
@@ -474,6 +503,11 @@ void HLModule::LoadHLMetadata() {
           llvm::make_unique<hlsl::DxilFunctionProps>();
 
       Function *F = m_pMDHelper->LoadDxilFunctionProps(pProps, props.get());
+
+      if (props->IsHS() && props->ShaderProps.HS.patchConstantFunc) {
+        // Add patch constant function to m_PatchConstantFunctions
+        m_PatchConstantFunctions.insert(props->ShaderProps.HS.patchConstantFunc);
+      }
 
       m_DxilFunctionPropsMap[F] = std::move(props);
     }
@@ -775,6 +809,9 @@ bool HLModule::IsHLSLObjectType(llvm::Type *Ty) {
       return true;
 
     if (name.startswith("ConstantBuffer"))
+      return true;
+
+    if (name == "RaytracingAccelerationStructure")
       return true;
 
     name = name.ltrim("RasterizerOrdered");
