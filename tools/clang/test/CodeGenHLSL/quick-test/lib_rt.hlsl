@@ -38,10 +38,6 @@ struct MyParam {
   float4 output;
 };
 
-// Declare_TraceRay(MyPayload);
-// Declare_ReportHit(MyAttributes);
-// Declare_CallShader(MyParam);
-
 // CHECK: ; S                                 sampler      NA          NA      S0             s1     1
 // CHECK: ; RTAS                              texture     i32         ras      T0             t5     1
 // CHECK: ; T                                 texture     f32          2d      T1             t1     1
@@ -52,11 +48,13 @@ struct MyParam {
 
 RaytracingAccelerationStructure RTAS : register(t5);
 
-// CHECK: define void [[raygen1:@"\\01\?raygen1@[^\"]+"]]() {
-// CHECK:   call void {{.*}}rayDispatchIndex{{.*}}
-// CHECK:   call void {{.*}}rayDispatchDimension{{.*}}
-// CHECK:   call %dx.types.Handle @"dx.op.createHandleFromResourceStructForLib.%struct.RaytracingAccelerationStructure*"(i32 160, %struct.RaytracingAccelerationStructure* nonnull @"\01?RTAS@@3URaytracingAccelerationStructure@@A")
-// CHECK:   call void {{.*}}traceRay{{.*}}(%dx.types.Handle {{*.}}, i32 0, i32 0, i32 0, i32 1, i32 0, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.250000e-01, float {{.*}}, float {{.*}}, float {{.*}}, float 1.280000e+02, float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}}, i32* nonnull {{.*}}, i32* nonnull {{.*}})
+// CHECK: define void [[raygen1:@"\\01\?raygen1@[^\"]+"]]() #0 {
+// CHECK:   %[[i_0:[0-9]+]] = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", align 4
+// CHECK:   call i32 @dx.op.rayDispatchIndex.i32(i32 145, i8 0)
+// CHECK:   call i32 @dx.op.rayDispatchIndex.i32(i32 145, i8 1)
+// CHECK:   call i32 @dx.op.rayDispatchDimension.i32(i32 146, i8 0)
+// CHECK:   %[[i_8:[0-9]+]] = call %dx.types.Handle @dx.op.createHandleFromResourceStructForLib.struct.RaytracingAccelerationStructure(i32 160, %struct.RaytracingAccelerationStructure %[[i_0]])
+// CHECK:   call void @dx.op.traceRay.struct.MyPayload(i32 157, %dx.types.Handle %[[i_8]], i32 0, i32 0, i32 0, i32 1, i32 0, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.250000e-01, float {{.*}}, float {{.*}}, float {{.*}}, float 1.280000e+02, %struct.MyPayload* nonnull {{.*}})
 // CHECK:   ret void
 
 [shader("raygeneration")]
@@ -70,9 +68,9 @@ void raygen1()
   TraceRay(RTAS, RAY_FLAG_NONE, 0, 0, 1, 0, ray, p);
 }
 
-// CHECK: define void [[intersection1:@"\\01\?intersection1@[^\"]+"]]() {
-// CHECK:   [[CurrentRayT:%[^ ]+]] = call float {{.*}}currentRayT{{.*}}(i32 154)
-// CHECK:   call void {{.*}}ReportHit{{.*}}(i32 158, float [[CurrentRayT]], i32 0, float 0.000000e+00, float 0.000000e+00, i32 0, i1* nonnull {{.*}})
+// CHECK: define void [[intersection1:@"\\01\?intersection1@[^\"]+"]]() #0 {
+// CHECK:   [[CurrentRayT:%[^ ]+]] = call float @dx.op.currentRayT.f32(i32 154)
+// CHECK:   call i1 @dx.op.reportHit.struct.MyAttributes(i32 158, float [[CurrentRayT]], i32 0, %struct.MyAttributes* nonnull {{.*}})
 // CHECK:   ret void
 
 [shader("intersection")]
@@ -83,18 +81,14 @@ void intersection1()
   bool bReported = ReportHit(hitT, 0, attr);
 }
 
-// CHECK: define void [[anyhit1:@"\\01\?anyhit1@[^\"]+"]](float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, i32* noalias nocapture, i32* noalias nocapture, float, float, i32)
-// CHECK:   call void {{.*}}ObjectRayOrigin{{.*}}(float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}})
-// CHECK:   call void {{.*}}ObjectRayDirection{{.*}}(float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}})
-// CHECK:   call void {{.*}}CurrentRayT{{.*}}(float* nonnull {{.*}})
-// CHECK:   call void {{.*}}AcceptHitAndEndSearch{{.*}}()
-// CHECK:   call void {{.*}}IgnoreHit{{.*}}()
-// CHECK:   store float {{.*}}, float* %0, align 4
-// CHECK:   store float {{.*}}, float* %1, align 4
-// CHECK:   store float {{.*}}, float* %2, align 4
-// CHECK:   store float {{.*}}, float* %3, align 4
-// CHECK:   store i32 {{.*}}, i32* %4, align 4
-// CHECK:   store i32 {{.*}}, i32* %5, align 4
+// CHECK: define void [[anyhit1:@"\\01\?anyhit1@[^\"]+"]](%struct.MyPayload* noalias nocapture %payload, %struct.MyAttributes* nocapture readonly %attr) #0 {
+// CHECK:   call float @dx.op.objectRayOrigin.f32(i32 149, i8 2)
+// CHECK:   call float @dx.op.objectRayDirection.f32(i32 150, i8 2)
+// CHECK:   call float @dx.op.currentRayT.f32(i32 154)
+// CHECK:   call void @dx.op.acceptHitAndEndSearch(i32 156)
+// CHECK:   call void @dx.op.ignoreHit(i32 155)
+// CHECK:   %color = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0
+// CHECK:   store <4 x float> {{.*}}, <4 x float>* %color, align 4
 // CHECK:   ret void
 
 [shader("anyhit")]
@@ -109,12 +103,10 @@ void anyhit1( inout MyPayload payload : SV_RayPayload,
   payload.color += float4(0.125, 0.25, 0.5, 1.0);
 }
 
-// CHECK: define void [[closesthit1:@"\\01\?closesthit1@[^\"]+"]](float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, i32* noalias nocapture, i32* noalias nocapture, float, float, i32)
-// CHECK:   call void {{.*}}CallShader{{.*}}(i32 {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}}, float* nonnull {{.*}})
-// CHECK:   store float {{.*}}, float* %0, align 4
-// CHECK:   store float {{.*}}, float* %1, align 4
-// CHECK:   store float {{.*}}, float* %2, align 4
-// CHECK:   store float {{.*}}, float* %3, align 4
+// CHECK: define void [[closesthit1:@"\\01\?closesthit1@[^\"]+"]](%struct.MyPayload* noalias nocapture %payload, %struct.MyAttributes* nocapture readonly %attr) #0 {
+// CHECK:   call void @dx.op.callShader.struct.MyParam(i32 159, i32 %2, %struct.MyParam* nonnull %0)
+// CHECK:   %color = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0
+// CHECK:   store <4 x float> {{.*}}, <4 x float>* %color, align 4
 // CHECK:   ret void
 
 [shader("closesthit")]
@@ -126,11 +118,9 @@ void closesthit1( inout MyPayload payload : SV_RayPayload,
   payload.color += param.output;
 }
 
-// CHECK: define void [[miss1:@"\\01\?miss1@[^\"]+"]](float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, i32* noalias nocapture, i32* noalias nocapture)
-// CHECK:   store float 1.000000e+00, float* %0, align 4
-// CHECK:   store float 0.000000e+00, float* %1, align 4
-// CHECK:   store float 1.000000e+00, float* %2, align 4
-// CHECK:   store float 1.000000e+00, float* %3, align 4
+// CHECK: define void [[miss1:@"\\01\?miss1@[^\"]+"]](%struct.MyPayload* noalias nocapture %payload) #0 {
+// CHECK:   %0 = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0
+// CHECK:   store <4 x float> <float 1.000000e+00, float 0.000000e+00, float 1.000000e+00, float 1.000000e+00>, <4 x float>* %0, align 4
 // CHECK:   ret void
 
 [shader("miss")]
@@ -142,16 +132,12 @@ void miss1(inout MyPayload payload : SV_RayPayload)
 Texture2D T : register(t1);
 SamplerState S : register(s1);
 
-// CHECK: define void [[callable1:@"\\01\?callable1@[^\"]+"]](float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, float* noalias nocapture, float* noalias nocapture)
-// CHECK:   [[T_ID:[^ ]+]] = load i32, i32* @T_rangeID
-// CHECK:   %T_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 [[T_ID]], i32 0, i1 false)
-// CHECK:   [[S_ID:[^ ]+]] = load i32, i32* @S_rangeID
-// CHECK:   %S_sampler = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 [[S_ID]], i32 0, i1 false)
-// CHECK:   {{.*}} = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %T_texture_2d, %dx.types.Handle %S_sampler, float {{.*}}, float {{.*}}, float undef, float undef, i32 undef, i32 undef, i32 undef, float 0.000000e+00)
-// CHECK:   store float {{.*}}, float* %2, align 4
-// CHECK:   store float {{.*}}, float* %3, align 4
-// CHECK:   store float {{.*}}, float* %4, align 4
-// CHECK:   store float {{.*}}, float* %5, align 4
+// CHECK: define void [[callable1:@"\\01\?callable1@[^\"]+"]](%struct.MyParam* noalias nocapture %param) #0 {
+// CHECK:   %[[i_0:[0-9]+]] = load %struct.SamplerState, %struct.SamplerState* @"\01?S@@3USamplerState@@A", align 4
+// CHECK:   %[[i_1:[0-9]+]] = load %class.Texture2D, %class.Texture2D* @"\01?T@@3V?$Texture2D@V?$vector@M$03@@@@A", align 4
+// CHECK:   %[[i_3:[0-9]+]] = call %dx.types.Handle @dx.op.createHandleFromResourceStructForLib.class.Texture2D(i32 160, %class.Texture2D %[[i_1]])
+// CHECK:   %[[i_4:[0-9]+]] = call %dx.types.Handle @dx.op.createHandleFromResourceStructForLib.struct.SamplerState(i32 160, %struct.SamplerState %[[i_0]])
+// CHECK:   %[[i_7:[0-9]+]] = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62, %dx.types.Handle %[[i_3]], %dx.types.Handle %[[i_4]], float %[[i_5:[0-9]+]], float %[[i_6:[0-9]+]], float undef, float undef, i32 undef, i32 undef, i32 undef, float 0.000000e+00)
 // CHECK:   ret void
 
 [shader("callable")]

@@ -1,6 +1,6 @@
 // RUN: %dxc -T lib_6_2 %s | FileCheck %s
 
-// CHECK: call void @"dx.op.callShader.%struct.Parameter*"(i32 159
+// CHECK: call void @dx.op.callShader.struct.Parameter(i32 159
 
 struct Parameter {
    float2 t;
