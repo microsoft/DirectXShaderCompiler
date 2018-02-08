@@ -2,6 +2,8 @@
 
 // CHECK: [[v2uint_1_0:%\d+]] = OpConstantComposite %v2uint %uint_1 %uint_0
 // CHECK: [[v3uint_0_2_3:%\d+]] = OpConstantComposite %v3uint %uint_0 %uint_2 %uint_3
+// CHECK: [[v3u1:%\d+]] = OpConstantComposite %v3uint %uint_1 %uint_1 %uint_1
+// CHECK: [[v3u0:%\d+]] = OpConstantComposite %v3uint %uint_0 %uint_0 %uint_0
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
@@ -60,4 +62,31 @@ void main() {
 // CHECK-NEXT: [[vc3:%\d+]] = OpConvertFToU %v3uint [[vfrom3]]
 // CHECK-NEXT: OpStore %vi3 [[vc3]]
     vi3 = vfrom3;
+
+    int2x3   intMat;
+    float2x3 floatMat;
+    uint2x3  uintMat;
+    bool2x3  boolMat;
+
+// CHECK:       [[boolMat:%\d+]] = OpLoad %_arr_v3bool_uint_2 %boolMat
+// CHECK-NEXT: [[boolMat0:%\d+]] = OpCompositeExtract %v3bool [[boolMat]] 0
+// CHECK-NEXT: [[uintMat0:%\d+]] = OpSelect %v3uint [[boolMat0]] [[v3u1]] [[v3u0]]
+// CHECK-NEXT: [[boolMat1:%\d+]] = OpCompositeExtract %v3bool [[boolMat]] 1
+// CHECK-NEXT: [[uintMat1:%\d+]] = OpSelect %v3uint [[boolMat1]] [[v3u1]] [[v3u0]]
+// CHECK-NEXT:          {{%\d+}} = OpCompositeConstruct %_arr_v3uint_uint_2 [[uintMat0]] [[uintMat1]]
+    uintMat = boolMat;
+// CHECK:        [[intMat:%\d+]] = OpLoad %_arr_v3int_uint_2 %intMat
+// CHECK-NEXT:  [[intMat0:%\d+]] = OpCompositeExtract %v3int [[intMat]] 0
+// CHECK-NEXT: [[uintMat0:%\d+]] = OpBitcast %v3uint [[intMat0]]
+// CHECK-NEXT:  [[intMat1:%\d+]] = OpCompositeExtract %v3int [[intMat]] 1
+// CHECK-NEXT: [[uintMat1:%\d+]] = OpBitcast %v3uint [[intMat1]]
+// CHECK-NEXT:          {{%\d+}} = OpCompositeConstruct %_arr_v3uint_uint_2 [[uintMat0]] [[uintMat1]]
+    uintMat = intMat;
+// CHECK:       [[floatMat:%\d+]] = OpLoad %mat2v3float %floatMat
+// CHECK-NEXT: [[floatMat0:%\d+]] = OpCompositeExtract %v3float [[floatMat]] 0
+// CHECK-NEXT:  [[uintMat0:%\d+]] = OpConvertFToU %v3uint [[floatMat0]]
+// CHECK-NEXT: [[floatMat1:%\d+]] = OpCompositeExtract %v3float [[floatMat]] 1
+// CHECK-NEXT:  [[uintMat1:%\d+]] = OpConvertFToU %v3uint [[floatMat1]]
+// CHECK-NEXT:           {{%\d+}} = OpCompositeConstruct %_arr_v3uint_uint_2 [[uintMat0]] [[uintMat1]]
+    uintMat = floatMat;
 }

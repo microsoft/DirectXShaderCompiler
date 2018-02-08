@@ -4,6 +4,8 @@
 // CHECK: [[v3bool_0_1_1:%\d+]] = OpConstantComposite %v3bool %false %true %true
 // CHECK: [[v2uint_0_0:%\d+]] = OpConstantComposite %v2uint %uint_0 %uint_0
 // CHECK: [[v3float_0_0_0:%\d+]] = OpConstantComposite %v3float %float_0 %float_0 %float_0
+// CHECK: [[v3i0:%\d+]] = OpConstantComposite %v3int %int_0 %int_0 %int_0
+// CHECK: [[v3u0:%\d+]] = OpConstantComposite %v3uint %uint_0 %uint_0 %uint_0
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
@@ -62,4 +64,33 @@ void main() {
 // CHECK-NEXT: [[vc3:%\d+]] = OpFOrdNotEqual %v3bool [[vfrom3]] [[v3float_0_0_0]]
 // CHECK-NEXT: OpStore %vb3 [[vc3]]
     vb3 = vfrom3;
+
+    float2x3 floatMat;
+    int2x3   intMat;
+    uint2x3  uintMat;
+    bool2x3 boolMat;
+
+// CHECK:       [[floatMat:%\d+]] = OpLoad %mat2v3float %floatMat
+// CHECK-NEXT: [[floatMat0:%\d+]] = OpCompositeExtract %v3float [[floatMat]] 0
+// CHECK-NEXT:  [[boolMat0:%\d+]] = OpFOrdNotEqual %v3bool [[floatMat0]] [[v3float_0_0_0]]
+// CHECK-NEXT: [[floatMat1:%\d+]] = OpCompositeExtract %v3float [[floatMat]] 1
+// CHECK-NEXT:  [[boolMat1:%\d+]] = OpFOrdNotEqual %v3bool [[floatMat1]] [[v3float_0_0_0]]
+// CHECK-NEXT:           {{%\d+}} = OpCompositeConstruct %_arr_v3bool_uint_2 [[boolMat0]] [[boolMat1]]
+    boolMat = floatMat;
+
+// CHECK:        [[intMat:%\d+]] = OpLoad %_arr_v3int_uint_2 %intMat
+// CHECK-NEXT:  [[intMat0:%\d+]] = OpCompositeExtract %v3int [[intMat]] 0
+// CHECK-NEXT: [[boolMat0:%\d+]] = OpINotEqual %v3bool [[intMat0]] [[v3i0]]
+// CHECK-NEXT:  [[intMat1:%\d+]] = OpCompositeExtract %v3int [[intMat]] 1
+// CHECK-NEXT: [[boolMat1:%\d+]] = OpINotEqual %v3bool [[intMat1]] [[v3i0]]
+// CHECK-NEXT:          {{%\d+}} = OpCompositeConstruct %_arr_v3bool_uint_2 [[boolMat0]] [[boolMat1]]
+    boolMat = intMat;
+
+// CHECK:      [[uintMat:%\d+]] = OpLoad %_arr_v3uint_uint_2 %uintMat
+// CHECK-NEXT: [[uintMat0:%\d+]] = OpCompositeExtract %v3uint [[uintMat]] 0
+// CHECK-NEXT: [[boolMat0:%\d+]] = OpINotEqual %v3bool [[uintMat0]] [[v3u0]]
+// CHECK-NEXT: [[uintMat1:%\d+]] = OpCompositeExtract %v3uint [[uintMat]] 1
+// CHECK-NEXT: [[boolMat1:%\d+]] = OpINotEqual %v3bool [[uintMat1]] [[v3u0]]
+// CHECK-NEXT:  {{%\d+}} = OpCompositeConstruct %_arr_v3bool_uint_2 [[boolMat0]] [[boolMat1]]
+    boolMat = uintMat;
 }
