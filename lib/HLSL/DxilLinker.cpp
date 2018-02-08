@@ -23,6 +23,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/SetVector.h"
 #include <memory>
 #include <vector>
 
@@ -323,6 +324,7 @@ struct DxilLinkJob {
   void AddFunction(llvm::Function *F);
 
 private:
+  void LinkNamedMDNodes(Module *pM, ValueToValueMapTy &vmap);
   void AddDxilOperations(Module *pM);
   bool AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap);
   void CloneFunctions(ValueToValueMapTy &vmap);
@@ -494,6 +496,49 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
     basePtr->SetID(ID);
 
     basePtr->SetGlobalSymbol(GV);
+  }
+}
+
+void DxilLinkJob::LinkNamedMDNodes(Module *pM, ValueToValueMapTy &vmap) {
+  SetVector<Module *> moduleSet;
+  for (auto &it : m_functionDefs) {
+    DxilLib *pLib = it.second;
+    moduleSet.insert(pLib->GetDxilModule().GetModule());
+  }
+  // Link normal NamedMDNode.
+  // TODO: skip duplicate operands.
+  for (Module *pSrcM : moduleSet) {
+    const NamedMDNode *pSrcModFlags = pSrcM->getModuleFlagsMetadata();
+    for (const NamedMDNode &NMD : pSrcM->named_metadata()) {
+      // Don't link module flags here. Do them separately.
+      if (&NMD == pSrcModFlags)
+        continue;
+      // Skip dxil metadata which will be regenerated.
+      if (DxilMDHelper::IsKnownNamedMetaData(NMD))
+        continue;
+      NamedMDNode *DestNMD = pM->getOrInsertNamedMetadata(NMD.getName());
+      // Add Src elements into Dest node.
+      for (const MDNode *op : NMD.operands())
+        DestNMD->addOperand(MapMetadata(op, vmap, RF_None, /*TypeMap*/ nullptr,
+                                        /*ValMaterializer*/ nullptr));
+    }
+  }
+  // Link mod flags.
+  SetVector<MDNode *> flagSet;
+  for (Module *pSrcM : moduleSet) {
+    NamedMDNode *pSrcModFlags = pSrcM->getModuleFlagsMetadata();
+    if (pSrcModFlags) {
+      for (MDNode *flag : pSrcModFlags->operands()) {
+        flagSet.insert(flag);
+      }
+    }
+  }
+  // TODO: check conflict in flags.
+  if (!flagSet.empty()) {
+    NamedMDNode *ModFlags = pM->getOrInsertModuleFlagsMetadata();
+    for (MDNode *flag : flagSet) {
+      ModFlags->addOperand(flag);
+    }
   }
 }
 
@@ -686,8 +731,6 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   // Set EntryProps
   DM.SetShaderProperties(&props);
 
-  // Debug info.
-
   // Add global
   bool bSuccess = AddGlobals(DM, vmap);
   if (!bSuccess)
@@ -716,6 +759,9 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   // Add resource to DM.
   // This should be after functions cloned.
   AddResourceToDM(DM);
+  
+  // Link metadata like debug info.
+  LinkNamedMDNodes(pM.get(), vmap);
 
   RunPreparePass(*pM);
 
@@ -775,8 +821,6 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
   }
   DM.ResetEntrySignatureMap(std::move(DxilEntrySignatureMap));
 
-  // Debug info.
-
   // Add global
   bool bSuccess = AddGlobals(DM, vmap);
   if (!bSuccess)
@@ -791,6 +835,9 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
   // Add resource to DM.
   // This should be after functions cloned.
   AddResourceToDM(DM);
+
+  // Link metadata like debug info.
+  LinkNamedMDNodes(pM.get(), vmap);
 
   RunPreparePass(*pM);
 
@@ -978,7 +1025,7 @@ bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
       pLib->LazyLoadFunction(F);
     }
     for (Function *F : linkPair.first->usedFunctions) {
-      if (hlsl::OP::IsDxilOpFunc(F)) {
+      if (hlsl::OP::IsDxilOpFunc(F) || F->isIntrinsic()) {
         // Add dxil operations directly.
         linkJob.AddFunction(F);
       } else {
@@ -1047,13 +1094,13 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
 
       addedFunctionSet.insert(name);
     }
-    // Add every dxil functions.
+    // Add every dxil functions and llvm intrinsic.
     for (auto *pLib : libSet) {
       auto &DM = pLib->GetDxilModule();
       DM.GetOP();
       auto *pM = DM.GetModule();
       for (Function &F : pM->functions()) {
-        if (hlsl::OP::IsDxilOpFunc(&F)) {
+        if (hlsl::OP::IsDxilOpFunc(&F) || F.isIntrinsic()) {
           linkJob.AddFunction(&F);
         }
       }
