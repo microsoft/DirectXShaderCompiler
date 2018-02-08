@@ -1003,13 +1003,17 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
     // Invalid profile.
     return nullptr;
   }
-  // Verifying validator version supports the requested profile
-  unsigned minValMajor, minValMinor;
-  pSM->GetMinValidatorVersion(minValMajor, minValMinor);
-  if (minValMajor > m_valMajor ||
-      (minValMajor == m_valMajor && minValMinor > m_valMinor)) {
-    m_ctx.emitError(Twine(kInvalidValidatorVersion) + profile);
-    return nullptr;
+
+  // Skip validation for lib target until implemented.
+  if (!pSM->IsLib()) {
+    // Verifying validator version supports the requested profile
+    unsigned minValMajor, minValMinor;
+    pSM->GetMinValidatorVersion(minValMajor, minValMinor);
+    if (minValMajor > m_valMajor ||
+        (minValMajor == m_valMajor && minValMinor > m_valMinor)) {
+      m_ctx.emitError(Twine(kInvalidValidatorVersion) + profile);
+      return nullptr;
+    }
   }
 
   DxilLinkJob linkJob(m_ctx, m_valMajor, m_valMinor);
