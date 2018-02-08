@@ -1530,7 +1530,7 @@ void DxilExtraPropertyHelper::LoadSignatureElementProperties(const MDOperand &MD
 //
 // Utilities.
 //
-bool DxilMDHelper::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
+bool DxilMDHelper::IsKnownNamedMetaData(const llvm::NamedMDNode &Node) {
   StringRef name = Node.getName();
   for (unsigned i = 0; i < DxilMDNames.size(); i++) {
     if (name == DxilMDNames[i]) {
