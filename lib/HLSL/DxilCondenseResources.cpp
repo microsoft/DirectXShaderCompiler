@@ -861,6 +861,8 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
           // Mark nonUniform.
           createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
               hlslOP->GetI1Const(1);
+          // Clear nonUniform on GEP.
+          GEPInst->setMetadata(DxilMDHelper::kDxilNonUniformAttributeMDName, nullptr);
         }
         createHandleArgs[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
             Builder.CreateAdd(idx, resLowerBound);
