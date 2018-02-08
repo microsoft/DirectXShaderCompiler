@@ -391,7 +391,7 @@ void DxilGenerationPass::MarkNonUniform(
     std::unordered_set<Value *> &NonUniformSet) {
   for (Value *V : NonUniformSet) {
     for (User *U : V->users()) {
-      if (Instruction *I = dyn_cast<Instruction>(U)) {
+      if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
         DxilMDHelper::MarkNonUniform(I);
       }
     }

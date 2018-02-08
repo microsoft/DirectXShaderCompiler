@@ -2375,7 +2375,6 @@ static void ValidateInstructionMetadata(Instruction *I,
       }
     } else if (MD.first == ValCtx.kDxilPreciseMDKind) {
       // Validated in IsPrecise.
-    } else if (MD.first == ValCtx.kDxilNonUniformMDKind) {
     } else if (MD.first == ValCtx.kLLVMLoopMDKind) {
       ValidateLoopMetadata(MD.second, ValCtx);
     } else if (MD.first == LLVMContext::MD_tbaa) {
