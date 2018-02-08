@@ -358,6 +358,7 @@ struct ValidationContext {
   unsigned domainLocSize;
   const unsigned kDxilControlFlowHintMDKind;
   const unsigned kDxilPreciseMDKind;
+  const unsigned kDxilNonUniformMDKind;
   const unsigned kLLVMLoopMDKind;
   bool m_bCoverageIn, m_bInnerCoverageIn;
   unsigned m_DxilMajor, m_DxilMinor;
@@ -371,10 +372,11 @@ struct ValidationContext {
             DxilMDHelper::kDxilControlFlowHintMDName)),
         kDxilPreciseMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilPreciseAttributeMDName)),
+        kDxilNonUniformMDKind(llvmModule.getContext().getMDKindID(
+            DxilMDHelper::kDxilNonUniformAttributeMDName)),
         kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
         DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1),
-        m_bCoverageIn(false), m_bInnerCoverageIn(false),
-        hasViewID(false) {
+        m_bCoverageIn(false), m_bInnerCoverageIn(false), hasViewID(false) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;
@@ -603,6 +605,14 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: RawBufferLoad=139, RawBufferStore=140
   if (139 <= op && op <= 140)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 2));
+  // Instructions: InstanceID=141, InstanceIndex=142, HitKind=143, RayFlag=144,
+  // RayDispatchIndex=145, RayDispatchDimension=146, WorldRayOrigin=147,
+  // WorldRayDirection=148, ObjectRayOrigin=149, ObjectRayDirection=150,
+  // ObjectToWorld=151, WorldToObject=152, RayTMin=153, CurrentRayT=154,
+  // IgnoreHit=155, AcceptHitAndEndSearch=156, TraceRay=157, ReportHit=158,
+  // CallShader=159, CreateHandleFromResourceStructForLib=160
+  if (141 <= op && op <= 160)
+    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3));
   return true;
   // VALOPCODESM-TEXT:END
 }

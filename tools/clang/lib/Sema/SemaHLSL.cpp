@@ -180,6 +180,10 @@ enum ArBasicKind {
 
   AR_OBJECT_WAVE,
 
+  AR_OBJECT_RAY_DESC,
+  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_OBJECT_USER_DEFINE_TYPE,
+
   AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -438,6 +442,9 @@ const UINT g_uBasicKindProps[] =
 
   BPROP_OBJECT,   // AR_OBJECT_WAVE
 
+  LICOMPTYPE_RAYDESC,               // AR_OBJECT_WAVE
+  LICOMPTYPE_ACCELERATION_STRUCT,   // AR_OBJECT_WAVE
+  LICOMPTYPE_USER_DEFINE_TYPE,      // AR_OBJECT_WAVE
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -1059,6 +1066,24 @@ static const ArBasicKind g_SamplerCT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_RayDescCT[] =
+{
+  AR_OBJECT_RAY_DESC,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AccelarationStructCT[] =
+{
+  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_UDTCT[] =
+{
+  AR_OBJECT_USER_DEFINE_TYPE,
+  AR_BASIC_UNKNOWN
+};
+
 static const ArBasicKind g_StringCT[] =
 {
   AR_OBJECT_STRING,
@@ -1147,7 +1172,10 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_Float16CT,          // LICOMPTYPE_FLOAT16
   g_Int16CT,            // LICOMPTYPE_INT16
   g_UInt16CT,           // LICOMPTYPE_UINT16
-  g_Numeric16OnlyCT     // LICOMPTYPE_NUMERIC16_ONLY
+  g_Numeric16OnlyCT,    // LICOMPTYPE_NUMERIC16_ONLY
+  g_RayDescCT,          // LICOMPTYPE_RAYDESC
+  g_AccelarationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
+  g_UDTCT,              // LICOMPTYPE_USER_DEFINE_TYPE
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
 
@@ -1218,7 +1246,9 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
 
   AR_OBJECT_LEGACY_EFFECT,      // Used for all unsupported but ignored legacy effect types
 
-  AR_OBJECT_WAVE
+  AR_OBJECT_WAVE,
+  AR_OBJECT_RAY_DESC,
+  AR_OBJECT_ACCELARATION_STRUCT,
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1286,6 +1316,8 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
 
   0, // AR_OBJECT_LEGACY_EFFECT   // Used for all unsupported but ignored legacy effect types
   0, // AR_OBJECT_WAVE
+  0, // AR_OBJECT_RAY_DESC,
+  0, // AR_OBJECT_ACCELARATION_STRUCT,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1362,7 +1394,9 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   // SPIRV change ends
 
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_LEGACY_EFFECT (legacy effect objects)
-  { 0, MipsFalse, SampleFalse }  // AR_OBJECT_WAVE
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_WAVE
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_DESC,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_ACCELARATION_STRUCT,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1460,7 +1494,10 @@ const char* g_ArBasicTypeNames[] =
   "<internal inner type object>",
 
   "deprecated effect object",
-  "wave_t"
+  "wave_t",
+  "ray_desc",
+  "RaytracingAccelerationStructure",
+  "UserDefineType"
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -1610,7 +1647,7 @@ FunctionDecl *AddHLSLIntrinsicFunction(
     _In_ const HLSL_INTRINSIC *pIntrinsic,
     _In_count_(functionArgTypeCount) QualType *functionArgQualTypes,
     _In_range_(0, g_MaxIntrinsicParamCount - 1) size_t functionArgTypeCount) {
-  DXASSERT(functionArgTypeCount - 1 < g_MaxIntrinsicParamCount,
+  DXASSERT(functionArgTypeCount - 1 <= g_MaxIntrinsicParamCount,
            "otherwise g_MaxIntrinsicParamCount should be larger");
   DeclContext *currentDeclContext = context.getTranslationUnitDecl();
 
@@ -1630,7 +1667,13 @@ FunctionDecl *AddHLSLIntrinsicFunction(
   for (size_t i = 1; i < functionArgTypeCount; i++) {
     // Change out/inout param to reference type.
     if (paramMods[i-1].isAnyOut()) {
-      functionArgQualTypes[i] = context.getLValueReferenceType(functionArgQualTypes[i]);
+      QualType Ty = functionArgQualTypes[i];
+      // Aggregate type will be indirect param convert to pointer type.
+      // Don't need add reference for it.
+      if ((!Ty->isArrayType() && !Ty->isRecordType()) ||
+          hlsl::IsHLSLVecMatType(Ty)) {
+        functionArgQualTypes[i] = context.getLValueReferenceType(Ty);
+      }
     }
   }
 
@@ -1760,7 +1803,7 @@ public:
   }
 
 private:
-  QualType m_args[g_MaxIntrinsicParamCount];
+  QualType m_args[g_MaxIntrinsicParamCount+1];
   size_t m_argLength;
   const HLSL_INTRINSIC* m_intrinsicSource;
   mutable FunctionDecl* m_functionDecl;
@@ -2349,6 +2392,58 @@ public:
 static void AddHLSLSubscriptAttr(Decl *D, ASTContext &context, HLSubscriptOpcode opcode) {
   StringRef group = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
   D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "", static_cast<unsigned>(opcode)));
+}
+
+static void CreateSimpleField(clang::ASTContext &context,
+                              CXXRecordDecl *recordDecl, StringRef Name,
+                              QualType Ty) {
+  IdentifierInfo &fieldId =
+      context.Idents.get(Name, tok::TokenKind::identifier);
+  TypeSourceInfo *filedTypeSource = context.getTrivialTypeSourceInfo(Ty, NoLoc);
+  const bool MutableFalse = false;
+  const InClassInitStyle initStyle = InClassInitStyle::ICIS_NoInit;
+
+  FieldDecl *fieldDecl =
+      FieldDecl::Create(context, recordDecl, NoLoc, NoLoc, &fieldId, Ty,
+                        filedTypeSource, nullptr, MutableFalse, initStyle);
+  fieldDecl->setAccess(AccessSpecifier::AS_public);
+  fieldDecl->setImplicit(true);
+
+  recordDecl->addDecl(fieldDecl);
+}
+
+// struct RayDesc
+//{
+//    float3 Origin;
+//    float  TMin;
+//    float3 Direction;
+//    float  TMax;
+//};
+static CXXRecordDecl *CreateRayDescStruct(clang::ASTContext &context,
+                                          QualType float3Ty) {
+  DeclContext *currentDeclContext = context.getTranslationUnitDecl();
+  IdentifierInfo &rayDesc =
+      context.Idents.get(StringRef("RayDesc"), tok::TokenKind::identifier);
+  CXXRecordDecl *rayDescDecl = CXXRecordDecl::Create(
+      context, TagTypeKind::TTK_Struct, currentDeclContext, NoLoc, NoLoc,
+      &rayDesc, nullptr, DelayTypeCreationTrue);
+  rayDescDecl->startDefinition();
+
+  QualType floatTy = context.FloatTy;
+  // float3 Origin;
+  CreateSimpleField(context, rayDescDecl, "Origin", float3Ty);
+  // float TMin;
+  CreateSimpleField(context, rayDescDecl, "TMin", floatTy);
+  // float3 Direction;
+  CreateSimpleField(context, rayDescDecl, "Direction", float3Ty);
+  // float  TMax;
+  CreateSimpleField(context, rayDescDecl, "TMax", floatTy);
+
+  rayDescDecl->completeDefinition();
+  // Both declarations need to be present for correct handling.
+  currentDeclContext->addDecl(rayDescDecl);
+  rayDescDecl->setImplicit(true);
+  return rayDescDecl;
 }
 
 //
@@ -2962,6 +3057,10 @@ private:
       const char* typeName = g_ArBasicTypeNames[kind];
       uint8_t templateArgCount = g_ArBasicKindsTemplateCount[i];
       CXXRecordDecl* recordDecl = nullptr;
+      if (kind == AR_OBJECT_RAY_DESC) {
+        QualType float3Ty = LookupVectorType(HLSLScalarType::HLSLScalarType_float, 3);
+        recordDecl = CreateRayDescStruct(*m_context, float3Ty);
+      } else
       if (templateArgCount == 0)
       {
         AddRecordTypeWithHandle(*m_context, &recordDecl, typeName);
@@ -3597,7 +3696,9 @@ public:
     case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
     case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
     case AR_OBJECT_WAVE:
-{
+    case AR_OBJECT_ACCELARATION_STRUCT:
+    case AR_OBJECT_RAY_DESC:
+    {
         const ArBasicKind* match = std::find(g_ArBasicKindsAsTypes, &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], kind);
         DXASSERT(match != &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], "otherwise can't find constant in basic kinds");
         size_t index = match - g_ArBasicKindsAsTypes;
@@ -4928,6 +5029,22 @@ bool HLSLExternalSource::MatchArguments(
     pIntrinsicArg = &pIntrinsic->pArgs[iArg];
     DXASSERT(pIntrinsicArg->uTemplateId != INTRIN_TEMPLATE_VARARGS, "no vararg support");
 
+    if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_USER_DEFINE_TYPE) {
+      DXASSERT(objectElement.isNull(), "");
+      QualType Ty = pCallArg->getType();
+      // Must be user define type for LICOMPTYPE_USER_DEFINE_TYPE arg.
+      if (!Ty->isRecordType() ||
+          hlsl::IsHLSLVecMatType(Ty) ||
+          hlsl::IsHLSLResourceType(Ty)) {
+        m_sema->Diag(pCallArg->getExprLoc(),
+                     diag::err_hlsl_no_struct_user_define_type);
+        return false;
+      }
+      objectElement = Ty;
+      ++iArg;
+      continue;
+    }
+
     // If we are a type and templateID requires one, this isn't a match.
     if (pIntrinsicArg->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
       ++iArg;
@@ -5089,6 +5206,9 @@ bool HLSLExternalSource::MatchArguments(
     if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
       continue; // Already verified that this is available.
     }
+    if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINE_TYPE) {
+      continue;
+    }
 
     const ArTypeObjectKind *pTT = g_LegalIntrinsicTemplates[pArgument->uLegalTemplates];
     if (AR_TOBJ_UNKNOWN != Template[i]) {
@@ -5160,6 +5280,7 @@ bool HLSLExternalSource::MatchArguments(
     QualType pNewType;
     unsigned int quals = 0; // qualifications for this argument
 
+
     // If we have no type, set it to our input type (templatized)
     if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
       // Use the templated input type, but resize it if the
@@ -5214,8 +5335,12 @@ bool HLSLExternalSource::MatchArguments(
         }
         pNewType = objectElement;
       }
-    }
-    else {
+    } else if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINE_TYPE) {
+      if (objectElement.isNull()) {
+        return false;
+      }
+      pNewType = objectElement;
+    } else {
       ArBasicKind pEltType;
 
       // ComponentType, if the Id is special then it gets the
@@ -9689,7 +9814,12 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
   }
 
   ArTypeObjectKind objectKind = m_source.GetTypeObjectKind(type);
-
+  if (objectKind == ArTypeObjectKind::AR_TOBJ_OBJECT) {
+    // Treat ray desc as compound.
+    ArBasicKind kind = m_source.GetTypeElementKind(type);
+    if (kind == AR_OBJECT_RAY_DESC)
+      objectKind = AR_TOBJ_COMPOUND;
+  }
   QualType elementType;
   unsigned int elementCount;
   const RecordType* recordType;
@@ -9758,10 +9888,12 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
       m_source.GetMatrixOrVectorElementType(type),
       GetHLSLVecSize(type), nullptr));
     return true;
-  case ArTypeObjectKind::AR_TOBJ_OBJECT:
+  case ArTypeObjectKind::AR_TOBJ_OBJECT: {
     // Object have no sub-types.
-    m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(type.getCanonicalType(), 1, expression));
+    m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(
+        type.getCanonicalType(), 1, expression));
     return true;
+  }
   default:
     DXASSERT(false, "unreachable");
     return false;
@@ -10409,7 +10541,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLShaderAttr(
         A.getRange(), S.Context,
         ValidateAttributeStringArg(S, A,
-                                   "compute,vertex,pixel,hull,domain,geometry"),
+                                   "compute,vertex,pixel,hull,domain,geometry,raygeneration,intersection,anyhit,closesthit,miss,callable"),
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLMaxVertexCount:

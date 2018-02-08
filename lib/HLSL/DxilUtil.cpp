@@ -23,6 +23,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/IRBuilder.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -148,5 +149,59 @@ std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
   return LoadModuleFromBitcode(pBitcodeBuf.get(), Ctx, DiagStr);
 }
 
+static const StringRef kResourceMapErrorMsg =
+    "local resource not guaranteed to map to unique global resource.";
+void EmitResMappingError(Instruction *Res) {
+  const DebugLoc &DL = Res->getDebugLoc();
+  if (DL.get()) {
+    Res->getContext().emitError("line:" + std::to_string(DL.getLine()) +
+                                " col:" + std::to_string(DL.getCol()) + " " +
+                                Twine(kResourceMapErrorMsg));
+  } else {
+    Res->getContext().emitError(Twine(kResourceMapErrorMsg) +
+                                " With /Zi to show more information.");
+  }
+}
+
+Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {
+  Instruction *prototype = Inst;
+  for (unsigned i = 0; i < prototype->getNumOperands(); i++) {
+    if (i == operandIdx)
+      continue;
+    if (!isa<Constant>(prototype->getOperand(i)))
+      return nullptr;
+  }
+  Value *V = prototype->getOperand(operandIdx);
+  if (SelectInst *SI = dyn_cast<SelectInst>(V)) {
+    IRBuilder<> Builder(SI);
+    Instruction *trueClone = Inst->clone();
+    trueClone->setOperand(operandIdx, SI->getTrueValue());
+    Builder.Insert(trueClone);
+    Instruction *falseClone = Inst->clone();
+    falseClone->setOperand(operandIdx, SI->getFalseValue());
+    Builder.Insert(falseClone);
+    Value *newSel =
+        Builder.CreateSelect(SI->getCondition(), trueClone, falseClone);
+    return newSel;
+  }
+
+  if (PHINode *Phi = dyn_cast<PHINode>(V)) {
+    Type *Ty = Inst->getType();
+    unsigned numOperands = Phi->getNumOperands();
+    IRBuilder<> Builder(Phi);
+    PHINode *newPhi = Builder.CreatePHI(Ty, numOperands);
+    for (unsigned i = 0; i < numOperands; i++) {
+      BasicBlock *b = Phi->getIncomingBlock(i);
+      Value *V = Phi->getIncomingValue(i);
+      Instruction *iClone = Inst->clone();
+      IRBuilder<> iBuilder(b->getTerminator()->getPrevNode());
+      iClone->setOperand(operandIdx, V);
+      iBuilder.Insert(iClone);
+      newPhi->addIncoming(iClone, b);
+    }
+    return newPhi;
+  }
+  return nullptr;
+}
 }
 }

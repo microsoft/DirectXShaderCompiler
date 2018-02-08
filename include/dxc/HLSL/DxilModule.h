@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace llvm {
 class LLVMContext;
@@ -112,6 +113,7 @@ public:
   void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
 
   void RemoveUnusedResources();
+  void RemoveUnusedResourceSymbols();
   void RemoveFunction(llvm::Function *F);
 
   // Signatures.
@@ -130,8 +132,18 @@ public:
   // DxilFunctionProps.
   bool HasDxilFunctionProps(llvm::Function *F) const;
   DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
+  void AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info);
+
   // Move DxilFunctionProps of F to NewF.
   void ReplaceDxilFunctionProps(llvm::Function *F, llvm::Function *NewF);
+  void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc);
+  bool IsGraphicsShader(llvm::Function *F); // vs,hs,ds,gs,ps
+  bool IsPatchConstantShader(llvm::Function *F);
+  bool IsComputeShader(llvm::Function *F);
+
+  // Is an entry function that uses input/output signature conventions?
+  // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
+  bool IsEntryThatUsesSignatures(llvm::Function *F);
 
   // Remove Root Signature from module metadata
   void StripRootSignatureFromMetadata();
@@ -365,13 +377,6 @@ public:
 
   void SetShaderProperties(DxilFunctionProps *props);
 
-  // Shader resource information only needed before linking.
-  // Use constant as rangeID for resource in a library.
-  // When link the library, replace these constants with real rangeID.
-  struct ResourceLinkInfo {
-    llvm::Constant *ResRangeID;
-  };
-
 private:
   // Signatures.
   std::unique_ptr<DxilEntrySignature> m_EntrySignature;
@@ -382,12 +387,6 @@ private:
   std::vector<std::unique_ptr<DxilResource> > m_UAVs;
   std::vector<std::unique_ptr<DxilCBuffer> > m_CBuffers;
   std::vector<std::unique_ptr<DxilSampler> > m_Samplers;
-
-  // Save resource link for library, when link replace it with real resource ID.
-  std::vector<ResourceLinkInfo> m_SRVsLinkInfo;
-  std::vector<ResourceLinkInfo> m_UAVsLinkInfo;
-  std::vector<ResourceLinkInfo> m_CBuffersLinkInfo;
-  std::vector<ResourceLinkInfo> m_SamplersLinkInfo;
 
   // Geometry shader.
   DXIL::InputPrimitive m_InputPrimitive;
@@ -436,14 +435,15 @@ private:
   std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
       m_DxilEntrySignatureMap;
 
+  // Keeps track of patch constant functions used by hull shaders
+  std::unordered_set<llvm::Function *>  m_PatchConstantFunctions;
+
   // ViewId state.
   std::unique_ptr<DxilViewIdState> m_pViewIdState;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();
   void LoadDxilResources(const llvm::MDOperand &MDO);
-  void EmitDxilResourcesLinkInfo();
-  void LoadDxilResourcesLinkInfo();
   llvm::MDTuple *EmitDxilShaderProperties();
   void LoadDxilShaderProperties(const llvm::MDOperand &MDO);
 

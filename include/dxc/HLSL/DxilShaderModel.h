@@ -38,8 +38,10 @@ public:
   bool IsDS() const     { return m_Kind == Kind::Domain; }
   bool IsCS() const     { return m_Kind == Kind::Compute; }
   bool IsLib() const    { return m_Kind == Kind::Library; }
+  bool IsRay() const    { return m_Kind >= Kind::RayGeneration && m_Kind <= Kind::Callable; }
   bool IsValid() const;
   bool IsValidForDxil() const;
+  bool IsValidForModule() const;
 
   Kind GetKind() const      { return m_Kind; }
   unsigned GetMajor() const { return m_Major; }

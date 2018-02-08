@@ -193,6 +193,9 @@ public:
   // Precise attribute.
   static const char kDxilPreciseAttributeMDName[];
 
+  // NonUniform attribute.
+  static const char kDxilNonUniformAttributeMDName[];
+
   // Validator version.
   static const char kDxilValidatorVersionMDName[];
   // Validator version uses the same constants for fields as kDxilVersion*
@@ -380,7 +383,8 @@ public:
                        float &MaxTessFactor);
 
   // Utility functions.
-  static bool IsKnownNamedMetaData(llvm::NamedMDNode &Node);
+  static bool IsKnownNamedMetaData(const llvm::NamedMDNode &Node);
+  static void combineDxilMetadata(llvm::Instruction *K, const llvm::Instruction *J);
   static llvm::ConstantAsMetadata *Int32ToConstMD(int32_t v, llvm::LLVMContext &Ctx);
   llvm::ConstantAsMetadata *Int32ToConstMD(int32_t v);
   static llvm::ConstantAsMetadata *Uint32ToConstMD(unsigned v, llvm::LLVMContext &Ctx);
@@ -405,6 +409,8 @@ public:
   void ConstMDTupleToUint32Vector(llvm::MDTuple *pTupleMD, std::vector<unsigned> &Vec);
   static bool IsMarkedPrecise(const llvm::Instruction *inst);
   static void MarkPrecise(llvm::Instruction *inst);
+  static bool IsMarkedNonUniform(const llvm::Instruction *inst);
+  static void MarkNonUniform(llvm::Instruction *inst);
 
 private:
   llvm::LLVMContext &m_Ctx;

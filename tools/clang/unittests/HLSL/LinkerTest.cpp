@@ -44,6 +44,8 @@ public:
   TEST_METHOD(RunLinkFailReDefine);
   TEST_METHOD(RunLinkGlobalInit);
   TEST_METHOD(RunLinkNoAlloca);
+  TEST_METHOD(RunLinkResRet);
+  TEST_METHOD(RunLinkToLib);
   TEST_METHOD(RunLinkFailReDefineGlobal);
   TEST_METHOD(RunLinkFailProfileMismatch);
   TEST_METHOD(RunLinkFailEntryNoProps);
@@ -58,7 +60,8 @@ public:
         m_dllSupport.CreateInstance(CLSID_DxcLinker, pResultLinker));
   }
 
-  void CompileLib(LPCWSTR filename, IDxcBlob **pResultBlob) {
+  void CompileLib(LPCWSTR filename, IDxcBlob **pResultBlob, LPCWSTR *pArguments,
+                  UINT32 argCount) {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(filename);
     CComPtr<IDxcBlobEncoding> pSource;
     CComPtr<IDxcLibrary> pLibrary;
@@ -75,9 +78,13 @@ public:
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"", shWide,
-                                        nullptr, 0, nullptr, 0, nullptr,
-                                        &pResult));
+                                        pArguments, argCount, nullptr, 0,
+                                        nullptr, &pResult));
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
+  }
+
+  void CompileLib(LPCWSTR filename, IDxcBlob **pResourceBlob) {
+    CompileLib(filename, pResourceBlob, nullptr, 0);
   }
 
   void RegisterDxcModule(LPCWSTR pLibName, IDxcBlob *pBlob,
@@ -278,6 +285,47 @@ TEST_F(LinkerTest, RunLinkNoAlloca) {
   RegisterDxcModule(libName2, pLib, pLinker);
 
   Link(L"ps_main", L"ps_6_0", pLinker, {libName, libName2}, {}, {"alloca"});
+}
+
+TEST_F(LinkerTest, RunLinkResRet) {
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res.hlsl", &pEntryLib);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res_imp.hlsl", &pLib);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+
+  Link(L"test", L"ps_6_0", pLinker, {libName, libName2}, {}, {"alloca"});
+}
+
+TEST_F(LinkerTest, RunLinkToLib) {
+  LPCWSTR option[] = {L"-Zi"};
+
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res.hlsl",
+             &pEntryLib, option, 1);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(
+      L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res_imp.hlsl",
+      &pLib, option, 1);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+
+  Link(L"", L"lib_6_2", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {});
 }
 
 TEST_F(LinkerTest, RunLinkFailSelectRes) {

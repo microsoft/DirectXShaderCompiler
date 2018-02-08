@@ -84,7 +84,7 @@ static const char *s_ResourceDimNames[(unsigned)DxilResourceBase::Kind::NumEntri
         "invalid", "1d",        "2d",      "2dMS",      "3d",
         "cube",    "1darray",   "2darray", "2darrayMS", "cubearray",
         "buf",     "rawbuf",    "structbuf", "cbuffer", "sampler",
-        "tbuffer",
+        "tbuffer", "ras",
 };
 
 const char *DxilResourceBase::GetResDimName() const {

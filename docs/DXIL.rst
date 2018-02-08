@@ -1993,151 +1993,171 @@ Opcodes are defined on a dense range and will be provided as enum in a header fi
 .. <py::lines('OPCODES-RST')>hctdb_instrhelp.get_opcodes_rst()</py>
 .. OPCODES-RST:BEGIN
 
-=== ============================= =================================================================================================================
-ID  Name                          Description
-=== ============================= =================================================================================================================
-0   TempRegLoad_                  Helper load operation
-1   TempRegStore_                 Helper store operation
-2   MinPrecXRegLoad_              Helper load operation for minprecision
-3   MinPrecXRegStore_             Helper store operation for minprecision
-4   LoadInput_                    Loads the value from shader input
-5   StoreOutput_                  Stores the value to shader output
-6   FAbs_                         returns the absolute value of the input value.
-7   Saturate_                     clamps the result of a single or double precision floating point value to [0.0f...1.0f]
-8   IsNaN_                        Returns true if x is NAN or QNAN, false otherwise.
-9   IsInf_                        Returns true if x is +INF or -INF, false otherwise.
-10  IsFinite_                     Returns true if x is finite, false otherwise.
-11  IsNormal_                     returns IsNormal
-12  Cos_                          returns cosine(theta) for theta in radians.
-13  Sin_                          returns sine(theta) for theta in radians.
-14  Tan_                          returns tan(theta) for theta in radians.
-15  Acos_                         Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1.
-16  Asin_                         Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1
-17  Atan_                         Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2.
-18  Hcos_                         returns the hyperbolic cosine of the specified value.
-19  Hsin_                         returns the hyperbolic sine of the specified value.
-20  Htan_                         returns the hyperbolic tangent of the specified value.
-21  Exp_                          returns 2^exponent
-22  Frc_                          extract fracitonal component.
-23  Log_                          returns log base 2.
-24  Sqrt_                         returns square root
-25  Rsqrt_                        returns reciprocal square root (1 / sqrt(src)
-26  Round_ne_                     floating-point round to integral float.
-27  Round_ni_                     floating-point round to integral float.
-28  Round_pi_                     floating-point round to integral float.
-29  Round_z_                      floating-point round to integral float.
-30  Bfrev_                        Reverses the order of the bits.
-31  Countbits_                    Counts the number of bits in the input integer.
-32  FirstbitLo_                   Returns the location of the first set bit starting from the lowest order bit and working upward.
-33  FirstbitHi_                   Returns the location of the first set bit starting from the highest order bit and working downward.
-34  FirstbitSHi_                  Returns the location of the first set bit from the highest order bit based on the sign.
-35  FMax_                         returns a if a >= b, else b
-36  FMin_                         returns a if a < b, else b
-37  IMax_                         IMax(a,b) returns a if a > b, else b
-38  IMin_                         IMin(a,b) returns a if a < b, else b
-39  UMax_                         unsigned integer maximum. UMax(a,b) = a > b ? a : b
-40  UMin_                         unsigned integer minimum. UMin(a,b) = a < b ? a : b
-41  IMul_                         multiply of 32-bit operands to produce the correct full 64-bit result.
-42  UMul_                         multiply of 32-bit operands to produce the correct full 64-bit result.
-43  UDiv_                         unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
-44  UAddc_                        unsigned add of 32-bit operand with the carry
-45  USubb_                        unsigned subtract of 32-bit operands with the borrow
-46  FMad_                         floating point multiply & add
-47  Fma_                          fused multiply-add
-48  IMad_                         Signed integer multiply & add
-49  UMad_                         Unsigned integer multiply & add
-50  Msad_                         masked Sum of Absolute Differences.
-51  Ibfe_                         Integer bitfield extract
-52  Ubfe_                         Unsigned integer bitfield extract
-53  Bfi_                          Given a bit range from the LSB of a number, places that number of bits in another number at any offset
-54  Dot2_                         Two-dimensional vector dot-product
-55  Dot3_                         Three-dimensional vector dot-product
-56  Dot4_                         Four-dimensional vector dot-product
-57  CreateHandle                  creates the handle to a resource
-58  CBufferLoad                   loads a value from a constant buffer resource
-59  CBufferLoadLegacy             loads a value from a constant buffer resource
-60  Sample                        samples a texture
-61  SampleBias                    samples a texture after applying the input bias to the mipmap level
-62  SampleLevel                   samples a texture using a mipmap-level offset
-63  SampleGrad                    samples a texture using a gradient to influence the way the sample location is calculated
-64  SampleCmp                     samples a texture and compares a single component against the specified comparison value
-65  SampleCmpLevelZero            samples a texture and compares a single component against the specified comparison value
-66  TextureLoad                   reads texel data without any filtering or sampling
-67  TextureStore                  reads texel data without any filtering or sampling
-68  BufferLoad                    reads from a TypedBuffer
-69  BufferStore                   writes to a RWTypedBuffer
-70  BufferUpdateCounter           atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
-71  CheckAccessFullyMapped        determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
-72  GetDimensions                 gets texture size information
-73  TextureGather                 gathers the four texels that would be used in a bi-linear filtering operation
-74  TextureGatherCmp              same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
-75  Texture2DMSGetSamplePosition  gets the position of the specified sample
-76  RenderTargetGetSamplePosition gets the position of the specified sample
-77  RenderTargetGetSampleCount    gets the number of samples for a render target
-78  AtomicBinOp                   performs an atomic operation on two operands
-79  AtomicCompareExchange         atomic compare and exchange to memory
-80  Barrier                       inserts a memory barrier in the shader
-81  CalculateLOD                  calculates the level of detail
-82  Discard                       discard the current pixel
-83  DerivCoarseX_                 computes the rate of change per stamp in x direction.
-84  DerivCoarseY_                 computes the rate of change per stamp in y direction.
-85  DerivFineX_                   computes the rate of change per pixel in x direction.
-86  DerivFineY_                   computes the rate of change per pixel in y direction.
-87  EvalSnapped                   evaluates an input attribute at pixel center with an offset
-88  EvalSampleIndex               evaluates an input attribute at a sample location
-89  EvalCentroid                  evaluates an input attribute at pixel center
-90  SampleIndex                   returns the sample index in a sample-frequency pixel shader
-91  Coverage                      returns the coverage mask input in a pixel shader
-92  InnerCoverage                 returns underestimated coverage input from conservative rasterization in a pixel shader
-93  ThreadId                      reads the thread ID
-94  GroupId                       reads the group ID (SV_GroupID)
-95  ThreadIdInGroup               reads the thread ID within the group (SV_GroupThreadID)
-96  FlattenedThreadIdInGroup      provides a flattened index for a given thread within a given group (SV_GroupIndex)
-97  EmitStream                    emits a vertex to a given stream
-98  CutStream                     completes the current primitive topology at the specified stream
-99  EmitThenCutStream             equivalent to an EmitStream followed by a CutStream
-100 GSInstanceID                  GSInstanceID
-101 MakeDouble                    creates a double value
-102 SplitDouble                   splits a double into low and high parts
-103 LoadOutputControlPoint        LoadOutputControlPoint
-104 LoadPatchConstant             LoadPatchConstant
-105 DomainLocation                DomainLocation
-106 StorePatchConstant            StorePatchConstant
-107 OutputControlPointID          OutputControlPointID
-108 PrimitiveID                   PrimitiveID
-109 CycleCounterLegacy            CycleCounterLegacy
-110 WaveIsFirstLane               returns 1 for the first lane in the wave
-111 WaveGetLaneIndex              returns the index of the current lane in the wave
-112 WaveGetLaneCount              returns the number of lanes in the wave
-113 WaveAnyTrue                   returns 1 if any of the lane evaluates the value to true
-114 WaveAllTrue                   returns 1 if all the lanes evaluate the value to true
-115 WaveActiveAllEqual            returns 1 if all the lanes have the same value
-116 WaveActiveBallot              returns a struct with a bit set for each lane where the condition is true
-117 WaveReadLaneAt                returns the value from the specified lane
-118 WaveReadLaneFirst             returns the value from the first lane
-119 WaveActiveOp                  returns the result the operation across waves
-120 WaveActiveBit                 returns the result of the operation across all lanes
-121 WavePrefixOp                  returns the result of the operation on prior lanes
-122 QuadReadLaneAt                reads from a lane in the quad
-123 QuadOp                        returns the result of a quad-level operation
-124 BitcastI16toF16               bitcast between different sizes
-125 BitcastF16toI16               bitcast between different sizes
-126 BitcastI32toF32               bitcast between different sizes
-127 BitcastF32toI32               bitcast between different sizes
-128 BitcastI64toF64               bitcast between different sizes
-129 BitcastF64toI64               bitcast between different sizes
-130 LegacyF32ToF16                legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
-131 LegacyF16ToF32                legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
-132 LegacyDoubleToFloat           legacy fuction to convert double to float
-133 LegacyDoubleToSInt32          legacy fuction to convert double to int32
-134 LegacyDoubleToUInt32          legacy fuction to convert double to uint32
-135 WaveAllBitCount               returns the count of bits set to 1 across the wave
-136 WavePrefixBitCount            returns the count of bits set to 1 on prior lanes
-137 AttributeAtVertex_            returns the values of the attributes at the vertex.
-138 ViewID                        returns the view index
-139 RawBufferLoad                 reads from a raw buffer and structured buffer
-140 RawBufferStore                writes to a RWByteAddressBuffer or RWStructuredBuffer
-=== ============================= =================================================================================================================
+=== ==================================== =======================================================================================================================================================================================================================
+ID  Name                                 Description
+=== ==================================== =======================================================================================================================================================================================================================
+0   TempRegLoad_                         Helper load operation
+1   TempRegStore_                        Helper store operation
+2   MinPrecXRegLoad_                     Helper load operation for minprecision
+3   MinPrecXRegStore_                    Helper store operation for minprecision
+4   LoadInput_                           Loads the value from shader input
+5   StoreOutput_                         Stores the value to shader output
+6   FAbs_                                returns the absolute value of the input value.
+7   Saturate_                            clamps the result of a single or double precision floating point value to [0.0f...1.0f]
+8   IsNaN_                               Returns true if x is NAN or QNAN, false otherwise.
+9   IsInf_                               Returns true if x is +INF or -INF, false otherwise.
+10  IsFinite_                            Returns true if x is finite, false otherwise.
+11  IsNormal_                            returns IsNormal
+12  Cos_                                 returns cosine(theta) for theta in radians.
+13  Sin_                                 returns sine(theta) for theta in radians.
+14  Tan_                                 returns tan(theta) for theta in radians.
+15  Acos_                                Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1.
+16  Asin_                                Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1
+17  Atan_                                Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2.
+18  Hcos_                                returns the hyperbolic cosine of the specified value.
+19  Hsin_                                returns the hyperbolic sine of the specified value.
+20  Htan_                                returns the hyperbolic tangent of the specified value.
+21  Exp_                                 returns 2^exponent
+22  Frc_                                 extract fracitonal component.
+23  Log_                                 returns log base 2.
+24  Sqrt_                                returns square root
+25  Rsqrt_                               returns reciprocal square root (1 / sqrt(src)
+26  Round_ne_                            floating-point round to integral float.
+27  Round_ni_                            floating-point round to integral float.
+28  Round_pi_                            floating-point round to integral float.
+29  Round_z_                             floating-point round to integral float.
+30  Bfrev_                               Reverses the order of the bits.
+31  Countbits_                           Counts the number of bits in the input integer.
+32  FirstbitLo_                          Returns the location of the first set bit starting from the lowest order bit and working upward.
+33  FirstbitHi_                          Returns the location of the first set bit starting from the highest order bit and working downward.
+34  FirstbitSHi_                         Returns the location of the first set bit from the highest order bit based on the sign.
+35  FMax_                                returns a if a >= b, else b
+36  FMin_                                returns a if a < b, else b
+37  IMax_                                IMax(a,b) returns a if a > b, else b
+38  IMin_                                IMin(a,b) returns a if a < b, else b
+39  UMax_                                unsigned integer maximum. UMax(a,b) = a > b ? a : b
+40  UMin_                                unsigned integer minimum. UMin(a,b) = a < b ? a : b
+41  IMul_                                multiply of 32-bit operands to produce the correct full 64-bit result.
+42  UMul_                                multiply of 32-bit operands to produce the correct full 64-bit result.
+43  UDiv_                                unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
+44  UAddc_                               unsigned add of 32-bit operand with the carry
+45  USubb_                               unsigned subtract of 32-bit operands with the borrow
+46  FMad_                                floating point multiply & add
+47  Fma_                                 fused multiply-add
+48  IMad_                                Signed integer multiply & add
+49  UMad_                                Unsigned integer multiply & add
+50  Msad_                                masked Sum of Absolute Differences.
+51  Ibfe_                                Integer bitfield extract
+52  Ubfe_                                Unsigned integer bitfield extract
+53  Bfi_                                 Given a bit range from the LSB of a number, places that number of bits in another number at any offset
+54  Dot2_                                Two-dimensional vector dot-product
+55  Dot3_                                Three-dimensional vector dot-product
+56  Dot4_                                Four-dimensional vector dot-product
+57  CreateHandle                         creates the handle to a resource
+58  CBufferLoad                          loads a value from a constant buffer resource
+59  CBufferLoadLegacy                    loads a value from a constant buffer resource
+60  Sample                               samples a texture
+61  SampleBias                           samples a texture after applying the input bias to the mipmap level
+62  SampleLevel                          samples a texture using a mipmap-level offset
+63  SampleGrad                           samples a texture using a gradient to influence the way the sample location is calculated
+64  SampleCmp                            samples a texture and compares a single component against the specified comparison value
+65  SampleCmpLevelZero                   samples a texture and compares a single component against the specified comparison value
+66  TextureLoad                          reads texel data without any filtering or sampling
+67  TextureStore                         reads texel data without any filtering or sampling
+68  BufferLoad                           reads from a TypedBuffer
+69  BufferStore                          writes to a RWTypedBuffer
+70  BufferUpdateCounter                  atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
+71  CheckAccessFullyMapped               determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
+72  GetDimensions                        gets texture size information
+73  TextureGather                        gathers the four texels that would be used in a bi-linear filtering operation
+74  TextureGatherCmp                     same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
+75  Texture2DMSGetSamplePosition         gets the position of the specified sample
+76  RenderTargetGetSamplePosition        gets the position of the specified sample
+77  RenderTargetGetSampleCount           gets the number of samples for a render target
+78  AtomicBinOp                          performs an atomic operation on two operands
+79  AtomicCompareExchange                atomic compare and exchange to memory
+80  Barrier                              inserts a memory barrier in the shader
+81  CalculateLOD                         calculates the level of detail
+82  Discard                              discard the current pixel
+83  DerivCoarseX_                        computes the rate of change per stamp in x direction.
+84  DerivCoarseY_                        computes the rate of change per stamp in y direction.
+85  DerivFineX_                          computes the rate of change per pixel in x direction.
+86  DerivFineY_                          computes the rate of change per pixel in y direction.
+87  EvalSnapped                          evaluates an input attribute at pixel center with an offset
+88  EvalSampleIndex                      evaluates an input attribute at a sample location
+89  EvalCentroid                         evaluates an input attribute at pixel center
+90  SampleIndex                          returns the sample index in a sample-frequency pixel shader
+91  Coverage                             returns the coverage mask input in a pixel shader
+92  InnerCoverage                        returns underestimated coverage input from conservative rasterization in a pixel shader
+93  ThreadId                             reads the thread ID
+94  GroupId                              reads the group ID (SV_GroupID)
+95  ThreadIdInGroup                      reads the thread ID within the group (SV_GroupThreadID)
+96  FlattenedThreadIdInGroup             provides a flattened index for a given thread within a given group (SV_GroupIndex)
+97  EmitStream                           emits a vertex to a given stream
+98  CutStream                            completes the current primitive topology at the specified stream
+99  EmitThenCutStream                    equivalent to an EmitStream followed by a CutStream
+100 GSInstanceID                         GSInstanceID
+101 MakeDouble                           creates a double value
+102 SplitDouble                          splits a double into low and high parts
+103 LoadOutputControlPoint               LoadOutputControlPoint
+104 LoadPatchConstant                    LoadPatchConstant
+105 DomainLocation                       DomainLocation
+106 StorePatchConstant                   StorePatchConstant
+107 OutputControlPointID                 OutputControlPointID
+108 PrimitiveID                          PrimitiveID
+109 CycleCounterLegacy                   CycleCounterLegacy
+110 WaveIsFirstLane                      returns 1 for the first lane in the wave
+111 WaveGetLaneIndex                     returns the index of the current lane in the wave
+112 WaveGetLaneCount                     returns the number of lanes in the wave
+113 WaveAnyTrue                          returns 1 if any of the lane evaluates the value to true
+114 WaveAllTrue                          returns 1 if all the lanes evaluate the value to true
+115 WaveActiveAllEqual                   returns 1 if all the lanes have the same value
+116 WaveActiveBallot                     returns a struct with a bit set for each lane where the condition is true
+117 WaveReadLaneAt                       returns the value from the specified lane
+118 WaveReadLaneFirst                    returns the value from the first lane
+119 WaveActiveOp                         returns the result the operation across waves
+120 WaveActiveBit                        returns the result of the operation across all lanes
+121 WavePrefixOp                         returns the result of the operation on prior lanes
+122 QuadReadLaneAt                       reads from a lane in the quad
+123 QuadOp                               returns the result of a quad-level operation
+124 BitcastI16toF16                      bitcast between different sizes
+125 BitcastF16toI16                      bitcast between different sizes
+126 BitcastI32toF32                      bitcast between different sizes
+127 BitcastF32toI32                      bitcast between different sizes
+128 BitcastI64toF64                      bitcast between different sizes
+129 BitcastF64toI64                      bitcast between different sizes
+130 LegacyF32ToF16                       legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
+131 LegacyF16ToF32                       legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
+132 LegacyDoubleToFloat                  legacy fuction to convert double to float
+133 LegacyDoubleToSInt32                 legacy fuction to convert double to int32
+134 LegacyDoubleToUInt32                 legacy fuction to convert double to uint32
+135 WaveAllBitCount                      returns the count of bits set to 1 across the wave
+136 WavePrefixBitCount                   returns the count of bits set to 1 on prior lanes
+137 AttributeAtVertex_                   returns the values of the attributes at the vertex.
+138 ViewID                               returns the view index
+139 RawBufferLoad                        reads from a raw buffer and structured buffer
+140 RawBufferStore                       writes to a RWByteAddressBuffer or RWStructuredBuffer
+141 InstanceID                           The user-provided InstanceID on the bottom-level acceleration structure instance within the top-level structure
+142 InstanceIndex                        The autogenerated index of the current instance in the top-level structure
+143 HitKind                              Returns the value passed as HitKind in ReportIntersection().  If intersection was reported by fixed-function triangle intersection, HitKind will be one of HIT_KIND_TRIANGLE_FRONT_FACE or HIT_KIND_TRIANGLE_BACK_FACE.
+144 RayFlag                              uint containing the current ray flags.
+145 RayDispatchIndex                     The current x and y location within the Width and Height
+146 RayDispatchDimension                 The Width and Height values from the D3D12_DISPATCH_RAYS_DESC structure provided to the originating DispatchRays() call.
+147 WorldRayOrigin                       The world-space origin for the current ray.
+148 WorldRayDirection                    The world-space direction for the current ray.
+149 ObjectRayOrigin                      Object-space origin for the current ray.
+150 ObjectRayDirection                   Object-space direction for the current ray.
+151 ObjectToWorld                        Matrix for transforming from object-space to world-space.
+152 WorldToObject                        Matrix for transforming from world-space to object-space.
+153 RayTMin                              float representing the parametric starting point for the ray.
+154 CurrentRayT                          float representing the current parametric ending point for the ray
+155 IgnoreHit                            Used in an any hit shader to reject an intersection and terminate the shader
+156 AcceptHitAndEndSearch                Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far
+157 TraceRay                             returns the view index
+158 ReportHit                            returns true if hit was accepted
+159 CallShader                           Call a shader in the callable shader table supplied through the DispatchRays() API
+160 CreateHandleFromResourceStructForLib create resource handle from resource struct for library
+=== ==================================== =======================================================================================================================================================================================================================
 
 
 Acos
