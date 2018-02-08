@@ -375,7 +375,10 @@ private:
       std::vector<Function *> entries;
       for (iplist<Function>::iterator F : M.getFunctionList()) {
         if (DM.IsEntryThatUsesSignatures(F)) {
-          entries.emplace_back(F);
+          auto *FT = F->getFunctionType();
+          // Only do this when has parameters.
+          if (FT->getNumParams() > 0 || !FT->getReturnType()->isVoidTy())
+            entries.emplace_back(F);
         }
       }
       for (Function *entry : entries) {

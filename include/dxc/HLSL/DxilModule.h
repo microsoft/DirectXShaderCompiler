@@ -132,6 +132,8 @@ public:
   // DxilFunctionProps.
   bool HasDxilFunctionProps(llvm::Function *F) const;
   DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
+  void AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info);
+
   // Move DxilFunctionProps of F to NewF.
   void ReplaceDxilFunctionProps(llvm::Function *F, llvm::Function *NewF);
   void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc);
