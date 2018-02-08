@@ -493,7 +493,7 @@ public:
       } D3D12_FEATURE_DATA_SHADER_MODEL;
       const UINT D3D12_FEATURE_SHADER_MODEL = 7;
       D3D12_FEATURE_DATA_SHADER_MODEL SMData;
-      SMData.HighestShaderModel = HIGHEST_SHADER_MODEL;
+      SMData.HighestShaderModel = testModel;
       VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport(
         (D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL, &SMData, sizeof(SMData)));
       if (SMData.HighestShaderModel < testModel) {
