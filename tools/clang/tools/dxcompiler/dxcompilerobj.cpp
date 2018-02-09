@@ -420,8 +420,6 @@ public:
         compiler.getCodeGenOpts().HLSLValidatorMinorVer = minorVer;
       }
 
-      compiler.getPreprocessorOpts().ExpandTokPastingArg = opts.ExpandTokPasteArg;
-
       if (opts.AstDump) {
         clang::ASTDumpAction dumpAction;
         // Consider - ASTDumpFilter, ASTDumpLookups
@@ -787,6 +785,8 @@ public:
     }
 
     PPOpts.IgnoreLineDirectives = Opts.IgnoreLineDirectives;
+    // fxc compatibility: pre-expand operands before performing token-pasting
+    PPOpts.ExpandTokPastingArg = Opts.ExpandTokPasteArg;
 
     // Pick additional arguments.
     clang::HeaderSearchOptions &HSOpts = compiler.getHeaderSearchOpts();

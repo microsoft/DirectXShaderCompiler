@@ -17,7 +17,7 @@
 #include "clang/Lex/MacroArgs.h"
 #include "clang/Lex/MacroInfo.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Lex//PreprocessorOptions.h" // HLSL Change
+#include "clang/Lex/PreprocessorOptions.h" // HLSL Change
 #include "llvm/ADT/SmallString.h"
 using namespace clang;
 
