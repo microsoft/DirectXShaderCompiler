@@ -920,9 +920,8 @@ void OP::RemoveFunction(Function *F) {
 bool OP::GetOpCodeClass(const Function *F, OP::OpCodeClass &opClass) {
   auto iter = m_FunctionToOpClass.find(F);
   if (iter == m_FunctionToOpClass.end()) {
-    if (F->user_empty())
-      return false;
-    DXASSERT(!IsDxilOpFunc(F), "dxil function without an opcode class mapping?");
+    // When no user, cannot get opcode.
+    DXASSERT(F->user_empty() || !IsDxilOpFunc(F), "dxil function without an opcode class mapping?");
     return false;
   }
   opClass = iter->second;
