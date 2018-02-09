@@ -349,3 +349,6 @@ def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOpt
 
 // Also removed: compress, decompress, /Gch (child effect), /Gec (back compat), /Gpp (partial precision)
 // /Op - no support for preshaders.
+
+def flegacy_macro_expansion : Flag<["-"], "flegacy-macro-expansion">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
+    HelpText<"Expand the operands before performing token-pasting operation (fxc behavior)">;
