@@ -5843,13 +5843,13 @@ TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
 
 TEST_F(CompilerTest, PreprocessWhenExpandTokenPastingOperandThenAccept) {
   // Tests that we can turn on fxc's behavior (pre-expanding operands before
-  // performing token-pasting) using -fexpand-token-pasting-operand
+  // performing token-pasting) using -flegacy-macro-expansion
 
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
   CComPtr<IDxcBlobEncoding> pSource;
 
-  LPCWSTR expandOption = L"-fexpand-token-pasting-operand";
+  LPCWSTR expandOption = L"-flegacy-macro-expansion";
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
 

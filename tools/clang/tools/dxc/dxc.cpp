@@ -853,8 +853,8 @@ void DxcContext::Preprocess() {
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
 
   // Carry forward the options that control preprocessor
-  if (m_Opts.ExpandTokPasteArg)
-    args.push_back(L"-fexpand-token-pasting-operand");
+  if (m_Opts.LegacyMacroExpansion)
+    args.push_back(L"-flegacy-macro-expansion");
 
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
   IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
