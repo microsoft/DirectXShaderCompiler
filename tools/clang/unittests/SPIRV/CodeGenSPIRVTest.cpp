@@ -902,6 +902,9 @@ TEST_F(FileTest, IntrinsicsGetRenderTargetSamplePosition) {
   runFileTest("intrinsics.get-render-target-sample-position.hlsl",
               Expect::Failure);
 }
+TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
+  runFileTest("intrinsics.non-uniform-resource-index.hlsl");
+}
 
 // For attributes
 TEST_F(FileTest, AttributeNumThreads) {

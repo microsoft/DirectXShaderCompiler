@@ -705,6 +705,18 @@ void ModuleBuilder::createEndPrimitive() {
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
+uint32_t ModuleBuilder::createSubgroupFirstInvocation(uint32_t resultType,
+                                                      uint32_t value) {
+  assert(insertPoint && "null insert point");
+  addExtension("SPV_KHR_shader_ballot");
+  requireCapability(spv::Capability::SubgroupBallotKHR);
+
+  uint32_t resultId = theContext.takeNextId();
+  instBuilder.opSubgroupFirstInvocationKHR(resultType, resultId, value).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
 void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
                                      spv::ExecutionMode em,
                                      llvm::ArrayRef<uint32_t> params) {

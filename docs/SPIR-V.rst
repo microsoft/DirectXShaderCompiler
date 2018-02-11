@@ -1679,6 +1679,22 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``trunc``               ``Trunc``
 ======================= ===================================
 
+Emulating using SPIR-V functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``NonUniformResourceIndex`` is emulated using a SPIR-V function corresponding
+to the following HLSL source code:
+
+.. code:: hlsl
+
+  uint NonUniformResourceIndex(uint index) {
+    while (true)
+      if (WaveReadLaneFirst(index) == index)
+        return index;
+
+    return 0; // Unreachable
+  }
+
 HLSL OO features
 ================
 

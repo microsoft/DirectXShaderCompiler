@@ -303,6 +303,9 @@ public:
   /// \brief Creates an OpEndPrimitive instruction.
   void createEndPrimitive();
 
+  /// \brief Creates an OpSubgroupFirstInvocationKHR instruciton.
+  uint32_t createSubgroupFirstInvocation(uint32_t resultType, uint32_t value);
+
   // === SPIR-V Module Structure ===
 
   inline void requireCapability(spv::Capability);

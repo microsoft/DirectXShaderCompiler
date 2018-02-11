@@ -485,8 +485,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       declIdMapper(shaderModel, astContext, theBuilder, spirvOptions),
       typeTranslator(astContext, theBuilder, diags, options),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
-      seenPushConstantAt(), isSpecConstantMode(false),
-      needsLegalization(false) {
+      seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
+      nonUniformResourceIndexFnId(0) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
   if (options.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
@@ -544,6 +544,10 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   // Add descriptor set and binding decorations to resource variables.
   if (!declIdMapper.decorateResourceBindings())
     return;
+
+  // Emit the function to emulate NonUniformResourceIndex if used
+  if (nonUniformResourceIndexFnId)
+    emitNonUniformResourceIndex(nonUniformResourceIndexFnId);
 
   // Output the constructed module.
   std::vector<uint32_t> m = theBuilder.takeModule();
@@ -3213,6 +3217,18 @@ SPIRVEmitter::processStreamOutputRestart(const CXXMemberCallExpr *expr) {
   return 0;
 }
 
+uint32_t SPIRVEmitter::processNonUniformResourceIndex(const CallExpr *expr) {
+  const Expr *argExpr = expr->getArg(0);
+  const auto arg =
+      createTemporaryVar(argExpr->getType(), "index", doExpr(argExpr));
+
+  if (nonUniformResourceIndexFnId == 0)
+    nonUniformResourceIndexFnId = theBuilder.getSPIRVContext()->takeNextId();
+
+  return theBuilder.createFunctionCall(theBuilder.getUint32Type(),
+                                       nonUniformResourceIndexFnId, {arg});
+}
+
 uint32_t SPIRVEmitter::emitGetSamplePosition(const uint32_t sampleCount,
                                              const uint32_t sampleIndex) {
   struct Float2 {
@@ -3426,6 +3442,87 @@ uint32_t SPIRVEmitter::emitGetSamplePosition(const uint32_t sampleCount,
 
   theBuilder.setInsertPoint(merge2BB);
   return theBuilder.createLoad(v2f32Type, resultVar);
+}
+
+void SPIRVEmitter::emitNonUniformResourceIndex(uint32_t functionId) {
+  // This method is to emit SPIR-V code for the following HLSL source code:
+  //
+  // uint NonUniformResourceIndex(uint index) {
+  //   while (true) {
+  //     if (WaveReadLaneFirst(index) == index)
+  //       return index;
+  //   }
+  //   return 0; // Unreachable
+  // }
+
+  const uint32_t u32Type = theBuilder.getUint32Type();
+  const uint32_t u32PtrType =
+      theBuilder.getPointerType(u32Type, spv::StorageClass::Function);
+  const uint32_t fnType = theBuilder.getFunctionType(u32Type, {u32PtrType});
+
+  theBuilder.beginFunction(fnType, u32Type, "fn.NonUniformResourceIndex",
+                           functionId);
+
+  const uint32_t param = theBuilder.addFnParam(u32PtrType, "index");
+
+  const uint32_t entryBB = theBuilder.createBasicBlock("bb.entry");
+
+  const uint32_t whileCheckBB = theBuilder.createBasicBlock("while.check");
+  const uint32_t whileBodyBB = theBuilder.createBasicBlock("while.body");
+  const uint32_t whileMergeBB = theBuilder.createBasicBlock("while.merge");
+  const uint32_t whileContinueBB =
+      theBuilder.createBasicBlock("while.continue");
+
+  // <entry> -> <while-check>
+  theBuilder.setInsertPoint(entryBB);
+  theBuilder.createBranch(whileCheckBB);
+  theBuilder.addSuccessor(whileCheckBB);
+
+  const uint32_t ifThenBB = theBuilder.createBasicBlock("if.true");
+  const uint32_t ifMergeBB = theBuilder.createBasicBlock("if.merge");
+
+  // <while-check> -> <while-body> | <while->merge>
+  theBuilder.setInsertPoint(whileCheckBB);
+  //   while (true) {
+  theBuilder.createConditionalBranch(theBuilder.getConstantBool(true),
+                                     whileBodyBB, whileMergeBB, whileMergeBB,
+                                     whileContinueBB);
+  theBuilder.addSuccessor(whileBodyBB);
+  theBuilder.addSuccessor(whileMergeBB);
+  theBuilder.setContinueTarget(whileContinueBB);
+  theBuilder.setMergeTarget(whileMergeBB);
+
+  // <while-body> -> <if-then> | <if-merge>
+  theBuilder.setInsertPoint(whileBodyBB);
+  //     if (readFirstInvocationARB(index) == index)
+  const uint32_t arg = theBuilder.createLoad(u32Type, param);
+  const uint32_t ret = theBuilder.createSubgroupFirstInvocation(u32Type, arg);
+  const uint32_t eq = theBuilder.createBinaryOp(
+      spv::Op::OpIEqual, theBuilder.getBoolType(), ret, arg);
+  theBuilder.createConditionalBranch(eq, ifThenBB, ifMergeBB, ifMergeBB);
+  theBuilder.addSuccessor(ifThenBB);
+  theBuilder.addSuccessor(ifMergeBB);
+  theBuilder.setMergeTarget(ifMergeBB);
+
+  //       return index;
+  theBuilder.setInsertPoint(ifThenBB);
+  theBuilder.createReturnValue(arg);
+  theBuilder.addSuccessor(ifMergeBB);
+
+  // <if-merge> -> <while-continue>
+  theBuilder.setInsertPoint(ifMergeBB);
+  theBuilder.createBranch(whileContinueBB);
+  theBuilder.addSuccessor(whileContinueBB);
+
+  theBuilder.setInsertPoint(whileContinueBB);
+  theBuilder.createBranch(whileCheckBB);
+  theBuilder.addSuccessor(whileCheckBB);
+
+  //   return 0; // Unreachable
+  theBuilder.setInsertPoint(whileMergeBB);
+  theBuilder.createReturnValue(theBuilder.getConstantUint32(0));
+
+  theBuilder.endFunction();
 }
 
 SpirvEvalInfo SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
@@ -5876,6 +5973,9 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     break;
   case hlsl::IntrinsicOp::IOP_f32tof16:
     retVal = processIntrinsicF32ToF16(callExpr);
+    break;
+  case hlsl::IntrinsicOp::IOP_NonUniformResourceIndex:
+    retVal = processNonUniformResourceIndex(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
