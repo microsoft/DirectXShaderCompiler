@@ -3615,6 +3615,14 @@ uint32_t SPIRVEmitter::createImageSample(
     texelTypeId = theBuilder.getVecType(elemTypeId, 4);
   }
 
+  // The Lod and Grad image operands requires explicit-lod instructions.
+  // Otherwise we use implicit-lod instructions.
+  const bool isExplicit = lod || (grad.first && grad.second);
+
+  // Implicit-lod instructions are only allowed in pixel shader.
+  if (!shaderModel.IsPS() && !isExplicit)
+    needsLegalization = true;
+
   uint32_t retVal = theBuilder.createImageSample(
       texelTypeId, imageType, image, sampler, coordinate, compareVal, bias, lod,
       grad, constOffset, varOffset, constOffsets, sample, minLod,
@@ -4682,6 +4690,11 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
 
 void SPIRVEmitter::initOnce(QualType varType, std::string varName,
                             uint32_t varPtr, const Expr *varInit) {
+  // For uninitialized resource objects, we do nothing since there is no
+  // meaningful zero values for them.
+  if (!varInit && hlsl::IsHLSLResourceType(varType))
+    return;
+
   const uint32_t boolType = theBuilder.getBoolType();
   varName = "init.done." + varName;
 
@@ -7537,6 +7550,21 @@ uint32_t SPIRVEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
 
 uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
     const CallExpr *callExpr, spv::Op opcode, bool actPerRowForMatrices) {
+  // Certain opcodes are only allowed in pixel shader
+  if (!shaderModel.IsPS())
+    switch (opcode) {
+    case spv::Op::OpDPdx:
+    case spv::Op::OpDPdy:
+    case spv::Op::OpDPdxFine:
+    case spv::Op::OpDPdyFine:
+    case spv::Op::OpDPdxCoarse:
+    case spv::Op::OpDPdyCoarse:
+    case spv::Op::OpFwidth:
+    case spv::Op::OpFwidthFine:
+    case spv::Op::OpFwidthCoarse:
+      needsLegalization = true;
+    }
+
   const uint32_t returnType = typeTranslator.translateType(callExpr->getType());
   if (callExpr->getNumArgs() == 1u) {
     const Expr *arg = callExpr->getArg(0);
@@ -8366,7 +8394,10 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
       // Update counter variable associated with global variables
       tryToAssignCounterVar(varDecl, init);
-    } else {
+    }
+    // If not explicitly initialized, initialize with their zero values if not
+    // resource objects
+    else if (!hlsl::IsHLSLResourceType(varDecl->getType())) {
       const auto typeId = typeTranslator.translateType(varDecl->getType());
       theBuilder.createStore(varInfo, theBuilder.getConstantNull(typeId));
     }

@@ -71,6 +71,7 @@ static const GUID D3D12ExperimentalShaderModelsID = { /* 76f5573e-f13a-40f5-b297
 using namespace DirectX;
 using namespace hlsl_test;
 
+
 template <typename TSequence, typename T>
 static bool contains(TSequence s, const T &val) {
   return std::cend(s) != std::find(std::cbegin(s), std::cend(s), val);
@@ -360,7 +361,15 @@ public:
     D3D_SHADER_MODEL_6_2 = 0x62
   } D3D_SHADER_MODEL;
 
- dxc::DxcDllSupport m_support;
+#if WDK_NTDDI_VERSION == NTDDI_WIN10_RS2
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_0;
+#elif WDK_NTDDI_VERSION == NTDDI_WIN10_RS3
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_1;
+#else
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_2;
+#endif
+
+  dxc::DxcDllSupport m_support;
   VersionSupportInfo m_ver;
   bool m_ExperimentalModeEnabled = false;
 
@@ -433,6 +442,12 @@ public:
 
   bool CreateDevice(_COM_Outptr_ ID3D12Device **ppDevice,
                     D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0) {
+    if (testModel > HIGHEST_SHADER_MODEL) {
+      UINT minor = testModel & 0x0f;
+      LogCommentFmt(L"Installed SDK does not support "
+          L"shader model 6.%1u", minor);
+      return false;
+    }
     const D3D_FEATURE_LEVEL FeatureLevelRequired = D3D_FEATURE_LEVEL_11_0;
     CComPtr<IDXGIFactory4> factory;
     CComPtr<ID3D12Device> pDevice;
@@ -477,10 +492,10 @@ public:
       } D3D12_FEATURE_DATA_SHADER_MODEL;
       const UINT D3D12_FEATURE_SHADER_MODEL = 7;
       D3D12_FEATURE_DATA_SHADER_MODEL SMData;
-      SMData.HighestShaderModel = D3D_SHADER_MODEL_6_0;
+      SMData.HighestShaderModel = HIGHEST_SHADER_MODEL;
       VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport(
         (D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL, &SMData, sizeof(SMData)));
-      if (SMData.HighestShaderModel != testModel) {
+      if (SMData.HighestShaderModel < testModel) {
         UINT minor = testModel & 0x0f;
         LogCommentFmt(L"The selected device does not support "
                       L"shader model 6.%1u", minor);
@@ -2834,6 +2849,7 @@ static TableParameter DenormTertiaryFPOpParameters[] = {
     { L"Validation.Input2", TableParameter::STRING_TABLE, true },
     { L"Validation.Input3", TableParameter::STRING_TABLE, true },
     { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected2", TableParameter::STRING_TABLE, false },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
 };
@@ -3203,6 +3219,21 @@ static void VerifyOutputWithExpectedValueFloat(
     VERIFY_IS_TRUE(CompareFloatULP(output, ref, (int)tolerance, mode));
   } else {
     LogErrorFmt(L"Failed to read comparison type %S", type);
+  }
+}
+
+static bool CompareOutputWithExpectedValueFloat(
+    float output, float ref, LPCWSTR type, double tolerance,
+    hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
+  if (_wcsicmp(type, L"Relative") == 0) {
+    return CompareFloatRelativeEpsilon(output, ref, (int)tolerance, mode);
+  } else if (_wcsicmp(type, L"Epsilon") == 0) {
+    return CompareFloatEpsilon(output, ref, (float)tolerance, mode);
+  } else if (_wcsicmp(type, L"ULP") == 0) {
+    return CompareFloatULP(output, ref, (int)tolerance, mode);
+  } else {
+    LogErrorFmt(L"Failed to read comparison type %S", type);
+    return false;
   }
 }
 
@@ -4747,6 +4778,9 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
 
   std::vector<WEX::Common::String> *Validation_Expected1 =
     &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
+  // two expected outputs for any mode
+  std::vector<WEX::Common::String> *Validation_Expected2 =
+    &(handler.GetTableParamByName(L"Validation.Expected2")->m_StringTable);
 
   LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
   double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
@@ -4760,7 +4794,10 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
   else if (strcmp(Arguments.m_psz, "-denorm ftz") == 0) {
     mode = Float32DenormMode::FTZ;
   }
-
+  if (mode == Float32DenormMode::Any) {
+    DXASSERT(Validation_Expected2->size() == Validation_Expected1->size(),
+             "must have same number of expected values");
+  }
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
     pDevice, m_support, pStream, "BinaryFPOp",
     // this callbacked is called when the test
@@ -4793,17 +4830,34 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
   SBinaryFPOp *pPrimitives = (SBinaryFPOp *)data.data();
   WEX::TestExecution::DisableVerifyExceptions dve;
 
-
   for (unsigned i = 0; i < count; ++i) {
     SBinaryFPOp *p = &pPrimitives[i];
-    LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
-    float val1;
-    VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
-    LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, output1 = "
-      L"%6.8f, expected1 = %6.8f",
-      i, p->input1, p->input2, p->output1, val1);
-    VerifyOutputWithExpectedValueFloat(p->output1, val1, Validation_Type,
-      Validation_Tolerance, mode);
+    if (mode == Float32DenormMode::Any) {
+       LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
+       LPCWSTR str2 = (*Validation_Expected2)[i % Validation_Expected2->size()];
+       float val1;
+       float val2;
+       VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+       VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
+       LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, output = "
+         L"%6.8f, expected = %6.8f(%x) or %6.8f(%x)",
+         i, p->input1, p->input2, p->output1, val1, *(int *)&val1, val2, *(int *)&val2);
+       VERIFY_IS_TRUE(
+           CompareOutputWithExpectedValueFloat(
+               p->output1, val1, Validation_Type, Validation_Tolerance, mode) ||
+           CompareOutputWithExpectedValueFloat(
+               p->output1, val2, Validation_Type, Validation_Tolerance, mode));
+    }
+    else {
+       LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
+       float val1;
+       VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+       LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, output = "
+         L"%6.8f, expected = %6.8f(%a)",
+         i, p->input1, p->input2, p->output1, val1, *(int *)&val1);
+       VerifyOutputWithExpectedValueFloat(p->output1, val1, Validation_Type,
+          Validation_Tolerance, mode);
+    }
   }
 }
 
@@ -4833,9 +4887,12 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
   std::vector<WEX::Common::String> *Validation_Input3 =
     &(handler.GetTableParamByName(L"Validation.Input3")->m_StringTable);
 
-  std::vector<WEX::Common::String> *Validation_Expected =
+  std::vector<WEX::Common::String> *Validation_Expected1 =
     &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
-
+  
+  // two expected outputs for any mode
+  std::vector<WEX::Common::String> *Validation_Expected2 =
+    &(handler.GetTableParamByName(L"Validation.Expected2")->m_StringTable);
   LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
   double Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
   size_t count = Validation_Input1->size();
@@ -4848,7 +4905,10 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
   else if (strcmp(Arguments.m_psz, "-denorm ftz") == 0) {
     mode = Float32DenormMode::FTZ;
   }
-
+  if (mode == Float32DenormMode::Any) {
+    DXASSERT(Validation_Expected2->size() == Validation_Expected1->size(),
+      "must have same number of expected values");
+  }
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
     pDevice, m_support, pStream, "TertiaryFPOp",
     // this callbacked is called when the test
@@ -4886,14 +4946,32 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
 
   for (unsigned i = 0; i < count; ++i) {
     STertiaryFPOp *p = &pPrimitives[i];
-    LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->size()];
-    float val;
-    VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
-    LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, input3 = %6.8f, output1 = "
-      L"%6.8f, expected = %6.8f",
-      i, p->input1, p->input2, p->input3, p->output, val);
-    VerifyOutputWithExpectedValueFloat(p->output, val, Validation_Type,
-      Validation_Tolerance);
+    if (mode == Float32DenormMode::Any) {
+        LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
+        LPCWSTR str2 = (*Validation_Expected2)[i % Validation_Expected2->size()];
+        float val1;
+        float val2;
+        VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+        VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
+        LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, input3 = %6.8f, output = "
+            L"%6.8f, expected = %6.8f(%x) or %6.8f(%x)",
+            i, p->input1, p->input2, p->input3, p->output, val1, *(int *)&val1, val2, *(int *)&val2);
+        VERIFY_IS_TRUE(
+            CompareOutputWithExpectedValueFloat(
+                p->output, val1, Validation_Type, Validation_Tolerance, mode) ||
+            CompareOutputWithExpectedValueFloat(
+                p->output, val2, Validation_Type, Validation_Tolerance, mode));
+    }
+    else {
+        LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
+        float val1;
+        VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+        LogCommentFmt(L"element #%u, input1 = %6.8f, input2 = %6.8f, input3 = %6.8f, output = "
+            L"%6.8f, expected = %6.8f(%a)",
+            i, p->input1, p->input2, p->input3, p->output, val1, *(int *)&val1);
+        VerifyOutputWithExpectedValueFloat(p->output, val1, Validation_Type,
+            Validation_Tolerance, mode);
+    }
   }
 }
 

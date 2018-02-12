@@ -899,9 +899,10 @@ private:
   /// The following cases will require legalization:
   ///
   /// 1. Opaque types (textures, samplers) within structs
-  /// 2. Structured buffer assignments
+  /// 2. Structured buffer aliasing
+  /// 3. Using SPIR-V instructions not allowed in the currect shader stage
   ///
-  /// This covers the first case.
+  /// This covers the first and third case.
   ///
   /// If this is true, SPIRV-Tools legalization passes will be executed after
   /// the translation to legalize the generated SPIR-V binary.

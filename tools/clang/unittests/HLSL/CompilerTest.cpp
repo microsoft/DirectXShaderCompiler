@@ -460,8 +460,6 @@ public:
   TEST_METHOD(PixDebugPreexistingSVVertex)
   TEST_METHOD(PixDebugPreexistingSVInstance)
   TEST_METHOD(PixAccessTracking)
-  TEST_METHOD(PixAccessTrackingRTV)
-  TEST_METHOD(PixAccessTrackingStreamOut)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -940,6 +938,7 @@ public:
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(CodeGenPatchLength)
   TEST_METHOD(PreprocessWhenValidThenOK)
+  TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
   // Dx11 Sample
@@ -3058,14 +3057,6 @@ TEST_F(CompilerTest, PixDebugPreexistingSVInstance) {
 
 TEST_F(CompilerTest, PixAccessTracking) {
   CodeGenTestCheck(L"pix\\AccessTracking.hlsl");
-}
-
-TEST_F(CompilerTest, PixAccessTrackingRTV) {
-  CodeGenTestCheck(L"pix\\AccessTrackingRTV.hlsl");
-}
-
-TEST_F(CompilerTest, PixAccessTrackingStreamOut) {
-  CodeGenTestCheck(L"pix\\AccessTrackingStreamOut.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
@@ -5848,6 +5839,56 @@ TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
     "int g_int = 123;\n"
     "\n"
     "int BAR;\n", text.c_str());
+}
+
+TEST_F(CompilerTest, PreprocessWhenExpandTokenPastingOperandThenAccept) {
+  // Tests that we can turn on fxc's behavior (pre-expanding operands before
+  // performing token-pasting) using -flegacy-macro-expansion
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+
+  LPCWSTR expandOption = L"-flegacy-macro-expansion";
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  CreateBlobFromText(R"(
+#define SET_INDEX0                10
+#define BINDING_INDEX0            5
+
+#define SET(INDEX)                SET_INDEX##INDEX
+#define BINDING(INDEX)            BINDING_INDEX##INDEX
+
+#define SET_BIND(NAME,SET,BIND)   resource_set_##SET##_bind_##BIND##_##NAME
+
+#define RESOURCE(NAME,INDEX)      SET_BIND(NAME, SET(INDEX), BINDING(INDEX))
+
+    Texture2D<float4> resource_set_10_bind_5_tex;
+
+  float4 main() : SV_Target{
+    return RESOURCE(tex, 0)[uint2(1, 2)];
+  }
+)",
+                     &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Preprocess(pSource, L"file.hlsl", &expandOption,
+                                         1, nullptr, 0, nullptr, &pResult));
+  HRESULT hrOp;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrOp));
+  VERIFY_SUCCEEDED(hrOp);
+
+  CComPtr<IDxcBlob> pOutText;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
+  std::string text(BlobToUtf8(pOutText));
+  VERIFY_ARE_EQUAL_STR(R"(#line 1 "file.hlsl"
+#line 12 "file.hlsl"
+    Texture2D<float4> resource_set_10_bind_5_tex;
+
+  float4 main() : SV_Target{
+    return resource_set_10_bind_5_tex[uint2(1, 2)];
+  }
+)",
+                       text.c_str());
 }
 
 TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {

@@ -120,6 +120,9 @@ TEST_F(FileTest, VarInitCrossStorageClass) {
   runFileTest("var.init.cross-storage-class.hlsl");
 }
 TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
+TEST_F(FileTest, UninitStaticResourceVar) {
+  runFileTest("var.static.resource.hlsl");
+}
 TEST_F(FileTest, GlobalMatrixVar) { runFileTest("var.global-mat.hlsl"); }
 
 // For prefix/postfix increment/decrement
