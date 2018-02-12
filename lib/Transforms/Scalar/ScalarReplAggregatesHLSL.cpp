@@ -1751,9 +1751,18 @@ void SROA_HLSL::isSafeForScalarRepl(Instruction *I, uint64_t Offset,
       isSafePHISelectUseForScalarRepl(User, Offset, Info);
     } else if (CallInst *CI = dyn_cast<CallInst>(User)) {
       HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-      // HL functions are safe for scalar repl.
-      if (group == HLOpcodeGroup::NotHL)
+      // Most HL functions are safe for scalar repl.
+      if (HLOpcodeGroup::NotHL == group)
         return MarkUnsafe(Info, User);
+      else if (HLOpcodeGroup::HLIntrinsic == group) {
+        // TODO: should we check HL parameter type for UDT overload instead of basing on IOP?
+        IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
+        if (IntrinsicOp::IOP_TraceRay == opcode ||
+            IntrinsicOp::IOP_ReportHit == opcode ||
+            IntrinsicOp::IOP_CallShader == opcode) {
+          return MarkUnsafe(Info, User);
+        }
+      }
     } else {
       return MarkUnsafe(Info, User);
     }
