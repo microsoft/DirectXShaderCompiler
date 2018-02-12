@@ -76,7 +76,7 @@ void main() {
 // CHECK-NEXT: [[c_splat1:%\d+]] = OpCompositeConstruct %v4int [[int_c1]] [[int_c1]] [[int_c1]] [[int_c1]]
 // CHECK-NEXT: {{%\d+}} = OpIMul %v4int [[int4_d1]] [[c_splat1]]
   int4 int_vectorMulScalar = mul(int4_d,int_c);
-  
+
   float e;
   float3x4 f;
 
@@ -84,7 +84,7 @@ void main() {
 // CHECK-NEXT: [[f:%\d+]] = OpLoad %mat3v4float %f
 // CHECK-NEXT: {{%\d+}} = OpMatrixTimesScalar %mat3v4float [[f]] [[e]]
   float3x4 scalarMulMatrix = mul(e,f);
-  
+
 // CHECK:      [[f1:%\d+]] = OpLoad %mat3v4float %f
 // CHECK-NEXT: [[e1:%\d+]] = OpLoad %float %e
 // CHECK-NEXT: {{%\d+}} = OpMatrixTimesScalar %mat3v4float [[f1]] [[e1]]
@@ -190,14 +190,12 @@ void main() {
   // dot product of the vector and the matrix columns.
 // CHECK:               [[intVec:%\d+]] = OpLoad %v2int %intVec2
 // CHECK-NEXT:          [[intMat:%\d+]] = OpLoad %_arr_v3int_uint_2 %intMat2x3
-// CHECK-NEXT:         [[intMat0:%\d+]] = OpCompositeExtract %v3int [[intMat]] 0
-// CHECK-NEXT:        [[intMat00:%\d+]] = OpCompositeExtract %int [[intMat0]] 0
-// CHECK-NEXT:        [[intMat01:%\d+]] = OpCompositeExtract %int [[intMat0]] 1
-// CHECK-NEXT:        [[intMat02:%\d+]] = OpCompositeExtract %int [[intMat0]] 2
-// CHECK-NEXT:         [[intMat1:%\d+]] = OpCompositeExtract %v3int [[intMat]] 1
-// CHECK-NEXT:        [[intMat10:%\d+]] = OpCompositeExtract %int [[intMat1]] 0
-// CHECK-NEXT:        [[intMat11:%\d+]] = OpCompositeExtract %int [[intMat1]] 1
-// CHECK-NEXT:        [[intMat12:%\d+]] = OpCompositeExtract %int [[intMat1]] 2
+// CHECK-NEXT:        [[intMat00:%\d+]] = OpCompositeExtract %int [[intMat]] 0 0
+// CHECK-NEXT:        [[intMat01:%\d+]] = OpCompositeExtract %int [[intMat]] 0 1
+// CHECK-NEXT:        [[intMat02:%\d+]] = OpCompositeExtract %int [[intMat]] 0 2
+// CHECK-NEXT:        [[intMat10:%\d+]] = OpCompositeExtract %int [[intMat]] 1 0
+// CHECK-NEXT:        [[intMat11:%\d+]] = OpCompositeExtract %int [[intMat]] 1 1
+// CHECK-NEXT:        [[intMat12:%\d+]] = OpCompositeExtract %int [[intMat]] 1 2
 // CHECK-NEXT:      [[intMatCol0:%\d+]] = OpCompositeConstruct %v2int [[intMat00]] [[intMat10]]
 // CHECK-NEXT:      [[intMatCol1:%\d+]] = OpCompositeConstruct %v2int [[intMat01]] [[intMat11]]
 // CHECK-NEXT:      [[intMatCol2:%\d+]] = OpCompositeConstruct %v2int [[intMat02]] [[intMat12]]
@@ -269,22 +267,18 @@ void main() {
   ///////////////////////////////////////////
   /////////// Transpose the rhs /////////////
   ///////////////////////////////////////////
-// CHECK-NEXT:         [[rhs0:%\d+]] = OpCompositeExtract %v3int [[rhs]] 0
-// CHECK-NEXT:        [[rhs00:%\d+]] = OpCompositeExtract %int [[rhs0]] 0
-// CHECK-NEXT:        [[rhs01:%\d+]] = OpCompositeExtract %int [[rhs0]] 1
-// CHECK-NEXT:        [[rhs02:%\d+]] = OpCompositeExtract %int [[rhs0]] 2
-// CHECK-NEXT:         [[rhs1:%\d+]] = OpCompositeExtract %v3int [[rhs]] 1
-// CHECK-NEXT:        [[rhs10:%\d+]] = OpCompositeExtract %int [[rhs1]] 0
-// CHECK-NEXT:        [[rhs11:%\d+]] = OpCompositeExtract %int [[rhs1]] 1
-// CHECK-NEXT:        [[rhs12:%\d+]] = OpCompositeExtract %int [[rhs1]] 2
-// CHECK-NEXT:         [[rhs2:%\d+]] = OpCompositeExtract %v3int [[rhs]] 2
-// CHECK-NEXT:        [[rhs20:%\d+]] = OpCompositeExtract %int [[rhs2]] 0
-// CHECK-NEXT:        [[rhs21:%\d+]] = OpCompositeExtract %int [[rhs2]] 1
-// CHECK-NEXT:        [[rhs22:%\d+]] = OpCompositeExtract %int [[rhs2]] 2
-// CHECK-NEXT:         [[rhs3:%\d+]] = OpCompositeExtract %v3int [[rhs]] 3
-// CHECK-NEXT:        [[rhs30:%\d+]] = OpCompositeExtract %int [[rhs3]] 0
-// CHECK-NEXT:        [[rhs31:%\d+]] = OpCompositeExtract %int [[rhs3]] 1
-// CHECK-NEXT:        [[rhs32:%\d+]] = OpCompositeExtract %int [[rhs3]] 2
+// CHECK-NEXT:        [[rhs00:%\d+]] = OpCompositeExtract %int [[rhs]] 0 0
+// CHECK-NEXT:        [[rhs01:%\d+]] = OpCompositeExtract %int [[rhs]] 0 1
+// CHECK-NEXT:        [[rhs02:%\d+]] = OpCompositeExtract %int [[rhs]] 0 2
+// CHECK-NEXT:        [[rhs10:%\d+]] = OpCompositeExtract %int [[rhs]] 1 0
+// CHECK-NEXT:        [[rhs11:%\d+]] = OpCompositeExtract %int [[rhs]] 1 1
+// CHECK-NEXT:        [[rhs12:%\d+]] = OpCompositeExtract %int [[rhs]] 1 2
+// CHECK-NEXT:        [[rhs20:%\d+]] = OpCompositeExtract %int [[rhs]] 2 0
+// CHECK-NEXT:        [[rhs21:%\d+]] = OpCompositeExtract %int [[rhs]] 2 1
+// CHECK-NEXT:        [[rhs22:%\d+]] = OpCompositeExtract %int [[rhs]] 2 2
+// CHECK-NEXT:        [[rhs30:%\d+]] = OpCompositeExtract %int [[rhs]] 3 0
+// CHECK-NEXT:        [[rhs31:%\d+]] = OpCompositeExtract %int [[rhs]] 3 1
+// CHECK-NEXT:        [[rhs32:%\d+]] = OpCompositeExtract %int [[rhs]] 3 2
 // CHECK-NEXT:      [[rhsCol0:%\d+]] = OpCompositeConstruct %v4int [[rhs00]] [[rhs10]] [[rhs20]] [[rhs30]]
 // CHECK-NEXT:      [[rhsCol1:%\d+]] = OpCompositeConstruct %v4int [[rhs01]] [[rhs11]] [[rhs21]] [[rhs31]]
 // CHECK-NEXT:      [[rhsCol2:%\d+]] = OpCompositeConstruct %v4int [[rhs02]] [[rhs12]] [[rhs22]] [[rhs32]]

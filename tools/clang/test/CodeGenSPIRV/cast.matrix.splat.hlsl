@@ -52,29 +52,35 @@ void main() {
 
     int intVal;
 // CHECK:      [[intVal:%\d+]] = OpLoad %int %intVal
-// CHECK-NEXT:        {{%\d+}} = OpCompositeConstruct %v3int [[intVal]] [[intVal]] [[intVal]]
+// CHECK-NEXT:    [[cc4:%\d+]] = OpCompositeConstruct %v3int [[intVal]] [[intVal]] [[intVal]]
+// CHECK-NEXT: OpStore %m [[cc4]]
     int1x3 m = intVal;
     int2x1 n;
     int2x3 o;
 // CHECK:      [[intVal:%\d+]] = OpLoad %int %intVal
-// CHECK-NEXT:        {{%\d+}} = OpCompositeConstruct %v2int [[intVal]] [[intVal]]
+// CHECK-NEXT:    [[cc5:%\d+]] = OpCompositeConstruct %v2int [[intVal]] [[intVal]]
+// CHECK-NEXT: OpStore %n [[cc5]]
     n = intVal;
 // CHECK:        [[intVal:%\d+]] = OpLoad %int %intVal
 // CHECK-NEXT: [[v3intVal:%\d+]] = OpCompositeConstruct %v3int [[intVal]] [[intVal]] [[intVal]]
-// CHECK-NEXT:          {{%\d+}} = OpCompositeConstruct %_arr_v3int_uint_2 [[v3intVal]] [[v3intVal]]
+// CHECK-NEXT:      [[cc6:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[v3intVal]] [[v3intVal]]
+// CHECK-NEXT: OpStore %o [[cc6]]
     o = intVal;
 
     bool boolVal;
 // CHECK:      [[boolVal:%\d+]] = OpLoad %bool %boolVal
-// CHECK-NEXT:        {{%\d+}} = OpCompositeConstruct %v3bool [[boolVal]] [[boolVal]] [[boolVal]]
+// CHECK-NEXT:     [[cc7:%\d+]] = OpCompositeConstruct %v3bool [[boolVal]] [[boolVal]] [[boolVal]]
+// CHECK-NEXT: OpStore %p [[cc7]]
     bool1x3 p = boolVal;
     bool2x1 q;
     bool2x3 r;
 // CHECK:      [[boolVal:%\d+]] = OpLoad %bool %boolVal
-// CHECK-NEXT:        {{%\d+}} = OpCompositeConstruct %v2bool [[boolVal]] [[boolVal]]
+// CHECK-NEXT:     [[cc8:%\d+]] = OpCompositeConstruct %v2bool [[boolVal]] [[boolVal]]
+// CHECK-NEXT: OpStore %q [[cc8]]
     q = boolVal;
 // CHECK:        [[boolVal:%\d+]] = OpLoad %bool %boolVal
 // CHECK-NEXT: [[v3boolVal:%\d+]] = OpCompositeConstruct %v3bool [[boolVal]] [[boolVal]] [[boolVal]]
-// CHECK-NEXT:           {{%\d+}} = OpCompositeConstruct %_arr_v3bool_uint_2 [[v3boolVal]] [[v3boolVal]]
+// CHECK-NEXT:       [[cc9:%\d+]] = OpCompositeConstruct %_arr_v3bool_uint_2 [[v3boolVal]] [[v3boolVal]]
+// CHECK-NEXT: OpStore %r [[cc9]]
     r = boolVal;
 }

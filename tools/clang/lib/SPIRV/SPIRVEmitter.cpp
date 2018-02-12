@@ -4288,7 +4288,7 @@ SpirvEvalInfo SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
                              ? getMatElemValueOne(subType)
                              : getValueOne(subType);
     uint32_t incValue = 0;
-    if (TypeTranslator::isSpirvAcceptableMatrixType(subType)) {
+    if (TypeTranslator::isMxNMatrix(subType)) {
       // For matrices, we can only increment/decrement each vector of it.
       const auto actOnEachVec = [this, spvOp, one](uint32_t /*index*/,
                                                    uint32_t vecType,
@@ -4596,7 +4596,7 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   // onto each element vector iff the operands are not degenerated matrices
   // and we don't have a matrix specific SPIR-V instruction for the operation.
   if (!isSpirvMatrixOp(mandateGenOpcode) &&
-      TypeTranslator::isSpirvAcceptableMatrixType(lhs->getType())) {
+      TypeTranslator::isMxNMatrix(lhs->getType())) {
     return processMatrixBinaryOp(lhs, rhs, opcode, sourceRange);
   }
 
@@ -5248,7 +5248,7 @@ SpirvEvalInfo SPIRVEmitter::processEachVectorInMatrix(
     llvm::function_ref<uint32_t(uint32_t, uint32_t, uint32_t)>
         actOnEachVector) {
   const auto matType = matrix->getType();
-  assert(TypeTranslator::isSpirvAcceptableMatrixType(matType));
+  assert(TypeTranslator::isMxNMatrix(matType));
   const uint32_t vecType = typeTranslator.getComponentVectorType(matType);
 
   uint32_t rowCount = 0, colCount = 0;
@@ -5339,7 +5339,7 @@ SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
                                     SourceRange range) {
   // TODO: some code are duplicated from processBinaryOp. Try to unify them.
   const auto lhsType = lhs->getType();
-  assert(TypeTranslator::isSpirvAcceptableMatrixType(lhsType));
+  assert(TypeTranslator::isMxNMatrix(lhsType));
   const spv::Op spvOp = translateOp(opcode, lhsType);
 
   uint32_t rhsVal, lhsPtr, lhsVal;
@@ -5519,12 +5519,14 @@ uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
                                     &colCount)) {
       const auto fromRowQualType =
           astContext.getExtVectorType(elemType, colCount);
+      const auto fromRowQualTypeId =
+          typeTranslator.translateType(fromRowQualType);
       const auto toBoolRowQualType =
           astContext.getExtVectorType(astContext.BoolTy, colCount);
       llvm::SmallVector<uint32_t, 4> rows;
       for (uint32_t i = 0; i < rowCount; ++i) {
-        const auto row = theBuilder.createCompositeExtract(
-            typeTranslator.translateType(fromRowQualType), fromVal, {i});
+        const auto row =
+            theBuilder.createCompositeExtract(fromRowQualTypeId, fromVal, {i});
         rows.push_back(castToBool(row, fromRowQualType, toBoolRowQualType));
       }
       return theBuilder.createCompositeConstruct(boolType, rows);
@@ -5572,9 +5574,12 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
       // The source matrix and the target matrix must have the same dimensions.
       QualType toElemType = {};
       uint32_t toNumRows = 0, toNumCols = 0;
-      const bool toMatType = TypeTranslator::isMxNMatrix(
-          toIntType, &toElemType, &toNumRows, &toNumCols);
-      assert(toMatType && numRows == toNumRows && numCols == toNumCols);
+      assert(TypeTranslator::isMxNMatrix(toIntType, &toElemType, &toNumRows,
+                                         &toNumCols) &&
+             numRows == toNumRows && numCols == toNumCols);
+      (void)toElemType;
+      (void)toNumRows;
+      (void)toNumCols;
 
       // Casting to a matrix of integers: Cast each row and construct a
       // composite.
@@ -5631,11 +5636,14 @@ uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
       // The source matrix and the target matrix must have the same dimensions.
       QualType toElemType = {};
       uint32_t toNumRows = 0, toNumCols = 0;
-      const bool toMatType = TypeTranslator::isMxNMatrix(
-          toFloatType, &toElemType, &toNumRows, &toNumCols);
-      assert(toMatType && numRows == toNumRows && numCols == toNumCols);
+      assert(TypeTranslator::isMxNMatrix(toFloatType, &toElemType, &toNumRows,
+                                         &toNumCols) &&
+             numRows == toNumRows && numCols == toNumCols);
+      (void)toElemType;
+      (void)toNumRows;
+      (void)toNumCols;
 
-      // Casting to a matrix of integers: Cast each row and construct a
+      // Casting to a matrix of floats: Cast each row and construct a
       // composite.
       llvm::SmallVector<uint32_t, 4> castedRows;
       const uint32_t vecType = typeTranslator.getComponentVectorType(fromType);
@@ -5797,7 +5805,7 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal =
         theBuilder.createImageSparseTexelsResident(doExpr(callExpr->getArg(0)));
     break;
-  
+
   case hlsl::IntrinsicOp::IOP_mul:
   case hlsl::IntrinsicOp::IOP_umul:
     retVal = processIntrinsicMul(callExpr);
@@ -5882,7 +5890,7 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_transpose: {
     const Expr *mat = callExpr->getArg(0);
     const QualType matType = mat->getType();
-    if (isFloatOrVecMatOfFloatType(matType))
+    if (hlsl::GetHLSLMatElementType(matType)->isFloatingType())
       retVal =
           processIntrinsicUsingSpirvInst(callExpr, spv::Op::OpTranspose, false);
     else
@@ -6321,7 +6329,7 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
       // If the 'ip' is not a float type, the AST will not contain a CastExpr
       // because this is internal to the intrinsic function. So, in such a
       // case we need to cast manually.
-      if (!isFloatOrVecMatOfFloatType(ipType))
+      if (!hlsl::GetHLSLMatElementType(ipType)->isFloatingType())
         ip = castToInt(ip, argType, ipType, ipArg->getExprLoc());
       theBuilder.createStore(ipId, ip);
       return theBuilder.createCompositeConstruct(returnTypeId, fracs);
@@ -6615,7 +6623,7 @@ uint32_t SPIRVEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
 
   // FClamp, UClamp, and SClamp do not operate on matrices, so we should perform
   // the operation on each vector of the matrix.
-  if (TypeTranslator::isSpirvAcceptableMatrixType(argX->getType())) {
+  if (TypeTranslator::isMxNMatrix(argX->getType())) {
     const auto actOnEachVec = [this, glslInstSetId, glslOpcode, argMinId,
                                argMaxId](uint32_t index, uint32_t vecType,
                                          uint32_t curRowId) {
@@ -6708,7 +6716,7 @@ uint32_t SPIRVEmitter::processNonFpMatrixTranspose(QualType matType,
   uint32_t numRows = 0, numCols = 0;
   const bool isMat =
       TypeTranslator::isMxNMatrix(matType, &elemType, &numRows, &numCols);
-  assert(isMat);
+  assert(isMat && !elemType->isFloatingType());
 
   const auto rowQualType = astContext.getExtVectorType(elemType, numCols);
   const auto colQualType = astContext.getExtVectorType(elemType, numRows);
@@ -6720,18 +6728,18 @@ uint32_t SPIRVEmitter::processNonFpMatrixTranspose(QualType matType,
   // The number of constutients passed to OpCompositeConstruct must be equal to
   // the number of array elements.
   llvm::SmallVector<uint32_t, 4> elems;
-  for (uint32_t i = 0; i < numRows; ++i) {
-    const auto row = theBuilder.createCompositeExtract(rowTypeId, matId, {i});
+  for (uint32_t i = 0; i < numRows; ++i)
     for (uint32_t j = 0; j < numCols; ++j)
-      elems.push_back(theBuilder.createCompositeExtract(elemTypeId, row, {j}));
-  }
+      elems.push_back(
+          theBuilder.createCompositeExtract(elemTypeId, matId, {i, j}));
 
   llvm::SmallVector<uint32_t, 4> cols;
   for (uint32_t i = 0; i < numCols; ++i) {
-    // The current index group into the array starts at i*numRows
+    // The elements in the ith vector of the "transposed" array are at offset i,
+    // i + <original-vector-size>, ...
     llvm::SmallVector<uint32_t, 4> indexes;
     for (uint32_t j = 0; j < numRows; ++j)
-      indexes.push_back(elems[i+(j*numCols)]);
+      indexes.push_back(elems[i + (j * numCols)]);
 
     cols.push_back(theBuilder.createCompositeConstruct(colTypeId, indexes));
   }
@@ -6821,16 +6829,16 @@ uint32_t SPIRVEmitter::processNonFpVectorTimesMatrix(QualType vecType,
     matTransposeId = processNonFpMatrixTranspose(matType, matId);
 
   const auto vecTypeId = typeTranslator.translateType(vecType);
-  llvm::SmallVector<uint32_t, 4> resultRows;
+  llvm::SmallVector<uint32_t, 4> resultElems;
   for (uint32_t col = 0; col < numCols; ++col) {
     const auto colId =
         theBuilder.createCompositeExtract(vecTypeId, matTransposeId, {col});
-    resultRows.push_back(processNonFpDot(vecId, colId, vecSize, vecElemType));
+    resultElems.push_back(processNonFpDot(vecId, colId, vecSize, vecElemType));
   }
   return theBuilder.createCompositeConstruct(
       typeTranslator.translateType(
           astContext.getExtVectorType(vecElemType, numCols)),
-      resultRows);
+      resultElems);
 }
 
 uint32_t SPIRVEmitter::processNonFpMatrixTimesVector(QualType matType,
@@ -6854,16 +6862,16 @@ uint32_t SPIRVEmitter::processNonFpMatrixTimesVector(QualType matType,
   // simply get each row of the matrix and perform a dot product with the
   // vector.
   const auto vecTypeId = typeTranslator.translateType(vecType);
-  llvm::SmallVector<uint32_t, 4> resultRows;
+  llvm::SmallVector<uint32_t, 4> resultElems;
   for (uint32_t row = 0; row < numRows; ++row) {
     const auto rowId =
         theBuilder.createCompositeExtract(vecTypeId, matId, {row});
-    resultRows.push_back(processNonFpDot(rowId, vecId, vecSize, vecElemType));
+    resultElems.push_back(processNonFpDot(rowId, vecId, vecSize, vecElemType));
   }
   return theBuilder.createCompositeConstruct(
       typeTranslator.translateType(
           astContext.getExtVectorType(vecElemType, numRows)),
-      resultRows);
+      resultElems);
 }
 
 uint32_t SPIRVEmitter::processNonFpMatrixTimesMatrix(QualType lhsType,
@@ -7270,7 +7278,7 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   const QualType argType = arg0->getType();
 
   // Method 3 return type may be the same as arg type, so it would be a no-op.
-  if(typeTranslator.isSameType(returnType, argType))
+  if (typeTranslator.isSameType(returnType, argType))
     return doExpr(arg0);
 
   switch (numArgs) {
@@ -7286,10 +7294,10 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     }
 
     // Input or output type is a matrix.
-    QualType toElemType = {};
-    (void)TypeTranslator::isMxNMatrix(returnType, &toElemType);
+    const QualType toElemType = hlsl::GetHLSLMatElementType(returnType);
     llvm::SmallVector<uint32_t, 4> castedRows;
-    const auto fromVecQualType = astContext.getExtVectorType(fromElemType, numCols);
+    const auto fromVecQualType =
+        astContext.getExtVectorType(fromElemType, numCols);
     const auto toVecQualType = astContext.getExtVectorType(toElemType, numCols);
     const auto fromVecTypeId = typeTranslator.translateType(fromVecQualType);
     const auto toVecTypeId = typeTranslator.translateType(toVecQualType);
@@ -7457,7 +7465,7 @@ uint32_t SPIRVEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
   uint32_t floatSignResultId = 0;
 
   // For matrices, we can perform the instruction on each vector of the matrix.
-  if (TypeTranslator::isSpirvAcceptableMatrixType(argType)) {
+  if (TypeTranslator::isMxNMatrix(argType)) {
     const auto actOnEachVec = [this, glslInstSetId](uint32_t /*index*/,
                                                     uint32_t vecType,
                                                     uint32_t curRowId) {
@@ -7572,8 +7580,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
 
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
-    if (actPerRowForMatrices &&
-        TypeTranslator::isSpirvAcceptableMatrixType(arg->getType())) {
+    if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg->getType())) {
       const auto actOnEachVec = [this, opcode](uint32_t /*index*/,
                                                uint32_t vecType,
                                                uint32_t curRowId) {
@@ -7588,8 +7595,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
     const uint32_t arg1Id = doExpr(callExpr->getArg(1));
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
-    if (actPerRowForMatrices &&
-        TypeTranslator::isSpirvAcceptableMatrixType(arg0->getType())) {
+    if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg0->getType())) {
       const auto actOnEachVec = [this, opcode, arg1Id](uint32_t index,
                                                        uint32_t vecType,
                                                        uint32_t arg0RowId) {
@@ -7618,8 +7624,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
 
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
-    if (actPerRowForMatrices &&
-        TypeTranslator::isSpirvAcceptableMatrixType(arg->getType())) {
+    if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg->getType())) {
       const auto actOnEachVec = [this, glslInstSetId,
                                  opcode](uint32_t /*index*/, uint32_t vecType,
                                          uint32_t curRowId) {
@@ -7635,8 +7640,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     const uint32_t arg1Id = doExpr(callExpr->getArg(1));
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
-    if (actPerRowForMatrices &&
-        TypeTranslator::isSpirvAcceptableMatrixType(arg0->getType())) {
+    if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg0->getType())) {
       const auto actOnEachVec = [this, glslInstSetId, opcode,
                                  arg1Id](uint32_t index, uint32_t vecType,
                                          uint32_t arg0RowId) {
@@ -7656,8 +7660,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     const uint32_t arg2Id = doExpr(callExpr->getArg(2));
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
-    if (actPerRowForMatrices &&
-        TypeTranslator::isSpirvAcceptableMatrixType(arg0->getType())) {
+    if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg0->getType())) {
       const auto actOnEachVec = [this, glslInstSetId, opcode, arg0Id, arg1Id,
                                  arg2Id](uint32_t index, uint32_t vecType,
                                          uint32_t arg0RowId) {

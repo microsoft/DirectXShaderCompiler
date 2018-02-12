@@ -117,18 +117,7 @@ void main() {
 // Since non-fp matrices are represented as arrays of vectors, we cannot use
 // OpMatrixTimes* instructions.
 
-// CHECK:        [[q:%\d+]] = OpLoad %_arr_v3int_uint_2 %q
-// CHECK-NEXT:   [[r:%\d+]] = OpLoad %_arr_v3int_uint_2 %r
-// CHECK-NEXT:  [[q0:%\d+]] = OpCompositeExtract %v3int [[q]] 0
-// CHECK-NEXT:  [[r0:%\d+]] = OpCompositeExtract %v3int [[r]] 0
-// CHECK-NEXT: [[qr0:%\d+]] = OpIMul %v3int [[q0]] [[r0]]
-// CHECK-NEXT:  [[q1:%\d+]] = OpCompositeExtract %v3int [[q]] 1
-// CHECK-NEXT:  [[r1:%\d+]] = OpCompositeExtract %v3int [[r]] 1
-// CHECK-NEXT: [[qr1:%\d+]] = OpIMul %v3int [[q1]] [[r1]]
-// CHECK-NEXT:  [[qr:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[qr0]] [[qr1]]
-// CHECK-NEXT:                OpStore %qr [[qr]]
-    int2x3 q, r;
-    int2x3 qr = q * r;
+    int2x3 q;
 
 // Note: The AST includes a MatrixSplat, therefore we splat the scalar to a matrix. So we cannot use OpVectorTimesScalar.
 // CHECK:          [[t:%\d+]] = OpLoad %int %t
@@ -145,34 +134,7 @@ void main() {
 // CHECK-NEXT:                  OpStore %qt [[qt]]
     int2x3 qt = t * q;
 
-// Note: The AST includes casts before multiplication.
-// CHECK:              [[x:%\d+]] = OpLoad %_arr_v3bool_uint_2 %x
-// CHECK-NEXT:        [[x0:%\d+]] = OpCompositeExtract %v3bool [[x]] 0
-// CHECK-NEXT:     [[x0int:%\d+]] = OpSelect %v3int [[x0]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:        [[x1:%\d+]] = OpCompositeExtract %v3bool [[x]] 1
-// CHECK-NEXT:     [[x1int:%\d+]] = OpSelect %v3int [[x1]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT: [[x_int_mat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[x0int]] [[x1int]]
-// CHECK-NEXT:         [[y:%\d+]] = OpLoad %_arr_v3bool_uint_2 %y
-// CHECK-NEXT:        [[y0:%\d+]] = OpCompositeExtract %v3bool [[y]] 0
-// CHECK-NEXT:     [[y0int:%\d+]] = OpSelect %v3int [[y0]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT:        [[y1:%\d+]] = OpCompositeExtract %v3bool [[y]] 1
-// CHECK-NEXT:     [[y1int:%\d+]] = OpSelect %v3int [[y1]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT: [[y_int_mat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[y0int]] [[y1int]]
-// CHECK-NEXT:        [[x0:%\d+]] = OpCompositeExtract %v3int [[x_int_mat]] 0
-// CHECK-NEXT:        [[y0:%\d+]] = OpCompositeExtract %v3int [[y_int_mat]] 0
-// CHECK-NEXT:       [[xy0:%\d+]] = OpIMul %v3int [[x0]] [[y0]]
-// CHECK-NEXT:        [[x1:%\d+]] = OpCompositeExtract %v3int [[x_int_mat]] 1
-// CHECK-NEXT:        [[y1:%\d+]] = OpCompositeExtract %v3int [[y_int_mat]] 1
-// CHECK-NEXT:       [[xy1:%\d+]] = OpIMul %v3int [[x1]] [[y1]]
-// CHECK-NEXT:[[xy_int_mat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[xy0]] [[xy1]]
-// CHECK-NEXT:       [[xy0:%\d+]] = OpCompositeExtract %v3int [[xy_int_mat]] 0
-// CHECK-NEXT:   [[xy0bool:%\d+]] = OpINotEqual %v3bool [[xy0]] {{%\d+}}
-// CHECK-NEXT:       [[xy1:%\d+]] = OpCompositeExtract %v3int [[xy_int_mat]] 1
-// CHECK-NEXT:   [[xy1bool:%\d+]] = OpINotEqual %v3bool [[xy1]] {{%\d+}}
-// CHECK-NEXT:        [[xy:%\d+]] = OpCompositeConstruct %_arr_v3bool_uint_2 [[xy0bool]] [[xy1bool]]
-// CHECK-NEXT:                      OpStore %xy [[xy]]
-    bool2x3 x, y;
-    bool2x3 xy = x * y;
+    bool2x3 x;
 
 // Note: The AST includes a MatrixSplat, therefore we splat the scalar to a matrix. So we cannot use OpVectorTimesScalar.
 // CHECK:                [[z:%\d+]] = OpLoad %bool %z

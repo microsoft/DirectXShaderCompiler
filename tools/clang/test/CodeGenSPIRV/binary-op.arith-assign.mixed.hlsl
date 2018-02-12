@@ -78,18 +78,7 @@ void main() {
 
 // Non-floating point matrices
 
-// CHECK:           [[q:%\d+]] = OpLoad %_arr_v3int_uint_2 %q
-// CHECK-NEXT:      [[p:%\d+]] = OpLoad %_arr_v3int_uint_2 %p
-// CHECK-NEXT:     [[p0:%\d+]] = OpCompositeExtract %v3int [[p]] 0
-// CHECK-NEXT:     [[q0:%\d+]] = OpCompositeExtract %v3int [[q]] 0
-// CHECK-NEXT: [[new_p0:%\d+]] = OpIMul %v3int [[p0]] [[q0]]
-// CHECK-NEXT:     [[p1:%\d+]] = OpCompositeExtract %v3int [[p]] 1
-// CHECK-NEXT:     [[q1:%\d+]] = OpCompositeExtract %v3int [[q]] 1
-// CHECK-NEXT: [[new_p1:%\d+]] = OpIMul %v3int %74 %75
-// CHECK-NEXT:  [[new_p:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[new_p0]] [[new_p1]]
-// CHECK-NEXT:                   OpStore %p [[new_p]]
-    int2x3 p, q;
-    p *= q;
+    int2x3 p;
 
 // Note: The AST includes a MatrixSplat, therefore we splat the scalar to a matrix. So we cannot use OpVectorTimesScalar.
 // CHECK-NEXT:      [[t:%\d+]] = OpLoad %int %t

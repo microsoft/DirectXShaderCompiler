@@ -345,6 +345,15 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
     if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+
+      // We cannot handle external initialization of column-major matrices now.
+      if (!elemType->isFloatingType() && rule != LayoutRule::Void &&
+          !isRowMajor) {
+        emitError(
+            "externally initialized column-major matrices not supported yet");
+        return 0;
+      }
+
       // HLSL matrices are row major, while SPIR-V matrices are column major.
       // We are mapping what HLSL semantically mean a row into a column here.
       const uint32_t vecType =
@@ -752,10 +761,6 @@ bool TypeTranslator::isRowMajorMatrix(QualType type, const Decl *decl) const {
          !decl->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.defaultRowMajor;
 }
 
-bool TypeTranslator::isSpirvAcceptableMatrixType(QualType type) {
-  return isMxNMatrix(type);
-}
-
 bool TypeTranslator::canTreatAsSameScalarType(QualType type1, QualType type2) {
   // Treat const int/float the same as const int/float
   type1.removeLocalConst();
@@ -839,7 +844,7 @@ QualType TypeTranslator::getElementType(QualType type) {
 }
 
 uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
-  assert(isSpirvAcceptableMatrixType(matrixType));
+  assert(isMxNMatrix(matrixType));
 
   const uint32_t elemType =
       translateType(hlsl::GetHLSLMatElementType(matrixType));
