@@ -2,6 +2,8 @@
 
 // CHECK: [[v2f1:%\d+]] = OpConstantComposite %v2float %float_1 %float_1
 // CHECK: [[v3f1:%\d+]] = OpConstantComposite %v3float %float_1 %float_1 %float_1
+// CHECK: [[v3i1:%\d+]] = OpConstantComposite %v3int %int_1 %int_1 %int_1
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
@@ -40,4 +42,15 @@ void main() {
 // CHECK-NEXT: OpStore %g [[g1]]
 // CHECK-NEXT: OpStore %h [[g0]]
     h = g++;
+
+// CHECK-NEXT: [[m0:%\d+]] = OpLoad %_arr_v3int_uint_2 %m
+// CHECK-NEXT: [[m0v0:%\d+]] = OpCompositeExtract %v3int [[m0]] 0
+// CHECK-NEXT: [[inc0:%\d+]] = OpIAdd %v3int [[m0v0]] [[v3i1]]
+// CHECK-NEXT: [[m0v1:%\d+]] = OpCompositeExtract %v3int [[m0]] 1
+// CHECK-NEXT: [[inc1:%\d+]] = OpIAdd %v3int [[m0v1]] [[v3i1]]
+// CHECK-NEXT: [[m1:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[inc0]] [[inc1]]
+// CHECK-NEXT: OpStore %m [[m1]]
+// CHECK-NEXT: OpStore %n [[m0]]
+    int2x3 m, n;
+    n = m++;
 }

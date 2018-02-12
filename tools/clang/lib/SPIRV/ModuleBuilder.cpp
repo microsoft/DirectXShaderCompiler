@@ -880,7 +880,17 @@ uint32_t ModuleBuilder::getVecType(uint32_t elemType, uint32_t elemCount) {
   return typeId;
 }
 
-uint32_t ModuleBuilder::getMatType(uint32_t colType, uint32_t colCount) {
+uint32_t ModuleBuilder::getMatType(QualType elemType, uint32_t colType,
+                                   uint32_t colCount) {
+  // NOTE: According to Item "Data rules" of SPIR-V Spec 2.16.1 "Universal
+  // Validation Rules":
+  //   Matrix types can only be parameterized with floating-point types.
+  //
+  // So we need special handling of non-fp matrices. We emulate non-fp
+  // matrices as an array of vectors.
+  if (!elemType->isFloatingType())
+    return getArrayType(colType, getConstantUint32(colCount));
+
   const Type *type = Type::getMatrix(theContext, colType, colCount);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);

@@ -53,6 +53,26 @@ void main() {
     float4 i;
     result4 = asuint(i);
 
+    float2x3 floatMat;
+    int2x3 intMat;
+    
+// CHECK:       [[floatMat:%\d+]] = OpLoad %mat2v3float %floatMat
+// CHECK-NEXT: [[floatMat0:%\d+]] = OpCompositeExtract %v3float [[floatMat]] 0
+// CHECK-NEXT:      [[row0:%\d+]] = OpBitcast %v3uint [[floatMat0]]
+// CHECK-NEXT: [[floatMat1:%\d+]] = OpCompositeExtract %v3float [[floatMat]] 1
+// CHECK-NEXT:      [[row1:%\d+]] = OpBitcast %v3uint [[floatMat1]]
+// CHECK-NEXT:         [[j:%\d+]] = OpCompositeConstruct %_arr_v3uint_uint_2 [[row0]] [[row1]]
+// CHECK-NEXT:                      OpStore %j [[j]]
+    uint2x3 j = asuint(floatMat);
+// CHECK:       [[intMat:%\d+]] = OpLoad %_arr_v3int_uint_2 %intMat
+// CHECK-NEXT: [[intMat0:%\d+]] = OpCompositeExtract %v3int [[intMat]] 0
+// CHECK-NEXT:    [[row0:%\d+]] = OpBitcast %v3uint [[intMat0]]
+// CHECK-NEXT: [[intMat1:%\d+]] = OpCompositeExtract %v3int [[intMat]] 1
+// CHECK-NEXT:    [[row1:%\d+]] = OpBitcast %v3uint [[intMat1]]
+// CHECK-NEXT:       [[k:%\d+]] = OpCompositeConstruct %_arr_v3uint_uint_2 [[row0]] [[row1]]
+// CHECK-NEXT:                    OpStore %k [[k]]
+    uint2x3 k = asuint(intMat);
+
     double value;
     uint lowbits;
     uint highbits;
