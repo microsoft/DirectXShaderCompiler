@@ -20,4 +20,8 @@ void run() {
     HIT_KIND_TRIANGLE_FRONT_FACE + HIT_KIND_TRIANGLE_BACK_FACE;
 
   hitKindFlag += HIT_KIND_INVALID;                          /* expected-error {{use of undeclared identifier 'HIT_KIND_INVALID'}} */
+
+  BuiltInTriangleIntersectionAttributes attr;
+  attr.barycentrics = float2(0.3f, 0.4f);
+  attr.barycentrics.z = 3.0f;                               /* expected-error {{vector swizzle 'z' is out of bounds}} */
 }

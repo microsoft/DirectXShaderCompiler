@@ -2446,6 +2446,26 @@ static CXXRecordDecl *CreateRayDescStruct(clang::ASTContext &context,
   return rayDescDecl;
 }
 
+// struct BuiltInTriangleIntersectionAttributes
+// {
+//   float2 barycentrics;
+// };
+static void AddBuiltInTriangleIntersectionAttributes(ASTContext& context, QualType baryType) {
+    DeclContext *curDC = context.getTranslationUnitDecl();
+    IdentifierInfo &attributesId =
+        context.Idents.get(StringRef("BuiltInTriangleIntersectionAttributes"),
+            tok::TokenKind::identifier);
+    CXXRecordDecl *attributesDecl = CXXRecordDecl::Create(
+        context, TagTypeKind::TTK_Struct, curDC, NoLoc, NoLoc,
+        &attributesId, nullptr, DelayTypeCreationTrue);
+    attributesDecl->startDefinition();
+    // float2 barycentrics;
+    CreateSimpleField(context, attributesDecl, "barycentrics", baryType);
+    attributesDecl->completeDefinition();
+    attributesDecl->setImplicit(true);
+    curDC->addDecl(attributesDecl);
+}
+
 //
 // This is similar to clang/Analysis/CallGraph, but the following differences
 // motivate this:
@@ -3190,6 +3210,8 @@ public:
     for (auto && intrinsic : m_intrinsicTables) {
       AddIntrinsicTableMethods(intrinsic);
     }
+    QualType float2Type = LookupVectorType(HLSLScalarType::HLSLScalarType_float, 2);
+    AddBuiltInTriangleIntersectionAttributes(S.getASTContext(), float2Type);
   }
 
   void ForgetSema() override
@@ -3367,8 +3389,13 @@ public:
     }
 
     if (typeRecordDecl && typeRecordDecl->isImplicit()) {
-      if (typeRecordDecl->getDeclContext()->isFileContext())
+      if (typeRecordDecl->getDeclContext()->isFileContext()) {
+        // BuiltInTriangleIntersectionAttributes will be considered as a user
+        // defined type for diagnostic purposes.
+        if (typeRecordDecl->getName().equals("BuiltInTriangleIntersectionAttributes"))
+            return AR_TOBJ_COMPOUND;
         return AR_TOBJ_OBJECT;
+      }
       else
         return AR_TOBJ_INNER_OBJ;
     }
