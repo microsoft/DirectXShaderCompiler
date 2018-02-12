@@ -2864,7 +2864,7 @@ static void ValidateDxilVersion(ValidationContext &ValCtx) {
           GetNodeOperandAsInt(ValCtx, pVerValues, 1, &minorVer)) {
         // This will need to be updated as dxil major/minor versions evolve,
         // depending on the degree of compat across versions.
-        if ((majorVer == 1 && minorVer < 3) &&
+        if ((majorVer == 1 && minorVer < 4) &&
             (majorVer == ValCtx.m_DxilMajor && minorVer == ValCtx.m_DxilMinor)) {
           return;
         }
@@ -4262,8 +4262,10 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // - ILDN container part support
   // 1.2 adds:
   // - Metadata for floating point denorm mode
+  // 1.3 adds:
+  // TODO: add comment
   *pMajor = 1;
-  *pMinor = 2;
+  *pMinor = 3;
 }
 
 _Use_decl_annotations_ HRESULT
