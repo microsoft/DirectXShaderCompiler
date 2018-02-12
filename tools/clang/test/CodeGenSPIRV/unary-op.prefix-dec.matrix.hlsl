@@ -2,6 +2,8 @@
 
 // CHECK: [[v2f1:%\d+]] = OpConstantComposite %v2float %float_1 %float_1
 // CHECK: [[v3f1:%\d+]] = OpConstantComposite %v3float %float_1 %float_1 %float_1
+// CHECK: [[v3i1:%\d+]] = OpConstantComposite %v3int %int_1 %int_1 %int_1
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
@@ -54,10 +56,10 @@ void main() {
     float2x3 g, h;
 // CHECK-NEXT: [[g0:%\d+]] = OpLoad %mat2v3float %g
 // CHECK-NEXT: [[g0v0:%\d+]] = OpCompositeExtract %v3float [[g0]] 0
-// CHECK-NEXT: [[inc0:%\d+]] = OpFSub %v3float [[g0v0]] [[v3f1]]
+// CHECK-NEXT: [[dec0:%\d+]] = OpFSub %v3float [[g0v0]] [[v3f1]]
 // CHECK-NEXT: [[g0v1:%\d+]] = OpCompositeExtract %v3float [[g0]] 1
-// CHECK-NEXT: [[inc1:%\d+]] = OpFSub %v3float [[g0v1]] [[v3f1]]
-// CHECK-NEXT: [[g1:%\d+]] = OpCompositeConstruct %mat2v3float [[inc0]] [[inc1]]
+// CHECK-NEXT: [[dec1:%\d+]] = OpFSub %v3float [[g0v1]] [[v3f1]]
+// CHECK-NEXT: [[g1:%\d+]] = OpCompositeConstruct %mat2v3float [[dec0]] [[dec1]]
 // CHECK-NEXT: OpStore %g [[g1]]
 // CHECK-NEXT: [[g2:%\d+]] = OpLoad %mat2v3float %g
 // CHECK-NEXT: OpStore %h [[g2]]
@@ -65,11 +67,33 @@ void main() {
 // CHECK-NEXT: [[h0:%\d+]] = OpLoad %mat2v3float %h
 // CHECK-NEXT: [[g3:%\d+]] = OpLoad %mat2v3float %g
 // CHECK-NEXT: [[g3v0:%\d+]] = OpCompositeExtract %v3float [[g3]] 0
-// CHECK-NEXT: [[inc2:%\d+]] = OpFSub %v3float [[g3v0]] [[v3f1]]
+// CHECK-NEXT: [[dec2:%\d+]] = OpFSub %v3float [[g3v0]] [[v3f1]]
 // CHECK-NEXT: [[g3v1:%\d+]] = OpCompositeExtract %v3float [[g3]] 1
-// CHECK-NEXT: [[inc3:%\d+]] = OpFSub %v3float [[g3v1]] [[v3f1]]
-// CHECK-NEXT: [[g4:%\d+]] = OpCompositeConstruct %mat2v3float [[inc2]] [[inc3]]
+// CHECK-NEXT: [[dec3:%\d+]] = OpFSub %v3float [[g3v1]] [[v3f1]]
+// CHECK-NEXT: [[g4:%\d+]] = OpCompositeConstruct %mat2v3float [[dec2]] [[dec3]]
 // CHECK-NEXT: OpStore %g [[g4]]
 // CHECK-NEXT: OpStore %g [[h0]]
     --g = h;
+
+    int2x3 m, n;
+// CHECK-NEXT: [[m0:%\d+]] = OpLoad %_arr_v3int_uint_2 %m
+// CHECK-NEXT: [[m0v0:%\d+]] = OpCompositeExtract %v3int [[m0]] 0
+// CHECK-NEXT: [[dec0:%\d+]] = OpISub %v3int [[m0v0]] [[v3i1]]
+// CHECK-NEXT: [[m0v1:%\d+]] = OpCompositeExtract %v3int [[m0]] 1
+// CHECK-NEXT: [[dec1:%\d+]] = OpISub %v3int [[m0v1]] [[v3i1]]
+// CHECK-NEXT: [[m1:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[dec0]] [[dec1]]
+// CHECK-NEXT: OpStore %m [[m1]]
+// CHECK-NEXT: [[m2:%\d+]] = OpLoad %_arr_v3int_uint_2 %m
+// CHECK-NEXT: OpStore %n [[m2]]
+    n = --m;
+// CHECK-NEXT: [[n0:%\d+]] = OpLoad %_arr_v3int_uint_2 %n
+// CHECK-NEXT: [[m3:%\d+]] = OpLoad %_arr_v3int_uint_2 %m
+// CHECK-NEXT: [[m3v0:%\d+]] = OpCompositeExtract %v3int [[m3]] 0
+// CHECK-NEXT: [[dec2:%\d+]] = OpISub %v3int [[m3v0]] [[v3i1]]
+// CHECK-NEXT: [[m3v1:%\d+]] = OpCompositeExtract %v3int [[m3]] 1
+// CHECK-NEXT: [[dec3:%\d+]] = OpISub %v3int [[m3v1]] [[v3i1]]
+// CHECK-NEXT: [[m4:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[dec2]] [[dec3]]
+// CHECK-NEXT: OpStore %m [[m4]]
+// CHECK-NEXT: OpStore %m [[n0]]
+    --m = n;
 }

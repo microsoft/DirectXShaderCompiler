@@ -365,7 +365,9 @@ are translated into:
 ``|type|1x1``                        The scalar type for ``|type|``
 ==================================== ====================================================
 
-A MxN HLSL matrix is translated into a SPIR-V matrix with M vectors, each with
+The above table is for float matrices.
+
+A MxN HLSL float matrix is translated into a SPIR-V matrix with M vectors, each with
 N elements. Conceptually HLSL matrices are row-major while SPIR-V matrices are
 column-major, thus all HLSL matrices are represented by their transposes.
 Doing so may require special handling of certain matrix operations:
@@ -383,6 +385,10 @@ Doing so may require special handling of certain matrix operations:
   packed together, they should be loaded into a column/row correspondingly.
 
 See `Appendix A. Matrix Representation`_ for further explanation regarding these design choices.
+
+Since the ``Shader`` capability in SPIR-V does not allow to parameterize matrix
+types with non-floating-point types, a non-floating-point MxN matrix is translated
+into an array with M elements, with each element being a vector with N elements.
 
 Structs
 -------

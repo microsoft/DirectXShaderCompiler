@@ -83,4 +83,24 @@ void main() {
     // CHECK-NEXT: OpStore %result2x3 [[m]]
     float2x3 m;
     result2x3 = asfloat(m);
+
+    int2x3 n;
+    uint2x3 o;
+
+// CHECK:           [[n:%\d+]] = OpLoad %_arr_v3int_uint_2 %n
+// CHECK-NEXT:     [[n0:%\d+]] = OpCompositeExtract %v3int [[n]] 0
+// CHECK-NEXT:   [[row0:%\d+]] = OpBitcast %v3float [[n0]]
+// CHECK-NEXT:     [[n1:%\d+]] = OpCompositeExtract %v3int [[n]] 1
+// CHECK-NEXT:   [[row1:%\d+]] = OpBitcast %v3float [[n1]]
+// CHECK-NEXT: [[result:%\d+]] = OpCompositeConstruct %mat2v3float [[row0]] [[row1]]
+// CHECK-NEXT:                   OpStore %result2x3 [[result]]
+    result2x3 = asfloat(n);
+// CHECK:           [[o:%\d+]] = OpLoad %_arr_v3uint_uint_2 %o
+// CHECK-NEXT:     [[o0:%\d+]] = OpCompositeExtract %v3uint [[o]] 0
+// CHECK-NEXT:   [[row0:%\d+]] = OpBitcast %v3float [[o0]]
+// CHECK-NEXT:     [[o1:%\d+]] = OpCompositeExtract %v3uint [[o]] 1
+// CHECK-NEXT:   [[row1:%\d+]] = OpBitcast %v3float [[o1]]
+// CHECK-NEXT: [[result:%\d+]] = OpCompositeConstruct %mat2v3float [[row0]] [[row1]]
+// CHECK-NEXT:                   OpStore %result2x3 [[result]]
+    result2x3 = asfloat(o);
 }

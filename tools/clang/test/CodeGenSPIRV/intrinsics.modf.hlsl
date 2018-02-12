@@ -26,6 +26,8 @@ void main() {
   uint     a, ip_a, frac_a;
   int4     b, ip_b, frac_b;
   float2x3 c, ip_c, frac_c;
+  float2x3 d;
+  int2x3   frac_d, ip_d;
 
 // CHECK:                 [[a:%\d+]] = OpLoad %uint %a
 // CHECK-NEXT:           [[af:%\d+]] = OpConvertUToF %float [[a]]
@@ -63,4 +65,29 @@ void main() {
 // CHECK-NEXT:            [[frac_c:%\d+]] = OpCompositeConstruct %mat2v3float [[frac_c_row0]] [[frac_c_row1]]
 // CHECK-NEXT:                              OpStore %frac_c [[frac_c]]
   frac_c = modf(c, ip_c);
+
+// CHECK:                       [[d:%\d+]] = OpLoad %mat2v3float %d
+// CHECK-NEXT:             [[d_row0:%\d+]] = OpCompositeExtract %v3float [[d]] 0
+// CHECK-NEXT: [[modf_struct_d_row0:%\d+]] = OpExtInst %ModfStructType_1 [[glsl]] ModfStruct [[d_row0]]
+// CHECK-NEXT:          [[ip_d_row0:%\d+]] = OpCompositeExtract %v3float [[modf_struct_d_row0]] 1
+// CHECK-NEXT:        [[frac_d_row0:%\d+]] = OpCompositeExtract %v3float [[modf_struct_d_row0]] 0
+// CHECK-NEXT:             [[d_row1:%\d+]] = OpCompositeExtract %v3float [[d]] 1
+// CHECK-NEXT: [[modf_struct_d_row1:%\d+]] = OpExtInst %ModfStructType_1 [[glsl]] ModfStruct [[d_row1]]
+// CHECK-NEXT:          [[ip_d_row1:%\d+]] = OpCompositeExtract %v3float [[modf_struct_d_row1]] 1
+// CHECK-NEXT:        [[frac_d_row1:%\d+]] = OpCompositeExtract %v3float [[modf_struct_d_row1]] 0
+// CHECK-NEXT:       [[ip_float_mat:%\d+]] = OpCompositeConstruct %mat2v3float [[ip_d_row0]] [[ip_d_row1]]
+// CHECK-NEXT:  [[ip_float_mat_row0:%\d+]] = OpCompositeExtract %v3float [[ip_float_mat]] 0
+// CHECK-NEXT:    [[ip_int_mat_row0:%\d+]] = OpConvertFToS %v3int [[ip_float_mat_row0]]
+// CHECK-NEXT:  [[ip_float_mat_row1:%\d+]] = OpCompositeExtract %v3float [[ip_float_mat]] 1
+// CHECK-NEXT:    [[ip_int_mat_row1:%\d+]] = OpConvertFToS %v3int [[ip_float_mat_row1]]
+// CHECK-NEXT:         [[ip_int_mat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[ip_int_mat_row0]] [[ip_int_mat_row1]]
+// CHECK-NEXT:                               OpStore %ip_d [[ip_int_mat]]
+// CHECK-NEXT:     [[frac_float_mat:%\d+]] = OpCompositeConstruct %mat2v3float [[frac_d_row0]] [[frac_d_row1]]
+// CHECK-NEXT:[[frac_float_mat_row0:%\d+]] = OpCompositeExtract %v3float [[frac_float_mat]] 0
+// CHECK-NEXT:  [[frac_int_mat_row0:%\d+]] = OpConvertFToS %v3int [[frac_float_mat_row0]]
+// CHECK-NEXT:[[frac_float_mat_row1:%\d+]] = OpCompositeExtract %v3float [[frac_float_mat]] 1
+// CHECK-NEXT:  [[frac_int_mat_row1:%\d+]] = OpConvertFToS %v3int [[frac_float_mat_row1]]
+// CHECK-NEXT:       [[frac_int_mat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[frac_int_mat_row0]] [[frac_int_mat_row1]]
+// CHECK-NEXT:                               OpStore %frac_d [[frac_int_mat]]
+  frac_d = modf(d, ip_d);
 }
