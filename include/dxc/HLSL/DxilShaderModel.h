@@ -29,7 +29,7 @@ public:
 
   // Major/Minor version of highest shader model
   static const unsigned kHighestMajor = 6;
-  static const unsigned kHighestMinor = 1;
+  static const unsigned kHighestMinor = 3;
 
   bool IsPS() const     { return m_Kind == Kind::Pixel; }
   bool IsVS() const     { return m_Kind == Kind::Vertex; }
@@ -86,7 +86,7 @@ private:
               unsigned m_NumInputRegs, unsigned m_NumOutputRegs,
               bool m_bUAVs, bool m_bTypedUavs, unsigned m_UAVRegsLim);
 
-  static const unsigned kNumShaderModels = 41;
+  static const unsigned kNumShaderModels = 48;
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 
   static const ShaderModel *GetInvalid();
