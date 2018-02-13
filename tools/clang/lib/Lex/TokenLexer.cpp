@@ -17,6 +17,7 @@
 #include "clang/Lex/MacroArgs.h"
 #include "clang/Lex/MacroInfo.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/PreprocessorOptions.h" // HLSL Change
 #include "llvm/ADT/SmallString.h"
 using namespace clang;
 
@@ -261,7 +262,7 @@ void TokenLexer::ExpandFunctionArguments() {
     // If it is not the LHS/RHS of a ## operator, we must pre-expand the
     // argument and substitute the expanded tokens into the result.  This is
     // C99 6.10.3.1p1.
-    if (!PasteBefore && !PasteAfter) {
+    if (PP.PPOpts.get()->ExpandTokPastingArg || !PasteBefore && !PasteAfter) { // HLSL Change
       const Token *ResultArgToks;
 
       // Only preexpand the argument if it could possibly need it.  This

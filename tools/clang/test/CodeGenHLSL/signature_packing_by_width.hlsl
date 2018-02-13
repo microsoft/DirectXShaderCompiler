@@ -40,9 +40,9 @@
 // CHECK: !{i32 12, !"L", i8 8, i8 0, !{{[0-9]+}}, i8 2, i32 1, i8 2, i32 7, i8 0, null}
 // CHECK: !{i32 13, !"N", i8 8, i8 0, !{{[0-9]+}}, i8 1, i32 1, i8 1, i32 6, i8 2, null}
 // CHECK: !{i32 14, !"SV_SampleIndex", i8 5, i8 12, !{{[0-9]+}}, i8 1, i32 1, i8 1, i32 -1, i8 -1, null}
-// CHECK: !{i32 15, !"O", i8 3, i8 0, !12, i8 1, i32 1, i8 1, i32 6, i8 3, null}
-// CHECK: !{i32 16, !"P", i8 3, i8 0, !12, i8 1, i32 1, i8 2, i32 8, i8 0, null}
-// CHECK: !{i32 17, !"Q", i8 8, i8 0, !12, i8 2, i32 1, i8 1, i32 7, i8 2, null}
+// CHECK: !{i32 15, !"O", i8 3, i8 0, !{{[0-9]+}}, i8 1, i32 1, i8 1, i32 6, i8 3, null}
+// CHECK: !{i32 16, !"P", i8 3, i8 0, !{{[0-9]+}}, i8 1, i32 1, i8 2, i32 8, i8 0, null}
+// CHECK: !{i32 17, !"Q", i8 8, i8 0, !{{[0-9]+}}, i8 2, i32 1, i8 1, i32 7, i8 2, null}
 
 float4 main(min16float2 a : A, float2 b : B, half3 c : C, uint id : SV_PrimitiveID,
             float2 d : D, int e : E, half2 f : F, half g : G,

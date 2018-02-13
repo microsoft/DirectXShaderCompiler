@@ -2,6 +2,8 @@
 
 // CHECK: [[v2float_1_0:%\d+]] = OpConstantComposite %v2float %float_1 %float_0
 // CHECK: [[v3float_0_4_n3:%\d+]] = OpConstantComposite %v3float %float_0 %float_4 %float_n3
+// CHECK: [[v3f1:%\d+]] = OpConstantComposite %v3float %float_1 %float_1 %float_1
+// CHECK: [[v3f0:%\d+]] = OpConstantComposite %v3float %float_0 %float_0 %float_0
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
@@ -67,4 +69,31 @@ void main() {
 // CHECK-NEXT:              {{%\d+}} = OpConvertSToF %float [[zero_minus_a]]
     bool a = false;
     float c = 0-a;
+
+    int2x3   intMat;
+    float2x3 floatMat;
+    uint2x3  uintMat;
+    bool2x3  boolMat;
+
+// CHECK:        [[boolMat:%\d+]] = OpLoad %_arr_v3bool_uint_2 %boolMat
+// CHECK-NEXT:  [[boolMat0:%\d+]] = OpCompositeExtract %v3bool [[boolMat]] 0
+// CHECK-NEXT: [[floatMat0:%\d+]] = OpSelect %v3float [[boolMat0]] [[v3f1]] [[v3f0]]
+// CHECK-NEXT:  [[boolMat1:%\d+]] = OpCompositeExtract %v3bool [[boolMat]] 1
+// CHECK-NEXT: [[floatMat1:%\d+]] = OpSelect %v3float [[boolMat1]] [[v3f1]] [[v3f0]]
+// CHECK-NEXT:           {{%\d+}} = OpCompositeConstruct %mat2v3float [[floatMat0]] [[floatMat1]]
+    floatMat = boolMat;
+// CHECK:        [[uintMat:%\d+]] = OpLoad %_arr_v3uint_uint_2 %uintMat
+// CHECK-NEXT:  [[uintMat0:%\d+]] = OpCompositeExtract %v3uint [[uintMat]] 0
+// CHECK-NEXT: [[floatMat0:%\d+]] = OpConvertUToF %v3float [[uintMat0]]
+// CHECK-NEXT:  [[uintMat1:%\d+]] = OpCompositeExtract %v3uint [[uintMat]] 1
+// CHECK-NEXT: [[floatMat1:%\d+]] = OpConvertUToF %v3float [[uintMat1]]
+// CHECK-NEXT:           {{%\d+}} = OpCompositeConstruct %mat2v3float [[floatMat0]] [[floatMat1]]
+    floatMat = uintMat;
+// CHECK:         [[intMat:%\d+]] = OpLoad %_arr_v3int_uint_2 %intMat
+// CHECK-NEXT:   [[intMat0:%\d+]] = OpCompositeExtract %v3int [[intMat]] 0
+// CHECK-NEXT: [[floatMat0:%\d+]] = OpConvertSToF %v3float [[intMat0]]
+// CHECK-NEXT:   [[intMat1:%\d+]] = OpCompositeExtract %v3int [[intMat]] 1
+// CHECK-NEXT: [[floatMat1:%\d+]] = OpConvertSToF %v3float [[intMat1]]
+// CHECK-NEXT:           {{%\d+}} = OpCompositeConstruct %mat2v3float [[floatMat0]] [[floatMat1]]
+    floatMat = intMat;
 }

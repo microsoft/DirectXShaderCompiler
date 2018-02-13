@@ -1,5 +1,8 @@
 // Run: %dxc -T vs_6_0 -E main
 
+// CHECK: [[v3int1:%\d+]] = OpConstantComposite %v3int %int_1 %int_1 %int_1
+// CHECK: [[v3int0:%\d+]] = OpConstantComposite %v3int %int_0 %int_0 %int_0
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
@@ -144,4 +147,95 @@ void main() {
 // CHECK-NEXT: [[t4:%\d+]] = OpCompositeConstruct %mat2v3float [[t4v0]] [[t4v1]]
 // CHECK-NEXT: OpStore %t [[t4]]
     t = r % s;
+
+    // MxN non-floating point matrices
+    int2x3 u, v, w;
+// CHECK-NEXT: [[u0:%\d+]] = OpLoad %_arr_v3int_uint_2 %u
+// CHECK-NEXT: [[v0:%\d+]] = OpLoad %_arr_v3int_uint_2 %v
+// CHECK-NEXT: [[u0v0:%\d+]] = OpCompositeExtract %v3int [[u0]] 0
+// CHECK-NEXT: [[v0v0:%\d+]] = OpCompositeExtract %v3int [[v0]] 0
+// CHECK-NEXT: [[w0v0:%\d+]] = OpIAdd %v3int [[u0v0]] [[v0v0]]
+// CHECK-NEXT: [[u0v1:%\d+]] = OpCompositeExtract %v3int [[u0]] 1
+// CHECK-NEXT: [[v0v1:%\d+]] = OpCompositeExtract %v3int [[v0]] 1
+// CHECK-NEXT: [[w0v1:%\d+]] = OpIAdd %v3int [[u0v1]] [[v0v1]]
+// CHECK-NEXT: [[w0:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[w0v0]] [[w0v1]]
+// CHECK-NEXT: OpStore %w [[w0]]
+    w = u + v;
+// CHECK-NEXT: [[u1:%\d+]] = OpLoad %_arr_v3int_uint_2 %u
+// CHECK-NEXT: [[v1:%\d+]] = OpLoad %_arr_v3int_uint_2 %v
+// CHECK-NEXT: [[u1v0:%\d+]] = OpCompositeExtract %v3int [[u1]] 0
+// CHECK-NEXT: [[v1v0:%\d+]] = OpCompositeExtract %v3int [[v1]] 0
+// CHECK-NEXT: [[w1v0:%\d+]] = OpISub %v3int [[u1v0]] [[v1v0]]
+// CHECK-NEXT: [[u1v1:%\d+]] = OpCompositeExtract %v3int [[u1]] 1
+// CHECK-NEXT: [[v1v1:%\d+]] = OpCompositeExtract %v3int [[v1]] 1
+// CHECK-NEXT: [[w1v1:%\d+]] = OpISub %v3int [[u1v1]] [[v1v1]]
+// CHECK-NEXT: [[w1:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[w1v0]] [[w1v1]]
+// CHECK-NEXT: OpStore %w [[w1]]
+    w = u - v;
+// CHECK-NEXT: [[u2:%\d+]] = OpLoad %_arr_v3int_uint_2 %u
+// CHECK-NEXT: [[v2:%\d+]] = OpLoad %_arr_v3int_uint_2 %v
+// CHECK-NEXT: [[u2v0:%\d+]] = OpCompositeExtract %v3int [[u2]] 0
+// CHECK-NEXT: [[v2v0:%\d+]] = OpCompositeExtract %v3int [[v2]] 0
+// CHECK-NEXT: [[w2v0:%\d+]] = OpIMul %v3int [[u2v0]] [[v2v0]]
+// CHECK-NEXT: [[u2v1:%\d+]] = OpCompositeExtract %v3int [[u2]] 1
+// CHECK-NEXT: [[v2v1:%\d+]] = OpCompositeExtract %v3int [[v2]] 1
+// CHECK-NEXT: [[w2v1:%\d+]] = OpIMul %v3int [[u2v1]] [[v2v1]]
+// CHECK-NEXT: [[w2:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[w2v0]] [[w2v1]]
+// CHECK-NEXT: OpStore %w [[w2]]
+    w = u * v;
+// CHECK-NEXT: [[u3:%\d+]] = OpLoad %_arr_v3int_uint_2 %u
+// CHECK-NEXT: [[v3:%\d+]] = OpLoad %_arr_v3int_uint_2 %v
+// CHECK-NEXT: [[u3v0:%\d+]] = OpCompositeExtract %v3int [[u3]] 0
+// CHECK-NEXT: [[v3v0:%\d+]] = OpCompositeExtract %v3int [[v3]] 0
+// CHECK-NEXT: [[w3v0:%\d+]] = OpSDiv %v3int [[u3v0]] [[v3v0]]
+// CHECK-NEXT: [[u3v1:%\d+]] = OpCompositeExtract %v3int [[u3]] 1
+// CHECK-NEXT: [[v3v1:%\d+]] = OpCompositeExtract %v3int [[v3]] 1
+// CHECK-NEXT: [[w3v1:%\d+]] = OpSDiv %v3int [[u3v1]] [[v3v1]]
+// CHECK-NEXT: [[w3:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[w3v0]] [[w3v1]]
+// CHECK-NEXT: OpStore %w [[w3]]
+    w = u / v;
+// CHECK-NEXT: [[u4:%\d+]] = OpLoad %_arr_v3int_uint_2 %u
+// CHECK-NEXT: [[v4:%\d+]] = OpLoad %_arr_v3int_uint_2 %v
+// CHECK-NEXT: [[u4v0:%\d+]] = OpCompositeExtract %v3int [[u4]] 0
+// CHECK-NEXT: [[v4v0:%\d+]] = OpCompositeExtract %v3int [[v4]] 0
+// CHECK-NEXT: [[w4v0:%\d+]] = OpSRem %v3int [[u4v0]] [[v4v0]]
+// CHECK-NEXT: [[u4v1:%\d+]] = OpCompositeExtract %v3int [[u4]] 1
+// CHECK-NEXT: [[v4v1:%\d+]] = OpCompositeExtract %v3int [[v4]] 1
+// CHECK-NEXT: [[w4v1:%\d+]] = OpSRem %v3int [[u4v1]] [[v4v1]]
+// CHECK-NEXT: [[w4:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[w4v0]] [[w4v1]]
+// CHECK-NEXT: OpStore %w [[w4]]
+    w = u % v;
+
+    // Boolean matrices
+    // In all cases, the boolean matrix (represented as an array of boolean vectores)
+    // is first casted to an integer matrix (represented as an array of integer vectors).
+    // Then, the binary operation (e.g. '+', '-', '*', '/', '%') is performed and then
+    // it is converted back to a boolean matrix. This behavior is due to the AST.
+    bool2x3 x, y, z;
+// CHECK-NEXT:      [[x0:%\d+]] = OpLoad %_arr_v3bool_uint_2 %x
+// CHECK-NEXT:    [[x0v0:%\d+]] = OpCompositeExtract %v3bool [[x0]] 0
+// CHECK-NEXT: [[x0v0int:%\d+]] = OpSelect %v3int [[x0v0]] [[v3int1]] [[v3int0]]
+// CHECK-NEXT:    [[x0v1:%\d+]] = OpCompositeExtract %v3bool [[x0]] 1
+// CHECK-NEXT: [[x0v1int:%\d+]] = OpSelect %v3int [[x0v1]] [[v3int1]] [[v3int0]]
+// CHECK-NEXT:   [[x0int:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[x0v0int]] [[x0v1int]]
+// CHECK-NEXT:      [[y0:%\d+]] = OpLoad %_arr_v3bool_uint_2 %y
+// CHECK-NEXT:    [[y0v0:%\d+]] = OpCompositeExtract %v3bool [[y0]] 0
+// CHECK-NEXT: [[y0v0int:%\d+]] = OpSelect %v3int [[y0v0]] [[v3int1]] [[v3int0]]
+// CHECK-NEXT:    [[y0v1:%\d+]] = OpCompositeExtract %v3bool [[y0]] 1
+// CHECK-NEXT: [[y0v1int:%\d+]] = OpSelect %v3int [[y0v1]] [[v3int1]] [[v3int0]]
+// CHECK-NEXT:   [[y0int:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[y0v0int]] [[y0v1int]]
+// CHECK-NEXT:    [[x0v0:%\d+]] = OpCompositeExtract %v3int [[x0int]] 0
+// CHECK-NEXT:    [[y0v0:%\d+]] = OpCompositeExtract %v3int [[y0int]] 0
+// CHECK-NEXT:    [[z0v0:%\d+]] = OpIAdd %v3int [[x0v0]] [[y0v0]]
+// CHECK-NEXT:    [[x0v1:%\d+]] = OpCompositeExtract %v3int [[x0int]] 1
+// CHECK-NEXT:    [[y0v1:%\d+]] = OpCompositeExtract %v3int [[y0int]] 1
+// CHECK-NEXT:    [[z0v1:%\d+]] = OpIAdd %v3int [[x0v1]] [[y0v1]]
+// CHECK-NEXT:   [[z_int:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[z0v0]] [[z0v1]]
+// CHECK-NEXT:    [[z0v0:%\d+]] = OpCompositeExtract %v3int [[z_int]] 0
+// CHECK-NEXT:[[z0v0bool:%\d+]] = OpINotEqual %v3bool [[z0v0]] [[v3int0]]
+// CHECK-NEXT:    [[z0v1:%\d+]] = OpCompositeExtract %v3int [[z_int]] 1
+// CHECK-NEXT:[[z0v1bool:%\d+]] = OpINotEqual %v3bool [[z0v1]] [[v3int0]]
+// CHECK-NEXT:       [[z:%\d+]] = OpCompositeConstruct %_arr_v3bool_uint_2 [[z0v0bool]] [[z0v1bool]]
+// CHECK-NEXT:                    OpStore %z [[z]]
+    z = x + y;
 }

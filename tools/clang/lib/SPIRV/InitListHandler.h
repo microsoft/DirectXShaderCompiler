@@ -121,8 +121,7 @@ private:
   uint32_t createInitForBuiltinType(QualType type, SourceLocation);
   uint32_t createInitForVectorType(QualType elemType, uint32_t count,
                                    SourceLocation);
-  uint32_t createInitForMatrixType(QualType elemType, uint32_t rowCount,
-                                   uint32_t colCount, SourceLocation);
+  uint32_t createInitForMatrixType(QualType matrixType, SourceLocation);
   uint32_t createInitForStructType(QualType type);
   uint32_t createInitForConstantArrayType(QualType type, SourceLocation);
   uint32_t createInitForSamplerImageType(QualType type, SourceLocation);

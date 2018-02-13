@@ -168,11 +168,6 @@ public:
   /// If decl is not nullptr, is is checked for attributes specifying majorness
   bool isRowMajorMatrix(QualType type, const Decl *decl = nullptr) const;
 
-  /// \brief Returns true if the given type is a SPIR-V acceptable matrix type,
-  /// i.e., with floating point elements and greater than 1 row and column
-  /// counts.
-  static bool isSpirvAcceptableMatrixType(QualType type);
-
   /// \brief Returns true if the two types are the same scalar or vector type,
   /// regardless of constness and literalness.
   static bool isSameScalarOrVecType(QualType type1, QualType type2);
