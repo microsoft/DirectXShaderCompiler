@@ -13,24 +13,6 @@
 // CHECK:   call void @dx.op.traceRay.struct.MyPayload(i32 157, %dx.types.Handle %[[i_8]], i32 0, i32 0, i32 0, i32 1, i32 0, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.250000e-01, float {{.*}}, float {{.*}}, float {{.*}}, float 1.280000e+02, %struct.MyPayload* nonnull {{.*}})
 // CHECK:   ret void
 
-////////////////////////////////////////////////////////////////////////////
-// Prototype header contents to be removed on implementation of features:
-#define HIT_KIND_TRIANGLE_FRONT_FACE              0xFE
-#define HIT_KIND_TRIANGLE_BACK_FACE               0xFF
-
-typedef uint RAY_FLAG;
-#define RAY_FLAG_NONE                             0x00
-#define RAY_FLAG_FORCE_OPAQUE                     0x01
-#define RAY_FLAG_FORCE_NON_OPAQUE                 0x02
-#define RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH  0x04
-#define RAY_FLAG_SKIP_CLOSEST_HIT_SHADER          0x08
-#define RAY_FLAG_CULL_BACK_FACING_TRIANGLES       0x10
-#define RAY_FLAG_CULL_FRONT_FACING_TRIANGLES      0x20
-#define RAY_FLAG_CULL_OPAQUE                      0x40
-#define RAY_FLAG_CULL_NON_OPAQUE                  0x80
-
-////////////////////////////////////////////////////////////////////////////
-
 struct MyPayload {
   float4 color;
   uint2 pos;
