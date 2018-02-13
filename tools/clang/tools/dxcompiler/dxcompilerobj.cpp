@@ -763,6 +763,8 @@ public:
     }
 
     PPOpts.IgnoreLineDirectives = Opts.IgnoreLineDirectives;
+    // fxc compatibility: pre-expand operands before performing token-pasting
+    PPOpts.ExpandTokPastingArg = Opts.LegacyMacroExpansion;
 
     // Pick additional arguments.
     clang::HeaderSearchOptions &HSOpts = compiler.getHeaderSearchOpts();

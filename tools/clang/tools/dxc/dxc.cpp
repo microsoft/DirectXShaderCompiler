@@ -852,6 +852,10 @@ void DxcContext::Preprocess() {
   IFT(CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
 
+  // Carry forward the options that control preprocessor
+  if (m_Opts.LegacyMacroExpansion)
+    args.push_back(L"-flegacy-macro-expansion");
+
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
   IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
   IFT(pCompiler->Preprocess(pSource, StringRefUtf16(m_Opts.InputFile), args.data(), args.size(), m_Opts.Defines.data(), m_Opts.Defines.size(), pIncludeHandler, &pPreprocessResult));

@@ -199,11 +199,7 @@ uint32_t InitListHandler::createInitForType(QualType type,
                                    hlsl::GetHLSLVecSize(type), srcLoc);
 
   if (hlsl::IsHLSLMatType(type)) {
-    uint32_t rowCount = 0, colCount = 0;
-    hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-    const QualType elemType = hlsl::GetHLSLMatElementType(type);
-
-    return createInitForMatrixType(elemType, rowCount, colCount, srcLoc);
+    return createInitForMatrixType(type, srcLoc);
   }
 
   // Samplers, (RW)Buffers, (RW)Textures
@@ -298,10 +294,12 @@ uint32_t InitListHandler::createInitForVectorType(QualType elemType,
   return theBuilder.createCompositeConstruct(vecType, elements);
 }
 
-uint32_t InitListHandler::createInitForMatrixType(QualType elemType,
-                                                  uint32_t rowCount,
-                                                  uint32_t colCount,
+uint32_t InitListHandler::createInitForMatrixType(QualType matrixType,
                                                   SourceLocation srcLoc) {
+  uint32_t rowCount = 0, colCount = 0;
+  hlsl::GetHLSLMatRowColCount(matrixType, rowCount, colCount);
+  const QualType elemType = hlsl::GetHLSLMatElementType(matrixType);
+
   // Same as the vector case, first try to see if we already have a matrix at
   // the beginning of the initializer queue.
   if (scalars.empty()) {
@@ -336,12 +334,9 @@ uint32_t InitListHandler::createInitForMatrixType(QualType elemType,
     vectors.push_back(createInitForVectorType(elemType, colCount, srcLoc));
   }
 
-  const uint32_t elemTypeId = typeTranslator.translateType(elemType);
-  const uint32_t vecType = theBuilder.getVecType(elemTypeId, colCount);
-  const uint32_t matType = theBuilder.getMatType(vecType, rowCount);
-
   // TODO: use OpConstantComposite when all components are constants
-  return theBuilder.createCompositeConstruct(matType, vectors);
+  return theBuilder.createCompositeConstruct(
+      typeTranslator.translateType(matrixType), vectors);
 }
 
 uint32_t InitListHandler::createInitForStructType(QualType type) {

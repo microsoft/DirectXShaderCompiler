@@ -9,6 +9,7 @@
 // CHECK: [[v4float_0:%\d+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
 // CHECK: [[v3float_0:%\d+]] = OpConstantComposite %v3float %float_0 %float_0 %float_0
 // CHECK: [[v2float_0:%\d+]] = OpConstantComposite %v2float %float_0 %float_0
+// CHECK:   [[v3int_0:%\d+]] = OpConstantComposite %v3int %int_0 %int_0 %int_0
 
 void main() {
     bool result;
@@ -121,4 +122,16 @@ void main() {
     // CHECK-NEXT: OpStore %result [[all_mat3x4]]
     float3x4 p;
     result = all(p);
+
+// CHECK:              [[q:%\d+]] = OpLoad %_arr_v3int_uint_2 %q
+// CHECK-NEXT:      [[row0:%\d+]] = OpCompositeExtract %v3int [[q]] 0
+// CHECK-NEXT: [[row0_bool:%\d+]] = OpINotEqual %v3bool [[row0]] [[v3int_0]]
+// CHECK-NEXT:  [[row0_all:%\d+]] = OpAll %bool [[row0_bool]]
+// CHECK-NEXT:      [[row1:%\d+]] = OpCompositeExtract %v3int [[q]] 1
+// CHECK-NEXT: [[row1_bool:%\d+]] = OpINotEqual %v3bool [[row1]] [[v3int_0]]
+// CHECK-NEXT:  [[row1_all:%\d+]] = OpAll %bool [[row1_bool]]
+// CHECK-NEXT:  [[all_rows:%\d+]] = OpCompositeConstruct %v2bool [[row0_all]] [[row1_all]]
+// CHECK-NEXT:           {{%\d+}} = OpAll %bool [[all_rows]]
+    int2x3 q;
+    result = all(q);
 }
