@@ -2097,7 +2097,7 @@ class db_hlsl(object):
             "sampler": "LICOMPTYPE_SAMPLER",
             "ray_desc" : "LICOMPTYPE_RAYDESC",
             "acceleration_struct" : "LICOMPTYPE_ACCELERATION_STRUCT",
-            "udt" : "LICOMPTYPE_USER_DEFINE_TYPE",
+            "udt" : "LICOMPTYPE_USER_DEFINED_TYPE",
             "void": "LICOMPTYPE_VOID",
             "string": "LICOMPTYPE_STRING",
             "wave": "LICOMPTYPE_WAVE"}

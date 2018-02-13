@@ -182,7 +182,7 @@ enum ArBasicKind {
 
   AR_OBJECT_RAY_DESC,
   AR_OBJECT_ACCELARATION_STRUCT,
-  AR_OBJECT_USER_DEFINE_TYPE,
+  AR_OBJECT_USER_DEFINED_TYPE,
 
   AR_BASIC_MAXIMUM_COUNT
 };
@@ -444,7 +444,7 @@ const UINT g_uBasicKindProps[] =
 
   LICOMPTYPE_RAYDESC,               // AR_OBJECT_WAVE
   LICOMPTYPE_ACCELERATION_STRUCT,   // AR_OBJECT_WAVE
-  LICOMPTYPE_USER_DEFINE_TYPE,      // AR_OBJECT_WAVE
+  LICOMPTYPE_USER_DEFINED_TYPE,      // AR_OBJECT_WAVE
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -1080,7 +1080,7 @@ static const ArBasicKind g_AccelarationStructCT[] =
 
 static const ArBasicKind g_UDTCT[] =
 {
-  AR_OBJECT_USER_DEFINE_TYPE,
+  AR_OBJECT_USER_DEFINED_TYPE,
   AR_BASIC_UNKNOWN
 };
 
@@ -1175,7 +1175,7 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_Numeric16OnlyCT,    // LICOMPTYPE_NUMERIC16_ONLY
   g_RayDescCT,          // LICOMPTYPE_RAYDESC
   g_AccelarationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
-  g_UDTCT,              // LICOMPTYPE_USER_DEFINE_TYPE
+  g_UDTCT,              // LICOMPTYPE_USER_DEFINED_TYPE
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
 
@@ -5060,15 +5060,15 @@ bool HLSLExternalSource::MatchArguments(
     pIntrinsicArg = &pIntrinsic->pArgs[iArg];
     DXASSERT(pIntrinsicArg->uTemplateId != INTRIN_TEMPLATE_VARARGS, "no vararg support");
 
-    if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_USER_DEFINE_TYPE) {
+    if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
       DXASSERT(objectElement.isNull(), "");
       QualType Ty = pCallArg->getType();
-      // Must be user define type for LICOMPTYPE_USER_DEFINE_TYPE arg.
+      // Must be user define type for LICOMPTYPE_USER_DEFINED_TYPE arg.
       if (!Ty->isRecordType() ||
           hlsl::IsHLSLVecMatType(Ty) ||
           hlsl::IsHLSLResourceType(Ty)) {
         m_sema->Diag(pCallArg->getExprLoc(),
-                     diag::err_hlsl_no_struct_user_define_type);
+                     diag::err_hlsl_no_struct_user_defined_type);
         return false;
       }
       objectElement = Ty;
@@ -5237,7 +5237,7 @@ bool HLSLExternalSource::MatchArguments(
     if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
       continue; // Already verified that this is available.
     }
-    if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINE_TYPE) {
+    if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
       continue;
     }
 
@@ -5366,7 +5366,7 @@ bool HLSLExternalSource::MatchArguments(
         }
         pNewType = objectElement;
       }
-    } else if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINE_TYPE) {
+    } else if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
       if (objectElement.isNull()) {
         return false;
       }
