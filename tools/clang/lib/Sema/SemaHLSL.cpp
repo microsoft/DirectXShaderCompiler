@@ -3931,6 +3931,10 @@ public:
     AddHLSLMatrixTemplate(*m_context, m_vectorTemplateDecl, &m_matrixTemplateDecl);
     DXASSERT(m_matrixTemplateDecl != nullptr, "AddHLSLMatrixTypes failed to return the matrix template declaration");
 
+    // Initializing built in integers for ray tracing
+    AddRayFlags(*m_context);
+    AddHitKinds(*m_context);
+
     return true;
   }
 

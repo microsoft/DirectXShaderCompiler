@@ -51,6 +51,7 @@ public:
   TEST_METHOD(RunMoreOperators);
   TEST_METHOD(RunObjectOperators);
   TEST_METHOD(RunPackReg);
+  TEST_METHOD(RunRayTracings);
   TEST_METHOD(RunScalarAssignments);
   TEST_METHOD(RunScalarAssignmentsExactPrecision);
   TEST_METHOD(RunScalarOperatorsAssign);
@@ -208,6 +209,10 @@ TEST_F(VerifierTest, RunObjectOperators) {
 
 TEST_F(VerifierTest, RunPackReg) {
   CheckVerifiesHLSL(L"packreg.hlsl");
+}
+
+TEST_F(VerifierTest, RunRayTracings) {
+  CheckVerifiesHLSL(L"raytracings.hlsl");
 }
 
 TEST_F(VerifierTest, RunScalarAssignments) {
