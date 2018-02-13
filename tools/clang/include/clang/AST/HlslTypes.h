@@ -308,6 +308,9 @@ void AddRecordTypeWithHandle(
   _Outptr_  clang::CXXRecordDecl** typeDecl, 
   _In_z_    const char* typeName);
 
+void AddRayFlags(clang::ASTContext& context);
+void AddHitKinds(clang::ASTContext& context);
+
 /// <summary>Adds the implementation for std::is_equal.</summary>
 void AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& sema);
 
