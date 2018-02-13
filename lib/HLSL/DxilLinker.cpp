@@ -1131,9 +1131,9 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile,
       // Only add exported functions.
       for (auto &it : m_functionNameMap) {
         StringRef name = it.getKey();
-        name = dxilutil::DemangleFunctionName(name);
+        StringRef demangledName = dxilutil::DemangleFunctionName(name);
         // Only add names exist in exportMap.
-        if (exportMap.find(name) != exportMap.end())
+        if (exportMap.find(demangledName) != exportMap.end())
           workList.emplace_back(name);
       }
 
