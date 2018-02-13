@@ -38,6 +38,8 @@ namespace dxilutil {
   bool RemoveUnusedFunctions(llvm::Module &M, llvm::Function *EntryFunc,
                              llvm::Function *PatchConstantFunc, bool IsLib);
   void EmitResMappingError(llvm::Instruction *Res);
+  // Simple demangle just support case "\01?name@" pattern.
+  llvm::StringRef DemangleFunctionName(llvm::StringRef name);
   // Change select/phi on operands into select/phi on operation.
   // phi0 = phi a0, b0, c0
   // phi1 = phi a1, b1, c1
