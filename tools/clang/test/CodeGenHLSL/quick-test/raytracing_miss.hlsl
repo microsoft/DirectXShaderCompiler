@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // CHECK: define void [[miss1:@"\\01\?miss1@[^\"]+"]](%struct.MyPayload* noalias nocapture %payload) #0 {
 // CHECK:   %0 = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0

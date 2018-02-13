@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_2 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // CHECK: call void @dx.op.callShader.struct.Parameter(i32 159
 

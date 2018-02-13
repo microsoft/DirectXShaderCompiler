@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_2 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // Make sure we don't store the initial value (must load from payload after TraceRay)
 // CHECK-NOT: call void @dx.op.textureStore.f32(i32 67, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 {{.*}}, i32 undef, float 0.000000e+00, float 1.000000e+00, float 0.000000e+00, float 1.000000e+00, i8 15)

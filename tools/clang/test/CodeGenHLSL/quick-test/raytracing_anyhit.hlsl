@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // CHECK: define void [[anyhit1:@"\\01\?anyhit1@[^\"]+"]](%struct.MyPayload* noalias nocapture %payload, %struct.MyAttributes* nocapture readonly %attr) #0 {
 // CHECK:   call float @dx.op.objectRayOrigin.f32(i32 149, i8 2)

@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // CHECK: define void [[intersection1:@"\\01\?intersection1@[^\"]+"]]() #0 {
 // CHECK:   [[CurrentRayT:%[^ ]+]] = call float @dx.op.currentRayT.f32(i32 154)
