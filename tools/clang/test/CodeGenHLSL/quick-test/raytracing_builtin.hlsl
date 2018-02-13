@@ -1,5 +1,7 @@
 // RUN: %dxc -T lib_6_2 %s | FileCheck %s
 
+// CHECK: %struct.BuiltInTriangleIntersectionAttributes
+
 // CHECK: call void @dx.op.rawBufferStore.i32({{.*}}, i32 0
 // CHECK: call void @dx.op.rawBufferStore.i32({{.*}}, i32 1
 // CHECK: call void @dx.op.rawBufferStore.i32({{.*}}, i32 2
@@ -14,7 +16,7 @@
 
 RWByteAddressBuffer g_buf;
 
-void check() {
+void check(BuiltInTriangleIntersectionAttributes attr) {
     g_buf.Store(0, RAY_FLAG_NONE);
     g_buf.Store(4, RAY_FLAG_FORCE_OPAQUE);
     g_buf.Store(8, RAY_FLAG_FORCE_NON_OPAQUE);
@@ -26,4 +28,6 @@ void check() {
     g_buf.Store(32, RAY_FLAG_CULL_NON_OPAQUE);
     g_buf.Store(36, HIT_KIND_TRIANGLE_FRONT_FACE);
     g_buf.Store(40, HIT_KIND_TRIANGLE_BACK_FACE);
+    g_buf.Store(44, attr.barycentrics.x);
+    g_buf.Store(48, attr.barycentrics.y);
 }

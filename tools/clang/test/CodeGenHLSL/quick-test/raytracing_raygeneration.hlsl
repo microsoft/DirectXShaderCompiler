@@ -29,11 +29,6 @@ typedef uint RAY_FLAG;
 #define RAY_FLAG_CULL_OPAQUE                      0x40
 #define RAY_FLAG_CULL_NON_OPAQUE                  0x80
 
-struct BuiltInTriangleIntersectionAttributes
-{
-    float2 barycentrics;
-};
-
 ////////////////////////////////////////////////////////////////////////////
 
 struct MyPayload {
