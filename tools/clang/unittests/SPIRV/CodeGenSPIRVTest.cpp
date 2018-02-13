@@ -969,6 +969,17 @@ TEST_F(FileTest, PrimitiveErrorGS) {
   runFileTest("primitive.error.gs.hlsl", Expect::Failure);
 }
 
+// Shader model 6.0 wave query
+TEST_F(FileTest, SM6WaveGetLaneCount) {
+  runFileTest("sm6.wave-get-lane-count.hlsl");
+}
+TEST_F(FileTest, SM6WaveGetLaneIndex) {
+  runFileTest("sm6.wave-get-lane-index.hlsl");
+}
+TEST_F(FileTest, SM6WaveBuiltInNoDuplicate) {
+  runFileTest("sm6.wave.builtin.no-dup.hlsl");
+}
+
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
