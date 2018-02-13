@@ -371,7 +371,7 @@ TEST_F(LinkerTest, RunLinkToLibExport) {
   LPCWSTR libName2 = L"test";
   RegisterDxcModule(libName2, pLib, pLinker);
   DxcDefine exports[] = { {L"test", L""} };
-  LinkWithExports(pLinker, {libName, libName2}, exports, {"test"}, {"@\"\01?GetBuf"});
+  LinkWithExports(pLinker, {libName, libName2}, exports, {"@\"\\01?test@@","@test"}, {"@\"\\01?GetBuf"});
 }
 
 TEST_F(LinkerTest, RunLinkFailSelectRes) {
