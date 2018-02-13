@@ -46,6 +46,7 @@ public:
   TEST_METHOD(RunLinkNoAlloca);
   TEST_METHOD(RunLinkResRet);
   TEST_METHOD(RunLinkToLib);
+  TEST_METHOD(RunLinkToLibExport);
   TEST_METHOD(RunLinkFailReDefineGlobal);
   TEST_METHOD(RunLinkFailProfileMismatch);
   TEST_METHOD(RunLinkFailEntryNoProps);
@@ -114,6 +115,30 @@ public:
     }
   }
 
+  void LinkWithExports(IDxcLinker *pLinker, ArrayRef<LPCWSTR> libNames,
+                       ArrayRef<DxcDefine> exportNames,
+                       llvm::ArrayRef<LPCSTR> pCheckMsgs,
+                       llvm::ArrayRef<LPCSTR> pCheckNotMsgs) {
+    CComPtr<IDxcOperationResult> pResult;
+    VERIFY_SUCCEEDED(pLinker->LinkWithExports(
+        /*pEntryName*/ nullptr, /*pShaderModel*/ L"lib_6_2", libNames.data(),
+        libNames.size(), nullptr, 0, exportNames.data(), exportNames.size(),
+        &pResult));
+    CComPtr<IDxcBlob> pProgram;
+    CheckOperationSucceeded(pResult, &pProgram);
+
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcBlobEncoding> pDisassembly;
+
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+    VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
+    std::string IR = BlobToUtf8(pDisassembly);
+    CheckMsgs(IR.c_str(), IR.size(), pCheckMsgs.data(), pCheckMsgs.size(), false);
+    for (auto notMsg : pCheckNotMsgs) {
+      VERIFY_IS_TRUE(IR.find(notMsg) == std::string::npos);
+    }
+  }
   void LinkCheckMsg(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
             ArrayRef<LPCWSTR> libNames, llvm::ArrayRef<LPCSTR> pErrorMsgs) {
     CComPtr<IDxcOperationResult> pResult;
@@ -326,6 +351,27 @@ TEST_F(LinkerTest, RunLinkToLib) {
   RegisterDxcModule(libName2, pLib, pLinker);
 
   Link(L"", L"lib_6_2", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {});
+}
+
+TEST_F(LinkerTest, RunLinkToLibExport) {
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res.hlsl",
+             &pEntryLib);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(
+      L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res_imp.hlsl",
+      &pLib);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+  DxcDefine exports[] = { {L"test", L""} };
+  LinkWithExports(pLinker, {libName, libName2}, exports, {"test"}, {"@\"\01?GetBuf"});
 }
 
 TEST_F(LinkerTest, RunLinkFailSelectRes) {

@@ -127,6 +127,20 @@ void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI, void *Context) {
   DI.print(*printer);
 }
 
+StringRef DemangleFunctionName(StringRef name) {
+  size_t nameEnd = name.find_first_of("@");
+  if (nameEnd == StringRef::npos) {
+    // Name don't mangled.
+    return name;
+  }
+
+  size_t nameBegin = name.find_first_of("\01?");
+  if (nameBegin != StringRef::npos)
+    return name.substr(2, nameEnd - 2);
+  else
+    return name.substr(0, nameEnd);
+}
+
 std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
   llvm::LLVMContext &Ctx,
   std::string &DiagStr) {
