@@ -8,13 +8,13 @@
 // CHECK-NEXT: OpMemberName %type_MyCbuffer 4 "s"
 // CHECK-NEXT: OpMemberName %type_MyCbuffer 5 "t"
 
-// CHECK:      OpName %var_MyCbuffer "var.MyCbuffer"
+// CHECK:      OpName %MyCbuffer "MyCbuffer"
 
 // CHECK:      OpName %type_AnotherCBuffer "type.AnotherCBuffer"
 // CHECK-NEXT: OpMemberName %type_AnotherCBuffer 0 "m"
 // CHECK-NEXT: OpMemberName %type_AnotherCBuffer 1 "n"
 
-// CHECK:      OpName %var_AnotherCBuffer "var.AnotherCBuffer"
+// CHECK:      OpName %AnotherCBuffer "AnotherCBuffer"
 
 struct S {
     float  f1;
@@ -39,8 +39,8 @@ cbuffer AnotherCBuffer : register(b2) {
 
 // CHECK: %type_AnotherCBuffer = OpTypeStruct %v3float %v4float
 
-// CHECK: %var_MyCbuffer = OpVariable %_ptr_Uniform_type_MyCbuffer Uniform
-// CHECK: %var_AnotherCBuffer = OpVariable %_ptr_Uniform_type_AnotherCBuffer Uniform
+// CHECK: %MyCbuffer = OpVariable %_ptr_Uniform_type_MyCbuffer Uniform
+// CHECK: %AnotherCBuffer = OpVariable %_ptr_Uniform_type_AnotherCBuffer Uniform
 
 void main() {
 }

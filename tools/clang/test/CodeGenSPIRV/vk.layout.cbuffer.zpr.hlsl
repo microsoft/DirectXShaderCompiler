@@ -16,9 +16,9 @@ cbuffer MyCBuffer {
 
 void main() {
     // Check that the result types for access chains are correct
-// CHECK: {{%\d+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5 %var_MyCBuffer %int_0
-// CHECK: {{%\d+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5_0 %var_MyCBuffer %int_1
-// CHECK: {{%\d+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5 %var_MyCBuffer %int_2
+// CHECK: {{%\d+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5 %MyCBuffer %int_0
+// CHECK: {{%\d+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5_0 %MyCBuffer %int_1
+// CHECK: {{%\d+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5 %MyCBuffer %int_2
     float2x3 m1 = matrices1[1];
     float2x3 m2 = matrices2[2];
     float2x3 m3 = matrices3[3];
