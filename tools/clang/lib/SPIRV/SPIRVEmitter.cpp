@@ -5574,10 +5574,9 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
       // The source matrix and the target matrix must have the same dimensions.
       QualType toElemType = {};
       uint32_t toNumRows = 0, toNumCols = 0;
-      assert(TypeTranslator::isMxNMatrix(toIntType, &toElemType, &toNumRows,
-                                         &toNumCols) &&
-             numRows == toNumRows && numCols == toNumCols);
-      (void)toElemType;
+      const bool isMat = TypeTranslator::isMxNMatrix(toIntType, &toElemType,
+                                                     &toNumRows, &toNumCols);
+      assert(isMat && numRows == toNumRows && numCols == toNumCols);
       (void)toNumRows;
       (void)toNumCols;
 
@@ -5636,10 +5635,9 @@ uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
       // The source matrix and the target matrix must have the same dimensions.
       QualType toElemType = {};
       uint32_t toNumRows = 0, toNumCols = 0;
-      assert(TypeTranslator::isMxNMatrix(toFloatType, &toElemType, &toNumRows,
-                                         &toNumCols) &&
-             numRows == toNumRows && numCols == toNumCols);
-      (void)toElemType;
+      const auto isMat = TypeTranslator::isMxNMatrix(toFloatType, &toElemType,
+                                                     &toNumRows, &toNumCols);
+      assert(isMat && numRows == toNumRows && numCols == toNumCols);
       (void)toNumRows;
       (void)toNumCols;
 
