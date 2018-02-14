@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // Verify no hang on incomplete array
 
@@ -32,7 +32,7 @@ float4 fn1(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   // CHECK: getelementptr
   // CHECK: load i32, i32*
   // CHECK: sitofp i32
-  // CHECK: fadd float
+  // CHECK: fadd fast float
   return in1.member + (float)s_testa[i];
 }
 
@@ -55,7 +55,7 @@ float4 fn3(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   // CHECK: getelementptr
   // CHECK: load i32, i32*
   // CHECK: sitofp i32
-  // CHECK: fadd float
+  // CHECK: fadd fast float
   return in1.member + (float)in1.a[i];
 }
 
@@ -72,6 +72,6 @@ float4 fn4(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   // CHECK: extractvalue
   // CHECK: , 0
   // CHECK: sitofp i32
-  // CHECK: fadd float
+  // CHECK: fadd fast float
   return in1.member + c_special.a[i];
 }
