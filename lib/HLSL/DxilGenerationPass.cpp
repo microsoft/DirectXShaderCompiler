@@ -778,15 +778,22 @@ void DxilGenerationPass::TranslatePreciseAttribute() {
   // argument and call site without precise argument, need to clone the function
   // to propagate the precise for the precise call site.
   // This should be done at CGMSHLSLRuntime::FinishCodeGen.
-  Function *EntryFn = m_pHLModule->GetEntryFunction();
-  if (!m_pHLModule->GetShaderModel()->IsLib()) {
+  if (m_pHLModule->GetShaderModel()->IsLib()) {
+    // TODO: If all functions have been inlined, and unreferenced functions removed,
+    //        it should make sense to run on all funciton bodies,
+    //        even when not processing a library.
+    for (Function &F : M.functions()) {
+      if (!F.isDeclaration())
+        TranslatePreciseAttributeOnFunction(F, M);
+    }
+  } else {
+    Function *EntryFn = m_pHLModule->GetEntryFunction();
     TranslatePreciseAttributeOnFunction(*EntryFn, M);
-  }
-
-  if (m_pHLModule->GetShaderModel()->IsHS()) {
-    DxilFunctionProps &EntryQual = m_pHLModule->GetDxilFunctionProps(EntryFn);
-    Function *patchConstantFunc = EntryQual.ShaderProps.HS.patchConstantFunc;
-    TranslatePreciseAttributeOnFunction(*patchConstantFunc, M);
+    if (m_pHLModule->GetShaderModel()->IsHS()) {
+      DxilFunctionProps &EntryQual = m_pHLModule->GetDxilFunctionProps(EntryFn);
+      Function *patchConstantFunc = EntryQual.ShaderProps.HS.patchConstantFunc;
+      TranslatePreciseAttributeOnFunction(*patchConstantFunc, M);
+    }
   }
 }
 
