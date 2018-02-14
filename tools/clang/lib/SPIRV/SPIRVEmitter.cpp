@@ -535,8 +535,6 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   theBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunctionId,
                            entryFunctionName, declIdMapper.collectStageVars());
 
-  AddExecutionModeForEntryPoint(entryFunctionId);
-
   // Add Location decorations to stage input/output variables.
   if (!declIdMapper.decorateStageIOLocations())
     return;
@@ -8090,13 +8088,6 @@ void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
   }
 }
 
-void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
-  if (shaderModel.IsPS()) {
-    theBuilder.addExecutionMode(entryPointId,
-                                spv::ExecutionMode::OriginUpperLeft, {});
-  }
-}
-
 bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
                                                    uint32_t *arraySize) {
   bool success = true;
@@ -8184,6 +8175,15 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
   }
 
   return success;
+}
+
+void SPIRVEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
+  theBuilder.addExecutionMode(entryFunctionId,
+                              spv::ExecutionMode::OriginUpperLeft, {});
+  if (auto *numThreadsAttr = decl->getAttr<HLSLEarlyDepthStencilAttr>()) {
+    theBuilder.addExecutionMode(entryFunctionId,
+                                spv::ExecutionMode::EarlyFragmentTests, {});
+  }
 }
 
 void SPIRVEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
@@ -8312,7 +8312,9 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   declIdMapper.setEntryFunctionId(entryFunctionId);
 
   // Handle attributes specific to each shader stage
-  if (shaderModel.IsCS()) {
+  if (shaderModel.IsPS()) {
+    processPixelShaderAttributes(decl);
+  } else if (shaderModel.IsCS()) {
     processComputeShaderAttributes(decl);
   } else if (shaderModel.IsHS()) {
     if (!processTessellationShaderAttributes(decl, &numOutputControlPoints))

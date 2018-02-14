@@ -507,10 +507,6 @@ private:
 
   void AddRequiredCapabilitiesForShaderModel();
 
-  /// \brief Adds the execution mode for the given entry point based on the
-  /// shader model.
-  void AddExecutionModeForEntryPoint(uint32_t entryPointId);
-
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
   /// In the case of hull shaders, also writes the number of output control
@@ -524,6 +520,10 @@ private:
   /// the input, which depends on the primitive type, to *arraySize.
   bool processGeometryShaderAttributes(const FunctionDecl *entryFunction,
                                        uint32_t *arraySize);
+
+  /// \brief Adds necessary execution modes for the pixel shader based on the
+  /// HLSL attributes of the entry point function.
+  void processPixelShaderAttributes(const FunctionDecl *decl);
 
   /// \brief Adds necessary execution modes for the compute shader based on the
   /// HLSL attributes of the entry point function.
