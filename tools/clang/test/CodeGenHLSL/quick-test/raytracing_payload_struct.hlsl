@@ -1,8 +1,8 @@
 // RUN: %dxc -E main -T lib_6_3 %s | FileCheck %s
 
-//CHECK: User define type intrinsic arg must be struct
+//CHECK: User defined type intrinsic arg must be struct
 
-RayTracingAccelerationStructure Acc;
+RaytracingAccelerationStructure Acc;
 
 uint RayFlags;
 uint InstanceInclusionMask;
