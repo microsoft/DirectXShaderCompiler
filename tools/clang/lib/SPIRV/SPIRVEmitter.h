@@ -789,9 +789,15 @@ private:
   /// primitive in GS.
   uint32_t processStreamOutputRestart(const CXXMemberCallExpr *expr);
 
+  /// \brief Generates SPIR-V instructions to call NonUniformResourceIndex.
+  uint32_t processNonUniformResourceIndex(const CallExpr *expr);
+
   /// \brief Emulates GetSamplePosition() for standard sample settings, i.e.,
   /// with 1, 2, 4, 8, or 16 samples. Returns float2(0) for other cases.
   uint32_t emitGetSamplePosition(uint32_t sampleCount, uint32_t sampleIndex);
+
+  /// \brief Emits the function to emulate NonUniformResourceIndex.
+  void emitNonUniformResourceIndex(uint32_t functionId);
 
 private:
   /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3
@@ -953,6 +959,11 @@ private:
   /// This is the Patch Constant Function. This function is not explicitly
   /// called from the entry point function.
   FunctionDecl *patchConstFunc;
+
+  /// The <result-id> for the function emulating NonUniformResourceIndex.
+  /// 0 means NonUniformResourceIndex is not used in thes source code so that
+  /// we don't need to emit the emulating function.
+  uint32_t nonUniformResourceIndexFnId;
 };
 
 void SPIRVEmitter::doDeclStmt(const DeclStmt *declStmt) {
