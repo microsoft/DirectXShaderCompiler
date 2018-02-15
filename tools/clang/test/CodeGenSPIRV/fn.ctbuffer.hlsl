@@ -27,7 +27,7 @@ tbuffer MyTBuffer {
 float4 main() : SV_Target {
 // %S vs %S_0: need destruction and construction
 // CHECK:         %temp_var_S = OpVariable %_ptr_Function_S_0 Function
-// CHECK:       [[tb_s:%\d+]] = OpAccessChain %_ptr_Uniform_S %var_MyTBuffer %int_1
+// CHECK:       [[tb_s:%\d+]] = OpAccessChain %_ptr_Uniform_S %MyTBuffer %int_1
 // CHECK-NEXT:     [[s:%\d+]] = OpLoad %S [[tb_s]]
 // CHECK-NEXT: [[s_val:%\d+]] = OpCompositeExtract %v3float [[s]] 0
 // CHECK-NEXT:   [[ptr:%\d+]] = OpAccessChain %_ptr_Function_v3float %temp_var_S %uint_0
@@ -37,11 +37,11 @@ float4 main() : SV_Target {
 }
 
 // CHECK:      %get_cb_val = OpFunction %v4float None {{%\d+}}
-// CHECK:         {{%\d+}} = OpAccessChain %_ptr_Uniform_v4float %var_MyCBuffer %int_0
+// CHECK:         {{%\d+}} = OpAccessChain %_ptr_Uniform_v4float %MyCBuffer %int_0
 
 // CHECK:     %S_get_s_val = OpFunction %v3float None {{%\d+}}
 // CHECK-NEXT: %param_this = OpFunctionParameter %_ptr_Function_S_0
 // CHECK:         {{%\d+}} = OpAccessChain %_ptr_Function_v3float %param_this %int_0
 
 // CHECK:      %get_tb_val = OpFunction %float None {{%\d+}}
-// CHECK:         {{%\d+}} = OpAccessChain %_ptr_Uniform_float %var_MyTBuffer %int_0
+// CHECK:         {{%\d+}} = OpAccessChain %_ptr_Uniform_float %MyTBuffer %int_0
