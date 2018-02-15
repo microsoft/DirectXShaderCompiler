@@ -16,7 +16,7 @@ cbuffer Constants {
 
 // CHECK-LABEL:           %main = OpFunction
 
-// CHECK:          [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %var_Constants %int_0
+// CHECK:          [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %Constants %int_0
 // CHECK-NEXT: [[uniform:%\d+]] = OpLoad %S [[ptr]]
 // CHECK-NEXT:     [[vec:%\d+]] = OpCompositeExtract %v4float [[uniform]] 0
 // CHECK-NEXT:     [[ptr:%\d+]] = OpAccessChain %_ptr_Private_v4float %private_struct %uint_0
@@ -39,7 +39,7 @@ S main()
 float4 foo()
 // CHECK-LABEL:            %foo = OpFunction
 {
-// CHECK:          [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %var_Constants %int_0
+// CHECK:          [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %Constants %int_0
 // CHECK-NEXT: [[uniform:%\d+]] = OpLoad %S [[ptr]]
 // CHECK-NEXT:     [[vec:%\d+]] = OpCompositeExtract %v4float [[uniform]] 0
 // CHECK-NEXT:     [[ptr:%\d+]] = OpAccessChain %_ptr_Private_v4float %fn_private_struct %uint_0
