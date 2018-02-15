@@ -154,6 +154,16 @@ public:
   uint32_t createSpecConstantBinaryOp(spv::Op op, uint32_t resultType,
                                       uint32_t lhs, uint32_t rhs);
 
+  /// \brief Creates an operation with the given OpGroupNonUniform* SPIR-V
+  /// opcode. Returns the <result-id> for the result.
+  uint32_t createGroupNonUniformOp(spv::Op op, uint32_t resultType,
+                                   uint32_t execScope);
+  uint32_t createGroupNonUniformUnaryOp(spv::Op op, uint32_t resultType,
+                                        uint32_t execScope, uint32_t operand);
+  uint32_t createGroupNonUniformBinaryOp(spv::Op op, uint32_t resultType,
+                                         uint32_t execScope, uint32_t operand1,
+                                         uint32_t operand2);
+
   /// \brief Creates an atomic instruction with the given parameters.
   /// Returns the <result-id> for the result.
   uint32_t createAtomicOp(spv::Op opcode, uint32_t resultType,
@@ -307,6 +317,8 @@ public:
   uint32_t createSubgroupFirstInvocation(uint32_t resultType, uint32_t value);
 
   // === SPIR-V Module Structure ===
+
+  inline void useSpirv1p3();
 
   inline void requireCapability(spv::Capability);
 
@@ -476,6 +488,8 @@ void ModuleBuilder::setAddressingModel(spv::AddressingModel am) {
 void ModuleBuilder::setMemoryModel(spv::MemoryModel mm) {
   theModule.setMemoryModel(mm);
 }
+
+void ModuleBuilder::useSpirv1p3() { theModule.setVersion(0x00010300); }
 
 void ModuleBuilder::requireCapability(spv::Capability cap) {
   if (cap != spv::Capability::Max)

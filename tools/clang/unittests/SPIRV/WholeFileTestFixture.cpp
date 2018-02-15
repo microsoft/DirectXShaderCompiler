@@ -107,7 +107,7 @@ void WholeFileTest::runWholeFileTest(llvm::StringRef filename,
 
   // Run SPIR-V validation if requested.
   if (runSpirvValidation) {
-    EXPECT_TRUE(utils::validateSpirvBinary(generatedBinary,
+    EXPECT_TRUE(utils::validateSpirvBinary(SPV_ENV_VULKAN_1_0, generatedBinary,
                                            /*relaxLogicalPointer=*/false));
   }
 }

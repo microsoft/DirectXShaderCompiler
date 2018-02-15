@@ -203,8 +203,9 @@ bool isReferencingNonAliasStructuredOrByteBuffer(const Expr *expr) {
   return false;
 }
 
-bool spirvToolsLegalize(std::vector<uint32_t> *module, std::string *messages) {
-  spvtools::Optimizer optimizer(SPV_ENV_VULKAN_1_0);
+bool spirvToolsLegalize(spv_target_env env, std::vector<uint32_t> *module,
+                        std::string *messages) {
+  spvtools::Optimizer optimizer(env);
 
   optimizer.SetMessageConsumer(
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
@@ -220,8 +221,9 @@ bool spirvToolsLegalize(std::vector<uint32_t> *module, std::string *messages) {
   return optimizer.Run(module->data(), module->size(), module);
 }
 
-bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
-  spvtools::Optimizer optimizer(SPV_ENV_VULKAN_1_0);
+bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
+                        std::string *messages) {
+  spvtools::Optimizer optimizer(env);
 
   optimizer.SetMessageConsumer(
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
@@ -235,9 +237,9 @@ bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
   return optimizer.Run(module->data(), module->size(), module);
 }
 
-bool spirvToolsValidate(std::vector<uint32_t> *module, std::string *messages,
-                        bool relaxLogicalPointer) {
-  spvtools::SpirvTools tools(SPV_ENV_VULKAN_1_0);
+bool spirvToolsValidate(spv_target_env env, std::vector<uint32_t> *module,
+                        std::string *messages, bool relaxLogicalPointer) {
+  spvtools::SpirvTools tools(env);
 
   tools.SetMessageConsumer(
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
@@ -490,8 +492,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       declIdMapper(shaderModel, astContext, theBuilder, spirvOptions),
       typeTranslator(astContext, theBuilder, diags, options),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
-      seenPushConstantAt(), isSpecConstantMode(false),
-      needsLegalization(false) {
+      seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
+      needsSpirv1p3(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
   if (options.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
@@ -531,6 +533,12 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   if (context.getDiagnostics().hasErrorOccurred())
     return;
 
+  spv_target_env targetEnv = SPV_ENV_VULKAN_1_0;
+  if (needsSpirv1p3) {
+    theBuilder.useSpirv1p3();
+    targetEnv = SPV_ENV_VULKAN_1_1;
+  }
+
   AddRequiredCapabilitiesForShaderModel();
 
   // Addressing and memory model are required in a valid SPIR-V module.
@@ -555,7 +563,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     // Run legalization passes
     if (needsLegalization || declIdMapper.requiresLegalization()) {
       std::string messages;
-      if (!spirvToolsLegalize(&m, &messages)) {
+      if (!spirvToolsLegalize(targetEnv, &m, &messages)) {
         emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
         emitNote("please file a bug report on "
                  "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -570,7 +578,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     // Run optimization passes
     if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
       std::string messages;
-      if (!spirvToolsOptimize(&m, &messages)) {
+      if (!spirvToolsOptimize(targetEnv, &m, &messages)) {
         emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
         emitNote("please file a bug report on "
                  "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -584,7 +592,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   // Validate the generated SPIR-V code
   if (!spirvOptions.disableValidation) {
     std::string messages;
-    if (!spirvToolsValidate(&m, &messages,
+    if (!spirvToolsValidate(targetEnv, &m, &messages,
                             declIdMapper.requiresLegalization())) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
       emitNote("please file a bug report on "

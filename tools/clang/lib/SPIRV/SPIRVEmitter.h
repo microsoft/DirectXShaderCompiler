@@ -926,6 +926,9 @@ private:
   /// Note: legalization specific code
   bool needsLegalization;
 
+  /// Indicates whether we should generate SPIR-V 1.3 instead of 1.0.
+  bool needsSpirv1p3;
+
   /// Mapping from methods to the decls to represent their implicit object
   /// parameters
   ///

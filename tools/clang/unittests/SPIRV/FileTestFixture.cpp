@@ -128,8 +128,8 @@ void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
 
   // Run SPIR-V validation for successful compilations
   if (runValidation && expect != Expect::Failure) {
-    EXPECT_TRUE(
-        utils::validateSpirvBinary(generatedBinary, relaxLogicalPointer));
+    EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
+                                           relaxLogicalPointer));
   }
 }
 

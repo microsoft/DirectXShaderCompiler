@@ -977,12 +977,15 @@ TEST_F(FileTest, PrimitiveErrorGS) {
 
 // Shader model 6.0 wave query
 TEST_F(FileTest, SM6WaveGetLaneCount) {
+  useVulkan1p1();
   runFileTest("sm6.wave-get-lane-count.hlsl");
 }
 TEST_F(FileTest, SM6WaveGetLaneIndex) {
+  useVulkan1p1();
   runFileTest("sm6.wave-get-lane-index.hlsl");
 }
 TEST_F(FileTest, SM6WaveBuiltInNoDuplicate) {
+  useVulkan1p1();
   runFileTest("sm6.wave.builtin.no-dup.hlsl");
 }
 
