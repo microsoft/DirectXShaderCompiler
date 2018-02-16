@@ -5424,6 +5424,16 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
         }
       }
     }
+    else if (llvm::BinaryOperator *BO = dyn_cast<llvm::BinaryOperator>(I)) {
+      Value *Src0 = BO->getOperand(0);
+      Value *Src1 = BO->getOperand(1);
+      Value *CastSrc0 = EmitHLSLLiteralCast(CGF, Src0, SrcType, DstType);
+      Value *CastSrc1 = EmitHLSLLiteralCast(CGF, Src1, SrcType, DstType);
+      if (Src0 != CastSrc0 && Src1 != CastSrc1 && CastSrc0 && CastSrc1 &&
+          CastSrc0->getType() == CastSrc1->getType()) {
+        return Builder.CreateBinOp(BO->getOpcode(), CastSrc0, CastSrc1);
+      }
+    }
     // TODO: support other opcode if need.
     return nullptr;
   }
