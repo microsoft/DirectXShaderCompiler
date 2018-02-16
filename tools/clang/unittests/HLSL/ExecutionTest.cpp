@@ -4935,7 +4935,7 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
     // use shader from data table
     pShaderOp->Shaders.at(0).Target = Target.m_psz;
     pShaderOp->Shaders.at(0).Text = Text.m_psz;
-    pShaderOp->Shaders.at(0).Arguments = Text.m_psz;
+    pShaderOp->Shaders.at(0).Arguments = Arguments.m_psz;
   });
 
   MappedData data;
