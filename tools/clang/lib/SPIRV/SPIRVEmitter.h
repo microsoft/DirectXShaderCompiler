@@ -83,7 +83,7 @@ private:
   void doDiscardStmt(const DiscardStmt *stmt);
   inline void doDeclStmt(const DeclStmt *stmt);
   void doForStmt(const ForStmt *, llvm::ArrayRef<const Attr *> attrs = {});
-  void doIfStmt(const IfStmt *ifStmt);
+  void doIfStmt(const IfStmt *ifStmt, llvm::ArrayRef<const Attr *> attrs = {});
   void doReturnStmt(const ReturnStmt *stmt);
   void doSwitchStmt(const SwitchStmt *stmt,
                     llvm::ArrayRef<const Attr *> attrs = {});

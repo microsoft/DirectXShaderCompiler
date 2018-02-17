@@ -629,7 +629,7 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
   } else if (const auto *declStmt = dyn_cast<DeclStmt>(stmt)) {
     doDeclStmt(declStmt);
   } else if (const auto *ifStmt = dyn_cast<IfStmt>(stmt)) {
-    doIfStmt(ifStmt);
+    doIfStmt(ifStmt, attrs);
   } else if (const auto *switchStmt = dyn_cast<SwitchStmt>(stmt)) {
     doSwitchStmt(switchStmt, attrs);
   } else if (const auto *caseStmt = dyn_cast<CaseStmt>(stmt)) {
@@ -1511,7 +1511,8 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
   breakStack.pop();
 }
 
-void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
+void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt,
+                            llvm::ArrayRef<const Attr *> attrs) {
   // if statements are composed of:
   //   if (<check>) { <then> } else { <else> }
   //
@@ -1549,6 +1550,24 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
     }
   }
 
+  auto selectionControl = spv::SelectionControlMask::MaskNone;
+  if (!attrs.empty()) {
+    const Attr *attribute = attrs.front();
+    switch (attribute->getKind()) {
+    case attr::HLSLBranch:
+      selectionControl = spv::SelectionControlMask::DontFlatten;
+      break;
+    case attr::HLSLFlatten:
+      selectionControl = spv::SelectionControlMask::Flatten;
+      break;
+    default:
+      emitWarning("unknown if statement attribute '%0' ignored",
+                  attribute->getLocation())
+          << attribute->getSpelling();
+      break;
+    }
+  }
+
   if (const auto *declStmt = ifStmt->getConditionVariableDeclStmt())
     doDeclStmt(declStmt);
 
@@ -1564,7 +1583,8 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
       hasElse ? theBuilder.createBasicBlock("if.false") : mergeBB;
 
   // Create the branch instruction. This will end the current basic block.
-  theBuilder.createConditionalBranch(condition, thenBB, elseBB, mergeBB);
+  theBuilder.createConditionalBranch(condition, thenBB, elseBB, mergeBB,
+                                     /*continue*/ 0, selectionControl);
   theBuilder.addSuccessor(thenBB);
   theBuilder.addSuccessor(elseBB);
   // The current basic block has the OpSelectionMerge instruction. We need

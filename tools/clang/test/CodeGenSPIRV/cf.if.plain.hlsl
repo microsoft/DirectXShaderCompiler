@@ -7,9 +7,9 @@ void main() {
 
     // Both then and else
 // CHECK:      [[c0:%\d+]] = OpLoad %bool %c
-// CHECK-NEXT: OpSelectionMerge %if_merge None
+// CHECK-NEXT: OpSelectionMerge %if_merge Flatten
 // CHECK-NEXT: OpBranchConditional [[c0]] %if_true %if_false
-    if (c) {
+    [flatten] if (c) {
 // CHECK-LABEL: %if_true = OpLabel
 // CHECK-NEXT: [[val0:%\d+]] = OpLoad %int %val
 // CHECK-NEXT: [[val1:%\d+]] = OpIAdd %int [[val0]] %int_1
@@ -67,9 +67,9 @@ void main() {
 // CHECK-NEXT: OpStore %d [[val4]]
 // CHECK-NEXT: [[d:%\d+]] = OpLoad %int %d
 // CHECK-NEXT: [[cmp:%\d+]] = OpINotEqual %bool [[d]] %int_0
-// CHECK-NEXT: OpSelectionMerge %if_merge_3 None
+// CHECK-NEXT: OpSelectionMerge %if_merge_3 DontFlatten
 // CHECK-NEXT: OpBranchConditional [[cmp]] %if_true_3 %if_merge_3
-    if (int d = val) {
+    [branch] if (int d = val) {
 // CHECK-LABEL: %if_true_3 = OpLabel
 // CHECK-NEXT: OpStore %c %true
         c = true;
