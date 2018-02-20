@@ -345,20 +345,22 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
     if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
-
-      // We cannot handle external initialization of column-major matrices now.
-      if (!elemType->isFloatingType() && rule != LayoutRule::Void &&
-          !isRowMajor) {
-        emitError(
-            "externally initialized column-major matrices not supported yet");
-        return 0;
-      }
-
       // HLSL matrices are row major, while SPIR-V matrices are column major.
       // We are mapping what HLSL semantically mean a row into a column here.
       const uint32_t vecType =
           theBuilder.getVecType(translateType(elemType), colCount);
-      return theBuilder.getMatType(elemType, vecType, rowCount);
+
+      // If the matrix element type is not float, it is represented as an array
+      // of vectors, and should therefore have the ArrayStride decoration.
+      llvm::SmallVector<const Decoration *, 4> decorations;
+      if (!elemType->isFloatingType() && rule != LayoutRule::Void) {
+        uint32_t stride = 0;
+        (void)getAlignmentAndSize(type, rule, isRowMajor, &stride);
+        decorations.push_back(
+            Decoration::getArrayStride(*theBuilder.getSPIRVContext(), stride));
+      }
+
+      return theBuilder.getMatType(elemType, vecType, rowCount, decorations);
     }
   }
 
@@ -746,6 +748,36 @@ bool TypeTranslator::isMxNMatrix(QualType type, QualType *elemType,
   return true;
 }
 
+bool TypeTranslator::isNonFpColMajorMatrix(QualType type,
+                                           const Decl *decl) const {
+  const auto isColMajorDecl = [this](const Decl *decl) {
+    return decl->hasAttr<HLSLColumnMajorAttr>() ||
+           !decl->hasAttr<HLSLRowMajorAttr>() && !spirvOptions.defaultRowMajor;
+  };
+
+  QualType elemType = {};
+  if (isMxNMatrix(type, &elemType) && !elemType->isFloatingType()) {
+    return isColMajorDecl(decl);
+  }
+
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+    if (isMxNMatrix(arrayType->getElementType(), &elemType) &&
+        !elemType->isFloatingType())
+      return isColMajorDecl(decl);
+  }
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    const auto *decl = structType->getDecl();
+    // Create fields for all members of this struct
+    for (const auto *field : decl->fields()) {
+      if (isNonFpColMajorMatrix(field->getType(), field))
+        return true;
+    }
+  }
+
+  return false;
+}
+
 bool TypeTranslator::isRowMajorMatrix(QualType type, const Decl *decl) const {
   if (!isMxNMatrix(type) && !type->isArrayType())
     return false;
@@ -907,7 +939,12 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
       // MatrixStride on the field. So skip possible arrays here.
       fieldType = arrayType->getElementType();
     }
-    if (isMxNMatrix(fieldType)) {
+
+    // Non-floating point matrices are represented as arrays of vectors, and
+    // therefore ColMajor and RowMajor decorations should not be applied to
+    // them.
+    QualType elemType = {};
+    if (isMxNMatrix(fieldType, &elemType) && elemType->isFloatingType()) {
       memberAlignment = memberSize = stride = 0;
       std::tie(memberAlignment, memberSize) =
           getAlignmentAndSize(fieldType, rule, isRowMajor, &stride);
@@ -1172,8 +1209,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
   //
   // 8. If the member is an array of S row-major matrices with C columns and R
   //    rows, the matrix is stored identically to a row of S X R row vectors
-  //    with C
-  //    components each, according to rule (4).
+  //    with C components each, according to rule (4).
   //
   // 9. If the member is a structure, the base alignment of the structure is N,
   //    where N is the largest base alignment value of any of its members, and
