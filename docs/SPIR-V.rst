@@ -2429,12 +2429,12 @@ Shader Model 6.0 Wave Intrinsics
 Shader Model 6.0 introduces a set of wave operations, which are translated
 according to the following table:
 
-======================  ============================ =========================
+====================== ============================= =========================
       Intrinsic               SPIR-V BuiltIn                Extension
-======================  ============================ =========================
+====================== ============================= =========================
 ``WaveGetLaneCount()`` ``SubgroupSize``              ``SPV_KHR_shader_ballot``
 ``WaveGetLaneIndex()`` ``SubgroupLocalInvocationId`` ``SPV_KHR_shader_ballot``
-======================  ============================ =========================
+====================== ============================= =========================
 
 Vulkan Command-line Options
 ===========================
