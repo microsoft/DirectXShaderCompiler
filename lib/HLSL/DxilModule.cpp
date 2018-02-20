@@ -931,6 +931,7 @@ void DxilModule::RemoveFunction(llvm::Function *F) {
 }
 
 void DxilModule::RemoveUnusedResources() {
+  DXASSERT(!m_pSM->IsLib(), "this function not work on library");
   hlsl::OP *hlslOP = GetOP();
   Function *createHandleFunc = hlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(GetCtx()));
   if (createHandleFunc->user_empty()) {
@@ -1003,6 +1004,7 @@ static void RemoveResourceSymbols(std::vector<std::unique_ptr<TResource>> &vec) 
     GV->removeDeadConstantUsers();
     if (GV->user_empty()) {
       p = vec.erase(c);
+      GV->eraseFromParent();
     }
   }
 }
@@ -1159,19 +1161,25 @@ void DxilModule::ResetEntrySignatureMap(
   m_DxilEntrySignatureMap = std::move(SigMap);
 }
 
+static const StringRef llvmUsedName = "llvm.used";
+
 void DxilModule::EmitLLVMUsed() {
+  if (GlobalVariable *oldGV = m_pModule->getGlobalVariable(llvmUsedName)) {
+    oldGV->eraseFromParent();
+  }
   if (m_LLVMUsed.empty())
     return;
 
-  vector<llvm::Constant*> GVs;
+  vector<llvm::Constant *> GVs;
   Type *pI8PtrType = Type::getInt8PtrTy(m_Ctx, DXIL::kDefaultAddrSpace);
 
   GVs.resize(m_LLVMUsed.size());
   for (size_t i = 0, e = m_LLVMUsed.size(); i != e; i++) {
     Constant *pConst = cast<Constant>(&*m_LLVMUsed[i]);
-    PointerType * pPtrType = dyn_cast<PointerType>(pConst->getType());
+    PointerType *pPtrType = dyn_cast<PointerType>(pConst->getType());
     if (pPtrType->getPointerAddressSpace() != DXIL::kDefaultAddrSpace) {
-      // Cast pointer to addrspace 0, as LLVMUsed elements must have the same type.
+      // Cast pointer to addrspace 0, as LLVMUsed elements must have the same
+      // type.
       GVs[i] = ConstantExpr::getAddrSpaceCast(pConst, pI8PtrType);
     } else {
       GVs[i] = ConstantExpr::getPointerCast(pConst, pI8PtrType);
@@ -1180,18 +1188,25 @@ void DxilModule::EmitLLVMUsed() {
 
   ArrayType *pATy = ArrayType::get(pI8PtrType, GVs.size());
 
-  StringRef llvmUsedName = "llvm.used";
+  GlobalVariable *pGV =
+      new GlobalVariable(*m_pModule, pATy, false, GlobalValue::AppendingLinkage,
+                         ConstantArray::get(pATy, GVs), llvmUsedName);
 
+  pGV->setSection("llvm.metadata");
+}
+
+void DxilModule::ClearLLVMUsed() {
   if (GlobalVariable *oldGV = m_pModule->getGlobalVariable(llvmUsedName)) {
     oldGV->eraseFromParent();
   }
+  if (m_LLVMUsed.empty())
+    return;
 
-  GlobalVariable *pGV = new GlobalVariable(*m_pModule, pATy, false,
-                                           GlobalValue::AppendingLinkage,
-                                           ConstantArray::get(pATy, GVs),
-                                           llvmUsedName);
-
-  pGV->setSection("llvm.metadata");
+  for (size_t i = 0, e = m_LLVMUsed.size(); i != e; i++) {
+    Constant *pConst = cast<Constant>(&*m_LLVMUsed[i]);
+    pConst->removeDeadConstantUsers();
+  }
+  m_LLVMUsed.clear();
 }
 
 vector<GlobalVariable* > &DxilModule::GetLLVMUsed() {
