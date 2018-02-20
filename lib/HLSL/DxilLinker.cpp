@@ -14,6 +14,7 @@
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilResource.h"
 #include "dxc/HLSL/DxilSampler.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/DenseSet.h"
@@ -135,8 +136,9 @@ public:
   bool DetachLib(StringRef name) override;
   void DetachAll() override;
 
-  std::unique_ptr<llvm::Module> Link(StringRef entry,
-                                     StringRef profile) override;
+  std::unique_ptr<llvm::Module>
+  Link(StringRef entry, StringRef profile,
+       llvm::StringMap<llvm::StringRef> &exportMap) override;
 
 private:
   bool AttachLib(DxilLib *lib);
@@ -314,7 +316,10 @@ DxilResourceBase *DxilLib::GetResource(const llvm::Constant *GV) {
 namespace {
 // Create module from link defines.
 struct DxilLinkJob {
-  DxilLinkJob(LLVMContext &Ctx, unsigned valMajor, unsigned valMinor) : m_ctx(Ctx), m_valMajor(valMajor), m_valMinor(valMinor) {}
+  DxilLinkJob(LLVMContext &Ctx, llvm::StringMap<llvm::StringRef> &exportMap,
+              unsigned valMajor, unsigned valMinor)
+      : m_ctx(Ctx), m_exportMap(exportMap), m_valMajor(valMajor),
+        m_valMinor(valMinor) {}
   std::unique_ptr<llvm::Module>
   Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
        const ShaderModel *pSM);
@@ -342,6 +347,7 @@ private:
   llvm::StringMap<std::pair<DxilResourceBase *, llvm::GlobalVariable *>>
       m_resourceMap;
   LLVMContext &m_ctx;
+  llvm::StringMap<llvm::StringRef> &m_exportMap;
   unsigned m_valMajor, m_valMinor;
 };
 } // namespace
@@ -351,6 +357,7 @@ const char kUndefFunction[] = "Cannot find definition of function ";
 const char kRedefineFunction[] = "Definition already exists for function ";
 const char kRedefineGlobal[] = "Definition already exists for global variable ";
 const char kInvalidProfile[] = " is invalid profile to link";
+const char kExportOnlyForLib[] = "export map is only for library";
 const char kShaderKindMismatch[] =
     "Profile mismatch between entry function and target profile:";
 const char kNoEntryProps[] =
@@ -841,6 +848,23 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
 
   RunPreparePass(*pM);
 
+  if (!m_exportMap.empty()) {
+    DM.ClearDxilMetadata(*pM);
+    for (auto it = pM->begin(); it != pM->end();) {
+      Function *F = it++;
+      if (F->isDeclaration())
+        continue;
+      StringRef name = F->getName();
+      name = dxilutil::DemangleFunctionName(name);
+      // Remove Function not in exportMap.
+      if (m_exportMap.find(name) == m_exportMap.end()) {
+        DM.RemoveFunction(F);
+        F->eraseFromParent();
+      }
+    }
+    DM.EmitDxilMetadata();
+  }
+
   return pM;
 }
 
@@ -1039,8 +1063,9 @@ bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
   return true;
 }
 
-std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
-                                               StringRef profile) {
+std::unique_ptr<llvm::Module>
+DxilLinkerImpl::Link(StringRef entry, StringRef profile,
+                     llvm::StringMap<llvm::StringRef> &exportMap) {
   const ShaderModel *pSM = ShaderModel::GetByName(profile.data());
   DXIL::ShaderKind kind = pSM->GetKind();
   if (kind == DXIL::ShaderKind::Invalid ||
@@ -1048,6 +1073,11 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
        kind <= DXIL::ShaderKind::Callable)) {
     m_ctx.emitError(profile + Twine(kInvalidProfile));
     // Invalid profile.
+    return nullptr;
+  }
+
+  if (!exportMap.empty() && kind != DXIL::ShaderKind::Library) {
+    m_ctx.emitError(Twine(kExportOnlyForLib));
     return nullptr;
   }
 
@@ -1063,7 +1093,7 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
     }
   }
 
-  DxilLinkJob linkJob(m_ctx, m_valMajor, m_valMinor);
+  DxilLinkJob linkJob(m_ctx, exportMap, m_valMajor, m_valMinor);
 
   DenseSet<DxilLib *> libSet;
   StringSet<> addedFunctionSet;
@@ -1078,21 +1108,38 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
       return nullptr;
 
   } else {
-    // Add every function for lib profile.
-    for (auto &it : m_functionNameMap) {
-      StringRef name = it.getKey();
-      std::pair<DxilFunctionLinkInfo *, DxilLib *> &linkPair = it.second;
-      DxilFunctionLinkInfo *linkInfo = linkPair.first;
-      DxilLib *pLib = linkPair.second;
+    if (exportMap.empty()) {
+      // Add every function for lib profile.
+      for (auto &it : m_functionNameMap) {
+        StringRef name = it.getKey();
+        std::pair<DxilFunctionLinkInfo *, DxilLib *> &linkPair = it.second;
+        DxilFunctionLinkInfo *linkInfo = linkPair.first;
+        DxilLib *pLib = linkPair.second;
 
-      Function *F = linkInfo->func;
-      pLib->LazyLoadFunction(F);
+        Function *F = linkInfo->func;
+        pLib->LazyLoadFunction(F);
 
-      linkJob.AddFunction(linkPair);
+        linkJob.AddFunction(linkPair);
 
-      libSet.insert(pLib);
+        libSet.insert(pLib);
 
-      addedFunctionSet.insert(name);
+        addedFunctionSet.insert(name);
+      }
+    } else {
+      SmallVector<StringRef, 4> workList;
+
+      // Only add exported functions.
+      for (auto &it : m_functionNameMap) {
+        StringRef name = it.getKey();
+        StringRef demangledName = dxilutil::DemangleFunctionName(name);
+        // Only add names exist in exportMap.
+        if (exportMap.find(demangledName) != exportMap.end())
+          workList.emplace_back(name);
+      }
+
+      if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
+                        /*bLazyLoadDone*/ false))
+        return nullptr;
     }
     // Add every dxil functions and llvm intrinsic.
     for (auto *pLib : libSet) {
