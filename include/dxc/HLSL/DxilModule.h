@@ -156,6 +156,7 @@ public:
   /// Emit llvm.used array to make sure that optimizations do not remove unreferenced globals.
   void EmitLLVMUsed();
   std::vector<llvm::GlobalVariable* > &GetLLVMUsed();
+  void ClearLLVMUsed();
 
   // ViewId state.
   DxilViewIdState &GetViewIdState();

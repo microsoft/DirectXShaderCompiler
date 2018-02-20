@@ -459,6 +459,8 @@ public:
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
     m_DM = &DM;
+    // Clear llvm used to remove unused resource.
+    m_DM->ClearLLVMUsed();
     m_bIsLib = DM.GetShaderModel()->IsLib();
 
     // Switch tbuffers to SRVs, as they have been treated as cbuffers up to this
