@@ -24,6 +24,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
+#include "dxc/Support/Global.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -125,6 +126,18 @@ bool RemoveUnusedFunctions(Module &M, Function *EntryFunc,
 void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI, void *Context) {
   DiagnosticPrinter *printer = reinterpret_cast<DiagnosticPrinter *>(Context);
   DI.print(*printer);
+}
+
+StringRef DemangleFunctionName(StringRef name) {
+  if (!name.startswith("\01?")) {
+    // Name don't mangled.
+    return name;
+  }
+
+  size_t nameEnd = name.find_first_of("@");
+  DXASSERT(nameEnd != StringRef::npos, "else Name don't mangled but has \01?");
+
+  return name.substr(2, nameEnd - 2);
 }
 
 std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
