@@ -3,7 +3,7 @@
 // CHECK: define void [[anyhit1:@"\\01\?anyhit1@[^\"]+"]](%struct.MyPayload* noalias nocapture %payload, %struct.MyAttributes* nocapture readonly %attr) #0 {
 // CHECK:   call float @dx.op.objectRayOrigin.f32(i32 149, i8 2)
 // CHECK:   call float @dx.op.objectRayDirection.f32(i32 150, i8 2)
-// CHECK:   call float @dx.op.currentRayT.f32(i32 154)
+// CHECK:   call float @dx.op.rayTCurrent.f32(i32 154)
 // CHECK:   call void @dx.op.acceptHitAndEndSearch(i32 156)
 // CHECK:   call void @dx.op.ignoreHit(i32 155)
 // CHECK:   %color = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0
@@ -24,7 +24,7 @@ struct MyAttributes {
 void anyhit1( inout MyPayload payload : SV_RayPayload,
               in MyAttributes attr : SV_IntersectionAttributes )
 {
-  float3 hitLocation = ObjectRayOrigin() + ObjectRayDirection() * CurrentRayT();
+  float3 hitLocation = ObjectRayOrigin() + ObjectRayDirection() * RayTCurrent();
   if (hitLocation.z < attr.bary.x)
     AcceptHitAndEndSearch();         // aborts function
   if (hitLocation.z < attr.bary.y)

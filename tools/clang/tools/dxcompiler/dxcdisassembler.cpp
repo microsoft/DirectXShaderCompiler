@@ -970,9 +970,9 @@ static const char *OpCodeSignatures[] = {
   "()",  // InstanceID
   "()",  // InstanceIndex
   "()",  // HitKind
-  "()",  // RayFlag
-  "(col)",  // RayDispatchIndex
-  "(col)",  // RayDispatchDimension
+  "()",  // RayFlags
+  "(col)",  // DispatchRaysIndex
+  "(col)",  // DispatchRaysDimensions
   "(col)",  // WorldRayOrigin
   "(col)",  // WorldRayDirection
   "(col)",  // ObjectRayOrigin
@@ -980,7 +980,7 @@ static const char *OpCodeSignatures[] = {
   "(row,col)",  // ObjectToWorld
   "(row,col)",  // WorldToObject
   "()",  // RayTMin
-  "()",  // CurrentRayT
+  "()",  // RayTCurrent
   "()",  // IgnoreHit
   "()",  // AcceptHitAndEndSearch
   "(AccelerationStructure,RayFlags,InstanceInclusionMask,RayContributionToHitGroupIndex,MultiplierForGeometryContributionToShaderIndex,MissShaderIndex,Origin_X,Origin_Y,Origin_Z,TMin,Direction_X,Direction_Y,Direction_Z,TMax,payload)",  // TraceRay

@@ -274,8 +274,8 @@ bool [[]]  ReportHit(in float THit, in uint HitKind, in udt Attributes);
 void [[]]  CallShader(in uint ShaderIndex, inout udt Parameter);
 void [[]]  IgnoreHit();
 void [[]]  AcceptHitAndEndSearch();
-uint<2> [[rn]] RayDispatchIndex();
-uint<2> [[rn]] RayDispatchDimension();
+uint<2> [[rn]] DispatchRaysIndex();
+uint<2> [[rn]] DispatchRaysDimensions();
 // group: Ray Vectors
 float<3> [[rn]] WorldRayOrigin();
 float<3> [[rn]] WorldRayDirection();
@@ -283,13 +283,13 @@ float<3> [[rn]] ObjectRayOrigin();
 float<3> [[rn]] ObjectRayDirection();
 // group: RayT
 float [[rn]] RayTMin();
-float [[rn]] CurrentRayT();
+float [[rn]] RayTCurrent();
 // group: Raytracing uint System Values
-uint [[rn]] PrimitiveID();
+uint [[rn]] PrimitiveIndex();
 uint [[rn]] InstanceID();
 uint [[rn]] InstanceIndex();
 uint [[rn]] HitKind();
-uint [[rn]] RayFlag();
+uint [[rn]] RayFlags();
 // group: Ray Transforms
 row_major float<3,4> [[rn]] ObjectToWorld();
 row_major float<3,4> [[rn]] WorldToObject();

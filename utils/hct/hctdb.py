@@ -293,10 +293,10 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6,1
         for i in "RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].shader_model = 6,2
-        for i in "InstanceID,InstanceIndex,HitKind,RayFlag".split(","):
+        for i in "InstanceID,InstanceIndex,HitKind,RayFlags".split(","):
             self.name_idx[i].category = "Raytracing uint System Values"
             self.name_idx[i].shader_model = 6,3
-        for i in "RayDispatchIndex,RayDispatchDimension".split(","):
+        for i in "DispatchRaysIndex,DispatchRaysDimensions".split(","):
             self.name_idx[i].category = "Ray Dispatch Arguments"
             self.name_idx[i].shader_model = 6,3
         for i in "WorldRayOrigin,WorldRayDirection,ObjectRayOrigin,ObjectRayDirection".split(","):
@@ -305,7 +305,7 @@ class db_dxil(object):
         for i in "ObjectToWorld,WorldToObject".split(","):
             self.name_idx[i].category = "Ray Transforms"
             self.name_idx[i].shader_model = 6,3
-        for i in "RayTMin,CurrentRayT".split(","):
+        for i in "RayTMin,RayTCurrent".split(","):
             self.name_idx[i].category = "RayT"
             self.name_idx[i].shader_model = 6,3
         for i in "IgnoreHit,AcceptHitAndEndSearch".split(","):
@@ -1144,16 +1144,16 @@ class db_dxil(object):
             db_dxil_param(0, "i32", "", "result")])
         next_op_idx += 1
 
-        self.add_dxil_op("RayFlag", next_op_idx, "RayFlag", "uint containing the current ray flags.", "i", "rn", [
+        self.add_dxil_op("RayFlags", next_op_idx, "RayFlags", "uint containing the current ray flags.", "i", "rn", [
             db_dxil_param(0, "i32", "", "result")])
         next_op_idx += 1
 
-        self.add_dxil_op("RayDispatchIndex", next_op_idx, "RayDispatchIndex", "The current x and y location within the Width and Height", "i", "rn", [
+        self.add_dxil_op("DispatchRaysIndex", next_op_idx, "DispatchRaysIndex", "The current x and y location within the Width and Height", "i", "rn", [
             db_dxil_param(0, "i32", "", "result"),
             db_dxil_param(2, "i8", "col", "column, relative to the element")])
         next_op_idx += 1
 
-        self.add_dxil_op("RayDispatchDimension", next_op_idx, "RayDispatchDimension", "The Width and Height values from the D3D12_DISPATCH_RAYS_DESC structure provided to the originating DispatchRays() call.", "i", "rn", [
+        self.add_dxil_op("DispatchRaysDimensions", next_op_idx, "DispatchRaysDimensions", "The Width and Height values from the D3D12_DISPATCH_RAYS_DESC structure provided to the originating DispatchRays() call.", "i", "rn", [
             db_dxil_param(0, "i32", "", "result"),
             db_dxil_param(2, "i8", "col", "column, relative to the element")])
         next_op_idx += 1
@@ -1194,7 +1194,7 @@ class db_dxil(object):
             db_dxil_param(0, "f", "", "result")])
         next_op_idx += 1
 
-        self.add_dxil_op("CurrentRayT", next_op_idx, "CurrentRayT", "float representing the current parametric ending point for the ray", "f", "rn", [
+        self.add_dxil_op("RayTCurrent", next_op_idx, "RayTCurrent", "float representing the current parametric ending point for the ray", "f", "rn", [
             db_dxil_param(0, "f", "", "result")])
         next_op_idx += 1
 
