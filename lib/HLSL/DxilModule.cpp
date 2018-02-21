@@ -998,6 +998,7 @@ void DxilModule::RemoveUnusedResources() {
 namespace {
 template <typename TResource>
 static void RemoveResourceSymbols(std::vector<std::unique_ptr<TResource>> &vec) {
+  unsigned resID = 0;
   for (std::vector<std::unique_ptr<TResource>>::iterator p = vec.begin(); p != vec.end();) {
     std::vector<std::unique_ptr<TResource>>::iterator c = p++;
     GlobalVariable *GV = cast<GlobalVariable>((*c)->GetGlobalSymbol());
@@ -1005,7 +1006,12 @@ static void RemoveResourceSymbols(std::vector<std::unique_ptr<TResource>> &vec) 
     if (GV->user_empty()) {
       p = vec.erase(c);
       GV->eraseFromParent();
+      continue;
     }
+    if ((*c)->GetID() != resID) {
+      (*c)->SetID(resID);
+    }
+    resID++;
   }
 }
 }
