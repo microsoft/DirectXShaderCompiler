@@ -286,6 +286,58 @@ interface variables:
   main([[vk::location(N)]] float4 input: A) : B
   { ... }
 
+Legalization, optimization, validation
+--------------------------------------
+
+After initial translation of the HLSL source code, SPIR-V CodeGen will further
+conduct legalization (if needed), optimization (if requested), and validation
+(if not turned off). All these three stages are outsourced to `SPIRV-Tools <https://github.com/KhronosGroup/SPIRV-Tools>`_.
+Here are the options controlling these stages:
+
+* ``-fcgl``: turn off legalization and optimization
+* ``-Od``: turn off optimization
+* ``-Vd``: turn off validation
+
+Legalization
+~~~~~~~~~~~~
+
+HLSL is a fairly permissive language considering the flexibility it provides for
+manipulating resource objects. The developer can create local copies, pass
+around them as function parameters and return values, as long as after certain
+transformations (function inlining, constant evaluation and propagating, dead
+code elimination, etc.), the compiler can remove all temporary copies and
+pinpoint all uses to unique global resource objects.
+
+Resulting from the above property of HLSL, if we translate into SPIR-V for
+Vulkan literally from the input HLSL source code, we will sometimes generate
+illegal SPIR-V. Certain transformations are needed to legalize the literally
+translated SPIR-V. Performing such transformations at the frontend AST level
+is cumbersome or impossible (e.g., function inlining). They are better to be
+conducted at SPIR-V level. Therefore, legalization are delegated to SPIRV-Tools.
+
+Specifically, we need to legalize the following HLSL source code patterns:
+
+* Using resource types in struct types
+* Creating aliases of global resource objects
+* Control flows invovling the above cases
+
+Legalization transformations will not run unless the above patterns are
+encountered in the source code.
+
+Optimization
+~~~~~~~~~~~~
+
+Optimization is also delegated to SPIRV-Tools. Right now there are no difference
+between optimization levels greater than zero; they will all invoke the same
+optimization recipe. This may change in the future.
+
+Validation
+~~~~~~~~~~
+
+Validation is turned on by default as the last stage of SPIR-V CodeGen. Failing
+validation, which indicates there is a CodeGen bug, will trigger a fatal error.
+Please file an issue if you see that.
+
 HLSL Types
 ==========
 
