@@ -58,9 +58,12 @@ struct DxilFunctionProps {
     } PS;
     // Ray Tracing shaders
     struct {
-      unsigned payloadParamCount;
-      unsigned attributeParamCount;
-    } AnyHit, ClosestHit;
+      union {
+        unsigned payloadSizeInBytes;
+        unsigned paramSizeInBytes;
+      };
+      unsigned attributeSizeInBytes;
+    } Ray;
   } ShaderProps;
   DXIL::ShaderKind shaderKind;
   // TODO: Should we have an unmangled name here for ray tracing shaders?
