@@ -303,7 +303,7 @@ Legalization
 
 HLSL is a fairly permissive language considering the flexibility it provides for
 manipulating resource objects. The developer can create local copies, pass
-around them as function parameters and return values, as long as after certain
+them around as function parameters and return values, as long as after certain
 transformations (function inlining, constant evaluation and propagating, dead
 code elimination, etc.), the compiler can remove all temporary copies and
 pinpoint all uses to unique global resource objects.
@@ -313,7 +313,7 @@ Vulkan literally from the input HLSL source code, we will sometimes generate
 illegal SPIR-V. Certain transformations are needed to legalize the literally
 translated SPIR-V. Performing such transformations at the frontend AST level
 is cumbersome or impossible (e.g., function inlining). They are better to be
-conducted at SPIR-V level. Therefore, legalization are delegated to SPIRV-Tools.
+conducted at SPIR-V level. Therefore, legalization is delegated to SPIRV-Tools.
 
 Specifically, we need to legalize the following HLSL source code patterns:
 
