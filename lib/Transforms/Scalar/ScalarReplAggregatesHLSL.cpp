@@ -5994,13 +5994,31 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
                              castParamMap[flatArg].second, Builder);
       }
 
-      flatArg->replaceAllUsesWith(Arg);
       // Update arg debug info.
       DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(flatArg);
       if (DDI) {
-        Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(Arg));
-        DDI->setArgOperand(0, VMD);
+        if (!flatArg->getType()->isPointerTy()) {
+          // Create alloca to hold the debug info.
+          Value *allocaArg = nullptr;
+          if (flatArg->hasOneUse() && isa<StoreInst>(*flatArg->user_begin())) {
+            StoreInst *SI = cast<StoreInst>(*flatArg->user_begin());
+            allocaArg = SI->getPointerOperand();
+          } else {
+            allocaArg = Builder.CreateAlloca(flatArg->getType());
+            StoreInst *initArg = Builder.CreateStore(flatArg, allocaArg);
+            Value *ldArg = Builder.CreateLoad(allocaArg);
+            flatArg->replaceAllUsesWith(ldArg);
+            initArg->setOperand(0, flatArg);
+          }
+          Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(allocaArg));
+          DDI->setArgOperand(0, VMD);
+        } else {
+          Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(Arg));
+          DDI->setArgOperand(0, VMD);
+        }
       }
+
+      flatArg->replaceAllUsesWith(Arg);
 
       HLModule::MergeGepUse(Arg);
       // Flatten store of array parameter.
