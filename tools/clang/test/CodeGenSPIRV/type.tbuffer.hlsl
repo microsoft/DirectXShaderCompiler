@@ -8,13 +8,13 @@
 // CHECK-NEXT: OpMemberName %type_MyTbuffer 4 "s"
 // CHECK-NEXT: OpMemberName %type_MyTbuffer 5 "t"
 
-// CHECK:      OpName %var_MyTbuffer "var.MyTbuffer"
+// CHECK:      OpName %MyTbuffer "MyTbuffer"
 
 // CHECK:      OpName %type_AnotherTbuffer "type.AnotherTbuffer"
 // CHECK-NEXT: OpMemberName %type_AnotherTbuffer 0 "m"
 // CHECK-NEXT: OpMemberName %type_AnotherTbuffer 1 "n"
 
-// CHECK:      OpName %var_AnotherTbuffer "var.AnotherTbuffer"
+// CHECK:      OpName %AnotherTbuffer "AnotherTbuffer"
 
 struct S {
     float  f1;
@@ -39,8 +39,8 @@ tbuffer AnotherTbuffer : register(t2) {
 
 // CHECK: %type_AnotherTbuffer = OpTypeStruct %v3float %v4float
 
-// CHECK: %var_MyTbuffer = OpVariable %_ptr_Uniform_type_MyTbuffer Uniform
-// CHECK: %var_AnotherTbuffer = OpVariable %_ptr_Uniform_type_AnotherTbuffer Uniform
+// CHECK: %MyTbuffer = OpVariable %_ptr_Uniform_type_MyTbuffer Uniform
+// CHECK: %AnotherTbuffer = OpVariable %_ptr_Uniform_type_AnotherTbuffer Uniform
 
 void main() {
 }

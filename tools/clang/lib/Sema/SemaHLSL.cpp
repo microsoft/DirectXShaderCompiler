@@ -8431,10 +8431,6 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
       rightObjectKind == AR_TOBJ_BASIC || rightObjectKind == AR_TOBJ_VECTOR ||
       rightObjectKind == AR_TOBJ_MATRIX;
 
-  
-  UINT rowCount, colCount;
-  GetRowsAndColsForAny(ResultTy, rowCount, colCount);
-
   if (!leftIsSimple || !rightIsSimple) {
     if (leftObjectKind == AR_TOBJ_OBJECT && leftObjectKind == AR_TOBJ_OBJECT) {
       if (leftType == rightType) {
@@ -8464,6 +8460,9 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
     m_sema->Diag(QuestionLoc, diag::err_hlsl_conditional_result_dimensions);
     return QualType();
   }
+
+  UINT rowCount, colCount;
+  GetRowsAndColsForAny(ResultTy, rowCount, colCount);
 
   // If result is scalar, use condition dimensions.
   // Otherwise, condition must either match or is scalar, then use result dimensions

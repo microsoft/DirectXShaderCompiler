@@ -726,7 +726,7 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcCompile
     IFT(pIncludeHandler->insertIncludeFile(pFileName, pBlobEncoding, dataLen));
     // Check if this file is the main file or included file
     if (wcscmp(pFileName, pMainFileName) == 0) {
-      pCompileSource = pBlobEncoding.Detach();
+      pCompileSource.Attach(pBlobEncoding.Detach());
     }
   }
 
