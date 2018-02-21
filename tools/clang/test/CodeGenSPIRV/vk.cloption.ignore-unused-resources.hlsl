@@ -20,12 +20,12 @@ Texture2D gTex2D2;
 Texture2D gTex2D3;
 Texture2D gTex2D4;
 
-// CHECK-NOT: %var_gCBuffer1 = OpVariable
+// CHECK-NOT: %gCBuffer1 = OpVariable
 cbuffer gCBuffer1 {
     float4 cb_f;
 };
 
-// CHECK:     %var_gTBuffer1 = OpVariable
+// CHECK:     %gTBuffer1 = OpVariable
 tbuffer gTBuffer1 {
     float4 tb_f;
 };

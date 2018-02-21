@@ -555,9 +555,8 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   const auto usageKind =
       decl->isCBuffer() ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
   const std::string structName = "type." + decl->getName().str();
-  const std::string varName = "var." + decl->getName().str();
-  const uint32_t bufferVar =
-      createVarOfExplicitLayoutStruct(decl, usageKind, structName, varName);
+  const uint32_t bufferVar = createVarOfExplicitLayoutStruct(
+      decl, usageKind, structName, decl->getName());
 
   // We still register all VarDecls seperately here. All the VarDecls are
   // mapped to the <result-id> of the buffer object, which means when querying

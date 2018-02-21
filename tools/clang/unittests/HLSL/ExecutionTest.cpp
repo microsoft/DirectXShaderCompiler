@@ -446,6 +446,7 @@ public:
       UINT minor = testModel & 0x0f;
       LogCommentFmt(L"Installed SDK does not support "
           L"shader model 6.%1u", minor);
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Blocked);
       return false;
     }
     const D3D_FEATURE_LEVEL FeatureLevelRequired = D3D_FEATURE_LEVEL_11_0;
@@ -492,7 +493,7 @@ public:
       } D3D12_FEATURE_DATA_SHADER_MODEL;
       const UINT D3D12_FEATURE_SHADER_MODEL = 7;
       D3D12_FEATURE_DATA_SHADER_MODEL SMData;
-      SMData.HighestShaderModel = HIGHEST_SHADER_MODEL;
+      SMData.HighestShaderModel = testModel;
       VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport(
         (D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL, &SMData, sizeof(SMData)));
       if (SMData.HighestShaderModel < testModel) {
@@ -4935,7 +4936,7 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
     // use shader from data table
     pShaderOp->Shaders.at(0).Target = Target.m_psz;
     pShaderOp->Shaders.at(0).Text = Text.m_psz;
-    pShaderOp->Shaders.at(0).Arguments = Text.m_psz;
+    pShaderOp->Shaders.at(0).Arguments = Arguments.m_psz;
   });
 
   MappedData data;

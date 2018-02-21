@@ -535,8 +535,6 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   theBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunctionId,
                            entryFunctionName, declIdMapper.collectStageVars());
 
-  AddExecutionModeForEntryPoint(entryFunctionId);
-
   // Add Location decorations to stage input/output variables.
   if (!declIdMapper.decorateStageIOLocations())
     return;
@@ -631,7 +629,7 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
   } else if (const auto *declStmt = dyn_cast<DeclStmt>(stmt)) {
     doDeclStmt(declStmt);
   } else if (const auto *ifStmt = dyn_cast<IfStmt>(stmt)) {
-    doIfStmt(ifStmt);
+    doIfStmt(ifStmt, attrs);
   } else if (const auto *switchStmt = dyn_cast<SwitchStmt>(stmt)) {
     doSwitchStmt(switchStmt, attrs);
   } else if (const auto *caseStmt = dyn_cast<CaseStmt>(stmt)) {
@@ -1513,7 +1511,8 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
   breakStack.pop();
 }
 
-void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
+void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt,
+                            llvm::ArrayRef<const Attr *> attrs) {
   // if statements are composed of:
   //   if (<check>) { <then> } else { <else> }
   //
@@ -1551,6 +1550,24 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
     }
   }
 
+  auto selectionControl = spv::SelectionControlMask::MaskNone;
+  if (!attrs.empty()) {
+    const Attr *attribute = attrs.front();
+    switch (attribute->getKind()) {
+    case attr::HLSLBranch:
+      selectionControl = spv::SelectionControlMask::DontFlatten;
+      break;
+    case attr::HLSLFlatten:
+      selectionControl = spv::SelectionControlMask::Flatten;
+      break;
+    default:
+      emitWarning("unknown if statement attribute '%0' ignored",
+                  attribute->getLocation())
+          << attribute->getSpelling();
+      break;
+    }
+  }
+
   if (const auto *declStmt = ifStmt->getConditionVariableDeclStmt())
     doDeclStmt(declStmt);
 
@@ -1566,7 +1583,8 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
       hasElse ? theBuilder.createBasicBlock("if.false") : mergeBB;
 
   // Create the branch instruction. This will end the current basic block.
-  theBuilder.createConditionalBranch(condition, thenBB, elseBB, mergeBB);
+  theBuilder.createConditionalBranch(condition, thenBB, elseBB, mergeBB,
+                                     /*continue*/ 0, selectionControl);
   theBuilder.addSuccessor(thenBB);
   theBuilder.addSuccessor(elseBB);
   // The current basic block has the OpSelectionMerge instruction. We need
@@ -5574,10 +5592,9 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
       // The source matrix and the target matrix must have the same dimensions.
       QualType toElemType = {};
       uint32_t toNumRows = 0, toNumCols = 0;
-      assert(TypeTranslator::isMxNMatrix(toIntType, &toElemType, &toNumRows,
-                                         &toNumCols) &&
-             numRows == toNumRows && numCols == toNumCols);
-      (void)toElemType;
+      const bool isMat = TypeTranslator::isMxNMatrix(toIntType, &toElemType,
+                                                     &toNumRows, &toNumCols);
+      assert(isMat && numRows == toNumRows && numCols == toNumCols);
       (void)toNumRows;
       (void)toNumCols;
 
@@ -5636,10 +5653,9 @@ uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
       // The source matrix and the target matrix must have the same dimensions.
       QualType toElemType = {};
       uint32_t toNumRows = 0, toNumCols = 0;
-      assert(TypeTranslator::isMxNMatrix(toFloatType, &toElemType, &toNumRows,
-                                         &toNumCols) &&
-             numRows == toNumRows && numCols == toNumCols);
-      (void)toElemType;
+      const auto isMat = TypeTranslator::isMxNMatrix(toFloatType, &toElemType,
+                                                     &toNumRows, &toNumCols);
+      assert(isMat && numRows == toNumRows && numCols == toNumCols);
       (void)toNumRows;
       (void)toNumCols;
 
@@ -8092,13 +8108,6 @@ void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
   }
 }
 
-void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
-  if (shaderModel.IsPS()) {
-    theBuilder.addExecutionMode(entryPointId,
-                                spv::ExecutionMode::OriginUpperLeft, {});
-  }
-}
-
 bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
                                                    uint32_t *arraySize) {
   bool success = true;
@@ -8186,6 +8195,15 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
   }
 
   return success;
+}
+
+void SPIRVEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
+  theBuilder.addExecutionMode(entryFunctionId,
+                              spv::ExecutionMode::OriginUpperLeft, {});
+  if (auto *numThreadsAttr = decl->getAttr<HLSLEarlyDepthStencilAttr>()) {
+    theBuilder.addExecutionMode(entryFunctionId,
+                                spv::ExecutionMode::EarlyFragmentTests, {});
+  }
 }
 
 void SPIRVEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
@@ -8314,7 +8332,9 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   declIdMapper.setEntryFunctionId(entryFunctionId);
 
   // Handle attributes specific to each shader stage
-  if (shaderModel.IsCS()) {
+  if (shaderModel.IsPS()) {
+    processPixelShaderAttributes(decl);
+  } else if (shaderModel.IsCS()) {
     processComputeShaderAttributes(decl);
   } else if (shaderModel.IsHS()) {
     if (!processTessellationShaderAttributes(decl, &numOutputControlPoints))

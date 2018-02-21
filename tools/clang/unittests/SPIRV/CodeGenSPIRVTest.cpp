@@ -904,6 +904,9 @@ TEST_F(FileTest, IntrinsicsGetRenderTargetSamplePosition) {
 }
 
 // For attributes
+TEST_F(FileTest, AttributeEarlyDepthStencil) {
+  runFileTest("attribute.earlydepthstencil.ps.hlsl");
+}
 TEST_F(FileTest, AttributeNumThreads) {
   runFileTest("attribute.numthreads.hlsl");
 }

@@ -30,8 +30,8 @@ Buffer<int> myBuffer : register(t1, space0);
 [[vk::binding(4, 1)]]
 RWBuffer<float4> myRWBuffer : register(u0, space1);
 
-// CHECK: OpDecorate %var_myCBuffer DescriptorSet 3
-// CHECK-NEXT: OpDecorate %var_myCBuffer Binding 10
+// CHECK: OpDecorate %myCBuffer DescriptorSet 3
+// CHECK-NEXT: OpDecorate %myCBuffer Binding 10
 [[vk::binding(10, 3)]]
 cbuffer myCBuffer : register(b5, space1) {
     float cbfield;
