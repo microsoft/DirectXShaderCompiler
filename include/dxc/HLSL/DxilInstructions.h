@@ -4590,12 +4590,12 @@ struct DxilInst_HitKind {
 };
 
 /// This instruction uint containing the current ray flags.
-struct DxilInst_RayFlag {
+struct DxilInst_RayFlags {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_RayFlag(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_RayFlags(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::RayFlag);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::RayFlags);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -4606,12 +4606,12 @@ struct DxilInst_RayFlag {
 };
 
 /// This instruction The current x and y location within the Width and Height
-struct DxilInst_RayDispatchIndex {
+struct DxilInst_DispatchRaysIndex {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_RayDispatchIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_DispatchRaysIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::RayDispatchIndex);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::DispatchRaysIndex);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -4629,12 +4629,12 @@ struct DxilInst_RayDispatchIndex {
 };
 
 /// This instruction The Width and Height values from the D3D12_DISPATCH_RAYS_DESC structure provided to the originating DispatchRays() call.
-struct DxilInst_RayDispatchDimension {
+struct DxilInst_DispatchRaysDimensions {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_RayDispatchDimension(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_DispatchRaysDimensions(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::RayDispatchDimension);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::DispatchRaysDimensions);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -4812,12 +4812,12 @@ struct DxilInst_RayTMin {
 };
 
 /// This instruction float representing the current parametric ending point for the ray
-struct DxilInst_CurrentRayT {
+struct DxilInst_RayTCurrent {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_CurrentRayT(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_RayTCurrent(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CurrentRayT);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::RayTCurrent);
   }
   // Validation support
   bool isAllowed() const { return true; }

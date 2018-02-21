@@ -269,11 +269,11 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::InstanceID,              "InstanceID",               OCC::InstanceID,               "instanceID",                 false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
   {  OC::InstanceIndex,           "InstanceIndex",            OCC::InstanceIndex,            "instanceIndex",              false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
   {  OC::HitKind,                 "HitKind",                  OCC::HitKind,                  "hitKind",                    false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
-  {  OC::RayFlag,                 "RayFlag",                  OCC::RayFlag,                  "rayFlag",                    false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
+  {  OC::RayFlags,                "RayFlags",                 OCC::RayFlags,                 "rayFlags",                   false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
 
   // Ray Dispatch Arguments                                                                                                 void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
-  {  OC::RayDispatchIndex,        "RayDispatchIndex",         OCC::RayDispatchIndex,         "rayDispatchIndex",           false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
-  {  OC::RayDispatchDimension,    "RayDispatchDimension",     OCC::RayDispatchDimension,     "rayDispatchDimension",       false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
+  {  OC::DispatchRaysIndex,       "DispatchRaysIndex",        OCC::DispatchRaysIndex,        "dispatchRaysIndex",          false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
+  {  OC::DispatchRaysDimensions,  "DispatchRaysDimensions",   OCC::DispatchRaysDimensions,   "dispatchRaysDimensions",     false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
 
   // Ray Vectors                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::WorldRayOrigin,          "WorldRayOrigin",           OCC::WorldRayOrigin,           "worldRayOrigin",             false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
@@ -287,7 +287,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // RayT                                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::RayTMin,                 "RayTMin",                  OCC::RayTMin,                  "rayTMin",                    false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
-  {  OC::CurrentRayT,             "CurrentRayT",              OCC::CurrentRayT,              "currentRayT",                false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
+  {  OC::RayTCurrent,             "RayTCurrent",              OCC::RayTCurrent,              "rayTCurrent",                false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
 
   // AnyHit Terminals                                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::IgnoreHit,               "IgnoreHit",                OCC::IgnoreHit,                "ignoreHit",                   true, false, false, false, false, false, false, false, false, false, false, Attribute::NoReturn, },
@@ -842,11 +842,11 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::InstanceID:             A(pI32);     A(pI32); break;
   case OpCode::InstanceIndex:          A(pI32);     A(pI32); break;
   case OpCode::HitKind:                A(pI32);     A(pI32); break;
-  case OpCode::RayFlag:                A(pI32);     A(pI32); break;
+  case OpCode::RayFlags:               A(pI32);     A(pI32); break;
 
     // Ray Dispatch Arguments
-  case OpCode::RayDispatchIndex:       A(pI32);     A(pI32); A(pI8);  break;
-  case OpCode::RayDispatchDimension:   A(pI32);     A(pI32); A(pI8);  break;
+  case OpCode::DispatchRaysIndex:      A(pI32);     A(pI32); A(pI8);  break;
+  case OpCode::DispatchRaysDimensions: A(pI32);     A(pI32); A(pI8);  break;
 
     // Ray Vectors
   case OpCode::WorldRayOrigin:         A(pF32);     A(pI32); A(pI8);  break;
@@ -860,7 +860,7 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
 
     // RayT
   case OpCode::RayTMin:                A(pF32);     A(pI32); break;
-  case OpCode::CurrentRayT:            A(pF32);     A(pI32); break;
+  case OpCode::RayTCurrent:            A(pF32);     A(pI32); break;
 
     // AnyHit Terminals
   case OpCode::IgnoreHit:              A(pV);       A(pI32); break;
@@ -1044,9 +1044,9 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::InstanceID:
   case OpCode::InstanceIndex:
   case OpCode::HitKind:
-  case OpCode::RayFlag:
-  case OpCode::RayDispatchIndex:
-  case OpCode::RayDispatchDimension:
+  case OpCode::RayFlags:
+  case OpCode::DispatchRaysIndex:
+  case OpCode::DispatchRaysDimensions:
     return IntegerType::get(m_Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:
@@ -1057,7 +1057,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::ObjectToWorld:
   case OpCode::WorldToObject:
   case OpCode::RayTMin:
-  case OpCode::CurrentRayT:
+  case OpCode::RayTCurrent:
     return Type::getFloatTy(m_Ctx);
   case OpCode::MakeDouble:
   case OpCode::SplitDouble:
