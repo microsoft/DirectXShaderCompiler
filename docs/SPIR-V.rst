@@ -2257,7 +2257,6 @@ element is the height, and the third is the elements.
 The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
 element is the height, and the third element is the depth.
 
-
 HLSL Shader Stages
 ==================
 
@@ -2423,6 +2422,19 @@ each time a ``*Stream<T>::Append()`` is encountered, all stage output variables
 behind ``T`` will be flushed before SPIR-V ``OpEmitVertex`` instruction is
 generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
 ``OpEndPrimitive`` instruction.
+
+Shader Model 6.0 Wave Intrinsics
+================================
+
+Shader Model 6.0 introduces a set of wave operations, which are translated
+according to the following table:
+
+====================== ============================= =========================
+      Intrinsic               SPIR-V BuiltIn                Extension
+====================== ============================= =========================
+``WaveGetLaneCount()`` ``SubgroupSize``              ``SPV_KHR_shader_ballot``
+``WaveGetLaneIndex()`` ``SubgroupLocalInvocationId`` ``SPV_KHR_shader_ballot``
+====================== ============================= =========================
 
 Vulkan Command-line Options
 ===========================

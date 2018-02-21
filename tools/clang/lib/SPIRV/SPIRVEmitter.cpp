@@ -5895,6 +5895,20 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_f32tof16:
     retVal = processIntrinsicF32ToF16(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_WaveGetLaneCount: {
+    const uint32_t retType =
+        typeTranslator.translateType(callExpr->getCallReturnType(astContext));
+    const uint32_t varId =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize);
+    retVal = theBuilder.createLoad(retType, varId);
+  } break;
+  case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
+    const uint32_t retType =
+        typeTranslator.translateType(callExpr->getCallReturnType(astContext));
+    const uint32_t varId =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupLocalInvocationId);
+    retVal = theBuilder.createLoad(retType, varId);
+  } break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
