@@ -957,6 +957,7 @@ Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
   DXIL::ShaderKind shaderKind =
       static_cast<DXIL::ShaderKind>(ConstMDToUint32(pProps->getOperand(idx++)));
 
+  bool bRayAttributes = false;
   props->shaderKind = shaderKind;
   switch (shaderKind) {
   case DXIL::ShaderKind::Compute:
@@ -1008,16 +1009,16 @@ Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
         ConstMDToUint32(pProps->getOperand(idx++));
     break;
   case DXIL::ShaderKind::AnyHit:
-    props->ShaderProps.AnyHit.payloadParamCount =
-      ConstMDToUint32(pProps->getOperand(idx++));
-    props->ShaderProps.AnyHit.attributeParamCount =
-      ConstMDToUint32(pProps->getOperand(idx++));
-    break;
   case DXIL::ShaderKind::ClosestHit:
-    props->ShaderProps.ClosestHit.payloadParamCount =
+    bRayAttributes = true;
+  case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Callable:
+    // payload/params unioned and first:
+    props->ShaderProps.Ray.payloadSizeInBytes =
       ConstMDToUint32(pProps->getOperand(idx++));
-    props->ShaderProps.ClosestHit.attributeParamCount =
-      ConstMDToUint32(pProps->getOperand(idx++));
+    if (bRayAttributes)
+      props->ShaderProps.Ray.attributeSizeInBytes =
+        ConstMDToUint32(pProps->getOperand(idx++));
     break;
   default:
     break;
@@ -1028,6 +1029,7 @@ Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
 MDTuple *
 DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
                                     Function *F) {
+  bool bRayAttributes = false;
   Metadata *MDVals[30];
   std::fill(MDVals, MDVals + _countof(MDVals), nullptr);
   unsigned valIdx = 0;
@@ -1071,12 +1073,14 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
     MDVals[valIdx++] = BoolToConstMD(props->ShaderProps.PS.EarlyDepthStencil);
     break;
   case DXIL::ShaderKind::AnyHit:
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AnyHit.payloadParamCount);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.AnyHit.attributeParamCount);
-    break;
   case DXIL::ShaderKind::ClosestHit:
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.ClosestHit.payloadParamCount);
-    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.ClosestHit.attributeParamCount);
+    bRayAttributes = true;
+  case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Callable:
+    // payload/params unioned and first:
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.Ray.payloadSizeInBytes);
+    if (bRayAttributes)
+      MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.Ray.attributeSizeInBytes);
     break;
   default:
     break;

@@ -1528,9 +1528,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (FD->hasAttr<HLSLPreciseAttr>())
     retTyAnnotation.SetPrecise();
 
-  // flattened parameter count for payload and attributes for AnyHit and ClosestHit shaders:
-  unsigned payloadParamCount = 0;
-  unsigned attributeParamCount = 0;
+  if (isRay) {
+    funcProps->ShaderProps.Ray.payloadSizeInBytes = 0;
+    funcProps->ShaderProps.Ray.attributeSizeInBytes = 0;
+  }
 
   for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx) {
     DxilParameterAnnotation &paramAnnotation =
@@ -1705,13 +1706,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     // Validate Ray Tracing function parameter (some validation may be pushed into front end)
     if (isRay) {
-      StringRef semanticName;
-      unsigned int semanticIndex = 0;
-      if (paramAnnotation.HasSemanticString()) {
-        Semantic::DecomposeNameAndIndex(paramAnnotation.GetSemanticStringRef(),
-          &semanticName, &semanticIndex);
-      }
-
       switch (funcProps->shaderKind) {
       case DXIL::ShaderKind::RayGeneration:
       case DXIL::ShaderKind::Intersection:
@@ -1723,59 +1717,36 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         break;
       case DXIL::ShaderKind::AnyHit:
       case DXIL::ShaderKind::ClosestHit:
-        // AnyHit & ClosestHit may have zero or one inout SV_RayPayload and
-        //  zero or one in SV_IntersectionAttributes parameters, in that order only.
-        // Number of flattened elements for each of these is stored
-        //  in payloadParamCount/attributeParamCount.
-        if (!paramAnnotation.HasSemanticString()) {
+        if (0 == ArgNo && dxilInputQ != DxilParamInputQual::Inout) {
           Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
             DiagnosticsEngine::Error,
-            "parameter must have SV_RayPayload or SV_IntersectionAttributes semantic"));
-        } else {
-          // compare semantic with allowed names and verify number is 0
-          bool bPayload = semanticName.compare_lower("sv_raypayload") == 0;
-          bool bAttr = semanticName.compare_lower("sv_intersectionattributes") == 0;
-          if (bPayload || bAttr) {
-            unsigned int &flattened =
-              bPayload ? payloadParamCount : attributeParamCount;
-            if (flattened > 0) {
-              Diags.Report(paramSemanticLoc, Diags.getCustomDiagID(
-                DiagnosticsEngine::Error, "only one %0 parameter allowed"))
-                  << (bPayload ? "ray payload" : "intersection attributes");
-            } else {
-              if (bPayload && attributeParamCount) {
-                Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-                  DiagnosticsEngine::Error,
-                  "ray payload must be before intersection attributes"));
-              }
-              // TODO: count flattened elements for parameter
-              flattened = 1;  // FIX THIS
-            }
-            if (semanticIndex > 0) {
-              Diags.Report(paramSemanticLoc, Diags.getCustomDiagID(
-                DiagnosticsEngine::Error, "semantic index must be 0"));
-            }
-            if (bPayload && dxilInputQ != DxilParamInputQual::Inout) {
-              Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-                DiagnosticsEngine::Error,
-                "ray payload parameter must be inout"));
-            } else if (bAttr && dxilInputQ != DxilParamInputQual::In) {
-              Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
-                DiagnosticsEngine::Error,
-                "intersection attributes parameter must be in"));
-            }
-          } else {
-            Diags.Report(paramSemanticLoc, Diags.getCustomDiagID(
+            "ray payload parameter must be inout"));
+        } else if (1 == ArgNo && dxilInputQ != DxilParamInputQual::In) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "intersection attributes parameter must be in"));
+        } else if (ArgNo > 1) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "too many parameters, expected payload and attributes parameters only."));
+        }
+        if (ArgNo < 2) {
+          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
               DiagnosticsEngine::Error,
-              "semantic must be SV_RayPayload or SV_IntersectionAttributes"));
+              "payload and attribute structures must be user defined types with only numeric contents."));
+          } else {
+            DataLayout DL(&this->TheModule);
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo));
+            if (0 == ArgNo)
+              funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+            else
+              funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
           }
         }
         break;
       case DXIL::ShaderKind::Miss:
-        // Miss shader may have zero or one inout payload param only
-        //  semantic should be SV_RayPayload
-        //  (though we could ignore semantic, leaving it optional)
-        if (ParmIdx > 0) {
+        if (ArgNo > 0) {
           Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
             DiagnosticsEngine::Error,
             "only one parameter (ray payload) allowed for miss shader"));
@@ -1784,18 +1755,20 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             DiagnosticsEngine::Error,
             "ray payload parameter must be declared inout"));
         }
-        if (paramAnnotation.HasSemanticString() &&
-            (semanticName.compare_lower("sv_raypayload") != 0 ||
-             semanticIndex != 0)) {
-          Diags.Report(paramSemanticLoc, Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "semantic must be SV_RayPayload with optional index of 0"));
+        if (ArgNo < 1) {
+          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "ray payload parameter must be a user defined type with only numeric contents."));
+          } else {
+            DataLayout DL(&this->TheModule);
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo));
+            funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+          }
         }
         break;
       case DXIL::ShaderKind::Callable:
-        // Callable may have zero or one UDT parameter input
-        //  (ignore semantic if present)
-        if (ParmIdx > 0) {
+        if (ArgNo > 0) {
           Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
             DiagnosticsEngine::Error,
             "only one parameter allowed for callable shader"));
@@ -1803,6 +1776,17 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
             DiagnosticsEngine::Error,
             "callable parameter must be declared inout"));
+        }
+        if (ArgNo < 1) {
+          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "callable parameter must be a user defined type with only numeric contents."));
+          } else {
+            DataLayout DL(&this->TheModule);
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo));
+            funcProps->ShaderProps.Ray.paramSizeInBytes = size;
+          }
         }
         break;
       }
@@ -1826,12 +1810,32 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     Diags.Report(FD->getLocation(), DiagID);
   }
 
-  if (funcProps->IsAnyHit()) {
-    funcProps->ShaderProps.AnyHit.payloadParamCount = payloadParamCount;
-    funcProps->ShaderProps.AnyHit.attributeParamCount = attributeParamCount;
-  } else if (funcProps->IsClosestHit()) {
-    funcProps->ShaderProps.ClosestHit.payloadParamCount = payloadParamCount;
-    funcProps->ShaderProps.ClosestHit.attributeParamCount = attributeParamCount;
+  // If Shader is a ray shader that requires parameters, make sure size is non-zero
+  if (isRay) {
+    bool bNeedsAttributes = false;
+    bool bNeedsPayload = false;
+    switch (funcProps->shaderKind) {
+    case DXIL::ShaderKind::AnyHit:
+    case DXIL::ShaderKind::ClosestHit:
+      bNeedsAttributes = true;
+    case DXIL::ShaderKind::Miss:
+      bNeedsPayload = true;
+    case DXIL::ShaderKind::Callable:
+      if (0 == funcProps->ShaderProps.Ray.payloadSizeInBytes) {
+        unsigned DiagID = bNeedsPayload ?
+          Diags.getCustomDiagID(DiagnosticsEngine::Error,
+            "shader must include inout payload structure parameter.") :
+          Diags.getCustomDiagID(DiagnosticsEngine::Error,
+            "shader must include inout parameter structure.");
+        Diags.Report(FD->getLocation(), DiagID);
+      }
+    }
+    if (bNeedsAttributes &&
+        0 == funcProps->ShaderProps.Ray.attributeSizeInBytes) {
+      Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "shader must include attributes structure parameter."));
+    }
   }
 
   // Type annotation for parameters and return type.

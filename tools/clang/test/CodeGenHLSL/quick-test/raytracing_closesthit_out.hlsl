@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // CHECK: error: ray payload parameter must be inout
 // CHECK: error: intersection attributes parameter must be in
@@ -14,5 +14,4 @@ struct MyAttributes {
 };
 
 [shader("closesthit")]
-void closesthit_out( out MyPayload payload : SV_RayPayload,
-                     out MyAttributes attr : SV_IntersectionAttributes ) {}
+void closesthit_out( out MyPayload payload, out MyAttributes attr ) {}

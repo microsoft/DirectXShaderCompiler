@@ -90,6 +90,40 @@ bool IsHLSLVecType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLNumeric(clang::QualType type) {
+  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
+  if (isa<RecordType>(Ty)) {
+    if (IsHLSLVecMatType(type))
+      return true;
+    return IsHLSLNumericUserDefinedType(type);
+  } else if (type->isArrayType()) {
+    return IsHLSLNumeric(QualType(type->getArrayElementTypeNoTypeQual(), 0));
+  }
+  return Ty->isBuiltinType();
+}
+
+bool IsHLSLNumericUserDefinedType(clang::QualType type) {
+  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (isa<ClassTemplateSpecializationDecl>(RD)) {
+      return false;   // UDT are not templates
+    }
+    // TODO: avoid check by name
+    StringRef name = RD->getName();
+    if (name == "ByteAddressBuffer" ||
+        name == "RWByteAddressBuffer" ||
+        name == "RaytracingAccelerationStructure")
+      return false;
+    for (auto member : RD->fields()) {
+      if (!IsHLSLNumeric(member->getType()))
+        return false;
+    }
+    return true;
+  }
+  return false;
+}
+
 /// Checks whether the pAttributes indicate a parameter is inout or out; if
 /// inout, pIsIn will be set to true.
 bool IsParamAttributedAsOut(_In_opt_ clang::AttributeList *pAttributes,
