@@ -1673,6 +1673,58 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
   }
 }
 
+uint32_t DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
+  // Guarantee uniqueness
+  switch (builtIn) {
+  case spv::BuiltIn::SubgroupSize:
+    if (laneCountBuiltinId)
+      return laneCountBuiltinId;
+    break;
+  case spv::BuiltIn::SubgroupLocalInvocationId:
+    if (laneIndexBuiltinId)
+      return laneIndexBuiltinId;
+    break;
+  default:
+    // Only allow the two cases we know about
+    assert(false && "unsupported builtin case");
+    return 0;
+  }
+
+  // Both of them require the SPV_KHR_shader_ballot extension.
+  theBuilder.addExtension("SPV_KHR_shader_ballot");
+  theBuilder.requireCapability(spv::Capability::SubgroupBallotKHR);
+
+  uint32_t type = theBuilder.getUint32Type();
+
+  // Create a dummy StageVar for this builtin variable
+  const uint32_t varId =
+      theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input, builtIn);
+
+  const hlsl::SigPoint *sigPoint =
+      hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
+          hlsl::DxilParamInputQual::In, shaderModel.GetKind(),
+          /*isPatchConstant=*/false));
+
+  StageVar stageVar(sigPoint, /*semaStr=*/"", hlsl::Semantic::GetInvalid(),
+                    /*semaName=*/"", /*semaIndex=*/0, /*builtinAttr=*/nullptr,
+                    type);
+
+  stageVar.setIsSpirvBuiltin();
+  stageVar.setSpirvId(varId);
+  stageVars.push_back(stageVar);
+
+  switch (builtIn) {
+  case spv::BuiltIn::SubgroupSize:
+    laneCountBuiltinId = varId;
+    break;
+  case spv::BuiltIn::SubgroupLocalInvocationId:
+    laneIndexBuiltinId = varId;
+    break;
+  }
+
+  return varId;
+}
+
 uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
                                                  const NamedDecl *decl,
                                                  const llvm::StringRef name,
