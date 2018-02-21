@@ -463,22 +463,29 @@ public:
     m_DM->ClearLLVMUsed();
     m_bIsLib = DM.GetShaderModel()->IsLib();
 
+    bool bChanged = false;
+    unsigned numResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
+                            DM.GetSRVs().size() + DM.GetSamplers().size();
+
+    if (!numResources)
+      return false;
+
     // Switch tbuffers to SRVs, as they have been treated as cbuffers up to this
     // point.
     if (DM.GetCBuffers().size())
-      PatchTBuffers(DM);
+      bChanged = PatchTBuffers(DM) || bChanged;
 
     // Remove unused resource.
     DM.RemoveUnusedResourceSymbols();
 
-    bool hasResource = DM.GetCBuffers().size() || DM.GetUAVs().size() ||
-                       DM.GetSRVs().size() || DM.GetSamplers().size();
+    unsigned newResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
+                            DM.GetSRVs().size() + DM.GetSamplers().size();
+    bChanged = bChanged || (numResources != newResources);
 
-    if (!hasResource || m_bIsLib)
-      return false;
+    if (0 == newResources || m_bIsLib)
+      return bChanged;
 
-    BuildRewriteMap(m_rewrites, DM);
-    ApplyRewriteMapOnResTable(m_rewrites, DM);
+    bChanged = true;
 
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
@@ -498,7 +505,7 @@ public:
     dxilutil::RemoveUnusedFunctions(M, DM.GetEntryFunction(),
                                     DM.GetPatchConstantFunction(), m_bIsLib);
 
-    return true;
+    return bChanged;
   }
 
 private:
@@ -508,7 +515,7 @@ private:
   void AddCreateHandleForPhiNodeAndSelect(OP *hlslOP);
   void UpdateStructTypeForLegacyLayout();
   // Switch CBuffer for SRV for TBuffers.
-  void PatchTBuffers(DxilModule &DM);
+  bool PatchTBuffers(DxilModule &DM);
   void PatchTBufferUse(Value *V, DxilModule &DM);
 };
 
@@ -1032,7 +1039,8 @@ void DxilLowerCreateHandleForLib::PatchTBufferUse(Value *V, DxilModule &DM) {
   }
 }
 
-void DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
+bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
+  bool bChanged = false;
   // move tbuffer resources to SRVs
   unsigned offset = DM.GetSRVs().size();
   Module &M = *DM.GetModule();
@@ -1054,8 +1062,10 @@ void DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
           /*InsertBefore*/ nullptr, GV->getThreadLocalMode(),
           GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
       CB->SetGlobalSymbol(NewGV);
+      bChanged = true;
     }
   }
+  return bChanged;
 }
 
 // Select on handle.
