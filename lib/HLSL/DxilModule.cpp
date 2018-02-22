@@ -1282,17 +1282,40 @@ void DxilModule::EmitDxilMetadata() {
   if (m_pSM->IsLib()) {
     NamedMDNode *fnProps = m_pModule->getOrInsertNamedMetadata(
         DxilMDHelper::kDxilFunctionPropertiesMDName);
-    for (auto &&pair : m_DxilFunctionPropsMap) {
-      const hlsl::DxilFunctionProps *props = pair.second.get();
-      MDTuple *pProps = m_pMDHelper->EmitDxilFunctionProps(props, pair.first);
+
+    // Sort functions by name to keep metadata deterministic
+    vector<Function *> funcOrder;
+    funcOrder.reserve(std::max(m_DxilFunctionPropsMap.size(),
+                               m_DxilEntrySignatureMap.size()));
+
+    std::transform( m_DxilFunctionPropsMap.begin(),
+                    m_DxilFunctionPropsMap.end(),
+                    std::back_inserter(funcOrder),
+                    [](auto &p) -> Function* { return p.first; } );
+    std::sort(funcOrder.begin(), funcOrder.end(), [](Function *F1, Function *F2) {
+      return F1->getName() < F2->getName();
+    });
+
+    for (auto F : funcOrder) {
+      MDTuple *pProps = m_pMDHelper->EmitDxilFunctionProps(&GetDxilFunctionProps(F), F);
       fnProps->addOperand(pProps);
     }
+    funcOrder.clear();
 
     NamedMDNode *entrySigs = m_pModule->getOrInsertNamedMetadata(
         DxilMDHelper::kDxilEntrySignaturesMDName);
-    for (auto &&pair : m_DxilEntrySignatureMap) {
-      Function *F = pair.first;
-      DxilEntrySignature *Sig = pair.second.get();
+
+    // Sort functions by name to keep metadata deterministic
+    std::transform( m_DxilEntrySignatureMap.begin(),
+                    m_DxilEntrySignatureMap.end(),
+                    std::back_inserter(funcOrder),
+                    [](auto &p) -> Function* { return p.first; } );
+    std::sort(funcOrder.begin(), funcOrder.end(), [](Function *F1, Function *F2) {
+      return F1->getName() < F2->getName();
+    });
+
+    for (auto F : funcOrder) {
+      DxilEntrySignature *Sig = &GetDxilEntrySignature(F);
       MDTuple *pSig = m_pMDHelper->EmitDxilSignatures(*Sig);
       entrySigs->addOperand(
           MDTuple::get(m_Ctx, {ValueAsMetadata::get(F), pSig}));

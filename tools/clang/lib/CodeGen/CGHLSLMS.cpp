@@ -1737,7 +1737,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
               "payload and attribute structures must be user defined types with only numeric contents."));
           } else {
             DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo));
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
             if (0 == ArgNo)
               funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
             else
@@ -1762,7 +1762,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
               "ray payload parameter must be a user defined type with only numeric contents."));
           } else {
             DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo));
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
             funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
           }
         }
@@ -1784,7 +1784,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
               "callable parameter must be a user defined type with only numeric contents."));
           } else {
             DataLayout DL(&this->TheModule);
-            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo));
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
             funcProps->ShaderProps.Ray.paramSizeInBytes = size;
           }
         }
