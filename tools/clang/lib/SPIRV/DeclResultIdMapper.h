@@ -255,6 +255,9 @@ public:
                             ModuleBuilder &builder,
                             const EmitSPIRVOptions &spirvOptions);
 
+  /// \brief Returns the <result-id> for a SPIR-V builtin variable.
+  uint32_t getBuiltinVar(spv::BuiltIn builtIn);
+
   /// \brief Creates the stage output variables by parsing the semantics
   /// attached to the given function's parameter or return value and returns
   /// true on success. SPIR-V instructions will also be generated to update the
@@ -648,6 +651,15 @@ private:
   /// to the <type-id>
   llvm::DenseMap<const DeclContext *, uint32_t> ctBufferPCTypeIds;
 
+  /// <result-id> for the SPIR-V builtin variables accessed by
+  /// WaveGetLaneCount() and WaveGetLaneIndex().
+  ///
+  /// These are the only two cases that SPIR-V builtin variables are accessed
+  /// using HLSL intrinsic function calls. All other builtin variables are
+  /// accessed using stage IO variables.
+  uint32_t laneCountBuiltinId;
+  uint32_t laneIndexBuiltinId;
+
   /// Whether the translated SPIR-V binary needs legalization.
   ///
   /// The following cases will require legalization:
@@ -718,7 +730,7 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
       astContext(context), diags(context.getDiagnostics()),
       typeTranslator(context, builder, diags, options), entryFunctionId(0),
-      needsLegalization(false),
+      laneCountBuiltinId(0), laneIndexBuiltinId(0), needsLegalization(false),
       glPerVertex(model, context, builder, typeTranslator, options.invertY) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {

@@ -286,6 +286,58 @@ interface variables:
   main([[vk::location(N)]] float4 input: A) : B
   { ... }
 
+Legalization, optimization, validation
+--------------------------------------
+
+After initial translation of the HLSL source code, SPIR-V CodeGen will further
+conduct legalization (if needed), optimization (if requested), and validation
+(if not turned off). All these three stages are outsourced to `SPIRV-Tools <https://github.com/KhronosGroup/SPIRV-Tools>`_.
+Here are the options controlling these stages:
+
+* ``-fcgl``: turn off legalization and optimization
+* ``-Od``: turn off optimization
+* ``-Vd``: turn off validation
+
+Legalization
+~~~~~~~~~~~~
+
+HLSL is a fairly permissive language considering the flexibility it provides for
+manipulating resource objects. The developer can create local copies, pass
+them around as function parameters and return values, as long as after certain
+transformations (function inlining, constant evaluation and propagating, dead
+code elimination, etc.), the compiler can remove all temporary copies and
+pinpoint all uses to unique global resource objects.
+
+Resulting from the above property of HLSL, if we translate into SPIR-V for
+Vulkan literally from the input HLSL source code, we will sometimes generate
+illegal SPIR-V. Certain transformations are needed to legalize the literally
+translated SPIR-V. Performing such transformations at the frontend AST level
+is cumbersome or impossible (e.g., function inlining). They are better to be
+conducted at SPIR-V level. Therefore, legalization is delegated to SPIRV-Tools.
+
+Specifically, we need to legalize the following HLSL source code patterns:
+
+* Using resource types in struct types
+* Creating aliases of global resource objects
+* Control flows invovling the above cases
+
+Legalization transformations will not run unless the above patterns are
+encountered in the source code.
+
+Optimization
+~~~~~~~~~~~~
+
+Optimization is also delegated to SPIRV-Tools. Right now there are no difference
+between optimization levels greater than zero; they will all invoke the same
+optimization recipe. This may change in the future.
+
+Validation
+~~~~~~~~~~
+
+Validation is turned on by default as the last stage of SPIR-V CodeGen. Failing
+validation, which indicates there is a CodeGen bug, will trigger a fatal error.
+Please file an issue if you see that.
+
 HLSL Types
 ==========
 
@@ -365,7 +417,9 @@ are translated into:
 ``|type|1x1``                        The scalar type for ``|type|``
 ==================================== ====================================================
 
-A MxN HLSL matrix is translated into a SPIR-V matrix with M vectors, each with
+The above table is for float matrices.
+
+A MxN HLSL float matrix is translated into a SPIR-V matrix with M vectors, each with
 N elements. Conceptually HLSL matrices are row-major while SPIR-V matrices are
 column-major, thus all HLSL matrices are represented by their transposes.
 Doing so may require special handling of certain matrix operations:
@@ -383,6 +437,10 @@ Doing so may require special handling of certain matrix operations:
   packed together, they should be loaded into a column/row correspondingly.
 
 See `Appendix A. Matrix Representation`_ for further explanation regarding these design choices.
+
+Since the ``Shader`` capability in SPIR-V does not allow to parameterize matrix
+types with non-floating-point types, a non-floating-point MxN matrix is translated
+into an array with M elements, with each element being a vector with N elements.
 
 Structs
 -------
@@ -2251,7 +2309,6 @@ element is the height, and the third is the elements.
 The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
 element is the height, and the third element is the depth.
 
-
 HLSL Shader Stages
 ==================
 
@@ -2417,6 +2474,19 @@ each time a ``*Stream<T>::Append()`` is encountered, all stage output variables
 behind ``T`` will be flushed before SPIR-V ``OpEmitVertex`` instruction is
 generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
 ``OpEndPrimitive`` instruction.
+
+Shader Model 6.0 Wave Intrinsics
+================================
+
+Shader Model 6.0 introduces a set of wave operations, which are translated
+according to the following table:
+
+====================== ============================= =========================
+      Intrinsic               SPIR-V BuiltIn                Extension
+====================== ============================= =========================
+``WaveGetLaneCount()`` ``SubgroupSize``              ``SPV_KHR_shader_ballot``
+``WaveGetLaneIndex()`` ``SubgroupLocalInvocationId`` ``SPV_KHR_shader_ballot``
+====================== ============================= =========================
 
 Vulkan Command-line Options
 ===========================

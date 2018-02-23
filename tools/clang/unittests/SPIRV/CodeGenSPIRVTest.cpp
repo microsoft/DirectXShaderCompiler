@@ -904,6 +904,9 @@ TEST_F(FileTest, IntrinsicsGetRenderTargetSamplePosition) {
 }
 
 // For attributes
+TEST_F(FileTest, AttributeEarlyDepthStencil) {
+  runFileTest("attribute.earlydepthstencil.ps.hlsl");
+}
 TEST_F(FileTest, AttributeNumThreads) {
   runFileTest("attribute.numthreads.hlsl");
 }
@@ -964,6 +967,17 @@ TEST_F(FileTest, PrimitiveTriangleAdjGS) {
 }
 TEST_F(FileTest, PrimitiveErrorGS) {
   runFileTest("primitive.error.gs.hlsl", Expect::Failure);
+}
+
+// Shader model 6.0 wave query
+TEST_F(FileTest, SM6WaveGetLaneCount) {
+  runFileTest("sm6.wave-get-lane-count.hlsl");
+}
+TEST_F(FileTest, SM6WaveGetLaneIndex) {
+  runFileTest("sm6.wave-get-lane-index.hlsl");
+}
+TEST_F(FileTest, SM6WaveBuiltInNoDuplicate) {
+  runFileTest("sm6.wave.builtin.no-dup.hlsl");
 }
 
 // SPIR-V specific

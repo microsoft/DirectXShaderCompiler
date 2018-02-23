@@ -146,7 +146,7 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
   acc += b4 ? v0.xy : 1.0F;                                 /* expected-error {{conditional operator condition and result dimensions mismatch.}} fxc-error {{X3017: cannot implicitly convert from 'float2' to 'float4'}} */
   acc += b4 ? v0.xy : (v0 + 1.0F);                          /* expected-error {{conditional operator condition and result dimensions mismatch.}} fxc-error {{X3017: cannot implicitly convert from 'float2' to 'const float4'}} */
   acc += b4.xy ? v0 : (v0 + 1.0F);                          /* expected-error {{conditional operator condition and result dimensions mismatch.}} fxc-error {{X3020: dimension of conditional does not match value}} */
-  acc += b4.xy ? v0 : (v0.xy + 1.0F);                       /* expected-error {{conditional operator condition and result dimensions mismatch.}} fxc-error {{X3017: cannot implicitly convert from 'const float2' to 'float4'}} fxc-warning {{X3206: implicit truncation of vector type}} */
+  acc += b4.xy ? v0 : (v0.xy + 1.0F);                       /* expected-error {{cannot convert from 'vector<float, 2>' to 'float4'}} fxc-error {{X3017: cannot implicitly convert from 'const float2' to 'float4'}} fxc-warning {{X3206: implicit truncation of vector type}} */
 
   // lit float/int
   acc += b4 ? v0 : 1.1;

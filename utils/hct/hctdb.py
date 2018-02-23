@@ -711,7 +711,7 @@ class db_dxil(object):
             db_dxil_param(2, "res", "handle", "resource handle to query"),
             db_dxil_param(3, "i32", "mipLevel", "mip level to query")])
         next_op_idx += 1
-        self.add_dxil_op("TextureGather", next_op_idx, "TextureGather", "gathers the four texels that would be used in a bi-linear filtering operation", "fi", "ro", [
+        self.add_dxil_op("TextureGather", next_op_idx, "TextureGather", "gathers the four texels that would be used in a bi-linear filtering operation", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "dimension information for texture"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -723,7 +723,7 @@ class db_dxil(object):
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "channel", "channel to sample")])
         next_op_idx += 1
-        self.add_dxil_op("TextureGatherCmp", next_op_idx, "TextureGatherCmp", "same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp", "fi", "ro", [
+        self.add_dxil_op("TextureGatherCmp", next_op_idx, "TextureGatherCmp", "same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "gathered texels"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),

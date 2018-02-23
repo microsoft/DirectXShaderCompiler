@@ -726,7 +726,7 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcCompile
     IFT(pIncludeHandler->insertIncludeFile(pFileName, pBlobEncoding, dataLen));
     // Check if this file is the main file or included file
     if (wcscmp(pFileName, pMainFileName) == 0) {
-      pCompileSource = pBlobEncoding.Detach();
+      pCompileSource.Attach(pBlobEncoding.Detach());
     }
   }
 
@@ -851,6 +851,10 @@ void DxcContext::Preprocess() {
   CComPtr<IDxcIncludeHandler> pIncludeHandler;
   IFT(CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
+
+  // Carry forward the options that control preprocessor
+  if (m_Opts.LegacyMacroExpansion)
+    args.push_back(L"-flegacy-macro-expansion");
 
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
   IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));

@@ -6304,7 +6304,7 @@
                 <Value>0x00800000</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
-                <Value>0x80780000</Value>
+                <Value>0x80F00000</Value>
                 <Value>0x80700000</Value>
                 <Value>0x01380000</Value>
             </Parameter>
@@ -6343,7 +6343,7 @@
                 <Value>0x00800000</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
-                <Value>0x80780000</Value>
+                <Value>0x80F00000</Value>
                 <Value>0x80700000</Value>
                 <Value>0x01380000</Value>
             </Parameter>

@@ -19,4 +19,10 @@ void main() {
 // CHECK-NEXT: [[d:%\d+]] = OpCompositeConstruct %mat2v3float [[d0]] [[d1]]
 // CHECK-NEXT: OpStore %d [[d]]
     float2x3 d = float2x3(6., 7., 8., 9., 10., 11.);
+
+// CHECK-NEXT: [[e0:%\d+]] = OpCompositeConstruct %v3int %int_6 %int_7 %int_8
+// CHECK-NEXT: [[e1:%\d+]] = OpCompositeConstruct %v3int %int_9 %int_10 %int_11
+// CHECK-NEXT: [[e:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[e0]] [[e1]]
+// CHECK-NEXT: OpStore %e [[e]]
+    int2x3 e = int2x3(6, 7, 8, 9, 10, 11);
 }
