@@ -400,7 +400,7 @@ public:
   TEST_METHOD(CompileWhenWorksThenDisassembleWorks)
   TEST_METHOD(CompileWhenDebugWorksThenStripDebug)
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
-  TEST_METHOD(CompileWhenWorksThenAddCustomDebugName)
+  TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
 
   TEST_METHOD(CompileWhenIncludeThenLoadInvoked)
@@ -2128,7 +2128,7 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
   VERIFY_IS_NULL(pPartHeader);
 }
 
-TEST_F(CompilerTest, CompileWhenWorksThenAddCustomDebugName) {
+TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
   CComPtr<IDxcBlobEncoding> pSource;
