@@ -1347,23 +1347,25 @@ void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
                                                  uint32_t *currentOffset) {
   bool fieldIsVecType = false;
 
-  // Adjust according to HLSL relaxed layout rules.
-  // Aligning vectors as their element types so that we can pack a float
-  // and a float3 tightly together.
-  QualType vecElemType = {};
-  if (fieldIsVecType = isVectorType(fieldType, &vecElemType)) {
-    uint32_t scalarAlignment = 0;
-    std::tie(scalarAlignment, std::ignore) =
-        getAlignmentAndSize(vecElemType, LayoutRule::Void, false, nullptr);
-    if (scalarAlignment <= 4)
-      *fieldAlignment = scalarAlignment;
+  if (!spirvOptions.useGlslLayout) {
+    // Adjust according to HLSL relaxed layout rules.
+    // Aligning vectors as their element types so that we can pack a float
+    // and a float3 tightly together.
+    QualType vecElemType = {};
+    if (fieldIsVecType = isVectorType(fieldType, &vecElemType)) {
+      uint32_t scalarAlignment = 0;
+      std::tie(scalarAlignment, std::ignore) =
+          getAlignmentAndSize(vecElemType, LayoutRule::Void, false, nullptr);
+      if (scalarAlignment <= 4)
+        *fieldAlignment = scalarAlignment;
+    }
   }
 
   roundToPow2(currentOffset, *fieldAlignment);
 
   // Adjust according to HLSL relaxed layout rules.
   // Bump to 4-component vector alignment if there is a bad straddle
-  if (fieldIsVecType &&
+  if (!spirvOptions.useGlslLayout && fieldIsVecType &&
       improperStraddle(fieldType, fieldSize, *currentOffset)) {
     *fieldAlignment = kStd140Vec4Alignment;
     roundToPow2(currentOffset, *fieldAlignment);
