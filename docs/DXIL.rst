@@ -1980,6 +1980,66 @@ ExtractValue  extracts from aggregate
 ============= ======================================================================= =================
 
 
+FAdd
+~~~~
+
+%des = fadd float %src0, %src1
+
+The following table shows the results obtained when executing the instruction with various classes of numbers, assuming that neither overflow or underflow occurs.
+
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+| src0\src1| -inf     | -F     | -denorm | -0 | +0 | +denorm |    +F  | +inf | NaN |
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+| -inf     | -inf     |   -inf | -inf    |-inf|-inf| -inf    |   -inf | NaN  | NaN |
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+| -F       | -inf     |   -F   | src0    |src0|src0| src0    |   +-F  | +inf | NaN |
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+| -denorm  | -inf     |   src1 | -0      |-0  |+0  | +0      |   src1 | +inf | NaN |
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+| -0       | -inf     |   src1 | -0      |-0  |+0  | +0      |   src1 | +inf | NaN |
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+| +0       | -inf     |   src1 | -0      |-0  |+0  | +0      |   src1 | +inf | NaN |
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+| +denorm  | -inf     |   src1 | -0      |-0  |+0  | +0      |   src1 | +inf | NaN |
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+| +F       | -inf     |  +-F   | src0    |src0|src0| src0    |   +F   | +inf | NaN |
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+| +inf     | NaN      |   +inf | +inf    |+inf|+inf| +inf    |   +inf | +inf | NaN |
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+| NaN      | NaN      |   NaN  | NaN     |NaN |NaN | NaN     |   NaN  | NaN  | NaN |
++----------+----------+--------+---------+----+----+---------+--------+------+-----+
+
+FDiv
+~~~~
+
+%des = fdiv float %src0, %src1
+
+The following table shows the results obtained when executing the instruction with various classes of numbers, assuming that neither overflow or underflow occurs.
+
+One outcome of this is there are exceptions to the table below for large denominator values (greater than 8.5070592e+37), where 1/denominator is a denorm. Since implementations may perform divide as a*(1/b), instead of a/b directly, and 1/[large value] is a denorm that could get flushed, some cases in the table would produce different results. For example (+/-)INF / (+/-)[value > 8.5070592e+37] may produce NaN on some implementations, but (+/-)INF on other implementations.
+
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| src0\\src1| -inf     | -F     |  -1   | -denorm | -0 | +0 | +denorm |  +1   |    +F  | +inf | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| -inf      | NaN      |   +inf | +inf  | +inf    |+inf|-inf| -inf    |  -inf |   -inf | NaN  | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| -F        | +0       |   +F   | +src0 | +inf    |+inf|-inf| -inf    |  -src0|   -F   | -0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| -denorm   | +0       |   +0   | +0    | NaN     |NaN |NaN | NaN     |  -0   |   -0   | -0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| -0        | +0       |   +0   | +0    | NaN     |NaN |NaN | NaN     |  -0   |   -0   | -0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| +0        | -0       |   -0   | -0    | NaN     |NaN |NaN | NaN     |  +0   |   +0   | +0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| +denorm   | -0       |   -0   | -0    | NaN     |NaN |NaN | NaN     |  +0   |   +0   | +0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| +F        | -0       |   -F   | -src0 | +inf    |+inf|-inf| -inf    |  src0 |   +F   | +0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| +inf      | NaN      |   -inf | -inf  | -inf    |-inf|+inf| +inf    |  +inf |   +inf | NaN  | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| NaN       | NaN      |   NaN  | NaN   | NaN     |NaN |NaN | NaN     |  NaN  |   NaN  | NaN  | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+
 .. INSTR-RST:END
 
 Operations via external functions
