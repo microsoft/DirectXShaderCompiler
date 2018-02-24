@@ -32,6 +32,15 @@ inline void roundToPow2(uint32_t *val, uint32_t pow2) {
   assert(pow2 != 0);
   *val = (*val + pow2 - 1) & ~(pow2 - 1);
 }
+
+/// Returns true if the given vector type (of the given size) crosses the
+/// 4-component vector boundary if placed at the given offset.
+bool improperStraddle(QualType type, int size, int offset) {
+  assert(TypeTranslator::isVectorType(type));
+  return size <= 16 ? offset / 16 != (offset + size - 1) / 16
+                    : offset % 16 != 0;
+}
+
 } // anonymous namespace
 
 bool TypeTranslator::isRelaxedPrecisionType(QualType type,
@@ -1079,11 +1088,13 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
     std::tie(memberAlignment, memberSize) =
         getAlignmentAndSize(fieldType, rule, isRowMajor, &stride);
 
+    alignUsingHLSLRelaxedLayout(fieldType, memberSize, &memberAlignment,
+                                &offset);
+
     // Each structure-type member must have an Offset Decoration.
     if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>())
       offset = offsetAttr->getOffset();
-    else
-      roundToPow2(&offset, memberAlignment);
+
     decorations.push_back(Decoration::getOffset(*spirvContext, offset, index));
     offset += memberSize;
 
@@ -1330,6 +1341,35 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
   return spv::ImageFormat::Unknown;
 }
 
+void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
+                                                 uint32_t fieldSize,
+                                                 uint32_t *fieldAlignment,
+                                                 uint32_t *currentOffset) {
+  bool fieldIsVecType = false;
+
+  // Adjust according to HLSL relaxed layout rules.
+  // Aligning vectors as their element types so that we can pack a float
+  // and a float3 tightly together.
+  QualType vecElemType = {};
+  if (fieldIsVecType = isVectorType(fieldType, &vecElemType)) {
+    uint32_t scalarAlignment = 0;
+    std::tie(scalarAlignment, std::ignore) =
+        getAlignmentAndSize(vecElemType, LayoutRule::Void, false, nullptr);
+    if (scalarAlignment <= 4)
+      *fieldAlignment = scalarAlignment;
+  }
+
+  roundToPow2(currentOffset, *fieldAlignment);
+
+  // Adjust according to HLSL relaxed layout rules.
+  // Bump to 4-component vector alignment if there is a bad straddle
+  if (fieldIsVecType &&
+      improperStraddle(fieldType, fieldSize, *currentOffset)) {
+    *fieldAlignment = kStd140Vec4Alignment;
+    roundToPow2(currentOffset, *fieldAlignment);
+  }
+}
+
 std::pair<uint32_t, uint32_t>
 TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
                                     const bool isRowMajor, uint32_t *stride) {
@@ -1405,8 +1445,8 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
         case BuiltinType::ULongLong:
           return {8, 8};
         default:
-          emitError("primitive type %0 unimplemented")
-              << builtinType->getTypeClassName();
+          emitError("alignment and size calculation for type %0 unimplemented")
+              << type;
           return {0, 0};
         }
   }
@@ -1463,10 +1503,12 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
       std::tie(memberAlignment, memberSize) =
           getAlignmentAndSize(field->getType(), rule, isRowMajor, stride);
 
+      alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
+                                  &memberAlignment, &structSize);
+
       // The base alignment of the structure is N, where N is the largest
       // base alignment value of any of its members...
       maxAlignment = std::max(maxAlignment, memberAlignment);
-      roundToPow2(&structSize, memberAlignment);
       structSize += memberSize;
     }
 
@@ -1504,7 +1546,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     return {alignment, size};
   }
 
-  emitError("type %0 unimplemented") << type->getTypeClassName();
+  emitError("alignment and size calculation for type %0 unimplemented") << type;
   return {0, 0};
 }
 
