@@ -309,8 +309,7 @@ RootSignatureHandle *HLModule::ReleaseRootSignature() {
   return m_RootSignature.release();
 }
 
-std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>> &&
-HLModule::ReleaseFunctionPropsMap() {
+DxilFunctionPropsMap &&HLModule::ReleaseFunctionPropsMap() {
   return std::move(m_DxilFunctionPropsMap);
 }
 

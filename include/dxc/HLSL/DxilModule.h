@@ -45,6 +45,8 @@ class OP;
 class RootSignatureHandle;
 struct DxilFunctionProps;
 
+typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>> DxilFunctionPropsMap;
+typedef std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>> DxilEntrySignatureMap;
 /// Use this class to manipulate DXIL of a shader.
 class DxilModule {
 public:
@@ -130,20 +132,21 @@ public:
   void ReplaceDxilEntrySignature(llvm::Function *F, llvm::Function *NewF);
 
   // DxilFunctionProps.
-  bool HasDxilFunctionProps(llvm::Function *F) const;
-  DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
-  void AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info);
+  bool HasDxilFunctionProps(const llvm::Function *F) const;
+  DxilFunctionProps &GetDxilFunctionProps(const llvm::Function *F);
+  const DxilFunctionProps &GetDxilFunctionProps(const llvm::Function *F) const;
+  void AddDxilFunctionProps(const llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info);
 
   // Move DxilFunctionProps of F to NewF.
   void ReplaceDxilFunctionProps(llvm::Function *F, llvm::Function *NewF);
   void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc);
-  bool IsGraphicsShader(llvm::Function *F); // vs,hs,ds,gs,ps
-  bool IsPatchConstantShader(llvm::Function *F);
-  bool IsComputeShader(llvm::Function *F);
+  bool IsGraphicsShader(const llvm::Function *F) const; // vs,hs,ds,gs,ps
+  bool IsPatchConstantShader(const llvm::Function *F) const;
+  bool IsComputeShader(const llvm::Function *F) const;
 
   // Is an entry function that uses input/output signature conventions?
   // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
-  bool IsEntryThatUsesSignatures(llvm::Function *F);
+  bool IsEntryThatUsesSignatures(const llvm::Function *F) const ;
 
   // Remove Root Signature from module metadata
   void StripRootSignatureFromMetadata();
@@ -179,12 +182,8 @@ public:
   void ResetRootSignature(RootSignatureHandle *pValue);
   void ResetTypeSystem(DxilTypeSystem *pValue);
   void ResetOP(hlsl::OP *hlslOP);
-  void ResetFunctionPropsMap(
-      std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
-          &&propsMap);
-  void ResetEntrySignatureMap(
-      std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
-          &&SigMap);
+  void ResetFunctionPropsMap(DxilFunctionPropsMap &&propsMap);
+  void ResetEntrySignatureMap(DxilEntrySignatureMap &&SigMap);
 
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
@@ -430,14 +429,12 @@ private:
   std::unique_ptr<DxilTypeSystem> m_pTypeSystem;
 
   // Function properties for shader functions.
-  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
-      m_DxilFunctionPropsMap;
+  DxilFunctionPropsMap m_DxilFunctionPropsMap;
   // EntrySig for shader functions.
-  std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
-      m_DxilEntrySignatureMap;
+  DxilEntrySignatureMap m_DxilEntrySignatureMap;
 
   // Keeps track of patch constant functions used by hull shaders
-  std::unordered_set<llvm::Function *>  m_PatchConstantFunctions;
+  std::unordered_set<const llvm::Function *>  m_PatchConstantFunctions;
 
   // ViewId state.
   std::unique_ptr<DxilViewIdState> m_pViewIdState;

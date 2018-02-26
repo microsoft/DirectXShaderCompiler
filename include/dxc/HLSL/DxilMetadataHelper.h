@@ -343,7 +343,7 @@ public:
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
-                                       llvm::Function *F);
+                                       const llvm::Function *F);
   llvm::Function *LoadDxilFunctionProps(llvm::MDTuple *pProps,
                                         hlsl::DxilFunctionProps *props);
 

@@ -1067,15 +1067,22 @@ void DxilModule::ReplaceDxilEntrySignature(llvm::Function *F,
   m_DxilEntrySignatureMap[NewF] = std::move(Sig);
 }
 
-bool DxilModule::HasDxilFunctionProps(llvm::Function *F) const {
+bool DxilModule::HasDxilFunctionProps(const llvm::Function *F) const {
   return m_DxilFunctionPropsMap.find(F) != m_DxilFunctionPropsMap.end();
 }
-DxilFunctionProps &DxilModule::GetDxilFunctionProps(llvm::Function *F) {
-  DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");
-  return *m_DxilFunctionPropsMap[F];
+DxilFunctionProps &DxilModule::GetDxilFunctionProps(const llvm::Function *F) {
+  return const_cast<DxilFunctionProps &>(
+      static_cast<const DxilModule *>(this)->GetDxilFunctionProps(F));
 }
+
+const DxilFunctionProps &
+DxilModule::GetDxilFunctionProps(const llvm::Function *F) const {
+  DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");
+  return *(m_DxilFunctionPropsMap.find(F))->second.get();
+}
+
 void DxilModule::AddDxilFunctionProps(
-    llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info) {
+    const llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info) {
   DXASSERT(m_DxilFunctionPropsMap.count(F) == 0,
            "F already in map, info will be overwritten");
   DXASSERT_NOMSG(info->shaderKind != DXIL::ShaderKind::Invalid);
@@ -1100,16 +1107,16 @@ void DxilModule::SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, l
   if (patchConstantFunc)
     m_PatchConstantFunctions.insert(patchConstantFunc);
 }
-bool DxilModule::IsGraphicsShader(llvm::Function *F) {
+bool DxilModule::IsGraphicsShader(const llvm::Function *F) const {
   return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsGraphics();
 }
-bool DxilModule::IsPatchConstantShader(llvm::Function *F) {
+bool DxilModule::IsPatchConstantShader(const llvm::Function *F) const {
   return m_PatchConstantFunctions.count(F) != 0;
 }
-bool DxilModule::IsComputeShader(llvm::Function *F) {
+bool DxilModule::IsComputeShader(const llvm::Function *F) const {
   return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsCS();
 }
-bool DxilModule::IsEntryThatUsesSignatures(llvm::Function *F) {
+bool DxilModule::IsEntryThatUsesSignatures(const llvm::Function *F) const {
   auto propIter = m_DxilFunctionPropsMap.find(F);
   if (propIter != m_DxilFunctionPropsMap.end()) {
     DxilFunctionProps &props = *(propIter->second);
@@ -1155,15 +1162,11 @@ void DxilModule::ResetTypeSystem(DxilTypeSystem *pValue) {
 
 void DxilModule::ResetOP(hlsl::OP *hlslOP) { m_pOP.reset(hlslOP); }
 
-void DxilModule::ResetFunctionPropsMap(
-    std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
-        &&propsMap) {
+void DxilModule::ResetFunctionPropsMap(DxilFunctionPropsMap &&propsMap) {
   m_DxilFunctionPropsMap = std::move(propsMap);
 }
 
-void DxilModule::ResetEntrySignatureMap(
-    std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
-        &&SigMap) {
+void DxilModule::ResetEntrySignatureMap(DxilEntrySignatureMap &&SigMap) {
   m_DxilEntrySignatureMap = std::move(SigMap);
 }
 

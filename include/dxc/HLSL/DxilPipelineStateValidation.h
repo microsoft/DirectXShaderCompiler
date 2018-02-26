@@ -14,7 +14,13 @@
 
 #include <stdint.h>
 #include <string.h>
+namespace hlsl {
+namespace DXIL {
+namespace PSV {
 
+#ifndef UINT_MAX
+#define UINT_MAX 0xffffffff
+#endif
 // How many dwords are required for mask with one bit per component, 4 components per vector
 inline uint32_t PSVComputeMaskDwordsFromVectors(uint32_t Vectors) { return (Vectors + 7) >> 3; }
 inline uint32_t PSVComputeInputOutputTableSize(uint32_t InputVectors, uint32_t OutputVectors) {
@@ -64,6 +70,13 @@ enum class PSVShaderKind : uint8_t    // DXIL::ShaderKind
   Hull,
   Domain,
   Compute,
+  Library,
+  RayGeneration,
+  Intersection,
+  AnyHit,
+  ClosestHit,
+  Miss,
+  Callable,
   Invalid,
 };
 
@@ -99,8 +112,41 @@ enum class PSVResourceType
   UAVRaw,
   UAVStructured,
   UAVStructuredWithCounter,
-
   NumEntries
+};
+
+enum class PSVResourceKind
+{
+  Invalid = 0,
+  Texture1D,
+  Texture2D,
+  Texture2DMS,
+  Texture3D,
+  TextureCube,
+  Texture1DArray,
+  Texture2DArray,
+  Texture2DMSArray,
+  TextureCubeArray,
+  TypedBuffer,
+  RawBuffer,
+  StructuredBuffer,
+  CBuffer,
+  Sampler,
+  TBuffer,
+  RTAccelerationStructure,
+  NumEntries
+};
+
+// Table of null-terminated strings, overall size aligned to dword boundary, last byte must be null
+struct PSVStringTable {
+  const char *Table;
+  uint32_t Size;
+  PSVStringTable() : Table(nullptr), Size(0) {}
+  PSVStringTable(const char *table, uint32_t size) : Table(table), Size(size) {}
+  const char *Get(uint32_t offset) const {
+    _Analysis_assume_(offset < Size && Table && Table[Size-1] == '\0');
+    return Table + offset;
+  }
 };
 
 // Versioning is additive and based on size
@@ -111,7 +157,75 @@ struct PSVResourceBindInfo0
   uint32_t LowerBound;
   uint32_t UpperBound;
 };
-// PSVResourceBindInfo1 would derive and extend
+
+struct RuntimeDataResourceInfo : public PSVResourceBindInfo0
+{
+  uint32_t Kind; // PSVResourceKind
+  uint32_t Name; // offset for string table
+};
+struct RuntimeDataFunctionInfo {
+  uint32_t Name;                 // offset for string table
+  uint32_t UnmangledName;        // offset for string table
+  uint32_t Resources;            // index to an index table
+  uint32_t ShaderKind;           // shader kind
+  uint32_t PayloadSizeInBytes;   // payload count for miss, closest hit, any hit
+                                 // shader, or parameter size for call shader
+  uint32_t AttributeSizeInBytes; // attribute size for closest hit and any hit
+  uint32_t FeatureInfo1;         // required feature info
+  uint32_t FeatureInfo2;         // required feature info
+  uint32_t ShaderStageFlag;      // valid shader stage flag
+  uint32_t MinShaderTarget;      // minimum shader target
+};
+
+// Index table is a sequence of rows, where each row has a count as a first
+// element followed by the count number of elements pre computing values
+struct IndexTableReader {
+private:
+  const uint32_t *m_table;
+  uint32_t m_size;
+
+public:
+  class IndexRow {
+  private:
+    const uint32_t *m_values;
+    const uint32_t m_count;
+  public:
+    IndexRow(const uint32_t *values, uint32_t count)
+      : m_values(values), m_count(count) {}
+    uint32_t Count() { return m_count; }
+    uint32_t At(uint32_t i) { return m_values[i]; }
+  };
+
+  IndexTableReader() : m_table(nullptr), m_size(0) {}
+  IndexTableReader(const uint32_t *table, uint32_t size)
+    : m_table(table), m_size(size) {}
+
+  void SetTable(const uint32_t *table) {
+    m_table = table;
+  }
+
+  void SetSize(uint32_t size) {
+    m_size = size;
+  }
+
+  IndexRow getRow(uint32_t i) {
+    return IndexRow(&m_table[i] + 1, m_table[i]);
+  }
+};
+
+struct RuntimeDataTableHeader {
+  uint32_t tableType; // DataTableType
+  uint32_t size;
+  uint32_t offset;
+};
+
+enum RuntimeDataTableType : uint32_t {
+  Invalid = 0,
+  String,
+  Function,
+  Resource,
+  Index
+};
 
 // Helpers for output dependencies (ViewID and Input-Output tables)
 struct PSVComponentMask {
@@ -165,17 +279,6 @@ struct PSVDependencyTable {
   bool IsValid() { return Table != nullptr; }
 };
 
-// Table of null-terminated strings, overall size aligned to dword boundary, last byte must be null
-struct PSVStringTable {
-  const char *Table;
-  uint32_t Size;
-  PSVStringTable() : Table(nullptr), Size(0) {}
-  PSVStringTable(const char *table, uint32_t size) : Table(table), Size(size) {}
-  const char *Get(uint32_t offset) const {
-    _Analysis_assume_(offset < Size && Table && Table[Size-1] == '\0');
-    return Table + offset;
-  }
-};
 struct PSVString {
   uint32_t Offset;
   PSVString() : Offset(0) {}
@@ -237,7 +340,7 @@ enum class PSVSemanticKind : uint8_t    // DXIL::SemanticKind
 
 struct PSVSignatureElement0
 {
-  uint32_t SemanticName;          // Offset into PSVStringTable
+  uint32_t SemanticName;          // Offset into StringTable
   uint32_t SemanticIndexes;       // Offset into PSVSemanticIndexTable, count == Rows
   uint8_t Rows;                   // Number of rows this element occupies
   uint8_t StartRow;               // Starting row of packing location if allocated
@@ -302,6 +405,240 @@ struct PSVInitInfo
   uint8_t SigOutputVectors[4] = {0, 0, 0, 0};
 };
 
+struct ResourceReader {
+private:
+  const RuntimeDataResourceInfo *m_ResourceInfo;
+  PSVStringTable *m_StringReader;
+public:
+  ResourceReader() : m_ResourceInfo(nullptr), m_StringReader(nullptr) {}
+  ResourceReader(const RuntimeDataResourceInfo *resInfo,
+                 PSVStringTable *stringReader)
+      : m_ResourceInfo(resInfo), m_StringReader(stringReader) {}
+  PSVResourceType GetResourceType() {
+    return (PSVResourceType)m_ResourceInfo->ResType;
+  }
+  uint32_t GetSpace() {
+    return m_ResourceInfo->Space;
+  }
+  uint32_t GetLowerBound() {
+    return m_ResourceInfo->LowerBound;
+  }
+  uint32_t GetUpperBound() {
+    return m_ResourceInfo->UpperBound;
+  }
+  PSVResourceKind GetResourceKind() { return (PSVResourceKind)m_ResourceInfo->Kind; }
+  const char* GetName() { return m_StringReader->Get(m_ResourceInfo->Name); }
+};
+
+struct ResourceTableReader {
+private:
+  const RuntimeDataResourceInfo *m_ResourceInfo; // pointer to an array of resource bind infos
+  PSVStringTable *m_StringReader;
+  uint32_t m_CBufferCount;
+  uint32_t m_SamplerCount;
+  uint32_t m_SRVCount;
+  uint32_t m_UAVCount;
+
+public:
+  ResourceTableReader()
+      : m_ResourceInfo(nullptr), m_StringReader(nullptr), m_CBufferCount(0),
+        m_SamplerCount(0), m_SRVCount(0), m_UAVCount(0){};
+  ResourceTableReader(const RuntimeDataResourceInfo *info1,
+                      PSVStringTable *stringTable, uint32_t CBufferCount,
+                      uint32_t SamplerCount, uint32_t SRVCount,
+                      uint32_t UAVCount)
+      : m_ResourceInfo(info1), m_StringReader(stringTable),
+        m_CBufferCount(CBufferCount), m_SamplerCount(SamplerCount),
+        m_SRVCount(SRVCount), m_UAVCount(UAVCount){};
+
+  void SetResourceInfo(const RuntimeDataResourceInfo *ptr) { m_ResourceInfo = ptr; }
+  void SetStringReader(PSVStringTable *ptr) { m_StringReader = ptr; }
+  void SetCBufferCount(uint32_t count) { m_CBufferCount = count; }
+  void SetSamplerCount(uint32_t count) { m_SamplerCount = count; }
+  void SetSRVCount(uint32_t count) { m_SRVCount = count; }
+  void SetUAVCount(uint32_t count) { m_UAVCount = count; }
+
+  uint32_t GetNumResources() {
+    return m_CBufferCount + m_SamplerCount + m_SRVCount + m_UAVCount;
+  }
+  ResourceReader GetItem(uint32_t i) {
+    _Analysis_assume_(i < GetNumResources());
+    return ResourceReader(&m_ResourceInfo[i], m_StringReader);
+  }
+
+
+  uint32_t GetNumCBuffers() { return m_CBufferCount; }
+  ResourceReader GetCBuffer(uint32_t i) {
+    _Analysis_assume_(i < m_CBufferCount);
+    return ResourceReader(&m_ResourceInfo[i], m_StringReader);
+  }
+
+  uint32_t GetNumSamplers() { return m_SamplerCount; }
+  ResourceReader GetSampler(uint32_t i) {
+    _Analysis_assume_(i < m_SamplerCount);
+    uint32_t offset = (m_CBufferCount + i);
+    return ResourceReader(&m_ResourceInfo[offset], m_StringReader);
+  }
+
+  uint32_t GetNumSRVs() { return m_SRVCount; }
+  ResourceReader GetSRV(uint32_t i) {
+    _Analysis_assume_(i < m_SRVCount);
+    uint32_t offset = (m_CBufferCount + m_SamplerCount + i);
+    return ResourceReader(&m_ResourceInfo[offset], m_StringReader);
+  }
+
+  uint32_t GetNumUAVs() { return m_UAVCount; }
+  ResourceReader GetUAV(uint32_t i) {
+    _Analysis_assume_(i < m_UAVCount);
+    uint32_t offset = (m_CBufferCount + m_SamplerCount + m_SRVCount + i);
+    return ResourceReader(&m_ResourceInfo[offset], m_StringReader);
+  }
+};
+
+struct FunctionReader {
+private:
+  const RuntimeDataFunctionInfo *m_RuntimeDataFunctionInfo;
+  PSVStringTable *m_StringReader;
+  IndexTableReader *m_IndexTableReader;
+  ResourceTableReader *m_ResourceTableReader;
+public:
+  FunctionReader()
+      : m_RuntimeDataFunctionInfo(nullptr), m_StringReader(nullptr),
+        m_IndexTableReader(nullptr), m_ResourceTableReader(nullptr) {}
+  FunctionReader(const RuntimeDataFunctionInfo *functionInfo,
+                 PSVStringTable *stringReader,
+                 IndexTableReader *indexTableReader,
+                 ResourceTableReader *resourceTableReader)
+      : m_RuntimeDataFunctionInfo(functionInfo), m_StringReader(stringReader),
+        m_IndexTableReader(indexTableReader),
+        m_ResourceTableReader(resourceTableReader) {}
+
+  const char *GetName() { return m_StringReader->Get(m_RuntimeDataFunctionInfo->Name); }
+  const char *GetUnmangledName() { return m_StringReader->Get(m_RuntimeDataFunctionInfo->UnmangledName); }
+  uint64_t GetFeatureFlag() {
+    uint64_t flag = static_cast<uint64_t>(m_RuntimeDataFunctionInfo->FeatureInfo2) << 32;
+    flag |= static_cast<uint64_t>(m_RuntimeDataFunctionInfo->FeatureInfo1);
+    return flag;
+  }
+  uint32_t GetShaderStageFlag() { return m_RuntimeDataFunctionInfo->ShaderStageFlag; }
+  uint32_t GetMinShaderTarget() { return m_RuntimeDataFunctionInfo->MinShaderTarget; }
+  uint32_t FunctionReader::GetNumResources() {
+    if (m_RuntimeDataFunctionInfo->Resources == UINT_MAX)
+      return 0;
+    return m_IndexTableReader->getRow(m_RuntimeDataFunctionInfo->Resources).Count();
+  }
+  ResourceReader GetResource(uint32_t i) {
+    uint32_t resIndex = m_IndexTableReader->getRow(m_RuntimeDataFunctionInfo->Resources).At(i);
+    return m_ResourceTableReader->GetItem(resIndex);
+  }
+
+  uint32_t GetPayloadSizeInBytes() { return m_RuntimeDataFunctionInfo->PayloadSizeInBytes; }
+  uint32_t GetAttributeSizeInBytes() { return m_RuntimeDataFunctionInfo->AttributeSizeInBytes; }
+  // payload (hit shaders) and parameters (call shaders) are mutually exclusive
+  uint32_t GetParameterSizeInBytes() { return m_RuntimeDataFunctionInfo->PayloadSizeInBytes; }
+  PSVShaderKind GetShaderKind() { return (PSVShaderKind) m_RuntimeDataFunctionInfo->ShaderKind; }
+};
+
+struct FunctionTableReader {
+private:
+  const RuntimeDataFunctionInfo *m_infos;
+  uint32_t m_count;
+  PSVStringTable *m_StringReader;
+  IndexTableReader *m_IndexTableReader;
+  ResourceTableReader *m_ResourceTableReader;
+public:
+  FunctionTableReader()
+      : m_infos(nullptr), m_count(0), m_StringReader(nullptr),
+        m_IndexTableReader(nullptr), m_ResourceTableReader(nullptr) {}
+  FunctionTableReader(const RuntimeDataFunctionInfo *functionInfos,
+                      uint32_t count, PSVStringTable *stringReader = nullptr,
+                      IndexTableReader *indexTableReader = nullptr,
+                      ResourceTableReader *resourceTableReader = nullptr)
+      : m_infos(functionInfos), m_count(count), m_StringReader(stringReader),
+        m_IndexTableReader(indexTableReader),
+        m_ResourceTableReader(resourceTableReader) {}
+
+  FunctionReader GetItem(uint32_t i) {
+    return FunctionReader(&m_infos[i], m_StringReader, m_IndexTableReader,
+                          m_ResourceTableReader);
+  }
+  uint32_t GetNumFunctions() { return m_count; }
+
+  void SetStringReader(PSVStringTable *ptr) { m_StringReader = ptr; }
+  void SetIndexTableReader(IndexTableReader *ptr) { m_IndexTableReader = ptr; }
+  void SetResourceTableReader(ResourceTableReader *ptr) { m_ResourceTableReader = ptr; }
+  void SetFunctionInfo(const RuntimeDataFunctionInfo *ptr) { m_infos = ptr; }
+  void SetCount(uint32_t count) { m_count = count; }
+};
+
+class DxilRuntimeData {
+private:
+  uint32_t m_TableCount;
+  PSVStringTable m_StringReader;
+  IndexTableReader m_IndexTableReader;
+  ResourceTableReader m_ResourceTableReader;
+  FunctionTableReader m_FunctionTableReader;
+  friend struct FunctionReader;
+  friend struct ResourceReader;
+public:
+  DxilRuntimeData()
+      : m_TableCount(0), m_StringReader(), m_ResourceTableReader(),
+        m_FunctionTableReader(), m_IndexTableReader() {}
+  DxilRuntimeData(const char *ptr) {
+    InitFromRDAT(ptr);
+  }
+  // initializing reader from RDAT. return true if no error has occured.
+  bool InitFromRDAT(const char *ptr) {
+    if (ptr) {
+      uint32_t TableCount = (uint32_t)*ptr;
+      RuntimeDataTableHeader *records = (RuntimeDataTableHeader *)(ptr + 4);
+      for (uint32_t i = 0; i < TableCount; ++i) {
+        RuntimeDataTableHeader *curRecord = &records[i];
+        switch (curRecord->tableType) {
+          case RuntimeDataTableType::Resource: {
+            uint32_t cBufferCount = *(uint32_t*)(ptr + curRecord->offset);
+            uint32_t samplerCount = *(uint32_t*)(ptr + curRecord->offset + 4);
+            uint32_t srvCount = *(uint32_t*)(ptr + curRecord->offset + 8);
+            uint32_t uavCount = *(uint32_t*)(ptr + curRecord->offset + 12);
+            m_ResourceTableReader.SetResourceInfo((RuntimeDataResourceInfo*)(ptr + curRecord->offset + 16));
+            m_ResourceTableReader.SetCBufferCount(cBufferCount);
+            m_ResourceTableReader.SetSamplerCount(samplerCount);
+            m_ResourceTableReader.SetSRVCount(srvCount);
+            m_ResourceTableReader.SetUAVCount(uavCount);
+            m_FunctionTableReader.SetResourceTableReader(&m_ResourceTableReader);
+            break;
+          }
+          case RuntimeDataTableType::String: {
+            m_StringReader = PSVStringTable(ptr + curRecord->offset, curRecord->size);
+            m_ResourceTableReader.SetStringReader(&m_StringReader);
+            m_FunctionTableReader.SetStringReader(&m_StringReader);
+            break;
+          }
+          case RuntimeDataTableType::Function: {
+            RuntimeDataFunctionInfo *funcInfo =
+                (RuntimeDataFunctionInfo *)(ptr + curRecord->offset);
+            m_FunctionTableReader.SetFunctionInfo(funcInfo);
+            m_FunctionTableReader.SetCount(curRecord->size / sizeof(RuntimeDataFunctionInfo));
+            break;
+          }
+          case RuntimeDataTableType::Index: {
+            m_IndexTableReader = IndexTableReader(
+                (uint32_t *)(ptr + curRecord->offset), curRecord->size / 4);
+            m_FunctionTableReader.SetIndexTableReader(&m_IndexTableReader);
+            break;
+          }
+          default:
+            return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+  FunctionTableReader *GetFunctionTableReader() { return &m_FunctionTableReader; }
+  ResourceTableReader *GetResourceTableReader() { return &m_ResourceTableReader; }
+};
+
 class DxilPipelineStateValidation
 {
   uint32_t m_uPSVRuntimeInfoSize;
@@ -323,7 +660,7 @@ class DxilPipelineStateValidation
   uint32_t* m_pPCInputToOutputTable;
 
 public:
-  DxilPipelineStateValidation() : 
+  DxilPipelineStateValidation() :
     m_uPSVRuntimeInfoSize(0),
     m_pPSVRuntimeInfo0(nullptr),
     m_pPSVRuntimeInfo1(nullptr),
@@ -792,6 +1129,9 @@ public:
     return PSVDependencyTable();
   }
 };
+} // namespace PSV
+} // namespace DXIL
+} // namespace hlsl
 
 namespace hlsl {
 
@@ -810,7 +1150,7 @@ namespace hlsl {
       InvalidPSV,
     };
     virtual ~ViewIDValidator() {}
-    virtual Result ValidateStage(const DxilPipelineStateValidation &PSV,
+    virtual Result ValidateStage(const DXIL::PSV::DxilPipelineStateValidation &PSV,
                                  bool bFinalStage,
                                  bool bExpandInputOnly,
                                  unsigned &mismatchElementId) = 0;
