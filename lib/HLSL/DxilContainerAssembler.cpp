@@ -18,6 +18,8 @@
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/HLSL/DxilFunctionProps.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
@@ -29,6 +31,7 @@
 
 using namespace llvm;
 using namespace hlsl;
+using namespace hlsl::DXIL::PSV;
 
 static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::TessellatorDomain domain) {
   switch (kind) {
@@ -436,6 +439,7 @@ public:
     UINT uSRVs = m_Module.GetSRVs().size();
     UINT uUAVs = m_Module.GetUAVs().size();
     m_PSVInitInfo.ResourceCount = uCBuffers + uSamplers + uSRVs + uUAVs;
+    // TODO: for >= 6.2 version, create more efficient structure
     if (m_PSVInitInfo.PSVVersion > 0) {
       m_PSVInitInfo.ShaderStage = (PSVShaderKind)SM->GetKind();
       // Copy Dxil Signatures
@@ -695,6 +699,347 @@ public:
   }
 };
 
+class RDATTable {
+public:
+  virtual uint32_t GetBlobSize() const { return 0; }
+  virtual void write(void *ptr) {}
+  virtual RuntimeDataTableType GetType() const { return RuntimeDataTableType::Invalid; }
+  virtual ~RDATTable() {}
+};
+
+class ResourceTable : public RDATTable {
+private:
+  uint32_t m_Version;
+  std::vector<std::pair<const DxilCBuffer*, uint32_t>> CBufferToOffset;
+  std::vector<std::pair<const DxilSampler*, uint32_t>> SamplerToOffset;
+  std::vector<std::pair<const DxilResource*, uint32_t>> SRVToOffset;
+  std::vector<std::pair<const DxilResource*, uint32_t>> UAVToOffset;
+
+  void UpdateResourceInfo(const DxilResourceBase *res, uint32_t offset,
+                          RuntimeDataResourceInfo *info, char **pCur) {
+    info->Kind = static_cast<uint32_t>(res->GetKind());
+    info->Space = res->GetSpaceID();
+    info->LowerBound = res->GetLowerBound();
+    info->UpperBound = res->GetUpperBound();
+    info->Name = offset;
+    memcpy(*pCur, info, sizeof(RuntimeDataResourceInfo));
+    *pCur += sizeof(RuntimeDataResourceInfo);
+  }
+
+public:
+  ResourceTable(uint32_t version) : m_Version(version) {}
+  void AddCBuffer(const DxilCBuffer *resource, uint32_t offset) {
+    CBufferToOffset.emplace_back(
+        std::pair<const DxilCBuffer *, uint32_t>(resource, offset));
+  }
+  void AddSampler(const DxilSampler *resource, uint32_t offset) {
+    SamplerToOffset.emplace_back(
+        std::pair<const DxilSampler *, uint32_t>(resource, offset));
+  }
+  void AddSRV(const DxilResource *resource, uint32_t offset) {
+    SRVToOffset.emplace_back(
+        std::pair<const DxilResource *, uint32_t>(resource, offset));
+  }
+  void AddUAV(const DxilResource *resource, uint32_t offset) {
+    UAVToOffset.emplace_back(
+        std::pair<const DxilResource *, uint32_t>(resource, offset));
+  }
+  uint32_t NumResources() const {
+    return CBufferToOffset.size() + SamplerToOffset.size() +
+           SRVToOffset.size() + UAVToOffset.size();
+  }
+  RuntimeDataTableType GetType() const { return RuntimeDataTableType::Resource; }
+  uint32_t GetBlobSize() const {
+    return NumResources() * sizeof(RuntimeDataResourceInfo) +
+           4 * sizeof(uint32_t);
+  }
+  void write(void *ptr) {
+    // Only impelemented for RDAT for now
+    if (m_Version == 0) {
+      char *pCur = (char*)ptr;
+      // count for each resource class
+      uint32_t cBufferCount = CBufferToOffset.size();
+      uint32_t samplerCount = SamplerToOffset.size();
+      uint32_t srvCount = SRVToOffset.size();
+      uint32_t uavCount = UAVToOffset.size();
+      memcpy(pCur, &cBufferCount, sizeof(uint32_t));
+      pCur += sizeof(uint32_t);
+      memcpy(pCur, &samplerCount, sizeof(uint32_t));
+      pCur += sizeof(uint32_t);
+      memcpy(pCur, &srvCount, sizeof(uint32_t));
+      pCur += sizeof(uint32_t);
+      memcpy(pCur, &uavCount, sizeof(uint32_t));
+      pCur += sizeof(uint32_t);
+
+      for (auto pair : CBufferToOffset) {
+        RuntimeDataResourceInfo info = {};
+        info.ResType = static_cast<uint32_t>(PSVResourceType::CBV);
+        UpdateResourceInfo(pair.first, pair.second, &info, &pCur);
+      }
+      for (auto pair : SamplerToOffset) {
+        RuntimeDataResourceInfo info = {};
+        info.ResType = static_cast<uint32_t>(PSVResourceType::Sampler);
+        UpdateResourceInfo(pair.first, pair.second, &info, &pCur);
+      }
+      for (auto pair : SRVToOffset) {
+        RuntimeDataResourceInfo info = {};
+        auto res = pair.first;
+        if (res->IsStructuredBuffer()) {
+          info.ResType = (UINT)PSVResourceType::SRVStructured;
+        } else if (res->IsRawBuffer()) {
+          info.ResType = (UINT)PSVResourceType::SRVRaw;
+        } else {
+          info.ResType = (UINT)PSVResourceType::SRVTyped;
+        }
+        UpdateResourceInfo(pair.first, pair.second, &info, &pCur);
+      }
+      for (auto pair : UAVToOffset) {
+        RuntimeDataResourceInfo info = {};
+        auto res = pair.first;
+        if (res->IsStructuredBuffer()) {
+          if (res->HasCounter())
+            info.ResType = (UINT)PSVResourceType::UAVStructuredWithCounter;
+          else
+            info.ResType = (UINT)PSVResourceType::UAVStructured;
+        } else if (res->IsRawBuffer()) {
+          info.ResType = (UINT)PSVResourceType::UAVRaw;
+        } else {
+          info.ResType = (UINT)PSVResourceType::UAVTyped;
+        }
+        UpdateResourceInfo(res, pair.second, &info, &pCur);
+      }
+    }
+  }
+};
+
+class FunctionTable : public RDATTable {
+private:
+  std::unordered_map<const llvm::Function*, RuntimeDataFunctionInfo> FuncToInfo;
+public:
+  FunctionTable(): FuncToInfo() {}
+  uint32_t NumFunctions() const { return FuncToInfo.size(); }
+  void AddFunction(const llvm::Function *func, uint32_t mangledOfffset,
+                   uint32_t unmangledOffset, uint32_t shaderKind, uint32_t resourceIndex,
+                   uint32_t payloadSizeInBytes, uint32_t attrSizeInBytes) {
+    RuntimeDataFunctionInfo info = {};
+    info.Name = mangledOfffset;
+    info.UnmangledName = unmangledOffset;
+    info.ShaderKind = shaderKind;
+    info.Resources = resourceIndex;
+    info.PayloadSizeInBytes = payloadSizeInBytes;
+    info.AttributeSizeInBytes = attrSizeInBytes;
+    FuncToInfo.insert({func, info});
+  }
+
+  uint32_t GetBlobSize() const { return NumFunctions() * sizeof(RuntimeDataFunctionInfo); }
+  RuntimeDataTableType GetType() const { return RuntimeDataTableType::Function; }
+  void write(void *ptr) {
+    char *cur = (char *)ptr;
+    for (auto &&pair : FuncToInfo) {
+      auto offset = pair.second;
+      memcpy(cur, &offset, sizeof(RuntimeDataFunctionInfo));
+      cur += sizeof(RuntimeDataFunctionInfo);
+    }
+  }
+};
+
+class StringTable : public RDATTable {
+private:
+  SmallVector<char, 256> m_StringBuffer;
+  uint32_t curIndex;
+public:
+  StringTable() : m_StringBuffer(), curIndex(0) {}
+  // returns the offset of the name inserted
+  uint32_t Insert(StringRef name) {
+    for (auto iter = name.begin(), End = name.end(); iter != End; ++iter) {
+        m_StringBuffer.push_back(*iter);
+    }
+    m_StringBuffer.push_back('\0');
+
+    uint32_t prevIndex = curIndex;
+    curIndex += name.size() + 1;
+    return prevIndex;
+  }
+  RuntimeDataTableType GetType() const { return RuntimeDataTableType::String; }
+  uint32_t GetBlobSize() const { return m_StringBuffer.size(); }
+  void write(void *ptr) { memcpy(ptr, m_StringBuffer.data(), m_StringBuffer.size()); }
+};
+
+template <class T>
+struct IndexTable : public RDATTable {
+private:
+  std::vector<std::vector<T>> m_IndicesList;
+  uint32_t m_curOffset;
+
+public:
+  IndexTable() : m_IndicesList(), m_curOffset(0) {}
+  uint32_t AddIndex(const std::vector<T> &Indices) {
+    uint32_t prevOffset = m_curOffset;
+    m_curOffset += Indices.size() + 1;
+    m_IndicesList.emplace_back(std::move(Indices));
+    return prevOffset;
+  }
+
+  RuntimeDataTableType GetType() const { return RuntimeDataTableType::Index; }
+  uint32_t GetBlobSize() const {
+    uint32_t size = 0;
+    for (auto Indices : m_IndicesList) {
+      size += Indices.size() + 1;
+    }
+    return sizeof(T) * size;
+  }
+
+  void write(void *ptr) {
+    T *cur = (T*)ptr;
+    for (auto Indices : m_IndicesList) {
+      uint32_t count = Indices.size();
+      memcpy(cur, &count, 4);
+      std::copy(Indices.data(), Indices.data() + Indices.size(), cur + 1);
+      cur += sizeof(T)/sizeof(4) + Indices.size();
+    }
+  }
+};
+
+class DxilRDATWriter : public DxilPartWriter {
+private:
+  const DxilModule &m_Module;
+  SmallVector<char, 1024> m_RDATBuffer;
+
+  std::vector<std::unique_ptr<RDATTable>> tables;
+  std::map<llvm::Function *, std::vector<uint32_t>> m_FuncToResNameOffset;
+
+  void UpdateFunctionToResourceInfo(const DxilResourceBase *resource, uint32_t offset) {
+    Constant *var = resource->GetGlobalSymbol();
+    if (var) {
+      for (auto user : var->users()) {
+        if (llvm::Instruction *I = dyn_cast<llvm::Instruction>(user)) {
+          if (llvm::Function *F = dyn_cast<llvm::Function>(I->getParent()->getParent())) {
+            if (m_FuncToResNameOffset.find(F) != m_FuncToResNameOffset.end()) {
+              m_FuncToResNameOffset[F].emplace_back(offset);
+            }
+            else {
+              m_FuncToResNameOffset[F] = std::vector<uint32_t>({offset});
+            }
+          }
+        }
+      }
+    }
+  }
+  void UpdateResourceInfo(StringTable &stringTable) {
+    // Try to allocate string table for resources. String table is a sequence
+    // of strings delimited by \0
+    tables.emplace_back(std::make_unique<ResourceTable>(0));
+    ResourceTable &resourceTable = *(ResourceTable*)tables.back().get();
+    uint32_t stringIndex;
+    uint32_t resourceIndex = 0;
+    for (auto &resource : m_Module.GetCBuffers()) {
+      stringIndex = stringTable.Insert(resource->GetGlobalName());
+      UpdateFunctionToResourceInfo(resource.get(), resourceIndex++);
+      resourceTable.AddCBuffer(resource.get(), stringIndex);
+    }
+    for (auto &resource : m_Module.GetSamplers()) {
+      stringIndex = stringTable.Insert(resource->GetGlobalName());
+      UpdateFunctionToResourceInfo(resource.get(), resourceIndex++);
+      resourceTable.AddSampler(resource.get(), stringIndex);
+    }
+    for (auto &resource : m_Module.GetSRVs()) {
+      stringIndex = stringTable.Insert(resource->GetGlobalName());
+      UpdateFunctionToResourceInfo(resource.get(), resourceIndex++);
+      resourceTable.AddSRV(resource.get(), stringIndex);
+    }
+    for (auto &resource : m_Module.GetUAVs()) {
+      stringIndex = stringTable.Insert(resource->GetGlobalName());
+      UpdateFunctionToResourceInfo(resource.get(), resourceIndex++);
+      resourceTable.AddUAV(resource.get(), stringIndex);
+    }
+  }
+  void UpdateFunctionInfo(StringTable &stringTable) {
+    // TODO: get a list of required features
+    // TODO: get a list of valid shader flags
+    // TODO: get a minimum shader version
+    tables.emplace_back(std::make_unique<FunctionTable>());
+    FunctionTable &functionTable = *(FunctionTable*)(tables.back().get());
+    tables.emplace_back(std::make_unique<IndexTable<uint32_t>>());
+    IndexTable<uint32_t> &indexTable = *(IndexTable<uint32_t>*)(tables.back().get());
+    for (auto &function : m_Module.GetModule()->getFunctionList()) {
+      if (!function.isDeclaration()) {
+        StringRef mangled = function.getName();
+        StringRef unmangled = hlsl::dxilutil::DemangleFunctionName(function.getName());
+        uint32_t mangledIndex = stringTable.Insert(mangled);
+        uint32_t unmangledIndex = stringTable.Insert(unmangled);
+        // Update resource Index
+        uint32_t resourceIndex = UINT_MAX;
+        uint32_t payloadSizeInBytes = 0;
+        uint32_t attrSizeInBytes = 0;
+        uint32_t shaderKind = (uint32_t)PSVShaderKind::Library;
+        if (m_FuncToResNameOffset.find(&function) != m_FuncToResNameOffset.end())
+          resourceIndex = indexTable.AddIndex(m_FuncToResNameOffset[&function]);
+        if (m_Module.HasDxilFunctionProps(&function)) {
+          auto props = m_Module.GetDxilFunctionProps(&function);
+          if (props.IsClosestHit() || props.IsAnyHit()) {
+            payloadSizeInBytes = props.ShaderProps.Ray.payloadSizeInBytes;
+            attrSizeInBytes = props.ShaderProps.Ray.attributeSizeInBytes;
+          }
+          else if (props.IsMiss()) {
+            payloadSizeInBytes = props.ShaderProps.Ray.payloadSizeInBytes;
+          }
+          else if (props.IsCallable()) {
+            payloadSizeInBytes = props.ShaderProps.Ray.paramSizeInBytes;
+          }
+          shaderKind = (uint32_t)props.shaderKind;
+        }
+        functionTable.AddFunction(&function, mangledIndex, unmangledIndex,
+                                    shaderKind, resourceIndex,
+                                    payloadSizeInBytes, attrSizeInBytes);
+      }
+    }
+  }
+
+public:
+  DxilRDATWriter(const DxilModule &module, uint32_t InfoVersion = 0)
+      : m_Module(module), m_RDATBuffer() {
+    // It's important to keep the order of this update
+    tables.emplace_back(std::make_unique<StringTable>());
+    StringTable &stringTable = *(StringTable*)tables.back().get();
+    UpdateResourceInfo(stringTable);
+    UpdateFunctionInfo(stringTable);
+  }
+
+  __override uint32_t size() const {
+    // one variable to count the number of blobs and two blobs
+    uint32_t total = 4 + tables.size() * sizeof(RuntimeDataTableHeader);
+    for (auto &&table : tables)
+      total += table->GetBlobSize();
+    return total;
+  }
+
+  __override void write(AbstractMemoryStream *pStream) {
+    m_RDATBuffer.resize(size());
+    char *pCur = m_RDATBuffer.data();
+    // write number of tables
+    uint32_t size = tables.size();
+    memcpy(pCur, &size, sizeof(uint32_t));
+    pCur += sizeof(uint32_t);
+    // write records
+    uint32_t curTableOffset = size * sizeof(RuntimeDataTableHeader) + 4;
+    for (auto &&table : tables) {
+      RuntimeDataTableHeader record = { table->GetType(), table->GetBlobSize(), curTableOffset };
+      memcpy(pCur, &record, sizeof(RuntimeDataTableHeader));
+      pCur += sizeof(RuntimeDataTableHeader);
+      curTableOffset += record.size;
+    }
+    // write tables
+    for (auto &&table : tables) {
+      table->write(pCur);
+      pCur += table->GetBlobSize();
+    }
+
+    ULONG cbWritten;
+    IFT(pStream->Write(m_RDATBuffer.data(), m_RDATBuffer.size(), &cbWritten));
+    DXASSERT_NOMSG(cbWritten == m_RDATBuffer.size());
+  }
+};
+
 DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M, uint32_t PSVVersion) {
   return new DxilPSVWriter(M, PSVVersion);
 }
@@ -821,7 +1166,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       pModule->GetOutputSignature(), pModule->GetTessellatorDomain(),
       /*IsInput*/ false,
       /*UseMinPrecision*/ !pModule->m_ShaderFlags.GetUseNativeLowPrecision());
-  DxilPSVWriter PSVWriter(*pModule);
   DxilContainerWriter_impl writer;
 
   // Write the feature part.
@@ -850,10 +1194,18 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   }
 
   // Write the DxilPipelineStateValidation (PSV0) part.
-  writer.AddPart(DFCC_PipelineStateValidation, PSVWriter.size(), [&](AbstractMemoryStream *pStream) {
-    PSVWriter.write(pStream);
-  });
-
+  DxilRDATWriter RDATWriter(*pModule);
+  DxilPSVWriter PSVWriter(*pModule);
+  if (pModule->GetShaderModel()->IsLib()) {
+    writer.AddPart(DFCC_RuntimeData, RDATWriter.size(), [&](AbstractMemoryStream *pStream) {
+        RDATWriter.write(pStream);
+    });
+  }
+  else {
+    writer.AddPart(DFCC_PipelineStateValidation, PSVWriter.size(), [&](AbstractMemoryStream *pStream) {
+        PSVWriter.write(pStream);
+    });
+  }
   // Write the root signature (RTS0) part.
   DxilProgramRootSignatureWriter rootSigWriter(pModule->GetRootSignature());
   CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;

@@ -1028,12 +1028,12 @@ Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
 
 MDTuple *
 DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
-                                    Function *F) {
+                                   const Function *F) {
   bool bRayAttributes = false;
   Metadata *MDVals[30];
   std::fill(MDVals, MDVals + _countof(MDVals), nullptr);
   unsigned valIdx = 0;
-  MDVals[valIdx++] = ValueAsMetadata::get(F);
+  MDVals[valIdx++] = ValueAsMetadata::get(const_cast<Function*>(F));
   MDVals[valIdx++] = Uint32ToConstMD(static_cast<unsigned>(props->shaderKind));
   switch (props->shaderKind) {
   case DXIL::ShaderKind::Compute:

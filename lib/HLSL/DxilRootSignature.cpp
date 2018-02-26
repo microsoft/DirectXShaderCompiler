@@ -769,7 +769,7 @@ void RootSignatureVerifier::VerifyShader(DxilShaderVisibility VisType,
                                          const void *pPSVData,
                                          uint32_t PSVSize,
                                          DiagnosticPrinter &DiagPrinter) {
-  DxilPipelineStateValidation PSV;
+  DXIL::PSV::DxilPipelineStateValidation PSV;
   IFTBOOL(PSV.InitFromPSV0(pPSVData, PSVSize), E_INVALIDARG);
 
   bool bShaderDeniedByRootSig = false;
@@ -806,6 +806,7 @@ void RootSignatureVerifier::VerifyShader(DxilShaderVisibility VisType,
   bool bShaderHasRootBindings = false;
 
   for (unsigned iResource = 0; iResource < PSV.GetBindCount(); iResource++) {
+    using namespace DXIL::PSV;
     const PSVResourceBindInfo0 *pBindInfo0 = PSV.GetPSVResourceBindInfo0(iResource);
     DXASSERT_NOMSG(pBindInfo0);
 

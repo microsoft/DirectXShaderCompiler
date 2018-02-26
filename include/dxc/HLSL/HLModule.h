@@ -64,6 +64,8 @@ struct HLOptions {
   unsigned unused                  : 24;
 };
 
+typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>> DxilFunctionPropsMap;
+
 /// Use this class to manipulate HLDXIR of a shader.
 class HLModule {
 public:
@@ -213,8 +215,7 @@ public:
   DxilTypeSystem *ReleaseTypeSystem();
   OP *ReleaseOP();
   RootSignatureHandle *ReleaseRootSignature();
-  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>> &&
-  ReleaseFunctionPropsMap();
+  DxilFunctionPropsMap &&ReleaseFunctionPropsMap();
 
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
   static llvm::DIGlobalVariable *
@@ -246,7 +247,7 @@ private:
   std::vector<llvm::GlobalVariable*>  m_TGSMVariables;
 
   // High level function info.
-  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>  m_DxilFunctionPropsMap;
+  std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>>  m_DxilFunctionPropsMap;
   std::unordered_set<llvm::Function *>  m_PatchConstantFunctions;
 
   // Resource type annotation.

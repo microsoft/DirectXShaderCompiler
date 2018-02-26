@@ -16,7 +16,7 @@ namespace {
 
 typedef std::vector<DxilSignatureAllocator::DummyElement> ElementVec;
 
-struct ComponentMask : public PSVComponentMask {
+struct ComponentMask : public DXIL::PSV::PSVComponentMask {
   uint32_t Data[4];
   ComponentMask() : PSVComponentMask(Data, 0) {
     memset(Data, 0, sizeof(Data));
@@ -30,7 +30,7 @@ struct ComponentMask : public PSVComponentMask {
   ComponentMask &operator=(const PSVComponentMask &other) {
     NumVectors = other.NumVectors;
     if (other.Mask && NumVectors) {
-      memcpy(Data, other.Mask, sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(NumVectors));
+      memcpy(Data, other.Mask, sizeof(uint32_t) * DXIL::PSV::PSVComputeMaskDwordsFromVectors(NumVectors));
     }
     else {
       memset(Data, 0, sizeof(Data));
@@ -49,7 +49,7 @@ struct ComponentMask : public PSVComponentMask {
 };
 
 static void InitElement(DxilSignatureAllocator::DummyElement &eOut,
-                        const PSVSignatureElement &eIn,
+                        const DXIL::PSV::PSVSignatureElement &eIn,
                         DXIL::SigPointKind sigPoint) {
   eOut.rows = eIn.GetRows();
   eOut.cols = eIn.GetCols();
@@ -69,7 +69,7 @@ static void CopyElements( ElementVec &outElements,
                           DXIL::SigPointKind sigPoint,
                           unsigned numElements,
                           unsigned streamIndex,
-                          std::function<PSVSignatureElement(unsigned)> getElement) {
+                          std::function<DXIL::PSV::PSVSignatureElement(unsigned)> getElement) {
   outElements.clear();
   outElements.reserve(numElements);
   for (unsigned i = 0; i < numElements; i++) {
@@ -84,7 +84,7 @@ static void CopyElements( ElementVec &outElements,
 
 static void AddViewIDElements(ElementVec &outElements,
                               ElementVec &inElements,
-                              PSVComponentMask &mask,
+                              DXIL::PSV::PSVComponentMask &mask,
                               unsigned viewIDCount) {
   // Compute needed elements
   for (unsigned adding = 0; adding < 2; adding++) {
@@ -185,7 +185,7 @@ static bool MergeElements(const ElementVec &priorElements,
 static void PropagateMask(const ComponentMask &priorMask,
                           ElementVec &inputElements,
                           ComponentMask &outMask,
-                          std::function<PSVComponentMask(unsigned)> getMask) {
+                          std::function<DXIL::PSV::PSVComponentMask(unsigned)> getMask) {
   // Iterate elements
   for (auto &E : inputElements) {
     for (unsigned row = 0; row < E.GetRows(); row++) {
@@ -238,7 +238,7 @@ public:
       m_GSRastStreamIndex(gsRastStreamIndex)
   {}
   virtual ~ViewIDValidator_impl() {}
-  __override Result ValidateStage(const DxilPipelineStateValidation &PSV,
+  __override Result ValidateStage(const DXIL::PSV::DxilPipelineStateValidation &PSV,
                                   bool bFinalStage,
                                   bool bExpandInputOnly,
                                   unsigned &mismatchElementId) {
@@ -248,7 +248,7 @@ public:
       return Result::InvalidPSVVersion;
 
     switch (PSV.GetShaderKind()) {
-    case PSVShaderKind::Vertex: {
+    case DXIL::PSV::PSVShaderKind::Vertex: {
       if (bExpandInputOnly)
         return Result::InvalidUsage;
 
@@ -258,7 +258,7 @@ public:
       // capture output signature
       ElementVec outSig;
       CopyElements( outSig, DXIL::SigPointKind::VSOut, PSV.GetSigOutputElements(), 0,
-                    [&](unsigned i) -> PSVSignatureElement {
+                    [&](unsigned i) -> DXIL::PSV::PSVSignatureElement {
                       return PSV.GetSignatureElement(PSV.GetOutputElement0(i));
                     });
 
@@ -270,7 +270,7 @@ public:
 
       break;
     }
-    case PSVShaderKind::Hull: {
+    case DXIL::PSV::PSVShaderKind::Hull: {
       if (bFinalStage)
         return Result::InvalidUsage;
 
@@ -281,7 +281,7 @@ public:
       // capture signatures
       ElementVec inSig, outSig, pcSig;
       CopyElements( inSig, DXIL::SigPointKind::HSCPIn, PSV.GetSigInputElements(), 0,
-                    [&](unsigned i) -> PSVSignatureElement {
+                    [&](unsigned i) -> DXIL::PSV::PSVSignatureElement {
                       return PSV.GetSignatureElement(PSV.GetInputElement0(i));
                     });
 
@@ -303,22 +303,22 @@ public:
       }
 
       CopyElements(outSig, DXIL::SigPointKind::HSCPOut, PSV.GetSigOutputElements(), 0,
-        [&](unsigned i) -> PSVSignatureElement {
+        [&](unsigned i) -> DXIL::PSV::PSVSignatureElement {
         return PSV.GetSignatureElement(PSV.GetOutputElement0(i));
       });
       CopyElements(pcSig, DXIL::SigPointKind::PCOut, PSV.GetSigPatchConstantElements(), 0,
-        [&](unsigned i) -> PSVSignatureElement {
+        [&](unsigned i) -> DXIL::PSV::PSVSignatureElement {
         return PSV.GetSignatureElement(PSV.GetPatchConstantElement0(i));
       });
 
       // Propagate prior mask through input-output dependencies
       if (PSV.GetInputToOutputTable(0).IsValid()) {
         PropagateMask(m_PriorOutputMask, inSig, outputMask,
-                      [&](unsigned i) -> PSVComponentMask { return PSV.GetInputToOutputTable(0).GetMaskForInput(i); });
+                      [&](unsigned i) -> DXIL::PSV::PSVComponentMask { return PSV.GetInputToOutputTable(0).GetMaskForInput(i); });
       }
       if (PSV.GetInputToPCOutputTable().IsValid()) {
         PropagateMask(m_PriorOutputMask, inSig, pcMask,
-                      [&](unsigned i) -> PSVComponentMask { return PSV.GetInputToPCOutputTable().GetMaskForInput(i); });
+                      [&](unsigned i) -> DXIL::PSV::PSVComponentMask { return PSV.GetInputToPCOutputTable().GetMaskForInput(i); });
       }
 
       // Copy mask to prior mask
@@ -335,18 +335,18 @@ public:
 
       break;
     }
-    case PSVShaderKind::Domain: {
+    case DXIL::PSV::PSVShaderKind::Domain: {
       // Initialize mask with direct ViewID dependent outputs
       ComponentMask mask(PSV.GetViewIDOutputMask(0));
 
       // capture signatures
       ElementVec inSig, pcSig, outSig;
       CopyElements( inSig, DXIL::SigPointKind::DSCPIn, PSV.GetSigInputElements(), 0,
-                    [&](unsigned i) -> PSVSignatureElement {
+                    [&](unsigned i) -> DXIL::PSV::PSVSignatureElement {
                       return PSV.GetSignatureElement(PSV.GetInputElement0(i));
                     });
       CopyElements( pcSig, DXIL::SigPointKind::DSIn, PSV.GetSigPatchConstantElements(), 0,
-                    [&](unsigned i) -> PSVSignatureElement {
+                    [&](unsigned i) -> DXIL::PSV::PSVSignatureElement {
                       return PSV.GetSignatureElement(PSV.GetPatchConstantElement0(i));
                     });
 
@@ -382,18 +382,18 @@ public:
       }
 
       CopyElements(outSig, DXIL::SigPointKind::DSOut, PSV.GetSigOutputElements(), 0,
-        [&](unsigned i) -> PSVSignatureElement {
+        [&](unsigned i) -> DXIL::PSV::PSVSignatureElement {
         return PSV.GetSignatureElement(PSV.GetOutputElement0(i));
       });
 
       // Propagate prior mask through input-output dependencies
       if (PSV.GetInputToOutputTable(0).IsValid()) {
         PropagateMask(m_PriorOutputMask, inSig, mask,
-                      [&](unsigned i) -> PSVComponentMask { return PSV.GetInputToOutputTable(0).GetMaskForInput(i); });
+                      [&](unsigned i) -> DXIL::PSV::PSVComponentMask { return PSV.GetInputToOutputTable(0).GetMaskForInput(i); });
       }
       if (PSV.GetPCInputToOutputTable().IsValid()) {
         PropagateMask(m_PriorPCMask, pcSig, mask,
-                      [&](unsigned i) -> PSVComponentMask { return PSV.GetPCInputToOutputTable().GetMaskForInput(i); });
+                      [&](unsigned i) -> DXIL::PSV::PSVComponentMask { return PSV.GetPCInputToOutputTable().GetMaskForInput(i); });
       }
 
       // Copy mask to prior mask
@@ -406,11 +406,11 @@ public:
 
       break;
     }
-    case PSVShaderKind::Geometry: {
+    case DXIL::PSV::PSVShaderKind::Geometry: {
       // capture signatures
       ElementVec inSig, outSig[4];
       CopyElements( inSig, DXIL::SigPointKind::GSVIn, PSV.GetSigInputElements(), 0,
-                    [&](unsigned i) -> PSVSignatureElement {
+                    [&](unsigned i) -> DXIL::PSV::PSVSignatureElement {
                       return PSV.GetSignatureElement(PSV.GetInputElement0(i));
                     });
 
@@ -436,7 +436,7 @@ public:
         ComponentMask mask(PSV.GetViewIDOutputMask(streamIndex));
 
         CopyElements( outSig[streamIndex], DXIL::SigPointKind::GSOut, PSV.GetSigOutputElements(), streamIndex,
-                      [&](unsigned i) -> PSVSignatureElement {
+                      [&](unsigned i) -> DXIL::PSV::PSVSignatureElement {
                         return PSV.GetSignatureElement(PSV.GetOutputElement0(i));
                       });
 
@@ -444,7 +444,7 @@ public:
           // Propagate prior mask through input-output dependencies
           if (PSV.GetInputToOutputTable(streamIndex).IsValid()) {
             PropagateMask(m_PriorOutputMask, inSig, mask,
-              [&](unsigned i) -> PSVComponentMask { return PSV.GetInputToOutputTable(streamIndex).GetMaskForInput(i); });
+              [&](unsigned i) -> DXIL::PSV::PSVComponentMask { return PSV.GetInputToOutputTable(streamIndex).GetMaskForInput(i); });
           }
 
           // Create new version with ViewID elements from prior signature
@@ -473,11 +473,11 @@ public:
 
       return Result::Success;
     }
-    case PSVShaderKind::Pixel: {
+    case DXIL::PSV::PSVShaderKind::Pixel: {
       // capture signatures
       ElementVec inSig;
       CopyElements( inSig, DXIL::SigPointKind::PSIn, PSV.GetSigInputElements(), 0,
-                    [&](unsigned i) -> PSVSignatureElement {
+                    [&](unsigned i) -> DXIL::PSV::PSVSignatureElement {
                       return PSV.GetSignatureElement(PSV.GetInputElement0(i));
                     });
 
@@ -500,7 +500,7 @@ public:
       // PS has to be the last stage, so return.
       return Result::Success;
     }
-    case PSVShaderKind::Compute:
+    case DXIL::PSV::PSVShaderKind::Compute:
     default:
       return Result::InvalidUsage;
     }
