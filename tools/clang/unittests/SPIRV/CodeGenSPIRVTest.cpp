@@ -1097,6 +1097,9 @@ TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {
 TEST_F(FileTest, VulkanLocationInputImplicitOutputExplicit) {
   runFileTest("vk.location.exp-out.hlsl");
 }
+TEST_F(FileTest, VulkanLocationCompositeTypes) {
+  runFileTest("vk.location.composite.hlsl");
+}
 TEST_F(FileTest, VulkanLocationTooLarge) {
   runFileTest("vk.location.large.hlsl", Expect::Failure);
 }

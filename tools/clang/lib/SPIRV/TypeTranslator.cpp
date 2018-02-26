@@ -203,6 +203,90 @@ void TypeTranslator::popIntendedLiteralType() {
   intendedLiteralTypes.pop();
 }
 
+uint32_t TypeTranslator::getLocationCount(QualType type) {
+  // See Vulkan spec 14.1.4. Location Assignment for the complete set of rules.
+
+  const auto canonicalType = type.getCanonicalType();
+  if (canonicalType != type)
+    return getLocationCount(canonicalType);
+
+  // Inputs and outputs of the following types consume a single interface
+  // location:
+  // * 16-bit scalar and vector types, and
+  // * 32-bit scalar and vector types, and
+  // * 64-bit scalar and 2-component vector types.
+
+  // 64-bit three- and four- component vectors consume two consecutive
+  // locations.
+
+  // Primitive types
+  if (isScalarType(type))
+    return 1;
+
+  // Vector types
+  {
+    QualType elemType = {};
+    uint32_t elemCount = {};
+    if (isVectorType(type, &elemType, &elemCount)) {
+      const auto *builtinType = elemType->getAs<BuiltinType>();
+      switch (builtinType->getKind()) {
+      case BuiltinType::Double:
+      case BuiltinType::LongLong:
+      case BuiltinType::ULongLong:
+        if (elemCount >= 3)
+          return 2;
+      }
+      return 1;
+    }
+  }
+
+  // If the declared input or output is an n * m 16- , 32- or 64- bit matrix,
+  // it will be assigned multiple locations starting with the location
+  // specified. The number of locations assigned for each matrix will be the
+  // same as for an n-element array of m-component vectors.
+
+  // Matrix types
+  {
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0;
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount))
+      return getLocationCount(astContext.getExtVectorType(elemType, colCount)) *
+             rowCount;
+  }
+
+  // Typedefs
+  if (const auto *typedefType = type->getAs<TypedefType>())
+    return getLocationCount(typedefType->desugar());
+
+  // Reference types
+  if (const auto *refType = type->getAs<ReferenceType>())
+    return getLocationCount(refType->getPointeeType());
+
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>())
+    return getLocationCount(ptrType->getPointeeType());
+
+  // If a declared input or output is an array of size n and each element takes
+  // m locations, it will be assigned m * n consecutive locations starting with
+  // the location specified.
+
+  // Array types
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type))
+    return getLocationCount(arrayType->getElementType()) *
+           static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+
+  // Struct type
+  if (const auto *structType = type->getAs<RecordType>()) {
+    assert(false && "all structs should already be flattened");
+    return 0;
+  }
+
+  emitError(
+      "calculating number of occupied locations for type %0 unimplemented")
+      << type;
+  return 0;
+}
+
 uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                        bool isRowMajor) {
   // We can only apply row_major to matrices or arrays of matrices.
