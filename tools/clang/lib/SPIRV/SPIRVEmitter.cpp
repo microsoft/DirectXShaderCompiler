@@ -1057,8 +1057,8 @@ void SPIRVEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
           emitWarning("packoffset ignored since not supported", packing->Loc);
 
       // We cannot handle external initialization of column-major matrices now.
-      if (typeTranslator.isNonFpColMajorMatrix(varMember->getType(),
-                                               varMember)) {
+      if (typeTranslator.isOrContainsNonFpColMajorMatrix(varMember->getType(),
+                                                         varMember)) {
         emitError("externally initialized non-floating-point column-major "
                   "matrices not supported yet",
                   varMember->getLocation());
@@ -1094,7 +1094,7 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
 
   // We cannot handle external initialization of column-major matrices now.
   if (isExternalVar(decl) &&
-      typeTranslator.isNonFpColMajorMatrix(decl->getType(), decl)) {
+      typeTranslator.isOrContainsNonFpColMajorMatrix(decl->getType(), decl)) {
     emitError("externally initialized non-floating-point column-major "
               "matrices not supported yet",
               decl->getLocation());

@@ -171,7 +171,7 @@ public:
   /// \brief Returns true if the decl type is a non-floating-point matrix and
   /// the matrix is column major, or if it is an array/struct containing such
   /// matrices.
-  bool isNonFpColMajorMatrix(QualType type, const Decl *decl) const;
+  bool isOrContainsNonFpColMajorMatrix(QualType type, const Decl *decl) const;
 
   /// \brief Returns true if the two types are the same scalar or vector type,
   /// regardless of constness and literalness.

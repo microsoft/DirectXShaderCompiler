@@ -748,8 +748,8 @@ bool TypeTranslator::isMxNMatrix(QualType type, QualType *elemType,
   return true;
 }
 
-bool TypeTranslator::isNonFpColMajorMatrix(QualType type,
-                                           const Decl *decl) const {
+bool TypeTranslator::isOrContainsNonFpColMajorMatrix(QualType type,
+                                                     const Decl *decl) const {
   const auto isColMajorDecl = [this](const Decl *decl) {
     return decl->hasAttr<HLSLColumnMajorAttr>() ||
            !decl->hasAttr<HLSLRowMajorAttr>() && !spirvOptions.defaultRowMajor;
@@ -768,9 +768,8 @@ bool TypeTranslator::isNonFpColMajorMatrix(QualType type,
 
   if (const auto *structType = type->getAs<RecordType>()) {
     const auto *decl = structType->getDecl();
-    // Create fields for all members of this struct
     for (const auto *field : decl->fields()) {
-      if (isNonFpColMajorMatrix(field->getType(), field))
+      if (isOrContainsNonFpColMajorMatrix(field->getType(), field))
         return true;
     }
   }
