@@ -383,8 +383,8 @@ uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
 uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
   auto rule = LayoutRule::Void;
-  bool isMatType = false;     // Whether this var is of matrix type
-  bool isACRWSBuffer = false; // Whether its {Append|Consume|RW}StructuredBuffer
+  bool isMatType = false;     // Whether is matrix that needs struct wrap
+  bool isACRWSBuffer = false; // Whether is {Append|Consume|RW}StructuredBuffer
 
   if (var->getAttr<HLSLGroupSharedAttr>()) {
     // For CS groupshared variables
@@ -435,7 +435,13 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
     // We have wrapped the stand-alone matrix inside a struct. Mark it as
     // needing an extra index to access.
     astDecls[var].indexInCTBuffer = 0;
+    astDecls[var].isRowMajor =
+        typeTranslator.isRowMajorMatrix(var->getType(), var);
   }
+
+  // Variables in Workgroup do not need descriptor decorations.
+  if (storageClass == spv::StorageClass::Workgroup)
+    return id;
 
   const auto *regAttr = getResourceBinding(var);
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();

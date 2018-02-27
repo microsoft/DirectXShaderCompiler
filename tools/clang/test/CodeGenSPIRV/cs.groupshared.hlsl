@@ -5,6 +5,12 @@ struct S {
     float3 f2;
 };
 
+// CHECK-NOT: OpDecorate %a DescriptorSet
+// CHECK-NOT: OpDecorate %b DescriptorSet
+// CHECK-NOT: OpDecorate %c DescriptorSet
+// CHECK-NOT: OpDecorate %d DescriptorSet
+// CHECK-NOT: OpDecorate %s DescriptorSet
+
 // CHECK: %a = OpVariable %_ptr_Workgroup_float Workgroup
 groupshared              float    a;
 // CHECK: %b = OpVariable %_ptr_Workgroup_v3float Workgroup
