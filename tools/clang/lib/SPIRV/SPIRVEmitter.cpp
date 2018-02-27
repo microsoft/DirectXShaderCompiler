@@ -1772,7 +1772,8 @@ SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
   }
 
   return processBinaryOp(expr->getLHS(), expr->getRHS(), opcode,
-                         expr->getType(), expr->getSourceRange());
+                         expr->getLHS()->getType(), expr->getType(),
+                         expr->getSourceRange());
 }
 
 SpirvEvalInfo SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
@@ -2355,8 +2356,9 @@ SPIRVEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
   const auto *lhs = expr->getLHS();
 
   SpirvEvalInfo lhsPtr = 0;
-  const auto result = processBinaryOp(lhs, rhs, opcode, expr->getType(),
-                                      expr->getSourceRange(), &lhsPtr);
+  const auto result =
+      processBinaryOp(lhs, rhs, opcode, expr->getComputationLHSType(),
+                      expr->getType(), expr->getSourceRange(), &lhsPtr);
   return processAssignment(lhs, result, true, lhsPtr);
 }
 
@@ -4625,22 +4627,24 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
 
 SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
                                             const BinaryOperatorKind opcode,
+                                            const QualType computationType,
                                             const QualType resultType,
                                             SourceRange sourceRange,
                                             SpirvEvalInfo *lhsInfo,
                                             const spv::Op mandateGenOpcode) {
-  const uint32_t resultTypeId = typeTranslator.translateType(resultType);
+  const QualType lhsType = lhs->getType();
+  const QualType rhsType = rhs->getType();
 
   // Binary logical operations (such as ==, !=, etc) that return a boolean type
   // may get a literal (e.g. 0, 1, etc.) as lhs or rhs args. Since only
   // non-zero-ness of these literals matter, they can be translated as 32-bits.
   TypeTranslator::LiteralTypeHint hint(typeTranslator);
   if (resultType->isBooleanType()) {
-    if (lhs->getType()->isSpecificBuiltinType(BuiltinType::LitInt) ||
-        rhs->getType()->isSpecificBuiltinType(BuiltinType::LitInt))
+    if (lhsType->isSpecificBuiltinType(BuiltinType::LitInt) ||
+        rhsType->isSpecificBuiltinType(BuiltinType::LitInt))
       hint.setHint(astContext.IntTy);
-    if (lhs->getType()->isSpecificBuiltinType(BuiltinType::LitFloat) ||
-        rhs->getType()->isSpecificBuiltinType(BuiltinType::LitFloat))
+    if (lhsType->isSpecificBuiltinType(BuiltinType::LitFloat) ||
+        rhsType->isSpecificBuiltinType(BuiltinType::LitFloat))
       hint.setHint(astContext.FloatTy);
   }
 
@@ -4648,7 +4652,7 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   // onto each element vector iff the operands are not degenerated matrices
   // and we don't have a matrix specific SPIR-V instruction for the operation.
   if (!isSpirvMatrixOp(mandateGenOpcode) &&
-      TypeTranslator::isMxNMatrix(lhs->getType())) {
+      TypeTranslator::isMxNMatrix(lhsType)) {
     return processMatrixBinaryOp(lhs, rhs, opcode, sourceRange);
   }
 
@@ -4660,11 +4664,8 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
     return doExpr(rhs);
   }
 
-  const spv::Op spvOp = (mandateGenOpcode == spv::Op::Max)
-                            ? translateOp(opcode, lhs->getType())
-                            : mandateGenOpcode;
-
   SpirvEvalInfo rhsVal = 0, lhsPtr = 0, lhsVal = 0;
+
   if (BinaryOperator::isCompoundAssignmentOp(opcode)) {
     // Evalute rhs before lhs
     rhsVal = loadIfGLValue(rhs);
@@ -4674,6 +4675,12 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
     if (!lhsPtr.isRValue() && !isVectorShuffle(lhs)) {
       lhsVal = loadIfGLValue(lhs, lhsPtr);
     }
+    // For a compound assignments, the AST does not have the proper implicit
+    // cast if lhs and rhs have different types. So we need to manually cast lhs
+    // to the computation type.
+    if (computationType != lhsType)
+      lhsVal.setResultId(
+          castToType(lhsVal, lhsType, computationType, lhs->getExprLoc()));
   } else {
     // Evalute lhs before rhs
     lhsPtr = doExpr(lhs);
@@ -4683,6 +4690,10 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
 
   if (lhsInfo)
     *lhsInfo = lhsPtr;
+
+  const spv::Op spvOp = (mandateGenOpcode == spv::Op::Max)
+                            ? translateOp(opcode, computationType)
+                            : mandateGenOpcode;
 
   switch (opcode) {
   case BO_Add:
@@ -4713,19 +4724,32 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_XorAssign:
   case BO_ShlAssign:
   case BO_ShrAssign: {
+
     // To evaluate this expression as an OpSpecConstantOp, we need to make sure
     // both operands are constant and at least one of them is a spec constant.
     if (lhsVal.isConstant() && rhsVal.isConstant() &&
         (lhsVal.isSpecConstant() || rhsVal.isSpecConstant()) &&
         isAcceptedSpecConstantBinaryOp(spvOp)) {
       const auto valId = theBuilder.createSpecConstantBinaryOp(
-          spvOp, resultTypeId, lhsVal, rhsVal);
+          spvOp, typeTranslator.translateType(resultType), lhsVal, rhsVal);
       return SpirvEvalInfo(valId).setRValue().setSpecConstant();
     }
 
     // Normal binary operation
-    const auto valId =
-        theBuilder.createBinaryOp(spvOp, resultTypeId, lhsVal, rhsVal);
+    uint32_t valId = 0;
+    if (BinaryOperator::isCompoundAssignmentOp(opcode)) {
+      valId = theBuilder.createBinaryOp(
+          spvOp, typeTranslator.translateType(computationType), lhsVal, rhsVal);
+      // For a compound assignments, the AST does not have the proper implicit
+      // cast if lhs and rhs have different types. So we need to manually cast
+      // the result back to lhs' type.
+      if (computationType != lhsType)
+        valId = castToType(valId, computationType, lhsType, lhs->getExprLoc());
+    } else {
+      valId = theBuilder.createBinaryOp(
+          spvOp, typeTranslator.translateType(resultType), lhsVal, rhsVal);
+    }
+
     auto result = SpirvEvalInfo(valId).setRValue();
     if (lhsVal.isRelaxedPrecision() || rhsVal.isRelaxedPrecision())
       result.setRelaxedPrecision();
@@ -5011,12 +5035,12 @@ SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
         if (isa<CompoundAssignOperator>(expr)) {
           SpirvEvalInfo lhsPtr = 0;
           const auto result = processBinaryOp(
-              lhs, cast->getSubExpr(), expr->getOpcode(), vecType, range,
-              &lhsPtr, spv::Op::OpVectorTimesScalar);
+              lhs, cast->getSubExpr(), expr->getOpcode(), vecType, vecType,
+              range, &lhsPtr, spv::Op::OpVectorTimesScalar);
           return processAssignment(lhs, result, true, lhsPtr);
         } else {
           return processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
-                                 vecType, range, nullptr,
+                                 vecType, vecType, range, nullptr,
                                  spv::Op::OpVectorTimesScalar);
         }
       }
@@ -5032,7 +5056,7 @@ SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
         // OpVectorTimesScalar requires the first operand to be a vector and
         // the second to be a scalar.
         return processBinaryOp(rhs, cast->getSubExpr(), expr->getOpcode(),
-                               vecType, range, nullptr,
+                               vecType, vecType, range, nullptr,
                                spv::Op::OpVectorTimesScalar);
       }
     }
@@ -5077,11 +5101,11 @@ SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
           SpirvEvalInfo lhsPtr = 0;
           const auto result =
               processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
-                              matType, range, &lhsPtr, opcode);
+                              matType, matType, range, &lhsPtr, opcode);
           return processAssignment(lhs, result, true, lhsPtr);
         } else {
           return processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
-                                 matType, range, nullptr, opcode);
+                                 matType, matType, range, nullptr, opcode);
         }
       }
     }
@@ -5097,7 +5121,7 @@ SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
         // OpMatrixTimesScalar requires the first operand to be a matrix and
         // the second to be a scalar.
         return processBinaryOp(rhs, cast->getSubExpr(), expr->getOpcode(),
-                               matType, range, nullptr, opcode);
+                               matType, matType, range, nullptr, opcode);
       }
     }
   }
