@@ -38,11 +38,13 @@ public:
   inline StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
                   const hlsl::Semantic *sema, llvm::StringRef semaName,
                   uint32_t semaIndex, const VKBuiltInAttr *builtin,
-                  uint32_t type)
+
+                  uint32_t type, uint32_t locCount)
       : sigPoint(sig), semanticStr(semaStr), semantic(sema),
         semanticName(semaName), semanticIndex(semaIndex), builtinAttr(builtin),
         typeId(type), valueId(0), isBuiltin(false),
-        storageClass(spv::StorageClass::Max), location(nullptr) {
+        storageClass(spv::StorageClass::Max), location(nullptr),
+        locationCount(locCount) {
     isBuiltin = builtinAttr != nullptr;
   }
 
@@ -68,6 +70,8 @@ public:
   const VKLocationAttr *getLocationAttr() const { return location; }
   void setLocationAttr(const VKLocationAttr *loc) { location = loc; }
 
+  uint32_t getLocationCount() const { return locationCount; }
+
 private:
   /// HLSL SigPoint. It uniquely identifies each set of parameters that may be
   /// input or output for each entry point.
@@ -92,6 +96,8 @@ private:
   spv::StorageClass storageClass;
   /// Location assignment if input/output variable.
   const VKLocationAttr *location;
+  /// How many locations this stage variable takes.
+  uint32_t locationCount;
 };
 
 class ResourceVar {
@@ -562,7 +568,7 @@ private:
   /// the children of this decl, and the children of this decl will be using
   /// the semantic in inheritSemantic, with index increasing sequentially.
   bool createStageVars(const hlsl::SigPoint *sigPoint, const NamedDecl *decl,
-                       bool asInput, QualType type, uint32_t arraySize,
+                       bool asInput, QualType asType, uint32_t arraySize,
                        const llvm::StringRef namePrefix,
                        llvm::Optional<uint32_t> invocationId, uint32_t *value,
                        bool noWriteBack, SemanticInfo *inheritSemantic);

@@ -799,12 +799,19 @@ public:
   /// Uses the given location.
   void useLoc(uint32_t loc) { usedLocs.set(loc); }
 
-  /// Uses the next available location.
-  uint32_t useNextLoc() {
+  /// Uses the next |count| available location.
+  int useNextLocs(uint32_t count) {
     while (usedLocs[nextLoc])
       nextLoc++;
-    usedLocs.set(nextLoc);
-    return nextLoc++;
+
+    int toUse = nextLoc;
+
+    for (uint32_t i = 0; i < count; ++i) {
+      assert(!usedLocs[nextLoc]);
+      usedLocs.set(nextLoc++);
+    }
+
+    return toUse;
   }
 
   /// Returns true if the given location number is already used.
@@ -982,7 +989,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   }
 
   for (const auto *var : vars)
-    theBuilder.decorateLocation(var->getSpirvId(), locSet.useNextLoc());
+    theBuilder.decorateLocation(var->getSpirvId(),
+                                locSet.useNextLocs(var->getLocationCount()));
 
   return true;
 }
@@ -1263,9 +1271,11 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       typeId = theBuilder.getArrayType(typeId,
                                        theBuilder.getConstantUint32(arraySize));
 
-    StageVar stageVar(sigPoint, semanticToUse->str, semanticToUse->semantic,
-                      semanticToUse->name, semanticToUse->index, builtinAttr,
-                      typeId);
+    StageVar stageVar(
+        sigPoint, semanticToUse->str, semanticToUse->semantic,
+        semanticToUse->name, semanticToUse->index, builtinAttr, typeId,
+        // For HS/DS/GS, we have already stripped the outmost arrayness on type.
+        typeTranslator.getLocationCount(type));
     const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
     const uint32_t varId =
         createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
@@ -1713,7 +1723,7 @@ uint32_t DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
 
   StageVar stageVar(sigPoint, /*semaStr=*/"", hlsl::Semantic::GetInvalid(),
                     /*semaName=*/"", /*semaIndex=*/0, /*builtinAttr=*/nullptr,
-                    type);
+                    type, /*locCount=*/0);
 
   stageVar.setIsSpirvBuiltin();
   stageVar.setSpirvId(varId);
