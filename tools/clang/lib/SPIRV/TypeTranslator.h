@@ -221,6 +221,9 @@ public:
   llvm::SmallVector<const Decoration *, 4>
   getLayoutDecorations(const DeclContext *decl, LayoutRule rule);
 
+  /// \brief Returns how many sequential locations are consumed by a given type.
+  uint32_t getLocationCount(QualType type);
+
 private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
