@@ -1207,6 +1207,10 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
         case BuiltinType::UInt:
         case BuiltinType::Float:
           return {4, 4};
+        case BuiltinType::Double:
+        case BuiltinType::LongLong:
+        case BuiltinType::ULongLong:
+          return {8, 8};
         default:
           emitError("primitive type %0 unimplemented")
               << builtinType->getTypeClassName();

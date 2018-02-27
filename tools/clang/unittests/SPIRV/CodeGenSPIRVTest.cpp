@@ -1190,6 +1190,12 @@ TEST_F(FileTest, VulkanLayoutTBufferStd430) {
 TEST_F(FileTest, VulkanLayoutTextureBufferStd430) {
   runFileTest("vk.layout.texture-buffer.std430.hlsl");
 }
+TEST_F(FileTest, VulkanLayout64BitTypesStd430) {
+  runFileTest("vk.layout.64bit-types.std430.hlsl");
+}
+TEST_F(FileTest, VulkanLayout64BitTypesStd140) {
+  runFileTest("vk.layout.64bit-types.std140.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
   runFileTest("vk.layout.push-constant.std430.hlsl");
