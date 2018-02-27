@@ -1055,6 +1055,14 @@ void SPIRVEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
       for (const auto *annotation : varMember->getUnusualAnnotations())
         if (const auto *packing = dyn_cast<hlsl::ConstantPacking>(annotation))
           emitWarning("packoffset ignored since not supported", packing->Loc);
+
+      // We cannot handle external initialization of column-major matrices now.
+      if (typeTranslator.isOrContainsNonFpColMajorMatrix(varMember->getType(),
+                                                         varMember)) {
+        emitError("externally initialized non-floating-point column-major "
+                  "matrices not supported yet",
+                  varMember->getLocation());
+      }
     }
   }
   if (!validateVKAttributes(bufferDecl))
@@ -1083,6 +1091,14 @@ void SPIRVEmitter::doRecordDecl(const RecordDecl *recordDecl) {
 void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   if (!validateVKAttributes(decl))
     return;
+
+  // We cannot handle external initialization of column-major matrices now.
+  if (isExternalVar(decl) &&
+      typeTranslator.isOrContainsNonFpColMajorMatrix(decl->getType(), decl)) {
+    emitError("externally initialized non-floating-point column-major "
+              "matrices not supported yet",
+              decl->getLocation());
+  }
 
   if (decl->hasAttr<VKConstantIdAttr>()) {
     // This is a VarDecl for specialization constant.
@@ -1724,7 +1740,6 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
 
 SpirvEvalInfo
 SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
-
   llvm::SmallVector<uint32_t, 4> indices;
   auto info = loadIfAliasVarRef(collectArrayStructIndices(expr, &indices));
 
@@ -4506,9 +4521,36 @@ SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
 void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
                               const SpirvEvalInfo &rhsVal,
                               const QualType lhsValType) {
+
+  // Lambda for cases where we want to store per each array element.
+  const auto storeValueForEachArrayElement = [this, &lhsPtr,
+                                              &rhsVal](uint32_t arraySize,
+                                                       QualType arrayElemType) {
+    for (uint32_t i = 0; i < arraySize; ++i) {
+      const auto subRhsValType =
+          typeTranslator.translateType(arrayElemType, rhsVal.getLayoutRule());
+      const auto subRhsVal =
+          theBuilder.createCompositeExtract(subRhsValType, rhsVal, {i});
+      const auto subLhsPtrType = theBuilder.getPointerType(
+          typeTranslator.translateType(arrayElemType, lhsPtr.getLayoutRule()),
+          lhsPtr.getStorageClass());
+      const auto subLhsPtr = theBuilder.createAccessChain(
+          subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(i)});
+
+      storeValue(lhsPtr.substResultId(subLhsPtr),
+                 rhsVal.substResultId(subRhsVal), arrayElemType);
+    }
+  };
+
+  QualType matElemType = {};
+  uint32_t numRows = 0, numCols = 0;
+  const bool lhsIsMat =
+      typeTranslator.isMxNMatrix(lhsValType, &matElemType, &numRows, &numCols);
+  const bool lhsIsFloatMat = lhsIsMat && matElemType->isFloatingType();
+  const bool lhsIsNonFpMat = lhsIsMat && !matElemType->isFloatingType();
+
   if (typeTranslator.isScalarType(lhsValType) ||
-      typeTranslator.isVectorType(lhsValType) ||
-      typeTranslator.isMxNMatrix(lhsValType)) {
+      typeTranslator.isVectorType(lhsValType) || lhsIsFloatMat) {
     theBuilder.createStore(lhsPtr, rhsVal);
   } else if (TypeTranslator::isOpaqueType(lhsValType)) {
     // Resource types are represented using RecordType in the AST.
@@ -4545,6 +4587,12 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // Note: this check should happen after those setting needsLegalization.
     // TODO: is this optimization always correct?
     theBuilder.createStore(lhsPtr, rhsVal);
+  } else if (lhsIsNonFpMat) {
+    // Note: This check should happen before the RecordType check.
+    // Non-fp matrices are represented as arrays of vectors in SPIR-V.
+    // Each array element is a vector. Get the QualType for the vector.
+    const auto elemType = astContext.getExtVectorType(matElemType, numCols);
+    storeValueForEachArrayElement(numRows, elemType);
   } else if (const auto *recordType = lhsValType->getAs<RecordType>()) {
     uint32_t index = 0;
     for (const auto *field : recordType->getDecl()->fields()) {
@@ -4569,21 +4617,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // TODO: handle extra large array size?
     const auto size =
         static_cast<uint32_t>(arrayType->getSize().getZExtValue());
-
-    for (uint32_t i = 0; i < size; ++i) {
-      const auto subRhsValType =
-          typeTranslator.translateType(elemType, rhsVal.getLayoutRule());
-      const auto subRhsVal =
-          theBuilder.createCompositeExtract(subRhsValType, rhsVal, {i});
-      const auto subLhsPtrType = theBuilder.getPointerType(
-          typeTranslator.translateType(elemType, lhsPtr.getLayoutRule()),
-          lhsPtr.getStorageClass());
-      const auto subLhsPtr = theBuilder.createAccessChain(
-          subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(i)});
-
-      storeValue(lhsPtr.substResultId(subLhsPtr),
-                 rhsVal.substResultId(subRhsVal), elemType);
-    }
+    storeValueForEachArrayElement(size, elemType);
   } else {
     emitError("storing value of type %0 unimplemented", {}) << lhsValType;
   }
