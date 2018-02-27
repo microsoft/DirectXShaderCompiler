@@ -164,9 +164,14 @@ public:
                           uint32_t *rowCount = nullptr,
                           uint32_t *colCount = nullptr);
 
-  /// \broef returns true if type is a matrix and matrix is row major
-  /// If decl is not nullptr, is is checked for attributes specifying majorness
+  /// \brief Returns true if type is a matrix and matrix is row major
+  /// If decl is not nullptr, it is checked for attributes specifying majorness.
   bool isRowMajorMatrix(QualType type, const Decl *decl = nullptr) const;
+
+  /// \brief Returns true if the decl type is a non-floating-point matrix and
+  /// the matrix is column major, or if it is an array/struct containing such
+  /// matrices.
+  bool isOrContainsNonFpColMajorMatrix(QualType type, const Decl *decl) const;
 
   /// \brief Returns true if the two types are the same scalar or vector type,
   /// regardless of constness and literalness.

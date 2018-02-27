@@ -1216,6 +1216,10 @@ TEST_F(FileTest, VulkanSubpassInputError) {
   runFileTest("vk.subpass-input.error.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, NonFpColMajorError) {
+  runFileTest("vk.layout.non-fp-matrix.error.hlsl", Expect::Failure);
+}
+
 // HS: for different Patch Constant Functions
 TEST_F(FileTest, HullShaderPCFVoid) { runFileTest("hs.pcf.void.hlsl"); }
 TEST_F(FileTest, HullShaderPCFTakesInputPatch) {
