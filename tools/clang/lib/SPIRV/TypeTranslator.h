@@ -137,7 +137,7 @@ public:
   /// SPIR-V. Panics if the given type is not a scalar or vector of float or
   /// integer. In case of vectors, it returns the realized SPIR-V bitwidth of
   /// the vector elements.
-  uint32_t getSpirvBitwidth(QualType type);
+  uint32_t getElementSpirvBitwidth(QualType type);
 
   /// \brief Returns true if the given type will be translated into a SPIR-V
   /// scalar type. This includes normal scalar types, vectors of size 1, and

@@ -337,16 +337,16 @@ uint32_t TypeTranslator::getTypeWithCustomBitwidth(QualType type,
       "invalid type or bitwidth passed to getTypeWithCustomBitwidth");
 }
 
-uint32_t TypeTranslator::getSpirvBitwidth(QualType type) {
+uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
   const auto canonicalType = type.getCanonicalType();
   if (canonicalType != type)
-    return getSpirvBitwidth(canonicalType);
+    return getElementSpirvBitwidth(canonicalType);
 
   // Vector types
   {
     QualType elemType = {};
     if (isVectorType(type, &elemType))
-      return getSpirvBitwidth(elemType);
+      return getElementSpirvBitwidth(elemType);
   }
 
   // Scalar types
@@ -363,19 +363,12 @@ uint32_t TypeTranslator::getSpirvBitwidth(QualType type) {
     case BuiltinType::LongLong:
     case BuiltinType::ULongLong:
       return 64;
-    // min16int (short), and min12int are treated as 16-bit Int if
+    // min16int (short), ushort, and min12int are treated as 16-bit integers if
     // '-enable-16bit-types' option is enabled. They are treated as 32-bit
-    // Int otherwise.
+    // integers otherwise.
     case BuiltinType::Short:
+    case BuiltinType::UShort:
     case BuiltinType::Min12Int: {
-      if (spirvOptions.enable16BitTypes)
-        return 16;
-      else
-        return 32;
-    }
-    // min16uint (ushort) is treated as 16-bit Uint if '-enable-16bit-types'
-    // option is enabled. It is treated as 32-bit Uint otherwise.
-    case BuiltinType::UShort: {
       if (spirvOptions.enable16BitTypes)
         return 16;
       else
@@ -397,7 +390,7 @@ uint32_t TypeTranslator::getSpirvBitwidth(QualType type) {
       // First try to see if there are any hints about how this literal type
       // is going to be used. If so, use the hint.
       if (getIntendedLiteralType(ty) != ty) {
-        return getSpirvBitwidth(getIntendedLiteralType(ty));
+        return getElementSpirvBitwidth(getIntendedLiteralType(ty));
       }
 
       const auto &semantics = astContext.getFloatTypeSemantics(type);
@@ -411,7 +404,7 @@ uint32_t TypeTranslator::getSpirvBitwidth(QualType type) {
       // First try to see if there are any hints about how this literal type
       // is going to be used. If so, use the hint.
       if (getIntendedLiteralType(ty) != ty) {
-        return getSpirvBitwidth(getIntendedLiteralType(ty));
+        return getElementSpirvBitwidth(getIntendedLiteralType(ty));
       }
 
       const auto bitwidth = astContext.getIntWidth(type);
@@ -419,14 +412,11 @@ uint32_t TypeTranslator::getSpirvBitwidth(QualType type) {
       // as 64-bit int in SPIR-V.
       // All integer variants with bitwidth of 32 or less are represented as
       // 32-bit int in SPIR-V.
-      if (type->isSignedIntegerType())
-        return bitwidth > 32 ? 64 : 32;
-      else
-        return bitwidth > 32 ? 64 : 32;
+      return bitwidth > 32 ? 64 : 32;
     }
     }
   }
-  llvm_unreachable("invalid type passed to getSpirvBitwidth");
+  llvm_unreachable("invalid type passed to getElementSpirvBitwidth");
 }
 
 uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
@@ -463,7 +453,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
         case BuiltinType::Double:
         case BuiltinType::Half:
         case BuiltinType::Min10Float: {
-          const auto bitwidth = getSpirvBitwidth(ty);
+          const auto bitwidth = getElementSpirvBitwidth(ty);
           return getTypeWithCustomBitwidth(ty, bitwidth);
         }
         // Literal types. First try to resolve them using hints.
@@ -472,7 +462,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           if (getIntendedLiteralType(ty) != ty) {
             return translateType(getIntendedLiteralType(ty));
           }
-          const auto bitwidth = getSpirvBitwidth(ty);
+          const auto bitwidth = getElementSpirvBitwidth(ty);
           return getTypeWithCustomBitwidth(ty, bitwidth);
         }
         default:

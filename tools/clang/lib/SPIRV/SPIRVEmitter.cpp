@@ -5671,8 +5671,8 @@ uint32_t SPIRVEmitter::convertBitwidth(uint32_t fromVal, QualType fromType,
       fromType->isSpecificBuiltinType(BuiltinType::LitInt))
     return fromVal;
 
-  const auto fromBitwidth = typeTranslator.getSpirvBitwidth(fromType);
-  const auto toBitwidth = typeTranslator.getSpirvBitwidth(toType);
+  const auto fromBitwidth = typeTranslator.getElementSpirvBitwidth(fromType);
+  const auto toBitwidth = typeTranslator.getElementSpirvBitwidth(toType);
   if (fromBitwidth == toBitwidth) {
     if (resultType)
       *resultType = typeTranslator.translateType(fromType);
