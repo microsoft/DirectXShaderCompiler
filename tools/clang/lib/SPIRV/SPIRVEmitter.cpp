@@ -159,7 +159,12 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
 /// Returns true if the given VarDecl will be translated into a SPIR-V variable
 /// not in the Private or Function storage class.
 inline bool isExternalVar(const VarDecl *var) {
-  return var->isExternallyVisible() && !var->isStaticDataMember();
+  // Class static variables should be put in the Private storage class.
+  // groupshared variables are allowed to be declared as "static". But we still
+  // need to put them in the Workgroup storage class. That is, when seeing
+  // "static groupshared", ignore "static".
+  return var->isExternallyVisible() ? !var->isStaticDataMember()
+                                    : var->getAttr<HLSLGroupSharedAttr>();
 }
 
 /// Returns the referenced variable's DeclContext if the given expr is

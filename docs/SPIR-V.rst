@@ -823,6 +823,8 @@ placed in the ``Uniform`` or ``UniformConstant`` storage class.
 
   - Global variables with ``groupshared`` modifier will be placed in the
     ``Workgroup`` storage class.
+  - Note that this modifier overrules ``static``; if both ``groupshared`` and
+    ``static`` are applied to a variable, ``static`` will be ignored.
 
 - ``uinform``
 
