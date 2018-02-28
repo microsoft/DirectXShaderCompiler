@@ -5608,7 +5608,7 @@ uint32_t SPIRVEmitter::castToInt(uint32_t fromVal, QualType fromType,
     // First convert the source to the bitwidth of the destination if necessary.
     uint32_t convertedType = 0;
     fromVal = convertBitwidth(fromVal, fromType, toIntType, &convertedType);
-    // If bitwidth conversoin was the only thing we needed to do, we're done.
+    // If bitwidth conversion was the only thing we needed to do, we're done.
     if (convertedType == typeTranslator.translateType(toIntType))
       return fromVal;
     return theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, fromVal);
@@ -5662,9 +5662,15 @@ uint32_t SPIRVEmitter::castToInt(uint32_t fromVal, QualType fromType,
 
 uint32_t SPIRVEmitter::convertBitwidth(uint32_t fromVal, QualType fromType,
                                        QualType toType, uint32_t *resultType) {
+  // At the moment, we will not make bitwidth conversions for literal int and
+  // literal float types because they always indicate 64-bit and do not
+  // represent what SPIR-V was actually resolved to.
+  // TODO: If the evaluated type is added to SpirvEvalInfo, change 'fromVal' to
+  // SpirvEvalInfo and use it to handle literal types more accurately.
   if (fromType->isSpecificBuiltinType(BuiltinType::LitFloat) ||
       fromType->isSpecificBuiltinType(BuiltinType::LitInt))
     return fromVal;
+
   const auto fromBitwidth = typeTranslator.getSpirvBitwidth(fromType);
   const auto toBitwidth = typeTranslator.getSpirvBitwidth(toType);
   if (fromBitwidth == toBitwidth) {
