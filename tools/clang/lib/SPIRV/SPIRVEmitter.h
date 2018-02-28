@@ -148,12 +148,20 @@ private:
                   QualType lhsValType);
 
   /// Generates the necessary instructions for conducting the given binary
-  /// operation on lhs and rhs. If lhsResultId is not nullptr, the evaluated
-  /// pointer from lhs during the process will be written into it. If
-  /// mandateGenOpcode is not spv::Op::Max, it will used as the SPIR-V opcode
-  /// instead of deducing from Clang frontend opcode.
+  /// operation on lhs and rhs.
+  ///
+  /// computationType is the type for LHS and RHS when doing computation, while
+  /// resultType is the type of the whole binary operation. They can be
+  /// different for compound assignments like <some-int-value> *=
+  /// <some-float-value>, where computationType is float and resultType is int.
+  ///
+  /// If lhsResultId is not nullptr, the evaluated pointer from lhs during the
+  /// process will be written into it. If mandateGenOpcode is not spv::Op::Max,
+  /// it will used as the SPIR-V opcode instead of deducing from Clang frontend
+  /// opcode.
   SpirvEvalInfo processBinaryOp(const Expr *lhs, const Expr *rhs,
-                                BinaryOperatorKind opcode, QualType resultType,
+                                BinaryOperatorKind opcode,
+                                QualType computationType, QualType resultType,
                                 SourceRange, SpirvEvalInfo *lhsInfo = nullptr,
                                 spv::Op mandateGenOpcode = spv::Op::Max);
 
