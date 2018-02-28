@@ -194,8 +194,13 @@ TEST_F(FileTest, BinaryOpVectorArithAssign) {
 TEST_F(FileTest, BinaryOpMatrixArithAssign) {
   runFileTest("binary-op.arith-assign.matrix.hlsl");
 }
-TEST_F(FileTest, BinaryOpMixedArithAssign) {
-  runFileTest("binary-op.arith-assign.mixed.hlsl");
+TEST_F(FileTest, BinaryOpMixedFormArithAssign) {
+  // Test mixing scalar/vector/matrix/etc.
+  runFileTest("binary-op.arith-assign.mixed.form.hlsl");
+}
+TEST_F(FileTest, BinaryOpMixedTypeArithAssign) {
+  // Test mixing float/int/uint/bool/etc.
+  runFileTest("binary-op.arith-assign.mixed.type.hlsl");
 }
 
 // For bitwise binary operators
