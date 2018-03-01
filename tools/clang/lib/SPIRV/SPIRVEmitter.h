@@ -291,6 +291,14 @@ private:
   bool validateVKAttributes(const NamedDecl *decl);
 
 private:
+  /// Converts the given value from the bitwidth of 'fromType' to the bitwidth
+  /// of 'toType'. If the two have the same bitwidth, returns the value itself.
+  /// If resultType is not nullptr, the resulting value's type will be written
+  /// to resultType. Panics if the given types are not scalar or vector of
+  /// float/integer type.
+  uint32_t convertBitwidth(uint32_t value, QualType fromType, QualType toType,
+                           uint32_t *resultType = nullptr);
+
   /// Processes the given expr, casts the result into the given bool (vector)
   /// type and returns the <result-id> of the casted value.
   uint32_t castToBool(uint32_t value, QualType fromType, QualType toType);

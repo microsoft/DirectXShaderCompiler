@@ -125,6 +125,20 @@ public:
   /// \brief Returns true if the given type is SubpassInputMS.
   static bool isSubpassInputMS(QualType);
 
+  /// \brief Evluates the given type at the given bitwidth and returns the
+  /// result-id for it. Panics if the given type is not a scalar or vector of
+  /// float or integer type. For example: if QualType of an int4 and bitwidth of
+  /// 64 is passed in, the result-id of a SPIR-V vector of size 4 of signed
+  /// 64-bit integers is returned.
+  /// Acceptable bitwidths are 16, 32, and 64.
+  uint32_t getTypeWithCustomBitwidth(QualType type, uint32_t bitwidth);
+
+  /// \brief Returns the realized bitwidth of the given type when represented in
+  /// SPIR-V. Panics if the given type is not a scalar or vector of float or
+  /// integer. In case of vectors, it returns the realized SPIR-V bitwidth of
+  /// the vector elements.
+  uint32_t getElementSpirvBitwidth(QualType type);
+
   /// \brief Returns true if the given type will be translated into a SPIR-V
   /// scalar type. This includes normal scalar types, vectors of size 1, and
   /// 1x1 matrices. If scalarType is not nullptr, writes the scalar type to
