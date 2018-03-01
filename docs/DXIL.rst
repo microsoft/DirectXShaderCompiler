@@ -1985,25 +1985,25 @@ FAdd
 
 %des = fadd float %src0, %src1
 
-The following table shows the results obtained when executing the instruction with various classes of numbers, assuming that neither overflow or underflow occurs.
-For denorms, the table reflects "fp32-denorm-mode"="preserve" case. for "fp32-denorm-mode"="ftz" mode, denorms are treated as zeros.
+The following table shows the results obtained when executing the instruction with various classes of numbers, assuming that "fp32-denorm-mode"="preserve".
+For "fp32-denorm-mode"="ftz" mode, denorms inputs should be treated as corresponding signed zero, and any resulting denorm is also flushed to zero.
 
 +----------+----------+--------+----------+----+----+-----------+--------+------+-----+
 | src0\src1| -inf     | -F     | -denorm  | -0 | +0 | +denorm   |    +F  | +inf | NaN |
 +----------+----------+--------+----------+----+----+-----------+--------+------+-----+
 | -inf     | -inf     |   -inf | -inf     |-inf|-inf| -inf      |   -inf | NaN  | NaN |
 +----------+----------+--------+----------+----+----+-----------+--------+------+-----+
-| -F       | -inf     |   -F   | src0     |src0|src0| src0      |   +-F  | +inf | NaN |
+| -F       | -inf     |   -F   | -F       |src0|src0| -F        |   +/-F | +inf | NaN |
 +----------+----------+--------+----------+----+----+-----------+--------+------+-----+
-| -denorm  | -inf     |   -F   | -F/denorm|-0  |+0  | +-denorm  |   +F   | +inf | NaN |
+| -denorm  | -inf     |   -F   |-F/denorm |src0|src0| +/-denorm |   +F   | +inf | NaN |
 +----------+----------+--------+----------+----+----+-----------+--------+------+-----+
-| -0       | -inf     |   src1 | -0       |-0  |+0  | +0        |   src1 | +inf | NaN |
+| -0       | -inf     |   src1 | src1     |-0  |+0  | src1      |   src1 | +inf | NaN |
 +----------+----------+--------+----------+----+----+-----------+--------+------+-----+
-| +0       | -inf     |   src1 | -0       |-0  |+0  | +0        |   src1 | +inf | NaN |
+| +0       | -inf     |   src1 | src1     |-0  |+0  | src1      |   src1 | +inf | NaN |
 +----------+----------+--------+----------+----+----+-----------+--------+------+-----+
-| +denorm  | -inf     |   -F   |+-denorm  |-0  |+0  | +F/denorm |   src1 | +inf | NaN |
+| +denorm  | -inf     |   -F   |+/-denorm |src0|src0| +F/denorm |   +F   | +inf | NaN |
 +----------+----------+--------+----------+----+----+-----------+--------+------+-----+
-| +F       | -inf     |  +-F   | src0     |src0|src0| src0      |   +F   | +inf | NaN |
+| +F       | -inf     |  +/-F  | +F       |src0|src0| +F        |   +F   | +inf | NaN |
 +----------+----------+--------+----------+----+----+-----------+--------+------+-----+
 | +inf     | NaN      |   +inf | +inf     |+inf|+inf| +inf      |   +inf | +inf | NaN |
 +----------+----------+--------+----------+----+----+-----------+--------+------+-----+
@@ -2013,36 +2013,33 @@ For denorms, the table reflects "fp32-denorm-mode"="preserve" case. for "fp32-de
 FDiv
 ~~~~
 
-%des = fdiv float %src0, %src1
+%dest = fdiv float %src0, %src1
 
-The following table shows the results obtained when executing the instruction with various classes of numbers, assuming that neither overflow or underflow occurs.
-
-One outcome of this is there are exceptions to the table below for large denominator values (greater than 8.5070592e+37), where 1/denominator is a denorm. Since implementations may perform divide as a*(1/b), instead of a/b directly, and 1/[large value] is a denorm that could get flushed, some cases in the table would produce different results. For example (+/-)INF / (+/-)[value > 8.5070592e+37] may produce NaN on some implementations, but (+/-)INF on other implementations.
-For denorms, the table reflects "fp32-denorm-mode"="preserve" case. for "fp32-denorm-mode"="ftz" mode, denorms are treated as zeros.
+The following table shows the results obtained when executing the instruction with various classes of numbers, assuming that fast math flag is not used and "fp32-denorm-mode"="preserve".
+When "fp32-denorm-mode"="ftz", denorm inputs should be interpreted as corresponding signed zero, and any resulting denorm is also flushed to zero.
+When fast math is enabled, implementation may use reciprocal form: src0*(1/src1).  This may result in evaluating src0*(+/-)INF from src0*(1/(+/-)denorm).  This may produce NaN in some cases or (+/-)INF in others.
 
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
 | src0\\src1| -inf     | -F     |  -1   | -denorm*| -0 | +0 | +denorm*|  +1   |    +F  | +inf | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
 | -inf      | NaN      |   +inf | +inf  | +inf    |+inf|-inf| -inf    |  -inf |   -inf | NaN  | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
-| -F        | +0       |   +F   | -src0 | +inf    |+inf|-inf| -inf    |  src0 |   -F   | -0   | NaN |
+| -F        | +0       |   +F   | -src0 | +F      |+inf|-inf| -F      |  src0 |   -F   | -0   | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
-| -denorm   | +0       |   +0   | -src0 | +F      |NaN |NaN | NaN     |  src0 |   -F   | -0   | NaN |
+| -denorm   | +0       | +denorm| -src0 | +F      |+inf|-inf| -F      |  src0 |-denorm | -0   | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
-| -0        | +0       |   +0   | +0    | NaN     |NaN |NaN | NaN     |  -0   |   -0   | -0   | NaN |
+| -0        | +0       |   +0   | +0    | 0       |NaN |NaN | 0       |  -0   |   -0   | -0   | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
-| +0        | -0       |   -0   | -0    | NaN     |NaN |NaN | NaN     |  +0   |   +0   | +0   | NaN |
+| +0        | -0       |   -0   | -0    | 0       |NaN |NaN | 0       |  +0   |   +0   | +0   | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
-| +denorm   | -0       |   -0   | -src0 | -F      |NaN |NaN | NaN     |  src0 |   +F   | +0   | NaN |
+| +denorm   | -0       | -denorm| -src0 | -F      |-inf|+inf| +F      |  src0 |+denorm | +0   | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
-| +F        | -0       |   -F   | -src0 | +inf    |+inf|-inf| -inf    |  src0 |   +F   | +0   | NaN |
+| +F        | -0       |   -F   | -src0 | -F      |-inf|+inf| +F      |  src0 |   +F   | +0   | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
 | +inf      | NaN      |   -inf | -inf  | -inf    |-inf|+inf| +inf    |  +inf |   +inf | NaN  | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
 | NaN       | NaN      |   NaN  | NaN   | NaN     |NaN |NaN | NaN     |  NaN  |   NaN  | NaN  | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
-
-*: In fast math mode, division can be implemented as multiplying by reciprocal by drivers. So in "fp32-denorm-mode"="preserve" case, dividing by denorm may lead to multiplying by infinity. For example, dividing denorm value by itself may result in 1 or infinity.
 
 .. INSTR-RST:END
 
