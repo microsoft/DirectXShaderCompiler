@@ -145,7 +145,8 @@ private:
   bool DetachLib(DxilLib *lib);
   bool AddFunctions(SmallVector<StringRef, 4> &workList,
                     DenseSet<DxilLib *> &libSet, StringSet<> &addedFunctionSet,
-                    DxilLinkJob &linkJob, bool bLazyLoadDone);
+                    DxilLinkJob &linkJob, bool bLazyLoadDone,
+                    bool bAllowFuncionDecls);
   // Attached libs to link.
   std::unordered_set<DxilLib *> m_attachedLibs;
   // Owner of all DxilLib.
@@ -330,7 +331,7 @@ struct DxilLinkJob {
 
 private:
   void LinkNamedMDNodes(Module *pM, ValueToValueMapTy &vmap);
-  void AddDxilOperations(Module *pM);
+  void AddFunctionDecls(Module *pM);
   bool AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap);
   void CloneFunctions(ValueToValueMapTy &vmap);
   void AddFunctions(DxilModule &DM, ValueToValueMapTy &vmap,
@@ -338,7 +339,7 @@ private:
   bool AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV);
   void AddResourceToDM(DxilModule &DM);
   std::unordered_map<DxilFunctionLinkInfo *, DxilLib *> m_functionDefs;
-  llvm::StringMap<llvm::Function *> m_dxilFunctions;
+  llvm::StringMap<llvm::Function *> m_functionDecls;
   // New created functions.
   llvm::StringMap<llvm::Function *> m_newFunctions;
   // New created globals.
@@ -549,8 +550,8 @@ void DxilLinkJob::LinkNamedMDNodes(Module *pM, ValueToValueMapTy &vmap) {
   }
 }
 
-void DxilLinkJob::AddDxilOperations(Module *pM) {
-  for (auto &it : m_dxilFunctions) {
+void DxilLinkJob::AddFunctionDecls(Module *pM) {
+  for (auto &it : m_functionDecls) {
     Function *F = it.second;
     Function *NewF = Function::Create(F->getFunctionType(), F->getLinkage(),
                                       F->getName(), pM);
@@ -696,7 +697,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   // Set target.
   pM->setTargetTriple(entryDM.GetModule()->getTargetTriple());
   // Add dxil operation functions before create DxilModule.
-  AddDxilOperations(pM.get());
+  AddFunctionDecls(pM.get());
 
   // Create DxilModule.
   const bool bSkipInit = true;
@@ -784,8 +785,8 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
       llvm::make_unique<Module>("merged_lib", tmpDM.GetCtx());
   // Set target.
   pM->setTargetTriple(tmpDM.GetModule()->getTargetTriple());
-  // Add dxil operation functions before create DxilModule.
-  AddDxilOperations(pM.get());
+  // Add dxil operation functions and external decls before create DxilModule.
+  AddFunctionDecls(pM.get());
 
   // Create DxilModule.
   const bool bSkipInit = true;
@@ -874,7 +875,7 @@ void DxilLinkJob::AddFunction(
 }
 
 void DxilLinkJob::AddFunction(llvm::Function *F) {
-  m_dxilFunctions[F->getName()] = F;
+  m_functionDecls[F->getName()] = F;
 }
 
 void DxilLinkJob::RunPreparePass(Module &M) {
@@ -1026,7 +1027,8 @@ bool DxilLinkerImpl::DetachLib(DxilLib *lib) {
 bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
                                   DenseSet<DxilLib *> &libSet,
                                   StringSet<> &addedFunctionSet,
-                                  DxilLinkJob &linkJob, bool bLazyLoadDone) {
+                                  DxilLinkJob &linkJob, bool bLazyLoadDone,
+                                  bool bAllowFuncionDecls) {
   while (!workList.empty()) {
     StringRef name = workList.pop_back_val();
     // Ignore added function.
@@ -1052,9 +1054,14 @@ bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
       if (hlsl::OP::IsDxilOpFunc(F) || F->isIntrinsic()) {
         // Add dxil operations directly.
         linkJob.AddFunction(F);
-      } else {
-        // Push function name to work list.
-        workList.emplace_back(F->getName());
+      } else if (addedFunctionSet.count(F->getName()) == 0) {
+        if (bAllowFuncionDecls && F->isDeclaration() && !m_functionNameMap.count(F->getName())) {
+          // When linking to lib, use of undefined function is allowed; add directly.
+          linkJob.AddFunction(F);
+        } else {
+          // Push function name to work list.
+          workList.emplace_back(F->getName());
+        }
       }
     }
 
@@ -1104,7 +1111,8 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile,
     workList.emplace_back(entry);
 
     if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
-                      /*bLazyLoadDone*/ false))
+                      /*bLazyLoadDone*/ false,
+                      /*bAllowFuncionDecls*/ false))
       return nullptr;
 
   } else {
@@ -1125,6 +1133,19 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile,
 
         addedFunctionSet.insert(name);
       }
+      // Add every dxil function and llvm intrinsic.
+      for (auto *pLib : libSet) {
+        auto &DM = pLib->GetDxilModule();
+        DM.GetOP();
+        auto *pM = DM.GetModule();
+        for (Function &F : pM->functions()) {
+          if (hlsl::OP::IsDxilOpFunc(&F) || F.isIntrinsic() ||
+            (F.isDeclaration() && m_functionNameMap.count(F.getName()) == 0)) {
+            // Add intrinsics and function decls still not defined in any lib
+            linkJob.AddFunction(&F);
+          }
+        }
+      }
     } else {
       SmallVector<StringRef, 4> workList;
 
@@ -1138,19 +1159,9 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile,
       }
 
       if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
-                        /*bLazyLoadDone*/ false))
+                        /*bLazyLoadDone*/ false,
+                        /*bAllowFuncionDecls*/ true))
         return nullptr;
-    }
-    // Add every dxil functions and llvm intrinsic.
-    for (auto *pLib : libSet) {
-      auto &DM = pLib->GetDxilModule();
-      DM.GetOP();
-      auto *pM = DM.GetModule();
-      for (Function &F : pM->functions()) {
-        if (hlsl::OP::IsDxilOpFunc(&F) || F.isIntrinsic()) {
-          linkJob.AddFunction(&F);
-        }
-      }
     }
   }
 
@@ -1165,10 +1176,13 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile,
     pLib->CollectUsedInitFunctions(addedFunctionSet, workList);
   }
   // Add init functions if used.
-  // All init function already loaded in BuildGlobalUsage, so set bLazyLoad
-  // false here.
+  // All init function already loaded in BuildGlobalUsage,
+  // so set bLazyLoadDone to true here.
+  // Decls should have been added to addedFunctionSet if lib,
+  // so set bAllowFuncionDecls is false here.
   if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
-                    /*bLazyLoadDone*/ true))
+                    /*bLazyLoadDone*/ true,
+                    /*bAllowFuncionDecls*/ false))
     return nullptr;
 
   if (!bIsLib) {
