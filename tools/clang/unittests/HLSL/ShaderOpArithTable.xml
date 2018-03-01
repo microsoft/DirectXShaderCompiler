@@ -5798,14 +5798,14 @@
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007F0000</Value>
-                <Value>0x007F0000</Value>
-                <Value>0x40000000</Value>
+                <Value>0x807F0000</Value>
+                <Value>0x20000000</Value>
                 <Value>0x00800000</Value>
             </Parameter>
             <Parameter Name="Validation.Input2">
                 <Value>1</Value>
-                <Value>0x007F0000</Value>
-                <Value>0x7F7F0000</Value>
+                <Value>4</Value>
+                <Value>0x607F0000</Value>
                 <Value>0x40000000</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
@@ -5925,20 +5925,20 @@
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007F0000</Value>
-                <Value>0x007F0000</Value>
-                <Value>0x40000000</Value>
+                <Value>0x807F0000</Value>
+                <Value>0x20000000</Value>
                 <Value>0x00800000</Value>
             </Parameter>
             <Parameter Name="Validation.Input2">
                 <Value>1</Value>
-                <Value>0x007F0000</Value>
-                <Value>0x7F7F0000</Value>
+                <Value>4</Value>
+                <Value>0x607F0000</Value>
                 <Value>0x40000000</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>0x007F0000</Value>
-                <Value>1</Value>
-                <Value>0x00404040</Value>
+                <Value>0x801FC000</Value>
+                <Value>0x00101010</Value>
                 <Value>0x00400000</Value>
             </Parameter>
             <Parameter Name="Validation.Expected2">
@@ -6045,20 +6045,20 @@
             <Parameter Name="ShaderOp.Target">cs_6_2</Parameter>
             <Parameter Name="Validation.Input1">
                 <Value>0x007F0000</Value>
-                <Value>0x007F0000</Value>
-                <Value>0x40000000</Value>
+                <Value>0x807F0000</Value>
+                <Value>0x20000000</Value>
                 <Value>0x00800000</Value>
             </Parameter>
             <Parameter Name="Validation.Input2">
                 <Value>1</Value>
-                <Value>0x007F0000</Value>
-                <Value>0x7F7F0000</Value>
+                <Value>4</Value>
+                <Value>0x607F0000</Value>
                 <Value>0x40000000</Value>
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>0x007F0000</Value>
-                <Value>1</Value>
-                <Value>0x00404040</Value>
+                <Value>0x801FC000</Value>
+                <Value>0x00101010</Value>
                 <Value>0x00400000</Value>
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm preserve</Parameter>

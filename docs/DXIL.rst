@@ -1980,6 +1980,67 @@ ExtractValue  extracts from aggregate
 ============= ======================================================================= =================
 
 
+FAdd
+~~~~
+
+%des = fadd float %src0, %src1
+
+The following table shows the results obtained when executing the instruction with various classes of numbers, assuming that "fp32-denorm-mode"="preserve".
+For "fp32-denorm-mode"="ftz" mode, denorms inputs should be treated as corresponding signed zero, and any resulting denorm is also flushed to zero.
+
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+| src0\src1| -inf     | -F     | -denorm  | -0 | +0 | +denorm   |    +F  | +inf | NaN |
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+| -inf     | -inf     |   -inf | -inf     |-inf|-inf| -inf      |   -inf | NaN  | NaN |
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+| -F       | -inf     |   -F   | -F       |src0|src0| -F        |   +/-F | +inf | NaN |
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+| -denorm  | -inf     |   -F   |-F/denorm |src0|src0| +/-denorm |   +F   | +inf | NaN |
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+| -0       | -inf     |   src1 | src1     |-0  |+0  | src1      |   src1 | +inf | NaN |
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+| +0       | -inf     |   src1 | src1     |-0  |+0  | src1      |   src1 | +inf | NaN |
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+| +denorm  | -inf     |   -F   |+/-denorm |src0|src0| +F/denorm |   +F   | +inf | NaN |
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+| +F       | -inf     |  +/-F  | +F       |src0|src0| +F        |   +F   | +inf | NaN |
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+| +inf     | NaN      |   +inf | +inf     |+inf|+inf| +inf      |   +inf | +inf | NaN |
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+| NaN      | NaN      |   NaN  | NaN      |NaN |NaN | NaN       |   NaN  | NaN  | NaN |
++----------+----------+--------+----------+----+----+-----------+--------+------+-----+
+
+FDiv
+~~~~
+
+%dest = fdiv float %src0, %src1
+
+The following table shows the results obtained when executing the instruction with various classes of numbers, assuming that fast math flag is not used and "fp32-denorm-mode"="preserve".
+When "fp32-denorm-mode"="ftz", denorm inputs should be interpreted as corresponding signed zero, and any resulting denorm is also flushed to zero.
+When fast math is enabled, implementation may use reciprocal form: src0*(1/src1).  This may result in evaluating src0*(+/-)INF from src0*(1/(+/-)denorm).  This may produce NaN in some cases or (+/-)INF in others.
+
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| src0\\src1| -inf     | -F     |  -1   | -denorm | -0 | +0 | +denorm |  +1   |    +F  | +inf | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| -inf      | NaN      |   +inf | +inf  | +inf    |+inf|-inf| -inf    |  -inf |   -inf | NaN  | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| -F        | +0       |   +F   | -src0 | +F      |+inf|-inf| -F      |  src0 |   -F   | -0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| -denorm   | +0       | +denorm| -src0 | +F      |+inf|-inf| -F      |  src0 |-denorm | -0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| -0        | +0       |   +0   | +0    | 0       |NaN |NaN | 0       |  -0   |   -0   | -0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| +0        | -0       |   -0   | -0    | 0       |NaN |NaN | 0       |  +0   |   +0   | +0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| +denorm   | -0       | -denorm| -src0 | -F      |-inf|+inf| +F      |  src0 |+denorm | +0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| +F        | -0       |   -F   | -src0 | -F      |-inf|+inf| +F      |  src0 |   +F   | +0   | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| +inf      | NaN      |   -inf | -inf  | -inf    |-inf|+inf| +inf    |  +inf |   +inf | NaN  | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+| NaN       | NaN      |   NaN  | NaN   | NaN     |NaN |NaN | NaN     |  NaN  |   NaN  | NaN  | NaN |
++-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
+
 .. INSTR-RST:END
 
 Operations via external functions
