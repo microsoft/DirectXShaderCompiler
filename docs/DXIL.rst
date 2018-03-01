@@ -2020,7 +2020,7 @@ When "fp32-denorm-mode"="ftz", denorm inputs should be interpreted as correspond
 When fast math is enabled, implementation may use reciprocal form: src0*(1/src1).  This may result in evaluating src0*(+/-)INF from src0*(1/(+/-)denorm).  This may produce NaN in some cases or (+/-)INF in others.
 
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
-| src0\\src1| -inf     | -F     |  -1   | -denorm*| -0 | +0 | +denorm*|  +1   |    +F  | +inf | NaN |
+| src0\\src1| -inf     | -F     |  -1   | -denorm | -0 | +0 | +denorm |  +1   |    +F  | +inf | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
 | -inf      | NaN      |   +inf | +inf  | +inf    |+inf|-inf| -inf    |  -inf |   -inf | NaN  | NaN |
 +-----------+----------+--------+-------+---------+----+----+---------+-------+--------+------+-----+
