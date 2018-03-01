@@ -363,22 +363,12 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
     case BuiltinType::LongLong:
     case BuiltinType::ULongLong:
       return 64;
-    // min16int (short), ushort, and min12int are treated as 16-bit integers if
-    // '-enable-16bit-types' option is enabled. They are treated as 32-bit
-    // integers otherwise.
+    // min16int (short), ushort, min12int, half, and min10float are treated as
+    // 16-bit if '-enable-16bit-types' option is enabled. They are treated as
+    // 32-bit otherwise.
     case BuiltinType::Short:
     case BuiltinType::UShort:
-    case BuiltinType::Min12Int: {
-      if (spirvOptions.enable16BitTypes)
-        return 16;
-      else
-        return 32;
-    }
-    // min16float (half), and min10float are all translated to
-    // 32-bit float in SPIR-V.
-    // min16float (half), and min10float are treated as 16-bit float if
-    // '-enable-16bit-types' option is enabled. They are treated as 32-bit
-    // float otherwise.
+    case BuiltinType::Min12Int:
     case BuiltinType::Half:
     case BuiltinType::Min10Float: {
       if (spirvOptions.enable16BitTypes)
