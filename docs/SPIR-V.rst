@@ -2490,6 +2490,12 @@ according to the following table:
 ``WaveGetLaneIndex()`` ``SubgroupLocalInvocationId`` ``SPV_KHR_shader_ballot``
 ====================== ============================= =========================
 
+======================= ================================ =========================
+      Intrinsic               SPIR-V Instruction                Extension
+======================= ================================ =========================
+``WaveReadLaneFirst()`` ``OpSubgroupFirstInvocationKHR`` ``SPV_KHR_shader_ballot``
+======================= ================================ =========================
+
 Vulkan Command-line Options
 ===========================
 
