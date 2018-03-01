@@ -5620,7 +5620,7 @@ uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
   return theBuilder.createBinaryOp(spvOp, boolType, fromVal, zeroVal);
 }
 
-uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
+uint32_t SPIRVEmitter::castToInt(uint32_t fromVal, QualType fromType,
                                  QualType toIntType, SourceLocation srcLoc) {
   if (TypeTranslator::isSameScalarOrVecType(fromType, toIntType))
     return fromVal;
@@ -5634,11 +5634,18 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
   }
 
   if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
-    // TODO: handle different bitwidths
+    // First convert the source to the bitwidth of the destination if necessary.
+    uint32_t convertedType = 0;
+    fromVal = convertBitwidth(fromVal, fromType, toIntType, &convertedType);
+    // If bitwidth conversion was the only thing we needed to do, we're done.
+    if (convertedType == typeTranslator.translateType(toIntType))
+      return fromVal;
     return theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, fromVal);
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
+    // First convert the source to the bitwidth of the destination if necessary.
+    fromVal = convertBitwidth(fromVal, fromType, toIntType);
     if (isSintOrVecOfSintType(toIntType)) {
       return theBuilder.createUnaryOp(spv::Op::OpConvertFToS, intType, fromVal);
     } else if (isUintOrVecOfUintType(toIntType)) {
@@ -5682,7 +5689,41 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
   return 0;
 }
 
-uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
+uint32_t SPIRVEmitter::convertBitwidth(uint32_t fromVal, QualType fromType,
+                                       QualType toType, uint32_t *resultType) {
+  // At the moment, we will not make bitwidth conversions for literal int and
+  // literal float types because they always indicate 64-bit and do not
+  // represent what SPIR-V was actually resolved to.
+  // TODO: If the evaluated type is added to SpirvEvalInfo, change 'fromVal' to
+  // SpirvEvalInfo and use it to handle literal types more accurately.
+  if (fromType->isSpecificBuiltinType(BuiltinType::LitFloat) ||
+      fromType->isSpecificBuiltinType(BuiltinType::LitInt))
+    return fromVal;
+
+  const auto fromBitwidth = typeTranslator.getElementSpirvBitwidth(fromType);
+  const auto toBitwidth = typeTranslator.getElementSpirvBitwidth(toType);
+  if (fromBitwidth == toBitwidth) {
+    if (resultType)
+      *resultType = typeTranslator.translateType(fromType);
+    return fromVal;
+  }
+
+  // We want the 'fromType' with the 'toBitwidth'.
+  const uint32_t targetTypeId =
+      typeTranslator.getTypeWithCustomBitwidth(fromType, toBitwidth);
+  if (resultType)
+    *resultType = targetTypeId;
+
+  if (isFloatOrVecOfFloatType(fromType))
+    return theBuilder.createUnaryOp(spv::Op::OpFConvert, targetTypeId, fromVal);
+  if (isSintOrVecOfSintType(fromType))
+    return theBuilder.createUnaryOp(spv::Op::OpSConvert, targetTypeId, fromVal);
+  if (isUintOrVecOfUintType(fromType))
+    return theBuilder.createUnaryOp(spv::Op::OpUConvert, targetTypeId, fromVal);
+  llvm_unreachable("invalid type passed to convertBitwidth");
+}
+
+uint32_t SPIRVEmitter::castToFloat(uint32_t fromVal, QualType fromType,
                                    QualType toFloatType,
                                    SourceLocation srcLoc) {
   if (TypeTranslator::isSameScalarOrVecType(fromType, toFloatType))
@@ -5697,15 +5738,20 @@ uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
   }
 
   if (isSintOrVecOfSintType(fromType)) {
+    // First convert the source to the bitwidth of the destination if necessary.
+    fromVal = convertBitwidth(fromVal, fromType, toFloatType);
     return theBuilder.createUnaryOp(spv::Op::OpConvertSToF, floatType, fromVal);
   }
 
   if (isUintOrVecOfUintType(fromType)) {
+    // First convert the source to the bitwidth of the destination if necessary.
+    fromVal = convertBitwidth(fromVal, fromType, toFloatType);
     return theBuilder.createUnaryOp(spv::Op::OpConvertUToF, floatType, fromVal);
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
-    return theBuilder.createUnaryOp(spv::Op::OpFConvert, floatType, fromVal);
+    // This is the case of float to float conversion with different bitwidths.
+    return convertBitwidth(fromVal, fromType, toFloatType);
   }
 
   // Casting matrix types
