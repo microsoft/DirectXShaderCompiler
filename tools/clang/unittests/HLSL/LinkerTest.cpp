@@ -51,6 +51,8 @@ public:
   TEST_METHOD(RunLinkFailProfileMismatch);
   TEST_METHOD(RunLinkFailEntryNoProps);
   TEST_METHOD(RunLinkFailSelectRes);
+  TEST_METHOD(RunLinkToLibWithUnresolvedFunctions);
+  TEST_METHOD(RunLinkToLibWithUnresolvedFunctionsExports);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -392,4 +394,64 @@ TEST_F(LinkerTest, RunLinkFailSelectRes) {
 
   LinkCheckMsg(L"main", L"ps_6_0", pLinker, {libName, libName2},
                {"Local resource must map to global resource"});
+}
+
+TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctions) {
+  LPCWSTR option[] = { L"-Zi" };
+
+  CComPtr<IDxcBlob> pLib1;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+             &pLib1, option, 1);
+  CComPtr<IDxcBlob> pLib2;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+             &pLib2, option, 1);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName1 = L"lib1";
+  RegisterDxcModule(libName1, pLib1, pLinker);
+
+  LPCWSTR libName2 = L"lib2";
+  RegisterDxcModule(libName2, pLib2, pLinker);
+
+  Link(L"", L"lib_6_2", pLinker, { libName1, libName2 }, {
+    "declare float @\"\\01?external_fn1@@YAMXZ\"()",
+    "declare float @\"\\01?external_fn2@@YAMXZ\"()",
+    "declare float @\"\\01?external_fn@@YAMXZ\"()",
+    "define float @\"\\01?lib1_fn@@YAMXZ\"()",
+    "define float @\"\\01?lib2_fn@@YAMXZ\"()",
+    "define float @\"\\01?call_lib1@@YAMXZ\"()",
+    "define float @\"\\01?call_lib2@@YAMXZ\"()"
+    }, {"declare float @\"\\01?unused_fn1", "declare float @\"\\01?unused_fn2"});
+}
+
+TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctionsExports) {
+  LPCWSTR option[] = { L"-Zi" };
+
+  CComPtr<IDxcBlob> pLib1;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+    &pLib1, option, 1);
+  CComPtr<IDxcBlob> pLib2;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+    &pLib2, option, 1);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName1 = L"lib1";
+  RegisterDxcModule(libName1, pLib1, pLinker);
+
+  LPCWSTR libName2 = L"lib2";
+  RegisterDxcModule(libName2, pLib2, pLinker);
+
+  DxcDefine exports[] = { { L"call_lib1", L"" }, { L"call_lib2", L"" } };
+  LinkWithExports(pLinker, { libName1, libName2 }, exports, {
+    "declare float @\"\\01?external_fn1@@YAMXZ\"()",
+    "declare float @\"\\01?external_fn2@@YAMXZ\"()",
+    "declare float @\"\\01?external_fn@@YAMXZ\"()",
+    "define float @\"\\01?call_lib1@@YAMXZ\"()",
+    "define float @\"\\01?call_lib2@@YAMXZ\"()"
+  }, { "declare float @\"\\01?unused_fn1", "declare float @\"\\01?unused_fn2",
+       "declare float @\"\\01?lib1_fn", "declare float @\"\\01?lib2_fn" });
 }
