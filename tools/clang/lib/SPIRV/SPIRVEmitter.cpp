@@ -6018,6 +6018,17 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
         declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupLocalInvocationId);
     retVal = theBuilder.createLoad(retType, varId);
   } break;
+  case hlsl::IntrinsicOp::IOP_WaveReadLaneFirst: {
+    const auto retType = callExpr->getCallReturnType(astContext);
+    if (!retType->isScalarType()) {
+      emitError("vector overloads of WaveReadLaneFirst unimplemented",
+                callExpr->getExprLoc());
+      return 0;
+    }
+    const uint32_t retTypeId = typeTranslator.translateType(retType);
+    retVal = theBuilder.createSubgroupFirstInvocation(
+        retTypeId, doExpr(callExpr->getArg(0)));
+  } break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
