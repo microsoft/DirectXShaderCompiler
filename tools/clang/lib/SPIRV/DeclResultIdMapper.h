@@ -595,12 +595,15 @@ private:
   /// structured buffer. Handles AssocCounter#1 and AssocCounter#2 (see the
   /// comment of CounterVarFields).
   ///
+  /// declId is the SPIR-V <result-id> for the given decl. It should be non-zero
+  /// for non-alias buffers.
+  ///
   /// The counter variable will be created as an alias variable (of
   /// pointer-to-pointer type in Private storage class) if isAlias is true.
   ///
   /// Note: isAlias - legalization specific code
   void
-  createCounterVar(const DeclaratorDecl *decl, bool isAlias,
+  createCounterVar(const DeclaratorDecl *decl, uint32_t declId, bool isAlias,
                    const llvm::SmallVector<uint32_t, 4> *indices = nullptr);
   /// Creates all assoicated counter variables by recursively visiting decl's
   /// fields. Handles AssocCounter#3 and AssocCounter#4 (see the comment of

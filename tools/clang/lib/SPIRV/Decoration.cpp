@@ -281,6 +281,12 @@ Decoration::getSecondaryViewportRelativeNV(SPIRVContext &context,
   return getUniqueDecoration(context, d);
 }
 
+const Decoration *Decoration::getHlslCounterBufferGOOGLE(SPIRVContext &context,
+                                                         uint32_t id) {
+  Decoration d = Decoration(spv::Decoration::HlslCounterBufferGOOGLE, {id});
+  return getUniqueDecoration(context, d);
+}
+
 std::vector<uint32_t> Decoration::withTargetId(uint32_t targetId) const {
   std::vector<uint32_t> words;
 
@@ -292,7 +298,9 @@ std::vector<uint32_t> Decoration::withTargetId(uint32_t targetId) const {
     words.push_back(targetId);
     words.push_back(*memberIndex);
   } else {
-    words.push_back(static_cast<uint32_t>(spv::Op::OpDecorate));
+    words.push_back(id == spv::Decoration::HlslCounterBufferGOOGLE
+                        ? static_cast<uint32_t>(spv::Op::OpDecorateId)
+                        : static_cast<uint32_t>(spv::Op::OpDecorate));
     words.push_back(targetId);
   }
   words.push_back(static_cast<uint32_t>(id));

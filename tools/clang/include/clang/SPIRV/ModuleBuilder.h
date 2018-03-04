@@ -379,6 +379,9 @@ public:
   /// attchment index number.
   void decorateInputAttachmentIndex(uint32_t targetId, uint32_t indexNumber);
 
+  /// \brief Decorates the given main buffer with the given counter buffer.
+  void decorateCounterBufferId(uint32_t mainBufferId, uint32_t counterBufferId);
+
   /// \brief Decorates the given target <result-id> with the given decoration
   /// (without additional parameters).
   void decorate(uint32_t targetId, spv::Decoration);

@@ -807,10 +807,19 @@ void ModuleBuilder::decorateDSetBinding(uint32_t targetId, uint32_t setNumber,
   d = Decoration::getBinding(theContext, bindingNumber);
   theModule.addDecoration(d, targetId);
 }
+
 void ModuleBuilder::decorateInputAttachmentIndex(uint32_t targetId,
                                                  uint32_t indexNumber) {
   const auto *d = Decoration::getInputAttachmentIndex(theContext, indexNumber);
   theModule.addDecoration(d, targetId);
+}
+
+void ModuleBuilder::decorateCounterBufferId(uint32_t mainBufferId,
+                                            uint32_t counterBufferId) {
+  addExtension("SPV_GOOGLE_hlsl_functionality1");
+  theModule.addDecoration(
+      Decoration::getHlslCounterBufferGOOGLE(theContext, counterBufferId),
+      mainBufferId);
 }
 
 void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {

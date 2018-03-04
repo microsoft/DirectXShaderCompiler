@@ -129,6 +129,8 @@ public:
   static const Decoration *getViewportRelativeNV(SPIRVContext &ctx);
   static const Decoration *getSecondaryViewportRelativeNV(SPIRVContext &ctx,
                                                           uint32_t offset);
+  static const Decoration *getHlslCounterBufferGOOGLE(SPIRVContext &ctx,
+                                                      uint32_t id);
 
   bool operator==(const Decoration &other) const {
     return id == other.id && args == other.args &&
