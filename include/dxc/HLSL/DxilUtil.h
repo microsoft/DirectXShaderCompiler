@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+#include <unordered_set>
 
 namespace llvm {
 class Type;
@@ -51,6 +52,12 @@ namespace dxilutil {
   // NewInst = phi A, B, C
   // Only support 1 operand now, other oerands should be Constant.
   llvm::Value * SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx);
+  // Collect all select operand used by Inst.
+  void CollectSelect(llvm::Instruction *Inst,
+                   std::unordered_set<llvm::Instruction *> &selectSet);
+  // If all operands are the same for a select inst, replace it with the operand.
+  bool MergeSelectOnSameValue(llvm::Instruction *SelInst, unsigned startOpIdx,
+                            unsigned numOperands);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
     llvm::LLVMContext &Ctx, std::string &DiagStr);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
