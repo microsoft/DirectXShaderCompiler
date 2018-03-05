@@ -1079,31 +1079,6 @@ bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
 // phi1 = phi a1, b1, c1
 // NewInst = Add(phi0, phi1);
 namespace {
-void CollectSelect(llvm::Instruction *Inst,
-                   std::unordered_set<llvm::Instruction *> &selectSet) {
-  unsigned startOpIdx = 0;
-  // Skip Cond for Select.
-  if (isa<SelectInst>(Inst)) {
-    startOpIdx = 1;
-  } else if (!isa<PHINode>(Inst)) {
-    // Only check phi and select here.
-    return;
-  }
-  // Already add.
-  if (selectSet.count(Inst))
-    return;
-
-  selectSet.insert(Inst);
-
-  // Scan operand to add node which is phi/select.
-  unsigned numOperands = Inst->getNumOperands();
-  for (unsigned i = startOpIdx; i < numOperands; i++) {
-    Value *V = Inst->getOperand(i);
-    if (Instruction *I = dyn_cast<Instruction>(V)) {
-      CollectSelect(I, selectSet);
-    }
-  }
-}
 
 void CreateOperandSelect(Instruction *SelInst, Instruction *Prototype,
                          std::unordered_map<Instruction *, Instruction *>
@@ -1150,26 +1125,6 @@ void CreateOperandSelect(Instruction *SelInst, Instruction *Prototype,
     selInstToSelOperandInstMap[SelInst] = newSel;
     SelInst->replaceAllUsesWith(newSel);
   }
-}
-
-bool MergeSelectOnSameValue(Instruction *SelInst, unsigned startOpIdx,
-                            unsigned numOperands) {
-  Value *op0 = nullptr;
-  for (unsigned i = startOpIdx; i < numOperands; i++) {
-    Value *op = SelInst->getOperand(i);
-    if (i == startOpIdx) {
-      op0 = op;
-    } else {
-      if (op0 != op)
-        return false;
-    }
-  }
-  if (op0) {
-    SelInst->replaceAllUsesWith(op0);
-    SelInst->eraseFromParent();
-    return true;
-  }
-  return false;
 }
 
 void UpdateOperandSelect(Instruction *SelInst,
@@ -1237,7 +1192,7 @@ void UpdateOperandSelect(Instruction *SelInst,
       opI->setOperand(j, selOp->getOperand(i));
     }
     // Remove select if all operand is the same.
-    if (!MergeSelectOnSameValue(opI, startOpIdx, numOperands) &&
+    if (!dxilutil::MergeSelectOnSameValue(opI, startOpIdx, numOperands) &&
         i != nonUniformOpIdx) {
       // Save nonUniform for later check.
       nonUniformOps.insert(opI);
@@ -1259,7 +1214,7 @@ void DxilLowerCreateHandleForLib::AddCreateHandleForPhiNodeAndSelect(
     for (User *HandleU : U->users()) {
       Instruction *I = cast<Instruction>(HandleU);
       if (!isa<CallInst>(I))
-        CollectSelect(I, resSelectSet);
+        dxilutil::CollectSelect(I, resSelectSet);
     }
   }
 
@@ -1319,7 +1274,7 @@ void DxilLowerCreateHandleForLib::AddCreateHandleForPhiNodeAndSelect(
       // Skip Cond for Select.
       if (SelectInst *Sel = dyn_cast<SelectInst>(I))
         startOpIdx = 1;
-      if (MergeSelectOnSameValue(I, startOpIdx, numOperands)) {
+      if (dxilutil::MergeSelectOnSameValue(I, startOpIdx, numOperands)) {
         nonUniformOps.erase(I);
         bUpdated = true;
       }

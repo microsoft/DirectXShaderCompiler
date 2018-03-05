@@ -176,6 +176,52 @@ void EmitResMappingError(Instruction *Res) {
   }
 }
 
+void CollectSelect(llvm::Instruction *Inst,
+                   std::unordered_set<llvm::Instruction *> &selectSet) {
+  unsigned startOpIdx = 0;
+  // Skip Cond for Select.
+  if (isa<SelectInst>(Inst)) {
+    startOpIdx = 1;
+  } else if (!isa<PHINode>(Inst)) {
+    // Only check phi and select here.
+    return;
+  }
+  // Already add.
+  if (selectSet.count(Inst))
+    return;
+
+  selectSet.insert(Inst);
+
+  // Scan operand to add node which is phi/select.
+  unsigned numOperands = Inst->getNumOperands();
+  for (unsigned i = startOpIdx; i < numOperands; i++) {
+    Value *V = Inst->getOperand(i);
+    if (Instruction *I = dyn_cast<Instruction>(V)) {
+      CollectSelect(I, selectSet);
+    }
+  }
+}
+
+bool MergeSelectOnSameValue(Instruction *SelInst, unsigned startOpIdx,
+                            unsigned numOperands) {
+  Value *op0 = nullptr;
+  for (unsigned i = startOpIdx; i < numOperands; i++) {
+    Value *op = SelInst->getOperand(i);
+    if (i == startOpIdx) {
+      op0 = op;
+    } else {
+      if (op0 != op)
+        return false;
+    }
+  }
+  if (op0) {
+    SelInst->replaceAllUsesWith(op0);
+    SelInst->eraseFromParent();
+    return true;
+  }
+  return false;
+}
+
 Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {
   Instruction *prototype = Inst;
   for (unsigned i = 0; i < prototype->getNumOperands(); i++) {
