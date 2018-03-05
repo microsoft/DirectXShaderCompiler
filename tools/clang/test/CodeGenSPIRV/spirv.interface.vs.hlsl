@@ -3,6 +3,9 @@
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
 
+// CHECK: OpExtension "SPV_GOOGLE_decorate_string"
+// CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
+
 // CHECK: OpEntryPoint Vertex %main "main" %gl_PerVertexOut %in_var_TEXCOORD %in_var_SV_Position %in_var_SV_ClipDistance %in_var_SV_CullDistance0 %out_var_COLOR %out_var_TEXCOORD
 
 // CHECK: OpMemberDecorate %type_gl_PerVertex 0 BuiltIn Position
@@ -10,6 +13,18 @@
 // CHECK: OpMemberDecorate %type_gl_PerVertex 2 BuiltIn ClipDistance
 // CHECK: OpMemberDecorate %type_gl_PerVertex 3 BuiltIn CullDistance
 // CHECK: OpDecorate %type_gl_PerVertex Block
+
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 0 HlslSemanticGOOGLE "SV_Position"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 1 HlslSemanticGOOGLE "PSize"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 2 HlslSemanticGOOGLE "SV_ClipDistance"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 3 HlslSemanticGOOGLE "SV_CullDistance"
+
+// CHECK: OpDecorateStringGOOGLE %in_var_TEXCOORD HlslSemanticGOOGLE "TEXCOORD"
+// CHECK: OpDecorateStringGOOGLE %in_var_SV_Position HlslSemanticGOOGLE "SV_Position"
+// CHECK: OpDecorateStringGOOGLE %in_var_SV_ClipDistance HlslSemanticGOOGLE "SV_ClipDistance"
+// CHECK: OpDecorateStringGOOGLE %in_var_SV_CullDistance0 HlslSemanticGOOGLE "SV_CullDistance0"
+// CHECK: OpDecorateStringGOOGLE %out_var_COLOR HlslSemanticGOOGLE "COLOR"
+// CHECK: OpDecorateStringGOOGLE %out_var_TEXCOORD HlslSemanticGOOGLE "TEXCOORD"
 
 // CHECK: OpDecorate %in_var_TEXCOORD Location 0
 // CHECK: OpDecorate %in_var_SV_Position Location 1

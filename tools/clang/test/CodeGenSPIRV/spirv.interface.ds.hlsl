@@ -4,6 +4,9 @@
 // CHECK: OpCapability CullDistance
 // CHECK: OpCapability Tessellation
 
+// CHECK: OpExtension "SPV_GOOGLE_decorate_string"
+// CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
+
 // HS PCF output
 
 struct HsPcfOut {
@@ -72,19 +75,37 @@ struct DsOut {
 // CHECK: OpMemberDecorate %type_gl_PerVertex 3 BuiltIn CullDistance
 // CHECK: OpDecorate %type_gl_PerVertex Block
 
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 0 HlslSemanticGOOGLE "SV_Position"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 1 HlslSemanticGOOGLE "PSIZE"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 2 HlslSemanticGOOGLE "SV_ClipDistance"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 3 HlslSemanticGOOGLE "SV_CullDistance"
+
 // CHECK: OpMemberDecorate %type_gl_PerVertex_0 0 BuiltIn Position
 // CHECK: OpMemberDecorate %type_gl_PerVertex_0 1 BuiltIn PointSize
 // CHECK: OpMemberDecorate %type_gl_PerVertex_0 2 BuiltIn ClipDistance
 // CHECK: OpMemberDecorate %type_gl_PerVertex_0 3 BuiltIn CullDistance
 // CHECK: OpDecorate %type_gl_PerVertex_0 Block
 
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex_0 0 HlslSemanticGOOGLE "SV_Position"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex_0 1 HlslSemanticGOOGLE "PSIZE"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex_0 2 HlslSemanticGOOGLE "SV_ClipDistance"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex_0 3 HlslSemanticGOOGLE "SV_CullDistance"
+
+// CHECK: OpDecorateStringGOOGLE %in_var_TEXCOORD HlslSemanticGOOGLE "TEXCOORD"
+// CHECK: OpDecorateStringGOOGLE %in_var_BAR HlslSemanticGOOGLE "BAR"
 // CHECK: OpDecorate %gl_TessCoord BuiltIn TessCoord
+// CHECK: OpDecorateStringGOOGLE %gl_TessCoord HlslSemanticGOOGLE "SV_DomainLocation"
 // CHECK: OpDecorate %gl_TessCoord Patch
 // CHECK: OpDecorate %gl_TessLevelOuter BuiltIn TessLevelOuter
+// CHECK: OpDecorateStringGOOGLE %gl_TessLevelOuter HlslSemanticGOOGLE "SV_TessFactor"
 // CHECK: OpDecorate %gl_TessLevelOuter Patch
 // CHECK: OpDecorate %gl_TessLevelInner BuiltIn TessLevelInner
+// CHECK: OpDecorateStringGOOGLE %gl_TessLevelInner HlslSemanticGOOGLE "SV_InsideTessFactor"
 // CHECK: OpDecorate %gl_TessLevelInner Patch
+// CHECK: OpDecorateStringGOOGLE %in_var_FOO HlslSemanticGOOGLE "FOO"
 // CHECK: OpDecorate %in_var_FOO Patch
+// CHECK: OpDecorateStringGOOGLE %out_var_FOO HlslSemanticGOOGLE "FOO"
+// CHECK: OpDecorateStringGOOGLE %out_var_BAR HlslSemanticGOOGLE "BAR"
 // CHECK: OpDecorate %in_var_BAR Location 0
 // CHECK: OpDecorate %in_var_FOO Location 1
 // CHECK: OpDecorate %in_var_TEXCOORD Location 2

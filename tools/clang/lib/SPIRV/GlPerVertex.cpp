@@ -18,6 +18,12 @@ namespace clang {
 namespace spirv {
 
 namespace {
+constexpr uint32_t gPositionIndex = 0;
+constexpr uint32_t gPointSizeIndex = 1;
+constexpr uint32_t gClipDistanceIndex = 2;
+constexpr uint32_t gCullDistanceIndex = 3;
+constexpr uint32_t gGlPerVertexSize = 4;
+
 /// \brief Returns true if the given decl has a semantic string attached and
 /// writes the info to *semanticStr, *semantic, and *semanticIndex.
 // TODO: duplication! Same as the one in DeclResultIdMapper.cpp
@@ -64,7 +70,8 @@ GlPerVertex::GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
       outIsGrouped(true), inBlockVar(0), outBlockVar(0), inClipVar(0),
       inCullVar(0), outClipVar(0), outCullVar(0), inArraySize(0),
       outArraySize(0), inClipArraySize(1), outClipArraySize(1),
-      inCullArraySize(1), outCullArraySize(1) {}
+      inCullArraySize(1), outCullArraySize(1), inSemanticStrs(4, ""),
+      outSemanticStrs(4, "") {}
 
 void GlPerVertex::generateVars(uint32_t inArrayLen, uint32_t outArrayLen) {
   // Calling this method twice is an internal error.
@@ -142,18 +149,18 @@ void GlPerVertex::requireCapabilityIfNecessary() {
     theBuilder.requireCapability(spv::Capability::CullDistance);
 }
 
-bool GlPerVertex::recordClipCullDistanceDecl(const DeclaratorDecl *decl,
+bool GlPerVertex::recordGlPerVertexDeclFacts(const DeclaratorDecl *decl,
                                              bool asInput) {
   const QualType type = getTypeOrFnRetType(decl);
 
   if (type->isVoidType())
     return true;
 
-  return doClipCullDistanceDecl(decl, type, asInput);
+  return doGlPerVertexFacts(decl, type, asInput);
 }
 
-bool GlPerVertex::doClipCullDistanceDecl(const DeclaratorDecl *decl,
-                                         QualType baseType, bool asInput) {
+bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
+                                     QualType baseType, bool asInput) {
 
   llvm::StringRef semanticStr;
   const hlsl::Semantic *semantic = {};
@@ -165,7 +172,7 @@ bool GlPerVertex::doClipCullDistanceDecl(const DeclaratorDecl *decl,
       // Go through each field to see if there is any usage of
       // SV_ClipDistance/SV_CullDistance.
       for (const auto *field : structDecl->fields()) {
-        if (!doClipCullDistanceDecl(field, field->getType(), asInput))
+        if (!doGlPerVertexFacts(field, field->getType(), asInput))
           return false;
       }
       return true;
@@ -174,23 +181,23 @@ bool GlPerVertex::doClipCullDistanceDecl(const DeclaratorDecl *decl,
     // For these HS/DS/GS specific data types, semantic strings are attached
     // to the underlying struct's fields.
     if (hlsl::IsHLSLInputPatchType(baseType)) {
-      return doClipCullDistanceDecl(
+      return doGlPerVertexFacts(
           decl, hlsl::GetHLSLInputPatchElementType(baseType), asInput);
     }
     if (hlsl::IsHLSLOutputPatchType(baseType)) {
-      return doClipCullDistanceDecl(
+      return doGlPerVertexFacts(
           decl, hlsl::GetHLSLOutputPatchElementType(baseType), asInput);
     }
 
     if (hlsl::IsHLSLStreamOutputType(baseType)) {
-      return doClipCullDistanceDecl(
+      return doGlPerVertexFacts(
           decl, hlsl::GetHLSLOutputPatchElementType(baseType), asInput);
     }
     if (hasGSPrimitiveTypeQualifier(decl)) {
       // GS inputs have an additional arrayness that we should remove to check
       // the underlying type instead.
       baseType = astContext.getAsConstantArrayType(baseType)->getElementType();
-      return doClipCullDistanceDecl(decl, baseType, asInput);
+      return doGlPerVertexFacts(decl, baseType, asInput);
     }
 
     emitError("semantic string missing for shader %select{output|input}0 "
@@ -206,16 +213,45 @@ bool GlPerVertex::doClipCullDistanceDecl(const DeclaratorDecl *decl,
   SemanticIndexToTypeMap *typeMap = nullptr;
   uint32_t *blockArraySize = asInput ? &inArraySize : &outArraySize;
   bool isCull = false;
+  auto *semanticStrs = asInput ? &inSemanticStrs : &outSemanticStrs;
+  auto index = gGlPerVertexSize; // The index of this semantic in gl_PerVertex
 
   switch (semantic->GetKind()) {
+  case hlsl::Semantic::Kind::Position:
+    index = gPositionIndex;
+    break;
   case hlsl::Semantic::Kind::ClipDistance:
     typeMap = asInput ? &inClipType : &outClipType;
+    index = gClipDistanceIndex;
     break;
   case hlsl::Semantic::Kind::CullDistance:
     typeMap = asInput ? &inCullType : &outCullType;
     isCull = true;
+    index = gCullDistanceIndex;
     break;
-  default:
+  }
+
+  // PointSize does not have corresponding SV semantic; it uses
+  // [[vk::builtin("PointSize")]] instead.
+  if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>())
+    if (builtinAttr->getBuiltIn() == "PointSize")
+      index = gPointSizeIndex;
+
+  // Remember the semantic strings provided by the developer so that we can
+  // emit OpDecorate* instructions properly for them
+  if (index < gGlPerVertexSize) {
+    if ((*semanticStrs)[index].empty())
+      (*semanticStrs)[index] = semanticStr;
+    // We can have multiple ClipDistance/CullDistance semantics mapping to the
+    // same variable. For those cases, it is not appropriate to use any one of
+    // them as the semantic. Use the standard one without index.
+    else if (index == gClipDistanceIndex)
+      (*semanticStrs)[index] = "SV_ClipDistance";
+    else if (index == gCullDistanceIndex)
+      (*semanticStrs)[index] = "SV_CullDistance";
+  }
+
+  if (index < gClipDistanceIndex || index > gCullDistanceIndex) {
     // Annotated with something other than SV_ClipDistance or SV_CullDistance.
     // We don't care about such cases.
     return true;
@@ -321,18 +357,20 @@ uint32_t GlPerVertex::createBlockVar(bool asInput, uint32_t arraySize) {
   const llvm::StringRef typeName = "type.gl_PerVertex";
   spv::StorageClass sc = spv::StorageClass::Input;
   llvm::StringRef varName = "gl_PerVertexIn";
+  auto *semanticStrs = &inSemanticStrs;
   uint32_t clipSize = inClipArraySize;
   uint32_t cullSize = inCullArraySize;
 
   if (!asInput) {
     sc = spv::StorageClass::Output;
     varName = "gl_PerVertexOut";
+    semanticStrs = &outSemanticStrs;
     clipSize = outClipArraySize;
     cullSize = outCullArraySize;
   }
 
-  uint32_t typeId =
-      typeTranslator.getGlPerVertexStruct(clipSize, cullSize, typeName);
+  uint32_t typeId = typeTranslator.getGlPerVertexStruct(
+      clipSize, cullSize, typeName, *semanticStrs);
 
   // Handle the extra arrayness over the block
   if (arraySize != 0) {
@@ -362,7 +400,11 @@ uint32_t GlPerVertex::createClipDistanceVar(bool asInput, uint32_t arraySize) {
   spv::StorageClass sc =
       asInput ? spv::StorageClass::Input : spv::StorageClass::Output;
 
-  return theBuilder.addStageBuiltinVar(type, sc, spv::BuiltIn::ClipDistance);
+  auto id = theBuilder.addStageBuiltinVar(type, sc, spv::BuiltIn::ClipDistance);
+  theBuilder.decorateHlslSemantic(
+      id, asInput ? inSemanticStrs[gClipDistanceIndex]
+                  : outSemanticStrs[gClipDistanceIndex]);
+  return id;
 }
 
 uint32_t GlPerVertex::createCullDistanceVar(bool asInput, uint32_t arraySize) {
@@ -371,7 +413,11 @@ uint32_t GlPerVertex::createCullDistanceVar(bool asInput, uint32_t arraySize) {
   spv::StorageClass sc =
       asInput ? spv::StorageClass::Input : spv::StorageClass::Output;
 
-  return theBuilder.addStageBuiltinVar(type, sc, spv::BuiltIn::CullDistance);
+  auto id = theBuilder.addStageBuiltinVar(type, sc, spv::BuiltIn::CullDistance);
+  theBuilder.decorateHlslSemantic(
+      id, asInput ? inSemanticStrs[gCullDistanceIndex]
+                  : outSemanticStrs[gCullDistanceIndex]);
+  return id;
 }
 
 bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
