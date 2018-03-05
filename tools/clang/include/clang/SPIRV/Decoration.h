@@ -12,8 +12,10 @@
 #include <vector>
 
 #include "spirv/unified1/spirv.hpp11"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace clang {
 namespace spirv {
@@ -131,6 +133,9 @@ public:
                                                           uint32_t offset);
   static const Decoration *getHlslCounterBufferGOOGLE(SPIRVContext &ctx,
                                                       uint32_t id);
+  static const Decoration *
+  getHlslSemanticGOOGLE(SPIRVContext &ctx, llvm::StringRef semantic,
+                        llvm ::Optional<uint32_t> memberIdx = llvm::None);
 
   bool operator==(const Decoration &other) const {
     return id == other.id && args == other.args &&
@@ -145,13 +150,18 @@ public:
 
 private:
   /// \brief prevent public APIs from creating Decoration objects.
-  Decoration(spv::Decoration dec_id, llvm::SmallVector<uint32_t, 2> arg = {},
+  Decoration(spv::Decoration dec_id, llvm::ArrayRef<uint32_t> arg = {},
              llvm::Optional<uint32_t> idx = llvm::None)
-      : id(dec_id), args(arg), memberIndex(idx) {}
+      : id(dec_id), args(arg.begin(), arg.end()), memberIndex(idx) {}
 
   /// \brief Sets the index of the structure member to which the decoration
   /// applies.
   void setMemberIndex(llvm::Optional<uint32_t> idx) { memberIndex = idx; }
+
+  /// \brief Returns the OpDecorate* variant to use for the given decoration and
+  /// struct member index.
+  static spv::Op getDecorateOpcode(spv::Decoration,
+                                   const llvm::Optional<uint32_t> &memberIndex);
 
   /// \brief Returns the unique decoration pointer within the given context.
   static const Decoration *getUniqueDecoration(SPIRVContext &ctx,

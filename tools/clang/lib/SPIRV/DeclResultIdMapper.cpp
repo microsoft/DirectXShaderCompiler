@@ -1327,6 +1327,11 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     stageVar.setSpirvId(varId);
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
     stageVars.push_back(stageVar);
+
+    // Emit OpDecorate* instructions to link this stage variable with the HLSL
+    // semantic it is created for
+    theBuilder.decorateHlslSemantic(varId, stageVar.getSemanticStr());
+
     // We have semantics attached to this decl, which means it must be a
     // function/parameter/variable. All are DeclaratorDecls.
     stageVarIds[cast<DeclaratorDecl>(decl)] = varId;

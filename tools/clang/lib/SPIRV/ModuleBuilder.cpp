@@ -822,6 +822,16 @@ void ModuleBuilder::decorateCounterBufferId(uint32_t mainBufferId,
       mainBufferId);
 }
 
+void ModuleBuilder::decorateHlslSemantic(uint32_t targetId,
+                                         llvm::StringRef semantic,
+                                         llvm::Optional<uint32_t> memberIdx) {
+  addExtension("SPV_GOOGLE_decorate_string");
+  addExtension("SPV_GOOGLE_hlsl_functionality1");
+  theModule.addDecoration(
+      Decoration::getHlslSemanticGOOGLE(theContext, semantic, memberIdx),
+      targetId);
+}
+
 void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
   const Decoration *d =
       Decoration::getLocation(theContext, location, llvm::None);

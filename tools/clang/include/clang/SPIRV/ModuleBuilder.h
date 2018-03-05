@@ -382,6 +382,11 @@ public:
   /// \brief Decorates the given main buffer with the given counter buffer.
   void decorateCounterBufferId(uint32_t mainBufferId, uint32_t counterBufferId);
 
+  /// \brief Decorates the given target <result-id> with the given HLSL semantic
+  /// string.
+  void decorateHlslSemantic(uint32_t targetId, llvm::StringRef semantic,
+                            llvm::Optional<uint32_t> memberIdx = llvm::None);
+
   /// \brief Decorates the given target <result-id> with the given decoration
   /// (without additional parameters).
   void decorate(uint32_t targetId, spv::Decoration);
