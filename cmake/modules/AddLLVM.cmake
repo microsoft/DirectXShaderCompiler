@@ -959,9 +959,9 @@ function(hlsl_update_product_ver RC_INTERNAL_NAME)
                  PROPERTY COMPILE_DEFINITIONS
                  "RC_COMPANY_NAME=\"Microsoft(r) Corporation\""
                  "RC_VERSION_FIELD_1=0"
-                 "RC_VERSION_FIELD_2=2017"
-                 "RC_VERSION_FIELD_3=11"
-                 "RC_VERSION_FIELD_4=0"
+                 "RC_VERSION_FIELD_2=2018"
+                 "RC_VERSION_FIELD_3=3"
+                 "RC_VERSION_FIELD_4=1"
                  "RC_FILE_VERSION=\"0.2018.3.1\""
                  "RC_FILE_DESCRIPTION=\"DirectX Compiler - Out Of Band\""
                  "RC_INTERNAL_NAME=\"${RC_INTERNAL_NAME}\""
