@@ -359,7 +359,7 @@ type instructions:
 ``uint``/``dword``/``uin32_t``                         ``OpTypeInt 32 0``
 ``uint16_t``                   ``-enable-16bit-types`` ``OpTypeInt 16 0`` ``Int16``
 ``half``                                               ``OpTypeFloat 32``
-``half``/``float16_t``         ``-enable-16bit-types`` ``OpTypeFloat 16`` ``Float16`` ``SPV_AMD_gpu_shader_half_float``
+``half``/``float16_t``         ``-enable-16bit-types`` ``OpTypeFloat 16``             ``SPV_AMD_gpu_shader_half_float``
 ``float``/``float32_t``                                ``OpTypeFloat 32``
 ``snorm float``                                        ``OpTypeFloat 32``
 ``unorm float``                                        ``OpTypeFloat 32``
@@ -392,8 +392,8 @@ https://github.com/Microsoft/DirectXShaderCompiler/wiki/16-Bit-Scalar-Types
 ``min16int``                           ``OpTypeInt 32 1`` ``RelaxedPrecision``
 ``min12int``                           ``OpTypeInt 32 1`` ``RelaxedPrecision``
 ``min16uint``                          ``OpTypeInt 32 0`` ``RelaxedPrecision``
-``min16float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                      ``Float16``  ``SPV_AMD_gpu_shader_half_float``
-``min10float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                      ``Float16``  ``SPV_AMD_gpu_shader_half_float``
+``min16float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                                   ``SPV_AMD_gpu_shader_half_float``
+``min10float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                                   ``SPV_AMD_gpu_shader_half_float``
 ``min16int``   ``-enable-16bit-types`` ``OpTypeInt 16 1``                      ``Int16``
 ``min12int``   ``-enable-16bit-types`` ``OpTypeInt 16 1``                      ``Int16``
 ``min16uint``  ``-enable-16bit-types`` ``OpTypeInt 16 0``                      ``Int16``

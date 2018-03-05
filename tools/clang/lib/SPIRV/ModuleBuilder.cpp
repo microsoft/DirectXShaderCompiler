@@ -847,12 +847,17 @@ IMPL_GET_PRIMITIVE_TYPE(Float32)
 
 #undef IMPL_GET_PRIMITIVE_TYPE
 
+// Note: At the moment, Float16 capability should not be added for Vulkan 1.0.
+// It is not a required capability, and adding the SPV_AMD_gpu_half_float does
+// not enable this capability. Any driver that supports float16 in Vulkan 1.0
+// should accept this extension.
 #define IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(ty, cap)                       \
                                                                                \
   uint32_t ModuleBuilder::get##ty##Type() {                                    \
-    requireCapability(spv::Capability::cap);                                   \
     if (spv::Capability::cap == spv::Capability::Float16)                      \
       theModule.addExtension("SPV_AMD_gpu_shader_half_float");                 \
+    else                                                                       \
+      requireCapability(spv::Capability::cap);                                 \
     const Type *type = Type::get##ty(theContext);                              \
     const uint32_t typeId = theContext.getResultIdForType(type);               \
     theModule.addType(type, typeId);                                           \
