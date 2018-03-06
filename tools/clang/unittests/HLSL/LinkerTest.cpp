@@ -181,9 +181,10 @@ TEST_F(LinkerTest, RunLinkAllProfiles) {
   CreateLinker(&pLinker);
 
   LPCWSTR libName = L"entry";
+  LPCWSTR option[] = { L"-Zi" };
 
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib, option, 1);
   RegisterDxcModule(libName, pEntryLib, pLinker);
 
   Link(L"vs_main", L"vs_6_0", pLinker, {libName}, {},{});

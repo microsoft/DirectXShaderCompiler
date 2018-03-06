@@ -31,6 +31,7 @@
 #include "dxc/HLSL/DxilContainer.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/DebugInfo.h"
 
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -325,6 +326,7 @@ struct DxilLinkJob {
   Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
        const ShaderModel *pSM);
   std::unique_ptr<llvm::Module> LinkToLib(const ShaderModel *pSM);
+  void StripDeadDebugInfo(llvm::Module &M);
   void RunPreparePass(llvm::Module &M);
   void AddFunction(std::pair<DxilFunctionLinkInfo *, DxilLib *> &linkPair);
   void AddFunction(llvm::Function *F);
@@ -878,9 +880,87 @@ void DxilLinkJob::AddFunction(llvm::Function *F) {
   m_functionDecls[F->getName()] = F;
 }
 
-void DxilLinkJob::RunPreparePass(Module &M) {
-  legacy::PassManager PM;
+// Clone of StripDeadDebugInfo::runOnModule.
+// Also remove function which not not in current Module.
+void DxilLinkJob::StripDeadDebugInfo(Module &M) {
+  LLVMContext &C = M.getContext();
+  // Find all debug info in F. This is actually overkill in terms of what we
+  // want to do, but we want to try and be as resilient as possible in the face
+  // of potential debug info changes by using the formal interfaces given to us
+  // as much as possible.
+  DebugInfoFinder F;
+  F.processModule(M);
 
+  // For each compile unit, find the live set of global variables/functions and
+  // replace the current list of potentially dead global variables/functions
+  // with the live list.
+  SmallVector<Metadata *, 64> LiveGlobalVariables;
+  SmallVector<Metadata *, 64> LiveSubprograms;
+  DenseSet<const MDNode *> VisitedSet;
+
+  for (DICompileUnit *DIC : F.compile_units()) {
+    // Create our live subprogram list.
+    bool SubprogramChange = false;
+    for (DISubprogram *DISP : DIC->getSubprograms()) {
+      // Make sure we visit each subprogram only once.
+      if (!VisitedSet.insert(DISP).second)
+        continue;
+
+      // If the function referenced by DISP is not null, the function is live.
+      if (Function *Func = DISP->getFunction()) {
+        if (Func->getParent() == &M)
+          LiveSubprograms.push_back(DISP);
+        else
+          SubprogramChange = true;
+      } else {
+        SubprogramChange = true;
+      }
+    }
+
+    // Create our live global variable list.
+    bool GlobalVariableChange = false;
+    for (DIGlobalVariable *DIG : DIC->getGlobalVariables()) {
+      // Make sure we only visit each global variable only once.
+      if (!VisitedSet.insert(DIG).second)
+        continue;
+
+      // If the global variable referenced by DIG is not null, the global
+      // variable is live.
+      if (Constant *CV = DIG->getVariable()) {
+        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(CV)) {
+          if (GV->getParent() == &M) {
+            LiveGlobalVariables.push_back(DIG);
+          } else {
+            GlobalVariableChange = true;
+          }
+        } else {
+          LiveGlobalVariables.push_back(DIG);
+        }
+      } else {
+        GlobalVariableChange = true;
+      }
+    }
+
+    // If we found dead subprograms or global variables, replace the current
+    // subprogram list/global variable list with our new live subprogram/global
+    // variable list.
+    if (SubprogramChange) {
+      DIC->replaceSubprograms(MDTuple::get(C, LiveSubprograms));
+    }
+
+    if (GlobalVariableChange) {
+      DIC->replaceGlobalVariables(MDTuple::get(C, LiveGlobalVariables));
+    }
+
+    // Reset lists for the next iteration.
+    LiveSubprograms.clear();
+    LiveGlobalVariables.clear();
+  }
+}
+
+void DxilLinkJob::RunPreparePass(Module &M) {
+  StripDeadDebugInfo(M);
+  legacy::PassManager PM;
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
 
   // Remove unused functions.
