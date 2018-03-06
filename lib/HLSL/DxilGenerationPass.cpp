@@ -245,8 +245,7 @@ public:
     std::unique_ptr<DxilEntrySignature> pSig =
         llvm::make_unique<DxilEntrySignature>(SM->GetKind(), M.GetHLModule().GetHLOptions().bUseMinPrecision);
     // EntrySig for shader functions.
-    std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
-        DxilEntrySignatureMap;
+    DxilEntrySignatureMap DxilEntrySignatureMap;
 
     if (!SM->IsLib()) {
       HLSignatureLower sigLower(m_pHLModule->GetEntryFunction(), *m_pHLModule,

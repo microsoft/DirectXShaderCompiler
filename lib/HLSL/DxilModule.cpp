@@ -1054,7 +1054,7 @@ const RootSignatureHandle &DxilModule::GetRootSignature() const {
 bool DxilModule::HasDxilEntrySignature(llvm::Function *F) const {
   return m_DxilEntrySignatureMap.find(F) != m_DxilEntrySignatureMap.end();
 }
-DxilEntrySignature &DxilModule::GetDxilEntrySignature(llvm::Function *F) {
+DxilEntrySignature &DxilModule::GetDxilEntrySignature(const llvm::Function *F) {
   DXASSERT(m_DxilEntrySignatureMap.count(F) != 0, "cannot find F in map");
   return *m_DxilEntrySignatureMap[F];
 }
@@ -1287,15 +1287,15 @@ void DxilModule::EmitDxilMetadata() {
         DxilMDHelper::kDxilFunctionPropertiesMDName);
 
     // Sort functions by name to keep metadata deterministic
-    vector<Function *> funcOrder;
+    vector<const Function *> funcOrder;
     funcOrder.reserve(std::max(m_DxilFunctionPropsMap.size(),
                                m_DxilEntrySignatureMap.size()));
 
     std::transform( m_DxilFunctionPropsMap.begin(),
                     m_DxilFunctionPropsMap.end(),
                     std::back_inserter(funcOrder),
-                    [](auto &p) -> Function* { return p.first; } );
-    std::sort(funcOrder.begin(), funcOrder.end(), [](Function *F1, Function *F2) {
+                    [](auto &p) -> const Function* { return p.first; } );
+    std::sort(funcOrder.begin(), funcOrder.end(), [](const Function *F1, const Function *F2) {
       return F1->getName() < F2->getName();
     });
 
@@ -1312,8 +1312,8 @@ void DxilModule::EmitDxilMetadata() {
     std::transform( m_DxilEntrySignatureMap.begin(),
                     m_DxilEntrySignatureMap.end(),
                     std::back_inserter(funcOrder),
-                    [](auto &p) -> Function* { return p.first; } );
-    std::sort(funcOrder.begin(), funcOrder.end(), [](Function *F1, Function *F2) {
+                    [](auto &p) -> const Function* { return p.first; } );
+    std::sort(funcOrder.begin(), funcOrder.end(), [](const Function *F1, const Function *F2) {
       return F1->getName() < F2->getName();
     });
 
@@ -1321,7 +1321,7 @@ void DxilModule::EmitDxilMetadata() {
       DxilEntrySignature *Sig = &GetDxilEntrySignature(F);
       MDTuple *pSig = m_pMDHelper->EmitDxilSignatures(*Sig);
       entrySigs->addOperand(
-          MDTuple::get(m_Ctx, {ValueAsMetadata::get(F), pSig}));
+          MDTuple::get(m_Ctx, {ValueAsMetadata::get(const_cast<Function*>(F)), pSig}));
     }
   }
 }
