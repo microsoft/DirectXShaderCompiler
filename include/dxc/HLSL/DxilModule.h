@@ -46,7 +46,7 @@ class RootSignatureHandle;
 struct DxilFunctionProps;
 
 typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>> DxilFunctionPropsMap;
-typedef std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>> DxilEntrySignatureMap;
+typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilEntrySignature>> DxilEntrySignatureMap;
 /// Use this class to manipulate DXIL of a shader.
 class DxilModule {
 public:
@@ -127,7 +127,7 @@ public:
   const DxilSignature &GetPatchConstantSignature() const;
   const RootSignatureHandle &GetRootSignature() const;
   bool HasDxilEntrySignature(llvm::Function *F) const;
-  DxilEntrySignature &GetDxilEntrySignature(llvm::Function *F);
+  DxilEntrySignature &GetDxilEntrySignature(const llvm::Function *F);
   // Move DxilEntrySignature of F to NewF.
   void ReplaceDxilEntrySignature(llvm::Function *F, llvm::Function *NewF);
 

@@ -805,8 +805,7 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
   AddFunctions(DM, vmap, initFuncSet);
 
   // Set DxilFunctionProps.
-  std::unordered_map<Function *, std::unique_ptr<DxilEntrySignature>>
-      DxilEntrySignatureMap;
+  DxilEntrySignatureMap DxilEntrySignatureMap;
   for (auto &it : m_functionDefs) {
     DxilFunctionLinkInfo *linkInfo = it.first;
     DxilLib *pLib = it.second;
