@@ -989,11 +989,6 @@ TEST_F(FileTest, SM6WaveBuiltInNoDuplicate) {
   runFileTest("sm6.wave.builtin.no-dup.hlsl");
 }
 
-// Shader model 6.0 wave broadcast
-TEST_F(FileTest, SM6WaveReadLaneFirst) {
-  runFileTest("sm6.wave-read-lane-first.hlsl");
-}
-
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
