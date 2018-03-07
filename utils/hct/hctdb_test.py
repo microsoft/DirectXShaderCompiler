@@ -803,7 +803,7 @@ def add_test_cases():
     'cs_6_2', get_shader_text("binary float", "-"))
     add_test_case_denorm('FDivDenorm', ['FDiv'], 'ulp', 1,
     [['0x007F0000', '0x807F0000', '0x20000000', '0x00800000'],['1', '4', '0x607F0000', '0x40000000']],
-    [['0', 'NaN', '0', '0']],
+    [['0', '0', '0', '0']],
     [['0x007F0000', '0x801FC000', '0x00101010', '0x00400000']],
     'cs_6_2', get_shader_text("binary float", "/"))
     add_test_case_denorm('FMulDenorm', ['FMul'], 'ulp', 1,

@@ -5810,7 +5810,7 @@
             </Parameter>
             <Parameter Name="Validation.Expected1">
                 <Value>0</Value>
-                <Value>NaN</Value>
+                <Value>0</Value>
                 <Value>0</Value>
                 <Value>0</Value>
             </Parameter>
@@ -5943,7 +5943,7 @@
             </Parameter>
             <Parameter Name="Validation.Expected2">
                 <Value>0</Value>
-                <Value>NaN</Value>
+                <Value>0</Value>
                 <Value>0</Value>
                 <Value>0</Value>
             </Parameter>
