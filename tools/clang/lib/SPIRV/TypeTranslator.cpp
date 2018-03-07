@@ -412,8 +412,10 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
 uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                        bool isRowMajor) {
   // We can only apply row_major to matrices or arrays of matrices.
+  // isRowMajor will be ignored for scalar and vector types.
   if (isRowMajor)
-    assert(isMxNMatrix(type) || type->isArrayType());
+    assert(type->isScalarType() || type->isArrayType() ||
+           hlsl::IsHLSLVecMatType(type));
 
   // Try to translate the canonical type first
   const auto canonicalType = type.getCanonicalType();

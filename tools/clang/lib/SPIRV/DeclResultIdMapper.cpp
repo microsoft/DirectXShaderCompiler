@@ -304,15 +304,13 @@ SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
           cast<VarDecl>(decl)->getType(),
           // We need to set decorateLayout here to avoid creating SPIR-V
           // instructions for the current type without decorations.
-          info->info.getLayoutRule(), info->isRowMajor);
+          info->info.getLayoutRule(), info->info.isRowMajor());
 
       const uint32_t elemId = theBuilder.createAccessChain(
           theBuilder.getPointerType(varType, info->info.getStorageClass()),
           info->info, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
 
-      return SpirvEvalInfo(elemId)
-          .setStorageClass(info->info.getStorageClass())
-          .setLayoutRule(info->info.getLayoutRule());
+      return info->info.substResultId(elemId);
     } else {
       return *info;
     }
@@ -432,11 +430,12 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   astDecls[var] =
       SpirvEvalInfo(id).setStorageClass(storageClass).setLayoutRule(rule);
   if (isMatType) {
+    astDecls[var].info.setRowMajor(
+        typeTranslator.isRowMajorMatrix(var->getType(), var));
+
     // We have wrapped the stand-alone matrix inside a struct. Mark it as
     // needing an extra index to access.
     astDecls[var].indexInCTBuffer = 0;
-    astDecls[var].isRowMajor =
-        typeTranslator.isRowMajorMatrix(var->getType(), var);
   }
 
   // Variables in Workgroup do not need descriptor decorations.
@@ -579,12 +578,13 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     const auto *varDecl = cast<VarDecl>(subDecl);
     const bool isRowMajor =
         typeTranslator.isRowMajorMatrix(varDecl->getType(), varDecl);
-    astDecls[varDecl] = {SpirvEvalInfo(bufferVar)
-                             .setStorageClass(spv::StorageClass::Uniform)
-                             .setLayoutRule(decl->isCBuffer()
-                                                ? LayoutRule::GLSLStd140
-                                                : LayoutRule::GLSLStd430),
-                         index++, isRowMajor};
+    astDecls[varDecl] =
+        SpirvEvalInfo(bufferVar)
+            .setStorageClass(spv::StorageClass::Uniform)
+            .setLayoutRule(decl->isCBuffer() ? LayoutRule::GLSLStd140
+                                             : LayoutRule::GLSLStd430)
+            .setRowMajor(isRowMajor);
+    astDecls[varDecl].indexInCTBuffer = index++;
   }
   resourceVars.emplace_back(
       bufferVar, ResourceVar::Category::Other, getResourceBinding(decl),

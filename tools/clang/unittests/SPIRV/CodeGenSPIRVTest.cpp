@@ -278,6 +278,10 @@ TEST_F(FileTest, OpArrayAccess) { runFileTest("op.array.access.hlsl"); }
 TEST_F(FileTest, OpBufferAccess) { runFileTest("op.buffer.access.hlsl"); }
 TEST_F(FileTest, OpRWBufferAccess) { runFileTest("op.rwbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
+TEST_F(FileTest, OpCBufferAccessMajorness) {
+  /// Tests that we correctly consider majorness when accessing matrices
+  runFileTest("op.cbuffer.access.majorness.hlsl");
+}
 TEST_F(FileTest, OpConstantBufferAccess) {
   runFileTest("op.constant-buffer.access.hlsl");
 }
