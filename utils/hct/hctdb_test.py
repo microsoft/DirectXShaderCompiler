@@ -597,7 +597,7 @@ def add_test_cases():
         'NaN', 'NaN', '-0', '-0', '0', '0', 'NaN', '0.1606257',
         '-0.1606257'
     ]])
-    add_test_case_float_half('Hcos', ['Hcos'], 'Epsilon', 0.0008,
+    add_test_case_float_half('Hcos', ['Hcos'], 'ulp', 2,
         [['NaN', '-Inf', '-denorm', '-0', '0', 'denorm', 'Inf', '1', '-1']], [[
             'NaN', 'Inf', '1.0', '1.0', '1.0', '1.0', 'Inf', '1.543081',
             '1.543081'
