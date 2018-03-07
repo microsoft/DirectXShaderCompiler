@@ -100,6 +100,9 @@ public:
   inline SpirvEvalInfo &setRelaxedPrecision();
   bool isRelaxedPrecision() const { return isRelaxedPrecision_; }
 
+  inline SpirvEvalInfo &setRowMajor(bool);
+  bool isRowMajor() const { return isRowMajor_; }
+
 private:
   uint32_t resultId;
   /// Indicates whether this evaluation result contains alias variables
@@ -119,13 +122,14 @@ private:
   bool isConstant_;
   bool isSpecConstant_;
   bool isRelaxedPrecision_;
+  bool isRowMajor_;
 };
 
 SpirvEvalInfo::SpirvEvalInfo(uint32_t id)
     : resultId(id), containsAlias(false),
       storageClass(spv::StorageClass::Function), layoutRule(LayoutRule::Void),
       isRValue_(false), isConstant_(false), isSpecConstant_(false),
-      isRelaxedPrecision_(false) {}
+      isRelaxedPrecision_(false), isRowMajor_(false) {}
 
 SpirvEvalInfo &SpirvEvalInfo::setResultId(uint32_t id) {
   resultId = id;
@@ -171,6 +175,11 @@ SpirvEvalInfo &SpirvEvalInfo::setSpecConstant() {
 
 SpirvEvalInfo &SpirvEvalInfo::setRelaxedPrecision() {
   isRelaxedPrecision_ = true;
+  return *this;
+}
+
+SpirvEvalInfo &SpirvEvalInfo::setRowMajor(bool rm) {
+  isRowMajor_ = rm;
   return *this;
 }
 

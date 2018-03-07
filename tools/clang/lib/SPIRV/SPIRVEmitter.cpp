@@ -783,8 +783,8 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
   if (const auto *declContext = isConstantTextureBufferDeclRef(expr)) {
     valType = declIdMapper.getCTBufferPushConstantTypeId(declContext);
   } else {
-    valType =
-        typeTranslator.translateType(expr->getType(), info.getLayoutRule());
+    valType = typeTranslator.translateType(
+        expr->getType(), info.getLayoutRule(), info.isRowMajor());
   }
   return info.setResultId(theBuilder.createLoad(valType, info)).setRValue();
 }
@@ -4603,13 +4603,15 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
   } else if (const auto *recordType = lhsValType->getAs<RecordType>()) {
     uint32_t index = 0;
     for (const auto *field : recordType->getDecl()->fields()) {
+      bool isRowMajor =
+          typeTranslator.isRowMajorMatrix(field->getType(), field);
       const auto subRhsValType = typeTranslator.translateType(
-          field->getType(), rhsVal.getLayoutRule());
+          field->getType(), rhsVal.getLayoutRule(), isRowMajor);
       const auto subRhsVal =
           theBuilder.createCompositeExtract(subRhsValType, rhsVal, {index});
       const auto subLhsPtrType = theBuilder.getPointerType(
-          typeTranslator.translateType(field->getType(),
-                                       lhsPtr.getLayoutRule()),
+          typeTranslator.translateType(field->getType(), lhsPtr.getLayoutRule(),
+                                       isRowMajor),
           lhsPtr.getStorageClass());
       const auto subLhsPtr = theBuilder.createAccessChain(
           subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(index)});
