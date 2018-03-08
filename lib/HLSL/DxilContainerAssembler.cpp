@@ -289,16 +289,16 @@ DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::Signa
   case DXIL::SignatureKind::Input:
     return new DxilProgramSignatureWriter(
         M.GetInputSignature(), M.GetTessellatorDomain(), true,
-        !M.m_ShaderFlags.GetUseNativeLowPrecision());
+        M.GetUseMinPrecision());
   case DXIL::SignatureKind::Output:
     return new DxilProgramSignatureWriter(
         M.GetOutputSignature(), M.GetTessellatorDomain(), false,
-        !M.m_ShaderFlags.GetUseNativeLowPrecision());
+        M.GetUseMinPrecision());
   case DXIL::SignatureKind::PatchConstant:
     return new DxilProgramSignatureWriter(
         M.GetPatchConstantSignature(), M.GetTessellatorDomain(),
         /*IsInput*/ M.GetShaderModel()->IsDS(),
-        /*UseMinPrecision*/!M.m_ShaderFlags.GetUseNativeLowPrecision());
+        /*UseMinPrecision*/M.GetUseMinPrecision());
   }
   return nullptr;
 }
@@ -727,7 +727,7 @@ private:
   }
 
 public:
-  ResourceTable(uint32_t version) : m_Version(version) {}
+  ResourceTable(uint32_t version) : m_Version(version), CBufferToOffset(), SamplerToOffset(), SRVToOffset(), UAVToOffset() {}
   void AddCBuffer(const DxilCBuffer *resource, uint32_t offset) {
     CBufferToOffset.emplace_back(
         std::pair<const DxilCBuffer *, uint32_t>(resource, offset));
@@ -814,13 +814,13 @@ public:
 
 class FunctionTable : public RDATTable {
 private:
-  std::unordered_map<const llvm::Function*, RuntimeDataFunctionInfo> FuncToInfo;
+  std::vector<std::pair<const llvm::Function *, RuntimeDataFunctionInfo>> FuncToInfo;
 public:
   FunctionTable(): FuncToInfo() {}
   uint32_t NumFunctions() const { return FuncToInfo.size(); }
   void AddFunction(const llvm::Function *func, uint32_t mangledOfffset,
                    uint32_t unmangledOffset, uint32_t shaderKind, uint32_t resourceIndex,
-                   uint32_t payloadSizeInBytes, uint32_t attrSizeInBytes) {
+                   uint32_t payloadSizeInBytes, uint32_t attrSizeInBytes, ShaderFlags flags) {
     RuntimeDataFunctionInfo info = {};
     info.Name = mangledOfffset;
     info.UnmangledName = unmangledOffset;
@@ -828,7 +828,10 @@ public:
     info.Resources = resourceIndex;
     info.PayloadSizeInBytes = payloadSizeInBytes;
     info.AttributeSizeInBytes = attrSizeInBytes;
-    FuncToInfo.insert({func, info});
+    uint64_t rawFlags = flags.GetShaderFlagsRaw();
+    info.FeatureInfo1 = rawFlags & 0xffffffff;
+    info.FeatureInfo2 = (rawFlags >> 32) & 0xffffffff;
+    FuncToInfo.push_back({ func, info });
   }
 
   uint32_t GetBlobSize() const { return NumFunctions() * sizeof(RuntimeDataFunctionInfo); }
@@ -905,7 +908,7 @@ private:
   const DxilModule &m_Module;
   SmallVector<char, 1024> m_RDATBuffer;
 
-  std::vector<std::unique_ptr<RDATTable>> tables;
+  std::vector<std::unique_ptr<RDATTable>> m_tables;
   std::map<llvm::Function *, std::vector<uint32_t>> m_FuncToResNameOffset;
 
   void UpdateFunctionToResourceInfo(const DxilResourceBase *resource, uint32_t offset) {
@@ -928,8 +931,8 @@ private:
   void UpdateResourceInfo(StringTable &stringTable) {
     // Try to allocate string table for resources. String table is a sequence
     // of strings delimited by \0
-    tables.emplace_back(std::make_unique<ResourceTable>(0));
-    ResourceTable &resourceTable = *(ResourceTable*)tables.back().get();
+    m_tables.emplace_back(std::make_unique<ResourceTable>(0));
+    ResourceTable &resourceTable = *(ResourceTable*)m_tables.back().get();
     uint32_t stringIndex;
     uint32_t resourceIndex = 0;
     for (auto &resource : m_Module.GetCBuffers()) {
@@ -957,10 +960,10 @@ private:
     // TODO: get a list of required features
     // TODO: get a list of valid shader flags
     // TODO: get a minimum shader version
-    tables.emplace_back(std::make_unique<FunctionTable>());
-    FunctionTable &functionTable = *(FunctionTable*)(tables.back().get());
-    tables.emplace_back(std::make_unique<IndexTable<uint32_t>>());
-    IndexTable<uint32_t> &indexTable = *(IndexTable<uint32_t>*)(tables.back().get());
+    m_tables.emplace_back(std::make_unique<FunctionTable>());
+    FunctionTable &functionTable = *(FunctionTable*)(m_tables.back().get());
+    m_tables.emplace_back(std::make_unique<IndexTable<uint32_t>>());
+    IndexTable<uint32_t> &indexTable = *(IndexTable<uint32_t>*)(m_tables.back().get());
     for (auto &function : m_Module.GetModule()->getFunctionList()) {
       if (!function.isDeclaration()) {
         StringRef mangled = function.getName();
@@ -988,27 +991,28 @@ private:
           }
           shaderKind = (uint32_t)props.shaderKind;
         }
+        ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &m_Module);
         functionTable.AddFunction(&function, mangledIndex, unmangledIndex,
                                     shaderKind, resourceIndex,
-                                    payloadSizeInBytes, attrSizeInBytes);
+                                    payloadSizeInBytes, attrSizeInBytes, flags);
       }
     }
   }
 
 public:
   DxilRDATWriter(const DxilModule &module, uint32_t InfoVersion = 0)
-      : m_Module(module), m_RDATBuffer() {
+      : m_Module(module), m_RDATBuffer(), m_tables(), m_FuncToResNameOffset() {
     // It's important to keep the order of this update
-    tables.emplace_back(std::make_unique<StringTable>());
-    StringTable &stringTable = *(StringTable*)tables.back().get();
+    m_tables.emplace_back(std::make_unique<StringTable>());
+    StringTable &stringTable = *(StringTable*)m_tables.back().get();
     UpdateResourceInfo(stringTable);
     UpdateFunctionInfo(stringTable);
   }
 
   __override uint32_t size() const {
     // one variable to count the number of blobs and two blobs
-    uint32_t total = 4 + tables.size() * sizeof(RuntimeDataTableHeader);
-    for (auto &&table : tables)
+    uint32_t total = 4 + m_tables.size() * sizeof(RuntimeDataTableHeader);
+    for (auto &&table : m_tables)
       total += table->GetBlobSize();
     return total;
   }
@@ -1017,19 +1021,19 @@ public:
     m_RDATBuffer.resize(size());
     char *pCur = m_RDATBuffer.data();
     // write number of tables
-    uint32_t size = tables.size();
+    uint32_t size = m_tables.size();
     memcpy(pCur, &size, sizeof(uint32_t));
     pCur += sizeof(uint32_t);
     // write records
     uint32_t curTableOffset = size * sizeof(RuntimeDataTableHeader) + 4;
-    for (auto &&table : tables) {
+    for (auto &&table : m_tables) {
       RuntimeDataTableHeader record = { table->GetType(), table->GetBlobSize(), curTableOffset };
       memcpy(pCur, &record, sizeof(RuntimeDataTableHeader));
       pCur += sizeof(RuntimeDataTableHeader);
       curTableOffset += record.size;
     }
     // write tables
-    for (auto &&table : tables) {
+    for (auto &&table : m_tables) {
       table->write(pCur);
       pCur += table->GetBlobSize();
     }
@@ -1161,11 +1165,11 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   DxilProgramSignatureWriter inputSigWriter(
       pModule->GetInputSignature(), pModule->GetTessellatorDomain(),
       /*IsInput*/ true,
-      /*UseMinPrecision*/ !pModule->m_ShaderFlags.GetUseNativeLowPrecision());
+      /*UseMinPrecision*/ pModule->GetUseMinPrecision());
   DxilProgramSignatureWriter outputSigWriter(
       pModule->GetOutputSignature(), pModule->GetTessellatorDomain(),
       /*IsInput*/ false,
-      /*UseMinPrecision*/ !pModule->m_ShaderFlags.GetUseNativeLowPrecision());
+      /*UseMinPrecision*/ pModule->GetUseMinPrecision());
   DxilContainerWriter_impl writer;
 
   // Write the feature part.
@@ -1185,7 +1189,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   DxilProgramSignatureWriter patchConstantSigWriter(
       pModule->GetPatchConstantSignature(), pModule->GetTessellatorDomain(),
       /*IsInput*/ pModule->GetShaderModel()->IsDS(),
-      /*UseMinPrecision*/ !pModule->m_ShaderFlags.GetUseNativeLowPrecision());
+      /*UseMinPrecision*/ pModule->GetUseMinPrecision());
   if (pModule->GetPatchConstantSignature().GetElements().size()) {
     writer.AddPart(DFCC_PatchConstantSignature, patchConstantSigWriter.size(),
                    [&](AbstractMemoryStream *pStream) {
@@ -1196,7 +1200,9 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   // Write the DxilPipelineStateValidation (PSV0) part.
   DxilRDATWriter RDATWriter(*pModule);
   DxilPSVWriter PSVWriter(*pModule);
-  if (pModule->GetShaderModel()->IsLib()) {
+  unsigned int major, minor;
+  pModule->GetDxilVersion(major, minor);
+  if (pModule->GetShaderModel()->IsLib() && (major >= 1 ||  minor == 1 && minor >= 3)) {
     writer.AddPart(DFCC_RuntimeData, RDATWriter.size(), [&](AbstractMemoryStream *pStream) {
         RDATWriter.write(pStream);
     });

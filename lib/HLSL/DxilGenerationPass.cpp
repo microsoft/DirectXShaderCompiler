@@ -185,7 +185,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
 
   // Shader properties.
   //bool m_bDisableOptimizations;
-  M.m_ShaderFlags.SetDisableOptimizations(H.GetHLOptions().bDisableOptimizations);
+  M.SetDisableOptimization(H.GetHLOptions().bDisableOptimizations);
   //bool m_bDisableMathRefactoring;
   //bool m_bEnableDoublePrecision;
   //bool m_bEnableDoubleExtensions;
@@ -196,7 +196,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   //bool m_bEnableMSAD;
   //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
-  M.m_ShaderFlags.SetUseNativeLowPrecision(!H.GetHLOptions().bUseMinPrecision);
+  M.SetUseMinPrecision(H.GetHLOptions().bUseMinPrecision);
 
   if (FnProps)
     M.SetShaderProperties(FnProps);
@@ -212,7 +212,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   // Keep llvm used.
   M.EmitLLVMUsed();
 
-  M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
+  M.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
   // Update Validator Version
   M.UpgradeToMinValidatorVersion();
@@ -1547,7 +1547,6 @@ public:
   bool runOnModule(Module &M) {
     unsigned major, minor;
     M.GetDxilModule().GetDxilVersion(major, minor);
-    DxilModule::ShaderFlags flag = M.GetDxilModule().m_ShaderFlags;
     if (major == 1 && minor < 2) {
       for (auto F = M.functions().begin(), E = M.functions().end(); F != E;) {
         Function *func = &*(F++);
@@ -1561,7 +1560,7 @@ public:
           }
         }
       }
-    } else if (!flag.GetUseNativeLowPrecision()) {
+    } else if (M.GetDxilModule().GetUseMinPrecision()) {
       for (auto F = M.functions().begin(), E = M.functions().end(); F != E;) {
         Function *func = &*(F++);
         if (func->hasName()) {

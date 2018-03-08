@@ -405,15 +405,24 @@ struct PSVInitInfo
   uint8_t SigOutputVectors[4] = {0, 0, 0, 0};
 };
 
+struct ResourceTableReader;
+struct FunctionTableReader;
+
+struct RuntimeDataContext {
+  PSVStringTable *pStringTableReader;
+  IndexTableReader *pIndexTableReader;
+  ResourceTableReader *pResourceTableReader;
+  FunctionTableReader *pFunctionTableReader;
+};
+
 struct ResourceReader {
 private:
   const RuntimeDataResourceInfo *m_ResourceInfo;
-  PSVStringTable *m_StringReader;
+  RuntimeDataContext *m_Context;
 public:
-  ResourceReader() : m_ResourceInfo(nullptr), m_StringReader(nullptr) {}
   ResourceReader(const RuntimeDataResourceInfo *resInfo,
-                 PSVStringTable *stringReader)
-      : m_ResourceInfo(resInfo), m_StringReader(stringReader) {}
+                 RuntimeDataContext *context)
+      : m_ResourceInfo(resInfo), m_Context(context) {}
   PSVResourceType GetResourceType() {
     return (PSVResourceType)m_ResourceInfo->ResType;
   }
@@ -427,13 +436,15 @@ public:
     return m_ResourceInfo->UpperBound;
   }
   PSVResourceKind GetResourceKind() { return (PSVResourceKind)m_ResourceInfo->Kind; }
-  const char* GetName() { return m_StringReader->Get(m_ResourceInfo->Name); }
+  const char *GetName() {
+    return m_Context->pStringTableReader->Get(m_ResourceInfo->Name);
+  }
 };
 
 struct ResourceTableReader {
 private:
   const RuntimeDataResourceInfo *m_ResourceInfo; // pointer to an array of resource bind infos
-  PSVStringTable *m_StringReader;
+  RuntimeDataContext *m_Context;
   uint32_t m_CBufferCount;
   uint32_t m_SamplerCount;
   uint32_t m_SRVCount;
@@ -441,18 +452,18 @@ private:
 
 public:
   ResourceTableReader()
-      : m_ResourceInfo(nullptr), m_StringReader(nullptr), m_CBufferCount(0),
+      : m_ResourceInfo(nullptr), m_Context(nullptr), m_CBufferCount(0),
         m_SamplerCount(0), m_SRVCount(0), m_UAVCount(0){};
   ResourceTableReader(const RuntimeDataResourceInfo *info1,
-                      PSVStringTable *stringTable, uint32_t CBufferCount,
+                      RuntimeDataContext *context, uint32_t CBufferCount,
                       uint32_t SamplerCount, uint32_t SRVCount,
                       uint32_t UAVCount)
-      : m_ResourceInfo(info1), m_StringReader(stringTable),
+      : m_ResourceInfo(info1), m_Context(context),
         m_CBufferCount(CBufferCount), m_SamplerCount(SamplerCount),
         m_SRVCount(SRVCount), m_UAVCount(UAVCount){};
 
   void SetResourceInfo(const RuntimeDataResourceInfo *ptr) { m_ResourceInfo = ptr; }
-  void SetStringReader(PSVStringTable *ptr) { m_StringReader = ptr; }
+  void SetContext(RuntimeDataContext *context) { m_Context = context; }
   void SetCBufferCount(uint32_t count) { m_CBufferCount = count; }
   void SetSamplerCount(uint32_t count) { m_SamplerCount = count; }
   void SetSRVCount(uint32_t count) { m_SRVCount = count; }
@@ -463,58 +474,53 @@ public:
   }
   ResourceReader GetItem(uint32_t i) {
     _Analysis_assume_(i < GetNumResources());
-    return ResourceReader(&m_ResourceInfo[i], m_StringReader);
+    return ResourceReader(&m_ResourceInfo[i], m_Context);
   }
 
 
   uint32_t GetNumCBuffers() { return m_CBufferCount; }
   ResourceReader GetCBuffer(uint32_t i) {
     _Analysis_assume_(i < m_CBufferCount);
-    return ResourceReader(&m_ResourceInfo[i], m_StringReader);
+    return ResourceReader(&m_ResourceInfo[i], m_Context);
   }
 
   uint32_t GetNumSamplers() { return m_SamplerCount; }
   ResourceReader GetSampler(uint32_t i) {
     _Analysis_assume_(i < m_SamplerCount);
     uint32_t offset = (m_CBufferCount + i);
-    return ResourceReader(&m_ResourceInfo[offset], m_StringReader);
+    return ResourceReader(&m_ResourceInfo[offset], m_Context);
   }
 
   uint32_t GetNumSRVs() { return m_SRVCount; }
   ResourceReader GetSRV(uint32_t i) {
     _Analysis_assume_(i < m_SRVCount);
     uint32_t offset = (m_CBufferCount + m_SamplerCount + i);
-    return ResourceReader(&m_ResourceInfo[offset], m_StringReader);
+    return ResourceReader(&m_ResourceInfo[offset], m_Context);
   }
 
   uint32_t GetNumUAVs() { return m_UAVCount; }
   ResourceReader GetUAV(uint32_t i) {
     _Analysis_assume_(i < m_UAVCount);
     uint32_t offset = (m_CBufferCount + m_SamplerCount + m_SRVCount + i);
-    return ResourceReader(&m_ResourceInfo[offset], m_StringReader);
+    return ResourceReader(&m_ResourceInfo[offset], m_Context);
   }
 };
 
 struct FunctionReader {
 private:
   const RuntimeDataFunctionInfo *m_RuntimeDataFunctionInfo;
-  PSVStringTable *m_StringReader;
-  IndexTableReader *m_IndexTableReader;
-  ResourceTableReader *m_ResourceTableReader;
+  RuntimeDataContext *m_Context;
 public:
-  FunctionReader()
-      : m_RuntimeDataFunctionInfo(nullptr), m_StringReader(nullptr),
-        m_IndexTableReader(nullptr), m_ResourceTableReader(nullptr) {}
+  FunctionReader() : m_RuntimeDataFunctionInfo(nullptr), m_Context(nullptr){}
   FunctionReader(const RuntimeDataFunctionInfo *functionInfo,
-                 PSVStringTable *stringReader,
-                 IndexTableReader *indexTableReader,
-                 ResourceTableReader *resourceTableReader)
-      : m_RuntimeDataFunctionInfo(functionInfo), m_StringReader(stringReader),
-        m_IndexTableReader(indexTableReader),
-        m_ResourceTableReader(resourceTableReader) {}
+                 RuntimeDataContext *context)
+      : m_RuntimeDataFunctionInfo(functionInfo), m_Context(context){}
 
-  const char *GetName() { return m_StringReader->Get(m_RuntimeDataFunctionInfo->Name); }
-  const char *GetUnmangledName() { return m_StringReader->Get(m_RuntimeDataFunctionInfo->UnmangledName); }
+  const char *GetName() { return m_Context->pStringTableReader->Get(m_RuntimeDataFunctionInfo->Name); }
+  const char *GetUnmangledName() {
+    return m_Context->pStringTableReader->Get(
+        m_RuntimeDataFunctionInfo->UnmangledName);
+  }
   uint64_t GetFeatureFlag() {
     uint64_t flag = static_cast<uint64_t>(m_RuntimeDataFunctionInfo->FeatureInfo2) << 32;
     flag |= static_cast<uint64_t>(m_RuntimeDataFunctionInfo->FeatureInfo1);
@@ -525,11 +531,11 @@ public:
   uint32_t FunctionReader::GetNumResources() {
     if (m_RuntimeDataFunctionInfo->Resources == UINT_MAX)
       return 0;
-    return m_IndexTableReader->getRow(m_RuntimeDataFunctionInfo->Resources).Count();
+    return m_Context->pIndexTableReader->getRow(m_RuntimeDataFunctionInfo->Resources).Count();
   }
   ResourceReader GetResource(uint32_t i) {
-    uint32_t resIndex = m_IndexTableReader->getRow(m_RuntimeDataFunctionInfo->Resources).At(i);
-    return m_ResourceTableReader->GetItem(resIndex);
+    uint32_t resIndex = m_Context->pIndexTableReader->getRow(m_RuntimeDataFunctionInfo->Resources).At(i);
+    return m_Context->pResourceTableReader->GetItem(resIndex);
   }
 
   uint32_t GetPayloadSizeInBytes() { return m_RuntimeDataFunctionInfo->PayloadSizeInBytes; }
@@ -543,32 +549,21 @@ struct FunctionTableReader {
 private:
   const RuntimeDataFunctionInfo *m_infos;
   uint32_t m_count;
-  PSVStringTable *m_StringReader;
-  IndexTableReader *m_IndexTableReader;
-  ResourceTableReader *m_ResourceTableReader;
+  RuntimeDataContext *m_context;
 public:
-  FunctionTableReader()
-      : m_infos(nullptr), m_count(0), m_StringReader(nullptr),
-        m_IndexTableReader(nullptr), m_ResourceTableReader(nullptr) {}
+  FunctionTableReader() : m_infos(nullptr), m_count(0), m_context(nullptr) {}
   FunctionTableReader(const RuntimeDataFunctionInfo *functionInfos,
-                      uint32_t count, PSVStringTable *stringReader = nullptr,
-                      IndexTableReader *indexTableReader = nullptr,
-                      ResourceTableReader *resourceTableReader = nullptr)
-      : m_infos(functionInfos), m_count(count), m_StringReader(stringReader),
-        m_IndexTableReader(indexTableReader),
-        m_ResourceTableReader(resourceTableReader) {}
+                      uint32_t count, RuntimeDataContext *context)
+      : m_infos(functionInfos), m_count(count), m_context(context) {}
 
   FunctionReader GetItem(uint32_t i) {
-    return FunctionReader(&m_infos[i], m_StringReader, m_IndexTableReader,
-                          m_ResourceTableReader);
+    return FunctionReader(&m_infos[i], m_context);
   }
   uint32_t GetNumFunctions() { return m_count; }
 
-  void SetStringReader(PSVStringTable *ptr) { m_StringReader = ptr; }
-  void SetIndexTableReader(IndexTableReader *ptr) { m_IndexTableReader = ptr; }
-  void SetResourceTableReader(ResourceTableReader *ptr) { m_ResourceTableReader = ptr; }
   void SetFunctionInfo(const RuntimeDataFunctionInfo *ptr) { m_infos = ptr; }
   void SetCount(uint32_t count) { m_count = count; }
+  void SetContext(RuntimeDataContext *context) { m_context = context; }
 };
 
 class DxilRuntimeData {
@@ -578,12 +573,14 @@ private:
   IndexTableReader m_IndexTableReader;
   ResourceTableReader m_ResourceTableReader;
   FunctionTableReader m_FunctionTableReader;
-  friend struct FunctionReader;
-  friend struct ResourceReader;
+  RuntimeDataContext m_Context;
 public:
   DxilRuntimeData()
       : m_TableCount(0), m_StringReader(), m_ResourceTableReader(),
-        m_FunctionTableReader(), m_IndexTableReader() {}
+        m_FunctionTableReader(), m_IndexTableReader(), m_Context() {
+    m_Context = {&m_StringReader, &m_IndexTableReader, &m_ResourceTableReader,
+                 &m_FunctionTableReader};
+  }
   DxilRuntimeData(const char *ptr) {
     InitFromRDAT(ptr);
   }
@@ -605,13 +602,11 @@ public:
             m_ResourceTableReader.SetSamplerCount(samplerCount);
             m_ResourceTableReader.SetSRVCount(srvCount);
             m_ResourceTableReader.SetUAVCount(uavCount);
-            m_FunctionTableReader.SetResourceTableReader(&m_ResourceTableReader);
+            m_ResourceTableReader.SetContext(&m_Context);
             break;
           }
           case RuntimeDataTableType::String: {
             m_StringReader = PSVStringTable(ptr + curRecord->offset, curRecord->size);
-            m_ResourceTableReader.SetStringReader(&m_StringReader);
-            m_FunctionTableReader.SetStringReader(&m_StringReader);
             break;
           }
           case RuntimeDataTableType::Function: {
@@ -619,12 +614,12 @@ public:
                 (RuntimeDataFunctionInfo *)(ptr + curRecord->offset);
             m_FunctionTableReader.SetFunctionInfo(funcInfo);
             m_FunctionTableReader.SetCount(curRecord->size / sizeof(RuntimeDataFunctionInfo));
+            m_FunctionTableReader.SetContext(&m_Context);
             break;
           }
           case RuntimeDataTableType::Index: {
             m_IndexTableReader = IndexTableReader(
                 (uint32_t *)(ptr + curRecord->offset), curRecord->size / 4);
-            m_FunctionTableReader.SetIndexTableReader(&m_IndexTableReader);
             break;
           }
           default:
