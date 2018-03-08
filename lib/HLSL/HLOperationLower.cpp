@@ -2203,8 +2203,8 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
     // Set stride.
     Value *stridePtr = CI->getArgOperand(widthOpIdx + 1);
     const DataLayout &DL = helper.dataLayout;
-    Value *buf = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-    Type *bufTy = buf->getType();
+    Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+    Type *bufTy = pObjHelper->GetResourceType(handle);
     Type *bufRetTy = bufTy->getStructElementType(0);
     unsigned stride = DL.getTypeAllocSize(bufRetTy);
     Builder.CreateStore(hlslOP->GetU32Const(stride), stridePtr);
