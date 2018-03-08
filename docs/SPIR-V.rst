@@ -510,26 +510,28 @@ Textures
 `Texture types <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509700(v=vs.85).aspx>`_
 are translated into SPIR-V ``OpTypeImage``, with parameters:
 
-======================= ========== ===== ======= == ======= ================ =================
-HLSL Texture Type           Dim    Depth Arrayed MS Sampled  Image Format       Capability
-======================= ========== ===== ======= == ======= ================ =================
-``Texture1D``           ``1D``      0       0    0    1     ``Unknown``
-``Texture2D``           ``2D``      0       0    0    1     ``Unknown``
-``Texture3D``           ``3D``      0       0    0    1     ``Unknown``
-``TextureCube``         ``Cube``    0       0    0    1     ``Unknown``
-``Texture1DArray``      ``1D``      0       1    0    1     ``Unknown``
-``Texture2DArray``      ``2D``      0       1    0    1     ``Unknown``
-``Texture2DMS``         ``2D``      0       0    1    1     ``Unknown``
-``Texture2DMSArray``    ``2D``      0       1    1    1     ``Unknown``      ``ImageMSArray``
-``TextureCubeArray``    ``3D``      0       1    0    1     ``Unknown``
-``Buffer<T>``           ``Buffer``  0       0    0    1     Depends on ``T`` ``SampledBuffer``
-``RWBuffer<T>``         ``Buffer``  0       0    0    2     Depends on ``T`` ``SampledBuffer``
-``RWTexture1D<T>``      ``1D``      0       0    0    2     Depends on ``T``
-``RWTexture2D<T>``      ``2D``      0       0    0    2     Depends on ``T``
-``RWTexture3D<T>``      ``3D``      0       0    0    2     Depends on ``T``
-``RWTexture1DArray<T>`` ``1D``      0       1    0    2     Depends on ``T``
-``RWTexture2DArray<T>`` ``2D``      0       1    0    2     Depends on ``T``
-======================= ========== ===== ======= == ======= ================ =================
+======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
+       HLSL                   Vulkan                                        SPIR-V
+----------------------- -------------------------- ------------------------------------------------------------------------------------------
+     Texture Type         Descriptor Type    RO/RW    Storage Class        Dim    Depth Arrayed MS Sampled   Image Format      Capability
+======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
+``Texture1D``           Sampled Image         RO   ``UniformConstant`` ``1D``      0       0    0    1     ``Unknown``
+``Texture2D``           Sampled Image         RO   ``UniformConstant`` ``2D``      0       0    0    1     ``Unknown``
+``Texture3D``           Sampled Image         RO   ``UniformConstant`` ``3D``      0       0    0    1     ``Unknown``
+``TextureCube``         Sampled Image         RO   ``UniformConstant`` ``Cube``    0       0    0    1     ``Unknown``
+``Texture1DArray``      Sampled Image         RO   ``UniformConstant`` ``1D``      0       1    0    1     ``Unknown``
+``Texture2DArray``      Sampled Image         RO   ``UniformConstant`` ``2D``      0       1    0    1     ``Unknown``
+``Texture2DMS``         Sampled Image         RO   ``UniformConstant`` ``2D``      0       0    1    1     ``Unknown``
+``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      0       1    1    1     ``Unknown``      ``ImageMSArray``
+``TextureCubeArray``    Sampled Image         RO   ``UniformConstant`` ``3D``      0       1    0    1     ``Unknown``
+``Buffer<T>``           Uniform Texel Buffer  RO   ``UniformConstant`` ``Buffer``  0       0    0    1     Depends on ``T`` ``SampledBuffer``
+``RWBuffer<T>``         Storage Texel Buffer  RW   ``UniformConstant`` ``Buffer``  0       0    0    2     Depends on ``T`` ``SampledBuffer``
+``RWTexture1D<T>``      Storage Image         RW   ``UniformConstant`` ``1D``      0       0    0    2     Depends on ``T``
+``RWTexture2D<T>``      Storage Image         RW   ``UniformConstant`` ``2D``      0       0    0    2     Depends on ``T``
+``RWTexture3D<T>``      Storage Image         RW   ``UniformConstant`` ``3D``      0       0    0    2     Depends on ``T``
+``RWTexture1DArray<T>`` Storage Image         RW   ``UniformConstant`` ``1D``      0       1    0    2     Depends on ``T``
+``RWTexture2DArray<T>`` Storage Image         RW   ``UniformConstant`` ``2D``      0       1    0    2     Depends on ``T``
+======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
 
 The meanings of the headers in the above table is explained in ``OpTypeImage``
 of the SPIR-V spec.
