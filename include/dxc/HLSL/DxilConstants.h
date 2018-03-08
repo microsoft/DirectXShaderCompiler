@@ -851,6 +851,9 @@ namespace DXIL {
     const unsigned kCreateHandleResIndexOpIdx = 3;
     const unsigned kCreateHandleIsUniformOpIdx = 4;
 
+    // CreateHandleFromResource
+    const unsigned kCreateHandleFromResourceStructForLibResOpIdx = 1;
+
     // TraceRay
     const unsigned kTraceRayRayDescOpIdx = 7;
     const unsigned kTraceRayPayloadOpIdx = 15;

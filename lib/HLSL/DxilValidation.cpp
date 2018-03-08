@@ -2648,7 +2648,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         bool IsMinPrecisionTy =
             (ValCtx.DL.getTypeStoreSize(FromTy) < 4 ||
              ValCtx.DL.getTypeStoreSize(ToTy) < 4) &&
-            !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision();
+            ValCtx.DxilMod.GetUseMinPrecision();
         if (IsMinPrecisionTy) {
           ValCtx.EmitInstrError(Cast, ValidationRule::InstrMinPrecisonBitCast);
         }
@@ -3032,7 +3032,7 @@ static void ValidateResource(hlsl::DxilResource &res,
   if (res.IsStructuredBuffer()) {
     unsigned stride = res.GetElementStride();
     bool alignedTo4Bytes = (stride & 3) == 0;
-    if (!alignedTo4Bytes && !ValCtx.M.GetDxilModule().m_ShaderFlags.GetUseNativeLowPrecision()) {
+    if (!alignedTo4Bytes && ValCtx.M.GetDxilModule().GetUseMinPrecision()) {
       ValCtx.EmitResourceFormatError(
           &res, ValidationRule::MetaStructBufAlignment,
           {std::to_string(4), std::to_string(stride)});
@@ -3224,9 +3224,9 @@ static void ValidateResources(ValidationContext &ValCtx) {
 }
 
 static void ValidateShaderFlags(ValidationContext &ValCtx) {
-  DxilModule::ShaderFlags calcFlags;
-  ValCtx.DxilMod.CollectShaderFlags(calcFlags);
-  const uint64_t mask = DxilModule::ShaderFlags::GetShaderFlagsRawForCollection();
+  ShaderFlags calcFlags;
+  ValCtx.DxilMod.CollectShaderFlagsForModule(calcFlags);
+  const uint64_t mask = ShaderFlags::GetShaderFlagsRawForCollection();
   uint64_t declaredFlagsRaw = ValCtx.DxilMod.m_ShaderFlags.GetShaderFlagsRaw();
   uint64_t calcFlagsRaw = calcFlags.GetShaderFlagsRaw();
 
@@ -3608,10 +3608,10 @@ static void ValidateSignatureOverlap(
 static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
                               unsigned maxScalars) {
   DxilSignatureAllocator allocator[DXIL::kNumOutputStreams] = {
-      {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()},
-      {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()},
-      {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()},
-      {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()}};
+      {32, ValCtx.DxilMod.GetUseMinPrecision()},
+      {32, ValCtx.DxilMod.GetUseMinPrecision()},
+      {32, ValCtx.DxilMod.GetUseMinPrecision()},
+      {32, ValCtx.DxilMod.GetUseMinPrecision()}};
   unordered_set<Semantic::Kind> semanticUsageSet[DXIL::kNumOutputStreams];
   StringMap<unordered_set<unsigned>> semanticIndexMap[DXIL::kNumOutputStreams];
   unordered_set<unsigned> clipcullRowSet[DXIL::kNumOutputStreams];

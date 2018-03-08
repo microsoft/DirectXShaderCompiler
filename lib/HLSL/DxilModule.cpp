@@ -83,7 +83,10 @@ DxilModule::DxilModule(Module *pModule)
 , m_TessellatorPartitioning(DXIL::TessellatorPartitioning::Undefined)
 , m_TessellatorOutputPrimitive(DXIL::TessellatorOutputPrimitive::Undefined)
 , m_MaxTessellationFactor(0.f)
-, m_RootSignature(nullptr) {
+, m_RootSignature(nullptr)
+, m_bUseMinPrecision(true) // use min precision by default
+, m_bDisableOptimizations(false)
+, m_bAllResourcesBound(false) {
   DXASSERT_NOMSG(m_pModule != nullptr);
 
   m_NumThreads[0] = m_NumThreads[1] = m_NumThreads[2] = 0;
@@ -101,35 +104,6 @@ DxilModule::DxilModule(Module *pModule)
 DxilModule::~DxilModule() {
 }
 
-DxilModule::ShaderFlags::ShaderFlags():
-  m_bDisableOptimizations(false)
-, m_bDisableMathRefactoring(false)
-, m_bEnableDoublePrecision(false)
-, m_bForceEarlyDepthStencil(false)
-, m_bEnableRawAndStructuredBuffers(false)
-, m_bLowPrecisionPresent(false)
-, m_bEnableDoubleExtensions(false)
-, m_bEnableMSAD(false)
-, m_bAllResourcesBound(false)
-, m_bViewportAndRTArrayIndex(false)
-, m_bInnerCoverage(false)
-, m_bStencilRef(false)
-, m_bTiledResources(false)
-, m_bUAVLoadAdditionalFormats(false)
-, m_bLevel9ComparisonFiltering(false)
-, m_bCSRawAndStructuredViaShader4X(false)
-, m_b64UAVs(false)
-, m_UAVsAtEveryStage(false)
-, m_bROVS(false)
-, m_bWaveOps(false)
-, m_bInt64Ops(false)
-, m_bViewID(false)
-, m_bBarycentrics(false)
-, m_bUseNativeLowPrecision(false)
-, m_align0(0)
-, m_align1(0)
-{}
-
 LLVMContext &DxilModule::GetCtx() const { return m_Ctx; }
 Module *DxilModule::GetModule() const { return m_pModule; }
 OP *DxilModule::GetOP() const { return m_pOP.get(); }
@@ -142,7 +116,7 @@ void DxilModule::SetShaderModel(const ShaderModel *pSM) {
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
   DXIL::ShaderKind shaderKind = pSM->GetKind();
-  m_EntrySignature = llvm::make_unique<DxilEntrySignature>(shaderKind, !m_ShaderFlags.GetUseNativeLowPrecision());
+  m_EntrySignature = llvm::make_unique<DxilEntrySignature>(shaderKind, GetUseMinPrecision());
   m_RootSignature.reset(new RootSignatureHandle());
 }
 
@@ -227,267 +201,16 @@ void DxilModule::SetPatchConstantFunction(llvm::Function *pFunc) {
   m_pPatchConstantFunc = pFunc;
 }
 
-unsigned DxilModule::ShaderFlags::GetGlobalFlags() const {
-  unsigned Flags = 0;
-  Flags |= m_bDisableOptimizations ? DXIL::kDisableOptimizations : 0;
-  Flags |= m_bDisableMathRefactoring ? DXIL::kDisableMathRefactoring : 0;
-  Flags |= m_bEnableDoublePrecision ? DXIL::kEnableDoublePrecision : 0;
-  Flags |= m_bForceEarlyDepthStencil ? DXIL::kForceEarlyDepthStencil : 0;
-  Flags |= m_bEnableRawAndStructuredBuffers ? DXIL::kEnableRawAndStructuredBuffers : 0;
-  Flags |= m_bLowPrecisionPresent && !m_bUseNativeLowPrecision? DXIL::kEnableMinPrecision : 0;
-  Flags |= m_bEnableDoubleExtensions ? DXIL::kEnableDoubleExtensions : 0;
-  Flags |= m_bEnableMSAD ? DXIL::kEnableMSAD : 0;
-  Flags |= m_bAllResourcesBound ? DXIL::kAllResourcesBound : 0;
-  return Flags;
-}
-
-uint64_t DxilModule::ShaderFlags::GetFeatureInfo() const {
-  uint64_t Flags = 0;
-  Flags |= m_bEnableDoublePrecision ? hlsl::ShaderFeatureInfo_Doubles : 0;
-  Flags |= m_bLowPrecisionPresent && !m_bUseNativeLowPrecision ? hlsl::ShaderFeatureInfo_MinimumPrecision: 0;
-  Flags |= m_bLowPrecisionPresent && m_bUseNativeLowPrecision ? hlsl::ShaderFeatureInfo_NativeLowPrecision : 0;
-  Flags |= m_bEnableDoubleExtensions ? hlsl::ShaderFeatureInfo_11_1_DoubleExtensions : 0;
-  Flags |= m_bWaveOps ? hlsl::ShaderFeatureInfo_WaveOps : 0;
-  Flags |= m_bInt64Ops ? hlsl::ShaderFeatureInfo_Int64Ops : 0;
-  Flags |= m_bROVS ? hlsl::ShaderFeatureInfo_ROVs : 0;
-  Flags |= m_bViewportAndRTArrayIndex ? hlsl::ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer : 0;
-  Flags |= m_bInnerCoverage ? hlsl::ShaderFeatureInfo_InnerCoverage : 0;
-  Flags |= m_bStencilRef ? hlsl::ShaderFeatureInfo_StencilRef : 0;
-  Flags |= m_bTiledResources ? hlsl::ShaderFeatureInfo_TiledResources : 0;
-  Flags |= m_bEnableMSAD ? hlsl::ShaderFeatureInfo_11_1_ShaderExtensions : 0;
-  Flags |= m_bCSRawAndStructuredViaShader4X ? hlsl::ShaderFeatureInfo_ComputeShadersPlusRawAndStructuredBuffersViaShader4X : 0;
-  Flags |= m_UAVsAtEveryStage ? hlsl::ShaderFeatureInfo_UAVsAtEveryStage : 0;
-  Flags |= m_b64UAVs ? hlsl::ShaderFeatureInfo_64UAVs : 0;
-  Flags |= m_bLevel9ComparisonFiltering ? hlsl::ShaderFeatureInfo_LEVEL9ComparisonFiltering : 0;
-  Flags |= m_bUAVLoadAdditionalFormats ? hlsl::ShaderFeatureInfo_TypedUAVLoadAdditionalFormats : 0;
-  Flags |= m_bViewID ? hlsl::ShaderFeatureInfo_ViewID : 0;
-  Flags |= m_bBarycentrics ? hlsl::ShaderFeatureInfo_Barycentrics : 0;
-
-  return Flags;
-}
-
-uint64_t DxilModule::ShaderFlags::GetShaderFlagsRaw() const {
-  union Cast {
-    Cast(const DxilModule::ShaderFlags &flags) {
-      shaderFlags = flags;
-    }
-    DxilModule::ShaderFlags shaderFlags;
-    uint64_t  rawData;
-  };
-  static_assert(sizeof(uint64_t) == sizeof(DxilModule::ShaderFlags),
-                "size must match to make sure no undefined bits when cast");
-  Cast rawCast(*this);
-  return rawCast.rawData;
-}
-void DxilModule::ShaderFlags::SetShaderFlagsRaw(uint64_t data) {
-  union Cast {
-    Cast(uint64_t data) {
-      rawData = data;
-    }
-    DxilModule::ShaderFlags shaderFlags;
-    uint64_t  rawData;
-  };
-
-  Cast rawCast(data);
-  *this = rawCast.shaderFlags;
-}
-
 unsigned DxilModule::GetGlobalFlags() const {
   unsigned Flags = m_ShaderFlags.GetGlobalFlags();
   return Flags;
 }
 
-static bool IsResourceSingleComponent(llvm::Type *Ty) {
-  if (llvm::ArrayType *arrType = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
-    if (arrType->getArrayNumElements() > 1) {
-      return false;
-    }
-    return IsResourceSingleComponent(arrType->getArrayElementType());
-  } else if (llvm::StructType *structType =
-                 llvm::dyn_cast<llvm::StructType>(Ty)) {
-    if (structType->getStructNumElements() > 1) {
-      return false;
-    }
-    return IsResourceSingleComponent(structType->getStructElementType(0));
-  } else if (llvm::VectorType *vectorType =
-                 llvm::dyn_cast<llvm::VectorType>(Ty)) {
-    if (vectorType->getNumElements() > 1) {
-      return false;
-    }
-    return IsResourceSingleComponent(vectorType->getVectorElementType());
-  }
-  return true;
-}
-
-// Given a CreateHandle call, returns arbitrary ConstantInt rangeID
-// Note: HLSL is currently assuming that rangeID is a constant value, but this code is assuming
-// that it can be either constant, phi node, or select instruction
-static ConstantInt *GetArbitraryConstantRangeID(CallInst *handleCall) {
-  Value *rangeID =
-      handleCall->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
-  ConstantInt *ConstantRangeID = dyn_cast<ConstantInt>(rangeID);
-  while (ConstantRangeID == nullptr) {
-    if (ConstantInt *CI = dyn_cast<ConstantInt>(rangeID)) {
-      ConstantRangeID = CI;
-    } else if (PHINode *PN = dyn_cast<PHINode>(rangeID)) {
-      rangeID = PN->getIncomingValue(0);
-    } else if (SelectInst *SI = dyn_cast<SelectInst>(rangeID)) {
-      rangeID = SI->getTrueValue();
-    } else {
-      return nullptr;
-    }
-  }
-  return ConstantRangeID;
-}
-
-void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
-  bool hasDouble = false;
-  // ddiv dfma drcp d2i d2u i2d u2d.
-  // fma has dxil op. Others should check IR instruction div/cast.
-  bool hasDoubleExtension = false;
-  bool has64Int = false;
-  bool has16 = false;
-  bool hasWaveOps = false;
-  bool hasCheckAccessFully = false;
-  bool hasMSAD = false;
-  bool hasInnerCoverage = false;
-  bool hasViewID = false;
-  bool hasMulticomponentUAVLoads = false;
-  bool hasMulticomponentUAVLoadsBackCompat = false;
-
-  // Try to maintain compatibility with a v1.0 validator if that's what we have.
-  {
-    unsigned valMajor, valMinor;
-    GetValidatorVersion(valMajor, valMinor);
-    hasMulticomponentUAVLoadsBackCompat = valMajor <= 1 && valMinor == 0;
-  }
-
-  Type *int16Ty = Type::getInt16Ty(GetCtx());
-  Type *int64Ty = Type::getInt64Ty(GetCtx());
-
+void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   for (Function &F : GetModule()->functions()) {
-    for (BasicBlock &BB : F.getBasicBlockList()) {
-      for (Instruction &I : BB.getInstList()) {
-        // Skip none dxil function call.
-        if (CallInst *CI = dyn_cast<CallInst>(&I)) {
-          if (!OP::IsDxilOpFunc(CI->getCalledFunction()))
-            continue;
-        }
-        Type *Ty = I.getType();
-        bool isDouble = Ty->isDoubleTy();
-        bool isHalf = Ty->isHalfTy();
-        bool isInt16 = Ty == int16Ty;
-        bool isInt64 = Ty == int64Ty;
-        if (isa<ExtractElementInst>(&I) ||
-            isa<InsertElementInst>(&I))
-          continue;
-        for (Value *operand : I.operands()) {
-          Type *Ty = operand->getType();
-          isDouble |= Ty->isDoubleTy();
-          isHalf |= Ty->isHalfTy();
-          isInt16 |= Ty == int16Ty;
-          isInt64 |= Ty == int64Ty;
-        }
-
-        if (isDouble) {
-          hasDouble = true;
-          switch (I.getOpcode()) {
-          case Instruction::FDiv:
-          case Instruction::UIToFP:
-          case Instruction::SIToFP:
-          case Instruction::FPToUI:
-          case Instruction::FPToSI:
-            hasDoubleExtension = true;
-            break;
-          }
-        }
-        
-        has16 |= isHalf;
-        has16 |= isInt16;
-        has64Int |= isInt64;
-
-        if (CallInst *CI = dyn_cast<CallInst>(&I)) {
-          if (!OP::IsDxilOpFunc(CI->getCalledFunction()))
-            continue;
-          Value *opcodeArg = CI->getArgOperand(DXIL::OperandIndex::kOpcodeIdx);
-          ConstantInt *opcodeConst = dyn_cast<ConstantInt>(opcodeArg);
-          DXASSERT(opcodeConst, "DXIL opcode arg must be immediate");
-          unsigned opcode = opcodeConst->getLimitedValue();
-          DXASSERT(opcode < static_cast<unsigned>(DXIL::OpCode::NumOpCodes),
-                   "invalid DXIL opcode");
-          DXIL::OpCode dxilOp = static_cast<DXIL::OpCode>(opcode);
-          if (hlsl::OP::IsDxilOpWave(dxilOp))
-            hasWaveOps = true;
-          switch (dxilOp) {
-          case DXIL::OpCode::CheckAccessFullyMapped:
-            hasCheckAccessFully = true;
-            break;
-          case DXIL::OpCode::Msad:
-            hasMSAD = true;
-            break;
-          case DXIL::OpCode::BufferLoad:
-          case DXIL::OpCode::TextureLoad: {
-            if (hasMulticomponentUAVLoads) continue;
-            // This is the old-style computation (overestimating requirements).
-            Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferStoreHandleOpIdx);
-            CallInst *handleCall = cast<CallInst>(resHandle);
-
-            if (ConstantInt *resClassArg =
-              dyn_cast<ConstantInt>(handleCall->getArgOperand(
-                DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
-              DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
-                resClassArg->getLimitedValue());
-              if (resClass == DXIL::ResourceClass::UAV) {
-                // Validator 1.0 assumes that all uav load is multi component load.
-                if (hasMulticomponentUAVLoadsBackCompat) {
-                  hasMulticomponentUAVLoads = true;
-                  continue;
-                }
-                else {
-                  ConstantInt *rangeID = GetArbitraryConstantRangeID(handleCall);
-                  if (rangeID) {
-                      DxilResource resource = GetUAV(rangeID->getLimitedValue());
-                      if ((resource.IsTypedBuffer() ||
-                           resource.IsAnyTexture()) &&
-                          !IsResourceSingleComponent(resource.GetRetType())) {
-                        hasMulticomponentUAVLoads = true;
-                      }
-                  }
-                }
-              }
-            }
-            else {
-                DXASSERT(false, "Resource class must be constant.");
-            }
-          } break;
-          case DXIL::OpCode::Fma:
-            hasDoubleExtension |= isDouble;
-            break;
-          case DXIL::OpCode::InnerCoverage:
-            hasInnerCoverage = true;
-            break;
-          case DXIL::OpCode::ViewID:
-            hasViewID = true;
-            break;
-          default:
-            // Normal opcodes.
-            break;
-          }
-        }
-      }
-    }
-
-  }
-
-  Flags.SetEnableDoublePrecision(hasDouble);
-  Flags.SetInt64Ops(has64Int);
-  Flags.SetLowPrecisionPresent(has16);
-  Flags.SetEnableDoubleExtensions(hasDoubleExtension);
-  Flags.SetWaveOps(hasWaveOps);
-  Flags.SetTiledResources(hasCheckAccessFully);
-  Flags.SetEnableMSAD(hasMSAD);
-  Flags.SetUAVLoadAdditionalFormats(hasMulticomponentUAVLoads);
-  Flags.SetViewID(hasViewID);
+    ShaderFlags funcFlags = ShaderFlags::CollectShaderFlags(&F, this);
+    Flags.CombineShaderFlags(funcFlags);
+  };
 
   const ShaderModel *SM = GetShaderModel();
   if (SM->IsPS()) {
@@ -497,12 +220,11 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
       if (E->GetKind() == Semantic::Kind::StencilRef) {
         hasStencilRef = true;
       } else if (E->GetKind() == Semantic::Kind::InnerCoverage) {
-        hasInnerCoverage = true;
+        Flags.SetInnerCoverage(true);
       }
     }
 
     Flags.SetStencilRef(hasStencilRef);
-    Flags.SetInnerCoverage(hasInnerCoverage);
   }
 
   bool checkInputRTArrayIndex =
@@ -580,31 +302,8 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
   Flags.SetCSRawAndStructuredViaShader4X(hasCSRawAndStructuredViaShader4X);
 }
 
-void DxilModule::CollectShaderFlags() {
-  CollectShaderFlags(m_ShaderFlags);
-}
-
-uint64_t DxilModule::ShaderFlags::GetShaderFlagsRawForCollection() {
-  // This should be all the flags that can be set by DxilModule::CollectShaderFlags.
-  ShaderFlags Flags;
-  Flags.SetEnableDoublePrecision(true);
-  Flags.SetInt64Ops(true);
-  Flags.SetLowPrecisionPresent(true);
-  Flags.SetEnableDoubleExtensions(true);
-  Flags.SetWaveOps(true);
-  Flags.SetTiledResources(true);
-  Flags.SetEnableMSAD(true);
-  Flags.SetUAVLoadAdditionalFormats(true);
-  Flags.SetStencilRef(true);
-  Flags.SetInnerCoverage(true);
-  Flags.SetViewportAndRTArrayIndex(true);
-  Flags.Set64UAVs(true);
-  Flags.SetUAVsAtEveryStage(true);
-  Flags.SetEnableRawAndStructuredBuffers(true);
-  Flags.SetCSRawAndStructuredViaShader4X(true);
-  Flags.SetViewID(true);
-  Flags.SetBarycentrics(true);
-  return Flags.GetShaderFlagsRaw();
+void DxilModule::CollectShaderFlagsForModule() {
+  CollectShaderFlagsForModule(m_ShaderFlags);
 }
 
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {
@@ -690,6 +389,30 @@ void DxilModule::SetActiveStreamMask(unsigned Mask) {
 
 unsigned DxilModule::GetActiveStreamMask() const {
   return m_ActiveStreamMask;
+}
+
+void DxilModule::SetUseMinPrecision(bool UseMinPrecision) {
+  m_bUseMinPrecision = UseMinPrecision;
+}
+
+bool DxilModule::GetUseMinPrecision() const {
+  return m_bUseMinPrecision;
+}
+
+void DxilModule::SetDisableOptimization(bool DisableOptimization) {
+  m_bDisableOptimizations = DisableOptimization;
+}
+
+bool DxilModule::GetDisableOptimization() const {
+  return m_bDisableOptimizations;
+}
+
+void DxilModule::SetAllResourcesBound(bool ResourcesBound) {
+  m_bAllResourcesBound = ResourcesBound;
+}
+
+bool DxilModule::GetAllResourcesBound() const {
+  return m_bAllResourcesBound;
 }
 
 unsigned DxilModule::GetInputControlPointCount() const {
@@ -1051,7 +774,7 @@ const RootSignatureHandle &DxilModule::GetRootSignature() const {
   return *m_RootSignature;
 }
 
-bool DxilModule::HasDxilEntrySignature(llvm::Function *F) const {
+bool DxilModule::HasDxilEntrySignature(const llvm::Function *F) const {
   return m_DxilEntrySignatureMap.find(F) != m_DxilEntrySignatureMap.end();
 }
 DxilEntrySignature &DxilModule::GetDxilEntrySignature(const llvm::Function *F) {
@@ -1395,7 +1118,7 @@ void DxilModule::LoadDxilMetadata() {
       DXIL::ShaderKind shaderKind = m_DxilFunctionPropsMap[F]->shaderKind;
 
       std::unique_ptr<hlsl::DxilEntrySignature> Sig =
-          llvm::make_unique<hlsl::DxilEntrySignature>(shaderKind, !m_ShaderFlags.GetUseNativeLowPrecision());
+          llvm::make_unique<hlsl::DxilEntrySignature>(shaderKind, GetUseMinPrecision());
 
       m_pMDHelper->LoadDxilSignatures(pSig->getOperand(idx), *Sig);
 
@@ -1577,6 +1300,9 @@ void DxilModule::LoadDxilShaderProperties(const MDOperand &MDO) {
     switch (Tag) {
     case DxilMDHelper::kDxilShaderFlagsTag:
       m_ShaderFlags.SetShaderFlagsRaw(DxilMDHelper::ConstMDToUint64(MDO));
+      m_bUseMinPrecision = !m_ShaderFlags.GetUseNativeLowPrecision();
+      m_bDisableOptimizations = m_ShaderFlags.GetDisableOptimizations();
+      m_bAllResourcesBound = m_ShaderFlags.GetAllResourcesBound();
       break;
 
     case DxilMDHelper::kDxilNumThreadsTag: {

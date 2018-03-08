@@ -272,7 +272,7 @@ public:
 
       // Skip shader flag for library.
       if (!IsLib) {
-        DM.CollectShaderFlags(); // Update flags to reflect any changes.
+        DM.CollectShaderFlagsForModule(); // Update flags to reflect any changes.
                                  // Update Validator Version
         DM.UpgradeToMinValidatorVersion();
       }

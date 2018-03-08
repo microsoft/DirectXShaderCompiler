@@ -931,8 +931,8 @@ bool OP::GetOpCodeClass(const Function *F, OP::OpCodeClass &opClass) {
 bool OP::UseMinPrecision() {
   if (m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined) {
     if (&m_pModule->GetDxilModule()) {
-      m_LowPrecisionMode = m_pModule->GetDxilModule().m_ShaderFlags.GetUseNativeLowPrecision() ?
-        DXIL::LowPrecisionMode::UseNativeLowPrecision : DXIL::LowPrecisionMode::UseMinPrecision;
+      m_LowPrecisionMode = m_pModule->GetDxilModule().GetUseMinPrecision() ?
+        DXIL::LowPrecisionMode::UseMinPrecision : DXIL::LowPrecisionMode::UseNativeLowPrecision;
     }
     else if (&m_pModule->GetHLModule()) {
       m_LowPrecisionMode = m_pModule->GetHLModule().GetHLOptions().bUseMinPrecision ?
