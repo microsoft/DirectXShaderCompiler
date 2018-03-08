@@ -332,6 +332,9 @@ TEST_F(FileTest, CastFlatConversionStruct) {
 TEST_F(FileTest, CastFlatConversionNoOp) {
   runFileTest("cast.flat-conversion.no-op.hlsl");
 }
+TEST_F(FileTest, CastFlatConversionLiteralInitializer) {
+  runFileTest("cast.flat-conversion.literal-initializer.hlsl");
+}
 TEST_F(FileTest, CastExplicitVecToMat) {
   runFileTest("cast.vec-to-mat.explicit.hlsl");
 }
