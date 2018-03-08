@@ -526,8 +526,8 @@
             </Parameter>
         </Row>
         <Row Name="Hcos">
-            <Parameter Name="Validation.Type">ulp</Parameter>
-            <Parameter Name="Validation.Tolerance">2</Parameter>
+            <Parameter Name="Validation.Type">Epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float input;
                 float output;
