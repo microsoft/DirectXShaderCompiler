@@ -186,10 +186,10 @@ for /F "tokens=1,2*" %%A in ('%REG_QUERY% /v InstallationFolder') do (
   if "%%A"=="InstallationFolder" (
     rem echo Found Windows 10 SDK
     rem echo   InstallationFolder: "%%C"
-    set kit_root="%%C"
+    set kit_root=%%C
   )
 )
-if []==[%kit_root%] (
+if ""=="%kit_root%" (
   echo Did not find a Windows 10 SDK installation.
   exit /b 1
 )
@@ -205,7 +205,7 @@ for /F "tokens=1-3" %%A in ('%REG_QUERY% /v ProductVersion') do (
     rem echo       ProductVersion: %%C
     for /F "tokens=1-3 delims=." %%X in ("%%C") do (
       set sdk_ver=%%Z
-      if exist %kit_root%\include\10.0.%%Z.0\um\d3d12.h (
+      if exist "%kit_root%\include\10.0.%%Z.0\um\d3d12.h" (
         set d3d12_sdk_ver=%%Z
       )
     )
