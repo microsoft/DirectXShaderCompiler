@@ -2175,13 +2175,22 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return SpirvEvalInfo(subExprId).setRValue().setConstant();
     }
 
-    // Try to evaluate 'literal float' as float rather than double.
+    TypeTranslator::LiteralTypeHint hint(typeTranslator);
+    // Try to evaluate float literals as float rather than double.
     if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(subExpr)) {
       subExprId = tryToEvaluateAsFloat32(floatLiteral->getValue());
       if (subExprId)
         evalType = astContext.FloatTy;
     }
-    // Try to evaluate 'literal int' as 32-bit int rather than 64-bit int.
+    // Evaluate 'literal float' initializer type as float rather than double.
+    // TODO: This could result in rounding error if the initializer is a
+    // non-literal expression that requires larger than 32 bits and has the
+    // 'literal float' type.
+    else if (subExprType->isSpecificBuiltinType(BuiltinType::LitFloat)) {
+      evalType = astContext.FloatTy;
+      hint.setHint(astContext.FloatTy);
+    }
+    // Try to evaluate integer literals as 32-bit int rather than 64-bit int.
     else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(subExpr)) {
       const bool isSigned = subExprType->isSignedIntegerType();
       subExprId = tryToEvaluateAsInt32(intLiteral->getValue(), isSigned);
@@ -2250,15 +2259,18 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         case BuiltinType::Bool:
           return castToBool(initId, initType, ty);
         // Target type is an integer variant.
-        // TODO: Add long and ulong.
         case BuiltinType::Int:
         case BuiltinType::Short:
         case BuiltinType::Min12Int:
         case BuiltinType::UShort:
         case BuiltinType::UInt:
+        case BuiltinType::Long:
+        case BuiltinType::LongLong:
+        case BuiltinType::ULong:
+        case BuiltinType::ULongLong:
           return castToInt(initId, initType, ty, srcLoc);
         // Target type is a float variant.
-        // TODO: Add double.
+        case BuiltinType::Double:
         case BuiltinType::Float:
         case BuiltinType::Half:
         case BuiltinType::Min10Float:
