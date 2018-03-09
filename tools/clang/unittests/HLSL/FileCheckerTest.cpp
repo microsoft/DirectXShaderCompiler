@@ -188,8 +188,12 @@ static string trim(string value) {
       argStrings = hlsl::options::MainArgs(splitArgs);
       std::string errorString;
       llvm::raw_string_ostream errorStream(errorString);
-      IFT(ReadDxcOpts(hlsl::options::getHlslOptTable(), /*flagsToInclude*/ 0,
-                      argStrings, Opts, errorStream));
+      RunResult = ReadDxcOpts(hlsl::options::getHlslOptTable(), /*flagsToInclude*/ 0,
+                              argStrings, Opts, errorStream);
+      errorStream.flush();
+      if (RunResult) {
+        StdErr = errorString;
+      }
     }
 
     void FileRunCommandPart::RunDxc(const FileRunCommandPart *Prior) {
@@ -222,6 +226,9 @@ static string trim(string value) {
       CComPtr<IDxcIncludeHandler> pIncludeHandler;
 
       HRESULT resultStatus;
+
+      if (RunResult)  // opt parsing already failed
+        return;
 
       IFT(DllSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
       IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
