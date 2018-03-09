@@ -98,8 +98,12 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::AddPart(_In_ UINT32 fourCC, _In_ 
     IFTBOOL(pSource != nullptr && !IsDxilContainerLike(pSource->GetBufferPointer(),
       pSource->GetBufferSize()),
       E_INVALIDARG);
-    // Only allow adding private data and root signature for now
-    IFTBOOL(fourCC == DxilFourCC::DFCC_RootSignature || fourCC == DxilFourCC::DFCC_PrivateData, E_INVALIDARG);
+    // Only allow adding private data, debug info name and root signature for now
+    IFTBOOL(
+        fourCC == DxilFourCC::DFCC_RootSignature || 
+        fourCC == DxilFourCC::DFCC_ShaderDebugName ||
+        fourCC == DxilFourCC::DFCC_PrivateData, 
+      E_INVALIDARG);
     PartList::iterator it = std::find_if(m_parts.begin(), m_parts.end(), [&](DxilPart part) {
       return part.m_fourCC == fourCC;
     });
@@ -117,9 +121,10 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(_In_ UINT32 fourCC) {
   DxcThreadMalloc TM(m_pMalloc);
   try {
     IFTBOOL(fourCC == DxilFourCC::DFCC_ShaderDebugInfoDXIL ||
+                fourCC == DxilFourCC::DFCC_ShaderDebugName ||
                 fourCC == DxilFourCC::DFCC_RootSignature ||
                 fourCC == DxilFourCC::DFCC_PrivateData,
-            E_INVALIDARG); // You can only remove debug info, rootsignature, or private data blob
+            E_INVALIDARG); // You can only remove debug info, debug info name, rootsignature, or private data blob
     PartList::iterator it =
       std::find_if(m_parts.begin(), m_parts.end(),
         [&](DxilPart part) { return part.m_fourCC == fourCC; });

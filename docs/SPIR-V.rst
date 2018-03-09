@@ -286,6 +286,58 @@ interface variables:
   main([[vk::location(N)]] float4 input: A) : B
   { ... }
 
+Legalization, optimization, validation
+--------------------------------------
+
+After initial translation of the HLSL source code, SPIR-V CodeGen will further
+conduct legalization (if needed), optimization (if requested), and validation
+(if not turned off). All these three stages are outsourced to `SPIRV-Tools <https://github.com/KhronosGroup/SPIRV-Tools>`_.
+Here are the options controlling these stages:
+
+* ``-fcgl``: turn off legalization and optimization
+* ``-Od``: turn off optimization
+* ``-Vd``: turn off validation
+
+Legalization
+~~~~~~~~~~~~
+
+HLSL is a fairly permissive language considering the flexibility it provides for
+manipulating resource objects. The developer can create local copies, pass
+them around as function parameters and return values, as long as after certain
+transformations (function inlining, constant evaluation and propagating, dead
+code elimination, etc.), the compiler can remove all temporary copies and
+pinpoint all uses to unique global resource objects.
+
+Resulting from the above property of HLSL, if we translate into SPIR-V for
+Vulkan literally from the input HLSL source code, we will sometimes generate
+illegal SPIR-V. Certain transformations are needed to legalize the literally
+translated SPIR-V. Performing such transformations at the frontend AST level
+is cumbersome or impossible (e.g., function inlining). They are better to be
+conducted at SPIR-V level. Therefore, legalization is delegated to SPIRV-Tools.
+
+Specifically, we need to legalize the following HLSL source code patterns:
+
+* Using resource types in struct types
+* Creating aliases of global resource objects
+* Control flows invovling the above cases
+
+Legalization transformations will not run unless the above patterns are
+encountered in the source code.
+
+Optimization
+~~~~~~~~~~~~
+
+Optimization is also delegated to SPIRV-Tools. Right now there are no difference
+between optimization levels greater than zero; they will all invoke the same
+optimization recipe. This may change in the future.
+
+Validation
+~~~~~~~~~~
+
+Validation is turned on by default as the last stage of SPIR-V CodeGen. Failing
+validation, which indicates there is a CodeGen bug, will trigger a fatal error.
+Please file an issue if you see that.
+
 HLSL Types
 ==========
 
@@ -307,7 +359,7 @@ type instructions:
 ``uint``/``dword``/``uin32_t``                         ``OpTypeInt 32 0``
 ``uint16_t``                   ``-enable-16bit-types`` ``OpTypeInt 16 0`` ``Int16``
 ``half``                                               ``OpTypeFloat 32``
-``half``/``float16_t``         ``-enable-16bit-types`` ``OpTypeFloat 16`` ``Float16`` ``SPV_AMD_gpu_shader_half_float``
+``half``/``float16_t``         ``-enable-16bit-types`` ``OpTypeFloat 16``             ``SPV_AMD_gpu_shader_half_float``
 ``float``/``float32_t``                                ``OpTypeFloat 32``
 ``snorm float``                                        ``OpTypeFloat 32``
 ``unorm float``                                        ``OpTypeFloat 32``
@@ -340,8 +392,8 @@ https://github.com/Microsoft/DirectXShaderCompiler/wiki/16-Bit-Scalar-Types
 ``min16int``                           ``OpTypeInt 32 1`` ``RelaxedPrecision``
 ``min12int``                           ``OpTypeInt 32 1`` ``RelaxedPrecision``
 ``min16uint``                          ``OpTypeInt 32 0`` ``RelaxedPrecision``
-``min16float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                      ``Float16``  ``SPV_AMD_gpu_shader_half_float``
-``min10float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                      ``Float16``  ``SPV_AMD_gpu_shader_half_float``
+``min16float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                                   ``SPV_AMD_gpu_shader_half_float``
+``min10float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                                   ``SPV_AMD_gpu_shader_half_float``
 ``min16int``   ``-enable-16bit-types`` ``OpTypeInt 16 1``                      ``Int16``
 ``min12int``   ``-enable-16bit-types`` ``OpTypeInt 16 1``                      ``Int16``
 ``min16uint``  ``-enable-16bit-types`` ``OpTypeInt 16 0``                      ``Int16``
@@ -458,26 +510,28 @@ Textures
 `Texture types <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509700(v=vs.85).aspx>`_
 are translated into SPIR-V ``OpTypeImage``, with parameters:
 
-======================= ========== ===== ======= == ======= ================ =================
-HLSL Texture Type           Dim    Depth Arrayed MS Sampled  Image Format       Capability
-======================= ========== ===== ======= == ======= ================ =================
-``Texture1D``           ``1D``      0       0    0    1     ``Unknown``
-``Texture2D``           ``2D``      0       0    0    1     ``Unknown``
-``Texture3D``           ``3D``      0       0    0    1     ``Unknown``
-``TextureCube``         ``Cube``    0       0    0    1     ``Unknown``
-``Texture1DArray``      ``1D``      0       1    0    1     ``Unknown``
-``Texture2DArray``      ``2D``      0       1    0    1     ``Unknown``
-``Texture2DMS``         ``2D``      0       0    1    1     ``Unknown``
-``Texture2DMSArray``    ``2D``      0       1    1    1     ``Unknown``      ``ImageMSArray``
-``TextureCubeArray``    ``3D``      0       1    0    1     ``Unknown``
-``Buffer<T>``           ``Buffer``  0       0    0    1     Depends on ``T`` ``SampledBuffer``
-``RWBuffer<T>``         ``Buffer``  0       0    0    2     Depends on ``T`` ``SampledBuffer``
-``RWTexture1D<T>``      ``1D``      0       0    0    2     Depends on ``T``
-``RWTexture2D<T>``      ``2D``      0       0    0    2     Depends on ``T``
-``RWTexture3D<T>``      ``3D``      0       0    0    2     Depends on ``T``
-``RWTexture1DArray<T>`` ``1D``      0       1    0    2     Depends on ``T``
-``RWTexture2DArray<T>`` ``2D``      0       1    0    2     Depends on ``T``
-======================= ========== ===== ======= == ======= ================ =================
+======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
+       HLSL                   Vulkan                                        SPIR-V
+----------------------- -------------------------- ------------------------------------------------------------------------------------------
+     Texture Type         Descriptor Type    RO/RW    Storage Class        Dim    Depth Arrayed MS Sampled   Image Format      Capability
+======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
+``Texture1D``           Sampled Image         RO   ``UniformConstant`` ``1D``      0       0    0    1     ``Unknown``
+``Texture2D``           Sampled Image         RO   ``UniformConstant`` ``2D``      0       0    0    1     ``Unknown``
+``Texture3D``           Sampled Image         RO   ``UniformConstant`` ``3D``      0       0    0    1     ``Unknown``
+``TextureCube``         Sampled Image         RO   ``UniformConstant`` ``Cube``    0       0    0    1     ``Unknown``
+``Texture1DArray``      Sampled Image         RO   ``UniformConstant`` ``1D``      0       1    0    1     ``Unknown``
+``Texture2DArray``      Sampled Image         RO   ``UniformConstant`` ``2D``      0       1    0    1     ``Unknown``
+``Texture2DMS``         Sampled Image         RO   ``UniformConstant`` ``2D``      0       0    1    1     ``Unknown``
+``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      0       1    1    1     ``Unknown``      ``ImageMSArray``
+``TextureCubeArray``    Sampled Image         RO   ``UniformConstant`` ``3D``      0       1    0    1     ``Unknown``
+``Buffer<T>``           Uniform Texel Buffer  RO   ``UniformConstant`` ``Buffer``  0       0    0    1     Depends on ``T`` ``SampledBuffer``
+``RWBuffer<T>``         Storage Texel Buffer  RW   ``UniformConstant`` ``Buffer``  0       0    0    2     Depends on ``T`` ``SampledBuffer``
+``RWTexture1D<T>``      Storage Image         RW   ``UniformConstant`` ``1D``      0       0    0    2     Depends on ``T``
+``RWTexture2D<T>``      Storage Image         RW   ``UniformConstant`` ``2D``      0       0    0    2     Depends on ``T``
+``RWTexture3D<T>``      Storage Image         RW   ``UniformConstant`` ``3D``      0       0    0    2     Depends on ``T``
+``RWTexture1DArray<T>`` Storage Image         RW   ``UniformConstant`` ``1D``      0       1    0    2     Depends on ``T``
+``RWTexture2DArray<T>`` Storage Image         RW   ``UniformConstant`` ``2D``      0       1    0    2     Depends on ``T``
+======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
 
 The meanings of the headers in the above table is explained in ``OpTypeImage``
 of the SPIR-V spec.
@@ -771,6 +825,8 @@ placed in the ``Uniform`` or ``UniformConstant`` storage class.
 
   - Global variables with ``groupshared`` modifier will be placed in the
     ``Workgroup`` storage class.
+  - Note that this modifier overrules ``static``; if both ``groupshared`` and
+    ``static`` are applied to a variable, ``static`` will be ignored.
 
 - ``uinform``
 
@@ -2257,7 +2313,6 @@ element is the height, and the third is the elements.
 The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
 element is the height, and the third element is the depth.
 
-
 HLSL Shader Stages
 ==================
 
@@ -2423,6 +2478,25 @@ each time a ``*Stream<T>::Append()`` is encountered, all stage output variables
 behind ``T`` will be flushed before SPIR-V ``OpEmitVertex`` instruction is
 generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
 ``OpEndPrimitive`` instruction.
+
+Shader Model 6.0 Wave Intrinsics
+================================
+
+Shader Model 6.0 introduces a set of wave operations, which are translated
+according to the following table:
+
+====================== ============================= =========================
+      Intrinsic               SPIR-V BuiltIn                Extension
+====================== ============================= =========================
+``WaveGetLaneCount()`` ``SubgroupSize``              ``SPV_KHR_shader_ballot``
+``WaveGetLaneIndex()`` ``SubgroupLocalInvocationId`` ``SPV_KHR_shader_ballot``
+====================== ============================= =========================
+
+======================= ================================ =========================
+      Intrinsic               SPIR-V Instruction                Extension
+======================= ================================ =========================
+``WaveReadLaneFirst()`` ``OpSubgroupFirstInvocationKHR`` ``SPV_KHR_shader_ballot``
+======================= ================================ =========================
 
 Vulkan Command-line Options
 ===========================

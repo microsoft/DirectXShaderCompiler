@@ -5409,6 +5409,15 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
 
     ldInst->replaceAllUsesWith(newLd);
     ldInst->eraseFromParent();
+  } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(user)) {
+    for (auto it = BCI->user_begin(); it != BCI->user_end(); ) {
+      Instruction *I = cast<Instruction>(*it++);
+      TranslateCBAddressUserLegacy(I,
+                                   handle, legacyIdx, channelOffset, hlslOP,
+                                   prevFieldAnnotation, dxilTypeSys,
+                                   DL, pObjHelper);
+    }
+    BCI->eraseFromParent();
   } else {
     // Must be GEP here
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(user);

@@ -2559,6 +2559,11 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     // For static inside cbuffer, take as global static.
     // Don't add to cbuffer.
     CGM.EmitGlobal(constDecl);
+    // Add type annotation for static global types.
+    // May need it when cast from cbuf.
+    DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
+    unsigned arraySize = 0;
+    AddTypeAnnotation(constDecl->getType(), dxilTypeSys, arraySize);
     return;
   }
   // Search defined structure for resource objects and fail
@@ -6144,6 +6149,43 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(CodeGenFunction &CGF, llvm::Value *S
     SmallVector<Value *, 4> idxList;
     EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, Ty, Ty, SrcPtr->getType());
 }
+// To memcpy, need element type match.
+// For struct type, the layout should match in cbuffer layout.
+// struct { float2 x; float3 y; } will not match struct { float3 x; float2 y; }.
+// struct { float2 x; float3 y; } will not match array of float.
+static bool IsTypeMatchForMemcpy(llvm::Type *SrcTy, llvm::Type *DestTy) {
+  llvm::Type *SrcEltTy = dxilutil::GetArrayEltTy(SrcTy);
+  llvm::Type *DestEltTy = dxilutil::GetArrayEltTy(DestTy);
+  if (SrcEltTy == DestEltTy)
+    return true;
+
+  llvm::StructType *SrcST = dyn_cast<llvm::StructType>(SrcEltTy);
+  llvm::StructType *DestST = dyn_cast<llvm::StructType>(DestEltTy);
+  if (SrcST && DestST) {
+    // Only allow identical struct.
+    return SrcST->isLayoutIdentical(DestST);
+  } else if (!SrcST && !DestST) {
+    // For basic type, if one is array, one is not array, layout is different.
+    // If both array, type mismatch. If both basic, copy should be fine.
+    // So all return false.
+    return false;
+  } else {
+    // One struct, one basic type.
+    // Make sure all struct element match the basic type and basic type is
+    // vector4.
+    llvm::StructType *ST = SrcST ? SrcST : DestST;
+    llvm::Type *Ty = SrcST ? DestEltTy : SrcEltTy;
+    if (!Ty->isVectorTy())
+      return false;
+    if (Ty->getVectorNumElements() != 4)
+      return false;
+    for (llvm::Type *EltTy : ST->elements()) {
+      if (EltTy != Ty)
+        return false;
+    }
+    return true;
+  }
+}
 
 void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, llvm::Value *SrcPtr,
     clang::QualType SrcTy,
@@ -6162,6 +6204,14 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::max(sizeSrc, sizeDest), 1);
     return;
+  } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(DestPtr)) {
+    if (GV->isInternalLinkage(GV->getLinkage()) &&
+        IsTypeMatchForMemcpy(SrcPtrTy, DestPtrTy)) {
+      unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+      unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
+      CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::min(sizeSrc, sizeDest), 1);
+      return;
+    }
   }
 
   // It is possiable to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore

@@ -705,6 +705,18 @@ void ModuleBuilder::createEndPrimitive() {
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
+uint32_t ModuleBuilder::createSubgroupFirstInvocation(uint32_t resultType,
+                                                      uint32_t value) {
+  assert(insertPoint && "null insert point");
+  addExtension("SPV_KHR_shader_ballot");
+  requireCapability(spv::Capability::SubgroupBallotKHR);
+
+  uint32_t resultId = theContext.takeNextId();
+  instBuilder.opSubgroupFirstInvocationKHR(resultType, resultId, value).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
 void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
                                      spv::ExecutionMode em,
                                      llvm::ArrayRef<uint32_t> params) {
@@ -835,12 +847,17 @@ IMPL_GET_PRIMITIVE_TYPE(Float32)
 
 #undef IMPL_GET_PRIMITIVE_TYPE
 
+// Note: At the moment, Float16 capability should not be added for Vulkan 1.0.
+// It is not a required capability, and adding the SPV_AMD_gpu_half_float does
+// not enable this capability. Any driver that supports float16 in Vulkan 1.0
+// should accept this extension.
 #define IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(ty, cap)                       \
                                                                                \
   uint32_t ModuleBuilder::get##ty##Type() {                                    \
-    requireCapability(spv::Capability::cap);                                   \
     if (spv::Capability::cap == spv::Capability::Float16)                      \
       theModule.addExtension("SPV_AMD_gpu_shader_half_float");                 \
+    else                                                                       \
+      requireCapability(spv::Capability::cap);                                 \
     const Type *type = Type::get##ty(theContext);                              \
     const uint32_t typeId = theContext.getResultIdForType(type);               \
     theModule.addType(type, typeId);                                           \
@@ -881,7 +898,8 @@ uint32_t ModuleBuilder::getVecType(uint32_t elemType, uint32_t elemCount) {
 }
 
 uint32_t ModuleBuilder::getMatType(QualType elemType, uint32_t colType,
-                                   uint32_t colCount) {
+                                   uint32_t colCount,
+                                   Type::DecorationSet decorations) {
   // NOTE: According to Item "Data rules" of SPIR-V Spec 2.16.1 "Universal
   // Validation Rules":
   //   Matrix types can only be parameterized with floating-point types.
@@ -889,7 +907,7 @@ uint32_t ModuleBuilder::getMatType(QualType elemType, uint32_t colType,
   // So we need special handling of non-fp matrices. We emulate non-fp
   // matrices as an array of vectors.
   if (!elemType->isFloatingType())
-    return getArrayType(colType, getConstantUint32(colCount));
+    return getArrayType(colType, getConstantUint32(colCount), decorations);
 
   const Type *type = Type::getMatrix(theContext, colType, colCount);
   const uint32_t typeId = theContext.getResultIdForType(type);

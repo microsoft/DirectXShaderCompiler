@@ -5,10 +5,16 @@ struct S {
     float3 f2;
 };
 
+// CHECK-NOT: OpDecorate %a DescriptorSet
+// CHECK-NOT: OpDecorate %b DescriptorSet
+// CHECK-NOT: OpDecorate %c DescriptorSet
+// CHECK-NOT: OpDecorate %d DescriptorSet
+// CHECK-NOT: OpDecorate %s DescriptorSet
+
 // CHECK: %a = OpVariable %_ptr_Workgroup_float Workgroup
 groupshared              float    a;
 // CHECK: %b = OpVariable %_ptr_Workgroup_v3float Workgroup
-groupshared              float3   b;
+static groupshared       float3   b;  // Ignore static modifier
 // CHECK: %c = OpVariable %_ptr_Workgroup_mat2v3float Workgroup
 groupshared column_major float2x3 c;
 // CHECK: %d = OpVariable %_ptr_Workgroup__arr_v2float_uint_5 Workgroup
