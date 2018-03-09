@@ -807,37 +807,6 @@ static Instruction *BitCastValueOrPtr(Value* V, Instruction *Insert, Type *Ty, b
   }
 }
 
-static bool IsUserCall(Value *V) {
-  if (CallInst *CI = dyn_cast<CallInst>(V)) {
-    if (GetHLOpcodeGroupByName(CI->getCalledFunction()) == HLOpcodeGroup::NotHL) {
-      return true;
-    }
-  }
-  return false;
-}
-
-static bool UsedByUserCall(Value *V) {
-  for (auto U : V->users()) {
-    if (CallInst *CI = dyn_cast<CallInst>(U)) {
-      if (IsUserCall(U)) {
-        return true;
-      }
-    }
-    else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      if (UsedByUserCall(U))
-        return true;
-    }
-    else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      if (IsUserCall(SI->getValueOperand()))
-        return true;
-    }
-    if (UsedByUserCall(U)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 void HLMatrixLowerPass::lowerToVec(Instruction *matInst) {
   Value *vecVal = nullptr;
 
@@ -2498,112 +2467,6 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
   }
 }
 
-void HLMatrixLowerPass::TranslateArgForLibFunc(CallInst *CI) {
-  IRBuilder<> Builder(CI);
-  HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-  switch (group) {
-  case HLOpcodeGroup::HLCast: {
-    HLCastOpcode opcode = static_cast<HLCastOpcode>(hlsl::GetHLOpcode(CI));
-    bool bTranspose = false;
-    bool bColSource = false;
-    switch (opcode) {
-    case HLCastOpcode::ColMatrixToRowMatrix:
-      bColSource = true;
-    case HLCastOpcode::RowMatrixToColMatrix:
-      bTranspose = true;
-    case HLCastOpcode::ColMatrixToVecCast:
-    case HLCastOpcode::RowMatrixToVecCast: {
-      Value *matVal = CI->getArgOperand(HLOperandIndex::kInitFirstArgOpIdx);
-      Value *vecVal = BitCastValueOrPtr(matVal, CI, CI->getType(),
-                                        /*bOrigAllocaTy*/false,
-                                        matVal->getName());
-      if (bTranspose) {
-        unsigned row, col;
-        HLMatrixLower::GetMatrixInfo(matVal->getType(), col, row);
-        if (bColSource) std::swap(row,col);
-        vecVal = CreateTransposeShuffle(Builder, vecVal, row, col);
-      }
-      CI->replaceAllUsesWith(vecVal);
-      CI->eraseFromParent();
-    } break;
-    }
-  } break;
-  case HLOpcodeGroup::HLMatLoadStore: {
-    HLMatLoadStoreOpcode opcode = static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
-    //bool bTranspose = false;
-    switch (opcode) {
-    case HLMatLoadStoreOpcode::ColMatStore:
-      //bTranspose = true;
-    case HLMatLoadStoreOpcode::RowMatStore: {
-      // shuffle if transposed, bitcast, and store
-      Value *vecVal = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-      Value *matPtr = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx);
-      //if (bTranspose) {
-      //  unsigned row, col;
-      //  HLMatrixLower::GetMatrixInfo(matPtr->getType()->getPointerElementType(), col, row);
-      //  vecVal = CreateTransposeShuffle(Builder, vecVal, row, col);
-      //}
-      Value *castPtr = Builder.CreateBitCast(matPtr, vecVal->getType()->getPointerTo());
-      Builder.CreateStore(vecVal, castPtr);
-      CI->eraseFromParent();
-    } break;
-    case HLMatLoadStoreOpcode::ColMatLoad:
-      //bTranspose = true;
-    case HLMatLoadStoreOpcode::RowMatLoad: {
-      // bitcast, load, and shuffle if transposed
-      Value *matPtr = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx);
-      Value *castPtr = Builder.CreateBitCast(matPtr, CI->getType()->getPointerTo());
-      Value *vecVal = Builder.CreateLoad(castPtr);
-      //if (bTranspose) {
-      //  unsigned row, col;
-      //  HLMatrixLower::GetMatrixInfo(matPtr->getType()->getPointerElementType(), col, row);
-      //  // row/col swapped for col major source
-      //  vecVal = CreateTransposeShuffle(Builder, vecVal, col, row);
-      //}
-      CI->replaceAllUsesWith(vecVal);
-      CI->eraseFromParent();
-    } break;
-    }
-  } break;
-  }
-}
-static CallInst *GetAsMatCastOrLdSt(Value* V) {
-  if (CallInst *CI = dyn_cast<CallInst>(V)) {
-    HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-    switch (group) {
-    case HLOpcodeGroup::HLCast:
-    case HLOpcodeGroup::HLMatLoadStore:
-      return CI;
-      break;
-    }
-  }
-  return nullptr;
-}
-void HLMatrixLowerPass::TranslateArgsForLibFunc(Function &F) {
-  // Replace HLCast with BitCastValueOrPtr (+ transpose for colMatToVec)
-  // Replace HLMatLoadStore with bitcast + load/store + shuffle if col major
-  // NOTE: Transpose has been removed, as it should have explicit cast op
-  //       ColMatrixToRowMatrix or RowMatrixToColMatrix.
-  for (auto &arg : F.args()) {
-    for (auto itU = arg.user_begin(); itU != arg.user_end();) {
-      Value *U = *(itU++);
-      if (CallInst *CI = GetAsMatCastOrLdSt(U)) {
-        TranslateArgForLibFunc(CI);
-      } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
-        if (IsMatrixType(GEP->getResultElementType())) {
-          // arg is struct, GEP returns matrix ptr
-          // look for load/store/cast to translate in GEP users
-          for (auto itGEPU = GEP->user_begin(); itGEPU != GEP->user_end();) {
-            Value *gepU = *(itGEPU++);
-            if (CallInst *CI = GetAsMatCastOrLdSt(gepU))
-              TranslateArgForLibFunc(CI);
-          }
-        }
-      }
-    }
-  }
-}
-
 void HLMatrixLowerPass::runOnFunction(Function &F) {
   // Skip hl function definition (like createhandle)
   if (hlsl::GetHLOpcodeGroupByName(&F) != HLOpcodeGroup::NotHL)
@@ -2676,9 +2539,5 @@ void HLMatrixLowerPass::runOnFunction(Function &F) {
   matToVecMap.clear();
   vecToMatMap.clear();
 
-  // If this is a library function, now fix input/output matrix params
-  if (!m_pHLModule->IsEntryThatUsesSignatures(&F)) {
-    TranslateArgsForLibFunc(F);
-  }
   return;
 }
