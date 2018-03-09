@@ -303,6 +303,9 @@ public:
   /// \brief Creates an OpEndPrimitive instruction.
   void createEndPrimitive();
 
+  /// \brief Creates an OpSubgroupFirstInvocationKHR instruciton.
+  uint32_t createSubgroupFirstInvocation(uint32_t resultType, uint32_t value);
+
   // === SPIR-V Module Structure ===
 
   inline void requireCapability(spv::Capability);
@@ -384,7 +387,8 @@ public:
   uint32_t getFloat32Type();
   uint32_t getFloat64Type();
   uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
-  uint32_t getMatType(QualType elemType, uint32_t colType, uint32_t colCount);
+  uint32_t getMatType(QualType elemType, uint32_t colType, uint32_t colCount,
+                      Type::DecorationSet decorations = {});
   uint32_t getPointerType(uint32_t pointeeType, spv::StorageClass);
   uint32_t getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
                          llvm::StringRef structName = "",

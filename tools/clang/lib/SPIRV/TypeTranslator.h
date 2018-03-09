@@ -125,6 +125,20 @@ public:
   /// \brief Returns true if the given type is SubpassInputMS.
   static bool isSubpassInputMS(QualType);
 
+  /// \brief Evluates the given type at the given bitwidth and returns the
+  /// result-id for it. Panics if the given type is not a scalar or vector of
+  /// float or integer type. For example: if QualType of an int4 and bitwidth of
+  /// 64 is passed in, the result-id of a SPIR-V vector of size 4 of signed
+  /// 64-bit integers is returned.
+  /// Acceptable bitwidths are 16, 32, and 64.
+  uint32_t getTypeWithCustomBitwidth(QualType type, uint32_t bitwidth);
+
+  /// \brief Returns the realized bitwidth of the given type when represented in
+  /// SPIR-V. Panics if the given type is not a scalar or vector of float or
+  /// integer. In case of vectors, it returns the realized SPIR-V bitwidth of
+  /// the vector elements.
+  uint32_t getElementSpirvBitwidth(QualType type);
+
   /// \brief Returns true if the given type will be translated into a SPIR-V
   /// scalar type. This includes normal scalar types, vectors of size 1, and
   /// 1x1 matrices. If scalarType is not nullptr, writes the scalar type to
@@ -164,9 +178,14 @@ public:
                           uint32_t *rowCount = nullptr,
                           uint32_t *colCount = nullptr);
 
-  /// \broef returns true if type is a matrix and matrix is row major
-  /// If decl is not nullptr, is is checked for attributes specifying majorness
+  /// \brief Returns true if type is a matrix and matrix is row major
+  /// If decl is not nullptr, it is checked for attributes specifying majorness.
   bool isRowMajorMatrix(QualType type, const Decl *decl = nullptr) const;
+
+  /// \brief Returns true if the decl type is a non-floating-point matrix and
+  /// the matrix is column major, or if it is an array/struct containing such
+  /// matrices.
+  bool isOrContainsNonFpColMajorMatrix(QualType type, const Decl *decl) const;
 
   /// \brief Returns true if the two types are the same scalar or vector type,
   /// regardless of constness and literalness.
@@ -220,6 +239,9 @@ public:
   /// of a struct member.
   llvm::SmallVector<const Decoration *, 4>
   getLayoutDecorations(const DeclContext *decl, LayoutRule rule);
+
+  /// \brief Returns how many sequential locations are consumed by a given type.
+  uint32_t getLocationCount(QualType type);
 
 private:
   /// \brief Wrapper method to create an error message and report it

@@ -105,6 +105,7 @@ private:
 
   void RewriteForConstExpr(ConstantExpr *user, IRBuilder<> &Builder);
   void RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder);
+  void RewriteForAddrSpaceCast(ConstantExpr *user, IRBuilder<> &Builder);
   void RewriteForLoad(LoadInst *loadInst);
   void RewriteForStore(StoreInst *storeInst);
   void RewriteMemIntrin(MemIntrinsic *MI, Value *OldV);
@@ -3159,6 +3160,22 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
 }
 
 /// RewriteForConstExpr - Rewrite the GEP which is ConstantExpr.
+void SROA_Helper::RewriteForAddrSpaceCast(ConstantExpr *CE,
+                                          IRBuilder<> &Builder) {
+  SmallVector<Value *, 8> NewCasts;
+  // create new AddrSpaceCast.
+  for (unsigned i = 0, e = NewElts.size(); i != e; ++i) {
+    Value *NewGEP = Builder.CreateAddrSpaceCast(
+        NewElts[i],
+        PointerType::get(NewElts[i]->getType()->getPointerElementType(),
+                         CE->getType()->getPointerAddressSpace()));
+    NewCasts.emplace_back(NewGEP);
+  }
+  SROA_Helper helper(CE, NewCasts, DeadInsts);
+  helper.RewriteForScalarRepl(CE, Builder);
+}
+
+/// RewriteForConstExpr - Rewrite the GEP which is ConstantExpr.
 void SROA_Helper::RewriteForConstExpr(ConstantExpr *CE, IRBuilder<> &Builder) {
   if (GEPOperator *GEP = dyn_cast<GEPOperator>(CE)) {
     if (OldVal == GEP->getPointerOperand()) {
@@ -3167,17 +3184,26 @@ void SROA_Helper::RewriteForConstExpr(ConstantExpr *CE, IRBuilder<> &Builder) {
       return;
     }
   }
+  if (CE->getOpcode() == Instruction::AddrSpaceCast) {
+    if (OldVal == CE->getOperand(0)) {
+      // Flatten AddrSpaceCast.
+      RewriteForAddrSpaceCast(CE, Builder);
+      return;
+    }
+  }
   // Skip unused CE. 
   if (CE->use_empty())
     return;
 
-  Instruction *constInst = CE->getAsInstruction();
-  Builder.Insert(constInst);
-  // Replace CE with constInst.
   for (Value::use_iterator UI = CE->use_begin(), E = CE->use_end(); UI != E;) {
     Use &TheUse = *UI++;
-    if (isa<Instruction>(TheUse.getUser()))
-      TheUse.set(constInst);
+    if (Instruction *I = dyn_cast<Instruction>(TheUse.getUser())) {
+      IRBuilder<> tmpBuilder(I);
+      // Replace CE with constInst.
+      Instruction *tmpInst = CE->getAsInstruction();
+      tmpBuilder.Insert(tmpInst);
+      TheUse.set(tmpInst);
+    }
     else {
       RewriteForConstExpr(cast<ConstantExpr>(TheUse.getUser()), Builder);
     }
@@ -3788,17 +3814,23 @@ static void ReplaceUnboundedArrayUses(Value *V, Value *Src, IRBuilder<> &Builder
 }
 
 static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC) {
+  Type *TyV = V->getType()->getPointerElementType();
+  Type *TySrc = Src->getType()->getPointerElementType();
   if (Constant *C = dyn_cast<Constant>(V)) {
-    if (isa<Constant>(Src)) {
-      V->replaceAllUsesWith(Src);
+    if (TyV == TySrc) {
+      if (isa<Constant>(Src)) {
+        V->replaceAllUsesWith(Src);
+      } else {
+        // Replace Constant with a non-Constant.
+        IRBuilder<> Builder(MC);
+        ReplaceConstantWithInst(C, Src, Builder);
+      }
     } else {
-      // Replace Constant with a non-Constant.
       IRBuilder<> Builder(MC);
+      Src = Builder.CreateBitCast(Src, V->getType());
       ReplaceConstantWithInst(C, Src, Builder);
     }
   } else {
-    Type* TyV = V->getType()->getPointerElementType();
-    Type* TySrc = Src->getType()->getPointerElementType();
     if (TyV == TySrc) {
       if (V != Src)
         V->replaceAllUsesWith(Src);

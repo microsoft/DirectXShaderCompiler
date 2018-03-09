@@ -159,7 +159,12 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
 /// Returns true if the given VarDecl will be translated into a SPIR-V variable
 /// not in the Private or Function storage class.
 inline bool isExternalVar(const VarDecl *var) {
-  return var->isExternallyVisible() && !var->isStaticDataMember();
+  // Class static variables should be put in the Private storage class.
+  // groupshared variables are allowed to be declared as "static". But we still
+  // need to put them in the Workgroup storage class. That is, when seeing
+  // "static groupshared", ignore "static".
+  return var->isExternallyVisible() ? !var->isStaticDataMember()
+                                    : var->getAttr<HLSLGroupSharedAttr>();
 }
 
 /// Returns the referenced variable's DeclContext if the given expr is
@@ -778,8 +783,8 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
   if (const auto *declContext = isConstantTextureBufferDeclRef(expr)) {
     valType = declIdMapper.getCTBufferPushConstantTypeId(declContext);
   } else {
-    valType =
-        typeTranslator.translateType(expr->getType(), info.getLayoutRule());
+    valType = typeTranslator.translateType(
+        expr->getType(), info.getLayoutRule(), info.isRowMajor());
   }
   return info.setResultId(theBuilder.createLoad(valType, info)).setRValue();
 }
@@ -1055,6 +1060,14 @@ void SPIRVEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
       for (const auto *annotation : varMember->getUnusualAnnotations())
         if (const auto *packing = dyn_cast<hlsl::ConstantPacking>(annotation))
           emitWarning("packoffset ignored since not supported", packing->Loc);
+
+      // We cannot handle external initialization of column-major matrices now.
+      if (typeTranslator.isOrContainsNonFpColMajorMatrix(varMember->getType(),
+                                                         varMember)) {
+        emitError("externally initialized non-floating-point column-major "
+                  "matrices not supported yet",
+                  varMember->getLocation());
+      }
     }
   }
   if (!validateVKAttributes(bufferDecl))
@@ -1083,6 +1096,14 @@ void SPIRVEmitter::doRecordDecl(const RecordDecl *recordDecl) {
 void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   if (!validateVKAttributes(decl))
     return;
+
+  // We cannot handle external initialization of column-major matrices now.
+  if (isExternalVar(decl) &&
+      typeTranslator.isOrContainsNonFpColMajorMatrix(decl->getType(), decl)) {
+    emitError("externally initialized non-floating-point column-major "
+              "matrices not supported yet",
+              decl->getLocation());
+  }
 
   if (decl->hasAttr<VKConstantIdAttr>()) {
     // This is a VarDecl for specialization constant.
@@ -1724,7 +1745,6 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
 
 SpirvEvalInfo
 SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
-
   llvm::SmallVector<uint32_t, 4> indices;
   auto info = loadIfAliasVarRef(collectArrayStructIndices(expr, &indices));
 
@@ -1757,7 +1777,8 @@ SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
   }
 
   return processBinaryOp(expr->getLHS(), expr->getRHS(), opcode,
-                         expr->getType(), expr->getSourceRange());
+                         expr->getLHS()->getType(), expr->getType(),
+                         expr->getSourceRange());
 }
 
 SpirvEvalInfo SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
@@ -2154,13 +2175,22 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return SpirvEvalInfo(subExprId).setRValue().setConstant();
     }
 
-    // Try to evaluate 'literal float' as float rather than double.
+    TypeTranslator::LiteralTypeHint hint(typeTranslator);
+    // Try to evaluate float literals as float rather than double.
     if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(subExpr)) {
       subExprId = tryToEvaluateAsFloat32(floatLiteral->getValue());
       if (subExprId)
         evalType = astContext.FloatTy;
     }
-    // Try to evaluate 'literal int' as 32-bit int rather than 64-bit int.
+    // Evaluate 'literal float' initializer type as float rather than double.
+    // TODO: This could result in rounding error if the initializer is a
+    // non-literal expression that requires larger than 32 bits and has the
+    // 'literal float' type.
+    else if (subExprType->isSpecificBuiltinType(BuiltinType::LitFloat)) {
+      evalType = astContext.FloatTy;
+      hint.setHint(astContext.FloatTy);
+    }
+    // Try to evaluate integer literals as 32-bit int rather than 64-bit int.
     else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(subExpr)) {
       const bool isSigned = subExprType->isSignedIntegerType();
       subExprId = tryToEvaluateAsInt32(intLiteral->getValue(), isSigned);
@@ -2229,15 +2259,18 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         case BuiltinType::Bool:
           return castToBool(initId, initType, ty);
         // Target type is an integer variant.
-        // TODO: Add long and ulong.
         case BuiltinType::Int:
         case BuiltinType::Short:
         case BuiltinType::Min12Int:
         case BuiltinType::UShort:
         case BuiltinType::UInt:
+        case BuiltinType::Long:
+        case BuiltinType::LongLong:
+        case BuiltinType::ULong:
+        case BuiltinType::ULongLong:
           return castToInt(initId, initType, ty, srcLoc);
         // Target type is a float variant.
-        // TODO: Add double.
+        case BuiltinType::Double:
         case BuiltinType::Float:
         case BuiltinType::Half:
         case BuiltinType::Min10Float:
@@ -2340,8 +2373,9 @@ SPIRVEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
   const auto *lhs = expr->getLHS();
 
   SpirvEvalInfo lhsPtr = 0;
-  const auto result = processBinaryOp(lhs, rhs, opcode, expr->getType(),
-                                      expr->getSourceRange(), &lhsPtr);
+  const auto result =
+      processBinaryOp(lhs, rhs, opcode, expr->getComputationLHSType(),
+                      expr->getType(), expr->getSourceRange(), &lhsPtr);
   return processAssignment(lhs, result, true, lhsPtr);
 }
 
@@ -4506,9 +4540,36 @@ SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
 void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
                               const SpirvEvalInfo &rhsVal,
                               const QualType lhsValType) {
+
+  // Lambda for cases where we want to store per each array element.
+  const auto storeValueForEachArrayElement = [this, &lhsPtr,
+                                              &rhsVal](uint32_t arraySize,
+                                                       QualType arrayElemType) {
+    for (uint32_t i = 0; i < arraySize; ++i) {
+      const auto subRhsValType =
+          typeTranslator.translateType(arrayElemType, rhsVal.getLayoutRule());
+      const auto subRhsVal =
+          theBuilder.createCompositeExtract(subRhsValType, rhsVal, {i});
+      const auto subLhsPtrType = theBuilder.getPointerType(
+          typeTranslator.translateType(arrayElemType, lhsPtr.getLayoutRule()),
+          lhsPtr.getStorageClass());
+      const auto subLhsPtr = theBuilder.createAccessChain(
+          subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(i)});
+
+      storeValue(lhsPtr.substResultId(subLhsPtr),
+                 rhsVal.substResultId(subRhsVal), arrayElemType);
+    }
+  };
+
+  QualType matElemType = {};
+  uint32_t numRows = 0, numCols = 0;
+  const bool lhsIsMat =
+      typeTranslator.isMxNMatrix(lhsValType, &matElemType, &numRows, &numCols);
+  const bool lhsIsFloatMat = lhsIsMat && matElemType->isFloatingType();
+  const bool lhsIsNonFpMat = lhsIsMat && !matElemType->isFloatingType();
+
   if (typeTranslator.isScalarType(lhsValType) ||
-      typeTranslator.isVectorType(lhsValType) ||
-      typeTranslator.isMxNMatrix(lhsValType)) {
+      typeTranslator.isVectorType(lhsValType) || lhsIsFloatMat) {
     theBuilder.createStore(lhsPtr, rhsVal);
   } else if (TypeTranslator::isOpaqueType(lhsValType)) {
     // Resource types are represented using RecordType in the AST.
@@ -4545,16 +4606,24 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // Note: this check should happen after those setting needsLegalization.
     // TODO: is this optimization always correct?
     theBuilder.createStore(lhsPtr, rhsVal);
+  } else if (lhsIsNonFpMat) {
+    // Note: This check should happen before the RecordType check.
+    // Non-fp matrices are represented as arrays of vectors in SPIR-V.
+    // Each array element is a vector. Get the QualType for the vector.
+    const auto elemType = astContext.getExtVectorType(matElemType, numCols);
+    storeValueForEachArrayElement(numRows, elemType);
   } else if (const auto *recordType = lhsValType->getAs<RecordType>()) {
     uint32_t index = 0;
     for (const auto *field : recordType->getDecl()->fields()) {
+      bool isRowMajor =
+          typeTranslator.isRowMajorMatrix(field->getType(), field);
       const auto subRhsValType = typeTranslator.translateType(
-          field->getType(), rhsVal.getLayoutRule());
+          field->getType(), rhsVal.getLayoutRule(), isRowMajor);
       const auto subRhsVal =
           theBuilder.createCompositeExtract(subRhsValType, rhsVal, {index});
       const auto subLhsPtrType = theBuilder.getPointerType(
-          typeTranslator.translateType(field->getType(),
-                                       lhsPtr.getLayoutRule()),
+          typeTranslator.translateType(field->getType(), lhsPtr.getLayoutRule(),
+                                       isRowMajor),
           lhsPtr.getStorageClass());
       const auto subLhsPtr = theBuilder.createAccessChain(
           subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(index)});
@@ -4569,21 +4638,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // TODO: handle extra large array size?
     const auto size =
         static_cast<uint32_t>(arrayType->getSize().getZExtValue());
-
-    for (uint32_t i = 0; i < size; ++i) {
-      const auto subRhsValType =
-          typeTranslator.translateType(elemType, rhsVal.getLayoutRule());
-      const auto subRhsVal =
-          theBuilder.createCompositeExtract(subRhsValType, rhsVal, {i});
-      const auto subLhsPtrType = theBuilder.getPointerType(
-          typeTranslator.translateType(elemType, lhsPtr.getLayoutRule()),
-          lhsPtr.getStorageClass());
-      const auto subLhsPtr = theBuilder.createAccessChain(
-          subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(i)});
-
-      storeValue(lhsPtr.substResultId(subLhsPtr),
-                 rhsVal.substResultId(subRhsVal), elemType);
-    }
+    storeValueForEachArrayElement(size, elemType);
   } else {
     emitError("storing value of type %0 unimplemented", {}) << lhsValType;
   }
@@ -4591,22 +4646,24 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
 
 SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
                                             const BinaryOperatorKind opcode,
+                                            const QualType computationType,
                                             const QualType resultType,
                                             SourceRange sourceRange,
                                             SpirvEvalInfo *lhsInfo,
                                             const spv::Op mandateGenOpcode) {
-  const uint32_t resultTypeId = typeTranslator.translateType(resultType);
+  const QualType lhsType = lhs->getType();
+  const QualType rhsType = rhs->getType();
 
   // Binary logical operations (such as ==, !=, etc) that return a boolean type
   // may get a literal (e.g. 0, 1, etc.) as lhs or rhs args. Since only
   // non-zero-ness of these literals matter, they can be translated as 32-bits.
   TypeTranslator::LiteralTypeHint hint(typeTranslator);
   if (resultType->isBooleanType()) {
-    if (lhs->getType()->isSpecificBuiltinType(BuiltinType::LitInt) ||
-        rhs->getType()->isSpecificBuiltinType(BuiltinType::LitInt))
+    if (lhsType->isSpecificBuiltinType(BuiltinType::LitInt) ||
+        rhsType->isSpecificBuiltinType(BuiltinType::LitInt))
       hint.setHint(astContext.IntTy);
-    if (lhs->getType()->isSpecificBuiltinType(BuiltinType::LitFloat) ||
-        rhs->getType()->isSpecificBuiltinType(BuiltinType::LitFloat))
+    if (lhsType->isSpecificBuiltinType(BuiltinType::LitFloat) ||
+        rhsType->isSpecificBuiltinType(BuiltinType::LitFloat))
       hint.setHint(astContext.FloatTy);
   }
 
@@ -4614,7 +4671,7 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   // onto each element vector iff the operands are not degenerated matrices
   // and we don't have a matrix specific SPIR-V instruction for the operation.
   if (!isSpirvMatrixOp(mandateGenOpcode) &&
-      TypeTranslator::isMxNMatrix(lhs->getType())) {
+      TypeTranslator::isMxNMatrix(lhsType)) {
     return processMatrixBinaryOp(lhs, rhs, opcode, sourceRange);
   }
 
@@ -4626,11 +4683,8 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
     return doExpr(rhs);
   }
 
-  const spv::Op spvOp = (mandateGenOpcode == spv::Op::Max)
-                            ? translateOp(opcode, lhs->getType())
-                            : mandateGenOpcode;
-
   SpirvEvalInfo rhsVal = 0, lhsPtr = 0, lhsVal = 0;
+
   if (BinaryOperator::isCompoundAssignmentOp(opcode)) {
     // Evalute rhs before lhs
     rhsVal = loadIfGLValue(rhs);
@@ -4640,6 +4694,12 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
     if (!lhsPtr.isRValue() && !isVectorShuffle(lhs)) {
       lhsVal = loadIfGLValue(lhs, lhsPtr);
     }
+    // For a compound assignments, the AST does not have the proper implicit
+    // cast if lhs and rhs have different types. So we need to manually cast lhs
+    // to the computation type.
+    if (computationType != lhsType)
+      lhsVal.setResultId(
+          castToType(lhsVal, lhsType, computationType, lhs->getExprLoc()));
   } else {
     // Evalute lhs before rhs
     lhsPtr = doExpr(lhs);
@@ -4649,6 +4709,10 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
 
   if (lhsInfo)
     *lhsInfo = lhsPtr;
+
+  const spv::Op spvOp = (mandateGenOpcode == spv::Op::Max)
+                            ? translateOp(opcode, computationType)
+                            : mandateGenOpcode;
 
   switch (opcode) {
   case BO_Add:
@@ -4679,19 +4743,32 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_XorAssign:
   case BO_ShlAssign:
   case BO_ShrAssign: {
+
     // To evaluate this expression as an OpSpecConstantOp, we need to make sure
     // both operands are constant and at least one of them is a spec constant.
     if (lhsVal.isConstant() && rhsVal.isConstant() &&
         (lhsVal.isSpecConstant() || rhsVal.isSpecConstant()) &&
         isAcceptedSpecConstantBinaryOp(spvOp)) {
       const auto valId = theBuilder.createSpecConstantBinaryOp(
-          spvOp, resultTypeId, lhsVal, rhsVal);
+          spvOp, typeTranslator.translateType(resultType), lhsVal, rhsVal);
       return SpirvEvalInfo(valId).setRValue().setSpecConstant();
     }
 
     // Normal binary operation
-    const auto valId =
-        theBuilder.createBinaryOp(spvOp, resultTypeId, lhsVal, rhsVal);
+    uint32_t valId = 0;
+    if (BinaryOperator::isCompoundAssignmentOp(opcode)) {
+      valId = theBuilder.createBinaryOp(
+          spvOp, typeTranslator.translateType(computationType), lhsVal, rhsVal);
+      // For a compound assignments, the AST does not have the proper implicit
+      // cast if lhs and rhs have different types. So we need to manually cast
+      // the result back to lhs' type.
+      if (computationType != lhsType)
+        valId = castToType(valId, computationType, lhsType, lhs->getExprLoc());
+    } else {
+      valId = theBuilder.createBinaryOp(
+          spvOp, typeTranslator.translateType(resultType), lhsVal, rhsVal);
+    }
+
     auto result = SpirvEvalInfo(valId).setRValue();
     if (lhsVal.isRelaxedPrecision() || rhsVal.isRelaxedPrecision())
       result.setRelaxedPrecision();
@@ -4977,12 +5054,12 @@ SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
         if (isa<CompoundAssignOperator>(expr)) {
           SpirvEvalInfo lhsPtr = 0;
           const auto result = processBinaryOp(
-              lhs, cast->getSubExpr(), expr->getOpcode(), vecType, range,
-              &lhsPtr, spv::Op::OpVectorTimesScalar);
+              lhs, cast->getSubExpr(), expr->getOpcode(), vecType, vecType,
+              range, &lhsPtr, spv::Op::OpVectorTimesScalar);
           return processAssignment(lhs, result, true, lhsPtr);
         } else {
           return processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
-                                 vecType, range, nullptr,
+                                 vecType, vecType, range, nullptr,
                                  spv::Op::OpVectorTimesScalar);
         }
       }
@@ -4998,7 +5075,7 @@ SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
         // OpVectorTimesScalar requires the first operand to be a vector and
         // the second to be a scalar.
         return processBinaryOp(rhs, cast->getSubExpr(), expr->getOpcode(),
-                               vecType, range, nullptr,
+                               vecType, vecType, range, nullptr,
                                spv::Op::OpVectorTimesScalar);
       }
     }
@@ -5043,11 +5120,11 @@ SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
           SpirvEvalInfo lhsPtr = 0;
           const auto result =
               processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
-                              matType, range, &lhsPtr, opcode);
+                              matType, matType, range, &lhsPtr, opcode);
           return processAssignment(lhs, result, true, lhsPtr);
         } else {
           return processBinaryOp(lhs, cast->getSubExpr(), expr->getOpcode(),
-                                 matType, range, nullptr, opcode);
+                                 matType, matType, range, nullptr, opcode);
         }
       }
     }
@@ -5063,7 +5140,7 @@ SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
         // OpMatrixTimesScalar requires the first operand to be a matrix and
         // the second to be a scalar.
         return processBinaryOp(rhs, cast->getSubExpr(), expr->getOpcode(),
-                               matType, range, nullptr, opcode);
+                               matType, matType, range, nullptr, opcode);
       }
     }
   }
@@ -5557,7 +5634,7 @@ uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
   return theBuilder.createBinaryOp(spvOp, boolType, fromVal, zeroVal);
 }
 
-uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
+uint32_t SPIRVEmitter::castToInt(uint32_t fromVal, QualType fromType,
                                  QualType toIntType, SourceLocation srcLoc) {
   if (TypeTranslator::isSameScalarOrVecType(fromType, toIntType))
     return fromVal;
@@ -5571,11 +5648,18 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
   }
 
   if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
-    // TODO: handle different bitwidths
+    // First convert the source to the bitwidth of the destination if necessary.
+    uint32_t convertedType = 0;
+    fromVal = convertBitwidth(fromVal, fromType, toIntType, &convertedType);
+    // If bitwidth conversion was the only thing we needed to do, we're done.
+    if (convertedType == typeTranslator.translateType(toIntType))
+      return fromVal;
     return theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, fromVal);
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
+    // First convert the source to the bitwidth of the destination if necessary.
+    fromVal = convertBitwidth(fromVal, fromType, toIntType);
     if (isSintOrVecOfSintType(toIntType)) {
       return theBuilder.createUnaryOp(spv::Op::OpConvertFToS, intType, fromVal);
     } else if (isUintOrVecOfUintType(toIntType)) {
@@ -5619,7 +5703,41 @@ uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
   return 0;
 }
 
-uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
+uint32_t SPIRVEmitter::convertBitwidth(uint32_t fromVal, QualType fromType,
+                                       QualType toType, uint32_t *resultType) {
+  // At the moment, we will not make bitwidth conversions for literal int and
+  // literal float types because they always indicate 64-bit and do not
+  // represent what SPIR-V was actually resolved to.
+  // TODO: If the evaluated type is added to SpirvEvalInfo, change 'fromVal' to
+  // SpirvEvalInfo and use it to handle literal types more accurately.
+  if (fromType->isSpecificBuiltinType(BuiltinType::LitFloat) ||
+      fromType->isSpecificBuiltinType(BuiltinType::LitInt))
+    return fromVal;
+
+  const auto fromBitwidth = typeTranslator.getElementSpirvBitwidth(fromType);
+  const auto toBitwidth = typeTranslator.getElementSpirvBitwidth(toType);
+  if (fromBitwidth == toBitwidth) {
+    if (resultType)
+      *resultType = typeTranslator.translateType(fromType);
+    return fromVal;
+  }
+
+  // We want the 'fromType' with the 'toBitwidth'.
+  const uint32_t targetTypeId =
+      typeTranslator.getTypeWithCustomBitwidth(fromType, toBitwidth);
+  if (resultType)
+    *resultType = targetTypeId;
+
+  if (isFloatOrVecOfFloatType(fromType))
+    return theBuilder.createUnaryOp(spv::Op::OpFConvert, targetTypeId, fromVal);
+  if (isSintOrVecOfSintType(fromType))
+    return theBuilder.createUnaryOp(spv::Op::OpSConvert, targetTypeId, fromVal);
+  if (isUintOrVecOfUintType(fromType))
+    return theBuilder.createUnaryOp(spv::Op::OpUConvert, targetTypeId, fromVal);
+  llvm_unreachable("invalid type passed to convertBitwidth");
+}
+
+uint32_t SPIRVEmitter::castToFloat(uint32_t fromVal, QualType fromType,
                                    QualType toFloatType,
                                    SourceLocation srcLoc) {
   if (TypeTranslator::isSameScalarOrVecType(fromType, toFloatType))
@@ -5634,15 +5752,20 @@ uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
   }
 
   if (isSintOrVecOfSintType(fromType)) {
+    // First convert the source to the bitwidth of the destination if necessary.
+    fromVal = convertBitwidth(fromVal, fromType, toFloatType);
     return theBuilder.createUnaryOp(spv::Op::OpConvertSToF, floatType, fromVal);
   }
 
   if (isUintOrVecOfUintType(fromType)) {
+    // First convert the source to the bitwidth of the destination if necessary.
+    fromVal = convertBitwidth(fromVal, fromType, toFloatType);
     return theBuilder.createUnaryOp(spv::Op::OpConvertUToF, floatType, fromVal);
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
-    return theBuilder.createUnaryOp(spv::Op::OpFConvert, floatType, fromVal);
+    // This is the case of float to float conversion with different bitwidths.
+    return convertBitwidth(fromVal, fromType, toFloatType);
   }
 
   // Casting matrix types
@@ -5895,6 +6018,31 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_f32tof16:
     retVal = processIntrinsicF32ToF16(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_WaveGetLaneCount: {
+    const uint32_t retType =
+        typeTranslator.translateType(callExpr->getCallReturnType(astContext));
+    const uint32_t varId =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize);
+    retVal = theBuilder.createLoad(retType, varId);
+  } break;
+  case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
+    const uint32_t retType =
+        typeTranslator.translateType(callExpr->getCallReturnType(astContext));
+    const uint32_t varId =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupLocalInvocationId);
+    retVal = theBuilder.createLoad(retType, varId);
+  } break;
+  case hlsl::IntrinsicOp::IOP_WaveReadLaneFirst: {
+    const auto retType = callExpr->getCallReturnType(astContext);
+    if (!retType->isScalarType()) {
+      emitError("vector overloads of WaveReadLaneFirst unimplemented",
+                callExpr->getExprLoc());
+      return 0;
+    }
+    const uint32_t retTypeId = typeTranslator.translateType(retType);
+    retVal = theBuilder.createSubgroupFirstInvocation(
+        retTypeId, doExpr(callExpr->getArg(0)));
+  } break;
   case hlsl::IntrinsicOp::IOP_abort:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {

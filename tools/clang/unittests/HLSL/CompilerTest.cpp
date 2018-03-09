@@ -400,6 +400,7 @@ public:
   TEST_METHOD(CompileWhenWorksThenDisassembleWorks)
   TEST_METHOD(CompileWhenDebugWorksThenStripDebug)
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
+  TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
 
   TEST_METHOD(CompileWhenIncludeThenLoadInvoked)
@@ -2081,12 +2082,12 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   CreateBlobFromText("float4 main() : SV_Target {\r\n"
-                     "  return 0;\r\n"
-                     "}",
-                     &pSource);
+    "  return 0;\r\n"
+    "}",
+    &pSource);
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-                                      L"ps_6_0", nullptr, 0, nullptr, 0,
-                                      nullptr, &pResult));
+    L"ps_6_0", nullptr, 0, nullptr, 0,
+    nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   // Append private data blob
   CComPtr<IDxcContainerBuilder> pBuilder;
@@ -2103,9 +2104,9 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
   CComPtr<IDxcBlob> pNewProgram;
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
   hlsl::DxilContainerHeader *pContainerHeader =
-      (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
   hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
-      pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
+    pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
   VERIFY_IS_NOT_NULL(pPartHeader);
   // compare data
   std::string privatePart((const char *)(pPartHeader + 1), privateTxt.size());
@@ -2125,6 +2126,81 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
     (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
   pPartHeader = hlsl::GetDxilPartByType(
     pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
+  VERIFY_IS_NULL(pPartHeader);
+}
+
+TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main() : SV_Target {\r\n"
+    "  return 0;\r\n"
+    "}",
+    &pSource);
+
+  LPCWSTR args[] = { L"/Zi", L"/Zss" };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"ps_6_0", args, _countof(args), nullptr, 0,
+    nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  // Append private data blob
+  CComPtr<IDxcContainerBuilder> pBuilder;
+  VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
+
+  const char pNewName[] = "MyOwnUniqueName.lld";
+  //include null terminator:
+  size_t nameBlobPartSize = sizeof(hlsl::DxilShaderDebugName) + _countof(pNewName);
+  // round up to four-byte size:
+  size_t allocatedSize = (nameBlobPartSize + 3) & ~3;
+  auto pNameBlobContent = reinterpret_cast<hlsl::DxilShaderDebugName*>(malloc(allocatedSize));
+  ZeroMemory(pNameBlobContent, allocatedSize); //just to make sure trailing nulls are nulls.
+  pNameBlobContent->Flags = 0;
+  pNameBlobContent->NameLength = _countof(pNewName) - 1; //this is not supposed to include null terminator
+  memcpy(pNameBlobContent + 1, pNewName, _countof(pNewName));
+
+  CComPtr<IDxcBlobEncoding> pDebugName;
+
+  CreateBlobPinned(pNameBlobContent, allocatedSize, CP_UTF8, &pDebugName);
+
+
+  VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
+  // should fail since it already exists:
+  VERIFY_FAILED(pBuilder->AddPart(hlsl::DxilFourCC::DFCC_ShaderDebugName, pDebugName));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_ShaderDebugName));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DxilFourCC::DFCC_ShaderDebugName, pDebugName));
+  pResult.Release();
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+
+  CComPtr<IDxcBlob> pNewProgram;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
+  hlsl::DxilContainerHeader *pContainerHeader =
+    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
+    pContainerHeader, hlsl::DxilFourCC::DFCC_ShaderDebugName);
+  VERIFY_IS_NOT_NULL(pPartHeader);
+  // compare data
+  VERIFY_IS_TRUE(memcmp(pPartHeader + 1, pNameBlobContent, allocatedSize) == 0);
+
+  free(pNameBlobContent);
+
+  // Remove private data blob
+  pBuilder.Release();
+  VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pNewProgram));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_ShaderDebugName));
+  pResult.Release();
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+
+  pNewProgram.Release();
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
+  pContainerHeader =
+    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  pPartHeader = hlsl::GetDxilPartByType(
+    pContainerHeader, hlsl::DxilFourCC::DFCC_ShaderDebugName);
   VERIFY_IS_NULL(pPartHeader);
 }
 

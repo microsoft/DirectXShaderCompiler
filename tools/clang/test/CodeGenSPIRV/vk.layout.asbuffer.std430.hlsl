@@ -4,6 +4,8 @@
 // CHECK: OpDecorate %_arr_v3float_uint_2 ArrayStride 16
 // CHECK: OpDecorate %_arr_mat2v3float_uint_2 ArrayStride 32
 // CHECK: OpDecorate %_arr_mat2v3float_uint_2_0 ArrayStride 24
+// CHECK: OpDecorate %_arr_v3int_uint_2 ArrayStride 16
+// CHECK: OpDecorate %_arr__arr_v3int_uint_2_uint_2 ArrayStride 32
 
 // CHECK: OpMemberDecorate %S 0 Offset 0
 // CHECK: OpMemberDecorate %S 1 Offset 16
@@ -17,13 +19,14 @@
 // CHECK: OpMemberDecorate %S 4 MatrixStride 8
 // CHECK: OpMemberDecorate %S 4 RowMajor
 // CHECK: OpMemberDecorate %S 5 Offset 208
+// CHECK: OpMemberDecorate %S 6 Offset 272
 
-// CHECK: OpDecorate %_arr_S_uint_2 ArrayStride 224
+// CHECK: OpDecorate %_arr_S_uint_2 ArrayStride 288
 
 // CHECK: OpMemberDecorate %T 0 Offset 0
-// CHECK: OpMemberDecorate %T 1 Offset 448
+// CHECK: OpMemberDecorate %T 1 Offset 576
 
-// CHECK: OpDecorate %_runtimearr_T ArrayStride 464
+// CHECK: OpDecorate %_runtimearr_T ArrayStride 592
 
 // CHECK: OpMemberDecorate %type_AppendStructuredBuffer_T 0 Offset 0
 // CHECK: OpDecorate %type_AppendStructuredBuffer_T BufferBlock
@@ -36,7 +39,8 @@ struct S {
     row_major    float2x3 c[2];
     column_major float2x3 d[2];
                  float2x3 e[2];
-                 int      f;
+    row_major    int2x3   f[2];
+                 int      g;
 };
 
 struct T {
@@ -49,4 +53,3 @@ AppendStructuredBuffer<T> buffer2;
 float main() : A {
     return 1.0;
 }
-
