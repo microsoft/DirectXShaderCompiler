@@ -6715,6 +6715,38 @@ void TranslateSubscriptOperation(Function *F, HLOperationLowerHelper &helper,  H
   }
 }
 
+// Create BitCast if ptr, otherwise, create alloca of new type, write to bitcast of alloca, and return load from alloca
+// If bOrigAllocaTy is true: create alloca of old type instead, write to alloca, and return load from bitcast of alloca
+static Instruction *BitCastValueOrPtr(Value* V, Instruction *Insert, Type *Ty, bool bOrigAllocaTy = false, const Twine &Name = "") {
+  if (Ty->isPointerTy()) {
+    // If pointer, we can bitcast directly
+    IRBuilder<> Builder(Insert);
+    return cast<Instruction>(Builder.CreateBitCast(V, Ty, Name));
+  }
+  else {
+    // If value, we have to alloca, store to bitcast ptr, and load
+    IRBuilder<> EntryBuilder(Insert->getParent()->getParent()->getEntryBlock().begin());
+    Type *allocaTy = bOrigAllocaTy ? V->getType() : Ty;
+    Type *otherTy = bOrigAllocaTy ? Ty : V->getType();
+    Instruction *allocaInst = EntryBuilder.CreateAlloca(allocaTy);
+    IRBuilder<> Builder(Insert);
+    Instruction *bitCast = cast<Instruction>(Builder.CreateBitCast(allocaInst, otherTy->getPointerTo()));
+    Builder.CreateStore(V, bOrigAllocaTy ? allocaInst : bitCast);
+    return Builder.CreateLoad(bOrigAllocaTy ? bitCast : allocaInst, Name);
+  }
+}
+
+static Instruction *CreateTransposeShuffle(IRBuilder<> &Builder, Value *vecVal, unsigned row, unsigned col) {
+  SmallVector<int, 16> castMask(col * row);
+  unsigned idx = 0;
+  for (unsigned c = 0; c < col; c++)
+    for (unsigned r = 0; r < row; r++)
+      castMask[idx++] = r * col + c;
+  return cast<Instruction>(
+    Builder.CreateShuffleVector(vecVal, vecVal, castMask));
+}
+
+
 void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
                                hlsl::HLOpcodeGroup group, HLObjectOperationLowerHelper *pObjHelper) {
   if (group == HLOpcodeGroup::HLIntrinsic) {
@@ -6744,14 +6776,78 @@ void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
       Type *PtrTy =
           F->getFunctionType()->getParamType(HLOperandIndex::kMatLoadPtrOpIdx);
 
-      if (PtrTy->getPointerAddressSpace() == DXIL::kTGSMAddrSpace ||
-          // TODO: use DeviceAddressSpace for SRV/UAV and CBufferAddressSpace
-          // for CBuffer.
-          PtrTy->getPointerAddressSpace() == DXIL::kDefaultAddrSpace) {
-        // Translate matrix into vector of array for share memory or local
+      if (PtrTy->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+        // Translate matrix into vector of array for shared memory
         // variable should be done in HLMatrixLowerPass.
         if (!F->user_empty())
           F->getContext().emitError("Fail to lower matrix load/store.");
+      } else if (PtrTy->getPointerAddressSpace() == DXIL::kDefaultAddrSpace) {
+        // Default address space may be function argument in lib target
+        if (!F->user_empty()) {
+          for (auto U = F->user_begin(); U != F->user_end();) {
+            Value *User = *(U++);
+            if (!isa<Instruction>(User))
+              continue;
+            // must be call inst
+            CallInst *CI = cast<CallInst>(User);
+            IRBuilder<> Builder(CI);
+            HLMatLoadStoreOpcode opcode = static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
+            switch (opcode) {
+            case HLMatLoadStoreOpcode::ColMatStore:
+            case HLMatLoadStoreOpcode::RowMatStore: {
+              Value *vecVal = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
+              Value *matPtr = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx);
+              Value *castPtr = Builder.CreateBitCast(matPtr, vecVal->getType()->getPointerTo());
+              Builder.CreateStore(vecVal, castPtr);
+              CI->eraseFromParent();
+            } break;
+            case HLMatLoadStoreOpcode::ColMatLoad:
+            case HLMatLoadStoreOpcode::RowMatLoad: {
+              Value *matPtr = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx);
+              Value *castPtr = Builder.CreateBitCast(matPtr, CI->getType()->getPointerTo());
+              Value *vecVal = Builder.CreateLoad(castPtr);
+              CI->replaceAllUsesWith(vecVal);
+              CI->eraseFromParent();
+            } break;
+            }
+          }
+        }
+      }
+    } else if (group == HLOpcodeGroup::HLCast) {
+      // HLCast may be used on matrix value function argument in lib target
+      if (!F->user_empty()) {
+        for (auto U = F->user_begin(); U != F->user_end();) {
+          Value *User = *(U++);
+          if (!isa<Instruction>(User))
+            continue;
+          // must be call inst
+          CallInst *CI = cast<CallInst>(User);
+          IRBuilder<> Builder(CI);
+          HLCastOpcode opcode = static_cast<HLCastOpcode>(hlsl::GetHLOpcode(CI));
+          bool bTranspose = false;
+          bool bColSource = false;
+          switch (opcode) {
+          case HLCastOpcode::ColMatrixToRowMatrix:
+            bColSource = true;
+          case HLCastOpcode::RowMatrixToColMatrix:
+            bTranspose = true;
+          case HLCastOpcode::ColMatrixToVecCast:
+          case HLCastOpcode::RowMatrixToVecCast: {
+            Value *matVal = CI->getArgOperand(HLOperandIndex::kInitFirstArgOpIdx);
+            Value *vecVal = BitCastValueOrPtr(matVal, CI, CI->getType(),
+              /*bOrigAllocaTy*/false,
+              matVal->getName());
+            if (bTranspose) {
+              unsigned row, col;
+              HLMatrixLower::GetMatrixInfo(matVal->getType(), col, row);
+              if (bColSource) std::swap(row, col);
+              vecVal = CreateTransposeShuffle(Builder, vecVal, row, col);
+            }
+            CI->replaceAllUsesWith(vecVal);
+            CI->eraseFromParent();
+          } break;
+          }
+        }
       }
     } else if (group == HLOpcodeGroup::HLSubscript) {
       TranslateSubscriptOperation(F, helper, pObjHelper);
