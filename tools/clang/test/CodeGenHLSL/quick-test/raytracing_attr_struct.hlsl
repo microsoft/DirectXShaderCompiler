@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 //CHECK: User defined type intrinsic arg must be struct
 
