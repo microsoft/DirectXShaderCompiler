@@ -726,9 +726,22 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
       Expr *Src = E->getSubExpr();
       switch (CGF.getEvaluationKind(Ty)) {
       case TEK_Aggregate: {
-        LValue LV = CGF.EmitAggExprToLValue(Src);
-        CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversionAggregateCopy(
-            CGF, LV.getAddress(), Src->getType(), DestPtr, E->getType());
+        if (CastExpr *SrcCast = dyn_cast<CastExpr>(Src)) {
+          if (SrcCast->getCastKind() == CK_LValueToRValue) {
+            // Skip the lval to rval cast to reach decl.
+            Src = SrcCast->getSubExpr();
+          }
+        }
+        // Just use decl if possible to skip useless copy.
+        if (DeclRefExpr *SrcDecl = dyn_cast<DeclRefExpr>(Src)) {
+          LValue LV = CGF.EmitLValue(SrcDecl);
+          CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversionAggregateCopy(
+              CGF, LV.getAddress(), Src->getType(), DestPtr, E->getType());
+        } else {
+          LValue LV = CGF.EmitAggExprToLValue(Src);
+          CGF.CGM.getHLSLRuntime().EmitHLSLFlatConversionAggregateCopy(
+              CGF, LV.getAddress(), Src->getType(), DestPtr, E->getType());
+        }
       } break;
       case TEK_Scalar: {
         llvm::Value *SrcVal = CGF.EmitScalarExpr(Src);

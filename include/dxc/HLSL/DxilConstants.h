@@ -56,8 +56,9 @@ namespace DXIL {
   const unsigned kMaxStructBufferStride = 2048;
   const unsigned kMaxHSOutputControlPointsTotalScalars = 3968;
   const unsigned kMaxHSOutputPatchConstantTotalScalars = 32*4;
-  const unsigned kMaxOutputTotalScalars = 32*4;
-  const unsigned kMaxInputTotalScalars = 32*4;
+  const unsigned kMaxSignatureTotalVectors = 32;
+  const unsigned kMaxOutputTotalScalars = kMaxSignatureTotalVectors * 4;
+  const unsigned kMaxInputTotalScalars = kMaxSignatureTotalVectors * 4;
   const unsigned kMaxClipOrCullDistanceElementCount = 2;
   const unsigned kMaxClipOrCullDistanceCount = 2 * 4;
   const unsigned kMaxGSOutputVertexCount = 1024;
