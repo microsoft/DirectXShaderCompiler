@@ -3754,17 +3754,23 @@ static void ReplaceUnboundedArrayUses(Value *V, Value *Src, IRBuilder<> &Builder
 }
 
 static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC) {
+  Type *TyV = V->getType()->getPointerElementType();
+  Type *TySrc = Src->getType()->getPointerElementType();
   if (Constant *C = dyn_cast<Constant>(V)) {
-    if (isa<Constant>(Src)) {
-      V->replaceAllUsesWith(Src);
+    if (TyV == TySrc) {
+      if (isa<Constant>(Src)) {
+        V->replaceAllUsesWith(Src);
+      } else {
+        // Replace Constant with a non-Constant.
+        IRBuilder<> Builder(MC);
+        ReplaceConstantWithInst(C, Src, Builder);
+      }
     } else {
-      // Replace Constant with a non-Constant.
       IRBuilder<> Builder(MC);
+      Src = Builder.CreateBitCast(Src, V->getType());
       ReplaceConstantWithInst(C, Src, Builder);
     }
   } else {
-    Type* TyV = V->getType()->getPointerElementType();
-    Type* TySrc = Src->getType()->getPointerElementType();
     if (TyV == TySrc) {
       if (V != Src)
         V->replaceAllUsesWith(Src);
