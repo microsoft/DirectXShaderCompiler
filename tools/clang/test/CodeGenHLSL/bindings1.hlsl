@@ -92,7 +92,7 @@
 // CHECK: ; RWTex4                                UAV     f32          2d      U2            u17     6
 // CHECK: ; RWTex1                                UAV     f32          2d      U3             u0     4
 
-// CHECK: %struct.Resources = type { %class.Texture2D, %class.Texture2D.0, %class.Texture2D, %class.Texture2D.0, %class.RWTexture2D, %class.RWTexture2D, %class.RWTexture2D, %class.RWTexture2D, %struct.SamplerComparisonState, %struct.SamplerState, %struct.SamplerComparisonState, %struct.SamplerState, <4 x float> }
+// CHECK: %struct.Resources = type { %"class.Texture2D<float>", %"class.Texture2D<vector<float, 4> >", %"class.Texture2D<float>", %"class.Texture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %struct.SamplerComparisonState, %struct.SamplerState, %struct.SamplerComparisonState, %struct.SamplerState, <4 x float> }
 
 // CHECK: %RWTex2_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 7, i1 false)
 // CHECK: %MyTB_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 4, i32 11, i1 false)

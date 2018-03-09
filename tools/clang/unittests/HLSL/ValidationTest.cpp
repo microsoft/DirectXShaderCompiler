@@ -718,17 +718,17 @@ TEST_F(ValidationTest, BarrierFail) {
       {"dx.op.barrier(i32 80, i32 8)",
         "dx.op.barrier(i32 80, i32 9)",
         "dx.op.barrier(i32 80, i32 11)",
-        "%class.RWStructuredBuffer = type { %class.matrix.float.2.2 }\n",
+        "%\"class.RWStructuredBuffer<matrix<float, 2, 2> >\" = type { %class.matrix.float.2.2 }\n",
         "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)",
       },
       {"dx.op.barrier(i32 80, i32 15)",
         "dx.op.barrier(i32 80, i32 0)",
         "dx.op.barrier(i32 80, i32 %rem)",
-        "%class.RWStructuredBuffer = type { %class.matrix.float.2.2 }\n"
-        "@dx.typevar.8 = external addrspace(1) constant %class.RWStructuredBuffer\n"
+        "%\"class.RWStructuredBuffer<matrix<float, 2, 2> >\" = type { %class.matrix.float.2.2 }\n"
+        "@dx.typevar.8 = external addrspace(1) constant %\"class.RWStructuredBuffer<matrix<float, 2, 2> >\"\n"
         "@\"internalGV\" = internal global [64 x <4 x float>] undef\n",
         "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)\n"
-        "%load = load %class.RWStructuredBuffer, %class.RWStructuredBuffer addrspace(1)* @dx.typevar.8",
+        "%load = load %\"class.RWStructuredBuffer<matrix<float, 2, 2> >\", %\"class.RWStructuredBuffer<matrix<float, 2, 2> >\" addrspace(1)* @dx.typevar.8",
       },
       {"Internal declaration 'internalGV' is unused",
        "External declaration 'dx.typevar.8' is unused",
@@ -1313,8 +1313,8 @@ TEST_F(ValidationTest, StructBufStoreCoordinates) {
 TEST_F(ValidationTest, TypedBufRetType) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\sample5.hlsl", "ps_6_0",
-      "%class.Texture2D = type { <4 x float>",
-      "%class.Texture2D = type { <4 x double>",
+      " = type { <4 x float>",
+      " = type { <4 x double>",
       "elements of typed buffers and textures must fit in four 32-bit quantities");
 }
 

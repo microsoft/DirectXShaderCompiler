@@ -4,7 +4,7 @@
 // CHECK: cbufferLoad
 // CHECK: createHandle
 // CHECK: sample
-// CHECK: [0 x %class.Texture2D]
+// CHECK: [0 x %"class.Texture2D<vector<float, 4> >"]
 
 //*********************************************************
 //
