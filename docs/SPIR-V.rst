@@ -231,10 +231,16 @@ Builtin variables
 
 Some of the Vulkan builtin variables have no equivalents in native HLSL
 language. To support them, ``[[vk::builtin("<builtin>")]]`` is introduced.
-Right now only two ``<builtin>`` are supported:
+Right now the following ``<builtin>`` are supported:
 
 * ``PointSize``: The GLSL equivalent is ``gl_PointSize``.
 * ``HelperInvocation``: The GLSL equivalent is ``gl_HelperInvocation``.
+* ``BaseVertex``: The GLSL equivalent is ``gl_BaseVertexARB``.
+  Need ``SPV_KHR_shader_draw_parameters`` extension.
+* ``BaseInstance``: The GLSL equivalent is ``gl_BaseInstanceARB``.
+  Need ``SPV_KHR_shader_draw_parameters`` extension.
+* ``DrawIndex``: The GLSL equivalent is ``gl_DrawIDARB``.
+  Need ``SPV_KHR_shader_draw_parameters`` extension.
 
 Please see Vulkan spec. `14.6. Built-In Variables <https://www.khronos.org/registry/vulkan/specs/1.0/html/vkspec.html#interfaces-builtin-variables>`_
 for detailed explanation of these builtins.

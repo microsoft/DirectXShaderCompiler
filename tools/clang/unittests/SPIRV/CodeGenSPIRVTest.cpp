@@ -1018,6 +1018,13 @@ TEST_F(FileTest, SpirvBuiltInHelperInvocationInvalidUsage) {
 TEST_F(FileTest, SpirvBuiltInPointSizeInvalidUsage) {
   runFileTest("spirv.builtin.point-size.invalid.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, SpirvBuiltInShaderDrawParameters) {
+  runFileTest("spirv.builtin.shader-draw-parameters.hlsl");
+}
+TEST_F(FileTest, SpirvBuiltInShaderDrawParametersInvalidUsage) {
+  runFileTest("spirv.builtin.shader-draw-parameters.invalid.hlsl",
+              Expect::Failure);
+}
 
 // For shader stage input/output interface
 // For semantic SV_Position, SV_ClipDistance, SV_CullDistance
