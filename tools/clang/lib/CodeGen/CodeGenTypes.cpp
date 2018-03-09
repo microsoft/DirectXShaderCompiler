@@ -90,6 +90,12 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
       << "." << templateDecl->getTemplateArgs().get(0).getAsType().getAsString()
       << "." << templateDecl->getTemplateArgs().get(1).getAsIntegral().toString(10)
       << "." << templateDecl->getTemplateArgs().get(2).getAsIntegral().toString(10);
+  } else if (const ClassTemplateSpecializationDecl *Spec = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
+    const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
+    TemplateSpecializationType::PrintTemplateArgumentList(OS,
+                                                          TemplateArgs.data(),
+                                                          TemplateArgs.size(),
+                                                          RD->getASTContext().getPrintingPolicy());
   }
 
   // HLSL Change Ends

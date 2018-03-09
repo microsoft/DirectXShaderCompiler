@@ -53,6 +53,7 @@ public:
   TEST_METHOD(RunLinkFailSelectRes);
   TEST_METHOD(RunLinkToLibWithUnresolvedFunctions);
   TEST_METHOD(RunLinkToLibWithUnresolvedFunctionsExports);
+  TEST_METHOD(RunLinkWithPotentialIntrinsicNameCollisions);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -455,4 +456,29 @@ TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctionsExports) {
     "define float @\"\\01?call_lib2@@YAMXZ\"()"
   }, { "declare float @\"\\01?unused_fn1", "declare float @\"\\01?unused_fn2",
        "declare float @\"\\01?lib1_fn", "declare float @\"\\01?lib2_fn" });
+}
+
+TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
+  LPCWSTR option[] = { L"-Zi" };
+
+  CComPtr<IDxcBlob> pLib1;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\createHandle_multi.hlsl",
+    &pLib1, option, 1);
+  CComPtr<IDxcBlob> pLib2;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\createHandle_multi2.hlsl",
+    &pLib2, option, 1);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName1 = L"lib1";
+  RegisterDxcModule(libName1, pLib1, pLinker);
+
+  LPCWSTR libName2 = L"lib2";
+  RegisterDxcModule(libName2, pLib2, pLinker);
+
+  Link(L"", L"lib_6_2", pLinker, { libName1, libName2 }, {
+    "declare %dx.types.Handle @\"dx.op.createHandleFromResourceStructForLib.class.Texture2D<vector<float, 4> >\"(i32, %\"class.Texture2D<vector<float, 4> >\")",
+    "declare %dx.types.Handle @\"dx.op.createHandleFromResourceStructForLib.class.Texture2D<float>\"(i32, %\"class.Texture2D<float>\")"
+  }, { });
 }
