@@ -304,15 +304,13 @@ SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
           cast<VarDecl>(decl)->getType(),
           // We need to set decorateLayout here to avoid creating SPIR-V
           // instructions for the current type without decorations.
-          info->info.getLayoutRule(), info->isRowMajor);
+          info->info.getLayoutRule(), info->info.isRowMajor());
 
       const uint32_t elemId = theBuilder.createAccessChain(
           theBuilder.getPointerType(varType, info->info.getStorageClass()),
           info->info, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
 
-      return SpirvEvalInfo(elemId)
-          .setStorageClass(info->info.getStorageClass())
-          .setLayoutRule(info->info.getLayoutRule());
+      return info->info.substResultId(elemId);
     } else {
       return *info;
     }
@@ -383,8 +381,8 @@ uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
 uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
   auto rule = LayoutRule::Void;
-  bool isMatType = false;     // Whether this var is of matrix type
-  bool isACRWSBuffer = false; // Whether its {Append|Consume|RW}StructuredBuffer
+  bool isMatType = false;     // Whether is matrix that needs struct wrap
+  bool isACRWSBuffer = false; // Whether is {Append|Consume|RW}StructuredBuffer
 
   if (var->getAttr<HLSLGroupSharedAttr>()) {
     // For CS groupshared variables
@@ -432,10 +430,17 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   astDecls[var] =
       SpirvEvalInfo(id).setStorageClass(storageClass).setLayoutRule(rule);
   if (isMatType) {
+    astDecls[var].info.setRowMajor(
+        typeTranslator.isRowMajorMatrix(var->getType(), var));
+
     // We have wrapped the stand-alone matrix inside a struct. Mark it as
     // needing an extra index to access.
     astDecls[var].indexInCTBuffer = 0;
   }
+
+  // Variables in Workgroup do not need descriptor decorations.
+  if (storageClass == spv::StorageClass::Workgroup)
+    return id;
 
   const auto *regAttr = getResourceBinding(var);
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
@@ -573,12 +578,13 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     const auto *varDecl = cast<VarDecl>(subDecl);
     const bool isRowMajor =
         typeTranslator.isRowMajorMatrix(varDecl->getType(), varDecl);
-    astDecls[varDecl] = {SpirvEvalInfo(bufferVar)
-                             .setStorageClass(spv::StorageClass::Uniform)
-                             .setLayoutRule(decl->isCBuffer()
-                                                ? LayoutRule::GLSLStd140
-                                                : LayoutRule::GLSLStd430),
-                         index++, isRowMajor};
+    astDecls[varDecl] =
+        SpirvEvalInfo(bufferVar)
+            .setStorageClass(spv::StorageClass::Uniform)
+            .setLayoutRule(decl->isCBuffer() ? LayoutRule::GLSLStd140
+                                             : LayoutRule::GLSLStd430)
+            .setRowMajor(isRowMajor);
+    astDecls[varDecl].indexInCTBuffer = index++;
   }
   resourceVars.emplace_back(
       bufferVar, ResourceVar::Category::Other, getResourceBinding(decl),
@@ -793,12 +799,19 @@ public:
   /// Uses the given location.
   void useLoc(uint32_t loc) { usedLocs.set(loc); }
 
-  /// Uses the next available location.
-  uint32_t useNextLoc() {
+  /// Uses the next |count| available location.
+  int useNextLocs(uint32_t count) {
     while (usedLocs[nextLoc])
       nextLoc++;
-    usedLocs.set(nextLoc);
-    return nextLoc++;
+
+    int toUse = nextLoc;
+
+    for (uint32_t i = 0; i < count; ++i) {
+      assert(!usedLocs[nextLoc]);
+      usedLocs.set(nextLoc++);
+    }
+
+    return toUse;
   }
 
   /// Returns true if the given location number is already used.
@@ -976,7 +989,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   }
 
   for (const auto *var : vars)
-    theBuilder.decorateLocation(var->getSpirvId(), locSet.useNextLoc());
+    theBuilder.decorateLocation(var->getSpirvId(),
+                                locSet.useNextLocs(var->getLocationCount()));
 
   return true;
 }
@@ -1257,9 +1271,11 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       typeId = theBuilder.getArrayType(typeId,
                                        theBuilder.getConstantUint32(arraySize));
 
-    StageVar stageVar(sigPoint, semanticToUse->str, semanticToUse->semantic,
-                      semanticToUse->name, semanticToUse->index, builtinAttr,
-                      typeId);
+    StageVar stageVar(
+        sigPoint, semanticToUse->str, semanticToUse->semantic,
+        semanticToUse->name, semanticToUse->index, builtinAttr, typeId,
+        // For HS/DS/GS, we have already stripped the outmost arrayness on type.
+        typeTranslator.getLocationCount(type));
     const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
     const uint32_t varId =
         createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
@@ -1707,7 +1723,7 @@ uint32_t DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
 
   StageVar stageVar(sigPoint, /*semaStr=*/"", hlsl::Semantic::GetInvalid(),
                     /*semaName=*/"", /*semaIndex=*/0, /*builtinAttr=*/nullptr,
-                    type);
+                    type, /*locCount=*/0);
 
   stageVar.setIsSpirvBuiltin();
   stageVar.setSpirvId(varId);

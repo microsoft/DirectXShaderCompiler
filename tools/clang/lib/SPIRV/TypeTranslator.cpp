@@ -203,11 +203,219 @@ void TypeTranslator::popIntendedLiteralType() {
   intendedLiteralTypes.pop();
 }
 
+uint32_t TypeTranslator::getLocationCount(QualType type) {
+  // See Vulkan spec 14.1.4. Location Assignment for the complete set of rules.
+
+  const auto canonicalType = type.getCanonicalType();
+  if (canonicalType != type)
+    return getLocationCount(canonicalType);
+
+  // Inputs and outputs of the following types consume a single interface
+  // location:
+  // * 16-bit scalar and vector types, and
+  // * 32-bit scalar and vector types, and
+  // * 64-bit scalar and 2-component vector types.
+
+  // 64-bit three- and four- component vectors consume two consecutive
+  // locations.
+
+  // Primitive types
+  if (isScalarType(type))
+    return 1;
+
+  // Vector types
+  {
+    QualType elemType = {};
+    uint32_t elemCount = {};
+    if (isVectorType(type, &elemType, &elemCount)) {
+      const auto *builtinType = elemType->getAs<BuiltinType>();
+      switch (builtinType->getKind()) {
+      case BuiltinType::Double:
+      case BuiltinType::LongLong:
+      case BuiltinType::ULongLong:
+        if (elemCount >= 3)
+          return 2;
+      }
+      return 1;
+    }
+  }
+
+  // If the declared input or output is an n * m 16- , 32- or 64- bit matrix,
+  // it will be assigned multiple locations starting with the location
+  // specified. The number of locations assigned for each matrix will be the
+  // same as for an n-element array of m-component vectors.
+
+  // Matrix types
+  {
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0;
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount))
+      return getLocationCount(astContext.getExtVectorType(elemType, colCount)) *
+             rowCount;
+  }
+
+  // Typedefs
+  if (const auto *typedefType = type->getAs<TypedefType>())
+    return getLocationCount(typedefType->desugar());
+
+  // Reference types
+  if (const auto *refType = type->getAs<ReferenceType>())
+    return getLocationCount(refType->getPointeeType());
+
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>())
+    return getLocationCount(ptrType->getPointeeType());
+
+  // If a declared input or output is an array of size n and each element takes
+  // m locations, it will be assigned m * n consecutive locations starting with
+  // the location specified.
+
+  // Array types
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type))
+    return getLocationCount(arrayType->getElementType()) *
+           static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+
+  // Struct type
+  if (const auto *structType = type->getAs<RecordType>()) {
+    assert(false && "all structs should already be flattened");
+    return 0;
+  }
+
+  emitError(
+      "calculating number of occupied locations for type %0 unimplemented")
+      << type;
+  return 0;
+}
+
+uint32_t TypeTranslator::getTypeWithCustomBitwidth(QualType type,
+                                                   uint32_t bitwidth) {
+  // Cases where the given type is a vector of float/int.
+  {
+    QualType elemType = {};
+    uint32_t elemCount = 0;
+    const bool isVec = isVectorType(type, &elemType, &elemCount);
+    if (isVec) {
+      return theBuilder.getVecType(
+          getTypeWithCustomBitwidth(elemType, bitwidth), elemCount);
+    }
+  }
+
+  // Scalar cases.
+  assert(!type->isBooleanType());
+  assert(type->isIntegerType() || type->isFloatingType());
+  if (type->isFloatingType()) {
+    switch (bitwidth) {
+    case 16:
+      return theBuilder.getFloat16Type();
+    case 32:
+      return theBuilder.getFloat32Type();
+    case 64:
+      return theBuilder.getFloat64Type();
+    }
+  }
+  if (type->isSignedIntegerType()) {
+    switch (bitwidth) {
+    case 16:
+      return theBuilder.getInt16Type();
+    case 32:
+      return theBuilder.getInt32Type();
+    case 64:
+      return theBuilder.getInt64Type();
+    }
+  }
+  if (type->isUnsignedIntegerType()) {
+    switch (bitwidth) {
+    case 16:
+      return theBuilder.getUint16Type();
+    case 32:
+      return theBuilder.getUint32Type();
+    case 64:
+      return theBuilder.getUint64Type();
+    }
+  }
+  llvm_unreachable(
+      "invalid type or bitwidth passed to getTypeWithCustomBitwidth");
+}
+
+uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
+  const auto canonicalType = type.getCanonicalType();
+  if (canonicalType != type)
+    return getElementSpirvBitwidth(canonicalType);
+
+  // Vector types
+  {
+    QualType elemType = {};
+    if (isVectorType(type, &elemType))
+      return getElementSpirvBitwidth(elemType);
+  }
+
+  // Scalar types
+  QualType ty = {};
+  const bool isScalar = isScalarType(type, &ty);
+  assert(isScalar);
+  if (const auto *builtinType = ty->getAs<BuiltinType>()) {
+    switch (builtinType->getKind()) {
+    case BuiltinType::Int:
+    case BuiltinType::UInt:
+    case BuiltinType::Float:
+      return 32;
+    case BuiltinType::Double:
+    case BuiltinType::LongLong:
+    case BuiltinType::ULongLong:
+      return 64;
+    // min16int (short), ushort, min12int, half, and min10float are treated as
+    // 16-bit if '-enable-16bit-types' option is enabled. They are treated as
+    // 32-bit otherwise.
+    case BuiltinType::Short:
+    case BuiltinType::UShort:
+    case BuiltinType::Min12Int:
+    case BuiltinType::Half:
+    case BuiltinType::Min10Float: {
+      if (spirvOptions.enable16BitTypes)
+        return 16;
+      else
+        return 32;
+    }
+    case BuiltinType::LitFloat: {
+      // First try to see if there are any hints about how this literal type
+      // is going to be used. If so, use the hint.
+      if (getIntendedLiteralType(ty) != ty) {
+        return getElementSpirvBitwidth(getIntendedLiteralType(ty));
+      }
+
+      const auto &semantics = astContext.getFloatTypeSemantics(type);
+      const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
+      if (bitwidth <= 32)
+        return 32;
+      else
+        return 64;
+    }
+    case BuiltinType::LitInt: {
+      // First try to see if there are any hints about how this literal type
+      // is going to be used. If so, use the hint.
+      if (getIntendedLiteralType(ty) != ty) {
+        return getElementSpirvBitwidth(getIntendedLiteralType(ty));
+      }
+
+      const auto bitwidth = astContext.getIntWidth(type);
+      // All integer variants with bitwidth larger than 32 are represented
+      // as 64-bit int in SPIR-V.
+      // All integer variants with bitwidth of 32 or less are represented as
+      // 32-bit int in SPIR-V.
+      return bitwidth > 32 ? 64 : 32;
+    }
+    }
+  }
+  llvm_unreachable("invalid type passed to getElementSpirvBitwidth");
+}
+
 uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                        bool isRowMajor) {
   // We can only apply row_major to matrices or arrays of matrices.
+  // isRowMajor will be ignored for scalar and vector types.
   if (isRowMajor)
-    assert(isMxNMatrix(type) || type->isArrayType());
+    assert(type->isScalarType() || type->isArrayType() ||
+           hlsl::IsHLSLVecMatType(type));
 
   // Try to translate the canonical type first
   const auto canonicalType = type.getCanonicalType();
@@ -224,80 +432,30 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           return theBuilder.getVoidType();
         case BuiltinType::Bool:
           return theBuilder.getBoolType();
+        // All the ints
         case BuiltinType::Int:
-          return theBuilder.getInt32Type();
         case BuiltinType::UInt:
-          return theBuilder.getUint32Type();
-        case BuiltinType::Float:
-          return theBuilder.getFloat32Type();
-        case BuiltinType::Double:
-          return theBuilder.getFloat64Type();
-        case BuiltinType::LongLong:
-          return theBuilder.getInt64Type();
-        case BuiltinType::ULongLong:
-          return theBuilder.getUint64Type();
-        // min16int (short), and min12int are treated as 16-bit Int if
-        // '-enable-16bit-types' option is enabled. They are treated as 32-bit
-        // Int otherwise.
         case BuiltinType::Short:
-        case BuiltinType::Min12Int: {
-          if (spirvOptions.enable16BitTypes)
-            return theBuilder.getInt16Type();
-          else
-            return theBuilder.getInt32Type();
-        }
-        // min16uint (ushort) is treated as 16-bit Uint if '-enable-16bit-types'
-        // option is enabled. It is treated as 32-bit Uint otherwise.
-        case BuiltinType::UShort: {
-          if (spirvOptions.enable16BitTypes)
-            return theBuilder.getUint16Type();
-          else
-            return theBuilder.getUint32Type();
-        }
-        // min16float (half), and min10float are all translated to
-        // 32-bit float in SPIR-V.
-        // min16float (half), and min10float are treated as 16-bit float if
-        // '-enable-16bit-types' option is enabled. They are treated as 32-bit
-        // float otherwise.
+        case BuiltinType::Min12Int:
+        case BuiltinType::UShort:
+        case BuiltinType::LongLong:
+        case BuiltinType::ULongLong:
+        // All the floats
+        case BuiltinType::Float:
+        case BuiltinType::Double:
         case BuiltinType::Half:
         case BuiltinType::Min10Float: {
-          if (spirvOptions.enable16BitTypes)
-            return theBuilder.getFloat16Type();
-          else
-            return theBuilder.getFloat32Type();
+          const auto bitwidth = getElementSpirvBitwidth(ty);
+          return getTypeWithCustomBitwidth(ty, bitwidth);
         }
+        // Literal types. First try to resolve them using hints.
+        case BuiltinType::LitInt:
         case BuiltinType::LitFloat: {
-          // First try to see if there are any hints about how this literal type
-          // is going to be used. If so, use the hint.
           if (getIntendedLiteralType(ty) != ty) {
             return translateType(getIntendedLiteralType(ty));
           }
-
-          const auto &semantics = astContext.getFloatTypeSemantics(type);
-          const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
-          if (bitwidth <= 32)
-            return theBuilder.getFloat32Type();
-          else
-            return theBuilder.getFloat64Type();
-        }
-        case BuiltinType::LitInt: {
-          // First try to see if there are any hints about how this literal type
-          // is going to be used. If so, use the hint.
-          if (getIntendedLiteralType(ty) != ty) {
-            return translateType(getIntendedLiteralType(ty));
-          }
-
-          const auto bitwidth = astContext.getIntWidth(type);
-          // All integer variants with bitwidth larger than 32 are represented
-          // as 64-bit int in SPIR-V.
-          // All integer variants with bitwidth of 32 or less are represented as
-          // 32-bit int in SPIR-V.
-          if (type->isSignedIntegerType())
-            return bitwidth > 32 ? theBuilder.getInt64Type()
-                                 : theBuilder.getInt32Type();
-          else
-            return bitwidth > 32 ? theBuilder.getUint64Type()
-                                 : theBuilder.getUint32Type();
+          const auto bitwidth = getElementSpirvBitwidth(ty);
+          return getTypeWithCustomBitwidth(ty, bitwidth);
         }
         default:
           emitError("primitive type %0 unimplemented")
@@ -345,20 +503,22 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
     if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
-
-      // We cannot handle external initialization of column-major matrices now.
-      if (!elemType->isFloatingType() && rule != LayoutRule::Void &&
-          !isRowMajor) {
-        emitError(
-            "externally initialized column-major matrices not supported yet");
-        return 0;
-      }
-
       // HLSL matrices are row major, while SPIR-V matrices are column major.
       // We are mapping what HLSL semantically mean a row into a column here.
       const uint32_t vecType =
           theBuilder.getVecType(translateType(elemType), colCount);
-      return theBuilder.getMatType(elemType, vecType, rowCount);
+
+      // If the matrix element type is not float, it is represented as an array
+      // of vectors, and should therefore have the ArrayStride decoration.
+      llvm::SmallVector<const Decoration *, 4> decorations;
+      if (!elemType->isFloatingType() && rule != LayoutRule::Void) {
+        uint32_t stride = 0;
+        (void)getAlignmentAndSize(type, rule, isRowMajor, &stride);
+        decorations.push_back(
+            Decoration::getArrayStride(*theBuilder.getSPIRVContext(), stride));
+      }
+
+      return theBuilder.getMatType(elemType, vecType, rowCount, decorations);
     }
   }
 
@@ -746,6 +906,35 @@ bool TypeTranslator::isMxNMatrix(QualType type, QualType *elemType,
   return true;
 }
 
+bool TypeTranslator::isOrContainsNonFpColMajorMatrix(QualType type,
+                                                     const Decl *decl) const {
+  const auto isColMajorDecl = [this](const Decl *decl) {
+    return decl->hasAttr<HLSLColumnMajorAttr>() ||
+           !decl->hasAttr<HLSLRowMajorAttr>() && !spirvOptions.defaultRowMajor;
+  };
+
+  QualType elemType = {};
+  if (isMxNMatrix(type, &elemType) && !elemType->isFloatingType()) {
+    return isColMajorDecl(decl);
+  }
+
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+    if (isMxNMatrix(arrayType->getElementType(), &elemType) &&
+        !elemType->isFloatingType())
+      return isColMajorDecl(decl);
+  }
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    const auto *decl = structType->getDecl();
+    for (const auto *field : decl->fields()) {
+      if (isOrContainsNonFpColMajorMatrix(field->getType(), field))
+        return true;
+    }
+  }
+
+  return false;
+}
+
 bool TypeTranslator::isRowMajorMatrix(QualType type, const Decl *decl) const {
   if (!isMxNMatrix(type) && !type->isArrayType())
     return false;
@@ -907,7 +1096,12 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
       // MatrixStride on the field. So skip possible arrays here.
       fieldType = arrayType->getElementType();
     }
-    if (isMxNMatrix(fieldType)) {
+
+    // Non-floating point matrices are represented as arrays of vectors, and
+    // therefore ColMajor and RowMajor decorations should not be applied to
+    // them.
+    QualType elemType = {};
+    if (isMxNMatrix(fieldType, &elemType) && elemType->isFloatingType()) {
       memberAlignment = memberSize = stride = 0;
       std::tie(memberAlignment, memberSize) =
           getAlignmentAndSize(fieldType, rule, isRowMajor, &stride);
@@ -1172,8 +1366,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
   //
   // 8. If the member is an array of S row-major matrices with C columns and R
   //    rows, the matrix is stored identically to a row of S X R row vectors
-  //    with C
-  //    components each, according to rule (4).
+  //    with C components each, according to rule (4).
   //
   // 9. If the member is a structure, the base alignment of the structure is N,
   //    where N is the largest base alignment value of any of its members, and
@@ -1207,6 +1400,10 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
         case BuiltinType::UInt:
         case BuiltinType::Float:
           return {4, 4};
+        case BuiltinType::Double:
+        case BuiltinType::LongLong:
+        case BuiltinType::ULongLong:
+          return {8, 8};
         default:
           emitError("primitive type %0 unimplemented")
               << builtinType->getTypeClassName();

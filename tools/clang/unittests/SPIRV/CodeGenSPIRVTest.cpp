@@ -194,8 +194,13 @@ TEST_F(FileTest, BinaryOpVectorArithAssign) {
 TEST_F(FileTest, BinaryOpMatrixArithAssign) {
   runFileTest("binary-op.arith-assign.matrix.hlsl");
 }
-TEST_F(FileTest, BinaryOpMixedArithAssign) {
-  runFileTest("binary-op.arith-assign.mixed.hlsl");
+TEST_F(FileTest, BinaryOpMixedFormArithAssign) {
+  // Test mixing scalar/vector/matrix/etc.
+  runFileTest("binary-op.arith-assign.mixed.form.hlsl");
+}
+TEST_F(FileTest, BinaryOpMixedTypeArithAssign) {
+  // Test mixing float/int/uint/bool/etc.
+  runFileTest("binary-op.arith-assign.mixed.type.hlsl");
 }
 
 // For bitwise binary operators
@@ -273,6 +278,10 @@ TEST_F(FileTest, OpArrayAccess) { runFileTest("op.array.access.hlsl"); }
 TEST_F(FileTest, OpBufferAccess) { runFileTest("op.buffer.access.hlsl"); }
 TEST_F(FileTest, OpRWBufferAccess) { runFileTest("op.rwbuffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
+TEST_F(FileTest, OpCBufferAccessMajorness) {
+  /// Tests that we correctly consider majorness when accessing matrices
+  runFileTest("op.cbuffer.access.majorness.hlsl");
+}
 TEST_F(FileTest, OpConstantBufferAccess) {
   runFileTest("op.constant-buffer.access.hlsl");
 }
@@ -327,9 +336,13 @@ TEST_F(FileTest, CastFlatConversionStruct) {
 TEST_F(FileTest, CastFlatConversionNoOp) {
   runFileTest("cast.flat-conversion.no-op.hlsl");
 }
+TEST_F(FileTest, CastFlatConversionLiteralInitializer) {
+  runFileTest("cast.flat-conversion.literal-initializer.hlsl");
+}
 TEST_F(FileTest, CastExplicitVecToMat) {
   runFileTest("cast.vec-to-mat.explicit.hlsl");
 }
+TEST_F(FileTest, CastBitwidth) { runFileTest("cast.bitwidth.hlsl"); }
 
 // For vector/matrix splatting and trunction
 TEST_F(FileTest, CastTruncateVector) { runFileTest("cast.vector.trunc.hlsl"); }
@@ -980,6 +993,11 @@ TEST_F(FileTest, SM6WaveBuiltInNoDuplicate) {
   runFileTest("sm6.wave.builtin.no-dup.hlsl");
 }
 
+// Shader model 6.0 wave broadcast
+TEST_F(FileTest, SM6WaveReadLaneFirst) {
+  runFileTest("sm6.wave-read-lane-first.hlsl");
+}
+
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
@@ -1097,6 +1115,9 @@ TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {
 TEST_F(FileTest, VulkanLocationInputImplicitOutputExplicit) {
   runFileTest("vk.location.exp-out.hlsl");
 }
+TEST_F(FileTest, VulkanLocationCompositeTypes) {
+  runFileTest("vk.location.composite.hlsl");
+}
 TEST_F(FileTest, VulkanLocationTooLarge) {
   runFileTest("vk.location.large.hlsl", Expect::Failure);
 }
@@ -1190,6 +1211,12 @@ TEST_F(FileTest, VulkanLayoutTBufferStd430) {
 TEST_F(FileTest, VulkanLayoutTextureBufferStd430) {
   runFileTest("vk.layout.texture-buffer.std430.hlsl");
 }
+TEST_F(FileTest, VulkanLayout64BitTypesStd430) {
+  runFileTest("vk.layout.64bit-types.std430.hlsl");
+}
+TEST_F(FileTest, VulkanLayout64BitTypesStd140) {
+  runFileTest("vk.layout.64bit-types.std140.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
   runFileTest("vk.layout.push-constant.std430.hlsl");
@@ -1205,6 +1232,10 @@ TEST_F(FileTest, VulkanSubpassInputBinding) {
 }
 TEST_F(FileTest, VulkanSubpassInputError) {
   runFileTest("vk.subpass-input.error.hlsl", Expect::Failure);
+}
+
+TEST_F(FileTest, NonFpColMajorError) {
+  runFileTest("vk.layout.non-fp-matrix.error.hlsl", Expect::Failure);
 }
 
 // HS: for different Patch Constant Functions
