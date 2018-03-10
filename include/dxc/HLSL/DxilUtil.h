@@ -20,6 +20,9 @@ class Module;
 class MemoryBuffer;
 class LLVMContext;
 class DiagnosticInfo;
+class Value;
+class Instruction;
+class StringRef;
 }
 
 namespace hlsl {

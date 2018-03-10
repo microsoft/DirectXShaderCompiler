@@ -35,6 +35,7 @@
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/DxilShaderFlags.h"
+#include "dxc/HLSL/DxilUtil.h"
 
 #include <fstream>
 #include <filesystem>
@@ -72,6 +73,7 @@ public:
 
   TEST_METHOD(CompileWhenDebugSourceThenSourceMatters)
   TEST_METHOD(CompileWhenOkThenCheckRDAT)
+  TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOKThenIncludesFeatureInfo)
   TEST_METHOD(CompileWhenOKThenIncludesSignatures)
   TEST_METHOD(CompileWhenSigSquareThenIncludeSplit)
@@ -740,6 +742,68 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
         }
       }
       VERIFY_IS_TRUE(resTableReader->GetNumResources() == 4);
+    }
+  }
+  IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");
+}
+
+TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  // This is a case when the user of resource is a constant, not instruction.
+  // Compiler generates the following load instruction for texture.
+  // load %class.Texture2D, %class.Texture2D* getelementptr inbounds ([3 x
+  // %class.Texture2D], [3 x %class.Texture2D]*
+  // @"\01?ThreeTextures@@3PAV?$Texture2D@M@@A", i32 0, i32 0), align 4
+  const char *shader =
+      "SamplerState Sampler : register(s0); RWBuffer<float> Uav : "
+      "register(u0); Texture2D<float> ThreeTextures[3] : register(t0); "
+      "float function1();"
+      "[shader(\"raygeneration\")] void RayGenMain() { Uav[0] = "
+      "ThreeTextures[0].Sample(Sampler, float2(0, 0)) + function1(); }";
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+  HRESULT status;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(shader, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_3", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  CComPtr<IDxcContainerReflection> pReflection;
+  uint32_t partCount;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  IFT(pReflection->Load(pProgram));
+  IFT(pReflection->GetPartCount(&partCount));
+  bool blobFound = false;
+  for (uint32_t i = 0; i < partCount; ++i) {
+    uint32_t kind;
+    IFT(pReflection->GetPartKind(i, &kind));
+    if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_RuntimeData) {
+      blobFound = true;
+      using namespace hlsl::DXIL::PSV;
+      CComPtr<IDxcBlob> pBlob;
+      IFT(pReflection->GetPartContent(i, &pBlob));
+      DxilRuntimeData context;
+      context.InitFromRDAT((char *)pBlob->GetBufferPointer());
+      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
+      ResourceTableReader *resTableReader = context.GetResourceTableReader();
+      VERIFY_IS_TRUE(funcTableReader->GetNumFunctions() == 1);
+      VERIFY_IS_TRUE(resTableReader->GetNumResources() == 3);
+      FunctionReader funcReader = funcTableReader->GetItem(0);
+      llvm::StringRef name(funcReader.GetUnmangledName());
+      VERIFY_IS_TRUE(name.compare("RayGenMain") == 0);
+      VERIFY_IS_TRUE(funcReader.GetShaderKind() == PSVShaderKind::RayGeneration);
+      VERIFY_IS_TRUE(funcReader.GetNumResources() == 3);
+      VERIFY_IS_TRUE(funcReader.GetNumDependencies() == 1);
+      llvm::StringRef dependencyName =
+          hlsl::dxilutil::DemangleFunctionName(funcReader.GetDependency(0));
+      VERIFY_IS_TRUE(dependencyName.compare("function1") == 0);
     }
   }
   IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");
