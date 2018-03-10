@@ -576,6 +576,16 @@ bool Scalarizer::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
       Res[I] = Op0[Selector];
     else
       Res[I] = Op1[Selector - Op0.size()];
+    // HLSL Change Begins: (fix bug in upstream llvm)
+    if (ExtractElementInst *EA = dyn_cast<ExtractElementInst>(Res[I])) {
+      // Clone extractelement here, since it is associated with another inst.
+      // Otherwise it will be added to our Gather, and after the incoming
+      // instruction is processed, it will be replaced without updating our
+      // Gather entry.  This dead instruction will be accessed by finish(),
+      // causing assert or crash.
+      Res[I] = IRBuilder<>(SVI.getNextNode()).Insert(EA->clone());
+    }
+    // HLSL Change Ends
   }
   gather(&SVI, Res);
   return true;
