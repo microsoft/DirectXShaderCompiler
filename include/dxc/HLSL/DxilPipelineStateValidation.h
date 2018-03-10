@@ -158,15 +158,23 @@ struct PSVResourceBindInfo0
   uint32_t UpperBound;
 };
 
-struct RuntimeDataResourceInfo : public PSVResourceBindInfo0
+struct RuntimeDataResourceInfo
 {
-  uint32_t Kind; // PSVResourceKind
-  uint32_t Name; // offset for string table
+  uint32_t ResType;      // PSVResourceType
+  uint32_t Space;
+  uint32_t LowerBound;
+  uint32_t UpperBound;
+  uint32_t Kind;         // PSVResourceKind
+  uint32_t Name;         // offset for string table
+  uint32_t ID;           // id per resource class
+  uint32_t flags;        // flag for resource.
 };
+
 struct RuntimeDataFunctionInfo {
   uint32_t Name;                 // offset for string table
   uint32_t UnmangledName;        // offset for string table
   uint32_t Resources;            // index to an index table
+  uint32_t FunctionDependencies; // index to a list of functions that function depends on
   uint32_t ShaderKind;           // shader kind
   uint32_t PayloadSizeInBytes;   // payload count for miss, closest hit, any hit
                                  // shader, or parameter size for call shader
@@ -219,7 +227,7 @@ struct RuntimeDataTableHeader {
   uint32_t offset;
 };
 
-enum RuntimeDataTableType : uint32_t {
+enum RuntimeDataPartType : uint32_t {
   Invalid = 0,
   String,
   Function,
@@ -436,6 +444,9 @@ public:
     return m_ResourceInfo->UpperBound;
   }
   PSVResourceKind GetResourceKind() { return (PSVResourceKind)m_ResourceInfo->Kind; }
+  uint32_t GetID() {
+    return m_ResourceInfo->ID;
+  }
   const char *GetName() {
     return m_Context->pStringTableReader->Get(m_ResourceInfo->Name);
   }
@@ -462,12 +473,34 @@ public:
         m_CBufferCount(CBufferCount), m_SamplerCount(SamplerCount),
         m_SRVCount(SRVCount), m_UAVCount(UAVCount){};
 
-  void SetResourceInfo(const RuntimeDataResourceInfo *ptr) { m_ResourceInfo = ptr; }
+  void SetResourceInfo(const RuntimeDataResourceInfo *ptr, uint32_t count) { 
+    m_ResourceInfo = ptr;
+    // Assuming that resources are in order of CBuffer, Sampler, SRV, and UAV,
+    // count the number for each resource class
+    m_CBufferCount = 0;
+    m_SamplerCount = 0;
+    m_SRVCount = 0;
+    m_UAVCount = 0;
+
+    for (uint32_t i = 0; i < count; ++i) {
+      const RuntimeDataResourceInfo *curPtr = &ptr[i];
+      if (curPtr->ResType == (uint32_t)PSVResourceType::CBV)
+        m_CBufferCount++;
+      else if (curPtr->ResType == (uint32_t)PSVResourceType::Sampler)
+        m_SamplerCount++;
+      else if (curPtr->ResType == (uint32_t)PSVResourceType::SRVRaw ||
+          curPtr->ResType == (uint32_t)PSVResourceType::SRVStructured ||
+          curPtr->ResType == (uint32_t)PSVResourceType::SRVTyped)
+        m_SRVCount++;
+      else if (curPtr->ResType == (uint32_t)PSVResourceType::UAVRaw ||
+          curPtr->ResType == (uint32_t)PSVResourceType::UAVStructured ||
+          curPtr->ResType == (uint32_t)PSVResourceType::UAVStructuredWithCounter ||
+          curPtr->ResType == (uint32_t)PSVResourceType::UAVTyped)
+        m_UAVCount++;
+    }
+  }
+
   void SetContext(RuntimeDataContext *context) { m_Context = context; }
-  void SetCBufferCount(uint32_t count) { m_CBufferCount = count; }
-  void SetSamplerCount(uint32_t count) { m_SamplerCount = count; }
-  void SetSRVCount(uint32_t count) { m_SRVCount = count; }
-  void SetUAVCount(uint32_t count) { m_UAVCount = count; }
 
   uint32_t GetNumResources() {
     return m_CBufferCount + m_SamplerCount + m_SRVCount + m_UAVCount;
@@ -476,7 +509,6 @@ public:
     _Analysis_assume_(i < GetNumResources());
     return ResourceReader(&m_ResourceInfo[i], m_Context);
   }
-
 
   uint32_t GetNumCBuffers() { return m_CBufferCount; }
   ResourceReader GetCBuffer(uint32_t i) {
@@ -528,7 +560,7 @@ public:
   }
   uint32_t GetShaderStageFlag() { return m_RuntimeDataFunctionInfo->ShaderStageFlag; }
   uint32_t GetMinShaderTarget() { return m_RuntimeDataFunctionInfo->MinShaderTarget; }
-  uint32_t FunctionReader::GetNumResources() {
+  uint32_t GetNumResources() {
     if (m_RuntimeDataFunctionInfo->Resources == UINT_MAX)
       return 0;
     return m_Context->pIndexTableReader->getRow(m_RuntimeDataFunctionInfo->Resources).Count();
@@ -536,6 +568,20 @@ public:
   ResourceReader GetResource(uint32_t i) {
     uint32_t resIndex = m_Context->pIndexTableReader->getRow(m_RuntimeDataFunctionInfo->Resources).At(i);
     return m_Context->pResourceTableReader->GetItem(resIndex);
+  }
+
+  uint32_t GetNumDependencies() {
+    if (m_RuntimeDataFunctionInfo->FunctionDependencies == UINT_MAX)
+      return 0;
+    return m_Context->pIndexTableReader
+        ->getRow(m_RuntimeDataFunctionInfo->FunctionDependencies).Count();
+  }
+
+  const char *GetDependency(uint32_t i) {
+    uint32_t resIndex =
+        m_Context->pIndexTableReader
+            ->getRow(m_RuntimeDataFunctionInfo->FunctionDependencies).At(i);
+    return m_Context->pStringTableReader->Get(resIndex);
   }
 
   uint32_t GetPayloadSizeInBytes() { return m_RuntimeDataFunctionInfo->PayloadSizeInBytes; }
@@ -580,6 +626,8 @@ public:
         m_FunctionTableReader(), m_IndexTableReader(), m_Context() {
     m_Context = {&m_StringReader, &m_IndexTableReader, &m_ResourceTableReader,
                  &m_FunctionTableReader};
+    m_ResourceTableReader.SetContext(&m_Context);
+    m_FunctionTableReader.SetContext(&m_Context);
   }
   DxilRuntimeData(const char *ptr) {
     InitFromRDAT(ptr);
@@ -592,32 +640,24 @@ public:
       for (uint32_t i = 0; i < TableCount; ++i) {
         RuntimeDataTableHeader *curRecord = &records[i];
         switch (curRecord->tableType) {
-          case RuntimeDataTableType::Resource: {
-            uint32_t cBufferCount = *(uint32_t*)(ptr + curRecord->offset);
-            uint32_t samplerCount = *(uint32_t*)(ptr + curRecord->offset + 4);
-            uint32_t srvCount = *(uint32_t*)(ptr + curRecord->offset + 8);
-            uint32_t uavCount = *(uint32_t*)(ptr + curRecord->offset + 12);
-            m_ResourceTableReader.SetResourceInfo((RuntimeDataResourceInfo*)(ptr + curRecord->offset + 16));
-            m_ResourceTableReader.SetCBufferCount(cBufferCount);
-            m_ResourceTableReader.SetSamplerCount(samplerCount);
-            m_ResourceTableReader.SetSRVCount(srvCount);
-            m_ResourceTableReader.SetUAVCount(uavCount);
-            m_ResourceTableReader.SetContext(&m_Context);
+          case RuntimeDataPartType::Resource: {
+            m_ResourceTableReader.SetResourceInfo(
+                (RuntimeDataResourceInfo *)(ptr + curRecord->offset),
+                curRecord->size / sizeof(RuntimeDataResourceInfo));
             break;
           }
-          case RuntimeDataTableType::String: {
+          case RuntimeDataPartType::String: {
             m_StringReader = PSVStringTable(ptr + curRecord->offset, curRecord->size);
             break;
           }
-          case RuntimeDataTableType::Function: {
-            RuntimeDataFunctionInfo *funcInfo =
-                (RuntimeDataFunctionInfo *)(ptr + curRecord->offset);
-            m_FunctionTableReader.SetFunctionInfo(funcInfo);
-            m_FunctionTableReader.SetCount(curRecord->size / sizeof(RuntimeDataFunctionInfo));
-            m_FunctionTableReader.SetContext(&m_Context);
+          case RuntimeDataPartType::Function: {
+            m_FunctionTableReader.SetFunctionInfo(
+                (RuntimeDataFunctionInfo *)(ptr + curRecord->offset));
+            m_FunctionTableReader.SetCount(curRecord->size /
+                                           sizeof(RuntimeDataFunctionInfo));
             break;
           }
-          case RuntimeDataTableType::Index: {
+          case RuntimeDataPartType::Index: {
             m_IndexTableReader = IndexTableReader(
                 (uint32_t *)(ptr + curRecord->offset), curRecord->size / 4);
             break;
