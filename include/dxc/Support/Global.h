@@ -187,7 +187,7 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 //
 #define DXASSERT(exp, fmt, ...)\
   do { _Analysis_assume_(exp); if(!(exp)) {                              \
-    OutputDebugFormatA("Error: \t%s\t\nFile:\n%s(%d)\t\nFunc:\t%s.\n\t" fmt "\n", "!(" #exp ")", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+    OutputDebugFormatA("Error: \t%s\nFile:\n%s(%d)\nFunc:\t%s.\n\t" fmt "\n", "!(" #exp ")", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
     __debugbreak();\
   } } while(0)
 
