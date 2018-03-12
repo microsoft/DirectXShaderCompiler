@@ -261,9 +261,18 @@ private:
   /// instructions and returns the <result-id>. Returns 0 on failure.
   uint32_t translateResourceType(QualType type, LayoutRule rule);
 
-  /// \bried For the given sampled type, returns the corresponding image format
+  /// \brief For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
   spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
+
+  /// \brief Aligns currentOffset properly to allow packing vectors in the HLSL
+  /// way: using the element type's alignment as the vector alignment, as long
+  /// as there is no improper straddle.
+  /// fieldSize and fieldAlignment are the original size and alignment
+  /// calculated without considering the HLSL vector relaxed rule.
+  void alignUsingHLSLRelaxedLayout(QualType fieldType, uint32_t fieldSize,
+                                   uint32_t *fieldAlignment,
+                                   uint32_t *currentOffset);
 
 public:
   /// \brief Returns the alignment and size in bytes for the given type
