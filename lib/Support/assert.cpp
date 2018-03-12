@@ -9,9 +9,12 @@
 
 #include "assert.h"
 #include "windows.h"
+#include "dxc/Support/Global.h"
 
 void llvm_assert(_In_z_ const char *_Message,
                  _In_z_ const char *_File,
-                 _In_ unsigned _Line) {
+                 _In_ unsigned _Line,
+                 const char *_Function) {
+  OutputDebugFormatA("Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", _Message, _File, _Line, _Function);
   RaiseException(STATUS_LLVM_ASSERT, 0, 0, 0);
 }
