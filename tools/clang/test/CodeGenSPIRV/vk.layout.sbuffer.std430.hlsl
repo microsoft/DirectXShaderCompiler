@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// Run: %dxc -T ps_6_0 -E main -fvk-use-glsl-layout
 
 struct R {     // Alignment       Offset     Size       Next
     float2 rf; // 8(vec2)      -> 0        + 8(vec2)  = 8

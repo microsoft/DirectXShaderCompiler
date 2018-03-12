@@ -1217,6 +1217,11 @@ TEST_F(FileTest, VulkanLayout64BitTypesStd430) {
 TEST_F(FileTest, VulkanLayout64BitTypesStd140) {
   runFileTest("vk.layout.64bit-types.std140.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutVectorRelaxedLayout) {
+  // Allows vectors to be aligned according to their element types, if not
+  // causing improper straddle
+  runFileTest("vk.layout.vector.relaxed.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
   runFileTest("vk.layout.push-constant.std430.hlsl");

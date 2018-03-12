@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// Run: %dxc -T vs_6_0 -E main -fvk-use-glsl-layout
 
 // CHECK: OpDecorate %_arr_v2float_uint_3 ArrayStride 8
 // CHECK: OpDecorate %_arr_mat3v2float_uint_2 ArrayStride 32

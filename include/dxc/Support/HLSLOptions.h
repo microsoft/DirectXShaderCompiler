@@ -162,6 +162,7 @@ public:
   bool GenSPIRV; // OPT_spirv
   bool VkIgnoreUnusedResources; // OPT_fvk_ignore_used_resources
   bool VkInvertY; // OPT_fvk_invert_y
+  bool VkUseGlslLayout; // OPT_fvk_use_glsl_layout
   llvm::StringRef VkStageIoOrder; // OPT_fvk_stage_io_order
   llvm::SmallVector<uint32_t, 4> VkBShift; // OPT_fvk_b_shift
   llvm::SmallVector<uint32_t, 4> VkTShift; // OPT_fvk_t_shift
