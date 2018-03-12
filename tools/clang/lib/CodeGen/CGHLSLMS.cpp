@@ -27,6 +27,7 @@
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -3701,8 +3702,8 @@ static bool SimplifyBitCastGEP(GEPOperator *GEP, llvm::Type *FromTy, llvm::Type 
   }
   return false;
 }
-
-static void SimplifyBitCast(BitCastOperator *BC, std::vector<Instruction *> &deadInsts) {
+typedef SmallPtrSet<Instruction *, 4> SmallInstSet;
+static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
   Value *Ptr = BC->getOperand(0);
   llvm::Type *FromTy = Ptr->getType();
   llvm::Type *ToTy = BC->getType();
@@ -3732,18 +3733,18 @@ static void SimplifyBitCast(BitCastOperator *BC, std::vector<Instruction *> &dea
     if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
       if (SimplifyBitCastLoad(LI, FromTy, ToTy, Ptr)) {
         LI->dropAllReferences();
-        deadInsts.emplace_back(LI);
+        deadInsts.insert(LI);
       }
     } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
       if (SimplifyBitCastStore(SI, FromTy, ToTy, Ptr)) {
         SI->dropAllReferences();
-        deadInsts.emplace_back(SI);
+        deadInsts.insert(SI);
       }
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       if (SimplifyBitCastGEP(GEP, FromTy, ToTy, Ptr))
         if (Instruction *I = dyn_cast<Instruction>(GEP)) {
           I->dropAllReferences();
-          deadInsts.emplace_back(I);
+          deadInsts.insert(I);
         }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       // Skip function call.
@@ -3991,7 +3992,7 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
 }
 
 static void SimpleTransformForHLDXIR(Instruction *I,
-                                     std::vector<Instruction *> &deadInsts) {
+                                     SmallInstSet &deadInsts) {
 
   unsigned opcode = I->getOpcode();
   switch (opcode) {
@@ -4048,11 +4049,13 @@ static void SimpleTransformForHLDXIR(Instruction *I,
 
 // Do simple transform to make later lower pass easier.
 static void SimpleTransformForHLDXIR(llvm::Module *pM) {
-  std::vector<Instruction *> deadInsts;
+  SmallInstSet deadInsts;
   for (Function &F : pM->functions()) {
     for (BasicBlock &BB : F.getBasicBlockList()) {
       for (BasicBlock::iterator Iter = BB.begin(); Iter != BB.end(); ) {
         Instruction *I = (Iter++);
+        if (deadInsts.count(I))
+          continue; // Skip dead instructions
         SimpleTransformForHLDXIR(I, deadInsts);
       }
     }

@@ -72,6 +72,7 @@ doskey hctvs=%HLSL_SRC_DIR%\utils\hct\hctvs.cmd $*
 call :checksdk
 if errorlevel 1 (
   echo Windows SDK not properly installed. Build enviornment could not be setup correctly.
+  echo Please see the README.md instructions in the project root.
   exit /b 1
 )
 
@@ -177,40 +178,57 @@ goto :eof
 
 :checksdk 
 setlocal
-reg query "HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots" /v KitsRoot10 1>nul
-if errorlevel 1 (
-  echo Unable to find Windows 10 SDK.
-  echo Please see the README.md instructions in the project root.
+set min_sdk_ver=14393
+
+set REG_QUERY=REG QUERY "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0"
+set kit_root=
+for /F "tokens=1,2*" %%A in ('%REG_QUERY% /v InstallationFolder') do (
+  if "%%A"=="InstallationFolder" (
+    rem echo Found Windows 10 SDK
+    rem echo   InstallationFolder: "%%C"
+    set kit_root=%%C
+  )
+)
+if ""=="%kit_root%" (
+  echo Did not find a Windows 10 SDK installation.
   exit /b 1
 )
-for /f "tokens=2* delims= " %%A in ('reg query "HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots" /v KitsRoot10') do set kit_root=%%B
 if not exist "%kit_root%" (
   echo Windows 10 SDK was installed but is not accessible.
   exit /b 1
 )
-rem 10.0.16299.0, 10.0.15063.0 and 10.0.14393.0 will work properly. Reject 10586 and 10240 explicitly.
-if exist "%kit_root%\include\10.0.16299.0\um\d3d12.h" (
-  echo Found Windows SDK 10.0.16299.0
-  goto :eof
+
+set sdk_ver=
+set d3d12_sdk_ver=
+for /F "tokens=1-3" %%A in ('%REG_QUERY% /v ProductVersion') do (
+  if "%%A"=="ProductVersion" (
+    rem echo       ProductVersion: %%C
+    for /F "tokens=1-3 delims=." %%X in ("%%C") do (
+      set sdk_ver=%%Z
+      if exist "%kit_root%\include\10.0.%%Z.0\um\d3d12.h" (
+        set d3d12_sdk_ver=%%Z
+      )
+    )
+  )
 )
-if exist "%kit_root%\include\10.0.15063.0\um\d3d12.h" (
-  echo Found Windows SDK 10.0.15063.0
-  goto :eof
+if ""=="%sdk_ver%" (
+  echo Could not detect Windows 10 SDK version.
+  exit /b 1
 )
-if exist "%kit_root%\include\10.0.14393.0\um\d3d12.h" (
-  echo Found Windows SDK 10.0.14393.0
-  goto :eof
+if NOT %min_sdk_ver% LEQ %sdk_ver% (
+  echo Found unsupported Windows 10 SDK version 10.0.%sdk_ver%.0 installed.
+  echo Windows 10 SDK version 10.0.%min_sdk_ver%.0 or newer is required.
+  exit /b 1
 )
-if exist "%kit_root%\include\10.0.10586.0\um\d3d12.h" (
-  echo Found Windows SDK 10.0.10586.0 - no longer supported.
+
+if ""=="%d3d12_sdk_ver%" (
+  echo Windows 10 SDK version 10.0.%sdk_ver%.0 installed, but did not find d3d12.h.
+  exit /b 1
+) else (
+  echo Found Windows 10 SDK 10.0.%d3d12_sdk_ver%.0
 )
-if exist  "%kit_root%\include\10.0.10240.0\um\d3d12.h" (
-  echo Found Windows SDK 10.0.10240.0 - no longer supported.
-)
-echo Unable to find a suitable SDK version under %kit_root%\include
-echo Please see the README.md instructions in the project root.
-exit /b 1
 endlocal
+goto :eof
 
 :checkcmake 
 cmake --version | findstr 3.4.3 1>nul 2>nul
