@@ -506,7 +506,11 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
     basePtr->SetID(ID);
 
     basePtr->SetGlobalSymbol(GV);
+    DM.GetLLVMUsed().push_back(GV);
   }
+  // Prevent global vars used for resources from being deleted through optimizations
+  // while we still have hidden uses (pointers in resource vectors).
+  DM.EmitLLVMUsed();
 }
 
 void DxilLinkJob::LinkNamedMDNodes(Module *pM, ValueToValueMapTy &vmap) {
@@ -769,7 +773,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   // Add resource to DM.
   // This should be after functions cloned.
   AddResourceToDM(DM);
-  
+
   // Link metadata like debug info.
   LinkNamedMDNodes(pM.get(), vmap);
 
