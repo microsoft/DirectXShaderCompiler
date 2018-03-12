@@ -821,7 +821,10 @@ private:
     // User can be either instruction, constant, or operator. But User is an
     // operator only if constant is a scalar value, not resource pointer.
     llvm::Constant *CU = cast<llvm::Constant>(User);
-    return FindUsingFunction(*CU->user_begin());
+    if (!CU->user_empty())
+      return FindUsingFunction(*CU->user_begin());
+    else
+      return nullptr;
   }
 
   void UpdateFunctionToResourceInfo(const DxilResourceBase *resource,
@@ -831,6 +834,8 @@ private:
       for (auto user : var->users()) {
         // Find the function.
         llvm::Function *F = FindUsingFunction(user);
+        if (!F)
+          continue;
         if (m_FuncToResNameOffset.find(F) != m_FuncToResNameOffset.end()) {
           m_FuncToResNameOffset[F].emplace_back(offset);
         }
