@@ -110,49 +110,49 @@ public:
   llvm::StringRef RootSignatureDefine; // OPT_rootsig_define
   llvm::StringRef FloatDenormalMode; // OPT_denorm
 
-  bool AllResourcesBound; // OPT_all_resources_bound
-  bool AstDump; // OPT_ast_dump
-  bool ColorCodeAssembly; // OPT_Cc
-  bool CodeGenHighLevel; // OPT_fcgl
-  bool DebugInfo; // OPT__SLASH_Zi
-  bool DebugNameForBinary; // OPT_Zsb
-  bool DebugNameForSource; // OPT_Zss
-  bool DumpBin;        // OPT_dumpbin
-  bool WarningAsError; // OPT__SLASH_WX
-  bool IEEEStrict;     // OPT_Gis
-  bool IgnoreLineDirectives; // OPT_ignore_line_directives
-  bool DefaultColMajor;  // OPT_Zpc
-  bool DefaultRowMajor;  // OPT_Zpr
-  bool DisableValidation; // OPT_VD
-  unsigned OptLevel;      // OPT_O0/O1/O2/O3
-  bool DisableOptimizations; // OPT_Od
-  bool AvoidFlowControl;     // OPT_Gfa
-  bool PreferFlowControl;    // OPT_Gfp
-  bool EnableStrictMode;     // OPT_Ges
-  unsigned long HLSLVersion; // OPT_hlsl_version (2015-2018)
-  bool Enable16BitTypes; // OPT_enable_16bit_types
-  bool OptDump; // OPT_ODump - dump optimizer commands
+  bool AllResourcesBound = false; // OPT_all_resources_bound
+  bool AstDump = false; // OPT_ast_dump
+  bool ColorCodeAssembly = false; // OPT_Cc
+  bool CodeGenHighLevel = false; // OPT_fcgl
+  bool DebugInfo = false; // OPT__SLASH_Zi
+  bool DebugNameForBinary = false; // OPT_Zsb
+  bool DebugNameForSource = false; // OPT_Zss
+  bool DumpBin = false;        // OPT_dumpbin
+  bool WarningAsError = false; // OPT__SLASH_WX
+  bool IEEEStrict = false;     // OPT_Gis
+  bool IgnoreLineDirectives = false; // OPT_ignore_line_directives
+  bool DefaultColMajor = false;  // OPT_Zpc
+  bool DefaultRowMajor = false;  // OPT_Zpr
+  bool DisableValidation = false; // OPT_VD
+  unsigned OptLevel = 0;      // OPT_O0/O1/O2/O3
+  bool DisableOptimizations = false; // OPT_Od
+  bool AvoidFlowControl = false;     // OPT_Gfa
+  bool PreferFlowControl = false;    // OPT_Gfp
+  bool EnableStrictMode = false;     // OPT_Ges
+  unsigned long HLSLVersion = 0; // OPT_hlsl_version (2015-2018)
+  bool Enable16BitTypes = false; // OPT_enable_16bit_types
+  bool OptDump = false; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings
   bool ShowHelp = false;  // OPT_help
-  bool UseColor; // OPT_Cc
-  bool UseHexLiterals; // OPT_Lx
-  bool UseInstructionByteOffsets; // OPT_No
-  bool UseInstructionNumbers; // OPT_Ni
-  bool NotUseLegacyCBufLoad;  // OPT_not_use_legacy_cbuf_load
-  bool PackPrefixStable;  // OPT_pack_prefix_stable
-  bool PackOptimized;  // OPT_pack_optimized
-  bool DisplayIncludeProcess; // OPT__vi
-  bool RecompileFromBinary; // OPT _Recompile (Recompiling the DXBC binary file not .hlsl file)
-  bool StripDebug; // OPT Qstrip_debug
-  bool StripRootSignature; // OPT_Qstrip_rootsignature
-  bool StripPrivate; // OPT_Qstrip_priv
-  bool StripReflection; // OPT_Qstrip_reflect
-  bool ExtractRootSignature; // OPT_extractrootsignature
-  bool DisassembleColorCoded; // OPT_Cc
-  bool DisassembleInstNumbers; //OPT_Ni
-  bool DisassembleByteOffset; //OPT_No
-  bool DisaseembleHex; //OPT_Lx
-  bool LegacyMacroExpansion; // OPT_flegacy_macro_expansion
+  bool UseColor = false; // OPT_Cc
+  bool UseHexLiterals = false; // OPT_Lx
+  bool UseInstructionByteOffsets = false; // OPT_No
+  bool UseInstructionNumbers = false; // OPT_Ni
+  bool NotUseLegacyCBufLoad = false;  // OPT_not_use_legacy_cbuf_load
+  bool PackPrefixStable = false;  // OPT_pack_prefix_stable
+  bool PackOptimized = false;  // OPT_pack_optimized
+  bool DisplayIncludeProcess = false; // OPT__vi
+  bool RecompileFromBinary = false; // OPT _Recompile (Recompiling the DXBC binary file not .hlsl file)
+  bool StripDebug = false; // OPT Qstrip_debug
+  bool StripRootSignature = false; // OPT_Qstrip_rootsignature
+  bool StripPrivate = false; // OPT_Qstrip_priv
+  bool StripReflection = false; // OPT_Qstrip_reflect
+  bool ExtractRootSignature = false; // OPT_extractrootsignature
+  bool DisassembleColorCoded = false; // OPT_Cc
+  bool DisassembleInstNumbers = false; //OPT_Ni
+  bool DisassembleByteOffset = false; //OPT_No
+  bool DisaseembleHex = false; //OPT_Lx
+  bool LegacyMacroExpansion = false; // OPT_flegacy_macro_expansion
 
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();
