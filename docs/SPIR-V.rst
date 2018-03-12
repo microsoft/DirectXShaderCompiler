@@ -338,6 +338,37 @@ Validation is turned on by default as the last stage of SPIR-V CodeGen. Failing
 validation, which indicates there is a CodeGen bug, will trigger a fatal error.
 Please file an issue if you see that.
 
+Reflection
+----------
+
+Making reflection easier is one of the goal of SPIR-V CodeGen. This section
+provides guidelines about how to reflect on certain facts.
+
+Note that we generate ``OpName``/``OpMemberName`` instructions for various
+types/variables both explicitly defined in the source code and interally created
+by the compiler. These names are primarily for debugging purposes in the
+compiler. They have "no semantic impact and can safely be removed" according
+to the SPIR-V spec. And they are subject to changes without notice. So we do
+not suggest to use them for reflection.
+
+Read-only vs. read-write resource types
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+There are no clear and consistent decorations in the SPIR-V to show whether a
+resource type is translated from a read-only (RO) or read-write (RW) HLSL
+resource type. Instead, you need to use different checks for reflecting different
+resource types:
+
+* HLSL samplers: RO.
+* HLSL ``Buffer``/``RWBuffer``/``Texture*``/``RWTexture*``: Check the "Sampled"
+  operand in the ``OpTypeImage`` instruction they translated into. "2" means RW,
+  "1" means RO.
+* HLSL constant/texture/structured/byte buffers: Check both ``Block``/``BufferBlock``
+  and ``NonWritable`` decoration. If decorated with ``Block`` (``cbuffer`` &
+  ``ConstantBuffer``), then RO; if decorated with ``BufferBlock`` and ``NonWritable``
+  (``tbuffer``, ``TextureBuffer``, ``StructuredBuffer``), then RO; Otherwise, RW.
+
+
 HLSL Types
 ==========
 
