@@ -341,7 +341,7 @@ Please file an issue if you see that.
 Reflection
 ----------
 
-Making reflection easier is one of the goal of SPIR-V CodeGen. This section
+Making reflection easier is one of the goals of SPIR-V CodeGen. This section
 provides guidelines about how to reflect on certain facts.
 
 Note that we generate ``OpName``/``OpMemberName`` instructions for various
