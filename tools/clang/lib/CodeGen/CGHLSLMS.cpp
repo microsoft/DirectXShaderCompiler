@@ -1900,7 +1900,7 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
     if (VD->hasInit() && resClass != DXIL::ResourceClass::Invalid)
       return;
     // skip static global.
-    if (!VD->isExternallyVisible()) {
+    if (!VD->hasExternalFormalLinkage()) {
       if (VD->hasInit() && VD->getType().isConstQualified()) {
         Expr* InitExp = VD->getInit();
         GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(VD));
