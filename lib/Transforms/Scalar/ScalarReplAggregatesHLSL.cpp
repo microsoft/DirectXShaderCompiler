@@ -3975,6 +3975,22 @@ public:
     for (auto Iter : funcMap)
       replaceCall(Iter.first, Iter.second);
 
+    // Update patch constant function.
+    for (Function &F : M.functions()) {
+      if (F.isDeclaration())
+        continue;
+      if (!m_pHLModule->HasDxilFunctionProps(&F))
+        continue;
+      DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(&F);
+      if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
+        Function *oldPatchConstantFunc =
+            funcProps.ShaderProps.HS.patchConstantFunc;
+        if (funcMap.count(oldPatchConstantFunc))
+          funcProps.ShaderProps.HS.patchConstantFunc =
+              funcMap[oldPatchConstantFunc];
+      }
+    }
+
     // Remove flattened functions.
     for (auto Iter : funcMap) {
       Function *F = Iter.first;
@@ -6275,17 +6291,6 @@ void SROA_Parameter_HLSL::replaceCall(Function *F, Function *flatF) {
   // Update entry function.
   if (F == m_pHLModule->GetEntryFunction()) {
     m_pHLModule->SetEntryFunction(flatF);
-  }
-  // Update patch constant function.
-  if (m_pHLModule->HasDxilFunctionProps(flatF)) {
-    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(flatF);
-    if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
-      Function *oldPatchConstantFunc =
-          funcProps.ShaderProps.HS.patchConstantFunc;
-      if (funcMap.count(oldPatchConstantFunc))
-        funcProps.ShaderProps.HS.patchConstantFunc =
-            funcMap[oldPatchConstantFunc];
-    }
   }
   // TODO: flatten vector argument and lower resource argument when flatten
   // functions.
