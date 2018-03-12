@@ -6745,12 +6745,12 @@ static Instruction *BitCastValueOrPtr(Value* V, Instruction *Insert, Type *Ty, b
   }
 }
 
-static Instruction *CreateTransposeShuffle(IRBuilder<> &Builder, Value *vecVal, unsigned row, unsigned col) {
-  SmallVector<int, 16> castMask(col * row);
+static Instruction *CreateTransposeShuffle(IRBuilder<> &Builder, Value *vecVal, unsigned toRows, unsigned toCols) {
+  SmallVector<int, 16> castMask(toCols * toRows);
   unsigned idx = 0;
-  for (unsigned c = 0; c < col; c++)
-    for (unsigned r = 0; r < row; r++)
-      castMask[idx++] = r * col + c;
+  for (unsigned r = 0; r < toRows; r++)
+    for (unsigned c = 0; c < toCols; c++)
+      castMask[idx++] = c * toRows + r;
   return cast<Instruction>(
     Builder.CreateShuffleVector(vecVal, vecVal, castMask));
 }
@@ -6834,11 +6834,11 @@ void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
           IRBuilder<> Builder(CI);
           HLCastOpcode opcode = static_cast<HLCastOpcode>(hlsl::GetHLOpcode(CI));
           bool bTranspose = false;
-          bool bColSource = false;
+          bool bColDest = false;
           switch (opcode) {
-          case HLCastOpcode::ColMatrixToRowMatrix:
-            bColSource = true;
           case HLCastOpcode::RowMatrixToColMatrix:
+            bColDest = true;
+          case HLCastOpcode::ColMatrixToRowMatrix:
             bTranspose = true;
           case HLCastOpcode::ColMatrixToVecCast:
           case HLCastOpcode::RowMatrixToVecCast: {
@@ -6849,7 +6849,7 @@ void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
             if (bTranspose) {
               unsigned row, col;
               HLMatrixLower::GetMatrixInfo(matVal->getType(), col, row);
-              if (bColSource) std::swap(row, col);
+              if (bColDest) std::swap(row, col);
               vecVal = CreateTransposeShuffle(Builder, vecVal, row, col);
             }
             CI->replaceAllUsesWith(vecVal);

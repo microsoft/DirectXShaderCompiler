@@ -1265,12 +1265,12 @@ void HLMatrixLowerPass::TrivialMatReplace(Value *matVal,
     }
 }
 
-static Instruction *CreateTransposeShuffle(IRBuilder<> &Builder, Value *vecVal, unsigned row, unsigned col) {
-  SmallVector<int, 16> castMask(col * row);
+static Instruction *CreateTransposeShuffle(IRBuilder<> &Builder, Value *vecVal, unsigned toRows, unsigned toCols) {
+  SmallVector<int, 16> castMask(toCols * toRows);
   unsigned idx = 0;
-  for (unsigned c = 0; c < col; c++)
-    for (unsigned r = 0; r < row; r++)
-      castMask[idx++] = r * col + c;
+  for (unsigned r = 0; r < toRows; r++)
+    for (unsigned c = 0; c < toCols; c++)
+      castMask[idx++] = c * toRows + r;
   return cast<Instruction>(
     Builder.CreateShuffleVector(vecVal, vecVal, castMask));
 }
