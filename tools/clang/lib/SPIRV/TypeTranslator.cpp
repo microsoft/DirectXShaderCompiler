@@ -944,6 +944,26 @@ bool TypeTranslator::isOrContainsNonFpColMajorMatrix(QualType type,
   return false;
 }
 
+bool TypeTranslator::isConstantTextureBuffer(const Decl *decl) {
+  if (const auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl->getDeclContext()))
+    // Make sure we are not returning true for VarDecls inside cbuffer/tbuffer.
+    return bufferDecl->isConstantBufferView();
+
+  return false;
+}
+
+bool TypeTranslator::isResourceType(const ValueDecl *decl) {
+  if (isConstantTextureBuffer(decl))
+    return true;
+
+  const QualType declType = decl->getType();
+
+  if (isSubpassInput(declType) || isSubpassInputMS(declType))
+    return true;
+
+  return hlsl::IsHLSLResourceType(declType);
+}
+
 bool TypeTranslator::isRowMajorMatrix(QualType type, const Decl *decl) const {
   if (!isMxNMatrix(type) && !type->isArrayType())
     return false;
@@ -1068,7 +1088,8 @@ TypeTranslator::getCapabilityForStorageImageReadWrite(QualType type) {
 }
 
 llvm::SmallVector<const Decoration *, 4>
-TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
+TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
+                                     bool forGlobals) {
   const auto spirvContext = theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 4> decorations;
   uint32_t offset = 0, index = 0;
@@ -1081,7 +1102,15 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
-    auto fieldType = cast<DeclaratorDecl>(field)->getType();
+    const auto *declDecl = cast<DeclaratorDecl>(field);
+    auto fieldType = declDecl->getType();
+
+    // If we are creating the $Globals cbuffer, we only care about
+    // externally-visiable non-resource-type variables.
+    if (forGlobals &&
+        (!declDecl->hasExternalFormalLinkage() || isResourceType(declDecl)))
+      continue;
+
     const bool isRowMajor = isRowMajorMatrix(fieldType, field);
 
     uint32_t memberAlignment = 0, memberSize = 0, stride = 0;

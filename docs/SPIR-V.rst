@@ -840,13 +840,10 @@ According to `Shader Constants <https://msdn.microsoft.com/en-us/library/windows
   the parameter list of a function appear in the $Param constant buffer when a
   shader is compiled outside of the effects framework.
 
-However, when targeting SPIR-V, all externally visible variables are translated
-into stand-alone SPIR-V variables of their original types; they are not grouped
-together into a struct. There is one exception regarding matrix variables,
-though. For an externally visible matrix, we wrap it in a struct; the struct has
-no other members but the matrix. The reason of this behavior is to enable
-translating the ``row_major``/``column_major`` annotation since SPIR-V only
-allows ``RowMajor``/``ColMajor`` decorations to appear on struct members.
+So all global externally-visible non-resource-type stand-alone variables will
+be collected into a cbuffer named as ``$Globals``, no matter whether they are
+statically referenced by the entry point or not. The ``$Globals`` cbuffer
+follows the layout rules like normal cbuffer.
 
 Storage class
 -------------

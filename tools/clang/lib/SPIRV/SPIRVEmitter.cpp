@@ -163,8 +163,8 @@ inline bool isExternalVar(const VarDecl *var) {
   // groupshared variables are allowed to be declared as "static". But we still
   // need to put them in the Workgroup storage class. That is, when seeing
   // "static groupshared", ignore "static".
-  return var->isExternallyVisible() ? !var->isStaticDataMember()
-                                    : var->getAttr<HLSLGroupSharedAttr>();
+  return var->hasExternalFormalLinkage() ? !var->isStaticDataMember()
+                                         : var->getAttr<HLSLGroupSharedAttr>();
 }
 
 /// Returns the referenced variable's DeclContext if the given expr is
@@ -173,12 +173,8 @@ inline bool isExternalVar(const VarDecl *var) {
 const DeclContext *isConstantTextureBufferDeclRef(const Expr *expr) {
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr->IgnoreParenCasts()))
     if (const auto *varDecl = dyn_cast<VarDecl>(declRefExpr->getFoundDecl()))
-      if (const auto *bufferDecl =
-              dyn_cast<HLSLBufferDecl>(varDecl->getDeclContext()))
-        // Make sure we are not returning true for VarDecls inside
-        // cbuffer/tbuffer.
-        if (bufferDecl->isConstantBufferView())
-          return varDecl->getType()->getAs<RecordType>()->getDecl();
+      if (TypeTranslator::isConstantTextureBuffer(varDecl))
+        return varDecl->getType()->getAs<RecordType>()->getDecl();
 
   return nullptr;
 }

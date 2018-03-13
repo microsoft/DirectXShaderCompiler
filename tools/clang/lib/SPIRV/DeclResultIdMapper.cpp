@@ -381,22 +381,13 @@ uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
 uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
   auto rule = LayoutRule::Void;
-  bool isMatType = false;     // Whether is matrix that needs struct wrap
   bool isACRWSBuffer = false; // Whether is {Append|Consume|RW}StructuredBuffer
 
   if (var->getAttr<HLSLGroupSharedAttr>()) {
     // For CS groupshared variables
     storageClass = spv::StorageClass::Workgroup;
-  } else if (TypeTranslator::isMxNMatrix(var->getType())) {
-    isMatType = true;
-    // According to HLSL doc:
-    //   Variables that are placed in the global scope are added implicitly to
-    //   the $Global cbuffer, using the same packing method that is used for
-    //   cbuffers.
-    // So we should translate stand-alone matrices like cbuffer.
-    storageClass = spv::StorageClass::Uniform;
-    rule = LayoutRule::GLSLStd140;
-  } else if (auto *t = var->getType()->getAs<RecordType>()) {
+  } else if (TypeTranslator::isResourceType(var)) {
+    const auto *t = var->getType()->getAs<RecordType>();
     const llvm::StringRef typeName = t->getDecl()->getName();
 
     // These types are all translated into OpTypeStruct with BufferBlock
@@ -413,30 +404,22 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
       rule = LayoutRule::GLSLStd430;
       isACRWSBuffer = true;
     }
-  }
-
-  uint32_t varType = 0;
-
-  if (isMatType) {
-    // For stand-alone matrices, we need to wrap it in a struct so that we can
-    // annotate the majorness decoration.
-    varType = getMatrixStructType(var, storageClass, rule);
   } else {
-    varType = typeTranslator.translateType(var->getType(), rule);
+    // This is a stand-alone externally-visiable non-resource-type variable.
+    // They should be grouped into the $Globals cbuffer. We create that cbuffer
+    // and record all variables inside it upon seeing the first such variable.
+    if (astDecls.count(var) == 0)
+      createGlobalsCBuffer(var);
+
+    return astDecls[var].info;
   }
+
+  uint32_t varType = typeTranslator.translateType(var->getType(), rule);
 
   const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
                                               var->getName(), llvm::None);
   astDecls[var] =
       SpirvEvalInfo(id).setStorageClass(storageClass).setLayoutRule(rule);
-  if (isMatType) {
-    astDecls[var].info.setRowMajor(
-        typeTranslator.isRowMajorMatrix(var->getType(), var));
-
-    // We have wrapped the stand-alone matrix inside a struct. Mark it as
-    // needing an extra index to access.
-    astDecls[var].indexInCTBuffer = 0;
-  }
 
   // Variables in Workgroup do not need descriptor decorations.
   if (storageClass == spv::StorageClass::Workgroup)
@@ -496,15 +479,19 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
   // follow GLSL std140 layout rules, and tbuffers follow GLSL std430 layout
   // rules. PushConstants follow GLSL std430 layout rules.
 
+  const bool forCBuffer = usageKind == ContextUsageKind::CBuffer;
+  const bool forTBuffer = usageKind == ContextUsageKind::TBuffer;
+  const bool forGlobals = usageKind == ContextUsageKind::Globals;
+
   auto &context = *theBuilder.getSPIRVContext();
-  const LayoutRule layoutRule = usageKind == ContextUsageKind::CBuffer
+  const LayoutRule layoutRule = (forCBuffer || forGlobals)
                                     ? LayoutRule::GLSLStd140
                                     : LayoutRule::GLSLStd430;
-  const auto *blockDec = usageKind == ContextUsageKind::TBuffer
-                             ? Decoration::getBufferBlock(context)
-                             : Decoration::getBlock(context);
+  const auto *blockDec = forTBuffer ? Decoration::getBufferBlock(context)
+                                    : Decoration::getBlock(context);
 
-  auto decorations = typeTranslator.getLayoutDecorations(decl, layoutRule);
+  auto decorations =
+      typeTranslator.getLayoutDecorations(decl, layoutRule, forGlobals);
   decorations.push_back(blockDec);
 
   // Collect the type and name for each field
@@ -522,6 +509,13 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
     // HLSLBufferDecls).
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
     const auto *declDecl = cast<DeclaratorDecl>(subDecl);
+
+    // If we are creating the $Globals cbuffer, we only care about
+    // externally-visiable non-resource-type variables.
+    if (forGlobals && (!declDecl->hasExternalFormalLinkage() ||
+                       TypeTranslator::isResourceType(declDecl)))
+      continue;
+
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
     auto varType = declDecl->getType();
@@ -534,7 +528,7 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
 
     // tbuffer/TextureBuffers are non-writable SSBOs. OpMemberDecorate
     // NonWritable must be applied to all fields.
-    if (usageKind == ContextUsageKind::TBuffer) {
+    if (forTBuffer) {
       decorations.push_back(Decoration::getNonWritable(
           *theBuilder.getSPIRVContext(), fieldIndex));
     }
@@ -638,6 +632,43 @@ uint32_t DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
   // descriptor set.
 
   return var;
+}
+
+void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
+  if (astDecls.count(var) != 0)
+    return;
+
+  const auto *context = var->getDeclContext();
+  const uint32_t globals = createVarOfExplicitLayoutStruct(
+      context, ContextUsageKind::Globals, "type.$Globals", "$Globals");
+
+  resourceVars.emplace_back(globals, ResourceVar::Category::Other, nullptr,
+                            nullptr, nullptr);
+
+  uint32_t index = 0;
+  for (const auto *decl : context->decls())
+    if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
+      // We are only interested in explicitly-defined externally-visible
+      // variables here.
+      if (varDecl->isImplicit() || !varDecl->hasExternalFormalLinkage() ||
+          TypeTranslator::isResourceType(varDecl))
+        continue;
+
+      if (const auto *attr = varDecl->getAttr<VKBindingAttr>()) {
+        emitError("variable '%0' will be placed in $Globals so cannot have "
+                  "vk::binding attribute",
+                  attr->getLocation())
+            << var->getName();
+        return;
+      }
+
+      astDecls[varDecl] = SpirvEvalInfo(globals)
+                              .setStorageClass(spv::StorageClass::Uniform)
+                              .setLayoutRule(LayoutRule::GLSLStd140)
+                              .setRowMajor(typeTranslator.isRowMajorMatrix(
+                                  varDecl->getType(), varDecl));
+      astDecls[varDecl].indexInCTBuffer = index++;
+    }
 }
 
 uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
