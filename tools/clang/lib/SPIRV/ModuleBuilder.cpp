@@ -247,6 +247,42 @@ uint32_t ModuleBuilder::createSpecConstantBinaryOp(spv::Op op,
   return id;
 }
 
+uint32_t ModuleBuilder::createGroupNonUniformOp(spv::Op op, uint32_t resultType,
+                                                uint32_t execScope) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.groupNonUniformOp(op, resultType, id, execScope).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createGroupNonUniformUnaryOp(
+    spv::Op op, uint32_t resultType, uint32_t execScope, uint32_t operand,
+    llvm::Optional<spv::GroupOperation> groupOp) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder
+      .groupNonUniformUnaryOp(op, resultType, id, execScope, groupOp, operand)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createGroupNonUniformBinaryOp(spv::Op op,
+                                                      uint32_t resultType,
+                                                      uint32_t execScope,
+                                                      uint32_t operand1,
+                                                      uint32_t operand2) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder
+      .groupNonUniformBinaryOp(op, resultType, id, execScope, operand1,
+                               operand2)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 uint32_t ModuleBuilder::createAtomicOp(spv::Op opcode, uint32_t resultType,
                                        uint32_t orignalValuePtr,
                                        uint32_t scopeId,
@@ -703,18 +739,6 @@ void ModuleBuilder::createEndPrimitive() {
   assert(insertPoint && "null insert point");
   instBuilder.opEndPrimitive().x();
   insertPoint->appendInstruction(std::move(constructSite));
-}
-
-uint32_t ModuleBuilder::createSubgroupFirstInvocation(uint32_t resultType,
-                                                      uint32_t value) {
-  assert(insertPoint && "null insert point");
-  addExtension("SPV_KHR_shader_ballot");
-  requireCapability(spv::Capability::SubgroupBallotKHR);
-
-  uint32_t resultId = theContext.takeNextId();
-  instBuilder.opSubgroupFirstInvocationKHR(resultType, resultId, value).x();
-  insertPoint->appendInstruction(std::move(constructSite));
-  return resultId;
 }
 
 void ModuleBuilder::addExecutionMode(uint32_t entryPointId,

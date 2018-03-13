@@ -870,6 +870,14 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
   for (const auto &var : stageVars) {
     auto s = var.getSemanticStr();
 
+    if (s.empty()) {
+      // We translate WaveGetLaneCount() and WaveGetLaneIndex() into builtin
+      // variables. Those variables are inserted into the normal stage IO
+      // processing pipeline, but with the semantics as empty strings.
+      assert(var.isSpirvBuitin());
+      continue;
+    }
+
     if (forInput && var.getSigPoint()->IsInput()) {
       if (seenSemantics.count(s)) {
         emitError("input semantic '%0' used more than once", {}) << s;
@@ -1706,9 +1714,7 @@ uint32_t DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
     return 0;
   }
 
-  // Both of them require the SPV_KHR_shader_ballot extension.
-  theBuilder.addExtension("SPV_KHR_shader_ballot");
-  theBuilder.requireCapability(spv::Capability::SubgroupBallotKHR);
+  theBuilder.requireCapability(spv::Capability::GroupNonUniform);
 
   uint32_t type = theBuilder.getUint32Type();
 
