@@ -220,7 +220,7 @@ struct Header {
   void collect(const WordConsumer &consumer);
 
   const uint32_t magicNumber;
-  const uint32_t version;
+  uint32_t version;
   const uint32_t generator;
   uint32_t bound;
   const uint32_t reserved;
@@ -293,6 +293,7 @@ public:
   /// destructive; the module will be consumed and cleared after calling it.
   void take(InstBuilder *builder);
 
+  inline void setVersion(uint32_t version);
   /// \brief Sets the id bound to the given bound.
   inline void setBound(uint32_t newBound);
 
@@ -447,6 +448,7 @@ TypeIdPair::TypeIdPair(const Type &ty, uint32_t id) : type(ty), resultId(id) {}
 SPIRVModule::SPIRVModule()
     : addressingModel(llvm::None), memoryModel(llvm::None) {}
 
+void SPIRVModule::setVersion(uint32_t version) { header.version = version; }
 void SPIRVModule::setBound(uint32_t newBound) { header.bound = newBound; }
 
 void SPIRVModule::addCapability(spv::Capability cap) {
