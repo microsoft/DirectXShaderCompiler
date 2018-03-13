@@ -1346,6 +1346,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   if (isHS) {
     funcProps->ShaderProps.HS.maxTessFactor = DXIL::kHSMaxTessFactorUpperBound;
+    funcProps->ShaderProps.HS.inputControlPoints = DXIL::kHSDefaultInputControlPointCount;
   }
 
   if (const HLSLMaxTessFactorAttr *Attr =
