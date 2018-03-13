@@ -145,9 +145,12 @@ std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
   std::string &DiagStr) {
   raw_string_ostream DiagStream(DiagStr);
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+  LLVMContext::DiagnosticHandlerTy OrigHandler = Ctx.getDiagnosticHandler();
+  void *OrigContext = Ctx.getDiagnosticContext();
   Ctx.setDiagnosticHandler(PrintDiagnosticHandler, &DiagPrinter, true);
   ErrorOr<std::unique_ptr<llvm::Module>> pModule(
     llvm::parseBitcodeFile(MB->getMemBufferRef(), Ctx));
+  Ctx.setDiagnosticHandler(OrigHandler, OrigContext);
   if (std::error_code ec = pModule.getError()) {
     return nullptr;
   }
