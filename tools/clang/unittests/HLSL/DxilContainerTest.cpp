@@ -759,7 +759,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
       "register(u0); Texture2D<float> ThreeTextures[3] : register(t0); "
       "float function1();"
       "[shader(\"raygeneration\")] void RayGenMain() { Uav[0] = "
-      "ThreeTextures[0].Sample(Sampler, float2(0, 0)) + function1(); }";
+      "ThreeTextures[0].Sample(Sampler, float2(0, 0)) + "
+      "ThreeTextures[2].Sample(Sampler, float2(0, 0)) + function1(); }";
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcBlob> pProgram;
