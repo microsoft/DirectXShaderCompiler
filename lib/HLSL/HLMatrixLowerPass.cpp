@@ -2195,7 +2195,7 @@ void HLMatrixLowerPass::castMatrixArgs(Instruction *I) {
     Value *argVal = I->getOperand(i);
     Type *argTy = argVal->getType();
     if (argTy->isPointerTy())
-      argTy->getPointerElementType();
+      argTy = argTy->getPointerElementType();
     if (argTy->isStructTy() && IsMatrixType(argTy)) {
       Value *vecVal = matToVecMap[argVal];
       Value *newMatVal = GetMatrixForVec(vecVal, argVal->getType());
