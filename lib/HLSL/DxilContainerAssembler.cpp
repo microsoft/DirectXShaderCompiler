@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -771,15 +772,21 @@ public:
 
 struct IndexTable : public RDATPart {
 private:
-  std::vector<std::vector<uint32_t>> m_IndicesList;
+  typedef llvm::SmallVector<uint32_t, 8> Indices;
+  std::vector<Indices> m_IndicesList;
   uint32_t m_curOffset;
 
 public:
   IndexTable() : m_IndicesList(), m_curOffset(0) {}
-  uint32_t AddIndex(const std::vector<uint32_t> &Indices) {
+  template <class iterator>
+  uint32_t AddIndex(iterator begin, iterator end) {
     uint32_t prevOffset = m_curOffset;
-    m_curOffset += Indices.size() + 1;
-    m_IndicesList.emplace_back(std::move(Indices));
+    m_IndicesList.emplace_back(Indices());
+    auto &curIndices = m_IndicesList.back();
+    for (iterator it = begin; it != end; ++it) {
+      curIndices.emplace_back(*it);
+    }
+    m_curOffset += curIndices.size() + 1;
     return prevOffset;
   }
 
@@ -797,7 +804,7 @@ public:
     for (auto Indices : m_IndicesList) {
       uint32_t count = Indices.size();
       memcpy(cur, &count, 4);
-      std::copy(Indices.data(), Indices.data() + Indices.size(), cur + 1);
+      std::copy(Indices.begin(), Indices.end(), cur + 1);
       cur += sizeof(uint32_t)/sizeof(4) + Indices.size();
     }
   }
@@ -809,7 +816,8 @@ private:
   SmallVector<char, 1024> m_RDATBuffer;
 
   std::vector<std::unique_ptr<RDATPart>> m_tables;
-  typedef std::unordered_map<llvm::Function *, std::vector<uint32_t>> FunctionIndexMap;
+  typedef llvm::SmallSetVector<uint32_t, 8> Indices;
+  typedef std::unordered_map<llvm::Function *, Indices> FunctionIndexMap;
   FunctionIndexMap m_FuncToResNameOffset; // list of resources used
   FunctionIndexMap m_FuncToDependencies;  // list of unresolved functions used
 
@@ -836,12 +844,10 @@ private:
         llvm::Function *F = FindUsingFunction(user);
         if (!F)
           continue;
-        if (m_FuncToResNameOffset.find(F) != m_FuncToResNameOffset.end()) {
-          m_FuncToResNameOffset[F].emplace_back(offset);
+        if (m_FuncToResNameOffset.find(F) == m_FuncToResNameOffset.end()) {
+          m_FuncToResNameOffset[F] = Indices();
         }
-        else {
-          m_FuncToResNameOffset[F] = std::vector<uint32_t>({offset});
-        }
+        m_FuncToResNameOffset[F].insert(offset);
       }
     }
   }
@@ -915,10 +921,9 @@ private:
       if (m_FuncToDependencies.find(userFunction) ==
           m_FuncToDependencies.end()) {
         m_FuncToDependencies[userFunction] =
-            std::vector<uint32_t>({index});
-      } else {
-        m_FuncToDependencies[userFunction].push_back(index);
+            Indices();
       }
+      m_FuncToDependencies[userFunction].insert(index);
     }
   }
 
@@ -949,10 +954,15 @@ private:
         uint32_t payloadSizeInBytes = 0;
         uint32_t attrSizeInBytes = 0;
         uint32_t shaderKind = (uint32_t)PSVShaderKind::Library;
+
         if (m_FuncToResNameOffset.find(&function) != m_FuncToResNameOffset.end())
-          resourceIndex = indexTable.AddIndex(m_FuncToResNameOffset[&function]);
+          resourceIndex =
+              indexTable.AddIndex(m_FuncToResNameOffset[&function].begin(),
+                                  m_FuncToResNameOffset[&function].end());
         if (m_FuncToDependencies.find(&function) != m_FuncToDependencies.end())
-          functionDependencies = indexTable.AddIndex(m_FuncToDependencies[&function]);
+          functionDependencies =
+              indexTable.AddIndex(m_FuncToDependencies[&function].begin(),
+                                  m_FuncToDependencies[&function].end());
         if (m_Module.HasDxilFunctionProps(&function)) {
           auto props = m_Module.GetDxilFunctionProps(&function);
           if (props.IsClosestHit() || props.IsAnyHit()) {
