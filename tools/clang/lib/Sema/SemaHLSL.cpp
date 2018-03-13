@@ -10446,7 +10446,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   {
   case AttributeList::AT_VKBuiltIn:
     declAttr = ::new (S.Context) VKBuiltInAttr(A.getRange(), S.Context,
-      ValidateAttributeStringArg(S, A, "PointSize,HelperInvocation"),
+      ValidateAttributeStringArg(S, A, "PointSize,HelperInvocation,BaseVertex,BaseInstance,DrawIndex"),
       A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_VKLocation:
