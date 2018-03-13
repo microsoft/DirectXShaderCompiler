@@ -1194,7 +1194,7 @@ class db_dxil(object):
             db_dxil_param(0, "f", "", "result")])
         next_op_idx += 1
 
-        self.add_dxil_op("RayTCurrent", next_op_idx, "RayTCurrent", "float representing the current parametric ending point for the ray", "f", "rn", [
+        self.add_dxil_op("RayTCurrent", next_op_idx, "RayTCurrent", "float representing the current parametric ending point for the ray", "f", "ro", [
             db_dxil_param(0, "f", "", "result")])
         next_op_idx += 1
 

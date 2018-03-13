@@ -287,7 +287,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // RayT                                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::RayTMin,                 "RayTMin",                  OCC::RayTMin,                  "rayTMin",                    false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
-  {  OC::RayTCurrent,             "RayTCurrent",              OCC::RayTCurrent,              "rayTCurrent",                false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
+  {  OC::RayTCurrent,             "RayTCurrent",              OCC::RayTCurrent,              "rayTCurrent",                false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
 
   // AnyHit Terminals                                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::IgnoreHit,               "IgnoreHit",                OCC::IgnoreHit,                "ignoreHit",                   true, false, false, false, false, false, false, false, false, false, false, Attribute::NoReturn, },
