@@ -1763,9 +1763,21 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
         llvm::StringSwitch<BuiltIn>(builtinAttr->getBuiltIn())
             .Case("PointSize", BuiltIn::PointSize)
             .Case("HelperInvocation", BuiltIn::HelperInvocation)
+            .Case("BaseVertex", BuiltIn::BaseVertex)
+            .Case("BaseInstance", BuiltIn::BaseInstance)
+            .Case("DrawIndex", BuiltIn::DrawIndex)
             .Default(BuiltIn::Max);
 
     assert(spvBuiltIn != BuiltIn::Max); // The frontend should guarantee this.
+
+    switch (spvBuiltIn) {
+    case BuiltIn::BaseVertex:
+    case BuiltIn::BaseInstance:
+    case BuiltIn::DrawIndex:
+      theBuilder.addExtension("SPV_KHR_shader_draw_parameters");
+      theBuilder.requireCapability(spv::Capability::DrawParameters);
+      break;
+    }
 
     return theBuilder.addStageBuiltinVar(type, sc, spvBuiltIn);
   }
@@ -2145,6 +2157,20 @@ bool DeclResultIdMapper::validateVKBuiltins(const NamedDecl *decl,
       default:
         emitError("PointSize builtin cannot be used as %0", loc)
             << sigPoint->GetName();
+        success = false;
+      }
+    } else if (builtin == "BaseVertex" || builtin == "BaseInstance" ||
+               builtin == "DrawIndex") {
+      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
+          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
+        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
+            << builtin;
+        success = false;
+      }
+
+      if (sigPoint->GetKind() != hlsl::SigPoint::Kind::VSIn) {
+        emitError("%0 builtin can only be used in vertex shader input", loc)
+            << builtin;
         success = false;
       }
     }
