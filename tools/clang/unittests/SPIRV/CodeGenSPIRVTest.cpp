@@ -1299,6 +1299,9 @@ TEST_F(FileTest, VulkanLayoutCBufferNestedStd140) {
 TEST_F(FileTest, VulkanLayoutCBufferNestedEmptyStd140) {
   runFileTest("vk.layout.cbuffer.nested.empty.std140.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutCBufferBoolean) {
+  runFileTest("vk.layout.cbuffer.boolean.hlsl");
+}
 TEST_F(FileTest, VulkanLayoutSBufferStd430) {
   runFileTest("vk.layout.sbuffer.std430.hlsl");
 }

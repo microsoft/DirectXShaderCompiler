@@ -828,7 +828,57 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
     valType =
         typeTranslator.translateType(expr->getType(), info.getLayoutRule());
   }
-  return info.setResultId(theBuilder.createLoad(valType, info)).setRValue();
+
+  uint32_t loadedId = theBuilder.createLoad(valType, info);
+
+  // Special-case: According to the SPIR-V Spec: There is no physical size or
+  // bit pattern defined for boolean type. Therefore an unsigned integer is used
+  // to represent booleans when layout is required. In such cases, after loading
+  // the uint, we should perform a comparison.
+  {
+    uint32_t vecSize = 1, numRows = 0, numCols = 0;
+    if (info.getLayoutRule() != LayoutRule::Void &&
+        isBoolOrVecMatOfBoolType(expr->getType())) {
+      const auto exprType = expr->getType();
+      QualType uintType = astContext.UnsignedIntTy;
+      if (TypeTranslator::isScalarType(exprType) ||
+          TypeTranslator::isVectorType(exprType, nullptr, &vecSize)) {
+        const uint32_t boolTypeId = theBuilder.getBoolType();
+        const uint32_t resultTypeId =
+            vecSize == 1 ? boolTypeId
+                         : theBuilder.getVecType(boolTypeId, vecSize);
+        const uint32_t zero = getVecValueZero(uintType, vecSize);
+        loadedId = theBuilder.createBinaryOp(spv::Op::OpINotEqual, resultTypeId,
+                                             loadedId, zero);
+      } else {
+        const bool isMat =
+            TypeTranslator::isMxNMatrix(exprType, nullptr, &numRows, &numCols);
+        assert(isMat);
+        const auto uintRowQualType =
+            astContext.getExtVectorType(uintType, numCols);
+        const auto uintRowQualTypeId =
+            typeTranslator.translateType(uintRowQualType);
+        const auto boolRowQualType =
+            astContext.getExtVectorType(astContext.BoolTy, numCols);
+        const auto boolRowQualTypeId =
+            typeTranslator.translateType(boolRowQualType);
+        const uint32_t resultTypeId = theBuilder.getMatType(
+            astContext.BoolTy, boolRowQualTypeId, numRows);
+        llvm::SmallVector<uint32_t, 4> rows;
+        for (uint32_t i = 0; i < numRows; ++i) {
+          const auto row = theBuilder.createCompositeExtract(uintRowQualTypeId,
+                                                             loadedId, {i});
+          rows.push_back(castToBool(row, uintRowQualType, boolRowQualType));
+        }
+        loadedId = theBuilder.createCompositeConstruct(resultTypeId, rows);
+      }
+      // Now that it is converted to Bool, it has no layout rule.
+      // This result-id should be evaluated as bool from here on out.
+      info.setLayoutRule(LayoutRule::Void);
+    }
+  }
+
+  return info.setResultId(loadedId).setRValue();
 }
 
 SpirvEvalInfo SPIRVEmitter::loadIfAliasVarRef(const Expr *expr) {
