@@ -332,6 +332,9 @@ public:
   /// \brief Creates a PushConstant block from the given decl.
   uint32_t createPushConstant(const VarDecl *decl);
 
+  /// \brief Creates the $Globals cbuffer.
+  void createGlobalsCBuffer(const VarDecl *var);
+
   /// \brief Returns the suitable type for the given decl, considering the
   /// given decl could possibly be created as an alias variable. If true, a
   /// pointer-to-the-value type will be returned, otherwise, just return the
@@ -510,6 +513,7 @@ private:
     CBuffer,
     TBuffer,
     PushConstant,
+    Globals,
   };
 
   /// Creates a variable of struct type with explicit layout decorations.
