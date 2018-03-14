@@ -123,7 +123,10 @@ TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
 TEST_F(FileTest, UninitStaticResourceVar) {
   runFileTest("var.static.resource.hlsl");
 }
-TEST_F(FileTest, GlobalMatrixVar) { runFileTest("var.global-mat.hlsl"); }
+TEST_F(FileTest, GlobalsCBuffer) { runFileTest("var.globals.hlsl"); }
+TEST_F(FileTest, GlobalsCBufferError) {
+  runFileTest("var.globals.error.hlsl", Expect::Failure);
+}
 
 // For prefix/postfix increment/decrement
 TEST_F(FileTest, UnaryOpPrefixIncrement) {

@@ -187,6 +187,12 @@ public:
   /// matrices.
   bool isOrContainsNonFpColMajorMatrix(QualType type, const Decl *decl) const;
 
+  /// \brief Returns true if the decl is of ConstantBuffer/TextureBuffer type.
+  static bool isConstantTextureBuffer(const Decl *decl);
+
+  /// \brief Returns true if the decl will have a SPIR-V resource type.
+  static bool isResourceType(const ValueDecl *decl);
+
   /// \brief Returns true if the two types are the same scalar or vector type,
   /// regardless of constness and literalness.
   static bool isSameScalarOrVecType(QualType type1, QualType type2);
@@ -238,7 +244,8 @@ public:
   /// according to the spec, must be attached to the array type itself instead
   /// of a struct member.
   llvm::SmallVector<const Decoration *, 4>
-  getLayoutDecorations(const DeclContext *decl, LayoutRule rule);
+  getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
+                       bool forGlobals = false);
 
   /// \brief Returns how many sequential locations are consumed by a given type.
   uint32_t getLocationCount(QualType type);
