@@ -369,7 +369,7 @@ HLSL Semantic
 ~~~~~~~~~~~~~
 
 HLSL semantic strings are by default not emitted into the SPIR-V binary module.
-If you need them, by specifying ``-fvk-enable-reflect``, the compiler will use
+If you need them, by specifying ``-fvk-reflect``, the compiler will use
 the ``Op*DecorateStringGOOGLE`` instruction in ``SPV_GOOGLE_hlsl_funtionality1``
 extension to emit them.
 
@@ -380,7 +380,7 @@ The association between a counter buffer and its main RW/Append/Consume
 StructuredBuffer is covnveyed by ``OpDecorateId <structured-buffer-id>
 HLSLCounterBufferGOOGLE <counter-buffer-id>`` instruction from the
 ``SPV_GOOGLE_hlsl_funtionality1`` extension. This information is by default
-missing; you need to specify ``-fvk-enable-reflect`` to direct the compiler
+missing; you need to specify ``-fvk-reflect`` to direct the compiler
 to emit them.
 
 Read-only vs. read-write resource types
@@ -2622,8 +2622,7 @@ codegen for Vulkan:
 - ``-fvk-stage-io-order={alpha|decl}``: Assigns the stage input/output variable
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.
-- ``-fvk-enable-reflection``: Emits additional SPIR-V instruction to aid
-  reflection.
+- ``-fvk-reflect``: Emits additional SPIR-V instruction to aid reflection.
 
 Unsupported HLSL Features
 =========================

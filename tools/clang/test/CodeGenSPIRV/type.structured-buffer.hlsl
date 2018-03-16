@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-enable-reflect
+// Run: %dxc -T ps_6_0 -E main -fvk-reflect
 
 // CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 
