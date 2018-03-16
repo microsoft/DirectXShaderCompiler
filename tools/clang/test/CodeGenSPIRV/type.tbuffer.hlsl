@@ -35,7 +35,7 @@ tbuffer AnotherTbuffer : register(t2) {
     float4 n;
 }
 
-// CHECK: %type_MyTbuffer = OpTypeStruct %bool %int %v2uint %mat3v4float %S %_arr_float_uint_4
+// CHECK: %type_MyTbuffer = OpTypeStruct %uint %int %v2uint %mat3v4float %S %_arr_float_uint_4
 
 // CHECK: %type_AnotherTbuffer = OpTypeStruct %v3float %v4float
 
