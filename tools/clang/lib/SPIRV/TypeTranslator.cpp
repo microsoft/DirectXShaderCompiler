@@ -41,6 +41,28 @@ bool improperStraddle(QualType type, int size, int offset) {
                     : offset % 16 != 0;
 }
 
+// From https://github.com/Microsoft/DirectXShaderCompiler/pull/1032.
+// TODO: use that after it is landed.
+bool hasHLSLMatOrientation(QualType type, bool *pIsRowMajor) {
+  const AttributedType *AT = type->getAs<AttributedType>();
+  while (AT) {
+    AttributedType::Kind kind = AT->getAttrKind();
+    switch (kind) {
+    case AttributedType::attr_hlsl_row_major:
+      if (pIsRowMajor)
+        *pIsRowMajor = true;
+      return true;
+    case AttributedType::attr_hlsl_column_major:
+      if (pIsRowMajor)
+        *pIsRowMajor = false;
+      return true;
+    }
+    AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()
+             ->getAs<AttributedType>();
+  }
+  return false;
+}
+
 } // anonymous namespace
 
 bool TypeTranslator::isRelaxedPrecisionType(QualType type,
@@ -418,18 +440,14 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
   llvm_unreachable("invalid type passed to getElementSpirvBitwidth");
 }
 
-uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
-                                       bool isRowMajor) {
-  // We can only apply row_major to matrices or arrays of matrices.
-  // isRowMajor will be ignored for scalar and vector types.
-  if (isRowMajor)
-    assert(type->isScalarType() || type->isArrayType() ||
-           hlsl::IsHLSLVecMatType(type));
-
-  // Try to translate the canonical type first
-  const auto canonicalType = type.getCanonicalType();
-  if (canonicalType != type)
-    return translateType(canonicalType, rule, isRowMajor);
+uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
+  const auto desugaredType = desugarType(type);
+  if (desugaredType != type) {
+    const auto id = translateType(desugaredType, rule);
+    // Clear potentially set matrix majorness info
+    typeMatMajorAttr = llvm::None;
+    return id;
+  }
 
   // Primitive types
   {
@@ -475,10 +493,6 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     }
   }
 
-  // Typedefs
-  if (const auto *typedefType = type->getAs<TypedefType>())
-    return translateType(typedefType->desugar(), rule, isRowMajor);
-
   // Reference types
   if (const auto *refType = type->getAs<ReferenceType>()) {
     // Note: Pointer/reference types are disallowed in HLSL source code.
@@ -487,13 +501,13 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     // We already pass function arguments via pointers to tempoary local
     // variables. So it should be fine to drop the pointer type and treat it
     // as the underlying pointee type here.
-    return translateType(refType->getPointeeType(), rule, isRowMajor);
+    return translateType(refType->getPointeeType(), rule);
   }
 
   // Pointer types
   if (const auto *ptrType = type->getAs<PointerType>()) {
     // The this object in a struct member function is of pointer type.
-    return translateType(ptrType->getPointeeType(), rule, isRowMajor);
+    return translateType(ptrType->getPointeeType(), rule);
   }
 
   // In AST, vector/matrix types are TypedefType of TemplateSpecializationType.
@@ -522,7 +536,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
       llvm::SmallVector<const Decoration *, 4> decorations;
       if (!elemType->isFloatingType() && rule != LayoutRule::Void) {
         uint32_t stride = 0;
-        (void)getAlignmentAndSize(type, rule, isRowMajor, &stride);
+        (void)getAlignmentAndSize(type, rule, &stride);
         decorations.push_back(
             Decoration::getArrayStride(*theBuilder.getSPIRVContext(), stride));
       }
@@ -556,8 +570,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
 
     // Create fields for all members of this struct
     for (const auto *field : decl->fields()) {
-      fieldTypes.push_back(translateType(
-          field->getType(), rule, isRowMajorMatrix(field->getType(), field)));
+      fieldTypes.push_back(translateType(field->getType(), rule));
       fieldNames.push_back(field->getName());
     }
 
@@ -571,8 +584,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
   }
 
   if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
-    const uint32_t elemType =
-        translateType(arrayType->getElementType(), rule, isRowMajor);
+    const uint32_t elemType = translateType(arrayType->getElementType(), rule);
     // TODO: handle extra large array size?
     const auto size =
         static_cast<uint32_t>(arrayType->getSize().getZExtValue());
@@ -580,7 +592,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     llvm::SmallVector<const Decoration *, 4> decorations;
     if (rule != LayoutRule::Void) {
       uint32_t stride = 0;
-      (void)getAlignmentAndSize(type, rule, isRowMajor, &stride);
+      (void)getAlignmentAndSize(type, rule, &stride);
       decorations.push_back(
           Decoration::getArrayStride(*theBuilder.getSPIRVContext(), stride));
     }
@@ -964,19 +976,23 @@ bool TypeTranslator::isResourceType(const ValueDecl *decl) {
   return hlsl::IsHLSLResourceType(declType);
 }
 
-bool TypeTranslator::isRowMajorMatrix(QualType type, const Decl *decl) const {
-  if (!isMxNMatrix(type) && !type->isArrayType())
-    return false;
+bool TypeTranslator::isRowMajorMatrix(QualType type) const {
+  // The type passed in may not be desugared. Check attributes on itself first.
+  bool attrRowMajor = false;
+  if (hasHLSLMatOrientation(type, &attrRowMajor))
+    return attrRowMajor;
 
-  if (const auto *arrayType = astContext.getAsConstantArrayType(type))
-    if (!isMxNMatrix(arrayType->getElementType()))
+  // Use the majorness info we recorded before.
+  if (typeMatMajorAttr.hasValue()) {
+    switch (typeMatMajorAttr.getValue()) {
+    case AttributedType::attr_hlsl_row_major:
+      return true;
+    case AttributedType::attr_hlsl_column_major:
       return false;
+    }
+  }
 
-  if (!decl)
-    return spirvOptions.defaultRowMajor;
-
-  return decl->hasAttr<HLSLRowMajorAttr>() ||
-         !decl->hasAttr<HLSLColumnMajorAttr>() && spirvOptions.defaultRowMajor;
+  return spirvOptions.defaultRowMajor;
 }
 
 bool TypeTranslator::canTreatAsSameScalarType(QualType type1, QualType type2) {
@@ -1111,11 +1127,9 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
         (!declDecl->hasExternalFormalLinkage() || isResourceType(declDecl)))
       continue;
 
-    const bool isRowMajor = isRowMajorMatrix(fieldType, field);
-
     uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
     std::tie(memberAlignment, memberSize) =
-        getAlignmentAndSize(fieldType, rule, isRowMajor, &stride);
+        getAlignmentAndSize(fieldType, rule, &stride);
 
     alignUsingHLSLRelaxedLayout(fieldType, memberSize, &memberAlignment,
                                 &offset);
@@ -1144,7 +1158,7 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
     if (isMxNMatrix(fieldType, &elemType) && elemType->isFloatingType()) {
       memberAlignment = memberSize = stride = 0;
       std::tie(memberAlignment, memberSize) =
-          getAlignmentAndSize(fieldType, rule, isRowMajor, &stride);
+          getAlignmentAndSize(fieldType, rule, &stride);
 
       decorations.push_back(
           Decoration::getMatrixStride(*spirvContext, stride, index));
@@ -1152,7 +1166,7 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
       // We need to swap the RowMajor and ColMajor decorations since HLSL
       // matrices are conceptually row-major while SPIR-V are conceptually
       // column-major.
-      if (isRowMajor) {
+      if (isRowMajorMatrix(fieldType)) {
         decorations.push_back(Decoration::getColMajor(*spirvContext, index));
       } else {
         // If the source code has neither row_major nor column_major annotated,
@@ -1249,8 +1263,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
 
     // The stride for the runtime array is the size of S.
     uint32_t size = 0, stride = 0;
-    std::tie(std::ignore, size) =
-        getAlignmentAndSize(s, rule, isRowMajor, &stride);
+    std::tie(std::ignore, size) = getAlignmentAndSize(s, rule, &stride);
     decorations.push_back(Decoration::getArrayStride(context, size));
     const uint32_t raType =
         theBuilder.getRuntimeArrayType(structType, decorations);
@@ -1384,7 +1397,7 @@ void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
     if (fieldIsVecType = isVectorType(fieldType, &vecElemType)) {
       uint32_t scalarAlignment = 0;
       std::tie(scalarAlignment, std::ignore) =
-          getAlignmentAndSize(vecElemType, LayoutRule::Void, false, nullptr);
+          getAlignmentAndSize(vecElemType, LayoutRule::Void, nullptr);
       if (scalarAlignment <= 4)
         *fieldAlignment = scalarAlignment;
     }
@@ -1403,7 +1416,7 @@ void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
 
 std::pair<uint32_t, uint32_t>
 TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
-                                    const bool isRowMajor, uint32_t *stride) {
+                                    uint32_t *stride) {
   // std140 layout rules:
 
   // 1. If the member is a scalar consuming N basic machine units, the base
@@ -1451,13 +1464,14 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
   //
   // 10. If the member is an array of S structures, the S elements of the array
   //     are laid out in order, according to rule (9).
-  const auto canonicalType = type.getCanonicalType();
-  if (canonicalType != type)
-    return getAlignmentAndSize(canonicalType, rule, isRowMajor, stride);
 
-  if (const auto *typedefType = type->getAs<TypedefType>())
-    return getAlignmentAndSize(typedefType->desugar(), rule, isRowMajor,
-                               stride);
+  const auto desugaredType = desugarType(type);
+  if (desugaredType != type) {
+    const auto id = getAlignmentAndSize(desugaredType, rule, stride);
+    // Clear potentially set matrix majorness info
+    typeMatMajorAttr = llvm::None;
+    return id;
+  }
 
   { // Rule 1
     QualType ty = {};
@@ -1487,8 +1501,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     uint32_t elemCount = {};
     if (isVectorType(type, &elemType, &elemCount)) {
       uint32_t size = 0;
-      std::tie(std::ignore, size) =
-          getAlignmentAndSize(elemType, rule, isRowMajor, stride);
+      std::tie(std::ignore, size) = getAlignmentAndSize(elemType, rule, stride);
 
       return {(elemCount == 3 ? 4 : elemCount) * size, elemCount * size};
     }
@@ -1500,12 +1513,14 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
       uint32_t alignment = 0, size = 0;
       std::tie(alignment, std::ignore) =
-          getAlignmentAndSize(elemType, rule, isRowMajor, stride);
+          getAlignmentAndSize(elemType, rule, stride);
 
       // Matrices are treated as arrays of vectors:
       // The base alignment and array stride are set to match the base alignment
       // of a single array element, according to rules 1, 2, and 3, and rounded
       // up to the base alignment of a vec4.
+      bool isRowMajor = isRowMajorMatrix(type);
+
       const uint32_t vecStorageSize = isRowMajor ? colCount : rowCount;
       alignment *= (vecStorageSize == 3 ? 4 : vecStorageSize);
       if (rule == LayoutRule::GLSLStd140) {
@@ -1530,9 +1545,8 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
     for (const auto *field : structType->getDecl()->fields()) {
       uint32_t memberAlignment = 0, memberSize = 0;
-      const bool isRowMajor = isRowMajorMatrix(field->getType(), field);
       std::tie(memberAlignment, memberSize) =
-          getAlignmentAndSize(field->getType(), rule, isRowMajor, stride);
+          getAlignmentAndSize(field->getType(), rule, stride);
 
       alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
                                   &memberAlignment, &structSize);
@@ -1556,8 +1570,8 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
   // Rule 4, 6, 8, and 10
   if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
     uint32_t alignment = 0, size = 0;
-    std::tie(alignment, size) = getAlignmentAndSize(arrayType->getElementType(),
-                                                    rule, isRowMajor, stride);
+    std::tie(alignment, size) =
+        getAlignmentAndSize(arrayType->getElementType(), rule, stride);
 
     if (rule == LayoutRule::GLSLStd140) {
       // The base alignment and array stride are set to match the base alignment
@@ -1621,6 +1635,24 @@ std::string TypeTranslator::getName(QualType type) {
     return structType->getDecl()->getName();
 
   return "";
+}
+
+QualType TypeTranslator::desugarType(QualType type) {
+  if (const auto *attrType = type->getAs<AttributedType>()) {
+    switch (auto kind = attrType->getAttrKind()) {
+    case AttributedType::attr_hlsl_row_major:
+    case AttributedType::attr_hlsl_column_major:
+      typeMatMajorAttr = kind;
+    }
+    return desugarType(
+        attrType->getLocallyUnqualifiedSingleStepDesugaredType());
+  }
+
+  if (const auto *typedefType = type->getAs<TypedefType>()) {
+    return desugarType(typedefType->desugar());
+  }
+
+  return type;
 }
 
 } // end namespace spirv
