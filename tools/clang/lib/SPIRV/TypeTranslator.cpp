@@ -525,8 +525,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
     QualType elemType = {};
     uint32_t elemCount = {};
     if (isVectorType(type, &elemType, &elemCount))
-      return theBuilder.getVecType(translateType(elemType, rule, isRowMajor),
-                                   elemCount);
+      return theBuilder.getVecType(translateType(elemType, rule), elemCount);
   }
 
   // Matrix types
@@ -536,8 +535,8 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
     if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
       // HLSL matrices are row major, while SPIR-V matrices are column major.
       // We are mapping what HLSL semantically mean a row into a column here.
-      const uint32_t vecType = theBuilder.getVecType(
-          translateType(elemType, rule, isRowMajor), colCount);
+      const uint32_t vecType =
+          theBuilder.getVecType(translateType(elemType, rule), colCount);
 
       // If the matrix element type is not float, it is represented as an array
       // of vectors, and should therefore have the ArrayStride decoration.
