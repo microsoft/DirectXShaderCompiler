@@ -304,7 +304,7 @@ SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
           cast<VarDecl>(decl)->getType(),
           // We need to set decorateLayout here to avoid creating SPIR-V
           // instructions for the current type without decorations.
-          info->info.getLayoutRule(), info->info.isRowMajor());
+          info->info.getLayoutRule());
 
       const uint32_t elemId = theBuilder.createAccessChain(
           theBuilder.getPointerType(varType, info->info.getStorageClass()),
@@ -452,10 +452,10 @@ uint32_t DeclResultIdMapper::getMatrixStructType(const VarDecl *matVar,
 
   auto &context = *theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 4> decorations;
-  const bool isRowMajor = typeTranslator.isRowMajorMatrix(matType, matVar);
+  const bool isRowMajor = typeTranslator.isRowMajorMatrix(matType);
 
   uint32_t stride;
-  (void)typeTranslator.getAlignmentAndSize(matType, rule, isRowMajor, &stride);
+  (void)typeTranslator.getAlignmentAndSize(matType, rule, &stride);
   decorations.push_back(Decoration::getOffset(context, 0, 0));
   decorations.push_back(Decoration::getMatrixStride(context, stride, 0));
   decorations.push_back(isRowMajor ? Decoration::getColMajor(context, 0)
@@ -521,9 +521,7 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
     auto varType = declDecl->getType();
     varType.removeLocalConst();
 
-    const bool isRowMajor = typeTranslator.isRowMajorMatrix(varType, declDecl);
-    fieldTypes.push_back(
-        typeTranslator.translateType(varType, layoutRule, isRowMajor));
+    fieldTypes.push_back(typeTranslator.translateType(varType, layoutRule));
     fieldNames.push_back(declDecl->getName());
 
     // tbuffer/TextureBuffers are non-writable SSBOs. OpMemberDecorate
@@ -570,14 +568,11 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
-    const bool isRowMajor =
-        typeTranslator.isRowMajorMatrix(varDecl->getType(), varDecl);
     astDecls[varDecl] =
         SpirvEvalInfo(bufferVar)
             .setStorageClass(spv::StorageClass::Uniform)
             .setLayoutRule(decl->isCBuffer() ? LayoutRule::GLSLStd140
-                                             : LayoutRule::GLSLStd430)
-            .setRowMajor(isRowMajor);
+                                             : LayoutRule::GLSLStd430);
     astDecls[varDecl].indexInCTBuffer = index++;
   }
   resourceVars.emplace_back(
@@ -664,9 +659,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
 
       astDecls[varDecl] = SpirvEvalInfo(globals)
                               .setStorageClass(spv::StorageClass::Uniform)
-                              .setLayoutRule(LayoutRule::GLSLStd140)
-                              .setRowMajor(typeTranslator.isRowMajorMatrix(
-                                  varDecl->getType(), varDecl));
+                              .setLayoutRule(LayoutRule::GLSLStd140);
       astDecls[varDecl].indexInCTBuffer = index++;
     }
 }

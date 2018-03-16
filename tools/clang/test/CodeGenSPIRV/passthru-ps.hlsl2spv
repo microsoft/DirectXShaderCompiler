@@ -15,6 +15,7 @@ float4 main(float4 input: COLOR): SV_Target
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Fragment %main "main" %in_var_COLOR %out_var_SV_Target
 // OpExecutionMode %main OriginUpperLeft
+// OpSource HLSL 600
 // OpName %bb_entry "bb.entry"
 // OpName %src_main "src.main"
 // OpName %main "main"
