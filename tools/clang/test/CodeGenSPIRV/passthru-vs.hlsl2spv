@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E VSmain -fvk-enable-reflect
+// Run: %dxc -T vs_6_0 -E VSmain
 
 struct PSInput {
   float4 position : SV_Position;
@@ -20,8 +20,6 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // ; Bound: 44
 // ; Schema: 0
 // OpCapability Shader
-// OpExtension "SPV_GOOGLE_decorate_string"
-// OpExtension "SPV_GOOGLE_hlsl_functionality1"
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Vertex %VSmain "VSmain" %gl_PerVertexOut %in_var_POSITION %in_var_COLOR %out_var_COLOR
 // OpName %bb_entry "bb.entry"
@@ -45,10 +43,6 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // OpMemberDecorate %type_gl_PerVertex 2 BuiltIn ClipDistance
 // OpMemberDecorate %type_gl_PerVertex 3 BuiltIn CullDistance
 // OpDecorate %type_gl_PerVertex Block
-// OpMemberDecorateStringGOOGLE %type_gl_PerVertex 0 HlslSemanticGOOGLE "SV_Position"
-// OpDecorateStringGOOGLE %in_var_POSITION HlslSemanticGOOGLE "POSITION"
-// OpDecorateStringGOOGLE %in_var_COLOR HlslSemanticGOOGLE "COLOR"
-// OpDecorateStringGOOGLE %out_var_COLOR HlslSemanticGOOGLE "COLOR"
 // OpDecorate %in_var_POSITION Location 0
 // OpDecorate %in_var_COLOR Location 1
 // OpDecorate %out_var_COLOR Location 0

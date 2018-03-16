@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -fvk-enable-reflect
+// Run: %dxc -T cs_6_0 -E main
 
 // Source: https://msdn.microsoft.com/en-us/library/windows/desktop/ff476330(v=vs.85).aspx
 
@@ -24,8 +24,6 @@ void main( uint3 DTid : SV_DispatchThreadID )
 // ; Bound: 44
 // ; Schema: 0
 // OpCapability Shader
-// OpExtension "SPV_GOOGLE_decorate_string"
-// OpExtension "SPV_GOOGLE_hlsl_functionality1"
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint GLCompute %main "main" %gl_GlobalInvocationID
 // OpExecutionMode %main LocalSize 1 1 1
@@ -46,7 +44,6 @@ void main( uint3 DTid : SV_DispatchThreadID )
 // OpDecorate %type_RWByteAddressBuffer BufferBlock
 // OpMemberDecorate %type_RWByteAddressBuffer 0 Offset 0
 // OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
-// OpDecorateStringGOOGLE %gl_GlobalInvocationID HlslSemanticGOOGLE "SV_DispatchThreadID"
 // OpDecorate %Buffer0 DescriptorSet 0
 // OpDecorate %Buffer0 Binding 0
 // OpDecorate %BufferOut DescriptorSet 0

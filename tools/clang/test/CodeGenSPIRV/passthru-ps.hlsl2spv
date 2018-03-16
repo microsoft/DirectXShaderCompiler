@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-enable-reflect
+// Run: %dxc -T ps_6_0 -E main
 
 float4 main(float4 input: COLOR): SV_Target
 {
@@ -12,8 +12,6 @@ float4 main(float4 input: COLOR): SV_Target
 // ; Bound: 20
 // ; Schema: 0
 // OpCapability Shader
-// OpExtension "SPV_GOOGLE_decorate_string"
-// OpExtension "SPV_GOOGLE_hlsl_functionality1"
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Fragment %main "main" %in_var_COLOR %out_var_SV_Target
 // OpExecutionMode %main OriginUpperLeft
@@ -24,8 +22,6 @@ float4 main(float4 input: COLOR): SV_Target
 // OpName %in_var_COLOR "in.var.COLOR"
 // OpName %out_var_SV_Target "out.var.SV_Target"
 // OpName %input "input"
-// OpDecorateStringGOOGLE %in_var_COLOR HlslSemanticGOOGLE "COLOR"
-// OpDecorateStringGOOGLE %out_var_SV_Target HlslSemanticGOOGLE "SV_Target"
 // OpDecorate %in_var_COLOR Location 0
 // OpDecorate %out_var_SV_Target Location 0
 // %void = OpTypeVoid

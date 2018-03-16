@@ -1,4 +1,4 @@
-// Run: %dxc -T hs_6_0 -E SubDToBezierHS -fvk-enable-reflect
+// Run: %dxc -T hs_6_0 -E SubDToBezierHS
 
 #define MAX_POINTS 3
 
@@ -58,8 +58,6 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 
 // CHECK-WHOLE-SPIR-V:
 // OpCapability Tessellation
-// OpExtension "SPV_GOOGLE_decorate_string"
-// OpExtension "SPV_GOOGLE_hlsl_functionality1"
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS" %gl_PerVertexIn %gl_PerVertexOut %in_var_WORLDPOS %in_var_TEXCOORD0 %in_var_TANGENT %gl_InvocationID %gl_PrimitiveID %out_var_BEZIERPOS %gl_TessLevelOuter %gl_TessLevelInner %out_var_TANGENT %out_var_TEXCOORD %out_var_TANUCORNER %out_var_TANVCORNER %out_var_TANWEIGHTS
 // OpExecutionMode %SubDToBezierHS Quads
@@ -115,29 +113,16 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // OpMemberDecorate %type_gl_PerVertex 2 BuiltIn ClipDistance
 // OpMemberDecorate %type_gl_PerVertex 3 BuiltIn CullDistance
 // OpDecorate %type_gl_PerVertex Block
-// OpDecorateStringGOOGLE %in_var_WORLDPOS HlslSemanticGOOGLE "WORLDPOS"
-// OpDecorateStringGOOGLE %in_var_TEXCOORD0 HlslSemanticGOOGLE "TEXCOORD0"
-// OpDecorateStringGOOGLE %in_var_TANGENT HlslSemanticGOOGLE "TANGENT"
 // OpDecorate %gl_InvocationID BuiltIn InvocationId
-// OpDecorateStringGOOGLE %gl_InvocationID HlslSemanticGOOGLE "SV_OutputControlPointID"
 // OpDecorate %gl_PrimitiveID BuiltIn PrimitiveId
-// OpDecorateStringGOOGLE %gl_PrimitiveID HlslSemanticGOOGLE "SV_PrimitiveID"
-// OpDecorateStringGOOGLE %out_var_BEZIERPOS HlslSemanticGOOGLE "BEZIERPOS"
 // OpDecorate %gl_TessLevelOuter BuiltIn TessLevelOuter
-// OpDecorateStringGOOGLE %gl_TessLevelOuter HlslSemanticGOOGLE "SV_TessFactor"
 // OpDecorate %gl_TessLevelOuter Patch
 // OpDecorate %gl_TessLevelInner BuiltIn TessLevelInner
-// OpDecorateStringGOOGLE %gl_TessLevelInner HlslSemanticGOOGLE "SV_InsideTessFactor"
 // OpDecorate %gl_TessLevelInner Patch
-// OpDecorateStringGOOGLE %out_var_TANGENT HlslSemanticGOOGLE "TANGENT"
 // OpDecorate %out_var_TANGENT Patch
-// OpDecorateStringGOOGLE %out_var_TEXCOORD HlslSemanticGOOGLE "TEXCOORD"
 // OpDecorate %out_var_TEXCOORD Patch
-// OpDecorateStringGOOGLE %out_var_TANUCORNER HlslSemanticGOOGLE "TANUCORNER"
 // OpDecorate %out_var_TANUCORNER Patch
-// OpDecorateStringGOOGLE %out_var_TANVCORNER HlslSemanticGOOGLE "TANVCORNER"
 // OpDecorate %out_var_TANVCORNER Patch
-// OpDecorateStringGOOGLE %out_var_TANWEIGHTS HlslSemanticGOOGLE "TANWEIGHTS"
 // OpDecorate %out_var_TANWEIGHTS Patch
 // OpDecorate %in_var_WORLDPOS Location 0
 // OpDecorate %in_var_TEXCOORD0 Location 1
