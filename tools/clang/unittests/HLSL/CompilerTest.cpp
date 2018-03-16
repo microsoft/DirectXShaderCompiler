@@ -5878,6 +5878,7 @@ TEST_F(CompilerTest, HoistConstantArray) {
   CodeGenTestCheck(L"hca\\12.hlsl");
   CodeGenTestCheck(L"hca\\13.hlsl");
   CodeGenTestCheck(L"hca\\14.hlsl");
+  CodeGenTestCheck(L"hca\\15.ll");
 }
 
 TEST_F(CompilerTest, VecElemConstEval) {
