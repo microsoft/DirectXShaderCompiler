@@ -1315,6 +1315,10 @@ corresponding SPIR-V opcodes according to the following table.
 | ``>>`` | ``OpShiftRightArithmetic``  | ``OpShiftRightLogical``       |
 +--------+-----------------------------+-------------------------------+
 
+Note that for ``<<``/``>>``, the right hand side will be culled: only the ``n``
+- 1 least significant bits are considered, where ``n`` is the bitwidth of the
+left hand side.
+
 Comparison operators
 --------------------
 

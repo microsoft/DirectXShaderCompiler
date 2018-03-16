@@ -39,28 +39,6 @@ void main() {
 // CHECK-NEXT: OpStore %k [[k2]]
     k = i ^ j;
 
-// CHECK-NEXT: [[a3:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[b3:%\d+]] = OpLoad %int %b
-// CHECK-NEXT: [[c3:%\d+]] = OpShiftLeftLogical %int [[a3]] [[b3]]
-// CHECK-NEXT: OpStore %c [[c3]]
-    c = a << b;
-// CHECK-NEXT: [[i3:%\d+]] = OpLoad %v3uint %i
-// CHECK-NEXT: [[j3:%\d+]] = OpLoad %v3uint %j
-// CHECK-NEXT: [[k3:%\d+]] = OpShiftLeftLogical %v3uint [[i3]] [[j3]]
-// CHECK-NEXT: OpStore %k [[k3]]
-    k = i << j;
-
-// CHECK-NEXT: [[a4:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[b4:%\d+]] = OpLoad %int %b
-// CHECK-NEXT: [[c4:%\d+]] = OpShiftRightArithmetic %int [[a4]] [[b4]]
-// CHECK-NEXT: OpStore %c [[c4]]
-    c = a >> b;
-// CHECK-NEXT: [[i4:%\d+]] = OpLoad %v3uint %i
-// CHECK-NEXT: [[j4:%\d+]] = OpLoad %v3uint %j
-// CHECK-NEXT: [[k4:%\d+]] = OpShiftRightLogical %v3uint [[i4]] [[j4]]
-// CHECK-NEXT: OpStore %k [[k4]]
-    k = i >> j;
-
 // CHECK-NEXT: [[a5:%\d+]] = OpLoad %int %a
 // CHECK-NEXT: [[b5:%\d+]] = OpNot %int [[a5]]
 // CHECK-NEXT: OpStore %b [[b5]]

@@ -4757,6 +4757,16 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
                             : mandateGenOpcode;
 
   switch (opcode) {
+  case BO_Shl:
+  case BO_Shr:
+  case BO_ShlAssign:
+  case BO_ShrAssign:
+    // We need to cull the RHS to make sure that we are not shifting by an
+    // amount that is larger than the bitwidth of the LHS.
+    rhsVal.setResultId(theBuilder.createBinaryOp(
+        spv::Op::OpBitwiseAnd, typeTranslator.translateType(computationType),
+        rhsVal, getMaskForBitwidthValue(rhsType)));
+    // Fall through
   case BO_Add:
   case BO_Sub:
   case BO_Mul:
@@ -4771,8 +4781,6 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_And:
   case BO_Or:
   case BO_Xor:
-  case BO_Shl:
-  case BO_Shr:
   case BO_LAnd:
   case BO_LOr:
   case BO_AddAssign:
@@ -4782,9 +4790,7 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_RemAssign:
   case BO_AndAssign:
   case BO_OrAssign:
-  case BO_XorAssign:
-  case BO_ShlAssign:
-  case BO_ShrAssign: {
+  case BO_XorAssign: {
 
     // To evaluate this expression as an OpSpecConstantOp, we need to make sure
     // both operands are constant and at least one of them is a spec constant.
@@ -8264,6 +8270,44 @@ uint32_t SPIRVEmitter::getMatElemValueOne(QualType type) {
   if (colCount == 1)
     return getVecValueOne(elemType, rowCount);
   return getVecValueOne(elemType, colCount);
+}
+
+uint32_t SPIRVEmitter::getMaskForBitwidthValue(QualType type) {
+  QualType elemType = {};
+  uint32_t count = 1;
+
+  if (TypeTranslator::isScalarType(type, &elemType) ||
+      TypeTranslator::isVectorType(type, &elemType, &count)) {
+    const auto bitwidth = typeTranslator.getElementSpirvBitwidth(elemType);
+    uint32_t mask = 0;
+    uint32_t elemTypeId = 0;
+    switch (bitwidth) {
+    case 16:
+      mask = theBuilder.getConstantUint16(bitwidth - 1);
+      elemTypeId = theBuilder.getUint16Type();
+      break;
+    case 32:
+      mask = theBuilder.getConstantUint32(bitwidth - 1);
+      elemTypeId = theBuilder.getUint32Type();
+      break;
+    case 64:
+      mask = theBuilder.getConstantUint64(bitwidth - 1);
+      elemTypeId = theBuilder.getUint64Type();
+      break;
+    default:
+      assert(false && "this method only supports 16-, 32-, and 64-bit types");
+    }
+
+    if (count == 1)
+      return mask;
+
+    const uint32_t typeId = theBuilder.getVecType(elemTypeId, count);
+    llvm::SmallVector<uint32_t, 4> elements(size_t(count), mask);
+    return theBuilder.getConstantComposite(typeId, elements);
+  }
+
+  assert(false && "this method only supports scalars and vectors");
+  return 0;
 }
 
 uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
