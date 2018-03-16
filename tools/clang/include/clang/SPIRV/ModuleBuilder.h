@@ -329,6 +329,8 @@ public:
                             std::string targetName,
                             llvm::ArrayRef<uint32_t> interfaces);
 
+  inline void setShaderModelVersion(uint32_t major, uint32_t minor);
+
   /// \brief Adds an execution mode to the module under construction.
   void addExecutionMode(uint32_t entryPointId, spv::ExecutionMode em,
                         llvm::ArrayRef<uint32_t> params);
@@ -498,6 +500,10 @@ void ModuleBuilder::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
                                   std::string targetName,
                                   llvm::ArrayRef<uint32_t> interfaces) {
   theModule.addEntryPoint(em, targetId, std::move(targetName), interfaces);
+}
+
+void ModuleBuilder::setShaderModelVersion(uint32_t major, uint32_t minor) {
+  theModule.setShaderModelVersion(major * 100 + minor * 10);
 }
 
 void ModuleBuilder::addExtension(llvm::StringRef extension) {

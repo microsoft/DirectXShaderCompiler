@@ -22,6 +22,7 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Vertex %VSmain "VSmain" %gl_PerVertexOut %in_var_POSITION %in_var_COLOR %out_var_COLOR
+// OpSource HLSL 600
 // OpName %bb_entry "bb.entry"
 // OpName %src_VSmain "src.VSmain"
 // OpName %VSmain "VSmain"
