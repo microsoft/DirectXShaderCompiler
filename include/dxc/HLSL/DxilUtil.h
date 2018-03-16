@@ -22,6 +22,7 @@ class LLVMContext;
 class DiagnosticInfo;
 class Value;
 class Instruction;
+class BasicBlock;
 class StringRef;
 }
 
@@ -36,6 +37,15 @@ namespace dxilutil {
                                    llvm::Type *Ty, DxilTypeSystem &typeSys);
   llvm::Type *GetArrayEltTy(llvm::Type *Ty);
   bool HasDynamicIndexing(llvm::Value *V);
+
+  // Find alloca insertion point, given instruction
+  llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I);
+  llvm::Instruction *FindAllocaInsertionPt(llvm::Function* F);
+  llvm::Instruction *SkipAllocas(llvm::Instruction *I);
+  // Get first non-alloca insertion point, to avoid inserting non-allocas before alloca
+  llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Instruction* I);
+  llvm::Instruction *FirstNonAllocaInsertionPt(llvm::BasicBlock* BB);
+  llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F);
 
   bool IsStaticGlobal(llvm::GlobalVariable *GV);
   bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);

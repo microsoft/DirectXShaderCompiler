@@ -100,7 +100,7 @@ void SimplifyGlobalSymbol(GlobalVariable *GV) {
     for (auto it : handleMapOnFunction) {
       Function *F = it.first;
       Instruction *I = it.second;
-      IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+      IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
       Value *headLI = Builder.CreateLoad(GV);
       I->replaceAllUsesWith(headLI);
     }
@@ -613,11 +613,10 @@ void DxilGenerationPass::RemoveLocalDxilResourceAllocas(Function *F) {
     Insts.clear();
   }
 }
-
 void DxilGenerationPass::TranslateParamDxilResourceHandles(Function *F, std::unordered_map<Instruction *, Value *> &handleMap) {
   Type *handleTy = m_pHLModule->GetOP()->GetHandleType();
 
-  IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
   for (Argument &arg : F->args()) {
     Type *Ty = arg.getType();
 
@@ -770,9 +769,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
         // Must HLCreateHandle.
         CallInst *CI = cast<CallInst>(*(U++));
         // Put createHandle to entry block.
-        auto InsertPt =
-            CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt();
-        IRBuilder<> Builder(InsertPt);
+        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(CI));
         Value *V = Builder.CreateLoad(GV);
         CallInst *handle = Builder.CreateCall(createHandle, {opArg, V}, handleName);
         if (m_HasDbgInfo) {
@@ -796,11 +793,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
         Value *CBIndex = CI->getArgOperand(HLOperandIndex::kCreateHandleIndexOpIdx);
         if (isa<ConstantInt>(CBIndex)) {
           // Put createHandle to entry block for const index.
-          auto InsertPt = CI->getParent()
-                              ->getParent()
-                              ->getEntryBlock()
-                              .getFirstInsertionPt();
-          Builder.SetInsertPoint(InsertPt);
+          Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(CI));
         }
         // Add GEP for cbv array use.
         Value *GEP = Builder.CreateGEP(GV, {zeroIdx, CBIndex});
