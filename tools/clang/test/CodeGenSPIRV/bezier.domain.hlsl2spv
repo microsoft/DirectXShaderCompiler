@@ -50,6 +50,7 @@ DS_OUTPUT BezierEvalDS( HS_CONSTANT_DATA_OUTPUT input,
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint TessellationEvaluation %BezierEvalDS "BezierEvalDS" %gl_PerVertexIn %gl_PerVertexOut %gl_TessLevelOuter %gl_TessLevelInner %in_var_TANGENT %in_var_TEXCOORD %in_var_TANUCORNER %in_var_TANVCORNER %in_var_TANWEIGHTS %gl_TessCoord %in_var_BEZIERPOS %out_var_NORMAL %out_var_TEXCOORD %out_var_TANGENT %out_var_BITANGENT
 // OpExecutionMode %BezierEvalDS Quads
+// OpSource HLSL 600
 // OpName %bb_entry "bb.entry"
 // OpName %src_BezierEvalDS "src.BezierEvalDS"
 // OpName %BezierEvalDS "BezierEvalDS"

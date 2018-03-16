@@ -64,6 +64,7 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // OpExecutionMode %SubDToBezierHS SpacingFractionalOdd
 // OpExecutionMode %SubDToBezierHS VertexOrderCcw
 // OpExecutionMode %SubDToBezierHS OutputVertices 3
+// OpSource HLSL 600
 // OpName %if_true "if.true"
 // OpName %if_merge "if.merge"
 // OpName %bb_entry "bb.entry"

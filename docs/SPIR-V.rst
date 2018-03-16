@@ -357,6 +357,14 @@ compiler. They have "no semantic impact and can safely be removed" according
 to the SPIR-V spec. And they are subject to changes without notice. So we do
 not suggest to use them for reflection.
 
+Source code shader profile
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The source code shader profile version can be re-discovered by the "Version"
+operand in ``OpSource`` instruction. For ``*s_<major>_<minor>``, the "Verison"
+operand in ``OpSource`` will be set as ``<major>`` * 100 + ``<minor>`` * 10.
+For example, ``vs_5_1`` will have 510, ``ps_6_2`` will have 620.
+
 Read-only vs. read-write resource types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2528,7 +2536,7 @@ generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
 Shader Model 6.0 Wave Intrinsics
 ================================
 
- ... note ::
+::
 
   Wave intrinsics requires SPIR-V 1.3, which is supported by Vulkan 1.1.
   If you use wave intrinsics in your source code, the generated SPIR-V code
@@ -2558,7 +2566,7 @@ Reduction     ``WaveActiveMin()``          ``OpGroupNonUniform*Min``           `
 Reduction     ``WaveActiveMax()``          ``OpGroupNonUniform*Max``           ``Reduction``
 Scan/Prefix   ``WavePrefixSum()``          ``OpGroupNonUniform*Add``           ``ExclusiveScan``
 Scan/Prefix   ``WavePrefixProduct()``      ``OpGroupNonUniform*Mul``           ``ExclusiveScan``
-Scan/Prefix   ``WavePrefixCountBits()`     ``OpGroupNonUniformBallotBitCount`` ``ExclusiveScan``
+Scan/Prefix   ``WavePrefixCountBits()``    ``OpGroupNonUniformBallotBitCount`` ``ExclusiveScan``
 Broadcast     ``WaveReadLaneAt()``         ``OpGroupNonUniformBroadcast``
 Broadcast     ``WaveReadLaneFirst()``      ``OpGroupNonUniformBroadcastFirst``
 Quad          ``QuadReadAcrossX()``        ``OpGroupNonUniformQuadSwap``
