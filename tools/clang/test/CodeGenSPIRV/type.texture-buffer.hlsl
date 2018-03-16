@@ -16,7 +16,7 @@ struct S {
   float3 f2;
 };
 
-// CHECK: %type_TextureBuffer_T = OpTypeStruct %bool %int %v2uint %mat3v4float %S %_arr_float_uint_4
+// CHECK: %type_TextureBuffer_T = OpTypeStruct %uint %int %v2uint %mat3v4float %S %_arr_float_uint_4
 // CHECK: %_ptr_Uniform_type_TextureBuffer_T = OpTypePointer Uniform %type_TextureBuffer_T
 struct T {
   bool     a;

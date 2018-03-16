@@ -35,7 +35,7 @@ cbuffer AnotherCBuffer : register(b2) {
     float4 n;
 }
 
-// CHECK: %type_MyCbuffer = OpTypeStruct %bool %int %v2uint %mat3v4float %S %_arr_float_uint_4
+// CHECK: %type_MyCbuffer = OpTypeStruct %uint %int %v2uint %mat3v4float %S %_arr_float_uint_4
 
 // CHECK: %type_AnotherCBuffer = OpTypeStruct %v3float %v4float
 

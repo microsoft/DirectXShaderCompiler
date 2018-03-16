@@ -353,8 +353,8 @@ void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
   }
 }
 
-uint32_t DeclResultIdMapper::createFnVar(const VarDecl *var,
-                                         llvm::Optional<uint32_t> init) {
+SpirvEvalInfo DeclResultIdMapper::createFnVar(const VarDecl *var,
+                                              llvm::Optional<uint32_t> init) {
   bool isAlias = false;
   auto &info = astDecls[var].info;
   const uint32_t type =
@@ -362,10 +362,10 @@ uint32_t DeclResultIdMapper::createFnVar(const VarDecl *var,
   const uint32_t id = theBuilder.addFnVar(type, var->getName(), init);
   info.setResultId(id);
 
-  return id;
+  return info;
 }
 
-uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
+SpirvEvalInfo DeclResultIdMapper::createFileVar(const VarDecl *var,
                                            llvm::Optional<uint32_t> init) {
   bool isAlias = false;
   auto &info = astDecls[var].info;
@@ -375,10 +375,10 @@ uint32_t DeclResultIdMapper::createFileVar(const VarDecl *var,
                                               var->getName(), init);
   info.setResultId(id).setStorageClass(spv::StorageClass::Private);
 
-  return id;
+  return info;
 }
 
-uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
+SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
   auto rule = LayoutRule::Void;
   bool isACRWSBuffer = false; // Whether is {Append|Consume|RW}StructuredBuffer
@@ -418,12 +418,13 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
 
   const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
                                               var->getName(), llvm::None);
-  astDecls[var] =
+  const auto info =
       SpirvEvalInfo(id).setStorageClass(storageClass).setLayoutRule(rule);
+  astDecls[var] = info;
 
   // Variables in Workgroup do not need descriptor decorations.
   if (storageClass == spv::StorageClass::Workgroup)
-    return id;
+    return info;
 
   const auto *regAttr = getResourceBinding(var);
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
@@ -441,7 +442,7 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
     createCounterVar(var, /*isAlias=*/false);
   }
 
-  return id;
+  return info;
 }
 
 uint32_t DeclResultIdMapper::getMatrixStructType(const VarDecl *matVar,
