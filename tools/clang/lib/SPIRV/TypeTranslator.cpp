@@ -628,10 +628,12 @@ uint32_t TypeTranslator::getGlPerVertexStruct(
       Decoration::getBuiltIn(ctx, spv::BuiltIn::CullDistance, 3));
   decorations.push_back(Decoration::getBlock(ctx));
 
-  for (uint32_t i = 0; i < 4; ++i)
-    if (!fieldSemantics[i].empty())
-      decorations.push_back(
-          Decoration::getHlslSemanticGOOGLE(ctx, fieldSemantics[i], i));
+  if (spirvOptions.enableReflect) {
+    for (uint32_t i = 0; i < 4; ++i)
+      if (!fieldSemantics[i].empty())
+        decorations.push_back(
+            Decoration::getHlslSemanticGOOGLE(ctx, fieldSemantics[i], i));
+  }
 
   return theBuilder.getStructType({v4f32Type, f32Type, clipType, cullType},
                                   name, {}, decorations);

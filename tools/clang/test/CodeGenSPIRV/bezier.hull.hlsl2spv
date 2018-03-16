@@ -1,4 +1,4 @@
-// Run: %dxc -T hs_6_0 -E SubDToBezierHS
+// Run: %dxc -T hs_6_0 -E SubDToBezierHS -fvk-enable-reflect
 
 #define MAX_POINTS 3
 

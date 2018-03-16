@@ -1,4 +1,4 @@
-// Run: %dxc -T ds_6_0 -E main
+// Run: %dxc -T ds_6_0 -E main -fvk-enable-reflect
 
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance

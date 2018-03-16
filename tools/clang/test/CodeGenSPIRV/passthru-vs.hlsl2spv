@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E VSmain
+// Run: %dxc -T vs_6_0 -E VSmain -fvk-enable-reflect
 
 struct PSInput {
   float4 position : SV_Position;

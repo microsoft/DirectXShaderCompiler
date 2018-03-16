@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// Run: %dxc -T cs_6_0 -E main -fvk-enable-reflect
 
 // Source: https://msdn.microsoft.com/en-us/library/windows/desktop/ff476330(v=vs.85).aspx
 

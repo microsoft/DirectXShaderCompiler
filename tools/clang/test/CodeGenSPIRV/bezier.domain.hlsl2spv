@@ -1,4 +1,4 @@
-// Run: %dxc -T ds_6_0 -E BezierEvalDS
+// Run: %dxc -T ds_6_0 -E BezierEvalDS -fvk-enable-reflect
 
 #define MAX_POINTS 4
 

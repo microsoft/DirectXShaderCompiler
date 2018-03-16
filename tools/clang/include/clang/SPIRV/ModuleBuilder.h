@@ -35,7 +35,7 @@ namespace spirv {
 class ModuleBuilder {
 public:
   /// \brief Constructs a ModuleBuilder with the given SPIR-V context.
-  explicit ModuleBuilder(SPIRVContext *);
+  explicit ModuleBuilder(SPIRVContext *, bool enablReflect);
 
   /// \brief Returns the associated SPIRVContext.
   inline SPIRVContext *getSPIRVContext();
@@ -468,6 +468,8 @@ private:
 
   SPIRVContext &theContext; ///< The SPIR-V context.
   SPIRVModule theModule;    ///< The module under building.
+
+  const bool allowReflect; ///< Whether allow reflect instructions.
 
   std::unique_ptr<Function> theFunction; ///< The function under building.
   OrderedBasicBlockMap basicBlocks;      ///< The basic blocks under building.
