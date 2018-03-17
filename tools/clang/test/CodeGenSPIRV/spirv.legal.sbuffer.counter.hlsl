@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-reflect
+// Run: %dxc -T ps_6_0 -E main -fspv-reflect
 
 struct S1 {
     float4 f;

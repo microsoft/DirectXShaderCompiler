@@ -1,4 +1,4 @@
-// Run: %dxc -T hs_6_0 -E main -fvk-reflect
+// Run: %dxc -T hs_6_0 -E main -fspv-reflect
 
 #define NumOutPoints 2
 

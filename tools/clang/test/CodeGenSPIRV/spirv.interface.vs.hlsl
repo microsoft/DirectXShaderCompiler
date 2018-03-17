@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fvk-reflect
+// Run: %dxc -T vs_6_0 -E main -fspv-reflect
 
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
