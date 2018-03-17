@@ -476,6 +476,7 @@ public:
   TEST_METHOD(CodeGenAtomic)
   TEST_METHOD(CodeGenAtomic2)
   TEST_METHOD(CodeGenAttributeAtVertex)
+  TEST_METHOD(CodeGenAttributeAtVertexNoOpt)
   TEST_METHOD(CodeGenBarycentrics)
   TEST_METHOD(CodeGenBarycentrics1)
   TEST_METHOD(CodeGenBarycentricsThreeSV)
@@ -3190,6 +3191,11 @@ TEST_F(CompilerTest, CodeGenAtomic2) {
 TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
   if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertex.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenAttributeAtVertexNoOpt) {
+  if (m_ver.SkipDxilVersion(1,1)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertexNoOpt.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBarycentrics) {
