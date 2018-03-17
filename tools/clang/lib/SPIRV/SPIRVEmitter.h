@@ -490,6 +490,11 @@ private:
   /// one will be a vector of size N.
   uint32_t getMatElemValueOne(QualType type);
 
+  /// Returns a SPIR-V constant equal to the bitwdith of the given type minus
+  /// one. The returned constant has the same component count and bitwidth as
+  /// the given type.
+  uint32_t getMaskForBitwidthValue(QualType type);
+
 private:
   /// \brief Performs a FlatConversion implicit cast. Fills an instance of the
   /// given type with initializer <result-id>. The initializer is of type

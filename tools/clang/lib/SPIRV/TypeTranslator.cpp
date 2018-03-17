@@ -402,10 +402,7 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
     case BuiltinType::Min12Int:
     case BuiltinType::Half:
     case BuiltinType::Min10Float: {
-      if (spirvOptions.enable16BitTypes)
-        return 16;
-      else
-        return 32;
+      return spirvOptions.enable16BitTypes ? 16 : 32;
     }
     case BuiltinType::LitFloat: {
       // First try to see if there are any hints about how this literal type
@@ -416,10 +413,7 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
 
       const auto &semantics = astContext.getFloatTypeSemantics(type);
       const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
-      if (bitwidth <= 32)
-        return 32;
-      else
-        return 64;
+      return bitwidth <= 32 ? 32 : 64;
     }
     case BuiltinType::LitInt: {
       // First try to see if there are any hints about how this literal type
