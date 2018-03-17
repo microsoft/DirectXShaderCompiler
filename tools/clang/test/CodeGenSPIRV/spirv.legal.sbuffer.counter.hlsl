@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// Run: %dxc -T ps_6_0 -E main -fspv-reflect
 
 struct S1 {
     float4 f;
@@ -11,6 +11,16 @@ struct S2 {
 struct S3 {
     float2 f;
 };
+
+// Do not generate decorations for alias buffers
+
+// CHECK-NOT: OpDecorateId %staticgRWSBuffer HlslCounterBufferGOOGLE
+// CHECK-NOT: OpDecorateId %staticgASBuffer HlslCounterBufferGOOGLE
+// CHECK-NOT: OpDecorateId %staticgCSBuffer HlslCounterBufferGOOGLE
+
+// CHECK-NOT: OpDecorateId %localRWSBuffer HlslCounterBufferGOOGLE
+// CHECK-NOT: OpDecorateId %localASBuffer HlslCounterBufferGOOGLE
+// CHECK-NOT: OpDecorateId %localCSBuffer HlslCounterBufferGOOGLE
 
 RWStructuredBuffer<S1>      selectRWSBuffer(RWStructuredBuffer<S1>    paramRWSBuffer, bool selector);
 AppendStructuredBuffer<S2>  selectASBuffer(AppendStructuredBuffer<S2>  paramASBuffer,  bool selector);

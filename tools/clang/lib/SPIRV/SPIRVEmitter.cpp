@@ -519,7 +519,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
-      theContext(), theBuilder(&theContext),
+      theContext(), theBuilder(&theContext, options.enableReflect),
       declIdMapper(shaderModel, astContext, theBuilder, spirvOptions),
       typeTranslator(astContext, theBuilder, diags, options),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
@@ -8943,16 +8943,18 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // SV_ClipDistance/SV_CullDistance variables into one float array, thus we
   // need to calculate the total size of the array and the offset of each
   // variable within that array.
+  // Also go through all parameters to record the semantic strings provided for
+  // the builtins in gl_PerVertex.
   for (const auto *param : decl->params()) {
     if (canActAsInParmVar(param))
-      if (!declIdMapper.glPerVertex.recordClipCullDistanceDecl(param, true))
+      if (!declIdMapper.glPerVertex.recordGlPerVertexDeclFacts(param, true))
         return false;
     if (canActAsOutParmVar(param))
-      if (!declIdMapper.glPerVertex.recordClipCullDistanceDecl(param, false))
+      if (!declIdMapper.glPerVertex.recordGlPerVertexDeclFacts(param, false))
         return false;
   }
   // Also consider the SV_ClipDistance/SV_CullDistance in the return type
-  if (!declIdMapper.glPerVertex.recordClipCullDistanceDecl(decl, false))
+  if (!declIdMapper.glPerVertex.recordGlPerVertexDeclFacts(decl, false))
     return false;
 
   // Calculate the total size of the ClipDistance/CullDistance array and the

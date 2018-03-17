@@ -1,4 +1,6 @@
-// Run: %dxc -T vs_6_0 -E main
+// Run: %dxc -T vs_6_0 -E main -fspv-reflect
+
+// CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 
 // CHECK: OpName %type_AppendStructuredBuffer_v4float "type.AppendStructuredBuffer.v4float"
 // CHECK: OpName %buffer1 "buffer1"
@@ -10,6 +12,9 @@
 // CHECK: OpName %buffer2 "buffer2"
 
 // CHECK: OpName %counter_var_buffer2 "counter.var.buffer2"
+
+// CHECK: OpDecorateId %buffer1 HlslCounterBufferGOOGLE %counter_var_buffer1
+// CHECK: OpDecorateId %buffer2 HlslCounterBufferGOOGLE %counter_var_buffer2
 
 // CHECK: %type_AppendStructuredBuffer_v4float = OpTypeStruct %_runtimearr_v4float
 // CHECK: %_ptr_Uniform_type_AppendStructuredBuffer_v4float = OpTypePointer Uniform %type_AppendStructuredBuffer_v4float

@@ -619,9 +619,9 @@ uint32_t TypeTranslator::getACSBufferCounter() {
                                   decorations);
 }
 
-uint32_t TypeTranslator::getGlPerVertexStruct(uint32_t clipArraySize,
-                                              uint32_t cullArraySize,
-                                              llvm::StringRef name) {
+uint32_t TypeTranslator::getGlPerVertexStruct(
+    uint32_t clipArraySize, uint32_t cullArraySize, llvm::StringRef name,
+    const llvm::SmallVector<std::string, 4> &fieldSemantics) {
   const uint32_t f32Type = theBuilder.getFloat32Type();
   const uint32_t v4f32Type = theBuilder.getVecType(f32Type, 4);
   const uint32_t clipType = theBuilder.getArrayType(
@@ -640,6 +640,13 @@ uint32_t TypeTranslator::getGlPerVertexStruct(uint32_t clipArraySize,
   decorations.push_back(
       Decoration::getBuiltIn(ctx, spv::BuiltIn::CullDistance, 3));
   decorations.push_back(Decoration::getBlock(ctx));
+
+  if (spirvOptions.enableReflect) {
+    for (uint32_t i = 0; i < 4; ++i)
+      if (!fieldSemantics[i].empty())
+        decorations.push_back(
+            Decoration::getHlslSemanticGOOGLE(ctx, fieldSemantics[i], i));
+  }
 
   return theBuilder.getStructType({v4f32Type, f32Type, clipType, cullType},
                                   name, {}, decorations);

@@ -1,8 +1,11 @@
-// Run: %dxc -T gs_6_0 -E main
+// Run: %dxc -T gs_6_0 -E main -fspv-reflect
 
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
 // CHECK: OpCapability Geometry
+
+// CHECK: OpExtension "SPV_GOOGLE_decorate_string"
+// CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 
 struct GsPerVertexIn {
     float4 pos   : SV_Position;      // Builtin Position
@@ -43,11 +46,22 @@ struct GsPerVertexOut {
 // CHECK: OpMemberDecorate %type_gl_PerVertex 3 BuiltIn CullDistance
 // CHECK: OpDecorate %type_gl_PerVertex Block
 
-// CHECK: OpDecorate %gl_ClipDistance BuiltIn ClipDistance
-// CHECK: OpDecorate %gl_CullDistance BuiltIn CullDistance
-// CHECK: OpDecorate %gl_Position BuiltIn Position
-// CHECK: OpDecorate %gl_PointSize BuiltIn PointSize
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 0 HlslSemanticGOOGLE "SV_Position"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 1 HlslSemanticGOOGLE "PSIZE"
+// CHECK: OpMemberDecorateStringGOOGLE %type_gl_PerVertex 2 HlslSemanticGOOGLE "SV_ClipDistance"
 
+// CHECK: OpDecorate %gl_ClipDistance BuiltIn ClipDistance
+// CHECK: OpDecorateStringGOOGLE %gl_ClipDistance HlslSemanticGOOGLE "SV_ClipDistance"
+// CHECK: OpDecorate %gl_CullDistance BuiltIn CullDistance
+// CHECK: OpDecorateStringGOOGLE %gl_CullDistance HlslSemanticGOOGLE "SV_CullDistance"
+// CHECK: OpDecorateStringGOOGLE %in_var_BAR HlslSemanticGOOGLE "BAR"
+// CHECK: OpDecorateStringGOOGLE %in_var_FOO HlslSemanticGOOGLE "FOO"
+// CHECK: OpDecorate %gl_Position BuiltIn Position
+// CHECK: OpDecorateStringGOOGLE %gl_Position HlslSemanticGOOGLE "SV_Position"
+// CHECK: OpDecorateStringGOOGLE %out_var_FOO HlslSemanticGOOGLE "FOO"
+// CHECK: OpDecorate %gl_PointSize BuiltIn PointSize
+// CHECK: OpDecorateStringGOOGLE %gl_PointSize HlslSemanticGOOGLE "PSIZE"
+// CHECK: OpDecorateStringGOOGLE %out_var_BAR HlslSemanticGOOGLE "BAR"
 // CHECK: OpDecorate %in_var_BAR Location 0
 // CHECK: OpDecorate %in_var_FOO Location 1
 // CHECK: OpDecorate %out_var_FOO Location 0

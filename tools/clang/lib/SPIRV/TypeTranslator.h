@@ -68,8 +68,10 @@ public:
   ///   float  gl_ClipDistance[];
   ///   float  gl_CullDistance[];
   /// };
-  uint32_t getGlPerVertexStruct(uint32_t clipArraySize, uint32_t cullArraySize,
-                                llvm::StringRef structName);
+  uint32_t
+  getGlPerVertexStruct(uint32_t clipArraySize, uint32_t cullArraySize,
+                       llvm::StringRef structName,
+                       const llvm::SmallVector<std::string, 4> &fieldSemantics);
 
   /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
   static bool isStructuredBuffer(QualType type);
