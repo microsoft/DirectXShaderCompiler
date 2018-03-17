@@ -300,13 +300,14 @@ public:
 
   /// \brief Creates a function-scope variable in the current function and
   /// returns its <result-id>.
-  uint32_t createFnVar(const VarDecl *var, llvm::Optional<uint32_t> init);
+  SpirvEvalInfo createFnVar(const VarDecl *var, llvm::Optional<uint32_t> init);
 
   /// \brief Creates a file-scope variable and returns its <result-id>.
-  uint32_t createFileVar(const VarDecl *var, llvm::Optional<uint32_t> init);
+  SpirvEvalInfo createFileVar(const VarDecl *var,
+                              llvm::Optional<uint32_t> init);
 
   /// \brief Creates an external-visible variable and returns its <result-id>.
-  uint32_t createExternVar(const VarDecl *var);
+  SpirvEvalInfo createExternVar(const VarDecl *var);
 
   /// \brief Creates a cbuffer/tbuffer from the given decl.
   ///

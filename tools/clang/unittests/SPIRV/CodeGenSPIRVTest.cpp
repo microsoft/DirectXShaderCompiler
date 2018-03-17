@@ -213,6 +213,12 @@ TEST_F(FileTest, BinaryOpScalarBitwise) {
 TEST_F(FileTest, BinaryOpVectorBitwise) {
   runFileTest("binary-op.bitwise.vector.hlsl");
 }
+TEST_F(FileTest, BinaryOpBitwiseShiftLeft) {
+  runFileTest("binary-op.bitwise.shift-left.hlsl");
+}
+TEST_F(FileTest, BinaryOpBitwiseShiftRight) {
+  runFileTest("binary-op.bitwise.shift-right.hlsl");
+}
 
 // For bitwise assignments
 TEST_F(FileTest, BinaryOpScalarBitwiseAssign) {
@@ -220,6 +226,12 @@ TEST_F(FileTest, BinaryOpScalarBitwiseAssign) {
 }
 TEST_F(FileTest, BinaryOpVectorBitwiseAssign) {
   runFileTest("binary-op.bitwise-assign.vector.hlsl");
+}
+TEST_F(FileTest, BinaryOpBitwiseAssignShiftLeft) {
+  runFileTest("binary-op.bitwise-assign.shift-left.hlsl");
+}
+TEST_F(FileTest, BinaryOpBitwiseAssignShiftRight) {
+  runFileTest("binary-op.bitwise-assign.shift-right.hlsl");
 }
 
 // For comparison operators
@@ -1298,6 +1310,12 @@ TEST_F(FileTest, VulkanLayoutCBufferNestedStd140) {
 }
 TEST_F(FileTest, VulkanLayoutCBufferNestedEmptyStd140) {
   runFileTest("vk.layout.cbuffer.nested.empty.std140.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutCBufferBoolean) {
+  runFileTest("vk.layout.cbuffer.boolean.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutRWStructuredBufferBoolean) {
+  runFileTest("vk.layout.rwstructuredbuffer.boolean.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutSBufferStd430) {
   runFileTest("vk.layout.sbuffer.std430.hlsl");

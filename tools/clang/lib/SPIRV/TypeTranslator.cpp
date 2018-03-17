@@ -402,10 +402,7 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
     case BuiltinType::Min12Int:
     case BuiltinType::Half:
     case BuiltinType::Min10Float: {
-      if (spirvOptions.enable16BitTypes)
-        return 16;
-      else
-        return 32;
+      return spirvOptions.enable16BitTypes ? 16 : 32;
     }
     case BuiltinType::LitFloat: {
       // First try to see if there are any hints about how this literal type
@@ -416,10 +413,7 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
 
       const auto &semantics = astContext.getFloatTypeSemantics(type);
       const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
-      if (bitwidth <= 32)
-        return 32;
-      else
-        return 64;
+      return bitwidth <= 32 ? 32 : 64;
     }
     case BuiltinType::LitInt: {
       // First try to see if there are any hints about how this literal type
@@ -457,8 +451,15 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
         switch (builtinType->getKind()) {
         case BuiltinType::Void:
           return theBuilder.getVoidType();
-        case BuiltinType::Bool:
-          return theBuilder.getBoolType();
+        case BuiltinType::Bool: {
+          // According to the SPIR-V Spec: There is no physical size or bit
+          // pattern defined for boolean type. Therefore an unsigned integer is
+          // used to represent booleans when layout is required.
+          if (rule == LayoutRule::Void)
+            return theBuilder.getBoolType();
+          else
+            return theBuilder.getUint32Type();
+        }
         // All the ints
         case BuiltinType::Int:
         case BuiltinType::UInt:
@@ -518,7 +519,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
     QualType elemType = {};
     uint32_t elemCount = {};
     if (isVectorType(type, &elemType, &elemCount))
-      return theBuilder.getVecType(translateType(elemType), elemCount);
+      return theBuilder.getVecType(translateType(elemType, rule), elemCount);
   }
 
   // Matrix types
@@ -529,7 +530,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
       // HLSL matrices are row major, while SPIR-V matrices are column major.
       // We are mapping what HLSL semantically mean a row into a column here.
       const uint32_t vecType =
-          theBuilder.getVecType(translateType(elemType), colCount);
+          theBuilder.getVecType(translateType(elemType, rule), colCount);
 
       // If the matrix element type is not float, it is represented as an array
       // of vectors, and should therefore have the ArrayStride decoration.
