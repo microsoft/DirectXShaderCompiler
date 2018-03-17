@@ -18,9 +18,9 @@
 namespace clang {
 namespace spirv {
 
-ModuleBuilder::ModuleBuilder(SPIRVContext *C)
-    : theContext(*C), theModule(), theFunction(nullptr), insertPoint(nullptr),
-      instBuilder(nullptr), glslExtSetId(0) {
+ModuleBuilder::ModuleBuilder(SPIRVContext *C, bool reflect)
+    : theContext(*C), theModule(), allowReflect(reflect), theFunction(nullptr),
+      insertPoint(nullptr), instBuilder(nullptr), glslExtSetId(0) {
   instBuilder.setConsumer([this](std::vector<uint32_t> &&words) {
     this->constructSite = std::move(words);
   });
@@ -807,10 +807,33 @@ void ModuleBuilder::decorateDSetBinding(uint32_t targetId, uint32_t setNumber,
   d = Decoration::getBinding(theContext, bindingNumber);
   theModule.addDecoration(d, targetId);
 }
+
 void ModuleBuilder::decorateInputAttachmentIndex(uint32_t targetId,
                                                  uint32_t indexNumber) {
   const auto *d = Decoration::getInputAttachmentIndex(theContext, indexNumber);
   theModule.addDecoration(d, targetId);
+}
+
+void ModuleBuilder::decorateCounterBufferId(uint32_t mainBufferId,
+                                            uint32_t counterBufferId) {
+  if (allowReflect) {
+    addExtension("SPV_GOOGLE_hlsl_functionality1");
+    theModule.addDecoration(
+        Decoration::getHlslCounterBufferGOOGLE(theContext, counterBufferId),
+        mainBufferId);
+  }
+}
+
+void ModuleBuilder::decorateHlslSemantic(uint32_t targetId,
+                                         llvm::StringRef semantic,
+                                         llvm::Optional<uint32_t> memberIdx) {
+  if (allowReflect) {
+    addExtension("SPV_GOOGLE_decorate_string");
+    addExtension("SPV_GOOGLE_hlsl_functionality1");
+    theModule.addDecoration(
+        Decoration::getHlslSemanticGOOGLE(theContext, semantic, memberIdx),
+        targetId);
+  }
 }
 
 void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {

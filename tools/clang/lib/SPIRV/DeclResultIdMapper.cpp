@@ -345,7 +345,7 @@ void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
 
   if (!counterVars.count(decl) &&
       TypeTranslator::isRWAppendConsumeSBuffer(declType)) {
-    createCounterVar(decl, /*isAlias=*/true);
+    createCounterVar(decl, /*declId=*/0, /*isAlias=*/true);
   } else if (!fieldCounterVars.count(decl) && declType->isStructureType() &&
              // Exclude other resource types which are represented as structs
              !hlsl::IsHLSLResourceType(declType)) {
@@ -439,7 +439,7 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
   if (isACRWSBuffer) {
     // For {Append|Consume|RW}StructuredBuffer, we need to always create another
     // variable for its associated counter.
-    createCounterVar(var, /*isAlias=*/false);
+    createCounterVar(var, id, /*isAlias=*/false);
   }
 
   return info;
@@ -725,7 +725,7 @@ void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
 }
 
 void DeclResultIdMapper::createCounterVar(
-    const DeclaratorDecl *decl, bool isAlias,
+    const DeclaratorDecl *decl, uint32_t declId, bool isAlias,
     const llvm::SmallVector<uint32_t, 4> *indices) {
   std::string counterName = "counter.var." + decl->getName().str();
   if (indices) {
@@ -756,6 +756,8 @@ void DeclResultIdMapper::createCounterVar(
                               getResourceBinding(decl),
                               decl->getAttr<VKBindingAttr>(),
                               decl->getAttr<VKCounterBindingAttr>(), true);
+    assert(declId);
+    theBuilder.decorateCounterBufferId(declId, counterId);
   }
 
   if (indices)
@@ -778,7 +780,7 @@ void DeclResultIdMapper::createFieldCounterVars(
 
     const QualType fieldType = field->getType();
     if (TypeTranslator::isRWAppendConsumeSBuffer(fieldType))
-      createCounterVar(rootDecl, /*isAlias=*/true, indices);
+      createCounterVar(rootDecl, /*declId=*/0, /*isAlias=*/true, indices);
     else if (fieldType->isStructureType() &&
              !hlsl::IsHLSLResourceType(fieldType))
       // Go recursively into all nested structs
@@ -1319,6 +1321,11 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     stageVar.setSpirvId(varId);
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
     stageVars.push_back(stageVar);
+
+    // Emit OpDecorate* instructions to link this stage variable with the HLSL
+    // semantic it is created for
+    theBuilder.decorateHlslSemantic(varId, stageVar.getSemanticStr());
+
     // We have semantics attached to this decl, which means it must be a
     // function/parameter/variable. All are DeclaratorDecls.
     stageVarIds[cast<DeclaratorDecl>(decl)] = varId;

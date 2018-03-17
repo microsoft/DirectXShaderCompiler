@@ -365,6 +365,24 @@ operand in ``OpSource`` instruction. For ``*s_<major>_<minor>``, the "Verison"
 operand in ``OpSource`` will be set as ``<major>`` * 100 + ``<minor>`` * 10.
 For example, ``vs_5_1`` will have 510, ``ps_6_2`` will have 620.
 
+HLSL Semantic
+~~~~~~~~~~~~~
+
+HLSL semantic strings are by default not emitted into the SPIR-V binary module.
+If you need them, by specifying ``-fspv-reflect``, the compiler will use
+the ``Op*DecorateStringGOOGLE`` instruction in `SPV_GOOGLE_hlsl_funtionality1 <https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/GOOGLE/SPV_GOOGLE_hlsl_functionality1.asciidoc>`_
+extension to emit them.
+
+Counter buffers for RW/Append/Consume StructuredBuffer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The association between a counter buffer and its main RW/Append/Consume
+StructuredBuffer is conveyed by ``OpDecorateId <structured-buffer-id>
+HLSLCounterBufferGOOGLE <counter-buffer-id>`` instruction from the
+`SPV_GOOGLE_hlsl_funtionality1 <https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/GOOGLE/SPV_GOOGLE_hlsl_functionality1.asciidoc>`_
+extension. This information is by default missing; you need to specify
+``-fspv-reflect`` to direct the compiler to emit them.
+
 Read-only vs. read-write resource types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2608,6 +2626,7 @@ codegen for Vulkan:
 - ``-fvk-stage-io-order={alpha|decl}``: Assigns the stage input/output variable
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.
+- ``-fspv-reflect``: Emits additional SPIR-V instructions to aid reflection.
 
 Unsupported HLSL Features
 =========================

@@ -35,7 +35,7 @@ namespace spirv {
 class ModuleBuilder {
 public:
   /// \brief Constructs a ModuleBuilder with the given SPIR-V context.
-  explicit ModuleBuilder(SPIRVContext *);
+  explicit ModuleBuilder(SPIRVContext *, bool enablReflect);
 
   /// \brief Returns the associated SPIRVContext.
   inline SPIRVContext *getSPIRVContext();
@@ -381,6 +381,14 @@ public:
   /// attchment index number.
   void decorateInputAttachmentIndex(uint32_t targetId, uint32_t indexNumber);
 
+  /// \brief Decorates the given main buffer with the given counter buffer.
+  void decorateCounterBufferId(uint32_t mainBufferId, uint32_t counterBufferId);
+
+  /// \brief Decorates the given target <result-id> with the given HLSL semantic
+  /// string.
+  void decorateHlslSemantic(uint32_t targetId, llvm::StringRef semantic,
+                            llvm::Optional<uint32_t> memberIdx = llvm::None);
+
   /// \brief Decorates the given target <result-id> with the given decoration
   /// (without additional parameters).
   void decorate(uint32_t targetId, spv::Decoration);
@@ -462,6 +470,8 @@ private:
 
   SPIRVContext &theContext; ///< The SPIR-V context.
   SPIRVModule theModule;    ///< The module under building.
+
+  const bool allowReflect; ///< Whether allow reflect instructions.
 
   std::unique_ptr<Function> theFunction; ///< The function under building.
   OrderedBasicBlockMap basicBlocks;      ///< The basic blocks under building.
