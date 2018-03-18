@@ -1140,6 +1140,16 @@ TEST_F(FileTest, SpirvBuiltInShaderDrawParametersInvalidUsage) {
               Expect::Failure);
 }
 
+TEST_F(FileTest, SpirvExtensionCLAllow) {
+  runFileTest("spirv.ext.cl.allow.hlsl");
+}
+TEST_F(FileTest, SpirvExtensionCLForbid) {
+  runFileTest("spirv.ext.cl.forbid.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvExtensionCLUnknown) {
+  runFileTest("spirv.ext.cl.unknown.hlsl", Expect::Failure);
+}
+
 // For shader stage input/output interface
 // For semantic SV_Position, SV_ClipDistance, SV_CullDistance
 TEST_F(FileTest, SpirvStageIOInterfaceVS) {

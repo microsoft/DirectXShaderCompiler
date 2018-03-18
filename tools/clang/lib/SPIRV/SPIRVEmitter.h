@@ -28,6 +28,7 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/EmitSPIRVOptions.h"
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
@@ -906,9 +907,10 @@ private:
   const hlsl::ShaderModel &shaderModel;
 
   SPIRVContext theContext;
+  FeatureManager featureManager;
   ModuleBuilder theBuilder;
-  DeclResultIdMapper declIdMapper;
   TypeTranslator typeTranslator;
+  DeclResultIdMapper declIdMapper;
 
   /// A queue of decls reachable from the entry function. Decls inserted into
   /// this queue will persist to avoid duplicated translations. And we'd like

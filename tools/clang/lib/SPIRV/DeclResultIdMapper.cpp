@@ -366,7 +366,7 @@ SpirvEvalInfo DeclResultIdMapper::createFnVar(const VarDecl *var,
 }
 
 SpirvEvalInfo DeclResultIdMapper::createFileVar(const VarDecl *var,
-                                           llvm::Optional<uint32_t> init) {
+                                                llvm::Optional<uint32_t> init) {
   bool isAlias = false;
   auto &info = astDecls[var].info;
   const uint32_t type =
@@ -1812,7 +1812,9 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     case BuiltIn::BaseVertex:
     case BuiltIn::BaseInstance:
     case BuiltIn::DrawIndex:
-      theBuilder.addExtension("SPV_KHR_shader_draw_parameters");
+      theBuilder.addExtension(Extension::KHR_shader_draw_parameters,
+                              builtinAttr->getBuiltIn(),
+                              builtinAttr->getLocation());
       theBuilder.requireCapability(spv::Capability::DrawParameters);
       break;
     }
@@ -2031,7 +2033,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
   // According to DXIL spec, the StencilRef SV can only be used by PSOut.
   case hlsl::Semantic::Kind::StencilRef: {
-    theBuilder.addExtension("SPV_EXT_shader_stencil_export");
+    theBuilder.addExtension(Extension::EXT_shader_stencil_export,
+                            stageVar->getSemanticStr(), srcLoc);
     theBuilder.requireCapability(spv::Capability::StencilExportEXT);
 
     stageVar->setIsSpirvBuiltin();
@@ -2039,7 +2042,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
   // According to DXIL spec, the ViewID SV can only be used by PSIn.
   case hlsl::Semantic::Kind::Barycentrics: {
-    theBuilder.addExtension("SPV_AMD_shader_explicit_vertex_parameter");
+    theBuilder.addExtension(Extension::AMD_shader_explicit_vertex_parameter,
+                            stageVar->getSemanticStr(), srcLoc);
     stageVar->setIsSpirvBuiltin();
 
     // Selecting the correct builtin according to interpolation mode
@@ -2128,7 +2132,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   // According to Vulkan spec, the ViewIndex BuiltIn can only be used in
   // VS/HS/DS/GS/PS input.
   case hlsl::Semantic::Kind::ViewID: {
-    theBuilder.addExtension("SPV_KHR_multiview");
+    theBuilder.addExtension(Extension::KHR_multiview,
+                            stageVar->getSemanticStr(), srcLoc);
     theBuilder.requireCapability(spv::Capability::MultiView);
 
     stageVar->setIsSpirvBuiltin();

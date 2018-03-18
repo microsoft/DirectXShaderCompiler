@@ -265,7 +265,7 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``push_constant``: For marking a variable as the push constant block. Allowed
   on global variables of struct type. At most one variable can be marked as
   ``push_constant`` in a shader.
-- ``constant_id``: For marking a global constant as a specialization constant.
+- ``constant_id(X)``: For marking a global constant as a specialization constant.
   Allowed on global variables of boolean/integer/float types.
 - ``input_attachment_index(X)``: To associate the Xth entry in the input pass
   list to the annotated object. Only allowed on objects whose type are
@@ -291,6 +291,25 @@ interface variables:
   [[vk::location(M)]] float4
   main([[vk::location(N)]] float4 input: A) : B
   { ... }
+
+SPIR-V version and extension
+----------------------------
+
+In the **defult** mode (without ``-fspv-extension=<extension>`` command-line
+option), SPIR-V CodeGen will try its best to use the lowest SPIR-V version, and
+only require higher SPIR-V versions and extensions when they are truly needed
+for translating the input source code.
+
+For example, unless `Shader Model 6.0 wave intrinsics`_ are used, the generated
+SPIR-V will always be of version 1.0. The ``SPV_KHR_multivew`` extension will
+not be emitted unless you use ``SV_ViewID``.
+
+You can of course have fine-grained control of what extensions are permitted
+in the CodeGen using the **explicit** mode, turned on by the
+``-fspv-extension=<extension>`` command-line option. Only extensions supplied
+via ``-fspv-extension=`` will be used. If that does not suffice, errors will
+be emitted explaining what additional extensions are required to translate what
+specific feature in the source code.
 
 Legalization, optimization, validation
 --------------------------------------
@@ -2627,6 +2646,8 @@ codegen for Vulkan:
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.
 - ``-fspv-reflect``: Emits additional SPIR-V instructions to aid reflection.
+- ``-fspv-extension=<extension>``: Only allows using ``<extension>`` in CodeGen.
+  If you want to allow multiple extensions, provide more than one such option.
 
 Unsupported HLSL Features
 =========================

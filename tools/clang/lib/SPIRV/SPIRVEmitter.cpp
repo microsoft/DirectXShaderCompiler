@@ -519,17 +519,29 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
-      theContext(), theBuilder(&theContext, options.enableReflect),
-      declIdMapper(shaderModel, astContext, theBuilder, spirvOptions),
+      theContext(), featureManager(diags),
+      theBuilder(&theContext, &featureManager, options.enableReflect),
       typeTranslator(astContext, theBuilder, diags, options),
+      declIdMapper(shaderModel, astContext, theBuilder, typeTranslator,
+                   featureManager, spirvOptions),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
       seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
       needsSpirv1p3(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
+
   if (options.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
       !shaderModel.IsGS())
     emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
+
+  if (options.allowedExtensions.empty()) {
+    // If no explicit extension control from command line, use the default mode:
+    // allowing all extensions.
+    featureManager.allowAllKnownExtensions();
+  } else {
+    for (auto ext : options.allowedExtensions)
+      featureManager.allowExtension(ext);
+  }
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {

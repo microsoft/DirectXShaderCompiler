@@ -18,9 +18,11 @@
 namespace clang {
 namespace spirv {
 
-ModuleBuilder::ModuleBuilder(SPIRVContext *C, bool reflect)
-    : theContext(*C), theModule(), allowReflect(reflect), theFunction(nullptr),
-      insertPoint(nullptr), instBuilder(nullptr), glslExtSetId(0) {
+ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
+                             bool reflect)
+    : theContext(*C), featureManager(features), allowReflect(reflect),
+      theModule(), theFunction(nullptr), insertPoint(nullptr),
+      instBuilder(nullptr), glslExtSetId(0) {
   instBuilder.setConsumer([this](std::vector<uint32_t> &&words) {
     this->constructSite = std::move(words);
   });
@@ -752,6 +754,13 @@ void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
   theModule.addExecutionMode(std::move(constructSite));
 }
 
+void ModuleBuilder::addExtension(Extension ext, llvm::StringRef target,
+                                 SourceLocation srcLoc) {
+  assert(featureManager);
+  featureManager->requestExtension(ext, target, srcLoc);
+  theModule.addExtension(featureManager->getExtensionName(ext));
+}
+
 uint32_t ModuleBuilder::getGLSLExtInstSet() {
   if (glslExtSetId == 0) {
     glslExtSetId = theContext.takeNextId();
@@ -817,7 +826,8 @@ void ModuleBuilder::decorateInputAttachmentIndex(uint32_t targetId,
 void ModuleBuilder::decorateCounterBufferId(uint32_t mainBufferId,
                                             uint32_t counterBufferId) {
   if (allowReflect) {
-    addExtension("SPV_GOOGLE_hlsl_functionality1");
+    addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
+                 {});
     theModule.addDecoration(
         Decoration::getHlslCounterBufferGOOGLE(theContext, counterBufferId),
         mainBufferId);
@@ -828,8 +838,9 @@ void ModuleBuilder::decorateHlslSemantic(uint32_t targetId,
                                          llvm::StringRef semantic,
                                          llvm::Optional<uint32_t> memberIdx) {
   if (allowReflect) {
-    addExtension("SPV_GOOGLE_decorate_string");
-    addExtension("SPV_GOOGLE_hlsl_functionality1");
+    addExtension(Extension::GOOGLE_decorate_string, "SPIR-V reflection", {});
+    addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
+                 {});
     theModule.addDecoration(
         Decoration::getHlslSemanticGOOGLE(theContext, semantic, memberIdx),
         targetId);
@@ -902,7 +913,7 @@ IMPL_GET_PRIMITIVE_TYPE(Float32)
                                                                                \
   uint32_t ModuleBuilder::get##ty##Type() {                                    \
     if (spv::Capability::cap == spv::Capability::Float16)                      \
-      theModule.addExtension("SPV_AMD_gpu_shader_half_float");                 \
+      addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float", {});  \
     else                                                                       \
       requireCapability(spv::Capability::cap);                                 \
     const Type *type = Type::get##ty(theContext);                              \

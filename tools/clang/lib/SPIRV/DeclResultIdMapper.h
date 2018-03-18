@@ -19,6 +19,7 @@
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Attr.h"
 #include "clang/SPIRV/EmitSPIRVOptions.h"
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
@@ -258,7 +259,8 @@ private:
 class DeclResultIdMapper {
 public:
   inline DeclResultIdMapper(const hlsl::ShaderModel &stage, ASTContext &context,
-                            ModuleBuilder &builder,
+                            ModuleBuilder &builder, TypeTranslator &translator,
+                            FeatureManager &features,
                             const EmitSPIRVOptions &spirvOptions);
 
   /// \brief Returns the <result-id> for a SPIR-V builtin variable.
@@ -633,7 +635,8 @@ private:
   ASTContext &astContext;
   DiagnosticsEngine &diags;
 
-  TypeTranslator typeTranslator;
+  TypeTranslator &typeTranslator;
+  FeatureManager &featureManager;
 
   uint32_t entryFunctionId;
 
@@ -738,10 +741,12 @@ void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
 DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        ASTContext &context,
                                        ModuleBuilder &builder,
+                                       TypeTranslator &translator,
+                                       FeatureManager &features,
                                        const EmitSPIRVOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
       astContext(context), diags(context.getDiagnostics()),
-      typeTranslator(context, builder, diags, options), entryFunctionId(0),
+      typeTranslator(translator), featureManager(features), entryFunctionId(0),
       laneCountBuiltinId(0), laneIndexBuiltinId(0), needsLegalization(false),
       glPerVertex(model, context, builder, typeTranslator, options.invertY) {}
 
