@@ -3914,8 +3914,15 @@ static Value *SimplifyCall(Value *V, IterTy ArgBegin, IterTy ArgEnd,
   ConstantArgs.reserve(ArgEnd - ArgBegin);
   for (IterTy I = ArgBegin, E = ArgEnd; I != E; ++I) {
     Constant *C = dyn_cast<Constant>(*I);
-    if (!C)
+    if (!C) {
+      // HLSL Change Begin - simplify dxil.
+      SmallVector<Value *, 2> Args(ArgBegin, ArgEnd);
+      if (Value *Ret = SimplifyDxil(F, Args, Q.DL)) {
+        return Ret;
+      }
+      // HLSL Change End.
       return nullptr;
+    }
     ConstantArgs.push_back(C);
   }
 
