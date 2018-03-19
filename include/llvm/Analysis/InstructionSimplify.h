@@ -322,19 +322,6 @@ namespace llvm {
                       AssumptionCache *AC = nullptr,
                       const Instruction *CxtI = nullptr);
 
-  // HLSL Change Begin - simplify dxil op like mad 0, a, b->b.
-  /// \brief Given a function and set of arguments, see if we can fold the
-  /// result as dxil operation.
-  ///
-  /// If this call could not be simplified returns null.
-  Value *SimplifyDxil(Function *F, ArrayRef<Value *> Args,
-                      const DataLayout &DL,
-                      const TargetLibraryInfo *TLI = nullptr,
-                      const DominatorTree *DT = nullptr,
-                      AssumptionCache *AC = nullptr,
-                      const Instruction *CxtI = nullptr);
-  // HLSL Change End.
-
   /// SimplifyInstruction - See if we can compute a simplified version of this
   /// instruction.  If not, this returns null.
   Value *SimplifyInstruction(Instruction *I, const DataLayout &DL,

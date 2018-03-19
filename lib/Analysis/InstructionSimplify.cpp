@@ -34,6 +34,9 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/ValueHandle.h"
 #include <algorithm>
+
+#include "llvm/Analysis/DxilSimplify.h" // HLSL Change - simplify dxil call.
+
 using namespace llvm;
 using namespace llvm::PatternMatch;
 
@@ -3914,15 +3917,8 @@ static Value *SimplifyCall(Value *V, IterTy ArgBegin, IterTy ArgEnd,
   ConstantArgs.reserve(ArgEnd - ArgBegin);
   for (IterTy I = ArgBegin, E = ArgEnd; I != E; ++I) {
     Constant *C = dyn_cast<Constant>(*I);
-    if (!C) {
-      // HLSL Change Begin - simplify dxil.
-      SmallVector<Value *, 2> Args(ArgBegin, ArgEnd);
-      if (Value *Ret = SimplifyDxil(F, Args, Q.DL)) {
-        return Ret;
-      }
-      // HLSL Change End.
+    if (!C)
       return nullptr;
-    }
     ConstantArgs.push_back(C);
   }
 
@@ -4079,6 +4075,15 @@ Value *llvm::SimplifyInstruction(Instruction *I, const DataLayout &DL,
     break;
   case Instruction::Call: {
     CallSite CS(cast<CallInst>(I));
+    // HLSL Change Begin - simplify dxil call.
+    if (hlsl::CanSimplify(CS.getCalledFunction())) {
+      SmallVector<Value *, 4> Args(CS.arg_begin(), CS.arg_end());
+      if (Value *DxilResult = hlsl::SimplifyDxilCall(CS.getCalledFunction(), Args, I)) {
+        Result = DxilResult;
+        break;
+      }
+    }
+    // HLSL Change End.
     Result = SimplifyCall(CS.getCalledValue(), CS.arg_begin(), CS.arg_end(), DL,
                           TLI, DT, AC, I);
     break;
