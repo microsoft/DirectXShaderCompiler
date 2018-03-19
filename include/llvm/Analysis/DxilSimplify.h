@@ -1,4 +1,4 @@
-//===-- DxilConstantFolding.h - Constant folding for Dxil ------*- C++ -*-===//
+//===-- DxilSimplify.h - Simplify Dxil operations ------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
