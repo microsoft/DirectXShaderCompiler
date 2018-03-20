@@ -4660,7 +4660,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
   QualType matElemType = {};
   const bool lhsIsMat = typeTranslator.isMxNMatrix(lhsValType, &matElemType);
   const bool lhsIsFloatMat = lhsIsMat && matElemType->isFloatingType();
-  const bool lhsIsNonFpMat = lhsIsFloatMat && !matElemType->isFloatingType();
+  const bool lhsIsNonFpMat = lhsIsMat && !matElemType->isFloatingType();
 
   if (typeTranslator.isScalarType(lhsValType) ||
       typeTranslator.isVectorType(lhsValType) || lhsIsFloatMat) {
