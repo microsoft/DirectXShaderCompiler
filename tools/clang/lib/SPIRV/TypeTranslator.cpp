@@ -63,6 +63,15 @@ bool hasHLSLMatOrientation(QualType type, bool *pIsRowMajor) {
   return false;
 }
 
+/// Returns the :packoffset() annotation on the given decl. Returns nullptr if
+/// the decl does not have one.
+const hlsl::ConstantPacking *getPackOffset(const NamedDecl *decl) {
+  for (auto *annotation : decl->getUnusualAnnotations())
+    if (auto *packing = dyn_cast<hlsl::ConstantPacking>(annotation))
+      return packing;
+  return nullptr;
+}
+
 } // anonymous namespace
 
 bool TypeTranslator::isRelaxedPrecisionType(QualType type,
@@ -1139,13 +1148,31 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
     std::tie(memberAlignment, memberSize) =
         getAlignmentAndSize(fieldType, rule, &stride);
 
+    // The next avaiable location after layouting the previos members
+    const uint32_t nextLoc = offset;
+
     alignUsingHLSLRelaxedLayout(fieldType, memberSize, &memberAlignment,
                                 &offset);
 
-    // Each structure-type member must have an Offset Decoration.
-    if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>())
+    // The vk::offset attribute takes precedence over all.
+    if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
       offset = offsetAttr->getOffset();
+    }
+    // The :packoffset() annotation takes precedence over normal layout
+    // calculation.
+    else if (const auto *pack = getPackOffset(declDecl)) {
+      const uint32_t packOffset =
+          pack->Subcomponent * 16 + pack->ComponentOffset * 4;
+      // Do minimal check to make sure the offset specified by packoffset does
+      // not cause overlap.
+      if (packOffset < nextLoc) {
+        emitError("packoffset caused overlap with previous members", pack->Loc);
+      } else {
+        offset = packOffset;
+      }
+    }
 
+    // Each structure-type member must have an Offset Decoration.
     decorations.push_back(Decoration::getOffset(*spirvContext, offset, index));
     offset += memberSize;
 

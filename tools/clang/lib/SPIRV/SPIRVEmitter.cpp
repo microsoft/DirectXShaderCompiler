@@ -1150,10 +1150,6 @@ void SPIRVEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
                     init->getExprLoc())
             << bufferDecl->isCBuffer() << init->getSourceRange();
 
-      for (const auto *annotation : varMember->getUnusualAnnotations())
-        if (const auto *packing = dyn_cast<hlsl::ConstantPacking>(annotation))
-          emitWarning("packoffset ignored since not supported", packing->Loc);
-
       // We cannot handle external initialization of column-major matrices now.
       if (typeTranslator.isOrContainsNonFpColMajorMatrix(varMember->getType(),
                                                          varMember)) {
