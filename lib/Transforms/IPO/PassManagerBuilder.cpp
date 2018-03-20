@@ -256,11 +256,10 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   MPM.add(createDxilLegalizeStaticResourceUsePass());
   MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
   MPM.add(createDxilLoadMetadataPass()); // Ensure DxilModule is loaded for optimizations.
-
-  MPM.add(createSimplifyInstPass());
-
   // Propagate precise attribute.
   MPM.add(createDxilPrecisePropagatePass());
+
+  MPM.add(createSimplifyInstPass());
 
   // scalarize vector to scalar
   MPM.add(createScalarizerPass());
