@@ -149,6 +149,11 @@ private:
   void storeValue(const SpirvEvalInfo &lhsPtr, const SpirvEvalInfo &rhsVal,
                   QualType lhsValType);
 
+  /// Decomposes and reconstructs the given srcVal of the given valType to meet
+  /// the requirements of the dstLR layout rule.
+  uint32_t reconstructValue(const SpirvEvalInfo &srcVal, QualType valType,
+                            LayoutRule dstLR);
+
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs.
   ///
