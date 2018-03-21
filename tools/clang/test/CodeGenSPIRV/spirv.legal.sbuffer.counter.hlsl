@@ -94,8 +94,8 @@ float4 main() : SV_Target {
 // CHECK-NEXT: [[ptr3:%\d+]] = OpAccessChain %_ptr_Uniform_S3 [[call]] %uint_0 [[idx]]
 // CHECK-NEXT:  [[val:%\d+]] = OpLoad %S3 [[ptr3]]
 // CHECK-NEXT:  [[vec:%\d+]] = OpCompositeExtract %v2float [[val]] 0
-// CHECK-NEXT: [[ptr4:%\d+]] = OpAccessChain %_ptr_Function_v2float %val3 %uint_0
-// CHECK-NEXT:                 OpStore [[ptr4]] [[vec]]
+// CHECK-NEXT:  [[tmp:%\d+]] = OpCompositeConstruct %S3_0 [[vec]]
+// CHECK-NEXT:                 OpStore %val3 [[tmp]]
         .Consume();
 
     float3 vec = float3(val3.f, 1.0);
@@ -119,8 +119,8 @@ float4 main() : SV_Target {
 // CHECK-NEXT: [[ptr4:%\d+]] = OpAccessChain %_ptr_Uniform_S2 [[ptr1]] %uint_0 [[idx]]
 // CHECK-NEXT:  [[val:%\d+]] = OpLoad %S2_0 %val2
 // CHECK-NEXT:  [[vec:%\d+]] = OpCompositeExtract %v3float [[val]] 0
-// CHECK-NEXT: [[ptr5:%\d+]] = OpAccessChain %_ptr_Uniform_v3float [[ptr4]] %uint_0
-// CHECK-NEXT:                 OpStore [[ptr5]] [[vec]]
+// CHECK-NEXT:  [[tmp:%\d+]] = OpCompositeConstruct %S2 [[vec]]
+// CHECK-NEXT:                 OpStore [[ptr4]] [[tmp]]
     localASBufferMain.Append(val2);
 
     return float4(val2, 2.0);

@@ -36,10 +36,8 @@ void main() {
 // CHECK-NEXT:   [[ptr_matrices4_1:%\d+]] = OpAccessChain %_ptr_Uniform__arr_v3int_uint_2 [[ptr_matrices4]] %int_1
 // CHECK-NEXT:       [[matrices4_1:%\d+]] = OpLoad %_arr_v3int_uint_2 [[ptr_matrices4_1]]
 // CHECK-NEXT:  [[matrices4_1_row0:%\d+]] = OpCompositeExtract %v3int [[matrices4_1]] 0
-// CHECK-NEXT:       [[ptr_m4_row0:%\d+]] = OpAccessChain %_ptr_Function_v3int %m4 %uint_0
-// CHECK-NEXT:                              OpStore [[ptr_m4_row0]] [[matrices4_1_row0]]
 // CHECK-NEXT:  [[matrices4_1_row1:%\d+]] = OpCompositeExtract %v3int [[matrices4_1]] 1
-// CHECK-NEXT:       [[ptr_m4_row1:%\d+]] = OpAccessChain %_ptr_Function_v3int %m4 %uint_1
-// CHECK-NEXT:                              OpStore [[ptr_m4_row1]] [[matrices4_1_row1]]
+// CHECK-NEXT:               [[tmp:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2_0 [[matrices4_1_row0]] [[matrices4_1_row1]]
+// CHECK-NEXT:                              OpStore %m4 [[tmp]]
     int2x3 m4 = matrices4[1];
 }
