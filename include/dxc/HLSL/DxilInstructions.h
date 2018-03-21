@@ -701,7 +701,7 @@ struct DxilInst_TempRegLoad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_index = 1,
@@ -726,7 +726,7 @@ struct DxilInst_TempRegStore {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_index = 1,
@@ -754,7 +754,7 @@ struct DxilInst_MinPrecXRegLoad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_regIndex = 1,
@@ -785,7 +785,7 @@ struct DxilInst_MinPrecXRegStore {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_regIndex = 1,
@@ -819,7 +819,7 @@ struct DxilInst_LoadInput {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -853,7 +853,7 @@ struct DxilInst_StoreOutput {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_outputSigId = 1,
@@ -887,7 +887,7 @@ struct DxilInst_FAbs {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -912,7 +912,7 @@ struct DxilInst_Saturate {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -937,7 +937,7 @@ struct DxilInst_IsNaN {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -962,7 +962,7 @@ struct DxilInst_IsInf {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -987,7 +987,7 @@ struct DxilInst_IsFinite {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1012,7 +1012,7 @@ struct DxilInst_IsNormal {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1037,7 +1037,7 @@ struct DxilInst_Cos {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1062,7 +1062,7 @@ struct DxilInst_Sin {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1087,7 +1087,7 @@ struct DxilInst_Tan {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1112,7 +1112,7 @@ struct DxilInst_Acos {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1137,7 +1137,7 @@ struct DxilInst_Asin {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1162,7 +1162,7 @@ struct DxilInst_Atan {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1187,7 +1187,7 @@ struct DxilInst_Hcos {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1212,7 +1212,7 @@ struct DxilInst_Hsin {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1237,7 +1237,7 @@ struct DxilInst_Htan {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1262,7 +1262,7 @@ struct DxilInst_Exp {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1287,7 +1287,7 @@ struct DxilInst_Frc {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1312,7 +1312,7 @@ struct DxilInst_Log {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1337,7 +1337,7 @@ struct DxilInst_Sqrt {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1362,7 +1362,7 @@ struct DxilInst_Rsqrt {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1387,7 +1387,7 @@ struct DxilInst_Round_ne {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1412,7 +1412,7 @@ struct DxilInst_Round_ni {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1437,7 +1437,7 @@ struct DxilInst_Round_pi {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1462,7 +1462,7 @@ struct DxilInst_Round_z {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1487,7 +1487,7 @@ struct DxilInst_Bfrev {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1512,7 +1512,7 @@ struct DxilInst_Countbits {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1537,7 +1537,7 @@ struct DxilInst_FirstbitLo {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1562,7 +1562,7 @@ struct DxilInst_FirstbitHi {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1587,7 +1587,7 @@ struct DxilInst_FirstbitSHi {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1612,7 +1612,7 @@ struct DxilInst_FMax {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1640,7 +1640,7 @@ struct DxilInst_FMin {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1668,7 +1668,7 @@ struct DxilInst_IMax {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1696,7 +1696,7 @@ struct DxilInst_IMin {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1724,7 +1724,7 @@ struct DxilInst_UMax {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1752,7 +1752,7 @@ struct DxilInst_UMin {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1780,7 +1780,7 @@ struct DxilInst_IMul {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1808,7 +1808,7 @@ struct DxilInst_UMul {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1836,7 +1836,7 @@ struct DxilInst_UDiv {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1864,7 +1864,7 @@ struct DxilInst_UAddc {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1892,7 +1892,7 @@ struct DxilInst_USubb {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1920,7 +1920,7 @@ struct DxilInst_FMad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1951,7 +1951,7 @@ struct DxilInst_Fma {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1982,7 +1982,7 @@ struct DxilInst_IMad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -2013,7 +2013,7 @@ struct DxilInst_UMad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -2044,7 +2044,7 @@ struct DxilInst_Msad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -2075,7 +2075,7 @@ struct DxilInst_Ibfe {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -2106,7 +2106,7 @@ struct DxilInst_Ubfe {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -2137,7 +2137,7 @@ struct DxilInst_Bfi {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_width = 1,
@@ -2171,7 +2171,7 @@ struct DxilInst_Dot2 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_ax = 1,
@@ -2205,7 +2205,7 @@ struct DxilInst_Dot3 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_ax = 1,
@@ -2245,7 +2245,7 @@ struct DxilInst_Dot4 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_ax = 1,
@@ -2291,7 +2291,7 @@ struct DxilInst_CreateHandle {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_resourceClass = 1,
@@ -2331,7 +2331,7 @@ struct DxilInst_CBufferLoad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -2364,7 +2364,7 @@ struct DxilInst_CBufferLoadLegacy {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -2392,7 +2392,7 @@ struct DxilInst_Sample {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2444,7 +2444,7 @@ struct DxilInst_SampleBias {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2499,7 +2499,7 @@ struct DxilInst_SampleLevel {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2551,7 +2551,7 @@ struct DxilInst_SampleGrad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2621,7 +2621,7 @@ struct DxilInst_SampleCmp {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2676,7 +2676,7 @@ struct DxilInst_SampleCmpLevelZero {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2728,7 +2728,7 @@ struct DxilInst_TextureLoad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2774,7 +2774,7 @@ struct DxilInst_TextureStore {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2823,7 +2823,7 @@ struct DxilInst_BufferLoad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2854,7 +2854,7 @@ struct DxilInst_BufferStore {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_uav = 1,
@@ -2900,7 +2900,7 @@ struct DxilInst_BufferUpdateCounter {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_uav = 1,
@@ -2928,7 +2928,7 @@ struct DxilInst_CheckAccessFullyMapped {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_status = 1,
@@ -2953,7 +2953,7 @@ struct DxilInst_GetDimensions {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -2981,7 +2981,7 @@ struct DxilInst_TextureGather {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -3030,7 +3030,7 @@ struct DxilInst_TextureGatherCmp {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -3082,7 +3082,7 @@ struct DxilInst_Texture2DMSGetSamplePosition {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -3110,7 +3110,7 @@ struct DxilInst_RenderTargetGetSamplePosition {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_index = 1,
@@ -3135,7 +3135,7 @@ struct DxilInst_RenderTargetGetSampleCount {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction performs an atomic operation on two operands
@@ -3153,7 +3153,7 @@ struct DxilInst_AtomicBinOp {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -3193,7 +3193,7 @@ struct DxilInst_AtomicCompareExchange {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -3233,7 +3233,7 @@ struct DxilInst_Barrier {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_barrierMode = 1,
@@ -3260,7 +3260,7 @@ struct DxilInst_CalculateLOD {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -3300,7 +3300,7 @@ struct DxilInst_Discard {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_condition = 1,
@@ -3325,7 +3325,7 @@ struct DxilInst_DerivCoarseX {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3350,7 +3350,7 @@ struct DxilInst_DerivCoarseY {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3375,7 +3375,7 @@ struct DxilInst_DerivFineX {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3400,7 +3400,7 @@ struct DxilInst_DerivFineY {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3425,7 +3425,7 @@ struct DxilInst_EvalSnapped {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -3462,7 +3462,7 @@ struct DxilInst_EvalSampleIndex {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -3496,7 +3496,7 @@ struct DxilInst_EvalCentroid {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -3527,7 +3527,7 @@ struct DxilInst_SampleIndex {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns the coverage mask input in a pixel shader
@@ -3545,7 +3545,7 @@ struct DxilInst_Coverage {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns underestimated coverage input from conservative rasterization in a pixel shader
@@ -3563,7 +3563,7 @@ struct DxilInst_InnerCoverage {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction reads the thread ID
@@ -3581,7 +3581,7 @@ struct DxilInst_ThreadId {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_component = 1,
@@ -3606,7 +3606,7 @@ struct DxilInst_GroupId {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_component = 1,
@@ -3631,7 +3631,7 @@ struct DxilInst_ThreadIdInGroup {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_component = 1,
@@ -3656,7 +3656,7 @@ struct DxilInst_FlattenedThreadIdInGroup {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction emits a vertex to a given stream
@@ -3674,7 +3674,7 @@ struct DxilInst_EmitStream {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_streamId = 1,
@@ -3699,7 +3699,7 @@ struct DxilInst_CutStream {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_streamId = 1,
@@ -3724,7 +3724,7 @@ struct DxilInst_EmitThenCutStream {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_streamId = 1,
@@ -3749,7 +3749,7 @@ struct DxilInst_GSInstanceID {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction creates a double value
@@ -3767,7 +3767,7 @@ struct DxilInst_MakeDouble {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_lo = 1,
@@ -3795,7 +3795,7 @@ struct DxilInst_SplitDouble {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3820,7 +3820,7 @@ struct DxilInst_LoadOutputControlPoint {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -3854,7 +3854,7 @@ struct DxilInst_LoadPatchConstant {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -3885,7 +3885,7 @@ struct DxilInst_DomainLocation {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_component = 1,
@@ -3912,7 +3912,7 @@ struct DxilInst_StorePatchConstant {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_outputSigID = 1,
@@ -3946,7 +3946,7 @@ struct DxilInst_OutputControlPointID {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction PrimitiveID
@@ -3964,7 +3964,7 @@ struct DxilInst_PrimitiveID {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction CycleCounterLegacy
@@ -3982,7 +3982,7 @@ struct DxilInst_CycleCounterLegacy {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns 1 for the first lane in the wave
@@ -4000,7 +4000,7 @@ struct DxilInst_WaveIsFirstLane {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns the index of the current lane in the wave
@@ -4018,7 +4018,7 @@ struct DxilInst_WaveGetLaneIndex {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns the number of lanes in the wave
@@ -4036,7 +4036,7 @@ struct DxilInst_WaveGetLaneCount {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns 1 if any of the lane evaluates the value to true
@@ -4054,7 +4054,7 @@ struct DxilInst_WaveAnyTrue {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_cond = 1,
@@ -4079,7 +4079,7 @@ struct DxilInst_WaveAllTrue {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_cond = 1,
@@ -4104,7 +4104,7 @@ struct DxilInst_WaveActiveAllEqual {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4129,7 +4129,7 @@ struct DxilInst_WaveActiveBallot {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_cond = 1,
@@ -4154,7 +4154,7 @@ struct DxilInst_WaveReadLaneAt {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4182,7 +4182,7 @@ struct DxilInst_WaveReadLaneFirst {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4207,7 +4207,7 @@ struct DxilInst_WaveActiveOp {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4242,7 +4242,7 @@ struct DxilInst_WaveActiveBit {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4272,7 +4272,7 @@ struct DxilInst_WavePrefixOp {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4307,7 +4307,7 @@ struct DxilInst_QuadReadLaneAt {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4337,7 +4337,7 @@ struct DxilInst_QuadOp {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4367,7 +4367,7 @@ struct DxilInst_BitcastI16toF16 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4392,7 +4392,7 @@ struct DxilInst_BitcastF16toI16 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4417,7 +4417,7 @@ struct DxilInst_BitcastI32toF32 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4442,7 +4442,7 @@ struct DxilInst_BitcastF32toI32 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4467,7 +4467,7 @@ struct DxilInst_BitcastI64toF64 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4492,7 +4492,7 @@ struct DxilInst_BitcastF64toI64 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4517,7 +4517,7 @@ struct DxilInst_LegacyF32ToF16 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4542,7 +4542,7 @@ struct DxilInst_LegacyF16ToF32 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4567,7 +4567,7 @@ struct DxilInst_LegacyDoubleToFloat {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4592,7 +4592,7 @@ struct DxilInst_LegacyDoubleToSInt32 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4617,7 +4617,7 @@ struct DxilInst_LegacyDoubleToUInt32 {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4642,7 +4642,7 @@ struct DxilInst_WaveAllBitCount {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4667,7 +4667,7 @@ struct DxilInst_WavePrefixBitCount {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4692,7 +4692,7 @@ struct DxilInst_AttributeAtVertex {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -4726,7 +4726,7 @@ struct DxilInst_ViewID {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction reads from a raw buffer and structured buffer
@@ -4744,7 +4744,7 @@ struct DxilInst_RawBufferLoad {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -4785,7 +4785,7 @@ struct DxilInst_RawBufferStore {
     return true;
   }
   // Metadata
-  bool isAlwaysUniform() const { return false; }
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_uav = 1,

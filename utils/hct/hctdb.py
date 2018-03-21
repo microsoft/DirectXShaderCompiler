@@ -47,7 +47,7 @@ class db_dxil_inst(object):
         self.is_deriv = False           # whether this is some kind of derivative
         self.is_gradient = False        # whether this requires a gradient calculation
         self.is_wave = False            # whether this requires in-wave, cross-lane functionality
-        self.is_always_uniform = False  # whether this operation is always uniform across a wave
+        self.requires_uniform_inputs = False  # whether this operation requires that all of its inputs are uniform across the wave
         self.shader_stages = "*"        # shader stages to which this applies, * or one or more of cdghpv
         self.shader_model = 6,0         # minimum shader model required
         self.inst_helper_prefix = None
