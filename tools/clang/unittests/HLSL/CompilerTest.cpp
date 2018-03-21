@@ -2131,6 +2131,8 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
 }
 
 TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
+  // container builders prior to 1.3 did not support adding debug name parts
+  if (m_ver.SkipDxilVersion(1, 3)) return;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
   CComPtr<IDxcBlobEncoding> pSource;
