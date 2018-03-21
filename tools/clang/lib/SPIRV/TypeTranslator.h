@@ -192,6 +192,12 @@ public:
   static bool isConstantTextureBuffer(const Decl *decl);
 
   /// \brief Returns true if the decl will have a SPIR-V resource type.
+  ///
+  /// Note that this function covers the following HLSL types:
+  /// * ConstantBuffer/TextureBuffer
+  /// * Various structured buffers
+  /// * (RW)ByteAddressBuffer
+  /// * SubpassInput(MS)
   static bool isResourceType(const ValueDecl *decl);
 
   /// \brief Returns true if the two types are the same scalar or vector type,
@@ -249,8 +255,7 @@ public:
   /// according to the spec, must be attached to the array type itself instead
   /// of a struct member.
   llvm::SmallVector<const Decoration *, 4>
-  getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
-                       bool forGlobals = false);
+  getLayoutDecorations(const DeclContext *decl, LayoutRule rule);
 
   /// \brief Returns how many sequential locations are consumed by a given type.
   uint32_t getLocationCount(QualType type);
