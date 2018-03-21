@@ -37,20 +37,16 @@ void main() {
 // CHECK-NEXT:   [[ptr_matrices4_1:%\d+]] = OpAccessChain %_ptr_Uniform__arr_v3int_uint_2 [[ptr_matrices4]] %int_1
 // CHECK-NEXT:       [[matrices4_1:%\d+]] = OpLoad %_arr_v3int_uint_2 [[ptr_matrices4_1]]
 // CHECK-NEXT:  [[matrices4_1_row0:%\d+]] = OpCompositeExtract %v3int [[matrices4_1]] 0
-// CHECK-NEXT:       [[ptr_m4_row0:%\d+]] = OpAccessChain %_ptr_Function_v3int %m4 %uint_0
-// CHECK-NEXT:                              OpStore [[ptr_m4_row0]] [[matrices4_1_row0]]
 // CHECK-NEXT:  [[matrices4_1_row1:%\d+]] = OpCompositeExtract %v3int [[matrices4_1]] 1
-// CHECK-NEXT:       [[ptr_m4_row1:%\d+]] = OpAccessChain %_ptr_Function_v3int %m4 %uint_1
-// CHECK-NEXT:                              OpStore [[ptr_m4_row1]] [[matrices4_1_row1]]
+// CHECK-NEXT:               [[tmp:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2_0 [[matrices4_1_row0]] [[matrices4_1_row1]]
+// CHECK-NEXT:                              OpStore %m4 [[tmp]]
     int2x3 m4 = matrices4[1];
 // CHECK:          [[ptr_matrices5:%\d+]] = OpAccessChain %_ptr_Uniform__arr__arr_v3int_uint_2_uint_5 %MyCBuffer %int_4
 // CHECK-NEXT:   [[ptr_matrices5_2:%\d+]] = OpAccessChain %_ptr_Uniform__arr_v3int_uint_2 [[ptr_matrices5]] %int_2
 // CHECK-NEXT:       [[matrices5_2:%\d+]] = OpLoad %_arr_v3int_uint_2 [[ptr_matrices5_2]]
 // CHECK-NEXT: [[matrices_5_2_row0:%\d+]] = OpCompositeExtract %v3int [[matrices5_2]] 0
-// CHECK-NEXT:       [[ptr_m5_row0:%\d+]] = OpAccessChain %_ptr_Function_v3int %m5 %uint_0
-// CHECK-NEXT:                              OpStore [[ptr_m5_row0]] [[matrices_5_2_row0]]
 // CHECK-NEXT: [[matrices_5_2_row1:%\d+]] = OpCompositeExtract %v3int [[matrices5_2]] 1
-// CHECK-NEXT:       [[ptr_m5_row1:%\d+]] = OpAccessChain %_ptr_Function_v3int %m5 %uint_1
-// CHECK-NEXT:                              OpStore [[ptr_m5_row1]] [[matrices_5_2_row1]]
+// CHECK-NEXT:               [[tmp:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2_0 [[matrices_5_2_row0]] [[matrices_5_2_row1]]
+// CHECK-NEXT:                              OpStore %m5 [[tmp]]
     int2x3 m5 = matrices5[2];
 }
