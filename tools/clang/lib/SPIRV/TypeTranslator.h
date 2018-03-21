@@ -237,6 +237,10 @@ public:
   /// Returns Capability::Max to mean no capability requirements.
   static spv::Capability getCapabilityForStorageImageReadWrite(QualType type);
 
+  /// \brief Returns true if the given decl should be skipped when layouting
+  /// a struct type.
+  static bool shouldSkipInStructLayout(const Decl *decl);
+
   /// \brief Generates layout decorations (Offset, MatrixStride, RowMajor,
   /// ColMajor) for the given type.
   ///

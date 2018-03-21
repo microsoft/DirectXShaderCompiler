@@ -366,7 +366,7 @@ SpirvEvalInfo DeclResultIdMapper::createFnVar(const VarDecl *var,
 }
 
 SpirvEvalInfo DeclResultIdMapper::createFileVar(const VarDecl *var,
-                                           llvm::Optional<uint32_t> init) {
+                                                llvm::Optional<uint32_t> init) {
   bool isAlias = false;
   auto &info = astDecls[var].info;
   const uint32_t type =
@@ -500,10 +500,7 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
   llvm::SmallVector<llvm::StringRef, 4> fieldNames;
   uint32_t fieldIndex = 0;
   for (const auto *subDecl : decl->decls()) {
-    // Ignore implicit generated struct declarations/constructors/destructors.
-    // Ignore embedded struct/union/class/enum/function decls.
-    if (subDecl->isImplicit() || isa<TagDecl>(subDecl) ||
-        isa<FunctionDecl>(subDecl))
+    if (TypeTranslator::shouldSkipInStructLayout(subDecl))
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
@@ -562,10 +559,7 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   // OpAccessChain.
   int index = 0;
   for (const auto *subDecl : decl->decls()) {
-    // Ignore implicit generated struct declarations/constructors/destructors.
-    // Ignore embedded struct/union/class/enum/function decls.
-    if (subDecl->isImplicit() || isa<TagDecl>(subDecl) ||
-        isa<FunctionDecl>(subDecl))
+    if (TypeTranslator::shouldSkipInStructLayout(subDecl))
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
