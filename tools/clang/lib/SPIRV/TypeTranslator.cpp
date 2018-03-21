@@ -1120,6 +1120,22 @@ TypeTranslator::getCapabilityForStorageImageReadWrite(QualType type) {
   return spv::Capability::Max;
 }
 
+bool TypeTranslator::shouldSkipInStructLayout(const Decl *decl) {
+  // Ignore implicit generated struct declarations/constructors/destructors
+  // Ignore embedded struct/union/class/enum/function decls
+  // Ignore empty decls
+  if (decl->isImplicit() || isa<TagDecl>(decl) || isa<FunctionDecl>(decl) ||
+      isa<EmptyDecl>(decl))
+    return true;
+
+  // For $Globals (whose "struct" is the TranslationUnit)
+  // Ignore resources in the TranslationUnit "struct"
+  if (decl->getDeclContext() == decl->getTranslationUnitDecl())
+    return isa<HLSLBufferDecl>(decl);
+
+  return false;
+}
+
 llvm::SmallVector<const Decoration *, 4>
 TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
                                      bool forGlobals) {
@@ -1128,9 +1144,7 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
   uint32_t offset = 0, index = 0;
 
   for (const auto *field : decl->decls()) {
-    // Ignore implicit generated struct declarations/constructors/destructors.
-    // Ignore embedded struct/union/class/enum/function decls.
-    if (field->isImplicit() || isa<TagDecl>(field) || isa<FunctionDecl>(field))
+    if (shouldSkipInStructLayout(field))
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
