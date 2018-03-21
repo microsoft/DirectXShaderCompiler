@@ -119,6 +119,7 @@ public:
   LPCSTR  CounterName;  // Name of the counter resource, if applicable.
   LPCSTR  Kind;         // One of UAV,SRV,CBV
   // Other fields to customize mapping can be added here.
+  D3D12_SHADER_RESOURCE_VIEW_DESC   SrvDesc;
   D3D12_UNORDERED_ACCESS_VIEW_DESC  UavDesc;
 };
 
