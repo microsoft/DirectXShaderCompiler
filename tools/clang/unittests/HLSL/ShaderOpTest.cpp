@@ -321,6 +321,10 @@ void ShaderOpTest::CreateDescriptorHeaps() {
       }
       else if (0 == _stricmp(D.Kind, "SRV")) {
         D3D12_SHADER_RESOURCE_VIEW_DESC *pSrvDesc = nullptr;
+        if (D.SrvDesc.Format != DXGI_FORMAT_UNKNOWN ||
+            D.SrvDesc.ViewDimension == D3D12_SRV_DIMENSION_BUFFER) {
+          pSrvDesc = &D.SrvDesc;
+        }
         m_pDevice->CreateShaderResourceView(Data.Resource, pSrvDesc, cpuHandle);
       }
       else if (0 == _stricmp(D.Kind, "RTV")) {
@@ -1050,6 +1054,7 @@ enum class ParserEnumKind {
   RESOURCE_STATE,
   DESCRIPTOR_HEAP_TYPE,
   DESCRIPTOR_HEAP_FLAG,
+  SRV_DIMENSION,
   UAV_DIMENSION,
   PRIMITIVE_TOPOLOGY,
   PRIMITIVE_TOPOLOGY_TYPE
@@ -1285,6 +1290,20 @@ static const ParserEnumValue DESCRIPTOR_HEAP_FLAG_TABLE[] = {
   { L"SHADER_VISIBLE", D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE }
 };
 
+static const ParserEnumValue SRV_DIMENSION_TABLE[] = {
+  { L"UNKNOWN", D3D12_SRV_DIMENSION_UNKNOWN },
+  { L"BUFFER", D3D12_SRV_DIMENSION_BUFFER },
+  { L"TEXTURE1D", D3D12_SRV_DIMENSION_TEXTURE1D },
+  { L"TEXTURE1DARRAY", D3D12_SRV_DIMENSION_TEXTURE1DARRAY },
+  { L"TEXTURE2D", D3D12_SRV_DIMENSION_TEXTURE2D },
+  { L"TEXTURE2DARRAY", D3D12_SRV_DIMENSION_TEXTURE2DARRAY },
+  { L"TEXTURE2DMS", D3D12_SRV_DIMENSION_TEXTURE2DMS },
+  { L"TEXTURE2DMSARRAY", D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY },
+  { L"TEXTURE3D", D3D12_SRV_DIMENSION_TEXTURE3D },
+  { L"TEXTURECUBE", D3D12_SRV_DIMENSION_TEXTURECUBE },
+  { L"TEXTURECUBEARRAY", D3D12_SRV_DIMENSION_TEXTURECUBEARRAY }
+};
+
 static const ParserEnumValue UAV_DIMENSION_TABLE[] = {
   { L"UNKNOWN", D3D12_UAV_DIMENSION_UNKNOWN },
   { L"BUFFER", D3D12_UAV_DIMENSION_BUFFER },
@@ -1361,6 +1380,7 @@ static const ParserEnumTable g_ParserEnumTables[] = {
   { _countof(RESOURCE_STATE_TABLE), RESOURCE_STATE_TABLE, ParserEnumKind::RESOURCE_STATE },
   { _countof(DESCRIPTOR_HEAP_TYPE_TABLE), DESCRIPTOR_HEAP_TYPE_TABLE, ParserEnumKind::DESCRIPTOR_HEAP_TYPE },
   { _countof(DESCRIPTOR_HEAP_FLAG_TABLE), DESCRIPTOR_HEAP_FLAG_TABLE, ParserEnumKind::DESCRIPTOR_HEAP_FLAG },
+  { _countof(SRV_DIMENSION_TABLE), SRV_DIMENSION_TABLE, ParserEnumKind::SRV_DIMENSION },
   { _countof(UAV_DIMENSION_TABLE), UAV_DIMENSION_TABLE, ParserEnumKind::UAV_DIMENSION },
   { _countof(PRIMITIVE_TOPOLOGY_TABLE), PRIMITIVE_TOPOLOGY_TABLE, ParserEnumKind::PRIMITIVE_TOPOLOGY },
   { _countof(PRIMITIVE_TOPOLOGY_TYPE_TABLE), PRIMITIVE_TOPOLOGY_TYPE_TABLE, ParserEnumKind::PRIMITIVE_TOPOLOGY_TYPE },
@@ -1451,6 +1471,10 @@ static HRESULT ReadAttrHEAP_FLAGS(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_
 
 static HRESULT ReadAttrRESOURCE_STATES(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_RESOURCE_STATES *pValue) {
   return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::RESOURCE_STATE, pValue, D3D12_RESOURCE_STATE_COMMON);
+}
+
+static HRESULT ReadAttrSRV_DIMENSION(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_SRV_DIMENSION *pValue) {
+  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::SRV_DIMENSION, pValue, D3D12_SRV_DIMENSION_BUFFER);
 }
 
 static HRESULT ReadAttrUAV_DIMENSION(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_UAV_DIMENSION *pValue) {
@@ -1552,51 +1576,83 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
   CHECK_HR(ReadAttrStr(pReader, L"ResName", &pDesc->ResName));
   CHECK_HR(ReadAttrStr(pReader, L"CounterName", &pDesc->CounterName));
   CHECK_HR(ReadAttrStr(pReader, L"Kind", &pDesc->Kind));
-  // D3D12_UNORDERED_ACCESS_VIEW_DESC
-  HRESULT hrFormat = ReadAttrDXGI_FORMAT(pReader, L"Format", &pDesc->UavDesc.Format);
+  bool isSRV = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "SRV");
+  DXGI_FORMAT *pFormat;
+  if (isSRV) {
+    // D3D12_SHADER_RESOURCE_VIEW_DESC
+    pFormat = &pDesc->SrvDesc.Format;
+  }
+  else {
+    // D3D12_UNORDERED_ACCESS_VIEW_DESC - default for parsing
+    pFormat = &pDesc->UavDesc.Format;
+  }
+  HRESULT hrFormat = ReadAttrDXGI_FORMAT(pReader, L"Format", pFormat);
   CHECK_HR(hrFormat);
-  CHECK_HR(ReadAttrUAV_DIMENSION(pReader, L"Dimension", &pDesc->UavDesc.ViewDimension));
-  switch (pDesc->UavDesc.ViewDimension) {
-  case D3D12_UAV_DIMENSION_BUFFER:
-    CHECK_HR(ReadAttrUINT64(pReader, L"FirstElement", &pDesc->UavDesc.Buffer.FirstElement));
-    CHECK_HR(ReadAttrUINT(pReader, L"NumElements", &pDesc->UavDesc.Buffer.NumElements));
-    CHECK_HR(ReadAttrUINT(pReader, L"StructureByteStride", &pDesc->UavDesc.Buffer.StructureByteStride));
-    CHECK_HR(ReadAttrUINT64(pReader, L"CounterOffsetInBytes", &pDesc->UavDesc.Buffer.CounterOffsetInBytes));
-    LPCSTR pFlags;
-    CHECK_HR(ReadAttrStr(pReader, L"Flags", &pFlags));
-    if (pFlags && *pFlags && 0 == _stricmp(pFlags, "RAW")) {
-      pDesc->UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+  if (isSRV) {
+    pDesc->SrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    CHECK_HR(ReadAttrSRV_DIMENSION(pReader, L"Dimension", &pDesc->SrvDesc.ViewDimension));
+    switch (pDesc->SrvDesc.ViewDimension) {
+    case D3D12_SRV_DIMENSION_BUFFER:
+      CHECK_HR(ReadAttrUINT64(pReader, L"FirstElement", &pDesc->SrvDesc.Buffer.FirstElement));
+      LPCSTR pFlags;
+      CHECK_HR(ReadAttrStr(pReader, L"Flags", &pFlags));
+      if (pFlags && *pFlags && 0 == _stricmp(pFlags, "RAW")) {
+        pDesc->SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+      }
+      else {
+        pDesc->SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+      }
+      CHECK_HR(ReadAttrUINT(pReader, L"NumElements", &pDesc->SrvDesc.Buffer.NumElements));
+      CHECK_HR(ReadAttrUINT(pReader, L"StructureByteStride", &pDesc->SrvDesc.Buffer.StructureByteStride));
+      break;
+    default:
+      CHECK_HR(E_NOTIMPL);
     }
-    else {
-      pDesc->UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+  }
+  else {
+    CHECK_HR(ReadAttrUAV_DIMENSION(pReader, L"Dimension", &pDesc->UavDesc.ViewDimension));
+    switch (pDesc->UavDesc.ViewDimension) {
+    case D3D12_UAV_DIMENSION_BUFFER:
+      CHECK_HR(ReadAttrUINT64(pReader, L"FirstElement", &pDesc->UavDesc.Buffer.FirstElement));
+      CHECK_HR(ReadAttrUINT(pReader, L"NumElements", &pDesc->UavDesc.Buffer.NumElements));
+      CHECK_HR(ReadAttrUINT(pReader, L"StructureByteStride", &pDesc->UavDesc.Buffer.StructureByteStride));
+      CHECK_HR(ReadAttrUINT64(pReader, L"CounterOffsetInBytes", &pDesc->UavDesc.Buffer.CounterOffsetInBytes));
+      LPCSTR pFlags;
+      CHECK_HR(ReadAttrStr(pReader, L"Flags", &pFlags));
+      if (pFlags && *pFlags && 0 == _stricmp(pFlags, "RAW")) {
+        pDesc->UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+      }
+      else {
+        pDesc->UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+      }
+      if (hrFormat == S_FALSE && pDesc->UavDesc.Buffer.Flags & D3D12_BUFFER_UAV_FLAG_RAW) {
+        pDesc->UavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+      }
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE1D:
+      CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture1D.MipSlice));
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE1DARRAY:
+      CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture1DArray.MipSlice));
+      CHECK_HR(ReadAttrUINT(pReader, L"FirstArraySlice", &pDesc->UavDesc.Texture1DArray.FirstArraySlice));
+      CHECK_HR(ReadAttrUINT(pReader, L"ArraySize", &pDesc->UavDesc.Texture1DArray.ArraySize));
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE2D:
+      CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture2D.MipSlice));
+      CHECK_HR(ReadAttrUINT(pReader, L"PlaneSlice", &pDesc->UavDesc.Texture2D.PlaneSlice));
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE2DARRAY:
+      CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture2DArray.MipSlice));
+      CHECK_HR(ReadAttrUINT(pReader, L"FirstArraySlice", &pDesc->UavDesc.Texture2DArray.FirstArraySlice));
+      CHECK_HR(ReadAttrUINT(pReader, L"ArraySize", &pDesc->UavDesc.Texture2DArray.ArraySize));
+      CHECK_HR(ReadAttrUINT(pReader, L"PlaneSlice", &pDesc->UavDesc.Texture2DArray.PlaneSlice));
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE3D:
+      CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture3D.MipSlice));
+      CHECK_HR(ReadAttrUINT(pReader, L"FirstWSlice", &pDesc->UavDesc.Texture3D.FirstWSlice));
+      CHECK_HR(ReadAttrUINT(pReader, L"WSize", &pDesc->UavDesc.Texture3D.WSize));
+      break;
     }
-    if (hrFormat == S_FALSE && pDesc->UavDesc.Buffer.Flags & D3D12_BUFFER_UAV_FLAG_RAW) {
-      pDesc->UavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
-    }
-    break;
-  case D3D12_UAV_DIMENSION_TEXTURE1D:
-    CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture1D.MipSlice));
-    break;
-  case D3D12_UAV_DIMENSION_TEXTURE1DARRAY:
-    CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture1DArray.MipSlice));
-    CHECK_HR(ReadAttrUINT(pReader, L"FirstArraySlice", &pDesc->UavDesc.Texture1DArray.FirstArraySlice));
-    CHECK_HR(ReadAttrUINT(pReader, L"ArraySize", &pDesc->UavDesc.Texture1DArray.ArraySize));
-    break;
-  case D3D12_UAV_DIMENSION_TEXTURE2D:
-    CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture2D.MipSlice));
-    CHECK_HR(ReadAttrUINT(pReader, L"PlaneSlice", &pDesc->UavDesc.Texture2D.PlaneSlice));
-    break;
-  case D3D12_UAV_DIMENSION_TEXTURE2DARRAY:
-    CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture2DArray.MipSlice));
-    CHECK_HR(ReadAttrUINT(pReader, L"FirstArraySlice", &pDesc->UavDesc.Texture2DArray.FirstArraySlice));
-    CHECK_HR(ReadAttrUINT(pReader, L"ArraySize", &pDesc->UavDesc.Texture2DArray.ArraySize));
-    CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture2DArray.PlaneSlice));
-    break;
-  case D3D12_UAV_DIMENSION_TEXTURE3D:
-    CHECK_HR(ReadAttrUINT(pReader, L"MipSlice", &pDesc->UavDesc.Texture3D.MipSlice));
-    CHECK_HR(ReadAttrUINT(pReader, L"FirstWSlice", &pDesc->UavDesc.Texture3D.FirstWSlice));
-    CHECK_HR(ReadAttrUINT(pReader, L"WSize", &pDesc->UavDesc.Texture3D.WSize));
-    break;
   }
 
   // If either is missing, set one from the other.
