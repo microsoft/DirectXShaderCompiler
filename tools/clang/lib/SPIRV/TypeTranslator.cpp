@@ -1130,15 +1130,40 @@ bool TypeTranslator::shouldSkipInStructLayout(const Decl *decl) {
 
   // For $Globals (whose "struct" is the TranslationUnit)
   // Ignore resources in the TranslationUnit "struct"
-  if (decl->getDeclContext() == decl->getTranslationUnitDecl())
-    return isa<HLSLBufferDecl>(decl);
+
+  // For the $Globals cbuffer, we only care about externally-visiable
+  // non-resource-type variables. The rest should be filtered out.
+
+  // Special check for ConstantBuffer/TextureBuffer, whose DeclContext is a
+  // HLSLBufferDecl. So that we need to check the HLSLBufferDecl's parent decl
+  // to check whether this is a ConstantBuffer/TextureBuffer defined in the
+  // global namespace.
+  if (isConstantTextureBuffer(decl) &&
+      decl->getDeclContext()->getLexicalParent()->isTranslationUnit())
+    return true;
+
+  // For others we can check their DeclContext directly.
+  if (decl->getDeclContext()->isTranslationUnit()) {
+    // External visibility
+    if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
+      if (!declDecl->hasExternalFormalLinkage())
+        return true;
+
+    // cbuffer/tbuffer
+    if (isa<HLSLBufferDecl>(decl))
+      return true;
+
+    // Other resource types
+    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
+      if (isResourceType(valueDecl))
+        return true;
+  }
 
   return false;
 }
 
 llvm::SmallVector<const Decoration *, 4>
-TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
-                                     bool forGlobals) {
+TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
   const auto spirvContext = theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 4> decorations;
   uint32_t offset = 0, index = 0;
@@ -1151,12 +1176,6 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
     // HLSLBufferDecls).
     const auto *declDecl = cast<DeclaratorDecl>(field);
     auto fieldType = declDecl->getType();
-
-    // If we are creating the $Globals cbuffer, we only care about
-    // externally-visiable non-resource-type variables.
-    if (forGlobals &&
-        (!declDecl->hasExternalFormalLinkage() || isResourceType(declDecl)))
-      continue;
 
     uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
     std::tie(memberAlignment, memberSize) =

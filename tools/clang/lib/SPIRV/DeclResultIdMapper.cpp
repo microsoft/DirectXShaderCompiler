@@ -491,8 +491,7 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
   const auto *blockDec = forTBuffer ? Decoration::getBufferBlock(context)
                                     : Decoration::getBlock(context);
 
-  auto decorations =
-      typeTranslator.getLayoutDecorations(decl, layoutRule, forGlobals);
+  auto decorations = typeTranslator.getLayoutDecorations(decl, layoutRule);
   decorations.push_back(blockDec);
 
   // Collect the type and name for each field
@@ -507,12 +506,6 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
     // HLSLBufferDecls).
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
     const auto *declDecl = cast<DeclaratorDecl>(subDecl);
-
-    // If we are creating the $Globals cbuffer, we only care about
-    // externally-visiable non-resource-type variables.
-    if (forGlobals && (!declDecl->hasExternalFormalLinkage() ||
-                       TypeTranslator::isResourceType(declDecl)))
-      continue;
 
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
@@ -638,10 +631,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
   uint32_t index = 0;
   for (const auto *decl : context->decls())
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      // We are only interested in explicitly-defined externally-visible
-      // variables here.
-      if (varDecl->isImplicit() || !varDecl->hasExternalFormalLinkage() ||
-          TypeTranslator::isResourceType(varDecl))
+      if (TypeTranslator::shouldSkipInStructLayout(varDecl))
         continue;
 
       if (const auto *attr = varDecl->getAttr<VKBindingAttr>()) {
