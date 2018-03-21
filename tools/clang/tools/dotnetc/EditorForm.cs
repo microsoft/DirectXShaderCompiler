@@ -48,6 +48,8 @@ namespace MainNs
         private HlslHost hlslHost = new HlslHost();
         private TabPage renderViewTabPage;
         private TabPage rewriterOutputTabPage;
+        private TabPage helpTabPage;
+        private RichTextBox helpControl;
 
         internal enum DocumentKind
         {
@@ -86,6 +88,34 @@ namespace MainNs
         private const uint DFCC_SHEX = 1480935507;
         private const uint DFCC_ILDB = 1111772233;
         private const uint DFCC_SPDB = 1111773267;
+
+        private TabPage HelpTabPage
+        {
+            get
+            {
+                if (this.helpTabPage == null)
+                {
+                    this.helpTabPage = new TabPage("Help");
+                    this.AnalysisTabControl.TabPages.Add(helpTabPage);
+                }
+                return this.helpTabPage;
+            }
+        }
+
+        private RichTextBox HelpControl
+        {
+            get
+            {
+                if (this.helpControl == null)
+                {
+                    this.helpControl = new RichTextBox();
+                    this.HelpTabPage.Controls.Add(this.helpControl);
+                    this.helpControl.Dock = DockStyle.Fill;
+                    this.helpControl.Font = this.CodeBox.Font;
+                }
+                return this.helpControl;
+            }
+        }
 
         private TabPage RenderViewTabPage
         {
@@ -3370,6 +3400,28 @@ namespace MainNs
             form.Sections = TextSection.EnumerateSections(new string[] { "MODULE-PRINT", "Phase:" }, opt.ResultText).ToArray();
             form.StartPosition = FormStartPosition.CenterParent;
             form.Show(this);
+        }
+
+        private void CodeBox_HelpRequested(object sender, HelpEventArgs hlpevent)
+        {
+            RichTextBox rtb = this.CodeBox;
+            SelectionExpandResult expand = SelectionExpandResult.Expand(rtb);
+            if (expand.IsEmpty)
+                return;
+            string readmeText;
+            using (System.IO.StreamReader reader =
+                new System.IO.StreamReader(System.Reflection.Assembly.GetEntryAssembly().GetManifestResourceStream("MainNs.README.md")))
+            {
+                readmeText = reader.ReadToEnd();
+            }
+            this.HelpControl.Text = readmeText;
+            (this.HelpTabPage.Parent as TabControl).SelectedTab = this.HelpTabPage;
+            int pos = readmeText.IndexOf(expand.Token, StringComparison.InvariantCultureIgnoreCase);
+            if (pos >= 0)
+            {
+                this.HelpControl.Select(pos, 0);
+                this.HelpControl.ScrollToCaret();
+            }
         }
     }
 
