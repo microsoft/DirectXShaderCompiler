@@ -3022,7 +3022,7 @@ private:
     return ImplicitCastExpr::Create(*m_context, input->getType(), CK_LValueToRValue, input, nullptr, VK_RValue);
   }
 
-  HRESULT CombineDimensions(QualType leftType, QualType rightType, QualType *resultType);
+  HRESULT CombineDimensions(QualType leftType, QualType rightType, ArTypeObjectKind leftKind, ArTypeObjectKind rightKind, QualType *resultType);
 
   clang::TypedefDecl *LookupMatrixShorthandType(HLSLScalarType scalarType, UINT rowCount, UINT colCount) {
     DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
@@ -7811,7 +7811,7 @@ bool HLSLExternalSource::ValidatePrimitiveTypeForOperand(SourceLocation loc, Qua
   return isValid;
 }
 
-HRESULT HLSLExternalSource::CombineDimensions(QualType leftType, QualType rightType, QualType *resultType)
+HRESULT HLSLExternalSource::CombineDimensions(QualType leftType, QualType rightType, ArTypeObjectKind leftKind, ArTypeObjectKind rightKind, QualType *resultType)
 {
   UINT leftRows, leftCols;
   UINT rightRows, rightCols;
@@ -7827,11 +7827,31 @@ HRESULT HLSLExternalSource::CombineDimensions(QualType leftType, QualType rightT
     *resultType = rightType;
     return S_OK;
   } else if (leftRows <= rightRows && leftCols <= rightCols) {
-    *resultType = leftType;
-    return S_OK;
+    DXASSERT_NOMSG((leftKind == AR_TOBJ_MATRIX || leftKind == AR_TOBJ_VECTOR) && 
+                   (rightKind == AR_TOBJ_MATRIX || rightKind == AR_TOBJ_VECTOR));
+    if (leftKind == rightKind) {
+      *resultType = leftType;
+      return S_OK;
+    } else {
+      // vector & matrix combination - only 1xN is allowed here
+      if (leftKind == AR_TOBJ_VECTOR && rightRows == 1) {
+        *resultType = leftType;
+        return S_OK;
+      }
+    }
   } else if (rightRows <= leftRows && rightCols <= leftCols) {
-    *resultType = rightType;
-    return S_OK;
+    DXASSERT_NOMSG((leftKind == AR_TOBJ_MATRIX || leftKind == AR_TOBJ_VECTOR) && 
+                   (rightKind == AR_TOBJ_MATRIX || rightKind == AR_TOBJ_VECTOR));
+    if (leftKind == rightKind) {
+      *resultType = rightType;
+      return S_OK;
+    } else {
+      // matrix & vector combination - only 1xN is allowed here
+      if (rightKind == AR_TOBJ_VECTOR && leftRows == 1) {
+        *resultType = leftType;
+        return S_OK;
+      }
+    }
   } else if ( (1 == leftRows || 1 == leftCols) &&
               (1 == rightRows || 1 == rightCols)) {
     // Handles cases where 1xN or Nx1 matrices are involved possibly mixed with vectors
@@ -7842,6 +7862,11 @@ HRESULT HLSLExternalSource::CombineDimensions(QualType leftType, QualType rightT
       *resultType = rightType;
       return S_OK;
     }
+  }
+  else if (((leftKind == AR_TOBJ_VECTOR && rightKind == AR_TOBJ_MATRIX) ||
+            (leftKind == AR_TOBJ_MATRIX && rightKind == AR_TOBJ_VECTOR)) && leftTotal == rightTotal) {
+    *resultType = leftType;
+    return S_OK;
   }
 
   return E_FAIL;
@@ -8032,7 +8057,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(
       // Legal dimension combinations are identical, splat, and truncation.
       // ResultTy will be set to whichever type can be converted to, if legal,
       // with preference for leftType if both are possible.
-      if (FAILED(CombineDimensions(leftType, rightType, &ResultTy))) {
+      if (FAILED(CombineDimensions(leftType, rightType, leftObjectKind, rightObjectKind, &ResultTy))) {
         m_sema->Diag(OpLoc, diag::err_hlsl_type_mismatch);
         return;
       }
@@ -8042,8 +8067,9 @@ void HLSLExternalSource::CheckBinOpForHLSL(
 
     // Here, element kind is combined with dimensions for computation type.
     UINT rowCount, colCount;
+    ArTypeObjectKind resultObjectKind = (leftObjectKind == rightObjectKind ? leftObjectKind : AR_TOBJ_INVALID);
     GetRowsAndColsForAny(ResultTy, rowCount, colCount);
-    ResultTy = NewSimpleAggregateType(AR_TOBJ_INVALID, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
+    ResultTy = NewSimpleAggregateType(resultObjectKind, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
   }
 
   // Perform necessary conversion sequences for LHS and RHS
@@ -8276,7 +8302,7 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   }
 
   // Combine LHS and RHS dimensions
-  if (FAILED(CombineDimensions(leftType, rightType, &ResultTy))) {
+  if (FAILED(CombineDimensions(leftType, rightType, leftObjectKind, rightObjectKind, &ResultTy))) {
     m_sema->Diag(QuestionLoc, diag::err_hlsl_conditional_result_dimensions);
     return QualType();
   }
