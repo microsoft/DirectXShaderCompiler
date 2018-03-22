@@ -8,6 +8,8 @@
 
 #include "clang/SPIRV/FeatureManager.h"
 
+#include <sstream>
+
 #include "llvm/ADT/StringSwitch.h"
 
 namespace clang {
@@ -21,6 +23,8 @@ bool FeatureManager::allowExtension(llvm::StringRef name) {
   const auto symbol = getExtensionSymbol(name);
   if (symbol == Extension::Unknown) {
     emitError("unknown SPIR-V extension '%0'", {}) << name;
+    emitNote("known extensions are\n%0", {})
+        << getKnownExtensions("\n* ", "* ");
     return false;
   }
 
@@ -86,6 +90,25 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     break;
   }
   return "<unknown extension>";
+}
+
+std::string FeatureManager::getKnownExtensions(const char *delimiter,
+                                               const char *prefix,
+                                               const char *postfix) {
+  std::ostringstream oss;
+
+  oss << prefix;
+
+  const auto numExtensions = static_cast<uint32_t>(Extension::Unknown);
+  for (uint32_t i = 0; i < numExtensions; ++i) {
+    oss << getExtensionName(static_cast<Extension>(i));
+    if (i + 1 < numExtensions)
+      oss << delimiter;
+  }
+
+  oss << postfix;
+
+  return oss.str();
 }
 
 } // end namespace spirv

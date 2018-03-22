@@ -13,6 +13,8 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_FEATUREMANAGER_H
 #define LLVM_CLANG_LIB_SPIRV_FEATUREMANAGER_H
 
+#include <string>
+
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/SmallBitVector.h"
@@ -53,13 +55,26 @@ public:
   /// Translates extension symbol to name.
   static const char *getExtensionName(Extension symbol);
 
+  /// Returns the names of all known extensions as a string.
+  std::string getKnownExtensions(const char *delimiter, const char *prefix = "",
+                                 const char *postfix = "");
+
 private:
   /// \brief Wrapper method to create an error message and report it
-  /// in the diagnostic engine associated with this consumer.
+  /// in the diagnostic engine associated with this object.
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N], SourceLocation loc) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
+    return diags.Report(loc, diagId);
+  }
+
+  /// \brief Wrapper method to create an note message and report it
+  /// in the diagnostic engine associated with this object.
+  template <unsigned N>
+  DiagnosticBuilder emitNote(const char (&message)[N], SourceLocation loc) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Note, message);
     return diags.Report(loc, diagId);
   }
 

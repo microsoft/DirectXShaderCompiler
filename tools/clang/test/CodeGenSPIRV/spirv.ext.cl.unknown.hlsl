@@ -5,3 +5,4 @@ float4 main(uint viewid: SV_ViewID) : SV_Target {
 }
 
 // CHECK: error: unknown SPIR-V extension 'MyExtension'
+// CHECK: note: known extensions are
