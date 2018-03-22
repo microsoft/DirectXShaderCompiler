@@ -607,7 +607,7 @@ TEST_F(FileTest, SemanticCoverageTypeMismatchPS) {
   runFileTest("semantic.coverage.type-mismatch.ps.hlsl");
 }
 TEST_F(FileTest, SemanticInnerCoveragePS) {
-  runFileTest("semantic.inner-coverage.ps.hlsl", Expect::Failure);
+  runFileTest("semantic.inner-coverage.ps.hlsl");
 }
 TEST_F(FileTest, SemanticViewIDVS) { runFileTest("semantic.view-id.vs.hlsl"); }
 TEST_F(FileTest, SemanticViewIDHS) { runFileTest("semantic.view-id.hs.hlsl"); }
