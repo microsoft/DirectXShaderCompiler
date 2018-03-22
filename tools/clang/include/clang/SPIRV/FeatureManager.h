@@ -25,6 +25,7 @@ namespace spirv {
 enum class Extension {
   KHR_multiview,
   KHR_shader_draw_parameters,
+  EXT_fragment_fully_covered,
   EXT_shader_stencil_export,
   AMD_gpu_shader_half_float,
   AMD_shader_explicit_vertex_parameter,

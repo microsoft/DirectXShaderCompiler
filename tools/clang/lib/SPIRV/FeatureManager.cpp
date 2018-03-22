@@ -50,6 +50,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_multiview", Extension::KHR_multiview)
       .Case("SPV_KHR_shader_draw_parameters",
             Extension::KHR_shader_draw_parameters)
+      .Case("SPV_EXT_fragment_fully_covered",
+            Extension::EXT_fragment_fully_covered)
       .Case("SPV_EXT_shader_stencil_export",
             Extension::EXT_shader_stencil_export)
       .Case("SPV_AMD_gpu_shader_half_float",
@@ -68,6 +70,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_multiview";
   case Extension::KHR_shader_draw_parameters:
     return "SPV_KHR_shader_draw_parameters";
+  case Extension::EXT_fragment_fully_covered:
+    return "SPV_EXT_fragment_fully_covered";
   case Extension::EXT_shader_stencil_export:
     return "SPV_EXT_shader_stencil_export";
   case Extension::AMD_gpu_shader_half_float:

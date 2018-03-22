@@ -2148,7 +2148,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
     // PSIn.
   case hlsl::Semantic::Kind::InnerCoverage: {
-    theBuilder.addExtension("SPV_EXT_fragment_fully_covered");
+    theBuilder.addExtension(Extension::EXT_fragment_fully_covered,
+                            stageVar->getSemanticStr(), srcLoc);
     theBuilder.requireCapability(spv::Capability::FragmentFullyCoveredEXT);
 
     stageVar->setIsSpirvBuiltin();
