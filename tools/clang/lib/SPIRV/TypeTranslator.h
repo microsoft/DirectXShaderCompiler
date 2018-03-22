@@ -192,6 +192,12 @@ public:
   static bool isConstantTextureBuffer(const Decl *decl);
 
   /// \brief Returns true if the decl will have a SPIR-V resource type.
+  ///
+  /// Note that this function covers the following HLSL types:
+  /// * ConstantBuffer/TextureBuffer
+  /// * Various structured buffers
+  /// * (RW)ByteAddressBuffer
+  /// * SubpassInput(MS)
   static bool isResourceType(const ValueDecl *decl);
 
   /// \brief Returns true if the two types are the same scalar or vector type,
@@ -237,6 +243,10 @@ public:
   /// Returns Capability::Max to mean no capability requirements.
   static spv::Capability getCapabilityForStorageImageReadWrite(QualType type);
 
+  /// \brief Returns true if the given decl should be skipped when layouting
+  /// a struct type.
+  static bool shouldSkipInStructLayout(const Decl *decl);
+
   /// \brief Generates layout decorations (Offset, MatrixStride, RowMajor,
   /// ColMajor) for the given type.
   ///
@@ -245,8 +255,7 @@ public:
   /// according to the spec, must be attached to the array type itself instead
   /// of a struct member.
   llvm::SmallVector<const Decoration *, 4>
-  getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
-                       bool forGlobals = false);
+  getLayoutDecorations(const DeclContext *decl, LayoutRule rule);
 
   /// \brief Returns how many sequential locations are consumed by a given type.
   uint32_t getLocationCount(QualType type);
@@ -254,10 +263,12 @@ public:
 private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
-  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N],
+                              SourceLocation loc = {}) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
-    return diags.Report(diagId);
+    return diags.Report(loc, diagId);
   }
 
   /// \brief Returns true if the two types can be treated as the same scalar

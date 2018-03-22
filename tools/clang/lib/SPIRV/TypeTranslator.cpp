@@ -63,6 +63,15 @@ bool hasHLSLMatOrientation(QualType type, bool *pIsRowMajor) {
   return false;
 }
 
+/// Returns the :packoffset() annotation on the given decl. Returns nullptr if
+/// the decl does not have one.
+const hlsl::ConstantPacking *getPackOffset(const NamedDecl *decl) {
+  for (auto *annotation : decl->getUnusualAnnotations())
+    if (auto *packing = dyn_cast<hlsl::ConstantPacking>(annotation))
+      return packing;
+  return nullptr;
+}
+
 } // anonymous namespace
 
 bool TypeTranslator::isRelaxedPrecisionType(QualType type,
@@ -1111,17 +1120,56 @@ TypeTranslator::getCapabilityForStorageImageReadWrite(QualType type) {
   return spv::Capability::Max;
 }
 
+bool TypeTranslator::shouldSkipInStructLayout(const Decl *decl) {
+  // Ignore implicit generated struct declarations/constructors/destructors
+  // Ignore embedded struct/union/class/enum/function decls
+  // Ignore empty decls
+  if (decl->isImplicit() || isa<TagDecl>(decl) || isa<FunctionDecl>(decl) ||
+      isa<EmptyDecl>(decl))
+    return true;
+
+  // For $Globals (whose "struct" is the TranslationUnit)
+  // Ignore resources in the TranslationUnit "struct"
+
+  // For the $Globals cbuffer, we only care about externally-visiable
+  // non-resource-type variables. The rest should be filtered out.
+
+  // Special check for ConstantBuffer/TextureBuffer, whose DeclContext is a
+  // HLSLBufferDecl. So that we need to check the HLSLBufferDecl's parent decl
+  // to check whether this is a ConstantBuffer/TextureBuffer defined in the
+  // global namespace.
+  if (isConstantTextureBuffer(decl) &&
+      decl->getDeclContext()->getLexicalParent()->isTranslationUnit())
+    return true;
+
+  // For others we can check their DeclContext directly.
+  if (decl->getDeclContext()->isTranslationUnit()) {
+    // External visibility
+    if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
+      if (!declDecl->hasExternalFormalLinkage())
+        return true;
+
+    // cbuffer/tbuffer
+    if (isa<HLSLBufferDecl>(decl))
+      return true;
+
+    // Other resource types
+    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
+      if (isResourceType(valueDecl))
+        return true;
+  }
+
+  return false;
+}
+
 llvm::SmallVector<const Decoration *, 4>
-TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
-                                     bool forGlobals) {
+TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
   const auto spirvContext = theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 4> decorations;
   uint32_t offset = 0, index = 0;
 
   for (const auto *field : decl->decls()) {
-    // Ignore implicit generated struct declarations/constructors/destructors.
-    // Ignore embedded struct/union/class/enum/function decls.
-    if (field->isImplicit() || isa<TagDecl>(field) || isa<FunctionDecl>(field))
+    if (shouldSkipInStructLayout(field))
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
@@ -1129,23 +1177,35 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule,
     const auto *declDecl = cast<DeclaratorDecl>(field);
     auto fieldType = declDecl->getType();
 
-    // If we are creating the $Globals cbuffer, we only care about
-    // externally-visiable non-resource-type variables.
-    if (forGlobals &&
-        (!declDecl->hasExternalFormalLinkage() || isResourceType(declDecl)))
-      continue;
-
     uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
     std::tie(memberAlignment, memberSize) =
         getAlignmentAndSize(fieldType, rule, &stride);
 
+    // The next avaiable location after layouting the previos members
+    const uint32_t nextLoc = offset;
+
     alignUsingHLSLRelaxedLayout(fieldType, memberSize, &memberAlignment,
                                 &offset);
 
-    // Each structure-type member must have an Offset Decoration.
-    if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>())
+    // The vk::offset attribute takes precedence over all.
+    if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
       offset = offsetAttr->getOffset();
+    }
+    // The :packoffset() annotation takes precedence over normal layout
+    // calculation.
+    else if (const auto *pack = getPackOffset(declDecl)) {
+      const uint32_t packOffset =
+          pack->Subcomponent * 16 + pack->ComponentOffset * 4;
+      // Do minimal check to make sure the offset specified by packoffset does
+      // not cause overlap.
+      if (packOffset < nextLoc) {
+        emitError("packoffset caused overlap with previous members", pack->Loc);
+      } else {
+        offset = packOffset;
+      }
+    }
 
+    // Each structure-type member must have an Offset Decoration.
     decorations.push_back(Decoration::getOffset(*spirvContext, offset, index));
     offset += memberSize;
 

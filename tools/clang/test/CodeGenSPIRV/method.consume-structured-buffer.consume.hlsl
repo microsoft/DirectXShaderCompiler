@@ -32,17 +32,12 @@ float4 main() : A {
 // CHECK-NEXT: [[buffer2:%\d+]] = OpAccessChain %_ptr_Uniform_S %buffer2 %uint_0 [[index]]
 // CHECK-NEXT: [[val:%\d+]] = OpLoad %S [[buffer2]]
 
-// CHECK-NEXT: [[buffer20:%\d+]] = OpCompositeExtract %float [[val]] 0
-// CHECK-NEXT: [[s0:%\d+]] = OpAccessChain %_ptr_Function_float %s %uint_0
-// CHECK-NEXT: OpStore [[s0]] [[buffer20]]
+// CHECK-NEXT: [[s_a:%\d+]] = OpCompositeExtract %float [[val]] 0
+// CHECK-NEXT: [[s_b:%\d+]] = OpCompositeExtract %v3float [[val]] 1
+// CHECK-NEXT: [[s_c:%\d+]] = OpCompositeExtract %mat2v3float [[val]] 2
 
-// CHECK-NEXT: [[buffer21:%\d+]] = OpCompositeExtract %v3float [[val]] 1
-// CHECK-NEXT: [[s1:%\d+]] = OpAccessChain %_ptr_Function_v3float %s %uint_1
-// CHECK-NEXT: OpStore [[s1]] [[buffer21]]
-
-// CHECK-NEXT: [[buffer22:%\d+]] = OpCompositeExtract %mat2v3float [[val]] 2
-// CHECK-NEXT: [[s2:%\d+]] = OpAccessChain %_ptr_Function_mat2v3float %s %uint_2
-// CHECK-NEXT: OpStore [[s2]] [[buffer22]]
+// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[s_a]] [[s_b]] [[s_c]]
+// CHECK-NEXT: OpStore %s [[tmp]]
     s = buffer2.Consume();
 
 // CHECK:      [[counter:%\d+]] = OpAccessChain %_ptr_Uniform_int %counter_var_buffer3 %uint_0

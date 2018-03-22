@@ -700,6 +700,8 @@ struct DxilInst_TempRegLoad {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_index = 1,
@@ -723,6 +725,8 @@ struct DxilInst_TempRegStore {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_index = 1,
@@ -749,6 +753,8 @@ struct DxilInst_MinPrecXRegLoad {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_regIndex = 1,
@@ -778,6 +784,8 @@ struct DxilInst_MinPrecXRegStore {
     if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_regIndex = 1,
@@ -810,6 +818,8 @@ struct DxilInst_LoadInput {
     if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -842,6 +852,8 @@ struct DxilInst_StoreOutput {
     if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_outputSigId = 1,
@@ -874,6 +886,8 @@ struct DxilInst_FAbs {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -897,6 +911,8 @@ struct DxilInst_Saturate {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -920,6 +936,8 @@ struct DxilInst_IsNaN {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -943,6 +961,8 @@ struct DxilInst_IsInf {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -966,6 +986,8 @@ struct DxilInst_IsFinite {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -989,6 +1011,8 @@ struct DxilInst_IsNormal {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1012,6 +1036,8 @@ struct DxilInst_Cos {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1035,6 +1061,8 @@ struct DxilInst_Sin {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1058,6 +1086,8 @@ struct DxilInst_Tan {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1081,6 +1111,8 @@ struct DxilInst_Acos {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1104,6 +1136,8 @@ struct DxilInst_Asin {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1127,6 +1161,8 @@ struct DxilInst_Atan {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1150,6 +1186,8 @@ struct DxilInst_Hcos {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1173,6 +1211,8 @@ struct DxilInst_Hsin {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1196,6 +1236,8 @@ struct DxilInst_Htan {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1219,6 +1261,8 @@ struct DxilInst_Exp {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1242,6 +1286,8 @@ struct DxilInst_Frc {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1265,6 +1311,8 @@ struct DxilInst_Log {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1288,6 +1336,8 @@ struct DxilInst_Sqrt {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1311,6 +1361,8 @@ struct DxilInst_Rsqrt {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1334,6 +1386,8 @@ struct DxilInst_Round_ne {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1357,6 +1411,8 @@ struct DxilInst_Round_ni {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1380,6 +1436,8 @@ struct DxilInst_Round_pi {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1403,6 +1461,8 @@ struct DxilInst_Round_z {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1426,6 +1486,8 @@ struct DxilInst_Bfrev {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1449,6 +1511,8 @@ struct DxilInst_Countbits {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1472,6 +1536,8 @@ struct DxilInst_FirstbitLo {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1495,6 +1561,8 @@ struct DxilInst_FirstbitHi {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1518,6 +1586,8 @@ struct DxilInst_FirstbitSHi {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -1541,6 +1611,8 @@ struct DxilInst_FMax {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1567,6 +1639,8 @@ struct DxilInst_FMin {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1593,6 +1667,8 @@ struct DxilInst_IMax {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1619,6 +1695,8 @@ struct DxilInst_IMin {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1645,6 +1723,8 @@ struct DxilInst_UMax {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1671,6 +1751,8 @@ struct DxilInst_UMin {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1697,6 +1779,8 @@ struct DxilInst_IMul {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1723,6 +1807,8 @@ struct DxilInst_UMul {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1749,6 +1835,8 @@ struct DxilInst_UDiv {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1775,6 +1863,8 @@ struct DxilInst_UAddc {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1801,6 +1891,8 @@ struct DxilInst_USubb {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1827,6 +1919,8 @@ struct DxilInst_FMad {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1856,6 +1950,8 @@ struct DxilInst_Fma {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1885,6 +1981,8 @@ struct DxilInst_IMad {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1914,6 +2012,8 @@ struct DxilInst_UMad {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1943,6 +2043,8 @@ struct DxilInst_Msad {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -1972,6 +2074,8 @@ struct DxilInst_Ibfe {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -2001,6 +2105,8 @@ struct DxilInst_Ubfe {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_a = 1,
@@ -2030,6 +2136,8 @@ struct DxilInst_Bfi {
     if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_width = 1,
@@ -2062,6 +2170,8 @@ struct DxilInst_Dot2 {
     if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_ax = 1,
@@ -2094,6 +2204,8 @@ struct DxilInst_Dot3 {
     if (7 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_ax = 1,
@@ -2132,6 +2244,8 @@ struct DxilInst_Dot4 {
     if (9 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_ax = 1,
@@ -2176,6 +2290,8 @@ struct DxilInst_CreateHandle {
     if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_resourceClass = 1,
@@ -2214,6 +2330,8 @@ struct DxilInst_CBufferLoad {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -2245,6 +2363,8 @@ struct DxilInst_CBufferLoadLegacy {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -2271,6 +2391,8 @@ struct DxilInst_Sample {
     if (11 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2321,6 +2443,8 @@ struct DxilInst_SampleBias {
     if (12 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2374,6 +2498,8 @@ struct DxilInst_SampleLevel {
     if (11 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2424,6 +2550,8 @@ struct DxilInst_SampleGrad {
     if (17 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2492,6 +2620,8 @@ struct DxilInst_SampleCmp {
     if (12 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2545,6 +2675,8 @@ struct DxilInst_SampleCmpLevelZero {
     if (11 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2595,6 +2727,8 @@ struct DxilInst_TextureLoad {
     if (9 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2639,6 +2773,8 @@ struct DxilInst_TextureStore {
     if (10 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2686,6 +2822,8 @@ struct DxilInst_BufferLoad {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2715,6 +2853,8 @@ struct DxilInst_BufferStore {
     if (9 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_uav = 1,
@@ -2759,6 +2899,8 @@ struct DxilInst_BufferUpdateCounter {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_uav = 1,
@@ -2785,6 +2927,8 @@ struct DxilInst_CheckAccessFullyMapped {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_status = 1,
@@ -2808,6 +2952,8 @@ struct DxilInst_GetDimensions {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -2834,6 +2980,8 @@ struct DxilInst_TextureGather {
     if (10 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2881,6 +3029,8 @@ struct DxilInst_TextureGatherCmp {
     if (11 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2931,6 +3081,8 @@ struct DxilInst_Texture2DMSGetSamplePosition {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -2957,6 +3109,8 @@ struct DxilInst_RenderTargetGetSamplePosition {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_index = 1,
@@ -2980,6 +3134,8 @@ struct DxilInst_RenderTargetGetSampleCount {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction performs an atomic operation on two operands
@@ -2996,6 +3152,8 @@ struct DxilInst_AtomicBinOp {
     if (7 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -3034,6 +3192,8 @@ struct DxilInst_AtomicCompareExchange {
     if (7 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -3072,6 +3232,8 @@ struct DxilInst_Barrier {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_barrierMode = 1,
@@ -3097,6 +3259,8 @@ struct DxilInst_CalculateLOD {
     if (7 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_handle = 1,
@@ -3135,6 +3299,8 @@ struct DxilInst_Discard {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_condition = 1,
@@ -3158,6 +3324,8 @@ struct DxilInst_DerivCoarseX {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3181,6 +3349,8 @@ struct DxilInst_DerivCoarseY {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3204,6 +3374,8 @@ struct DxilInst_DerivFineX {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3227,6 +3399,8 @@ struct DxilInst_DerivFineY {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3250,6 +3424,8 @@ struct DxilInst_EvalSnapped {
     if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -3285,6 +3461,8 @@ struct DxilInst_EvalSampleIndex {
     if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -3317,6 +3495,8 @@ struct DxilInst_EvalCentroid {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -3346,6 +3526,8 @@ struct DxilInst_SampleIndex {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns the coverage mask input in a pixel shader
@@ -3362,6 +3544,8 @@ struct DxilInst_Coverage {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns underestimated coverage input from conservative rasterization in a pixel shader
@@ -3378,6 +3562,8 @@ struct DxilInst_InnerCoverage {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction reads the thread ID
@@ -3394,6 +3580,8 @@ struct DxilInst_ThreadId {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_component = 1,
@@ -3417,6 +3605,8 @@ struct DxilInst_GroupId {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_component = 1,
@@ -3440,6 +3630,8 @@ struct DxilInst_ThreadIdInGroup {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_component = 1,
@@ -3463,6 +3655,8 @@ struct DxilInst_FlattenedThreadIdInGroup {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction emits a vertex to a given stream
@@ -3479,6 +3673,8 @@ struct DxilInst_EmitStream {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_streamId = 1,
@@ -3502,6 +3698,8 @@ struct DxilInst_CutStream {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_streamId = 1,
@@ -3525,6 +3723,8 @@ struct DxilInst_EmitThenCutStream {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_streamId = 1,
@@ -3548,6 +3748,8 @@ struct DxilInst_GSInstanceID {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction creates a double value
@@ -3564,6 +3766,8 @@ struct DxilInst_MakeDouble {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_lo = 1,
@@ -3590,6 +3794,8 @@ struct DxilInst_SplitDouble {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3613,6 +3819,8 @@ struct DxilInst_LoadOutputControlPoint {
     if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -3645,6 +3853,8 @@ struct DxilInst_LoadPatchConstant {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -3674,6 +3884,8 @@ struct DxilInst_DomainLocation {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_component = 1,
@@ -3699,6 +3911,8 @@ struct DxilInst_StorePatchConstant {
     if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_outputSigID = 1,
@@ -3731,6 +3945,8 @@ struct DxilInst_OutputControlPointID {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction PrimitiveID
@@ -3747,6 +3963,8 @@ struct DxilInst_PrimitiveID {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction CycleCounterLegacy
@@ -3763,6 +3981,8 @@ struct DxilInst_CycleCounterLegacy {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns 1 for the first lane in the wave
@@ -3779,6 +3999,8 @@ struct DxilInst_WaveIsFirstLane {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns the index of the current lane in the wave
@@ -3795,6 +4017,8 @@ struct DxilInst_WaveGetLaneIndex {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns the number of lanes in the wave
@@ -3811,6 +4035,8 @@ struct DxilInst_WaveGetLaneCount {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction returns 1 if any of the lane evaluates the value to true
@@ -3827,6 +4053,8 @@ struct DxilInst_WaveAnyTrue {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_cond = 1,
@@ -3850,6 +4078,8 @@ struct DxilInst_WaveAllTrue {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_cond = 1,
@@ -3873,6 +4103,8 @@ struct DxilInst_WaveActiveAllEqual {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3896,6 +4128,8 @@ struct DxilInst_WaveActiveBallot {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_cond = 1,
@@ -3919,6 +4153,8 @@ struct DxilInst_WaveReadLaneAt {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3945,6 +4181,8 @@ struct DxilInst_WaveReadLaneFirst {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -3968,6 +4206,8 @@ struct DxilInst_WaveActiveOp {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4001,6 +4241,8 @@ struct DxilInst_WaveActiveBit {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4029,6 +4271,8 @@ struct DxilInst_WavePrefixOp {
     if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4062,6 +4306,8 @@ struct DxilInst_QuadReadLaneAt {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4090,6 +4336,8 @@ struct DxilInst_QuadOp {
     if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4118,6 +4366,8 @@ struct DxilInst_BitcastI16toF16 {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4141,6 +4391,8 @@ struct DxilInst_BitcastF16toI16 {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4164,6 +4416,8 @@ struct DxilInst_BitcastI32toF32 {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4187,6 +4441,8 @@ struct DxilInst_BitcastF32toI32 {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4210,6 +4466,8 @@ struct DxilInst_BitcastI64toF64 {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4233,6 +4491,8 @@ struct DxilInst_BitcastF64toI64 {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4256,6 +4516,8 @@ struct DxilInst_LegacyF32ToF16 {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4279,6 +4541,8 @@ struct DxilInst_LegacyF16ToF32 {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4302,6 +4566,8 @@ struct DxilInst_LegacyDoubleToFloat {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4325,6 +4591,8 @@ struct DxilInst_LegacyDoubleToSInt32 {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4348,6 +4616,8 @@ struct DxilInst_LegacyDoubleToUInt32 {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4371,6 +4641,8 @@ struct DxilInst_WaveAllBitCount {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4394,6 +4666,8 @@ struct DxilInst_WavePrefixBitCount {
     if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_value = 1,
@@ -4417,6 +4691,8 @@ struct DxilInst_AttributeAtVertex {
     if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_inputSigId = 1,
@@ -4449,6 +4725,8 @@ struct DxilInst_ViewID {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 
 /// This instruction reads from a raw buffer and structured buffer
@@ -4465,6 +4743,8 @@ struct DxilInst_RawBufferLoad {
     if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_srv = 1,
@@ -4504,6 +4784,8 @@ struct DxilInst_RawBufferStore {
     if (10 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
     arg_uav = 1,

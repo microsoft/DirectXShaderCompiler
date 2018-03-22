@@ -607,7 +607,7 @@ TEST_F(FileTest, SemanticCoverageTypeMismatchPS) {
   runFileTest("semantic.coverage.type-mismatch.ps.hlsl");
 }
 TEST_F(FileTest, SemanticInnerCoveragePS) {
-  runFileTest("semantic.inner-coverage.ps.hlsl", Expect::Failure);
+  runFileTest("semantic.inner-coverage.ps.hlsl");
 }
 TEST_F(FileTest, SemanticViewIDVS) { runFileTest("semantic.view-id.vs.hlsl"); }
 TEST_F(FileTest, SemanticViewIDHS) { runFileTest("semantic.view-id.hs.hlsl"); }
@@ -1362,7 +1362,10 @@ TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
 }
 
 TEST_F(FileTest, VulkanLayoutCBufferPackOffset) {
-  runFileTest("vk.layout.cbuffer.packoffset.hlsl", Expect::Warning);
+  runFileTest("vk.layout.cbuffer.packoffset.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutCBufferPackOffsetError) {
+  runFileTest("vk.layout.cbuffer.packoffset.error.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }

@@ -491,8 +491,7 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
   const auto *blockDec = forTBuffer ? Decoration::getBufferBlock(context)
                                     : Decoration::getBlock(context);
 
-  auto decorations =
-      typeTranslator.getLayoutDecorations(decl, layoutRule, forGlobals);
+  auto decorations = typeTranslator.getLayoutDecorations(decl, layoutRule);
   decorations.push_back(blockDec);
 
   // Collect the type and name for each field
@@ -500,22 +499,13 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
   llvm::SmallVector<llvm::StringRef, 4> fieldNames;
   uint32_t fieldIndex = 0;
   for (const auto *subDecl : decl->decls()) {
-    // Ignore implicit generated struct declarations/constructors/destructors.
-    // Ignore embedded struct/union/class/enum/function decls.
-    if (subDecl->isImplicit() || isa<TagDecl>(subDecl) ||
-        isa<FunctionDecl>(subDecl))
+    if (TypeTranslator::shouldSkipInStructLayout(subDecl))
       continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
     const auto *declDecl = cast<DeclaratorDecl>(subDecl);
-
-    // If we are creating the $Globals cbuffer, we only care about
-    // externally-visiable non-resource-type variables.
-    if (forGlobals && (!declDecl->hasExternalFormalLinkage() ||
-                       TypeTranslator::isResourceType(declDecl)))
-      continue;
 
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
@@ -562,10 +552,7 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   // OpAccessChain.
   int index = 0;
   for (const auto *subDecl : decl->decls()) {
-    // Ignore implicit generated struct declarations/constructors/destructors.
-    // Ignore embedded struct/union/class/enum/function decls.
-    if (subDecl->isImplicit() || isa<TagDecl>(subDecl) ||
-        isa<FunctionDecl>(subDecl))
+    if (TypeTranslator::shouldSkipInStructLayout(subDecl))
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
@@ -644,10 +631,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
   uint32_t index = 0;
   for (const auto *decl : context->decls())
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      // We are only interested in explicitly-defined externally-visible
-      // variables here.
-      if (varDecl->isImplicit() || !varDecl->hasExternalFormalLinkage() ||
-          TypeTranslator::isResourceType(varDecl))
+      if (TypeTranslator::shouldSkipInStructLayout(varDecl))
         continue;
 
       if (const auto *attr = varDecl->getAttr<VKBindingAttr>()) {
@@ -1272,6 +1256,8 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     //   SPIR-V for Vulkan.
     // * SV_Coverage is an uint value, but the builtin it corresponds to,
     //   SampleMask, must be an array of integers.
+    // * SV_InnerCoverage is an uint value, but the corresponding builtin,
+    //   FullyCoveredEXT, must be an boolean value.
 
     if (glPerVertex.tryToAccess(sigPoint->GetKind(), semanticKind,
                                 semanticToUse->index, invocationId, value,
@@ -1294,6 +1280,9 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       break;
     case hlsl::Semantic::Kind::Coverage:
       typeId = theBuilder.getArrayType(typeId, theBuilder.getConstantUint32(1));
+      break;
+    case hlsl::Semantic::Kind::InnerCoverage:
+      typeId = theBuilder.getBoolType();
       break;
     case hlsl::Semantic::Kind::Barycentrics:
       typeId = theBuilder.getVecType(theBuilder.getFloat32Type(), 2);
@@ -1395,6 +1384,22 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       // read SampleMask and extract its first element.
       else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
         *value = theBuilder.createCompositeExtract(srcTypeId, *value, {0});
+      }
+      // Special handling of SV_InnerCoverage, which is an uint value. We need
+      // to read FullyCoveredEXT, which is a boolean value, and convert it to an
+      // uint value. According to D3D12 "Conservative Rasterization" doc: "The
+      // Pixel Shader has a 32-bit scalar integer System Generate Value
+      // available: InnerCoverage. This is a bit-field that has bit 0 from the
+      // LSB set to 1 for a given conservatively rasterized pixel, only when
+      // that pixel is guaranteed to be entirely inside the current primitive.
+      // All other input register bits must be set to 0 when bit 0 is not set,
+      // but are undefined when bit 0 is set to 1 (essentially, this bit-field
+      // represents a Boolean value where false must be exactly 0, but true can
+      // be any odd (i.e. bit 0 set) non-zero value)."
+      else if (semanticKind == hlsl::Semantic::Kind::InnerCoverage) {
+        *value = theBuilder.createSelect(theBuilder.getUint32Type(), *value,
+                                         theBuilder.getConstantUint32(1),
+                                         theBuilder.getConstantUint32(0));
       }
       // Special handling of SV_Barycentrics, which is a float3, but the
       // underlying stage input variable is a float2 (only provides the first
@@ -2139,9 +2144,15 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     stageVar->setIsSpirvBuiltin();
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewIndex);
   }
+    // According to DXIL spec, the InnerCoverage SV can only be used as PSIn.
+    // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
+    // PSIn.
   case hlsl::Semantic::Kind::InnerCoverage: {
-    emitError("no equivalent for semantic SV_InnerCoverage in Vulkan", srcLoc);
-    return 0;
+    theBuilder.addExtension("SPV_EXT_fragment_fully_covered");
+    theBuilder.requireCapability(spv::Capability::FragmentFullyCoveredEXT);
+
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FullyCoveredEXT);
   }
   default:
     emitError("semantic %0 unimplemented", srcLoc)

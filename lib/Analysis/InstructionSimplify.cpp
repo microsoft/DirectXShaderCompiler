@@ -34,6 +34,9 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/ValueHandle.h"
 #include <algorithm>
+
+#include "llvm/Analysis/DxilSimplify.h" // HLSL Change - simplify dxil call.
+
 using namespace llvm;
 using namespace llvm::PatternMatch;
 
@@ -4072,6 +4075,15 @@ Value *llvm::SimplifyInstruction(Instruction *I, const DataLayout &DL,
     break;
   case Instruction::Call: {
     CallSite CS(cast<CallInst>(I));
+    // HLSL Change Begin - simplify dxil call.
+    if (hlsl::CanSimplify(CS.getCalledFunction())) {
+      SmallVector<Value *, 4> Args(CS.arg_begin(), CS.arg_end());
+      if (Value *DxilResult = hlsl::SimplifyDxilCall(CS.getCalledFunction(), Args, I)) {
+        Result = DxilResult;
+        break;
+      }
+    }
+    // HLSL Change End.
     Result = SimplifyCall(CS.getCalledValue(), CS.arg_begin(), CS.arg_end(), DL,
                           TLI, DT, AC, I);
     break;
