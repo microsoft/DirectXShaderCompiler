@@ -1829,6 +1829,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
             .Case("BaseVertex", BuiltIn::BaseVertex)
             .Case("BaseInstance", BuiltIn::BaseInstance)
             .Case("DrawIndex", BuiltIn::DrawIndex)
+            .Case("DeviceIndex", BuiltIn::DeviceIndex)
             .Default(BuiltIn::Max);
 
     assert(spvBuiltIn != BuiltIn::Max); // The frontend should guarantee this.
@@ -1839,6 +1840,10 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     case BuiltIn::DrawIndex:
       theBuilder.addExtension("SPV_KHR_shader_draw_parameters");
       theBuilder.requireCapability(spv::Capability::DrawParameters);
+      break;
+    case BuiltIn::DeviceIndex:
+      theBuilder.addExtension("SPV_KHR_device_group");
+      theBuilder.requireCapability(spv::Capability::DeviceGroup);
       break;
     }
 
@@ -2239,6 +2244,18 @@ bool DeclResultIdMapper::validateVKBuiltins(const NamedDecl *decl,
 
       if (sigPoint->GetKind() != hlsl::SigPoint::Kind::VSIn) {
         emitError("%0 builtin can only be used in vertex shader input", loc)
+            << builtin;
+        success = false;
+      }
+    } else if (builtin == "DeviceIndex") {
+      if (getStorageClassForSigPoint(sigPoint) != spv::StorageClass::Input) {
+        emitError("%0 builtin can only be used as shader input", loc)
+            << builtin;
+        success = false;
+      }
+      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
+          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
+        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
             << builtin;
         success = false;
       }
