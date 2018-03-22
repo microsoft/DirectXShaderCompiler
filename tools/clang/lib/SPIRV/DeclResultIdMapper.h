@@ -527,10 +527,9 @@ private:
   /// depending on the usage kind.
   ///
   /// Panics if the DeclContext is neither HLSLBufferDecl or RecordDecl.
-  uint32_t createVarOfExplicitLayoutStruct(const DeclContext *decl,
-                                           ContextUsageKind usageKind,
-                                           llvm::StringRef typeName,
-                                           llvm::StringRef varName);
+  uint32_t createStructOrStructArrayVarOfExplicitLayout(
+      const DeclContext *decl, uint32_t arraySize, ContextUsageKind usageKind,
+      llvm::StringRef typeName, llvm::StringRef varName);
 
   /// A struct containing information about a particular HLSL semantic.
   struct SemanticInfo {
