@@ -662,10 +662,8 @@ float4 test(): SV_Target {
               `-DeclRefExpr <col:30> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
   */
 
-  f4 = i3x1 * f4;                               /* expected-error {{cannot convert from 'matrix<float, 3, 1>' to 'float4'}} fxc-error {{X3017: cannot implicitly convert from 'const float3x1' to 'float4'}} fxc-warning {{X3206: implicit truncation of vector type}} */
-
-  // TODO: We seem to be missing the vector truncation warning in this case
-  f3 = i3x1 * f4;                   /* fxc-warning {{X3206: implicit truncation of vector type}} */
+  f4 = i3x1 * f4;                               /* expected-error {{cannot convert from 'matrix<float, 3, 1>' to 'float4'}} expected-warning {{implicit truncation of vector type}} fxc-error {{X3017: cannot implicitly convert from 'const float3x1' to 'float4'}} fxc-warning {{X3206: implicit truncation of vector type}} */
+  f3 = i3x1 * f4;                               /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   /*verify-ast
     BinaryOperator <col:3, col:15> 'float3':'vector<float, 3>' '='
     |-DeclRefExpr <col:3> 'float3':'vector<float, 3>' lvalue Var 'f3' 'float3':'vector<float, 3>'
