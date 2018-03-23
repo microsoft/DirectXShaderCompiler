@@ -7752,7 +7752,7 @@ Expr* HLSLExternalSource::CastExprToTypeNumeric(Expr* expr, QualType type)
     StandardConversionSequence standard;
     TYPE_CONVERSION_REMARKS remarks;
     if (CanConvert(SourceLocation(), expr, type, /*explicitConversion*/false, &remarks, &standard) &&
-      (standard.First != ICK_Identity || !standard.isIdentityConversion())) {
+        (standard.First != ICK_Identity || !standard.isIdentityConversion())) {
       if ((remarks & TYPE_CONVERSION_ELT_TRUNCATION) != 0) {
         m_sema->Diag(expr->getExprLoc(), diag::warn_hlsl_implicit_vector_truncation);
       }
