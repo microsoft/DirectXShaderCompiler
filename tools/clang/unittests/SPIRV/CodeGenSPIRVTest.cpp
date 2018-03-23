@@ -1142,6 +1142,12 @@ TEST_F(FileTest, SpirvBuiltInShaderDrawParametersInvalidUsage) {
   runFileTest("spirv.builtin.shader-draw-parameters.invalid.hlsl",
               Expect::Failure);
 }
+TEST_F(FileTest, SpirvBuiltInDeviceIndex) {
+  runFileTest("spirv.builtin.device-index.hlsl");
+}
+TEST_F(FileTest, SpirvBuiltInDeviceIndexInvalidUsage) {
+  runFileTest("spirv.builtin.device-index.invalid.hlsl", Expect::Failure);
+}
 
 // For shader stage input/output interface
 // For semantic SV_Position, SV_ClipDistance, SV_CullDistance

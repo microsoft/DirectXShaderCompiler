@@ -241,6 +241,8 @@ Right now the following ``<builtin>`` are supported:
   Need ``SPV_KHR_shader_draw_parameters`` extension.
 * ``DrawIndex``: The GLSL equivalent is ``gl_DrawIDARB``.
   Need ``SPV_KHR_shader_draw_parameters`` extension.
+* ``DeviceIndex``: The GLSL equivalent is ``gl_DeviceIndex``.
+  Need ``SPV_KHR_device_group`` extension.
 
 Please see Vulkan spec. `14.6. Built-In Variables <https://www.khronos.org/registry/vulkan/specs/1.0/html/vkspec.html#interfaces-builtin-variables>`_
 for detailed explanation of these builtins.
