@@ -120,6 +120,7 @@ public:
   LPCSTR  Kind;         // One of UAV,SRV,CBV
   // Other fields to customize mapping can be added here.
   D3D12_SHADER_RESOURCE_VIEW_DESC   SrvDesc;
+  bool                              SrvDescPresent;
   D3D12_UNORDERED_ACCESS_VIEW_DESC  UavDesc;
 };
 

@@ -321,8 +321,7 @@ void ShaderOpTest::CreateDescriptorHeaps() {
       }
       else if (0 == _stricmp(D.Kind, "SRV")) {
         D3D12_SHADER_RESOURCE_VIEW_DESC *pSrvDesc = nullptr;
-        if (D.SrvDesc.Format != DXGI_FORMAT_UNKNOWN ||
-            D.SrvDesc.ViewDimension == D3D12_SRV_DIMENSION_BUFFER) {
+        if (D.SrvDescPresent) {
           pSrvDesc = &D.SrvDesc;
         }
         m_pDevice->CreateShaderResourceView(Data.Resource, pSrvDesc, cpuHandle);
@@ -1534,16 +1533,16 @@ HRESULT ShaderOpParser::ReadAttrUINT64(IXmlReader *pReader, LPCWSTR pAttrName, U
 
 HRESULT ShaderOpParser::ReadAttrUINT(IXmlReader *pReader, LPCWSTR pAttrName, UINT *pValue, UINT defaultValue) {
   UINT64 u64;
-  CHECK_HR(ReadAttrUINT64(pReader, pAttrName, &u64, defaultValue));
+  HRESULT hrRead = CHECK_HR_RET(ReadAttrUINT64(pReader, pAttrName, &u64, defaultValue));
   CHECK_HR(UInt64ToUInt(u64, pValue));
-  return S_OK;
+  return hrRead;
 }
 
 HRESULT ShaderOpParser::ReadAttrUINT16(IXmlReader *pReader, LPCWSTR pAttrName, UINT16 *pValue, UINT16 defaultValue) {
   UINT64 u64;
-  CHECK_HR(ReadAttrUINT64(pReader, pAttrName, &u64, defaultValue));
+  HRESULT hrRead = CHECK_HR_RET(ReadAttrUINT64(pReader, pAttrName, &u64, defaultValue));
   CHECK_HR(UInt64ToUInt16(u64, pValue));
-  return S_OK;
+  return hrRead;
 }
 
 void ShaderOpParser::ReadElementContentStr(IXmlReader *pReader, LPCSTR *ppValue) {
@@ -1577,6 +1576,7 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
   CHECK_HR(ReadAttrStr(pReader, L"CounterName", &pDesc->CounterName));
   CHECK_HR(ReadAttrStr(pReader, L"Kind", &pDesc->Kind));
   bool isSRV = pDesc->Kind && 0 == _stricmp(pDesc->Kind, "SRV");
+  pDesc->SrvDescPresent = false;
   DXGI_FORMAT *pFormat;
   if (isSRV) {
     // D3D12_SHADER_RESOURCE_VIEW_DESC
@@ -1590,20 +1590,25 @@ void ShaderOpParser::ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pD
   CHECK_HR(hrFormat);
   if (isSRV) {
     pDesc->SrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    CHECK_HR(ReadAttrSRV_DIMENSION(pReader, L"Dimension", &pDesc->SrvDesc.ViewDimension));
+    pDesc->SrvDescPresent |= S_OK ==
+      CHECK_HR_RET(ReadAttrSRV_DIMENSION(pReader, L"Dimension", &pDesc->SrvDesc.ViewDimension));
     switch (pDesc->SrvDesc.ViewDimension) {
     case D3D12_SRV_DIMENSION_BUFFER:
-      CHECK_HR(ReadAttrUINT64(pReader, L"FirstElement", &pDesc->SrvDesc.Buffer.FirstElement));
+      pDesc->SrvDescPresent |= S_OK ==
+        CHECK_HR_RET(ReadAttrUINT64(pReader, L"FirstElement", &pDesc->SrvDesc.Buffer.FirstElement));
       LPCSTR pFlags;
-      CHECK_HR(ReadAttrStr(pReader, L"Flags", &pFlags));
+      pDesc->SrvDescPresent |= S_OK ==
+        CHECK_HR_RET(ReadAttrStr(pReader, L"Flags", &pFlags));
       if (pFlags && *pFlags && 0 == _stricmp(pFlags, "RAW")) {
         pDesc->SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
       }
       else {
         pDesc->SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
       }
-      CHECK_HR(ReadAttrUINT(pReader, L"NumElements", &pDesc->SrvDesc.Buffer.NumElements));
-      CHECK_HR(ReadAttrUINT(pReader, L"StructureByteStride", &pDesc->SrvDesc.Buffer.StructureByteStride));
+      pDesc->SrvDescPresent |= S_OK ==
+        CHECK_HR_RET(ReadAttrUINT(pReader, L"NumElements", &pDesc->SrvDesc.Buffer.NumElements));
+      pDesc->SrvDescPresent |= S_OK ==
+        CHECK_HR_RET(ReadAttrUINT(pReader, L"StructureByteStride", &pDesc->SrvDesc.Buffer.StructureByteStride));
       break;
     default:
       CHECK_HR(E_NOTIMPL);
