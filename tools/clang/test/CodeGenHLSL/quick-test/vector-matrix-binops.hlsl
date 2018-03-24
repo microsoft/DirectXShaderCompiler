@@ -1,12 +1,18 @@
 // RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
 
-// CHECK: vector-matrix-binops.hlsl:24:14: warning: implicit truncation of vector type
-// CHECK: vector-matrix-binops.hlsl:31:16: warning: implicit truncation of vector type
-// CHECK: vector-matrix-binops.hlsl:36:24: error: type mismatch
-// CHECK: vector-matrix-binops.hlsl:37:27: error: type mismatch
-// CHECK: vector-matrix-binops.hlsl:39:14: warning: implicit truncation of vector type
-// CHECK: vector-matrix-binops.hlsl:52:27: error: type mismatch
-// CHECK: vector-matrix-binops.hlsl:53:27: error: type mismatch
+// CHECK: vector-matrix-binops.hlsl:29:26: warning: implicit truncation of vector type
+// CHECK: vector-matrix-binops.hlsl:30:21: warning: implicit truncation of vector type
+// CHECK: vector-matrix-binops.hlsl:30:14: warning: implicit truncation of vector type
+// CHECK: vector-matrix-binops.hlsl:35:23: warning: implicit truncation of vector type
+// CHECK: vector-matrix-binops.hlsl:36:29: warning: implicit truncation of vector type
+// CHECK: vector-matrix-binops.hlsl:37:23: warning: implicit truncation of vector type
+// CHECK: vector-matrix-binops.hlsl:37:16: warning: implicit truncation of vector type
+// CHECK: vector-matrix-binops.hlsl:42:24: error: type mismatch
+// CHECK: vector-matrix-binops.hlsl:43:27: error: type mismatch
+// CHECK: vector-matrix-binops.hlsl:44:26: warning: implicit truncation of vector type
+// CHECK: vector-matrix-binops.hlsl:45:14: warning: implicit truncation of vector type
+// CHECK: vector-matrix-binops.hlsl:58:27: error: type mismatch
+// CHECK: vector-matrix-binops.hlsl:59:27: error: type mismatch
 
 void main() {
 

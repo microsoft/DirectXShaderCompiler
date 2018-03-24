@@ -7750,8 +7750,12 @@ Expr* HLSLExternalSource::CastExprToTypeNumeric(Expr* expr, QualType type)
 
   if (expr->getType() != type) {
     StandardConversionSequence standard;
-    if (CanConvert(SourceLocation(), expr, type, /*explicitConversion*/false, nullptr, &standard) &&
+    TYPE_CONVERSION_REMARKS remarks;
+    if (CanConvert(SourceLocation(), expr, type, /*explicitConversion*/false, &remarks, &standard) &&
         (standard.First != ICK_Identity || !standard.isIdentityConversion())) {
+      if ((remarks & TYPE_CONVERSION_ELT_TRUNCATION) != 0) {
+        m_sema->Diag(expr->getExprLoc(), diag::warn_hlsl_implicit_vector_truncation);
+      }
       ExprResult result = m_sema->PerformImplicitConversion(expr, type, standard, Sema::AA_Casting, Sema::CCK_ImplicitConversion);
       if (result.isUsable()) {
         return result.get();
