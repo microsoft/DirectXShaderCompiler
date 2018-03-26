@@ -469,9 +469,10 @@ uint32_t DeclResultIdMapper::getMatrixStructType(const VarDecl *matVar,
                                   structName, {}, decorations);
 }
 
-uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
-    const DeclContext *decl, const ContextUsageKind usageKind,
-    llvm::StringRef typeName, llvm::StringRef varName) {
+uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
+    const DeclContext *decl, uint32_t arraySize,
+    const ContextUsageKind usageKind, llvm::StringRef typeName,
+    llvm::StringRef varName) {
   // cbuffers are translated into OpTypeStruct with Block decoration.
   // tbuffers are translated into OpTypeStruct with BufferBlock decoration.
   // PushConstants are translated into OpTypeStruct with Block decoration.
@@ -525,26 +526,32 @@ uint32_t DeclResultIdMapper::createVarOfExplicitLayoutStruct(
   }
 
   // Get the type for the whole struct
-  const uint32_t structType =
+  uint32_t resultType =
       theBuilder.getStructType(fieldTypes, typeName, fieldNames, decorations);
 
+  // Make an array if requested.
+  if (arraySize)
+    resultType = theBuilder.getArrayType(
+        resultType, theBuilder.getConstantUint32(arraySize));
+
   // Register the <type-id> for this decl
-  ctBufferPCTypeIds[decl] = structType;
+  ctBufferPCTypeIds[decl] = resultType;
 
   const auto sc = usageKind == ContextUsageKind::PushConstant
                       ? spv::StorageClass::PushConstant
                       : spv::StorageClass::Uniform;
 
-  // Create the variable for the whole struct
-  return theBuilder.addModuleVar(structType, sc, varName);
+  // Create the variable for the whole struct / struct array.
+  return theBuilder.addModuleVar(resultType, sc, varName);
 }
 
 uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   const auto usageKind =
       decl->isCBuffer() ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
   const std::string structName = "type." + decl->getName().str();
-  const uint32_t bufferVar = createVarOfExplicitLayoutStruct(
-      decl, usageKind, structName, decl->getName());
+  // The front-end does not allow arrays of cbuffer/tbuffer.
+  const uint32_t bufferVar = createStructOrStructArrayVarOfExplicitLayout(
+      decl, /*arraySize*/ 0, usageKind, structName, decl->getName());
 
   // We still register all VarDecls seperately here. All the VarDecls are
   // mapped to the <result-id> of the buffer object, which means when querying
@@ -572,6 +579,16 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
 
 uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   const auto *recordType = decl->getType()->getAs<RecordType>();
+  uint32_t arraySize = 0;
+
+  // In case we have an array of ConstantBuffer/TextureBuffer:
+  if (!recordType) {
+    if (const auto *arrayType =
+            astContext.getAsConstantArrayType(decl->getType())) {
+      recordType = arrayType->getElementType()->getAs<RecordType>();
+      arraySize = static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+    }
+  }
   assert(recordType);
   const auto *context = cast<HLSLBufferDecl>(decl->getDeclContext());
   const auto usageKind = context->isCBuffer() ? ContextUsageKind::CBuffer
@@ -581,8 +598,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
       context->isCBuffer() ? "ConstantBuffer." : "TextureBuffer.";
   const std::string structName = "type." + std::string(ctBufferName) +
                                  recordType->getDecl()->getName().str();
-  const uint32_t bufferVar = createVarOfExplicitLayoutStruct(
-      recordType->getDecl(), usageKind, structName, decl->getName());
+
+  const uint32_t bufferVar = createStructOrStructArrayVarOfExplicitLayout(
+      recordType->getDecl(), arraySize, usageKind, structName, decl->getName());
 
   // We register the VarDecl here.
   astDecls[decl] =
@@ -598,14 +616,15 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
 }
 
 uint32_t DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
+  // The front-end errors out if non-struct type push constant is used.
   const auto *recordType = decl->getType()->getAs<RecordType>();
   assert(recordType);
 
   const std::string structName =
       "type.PushConstant." + recordType->getDecl()->getName().str();
-  const uint32_t var = createVarOfExplicitLayoutStruct(
-      recordType->getDecl(), ContextUsageKind::PushConstant, structName,
-      decl->getName());
+  const uint32_t var = createStructOrStructArrayVarOfExplicitLayout(
+      recordType->getDecl(), /*arraySize*/ 0, ContextUsageKind::PushConstant,
+      structName, decl->getName());
 
   // Register the VarDecl
   astDecls[decl] = SpirvEvalInfo(var)
@@ -622,8 +641,9 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
     return;
 
   const auto *context = var->getDeclContext();
-  const uint32_t globals = createVarOfExplicitLayoutStruct(
-      context, ContextUsageKind::Globals, "type.$Globals", "$Globals");
+  const uint32_t globals = createStructOrStructArrayVarOfExplicitLayout(
+      context, /*arraySize*/ 0, ContextUsageKind::Globals, "type.$Globals",
+      "$Globals");
 
   resourceVars.emplace_back(globals, ResourceVar::Category::Other, nullptr,
                             nullptr, nullptr);
@@ -1809,6 +1829,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
             .Case("BaseVertex", BuiltIn::BaseVertex)
             .Case("BaseInstance", BuiltIn::BaseInstance)
             .Case("DrawIndex", BuiltIn::DrawIndex)
+            .Case("DeviceIndex", BuiltIn::DeviceIndex)
             .Default(BuiltIn::Max);
 
     assert(spvBuiltIn != BuiltIn::Max); // The frontend should guarantee this.
@@ -1821,6 +1842,10 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
                               builtinAttr->getBuiltIn(),
                               builtinAttr->getLocation());
       theBuilder.requireCapability(spv::Capability::DrawParameters);
+      break;
+    case BuiltIn::DeviceIndex:
+      theBuilder.addExtension("SPV_KHR_device_group");
+      theBuilder.requireCapability(spv::Capability::DeviceGroup);
       break;
     }
 
@@ -2225,6 +2250,18 @@ bool DeclResultIdMapper::validateVKBuiltins(const NamedDecl *decl,
 
       if (sigPoint->GetKind() != hlsl::SigPoint::Kind::VSIn) {
         emitError("%0 builtin can only be used in vertex shader input", loc)
+            << builtin;
+        success = false;
+      }
+    } else if (builtin == "DeviceIndex") {
+      if (getStorageClassForSigPoint(sigPoint) != spv::StorageClass::Input) {
+        emitError("%0 builtin can only be used as shader input", loc)
+            << builtin;
+        success = false;
+      }
+      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
+          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
+        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
             << builtin;
         success = false;
       }

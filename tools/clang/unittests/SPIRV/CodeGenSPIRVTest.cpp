@@ -68,6 +68,9 @@ TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
+TEST_F(FileTest, StructuredBufferArrayTypeError) {
+  runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, AppendStructuredBufferType) {
   runFileTest("type.append-structured-buffer.hlsl");
 }
@@ -1138,6 +1141,12 @@ TEST_F(FileTest, SpirvBuiltInShaderDrawParameters) {
 TEST_F(FileTest, SpirvBuiltInShaderDrawParametersInvalidUsage) {
   runFileTest("spirv.builtin.shader-draw-parameters.invalid.hlsl",
               Expect::Failure);
+}
+TEST_F(FileTest, SpirvBuiltInDeviceIndex) {
+  runFileTest("spirv.builtin.device-index.hlsl");
+}
+TEST_F(FileTest, SpirvBuiltInDeviceIndexInvalidUsage) {
+  runFileTest("spirv.builtin.device-index.invalid.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, SpirvExtensionCLAllow) {

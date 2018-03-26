@@ -1206,6 +1206,16 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
               decl->getLocation());
   }
 
+  if (const auto *arrayType =
+          astContext.getAsConstantArrayType(decl->getType())) {
+    if (TypeTranslator::isAKindOfStructuredOrByteBuffer(
+            arrayType->getElementType())) {
+      emitError("arrays of structured/byte buffers unsupported",
+                decl->getLocation());
+      return;
+    }
+  }
+
   if (decl->hasAttr<VKConstantIdAttr>()) {
     // This is a VarDecl for specialization constant.
     createSpecConstant(decl);
