@@ -1045,14 +1045,14 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
 // HLSL Change Ends
 
 void ASTDumper::dumpDecl(const Decl *D) {
-  // MS Change Starts: Don't display decls with invalid SourceLocations.
+  // HLSL Change Starts: Don't display decls with invalid SourceLocations.
   if (D && D->getDeclContext() &&
       D->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
       D->getSourceRange().isInvalid())
   {
     return;
   }
-  // MS Change Ends
+  // HLSL Change Ends
 
   dumpChild([=] {
     if (!D) {
