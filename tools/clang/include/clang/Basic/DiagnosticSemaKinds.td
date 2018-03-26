@@ -7512,6 +7512,8 @@ def err_hlsl_typeintemplateargument : Error<
   "%0 cannot be used as a type parameter">;
 def err_hlsl_typeintemplateargument_requires_scalar : Error<
   "%0 cannot be used as a type parameter where a scalar is required">;
+def err_hlsl_typeintemplateargument_requires_struct : Error<
+  "%0 cannot be used as a type parameter where a struct is required">;
 def err_hlsl_type_mismatch : Error<
   "type mismatch">;
 def err_hlsl_unsupported_array_equality_op: Error<
