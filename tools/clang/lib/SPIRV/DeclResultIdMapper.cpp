@@ -1844,7 +1844,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       theBuilder.requireCapability(spv::Capability::DrawParameters);
       break;
     case BuiltIn::DeviceIndex:
-      theBuilder.addExtension("SPV_KHR_device_group");
+      theBuilder.addExtension(Extension::KHR_device_group,
+                              stageVar->getSemanticStr(), srcLoc);
       theBuilder.requireCapability(spv::Capability::DeviceGroup);
       break;
     }

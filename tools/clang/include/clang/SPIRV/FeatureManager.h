@@ -25,6 +25,7 @@ namespace spirv {
 
 /// A list of SPIR-V extensions known to our CodeGen.
 enum class Extension {
+  KHR_device_group,
   KHR_multiview,
   KHR_shader_draw_parameters,
   EXT_fragment_fully_covered,

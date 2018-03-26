@@ -51,6 +51,7 @@ bool FeatureManager::requestExtension(Extension ext, llvm::StringRef target,
 
 Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
   return llvm::StringSwitch<Extension>(name)
+      .Case("SPV_KHR_device_group", Extension::KHR_device_group)
       .Case("SPV_KHR_multiview", Extension::KHR_multiview)
       .Case("SPV_KHR_shader_draw_parameters",
             Extension::KHR_shader_draw_parameters)
@@ -70,6 +71,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
 
 const char *FeatureManager::getExtensionName(Extension symbol) {
   switch (symbol) {
+  case Extension::KHR_device_group:
+    return "SPV_KHR_device_group";
   case Extension::KHR_multiview:
     return "SPV_KHR_multiview";
   case Extension::KHR_shader_draw_parameters:
