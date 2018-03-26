@@ -7488,8 +7488,6 @@ def err_hlsl_objectintemplateargument : Error<
   "%0 is an object and cannot be used as a type parameter">;
 def err_hlsl_packoffset_requires_cbuffer : Error<
   "packoffset is only allowed in a constant buffer">;
-def err_hlsl_param_typedef_of_void : Error< // Patterned after err_param_typedef_of_void
-  "empty parameter list defined with a %select{typedef|type alias}0 of 'void' not allowed%select{ in HLSL|}0">;
 def err_hlsl_register_semantics_conflicting : Error<
   "conflicting register semantics">;
 def err_hlsl_register_or_offset_bind_not_valid: Error<
