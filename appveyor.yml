@@ -12,24 +12,27 @@ environment:
   HLSL_BLD_DIR: c:\projects\DirectXShaderCompiler\build
 
 install:
+- ps:  c:\projects\DirectXShaderCompiler\utils\appveyor\appveyor_setup.ps1
+- cmd: set PATH=C:\ninja;%PATH%
 - cmd: git submodule update --init
 
 before_build:
+- cmd: C:\"Program Files (x86)"\"Microsoft Visual Studio"\2017\Community\VC\Auxiliary\Build\vcvars64.bat
 - cmd: call utils\hct\hctstart %HLSL_SRC_DIR% %HLSL_BLD_DIR%
 
 build_script:
-- cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -vs2017 -spirvtest
+- cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -spirvtest -ninja
 
 test_script:
 - ps:  utils\appveyor\appveyor_test.ps1
-- cmd: call utils\hct\hcttest spirv_only
+- cmd: call utils\hct\hcttest spirv_only -ninja
 
 after_test:
-- cmd: cd build\%CONFIGURATION%\bin
+- cmd: cd build\bin
 - cmd: 7z a artifacts.zip d*.exe d*.dll HLSLHost.exe
 
 artifacts:
-- path: build\$(configuration)\bin\artifacts.zip
+- path: build\bin\artifacts.zip
 
 notifications:
 - provider: GitHubPullRequest
