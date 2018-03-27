@@ -2781,6 +2781,39 @@ namespace MainNs
         {
             this.RenderLogBox.Clear();
 
+            string payloadText = GetShaderOpPayload();
+
+            if (this.settingsManager.ExternalRenderEnabled)
+            {
+                string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dndxc-ext-render.xml");
+                try
+                {
+                    System.IO.File.WriteAllText(path, payloadText);
+                }
+                catch (Exception writeErr)
+                {
+                    HandleException(writeErr, "Unable to write render input to " + path);
+                    return;
+                }
+                try
+                {
+                    string arguments = this.settingsManager.ExternalRenderCommand;
+                    arguments = arguments.Replace("%in", path);
+                    var process = System.Diagnostics.Process.Start("cmd.exe", "/c " + arguments);
+                    if (process != null)
+                    {
+                        process.Dispose();
+                    }
+                }
+                catch (Exception runErr)
+                {
+                    HandleException(runErr, "Unable to run external render command.");
+                    return;
+                }
+
+                return;
+            }
+
             try
             {
                 this.hlslHost.EnsureActive();
@@ -2791,7 +2824,6 @@ namespace MainNs
                 return;
             }
 
-            string payloadText = GetShaderOpPayload();
             try
             {
                 SendHostMessageAndLogReply(HlslHost.HhMessageId.StartRendererMsgId);
