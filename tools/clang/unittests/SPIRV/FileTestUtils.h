@@ -32,7 +32,7 @@ bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
 
 /// \brief Runs the SPIR-V Tools validation on the given SPIR-V binary.
 /// Returns true if validation is successful; false otherwise.
-bool validateSpirvBinary(std::vector<uint32_t> &binary,
+bool validateSpirvBinary(spv_target_env, std::vector<uint32_t> &binary,
                          bool relaxLogicalPointer);
 
 /// \brief Parses the Target Profile and Entry Point from the Run command

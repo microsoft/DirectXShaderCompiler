@@ -1,3 +1,4 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 ###############################################################################
 # DXIL information.                                                           #
@@ -47,6 +48,7 @@ class db_dxil_inst(object):
         self.is_deriv = False           # whether this is some kind of derivative
         self.is_gradient = False        # whether this requires a gradient calculation
         self.is_wave = False            # whether this requires in-wave, cross-lane functionality
+        self.requires_uniform_inputs = False  # whether this operation requires that all of its inputs are uniform across the wave
         self.shader_stages = "*"        # shader stages to which this applies, * or one or more of cdghpv
         self.shader_model = 6,0         # minimum shader model required
         self.inst_helper_prefix = None
@@ -711,7 +713,7 @@ class db_dxil(object):
             db_dxil_param(2, "res", "handle", "resource handle to query"),
             db_dxil_param(3, "i32", "mipLevel", "mip level to query")])
         next_op_idx += 1
-        self.add_dxil_op("TextureGather", next_op_idx, "TextureGather", "gathers the four texels that would be used in a bi-linear filtering operation", "fi", "ro", [
+        self.add_dxil_op("TextureGather", next_op_idx, "TextureGather", "gathers the four texels that would be used in a bi-linear filtering operation", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "dimension information for texture"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
@@ -723,7 +725,7 @@ class db_dxil(object):
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "channel", "channel to sample")])
         next_op_idx += 1
-        self.add_dxil_op("TextureGatherCmp", next_op_idx, "TextureGatherCmp", "same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp", "fi", "ro", [
+        self.add_dxil_op("TextureGatherCmp", next_op_idx, "TextureGatherCmp", "same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "gathered texels"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),

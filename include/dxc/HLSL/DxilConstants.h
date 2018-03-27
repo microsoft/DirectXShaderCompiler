@@ -27,7 +27,7 @@ import hctdb_instrhelp
 namespace DXIL {
   // DXIL version.
   const unsigned kDxilMajor = 1;
-  const unsigned kDxilMinor = 2;
+  const unsigned kDxilMinor = 3;
 
   inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
     return 0 | (DxilMajor << 8) | (DxilMinor);
@@ -56,8 +56,9 @@ namespace DXIL {
   const unsigned kMaxStructBufferStride = 2048;
   const unsigned kMaxHSOutputControlPointsTotalScalars = 3968;
   const unsigned kMaxHSOutputPatchConstantTotalScalars = 32*4;
-  const unsigned kMaxOutputTotalScalars = 32*4;
-  const unsigned kMaxInputTotalScalars = 32*4;
+  const unsigned kMaxSignatureTotalVectors = 32;
+  const unsigned kMaxOutputTotalScalars = kMaxSignatureTotalVectors * 4;
+  const unsigned kMaxInputTotalScalars = kMaxSignatureTotalVectors * 4;
   const unsigned kMaxClipOrCullDistanceElementCount = 2;
   const unsigned kMaxClipOrCullDistanceCount = 2 * 4;
   const unsigned kMaxGSOutputVertexCount = 1024;
@@ -65,6 +66,7 @@ namespace DXIL {
   const unsigned kMaxIAPatchControlPointCount = 32;
   const float kHSMaxTessFactorLowerBound = 1.0f;
   const float kHSMaxTessFactorUpperBound = 64.0f;
+  const unsigned kHSDefaultInputControlPointCount = 1;
   const unsigned kMaxCSThreadsPerGroup = 1024;
   const unsigned kMaxCSThreadGroupX	= 1024;
   const unsigned kMaxCSThreadGroupY	= 1024;

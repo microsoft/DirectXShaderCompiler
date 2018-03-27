@@ -83,7 +83,7 @@ private:
   void doDiscardStmt(const DiscardStmt *stmt);
   inline void doDeclStmt(const DeclStmt *stmt);
   void doForStmt(const ForStmt *, llvm::ArrayRef<const Attr *> attrs = {});
-  void doIfStmt(const IfStmt *ifStmt);
+  void doIfStmt(const IfStmt *ifStmt, llvm::ArrayRef<const Attr *> attrs = {});
   void doReturnStmt(const ReturnStmt *stmt);
   void doSwitchStmt(const SwitchStmt *stmt,
                     llvm::ArrayRef<const Attr *> attrs = {});
@@ -130,6 +130,8 @@ private:
   /// taking consideration of the operand type.
   spv::Op translateOp(BinaryOperator::Opcode op, QualType type);
 
+  spv::Op translateWaveOp(hlsl::IntrinsicOp op, QualType type, SourceLocation);
+
   /// Generates SPIR-V instructions for the given normal (non-intrinsic and
   /// non-operator) standalone or member function call.
   SpirvEvalInfo processCall(const CallExpr *expr);
@@ -147,13 +149,26 @@ private:
   void storeValue(const SpirvEvalInfo &lhsPtr, const SpirvEvalInfo &rhsVal,
                   QualType lhsValType);
 
+  /// Decomposes and reconstructs the given srcVal of the given valType to meet
+  /// the requirements of the dstLR layout rule.
+  uint32_t reconstructValue(const SpirvEvalInfo &srcVal, QualType valType,
+                            LayoutRule dstLR);
+
   /// Generates the necessary instructions for conducting the given binary
-  /// operation on lhs and rhs. If lhsResultId is not nullptr, the evaluated
-  /// pointer from lhs during the process will be written into it. If
-  /// mandateGenOpcode is not spv::Op::Max, it will used as the SPIR-V opcode
-  /// instead of deducing from Clang frontend opcode.
+  /// operation on lhs and rhs.
+  ///
+  /// computationType is the type for LHS and RHS when doing computation, while
+  /// resultType is the type of the whole binary operation. They can be
+  /// different for compound assignments like <some-int-value> *=
+  /// <some-float-value>, where computationType is float and resultType is int.
+  ///
+  /// If lhsResultId is not nullptr, the evaluated pointer from lhs during the
+  /// process will be written into it. If mandateGenOpcode is not spv::Op::Max,
+  /// it will used as the SPIR-V opcode instead of deducing from Clang frontend
+  /// opcode.
   SpirvEvalInfo processBinaryOp(const Expr *lhs, const Expr *rhs,
-                                BinaryOperatorKind opcode, QualType resultType,
+                                BinaryOperatorKind opcode,
+                                QualType computationType, QualType resultType,
                                 SourceRange, SpirvEvalInfo *lhsInfo = nullptr,
                                 spv::Op mandateGenOpcode = spv::Op::Max);
 
@@ -283,6 +298,14 @@ private:
   bool validateVKAttributes(const NamedDecl *decl);
 
 private:
+  /// Converts the given value from the bitwidth of 'fromType' to the bitwidth
+  /// of 'toType'. If the two have the same bitwidth, returns the value itself.
+  /// If resultType is not nullptr, the resulting value's type will be written
+  /// to resultType. Panics if the given types are not scalar or vector of
+  /// float/integer type.
+  uint32_t convertBitwidth(uint32_t value, QualType fromType, QualType toType,
+                           uint32_t *resultType = nullptr);
+
   /// Processes the given expr, casts the result into the given bool (vector)
   /// type and returns the <result-id> of the casted value.
   uint32_t castToBool(uint32_t value, QualType fromType, QualType toType);
@@ -338,6 +361,43 @@ private:
 
   /// Processes the 'mul' intrinsic function.
   uint32_t processIntrinsicMul(const CallExpr *);
+
+  /// Transposes a non-floating point matrix and returns the result-id of the
+  /// transpose.
+  uint32_t processNonFpMatrixTranspose(QualType matType, uint32_t matId);
+
+  /// Processes the dot product of two non-floating point vectors. The SPIR-V
+  /// OpDot only accepts float vectors. Assumes that the two vectors are of the
+  /// same size and have the same element type (elemType).
+  uint32_t processNonFpDot(uint32_t vec1Id, uint32_t vec2Id, uint32_t vecSize,
+                           QualType elemType);
+
+  /// Processes the multiplication of a *non-floating point* matrix by a scalar.
+  /// Assumes that the matrix element type and the scalar type are the same.
+  uint32_t processNonFpScalarTimesMatrix(QualType scalarType, uint32_t scalarId,
+                                         QualType matType, uint32_t matId);
+
+  /// Processes the multiplication of a *non-floating point* matrix by a vector.
+  /// Assumes the matrix element type and the vector element type are the same.
+  /// Notice that the vector in this case is a "row vector" and will be
+  /// multiplied by the matrix columns (dot product). As a result, the given
+  /// matrix must be transposed in order to easily get each column. If
+  /// 'matTransposeId' is non-zero, it will be used as the transpose matrix
+  /// result-id; otherwise the function will perform the transpose itself.
+  uint32_t processNonFpVectorTimesMatrix(QualType vecType, uint32_t vecId,
+                                         QualType matType, uint32_t matId,
+                                         uint32_t matTransposeId = 0);
+
+  /// Processes the multiplication of a vector by a *non-floating point* matrix.
+  /// Assumes the matrix element type and the vector element type are the same.
+  uint32_t processNonFpMatrixTimesVector(QualType matType, uint32_t matId,
+                                         QualType vecType, uint32_t vecId);
+
+  /// Processes a non-floating point matrix multiplication. Assumes that the
+  /// number of columns in lhs matrix is the same as number of rows in the rhs
+  /// matrix. Also assumes that the two matrices have the same element type.
+  uint32_t processNonFpMatrixTimesMatrix(QualType lhsType, uint32_t lhsId,
+                                         QualType rhsType, uint32_t rhsId);
 
   /// Processes the 'dot' intrinsic function.
   uint32_t processIntrinsicDot(const CallExpr *);
@@ -395,6 +455,21 @@ private:
   /// Processes Interlocked* intrinsic functions.
   uint32_t processIntrinsicInterlockedMethod(const CallExpr *,
                                              hlsl::IntrinsicOp);
+  /// Processes SM6.0 wave query intrinsic calls.
+  uint32_t processWaveQuery(const CallExpr *, spv::Op opcode);
+
+  /// Processes SM6.0 wave vote intrinsic calls.
+  uint32_t processWaveVote(const CallExpr *, spv::Op opcode);
+
+  /// Processes SM6.0 wave reduction or scan/prefix intrinsic calls.
+  uint32_t processWaveReductionOrPrefix(const CallExpr *, spv::Op op,
+                                        spv::GroupOperation groupOp);
+
+  /// Processes SM6.0 wave broadcast intrinsic calls.
+  uint32_t processWaveBroadcast(const CallExpr *);
+
+  /// Processes SM6.0 quad-wide shuffle.
+  uint32_t processWaveQuadWideShuffle(const CallExpr *, hlsl::IntrinsicOp op);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
@@ -419,6 +494,11 @@ private:
   /// vector of size M or N; if a MxN matrix is given, the returned value
   /// one will be a vector of size N.
   uint32_t getMatElemValueOne(QualType type);
+
+  /// Returns a SPIR-V constant equal to the bitwdith of the given type minus
+  /// one. The returned constant has the same component count and bitwidth as
+  /// the given type.
+  uint32_t getMaskForBitwidthValue(QualType type);
 
 private:
   /// \brief Performs a FlatConversion implicit cast. Fills an instance of the
@@ -470,10 +550,6 @@ private:
 
   void AddRequiredCapabilitiesForShaderModel();
 
-  /// \brief Adds the execution mode for the given entry point based on the
-  /// shader model.
-  void AddExecutionModeForEntryPoint(uint32_t entryPointId);
-
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
   /// In the case of hull shaders, also writes the number of output control
@@ -487,6 +563,10 @@ private:
   /// the input, which depends on the primitive type, to *arraySize.
   bool processGeometryShaderAttributes(const FunctionDecl *entryFunction,
                                        uint32_t *arraySize);
+
+  /// \brief Adds necessary execution modes for the pixel shader based on the
+  /// HLSL attributes of the entry point function.
+  void processPixelShaderAttributes(const FunctionDecl *decl);
 
   /// \brief Adds necessary execution modes for the compute shader based on the
   /// HLSL attributes of the entry point function.
@@ -872,6 +952,9 @@ private:
   ///
   /// Note: legalization specific code
   bool needsLegalization;
+
+  /// Indicates whether we should generate SPIR-V 1.3 instead of 1.0.
+  bool needsSpirv1p3;
 
   /// Mapping from methods to the decls to represent their implicit object
   /// parameters

@@ -20,8 +20,8 @@ SamplerState sampler3;
 
 SamplerState sampler4;
 
-// CHECK:      OpDecorate %var_myCbuffer DescriptorSet 3
-// CHECK-NEXT: OpDecorate %var_myCbuffer Binding 1
+// CHECK:      OpDecorate %myCbuffer DescriptorSet 3
+// CHECK-NEXT: OpDecorate %myCbuffer Binding 1
 cbuffer myCbuffer : register(b1, space3) {
     float4 stuff;
 }

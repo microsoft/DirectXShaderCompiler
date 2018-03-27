@@ -2,6 +2,8 @@
 
 // CHECK: [[v2int_1_0:%\d+]] = OpConstantComposite %v2int %int_1 %int_0
 // CHECK: [[v3int_0_2_n3:%\d+]] = OpConstantComposite %v3int %int_0 %int_2 %int_n3
+// CHECK: [[v3i1:%\d+]] = OpConstantComposite %v3int %int_1 %int_1 %int_1
+// CHECK: [[v3i0:%\d+]] = OpConstantComposite %v3int %int_0 %int_0 %int_0
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
@@ -60,4 +62,31 @@ void main() {
 // CHECK-NEXT: [[vc3:%\d+]] = OpConvertFToS %v3int [[vfrom3]]
 // CHECK-NEXT: OpStore %vi3 [[vc3]]
     vi3 = vfrom3;
+
+    int2x3   intMat;
+    float2x3 floatMat;
+    uint2x3  uintMat;
+    bool2x3  boolMat;
+
+// CHECK:       [[boolMat:%\d+]] = OpLoad %_arr_v3bool_uint_2 %boolMat
+// CHECK-NEXT: [[boolMat0:%\d+]] = OpCompositeExtract %v3bool [[boolMat]] 0
+// CHECK-NEXT:  [[intMat0:%\d+]] = OpSelect %v3int [[boolMat0]] [[v3i1]] [[v3i0]]
+// CHECK-NEXT: [[boolMat1:%\d+]] = OpCompositeExtract %v3bool [[boolMat]] 1
+// CHECK-NEXT:  [[intMat1:%\d+]] = OpSelect %v3int [[boolMat1]] [[v3i1]] [[v3i0]]
+// CHECK-NEXT:          {{%\d+}} = OpCompositeConstruct %_arr_v3int_uint_2 [[intMat0]] [[intMat1]]
+    intMat = boolMat;
+// CHECK:       [[uintMat:%\d+]] = OpLoad %_arr_v3uint_uint_2 %uintMat
+// CHECK-NEXT: [[uintMat0:%\d+]] = OpCompositeExtract %v3uint [[uintMat]] 0
+// CHECK-NEXT:  [[intMat0:%\d+]] = OpBitcast %v3int [[uintMat0]]
+// CHECK-NEXT: [[uintMat1:%\d+]] = OpCompositeExtract %v3uint [[uintMat]] 1
+// CHECK-NEXT:  [[intMat1:%\d+]] = OpBitcast %v3int [[uintMat1]]
+// CHECK-NEXT:          {{%\d+}} = OpCompositeConstruct %_arr_v3int_uint_2 [[intMat0]] [[intMat1]]
+    intMat = uintMat;
+// CHECK:       [[floatMat:%\d+]] = OpLoad %mat2v3float %floatMat
+// CHECK-NEXT: [[floatMat0:%\d+]] = OpCompositeExtract %v3float [[floatMat]] 0
+// CHECK-NEXT:   [[intMat0:%\d+]] = OpConvertFToS %v3int [[floatMat0]]
+// CHECK-NEXT: [[floatMat1:%\d+]] = OpCompositeExtract %v3float [[floatMat]] 1
+// CHECK-NEXT:   [[intMat1:%\d+]] = OpConvertFToS %v3int [[floatMat1]]
+// CHECK-NEXT:           {{%\d+}} = OpCompositeConstruct %_arr_v3int_uint_2 [[intMat0]] [[intMat1]]
+    intMat = floatMat;
 }

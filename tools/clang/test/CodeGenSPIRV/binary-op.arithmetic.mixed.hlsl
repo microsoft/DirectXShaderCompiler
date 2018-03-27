@@ -112,4 +112,54 @@ void main() {
 // CHECK-NEXT: [[mul15:%\d+]] = OpFMul %float [[s11]] [[o1]]
 // CHECK-NEXT: OpStore %p [[mul15]]
     p = s * o;
+
+// Non-floating point matrices:
+// Since non-fp matrices are represented as arrays of vectors, we cannot use
+// OpMatrixTimes* instructions.
+
+    int2x3 q;
+
+// Note: The AST includes a MatrixSplat, therefore we splat the scalar to a matrix. So we cannot use OpVectorTimesScalar.
+// CHECK:          [[t:%\d+]] = OpLoad %int %t
+// CHECK-NEXT:  [[tvec:%\d+]] = OpCompositeConstruct %v3int [[t]] [[t]] [[t]]
+// CHECK-NEXT:  [[tmat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[tvec]] [[tvec]]
+// CHECK-NEXT:     [[q:%\d+]] = OpLoad %_arr_v3int_uint_2 %q
+// CHECK-NEXT: [[tmat0:%\d+]] = OpCompositeExtract %v3int [[tmat]] 0
+// CHECK-NEXT:    [[q0:%\d+]] = OpCompositeExtract %v3int [[q]] 0
+// CHECK-NEXT:   [[qt0:%\d+]] = OpIMul %v3int [[tmat0]] [[q0]]
+// CHECK-NEXT: [[tmat1:%\d+]] = OpCompositeExtract %v3int [[tmat]] 1
+// CHECK-NEXT:    [[q1:%\d+]] = OpCompositeExtract %v3int [[q]] 1
+// CHECK-NEXT:   [[qt1:%\d+]] = OpIMul %v3int [[tmat1]] [[q1]]
+// CHECK-NEXT:    [[qt:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[qt0]] [[qt1]]
+// CHECK-NEXT:                  OpStore %qt [[qt]]
+    int2x3 qt = t * q;
+
+    bool2x3 x;
+
+// Note: The AST includes a MatrixSplat, therefore we splat the scalar to a matrix. So we cannot use OpVectorTimesScalar.
+// CHECK:                [[z:%\d+]] = OpLoad %bool %z
+// CHECK-NEXT:        [[zint:%\d+]] = OpSelect %int [[z]] %int_1 %int_0
+// CHECK-NEXT:        [[zvec:%\d+]] = OpCompositeConstruct %v3int [[zint]] [[zint]] [[zint]]
+// CHECK-NEXT:   [[z_int_mat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[zvec]] [[zvec]]
+// CHECK-NEXT:           [[x:%\d+]] = OpLoad %_arr_v3bool_uint_2 %x
+// CHECK-NEXT:          [[x0:%\d+]] = OpCompositeExtract %v3bool [[x]] 0
+// CHECK-NEXT:       [[x0int:%\d+]] = OpSelect %v3int [[x0]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT:          [[x1:%\d+]] = OpCompositeExtract %v3bool [[x]] 1
+// CHECK-NEXT:       [[x1int:%\d+]] = OpSelect %v3int [[x1]] {{%\d+}} {{%\d+}}
+// CHECK-NEXT:   [[x_int_mat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[x0int]] [[x1int]]
+// CHECK-NEXT:          [[z0:%\d+]] = OpCompositeExtract %v3int [[z_int_mat]] 0
+// CHECK-NEXT:          [[x0:%\d+]] = OpCompositeExtract %v3int [[x_int_mat]] 0
+// CHECK-NEXT:         [[zx0:%\d+]] = OpIMul %v3int [[z0]] [[x0]]
+// CHECK-NEXT:          [[z1:%\d+]] = OpCompositeExtract %v3int [[z_int_mat]] 1
+// CHECK-NEXT:          [[x1:%\d+]] = OpCompositeExtract %v3int [[x_int_mat]] 1
+// CHECK-NEXT:         [[zx1:%\d+]] = OpIMul %v3int [[z1]] [[x1]]
+// CHECK-NEXT:  [[zx_int_mat:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[zx0]] [[zx1]]
+// CHECK-NEXT:         [[zx0:%\d+]] = OpCompositeExtract %v3int [[zx_int_mat]] 0
+// CHECK-NEXT:     [[zx0bool:%\d+]] = OpINotEqual %v3bool [[zx0]] {{%\d+}}
+// CHECK-NEXT:         [[zx1:%\d+]] = OpCompositeExtract %v3int [[zx_int_mat]] 1
+// CHECK-NEXT:     [[zx1bool:%\d+]] = OpINotEqual %v3bool [[zx1]] {{%\d+}}
+// CHECK-NEXT: [[zx_bool_mat:%\d+]] = OpCompositeConstruct %_arr_v3bool_uint_2 [[zx0bool]] [[zx1bool]]
+// CHECK-NEXT:                        OpStore %zx [[zx_bool_mat]]
+    bool z;
+    bool2x3 zx = z * x;
 }

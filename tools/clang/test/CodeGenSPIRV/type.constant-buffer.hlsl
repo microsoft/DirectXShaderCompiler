@@ -10,13 +10,15 @@
 
 // CHECK:      OpName %MyCbuffer "MyCbuffer"
 // CHECK:      OpName %AnotherCBuffer "AnotherCBuffer"
+
+// CHECK:      OpDecorate %type_ConstantBuffer_T Block
+
 struct S {
     float  f1;
     float3 f2;
 };
 
-// CHECK: %type_ConstantBuffer_T = OpTypeStruct %bool %int %v2uint %mat3v4float %S %_arr_float_uint_4
-// CHECK: %_ptr_Uniform_type_ConstantBuffer_T = OpTypePointer Uniform %type_ConstantBuffer_T
+// CHECK: %type_ConstantBuffer_T = OpTypeStruct %uint %int %v2uint %mat3v4float %S %_arr_float_uint_4
 struct T {
     bool     a;
     int      b;
@@ -26,10 +28,16 @@ struct T {
     float    t[4];
 };
 
+// CHECK: %_ptr_Uniform_type_ConstantBuffer_T = OpTypePointer Uniform %type_ConstantBuffer_T
+// CHECK: %_arr_type_ConstantBuffer_T_uint_2 = OpTypeArray %type_ConstantBuffer_T %uint_2
+// CHECK: %_ptr_Uniform__arr_type_ConstantBuffer_T_uint_2 = OpTypePointer Uniform %_arr_type_ConstantBuffer_T_uint_2
+
 // CHECK: %MyCbuffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_T Uniform
 ConstantBuffer<T> MyCbuffer : register(b1);
 // CHECK: %AnotherCBuffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_T Uniform
 ConstantBuffer<T> AnotherCBuffer : register(b2);
+// CHECK: %MyConstantBufferArray = OpVariable %_ptr_Uniform__arr_type_ConstantBuffer_T_uint_2 Uniform
+ConstantBuffer<T> MyConstantBufferArray[2] : register(b3);
 
 void main() {
 }

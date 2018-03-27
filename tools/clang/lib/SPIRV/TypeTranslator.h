@@ -16,6 +16,7 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/SPIRV/EmitSPIRVOptions.h"
 #include "clang/SPIRV/ModuleBuilder.h"
+#include "llvm/ADT/Optional.h"
 
 #include "SpirvEvalInfo.h"
 
@@ -46,15 +47,13 @@ public:
   /// the error and returns 0. If decorateLayout is true, layout decorations
   /// (Offset, MatrixStride, ArrayStride, RowMajor, ColMajor) will be attached
   /// to the struct or array types. If layoutRule is not Void and type is a
-  /// matrix or array of matrix type, isRowMajor will indicate whether it is
-  /// decorated with row_major in the source code.
+  /// matrix or array of matrix type.
   ///
   /// The translation is recursive; all the types that the target type depends
   /// on will be generated and all with layout decorations (if decorateLayout
   /// is true).
   uint32_t translateType(QualType type,
-                         LayoutRule layoutRule = LayoutRule::Void,
-                         bool isRowMajor = false);
+                         LayoutRule layoutRule = LayoutRule::Void);
 
   /// \brief Generates the SPIR-V type for the counter associated with a
   /// {Append|Consume}StructuredBuffer: an OpTypeStruct with a single 32-bit
@@ -69,8 +68,10 @@ public:
   ///   float  gl_ClipDistance[];
   ///   float  gl_CullDistance[];
   /// };
-  uint32_t getGlPerVertexStruct(uint32_t clipArraySize, uint32_t cullArraySize,
-                                llvm::StringRef structName);
+  uint32_t
+  getGlPerVertexStruct(uint32_t clipArraySize, uint32_t cullArraySize,
+                       llvm::StringRef structName,
+                       const llvm::SmallVector<std::string, 4> &fieldSemantics);
 
   /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
   static bool isStructuredBuffer(QualType type);
@@ -125,6 +126,20 @@ public:
   /// \brief Returns true if the given type is SubpassInputMS.
   static bool isSubpassInputMS(QualType);
 
+  /// \brief Evluates the given type at the given bitwidth and returns the
+  /// result-id for it. Panics if the given type is not a scalar or vector of
+  /// float or integer type. For example: if QualType of an int4 and bitwidth of
+  /// 64 is passed in, the result-id of a SPIR-V vector of size 4 of signed
+  /// 64-bit integers is returned.
+  /// Acceptable bitwidths are 16, 32, and 64.
+  uint32_t getTypeWithCustomBitwidth(QualType type, uint32_t bitwidth);
+
+  /// \brief Returns the realized bitwidth of the given type when represented in
+  /// SPIR-V. Panics if the given type is not a scalar or vector of float or
+  /// integer. In case of vectors, it returns the realized SPIR-V bitwidth of
+  /// the vector elements.
+  uint32_t getElementSpirvBitwidth(QualType type);
+
   /// \brief Returns true if the given type will be translated into a SPIR-V
   /// scalar type. This includes normal scalar types, vectors of size 1, and
   /// 1x1 matrices. If scalarType is not nullptr, writes the scalar type to
@@ -164,14 +179,26 @@ public:
                           uint32_t *rowCount = nullptr,
                           uint32_t *colCount = nullptr);
 
-  /// \broef returns true if type is a matrix and matrix is row major
-  /// If decl is not nullptr, is is checked for attributes specifying majorness
-  bool isRowMajorMatrix(QualType type, const Decl *decl = nullptr) const;
+  /// \brief Returns true if type is a row-major matrix, either with explicit
+  /// attribute or implicit command-line option.
+  bool isRowMajorMatrix(QualType type) const;
 
-  /// \brief Returns true if the given type is a SPIR-V acceptable matrix type,
-  /// i.e., with floating point elements and greater than 1 row and column
-  /// counts.
-  static bool isSpirvAcceptableMatrixType(QualType type);
+  /// \brief Returns true if the decl type is a non-floating-point matrix and
+  /// the matrix is column major, or if it is an array/struct containing such
+  /// matrices.
+  bool isOrContainsNonFpColMajorMatrix(QualType type, const Decl *decl) const;
+
+  /// \brief Returns true if the decl is of ConstantBuffer/TextureBuffer type.
+  static bool isConstantTextureBuffer(const Decl *decl);
+
+  /// \brief Returns true if the decl will have a SPIR-V resource type.
+  ///
+  /// Note that this function covers the following HLSL types:
+  /// * ConstantBuffer/TextureBuffer
+  /// * Various structured buffers
+  /// * (RW)ByteAddressBuffer
+  /// * SubpassInput(MS)
+  static bool isResourceType(const ValueDecl *decl);
 
   /// \brief Returns true if the two types are the same scalar or vector type,
   /// regardless of constness and literalness.
@@ -216,6 +243,10 @@ public:
   /// Returns Capability::Max to mean no capability requirements.
   static spv::Capability getCapabilityForStorageImageReadWrite(QualType type);
 
+  /// \brief Returns true if the given decl should be skipped when layouting
+  /// a struct type.
+  static bool shouldSkipInStructLayout(const Decl *decl);
+
   /// \brief Generates layout decorations (Offset, MatrixStride, RowMajor,
   /// ColMajor) for the given type.
   ///
@@ -226,13 +257,18 @@ public:
   llvm::SmallVector<const Decoration *, 4>
   getLayoutDecorations(const DeclContext *decl, LayoutRule rule);
 
+  /// \brief Returns how many sequential locations are consumed by a given type.
+  uint32_t getLocationCount(QualType type);
+
 private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
-  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N],
+                              SourceLocation loc = {}) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
-    return diags.Report(diagId);
+    return diags.Report(loc, diagId);
   }
 
   /// \brief Returns true if the two types can be treated as the same scalar
@@ -244,35 +280,39 @@ private:
   /// instructions and returns the <result-id>. Returns 0 on failure.
   uint32_t translateResourceType(QualType type, LayoutRule rule);
 
-  /// \bried For the given sampled type, returns the corresponding image format
+  /// \brief For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
   spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
+
+  /// \brief Aligns currentOffset properly to allow packing vectors in the HLSL
+  /// way: using the element type's alignment as the vector alignment, as long
+  /// as there is no improper straddle.
+  /// fieldSize and fieldAlignment are the original size and alignment
+  /// calculated without considering the HLSL vector relaxed rule.
+  void alignUsingHLSLRelaxedLayout(QualType fieldType, uint32_t fieldSize,
+                                   uint32_t *fieldAlignment,
+                                   uint32_t *currentOffset);
 
 public:
   /// \brief Returns the alignment and size in bytes for the given type
   /// according to the given LayoutRule.
 
   /// If the type is an array/matrix type, writes the array/matrix stride to
-  /// stride. If the type is a matrix, isRowMajor will be used to indicate
-  /// whether it is labelled as row_major in the source code.
+  /// stride. If the type is a matrix.
   ///
   /// Note that the size returned is not exactly how many bytes the type
   /// will occupy in memory; rather it is used in conjunction with alignment
   /// to get the next available location (alignment + size), which means
   /// size contains post-paddings required by the given type.
-  std::pair<uint32_t, uint32_t> getAlignmentAndSize(QualType type,
-                                                    LayoutRule rule,
-                                                    bool isRowMajor,
-                                                    uint32_t *stride);
+  std::pair<uint32_t, uint32_t>
+  getAlignmentAndSize(QualType type, LayoutRule rule, uint32_t *stride);
 
-public:
   /// \brief If a hint exists regarding the usage of literal types, it
   /// is returned. Otherwise, the given type itself is returned.
   /// The hint is the type on top of the intendedLiteralTypes stack. This is the
   /// type we suspect the literal under question should be interpreted as.
   QualType getIntendedLiteralType(QualType type);
 
-public:
   /// A RAII class for maintaining the intendedLiteralTypes stack.
   ///
   /// Instantiating an object of this class ensures that as long as the
@@ -301,7 +341,11 @@ private:
   /// \brief Removes the type at the top of the intendedLiteralTypes stack.
   void popIntendedLiteralType();
 
-private:
+  /// \brief Strip the attributes and typedefs fromthe given type and returns
+  /// the desugared one. This method will update internal bookkeeping regarding
+  /// matrix majorness.
+  QualType desugarType(QualType type);
+
   ASTContext &astContext;
   ModuleBuilder &theBuilder;
   DiagnosticsEngine &diags;
@@ -313,6 +357,14 @@ private:
   /// float; but if the top of the stack is a double type, the literal should be
   /// evaluated as a double.
   std::stack<QualType> intendedLiteralTypes;
+
+  /// \brief A place to keep the matrix majorness attributes so that we can
+  /// retrieve the information when really processing the desugared matrix type.
+  /// This is needed because the majorness attribute is decorated on a
+  /// TypedefType (i.e., floatMxN) of the real matrix type (i.e., matrix<elem,
+  /// row, col>). When we reach the desugared matrix type, this information will
+  /// already be gone.
+  llvm::Optional<AttributedType::Kind> typeMatMajorAttr;
 };
 
 } // end namespace spirv

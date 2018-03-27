@@ -309,7 +309,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.CodeGenHighLevel = Args.hasFlag(OPT_fcgl, OPT_INVALID, false);
   opts.DebugInfo = Args.hasFlag(OPT__SLASH_Zi, OPT_INVALID, false);
   opts.DebugNameForBinary = Args.hasFlag(OPT_Zsb, OPT_INVALID, false);
-  opts.DebugNameForSource = Args.hasFlag(OPT_Zsb, OPT_INVALID, false);
+  opts.DebugNameForSource = Args.hasFlag(OPT_Zss, OPT_INVALID, false);
   opts.VariableName = Args.getLastArgValue(OPT_Vn);
   opts.InputFile = Args.getLastArgValue(OPT_INPUT);
   opts.ForceRootSigVer = Args.getLastArgValue(OPT_force_rootsig_ver);
@@ -407,6 +407,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DisassembleInstNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID, false);
   opts.DisassembleByteOffset = Args.hasFlag(OPT_No, OPT_INVALID, false);
   opts.DisaseembleHex = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
+  opts.LegacyMacroExpansion = Args.hasFlag(OPT_flegacy_macro_expansion, OPT_INVALID, false);
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
@@ -483,6 +484,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 #ifdef ENABLE_SPIRV_CODEGEN
   const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
   opts.VkInvertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
+  opts.VkUseGlslLayout = Args.hasFlag(OPT_fvk_use_glsl_layout, OPT_INVALID, false);
+  opts.SpvEnableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
   opts.VkIgnoreUnusedResources = Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false);
 
   // Collects the arguments for -fvk-{b|s|t|u}-shift.
@@ -522,6 +525,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fvk_use_glsl_layout, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||

@@ -27,6 +27,7 @@
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -1345,6 +1346,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   if (isHS) {
     funcProps->ShaderProps.HS.maxTessFactor = DXIL::kHSMaxTessFactorUpperBound;
+    funcProps->ShaderProps.HS.inputControlPoints = DXIL::kHSDefaultInputControlPointCount;
   }
 
   if (const HLSLMaxTessFactorAttr *Attr =
@@ -1899,7 +1901,7 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
     if (VD->hasInit() && resClass != DXIL::ResourceClass::Invalid)
       return;
     // skip static global.
-    if (!VD->isExternallyVisible()) {
+    if (!VD->hasExternalFormalLinkage()) {
       if (VD->hasInit() && VD->getType().isConstQualified()) {
         Expr* InitExp = VD->getInit();
         GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(VD));
@@ -2394,6 +2396,11 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     // For static inside cbuffer, take as global static.
     // Don't add to cbuffer.
     CGM.EmitGlobal(constDecl);
+    // Add type annotation for static global types.
+    // May need it when cast from cbuf.
+    DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
+    unsigned arraySize = 0;
+    AddTypeAnnotation(constDecl->getType(), dxilTypeSys, arraySize);
     return;
   }
   // Search defined structure for resource objects and fail
@@ -3531,8 +3538,8 @@ static bool SimplifyBitCastGEP(GEPOperator *GEP, llvm::Type *FromTy, llvm::Type 
   }
   return false;
 }
-
-static void SimplifyBitCast(BitCastOperator *BC, std::vector<Instruction *> &deadInsts) {
+typedef SmallPtrSet<Instruction *, 4> SmallInstSet;
+static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
   Value *Ptr = BC->getOperand(0);
   llvm::Type *FromTy = Ptr->getType();
   llvm::Type *ToTy = BC->getType();
@@ -3562,18 +3569,18 @@ static void SimplifyBitCast(BitCastOperator *BC, std::vector<Instruction *> &dea
     if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
       if (SimplifyBitCastLoad(LI, FromTy, ToTy, Ptr)) {
         LI->dropAllReferences();
-        deadInsts.emplace_back(LI);
+        deadInsts.insert(LI);
       }
     } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
       if (SimplifyBitCastStore(SI, FromTy, ToTy, Ptr)) {
         SI->dropAllReferences();
-        deadInsts.emplace_back(SI);
+        deadInsts.insert(SI);
       }
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       if (SimplifyBitCastGEP(GEP, FromTy, ToTy, Ptr))
         if (Instruction *I = dyn_cast<Instruction>(GEP)) {
           I->dropAllReferences();
-          deadInsts.emplace_back(I);
+          deadInsts.insert(I);
         }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       // Skip function call.
@@ -3821,7 +3828,7 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
 }
 
 static void SimpleTransformForHLDXIR(Instruction *I,
-                                     std::vector<Instruction *> &deadInsts) {
+                                     SmallInstSet &deadInsts) {
 
   unsigned opcode = I->getOpcode();
   switch (opcode) {
@@ -3866,11 +3873,6 @@ static void SimpleTransformForHLDXIR(Instruction *I,
       if (iOp2 != clampedOp2) {
         BO->setOperand(1, ConstantInt::get(op2->getType(), clampedOp2));
       }
-    } else {
-      Value *mask = ConstantInt::get(op2->getType(), bitWidth - 1);
-      IRBuilder<> Builder(I);
-      op2 = Builder.CreateAnd(op2, mask);
-      BO->setOperand(1, op2);
     }
   } break;
   }
@@ -3878,11 +3880,13 @@ static void SimpleTransformForHLDXIR(Instruction *I,
 
 // Do simple transform to make later lower pass easier.
 static void SimpleTransformForHLDXIR(llvm::Module *pM) {
-  std::vector<Instruction *> deadInsts;
+  SmallInstSet deadInsts;
   for (Function &F : pM->functions()) {
     for (BasicBlock &BB : F.getBasicBlockList()) {
       for (BasicBlock::iterator Iter = BB.begin(); Iter != BB.end(); ) {
         Instruction *I = (Iter++);
+        if (deadInsts.count(I))
+          continue; // Skip dead instructions
         SimpleTransformForHLDXIR(I, deadInsts);
       }
     }
@@ -5314,6 +5318,83 @@ void CGMSHLSLRuntime::EmitHLSLDiscard(CodeGenFunction &CGF) {
       TheModule);
 }
 
+static llvm::Type *MergeIntType(llvm::IntegerType *T0, llvm::IntegerType *T1) {
+  if (T0->getBitWidth() > T1->getBitWidth())
+    return T0;
+  else
+    return T1;
+}
+
+static Value *CreateExt(CGBuilderTy &Builder, Value *Src, llvm::Type *DstTy,
+                        bool bSigned) {
+  if (bSigned)
+    return Builder.CreateSExt(Src, DstTy);
+  else
+    return Builder.CreateZExt(Src, DstTy);
+}
+// For integer literal, try to get lowest precision.
+static Value *CalcHLSLLiteralToLowestPrecision(CGBuilderTy &Builder, Value *Src,
+                                               bool bSigned) {
+  if (ConstantInt *CI = dyn_cast<ConstantInt>(Src)) {
+    APInt v = CI->getValue();
+    switch (v.getActiveWords()) {
+    case 4:
+      return Builder.getInt32(v.getLimitedValue());
+    case 8:
+      return Builder.getInt64(v.getLimitedValue());
+    case 2:
+      // TODO: use low precision type when support it in dxil.
+      // return Builder.getInt16(v.getLimitedValue());
+      return Builder.getInt32(v.getLimitedValue());
+    case 1:
+      // TODO: use precision type when support it in dxil.
+      // return Builder.getInt8(v.getLimitedValue());
+      return Builder.getInt32(v.getLimitedValue());
+    default:
+      return nullptr;
+    }
+  } else if (SelectInst *SI = dyn_cast<SelectInst>(Src)) {
+    if (SI->getType()->isIntegerTy()) {
+      Value *T = SI->getTrueValue();
+      Value *F = SI->getFalseValue();
+      Value *lowT = CalcHLSLLiteralToLowestPrecision(Builder, T, bSigned);
+      Value *lowF = CalcHLSLLiteralToLowestPrecision(Builder, F, bSigned);
+      if (lowT && lowF && lowT != T && lowF != F) {
+        llvm::IntegerType *TTy = cast<llvm::IntegerType>(lowT->getType());
+        llvm::IntegerType *FTy = cast<llvm::IntegerType>(lowF->getType());
+        llvm::Type *Ty = MergeIntType(TTy, FTy);
+        if (TTy != Ty) {
+          lowT = CreateExt(Builder, lowT, Ty, bSigned);
+        }
+        if (FTy != Ty) {
+          lowF = CreateExt(Builder, lowF, Ty, bSigned);
+        }
+        Value *Cond = SI->getCondition();
+        return Builder.CreateSelect(Cond, lowT, lowF);
+      }
+    }
+  } else if (llvm::BinaryOperator *BO = dyn_cast<llvm::BinaryOperator>(Src)) {
+    Value *Src0 = BO->getOperand(0);
+    Value *Src1 = BO->getOperand(1);
+    Value *CastSrc0 = CalcHLSLLiteralToLowestPrecision(Builder, Src0, bSigned);
+    Value *CastSrc1 = CalcHLSLLiteralToLowestPrecision(Builder, Src1, bSigned);
+    if (Src0 != CastSrc0 && Src1 != CastSrc1 && CastSrc0 && CastSrc1 &&
+        CastSrc0->getType() == CastSrc1->getType()) {
+      llvm::IntegerType *Ty0 = cast<llvm::IntegerType>(CastSrc0->getType());
+      llvm::IntegerType *Ty1 = cast<llvm::IntegerType>(CastSrc0->getType());
+      llvm::Type *Ty = MergeIntType(Ty0, Ty1);
+      if (Ty0 != Ty) {
+        CastSrc0 = CreateExt(Builder, CastSrc0, Ty, bSigned);
+      }
+      if (Ty1 != Ty) {
+        CastSrc1 = CreateExt(Builder, CastSrc1, Ty, bSigned);
+      }
+      return Builder.CreateBinOp(BO->getOpcode(), CastSrc0, CastSrc1);
+    }
+  }
+  return nullptr;
+}
+
 Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
                                             QualType SrcType,
                                             QualType DstType) {
@@ -5421,6 +5502,31 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
           F = Builder.getInt64(rd);
           Value *Sel = Builder.CreateSelect(Cond, T, F, "cond");
           return Sel;
+        }
+      }
+    } else if (llvm::BinaryOperator *BO = dyn_cast<llvm::BinaryOperator>(I)) {
+      // For integer binary operator, do the calc on lowest precision, then cast
+      // to dstTy.
+      if (I->getType()->isIntegerTy()) {
+        bool bSigned = DstType->isSignedIntegerType();
+        Value *CastResult =
+            CalcHLSLLiteralToLowestPrecision(Builder, BO, bSigned);
+        if (!CastResult)
+          return nullptr;
+        if (llvm::IntegerType *IT = dyn_cast<llvm::IntegerType>(DstTy)) {
+          if (DstTy == CastResult->getType()) {
+            return CastResult;
+          } else {
+            if (bSigned)
+              return Builder.CreateSExtOrTrunc(CastResult, DstTy);
+            else
+              return Builder.CreateZExtOrTrunc(CastResult, DstTy);
+          }
+        } else {
+          if (bDstSigned)
+            return Builder.CreateSIToFP(CastResult, DstTy);
+          else
+            return Builder.CreateUIToFP(CastResult, DstTy);
         }
       }
     }
@@ -5873,6 +5979,43 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(CodeGenFunction &CGF, llvm::Value *S
     SmallVector<Value *, 4> idxList;
     EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, Ty, Ty, SrcPtr->getType());
 }
+// To memcpy, need element type match.
+// For struct type, the layout should match in cbuffer layout.
+// struct { float2 x; float3 y; } will not match struct { float3 x; float2 y; }.
+// struct { float2 x; float3 y; } will not match array of float.
+static bool IsTypeMatchForMemcpy(llvm::Type *SrcTy, llvm::Type *DestTy) {
+  llvm::Type *SrcEltTy = dxilutil::GetArrayEltTy(SrcTy);
+  llvm::Type *DestEltTy = dxilutil::GetArrayEltTy(DestTy);
+  if (SrcEltTy == DestEltTy)
+    return true;
+
+  llvm::StructType *SrcST = dyn_cast<llvm::StructType>(SrcEltTy);
+  llvm::StructType *DestST = dyn_cast<llvm::StructType>(DestEltTy);
+  if (SrcST && DestST) {
+    // Only allow identical struct.
+    return SrcST->isLayoutIdentical(DestST);
+  } else if (!SrcST && !DestST) {
+    // For basic type, if one is array, one is not array, layout is different.
+    // If both array, type mismatch. If both basic, copy should be fine.
+    // So all return false.
+    return false;
+  } else {
+    // One struct, one basic type.
+    // Make sure all struct element match the basic type and basic type is
+    // vector4.
+    llvm::StructType *ST = SrcST ? SrcST : DestST;
+    llvm::Type *Ty = SrcST ? DestEltTy : SrcEltTy;
+    if (!Ty->isVectorTy())
+      return false;
+    if (Ty->getVectorNumElements() != 4)
+      return false;
+    for (llvm::Type *EltTy : ST->elements()) {
+      if (EltTy != Ty)
+        return false;
+    }
+    return true;
+  }
+}
 
 void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, llvm::Value *SrcPtr,
     clang::QualType SrcTy,
@@ -5891,6 +6034,14 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::max(sizeSrc, sizeDest), 1);
     return;
+  } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(DestPtr)) {
+    if (GV->isInternalLinkage(GV->getLinkage()) &&
+        IsTypeMatchForMemcpy(SrcPtrTy, DestPtrTy)) {
+      unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+      unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
+      CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::min(sizeSrc, sizeDest), 1);
+      return;
+    }
   }
 
   // It is possiable to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore

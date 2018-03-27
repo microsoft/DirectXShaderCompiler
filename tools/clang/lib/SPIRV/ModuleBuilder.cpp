@@ -18,9 +18,9 @@
 namespace clang {
 namespace spirv {
 
-ModuleBuilder::ModuleBuilder(SPIRVContext *C)
-    : theContext(*C), theModule(), theFunction(nullptr), insertPoint(nullptr),
-      instBuilder(nullptr), glslExtSetId(0) {
+ModuleBuilder::ModuleBuilder(SPIRVContext *C, bool reflect)
+    : theContext(*C), theModule(), allowReflect(reflect), theFunction(nullptr),
+      insertPoint(nullptr), instBuilder(nullptr), glslExtSetId(0) {
   instBuilder.setConsumer([this](std::vector<uint32_t> &&words) {
     this->constructSite = std::move(words);
   });
@@ -244,6 +244,42 @@ uint32_t ModuleBuilder::createSpecConstantBinaryOp(spv::Op op,
   const uint32_t id = theContext.takeNextId();
   instBuilder.specConstantBinaryOp(op, resultType, id, lhs, rhs).x();
   theModule.addVariable(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createGroupNonUniformOp(spv::Op op, uint32_t resultType,
+                                                uint32_t execScope) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.groupNonUniformOp(op, resultType, id, execScope).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createGroupNonUniformUnaryOp(
+    spv::Op op, uint32_t resultType, uint32_t execScope, uint32_t operand,
+    llvm::Optional<spv::GroupOperation> groupOp) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder
+      .groupNonUniformUnaryOp(op, resultType, id, execScope, groupOp, operand)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createGroupNonUniformBinaryOp(spv::Op op,
+                                                      uint32_t resultType,
+                                                      uint32_t execScope,
+                                                      uint32_t operand1,
+                                                      uint32_t operand2) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder
+      .groupNonUniformBinaryOp(op, resultType, id, execScope, operand1,
+                               operand2)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
   return id;
 }
 
@@ -771,10 +807,33 @@ void ModuleBuilder::decorateDSetBinding(uint32_t targetId, uint32_t setNumber,
   d = Decoration::getBinding(theContext, bindingNumber);
   theModule.addDecoration(d, targetId);
 }
+
 void ModuleBuilder::decorateInputAttachmentIndex(uint32_t targetId,
                                                  uint32_t indexNumber) {
   const auto *d = Decoration::getInputAttachmentIndex(theContext, indexNumber);
   theModule.addDecoration(d, targetId);
+}
+
+void ModuleBuilder::decorateCounterBufferId(uint32_t mainBufferId,
+                                            uint32_t counterBufferId) {
+  if (allowReflect) {
+    addExtension("SPV_GOOGLE_hlsl_functionality1");
+    theModule.addDecoration(
+        Decoration::getHlslCounterBufferGOOGLE(theContext, counterBufferId),
+        mainBufferId);
+  }
+}
+
+void ModuleBuilder::decorateHlslSemantic(uint32_t targetId,
+                                         llvm::StringRef semantic,
+                                         llvm::Optional<uint32_t> memberIdx) {
+  if (allowReflect) {
+    addExtension("SPV_GOOGLE_decorate_string");
+    addExtension("SPV_GOOGLE_hlsl_functionality1");
+    theModule.addDecoration(
+        Decoration::getHlslSemanticGOOGLE(theContext, semantic, memberIdx),
+        targetId);
+  }
 }
 
 void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
@@ -835,12 +894,17 @@ IMPL_GET_PRIMITIVE_TYPE(Float32)
 
 #undef IMPL_GET_PRIMITIVE_TYPE
 
+// Note: At the moment, Float16 capability should not be added for Vulkan 1.0.
+// It is not a required capability, and adding the SPV_AMD_gpu_half_float does
+// not enable this capability. Any driver that supports float16 in Vulkan 1.0
+// should accept this extension.
 #define IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(ty, cap)                       \
                                                                                \
   uint32_t ModuleBuilder::get##ty##Type() {                                    \
-    requireCapability(spv::Capability::cap);                                   \
     if (spv::Capability::cap == spv::Capability::Float16)                      \
       theModule.addExtension("SPV_AMD_gpu_shader_half_float");                 \
+    else                                                                       \
+      requireCapability(spv::Capability::cap);                                 \
     const Type *type = Type::get##ty(theContext);                              \
     const uint32_t typeId = theContext.getResultIdForType(type);               \
     theModule.addType(type, typeId);                                           \
@@ -880,7 +944,18 @@ uint32_t ModuleBuilder::getVecType(uint32_t elemType, uint32_t elemCount) {
   return typeId;
 }
 
-uint32_t ModuleBuilder::getMatType(uint32_t colType, uint32_t colCount) {
+uint32_t ModuleBuilder::getMatType(QualType elemType, uint32_t colType,
+                                   uint32_t colCount,
+                                   Type::DecorationSet decorations) {
+  // NOTE: According to Item "Data rules" of SPIR-V Spec 2.16.1 "Universal
+  // Validation Rules":
+  //   Matrix types can only be parameterized with floating-point types.
+  //
+  // So we need special handling of non-fp matrices. We emulate non-fp
+  // matrices as an array of vectors.
+  if (!elemType->isFloatingType())
+    return getArrayType(colType, getConstantUint32(colCount), decorations);
+
   const Type *type = Type::getMatrix(theContext, colType, colCount);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);

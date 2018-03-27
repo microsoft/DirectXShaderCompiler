@@ -806,6 +806,149 @@ public:
   InstBuilder &opModuleProcessed(std::string process);
   InstBuilder &opExecutionModeId(uint32_t entry_point, spv::ExecutionMode mode);
   InstBuilder &opDecorateId(uint32_t target, spv::Decoration decoration);
+  InstBuilder &opGroupNonUniformElect(uint32_t result_type, uint32_t result_id,
+                                      uint32_t execution);
+  InstBuilder &opGroupNonUniformAll(uint32_t result_type, uint32_t result_id,
+                                    uint32_t execution, uint32_t predicate);
+  InstBuilder &opGroupNonUniformAny(uint32_t result_type, uint32_t result_id,
+                                    uint32_t execution, uint32_t predicate);
+  InstBuilder &opGroupNonUniformAllEqual(uint32_t result_type,
+                                         uint32_t result_id, uint32_t execution,
+                                         uint32_t value);
+  InstBuilder &opGroupNonUniformBroadcast(uint32_t result_type,
+                                          uint32_t result_id,
+                                          uint32_t execution, uint32_t value,
+                                          uint32_t id);
+  InstBuilder &opGroupNonUniformBroadcastFirst(uint32_t result_type,
+                                               uint32_t result_id,
+                                               uint32_t execution,
+                                               uint32_t value);
+  InstBuilder &opGroupNonUniformBallot(uint32_t result_type, uint32_t result_id,
+                                       uint32_t execution, uint32_t predicate);
+  InstBuilder &opGroupNonUniformInverseBallot(uint32_t result_type,
+                                              uint32_t result_id,
+                                              uint32_t execution,
+                                              uint32_t value);
+  InstBuilder &opGroupNonUniformBallotBitExtract(uint32_t result_type,
+                                                 uint32_t result_id,
+                                                 uint32_t execution,
+                                                 uint32_t value,
+                                                 uint32_t index);
+  InstBuilder &opGroupNonUniformBallotBitCount(uint32_t result_type,
+                                               uint32_t result_id,
+                                               uint32_t execution,
+                                               spv::GroupOperation operation,
+                                               uint32_t value);
+  InstBuilder &opGroupNonUniformBallotFindLSB(uint32_t result_type,
+                                              uint32_t result_id,
+                                              uint32_t execution,
+                                              uint32_t value);
+  InstBuilder &opGroupNonUniformBallotFindMSB(uint32_t result_type,
+                                              uint32_t result_id,
+                                              uint32_t execution,
+                                              uint32_t value);
+  InstBuilder &opGroupNonUniformShuffle(uint32_t result_type,
+                                        uint32_t result_id, uint32_t execution,
+                                        uint32_t value, uint32_t id);
+  InstBuilder &opGroupNonUniformShuffleXor(uint32_t result_type,
+                                           uint32_t result_id,
+                                           uint32_t execution, uint32_t value,
+                                           uint32_t mask);
+  InstBuilder &opGroupNonUniformShuffleUp(uint32_t result_type,
+                                          uint32_t result_id,
+                                          uint32_t execution, uint32_t value,
+                                          uint32_t delta);
+  InstBuilder &opGroupNonUniformShuffleDown(uint32_t result_type,
+                                            uint32_t result_id,
+                                            uint32_t execution, uint32_t value,
+                                            uint32_t delta);
+  InstBuilder &opGroupNonUniformIAdd(uint32_t result_type, uint32_t result_id,
+                                     uint32_t execution,
+                                     spv::GroupOperation operation,
+                                     uint32_t value,
+                                     llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &opGroupNonUniformFAdd(uint32_t result_type, uint32_t result_id,
+                                     uint32_t execution,
+                                     spv::GroupOperation operation,
+                                     uint32_t value,
+                                     llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &opGroupNonUniformIMul(uint32_t result_type, uint32_t result_id,
+                                     uint32_t execution,
+                                     spv::GroupOperation operation,
+                                     uint32_t value,
+                                     llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &opGroupNonUniformFMul(uint32_t result_type, uint32_t result_id,
+                                     uint32_t execution,
+                                     spv::GroupOperation operation,
+                                     uint32_t value,
+                                     llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &opGroupNonUniformSMin(uint32_t result_type, uint32_t result_id,
+                                     uint32_t execution,
+                                     spv::GroupOperation operation,
+                                     uint32_t value,
+                                     llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &opGroupNonUniformUMin(uint32_t result_type, uint32_t result_id,
+                                     uint32_t execution,
+                                     spv::GroupOperation operation,
+                                     uint32_t value,
+                                     llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &opGroupNonUniformFMin(uint32_t result_type, uint32_t result_id,
+                                     uint32_t execution,
+                                     spv::GroupOperation operation,
+                                     uint32_t value,
+                                     llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &opGroupNonUniformSMax(uint32_t result_type, uint32_t result_id,
+                                     uint32_t execution,
+                                     spv::GroupOperation operation,
+                                     uint32_t value,
+                                     llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &opGroupNonUniformUMax(uint32_t result_type, uint32_t result_id,
+                                     uint32_t execution,
+                                     spv::GroupOperation operation,
+                                     uint32_t value,
+                                     llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &opGroupNonUniformFMax(uint32_t result_type, uint32_t result_id,
+                                     uint32_t execution,
+                                     spv::GroupOperation operation,
+                                     uint32_t value,
+                                     llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &
+  opGroupNonUniformBitwiseAnd(uint32_t result_type, uint32_t result_id,
+                              uint32_t execution, spv::GroupOperation operation,
+                              uint32_t value,
+                              llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &
+  opGroupNonUniformBitwiseOr(uint32_t result_type, uint32_t result_id,
+                             uint32_t execution, spv::GroupOperation operation,
+                             uint32_t value,
+                             llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &
+  opGroupNonUniformBitwiseXor(uint32_t result_type, uint32_t result_id,
+                              uint32_t execution, spv::GroupOperation operation,
+                              uint32_t value,
+                              llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &
+  opGroupNonUniformLogicalAnd(uint32_t result_type, uint32_t result_id,
+                              uint32_t execution, spv::GroupOperation operation,
+                              uint32_t value,
+                              llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &
+  opGroupNonUniformLogicalOr(uint32_t result_type, uint32_t result_id,
+                             uint32_t execution, spv::GroupOperation operation,
+                             uint32_t value,
+                             llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &
+  opGroupNonUniformLogicalXor(uint32_t result_type, uint32_t result_id,
+                              uint32_t execution, spv::GroupOperation operation,
+                              uint32_t value,
+                              llvm::Optional<uint32_t> cluster_size);
+  InstBuilder &opGroupNonUniformQuadBroadcast(uint32_t result_type,
+                                              uint32_t result_id,
+                                              uint32_t execution,
+                                              uint32_t value, uint32_t index);
+  InstBuilder &opGroupNonUniformQuadSwap(uint32_t result_type,
+                                         uint32_t result_id, uint32_t execution,
+                                         uint32_t value, uint32_t direction);
   InstBuilder &opSubgroupBallotKHR(uint32_t result_type, uint32_t result_id,
                                    uint32_t predicate);
   InstBuilder &opSubgroupFirstInvocationKHR(uint32_t result_type,
@@ -876,6 +1019,11 @@ public:
   InstBuilder &opSubgroupImageBlockWriteINTEL(uint32_t image,
                                               uint32_t coordinate,
                                               uint32_t data);
+  InstBuilder &opDecorateStringGOOGLE(uint32_t target,
+                                      spv::Decoration decoration);
+  InstBuilder &opMemberDecorateStringGOOGLE(uint32_t struct_type,
+                                            uint32_t member,
+                                            spv::Decoration decoration);
 
   // All-in-one methods for creating unary and binary operations.
   InstBuilder &unaryOp(spv::Op op, uint32_t result_type, uint32_t result_id,
@@ -885,6 +1033,16 @@ public:
   InstBuilder &specConstantBinaryOp(spv::Op op, uint32_t result_type,
                                     uint32_t result_id, uint32_t lhs,
                                     uint32_t rhs);
+
+  // All-in-one methods for creating OpGroupNonUniform* operations.
+  InstBuilder &groupNonUniformOp(spv::Op op, uint32_t result_type,
+                                 uint32_t result_id, uint32_t exec_scope);
+  InstBuilder &groupNonUniformUnaryOp(
+      spv::Op op, uint32_t result_type, uint32_t result_id, uint32_t exec_scope,
+      llvm::Optional<spv::GroupOperation> groupOp, uint32_t operand);
+  InstBuilder &groupNonUniformBinaryOp(spv::Op op, uint32_t result_type,
+                                       uint32_t result_id, uint32_t exec_scope,
+                                       uint32_t operand1, uint32_t operand2);
 
   // Methods for building constants.
   InstBuilder &opConstant(uint32_t result_type, uint32_t result_id,

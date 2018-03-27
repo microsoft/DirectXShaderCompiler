@@ -52,4 +52,21 @@ void main() {
 // CHECK-NEXT: [[j1:%\d+]] = OpCompositeConstruct %mat3v2float [[j1v0]] [[j1v1]] [[j1v2]]
 // CHECK-NEXT: OpStore %j [[j1]]
     j %= i;
+
+// Non-floating point matrices
+
+    int2x3 k, l;
+// CHECK-NEXT: [[k0:%\d+]] = OpLoad %_arr_v3int_uint_2 %k
+// CHECK-NEXT: [[l0:%\d+]] = OpLoad %_arr_v3int_uint_2 %l
+// CHECK-NEXT: [[l0v0:%\d+]] = OpCompositeExtract %v3int [[l0]] 0
+// CHECK-NEXT: [[k0v0:%\d+]] = OpCompositeExtract %v3int [[k0]] 0
+// CHECK-NEXT: [[l1v0:%\d+]] = OpIAdd %v3int [[l0v0]] [[k0v0]]
+// CHECK-NEXT: [[l0v1:%\d+]] = OpCompositeExtract %v3int [[l0]] 1
+// CHECK-NEXT: [[k0v1:%\d+]] = OpCompositeExtract %v3int [[k0]] 1
+// CHECK-NEXT: [[l1v1:%\d+]] = OpIAdd %v3int [[l0v1]] [[k0v1]]
+// CHECK-NEXT: [[l1:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2 [[l1v0]] [[l1v1]]
+// CHECK-NEXT: OpStore %l [[l1]]
+    l += k;
+
+// Note: The front-end disallows using these operators on boolean matrices.
 }

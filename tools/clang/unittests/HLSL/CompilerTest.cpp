@@ -400,6 +400,7 @@ public:
   TEST_METHOD(CompileWhenWorksThenDisassembleWorks)
   TEST_METHOD(CompileWhenDebugWorksThenStripDebug)
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
+  TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
 
   TEST_METHOD(CompileWhenIncludeThenLoadInvoked)
@@ -475,6 +476,7 @@ public:
   TEST_METHOD(CodeGenAtomic)
   TEST_METHOD(CodeGenAtomic2)
   TEST_METHOD(CodeGenAttributeAtVertex)
+  TEST_METHOD(CodeGenAttributeAtVertexNoOpt)
   TEST_METHOD(CodeGenBarycentrics)
   TEST_METHOD(CodeGenBarycentrics1)
   TEST_METHOD(CodeGenBarycentricsThreeSV)
@@ -935,9 +937,11 @@ public:
   TEST_METHOD(CodeGenRootSigDefine9)
   TEST_METHOD(CodeGenRootSigDefine10)
   TEST_METHOD(CodeGenRootSigDefine11)
+  TEST_METHOD(CodeGenCBufferStruct)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(CodeGenPatchLength)
   TEST_METHOD(PreprocessWhenValidThenOK)
+  TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
   // Dx11 Sample
@@ -2080,12 +2084,12 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   CreateBlobFromText("float4 main() : SV_Target {\r\n"
-                     "  return 0;\r\n"
-                     "}",
-                     &pSource);
+    "  return 0;\r\n"
+    "}",
+    &pSource);
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-                                      L"ps_6_0", nullptr, 0, nullptr, 0,
-                                      nullptr, &pResult));
+    L"ps_6_0", nullptr, 0, nullptr, 0,
+    nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   // Append private data blob
   CComPtr<IDxcContainerBuilder> pBuilder;
@@ -2102,9 +2106,9 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
   CComPtr<IDxcBlob> pNewProgram;
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
   hlsl::DxilContainerHeader *pContainerHeader =
-      (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
   hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
-      pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
+    pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
   VERIFY_IS_NOT_NULL(pPartHeader);
   // compare data
   std::string privatePart((const char *)(pPartHeader + 1), privateTxt.size());
@@ -2124,6 +2128,83 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
     (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
   pPartHeader = hlsl::GetDxilPartByType(
     pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
+  VERIFY_IS_NULL(pPartHeader);
+}
+
+TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
+  // container builders prior to 1.3 did not support adding debug name parts
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main() : SV_Target {\r\n"
+    "  return 0;\r\n"
+    "}",
+    &pSource);
+
+  LPCWSTR args[] = { L"/Zi", L"/Zss" };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"ps_6_0", args, _countof(args), nullptr, 0,
+    nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  // Append private data blob
+  CComPtr<IDxcContainerBuilder> pBuilder;
+  VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
+
+  const char pNewName[] = "MyOwnUniqueName.lld";
+  //include null terminator:
+  size_t nameBlobPartSize = sizeof(hlsl::DxilShaderDebugName) + _countof(pNewName);
+  // round up to four-byte size:
+  size_t allocatedSize = (nameBlobPartSize + 3) & ~3;
+  auto pNameBlobContent = reinterpret_cast<hlsl::DxilShaderDebugName*>(malloc(allocatedSize));
+  ZeroMemory(pNameBlobContent, allocatedSize); //just to make sure trailing nulls are nulls.
+  pNameBlobContent->Flags = 0;
+  pNameBlobContent->NameLength = _countof(pNewName) - 1; //this is not supposed to include null terminator
+  memcpy(pNameBlobContent + 1, pNewName, _countof(pNewName));
+
+  CComPtr<IDxcBlobEncoding> pDebugName;
+
+  CreateBlobPinned(pNameBlobContent, allocatedSize, CP_UTF8, &pDebugName);
+
+
+  VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
+  // should fail since it already exists:
+  VERIFY_FAILED(pBuilder->AddPart(hlsl::DxilFourCC::DFCC_ShaderDebugName, pDebugName));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_ShaderDebugName));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DxilFourCC::DFCC_ShaderDebugName, pDebugName));
+  pResult.Release();
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+
+  CComPtr<IDxcBlob> pNewProgram;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
+  hlsl::DxilContainerHeader *pContainerHeader =
+    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
+    pContainerHeader, hlsl::DxilFourCC::DFCC_ShaderDebugName);
+  VERIFY_IS_NOT_NULL(pPartHeader);
+  // compare data
+  VERIFY_IS_TRUE(memcmp(pPartHeader + 1, pNameBlobContent, allocatedSize) == 0);
+
+  free(pNameBlobContent);
+
+  // Remove private data blob
+  pBuilder.Release();
+  VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pNewProgram));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_ShaderDebugName));
+  pResult.Release();
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+
+  pNewProgram.Release();
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
+  pContainerHeader =
+    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  pPartHeader = hlsl::GetDxilPartByType(
+    pContainerHeader, hlsl::DxilFourCC::DFCC_ShaderDebugName);
   VERIFY_IS_NULL(pPartHeader);
 }
 
@@ -3113,6 +3194,11 @@ TEST_F(CompilerTest, CodeGenAtomic2) {
 TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
   if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertex.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenAttributeAtVertexNoOpt) {
+  if (m_ver.SkipDxilVersion(1,1)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertexNoOpt.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBarycentrics) {
@@ -4994,6 +5080,10 @@ TEST_F(CompilerTest, CodeGenRootSigDefine11) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine11.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenCBufferStruct) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer-struct.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenCBufferStructArray) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer-structarray.hlsl");
 }
@@ -5801,6 +5891,7 @@ TEST_F(CompilerTest, HoistConstantArray) {
   CodeGenTestCheck(L"hca\\12.hlsl");
   CodeGenTestCheck(L"hca\\13.hlsl");
   CodeGenTestCheck(L"hca\\14.hlsl");
+  CodeGenTestCheck(L"hca\\15.ll");
 }
 
 TEST_F(CompilerTest, VecElemConstEval) {
@@ -5838,6 +5929,56 @@ TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
     "int g_int = 123;\n"
     "\n"
     "int BAR;\n", text.c_str());
+}
+
+TEST_F(CompilerTest, PreprocessWhenExpandTokenPastingOperandThenAccept) {
+  // Tests that we can turn on fxc's behavior (pre-expanding operands before
+  // performing token-pasting) using -flegacy-macro-expansion
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+
+  LPCWSTR expandOption = L"-flegacy-macro-expansion";
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  CreateBlobFromText(R"(
+#define SET_INDEX0                10
+#define BINDING_INDEX0            5
+
+#define SET(INDEX)                SET_INDEX##INDEX
+#define BINDING(INDEX)            BINDING_INDEX##INDEX
+
+#define SET_BIND(NAME,SET,BIND)   resource_set_##SET##_bind_##BIND##_##NAME
+
+#define RESOURCE(NAME,INDEX)      SET_BIND(NAME, SET(INDEX), BINDING(INDEX))
+
+    Texture2D<float4> resource_set_10_bind_5_tex;
+
+  float4 main() : SV_Target{
+    return RESOURCE(tex, 0)[uint2(1, 2)];
+  }
+)",
+                     &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Preprocess(pSource, L"file.hlsl", &expandOption,
+                                         1, nullptr, 0, nullptr, &pResult));
+  HRESULT hrOp;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrOp));
+  VERIFY_SUCCEEDED(hrOp);
+
+  CComPtr<IDxcBlob> pOutText;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
+  std::string text(BlobToUtf8(pOutText));
+  VERIFY_ARE_EQUAL_STR(R"(#line 1 "file.hlsl"
+#line 12 "file.hlsl"
+    Texture2D<float4> resource_set_10_bind_5_tex;
+
+  float4 main() : SV_Target{
+    return resource_set_10_bind_5_tex[uint2(1, 2)];
+  }
+)",
+                       text.c_str());
 }
 
 TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {
