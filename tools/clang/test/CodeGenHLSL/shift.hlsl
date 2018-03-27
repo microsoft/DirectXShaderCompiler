@@ -3,21 +3,13 @@
 // The shift for hlsl only use the LSB 5 bits (0-31 range) of src1 for int/uint.
 // CHECK: shl i32
 // CHECK: 18
-// CHECK: and i32
-// CHECK: 31
 // CHECK: ashr
-// CHECK: and i32
-// CHECK: 31
 // CHECK: lshr
 
 // The shift for hlsl only use the LSB 6 bits (0-63 range) of src1 for int64_t/uint64_t.
 // CHECK: shl i64
 // CHECK: 4
-// CHECK: and i64
-// CHECK: 63
 // CHECK: lshr
-// CHECK: and i64
-// CHECK: 63
 // CHECK: ashr
 
 uint64_t u;

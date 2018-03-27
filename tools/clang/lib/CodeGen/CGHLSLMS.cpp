@@ -3873,11 +3873,6 @@ static void SimpleTransformForHLDXIR(Instruction *I,
       if (iOp2 != clampedOp2) {
         BO->setOperand(1, ConstantInt::get(op2->getType(), clampedOp2));
       }
-    } else {
-      Value *mask = ConstantInt::get(op2->getType(), bitWidth - 1);
-      IRBuilder<> Builder(I);
-      op2 = Builder.CreateAnd(op2, mask);
-      BO->setOperand(1, op2);
     }
   } break;
   }
