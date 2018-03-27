@@ -39,6 +39,8 @@
 // CHECK: OpDecorate %gTBuffer Binding 6
 // CHECK: OpDecorate %MyTBuffer Binding 7
 // CHECK: OpDecorate %gSPInput Binding 8
+// CHECK: OpDecorate %gRWBuffer DescriptorSet 0
+// CHECK: OpDecorate %gRWBuffer Binding 9
 
           int           gScalar;   // 0
           SamplerState  gSampler;  // Not included - 1
@@ -64,7 +66,7 @@ cbuffer MyCBuffer {                // Not included - 4
 ConstantBuffer<S>       gCBuffer;  // Not included - 5
 TextureBuffer<S>        gTBuffer;  // Not included - 6
 
-typedef SamplerState SamplerStateType;
+typedef SamplerState SamplerStateType; // Not included - type definition
 
 // CHECK: [[v2f_struct:%\w+]] = OpTypeStruct %v2float
 struct {
@@ -77,6 +79,8 @@ tbuffer MyTBuffer {                // Not included - 7
 
 [[vk::input_attachment_index(0)]]
 SubpassInput            gSPInput;  // Not included - 8
+
+RWBuffer<float4>        gRWBuffer[4]; // Not included - 9 (array)
 
 // CHECK: %type__Globals = OpTypeStruct %int %v2float %mat2v3float %mat2v3float %_arr_mat2v3float_uint_2 %S [[v2f_struct]]
 // CHECK: %_ptr_Uniform_type__Globals = OpTypePointer Uniform %type__Globals
