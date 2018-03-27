@@ -985,7 +985,12 @@ bool TypeTranslator::isResourceType(const ValueDecl *decl) {
   if (isConstantTextureBuffer(decl))
     return true;
 
-  const QualType declType = decl->getType();
+  QualType declType = decl->getType();
+
+  // Deprive the arrayness to see the element type
+  while (declType->isArrayType()) {
+    declType = declType->getAsArrayTypeUnsafe()->getElementType();
+  }
 
   if (isSubpassInput(declType) || isSubpassInputMS(declType))
     return true;

@@ -126,6 +126,7 @@ TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
 TEST_F(FileTest, UninitStaticResourceVar) {
   runFileTest("var.static.resource.hlsl");
 }
+TEST_F(FileTest, ResourceArrayVar) { runFileTest("var.resource.array.hlsl"); }
 TEST_F(FileTest, GlobalsCBuffer) { runFileTest("var.globals.hlsl"); }
 TEST_F(FileTest, GlobalsCBufferError) {
   runFileTest("var.globals.error.hlsl", Expect::Failure);

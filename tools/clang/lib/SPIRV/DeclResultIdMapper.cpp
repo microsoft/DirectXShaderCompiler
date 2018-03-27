@@ -387,8 +387,14 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
     // For CS groupshared variables
     storageClass = spv::StorageClass::Workgroup;
   } else if (TypeTranslator::isResourceType(var)) {
-    const auto *t = var->getType()->getAs<RecordType>();
-    const llvm::StringRef typeName = t->getDecl()->getName();
+    // See through the possible outer arrays
+    QualType resourceType = var->getType();
+    while (resourceType->isArrayType()) {
+      resourceType = resourceType->getAsArrayTypeUnsafe()->getElementType();
+    }
+
+    const llvm::StringRef typeName =
+        resourceType->getAs<RecordType>()->getDecl()->getName();
 
     // These types are all translated into OpTypeStruct with BufferBlock
     // decoration. They should follow standard storage buffer layout,
