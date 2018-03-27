@@ -29,6 +29,7 @@ struct EmitSPIRVOptions {
   llvm::SmallVector<uint32_t, 4> tShift;
   llvm::SmallVector<uint32_t, 4> sShift;
   llvm::SmallVector<uint32_t, 4> uShift;
+  llvm::SmallVector<llvm::StringRef, 4> allowedExtensions;
 };
 } // end namespace clang
 

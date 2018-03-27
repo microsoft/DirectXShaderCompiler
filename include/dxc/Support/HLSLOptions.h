@@ -160,16 +160,17 @@ public:
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
-  bool GenSPIRV; // OPT_spirv
-  bool VkIgnoreUnusedResources; // OPT_fvk_ignore_used_resources
-  bool VkInvertY; // OPT_fvk_invert_y
-  bool VkUseGlslLayout; // OPT_fvk_use_glsl_layout
-  bool SpvEnableReflect; // OPT_fspv_reflect
-  llvm::StringRef VkStageIoOrder; // OPT_fvk_stage_io_order
+  bool GenSPIRV;                           // OPT_spirv
+  bool VkIgnoreUnusedResources;            // OPT_fvk_ignore_used_resources
+  bool VkInvertY;                          // OPT_fvk_invert_y
+  bool VkUseGlslLayout;                    // OPT_fvk_use_glsl_layout
+  bool SpvEnableReflect;                   // OPT_fspv_reflect
+  llvm::StringRef VkStageIoOrder;          // OPT_fvk_stage_io_order
   llvm::SmallVector<uint32_t, 4> VkBShift; // OPT_fvk_b_shift
   llvm::SmallVector<uint32_t, 4> VkTShift; // OPT_fvk_t_shift
   llvm::SmallVector<uint32_t, 4> VkSShift; // OPT_fvk_s_shift
   llvm::SmallVector<uint32_t, 4> VkUShift; // OPT_fvk_u_shift
+  llvm::SmallVector<llvm::StringRef, 4> SpvExtensions; // OPT_fspv_extension
 #endif
   // SPIRV Change Ends
 };

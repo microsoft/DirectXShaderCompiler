@@ -522,6 +522,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
            << opts.VkStageIoOrder;
     return 1;
   }
+
+  for (const Arg *A : Args.filtered(OPT_fspv_extension_EQ)) {
+    opts.SpvExtensions.push_back(A->getValue());
+  }
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||
@@ -529,6 +533,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||

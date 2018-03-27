@@ -1872,11 +1872,14 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     case BuiltIn::BaseVertex:
     case BuiltIn::BaseInstance:
     case BuiltIn::DrawIndex:
-      theBuilder.addExtension("SPV_KHR_shader_draw_parameters");
+      theBuilder.addExtension(Extension::KHR_shader_draw_parameters,
+                              builtinAttr->getBuiltIn(),
+                              builtinAttr->getLocation());
       theBuilder.requireCapability(spv::Capability::DrawParameters);
       break;
     case BuiltIn::DeviceIndex:
-      theBuilder.addExtension("SPV_KHR_device_group");
+      theBuilder.addExtension(Extension::KHR_device_group,
+                              stageVar->getSemanticStr(), srcLoc);
       theBuilder.requireCapability(spv::Capability::DeviceGroup);
       break;
     }
@@ -2095,7 +2098,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
   // According to DXIL spec, the StencilRef SV can only be used by PSOut.
   case hlsl::Semantic::Kind::StencilRef: {
-    theBuilder.addExtension("SPV_EXT_shader_stencil_export");
+    theBuilder.addExtension(Extension::EXT_shader_stencil_export,
+                            stageVar->getSemanticStr(), srcLoc);
     theBuilder.requireCapability(spv::Capability::StencilExportEXT);
 
     stageVar->setIsSpirvBuiltin();
@@ -2103,7 +2107,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
   // According to DXIL spec, the ViewID SV can only be used by PSIn.
   case hlsl::Semantic::Kind::Barycentrics: {
-    theBuilder.addExtension("SPV_AMD_shader_explicit_vertex_parameter");
+    theBuilder.addExtension(Extension::AMD_shader_explicit_vertex_parameter,
+                            stageVar->getSemanticStr(), srcLoc);
     stageVar->setIsSpirvBuiltin();
 
     // Selecting the correct builtin according to interpolation mode
@@ -2192,7 +2197,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   // According to Vulkan spec, the ViewIndex BuiltIn can only be used in
   // VS/HS/DS/GS/PS input.
   case hlsl::Semantic::Kind::ViewID: {
-    theBuilder.addExtension("SPV_KHR_multiview");
+    theBuilder.addExtension(Extension::KHR_multiview,
+                            stageVar->getSemanticStr(), srcLoc);
     theBuilder.requireCapability(spv::Capability::MultiView);
 
     stageVar->setIsSpirvBuiltin();
@@ -2202,7 +2208,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     // According to Vulkan spec, the FullyCoveredEXT BuiltIn can only be used as
     // PSIn.
   case hlsl::Semantic::Kind::InnerCoverage: {
-    theBuilder.addExtension("SPV_EXT_fragment_fully_covered");
+    theBuilder.addExtension(Extension::EXT_fragment_fully_covered,
+                            stageVar->getSemanticStr(), srcLoc);
     theBuilder.requireCapability(spv::Capability::FragmentFullyCoveredEXT);
 
     stageVar->setIsSpirvBuiltin();
