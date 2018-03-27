@@ -399,6 +399,13 @@ static void InitByteCode(D3D12_SHADER_BYTECODE *pBytecode, ID3D10Blob *pBlob) {
   }
 }
 
+template <typename TKey, typename TValue>
+TValue map_get_or_null(const std::map<TKey, TValue> &amap, const TKey& key) {
+  auto it = amap.find(key);
+  if (it == amap.end()) return nullptr;
+  return (*it).second;
+}
+
 void ShaderOpTest::CreatePipelineState() {
   CreateRootSignature();
   CreateShaders();
@@ -412,13 +419,18 @@ void ShaderOpTest::CreatePipelineState() {
     CHECK_HR(m_pDevice->CreateComputePipelineState(&CDesc, IID_PPV_ARGS(&m_pPSO)));
   }
   else {
-    CComPtr<ID3D10Blob> pPS;
-    CComPtr<ID3D10Blob> pVS;
-    pPS = m_Shaders[m_pShaderOp->PS];
-    pVS = m_Shaders[m_pShaderOp->VS];
+    CComPtr<ID3D10Blob> pVS, pDS, pHS, pGS, pPS;
+    pPS = map_get_or_null(m_Shaders, m_pShaderOp->PS);
+    pVS = map_get_or_null(m_Shaders, m_pShaderOp->VS);
+    pGS = map_get_or_null(m_Shaders, m_pShaderOp->GS);
+    pHS = map_get_or_null(m_Shaders, m_pShaderOp->HS);
+    pDS = map_get_or_null(m_Shaders, m_pShaderOp->DS);
     D3D12_GRAPHICS_PIPELINE_STATE_DESC GDesc;
     ZeroMemory(&GDesc, sizeof(GDesc));
     InitByteCode(&GDesc.VS, pVS);
+    InitByteCode(&GDesc.HS, pHS);
+    InitByteCode(&GDesc.DS, pDS);
+    InitByteCode(&GDesc.GS, pGS);
     InitByteCode(&GDesc.PS, pPS);
     GDesc.InputLayout.NumElements = (UINT)m_pShaderOp->InputElements.size();
     GDesc.InputLayout.pInputElementDescs = m_pShaderOp->InputElements.data();
@@ -1852,6 +1864,9 @@ void ShaderOpParser::ParseShaderOp(IXmlReader *pReader, ShaderOp *pShaderOp) {
   CHECK_HR(ReadAttrStr(pReader, L"Name", &pShaderOp->Name));
   CHECK_HR(ReadAttrStr(pReader, L"CS", &pShaderOp->CS));
   CHECK_HR(ReadAttrStr(pReader, L"VS", &pShaderOp->VS));
+  CHECK_HR(ReadAttrStr(pReader, L"HS", &pShaderOp->HS));
+  CHECK_HR(ReadAttrStr(pReader, L"DS", &pShaderOp->DS));
+  CHECK_HR(ReadAttrStr(pReader, L"GS", &pShaderOp->GS));
   CHECK_HR(ReadAttrStr(pReader, L"PS", &pShaderOp->PS));
   CHECK_HR(ReadAttrUINT(pReader, L"DispatchX", &pShaderOp->DispatchX, 1));
   CHECK_HR(ReadAttrUINT(pReader, L"DispatchY", &pShaderOp->DispatchY, 1));
