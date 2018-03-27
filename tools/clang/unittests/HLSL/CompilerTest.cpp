@@ -937,6 +937,7 @@ public:
   TEST_METHOD(CodeGenRootSigDefine9)
   TEST_METHOD(CodeGenRootSigDefine10)
   TEST_METHOD(CodeGenRootSigDefine11)
+  TEST_METHOD(CodeGenCBufferStruct)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(CodeGenPatchLength)
   TEST_METHOD(PreprocessWhenValidThenOK)
@@ -5077,6 +5078,10 @@ TEST_F(CompilerTest, CodeGenRootSigDefine10) {
 
 TEST_F(CompilerTest, CodeGenRootSigDefine11) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine11.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCBufferStruct) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer-struct.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCBufferStructArray) {
