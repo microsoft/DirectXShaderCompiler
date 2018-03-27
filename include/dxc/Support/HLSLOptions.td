@@ -254,6 +254,8 @@ def fvk_use_glsl_layout: Flag<["-"], "fvk-use-glsl-layout">, Group<spirv_Group>,
   HelpText<"Use conventional GLSL std140/std430 layout for resources">;
 def fspv_reflect: Flag<["-"], "fspv-reflect">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Emit additional SPIR-V instructions to aid reflection">;
+def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify SPIR-V extension permitted to use">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////

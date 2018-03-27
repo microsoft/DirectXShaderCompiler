@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "clang/AST/Type.h"
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/Structure.h"
@@ -35,7 +36,7 @@ namespace spirv {
 class ModuleBuilder {
 public:
   /// \brief Constructs a ModuleBuilder with the given SPIR-V context.
-  explicit ModuleBuilder(SPIRVContext *, bool enablReflect);
+  ModuleBuilder(SPIRVContext *, FeatureManager *features, bool enableReflect);
 
   /// \brief Returns the associated SPIRVContext.
   inline SPIRVContext *getSPIRVContext();
@@ -335,8 +336,9 @@ public:
   void addExecutionMode(uint32_t entryPointId, spv::ExecutionMode em,
                         llvm::ArrayRef<uint32_t> params);
 
-  /// \brief Adds an extension to the module under construction.
-  inline void addExtension(llvm::StringRef extension);
+  /// \brief Adds an extension to the module under construction for translating
+  /// the given target at the given source location.
+  void addExtension(Extension, llvm::StringRef target, SourceLocation);
 
   /// \brief If not added already, adds an OpExtInstImport (import of extended
   /// instruction set) of the GLSL instruction set. Returns the <result-id> for
@@ -468,11 +470,11 @@ private:
       uint32_t sample, uint32_t minLod,
       llvm::SmallVectorImpl<uint32_t> *orderedParams);
 
-  SPIRVContext &theContext; ///< The SPIR-V context.
-  SPIRVModule theModule;    ///< The module under building.
+  SPIRVContext &theContext;       ///< The SPIR-V context.
+  FeatureManager *featureManager; ///< SPIR-V version/extension manager.
+  const bool allowReflect;        ///< Whether allow reflect instructions.
 
-  const bool allowReflect; ///< Whether allow reflect instructions.
-
+  SPIRVModule theModule;                 ///< The module under building.
   std::unique_ptr<Function> theFunction; ///< The function under building.
   OrderedBasicBlockMap basicBlocks;      ///< The basic blocks under building.
   BasicBlock *insertPoint;               ///< The current insertion point.
@@ -514,10 +516,6 @@ void ModuleBuilder::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
 
 void ModuleBuilder::setShaderModelVersion(uint32_t major, uint32_t minor) {
   theModule.setShaderModelVersion(major * 100 + minor * 10);
-}
-
-void ModuleBuilder::addExtension(llvm::StringRef extension) {
-  theModule.addExtension(extension);
 }
 
 } // end namespace spirv
