@@ -1278,6 +1278,11 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     //   SampleMask, must be an array of integers.
     // * SV_InnerCoverage is an uint value, but the corresponding builtin,
     //   FullyCoveredEXT, must be an boolean value.
+    // * SV_DispatchThreadID and SV_GroupThreadID are allowed to be uint, uint2,
+    //   or uint3, but the corresponding builtins (GlobalInvocationId and
+    //   LocalInvocationId) must be a uint3.
+    // * SV_GroupID is allowed to be uint, uint2, or uint3, but the
+    //   corresponding builtin (WorkgroupId) must be a uint3.
 
     if (glPerVertex.tryToAccess(sigPoint->GetKind(), semanticKind,
                                 semanticToUse->index, invocationId, value,
@@ -1306,6 +1311,11 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       break;
     case hlsl::Semantic::Kind::Barycentrics:
       typeId = theBuilder.getVecType(theBuilder.getFloat32Type(), 2);
+      break;
+    case hlsl::Semantic::Kind::DispatchThreadID:
+    case hlsl::Semantic::Kind::GroupThreadID:
+    case hlsl::Semantic::Kind::GroupID:
+      typeId = theBuilder.getVecType(theBuilder.getUint32Type(), 3);
       break;
     }
 
@@ -1435,6 +1445,24 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
         const auto v3f32Type = theBuilder.getVecType(f32Type, 3);
 
         *value = theBuilder.createCompositeConstruct(v3f32Type, {x, y, z});
+      }
+      // Special handling of SV_DispatchThreadID and SV_GroupThreadID, which may
+      // be a uint or uint2, but the underlying stage input variable is a uint3.
+      // The last component(s) should be discarded in needed.
+      else if ((semanticKind == hlsl::Semantic::Kind::DispatchThreadID ||
+                semanticKind == hlsl::Semantic::Kind::GroupThreadID ||
+                semanticKind == hlsl::Semantic::Kind::GroupID) &&
+               (!hlsl::IsHLSLVecType(type) ||
+                hlsl::GetHLSLVecSize(type) != 3)) {
+        const auto vecSize =
+            hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecSize(type) : 1;
+        if (vecSize == 1)
+          *value = theBuilder.createCompositeExtract(theBuilder.getUint32Type(),
+                                                     *value, {0});
+        else if (vecSize == 2)
+          *value = theBuilder.createVectorShuffle(
+              theBuilder.getVecType(theBuilder.getUint32Type(), 2), *value,
+              *value, {0, 1});
       }
     } else {
       if (noWriteBack)
