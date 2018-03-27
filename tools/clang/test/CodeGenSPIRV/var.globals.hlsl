@@ -64,6 +64,8 @@ cbuffer MyCBuffer {                // Not included - 4
 ConstantBuffer<S>       gCBuffer;  // Not included - 5
 TextureBuffer<S>        gTBuffer;  // Not included - 6
 
+typedef SamplerState SamplerStateType;
+
 // CHECK: [[v2f_struct:%\w+]] = OpTypeStruct %v2float
 struct {
     float2 f;
