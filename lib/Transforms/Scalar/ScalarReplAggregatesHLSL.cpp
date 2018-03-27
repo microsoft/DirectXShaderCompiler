@@ -4001,10 +4001,14 @@ public:
     m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
 
     std::deque<Function *> WorkList;
+    std::vector<Function *> DeadHLFunctions;
     for (Function &F : M.functions()) {
       HLOpcodeGroup group = GetHLOpcodeGroup(&F);
       // Skip HL operations.
-      if (group != HLOpcodeGroup::NotHL || group == HLOpcodeGroup::HLExtIntrinsic) {
+      if (group != HLOpcodeGroup::NotHL ||
+          group == HLOpcodeGroup::HLExtIntrinsic) {
+        if (F.user_empty())
+          DeadHLFunctions.emplace_back(&F);
         continue;
       }
 
@@ -4029,6 +4033,12 @@ public:
       }
 
       WorkList.emplace_back(&F);
+    }
+
+    // Remove dead hl functions here.
+    // This is for hl functions which has body and always inline.
+    for (Function *F : DeadHLFunctions) {
+      F->eraseFromParent();
     }
 
     // Preprocess aggregate function param used as function call arg.
