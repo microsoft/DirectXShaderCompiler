@@ -494,9 +494,27 @@ TEST_F(FileTest, SemanticIsFrontFacePS) {
 TEST_F(FileTest, SemanticDispatchThreadId) {
   runFileTest("semantic.dispatch-thread-id.cs.hlsl");
 }
+TEST_F(FileTest, SemanticDispatchThreadIdUint) {
+  runFileTest("semantic.dispatch-thread-id.uint.cs.hlsl");
+}
+TEST_F(FileTest, SemanticDispatchThreadIdUint2) {
+  runFileTest("semantic.dispatch-thread-id.uint2.cs.hlsl");
+}
 TEST_F(FileTest, SemanticGroupID) { runFileTest("semantic.group-id.cs.hlsl"); }
+TEST_F(FileTest, SemanticGroupIDUint) {
+  runFileTest("semantic.group-id.uint.cs.hlsl");
+}
+TEST_F(FileTest, SemanticGroupIDUint2) {
+  runFileTest("semantic.group-id.uint2.cs.hlsl");
+}
 TEST_F(FileTest, SemanticGroupThreadID) {
   runFileTest("semantic.group-thread-id.cs.hlsl");
+}
+TEST_F(FileTest, SemanticGroupThreadIDUint) {
+  runFileTest("semantic.group-thread-id.uint.cs.hlsl");
+}
+TEST_F(FileTest, SemanticGroupThreadIDUint2) {
+  runFileTest("semantic.group-thread-id.uint2.cs.hlsl");
 }
 TEST_F(FileTest, SemanticGroupIndex) {
   runFileTest("semantic.group-index.cs.hlsl");
