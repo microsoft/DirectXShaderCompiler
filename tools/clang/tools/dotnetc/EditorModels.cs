@@ -528,6 +528,18 @@ namespace MainNs
             get { return this.GetPathTextOrDefault("", "external", "fun"); }
             set { this.SetPathText(value, "external", "fun"); }
         }
+        [Description("The command to run in place of View | Render, replacing %in with XML path.")]
+        public string ExternalRenderCommand
+        {
+            get { return this.GetPathTextOrDefault("", "external-render", "command"); }
+            set { this.SetPathText(value, "external-render", "command"); }
+        }
+        [Description("Whether to use an external render tool.")]
+        public bool ExternalRenderEnabled
+        {
+            get { return bool.Parse(this.GetPathTextOrDefault("false", "external-render", "enabled")); }
+            set { this.SetPathText(value.ToString(), "external-render", "enabled"); }
+        }
 
         #endregion Public properties.
 
