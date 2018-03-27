@@ -1122,9 +1122,10 @@ TypeTranslator::getCapabilityForStorageImageReadWrite(QualType type) {
 
 bool TypeTranslator::shouldSkipInStructLayout(const Decl *decl) {
   // Ignore implicit generated struct declarations/constructors/destructors
-  // Ignore embedded struct/union/class/enum/function decls
+  // Ignore embedded type decls
+  // Ignore embeded function decls
   // Ignore empty decls
-  if (decl->isImplicit() || isa<TagDecl>(decl) || isa<FunctionDecl>(decl) ||
+  if (decl->isImplicit() || isa<TypeDecl>(decl) || isa<FunctionDecl>(decl) ||
       isa<EmptyDecl>(decl))
     return true;
 
