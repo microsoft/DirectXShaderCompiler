@@ -217,6 +217,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   opts.ShowHelp = Args.hasFlag(OPT_help, OPT_INVALID, false);
+  opts.ShowHelp |= (opts.ShowHelpHidden = Args.hasFlag(OPT__help_hidden, OPT_INVALID, false));
   if (opts.ShowHelp) {
     return 0;
   }
