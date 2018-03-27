@@ -10682,8 +10682,12 @@ Decl *Sema::ActOnHLSLBufferView(Scope *bufferScope, SourceLocation KwLoc,
     const ArrayType *arrayType = declType->getAsArrayTypeUnsafe();
     declType = arrayType->getElementType();
   }
-  if (declType->isArrayType()) {
-    Diag(Loc, diag::err_hlsl_typeintemplateargument) << "array";
+  // Check to make that sure only structs are allowed as parameter types for
+  // ConstantBuffer and TextureBuffer.
+  if (!declType->isStructureType()) {
+    Diag(decl->getLocStart(),
+         diag::err_hlsl_typeintemplateargument_requires_struct)
+        << declType;
     return nullptr;
   }
 
