@@ -72,23 +72,10 @@ namespace MainNs
         {
             // Turn the text into a container.
             IDxcBlobEncoding sourceBlob = EditorForm.CreateBlobForText(this.Library, this.CodeBox.Text);
-            EditorForm.AssembleResult assembleResult = EditorForm.RunAssembly(this.Library, sourceBlob);
-            if (assembleResult.Blob == null)
-            {
-                MessageBox.Show("Failed to assemble: " + assembleResult.ResultText);
-                return;
-            }
-
-            // Extract the bitcode portion.
-            const uint DxilKind = 0x4c495844; // 'LIXD' - DXIL
-            uint index;
-            IDxcContainerReflection reflection = HlslDxcLib.CreateDxcContainerReflection();
-            reflection.Load(assembleResult.Blob);
-            reflection.FindFirstPartKind(DxilKind, out index);
-            IDxcBlob bitcodeBlob = reflection.GetPartContent(index);
+            IDxcBlob bitcodeBlob = sourceBlob;
 
             List<string> passes = new List<string>();
-            passes.Add("hlsl-passes-resume");
+            //passes.Add("hlsl-passes-resume");
             for (int i = PassesListBox.SelectedIndex; i < PassesListBox.Items.Count; ++i)
             {
                 passes.Add(((TextSection)PassesListBox.Items[i]).Title);
@@ -231,7 +218,7 @@ namespace MainNs
                 if (!ClosestMatch(text, ref next, separators, out separator))
                     next = -1;
                 string sectionText = (next < 0) ? text.Substring(lineEnd + 1) : text.Substring(lineEnd + 1, next - (lineEnd + 1));
-                sectionText = sectionText.Trim();
+                sectionText = sectionText.Trim() + "\n";
                 bool hasChange = sectionText != prior;
                 yield return new TextSection { HasChange = hasChange, Title = title, Text = hasChange ? sectionText : prior };
                 idx = next;
