@@ -15,10 +15,15 @@
 
 #include <string>
 
+
+#include "spirv-tools/libspirv.h"
+
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringRef.h"
+
+#include "EmitSPIRVOptions.h"
 
 namespace clang {
 namespace spirv {
@@ -40,7 +45,7 @@ enum class Extension {
 /// The class for handling SPIR-V version and extension requests.
 class FeatureManager {
 public:
-  explicit FeatureManager(DiagnosticsEngine &de);
+  explicit FeatureManager(DiagnosticsEngine &de, const EmitSPIRVOptions &);
 
   /// Allows the given extension to be used in CodeGen.
   bool allowExtension(llvm::StringRef);
@@ -59,6 +64,20 @@ public:
   /// Returns the names of all known extensions as a string.
   std::string getKnownExtensions(const char *delimiter, const char *prefix = "",
                                  const char *postfix = "");
+
+  /// Rqeusts the given target environment for translating the given feature at
+  /// the given source location. Emits an error if the requested target
+  /// environment does not match user's target environemnt.
+  bool requestTargetEnv(spv_target_env, llvm::StringRef target, SourceLocation);
+
+  /// Returns the target environment corresponding to the target environment
+  /// that was specified as command line option. If no option is specified, the
+  /// default (Vulkan 1.0) is returned.
+  inline spv_target_env getTargetEnv() { return targetEnv; }
+
+  /// Returns true if the given extension is not part of the core of the target
+  /// environment.
+  bool isExtensionRequiredForTargetEnv(Extension);
 
 private:
   /// \brief Wrapper method to create an error message and report it
@@ -82,6 +101,7 @@ private:
   DiagnosticsEngine &diags;
 
   llvm::SmallBitVector allowedExtensions;
+  spv_target_env targetEnv;
 };
 
 } // end namespace spirv

@@ -15,8 +15,29 @@
 namespace clang {
 namespace spirv {
 
-FeatureManager::FeatureManager(DiagnosticsEngine &de) : diags(de) {
+FeatureManager::FeatureManager(DiagnosticsEngine &de,
+                               const EmitSPIRVOptions &opts)
+    : diags(de) {
   allowedExtensions.resize(static_cast<unsigned>(Extension::Unknown) + 1);
+
+  if (opts.allowedExtensions.empty()) {
+    // If no explicit extension control from command line, use the default mode:
+    // allowing all extensions.
+    allowAllKnownExtensions();
+  } else {
+    for (auto ext : opts.allowedExtensions)
+      allowExtension(ext);
+  }
+
+  if (opts.targetEnv == "vulkan1.0")
+    targetEnv = SPV_ENV_VULKAN_1_0;
+  else if (opts.targetEnv == "vulkan1.1")
+    targetEnv = SPV_ENV_VULKAN_1_1;
+  else {
+    emitError("unknown SPIR-V target environment '%0'", {}) << opts.targetEnv;
+    emitNote("allowed options are:\n%0\n%1", {}) << "vulkan1.0"
+                                                 << "vulkan1.1";
+  }
 }
 
 bool FeatureManager::allowExtension(llvm::StringRef name) {
@@ -47,6 +68,19 @@ bool FeatureManager::requestExtension(Extension ext, llvm::StringRef target,
             srcLoc)
       << getExtensionName(ext) << target;
   return false;
+}
+
+bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
+                                      llvm::StringRef target,
+                                      SourceLocation srcLoc) {
+  if (targetEnv == SPV_ENV_VULKAN_1_0 && requestedEnv == SPV_ENV_VULKAN_1_1) {
+    emitError("Vulkan 1.1 is required for %0 but not permitted to use", srcLoc)
+        << target;
+    emitNote("please specify your target environment via command line option",
+             {});
+    return false;
+  }
+  return true;
 }
 
 Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
@@ -112,6 +146,30 @@ std::string FeatureManager::getKnownExtensions(const char *delimiter,
   oss << postfix;
 
   return oss.str();
+}
+
+bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
+  bool required = true;
+  if (targetEnv == SPV_ENV_VULKAN_1_1) {
+    // The following extensions are incorporated into Vulkan 1.1, and are
+    // therefore not required to be emitted for that target environment. The
+    // last 3 are currently not supported by the FeatureManager.
+    // TODO: Add the last 3 extensions to the list if we start to support them.
+    // SPV_KHR_shader_draw_parameters
+    // SPV_KHR_device_group
+    // SPV_KHR_multiview
+    // SPV_KHR_16bit_storage
+    // SPV_KHR_storage_buffer_storage_class
+    // SPV_KHR_variable_pointers
+    switch (ext) {
+    case Extension::KHR_shader_draw_parameters:
+    case Extension::KHR_device_group:
+    case Extension::KHR_multiview:
+      required = false;
+    }
+  }
+
+  return required;
 }
 
 } // end namespace spirv

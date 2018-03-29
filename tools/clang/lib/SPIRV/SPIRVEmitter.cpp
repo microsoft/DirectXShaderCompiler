@@ -519,29 +519,20 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
-      theContext(), featureManager(diags),
+      theContext(), featureManager(diags, options),
       theBuilder(&theContext, &featureManager, options.enableReflect),
       typeTranslator(astContext, theBuilder, diags, options),
       declIdMapper(shaderModel, astContext, theBuilder, typeTranslator,
                    featureManager, spirvOptions),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
-      seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
-      needsSpirv1p3(false) {
+      seenPushConstantAt(), isSpecConstantMode(false),
+      needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 
   if (options.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
       !shaderModel.IsGS())
     emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
-
-  if (options.allowedExtensions.empty()) {
-    // If no explicit extension control from command line, use the default mode:
-    // allowing all extensions.
-    featureManager.allowAllKnownExtensions();
-  } else {
-    for (auto ext : options.allowedExtensions)
-      featureManager.allowExtension(ext);
-  }
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
@@ -579,11 +570,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   if (context.getDiagnostics().hasErrorOccurred())
     return;
 
-  spv_target_env targetEnv = SPV_ENV_VULKAN_1_0;
-  if (needsSpirv1p3) {
-    theBuilder.useSpirv1p3();
-    targetEnv = SPV_ENV_VULKAN_1_1;
-  }
+  const spv_target_env targetEnv = featureManager.getTargetEnv();
 
   AddRequiredCapabilitiesForShaderModel();
 
@@ -6202,7 +6189,8 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processIntrinsicF32ToF16(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneCount: {
-    needsSpirv1p3 = true;
+    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+                                    callExpr->getExprLoc());
     const uint32_t retType =
         typeTranslator.translateType(callExpr->getCallReturnType(astContext));
     const uint32_t varId =
@@ -6210,7 +6198,8 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = theBuilder.createLoad(retType, varId);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
-    needsSpirv1p3 = true;
+    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+                                    callExpr->getExprLoc());
     const uint32_t retType =
         typeTranslator.translateType(callExpr->getCallReturnType(astContext));
     const uint32_t varId =
@@ -6654,7 +6643,8 @@ uint32_t SPIRVEmitter::processWaveQuery(const CallExpr *callExpr,
   // uint WaveGetLaneCount()
   // uint WaveGetLaneIndex()
   assert(callExpr->getNumArgs() == 0);
-  needsSpirv1p3 = true;
+  featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+                                  callExpr->getExprLoc());
   theBuilder.requireCapability(getCapabilityForGroupNonUniform(opcode));
   const uint32_t subgroupScope = theBuilder.getConstantInt32(3);
   const uint32_t retType =
@@ -6669,7 +6659,8 @@ uint32_t SPIRVEmitter::processWaveVote(const CallExpr *callExpr,
   // bool WaveActiveAllTrue( bool expr )
   // bool uint4 WaveActiveBallot( bool expr )
   assert(callExpr->getNumArgs() == 1);
-  needsSpirv1p3 = true;
+  featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+                                  callExpr->getExprLoc());
   theBuilder.requireCapability(getCapabilityForGroupNonUniform(opcode));
   const uint32_t predicate = doExpr(callExpr->getArg(0));
   const uint32_t subgroupScope = theBuilder.getConstantInt32(3);
@@ -6762,7 +6753,8 @@ uint32_t SPIRVEmitter::processWaveReductionOrPrefix(
   // <type> WavePrefixProduct(<type> value)
   // <type> WavePrefixSum(<type> value)
   assert(callExpr->getNumArgs() == 1);
-  needsSpirv1p3 = true;
+  featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+                                  callExpr->getExprLoc());
   theBuilder.requireCapability(getCapabilityForGroupNonUniform(opcode));
   const uint32_t predicate = doExpr(callExpr->getArg(0));
   const uint32_t subgroupScope = theBuilder.getConstantInt32(3);
@@ -6779,7 +6771,8 @@ uint32_t SPIRVEmitter::processWaveBroadcast(const CallExpr *callExpr) {
   // <type> WaveReadLaneAt(<type> expr, uint laneIndex)
   const auto numArgs = callExpr->getNumArgs();
   assert(numArgs == 1 || numArgs == 2);
-  needsSpirv1p3 = true;
+  featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+                                  callExpr->getExprLoc());
   theBuilder.requireCapability(spv::Capability::GroupNonUniformBallot);
   const uint32_t value = doExpr(callExpr->getArg(0));
   const uint32_t subgroupScope = theBuilder.getConstantInt32(3);
@@ -6803,7 +6796,8 @@ uint32_t SPIRVEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
   // <type> QuadReadAcrossDiagonal(<type> localValue)
   // <type> QuadReadLaneAt(<type> sourceValue, uint quadLaneID)
   assert(callExpr->getNumArgs() == 1 || callExpr->getNumArgs() == 2);
-  needsSpirv1p3 = true;
+  featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+                                  callExpr->getExprLoc());
   theBuilder.requireCapability(spv::Capability::GroupNonUniformQuad);
 
   const uint32_t value = doExpr(callExpr->getArg(0));

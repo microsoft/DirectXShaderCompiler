@@ -526,6 +526,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   for (const Arg *A : Args.filtered(OPT_fspv_extension_EQ)) {
     opts.SpvExtensions.push_back(A->getValue());
   }
+
+  opts.SpvTargetEnv = Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||
@@ -534,6 +536,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fspv_target_env_EQ).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||

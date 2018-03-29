@@ -479,6 +479,7 @@ public:
           spirvOpts.sShift = opts.VkSShift;
           spirvOpts.uShift = opts.VkUShift;
           spirvOpts.allowedExtensions = opts.SpvExtensions;
+          spirvOpts.targetEnv = opts.SpvTargetEnv;
           spirvOpts.enable16BitTypes = opts.Enable16BitTypes;
           clang::EmitSPIRVAction action(spirvOpts);
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);

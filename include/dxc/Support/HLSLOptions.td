@@ -256,6 +256,8 @@ def fspv_reflect: Flag<["-"], "fspv-reflect">, Group<spirv_Group>, Flags<[CoreOp
   HelpText<"Emit additional SPIR-V instructions to aid reflection">;
 def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify SPIR-V extension permitted to use">;
+def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify the target Vulkan environment">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////

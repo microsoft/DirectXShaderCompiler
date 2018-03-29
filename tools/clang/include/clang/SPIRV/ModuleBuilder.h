@@ -501,8 +501,6 @@ void ModuleBuilder::setMemoryModel(spv::MemoryModel mm) {
   theModule.setMemoryModel(mm);
 }
 
-void ModuleBuilder::useSpirv1p3() { theModule.setVersion(0x00010300); }
-
 void ModuleBuilder::requireCapability(spv::Capability cap) {
   if (cap != spv::Capability::Max)
     theModule.addCapability(cap);
