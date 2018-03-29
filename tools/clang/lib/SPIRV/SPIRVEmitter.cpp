@@ -6189,7 +6189,7 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processIntrinsicF32ToF16(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneCount: {
-    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneCount",
                                     callExpr->getExprLoc());
     const uint32_t retType =
         typeTranslator.translateType(callExpr->getCallReturnType(astContext));
@@ -6198,7 +6198,7 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = theBuilder.createLoad(retType, varId);
   } break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
-    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneIndex",
                                     callExpr->getExprLoc());
     const uint32_t retType =
         typeTranslator.translateType(callExpr->getCallReturnType(astContext));

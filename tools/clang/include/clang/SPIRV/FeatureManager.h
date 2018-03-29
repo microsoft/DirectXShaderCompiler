@@ -45,7 +45,7 @@ enum class Extension {
 /// The class for handling SPIR-V version and extension requests.
 class FeatureManager {
 public:
-  explicit FeatureManager(DiagnosticsEngine &de, const EmitSPIRVOptions &);
+  FeatureManager(DiagnosticsEngine &de, const EmitSPIRVOptions &);
 
   /// Allows the given extension to be used in CodeGen.
   bool allowExtension(llvm::StringRef);
@@ -73,7 +73,7 @@ public:
   /// Returns the target environment corresponding to the target environment
   /// that was specified as command line option. If no option is specified, the
   /// default (Vulkan 1.0) is returned.
-  inline spv_target_env getTargetEnv() { return targetEnv; }
+  spv_target_env getTargetEnv() const { return targetEnv; }
 
   /// Returns true if the given extension is not part of the core of the target
   /// environment.

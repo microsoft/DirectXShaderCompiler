@@ -35,8 +35,7 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     targetEnv = SPV_ENV_VULKAN_1_1;
   else {
     emitError("unknown SPIR-V target environment '%0'", {}) << opts.targetEnv;
-    emitNote("allowed options are:\n%0\n%1", {}) << "vulkan1.0"
-                                                 << "vulkan1.1";
+    emitNote("allowed options are:\n vulkan1.0\n vulkan1.1", {});
   }
 }
 
@@ -76,7 +75,7 @@ bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
   if (targetEnv == SPV_ENV_VULKAN_1_0 && requestedEnv == SPV_ENV_VULKAN_1_1) {
     emitError("Vulkan 1.1 is required for %0 but not permitted to use", srcLoc)
         << target;
-    emitNote("please specify your target environment via command line option",
+    emitNote("please specify your target environment via command line option -fspv-target-env=",
              {});
     return false;
   }
