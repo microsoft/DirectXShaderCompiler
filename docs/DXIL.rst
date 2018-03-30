@@ -1716,17 +1716,17 @@ Valid resource type   # of active coordinates
 ====================  =====================================================
 
 RawBufferLoad
-~~~~~~~~~~
+~~~~~~~~~~~~~
 
 The following signature shows the operation syntax::
 
-  ; overloads: SM5.1: f32|i32,  SM6.0: f32|i32
+  ; overloads: SM5.1: f32|i32,  SM6.0: f32|i32, SM6.2: f16|f32|i16|i32
   ; returns: status
   declare %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(
       i32,                  ; opcode
       %dx.types.Handle,     ; resource handle
-      i32,                  ; coordinate c0
-      i32,                  ; coordinate c1
+      i32,                  ; coordinate c0 (index)
+      i32,                  ; coordinate c1 (elementOffset)
       i8,                   ; mask
       i32,                  ; alignment
   )
@@ -1768,6 +1768,35 @@ RWTypedBuffer       1 (c0 in elements)
 RWRawBuffer         1 (c0 in bytes)
 RWStructuredBuffer  2 (c0 in elements, c1 = byte offset into the element)
 =================== =====================================================
+
+RawBufferStore
+~~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32|i32,  SM6.0: f32|i32, SM6.2: f16|f32|i16|i32
+  declare void @dx.op.bufferStore.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; resource handle
+      i32,                  ; coordinate c0 (index)
+      i32,                  ; coordinate c1 (elementOffset)
+      float,                ; value v0
+      float,                ; value v1
+      float,                ; value v2
+      float,                ; value v3
+      i8,                   ; write mask
+      i32)                  ; alignment
+
+The call respects SM5.1 OOB and alignment rules.
+
+The write mask indicates which components are written (x - 1, y - 2, z - 4, w - 8), similar to DXBC. For RWTypedBuffer, the mask must cover all resource components. For RWRawBuffer and RWStructuredBuffer, valid masks are: x, xy, xyz, xyzw.
+
+==================== =====================================================
+Valid resource type  # of active coordinates
+==================== =====================================================
+RWRawbuffer          1 (c0 in bytes)
+RWStructuredbuffer   2 (c0 in elements, c1 = byte offset into the element)
+==================== =====================================================
 
 BufferUpdateCounter
 ~~~~~~~~~~~~~~~~~~~
