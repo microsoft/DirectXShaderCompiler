@@ -809,6 +809,13 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
   if (info.isRValue())
     return info;
 
+  // Check whether we are trying to load an array of opaque objects as a whole.
+  // If true, we are likely to copy it as a whole. To assit per-element copying,
+  // avoid the load here and return the pointer directly.
+  // TODO: consider moving this hack into SPIRV-Tools as a transformation.
+  if (TypeTranslator::isOpaqueArrayType(expr->getType()))
+    return info;
+
   // Check whether we are trying to load an externally visible structured/byte
   // buffer as a whole. If true, it means we are creating alias for it. Avoid
   // the load and write the pointer directly to the alias variable then.
@@ -4736,6 +4743,40 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // assignments/returns from ConstantBuffer<T>/TextureBuffer<T> to function
     // parameters/returns/variables of type T. And ConstantBuffer<T> is not
     // represented differently as struct T.
+  } else if (TypeTranslator::isOpaqueArrayType(lhsValType)) {
+    // For opaque array types, we cannot perform OpLoad on the whole array and
+    // then write out as a whole; instead, we need to write out each element
+    // using access chains. This is to influence later SPIR-V transformations
+    // to use access chains to access each opaque object; if we do array
+    // wholesale handling here, they will be in the final transformed code.
+    // Drivers don't like that.
+    // TODO: consider moving this hack into SPIRV-Tools as a transformation.
+    assert(lhsValType->isConstantArrayType());
+    assert(!rhsVal.isRValue());
+
+    const auto *arrayType = astContext.getAsConstantArrayType(lhsValType);
+    const auto elemType = arrayType->getElementType();
+    const auto arraySize =
+        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+
+    for (uint32_t i = 0; i < arraySize; ++i) {
+      const auto subRhsValType =
+          typeTranslator.translateType(elemType, rhsVal.getLayoutRule());
+      const auto subRhsPtrType =
+          theBuilder.getPointerType(subRhsValType, rhsVal.getStorageClass());
+      const auto subRhsPtr = theBuilder.createAccessChain(
+          subRhsPtrType, rhsVal, {theBuilder.getConstantInt32(i)});
+
+      const auto subLhsValType =
+          typeTranslator.translateType(elemType, lhsPtr.getLayoutRule());
+      const auto subLhsPtrType =
+          theBuilder.getPointerType(subLhsValType, lhsPtr.getStorageClass());
+      const auto subLhsPtr = theBuilder.createAccessChain(
+          subLhsPtrType, lhsPtr, {theBuilder.getConstantInt32(i)});
+
+      theBuilder.createStore(subLhsPtr,
+                             theBuilder.createLoad(subRhsValType, subRhsPtr));
+    }
   } else if (lhsPtr.getLayoutRule() == rhsVal.getLayoutRule()) {
     // If lhs and rhs has the same memory layout, we should be safe to load
     // from rhs and directly store into lhs and avoid decomposing rhs.
