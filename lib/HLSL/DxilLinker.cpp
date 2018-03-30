@@ -754,8 +754,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   CloneFunctions(vmap);
 
   // Call global constrctor.
-  IRBuilder<> Builder(
-      DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt());
+  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction()));
   for (auto &it : m_functionDefs) {
     DxilFunctionLinkInfo *linkInfo = it.first;
     DxilLib *pLib = it.second;

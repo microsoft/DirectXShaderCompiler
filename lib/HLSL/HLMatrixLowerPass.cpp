@@ -853,14 +853,14 @@ void HLMatrixLowerPass::lowerToVec(Instruction *matInst) {
     Type *Ty = AI->getAllocatedType();
     Type *matTy = Ty;
     
-    IRBuilder<> Builder(AI);
+    IRBuilder<> AllocaBuilder(AI);
     if (Ty->isArrayTy()) {
       Type *vecTy = HLMatrixLower::LowerMatrixArrayPointer(AI->getType());
       vecTy = vecTy->getPointerElementType();
-      vecVal = Builder.CreateAlloca(vecTy, nullptr, AI->getName());
+      vecVal = AllocaBuilder.CreateAlloca(vecTy, nullptr, AI->getName());
     } else {
       Type *vecTy = HLMatrixLower::LowerMatrixType(matTy);
-      vecVal = Builder.CreateAlloca(vecTy, nullptr, AI->getName());
+      vecVal = AllocaBuilder.CreateAlloca(vecTy, nullptr, AI->getName());
     }
     // Update debug info.
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(AI);
