@@ -4078,7 +4078,8 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
   const uint32_t lod = isCmp ? 0 : theBuilder.getConstantFloat32(0);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
-  const auto imageType = typeTranslator.translateType(imageExpr->getType());
+  const auto imageType = typeTranslator.translateResourceType(
+      imageExpr->getType(), LayoutRule::Void, /*isDepthCmp=*/true);
 
   return createImageSample(retType, imageType, image, sampler, coordinate,
                            compareVal, /*bias*/ 0, lod, std::make_pair(0, 0),
