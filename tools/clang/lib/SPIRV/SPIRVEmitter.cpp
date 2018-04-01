@@ -4078,6 +4078,14 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
   const uint32_t lod = isCmp ? 0 : theBuilder.getConstantFloat32(0);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
+  // TODO: Hack. Drivers are expecting the Depth value in OpTypeImage to match
+  // the OpImageSample* instruction: Depth=0 for normal sampling, and Depth=1
+  // for depth-comparison sampling. That behavior is not what the spec says;
+  // Vulkan spec reads "The 'Depth' operand of OpTypeImage is ignored."
+  // We always generate OpTypeImage variables with Depth=0. Hack this only
+  // depth-comparison sampling code path to use Depth=1 for the OpTypeImage
+  // used by OpSampledImage. This causes inconsistent types in SPIR-V, but
+  // pleases drivers. Whatever.
   const auto imageType = typeTranslator.translateResourceType(
       imageExpr->getType(), LayoutRule::Void, /*isDepthCmp=*/true);
 
