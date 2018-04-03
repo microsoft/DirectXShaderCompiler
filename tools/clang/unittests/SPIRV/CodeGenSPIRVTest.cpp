@@ -1185,6 +1185,9 @@ TEST_F(FileTest, SpirvExtensionCLForbid) {
 TEST_F(FileTest, SpirvExtensionCLUnknown) {
   runFileTest("spirv.ext.cl.unknown.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, SpirvExtensionAllowAllKHR) {
+  runFileTest("spirv.ext.allow-all-khr.hlsl");
+}
 
 // For shader stage input/output interface
 // For semantic SV_Position, SV_ClipDistance, SV_CullDistance

@@ -311,7 +311,8 @@ in the CodeGen using the **explicit** mode, turned on by the
 ``-fspv-extension=<extension>`` command-line option. Only extensions supplied
 via ``-fspv-extension=`` will be used. If that does not suffice, errors will
 be emitted explaining what additional extensions are required to translate what
-specific feature in the source code.
+specific feature in the source code. If you want to allow all KHR extensions, 
+you can use ``-fspv-extension=KHR``.
 
 Legalization, optimization, validation
 --------------------------------------
@@ -2651,7 +2652,8 @@ codegen for Vulkan:
   `HLSL semantic and Vulkan Location`_ for more details.
 - ``-fspv-reflect``: Emits additional SPIR-V instructions to aid reflection.
 - ``-fspv-extension=<extension>``: Only allows using ``<extension>`` in CodeGen.
-  If you want to allow multiple extensions, provide more than one such option.
+  If you want to allow multiple extensions, provide more than one such option. If you
+  want to allow *all* KHR extensions, use ``-fspv-extension=KHR``.
 - ``-fspv-target-env=<env>``: Specifies the target environment for this compilation.
   The current valid options are ``vulkan1.0`` and ``vulkan1.1``. If no target
   environment is provided, ``vulkan1.0`` is used as default.

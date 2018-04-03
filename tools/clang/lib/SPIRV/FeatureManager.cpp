@@ -40,6 +40,18 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
 }
 
 bool FeatureManager::allowExtension(llvm::StringRef name) {
+  // Special case: If we are asked to allow "SPV_KHR" extension, it indicates
+  // that we should allow using *all* KHR extensions.
+  if (name.lower() == "khr") {
+    bool result = true;
+    for (uint32_t i = 0; i < static_cast<uint32_t>(Extension::Unknown); ++i) {
+      llvm::StringRef extName(getExtensionName(static_cast<Extension>(i)));
+      if (extName.startswith_lower("spv_khr"))
+        result = result && allowExtension(extName);
+    }
+    return result;
+  }
+
   const auto symbol = getExtensionSymbol(name);
   if (symbol == Extension::Unknown) {
     emitError("unknown SPIR-V extension '%0'", {}) << name;
