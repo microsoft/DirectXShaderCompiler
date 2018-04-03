@@ -810,8 +810,8 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
     return info;
 
   // Check whether we are trying to load an array of opaque objects as a whole.
-  // If true, we are likely to copy it as a whole. To assit per-element copying,
-  // avoid the load here and return the pointer directly.
+  // If true, we are likely to copy it as a whole. To assist per-element
+  // copying, avoid the load here and return the pointer directly.
   // TODO: consider moving this hack into SPIRV-Tools as a transformation.
   if (TypeTranslator::isOpaqueArrayType(expr->getType()))
     return info;
@@ -4745,7 +4745,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // represented differently as struct T.
   } else if (TypeTranslator::isOpaqueArrayType(lhsValType)) {
     // For opaque array types, we cannot perform OpLoad on the whole array and
-    // then write out as a whole; instead, we need to write out each element
+    // then write out as a whole; instead, we need to OpLoad each element
     // using access chains. This is to influence later SPIR-V transformations
     // to use access chains to access each opaque object; if we do array
     // wholesale handling here, they will be in the final transformed code.
@@ -4759,6 +4759,8 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     const auto arraySize =
         static_cast<uint32_t>(arrayType->getSize().getZExtValue());
 
+    // Do separate load of each element via access chain
+    llvm::SmallVector<uint32_t, 8> elements;
     for (uint32_t i = 0; i < arraySize; ++i) {
       const auto subRhsValType =
           typeTranslator.translateType(elemType, rhsVal.getLayoutRule());
@@ -4767,16 +4769,14 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
       const auto subRhsPtr = theBuilder.createAccessChain(
           subRhsPtrType, rhsVal, {theBuilder.getConstantInt32(i)});
 
-      const auto subLhsValType =
-          typeTranslator.translateType(elemType, lhsPtr.getLayoutRule());
-      const auto subLhsPtrType =
-          theBuilder.getPointerType(subLhsValType, lhsPtr.getStorageClass());
-      const auto subLhsPtr = theBuilder.createAccessChain(
-          subLhsPtrType, lhsPtr, {theBuilder.getConstantInt32(i)});
-
-      theBuilder.createStore(subLhsPtr,
-                             theBuilder.createLoad(subRhsValType, subRhsPtr));
+      elements.push_back(theBuilder.createLoad(subRhsValType, subRhsPtr));
     }
+
+    // Create a new composite and write out once
+    const auto lhsValTypeId =
+        typeTranslator.translateType(lhsValType, lhsPtr.getLayoutRule());
+    theBuilder.createStore(
+        lhsPtr, theBuilder.createCompositeConstruct(lhsValTypeId, elements));
   } else if (lhsPtr.getLayoutRule() == rhsVal.getLayoutRule()) {
     // If lhs and rhs has the same memory layout, we should be safe to load
     // from rhs and directly store into lhs and avoid decomposing rhs.
