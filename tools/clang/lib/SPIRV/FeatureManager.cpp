@@ -40,6 +40,18 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
 }
 
 bool FeatureManager::allowExtension(llvm::StringRef name) {
+  // Special case: If we are asked to allow "SPV_KHR" extension, it indicates
+  // that we should allow using *all* KHR extensions.
+  if (getExtensionSymbol(name) == Extension::KHR) {
+    bool result = true;
+    for (uint32_t i = 0; i < static_cast<uint32_t>(Extension::Unknown); ++i) {
+      llvm::StringRef extName(getExtensionName(static_cast<Extension>(i)));
+      if (isKHRExtension(extName))
+        result = result && allowExtension(extName);
+    }
+    return result;
+  }
+
   const auto symbol = getExtensionSymbol(name);
   if (symbol == Extension::Unknown) {
     emitError("unknown SPIR-V extension '%0'", {}) << name;
@@ -84,6 +96,7 @@ bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
 
 Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
   return llvm::StringSwitch<Extension>(name)
+      .Case("KHR", Extension::KHR)
       .Case("SPV_KHR_device_group", Extension::KHR_device_group)
       .Case("SPV_KHR_multiview", Extension::KHR_multiview)
       .Case("SPV_KHR_shader_draw_parameters",
@@ -104,6 +117,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
 
 const char *FeatureManager::getExtensionName(Extension symbol) {
   switch (symbol) {
+  case Extension::KHR:
+    return "KHR";
   case Extension::KHR_device_group:
     return "SPV_KHR_device_group";
   case Extension::KHR_multiview:
@@ -126,6 +141,10 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     break;
   }
   return "<unknown extension>";
+}
+
+bool FeatureManager::isKHRExtension(llvm::StringRef name) {
+  return name.startswith_lower("spv_khr_");
 }
 
 std::string FeatureManager::getKnownExtensions(const char *delimiter,

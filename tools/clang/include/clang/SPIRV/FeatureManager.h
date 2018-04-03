@@ -30,6 +30,7 @@ namespace spirv {
 
 /// A list of SPIR-V extensions known to our CodeGen.
 enum class Extension {
+  KHR = 0,
   KHR_device_group,
   KHR_multiview,
   KHR_shader_draw_parameters,
@@ -60,6 +61,8 @@ public:
   static Extension getExtensionSymbol(llvm::StringRef name);
   /// Translates extension symbol to name.
   static const char *getExtensionName(Extension symbol);
+  /// Returns true if the given extension is a KHR extension.
+  static bool isKHRExtension(llvm::StringRef name);
 
   /// Returns the names of all known extensions as a string.
   std::string getKnownExtensions(const char *delimiter, const char *prefix = "",
