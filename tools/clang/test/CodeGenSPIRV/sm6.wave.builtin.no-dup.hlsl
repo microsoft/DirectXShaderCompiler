@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// Run: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.1
 
 // Some wave ops translates into SPIR-V builtin variables.
 // Test that we are not generating duplicated builtins for multiple calls of
