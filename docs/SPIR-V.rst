@@ -2652,6 +2652,9 @@ codegen for Vulkan:
 - ``-fspv-reflect``: Emits additional SPIR-V instructions to aid reflection.
 - ``-fspv-extension=<extension>``: Only allows using ``<extension>`` in CodeGen.
   If you want to allow multiple extensions, provide more than one such option.
+- ``-fspv-target-env=<env>``: Specifies the target environment for this compilation.
+  The current valid options are ``vulkan1.0`` and ``vulkan1.1``. If no target
+  environment is provided, ``vulkan1.0`` is used as default.
 
 Unsupported HLSL Features
 =========================

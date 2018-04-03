@@ -26,6 +26,10 @@ ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
   instBuilder.setConsumer([this](std::vector<uint32_t> &&words) {
     this->constructSite = std::move(words);
   });
+
+  // Set the SPIR-V version if needed.
+  if (featureManager && featureManager->getTargetEnv() == SPV_ENV_VULKAN_1_1)
+    theModule.setVersion(0x00010300);
 }
 
 std::vector<uint32_t> ModuleBuilder::takeModule() {
@@ -758,7 +762,10 @@ void ModuleBuilder::addExtension(Extension ext, llvm::StringRef target,
                                  SourceLocation srcLoc) {
   assert(featureManager);
   featureManager->requestExtension(ext, target, srcLoc);
-  theModule.addExtension(featureManager->getExtensionName(ext));
+  // Do not emit OpExtension if the given extension is natively supported in the
+  // target environment.
+  if (featureManager->isExtensionRequiredForTargetEnv(ext))
+    theModule.addExtension(featureManager->getExtensionName(ext));
 }
 
 uint32_t ModuleBuilder::getGLSLExtInstSet() {

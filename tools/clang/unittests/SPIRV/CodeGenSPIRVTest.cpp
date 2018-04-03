@@ -1131,6 +1131,14 @@ TEST_F(FileTest, SM6QuadReadLaneAt) {
   runFileTest("sm6.quad-read-lane-at.hlsl");
 }
 
+// Test error on using wave ops on Vulkan 1.0 target environment.
+TEST_F(FileTest, WaveOpVulkan1Error) {
+  runFileTest("sm6.wave-op.target-vulkan1.error.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, WaveOpNoTargetEnvError) {
+  runFileTest("sm6.wave-op.no-target-env.error.hlsl", Expect::Failure);
+}
+
 // SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
