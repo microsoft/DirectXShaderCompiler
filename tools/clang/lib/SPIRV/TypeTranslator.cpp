@@ -158,6 +158,12 @@ bool TypeTranslator::isOpaqueStructType(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isOpaqueArrayType(QualType type) {
+  if (const auto* arrayType = type->getAsArrayTypeUnsafe())
+    return isOpaqueType(arrayType->getElementType());
+  return false;
+}
+
 void TypeTranslator::LiteralTypeHint::setHint(QualType ty) {
   // You can set hint only once for each object.
   assert(type == QualType());

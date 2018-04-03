@@ -219,6 +219,10 @@ public:
   /// Note: legalization specific code
   static bool isOpaqueType(QualType type);
 
+  /// Returns true if the given type will be translated into a array of SPIR-V
+  /// images or samplers.
+  static bool isOpaqueArrayType(QualType type);
+
   /// Returns true if the given type is a struct type who has an opaque field
   /// (in a recursive away).
   ///
