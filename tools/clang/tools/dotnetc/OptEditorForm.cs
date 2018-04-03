@@ -72,10 +72,11 @@ namespace MainNs
         {
             // Turn the text into a container.
             IDxcBlobEncoding sourceBlob = EditorForm.CreateBlobForText(this.Library, this.CodeBox.Text);
+            sourceBlob = this.Library.GetBlobAstUf8(sourceBlob);
             IDxcBlob bitcodeBlob = sourceBlob;
 
             List<string> passes = new List<string>();
-            //passes.Add("hlsl-passes-resume");
+            passes.Add("hlsl-passes-resume");
             for (int i = PassesListBox.SelectedIndex; i < PassesListBox.Items.Count; ++i)
             {
                 passes.Add(((TextSection)PassesListBox.Items[i]).Title);
