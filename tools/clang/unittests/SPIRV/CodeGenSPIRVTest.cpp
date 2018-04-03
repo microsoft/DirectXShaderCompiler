@@ -173,6 +173,11 @@ TEST_F(FileTest, BinaryOpAssignImage) {
 TEST_F(FileTest, BinaryOpAssignComposite) {
   runFileTest("binary-op.assign.composite.hlsl");
 }
+TEST_F(FileTest, BinaryOpAssignOpaqueArray) {
+  // Test that for copying opaque arrays, we load each element via access chain
+  // separately, create an composite, and then write out once
+  runFileTest("binary-op.assign.opaque.array.hlsl");
+}
 
 // For comma binary operator
 TEST_F(FileTest, BinaryOpComma) { runFileTest("binary-op.comma.hlsl"); }
