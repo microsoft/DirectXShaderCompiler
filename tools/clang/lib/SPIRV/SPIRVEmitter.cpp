@@ -512,8 +512,7 @@ spv::Capability getCapabilityForGroupNonUniform(spv::Op opcode) {
 
 } // namespace
 
-SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
-                           const EmitSPIRVOptions &options)
+SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
     : theCompilerInstance(ci), astContext(ci.getASTContext()),
       diags(ci.getDiagnostics()), spirvOptions(options),
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
@@ -523,7 +522,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       theBuilder(&theContext, &featureManager, options.enableReflect),
       typeTranslator(astContext, theBuilder, diags, options),
       declIdMapper(shaderModel, astContext, theBuilder, typeTranslator,
-                   featureManager, spirvOptions),
+                   featureManager, options),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
       seenPushConstantAt(), isSpecConstantMode(false),
       needsLegalization(false) {
@@ -533,6 +532,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
   if (options.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
       !shaderModel.IsGS())
     emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
+
+  options.Initialize();
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
@@ -909,7 +910,7 @@ bool SPIRVEmitter::loadIfAliasVarRef(const Expr *varExpr, SpirvEvalInfo &info) {
       info.setResultId(theBuilder.createLoad(ptrType, info));
 
     info.setStorageClass(spv::StorageClass::Uniform)
-        .setLayoutRule(LayoutRule::GLSLStd430)
+        .setLayoutRule(spirvOptions.sBufferLayoutRule)
         // Now it is a pointer to the global resource, which is lvalue.
         .setRValue(false)
         // Set to false to indicate that we've performed dereference over the
@@ -2614,7 +2615,7 @@ uint32_t SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
     // size of the struct) must also be written to the second argument.
     uint32_t size = 0, stride = 0;
     std::tie(std::ignore, size) = typeTranslator.getAlignmentAndSize(
-        type, LayoutRule::GLSLStd430, &stride);
+        type, spirvOptions.sBufferLayoutRule, &stride);
     const auto sizeId = theBuilder.getConstantUint32(size);
     theBuilder.createStore(doExpr(expr->getArg(1)), sizeId);
   }

@@ -28,9 +28,9 @@ constexpr uint32_t kStd140Vec4Alignment = 16u;
 inline bool isPow2(int val) { return (val & (val - 1)) == 0; }
 
 /// Rounds the given value up to the given power of 2.
-inline void roundToPow2(uint32_t *val, uint32_t pow2) {
+inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
   assert(pow2 != 0);
-  *val = (*val + pow2 - 1) & ~(pow2 - 1);
+  return (val + pow2 - 1) & ~(pow2 - 1);
 }
 
 /// Returns true if the given vector type (of the given size) crosses the
@@ -159,7 +159,7 @@ bool TypeTranslator::isOpaqueStructType(QualType type) {
 }
 
 bool TypeTranslator::isOpaqueArrayType(QualType type) {
-  if (const auto* arrayType = type->getAsArrayTypeUnsafe())
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe())
     return isOpaqueType(arrayType->getElementType());
   return false;
 }
@@ -1196,8 +1196,13 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
     // The next avaiable location after layouting the previos members
     const uint32_t nextLoc = offset;
 
-    alignUsingHLSLRelaxedLayout(fieldType, memberSize, &memberAlignment,
-                                &offset);
+    if (rule == LayoutRule::RelaxedGLSLStd140 ||
+        rule == LayoutRule::RelaxedGLSLStd430 ||
+        rule == LayoutRule::FxcCTBuffer)
+      alignUsingHLSLRelaxedLayout(fieldType, memberSize, &memberAlignment,
+                                  &offset);
+    else
+      offset = roundToPow2(offset, memberAlignment);
 
     // The vk::offset attribute takes precedence over all.
     if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
@@ -1326,7 +1331,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
     bool asAlias = false;
     if (rule == LayoutRule::Void) {
       asAlias = true;
-      rule = LayoutRule::GLSLStd430;
+      rule = spirvOptions.sBufferLayoutRule;
     }
 
     auto &context = *theBuilder.getSPIRVContext();
@@ -1468,30 +1473,28 @@ void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
                                                  uint32_t fieldSize,
                                                  uint32_t *fieldAlignment,
                                                  uint32_t *currentOffset) {
-  bool fieldIsVecType = false;
+  QualType vecElemType = {};
+  const bool fieldIsVecType = isVectorType(fieldType, &vecElemType);
 
-  if (!spirvOptions.useGlslLayout) {
-    // Adjust according to HLSL relaxed layout rules.
-    // Aligning vectors as their element types so that we can pack a float
-    // and a float3 tightly together.
-    QualType vecElemType = {};
-    if (fieldIsVecType = isVectorType(fieldType, &vecElemType)) {
-      uint32_t scalarAlignment = 0;
-      std::tie(scalarAlignment, std::ignore) =
-          getAlignmentAndSize(vecElemType, LayoutRule::Void, nullptr);
-      if (scalarAlignment <= 4)
-        *fieldAlignment = scalarAlignment;
-    }
+  // Adjust according to HLSL relaxed layout rules.
+  // Aligning vectors as their element types so that we can pack a float
+  // and a float3 tightly together.
+  if (fieldIsVecType) {
+    uint32_t scalarAlignment = 0;
+    std::tie(scalarAlignment, std::ignore) =
+        getAlignmentAndSize(vecElemType, LayoutRule::Void, nullptr);
+    if (scalarAlignment <= 4)
+      *fieldAlignment = scalarAlignment;
   }
 
-  roundToPow2(currentOffset, *fieldAlignment);
+  *currentOffset = roundToPow2(*currentOffset, *fieldAlignment);
 
   // Adjust according to HLSL relaxed layout rules.
   // Bump to 4-component vector alignment if there is a bad straddle
-  if (!spirvOptions.useGlslLayout && fieldIsVecType &&
+  if (fieldIsVecType &&
       improperStraddle(fieldType, fieldSize, *currentOffset)) {
     *fieldAlignment = kStd140Vec4Alignment;
-    roundToPow2(currentOffset, *fieldAlignment);
+    *currentOffset = roundToPow2(*currentOffset, *fieldAlignment);
   }
 }
 
@@ -1545,6 +1548,18 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
   //
   // 10. If the member is an array of S structures, the S elements of the array
   //     are laid out in order, according to rule (9).
+  //
+  // This method supports multiple layout rules, all of them modifying the
+  // std140 rules listed above:
+  // std430:
+  // - Array and struct base alignment do not need to be rounded up to a
+  //   multiple of 16.
+  // FxcCTBuffer:
+  // - Matrices and arrays need to be 16-byte aligned.
+  // - Arrays does not affect the data packing after it.
+  // FxcSBuffer:
+  // - Tightly pack everything. Alignments are set to the natural data type
+  //   alignment.
 
   const auto desugaredType = desugarType(type);
   if (desugaredType != type) {
@@ -1559,8 +1574,6 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     if (isScalarType(type, &ty))
       if (const auto *builtinType = ty->getAs<BuiltinType>())
         switch (builtinType->getKind()) {
-        case BuiltinType::Void:
-          return {0, 0};
         case BuiltinType::Bool:
         case BuiltinType::Int:
         case BuiltinType::UInt:
@@ -1581,10 +1594,13 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     QualType elemType = {};
     uint32_t elemCount = {};
     if (isVectorType(type, &elemType, &elemCount)) {
-      uint32_t size = 0;
-      std::tie(std::ignore, size) = getAlignmentAndSize(elemType, rule, stride);
+      uint32_t alignment = 0, size = 0;
+      std::tie(alignment, size) = getAlignmentAndSize(elemType, rule, stride);
+      // Use element alignment for fxc rules
+      if (rule != LayoutRule::FxcCTBuffer && rule != LayoutRule::FxcSBuffer)
+        alignment = (elemCount == 3 ? 4 : elemCount) * size;
 
-      return {(elemCount == 3 ? 4 : elemCount) * size, elemCount * size};
+      return {alignment, elemCount * size};
     }
   }
 
@@ -1593,8 +1609,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     uint32_t rowCount = 0, colCount = 0;
     if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
       uint32_t alignment = 0, size = 0;
-      std::tie(alignment, std::ignore) =
-          getAlignmentAndSize(elemType, rule, stride);
+      std::tie(alignment, size) = getAlignmentAndSize(elemType, rule, stride);
 
       // Matrices are treated as arrays of vectors:
       // The base alignment and array stride are set to match the base alignment
@@ -1603,9 +1618,18 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
       bool isRowMajor = isRowMajorMatrix(type);
 
       const uint32_t vecStorageSize = isRowMajor ? colCount : rowCount;
+
+      if (rule == LayoutRule::FxcSBuffer) {
+        *stride = vecStorageSize * size;
+        // Use element alignment for fxc structured buffers
+        return {alignment, rowCount * colCount * size};
+      }
+
       alignment *= (vecStorageSize == 3 ? 4 : vecStorageSize);
-      if (rule == LayoutRule::GLSLStd140) {
-        roundToPow2(&alignment, kStd140Vec4Alignment);
+      if (rule == LayoutRule::GLSLStd140 ||
+          rule == LayoutRule::RelaxedGLSLStd140 ||
+          rule == LayoutRule::FxcCTBuffer) {
+        alignment = roundToPow2(alignment, kStd140Vec4Alignment);
       }
       *stride = alignment;
       size = (isRowMajor ? rowCount : colCount) * alignment;
@@ -1629,8 +1653,13 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
       std::tie(memberAlignment, memberSize) =
           getAlignmentAndSize(field->getType(), rule, stride);
 
-      alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
-                                  &memberAlignment, &structSize);
+      if (rule == LayoutRule::RelaxedGLSLStd140 ||
+          rule == LayoutRule::RelaxedGLSLStd430 ||
+          rule == LayoutRule::FxcCTBuffer)
+        alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
+                                    &memberAlignment, &structSize);
+      else
+        structSize = roundToPow2(structSize, memberAlignment);
 
       // The base alignment of the structure is N, where N is the largest
       // base alignment value of any of its members...
@@ -1638,36 +1667,56 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
       structSize += memberSize;
     }
 
-    if (rule == LayoutRule::GLSLStd140) {
+    if (rule == LayoutRule::GLSLStd140 ||
+        rule == LayoutRule::RelaxedGLSLStd140) {
       // ... and rounded up to the base alignment of a vec4.
-      roundToPow2(&maxAlignment, kStd140Vec4Alignment);
+      maxAlignment = roundToPow2(maxAlignment, kStd140Vec4Alignment);
     }
-    // The base offset of the member following the sub-structure is rounded up
-    // to the next multiple of the base alignment of the structure.
-    roundToPow2(&structSize, maxAlignment);
+
+    if (rule != LayoutRule::FxcCTBuffer && rule != LayoutRule::FxcSBuffer) {
+      // The base offset of the member following the sub-structure is rounded up
+      // to the next multiple of the base alignment of the structure.
+      structSize = roundToPow2(structSize, maxAlignment);
+    }
     return {maxAlignment, structSize};
   }
 
   // Rule 4, 6, 8, and 10
   if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+    const auto elemCount = arrayType->getSize().getZExtValue();
     uint32_t alignment = 0, size = 0;
     std::tie(alignment, size) =
         getAlignmentAndSize(arrayType->getElementType(), rule, stride);
 
-    if (rule == LayoutRule::GLSLStd140) {
+    if (rule == LayoutRule::FxcSBuffer) {
+      *stride = size;
+      // Use element alignment for fxc structured buffers
+      return {alignment, size * elemCount};
+    }
+
+    if (rule == LayoutRule::GLSLStd140 ||
+        rule == LayoutRule::RelaxedGLSLStd140 ||
+        rule == LayoutRule::FxcCTBuffer) {
       // The base alignment and array stride are set to match the base alignment
       // of a single array element, according to rules 1, 2, and 3, and rounded
       // up to the base alignment of a vec4.
-      roundToPow2(&alignment, kStd140Vec4Alignment);
+      alignment = roundToPow2(alignment, kStd140Vec4Alignment);
     }
-    // Need to round size up considering stride for scalar types
-    roundToPow2(&size, alignment);
-    *stride = size; // Use size instead of alignment here for Rule 10
-    // TODO: handle extra large array size?
-    size *= static_cast<uint32_t>(arrayType->getSize().getZExtValue());
-    // The base offset of the member following the array is rounded up to the
-    // next multiple of the base alignment.
-    roundToPow2(&size, alignment);
+    if (rule == LayoutRule::FxcCTBuffer) {
+      // In fxc cbuffer/tbuffer packing rules, arrays does not affect the data
+      // packing after it. But we still need to make sure paddings are inserted
+      // internally if necessary.
+      *stride = roundToPow2(size, alignment);
+      size += *stride * (elemCount - 1);
+    } else {
+      // Need to round size up considering stride for scalar types
+      size = roundToPow2(size, alignment);
+      *stride = size; // Use size instead of alignment here for Rule 10
+      size *= elemCount;
+      // The base offset of the member following the array is rounded up to the
+      // next multiple of the base alignment.
+      size = roundToPow2(size, alignment);
+    }
 
     return {alignment, size};
   }

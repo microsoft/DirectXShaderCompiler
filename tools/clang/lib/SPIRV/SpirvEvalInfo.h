@@ -19,13 +19,6 @@
 namespace clang {
 namespace spirv {
 
-/// Memory layout rules
-enum class LayoutRule {
-  Void,
-  GLSLStd140,
-  GLSLStd430,
-};
-
 /// Struct contains SPIR-V information from evaluating a Clang AST node.
 ///
 /// We need to report more information than just the <result-id> for SPIR-V:
