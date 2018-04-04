@@ -70,7 +70,7 @@ namespace MainNs
 
         private void ApplyChangesButton_Click(object sender, EventArgs e)
         {
-            // Turn the text into a container.
+            // Turn the text into the expected encoding.
             IDxcBlobEncoding sourceBlob = EditorForm.CreateBlobForText(this.Library, this.CodeBox.Text);
             sourceBlob = this.Library.GetBlobAstUf8(sourceBlob);
             IDxcBlob bitcodeBlob = sourceBlob;
