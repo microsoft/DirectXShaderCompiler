@@ -470,6 +470,7 @@ public:
           spirvOpts.disableValidation = opts.DisableValidation;
           spirvOpts.invertY = opts.VkInvertY;
           spirvOpts.useGlslLayout = opts.VkUseGlslLayout;
+          spirvOpts.useFxcLayout = opts.VkUseFxcLayout;
           spirvOpts.enableReflect = opts.SpvEnableReflect;
           spirvOpts.ignoreUnusedResources = opts.VkIgnoreUnusedResources;
           spirvOpts.defaultRowMajor = opts.DefaultRowMajor;

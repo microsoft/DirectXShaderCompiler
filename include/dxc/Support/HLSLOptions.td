@@ -252,6 +252,8 @@ def fvk_invert_y: Flag<["-"], "fvk-invert-y">, Group<spirv_Group>, Flags<[CoreOp
   HelpText<"Invert SV_Position.y in VS/DS/GS to accommodate Vulkan's coordinate system">;
 def fvk_use_glsl_layout: Flag<["-"], "fvk-use-glsl-layout">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Use conventional GLSL std140/std430 layout for resources">;
+def fvk_use_fxc_layout: Flag<["-"], "fvk-use-fxc-layout">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Adopt the layout by fxc.exe for resources">;
 def fspv_reflect: Flag<["-"], "fspv-reflect">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Emit additional SPIR-V instructions to aid reflection">;
 def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
