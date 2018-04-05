@@ -44,12 +44,12 @@ int i3 = 2.5;
 [[vk::constant_id(20)]]
 uint uintConst1 = 56;
 
-// CHECK: [[f0]] = OpSpecConstant %float 4.2
+// CHECK: [[f0]] = OpSpecConstant %float 4.5
 [[vk::constant_id(30)]]
-float f0 = (4.2);
-// CHECK: [[f1]] = OpSpecConstant %float -4.2
+float f0 = (4.5);
+// CHECK: [[f1]] = OpSpecConstant %float -4.5
 [[vk::constant_id(31)]]
-float f1 = -4.2;
+float f1 = -4.5;
 // CHECK: [[f2]] = OpSpecConstant %float 1
 [[vk::constant_id(32)]]
 float f2 = true;
