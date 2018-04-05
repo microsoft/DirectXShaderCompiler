@@ -1261,7 +1261,8 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
   return decorations;
 }
 
-uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
+uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
+                                               bool isDepthCmp) {
   // Resource types are either represented like C struct or C++ class in the
   // AST. Samplers are represented like C struct, so isStructureType() will
   // return true for it; textures are represented like C++ class, so
@@ -1291,7 +1292,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
       const auto isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return theBuilder.getImageType(translateType(getElementType(sampledType)),
-                                     dim, /*depth*/ 0, isArray, isMS);
+                                     dim, isDepthCmp, isArray, isMS);
     }
 
     // There is no RWTexture3DArray
