@@ -9,7 +9,7 @@ TextureCube<float>t4 : register(t4);
 // .GatherCmp() does not support Texture1D and Texture3D.
 
 // CHECK: [[v2ic:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
-// CHECK: [[v2fc:%\d+]] = OpConstantComposite %v2float %float_0_1 %float_0_2
+// CHECK: [[v2fc:%\d+]] = OpConstantComposite %v2float %float_1 %float_2
 
 // CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
 
@@ -29,7 +29,7 @@ float4 main(float2 location: A, float comparator: B, int2 offset: C) : SV_Target
 // CHECK-NEXT: [[comparator:%\d+]] = OpLoad %float %comparator
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image [[t2]] [[gSampler]]
 // CHECK-NEXT:            {{%\d+}} = OpImageDrefGather %v4float [[sampledImg]] [[v2fc]] [[comparator]]
-    float4 val2 = t2.GatherCmp(gSampler, float2(0.1, 0.2), comparator);
+    float4 val2 = t2.GatherCmp(gSampler, float2(1, 2), comparator);
 
 // CHECK:              [[t3:%\d+]] = OpLoad %type_2d_image %t3
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
