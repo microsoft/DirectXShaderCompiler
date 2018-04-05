@@ -11,7 +11,7 @@ TextureCubeArray <float>  t8 : register(t8);
 // CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability SparseResidency
 
-// CHECK: [[v4fc:%\d+]] = OpConstantComposite %v4float %float_0_1 %float_0_2 %float_0_3 %float_0_4
+// CHECK: [[v4fc:%\d+]] = OpConstantComposite %v4float %float_1 %float_2 %float_3 %float_4
 
 // CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4int
 // CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4float
@@ -30,7 +30,7 @@ float4 main(float3 location: A, int2 offset: B) : SV_Target {
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_0 [[t4]] [[gSampler]]
 // CHECK-NEXT:            {{%\d+}} = OpImageGather %v4uint [[sampledImg]] [[v4fc]] %int_0
-    uint4 val4 = t4.Gather(gSampler, float4(0.1, 0.2, 0.3, 0.4));
+    uint4 val4 = t4.Gather(gSampler, float4(1, 2, 3, 4));
 
 // CHECK:              [[t6:%\d+]] = OpLoad %type_2d_image_array_0 %t6
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
@@ -44,7 +44,7 @@ float4 main(float3 location: A, int2 offset: B) : SV_Target {
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_2 [[t8]] [[gSampler]]
 // CHECK-NEXT:            {{%\d+}} = OpImageGather %v4float [[sampledImg]] [[v4fc]] %int_0
-    float4 val8 = t8.Gather(gSampler, float4(0.1, 0.2, 0.3, 0.4));
+    float4 val8 = t8.Gather(gSampler, float4(1, 2, 3, 4));
 
     uint status;
 // CHECK:                [[t6:%\d+]] = OpLoad %type_2d_image_array_0 %t6
@@ -67,7 +67,7 @@ float4 main(float3 location: A, int2 offset: B) : SV_Target {
 // CHECK-NEXT:                         OpStore %status [[status]]
 // CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
 // CHECK-NEXT:                         OpStore %val10 [[result]]
-    float4 val10 = t8.Gather(gSampler, float4(0.1, 0.2, 0.3, 0.4), status);
+    float4 val10 = t8.Gather(gSampler, float4(1, 2, 3, 4), status);
 
     return 1.0;
 }
