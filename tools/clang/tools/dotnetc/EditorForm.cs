@@ -310,7 +310,7 @@ namespace MainNs
                 " float4 position : SV_POSITION;\r\n" +
                 " float4 color : COLOR;\r\n" +
                 "};\r\n" +
-                "[RootSignature(\"\")]\r\n" +
+                "[RootSignature(\"RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)\")]\r\n" +
                 "PSInput VSMain(float4 position: POSITION, float4 color: COLOR) {\r\n" +
                 " float aspect = 320.0 / 200.0;\r\n" +
                 " PSInput result;\r\n" +
@@ -319,7 +319,7 @@ namespace MainNs
                 " result.color = color;\r\n" +
                 " return result;\r\n" +
                 "}\r\n" +
-                "[RootSignature(\"\")]\r\n" +
+                "[RootSignature(\"RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)\")]\r\n" +
                "float4 PSMain(PSInput input) : SV_TARGET {\r\n" +
                " return input.color;\r\n" +
                "}\r\n";
@@ -1559,7 +1559,6 @@ namespace MainNs
             IDxcCompiler compiler = HlslDxcLib.CreateDxcCompiler();
             IDxcOperationResult optDumpResult =
                 compiler.Compile(CreateBlobForText("[RootSignature(\"\")]float4 main() : SV_Target { return 0; }"), "hlsl.hlsl", "main", "ps_6_0", args.ToArray(), args.Count, null, 0, null);
-            //IDxcBlob optDumpBlob = optDumpResult.GetErrors();
             IDxcBlob optDumpBlob = optDumpResult.GetResult();
             string optDumpText = GetStringFromBlob(optDumpBlob);
             this.AddSelectedPassesFromText(optDumpText, true);
