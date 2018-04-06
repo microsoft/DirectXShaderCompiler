@@ -662,7 +662,10 @@ alignment:
    the alignment will be set to 16 bytes.
 
 To use the conventional GLSL ``std140``/``std430`` rules for resources,
-you can use the ``-fvk-use-glsl-layout`` option.
+specify the ``-fvk-use-glsl-layout`` option.
+
+To use the same layout rules as ``fxc.exe``, specify the ``-fvk-fxc-layout``
+option.
 
 To know more about the Vulkan buffer types, please refer to the Vulkan spec
 `13.1 Descriptor Types <https://www.khronos.org/registry/vulkan/specs/1.0-wsi_extensions/html/vkspec.html#descriptorsets-types>`_.
@@ -2644,6 +2647,7 @@ codegen for Vulkan:
   in question.
 - ``-fvk-use-glsl-layout``: Uses conventional GLSL ``std140``/``std430`` layout
   rules for resources.
+- ``-fvk-use-fxc-layout``: Uses the layout rules from fxc.exe for resources.
 - ``-fvk-invert-y``: Inverts SV_Position.y before writing to stage output.
   Used to accommodate the difference between Vulkan's coordinate system and
   DirectX's. Only allowed in VS/DS/GS.
