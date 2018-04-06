@@ -1551,15 +1551,27 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
   //
   // This method supports multiple layout rules, all of them modifying the
   // std140 rules listed above:
+  //
   // std430:
-  // - Array and struct base alignment do not need to be rounded up to a
+  // - Array base alignment and stride does not need to be rounded up to a
   //   multiple of 16.
+  // - Struct base alignment does not need to be rounded up to a multiple of 16.
+  //
+  // Relaxed std140/std430:
+  // - Vector base alignment is set as its element type's base alignment.
+  //
   // FxcCTBuffer:
-  // - Matrices and arrays need to be 16-byte aligned.
-  // - Arrays does not affect the data packing after it.
+  // - Vector base alignment is set as its element type's base alignment.
+  // - Arrays/structs do not need to have padding at the end; arrays/structs do
+  //   not affect the base offset of the member following them.
+  // - Struct base alignment does not need to be rounded up to a multiple of 16.
+  //
   // FxcSBuffer:
-  // - Tightly pack everything. Alignments are set to the natural data type
+  // - Vector/matrix/array base alignment is set as its element type's base
   //   alignment.
+  // - Arrays/structs do not need to have padding at the end; arrays/structs do
+  //   not affect the base offset of the member following them.
+  // - Struct base alignment does not need to be rounded up to a multiple of 16.
 
   const auto desugaredType = desugarType(type);
   if (desugaredType != type) {
