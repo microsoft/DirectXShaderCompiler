@@ -199,10 +199,13 @@ public:
   /// If residencyCodeId is not zero, the sparse version of the instructions
   /// will be used, and the SPIR-V instruction for storing the resulting
   /// residency code will also be emitted.
+  ///
+  /// If isNonUniform is true, the sampled image will be decorated with
+  /// NonUniformEXT.
   uint32_t createImageSample(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
-                             uint32_t coordinate, uint32_t compareVal,
-                             uint32_t bias, uint32_t lod,
+                             bool isNonUniform, uint32_t coordinate,
+                             uint32_t compareVal, uint32_t bias, uint32_t lod,
                              std::pair<uint32_t, uint32_t> grad,
                              uint32_t constOffset, uint32_t varOffset,
                              uint32_t constOffsets, uint32_t sample,
