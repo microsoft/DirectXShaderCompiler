@@ -1679,6 +1679,7 @@ namespace MainNs
                 });
             rtb.SelectionChanged += DisassemblyTextBox_SelectionChanged;
             rtb.Text = opt.ResultText;
+            form.Controls.Add(rtb);
             form.StartPosition = FormStartPosition.CenterParent;
             form.Show(this);
         }
