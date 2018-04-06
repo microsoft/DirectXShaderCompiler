@@ -501,32 +501,35 @@ public:
   }
   __override DWORD GetFileAttributesW(_In_ LPCWSTR lpFileName) throw() {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::GetFileAttributesW %S\n", lpFileName);
-    std::wstring FileNameStore;
-    MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
-    size_t sourceNameLen = wcslen(m_pSourceName);
-    size_t fileNameLen = wcslen(lpFileName);
+    DWORD findError;
+    {
+      std::wstring FileNameStore; // The destructor might release and set LastError to success.
+      MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
+      size_t sourceNameLen = wcslen(m_pSourceName);
+      size_t fileNameLen = wcslen(lpFileName);
 
-    // Check for a match to the source.
-    if (fileNameLen == sourceNameLen) {
-      if (0 == wcsncmp(m_pSourceName, lpFileName, fileNameLen)) {
+      // Check for a match to the source.
+      if (fileNameLen == sourceNameLen) {
+        if (0 == wcsncmp(m_pSourceName, lpFileName, fileNameLen)) {
+          return FILE_ATTRIBUTE_NORMAL;
+        }
+      }
+
+      // Check for a perfect match to the output.
+      if (m_pOutputStreamName != nullptr &&
+        0 == wcscmp(m_pOutputStreamName, lpFileName)) {
         return FILE_ATTRIBUTE_NORMAL;
       }
-    }
 
-    // Check for a perfect match to the output.
-    if (m_pOutputStreamName != nullptr &&
-        0 == wcscmp(m_pOutputStreamName, lpFileName)) {
-      return FILE_ATTRIBUTE_NORMAL;
-    }
+      if (TryFindDirHandle(lpFileName) != INVALID_HANDLE_VALUE) {
+        return FILE_ATTRIBUTE_DIRECTORY;
+      }
 
-    if (TryFindDirHandle(lpFileName) != INVALID_HANDLE_VALUE) {
-      return FILE_ATTRIBUTE_DIRECTORY;
-    }
-
-    size_t includedIndex;
-    DWORD findError = TryFindOrOpen(lpFileName, includedIndex);
-    if (findError == ERROR_SUCCESS) {
-      return FILE_ATTRIBUTE_NORMAL;
+      size_t includedIndex;
+      findError = TryFindOrOpen(lpFileName, includedIndex);
+      if (findError == ERROR_SUCCESS) {
+        return FILE_ATTRIBUTE_NORMAL;
+      }
     }
 
     SetLastError(findError);

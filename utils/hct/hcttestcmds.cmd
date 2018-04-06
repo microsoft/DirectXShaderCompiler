@@ -604,6 +604,18 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
+echo Test file with relative path and include
+mkdir subfolder 2>nul
+mkdir inc       2>nul
+copy "%2"\include-main.hlsl subfolder >nul
+copy "%2"\include-declarations.h inc  >nul
+dxc.exe -Tps_6_0 -I inc subfolder\include-main.hlsl >nul
+if %errorlevel% neq 0 (
+  echo Failed to compile subfolder\include-main.hlsl
+  call :cleanup 2>nul
+  exit /b 1
+)
+
 rem SPIR-V Change Starts
 echo Smoke test for SPIR-V CodeGen ...
 set spirv_smoke_success=0
