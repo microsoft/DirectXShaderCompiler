@@ -402,12 +402,12 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
     if (typeName == "StructuredBuffer" || typeName == "ByteAddressBuffer" ||
         typeName == "RWByteAddressBuffer") {
       storageClass = spv::StorageClass::Uniform;
-      rule = LayoutRule::GLSLStd430;
+      rule = spirvOptions.sBufferLayoutRule;
     } else if (typeName == "RWStructuredBuffer" ||
                typeName == "AppendStructuredBuffer" ||
                typeName == "ConsumeStructuredBuffer") {
       storageClass = spv::StorageClass::Uniform;
-      rule = LayoutRule::GLSLStd430;
+      rule = spirvOptions.sBufferLayoutRule;
       isACRWSBuffer = true;
     }
   } else {
@@ -492,9 +492,11 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forGlobals = usageKind == ContextUsageKind::Globals;
 
   auto &context = *theBuilder.getSPIRVContext();
-  const LayoutRule layoutRule = (forCBuffer || forGlobals)
-                                    ? LayoutRule::GLSLStd140
-                                    : LayoutRule::GLSLStd430;
+  const LayoutRule layoutRule =
+      (forCBuffer || forGlobals)
+          ? spirvOptions.cBufferLayoutRule
+          : (forTBuffer ? spirvOptions.tBufferLayoutRule
+                        : spirvOptions.sBufferLayoutRule);
   const auto *blockDec = forTBuffer ? Decoration::getBufferBlock(context)
                                     : Decoration::getBlock(context);
 
@@ -572,8 +574,8 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     astDecls[varDecl] =
         SpirvEvalInfo(bufferVar)
             .setStorageClass(spv::StorageClass::Uniform)
-            .setLayoutRule(decl->isCBuffer() ? LayoutRule::GLSLStd140
-                                             : LayoutRule::GLSLStd430);
+            .setLayoutRule(decl->isCBuffer() ? spirvOptions.cBufferLayoutRule
+                                             : spirvOptions.tBufferLayoutRule);
     astDecls[varDecl].indexInCTBuffer = index++;
   }
   resourceVars.emplace_back(
@@ -612,8 +614,8 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
   astDecls[decl] =
       SpirvEvalInfo(bufferVar)
           .setStorageClass(spv::StorageClass::Uniform)
-          .setLayoutRule(context->isCBuffer() ? LayoutRule::GLSLStd140
-                                              : LayoutRule::GLSLStd430);
+          .setLayoutRule(context->isCBuffer() ? spirvOptions.cBufferLayoutRule
+                                              : spirvOptions.tBufferLayoutRule);
   resourceVars.emplace_back(
       bufferVar, ResourceVar::Category::Other, getResourceBinding(context),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
@@ -635,7 +637,7 @@ uint32_t DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
   // Register the VarDecl
   astDecls[decl] = SpirvEvalInfo(var)
                        .setStorageClass(spv::StorageClass::PushConstant)
-                       .setLayoutRule(LayoutRule::GLSLStd430);
+                       .setLayoutRule(spirvOptions.sBufferLayoutRule);
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
 
@@ -670,7 +672,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
 
       astDecls[varDecl] = SpirvEvalInfo(globals)
                               .setStorageClass(spv::StorageClass::Uniform)
-                              .setLayoutRule(LayoutRule::GLSLStd140);
+                              .setLayoutRule(spirvOptions.cBufferLayoutRule);
       astDecls[varDecl].indexInCTBuffer = index++;
     }
 }

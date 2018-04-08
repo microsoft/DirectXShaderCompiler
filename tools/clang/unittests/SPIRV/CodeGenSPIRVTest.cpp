@@ -1418,6 +1418,15 @@ TEST_F(FileTest, VulkanLayoutCBufferPackOffsetError) {
   runFileTest("vk.layout.cbuffer.packoffset.error.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, VulkanLayoutFxcRulesSBuffer) {
+  // structured buffers with fxc layout rules
+  runFileTest("vk.layout.sbuffer.fxc.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
+  // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
+  runFileTest("vk.layout.cbuffer.fxc.hlsl");
+}
+
 TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
 TEST_F(FileTest, VulkanSubpassInputBinding) {
   runFileTest("vk.subpass-input.binding.hlsl");

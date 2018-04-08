@@ -46,7 +46,7 @@ namespace spirv {
 /// through the AST is done manually instead of using ASTConsumer's harness.
 class SPIRVEmitter : public ASTConsumer {
 public:
-  SPIRVEmitter(CompilerInstance &ci, const EmitSPIRVOptions &options);
+  SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options);
 
   void HandleTranslationUnit(ASTContext &context) override;
 
@@ -904,7 +904,7 @@ private:
   ASTContext &astContext;
   DiagnosticsEngine &diags;
 
-  EmitSPIRVOptions spirvOptions;
+  const EmitSPIRVOptions &spirvOptions;
 
   /// Entry function name and shader stage. Both of them are derived from the
   /// command line and should be const.
