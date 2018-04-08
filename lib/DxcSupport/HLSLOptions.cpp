@@ -484,7 +484,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 #ifdef ENABLE_SPIRV_CODEGEN
   const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
   opts.VkInvertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
-  opts.VkUseGlslLayout = Args.hasFlag(OPT_fvk_use_glsl_layout, OPT_INVALID, false);
+  opts.VkUseGlLayout = Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
   opts.VkUseDxLayout = Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false);
   opts.SpvEnableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
   opts.VkIgnoreUnusedResources = Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false);
@@ -532,7 +532,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_use_glsl_layout, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false) ||

@@ -250,8 +250,8 @@ def fvk_u_shift : MultiArg<["-"], "fvk-u-shift", 2>, MetaVarName<"<shift> <space
   HelpText<"Specify Vulkan binding number shift for u-type register">;
 def fvk_invert_y: Flag<["-"], "fvk-invert-y">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Invert SV_Position.y in VS/DS/GS to accommodate Vulkan's coordinate system">;
-def fvk_use_glsl_layout: Flag<["-"], "fvk-use-glsl-layout">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
-  HelpText<"Use conventional GLSL std140/std430 memory layout for Vulkan resources">;
+def fvk_use_gl_layout: Flag<["-"], "fvk-use-gl-layout">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Use strict OpenGL std140/std430 memory layout for Vulkan resources">;
 def fvk_use_dx_layout: Flag<["-"], "fvk-use-dx-layout">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Use DirectX memory layout for Vulkan resources">;
 def fspv_reflect: Flag<["-"], "fspv-reflect">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,

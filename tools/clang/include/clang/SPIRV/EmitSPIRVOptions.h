@@ -33,7 +33,7 @@ struct EmitSPIRVOptions {
   bool defaultRowMajor;
   bool disableValidation;
   bool invertY;
-  bool useGlslLayout;
+  bool useGlLayout;
   bool useDxLayout;
   bool ignoreUnusedResources;
   bool enable16BitTypes;
