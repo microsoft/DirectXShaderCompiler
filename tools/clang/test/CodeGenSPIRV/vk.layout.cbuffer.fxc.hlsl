@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-use-fxc-layout
+// Run: %dxc -T ps_6_0 -E main -fvk-use-dx-layout
 
 // fxc layout:
 //

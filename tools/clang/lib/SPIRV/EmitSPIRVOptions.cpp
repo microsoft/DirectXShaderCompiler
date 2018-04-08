@@ -11,7 +11,7 @@
 namespace clang {
 
 void EmitSPIRVOptions::Initialize() {
-  if (useFxcLayout) {
+  if (useDxLayout) {
     cBufferLayoutRule = spirv::LayoutRule::FxcCTBuffer;
     tBufferLayoutRule = spirv::LayoutRule::FxcCTBuffer;
     sBufferLayoutRule = spirv::LayoutRule::FxcSBuffer;

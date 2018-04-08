@@ -533,6 +533,10 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
       !shaderModel.IsGS())
     emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
 
+  if (options.useGlslLayout && options.useDxLayout)
+    emitError("cannot specify both -fvk-use-dx-layout and -fvk-use-glsl-layout",
+              {});
+
   options.Initialize();
 }
 

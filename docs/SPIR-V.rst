@@ -311,7 +311,7 @@ in the CodeGen using the **explicit** mode, turned on by the
 ``-fspv-extension=<extension>`` command-line option. Only extensions supplied
 via ``-fspv-extension=`` will be used. If that does not suffice, errors will
 be emitted explaining what additional extensions are required to translate what
-specific feature in the source code. If you want to allow all KHR extensions, 
+specific feature in the source code. If you want to allow all KHR extensions,
 you can use ``-fspv-extension=KHR``.
 
 Legalization, optimization, validation
@@ -664,7 +664,7 @@ alignment:
 To use the conventional GLSL ``std140``/``std430`` rules for resources,
 specify the ``-fvk-use-glsl-layout`` option.
 
-To use the same layout rules as ``fxc.exe``, specify the ``-fvk-fxc-layout``
+To use the same layout rules as DirectX, specify the ``-fvk-dx-layout``
 option.
 
 To know more about the Vulkan buffer types, please refer to the Vulkan spec
@@ -2647,7 +2647,7 @@ codegen for Vulkan:
   in question.
 - ``-fvk-use-glsl-layout``: Uses conventional GLSL ``std140``/``std430`` layout
   rules for resources.
-- ``-fvk-use-fxc-layout``: Uses the layout rules from fxc.exe for resources.
+- ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
 - ``-fvk-invert-y``: Inverts SV_Position.y before writing to stage output.
   Used to accommodate the difference between Vulkan's coordinate system and
   DirectX's. Only allowed in VS/DS/GS.
