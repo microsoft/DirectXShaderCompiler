@@ -92,9 +92,7 @@ TEST_F(FileTest, 16BitDisabledScalarConstants) {
   runFileTest("constant.scalar.16bit.disabled.hlsl");
 }
 TEST_F(FileTest, 16BitEnabledScalarConstants) {
-  // TODO: Fix spirv-val to make sure it respects the 16-bit extension.
-  runFileTest("constant.scalar.16bit.enabled.hlsl", Expect::Success,
-              /*runValidation*/ false);
+  runFileTest("constant.scalar.16bit.enabled.hlsl");
 }
 TEST_F(FileTest, 64BitScalarConstants) {
   runFileTest("constant.scalar.64bit.hlsl");
