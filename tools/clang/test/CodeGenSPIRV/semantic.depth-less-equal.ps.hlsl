@@ -2,6 +2,7 @@
 
 // CHECK: OpEntryPoint Fragment %main "main" %in_var_A %gl_FragDepth
 
+// CHECK: OpExecutionMode %main DepthReplacing
 // CHECK: OpExecutionMode %main DepthLess
 
 // CHECK: OpDecorate %gl_FragDepth BuiltIn FragDepth

@@ -1956,6 +1956,9 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   case hlsl::Semantic::Kind::DepthGreaterEqual:
   case hlsl::Semantic::Kind::DepthLessEqual: {
     stageVar->setIsSpirvBuiltin();
+    // Vulkan requires the DepthReplacing execution mode to write to FragDepth.
+    theBuilder.addExecutionMode(entryFunctionId,
+                                spv::ExecutionMode::DepthReplacing, {});
     if (semanticKind == hlsl::Semantic::Kind::DepthGreaterEqual)
       theBuilder.addExecutionMode(entryFunctionId,
                                   spv::ExecutionMode::DepthGreater, {});
