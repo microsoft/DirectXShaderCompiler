@@ -658,6 +658,13 @@ void SPIRVEmitter::doDecl(const Decl *decl) {
     } else {
       doVarDecl(varDecl);
     }
+  } else if (const auto *namespaceDecl = dyn_cast<NamespaceDecl>(decl)) {
+    for (auto *subDecl : namespaceDecl->decls())
+      // Note: We only emit functions as they are discovered through the call
+      // graph starting from the entry-point. We should not emit unused
+      // functions inside namespaces.
+      if (!isa<FunctionDecl>(subDecl))
+        doDecl(subDecl);
   } else if (const auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
     doFunctionDecl(funcDecl);
   } else if (const auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
@@ -973,6 +980,22 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   continueStack = std::stack<uint32_t>();
 
   std::string funcName = decl->getName();
+  std::string nsPrefix = "";
+
+  // Add namespace name as prefix of function name (if any).
+  const DeclContext *dc = decl->getEnclosingNamespaceContext();
+  while (dc && !dc->isTranslationUnit()) {
+    if (const NamespaceDecl *ns = dyn_cast<NamespaceDecl>(dc)) {
+      if (!ns->isAnonymousNamespace()) {
+        nsPrefix = ns->getName().str() + "::" + nsPrefix;
+      }
+    }
+    dc = dc->getParent();
+  }
+
+  // This will allow the entry-point name to be something like
+  // myNamespace::myEntrypointFunc.
+  funcName = nsPrefix + funcName;
 
   uint32_t funcId = 0;
 
@@ -1015,7 +1038,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
     // Prefix the function name with the struct name
     if (const auto *st = dyn_cast<CXXRecordDecl>(memberFn->getDeclContext()))
-      funcName = st->getName().str() + "." + funcName;
+      funcName = nsPrefix + st->getName().str() + "." + decl->getName().str();
   }
 
   for (const auto *param : decl->params()) {
