@@ -71,29 +71,25 @@ float4 main(float4 PosCS : SV_Position) : SV_Target
 float3 A::B::AddBlue() { return float3(1, 1, 1); }
 float3 A::AddGreen() { return float3(3, 3, 3); }
 
-// CHECK: %AddRed = OpFunction %v3float None {{%\d+}}
+// CHECK: %AddRed = OpFunction %v3float None
 // CHECK: OpReturnValue [[v3f2]]
 
-// CHECK: %A__AddRed = OpFunction %v3float None {{%\d+}}
+// CHECK: %A__AddRed = OpFunction %v3float None
 // CHECK: OpReturnValue [[v3f0]]
 
-// CHECK: %A__B__AddRed = OpFunction %v3float None {{%\d+}}
+// CHECK: %A__B__AddRed = OpFunction %v3float None
 // CHECK: OpReturnValue [[v3f1]]
 
-// CHECK: %A__B__AddBlue = OpFunction %v3float None {{%\d+}}
+// CHECK: %A__B__AddBlue = OpFunction %v3float None
 // CHECK: OpReturnValue [[v3f1]]
 
-// CHECK: %A__AddGreen = OpFunction %v3float None {{%\d+}}
+// CHECK: %A__AddGreen = OpFunction %v3float None
 // CHECK: OpReturnValue [[v3f3]]
 
 // TODO: struct name should also be updated to A::myStruct
-// CHECK: %A__createMyStruct = OpFunction %myStruct None {{%\d+}}
+// CHECK: %A__createMyStruct = OpFunction %myStruct None
 
-// CHECK: %A__myStruct_add = OpFunction %int None {{%\d+}}
+// CHECK: %A__myStruct_add = OpFunction %int None
 // CHECK: %param_this = OpFunctionParameter %_ptr_Function_myStruct
-// CHECK: {{%\d+}} = OpAccessChain %_ptr_Function_int %param_this %int_0
-// CHECK: {{%\d+}} = OpLoad
-// CHECK: {{%\d+}} = OpAccessChain %_ptr_Function_int %param_this %int_1
-// CHECK: {{%\d+}} = OpLoad
-// CHECK: {{%\d+}} = OpIAdd
-// CHECK: OpReturnValue {{%\d+}}
+// CHECK: OpAccessChain %_ptr_Function_int %param_this %int_0
+// CHECK: OpAccessChain %_ptr_Function_int %param_this %int_1

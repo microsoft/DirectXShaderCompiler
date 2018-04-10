@@ -257,17 +257,35 @@ public:
   static bool shouldSkipInStructLayout(const Decl *decl);
 
   /// \brief Generates layout decorations (Offset, MatrixStride, RowMajor,
-  /// ColMajor) for the given type.
+  /// ColMajor) for the given decl group.
   ///
-  /// This method is not recursive; it only handles the top-level member/field
-  /// of the given DeclContext. Besides, it does not handle ArrayStride, which
+  /// This method is not recursive; it only handles the top-level members/fields
+  /// of the given Decl group. Besides, it does not handle ArrayStride, which
   /// according to the spec, must be attached to the array type itself instead
   /// of a struct member.
   llvm::SmallVector<const Decoration *, 4>
-  getLayoutDecorations(const DeclContext *decl, LayoutRule rule);
+  getLayoutDecorations(const llvm::SmallVector<const Decl *, 4> &declGroup,
+                       LayoutRule rule);
 
   /// \brief Returns how many sequential locations are consumed by a given type.
   uint32_t getLocationCount(QualType type);
+
+  /// \brief Collects and returns all member/field declarations inside the given
+  /// DeclContext. If it sees a NamespaceDecl, it recursively dives in and
+  /// collects decls in the correct order.
+  /// Utilizes collectDeclsInNamespace and collectDeclsInField private methods.
+  const llvm::SmallVector<const Decl *, 4>
+  collectDeclsInDeclContext(const DeclContext *declContext);
+
+private:
+  /// \brief Appends any member/field decls found inside the given namespace
+  /// into the give decl vector.
+  void collectDeclsInNamespace(const NamespaceDecl *nsDecl,
+                               llvm::SmallVector<const Decl *, 4> *decls);
+
+  /// \brief Appends the given member/field decl into the given decl vector.
+  void collectDeclsInField(const Decl *field,
+                           llvm::SmallVector<const Decl *, 4> *decls);
 
 private:
   /// \brief Wrapper method to create an error message and report it
