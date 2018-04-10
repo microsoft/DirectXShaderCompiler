@@ -11,13 +11,14 @@
 // CHECK:      OpName %MyTbuffer "MyTbuffer"
 // CHECK:      OpName %AnotherTBuffer "AnotherTBuffer"
 
+// CHECK:      OpDecorate %type_TextureBuffer_T BufferBlock
+
 struct S {
   float  f1;
   float3 f2;
 };
 
-// CHECK: %type_TextureBuffer_T = OpTypeStruct %bool %int %v2uint %mat3v4float %S %_arr_float_uint_4
-// CHECK: %_ptr_Uniform_type_TextureBuffer_T = OpTypePointer Uniform %type_TextureBuffer_T
+// CHECK: %type_TextureBuffer_T = OpTypeStruct %uint %int %v2uint %mat3v4float %S %_arr_float_uint_4
 struct T {
   bool     a;
   int      b;
@@ -27,11 +28,18 @@ struct T {
   float    t[4];
 };
 
+// CHECK: %_ptr_Uniform_type_TextureBuffer_T = OpTypePointer Uniform %type_TextureBuffer_T
+// CEHCK: %_arr_type_TextureBuffer_T_uint_3 = OpTypeArray %type_TextureBuffer_T %uint_3
+// CEHCK: %_ptr_Uniform__arr_type_TextureBuffer_T_uint_3 = OpTypePointer Uniform %_arr_type_TextureBuffer_T_uint_3
+
 // CHECK: %MyTbuffer = OpVariable %_ptr_Uniform_type_TextureBuffer_T Uniform
 TextureBuffer<T> MyTbuffer : register(t1);
 
 // CHECK: %AnotherTBuffer = OpVariable %_ptr_Uniform_type_TextureBuffer_T Uniform
 TextureBuffer<T> AnotherTBuffer : register(t2);
+
+// CHECK: %myTextureBufferArray = OpVariable %_ptr_Uniform__arr_type_TextureBuffer_T_uint_3 Uniform
+TextureBuffer<T> myTextureBufferArray[3] : register(t3);
 
 void main() {
 }

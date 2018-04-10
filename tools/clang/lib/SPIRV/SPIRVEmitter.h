@@ -28,6 +28,7 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/EmitSPIRVOptions.h"
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
@@ -45,7 +46,7 @@ namespace spirv {
 /// through the AST is done manually instead of using ASTConsumer's harness.
 class SPIRVEmitter : public ASTConsumer {
 public:
-  SPIRVEmitter(CompilerInstance &ci, const EmitSPIRVOptions &options);
+  SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options);
 
   void HandleTranslationUnit(ASTContext &context) override;
 
@@ -130,6 +131,8 @@ private:
   /// taking consideration of the operand type.
   spv::Op translateOp(BinaryOperator::Opcode op, QualType type);
 
+  spv::Op translateWaveOp(hlsl::IntrinsicOp op, QualType type, SourceLocation);
+
   /// Generates SPIR-V instructions for the given normal (non-intrinsic and
   /// non-operator) standalone or member function call.
   SpirvEvalInfo processCall(const CallExpr *expr);
@@ -146,6 +149,11 @@ private:
   /// reference to adjust the CodeGen if not nullptr.
   void storeValue(const SpirvEvalInfo &lhsPtr, const SpirvEvalInfo &rhsVal,
                   QualType lhsValType);
+
+  /// Decomposes and reconstructs the given srcVal of the given valType to meet
+  /// the requirements of the dstLR layout rule.
+  uint32_t reconstructValue(const SpirvEvalInfo &srcVal, QualType valType,
+                            LayoutRule dstLR);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs.
@@ -448,6 +456,21 @@ private:
   /// Processes Interlocked* intrinsic functions.
   uint32_t processIntrinsicInterlockedMethod(const CallExpr *,
                                              hlsl::IntrinsicOp);
+  /// Processes SM6.0 wave query intrinsic calls.
+  uint32_t processWaveQuery(const CallExpr *, spv::Op opcode);
+
+  /// Processes SM6.0 wave vote intrinsic calls.
+  uint32_t processWaveVote(const CallExpr *, spv::Op opcode);
+
+  /// Processes SM6.0 wave reduction or scan/prefix intrinsic calls.
+  uint32_t processWaveReductionOrPrefix(const CallExpr *, spv::Op op,
+                                        spv::GroupOperation groupOp);
+
+  /// Processes SM6.0 wave broadcast intrinsic calls.
+  uint32_t processWaveBroadcast(const CallExpr *);
+
+  /// Processes SM6.0 quad-wide shuffle.
+  uint32_t processWaveQuadWideShuffle(const CallExpr *, hlsl::IntrinsicOp op);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
@@ -472,6 +495,11 @@ private:
   /// vector of size M or N; if a MxN matrix is given, the returned value
   /// one will be a vector of size N.
   uint32_t getMatElemValueOne(QualType type);
+
+  /// Returns a SPIR-V constant equal to the bitwdith of the given type minus
+  /// one. The returned constant has the same component count and bitwidth as
+  /// the given type.
+  uint32_t getMaskForBitwidthValue(QualType type);
 
 private:
   /// \brief Performs a FlatConversion implicit cast. Fills an instance of the
@@ -876,7 +904,7 @@ private:
   ASTContext &astContext;
   DiagnosticsEngine &diags;
 
-  EmitSPIRVOptions spirvOptions;
+  const EmitSPIRVOptions &spirvOptions;
 
   /// Entry function name and shader stage. Both of them are derived from the
   /// command line and should be const.
@@ -884,9 +912,10 @@ private:
   const hlsl::ShaderModel &shaderModel;
 
   SPIRVContext theContext;
+  FeatureManager featureManager;
   ModuleBuilder theBuilder;
-  DeclResultIdMapper declIdMapper;
   TypeTranslator typeTranslator;
+  DeclResultIdMapper declIdMapper;
 
   /// A queue of decls reachable from the entry function. Decls inserted into
   /// this queue will persist to avoid duplicated translations. And we'd like

@@ -84,7 +84,7 @@ static bool DisassembleSpirv(IDxcBlob *binaryBlob, IDxcLibrary *library,
   memcpy(words.data(), binaryStr.data(), binaryStr.size());
 
   std::string assembly;
-  spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
+  spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_1);
   uint32_t options = (SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
                       SPV_BINARY_TO_TEXT_OPTION_INDENT);
   if (withColor)
@@ -1122,7 +1122,9 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       std::string version;
       llvm::raw_string_ostream versionStream(version);
       context.GetCompilerVersionInfo(versionStream);
-      optionTable->PrintHelp(helpStream, "dxc.exe", "HLSL Compiler", versionStream.str().c_str());
+      optionTable->PrintHelp(helpStream, "dxc.exe", "HLSL Compiler",
+                             versionStream.str().c_str(),
+                             dxcOpts.ShowHelpHidden);
       helpStream.flush();
       WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());
       return 0;

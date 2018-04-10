@@ -41,8 +41,8 @@ void main() {
   float c_float_0 = 0.;
 // CHECK: %float_n0 = OpConstant %float -0
   float c_float_n0 = -0.;
-// CHECK: %float_4_2 = OpConstant %float 4.2
-  float c_float_4_2 = 4.2;
-// CHECK: %float_n4_2 = OpConstant %float -4.2
+// CHECK: %float_4_25 = OpConstant %float 4.25
+  float c_float_4_25 = 4.25;
+// CHECK: %float_n4_19999981 = OpConstant %float -4.19999981
   float c_float_n4_2 = -4.2;
 }

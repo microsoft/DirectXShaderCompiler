@@ -19,8 +19,8 @@ cbuffer Constants {
 // CHECK:          [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %Constants %int_0
 // CHECK-NEXT: [[uniform:%\d+]] = OpLoad %S [[ptr]]
 // CHECK-NEXT:     [[vec:%\d+]] = OpCompositeExtract %v4float [[uniform]] 0
-// CHECK-NEXT:     [[ptr:%\d+]] = OpAccessChain %_ptr_Private_v4float %private_struct %uint_0
-// CHECK-NEXT:                    OpStore [[ptr]] [[vec]]
+// CHECK-NEXT:  [[struct:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
+// CHECK-NEXT:                    OpStore %private_struct [[struct]]
 static const S private_struct = uniform_struct; // Unifrom -> Private
 
 float4 foo();
@@ -42,8 +42,8 @@ float4 foo()
 // CHECK:          [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %Constants %int_0
 // CHECK-NEXT: [[uniform:%\d+]] = OpLoad %S [[ptr]]
 // CHECK-NEXT:     [[vec:%\d+]] = OpCompositeExtract %v4float [[uniform]] 0
-// CHECK-NEXT:     [[ptr:%\d+]] = OpAccessChain %_ptr_Private_v4float %fn_private_struct %uint_0
-// CHECK-NEXT:                    OpStore [[ptr]] [[vec]]
+// CHECK-NEXT:  [[struct:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
+// CHECK-NEXT:                    OpStore %fn_private_struct [[struct]]
     static S fn_private_struct = uniform_struct; // Uniform -> Private
     return fn_private_struct.pos;
 }

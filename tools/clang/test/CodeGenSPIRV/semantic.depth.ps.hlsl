@@ -2,6 +2,8 @@
 
 // CHECK:                 OpEntryPoint Fragment %main "main" %in_var_A %gl_FragDepth
 
+// CHECK:                 OpExecutionMode %main DepthReplacing
+
 // CHECK:                 OpDecorate %gl_FragDepth BuiltIn FragDepth
 
 // CHECK: %gl_FragDepth = OpVariable %_ptr_Output_float Output

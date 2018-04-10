@@ -121,8 +121,7 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
         `-FloatingLiteral <col:20> 'float' 1.000000e+00
   */
 
-  // TODO: Should be a vector truncation warning here
-  acc.xy += b4.xy ? v0.xy : (v0 + 1.0F);                    /* fxc-warning {{X3206: implicit truncation of vector type}} */
+  acc.xy += b4.xy ? v0.xy : (v0 + 1.0F);                    /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   /*verify-ast
     CompoundAssignOperator <col:3, col:39> 'vector<float, 2>':'vector<float, 2>' lvalue vectorcomponent '+=' ComputeLHSTy='vector<float, 2>' ComputeResultTy='vector<float, 2>'
     |-HLSLVectorElementExpr <col:3, col:7> 'vector<float, 2>':'vector<float, 2>' lvalue vectorcomponent xy
@@ -146,7 +145,7 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
   acc += b4 ? v0.xy : 1.0F;                                 /* expected-error {{conditional operator condition and result dimensions mismatch.}} fxc-error {{X3017: cannot implicitly convert from 'float2' to 'float4'}} */
   acc += b4 ? v0.xy : (v0 + 1.0F);                          /* expected-error {{conditional operator condition and result dimensions mismatch.}} fxc-error {{X3017: cannot implicitly convert from 'float2' to 'const float4'}} */
   acc += b4.xy ? v0 : (v0 + 1.0F);                          /* expected-error {{conditional operator condition and result dimensions mismatch.}} fxc-error {{X3020: dimension of conditional does not match value}} */
-  acc += b4.xy ? v0 : (v0.xy + 1.0F);                       /* expected-error {{cannot convert from 'vector<float, 2>' to 'float4'}} fxc-error {{X3017: cannot implicitly convert from 'const float2' to 'float4'}} fxc-warning {{X3206: implicit truncation of vector type}} */
+  acc += b4.xy ? v0 : (v0.xy + 1.0F);                       /* expected-error {{cannot convert from 'vector<float, 2>' to 'float4'}} expected-warning {{implicit truncation of vector type}} fxc-error {{X3017: cannot implicitly convert from 'const float2' to 'float4'}} fxc-warning {{X3206: implicit truncation of vector type}} */
 
   // lit float/int
   acc += b4 ? v0 : 1.1;

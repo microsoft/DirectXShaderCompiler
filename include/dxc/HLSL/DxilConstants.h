@@ -66,6 +66,7 @@ namespace DXIL {
   const unsigned kMaxIAPatchControlPointCount = 32;
   const float kHSMaxTessFactorLowerBound = 1.0f;
   const float kHSMaxTessFactorUpperBound = 64.0f;
+  const unsigned kHSDefaultInputControlPointCount = 1;
   const unsigned kMaxCSThreadsPerGroup = 1024;
   const unsigned kMaxCSThreadGroupX	= 1024;
   const unsigned kMaxCSThreadGroupY	= 1024;

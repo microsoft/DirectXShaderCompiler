@@ -6458,11 +6458,11 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
 bool Parser::ParseRefQualifier(bool &RefQualifierIsLValueRef,
                                SourceLocation &RefQualifierLoc) {
   if (Tok.isOneOf(tok::amp, tok::ampamp)) {
-    // MS Change Starts
+    // HLSL Change Starts
     if (getLangOpts().HLSL) {
       Diag(Tok, diag::err_hlsl_unsupported_construct) << "reference qualifiers on functions";
     } else
-    // MS Change Ends
+    // HLSL Change Ends
     Diag(Tok, getLangOpts().CPlusPlus11 ?
          diag::warn_cxx98_compat_ref_qualifier :
          diag::ext_ref_qualifier);

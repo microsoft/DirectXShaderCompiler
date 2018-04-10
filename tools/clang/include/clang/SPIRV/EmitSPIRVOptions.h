@@ -13,6 +13,19 @@
 #include "llvm/ADT/StringRef.h"
 
 namespace clang {
+namespace spirv {
+/// Memory layout rules
+enum class LayoutRule {
+  Void,
+  GLSLStd140,
+  GLSLStd430,
+  RelaxedGLSLStd140, // std140 with relaxed vector layout
+  RelaxedGLSLStd430, // std430 with relaxed vector layout
+  FxcCTBuffer,       // fxc.exe layout rule for cbuffer/tbuffer
+  FxcSBuffer,        // fxc.exe layout rule for structured buffers
+};
+} // namespace spirv
+
 /// Structs for controlling behaviors of SPIR-V codegen.
 struct EmitSPIRVOptions {
   /// Disable legalization and optimization and emit raw SPIR-V
@@ -20,14 +33,24 @@ struct EmitSPIRVOptions {
   bool defaultRowMajor;
   bool disableValidation;
   bool invertY;
-  bool useGlslLayout;
+  bool useGlLayout;
+  bool useDxLayout;
   bool ignoreUnusedResources;
   bool enable16BitTypes;
+  bool enableReflect;
   llvm::StringRef stageIoOrder;
   llvm::SmallVector<uint32_t, 4> bShift;
   llvm::SmallVector<uint32_t, 4> tShift;
   llvm::SmallVector<uint32_t, 4> sShift;
   llvm::SmallVector<uint32_t, 4> uShift;
+  llvm::SmallVector<llvm::StringRef, 4> allowedExtensions;
+  llvm::StringRef targetEnv;
+  spirv::LayoutRule cBufferLayoutRule;
+  spirv::LayoutRule tBufferLayoutRule;
+  spirv::LayoutRule sBufferLayoutRule;
+
+  // Initializes dependent fields appropriately
+  void Initialize();
 };
 } // end namespace clang
 

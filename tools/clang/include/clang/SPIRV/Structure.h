@@ -220,7 +220,7 @@ struct Header {
   void collect(const WordConsumer &consumer);
 
   const uint32_t magicNumber;
-  const uint32_t version;
+  uint32_t version;
   const uint32_t generator;
   uint32_t bound;
   const uint32_t reserved;
@@ -293,6 +293,7 @@ public:
   /// destructive; the module will be consumed and cleared after calling it.
   void take(InstBuilder *builder);
 
+  inline void setVersion(uint32_t version);
   /// \brief Sets the id bound to the given bound.
   inline void setBound(uint32_t newBound);
 
@@ -305,6 +306,7 @@ public:
                             std::string targetName,
                             llvm::ArrayRef<uint32_t> intefaces);
   inline void addExecutionMode(Instruction &&);
+  inline void setShaderModelVersion(uint32_t);
   // TODO: source code debug information
   inline void addDebugName(uint32_t targetId, llvm::StringRef name,
                            llvm::Optional<uint32_t> memberIndex = llvm::None);
@@ -335,6 +337,7 @@ private:
   llvm::Optional<spv::MemoryModel> memoryModel;
   std::vector<EntryPoint> entryPoints;
   std::vector<Instruction> executionModes;
+  uint32_t shaderModelVersion;
   // TODO: source code debug information
   std::set<DebugName> debugNames;
   llvm::SetVector<std::pair<uint32_t, const Decoration *>> decorations;
@@ -445,8 +448,10 @@ TypeIdPair::TypeIdPair(const Type &ty, uint32_t id) : type(ty), resultId(id) {}
 // === Module inline implementations ===
 
 SPIRVModule::SPIRVModule()
-    : addressingModel(llvm::None), memoryModel(llvm::None) {}
+    : addressingModel(llvm::None), memoryModel(llvm::None),
+      shaderModelVersion(0) {}
 
+void SPIRVModule::setVersion(uint32_t version) { header.version = version; }
 void SPIRVModule::setBound(uint32_t newBound) { header.bound = newBound; }
 
 void SPIRVModule::addCapability(spv::Capability cap) {
@@ -484,6 +489,10 @@ void SPIRVModule::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
 
 void SPIRVModule::addExecutionMode(Instruction &&execMode) {
   executionModes.push_back(std::move(execMode));
+}
+
+void SPIRVModule::setShaderModelVersion(uint32_t version) {
+  shaderModelVersion = version;
 }
 
 void SPIRVModule::addDebugName(uint32_t targetId, llvm::StringRef name,

@@ -81,6 +81,68 @@ InstBuilder &InstBuilder::specConstantBinaryOp(spv::Op op, uint32_t result_type,
   TheInst.emplace_back(static_cast<uint32_t>(op));
   TheInst.emplace_back(lhs);
   TheInst.emplace_back(rhs);
+  return *this;
+}
+
+InstBuilder &InstBuilder::groupNonUniformOp(spv::Op op, uint32_t result_type,
+                                            uint32_t result_id,
+                                            uint32_t exec_scope) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+
+  // TODO: check op range
+
+  TheInst.reserve(4);
+  TheInst.emplace_back(static_cast<uint32_t>(op));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(exec_scope);
+
+  return *this;
+}
+
+InstBuilder &InstBuilder::groupNonUniformUnaryOp(
+    spv::Op op, uint32_t result_type, uint32_t result_id, uint32_t exec_scope,
+    llvm::Optional<spv::GroupOperation> groupOp, uint32_t operand) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+
+  // TODO: check op range
+
+  TheInst.reserve(5);
+  TheInst.emplace_back(static_cast<uint32_t>(op));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(exec_scope);
+  if (groupOp.hasValue())
+    TheInst.emplace_back(static_cast<uint32_t>(groupOp.getValue()));
+  TheInst.emplace_back(operand);
+
+  return *this;
+}
+
+InstBuilder &
+InstBuilder::groupNonUniformBinaryOp(spv::Op op, uint32_t result_type,
+                                     uint32_t result_id, uint32_t exec_scope,
+                                     uint32_t operand1, uint32_t operand2) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+
+  // TODO: check op range
+
+  TheInst.reserve(6);
+  TheInst.emplace_back(static_cast<uint32_t>(op));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(exec_scope);
+  TheInst.emplace_back(operand1);
+  TheInst.emplace_back(operand2);
 
   return *this;
 }

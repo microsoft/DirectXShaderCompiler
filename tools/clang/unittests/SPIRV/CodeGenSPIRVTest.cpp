@@ -68,6 +68,9 @@ TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
+TEST_F(FileTest, StructuredBufferArrayTypeError) {
+  runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, AppendStructuredBufferType) {
   runFileTest("type.append-structured-buffer.hlsl");
 }
@@ -89,9 +92,7 @@ TEST_F(FileTest, 16BitDisabledScalarConstants) {
   runFileTest("constant.scalar.16bit.disabled.hlsl");
 }
 TEST_F(FileTest, 16BitEnabledScalarConstants) {
-  // TODO: Fix spirv-val to make sure it respects the 16-bit extension.
-  runFileTest("constant.scalar.16bit.enabled.hlsl", Expect::Success,
-              /*runValidation*/ false);
+  runFileTest("constant.scalar.16bit.enabled.hlsl");
 }
 TEST_F(FileTest, 64BitScalarConstants) {
   runFileTest("constant.scalar.64bit.hlsl");
@@ -123,7 +124,11 @@ TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
 TEST_F(FileTest, UninitStaticResourceVar) {
   runFileTest("var.static.resource.hlsl");
 }
-TEST_F(FileTest, GlobalMatrixVar) { runFileTest("var.global-mat.hlsl"); }
+TEST_F(FileTest, ResourceArrayVar) { runFileTest("var.resource.array.hlsl"); }
+TEST_F(FileTest, GlobalsCBuffer) { runFileTest("var.globals.hlsl"); }
+TEST_F(FileTest, GlobalsCBufferError) {
+  runFileTest("var.globals.error.hlsl", Expect::Failure);
+}
 
 // For prefix/postfix increment/decrement
 TEST_F(FileTest, UnaryOpPrefixIncrement) {
@@ -165,6 +170,11 @@ TEST_F(FileTest, BinaryOpAssignImage) {
 }
 TEST_F(FileTest, BinaryOpAssignComposite) {
   runFileTest("binary-op.assign.composite.hlsl");
+}
+TEST_F(FileTest, BinaryOpAssignOpaqueArray) {
+  // Test that for copying opaque arrays, we load each element via access chain
+  // separately, create an composite, and then write out once
+  runFileTest("binary-op.assign.opaque.array.hlsl");
 }
 
 // For comma binary operator
@@ -210,6 +220,12 @@ TEST_F(FileTest, BinaryOpScalarBitwise) {
 TEST_F(FileTest, BinaryOpVectorBitwise) {
   runFileTest("binary-op.bitwise.vector.hlsl");
 }
+TEST_F(FileTest, BinaryOpBitwiseShiftLeft) {
+  runFileTest("binary-op.bitwise.shift-left.hlsl");
+}
+TEST_F(FileTest, BinaryOpBitwiseShiftRight) {
+  runFileTest("binary-op.bitwise.shift-right.hlsl");
+}
 
 // For bitwise assignments
 TEST_F(FileTest, BinaryOpScalarBitwiseAssign) {
@@ -217,6 +233,12 @@ TEST_F(FileTest, BinaryOpScalarBitwiseAssign) {
 }
 TEST_F(FileTest, BinaryOpVectorBitwiseAssign) {
   runFileTest("binary-op.bitwise-assign.vector.hlsl");
+}
+TEST_F(FileTest, BinaryOpBitwiseAssignShiftLeft) {
+  runFileTest("binary-op.bitwise-assign.shift-left.hlsl");
+}
+TEST_F(FileTest, BinaryOpBitwiseAssignShiftRight) {
+  runFileTest("binary-op.bitwise-assign.shift-right.hlsl");
 }
 
 // For comparison operators
@@ -476,9 +498,27 @@ TEST_F(FileTest, SemanticIsFrontFacePS) {
 TEST_F(FileTest, SemanticDispatchThreadId) {
   runFileTest("semantic.dispatch-thread-id.cs.hlsl");
 }
+TEST_F(FileTest, SemanticDispatchThreadIdUint) {
+  runFileTest("semantic.dispatch-thread-id.uint.cs.hlsl");
+}
+TEST_F(FileTest, SemanticDispatchThreadIdUint2) {
+  runFileTest("semantic.dispatch-thread-id.uint2.cs.hlsl");
+}
 TEST_F(FileTest, SemanticGroupID) { runFileTest("semantic.group-id.cs.hlsl"); }
+TEST_F(FileTest, SemanticGroupIDUint) {
+  runFileTest("semantic.group-id.uint.cs.hlsl");
+}
+TEST_F(FileTest, SemanticGroupIDUint2) {
+  runFileTest("semantic.group-id.uint2.cs.hlsl");
+}
 TEST_F(FileTest, SemanticGroupThreadID) {
   runFileTest("semantic.group-thread-id.cs.hlsl");
+}
+TEST_F(FileTest, SemanticGroupThreadIDUint) {
+  runFileTest("semantic.group-thread-id.uint.cs.hlsl");
+}
+TEST_F(FileTest, SemanticGroupThreadIDUint2) {
+  runFileTest("semantic.group-thread-id.uint2.cs.hlsl");
 }
 TEST_F(FileTest, SemanticGroupIndex) {
   runFileTest("semantic.group-index.cs.hlsl");
@@ -592,7 +632,7 @@ TEST_F(FileTest, SemanticCoverageTypeMismatchPS) {
   runFileTest("semantic.coverage.type-mismatch.ps.hlsl");
 }
 TEST_F(FileTest, SemanticInnerCoveragePS) {
-  runFileTest("semantic.inner-coverage.ps.hlsl", Expect::Failure);
+  runFileTest("semantic.inner-coverage.ps.hlsl");
 }
 TEST_F(FileTest, SemanticViewIDVS) { runFileTest("semantic.view-id.vs.hlsl"); }
 TEST_F(FileTest, SemanticViewIDHS) { runFileTest("semantic.view-id.hs.hlsl"); }
@@ -697,6 +737,12 @@ TEST_F(FileTest, TextureSampleCmpLevelZero) {
 }
 TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
   runFileTest("texture.array.sample-cmp-level-zero.hlsl");
+}
+TEST_F(FileTest, TextureNormalAndComparisonSample) {
+  // Check that we generate OpSampledImage derived from the appropriate
+  // OpTypeImage having the matching Depth value with the OpImageSample*
+  // instruction
+  runFileTest("texture.sample.sample-cmp.hlsl");
 }
 
 // For structured buffer methods
@@ -983,19 +1029,123 @@ TEST_F(FileTest, PrimitiveErrorGS) {
 }
 
 // Shader model 6.0 wave query
+TEST_F(FileTest, SM6WaveIsFirstLane) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-is-first-lane.hlsl");
+}
 TEST_F(FileTest, SM6WaveGetLaneCount) {
+  useVulkan1p1();
   runFileTest("sm6.wave-get-lane-count.hlsl");
 }
 TEST_F(FileTest, SM6WaveGetLaneIndex) {
+  useVulkan1p1();
   runFileTest("sm6.wave-get-lane-index.hlsl");
 }
 TEST_F(FileTest, SM6WaveBuiltInNoDuplicate) {
+  useVulkan1p1();
   runFileTest("sm6.wave.builtin.no-dup.hlsl");
 }
 
+// Shader model 6.0 wave vote
+TEST_F(FileTest, SM6WaveActiveAnyTrue) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-any-true.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveAllTrue) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-all-true.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveBallot) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-ballot.hlsl");
+}
+
+// Shader model 6.0 wave reduction
+TEST_F(FileTest, SM6WaveActiveAllEqual) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-all-equal.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveSum) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-sum.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveProduct) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-product.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveMax) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-max.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveMin) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-min.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveBitAnd) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-bit-and.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveBitOr) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-bit-or.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveBitXor) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-bit-xor.hlsl");
+}
+TEST_F(FileTest, SM6WaveActiveCountBits) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-active-count-bits.hlsl");
+}
+
+// Shader model 6.0 wave scan/prefix
+TEST_F(FileTest, SM6WavePrefixSum) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-prefix-sum.hlsl");
+}
+TEST_F(FileTest, SM6WavePrefixProduct) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-prefix-product.hlsl");
+}
+TEST_F(FileTest, SM6WavePrefixCountBits) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-prefix-count-bits.hlsl");
+}
+
 // Shader model 6.0 wave broadcast
+TEST_F(FileTest, SM6WaveReadLaneAt) {
+  useVulkan1p1();
+  runFileTest("sm6.wave-read-lane-at.hlsl");
+}
 TEST_F(FileTest, SM6WaveReadLaneFirst) {
+  useVulkan1p1();
   runFileTest("sm6.wave-read-lane-first.hlsl");
+}
+
+// Shader model 6.0 wave quad-wide shuffle
+TEST_F(FileTest, SM6QuadReadAcrossX) {
+  useVulkan1p1();
+  runFileTest("sm6.quad-read-across-x.hlsl");
+}
+TEST_F(FileTest, SM6QuadReadAcrossY) {
+  useVulkan1p1();
+  runFileTest("sm6.quad-read-across-y.hlsl");
+}
+TEST_F(FileTest, SM6QuadReadAcrossDiagonal) {
+  useVulkan1p1();
+  runFileTest("sm6.quad-read-across-diagonal.hlsl");
+}
+TEST_F(FileTest, SM6QuadReadLaneAt) {
+  useVulkan1p1();
+  runFileTest("sm6.quad-read-lane-at.hlsl");
+}
+
+// Test error on using wave ops on Vulkan 1.0 target environment.
+TEST_F(FileTest, WaveOpVulkan1Error) {
+  runFileTest("sm6.wave-op.target-vulkan1.error.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, WaveOpNoTargetEnvError) {
+  runFileTest("sm6.wave-op.no-target-env.error.hlsl", Expect::Failure);
 }
 
 // SPIR-V specific
@@ -1020,6 +1170,32 @@ TEST_F(FileTest, SpirvBuiltInHelperInvocationInvalidUsage) {
 }
 TEST_F(FileTest, SpirvBuiltInPointSizeInvalidUsage) {
   runFileTest("spirv.builtin.point-size.invalid.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvBuiltInShaderDrawParameters) {
+  runFileTest("spirv.builtin.shader-draw-parameters.hlsl");
+}
+TEST_F(FileTest, SpirvBuiltInShaderDrawParametersInvalidUsage) {
+  runFileTest("spirv.builtin.shader-draw-parameters.invalid.hlsl",
+              Expect::Failure);
+}
+TEST_F(FileTest, SpirvBuiltInDeviceIndex) {
+  runFileTest("spirv.builtin.device-index.hlsl");
+}
+TEST_F(FileTest, SpirvBuiltInDeviceIndexInvalidUsage) {
+  runFileTest("spirv.builtin.device-index.invalid.hlsl", Expect::Failure);
+}
+
+TEST_F(FileTest, SpirvExtensionCLAllow) {
+  runFileTest("spirv.ext.cl.allow.hlsl");
+}
+TEST_F(FileTest, SpirvExtensionCLForbid) {
+  runFileTest("spirv.ext.cl.forbid.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvExtensionCLUnknown) {
+  runFileTest("spirv.ext.cl.unknown.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvExtensionAllowAllKHR) {
+  runFileTest("spirv.ext.allow-all-khr.hlsl");
 }
 
 // For shader stage input/output interface
@@ -1193,6 +1369,12 @@ TEST_F(FileTest, VulkanLayoutCBufferNestedStd140) {
 TEST_F(FileTest, VulkanLayoutCBufferNestedEmptyStd140) {
   runFileTest("vk.layout.cbuffer.nested.empty.std140.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutCBufferBoolean) {
+  runFileTest("vk.layout.cbuffer.boolean.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutRWStructuredBufferBoolean) {
+  runFileTest("vk.layout.rwstructuredbuffer.boolean.hlsl");
+}
 TEST_F(FileTest, VulkanLayoutSBufferStd430) {
   runFileTest("vk.layout.sbuffer.std430.hlsl");
 }
@@ -1228,7 +1410,19 @@ TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
 }
 
 TEST_F(FileTest, VulkanLayoutCBufferPackOffset) {
-  runFileTest("vk.layout.cbuffer.packoffset.hlsl", Expect::Warning);
+  runFileTest("vk.layout.cbuffer.packoffset.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutCBufferPackOffsetError) {
+  runFileTest("vk.layout.cbuffer.packoffset.error.hlsl", Expect::Failure);
+}
+
+TEST_F(FileTest, VulkanLayoutFxcRulesSBuffer) {
+  // structured buffers with fxc layout rules
+  runFileTest("vk.layout.sbuffer.fxc.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
+  // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
+  runFileTest("vk.layout.cbuffer.fxc.hlsl");
 }
 
 TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
@@ -1241,6 +1435,16 @@ TEST_F(FileTest, VulkanSubpassInputError) {
 
 TEST_F(FileTest, NonFpColMajorError) {
   runFileTest("vk.layout.non-fp-matrix.error.hlsl", Expect::Failure);
+}
+
+TEST_F(FileTest, NamespaceFunctions) {
+  runFileTest("namespace.functions.hlsl");
+}
+TEST_F(FileTest, NamespaceGlobals) {
+  runFileTest("namespace.globals.hlsl");
+}
+TEST_F(FileTest, NamespaceResources) {
+  runFileTest("namespace.resources.hlsl");
 }
 
 // HS: for different Patch Constant Functions

@@ -18,12 +18,18 @@
 namespace clang {
 namespace spirv {
 
-ModuleBuilder::ModuleBuilder(SPIRVContext *C)
-    : theContext(*C), theModule(), theFunction(nullptr), insertPoint(nullptr),
+ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
+                             bool reflect)
+    : theContext(*C), featureManager(features), allowReflect(reflect),
+      theModule(), theFunction(nullptr), insertPoint(nullptr),
       instBuilder(nullptr), glslExtSetId(0) {
   instBuilder.setConsumer([this](std::vector<uint32_t> &&words) {
     this->constructSite = std::move(words);
   });
+
+  // Set the SPIR-V version if needed.
+  if (featureManager && featureManager->getTargetEnv() == SPV_ENV_VULKAN_1_1)
+    theModule.setVersion(0x00010300);
 }
 
 std::vector<uint32_t> ModuleBuilder::takeModule() {
@@ -244,6 +250,42 @@ uint32_t ModuleBuilder::createSpecConstantBinaryOp(spv::Op op,
   const uint32_t id = theContext.takeNextId();
   instBuilder.specConstantBinaryOp(op, resultType, id, lhs, rhs).x();
   theModule.addVariable(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createGroupNonUniformOp(spv::Op op, uint32_t resultType,
+                                                uint32_t execScope) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.groupNonUniformOp(op, resultType, id, execScope).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createGroupNonUniformUnaryOp(
+    spv::Op op, uint32_t resultType, uint32_t execScope, uint32_t operand,
+    llvm::Optional<spv::GroupOperation> groupOp) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder
+      .groupNonUniformUnaryOp(op, resultType, id, execScope, groupOp, operand)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createGroupNonUniformBinaryOp(spv::Op op,
+                                                      uint32_t resultType,
+                                                      uint32_t execScope,
+                                                      uint32_t operand1,
+                                                      uint32_t operand2) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder
+      .groupNonUniformBinaryOp(op, resultType, id, execScope, operand1,
+                               operand2)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
   return id;
 }
 
@@ -705,18 +747,6 @@ void ModuleBuilder::createEndPrimitive() {
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
-uint32_t ModuleBuilder::createSubgroupFirstInvocation(uint32_t resultType,
-                                                      uint32_t value) {
-  assert(insertPoint && "null insert point");
-  addExtension("SPV_KHR_shader_ballot");
-  requireCapability(spv::Capability::SubgroupBallotKHR);
-
-  uint32_t resultId = theContext.takeNextId();
-  instBuilder.opSubgroupFirstInvocationKHR(resultType, resultId, value).x();
-  insertPoint->appendInstruction(std::move(constructSite));
-  return resultId;
-}
-
 void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
                                      spv::ExecutionMode em,
                                      llvm::ArrayRef<uint32_t> params) {
@@ -726,6 +756,16 @@ void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
   }
   instBuilder.x();
   theModule.addExecutionMode(std::move(constructSite));
+}
+
+void ModuleBuilder::addExtension(Extension ext, llvm::StringRef target,
+                                 SourceLocation srcLoc) {
+  assert(featureManager);
+  featureManager->requestExtension(ext, target, srcLoc);
+  // Do not emit OpExtension if the given extension is natively supported in the
+  // target environment.
+  if (featureManager->isExtensionRequiredForTargetEnv(ext))
+    theModule.addExtension(featureManager->getExtensionName(ext));
 }
 
 uint32_t ModuleBuilder::getGLSLExtInstSet() {
@@ -783,10 +823,35 @@ void ModuleBuilder::decorateDSetBinding(uint32_t targetId, uint32_t setNumber,
   d = Decoration::getBinding(theContext, bindingNumber);
   theModule.addDecoration(d, targetId);
 }
+
 void ModuleBuilder::decorateInputAttachmentIndex(uint32_t targetId,
                                                  uint32_t indexNumber) {
   const auto *d = Decoration::getInputAttachmentIndex(theContext, indexNumber);
   theModule.addDecoration(d, targetId);
+}
+
+void ModuleBuilder::decorateCounterBufferId(uint32_t mainBufferId,
+                                            uint32_t counterBufferId) {
+  if (allowReflect) {
+    addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
+                 {});
+    theModule.addDecoration(
+        Decoration::getHlslCounterBufferGOOGLE(theContext, counterBufferId),
+        mainBufferId);
+  }
+}
+
+void ModuleBuilder::decorateHlslSemantic(uint32_t targetId,
+                                         llvm::StringRef semantic,
+                                         llvm::Optional<uint32_t> memberIdx) {
+  if (allowReflect) {
+    addExtension(Extension::GOOGLE_decorate_string, "SPIR-V reflection", {});
+    addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
+                 {});
+    theModule.addDecoration(
+        Decoration::getHlslSemanticGOOGLE(theContext, semantic, memberIdx),
+        targetId);
+  }
 }
 
 void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
@@ -855,7 +920,7 @@ IMPL_GET_PRIMITIVE_TYPE(Float32)
                                                                                \
   uint32_t ModuleBuilder::get##ty##Type() {                                    \
     if (spv::Capability::cap == spv::Capability::Float16)                      \
-      theModule.addExtension("SPV_AMD_gpu_shader_half_float");                 \
+      addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float", {});  \
     else                                                                       \
       requireCapability(spv::Capability::cap);                                 \
     const Type *type = Type::get##ty(theContext);                              \

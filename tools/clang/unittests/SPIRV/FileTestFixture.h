@@ -10,6 +10,7 @@
 #ifndef LLVM_CLANG_UNITTESTS_SPIRV_FILE_TEST_FIXTURE_H
 #define LLVM_CLANG_UNITTESTS_SPIRV_FILE_TEST_FIXTURE_H
 
+#include "spirv-tools/libspirv.h"
 #include "llvm/ADT/StringRef.h"
 #include "gtest/gtest.h"
 
@@ -24,6 +25,10 @@ public:
     Warning, // Success (with warnings) - check warning message
     Failure, // Failure (with errors) - check error message
   };
+
+  FileTest() : targetEnv(SPV_ENV_VULKAN_1_0) {}
+
+  void useVulkan1p1() { targetEnv = SPV_ENV_VULKAN_1_1; }
 
   /// \brief Runs a File Test! (See class description for more info)
   void runFileTest(llvm::StringRef path, Expect expect = Expect::Success,
@@ -40,6 +45,7 @@ private:
   std::vector<uint32_t> generatedBinary; ///< The generated SPIR-V Binary
   std::string checkCommands;             ///< CHECK commands that verify output
   std::string generatedSpirvAsm;         ///< Disassembled binary (SPIR-V code)
+  spv_target_env targetEnv;              ///< Environment to validate against
 };
 
 } // end namespace spirv

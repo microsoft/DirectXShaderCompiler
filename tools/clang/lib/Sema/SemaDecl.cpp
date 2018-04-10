@@ -7640,20 +7640,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
           NewFD->setInvalidDecl();
       }
     }
-
-    // HLSL Change Starts - error on typedef or type alias of void parameter
-    if (getLangOpts().HLSL && FTI.NumParams && FTIHasSingleVoidParameter(FTI)) {
-      ParmVarDecl *Param = cast<ParmVarDecl>(FTI.Params[0].Param);
-      bool IsTypeAlias = false;
-      if (const TypedefType *TT = Param->getType()->getAs<TypedefType>())
-        IsTypeAlias = isa<TypeAliasDecl>(TT->getDecl());
-      else if (const TemplateSpecializationType *TST =
-                 Param->getType()->getAs<TemplateSpecializationType>())
-        IsTypeAlias = TST->isTypeAlias();
-      Diag(Param->getLocation(), diag::err_hlsl_param_typedef_of_void) << IsTypeAlias;
-    }
-    // HLSL Change Ends
-
   } else if (const FunctionProtoType *FT = R->getAs<FunctionProtoType>()) {
     // When we're declaring a function with a typedef, typeof, etc as in the
     // following example, we'll need to synthesize (unnamed)

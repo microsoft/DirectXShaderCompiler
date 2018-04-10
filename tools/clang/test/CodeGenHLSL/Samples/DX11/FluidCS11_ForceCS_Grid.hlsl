@@ -6,7 +6,6 @@
 // CHECK: FMin
 // CHECK: IMax
 // CHECK: IMin
-// CHECK: IMad
 // CHECK: dot2
 // CHECK: Log
 // CHECK: Exp

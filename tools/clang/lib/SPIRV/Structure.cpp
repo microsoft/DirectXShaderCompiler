@@ -138,9 +138,9 @@ void Function::take(InstBuilder *builder) {
   // validation rules.
   std::vector<BasicBlock *> orderedBlocks;
   if (!blocks.empty()) {
-    BlockReadableOrderVisitor([&orderedBlocks](BasicBlock *block) {
-      orderedBlocks.push_back(block);
-    }).visit(blocks.front().get());
+    BlockReadableOrderVisitor(
+        [&orderedBlocks](BasicBlock *block) { orderedBlocks.push_back(block); })
+        .visit(blocks.front().get());
   }
 
   // Write out all basic blocks.
@@ -162,9 +162,9 @@ void Function::addVariable(uint32_t varType, uint32_t varId,
 
 void Function::getReachableBasicBlocks(std::vector<BasicBlock *> *bbVec) const {
   if (!blocks.empty()) {
-    BlockReadableOrderVisitor([&bbVec](BasicBlock *block) {
-      bbVec->push_back(block);
-    }).visit(blocks.front().get());
+    BlockReadableOrderVisitor(
+        [&bbVec](BasicBlock *block) { bbVec->push_back(block); })
+        .visit(blocks.front().get());
   }
 }
 
@@ -172,7 +172,7 @@ void Function::getReachableBasicBlocks(std::vector<BasicBlock *> *bbVec) const {
 
 Header::Header()
     // We are using the unfied header, which shows spv::Version as the newest
-    // version. But we need to stick to 1.0 for Vulkan consumption.
+    // version. But we need to stick to 1.0 for Vulkan consumption by default.
     : magicNumber(spv::MagicNumber), version(0x00010000),
       generator((kGeneratorNumber << 16) | kToolVersion), bound(0),
       reserved(0) {}
@@ -281,6 +281,12 @@ void SPIRVModule::take(InstBuilder *builder) {
   for (auto &inst : executionModes) {
     consumer(inst.take());
   }
+
+  if (shaderModelVersion != 0)
+    builder
+        ->opSource(spv::SourceLanguage::HLSL, shaderModelVersion, llvm::None,
+                   llvm::None)
+        .x();
 
   // BasicBlock debug names should be emitted only for blocks that are
   // reachable.

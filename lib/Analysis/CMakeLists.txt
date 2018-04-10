@@ -27,6 +27,7 @@ add_llvm_library(LLVMAnalysis
   DominanceFrontier.cpp
   DxilConstantFolding.cpp
   DxilConstantFoldingExt.cpp
+  DxilSimplify.cpp
   IVUsers.cpp
   InstCount.cpp
   InstructionSimplify.cpp

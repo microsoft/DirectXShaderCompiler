@@ -260,6 +260,8 @@ class db_instrhelp_gen:
                 print("    return true;")
                 # TODO - check operand types
                 print("  }")
+                print("  // Metadata")
+                print("  bool requiresUniformInputs() const { return %s; }" % self.bool_lit(i.requires_uniform_inputs))
                 EnumWritten = False
                 for o in i.ops:
                     if o.pos > 1: # 0 is return type, 1 is DXIL OP id

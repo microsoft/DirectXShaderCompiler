@@ -4,4 +4,5 @@
 // CHECK: OpDecorate %gl_WorkGroupID BuiltIn WorkgroupId
 // CHECK: %gl_WorkGroupID = OpVariable %_ptr_Input_v3uint Input
 
+[numthreads(8, 8, 8)]
 void main(uint3 tid : SV_GroupID) {}

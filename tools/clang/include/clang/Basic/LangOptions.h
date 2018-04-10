@@ -148,7 +148,7 @@ public:
 
 #endif
 
-  // MS Change Starts
+  // HLSL Change Starts
   unsigned HLSLVersion;  // Only supported for IntelliSense scenarios.
   std::string HLSLEntryFunction;
   std::string HLSLProfile;
@@ -156,7 +156,7 @@ public:
   unsigned RootSigMinor;
   bool IsHLSLLibrary;
   bool UseMinPrecision; // use min precision, not native precision.
-  // MS Change Ends
+  // HLSL Change Ends
 
   bool SPIRV = false;  // SPIRV Change
   

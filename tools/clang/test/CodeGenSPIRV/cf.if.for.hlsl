@@ -7,10 +7,10 @@ float4 main(float color: COLOR) : SV_TARGET {
     float val = 0.;
 
 // CHECK-NEXT: [[color0:%\d+]] = OpLoad %float %color
-// CHECK-NEXT: [[lt0:%\d+]] = OpFOrdLessThan %bool [[color0]] %float_0_3
+// CHECK-NEXT: [[lt0:%\d+]] = OpFOrdLessThan %bool [[color0]] %float_0_5
 // CHECK-NEXT: OpSelectionMerge %if_merge None
 // CHECK-NEXT: OpBranchConditional [[lt0]] %if_true %if_merge
-    if (color < 0.3) {
+    if (color < 0.5) {
 // CHECK-LABEL: %if_true = OpLabel
 // CHECK-NEXT: OpStore %val %float_1
         val = 1.;
@@ -123,10 +123,10 @@ float4 main(float color: COLOR) : SV_TARGET {
 
     // if-stmt following for-stmt
 // CHECK-NEXT: [[color3:%\d+]] = OpLoad %float %color
-// CHECK-NEXT: [[lt7:%\d+]] = OpFOrdLessThan %bool [[color3]] %float_0_9
+// CHECK-NEXT: [[lt7:%\d+]] = OpFOrdLessThan %bool [[color3]] %float_1_5
 // CHECK-NEXT: OpSelectionMerge %if_merge_3 None
 // CHECK-NEXT: OpBranchConditional [[lt7]] %if_true_3 %if_merge_3
-    if (color < 0.9) {
+    if (color < 1.5) {
 // CHECK-LABEL: %if_true_3 = OpLabel
 // CHECK: OpStore %val
         val = val + 6.;

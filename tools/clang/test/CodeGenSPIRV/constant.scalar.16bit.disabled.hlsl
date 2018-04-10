@@ -18,10 +18,10 @@
 void main() {
 // Note: in the absence of "-enable-16bit-types" option,
 // 'half' is translated to float *without* RelaxedPrecision decoration.
-// CHECK: %float_7_7 = OpConstant %float 7.7
-  half c_half_4_5 = 7.7;
-// CHECK: %float_n8_8 = OpConstant %float -8.8
-  half c_half_n8_2 = -8.8;
+// CHECK: %float_7_5 = OpConstant %float 7.5
+  half c_half_7_5 = 7.5;
+// CHECK: %float_n8_80000019 = OpConstant %float -8.80000019
+  half c_half_n8_8 = -8.8;
 
 // Note: in the absence of "-enable-16bit-type" option,
 // 'min{10|16}float' are translated to
@@ -41,6 +41,6 @@ void main() {
 // CHECK: %int_n9 = OpConstant %int -9
   min12int c_min12int = -9;
 // It seems that min12uint is still not supported by the front-end.
-// XXXXX: %uint_12 = OpConstant %uint 12 
+// XXXXX: %uint_12 = OpConstant %uint 12
 //  min12uint c_min12uint = 12;
 }
