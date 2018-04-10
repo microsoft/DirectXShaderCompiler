@@ -592,7 +592,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
 
     llvm::SmallVector<const Decoration *, 4> decorations;
     if (rule != LayoutRule::Void) {
-      decorations = getLayoutDecorations(decl, rule);
+      decorations = getLayoutDecorations(collectDeclsInDeclContext(decl), rule);
     }
 
     return theBuilder.getStructType(fieldTypes, decl->getName(), fieldNames,
@@ -1154,39 +1154,32 @@ bool TypeTranslator::shouldSkipInStructLayout(const Decl *decl) {
       decl->getDeclContext()->getLexicalParent()->isTranslationUnit())
     return true;
 
-  // For others we can check their DeclContext directly.
-  if (decl->getDeclContext()->isTranslationUnit()) {
-    // External visibility
-    if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
-      if (!declDecl->hasExternalFormalLinkage())
-        return true;
-
-    // cbuffer/tbuffer
-    if (isa<HLSLBufferDecl>(decl))
+  // External visibility
+  if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
+    if (!declDecl->hasExternalFormalLinkage())
       return true;
 
-    // Other resource types
-    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
-      if (isResourceType(valueDecl))
-        return true;
-  }
+  // cbuffer/tbuffer
+  if (isa<HLSLBufferDecl>(decl))
+    return true;
+
+  // Other resource types
+  if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
+    if (isResourceType(valueDecl))
+      return true;
 
   return false;
 }
 
-llvm::SmallVector<const Decoration *, 4>
-TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
+llvm::SmallVector<const Decoration *, 4> TypeTranslator::getLayoutDecorations(
+    const llvm::SmallVector<const Decl *, 4> &decls, LayoutRule rule) {
   const auto spirvContext = theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 4> decorations;
   uint32_t offset = 0, index = 0;
-
-  for (const auto *field : decl->decls()) {
-    if (shouldSkipInStructLayout(field))
-      continue;
-
+  for (const auto *decl : decls) {
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
-    const auto *declDecl = cast<DeclaratorDecl>(field);
+    const auto *declDecl = cast<DeclaratorDecl>(decl);
     auto fieldType = declDecl->getType();
 
     uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
@@ -1205,7 +1198,7 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
       offset = roundToPow2(offset, memberAlignment);
 
     // The vk::offset attribute takes precedence over all.
-    if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
+    if (const auto *offsetAttr = decl->getAttr<VKOffsetAttr>()) {
       offset = offsetAttr->getOffset();
     }
     // The :packoffset() annotation takes precedence over normal layout
@@ -1264,6 +1257,40 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
   }
 
   return decorations;
+}
+
+void TypeTranslator::collectDeclsInNamespace(
+    const NamespaceDecl *nsDecl, llvm::SmallVector<const Decl *, 4> *decls) {
+  for (const auto *decl : nsDecl->decls()) {
+    collectDeclsInField(decl, decls);
+  }
+}
+
+void TypeTranslator::collectDeclsInField(
+    const Decl *field, llvm::SmallVector<const Decl *, 4> *decls) {
+
+  // Case of nested namespaces.
+  if (const auto *nsDecl = dyn_cast<NamespaceDecl>(field)) {
+    collectDeclsInNamespace(nsDecl, decls);
+  }
+
+  if (shouldSkipInStructLayout(field))
+    return;
+
+  if (!isa<DeclaratorDecl>(field)) {
+    return;
+  }
+
+  (*decls).push_back(field);
+}
+
+const llvm::SmallVector<const Decl *, 4>
+TypeTranslator::collectDeclsInDeclContext(const DeclContext *declContext) {
+  llvm::SmallVector<const Decl *, 4> decls;
+  for (const auto *field : declContext->decls()) {
+    collectDeclsInField(field, &decls);
+  }
+  return decls;
 }
 
 uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,

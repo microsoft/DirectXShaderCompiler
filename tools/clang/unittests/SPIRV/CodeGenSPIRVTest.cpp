@@ -1440,6 +1440,12 @@ TEST_F(FileTest, NonFpColMajorError) {
 TEST_F(FileTest, NamespaceFunctions) {
   runFileTest("namespace.functions.hlsl");
 }
+TEST_F(FileTest, NamespaceGlobals) {
+  runFileTest("namespace.globals.hlsl");
+}
+TEST_F(FileTest, NamespaceResources) {
+  runFileTest("namespace.resources.hlsl");
+}
 
 // HS: for different Patch Constant Functions
 TEST_F(FileTest, HullShaderPCFVoid) { runFileTest("hs.pcf.void.hlsl"); }
