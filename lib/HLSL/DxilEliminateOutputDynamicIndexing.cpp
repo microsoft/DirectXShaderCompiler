@@ -13,6 +13,7 @@
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilSignatureElement.h"
 #include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/DxilInstructions.h"
 
@@ -123,10 +124,10 @@ bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
   if (dynamicSigSet.empty())
     return false;
 
-  IRBuilder<> Builder(Entry->getEntryBlock().getFirstInsertionPt());
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Entry));
 
-  Value *opcodeV = Builder.getInt32(static_cast<unsigned>(opcode));
-  Value *zero = Builder.getInt32(0);
+  Value *opcodeV = AllocaBuilder.getInt32(static_cast<unsigned>(opcode));
+  Value *zero = AllocaBuilder.getInt32(0);
 
   for (auto sig : dynamicSigSet) {
     Value *sigID = sig.first;
@@ -139,7 +140,7 @@ bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
 
     std::vector<Value *> tmpSigElts(col);
     for (unsigned c = 0; c < col; c++) {
-      Value *newCol = Builder.CreateAlloca(AT);
+      Value *newCol = AllocaBuilder.CreateAlloca(AT);
       tmpSigElts[c] = newCol;
     }
 

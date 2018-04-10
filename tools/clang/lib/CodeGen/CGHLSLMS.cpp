@@ -6502,15 +6502,14 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     Value *tmpArgAddr = nullptr;
     BasicBlock *InsertBlock = CGF.Builder.GetInsertBlock();
     Function *F = InsertBlock->getParent();
-    BasicBlock *EntryBlock = &F->getEntryBlock();
 
     if (ParamTy->isBooleanType()) {
       // Create i32 for bool.
       ParamTy = CGM.getContext().IntTy;
     }
     // Make sure the alloca is in entry block to stop inline create stacksave.
-    IRBuilder<> Builder(EntryBlock->getFirstInsertionPt());
-    tmpArgAddr = Builder.CreateAlloca(CGF.ConvertType(ParamTy));
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
+    tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertType(ParamTy));
 
       
     // add it to local decl map
