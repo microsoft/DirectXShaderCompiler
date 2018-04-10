@@ -34,7 +34,6 @@
 
 using namespace llvm;
 using namespace hlsl;
-using namespace hlsl::DXIL::PSV;
 using namespace hlsl::DXIL::RDAT;
 
 static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::TessellatorDomain domain) {
