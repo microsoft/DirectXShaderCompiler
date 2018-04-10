@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_1 %s | FileCheck %s
 
 // Make sure handle store not unpack.
-// CHECK: store %dx.types.Handle %g_samLinear_sampler, %dx.types.Handle*
+// CHECK: store %struct.SamplerState {{.*}}, %struct.SamplerState*
 
 SamplerState    g_samLinear;
 

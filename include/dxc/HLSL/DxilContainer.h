@@ -82,6 +82,7 @@ enum DxilFourCC {
   DFCC_RootSignature            = DXIL_FOURCC('R', 'T', 'S', '0'),
   DFCC_DXIL                     = DXIL_FOURCC('D', 'X', 'I', 'L'),
   DFCC_PipelineStateValidation  = DXIL_FOURCC('P', 'S', 'V', '0'),
+  DFCC_RuntimeData              = DXIL_FOURCC('R', 'D', 'A', 'T'),
 };
 
 #undef DXIL_FOURCC

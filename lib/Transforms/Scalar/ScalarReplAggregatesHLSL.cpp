@@ -108,9 +108,10 @@ private:
   void RewriteForAddrSpaceCast(ConstantExpr *user, IRBuilder<> &Builder);
   void RewriteForLoad(LoadInst *loadInst);
   void RewriteForStore(StoreInst *storeInst);
-  void RewriteMemIntrin(MemIntrinsic *MI, Instruction *Inst);
+  void RewriteMemIntrin(MemIntrinsic *MI, Value *OldV);
   void RewriteCall(CallInst *CI);
   void RewriteBitCast(BitCastInst *BCI);
+  void RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn, bool bOut);
 };
 
 struct SROA_HLSL : public FunctionPass {
@@ -1604,7 +1605,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
       // separate elements.
       if (ShouldAttemptScalarRepl(AI) && isSafeAllocaToScalarRepl(AI)) {
         std::vector<Value *> Elts;
-        IRBuilder<> Builder(AI);
+        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(AI));
         bool hasPrecise = HLModule::HasPreciseAttributeWithMetadata(AI);
 
         bool SROAed = SROA_Helper::DoScalarReplacement(
@@ -1751,9 +1752,18 @@ void SROA_HLSL::isSafeForScalarRepl(Instruction *I, uint64_t Offset,
       isSafePHISelectUseForScalarRepl(User, Offset, Info);
     } else if (CallInst *CI = dyn_cast<CallInst>(User)) {
       HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-      // HL functions are safe for scalar repl.
-      if (group == HLOpcodeGroup::NotHL)
+      // Most HL functions are safe for scalar repl.
+      if (HLOpcodeGroup::NotHL == group)
         return MarkUnsafe(Info, User);
+      else if (HLOpcodeGroup::HLIntrinsic == group) {
+        // TODO: should we check HL parameter type for UDT overload instead of basing on IOP?
+        IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
+        if (IntrinsicOp::IOP_TraceRay == opcode ||
+            IntrinsicOp::IOP_ReportHit == opcode ||
+            IntrinsicOp::IOP_CallShader == opcode) {
+          return MarkUnsafe(Info, User);
+        }
+      }
     } else {
       return MarkUnsafe(Info, User);
     }
@@ -2819,7 +2829,7 @@ void SROA_Helper::RewriteForStore(StoreInst *SI) {
 }
 /// RewriteMemIntrin - MI is a memcpy/memset/memmove from or to AI.
 /// Rewrite it to copy or set the elements of the scalarized memory.
-void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Instruction *Inst) {
+void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Value *OldV) {
   // If this is a memcpy/memmove, construct the other pointer as the
   // appropriate type.  The "Other" pointer is the pointer that goes to memory
   // that doesn't have anything to do with the alloca that we are promoting. For
@@ -2827,10 +2837,10 @@ void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Instruction *Inst) {
   Value *OtherPtr = nullptr;
   unsigned MemAlignment = MI->getAlignment();
   if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(MI)) { // memmove/memcopy
-    if (Inst == MTI->getRawDest())
+    if (OldV == MTI->getRawDest())
       OtherPtr = MTI->getRawSource();
     else {
-      assert(Inst == MTI->getRawSource());
+      assert(OldV == MTI->getRawSource());
       OtherPtr = MTI->getRawDest();
     }
   }
@@ -2872,7 +2882,7 @@ void SROA_Helper::RewriteMemIntrin(MemIntrinsic *MI, Instruction *Inst) {
   }
 
   // Process each element of the aggregate.
-  bool SROADest = MI->getRawDest() == Inst;
+  bool SROADest = MI->getRawDest() == OldV;
 
   Constant *Zero = Constant::getNullValue(Type::getInt32Ty(MI->getContext()));
   const DataLayout &DL = MI->getModule()->getDataLayout();
@@ -3051,6 +3061,35 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   RewriteForGEP(cast<GEPOperator>(GEP), GEPBuilder);
 }
 
+/// RewriteCallArg - For Functions which don't flat,
+///                  replace OldVal with alloca and
+///                  copy in copy out data between alloca and flattened NewElts
+///                  in CallInst.
+void SROA_Helper::RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn,
+                                 bool bOut) {
+  Function *F = CI->getParent()->getParent();
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
+  const DataLayout &DL = F->getParent()->getDataLayout();
+
+  Value *userTyV = CI->getArgOperand(ArgIdx);
+  PointerType *userTy = cast<PointerType>(userTyV->getType());
+  Type *userTyElt = userTy->getElementType();
+  Value *Alloca = AllocaBuilder.CreateAlloca(userTyElt);
+  IRBuilder<> Builder(CI);
+  if (bIn) {
+    MemCpyInst *cpy = cast<MemCpyInst>(Builder.CreateMemCpy(
+        Alloca, userTyV, DL.getTypeAllocSize(userTyElt), false));
+    RewriteMemIntrin(cpy, cpy->getRawSource());
+  }
+  CI->setArgOperand(ArgIdx, Alloca);
+  if (bOut) {
+    Builder.SetInsertPoint(CI->getNextNode());
+    MemCpyInst *cpy = cast<MemCpyInst>(Builder.CreateMemCpy(
+        userTyV, Alloca, DL.getTypeAllocSize(userTyElt), false));
+    RewriteMemIntrin(cpy, cpy->getRawSource());
+  }
+}
+
 /// RewriteCall - Replace OldVal with flattened NewElts in CallInst.
 void SROA_Helper::RewriteCall(CallInst *CI) {
   HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
@@ -3088,6 +3127,27 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         Builder.CreateCall(flatF, flatArgs);
 
         DeadInsts.push_back(CI);
+      } break;
+      case IntrinsicOp::IOP_TraceRay: {
+        if (OldVal ==
+            CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx)) {
+          RewriteCallArg(CI, HLOperandIndex::kTraceRayRayDescOpIdx,
+                         /*bIn*/ true, /*bOut*/ false);
+        } else {
+          DXASSERT(OldVal ==
+                       CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx),
+                   "else invalid TraceRay");
+          RewriteCallArg(CI, HLOperandIndex::kTraceRayPayLoadOpIdx,
+                         /*bIn*/ true, /*bOut*/ true);
+        }
+      } break;
+      case IntrinsicOp::IOP_ReportHit: {
+        RewriteCallArg(CI, HLOperandIndex::kReportIntersectionAttributeOpIdx,
+                       /*bIn*/ true, /*bOut*/ false);
+      } break;
+      case IntrinsicOp::IOP_CallShader: {
+        RewriteCallArg(CI, HLOperandIndex::kBinaryOpSrc1Idx,
+                       /*bIn*/ true, /*bOut*/ true);
       } break;
       default:
         DXASSERT(0, "cannot flatten hlsl intrinsic.");
@@ -3209,7 +3269,9 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
   // Skip matrix types.
   if (HLMatrixLower::IsMatrixType(Ty))
     return false;
-  
+
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
+
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
     // Skip HLSL object types.
     if (HLModule::IsHLSLObjectType(ST)) {
@@ -3223,7 +3285,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
     if (SA && SA->IsEmptyStruct())
       return true;
     for (int i = 0, e = numTypes; i != e; ++i) {
-      AllocaInst *NA = Builder.CreateAlloca(ST->getContainedType(i), nullptr, V->getName() + "." + Twine(i));
+      AllocaInst *NA = AllocaBuilder.CreateAlloca(ST->getContainedType(i), nullptr, V->getName() + "." + Twine(i));
       bool markPrecise = hasPrecise;
       if (SA) {
         DxilFieldAnnotation &FA = SA->GetFieldAnnotation(i);
@@ -3264,7 +3326,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
         if (SA && SA->IsEmptyStruct())
           return true;
         for (int i = 0, e = numTypes; i != e; ++i) {
-          AllocaInst *NA = Builder.CreateAlloca(
+          AllocaInst *NA = AllocaBuilder.CreateAlloca(
               CreateNestArrayTy(ElST->getContainedType(i), nestArrayTys),
               nullptr, V->getName() + "." + Twine(i));
           bool markPrecise = hasPrecise;
@@ -3284,7 +3346,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
             nestArrayTys.size() > 1)
           return false;
         for (int i = 0, e = AT->getNumElements(); i != e; ++i) {
-          AllocaInst *NA = Builder.CreateAlloca(ElTy, nullptr,
+          AllocaInst *NA = AllocaBuilder.CreateAlloca(ElTy, nullptr,
                                                 V->getName() + "." + Twine(i));
           Elts.push_back(NA);
         }
@@ -3302,7 +3364,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
       ArrayType *scalarArrayTy = CreateNestArrayTy(ElVT->getElementType(), nestArrayTys);
 
       for (int i = 0, e = ElVT->getNumElements(); i != e; ++i) {
-        AllocaInst *NA = Builder.CreateAlloca(scalarArrayTy, nullptr, 
+        AllocaInst *NA = AllocaBuilder.CreateAlloca(scalarArrayTy, nullptr,
                            V->getName() + "." + Twine(i));
         if (hasPrecise)
           HLModule::MarkPreciseAttributeWithMetadata(NA);
@@ -3916,6 +3978,10 @@ bool SROA_Helper::IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys) {
 // SROA on function parameters.
 //===----------------------------------------------------------------------===//
 
+static void LegalizeDxilInputOutputs(Function *F,
+  DxilFunctionAnnotation *EntryAnnotation,
+  DxilTypeSystem &typeSys);
+
 namespace {
 class SROA_Parameter_HLSL : public ModulePass {
   HLModule *m_pHLModule;
@@ -3937,10 +4003,14 @@ public:
     m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
 
     std::deque<Function *> WorkList;
+    std::vector<Function *> DeadHLFunctions;
     for (Function &F : M.functions()) {
       HLOpcodeGroup group = GetHLOpcodeGroup(&F);
       // Skip HL operations.
-      if (group != HLOpcodeGroup::NotHL || group == HLOpcodeGroup::HLExtIntrinsic) {
+      if (group != HLOpcodeGroup::NotHL ||
+          group == HLOpcodeGroup::HLExtIntrinsic) {
+        if (F.user_empty())
+          DeadHLFunctions.emplace_back(&F);
         continue;
       }
 
@@ -3956,7 +4026,21 @@ public:
       if (F.getReturnType()->isVoidTy() && F.arg_size() == 0)
         continue;
 
+      // Skip library function, except to LegalizeDxilInputOutputs
+      if (&F != m_pHLModule->GetEntryFunction() &&
+          !m_pHLModule->IsEntryThatUsesSignatures(&F)) {
+        if (!F.isDeclaration())
+          LegalizeDxilInputOutputs(&F, m_pHLModule->GetFunctionAnnotation(&F), m_pHLModule->GetTypeSystem());
+        continue;
+      }
+
       WorkList.emplace_back(&F);
+    }
+
+    // Remove dead hl functions here.
+    // This is for hl functions which has body and always inline.
+    for (Function *F : DeadHLFunctions) {
+      F->eraseFromParent();
     }
 
     // Preprocess aggregate function param used as function call arg.
@@ -4057,23 +4141,20 @@ private:
   void moveFunctionBody(Function *F, Function *flatF);
   void replaceCall(Function *F, Function *flatF);
   void createFlattenedFunction(Function *F);
-  void createFlattenedFunctionCall(Function *F, Function *flatF, CallInst *CI);
   void
   flattenArgument(Function *F, Value *Arg, bool bForParam,
                   DxilParameterAnnotation &paramAnnotation,
                   std::vector<Value *> &FlatParamList,
                   std::vector<DxilParameterAnnotation> &FlatRetAnnotationList,
                   IRBuilder<> &Builder, DbgDeclareInst *DDI);
+  Value *castResourceArgIfRequired(Value *V, Type *Ty, bool bOut,
+                                   DxilParamInputQual inputQual,
+                                   IRBuilder<> &Builder);
   Value *castArgumentIfRequired(Value *V, Type *Ty, bool bOut,
-                                bool hasShaderInputOutput,
                                 DxilParamInputQual inputQual,
                                 DxilFieldAnnotation &annotation,
                                 std::deque<Value *> &WorkList,
                                 IRBuilder<> &Builder);
-  // Replace argument which changed type when flatten.
-  void replaceCastArgument(Value *&NewArg, Value *OldArg,
-                           DxilParamInputQual inputQual,
-                           IRBuilder<> &CallBuilder, IRBuilder<> &RetBuilder);
   // Replace use of parameter which changed type when flatten.
   // Also add information to Arg if required.
   void replaceCastParameter(Value *NewParam, Value *OldParam, Function &F,
@@ -4674,84 +4755,6 @@ static void CastCopyNewPtrToOldPtr(Value *NewPtr, Value *OldPtr, HLModule &HLM,
   }
 }
 
-void SROA_Parameter_HLSL::replaceCastArgument(Value *&NewArg, Value *OldArg,
-                                              DxilParamInputQual inputQual,
-                                              IRBuilder<> &CallBuilder,
-                                              IRBuilder<> &RetBuilder) {
-  Type *HandleTy = m_pHLModule->GetOP()->GetHandleType();
-
-  Type *NewTy = NewArg->getType();
-  Type *OldTy = OldArg->getType();
-
-  bool bIn = inputQual == DxilParamInputQual::Inout ||
-             inputQual == DxilParamInputQual::In;
-  bool bOut = inputQual == DxilParamInputQual::Inout ||
-              inputQual == DxilParamInputQual::Out;
-
-  if (NewArg->getType() == HandleTy) {
-    Value *Handle =
-        CastResourcePtrToHandle(OldArg, HandleTy, *m_pHLModule, CallBuilder);
-    // Use Handle as NewArg.
-    NewArg = Handle;
-  } else if (vectorEltsMap.count(NewArg)) {
-    Type *VecTy = OldTy;
-    if (VecTy->isPointerTy())
-      VecTy = VecTy->getPointerElementType();
-
-    // Flattened vector.
-    SmallVector<Value *, 4> &elts = vectorEltsMap[NewArg];
-    unsigned vecSize = elts.size();
-
-    if (NewTy->isPointerTy()) {
-      if (bIn) {
-        // Copy OldArg to NewArg before Call.
-        CopyVectorPtrToEltsPtr(OldArg, elts, vecSize, CallBuilder);
-      }
-
-      // bOut must be true here.
-      // Store NewArg to  OldArg after Call.
-      CopyEltsPtrToVectorPtr(elts, OldArg, VecTy, vecSize, RetBuilder);
-    } else {
-      // Must be in parameter.
-      // Copy OldArg to NewArg before Call.
-      Value *Vec = OldArg;
-      if (OldTy->isPointerTy()) {
-        Vec = CallBuilder.CreateLoad(OldArg);
-      }
-
-      for (unsigned i = 0; i < vecSize; i++) {
-        Value *Elt = CallBuilder.CreateExtractElement(Vec, i);
-        // Save elt to update arg in createFlattenedFunctionCall.
-        elts[i] = Elt;
-      }
-    }
-    // Don't need elts anymore.
-    vectorEltsMap.erase(NewArg);
-  } else if (!NewTy->isPointerTy()) {
-    // Ptr param is cast to non-ptr param.
-    // Must be in param.
-    // Load OldArg as NewArg before call.
-    NewArg = CallBuilder.CreateLoad(OldArg);
-  } else if (HLMatrixLower::IsMatrixType(OldTy)) {
-    bool bRowMajor = castRowMajorParamMap.count(NewArg);
-    CopyMatToArrayPtr(OldArg, NewArg, /*arrayBaseIdx*/ 0, *m_pHLModule,
-                      CallBuilder, bRowMajor);
-  } else {
-    bool bRowMajor = castRowMajorParamMap.count(NewArg);
-    // NewTy is pointer type.
-    // Copy OldArg to NewArg before Call.
-    if (bIn) {
-      CastCopyOldPtrToNewPtr(OldArg, NewArg, *m_pHLModule, HandleTy,
-                             CallBuilder, bRowMajor);
-    }
-    if (bOut) {
-      // Store NewArg to OldArg after Call.
-      CastCopyNewPtrToOldPtr(NewArg, OldArg, *m_pHLModule, HandleTy, RetBuilder,
-                             bRowMajor);
-    }
-  }
-}
-
 void SROA_Parameter_HLSL::replaceCastParameter(
     Value *NewParam, Value *OldParam, Function &F, Argument *Arg,
     const DxilParamInputQual inputQual, IRBuilder<> &Builder) {
@@ -4783,7 +4786,8 @@ void SROA_Parameter_HLSL::replaceCastParameter(
   if (isa<Argument>(OldParam) && OldTy->isPointerTy()) {
     // OldParam will be removed with Old function.
     // Create alloca to replace it.
-    Value *AllocParam = Builder.CreateAlloca(OldTy->getPointerElementType());
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(&F));
+    Value *AllocParam = AllocaBuilder.CreateAlloca(OldTy->getPointerElementType());
     OldParam->replaceAllUsesWith(AllocParam);
     OldParam = AllocParam;
   }
@@ -4873,19 +4877,59 @@ void SROA_Parameter_HLSL::replaceCastParameter(
   }
 }
 
-Value *SROA_Parameter_HLSL::castArgumentIfRequired(
-    Value *V, Type *Ty, bool bOut, bool hasShaderInputOutput,
-    DxilParamInputQual inputQual, DxilFieldAnnotation &annotation,
-    std::deque<Value *> &WorkList, IRBuilder<> &Builder) {
+Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
+    Value *V, Type *Ty, bool bOut,
+    DxilParamInputQual inputQual,
+    IRBuilder<> &Builder) {
   Type *HandleTy = m_pHLModule->GetOP()->GetHandleType();
   Module &M = *m_pHLModule->GetModule();
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
+
+  // Lower resource type to handle ty.
+  if (HLModule::IsHLSLObjectType(Ty) &&
+    !HLModule::IsStreamOutputPtrType(V->getType())) {
+    Value *Res = V;
+    if (!bOut) {
+      Value *LdRes = Builder.CreateLoad(Res);
+      V = m_pHLModule->EmitHLOperationCall(Builder,
+        HLOpcodeGroup::HLCreateHandle,
+        /*opcode*/ 0, HandleTy, { LdRes }, M);
+    }
+    else {
+      V = AllocaBuilder.CreateAlloca(HandleTy);
+    }
+    castParamMap[V] = std::make_pair(Res, inputQual);
+  }
+  else if (Ty->isArrayTy()) {
+    unsigned arraySize = 1;
+    Type *AT = Ty;
+    while (AT->isArrayTy()) {
+      arraySize *= AT->getArrayNumElements();
+      AT = AT->getArrayElementType();
+    }
+    if (HLModule::IsHLSLObjectType(AT)) {
+      Value *Res = V;
+      Type *Ty = ArrayType::get(HandleTy, arraySize);
+      V = AllocaBuilder.CreateAlloca(Ty);
+      castParamMap[V] = std::make_pair(Res, inputQual);
+    }
+  }
+  return V;
+}
+
+Value *SROA_Parameter_HLSL::castArgumentIfRequired(
+    Value *V, Type *Ty, bool bOut,
+    DxilParamInputQual inputQual, DxilFieldAnnotation &annotation,
+    std::deque<Value *> &WorkList, IRBuilder<> &Builder) {
+  Module &M = *m_pHLModule->GetModule();
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
+
   // Remove pointer for vector/scalar which is not out.
   if (V->getType()->isPointerTy() && !Ty->isAggregateType() && !bOut) {
-    Value *Ptr = Builder.CreateAlloca(Ty);
+    Value *Ptr = AllocaBuilder.CreateAlloca(Ty);
     V->replaceAllUsesWith(Ptr);
     // Create load here to make correct type.
-    // The Ptr will be store with correct value in replaceCastParameter and
-    // replaceCastArgument.
+    // The Ptr will be store with correct value in replaceCastParameter.
     if (Ptr->hasOneUse()) {
       // Load after existing user for call arg replace.
       // If not, call arg will load undef.
@@ -4900,181 +4944,63 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
     castParamMap[V] = std::make_pair(Ptr, inputQual);
   }
 
-  // Lower resource type to handle ty.
-  if (HLModule::IsHLSLObjectType(Ty) &&
-      !HLModule::IsStreamOutputPtrType(V->getType())) {
-    Value *Res = V;
-    if (!bOut) {
-      Value *LdRes = Builder.CreateLoad(Res);
-      V = m_pHLModule->EmitHLOperationCall(Builder,
-                                           HLOpcodeGroup::HLCreateHandle,
-                                           /*opcode*/ 0, HandleTy, {LdRes}, M);
+  V = castResourceArgIfRequired(V, Ty, bOut, inputQual, Builder);
+
+  // Entry function matrix value parameter has major.
+  // Make sure its user use row major matrix value.
+  bool updateToColMajor = annotation.HasMatrixAnnotation() &&
+                          annotation.GetMatrixAnnotation().Orientation ==
+                              MatrixOrientation::ColumnMajor;
+  if (updateToColMajor) {
+    if (V->getType()->isPointerTy()) {
+      for (User *user : V->users()) {
+        CallInst *CI = dyn_cast<CallInst>(user);
+        if (!CI)
+          continue;
+
+        HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+        if (group != HLOpcodeGroup::HLMatLoadStore)
+          continue;
+        HLMatLoadStoreOpcode opcode =
+            static_cast<HLMatLoadStoreOpcode>(GetHLOpcode(CI));
+        Type *opcodeTy = Builder.getInt32Ty();
+        switch (opcode) {
+        case HLMatLoadStoreOpcode::RowMatLoad: {
+          // Update matrix function opcode to col major version.
+          Value *rowOpArg = ConstantInt::get(
+              opcodeTy,
+              static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatLoad));
+          CI->setOperand(HLOperandIndex::kOpcodeIdx, rowOpArg);
+          // Cast it to row major.
+          CallInst *RowMat = HLModule::EmitHLOperationCall(
+              Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::ColMatrixToRowMatrix, Ty, {CI}, M);
+          CI->replaceAllUsesWith(RowMat);
+          // Set arg to CI again.
+          RowMat->setArgOperand(HLOperandIndex::kUnaryOpSrc0Idx, CI);
+        } break;
+        case HLMatLoadStoreOpcode::RowMatStore:
+          // Update matrix function opcode to col major version.
+          Value *rowOpArg = ConstantInt::get(
+              opcodeTy,
+              static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatStore));
+          CI->setOperand(HLOperandIndex::kOpcodeIdx, rowOpArg);
+          Value *Mat = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
+          // Cast it to col major.
+          CallInst *RowMat = HLModule::EmitHLOperationCall(
+              Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::RowMatrixToColMatrix, Ty, {Mat}, M);
+          CI->setArgOperand(HLOperandIndex::kMatStoreValOpIdx, RowMat);
+          break;
+        }
+      }
     } else {
-      V = Builder.CreateAlloca(HandleTy);
-    }
-    castParamMap[V] = std::make_pair(Res, inputQual);
-  } else if (Ty->isArrayTy()) {
-    unsigned arraySize = 1;
-    Type *AT = Ty;
-    while (AT->isArrayTy()) {
-      arraySize *= AT->getArrayNumElements();
-      AT = AT->getArrayElementType();
-    }
-    if (HLModule::IsHLSLObjectType(AT)) {
-      Value *Res = V;
-      Type *Ty = ArrayType::get(HandleTy, arraySize);
-      V = Builder.CreateAlloca(Ty);
-      castParamMap[V] = std::make_pair(Res, inputQual);
-    }
-  }
-
-  if (!hasShaderInputOutput) {
-    if (Ty->isVectorTy()) {
-      Value *OldV = V;
-      Type *EltTy = Ty->getVectorElementType();
-      unsigned vecSize = Ty->getVectorNumElements();
-
-      // Split vector into scalars.
-      if (OldV->getType()->isPointerTy()) {
-        // Split into scalar ptr.
-        V = Builder.CreateAlloca(EltTy);
-        vectorEltsMap[V].emplace_back(V);
-        for (unsigned i = 1; i < vecSize; i++) {
-          Value *Elt = Builder.CreateAlloca(EltTy);
-          vectorEltsMap[V].emplace_back(Elt);
-        }
-      } else {
-        IRBuilder<> TmpBuilder(Builder.GetInsertPoint());
-        // Make sure extract element after OldV.
-        if (Instruction *OldI = dyn_cast<Instruction>(OldV)) {
-          TmpBuilder.SetInsertPoint(OldI->getNextNode());
-        }
-        // Split into scalar.
-        V = TmpBuilder.CreateExtractElement(OldV, (uint64_t)0);
-        vectorEltsMap[V].emplace_back(V);
-        for (unsigned i = 1; i < vecSize; i++) {
-          Value *Elt = TmpBuilder.CreateExtractElement(OldV, i);
-          vectorEltsMap[V].emplace_back(Elt);
-        }
-      }
-      // Add to work list by reverse order.
-      for (unsigned i = vecSize - 1; i > 0; i--) {
-        Value *Elt = vectorEltsMap[V][i];
-        WorkList.push_front(Elt);
-      }
-      // For case OldV is from input vector ptr.
-      if (castParamMap.count(OldV)) {
-        OldV = castParamMap[OldV].first;
-      }
-      castParamMap[V] = std::make_pair(OldV, inputQual);
-    } else if (HLMatrixLower::IsMatrixType(Ty)) {
-      unsigned col, row;
-      Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, col, row);
-      Value *Mat = V;
-      // Cast matrix to array.
-      Type *AT = ArrayType::get(EltTy, col * row);
-      V = Builder.CreateAlloca(AT);
-      castParamMap[V] = std::make_pair(Mat, inputQual);
-
-      DXASSERT(annotation.HasMatrixAnnotation(), "need matrix annotation here");
-      if (annotation.GetMatrixAnnotation().Orientation ==
-          hlsl::MatrixOrientation::RowMajor) {
-        castRowMajorParamMap.insert(V);
-      }
-    } else if (Ty->isArrayTy()) {
-      unsigned arraySize = 1;
-      Type *AT = Ty;
-      unsigned dim = 0;
-      while (AT->isArrayTy()) {
-        ++dim;
-        arraySize *= AT->getArrayNumElements();
-        AT = AT->getArrayElementType();
-      }
-
-      if (VectorType *VT = dyn_cast<VectorType>(AT)) {
-        Value *VecArray = V;
-        Type *AT = ArrayType::get(VT->getElementType(),
-                                  arraySize * VT->getNumElements());
-        V = Builder.CreateAlloca(AT);
-        castParamMap[V] = std::make_pair(VecArray, inputQual);
-      } else if (HLMatrixLower::IsMatrixType(AT)) {
-        unsigned col, row;
-        Type *EltTy = HLMatrixLower::GetMatrixInfo(AT, col, row);
-        Value *MatArray = V;
-        Type *AT = ArrayType::get(EltTy, arraySize * col * row);
-        V = Builder.CreateAlloca(AT);
-        castParamMap[V] = std::make_pair(MatArray, inputQual);
-        DXASSERT(annotation.HasMatrixAnnotation(),
-                 "need matrix annotation here");
-        if (annotation.GetMatrixAnnotation().Orientation ==
-            hlsl::MatrixOrientation::RowMajor) {
-          castRowMajorParamMap.insert(V);
-        }
-      } else if (dim > 1) {
-        // Flatten multi-dim array to 1dim.
-        Value *MultiArray = V;
-        V = Builder.CreateAlloca(
-            ArrayType::get(VT->getElementType(), arraySize));
-        castParamMap[V] = std::make_pair(MultiArray, inputQual);
-      }
-    }
-  } else {
-    // Entry function matrix value parameter has major.
-    // Make sure its user use row major matrix value.
-    bool updateToColMajor = annotation.HasMatrixAnnotation() &&
-                            annotation.GetMatrixAnnotation().Orientation ==
-                                MatrixOrientation::ColumnMajor;
-    if (updateToColMajor) {
-      if (V->getType()->isPointerTy()) {
-        for (User *user : V->users()) {
-          CallInst *CI = dyn_cast<CallInst>(user);
-          if (!CI)
-            continue;
-
-          HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-          if (group != HLOpcodeGroup::HLMatLoadStore)
-            continue;
-          HLMatLoadStoreOpcode opcode =
-              static_cast<HLMatLoadStoreOpcode>(GetHLOpcode(CI));
-          Type *opcodeTy = Builder.getInt32Ty();
-          switch (opcode) {
-          case HLMatLoadStoreOpcode::RowMatLoad: {
-            // Update matrix function opcode to col major version.
-            Value *rowOpArg = ConstantInt::get(
-                opcodeTy,
-                static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatLoad));
-            CI->setOperand(HLOperandIndex::kOpcodeIdx, rowOpArg);
-            // Cast it to row major.
-            CallInst *RowMat = HLModule::EmitHLOperationCall(
-                Builder, HLOpcodeGroup::HLCast,
-                (unsigned)HLCastOpcode::ColMatrixToRowMatrix, Ty, {CI}, M);
-            CI->replaceAllUsesWith(RowMat);
-            // Set arg to CI again.
-            RowMat->setArgOperand(HLOperandIndex::kUnaryOpSrc0Idx, CI);
-          } break;
-          case HLMatLoadStoreOpcode::RowMatStore:
-            // Update matrix function opcode to col major version.
-            Value *rowOpArg = ConstantInt::get(
-                opcodeTy,
-                static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatStore));
-            CI->setOperand(HLOperandIndex::kOpcodeIdx, rowOpArg);
-            Value *Mat = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-            // Cast it to col major.
-            CallInst *RowMat = HLModule::EmitHLOperationCall(
-                Builder, HLOpcodeGroup::HLCast,
-                (unsigned)HLCastOpcode::RowMatrixToColMatrix, Ty, {Mat}, M);
-            CI->setArgOperand(HLOperandIndex::kMatStoreValOpIdx, RowMat);
-            break;
-          }
-        }
-      } else {
-        CallInst *RowMat = HLModule::EmitHLOperationCall(
-            Builder, HLOpcodeGroup::HLCast,
-            (unsigned)HLCastOpcode::ColMatrixToRowMatrix, Ty, {V}, M);
-        V->replaceAllUsesWith(RowMat);
-        // Set arg to V again.
-        RowMat->setArgOperand(HLOperandIndex::kUnaryOpSrc0Idx, V);
-      }
+      CallInst *RowMat = HLModule::EmitHLOperationCall(
+          Builder, HLOpcodeGroup::HLCast,
+          (unsigned)HLCastOpcode::ColMatrixToRowMatrix, Ty, {V}, M);
+      V->replaceAllUsesWith(RowMat);
+      // Set arg to V again.
+      RowMat->setArgOperand(HLOperandIndex::kUnaryOpSrc0Idx, V);
     }
   }
   return V;
@@ -5086,21 +5012,9 @@ void SROA_Parameter_HLSL::flattenArgument(
     std::vector<Value *> &FlatParamList,
     std::vector<DxilParameterAnnotation> &FlatAnnotationList,
     IRBuilder<> &Builder, DbgDeclareInst *DDI) {
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
   std::deque<Value *> WorkList;
   WorkList.push_back(Arg);
-
-  Function *Entry = m_pHLModule->GetEntryFunction();
-  bool hasShaderInputOutput = F == Entry;
-  if (m_pHLModule->HasDxilFunctionProps(F)) {
-    hasShaderInputOutput = true;
-  }
-  if (m_pHLModule->HasDxilFunctionProps(Entry)) {
-    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(Entry);
-    if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
-      Function *patchConstantFunc = funcProps.ShaderProps.HS.patchConstantFunc;
-      hasShaderInputOutput |= F == patchConstantFunc;
-    }
-  }
 
   unsigned startArgIndex = FlatAnnotationList.size();
 
@@ -5157,6 +5071,7 @@ void SROA_Parameter_HLSL::flattenArgument(
     SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, bAllowReplace);
 
     std::vector<Value *> Elts;
+
     // Not flat vector for entry function currently.
     bool SROAed = SROA_Helper::DoScalarReplacement(
         V, Elts, Builder, /*bFlatVector*/ false, annotation.IsPrecise(),
@@ -5233,7 +5148,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         unsigned  targetIndex;
         Semantic::DecomposeNameAndIndex(semanticStr, &targetStr, &targetIndex);
         // Replace target parameter with local target.
-        AllocaInst *localTarget = Builder.CreateAlloca(Ty);
+        AllocaInst *localTarget = AllocaBuilder.CreateAlloca(Ty);
         V->replaceAllUsesWith(localTarget);
         unsigned arraySize = 1;
         std::vector<unsigned> arraySizeList;
@@ -5250,7 +5165,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         // Create flattened target.
         DxilFieldAnnotation EltAnnotation = annotation;
         for (unsigned i=0;i<arraySize;i++) {
-          Value *Elt = Builder.CreateAlloca(Ty);
+          Value *Elt = AllocaBuilder.CreateAlloca(Ty);
           EltAnnotation.SetSemanticString(targetStr.str()+std::to_string(targetIndex+i));
 
           // Add semantic type.
@@ -5299,7 +5214,7 @@ void SROA_Parameter_HLSL::flattenArgument(
       }
 
       // Cast vector/matrix/resource parameter.
-      V = castArgumentIfRequired(V, Ty, bOut, hasShaderInputOutput, inputQual,
+      V = castArgumentIfRequired(V, Ty, bOut, inputQual,
                                  annotation, WorkList, Builder);
 
       // Cannot SROA, save it to final parameter list.
@@ -5344,7 +5259,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         // For stream output objects.
         // Create a value as output value.
         Type *outputType = V->getType()->getPointerElementType()->getStructElementType(0);
-        Value *outputVal = Builder.CreateAlloca(outputType);
+        Value *outputVal = AllocaBuilder.CreateAlloca(outputType);
         // For each stream.Append(data)
         // transform into
         //   d = load data
@@ -5465,7 +5380,8 @@ void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
   DxilFunctionAnnotation *pFuncAnnot = typeSys.GetFunctionAnnotation(F);
   DXASSERT(pFuncAnnot, "else invalid function");
 
-  IRBuilder<> AllocaBuilder(F->getEntryBlock().getFirstInsertionPt());
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
+  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
 
   SmallVector<ReturnInst*, 2> retList;
   for (BasicBlock &bb : F->getBasicBlockList()) {
@@ -5500,7 +5416,7 @@ void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
       if (inputQual == DxilParamInputQual::In ||
           inputQual == DxilParamInputQual::Inout) {
         // copy arg to tmp.
-        CallInst *argToTmp = AllocaBuilder.CreateMemCpy(TmpArg, &arg, size, 0);
+        CallInst *argToTmp = Builder.CreateMemCpy(TmpArg, &arg, size, 0);
         // Split the memcpy.
         MemcpySplitter::SplitMemCpy(cast<MemCpyInst>(argToTmp), DL, nullptr,
                                     typeSys);
@@ -5618,7 +5534,7 @@ static void LegalizeDxilInputOutputs(Function *F,
         // DxilGenerationPass.
         isColMajor = paramAnnotation.GetMatrixAnnotation().Orientation ==
                      MatrixOrientation::ColumnMajor;
-        IRBuilder<> Builder(EntryBlk.getFirstInsertionPt());
+        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
 
         HLCastOpcode opcode = isColMajor ? HLCastOpcode::ColMatrixToVecCast
                                          : HLCastOpcode::RowMatrixToVecCast;
@@ -5684,9 +5600,10 @@ static void LegalizeDxilInputOutputs(Function *F,
     }
 
     if (bNeedTemp) {
-      IRBuilder<> Builder(EntryBlk.getFirstInsertionPt());
+      IRBuilder<> AllocaBuilder(EntryBlk.getFirstInsertionPt());
+      IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(&EntryBlk));
 
-      AllocaInst *temp = Builder.CreateAlloca(Ty);
+      AllocaInst *temp = AllocaBuilder.CreateAlloca(Ty);
       // Replace all uses with temp.
       arg.replaceAllUsesWith(temp);
 
@@ -5737,6 +5654,11 @@ static void LegalizeDxilInputOutputs(Function *F,
 void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
 
+  DXASSERT(F == m_pHLModule->GetEntryFunction() ||
+           m_pHLModule->IsEntryThatUsesSignatures(F),
+    "otherwise, createFlattenedFunction called on library function "
+    "that should not be flattened.");
+
   // Skip void (void) function.
   if (F->getReturnType()->isVoidTy() && F->getArgumentList().empty()) {
     return;
@@ -5772,9 +5694,9 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     // Insert point may be removed. So recreate builder every time.
     IRBuilder<> Builder(Ctx);
     if (!F->isDeclaration()) {
-      Builder.SetInsertPoint(F->getEntryBlock().getFirstInsertionPt());
+      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(F));
     } else {
-      Builder.SetInsertPoint(TmpBlockForFuncDecl->getFirstInsertionPt());
+      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(TmpBlockForFuncDecl.get()));
     }
 
     unsigned prevFlatParamCount = FlatParamList.size();
@@ -5792,33 +5714,37 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   }
 
   Type *retType = F->getReturnType();
+
   std::vector<Value *> FlatRetList;
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
     IRBuilder<> Builder(Ctx);
+    IRBuilder<> AllocaBuilder(Ctx);
     if (!F->isDeclaration()) {
-      Builder.SetInsertPoint(F->getEntryBlock().getFirstInsertionPt());
+      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(F));
+      AllocaBuilder.SetInsertPoint(dxilutil::FindAllocaInsertionPt(F));
     } else {
-      Builder.SetInsertPoint(TmpBlockForFuncDecl->getFirstInsertionPt());
+      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(TmpBlockForFuncDecl.get()));
+      AllocaBuilder.SetInsertPoint(TmpBlockForFuncDecl->getFirstInsertionPt());
     }
-    Value *retValAddr = Builder.CreateAlloca(retType);
+    Value *retValAddr = AllocaBuilder.CreateAlloca(retType);
     DxilParameterAnnotation &retAnnotation =
         funcAnnotation->GetRetTypeAnnotation();
     Module &M = *m_pHLModule->GetModule();
     Type *voidTy = Type::getVoidTy(m_pHLModule->GetCtx());
     // Create DbgDecl for the ret value.
     if (DISubprogram *funcDI = getDISubprogram(F)) {
-       DITypeRef RetDITyRef = funcDI->getType()->getTypeArray()[0];
-       DITypeIdentifierMap EmptyMap;
-       DIType * RetDIType = RetDITyRef.resolve(EmptyMap);
-       DIBuilder DIB(*F->getParent(), /*AllowUnresolved*/ false);
-       DILocalVariable *RetVar = DIB.createLocalVariable(llvm::dwarf::Tag::DW_TAG_arg_variable, funcDI, F->getName().str() + ".Ret", funcDI->getFile(),
-           funcDI->getLine(), RetDIType);
-       DIExpression *Expr = nullptr;
-       // TODO: how to get col?
-       DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0,  funcDI);
-       DIB.insertDeclare(retValAddr, RetVar, Expr, DL, Builder.GetInsertPoint());
+        DITypeRef RetDITyRef = funcDI->getType()->getTypeArray()[0];
+        DITypeIdentifierMap EmptyMap;
+        DIType * RetDIType = RetDITyRef.resolve(EmptyMap);
+        DIBuilder DIB(*F->getParent(), /*AllowUnresolved*/ false);
+        DILocalVariable *RetVar = DIB.createLocalVariable(llvm::dwarf::Tag::DW_TAG_arg_variable, funcDI, F->getName().str() + ".Ret", funcDI->getFile(),
+            funcDI->getLine(), RetDIType);
+        DIExpression *Expr = nullptr;
+        // TODO: how to get col?
+        DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0,  funcDI);
+        DIB.insertDeclare(retValAddr, RetVar, Expr, DL, Builder.GetInsertPoint());
     }
     for (BasicBlock &BB : F->getBasicBlockList()) {
       if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
@@ -5840,7 +5766,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
           }
           unsigned opcode = static_cast<unsigned>(
               isRowMajor ? HLMatLoadStoreOpcode::RowMatStore
-                         : HLMatLoadStoreOpcode::ColMatStore);
+                          : HLMatLoadStoreOpcode::ColMatStore);
           HLModule::EmitHLOperationCall(RetBuilder,
                                         HLOpcodeGroup::HLMatLoadStore, opcode,
                                         voidTy, {retValAddr, RetVal}, M);
@@ -5875,9 +5801,10 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     FlatParamList.insert(FlatParamList.end(), FlatRetList.begin(), FlatRetList.end());
 
     FlatParamAnnotationList.insert(FlatParamAnnotationList.end(),
-                                   FlatRetAnnotationList.begin(),
-                                   FlatRetAnnotationList.end());
+                                    FlatRetAnnotationList.begin(),
+                                    FlatRetAnnotationList.end());
   }
+
 
   std::vector<Type *> FinalTypeList;
   for (Value * arg : FlatParamList) {
@@ -6011,7 +5938,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     LLVMContext &Context = F->getContext();
 
     // Parameter cast come from begining of entry block.
-    IRBuilder<> Builder(flatF->getEntryBlock().getFirstInsertionPt());
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(flatF));
+    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(flatF));
 
     while (argIter != flatF->arg_end()) {
       Argument *Arg = argIter++;
@@ -6036,7 +5964,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
             StoreInst *SI = cast<StoreInst>(*flatArg->user_begin());
             allocaArg = SI->getPointerOperand();
           } else {
-            allocaArg = Builder.CreateAlloca(flatArg->getType());
+            allocaArg = AllocaBuilder.CreateAlloca(flatArg->getType());
             StoreInst *initArg = Builder.CreateStore(flatArg, allocaArg);
             Value *ldArg = Builder.CreateLoad(allocaArg);
             flatArg->replaceAllUsesWith(ldArg);
@@ -6067,210 +5995,6 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   }
 }
 
-void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *flatF, CallInst *CI) {
-  DxilFunctionAnnotation *funcAnnotation = m_pHLModule->GetFunctionAnnotation(F);
-  DXASSERT(funcAnnotation, "must find annotation for function");
-
-  // Clear maps for cast.
-  castParamMap.clear();
-  vectorEltsMap.clear();
-
-  DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
-
-  std::vector<Value *> FlatParamList;
-  std::vector<DxilParameterAnnotation> FlatParamAnnotationList;
-
-  IRBuilder<> AllocaBuilder(
-      CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
-  IRBuilder<> CallBuilder(CI);
-  IRBuilder<> RetBuilder(CI->getNextNode());
-
-  Type *retType = F->getReturnType();
-  std::vector<Value *> FlatRetList;
-  std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
-  const bool bForParamFalse = false;
-  // Split and change to out parameter.
-  if (!retType->isVoidTy()) {
-    Value *retValAddr = AllocaBuilder.CreateAlloca(retType);
-    // Create DbgDecl for the ret value.
-    if (DISubprogram *funcDI = getDISubprogram(F)) {
-       DITypeRef RetDITyRef = funcDI->getType()->getTypeArray()[0];
-       DITypeIdentifierMap EmptyMap;
-       DIType * RetDIType = RetDITyRef.resolve(EmptyMap);
-       DIBuilder DIB(*F->getParent(), /*AllowUnresolved*/ false);
-       DILocalVariable *RetVar = DIB.createLocalVariable(llvm::dwarf::Tag::DW_TAG_arg_variable, funcDI, F->getName().str() + ".Ret", funcDI->getFile(),
-           funcDI->getLine(), RetDIType);
-       DIExpression *Expr = nullptr;
-       // TODO: how to get col?
-       DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0,  funcDI);
-       DIB.insertDeclare(retValAddr, RetVar, Expr, DL, CI);
-    }
-
-    DxilParameterAnnotation &retAnnotation = funcAnnotation->GetRetTypeAnnotation();
-    // Load ret value and replace CI.
-    Value *newRetVal = nullptr;
-    if (!retAnnotation.HasMatrixAnnotation()) {
-      newRetVal = RetBuilder.CreateLoad(retValAddr);
-    } else {
-      bool isRowMajor = retAnnotation.GetMatrixAnnotation().Orientation ==
-                        MatrixOrientation::RowMajor;
-      unsigned opcode =
-          static_cast<unsigned>(isRowMajor ? HLMatLoadStoreOpcode::RowMatLoad
-                                           : HLMatLoadStoreOpcode::ColMatLoad);
-      newRetVal = HLModule::EmitHLOperationCall(RetBuilder, HLOpcodeGroup::HLMatLoadStore,
-                                    opcode, retType, {retValAddr},
-                                    *m_pHLModule->GetModule());
-      if (!isRowMajor) {
-        // ColMatLoad will return a col major.
-        // Matrix value should be row major.
-        // Cast it here.
-        newRetVal = HLModule::EmitHLOperationCall(
-            RetBuilder, HLOpcodeGroup::HLCast,
-            static_cast<unsigned>(HLCastOpcode::ColMatrixToRowMatrix), retType,
-            {newRetVal}, *m_pHLModule->GetModule());
-      }
-    }
-    CI->replaceAllUsesWith(newRetVal);
-    // Flat ret val
-    flattenArgument(flatF, retValAddr, bForParamFalse,
-                    funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
-                    FlatRetAnnotationList, AllocaBuilder,
-                    /*DbgDeclareInst*/ nullptr);
-  }
-
-  std::vector<Value *> args;
-  for (auto &arg : CI->arg_operands()) {
-    args.emplace_back(arg.get());
-  }
-  // Remove CI from user of args.
-  CI->dropAllReferences();
-
-  // Add all argument to worklist.
-  for (unsigned i=0;i<args.size();i++) {
-    DxilParameterAnnotation &paramAnnotation =
-        funcAnnotation->GetParameterAnnotation(i);
-    Value *arg = args[i];
-    Type *Ty = arg->getType();
-    if (Ty->isPointerTy()) {
-      // For pointer, alloca another pointer, replace in CI.
-      Value *tempArg =
-          AllocaBuilder.CreateAlloca(arg->getType()->getPointerElementType());
-
-      DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
-      // TODO: support special InputQual like InputPatch.
-      if (inputQual == DxilParamInputQual::In ||
-          inputQual == DxilParamInputQual::Inout) {
-        // Copy in param.
-        llvm::SmallVector<llvm::Value *, 16> idxList;
-        // split copy to avoid load of struct.
-        SplitCpy(Ty, tempArg, arg, idxList, CallBuilder, typeSys,
-                 &paramAnnotation);
-      }
-
-      if (inputQual == DxilParamInputQual::Out ||
-          inputQual == DxilParamInputQual::Inout) {
-        // Copy out param.
-        llvm::SmallVector<llvm::Value *, 16> idxList;
-        // split copy to avoid load of struct.
-        SplitCpy(Ty, arg, tempArg, idxList, RetBuilder, typeSys,
-                 &paramAnnotation);
-      }
-      arg = tempArg;
-      flattenArgument(flatF, arg, bForParamFalse, paramAnnotation,
-                      FlatParamList, FlatParamAnnotationList, AllocaBuilder,
-                      /*DbgDeclareInst*/ nullptr);
-    } else {
-      // Cast vector into array.
-      if (Ty->isVectorTy()) {
-        unsigned vecSize = Ty->getVectorNumElements();
-        for (unsigned vi = 0; vi < vecSize; vi++) {
-          Value *Elt = CallBuilder.CreateExtractElement(arg, vi);
-          // Cannot SROA, save it to final parameter list.
-          FlatParamList.emplace_back(Elt);
-          // Create ParamAnnotation for V.
-          FlatRetAnnotationList.emplace_back(DxilParameterAnnotation());
-          DxilParameterAnnotation &flatParamAnnotation =
-              FlatRetAnnotationList.back();
-          flatParamAnnotation = paramAnnotation;
-        }
-      } else if (HLMatrixLower::IsMatrixType(Ty)) {
-        unsigned col, row;
-        Type *EltTy = HLMatrixLower::GetMatrixInfo(Ty, col, row);
-        Value *Mat = arg;
-        // Cast matrix to array.
-        Type *AT = ArrayType::get(EltTy, col * row);
-        arg = AllocaBuilder.CreateAlloca(AT);
-        DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
-        castParamMap[arg] = std::make_pair(Mat, inputQual);
-
-        DXASSERT(paramAnnotation.HasMatrixAnnotation(),
-                 "need matrix annotation here");
-        if (paramAnnotation.GetMatrixAnnotation().Orientation ==
-            hlsl::MatrixOrientation::RowMajor) {
-          castRowMajorParamMap.insert(arg);
-        }
-
-        // Cannot SROA, save it to final parameter list.
-        FlatParamList.emplace_back(arg);
-        // Create ParamAnnotation for V.
-        FlatRetAnnotationList.emplace_back(DxilParameterAnnotation());
-        DxilParameterAnnotation &flatParamAnnotation =
-            FlatRetAnnotationList.back();
-        flatParamAnnotation = paramAnnotation;
-      } else {
-        // Cannot SROA, save it to final parameter list.
-        FlatParamList.emplace_back(arg);
-        // Create ParamAnnotation for V.
-        FlatRetAnnotationList.emplace_back(DxilParameterAnnotation());
-        DxilParameterAnnotation &flatParamAnnotation =
-            FlatRetAnnotationList.back();
-        flatParamAnnotation = paramAnnotation;
-      }
-    }
-  }
-
-  // Always change return type as parameter.
-  // By doing this, no need to check return when generate storeOutput.
-  if (FlatRetList.size() ||
-      // For empty struct return type.
-      !retType->isVoidTy()) {
-    // Merge return data info param data.
-    FlatParamList.insert(FlatParamList.end(), FlatRetList.begin(), FlatRetList.end());
-
-    FlatParamAnnotationList.insert(FlatParamAnnotationList.end(),
-                                   FlatRetAnnotationList.begin(),
-                                   FlatRetAnnotationList.end());
-  }
-
-  RetBuilder.SetInsertPoint(CI->getNextNode());
-  unsigned paramSize = FlatParamList.size();
-  for (unsigned i = 0; i < paramSize; i++) {
-    Value *&flatArg = FlatParamList[i];
-    if (castParamMap.count(flatArg)) {
-      replaceCastArgument(flatArg, castParamMap[flatArg].first,
-                          castParamMap[flatArg].second, CallBuilder,
-                          RetBuilder);
-      if (vectorEltsMap.count(flatArg) && !flatArg->getType()->isPointerTy()) {
-        // Vector elements need to be updated.
-        SmallVector<Value *, 4> &elts = vectorEltsMap[flatArg];
-        // Back one step.
-        --i;
-        for (Value *elt : elts) {
-          FlatParamList[++i] = elt;
-        }
-        // Don't need elts anymore.
-        vectorEltsMap.erase(flatArg);
-      }
-    }
-  }
-
-  CallInst *NewCI = CallBuilder.CreateCall(flatF, FlatParamList);
-
-  CallBuilder.SetInsertPoint(NewCI);
-
-  CI->eraseFromParent();
-}
-
 void SROA_Parameter_HLSL::replaceCall(Function *F, Function *flatF) {
   // Update entry function.
   if (F == m_pHLModule->GetEntryFunction()) {
@@ -6282,17 +6006,12 @@ void SROA_Parameter_HLSL::replaceCall(Function *F, Function *flatF) {
     if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
       Function *oldPatchConstantFunc =
           funcProps.ShaderProps.HS.patchConstantFunc;
-      if (funcMap.count(oldPatchConstantFunc))
-        funcProps.ShaderProps.HS.patchConstantFunc =
-            funcMap[oldPatchConstantFunc];
+      if (funcMap.count(oldPatchConstantFunc)) {
+        m_pHLModule->SetPatchConstantFunctionForHS(flatF, funcMap[oldPatchConstantFunc]);
+      }
     }
   }
-  // TODO: flatten vector argument and lower resource argument when flatten
-  // functions.
-  for (auto it = F->user_begin(); it != F->user_end(); ) {
-    CallInst *CI = cast<CallInst>(*(it++));
-    createFlattenedFunctionCall(F, flatF, CI);
-  }
+  DXASSERT(F->user_empty(), "otherwise we flattened a library function.");
 }
 
 // Public interface to the SROA_Parameter_HLSL pass
@@ -6357,8 +6076,10 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV
     return false;
 
   Function *F = const_cast<Function*>(PS.AccessingFunction);
-  IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
-  AllocaInst *AI = Builder.CreateAlloca(GV->getType()->getElementType());
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
+  AllocaInst *AI = AllocaBuilder.CreateAlloca(GV->getType()->getElementType());
+
+  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
 
   // Store initializer is exist.
   if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
@@ -6405,9 +6126,9 @@ protected:
 };
 
 AllocaInst *LowerTypePass::lowerAlloca(AllocaInst *A) {
-  IRBuilder<> Builder(A);
+  IRBuilder<> AllocaBuilder(A);
   Type *NewTy = lowerType(A->getAllocatedType());
-  return Builder.CreateAlloca(NewTy);
+  return AllocaBuilder.CreateAlloca(NewTy);
 }
 
 GlobalVariable *LowerTypePass::lowerInternalGlobal(GlobalVariable *GV) {
@@ -6972,18 +6693,23 @@ private:
 
   Type *m_HandleTy;
   HLModule *m_pHLM;
+  bool  m_bIsLib;
 };
 
 void ResourceToHandle::initialize(Module &M) {
   DXASSERT(M.HasHLModule(), "require HLModule");
   m_pHLM = &M.GetHLModule();
   m_HandleTy = m_pHLM->GetOP()->GetHandleType();
+  m_bIsLib = m_pHLM->GetShaderModel()->IsLib();
 }
 
 bool ResourceToHandle::needToLower(Value *V) {
   Type *Ty = V->getType()->getPointerElementType();
   Ty = dxilutil::GetArrayEltTy(Ty);
-  return (HLModule::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty));
+  return (HLModule::IsHLSLObjectType(Ty) &&
+          !HLModule::IsStreamOutputType(Ty)) &&
+         // Skip lib profile.
+         !m_bIsLib;
 }
 
 Type *ResourceToHandle::lowerType(Type *Ty) {
@@ -7050,7 +6776,16 @@ void ResourceToHandle::ReplaceResourceWithHandle(Value *ResPtr,
       // Remove resource Store.
       SI->eraseFromParent();
     } else {
-      DXASSERT(0, "invalid operation on resource");
+      CallInst *CI = cast<CallInst>(U);
+      IRBuilder<> Builder(CI);
+      HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+      // Allow user function to use res ptr as argument.
+      if (group == HLOpcodeGroup::NotHL) {
+          Value *TmpResPtr = Builder.CreateBitCast(HandlePtr, ResPtr->getType());
+          CI->replaceUsesOfWith(ResPtr, TmpResPtr);
+      } else {
+        DXASSERT(0, "invalid operation on resource");
+      }
     }
   }
 }

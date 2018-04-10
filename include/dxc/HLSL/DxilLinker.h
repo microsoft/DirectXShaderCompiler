@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringMap.h"
 #include <memory>
 #include "llvm/Support/ErrorOr.h"
 
@@ -43,8 +44,9 @@ public:
   virtual bool DetachLib(llvm::StringRef name) = 0;
   virtual void DetachAll() = 0;
 
-  virtual std::unique_ptr<llvm::Module> Link(llvm::StringRef entry,
-                                             llvm::StringRef profile) = 0;
+  virtual std::unique_ptr<llvm::Module>
+  Link(llvm::StringRef entry, llvm::StringRef profile,
+       llvm::StringMap<llvm::StringRef> &exportMap) = 0;
 
 protected:
   DxilLinker(llvm::LLVMContext &Ctx, unsigned valMajor, unsigned valMinor) : m_ctx(Ctx), m_valMajor(valMajor), m_valMinor(valMinor) {}

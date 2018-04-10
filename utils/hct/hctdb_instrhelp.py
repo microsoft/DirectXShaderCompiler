@@ -350,28 +350,28 @@ class db_oload_gen:
 
     def print_opfunc_props(self):
         print("const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {")
-        print("//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute")
+        print("//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,  function attribute")
         # Example formatted string:
         #   {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",                false,  true,  true, false,  true, false,  true,  true, false, Attribute::ReadOnly, },
         # 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
         # 0         1         2         3         4         5         6         7         8         9         0         1         2         3         4         5         6         7         8         9         0
 
         last_category = None
-        # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong
+        # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong, u(dt)
         f = lambda i,c : "true," if i.oload_types.find(c) >= 0 else "false,"
         lower_exceptions = { "CBufferLoad" : "cbufferLoad", "CBufferLoadLegacy" : "cbufferLoadLegacy", "GSInstanceID" : "gsInstanceID" }
         lower_fn = lambda t: lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
-        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate" }
+        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate", "nr": "NoReturn" }
         attr_fn = lambda i : "Attribute::" + attr_dict[i.fn_attr] + ","
         for i in self.instrs:
             if last_category != i.category:
                 if last_category != None:
                     print("")
-                print("  // {category:118} void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute".format(category=i.category))
+                print("  // {category:118} void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute".format(category=i.category))
                 last_category = i.category
-            print("  {{  OC::{name:24} {quotName:27} OCC::{className:25} {classNameQuot:28} {v:>7}{h:>7}{f:>7}{d:>7}{b:>7}{e:>7}{w:>7}{i:>7}{l:>7} {attr:20} }},".format(
+            print("  {{  OC::{name:24} {quotName:27} OCC::{className:25} {classNameQuot:28} {v:>7}{h:>7}{f:>7}{d:>7}{b:>7}{e:>7}{w:>7}{i:>7}{l:>7}{u:>7}{o:>7} {attr:20} }},".format(
                 name=i.name+",", quotName='"'+i.name+'",', className=i.dxil_class+",", classNameQuot='"'+lower_fn(i.dxil_class)+'",',
-                v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), attr=attr_fn(i)))
+                v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), u=f(i,"u"), o=f(i,"o"), attr=attr_fn(i)))
         print("};")
 
     def print_opfunc_table(self):
@@ -404,6 +404,8 @@ class db_oload_gen:
             "v": "A(pV);",
             "w": "A(pWav);",
             "SamplePos": "A(pPos);",
+            "udt": "A(udt);",
+            "obj": "A(obj);",
         }
         last_category = None
         for i in self.instrs:
@@ -428,6 +430,8 @@ class db_oload_gen:
         elt_ty = "$o"
         res_ret_ty = "$r"
         cb_ret_ty = "$cb"
+        udt_ty = "udt"
+        obj_ty = "obj"
 
         last_category = None
 
@@ -469,6 +473,15 @@ class db_oload_gen:
                         index_dict[index].append(instr.name)
                     in_param_ty = True
                     break
+                if (op_type == udt_ty or op_type == obj_ty):
+                    # Skip return op
+                    index = index - 1
+                    if index not in index_dict:
+                        index_dict[index] = [instr.name]
+                    else:
+                        index_dict[index].append(instr.name)
+                    in_param_ty = True
+
 
             if in_param_ty:
                 continue
@@ -486,6 +499,8 @@ class db_oload_gen:
             "i": "IntegerType::get(m_Ctx, 32)",
             "l": "IntegerType::get(m_Ctx, 64)",
             "v": "Type::getVoidTy(m_Ctx)",
+            "u": "Type::getInt32PtrTy(m_Ctx)",
+            "o": "Type::getInt32PtrTy(m_Ctx)",
             }
             assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
             ty_code = type_code_texts[ty]

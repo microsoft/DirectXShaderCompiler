@@ -214,28 +214,6 @@ private:
     }
   }
 
-  void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
-                           hlsl::options::DxcOpts &opts,
-                           AbstractMemoryStream *pOutputStream,
-                           _COM_Outptr_ IDxcOperationResult **ppResult,
-                           bool &finished) {
-    const llvm::opt::OptTable *table = ::options::getHlslOptTable();
-    raw_stream_ostream outStream(pOutputStream);
-    if (0 != hlsl::options::ReadDxcOpts(table, hlsl::options::CompilerFlags,
-                                        mainArgs, opts, outStream)) {
-      CComPtr<IDxcBlob> pErrorBlob;
-      IFT(pOutputStream->QueryInterface(&pErrorBlob));
-      CComPtr<IDxcBlobEncoding> pErrorBlobWithEncoding;
-      outStream.flush();
-      IFT(DxcCreateBlobWithEncodingSet(pErrorBlob.p, CP_UTF8,
-                                       &pErrorBlobWithEncoding));
-      IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlobWithEncoding.p, E_INVALIDARG, ppResult));
-      finished = true;
-      return;
-    }
-    DXASSERT(opts.HLSLVersion > 2015, "else ReadDxcOpts didn't fail for non-isense");
-    finished = false;
-  }
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcCompiler)
@@ -333,7 +311,7 @@ public:
       // Set target profile before reading options and validate
       opts.TargetProfile = pUtf8TargetProfile.m_psz;
       bool finished;
-      ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
+      dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
       if (finished) {
         hr = S_OK;
         goto Cleanup;
@@ -633,7 +611,7 @@ public:
       hlsl::options::MainArgs mainArgs(argCountInt, pArguments, 0);
       hlsl::options::DxcOpts opts;
       bool finished;
-      ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
+      dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
       if (finished) {
         hr = S_OK;
         goto Cleanup;
