@@ -14,10 +14,6 @@
 
 #include <stdint.h>
 #include <string.h>
-namespace hlsl {
-namespace DXIL {
-namespace PSV {
-
 #ifndef UINT_MAX
 #define UINT_MAX 0xffffffff
 #endif
@@ -826,9 +822,6 @@ public:
     return PSVDependencyTable();
   }
 };
-} // namespace PSV
-} // namespace DXIL
-} // namespace hlsl
 
 namespace hlsl {
 
@@ -847,7 +840,7 @@ namespace hlsl {
       InvalidPSV,
     };
     virtual ~ViewIDValidator() {}
-    virtual Result ValidateStage(const DXIL::PSV::DxilPipelineStateValidation &PSV,
+    virtual Result ValidateStage(const DxilPipelineStateValidation &PSV,
                                  bool bFinalStage,
                                  bool bExpandInputOnly,
                                  unsigned &mismatchElementId) = 0;
