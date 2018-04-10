@@ -510,6 +510,29 @@ spv::Capability getCapabilityForGroupNonUniform(spv::Op opcode) {
   return spv::Capability::Max;
 }
 
+std::string getNamespacePrefix(const Decl* decl) {
+  std::string nsPrefix = "";
+  const DeclContext *dc = decl->getDeclContext();
+  while (dc && !dc->isTranslationUnit()) {
+    if (const NamespaceDecl *ns = dyn_cast<NamespaceDecl>(dc)) {
+      if (!ns->isAnonymousNamespace()) {
+        nsPrefix = ns->getName().str() + "::" + nsPrefix;
+      }
+    }
+    dc = dc->getParent();
+  }
+  return nsPrefix;
+}
+
+std::string getFnName(const FunctionDecl *fn) {
+  // Prefix the function name with the struct name if necessary
+  std::string classOrStructName = "";
+  if (const auto *memberFn = dyn_cast<CXXMethodDecl>(fn))
+    if (const auto *st = dyn_cast<CXXRecordDecl>(memberFn->getDeclContext()))
+      classOrStructName = st->getName().str() + ".";
+  return getNamespacePrefix(fn) + classOrStructName + fn->getName().str();
+}
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
@@ -979,23 +1002,9 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   breakStack = std::stack<uint32_t>();
   continueStack = std::stack<uint32_t>();
 
-  std::string funcName = decl->getName();
-  std::string nsPrefix = "";
-
-  // Add namespace name as prefix of function name (if any).
-  const DeclContext *dc = decl->getEnclosingNamespaceContext();
-  while (dc && !dc->isTranslationUnit()) {
-    if (const NamespaceDecl *ns = dyn_cast<NamespaceDecl>(dc)) {
-      if (!ns->isAnonymousNamespace()) {
-        nsPrefix = ns->getName().str() + "::" + nsPrefix;
-      }
-    }
-    dc = dc->getParent();
-  }
-
   // This will allow the entry-point name to be something like
   // myNamespace::myEntrypointFunc.
-  funcName = nsPrefix + funcName;
+  std::string funcName = getFnName(decl);
 
   uint32_t funcId = 0;
 
@@ -1035,10 +1044,6 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
           theBuilder.getPointerType(valueType, spv::StorageClass::Function);
       paramTypes.push_back(ptrType);
     }
-
-    // Prefix the function name with the struct name
-    if (const auto *st = dyn_cast<CXXRecordDecl>(memberFn->getDeclContext()))
-      funcName = nsPrefix + st->getName().str() + "." + decl->getName().str();
   }
 
   for (const auto *param : decl->params()) {

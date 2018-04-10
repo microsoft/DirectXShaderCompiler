@@ -500,17 +500,16 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const auto *blockDec = forTBuffer ? Decoration::getBufferBlock(context)
                                     : Decoration::getBlock(context);
 
-  auto decorations = typeTranslator.getLayoutDecorations(decl, layoutRule);
+  const llvm::SmallVector<const Decl *, 4> &declGroup =
+      typeTranslator.collectDeclsInDeclContext(decl);
+  auto decorations = typeTranslator.getLayoutDecorations(declGroup, layoutRule);
   decorations.push_back(blockDec);
 
   // Collect the type and name for each field
   llvm::SmallVector<uint32_t, 4> fieldTypes;
   llvm::SmallVector<llvm::StringRef, 4> fieldNames;
   uint32_t fieldIndex = 0;
-  for (const auto *subDecl : decl->decls()) {
-    if (TypeTranslator::shouldSkipInStructLayout(subDecl))
-      continue;
-
+  for (const auto *subDecl : declGroup) {
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
@@ -648,7 +647,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
   if (astDecls.count(var) != 0)
     return;
 
-  const auto *context = var->getDeclContext();
+  const auto *context = var->getTranslationUnitDecl();
   const uint32_t globals = createStructOrStructArrayVarOfExplicitLayout(
       context, /*arraySize*/ 0, ContextUsageKind::Globals, "type.$Globals",
       "$Globals");
@@ -657,11 +656,8 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
                             nullptr, nullptr);
 
   uint32_t index = 0;
-  for (const auto *decl : context->decls())
+  for (const auto *decl : typeTranslator.collectDeclsInDeclContext(context))
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      if (TypeTranslator::shouldSkipInStructLayout(varDecl))
-        continue;
-
       if (const auto *attr = varDecl->getAttr<VKBindingAttr>()) {
         emitError("variable '%0' will be placed in $Globals so cannot have "
                   "vk::binding attribute",
