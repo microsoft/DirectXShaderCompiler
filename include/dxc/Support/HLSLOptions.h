@@ -163,7 +163,7 @@ public:
   bool GenSPIRV;                           // OPT_spirv
   bool VkIgnoreUnusedResources;            // OPT_fvk_ignore_used_resources
   bool VkInvertY;                          // OPT_fvk_invert_y
-  bool VkUseGlslLayout;                    // OPT_fvk_use_glsl_layout
+  bool VkUseGlLayout;                      // OPT_fvk_use_gl_layout
   bool VkUseDxLayout;                      // OPT_fvk_use_dx_layout
   bool SpvEnableReflect;                   // OPT_fspv_reflect
   llvm::StringRef VkStageIoOrder;          // OPT_fvk_stage_io_order

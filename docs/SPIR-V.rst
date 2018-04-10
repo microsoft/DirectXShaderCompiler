@@ -169,7 +169,7 @@ To specify which Vulkan descriptor a particular resource binds to, use the
 Subpass inputs
 ~~~~~~~~~~~~~~
 
-Within a Vulkan `rendering pass <https://www.khronos.org/registry/vulkan/specs/1.0/html/vkspec.html#renderpass>`_,
+Within a Vulkan `rendering pass <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#renderpass>`_,
 a subpass can write results to an output target that can then be read by the
 next subpass as an input subpass. The "Subpass Input" feature regards the
 ability to read an output target.
@@ -244,7 +244,7 @@ Right now the following ``<builtin>`` are supported:
 * ``DeviceIndex``: The GLSL equivalent is ``gl_DeviceIndex``.
   Need ``SPV_KHR_device_group`` extension.
 
-Please see Vulkan spec. `14.6. Built-In Variables <https://www.khronos.org/registry/vulkan/specs/1.0/html/vkspec.html#interfaces-builtin-variables>`_
+Please see Vulkan spec. `14.6. Built-In Variables <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-builtin-variables>`_
 for detailed explanation of these builtins.
 
 Vulkan specific attributes
@@ -552,10 +552,11 @@ There will be three different ``OpTypeStruct`` generated, one for each variable
 defined in the above source code. This is because the ``OpTypeStruct`` for
 both ``myCBuffer`` and ``mySBuffer`` will have layout decorations (``Offset``,
 ``MatrixStride``, ``ArrayStride``, ``RowMajor``, ``ColMajor``). However, their
-layout rules are different (by default); ``myCBuffer`` will use GLSL ``std140``
-while ``mySBuffer`` will use GLSL ``std430``. ``myLocalVar`` will have its
-``OpTypeStruct`` without layout decorations. Read more about storage classes
-in the `Buffers`_ section.
+layout rules are different (by default); ``myCBuffer`` will use vector-relaxed
+OpenGL ``std140`` while ``mySBuffer`` will use vector-relaxed OpenGL ``std430``.
+``myLocalVar`` will have its ``OpTypeStruct`` without layout decorations.
+Read more about storage classes in the `Constant/Texture/Structured/Byte Buffers`_
+section.
 
 Structs used as stage inputs/outputs will have semantics attached to their
 members. These semantics are handled in the `entry function wrapper`_.
@@ -621,8 +622,8 @@ are translated into SPIR-V ``OpTypeImage``, with parameters:
 The meanings of the headers in the above table is explained in ``OpTypeImage``
 of the SPIR-V spec.
 
-Buffers
--------
+Constant/Texture/Structured/Byte Buffers
+----------------------------------------
 
 There are serveral buffer types in HLSL:
 
@@ -637,38 +638,83 @@ They are listed in the above section.
 
 Please see the following sections for the details of each type. As a summary:
 
-=========================== ================== ========================== ==================== =================
-         HLSL Type          Vulkan Buffer Type Default Memory Layout Rule SPIR-V Storage Class SPIR-V Decoration
-=========================== ================== ========================== ==================== =================
-``cbuffer``                   Uniform Buffer    Relaxed GLSL ``std140``      ``Uniform``        ``Block``
-``ConstantBuffer``            Uniform Buffer    Relaxed GLSL ``std140``      ``Uniform``        ``Block``
-``tbuffer``                   Storage Buffer    Relaxed GLSL ``std430``      ``Uniform``        ``BufferBlock``
-``TextureBuffer``             Storage Buffer    Relaxed GLSL ``std430``      ``Uniform``        ``BufferBlock``
-``StructuredBuffer``          Storage Buffer    Relaxed GLSL ``std430``      ``Uniform``        ``BufferBlock``
-``RWStructuredBuffer``        Storage Buffer    Relaxed GLSL ``std430``      ``Uniform``        ``BufferBlock``
-``AppendStructuredBuffer``    Storage Buffer    Relaxed GLSL ``std430``      ``Uniform``        ``BufferBlock``
-``ConsumeStructuredBuffer``   Storage Buffer    Relaxed GLSL ``std430``      ``Uniform``        ``BufferBlock``
-``ByteAddressBuffer``         Storage Buffer    Relaxed GLSL ``std430``      ``Uniform``        ``BufferBlock``
-``RWByteAddressBuffer``       Storage Buffer    Relaxed GLSL ``std430``      ``Uniform``        ``BufferBlock``
-=========================== ================== ========================== ==================== =================
+=========================== ================== ================================ ==================== =================
+         HLSL Type          Vulkan Buffer Type    Default Memory Layout Rule    SPIR-V Storage Class SPIR-V Decoration
+=========================== ================== ================================ ==================== =================
+``cbuffer``                   Uniform Buffer   Vector-relaxed OpenGL ``std140``      ``Uniform``     ``Block``
+``ConstantBuffer``            Uniform Buffer   Vector-relaxed OpenGL ``std140``      ``Uniform``     ``Block``
+``tbuffer``                   Storage Buffer   Vector-relaxed OpenGL ``std430``      ``Uniform``     ``BufferBlock``
+``TextureBuffer``             Storage Buffer   Vector-relaxed OpenGL ``std430``      ``Uniform``     ``BufferBlock``
+``StructuredBuffer``          Storage Buffer   Vector-relaxed OpenGL ``std430``      ``Uniform``     ``BufferBlock``
+``RWStructuredBuffer``        Storage Buffer   Vector-relaxed OpenGL ``std430``      ``Uniform``     ``BufferBlock``
+``AppendStructuredBuffer``    Storage Buffer   Vector-relaxed OpenGL ``std430``      ``Uniform``     ``BufferBlock``
+``ConsumeStructuredBuffer``   Storage Buffer   Vector-relaxed OpenGL ``std430``      ``Uniform``     ``BufferBlock``
+``ByteAddressBuffer``         Storage Buffer   Vector-relaxed OpenGL ``std430``      ``Uniform``     ``BufferBlock``
+``RWByteAddressBuffer``       Storage Buffer   Vector-relaxed OpenGL ``std430``      ``Uniform``     ``BufferBlock``
+=========================== ================== ================================ ==================== =================
 
-In the above, "relaxed" GLSL ``std140``/``std430`` rules mean GLSL
+To know more about the Vulkan buffer types, please refer to the Vulkan spec
+`13.1 Descriptor Types <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-types>`_.
+
+Memory layout rules
+~~~~~~~~~~~~~~~~~~~
+
+SPIR-V CodeGen supports three sets of memory layout rules for buffer resources
+right now:
+
+1. Vector-relaxed OpenGL ``std140`` for uniform buffers and vector-relaxed
+   OpenGL ``std430`` for storage buffers: these rules satisfy Vulkan `"Standard
+   Uniform Buffer Layout" and "Standard Storage Buffer Layout" <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-resources-layout>`_,
+   respectively.
+   They are the default.
+2. Strict OpenGL ``std140`` for uniform buffers and strict OpenGL ``std430``
+   for storage buffers: they allow packing data on the application side that
+   can be shared with OpenGL. They can be enabled by ``-fvk-use-gl-layout``.
+3. DirectX memory layout rules for uniform buffers and storage buffers:
+   they allow packing data on the application side that can be shared with
+   DirectX. They can be enabled by ``-fvk-use-dx-layout``.
+
+In the above, "vector-relaxed OpenGL ``std140``/``std430``" rules mean OpenGL
 ``std140``/``std430`` rules with the following modification for vector type
 alignment:
 
 1. The alignment of a vector type is set to be the alignment of its element type
-2. If the above causes an improper straddle (see Vulkan spec
-   `14.5.4. Offset and Stride Assignment <https://www.khronos.org/registry/vulkan/specs/1.0-extensions/html/vkspec.html#interfaces-resources-layout>`_),
+2. If the above causes an `improper straddle <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-resources-layout>`_,
    the alignment will be set to 16 bytes.
 
-To use the conventional GLSL ``std140``/``std430`` rules for resources,
-specify the ``-fvk-use-glsl-layout`` option.
+As an exmaple, for the following HLSL definition:
 
-To use the same layout rules as DirectX, specify the ``-fvk-dx-layout``
-option.
+.. code:: hlsl
 
-To know more about the Vulkan buffer types, please refer to the Vulkan spec
-`13.1 Descriptor Types <https://www.khronos.org/registry/vulkan/specs/1.0-wsi_extensions/html/vkspec.html#descriptorsets-types>`_.
+  struct S {
+      float3 f;
+  };
+
+  struct T {
+                float    a_float;
+                float3   b_float3;
+                S        c_S_float3;
+                float2x3 d_float2x3;
+      row_major float2x3 e_float2x3;
+                int      f_int_3[3];
+                float2   g_float2_2[2];
+  };
+
+We will have the following offsets for each member:
+
+============== ====== ====== ====== ====== ====== ======
+     HLSL         Uniform Buffer      Storage Buffer
+-------------- -------------------- --------------------
+    Member     1 (VK) 2 (DX) 3 (GL) 1 (VK) 2 (DX) 3 (GL)
+============== ====== ====== ====== ====== ====== ======
+``a_float``      0      0      0      0      0     0
+``b_float3``     4      4      16     4      4     16
+``c_S_float3``   16     16     32     16     16    32
+``d_float2x3``   32     32     48     32     28    48
+``e_float2x3``   80     80     96     64     52    80
+``f_int_3``      112    112    128    96     76    112
+``g_float2_2``   160    160    176    112    88    128
+============== ====== ====== ====== ====== ====== ======
 
 ``cbuffer`` and ``ConstantBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -677,8 +723,8 @@ These two buffer types are treated as uniform buffers using Vulkan's
 terminology. They are translated into an ``OpTypeStruct`` with the
 necessary layout decorations (``Offset``, ``ArrayStride``, ``MatrixStride``,
 ``RowMajor``, ``ColMajor``) and the ``Block`` decoration. The layout rule
-used is relaxed GLSL ``std140`` (by default). A variable declared as one of
-these types will be placed in the ``Uniform`` storage class.
+used is vector-relaxed OpenGL ``std140`` (by default). A variable declared as
+one of these types will be placed in the ``Uniform`` storage class.
 
 For example, for the following HLSL source code:
 
@@ -697,7 +743,7 @@ will be translated into
 
   ; Layout decoration
   OpMemberDecorate %type_ConstantBuffer_T 0 Offset 0
-  OpMemberDecorate %type_ConstantBuffer_T 0 Offset 16
+  OpMemberDecorate %type_ConstantBuffer_T 0 Offset 4
   ; Block decoration
   OpDecorate %type_ConstantBuffer_T Block
 
@@ -716,8 +762,8 @@ terminology. They are translated into an ``OpTypeStruct`` with the
 necessary layout decorations (``Offset``, ``ArrayStride``, ``MatrixStride``,
 ``RowMajor``, ``ColMajor``) and the ``BufferBlock`` decoration. All the struct
 members are also decorated with ``NonWritable`` decoration. The layout rule
-used is relaxed GLSL ``std430`` (by default). A variable declared as one of
-these types will be placed in the ``Uniform`` storage class.
+used is vector-relaxed OpenGL ``std430`` (by default). A variable declared as
+one of these types will be placed in the ``Uniform`` storage class.
 
 
 ``StructuredBuffer`` and ``RWStructuredBuffer``
@@ -727,9 +773,9 @@ these types will be placed in the ``Uniform`` storage class.
 using Vulkan's terminology. It is translated into an ``OpTypeStruct`` containing
 an ``OpTypeRuntimeArray`` of type ``T``, with necessary layout decorations
 (``Offset``, ``ArrayStride``, ``MatrixStride``, ``RowMajor``, ``ColMajor``) and
-the ``BufferBlock`` decoration.  The default layout rule used is relaxed GLSL
-``std430``. A variable declared as one of these types will be placed in the
-``Uniform`` storage class.
+the ``BufferBlock`` decoration.  The default layout rule used is vector-relaxed
+OpenGL ``std430``. A variable declared as one of these types will be placed in
+the ``Uniform`` storage class.
 
 For ``RWStructuredBuffer<T>``, each variable will have an associated counter
 variable generated. The counter variable will be of ``OpTypeStruct`` type, which
@@ -754,8 +800,8 @@ will be translated into
 
   ; Layout decoration
   OpMemberDecorate %T 0 Offset 0
-  OpMemberDecorate %T 1 Offset 16
-  OpDecorate %_runtimearr_T ArrayStride 32
+  OpMemberDecorate %T 1 Offset 4
+  OpDecorate %_runtimearr_T ArrayStride 16
   OpMemberDecorate %type_StructuredBuffer_T 0 Offset 0
   OpMemberDecorate %type_StructuredBuffer_T 0 NoWritable
   ; BufferBlock decoration
@@ -778,7 +824,7 @@ storage buffer using Vulkan's terminology. It is translated into an
 ``OpTypeStruct`` containing an ``OpTypeRuntimeArray`` of type ``T``, with
 necessary layout decorations (``Offset``, ``ArrayStride``, ``MatrixStride``,
 ``RowMajor``, ``ColMajor``) and the ``BufferBlock`` decoration. The default
-layout rule used is relaxed GLSL ``std430``.
+layout rule used is vector-relaxed OpenGL ``std430``.
 
 A variable declared as one of these types will be placed in the ``Uniform``
 storage class. Besides, each variable will have an associated counter variable
@@ -805,8 +851,8 @@ will be translated into
 
   ; Layout decorations
   OpMemberDecorate %T 0 Offset 0
-  OpMemberDecorate %T 1 Offset 16
-  OpDecorate %_runtimearr_T ArrayStride 32
+  OpMemberDecorate %T 1 Offset 4
+  OpDecorate %_runtimearr_T ArrayStride 16
   OpMemberDecorate %type_AppendStructuredBuffer_T 0 Offset 0
   OpDecorate %type_AppendStructuredBuffer_T BufferBlock
   OpMemberDecorate %type_ACSBuffer_counter 0 Offset 0
@@ -966,7 +1012,7 @@ values. E.g.,
   }
 
 In contrary, Vulkan stage input and output interface matching is via explicit
-``Location`` numbers. Details can be found `here <https://www.khronos.org/registry/vulkan/specs/1.0-wsi_extensions/html/vkspec.html#interfaces-iointerfaces>`_.
+``Location`` numbers. Details can be found `here <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-iointerfaces>`_.
 
 To translate HLSL to SPIR-V for Vulkan, semantic strings need to be mapped to
 Vulkan ``Location`` numbers properly. This can be done either explicitly via
@@ -2645,8 +2691,8 @@ codegen for Vulkan:
 - ``-fvk-ignore-unused-resources``: Avoids emitting SPIR-V code for resources
   defined but not statically referenced by the call tree of the entry point
   in question.
-- ``-fvk-use-glsl-layout``: Uses conventional GLSL ``std140``/``std430`` layout
-  rules for resources.
+- ``-fvk-use-gl-layout``: Uses strict OpenGL ``std140``/``std430``
+  layout rules for resources.
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
 - ``-fvk-invert-y``: Inverts SV_Position.y before writing to stage output.
   Used to accommodate the difference between Vulkan's coordinate system and

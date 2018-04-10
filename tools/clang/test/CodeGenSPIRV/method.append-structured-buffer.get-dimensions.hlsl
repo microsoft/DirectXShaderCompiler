@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fvk-use-glsl-layout
+// Run: %dxc -T vs_6_0 -E main -fvk-use-gl-layout
 
 struct S {
     float a;
