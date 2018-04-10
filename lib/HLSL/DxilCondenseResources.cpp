@@ -804,7 +804,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
   for (iplist<Function>::iterator F : pM->getFunctionList()) {
     if (!F->isDeclaration()) {
       if (!isResArray) {
-        IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
         if (m_HasDbgInfo) {
           // TODO: set debug info.
           // Builder.SetCurrentDebugLocation(DL);

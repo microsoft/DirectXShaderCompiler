@@ -789,18 +789,16 @@ Instruction *HLMatrixLowerPass::TrivialMatBinOpToVec(CallInst *CI) {
 // Create BitCast if ptr, otherwise, create alloca of new type, write to bitcast of alloca, and return load from alloca
 // If bOrigAllocaTy is true: create alloca of old type instead, write to alloca, and return load from bitcast of alloca
 static Instruction *BitCastValueOrPtr(Value* V, Instruction *Insert, Type *Ty, bool bOrigAllocaTy = false, const Twine &Name = "") {
+  IRBuilder<> Builder(Insert);
   if (Ty->isPointerTy()) {
     // If pointer, we can bitcast directly
-    IRBuilder<> Builder(Insert);
     return cast<Instruction>(Builder.CreateBitCast(V, Ty, Name));
-  }
-  else {
+  } else {
     // If value, we have to alloca, store to bitcast ptr, and load
-    IRBuilder<> EntryBuilder(Insert->getParent()->getParent()->getEntryBlock().begin());
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Insert));
     Type *allocaTy = bOrigAllocaTy ? V->getType() : Ty;
     Type *otherTy = bOrigAllocaTy ? Ty : V->getType();
-    Instruction *allocaInst = EntryBuilder.CreateAlloca(allocaTy);
-    IRBuilder<> Builder(Insert);
+    Instruction *allocaInst = AllocaBuilder.CreateAlloca(allocaTy);
     Instruction *bitCast = cast<Instruction>(Builder.CreateBitCast(allocaInst, otherTy->getPointerTo()));
     Builder.CreateStore(V, bOrigAllocaTy ? allocaInst : bitCast);
     return Builder.CreateLoad(bOrigAllocaTy ? bitCast : allocaInst, Name);
@@ -855,14 +853,14 @@ void HLMatrixLowerPass::lowerToVec(Instruction *matInst) {
     Type *Ty = AI->getAllocatedType();
     Type *matTy = Ty;
     
-    IRBuilder<> Builder(AI);
+    IRBuilder<> AllocaBuilder(AI);
     if (Ty->isArrayTy()) {
       Type *vecTy = HLMatrixLower::LowerMatrixArrayPointer(AI->getType());
       vecTy = vecTy->getPointerElementType();
-      vecVal = Builder.CreateAlloca(vecTy, nullptr, AI->getName());
+      vecVal = AllocaBuilder.CreateAlloca(vecTy, nullptr, AI->getName());
     } else {
       Type *vecTy = HLMatrixLower::LowerMatrixType(matTy);
-      vecVal = Builder.CreateAlloca(vecTy, nullptr, AI->getName());
+      vecVal = AllocaBuilder.CreateAlloca(vecTy, nullptr, AI->getName());
     }
     // Update debug info.
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(AI);
