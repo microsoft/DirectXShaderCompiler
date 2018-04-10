@@ -2902,13 +2902,19 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr) {
   // Return type is always a single float (LOD).
   assert(expr->getNumArgs() == 2u);
   const auto *object = expr->getImplicitObjectArgument();
-  const uint32_t objectId = loadIfGLValue(object);
-  const uint32_t samplerState = doExpr(expr->getArg(0));
+  const auto objectInfo = loadIfGLValue(object);
+  const auto samplerState = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
   const uint32_t sampledImageType = theBuilder.getSampledImageType(
       typeTranslator.translateType(object->getType()));
   const uint32_t sampledImage = theBuilder.createBinaryOp(
-      spv::Op::OpSampledImage, sampledImageType, objectId, samplerState);
+      spv::Op::OpSampledImage, sampledImageType, objectInfo, samplerState);
+
+  if (objectInfo.isNonUniform() || samplerState.isNonUniform()) {
+    // The sampled image will be used to access resource's memory, so we need
+    // to decorate it with NonUniformEXT.
+    theBuilder.decorate(sampledImage, spv::Decoration::NonUniformEXT);
+  }
 
   // The result type of OpImageQueryLod must be a float2.
   const uint32_t queryResultType =
@@ -2962,8 +2968,8 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   // No offset args for TextureCube, 1 or 4 offset args for the rest.
   assert(numOffsetArgs == 0 || numOffsetArgs == 1 || numOffsetArgs == 4);
 
-  const uint32_t image = loadIfGLValue(imageExpr);
-  const uint32_t sampler = doExpr(expr->getArg(0));
+  const auto image = loadIfGLValue(imageExpr);
+  const auto sampler = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
   const uint32_t compareVal = isCmp ? doExpr(expr->getArg(2)) : 0;
 
@@ -2995,6 +3001,7 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   }
 
   const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
+  const bool isNonUniform = image.isNonUniform() || sampler.isNonUniform();
 
   if (needsEmulation) {
     const auto elemType = typeTranslator.translateType(
@@ -3004,7 +3011,7 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
     for (uint32_t i = 0; i < 4; ++i) {
       varOffset = doExpr(expr->getArg(2 + isCmp + i));
       const uint32_t gatherRet = theBuilder.createImageGather(
-          retTypeId, imageTypeId, image, sampler, coordinate,
+          retTypeId, imageTypeId, image, sampler, isNonUniform, coordinate,
           theBuilder.getConstantInt32(component), compareVal, /*constOffset*/ 0,
           varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0, status);
       texels[i] = theBuilder.createCompositeExtract(elemType, gatherRet, {i});
@@ -3014,7 +3021,7 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   }
 
   return theBuilder.createImageGather(
-      retTypeId, imageTypeId, image, sampler, coordinate,
+      retTypeId, imageTypeId, image, sampler, isNonUniform, coordinate,
       theBuilder.getConstantInt32(component), compareVal, constOffset,
       varOffset, constOffsets, /*sampleNumber*/ 0, status);
 }
@@ -3048,8 +3055,8 @@ uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
   const bool hasOffsetArg = (numArgs == 5) || (numArgs == 4 && !hasStatusArg);
 
   const auto *imageExpr = expr->getImplicitObjectArgument();
-  const uint32_t image = loadIfGLValue(imageExpr);
-  const uint32_t sampler = doExpr(expr->getArg(0));
+  const auto image = loadIfGLValue(imageExpr);
+  const auto sampler = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
   const uint32_t comparator = doExpr(expr->getArg(2));
   uint32_t constOffset = 0, varOffset = 0;
@@ -3061,8 +3068,9 @@ uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
   const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
 
   return theBuilder.createImageGather(
-      retType, imageType, image, sampler, coordinate, /*component*/ 0,
-      comparator, constOffset, varOffset, /*constOffsets*/ 0,
+      retType, imageType, image, sampler,
+      image.isNonUniform() || sampler.isNonUniform(), coordinate,
+      /*component*/ 0, comparator, constOffset, varOffset, /*constOffsets*/ 0,
       /*sampleNumber*/ 0, status);
 }
 
@@ -3935,19 +3943,19 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   uint32_t constOffset = 0, varOffset = 0;
   if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
+  const bool isNonUniform = image.isNonUniform() || sampler.isNonUniform();
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   const auto retTypeId = typeTranslator.translateType(retType);
   if (isSample) {
     return createImageSample(
-        retType, imageType, image, sampler,
-        image.isNonUniform() || sampler.isNonUniform(), coordinate,
+        retType, imageType, image, sampler, isNonUniform, coordinate,
         /*compareVal*/ 0, /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0),
         constOffset, varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0,
         /*minLod*/ clamp, status);
   } else {
     return theBuilder.createImageGather(
-        retTypeId, imageType, image, sampler, coordinate,
+        retTypeId, imageType, image, sampler, isNonUniform, coordinate,
         // .Gather() doc says we return four components of red data.
         theBuilder.getConstantInt32(0), /*compareVal*/ 0, constOffset,
         varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0, status);

@@ -45,6 +45,14 @@
 // CHECK: OpDecorate [[nu25:%\d+]] NonUniformEXT
 // CHECK: OpDecorate [[nu26:%\d+]] NonUniformEXT
 
+// CHECK: OpDecorate [[nu27:%\d+]] NonUniformEXT
+// CHECK: OpDecorate [[nu28:%\d+]] NonUniformEXT
+// CHECK: OpDecorate [[nu29:%\d+]] NonUniformEXT
+
+// CHECK: OpDecorate [[nu30:%\d+]] NonUniformEXT
+// CHECK: OpDecorate [[nu31:%\d+]] NonUniformEXT
+// CHECK: OpDecorate [[nu32:%\d+]] NonUniformEXT
+
 Texture2D           gTextures[32];
 SamplerState        gSamplers[];
 RWTexture2D<float4> gRWTextures[32];
@@ -52,7 +60,7 @@ Buffer<float4>      gBuffers[];
 RWBuffer<uint>      gRWBuffers[32];
 SubpassInput        gSubpassInputs[32];
 
-float4 main(uint index : A, float2 loc : B) : SV_Target {
+float4 main(uint index : A, float2 loc : B, int2 offset : C) : SV_Target {
 // CHECK: [[nu1]] = OpLoad %uint %index
 // CHECK: [[nu2]] = OpLoad %type_2d_image
 // CHECK: [[nu3]] = OpIAdd %uint {{%\d+}} %uint_1
@@ -117,6 +125,18 @@ float4 main(uint index : A, float2 loc : B) : SV_Target {
 // CHECK: [[nu26]] = OpLoad %type_subpass_image
 // CHECK:            OpImageRead
     float4 v7 = gSubpassInputs[NonUniformResourceIndex(index)].SubpassLoad();
+
+// CHECK: [[nu27]] = OpLoad %uint %index
+// CHECK: [[nu28]] = OpLoad %type_2d_image
+// CHECK: [[nu29]] = OpSampledImage %type_sampled_image
+// CHECK:            OpImageGather
+    float4 v8 = gTextures[NonUniformResourceIndex(index)].Gather(gSamplers[0], loc, offset);
+
+// CHECK: [[nu30]] = OpLoad %uint %index
+// CHECK: [[nu31]] = OpLoad %type_2d_image
+// CHECK: [[nu32]] = OpSampledImage %type_sampled_image
+// CHECK:            OpImageQueryLod
+    float  v9 = gTextures[NonUniformResourceIndex(index)].CalculateLevelOfDetail(gSamplers[0], 0.5);
 
     return v1 + v2 + v3 + v4 + v5 + v6 + v7;
 }

@@ -556,9 +556,9 @@ uint32_t ModuleBuilder::createImageFetchOrRead(
 
 uint32_t ModuleBuilder::createImageGather(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
-    uint32_t coordinate, uint32_t component, uint32_t compareVal,
-    uint32_t constOffset, uint32_t varOffset, uint32_t constOffsets,
-    uint32_t sample, uint32_t residencyCodeId) {
+    bool isNonUniform, uint32_t coordinate, uint32_t component,
+    uint32_t compareVal, uint32_t constOffset, uint32_t varOffset,
+    uint32_t constOffsets, uint32_t sample, uint32_t residencyCodeId) {
   assert(insertPoint && "null insert point");
 
   uint32_t sparseRetType = 0;
@@ -572,6 +572,12 @@ uint32_t ModuleBuilder::createImageGather(
   const uint32_t sampledImgTy = getSampledImageType(imageType);
   instBuilder.opSampledImage(sampledImgTy, sampledImgId, image, sampler).x();
   insertPoint->appendInstruction(std::move(constructSite));
+
+  if (isNonUniform) {
+    // The sampled image will be used to access resource's memory, so we need
+    // to decorate it with NonUniformEXT.
+    decorate(sampledImgId, spv::Decoration::NonUniformEXT);
+  }
 
   llvm::SmallVector<uint32_t, 2> params;
 
