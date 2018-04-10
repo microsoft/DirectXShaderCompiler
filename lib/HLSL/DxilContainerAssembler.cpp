@@ -28,12 +28,14 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
+#include "dxc/HLSL/DxilRuntimeReflection.h"
 #include <algorithm>
 #include <functional>
 
 using namespace llvm;
 using namespace hlsl;
 using namespace hlsl::DXIL::PSV;
+using namespace hlsl::DXIL::RDAT;
 
 static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::TessellatorDomain domain) {
   switch (kind) {
@@ -810,6 +812,8 @@ public:
   }
 };
 
+using namespace DXIL;
+
 class DxilRDATWriter : public DxilPartWriter {
 private:
   const DxilModule &m_Module;
@@ -853,20 +857,21 @@ private:
   }
 
   void InsertToResourceTable(DxilResourceBase &resource,
-                             PSVResourceType resType,
+                             ResourceClass resourceClass,
                              ResourceTable &resourceTable,
                              StringTable &stringTable,
                              uint32_t &resourceIndex) {
     uint32_t stringIndex = stringTable.Insert(resource.GetGlobalName());
     UpdateFunctionToResourceInfo(&resource, resourceIndex++);
     RuntimeDataResourceInfo info = {};
+    info.ID = resource.GetID();
+    info.Class = static_cast<uint32_t>(resourceClass);
     info.Kind = static_cast<uint32_t>(resource.GetKind());
-    info.ResType = (uint32_t)resType,
     info.Space = resource.GetSpaceID();
     info.LowerBound = resource.GetLowerBound();
     info.UpperBound = resource.GetUpperBound();
     info.Name = stringIndex;
-    info.ID = resource.GetID();
+    info.Flags = 0;
     resourceTable.Insert(info);
   }
 
@@ -877,39 +882,20 @@ private:
     ResourceTable &resourceTable = *(ResourceTable*)m_tables.back().get();
     uint32_t resourceIndex = 0;
     for (auto &resource : m_Module.GetCBuffers()) {
-      InsertToResourceTable(*resource.get(), PSVResourceType::CBV, resourceTable, stringTable,
+      InsertToResourceTable(*resource.get(), ResourceClass::CBuffer, resourceTable, stringTable,
                             resourceIndex);
 
     }
     for (auto &resource : m_Module.GetSamplers()) {
-      InsertToResourceTable(*resource.get(), PSVResourceType::Sampler, resourceTable, stringTable,
+      InsertToResourceTable(*resource.get(), ResourceClass::Sampler, resourceTable, stringTable,
                             resourceIndex);
     }
     for (auto &resource : m_Module.GetSRVs()) {
-      PSVResourceType resType = PSVResourceType::Invalid;
-      if (resource->IsStructuredBuffer()) {
-        resType = PSVResourceType::SRVStructured;
-      } else if (resource->IsRawBuffer()) {
-        resType = PSVResourceType::SRVRaw;
-      } else {
-        resType = PSVResourceType::SRVTyped;
-      }
-      InsertToResourceTable(*resource.get(), resType, resourceTable, stringTable,
+      InsertToResourceTable(*resource.get(), ResourceClass::SRV, resourceTable, stringTable,
                             resourceIndex);
     }
     for (auto &resource : m_Module.GetUAVs()) {
-      PSVResourceType resType = PSVResourceType::Invalid;
-      if (resource->IsStructuredBuffer()) {
-        if (resource->HasCounter())
-          resType = PSVResourceType::UAVStructuredWithCounter;
-        else
-          resType = PSVResourceType::UAVStructured;
-      } else if (resource->IsRawBuffer()) {
-        resType = PSVResourceType::UAVRaw;
-      } else {
-        resType = PSVResourceType::UAVTyped;
-      }
-      InsertToResourceTable(*resource.get(), resType, resourceTable, stringTable,
+      InsertToResourceTable(*resource.get(), ResourceClass::UAV, resourceTable, stringTable,
                             resourceIndex);
     }
   }
@@ -953,7 +939,7 @@ private:
         uint32_t functionDependencies = UINT_MAX;
         uint32_t payloadSizeInBytes = 0;
         uint32_t attrSizeInBytes = 0;
-        uint32_t shaderKind = (uint32_t)PSVShaderKind::Library;
+        uint32_t shaderKind = static_cast<uint32_t>(DXIL::ShaderKind::Library);
 
         if (m_FuncToResNameOffset.find(&function) != m_FuncToResNameOffset.end())
           resourceIndex =

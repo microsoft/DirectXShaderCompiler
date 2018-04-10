@@ -23,6 +23,7 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxc/HLSL/DxilRuntimeReflection.inl"
 
 #include <unordered_set>
 
