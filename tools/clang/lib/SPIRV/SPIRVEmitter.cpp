@@ -533,6 +533,37 @@ std::string getFnName(const FunctionDecl *fn) {
   return getNamespacePrefix(fn) + classOrStructName + fn->getName().str();
 }
 
+/// Returns the capability required to non-uniformly index into the given type.
+spv::Capability getNonUniformCapability(QualType type) {
+  using spv::Capability;
+
+  if (type->isArrayType()) {
+    return getNonUniformCapability(
+        type->getAsArrayTypeUnsafe()->getElementType());
+  }
+  if (TypeTranslator::isTexture(type) || TypeTranslator::isSampler(type)) {
+    return Capability::SampledImageArrayNonUniformIndexingEXT;
+  }
+  if (TypeTranslator::isRWTexture(type)) {
+    return Capability::StorageImageArrayNonUniformIndexingEXT;
+  }
+  if (TypeTranslator::isBuffer(type)) {
+    return Capability::UniformTexelBufferArrayNonUniformIndexingEXT;
+  }
+  if (TypeTranslator::isRWBuffer(type)) {
+    return Capability::StorageTexelBufferArrayNonUniformIndexingEXT;
+  }
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    const auto name = recordType->getDecl()->getName();
+
+    if (name == "SubpassInput" || name == "SubpassInputMS") {
+      return Capability::InputAttachmentArrayNonUniformIndexingEXT;
+    }
+  }
+
+  return Capability::Max;
+}
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
@@ -1887,7 +1918,7 @@ SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   if (foundNonUniformResourceIndex) {
     // Add the necessary capability required for indexing into this kind
     // of resource
-    requireNecessaryNonUniformCapability(base->getType());
+    theBuilder.requireCapability(getNonUniformCapability(base->getType()));
     info.setNonUniform(); // Carry forward the NonUniformEXT decoration
     foundNonUniformResourceIndex = false;
   }
@@ -6650,36 +6681,6 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   }
 
   return 0;
-}
-
-void SPIRVEmitter::requireNecessaryNonUniformCapability(QualType type) {
-  using spv::Capability;
-
-  if (type->isArrayType()) {
-    // TODO: unsized arrays need RuntimeDescriptorArrayEXT
-    requireNecessaryNonUniformCapability(
-        type->getAsArrayTypeUnsafe()->getElementType());
-  } else if (TypeTranslator::isTexture(type) ||
-             TypeTranslator::isSampler(type)) {
-    theBuilder.requireCapability(
-        Capability::SampledImageArrayNonUniformIndexingEXT);
-  } else if (TypeTranslator::isRWTexture(type)) {
-    theBuilder.requireCapability(
-        Capability::StorageImageArrayNonUniformIndexingEXT);
-  } else if (TypeTranslator::isBuffer(type)) {
-    theBuilder.requireCapability(
-        Capability::UniformTexelBufferArrayNonUniformIndexingEXT);
-  } else if (TypeTranslator::isRWBuffer(type)) {
-    theBuilder.requireCapability(
-        Capability::StorageTexelBufferArrayNonUniformIndexingEXT);
-  } else if (const auto *recordType = type->getAs<RecordType>()) {
-    const auto name = recordType->getDecl()->getName();
-
-    if (name == "SubpassInput" || name == "SubpassInputMS") {
-      theBuilder.requireCapability(
-          Capability::InputAttachmentArrayNonUniformIndexingEXT);
-    }
-  }
 }
 
 SpirvEvalInfo

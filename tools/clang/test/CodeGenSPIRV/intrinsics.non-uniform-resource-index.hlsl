@@ -46,9 +46,9 @@
 // CHECK: OpDecorate [[nu26:%\d+]] NonUniformEXT
 
 Texture2D           gTextures[32];
-SamplerState        gSamplers[32];
+SamplerState        gSamplers[];
 RWTexture2D<float4> gRWTextures[32];
-Buffer<float4>      gBuffers[32];
+Buffer<float4>      gBuffers[];
 RWBuffer<uint>      gRWBuffers[32];
 SubpassInput        gSubpassInputs[32];
 

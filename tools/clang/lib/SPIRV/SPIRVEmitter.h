@@ -471,8 +471,6 @@ private:
   /// Processes SM6.0 quad-wide shuffle.
   uint32_t processWaveQuadWideShuffle(const CallExpr *, hlsl::IntrinsicOp op);
 
-  void requireNecessaryNonUniformCapability(QualType type);
-
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvEvalInfo processIntrinsicNonUniformResourceIndex(const CallExpr *);
 

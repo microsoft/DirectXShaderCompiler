@@ -461,9 +461,8 @@ uint32_t DeclResultIdMapper::getMatrixStructType(const VarDecl *matVar,
 }
 
 uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
-    const DeclContext *decl, uint32_t arraySize,
-    const ContextUsageKind usageKind, llvm::StringRef typeName,
-    llvm::StringRef varName) {
+    const DeclContext *decl, int arraySize, const ContextUsageKind usageKind,
+    llvm::StringRef typeName, llvm::StringRef varName) {
   // cbuffers are translated into OpTypeStruct with Block decoration.
   // tbuffers are translated into OpTypeStruct with BufferBlock decoration.
   // Push constants are translated into OpTypeStruct with Block decoration.
@@ -521,9 +520,16 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
       theBuilder.getStructType(fieldTypes, typeName, fieldNames, decorations);
 
   // Make an array if requested.
-  if (arraySize)
+  if (arraySize > 0) {
     resultType = theBuilder.getArrayType(
         resultType, theBuilder.getConstantUint32(arraySize));
+  } else if (arraySize == -1) {
+    // Runtime arrays of cbuffer/tbuffer needs additional capability.
+    theBuilder.addExtension(Extension::EXT_descriptor_indexing,
+                            "runtime array of resources", {});
+    theBuilder.requireCapability(spv::Capability::RuntimeDescriptorArrayEXT);
+    resultType = theBuilder.getRuntimeArrayType(resultType);
+  }
 
   // Register the <type-id> for this decl
   ctBufferPCTypeIds[decl] = resultType;
@@ -569,18 +575,28 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
 }
 
 uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
-  const auto *recordType = decl->getType()->getAs<RecordType>();
-  uint32_t arraySize = 0;
+  const RecordType *recordType = nullptr;
+  int arraySize = 0;
 
   // In case we have an array of ConstantBuffer/TextureBuffer:
-  if (!recordType) {
-    if (const auto *arrayType =
+  if (const auto *arrayType = decl->getType()->getAsArrayTypeUnsafe()) {
+    recordType = arrayType->getElementType()->getAs<RecordType>();
+    if (const auto *caType =
             astContext.getAsConstantArrayType(decl->getType())) {
-      recordType = arrayType->getElementType()->getAs<RecordType>();
-      arraySize = static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+      arraySize = static_cast<uint32_t>(caType->getSize().getZExtValue());
+    } else {
+      arraySize = -1;
     }
+  } else {
+    recordType = decl->getType()->getAs<RecordType>();
   }
-  assert(recordType);
+  if (!recordType) {
+    emitError("constant/texture buffer type %0 unimplemented",
+              decl->getLocStart())
+        << decl->getType();
+    return 0;
+  }
+
   const auto *context = cast<HLSLBufferDecl>(decl->getDeclContext());
   const auto usageKind = context->isCBuffer() ? ContextUsageKind::CBuffer
                                               : ContextUsageKind::TBuffer;
