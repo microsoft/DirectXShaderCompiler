@@ -15,7 +15,7 @@ void EmitSPIRVOptions::Initialize() {
     cBufferLayoutRule = spirv::LayoutRule::FxcCTBuffer;
     tBufferLayoutRule = spirv::LayoutRule::FxcCTBuffer;
     sBufferLayoutRule = spirv::LayoutRule::FxcSBuffer;
-  } else if (useGlslLayout) {
+  } else if (useGlLayout) {
     cBufferLayoutRule = spirv::LayoutRule::GLSLStd140;
     tBufferLayoutRule = spirv::LayoutRule::GLSLStd430;
     sBufferLayoutRule = spirv::LayoutRule::GLSLStd430;
