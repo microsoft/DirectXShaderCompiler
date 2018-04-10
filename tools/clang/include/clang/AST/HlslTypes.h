@@ -308,6 +308,9 @@ void AddRecordTypeWithHandle(
   _Outptr_  clang::CXXRecordDecl** typeDecl, 
   _In_z_    const char* typeName);
 
+void AddRayFlags(clang::ASTContext& context);
+void AddHitKinds(clang::ASTContext& context);
+
 /// <summary>Adds the implementation for std::is_equal.</summary>
 void AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& sema);
 
@@ -368,6 +371,8 @@ bool IsHLSLLineStreamType(clang::QualType type);
 bool IsHLSLTriangleStreamType(clang::QualType type);
 bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
+bool IsHLSLNumeric(clang::QualType type);
+bool IsHLSLNumericUserDefinedType(clang::QualType type);
 clang::QualType GetHLSLResourceResultType(clang::QualType type);
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext& context, clang::QualType type);
 clang::QualType GetHLSLInputPatchElementType(clang::QualType type);

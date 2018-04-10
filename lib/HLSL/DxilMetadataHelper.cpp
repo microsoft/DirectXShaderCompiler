@@ -48,6 +48,7 @@ const char DxilMDHelper::kDxilTypeSystemMDName[]                      = "dx.type
 const char DxilMDHelper::kDxilTypeSystemHelperVariablePrefix[]        = "dx.typevar.";
 const char DxilMDHelper::kDxilControlFlowHintMDName[]                 = "dx.controlflow.hints";
 const char DxilMDHelper::kDxilPreciseAttributeMDName[]                = "dx.precise";
+const char DxilMDHelper::kDxilNonUniformAttributeMDName[]             = "dx.nonuniform";
 const char DxilMDHelper::kHLDxilResourceAttributeMDName[]             = "dx.hl.resource.attribute";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";
 
@@ -956,6 +957,7 @@ Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
   DXIL::ShaderKind shaderKind =
       static_cast<DXIL::ShaderKind>(ConstMDToUint32(pProps->getOperand(idx++)));
 
+  bool bRayAttributes = false;
   props->shaderKind = shaderKind;
   switch (shaderKind) {
   case DXIL::ShaderKind::Compute:
@@ -1006,6 +1008,18 @@ Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
     props->ShaderProps.PS.EarlyDepthStencil =
         ConstMDToUint32(pProps->getOperand(idx++));
     break;
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::ClosestHit:
+    bRayAttributes = true;
+  case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Callable:
+    // payload/params unioned and first:
+    props->ShaderProps.Ray.payloadSizeInBytes =
+      ConstMDToUint32(pProps->getOperand(idx++));
+    if (bRayAttributes)
+      props->ShaderProps.Ray.attributeSizeInBytes =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    break;
   default:
     break;
   }
@@ -1014,11 +1028,12 @@ Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
 
 MDTuple *
 DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
-                                    Function *F) {
+                                   const Function *F) {
+  bool bRayAttributes = false;
   Metadata *MDVals[30];
   std::fill(MDVals, MDVals + _countof(MDVals), nullptr);
   unsigned valIdx = 0;
-  MDVals[valIdx++] = ValueAsMetadata::get(F);
+  MDVals[valIdx++] = ValueAsMetadata::get(const_cast<Function*>(F));
   MDVals[valIdx++] = Uint32ToConstMD(static_cast<unsigned>(props->shaderKind));
   switch (props->shaderKind) {
   case DXIL::ShaderKind::Compute:
@@ -1056,6 +1071,16 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
     break;
   case DXIL::ShaderKind::Pixel:
     MDVals[valIdx++] = BoolToConstMD(props->ShaderProps.PS.EarlyDepthStencil);
+    break;
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::ClosestHit:
+    bRayAttributes = true;
+  case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Callable:
+    // payload/params unioned and first:
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.Ray.payloadSizeInBytes);
+    if (bRayAttributes)
+      MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.Ray.attributeSizeInBytes);
     break;
   default:
     break;
@@ -1509,7 +1534,7 @@ void DxilExtraPropertyHelper::LoadSignatureElementProperties(const MDOperand &MD
 //
 // Utilities.
 //
-bool DxilMDHelper::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
+bool DxilMDHelper::IsKnownNamedMetaData(const llvm::NamedMDNode &Node) {
   StringRef name = Node.getName();
   for (unsigned i = 0; i < DxilMDNames.size(); i++) {
     if (name == DxilMDNames[i]) {
@@ -1517,6 +1542,14 @@ bool DxilMDHelper::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
     }
   }
   return false;
+}
+
+void DxilMDHelper::combineDxilMetadata(llvm::Instruction *K,
+                                       const llvm::Instruction *J) {
+  if (IsMarkedNonUniform(J))
+    MarkNonUniform(K);
+  if (IsMarkedPrecise(J))
+    MarkPrecise(K);
 }
 
 ConstantAsMetadata *DxilMDHelper::Int32ToConstMD(int32_t v, LLVMContext &Ctx) {
@@ -1651,6 +1684,24 @@ void DxilMDHelper::MarkPrecise(Instruction *I) {
     { ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), 1)) });
 
   I->setMetadata(DxilMDHelper::kDxilPreciseAttributeMDName, preciseNode);
+}
+
+bool DxilMDHelper::IsMarkedNonUniform(const Instruction *inst) {
+  int32_t val = 0;
+  if (MDNode *precise = inst->getMetadata(kDxilNonUniformAttributeMDName)) {
+    assert(precise->getNumOperands() == 1);
+    val = ConstMDToInt32(precise->getOperand(0));
+  }
+  return val;
+}
+
+void DxilMDHelper::MarkNonUniform(Instruction *I) {
+  LLVMContext &Ctx = I->getContext();
+  MDNode *preciseNode = MDNode::get(
+    Ctx,
+    { ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), 1)) });
+
+  I->setMetadata(DxilMDHelper::kDxilNonUniformAttributeMDName, preciseNode);
 }
 
 } // namespace hlsl

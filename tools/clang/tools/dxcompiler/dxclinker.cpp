@@ -35,6 +35,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "dxc/Support/HLSLOptions.h"
 
 using namespace hlsl;
 using namespace llvm;
@@ -67,6 +68,23 @@ public:
       _COM_Outptr_ IDxcOperationResult *
           *ppResult // Linker output status, buffer, and errors
   );
+
+  // Links the shader with export and produces a shader blob that the Direct3D
+  // runtime can use.
+  __override HRESULT STDMETHODCALLTYPE LinkWithExports(
+      _In_opt_ LPCWSTR pEntryName, // Entry point name
+      _In_ LPCWSTR pTargetProfile, // shader profile to link
+      _In_count_(libCount)
+          const LPCWSTR *pLibNames, // Array of library names to link
+      UINT32 libCount,              // Number of libraries to link
+      _In_count_(argCount)
+          const LPCWSTR *pArguments, // Array of pointers to arguments
+      _In_ UINT32 argCount,          // Number of arguments
+      _In_count_(exportCount) const DxcDefine *pExports, // Array of exports
+      _In_ UINT32 exportCount,                           // Number of exports
+      _COM_Outptr_ IDxcOperationResult *
+          *ppResult // Linker output status, buffer, and errors
+      );
 
   __override HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
       IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) {
@@ -148,8 +166,6 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
   }
 }
 
-// Links the shader and produces a shader blob that the Direct3D runtime can
-// use.
 HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     _In_opt_ LPCWSTR pEntryName, // Entry point name
     _In_ LPCWSTR pTargetProfile, // shader profile to link
@@ -162,11 +178,31 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     _COM_Outptr_ IDxcOperationResult *
         *ppResult // Linker output status, buffer, and errors
 ) {
+  return LinkWithExports(pEntryName, pTargetProfile, pLibNames, libCount,
+                         pArguments, argCount, /*pExorts*/ nullptr,
+                         /*exportCount*/ 0, ppResult);
+}
+
+// Links the shader with export and produces a shader blob that the Direct3D
+// runtime can use.
+__override HRESULT STDMETHODCALLTYPE DxcLinker::LinkWithExports(
+    _In_opt_ LPCWSTR pEntryName, // Entry point name
+    _In_ LPCWSTR pTargetProfile, // shader profile to link
+    _In_count_(libCount)
+        const LPCWSTR *pLibNames, // Array of library names to link
+    UINT32 libCount,              // Number of libraries to link
+    _In_count_(argCount)
+        const LPCWSTR *pArguments, // Array of pointers to arguments
+    _In_ UINT32 argCount,          // Number of arguments
+    _In_count_(exportCount) const DxcDefine *pExports, // Array of exports
+    _In_ UINT32 exportCount,                           // Number of exports
+    _COM_Outptr_ IDxcOperationResult *
+        *ppResult // Linker output status, buffer, and errors
+) {
   DxcThreadMalloc TM(m_pMalloc);
   // Prepare UTF8-encoded versions of API values.
-  CW2A pUtf8EntryPoint(pEntryName, CP_UTF8);
   CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
-  // TODO: read and validate options.
+  CW2A pUtf8EntryPoint(pEntryName, CP_UTF8);
 
   CComPtr<AbstractMemoryStream> pOutputStream;
 
@@ -181,6 +217,24 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
     IFT(CoGetMalloc(1, &pMalloc));
     IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+
+    // Read and validate options.
+    int argCountInt;
+    IFT(UIntToInt(argCount, &argCountInt));
+    hlsl::options::MainArgs mainArgs(argCountInt,
+                                     const_cast<LPCWSTR *>(pArguments), 0);
+    hlsl::options::DxcOpts opts;
+    CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
+    // Set target profile before reading options and validate
+    opts.TargetProfile = pUtf8TargetProfile.m_psz;
+    bool finished;
+    dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult,
+                                 finished);
+    if (pEntryName)
+      opts.EntryPoint = pUtf8EntryPoint.m_psz;
+    if (finished) {
+      return S_OK;
+    }
 
     std::string warnings;
     llvm::raw_string_ostream w(warnings);
@@ -200,8 +254,16 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
     bool hasErrorOccurred = !bSuccess;
     if (bSuccess) {
-      std::unique_ptr<Module> pM =
-          m_pLinker->Link(pUtf8EntryPoint.m_psz, pUtf8TargetProfile.m_psz);
+      StringMap<StringRef> exportMap;
+      std::vector<std::string> names(exportCount);
+      for (unsigned i=0;i<exportCount;i++) {
+        const DxcDefine &pExport = pExports[i];
+        names[i] = CW2A(pExport.Name);
+        exportMap[names[i]] = "";
+      }
+
+      std::unique_ptr<Module> pM = m_pLinker->Link(
+          opts.EntryPoint, pUtf8TargetProfile.m_psz, exportMap);
       if (pM) {
         const IntrusiveRefCntPtr<clang::DiagnosticIDs> Diags(
             new clang::DiagnosticIDs);
@@ -217,12 +279,29 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         WriteBitcodeToFile(pM.get(), outStream);
         outStream.flush();
 
+        // Always save debug info. If lib has debug info, the link result will
+        // have debug info.
+        SerializeDxilFlags SerializeFlags =
+            SerializeDxilFlags::IncludeDebugNamePart;
+        // Unless we want to strip it right away, include it in the container.
+        if (!opts.StripDebug) {
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+        }
+        if (opts.DebugNameForSource) {
+          SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
+        }
         // Validation.
-        HRESULT valHR = dxcutil::ValidateAndAssembleToContainer(
-            std::move(pM), pOutputBlob, pMalloc, SerializeDxilFlags::None,
-            pOutputStream,
-            /*bDebugInfo*/ false, Diag);
-
+        HRESULT valHR = S_OK;
+        // Skip validation on lib for now.
+        if (!opts.TargetProfile.startswith("lib_")) {
+          valHR = dxcutil::ValidateAndAssembleToContainer(
+              std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
+              pOutputStream,
+              /*bDebugInfo*/ false, Diag);
+        } else {
+          dxcutil::AssembleToContainer(std::move(pM), pOutputBlob, m_pMalloc,
+                                       SerializeFlags, pOutputStream);
+        }
         // Callback after valid DXIL is produced
         if (SUCCEEDED(valHR)) {
           CComPtr<IDxcBlob> pTargetBlob;

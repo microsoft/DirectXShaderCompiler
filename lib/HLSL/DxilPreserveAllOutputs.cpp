@@ -86,15 +86,15 @@ public:
   {
   }
 
-  void CreateAlloca(IRBuilder<> &builder) {
-    LLVMContext &context = builder.getContext();
+  void CreateAlloca(IRBuilder<> &allocaBuilder) {
+    LLVMContext &context = allocaBuilder.getContext();
     Type *elementType = m_OutputElement.GetCompType().GetLLVMType(context);
     Type *allocaType = nullptr;
     if (IsSingleElement())
       allocaType = elementType;
     else
       allocaType = ArrayType::get(elementType, NumElements());
-    m_Alloca = builder.CreateAlloca(allocaType, nullptr, m_OutputElement.GetName());
+    m_Alloca = allocaBuilder.CreateAlloca(allocaType, nullptr, m_OutputElement.GetName());
   }
 
   void StoreTemp(IRBuilder<> &builder, Value *row, Value *col, Value *value) const {
@@ -249,11 +249,11 @@ DxilPreserveAllOutputs::OutputMap DxilPreserveAllOutputs::generateOutputMap(cons
   return map;
 }
 
-void DxilPreserveAllOutputs::createTempAllocas(OutputMap &outputMap, IRBuilder<> &builder)
+void DxilPreserveAllOutputs::createTempAllocas(OutputMap &outputMap, IRBuilder<> &allocaBuilder)
 {
   for (auto &iter: outputMap) {
     OutputElement &output = iter.second;
-    output.CreateAlloca(builder);
+    output.CreateAlloca(allocaBuilder);
   }
 }
 

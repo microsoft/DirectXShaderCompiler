@@ -1078,7 +1078,8 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
   isBuffer |= keyword == "RasterizerOrderedBuffer";
   if (isBuffer)
     return DxilResource::Kind::TypedBuffer;
-
+  if (keyword == "RaytracingAccelerationStructure")
+    return DxilResource::Kind::RTAccelerationStructure;
   return DxilResource::Kind::Invalid;
 }
 
@@ -1129,7 +1130,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         break;
       }
     }
-
+    if (intrinsicOpcode == (unsigned)IntrinsicOp::IOP_TraceRay) {
+      QualType recordTy = FD->getParamDecl(0)->getType();
+      llvm::Type *Ty = CGM.getTypes().ConvertType(recordTy);
+      MDNode *MD = GetOrAddResTypeMD(recordTy);
+      DXASSERT(MD, "else invalid resource type");
+      resMetadataMap[Ty] = MD;
+    }
     StringRef lower;
     if (hlsl::GetIntrinsicLowering(FD, lower))
       hlsl::SetHLLowerStrategy(F, lower);
@@ -1166,13 +1173,28 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   bool isDS = false;
   bool isVS = false;
   bool isPS = false;
+  bool isRay = false;
   if (const HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>()) {
     // Stage is already validate in HandleDeclAttributeForHLSL.
-    // Here just check first letter.
+    // Here just check first letter (or two).
     switch (Attr->getStage()[0]) {
     case 'c':
-      isCS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Compute;
+      switch (Attr->getStage()[1]) {
+      case 'o':
+        isCS = true;
+        funcProps->shaderKind = DXIL::ShaderKind::Compute;
+        break;
+      case 'l':
+        isRay = true;
+        funcProps->shaderKind = DXIL::ShaderKind::ClosestHit;
+        break;
+      case 'a':
+        isRay = true;
+        funcProps->shaderKind = DXIL::ShaderKind::Callable;
+        break;
+      default:
+        break;
+      }
       break;
     case 'v':
       isVS = true;
@@ -1194,11 +1216,34 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       isPS = true;
       funcProps->shaderKind = DXIL::ShaderKind::Pixel;
       break;
-    default: {
+    case 'r':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::RayGeneration;
+      break;
+    case 'i':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Intersection;
+      break;
+    case 'a':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::AnyHit;
+      break;
+    case 'm':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Miss;
+      break;
+    default:
+      break;
+    }
+    if (funcProps->shaderKind == DXIL::ShaderKind::Invalid) {
       unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "Invalid profile for shader attribute");
+        DiagnosticsEngine::Error, "Invalid profile for shader attribute");
       Diags.Report(Attr->getLocation(), DiagID);
-    } break;
+    }
+    if (isEntry && isRay) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "Ray function cannot be used as a global entry point");
+      Diags.Report(Attr->getLocation(), DiagID);
     }
   }
 
@@ -1415,7 +1460,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->shaderKind = DXIL::ShaderKind::Pixel;
   }
 
-  const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS;
+  const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS + isRay;
 
   // TODO: check this in front-end and report error.
   DXASSERT(profileAttributes < 2, "profile attributes are mutual exclusive");
@@ -1475,10 +1520,19 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
                              /*isPatchConstantFunction*/ false);
   }
+  if (isRay && !retTy->isVoidType()) {
+    Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
+      DiagnosticsEngine::Error, "return type for ray tracing shaders must be void"));
+  }
 
   ConstructFieldAttributedAnnotation(retTyAnnotation, retTy, bDefaultRowMajor);
   if (FD->hasAttr<HLSLPreciseAttr>())
     retTyAnnotation.SetPrecise();
+
+  if (isRay) {
+    funcProps->ShaderProps.Ray.payloadSizeInBytes = 0;
+    funcProps->ShaderProps.Ray.attributeSizeInBytes = 0;
+  }
 
   for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx) {
     DxilParameterAnnotation &paramAnnotation =
@@ -1580,7 +1634,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             funcProps->ShaderProps.GS.streamPrimitiveTopologies[0] ==
                 DXIL::PrimitiveTopology::PointList;
         if (!bAllPoint) {
-          DiagnosticsEngine &Diags = CGM.getDiags();
           unsigned DiagID = Diags.getCustomDiagID(
               DiagnosticsEngine::Error, "when multiple GS output streams are "
                                         "used they must be pointlists.");
@@ -1616,7 +1669,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           DXIL::InputPrimitive::Undefined) {
         funcProps->ShaderProps.GS.inputPrimitive = inputPrimitive;
       } else if (funcProps->ShaderProps.GS.inputPrimitive != inputPrimitive) {
-        DiagnosticsEngine &Diags = CGM.getDiags();
         unsigned DiagID = Diags.getCustomDiagID(
             DiagnosticsEngine::Error, "input parameter conflicts with geometry "
                                       "specifier of previous input parameters");
@@ -1627,7 +1679,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (GsInputArrayDim != 0) {
       QualType Ty = parmDecl->getType();
       if (!Ty->isConstantArrayType()) {
-        DiagnosticsEngine &Diags = CGM.getDiags();
         unsigned DiagID = Diags.getCustomDiagID(
             DiagnosticsEngine::Error,
             "input types for geometry shader must be constant size arrays");
@@ -1646,12 +1697,99 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           };
           DXASSERT(GsInputArrayDim < llvm::array_lengthof(primtiveNames),
                    "Invalid array dim");
-          DiagnosticsEngine &Diags = CGM.getDiags();
           unsigned DiagID = Diags.getCustomDiagID(
               DiagnosticsEngine::Error, "array dimension for %0 must be %1");
           Diags.Report(parmDecl->getLocation(), DiagID)
               << primtiveNames[GsInputArrayDim] << GsInputArrayDim;
         }
+      }
+    }
+
+    // Validate Ray Tracing function parameter (some validation may be pushed into front end)
+    if (isRay) {
+      switch (funcProps->shaderKind) {
+      case DXIL::ShaderKind::RayGeneration:
+      case DXIL::ShaderKind::Intersection:
+        // RayGeneration and Intersection shaders are not allowed to have any input parameters
+        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+          DiagnosticsEngine::Error, "parameters are not allowed for %0 shader"))
+            << (funcProps->shaderKind == DXIL::ShaderKind::RayGeneration ?
+                "raygeneration" : "intersection");
+        break;
+      case DXIL::ShaderKind::AnyHit:
+      case DXIL::ShaderKind::ClosestHit:
+        if (0 == ArgNo && dxilInputQ != DxilParamInputQual::Inout) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "ray payload parameter must be inout"));
+        } else if (1 == ArgNo && dxilInputQ != DxilParamInputQual::In) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "intersection attributes parameter must be in"));
+        } else if (ArgNo > 1) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "too many parameters, expected payload and attributes parameters only."));
+        }
+        if (ArgNo < 2) {
+          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "payload and attribute structures must be user defined types with only numeric contents."));
+          } else {
+            DataLayout DL(&this->TheModule);
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
+            if (0 == ArgNo)
+              funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+            else
+              funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
+          }
+        }
+        break;
+      case DXIL::ShaderKind::Miss:
+        if (ArgNo > 0) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "only one parameter (ray payload) allowed for miss shader"));
+        } else if (dxilInputQ != DxilParamInputQual::Inout) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "ray payload parameter must be declared inout"));
+        }
+        if (ArgNo < 1) {
+          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "ray payload parameter must be a user defined type with only numeric contents."));
+          } else {
+            DataLayout DL(&this->TheModule);
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
+            funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+          }
+        }
+        break;
+      case DXIL::ShaderKind::Callable:
+        if (ArgNo > 0) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "only one parameter allowed for callable shader"));
+        } else if (dxilInputQ != DxilParamInputQual::Inout) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "callable parameter must be declared inout"));
+        }
+        if (ArgNo < 1) {
+          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "callable parameter must be a user defined type with only numeric contents."));
+          } else {
+            DataLayout DL(&this->TheModule);
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
+            funcProps->ShaderProps.Ray.paramSizeInBytes = size;
+          }
+        }
+        break;
       }
     }
 
@@ -1663,16 +1801,42 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   if (inputPatchCount > 1) {
-    DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "may only have one InputPatch parameter");
     Diags.Report(FD->getLocation(), DiagID);
   }
   if (outputPatchCount > 1) {
-    DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "may only have one OutputPatch parameter");
     Diags.Report(FD->getLocation(), DiagID);
+  }
+
+  // If Shader is a ray shader that requires parameters, make sure size is non-zero
+  if (isRay) {
+    bool bNeedsAttributes = false;
+    bool bNeedsPayload = false;
+    switch (funcProps->shaderKind) {
+    case DXIL::ShaderKind::AnyHit:
+    case DXIL::ShaderKind::ClosestHit:
+      bNeedsAttributes = true;
+    case DXIL::ShaderKind::Miss:
+      bNeedsPayload = true;
+    case DXIL::ShaderKind::Callable:
+      if (0 == funcProps->ShaderProps.Ray.payloadSizeInBytes) {
+        unsigned DiagID = bNeedsPayload ?
+          Diags.getCustomDiagID(DiagnosticsEngine::Error,
+            "shader must include inout payload structure parameter.") :
+          Diags.getCustomDiagID(DiagnosticsEngine::Error,
+            "shader must include inout parameter structure.");
+        Diags.Report(FD->getLocation(), DiagID);
+      }
+    }
+    if (bNeedsAttributes &&
+        0 == funcProps->ShaderProps.Ray.attributeSizeInBytes) {
+      Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "shader must include attributes structure parameter."));
+    }
   }
 
   // Type annotation for parameters and return type.
@@ -1957,6 +2121,7 @@ static DxilResourceBase::Class KeywordToClass(const std::string &keyword) {
 
   bool isSRV = keyword == "Buffer";
   isSRV |= keyword == "ByteAddressBuffer";
+  isSRV |= keyword == "RaytracingAccelerationStructure";
   isSRV |= keyword == "StructuredBuffer";
   isSRV |= keyword == "Texture1D";
   isSRV |= keyword == "Texture1DArray";
@@ -4164,11 +4329,11 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
   }
 
   Function *patchConstFunc = Entry->second.Func;
-  DxilFunctionProps *HSProps = &m_pHLModule->GetDxilFunctionProps(EntryFunc.Func);
-  DXASSERT(HSProps != nullptr,
+  DXASSERT(m_pHLModule->HasDxilFunctionProps(EntryFunc.Func),
     " else AddHLSLFunctionInfo did not save the dxil function props for the "
     "HS entry.");
-  HSProps->ShaderProps.HS.patchConstantFunc = patchConstFunc;
+  DxilFunctionProps *HSProps = &m_pHLModule->GetDxilFunctionProps(EntryFunc.Func);
+  m_pHLModule->SetPatchConstantFunctionForHS(EntryFunc.Func, patchConstFunc);
   DXASSERT_NOMSG(patchConstantFunctionPropsMap.count(patchConstFunc));
   // Check no inout parameter for patch constant function.
   DxilFunctionAnnotation *patchConstFuncAnnotation =
@@ -4233,6 +4398,10 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     }
   } else {
     for (auto &it : entryFunctionMap) {
+      // skip clone if RT entry
+      if (m_pHLModule->GetDxilFunctionProps(it.second.Func).IsRay())
+        continue;
+
       CloneShaderEntry(it.second.Func, it.getKey(), *m_pHLModule);
 
       auto AttrIter = HSEntryPatchConstantFuncAttr.find(it.second.Func);
@@ -6333,15 +6502,14 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     Value *tmpArgAddr = nullptr;
     BasicBlock *InsertBlock = CGF.Builder.GetInsertBlock();
     Function *F = InsertBlock->getParent();
-    BasicBlock *EntryBlock = &F->getEntryBlock();
 
     if (ParamTy->isBooleanType()) {
       // Create i32 for bool.
       ParamTy = CGM.getContext().IntTy;
     }
     // Make sure the alloca is in entry block to stop inline create stacksave.
-    IRBuilder<> Builder(EntryBlock->getFirstInsertionPt());
-    tmpArgAddr = Builder.CreateAlloca(CGF.ConvertType(ParamTy));
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
+    tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertType(ParamTy));
 
       
     // add it to local decl map

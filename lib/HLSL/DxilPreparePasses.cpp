@@ -272,7 +272,7 @@ public:
 
       // Skip shader flag for library.
       if (!IsLib) {
-        DM.CollectShaderFlags(); // Update flags to reflect any changes.
+        DM.CollectShaderFlagsForModule(); // Update flags to reflect any changes.
                                  // Update Validator Version
         DM.UpgradeToMinValidatorVersion();
       }
@@ -374,8 +374,11 @@ private:
     } else {
       std::vector<Function *> entries;
       for (iplist<Function>::iterator F : M.getFunctionList()) {
-        if (DM.HasDxilFunctionProps(F)) {
-          entries.emplace_back(F);
+        if (DM.IsEntryThatUsesSignatures(F)) {
+          auto *FT = F->getFunctionType();
+          // Only do this when has parameters.
+          if (FT->getNumParams() > 0 || !FT->getReturnType()->isVoidTy())
+            entries.emplace_back(F);
         }
       }
       for (Function *entry : entries) {
@@ -384,7 +387,7 @@ private:
           // Strip patch constant function first.
           Function *patchConstFunc = StripFunctionParameter(
               props.ShaderProps.HS.patchConstantFunc, DM, FunctionDIs);
-          props.ShaderProps.HS.patchConstantFunc = patchConstFunc;
+          DM.SetPatchConstantFunctionForHS(entry, patchConstFunc);
         }
         StripFunctionParameter(entry, DM, FunctionDIs);
       }

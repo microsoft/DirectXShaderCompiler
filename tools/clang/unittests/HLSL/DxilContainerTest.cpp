@@ -20,6 +20,7 @@
 #include <cassert>
 #include <sstream>
 #include <algorithm>
+#include <unordered_set>
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 #include <atlfile.h>
@@ -33,6 +34,9 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/HLSL/DxilContainer.h"
+#include "dxc/HLSL/DxilRuntimeReflection.h"
+#include "dxc/HLSL/DxilShaderFlags.h"
+#include "dxc/HLSL/DxilUtil.h"
 
 #include <fstream>
 #include <filesystem>
@@ -66,7 +70,11 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
+  TEST_CLASS_SETUP(InitSupport);
+
   TEST_METHOD(CompileWhenDebugSourceThenSourceMatters)
+  TEST_METHOD(CompileWhenOkThenCheckRDAT)
+  TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOKThenIncludesFeatureInfo)
   TEST_METHOD(CompileWhenOKThenIncludesSignatures)
   TEST_METHOD(CompileWhenSigSquareThenIncludeSplit)
@@ -83,6 +91,7 @@ public:
   END_TEST_METHOD()
 
   dxc::DxcDllSupport m_dllSupport;
+  VersionSupportInfo m_ver;
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
@@ -522,6 +531,14 @@ public:
   }
 };
 
+bool DxilContainerTest::InitSupport() {
+  if (!m_dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    m_ver.Initialize(m_dllSupport);
+  }
+  return true;
+}
+
 TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   char program1[] = "float4 main() : SV_Target { return 0; }";
   char program2[] = "  float4 main() : SV_Target { return 0; }  ";
@@ -648,6 +665,209 @@ TEST_F(DxilContainerTest, CompileWhenSigSquareThenIncludeSplit) {
   std::string start(s.c_str(), strlen(expected));
   VERIFY_ARE_EQUAL_STR(expected, start.c_str());
 #endif
+}
+
+TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  const char *shader = "float c_buf;"
+    "RWTexture1D<int4> tex : register(u5);"
+    "Texture1D<float4> tex2 : register(t0);"
+    "RWByteAddressBuffer b_buf;"
+    "float function_import(float x);"
+    "float function0(min16float x) { "
+    "  return x + 1 + tex[0].x; }"
+    "float function1(float x, min12int i) {"
+    "  return x + c_buf + b_buf.Load(x) + tex2[i].x; }"
+    "float function2(float x) { return x + function_import(x); }";
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(shader, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_3", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  CComPtr<IDxcContainerReflection> containerReflection;
+  uint32_t partCount;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &containerReflection));
+  IFT(containerReflection->Load(pProgram));
+  IFT(containerReflection->GetPartCount(&partCount));
+  bool blobFound = false;
+  for (uint32_t i = 0; i < partCount; ++i) {
+    uint32_t kind;
+    IFT(containerReflection->GetPartKind(i, &kind));
+    if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_RuntimeData) {
+      blobFound = true;
+      using namespace hlsl::DXIL::RDAT;
+      CComPtr<IDxcBlob> pBlob;
+      IFT(containerReflection->GetPartContent(i, &pBlob));
+      // Validate using DxilRuntimeData
+      DxilRuntimeData context;
+      context.InitFromRDAT((char *)pBlob->GetBufferPointer());
+      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
+      ResourceTableReader *resTableReader = context.GetResourceTableReader();
+      VERIFY_IS_TRUE(funcTableReader->GetNumFunctions() == 3);
+      std::string str("function");
+      for (uint32_t j = 0; j < funcTableReader->GetNumFunctions(); ++j) {
+        FunctionReader funcReader = funcTableReader->GetItem(j);
+        std::string funcName(funcReader.GetUnmangledName());
+        VERIFY_IS_TRUE(str.compare(funcName.substr(0,8)) == 0);
+        std::string cur_str = str;
+        cur_str.push_back('0' + j);
+        if (cur_str.compare("function0") == 0) {
+          VERIFY_IS_TRUE(funcReader.GetNumResources() == 1);
+          hlsl::ShaderFlags flag;
+          flag.SetUAVLoadAdditionalFormats(true);
+          flag.SetLowPrecisionPresent(true);
+          uint64_t rawFlag = flag.GetShaderFlagsRaw();
+          VERIFY_IS_TRUE(funcReader.GetFeatureFlag() == rawFlag);
+          ResourceReader resReader = funcReader.GetResource(0);
+          VERIFY_IS_TRUE(resReader.GetResourceClass() == hlsl::DXIL::ResourceClass::UAV);
+          VERIFY_IS_TRUE(resReader.GetResourceKind() == hlsl::DXIL::ResourceKind::Texture1D);
+        }
+        else if (cur_str.compare("function1") == 0) {
+          hlsl::ShaderFlags flag;
+          flag.SetLowPrecisionPresent(true);
+          uint64_t rawFlag = flag.GetShaderFlagsRaw();
+          VERIFY_IS_TRUE(funcReader.GetFeatureFlag() == rawFlag);
+          VERIFY_IS_TRUE(funcReader.GetNumResources() == 3);
+        }
+        else if (cur_str.compare("function2") == 0) {
+          VERIFY_IS_TRUE((funcReader.GetFeatureFlag() & 0xffffffffffffffff) == 0);
+          VERIFY_IS_TRUE(funcReader.GetNumResources() == 0);
+          std::string dependency = funcReader.GetDependency(0);
+          VERIFY_IS_TRUE(dependency.find("function_import") != std::string::npos);
+        }
+        else {
+          IFTBOOLMSG(false, E_FAIL, "unknown function name");
+        }
+      }
+      VERIFY_IS_TRUE(resTableReader->GetNumResources() == 4);
+      // This is validation test for DxilRuntimeReflection implemented on DxilRuntimeReflection.inl
+      DxilRuntimeReflection reflection;
+      VERIFY_IS_TRUE(reflection.InitFromRDAT(pBlob->GetBufferPointer()));
+      DXIL_LIBRARY_DESC lib_reflection = reflection.GetLibraryReflection();
+      VERIFY_IS_TRUE(lib_reflection.NumFunctions == 3);
+      for (uint32_t j = 0; j < 3; ++j) {
+        DXIL_FUNCTION function = lib_reflection.pFunction[j];
+        std::string cur_str = str;
+        cur_str.push_back('0' + j);
+        if (cur_str.compare("function0") == 0) {
+          hlsl::ShaderFlags flag;
+          flag.SetUAVLoadAdditionalFormats(true);
+          flag.SetLowPrecisionPresent(true);
+          uint64_t rawFlag = flag.GetShaderFlagsRaw();
+          uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
+          featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
+          VERIFY_IS_TRUE(featureFlag == rawFlag);
+          VERIFY_IS_TRUE(function.NumResources == 1);
+          VERIFY_IS_TRUE(function.NumFunctionDependencies == 0);
+          const DXIL_RESOURCE resource = function.Resources[0];
+          VERIFY_IS_TRUE(resource.Class == (uint32_t)hlsl::DXIL::ResourceClass::UAV);
+          VERIFY_IS_TRUE(resource.Kind == (uint32_t)hlsl::DXIL::ResourceKind::Texture1D);
+          std::wstring wName = resource.Name;
+          VERIFY_IS_TRUE(wName.compare(L"tex") == 0);
+        }
+        else if (cur_str.compare("function1") == 0) {
+          hlsl::ShaderFlags flag;
+          flag.SetLowPrecisionPresent(true);
+          uint64_t rawFlag = flag.GetShaderFlagsRaw();
+          uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
+          featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
+          VERIFY_IS_TRUE(featureFlag == rawFlag);
+          VERIFY_IS_TRUE(function.NumResources == 3);
+          VERIFY_IS_TRUE(function.NumFunctionDependencies == 0);
+          std::unordered_set<std::wstring> stringSet = { L"$Globals", L"b_buf", L"tex2" };
+          for (uint32_t j = 0; j < 3; ++j) {
+            const DXIL_RESOURCE resource = function.Resources[j];
+            std::wstring compareName = resource.Name;
+            VERIFY_IS_TRUE(stringSet.find(compareName) != stringSet.end());
+          }
+        }
+        else if (cur_str.compare("function2") == 0) {
+          VERIFY_IS_TRUE(function.FeatureInfo1 == 0);
+          VERIFY_IS_TRUE(function.FeatureInfo2 == 0);
+          VERIFY_IS_TRUE(function.NumResources == 0);
+          VERIFY_IS_TRUE(function.NumFunctionDependencies == 1);
+          std::wstring dependency = function.FunctionDependencies[0];
+          VERIFY_IS_TRUE(dependency.find(L"function_import") != std::wstring::npos);
+        }
+        else {
+          IFTBOOLMSG(false, E_FAIL, "unknown function name");
+        }
+      }
+      VERIFY_IS_TRUE(lib_reflection.NumResources == 4);
+    }
+  }
+  IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");
+}
+
+TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  // This is a case when the user of resource is a constant, not instruction.
+  // Compiler generates the following load instruction for texture.
+  // load %class.Texture2D, %class.Texture2D* getelementptr inbounds ([3 x
+  // %class.Texture2D], [3 x %class.Texture2D]*
+  // @"\01?ThreeTextures@@3PAV?$Texture2D@M@@A", i32 0, i32 0), align 4
+  const char *shader =
+      "SamplerState Sampler : register(s0); RWBuffer<float> Uav : "
+      "register(u0); Texture2D<float> ThreeTextures[3] : register(t0); "
+      "float function1();"
+      "[shader(\"raygeneration\")] void RayGenMain() { Uav[0] = "
+      "ThreeTextures[0].Sample(Sampler, float2(0, 0)) + "
+      "ThreeTextures[2].Sample(Sampler, float2(0, 0)) + function1(); }";
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+  HRESULT status;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(shader, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_3", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  CComPtr<IDxcContainerReflection> pReflection;
+  uint32_t partCount;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  IFT(pReflection->Load(pProgram));
+  IFT(pReflection->GetPartCount(&partCount));
+  bool blobFound = false;
+  for (uint32_t i = 0; i < partCount; ++i) {
+    uint32_t kind;
+    IFT(pReflection->GetPartKind(i, &kind));
+    if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_RuntimeData) {
+      blobFound = true;
+      using namespace hlsl::DXIL::RDAT;
+      CComPtr<IDxcBlob> pBlob;
+      IFT(pReflection->GetPartContent(i, &pBlob));
+      DxilRuntimeData context;
+      context.InitFromRDAT((char *)pBlob->GetBufferPointer());
+      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
+      ResourceTableReader *resTableReader = context.GetResourceTableReader();
+      VERIFY_IS_TRUE(funcTableReader->GetNumFunctions() == 1);
+      VERIFY_IS_TRUE(resTableReader->GetNumResources() == 3);
+      FunctionReader funcReader = funcTableReader->GetItem(0);
+      llvm::StringRef name(funcReader.GetUnmangledName());
+      VERIFY_IS_TRUE(name.compare("RayGenMain") == 0);
+      VERIFY_IS_TRUE(funcReader.GetShaderKind() ==
+                     hlsl::DXIL::ShaderKind::RayGeneration);
+      VERIFY_IS_TRUE(funcReader.GetNumResources() == 3);
+      VERIFY_IS_TRUE(funcReader.GetNumDependencies() == 1);
+      llvm::StringRef dependencyName =
+          hlsl::dxilutil::DemangleFunctionName(funcReader.GetDependency(0));
+      VERIFY_IS_TRUE(dependencyName.compare("function1") == 0);
+    }
+  }
+  IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");
 }
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesFeatureInfo) {

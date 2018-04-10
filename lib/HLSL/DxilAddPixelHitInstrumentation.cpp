@@ -15,6 +15,7 @@
 #include "dxc/HLSL/DxilInstructions.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/DxilPIXPasses.h"
+#include "dxc/HLSL/DxilUtil.h"
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -93,7 +94,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
 
   CallInst *HandleForUAV;
   {
-    IRBuilder<> Builder(DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt());
+    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction()));
     
     unsigned int UAVResourceHandle = static_cast<unsigned int>(DM.GetUAVs().size());
 
