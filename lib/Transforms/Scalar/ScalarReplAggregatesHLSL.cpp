@@ -4059,6 +4059,22 @@ public:
     for (auto Iter : funcMap)
       replaceCall(Iter.first, Iter.second);
 
+    // Update patch constant function.
+    for (Function &F : M.functions()) {
+      if (F.isDeclaration())
+        continue;
+      if (!m_pHLModule->HasDxilFunctionProps(&F))
+        continue;
+      DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(&F);
+      if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
+        Function *oldPatchConstantFunc =
+            funcProps.ShaderProps.HS.patchConstantFunc;
+        if (funcMap.count(oldPatchConstantFunc))
+          funcProps.ShaderProps.HS.patchConstantFunc =
+              funcMap[oldPatchConstantFunc];
+      }
+    }
+
     // Remove flattened functions.
     for (auto Iter : funcMap) {
       Function *F = Iter.first;

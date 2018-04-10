@@ -19,6 +19,7 @@
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Attr.h"
 #include "clang/SPIRV/EmitSPIRVOptions.h"
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
@@ -258,7 +259,8 @@ private:
 class DeclResultIdMapper {
 public:
   inline DeclResultIdMapper(const hlsl::ShaderModel &stage, ASTContext &context,
-                            ModuleBuilder &builder,
+                            ModuleBuilder &builder, TypeTranslator &translator,
+                            FeatureManager &features,
                             const EmitSPIRVOptions &spirvOptions);
 
   /// \brief Returns the <result-id> for a SPIR-V builtin variable.
@@ -300,13 +302,14 @@ public:
 
   /// \brief Creates a function-scope variable in the current function and
   /// returns its <result-id>.
-  uint32_t createFnVar(const VarDecl *var, llvm::Optional<uint32_t> init);
+  SpirvEvalInfo createFnVar(const VarDecl *var, llvm::Optional<uint32_t> init);
 
   /// \brief Creates a file-scope variable and returns its <result-id>.
-  uint32_t createFileVar(const VarDecl *var, llvm::Optional<uint32_t> init);
+  SpirvEvalInfo createFileVar(const VarDecl *var,
+                              llvm::Optional<uint32_t> init);
 
   /// \brief Creates an external-visible variable and returns its <result-id>.
-  uint32_t createExternVar(const VarDecl *var);
+  SpirvEvalInfo createExternVar(const VarDecl *var);
 
   /// \brief Creates a cbuffer/tbuffer from the given decl.
   ///
@@ -331,6 +334,9 @@ public:
 
   /// \brief Creates a PushConstant block from the given decl.
   uint32_t createPushConstant(const VarDecl *decl);
+
+  /// \brief Creates the $Globals cbuffer.
+  void createGlobalsCBuffer(const VarDecl *var);
 
   /// \brief Returns the suitable type for the given decl, considering the
   /// given decl could possibly be created as an alias variable. If true, a
@@ -510,6 +516,7 @@ private:
     CBuffer,
     TBuffer,
     PushConstant,
+    Globals,
   };
 
   /// Creates a variable of struct type with explicit layout decorations.
@@ -522,10 +529,9 @@ private:
   /// depending on the usage kind.
   ///
   /// Panics if the DeclContext is neither HLSLBufferDecl or RecordDecl.
-  uint32_t createVarOfExplicitLayoutStruct(const DeclContext *decl,
-                                           ContextUsageKind usageKind,
-                                           llvm::StringRef typeName,
-                                           llvm::StringRef varName);
+  uint32_t createStructOrStructArrayVarOfExplicitLayout(
+      const DeclContext *decl, uint32_t arraySize, ContextUsageKind usageKind,
+      llvm::StringRef typeName, llvm::StringRef varName);
 
   /// A struct containing information about a particular HLSL semantic.
   struct SemanticInfo {
@@ -591,12 +597,15 @@ private:
   /// structured buffer. Handles AssocCounter#1 and AssocCounter#2 (see the
   /// comment of CounterVarFields).
   ///
+  /// declId is the SPIR-V <result-id> for the given decl. It should be non-zero
+  /// for non-alias buffers.
+  ///
   /// The counter variable will be created as an alias variable (of
   /// pointer-to-pointer type in Private storage class) if isAlias is true.
   ///
   /// Note: isAlias - legalization specific code
   void
-  createCounterVar(const DeclaratorDecl *decl, bool isAlias,
+  createCounterVar(const DeclaratorDecl *decl, uint32_t declId, bool isAlias,
                    const llvm::SmallVector<uint32_t, 4> *indices = nullptr);
   /// Creates all assoicated counter variables by recursively visiting decl's
   /// fields. Handles AssocCounter#3 and AssocCounter#4 (see the comment of
@@ -625,7 +634,8 @@ private:
   ASTContext &astContext;
   DiagnosticsEngine &diags;
 
-  TypeTranslator typeTranslator;
+  TypeTranslator &typeTranslator;
+  FeatureManager &featureManager;
 
   uint32_t entryFunctionId;
 
@@ -730,10 +740,12 @@ void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
 DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        ASTContext &context,
                                        ModuleBuilder &builder,
+                                       TypeTranslator &translator,
+                                       FeatureManager &features,
                                        const EmitSPIRVOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
       astContext(context), diags(context.getDiagnostics()),
-      typeTranslator(context, builder, diags, options), entryFunctionId(0),
+      typeTranslator(translator), featureManager(features), entryFunctionId(0),
       laneCountBuiltinId(0), laneIndexBuiltinId(0), needsLegalization(false),
       glPerVertex(model, context, builder, typeTranslator, options.invertY) {}
 

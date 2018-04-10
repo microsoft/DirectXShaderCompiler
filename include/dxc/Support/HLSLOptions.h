@@ -134,6 +134,7 @@ public:
   bool OptDump = false; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings
   bool ShowHelp = false;  // OPT_help
+  bool ShowHelpHidden = false; // OPT__help_hidden
   bool UseColor = false; // OPT_Cc
   bool UseHexLiterals = false; // OPT_Lx
   bool UseInstructionByteOffsets = false; // OPT_No
@@ -159,15 +160,19 @@ public:
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
-  bool GenSPIRV; // OPT_spirv
-  bool VkIgnoreUnusedResources; // OPT_fvk_ignore_used_resources
-  bool VkInvertY; // OPT_fvk_invert_y
-  bool VkUseGlslLayout; // OPT_fvk_use_glsl_layout
-  llvm::StringRef VkStageIoOrder; // OPT_fvk_stage_io_order
+  bool GenSPIRV;                           // OPT_spirv
+  bool VkIgnoreUnusedResources;            // OPT_fvk_ignore_used_resources
+  bool VkInvertY;                          // OPT_fvk_invert_y
+  bool VkUseGlLayout;                      // OPT_fvk_use_gl_layout
+  bool VkUseDxLayout;                      // OPT_fvk_use_dx_layout
+  bool SpvEnableReflect;                   // OPT_fspv_reflect
+  llvm::StringRef VkStageIoOrder;          // OPT_fvk_stage_io_order
   llvm::SmallVector<uint32_t, 4> VkBShift; // OPT_fvk_b_shift
   llvm::SmallVector<uint32_t, 4> VkTShift; // OPT_fvk_t_shift
   llvm::SmallVector<uint32_t, 4> VkSShift; // OPT_fvk_s_shift
   llvm::SmallVector<uint32_t, 4> VkUShift; // OPT_fvk_u_shift
+  llvm::SmallVector<llvm::StringRef, 4> SpvExtensions; // OPT_fspv_extension
+  llvm::StringRef SpvTargetEnv;                        // OPT_fspv_target_env
 #endif
   // SPIRV Change Ends
 };

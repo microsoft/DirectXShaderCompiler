@@ -23,7 +23,7 @@ groupshared              float2   d[5];
 groupshared              S        s;
 
 [numthreads(8, 8, 8)]
-void main(uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID) {
+void main(uint3 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID) {
 // Make sure pointers have the correct storage class
 // CHECK:    {{%\d+}} = OpAccessChain %_ptr_Workgroup_float %s %int_0
 // CHECK: [[d0:%\d+]] = OpAccessChain %_ptr_Workgroup_v2float %d %int_0

@@ -49,6 +49,10 @@ public:
   void runWholeFileTest(llvm::StringRef path, bool generateHeader = false,
                         bool runSpirvValidation = true);
 
+  WholeFileTest() : targetEnv(SPV_ENV_VULKAN_1_0) {}
+
+  void useVulkan1p1() { targetEnv = SPV_ENV_VULKAN_1_1; }
+
 private:
   /// \brief Reads in the given input file.
   /// Stores the SPIR-V portion of the file into the <expectedSpirvAsm>
@@ -63,6 +67,7 @@ private:
   std::vector<uint32_t> generatedBinary; ///< The generated SPIR-V Binary
   std::string expectedSpirvAsm;          ///< Expected SPIR-V parsed from input
   std::string generatedSpirvAsm;         ///< Disassembled binary (SPIR-V code)
+  spv_target_env targetEnv;              ///< Environment to validate against
 };
 
 } // end namespace spirv

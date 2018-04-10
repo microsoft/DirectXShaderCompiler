@@ -1444,7 +1444,8 @@ public:
                 static_cast<IntrinsicOp>(hlsl::GetHLOpcode(CI));
             if (evalOp == IntrinsicOp::IOP_EvaluateAttributeAtSample ||
                 evalOp == IntrinsicOp::IOP_EvaluateAttributeCentroid ||
-                evalOp == IntrinsicOp::IOP_EvaluateAttributeSnapped) {
+                evalOp == IntrinsicOp::IOP_EvaluateAttributeSnapped ||
+                evalOp == IntrinsicOp::IOP_GetAttributeAtVertex) {
               EvalFunctionCalls.push_back(CI);
             }
           }

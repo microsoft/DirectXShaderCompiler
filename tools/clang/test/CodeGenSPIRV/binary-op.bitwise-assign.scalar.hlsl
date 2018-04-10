@@ -37,26 +37,4 @@ void main() {
 // CHECK-NEXT: [[xor1:%\d+]] = OpBitwiseXor %uint [[j2]] [[i2]]
 // CHECK-NEXT: OpStore %j [[xor1]]
     j ^= i;
-
-// CHECK-NEXT: [[a3:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[b3:%\d+]] = OpLoad %int %b
-// CHECK-NEXT: [[shl0:%\d+]] = OpShiftLeftLogical %int [[b3]] [[a3]]
-// CHECK-NEXT: OpStore %b [[shl0]]
-    b <<= a;
-// CHECK-NEXT: [[i3:%\d+]] = OpLoad %uint %i
-// CHECK-NEXT: [[j3:%\d+]] = OpLoad %uint %j
-// CHECK-NEXT: [[shl1:%\d+]] = OpShiftLeftLogical %uint [[j3]] [[i3]]
-// CHECK-NEXT: OpStore %j [[shl1]]
-    j <<= i;
-
-// CHECK-NEXT: [[a4:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[b4:%\d+]] = OpLoad %int %b
-// CHECK-NEXT: [[shr0:%\d+]] = OpShiftRightArithmetic %int [[b4]] [[a4]]
-// CHECK-NEXT: OpStore %b [[shr0]]
-    b >>= a;
-// CHECK-NEXT: [[i4:%\d+]] = OpLoad %uint %i
-// CHECK-NEXT: [[j4:%\d+]] = OpLoad %uint %j
-// CHECK-NEXT: [[shr1:%\d+]] = OpShiftRightLogical %uint [[j4]] [[i4]]
-// CHECK-NEXT: OpStore %j [[shr1]]
-    j >>= i;
 }

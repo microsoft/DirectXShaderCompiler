@@ -30,8 +30,8 @@ float4 main() : SV_Target {
 // CHECK:       [[tb_s:%\d+]] = OpAccessChain %_ptr_Uniform_S %MyTBuffer %int_1
 // CHECK-NEXT:     [[s:%\d+]] = OpLoad %S [[tb_s]]
 // CHECK-NEXT: [[s_val:%\d+]] = OpCompositeExtract %v3float [[s]] 0
-// CHECK-NEXT:   [[ptr:%\d+]] = OpAccessChain %_ptr_Function_v3float %temp_var_S %uint_0
-// CHECK-NEXT:                  OpStore [[ptr]] [[s_val]]
+// CHECK-NEXT:   [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[s_val]]
+// CHECK-NEXT:                  OpStore %temp_var_S [[tmp]]
 // CHECK-NEXT:       {{%\d+}} = OpFunctionCall %v3float %S_get_s_val %temp_var_S
     return get_cb_val() + float4(tb_s.get_s_val(), 0.) * get_tb_val();
 }

@@ -1,7 +1,7 @@
 // Run: %dxc -T vs_6_0 -E main
 
-// CHECK:      [[v2f10_3:%\d+]] = OpConstantComposite %v2float %float_10_3 %float_10_3
-// CHECK:      [[v3f10_4:%\d+]] = OpConstantComposite %v3float %float_10_4 %float_10_4 %float_10_4
+// CHECK:       [[v2f8_5:%\d+]] = OpConstantComposite %v2float %float_8_5 %float_8_5
+// CHECK:       [[v3f9_5:%\d+]] = OpConstantComposite %v3float %float_9_5 %float_9_5 %float_9_5
 // CHECK:      [[v2f10_5:%\d+]] = OpConstantComposite %v2float %float_10_5 %float_10_5
 // CHECK:    [[m3v2f10_5:%\d+]] = OpConstantComposite %mat3v2float [[v2f10_5]] [[v2f10_5]] [[v2f10_5]]
 // CHECK:        [[v2i10:%\d+]] = OpConstantComposite %v2int %int_10 %int_10
@@ -16,12 +16,12 @@ void main() {
     // definitions instead of OpStore. Constant evaluation in the front
     // end doesn't really support it for now.
 
-// CHECK:      OpStore %a %float_10_2
-    float1x1 a = 10.2;
-// CHECK-NEXT: OpStore %b [[v2f10_3]]
-    float1x2 b = 10.3;
-// CHECK-NEXT: OpStore %c [[v3f10_4]]
-    float3x1 c = 10.4;
+// CHECK:      OpStore %a %float_7_5
+    float1x1 a = 7.5;
+// CHECK-NEXT: OpStore %b [[v2f8_5]]
+    float1x2 b = 8.5;
+// CHECK-NEXT: OpStore %c [[v3f9_5]]
+    float3x1 c = 9.5;
 // CHECK-NEXT: OpStore %d [[m3v2f10_5]]
     float3x2 d = 10.5;
 // CHECK-NEXT: OpStore %e [[int3x2_i10]]

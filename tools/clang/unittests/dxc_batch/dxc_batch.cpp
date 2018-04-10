@@ -789,7 +789,7 @@ int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
   llvm::StringRef source((char *)pSource->GetBufferPointer(),
                          pSource->GetBufferSize());
   llvm::SmallVector<llvm::StringRef, 4> commands;
-  source.split(commands, "\r\n");
+  source.split(commands, "\n");
 
   if (bMultiThread) {
     unsigned int threadNum = std::min<unsigned>(
@@ -800,7 +800,8 @@ int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
       threads[i] = std::thread(empty_fn);
 
     for (unsigned i = 0; i < commands.size(); i++) {
-      llvm::StringRef command = commands[i];
+      // trim to remove /r if exist.
+      llvm::StringRef command = commands[i].trim();
       if (command.empty())
         continue;
       if (command.startswith("//"))

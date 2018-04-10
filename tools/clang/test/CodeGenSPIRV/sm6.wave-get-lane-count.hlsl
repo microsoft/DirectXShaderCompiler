@@ -1,9 +1,10 @@
-// Run: %dxc -T cs_6_0 -E main
+// Run: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.1
+
+// CHECK: ; Version: 1.3
 
 RWStructuredBuffer<uint> values;
 
-// CHECK: OpCapability SubgroupBallotKHR
-// CHECK: OpExtension "SPV_KHR_shader_ballot"
+// CHECK: OpCapability GroupNonUniform
 
 // CHECK: OpEntryPoint GLCompute
 // CHECK-SAME: %SubgroupSize

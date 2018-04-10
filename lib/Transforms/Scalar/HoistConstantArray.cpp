@@ -127,9 +127,11 @@ namespace {
     std::vector<Constant *> m_Values;
     bool m_IsConstArray;
 
-    bool AnalyzeStore(StoreInst *);
-    bool StoreConstant(uint64_t index, Constant *value);
+    bool AnalyzeStore(StoreInst *SI);
+    bool StoreConstant(int64_t index, Constant *value);
     void EnsureSize();
+    void GetArrayStores(GEPOperator *gep,
+                        std::vector<StoreInst *> &stores) const;
     bool AllArrayUsersAreGEP(std::vector<GEPOperator *> &geps);
     bool AllGEPUsersAreValid(GEPOperator *gep);
     UndefValue *UndefElement();
@@ -184,17 +186,29 @@ GlobalVariable *CandidateArray::GetGlobalArray() const {
   return GV;
 }
 
-// Get a list of all the stores that write to the array.
-std::vector<StoreInst*> CandidateArray::GetArrayStores() const {
-  std::vector<StoreInst*> stores;
+// Get a list of all the stores that write to the array through one or more
+// GetElementPtrInst operations.
+std::vector<StoreInst *> CandidateArray::GetArrayStores() const {
+  std::vector<StoreInst *> stores;
   for (User *U : m_Alloca->users())
     if (GEPOperator *gep = dyn_cast<GEPOperator>(U))
-      for (User *GU : gep->users())
-        if (StoreInst *SI = dyn_cast<StoreInst>(GU))
-          stores.push_back(SI);
+      GetArrayStores(gep, stores);
   return stores;
 }
 
+// Recursively collect all the stores that write to the pointer/buffer
+// referred to by this GetElementPtrInst.
+void CandidateArray::GetArrayStores(GEPOperator *gep,
+                                    std::vector<StoreInst *> &stores) const {
+  for (User *GU : gep->users()) {
+    if (StoreInst *SI = dyn_cast<StoreInst>(GU)) {
+      stores.push_back(SI);
+    }
+    else if (GEPOperator *GEPI = dyn_cast<GEPOperator>(GU)) {
+      GetArrayStores(GEPI, stores);
+    }
+  }
+}
 // Check to see that all the users of the array are GEPs.
 // If so, populate the `geps` vector with a list of all geps that use the array.
 bool CandidateArray::AllArrayUsersAreGEP(std::vector<GEPOperator *> &geps) {
@@ -214,11 +228,16 @@ bool CandidateArray::AllArrayUsersAreGEP(std::vector<GEPOperator *> &geps) {
 //  1. A store of a constant value that does not overwrite an existing constant
 //     with a different value.
 //  2. A load instruction.
+//  3. Another GetElementPtrInst that itself only has valid uses (recursively)
 // Any other use is considered invalid.
 bool CandidateArray::AllGEPUsersAreValid(GEPOperator *gep) {
   for (User *U : gep->users()) {
     if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
       if (!AnalyzeStore(SI))
+        return false;
+    }
+    else if (GEPOperator *recursive_gep = dyn_cast<GEPOperator>(U)) {
+      if (!AllGEPUsersAreValid(recursive_gep))
         return false;
     }
     else if (!isa<LoadInst>(U)) {
@@ -254,29 +273,41 @@ void CandidateArray::AnalyzeUses() {
 bool CandidateArray::AnalyzeStore(StoreInst *SI) {
   if (!isa<Constant>(SI->getValueOperand()))
     return false;
+  // Walk up the ladder of GetElementPtr instructions to accumulate the index
+  int64_t index = 0;
+  for (auto iter = SI->getPointerOperand(); iter != m_Alloca;) {
+    GEPOperator *gep = cast<GEPOperator>(iter);
+    if (!gep->hasAllConstantIndices())
+      return false;
 
-  GEPOperator *gep = cast<GEPOperator>(SI->getPointerOperand());
-  if (!gep->hasAllConstantIndices())
-    return false;
+    // Deal with the 'extra 0' index from what might have been a global pointer
+    // https://www.llvm.org/docs/GetElementPtr.html#why-is-the-extra-0-index-required
+    if ((gep->getNumIndices() == 2) && (gep->getPointerOperand() == m_Alloca)) {
+      // Non-zero offset is unexpected, but could occur in the wild. Bail out if
+      // we see it.
+      ConstantInt *ptrOffset = cast<ConstantInt>(gep->getOperand(1));
+      if (!ptrOffset->isZero())
+        return false;
+    }
+    else if (gep->getNumIndices() != 1) {
+      return false;
+    }
 
-  assert(gep->getPointerOperand() == m_Alloca);
-  assert(gep->getNumIndices() == 2);
+    // Accumulate the index
+    ConstantInt *c = cast<ConstantInt>(gep->getOperand(gep->getNumIndices()));
+    index += c->getSExtValue();
 
-  ConstantInt *ptrOffset = cast<ConstantInt>(gep->getOperand(1));
-  ConstantInt *index = cast<ConstantInt>(gep->getOperand(2));
+    iter = gep->getPointerOperand();
+  }
 
-  // Non-zero offset is unexpected, but could occur in the wild. Bail out if we see it.
-  if (!ptrOffset->isZero())
-    return false;
-
-  return StoreConstant(index->getLimitedValue(), cast<Constant>(SI->getValueOperand()));
+  return StoreConstant(index, cast<Constant>(SI->getValueOperand()));
 }
 
 // Check if the store is valid and record the value if so.
 // A valid constant store is either:
 //  1. A store of a new constant
 //  2. A store of the same constant to the same location
-bool CandidateArray::StoreConstant(uint64_t index, Constant *value) {
+bool CandidateArray::StoreConstant(int64_t index, Constant *value) {
   EnsureSize();
   size_t i = static_cast<size_t>(index);
   if (i >= m_Values.size())

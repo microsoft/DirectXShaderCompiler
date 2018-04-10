@@ -119,6 +119,8 @@ public:
   LPCSTR  CounterName;  // Name of the counter resource, if applicable.
   LPCSTR  Kind;         // One of UAV,SRV,CBV
   // Other fields to customize mapping can be added here.
+  D3D12_SHADER_RESOURCE_VIEW_DESC   SrvDesc;
+  bool                              SrvDescPresent;
   D3D12_UNORDERED_ACCESS_VIEW_DESC  UavDesc;
 };
 
@@ -180,6 +182,7 @@ public:
   bool UseWarpDevice = true;
   LPCWSTR AdapterName = nullptr;
   LPCSTR CS = nullptr, VS = nullptr, PS = nullptr;
+  LPCSTR GS = nullptr, DS = nullptr, HS = nullptr;
   UINT DispatchX = 1, DispatchY = 1, DispatchZ = 1;
   D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 

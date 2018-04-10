@@ -97,6 +97,7 @@
     <Compile Include="${DOS_STYLE_SOURCE_DIR}\Program.cs" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="${DOS_STYLE_SOURCE_DIR}\README.md" />
     <EmbeddedResource Include="${DOS_STYLE_SOURCE_DIR}\EditorForm.resx">
       <DependentUpon>EditorForm.cs</DependentUpon>
     </EmbeddedResource>

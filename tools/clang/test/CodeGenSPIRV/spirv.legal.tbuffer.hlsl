@@ -34,15 +34,15 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 // Initializing a T with a TextureBuffer<T> is a copy
 // CHECK:      [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
 // CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
-// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_v4float %buffer1 %uint_0
-// CHECK-NEXT:                OpStore [[ptr]] [[vec]]
+// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
+// CHECK-NEXT:                OpStore %buffer1 [[tmp]]
     S buffer1 = myTBuffer;
 
 // Assigning a TextureBuffer<T> to a T is a copy
 // CHECK:      [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
 // CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
-// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_v4float %buffer2 %uint_0
-// CHECK-NEXT:                OpStore [[ptr]] [[vec]]
+// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
+// CHECK-NEXT:                OpStore %buffer2 [[tmp]]
     S buffer2;
     buffer2 = myTBuffer;
 
@@ -62,8 +62,8 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 // Passing a TextureBuffer<T> to a T parameter is a copy
 // CHECK:      [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
 // CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
-// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_v4float %param_var_buffer %uint_0
-// CHECK-NEXT:                OpStore [[ptr]] [[vec]]
+// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
+// CHECK-NEXT:                OpStore %param_var_buffer [[tmp]]
     return doStuff(myTBuffer);
 }
 
@@ -71,8 +71,8 @@ S retStuff() {
 // Returning a TextureBuffer<T> as a T is a copy
 // CHECK:      [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
 // CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
-// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_v4float %temp_var_ret %uint_0
-// CHECK-NEXT:                OpStore [[ptr]] [[vec]]
+// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
+// CHECK-NEXT:                OpStore %temp_var_ret [[tmp]]
 // CHECK-NEXT: [[ret:%\d+]] = OpLoad %S_0 %temp_var_ret
 // CHECK-NEXT:                OpReturnValue [[ret]]
     return myTBuffer;

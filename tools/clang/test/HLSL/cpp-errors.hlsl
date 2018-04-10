@@ -238,7 +238,7 @@ int fn_template(T t)
 
 int template; // expected-error {{'template' is a reserved keyword in HLSL}} expected-error {{expected unqualified-id}}
 
-int get_value(VOID_TYPE) { // expected-error {{empty parameter list defined with a typedef of 'void' not allowed in HLSL}}
+int get_value(VOID_TYPE) {
   return 1;
 }
 

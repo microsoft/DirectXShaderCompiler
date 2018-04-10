@@ -3075,6 +3075,12 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
 
   if (Ops.Ty->hasUnsignedIntegerRepresentation())
     return Builder.CreateLShr(Ops.LHS, RHS, "shr");
+  // HLSL Change Begin - check unsigned for vector.
+  if (hlsl::IsHLSLVecType(Ops.Ty)) {
+    if (hlsl::GetHLSLVecElementType(Ops.Ty)->hasUnsignedIntegerRepresentation())
+      return Builder.CreateLShr(Ops.LHS, RHS, "shr");
+  }
+  // HLSL Change End.
   return Builder.CreateAShr(Ops.LHS, RHS, "shr");
 }
 

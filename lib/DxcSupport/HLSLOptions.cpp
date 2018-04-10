@@ -217,6 +217,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   opts.ShowHelp = Args.hasFlag(OPT_help, OPT_INVALID, false);
+  opts.ShowHelp |= (opts.ShowHelpHidden = Args.hasFlag(OPT__help_hidden, OPT_INVALID, false));
   if (opts.ShowHelp) {
     return 0;
   }
@@ -483,7 +484,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 #ifdef ENABLE_SPIRV_CODEGEN
   const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
   opts.VkInvertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
-  opts.VkUseGlslLayout = Args.hasFlag(OPT_fvk_use_glsl_layout, OPT_INVALID, false);
+  opts.VkUseGlLayout = Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
+  opts.VkUseDxLayout = Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false);
+  opts.SpvEnableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
   opts.VkIgnoreUnusedResources = Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false);
 
   // Collects the arguments for -fvk-{b|s|t|u}-shift.
@@ -520,12 +523,22 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
            << opts.VkStageIoOrder;
     return 1;
   }
+
+  for (const Arg *A : Args.filtered(OPT_fspv_extension_EQ)) {
+    opts.SpvExtensions.push_back(A->getValue());
+  }
+
+  opts.SpvTargetEnv = Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_use_glsl_layout, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fspv_target_env_EQ).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||

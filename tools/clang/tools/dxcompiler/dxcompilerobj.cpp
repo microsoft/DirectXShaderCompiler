@@ -447,7 +447,9 @@ public:
           spirvOpts.codeGenHighLevel = opts.CodeGenHighLevel;
           spirvOpts.disableValidation = opts.DisableValidation;
           spirvOpts.invertY = opts.VkInvertY;
-          spirvOpts.useGlslLayout = opts.VkUseGlslLayout;
+          spirvOpts.useGlLayout = opts.VkUseGlLayout;
+          spirvOpts.useDxLayout = opts.VkUseDxLayout;
+          spirvOpts.enableReflect = opts.SpvEnableReflect;
           spirvOpts.ignoreUnusedResources = opts.VkIgnoreUnusedResources;
           spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
@@ -455,6 +457,8 @@ public:
           spirvOpts.tShift = opts.VkTShift;
           spirvOpts.sShift = opts.VkSShift;
           spirvOpts.uShift = opts.VkUShift;
+          spirvOpts.allowedExtensions = opts.SpvExtensions;
+          spirvOpts.targetEnv = opts.SpvTargetEnv;
           spirvOpts.enable16BitTypes = opts.Enable16BitTypes;
           clang::EmitSPIRVAction action(spirvOpts);
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);

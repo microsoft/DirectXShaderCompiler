@@ -61,7 +61,9 @@ public:
 
   /// Records a declaration of SV_ClipDistance/SV_CullDistance so later
   /// we can caculate the ClipDistance/CullDistance array layout.
-  bool recordClipCullDistanceDecl(const DeclaratorDecl *decl, bool asInput);
+  /// Also records the semantic strings provided for the builtins in
+  /// gl_PerVertex.
+  bool recordGlPerVertexDeclFacts(const DeclaratorDecl *decl, bool asInput);
 
   /// Calculates the layout for ClipDistance/CullDistance arrays.
   void calculateClipCullDistanceArraySize();
@@ -150,12 +152,11 @@ private:
                                   QualType fromType, uint32_t fromValue) const;
   /// Emits SPIR-V instructions to write a field in gl_PerVertex.
   bool writeField(hlsl::Semantic::Kind semanticKind, uint32_t semanticIndex,
-
                   llvm::Optional<uint32_t> invocationId, uint32_t *value);
 
   /// Internal implementation for recordClipCullDistanceDecl().
-  bool doClipCullDistanceDecl(const DeclaratorDecl *decl, QualType type,
-                              bool asInput);
+  bool doGlPerVertexFacts(const DeclaratorDecl *decl, QualType type,
+                          bool asInput);
 
 private:
   using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
@@ -216,6 +217,11 @@ private:
   /// offsets in the float array.
   SemanticIndexToArrayOffsetMap inClipOffset, outClipOffset;
   SemanticIndexToArrayOffsetMap inCullOffset, outCullOffset;
+
+  /// Keeps track of the semantic strings provided in the source code for the
+  /// builtins in gl_PerVertex.
+  llvm::SmallVector<std::string, 4> inSemanticStrs;
+  llvm::SmallVector<std::string, 4> outSemanticStrs;
 };
 
 } // end namespace spirv

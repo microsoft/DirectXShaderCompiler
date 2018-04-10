@@ -476,6 +476,7 @@ public:
   TEST_METHOD(CodeGenAtomic)
   TEST_METHOD(CodeGenAtomic2)
   TEST_METHOD(CodeGenAttributeAtVertex)
+  TEST_METHOD(CodeGenAttributeAtVertexNoOpt)
   TEST_METHOD(CodeGenBarycentrics)
   TEST_METHOD(CodeGenBarycentrics1)
   TEST_METHOD(CodeGenBarycentricsThreeSV)
@@ -936,6 +937,7 @@ public:
   TEST_METHOD(CodeGenRootSigDefine9)
   TEST_METHOD(CodeGenRootSigDefine10)
   TEST_METHOD(CodeGenRootSigDefine11)
+  TEST_METHOD(CodeGenCBufferStruct)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(CodeGenPatchLength)
   TEST_METHOD(PreprocessWhenValidThenOK)
@@ -2130,6 +2132,8 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
 }
 
 TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
+  // container builders prior to 1.3 did not support adding debug name parts
+  if (m_ver.SkipDxilVersion(1, 3)) return;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -3190,6 +3194,11 @@ TEST_F(CompilerTest, CodeGenAtomic2) {
 TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
   if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertex.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenAttributeAtVertexNoOpt) {
+  if (m_ver.SkipDxilVersion(1,1)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertexNoOpt.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBarycentrics) {
@@ -5071,6 +5080,10 @@ TEST_F(CompilerTest, CodeGenRootSigDefine11) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine11.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenCBufferStruct) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer-struct.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenCBufferStructArray) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer-structarray.hlsl");
 }
@@ -5878,6 +5891,7 @@ TEST_F(CompilerTest, HoistConstantArray) {
   CodeGenTestCheck(L"hca\\12.hlsl");
   CodeGenTestCheck(L"hca\\13.hlsl");
   CodeGenTestCheck(L"hca\\14.hlsl");
+  CodeGenTestCheck(L"hca\\15.ll");
 }
 
 TEST_F(CompilerTest, VecElemConstEval) {
