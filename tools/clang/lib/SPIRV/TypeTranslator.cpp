@@ -1281,10 +1281,10 @@ void TypeTranslator::collectDeclsInField(
     return;
   }
 
-  (*decls).push_back(field);
+  decls->push_back(field);
 }
 
-const llvm::SmallVector<const Decl *, 4>
+llvm::SmallVector<const Decl *, 4>
 TypeTranslator::collectDeclsInDeclContext(const DeclContext *declContext) {
   llvm::SmallVector<const Decl *, 4> decls;
   for (const auto *field : declContext->decls()) {
