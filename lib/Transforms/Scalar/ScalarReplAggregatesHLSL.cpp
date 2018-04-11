@@ -4070,8 +4070,7 @@ public:
         Function *oldPatchConstantFunc =
             funcProps.ShaderProps.HS.patchConstantFunc;
         if (funcMap.count(oldPatchConstantFunc))
-          funcProps.ShaderProps.HS.patchConstantFunc =
-              funcMap[oldPatchConstantFunc];
+          m_pHLModule->SetPatchConstantFunctionForHS(&F, funcMap[oldPatchConstantFunc]);
       }
     }
 
@@ -6016,17 +6015,7 @@ void SROA_Parameter_HLSL::replaceCall(Function *F, Function *flatF) {
   if (F == m_pHLModule->GetEntryFunction()) {
     m_pHLModule->SetEntryFunction(flatF);
   }
-  // Update patch constant function.
-  if (m_pHLModule->HasDxilFunctionProps(flatF)) {
-    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(flatF);
-    if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
-      Function *oldPatchConstantFunc =
-          funcProps.ShaderProps.HS.patchConstantFunc;
-      if (funcMap.count(oldPatchConstantFunc)) {
-        m_pHLModule->SetPatchConstantFunctionForHS(flatF, funcMap[oldPatchConstantFunc]);
-      }
-    }
-  }
+
   DXASSERT(F->user_empty(), "otherwise we flattened a library function.");
 }
 
