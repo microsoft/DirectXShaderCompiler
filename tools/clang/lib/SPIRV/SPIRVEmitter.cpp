@@ -4824,6 +4824,45 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
 uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
                                         const QualType valType,
                                         LayoutRule dstLR) {
+  // Lambda for casting scalar or vector of bool<-->uint in cases where one side
+  // of the reconstruction (lhs or rhs) has a layout rule.
+  const auto handleBooleanLayout = [this, &srcVal, dstLR](uint32_t val,
+                                                          QualType valType) {
+    // We only need to cast if we have a scalar or vector of booleans.
+    if (!isBoolOrVecOfBoolType(valType))
+      return val;
+
+    LayoutRule srcLR = srcVal.getLayoutRule();
+    // Source value has a layout rule, and has therefore been represented
+    // as a uint. Cast it to boolean before using.
+    bool shouldCastToBool =
+        srcLR != LayoutRule::Void && dstLR == LayoutRule::Void;
+    // Destination has a layout rule, and should therefore be represented
+    // as a uint. Cast to uint before using.
+    bool shouldCastToUint =
+        srcLR == LayoutRule::Void && dstLR != LayoutRule::Void;
+    // No boolean layout issues to take care of.
+    if (!shouldCastToBool && !shouldCastToUint)
+      return val;
+
+    uint32_t vecSize = 1;
+    TypeTranslator::isVectorType(valType, nullptr, &vecSize);
+    QualType boolType =
+        vecSize == 1 ? astContext.BoolTy
+                     : astContext.getExtVectorType(astContext.BoolTy, vecSize);
+    QualType uintType =
+        vecSize == 1
+            ? astContext.UnsignedIntTy
+            : astContext.getExtVectorType(astContext.UnsignedIntTy, vecSize);
+
+    if (shouldCastToBool)
+      return castToBool(val, uintType, boolType);
+    if (shouldCastToUint)
+      return castToInt(val, boolType, uintType, {});
+
+    return val;
+  };
+
   // Lambda for cases where we want to reconstruct an array
   const auto reconstructArray = [this, &srcVal, valType,
                                  dstLR](uint32_t arraySize,
@@ -4834,7 +4873,6 @@ uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
           typeTranslator.translateType(arrayElemType, srcVal.getLayoutRule());
       const auto subSrcVal =
           theBuilder.createCompositeExtract(subSrcValType, srcVal, {i});
-
       elements.push_back(reconstructValue(srcVal.substResultId(subSrcVal),
                                           arrayElemType, dstLR));
     }
@@ -4868,7 +4906,7 @@ uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
   // Note: This check should happen before the RecordType check since
   // vector/matrix/resource types are represented as RecordType in the AST.
   if (hlsl::IsHLSLVecMatType(valType) || hlsl::IsHLSLResourceType(valType))
-    return srcVal;
+    return handleBooleanLayout(srcVal, valType);
 
   // Structs
   if (const auto *recordType = valType->getAs<RecordType>()) {
@@ -4888,7 +4926,7 @@ uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
     return theBuilder.createCompositeConstruct(dstValType, elements);
   }
 
-  return srcVal;
+  return handleBooleanLayout(srcVal, valType);
 }
 
 SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,

@@ -1372,6 +1372,9 @@ TEST_F(FileTest, VulkanLayoutCBufferNestedEmptyStd140) {
 TEST_F(FileTest, VulkanLayoutCBufferBoolean) {
   runFileTest("vk.layout.cbuffer.boolean.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutResourceBoolean) {
+  runFileTest("vk.layout.resource.boolean.hlsl");
+}
 TEST_F(FileTest, VulkanLayoutRWStructuredBufferBoolean) {
   runFileTest("vk.layout.rwstructuredbuffer.boolean.hlsl");
 }
