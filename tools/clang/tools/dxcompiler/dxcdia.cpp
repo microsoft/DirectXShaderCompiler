@@ -236,20 +236,20 @@ public:
     return DoBasicQueryInterface<IDiaSession>(this, iid, ppvObject);
   }
 
-  __override STDMETHODIMP get_loadAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) { 
+  STDMETHODIMP get_loadAddress(
+    /* [retval][out] */ ULONGLONG *pRetVal) override { 
     *pRetVal = 0;
     return S_OK;
   }
 
-  __override STDMETHODIMP put_loadAddress(
-    /* [in] */ ULONGLONG NewVal) { return E_NOTIMPL; }
+  STDMETHODIMP put_loadAddress(
+    /* [in] */ ULONGLONG NewVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_globalScope(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_globalScope(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP getEnumTables(
-    _COM_Outptr_ IDiaEnumTables **ppEnumTables) {
+  STDMETHODIMP getEnumTables(
+    _COM_Outptr_ IDiaEnumTables **ppEnumTables) override {
     if (!m_pEnumTables) {
       DxcThreadMalloc TM(m_pMalloc);
       IFR(CreateDxcDiaEnumTables(this, &m_pEnumTables));
@@ -259,98 +259,98 @@ public:
     return S_OK;
   }
 
-  __override STDMETHODIMP getSymbolsByAddr(
-    /* [out] */ IDiaEnumSymbolsByAddr **ppEnumbyAddr) { return E_NOTIMPL; }
+  STDMETHODIMP getSymbolsByAddr(
+    /* [out] */ IDiaEnumSymbolsByAddr **ppEnumbyAddr) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findChildren(
+  STDMETHODIMP findChildren(
     /* [in] */ IDiaSymbol *parent,
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findChildrenEx(
+  STDMETHODIMP findChildrenEx(
     /* [in] */ IDiaSymbol *parent,
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findChildrenExByAddr(
+  STDMETHODIMP findChildrenExByAddr(
     /* [in] */ IDiaSymbol *parent,
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findChildrenExByVA(
+  STDMETHODIMP findChildrenExByVA(
     /* [in] */ IDiaSymbol *parent,
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ ULONGLONG va,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findChildrenExByRVA(
+  STDMETHODIMP findChildrenExByRVA(
     /* [in] */ IDiaSymbol *parent,
   /* [in] */ enum SymTagEnum symtag,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
     /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findSymbolByAddr(
+  STDMETHODIMP findSymbolByAddr(
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
   /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) { return E_NOTIMPL; }
+    /* [out] */ IDiaSymbol **ppSymbol) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findSymbolByRVA(
+  STDMETHODIMP findSymbolByRVA(
     /* [in] */ DWORD rva,
   /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) { return E_NOTIMPL; }
+    /* [out] */ IDiaSymbol **ppSymbol) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findSymbolByVA(
+  STDMETHODIMP findSymbolByVA(
     /* [in] */ ULONGLONG va,
   /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) { return E_NOTIMPL; }
+    /* [out] */ IDiaSymbol **ppSymbol) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findSymbolByToken(
+  STDMETHODIMP findSymbolByToken(
     /* [in] */ ULONG token,
   /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) { return E_NOTIMPL; }
+    /* [out] */ IDiaSymbol **ppSymbol) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP symsAreEquiv(
+  STDMETHODIMP symsAreEquiv(
     /* [in] */ IDiaSymbol *symbolA,
-    /* [in] */ IDiaSymbol *symbolB) { return E_NOTIMPL; }
+    /* [in] */ IDiaSymbol *symbolB) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP symbolById(
+  STDMETHODIMP symbolById(
     /* [in] */ DWORD id,
-    /* [out] */ IDiaSymbol **ppSymbol) { return E_NOTIMPL; }
+    /* [out] */ IDiaSymbol **ppSymbol) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findSymbolByRVAEx(
+  STDMETHODIMP findSymbolByRVAEx(
     /* [in] */ DWORD rva,
   /* [in] */ enum SymTagEnum symtag,
     /* [out] */ IDiaSymbol **ppSymbol,
-    /* [out] */ long *displacement) { return E_NOTIMPL; }
+    /* [out] */ long *displacement) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findSymbolByVAEx(
+  STDMETHODIMP findSymbolByVAEx(
     /* [in] */ ULONGLONG va,
   /* [in] */ enum SymTagEnum symtag,
     /* [out] */ IDiaSymbol **ppSymbol,
-    /* [out] */ long *displacement) { return E_NOTIMPL; }
+    /* [out] */ long *displacement) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findFile(
+  STDMETHODIMP findFile(
     /* [in] */ IDiaSymbol *pCompiland,
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSourceFiles **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSourceFiles **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findFileById(
+  STDMETHODIMP findFileById(
     /* [in] */ DWORD uniqueId,
-    /* [out] */ IDiaSourceFile **ppResult) {
+    /* [out] */ IDiaSourceFile **ppResult) override {
     if (!m_pEnumTables) {
       return E_INVALIDARG;
     }
@@ -364,207 +364,207 @@ public:
     return pElt->QueryInterface(ppResult);
   }
 
-  __override STDMETHODIMP findLines(
+  STDMETHODIMP findLines(
     /* [in] */ IDiaSymbol *compiland,
     /* [in] */ IDiaSourceFile *file,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findLinesByAddr(
+  STDMETHODIMP findLinesByAddr(
     /* [in] */ DWORD seg,
     /* [in] */ DWORD offset,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) {
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override {
       DxcThreadMalloc TM(m_pMalloc);
       return DxcDiaFindLineNumbersByRVA(this, offset, length, ppResult);
     }
 
-  __override STDMETHODIMP findLinesByRVA(
+  STDMETHODIMP findLinesByRVA(
     /* [in] */ DWORD rva,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) {
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override {
     DxcThreadMalloc TM(m_pMalloc);
     return DxcDiaFindLineNumbersByRVA(this, rva, length, ppResult);
   }
 
-  __override STDMETHODIMP findLinesByVA(
+  STDMETHODIMP findLinesByVA(
     /* [in] */ ULONGLONG va,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findLinesByLinenum(
+  STDMETHODIMP findLinesByLinenum(
     /* [in] */ IDiaSymbol *compiland,
     /* [in] */ IDiaSourceFile *file,
     /* [in] */ DWORD linenum,
     /* [in] */ DWORD column,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInjectedSource(
+  STDMETHODIMP findInjectedSource(
       /* [in] */ LPCOLESTR srcFile,
-      /* [out] */ IDiaEnumInjectedSources **ppResult);
+      /* [out] */ IDiaEnumInjectedSources **ppResult) override;
 
-  __override STDMETHODIMP getEnumDebugStreams(
-    /* [out] */ IDiaEnumDebugStreams **ppEnumDebugStreams) { return E_NOTIMPL; }
+  STDMETHODIMP getEnumDebugStreams(
+    /* [out] */ IDiaEnumDebugStreams **ppEnumDebugStreams) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInlineFramesByAddr(
+  STDMETHODIMP findInlineFramesByAddr(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInlineFramesByRVA(
+  STDMETHODIMP findInlineFramesByRVA(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInlineFramesByVA(
+  STDMETHODIMP findInlineFramesByVA(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ ULONGLONG va,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInlineeLines(
+  STDMETHODIMP findInlineeLines(
     /* [in] */ IDiaSymbol *parent,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInlineeLinesByAddr(
+  STDMETHODIMP findInlineeLinesByAddr(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInlineeLinesByRVA(
+  STDMETHODIMP findInlineeLinesByRVA(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD rva,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInlineeLinesByVA(
+  STDMETHODIMP findInlineeLinesByVA(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ ULONGLONG va,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInlineeLinesByLinenum(
+  STDMETHODIMP findInlineeLinesByLinenum(
     /* [in] */ IDiaSymbol *compiland,
     /* [in] */ IDiaSourceFile *file,
     /* [in] */ DWORD linenum,
     /* [in] */ DWORD column,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInlineesByName(
+  STDMETHODIMP findInlineesByName(
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD option,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findAcceleratorInlineeLinesByLinenum(
+  STDMETHODIMP findAcceleratorInlineeLinesByLinenum(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ IDiaSourceFile *file,
     /* [in] */ DWORD linenum,
     /* [in] */ DWORD column,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findSymbolsForAcceleratorPointerTag(
+  STDMETHODIMP findSymbolsForAcceleratorPointerTag(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD tagValue,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findSymbolsByRVAForAcceleratorPointerTag(
+  STDMETHODIMP findSymbolsByRVAForAcceleratorPointerTag(
     /* [in] */ IDiaSymbol *parent,
     /* [in] */ DWORD tagValue,
     /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findAcceleratorInlineesByName(
+  STDMETHODIMP findAcceleratorInlineesByName(
     /* [in] */ LPCOLESTR name,
     /* [in] */ DWORD option,
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP addressForVA(
+  STDMETHODIMP addressForVA(
     /* [in] */ ULONGLONG va,
     /* [out] */ DWORD *pISect,
-    /* [out] */ DWORD *pOffset) { return E_NOTIMPL; }
+    /* [out] */ DWORD *pOffset) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP addressForRVA(
+  STDMETHODIMP addressForRVA(
     /* [in] */ DWORD rva,
     /* [out] */ DWORD *pISect,
-    /* [out] */ DWORD *pOffset) { return E_NOTIMPL; }
+    /* [out] */ DWORD *pOffset) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findILOffsetsByAddr(
+  STDMETHODIMP findILOffsetsByAddr(
     /* [in] */ DWORD isect,
     /* [in] */ DWORD offset,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findILOffsetsByRVA(
+  STDMETHODIMP findILOffsetsByRVA(
     /* [in] */ DWORD rva,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findILOffsetsByVA(
+  STDMETHODIMP findILOffsetsByVA(
     /* [in] */ ULONGLONG va,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInputAssemblyFiles(
-    /* [out] */ IDiaEnumInputAssemblyFiles **ppResult) { return E_NOTIMPL; }
+  STDMETHODIMP findInputAssemblyFiles(
+    /* [out] */ IDiaEnumInputAssemblyFiles **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInputAssembly(
+  STDMETHODIMP findInputAssembly(
     /* [in] */ DWORD index,
-    /* [out] */ IDiaInputAssemblyFile **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInputAssemblyById(
+  STDMETHODIMP findInputAssemblyById(
     /* [in] */ DWORD uniqueId,
-    /* [out] */ IDiaInputAssemblyFile **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP getFuncMDTokenMapSize(
-    /* [out] */ DWORD *pcb) { return E_NOTIMPL; }
+  STDMETHODIMP getFuncMDTokenMapSize(
+    /* [out] */ DWORD *pcb) override { return E_NOTIMPL; }
 
   virtual HRESULT STDMETHODCALLTYPE getFuncMDTokenMap(
     /* [in] */ DWORD cb,
     /* [out] */ DWORD *pcb,
     /* [size_is][out] */ BYTE *pb) { return E_NOTIMPL; }
 
-  __override STDMETHODIMP getTypeMDTokenMapSize(
-    /* [out] */ DWORD *pcb) { return E_NOTIMPL; }
+  STDMETHODIMP getTypeMDTokenMapSize(
+    /* [out] */ DWORD *pcb) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP getTypeMDTokenMap(
+  STDMETHODIMP getTypeMDTokenMap(
     /* [in] */ DWORD cb,
     /* [out] */ DWORD *pcb,
-    /* [size_is][out] */ BYTE *pb) { return E_NOTIMPL; }
+    /* [size_is][out] */ BYTE *pb) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP getNumberOfFunctionFragments_VA(
+  STDMETHODIMP getNumberOfFunctionFragments_VA(
     /* [in] */ ULONGLONG vaFunc,
     /* [in] */ DWORD cbFunc,
-    /* [out] */ DWORD *pNumFragments) { return E_NOTIMPL; }
+    /* [out] */ DWORD *pNumFragments) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP getNumberOfFunctionFragments_RVA(
+  STDMETHODIMP getNumberOfFunctionFragments_RVA(
     /* [in] */ DWORD rvaFunc,
     /* [in] */ DWORD cbFunc,
-    /* [out] */ DWORD *pNumFragments) { return E_NOTIMPL; }
+    /* [out] */ DWORD *pNumFragments) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP getFunctionFragments_VA(
+  STDMETHODIMP getFunctionFragments_VA(
     /* [in] */ ULONGLONG vaFunc,
     /* [in] */ DWORD cbFunc,
     /* [in] */ DWORD cFragments,
     /* [size_is][out] */ ULONGLONG *pVaFragment,
-    /* [size_is][out] */ DWORD *pLenFragment) { return E_NOTIMPL; }
+    /* [size_is][out] */ DWORD *pLenFragment) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP getFunctionFragments_RVA(
+  STDMETHODIMP getFunctionFragments_RVA(
     /* [in] */ DWORD rvaFunc,
     /* [in] */ DWORD cbFunc,
     /* [in] */ DWORD cFragments,
     /* [size_is][out] */ DWORD *pRvaFragment,
-    /* [size_is][out] */ DWORD *pLenFragment) { return E_NOTIMPL; }
+    /* [size_is][out] */ DWORD *pLenFragment) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP getExports(
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+  STDMETHODIMP getExports(
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP getHeapAllocationSites(
-    /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
+  STDMETHODIMP getHeapAllocationSites(
+    /* [out] */ IDiaEnumSymbols **ppResult) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP findInputAssemblyFile(
+  STDMETHODIMP findInputAssemblyFile(
     /* [in] */ IDiaSymbol *pSymbol,
-    /* [out] */ IDiaInputAssemblyFile **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return E_NOTIMPL; }
 private:
   CComPtr<IDiaEnumTables> m_pEnumTables;
 };
@@ -587,17 +587,17 @@ public:
     m_tables.fill(nullptr);
   }
 
-  __override STDMETHODIMP get__NewEnum(
-    /* [retval][out] */ IUnknown **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get__NewEnum(
+    /* [retval][out] */ IUnknown **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_Count(_Out_ LONG *pRetVal) { 
+  STDMETHODIMP get_Count(_Out_ LONG *pRetVal) override { 
     *pRetVal = ((unsigned)LastTableKind - (unsigned)FirstTableKind) + 1;
     return S_OK;
   }
 
-  __override STDMETHODIMP Item(
+  STDMETHODIMP Item(
     /* [in] */ VARIANT index,
-    /* [retval][out] */ IDiaTable **table) {
+    /* [retval][out] */ IDiaTable **table) override {
     // Avoid pulling in additional variant support (could have used VariantChangeType instead).
     DWORD indexVal;
     switch (index.vt) {
@@ -623,10 +623,10 @@ public:
     return hr;
   }
 
-  __override STDMETHODIMP Next(
+  STDMETHODIMP Next(
     ULONG celt,
     IDiaTable **rgelt,
-    ULONG *pceltFetched) {
+    ULONG *pceltFetched) override {
     DxcThreadMalloc TM(m_pMalloc);
     ULONG fetched = 0;
     while (fetched < celt && m_next <= (unsigned)LastTableKind) {
@@ -647,13 +647,13 @@ public:
     return (fetched == celt) ? S_OK : S_FALSE;
   }
 
-  __override STDMETHODIMP Skip(
-    /* [in] */ ULONG celt) { return E_NOTIMPL; }
+  STDMETHODIMP Skip(
+    /* [in] */ ULONG celt) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP Reset(void) { m_next = 0; return S_OK; }
+  STDMETHODIMP Reset(void) override { m_next = 0; return S_OK; }
 
-  __override STDMETHODIMP Clone(
-    /* [out] */ IDiaEnumTables **ppenum) { return E_NOTIMPL; }
+  STDMETHODIMP Clone(
+    /* [out] */ IDiaEnumTables **ppenum) override { return E_NOTIMPL; }
 private:
   std::array<CComPtr<IDiaTable>, (int)LastTableKind+1> m_tables;
 };
@@ -690,10 +690,10 @@ public:
   }
 
   // IEnumUnknown implementation.
-  __override STDMETHODIMP Next(
+  STDMETHODIMP Next(
     _In_  ULONG celt,
     _Out_writes_to_(celt, *pceltFetched)  IUnknown **rgelt,
-    _Out_opt_  ULONG *pceltFetched) {
+    _Out_opt_  ULONG *pceltFetched) override {
     DxcThreadMalloc TM(m_pMalloc);
     ULONG fetched = 0;
     while (fetched < celt && m_next < m_count) {
@@ -708,7 +708,7 @@ public:
     return (fetched == celt) ? S_OK : S_FALSE;
   }
 
-  __override STDMETHODIMP Skip(ULONG celt) {
+  STDMETHODIMP Skip(ULONG celt) override {
     if (celt + m_next <= m_count) {
       m_next += celt;
       return S_OK;
@@ -716,45 +716,45 @@ public:
     return S_FALSE;
   }
 
-  __override STDMETHODIMP Reset(void) {
+  STDMETHODIMP Reset(void) override {
     m_next = 0;
     return S_OK;
   }
 
-  __override STDMETHODIMP Clone(IEnumUnknown **ppenum) {
+  STDMETHODIMP Clone(IEnumUnknown **ppenum) override {
     return E_NOTIMPL;
   }
 
   // IDiaTable implementation.
-  __override STDMETHODIMP get__NewEnum(IUnknown **pRetVal) {
+  STDMETHODIMP get__NewEnum(IUnknown **pRetVal) override {
     return E_NOTIMPL;
   }
 
-  __override STDMETHODIMP get_name(BSTR *pRetVal) {
+  STDMETHODIMP get_name(BSTR *pRetVal) override {
     *pRetVal = SysAllocString(TableNames[(unsigned)m_kind]);
     return (*pRetVal) ? S_OK : E_OUTOFMEMORY;
   }
 
-  __override STDMETHODIMP get_Count(_Out_ LONG *pRetVal) {
+  STDMETHODIMP get_Count(_Out_ LONG *pRetVal) override {
     *pRetVal = m_count;
     return S_OK;
   }
 
-  __override STDMETHODIMP Item(DWORD index, _COM_Outptr_ IUnknown **table) {
+  STDMETHODIMP Item(DWORD index, _COM_Outptr_ IUnknown **table) override {
     if (index >= m_count)
       return E_INVALIDARG;
     return GetItem(index, (TItem **)table);
   }
 
   // T implementation (partial).
-  __override STDMETHODIMP Clone(_COM_Outptr_ T **ppenum) {
+  STDMETHODIMP Clone(_COM_Outptr_ T **ppenum) override {
     *ppenum = nullptr;
     return E_NOTIMPL;
   }
-  __override STDMETHODIMP Next(
+  STDMETHODIMP Next(
     /* [in] */ ULONG celt,
     /* [out] */ TItem **rgelt,
-    /* [out] */ ULONG *pceltFetched) {
+    /* [out] */ ULONG *pceltFetched) override {
     DxcThreadMalloc TM(m_pMalloc);
     ULONG fetched = 0;
     while (fetched < celt && m_next < m_count) {
@@ -768,9 +768,9 @@ public:
       *pceltFetched = fetched;
     return (fetched == celt) ? S_OK : S_FALSE;
   }
-  __override STDMETHODIMP Item(
+  STDMETHODIMP Item(
     /* [in] */ DWORD index,
-    /* [retval][out] */ TItem **ppItem) {
+    /* [retval][out] */ TItem **ppItem) override {
     DxcThreadMalloc TM(m_pMalloc);
     if (index >= m_count)
       return E_INVALIDARG;
@@ -824,109 +824,109 @@ public:
   void SetSourceFileName(BSTR value) { m_sourceFileName = value; }
 
 #pragma region IDiaSymbol implementation.
-  __override STDMETHODIMP get_symIndexId(
-    /* [retval][out] */ DWORD *pRetVal) { 
+  STDMETHODIMP get_symIndexId(
+    /* [retval][out] */ DWORD *pRetVal) override { 
     *pRetVal = m_index;
     return S_OK;
   }
 
-  __override STDMETHODIMP get_symTag(
-    /* [retval][out] */ DWORD *pRetVal) {
+  STDMETHODIMP get_symTag(
+    /* [retval][out] */ DWORD *pRetVal) override {
     *pRetVal = m_symTag;
     return S_OK;
   }
 
-  __override STDMETHODIMP get_name(
-    /* [retval][out] */ BSTR *pRetVal) {
+  STDMETHODIMP get_name(
+    /* [retval][out] */ BSTR *pRetVal) override {
     return m_name.CopyTo(pRetVal);
   }
 
-  __override STDMETHODIMP get_lexicalParent(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_lexicalParent(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_classParent(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_classParent(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_type(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_type(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_dataKind(
-    /* [retval][out] */ DWORD *pRetVal) {
+  STDMETHODIMP get_dataKind(
+    /* [retval][out] */ DWORD *pRetVal) override {
     *pRetVal = m_dataKind;
     return m_dataKind ? S_OK : S_FALSE;
   }
 
-  __override STDMETHODIMP get_locationType(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_locationType(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_addressSection(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_addressSection(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_addressOffset(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_addressOffset(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_relativeVirtualAddress(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_relativeVirtualAddress(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_virtualAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_virtualAddress(
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_registerId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_registerId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_offset(
-    /* [retval][out] */ LONG *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_offset(
+    /* [retval][out] */ LONG *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_length(
-    /* [retval][out] */ ULONGLONG *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_length(
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_slot(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_slot(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_volatileType(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_volatileType(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_constType(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_constType(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_unalignedType(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_unalignedType(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_access(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_access(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_libraryName(
-    /* [retval][out] */ BSTR *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_libraryName(
+    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_platform(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_platform(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_language(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_language(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_editAndContinueEnabled(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_editAndContinueEnabled(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_frontEndMajor(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_frontEndMajor(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_frontEndMinor(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_frontEndMinor(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_frontEndBuild(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_frontEndBuild(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_backEndMajor(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_backEndMajor(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_backEndMinor(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_backEndMinor(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_backEndBuild(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_backEndBuild(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_sourceFileName(
-    /* [retval][out] */ BSTR *pRetVal) {
+  STDMETHODIMP get_sourceFileName(
+    /* [retval][out] */ BSTR *pRetVal) override {
     if (pRetVal == nullptr) {
       return E_INVALIDARG;
     }
@@ -934,157 +934,157 @@ public:
     return S_OK;
   }
 
-  __override STDMETHODIMP get_unused(
-    /* [retval][out] */ BSTR *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_unused(
+    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_thunkOrdinal(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_thunkOrdinal(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_thisAdjust(
-    /* [retval][out] */ LONG *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_thisAdjust(
+    /* [retval][out] */ LONG *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_virtualBaseOffset(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_virtualBaseOffset(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_virtual(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_virtual(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_intro(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_intro(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_pure(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_pure(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_callingConvention(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_callingConvention(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_value(
-    /* [retval][out] */ VARIANT *pRetVal) { 
+  STDMETHODIMP get_value(
+    /* [retval][out] */ VARIANT *pRetVal) override { 
     return VariantCopy(pRetVal, &m_value);
   }
 
-  __override STDMETHODIMP get_baseType(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_baseType(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_token(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_token(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_timeStamp(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_timeStamp(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_guid(
-    /* [retval][out] */ GUID *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_guid(
+    /* [retval][out] */ GUID *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_symbolsFileName(
-    /* [retval][out] */ BSTR *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_symbolsFileName(
+    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_reference(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_reference(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_count(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_count(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_bitPosition(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_bitPosition(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_arrayIndexType(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_arrayIndexType(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_packed(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_packed(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_constructor(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_constructor(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_overloadedOperator(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_overloadedOperator(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_nested(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_nested(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasNestedTypes(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasNestedTypes(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasAssignmentOperator(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasAssignmentOperator(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasCastOperator(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasCastOperator(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_scoped(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_scoped(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_virtualBaseClass(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_virtualBaseClass(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_indirectVirtualBaseClass(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_indirectVirtualBaseClass(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_virtualBasePointerOffset(
-    /* [retval][out] */ LONG *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_virtualBasePointerOffset(
+    /* [retval][out] */ LONG *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_virtualTableShape(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_virtualTableShape(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_lexicalParentId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_lexicalParentId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_classParentId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_classParentId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_typeId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_typeId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_arrayIndexTypeId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_arrayIndexTypeId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_virtualTableShapeId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_virtualTableShapeId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_code(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_code(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_function(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_function(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_managed(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_managed(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_msil(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_msil(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_virtualBaseDispIndex(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_virtualBaseDispIndex(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_undecoratedName(
-    /* [retval][out] */ BSTR *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_undecoratedName(
+    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_age(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_age(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_signature(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_signature(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_compilerGenerated(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_compilerGenerated(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_addressTaken(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_addressTaken(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_rank(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_rank(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_lowerBound(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_lowerBound(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_upperBound(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_upperBound(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_lowerBoundId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_lowerBoundId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_upperBoundId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_upperBoundId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
   virtual HRESULT STDMETHODCALLTYPE get_dataBytes(
     /* [in] */ DWORD cbData,
@@ -1125,26 +1125,26 @@ public:
     /* [in] */ DWORD rva,
     /* [out] */ IDiaEnumSymbols **ppResult) { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_targetSection(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_targetSection(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_targetOffset(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_targetOffset(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_targetRelativeVirtualAddress(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_targetRelativeVirtualAddress(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_targetVirtualAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_targetVirtualAddress(
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_machineType(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_machineType(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_oemId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_oemId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_oemSymbolId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_oemSymbolId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
   virtual HRESULT STDMETHODCALLTYPE get_types(
     /* [in] */ DWORD cTypes,
@@ -1156,195 +1156,195 @@ public:
     /* [out] */ DWORD *pcTypeIds,
     /* [size_is][out] */ DWORD *pdwTypeIds) { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_objectPointerType(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_objectPointerType(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_udtKind(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_udtKind(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
   virtual HRESULT STDMETHODCALLTYPE get_undecoratedNameEx(
     /* [in] */ DWORD undecorateOptions,
     /* [out] */ BSTR *name) { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_noReturn(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_noReturn(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_customCallingConvention(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_customCallingConvention(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_noInline(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_noInline(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_optimizedCodeDebugInfo(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_optimizedCodeDebugInfo(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_notReached(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_notReached(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_interruptReturn(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_interruptReturn(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_farReturn(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_farReturn(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isStatic(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isStatic(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasDebugInfo(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasDebugInfo(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isLTCG(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isLTCG(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isDataAligned(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isDataAligned(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasSecurityChecks(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasSecurityChecks(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_compilerName(
-    /* [retval][out] */ BSTR *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_compilerName(
+    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasAlloca(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasAlloca(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasSetJump(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasSetJump(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasLongJump(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasLongJump(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasInlAsm(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasInlAsm(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasEH(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasEH(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasSEH(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasSEH(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasEHa(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasEHa(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isNaked(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isNaked(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isAggregated(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isAggregated(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isSplitted(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isSplitted(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_container(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_container(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_inlSpec(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_inlSpec(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_noStackOrdering(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_noStackOrdering(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_virtualBaseTableType(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_virtualBaseTableType(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasManagedCode(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasManagedCode(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isHotpatchable(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isHotpatchable(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isCVTCIL(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isCVTCIL(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isMSILNetmodule(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isMSILNetmodule(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isCTypes(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isCTypes(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isStripped(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isStripped(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_frontEndQFE(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_frontEndQFE(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_backEndQFE(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_backEndQFE(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_wasInlined(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_wasInlined(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_strictGSCheck(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_strictGSCheck(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isCxxReturnUdt(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isCxxReturnUdt(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isConstructorVirtualBase(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isConstructorVirtualBase(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_RValueReference(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_RValueReference(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_unmodifiedType(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_unmodifiedType(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_framePointerPresent(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_framePointerPresent(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isSafeBuffers(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isSafeBuffers(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_intrinsic(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_intrinsic(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_sealed(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_sealed(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hfaFloat(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hfaFloat(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hfaDouble(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hfaDouble(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_liveRangeStartAddressSection(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_liveRangeStartAddressSection(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_liveRangeStartAddressOffset(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_liveRangeStartAddressOffset(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_liveRangeStartRelativeVirtualAddress(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_liveRangeStartRelativeVirtualAddress(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_countLiveRanges(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_countLiveRanges(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_liveRangeLength(
-    /* [retval][out] */ ULONGLONG *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_liveRangeLength(
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_offsetInUdt(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_offsetInUdt(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_paramBasePointerRegisterId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_paramBasePointerRegisterId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_localBasePointerRegisterId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_localBasePointerRegisterId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isLocationControlFlowDependent(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isLocationControlFlowDependent(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_stride(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_stride(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_numberOfRows(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_numberOfRows(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_numberOfColumns(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_numberOfColumns(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isMatrixRowMajor(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isMatrixRowMajor(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
   virtual HRESULT STDMETHODCALLTYPE get_numericProperties(
     /* [in] */ DWORD cnt,
@@ -1356,113 +1356,113 @@ public:
     /* [out] */ DWORD *pcnt,
     /* [size_is][out] */ WORD *pModifiers) { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isReturnValue(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isReturnValue(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isOptimizedAway(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isOptimizedAway(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_builtInKind(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_builtInKind(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_registerType(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_registerType(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_baseDataSlot(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_baseDataSlot(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_baseDataOffset(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_baseDataOffset(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_textureSlot(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_textureSlot(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_samplerSlot(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_samplerSlot(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_uavSlot(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_uavSlot(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_sizeInUdt(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_sizeInUdt(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_memorySpaceKind(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_memorySpaceKind(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_unmodifiedTypeId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_unmodifiedTypeId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_subTypeId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_subTypeId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_subType(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_subType(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_numberOfModifiers(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_numberOfModifiers(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_numberOfRegisterIndices(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_numberOfRegisterIndices(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isHLSLData(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isHLSLData(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isPointerToDataMember(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isPointerToDataMember(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isPointerToMemberFunction(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isPointerToMemberFunction(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isSingleInheritance(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isSingleInheritance(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isMultipleInheritance(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isMultipleInheritance(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isVirtualInheritance(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isVirtualInheritance(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_restrictedType(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_restrictedType(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isPointerBasedOnSymbolValue(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isPointerBasedOnSymbolValue(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_baseSymbol(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_baseSymbol(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_baseSymbolId(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_baseSymbolId(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_objectFileName(
-    /* [retval][out] */ BSTR *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_objectFileName(
+    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isAcceleratorGroupSharedLocal(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isAcceleratorGroupSharedLocal(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isAcceleratorPointerTagLiveRange(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isAcceleratorPointerTagLiveRange(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isAcceleratorStubFunction(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isAcceleratorStubFunction(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_numberOfAcceleratorPointerTags(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_numberOfAcceleratorPointerTags(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isSdl(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isSdl(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isWinRTPointer(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isWinRTPointer(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isRefUdt(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isRefUdt(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isValueUdt(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isValueUdt(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isInterfaceUdt(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isInterfaceUdt(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
   virtual HRESULT STDMETHODCALLTYPE findInlineFramesByAddr(
     /* [in] */ DWORD isect,
@@ -1513,80 +1513,80 @@ public:
   virtual HRESULT STDMETHODCALLTYPE getSrcLineOnTypeDefn(
     /* [out] */ IDiaLineNumber **ppResult) { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isPGO(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isPGO(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasValidPGOCounts(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasValidPGOCounts(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_isOptimizedForSpeed(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_isOptimizedForSpeed(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_PGOEntryCount(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_PGOEntryCount(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_PGOEdgeCount(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_PGOEdgeCount(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_PGODynamicInstructionCount(
-    /* [retval][out] */ ULONGLONG *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_PGODynamicInstructionCount(
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_staticSize(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_staticSize(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_finalLiveStaticSize(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_finalLiveStaticSize(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_phaseName(
-    /* [retval][out] */ BSTR *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_phaseName(
+    /* [retval][out] */ BSTR *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_hasControlFlowCheck(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_hasControlFlowCheck(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_constantExport(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_constantExport(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_dataExport(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_dataExport(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_privateExport(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_privateExport(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_noNameExport(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_noNameExport(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_exportHasExplicitlyAssignedOrdinal(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_exportHasExplicitlyAssignedOrdinal(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_exportIsForwarder(
-    /* [retval][out] */ BOOL *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_exportIsForwarder(
+    /* [retval][out] */ BOOL *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_ordinal(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_ordinal(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_frameSize(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_frameSize(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_exceptionHandlerAddressSection(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_exceptionHandlerAddressSection(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_exceptionHandlerAddressOffset(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_exceptionHandlerAddressOffset(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_exceptionHandlerRelativeVirtualAddress(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_exceptionHandlerRelativeVirtualAddress(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_exceptionHandlerVirtualAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_exceptionHandlerVirtualAddress(
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
 
   virtual HRESULT STDMETHODCALLTYPE findInputAssemblyFile(
     /* [out] */ IDiaInputAssemblyFile **ppResult) { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_characteristics(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_characteristics(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_coffGroup(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_coffGroup(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
   virtual STDMETHODIMP get_bindID(
     /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
@@ -1616,7 +1616,7 @@ public:
               //pSession->InfoRef().type_count();
   }
 
-  __override HRESULT GetItem(DWORD index, IDiaSymbol **ppItem) {
+  HRESULT GetItem(DWORD index, IDiaSymbol **ppItem) override {
     DxcThreadMalloc TM(m_pMalloc);
 
     // Ids are one-based, so adjust the index.
@@ -1726,32 +1726,32 @@ public:
     return dyn_cast<llvm::MDString>(NameContent()->getOperand(0))->getString();
   }
 
-  __override STDMETHODIMP get_uniqueId(
-    /* [retval][out] */ DWORD *pRetVal) {
+  STDMETHODIMP get_uniqueId(
+    /* [retval][out] */ DWORD *pRetVal) override {
     *pRetVal = m_index;
     return S_OK;
   }
 
-  __override STDMETHODIMP get_fileName(
-    /* [retval][out] */ BSTR *pRetVal) {
+  STDMETHODIMP get_fileName(
+    /* [retval][out] */ BSTR *pRetVal) override {
     DxcThreadMalloc TM(m_pMalloc);
     return StringRefToBSTR(Name(), pRetVal);
   }
 
-  __override STDMETHODIMP get_checksumType(
-    /* [retval][out] */ DWORD *pRetVal) {
+  STDMETHODIMP get_checksumType(
+    /* [retval][out] */ DWORD *pRetVal) override {
     return E_NOTIMPL;
   }
 
-  __override STDMETHODIMP get_compilands(
-    /* [retval][out] */ IDiaEnumSymbols **pRetVal) {
+  STDMETHODIMP get_compilands(
+    /* [retval][out] */ IDiaEnumSymbols **pRetVal) override {
     return E_NOTIMPL;
   }
 
-  __override STDMETHODIMP get_checksum(
+  STDMETHODIMP get_checksum(
     /* [in] */ DWORD cbData,
     /* [out] */ DWORD *pcbData,
-    /* [size_is][out] */ BYTE *pbData) {
+    /* [size_is][out] */ BYTE *pbData) override {
     return E_NOTIMPL;
   }
 };
@@ -1764,7 +1764,7 @@ public:
     m_items.assign(m_count, nullptr);
   }
 
-  __override HRESULT GetItem(DWORD index, IDiaSourceFile **ppItem) {
+  HRESULT GetItem(DWORD index, IDiaSourceFile **ppItem) override {
     if (!m_items[index]) {
       m_items[index] = CreateOnMalloc<DxcDiaSourceFile>(m_pMalloc, m_pSession, index);
       if (m_items[index] == nullptr)
@@ -1797,11 +1797,11 @@ public:
     return m_inst->getDebugLoc();
   }
 
-  __override STDMETHODIMP get_compiland(
-    /* [retval][out] */ IDiaSymbol **pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_compiland(
+    /* [retval][out] */ IDiaSymbol **pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_sourceFile(
-    /* [retval][out] */ IDiaSourceFile **pRetVal) {
+  STDMETHODIMP get_sourceFile(
+    /* [retval][out] */ IDiaSourceFile **pRetVal) override {
     DWORD id;
     HRESULT hr = get_sourceFileId(&id);
     if (hr != S_OK)
@@ -1809,50 +1809,50 @@ public:
     return m_pSession->findFileById(id, pRetVal);
   }
 
-  __override STDMETHODIMP get_lineNumber(
-    /* [retval][out] */ DWORD *pRetVal) {
+  STDMETHODIMP get_lineNumber(
+    /* [retval][out] */ DWORD *pRetVal) override {
     *pRetVal = DL().getLine();
     return S_OK;
   }
 
-  __override STDMETHODIMP get_lineNumberEnd(
-    /* [retval][out] */ DWORD *pRetVal) {
+  STDMETHODIMP get_lineNumberEnd(
+    /* [retval][out] */ DWORD *pRetVal) override {
     *pRetVal = DL().getLine();
     return S_OK;
   }
 
-  __override STDMETHODIMP get_columnNumber(
-    /* [retval][out] */ DWORD *pRetVal) {
+  STDMETHODIMP get_columnNumber(
+    /* [retval][out] */ DWORD *pRetVal) override {
     *pRetVal = DL().getCol();
     return S_OK;
   }
 
-  __override STDMETHODIMP get_columnNumberEnd(
-    /* [retval][out] */ DWORD *pRetVal) {
+  STDMETHODIMP get_columnNumberEnd(
+    /* [retval][out] */ DWORD *pRetVal) override {
     *pRetVal = DL().getCol();
     return S_OK;
   }
 
-  __override STDMETHODIMP get_addressSection(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_addressSection(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_addressOffset(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_addressOffset(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_relativeVirtualAddress(
-    /* [retval][out] */ DWORD *pRetVal) { 
+  STDMETHODIMP get_relativeVirtualAddress(
+    /* [retval][out] */ DWORD *pRetVal) override { 
     *pRetVal = m_pSession->RvaMapRef()[m_inst];
     return S_OK;
   }
 
-  __override STDMETHODIMP get_virtualAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_virtualAddress(
+    /* [retval][out] */ ULONGLONG *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_length(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_length(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_sourceFileId(
-    /* [retval][out] */ DWORD *pRetVal) {
+  STDMETHODIMP get_sourceFileId(
+    /* [retval][out] */ DWORD *pRetVal) override {
     MDNode *pScope = DL().getScope();
     DILexicalBlock *pBlock = dyn_cast_or_null<DILexicalBlock>(pScope);
     if (pBlock != nullptr) {
@@ -1866,13 +1866,13 @@ public:
     return S_FALSE;
   }
 
-  __override STDMETHODIMP get_statement(
-    /* [retval][out] */ BOOL *pRetVal) {
+  STDMETHODIMP get_statement(
+    /* [retval][out] */ BOOL *pRetVal) override {
     return E_NOTIMPL;
   }
 
-  __override STDMETHODIMP get_compilandId(
-    /* [retval][out] */ DWORD *pRetVal) {
+  STDMETHODIMP get_compilandId(
+    /* [retval][out] */ DWORD *pRetVal) override {
     // Single compiland for now, so pretty simple.
     *pRetVal = HlslCompilandId;
     return S_OK;
@@ -1907,7 +1907,7 @@ public:
   }
   
 
-  __override HRESULT GetItem(DWORD index, IDiaLineNumber **ppItem) {
+  HRESULT GetItem(DWORD index, IDiaLineNumber **ppItem) override {
     if (index >= m_instructions.size())
       return E_INVALIDARG;
     *ppItem = CreateOnMalloc<DxcDiaLineNumber>(m_pMalloc, m_pSession, m_instructions[index]);
@@ -1961,7 +1961,7 @@ static HRESULT DxcDiaFindLineNumbersByRVA(
 class DxcDiaTableSections : public DxcDiaTableBase<IDiaEnumSectionContribs, IDiaSectionContrib> {
 public:
   DxcDiaTableSections(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::Sections) { }
-  __override HRESULT GetItem(DWORD index, IDiaSectionContrib **ppItem) {
+  HRESULT GetItem(DWORD index, IDiaSectionContrib **ppItem) override {
     *ppItem = nullptr;
     return E_FAIL;
   }
@@ -1970,7 +1970,7 @@ public:
 class DxcDiaTableSegmentMap : public DxcDiaTableBase<IDiaEnumSegments, IDiaSegment> {
 public:
   DxcDiaTableSegmentMap(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::SegmentMap) { }
-  __override HRESULT GetItem(DWORD index, IDiaSegment **ppItem) {
+  HRESULT GetItem(DWORD index, IDiaSegment **ppItem) override {
     *ppItem = nullptr;
     return E_FAIL;
   }
@@ -1999,35 +1999,35 @@ public:
     return dyn_cast<llvm::MDString>(NameContent()->getOperand(1))->getString();
   }
 
-  __override STDMETHODIMP get_crc(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_crc(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_length(_Out_ ULONGLONG *pRetVal) {
+  STDMETHODIMP get_length(_Out_ ULONGLONG *pRetVal) override {
     *pRetVal = Content().size();
     return S_OK;
   }
 
-  __override STDMETHODIMP get_filename(BSTR *pRetVal) {
+  STDMETHODIMP get_filename(BSTR *pRetVal) override {
     DxcThreadMalloc TM(m_pMalloc);
     return StringRefToBSTR(Name(), pRetVal);
   }
 
-  __override STDMETHODIMP get_objectFilename(BSTR *pRetVal) {
+  STDMETHODIMP get_objectFilename(BSTR *pRetVal) override {
     *pRetVal = nullptr;
     return S_OK;
   }
 
-  __override STDMETHODIMP get_virtualFilename(BSTR *pRetVal) {
+  STDMETHODIMP get_virtualFilename(BSTR *pRetVal) override {
     return get_filename(pRetVal);
   }
 
-  __override STDMETHODIMP get_sourceCompression(
-    /* [retval][out] */ DWORD *pRetVal) { return E_NOTIMPL; }
+  STDMETHODIMP get_sourceCompression(
+    /* [retval][out] */ DWORD *pRetVal) override { return E_NOTIMPL; }
 
-  __override STDMETHODIMP get_source(
+  STDMETHODIMP get_source(
     /* [in] */ DWORD cbData,
     /* [out] */ DWORD *pcbData,
-    /* [size_is][out] */ BYTE *pbData) {
+    /* [size_is][out] */ BYTE *pbData) override {
     if (pbData == nullptr) {
       if (pcbData != nullptr) {
         *pcbData = Content().size();
@@ -2053,7 +2053,7 @@ public:
       (m_pSession->Contents() == nullptr) ? 0 : m_pSession->Contents()->getNumOperands();
   }
 
-  __override HRESULT GetItem(DWORD index, IDiaInjectedSource **ppItem) {
+  HRESULT GetItem(DWORD index, IDiaInjectedSource **ppItem) override {
     if (index >= m_count)
       return E_INVALIDARG;
     unsigned itemIndex = index;
@@ -2084,15 +2084,15 @@ class DxcDiaTableFrameData : public DxcDiaTableBase<IDiaEnumFrameData, IDiaFrame
 public:
   DxcDiaTableFrameData(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::FrameData) { }
   // HLSL inlines functions for a program, so no data to return.
-  __override STDMETHODIMP frameByRVA(
+  STDMETHODIMP frameByRVA(
     /* [in] */ DWORD relativeVirtualAddress,
-    /* [retval][out] */ IDiaFrameData **frame) {
+    /* [retval][out] */ IDiaFrameData **frame) override {
     return E_NOTIMPL;
   }
 
-  __override STDMETHODIMP frameByVA(
+  STDMETHODIMP frameByVA(
     /* [in] */ ULONGLONG virtualAddress,
-    /* [retval][out] */ IDiaFrameData **frame) {
+    /* [retval][out] */ IDiaFrameData **frame) override {
     return E_NOTIMPL;
   }
 };
@@ -2103,7 +2103,7 @@ public:
   // HLSL is not based on IL, so no data to return.
 };
 
-__override STDMETHODIMP DxcDiaSession::findInjectedSource(
+STDMETHODIMP DxcDiaSession::findInjectedSource(
     /* [in] */ LPCOLESTR srcFile,
     /* [out] */ IDiaEnumInjectedSources **ppResult) {
   if (Contents() != nullptr) {
@@ -2162,31 +2162,31 @@ public:
     m_context.reset();
   }
 
-  __override HRESULT STDMETHODCALLTYPE get_lastError(BSTR *pRetVal) {
+  HRESULT STDMETHODCALLTYPE get_lastError(BSTR *pRetVal) override {
     *pRetVal = nullptr;
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE loadDataFromPdb(_In_ LPCOLESTR pdbPath) {
+  HRESULT STDMETHODCALLTYPE loadDataFromPdb(_In_ LPCOLESTR pdbPath) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE loadAndValidateDataFromPdb(
+  HRESULT STDMETHODCALLTYPE loadAndValidateDataFromPdb(
     _In_ LPCOLESTR pdbPath,
     _In_ GUID *pcsig70,
     _In_ DWORD sig,
-    _In_ DWORD age) {
+    _In_ DWORD age) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE loadDataForExe(
+  HRESULT STDMETHODCALLTYPE loadDataForExe(
     _In_ LPCOLESTR executable,
     _In_ LPCOLESTR searchPath,
-    _In_ IUnknown *pCallback) {
+    _In_ IUnknown *pCallback) override {
     return E_NOTIMPL;
   }
 
-  __override STDMETHODIMP loadDataFromIStream(_In_ IStream *pIStream) {
+  STDMETHODIMP loadDataFromIStream(_In_ IStream *pIStream) override {
     DxcThreadMalloc TM(m_pMalloc);
     if (m_module.get() != nullptr) {
       return E_FAIL;
@@ -2243,7 +2243,7 @@ public:
     return S_OK;
   }
 
-  __override STDMETHODIMP openSession(_COM_Outptr_ IDiaSession **ppSession) {
+  STDMETHODIMP openSession(_COM_Outptr_ IDiaSession **ppSession) override {
     DxcThreadMalloc TM(m_pMalloc);
     *ppSession = nullptr;
     if (m_module.get() == nullptr)
@@ -2255,16 +2255,16 @@ public:
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE loadDataFromCodeViewInfo(
+  HRESULT STDMETHODCALLTYPE loadDataFromCodeViewInfo(
     _In_ LPCOLESTR executable,
     _In_ LPCOLESTR searchPath,
     _In_ DWORD cbCvInfo,
     _In_ BYTE *pbCvInfo,
-    _In_ IUnknown *pCallback) {
+    _In_ IUnknown *pCallback) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE loadDataFromMiscInfo(
+  HRESULT STDMETHODCALLTYPE loadDataFromMiscInfo(
     _In_ LPCOLESTR executable,
     _In_ LPCOLESTR searchPath,
     _In_ DWORD timeStampExe,
@@ -2272,7 +2272,7 @@ public:
     _In_ DWORD sizeOfExe,
     _In_ DWORD cbMiscInfo,
     _In_ BYTE *pbMiscInfo,
-    _In_ IUnknown *pCallback) {
+    _In_ IUnknown *pCallback) override {
     return E_NOTIMPL;
   }
 };

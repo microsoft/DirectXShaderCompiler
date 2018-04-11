@@ -79,15 +79,15 @@ public:
   );
 
   // IDxcValidator
-  __override HRESULT STDMETHODCALLTYPE Validate(
+  HRESULT STDMETHODCALLTYPE Validate(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
     _In_ UINT32 Flags,                            // Validation flags.
     _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
-    );
+    ) override;
 
   // IDxcVersionInfo
-  __override HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor);
-  __override HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags);
+  HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) override;
+  HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override;
 };
 
 // Compile a single entry point to the target shader model

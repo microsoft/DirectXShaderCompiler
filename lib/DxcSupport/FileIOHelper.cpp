@@ -815,22 +815,22 @@ public:
   }
 
   // AbstractMemoryStream implementation.
-  __override LPBYTE GetPtr() {
+  LPBYTE GetPtr() override {
     return m_pMemory;
   }
 
-  __override ULONG GetPtrSize() {
+  ULONG GetPtrSize() override {
     return m_size;
   }
 
-  __override LPBYTE Detach() {
+  LPBYTE Detach() override {
     LPBYTE result = m_pMemory;
     m_pMemory = nullptr;
     Reset();
     return result;
   }
 
-  __override HRESULT Reserve(ULONG targetSize) {
+  HRESULT Reserve(ULONG targetSize) override {
     if (m_pMemory == nullptr) {
       m_pMemory = (LPBYTE)m_pMalloc->Alloc(targetSize);
       if (m_pMemory == nullptr) {
@@ -851,18 +851,18 @@ public:
   }
 
   // IDxcBlob implementation. Requires no further writes.
-  __override LPVOID STDMETHODCALLTYPE GetBufferPointer(void) {
+  LPVOID STDMETHODCALLTYPE GetBufferPointer(void) override {
     return m_pMemory;
   }
-  __override SIZE_T STDMETHODCALLTYPE GetBufferSize(void) {
+  SIZE_T STDMETHODCALLTYPE GetBufferSize(void) override {
     return m_size;
   }
-  __override UINT64 GetPosition() {
+  UINT64 GetPosition() override {
     return m_offset;
   }
 
   // ISequentialStream implementation.
-  __override HRESULT STDMETHODCALLTYPE Read(void* pv, ULONG cb, ULONG* pcbRead) {
+  HRESULT STDMETHODCALLTYPE Read(void* pv, ULONG cb, ULONG* pcbRead) override {
     if (!pv || !pcbRead) return E_POINTER;
     // If we seeked past the end, read nothing.
     if (m_offset > m_size) {
@@ -876,7 +876,7 @@ public:
     return (*pcbRead == cb) ? S_OK : S_FALSE;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Write(void const* pv, ULONG cb, ULONG* pcbWritten) {
+  HRESULT STDMETHODCALLTYPE Write(void const* pv, ULONG cb, ULONG* pcbWritten) override {
     if (!pv || !pcbWritten) return E_POINTER;
     if (cb + m_offset > m_allocSize) {
       HRESULT hr = Grow(cb + m_offset);
@@ -894,7 +894,7 @@ public:
   }
 
   // IStream implementation.
-  __override HRESULT STDMETHODCALLTYPE SetSize(ULARGE_INTEGER val) {
+  HRESULT STDMETHODCALLTYPE SetSize(ULARGE_INTEGER val) override {
     if (val.HighPart != 0) {
       return E_OUTOFMEMORY;
     }
@@ -912,31 +912,31 @@ public:
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE CopyTo(IStream *, ULARGE_INTEGER,
+  HRESULT STDMETHODCALLTYPE CopyTo(IStream *, ULARGE_INTEGER,
     ULARGE_INTEGER *,
-    ULARGE_INTEGER *) {
+    ULARGE_INTEGER *) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Commit(DWORD) { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Commit(DWORD) override { return E_NOTIMPL; }
 
-  __override HRESULT STDMETHODCALLTYPE Revert(void) { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Revert(void) override { return E_NOTIMPL; }
 
-  __override HRESULT STDMETHODCALLTYPE LockRegion(ULARGE_INTEGER,
-    ULARGE_INTEGER, DWORD) {
+  HRESULT STDMETHODCALLTYPE LockRegion(ULARGE_INTEGER,
+    ULARGE_INTEGER, DWORD) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE UnlockRegion(ULARGE_INTEGER,
-    ULARGE_INTEGER, DWORD) {
+  HRESULT STDMETHODCALLTYPE UnlockRegion(ULARGE_INTEGER,
+    ULARGE_INTEGER, DWORD) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Clone(IStream **) { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Clone(IStream **) override { return E_NOTIMPL; }
 
-  __override HRESULT STDMETHODCALLTYPE Seek(LARGE_INTEGER liDistanceToMove,
+  HRESULT STDMETHODCALLTYPE Seek(LARGE_INTEGER liDistanceToMove,
     DWORD dwOrigin,
-    ULARGE_INTEGER *lpNewFilePointer) {
+    ULARGE_INTEGER *lpNewFilePointer) override {
     if (lpNewFilePointer != nullptr) {
       lpNewFilePointer->QuadPart = 0;
     }
@@ -968,8 +968,8 @@ public:
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Stat(STATSTG *pStatstg,
-    DWORD grfStatFlag) {
+  HRESULT STDMETHODCALLTYPE Stat(STATSTG *pStatstg,
+    DWORD grfStatFlag) override {
     if (pStatstg == nullptr) {
       return E_POINTER;
     }
@@ -1003,8 +1003,8 @@ public:
   }
 
   // ISequentialStream implementation.
-  __override HRESULT STDMETHODCALLTYPE Read(void *pv, ULONG cb,
-    ULONG *pcbRead) {
+  HRESULT STDMETHODCALLTYPE Read(void *pv, ULONG cb,
+    ULONG *pcbRead) override {
     if (!pv || !pcbRead)
       return E_POINTER;
     ULONG cbLeft = m_size - m_offset;
@@ -1014,40 +1014,40 @@ public:
     return (*pcbRead == cb) ? S_OK : S_FALSE;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Write(void const *, ULONG, ULONG *) {
+  HRESULT STDMETHODCALLTYPE Write(void const *, ULONG, ULONG *) override {
     return STG_E_ACCESSDENIED;
   }
 
   // IStream implementation.
-  __override HRESULT STDMETHODCALLTYPE SetSize(ULARGE_INTEGER val) {
+  HRESULT STDMETHODCALLTYPE SetSize(ULARGE_INTEGER val) override {
     return STG_E_ACCESSDENIED;
   }
 
-  __override HRESULT STDMETHODCALLTYPE CopyTo(IStream *, ULARGE_INTEGER,
+  HRESULT STDMETHODCALLTYPE CopyTo(IStream *, ULARGE_INTEGER,
     ULARGE_INTEGER *,
-    ULARGE_INTEGER *) {
+    ULARGE_INTEGER *) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Commit(DWORD) { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Commit(DWORD) override { return E_NOTIMPL; }
 
-  __override HRESULT STDMETHODCALLTYPE Revert(void) { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Revert(void) override { return E_NOTIMPL; }
 
-  __override HRESULT STDMETHODCALLTYPE LockRegion(ULARGE_INTEGER,
-    ULARGE_INTEGER, DWORD) {
+  HRESULT STDMETHODCALLTYPE LockRegion(ULARGE_INTEGER,
+    ULARGE_INTEGER, DWORD) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE UnlockRegion(ULARGE_INTEGER,
-    ULARGE_INTEGER, DWORD) {
+  HRESULT STDMETHODCALLTYPE UnlockRegion(ULARGE_INTEGER,
+    ULARGE_INTEGER, DWORD) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Clone(IStream **) { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Clone(IStream **) override { return E_NOTIMPL; }
 
-  __override HRESULT STDMETHODCALLTYPE Seek(LARGE_INTEGER liDistanceToMove,
+  HRESULT STDMETHODCALLTYPE Seek(LARGE_INTEGER liDistanceToMove,
     DWORD dwOrigin,
-    ULARGE_INTEGER *lpNewFilePointer) {
+    ULARGE_INTEGER *lpNewFilePointer) override {
     if (lpNewFilePointer != nullptr) {
       lpNewFilePointer->QuadPart = 0;
     }
@@ -1084,8 +1084,8 @@ public:
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Stat(STATSTG *pStatstg,
-    DWORD grfStatFlag) {
+  HRESULT STDMETHODCALLTYPE Stat(STATSTG *pStatstg,
+    DWORD grfStatFlag) override {
     if (pStatstg == nullptr) {
       return E_POINTER;
     }
