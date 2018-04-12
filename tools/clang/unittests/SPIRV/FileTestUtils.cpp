@@ -157,11 +157,10 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     // Get compilation results.
     IFT(pResult->GetStatus(&resultStatus));
 
-    // Get diagnostics string and print warnings and errors to stderr.
+    // Get diagnostics string.
     IFT(pResult->GetErrorBuffer(&pErrorBuffer));
     const std::string diagnostics((char *)pErrorBuffer->GetBufferPointer(),
                                   pErrorBuffer->GetBufferSize());
-    fprintf(stderr, "%s\n", diagnostics.c_str());
     *errorMessages = diagnostics;
 
     if (SUCCEEDED(resultStatus)) {
