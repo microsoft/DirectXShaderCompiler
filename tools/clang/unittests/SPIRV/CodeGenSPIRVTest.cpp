@@ -1262,6 +1262,10 @@ TEST_F(FileTest, SpirvLegalizationTextureBuffer) {
               /*runValidation=*/false);
 }
 
+TEST_F(FileTest, SpirvDebugOpSource) {
+  runFileTest("spirv.debug.opsource.hlsl");
+}
+
 TEST_F(FileTest, VulkanAttributeErrors) {
   runFileTest("vk.attribute.error.hlsl", Expect::Failure);
 }
