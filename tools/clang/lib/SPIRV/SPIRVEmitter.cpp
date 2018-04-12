@@ -6554,7 +6554,14 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     if (isBufferTextureIndexing(callExpr, &base, &index)) {
       const auto ptrType =
           theBuilder.getPointerType(baseTypeId, spv::StorageClass::Image);
-      const auto baseId = doExpr(base);
+      auto baseId = doExpr(base);
+      if (baseId.isRValue()) {
+        // OpImageTexelPointer's Image argument must have a type of
+        // OpTypePointer with Type OpTypeImage. Need to create a temporary
+        // variable if the baseId is an rvalue.
+        baseId = createTemporaryVar(
+            base->getType(), TypeTranslator::getName(base->getType()), baseId);
+      }
       const auto coordId = doExpr(index);
       ptr = theBuilder.createImageTexelPointer(ptrType, baseId, coordId, zero);
     }
