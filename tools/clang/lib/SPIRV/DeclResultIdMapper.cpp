@@ -37,15 +37,6 @@ const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
   return nullptr;
 }
 
-/// \brief Returns the resource category for the given type.
-ResourceVar::Category getResourceCategory(QualType type) {
-  if (TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type))
-    return ResourceVar::Category::Image;
-  if (TypeTranslator::isSampler(type))
-    return ResourceVar::Category::Sampler;
-  return ResourceVar::Category::Other;
-}
-
 /// \brief Returns true if the given declaration has a primitive type qualifier.
 /// Returns false otherwise.
 inline bool hasGSPrimitiveTypeQualifier(const Decl *decl) {
@@ -436,8 +427,7 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
   const auto *counterBindingAttr = var->getAttr<VKCounterBindingAttr>();
 
-  resourceVars.emplace_back(id, getResourceCategory(var->getType()), regAttr,
-                            bindingAttr, counterBindingAttr);
+  resourceVars.emplace_back(id, regAttr, bindingAttr, counterBindingAttr);
 
   if (const auto *inputAttachment = var->getAttr<VKInputAttachmentIndexAttr>())
     theBuilder.decorateInputAttachmentIndex(id, inputAttachment->getIndex());
@@ -577,9 +567,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
                                              : spirvOptions.tBufferLayoutRule);
     astDecls[varDecl].indexInCTBuffer = index++;
   }
-  resourceVars.emplace_back(
-      bufferVar, ResourceVar::Category::Other, getResourceBinding(decl),
-      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
+  resourceVars.emplace_back(bufferVar, getResourceBinding(decl),
+                            decl->getAttr<VKBindingAttr>(),
+                            decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
 }
@@ -615,9 +605,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
           .setStorageClass(spv::StorageClass::Uniform)
           .setLayoutRule(context->isCBuffer() ? spirvOptions.cBufferLayoutRule
                                               : spirvOptions.tBufferLayoutRule);
-  resourceVars.emplace_back(
-      bufferVar, ResourceVar::Category::Other, getResourceBinding(context),
-      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
+  resourceVars.emplace_back(bufferVar, getResourceBinding(context),
+                            decl->getAttr<VKBindingAttr>(),
+                            decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
 }
@@ -652,8 +642,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
       context, /*arraySize*/ 0, ContextUsageKind::Globals, "type.$Globals",
       "$Globals");
 
-  resourceVars.emplace_back(globals, ResourceVar::Category::Other, nullptr,
-                            nullptr, nullptr);
+  resourceVars.emplace_back(globals, nullptr, nullptr, nullptr);
 
   uint32_t index = 0;
   for (const auto *decl : typeTranslator.collectDeclsInDeclContext(context))
@@ -760,8 +749,7 @@ void DeclResultIdMapper::createCounterVar(
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that
     // descriptors can be allocated for them.
-    resourceVars.emplace_back(counterId, ResourceVar::Category::Other,
-                              getResourceBinding(decl),
+    resourceVars.emplace_back(counterId, getResourceBinding(decl),
                               decl->getAttr<VKBindingAttr>(),
                               decl->getAttr<VKCounterBindingAttr>(), true);
     assert(declId);
@@ -861,39 +849,24 @@ private:
 /// set and binding number.
 class BindingSet {
 public:
-  /// Tries to use the given set and binding number. Returns true if possible,
-  /// false otherwise and writes the source location of where the binding number
-  /// is used to *usedLoc.
-  bool tryToUseBinding(uint32_t binding, uint32_t set,
-                       ResourceVar::Category category, SourceLocation tryLoc,
-                       SourceLocation *usedLoc) {
-    const auto cat = static_cast<uint32_t>(category);
-    // Note that we will create the entry for binding in bindings[set] here.
-    // But that should not have bad effects since it defaults to zero.
-    if ((usedBindings[set][binding] & cat) == 0) {
-      usedBindings[set][binding] |= cat;
-      whereUsed[set][binding] = tryLoc;
-      return true;
-    }
-    *usedLoc = whereUsed[set][binding];
-    return false;
+  /// Uses the given set and binding number.
+  void useBinding(uint32_t binding, uint32_t set) {
+    usedBindings[set].insert(binding);
   }
 
   /// Uses the next avaiable binding number in set 0.
-  uint32_t useNextBinding(uint32_t set, ResourceVar::Category category) {
+  uint32_t useNextBinding(uint32_t set) {
     auto &binding = usedBindings[set];
     auto &next = nextBindings[set];
     while (binding.count(next))
       ++next;
-    binding[next] = static_cast<uint32_t>(category);
+    binding.insert(next);
     return next++;
   }
 
 private:
-  ///< set number -> (binding number -> resource category)
-  llvm::DenseMap<uint32_t, llvm::DenseMap<uint32_t, uint32_t>> usedBindings;
-  ///< set number -> (binding number -> source location)
-  llvm::DenseMap<uint32_t, llvm::DenseMap<uint32_t, SourceLocation>> whereUsed;
+  ///< set number -> set of used binding number
+  llvm::DenseMap<uint32_t, llvm::DenseSet<uint32_t>> usedBindings;
   ///< set number -> next available binding number
   llvm::DenseMap<uint32_t, uint32_t> nextBindings;
 };
@@ -1086,19 +1059,11 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   BindingSet bindingSet;
 
   // Decorates the given varId of the given category with set number
-  // setNo, binding number bindingNo. Emits warning if overlap.
-  const auto tryToDecorate = [this, &bindingSet](
-                                 const uint32_t varId, const uint32_t setNo,
-                                 const uint32_t bindingNo,
-                                 const ResourceVar::Category cat,
-                                 SourceLocation loc) {
-    SourceLocation prevUseLoc;
-    if (!bindingSet.tryToUseBinding(bindingNo, setNo, cat, loc, &prevUseLoc)) {
-      emitWarning("resource binding #%0 in descriptor set #%1 already assigned",
-                  loc)
-          << bindingNo << setNo;
-      emitNote("binding number previously assigned here", prevUseLoc);
-    }
+  // setNo, binding number bindingNo. Ignores overlaps.
+  const auto tryToDecorate = [this, &bindingSet](const uint32_t varId,
+                                                 const uint32_t setNo,
+                                                 const uint32_t bindingNo) {
+    bindingSet.useBinding(bindingNo, setNo);
     theBuilder.decorateDSetBinding(varId, setNo, bindingNo);
   };
 
@@ -1112,15 +1077,13 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace;
 
-        tryToDecorate(var.getSpirvId(), set, vkCBinding->getBinding(),
-                      var.getCategory(), vkCBinding->getLocation());
+        tryToDecorate(var.getSpirvId(), set, vkCBinding->getBinding());
       }
     } else {
       if (const auto *vkBinding = var.getBinding()) {
         // Process m1
         tryToDecorate(var.getSpirvId(), vkBinding->getSet(),
-                      vkBinding->getBinding(), var.getCategory(),
-                      vkBinding->getLocation());
+                      vkBinding->getBinding());
       }
     }
   }
@@ -1156,12 +1119,10 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           llvm_unreachable("unknown register type found");
         }
 
-        tryToDecorate(var.getSpirvId(), set, binding, var.getCategory(),
-                      reg->Loc);
+        tryToDecorate(var.getSpirvId(), set, binding);
       }
 
   for (const auto &var : resourceVars) {
-    const auto cat = var.getCategory();
     if (var.isCounter()) {
       if (!var.getCounterBinding()) {
         // Process mX * c2
@@ -1172,12 +1133,12 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           set = reg->RegisterSpace;
 
         theBuilder.decorateDSetBinding(var.getSpirvId(), set,
-                                       bindingSet.useNextBinding(set, cat));
+                                       bindingSet.useNextBinding(set));
       }
     } else if (!var.getBinding() && !var.getRegister()) {
       // Process m3
       theBuilder.decorateDSetBinding(var.getSpirvId(), 0,
-                                     bindingSet.useNextBinding(0, cat));
+                                     bindingSet.useNextBinding(0));
     }
   }
 
