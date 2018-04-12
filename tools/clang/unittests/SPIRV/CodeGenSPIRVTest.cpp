@@ -1321,15 +1321,6 @@ TEST_F(FileTest, VulkanRegisterBindingShift) {
   // command line option
   runFileTest("vk.binding.cl.hlsl");
 }
-TEST_F(FileTest, VulkanExplicitBindingReassigned) {
-  runFileTest("vk.binding.explicit.error.hlsl", Expect::Warning);
-}
-TEST_F(FileTest, VulkanRegisterBindingReassigned) {
-  runFileTest("vk.binding.register.error.hlsl", Expect::Warning);
-}
-TEST_F(FileTest, VulkanRegisterBindingShiftReassigned) {
-  runFileTest("vk.binding.cl.error.hlsl", Expect::Warning);
-}
 TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
   // and ConsumeStructuredBuffer
