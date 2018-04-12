@@ -1243,11 +1243,9 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     //   SampleMask, must be an array of integers.
     // * SV_InnerCoverage is an uint value, but the corresponding builtin,
     //   FullyCoveredEXT, must be an boolean value.
-    // * SV_DispatchThreadID and SV_GroupThreadID are allowed to be uint, uint2,
-    //   or uint3, but the corresponding builtins (GlobalInvocationId and
-    //   LocalInvocationId) must be a uint3.
-    // * SV_GroupID is allowed to be uint, uint2, or uint3, but the
-    //   corresponding builtin (WorkgroupId) must be a uint3.
+    // * SV_DispatchThreadID, SV_GroupThreadID, and SV_GroupID are allowed to be
+    //   uint, uint2, or uint3, but the corresponding builtins
+    //   (GlobalInvocationId, LocalInvocationId, WorkgroupId) must be a uint3.
 
     if (glPerVertex.tryToAccess(sigPoint->GetKind(), semanticKind,
                                 semanticToUse->index, invocationId, value,
@@ -1255,6 +1253,7 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       return true;
 
     const uint32_t srcTypeId = typeId; // Variable type in source code
+    uint32_t srcVecElemTypeId = 0;     // Variable element type if vector
 
     switch (semanticKind) {
     case hlsl::Semantic::Kind::DomainLocation:
@@ -1280,7 +1279,10 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     case hlsl::Semantic::Kind::DispatchThreadID:
     case hlsl::Semantic::Kind::GroupThreadID:
     case hlsl::Semantic::Kind::GroupID:
-      typeId = theBuilder.getVecType(theBuilder.getUint32Type(), 3);
+      // Keep the original integer signedness
+      srcVecElemTypeId = typeTranslator.translateType(
+          hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type);
+      typeId = theBuilder.getVecType(srcVecElemTypeId, 3);
       break;
     }
 
@@ -1419,15 +1421,16 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
                 semanticKind == hlsl::Semantic::Kind::GroupID) &&
                (!hlsl::IsHLSLVecType(type) ||
                 hlsl::GetHLSLVecSize(type) != 3)) {
+        assert(srcVecElemTypeId);
         const auto vecSize =
             hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecSize(type) : 1;
         if (vecSize == 1)
-          *value = theBuilder.createCompositeExtract(theBuilder.getUint32Type(),
-                                                     *value, {0});
+          *value =
+              theBuilder.createCompositeExtract(srcVecElemTypeId, *value, {0});
         else if (vecSize == 2)
           *value = theBuilder.createVectorShuffle(
-              theBuilder.getVecType(theBuilder.getUint32Type(), 2), *value,
-              *value, {0, 1});
+              theBuilder.getVecType(srcVecElemTypeId, 2), *value, *value,
+              {0, 1});
       }
     } else {
       if (noWriteBack)
