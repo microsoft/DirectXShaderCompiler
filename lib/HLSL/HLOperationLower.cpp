@@ -1258,6 +1258,7 @@ Value *TranslateAtan2(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
       TrivialDxilUnaryOperation(OP::OpCode::Atan, tan, hlslOP, Builder);
   // TODO: include M_PI from math.h.
   const double M_PI = 3.14159265358979323846;
+  // Modify atan result based on https://en.wikipedia.org/wiki/Atan2.
   Type *Ty = x->getType();
   Constant *pi = ConstantFP::get(Ty->getScalarType(), M_PI);
   Constant *halfPi = ConstantFP::get(Ty->getScalarType(), M_PI / 2);
