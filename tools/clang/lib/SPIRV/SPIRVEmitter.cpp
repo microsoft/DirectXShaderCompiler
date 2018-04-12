@@ -510,7 +510,7 @@ spv::Capability getCapabilityForGroupNonUniform(spv::Op opcode) {
   return spv::Capability::Max;
 }
 
-std::string getNamespacePrefix(const Decl* decl) {
+std::string getNamespacePrefix(const Decl *decl) {
   std::string nsPrefix = "";
   const DeclContext *dc = decl->getDeclContext();
   while (dc && !dc->isTranslationUnit()) {
@@ -561,15 +561,22 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
               {});
 
   options.Initialize();
+
+  // Set shader module version
+  theBuilder.setShaderModelVersion(shaderModel.GetMajor(),
+                                   shaderModel.GetMinor());
+
+  // Set debug info
+  const auto &inputFiles = ci.getFrontendOpts().Inputs;
+  if (options.enableDebugInfo && !inputFiles.empty())
+    theBuilder.setSourceFileName(theContext.takeNextId(),
+                                 inputFiles.front().getFile().str());
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   // Stop translating if there are errors in previous compilation stages.
   if (context.getDiagnostics().hasErrorOccurred())
     return;
-
-  theBuilder.setShaderModelVersion(shaderModel.GetMajor(),
-                                   shaderModel.GetMinor());
 
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
 
