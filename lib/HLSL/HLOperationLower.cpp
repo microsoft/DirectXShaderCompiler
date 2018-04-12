@@ -1253,7 +1253,50 @@ Value *TranslateAtan2(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   IRBuilder<> Builder(CI);
   Value *tan = Builder.CreateFDiv(y, x);
-  return TrivialDxilUnaryOperation(OP::OpCode::Atan, tan, hlslOP, Builder);
+
+  Value *atan =
+      TrivialDxilUnaryOperation(OP::OpCode::Atan, tan, hlslOP, Builder);
+  // TODO: include M_PI from math.h.
+  const double M_PI = 3.14159265358979323846;
+  // Modify atan result based on https://en.wikipedia.org/wiki/Atan2.
+  Type *Ty = x->getType();
+  Constant *pi = ConstantFP::get(Ty->getScalarType(), M_PI);
+  Constant *halfPi = ConstantFP::get(Ty->getScalarType(), M_PI / 2);
+  Constant *negHalfPi = ConstantFP::get(Ty->getScalarType(), -M_PI / 2);
+  Constant *zero = ConstantFP::get(Ty->getScalarType(), 0);
+  if (Ty != Ty->getScalarType()) {
+    unsigned vecSize = Ty->getVectorNumElements();
+    pi = ConstantVector::getSplat(vecSize, pi);
+    halfPi = ConstantVector::getSplat(vecSize, halfPi);
+    negHalfPi = ConstantVector::getSplat(vecSize, negHalfPi);
+    zero = ConstantVector::getSplat(vecSize, zero);
+  }
+  Value *atanAddPi = Builder.CreateFAdd(atan, pi);
+  Value *atanSubPi = Builder.CreateFSub(atan, pi);
+
+  // x > 0 -> atan.
+  Value *result = atan;
+  Value *xLt0 = Builder.CreateFCmpOLT(x, zero);
+  Value *xEq0 = Builder.CreateFCmpOEQ(x, zero);
+
+  Value *yGe0 = Builder.CreateFCmpOGE(y, zero);
+  Value *yLt0 = Builder.CreateFCmpOLT(y, zero);
+  // x < 0, y >= 0 -> atan + pi.
+  Value *xLt0AndyGe0 = Builder.CreateAnd(xLt0, yGe0);
+  result = Builder.CreateSelect(xLt0AndyGe0, atanAddPi, result);
+
+  // x < 0, y < 0 -> atan - pi.
+  Value *xLt0AndYLt0 = Builder.CreateAnd(xLt0, yLt0);
+  result = Builder.CreateSelect(xLt0AndYLt0, atanSubPi, result);
+
+  // x == 0, y < 0 -> -pi/2
+  Value *xEq0AndYLt0 = Builder.CreateAnd(xEq0, yLt0);
+  result = Builder.CreateSelect(xEq0AndYLt0, negHalfPi, result);
+  // x == 0, y > 0 -> pi/2
+  Value *xEq0AndYGe0 = Builder.CreateAnd(xEq0, yGe0);
+  result = Builder.CreateSelect(xEq0AndYGe0, halfPi, result);
+
+  return result;
 }
 
 Value *TranslateClamp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
