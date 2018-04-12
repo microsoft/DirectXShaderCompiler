@@ -274,7 +274,7 @@ public:
   /// DeclContext. If it sees a NamespaceDecl, it recursively dives in and
   /// collects decls in the correct order.
   /// Utilizes collectDeclsInNamespace and collectDeclsInField private methods.
-  const llvm::SmallVector<const Decl *, 4>
+  llvm::SmallVector<const Decl *, 4>
   collectDeclsInDeclContext(const DeclContext *declContext);
 
 private:
