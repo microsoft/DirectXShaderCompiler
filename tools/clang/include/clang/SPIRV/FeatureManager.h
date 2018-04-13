@@ -38,7 +38,6 @@ enum class Extension {
   EXT_shader_stencil_export,
   AMD_gpu_shader_half_float,
   AMD_shader_explicit_vertex_parameter,
-  GOOGLE_decorate_string,
   GOOGLE_hlsl_functionality1,
   Unknown,
 };
