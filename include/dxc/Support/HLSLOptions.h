@@ -167,10 +167,10 @@ public:
   bool VkUseDxLayout;                      // OPT_fvk_use_dx_layout
   bool SpvEnableReflect;                   // OPT_fspv_reflect
   llvm::StringRef VkStageIoOrder;          // OPT_fvk_stage_io_order
-  llvm::SmallVector<uint32_t, 4> VkBShift; // OPT_fvk_b_shift
-  llvm::SmallVector<uint32_t, 4> VkTShift; // OPT_fvk_t_shift
-  llvm::SmallVector<uint32_t, 4> VkSShift; // OPT_fvk_s_shift
-  llvm::SmallVector<uint32_t, 4> VkUShift; // OPT_fvk_u_shift
+  llvm::SmallVector<int32_t, 4> VkBShift;  // OPT_fvk_b_shift
+  llvm::SmallVector<int32_t, 4> VkTShift;  // OPT_fvk_t_shift
+  llvm::SmallVector<int32_t, 4> VkSShift;  // OPT_fvk_s_shift
+  llvm::SmallVector<int32_t, 4> VkUShift;  // OPT_fvk_u_shift
   llvm::SmallVector<llvm::StringRef, 4> SpvExtensions; // OPT_fspv_extension
   llvm::StringRef SpvTargetEnv;                        // OPT_fspv_target_env
 #endif

@@ -2683,8 +2683,9 @@ codegen for Vulkan:
   sets its Vulkan descriptor set to ``M`` and binding number to ``X + N``. If
   you need to shift the inferred binding numbers for more than one space,
   provide more than one such option. If more than one such option is provided
-  for the same space, the last one takes effect. See `HLSL register and Vulkan
-  binding`_ for explanation and examples.
+  for the same space, the last one takes effect. If you need to shift the
+  inferred binding numbers for all sets, use ``all`` as ``M``.
+  See `HLSL register and Vulkan binding`_ for explanation and examples.
 - ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
 - ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
 - ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.

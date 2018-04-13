@@ -490,26 +490,43 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.VkIgnoreUnusedResources = Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false);
 
   // Collects the arguments for -fvk-{b|s|t|u}-shift.
-  const auto handleVkShiftArgs = [genSpirv, &Args, &errors](
-      OptSpecifier id, const char* name, llvm::SmallVectorImpl<uint32_t>* shifts) {
-    const auto values = Args.getAllArgValues(id);
+  const auto handleVkShiftArgs =
+      [genSpirv, &Args, &errors](OptSpecifier id, const char *name,
+                                 llvm::SmallVectorImpl<int32_t> *shifts) {
+        const auto values = Args.getAllArgValues(id);
 
-    if (!genSpirv && !values.empty()) {
-      errors << "-fvk-" << name << "-shift requires -spirv";
-      return false;
-    }
+        if (!genSpirv && !values.empty()) {
+          errors << "-fvk-" << name << "-shift requires -spirv";
+          return false;
+        }
 
-    shifts->clear();
-    for (const auto& val : values) {
-      uint32_t number = 0;
-      if (llvm::StringRef(val).getAsInteger(10, number)) {
-        errors << "invalid -fvk-" << name << "-shift argument: " << val;
-        return false;
-      }
-      shifts->push_back(number);
-    }
-    return true;
-  };
+        shifts->clear();
+        bool setForAll = false;
+
+        for (const auto &val : values) {
+          int32_t number = 0;
+          if (val == "all") {
+            number = -1;
+            setForAll = true;
+          } else {
+            if (llvm::StringRef(val).getAsInteger(10, number)) {
+              errors << "invalid -fvk-" << name << "-shift argument: " << val;
+              return false;
+            }
+            if (number < 0) {
+              errors << "negative -fvk-" << name << "-shift argument: " << val;
+              return false;
+            }
+          }
+          shifts->push_back(number);
+        }
+        if (setForAll && shifts->size() > 2) {
+          errors << "setting all sets via -fvk-" << name
+                 << "-shift argument should be used alone";
+          return false;
+        }
+        return true;
+      };
 
   if (!handleVkShiftArgs(OPT_fvk_b_shift, "b", &opts.VkBShift) ||
       !handleVkShiftArgs(OPT_fvk_t_shift, "t", &opts.VkTShift) ||
