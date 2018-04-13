@@ -39,7 +39,7 @@ function Invoke-AppveyorTestsRestMethod($appveyorTests) {
 }
 
 function Invoke-TE($logfile) {
-    $testdll = "$env:HLSL_BLD_DIR\Debug\bin\clang-hlsl-tests.dll"
+    $testdll = "$env:HLSL_BLD_DIR\Release\bin\clang-hlsl-tests.dll"
     $p = Start-Process "te.exe" -Args "$testdll /logOutput:Low /logFile:$logfile /enableWttLogging /p:HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL /labMode /miniDumpOnCrash" -Wait -NoNewWindow -PassThru
     return $p.ExitCode
 }
