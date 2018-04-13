@@ -471,11 +471,10 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     llvm::StringRef varName) {
   // cbuffers are translated into OpTypeStruct with Block decoration.
   // tbuffers are translated into OpTypeStruct with BufferBlock decoration.
-  // PushConstants are translated into OpTypeStruct with Block decoration.
+  // Push constants are translated into OpTypeStruct with Block decoration.
   //
-  // Both cbuffers and tbuffers have the SPIR-V Uniform storage class. cbuffers
-  // follow GLSL std140 layout rules, and tbuffers follow GLSL std430 layout
-  // rules. PushConstants follow GLSL std430 layout rules.
+  // Both cbuffers and tbuffers have the SPIR-V Uniform storage class.
+  // Push constants have the SPIR-V PushConstant storage class.
 
   const bool forCBuffer = usageKind == ContextUsageKind::CBuffer;
   const bool forTBuffer = usageKind == ContextUsageKind::TBuffer;
