@@ -10,6 +10,7 @@ clone_depth: 1
 environment:
   HLSL_SRC_DIR: c:\projects\DirectXShaderCompiler
   HLSL_BLD_DIR: c:\projects\DirectXShaderCompiler\build
+  ARTIFACTS_ZIP_NAME: dxc-artifacts-%APPVEYOR_REPO_COMMIT%.zip
 
 install:
 - cmd: git submodule update --init
@@ -26,10 +27,10 @@ test_script:
 
 after_test:
 - cmd: cd build\%CONFIGURATION%\bin
-- cmd: 7z a artifacts.zip d*.exe d*.dll HLSLHost.exe
+- cmd: 7z a %ARTIFACTS_ZIP_NAME% d*.exe d*.dll HLSLHost.exe
 
 artifacts:
-- path: build\$(configuration)\bin\artifacts.zip
+- path: build\$(configuration)\bin\$(ARTIFACTS_ZIP_NAME)
 
 notifications:
 - provider: GitHubPullRequest
