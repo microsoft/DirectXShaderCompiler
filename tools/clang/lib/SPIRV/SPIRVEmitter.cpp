@@ -1957,7 +1957,7 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   bool isNonStaticMemberCall = false;
   QualType objectType = {};         // Type of the object (if exists)
   SpirvEvalInfo objectEvalInfo = 0; // EvalInfo for the object (if exists)
-  bool objectNeedsTempVar = false;  // Temporary variable for lvalue object
+  bool needsTempVar = false;        // Whether we need temporary variable.
 
   llvm::SmallVector<uint32_t, 4> params;    // Temporary variables
   llvm::SmallVector<SpirvEvalInfo, 4> args; // Evaluated arguments
@@ -1982,17 +1982,11 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
       // If not already a variable, we need to create a temporary variable and
       // pass the object pointer to the function. Example:
       // getObject().objectMethod();
-      bool needsTempVar = objectEvalInfo.isRValue();
-
-      // Try to see if we are calling methods on a global variable, which is put
-      // in the Private storage class. We also need to create temporary variable
-      // for it since the function signature expects all arguments in the
-      // Function storage class.
-      if (!needsTempVar)
-        if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(object))
-          if (const auto *refDecl = declRefExpr->getFoundDecl())
-            if (const auto *varDecl = dyn_cast<VarDecl>(refDecl))
-              needsTempVar = objectNeedsTempVar = varDecl->hasGlobalStorage();
+      // Also, any parameter passed to the member function must be of Function
+      // storage class.
+      needsTempVar =
+          objectEvalInfo.isRValue() ||
+          objectEvalInfo.getStorageClass() != spv::StorageClass::Function;
 
       if (needsTempVar) {
         objectId =
@@ -2048,10 +2042,10 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   const uint32_t retVal =
       theBuilder.createFunctionCall(retType, funcId, params);
 
-  // If we created a temporary variable for the object this method is invoked
-  // upon, we need to copy the contents in the temporary variable back to the
-  // original object's variable in case there are side effects.
-  if (objectNeedsTempVar) {
+  // If we created a temporary variable for the lvalue object this method is
+  // invoked upon, we need to copy the contents in the temporary variable back
+  // to the original object's variable in case there are side effects.
+  if (needsTempVar && !objectEvalInfo.isRValue()) {
     const uint32_t typeId = typeTranslator.translateType(objectType);
     const uint32_t value = theBuilder.createLoad(typeId, params.front());
     storeValue(objectEvalInfo, value, objectType);
