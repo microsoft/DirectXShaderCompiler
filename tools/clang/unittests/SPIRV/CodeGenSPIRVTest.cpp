@@ -1321,9 +1321,14 @@ TEST_F(FileTest, VulkanRegisterBinding) {
   runFileTest("vk.binding.register.hlsl");
 }
 TEST_F(FileTest, VulkanRegisterBindingShift) {
-  // Resource binding from :register() and with shift specified via
+  // Resource binding from :register() with shift specified via
   // command line option
   runFileTest("vk.binding.cl.hlsl");
+}
+TEST_F(FileTest, VulkanRegisterBindingShiftAllSets) {
+  // Resource binding from :register() with shift specified for all sets via
+  // command line option
+  runFileTest("vk.binding.cl.all-sets.hlsl");
 }
 TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
