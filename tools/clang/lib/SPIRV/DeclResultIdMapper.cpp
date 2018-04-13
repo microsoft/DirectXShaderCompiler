@@ -1015,15 +1015,19 @@ namespace {
 /// sets.
 class BindingShiftMapper {
 public:
-  explicit BindingShiftMapper(const llvm::SmallVectorImpl<uint32_t> &shifts)
+  explicit BindingShiftMapper(const llvm::SmallVectorImpl<int32_t> &shifts)
       : masterShift(0) {
     assert(shifts.size() % 2 == 0);
-    for (uint32_t i = 0; i < shifts.size(); i += 2)
-      perSetShift[shifts[i + 1]] = shifts[i];
+    if (shifts.size() == 2 && shifts[1] == -1) {
+      masterShift = shifts[0];
+    } else {
+      for (uint32_t i = 0; i < shifts.size(); i += 2)
+        perSetShift[shifts[i + 1]] = shifts[i];
+    }
   }
 
   /// Returns the shift amount for the given set.
-  uint32_t getShiftForSet(uint32_t set) const {
+  int32_t getShiftForSet(int32_t set) const {
     const auto found = perSetShift.find(set);
     if (found != perSetShift.end())
       return found->second;
@@ -1032,7 +1036,7 @@ public:
 
 private:
   uint32_t masterShift; /// Shift amount applies to all sets.
-  llvm::DenseMap<uint32_t, uint32_t> perSetShift;
+  llvm::DenseMap<int32_t, int32_t> perSetShift;
 };
 } // namespace
 
