@@ -1319,6 +1319,13 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     // Mark that we have used one index for this semantic
     ++semanticToUse->index;
 
+    // Require extension and capability if using 16-bit types
+    if (typeTranslator.getElementSpirvBitwidth(type) == 16) {
+      theBuilder.addExtension(Extension::KHR_16bit_storage,
+                              "16-bit stage IO variables", decl->getLocation());
+      theBuilder.requireCapability(spv::Capability::StorageInputOutput16);
+    }
+
     // TODO: the following may not be correct?
     if (sigPoint->GetSignatureKind() ==
         hlsl::DXIL::SignatureKind::PatchConstant)

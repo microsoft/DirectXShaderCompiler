@@ -87,7 +87,8 @@ bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
   if (targetEnv == SPV_ENV_VULKAN_1_0 && requestedEnv == SPV_ENV_VULKAN_1_1) {
     emitError("Vulkan 1.1 is required for %0 but not permitted to use", srcLoc)
         << target;
-    emitNote("please specify your target environment via command line option -fspv-target-env=",
+    emitNote("please specify your target environment via command line option "
+             "-fspv-target-env=",
              {});
     return false;
   }
@@ -97,6 +98,7 @@ bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
 Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
   return llvm::StringSwitch<Extension>(name)
       .Case("KHR", Extension::KHR)
+      .Case("SPV_KHR_16bit_storage", Extension::KHR_16bit_storage)
       .Case("SPV_KHR_device_group", Extension::KHR_device_group)
       .Case("SPV_KHR_multiview", Extension::KHR_multiview)
       .Case("SPV_KHR_shader_draw_parameters",
@@ -119,6 +121,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
   switch (symbol) {
   case Extension::KHR:
     return "KHR";
+  case Extension::KHR_16bit_storage:
+    return "SPV_KHR_16bit_storage";
   case Extension::KHR_device_group:
     return "SPV_KHR_device_group";
   case Extension::KHR_multiview:
@@ -170,19 +174,15 @@ bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
   bool required = true;
   if (targetEnv == SPV_ENV_VULKAN_1_1) {
     // The following extensions are incorporated into Vulkan 1.1, and are
-    // therefore not required to be emitted for that target environment. The
-    // last 3 are currently not supported by the FeatureManager.
-    // TODO: Add the last 3 extensions to the list if we start to support them.
-    // SPV_KHR_shader_draw_parameters
-    // SPV_KHR_device_group
-    // SPV_KHR_multiview
-    // SPV_KHR_16bit_storage
-    // SPV_KHR_storage_buffer_storage_class
-    // SPV_KHR_variable_pointers
+    // therefore not required to be emitted for that target environment.
+    // TODO: Also add the following extensions  if we start to support them.
+    // * SPV_KHR_storage_buffer_storage_class
+    // * SPV_KHR_variable_pointers
     switch (ext) {
-    case Extension::KHR_shader_draw_parameters:
+    case Extension::KHR_16bit_storage:
     case Extension::KHR_device_group:
     case Extension::KHR_multiview:
+    case Extension::KHR_shader_draw_parameters:
       required = false;
     }
   }
