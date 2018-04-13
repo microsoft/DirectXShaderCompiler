@@ -1335,6 +1335,9 @@ TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
 TEST_F(FileTest, VulkanPushConstantOffset) {
   runFileTest("vk.push-constant.offset.hlsl");
 }
+TEST_F(FileTest, VulkanPushConstantAnonymousStruct) {
+  runFileTest("vk.push-constant.anon-struct.hlsl");
+}
 TEST_F(FileTest, VulkanMultiplePushConstant) {
   runFileTest("vk.push-constant.multiple.hlsl", Expect::Failure);
 }

@@ -57,13 +57,13 @@ void main() {
   S s;
   T t;
 
-// CHECK: %_ptr_Function__struct_[[num]] = OpTypePointer Function %_struct_[[num]]
+// CHECK: %R = OpTypeStruct %v2float
 
-// CHECK: %r0 = OpVariable %_ptr_Function__struct_[[num]] Function
+// CHECK: %r0 = OpVariable %_ptr_Function_R Function
   struct R {
     float2 rVal;
   } r0;
 
-// CHECK: %r1 = OpVariable %_ptr_Function__struct_[[num]] Function
+// CHECK: %r1 = OpVariable %_ptr_Function_R Function
   R r1;
 }
