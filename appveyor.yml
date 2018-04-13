@@ -2,7 +2,7 @@ version: 1.0.{build}
 
 image: Visual Studio 2017
 platform: x64
-configuration: Debug
+configuration: Release
 
 clone_folder: c:\projects\DirectXShaderCompiler
 clone_depth: 1
@@ -22,7 +22,7 @@ build_script:
 
 test_script:
 - ps:  utils\appveyor\appveyor_test.ps1
-- cmd: call utils\hct\hcttest spirv_only
+- cmd: call utils\hct\hcttest -rel spirv_only
 
 after_test:
 - cmd: cd build\%CONFIGURATION%\bin
