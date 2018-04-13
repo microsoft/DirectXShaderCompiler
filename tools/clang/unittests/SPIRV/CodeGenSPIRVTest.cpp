@@ -990,6 +990,10 @@ TEST_F(FileTest, AttributePartitioningFractionalEven) {
 TEST_F(FileTest, AttributePartitioningFractionalOdd) {
   runFileTest("attribute.partitioning.fractional-odd.hlsl");
 }
+TEST_F(FileTest, AttributePartitioningDS) {
+  // make sure partitioning is emitted for DS.
+  runFileTest("attribute.partitioning.ds.hlsl");
+}
 TEST_F(FileTest, AttributeOutputTopologyPoint) {
   runFileTest("attribute.outputtopology.point.hlsl");
 }
@@ -998,6 +1002,10 @@ TEST_F(FileTest, AttributeOutputTopologyTriangleCw) {
 }
 TEST_F(FileTest, AttributeOutputTopologyTriangleCcw) {
   runFileTest("attribute.outputtopology.triangle-ccw.hlsl");
+}
+TEST_F(FileTest, AttributeOutputTopologyDS) {
+  // make sure output topology is emitted for DS.
+  runFileTest("attribute.outputtopology.ds.hlsl");
 }
 TEST_F(FileTest, AttributeOutputControlPoints) {
   runFileTest("attribute.outputcontrolpoints.hlsl");
