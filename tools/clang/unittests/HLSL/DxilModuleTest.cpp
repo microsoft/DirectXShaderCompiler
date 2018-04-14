@@ -41,6 +41,9 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
+  TEST_CLASS_SETUP(InitSupport);
+  TEST_CLASS_CLEANUP(Cleanup);
+
   dxc::DxcDllSupport m_dllSupport;
 
   // Basic loading tests.
@@ -58,6 +61,21 @@ public:
   TEST_METHOD(Precise7);
 };
 
+bool DxilModuleTest::InitSupport() {
+  if (!m_dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+  }
+  llvm::sys::fs::SetupPerThreadFileSystem();
+  return true;
+}
+bool DxilModuleTest::Cleanup() {
+  if (m_dllSupport.IsEnabled()) {
+    m_dllSupport.Cleanup();
+  }
+  llvm::sys::fs::CleanupPerThreadFileSystem();
+  return true;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Compilation and dxil module loading support.
 
@@ -69,7 +87,6 @@ public:
     , m_msf(CreateMSFileSystem())
     , m_pts(m_msf.get())
   {
-    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
     m_ver.Initialize(m_dllSupport);
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
   }
