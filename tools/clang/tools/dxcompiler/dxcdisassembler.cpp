@@ -676,10 +676,18 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys,
 
   unsigned fieldIndent = indent + 4;
 
-  for (unsigned i = 0; i < ST->getNumElements(); i++) {
-    PrintFieldLayout(ST->getElementType(i), annotation->GetFieldAnnotation(i),
-                     typeSys, OS, comment, offset, fieldIndent,
-                     offsetIndent - 4);
+  if (!annotation) {
+    if (!sizeOfStruct) {
+      (OS << comment).indent(indent) << "/* empty struct */\n";
+    } else {
+      (OS << comment).indent(indent) << "[" << sizeOfStruct << " x i8] (type annotation not present)\n";
+    }
+  } else {
+    for (unsigned i = 0; i < ST->getNumElements(); i++) {
+      PrintFieldLayout(ST->getElementType(i), annotation->GetFieldAnnotation(i),
+                       typeSys, OS, comment, offset, fieldIndent,
+                       offsetIndent - 4);
+    }
   }
   (OS << comment).indent(indent) << "\n";
   // The 2 in offsetIndent-indent-2 is for "} ".
