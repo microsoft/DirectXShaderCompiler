@@ -2126,6 +2126,7 @@ public:
 
 _Use_decl_annotations_
 HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
+  DXASSERT_NOMSG(m_pLibraryReflection);
   IFR(ZeroMemoryToOut(pDesc));
 
   const ShaderModel* pSM = m_pLibraryReflection->m_pDxilModule->GetShaderModel();
@@ -2176,28 +2177,33 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
 
 // BufferIndex is relative to used constant buffers here
 ID3D12ShaderReflectionConstantBuffer *CFunctionReflection::GetConstantBufferByIndex(UINT BufferIndex) {
+  DXASSERT_NOMSG(m_pLibraryReflection);
   if (BufferIndex >= m_UsedCBs.size())
     return &g_InvalidSRConstantBuffer;
   return m_pLibraryReflection->_GetConstantBufferByIndex(m_UsedCBs[BufferIndex]);
 }
 
 ID3D12ShaderReflectionConstantBuffer *CFunctionReflection::GetConstantBufferByName(LPCSTR Name) {
+  DXASSERT_NOMSG(m_pLibraryReflection);
   return m_pLibraryReflection->_GetConstantBufferByName(Name);
 }
 
 HRESULT CFunctionReflection::GetResourceBindingDesc(UINT ResourceIndex,
   D3D12_SHADER_INPUT_BIND_DESC * pDesc) {
+  DXASSERT_NOMSG(m_pLibraryReflection);
   if (ResourceIndex >= m_UsedResources.size())
     return E_INVALIDARG;
   return m_pLibraryReflection->_GetResourceBindingDesc(m_UsedResources[ResourceIndex], pDesc);
 }
 
 ID3D12ShaderReflectionVariable * CFunctionReflection::GetVariableByName(LPCSTR Name) {
+  DXASSERT_NOMSG(m_pLibraryReflection);
   return m_pLibraryReflection->_GetVariableByName(Name);
 }
 
 HRESULT CFunctionReflection::GetResourceBindingDescByName(LPCSTR Name,
   D3D12_SHADER_INPUT_BIND_DESC * pDesc) {
+  DXASSERT_NOMSG(m_pLibraryReflection);
   return m_pLibraryReflection->_GetResourceBindingDescByName(Name, pDesc);
 }
 
