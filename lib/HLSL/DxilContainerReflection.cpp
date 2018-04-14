@@ -922,13 +922,15 @@ HRESULT CShaderReflectionType::Initialize(
       name = name.ltrim("struct.");
       m_Name = name;
 
-      unsigned int fieldCount = type->getStructNumElements();
-
       // Fields may have annotations, and we need to look at these
       // in order to decode their types properly.
       DxilTypeSystem &typeSys = M.GetTypeSystem();
       DxilStructAnnotation *structAnnotation = typeSys.GetStructAnnotation(structType);
-      DXASSERT(structAnnotation, "else type system is missing annotations for user-defined struct");
+
+      // There is no annotation for empty structs
+      unsigned int fieldCount = 0;
+      if (structAnnotation)
+        fieldCount = type->getStructNumElements();
 
       // The DXBC reflection info computes `Columns` for a
       // `struct` type from the fields (see below)
