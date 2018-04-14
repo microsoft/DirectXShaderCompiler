@@ -80,7 +80,7 @@ public:
   LLVMContext Context;
   std::unique_ptr<Module> m_pModule; // Must come after LLVMContext, otherwise unique_ptr will over-delete.
   DxilModule *m_pDxilModule = nullptr;
-  std::vector<CShaderReflectionConstantBuffer>    m_CBs;
+  std::vector<std::unique_ptr<CShaderReflectionConstantBuffer>>    m_CBs;
   std::vector<D3D12_SHADER_INPUT_BIND_DESC>       m_Resources;
   std::vector<std::unique_ptr<CShaderReflectionType>> m_Types;
   void CreateReflectionObjects();
@@ -1498,7 +1498,7 @@ void DxilShaderReflection::SetCBufferUsage() {
   }
 
   for (unsigned i=0;i<cbSize;i++) {
-    SetCBufVarUsage(m_CBs[i], cbufUsage[i]);
+    SetCBufVarUsage(*m_CBs[i], cbufUsage[i]);
   }
 }
 
@@ -1507,9 +1507,9 @@ void DxilModuleReflection::CreateReflectionObjects() {
 
   // Create constant buffers, resources and signatures.
   for (auto && cb : m_pDxilModule->GetCBuffers()) {
-    CShaderReflectionConstantBuffer rcb;
-    rcb.Initialize(*m_pDxilModule, *(cb.get()), m_Types);
-    m_CBs.push_back(std::move(rcb));
+    std::unique_ptr<CShaderReflectionConstantBuffer> rcb(new CShaderReflectionConstantBuffer());
+    rcb->Initialize(*m_pDxilModule, *(cb.get()), m_Types);
+    m_CBs.emplace_back(std::move(rcb));
   }
 
   // TODO: add tbuffers into m_CBs
@@ -1517,17 +1517,17 @@ void DxilModuleReflection::CreateReflectionObjects() {
     if (uav->GetKind() != DxilResource::Kind::StructuredBuffer) {
       continue;
     }
-    CShaderReflectionConstantBuffer rcb;
-    rcb.InitializeStructuredBuffer(*m_pDxilModule, *(uav.get()), m_Types);
-    m_CBs.push_back(std::move(rcb));
+    std::unique_ptr<CShaderReflectionConstantBuffer> rcb(new CShaderReflectionConstantBuffer());
+    rcb->InitializeStructuredBuffer(*m_pDxilModule, *(uav.get()), m_Types);
+    m_CBs.emplace_back(std::move(rcb));
   }
   for (auto && srv : m_pDxilModule->GetSRVs()) {
     if (srv->GetKind() != DxilResource::Kind::StructuredBuffer) {
       continue;
     }
-    CShaderReflectionConstantBuffer rcb;
-    rcb.InitializeStructuredBuffer(*m_pDxilModule, *(srv.get()), m_Types);
-    m_CBs.push_back(std::move(rcb));
+    std::unique_ptr<CShaderReflectionConstantBuffer> rcb(new CShaderReflectionConstantBuffer());
+    rcb->InitializeStructuredBuffer(*m_pDxilModule, *(srv.get()), m_Types);
+    m_CBs.emplace_back(std::move(rcb));
   }
 
   // Populate all resources.
@@ -1895,7 +1895,7 @@ ID3D12ShaderReflectionConstantBuffer* DxilModuleReflection::_GetConstantBufferBy
   if (Index >= m_CBs.size()) {
     return &g_InvalidSRConstantBuffer;
   }
-  return &m_CBs[Index];
+  return m_CBs[Index].get();
 }
 
 _Use_decl_annotations_
@@ -1907,8 +1907,8 @@ ID3D12ShaderReflectionConstantBuffer* DxilModuleReflection::_GetConstantBufferBy
     return &g_InvalidSRConstantBuffer;
   }
   for (UINT index = 0; index < m_CBs.size(); ++index) {
-    if (0 == strcmp(m_CBs[index].GetName(), Name)) {
-      return &m_CBs[index];
+    if (0 == strcmp(m_CBs[index]->GetName(), Name)) {
+      return m_CBs[index].get();
     }
   }
   return &g_InvalidSRConstantBuffer;
@@ -1985,7 +1985,7 @@ ID3D12ShaderReflectionVariable* DxilModuleReflection::_GetVariableByName(LPCSTR 
   if (Name != nullptr) {
     // Iterate through all cbuffers to find the variable.
     for (UINT i = 0; i < m_CBs.size(); i++) {
-      ID3D12ShaderReflectionVariable *pVar = m_CBs[i].GetVariableByName(Name);
+      ID3D12ShaderReflectionVariable *pVar = m_CBs[i]->GetVariableByName(Name);
       if (pVar != &g_InvalidSRVariable) {
         return pVar;
       }
