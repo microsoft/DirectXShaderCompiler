@@ -389,6 +389,7 @@ public:
   END_TEST_CLASS()
 
   TEST_CLASS_SETUP(InitSupport);
+  TEST_CLASS_CLEANUP(Cleanup);
 
   TEST_METHOD(CompileWhenDebugThenDIPresent)
   TEST_METHOD(CompileDebugLines)
@@ -1750,6 +1751,14 @@ bool CompilerTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
     m_ver.Initialize(m_dllSupport);
+    llvm::sys::fs::SetupPerThreadFileSystem();
+  }
+  return true;
+}
+bool CompilerTest::Cleanup() {
+  if (m_dllSupport.IsEnabled()) {
+    m_dllSupport.Cleanup();
+    llvm::sys::fs::CleanupPerThreadFileSystem();
   }
   return true;
 }

@@ -53,9 +53,15 @@ namespace fs {
 
 static DWORD g_FileSystemTls;
 
+// skip, but keep track of setup/cleanup nesting
+static unsigned g_FileSystemSetupNested = 0;
+
 error_code SetupPerThreadFileSystem() throw()
 {
-  assert(g_FileSystemTls == 0 && "otherwise this has already been initialized");
+  if (g_FileSystemSetupNested++)
+    return error_code();
+
+  assert(g_FileSystemTls == 0 && "otherwise this has already been initialized, and nesting guard failed.");
   g_FileSystemTls = TlsAlloc();
   if (g_FileSystemTls == TLS_OUT_OF_INDEXES)
   {
@@ -67,12 +73,17 @@ error_code SetupPerThreadFileSystem() throw()
 
 void CleanupPerThreadFileSystem() throw()
 {
+  assert(g_FileSystemSetupNested && "otherwise, Cleanup called without matching Setup");
+  if (--g_FileSystemSetupNested)
+    return;
+  assert(g_FileSystemTls != 0 && "otherwise this has not been initialized");
   TlsFree(g_FileSystemTls);
   g_FileSystemTls = 0;
 }
 
 MSFileSystemRef GetCurrentThreadFileSystem() throw()
 {
+  assert(g_FileSystemTls != 0 && "otherwise this has not been initialized");
   return (MSFileSystemRef)TlsGetValue(g_FileSystemTls);
 }
 
