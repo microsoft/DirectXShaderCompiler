@@ -198,7 +198,7 @@ struct PSVSemanticIndexes {
   uint32_t Offset;
   PSVSemanticIndexes() : Offset(0) {}
   PSVSemanticIndexes(uint32_t offset) : Offset(offset) {}
-  uint32_t *Get(const PSVSemanticIndexTable &table) const { table.Get(Offset); }
+  const uint32_t *Get(const PSVSemanticIndexTable &table) const { return table.Get(Offset); }
 };
 
 enum class PSVSemanticKind : uint8_t    // DXIL::SemanticKind
