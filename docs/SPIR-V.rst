@@ -297,22 +297,24 @@ interface variables:
 SPIR-V version and extension
 ----------------------------
 
-In the **defult** mode (without ``-fspv-extension=<extension>`` command-line
-option), SPIR-V CodeGen will try its best to use the lowest SPIR-V version, and
-only require higher SPIR-V versions and extensions when they are truly needed
-for translating the input source code.
+SPIR-V CodeGen provides two command-line options for fine-grained SPIR-V target
+environment (hence SPIR-V version) and SPIR-V extension control:
 
-For example, unless `Shader Model 6.0 wave intrinsics`_ are used, the generated
-SPIR-V will always be of version 1.0. The ``SPV_KHR_multivew`` extension will
-not be emitted unless you use ``SV_ViewID``.
+- ``-fspv-target-env=``: for specifying SPIR-V target environment
+- ``-fspv-extension=``: for specifying allowed SPIR-V extensions
 
-You can of course have fine-grained control of what extensions are permitted
-in the CodeGen using the **explicit** mode, turned on by the
-``-fspv-extension=<extension>`` command-line option. Only extensions supplied
-via ``-fspv-extension=`` will be used. If that does not suffice, errors will
-be emitted explaining what additional extensions are required to translate what
-specific feature in the source code. If you want to allow all KHR extensions,
-you can use ``-fspv-extension=KHR``.
+``-fspv-target-env=`` only accepts ``vulkan1.0`` and ``vulkan1.1`` right now.
+If such an option is not given, the CodeGen defaults to ``vulkan1.0``. When
+targeting ``vulkan1.0``, trying to use features that are only available
+in Vulkan 1.1 (SPIR-V 1.3), like `Shader Model 6.0 wave intrinsics`_, will
+trigger a compiler error.
+
+If ``-fspv-extension=`` is not specified, the CodeGen will select suitable
+SPIR-V extensions to translate the source code. Otherwise, only extensions
+supplied via ``-fspv-extension=`` will be used. If that does not suffice, errors
+will be emitted explaining what additional extensions are required to translate
+what specific feature in the source code. If you want to allow all KHR
+extensions, you can use ``-fspv-extension=KHR``.
 
 Legalization, optimization, validation
 --------------------------------------
@@ -2631,11 +2633,10 @@ generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
 Shader Model 6.0 Wave Intrinsics
 ================================
 
-::
 
-  Wave intrinsics requires SPIR-V 1.3, which is supported by Vulkan 1.1.
-  If you use wave intrinsics in your source code, the generated SPIR-V code
-  will be of version 1.3 instead of 1.0, which is supported by Vulkan 1.0.
+Note that Wave intrinsics requires SPIR-V 1.3, which is supported by Vulkan 1.1.
+If you use wave intrinsics in your source code, you will need to specify
+-fspv-target-env=vulkan1.1 via the command line to target Vulkan 1.1.
 
 Shader model 6.0 introduces a set of wave operations. Apart from
 ``WaveGetLaneCount()`` and ``WaveGetLaneIndex()``, which are translated into
