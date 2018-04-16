@@ -1192,7 +1192,7 @@ void SPIRVEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
     if (const auto *varMember = dyn_cast<VarDecl>(member)) {
       if (const auto *init = varMember->getInit())
         emitWarning("%select{tbuffer|cbuffer}0 member initializer "
-                    "ignored since no equivalent in Vulkan",
+                    "ignored since no Vulkan equivalent",
                     init->getExprLoc())
             << bufferDecl->isCBuffer() << init->getSourceRange();
 
