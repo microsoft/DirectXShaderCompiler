@@ -6,7 +6,6 @@
 // CHECK: OpCapability CullDistance
 // CHECK: OpCapability Tessellation
 
-// CHECK: OpExtension "SPV_GOOGLE_decorate_string"
 // CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 
 // Input control point

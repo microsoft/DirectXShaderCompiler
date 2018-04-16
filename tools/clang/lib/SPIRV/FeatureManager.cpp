@@ -61,9 +61,6 @@ bool FeatureManager::allowExtension(llvm::StringRef name) {
   }
 
   allowedExtensions.set(static_cast<unsigned>(symbol));
-  if (symbol == Extension::GOOGLE_hlsl_functionality1)
-    allowedExtensions.set(
-        static_cast<unsigned>(Extension::GOOGLE_decorate_string));
 
   return true;
 }
@@ -109,7 +106,6 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::AMD_gpu_shader_half_float)
       .Case("SPV_AMD_shader_explicit_vertex_parameter",
             Extension::AMD_shader_explicit_vertex_parameter)
-      .Case("SPV_GOOGLE_decorate_string", Extension::GOOGLE_decorate_string)
       .Case("SPV_GOOGLE_hlsl_functionality1",
             Extension::GOOGLE_hlsl_functionality1)
       .Default(Extension::Unknown);
@@ -133,8 +129,6 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_AMD_gpu_shader_half_float";
   case Extension::AMD_shader_explicit_vertex_parameter:
     return "SPV_AMD_shader_explicit_vertex_parameter";
-  case Extension::GOOGLE_decorate_string:
-    return "SPV_GOOGLE_decorate_string";
   case Extension::GOOGLE_hlsl_functionality1:
     return "SPV_GOOGLE_hlsl_functionality1";
   default:
