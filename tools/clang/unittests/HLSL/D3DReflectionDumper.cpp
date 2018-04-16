@@ -288,8 +288,7 @@ LPCSTR ToString(D3D_SHADER_VARIABLE_TYPE Type) {
 }
 
 void D3DReflectionDumper::DumpDefaultValue(LPCVOID pDefaultValue, UINT Size) {
-  DXASSERT_NOMSG(pDefaultValue);
-  WriteLn("DefaultValue present.");    // TODO: Dump DefaultValue
+  WriteLn("DefaultValue: ", pDefaultValue ? "<present>" : "<nullptr>");    // TODO: Dump DefaultValue
 }
 void D3DReflectionDumper::DumpShaderVersion(UINT Version) {
   const char *szType = "<unknown>";
@@ -321,21 +320,21 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_TYPE_DESC &tyDesc) {
   Indent();
   DumpEnum("Class", tyDesc.Class);
   DumpEnum("Type", tyDesc.Type);
-  if (tyDesc.Elements)  WriteLn("Elements: ", tyDesc.Elements);
-  if (tyDesc.Rows)      WriteLn("Rows: ", tyDesc.Rows);
-  if (tyDesc.Columns)   WriteLn("Columns: ", tyDesc.Columns);
-  if (tyDesc.Members)   WriteLn("Members: ", tyDesc.Members);
-  if (tyDesc.Offset)    WriteLn("Offset: ", tyDesc.Offset);
+  WriteLn("Elements: ", tyDesc.Elements);
+  WriteLn("Rows: ", tyDesc.Rows);
+  WriteLn("Columns: ", tyDesc.Columns);
+  WriteLn("Members: ", tyDesc.Members);
+  WriteLn("Offset: ", tyDesc.Offset);
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_SHADER_VARIABLE_DESC &varDesc) {
   SetLastName(varDesc.Name);
   WriteLn("D3D12_SHADER_VARIABLE_DESC: Name: ", m_LastName);
   Indent();
-  if (varDesc.Size)         WriteLn("Size: ", varDesc.Size);
-  if (varDesc.StartOffset)  WriteLn("StartOffset: ", varDesc.StartOffset);
-  if (varDesc.uFlags)       WriteLn("uFlags: ", std::hex, std::showbase, varDesc.uFlags);
-  if (varDesc.DefaultValue) DumpDefaultValue(varDesc.DefaultValue, varDesc.Size);
+  WriteLn("Size: ", varDesc.Size);
+  WriteLn("StartOffset: ", varDesc.StartOffset);
+  WriteLn("uFlags: ", std::hex, std::showbase, varDesc.uFlags);
+  DumpDefaultValue(varDesc.DefaultValue, varDesc.Size);
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_SHADER_BUFFER_DESC &Desc) {
@@ -344,8 +343,8 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_BUFFER_DESC &Desc) {
   Indent();
   DumpEnum("Type", Desc.Type);
   WriteLn("Size: ", Desc.Size);
-  if (Desc.uFlags)      WriteLn("uFlags: ", std::hex, std::showbase, Desc.uFlags);
-  if (Desc.Variables)   WriteLn("Num Variables: ", Desc.Variables);
+  WriteLn("uFlags: ", std::hex, std::showbase, Desc.uFlags);
+  WriteLn("Num Variables: ", Desc.Variables);
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
@@ -354,26 +353,25 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   Indent();
   DumpEnum("Type", resDesc.Type);
   WriteLn("uID: ", resDesc.uID);
-  if (resDesc.BindCount != 1)         WriteLn("BindCount: ", resDesc.BindCount);
-  if (resDesc.BindPoint != UINT_MAX)  WriteLn("BindPoint: ", resDesc.BindPoint);
-  if (resDesc.Space)                  WriteLn("Space: ", resDesc.Space);
-  if (resDesc.ReturnType)             DumpEnum("ReturnType", resDesc.ReturnType);
+  WriteLn("BindCount: ", resDesc.BindCount);
+  WriteLn("BindPoint: ", resDesc.BindPoint);
+  WriteLn("Space: ", resDesc.Space);
+  DumpEnum("ReturnType", resDesc.ReturnType);
   DumpEnum("Dimension", resDesc.Dimension);
-  if (resDesc.NumSamples && resDesc.NumSamples != 4294967295)
-    WriteLn("NumSamples (or stride): ", resDesc.NumSamples);
-  if (resDesc.uFlags)                 WriteLn("uFlags: ", std::hex, std::showbase, resDesc.uFlags);
+  WriteLn("NumSamples (or stride): ", resDesc.NumSamples);
+  WriteLn("uFlags: ", std::hex, std::showbase, resDesc.uFlags);
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_SHADER_DESC &Desc) {
   WriteLn("D3D12_SHADER_BUFFER_DESC:");
   Indent();
   DumpShaderVersion(Desc.Version);
-  if (Desc.Creator)           WriteLn("Creator: ", Desc.Creator);
-  if (Desc.Flags)             WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);
-  if (Desc.ConstantBuffers)   WriteLn("ConstantBuffers: ", Desc.ConstantBuffers);
-  if (Desc.BoundResources)    WriteLn("BoundResources: ", Desc.BoundResources);
-  if (Desc.InputParameters)   WriteLn("InputParameters: ", Desc.InputParameters);
-  if (Desc.OutputParameters)  WriteLn("OutputParameters: ", Desc.OutputParameters);
+  WriteLn("Creator: ", Desc.Creator ? Desc.Creator : "<nullptr>");
+  WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);
+  WriteLn("ConstantBuffers: ", Desc.ConstantBuffers);
+  WriteLn("BoundResources: ", Desc.BoundResources);
+  WriteLn("InputParameters: ", Desc.InputParameters);
+  WriteLn("OutputParameters: ", Desc.OutputParameters);
   hlsl::DXIL::ShaderKind ShaderKind = (hlsl::DXIL::ShaderKind)D3D12_SHVER_GET_TYPE(Desc.Version);
   if (ShaderKind == hlsl::DXIL::ShaderKind::Geometry) {
     WriteLn("cGSInstanceCount: ", Desc.cGSInstanceCount);
@@ -402,19 +400,19 @@ void D3DReflectionDumper::Dump(D3D12_FUNCTION_DESC &Desc) {
   WriteLn("D3D12_FUNCTION_DESC: Name: ", EscapedString(m_LastName));
   Indent();
   DumpShaderVersion(Desc.Version);
-  if (Desc.Creator)                 WriteLn("Creator: ", Desc.Creator);
-  if (Desc.Flags)                   WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);
-  if (Desc.ConstantBuffers)         WriteLn("ConstantBuffers: ", Desc.ConstantBuffers);
-  if (Desc.BoundResources)          WriteLn("BoundResources: ", Desc.BoundResources);
-  if (Desc.FunctionParameterCount)  WriteLn("FunctionParameterCount: ", Desc.FunctionParameterCount);
-  if (Desc.HasReturn)               WriteLn("HasReturn: TRUE");
+  WriteLn("Creator: ", Desc.Creator ? Desc.Creator : "<nullptr>");
+  WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);
+  WriteLn("ConstantBuffers: ", Desc.ConstantBuffers);
+  WriteLn("BoundResources: ", Desc.BoundResources);
+  WriteLn("FunctionParameterCount: ", Desc.FunctionParameterCount);
+  WriteLn("HasReturn: ", Desc.HasReturn ? "TRUE" : "FALSE");
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_LIBRARY_DESC &Desc) {
   WriteLn("D3D12_LIBRARY_DESC:");
   Indent();
-  if (Desc.Creator) WriteLn("Creator: ", Desc.Creator);
-  if (Desc.Flags)   WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);
+  WriteLn("Creator: ", Desc.Creator ? Desc.Creator : "<nullptr>");
+  WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);
   WriteLn("FunctionCount: ", Desc.FunctionCount);
   Dedent();
 }
