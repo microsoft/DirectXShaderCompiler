@@ -395,12 +395,34 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
       return getElementSpirvBitwidth(elemType);
   }
 
+  // Matrix types
+  if (hlsl::IsHLSLMatType(type))
+    return getElementSpirvBitwidth(hlsl::GetHLSLMatElementType(type));
+
+  // Array types
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
+    return getElementSpirvBitwidth(arrayType->getElementType());
+  }
+
+  // Typedefs
+  if (const auto *typedefType = type->getAs<TypedefType>())
+    return getLocationCount(typedefType->desugar());
+
+  // Reference types
+  if (const auto *refType = type->getAs<ReferenceType>())
+    return getLocationCount(refType->getPointeeType());
+
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>())
+    return getLocationCount(ptrType->getPointeeType());
+
   // Scalar types
   QualType ty = {};
   const bool isScalar = isScalarType(type, &ty);
   assert(isScalar);
   if (const auto *builtinType = ty->getAs<BuiltinType>()) {
     switch (builtinType->getKind()) {
+    case BuiltinType::Bool:
     case BuiltinType::Int:
     case BuiltinType::UInt:
     case BuiltinType::Float:
