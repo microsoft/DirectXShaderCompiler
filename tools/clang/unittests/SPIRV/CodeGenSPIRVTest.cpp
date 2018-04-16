@@ -501,15 +501,15 @@ TEST_F(FileTest, SemanticDispatchThreadId) {
 TEST_F(FileTest, SemanticDispatchThreadIdUint) {
   runFileTest("semantic.dispatch-thread-id.uint.cs.hlsl");
 }
-TEST_F(FileTest, SemanticDispatchThreadIdUint2) {
-  runFileTest("semantic.dispatch-thread-id.uint2.cs.hlsl");
+TEST_F(FileTest, SemanticDispatchThreadIdInt2) {
+  runFileTest("semantic.dispatch-thread-id.int2.cs.hlsl");
 }
 TEST_F(FileTest, SemanticGroupID) { runFileTest("semantic.group-id.cs.hlsl"); }
 TEST_F(FileTest, SemanticGroupIDUint) {
   runFileTest("semantic.group-id.uint.cs.hlsl");
 }
-TEST_F(FileTest, SemanticGroupIDUint2) {
-  runFileTest("semantic.group-id.uint2.cs.hlsl");
+TEST_F(FileTest, SemanticGroupIDInt2) {
+  runFileTest("semantic.group-id.int2.cs.hlsl");
 }
 TEST_F(FileTest, SemanticGroupThreadID) {
   runFileTest("semantic.group-thread-id.cs.hlsl");
@@ -517,8 +517,8 @@ TEST_F(FileTest, SemanticGroupThreadID) {
 TEST_F(FileTest, SemanticGroupThreadIDUint) {
   runFileTest("semantic.group-thread-id.uint.cs.hlsl");
 }
-TEST_F(FileTest, SemanticGroupThreadIDUint2) {
-  runFileTest("semantic.group-thread-id.uint2.cs.hlsl");
+TEST_F(FileTest, SemanticGroupThreadIDInt2) {
+  runFileTest("semantic.group-thread-id.int2.cs.hlsl");
 }
 TEST_F(FileTest, SemanticGroupIndex) {
   runFileTest("semantic.group-index.cs.hlsl");
@@ -1216,6 +1216,10 @@ TEST_F(FileTest, SpirvStageIOInterfacePS) {
   runFileTest("spirv.interface.ps.hlsl");
 }
 
+TEST_F(FileTest, SpirvStageIO16bitTypes) {
+  runFileTest("spirv.stage-io.16bit.hlsl");
+}
+
 TEST_F(FileTest, SpirvInterpolation) {
   runFileTest("spirv.interpolation.hlsl");
 }
@@ -1260,6 +1264,10 @@ TEST_F(FileTest, SpirvLegalizationTextureBuffer) {
   runFileTest("spirv.legal.tbuffer.hlsl", Expect::Success,
               // TODO: fix the different type error for OpStore
               /*runValidation=*/false);
+}
+
+TEST_F(FileTest, SpirvDebugOpSource) {
+  runFileTest("spirv.debug.opsource.hlsl");
 }
 
 TEST_F(FileTest, VulkanAttributeErrors) {
@@ -1317,18 +1325,14 @@ TEST_F(FileTest, VulkanRegisterBinding) {
   runFileTest("vk.binding.register.hlsl");
 }
 TEST_F(FileTest, VulkanRegisterBindingShift) {
-  // Resource binding from :register() and with shift specified via
+  // Resource binding from :register() with shift specified via
   // command line option
   runFileTest("vk.binding.cl.hlsl");
 }
-TEST_F(FileTest, VulkanExplicitBindingReassigned) {
-  runFileTest("vk.binding.explicit.error.hlsl", Expect::Warning);
-}
-TEST_F(FileTest, VulkanRegisterBindingReassigned) {
-  runFileTest("vk.binding.register.error.hlsl", Expect::Warning);
-}
-TEST_F(FileTest, VulkanRegisterBindingShiftReassigned) {
-  runFileTest("vk.binding.cl.error.hlsl", Expect::Warning);
+TEST_F(FileTest, VulkanRegisterBindingShiftAllSets) {
+  // Resource binding from :register() with shift specified for all sets via
+  // command line option
+  runFileTest("vk.binding.cl.all-sets.hlsl");
 }
 TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
@@ -1339,6 +1343,9 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
 TEST_F(FileTest, VulkanPushConstantOffset) {
   runFileTest("vk.push-constant.offset.hlsl");
+}
+TEST_F(FileTest, VulkanPushConstantAnonymousStruct) {
+  runFileTest("vk.push-constant.anon-struct.hlsl");
 }
 TEST_F(FileTest, VulkanMultiplePushConstant) {
   runFileTest("vk.push-constant.multiple.hlsl", Expect::Failure);

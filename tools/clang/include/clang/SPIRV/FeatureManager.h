@@ -15,7 +15,6 @@
 
 #include <string>
 
-
 #include "spirv-tools/libspirv.h"
 
 #include "clang/Basic/Diagnostic.h"
@@ -31,6 +30,7 @@ namespace spirv {
 /// A list of SPIR-V extensions known to our CodeGen.
 enum class Extension {
   KHR = 0,
+  KHR_16bit_storage,
   KHR_device_group,
   KHR_multiview,
   KHR_shader_draw_parameters,
@@ -38,7 +38,6 @@ enum class Extension {
   EXT_shader_stencil_export,
   AMD_gpu_shader_half_float,
   AMD_shader_explicit_vertex_parameter,
-  GOOGLE_decorate_string,
   GOOGLE_hlsl_functionality1,
   Unknown,
 };

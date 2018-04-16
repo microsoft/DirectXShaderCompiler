@@ -845,7 +845,6 @@ void ModuleBuilder::decorateHlslSemantic(uint32_t targetId,
                                          llvm::StringRef semantic,
                                          llvm::Optional<uint32_t> memberIdx) {
   if (allowReflect) {
-    addExtension(Extension::GOOGLE_decorate_string, "SPIR-V reflection", {});
     addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
                  {});
     theModule.addDecoration(

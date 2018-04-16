@@ -297,22 +297,24 @@ interface variables:
 SPIR-V version and extension
 ----------------------------
 
-In the **defult** mode (without ``-fspv-extension=<extension>`` command-line
-option), SPIR-V CodeGen will try its best to use the lowest SPIR-V version, and
-only require higher SPIR-V versions and extensions when they are truly needed
-for translating the input source code.
+SPIR-V CodeGen provides two command-line options for fine-grained SPIR-V target
+environment (hence SPIR-V version) and SPIR-V extension control:
 
-For example, unless `Shader Model 6.0 wave intrinsics`_ are used, the generated
-SPIR-V will always be of version 1.0. The ``SPV_KHR_multivew`` extension will
-not be emitted unless you use ``SV_ViewID``.
+- ``-fspv-target-env=``: for specifying SPIR-V target environment
+- ``-fspv-extension=``: for specifying allowed SPIR-V extensions
 
-You can of course have fine-grained control of what extensions are permitted
-in the CodeGen using the **explicit** mode, turned on by the
-``-fspv-extension=<extension>`` command-line option. Only extensions supplied
-via ``-fspv-extension=`` will be used. If that does not suffice, errors will
-be emitted explaining what additional extensions are required to translate what
-specific feature in the source code. If you want to allow all KHR extensions,
-you can use ``-fspv-extension=KHR``.
+``-fspv-target-env=`` only accepts ``vulkan1.0`` and ``vulkan1.1`` right now.
+If such an option is not given, the CodeGen defaults to ``vulkan1.0``. When
+targeting ``vulkan1.0``, trying to use features that are only available
+in Vulkan 1.1 (SPIR-V 1.3), like `Shader Model 6.0 wave intrinsics`_, will
+trigger a compiler error.
+
+If ``-fspv-extension=`` is not specified, the CodeGen will select suitable
+SPIR-V extensions to translate the source code. Otherwise, only extensions
+supplied via ``-fspv-extension=`` will be used. If that does not suffice, errors
+will be emitted explaining what additional extensions are required to translate
+what specific feature in the source code. If you want to allow all KHR
+extensions, you can use ``-fspv-extension=KHR``.
 
 Legalization, optimization, validation
 --------------------------------------
@@ -667,12 +669,12 @@ right now:
    Uniform Buffer Layout" and "Standard Storage Buffer Layout" <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-resources-layout>`_,
    respectively.
    They are the default.
-2. Strict OpenGL ``std140`` for uniform buffers and strict OpenGL ``std430``
-   for storage buffers: they allow packing data on the application side that
-   can be shared with OpenGL. They can be enabled by ``-fvk-use-gl-layout``.
-3. DirectX memory layout rules for uniform buffers and storage buffers:
+2. DirectX memory layout rules for uniform buffers and storage buffers:
    they allow packing data on the application side that can be shared with
    DirectX. They can be enabled by ``-fvk-use-dx-layout``.
+3. Strict OpenGL ``std140`` for uniform buffers and strict OpenGL ``std430``
+   for storage buffers: they allow packing data on the application side that
+   can be shared with OpenGL. They can be enabled by ``-fvk-use-gl-layout``.
 
 In the above, "vector-relaxed OpenGL ``std140``/``std430``" rules mean OpenGL
 ``std140``/``std430`` rules with the following modification for vector type
@@ -2197,7 +2199,9 @@ There are a few overloads for these functions:
 
 - For those overloads taking 4 offset parameters, those offset parameters will
   be conveyed as an additional ``ConstOffsets`` image operands to the
-  instruction. So those offset parameters must all be constant values.
+  instruction if those offset parameters are all constants. Otherwise,
+  4 separate ``OpImageGather`` instructions will be emitted to get each texel
+  from each offset, using the ``Offset`` image operands.
 - For those overloads with the ``status`` parameter, ``OpImageSparseGather``
   is used instead, and the resulting SPIR-V ``Residency Code`` will be
   written to ``status``.
@@ -2631,11 +2635,10 @@ generated. ``.RestartStrip()`` method calls will be translated into the SPIR-V
 Shader Model 6.0 Wave Intrinsics
 ================================
 
-::
 
-  Wave intrinsics requires SPIR-V 1.3, which is supported by Vulkan 1.1.
-  If you use wave intrinsics in your source code, the generated SPIR-V code
-  will be of version 1.3 instead of 1.0, which is supported by Vulkan 1.0.
+Note that Wave intrinsics requires SPIR-V 1.3, which is supported by Vulkan 1.1.
+If you use wave intrinsics in your source code, you will need to specify
+-fspv-target-env=vulkan1.1 via the command line to target Vulkan 1.1.
 
 Shader model 6.0 introduces a set of wave operations. Apart from
 ``WaveGetLaneCount()`` and ``WaveGetLaneIndex()``, which are translated into
@@ -2683,8 +2686,9 @@ codegen for Vulkan:
   sets its Vulkan descriptor set to ``M`` and binding number to ``X + N``. If
   you need to shift the inferred binding numbers for more than one space,
   provide more than one such option. If more than one such option is provided
-  for the same space, the last one takes effect. See `HLSL register and Vulkan
-  binding`_ for explanation and examples.
+  for the same space, the last one takes effect. If you need to shift the
+  inferred binding numbers for all sets, use ``all`` as ``M``.
+  See `HLSL register and Vulkan binding`_ for explanation and examples.
 - ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
 - ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
 - ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.

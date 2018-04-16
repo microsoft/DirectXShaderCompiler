@@ -395,12 +395,34 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
       return getElementSpirvBitwidth(elemType);
   }
 
+  // Matrix types
+  if (hlsl::IsHLSLMatType(type))
+    return getElementSpirvBitwidth(hlsl::GetHLSLMatElementType(type));
+
+  // Array types
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
+    return getElementSpirvBitwidth(arrayType->getElementType());
+  }
+
+  // Typedefs
+  if (const auto *typedefType = type->getAs<TypedefType>())
+    return getLocationCount(typedefType->desugar());
+
+  // Reference types
+  if (const auto *refType = type->getAs<ReferenceType>())
+    return getLocationCount(refType->getPointeeType());
+
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>())
+    return getLocationCount(ptrType->getPointeeType());
+
   // Scalar types
   QualType ty = {};
   const bool isScalar = isScalarType(type, &ty);
   assert(isScalar);
   if (const auto *builtinType = ty->getAs<BuiltinType>()) {
     switch (builtinType->getKind()) {
+    case BuiltinType::Bool:
     case BuiltinType::Int:
     case BuiltinType::UInt:
     case BuiltinType::Float:
@@ -1133,40 +1155,51 @@ TypeTranslator::getCapabilityForStorageImageReadWrite(QualType type) {
 
 bool TypeTranslator::shouldSkipInStructLayout(const Decl *decl) {
   // Ignore implicit generated struct declarations/constructors/destructors
-  // Ignore embedded type decls
-  // Ignore embeded function decls
-  // Ignore empty decls
-  if (decl->isImplicit() || isa<TypeDecl>(decl) || isa<FunctionDecl>(decl) ||
-      isa<EmptyDecl>(decl))
+  if (decl->isImplicit())
     return true;
-
-  // For $Globals (whose "struct" is the TranslationUnit)
-  // Ignore resources in the TranslationUnit "struct"
+  // Ignore embedded type decls
+  if (isa<TypeDecl>(decl))
+    return true;
+  // Ignore embeded function decls
+  if (isa<FunctionDecl>(decl))
+    return true;
+  // Ignore empty decls
+  if (isa<EmptyDecl>(decl))
+    return true;
 
   // For the $Globals cbuffer, we only care about externally-visiable
   // non-resource-type variables. The rest should be filtered out.
+
+  const auto *declContext = decl->getDeclContext();
 
   // Special check for ConstantBuffer/TextureBuffer, whose DeclContext is a
   // HLSLBufferDecl. So that we need to check the HLSLBufferDecl's parent decl
   // to check whether this is a ConstantBuffer/TextureBuffer defined in the
   // global namespace.
+  // Note that we should not be seeing ConstantBuffer/TextureBuffer for normal
+  // cbuffer/tbuffer or push constant blocks. So this case should only happen
+  // for $Globals cbuffer.
   if (isConstantTextureBuffer(decl) &&
-      decl->getDeclContext()->getLexicalParent()->isTranslationUnit())
+      declContext->getLexicalParent()->isTranslationUnit())
     return true;
 
-  // External visibility
-  if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
-    if (!declDecl->hasExternalFormalLinkage())
+  // $Globals' "struct" is the TranslationUnit, so we should ignore resources
+  // in the TranslationUnit "struct" and its child namespaces.
+  if (declContext->isTranslationUnit() || declContext->isNamespace()) {
+    // External visibility
+    if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
+      if (!declDecl->hasExternalFormalLinkage())
+        return true;
+
+    // cbuffer/tbuffer
+    if (isa<HLSLBufferDecl>(decl))
       return true;
 
-  // cbuffer/tbuffer
-  if (isa<HLSLBufferDecl>(decl))
-    return true;
-
-  // Other resource types
-  if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
-    if (isResourceType(valueDecl))
-      return true;
+    // Other resource types
+    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
+      if (isResourceType(valueDecl))
+        return true;
+  }
 
   return false;
 }
@@ -1281,10 +1314,10 @@ void TypeTranslator::collectDeclsInField(
     return;
   }
 
-  (*decls).push_back(field);
+  decls->push_back(field);
 }
 
-const llvm::SmallVector<const Decl *, 4>
+llvm::SmallVector<const Decl *, 4>
 TypeTranslator::collectDeclsInDeclContext(const DeclContext *declContext) {
   llvm::SmallVector<const Decl *, 4> decls;
   for (const auto *field : declContext->decls()) {

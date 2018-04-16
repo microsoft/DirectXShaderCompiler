@@ -7,12 +7,18 @@
 // CHECK: OpMemberDecorate %type_CONSTANTS 0 Offset 0
 // CHECK: OpDecorate %type_CONSTANTS Block
 
-// CHECK: %FrameConstants = OpTypeStruct %uint %v3uint %_arr_v3uint_uint_2
+// CHECK: %T = OpTypeStruct %_arr_uint_uint_1
+struct T {
+  bool boolArray[1];
+};
+
+// CHECK: %FrameConstants = OpTypeStruct %uint %v3uint %_arr_v3uint_uint_2 %T
 struct FrameConstants
 {
   bool  boolScalar;
   bool3 boolVec;
   row_major bool2x3 boolMat;
+  T t;
 };
 
 [[vk::binding(0, 0)]]
@@ -23,6 +29,11 @@ cbuffer CONSTANTS
 
 // CHECK: [[v3uint0:%\d+]] = OpConstantComposite %v3uint %uint_0 %uint_0 %uint_0
 // CHECK: [[v2uint0:%\d+]] = OpConstantComposite %v2uint %uint_0 %uint_0
+
+// These are the types that hold SPIR-V booleans, rather than Uints.
+// CHECK:              %T_0 = OpTypeStruct %_arr_bool_uint_1
+// CHECK: %FrameConstants_0 = OpTypeStruct %bool %v3bool %_arr_v3bool_uint_2 %T_0
+
 float4 main(in float4 texcoords : TEXCOORD0) : SV_TARGET
 {
 // CHECK:      [[FrameConstants:%\d+]] = OpAccessChain %_ptr_Uniform_FrameConstants %CONSTANTS %int_0
@@ -117,6 +128,35 @@ float4 main(in float4 texcoords : TEXCOORD0) : SV_TARGET
 // CHECK-NEXT:        [[boolVec:%\d+]] = OpINotEqual %v2bool [[uintVec]] [[v2uint0]]
 // CHECK-NEXT:                           OpStore %k [[boolVec]]
     bool2   k = frameConstants.boolMat._m12_m01;
+
+// CHECK:      [[FrameConstants:%\d+]] = OpAccessChain %_ptr_Uniform_FrameConstants %CONSTANTS %int_0
+// CHECK-NEXT:            [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint [[FrameConstants]] %int_3 %int_0 %int_2
+// CHECK-NEXT:           [[uint:%\d+]] = OpLoad %uint [[ptr]]
+// CHECK-NEXT:           [[bool:%\d+]] = OpINotEqual %bool [[uint]] %uint_0
+// CHECK-NEXT:                           OpStore %l [[bool]]
+    bool    l = frameConstants.t.boolArray[2];
+
+// CHECK:           [[FrameConstantsPtr:%\d+]] = OpAccessChain %_ptr_Uniform_FrameConstants %CONSTANTS %int_0
+// CHECK-NEXT:         [[FrameConstants:%\d+]] = OpLoad %FrameConstants [[FrameConstantsPtr]]
+// CHECK-NEXT:              [[fc_0_uint:%\d+]] = OpCompositeExtract %uint [[FrameConstants]] 0
+// CHECK-NEXT:              [[fc_0_bool:%\d+]] = OpINotEqual %bool [[fc_0_uint]] %uint_0
+// CHECK-NEXT:             [[fc_1_uint3:%\d+]] = OpCompositeExtract %v3uint [[FrameConstants]] 1
+// CHECK-NEXT:             [[fc_1_bool3:%\d+]] = OpINotEqual %v3bool [[fc_1_uint3]] [[v3uint0]]
+// CHECK-NEXT:           [[fc_2_uintMat:%\d+]] = OpCompositeExtract %_arr_v3uint_uint_2 [[FrameConstants]] 2
+// CHECK-NEXT: [[fc_2_uintMat_row0_uint:%\d+]] = OpCompositeExtract %v3uint [[fc_2_uintMat]] 0
+// CHECK-NEXT: [[fc_2_uintMat_row0_bool:%\d+]] = OpINotEqual %v3bool [[fc_2_uintMat_row0_uint]] [[v3uint0]]
+// CHECK-NEXT: [[fc_2_uintMat_row1_uint:%\d+]] = OpCompositeExtract %v3uint [[fc_2_uintMat]] 1
+// CHECK-NEXT: [[fc_2_uintMat_row1_bool:%\d+]] = OpINotEqual %v3bool [[fc_2_uintMat_row1_uint]] [[v3uint0]]
+// CHECK-NEXT:           [[fc_2_boolMat:%\d+]] = OpCompositeConstruct %_arr_v3bool_uint_2 [[fc_2_uintMat_row0_bool]] [[fc_2_uintMat_row1_bool]]
+// CHECK-NEXT:                 [[fc_3_T:%\d+]] = OpCompositeExtract %T [[FrameConstants]] 3
+// CHECK-NEXT:      [[fc_3_T_0_uint_arr:%\d+]] = OpCompositeExtract %_arr_uint_uint_1 [[fc_3_T]] 0
+// CHECK-NEXT:        [[fc_3_T_0_0_uint:%\d+]] = OpCompositeExtract %uint [[fc_3_T_0_uint_arr]] 0
+// CHECK-NEXT:        [[fc_3_T_0_0_bool:%\d+]] = OpINotEqual %bool [[fc_3_T_0_0_uint]] %uint_0
+// CHECK-NEXT:      [[fc_3_T_0_bool_arr:%\d+]] = OpCompositeConstruct %_arr_bool_uint_1 [[fc_3_T_0_0_bool]]
+// CHECK-NEXT:            [[fc_3_T_bool:%\d+]] = OpCompositeConstruct %T_0 [[fc_3_T_0_bool_arr]]
+// CHECK-NEXT:                     [[fc:%\d+]] = OpCompositeConstruct %FrameConstants_0 [[fc_0_bool]] [[fc_1_bool3]] [[fc_2_boolMat]] [[fc_3_T_bool]]
+// CHECK-NEXT:                                   OpStore %fc [[fc]]
+    FrameConstants fc = frameConstants;
 
     return (1.0).xxxx;
 }

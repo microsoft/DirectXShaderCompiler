@@ -38,11 +38,12 @@ struct EmitSPIRVOptions {
   bool ignoreUnusedResources;
   bool enable16BitTypes;
   bool enableReflect;
+  bool enableDebugInfo;
   llvm::StringRef stageIoOrder;
-  llvm::SmallVector<uint32_t, 4> bShift;
-  llvm::SmallVector<uint32_t, 4> tShift;
-  llvm::SmallVector<uint32_t, 4> sShift;
-  llvm::SmallVector<uint32_t, 4> uShift;
+  llvm::SmallVector<int32_t, 4> bShift;
+  llvm::SmallVector<int32_t, 4> tShift;
+  llvm::SmallVector<int32_t, 4> sShift;
+  llvm::SmallVector<int32_t, 4> uShift;
   llvm::SmallVector<llvm::StringRef, 4> allowedExtensions;
   llvm::StringRef targetEnv;
   spirv::LayoutRule cBufferLayoutRule;

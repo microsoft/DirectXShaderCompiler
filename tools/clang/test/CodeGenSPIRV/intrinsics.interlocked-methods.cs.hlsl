@@ -3,6 +3,11 @@
 groupshared int dest_i;
 groupshared uint dest_u;
 
+RWBuffer<uint> buff;
+RWBuffer<uint> getDest() {
+  return buff;
+}
+
 void main()
 {
   uint original_u_val;
@@ -20,6 +25,11 @@ void main()
 // CHECK-NEXT: [[iadd27:%\d+]] = OpAtomicIAdd %int %dest_i %uint_1 %uint_0 [[val1_27]]
 // CHECK-NEXT:                   OpStore %original_i_val [[iadd27]]
   InterlockedAdd(dest_i, val1, original_i_val);
+
+// CHECK:      [[buff:%\d+]] = OpFunctionCall %type_buffer_image %getDest
+// CHECK-NEXT: OpStore %temp_var_RWBuffer [[buff]]
+// CHECK-NEXT: OpImageTexelPointer %_ptr_Image_uint %temp_var_RWBuffer %uint_0 %uint_0
+  InterlockedAdd(getDest()[0], val1, original_i_val);
 
 // CHECK:      [[and28:%\d+]] = OpAtomicAnd %uint %dest_u %uint_1 %uint_0 %uint_10
 // CHECK-NEXT:                  OpStore %original_u_val [[and28]]
