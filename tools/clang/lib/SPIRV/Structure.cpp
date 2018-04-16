@@ -282,11 +282,18 @@ void SPIRVModule::take(InstBuilder *builder) {
     consumer(inst.take());
   }
 
-  if (shaderModelVersion != 0)
+  if (shaderModelVersion != 0) {
+    llvm::Optional<uint32_t> fileName = llvm::None;
+    if (!sourceFileName.empty() && sourceFileNameId) {
+      builder->opString(sourceFileNameId, sourceFileName).x();
+      fileName = sourceFileNameId;
+    }
+
     builder
-        ->opSource(spv::SourceLanguage::HLSL, shaderModelVersion, llvm::None,
+        ->opSource(spv::SourceLanguage::HLSL, shaderModelVersion, fileName,
                    llvm::None)
         .x();
+  }
 
   // BasicBlock debug names should be emitted only for blocks that are
   // reachable.
