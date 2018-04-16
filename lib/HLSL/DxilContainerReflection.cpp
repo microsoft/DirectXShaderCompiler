@@ -1478,7 +1478,10 @@ static void SetCBufVarUsage(CShaderReflectionConstantBuffer &cb,
 void DxilShaderReflection::SetCBufferUsage() {
   hlsl::OP *hlslOP = m_pDxilModule->GetOP();
   LLVMContext &Ctx = m_pDxilModule->GetCtx();
-  unsigned cbSize = m_CBs.size();
+
+  // Indexes >= cbuffer size from DxilModule are SRV or UAV structured buffers.
+  // We only collect usage for actual cbuffers, so don't go clearing usage on other buffers.
+  unsigned cbSize = std::min(m_CBs.size(), m_pDxilModule->GetCBuffers().size());
   std::vector< std::vector<unsigned> > cbufUsage(cbSize);
 
   Function *createHandle = hlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
