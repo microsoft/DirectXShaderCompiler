@@ -1216,6 +1216,10 @@ TEST_F(FileTest, SpirvStageIOInterfacePS) {
   runFileTest("spirv.interface.ps.hlsl");
 }
 
+TEST_F(FileTest, SpirvStageIO16bitTypes) {
+  runFileTest("spirv.stage-io.16bit.hlsl");
+}
+
 TEST_F(FileTest, SpirvInterpolation) {
   runFileTest("spirv.interpolation.hlsl");
 }
