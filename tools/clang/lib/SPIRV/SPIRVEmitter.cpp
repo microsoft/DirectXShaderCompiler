@@ -2939,6 +2939,7 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   const uint32_t compareVal = isCmp ? doExpr(expr->getArg(2)) : 0;
 
   // Handle offsets (if any).
+  bool needsEmulation = false;
   uint32_t constOffset = 0, varOffset = 0, constOffsets = 0;
   if (numOffsetArgs == 1) {
     // The offset arg is not optional.
@@ -2949,21 +2950,40 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
     const auto offset2 = tryToEvaluateAsConst(expr->getArg(4 + isCmp));
     const auto offset3 = tryToEvaluateAsConst(expr->getArg(5 + isCmp));
 
-    // Make sure we can generate the ConstOffsets image operands in SPIR-V.
-    if (!offset0 || !offset1 || !offset2 || !offset3) {
-      emitError("all offset parameters to '%0' method call must be constants",
-                expr->getExprLoc())
-          << callee->getName() << expr->getSourceRange();
-      return 0;
+    // If any of the offsets is not constant, we then need to emulate the call
+    // using 4 OpImageGather instructions. Otherwise, we can leverage the
+    // ConstOffsets image operand.
+    if (offset0 && offset1 && offset2 && offset3) {
+      const uint32_t v2i32 =
+          theBuilder.getVecType(theBuilder.getInt32Type(), 2);
+      const uint32_t offsetType =
+          theBuilder.getArrayType(v2i32, theBuilder.getConstantUint32(4));
+      constOffsets = theBuilder.getConstantComposite(
+          offsetType, {offset0, offset1, offset2, offset3});
+    } else {
+      needsEmulation = true;
     }
-    const uint32_t v2i32 = theBuilder.getVecType(theBuilder.getInt32Type(), 2);
-    const uint32_t offsetType =
-        theBuilder.getArrayType(v2i32, theBuilder.getConstantUint32(4));
-    constOffsets = theBuilder.getConstantComposite(
-        offsetType, {offset0, offset1, offset2, offset3});
   }
 
   const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
+
+  if (needsEmulation) {
+    const auto elemType = typeTranslator.translateType(
+        hlsl::GetHLSLVecElementType(callee->getReturnType()));
+
+    uint32_t texels[4];
+    for (uint32_t i = 0; i < 4; ++i) {
+      varOffset = doExpr(expr->getArg(2 + isCmp + i));
+      const uint32_t gatherRet = theBuilder.createImageGather(
+          retTypeId, imageTypeId, image, sampler, coordinate,
+          theBuilder.getConstantInt32(component), compareVal, /*constOffset*/ 0,
+          varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0, status);
+      texels[i] = theBuilder.createCompositeExtract(elemType, gatherRet, {i});
+    }
+    return theBuilder.createCompositeConstruct(
+        retTypeId, {texels[0], texels[1], texels[2], texels[3]});
+  }
+
   return theBuilder.createImageGather(
       retTypeId, imageTypeId, image, sampler, coordinate,
       theBuilder.getConstantInt32(component), compareVal, constOffset,

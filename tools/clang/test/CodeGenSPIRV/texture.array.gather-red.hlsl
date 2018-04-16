@@ -21,7 +21,7 @@ TextureCubeArray<int4> tCubeArray : register(t3);
 
 // CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4int
 
-float4 main(float3 location: A) : SV_Target {
+float4 main(float3 location: A, int2 offset : B) : SV_Target {
 // CHECK:            [[t2f4:%\d+]] = OpLoad %type_2d_image_array %t2f4
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
 // CHECK-NEXT:        [[loc:%\d+]] = OpLoad %v3float %location
@@ -84,6 +84,19 @@ float4 main(float3 location: A) : SV_Target {
 // CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4int [[structResult]] 1
 // CHECK-NEXT:                         OpStore %g [[result]]
     int4 g = tCubeArray.GatherRed(gSampler, /*location*/ float4(1.5, 1.5, 1.5, 1.5), status);
+
+// CHECK: [[offset:%\d+]] = OpLoad %v2int %offset
+// CHECK: [[gather:%\d+]] = OpImageGather %v4float {{%\d+}} {{%\d+}} %int_0 Offset [[offset]]
+// CHECK: [[texel0:%\d+]] = OpCompositeExtract %float [[gather]] 0
+// CHECK: [[gather:%\d+]] = OpImageGather %v4float {{%\d+}} {{%\d+}} %int_0 Offset [[c34]]
+// CHECK: [[texel1:%\d+]] = OpCompositeExtract %float [[gather]] 1
+// CHECK: [[gather:%\d+]] = OpImageGather %v4float {{%\d+}} {{%\d+}} %int_0 Offset [[c56]]
+// CHECK: [[texel2:%\d+]] = OpCompositeExtract %float [[gather]] 2
+// CHECK: [[offset:%\d+]] = OpLoad %v2int %offset
+// CHECK: [[gather:%\d+]] = OpImageGather %v4float {{%\d+}} {{%\d+}} %int_0 Offset [[offset]]
+// CHECK: [[texel3:%\d+]] = OpCompositeExtract %float [[gather]] 3
+// CHECK:                   OpCompositeConstruct %v4float [[texel0]] [[texel1]] [[texel2]] [[texel3]]
+    float4 h = t2f4.GatherRed(gSampler, location, offset, int2(3, 4), int2(5, 6), offset);
 
     return 1.0;
 }
