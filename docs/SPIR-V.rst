@@ -669,12 +669,12 @@ right now:
    Uniform Buffer Layout" and "Standard Storage Buffer Layout" <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-resources-layout>`_,
    respectively.
    They are the default.
-2. Strict OpenGL ``std140`` for uniform buffers and strict OpenGL ``std430``
-   for storage buffers: they allow packing data on the application side that
-   can be shared with OpenGL. They can be enabled by ``-fvk-use-gl-layout``.
-3. DirectX memory layout rules for uniform buffers and storage buffers:
+2. DirectX memory layout rules for uniform buffers and storage buffers:
    they allow packing data on the application side that can be shared with
    DirectX. They can be enabled by ``-fvk-use-dx-layout``.
+3. Strict OpenGL ``std140`` for uniform buffers and strict OpenGL ``std430``
+   for storage buffers: they allow packing data on the application side that
+   can be shared with OpenGL. They can be enabled by ``-fvk-use-gl-layout``.
 
 In the above, "vector-relaxed OpenGL ``std140``/``std430``" rules mean OpenGL
 ``std140``/``std430`` rules with the following modification for vector type
