@@ -2197,7 +2197,9 @@ There are a few overloads for these functions:
 
 - For those overloads taking 4 offset parameters, those offset parameters will
   be conveyed as an additional ``ConstOffsets`` image operands to the
-  instruction. So those offset parameters must all be constant values.
+  instruction if those offset parameters are all constants. Otherwise,
+  4 separate ``OpImageGather`` instructions will be emitted to get each texel
+  from each offset, using the ``Offset`` image operands.
 - For those overloads with the ``status`` parameter, ``OpImageSparseGather``
   is used instead, and the resulting SPIR-V ``Residency Code`` will be
   written to ``status``.
