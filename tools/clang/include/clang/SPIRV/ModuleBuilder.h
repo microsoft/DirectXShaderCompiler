@@ -332,6 +332,10 @@ public:
 
   inline void setShaderModelVersion(uint32_t major, uint32_t minor);
 
+  /// \brief Sets the source file name and the <result-id> for the OpString for
+  /// the file name.
+  inline void setSourceFileName(uint32_t id, std::string name);
+
   /// \brief Adds an execution mode to the module under construction.
   void addExecutionMode(uint32_t entryPointId, spv::ExecutionMode em,
                         llvm::ArrayRef<uint32_t> params);
@@ -514,6 +518,10 @@ void ModuleBuilder::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
 
 void ModuleBuilder::setShaderModelVersion(uint32_t major, uint32_t minor) {
   theModule.setShaderModelVersion(major * 100 + minor * 10);
+}
+
+void ModuleBuilder::setSourceFileName(uint32_t id, std::string name) {
+  theModule.setSourceFileName(id, std::move(name));
 }
 
 } // end namespace spirv

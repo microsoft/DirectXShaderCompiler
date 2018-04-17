@@ -59,6 +59,12 @@ T foo() {
   return t;
 }
 
+struct R {
+  int a;
+  void incr() { ++a; }
+};
+RWStructuredBuffer<R> rwsb;
+
 // CHECK:     [[ft_f32:%\d+]] = OpTypeFunction %float
 // CHECK:       [[ft_S:%\d+]] = OpTypeFunction %float %_ptr_Function_S
 // CHECK:   [[ft_S_f32:%\d+]] = OpTypeFunction %float %_ptr_Function_S %_ptr_Function_float
@@ -97,6 +103,18 @@ float main() : A {
 // CHECK-NEXT:                   OpStore %temp_var_S [[temp_S]]
 // CHECK-NEXT:        {{%\d+}} = OpFunctionCall %float %S_fn_ref %temp_var_S
   float f2 = foo().get_S().fn_ref();
+
+// CHECK:         [[uniformPtr:%\d+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
+// CHECK-NEXT:   [[originalObj:%\d+]] = OpLoad %R [[uniformPtr]]
+// CHECK-NEXT:        [[member:%\d+]] = OpCompositeExtract %int [[originalObj]] 0
+// CHECK-NEXT:       [[tempVar:%\d+]] = OpCompositeConstruct %R_0 [[member]]
+// CHECK-NEXT:                          OpStore %temp_var_R [[tempVar]]
+// CHECK-NEXT:                          OpFunctionCall %void %R_incr %temp_var_R
+// CHECK-NEXT:       [[tempVar:%\d+]] = OpLoad %R_0 %temp_var_R
+// CHECK-NEXT: [[tempVarMember:%\d+]] = OpCompositeExtract %int [[tempVar]] 0
+// CHECK-NEXT:          [[newR:%\d+]] = OpCompositeConstruct %R [[tempVarMember]]
+// CHECK-NEXT:                          OpStore [[uniformPtr]] [[newR]]
+  rwsb[0].incr();
 
   return f1;
 // CHECK:                     OpFunctionEnd
@@ -151,8 +169,8 @@ float main() : A {
 // CHECK:                      OpFunctionEnd
 
 // CHECK:        %S_fn_param = OpFunction %float None [[ft_S_f32]]
-// CHECK-NEXT: %param_this_4 = OpFunctionParameter %_ptr_Function_S
+// CHECK-NEXT: %param_this_5 = OpFunctionParameter %_ptr_Function_S
 // CHECK-NEXT:          %c_0 = OpFunctionParameter %_ptr_Function_float
-// CHECK-NEXT:   %bb_entry_8 = OpLabel
-// CHECK:           {{%\d+}} = OpAccessChain %_ptr_Function_float %param_this_4 %int_0
+// CHECK-NEXT:                 OpLabel
+// CHECK:                      OpAccessChain %_ptr_Function_float %param_this_5 %int_0
 // CHECK:                      OpFunctionEnd

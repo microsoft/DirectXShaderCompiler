@@ -3,7 +3,6 @@
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
 
-// CHECK: OpExtension "SPV_GOOGLE_decorate_string"
 // CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 
 // CHECK: OpEntryPoint Vertex %main "main" %gl_PerVertexOut %in_var_TEXCOORD %in_var_SV_Position %in_var_SV_ClipDistance %in_var_SV_CullDistance0 %out_var_COLOR %out_var_TEXCOORD

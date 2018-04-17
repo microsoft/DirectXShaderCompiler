@@ -39,7 +39,6 @@ public:
   inline StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
                   const hlsl::Semantic *sema, llvm::StringRef semaName,
                   uint32_t semaIndex, const VKBuiltInAttr *builtin,
-
                   uint32_t type, uint32_t locCount)
       : sigPoint(sig), semanticStr(semaStr), semantic(sema),
         semanticName(semaName), semanticIndex(semaIndex), builtinAttr(builtin),
@@ -103,27 +102,13 @@ private:
 
 class ResourceVar {
 public:
-  /// The category of this resource.
-  ///
-  /// We only care about Vulkan image and sampler types here, since they can be
-  /// bundled together as a combined image sampler which takes the same binding
-  /// number. The compiler should allow this case.
-  ///
-  /// Numbers are assigned to make bit check easiser.
-  enum class Category : uint32_t {
-    Image = 1,
-    Sampler = 2,
-    Other = 3,
-  };
-
-  ResourceVar(uint32_t id, Category cat, const hlsl::RegisterAssignment *r,
+  ResourceVar(uint32_t id, const hlsl::RegisterAssignment *r,
               const VKBindingAttr *b, const VKCounterBindingAttr *cb,
               bool counter = false)
-      : varId(id), category(cat), reg(r), binding(b), counterBinding(cb),
+      : varId(id), reg(r), binding(b), counterBinding(cb),
         isCounterVar(counter) {}
 
   uint32_t getSpirvId() const { return varId; }
-  Category getCategory() const { return category; }
   const hlsl::RegisterAssignment *getRegister() const { return reg; }
   const VKBindingAttr *getBinding() const { return binding; }
   bool isCounter() const { return isCounterVar; }
@@ -131,7 +116,6 @@ public:
 
 private:
   uint32_t varId;                             ///< <result-id>
-  Category category;                          ///< Resource category
   const hlsl::RegisterAssignment *reg;        ///< HLSL register assignment
   const VKBindingAttr *binding;               ///< Vulkan binding assignment
   const VKCounterBindingAttr *counterBinding; ///< Vulkan counter binding

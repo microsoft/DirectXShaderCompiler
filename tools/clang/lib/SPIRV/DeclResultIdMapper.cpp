@@ -37,15 +37,6 @@ const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
   return nullptr;
 }
 
-/// \brief Returns the resource category for the given type.
-ResourceVar::Category getResourceCategory(QualType type) {
-  if (TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type))
-    return ResourceVar::Category::Image;
-  if (TypeTranslator::isSampler(type))
-    return ResourceVar::Category::Sampler;
-  return ResourceVar::Category::Other;
-}
-
 /// \brief Returns true if the given declaration has a primitive type qualifier.
 /// Returns false otherwise.
 inline bool hasGSPrimitiveTypeQualifier(const Decl *decl) {
@@ -436,8 +427,7 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
   const auto *counterBindingAttr = var->getAttr<VKCounterBindingAttr>();
 
-  resourceVars.emplace_back(id, getResourceCategory(var->getType()), regAttr,
-                            bindingAttr, counterBindingAttr);
+  resourceVars.emplace_back(id, regAttr, bindingAttr, counterBindingAttr);
 
   if (const auto *inputAttachment = var->getAttr<VKInputAttachmentIndexAttr>())
     theBuilder.decorateInputAttachmentIndex(id, inputAttachment->getIndex());
@@ -481,11 +471,10 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     llvm::StringRef varName) {
   // cbuffers are translated into OpTypeStruct with Block decoration.
   // tbuffers are translated into OpTypeStruct with BufferBlock decoration.
-  // PushConstants are translated into OpTypeStruct with Block decoration.
+  // Push constants are translated into OpTypeStruct with Block decoration.
   //
-  // Both cbuffers and tbuffers have the SPIR-V Uniform storage class. cbuffers
-  // follow GLSL std140 layout rules, and tbuffers follow GLSL std430 layout
-  // rules. PushConstants follow GLSL std430 layout rules.
+  // Both cbuffers and tbuffers have the SPIR-V Uniform storage class.
+  // Push constants have the SPIR-V PushConstant storage class.
 
   const bool forCBuffer = usageKind == ContextUsageKind::CBuffer;
   const bool forTBuffer = usageKind == ContextUsageKind::TBuffer;
@@ -577,9 +566,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
                                              : spirvOptions.tBufferLayoutRule);
     astDecls[varDecl].indexInCTBuffer = index++;
   }
-  resourceVars.emplace_back(
-      bufferVar, ResourceVar::Category::Other, getResourceBinding(decl),
-      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
+  resourceVars.emplace_back(bufferVar, getResourceBinding(decl),
+                            decl->getAttr<VKBindingAttr>(),
+                            decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
 }
@@ -615,9 +604,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
           .setStorageClass(spv::StorageClass::Uniform)
           .setLayoutRule(context->isCBuffer() ? spirvOptions.cBufferLayoutRule
                                               : spirvOptions.tBufferLayoutRule);
-  resourceVars.emplace_back(
-      bufferVar, ResourceVar::Category::Other, getResourceBinding(context),
-      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
+  resourceVars.emplace_back(bufferVar, getResourceBinding(context),
+                            decl->getAttr<VKBindingAttr>(),
+                            decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
 }
@@ -652,8 +641,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
       context, /*arraySize*/ 0, ContextUsageKind::Globals, "type.$Globals",
       "$Globals");
 
-  resourceVars.emplace_back(globals, ResourceVar::Category::Other, nullptr,
-                            nullptr, nullptr);
+  resourceVars.emplace_back(globals, nullptr, nullptr, nullptr);
 
   uint32_t index = 0;
   for (const auto *decl : typeTranslator.collectDeclsInDeclContext(context))
@@ -760,8 +748,7 @@ void DeclResultIdMapper::createCounterVar(
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that
     // descriptors can be allocated for them.
-    resourceVars.emplace_back(counterId, ResourceVar::Category::Other,
-                              getResourceBinding(decl),
+    resourceVars.emplace_back(counterId, getResourceBinding(decl),
                               decl->getAttr<VKBindingAttr>(),
                               decl->getAttr<VKCounterBindingAttr>(), true);
     assert(declId);
@@ -861,39 +848,24 @@ private:
 /// set and binding number.
 class BindingSet {
 public:
-  /// Tries to use the given set and binding number. Returns true if possible,
-  /// false otherwise and writes the source location of where the binding number
-  /// is used to *usedLoc.
-  bool tryToUseBinding(uint32_t binding, uint32_t set,
-                       ResourceVar::Category category, SourceLocation tryLoc,
-                       SourceLocation *usedLoc) {
-    const auto cat = static_cast<uint32_t>(category);
-    // Note that we will create the entry for binding in bindings[set] here.
-    // But that should not have bad effects since it defaults to zero.
-    if ((usedBindings[set][binding] & cat) == 0) {
-      usedBindings[set][binding] |= cat;
-      whereUsed[set][binding] = tryLoc;
-      return true;
-    }
-    *usedLoc = whereUsed[set][binding];
-    return false;
+  /// Uses the given set and binding number.
+  void useBinding(uint32_t binding, uint32_t set) {
+    usedBindings[set].insert(binding);
   }
 
   /// Uses the next avaiable binding number in set 0.
-  uint32_t useNextBinding(uint32_t set, ResourceVar::Category category) {
+  uint32_t useNextBinding(uint32_t set) {
     auto &binding = usedBindings[set];
     auto &next = nextBindings[set];
     while (binding.count(next))
       ++next;
-    binding[next] = static_cast<uint32_t>(category);
+    binding.insert(next);
     return next++;
   }
 
 private:
-  ///< set number -> (binding number -> resource category)
-  llvm::DenseMap<uint32_t, llvm::DenseMap<uint32_t, uint32_t>> usedBindings;
-  ///< set number -> (binding number -> source location)
-  llvm::DenseMap<uint32_t, llvm::DenseMap<uint32_t, SourceLocation>> whereUsed;
+  ///< set number -> set of used binding number
+  llvm::DenseMap<uint32_t, llvm::DenseSet<uint32_t>> usedBindings;
   ///< set number -> next available binding number
   llvm::DenseMap<uint32_t, uint32_t> nextBindings;
 };
@@ -1043,15 +1015,19 @@ namespace {
 /// sets.
 class BindingShiftMapper {
 public:
-  explicit BindingShiftMapper(const llvm::SmallVectorImpl<uint32_t> &shifts)
+  explicit BindingShiftMapper(const llvm::SmallVectorImpl<int32_t> &shifts)
       : masterShift(0) {
     assert(shifts.size() % 2 == 0);
-    for (uint32_t i = 0; i < shifts.size(); i += 2)
-      perSetShift[shifts[i + 1]] = shifts[i];
+    if (shifts.size() == 2 && shifts[1] == -1) {
+      masterShift = shifts[0];
+    } else {
+      for (uint32_t i = 0; i < shifts.size(); i += 2)
+        perSetShift[shifts[i + 1]] = shifts[i];
+    }
   }
 
   /// Returns the shift amount for the given set.
-  uint32_t getShiftForSet(uint32_t set) const {
+  int32_t getShiftForSet(int32_t set) const {
     const auto found = perSetShift.find(set);
     if (found != perSetShift.end())
       return found->second;
@@ -1060,7 +1036,7 @@ public:
 
 private:
   uint32_t masterShift; /// Shift amount applies to all sets.
-  llvm::DenseMap<uint32_t, uint32_t> perSetShift;
+  llvm::DenseMap<int32_t, int32_t> perSetShift;
 };
 } // namespace
 
@@ -1086,19 +1062,11 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   BindingSet bindingSet;
 
   // Decorates the given varId of the given category with set number
-  // setNo, binding number bindingNo. Emits warning if overlap.
-  const auto tryToDecorate = [this, &bindingSet](
-                                 const uint32_t varId, const uint32_t setNo,
-                                 const uint32_t bindingNo,
-                                 const ResourceVar::Category cat,
-                                 SourceLocation loc) {
-    SourceLocation prevUseLoc;
-    if (!bindingSet.tryToUseBinding(bindingNo, setNo, cat, loc, &prevUseLoc)) {
-      emitWarning("resource binding #%0 in descriptor set #%1 already assigned",
-                  loc)
-          << bindingNo << setNo;
-      emitNote("binding number previously assigned here", prevUseLoc);
-    }
+  // setNo, binding number bindingNo. Ignores overlaps.
+  const auto tryToDecorate = [this, &bindingSet](const uint32_t varId,
+                                                 const uint32_t setNo,
+                                                 const uint32_t bindingNo) {
+    bindingSet.useBinding(bindingNo, setNo);
     theBuilder.decorateDSetBinding(varId, setNo, bindingNo);
   };
 
@@ -1112,15 +1080,13 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace;
 
-        tryToDecorate(var.getSpirvId(), set, vkCBinding->getBinding(),
-                      var.getCategory(), vkCBinding->getLocation());
+        tryToDecorate(var.getSpirvId(), set, vkCBinding->getBinding());
       }
     } else {
       if (const auto *vkBinding = var.getBinding()) {
         // Process m1
         tryToDecorate(var.getSpirvId(), vkBinding->getSet(),
-                      vkBinding->getBinding(), var.getCategory(),
-                      vkBinding->getLocation());
+                      vkBinding->getBinding());
       }
     }
   }
@@ -1156,12 +1122,10 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           llvm_unreachable("unknown register type found");
         }
 
-        tryToDecorate(var.getSpirvId(), set, binding, var.getCategory(),
-                      reg->Loc);
+        tryToDecorate(var.getSpirvId(), set, binding);
       }
 
   for (const auto &var : resourceVars) {
-    const auto cat = var.getCategory();
     if (var.isCounter()) {
       if (!var.getCounterBinding()) {
         // Process mX * c2
@@ -1172,12 +1136,12 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           set = reg->RegisterSpace;
 
         theBuilder.decorateDSetBinding(var.getSpirvId(), set,
-                                       bindingSet.useNextBinding(set, cat));
+                                       bindingSet.useNextBinding(set));
       }
     } else if (!var.getBinding() && !var.getRegister()) {
       // Process m3
       theBuilder.decorateDSetBinding(var.getSpirvId(), 0,
-                                     bindingSet.useNextBinding(0, cat));
+                                     bindingSet.useNextBinding(0));
     }
   }
 
@@ -1282,11 +1246,9 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     //   SampleMask, must be an array of integers.
     // * SV_InnerCoverage is an uint value, but the corresponding builtin,
     //   FullyCoveredEXT, must be an boolean value.
-    // * SV_DispatchThreadID and SV_GroupThreadID are allowed to be uint, uint2,
-    //   or uint3, but the corresponding builtins (GlobalInvocationId and
-    //   LocalInvocationId) must be a uint3.
-    // * SV_GroupID is allowed to be uint, uint2, or uint3, but the
-    //   corresponding builtin (WorkgroupId) must be a uint3.
+    // * SV_DispatchThreadID, SV_GroupThreadID, and SV_GroupID are allowed to be
+    //   uint, uint2, or uint3, but the corresponding builtins
+    //   (GlobalInvocationId, LocalInvocationId, WorkgroupId) must be a uint3.
 
     if (glPerVertex.tryToAccess(sigPoint->GetKind(), semanticKind,
                                 semanticToUse->index, invocationId, value,
@@ -1294,6 +1256,7 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       return true;
 
     const uint32_t srcTypeId = typeId; // Variable type in source code
+    uint32_t srcVecElemTypeId = 0;     // Variable element type if vector
 
     switch (semanticKind) {
     case hlsl::Semantic::Kind::DomainLocation:
@@ -1319,7 +1282,10 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     case hlsl::Semantic::Kind::DispatchThreadID:
     case hlsl::Semantic::Kind::GroupThreadID:
     case hlsl::Semantic::Kind::GroupID:
-      typeId = theBuilder.getVecType(theBuilder.getUint32Type(), 3);
+      // Keep the original integer signedness
+      srcVecElemTypeId = typeTranslator.translateType(
+          hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type);
+      typeId = theBuilder.getVecType(srcVecElemTypeId, 3);
       break;
     }
 
@@ -1355,6 +1321,13 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
 
     // Mark that we have used one index for this semantic
     ++semanticToUse->index;
+
+    // Require extension and capability if using 16-bit types
+    if (typeTranslator.getElementSpirvBitwidth(type) == 16) {
+      theBuilder.addExtension(Extension::KHR_16bit_storage,
+                              "16-bit stage IO variables", decl->getLocation());
+      theBuilder.requireCapability(spv::Capability::StorageInputOutput16);
+    }
 
     // TODO: the following may not be correct?
     if (sigPoint->GetSignatureKind() ==
@@ -1458,15 +1431,16 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
                 semanticKind == hlsl::Semantic::Kind::GroupID) &&
                (!hlsl::IsHLSLVecType(type) ||
                 hlsl::GetHLSLVecSize(type) != 3)) {
+        assert(srcVecElemTypeId);
         const auto vecSize =
             hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecSize(type) : 1;
         if (vecSize == 1)
-          *value = theBuilder.createCompositeExtract(theBuilder.getUint32Type(),
-                                                     *value, {0});
+          *value =
+              theBuilder.createCompositeExtract(srcVecElemTypeId, *value, {0});
         else if (vecSize == 2)
           *value = theBuilder.createVectorShuffle(
-              theBuilder.getVecType(theBuilder.getUint32Type(), 2), *value,
-              *value, {0, 1});
+              theBuilder.getVecType(srcVecElemTypeId, 2), *value, *value,
+              {0, 1});
       }
     } else {
       if (noWriteBack)
