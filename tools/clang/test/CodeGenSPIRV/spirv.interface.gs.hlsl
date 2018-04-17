@@ -4,7 +4,6 @@
 // CHECK: OpCapability CullDistance
 // CHECK: OpCapability Geometry
 
-// CHECK: OpExtension "SPV_GOOGLE_decorate_string"
 // CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 
 struct GsPerVertexIn {

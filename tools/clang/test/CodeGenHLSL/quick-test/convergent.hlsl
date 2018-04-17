@@ -3,7 +3,8 @@
 // Make sure add is not sink into if.
 // CHECK: fadd
 // CHECK: fadd
-// CHECK: if.then
+// CHECK: fcmp
+// CHECK-NEXT: br
 
 Texture2D<float4> tex;
 SamplerState s;

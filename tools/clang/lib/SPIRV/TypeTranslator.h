@@ -140,9 +140,9 @@ public:
   uint32_t getTypeWithCustomBitwidth(QualType type, uint32_t bitwidth);
 
   /// \brief Returns the realized bitwidth of the given type when represented in
-  /// SPIR-V. Panics if the given type is not a scalar or vector of float or
-  /// integer. In case of vectors, it returns the realized SPIR-V bitwidth of
-  /// the vector elements.
+  /// SPIR-V. Panics if the given type is not a scalar, a vector/matrix of float
+  /// or integer, or an array of them. In case of vectors, it returns the
+  /// realized SPIR-V bitwidth of the vector elements.
   uint32_t getElementSpirvBitwidth(QualType type);
 
   /// \brief Returns true if the given type will be translated into a SPIR-V
@@ -274,7 +274,7 @@ public:
   /// DeclContext. If it sees a NamespaceDecl, it recursively dives in and
   /// collects decls in the correct order.
   /// Utilizes collectDeclsInNamespace and collectDeclsInField private methods.
-  const llvm::SmallVector<const Decl *, 4>
+  llvm::SmallVector<const Decl *, 4>
   collectDeclsInDeclContext(const DeclContext *declContext);
 
 private:

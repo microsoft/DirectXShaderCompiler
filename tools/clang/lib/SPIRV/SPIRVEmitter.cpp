@@ -510,7 +510,7 @@ spv::Capability getCapabilityForGroupNonUniform(spv::Op opcode) {
   return spv::Capability::Max;
 }
 
-std::string getNamespacePrefix(const Decl* decl) {
+std::string getNamespacePrefix(const Decl *decl) {
   std::string nsPrefix = "";
   const DeclContext *dc = decl->getDeclContext();
   while (dc && !dc->isTranslationUnit()) {
@@ -561,15 +561,22 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
               {});
 
   options.Initialize();
+
+  // Set shader module version
+  theBuilder.setShaderModelVersion(shaderModel.GetMajor(),
+                                   shaderModel.GetMinor());
+
+  // Set debug info
+  const auto &inputFiles = ci.getFrontendOpts().Inputs;
+  if (options.enableDebugInfo && !inputFiles.empty())
+    theBuilder.setSourceFileName(theContext.takeNextId(),
+                                 inputFiles.front().getFile().str());
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   // Stop translating if there are errors in previous compilation stages.
   if (context.getDiagnostics().hasErrorOccurred())
     return;
-
-  theBuilder.setShaderModelVersion(shaderModel.GetMajor(),
-                                   shaderModel.GetMinor());
 
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
 
@@ -1950,7 +1957,7 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   bool isNonStaticMemberCall = false;
   QualType objectType = {};         // Type of the object (if exists)
   SpirvEvalInfo objectEvalInfo = 0; // EvalInfo for the object (if exists)
-  bool objectNeedsTempVar = false;  // Temporary variable for lvalue object
+  bool needsTempVar = false;        // Whether we need temporary variable.
 
   llvm::SmallVector<uint32_t, 4> params;    // Temporary variables
   llvm::SmallVector<SpirvEvalInfo, 4> args; // Evaluated arguments
@@ -1975,17 +1982,11 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
       // If not already a variable, we need to create a temporary variable and
       // pass the object pointer to the function. Example:
       // getObject().objectMethod();
-      bool needsTempVar = objectEvalInfo.isRValue();
-
-      // Try to see if we are calling methods on a global variable, which is put
-      // in the Private storage class. We also need to create temporary variable
-      // for it since the function signature expects all arguments in the
-      // Function storage class.
-      if (!needsTempVar)
-        if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(object))
-          if (const auto *refDecl = declRefExpr->getFoundDecl())
-            if (const auto *varDecl = dyn_cast<VarDecl>(refDecl))
-              needsTempVar = objectNeedsTempVar = varDecl->hasGlobalStorage();
+      // Also, any parameter passed to the member function must be of Function
+      // storage class.
+      needsTempVar =
+          objectEvalInfo.isRValue() ||
+          objectEvalInfo.getStorageClass() != spv::StorageClass::Function;
 
       if (needsTempVar) {
         objectId =
@@ -2041,10 +2042,10 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   const uint32_t retVal =
       theBuilder.createFunctionCall(retType, funcId, params);
 
-  // If we created a temporary variable for the object this method is invoked
-  // upon, we need to copy the contents in the temporary variable back to the
-  // original object's variable in case there are side effects.
-  if (objectNeedsTempVar) {
+  // If we created a temporary variable for the lvalue object this method is
+  // invoked upon, we need to copy the contents in the temporary variable back
+  // to the original object's variable in case there are side effects.
+  if (needsTempVar && !objectEvalInfo.isRValue()) {
     const uint32_t typeId = typeTranslator.translateType(objectType);
     const uint32_t value = theBuilder.createLoad(typeId, params.front());
     storeValue(objectEvalInfo, value, objectType);
@@ -2938,6 +2939,7 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   const uint32_t compareVal = isCmp ? doExpr(expr->getArg(2)) : 0;
 
   // Handle offsets (if any).
+  bool needsEmulation = false;
   uint32_t constOffset = 0, varOffset = 0, constOffsets = 0;
   if (numOffsetArgs == 1) {
     // The offset arg is not optional.
@@ -2948,21 +2950,40 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
     const auto offset2 = tryToEvaluateAsConst(expr->getArg(4 + isCmp));
     const auto offset3 = tryToEvaluateAsConst(expr->getArg(5 + isCmp));
 
-    // Make sure we can generate the ConstOffsets image operands in SPIR-V.
-    if (!offset0 || !offset1 || !offset2 || !offset3) {
-      emitError("all offset parameters to '%0' method call must be constants",
-                expr->getExprLoc())
-          << callee->getName() << expr->getSourceRange();
-      return 0;
+    // If any of the offsets is not constant, we then need to emulate the call
+    // using 4 OpImageGather instructions. Otherwise, we can leverage the
+    // ConstOffsets image operand.
+    if (offset0 && offset1 && offset2 && offset3) {
+      const uint32_t v2i32 =
+          theBuilder.getVecType(theBuilder.getInt32Type(), 2);
+      const uint32_t offsetType =
+          theBuilder.getArrayType(v2i32, theBuilder.getConstantUint32(4));
+      constOffsets = theBuilder.getConstantComposite(
+          offsetType, {offset0, offset1, offset2, offset3});
+    } else {
+      needsEmulation = true;
     }
-    const uint32_t v2i32 = theBuilder.getVecType(theBuilder.getInt32Type(), 2);
-    const uint32_t offsetType =
-        theBuilder.getArrayType(v2i32, theBuilder.getConstantUint32(4));
-    constOffsets = theBuilder.getConstantComposite(
-        offsetType, {offset0, offset1, offset2, offset3});
   }
 
   const auto status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : 0;
+
+  if (needsEmulation) {
+    const auto elemType = typeTranslator.translateType(
+        hlsl::GetHLSLVecElementType(callee->getReturnType()));
+
+    uint32_t texels[4];
+    for (uint32_t i = 0; i < 4; ++i) {
+      varOffset = doExpr(expr->getArg(2 + isCmp + i));
+      const uint32_t gatherRet = theBuilder.createImageGather(
+          retTypeId, imageTypeId, image, sampler, coordinate,
+          theBuilder.getConstantInt32(component), compareVal, /*constOffset*/ 0,
+          varOffset, /*constOffsets*/ 0, /*sampleNumber*/ 0, status);
+      texels[i] = theBuilder.createCompositeExtract(elemType, gatherRet, {i});
+    }
+    return theBuilder.createCompositeConstruct(
+        retTypeId, {texels[0], texels[1], texels[2], texels[3]});
+  }
+
   return theBuilder.createImageGather(
       retTypeId, imageTypeId, image, sampler, coordinate,
       theBuilder.getConstantInt32(component), compareVal, constOffset,
@@ -4824,6 +4845,45 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
 uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
                                         const QualType valType,
                                         LayoutRule dstLR) {
+  // Lambda for casting scalar or vector of bool<-->uint in cases where one side
+  // of the reconstruction (lhs or rhs) has a layout rule.
+  const auto handleBooleanLayout = [this, &srcVal, dstLR](uint32_t val,
+                                                          QualType valType) {
+    // We only need to cast if we have a scalar or vector of booleans.
+    if (!isBoolOrVecOfBoolType(valType))
+      return val;
+
+    LayoutRule srcLR = srcVal.getLayoutRule();
+    // Source value has a layout rule, and has therefore been represented
+    // as a uint. Cast it to boolean before using.
+    bool shouldCastToBool =
+        srcLR != LayoutRule::Void && dstLR == LayoutRule::Void;
+    // Destination has a layout rule, and should therefore be represented
+    // as a uint. Cast to uint before using.
+    bool shouldCastToUint =
+        srcLR == LayoutRule::Void && dstLR != LayoutRule::Void;
+    // No boolean layout issues to take care of.
+    if (!shouldCastToBool && !shouldCastToUint)
+      return val;
+
+    uint32_t vecSize = 1;
+    TypeTranslator::isVectorType(valType, nullptr, &vecSize);
+    QualType boolType =
+        vecSize == 1 ? astContext.BoolTy
+                     : astContext.getExtVectorType(astContext.BoolTy, vecSize);
+    QualType uintType =
+        vecSize == 1
+            ? astContext.UnsignedIntTy
+            : astContext.getExtVectorType(astContext.UnsignedIntTy, vecSize);
+
+    if (shouldCastToBool)
+      return castToBool(val, uintType, boolType);
+    if (shouldCastToUint)
+      return castToInt(val, boolType, uintType, {});
+
+    return val;
+  };
+
   // Lambda for cases where we want to reconstruct an array
   const auto reconstructArray = [this, &srcVal, valType,
                                  dstLR](uint32_t arraySize,
@@ -4834,7 +4894,6 @@ uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
           typeTranslator.translateType(arrayElemType, srcVal.getLayoutRule());
       const auto subSrcVal =
           theBuilder.createCompositeExtract(subSrcValType, srcVal, {i});
-
       elements.push_back(reconstructValue(srcVal.substResultId(subSrcVal),
                                           arrayElemType, dstLR));
     }
@@ -4868,7 +4927,7 @@ uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
   // Note: This check should happen before the RecordType check since
   // vector/matrix/resource types are represented as RecordType in the AST.
   if (hlsl::IsHLSLVecMatType(valType) || hlsl::IsHLSLResourceType(valType))
-    return srcVal;
+    return handleBooleanLayout(srcVal, valType);
 
   // Structs
   if (const auto *recordType = valType->getAs<RecordType>()) {
@@ -4888,7 +4947,7 @@ uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
     return theBuilder.createCompositeConstruct(dstValType, elements);
   }
 
-  return srcVal;
+  return handleBooleanLayout(srcVal, valType);
 }
 
 SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
@@ -6509,7 +6568,14 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     if (isBufferTextureIndexing(callExpr, &base, &index)) {
       const auto ptrType =
           theBuilder.getPointerType(baseTypeId, spv::StorageClass::Image);
-      const auto baseId = doExpr(base);
+      auto baseId = doExpr(base);
+      if (baseId.isRValue()) {
+        // OpImageTexelPointer's Image argument must have a type of
+        // OpTypePointer with Type OpTypeImage. Need to create a temporary
+        // variable if the baseId is an rvalue.
+        baseId = createTemporaryVar(
+            base->getType(), TypeTranslator::getName(base->getType()), baseId);
+      }
       const auto coordId = doExpr(index);
       ptr = theBuilder.createImageTexelPointer(ptrType, baseId, coordId, zero);
     }

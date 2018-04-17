@@ -21,26 +21,103 @@
 #endif
 #endif
 
+namespace {
+using namespace ::testing;
+
+/// A GoogleTest event printer that only prints test failures.
+class FailurePrinter : public TestEventListener {
+public:
+  explicit FailurePrinter(TestEventListener *listener)
+      : defaultListener(listener) {}
+
+  ~FailurePrinter() override { delete defaultListener; }
+
+  void OnTestProgramStart(const UnitTest &ut) override {
+    defaultListener->OnTestProgramStart(ut);
+  }
+
+  void OnTestIterationStart(const UnitTest &ut, int iteration) override {
+    defaultListener->OnTestIterationStart(ut, iteration);
+  }
+
+  void OnEnvironmentsSetUpStart(const UnitTest &ut) override {
+    defaultListener->OnEnvironmentsSetUpStart(ut);
+  }
+
+  void OnEnvironmentsSetUpEnd(const UnitTest &ut) override {
+    defaultListener->OnEnvironmentsSetUpEnd(ut);
+  }
+
+  void OnTestCaseStart(const TestCase &tc) override {
+    defaultListener->OnTestCaseStart(tc);
+  }
+
+  void OnTestStart(const TestInfo &ti) override {
+    // Do not output on test start
+    // defaultListener->OnTestStart(ti);
+  }
+
+  void OnTestPartResult(const TestPartResult &result) override {
+    defaultListener->OnTestPartResult(result);
+  }
+
+  void OnTestEnd(const TestInfo &ti) override {
+    // Only output if failure on test end
+    if (ti.result()->Failed())
+      defaultListener->OnTestEnd(ti);
+  }
+
+  void OnTestCaseEnd(const TestCase &tc) override {
+    defaultListener->OnTestCaseEnd(tc);
+  }
+
+  void OnEnvironmentsTearDownStart(const UnitTest &ut) override {
+    defaultListener->OnEnvironmentsTearDownStart(ut);
+  }
+
+  void OnEnvironmentsTearDownEnd(const UnitTest &ut) override {
+    defaultListener->OnEnvironmentsTearDownEnd(ut);
+  }
+
+  void OnTestIterationEnd(const UnitTest &ut, int iteration) override {
+    defaultListener->OnTestIterationEnd(ut, iteration);
+  }
+
+  void OnTestProgramEnd(const UnitTest &ut) override {
+    defaultListener->OnTestProgramEnd(ut);
+  }
+
+private:
+  TestEventListener *defaultListener;
+};
+} // namespace
+
 const char *TestMainArgv0;
 
 int main(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal(true /* Disable crash reporting */);
 
-  // Initialize both gmock and gtest.
-  testing::InitGoogleMock(&argc, argv);
-
   for (int i = 1; i < argc; ++i) {
     if (std::string("--spirv-test-root") == argv[i]) {
       // Allow the user set the root directory for test input files.
       if (i + 1 < argc) {
-        clang::spirv::testOptions::inputDataDir = argv[i + 1];
-        i++;
+        clang::spirv::testOptions::inputDataDir = argv[++i];
       } else {
         fprintf(stderr, "Error: --spirv-test-root requires an argument\n");
         return 1;
       }
     }
   }
+
+  // Initialize both gmock and gtest.
+  testing::InitGoogleMock(&argc, argv);
+
+  // Switch event listener to one that only prints failures.
+  testing::TestEventListeners &listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+  auto *defaultPrinter = listeners.Release(listeners.default_result_printer());
+  // Google Test takes the ownership.
+  listeners.Append(new FailurePrinter(defaultPrinter));
 
   // Make it easy for a test to re-execute itself by saving argv[0].
   TestMainArgv0 = argv[0];
