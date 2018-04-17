@@ -1416,7 +1416,7 @@ Parser::TryAnnotateName(bool IsAddressOfOperand,
     if (TryAnnotateTypeOrScopeTokenAfterScopeSpec(EnteringContext, false, SS,
                                                   !WasScopeAnnotation))
       return ANK_Error;
-    return ANK_Unresolved;
+    return (Tok.isNot(tok::annot_typename) || SS.isInvalid()) ? ANK_Unresolved : ANK_Success;
   }
 
   IdentifierInfo *Name = Tok.getIdentifierInfo();
