@@ -9,6 +9,5 @@ float main() : A {
     return 1.0;
 }
 
-// CHECK: :4:15: warning: tbuffer member initializer ignored since no equivalent in Vulkan
-// CHECK: :5:16: warning: tbuffer member initializer ignored since no equivalent in Vulkan
-
+// CHECK: :4:15: warning: tbuffer member initializer ignored since no Vulkan equivalent
+// CHECK: :5:16: warning: tbuffer member initializer ignored since no Vulkan equivalent
