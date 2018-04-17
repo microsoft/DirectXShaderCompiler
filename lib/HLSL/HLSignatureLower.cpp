@@ -701,9 +701,9 @@ void collectInputOutputAccessInfo(
     Value *GV, Constant *constZero,
     std::vector<InputOutputAccessInfo> &accessInfoList, bool hasVertexID,
     bool bInput, bool bRowMajor) {
-  auto User = GV->user_begin();
-  auto UserE = GV->user_end();
-  for (; User != UserE;) {
+  // merge GEP use for input output.
+  HLModule::MergeGepUse(GV);
+  for (auto User = GV->user_begin(); User != GV->user_end();) {
     Value *I = *(User++);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(I)) {
       if (bInput) {
