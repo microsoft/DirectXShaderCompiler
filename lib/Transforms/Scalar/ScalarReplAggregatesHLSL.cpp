@@ -3878,11 +3878,11 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC) {
   }
 }
 
-static bool DominateAllUsersEntry(Instruction *I, const Value *V) {
+static bool ReplaceUseOfZeroInitEntry(Instruction *I, Value *V) {
   BasicBlock *BB = I->getParent();
   Function *F = I->getParent()->getParent();
-  for (const User *U : V->users()) {
-    const Instruction *UI = dyn_cast<Instruction>(U);
+  for (auto U = V->user_begin(); U != V->user_end(); ) {
+    Instruction *UI = dyn_cast<Instruction>(*(U++));
     if (!UI)
       continue;
 
@@ -3890,7 +3890,7 @@ static bool DominateAllUsersEntry(Instruction *I, const Value *V) {
       continue;
 
     if (isa<GetElementPtrInst>(UI) || isa<BitCastInst>(UI)) {
-      if (!DominateAllUsersEntry(I, UI))
+      if (!ReplaceUseOfZeroInitEntry(I, UI))
         return false;
       else
         continue;
@@ -3899,17 +3899,22 @@ static bool DominateAllUsersEntry(Instruction *I, const Value *V) {
       continue;
     // I is the last inst in the block after split.
     // Any inst in current block is before I.
+    if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
+      LI->replaceAllUsesWith(ConstantAggregateZero::get(LI->getType()));
+      LI->eraseFromParent();
+      continue;
+    }
     return false;
   }
   return true;
 }
 
-static bool DominateAllUsersPostDom(Instruction *I, const Value *V,
+static bool ReplaceUseOfZeroInitPostDom(Instruction *I, Value *V,
                                     PostDominatorTree &PDT) {
   BasicBlock *BB = I->getParent();
   Function *F = I->getParent()->getParent();
-  for (const User *U : V->users()) {
-    const Instruction *UI = dyn_cast<Instruction>(U);
+  for (auto U = V->user_begin(); U != V->user_end(); ) {
+    Instruction *UI = dyn_cast<Instruction>(*(U++));
     if (!UI)
       continue;
     if (UI->getParent()->getParent() != F)
@@ -3919,7 +3924,7 @@ static bool DominateAllUsersPostDom(Instruction *I, const Value *V,
       return false;
 
     if (isa<GetElementPtrInst>(UI) || isa<BitCastInst>(UI)) {
-      if (!DominateAllUsersPostDom(I, UI, PDT))
+      if (!ReplaceUseOfZeroInitPostDom(I, UI, PDT))
         return false;
       else
         continue;
@@ -3929,12 +3934,18 @@ static bool DominateAllUsersPostDom(Instruction *I, const Value *V,
       continue;
     // I is the last inst in the block after split.
     // Any inst in current block is before I.
+    if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
+      LI->replaceAllUsesWith(ConstantAggregateZero::get(LI->getType()));
+      LI->eraseFromParent();
+      continue;
+    }
     return false;
   }
   return true;
 }
-
-static bool DominateAllUsers(Instruction *I, const GlobalVariable *GV) {
+// When zero initialized GV has only one define, all uses before the def should
+// use zero.
+static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   BasicBlock *BB = I->getParent();
   Function *F = I->getParent()->getParent();
   // Make sure I is the last inst for BB.
@@ -3942,12 +3953,12 @@ static bool DominateAllUsers(Instruction *I, const GlobalVariable *GV) {
     BB->splitBasicBlock(I->getNextNode());
 
   if (&F->getEntryBlock() == I->getParent()) {
-    return DominateAllUsersEntry(I, GV);
+    return ReplaceUseOfZeroInitEntry(I, GV);
   } else {
     // Post dominator tree.
     PostDominatorTree PDT;
     PDT.runOnFunction(*F);
-    return DominateAllUsersPostDom(I, GV, PDT);
+    return ReplaceUseOfZeroInitPostDom(I, GV, PDT);
   }
 }
 
@@ -3966,7 +3977,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   const bool bStructElt = false;
   PointerStatus::analyzePointer(V, PS, typeSys, bStructElt);
 
-  if (const GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
     if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
       if (PS.StoredType == PointerStatus::StoredType::NotStored) {
         PS.StoredType = PointerStatus::StoredType::InitializerStored;
@@ -3981,7 +3992,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         // call set inside entry function then use a2.
         if (isa<ConstantAggregateZero>(GV->getInitializer())) {
           Instruction * Memcpy = PS.StoringMemcpy;
-          if (!DominateAllUsers(Memcpy, GV)) {
+          if (!ReplaceUseOfZeroInitBeforeDef(Memcpy, GV)) {
             PS.StoredType = PointerStatus::StoredType::Stored;
           }
         }

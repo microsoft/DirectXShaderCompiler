@@ -1264,7 +1264,7 @@ Value *TranslateAtan2(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Constant *halfPi = ConstantFP::get(Ty->getScalarType(), M_PI / 2);
   Constant *negHalfPi = ConstantFP::get(Ty->getScalarType(), -M_PI / 2);
   Constant *zero = ConstantFP::get(Ty->getScalarType(), 0);
-  if (Ty != Ty->getScalarType()) {
+  if (Ty->isVectorTy()) {
     unsigned vecSize = Ty->getVectorNumElements();
     pi = ConstantVector::getSplat(vecSize, pi);
     halfPi = ConstantVector::getSplat(vecSize, halfPi);
