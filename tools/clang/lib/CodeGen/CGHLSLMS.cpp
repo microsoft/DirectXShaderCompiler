@@ -3086,6 +3086,9 @@ static bool CreateCBufferVariable(HLCBuffer &CB,
     if (cbSubscript->user_empty()) {
       cbSubscript->eraseFromParent();
       Handle->eraseFromParent();
+    } else {
+      // merge GEP use for cbSubscript.
+      HLModule::MergeGepUse(cbSubscript);
     }
   }
   return true;
@@ -4468,7 +4471,7 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     if (f.hasFnAttribute(llvm::Attribute::NoInline))
       continue;
     // Always inline for used functions.
-    if (!f.user_empty())
+    if (!f.user_empty() && !f.isDeclaration())
       f.addFnAttr(llvm::Attribute::AlwaysInline);
   }
 
