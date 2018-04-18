@@ -51,10 +51,10 @@ namespace fs {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Per-thread MSFileSystem support.
 
-static DWORD g_FileSystemTls;
+static DWORD g_FileSystemTls = 0;
 
 // skip, but keep track of setup/cleanup nesting
-static unsigned g_FileSystemSetupNested = 0;
+static volatile unsigned g_FileSystemSetupNested = 0;
 
 error_code SetupPerThreadFileSystem() throw()
 {

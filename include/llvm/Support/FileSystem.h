@@ -53,6 +53,7 @@ namespace fs {
 class MSFileSystem;
 typedef _Inout_ MSFileSystem* MSFileSystemRef;
 
+// Nesting [Setup/Cleanup]PerThreadFileSystem() calls is supported.
 std::error_code SetupPerThreadFileSystem() throw();
 void CleanupPerThreadFileSystem() throw();
 
@@ -78,7 +79,9 @@ private:
   std::error_code ec;
 public:
   AutoPerThreadSystem(_In_ ::llvm::sys::fs::MSFileSystem *value)
-      : m_pOrigValue(::llvm::sys::fs::GetCurrentThreadFileSystem()) {
+      : m_pOrigValue(nullptr) {
+    ::llvm::sys::fs::SetupPerThreadFileSystem();
+    m_pOrigValue = ::llvm::sys::fs::GetCurrentThreadFileSystem();
     SetCurrentThreadFileSystem(nullptr);
     ec = ::llvm::sys::fs::SetCurrentThreadFileSystem(value);
   }
@@ -91,6 +94,7 @@ public:
     } else if (!ec) {
       ::llvm::sys::fs::SetCurrentThreadFileSystem(nullptr);
     }
+    ::llvm::sys::fs::CleanupPerThreadFileSystem();
   }
 
   const std::error_code& error_code() const { return ec; }
