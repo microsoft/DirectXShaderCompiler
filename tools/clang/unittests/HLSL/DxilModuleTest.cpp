@@ -42,7 +42,6 @@ public:
   END_TEST_CLASS()
 
   TEST_CLASS_SETUP(InitSupport);
-  TEST_CLASS_CLEANUP(Cleanup);
 
   dxc::DxcDllSupport m_dllSupport;
 
@@ -65,14 +64,8 @@ bool DxilModuleTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
   }
-  llvm::sys::fs::SetupPerThreadFileSystem();
-  return true;
-}
-bool DxilModuleTest::Cleanup() {
-  if (m_dllSupport.IsEnabled()) {
-    m_dllSupport.Cleanup();
-  }
-  llvm::sys::fs::CleanupPerThreadFileSystem();
+  if (llvm::sys::fs::GetFileSystemTlsResult())
+    return false;
   return true;
 }
 
