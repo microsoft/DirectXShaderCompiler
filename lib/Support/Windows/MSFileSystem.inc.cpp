@@ -51,40 +51,57 @@ namespace fs {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Per-thread MSFileSystem support.
 
-static DWORD g_FileSystemTls = 0;
+namespace {
 
-// skip, but keep track of setup/cleanup nesting
-static volatile unsigned g_FileSystemSetupNested = 0;
-
-error_code SetupPerThreadFileSystem() throw()
-{
-  if (g_FileSystemSetupNested++)
-    return error_code();
-
-  assert(g_FileSystemTls == 0 && "otherwise this has already been initialized, and nesting guard failed.");
-  g_FileSystemTls = TlsAlloc();
-  if (g_FileSystemTls == TLS_OUT_OF_INDEXES)
-  {
-    g_FileSystemTls = 0;
-    return mapWindowsError(::GetLastError());
+template <typename _T>
+class ThreadLocalStorage {
+  DWORD m_Tls;
+  DWORD m_dwError;
+public:
+  ThreadLocalStorage() : m_Tls(TlsAlloc()), m_dwError(0) {
+    if (m_Tls == TLS_OUT_OF_INDEXES)
+      m_dwError = ::GetLastError();
   }
-  return error_code();
+  ~ThreadLocalStorage() { TlsFree(m_Tls); }
+  _T GetValue() throw() {
+    if (m_Tls != TLS_OUT_OF_INDEXES)
+      return (_T)TlsGetValue(m_Tls);
+    else
+      return nullptr;
+  }
+  bool SetValue(_T value) throw() {
+    if (m_Tls != TLS_OUT_OF_INDEXES) {
+      return TlsSetValue(m_Tls, (void*)value);
+    } else {
+      ::SetLastError(m_dwError);
+      return false;
+    }
+  }
+  // Retrieve error code if TlsAlloc() failed
+  DWORD GetError() const {
+    return m_dwError;
+  }
+};
+static ThreadLocalStorage<MSFileSystemRef> g_PerThreadSystem;
 }
 
-void CleanupPerThreadFileSystem() throw()
-{
-  assert(g_FileSystemSetupNested && "otherwise, Cleanup called without matching Setup");
-  if (--g_FileSystemSetupNested)
-    return;
-  assert(g_FileSystemTls != 0 && "otherwise this has not been initialized");
-  TlsFree(g_FileSystemTls);
-  g_FileSystemTls = 0;
+error_code GetFileSystemTlsError() throw() {
+  DWORD dwError = g_PerThreadSystem.GetError();
+  if (dwError)
+    return error_code(dwError, system_category());
+  else
+    return error_code();
 }
+
+// No longer necessary to call, but returns error code if TlsAlloc() failed.
+error_code SetupPerThreadFileSystem() throw() {
+  return GetFileSystemTlsError();
+}
+void CleanupPerThreadFileSystem() throw() {}
 
 MSFileSystemRef GetCurrentThreadFileSystem() throw()
 {
-  assert(g_FileSystemTls != 0 && "otherwise this has not been initialized");
-  return (MSFileSystemRef)TlsGetValue(g_FileSystemTls);
+  return g_PerThreadSystem.GetValue();
 }
 
 error_code SetCurrentThreadFileSystem(MSFileSystemRef value) throw()
@@ -99,7 +116,7 @@ error_code SetCurrentThreadFileSystem(MSFileSystemRef value) throw()
     }
   }
 
-  if (!TlsSetValue(g_FileSystemTls, value))
+  if (!g_PerThreadSystem.SetValue(value))
   {
     return mapWindowsError(::GetLastError());
   }
