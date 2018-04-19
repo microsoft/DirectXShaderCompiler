@@ -9326,7 +9326,7 @@ bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
   // Memory Barrier scope = Device (1)
   // Memory Semantics Barrier scope = None (0)
   theBuilder.createBarrier(theBuilder.getConstantUint32(2),
-                           theBuilder.getConstantUint32(1),
+                           theBuilder.getConstantUint32(4),
                            theBuilder.getConstantUint32(0));
 
   // The PCF should be called only once. Therefore, we check the invocationID,
