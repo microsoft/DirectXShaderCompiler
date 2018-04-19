@@ -8992,10 +8992,9 @@ bool SPIRVEmitter::processTessellationShaderAttributes(
     theBuilder.addExecutionMode(entryFunctionId, hsExecMode, {});
   }
 
-  // Early return for domain shaders as domain shaders only takes the 'domain'
-  // attribute.
-  if (shaderModel.IsDS())
-    return true;
+  // Note: For DS, Partitioning and OutputTopology are valid in DX but not in
+  // Vulkan. We currently do emit execution modes for them if they are present
+  // in the HLSL source code.
 
   if (auto *partitioning = decl->getAttr<HLSLPartitioningAttr>()) {
     const auto scheme = partitioning->getScheme().lower();
