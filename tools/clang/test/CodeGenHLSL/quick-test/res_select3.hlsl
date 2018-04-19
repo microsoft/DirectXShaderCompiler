@@ -1,8 +1,7 @@
 // RUN: %dxc -T lib_6_1 %s | FileCheck %s
 
-// Make sure no phi of resource.
-// CHECK-NOT: phi %class.RWStructuredBuffer
-// CHECK: phi %dx.types.Handle
+// Make sure phi of resource in lib.
+// CHECK: phi %"class.RWStructuredBuffer
 
 // Make sure get dimensions returns 24
 // CHECK: ret i32 24

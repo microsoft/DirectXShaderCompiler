@@ -2,7 +2,6 @@
 
 // Make sure createHandleFromResourceStructForLib is used for resource.
 // CHECK:call %dx.types.Handle @dx.op.createHandleFromResourceStructForLib.struct.ByteAddressBuffer(i32 160
-// CHECK:call %dx.types.Handle @dx.op.createHandleFromResourceStructForLib.struct.ByteAddressBuffer(i32 160
 // CHECK:call %dx.types.Handle @dx.op.createHandleFromResourceStructForLib.struct.RWByteAddressBuffer(i32 160
 
 RWByteAddressBuffer outputBuffer : register(u0);

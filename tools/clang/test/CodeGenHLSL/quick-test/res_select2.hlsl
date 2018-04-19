@@ -1,8 +1,7 @@
 // RUN: %dxc -T lib_6_1 %s | FileCheck %s
 
-// Make sure no phi of resource.
-// CHECK-NOT: phi %class.RWBuffer
-// CHECK: phi %dx.types.Handle
+// Make sure phi of resource for lib.
+// CHECK: phi %"class.RWBuffer
 
 RWBuffer<float4> a;
 RWBuffer<float4> b;
