@@ -484,6 +484,8 @@ public:
 
     if (0 == newResources || m_bIsLib)
       return bChanged;
+    // Make sure no select on resource.
+    RemovePhiOnResource();
 
     bChanged = true;
 
@@ -509,6 +511,7 @@ public:
   }
 
 private:
+  void RemovePhiOnResource();
   void UpdateResourceSymbols();
   void TranslateDxilResourceUses(DxilResourceBase &res);
   void GenerateDxilResourceHandles();
@@ -518,6 +521,158 @@ private:
   bool PatchTBuffers(DxilModule &DM);
   void PatchTBufferUse(Value *V, DxilModule &DM);
 };
+
+// Phi on resource.
+namespace {
+
+void CreateOperandSelect(Instruction *SelInst, Value *EmptyVal,
+                         std::unordered_map<Instruction *, Instruction *>
+                             &selInstToSelOperandInstMap) {
+  IRBuilder<> Builder(SelInst);
+
+  if (SelectInst *Sel = dyn_cast<SelectInst>(SelInst)) {
+    Instruction *newSel = cast<Instruction>(
+        Builder.CreateSelect(Sel->getCondition(), EmptyVal, EmptyVal));
+
+    selInstToSelOperandInstMap[SelInst] = newSel;
+  } else {
+    PHINode *Phi = cast<PHINode>(SelInst);
+    unsigned numIncoming = Phi->getNumIncomingValues();
+
+    // Don't replace constant int operand.
+    PHINode *newSel = Builder.CreatePHI(EmptyVal->getType(), numIncoming);
+    for (unsigned j = 0; j < numIncoming; j++) {
+      BasicBlock *BB = Phi->getIncomingBlock(j);
+      newSel->addIncoming(EmptyVal, BB);
+    }
+
+    selInstToSelOperandInstMap[SelInst] = newSel;
+  }
+}
+
+void UpdateOperandSelect(Instruction *SelInst, Instruction *Prototype,
+                         unsigned operandIdx,
+                         std::unordered_map<Instruction *, Instruction *>
+                             &selInstToSelOperandInstMap) {
+  unsigned numOperands = SelInst->getNumOperands();
+
+  unsigned startOpIdx = 0;
+  // Skip Cond for Select.
+  if (SelectInst *Sel = dyn_cast<SelectInst>(SelInst)) {
+    startOpIdx = 1;
+  }
+
+  Instruction *newSel = selInstToSelOperandInstMap[SelInst];
+  // Transform
+  // phi0 = phi a0, b0, c0
+  // phi1 = phi a1, b1, c1
+  // NewInst = Add(phi0, phi1);
+  //   into
+  // A = Add(a0, a1);
+  // B = Add(b0, b1);
+  // C = Add(c0, c1);
+  // NewSelInst = phi A, B, C
+  // Only support 1 operand now, other oerands should be Constant.
+
+  // Each operand of newInst is a clone of prototype inst.
+  // Now we set A operands based on operand 0 of phi0 and phi1.
+  for (unsigned i = startOpIdx; i < numOperands; i++) {
+    Instruction *selOp = cast<Instruction>(SelInst->getOperand(i));
+    auto it = selInstToSelOperandInstMap.find(selOp);
+    if (it != selInstToSelOperandInstMap.end()) {
+      // Operand is an select.
+      // Map to new created select inst.
+      Instruction *newSelOp = it->second;
+      newSel->setOperand(i, newSelOp);
+    } else {
+      // The operand is not select.
+      // just use it for prototype operand.
+      // Make sure function is the same.
+      Instruction *op = Prototype->clone();
+      op->setOperand(operandIdx, selOp);
+      if (PHINode *phi = dyn_cast<PHINode>(SelInst)) {
+        BasicBlock *BB = phi->getIncomingBlock(i);
+        IRBuilder<> TmpBuilder(BB->getTerminator());
+        TmpBuilder.Insert(op);
+      } else {
+        IRBuilder<> TmpBuilder(newSel);
+        TmpBuilder.Insert(op);
+      }
+      newSel->setOperand(i, op);
+    }
+  }
+}
+
+void RemovePhiOnResourceImp(Function *F, hlsl::OP *hlslOP) {
+  Value *opArg = hlslOP->GetU32Const(
+      (unsigned)DXIL::OpCode::CreateHandleFromResourceStructForLib);
+
+  // Remove PhiNode createHandle first.
+  std::vector<Instruction *> resSelects;
+  std::unordered_set<llvm::Instruction *> selectSet;
+  for (auto U = F->user_begin(); U != F->user_end();) {
+    Value *user = *(U++);
+    if (!isa<Instruction>(user))
+      continue;
+    // must be call inst
+    CallInst *CI = cast<CallInst>(user);
+    DxilInst_CreateHandleFromResourceStructForLib createHandle(CI);
+    Value *res = createHandle.get_Resource();
+    if (isa<SelectInst>(res) || isa<PHINode>(res))
+      dxilutil::CollectSelect(cast<Instruction>(res), selectSet);
+  }
+
+  if (!selectSet.empty()) {
+    FunctionType *FT = F->getFunctionType();
+    Type *ResTy = FT->getParamType(DXIL::OperandIndex::kUnarySrc0OpIdx);
+
+    Value *UndefHandle = UndefValue::get(F->getReturnType());
+    std::unordered_map<Instruction *, Instruction *> handleMap;
+    for (Instruction *SelInst : selectSet) {
+      CreateOperandSelect(SelInst, UndefHandle, handleMap);
+    }
+
+    Value *UndefRes = UndefValue::get(ResTy);
+    std::unique_ptr<CallInst> PrototypeCall(
+        CallInst::Create(F, {opArg, UndefRes}));
+
+    for (Instruction *SelInst : selectSet) {
+      UpdateOperandSelect(SelInst, PrototypeCall.get(),
+                          DXIL::OperandIndex::kUnarySrc0OpIdx, handleMap);
+    }
+
+    // Replace createHandle on select with select on createHandle.
+    for (Instruction *SelInst : selectSet) {
+      Value *NewSel = handleMap[SelInst];
+      for (auto U = SelInst->user_begin(); U != SelInst->user_end();) {
+        Value *user = *(U++);
+        if (CallInst *CI = dyn_cast<CallInst>(user)) {
+          if (CI->getCalledFunction() == F) {
+            CI->replaceAllUsesWith(NewSel);
+            CI->eraseFromParent();
+          }
+        }
+      }
+      // Remove the select inst.
+      SelInst->replaceAllUsesWith(UndefValue::get(SelInst->getType()));
+      SelInst->eraseFromParent();
+    }
+  }
+}
+} // namespace
+
+void DxilLowerCreateHandleForLib::RemovePhiOnResource() {
+  hlsl::OP *hlslOP = m_DM->GetOP();
+  for (Function &F : m_DM->GetModule()->functions()) {
+    if (hlslOP->IsDxilOpFunc(&F)) {
+      hlsl::OP::OpCodeClass opClass;
+      if (hlslOP->GetOpCodeClass(&F, opClass) &&
+          opClass == DXIL::OpCodeClass::CreateHandleFromResourceStructForLib) {
+        RemovePhiOnResourceImp(&F, hlslOP);
+      }
+    }
+  }
+}
 
 // LegacyLayout.
 namespace {
