@@ -2901,7 +2901,16 @@ CodeGenFunction::EmitHLSLVectorElementExpr(const HLSLVectorElementExpr *E) {
     // Otherwise, if the base is an lvalue ( as in the case of foo.x.x),
     // emit the base as an lvalue.
     const Expr *base = E->getBase();
-
+    if (const ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(base)) {
+      if (ICE->getCastKind() == CastKind::CK_HLSLVectorSplat &&
+          E->getNumElements() == 1) {
+        // For pattern like:
+        //   static bool t;
+        //   t.x = bool(a);
+        // Just ignore the .x, treat it like t = bool(a);
+        return EmitLValue(ICE->getSubExpr());
+      }
+    }
     assert(hlsl::IsHLSLVecType(base->getType()));
     Base = EmitLValue(base);
   } else {
