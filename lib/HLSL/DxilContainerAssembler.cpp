@@ -751,19 +751,25 @@ public:
 
 class StringTable : public RDATPart {
 private:
+  StringMap<uint32_t> m_StringMap;
   SmallVector<char, 256> m_StringBuffer;
   uint32_t curIndex;
 public:
-  StringTable() : m_StringBuffer(), curIndex(0) {}
+  StringTable() : m_StringMap(), m_StringBuffer(), curIndex(0) {}
   // returns the offset of the name inserted
   uint32_t Insert(StringRef name) {
-    for (auto iter = name.begin(), End = name.end(); iter != End; ++iter) {
-        m_StringBuffer.push_back(*iter);
-    }
+    // Don't add duplicate strings
+    auto found = m_StringMap.find(name);
+    if (found != m_StringMap.end())
+      return found->second;
+    m_StringMap[name] = curIndex;
+
+    m_StringBuffer.reserve(m_StringBuffer.size() + name.size() + 1);
+    m_StringBuffer.append(name.begin(), name.end());
     m_StringBuffer.push_back('\0');
 
     uint32_t prevIndex = curIndex;
-    curIndex += name.size() + 1;
+    curIndex += (uint32_t)name.size() + 1;
     return prevIndex;
   }
   RuntimeDataPartType GetType() const { return RuntimeDataPartType::String; }
