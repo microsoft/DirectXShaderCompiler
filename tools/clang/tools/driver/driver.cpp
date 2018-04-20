@@ -373,6 +373,9 @@ static int ExecuteCC1Tool(ArrayRef<const char *> argv, StringRef Tool) {
 // HLSL Change: changed calling convention to __cdecl
 int __cdecl main(int argc_, const char **argv_) {
   // HLSL Change Starts
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return 1;
+  llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
   llvm::sys::fs::MSFileSystem* msfPtr;
   HRESULT hr;
   if (!SUCCEEDED(hr = CreateMSFileSystemForDisk(&msfPtr)))

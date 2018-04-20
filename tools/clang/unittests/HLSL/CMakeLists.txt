@@ -31,6 +31,7 @@ add_clang_library(clang-hlsl-tests SHARED
   FunctionTest.cpp
   HLSLTestData.h
   HlslTestUtils.h
+  D3DReflectionDumper.cpp
   LinkerTest.cpp
   MSFileSysTest.cpp
   Objects.cpp

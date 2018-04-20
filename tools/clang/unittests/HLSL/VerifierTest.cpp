@@ -15,6 +15,7 @@
 #include "HLSLTestData.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "llvm/Support/FileSystem.h"
 
 #include <fstream>
 
@@ -131,6 +132,8 @@ public:
 };
 
 bool TestModuleSetup() {
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return false;
   // Use this module-level function to set up LLVM dependencies.
   if (hlsl::options::initHlslOptTable()) {
     return false;
@@ -143,6 +146,7 @@ bool TestModuleCleanup() {
   // In particular, clean up managed static allocations used by
   // parsing options with the LLVM library.
   ::hlsl::options::cleanupHlslOptTable();
+  llvm::sys::fs::CleanupPerThreadFileSystem();
   ::llvm::llvm_shutdown();
   return true;
 }

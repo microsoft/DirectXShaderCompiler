@@ -81,9 +81,10 @@ void DxilRuntimeReflection::AddString(const char *ptr) {
     int size = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, ptr, -1,
                                      nullptr, 0);
     if (size != 0) {
-      m_StringMap[ptr] = std::wstring(size, '\0');
+      auto pNew = std::make_unique<wchar_t[]>(size);
       ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, ptr, -1,
-                            &(m_StringMap[ptr][0]), size);
+                            pNew.get(), size);
+      m_StringMap[ptr] = std::move(pNew);
     }
   }
 }
@@ -92,7 +93,7 @@ const wchar_t *DxilRuntimeReflection::GetWideString(const char *ptr) {
   if (m_StringMap.find(ptr) == m_StringMap.end()) {
     AddString(ptr);
   }
-  return m_StringMap.at(ptr).data();
+  return m_StringMap.at(ptr).get();
 }
 
 bool DxilRuntimeReflection::InitFromRDAT(const void *pRDAT) {

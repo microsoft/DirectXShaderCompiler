@@ -832,6 +832,9 @@ int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
 int __cdecl wmain(int argc, const wchar_t **argv_) {
   const char *pStage = "Initialization";
   int retVal = 0;
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return 1;
+  llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
   try {
     auto t_start = std::chrono::high_resolution_clock::now();
 
