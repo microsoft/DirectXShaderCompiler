@@ -1750,8 +1750,6 @@ bool CompilerTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
     m_ver.Initialize(m_dllSupport);
-    if (llvm::sys::fs::GetFileSystemTlsResult())
-      return false;
   }
   return true;
 }

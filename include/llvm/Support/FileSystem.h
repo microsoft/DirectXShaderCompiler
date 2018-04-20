@@ -53,12 +53,11 @@ namespace fs {
 class MSFileSystem;
 typedef _Inout_ MSFileSystem* MSFileSystemRef;
 
-std::error_code GetFileSystemTlsError() throw();
+std::error_code GetFileSystemTlsStatus() throw();
 
-// Setup/Cleanup are no longer necessary, but SetupPerThreadFileSystem will
-//  return GetFileSystemTlsError();
 std::error_code SetupPerThreadFileSystem() throw();
 void CleanupPerThreadFileSystem() throw();
+struct AutoCleanupPerThreadFileSystem { ~AutoCleanupPerThreadFileSystem() { CleanupPerThreadFileSystem(); } };
 
 /// <summary>Gets a reference to the file system installed for the current thread (possibly NULL).</summary>
 /// <remarks>In practice, consumers of the library should always install a file system.</remarks>

@@ -64,8 +64,6 @@ bool DxilModuleTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
   }
-  if (llvm::sys::fs::GetFileSystemTlsResult())
-    return false;
   return true;
 }
 

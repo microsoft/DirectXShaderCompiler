@@ -120,6 +120,9 @@ using namespace hlsl::options;
 int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
   const char *pStage = "Operation";
   int retVal = 0;
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return 1;
+  llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
   if (FAILED(DxcInitThreadMalloc())) return 1;
   DxcSetThreadMallocOrDefault(nullptr);
   try {
