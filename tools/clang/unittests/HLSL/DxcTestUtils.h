@@ -9,6 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#pragma once
+
 #include <string>
 #include <vector>
 #include "dxc/dxcapi.h"
@@ -58,6 +60,7 @@ private:
   void RunDxc(const FileRunCommandPart *Prior);
   void RunDxv(const FileRunCommandPart *Prior);
   void RunOpt(const FileRunCommandPart *Prior);
+  void RunD3DReflect(const FileRunCommandPart *Prior);
   void RunTee(const FileRunCommandPart *Prior);
 public:
   FileRunCommandPart(const FileRunCommandPart&) = default;

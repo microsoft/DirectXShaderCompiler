@@ -12,6 +12,7 @@
 #include <windows.h>
 #include <unordered_map>
 #include <vector>
+#include <memory>
 #include "DxilConstants.h"
 
 namespace hlsl {
@@ -388,7 +389,7 @@ typedef struct DXIL_LIBRARY_DESC {
 
 class DxilRuntimeReflection {
 private:
-  typedef std::unordered_map<const char *, std::wstring> StringMap;
+  typedef std::unordered_map<const char *, std::unique_ptr<wchar_t[]>> StringMap;
   typedef std::vector<DXIL_RESOURCE> ResourceList;
   typedef std::vector<DXIL_RESOURCE *> ResourceRefList;
   typedef std::vector<DXIL_FUNCTION> FunctionList;
