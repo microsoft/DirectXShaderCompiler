@@ -17,6 +17,7 @@
 #include <ostream>
 #include <iomanip>
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/dxcapi.h"
 #include <d3d12shader.h>
 #include "dxc/HLSL/DxilContainer.h"
 

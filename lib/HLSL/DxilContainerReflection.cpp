@@ -1236,8 +1236,10 @@ static D3D_SHADER_INPUT_TYPE ResourceToShaderInputType(DxilResourceBase *RB) {
   case DxilResource::Kind::TextureCube:
   case DxilResource::Kind::TextureCubeArray:
     return R->IsRW() ? D3D_SIT_UAV_RWTYPED : D3D_SIT_TEXTURE;
+  case DxilResource::Kind::RTAccelerationStructure:
+    return (D3D_SHADER_INPUT_TYPE)D3D_SIT_RTACCELERATIONSTRUCTURE;
   default:
-    return (D3D_SHADER_INPUT_TYPE)0;
+    return (D3D_SHADER_INPUT_TYPE)-1;
   }
 }
 
@@ -2258,7 +2260,7 @@ void DxilLibraryReflection::AddResourceDependencies() {
   }
   UINT resIndex = 0;
   for (auto &resource : m_Resources) {
-    switch (resource.Type) {
+    switch ((UINT32)resource.Type) {
     case D3D_SIT_CBUFFER:
       AddResourceUseToFunctions(m_pDxilModule->GetCBuffer(resource.uID), resIndex);
       break;
@@ -2266,6 +2268,7 @@ void DxilLibraryReflection::AddResourceDependencies() {
     case D3D_SIT_TEXTURE:
     case D3D_SIT_STRUCTURED:
     case D3D_SIT_BYTEADDRESS:
+    case D3D_SIT_RTACCELERATIONSTRUCTURE:
       AddResourceUseToFunctions(m_pDxilModule->GetSRV(resource.uID), resIndex);
       break;
     case D3D_SIT_UAV_RWTYPED:
