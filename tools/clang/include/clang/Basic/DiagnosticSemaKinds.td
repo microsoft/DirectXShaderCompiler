@@ -2334,7 +2334,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "SubpassInput, SubpassInputMS|"
   // SPIRV Change Ends
   // HLSL Change Starts - add 3 more enum values
-  "varibales and parameters|functions, parameters, and fields|"
+  "variables and parameters|functions, parameters, and fields|"
   "functions, variables, parameters, fields, and types}1">,
   // HLSL Change Ends
   InGroup<IgnoredAttributes>;
