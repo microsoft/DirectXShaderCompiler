@@ -2,7 +2,7 @@
 
 // Verify no hang on incomplete array
 
-// CHECK: %struct.Special = type { <4 x float>, [0 x i32] }
+// CHECK: %struct.Special = type { <4 x float>, [3 x i32] }
 // CHECK: %"$Globals" = type { i32, %struct.Special }
 
 typedef const int inta[];
@@ -14,12 +14,12 @@ int i;
 
 struct Special {
   float4 member;
-  inta a;
+  int a[3];
 };
 
 Special c_special;
 
-static const Special s_special = { { 1, 2, 3, 4}, { 1, 2, 3 } };
+static const Special s_special = { { 1, 2, 3, 4}, { 5, 6, 7 } };
 
 // CHECK: define void
 // CHECK: fn1
@@ -40,7 +40,14 @@ float4 fn1(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
 // CHECK: fn2
 // @"\01?fn2@@YA?AV?$vector@M$03@@USpecial@@@Z"
 float4 fn2(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
-  // s_special.a[i] is broken: it just assumes 0.
+  // CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32(
+  // CHECK: i32 0)
+  // CHECK: extractvalue
+  // CHECK: , 0
+  // CHECK: getelementptr
+  // CHECK: load i32, i32*
+  // CHECK: sitofp i32
+  // CHECK: fadd float
   return in1.member + (float)s_special.a[i];
 }
 
