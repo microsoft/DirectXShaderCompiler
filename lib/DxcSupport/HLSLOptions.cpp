@@ -456,7 +456,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     if (opts.AllResourcesBound || opts.AvoidFlowControl ||
         opts.CodeGenHighLevel || opts.DebugInfo || opts.DefaultColMajor ||
         opts.DefaultRowMajor || opts.Defines.size() != 0 ||
-        opts.DisableOptimizations || 
+        opts.DisableOptimizations ||
         !opts.EntryPoint.empty() || !opts.ForceRootSigVer.empty() ||
         opts.PreferFlowControl || !opts.TargetProfile.empty()) {
       errors << "Cannot specify compilation options when reading a binary file.";
@@ -487,7 +487,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.VkUseGlLayout = Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
   opts.VkUseDxLayout = Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false);
   opts.SpvEnableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
-  opts.VkIgnoreUnusedResources = Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false);
 
   // Collects the arguments for -fvk-{b|s|t|u}-shift.
   const auto handleVkShiftArgs =
@@ -552,7 +551,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_ignore_unused_resources, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_target_env_EQ).empty() ||

@@ -472,7 +472,6 @@ public:
           spirvOpts.useGlLayout = opts.VkUseGlLayout;
           spirvOpts.useDxLayout = opts.VkUseDxLayout;
           spirvOpts.enableReflect = opts.SpvEnableReflect;
-          spirvOpts.ignoreUnusedResources = opts.VkIgnoreUnusedResources;
           spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
           spirvOpts.bShift = opts.VkBShift;
