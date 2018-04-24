@@ -363,13 +363,10 @@ private:
   const DeclSpirvInfo *getDeclSpirvInfo(const ValueDecl *decl) const;
 
 public:
-  /// \brief Returns the information for the given decl. If the decl is not
-  /// registered previously, return an invalid SpirvEvalInfo.
+  /// \brief Returns the information for the given decl.
   ///
-  /// This method will emit a fatal error if checkRegistered is true and the
-  /// decl is not registered.
-  SpirvEvalInfo getDeclEvalInfo(const ValueDecl *decl,
-                                bool checkRegistered = true);
+  /// This method will panic if the given decl is not registered.
+  SpirvEvalInfo getDeclEvalInfo(const ValueDecl *decl);
 
   /// \brief Returns the <result-id> for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and

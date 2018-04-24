@@ -282,8 +282,7 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
   return nullptr;
 }
 
-SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
-                                                  bool checkRegistered) {
+SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
   if (const auto *info = getDeclSpirvInfo(decl))
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
@@ -306,15 +305,12 @@ SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
       return *info;
     }
 
-  if (checkRegistered) {
     emitFatalError("found unregistered decl", decl->getLocation())
         << decl->getName();
     emitNote("please file a bug report on "
              "https://github.com/Microsoft/DirectXShaderCompiler/issues with "
              "source code if possible",
              {});
-  }
-
   return 0;
 }
 

@@ -161,7 +161,6 @@ public:
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   bool GenSPIRV;                           // OPT_spirv
-  bool VkIgnoreUnusedResources;            // OPT_fvk_ignore_used_resources
   bool VkInvertY;                          // OPT_fvk_invert_y
   bool VkUseGlLayout;                      // OPT_fvk_use_gl_layout
   bool VkUseDxLayout;                      // OPT_fvk_use_dx_layout
