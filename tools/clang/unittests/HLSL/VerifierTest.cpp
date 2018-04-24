@@ -59,6 +59,7 @@ public:
   TEST_METHOD(RunScalarOperatorsExactPrecision);
   TEST_METHOD(RunString);
   TEST_METHOD(RunStructAssignments);
+  TEST_METHOD(RunIncompleteArray);
   TEST_METHOD(RunTemplateChecks);
   TEST_METHOD(RunVarmodsSyntax);
   TEST_METHOD(RunVectorAssignments);
@@ -240,6 +241,10 @@ TEST_F(VerifierTest, RunString) {
 
 TEST_F(VerifierTest, RunStructAssignments) {
   CheckVerifiesHLSL(L"struct-assignments.hlsl");
+}
+
+TEST_F(VerifierTest, RunIncompleteArray) {
+  CheckVerifiesHLSL(L"incomp_array_err.hlsl");
 }
 
 TEST_F(VerifierTest, RunTemplateChecks) {
