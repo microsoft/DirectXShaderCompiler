@@ -587,11 +587,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
         workQueue.insert(funcDecl);
       }
     } else {
-      // If ignoring unused resources, defer Decl handling inside
-      // TranslationUnit to the time of first referencing.
-      if (!spirvOptions.ignoreUnusedResources) {
-        doDecl(decl);
-      }
+      doDecl(decl);
     }
   }
 
@@ -749,21 +745,6 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
   }
 }
 
-SpirvEvalInfo SPIRVEmitter::doDeclRefExpr(const DeclRefExpr *expr) {
-  const auto *decl = expr->getDecl();
-  auto id = declIdMapper.getDeclEvalInfo(decl, false);
-
-  if (spirvOptions.ignoreUnusedResources && !id) {
-    // First time referencing a Decl inside TranslationUnit. Register
-    // into DeclResultIdMapper and emit SPIR-V for it and then query
-    // again.
-    doDecl(decl);
-    id = declIdMapper.getDeclEvalInfo(decl);
-  }
-
-  return id;
-}
-
 SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   SpirvEvalInfo result(/*id*/ 0);
 
@@ -774,7 +755,7 @@ SpirvEvalInfo SPIRVEmitter::doExpr(const Expr *expr) {
   expr = expr->IgnoreParens();
 
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
-    result = doDeclRefExpr(declRefExpr);
+    result = declIdMapper.getDeclEvalInfo(declRefExpr->getDecl());
   } else if (const auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
     result = doMemberExpr(memberExpr);
   } else if (const auto *castExpr = dyn_cast<CastExpr>(expr)) {

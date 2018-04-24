@@ -1277,10 +1277,6 @@ TEST_F(FileTest, VulkanAttributeInvalidUsages) {
   runFileTest("vk.attribute.invalid.hlsl", Expect::Failure);
 }
 
-TEST_F(FileTest, VulkanCLOptionIgnoreUnusedResources) {
-  runFileTest("vk.cloption.ignore-unused-resources.hlsl");
-}
-
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
   runFileTest("vk.cloption.invert-y.vs.hlsl");
 }
