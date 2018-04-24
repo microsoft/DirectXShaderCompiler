@@ -10852,6 +10852,10 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
       nestedDiagId = diag::err_hlsl_unsupported_nested_typedef;
     }
 
+    if (isField && pType && pType->isIncompleteArrayType()) {
+      nestedDiagId = diag::err_hlsl_unsupported_incomplete_array;
+    }
+
     if (nestedDiagId) {
       Diag(D.getLocStart(), nestedDiagId);
       D.setInvalidType();
