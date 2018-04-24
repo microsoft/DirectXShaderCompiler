@@ -2334,7 +2334,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "SubpassInput, SubpassInputMS|"
   // SPIRV Change Ends
   // HLSL Change Starts - add 3 more enum values
-  "varibales and parameters|functions, parameters, and fields|"
+  "variables and parameters|functions, parameters, and fields|"
   "functions, variables, parameters, fields, and types}1">,
   // HLSL Change Ends
   InGroup<IgnoredAttributes>;
@@ -7518,6 +7518,8 @@ def err_hlsl_unsupported_array_equality_op: Error<
   "equality operators cannot be used with array types">;
 def err_hlsl_unsupported_array_size: Error<
   "array dimension must be between 1 and 65536">;
+def err_hlsl_unsupported_incomplete_array: Error<
+  "array dimensions of struct/class members must be explicit">;
 def err_hlsl_unsupported_bool_lvalue_op : Error<
   "operator cannot be used with a bool lvalue">;
 def err_hlsl_unsupported_lvalue_cast_op : Error<
