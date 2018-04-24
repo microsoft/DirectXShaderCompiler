@@ -1,7 +1,11 @@
 // RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // Make sure we don't store the initial value (must load from payload after TraceRay)
-// CHECK-NOT: call void @dx.op.textureStore.f32(i32 67, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 {{.*}}, i32 undef, float 0.000000e+00, float 1.000000e+00, float 0.000000e+00, float 1.000000e+00, i8 15)
+// CHECK: define void @"\01?RayGenTestMain@@YAXXZ"()
+// CHECK: call void @dx.op.textureStore.f32(i32 67,
+// CHECK-NOT: float 0.000000e+00, float 1.000000e+00, float 0.000000e+00, float 1.000000e+00
+// CHECK: , i8 15)
+// CHECK: ret void
 
 struct Payload {
    float4 abc;
@@ -18,7 +22,7 @@ float tanHalfFovY;
 [shader("raygeneration")]
 void RayGenTestMain()
 {
-    uint2 LaunchIndex = RayDispatchIndex();
+    uint2 LaunchIndex = DispatchRaysIndex();
     float2 d = ((LaunchIndex.xy / (float2)viewportDims) * 2.f - 1.f);
     float aspectRatio = (float)viewportDims.x / (float)viewportDims.y;
 
