@@ -10483,6 +10483,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKLocationAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKIndex:
+    declAttr = ::new (S.Context) VKIndexAttr(A.getRange(), S.Context,
+      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKBinding:
     declAttr = ::new (S.Context) VKBindingAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), ValidateAttributeIntArg(S, A, 1),

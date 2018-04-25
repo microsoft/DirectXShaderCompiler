@@ -482,6 +482,15 @@ TEST_F(FileTest, SemanticInstanceIDPS) {
   runFileTest("semantic.instance-id.ps.hlsl");
 }
 TEST_F(FileTest, SemanticTargetPS) { runFileTest("semantic.target.ps.hlsl"); }
+TEST_F(FileTest, SemanticTargetDualBlend) {
+  runFileTest("semantic.target.dual-blend.hlsl");
+}
+TEST_F(FileTest, SemanticTargetDualBlendError1) {
+  runFileTest("semantic.target.dual-blend.error1.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SemanticTargetDualBlendError2) {
+  runFileTest("semantic.target.dual-blend.error2.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, SemanticDepthPS) { runFileTest("semantic.depth.ps.hlsl"); }
 TEST_F(FileTest, SemanticDepthGreaterEqualPS) {
   runFileTest("semantic.depth-greater-equal.ps.hlsl");
@@ -1443,9 +1452,7 @@ TEST_F(FileTest, NonFpColMajorError) {
 TEST_F(FileTest, NamespaceFunctions) {
   runFileTest("namespace.functions.hlsl");
 }
-TEST_F(FileTest, NamespaceGlobals) {
-  runFileTest("namespace.globals.hlsl");
-}
+TEST_F(FileTest, NamespaceGlobals) { runFileTest("namespace.globals.hlsl"); }
 TEST_F(FileTest, NamespaceResources) {
   runFileTest("namespace.resources.hlsl");
 }
