@@ -99,11 +99,11 @@ std::string StageVar::getSemanticStr() const {
   // Use what is in the source code.
   // TODO: this looks like a hack to make the current tests happy.
   // Should consider remove it and fix all tests.
-  if (semanticIndex == 0)
-    return semanticStr;
+  if (semanticInfo.index == 0)
+    return semanticInfo.str;
 
   std::ostringstream ss;
-  ss << semanticName.str() << semanticIndex;
+  ss << semanticInfo.name.str() << semanticInfo.index;
   return ss.str();
 }
 
@@ -181,8 +181,7 @@ bool CounterVarFields::assign(const CounterVarFields &srcFields,
   return true;
 }
 
-DeclResultIdMapper::SemanticInfo
-DeclResultIdMapper::getStageVarSemantic(const NamedDecl *decl) {
+SemanticInfo DeclResultIdMapper::getStageVarSemantic(const NamedDecl *decl) {
   for (auto *annotation : decl->getUnusualAnnotations()) {
     if (auto *sema = dyn_cast<hlsl::SemanticDecl>(annotation)) {
       llvm::StringRef semanticStr = sema->SemanticName;
@@ -305,12 +304,12 @@ SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
       return *info;
     }
 
-    emitFatalError("found unregistered decl", decl->getLocation())
-        << decl->getName();
-    emitNote("please file a bug report on "
-             "https://github.com/Microsoft/DirectXShaderCompiler/issues with "
-             "source code if possible",
-             {});
+  emitFatalError("found unregistered decl", decl->getLocation())
+      << decl->getName();
+  emitNote("please file a bug report on "
+           "https://github.com/Microsoft/DirectXShaderCompiler/issues with "
+           "source code if possible",
+           {});
   return 0;
 }
 
@@ -813,37 +812,53 @@ namespace {
 /// the same location.
 class LocationSet {
 public:
+  /// Maximum number of indices supported
+  const static uint32_t kMaxIndex = 2;
   /// Maximum number of locations supported
   // Typically we won't have that many stage input or output variables.
   // Using 64 should be fine here.
   const static uint32_t kMaxLoc = 64;
 
-  LocationSet() : usedLocs(kMaxLoc, false), nextLoc(0) {}
+  LocationSet() {
+    for (uint32_t i = 0; i < kMaxIndex; ++i) {
+      usedLocs[i].resize(kMaxLoc);
+      nextLoc[i] = 0;
+    }
+  }
 
   /// Uses the given location.
-  void useLoc(uint32_t loc) { usedLocs.set(loc); }
+  void useLoc(uint32_t loc, uint32_t index = 0) {
+    assert(index < kMaxIndex);
+    usedLocs[index].set(loc);
+  }
 
   /// Uses the next |count| available location.
-  int useNextLocs(uint32_t count) {
-    while (usedLocs[nextLoc])
-      nextLoc++;
+  int useNextLocs(uint32_t count, uint32_t index = 0) {
+    assert(index < kMaxIndex);
+    auto &locs = usedLocs[index];
+    auto &next = nextLoc[index];
+    while (locs[next])
+      next++;
 
-    int toUse = nextLoc;
+    int toUse = next;
 
     for (uint32_t i = 0; i < count; ++i) {
-      assert(!usedLocs[nextLoc]);
-      usedLocs.set(nextLoc++);
+      assert(!locs[next]);
+      locs.set(next++);
     }
 
     return toUse;
   }
 
   /// Returns true if the given location number is already used.
-  bool isLocUsed(uint32_t loc) { return usedLocs[loc]; }
+  bool isLocUsed(uint32_t loc, uint32_t index = 0) {
+    assert(index < kMaxIndex);
+    return usedLocs[index][loc];
+  }
 
 private:
-  llvm::SmallBitVector usedLocs; ///< All previously used locations
-  uint32_t nextLoc;              ///< Next available location
+  llvm::SmallBitVector usedLocs[kMaxIndex]; ///< All previously used locations
+  uint32_t nextLoc[kMaxIndex];              ///< Next available location
 };
 
 /// A class for managing resource bindings to avoid duplicate uses of the same
@@ -926,17 +941,14 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     bool noError = true;
 
     for (const auto &var : stageVars) {
-      // Skip those stage variables we are not handling for this call
-      if (forInput != isInputStorageClass(var))
-        continue;
-
-      // Skip builtins
-      if (var.isSpirvBuitin())
+      // Skip builtins & those stage variables we are not handling for this call
+      if (var.isSpirvBuitin() || forInput != isInputStorageClass(var))
         continue;
 
       const auto *attr = var.getLocationAttr();
       const auto loc = attr->getNumber();
       const auto attrLoc = attr->getLocation(); // Attr source code location
+      const auto idx = var.getIndexAttr() ? var.getIndexAttr()->getNumber() : 0;
 
       if (loc >= LocationSet::kMaxLoc) {
         emitError("stage %select{output|input}0 location #%1 too large",
@@ -946,15 +958,17 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       }
 
       // Make sure the same location is not assigned more than once
-      if (locSet.isLocUsed(loc)) {
+      if (locSet.isLocUsed(loc, idx)) {
         emitError("stage %select{output|input}0 location #%1 already assigned",
                   attrLoc)
             << forInput << loc;
         noError = false;
       }
-      locSet.useLoc(loc);
+      locSet.useLoc(loc, idx);
 
       theBuilder.decorateLocation(var.getSpirvId(), loc);
+      if (var.getIndexAttr())
+        theBuilder.decorateIndex(var.getSpirvId(), idx);
     }
 
     return noError;
@@ -964,30 +978,28 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   LocationSet locSet;
 
   for (const auto &var : stageVars) {
-    if (forInput != isInputStorageClass(var))
+    if (var.isSpirvBuitin() || forInput != isInputStorageClass(var))
       continue;
 
-    if (!var.isSpirvBuitin()) {
-      if (var.getLocationAttr() != nullptr) {
-        // We have checked that not all of the stage variables have explicit
-        // location assignment.
-        emitError("partial explicit stage %select{output|input}0 location "
-                  "assignment via vk::location(X) unsupported",
-                  {})
-            << forInput;
-        return false;
-      }
+    if (var.getLocationAttr()) {
+      // We have checked that not all of the stage variables have explicit
+      // location assignment.
+      emitError("partial explicit stage %select{output|input}0 location "
+                "assignment via vk::location(X) unsupported",
+                {})
+          << forInput;
+      return false;
+    }
 
-      // Only SV_Target, SV_Depth, SV_DepthLessEqual, SV_DepthGreaterEqual,
-      // SV_StencilRef, SV_Coverage are allowed in the pixel shader.
-      // Arbitrary semantics are disallowed in pixel shader.
-      if (var.getSemantic() &&
-          var.getSemantic()->GetKind() == hlsl::Semantic::Kind::Target) {
-        theBuilder.decorateLocation(var.getSpirvId(), var.getSemanticIndex());
-        locSet.useLoc(var.getSemanticIndex());
-      } else {
-        vars.push_back(&var);
-      }
+    const auto &semaInfo = var.getSemanticInfo();
+
+    // We should special rules for SV_Target: the location number comes from the
+    // semantic string index.
+    if (semaInfo.isTarget()) {
+      theBuilder.decorateLocation(var.getSpirvId(), semaInfo.index);
+      locSet.useLoc(semaInfo.index);
+    } else {
+      vars.push_back(&var);
     }
   }
 
@@ -1205,7 +1217,10 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
 
-    const auto semanticKind = semanticToUse->semantic->GetKind();
+    if (!validateVKAttributes(decl))
+      return false;
+
+    const auto semanticKind = semanticToUse->getKind();
 
     // Error out when the given semantic is invalid in this shader model
     if (hlsl::SigPoint::GetInterpretation(semanticKind, sigPoint->GetKind(),
@@ -1298,8 +1313,7 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
                                        theBuilder.getConstantUint32(arraySize));
 
     StageVar stageVar(
-        sigPoint, semanticToUse->str, semanticToUse->semantic,
-        semanticToUse->name, semanticToUse->index, builtinAttr, typeId,
+        sigPoint, *semanticToUse, builtinAttr, typeId,
         // For HS/DS/GS, we have already stripped the outmost arrayness on type.
         typeTranslator.getLocationCount(type));
     const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
@@ -1311,11 +1325,12 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
 
     stageVar.setSpirvId(varId);
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
+    stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
     stageVars.push_back(stageVar);
 
     // Emit OpDecorate* instructions to link this stage variable with the HLSL
     // semantic it is created for
-    theBuilder.decorateHlslSemantic(varId, stageVar.getSemanticStr());
+    theBuilder.decorateHlslSemantic(varId, stageVar.getSemanticInfo().str);
 
     // We have semantics attached to this decl, which means it must be a
     // function/parameter/variable. All are DeclaratorDecls.
@@ -1792,9 +1807,8 @@ uint32_t DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
           hlsl::DxilParamInputQual::In, shaderModel.GetKind(),
           /*isPatchConstant=*/false));
 
-  StageVar stageVar(sigPoint, /*semaStr=*/"", hlsl::Semantic::GetInvalid(),
-                    /*semaName=*/"", /*semaIndex=*/0, /*builtinAttr=*/nullptr,
-                    type, /*locCount=*/0);
+  StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
+                    /*locCount=*/0);
 
   stageVar.setIsSpirvBuiltin();
   stageVar.setSpirvId(varId);
@@ -1819,7 +1833,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   using spv::BuiltIn;
 
   const auto sigPoint = stageVar->getSigPoint();
-  const auto semanticKind = stageVar->getSemantic()->GetKind();
+  const auto semanticKind = stageVar->getSemanticInfo().getKind();
   const auto sigPointKind = sigPoint->GetKind();
   const uint32_t type = stageVar->getSpirvTypeId();
 
@@ -2194,11 +2208,47 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
   default:
     emitError("semantic %0 unimplemented", srcLoc)
-        << stageVar->getSemantic()->GetName();
+        << stageVar->getSemanticStr();
     break;
   }
 
   return 0;
+}
+
+bool DeclResultIdMapper::validateVKAttributes(const NamedDecl *decl) {
+  bool success = true;
+  if (const auto *idxAttr = decl->getAttr<VKIndexAttr>()) {
+    if (!shaderModel.IsPS()) {
+      emitError("vk::index only allowed in pixel shader",
+                idxAttr->getLocation());
+      success = false;
+    }
+
+    const auto *locAttr = decl->getAttr<VKLocationAttr>();
+
+    if (!locAttr) {
+      emitError("vk::index should be used together with vk::location for "
+                "dual-source blending",
+                idxAttr->getLocation());
+      success = false;
+    } else {
+      const auto locNumber = locAttr->getNumber();
+      if (locNumber != 0) {
+        emitError("dual-source blending should use vk::location 0",
+                  locAttr->getLocation());
+        success = false;
+      }
+    }
+
+    const auto idxNumber = idxAttr->getNumber();
+    if (idxNumber != 0 && idxNumber != 1) {
+      emitError("dual-source blending only accepts 0 or 1 as vk::index",
+                idxAttr->getLocation());
+      success = false;
+    }
+  }
+
+  return success;
 }
 
 bool DeclResultIdMapper::validateVKBuiltins(const NamedDecl *decl,

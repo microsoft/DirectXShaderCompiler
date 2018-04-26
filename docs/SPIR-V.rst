@@ -275,6 +275,8 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``builtin("X")``: For specifying an entity should be translated into a certain
   Vulkan builtin variable. Allowed on function parameters, function returns,
   and struct fields.
+- ``index(X)``: For specifying the index at a specific pixel shader output
+  location. Used for dual-source blending.
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
