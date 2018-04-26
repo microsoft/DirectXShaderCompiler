@@ -973,7 +973,7 @@ static const char *OpCodeSignatures[] = {
 class DxcAssemblyAnnotationWriter : public llvm::AssemblyAnnotationWriter {
 public:
   ~DxcAssemblyAnnotationWriter() {}
-  __override void printInfoComment(const Value &V, formatted_raw_ostream &OS) {
+  void printInfoComment(const Value &V, formatted_raw_ostream &OS) override {
     const CallInst *CI = dyn_cast<const CallInst>(&V);
     if (!CI) {
       return;

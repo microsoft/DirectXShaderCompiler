@@ -58,12 +58,12 @@ public:
     return DoBasicQueryInterface<IDxcContainerReflection>(this, iid, ppvObject);
   }
 
-  __override HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pContainer);
-  __override HRESULT STDMETHODCALLTYPE GetPartCount(_Out_ UINT32 *pResult);
-  __override HRESULT STDMETHODCALLTYPE GetPartKind(UINT32 idx, _Out_ UINT32 *pResult);
-  __override HRESULT STDMETHODCALLTYPE GetPartContent(UINT32 idx, _COM_Outptr_ IDxcBlob **ppResult);
-  __override HRESULT STDMETHODCALLTYPE FindFirstPartKind(UINT32 kind, _Out_ UINT32 *pResult);
-  __override HRESULT STDMETHODCALLTYPE GetPartReflection(UINT32 idx, REFIID iid, _COM_Outptr_ void **ppvObject);
+  HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pContainer) override;
+  HRESULT STDMETHODCALLTYPE GetPartCount(_Out_ UINT32 *pResult) override;
+  HRESULT STDMETHODCALLTYPE GetPartKind(UINT32 idx, _Out_ UINT32 *pResult) override;
+  HRESULT STDMETHODCALLTYPE GetPartContent(UINT32 idx, _COM_Outptr_ IDxcBlob **ppResult) override;
+  HRESULT STDMETHODCALLTYPE FindFirstPartKind(UINT32 kind, _Out_ UINT32 *pResult) override;
+  HRESULT STDMETHODCALLTYPE GetPartReflection(UINT32 idx, REFIID iid, _COM_Outptr_ void **ppvObject) override;
 };
 
 class CShaderReflectionConstantBuffer;

@@ -69,9 +69,9 @@ public:
   HRESULT Initialize(_In_z_ LPCSTR fileName, _In_z_ LPCSTR contents, unsigned length);
   static HRESULT Create(_In_z_ LPCSTR fileName, _In_z_ LPCSTR contents, unsigned length, _COM_Outptr_ IDxcUnsavedFile** pObject);
 
-  __override HRESULT STDMETHODCALLTYPE GetFileName(_Outptr_result_z_ LPSTR* pFileName);
-  __override HRESULT STDMETHODCALLTYPE GetContents(_Outptr_result_z_ LPSTR* pContents);
-  __override HRESULT STDMETHODCALLTYPE GetLength(_Out_ unsigned* pLength);
+  HRESULT STDMETHODCALLTYPE GetFileName(_Outptr_result_z_ LPSTR* pFileName) override;
+  HRESULT STDMETHODCALLTYPE GetContents(_Outptr_result_z_ LPSTR* pContents) override;
+  HRESULT STDMETHODCALLTYPE GetLength(_Out_ unsigned* pLength) override;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -44,10 +44,10 @@ public:
   }
 
   // Assemble dxil in ll or llvm bitcode to dxbc container.
-  __override HRESULT STDMETHODCALLTYPE AssembleToContainer(
+  HRESULT STDMETHODCALLTYPE AssembleToContainer(
       _In_ IDxcBlob *pShader, // Shader to assemble.
       _COM_Outptr_ IDxcOperationResult **ppResult // Assemble output status, buffer, and errors
-      );
+      ) override;
 };
 
 // Assemble dxil in ll or llvm bitcode to dxbc container.
