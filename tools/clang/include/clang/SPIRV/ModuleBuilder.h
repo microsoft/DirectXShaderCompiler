@@ -375,6 +375,9 @@ public:
   /// \brief Decorates the given target <result-id> with the given location.
   void decorateLocation(uint32_t targetId, uint32_t location);
 
+  /// \brief Decorates the given target <result-id> with the given index.
+  void decorateIndex(uint32_t targetId, uint32_t index);
+
   /// \brief Decorates the given target <result-id> with the given descriptor
   /// set and binding number.
   void decorateDSetBinding(uint32_t targetId, uint32_t setNumber,

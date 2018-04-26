@@ -32,16 +32,29 @@
 namespace clang {
 namespace spirv {
 
+/// A struct containing information about a particular HLSL semantic.
+struct SemanticInfo {
+  llvm::StringRef str;            ///< The original semantic string
+  const hlsl::Semantic *semantic; ///< The unique semantic object
+  llvm::StringRef name;           ///< The semantic string without index
+  uint32_t index;                 ///< The semantic index
+  SourceLocation loc;             ///< Source code location
+
+  bool isValid() const { return semantic != nullptr; }
+
+  inline hlsl::Semantic::Kind getKind() const;
+  /// \brief Returns true if this semantic is a SV_Target.
+  inline bool isTarget() const;
+};
+
 /// \brief The class containing HLSL and SPIR-V information about a Vulkan stage
 /// (builtin/input/output) variable.
 class StageVar {
 public:
-  inline StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
-                  const hlsl::Semantic *sema, llvm::StringRef semaName,
-                  uint32_t semaIndex, const VKBuiltInAttr *builtin,
-                  uint32_t type, uint32_t locCount)
-      : sigPoint(sig), semanticStr(semaStr), semantic(sema),
-        semanticName(semaName), semanticIndex(semaIndex), builtinAttr(builtin),
+  inline StageVar(const hlsl::SigPoint *sig, SemanticInfo semaInfo,
+                  const VKBuiltInAttr *builtin, uint32_t type,
+                  uint32_t locCount)
+      : sigPoint(sig), semanticInfo(std::move(semaInfo)), builtinAttr(builtin),
         typeId(type), valueId(0), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
         locationCount(locCount) {
@@ -49,7 +62,8 @@ public:
   }
 
   const hlsl::SigPoint *getSigPoint() const { return sigPoint; }
-  const hlsl::Semantic *getSemantic() const { return semantic; }
+  const SemanticInfo &getSemanticInfo() const { return semanticInfo; }
+  std::string getSemanticStr() const;
 
   uint32_t getSpirvTypeId() const { return typeId; }
 
@@ -57,9 +71,6 @@ public:
   void setSpirvId(uint32_t id) { valueId = id; }
 
   const VKBuiltInAttr *getBuiltInAttr() const { return builtinAttr; }
-
-  std::string getSemanticStr() const;
-  uint32_t getSemanticIndex() const { return semanticIndex; }
 
   bool isSpirvBuitin() const { return isBuiltin; }
   void setIsSpirvBuiltin() { isBuiltin = true; }
@@ -70,20 +81,17 @@ public:
   const VKLocationAttr *getLocationAttr() const { return location; }
   void setLocationAttr(const VKLocationAttr *loc) { location = loc; }
 
+  const VKIndexAttr *getIndexAttr() const { return indexAttr; }
+  void setIndexAttr(const VKIndexAttr *idx) { indexAttr = idx; }
+
   uint32_t getLocationCount() const { return locationCount; }
 
 private:
   /// HLSL SigPoint. It uniquely identifies each set of parameters that may be
   /// input or output for each entry point.
   const hlsl::SigPoint *sigPoint;
-  /// Original HLSL semantic string in the source code.
-  llvm::StringRef semanticStr;
-  /// HLSL semantic.
-  const hlsl::Semantic *semantic;
-  /// Original HLSL semantic string (without index) in the source code.
-  llvm::StringRef semanticName;
-  /// HLSL semantic index.
-  uint32_t semanticIndex;
+  /// Information about HLSL semantic string.
+  SemanticInfo semanticInfo;
   /// SPIR-V BuiltIn attribute.
   const VKBuiltInAttr *builtinAttr;
   /// SPIR-V <type-id>.
@@ -96,6 +104,8 @@ private:
   spv::StorageClass storageClass;
   /// Location assignment if input/output variable.
   const VKLocationAttr *location;
+  /// Index assignment if PS output variable
+  const VKIndexAttr *indexAttr;
   /// How many locations this stage variable takes.
   uint32_t locationCount;
 };
@@ -514,17 +524,6 @@ private:
       const DeclContext *decl, uint32_t arraySize, ContextUsageKind usageKind,
       llvm::StringRef typeName, llvm::StringRef varName);
 
-  /// A struct containing information about a particular HLSL semantic.
-  struct SemanticInfo {
-    llvm::StringRef str;            ///< The original semantic string
-    const hlsl::Semantic *semantic; ///< The unique semantic object
-    llvm::StringRef name;           ///< The semantic string without index
-    uint32_t index;                 ///< The semantic index
-    SourceLocation loc;             ///< Source code location
-
-    bool isValid() const { return semantic != nullptr; }
-  };
-
   /// Returns the given decl's HLSL semantic information.
   static SemanticInfo getStageVarSemantic(const NamedDecl *decl);
 
@@ -564,6 +563,9 @@ private:
   /// creating a stage input/output variable.
   uint32_t createSpirvStageVar(StageVar *, const NamedDecl *decl,
                                const llvm::StringRef name, SourceLocation);
+
+  /// Returns true if all vk:: attributes usages are valid.
+  bool validateVKAttributes(const NamedDecl *decl);
 
   /// Returns true if all vk::builtin usages are valid.
   bool validateVKBuiltins(const NamedDecl *decl,
@@ -710,6 +712,14 @@ public:
   /// The gl_PerVertex structs for both input and output
   GlPerVertex glPerVertex;
 };
+
+hlsl::Semantic::Kind SemanticInfo::getKind() const {
+  assert(semantic);
+  return semantic->GetKind();
+}
+bool SemanticInfo::isTarget() const {
+  return semantic && semantic->GetKind() == hlsl::Semantic::Kind::Target;
+}
 
 void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
                                 ModuleBuilder &builder,

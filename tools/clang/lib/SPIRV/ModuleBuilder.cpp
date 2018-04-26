@@ -859,6 +859,11 @@ void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
   theModule.addDecoration(d, targetId);
 }
 
+void ModuleBuilder::decorateIndex(uint32_t targetId, uint32_t index) {
+  const Decoration *d = Decoration::getIndex(theContext, index);
+  theModule.addDecoration(d, targetId);
+}
+
 void ModuleBuilder::decorateSpecId(uint32_t targetId, uint32_t specId) {
   const Decoration *d = Decoration::getSpecId(theContext, specId);
   theModule.addDecoration(d, targetId);
