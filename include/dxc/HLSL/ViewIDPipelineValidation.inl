@@ -238,10 +238,10 @@ public:
       m_GSRastStreamIndex(gsRastStreamIndex)
   {}
   virtual ~ViewIDValidator_impl() {}
-  __override Result ValidateStage(const DxilPipelineStateValidation &PSV,
-                                  bool bFinalStage,
-                                  bool bExpandInputOnly,
-                                  unsigned &mismatchElementId) {
+  Result ValidateStage(const DxilPipelineStateValidation &PSV,
+                       bool bFinalStage,
+                       bool bExpandInputOnly,
+                       unsigned &mismatchElementId) override {
     if (!PSV.GetPSVRuntimeInfo0())
       return Result::InvalidPSV;
     if (!PSV.GetPSVRuntimeInfo1())

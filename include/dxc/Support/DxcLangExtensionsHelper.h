@@ -192,7 +192,7 @@ public:
     return SemanticDefineValidationResult{ warning, error };
   }
 
-  __override void SetupSema(clang::Sema &S) {
+  void SetupSema(clang::Sema &S) override {
     clang::ExternalASTSource *astSource = S.getASTContext().getExternalSource();
     if (clang::ExternalSemaSource *externalSema =
             llvm::dyn_cast_or_null<clang::ExternalSemaSource>(astSource)) {
@@ -202,13 +202,13 @@ public:
     }
   }
 
-  __override void SetupPreprocessorOptions(clang::PreprocessorOptions &PPOpts) {
+  void SetupPreprocessorOptions(clang::PreprocessorOptions &PPOpts) override {
     for (const auto & define : m_defines) {
       PPOpts.addMacroDef(llvm::StringRef(define.c_str()));
     }
   }
 
-  __override DxcLangExtensionsHelper *GetDxcLangExtensionsHelper() {
+  DxcLangExtensionsHelper *GetDxcLangExtensionsHelper() override {
     return this;
   }
  
@@ -220,27 +220,27 @@ public:
 // Use this macro to embed an implementation that will delegate to a field.
 // Note that QueryInterface still needs to return the vtable.
 #define DXC_LANGEXTENSIONS_HELPER_IMPL(_helper_field_) \
-  __override HRESULT STDMETHODCALLTYPE RegisterIntrinsicTable(_In_ IDxcIntrinsicTable *pTable) { \
+  HRESULT STDMETHODCALLTYPE RegisterIntrinsicTable(_In_ IDxcIntrinsicTable *pTable) override { \
     DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterIntrinsicTable(pTable); \
   } \
-  __override HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name) { \
+  HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name) override { \
     DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterSemanticDefine(name); \
   } \
-  __override HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name) { \
+  HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name) override { \
     DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterSemanticDefineExclusion(name); \
   } \
-  __override HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) { \
+  HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) override { \
     DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterDefine(name); \
   } \
-  __override HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) { \
+  HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) override { \
     DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).SetSemanticDefineValidator(pValidator); \
   } \
-  __override HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) { \
+  HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) override { \
     DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).SetSemanticDefineMetaDataName(name); \
   } \

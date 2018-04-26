@@ -236,11 +236,11 @@ public:
     calcSizes();
   }
 
-  __override uint32_t size() const {
+  uint32_t size() const override {
     return m_lastOffset;
   }
 
-  __override void write(AbstractMemoryStream *pStream) {
+  void write(AbstractMemoryStream *pStream) override {
     UINT64 startPos = pStream->GetPosition();
     const std::vector<std::unique_ptr<hlsl::DxilSignatureElement>> &elements = m_signature.GetElements();
 
@@ -326,10 +326,10 @@ public:
   DxilFeatureInfoWriter(const DxilModule &M) {
     featureInfo.FeatureFlags = M.m_ShaderFlags.GetFeatureInfo();
   }
-  __override uint32_t size() const {
+  uint32_t size() const override {
     return sizeof(DxilShaderFeatureInfo);
   }
-  __override void write(AbstractMemoryStream *pStream) {
+  void write(AbstractMemoryStream *pStream) override {
     IFT(WriteStreamValue(pStream, featureInfo.FeatureFlags));
   }
 };
@@ -481,11 +481,11 @@ public:
       DXASSERT(false, "PSV InitNew failed computing size!");
     }
   }
-  __override uint32_t size() const {
+  uint32_t size() const override {
     return m_PSVBufferSize;
   }
 
-  __override void write(AbstractMemoryStream *pStream) {
+  void write(AbstractMemoryStream *pStream) override {
     m_PSVBuffer.resize(m_PSVBufferSize);
     if (!m_PSV.InitNew(m_PSVInitInfo, m_PSVBuffer.data(), &m_PSVBufferSize)) {
       DXASSERT(false, "PSV InitNew failed!");
@@ -714,11 +714,11 @@ private:
   llvm::SmallVector<DxilPart, 8> m_Parts;
 
 public:
-  __override void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) {
+  void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) override {
     m_Parts.emplace_back(FourCC, Size, Write);
   }
 
-  __override uint32_t size() const {
+  uint32_t size() const override {
     uint32_t partSize = 0;
     for (auto &part : m_Parts) {
       partSize += part.Header.PartSize;
@@ -726,7 +726,7 @@ public:
     return (uint32_t)GetDxilContainerSizeFromParts((uint32_t)m_Parts.size(), partSize);
   }
 
-  __override void write(AbstractMemoryStream *pStream) {
+  void write(AbstractMemoryStream *pStream) override {
     DxilContainerHeader header;
     const uint32_t PartCount = (uint32_t)m_Parts.size();
     uint32_t containerSizeInBytes = size();

@@ -217,19 +217,19 @@ public:
     m_tables.push_back(IntrinsicTable(L"Buffer", std::begin(BufferIntrinsics), std::end(BufferIntrinsics)));
   }
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  __override HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IDxcIntrinsicTable>(this, iid, ppvObject);
   }
 
-  __override HRESULT STDMETHODCALLTYPE
-  GetTableName(_Outptr_ LPCSTR *pTableName) {
+  HRESULT STDMETHODCALLTYPE
+  GetTableName(_Outptr_ LPCSTR *pTableName) override {
     *pTableName = "test";
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE LookupIntrinsic(
+  HRESULT STDMETHODCALLTYPE LookupIntrinsic(
       LPCWSTR typeName, LPCWSTR functionName, const HLSL_INTRINSIC **pIntrinsic,
-      _Inout_ UINT64 *pLookupCookie) {
+      _Inout_ UINT64 *pLookupCookie) override {
     if (typeName == nullptr)
       return E_FAIL;
 
@@ -254,8 +254,8 @@ public:
     return result.intrinsic ? S_OK : E_FAIL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE
-  GetLoweringStrategy(UINT opcode, _Outptr_ LPCSTR *pStrategy) {
+  HRESULT STDMETHODCALLTYPE
+  GetLoweringStrategy(UINT opcode, _Outptr_ LPCSTR *pStrategy) override {
     Intrinsic *intrinsic = FindByOpcode(opcode);
     
     if (!intrinsic)
@@ -265,8 +265,8 @@ public:
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE
-  GetIntrinsicName(UINT opcode, _Outptr_ LPCSTR *pName) {
+  HRESULT STDMETHODCALLTYPE
+  GetIntrinsicName(UINT opcode, _Outptr_ LPCSTR *pName) override {
     Intrinsic *intrinsic = FindByOpcode(opcode);
 
     if (!intrinsic)
@@ -276,8 +276,8 @@ public:
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE
-  GetDxilOpCode(UINT opcode, _Outptr_ UINT *pDxilOpcode) {
+  HRESULT STDMETHODCALLTYPE
+  GetDxilOpCode(UINT opcode, _Outptr_ UINT *pDxilOpcode) override {
     if (opcode == 13) {
       *pDxilOpcode = static_cast<UINT>(hlsl::OP::OpCode::IsInf);
       return S_OK;
@@ -318,7 +318,7 @@ public:
   { }
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
 
-    __override HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) {
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IDxcSemanticDefineValidator>(this, iid, ppvObject);
   }
 

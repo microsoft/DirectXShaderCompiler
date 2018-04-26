@@ -44,7 +44,7 @@ public:
     : DiagnosticInfo(DK_FirstPluginKind, DiagnosticSeverity::DS_Error),
     m_message(str) { }
 
-  __override void print(DiagnosticPrinter &DP) const {
+  void print(DiagnosticPrinter &DP) const override {
     DP << m_message;
   }
 };

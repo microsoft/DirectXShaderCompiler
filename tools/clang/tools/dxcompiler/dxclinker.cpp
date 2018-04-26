@@ -48,14 +48,14 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcLinker)
 
   // Register a library with name to ref it later.
-  __override HRESULT RegisterLibrary(
+  HRESULT RegisterLibrary(
       _In_opt_ LPCWSTR pLibName, // Name of the library.
       _In_ IDxcBlob *pLib        // Library to add.
-  );
+  ) override;
 
   // Links the shader and produces a shader blob that the Direct3D runtime can
   // use.
-  __override HRESULT STDMETHODCALLTYPE Link(
+  HRESULT STDMETHODCALLTYPE Link(
       _In_opt_ LPCWSTR pEntryName, // Entry point name
       _In_ LPCWSTR pTargetProfile, // shader profile to link
       _In_count_(libCount)
@@ -66,10 +66,10 @@ public:
       _In_ UINT32 argCount,          // Number of arguments
       _COM_Outptr_ IDxcOperationResult *
           *ppResult // Linker output status, buffer, and errors
-  );
+  ) override;
 
-  __override HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
-      IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) {
+  HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
+      IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) override {
     DxcThreadMalloc TM(m_pMalloc);
     DXASSERT(m_pDxcContainerEventsHandler == nullptr,
              "else events handler is already registered");
@@ -77,8 +77,8 @@ public:
     m_pDxcContainerEventsHandler = pHandler;
     return S_OK;
   };
-  __override HRESULT STDMETHODCALLTYPE
-  UnRegisterDxilContainerEventHandler(UINT64 cookie) {
+  HRESULT STDMETHODCALLTYPE
+  UnRegisterDxilContainerEventHandler(UINT64 cookie) override {
     DxcThreadMalloc TM(m_pMalloc);
     DXASSERT(m_pDxcContainerEventsHandler != nullptr,
              "else unregister should not have been called");

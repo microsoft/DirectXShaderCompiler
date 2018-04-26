@@ -455,25 +455,25 @@ public:
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE GetOptionName(_COM_Outptr_ LPWSTR *ppResult) {
+  HRESULT STDMETHODCALLTYPE GetOptionName(_COM_Outptr_ LPWSTR *ppResult) override {
     return Utf8ToUtf16CoTaskMalloc(m_pOptionName, ppResult);
   }
-  __override HRESULT STDMETHODCALLTYPE GetDescription(_COM_Outptr_ LPWSTR *ppResult) {
+  HRESULT STDMETHODCALLTYPE GetDescription(_COM_Outptr_ LPWSTR *ppResult) override {
     return Utf8ToUtf16CoTaskMalloc(m_pDescription, ppResult);
   }
 
-  __override HRESULT STDMETHODCALLTYPE GetOptionArgCount(_Out_ UINT32 *pCount) {
+  HRESULT STDMETHODCALLTYPE GetOptionArgCount(_Out_ UINT32 *pCount) override {
     if (!pCount) return E_INVALIDARG;
     *pCount = m_pArgDescriptions.size();
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE GetOptionArgName(UINT32 argIndex, LPWSTR *ppResult) {
+  HRESULT STDMETHODCALLTYPE GetOptionArgName(UINT32 argIndex, LPWSTR *ppResult) override {
     if (!ppResult) return E_INVALIDARG;
     if (argIndex >= m_pArgNames.size()) return E_INVALIDARG;
     return Utf8ToUtf16CoTaskMalloc(m_pArgNames[argIndex], ppResult);
   }
-  __override HRESULT STDMETHODCALLTYPE GetOptionArgDescription(UINT32 argIndex, LPWSTR *ppResult) {
+  HRESULT STDMETHODCALLTYPE GetOptionArgDescription(UINT32 argIndex, LPWSTR *ppResult) override {
     if (!ppResult) return E_INVALIDARG;
     if (argIndex >= m_pArgDescriptions.size()) return E_INVALIDARG;
     return Utf8ToUtf16CoTaskMalloc(m_pArgDescriptions[argIndex], ppResult);
@@ -496,14 +496,14 @@ public:
   HRESULT Initialize();
   const PassInfo *getPassByID(llvm::AnalysisID PassID);
   const PassInfo *getPassByName(const char *pName);
-  __override HRESULT STDMETHODCALLTYPE GetAvailablePassCount(_Out_ UINT32 *pCount) {
+  HRESULT STDMETHODCALLTYPE GetAvailablePassCount(_Out_ UINT32 *pCount) override {
     return AssignToOut<UINT32>(m_passes.size(), pCount);
   }
-  __override HRESULT STDMETHODCALLTYPE GetAvailablePass(UINT32 index, _COM_Outptr_ IDxcOptimizerPass** ppResult);
-  __override HRESULT STDMETHODCALLTYPE RunOptimizer(IDxcBlob *pBlob,
+  HRESULT STDMETHODCALLTYPE GetAvailablePass(UINT32 index, _COM_Outptr_ IDxcOptimizerPass** ppResult) override;
+  HRESULT STDMETHODCALLTYPE RunOptimizer(IDxcBlob *pBlob,
     _In_count_(optionCount) LPCWSTR *ppOptions, UINT32 optionCount,
     _COM_Outptr_ IDxcBlob **ppOutputModule,
-    _COM_Outptr_opt_ IDxcBlobEncoding **ppOutputText);
+    _COM_Outptr_opt_ IDxcBlobEncoding **ppOutputText) override;
 };
 
 class CapturePassManager : public llvm::legacy::PassManagerBase {
@@ -514,7 +514,7 @@ public:
     for (auto P : Passes) delete P;
   }
 
-  __override void add(Pass *P) {
+  void add(Pass *P) override {
     Passes.push_back(P);
   }
 
@@ -533,7 +533,7 @@ HRESULT DxcOptimizer::Initialize() {
 
     struct PRL : public PassRegistrationListener {
       std::vector<const PassInfo *> *Passes;
-      __override void passEnumerate(const PassInfo * PI) {
+      void passEnumerate(const PassInfo * PI) override {
         DXASSERT(nullptr != PI->getNormalCtor(), "else cannot construct");
         Passes->push_back(PI);
       }
