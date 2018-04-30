@@ -621,11 +621,9 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
                                     decorations);
   }
 
-  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+  // Array type
+  if (const auto *arrayType = astContext.getAsArrayType(type)) {
     const uint32_t elemType = translateType(arrayType->getElementType(), rule);
-    // TODO: handle extra large array size?
-    const auto size =
-        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
 
     llvm::SmallVector<const Decoration *, 4> decorations;
     if (rule != LayoutRule::Void) {
@@ -635,8 +633,21 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
           Decoration::getArrayStride(*theBuilder.getSPIRVContext(), stride));
     }
 
-    return theBuilder.getArrayType(elemType, theBuilder.getConstantUint32(size),
-                                   decorations);
+    if (const auto *caType = astContext.getAsConstantArrayType(type)) {
+      const auto size = static_cast<uint32_t>(caType->getSize().getZExtValue());
+      return theBuilder.getArrayType(
+          elemType, theBuilder.getConstantUint32(size), decorations);
+    } else {
+      assert(type->isIncompleteArrayType());
+      // Runtime arrays of resources needs additional capability.
+      if (hlsl::IsHLSLResourceType(arrayType->getElementType())) {
+        theBuilder.addExtension(Extension::EXT_descriptor_indexing,
+                                "runtime array of resources", {});
+        theBuilder.requireCapability(
+            spv::Capability::RuntimeDescriptorArrayEXT);
+      }
+      return theBuilder.getRuntimeArrayType(elemType, decorations);
+    }
   }
 
   emitError("type %0 unimplemented") << type->getTypeClassName();

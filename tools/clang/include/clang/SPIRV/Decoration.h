@@ -126,6 +126,7 @@ public:
   static const Decoration *getInputAttachmentIndex(SPIRVContext &ctx,
                                                    uint32_t index);
   static const Decoration *getAlignment(SPIRVContext &ctx, uint32_t alignment);
+  static const Decoration *getNonUniformEXT(SPIRVContext &ctx);
   static const Decoration *getOverrideCoverageNV(SPIRVContext &ctx);
   static const Decoration *getPassthroughNV(SPIRVContext &ctx);
   static const Decoration *getViewportRelativeNV(SPIRVContext &ctx);
