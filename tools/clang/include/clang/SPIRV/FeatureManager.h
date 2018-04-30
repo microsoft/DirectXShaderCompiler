@@ -34,6 +34,7 @@ enum class Extension {
   KHR_device_group,
   KHR_multiview,
   KHR_shader_draw_parameters,
+  EXT_descriptor_indexing,
   EXT_fragment_fully_covered,
   EXT_shader_stencil_export,
   AMD_gpu_shader_half_float,

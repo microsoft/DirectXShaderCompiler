@@ -471,6 +471,9 @@ private:
   /// Processes SM6.0 quad-wide shuffle.
   uint32_t processWaveQuadWideShuffle(const CallExpr *, hlsl::IntrinsicOp op);
 
+  /// Processes the NonUniformResourceIndex intrinsic function.
+  SpirvEvalInfo processIntrinsicNonUniformResourceIndex(const CallExpr *);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   uint32_t getValueZero(QualType type);
@@ -853,8 +856,8 @@ private:
   /// return a vec4. As a result, an extra processing step is necessary.
   uint32_t createImageSample(QualType retType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
-                             uint32_t coordinate, uint32_t compareVal,
-                             uint32_t bias, uint32_t lod,
+                             bool isNonUniform, uint32_t coordinate,
+                             uint32_t compareVal, uint32_t bias, uint32_t lod,
                              std::pair<uint32_t, uint32_t> grad,
                              uint32_t constOffset, uint32_t varOffset,
                              uint32_t constOffsets, uint32_t sample,
@@ -937,6 +940,13 @@ private:
   /// Indicates whether the current emitter is in specialization constant mode:
   /// all 32-bit scalar constants will be translated into OpSpecConstant.
   bool isSpecConstantMode;
+
+  /// Indicates that we have found a NonUniformResourceIndex call when
+  /// traversing.
+  /// This field is used to convery information in a bottom-up manner; if we
+  /// have something like `aResource[NonUniformResourceIndex(aIndex)]`, we need
+  /// to attach `aResource` with proper decorations.
+  bool foundNonUniformResourceIndex;
 
   /// Whether the translated SPIR-V binary needs legalization.
   ///

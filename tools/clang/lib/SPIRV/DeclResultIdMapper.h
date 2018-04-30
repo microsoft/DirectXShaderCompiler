@@ -519,9 +519,13 @@ private:
   /// TextureBuffers, and PushConstants. usageKind must be set properly
   /// depending on the usage kind.
   ///
+  /// If arraySize is 0, the variable will be created as a struct ; if arraySize
+  /// is > 0, the variable will be created as an array; if arraySize is -1, the
+  /// variable will be created as a runtime array.
+  ///
   /// Panics if the DeclContext is neither HLSLBufferDecl or RecordDecl.
   uint32_t createStructOrStructArrayVarOfExplicitLayout(
-      const DeclContext *decl, uint32_t arraySize, ContextUsageKind usageKind,
+      const DeclContext *decl, int arraySize, ContextUsageKind usageKind,
       llvm::StringRef typeName, llvm::StringRef varName);
 
   /// Returns the given decl's HLSL semantic information.

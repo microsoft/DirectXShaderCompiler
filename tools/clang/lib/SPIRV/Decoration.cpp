@@ -280,6 +280,10 @@ Decoration::getSecondaryViewportRelativeNV(SPIRVContext &context,
   Decoration d = Decoration(spv::Decoration::SecondaryViewportRelativeNV);
   return getUniqueDecoration(context, d);
 }
+const Decoration *Decoration::getNonUniformEXT(SPIRVContext &context) {
+  Decoration d = Decoration(spv::Decoration::NonUniformEXT);
+  return getUniqueDecoration(context, d);
+}
 
 const Decoration *Decoration::getHlslCounterBufferGOOGLE(SPIRVContext &context,
                                                          uint32_t id) {
