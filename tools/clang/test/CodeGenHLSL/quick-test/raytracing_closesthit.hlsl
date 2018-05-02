@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // CHECK: define void [[closesthit1:@"\\01\?closesthit1@[^\"]+"]](%struct.MyPayload* noalias nocapture %payload, %struct.BuiltInTriangleIntersectionAttributes* nocapture readonly %attr) #0 {
 // CHECK:   call void @dx.op.callShader.struct.MyParam(i32 159, i32 {{.*}}, %struct.MyParam* nonnull {{.*}})

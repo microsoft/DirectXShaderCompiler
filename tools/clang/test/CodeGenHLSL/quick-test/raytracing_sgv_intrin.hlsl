@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // CHECK: call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 0)
 // CHECK: call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 1)

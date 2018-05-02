@@ -261,6 +261,11 @@ public:
   float GetMaxTessellationFactor() const;
   void SetMaxTessellationFactor(float MaxTessellationFactor);
 
+  // AutoBindingSpace also enables automatic binding for libraries if set.
+  // UINT_MAX == unset
+  void SetAutoBindingSpace(uint32_t Space);
+  uint32_t GetAutoBindingSpace() const;
+
   void SetShaderProperties(DxilFunctionProps *props);
 
 private:
@@ -339,6 +344,7 @@ private:
   bool m_bDisableOptimizations;
   bool m_bUseMinPrecision;
   bool m_bAllResourcesBound;
+  uint32_t m_AutoBindingSpace;
 };
 
 } // namespace hlsl

@@ -85,6 +85,11 @@ public:
   void SetHLOptions(HLOptions &opts);
   const HLOptions &GetHLOptions() const;
 
+  // AutoBindingSpace also enables automatic binding for libraries if set.
+  // UINT_MAX == unset
+  void SetAutoBindingSpace(uint32_t Space);
+  uint32_t GetAutoBindingSpace() const;
+
   // Entry function.
   llvm::Function *GetEntryFunction() const;
   void SetEntryFunction(llvm::Function *pEntryFunc);
@@ -269,6 +274,7 @@ private:
   HLOptions m_Options;
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;
+  uint32_t m_AutoBindingSpace;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitHLResources();

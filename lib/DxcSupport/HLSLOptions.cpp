@@ -341,6 +341,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   }
 
+  llvm::StringRef auto_binding_space = Args.getLastArgValue(OPT_auto_binding_space);
+  if (!auto_binding_space.empty()) {
+    if (auto_binding_space.getAsInteger(10, opts.AutoBindingSpace)) {
+      errors << "Unsupported value '" << auto_binding_space << "' for auto binding space.";
+      return 1;
+    }
+  }
+
   // Check options only allowed in shader model >= 6.2FPDenormalMode
   unsigned Major = 0;
   unsigned Minor = 0;

@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // Make sure select resource works for lib profile.
 // CHECK: call %dx.types.Handle @"dx.op.createHandleFromResourceStructForLib.class.RWStructuredBuffer<vector<float, 2> >"

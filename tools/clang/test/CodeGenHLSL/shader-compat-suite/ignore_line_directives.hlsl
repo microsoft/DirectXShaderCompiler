@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 -Zi  -ignore-line-directives %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -Zi  -ignore-line-directives %s | FileCheck %s
 
 // Make sure only 1 DIFile exist in debug info when NoLineDirectives is enabled.
 // CHECK: !DIFile

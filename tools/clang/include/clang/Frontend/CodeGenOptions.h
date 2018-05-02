@@ -200,6 +200,8 @@ public:
   unsigned HLSLSignaturePackingStrategy = 0;
   /// denormalized number mode ("ieee" for default)
   hlsl::DXIL::Float32DenormMode HLSLFloat32DenormMode;
+  /// HLSLDefaultSpace also enables automatic binding for libraries if set. UINT_MAX == unset
+  unsigned HLSLDefaultSpace = UINT_MAX;
   // HLSL Change Ends
   /// Regular expression to select optimizations for which we should enable
   /// optimization remarks. Transformation passes whose name matches this

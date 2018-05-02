@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // CHECK:attribute 'shader' must have one of these values: compute,vertex,pixel,hull,domain,geometry
 
