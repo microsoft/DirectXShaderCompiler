@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // CHECK: define void [[intersection1:@"\\01\?intersection1@[^\"]+"]]() #0 {
 // CHECK:   [[rayTCurrent:%[^ ]+]] = call float @dx.op.rayTCurrent.f32(i32 154)

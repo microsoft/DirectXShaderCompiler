@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | %D3DReflect %s | FileCheck %s
 
 struct Payload {
    float2 t;
@@ -41,8 +41,8 @@ float4 emit(inout float2 f2, RayDesc Ray:R, inout Payload p )  {
 // CHECK:         Type: D3D_SIT_RTACCELERATIONSTRUCTURE
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1
-// CHECK:         BindPoint: 4294967295
-// CHECK:         Space: 0
+// CHECK:         BindPoint: 0
+// CHECK:         Space: 11
 // CHECK:         ReturnType: D3D_RETURN_TYPE_SINT
 // CHECK:         Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK:         NumSamples (or stride): 4294967295

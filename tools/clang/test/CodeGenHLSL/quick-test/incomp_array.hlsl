@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // Verify no hang on incomplete array
 

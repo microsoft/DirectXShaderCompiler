@@ -96,9 +96,10 @@ void ApplyRewriteMapOnResTable(RemapEntryCollection &rewrites, DxilModule &DM) {
 namespace {
 
 template <typename T>
-static void
+static bool
 AllocateDxilResource(const std::vector<std::unique_ptr<T>> &resourceList,
-                     LLVMContext &Ctx) {
+                     LLVMContext &Ctx, unsigned AutoBindingSpace=0) {
+  bool bChanged = false;
   SpacesAllocator<unsigned, T> SAlloc;
 
   for (auto &res : resourceList) {
@@ -135,7 +136,7 @@ AllocateDxilResource(const std::vector<std::unique_ptr<T>> &resourceList,
   }
 
   // Allocate.
-  const unsigned space = 0;
+  const unsigned space = AutoBindingSpace;
   typename SpacesAllocator<unsigned, T>::Allocator &alloc0 = SAlloc.Get(space);
   for (auto &res : resourceList) {
     if (!res->IsAllocated()) {
@@ -160,6 +161,8 @@ AllocateDxilResource(const std::vector<std::unique_ptr<T>> &resourceList,
       }
       if (success) {
         res->SetLowerBound(reg);
+        res->SetSpaceID(space);
+        bChanged = true;
       } else {
         Ctx.emitError(((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
                       Twine("resource ") + res->GetGlobalName() +
@@ -167,13 +170,25 @@ AllocateDxilResource(const std::vector<std::unique_ptr<T>> &resourceList,
       }
     }
   }
+
+  return bChanged;
 }
 
-void AllocateDxilResources(DxilModule &DM) {
-  AllocateDxilResource(DM.GetCBuffers(), DM.GetCtx());
-  AllocateDxilResource(DM.GetSamplers(), DM.GetCtx());
-  AllocateDxilResource(DM.GetUAVs(), DM.GetCtx());
-  AllocateDxilResource(DM.GetSRVs(), DM.GetCtx());
+bool AllocateDxilResources(DxilModule &DM) {
+  uint32_t AutoBindingSpace = DM.GetAutoBindingSpace();
+  if (AutoBindingSpace == UINT_MAX) {
+    // For libraries, we don't allocate unless AutoBindingSpace is set.
+    if (DM.GetShaderModel()->IsLib())
+      return false;
+    // For shaders, we allocate in space 0 by default.
+    AutoBindingSpace = 0;
+  }
+  bool bChanged = false;
+  bChanged |= AllocateDxilResource(DM.GetCBuffers(), DM.GetCtx(), AutoBindingSpace);
+  bChanged |= AllocateDxilResource(DM.GetSamplers(), DM.GetCtx(), AutoBindingSpace);
+  bChanged |= AllocateDxilResource(DM.GetUAVs(), DM.GetCtx(), AutoBindingSpace);
+  bChanged |= AllocateDxilResource(DM.GetSRVs(), DM.GetCtx(), AutoBindingSpace);
+  return bChanged;
 }
 } // namespace
 
@@ -482,8 +497,14 @@ public:
                             DM.GetSRVs().size() + DM.GetSamplers().size();
     bChanged = bChanged || (numResources != newResources);
 
-    if (0 == newResources || m_bIsLib)
+    if (0 == newResources)
       return bChanged;
+
+    bChanged |= AllocateDxilResources(DM);
+
+    if (m_bIsLib)
+      return bChanged;
+
     // Make sure no select on resource.
     RemovePhiOnResource();
 
@@ -492,8 +513,6 @@ public:
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
     m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
-
-    AllocateDxilResources(DM);
 
     GenerateDxilResourceHandles();
     AddCreateHandleForPhiNodeAndSelect(DM.GetOP());
@@ -1462,3 +1481,46 @@ ModulePass *llvm::createDxilLowerCreateHandleForLibPass() {
 }
 
 INITIALIZE_PASS(DxilLowerCreateHandleForLib, "hlsl-dxil-lower-handle-for-lib", "DXIL Lower createHandleForLib", false, false)
+
+
+class DxilAllocateResourcesForLib : public ModulePass {
+private:
+  RemapEntryCollection m_rewrites;
+
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilAllocateResourcesForLib() : ModulePass(ID), m_AutoBindingSpace(UINT_MAX) {}
+
+  void applyOptions(PassOptions O) override {
+    GetPassOptionUInt32(O, "auto-binding-space", &m_AutoBindingSpace, UINT_MAX);
+  }
+  const char *getPassName() const override { return "DXIL Condense Resources"; }
+
+  bool runOnModule(Module &M) override {
+    DxilModule &DM = M.GetOrCreateDxilModule();
+    // Must specify a default space, and must apply to library.
+    // Use DxilCondenseResources instead for shaders.
+    if ((m_AutoBindingSpace == UINT_MAX) || !DM.GetShaderModel()->IsLib())
+      return false;
+
+    bool hasResource = DM.GetCBuffers().size() ||
+      DM.GetUAVs().size() || DM.GetSRVs().size() || DM.GetSamplers().size();
+
+    if (hasResource) {
+      DM.SetAutoBindingSpace(m_AutoBindingSpace);
+      AllocateDxilResources(DM);
+    }
+    return true;
+  }
+
+private:
+  uint32_t m_AutoBindingSpace;
+};
+
+char DxilAllocateResourcesForLib::ID = 0;
+
+ModulePass *llvm::createDxilAllocateResourcesForLibPass() {
+  return new DxilAllocateResourcesForLib();
+}
+
+INITIALIZE_PASS(DxilAllocateResourcesForLib, "hlsl-dxil-allocate-resources-for-lib", "DXIL Allocate Resources For Library", false, false)

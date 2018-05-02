@@ -214,6 +214,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
 
   M.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
+  M.SetAutoBindingSpace(H.GetAutoBindingSpace());
+
   // Update Validator Version
   M.UpgradeToMinValidatorVersion();
 }

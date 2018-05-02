@@ -124,6 +124,13 @@ const HLOptions &HLModule::GetHLOptions() const {
   return m_Options;
 }
 
+void HLModule::SetAutoBindingSpace(uint32_t Space) {
+  m_AutoBindingSpace = Space;
+}
+uint32_t HLModule::GetAutoBindingSpace() const {
+  return m_AutoBindingSpace;
+}
+
 Function *HLModule::GetEntryFunction() const {
   return m_pEntryFunc;
 }
@@ -461,6 +468,7 @@ void HLModule::EmitHLMetadata() {
     NamedMDNode * options = m_pModule->getOrInsertNamedMetadata(kHLDxilOptionsMDName);
     uint32_t hlOptions = m_Options.GetHLOptionsRaw();
     options->addOperand(MDNode::get(m_Ctx, m_pMDHelper->Uint32ToConstMD(hlOptions)));
+    options->addOperand(MDNode::get(m_Ctx, m_pMDHelper->Uint32ToConstMD(GetAutoBindingSpace())));
 
     NamedMDNode * resTyAnnotations = m_pModule->getOrInsertNamedMetadata(kHLDxilResourceTypeAnnotationMDName);
     resTyAnnotations->addOperand(EmitResTyAnnotations());
@@ -514,6 +522,8 @@ void HLModule::LoadHLMetadata() {
     const NamedMDNode * options = m_pModule->getOrInsertNamedMetadata(kHLDxilOptionsMDName);
     const MDNode *MDOptions = options->getOperand(0);
     m_Options.SetHLOptionsRaw(DxilMDHelper::ConstMDToUint32(MDOptions->getOperand(0)));
+    if (options->getNumOperands() > 1)
+      SetAutoBindingSpace(DxilMDHelper::ConstMDToUint32(options->getOperand(1)->getOperand(0)));
     NamedMDNode * resTyAnnotations = m_pModule->getOrInsertNamedMetadata(kHLDxilResourceTypeAnnotationMDName);
     const MDNode *MDResTyAnnotations = resTyAnnotations->getOperand(0);
     if (MDResTyAnnotations->getNumOperands())

@@ -1,4 +1,4 @@
-// RUN: %dxc -enable-16bit-types -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -enable-16bit-types -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // CHECK: define void @"\01?closesthit_numeric
 

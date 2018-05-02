@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // CHECK: load %"class.Buffer<vector<float, 4> >", %"class.Buffer<vector<float, 4> >"* @"\01?buf@@3V?$Buffer@V?$vector@M$03@@@@A"
 // CHECK: store %"class.Buffer<vector<float, 4> >"

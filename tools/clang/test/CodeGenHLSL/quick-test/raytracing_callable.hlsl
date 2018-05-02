@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // CHECK: ; S                                 sampler      NA          NA      S0             s1     1
 // CHECK: ; T                                 texture     f32          2d      T0             t1     1

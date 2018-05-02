@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -enable-16bit-types %s | FileCheck %s
 
 ///////////////////////////////////////
 // CHECK: !{void (%struct.Payload_20*, %struct.BuiltInTriangleIntersectionAttributes*)* @"\01?anyhit1@@YAXUPayload_20@@UBuiltInTriangleIntersectionAttributes@@@Z", i32 9, i32 20, i32 8}

@@ -86,7 +86,8 @@ DxilModule::DxilModule(Module *pModule)
 , m_RootSignature(nullptr)
 , m_bUseMinPrecision(true) // use min precision by default
 , m_bDisableOptimizations(false)
-, m_bAllResourcesBound(false) {
+, m_bAllResourcesBound(false)
+, m_AutoBindingSpace(UINT_MAX) {
   DXASSERT_NOMSG(m_pModule != nullptr);
 
   m_NumThreads[0] = m_NumThreads[1] = m_NumThreads[2] = 0;
@@ -461,6 +462,13 @@ float DxilModule::GetMaxTessellationFactor() const {
 
 void DxilModule::SetMaxTessellationFactor(float MaxTessellationFactor) {
   m_MaxTessellationFactor = MaxTessellationFactor;
+}
+
+void DxilModule::SetAutoBindingSpace(uint32_t Space) {
+  m_AutoBindingSpace = Space;
+}
+uint32_t DxilModule::GetAutoBindingSpace() const {
+  return m_AutoBindingSpace;
 }
 
 void DxilModule::SetShaderProperties(DxilFunctionProps *props) {
@@ -1278,6 +1286,11 @@ MDTuple *DxilModule::EmitDxilShaderProperties() {
     MDVals.emplace_back(pMDTuple);
   }
 
+  if (GetAutoBindingSpace() != UINT_MAX && m_pSM->IsSMAtLeast(6, 3)) {
+    MDVals.emplace_back(m_pMDHelper->Uint32ToConstMD(DxilMDHelper::kDxilAutoBindingSpaceTag));
+    MDVals.emplace_back(MDNode::get(m_Ctx, { m_pMDHelper->Uint32ToConstMD(GetAutoBindingSpace()) }));
+  }
+
   if (!MDVals.empty())
     return MDNode::get(m_Ctx, MDVals);
   else
@@ -1333,6 +1346,12 @@ void DxilModule::LoadDxilShaderProperties(const MDOperand &MDO) {
                                    m_TessellatorOutputPrimitive,
                                    m_MaxTessellationFactor);
       break;
+
+    case DxilMDHelper::kDxilAutoBindingSpaceTag: {
+      MDNode *pNode = cast<MDNode>(MDO.get());
+      SetAutoBindingSpace(DxilMDHelper::ConstMDToUint32(pNode->getOperand(0)));
+      break;
+    }
 
     default:
       DXASSERT(false, "Unknown extended shader properties tag");

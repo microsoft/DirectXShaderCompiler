@@ -873,6 +873,9 @@ public:
         clang::CodeGenOptions::OnlyAlwaysInlining);
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
+
+    // AutoBindingSpace also enables automatic binding for libraries if set. UINT_MAX == unset
+    compiler.getCodeGenOpts().HLSLDefaultSpace = Opts.AutoBindingSpace;
   }
 
   // IDxcVersionInfo

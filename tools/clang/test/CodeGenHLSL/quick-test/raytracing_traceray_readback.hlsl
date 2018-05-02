@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // Make sure we don't store the initial value (must load from payload after TraceRay)
 // CHECK: define void @"\01?RayGenTestMain@@YAXXZ"()

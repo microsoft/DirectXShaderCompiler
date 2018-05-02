@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -Zpr %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -Zpr %s | FileCheck %s
 
 // Make sure GVN does not do illegal bitcast for DXIL
 // CHECK-NOT: bitcast i32* {{.*}} to i64*
