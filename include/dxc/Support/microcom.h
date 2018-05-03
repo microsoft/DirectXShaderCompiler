@@ -139,21 +139,6 @@ void DxcCallDestructor(T *obj) {
 /// marshaling. This will help catch marshaling problems early or avoid
 /// them altogether.
 /// </remarks>
-template<typename... Ts, typename TObject>
-HRESULT DoBasicQueryInterface(TObject* self, REFIID iid, void** ppvObject) {
-  if (ppvObject == nullptr) return E_POINTER;
-
-  // Support INoMarshal to void GIT shenanigans.
-  if (IsEqualIID(iid, __uuidof(IUnknown)) ||
-    IsEqualIID(iid, __uuidof(INoMarshal))) {
-    *ppvObject = reinterpret_cast<IUnknown*>(self);
-    reinterpret_cast<IUnknown*>(self)->AddRef();
-    return S_OK;
-  }
-
-  return DoBasicQueryInterface_recurse<TObject, Ts...>(self, iid, ppvObject);
-}
-
 template<typename TObject>
 HRESULT DoBasicQueryInterface_recurse(TObject* self, REFIID iid, void** ppvObject) {
   return E_NOINTERFACE;
@@ -166,6 +151,20 @@ HRESULT DoBasicQueryInterface_recurse(TObject* self, REFIID iid, void** ppvObjec
     self->AddRef();
     return S_OK;
   }
+  return DoBasicQueryInterface_recurse<TObject, Ts...>(self, iid, ppvObject);
+}
+template<typename... Ts, typename TObject>
+HRESULT DoBasicQueryInterface(TObject* self, REFIID iid, void** ppvObject) {
+  if (ppvObject == nullptr) return E_POINTER;
+
+  // Support INoMarshal to void GIT shenanigans.
+  if (IsEqualIID(iid, __uuidof(IUnknown)) ||
+    IsEqualIID(iid, __uuidof(INoMarshal))) {
+    *ppvObject = reinterpret_cast<IUnknown*>(self);
+    reinterpret_cast<IUnknown*>(self)->AddRef();
+    return S_OK;
+  }
+
   return DoBasicQueryInterface_recurse<TObject, Ts...>(self, iid, ppvObject);
 }
 
