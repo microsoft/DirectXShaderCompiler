@@ -181,9 +181,11 @@ const DeclContext *isConstantTextureBufferDeclRef(const Expr *expr) {
 
 /// Returns true if
 /// * the given expr is an DeclRefExpr referencing a kind of structured or byte
-/// buffer and it is non-alias one, or
+///   buffer and it is non-alias one, or
 /// * the given expr is an CallExpr returning a kind of structured or byte
-/// buffer.
+///   buffer.
+/// * the given expr is an ArraySubscriptExpr referencing a kind of structured
+///   or byte buffer.
 ///
 /// Note: legalization specific code
 bool isReferencingNonAliasStructuredOrByteBuffer(const Expr *expr) {
@@ -195,6 +197,8 @@ bool isReferencingNonAliasStructuredOrByteBuffer(const Expr *expr) {
   } else if (const auto *callExpr = dyn_cast<CallExpr>(expr)) {
     if (TypeTranslator::isAKindOfStructuredOrByteBuffer(callExpr->getType()))
       return true;
+  } else if (const auto *arrSubExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
+    return isReferencingNonAliasStructuredOrByteBuffer(arrSubExpr->getBase());
   }
   return false;
 }
@@ -1258,11 +1262,16 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
               decl->getLocation());
   }
 
-  if (const auto *arrayType =
-          astContext.getAsConstantArrayType(decl->getType())) {
-    if (TypeTranslator::isAKindOfStructuredOrByteBuffer(
-            arrayType->getElementType())) {
-      emitError("arrays of structured/byte buffers unsupported",
+  // Reject arrays of RW/append/consume structured buffers. They have assoicated
+  // counters, which are quite nasty to handle.
+  if (decl->getType()->isArrayType()) {
+    auto type = decl->getType();
+    do {
+      type = type->getAsArrayTypeUnsafe()->getElementType();
+    } while (type->isArrayType());
+
+    if (TypeTranslator::isRWAppendConsumeSBuffer(type)) {
+      emitError("arrays of RW/append/consume structured buffers unsupported",
                 decl->getLocation());
       return;
     }

@@ -623,10 +623,14 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
 
   // Array type
   if (const auto *arrayType = astContext.getAsArrayType(type)) {
-    const uint32_t elemType = translateType(arrayType->getElementType(), rule);
+    const auto elemType = arrayType->getElementType();
+    const uint32_t elemTypeId = translateType(elemType, rule);
 
     llvm::SmallVector<const Decoration *, 4> decorations;
-    if (rule != LayoutRule::Void) {
+    if (rule != LayoutRule::Void &&
+        // We won't have stride information for structured/byte buffers since
+        // they contain runtime arrays.
+        !isAKindOfStructuredOrByteBuffer(elemType)) {
       uint32_t stride = 0;
       (void)getAlignmentAndSize(type, rule, &stride);
       decorations.push_back(
@@ -636,7 +640,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
     if (const auto *caType = astContext.getAsConstantArrayType(type)) {
       const auto size = static_cast<uint32_t>(caType->getSize().getZExtValue());
       return theBuilder.getArrayType(
-          elemType, theBuilder.getConstantUint32(size), decorations);
+          elemTypeId, theBuilder.getConstantUint32(size), decorations);
     } else {
       assert(type->isIncompleteArrayType());
       // Runtime arrays of resources needs additional capability.
@@ -646,7 +650,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
         theBuilder.requireCapability(
             spv::Capability::RuntimeDescriptorArrayEXT);
       }
-      return theBuilder.getRuntimeArrayType(elemType, decorations);
+      return theBuilder.getRuntimeArrayType(elemTypeId, decorations);
     }
   }
 
@@ -760,6 +764,10 @@ bool TypeTranslator::isRWAppendConsumeSBuffer(QualType type) {
 }
 
 bool TypeTranslator::isAKindOfStructuredOrByteBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     return name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
