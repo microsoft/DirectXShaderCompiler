@@ -578,6 +578,18 @@ HLSL Interpolation Modifier SPIR-V Decoration   SPIR-V Capability
 ``sample``                  ``Sample``        ``SampleRateShading``
 =========================== ================= =====================
 
+Arrays
+------
+
+Sized (either explicitly or implicitly) arrays are translated into SPIR-V
+`OpTypeArray`. Unsized arrays are translated into `OpTypeRuntimeArray`.
+
+Arrays, if used for external resources (residing in SPIR-V `Uniform` or
+`UniformConstant` storage class), will need layout decorations like SPIR-V
+`ArrayStride` decoration. For arrays of opaque types, e.g., HLSL textures
+or samplers, we don't decorate with `ArrayStride` decorations since there is
+no meaningful strides. Similarly for arrays of structured/byte buffers.
+
 User-defined types
 ------------------
 
