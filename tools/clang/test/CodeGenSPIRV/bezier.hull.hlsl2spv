@@ -59,7 +59,7 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // CHECK-WHOLE-SPIR-V:
 // OpCapability Tessellation
 // OpMemoryModel Logical GLSL450
-// OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS" %gl_PerVertexIn %gl_PerVertexOut %in_var_WORLDPOS %in_var_TEXCOORD0 %in_var_TANGENT %gl_InvocationID %gl_PrimitiveID %out_var_BEZIERPOS %gl_TessLevelOuter %gl_TessLevelInner %out_var_TANGENT %out_var_TEXCOORD %out_var_TANUCORNER %out_var_TANVCORNER %out_var_TANWEIGHTS
+// OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS" %in_var_WORLDPOS %in_var_TEXCOORD0 %in_var_TANGENT %gl_InvocationID %gl_PrimitiveID %out_var_BEZIERPOS %gl_TessLevelOuter %gl_TessLevelInner %out_var_TANGENT %out_var_TEXCOORD %out_var_TANUCORNER %out_var_TANVCORNER %out_var_TANWEIGHTS
 // OpExecutionMode %SubDToBezierHS Quads
 // OpExecutionMode %SubDToBezierHS SpacingFractionalOdd
 // OpExecutionMode %SubDToBezierHS VertexOrderCcw
@@ -71,9 +71,6 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // OpName %bb_entry_0 "bb.entry"
 // OpName %src_SubDToBezierHS "src.SubDToBezierHS"
 // OpName %SubDToBezierHS "SubDToBezierHS"
-// OpName %type_gl_PerVertex "type.gl_PerVertex"
-// OpName %gl_PerVertexIn "gl_PerVertexIn"
-// OpName %gl_PerVertexOut "gl_PerVertexOut"
 // OpName %VS_CONTROL_POINT_OUTPUT "VS_CONTROL_POINT_OUTPUT"
 // OpMemberName %VS_CONTROL_POINT_OUTPUT 0 "vPosition"
 // OpMemberName %VS_CONTROL_POINT_OUTPUT 1 "vUV"
@@ -109,11 +106,6 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // OpName %PatchID_0 "PatchID"
 // OpName %vsOutput "vsOutput"
 // OpName %result "result"
-// OpMemberDecorate %type_gl_PerVertex 0 BuiltIn Position
-// OpMemberDecorate %type_gl_PerVertex 1 BuiltIn PointSize
-// OpMemberDecorate %type_gl_PerVertex 2 BuiltIn ClipDistance
-// OpMemberDecorate %type_gl_PerVertex 3 BuiltIn CullDistance
-// OpDecorate %type_gl_PerVertex Block
 // OpDecorate %gl_InvocationID BuiltIn InvocationId
 // OpDecorate %gl_PrimitiveID BuiltIn PrimitiveId
 // OpDecorate %gl_TessLevelOuter BuiltIn TessLevelOuter
@@ -137,18 +129,11 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void
 // %float = OpTypeFloat 32
-// %v4float = OpTypeVector %float 4
-// %uint = OpTypeInt 32 0
-// %uint_1 = OpConstant %uint 1
-// %_arr_float_uint_1 = OpTypeArray %float %uint_1
-// %type_gl_PerVertex = OpTypeStruct %v4float %float %_arr_float_uint_1 %_arr_float_uint_1
-// %uint_3 = OpConstant %uint 3
-// %_arr_type_gl_PerVertex_uint_3 = OpTypeArray %type_gl_PerVertex %uint_3
-// %_ptr_Input__arr_type_gl_PerVertex_uint_3 = OpTypePointer Input %_arr_type_gl_PerVertex_uint_3
-// %_ptr_Output__arr_type_gl_PerVertex_uint_3 = OpTypePointer Output %_arr_type_gl_PerVertex_uint_3
 // %v3float = OpTypeVector %float 3
 // %v2float = OpTypeVector %float 2
 // %VS_CONTROL_POINT_OUTPUT = OpTypeStruct %v3float %v2float %v3float
+// %uint = OpTypeInt 32 0
+// %uint_3 = OpConstant %uint 3
 // %_arr_VS_CONTROL_POINT_OUTPUT_uint_3 = OpTypeArray %VS_CONTROL_POINT_OUTPUT %uint_3
 // %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 = OpTypePointer Function %_arr_VS_CONTROL_POINT_OUTPUT_uint_3
 // %_arr_v3float_uint_3 = OpTypeArray %v3float %uint_3
@@ -168,13 +153,14 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // %_arr_float_uint_2 = OpTypeArray %float %uint_2
 // %_arr_v3float_uint_4 = OpTypeArray %v3float %uint_4
 // %_arr_v2float_uint_4 = OpTypeArray %v2float %uint_4
+// %v4float = OpTypeVector %float 4
 // %HS_CONSTANT_DATA_OUTPUT = OpTypeStruct %_arr_float_uint_4 %_arr_float_uint_2 %_arr_v3float_uint_4 %_arr_v2float_uint_4 %_arr_v3float_uint_4 %_arr_v3float_uint_4 %v4float
 // %_ptr_Output__arr_float_uint_4 = OpTypePointer Output %_arr_float_uint_4
 // %_ptr_Output__arr_float_uint_2 = OpTypePointer Output %_arr_float_uint_2
 // %_ptr_Output__arr_v3float_uint_4 = OpTypePointer Output %_arr_v3float_uint_4
 // %_ptr_Output__arr_v2float_uint_4 = OpTypePointer Output %_arr_v2float_uint_4
 // %_ptr_Output_v4float = OpTypePointer Output %v4float
-// %95 = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 %_ptr_Function_uint
+// %87 = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 %_ptr_Function_uint
 // %_ptr_Function_HS_CONSTANT_DATA_OUTPUT = OpTypePointer Function %HS_CONSTANT_DATA_OUTPUT
 // %float_1 = OpConstant %float 1
 // %int = OpTypeInt 32 1
@@ -188,12 +174,10 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // %int_3 = OpConstant %int 3
 // %float_5 = OpConstant %float 5
 // %float_6 = OpConstant %float 6
-// %120 = OpTypeFunction %BEZIER_CONTROL_POINT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 %_ptr_Function_uint %_ptr_Function_uint
+// %112 = OpTypeFunction %BEZIER_CONTROL_POINT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 %_ptr_Function_uint %_ptr_Function_uint
 // %_ptr_Function_VS_CONTROL_POINT_OUTPUT = OpTypePointer Function %VS_CONTROL_POINT_OUTPUT
 // %_ptr_Function_BEZIER_CONTROL_POINT = OpTypePointer Function %BEZIER_CONTROL_POINT
 // %_ptr_Function_v3float = OpTypePointer Function %v3float
-// %gl_PerVertexIn = OpVariable %_ptr_Input__arr_type_gl_PerVertex_uint_3 Input
-// %gl_PerVertexOut = OpVariable %_ptr_Output__arr_type_gl_PerVertex_uint_3 Output
 // %in_var_WORLDPOS = OpVariable %_ptr_Input__arr_v3float_uint_3 Input
 // %in_var_TEXCOORD0 = OpVariable %_ptr_Input__arr_v2float_uint_3 Input
 // %in_var_TANGENT = OpVariable %_ptr_Input__arr_v3float_uint_3 Input
@@ -208,90 +192,90 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // %out_var_TANVCORNER = OpVariable %_ptr_Output__arr_v3float_uint_4 Output
 // %out_var_TANWEIGHTS = OpVariable %_ptr_Output_v4float Output
 // %SubDToBezierHS = OpFunction %void None %3
-// %17 = OpLabel
+// %5 = OpLabel
 // %param_var_ip = OpVariable %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 Function
 // %param_var_cpid = OpVariable %_ptr_Function_uint Function
 // %param_var_PatchID = OpVariable %_ptr_Function_uint Function
-// %27 = OpLoad %_arr_v3float_uint_3 %in_var_WORLDPOS
-// %31 = OpLoad %_arr_v2float_uint_3 %in_var_TEXCOORD0
-// %33 = OpLoad %_arr_v3float_uint_3 %in_var_TANGENT
-// %34 = OpCompositeExtract %v3float %27 0
-// %35 = OpCompositeExtract %v2float %31 0
-// %36 = OpCompositeExtract %v3float %33 0
-// %37 = OpCompositeConstruct %VS_CONTROL_POINT_OUTPUT %34 %35 %36
-// %38 = OpCompositeExtract %v3float %27 1
-// %39 = OpCompositeExtract %v2float %31 1
-// %40 = OpCompositeExtract %v3float %33 1
-// %41 = OpCompositeConstruct %VS_CONTROL_POINT_OUTPUT %38 %39 %40
-// %42 = OpCompositeExtract %v3float %27 2
-// %43 = OpCompositeExtract %v2float %31 2
-// %44 = OpCompositeExtract %v3float %33 2
-// %45 = OpCompositeConstruct %VS_CONTROL_POINT_OUTPUT %42 %43 %44
-// %46 = OpCompositeConstruct %_arr_VS_CONTROL_POINT_OUTPUT_uint_3 %37 %41 %45
-// OpStore %param_var_ip %46
-// %51 = OpLoad %uint %gl_InvocationID
-// OpStore %param_var_cpid %51
-// %54 = OpLoad %uint %gl_PrimitiveID
-// OpStore %param_var_PatchID %54
-// %56 = OpFunctionCall %BEZIER_CONTROL_POINT %src_SubDToBezierHS %param_var_ip %param_var_cpid %param_var_PatchID
-// %57 = OpCompositeExtract %v3float %56 0
-// %61 = OpAccessChain %_ptr_Output_v3float %out_var_BEZIERPOS %51
-// OpStore %61 %57
+// %18 = OpLoad %_arr_v3float_uint_3 %in_var_WORLDPOS
+// %22 = OpLoad %_arr_v2float_uint_3 %in_var_TEXCOORD0
+// %24 = OpLoad %_arr_v3float_uint_3 %in_var_TANGENT
+// %25 = OpCompositeExtract %v3float %18 0
+// %26 = OpCompositeExtract %v2float %22 0
+// %27 = OpCompositeExtract %v3float %24 0
+// %28 = OpCompositeConstruct %VS_CONTROL_POINT_OUTPUT %25 %26 %27
+// %29 = OpCompositeExtract %v3float %18 1
+// %30 = OpCompositeExtract %v2float %22 1
+// %31 = OpCompositeExtract %v3float %24 1
+// %32 = OpCompositeConstruct %VS_CONTROL_POINT_OUTPUT %29 %30 %31
+// %33 = OpCompositeExtract %v3float %18 2
+// %34 = OpCompositeExtract %v2float %22 2
+// %35 = OpCompositeExtract %v3float %24 2
+// %36 = OpCompositeConstruct %VS_CONTROL_POINT_OUTPUT %33 %34 %35
+// %37 = OpCompositeConstruct %_arr_VS_CONTROL_POINT_OUTPUT_uint_3 %28 %32 %36
+// OpStore %param_var_ip %37
+// %42 = OpLoad %uint %gl_InvocationID
+// OpStore %param_var_cpid %42
+// %45 = OpLoad %uint %gl_PrimitiveID
+// OpStore %param_var_PatchID %45
+// %47 = OpFunctionCall %BEZIER_CONTROL_POINT %src_SubDToBezierHS %param_var_ip %param_var_cpid %param_var_PatchID
+// %48 = OpCompositeExtract %v3float %47 0
+// %52 = OpAccessChain %_ptr_Output_v3float %out_var_BEZIERPOS %42
+// OpStore %52 %48
 // OpControlBarrier %uint_2 %uint_4 %uint_0
-// %66 = OpIEqual %bool %51 %uint_0
+// %57 = OpIEqual %bool %42 %uint_0
 // OpSelectionMerge %if_merge None
-// OpBranchConditional %66 %if_true %if_merge
+// OpBranchConditional %57 %if_true %if_merge
 // %if_true = OpLabel
-// %75 = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %SubDToBezierConstantsHS %param_var_ip %param_var_PatchID
-// %76 = OpCompositeExtract %_arr_float_uint_4 %75 0
-// OpStore %gl_TessLevelOuter %76
-// %79 = OpCompositeExtract %_arr_float_uint_2 %75 1
-// OpStore %gl_TessLevelInner %79
-// %82 = OpCompositeExtract %_arr_v3float_uint_4 %75 2
-// OpStore %out_var_TANGENT %82
-// %85 = OpCompositeExtract %_arr_v2float_uint_4 %75 3
-// OpStore %out_var_TEXCOORD %85
-// %88 = OpCompositeExtract %_arr_v3float_uint_4 %75 4
-// OpStore %out_var_TANUCORNER %88
-// %90 = OpCompositeExtract %_arr_v3float_uint_4 %75 5
-// OpStore %out_var_TANVCORNER %90
-// %92 = OpCompositeExtract %v4float %75 6
-// OpStore %out_var_TANWEIGHTS %92
+// %67 = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %SubDToBezierConstantsHS %param_var_ip %param_var_PatchID
+// %68 = OpCompositeExtract %_arr_float_uint_4 %67 0
+// OpStore %gl_TessLevelOuter %68
+// %71 = OpCompositeExtract %_arr_float_uint_2 %67 1
+// OpStore %gl_TessLevelInner %71
+// %74 = OpCompositeExtract %_arr_v3float_uint_4 %67 2
+// OpStore %out_var_TANGENT %74
+// %77 = OpCompositeExtract %_arr_v2float_uint_4 %67 3
+// OpStore %out_var_TEXCOORD %77
+// %80 = OpCompositeExtract %_arr_v3float_uint_4 %67 4
+// OpStore %out_var_TANUCORNER %80
+// %82 = OpCompositeExtract %_arr_v3float_uint_4 %67 5
+// OpStore %out_var_TANVCORNER %82
+// %84 = OpCompositeExtract %v4float %67 6
+// OpStore %out_var_TANWEIGHTS %84
 // OpBranch %if_merge
 // %if_merge = OpLabel
 // OpReturn
 // OpFunctionEnd
-// %SubDToBezierConstantsHS = OpFunction %HS_CONSTANT_DATA_OUTPUT None %95
+// %SubDToBezierConstantsHS = OpFunction %HS_CONSTANT_DATA_OUTPUT None %87
 // %ip = OpFunctionParameter %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3
 // %PatchID = OpFunctionParameter %_ptr_Function_uint
 // %bb_entry = OpLabel
 // %Output = OpVariable %_ptr_Function_HS_CONSTANT_DATA_OUTPUT Function
-// %105 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_0
-// OpStore %105 %float_1
-// %108 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_1
-// OpStore %108 %float_2
-// %111 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_2
-// OpStore %111 %float_3
-// %114 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_3
-// OpStore %114 %float_4
-// %116 = OpAccessChain %_ptr_Function_float %Output %int_1 %int_0
-// OpStore %116 %float_5
-// %118 = OpAccessChain %_ptr_Function_float %Output %int_1 %int_1
-// OpStore %118 %float_6
-// %119 = OpLoad %HS_CONSTANT_DATA_OUTPUT %Output
-// OpReturnValue %119
+// %97 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_0
+// OpStore %97 %float_1
+// %100 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_1
+// OpStore %100 %float_2
+// %103 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_2
+// OpStore %103 %float_3
+// %106 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_3
+// OpStore %106 %float_4
+// %108 = OpAccessChain %_ptr_Function_float %Output %int_1 %int_0
+// OpStore %108 %float_5
+// %110 = OpAccessChain %_ptr_Function_float %Output %int_1 %int_1
+// OpStore %110 %float_6
+// %111 = OpLoad %HS_CONSTANT_DATA_OUTPUT %Output
+// OpReturnValue %111
 // OpFunctionEnd
-// %src_SubDToBezierHS = OpFunction %BEZIER_CONTROL_POINT None %120
+// %src_SubDToBezierHS = OpFunction %BEZIER_CONTROL_POINT None %112
 // %ip_0 = OpFunctionParameter %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3
 // %cpid = OpFunctionParameter %_ptr_Function_uint
 // %PatchID_0 = OpFunctionParameter %_ptr_Function_uint
 // %bb_entry_0 = OpLabel
 // %vsOutput = OpVariable %_ptr_Function_VS_CONTROL_POINT_OUTPUT Function
 // %result = OpVariable %_ptr_Function_BEZIER_CONTROL_POINT Function
-// %130 = OpAccessChain %_ptr_Function_v3float %vsOutput %int_0
-// %131 = OpLoad %v3float %130
-// %132 = OpAccessChain %_ptr_Function_v3float %result %int_0
-// OpStore %132 %131
-// %133 = OpLoad %BEZIER_CONTROL_POINT %result
-// OpReturnValue %133
+// %122 = OpAccessChain %_ptr_Function_v3float %vsOutput %int_0
+// %123 = OpLoad %v3float %122
+// %124 = OpAccessChain %_ptr_Function_v3float %result %int_0
+// OpStore %124 %123
+// %125 = OpLoad %BEZIER_CONTROL_POINT %result
+// OpReturnValue %125
 // OpFunctionEnd

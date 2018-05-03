@@ -28,7 +28,7 @@ void main(in    line float2 foo[2] : FOO,
 // Write back to stage output variables
 // CHECK-NEXT: [[vertex:%\d+]] = OpLoad %GsPerVertexOut %vertex
 // CHECK-NEXT:    [[pos:%\d+]] = OpCompositeExtract %v4float [[vertex]] 0
-// CHECK-NEXT:                   OpStore %gl_Position [[pos]]
+// CHECK-NEXT:                   OpStore %gl_Position_0 [[pos]]
 // CHECK-NEXT:    [[foo:%\d+]] = OpCompositeExtract %v3float [[vertex]] 1
 // CHECK-NEXT:                   OpStore %out_var_FOO [[foo]]
 // CHECK-NEXT:      [[s:%\d+]] = OpCompositeExtract %GsInnerOut [[vertex]] 2
@@ -41,7 +41,7 @@ void main(in    line float2 foo[2] : FOO,
 // Write back to stage output variables
 // CHECK-NEXT: [[vertex:%\d+]] = OpLoad %GsPerVertexOut %vertex
 // CHECK-NEXT:    [[pos:%\d+]] = OpCompositeExtract %v4float [[vertex]] 0
-// CHECK-NEXT:                   OpStore %gl_Position [[pos]]
+// CHECK-NEXT:                   OpStore %gl_Position_0 [[pos]]
 // CHECK-NEXT:    [[foo:%\d+]] = OpCompositeExtract %v3float [[vertex]] 1
 // CHECK-NEXT:                   OpStore %out_var_FOO [[foo]]
 // CHECK-NEXT:      [[s:%\d+]] = OpCompositeExtract %GsInnerOut [[vertex]] 2

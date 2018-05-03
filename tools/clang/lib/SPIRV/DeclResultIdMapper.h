@@ -431,6 +431,9 @@ public:
   bool writeBackOutputStream(const NamedDecl *decl, QualType type,
                              uint32_t value);
 
+  /// \brief Inverts SV_Position.y is requested.
+  uint32_t invertYIfRequested(uint32_t position);
+
   /// \brief Decorates all stage input and output variables with proper
   /// location and returns true on success.
   ///
@@ -742,7 +745,7 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
       astContext(context), diags(context.getDiagnostics()),
       typeTranslator(translator), featureManager(features), entryFunctionId(0),
       laneCountBuiltinId(0), laneIndexBuiltinId(0), needsLegalization(false),
-      glPerVertex(model, context, builder, typeTranslator, options.invertY) {}
+      glPerVertex(model, context, builder, typeTranslator) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
   // Try both input and output even if input location assignment failed
