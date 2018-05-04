@@ -13,7 +13,6 @@
 #include "spirv/unified1//spirv.hpp11"
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/InstBuilder.h"
-#include "llvm/llvm_assert/assert.h"
 
 namespace clang {
 namespace spirv {

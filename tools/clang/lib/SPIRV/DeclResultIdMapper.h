@@ -122,7 +122,9 @@ public:
   const hlsl::RegisterAssignment *getRegister() const { return reg; }
   const VKBindingAttr *getBinding() const { return binding; }
   bool isCounter() const { return isCounterVar; }
-  const auto *getCounterBinding() const { return counterBinding; }
+  const VKCounterBindingAttr *getCounterBinding() const {
+    return counterBinding;
+  }
 
 private:
   uint32_t varId;                             ///< <result-id>
