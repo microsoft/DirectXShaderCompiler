@@ -272,9 +272,8 @@ private:
   /// Creates a temporary local variable in the current function of the given
   /// varType and varName. Initializes the variable with the given initValue.
   /// Returns the <result-id> of the variable.
-  uint32_t SPIRVEmitter::createTemporaryVar(QualType varType,
-                                            llvm::StringRef varName,
-                                            const SpirvEvalInfo &initValue);
+  uint32_t createTemporaryVar(QualType varType, llvm::StringRef varName,
+                              const SpirvEvalInfo &initValue);
 
   /// Collects all indices (SPIR-V constant values) from consecutive MemberExprs
   /// or ArraySubscriptExprs or operator[] calls and writes into indices.
