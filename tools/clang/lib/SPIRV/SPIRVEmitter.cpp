@@ -2757,8 +2757,9 @@ uint32_t SPIRVEmitter::processGetSamplePosition(const CXXMemberCallExpr *expr) {
 
 SpirvEvalInfo SPIRVEmitter::processSubpassLoad(const CXXMemberCallExpr *expr) {
   const auto *object = expr->getImplicitObjectArgument()->IgnoreParens();
-  const uint32_t sample =
-      expr->getNumArgs() == 1 ? (uint32_t)doExpr(expr->getArg(0)) : 0;
+  const uint32_t sample = expr->getNumArgs() == 1
+                              ? static_cast<uint32_t>(doExpr(expr->getArg(0)))
+                              : 0;
   const uint32_t zero = theBuilder.getConstantInt32(0);
   const uint32_t location = theBuilder.getConstantComposite(
       theBuilder.getVecType(theBuilder.getInt32Type(), 2), {zero, zero});
@@ -2982,7 +2983,8 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   const auto image = loadIfGLValue(imageExpr);
   const auto sampler = doExpr(expr->getArg(0));
   const uint32_t coordinate = doExpr(expr->getArg(1));
-  const uint32_t compareVal = isCmp ? (uint32_t)doExpr(expr->getArg(2)) : 0;
+  const uint32_t compareVal =
+      isCmp ? static_cast<uint32_t>(doExpr(expr->getArg(2))) : 0;
 
   // Handle offsets (if any).
   bool needsEmulation = false;
@@ -3012,7 +3014,8 @@ uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
   }
 
   const auto status =
-      hasStatusArg ? (uint32_t)doExpr(expr->getArg(numArgs - 1)) : 0;
+      hasStatusArg ? static_cast<uint32_t>(doExpr(expr->getArg(numArgs - 1)))
+                   : 0;
   const bool isNonUniform = image.isNonUniform() || sampler.isNonUniform();
 
   if (needsEmulation) {
@@ -3078,7 +3081,8 @@ uint32_t SPIRVEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
   const auto retType = typeTranslator.translateType(callee->getReturnType());
   const auto imageType = typeTranslator.translateType(imageExpr->getType());
   const auto status =
-      hasStatusArg ? (uint32_t)doExpr(expr->getArg(numArgs - 1)) : 0;
+      hasStatusArg ? static_cast<uint32_t>(doExpr(expr->getArg(numArgs - 1)))
+                   : 0;
 
   return theBuilder.createImageGather(
       retType, imageType, image, sampler,
@@ -3942,7 +3946,8 @@ uint32_t SPIRVEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
     clamp = doExpr(expr->getArg(3));
   const bool hasClampArg = (clamp != 0);
   const auto status =
-      hasStatusArg ? (uint32_t)doExpr(expr->getArg(numArgs - 1)) : 0;
+      hasStatusArg ? static_cast<uint32_t>(doExpr(expr->getArg(numArgs - 1)))
+                   : 0;
 
   // Subtract 1 for status (if it exists), subtract 1 for clamp (if it exists),
   // and subtract 2 for sampler_state and location.
@@ -4012,7 +4017,8 @@ SPIRVEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   const auto status =
-      hasStatusArg ? (uint32_t)doExpr(expr->getArg(numArgs - 1)) : 0;
+      hasStatusArg ? static_cast<uint32_t>(doExpr(expr->getArg(numArgs - 1)))
+                   : 0;
 
   uint32_t clamp = 0;
   // The .SampleLevel() methods do not take the clamp argument.
@@ -4077,7 +4083,8 @@ uint32_t SPIRVEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   const auto status =
-      hasStatusArg ? (uint32_t)doExpr(expr->getArg(numArgs - 1)) : 0;
+      hasStatusArg ? static_cast<uint32_t>(doExpr(expr->getArg(numArgs - 1)))
+                   : 0;
 
   uint32_t clamp = 0;
   if (numArgs > 4 && expr->getArg(4)->getType()->isFloatingType())
@@ -4162,7 +4169,8 @@ SPIRVEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   const auto status =
-      hasStatusArg ? (uint32_t)doExpr(expr->getArg(numArgs - 1)) : 0;
+      hasStatusArg ? static_cast<uint32_t>(doExpr(expr->getArg(numArgs - 1)))
+                   : 0;
 
   uint32_t clamp = 0;
   // The .SampleCmpLevelZero() methods do not take the clamp argument.
@@ -4258,7 +4266,8 @@ SPIRVEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   const auto status =
-      hasStatusArg ? (uint32_t)doExpr(expr->getArg(numArgs - 1)) : 0;
+      hasStatusArg ? static_cast<uint32_t>(doExpr(expr->getArg(numArgs - 1)))
+                   : 0;
 
   if (TypeTranslator::isBuffer(objectType) ||
       TypeTranslator::isRWBuffer(objectType) ||
@@ -5632,7 +5641,7 @@ SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
 
   const auto vec1 = doExpr(base);
   const uint32_t vec1Val = vec1.isRValue()
-                               ? (uint32_t)vec1
+                               ? static_cast<uint32_t>(vec1)
                                : theBuilder.createLoad(baseTypeId, vec1);
   const uint32_t shuffle =
       theBuilder.createVectorShuffle(baseTypeId, vec1Val, rhs, selectors);
