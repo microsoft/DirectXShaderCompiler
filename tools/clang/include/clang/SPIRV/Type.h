@@ -41,7 +41,9 @@ public:
 
   spv::Op getOpcode() const { return opcode; }
   const std::vector<uint32_t> &getArgs() const { return args; }
-  const auto &getDecorations() const { return decorations; }
+  const llvm::SetVector<const Decoration *> &getDecorations() const {
+    return decorations;
+  }
   bool hasDecoration(const Decoration *) const;
 
   bool isBooleanType() const;
