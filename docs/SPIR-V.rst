@@ -617,22 +617,22 @@ are translated into SPIR-V ``OpTypeImage``, with parameters:
 ----------------------- -------------------------- ------------------------------------------------------------------------------------------
      Texture Type         Descriptor Type    RO/RW    Storage Class        Dim    Depth Arrayed MS Sampled   Image Format      Capability
 ======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
-``Texture1D``           Sampled Image         RO   ``UniformConstant`` ``1D``      0       0    0    1     ``Unknown``
-``Texture2D``           Sampled Image         RO   ``UniformConstant`` ``2D``      0       0    0    1     ``Unknown``
-``Texture3D``           Sampled Image         RO   ``UniformConstant`` ``3D``      0       0    0    1     ``Unknown``
-``TextureCube``         Sampled Image         RO   ``UniformConstant`` ``Cube``    0       0    0    1     ``Unknown``
-``Texture1DArray``      Sampled Image         RO   ``UniformConstant`` ``1D``      0       1    0    1     ``Unknown``
-``Texture2DArray``      Sampled Image         RO   ``UniformConstant`` ``2D``      0       1    0    1     ``Unknown``
-``Texture2DMS``         Sampled Image         RO   ``UniformConstant`` ``2D``      0       0    1    1     ``Unknown``
-``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      0       1    1    1     ``Unknown``      ``ImageMSArray``
-``TextureCubeArray``    Sampled Image         RO   ``UniformConstant`` ``3D``      0       1    0    1     ``Unknown``
-``Buffer<T>``           Uniform Texel Buffer  RO   ``UniformConstant`` ``Buffer``  0       0    0    1     Depends on ``T`` ``SampledBuffer``
-``RWBuffer<T>``         Storage Texel Buffer  RW   ``UniformConstant`` ``Buffer``  0       0    0    2     Depends on ``T`` ``SampledBuffer``
-``RWTexture1D<T>``      Storage Image         RW   ``UniformConstant`` ``1D``      0       0    0    2     Depends on ``T``
-``RWTexture2D<T>``      Storage Image         RW   ``UniformConstant`` ``2D``      0       0    0    2     Depends on ``T``
-``RWTexture3D<T>``      Storage Image         RW   ``UniformConstant`` ``3D``      0       0    0    2     Depends on ``T``
-``RWTexture1DArray<T>`` Storage Image         RW   ``UniformConstant`` ``1D``      0       1    0    2     Depends on ``T``
-``RWTexture2DArray<T>`` Storage Image         RW   ``UniformConstant`` ``2D``      0       1    0    2     Depends on ``T``
+``Texture1D``           Sampled Image         RO   ``UniformConstant`` ``1D``      2       0    0    1     ``Unknown``
+``Texture2D``           Sampled Image         RO   ``UniformConstant`` ``2D``      2       0    0    1     ``Unknown``
+``Texture3D``           Sampled Image         RO   ``UniformConstant`` ``3D``      2       0    0    1     ``Unknown``
+``TextureCube``         Sampled Image         RO   ``UniformConstant`` ``Cube``    2       0    0    1     ``Unknown``
+``Texture1DArray``      Sampled Image         RO   ``UniformConstant`` ``1D``      2       1    0    1     ``Unknown``
+``Texture2DArray``      Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    0    1     ``Unknown``
+``Texture2DMS``         Sampled Image         RO   ``UniformConstant`` ``2D``      2       0    1    1     ``Unknown``
+``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    1    1     ``Unknown``      ``ImageMSArray``
+``TextureCubeArray``    Sampled Image         RO   ``UniformConstant`` ``3D``      2       1    0    1     ``Unknown``
+``Buffer<T>``           Uniform Texel Buffer  RO   ``UniformConstant`` ``Buffer``  2       0    0    1     Depends on ``T`` ``SampledBuffer``
+``RWBuffer<T>``         Storage Texel Buffer  RW   ``UniformConstant`` ``Buffer``  2       0    0    2     Depends on ``T`` ``SampledBuffer``
+``RWTexture1D<T>``      Storage Image         RW   ``UniformConstant`` ``1D``      2       0    0    2     Depends on ``T``
+``RWTexture2D<T>``      Storage Image         RW   ``UniformConstant`` ``2D``      2       0    0    2     Depends on ``T``
+``RWTexture3D<T>``      Storage Image         RW   ``UniformConstant`` ``3D``      2       0    0    2     Depends on ``T``
+``RWTexture1DArray<T>`` Storage Image         RW   ``UniformConstant`` ``1D``      2       1    0    2     Depends on ``T``
+``RWTexture2DArray<T>`` Storage Image         RW   ``UniformConstant`` ``2D``      2       1    0    2     Depends on ``T``
 ======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
 
 The meanings of the headers in the above table is explained in ``OpTypeImage``
