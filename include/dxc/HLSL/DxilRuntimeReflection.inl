@@ -119,12 +119,21 @@ const DXIL_LIBRARY_DESC DxilRuntimeReflection::GetLibraryReflection() {
 void DxilRuntimeReflection::InitializeReflection() {
   // First need to reserve spaces for resources because functions will need to
   // reference them via pointers.
-  m_Resources.reserve(
-      m_RuntimeData.GetResourceTableReader()->GetNumResources());
-  const FunctionTableReader *tableReader =
-      m_RuntimeData.GetFunctionTableReader();
-  for (uint32_t i = 0; i < tableReader->GetNumFunctions(); ++i) {
-    FunctionReader functionReader = tableReader->GetItem(i);
+  const ResourceTableReader *resourceTableReader = m_RuntimeData.GetResourceTableReader();
+  m_Resources.reserve(resourceTableReader->GetNumResources());
+  for (uint32_t i = 0; i < resourceTableReader->GetNumResources(); ++i) {
+    ResourceReader resourceReader = resourceTableReader->GetItem(i);
+    AddString(resourceReader.GetName());
+    DXIL_RESOURCE *pResource = AddResource(resourceReader);
+    if (pResource) {
+      ResourceKey key(pResource->Class, pResource->ID);
+      m_ResourceMap[key] = pResource;
+    }
+  }
+  const FunctionTableReader *functionTableReader = m_RuntimeData.GetFunctionTableReader();
+  m_Functions.reserve(functionTableReader->GetNumFunctions());
+  for (uint32_t i = 0; i < functionTableReader->GetNumFunctions(); ++i) {
+    FunctionReader functionReader = functionTableReader->GetItem(i);
     AddString(functionReader.GetName());
     AddFunction(functionReader);
   }
@@ -132,34 +141,40 @@ void DxilRuntimeReflection::InitializeReflection() {
 
 DXIL_RESOURCE *
 DxilRuntimeReflection::AddResource(const ResourceReader &resourceReader) {
-  if (m_Resources.size() < m_Resources.capacity()) {
-    m_Resources.emplace_back(DXIL_RESOURCE({0}));
-    DXIL_RESOURCE &resource = m_Resources.back();
-    resource.Class = (uint32_t)resourceReader.GetResourceClass();
-    resource.Kind = (uint32_t)resourceReader.GetResourceKind();
-    resource.Space = resourceReader.GetSpace();
-    resource.LowerBound = resourceReader.GetLowerBound();
-    resource.UpperBound = resourceReader.GetUpperBound();
-    resource.ID = resourceReader.GetID();
-    resource.Flags = resourceReader.GetFlags();
-    resource.Name = GetWideString(resourceReader.GetName());
-    return &resource;
-  }
-  // TODO: assert here?
-  return nullptr;
+  assert(m_Resources.size() < m_Resources.capacity() && "Otherwise, number of resources was incorrect");
+  if (!(m_Resources.size() < m_Resources.capacity()))
+    return nullptr;
+  m_Resources.emplace_back(DXIL_RESOURCE({0}));
+  DXIL_RESOURCE &resource = m_Resources.back();
+  resource.Class = (uint32_t)resourceReader.GetResourceClass();
+  resource.Kind = (uint32_t)resourceReader.GetResourceKind();
+  resource.Space = resourceReader.GetSpace();
+  resource.LowerBound = resourceReader.GetLowerBound();
+  resource.UpperBound = resourceReader.GetUpperBound();
+  resource.ID = resourceReader.GetID();
+  resource.Flags = resourceReader.GetFlags();
+  resource.Name = GetWideString(resourceReader.GetName());
+  return &resource;
 }
 
-DXIL_RESOURCE *DxilRuntimeReflection::GetResourcesForFunction(
+const DXIL_RESOURCE * const*DxilRuntimeReflection::GetResourcesForFunction(
     DXIL_FUNCTION &function, const FunctionReader &functionReader) {
   if (m_FuncToResMap.find(&function) == m_FuncToResMap.end())
     m_FuncToResMap.insert(std::pair<DXIL_FUNCTION *, ResourceRefList>(
         &function, ResourceRefList()));
   ResourceRefList &resourceList = m_FuncToResMap.at(&function);
-  for (uint32_t i = 0; i < functionReader.GetNumResources(); ++i) {
-    const ResourceReader resourceReader = functionReader.GetResource(i);
-    resourceList.emplace_back(AddResource(resourceReader));
+  if (resourceList.empty()) {
+    resourceList.reserve(functionReader.GetNumResources());
+    for (uint32_t i = 0; i < functionReader.GetNumResources(); ++i) {
+      const ResourceReader resourceReader = functionReader.GetResource(i);
+      ResourceKey key((uint32_t)resourceReader.GetResourceClass(),
+                      resourceReader.GetID());
+      auto it = m_ResourceMap.find(key);
+      assert(it != m_ResourceMap.end() && it->second && "Otherwise, resource was not in map, or was null");
+      resourceList.emplace_back(it->second);
+    }
   }
-  return resourceList.empty() ? nullptr : *resourceList.data();
+  return resourceList.empty() ? nullptr : resourceList.data();
 }
 
 const wchar_t **DxilRuntimeReflection::GetDependenciesForFunction(
@@ -176,6 +191,9 @@ const wchar_t **DxilRuntimeReflection::GetDependenciesForFunction(
 
 DXIL_FUNCTION *
 DxilRuntimeReflection::AddFunction(const FunctionReader &functionReader) {
+  assert(m_Functions.size() < m_Functions.capacity() && "Otherwise, number of functions was incorrect");
+  if (!(m_Functions.size() < m_Functions.capacity()))
+    return nullptr;
   m_Functions.emplace_back(DXIL_FUNCTION({0}));
   DXIL_FUNCTION &function = m_Functions.back();
   function.Name = GetWideString(functionReader.GetName());

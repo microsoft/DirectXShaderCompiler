@@ -767,7 +767,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           VERIFY_IS_TRUE(featureFlag == rawFlag);
           VERIFY_IS_TRUE(function.NumResources == 1);
           VERIFY_IS_TRUE(function.NumFunctionDependencies == 0);
-          const DXIL_RESOURCE resource = function.Resources[0];
+          const DXIL_RESOURCE &resource = *function.Resources[0];
           VERIFY_IS_TRUE(resource.Class == (uint32_t)hlsl::DXIL::ResourceClass::UAV);
           VERIFY_IS_TRUE(resource.Kind == (uint32_t)hlsl::DXIL::ResourceKind::Texture1D);
           std::wstring wName = resource.Name;
@@ -784,7 +784,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           VERIFY_IS_TRUE(function.NumFunctionDependencies == 0);
           std::unordered_set<std::wstring> stringSet = { L"$Globals", L"b_buf", L"tex2" };
           for (uint32_t j = 0; j < 3; ++j) {
-            const DXIL_RESOURCE resource = function.Resources[j];
+            const DXIL_RESOURCE &resource = *function.Resources[j];
             std::wstring compareName = resource.Name;
             VERIFY_IS_TRUE(stringSet.find(compareName) != stringSet.end());
           }
