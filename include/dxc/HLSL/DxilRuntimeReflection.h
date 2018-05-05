@@ -15,6 +15,28 @@
 #include <memory>
 #include "DxilConstants.h"
 
+namespace hlsl { namespace DXIL { namespace RDAT {
+  struct ResourceKey {
+    uint32_t Class, ID;
+    ResourceKey(uint32_t Class, uint32_t ID) : Class(Class), ID(ID) {}
+    bool operator==(const ResourceKey& other) const {
+      return other.Class == Class && other.ID == ID;
+    }
+  };
+} } }
+
+template<>
+struct std::hash<hlsl::DXIL::RDAT::ResourceKey> {
+public:
+  size_t operator()(const hlsl::DXIL::RDAT::ResourceKey& key) const throw() {
+    //static_assert(sizeof(hlsl::DXIL::RDAT::ResourceKey) == sizeof(uint64_t),
+    //              "otherwise, hash function is incorrect");
+    return (std::hash<uint32_t>()(key.Class) * (size_t)16777619U)
+           ^ std::hash<uint32_t>()(key.ID);
+    //return std::hash<uint64_t>()(*reinterpret_cast<const uint64_t*>(&key));
+  }
+};
+
 namespace hlsl {
 namespace DXIL {
 namespace RDAT {
@@ -362,7 +384,7 @@ typedef struct DXIL_FUNCTION {
   LPCWSTR Name;
   LPCWSTR UnmangledName;
   uint32_t NumResources;
-  const DXIL_RESOURCE *Resources;
+  const DXIL_RESOURCE * const*Resources;
   uint32_t NumFunctionDependencies;
   const LPCWSTR *FunctionDependencies;
   uint32_t ShaderKind;
@@ -399,6 +421,7 @@ private:
   StringMap m_StringMap;
   ResourceList m_Resources;
   FunctionList m_Functions;
+  std::unordered_map<ResourceKey, DXIL_RESOURCE *> m_ResourceMap;
   std::unordered_map<DXIL_FUNCTION *, ResourceRefList> m_FuncToResMap;
   std::unordered_map<DXIL_FUNCTION *, WStringList> m_FuncToStringMap;
   bool m_initialized;
@@ -406,8 +429,8 @@ private:
   const wchar_t *GetWideString(const char *ptr);
   void AddString(const char *ptr);
   void InitializeReflection();
-  DXIL_RESOURCE *GetResourcesForFunction(DXIL_FUNCTION &function,
-                                         const FunctionReader &functionReader);
+  const DXIL_RESOURCE * const*GetResourcesForFunction(DXIL_FUNCTION &function,
+                             const FunctionReader &functionReader);
   const wchar_t **GetDependenciesForFunction(DXIL_FUNCTION &function,
                              const FunctionReader &functionReader);
   DXIL_RESOURCE *AddResource(const ResourceReader &resourceReader);
