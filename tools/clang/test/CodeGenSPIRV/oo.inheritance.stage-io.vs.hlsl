@@ -56,8 +56,7 @@ void main(in Derived input, out Derived output) {
 // CHECK-NEXT:                 OpStore %out_var_MMM [[m]]
 
 // CHECK-NEXT:  [[pos:%\d+]] = OpCompositeExtract %v4float [[base]] 3
-// CHECK-NEXT:  [[ptr:%\d+]] = OpAccessChain %_ptr_Output_v4float %gl_PerVertexOut %uint_0
-// CHECK-NEXT:                 OpStore [[ptr]] [[pos]]
+// CHECK-NEXT:                 OpStore %gl_Position [[pos]]
 
 // CHECK-NEXT:    [[t:%\d+]] = OpCompositeExtract %T [[drv]] 1
 // CHECK-NEXT:    [[n:%\d+]] = OpCompositeExtract %v3float [[t]] 0
