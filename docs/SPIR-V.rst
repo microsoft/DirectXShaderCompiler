@@ -1279,13 +1279,6 @@ If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
 set #0.
 
-Error checking
-~~~~~~~~~~~~~~
-
-Trying to reuse the same binding number of the same descriptor set results in
-a compiler error, unless we have exactly two resources and one is an image and
-the other is a sampler. This is to support the Vulkan combined image sampler.
-
 Summary
 ~~~~~~~
 
@@ -1866,6 +1859,35 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``tanh``                ``Tanh``
 ``trunc``               ``Trunc``
 ======================= ===================================
+
+Synchronization intrinsics
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Synchronization intrinsics are translated into ``OpMemoryBarrier`` (for those
+non-``WithGroupSync`` variants) or ``OpControlBarrier`` (for those ``WithGroupSync``
+variants) instructions with parameters:
+
+======================= ============ ===== ======= ========= ==============
+       HLSL                SPIR-V          SPIR-V Memory Semantics
+----------------------- ------------ --------------------------------------
+     Intrinsic          Memory Scope Image Uniform Workgroup AcquireRelease
+======================= ============ ===== ======= ========= ==============
+``AllMemoryBarrier``    Device       ✓       ✓         ✓          ✓
+``DeviceMemoryBarrier`` Device       ✓       ✓                    ✓
+``GroupMemoryBarrier``  Workgroup                       ✓          ✓
+======================= ============ ===== ======= ========= ==============
+
+For the ``*WithGroupSync`` intrinsics, SPIR-V memory scope and semantics are the
+same as their counterparts in the above. They have an additional execution
+scope:
+
+==================================== ======================
+       HLSL Intrinsic                SPIR-V Execution Scope
+==================================== ======================
+``AllMemoryBarrierWithGroupSync``    Workgroup
+``DeviceMemoryBarrierWithGroupSync`` Workgroup
+``GroupMemoryBarrierWithGroupSync``  Workgroup
+==================================== ======================
 
 HLSL OO features
 ================
