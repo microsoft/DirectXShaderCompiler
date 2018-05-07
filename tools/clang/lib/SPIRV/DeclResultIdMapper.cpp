@@ -1254,18 +1254,9 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
 
     const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
 
-    // For VS/HS/DS, the PointSize builtin is handled in gl_PerVertex.
-    // For GSVIn also in gl_PerVertex; for GSOut, it's a stand-alone
-    // variable handled below.
-    if (builtinAttr && builtinAttr->getBuiltIn() == "PointSize" &&
-        glPerVertex.tryToAccessPointSize(sigPoint->GetKind(), invocationId,
-                                         value, noWriteBack))
-      return true;
-
     // Special handling of certain mappings between HLSL semantics and
     // SPIR-V builtins:
-    // * SV_Position/SV_CullDistance/SV_ClipDistance should be grouped into the
-    //   gl_PerVertex struct in vertex processing stages.
+    // * SV_CullDistance/SV_ClipDistance are outsourced to GlPerVertex.
     // * SV_DomainLocation can refer to a float2, whereas TessCoord is a float3.
     //   To ensure SPIR-V validity, we must create a float3 and  extract a
     //   float2 from it before passing it to the main function.
@@ -1478,6 +1469,10 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     } else {
       if (noWriteBack)
         return true;
+
+      // Negate SV_Position.y if requested
+      if (semanticToUse->semantic->GetKind() == hlsl::Semantic::Kind::Position)
+        *value = invertYIfRequested(*value);
 
       uint32_t ptr = varId;
 
@@ -1707,16 +1702,8 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
     assert(found != stageVarIds.end());
 
     // Negate SV_Position.y if requested
-    if (spirvOptions.invertY &&
-        semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position) {
-
-      const auto f32Type = theBuilder.getFloat32Type();
-      const auto v4f32Type = theBuilder.getVecType(f32Type, 4);
-      const auto oldY = theBuilder.createCompositeExtract(f32Type, value, {1});
-      const auto newY =
-          theBuilder.createUnaryOp(spv::Op::OpFNegate, f32Type, oldY);
-      value = theBuilder.createCompositeInsert(v4f32Type, value, {1}, newY);
-    }
+    if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)
+      value = invertYIfRequested(value);
 
     theBuilder.createStore(found->second, value);
     return true;
@@ -1758,6 +1745,19 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
   }
 
   return true;
+}
+
+uint32_t DeclResultIdMapper::invertYIfRequested(uint32_t position) {
+  // Negate SV_Position.y if requested
+  if (spirvOptions.invertY) {
+    const auto f32Type = theBuilder.getFloat32Type();
+    const auto v4f32Type = theBuilder.getVecType(f32Type, 4);
+    const auto oldY = theBuilder.createCompositeExtract(f32Type, position, {1});
+    const auto newY =
+        theBuilder.createUnaryOp(spv::Op::OpFNegate, f32Type, oldY);
+    position = theBuilder.createCompositeInsert(v4f32Type, position, {1}, newY);
+  }
+  return position;
 }
 
 void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
@@ -1911,7 +1911,6 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     case hlsl::SigPoint::Kind::DSCPIn:
     case hlsl::SigPoint::Kind::DSOut:
     case hlsl::SigPoint::Kind::GSVIn:
-      llvm_unreachable("should be handled in gl_PerVertex struct");
     case hlsl::SigPoint::Kind::GSOut:
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::Position);

@@ -26,8 +26,7 @@ DsCpOut main(OutputPatch<DsCpIn, 3> patch,
 
 // CHECK:      [[call:%\d+]] = OpFunctionCall %DsCpIn %src_main %param_var_patch %param_var_pcfData
 // CHECK-NEXT:  [[val:%\d+]] = OpCompositeExtract %v4float [[call]] 0
-// CHECK-NEXT:  [[ptr:%\d+]] = OpAccessChain %_ptr_Output_v4float %gl_PerVertexOut %uint_0
 // CHECK-NEXT: [[oldY:%\d+]] = OpCompositeExtract %float [[val]] 1
 // CHECK-NEXT: [[newY:%\d+]] = OpFNegate %float [[oldY]]
 // CHECK-NEXT:  [[pos:%\d+]] = OpCompositeInsert %v4float [[newY]] [[val]] 1
-// CHECK-NEXT:                 OpStore [[ptr]] [[pos]]
+// CHECK-NEXT:                 OpStore %gl_Position_0 [[pos]]

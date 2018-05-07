@@ -9263,8 +9263,8 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   declIdMapper.glPerVertex.calculateClipCullDistanceArraySize();
 
   if (!shaderModel.IsCS()) {
-    // Generate the gl_PerVertex structs or stand-alone builtins of
-    // Position, ClipDistance, and CullDistance.
+    // Generate stand-alone builtins of Position, ClipDistance, and
+    // CullDistance, which belongs to gl_PerVertex.
     declIdMapper.glPerVertex.generateVars(inputArraySize, outputArraySize);
   }
 

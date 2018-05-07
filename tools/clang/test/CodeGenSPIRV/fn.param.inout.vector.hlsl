@@ -13,7 +13,7 @@ float4 main() : C {
 // CHECK-NEXT:                OpImageWrite [[buf]] %uint_5 [[a]]
 // CHECK-NEXT:   [[b:%\d+]] = OpLoad %v3float %param_var_b
 // CHECK-NEXT: [[tex:%\d+]] = OpLoad %type_2d_image %MyRWTexture
-// CHECK-NEXT:                OpImageWrite [[tex]] %36 [[b]]
+// CHECK-NEXT:                OpImageWrite [[tex]] {{%\d+}} [[b]]
     foo(MyRWBuffer[5], MyRWTexture[uint2(6, 7)]);
 
     float4 val;

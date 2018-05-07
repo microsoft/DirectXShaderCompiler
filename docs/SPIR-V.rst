@@ -120,7 +120,7 @@ decorated by the ``Position``, ``ClipDistance``, ``CullDistance`` builtin,
 and two of them are decorated by the ``Location`` decoration. (Note that
 ``clip0`` and ``clip1`` are concatenated, also ``cull0`` and ``cull1``.
 The ``ClipDistance`` and ``CullDistance`` builtins are special and explained
-in the `gl_PerVertex`_ section.)
+in the `ClipDistance & CullDistance`_ section.)
 
 Flattening is infective because of Vulkan interface matching rules. If we
 flatten a struct in the output of a previous stage, which may create multiple
@@ -132,25 +132,6 @@ stages, which means we need to flatten all shader stage interfaces. For
 hull/domain/geometry shader, their inputs/outputs have an additional arrayness.
 So if we are seeing an array of structs in these shaders, we need to flatten
 them into arrays of its fields.
-
-Lastly, to satisfy the type requirements on builtins, after flattening, the
-variables decorated with ``Position``, ``ClipDistance``, and ``CullDistance``
-builtins are grouped into struct, like ``gl_PerVertex`` for certain shader stage
-interface:
-
-============ ===== ======
-Shader Stage Input Output
-============ ===== ======
-    VS         X     G
-    HS         G     G
-    DS         G     G
-    GS         G     S
-    PS         S     X
-============ ===== ======
-
-(``X``: Not applicable, ``G``: Grouped, ``S``: separated)
-
-More details in the `gl_PerVertex`_ section.
 
 Vulkan specific features
 ------------------------
@@ -1226,22 +1207,8 @@ flattening all structs if structs are used as function parameters or returns.
 There is an exception to the above rule for SV_Target[N]. It will always be
 mapped to ``Location`` number N.
 
-``gl_PerVertex``
-~~~~~~~~~~~~~~~~
-
-Variables annotated with ``SV_Position``, ``SV_ClipDistanceX``, and
-``SV_CullDistanceX`` are mapped into fields of a ``gl_PerVertex`` struct:
-
-.. code:: hlsl
-
-    struct gl_PerVertex {
-        float4 gl_Position;       // SPIR-V BuiltIn Position
-        float  gl_PointSize;      // No HLSL equivalent
-        float  gl_ClipDistance[]; // SPIR-V BuiltIn ClipDistance
-        float  gl_CullDistance[]; // SPIR-V BuiltIn CullDistance
-    };
-
-This mimics how these builtins are handled in GLSL.
+``ClipDistance & CullDistance``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Variables decorated with ``SV_ClipDistanceX`` can be float or vector of float
 type. To map them into one float array in the struct, we firstly sort them
