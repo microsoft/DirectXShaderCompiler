@@ -4814,7 +4814,7 @@ void report_fatal_error_handler(void *user_datam, const std::string &reason,
   BitcodeDiagnosticInfo BDI(std::error_code(EINVAL, std::system_category()),
                             DiagnosticSeverity::DS_Error, reason);
   data->DiagnosticHandler(BDI);
-  throw std::exception("Invalid bitcode");
+  throw std::runtime_error("Invalid bitcode");
 }
 // HLSL Change Ends
 
