@@ -362,6 +362,6 @@ public:
   HRESULT STDMETHODCALLTYPE GetKind(_Out_ DxcTypeKind* pResult) override;
 };
 
-HRESULT CreateDxcIntelliSense(_In_ REFIID riid, _Out_ LPVOID* ppv);
+HRESULT CreateDxcIntelliSense(_In_ REFIID riid, _Out_ LPVOID* ppv) throw();
 
 #endif
