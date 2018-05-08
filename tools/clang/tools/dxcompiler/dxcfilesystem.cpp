@@ -568,7 +568,7 @@ public:
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  DWORD GetTempPathW(DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) override {
+  DWORD GetTempPathW(DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
