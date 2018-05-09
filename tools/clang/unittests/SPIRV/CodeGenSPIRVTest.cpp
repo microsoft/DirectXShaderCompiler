@@ -1421,6 +1421,18 @@ TEST_F(FileTest, VulkanLayout64BitTypesStd430) {
 TEST_F(FileTest, VulkanLayout64BitTypesStd140) {
   runFileTest("vk.layout.64bit-types.std140.hlsl");
 }
+TEST_F(FileTest, VulkanLayout16BitTypesPushConstant) {
+  runFileTest("vk.layout.16bit-types.pc.hlsl");
+}
+TEST_F(FileTest, VulkanLayout16BitTypesCBuffer) {
+  runFileTest("vk.layout.16bit-types.cbuffer.hlsl");
+}
+TEST_F(FileTest, VulkanLayout16BitTypesTBuffer) {
+  runFileTest("vk.layout.16bit-types.tbuffer.hlsl");
+}
+TEST_F(FileTest, VulkanLayout16BitTypesStructuredBuffer) {
+  runFileTest("vk.layout.16bit-types.sbuffer.hlsl");
+}
 TEST_F(FileTest, VulkanLayoutVectorRelaxedLayout) {
   // Allows vectors to be aligned according to their element types, if not
   // causing improper straddle

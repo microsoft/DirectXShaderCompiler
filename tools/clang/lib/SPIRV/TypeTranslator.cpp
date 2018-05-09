@@ -761,6 +761,79 @@ bool TypeTranslator::isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isOrContains16BitType(QualType type) {
+  // Primitive types
+  {
+    QualType ty = {};
+    if (isScalarType(type, &ty)) {
+      if (const auto *builtinType = ty->getAs<BuiltinType>()) {
+        switch (builtinType->getKind()) {
+        case BuiltinType::Short:
+        case BuiltinType::UShort:
+        case BuiltinType::Min12Int:
+        case BuiltinType::Half:
+        case BuiltinType::Min10Float: {
+          return spirvOptions.enable16BitTypes;
+        }
+        default:
+          return false;
+        }
+      }
+    }
+  }
+
+  // Vector types
+  {
+    QualType elemType = {};
+    if (isVectorType(type, &elemType))
+      return isOrContains16BitType(elemType);
+  }
+
+  // Matrix types
+  {
+    QualType elemType = {};
+    if (isMxNMatrix(type, &elemType)) {
+      return isOrContains16BitType(elemType);
+    }
+  }
+
+  // Struct type
+  if (const auto *structType = type->getAs<RecordType>()) {
+    const auto *decl = structType->getDecl();
+
+    for (const auto *field : decl->fields()) {
+      if (isOrContains16BitType(field->getType()))
+        return true;
+    }
+
+    return false;
+  }
+
+  // Array type
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
+    return isOrContains16BitType(arrayType->getElementType());
+  }
+
+  // Reference types
+  if (const auto *refType = type->getAs<ReferenceType>()) {
+    return isOrContains16BitType(refType->getPointeeType());
+  }
+
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>()) {
+    return isOrContains16BitType(ptrType->getPointeeType());
+  }
+
+  if (const auto *typedefType = type->getAs<TypedefType>()) {
+    return isOrContains16BitType(typedefType->desugar());
+  }
+
+  emitError("checking 16-bit type for %0 unimplemented")
+      << type->getTypeClassName();
+  type->dump();
+  return 0;
+}
+
 bool TypeTranslator::isStructuredBuffer(QualType type) {
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
@@ -1641,6 +1714,16 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
         case BuiltinType::LongLong:
         case BuiltinType::ULongLong:
           return {8, 8};
+        case BuiltinType::Short:
+        case BuiltinType::UShort:
+        case BuiltinType::Min12Int:
+        case BuiltinType::Half:
+        case BuiltinType::Min10Float: {
+          if (spirvOptions.enable16BitTypes)
+            return {2, 2};
+          else
+            return {4, 4};
+        }
         default:
           emitError("alignment and size calculation for type %0 unimplemented")
               << type;
@@ -1799,6 +1882,22 @@ std::string TypeTranslator::getName(QualType type) {
           return "uint";
         case BuiltinType::Float:
           return "float";
+        case BuiltinType::Double:
+          return "double";
+        case BuiltinType::LongLong:
+          return "int64";
+        case BuiltinType::ULongLong:
+          return "uint64";
+        case BuiltinType::Short:
+          return "short";
+        case BuiltinType::UShort:
+          return "ushort";
+        case BuiltinType::Half:
+          return "half";
+        case BuiltinType::Min12Int:
+          return "min12int";
+        case BuiltinType::Min10Float:
+          return "min10float";
         default:
           return "";
         }

@@ -93,6 +93,9 @@ public:
   /// containing one of the above.
   static bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type);
 
+  /// \brief Returns true if the given type is or contains 16-bit type.
+  bool isOrContains16BitType(QualType type);
+
   /// \brief Returns true if the given type is the HLSL Buffer type.
   static bool isBuffer(QualType type);
 
