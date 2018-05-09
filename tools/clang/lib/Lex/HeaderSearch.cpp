@@ -564,7 +564,9 @@ static bool checkMSVCHeaderSearch(DiagnosticsEngine &Diags,
                                   const FileEntry *MSFE, const FileEntry *FE,
                                   SourceLocation IncludeLoc) {
   if (MSFE && FE != MSFE) {
+#if 0  // HLSL Change - turn off warnings of MSVC search rules
     Diags.Report(IncludeLoc, diag::ext_pp_include_search_ms) << MSFE->getName();
+#endif // HLSL Change
     return true;
   }
   return false;
