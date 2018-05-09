@@ -65,19 +65,6 @@ public:
   /// integer value. This type will be decorated with BufferBlock.
   uint32_t getACSBufferCounter();
 
-  /// \brief Returns the type for the gl_PerVertex struct:
-  ///
-  /// struct gl_PerVertex {
-  ///   float4 gl_Position;
-  ///   float  gl_PointSize;
-  ///   float  gl_ClipDistance[];
-  ///   float  gl_CullDistance[];
-  /// };
-  uint32_t
-  getGlPerVertexStruct(uint32_t clipArraySize, uint32_t cullArraySize,
-                       llvm::StringRef structName,
-                       const llvm::SmallVector<std::string, 4> &fieldSemantics);
-
   /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
   static bool isStructuredBuffer(QualType type);
 
