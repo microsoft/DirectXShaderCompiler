@@ -49,37 +49,37 @@ const SigPoint SigPoint::ms_SigPoints[kNumSigPointRecords] = {
 
 // <py::lines('INTERPRETATION-TABLE')>hctdb_instrhelp.get_interpretation_table()</py>
 // INTERPRETATION-TABLE:BEGIN
-//   Semantic,               VSIn,         VSOut, PCIn,         HSIn,         HSCPIn, HSCPOut, PCOut,      DSIn,         DSCPIn, DSOut, GSVIn, GSIn,         GSOut, PSIn,          PSOut,         CSIn
-#define DO_INTERPRETATION_TABLE(DO) \
-  DO(Arbitrary,              Arb,          Arb,   NA,           NA,           Arb,    Arb,     Arb,        Arb,          Arb,    Arb,   Arb,   NA,           Arb,   Arb,           NA,            NA) \
-  DO(VertexID,               SV,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            NA,            NA) \
-  DO(InstanceID,             SV,           Arb,   NA,           NA,           Arb,    Arb,     NA,         NA,           Arb,    Arb,   Arb,   NA,           Arb,   Arb,           NA,            NA) \
-  DO(Position,               Arb,          SV,    NA,           NA,           SV,     SV,      Arb,        Arb,          SV,     SV,    SV,    NA,           SV,    SV,            NA,            NA) \
-  DO(RenderTargetArrayIndex, Arb,          SV,    NA,           NA,           SV,     SV,      Arb,        Arb,          SV,     SV,    SV,    NA,           SV,    SV,            NA,            NA) \
-  DO(ViewPortArrayIndex,     Arb,          SV,    NA,           NA,           SV,     SV,      Arb,        Arb,          SV,     SV,    SV,    NA,           SV,    SV,            NA,            NA) \
-  DO(ClipDistance,           Arb,          SV,    NA,           NA,           SV,     SV,      Arb,        Arb,          SV,     SV,    SV,    NA,           SV,    SV,            NA,            NA) \
-  DO(CullDistance,           Arb,          SV,    NA,           NA,           SV,     SV,      Arb,        Arb,          SV,     SV,    SV,    NA,           SV,    SV,            NA,            NA) \
-  DO(OutputControlPointID,   NA,           NA,    NA,           NotInSig,     NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            NA,            NA) \
-  DO(DomainLocation,         NA,           NA,    NA,           NA,           NA,     NA,      NA,         NotInSig,     NA,     NA,    NA,    NA,           NA,    NA,            NA,            NA) \
-  DO(PrimitiveID,            NA,           NA,    NotInSig,     NotInSig,     NA,     NA,      NA,         NotInSig,     NA,     NA,    NA,    Shadow,       SGV,   SGV,           NA,            NA) \
-  DO(GSInstanceID,           NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NotInSig,     NA,    NA,            NA,            NA) \
-  DO(SampleIndex,            NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    Shadow _41,    NA,            NA) \
-  DO(IsFrontFace,            NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           SGV,   SGV,           NA,            NA) \
-  DO(Coverage,               NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NotInSig _50,  NotPacked _41, NA) \
-  DO(InnerCoverage,          NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NotInSig _50,  NA,            NA) \
-  DO(Target,                 NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            Target,        NA) \
-  DO(Depth,                  NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            NotPacked,     NA) \
-  DO(DepthLessEqual,         NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            NotPacked _50, NA) \
-  DO(DepthGreaterEqual,      NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            NotPacked _50, NA) \
-  DO(StencilRef,             NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            NotPacked _50, NA) \
-  DO(DispatchThreadID,       NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            NA,            NotInSig) \
-  DO(GroupID,                NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            NA,            NotInSig) \
-  DO(GroupIndex,             NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            NA,            NotInSig) \
-  DO(GroupThreadID,          NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NA,            NA,            NotInSig) \
-  DO(TessFactor,             NA,           NA,    NA,           NA,           NA,     NA,      TessFactor, TessFactor,   NA,     NA,    NA,    NA,           NA,    NA,            NA,            NA) \
-  DO(InsideTessFactor,       NA,           NA,    NA,           NA,           NA,     NA,      TessFactor, TessFactor,   NA,     NA,    NA,    NA,           NA,    NA,            NA,            NA) \
-  DO(ViewID,                 NotInSig _61, NA,    NotInSig _61, NotInSig _61, NA,     NA,      NA,         NotInSig _61, NA,     NA,    NA,    NotInSig _61, NA,    NotInSig _61,  NA,            NA) \
-  DO(Barycentrics,           NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NotPacked _61, NA,            NA)
+//  Semantic            VSIn,           VSOut,  PCIn,            HSIn,            HSCPIn, HSCPOut, PCOut,         DSIn,            DSCPIn, DSOut,  GSVIn,  GSIn,            GSOut,  PSIn,             PSOut,            CSIn
+#define DO_INTERPRETATION_TABLE(D) \
+  {/*Arbitrary*/        D(Arb),         D(Arb), D(NA),           D(NA),           D(Arb), D(Arb),  D(Arb),        D(Arb),          D(Arb), D(Arb), D(Arb), D(NA),           D(Arb), D(Arb),           D(NA),            D(NA)}, \
+  {/*VertexID*/         D(SV),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NA),            D(NA)}, \
+  {/*InstanceID*/       D(SV),          D(Arb), D(NA),           D(NA),           D(Arb), D(Arb),  D(NA),         D(NA),           D(Arb), D(Arb), D(Arb), D(NA),           D(Arb), D(Arb),           D(NA),            D(NA)}, \
+  {/*Position*/         D(Arb),         D(SV),  D(NA),           D(NA),           D(SV),  D(SV),   D(Arb),        D(Arb),          D(SV),  D(SV),  D(SV),  D(NA),           D(SV),  D(SV),            D(NA),            D(NA)}, \
+  {/*RenderTgArrayIdx*/ D(Arb),         D(SV),  D(NA),           D(NA),           D(SV),  D(SV),   D(Arb),        D(Arb),          D(SV),  D(SV),  D(SV),  D(NA),           D(SV),  D(SV),            D(NA),            D(NA)}, \
+  {/*ViewPortArrayIdx*/ D(Arb),         D(SV),  D(NA),           D(NA),           D(SV),  D(SV),   D(Arb),        D(Arb),          D(SV),  D(SV),  D(SV),  D(NA),           D(SV),  D(SV),            D(NA),            D(NA)}, \
+  {/*ClipDistance*/     D(Arb),         D(SV),  D(NA),           D(NA),           D(SV),  D(SV),   D(Arb),        D(Arb),          D(SV),  D(SV),  D(SV),  D(NA),           D(SV),  D(SV),            D(NA),            D(NA)}, \
+  {/*CullDistance*/     D(Arb),         D(SV),  D(NA),           D(NA),           D(SV),  D(SV),   D(Arb),        D(Arb),          D(SV),  D(SV),  D(SV),  D(NA),           D(SV),  D(SV),            D(NA),            D(NA)}, \
+  {/*OutputControlPtID*/D(NA),          D(NA),  D(NA),           D(NotInSig),     D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NA),            D(NA)}, \
+  {/*DomainLocation*/   D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NotInSig),     D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NA),            D(NA)}, \
+  {/*PrimitiveID*/      D(NA),          D(NA),  D(NotInSig),     D(NotInSig),     D(NA),  D(NA),   D(NA),         D(NotInSig),     D(NA),  D(NA),  D(NA),  D(Shadow),       D(SGV), D(SGV),           D(NA),            D(NA)}, \
+  {/*GSInstanceID*/     D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NotInSig),     D(NA),  D(NA),            D(NA),            D(NA)}, \
+  {/*SampleIndex*/      D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(Shadow _41),    D(NA),            D(NA)}, \
+  {/*IsFrontFace*/      D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(SGV), D(SGV),           D(NA),            D(NA)}, \
+  {/*Coverage*/         D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NotInSig _50),  D(NotPacked _41), D(NA)}, \
+  {/*InnerCoverage*/    D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NotInSig _50),  D(NA),            D(NA)}, \
+  {/*Target*/           D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(Target),        D(NA)}, \
+  {/*Depth*/            D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NotPacked),     D(NA)}, \
+  {/*DepthLessEqual*/   D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NotPacked _50), D(NA)}, \
+  {/*DepthGreaterEqual*/D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NotPacked _50), D(NA)}, \
+  {/*StencilRef*/       D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NotPacked _50), D(NA)}, \
+  {/*DispatchThreadID*/ D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NA),            D(NotInSig)}, \
+  {/*GroupID*/          D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NA),            D(NotInSig)}, \
+  {/*GroupIndex*/       D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NA),            D(NotInSig)}, \
+  {/*GroupThreadID*/    D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NA),            D(NotInSig)}, \
+  {/*TessFactor*/       D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(TessFactor), D(TessFactor),   D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NA),            D(NA)}, \
+  {/*InsideTessFactor*/ D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(TessFactor), D(TessFactor),   D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NA),            D(NA),            D(NA)}, \
+  {/*ViewID*/           D(NotInSig _61),D(NA),  D(NotInSig _61), D(NotInSig _61), D(NA),  D(NA),   D(NA),         D(NotInSig _61), D(NA),  D(NA),  D(NA),  D(NotInSig _61), D(NA),  D(NotInSig _61),  D(NA),            D(NA)}, \
+  {/*Barycentrics*/     D(NA),          D(NA),  D(NA),           D(NA),           D(NA),  D(NA),   D(NA),         D(NA),           D(NA),  D(NA),  D(NA),  D(NA),           D(NA),  D(NotPacked _61), D(NA),            D(NA)}, \
 // INTERPRETATION-TABLE:END
 
 const VersionedSemanticInterpretation SigPoint::ms_SemanticInterpretationTable[(unsigned)DXIL::SemanticKind::Invalid][(unsigned)SigPoint::Kind::Invalid] = {
@@ -87,10 +87,7 @@ const VersionedSemanticInterpretation SigPoint::ms_SemanticInterpretationTable[(
 #define _50 ,5,0
 #define _61 ,6,1
 #define DO(k) VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::k)
-#define DO_ROW(SEM, VSIn, VSOut, PCIn, HSIn, HSCPIn, HSCPOut, PCOut, DSIn, DSCPIn, DSOut, GSVIn, GSIn, GSOut, PSIn, PSOut, CSIn) \
-  { DO(VSIn), DO(VSOut), DO(PCIn), DO(HSIn), DO(HSCPIn), DO(HSCPOut), DO(PCOut), DO(DSIn), DO(DSCPIn), DO(DSOut), DO(GSVIn), DO(GSIn), DO(GSOut), DO(PSIn), DO(PSOut), DO(CSIn) },
-  DO_INTERPRETATION_TABLE(DO_ROW)
-#undef DO_ROW
+  DO_INTERPRETATION_TABLE(DO)
 #undef DO
 };
 
