@@ -31,8 +31,8 @@
 #include <stdlib.h>
 
 #if defined(_MSC_VER)
-#include <Windows.h>
-#include <DbgHelp.h>
+#include <windows.h>
+#include <dbghelp.h>
 #pragma comment(lib, "dbghelp.lib")
 #endif
 
