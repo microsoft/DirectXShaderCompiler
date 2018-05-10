@@ -27,7 +27,7 @@
 #include <unordered_map>
 #include "dxc/HLSL/HLModule.h" // HLSL Change
 #include "dxc/HLSL/DxilModule.h" // HLSL Change
-#include "dxc/HLSL/DXILOperations.h" // HLSL Change
+#include "dxc/HLSL/DxilOperations.h" // HLSL Change
 #include "dxc/HLSL/DxilInstructions.h" // HLSL Change
 using namespace llvm;
 
