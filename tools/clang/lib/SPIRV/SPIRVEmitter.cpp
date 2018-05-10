@@ -4812,7 +4812,9 @@ SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
 
 void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
                               const SpirvEvalInfo &rhsVal,
-                              const QualType lhsValType) {
+                              QualType lhsValType) {
+  if (const auto *refType = lhsValType->getAs<ReferenceType>())
+    lhsValType = refType->getPointeeType();
 
   QualType matElemType = {};
   const bool lhsIsMat = typeTranslator.isMxNMatrix(lhsValType, &matElemType);
