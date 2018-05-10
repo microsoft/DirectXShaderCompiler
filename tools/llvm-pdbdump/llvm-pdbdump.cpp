@@ -44,7 +44,7 @@
 #include "llvm/Support/Signals.h"
 
 #if defined(HAVE_DIA_SDK)
-#include <Windows.h>
+#include <windows.h>
 #endif
 
 using namespace llvm;
