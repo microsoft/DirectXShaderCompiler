@@ -436,6 +436,9 @@ TEST_F(FileTest, FunctionInOutParam) { runFileTest("fn.param.inout.hlsl"); }
 TEST_F(FileTest, FunctionInOutParamVector) {
   runFileTest("fn.param.inout.vector.hlsl");
 }
+TEST_F(FileTest, FunctionInOutParamDiffStorageClass) {
+  runFileTest("fn.param.inout.storage-class.hlsl");
+}
 TEST_F(FileTest, FunctionFowardDeclaration) {
   runFileTest("fn.foward-declaration.hlsl");
 }
