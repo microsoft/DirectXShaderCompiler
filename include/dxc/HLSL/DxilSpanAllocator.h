@@ -58,7 +58,7 @@ public:
     auto next = m_Spans.lower_bound(Span(nullptr, pos, end));
     if (next == m_Spans.end() || end < next->start)
       return true;  // it fits here
-    return Find(size, result.first, pos, align);
+    return Find(size, next, pos, align);
   }
 
   // allocate element size in first available space, returns false on failure
