@@ -4006,7 +4006,7 @@ public:
   /// <param name="RHS">Right hand side.</param>
   /// <param name="QuestionLoc">Location of question mark in operator.</param>
   /// <returns>Result type of vector conditional expression.</returns>
-  clang::QualType HLSLExternalSource::CheckVectorConditional(
+  clang::QualType CheckVectorConditional(
     _In_ ExprResult &Cond,
     _In_ ExprResult &LHS,
     _In_ ExprResult &RHS,
@@ -6163,7 +6163,7 @@ UINT64 HLSLExternalSource::ScoreCast(QualType pLType, QualType pRType)
   }
 
 #define SCORE_COND(shift, cond) { \
-  if (cond) uScore += 1UI64 << (SCORE_MIN_SHIFT + SCORE_PARAM_SHIFT * shift); }
+  if (cond) uScore += 1ULL << (SCORE_MIN_SHIFT + SCORE_PARAM_SHIFT * shift); }
   SCORE_COND(0, uRSize < uLSize);
   SCORE_COND(1, bLPromo);
   SCORE_COND(2, bRPromo);
