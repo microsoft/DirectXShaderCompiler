@@ -703,7 +703,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
     IFT(containerReflection->GetPartKind(i, &kind));
     if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_RuntimeData) {
       blobFound = true;
-      using namespace hlsl::DXIL::RDAT;
+      using namespace hlsl::RDAT;
       CComPtr<IDxcBlob> pBlob;
       IFT(containerReflection->GetPartContent(i, &pBlob));
       // Validate using DxilRuntimeData
@@ -749,9 +749,9 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
       }
       VERIFY_IS_TRUE(resTableReader->GetNumResources() == 4);
       // This is validation test for DxilRuntimeReflection implemented on DxilRuntimeReflection.inl
-      DxilRuntimeReflection reflection;
-      VERIFY_IS_TRUE(reflection.InitFromRDAT(pBlob->GetBufferPointer()));
-      DXIL_LIBRARY_DESC lib_reflection = reflection.GetLibraryReflection();
+      unique_ptr<DxilRuntimeReflection> pReflection(CreateDxilRuntimeReflection());
+      VERIFY_IS_TRUE(pReflection->InitFromRDAT(pBlob->GetBufferPointer()));
+      DXIL_LIBRARY_DESC lib_reflection = pReflection->GetLibraryReflection();
       VERIFY_IS_TRUE(lib_reflection.NumFunctions == 3);
       for (uint32_t j = 0; j < 3; ++j) {
         DXIL_FUNCTION function = lib_reflection.pFunction[j];
@@ -847,7 +847,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
     IFT(pReflection->GetPartKind(i, &kind));
     if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_RuntimeData) {
       blobFound = true;
-      using namespace hlsl::DXIL::RDAT;
+      using namespace hlsl::RDAT;
       CComPtr<IDxcBlob> pBlob;
       IFT(pReflection->GetPartContent(i, &pBlob));
       DxilRuntimeData context;
