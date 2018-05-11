@@ -10,7 +10,7 @@ struct S {
     float  c;
 };
 
-// CHECK: %type_2d_image = OpTypeImage %float 2D 0 0 0 1 Unknow
+// CHECK: %type_2d_image = OpTypeImage %float 2D 2 0 0 1 Unknow
 // CHECK: %_runtimearr_type_2d_image = OpTypeRuntimeArray %type_2d_image
 
 // CHECK: %type_sampler = OpTypeSampler

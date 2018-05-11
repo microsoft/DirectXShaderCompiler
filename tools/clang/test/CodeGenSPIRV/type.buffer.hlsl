@@ -3,68 +3,68 @@
 // CHECK: OpCapability SampledBuffer
 // CHECK: OpCapability StorageImageExtendedFormats
 
-// CHECK: %type_buffer_image = OpTypeImage %int Buffer 0 0 0 1 R32i
+// CHECK: %type_buffer_image = OpTypeImage %int Buffer 2 0 0 1 R32i
 // CHECK: %_ptr_UniformConstant_type_buffer_image = OpTypePointer UniformConstant %type_buffer_image
 Buffer<int> intbuf;
-// CHECK: %type_buffer_image_0 = OpTypeImage %uint Buffer 0 0 0 1 R32ui
+// CHECK: %type_buffer_image_0 = OpTypeImage %uint Buffer 2 0 0 1 R32ui
 // CHECK: %_ptr_UniformConstant_type_buffer_image_0 = OpTypePointer UniformConstant %type_buffer_image_0
 Buffer<uint> uintbuf;
-// CHECK: %type_buffer_image_1 = OpTypeImage %float Buffer 0 0 0 1 R32f
+// CHECK: %type_buffer_image_1 = OpTypeImage %float Buffer 2 0 0 1 R32f
 // CHECK: %_ptr_UniformConstant_type_buffer_image_1 = OpTypePointer UniformConstant %type_buffer_image_1
 Buffer<float> floatbuf;
 
-// CHECK: %type_buffer_image_2 = OpTypeImage %int Buffer 0 0 0 2 R32i
+// CHECK: %type_buffer_image_2 = OpTypeImage %int Buffer 2 0 0 2 R32i
 // CHECK: %_ptr_UniformConstant_type_buffer_image_2 = OpTypePointer UniformConstant %type_buffer_image_2
 RWBuffer<int> intrwbuf;
-// CHECK: %type_buffer_image_3 = OpTypeImage %uint Buffer 0 0 0 2 R32ui
+// CHECK: %type_buffer_image_3 = OpTypeImage %uint Buffer 2 0 0 2 R32ui
 // CHECK: %_ptr_UniformConstant_type_buffer_image_3 = OpTypePointer UniformConstant %type_buffer_image_3
 RWBuffer<uint> uintrwbuf;
-// CHECK: %type_buffer_image_4 = OpTypeImage %float Buffer 0 0 0 2 R32f
+// CHECK: %type_buffer_image_4 = OpTypeImage %float Buffer 2 0 0 2 R32f
 // CHECK: %_ptr_UniformConstant_type_buffer_image_4 = OpTypePointer UniformConstant %type_buffer_image_4
 RWBuffer<float> floatrwbuf;
 
-// CHECK: %type_buffer_image_5 = OpTypeImage %int Buffer 0 0 0 1 Rg32i
+// CHECK: %type_buffer_image_5 = OpTypeImage %int Buffer 2 0 0 1 Rg32i
 // CHECK: %_ptr_UniformConstant_type_buffer_image_5 = OpTypePointer UniformConstant %type_buffer_image_5
 Buffer<int2> int2buf;
-// CHECK: %type_buffer_image_6 = OpTypeImage %uint Buffer 0 0 0 1 Rg32ui
+// CHECK: %type_buffer_image_6 = OpTypeImage %uint Buffer 2 0 0 1 Rg32ui
 // CHECK: %_ptr_UniformConstant_type_buffer_image_6 = OpTypePointer UniformConstant %type_buffer_image_6
 Buffer<uint2> uint2buf;
-// CHECK: %type_buffer_image_7 = OpTypeImage %float Buffer 0 0 0 1 Rg32f
+// CHECK: %type_buffer_image_7 = OpTypeImage %float Buffer 2 0 0 1 Rg32f
 // CHECK: %_ptr_UniformConstant_type_buffer_image_7 = OpTypePointer UniformConstant %type_buffer_image_7
 Buffer<float2> float2buf;
 
-// CHECK: %type_buffer_image_8 = OpTypeImage %int Buffer 0 0 0 2 Rg32i
+// CHECK: %type_buffer_image_8 = OpTypeImage %int Buffer 2 0 0 2 Rg32i
 // CHECK: %_ptr_UniformConstant_type_buffer_image_8 = OpTypePointer UniformConstant %type_buffer_image_8
 RWBuffer<int2> int2rwbuf;
-// CHECK: %type_buffer_image_9 = OpTypeImage %uint Buffer 0 0 0 2 Rg32ui
+// CHECK: %type_buffer_image_9 = OpTypeImage %uint Buffer 2 0 0 2 Rg32ui
 // CHECK: %_ptr_UniformConstant_type_buffer_image_9 = OpTypePointer UniformConstant %type_buffer_image_9
 RWBuffer<uint2> uint2rwbuf;
-// CHECK: %type_buffer_image_10 = OpTypeImage %float Buffer 0 0 0 2 Rg32f
+// CHECK: %type_buffer_image_10 = OpTypeImage %float Buffer 2 0 0 2 Rg32f
 // CHECK: %_ptr_UniformConstant_type_buffer_image_10 = OpTypePointer UniformConstant %type_buffer_image_10
 RWBuffer<float2> float2rwbuf;
 
-// CHECK: %type_buffer_image_11 = OpTypeImage %int Buffer 0 0 0 1 Rgba32i
+// CHECK: %type_buffer_image_11 = OpTypeImage %int Buffer 2 0 0 1 Rgba32i
 // CHECK: %_ptr_UniformConstant_type_buffer_image_11 = OpTypePointer UniformConstant %type_buffer_image_11
 Buffer<int3> int3buf;
 Buffer<int4> int4buf;
-// CHECK: %type_buffer_image_12 = OpTypeImage %uint Buffer 0 0 0 1 Rgba32ui
+// CHECK: %type_buffer_image_12 = OpTypeImage %uint Buffer 2 0 0 1 Rgba32ui
 // CHECK: %_ptr_UniformConstant_type_buffer_image_12 = OpTypePointer UniformConstant %type_buffer_image_12
 Buffer<uint3> uint3buf;
 Buffer<uint4> uint4buf;
-// CHECK: %type_buffer_image_13 = OpTypeImage %float Buffer 0 0 0 1 Rgba32f
+// CHECK: %type_buffer_image_13 = OpTypeImage %float Buffer 2 0 0 1 Rgba32f
 // CHECK: %_ptr_UniformConstant_type_buffer_image_13 = OpTypePointer UniformConstant %type_buffer_image_13
 Buffer<float3> float3buf;
 Buffer<float4> float4buf;
 
-// CHECK: %type_buffer_image_14 = OpTypeImage %int Buffer 0 0 0 2 Rgba32i
+// CHECK: %type_buffer_image_14 = OpTypeImage %int Buffer 2 0 0 2 Rgba32i
 // CHECK: %_ptr_UniformConstant_type_buffer_image_14 = OpTypePointer UniformConstant %type_buffer_image_14
 RWBuffer<int3> int3rwbuf;
 RWBuffer<int4> int4rwbuf;
-// CHECK: %type_buffer_image_15 = OpTypeImage %uint Buffer 0 0 0 2 Rgba32ui
+// CHECK: %type_buffer_image_15 = OpTypeImage %uint Buffer 2 0 0 2 Rgba32ui
 // CHECK: %_ptr_UniformConstant_type_buffer_image_15 = OpTypePointer UniformConstant %type_buffer_image_15
 RWBuffer<uint3> uint3rwbuf;
 RWBuffer<uint4> uint4rwbuf;
-// CHECK: %type_buffer_image_16 = OpTypeImage %float Buffer 0 0 0 2 Rgba32f
+// CHECK: %type_buffer_image_16 = OpTypeImage %float Buffer 2 0 0 2 Rgba32f
 // CHECK: %_ptr_UniformConstant_type_buffer_image_16 = OpTypePointer UniformConstant %type_buffer_image_16
 RWBuffer<float3> float3rwbuf;
 RWBuffer<float4> float4rwbuf;

@@ -2,22 +2,22 @@
 
 // CHECK: OpCapability InputAttachment
 
-// CHECK: %type_subpass_image = OpTypeImage %float SubpassData 0 0 0 2 Unknown
+// CHECK: %type_subpass_image = OpTypeImage %float SubpassData 2 0 0 2 Unknown
 // CHECK: %_ptr_UniformConstant_type_subpass_image = OpTypePointer UniformConstant %type_subpass_image
 
-// CHECK: %type_subpass_image_0 = OpTypeImage %int SubpassData 0 0 0 2 Unknown
+// CHECK: %type_subpass_image_0 = OpTypeImage %int SubpassData 2 0 0 2 Unknown
 // CHECK: %_ptr_UniformConstant_type_subpass_image_0 = OpTypePointer UniformConstant %type_subpass_image_0
 
-// CHECK: %type_subpass_image_1 = OpTypeImage %uint SubpassData 0 0 0 2 Unknown
+// CHECK: %type_subpass_image_1 = OpTypeImage %uint SubpassData 2 0 0 2 Unknown
 // CHECK: %_ptr_UniformConstant_type_subpass_image_1 = OpTypePointer UniformConstant %type_subpass_image_1
 
-// CHECK: %type_subpass_image_2 = OpTypeImage %uint SubpassData 0 0 1 2 Unknown
+// CHECK: %type_subpass_image_2 = OpTypeImage %uint SubpassData 2 0 1 2 Unknown
 // CHECK: %_ptr_UniformConstant_type_subpass_image_2 = OpTypePointer UniformConstant %type_subpass_image_2
 
-// CHECK: %type_subpass_image_3 = OpTypeImage %float SubpassData 0 0 1 2 Unknown
+// CHECK: %type_subpass_image_3 = OpTypeImage %float SubpassData 2 0 1 2 Unknown
 // CHECK: %_ptr_UniformConstant_type_subpass_image_3 = OpTypePointer UniformConstant %type_subpass_image_3
 
-// CHECK: %type_subpass_image_4 = OpTypeImage %int SubpassData 0 0 1 2 Unknown
+// CHECK: %type_subpass_image_4 = OpTypeImage %int SubpassData 2 0 1 2 Unknown
 // CHECK: %_ptr_UniformConstant_type_subpass_image_4 = OpTypePointer UniformConstant %type_subpass_image_4
 
 // CHECK:  [[v2i00:%\d+]] = OpConstantComposite %v2int %int_0 %int_0
