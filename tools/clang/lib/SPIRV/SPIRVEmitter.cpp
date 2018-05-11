@@ -4777,6 +4777,8 @@ SpirvEvalInfo SPIRVEmitter::processAssignment(const Expr *lhs,
                                               const SpirvEvalInfo &rhs,
                                               const bool isCompoundAssignment,
                                               SpirvEvalInfo lhsPtr) {
+  lhs = lhs->IgnoreParenNoopCasts(astContext);
+
   // Assigning to vector swizzling should be handled differently.
   if (SpirvEvalInfo result = tryToAssignToVectorElements(lhs, rhs))
     return result;
