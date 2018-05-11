@@ -83,6 +83,8 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
     char *pBuffer = m_TokenStrings[BufferIdx];
     Token &T = m_Tokens[BufferIdx];
     bool bFloat = false;
+    bool bKW = false;
+    char c = 0;
 
     EatSpace();
 
@@ -185,7 +187,7 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
     //
     // Classify token
     //
-    char c = pBuffer[0];
+    c = pBuffer[0];
 
     // Delimiters
     switch(c)
@@ -245,7 +247,6 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
     // Keyword
 #define KW(__name)  ToKeyword(pBuffer, T, #__name, Token::Type::__name)
 
-    bool bKW = false;
     // Case-incensitive
     switch(toupper(c))
     {
