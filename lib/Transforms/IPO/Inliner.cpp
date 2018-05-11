@@ -83,7 +83,7 @@ Inliner::Inliner(char &ID)
 
 Inliner::Inliner(char &ID, int Threshold, bool InsertLifetime)
   : CallGraphSCCPass(ID), InlineThreshold(InlineLimit.getNumOccurrences() > 0 ?
-                                          InlineLimit : Threshold),
+                                          unsigned(InlineLimit) : Threshold),
     InsertLifetime(InsertLifetime) {}
 
 /// For this class, we declare that we require and preserve the call graph.
