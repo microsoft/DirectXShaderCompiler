@@ -1312,8 +1312,7 @@ TypeTranslator::collectDeclsInDeclContext(const DeclContext *declContext) {
   return decls;
 }
 
-uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
-                                               bool isDepthCmp) {
+uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   // Resource types are either represented like C struct or C++ class in the
   // AST. Samplers are represented like C struct, so isStructureType() will
   // return true for it; textures are represented like C++ class, so
@@ -1343,7 +1342,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
       const auto isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return theBuilder.getImageType(translateType(getElementType(sampledType)),
-                                     dim, isDepthCmp, isArray, isMS);
+                                     dim, /*depth*/ 2, isArray, isMS);
     }
 
     // There is no RWTexture3DArray
@@ -1355,7 +1354,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       const auto format = translateSampledTypeToImageFormat(sampledType);
       return theBuilder.getImageType(translateType(getElementType(sampledType)),
-                                     dim, /*depth*/ 0, isArray, /*MS*/ 0,
+                                     dim, /*depth*/ 2, isArray, /*MS*/ 0,
                                      /*Sampled*/ 2u, format);
     }
   }
@@ -1451,7 +1450,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
     const auto format = translateSampledTypeToImageFormat(sampledType);
     return theBuilder.getImageType(
         translateType(getElementType(sampledType)), spv::Dim::Buffer,
-        /*depth*/ 0, /*isArray*/ 0, /*ms*/ 0,
+        /*depth*/ 2, /*isArray*/ 0, /*ms*/ 0,
         /*sampled*/ name == "Buffer" ? 1 : 2, format);
   }
 
@@ -1481,7 +1480,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     return theBuilder.getImageType(
         translateType(getElementType(sampledType)), spv::Dim::SubpassData,
-        /*depth*/ 0, /*isArray*/ false, /*ms*/ name == "SubpassInputMS",
+        /*depth*/ 2, /*isArray*/ false, /*ms*/ name == "SubpassInputMS",
         /*sampled*/ 2);
   }
 

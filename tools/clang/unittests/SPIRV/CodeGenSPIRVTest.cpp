@@ -754,12 +754,6 @@ TEST_F(FileTest, TextureSampleCmpLevelZero) {
 TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
   runFileTest("texture.array.sample-cmp-level-zero.hlsl");
 }
-TEST_F(FileTest, TextureNormalAndComparisonSample) {
-  // Check that we generate OpSampledImage derived from the appropriate
-  // OpTypeImage having the matching Depth value with the OpImageSample*
-  // instruction
-  runFileTest("texture.sample.sample-cmp.hlsl");
-}
 
 // For structured buffer methods
 TEST_F(FileTest, StructuredBufferLoad) {
