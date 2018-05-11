@@ -3628,7 +3628,7 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
 
     // Semantic index overlap check, keyed by name.
     std::string nameUpper(E->GetName());
-    std::transform(nameUpper.begin(), nameUpper.end(), nameUpper.begin(), toupper);
+    std::transform(nameUpper.begin(), nameUpper.end(), nameUpper.begin(), ::toupper);
     unordered_set<unsigned> &semIdxSet = semanticIndexMap[streamId][nameUpper];
     for (unsigned semIdx : E->GetSemanticIndexVec()) {
       if (semIdxSet.count(semIdx) > 0) {
