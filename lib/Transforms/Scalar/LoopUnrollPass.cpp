@@ -101,13 +101,13 @@ namespace {
   public:
     static char ID; // Pass ID, replacement for typeid
     LoopUnroll(int T = -1, int C = -1, int P = -1, int R = -1) : LoopPass(ID) {
-      CurrentThreshold = (T == -1) ? UnrollThreshold : unsigned(T);
+      CurrentThreshold = (T == -1) ? unsigned(UnrollThreshold) : unsigned(T);
       CurrentPercentDynamicCostSavedThreshold =
           UnrollPercentDynamicCostSavedThreshold;
       CurrentDynamicCostSavingsDiscount = UnrollDynamicCostSavingsDiscount;
-      CurrentCount = (C == -1) ? UnrollCount : unsigned(C);
-      CurrentAllowPartial = (P == -1) ? UnrollAllowPartial : (bool)P;
-      CurrentRuntime = (R == -1) ? UnrollRuntime : (bool)R;
+      CurrentCount = (C == -1) ? unsigned(UnrollCount) : unsigned(C);
+      CurrentAllowPartial = (P == -1) ? (bool)UnrollAllowPartial : (bool)P;
+      CurrentRuntime = (R == -1) ? (bool)UnrollRuntime : (bool)R;
 
       UserThreshold = (T != -1) || (UnrollThreshold.getNumOccurrences() > 0);
       UserPercentDynamicCostSavedThreshold =
