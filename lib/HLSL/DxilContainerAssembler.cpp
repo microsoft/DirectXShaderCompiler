@@ -877,6 +877,16 @@ private:
     info.UpperBound = resource.GetUpperBound();
     info.Name = stringIndex;
     info.Flags = 0;
+    if (ResourceClass::UAV == resourceClass) {
+      DxilResource *pRes = static_cast<DxilResource*>(&resource);
+      if (pRes->HasCounter())
+        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVCounter);
+      if (pRes->IsGloballyCoherent())
+        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVGloballyCoherent);
+      if (pRes->IsROV())
+        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVRasterizerOrderedView);
+      // TODO: add dynamic index flag
+    }
     resourceTable.Insert(info);
   }
 
