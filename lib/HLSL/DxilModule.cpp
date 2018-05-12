@@ -925,8 +925,8 @@ void DxilModule::LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S) {
 template <typename TResource>
 static void RemoveResources(std::vector<std::unique_ptr<TResource>> &vec,
                     std::unordered_set<unsigned> &immResID) {
-  for (std::vector<std::unique_ptr<TResource>>::iterator p = vec.begin(); p != vec.end();) {
-    std::vector<std::unique_ptr<TResource>>::iterator c = p++;
+  for (auto p = vec.begin(); p != vec.end();) {
+    auto c = p++;
     if (immResID.count((*c)->GetID()) == 0) {
       p = vec.erase(c);
     }
