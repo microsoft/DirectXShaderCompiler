@@ -74,6 +74,14 @@ public:
   }
 };
 
+enum class DxilResourceFlag : uint32_t {
+  None                      = 0,
+  UAVGloballyCoherent       = 1 << 0,
+  UAVCounter                = 1 << 1,
+  UAVRasterizerOrderedView  = 1 << 2,
+  DynamicIndexing           = 1 << 3,
+};
+
 struct RuntimeDataResourceInfo {
   uint32_t Class; // hlsl::DXIL::ResourceClass
   uint32_t Kind;  // hlsl::DXIL::ResourceKind
@@ -82,7 +90,7 @@ struct RuntimeDataResourceInfo {
   uint32_t LowerBound;
   uint32_t UpperBound;
   uint32_t Name;  // resource name as an offset for string table
-  uint32_t Flags; // Not implemented yet
+  uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
 };
 
 struct RuntimeDataFunctionInfo {
@@ -351,7 +359,7 @@ typedef struct DXIL_RESOURCE {
   uint32_t UpperBound;
   uint32_t LowerBound;
   LPCWSTR Name;
-  uint32_t Flags;
+  uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
 } DXIL_RESOURCE;
 
 typedef struct DXIL_FUNCTION {
