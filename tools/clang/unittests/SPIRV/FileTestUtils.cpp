@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <sstream>
 
-#include "SpirvTestOptions.h"
+#include "SPIRVTestOptions.h"
 #include "gtest/gtest.h"
 
 namespace clang {
