@@ -374,7 +374,7 @@ public:
       llvm::LLVMContext llvmContext; // LLVMContext should outlive CompilerInstance
       CompilerInstance compiler;
       std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-          std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
+          llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
       SetupCompilerForCompile(compiler, &m_langExtensionsHelper, utf8SourceName, diagPrinter.get(), defines, opts, pArguments, argCount);
       msfPtr->SetupForCompilerInstance(compiler);
 
@@ -673,7 +673,7 @@ public:
       raw_stream_ostream outStream(pOutputStream.p);
       CompilerInstance compiler;
       std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-          std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
+          llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
       SetupCompilerForCompile(compiler, &m_langExtensionsHelper, utf8SourceName, diagPrinter.get(), defines, opts, pArguments, argCount);
       msfPtr->SetupForCompilerInstance(compiler);
 

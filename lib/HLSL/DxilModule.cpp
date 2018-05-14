@@ -59,10 +59,10 @@ namespace hlsl {
 DxilModule::DxilModule(Module *pModule)
 : m_Ctx(pModule->getContext())
 , m_pModule(pModule)
-, m_pOP(std::make_unique<OP>(pModule->getContext(), pModule))
-, m_pTypeSystem(std::make_unique<DxilTypeSystem>(pModule))
-, m_pViewIdState(std::make_unique<DxilViewIdState>(this))
-, m_pMDHelper(std::make_unique<DxilMDHelper>(pModule, std::make_unique<DxilExtraPropertyHelper>(pModule)))
+, m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
+, m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
+, m_pViewIdState(llvm::make_unique<DxilViewIdState>(this))
+, m_pMDHelper(llvm::make_unique<DxilMDHelper>(pModule, llvm::make_unique<DxilExtraPropertyHelper>(pModule)))
 , m_pDebugInfoFinder(nullptr)
 , m_pEntryFunc(nullptr)
 , m_EntryName("")
@@ -1684,7 +1684,7 @@ void DxilModule::StripDebugRelatedCode() {
 }
 DebugInfoFinder &DxilModule::GetOrCreateDebugInfoFinder() {
   if (m_pDebugInfoFinder == nullptr) {
-    m_pDebugInfoFinder = std::make_unique<llvm::DebugInfoFinder>();
+    m_pDebugInfoFinder = llvm::make_unique<llvm::DebugInfoFinder>();
     m_pDebugInfoFinder->processModule(*m_pModule);
   }
   return *m_pDebugInfoFinder;
@@ -1763,7 +1763,7 @@ namespace llvm {
 hlsl::DxilModule &Module::GetOrCreateDxilModule(bool skipInit) {
   std::unique_ptr<hlsl::DxilModule> M;
   if (!HasDxilModule()) {
-    M = std::make_unique<hlsl::DxilModule>(this);
+    M = llvm::make_unique<hlsl::DxilModule>(this);
     if (!skipInit) {
       M->LoadDxilMetadata();
     }

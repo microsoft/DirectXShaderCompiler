@@ -6192,7 +6192,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   // ShaderProps.
   if (m_pHLModule->HasDxilFunctionProps(F)) {
     DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
-    std::unique_ptr<DxilFunctionProps> flatFuncProps = std::make_unique<DxilFunctionProps>();
+    std::unique_ptr<DxilFunctionProps> flatFuncProps = llvm::make_unique<DxilFunctionProps>();
     flatFuncProps->shaderKind = funcProps.shaderKind;
     flatFuncProps->ShaderProps = funcProps.ShaderProps;
     m_pHLModule->AddDxilFunctionProps(flatF, flatFuncProps);
