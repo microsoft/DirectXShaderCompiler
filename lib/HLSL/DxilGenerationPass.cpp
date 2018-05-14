@@ -123,7 +123,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
 
   // Resources
   for (auto && C : H.GetCBuffers()) {
-    auto b = make_unique<DxilCBuffer>();
+    auto b = llvm::make_unique<DxilCBuffer>();
     InitResourceBase(C.get(), b.get());
     b->SetSize(C->GetSize());
     if (HasDebugInfo)
@@ -133,7 +133,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
     M.AddCBuffer(std::move(b));
   }
   for (auto && C : H.GetUAVs()) {
-    auto b = make_unique<DxilResource>();
+    auto b = llvm::make_unique<DxilResource>();
     InitResource(C.get(), b.get());
     if (HasDebugInfo)
       LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
@@ -142,7 +142,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
     M.AddUAV(std::move(b));
   }
   for (auto && C : H.GetSRVs()) {
-    auto b = make_unique<DxilResource>();
+    auto b = llvm::make_unique<DxilResource>();
     InitResource(C.get(), b.get());
     if (HasDebugInfo)
       LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
@@ -151,7 +151,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
     M.AddSRV(std::move(b));
   }
   for (auto && C : H.GetSamplers()) {
-    auto b = make_unique<DxilSampler>();
+    auto b = llvm::make_unique<DxilSampler>();
     InitResourceBase(C.get(), b.get());
     b->SetSamplerKind(C->GetSamplerKind());
     if (HasDebugInfo)
@@ -593,9 +593,9 @@ void DxilGenerationPass::TranslateDxilResourceUses(
         // Must be instruction for multi dim array.
         std::unique_ptr<IRBuilder<> > Builder;
         if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
-          Builder = std::make_unique<IRBuilder<> >(GEPInst);
+          Builder = llvm::make_unique<IRBuilder<> >(GEPInst);
         } else {
-          Builder = std::make_unique<IRBuilder<> >(GV->getContext());
+          Builder = llvm::make_unique<IRBuilder<> >(GV->getContext());
         }
         for (; GEPIt != E; ++GEPIt) {
           if (GEPIt->isArrayTy()) {
