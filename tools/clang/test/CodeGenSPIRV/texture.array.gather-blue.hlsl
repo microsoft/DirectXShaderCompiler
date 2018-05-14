@@ -7,6 +7,7 @@ Texture2DArray<int3>    t2i3       : register(t2);
 TextureCubeArray<uint4> tCubeArray : register(t3);
 // .GatherBlue() does not support Texture1DArray.
 
+// CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability SparseResidency
 
 // CHECK:      [[c12:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
