@@ -74,7 +74,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
   // about the shader having selected components that don't include x or y.
   // If not present, we add it.
   if ( SV_Position == InputElements.end() ) {
-    auto SVPosition = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
+    auto SVPosition = llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
     SVPosition->Initialize("Position", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 4, SVPositionIndex == -1 ? 0 : SVPositionIndex, 0);
     SVPosition->AppendSemanticIndex(0);
     SVPosition->SetSigPointKind(DXIL::SigPointKind::PSIn);

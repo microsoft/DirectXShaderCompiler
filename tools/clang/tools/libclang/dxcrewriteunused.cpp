@@ -339,7 +339,7 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
   // Setup a compiler instance.
   CompilerInstance compiler;
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-      std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());  
+      llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());  
   SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, pDefines);
 
   // Parse the source file.
@@ -500,7 +500,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   // Setup a compiler instance.
   CompilerInstance compiler;
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-      std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());    
+      llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());    
   SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, pDefines);
 
   // Parse the source file.
