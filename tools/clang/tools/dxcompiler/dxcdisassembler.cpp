@@ -285,7 +285,12 @@ void PrintDxilSignature(LPCSTR pName, const DxilSignature &Signature,
     OS << comment << " ";
 
     OS << left_justify(sigElt->GetName(), 20);
-    OS << ' ' << format("%5u", sigElt->GetSemanticIndexVec()[0]);
+    auto &indexVec = sigElt->GetSemanticIndexVec();
+    unsigned index = 0;
+    if (!indexVec.empty()) {
+      index = sigElt->GetSemanticIndexVec()[0];
+    }
+    OS << ' ' << format("%5u", index);
     sigElt->GetInterpolationMode()->GetName();
     OS << ' ' << right_justify(sigElt->GetInterpolationMode()->GetName(), 22);
     OS << "   ";

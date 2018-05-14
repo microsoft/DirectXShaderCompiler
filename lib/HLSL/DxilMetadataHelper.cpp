@@ -57,7 +57,12 @@ const char DxilMDHelper::kDxilViewIdStateMDName[]                     = "dx.view
 const char DxilMDHelper::kDxilFunctionPropertiesMDName[]              = "dx.func.props";
 const char DxilMDHelper::kDxilEntrySignaturesMDName[]                 = "dx.func.signatures";
 
-static std::array<const char *, 7> DxilMDNames = {
+const char DxilMDHelper::kDxilSourceContentsMDName[]                  = "dx.source.contents";
+const char DxilMDHelper::kDxilSourceDefinesMDName[]                   = "dx.source.defines";
+const char DxilMDHelper::kDxilSourceMainFileNameMDName[]              = "dx.source.mainFileName";
+const char DxilMDHelper::kDxilSourceArgsMDName[]                      = "dx.source.args";
+
+static std::array<const char *, 11> DxilMDNames = {
   DxilMDHelper::kDxilVersionMDName,
   DxilMDHelper::kDxilShaderModelMDName,
   DxilMDHelper::kDxilEntryPointsMDName,
@@ -65,6 +70,10 @@ static std::array<const char *, 7> DxilMDNames = {
   DxilMDHelper::kDxilTypeSystemMDName,
   DxilMDHelper::kDxilValidatorVersionMDName,
   DxilMDHelper::kDxilViewIdStateMDName,
+  DxilMDHelper::kDxilSourceContentsMDName,
+  DxilMDHelper::kDxilSourceDefinesMDName,
+  DxilMDHelper::kDxilSourceMainFileNameMDName,
+  DxilMDHelper::kDxilSourceArgsMDName,
 };
 
 DxilMDHelper::DxilMDHelper(Module *pModule, std::unique_ptr<ExtraPropertyHelper> EPH)
