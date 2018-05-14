@@ -399,6 +399,7 @@ spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
 
   if (constOffsets) {
     mask = mask | ImageOperandsMask::ConstOffsets;
+    requireCapability(spv::Capability::ImageGatherExtended);
     orderedParams->push_back(constOffsets);
   }
 
