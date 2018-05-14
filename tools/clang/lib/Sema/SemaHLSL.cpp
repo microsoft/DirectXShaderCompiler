@@ -7262,6 +7262,9 @@ bool HLSLExternalSource::CanConvert(
   _Out_opt_ TYPE_CONVERSION_REMARKS* remarks,
   _Inout_opt_ StandardConversionSequence* standard)
 {
+  bool bCheckElt = false;
+  UINT uTSize, uSSize;
+
   DXASSERT_NOMSG(sourceExpr != nullptr);
   DXASSERT_NOMSG(!target.isNull());
 
@@ -7320,8 +7323,8 @@ bool HLSLExternalSource::CanConvert(
   CollectInfo(target, &TargetInfo);
   CollectInfo(source, &SourceInfo);
 
-  UINT uTSize = TargetInfo.uTotalElts;
-  UINT uSSize = SourceInfo.uTotalElts;
+  uTSize = TargetInfo.uTotalElts;
+  uSSize = SourceInfo.uTotalElts;
 
   // TODO: TYPE_CONVERSION_BY_REFERENCE does not seem possible here
   // are we missing cases?
@@ -7440,7 +7443,6 @@ bool HLSLExternalSource::CanConvert(
   // 5. The result of a matrix and a vector is similar to #4.
   //
 
-  bool bCheckElt = false;
 
   switch (TargetInfo.ShapeKind) {
   case AR_TOBJ_BASIC:
