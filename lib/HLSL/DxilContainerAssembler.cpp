@@ -893,7 +893,9 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       // If the debug name should be specific to the sources, base the name on the debug
       // bitcode, which will include the source references, line numbers, etc. Otherwise,
       // do it exclusively on the target shader bitcode.
-      pHashStream = (int)(Flags & SerializeDxilFlags::DebugNameDependOnSource) ? pModuleBitcode : pProgramStream;
+      pHashStream = (int)(Flags & SerializeDxilFlags::DebugNameDependOnSource)
+                        ? CComPtr<AbstractMemoryStream>(pModuleBitcode)
+                        : CComPtr<AbstractMemoryStream>(pProgramStream);
       const uint32_t DebugInfoNameHashLen = 32;   // 32 chars of MD5
       const uint32_t DebugInfoNameSuffix = 4;     // '.lld'
       const uint32_t DebugInfoNameNullAndPad = 4; // '\0\0\0\0'
