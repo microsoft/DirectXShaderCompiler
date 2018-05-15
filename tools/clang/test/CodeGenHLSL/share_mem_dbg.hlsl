@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_6_0 -Zi -Od %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 -Zi -Od -DDefineA -DDefineB=0 %s | FileCheck %s
 
 // CHECK: threadId
 // CHECK: groupId
@@ -6,12 +6,25 @@
 // CHECK: flattenedThreadIdInGroup
 // CHECK: addrspace(3)
 
+// Make sure source info exist.
+// CHECK: !dx.source.contents
+// CHECK: !dx.source.defines
+// CHECK: !dx.source.mainFileName
+// CHECK: !dx.source.args
+
 // CHECK: DIGlobalVariable(name: "dataC.1.0"
 // CHECK: DIDerivedType(tag: DW_TAG_member, name: ".1.0"
 // CHECK: DIGlobalVariable(name: "dataC.1.1"
 // CHECK: DIDerivedType(tag: DW_TAG_member, name: ".1.1"
 // CHECK: DIGlobalVariable(name: "dataC.0
 // CHECK: DIDerivedType(tag: DW_TAG_member, name: ".0"
+
+// Make sure source info contents exist.
+// CHECK: share_mem_dbg.hlsl", !"// RUN: %dxc
+// CHECK: !{!"DefineA=1", !"DefineB=0"}
+// CHECK: share_mem_dbg.hlsl"}
+// CHECK: !{!"-E", !"main", !"-T", !"cs_6_0", !"-Zi", !"-Od", !"-D", !"DefineA", !"-D", !"DefineB=0"}
+
 
 struct S {
   column_major float2x2 d;

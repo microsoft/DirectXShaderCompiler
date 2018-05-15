@@ -23,6 +23,7 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/HLSL/DxilShaderModel.h"
+#include "dxc/HLSL/DxilMetadataHelper.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/DxilUtil.h"
 #include "dxc/Support/Global.h"
@@ -175,10 +176,26 @@ public:
     m_dxilModule->LoadDxilMetadata();
 
     // Get file contents.
-    m_contents = m_module->getNamedMetadata("llvm.dbg.contents");
-    m_defines = m_module->getNamedMetadata("llvm.dbg.defines");
-    m_mainFileName = m_module->getNamedMetadata("llvm.dbg.mainFileName");
-    m_arguments = m_module->getNamedMetadata("llvm.dbg.args");
+    m_contents =
+        m_module->getNamedMetadata(DxilMDHelper::kDxilSourceContentsMDName);
+    if (!m_contents)
+      m_contents = m_module->getNamedMetadata("llvm.dbg.contents");
+
+    m_defines =
+        m_module->getNamedMetadata(DxilMDHelper::kDxilSourceDefinesMDName);
+    if (!m_defines)
+      m_defines = m_module->getNamedMetadata("llvm.dbg.defines");
+
+    m_mainFileName =
+        m_module->getNamedMetadata(DxilMDHelper::kDxilSourceMainFileNameMDName);
+    if (!m_mainFileName)
+      m_mainFileName = m_module->getNamedMetadata("llvm.dbg.mainFileName");
+
+    m_arguments =
+        m_module->getNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName);
+    if (!m_arguments)
+      m_arguments = m_module->getNamedMetadata("llvm.dbg.args");
+
     // Build up a linear list of instructions. The index will be used as the
     // RVA. Debug instructions are ommitted from this enumeration.
     for (const Function &fn : m_module->functions()) {
