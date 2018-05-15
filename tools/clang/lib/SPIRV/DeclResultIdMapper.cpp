@@ -408,6 +408,15 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
 
   uint32_t varType = typeTranslator.translateType(var->getType(), rule);
 
+  // Require corresponding capability for accessing 16-bit data.
+  if (storageClass == spv::StorageClass::Uniform &&
+      spirvOptions.enable16BitTypes &&
+      typeTranslator.isOrContains16BitType(var->getType())) {
+    theBuilder.addExtension(Extension::KHR_16bit_storage,
+                            "16-bit types in resource", var->getLocation());
+    theBuilder.requireCapability(spv::Capability::StorageUniformBufferBlock16);
+  }
+
   const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
                                               var->getName(), llvm::None);
   const auto info =
@@ -473,6 +482,7 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forCBuffer = usageKind == ContextUsageKind::CBuffer;
   const bool forTBuffer = usageKind == ContextUsageKind::TBuffer;
   const bool forGlobals = usageKind == ContextUsageKind::Globals;
+  const bool forPC = usageKind == ContextUsageKind::PushConstant;
 
   auto &context = *theBuilder.getSPIRVContext();
   const LayoutRule layoutRule =
@@ -506,6 +516,19 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     fieldTypes.push_back(typeTranslator.translateType(varType, layoutRule));
     fieldNames.push_back(declDecl->getName());
 
+    // Require corresponding capability for accessing 16-bit data.
+    if (spirvOptions.enable16BitTypes &&
+        typeTranslator.isOrContains16BitType(varType)) {
+      theBuilder.addExtension(Extension::KHR_16bit_storage,
+                              "16-bit types in resource",
+                              declDecl->getLocation());
+      theBuilder.requireCapability(
+          (forCBuffer || forGlobals)
+              ? spv::Capability::StorageUniform16
+              : forPC ? spv::Capability::StoragePushConstant16
+                      : spv::Capability::StorageUniformBufferBlock16);
+    }
+
     // tbuffer/TextureBuffers are non-writable SSBOs. OpMemberDecorate
     // NonWritable must be applied to all fields.
     if (forTBuffer) {
@@ -534,9 +557,8 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   // Register the <type-id> for this decl
   ctBufferPCTypeIds[decl] = resultType;
 
-  const auto sc = usageKind == ContextUsageKind::PushConstant
-                      ? spv::StorageClass::PushConstant
-                      : spv::StorageClass::Uniform;
+  const auto sc =
+      forPC ? spv::StorageClass::PushConstant : spv::StorageClass::Uniform;
 
   // Create the variable for the whole struct / struct array.
   return theBuilder.addModuleVar(resultType, sc, varName);
