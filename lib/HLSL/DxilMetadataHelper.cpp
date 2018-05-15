@@ -57,6 +57,11 @@ const char DxilMDHelper::kDxilViewIdStateMDName[]                     = "dx.view
 const char DxilMDHelper::kDxilFunctionPropertiesMDName[]              = "dx.func.props";
 const char DxilMDHelper::kDxilEntrySignaturesMDName[]                 = "dx.func.signatures";
 
+const char DxilMDHelper::kDxilSourceContentsMDName[]                  = "dx.source.contents";
+const char DxilMDHelper::kDxilSourceDefinesMDName[]                   = "dx.source.defines";
+const char DxilMDHelper::kDxilSourceMainFileNameMDName[]              = "dx.source.mainFileName";
+const char DxilMDHelper::kDxilSourceArgsMDName[]                      = "dx.source.args";
+
 static std::array<const char *, 7> DxilMDNames = {
   DxilMDHelper::kDxilVersionMDName,
   DxilMDHelper::kDxilShaderModelMDName,

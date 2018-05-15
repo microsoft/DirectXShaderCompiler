@@ -159,6 +159,8 @@ MainArgs::MainArgs(llvm::ArrayRef<llvm::StringRef> args) {
 MainArgs& MainArgs::operator=(const MainArgs &other) {
   Utf8StringVector.clear();
   Utf8CharPtrVector.clear();
+  Utf8StringVector.reserve(other.Utf8StringVector.size());
+  Utf8CharPtrVector.reserve(other.Utf8StringVector.size());
   for (const std::string &str : other.Utf8StringVector) {
     Utf8StringVector.emplace_back(str);
     Utf8CharPtrVector.push_back(Utf8StringVector.back().data());

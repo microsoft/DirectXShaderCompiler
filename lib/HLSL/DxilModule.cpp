@@ -1681,6 +1681,23 @@ void DxilModule::StripDebugRelatedCode() {
       }
     }
   }
+  // Remove dx.source metadata.
+  if (NamedMDNode *contents = m_pModule->getNamedMetadata(
+          DxilMDHelper::kDxilSourceContentsMDName)) {
+    contents->eraseFromParent();
+  }
+  if (NamedMDNode *defines =
+          m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceDefinesMDName)) {
+    defines->eraseFromParent();
+  }
+  if (NamedMDNode *mainFileName = m_pModule->getNamedMetadata(
+          DxilMDHelper::kDxilSourceMainFileNameMDName)) {
+    mainFileName->eraseFromParent();
+  }
+  if (NamedMDNode *arguments =
+          m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName)) {
+    arguments->eraseFromParent();
+  }
 }
 DebugInfoFinder &DxilModule::GetOrCreateDebugInfoFinder() {
   if (m_pDebugInfoFinder == nullptr) {
