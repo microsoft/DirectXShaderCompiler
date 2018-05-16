@@ -3602,7 +3602,7 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
       {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()},
       {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()},
       {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()}};
-  unordered_set<Semantic::Kind> semanticUsageSet[DXIL::kNumOutputStreams];
+  unordered_set<unsigned> semanticUsageSet[DXIL::kNumOutputStreams];
   StringMap<unordered_set<unsigned>> semanticIndexMap[DXIL::kNumOutputStreams];
   unordered_set<unsigned> clipcullRowSet[DXIL::kNumOutputStreams];
   unsigned clipcullComponents[DXIL::kNumOutputStreams] = {0, 0, 0, 0};
@@ -3701,11 +3701,11 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
       break;
     }
     default:
-      if (semanticUsageSet[streamId].count(semanticKind) > 0) {
+      if (semanticUsageSet[streamId].count(static_cast<unsigned>(semanticKind)) > 0) {
         ValCtx.EmitFormatError(ValidationRule::MetaDuplicateSysValue,
                                {E->GetSemantic()->GetName()});
       }
-      semanticUsageSet[streamId].insert(semanticKind);
+      semanticUsageSet[streamId].insert(static_cast<unsigned>(semanticKind));
       break;
     }
 
