@@ -38,6 +38,7 @@ struct EmitSPIRVOptions {
   bool enable16BitTypes;
   bool enableReflect;
   bool enableDebugInfo;
+  bool noWarnIgnoredFeatures;
   llvm::StringRef stageIoOrder;
   llvm::SmallVector<int32_t, 4> bShift;
   llvm::SmallVector<int32_t, 4> tShift;

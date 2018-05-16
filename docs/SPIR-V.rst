@@ -2711,6 +2711,8 @@ codegen for Vulkan:
 - ``-fspv-target-env=<env>``: Specifies the target environment for this compilation.
   The current valid options are ``vulkan1.0`` and ``vulkan1.1``. If no target
   environment is provided, ``vulkan1.0`` is used as default.
+- ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
+  resulting from no Vulkan support, e.g., cbuffer member initializer.
 
 Unsupported HLSL Features
 =========================
