@@ -120,6 +120,9 @@ TEST_F(FileTest, VarInitCbuffer) {
 TEST_F(FileTest, VarInitTbuffer) {
   runFileTest("var.init.tbuffer.hlsl", Expect::Warning);
 }
+TEST_F(FileTest, VarInitWarningIngored) {
+  runFileTest("var.init.warning.ignored.hlsl", Expect::Warning);
+}
 TEST_F(FileTest, VarInitOpaque) { runFileTest("var.init.opaque.hlsl"); }
 TEST_F(FileTest, VarInitCrossStorageClass) {
   runFileTest("var.init.cross-storage-class.hlsl");

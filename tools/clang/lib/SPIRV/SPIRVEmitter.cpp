@@ -1213,11 +1213,13 @@ void SPIRVEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
   // supported in Vulkan
   for (const auto *member : bufferDecl->decls()) {
     if (const auto *varMember = dyn_cast<VarDecl>(member)) {
-      if (const auto *init = varMember->getInit())
-        emitWarning("%select{tbuffer|cbuffer}0 member initializer "
-                    "ignored since no Vulkan equivalent",
-                    init->getExprLoc())
-            << bufferDecl->isCBuffer() << init->getSourceRange();
+      if (!spirvOptions.noWarnIgnoredFeatures) {
+        if (const auto *init = varMember->getInit())
+          emitWarning("%select{tbuffer|cbuffer}0 member initializer "
+                      "ignored since no Vulkan equivalent",
+                      init->getExprLoc())
+              << bufferDecl->isCBuffer() << init->getSourceRange();
+      }
 
       // We cannot handle external initialization of column-major matrices now.
       if (typeTranslator.isOrContainsNonFpColMajorMatrix(varMember->getType(),

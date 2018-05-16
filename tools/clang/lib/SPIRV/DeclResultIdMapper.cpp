@@ -679,11 +679,12 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
   uint32_t index = 0;
   for (const auto *decl : typeTranslator.collectDeclsInDeclContext(context))
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      if (const auto *init = varDecl->getInit()) {
-        emitWarning(
-            "variable '%0' will be placed in $Globals so initializer ignored",
-            init->getExprLoc())
-            << var->getName() << init->getSourceRange();
+      if (!spirvOptions.noWarnIgnoredFeatures) {
+        if (const auto *init = varDecl->getInit())
+          emitWarning(
+              "variable '%0' will be placed in $Globals so initializer ignored",
+              init->getExprLoc())
+              << var->getName() << init->getSourceRange();
       }
       if (const auto *attr = varDecl->getAttr<VKBindingAttr>()) {
         emitError("variable '%0' will be placed in $Globals so cannot have "

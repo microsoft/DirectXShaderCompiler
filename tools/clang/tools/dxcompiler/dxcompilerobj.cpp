@@ -474,6 +474,7 @@ public:
           spirvOpts.enableReflect = opts.SpvEnableReflect;
           spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
+          spirvOpts.noWarnIgnoredFeatures = opts.VkNoWarnIgnoredFeatures;
           spirvOpts.bShift = opts.VkBShift;
           spirvOpts.tShift = opts.VkTShift;
           spirvOpts.sShift = opts.VkSShift;
