@@ -20,16 +20,15 @@ struct DsCpOut {
 // CHECK:      OpEntryPoint TessellationEvaluation %main "main"
 // CHECK-SAME: %in_var_SV_ViewportArrayIndex
 // CHECK-SAME: %in_var_SV_ViewportArrayIndex_0
-// CHECK-SAME: %out_var_SV_ViewportArrayIndex
+// CHECK-SAME: %gl_ViewportIndex
 
-
+// CHECK:      OpDecorate %gl_ViewportIndex BuiltIn ViewportIndex
 // CHECK:      OpDecorate %in_var_SV_ViewportArrayIndex Location 0
 // CHECK:      OpDecorate %in_var_SV_ViewportArrayIndex_0 Location 1
-// CHECK:      OpDecorate %out_var_SV_ViewportArrayIndex Location 0
 
 // CHECK:      %in_var_SV_ViewportArrayIndex = OpVariable %_ptr_Input__arr_uint_uint_3 Input
 // CHECK:      %in_var_SV_ViewportArrayIndex_0 = OpVariable %_ptr_Input_uint Input
-// CHECK:      %out_var_SV_ViewportArrayIndex = OpVariable %_ptr_Output_uint Output
+// CHECK:      %gl_ViewportIndex = OpVariable %_ptr_Output_uint Output
 
 [domain("quad")]
 DsCpOut main(OutputPatch<DsCpIn, 3> patch, HsPcfOut pcfData) {
