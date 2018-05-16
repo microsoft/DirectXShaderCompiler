@@ -37,6 +37,7 @@ enum class Extension {
   EXT_descriptor_indexing,
   EXT_fragment_fully_covered,
   EXT_shader_stencil_export,
+  EXT_shader_viewport_index_layer,
   AMD_gpu_shader_half_float,
   AMD_shader_explicit_vertex_parameter,
   GOOGLE_hlsl_functionality1,
