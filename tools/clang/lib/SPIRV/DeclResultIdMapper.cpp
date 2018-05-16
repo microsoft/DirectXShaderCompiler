@@ -2169,15 +2169,22 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   case hlsl::Semantic::Kind::RenderTargetArrayIndex: {
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::VSIn:
-    case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::HSCPIn:
     case hlsl::SigPoint::Kind::HSCPOut:
     case hlsl::SigPoint::Kind::PCOut:
     case hlsl::SigPoint::Kind::DSIn:
     case hlsl::SigPoint::Kind::DSCPIn:
-    case hlsl::SigPoint::Kind::DSOut:
     case hlsl::SigPoint::Kind::GSVIn:
       return theBuilder.addStageIOVar(type, sc, name.str());
+    case hlsl::SigPoint::Kind::VSOut:
+    case hlsl::SigPoint::Kind::DSOut:
+      theBuilder.addExtension(Extension::EXT_shader_viewport_index_layer,
+                              "SV_RenderTargetArrayIndex", srcLoc);
+      theBuilder.requireCapability(
+          spv::Capability::ShaderViewportIndexLayerEXT);
+
+      stageVar->setIsSpirvBuiltin();
+      return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::Layer);
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::PSIn:
       theBuilder.requireCapability(spv::Capability::Geometry);
@@ -2195,15 +2202,22 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   case hlsl::Semantic::Kind::ViewPortArrayIndex: {
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::VSIn:
-    case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::HSCPIn:
     case hlsl::SigPoint::Kind::HSCPOut:
     case hlsl::SigPoint::Kind::PCOut:
     case hlsl::SigPoint::Kind::DSIn:
     case hlsl::SigPoint::Kind::DSCPIn:
-    case hlsl::SigPoint::Kind::DSOut:
     case hlsl::SigPoint::Kind::GSVIn:
       return theBuilder.addStageIOVar(type, sc, name.str());
+    case hlsl::SigPoint::Kind::VSOut:
+    case hlsl::SigPoint::Kind::DSOut:
+      theBuilder.addExtension(Extension::EXT_shader_viewport_index_layer,
+                              "SV_ViewPortArrayIndex", srcLoc);
+      theBuilder.requireCapability(
+          spv::Capability::ShaderViewportIndexLayerEXT);
+
+      stageVar->setIsSpirvBuiltin();
+      return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::ViewportIndex);
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::PSIn:
       theBuilder.requireCapability(spv::Capability::MultiViewport);

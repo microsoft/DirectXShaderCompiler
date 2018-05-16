@@ -17,19 +17,21 @@ struct DsCpOut {
   uint   index              : SV_RenderTargetArrayIndex;
 };
 
+// CHECK:      OpCapability ShaderViewportIndexLayerEXT
+// CHECK:      OpExtension "SPV_EXT_shader_viewport_index_layer"
+
 // CHECK:      OpEntryPoint TessellationEvaluation %main "main"
 // CHECK-SAME: %in_var_SV_RenderTargetArrayIndex
 // CHECK-SAME: %in_var_SV_RenderTargetArrayIndex_0
-// CHECK-SAME: %out_var_SV_RenderTargetArrayIndex
+// CHECK-SAME: %gl_Layer
 
-
+// CHECK:      OpDecorate %gl_Layer BuiltIn Layer
 // CHECK:      OpDecorate %in_var_SV_RenderTargetArrayIndex Location 0
 // CHECK:      OpDecorate %in_var_SV_RenderTargetArrayIndex_0 Location 1
-// CHECK:      OpDecorate %out_var_SV_RenderTargetArrayIndex Location 0
 
 // CHECK:      %in_var_SV_RenderTargetArrayIndex = OpVariable %_ptr_Input__arr_uint_uint_3 Input
 // CHECK:      %in_var_SV_RenderTargetArrayIndex_0 = OpVariable %_ptr_Input_uint Input
-// CHECK:      %out_var_SV_RenderTargetArrayIndex = OpVariable %_ptr_Output_uint Output
+// CHECK:      %gl_Layer = OpVariable %_ptr_Output_uint Output
 
 [domain("quad")]
 DsCpOut main(OutputPatch<DsCpIn, 3> patch, HsPcfOut pcfData) {
