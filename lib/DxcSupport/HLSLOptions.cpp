@@ -489,6 +489,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.VkUseGlLayout = Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
   opts.VkUseDxLayout = Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false);
   opts.SpvEnableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
+  opts.VkNoWarnIgnoredFeatures = Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false);
 
   // Collects the arguments for -fvk-{b|s|t|u}-shift.
   const auto handleVkShiftArgs =
@@ -553,6 +554,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_target_env_EQ).empty() ||
