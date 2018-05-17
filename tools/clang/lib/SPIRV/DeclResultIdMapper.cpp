@@ -1451,9 +1451,10 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       // represents a Boolean value where false must be exactly 0, but true can
       // be any odd (i.e. bit 0 set) non-zero value)."
       else if (semanticKind == hlsl::Semantic::Kind::InnerCoverage) {
+        const auto constOne = theBuilder.getConstantUint32(1);
+        const auto constZero = theBuilder.getConstantUint32(0);
         *value = theBuilder.createSelect(theBuilder.getUint32Type(), *value,
-                                         theBuilder.getConstantUint32(1),
-                                         theBuilder.getConstantUint32(0));
+                                         constOne, constZero);
       }
       // Special handling of SV_Barycentrics, which is a float3, but the
       // underlying stage input variable is a float2 (only provides the first
