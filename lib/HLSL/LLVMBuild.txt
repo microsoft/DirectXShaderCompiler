@@ -13,4 +13,4 @@
 type = Library
 name = HLSL
 parent = Libraries
-required_libraries = Core Support
+required_libraries = BitReader Core DxcSupport IPA Support
