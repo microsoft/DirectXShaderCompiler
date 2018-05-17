@@ -84,6 +84,12 @@ option(HLSL_ENABLE_FIXED_VER "Sets up fixed version information." OFF) # HLSL Ch
 option(HLSL_ENABLE_ANALYZE "Enables compiler analysis during compilation." OFF) # HLSL Change
 option(HLSL_OPTIONAL_PROJS_IN_DEFAULT "Include optional projects in default build target." OFF) # HLSL Change
 
+# HLSL Change Starts - set flag for Appveyor CI
+if ( $ENV{CI} AND $ENV{APPVEYOR} )
+  set(DXC_ON_APPVEYOR_CI ON)
+endif()
+# HLSL Change ends
+
 # SPIRV change starts
 option(ENABLE_SPIRV_CODEGEN "Enables SPIR-V code generation." OFF)
 option(SPIRV_BUILD_TESTS "Build targets for the SPIR-V unit tests." OFF)
