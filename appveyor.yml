@@ -26,9 +26,10 @@ test_script:
 - cmd: call utils\hct\hcttest -rel spirv_only
 
 after_test:
-- cmd: cd build\%CONFIGURATION%\bin
+- cmd: cd build\%CONFIGURATION%
 - cmd: echo %APPVEYOR_REPO_COMMIT% > GIT-COMMIT.txt
-- cmd: 7z a %ARTIFACTS_ZIP_NAME% d*.exe d*.dll HLSLHost.exe GIT-COMMIT.txt
+- cmd: xcopy "%HLSL_SRC_DIR%\include\dxc" include\dxc /s /i /y
+- cmd: 7z a %ARTIFACTS_ZIP_NAME% include lib\d*.lib bin\d*.exe bin\d*.dll bin\d*.pdb bin\HLSLHost.exe
 
 artifacts:
 - path: build\$(configuration)\bin\$(ARTIFACTS_ZIP_NAME)
