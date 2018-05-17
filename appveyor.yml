@@ -29,7 +29,7 @@ after_test:
 - cmd: cd build\%CONFIGURATION%
 - cmd: echo %APPVEYOR_REPO_COMMIT% > GIT-COMMIT.txt
 - cmd: xcopy "%HLSL_SRC_DIR%\include\dxc" include\dxc /s /i /y
-- cmd: 7z a %ARTIFACTS_ZIP_NAME% include lib\d*.lib bin\d*.exe bin\d*.dll bin\d*.pdb bin\HLSLHost.exe
+- cmd: 7z a %ARTIFACTS_ZIP_NAME% include lib\d*.lib bin\d*.exe bin\d*.dll bin\d*.pdb bin\HLSLHost.exe GIT-COMMIT.txt
 
 artifacts:
 - path: build\$(configuration)\$(ARTIFACTS_ZIP_NAME)
