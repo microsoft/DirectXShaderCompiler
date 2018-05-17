@@ -25,6 +25,7 @@
 #include "llvm/Support/Program.h"
 #include <cctype>
 #include <cerrno>
+#include <ios>
 #include <sys/stat.h>
 #include <system_error>
 
@@ -106,6 +107,16 @@ void raw_ostream::SetBufferAndMode(_In_opt_ char *BufferStart, size_t Size,
 }
 
 raw_ostream &raw_ostream::operator<<(unsigned long N) {
+
+  // HLSL Change Starts - Handle non-base10 printing
+  if (writeBase != 10) {
+    *this << '0';
+    if (writeBase == 16)
+      *this << 'x';
+    return write_base((unsigned long long)N);
+  }
+  // HLSL Change Ends
+
   // Zero is a special case.
   if (N == 0)
     return *this << '0';
@@ -122,7 +133,7 @@ raw_ostream &raw_ostream::operator<<(unsigned long N) {
 }
 
 raw_ostream &raw_ostream::operator<<(long N) {
-  if (N <  0) {
+  if (N < 0 && writeBase == 10) {
     *this << '-';
     // Avoid undefined behavior on LONG_MIN with a cast.
     N = -(unsigned long)N;
@@ -136,6 +147,15 @@ raw_ostream &raw_ostream::operator<<(unsigned long long N) {
   if (N == static_cast<unsigned long>(N))
     return this->operator<<(static_cast<unsigned long>(N));
 
+  // HLSL Change Starts - Handle non-base10 printing
+  if (writeBase != 10) {
+    *this << '0';
+    if (writeBase == 16)
+      *this << 'x';
+    return write_base((unsigned long long)N);
+  }
+  // HLSL Change Ends
+
   char NumberBuffer[20];
   char *EndPtr = NumberBuffer+sizeof(NumberBuffer);
   char *CurPtr = EndPtr;
@@ -148,7 +168,7 @@ raw_ostream &raw_ostream::operator<<(unsigned long long N) {
 }
 
 raw_ostream &raw_ostream::operator<<(long long N) {
-  if (N < 0) {
+  if (N < 0 && writeBase == 10) {
     *this << '-';
     // Avoid undefined behavior on INT64_MIN with a cast.
     N = -(unsigned long long)N;
@@ -157,23 +177,33 @@ raw_ostream &raw_ostream::operator<<(long long N) {
   return this->operator<<(static_cast<unsigned long long>(N));
 }
 
+// HLSL Change Starts - Generalize non-base10 printing.
 raw_ostream &raw_ostream::write_hex(unsigned long long N) {
+  int oldBase = writeBase;
+  writeBase = 16;
+  raw_ostream &rv = write_base(N);
+  writeBase = oldBase;
+  return rv;
+}
+
+raw_ostream &raw_ostream::write_base(unsigned long long N) {
   // Zero is a special case.
   if (N == 0)
     return *this << '0';
 
   char NumberBuffer[20];
-  char *EndPtr = NumberBuffer+sizeof(NumberBuffer);
+  char *EndPtr = NumberBuffer + sizeof(NumberBuffer);
   char *CurPtr = EndPtr;
 
   while (N) {
-    uintptr_t x = N % 16;
+    uintptr_t x = N % writeBase;
     *--CurPtr = (x < 10 ? '0' + x : 'a' + x - 10);
-    N /= 16;
+    N /= writeBase;
   }
 
-  return write(CurPtr, EndPtr-CurPtr);
+  return write(CurPtr, EndPtr - CurPtr);
 }
+// HLSL Change Ends
 
 raw_ostream &raw_ostream::write_escaped(StringRef Str,
                                         bool UseHexEscapes) {
@@ -456,6 +486,19 @@ raw_ostream &raw_ostream::operator<<(const FormattedNumber &FN) {
   }
 }
 
+// HLSL Change Starts - Add handling of numerical base IO manipulators.
+raw_ostream &raw_ostream::
+operator<<(std::ios_base &(*iomanip)(std::ios_base &)) {
+  if (iomanip == std::hex)
+    writeBase = 16;
+  else if (iomanip == std::oct)
+    writeBase = 8;
+  else
+    writeBase = 10;
+
+  return *this;
+}
+// HLSL Change Ends
 
 /// indent - Insert 'NumSpaces' spaces.
 raw_ostream &raw_ostream::indent(unsigned NumSpaces) {

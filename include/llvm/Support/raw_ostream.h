@@ -60,6 +60,10 @@ private:
   /// this buffer.
   char *OutBufStart, *OutBufEnd, *OutBufCur;
 
+  /// The base in which numbers will be written. default is 10. 8 and 16 are
+  /// also possible.
+  int writeBase;  // HLSL Change
+
   enum BufferKind {
     Unbuffered = 0,
     InternalBuffer,
@@ -84,6 +88,7 @@ public:
       : BufferMode(unbuffered ? Unbuffered : InternalBuffer) {
     // Start out ready to flush.
     OutBufStart = OutBufEnd = OutBufCur = nullptr;
+    writeBase = 10; // HLSL Change
   }
 
   virtual ~raw_ostream();
@@ -213,6 +218,9 @@ public:
   /// Output \p N in hexadecimal, without any prefix or padding.
   raw_ostream &write_hex(unsigned long long N);
 
+  /// Output \p N in writeBase, without any prefix or padding.
+  raw_ostream &write_base(unsigned long long N); // HLSL Change
+
   /// Output \p Str, turning '\\', '\t', '\n', '"', and anything that doesn't
   /// satisfy std::isprint into an escape sequence.
   raw_ostream &write_escaped(StringRef Str, bool UseHexEscapes = false);
@@ -228,7 +236,10 @@ public:
   
   // Formatted output, see the formatHex() function in Support/Format.h.
   raw_ostream &operator<<(const FormattedNumber &);
-  
+
+  raw_ostream &
+  operator<<(std::ios_base &(*iomanip)(std::ios_base &)); // HLSL Change
+
   /// indent - Insert 'NumSpaces' spaces.
   raw_ostream &indent(unsigned NumSpaces);
 
@@ -402,7 +413,7 @@ public:
 
   /// Manually flush the stream and close the file. Note that this does not call
   /// fsync.
-  void close();
+  void close() override;
 
   bool supportsSeeking() { return SupportsSeeking; }
 
