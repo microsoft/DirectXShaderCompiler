@@ -2001,7 +2001,8 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   SpirvEvalInfo objectEvalInfo = 0; // EvalInfo for the object (if exists)
   bool needsTempVar = false;        // Whether we need temporary variable.
 
-  llvm::SmallVector<uint32_t, 4> params;    // Temporary variables
+  llvm::SmallVector<uint32_t, 4> vars;      // Variables for function call
+  llvm::SmallVector<bool, 4> isTempVar;     // Temporary variable or not
   llvm::SmallVector<SpirvEvalInfo, 4> args; // Evaluated arguments
 
   if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr)) {
@@ -2040,7 +2041,8 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
       args.push_back(objectId);
       // We do not need to create a new temporary variable for the this
       // object. Use the evaluated argument.
-      params.push_back(args.back());
+      vars.push_back(args.back());
+      isTempVar.push_back(false);
     }
   }
 
@@ -2052,24 +2054,43 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
     auto *arg = callExpr->getArg(i)->IgnoreParenLValueCasts();
     const auto *param = callee->getParamDecl(i);
 
-    // We need to create variables for holding the values to be used as
-    // arguments. The variables themselves are of pointer types.
-    const uint32_t varType =
-        declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(param);
-    const std::string varName = "param.var." + param->getNameAsString();
-    const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
+    // Get the evaluation info if this argument is referencing some variable
+    // *as a whole*, in which case we can avoid creating the temporary variable
+    // for it if it is Function scope and can act as out parameter.
+    SpirvEvalInfo argInfo = 0;
+    if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(arg)) {
+      argInfo = declIdMapper.getDeclEvalInfo(declRefExpr->getDecl());
+    }
 
-    params.push_back(tempVarId);
-    args.push_back(doExpr(arg));
+    if (argInfo && argInfo.getStorageClass() == spv::StorageClass::Function &&
+        canActAsOutParmVar(param)) {
+      vars.push_back(argInfo);
+      isTempVar.push_back(false);
+      args.push_back(doExpr(arg));
+    } else {
+      // We need to create variables for holding the values to be used as
+      // arguments. The variables themselves are of pointer types.
+      const uint32_t varType =
+          declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(param);
+      const std::string varName = "param.var." + param->getNameAsString();
+      const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
 
-    // Update counter variable associated with function parameters
-    tryToAssignCounterVar(param, arg);
+      vars.push_back(tempVarId);
+      isTempVar.push_back(true);
+      args.push_back(doExpr(arg));
 
-    // Manually load the argument here
-    const auto rhsVal = loadIfGLValue(arg, args.back());
-    // Initialize the temporary variables using the contents of the arguments
-    storeValue(tempVarId, rhsVal, param->getType());
+      // Update counter variable associated with function parameters
+      tryToAssignCounterVar(param, arg);
+
+      // Manually load the argument here
+      const auto rhsVal = loadIfGLValue(arg, args.back());
+      // Initialize the temporary variables using the contents of the arguments
+      storeValue(tempVarId, rhsVal, param->getType());
+    }
   }
+
+  assert(vars.size() == isTempVar.size());
+  assert(vars.size() == args.size());
 
   // Push the callee into the work queue if it is not there.
   if (!workQueue.count(callee)) {
@@ -2081,26 +2102,25 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
   // Get or forward declare the function <result-id>
   const uint32_t funcId = declIdMapper.getOrRegisterFnResultId(callee);
 
-  const uint32_t retVal =
-      theBuilder.createFunctionCall(retType, funcId, params);
+  const uint32_t retVal = theBuilder.createFunctionCall(retType, funcId, vars);
 
   // If we created a temporary variable for the lvalue object this method is
   // invoked upon, we need to copy the contents in the temporary variable back
   // to the original object's variable in case there are side effects.
   if (needsTempVar && !objectEvalInfo.isRValue()) {
     const uint32_t typeId = typeTranslator.translateType(objectType);
-    const uint32_t value = theBuilder.createLoad(typeId, params.front());
+    const uint32_t value = theBuilder.createLoad(typeId, vars.front());
     storeValue(objectEvalInfo, value, objectType);
   }
 
   // Go through all parameters and write those marked as out/inout
   for (uint32_t i = 0; i < numParams; ++i) {
     const auto *param = callee->getParamDecl(i);
-    if (canActAsOutParmVar(param)) {
+    if (isTempVar[i] && canActAsOutParmVar(param)) {
       const auto *arg = callExpr->getArg(i);
       const uint32_t index = i + isNonStaticMemberCall;
       const uint32_t typeId = typeTranslator.translateType(param->getType());
-      const uint32_t value = theBuilder.createLoad(typeId, params[index]);
+      const uint32_t value = theBuilder.createLoad(typeId, vars[index]);
 
       processAssignment(arg, value, false, args[index]);
     }
