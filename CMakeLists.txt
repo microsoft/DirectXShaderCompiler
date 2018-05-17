@@ -86,7 +86,7 @@ option(HLSL_OPTIONAL_PROJS_IN_DEFAULT "Include optional projects in default buil
 
 # HLSL Change Starts - set flag for Appveyor CI
 if ( $ENV{CI} AND $ENV{APPVEYOR} )
-  set(DXC_ON_APPVEYOR_CI ON)
+  add_definitions(-DDXC_ON_APPVEYOR_CI)
 endif()
 # HLSL Change ends
 
