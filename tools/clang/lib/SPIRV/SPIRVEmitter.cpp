@@ -9440,11 +9440,12 @@ bool SPIRVEmitter::processHSEntryPointOutputAndPCF(
   // Now create a barrier before calling the Patch Constant Function (PCF).
   // Flags are:
   // Execution Barrier scope = Workgroup (2)
-  // Memory Barrier scope = Device (1)
+  // Memory Barrier scope = Invocation (4)
   // Memory Semantics Barrier scope = None (0)
-  theBuilder.createBarrier(theBuilder.getConstantUint32(2),
-                           theBuilder.getConstantUint32(4),
-                           theBuilder.getConstantUint32(0));
+  const auto constZero = theBuilder.getConstantUint32(0);
+  const auto constFour = theBuilder.getConstantUint32(4);
+  const auto constTwo = theBuilder.getConstantUint32(2);
+  theBuilder.createBarrier(constTwo, constFour, constZero);
 
   // The PCF should be called only once. Therefore, we check the invocationID,
   // and we only allow ID 0 to call the PCF.
