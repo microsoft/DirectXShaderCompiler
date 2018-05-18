@@ -435,12 +435,20 @@ TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
 // For functions
 TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
 TEST_F(FileTest, FunctionDefaultArg) { runFileTest("fn.default-arg.hlsl"); }
-TEST_F(FileTest, FunctionInOutParam) { runFileTest("fn.param.inout.hlsl"); }
+TEST_F(FileTest, FunctionInOutParam) {
+  // Tests using uniform/in/out/inout annotations on function parameters
+  runFileTest("fn.param.inout.hlsl");
+}
 TEST_F(FileTest, FunctionInOutParamVector) {
   runFileTest("fn.param.inout.vector.hlsl");
 }
 TEST_F(FileTest, FunctionInOutParamDiffStorageClass) {
   runFileTest("fn.param.inout.storage-class.hlsl");
+}
+TEST_F(FileTest, FunctionInOutParamNoNeedToCopy) {
+  // Tests that referencing function scope variables as a whole with out/inout
+  // annotation does not create temporary variables
+  runFileTest("fn.param.inout.no-copy.hlsl");
 }
 TEST_F(FileTest, FunctionFowardDeclaration) {
   runFileTest("fn.foward-declaration.hlsl");
