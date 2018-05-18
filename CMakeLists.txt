@@ -85,7 +85,7 @@ option(HLSL_ENABLE_ANALYZE "Enables compiler analysis during compilation." OFF) 
 option(HLSL_OPTIONAL_PROJS_IN_DEFAULT "Include optional projects in default build target." OFF) # HLSL Change
 
 # HLSL Change Starts - set flag for Appveyor CI
-if ( $ENV{CI} AND $ENV{APPVEYOR} )
+if ( "$ENV{CI}" AND "$ENV{APPVEYOR}" )
   add_definitions(-DDXC_ON_APPVEYOR_CI)
 endif()
 # HLSL Change ends
