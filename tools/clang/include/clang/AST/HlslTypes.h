@@ -117,15 +117,15 @@ struct MatrixMemberAccessPositions {
     default:
     case 3: *row = R3_Row; *col = R3_Col; break;
     }
-    assert(0 <= *row && *row <= 3);
-    assert(0 <= *col && *col <= 3);
+    assert(*row <= 3);
+    assert(*col <= 3);
   }
 
   void SetPosition(uint32_t index, uint32_t row, uint32_t col)
   {
     assert(index < 4);
-    assert(0 <= row && row <= 3);
-    assert(0 <= col && col <= 3);
+    assert(row <= 3);
+    assert(col <= 3);
     switch (index)
     {
     case 0: R0_Row = row; R0_Col = col; break;
@@ -168,13 +168,13 @@ struct VectorMemberAccessPositions {
     default:
     case 3: *col = Swz3; break;
     }
-    assert(0 <= *col && *col <= 3);
+    assert(*col <= 3);
   }
 
   void SetPosition(uint32_t index, uint32_t col)
   {
     assert(index < 4);
-    assert(0 <= col && col <= 3);
+    assert(col <= 3);
     switch (index)
     {
     case 0: Swz0 = col; break;

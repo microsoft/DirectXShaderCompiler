@@ -965,22 +965,12 @@ namespace DXIL {
   };
 
 
-  // TODO: revisit data layout descriptions for the following:
-  //      - x64 pointers?
-  //      - Keep elf manging(m:e)?
-
-  // For legacy data layout, everything less than 32 align to 32.
-  static const char* kLegacyLayoutString = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f:64:64-n8:16:32:64";
-
-  // New data layout with native low precision types
-  static const char* kNewLayoutString = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64";
-
-  // Function Attributes
-  // TODO: consider generating attributes from hctdb
-  static const char* kFP32DenormKindString          = "fp32-denorm-mode";
-  static const char* kFP32DenormValueAnyString      = "any";
-  static const char* kFP32DenormValuePreserveString = "preserve";
-  static const char* kFP32DenormValueFtzString      = "ftz";
+  extern const char* kLegacyLayoutString;
+  extern const char* kNewLayoutString;
+  extern const char* kFP32DenormKindString;
+  extern const char* kFP32DenormValueAnyString;
+  extern const char* kFP32DenormValuePreserveString;
+  extern const char* kFP32DenormValueFtzString;
 
 } // namespace DXIL
 
