@@ -1,4 +1,4 @@
-;===- ./lib/LLVMBuild.txt --------------------------------------*- Conf -*--===;
+;===- ./lib/DxcSupport/LLVMBuild.txt ---------------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -15,33 +15,7 @@
 ;
 ;===------------------------------------------------------------------------===;
 
-[common]
-subdirectories =
- Analysis
- AsmParser
- Bitcode
- CodeGen
- DebugInfo
- DxcSupport
- ExecutionEngine
- Linker
- IR
- IRReader
- LTO
- MC
- Object
- Option
- Passes
- ProfileData
- Support
- TableGen
- Target
- Transforms
- HLSL
-
-; HLSL Change: remove LibDriver, LineEditor, add HLSL
-
 [component_0]
-type = Group
-name = Libraries
-parent = $ROOT
+type = Library
+name = DxcSupport
+parent = Libraries
