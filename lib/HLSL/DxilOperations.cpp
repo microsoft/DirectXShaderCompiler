@@ -318,9 +318,9 @@ const char *OP::GetOverloadTypeName(unsigned TypeSlot) {
   return m_OverloadTypeName[TypeSlot];
 }
 
-const char *OP::GetOpCodeName(OpCode OpCode) {
-  DXASSERT(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
-  return m_OpCodeProps[(unsigned)OpCode].pOpCodeName;
+const char *OP::GetOpCodeName(OpCode opCode) {
+  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
+  return m_OpCodeProps[(unsigned)opCode].pOpCodeName;
 }
 
 const char *OP::GetAtomicOpName(DXIL::AtomicBinOpCode OpCode) {
@@ -329,20 +329,20 @@ const char *OP::GetAtomicOpName(DXIL::AtomicBinOpCode OpCode) {
   return AtomicBinOpCodeName[static_cast<unsigned>(OpCode)];
 }
 
-OP::OpCodeClass OP::GetOpCodeClass(OpCode OpCode) {
-  DXASSERT(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
-  return m_OpCodeProps[(unsigned)OpCode].OpCodeClass;
+OP::OpCodeClass OP::GetOpCodeClass(OpCode opCode) {
+  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
+  return m_OpCodeProps[(unsigned)opCode].opCodeClass;
 }
 
-const char *OP::GetOpCodeClassName(OpCode OpCode) {
-  DXASSERT(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
-  return m_OpCodeProps[(unsigned)OpCode].pOpCodeClassName;
+const char *OP::GetOpCodeClassName(OpCode opCode) {
+  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
+  return m_OpCodeProps[(unsigned)opCode].pOpCodeClassName;
 }
 
-bool OP::IsOverloadLegal(OpCode OpCode, Type *pType) {
-  DXASSERT(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
+bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
+  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
   unsigned TypeSlot = GetTypeSlot(pType);
-  return TypeSlot != UINT_MAX && m_OpCodeProps[(unsigned)OpCode].bAllowOverload[TypeSlot];
+  return TypeSlot != UINT_MAX && m_OpCodeProps[(unsigned)opCode].bAllowOverload[TypeSlot];
 }
 
 bool OP::CheckOpCodeTable() {
@@ -503,12 +503,12 @@ void OP::UpdateCache(OpCodeClass opClass, unsigned typeSlot, llvm::Function *F) 
   m_FunctionToOpClass[F] = opClass;
 }
 
-Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
-  DXASSERT(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes, "otherwise caller passed OOB OpCode");
-  _Analysis_assume_(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes);
-  DXASSERT(IsOverloadLegal(OpCode, pOverloadType), "otherwise the caller requested illegal operation overload (eg HLSL function with unsupported types for mapped intrinsic function)");
+Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
+  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes, "otherwise caller passed OOB OpCode");
+  _Analysis_assume_(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes);
+  DXASSERT(IsOverloadLegal(opCode, pOverloadType), "otherwise the caller requested illegal operation overload (eg HLSL function with unsupported types for mapped intrinsic function)");
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
-  OpCodeClass opClass = m_OpCodeProps[(unsigned)OpCode].OpCodeClass;
+  OpCodeClass opClass = m_OpCodeProps[(unsigned)opCode].opCodeClass;
   Function *&F = m_OpCodeClassCache[(unsigned)opClass].pOverloads[TypeSlot];
   if (F != nullptr) {
     UpdateCache(opClass, TypeSlot, F);
@@ -536,7 +536,7 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   Type *pSDT = GetSplitDoubleType();  // Split double type.
   Type *pI4S = GetInt4Type(); // 4 i32s in a struct.
 
-  std::string funcName = (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(OpCode))).str();
+  std::string funcName = (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode))).str();
   // Add ret type to the name.
   if (pOverloadType != pV) {
     funcName = Twine(funcName).concat(".").concat(GetOverloadTypeName(TypeSlot)).str();
@@ -553,7 +553,7 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
 #define CBRT(_y) A(GetCBufferRetType(_y))
 
 /* <py::lines('OPCODE-OLOAD-FUNCS')>hctdb_instrhelp.get_oloads_funcs()</py>*/
-  switch (OpCode) {            // return     OpCode
+  switch (opCode) {            // return     opCode
 // OPCODE-OLOAD-FUNCS:BEGIN
     // Temporary, indexable, input, output registers
   case OpCode::TempRegLoad:            A(pETy);     A(pI32); A(pI32); break;
@@ -792,16 +792,16 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   UpdateCache(opClass, TypeSlot, F);
   F->setCallingConv(CallingConv::C);
   F->addFnAttr(Attribute::NoUnwind);
-  if (m_OpCodeProps[(unsigned)OpCode].FuncAttr != Attribute::None)
-    F->addFnAttr(m_OpCodeProps[(unsigned)OpCode].FuncAttr);
+  if (m_OpCodeProps[(unsigned)opCode].FuncAttr != Attribute::None)
+    F->addFnAttr(m_OpCodeProps[(unsigned)opCode].FuncAttr);
 
   return F;
 }
 
-llvm::ArrayRef<llvm::Function *> OP::GetOpFuncList(OpCode OpCode) const {
-  DXASSERT(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes, "otherwise caller passed OOB OpCode");
-  _Analysis_assume_(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes);
-  return m_OpCodeClassCache[(unsigned)m_OpCodeProps[(unsigned)OpCode].OpCodeClass].pOverloads;
+llvm::ArrayRef<llvm::Function *> OP::GetOpFuncList(OpCode opCode) const {
+  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes, "otherwise caller passed OOB OpCode");
+  _Analysis_assume_(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes);
+  return llvm::ArrayRef<llvm::Function *>(m_OpCodeClassCache[(unsigned)m_OpCodeProps[(unsigned)opCode].opCodeClass].pOverloads);
 }
 
 void OP::RemoveFunction(Function *F) {
@@ -848,12 +848,12 @@ uint64_t OP::GetAllocSizeForType(llvm::Type *Ty) {
   return m_pModule->getDataLayout().getTypeAllocSize(Ty);
 }
 
-llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
+llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   DXASSERT(F, "not work on nullptr");
   Type *Ty = F->getReturnType();
   FunctionType *FT = F->getFunctionType();
 /* <py::lines('OPCODE-OLOAD-TYPES')>hctdb_instrhelp.get_funcs_oload_type()</py>*/
-  switch (OpCode) {            // return     OpCode
+  switch (opCode) {            // return     OpCode
   // OPCODE-OLOAD-TYPES:BEGIN
   case OpCode::TempRegStore:
     DXASSERT_NOMSG(FT->getNumParams() > 2);
