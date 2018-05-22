@@ -96,6 +96,14 @@ DiagnosticPrinter &DiagnosticPrinterRawOStream::operator<<(const Twine &Str) {
   return *this;
 }
 
+// HLSL Change Starts
+DiagnosticPrinter &DiagnosticPrinterRawOStream::
+operator<<(std::ios_base &(*iomanip)(std::ios_base &)) {
+  Stream << iomanip;
+  return *this;
+}
+// HLSL Change Ends.
+
 // IR related types.
 DiagnosticPrinter &DiagnosticPrinterRawOStream::operator<<(const Value &V) {
   Stream << V.getName();

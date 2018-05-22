@@ -55,6 +55,8 @@ public:
 
   // Other types.
   virtual DiagnosticPrinter &operator<<(const SMDiagnostic &Diag) = 0;
+  virtual DiagnosticPrinter &
+  operator<<(std::ios_base &(*iomanip)(std::ios_base &)) = 0; // HLSL Change
 };
 
 /// \brief Basic diagnostic printer that uses an underlying raw_ostream.
@@ -88,6 +90,8 @@ public:
 
   // Other types.
   DiagnosticPrinter &operator<<(const SMDiagnostic &Diag) override;
+  DiagnosticPrinter &operator<<(
+      std::ios_base &(*iomanip)(std::ios_base &)) override; // HLSL Change
 };
 } // End namespace llvm
 
