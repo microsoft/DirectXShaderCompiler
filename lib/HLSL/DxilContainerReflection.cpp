@@ -23,7 +23,6 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
-#include "dxc/HLSL/DxilRuntimeReflection.inl"
 #include "dxc/HLSL/DxilFunctionProps.h"
 
 #include <unordered_set>
@@ -2317,3 +2316,5 @@ ID3D12FunctionReflection *DxilLibraryReflection::GetFunctionByIndex(INT Function
   return ((m_FunctionMap.begin() + FunctionIndex)->second).get();
 }
 
+// DxilRuntimeReflection implementation
+#include "dxc/HLSL/DxilRuntimeReflection.inl"

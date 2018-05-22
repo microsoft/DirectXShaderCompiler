@@ -9,14 +9,10 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <windows.h>
-#include <unordered_map>
-#include <vector>
-#include <memory>
+#pragma once
 #include "DxilConstants.h"
 
 namespace hlsl {
-namespace DXIL {
 namespace RDAT {
 
 struct RuntimeDataTableHeader {
@@ -25,7 +21,7 @@ struct RuntimeDataTableHeader {
   uint32_t offset;
 };
 
-enum RuntimeDataPartType : uint32_t {
+enum class RuntimeDataPartType : uint32_t {
   Invalid = 0,
   String,
   Function,
@@ -78,6 +74,14 @@ public:
   }
 };
 
+enum class DxilResourceFlag : uint32_t {
+  None                      = 0,
+  UAVGloballyCoherent       = 1 << 0,
+  UAVCounter                = 1 << 1,
+  UAVRasterizerOrderedView  = 1 << 2,
+  DynamicIndexing           = 1 << 3,
+};
+
 struct RuntimeDataResourceInfo {
   uint32_t Class; // hlsl::DXIL::ResourceClass
   uint32_t Kind;  // hlsl::DXIL::ResourceKind
@@ -86,7 +90,7 @@ struct RuntimeDataResourceInfo {
   uint32_t LowerBound;
   uint32_t UpperBound;
   uint32_t Name;  // resource name as an offset for string table
-  uint32_t Flags; // Not implemented yet
+  uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
 };
 
 struct RuntimeDataFunctionInfo {
@@ -355,14 +359,14 @@ typedef struct DXIL_RESOURCE {
   uint32_t UpperBound;
   uint32_t LowerBound;
   LPCWSTR Name;
-  uint32_t Flags;
+  uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
 } DXIL_RESOURCE;
 
 typedef struct DXIL_FUNCTION {
   LPCWSTR Name;
   LPCWSTR UnmangledName;
   uint32_t NumResources;
-  const DXIL_RESOURCE *Resources;
+  const DXIL_RESOURCE * const*Resources;
   uint32_t NumFunctionDependencies;
   const LPCWSTR *FunctionDependencies;
   uint32_t ShaderKind;
@@ -388,42 +392,15 @@ typedef struct DXIL_LIBRARY_DESC {
 } DXIL_LIBRARY_DESC;
 
 class DxilRuntimeReflection {
-private:
-  typedef std::unordered_map<const char *, std::unique_ptr<wchar_t[]>> StringMap;
-  typedef std::vector<DXIL_RESOURCE> ResourceList;
-  typedef std::vector<DXIL_RESOURCE *> ResourceRefList;
-  typedef std::vector<DXIL_FUNCTION> FunctionList;
-  typedef std::vector<const wchar_t *> WStringList;
-
-  DxilRuntimeData m_RuntimeData;
-  StringMap m_StringMap;
-  ResourceList m_Resources;
-  FunctionList m_Functions;
-  std::unordered_map<DXIL_FUNCTION *, ResourceRefList> m_FuncToResMap;
-  std::unordered_map<DXIL_FUNCTION *, WStringList> m_FuncToStringMap;
-  bool m_initialized;
-
-  const wchar_t *GetWideString(const char *ptr);
-  void AddString(const char *ptr);
-  void InitializeReflection();
-  DXIL_RESOURCE *GetResourcesForFunction(DXIL_FUNCTION &function,
-                                         const FunctionReader &functionReader);
-  const wchar_t **GetDependenciesForFunction(DXIL_FUNCTION &function,
-                             const FunctionReader &functionReader);
-  DXIL_RESOURCE *AddResource(const ResourceReader &resourceReader);
-  DXIL_FUNCTION *AddFunction(const FunctionReader &functionReader);
-
 public:
-  // TODO: Implement pipeline state validation with runtime data
-  // TODO: Update BlobContainer.h to recognize 'RDAT' blob
-  DxilRuntimeReflection()
-      : m_RuntimeData(), m_StringMap(), m_Resources(), m_Functions(),
-        m_FuncToResMap(), m_FuncToStringMap(), m_initialized(false) {}
+  virtual ~DxilRuntimeReflection() {}
   // This call will allocate memory for GetLibraryReflection call
-  bool InitFromRDAT(const void *pRDAT);
-  const DXIL_LIBRARY_DESC GetLibraryReflection();
+  virtual bool InitFromRDAT(const void *pRDAT) = 0;
+  // DxilRuntimeReflection owns the memory pointed to by DXIL_LIBRARY_DESC
+  virtual const DXIL_LIBRARY_DESC GetLibraryReflection() = 0;
 };
 
-} // namespace LIB
-} // namespace DXIL
+DxilRuntimeReflection *CreateDxilRuntimeReflection();
+
+} // namespace RDAT
 } // namespace hlsl
