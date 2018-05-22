@@ -34,7 +34,7 @@
 
 using namespace llvm;
 using namespace hlsl;
-using namespace hlsl::DXIL::RDAT;
+using namespace hlsl::RDAT;
 
 static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::TessellatorDomain domain) {
   switch (kind) {
@@ -877,6 +877,16 @@ private:
     info.UpperBound = resource.GetUpperBound();
     info.Name = stringIndex;
     info.Flags = 0;
+    if (ResourceClass::UAV == resourceClass) {
+      DxilResource *pRes = static_cast<DxilResource*>(&resource);
+      if (pRes->HasCounter())
+        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVCounter);
+      if (pRes->IsGloballyCoherent())
+        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVGloballyCoherent);
+      if (pRes->IsROV())
+        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVRasterizerOrderedView);
+      // TODO: add dynamic index flag
+    }
     resourceTable.Insert(info);
   }
 
@@ -1013,7 +1023,7 @@ public:
     // write records
     uint32_t curTableOffset = size * sizeof(RuntimeDataTableHeader) + 4;
     for (auto &&table : m_tables) {
-      RuntimeDataTableHeader record = { table->GetType(), table->GetPartSize(), curTableOffset };
+      RuntimeDataTableHeader record = { static_cast<uint32_t>(table->GetType()), table->GetPartSize(), curTableOffset };
       memcpy(pCur, &record, sizeof(RuntimeDataTableHeader));
       pCur += sizeof(RuntimeDataTableHeader);
       curTableOffset += record.size;

@@ -10,10 +10,21 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/hlsl/DxilRuntimeReflection.h"
+#include <windows.h>
+#include <unordered_map>
+#include <vector>
+#include <memory>
 
 namespace hlsl {
-namespace DXIL {
 namespace RDAT {
+
+struct ResourceKey {
+  uint32_t Class, ID;
+  ResourceKey(uint32_t Class, uint32_t ID) : Class(Class), ID(ID) {}
+  bool operator==(const ResourceKey& other) const {
+    return other.Class == Class && other.ID == ID;
+  }
+};
 
 DxilRuntimeData::DxilRuntimeData() : DxilRuntimeData(nullptr) {}
 
@@ -35,7 +46,7 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT) {
     RuntimeDataTableHeader *records = (RuntimeDataTableHeader *)(ptr + 4);
     for (uint32_t i = 0; i < TableCount; ++i) {
       RuntimeDataTableHeader *curRecord = &records[i];
-      switch (curRecord->tableType) {
+      switch (static_cast<RuntimeDataPartType>(curRecord->tableType)) {
       case RuntimeDataPartType::Resource: {
         m_ResourceTableReader.SetResourceInfo(
             (RuntimeDataResourceInfo *)(ptr + curRecord->offset),
@@ -76,7 +87,63 @@ ResourceTableReader *DxilRuntimeData::GetResourceTableReader() {
   return &m_ResourceTableReader;
 }
 
-void DxilRuntimeReflection::AddString(const char *ptr) {
+}} // hlsl::RDAT
+
+using namespace hlsl;
+using namespace RDAT;
+
+template<>
+struct std::hash<ResourceKey> {
+public:
+  size_t operator()(const ResourceKey& key) const throw() {
+    return (std::hash<uint32_t>()(key.Class) * (size_t)16777619U)
+      ^ std::hash<uint32_t>()(key.ID);
+  }
+};
+
+namespace {
+
+class DxilRuntimeReflection_impl : public DxilRuntimeReflection {
+private:
+  typedef std::unordered_map<const char *, std::unique_ptr<wchar_t[]>> StringMap;
+  typedef std::vector<DXIL_RESOURCE> ResourceList;
+  typedef std::vector<DXIL_RESOURCE *> ResourceRefList;
+  typedef std::vector<DXIL_FUNCTION> FunctionList;
+  typedef std::vector<const wchar_t *> WStringList;
+
+  DxilRuntimeData m_RuntimeData;
+  StringMap m_StringMap;
+  ResourceList m_Resources;
+  FunctionList m_Functions;
+  std::unordered_map<ResourceKey, DXIL_RESOURCE *> m_ResourceMap;
+  std::unordered_map<DXIL_FUNCTION *, ResourceRefList> m_FuncToResMap;
+  std::unordered_map<DXIL_FUNCTION *, WStringList> m_FuncToStringMap;
+  bool m_initialized;
+
+  const wchar_t *GetWideString(const char *ptr);
+  void AddString(const char *ptr);
+  void InitializeReflection();
+  const DXIL_RESOURCE * const*GetResourcesForFunction(DXIL_FUNCTION &function,
+                             const FunctionReader &functionReader);
+  const wchar_t **GetDependenciesForFunction(DXIL_FUNCTION &function,
+                             const FunctionReader &functionReader);
+  DXIL_RESOURCE *AddResource(const ResourceReader &resourceReader);
+  DXIL_FUNCTION *AddFunction(const FunctionReader &functionReader);
+
+public:
+  // TODO: Implement pipeline state validation with runtime data
+  // TODO: Update BlobContainer.h to recognize 'RDAT' blob
+  // TODO: Add size and verification to InitFromRDAT and DxilRuntimeData
+  DxilRuntimeReflection_impl()
+      : m_RuntimeData(), m_StringMap(), m_Resources(), m_Functions(),
+        m_FuncToResMap(), m_FuncToStringMap(), m_initialized(false) {}
+  virtual ~DxilRuntimeReflection_impl() {}
+  // This call will allocate memory for GetLibraryReflection call
+  bool InitFromRDAT(const void *pRDAT) override;
+  const DXIL_LIBRARY_DESC GetLibraryReflection() override;
+};
+
+void DxilRuntimeReflection_impl::AddString(const char *ptr) {
   if (m_StringMap.find(ptr) == m_StringMap.end()) {
     int size = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, ptr, -1,
                                      nullptr, 0);
@@ -89,22 +156,22 @@ void DxilRuntimeReflection::AddString(const char *ptr) {
   }
 }
 
-const wchar_t *DxilRuntimeReflection::GetWideString(const char *ptr) {
+const wchar_t *DxilRuntimeReflection_impl::GetWideString(const char *ptr) {
   if (m_StringMap.find(ptr) == m_StringMap.end()) {
     AddString(ptr);
   }
   return m_StringMap.at(ptr).get();
 }
 
-bool DxilRuntimeReflection::InitFromRDAT(const void *pRDAT) {
+bool DxilRuntimeReflection_impl::InitFromRDAT(const void *pRDAT) {
   m_initialized = m_RuntimeData.InitFromRDAT(pRDAT);
   if (m_initialized)
     InitializeReflection();
   return m_initialized;
 }
 
-const DXIL_LIBRARY_DESC DxilRuntimeReflection::GetLibraryReflection() {
-  DXIL_LIBRARY_DESC reflection;
+const DXIL_LIBRARY_DESC DxilRuntimeReflection_impl::GetLibraryReflection() {
+  DXIL_LIBRARY_DESC reflection = {};
   if (m_initialized) {
     reflection.NumResources =
         m_RuntimeData.GetResourceTableReader()->GetNumResources();
@@ -116,53 +183,68 @@ const DXIL_LIBRARY_DESC DxilRuntimeReflection::GetLibraryReflection() {
   return reflection;
 }
 
-void DxilRuntimeReflection::InitializeReflection() {
+void DxilRuntimeReflection_impl::InitializeReflection() {
   // First need to reserve spaces for resources because functions will need to
   // reference them via pointers.
-  m_Resources.reserve(
-      m_RuntimeData.GetResourceTableReader()->GetNumResources());
-  const FunctionTableReader *tableReader =
-      m_RuntimeData.GetFunctionTableReader();
-  for (uint32_t i = 0; i < tableReader->GetNumFunctions(); ++i) {
-    FunctionReader functionReader = tableReader->GetItem(i);
+  const ResourceTableReader *resourceTableReader = m_RuntimeData.GetResourceTableReader();
+  m_Resources.reserve(resourceTableReader->GetNumResources());
+  for (uint32_t i = 0; i < resourceTableReader->GetNumResources(); ++i) {
+    ResourceReader resourceReader = resourceTableReader->GetItem(i);
+    AddString(resourceReader.GetName());
+    DXIL_RESOURCE *pResource = AddResource(resourceReader);
+    if (pResource) {
+      ResourceKey key(pResource->Class, pResource->ID);
+      m_ResourceMap[key] = pResource;
+    }
+  }
+  const FunctionTableReader *functionTableReader = m_RuntimeData.GetFunctionTableReader();
+  m_Functions.reserve(functionTableReader->GetNumFunctions());
+  for (uint32_t i = 0; i < functionTableReader->GetNumFunctions(); ++i) {
+    FunctionReader functionReader = functionTableReader->GetItem(i);
     AddString(functionReader.GetName());
     AddFunction(functionReader);
   }
 }
 
 DXIL_RESOURCE *
-DxilRuntimeReflection::AddResource(const ResourceReader &resourceReader) {
-  if (m_Resources.size() < m_Resources.capacity()) {
-    m_Resources.emplace_back(DXIL_RESOURCE({0}));
-    DXIL_RESOURCE &resource = m_Resources.back();
-    resource.Class = (uint32_t)resourceReader.GetResourceClass();
-    resource.Kind = (uint32_t)resourceReader.GetResourceKind();
-    resource.Space = resourceReader.GetSpace();
-    resource.LowerBound = resourceReader.GetLowerBound();
-    resource.UpperBound = resourceReader.GetUpperBound();
-    resource.ID = resourceReader.GetID();
-    resource.Flags = resourceReader.GetFlags();
-    resource.Name = GetWideString(resourceReader.GetName());
-    return &resource;
-  }
-  // TODO: assert here?
-  return nullptr;
+DxilRuntimeReflection_impl::AddResource(const ResourceReader &resourceReader) {
+  assert(m_Resources.size() < m_Resources.capacity() && "Otherwise, number of resources was incorrect");
+  if (!(m_Resources.size() < m_Resources.capacity()))
+    return nullptr;
+  m_Resources.emplace_back(DXIL_RESOURCE({0}));
+  DXIL_RESOURCE &resource = m_Resources.back();
+  resource.Class = (uint32_t)resourceReader.GetResourceClass();
+  resource.Kind = (uint32_t)resourceReader.GetResourceKind();
+  resource.Space = resourceReader.GetSpace();
+  resource.LowerBound = resourceReader.GetLowerBound();
+  resource.UpperBound = resourceReader.GetUpperBound();
+  resource.ID = resourceReader.GetID();
+  resource.Flags = resourceReader.GetFlags();
+  resource.Name = GetWideString(resourceReader.GetName());
+  return &resource;
 }
 
-DXIL_RESOURCE *DxilRuntimeReflection::GetResourcesForFunction(
+const DXIL_RESOURCE * const*DxilRuntimeReflection_impl::GetResourcesForFunction(
     DXIL_FUNCTION &function, const FunctionReader &functionReader) {
   if (m_FuncToResMap.find(&function) == m_FuncToResMap.end())
     m_FuncToResMap.insert(std::pair<DXIL_FUNCTION *, ResourceRefList>(
         &function, ResourceRefList()));
   ResourceRefList &resourceList = m_FuncToResMap.at(&function);
-  for (uint32_t i = 0; i < functionReader.GetNumResources(); ++i) {
-    const ResourceReader resourceReader = functionReader.GetResource(i);
-    resourceList.emplace_back(AddResource(resourceReader));
+  if (resourceList.empty()) {
+    resourceList.reserve(functionReader.GetNumResources());
+    for (uint32_t i = 0; i < functionReader.GetNumResources(); ++i) {
+      const ResourceReader resourceReader = functionReader.GetResource(i);
+      ResourceKey key((uint32_t)resourceReader.GetResourceClass(),
+                      resourceReader.GetID());
+      auto it = m_ResourceMap.find(key);
+      assert(it != m_ResourceMap.end() && it->second && "Otherwise, resource was not in map, or was null");
+      resourceList.emplace_back(it->second);
+    }
   }
-  return resourceList.empty() ? nullptr : *resourceList.data();
+  return resourceList.empty() ? nullptr : resourceList.data();
 }
 
-const wchar_t **DxilRuntimeReflection::GetDependenciesForFunction(
+const wchar_t **DxilRuntimeReflection_impl::GetDependenciesForFunction(
     DXIL_FUNCTION &function, const FunctionReader &functionReader) {
   if (m_FuncToStringMap.find(&function) == m_FuncToStringMap.end())
     m_FuncToStringMap.insert(
@@ -175,7 +257,10 @@ const wchar_t **DxilRuntimeReflection::GetDependenciesForFunction(
 }
 
 DXIL_FUNCTION *
-DxilRuntimeReflection::AddFunction(const FunctionReader &functionReader) {
+DxilRuntimeReflection_impl::AddFunction(const FunctionReader &functionReader) {
+  assert(m_Functions.size() < m_Functions.capacity() && "Otherwise, number of functions was incorrect");
+  if (!(m_Functions.size() < m_Functions.capacity()))
+    return nullptr;
   m_Functions.emplace_back(DXIL_FUNCTION({0}));
   DXIL_FUNCTION &function = m_Functions.back();
   function.Name = GetWideString(functionReader.GetName());
@@ -194,4 +279,9 @@ DxilRuntimeReflection::AddFunction(const FunctionReader &functionReader) {
   function.MinShaderTarget = functionReader.GetMinShaderTarget();
   return &function;
 }
-}}}
+
+} // namespace anon
+
+DxilRuntimeReflection *hlsl::RDAT::CreateDxilRuntimeReflection() {
+  return new DxilRuntimeReflection_impl();
+}
