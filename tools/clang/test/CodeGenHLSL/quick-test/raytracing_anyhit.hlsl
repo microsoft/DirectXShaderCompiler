@@ -6,8 +6,8 @@
 // CHECK:   call float @dx.op.rayTCurrent.f32(i32 154)
 // CHECK:   call void @dx.op.acceptHitAndEndSearch(i32 156)
 // CHECK:   call void @dx.op.ignoreHit(i32 155)
-// CHECK:   %color = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0
-// CHECK:   store <4 x float> {{.*}}, <4 x float>* %color, align 4
+// CHECK:   %[[color:[^ ]+]] = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0
+// CHECK:   store <4 x float> {{.*}}, <4 x float>* %[[color]], align 4
 // CHECK:   ret void
 
 struct MyPayload {
