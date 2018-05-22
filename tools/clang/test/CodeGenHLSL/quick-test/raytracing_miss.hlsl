@@ -1,8 +1,8 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // CHECK: define void [[miss1:@"\\01\?miss1@[^\"]+"]](%struct.MyPayload* noalias nocapture %payload) #0 {
-// CHECK:   %0 = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0
-// CHECK:   store <4 x float> <float 1.000000e+00, float 0.000000e+00, float 1.000000e+00, float 1.000000e+00>, <4 x float>* %0, align 4
+// CHECK:   %[[result:[^ ]+]] = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0
+// CHECK:   store <4 x float> <float 1.000000e+00, float 0.000000e+00, float 1.000000e+00, float 1.000000e+00>, <4 x float>* %[[result]], align 4
 // CHECK:   ret void
 
 struct MyPayload {

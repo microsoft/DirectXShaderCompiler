@@ -2,8 +2,8 @@
 
 // CHECK: define void [[closesthit1:@"\\01\?closesthit1@[^\"]+"]](%struct.MyPayload* noalias nocapture %payload, %struct.BuiltInTriangleIntersectionAttributes* nocapture readonly %attr) #0 {
 // CHECK:   call void @dx.op.callShader.struct.MyParam(i32 159, i32 {{.*}}, %struct.MyParam* nonnull {{.*}})
-// CHECK:   %color = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0
-// CHECK:   store <4 x float> {{.*}}, <4 x float>* %color, align 4
+// CHECK:   %[[color:[^ ]+]] = getelementptr inbounds %struct.MyPayload, %struct.MyPayload* %payload, i32 0, i32 0
+// CHECK:   store <4 x float> {{.*}}, <4 x float>* %[[color]], align 4
 // CHECK:   ret void
 
 struct MyPayload {
