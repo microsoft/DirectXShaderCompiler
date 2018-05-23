@@ -53,6 +53,8 @@
 #include "dxillib.h"
 #include <algorithm>
 
+#include "GitCommitInfo.inc" // Auto generated file containing Git commit info
+
 #define CP_UTF16 1200
 
 using namespace llvm;
@@ -903,6 +905,14 @@ public:
       return E_INVALIDARG;
     *pMajor = DXIL::kDxilMajor;
     *pMinor = DXIL::kDxilMinor;
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount,
+                                          _Out_ const char **pCommitHash) override {
+    if (pCommitCount == nullptr || pCommitHash == nullptr)
+      return E_INVALIDARG;
+    *pCommitCount = kGitCommitCount;
+    *pCommitHash = kGitCommitHash;
     return S_OK;
   }
   HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override {

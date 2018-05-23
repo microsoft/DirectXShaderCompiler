@@ -95,6 +95,21 @@ endif (ENABLE_SPIRV_CODEGEN)
 add_dependencies(dxcompiler DxcEtw)
 include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
 
+set(GIT_COMMIT_INFO_FILE ${CMAKE_CURRENT_BINARY_DIR}/GitCommitInfo.inc)
+set(GET_GIT_COMMIT_SCRIPT ${PROJECT_SOURCE_DIR}/utils/GetCommitInfo.py)
+add_custom_command(
+  OUTPUT ${GIT_COMMIT_INFO_FILE}
+  COMMAND ${PYTHON_EXECUTABLE} ${GET_GIT_COMMIT_SCRIPT}
+          ${PROJECT_SOURCE_DIR} ${GIT_COMMIT_INFO_FILE}
+  DEPENDS ${GET_GIT_COMMIT_SCRIPT}
+  COMMENT "Collect Git commit info for versioning"
+)
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/dxcompilerobj.cpp
+  PROPERTIES OBJECT_DEPENDS "${GIT_COMMIT_INFO_FILE}")
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/dxcvalidator.cpp
+  PROPERTIES OBJECT_DEPENDS "${GIT_COMMIT_INFO_FILE}")
+target_include_directories(dxcompiler PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+
 set_target_properties(dxcompiler
   PROPERTIES
   OUTPUT_NAME "dxcompiler"

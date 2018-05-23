@@ -26,6 +26,8 @@
 #include "dxc/HLSL/DxilRootSignature.h"
 #include "dxcetw.h"
 
+#include "GitCommitInfo.inc" // Auto generated file containing Git commit info
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -87,6 +89,7 @@ public:
 
   // IDxcVersionInfo
   HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) override;
+  HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ const char **pCommitHash) override;
   HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override;
 };
 
@@ -150,6 +153,15 @@ HRESULT STDMETHODCALLTYPE DxcValidator::GetVersion(_Out_ UINT32 *pMajor, _Out_ U
   if (pMajor == nullptr || pMinor == nullptr)
     return E_INVALIDARG;
   GetValidationVersion(pMajor, pMinor);
+  return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE DxcValidator::GetCommitInfo(
+    _Out_ UINT32 *pCommitCount, _Out_ const char **pCommitHash) {
+  if (pCommitCount == nullptr || pCommitHash == nullptr)
+    return E_INVALIDARG;
+  *pCommitCount = kGitCommitCount;
+  *pCommitHash = kGitCommitHash;
   return S_OK;
 }
 
