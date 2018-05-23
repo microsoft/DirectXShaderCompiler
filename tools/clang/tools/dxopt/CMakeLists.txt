@@ -11,6 +11,9 @@ set( LLVM_LINK_COMPONENTS
 add_clang_executable(dxopt
   dxopt.cpp
   )
+if(MSVC)
+    set_property(TARGET dxopt APPEND PROPERTY LINK_FLAGS /DEBUG)
+endif()
 
 target_link_libraries(dxopt
   dxcompiler

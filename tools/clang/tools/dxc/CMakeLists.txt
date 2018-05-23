@@ -16,6 +16,9 @@ add_clang_executable(dxc
   dxc.cpp
 #  dxr.rc
   )
+if(MSVC)
+    set_property(TARGET dxc APPEND PROPERTY LINK_FLAGS /DEBUG)
+endif()
 
 target_link_libraries(dxc
   dxcompiler
