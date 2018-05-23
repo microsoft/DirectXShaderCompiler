@@ -18,11 +18,8 @@ namespace clang {
 namespace spirv {
 
 namespace {
-constexpr uint32_t gPositionIndex = 0;
-constexpr uint32_t gPointSizeIndex = 1;
-constexpr uint32_t gClipDistanceIndex = 2;
-constexpr uint32_t gCullDistanceIndex = 3;
-constexpr uint32_t gGlPerVertexSize = 4;
+constexpr uint32_t gClipDistanceIndex = 0;
+constexpr uint32_t gCullDistanceIndex = 1;
 
 /// \brief Returns true if the given decl has a semantic string attached and
 /// writes the info to *semanticStr, *semantic, and *semanticIndex.
@@ -63,80 +60,49 @@ inline bool hasGSPrimitiveTypeQualifier(const DeclaratorDecl *decl) {
 } // anonymous namespace
 
 GlPerVertex::GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
-                         ModuleBuilder &builder, TypeTranslator &translator,
-                         bool negateY)
+                         ModuleBuilder &builder, TypeTranslator &translator)
     : shaderModel(sm), astContext(context), theBuilder(builder),
-      typeTranslator(translator), invertY(negateY), inIsGrouped(true),
-      outIsGrouped(true), inBlockVar(0), outBlockVar(0), inClipVar(0),
-      inCullVar(0), outClipVar(0), outCullVar(0), inArraySize(0),
-      outArraySize(0), inClipArraySize(1), outClipArraySize(1),
-      inCullArraySize(1), outCullArraySize(1), inSemanticStrs(4, ""),
-      outSemanticStrs(4, "") {}
+      typeTranslator(translator), inClipVar(0), inCullVar(0), outClipVar(0),
+      outCullVar(0), inArraySize(0), outArraySize(0), inClipArraySize(1),
+      outClipArraySize(1), inCullArraySize(1), outCullArraySize(1),
+      inSemanticStrs(2, ""), outSemanticStrs(2, "") {}
 
 void GlPerVertex::generateVars(uint32_t inArrayLen, uint32_t outArrayLen) {
-  // Calling this method twice is an internal error.
-  assert(inBlockVar == 0);
-  assert(outBlockVar == 0);
-
   inArraySize = inArrayLen;
   outArraySize = outArrayLen;
 
-  switch (shaderModel.GetKind()) {
-  case hlsl::ShaderModel::Kind::Vertex:
-    outBlockVar = createBlockVar(/*asInput=*/false, 0);
-    break;
-  case hlsl::ShaderModel::Kind::Hull:
-    inBlockVar = createBlockVar(/*asInput=*/true, inArraySize);
-    outBlockVar = createBlockVar(/*asInput=*/false, outArraySize);
-    break;
-  case hlsl::ShaderModel::Kind::Domain:
-    inBlockVar = createBlockVar(/*asInput=*/true, inArraySize);
-    outBlockVar = createBlockVar(/*asInput=*/false, 0);
-    break;
-  case hlsl::ShaderModel::Kind::Geometry:
-    inBlockVar = createBlockVar(/*asInput=*/true, inArraySize);
-    if (!outClipType.empty())
-      outClipVar = createClipDistanceVar(/*asInput=*/false, outClipArraySize);
-    if (!outCullType.empty())
-      outCullVar = createCullDistanceVar(/*asInput=*/false, outCullArraySize);
-    outIsGrouped = false;
-    break;
-  case hlsl::ShaderModel::Kind::Pixel:
-    if (!inClipType.empty())
-      inClipVar = createClipDistanceVar(/*asInput=*/true, inClipArraySize);
-    if (!inCullType.empty())
-      inCullVar = createCullDistanceVar(/*asInput=*/true, inCullArraySize);
-    inIsGrouped = false;
-    break;
-  }
+  if (!inClipType.empty())
+    inClipVar = createClipCullDistanceVar(/*asInput=*/true, /*isClip=*/true,
+                                          inClipArraySize);
+  if (!inCullType.empty())
+    inCullVar = createClipCullDistanceVar(/*asInput=*/true, /*isClip=*/false,
+                                          inCullArraySize);
+  if (!outClipType.empty())
+    outClipVar = createClipCullDistanceVar(/*asInput=*/false, /*isClip=*/true,
+                                           outClipArraySize);
+  if (!outCullType.empty())
+    outCullVar = createClipCullDistanceVar(/*asInput=*/false, /*isClip=*/false,
+                                           outCullArraySize);
 }
 
-llvm::SmallVector<uint32_t, 4> GlPerVertex::getStageInVars() const {
-  llvm::SmallVector<uint32_t, 4> vars;
-  if (inIsGrouped) {
-    if (inBlockVar)
-      vars.push_back(inBlockVar);
-  } else {
-    if (inClipVar)
-      vars.push_back(inClipVar);
-    if (inCullVar)
-      vars.push_back(inCullVar);
-  }
+llvm::SmallVector<uint32_t, 2> GlPerVertex::getStageInVars() const {
+  llvm::SmallVector<uint32_t, 2> vars;
+
+  if (inClipVar)
+    vars.push_back(inClipVar);
+  if (inCullVar)
+    vars.push_back(inCullVar);
 
   return vars;
 }
 
-llvm::SmallVector<uint32_t, 4> GlPerVertex::getStageOutVars() const {
-  llvm::SmallVector<uint32_t, 4> vars;
-  if (outIsGrouped) {
-    if (outBlockVar)
-      vars.push_back(outBlockVar);
-  } else {
-    if (outClipVar)
-      vars.push_back(outClipVar);
-    if (outCullVar)
-      vars.push_back(outCullVar);
-  }
+llvm::SmallVector<uint32_t, 2> GlPerVertex::getStageOutVars() const {
+  llvm::SmallVector<uint32_t, 2> vars;
+
+  if (outClipVar)
+    vars.push_back(outClipVar);
+  if (outCullVar)
+    vars.push_back(outCullVar);
 
   return vars;
 }
@@ -214,12 +180,9 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
   uint32_t *blockArraySize = asInput ? &inArraySize : &outArraySize;
   bool isCull = false;
   auto *semanticStrs = asInput ? &inSemanticStrs : &outSemanticStrs;
-  auto index = gGlPerVertexSize; // The index of this semantic in gl_PerVertex
+  uint32_t index = kSemanticStrCount;
 
   switch (semantic->GetKind()) {
-  case hlsl::Semantic::Kind::Position:
-    index = gPositionIndex;
-    break;
   case hlsl::Semantic::Kind::ClipDistance:
     typeMap = asInput ? &inClipType : &outClipType;
     index = gClipDistanceIndex;
@@ -231,15 +194,9 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
     break;
   }
 
-  // PointSize does not have corresponding SV semantic; it uses
-  // [[vk::builtin("PointSize")]] instead.
-  if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>())
-    if (builtinAttr->getBuiltIn() == "PointSize")
-      index = gPointSizeIndex;
-
   // Remember the semantic strings provided by the developer so that we can
   // emit OpDecorate* instructions properly for them
-  if (index < gGlPerVertexSize) {
+  if (index < kSemanticStrCount) {
     if ((*semanticStrs)[index].empty())
       (*semanticStrs)[index] = semanticStr;
     // We can have multiple ClipDistance/CullDistance semantics mapping to the
@@ -353,70 +310,27 @@ void GlPerVertex::calculateClipCullDistanceArraySize() {
   updateSizeAndOffset(outCullType, &outCullOffset, &outCullArraySize);
 }
 
-uint32_t GlPerVertex::createBlockVar(bool asInput, uint32_t arraySize) {
-  const llvm::StringRef typeName = "type.gl_PerVertex";
-  spv::StorageClass sc = spv::StorageClass::Input;
-  llvm::StringRef varName = "gl_PerVertexIn";
-  auto *semanticStrs = &inSemanticStrs;
-  uint32_t clipSize = inClipArraySize;
-  uint32_t cullSize = inCullArraySize;
-
-  if (!asInput) {
-    sc = spv::StorageClass::Output;
-    varName = "gl_PerVertexOut";
-    semanticStrs = &outSemanticStrs;
-    clipSize = outClipArraySize;
-    cullSize = outCullArraySize;
-  }
-
-  uint32_t typeId = typeTranslator.getGlPerVertexStruct(
-      clipSize, cullSize, typeName, *semanticStrs);
-
-  // Handle the extra arrayness over the block
-  if (arraySize != 0) {
-    const uint32_t arraySizeId = theBuilder.getConstantUint32(arraySize);
-    typeId = theBuilder.getArrayType(typeId, arraySizeId);
-  }
-
-  return theBuilder.addStageIOVar(typeId, sc, varName);
-}
-
-uint32_t GlPerVertex::createPositionVar(bool asInput) {
-  const uint32_t type = theBuilder.getVecType(theBuilder.getFloat32Type(), 4);
-  const spv::StorageClass sc =
-      asInput ? spv::StorageClass::Input : spv::StorageClass::Output;
-  // Special handling here. Requesting Position for input means we are in
-  // PS, which should use FragCoord instead of Position.
-  assert(asInput ? shaderModel.IsPS() : true);
-  const spv::BuiltIn builtin =
-      asInput ? spv::BuiltIn::FragCoord : spv::BuiltIn::Position;
-
-  return theBuilder.addStageBuiltinVar(type, sc, builtin);
-}
-
-uint32_t GlPerVertex::createClipDistanceVar(bool asInput, uint32_t arraySize) {
-  const uint32_t type = theBuilder.getArrayType(
+uint32_t GlPerVertex::createClipCullDistanceVar(bool asInput, bool isClip,
+                                                uint32_t arraySize) {
+  uint32_t type = theBuilder.getArrayType(
       theBuilder.getFloat32Type(), theBuilder.getConstantUint32(arraySize));
+  if (asInput && inArraySize != 0) {
+    type = theBuilder.getArrayType(type,
+                                   theBuilder.getConstantUint32(inArraySize));
+  } else if (!asInput && outArraySize != 0) {
+    type = theBuilder.getArrayType(type,
+                                   theBuilder.getConstantUint32(outArraySize));
+  }
+
   spv::StorageClass sc =
       asInput ? spv::StorageClass::Input : spv::StorageClass::Output;
 
-  auto id = theBuilder.addStageBuiltinVar(type, sc, spv::BuiltIn::ClipDistance);
-  theBuilder.decorateHlslSemantic(
-      id, asInput ? inSemanticStrs[gClipDistanceIndex]
-                  : outSemanticStrs[gClipDistanceIndex]);
-  return id;
-}
-
-uint32_t GlPerVertex::createCullDistanceVar(bool asInput, uint32_t arraySize) {
-  const uint32_t type = theBuilder.getArrayType(
-      theBuilder.getFloat32Type(), theBuilder.getConstantUint32(arraySize));
-  spv::StorageClass sc =
-      asInput ? spv::StorageClass::Input : spv::StorageClass::Output;
-
-  auto id = theBuilder.addStageBuiltinVar(type, sc, spv::BuiltIn::CullDistance);
-  theBuilder.decorateHlslSemantic(
-      id, asInput ? inSemanticStrs[gCullDistanceIndex]
-                  : outSemanticStrs[gCullDistanceIndex]);
+  auto id = theBuilder.addStageBuiltinVar(type, sc,
+                                          isClip ? spv::BuiltIn::ClipDistance
+                                                 : spv::BuiltIn::CullDistance);
+  const auto index = isClip ? gClipDistanceIndex : gCullDistanceIndex;
+  theBuilder.decorateHlslSemantic(id, asInput ? inSemanticStrs[index]
+                                              : outSemanticStrs[index]);
   return id;
 }
 
@@ -430,7 +344,6 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
                                  : true);
 
   switch (semanticKind) {
-  case hlsl::Semantic::Kind::Position:
   case hlsl::Semantic::Kind::ClipDistance:
   case hlsl::Semantic::Kind::CullDistance:
     // gl_PerVertex only cares about these builtins.
@@ -441,24 +354,12 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
 
   switch (sigPointKind) {
   case hlsl::SigPoint::Kind::PSIn:
-    // We don't handle stand-alone Position builtin in this class.
-    if (semanticKind == hlsl::Semantic::Kind::Position)
-      return false; // Fall back to the normal path
-
-    // Fall through
-
   case hlsl::SigPoint::Kind::HSCPIn:
   case hlsl::SigPoint::Kind::DSCPIn:
   case hlsl::SigPoint::Kind::GSVIn:
     return readField(semanticKind, semanticIndex, value);
 
   case hlsl::SigPoint::Kind::GSOut:
-    // We don't handle stand-alone Position builtin in this class.
-    if (semanticKind == hlsl::Semantic::Kind::Position)
-      return false; // Fall back to the normal path
-
-    // Fall through
-
   case hlsl::SigPoint::Kind::VSOut:
   case hlsl::SigPoint::Kind::HSCPOut:
   case hlsl::SigPoint::Kind::DSOut:
@@ -471,68 +372,9 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
   return false;
 }
 
-bool GlPerVertex::tryToAccessPointSize(hlsl::SigPoint::Kind sigPointKind,
-                                       llvm::Optional<uint32_t> invocation,
-                                       uint32_t *value, bool noWriteBack) {
-  switch (sigPointKind) {
-  case hlsl::SigPoint::Kind::HSCPIn:
-  case hlsl::SigPoint::Kind::DSCPIn:
-  case hlsl::SigPoint::Kind::GSVIn:
-    *value = readPositionOrPointSize(/*isPosition=*/false);
-    return true;
-  case hlsl::SigPoint::Kind::VSOut:
-  case hlsl::SigPoint::Kind::HSCPOut:
-  case hlsl::SigPoint::Kind::DSOut:
-    writePositionOrPointSize(/*isPosition=*/false, invocation, *value);
-    return true;
-  }
-
-  return false; // Fall back to normal path: GSOut
-}
-
-uint32_t GlPerVertex::readPositionOrPointSize(bool isPosition) const {
-  // We do not handle stand-alone Position/PointSize builtin here.
-  assert(inIsGrouped);
-
-  // The PointSize builtin is always of float type.
-  // The Position builtin is always of float4 type.
-  const uint32_t f32Type = theBuilder.getFloat32Type();
-  const uint32_t fieldType =
-      isPosition ? theBuilder.getVecType(f32Type, 4) : f32Type;
-  const uint32_t ptrType =
-      theBuilder.getPointerType(fieldType, spv::StorageClass::Input);
-  const uint32_t fieldIndex = theBuilder.getConstantUint32(isPosition ? 0 : 1);
-
-  if (inArraySize == 0) {
-    // The input builtin block is a single block. Only need one index to
-    // locate the Position/PointSize builtin.
-    const uint32_t ptr =
-        theBuilder.createAccessChain(ptrType, inBlockVar, {fieldIndex});
-    return theBuilder.createLoad(fieldType, ptr);
-  }
-
-  // The input builtin block is an array of blocks, which means we need to
-  // read an array of float4 from an array of structs.
-
-  llvm::SmallVector<uint32_t, 8> elements;
-  for (uint32_t i = 0; i < inArraySize; ++i) {
-    const uint32_t arrayIndex = theBuilder.getConstantUint32(i);
-    // Get pointer into the array of structs. We need two indices to locate
-    // the Position/PointSize builtin now: the first one is the array index,
-    // and the second one is the struct index.
-    const uint32_t ptr = theBuilder.createAccessChain(ptrType, inBlockVar,
-                                                      {arrayIndex, fieldIndex});
-    elements.push_back(theBuilder.createLoad(fieldType, ptr));
-  }
-  // Construct a new array of float4/float for the Position/PointSize builtins
-  const uint32_t arrayType = theBuilder.getArrayType(
-      fieldType, theBuilder.getConstantUint32(inArraySize));
-  return theBuilder.createCompositeConstruct(arrayType, elements);
-}
-
 uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
                                               QualType asType) const {
-  const uint32_t clipCullIndex = isClip ? 2 : 3;
+  const uint32_t clipCullVar = isClip ? inClipVar : inCullVar;
 
   // The ClipDistance/CullDistance is always an float array. We are accessing
   // it using pointers, which should be of pointer to float type.
@@ -541,25 +383,16 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
       theBuilder.getPointerType(f32Type, spv::StorageClass::Input);
 
   if (inArraySize == 0) {
-    // The input builtin block is a single block. Only need two indices to
-    // locate the array segment for this SV_ClipDistance/SV_CullDistance
-    // variable: one is the index in the gl_PerVertex struct, the other is
-    // the start offset within the float array.
+    // The input builtin does not have extra arrayness. Only need one index
+    // to locate the array segment for this SV_ClipDistance/SV_CullDistance
+    // variable: the start offset within the float array.
     QualType elemType = {};
     uint32_t count = {};
 
     if (TypeTranslator::isScalarType(asType)) {
       const uint32_t offsetId = theBuilder.getConstantUint32(offset);
-      uint32_t ptr = 0;
-
-      if (inIsGrouped) {
-        ptr = theBuilder.createAccessChain(
-            ptrType, inBlockVar,
-            {theBuilder.getConstantUint32(clipCullIndex), offsetId});
-      } else {
-        ptr = theBuilder.createAccessChain(
-            ptrType, clipCullIndex == 2 ? inClipVar : inCullVar, {offsetId});
-      }
+      const uint32_t ptr =
+          theBuilder.createAccessChain(ptrType, clipCullVar, {offsetId});
       return theBuilder.createLoad(f32Type, ptr);
     }
 
@@ -570,16 +403,8 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
       for (uint32_t i = 0; i < count; ++i) {
         // Read elements sequentially from the float array
         const uint32_t offsetId = theBuilder.getConstantUint32(offset + i);
-        uint32_t ptr = 0;
-
-        if (inIsGrouped) {
-          ptr = theBuilder.createAccessChain(
-              ptrType, inBlockVar,
-              {theBuilder.getConstantUint32(clipCullIndex), offsetId});
-        } else {
-          ptr = theBuilder.createAccessChain(
-              ptrType, clipCullIndex == 2 ? inClipVar : inCullVar, {offsetId});
-        }
+        const uint32_t ptr =
+            theBuilder.createAccessChain(ptrType, clipCullVar, {offsetId});
         elements.push_back(theBuilder.createLoad(f32Type, ptr));
       }
       return theBuilder.createCompositeConstruct(
@@ -597,8 +422,6 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
   // for indexing into the gl_PerVertex struct, and the third one for reading
   // the correct element in the float array for ClipDistance/CullDistance.
 
-  assert(inIsGrouped); // Separated builtins won't have the extra arrayness.
-
   llvm::SmallVector<uint32_t, 8> arrayElements;
   QualType elemType = {};
   uint32_t count = {};
@@ -609,9 +432,8 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
     arrayType = theBuilder.getArrayType(f32Type, arraySize);
     for (uint32_t i = 0; i < inArraySize; ++i) {
       const uint32_t ptr = theBuilder.createAccessChain(
-          ptrType, inBlockVar,
+          ptrType, clipCullVar,
           {theBuilder.getConstantUint32(i), // Block array index
-           theBuilder.getConstantUint32(clipCullIndex),
            theBuilder.getConstantUint32(offset)});
       arrayElements.push_back(theBuilder.createLoad(f32Type, ptr));
     }
@@ -623,9 +445,9 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
       llvm::SmallVector<uint32_t, 4> vecElements;
       for (uint32_t j = 0; j < count; ++j) {
         const uint32_t ptr = theBuilder.createAccessChain(
-            ptrType, inBlockVar,
-            {theBuilder.getConstantUint32(i), // Block array index
-             theBuilder.getConstantUint32(clipCullIndex),
+            ptrType, clipCullVar,
+            // Block array index
+            {theBuilder.getConstantUint32(i),
              // Read elements sequentially from the float array
              theBuilder.getConstantUint32(offset + j)});
         vecElements.push_back(theBuilder.createLoad(f32Type, ptr));
@@ -644,9 +466,6 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
 bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
                             uint32_t semanticIndex, uint32_t *value) {
   switch (semanticKind) {
-  case hlsl::Semantic::Kind::Position:
-    *value = readPositionOrPointSize(/*isPosition=*/true);
-    return true;
   case hlsl::Semantic::Kind::ClipDistance: {
     const auto offsetIter = inClipOffset.find(semanticIndex);
     const auto typeIter = inClipType.find(semanticIndex);
@@ -671,62 +490,10 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
   return false;
 }
 
-void GlPerVertex::writePositionOrPointSize(
-    bool isPosition, llvm::Optional<uint32_t> invocationId, uint32_t value) {
-  // We do not handle stand-alone Position/PointSize builtin here.
-  assert(outIsGrouped);
-
-  // The Position builtin is always of float4 type.
-  // The PointSize builtin is always of float type.
-  const uint32_t f32Type = theBuilder.getFloat32Type();
-  const uint32_t fieldType =
-      isPosition ? theBuilder.getVecType(f32Type, 4) : f32Type;
-  const uint32_t ptrType =
-      theBuilder.getPointerType(fieldType, spv::StorageClass::Output);
-  const uint32_t fieldIndex = theBuilder.getConstantUint32(isPosition ? 0 : 1);
-
-  if (outArraySize == 0) {
-    // The input builtin block is a single block. Only need one index to
-    // locate the Position/PointSize builtin.
-    const uint32_t ptr =
-        theBuilder.createAccessChain(ptrType, outBlockVar, {fieldIndex});
-
-    if (isPosition && invertY) {
-      if (shaderModel.IsVS() || shaderModel.IsDS()) {
-        const auto oldY =
-            theBuilder.createCompositeExtract(f32Type, value, {1});
-        const auto newY =
-            theBuilder.createUnaryOp(spv::Op::OpFNegate, f32Type, oldY);
-        value = theBuilder.createCompositeInsert(fieldType, value, {1}, newY);
-      }
-    }
-
-    theBuilder.createStore(ptr, value);
-    return;
-  }
-
-  // Writing to an array only happens in HSCPOut.
-  assert(shaderModel.IsHS());
-  // And we are only writing to the array element with InvocationId as index.
-  assert(invocationId.hasValue());
-
-  // The input builtin block is an array of blocks, which means we need to
-  // to write a float4 to each gl_PerVertex in the array.
-
-  const uint32_t arrayIndex = invocationId.getValue();
-  // Get pointer into the array of structs. We need two indices to locate
-  // the Position/PointSize builtin now: the first one is the array index,
-  // and the second one is the struct index.
-  const uint32_t ptr = theBuilder.createAccessChain(ptrType, outBlockVar,
-                                                    {arrayIndex, fieldIndex});
-
-  theBuilder.createStore(ptr, value);
-}
-
 void GlPerVertex::writeClipCullArrayFromType(
     llvm::Optional<uint32_t> invocationId, bool isClip, uint32_t offset,
     QualType fromType, uint32_t fromValue) const {
-  const uint32_t clipCullIndex = isClip ? 2 : 3;
+  const uint32_t clipCullVar = isClip ? outClipVar : outCullVar;
 
   // The ClipDistance/CullDistance is always an float array. We are accessing
   // it using pointers, which should be of pointer to float type.
@@ -735,25 +502,16 @@ void GlPerVertex::writeClipCullArrayFromType(
       theBuilder.getPointerType(f32Type, spv::StorageClass::Output);
 
   if (outArraySize == 0) {
-    // The input builtin block is a single block. Only need two indices to
-    // locate the array segment for this SV_ClipDistance/SV_CullDistance
-    // variable: one is the index in the gl_PerVertex struct, the other is
-    // the start offset within the float array.
+    // The output builtin does not have extra arrayness. Only need one index
+    // to locate the array segment for this SV_ClipDistance/SV_CullDistance
+    // variable: the start offset within the float array.
     QualType elemType = {};
     uint32_t count = {};
 
     if (TypeTranslator::isScalarType(fromType)) {
       const uint32_t offsetId = theBuilder.getConstantUint32(offset);
-      uint32_t ptr = 0;
-
-      if (outIsGrouped) {
-        ptr = theBuilder.createAccessChain(
-            ptrType, outBlockVar,
-            {theBuilder.getConstantUint32(clipCullIndex), offsetId});
-      } else {
-        ptr = theBuilder.createAccessChain(
-            ptrType, clipCullIndex == 2 ? outClipVar : outCullVar, {offsetId});
-      }
+      const uint32_t ptr =
+          theBuilder.createAccessChain(ptrType, clipCullVar, {offsetId});
       theBuilder.createStore(ptr, fromValue);
       return;
     }
@@ -764,17 +522,8 @@ void GlPerVertex::writeClipCullArrayFromType(
       for (uint32_t i = 0; i < count; ++i) {
         // Write elements sequentially into the float array
         const uint32_t offsetId = theBuilder.getConstantUint32(offset + i);
-        uint32_t ptr = 0;
-
-        if (outIsGrouped) {
-          ptr = theBuilder.createAccessChain(
-              ptrType, outBlockVar,
-              {theBuilder.getConstantUint32(clipCullIndex), offsetId});
-        } else {
-          ptr = theBuilder.createAccessChain(
-              ptrType, clipCullIndex == 2 ? outClipVar : outCullVar,
-              {offsetId});
-        }
+        const uint32_t ptr =
+            theBuilder.createAccessChain(ptrType, clipCullVar, {offsetId});
         const uint32_t subValue =
             theBuilder.createCompositeExtract(f32Type, fromValue, {i});
         theBuilder.createStore(ptr, subValue);
@@ -786,8 +535,6 @@ void GlPerVertex::writeClipCullArrayFromType(
                      "float case sneaked in");
     return;
   }
-
-  assert(outIsGrouped); // Separated builtins won't have the extra arrayness.
 
   // Writing to an array only happens in HSCPOut.
   assert(shaderModel.IsHS());
@@ -806,11 +553,10 @@ void GlPerVertex::writeClipCullArrayFromType(
   uint32_t count = {};
 
   if (TypeTranslator::isScalarType(fromType)) {
-    const uint32_t ptr = theBuilder.createAccessChain(
-        ptrType, outBlockVar,
-        {arrayIndex, // Block array index
-         theBuilder.getConstantUint32(clipCullIndex),
-         theBuilder.getConstantUint32(offset)});
+    const uint32_t ptr =
+        theBuilder.createAccessChain(ptrType, clipCullVar,
+                                     {arrayIndex, // Block array index
+                                      theBuilder.getConstantUint32(offset)});
     theBuilder.createStore(ptr, fromValue);
     return;
   }
@@ -819,9 +565,9 @@ void GlPerVertex::writeClipCullArrayFromType(
     // For each gl_PerVertex block, we need to write a vector into it.
     for (uint32_t i = 0; i < count; ++i) {
       const uint32_t ptr = theBuilder.createAccessChain(
-          ptrType, outBlockVar,
-          {arrayIndex, // Block array index
-           theBuilder.getConstantUint32(clipCullIndex),
+          ptrType, clipCullVar,
+          // Block array index
+          {arrayIndex,
            // Write elements sequentially into the float array
            theBuilder.getConstantUint32(offset + i)});
       const uint32_t subValue =
@@ -855,9 +601,6 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
   // The interesting shader stage is HS. We need the InvocationID to write
   // out the value to the correct array element.
   switch (semanticKind) {
-  case hlsl::Semantic::Kind::Position:
-    writePositionOrPointSize(/*isPosition=*/true, invocationId, *value);
-    return true;
   case hlsl::Semantic::Kind::ClipDistance: {
     const auto offsetIter = outClipOffset.find(semanticIndex);
     const auto typeIter = outClipType.find(semanticIndex);

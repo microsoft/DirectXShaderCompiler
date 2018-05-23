@@ -93,6 +93,9 @@ public:
   inline SpirvEvalInfo &setRelaxedPrecision();
   bool isRelaxedPrecision() const { return isRelaxedPrecision_; }
 
+  inline SpirvEvalInfo &setNonUniform(bool nu = true);
+  bool isNonUniform() const { return isNonUniform_; }
+
 private:
   uint32_t resultId;
   /// Indicates whether this evaluation result contains alias variables
@@ -112,13 +115,14 @@ private:
   bool isConstant_;
   bool isSpecConstant_;
   bool isRelaxedPrecision_;
+  bool isNonUniform_;
 };
 
 SpirvEvalInfo::SpirvEvalInfo(uint32_t id)
     : resultId(id), containsAlias(false),
       storageClass(spv::StorageClass::Function), layoutRule(LayoutRule::Void),
       isRValue_(false), isConstant_(false), isSpecConstant_(false),
-      isRelaxedPrecision_(false) {}
+      isRelaxedPrecision_(false), isNonUniform_(false) {}
 
 SpirvEvalInfo &SpirvEvalInfo::setResultId(uint32_t id) {
   resultId = id;
@@ -164,6 +168,11 @@ SpirvEvalInfo &SpirvEvalInfo::setSpecConstant() {
 
 SpirvEvalInfo &SpirvEvalInfo::setRelaxedPrecision() {
   isRelaxedPrecision_ = true;
+  return *this;
+}
+
+SpirvEvalInfo &SpirvEvalInfo::setNonUniform(bool nu) {
+  isNonUniform_ = nu;
   return *this;
 }
 

@@ -55,28 +55,10 @@ public:
   uint32_t translateType(QualType type,
                          LayoutRule layoutRule = LayoutRule::Void);
 
-  /// \brief Translates the given HLSL resource type into its SPIR-V
-  /// instructions and returns the <result-id>. Returns 0 on failure.
-  uint32_t translateResourceType(QualType type, LayoutRule rule,
-                                 bool isDepthCmp = false);
-
   /// \brief Generates the SPIR-V type for the counter associated with a
   /// {Append|Consume}StructuredBuffer: an OpTypeStruct with a single 32-bit
   /// integer value. This type will be decorated with BufferBlock.
   uint32_t getACSBufferCounter();
-
-  /// \brief Returns the type for the gl_PerVertex struct:
-  ///
-  /// struct gl_PerVertex {
-  ///   float4 gl_Position;
-  ///   float  gl_PointSize;
-  ///   float  gl_ClipDistance[];
-  ///   float  gl_CullDistance[];
-  /// };
-  uint32_t
-  getGlPerVertexStruct(uint32_t clipArraySize, uint32_t cullArraySize,
-                       llvm::StringRef structName,
-                       const llvm::SmallVector<std::string, 4> &fieldSemantics);
 
   /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
   static bool isStructuredBuffer(QualType type);
@@ -105,6 +87,9 @@ public:
   /// (RW)ByteAddressBuffer, {Append|Consume}StructuredBuffer, or a struct
   /// containing one of the above.
   static bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type);
+
+  /// \brief Returns true if the given type is or contains 16-bit type.
+  bool isOrContains16BitType(QualType type);
 
   /// \brief Returns true if the given type is the HLSL Buffer type.
   static bool isBuffer(QualType type);
@@ -302,6 +287,10 @@ private:
   /// type, which means they have the same canonical type, regardless of
   /// constnesss and literalness.
   static bool canTreatAsSameScalarType(QualType type1, QualType type2);
+
+  /// \brief Translates the given HLSL resource type into its SPIR-V
+  /// instructions and returns the <result-id>. Returns 0 on failure.
+  uint32_t translateResourceType(QualType type, LayoutRule rule);
 
   /// \brief For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.

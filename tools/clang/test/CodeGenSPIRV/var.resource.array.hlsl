@@ -13,16 +13,16 @@
 // CHECK: OpDecorate %MyCompSamplers DescriptorSet 0
 // CHECK: OpDecorate %MyCompSamplers Binding 5
 
-// CHECK: %type_buffer_image = OpTypeImage %float Buffer 0 0 0 1 Rgba32f
+// CHECK: %type_buffer_image = OpTypeImage %float Buffer 2 0 0 1 Rgba32f
 // CHECK: %_arr_type_buffer_image_uint_1 = OpTypeArray %type_buffer_image %uint_1
 
-// CHECK: %type_buffer_image_0 = OpTypeImage %float Buffer 0 0 0 2 Rgba32f
+// CHECK: %type_buffer_image_0 = OpTypeImage %float Buffer 2 0 0 2 Rgba32f
 // CHECK: %_arr_type_buffer_image_0_uint_2 = OpTypeArray %type_buffer_image_0 %uint_2
 
-// CHECK: %type_2d_image = OpTypeImage %float 2D 0 0 0 1 Unknown
+// CHECK: %type_2d_image = OpTypeImage %float 2D 2 0 0 1 Unknown
 // CHECK: %_arr_type_2d_image_uint_3 = OpTypeArray %type_2d_image %uint_3
 
-// CHECK: %type_2d_image_0 = OpTypeImage %float 2D 0 0 0 2 Rgba32f
+// CHECK: %type_2d_image_0 = OpTypeImage %float 2D 2 0 0 2 Rgba32f
 // CHECK: %_arr_type_2d_image_0_uint_4 = OpTypeArray %type_2d_image_0 %uint_4
 
 // CHECK: %type_sampler = OpTypeSampler

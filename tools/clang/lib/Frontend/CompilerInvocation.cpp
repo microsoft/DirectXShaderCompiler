@@ -1277,7 +1277,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     Opts.NativeHalfType = 1;
   }
 
-  Opts.HLSL = IK == IK_HLSL || LangStd == LangStandard::lang_hlsl // HLSL Change: Langstandard for HLSL
+  Opts.HLSL = IK == IK_HLSL || LangStd == LangStandard::lang_hlsl; // HLSL Change: Langstandard for HLSL
 
   Opts.CUDA = IK == IK_CUDA || IK == IK_PreprocessedCuda ||
               LangStd == LangStandard::lang_cuda;

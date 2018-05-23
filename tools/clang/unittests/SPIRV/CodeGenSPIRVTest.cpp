@@ -54,6 +54,7 @@ TEST_F(FileTest, MatrixTypesMajornessZpc) {
 TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
 TEST_F(FileTest, ClassTypes) { runFileTest("type.class.hlsl"); }
 TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
+TEST_F(FileTest, RuntimeArrayTypes) { runFileTest("type.runtime-array.hlsl"); }
 TEST_F(FileTest, TypedefTypes) { runFileTest("type.typedef.hlsl"); }
 TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
 TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
@@ -68,7 +69,10 @@ TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
-TEST_F(FileTest, StructuredBufferArrayTypeError) {
+TEST_F(FileTest, StructuredByteBufferArray) {
+  runFileTest("type.structured-buffer.array.hlsl");
+}
+TEST_F(FileTest, StructuredByteBufferArrayError) {
   runFileTest("type.structured-buffer.array.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, AppendStructuredBufferType) {
@@ -115,6 +119,9 @@ TEST_F(FileTest, VarInitCbuffer) {
 }
 TEST_F(FileTest, VarInitTbuffer) {
   runFileTest("var.init.tbuffer.hlsl", Expect::Warning);
+}
+TEST_F(FileTest, VarInitWarningIngored) {
+  runFileTest("var.init.warning.ignored.hlsl", Expect::Warning);
 }
 TEST_F(FileTest, VarInitOpaque) { runFileTest("var.init.opaque.hlsl"); }
 TEST_F(FileTest, VarInitCrossStorageClass) {
@@ -428,9 +435,20 @@ TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
 // For functions
 TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
 TEST_F(FileTest, FunctionDefaultArg) { runFileTest("fn.default-arg.hlsl"); }
-TEST_F(FileTest, FunctionInOutParam) { runFileTest("fn.param.inout.hlsl"); }
+TEST_F(FileTest, FunctionInOutParam) {
+  // Tests using uniform/in/out/inout annotations on function parameters
+  runFileTest("fn.param.inout.hlsl");
+}
 TEST_F(FileTest, FunctionInOutParamVector) {
   runFileTest("fn.param.inout.vector.hlsl");
+}
+TEST_F(FileTest, FunctionInOutParamDiffStorageClass) {
+  runFileTest("fn.param.inout.storage-class.hlsl");
+}
+TEST_F(FileTest, FunctionInOutParamNoNeedToCopy) {
+  // Tests that referencing function scope variables as a whole with out/inout
+  // annotation does not create temporary variables
+  runFileTest("fn.param.inout.no-copy.hlsl");
 }
 TEST_F(FileTest, FunctionFowardDeclaration) {
   runFileTest("fn.foward-declaration.hlsl");
@@ -482,6 +500,15 @@ TEST_F(FileTest, SemanticInstanceIDPS) {
   runFileTest("semantic.instance-id.ps.hlsl");
 }
 TEST_F(FileTest, SemanticTargetPS) { runFileTest("semantic.target.ps.hlsl"); }
+TEST_F(FileTest, SemanticTargetDualBlend) {
+  runFileTest("semantic.target.dual-blend.hlsl");
+}
+TEST_F(FileTest, SemanticTargetDualBlendError1) {
+  runFileTest("semantic.target.dual-blend.error1.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SemanticTargetDualBlendError2) {
+  runFileTest("semantic.target.dual-blend.error2.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, SemanticDepthPS) { runFileTest("semantic.depth.ps.hlsl"); }
 TEST_F(FileTest, SemanticDepthGreaterEqualPS) {
   runFileTest("semantic.depth-greater-equal.ps.hlsl");
@@ -738,12 +765,6 @@ TEST_F(FileTest, TextureSampleCmpLevelZero) {
 TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
   runFileTest("texture.array.sample-cmp-level-zero.hlsl");
 }
-TEST_F(FileTest, TextureNormalAndComparisonSample) {
-  // Check that we generate OpSampledImage derived from the appropriate
-  // OpTypeImage having the matching Depth value with the OpImageSample*
-  // instruction
-  runFileTest("texture.sample.sample-cmp.hlsl");
-}
 
 // For structured buffer methods
 TEST_F(FileTest, StructuredBufferLoad) {
@@ -960,6 +981,9 @@ TEST_F(FileTest, IntrinsicsGetRenderTargetSampleCount) {
 TEST_F(FileTest, IntrinsicsGetRenderTargetSamplePosition) {
   runFileTest("intrinsics.get-render-target-sample-position.hlsl",
               Expect::Failure);
+}
+TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
+  runFileTest("intrinsics.non-uniform-resource-index.hlsl");
 }
 
 // For attributes
@@ -1277,10 +1301,6 @@ TEST_F(FileTest, VulkanAttributeInvalidUsages) {
   runFileTest("vk.attribute.invalid.hlsl", Expect::Failure);
 }
 
-TEST_F(FileTest, VulkanCLOptionIgnoreUnusedResources) {
-  runFileTest("vk.cloption.ignore-unused-resources.hlsl");
-}
-
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
   runFileTest("vk.cloption.invert-y.vs.hlsl");
 }
@@ -1406,6 +1426,18 @@ TEST_F(FileTest, VulkanLayout64BitTypesStd430) {
 TEST_F(FileTest, VulkanLayout64BitTypesStd140) {
   runFileTest("vk.layout.64bit-types.std140.hlsl");
 }
+TEST_F(FileTest, VulkanLayout16BitTypesPushConstant) {
+  runFileTest("vk.layout.16bit-types.pc.hlsl");
+}
+TEST_F(FileTest, VulkanLayout16BitTypesCBuffer) {
+  runFileTest("vk.layout.16bit-types.cbuffer.hlsl");
+}
+TEST_F(FileTest, VulkanLayout16BitTypesTBuffer) {
+  runFileTest("vk.layout.16bit-types.tbuffer.hlsl");
+}
+TEST_F(FileTest, VulkanLayout16BitTypesStructuredBuffer) {
+  runFileTest("vk.layout.16bit-types.sbuffer.hlsl");
+}
 TEST_F(FileTest, VulkanLayoutVectorRelaxedLayout) {
   // Allows vectors to be aligned according to their element types, if not
   // causing improper straddle
@@ -1447,9 +1479,7 @@ TEST_F(FileTest, NonFpColMajorError) {
 TEST_F(FileTest, NamespaceFunctions) {
   runFileTest("namespace.functions.hlsl");
 }
-TEST_F(FileTest, NamespaceGlobals) {
-  runFileTest("namespace.globals.hlsl");
-}
+TEST_F(FileTest, NamespaceGlobals) { runFileTest("namespace.globals.hlsl"); }
 TEST_F(FileTest, NamespaceResources) {
   runFileTest("namespace.resources.hlsl");
 }

@@ -1,6 +1,8 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: textureLoad
+// CHECK-DAG: textureLoad.f32({{.*}}, i32 undef, i32 undef, i32 undef)
+// CHECK-DAG: textureLoad.f32({{.*}}, i32 -5, i32 7, i32 undef)
+// CHECK-DAG: textureLoad.f32({{.*}}, i32 0, i32 0, i32 undef)
 
 Texture2DMS<float3> srv1 : register(t3);
 

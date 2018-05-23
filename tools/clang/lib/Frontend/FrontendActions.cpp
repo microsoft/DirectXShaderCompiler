@@ -706,7 +706,7 @@ HLSLRootSignatureAction::HLSLRootSignatureAction(StringRef rootSigMacro,
                                                  unsigned major, unsigned minor)
     : HLSLRootSignatureMacro(rootSigMacro), rootSigMajor(major),
       rootSigMinor(minor) {
-  rootSigHandle = std::make_unique<hlsl::RootSignatureHandle>();
+  rootSigHandle = llvm::make_unique<hlsl::RootSignatureHandle>();
 }
 
 void HLSLRootSignatureAction::ExecuteAction() {

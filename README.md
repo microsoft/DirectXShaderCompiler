@@ -67,15 +67,12 @@ To run shaders compiled as DXIL, you will need support from the operating system
 Hardware GPU support for DXIL is provided by the following vendors:
 
 #### NVIDIA
-NVIDIA's r387 drivers (r387.92 and later) provide release mode support for DXIL
-1.0 and Shader Model 6.0 on Win10 FCU and later, and experimental mode support
-for DXIL 1.1 and Shader Model 6.1. This driver can be downloaded from
-[geforce.com](https://www.geforce.com/drivers). Direct links for r388.59 (most
-current as of this update) are provided below:
+NVIDIA's r396 drivers (r397.64 and later) provide release mode support for DXIL
+1.1 and Shader Model 6.1 on Win10 1709 and later, and experimental mode support
+for DXIL 1.2 and Shader Model 6.2 on Win10 1803 and later. These drivers also
+support DXR in experimental mode.
 
-[Win10 Installer](http://uk.download.nvidia.com/Windows/388.59/388.59-desktop-win10-64bit-international-whql.exe)
-
-[Release Notes](http://us.download.nvidia.com/Windows/388.59/388.59-win10-win8-win7-desktop-release-notes.pdf)
+Drivers can be downloaded from [geforce.com](https://www.geforce.com/drivers).
 
 #### AMD
 AMD's latest driver with support for DXIL 1.0 and Shader Model 6 in experimental mode is [Radeon Software Crimson ReLive Edition 17.4.2](http://support.amd.com/en-us/kb-articles/Pages/Radeon-Software-Crimson-ReLive-Edition-17.4.2-Release-Notes.aspx).

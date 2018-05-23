@@ -385,31 +385,31 @@ public:
     return S_OK;
   }
 
-  __override ~DxcArgsFileSystemImpl() { };
-  __override BOOL FindNextFileW(
+  ~DxcArgsFileSystemImpl() override { };
+  BOOL FindNextFileW(
     _In_   HANDLE hFindFile,
-    _Out_  LPWIN32_FIND_DATAW lpFindFileData) throw() {
+    _Out_  LPWIN32_FIND_DATAW lpFindFileData) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
 
-  __override HANDLE FindFirstFileW(
+  HANDLE FindFirstFileW(
     _In_   LPCWSTR lpFileName,
-    _Out_  LPWIN32_FIND_DATAW lpFindFileData) throw() {
+    _Out_  LPWIN32_FIND_DATAW lpFindFileData) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
 
-  __override void FindClose(HANDLE findHandle) throw() {
+  void FindClose(HANDLE findHandle) throw() override {
     __debugbreak();
   }
 
-  __override HANDLE CreateFileW(
+  HANDLE CreateFileW(
     _In_      LPCWSTR lpFileName,
     _In_      DWORD dwDesiredAccess,
     _In_      DWORD dwShareMode,
     _In_      DWORD dwCreationDisposition,
-    _In_      DWORD dwFlagsAndAttributes) throw() {
+    _In_      DWORD dwFlagsAndAttributes) throw() override {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::CreateFileW %S\n", lpFileName);
     DWORD findError;
     {
@@ -438,15 +438,15 @@ public:
     return INVALID_HANDLE_VALUE;
   }
 
-  __override BOOL SetFileTime(_In_ HANDLE hFile,
+  BOOL SetFileTime(_In_ HANDLE hFile,
     _In_opt_  const FILETIME *lpCreationTime,
     _In_opt_  const FILETIME *lpLastAccessTime,
-    _In_opt_  const FILETIME *lpLastWriteTime) throw() {
+    _In_opt_  const FILETIME *lpLastWriteTime) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
 
-  __override BOOL GetFileInformationByHandle(_In_ HANDLE hFile, _Out_ LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() {
+  BOOL GetFileInformationByHandle(_In_ HANDLE hFile, _Out_ LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() override {
     DxcArgsHandle argsHandle(hFile);
     ZeroMemory(lpFileInformation, sizeof(*lpFileInformation));
     lpFileInformation->nFileIndexLow = (DWORD)(uintptr_t)hFile;
@@ -477,7 +477,7 @@ public:
     return FALSE;
   }
 
-  __override DWORD GetFileType(_In_ HANDLE hFile) throw() {
+  DWORD GetFileType(_In_ HANDLE hFile) throw() override {
     DxcArgsHandle argsHandle(hFile);
     if (argsHandle.IsStdHandle()) {
       return FILE_TYPE_CHAR;
@@ -491,15 +491,15 @@ public:
     return FILE_TYPE_UNKNOWN;
   }
 
-  __override BOOL CreateHardLinkW(_In_ LPCWSTR lpFileName, _In_ LPCWSTR lpExistingFileName) throw() {
+  BOOL CreateHardLinkW(_In_ LPCWSTR lpFileName, _In_ LPCWSTR lpExistingFileName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  __override BOOL MoveFileExW(_In_ LPCWSTR lpExistingFileName, _In_opt_ LPCWSTR lpNewFileName, _In_ DWORD dwFlags) throw() {
+  BOOL MoveFileExW(_In_ LPCWSTR lpExistingFileName, _In_opt_ LPCWSTR lpNewFileName, _In_ DWORD dwFlags) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  __override DWORD GetFileAttributesW(_In_ LPCWSTR lpFileName) throw() {
+  DWORD GetFileAttributesW(_In_ LPCWSTR lpFileName) throw() override {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::GetFileAttributesW %S\n", lpFileName);
     DWORD findError;
     {
@@ -536,7 +536,7 @@ public:
     return INVALID_FILE_ATTRIBUTES;
   }
 
-  __override BOOL CloseHandle(_In_ HANDLE hObject) throw() {
+  BOOL CloseHandle(_In_ HANDLE hObject) throw() override {
     // Not actually closing handle. Would allow improper usage, but simplifies
     // query/open/usage patterns.
     if (IsKnownHandle(hObject)) {
@@ -546,79 +546,79 @@ public:
     SetLastError(ERROR_INVALID_HANDLE);
     return FALSE;
   }
-  __override BOOL DeleteFileW(_In_ LPCWSTR lpFileName) throw() {
+  BOOL DeleteFileW(_In_ LPCWSTR lpFileName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  __override BOOL RemoveDirectoryW(_In_ LPCWSTR lpFileName) throw() {
+  BOOL RemoveDirectoryW(_In_ LPCWSTR lpFileName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  __override BOOL CreateDirectoryW(_In_ LPCWSTR lpPathName) throw() {
+  BOOL CreateDirectoryW(_In_ LPCWSTR lpPathName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
   _Success_(return != 0 && return < nBufferLength)
-    __override DWORD GetCurrentDirectoryW(_In_ DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() {
+    DWORD GetCurrentDirectoryW(_In_ DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
   _Success_(return != 0 && return < nSize)
-    __override DWORD GetMainModuleFileNameW(__out_ecount_part(nSize, return +1) LPWSTR lpFilename, DWORD nSize) throw() {
+    DWORD GetMainModuleFileNameW(__out_ecount_part(nSize, return +1) LPWSTR lpFilename, DWORD nSize) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  __override DWORD GetTempPathW(DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) {
+  DWORD GetTempPathW(DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  __override BOOLEAN CreateSymbolicLinkW(_In_ LPCWSTR lpSymlinkFileName, _In_ LPCWSTR lpTargetFileName, DWORD dwFlags) throw() {
+  BOOLEAN CreateSymbolicLinkW(_In_ LPCWSTR lpSymlinkFileName, _In_ LPCWSTR lpTargetFileName, DWORD dwFlags) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  __override bool SupportsCreateSymbolicLink() throw() {
+  bool SupportsCreateSymbolicLink() throw() override {
     return false;
   }
-  __override BOOL ReadFile(_In_ HANDLE hFile, _Out_bytecap_(nNumberOfBytesToRead) LPVOID lpBuffer, _In_ DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead) throw() {
+  BOOL ReadFile(_In_ HANDLE hFile, _Out_bytecap_(nNumberOfBytesToRead) LPVOID lpBuffer, _In_ DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  __override HANDLE CreateFileMappingW(
+  HANDLE CreateFileMappingW(
     _In_      HANDLE hFile,
     _In_      DWORD flProtect,
     _In_      DWORD dwMaximumSizeHigh,
-    _In_      DWORD dwMaximumSizeLow) throw() {
+    _In_      DWORD dwMaximumSizeLow) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return INVALID_HANDLE_VALUE;
   }
-  __override LPVOID MapViewOfFile(
+  LPVOID MapViewOfFile(
     _In_  HANDLE hFileMappingObject,
     _In_  DWORD dwDesiredAccess,
     _In_  DWORD dwFileOffsetHigh,
     _In_  DWORD dwFileOffsetLow,
-    _In_  SIZE_T dwNumberOfBytesToMap) throw() {
+    _In_  SIZE_T dwNumberOfBytesToMap) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return nullptr;
   }
-  __override BOOL UnmapViewOfFile(_In_ LPCVOID lpBaseAddress) throw() {
+  BOOL UnmapViewOfFile(_In_ LPCVOID lpBaseAddress) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
 
   // Console APIs.
-  __override bool FileDescriptorIsDisplayed(int fd) throw() {
+  bool FileDescriptorIsDisplayed(int fd) throw() override {
     return false;
   }
-  __override unsigned GetColumnCount(DWORD nStdHandle) throw() {
+  unsigned GetColumnCount(DWORD nStdHandle) throw() override {
     return 80;
   }
-  __override unsigned GetConsoleOutputTextAttributes() throw() {
+  unsigned GetConsoleOutputTextAttributes() throw() override {
     return 0;
   }
-  __override void SetConsoleOutputTextAttributes(unsigned) throw() {
+  void SetConsoleOutputTextAttributes(unsigned) throw() override {
     __debugbreak();
   }
-  __override void ResetConsoleOutputTextAttributes() throw() {
+  void ResetConsoleOutputTextAttributes() throw() override {
     __debugbreak();
   }
 
@@ -628,19 +628,19 @@ public:
     if (fd == STDERR_FILENO) return StdErrHandle.Handle;
     return (HANDLE)(uintptr_t)(fd);
   }
-  __override int open_osfhandle(intptr_t osfhandle, int flags) throw() {
+  int open_osfhandle(intptr_t osfhandle, int flags) throw() override {
     DxcArgsHandle H((HANDLE)osfhandle);
     if (H == StdOutHandle.Handle) return STDOUT_FILENO;
     if (H == StdErrHandle.Handle) return STDERR_FILENO;
     return (int)(intptr_t)H.Handle;
   }
-  __override intptr_t get_osfhandle(int fd) throw() {
+  intptr_t get_osfhandle(int fd) throw() override {
     return (intptr_t)HandleFromFD(fd);
   }
-  __override int close(int fd) throw() {
+  int close(int fd) throw() override {
     return 0;
   }
-  __override long lseek(int fd, long offset, int origin) throw() {
+  long lseek(int fd, long offset, int origin) throw() override {
     CComPtr<IStream> stream;
     GetStreamForFD(fd, &stream);
     if (stream == nullptr) {
@@ -660,13 +660,13 @@ public:
 
     return newOffset.LowPart;
   }
-  __override int setmode(int fd, int mode) throw() {
+  int setmode(int fd, int mode) throw() override {
     return 0;
   }
-  __override errno_t resize_file(_In_ LPCWSTR path, uint64_t size) throw() {
+  errno_t resize_file(_In_ LPCWSTR path, uint64_t size) throw() override {
     return 0;
   }
-  __override int Read(int fd, _Out_bytecap_(count) void* buffer, unsigned int count) throw() {
+  int Read(int fd, _Out_bytecap_(count) void* buffer, unsigned int count) throw() override {
     CComPtr<IStream> stream;
     GetStreamForFD(fd, &stream);
     if (stream == nullptr) {
@@ -683,7 +683,7 @@ public:
 
     return (int)cbRead;
   }
-  __override int Write(int fd, _In_bytecount_(count) const void* buffer, unsigned int count) throw() {
+  int Write(int fd, _In_bytecount_(count) const void* buffer, unsigned int count) throw() override {
     CComPtr<IStream> stream;
     GetStreamForFD(fd, &stream);
     if (stream == nullptr) {

@@ -12,7 +12,7 @@
 
 // CHECK:      {{%\d+}} = OpFunctionCall %BEZIER_CONTROL_POINT %src_main %param_var_ip %param_var_i %param_var_PatchID
 
-// CHECK:                 OpControlBarrier %uint_2 %uint_1 %uint_0
+// CHECK:                 OpControlBarrier %uint_2 %uint_4 %uint_0
 
 // CHECK: [[cond:%\d+]] = OpIEqual %bool [[id]] %uint_0
 // CHECK:                 OpSelectionMerge %if_merge None

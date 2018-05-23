@@ -11,7 +11,7 @@
 
 #include "dxc/HLSL/DxilValidation.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DXILOperations.h"
+#include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilContainer.h"
@@ -282,7 +282,7 @@ public:
     : DiagnosticInfo(DK_FirstPluginKind, DiagnosticSeverity::DS_Error),
     m_message(str) { }
 
-  __override void print(DiagnosticPrinter &DP) const {
+  void print(DiagnosticPrinter &DP) const override {
     DP << m_message;
   }
 };
@@ -3612,7 +3612,7 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
       {32, ValCtx.DxilMod.GetUseMinPrecision()},
       {32, ValCtx.DxilMod.GetUseMinPrecision()},
       {32, ValCtx.DxilMod.GetUseMinPrecision()}};
-  unordered_set<Semantic::Kind> semanticUsageSet[DXIL::kNumOutputStreams];
+  unordered_set<unsigned> semanticUsageSet[DXIL::kNumOutputStreams];
   StringMap<unordered_set<unsigned>> semanticIndexMap[DXIL::kNumOutputStreams];
   unordered_set<unsigned> clipcullRowSet[DXIL::kNumOutputStreams];
   unsigned clipcullComponents[DXIL::kNumOutputStreams] = {0, 0, 0, 0};
@@ -3638,7 +3638,7 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
 
     // Semantic index overlap check, keyed by name.
     std::string nameUpper(E->GetName());
-    std::transform(nameUpper.begin(), nameUpper.end(), nameUpper.begin(), toupper);
+    std::transform(nameUpper.begin(), nameUpper.end(), nameUpper.begin(), ::toupper);
     unordered_set<unsigned> &semIdxSet = semanticIndexMap[streamId][nameUpper];
     for (unsigned semIdx : E->GetSemanticIndexVec()) {
       if (semIdxSet.count(semIdx) > 0) {
@@ -3711,11 +3711,11 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
       break;
     }
     default:
-      if (semanticUsageSet[streamId].count(semanticKind) > 0) {
+      if (semanticUsageSet[streamId].count(static_cast<unsigned>(semanticKind)) > 0) {
         ValCtx.EmitFormatError(ValidationRule::MetaDuplicateSysValue,
                                {E->GetSemantic()->GetName()});
       }
-      semanticUsageSet[streamId].insert(semanticKind);
+      semanticUsageSet[streamId].insert(static_cast<unsigned>(semanticKind));
       break;
     }
 

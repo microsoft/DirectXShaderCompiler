@@ -25,6 +25,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include <memory>
+#include "dxc/HLSL/DxilMetadataHelper.h" // HLSL Change - dx source info
 using namespace clang;
 
 namespace {
@@ -222,7 +223,8 @@ namespace {
              it != end; ++it) {
           if (it->first->isValid() && !it->second->IsSystemFile) {
             if (pContents == nullptr) {
-              pContents = M->getOrInsertNamedMetadata("llvm.dbg.contents");
+              pContents = M->getOrInsertNamedMetadata(
+                  hlsl::DxilMDHelper::kDxilSourceContentsMDName);
             }
             llvm::MDTuple *pFileInfo = llvm::MDNode::get(
                 LLVMCtx,
@@ -234,7 +236,8 @@ namespace {
         }
 
         // Add Defines to Debug Info
-        llvm::NamedMDNode *pDefines = M->getOrInsertNamedMetadata("llvm.dbg.defines");
+        llvm::NamedMDNode *pDefines = M->getOrInsertNamedMetadata(
+            hlsl::DxilMDHelper::kDxilSourceDefinesMDName);
         std::vector<llvm::Metadata *> vecDefines;
         vecDefines.resize(CodeGenOpts.HLSLDefines.size());
         std::transform(CodeGenOpts.HLSLDefines.begin(), CodeGenOpts.HLSLDefines.end(),
@@ -243,13 +246,15 @@ namespace {
         pDefines->addOperand(pDefinesInfo);
 
         // Add main file name to debug info
-        llvm::NamedMDNode *pSourceFilename = M->getOrInsertNamedMetadata("llvm.dbg.mainFileName");
+        llvm::NamedMDNode *pSourceFilename = M->getOrInsertNamedMetadata(
+            hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName);
         llvm::MDTuple *pFileName = llvm::MDNode::get(
           LLVMCtx, llvm::MDString::get(LLVMCtx, CodeGenOpts.MainFileName));
         pSourceFilename->addOperand(pFileName);
 
         // Pass in any other arguments to debug info
-        llvm::NamedMDNode *pArgs = M->getOrInsertNamedMetadata("llvm.dbg.args");
+        llvm::NamedMDNode *pArgs = M->getOrInsertNamedMetadata(
+            hlsl::DxilMDHelper::kDxilSourceArgsMDName);
         std::vector<llvm::Metadata *> vecArguments;
         vecArguments.resize(CodeGenOpts.HLSLArguments.size());
         std::transform(CodeGenOpts.HLSLArguments.begin(), CodeGenOpts.HLSLArguments.end(),

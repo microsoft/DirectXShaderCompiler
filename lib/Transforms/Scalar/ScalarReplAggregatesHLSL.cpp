@@ -3873,6 +3873,9 @@ static void ReplaceConstantWithInst(Constant *C, Value *V, IRBuilder<> &Builder)
     if (Instruction *I = dyn_cast<Instruction>(U)) {
       I->replaceUsesOfWith(C, V);
     } else {
+      // Skip unused ConstantExpr.
+      if (U->user_empty())
+        continue;
       ConstantExpr *CE = cast<ConstantExpr>(U);
       Instruction *Inst = CE->getAsInstruction();
       Builder.Insert(Inst);
@@ -3880,6 +3883,7 @@ static void ReplaceConstantWithInst(Constant *C, Value *V, IRBuilder<> &Builder)
       ReplaceConstantWithInst(CE, Inst, Builder);
     }
   }
+  C->removeDeadConstantUsers();
 }
 
 static void ReplaceUnboundedArrayUses(Value *V, Value *Src, IRBuilder<> &Builder) {
@@ -6118,7 +6122,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   // ShaderProps.
   if (m_pHLModule->HasDxilFunctionProps(F)) {
     DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
-    std::unique_ptr<DxilFunctionProps> flatFuncProps = std::make_unique<DxilFunctionProps>();
+    std::unique_ptr<DxilFunctionProps> flatFuncProps = llvm::make_unique<DxilFunctionProps>();
     flatFuncProps->shaderKind = funcProps.shaderKind;
     flatFuncProps->ShaderProps = funcProps.ShaderProps;
     m_pHLModule->AddDxilFunctionProps(flatF, flatFuncProps);

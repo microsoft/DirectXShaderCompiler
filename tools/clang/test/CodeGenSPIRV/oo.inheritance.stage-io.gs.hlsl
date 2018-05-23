@@ -19,11 +19,7 @@ struct Derived : Base {
 
 // CHECK-NEXT:     [[a_arr:%\d+]] = OpLoad %_arr_v4float_uint_2 %in_var_AAA
 
-// CHECK-NEXT:  [[pos0_ptr:%\d+]] = OpAccessChain %_ptr_Input_v4float %gl_PerVertexIn %uint_0 %uint_0
-// CHECK-NEXT:      [[pos0:%\d+]] = OpLoad %v4float [[pos0_ptr]]
-// CHECK-NEXT:  [[pos1_ptr:%\d+]] = OpAccessChain %_ptr_Input_v4float %gl_PerVertexIn %uint_1 %uint_0
-// CHECK-NEXT:      [[pos1:%\d+]] = OpLoad %v4float [[pos1_ptr]]
-// CHECK-NEXT:   [[pos_arr:%\d+]] = OpCompositeConstruct %_arr_v4float_uint_2 [[pos0]] [[pos1]]
+// CHECK-NEXT:   [[pos_arr:%\d+]] = OpLoad %_arr_v4float_uint_2 %gl_Position
 
 // CHECK-NEXT:    [[empty0:%\d+]] = OpCompositeExtract %Empty [[empty_arr]] 0
 // CHECK-NEXT:        [[a0:%\d+]] = OpCompositeExtract %v4float [[a_arr]] 0
@@ -66,7 +62,7 @@ void main(in    line Derived             inData[2],
 // CHECK-NEXT:                      OpStore %out_var_AAA [[a]]
 
 // CHECK-NEXT:       [[pos:%\d+]] = OpCompositeExtract %v4float [[base]] 2
-// CHECK-NEXT:                      OpStore %gl_Position [[pos]]
+// CHECK-NEXT:                      OpStore %gl_Position_0 [[pos]]
 
 // CHECK-NEXT:         [[b:%\d+]] = OpCompositeExtract %v4float [[inData0]] 1
 // CHECK-NEXT:                      OpStore %out_var_BBB [[b]]

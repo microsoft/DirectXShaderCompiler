@@ -7,6 +7,7 @@ Texture2D<int4>    t2i4 : register(t2);
 TextureCube<uint4> tCube : register(t3);
 // .GatherAlpha() does not support Texture1D and Texture3D.
 
+// CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability SparseResidency
 
 // CHECK:      [[c12:%\d+]] = OpConstantComposite %v2int %int_1 %int_2

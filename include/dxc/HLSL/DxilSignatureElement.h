@@ -114,12 +114,12 @@ class DxilPackElement : public DxilSignatureAllocator::PackElement {
 
 public:
   DxilPackElement(DxilSignatureElement *pSE, bool useMinPrecision) : m_pSE(pSE), m_bUseMinPrecision(useMinPrecision) {}
-  __override ~DxilPackElement() {}
-  __override uint32_t GetID() const { return m_pSE->GetID(); }
-  __override DXIL::SemanticKind GetKind() const { return m_pSE->GetKind(); }
-  __override DXIL::InterpolationMode GetInterpolationMode() const { return m_pSE->GetInterpolationMode()->GetKind(); }
-  __override DXIL::SemanticInterpretationKind GetInterpretation() const { return m_pSE->GetInterpretation(); }
-  __override DXIL::SignatureDataWidth GetDataBitWidth() const {
+  ~DxilPackElement() override {}
+  uint32_t GetID() const override { return m_pSE->GetID(); }
+  DXIL::SemanticKind GetKind() const override { return m_pSE->GetKind(); }
+  DXIL::InterpolationMode GetInterpolationMode() const override { return m_pSE->GetInterpolationMode()->GetKind(); }
+  DXIL::SemanticInterpretationKind GetInterpretation() const override { return m_pSE->GetInterpretation(); }
+  DXIL::SignatureDataWidth GetDataBitWidth() const override {
     uint8_t size = m_pSE->GetCompType().GetSizeInBits();
     // bool, min precision, or 32 bit types map to 32 bit size.
     if (size == 16) {
@@ -130,17 +130,17 @@ public:
     }
     return DXIL::SignatureDataWidth::Undefined;
   }
-  __override uint32_t GetRows() const { return m_pSE->GetRows(); }
-  __override uint32_t GetCols() const { return m_pSE->GetCols(); }
-  __override bool IsAllocated() const { return m_pSE->IsAllocated(); }
-  __override uint32_t GetStartRow() const { return m_pSE->GetStartRow(); }
-  __override uint32_t GetStartCol() const { return m_pSE->GetStartCol(); }
+  uint32_t GetRows() const override { return m_pSE->GetRows(); }
+  uint32_t GetCols() const override { return m_pSE->GetCols(); }
+  bool IsAllocated() const override { return m_pSE->IsAllocated(); }
+  uint32_t GetStartRow() const override { return m_pSE->GetStartRow(); }
+  uint32_t GetStartCol() const override { return m_pSE->GetStartCol(); }
 
-  __override void ClearLocation() {
+  void ClearLocation() override {
     m_pSE->SetStartRow(-1);
     m_pSE->SetStartCol(-1);
   }
-  __override void SetLocation(uint32_t Row, uint32_t Col) {
+  void SetLocation(uint32_t Row, uint32_t Col) override {
     m_pSE->SetStartRow(Row);
     m_pSE->SetStartCol(Col);
   }

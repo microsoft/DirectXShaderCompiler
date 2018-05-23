@@ -13,7 +13,6 @@
 #include "spirv/unified1//spirv.hpp11"
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/InstBuilder.h"
-#include "llvm/llvm_assert/assert.h"
 
 namespace clang {
 namespace spirv {
@@ -400,6 +399,7 @@ spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
 
   if (constOffsets) {
     mask = mask | ImageOperandsMask::ConstOffsets;
+    requireCapability(spv::Capability::ImageGatherExtended);
     orderedParams->push_back(constOffsets);
   }
 
@@ -442,8 +442,8 @@ uint32_t ModuleBuilder::createImageTexelPointer(uint32_t resultType,
 
 uint32_t ModuleBuilder::createImageSample(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
-    uint32_t coordinate, uint32_t compareVal, uint32_t bias, uint32_t lod,
-    std::pair<uint32_t, uint32_t> grad, uint32_t constOffset,
+    bool isNonUniform, uint32_t coordinate, uint32_t compareVal, uint32_t bias,
+    uint32_t lod, std::pair<uint32_t, uint32_t> grad, uint32_t constOffset,
     uint32_t varOffset, uint32_t constOffsets, uint32_t sample, uint32_t minLod,
     uint32_t residencyCodeId) {
   assert(insertPoint && "null insert point");
@@ -469,6 +469,12 @@ uint32_t ModuleBuilder::createImageSample(
   const uint32_t sampledImgTy = getSampledImageType(imageType);
   instBuilder.opSampledImage(sampledImgTy, sampledImgId, image, sampler).x();
   insertPoint->appendInstruction(std::move(constructSite));
+
+  if (isNonUniform) {
+    // The sampled image will be used to access resource's memory, so we need
+    // to decorate it with NonUniformEXT.
+    decorate(sampledImgId, spv::Decoration::NonUniformEXT);
+  }
 
   uint32_t texelId = theContext.takeNextId();
   llvm::SmallVector<uint32_t, 4> params;
@@ -550,9 +556,9 @@ uint32_t ModuleBuilder::createImageFetchOrRead(
 
 uint32_t ModuleBuilder::createImageGather(
     uint32_t texelType, uint32_t imageType, uint32_t image, uint32_t sampler,
-    uint32_t coordinate, uint32_t component, uint32_t compareVal,
-    uint32_t constOffset, uint32_t varOffset, uint32_t constOffsets,
-    uint32_t sample, uint32_t residencyCodeId) {
+    bool isNonUniform, uint32_t coordinate, uint32_t component,
+    uint32_t compareVal, uint32_t constOffset, uint32_t varOffset,
+    uint32_t constOffsets, uint32_t sample, uint32_t residencyCodeId) {
   assert(insertPoint && "null insert point");
 
   uint32_t sparseRetType = 0;
@@ -566,6 +572,12 @@ uint32_t ModuleBuilder::createImageGather(
   const uint32_t sampledImgTy = getSampledImageType(imageType);
   instBuilder.opSampledImage(sampledImgTy, sampledImgId, image, sampler).x();
   insertPoint->appendInstruction(std::move(constructSite));
+
+  if (isNonUniform) {
+    // The sampled image will be used to access resource's memory, so we need
+    // to decorate it with NonUniformEXT.
+    decorate(sampledImgId, spv::Decoration::NonUniformEXT);
+  }
 
   llvm::SmallVector<uint32_t, 2> params;
 
@@ -859,6 +871,11 @@ void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
   theModule.addDecoration(d, targetId);
 }
 
+void ModuleBuilder::decorateIndex(uint32_t targetId, uint32_t index) {
+  const Decoration *d = Decoration::getIndex(theContext, index);
+  theModule.addDecoration(d, targetId);
+}
+
 void ModuleBuilder::decorateSpecId(uint32_t targetId, uint32_t specId) {
   const Decoration *d = Decoration::getSpecId(theContext, specId);
   theModule.addDecoration(d, targetId);
@@ -887,6 +904,9 @@ void ModuleBuilder::decorate(uint32_t targetId, spv::Decoration decoration) {
     break;
   case spv::Decoration::Patch:
     d = Decoration::getPatch(theContext);
+    break;
+  case spv::Decoration::NonUniformEXT:
+    d = Decoration::getNonUniformEXT(theContext);
     break;
   }
 

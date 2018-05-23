@@ -36,7 +36,7 @@
 #include <vector>
 
 // HLSL Change
-#include <dxc/support/WinIncludes.h>
+#include <dxc/Support/WinIncludes.h>
 #include "llvm/Support/MSFileSystem.h"
 #include "DxcTestUtils.h"
 // End HLSL Change

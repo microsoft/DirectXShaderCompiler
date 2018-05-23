@@ -34,10 +34,10 @@ public:
     return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
   }
 
-  __override HRESULT STDMETHODCALLTYPE LoadSource(
+  HRESULT STDMETHODCALLTYPE LoadSource(
     _In_ LPCWSTR pFilename,                                   // Candidate filename.
     _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource  // Resultant source object for included file, nullptr if not found.
-    ) {
+    ) override {
     CComPtr<IDxcBlobEncoding> pEncoding;
     HRESULT hr = ::hlsl::DxcCreateBlobFromFile(m_pMalloc, pFilename, nullptr, &pEncoding);
     if (SUCCEEDED(hr)) {
@@ -58,48 +58,48 @@ public:
     return DoBasicQueryInterface<IDxcLibrary>(this, iid, ppvObject);
   }
 
-  __override HRESULT STDMETHODCALLTYPE SetMalloc(_In_opt_ IMalloc *pMalloc) {
+  HRESULT STDMETHODCALLTYPE SetMalloc(_In_opt_ IMalloc *pMalloc) override {
     UNREFERENCED_PARAMETER(pMalloc);
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE CreateBlobFromBlob(
-    _In_ IDxcBlob *pBlob, UINT32 offset, UINT32 length, _COM_Outptr_ IDxcBlob **ppResult) {
+  HRESULT STDMETHODCALLTYPE CreateBlobFromBlob(
+    _In_ IDxcBlob *pBlob, UINT32 offset, UINT32 length, _COM_Outptr_ IDxcBlob **ppResult) override {
     DxcThreadMalloc TM(m_pMalloc);
     return ::hlsl::DxcCreateBlobFromBlob(pBlob, offset, length, ppResult);
   }
 
-  __override HRESULT STDMETHODCALLTYPE CreateBlobFromFile(
+  HRESULT STDMETHODCALLTYPE CreateBlobFromFile(
     LPCWSTR pFileName, _In_opt_ UINT32* pCodePage,
-    _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
+    _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override {
     DxcThreadMalloc TM(m_pMalloc);
     return ::hlsl::DxcCreateBlobFromFile(pFileName, pCodePage, pBlobEncoding);
   }
 
-  __override HRESULT STDMETHODCALLTYPE CreateBlobWithEncodingFromPinned(
+  HRESULT STDMETHODCALLTYPE CreateBlobWithEncodingFromPinned(
     LPBYTE pText, UINT32 size, UINT32 codePage,
-    _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
+    _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override {
     DxcThreadMalloc TM(m_pMalloc);
     return ::hlsl::DxcCreateBlobWithEncodingFromPinned(pText, size, codePage, pBlobEncoding);
   }
 
-  __override HRESULT STDMETHODCALLTYPE CreateBlobWithEncodingOnHeapCopy(
+  HRESULT STDMETHODCALLTYPE CreateBlobWithEncodingOnHeapCopy(
       _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
-      _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
+      _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override {
     DxcThreadMalloc TM(m_pMalloc);
     return ::hlsl::DxcCreateBlobWithEncodingOnHeapCopy(pText, size, codePage,
                                                        pBlobEncoding);
   }
 
-  __override HRESULT STDMETHODCALLTYPE CreateBlobWithEncodingOnMalloc(
+  HRESULT STDMETHODCALLTYPE CreateBlobWithEncodingOnMalloc(
     _In_bytecount_(size) LPCVOID pText, IMalloc *pIMalloc, UINT32 size, UINT32 codePage,
-    _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
+    _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override {
     DxcThreadMalloc TM(m_pMalloc);
     return ::hlsl::DxcCreateBlobWithEncodingOnMalloc(pText, pIMalloc, size, codePage, pBlobEncoding);
   }
 
-  __override HRESULT STDMETHODCALLTYPE CreateIncludeHandler(
-    _COM_Outptr_ IDxcIncludeHandler **ppResult) {
+  HRESULT STDMETHODCALLTYPE CreateIncludeHandler(
+    _COM_Outptr_ IDxcIncludeHandler **ppResult) override {
     DxcThreadMalloc TM(m_pMalloc);
     CComPtr<DxcIncludeHandlerForFS> result;
     result = DxcIncludeHandlerForFS::Alloc(m_pMalloc);
@@ -110,20 +110,20 @@ public:
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE CreateStreamFromBlobReadOnly(
-    _In_ IDxcBlob *pBlob, _COM_Outptr_ IStream **ppStream) {
+  HRESULT STDMETHODCALLTYPE CreateStreamFromBlobReadOnly(
+    _In_ IDxcBlob *pBlob, _COM_Outptr_ IStream **ppStream) override {
     DxcThreadMalloc TM(m_pMalloc);
     return ::hlsl::CreateReadOnlyBlobStream(pBlob, ppStream);
   }
 
-  __override HRESULT STDMETHODCALLTYPE GetBlobAsUtf8(
-    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
+  HRESULT STDMETHODCALLTYPE GetBlobAsUtf8(
+    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override {
     DxcThreadMalloc TM(m_pMalloc);
     return ::hlsl::DxcGetBlobAsUtf8(pBlob, pBlobEncoding);
   }
 
-  __override HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
-    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
+  HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
+    _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override {
     return ::hlsl::DxcGetBlobAsUtf16(pBlob, m_pMalloc, pBlobEncoding);
   }
 };

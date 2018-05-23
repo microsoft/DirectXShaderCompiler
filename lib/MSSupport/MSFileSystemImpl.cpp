@@ -90,96 +90,96 @@ MSFileSystemForDisk::MSFileSystemForDisk()
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForDisk::FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAW lpFindFileData)
+BOOL MSFileSystemForDisk::FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAW lpFindFileData) throw()
 {
   return ::FindNextFileW(hFindFile, lpFindFileData);
 }
 
 _Use_decl_annotations_
-HANDLE MSFileSystemForDisk::FindFirstFileW(LPCWSTR lpFileName, LPWIN32_FIND_DATAW lpFindFileData)
+HANDLE MSFileSystemForDisk::FindFirstFileW(LPCWSTR lpFileName, LPWIN32_FIND_DATAW lpFindFileData) throw()
 {
   return ::FindFirstFileW(lpFileName, lpFindFileData);
 }
 
-void MSFileSystemForDisk::FindClose(HANDLE findHandle)
+void MSFileSystemForDisk::FindClose(HANDLE findHandle) throw()
 {
   ::FindClose(findHandle);
 }
 
 _Use_decl_annotations_
-HANDLE MSFileSystemForDisk::CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes)
+HANDLE MSFileSystemForDisk::CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes) throw()
 {
   return ::CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, nullptr, dwCreationDisposition, dwFlagsAndAttributes, nullptr);
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForDisk::SetFileTime(HANDLE hFile, _In_opt_ const FILETIME *lpCreationTime, _In_opt_ const FILETIME *lpLastAccessTime, _In_opt_ const FILETIME *lpLastWriteTime)
+BOOL MSFileSystemForDisk::SetFileTime(HANDLE hFile, _In_opt_ const FILETIME *lpCreationTime, _In_opt_ const FILETIME *lpLastAccessTime, _In_opt_ const FILETIME *lpLastWriteTime) throw()
 {
   return ::SetFileTime(hFile, lpCreationTime, lpLastAccessTime, lpLastWriteTime);
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForDisk::GetFileInformationByHandle(HANDLE hFile, LPBY_HANDLE_FILE_INFORMATION lpFileInformation)
+BOOL MSFileSystemForDisk::GetFileInformationByHandle(HANDLE hFile, LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw()
 {
   return ::GetFileInformationByHandle(hFile, lpFileInformation);
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemForDisk::GetFileType(HANDLE hFile)
+DWORD MSFileSystemForDisk::GetFileType(HANDLE hFile) throw()
 {
   return ::GetFileType(hFile);
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForDisk::CreateHardLinkW(LPCWSTR lpFileName, LPCWSTR lpExistingFileName)
+BOOL MSFileSystemForDisk::CreateHardLinkW(LPCWSTR lpFileName, LPCWSTR lpExistingFileName) throw()
 {
   return ::CreateHardLinkW(lpFileName, lpExistingFileName, nullptr);
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForDisk::MoveFileExW(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, DWORD dwFlags)
+BOOL MSFileSystemForDisk::MoveFileExW(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, DWORD dwFlags) throw()
 {
   return ::MoveFileExW(lpExistingFileName, lpNewFileName, dwFlags);
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemForDisk::GetFileAttributesW(LPCWSTR lpFileName)
+DWORD MSFileSystemForDisk::GetFileAttributesW(LPCWSTR lpFileName) throw()
 {
   return ::GetFileAttributesW(lpFileName);
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForDisk::CloseHandle(HANDLE hObject)
+BOOL MSFileSystemForDisk::CloseHandle(HANDLE hObject) throw()
 {
   return ::CloseHandle(hObject);
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForDisk::DeleteFileW(LPCWSTR lpFileName)
+BOOL MSFileSystemForDisk::DeleteFileW(LPCWSTR lpFileName) throw()
 {
   return ::DeleteFileW(lpFileName);
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForDisk::RemoveDirectoryW(LPCWSTR lpFileName)
+BOOL MSFileSystemForDisk::RemoveDirectoryW(LPCWSTR lpFileName) throw()
 {
   return ::RemoveDirectoryW(lpFileName);
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForDisk::CreateDirectoryW(LPCWSTR lpPathName)
+BOOL MSFileSystemForDisk::CreateDirectoryW(LPCWSTR lpPathName) throw()
 {
   return ::CreateDirectoryW(lpPathName, nullptr);
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemForDisk::GetCurrentDirectoryW(DWORD nBufferLength,  LPWSTR lpBuffer)
+DWORD MSFileSystemForDisk::GetCurrentDirectoryW(DWORD nBufferLength,  LPWSTR lpBuffer) throw()
 {
   return ::GetCurrentDirectoryW(nBufferLength, lpBuffer);
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemForDisk::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize)
+DWORD MSFileSystemForDisk::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize) throw()
 {
   // Add some code to ensure that the result is null terminated.
   if (nSize <= 1)
@@ -195,7 +195,7 @@ DWORD MSFileSystemForDisk::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize
 }
 
 _Use_decl_annotations_
-DWORD MSFileSystemForDisk::GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer)
+DWORD MSFileSystemForDisk::GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer) throw()
 {
   return ::GetTempPathW(nBufferLength, lpBuffer);
 }
@@ -212,30 +212,30 @@ namespace {
 }
 
 _Use_decl_annotations_
-BOOLEAN MSFileSystemForDisk::CreateSymbolicLinkW(LPCWSTR lpSymlinkFileName, LPCWSTR lpTargetFileName, DWORD dwFlags)
+BOOLEAN MSFileSystemForDisk::CreateSymbolicLinkW(LPCWSTR lpSymlinkFileName, LPCWSTR lpTargetFileName, DWORD dwFlags) throw()
 {
   return create_symbolic_link_api(lpSymlinkFileName, lpTargetFileName, dwFlags);
 }
 
-bool MSFileSystemForDisk::SupportsCreateSymbolicLink()
+bool MSFileSystemForDisk::SupportsCreateSymbolicLink() throw()
 {
   return create_symbolic_link_api != nullptr;
 }
 
 _Use_decl_annotations_
-BOOL MSFileSystemForDisk::ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead)
+BOOL MSFileSystemForDisk::ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead) throw()
 {
   return ::ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, nullptr);
 }
 
 _Use_decl_annotations_
-HANDLE MSFileSystemForDisk::CreateFileMappingW(HANDLE hFile, DWORD flProtect, DWORD dwMaximumSizeHigh, DWORD dwMaximumSizeLow)
+HANDLE MSFileSystemForDisk::CreateFileMappingW(HANDLE hFile, DWORD flProtect, DWORD dwMaximumSizeHigh, DWORD dwMaximumSizeLow) throw()
 {
   return ::CreateFileMappingW(hFile, nullptr, flProtect, dwMaximumSizeHigh, dwMaximumSizeLow, nullptr);
 }
 
 _Use_decl_annotations_
-LPVOID MSFileSystemForDisk::MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess, DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow, SIZE_T dwNumberOfBytesToMap)
+LPVOID MSFileSystemForDisk::MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess, DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow, SIZE_T dwNumberOfBytesToMap) throw()
 {
   return ::MapViewOfFile(hFileMappingObject, dwDesiredAccess, dwFileOffsetHigh, dwFileOffsetLow, dwNumberOfBytesToMap);
 }
@@ -246,13 +246,13 @@ BOOL MSFileSystemForDisk::UnmapViewOfFile(LPCVOID lpBaseAddress) throw()
   return ::UnmapViewOfFile(lpBaseAddress);
 }
 
-bool MSFileSystemForDisk::FileDescriptorIsDisplayed(int fd)
+bool MSFileSystemForDisk::FileDescriptorIsDisplayed(int fd) throw()
 {
   DWORD Mode;  // Unused
   return (GetConsoleMode((HANDLE)_get_osfhandle(fd), &Mode) != 0);
 }
 
-unsigned MSFileSystemForDisk::GetColumnCount(DWORD nStdHandle)
+unsigned MSFileSystemForDisk::GetColumnCount(DWORD nStdHandle) throw()
 {
   unsigned Columns = 0;
   CONSOLE_SCREEN_BUFFER_INFO csbi;
@@ -269,43 +269,43 @@ unsigned MSFileSystemForDisk::GetConsoleOutputTextAttributes() throw()
   return 0;
 }
 
-void MSFileSystemForDisk::SetConsoleOutputTextAttributes(unsigned attributes)
+void MSFileSystemForDisk::SetConsoleOutputTextAttributes(unsigned attributes) throw()
 {
   ::SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), attributes);
 }
 
-void MSFileSystemForDisk::ResetConsoleOutputTextAttributes()
+void MSFileSystemForDisk::ResetConsoleOutputTextAttributes() throw()
 {
   ::SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), _defaultAttributes);
 }
 
-int MSFileSystemForDisk::open_osfhandle(intptr_t osfhandle, int flags)
+int MSFileSystemForDisk::open_osfhandle(intptr_t osfhandle, int flags) throw()
 {
   return ::_open_osfhandle(osfhandle, flags);
 }
 
-intptr_t MSFileSystemForDisk::get_osfhandle(int fd)
+intptr_t MSFileSystemForDisk::get_osfhandle(int fd) throw()
 {
   return ::_get_osfhandle(fd);
 }
 
-int MSFileSystemForDisk::close(int fd)
+int MSFileSystemForDisk::close(int fd) throw()
 {
   return ::_close(fd);
 }
 
-long MSFileSystemForDisk::lseek(int fd, long offset, int origin)
+long MSFileSystemForDisk::lseek(int fd, long offset, int origin) throw()
 {
   return ::_lseek(fd, offset, origin);
 }
 
-int MSFileSystemForDisk::setmode(int fd, int mode)
+int MSFileSystemForDisk::setmode(int fd, int mode) throw()
 {
   return ::_setmode(fd, mode);
 }
 
 _Use_decl_annotations_
-errno_t MSFileSystemForDisk::resize_file(LPCWSTR path, uint64_t size)
+errno_t MSFileSystemForDisk::resize_file(LPCWSTR path, uint64_t size) throw()
 {
   int fd = ::_wopen(path, O_BINARY | _O_RDWR, S_IWRITE);
   if (fd == -1)
@@ -320,13 +320,13 @@ errno_t MSFileSystemForDisk::resize_file(LPCWSTR path, uint64_t size)
 }
 
 _Use_decl_annotations_
-int MSFileSystemForDisk::Read(int fd, void* buffer, unsigned int count)
+int MSFileSystemForDisk::Read(int fd, void* buffer, unsigned int count) throw()
 {
   return ::_read(fd, buffer, count);
 }
 
 _Use_decl_annotations_
-int MSFileSystemForDisk::Write(int fd, const void* buffer, unsigned int count)
+int MSFileSystemForDisk::Write(int fd, const void* buffer, unsigned int count) throw()
 {
   return ::_write(fd, buffer, count);
 }
@@ -338,7 +338,7 @@ int MSFileSystemForDisk::Write(int fd, const void* buffer, unsigned int count)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Externally visible functions.
 
-HRESULT CreateMSFileSystemForDisk(_COM_Outptr_ ::llvm::sys::fs::MSFileSystem** pResult)
+HRESULT CreateMSFileSystemForDisk(_COM_Outptr_ ::llvm::sys::fs::MSFileSystem** pResult) throw()
 {
   *pResult = new (std::nothrow) ::llvm::sys::fs::MSFileSystemForDisk();
   return (*pResult != nullptr) ? S_OK : E_OUTOFMEMORY;

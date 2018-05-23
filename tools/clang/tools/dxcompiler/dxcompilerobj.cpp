@@ -219,13 +219,13 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcCompiler)
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
 
-  __override HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) {
+  HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) override {
     DXASSERT(m_pDxcContainerEventsHandler == nullptr, "else events handler is already registered");
     *pCookie = 1; // Only one EventsHandler supported 
     m_pDxcContainerEventsHandler = pHandler;
     return S_OK;
   };
-  __override HRESULT STDMETHODCALLTYPE UnRegisterDxilContainerEventHandler(UINT64 cookie) {
+  HRESULT STDMETHODCALLTYPE UnRegisterDxilContainerEventHandler(UINT64 cookie) override {
     DXASSERT(m_pDxcContainerEventsHandler != nullptr, "else unregister should not have been called");
     m_pDxcContainerEventsHandler.Release();
     return S_OK;
@@ -241,7 +241,7 @@ public:
   }
 
   // Compile a single entry point to the target shader model
-  __override HRESULT STDMETHODCALLTYPE Compile(
+  HRESULT STDMETHODCALLTYPE Compile(
     _In_ IDxcBlob *pSource,                       // Source text to compile
     _In_opt_ LPCWSTR pSourceName,                 // Optional file name for pSource. Used in errors and include handlers.
     _In_ LPCWSTR pEntryPoint,                     // entry point name
@@ -252,14 +252,14 @@ public:
     _In_ UINT32 defineCount,                      // Number of defines
     _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
     _COM_Outptr_ IDxcOperationResult **ppResult   // Compiler output status, buffer, and errors
-  ) {
+  ) override {
     return CompileWithDebug(pSource, pSourceName, pEntryPoint, pTargetProfile,
                             pArguments, argCount, pDefines, defineCount,
                             pIncludeHandler, ppResult, nullptr, nullptr);
   }
 
   // Compile a single entry point to the target shader model with debug information.
-  __override HRESULT STDMETHODCALLTYPE CompileWithDebug(
+  HRESULT STDMETHODCALLTYPE CompileWithDebug(
     _In_ IDxcBlob *pSource,                       // Source text to compile
     _In_opt_ LPCWSTR pSourceName,                 // Optional file name for pSource. Used in errors and include handlers.
     _In_ LPCWSTR pEntryPoint,                     // Entry point name
@@ -272,7 +272,7 @@ public:
     _COM_Outptr_ IDxcOperationResult **ppResult,  // Compiler output status, buffer, and errors
     _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob.
     _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob
-  ) {
+  ) override {
     if (pSource == nullptr || ppResult == nullptr ||
         (defineCount > 0 && pDefines == nullptr) ||
         (argCount > 0 && pArguments == nullptr) || pEntryPoint == nullptr ||
@@ -352,7 +352,7 @@ public:
       llvm::LLVMContext llvmContext; // LLVMContext should outlive CompilerInstance
       CompilerInstance compiler;
       std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-          std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
+          llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
       SetupCompilerForCompile(compiler, &m_langExtensionsHelper, utf8SourceName, diagPrinter.get(), defines, opts, pArguments, argCount);
       msfPtr->SetupForCompilerInstance(compiler);
 
@@ -450,9 +450,9 @@ public:
           spirvOpts.useGlLayout = opts.VkUseGlLayout;
           spirvOpts.useDxLayout = opts.VkUseDxLayout;
           spirvOpts.enableReflect = opts.SpvEnableReflect;
-          spirvOpts.ignoreUnusedResources = opts.VkIgnoreUnusedResources;
           spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
+          spirvOpts.noWarnIgnoredFeatures = opts.VkNoWarnIgnoredFeatures;
           spirvOpts.bShift = opts.VkBShift;
           spirvOpts.tShift = opts.VkTShift;
           spirvOpts.sShift = opts.VkSShift;
@@ -578,7 +578,7 @@ public:
   }
 
   // Preprocess source text
-  __override HRESULT STDMETHODCALLTYPE Preprocess(
+  HRESULT STDMETHODCALLTYPE Preprocess(
     _In_ IDxcBlob *pSource,                       // Source text to preprocess
     _In_opt_ LPCWSTR pSourceName,                 // Optional file name for pSource. Used in errors and include handlers.
     _In_count_(argCount) LPCWSTR *pArguments,     // Array of pointers to arguments
@@ -587,7 +587,7 @@ public:
     _In_ UINT32 defineCount,                      // Number of defines
     _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
     _COM_Outptr_ IDxcOperationResult **ppResult   // Preprocessor output status, buffer, and errors
-    ) {
+    ) override {
     if (pSource == nullptr || ppResult == nullptr ||
         (defineCount > 0 && pDefines == nullptr) ||
         (argCount > 0 && pArguments == nullptr))
@@ -652,7 +652,7 @@ public:
       raw_stream_ostream outStream(pOutputStream.p);
       CompilerInstance compiler;
       std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-          std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
+          llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
       SetupCompilerForCompile(compiler, &m_langExtensionsHelper, utf8SourceName, diagPrinter.get(), defines, opts, pArguments, argCount);
       msfPtr->SetupForCompilerInstance(compiler);
 
@@ -696,10 +696,10 @@ public:
   }
 
   // Disassemble a shader.
-  __override HRESULT STDMETHODCALLTYPE Disassemble(
+  HRESULT STDMETHODCALLTYPE Disassemble(
     _In_ IDxcBlob *pProgram,                      // Program to disassemble.
     _COM_Outptr_ IDxcBlobEncoding** ppDisassembly // Disassembly text.
-    ) {
+    ) override {
     if (pProgram == nullptr || ppDisassembly == nullptr)
       return E_INVALIDARG;
 
@@ -879,14 +879,14 @@ public:
   }
 
   // IDxcVersionInfo
-  __override HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) {
+  HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) override {
     if (pMajor == nullptr || pMinor == nullptr)
       return E_INVALIDARG;
     *pMajor = DXIL::kDxilMajor;
     *pMinor = DXIL::kDxilMinor;
     return S_OK;
   }
-  __override HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) {
+  HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override {
     if (pFlags == nullptr)
       return E_INVALIDARG;
     *pFlags = DxcVersionInfoFlags_None;

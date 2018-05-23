@@ -43,7 +43,7 @@ If either of Name or ResName is assigned and the other isn't, they default to th
 
 Attributes: Name, Flags, NodeMask, NumDescriptors, Type
 Flags defaults to D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE.
-Type defaults to D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV.
+Type is one of (CBV_SRV_UAV,SAMPLER,RTV,DSV) and defaults to D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV.
 When Type is D3D12_DESCRIPTOR_HEAP_TYPE_RTV, Flags defaults to NONE.
 
 ### Resource

@@ -3,31 +3,31 @@
 // CHECK: OpCapability Sampled1D
 // CHECK: OpCapability ImageMSArray
 
-// CHECK: %type_1d_image = OpTypeImage %float 1D 0 0 0 1 Unknown
+// CHECK: %type_1d_image = OpTypeImage %float 1D 2 0 0 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_1d_image = OpTypePointer UniformConstant %type_1d_image
 
-// CHECK: %type_2d_image = OpTypeImage %int 2D 0 0 0 1 Unknown
+// CHECK: %type_2d_image = OpTypeImage %int 2D 2 0 0 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_2d_image = OpTypePointer UniformConstant %type_2d_image
 
-// CHECK: %type_3d_image = OpTypeImage %uint 3D 0 0 0 1 Unknown
+// CHECK: %type_3d_image = OpTypeImage %uint 3D 2 0 0 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_3d_image = OpTypePointer UniformConstant %type_3d_image
 
-// CHECK: %type_cube_image = OpTypeImage %float Cube 0 0 0 1 Unknown
+// CHECK: %type_cube_image = OpTypeImage %float Cube 2 0 0 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_cube_image = OpTypePointer UniformConstant %type_cube_image
 
-// CHECK: %type_1d_image_array = OpTypeImage %float 1D 0 1 0 1 Unknown
+// CHECK: %type_1d_image_array = OpTypeImage %float 1D 2 1 0 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_1d_image_array = OpTypePointer UniformConstant %type_1d_image_array
 
-// CHECK: %type_2d_image_array = OpTypeImage %int 2D 0 1 0 1 Unknown
+// CHECK: %type_2d_image_array = OpTypeImage %int 2D 2 1 0 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_2d_image_array = OpTypePointer UniformConstant %type_2d_image_array
 
-// CHECK: %type_cube_image_array = OpTypeImage %float Cube 0 1 0 1 Unknown
+// CHECK: %type_cube_image_array = OpTypeImage %float Cube 2 1 0 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_cube_image_array = OpTypePointer UniformConstant %type_cube_image_array
 
-// CHECK: %type_2d_image_0 = OpTypeImage %int 2D 0 0 1 1 Unknown
+// CHECK: %type_2d_image_0 = OpTypeImage %int 2D 2 0 1 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_2d_image_0 = OpTypePointer UniformConstant %type_2d_image_0
 
-// CHECK: %type_2d_image_array_0 = OpTypeImage %uint 2D 0 1 1 1 Unknown
+// CHECK: %type_2d_image_array_0 = OpTypeImage %uint 2D 2 1 1 1 Unknown
 // CHECK: %_ptr_UniformConstant_type_2d_image_array_0 = OpTypePointer UniformConstant %type_2d_image_array_0
 
 

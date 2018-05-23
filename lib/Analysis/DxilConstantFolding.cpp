@@ -35,7 +35,7 @@
 #include <algorithm>
 #include <functional>
 
-#include "dxc/HLSL/Dxil.h"
+#include "dxc/HLSL/DXIL.h"
 
 using namespace llvm;
 using namespace hlsl;

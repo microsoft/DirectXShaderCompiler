@@ -120,7 +120,7 @@ decorated by the ``Position``, ``ClipDistance``, ``CullDistance`` builtin,
 and two of them are decorated by the ``Location`` decoration. (Note that
 ``clip0`` and ``clip1`` are concatenated, also ``cull0`` and ``cull1``.
 The ``ClipDistance`` and ``CullDistance`` builtins are special and explained
-in the `gl_PerVertex`_ section.)
+in the `ClipDistance & CullDistance`_ section.)
 
 Flattening is infective because of Vulkan interface matching rules. If we
 flatten a struct in the output of a previous stage, which may create multiple
@@ -132,25 +132,6 @@ stages, which means we need to flatten all shader stage interfaces. For
 hull/domain/geometry shader, their inputs/outputs have an additional arrayness.
 So if we are seeing an array of structs in these shaders, we need to flatten
 them into arrays of its fields.
-
-Lastly, to satisfy the type requirements on builtins, after flattening, the
-variables decorated with ``Position``, ``ClipDistance``, and ``CullDistance``
-builtins are grouped into struct, like ``gl_PerVertex`` for certain shader stage
-interface:
-
-============ ===== ======
-Shader Stage Input Output
-============ ===== ======
-    VS         X     G
-    HS         G     G
-    DS         G     G
-    GS         G     S
-    PS         S     X
-============ ===== ======
-
-(``X``: Not applicable, ``G``: Grouped, ``S``: separated)
-
-More details in the `gl_PerVertex`_ section.
 
 Vulkan specific features
 ------------------------
@@ -275,6 +256,8 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``builtin("X")``: For specifying an entity should be translated into a certain
   Vulkan builtin variable. Allowed on function parameters, function returns,
   and struct fields.
+- ``index(X)``: For specifying the index at a specific pixel shader output
+  location. Used for dual-source blending.
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
@@ -576,6 +559,18 @@ HLSL Interpolation Modifier SPIR-V Decoration   SPIR-V Capability
 ``sample``                  ``Sample``        ``SampleRateShading``
 =========================== ================= =====================
 
+Arrays
+------
+
+Sized (either explicitly or implicitly) arrays are translated into SPIR-V
+`OpTypeArray`. Unsized arrays are translated into `OpTypeRuntimeArray`.
+
+Arrays, if used for external resources (residing in SPIR-V `Uniform` or
+`UniformConstant` storage class), will need layout decorations like SPIR-V
+`ArrayStride` decoration. For arrays of opaque types, e.g., HLSL textures
+or samplers, we don't decorate with `ArrayStride` decorations since there is
+no meaningful strides. Similarly for arrays of structured/byte buffers.
+
 User-defined types
 ------------------
 
@@ -603,22 +598,22 @@ are translated into SPIR-V ``OpTypeImage``, with parameters:
 ----------------------- -------------------------- ------------------------------------------------------------------------------------------
      Texture Type         Descriptor Type    RO/RW    Storage Class        Dim    Depth Arrayed MS Sampled   Image Format      Capability
 ======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
-``Texture1D``           Sampled Image         RO   ``UniformConstant`` ``1D``      0       0    0    1     ``Unknown``
-``Texture2D``           Sampled Image         RO   ``UniformConstant`` ``2D``      0       0    0    1     ``Unknown``
-``Texture3D``           Sampled Image         RO   ``UniformConstant`` ``3D``      0       0    0    1     ``Unknown``
-``TextureCube``         Sampled Image         RO   ``UniformConstant`` ``Cube``    0       0    0    1     ``Unknown``
-``Texture1DArray``      Sampled Image         RO   ``UniformConstant`` ``1D``      0       1    0    1     ``Unknown``
-``Texture2DArray``      Sampled Image         RO   ``UniformConstant`` ``2D``      0       1    0    1     ``Unknown``
-``Texture2DMS``         Sampled Image         RO   ``UniformConstant`` ``2D``      0       0    1    1     ``Unknown``
-``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      0       1    1    1     ``Unknown``      ``ImageMSArray``
-``TextureCubeArray``    Sampled Image         RO   ``UniformConstant`` ``3D``      0       1    0    1     ``Unknown``
-``Buffer<T>``           Uniform Texel Buffer  RO   ``UniformConstant`` ``Buffer``  0       0    0    1     Depends on ``T`` ``SampledBuffer``
-``RWBuffer<T>``         Storage Texel Buffer  RW   ``UniformConstant`` ``Buffer``  0       0    0    2     Depends on ``T`` ``SampledBuffer``
-``RWTexture1D<T>``      Storage Image         RW   ``UniformConstant`` ``1D``      0       0    0    2     Depends on ``T``
-``RWTexture2D<T>``      Storage Image         RW   ``UniformConstant`` ``2D``      0       0    0    2     Depends on ``T``
-``RWTexture3D<T>``      Storage Image         RW   ``UniformConstant`` ``3D``      0       0    0    2     Depends on ``T``
-``RWTexture1DArray<T>`` Storage Image         RW   ``UniformConstant`` ``1D``      0       1    0    2     Depends on ``T``
-``RWTexture2DArray<T>`` Storage Image         RW   ``UniformConstant`` ``2D``      0       1    0    2     Depends on ``T``
+``Texture1D``           Sampled Image         RO   ``UniformConstant`` ``1D``      2       0    0    1     ``Unknown``
+``Texture2D``           Sampled Image         RO   ``UniformConstant`` ``2D``      2       0    0    1     ``Unknown``
+``Texture3D``           Sampled Image         RO   ``UniformConstant`` ``3D``      2       0    0    1     ``Unknown``
+``TextureCube``         Sampled Image         RO   ``UniformConstant`` ``Cube``    2       0    0    1     ``Unknown``
+``Texture1DArray``      Sampled Image         RO   ``UniformConstant`` ``1D``      2       1    0    1     ``Unknown``
+``Texture2DArray``      Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    0    1     ``Unknown``
+``Texture2DMS``         Sampled Image         RO   ``UniformConstant`` ``2D``      2       0    1    1     ``Unknown``
+``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    1    1     ``Unknown``      ``ImageMSArray``
+``TextureCubeArray``    Sampled Image         RO   ``UniformConstant`` ``3D``      2       1    0    1     ``Unknown``
+``Buffer<T>``           Uniform Texel Buffer  RO   ``UniformConstant`` ``Buffer``  2       0    0    1     Depends on ``T`` ``SampledBuffer``
+``RWBuffer<T>``         Storage Texel Buffer  RW   ``UniformConstant`` ``Buffer``  2       0    0    2     Depends on ``T`` ``SampledBuffer``
+``RWTexture1D<T>``      Storage Image         RW   ``UniformConstant`` ``1D``      2       0    0    2     Depends on ``T``
+``RWTexture2D<T>``      Storage Image         RW   ``UniformConstant`` ``2D``      2       0    0    2     Depends on ``T``
+``RWTexture3D<T>``      Storage Image         RW   ``UniformConstant`` ``3D``      2       0    0    2     Depends on ``T``
+``RWTexture1DArray<T>`` Storage Image         RW   ``UniformConstant`` ``1D``      2       1    0    2     Depends on ``T``
+``RWTexture2DArray<T>`` Storage Image         RW   ``UniformConstant`` ``2D``      2       1    0    2     Depends on ``T``
 ======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
 
 The meanings of the headers in the above table is explained in ``OpTypeImage``
@@ -1212,22 +1207,8 @@ flattening all structs if structs are used as function parameters or returns.
 There is an exception to the above rule for SV_Target[N]. It will always be
 mapped to ``Location`` number N.
 
-``gl_PerVertex``
-~~~~~~~~~~~~~~~~
-
-Variables annotated with ``SV_Position``, ``SV_ClipDistanceX``, and
-``SV_CullDistanceX`` are mapped into fields of a ``gl_PerVertex`` struct:
-
-.. code:: hlsl
-
-    struct gl_PerVertex {
-        float4 gl_Position;       // SPIR-V BuiltIn Position
-        float  gl_PointSize;      // No HLSL equivalent
-        float  gl_ClipDistance[]; // SPIR-V BuiltIn ClipDistance
-        float  gl_CullDistance[]; // SPIR-V BuiltIn CullDistance
-    };
-
-This mimics how these builtins are handled in GLSL.
+``ClipDistance & CullDistance``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Variables decorated with ``SV_ClipDistanceX`` can be float or vector of float
 type. To map them into one float array in the struct, we firstly sort them
@@ -1297,13 +1278,6 @@ respectively.
 If there is no register specification, the corresponding resource will be
 assigned to the next available binding number, starting from 0, in descriptor
 set #0.
-
-Error checking
-~~~~~~~~~~~~~~
-
-Trying to reuse the same binding number of the same descriptor set results in
-a compiler error, unless we have exactly two resources and one is an image and
-the other is a sampler. This is to support the Vulkan combined image sampler.
 
 Summary
 ~~~~~~~
@@ -1885,6 +1859,35 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``tanh``                ``Tanh``
 ``trunc``               ``Trunc``
 ======================= ===================================
+
+Synchronization intrinsics
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Synchronization intrinsics are translated into ``OpMemoryBarrier`` (for those
+non-``WithGroupSync`` variants) or ``OpControlBarrier`` (for those ``WithGroupSync``
+variants) instructions with parameters:
+
+======================= ============ ===== ======= ========= ==============
+       HLSL                SPIR-V          SPIR-V Memory Semantics
+----------------------- ------------ --------------------------------------
+     Intrinsic          Memory Scope Image Uniform Workgroup AcquireRelease
+======================= ============ ===== ======= ========= ==============
+``AllMemoryBarrier``    Device       ✓       ✓         ✓          ✓
+``DeviceMemoryBarrier`` Device       ✓       ✓                    ✓
+``GroupMemoryBarrier``  Workgroup                       ✓          ✓
+======================= ============ ===== ======= ========= ==============
+
+For the ``*WithGroupSync`` intrinsics, SPIR-V memory scope and semantics are the
+same as their counterparts in the above. They have an additional execution
+scope:
+
+==================================== ======================
+       HLSL Intrinsic                SPIR-V Execution Scope
+==================================== ======================
+``AllMemoryBarrierWithGroupSync``    Workgroup
+``DeviceMemoryBarrierWithGroupSync`` Workgroup
+``GroupMemoryBarrierWithGroupSync``  Workgroup
+==================================== ======================
 
 HLSL OO features
 ================
@@ -2692,9 +2695,6 @@ codegen for Vulkan:
 - ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
 - ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
 - ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.
-- ``-fvk-ignore-unused-resources``: Avoids emitting SPIR-V code for resources
-  defined but not statically referenced by the call tree of the entry point
-  in question.
 - ``-fvk-use-gl-layout``: Uses strict OpenGL ``std140``/``std430``
   layout rules for resources.
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
@@ -2711,6 +2711,8 @@ codegen for Vulkan:
 - ``-fspv-target-env=<env>``: Specifies the target environment for this compilation.
   The current valid options are ``vulkan1.0`` and ``vulkan1.1``. If no target
   environment is provided, ``vulkan1.0`` is used as default.
+- ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
+  resulting from no Vulkan support, e.g., cbuffer member initializer.
 
 Unsupported HLSL Features
 =========================

@@ -53,6 +53,28 @@ using std::unique_ptr;
 
 static const bool KeepUndefinedTrue = true; // Keep interpolation mode undefined if not set explicitly.
 
+// Define constant variables exposed in DxilConstants.h
+namespace hlsl {
+namespace DXIL {
+  // TODO: revisit data layout descriptions for the following:
+  //      - x64 pointers?
+  //      - Keep elf manging(m:e)?
+
+  // For legacy data layout, everything less than 32 align to 32.
+  const char* kLegacyLayoutString = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f:64:64-n8:16:32:64";
+
+  // New data layout with native low precision types
+  const char* kNewLayoutString = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64";
+
+  // Function Attributes
+  // TODO: consider generating attributes from hctdb
+  const char* kFP32DenormKindString          = "fp32-denorm-mode";
+  const char* kFP32DenormValueAnyString      = "any";
+  const char* kFP32DenormValuePreserveString = "preserve";
+  const char* kFP32DenormValueFtzString      = "ftz";
+} // DXIL
+} // hlsl
+
 namespace {
 
 /// Use this class to represent HLSL cbuffer in high-level DXIL.
