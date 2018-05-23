@@ -108,7 +108,6 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/dxcompilerobj.cpp
   PROPERTIES OBJECT_DEPENDS "${GIT_COMMIT_INFO_FILE}")
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/dxcvalidator.cpp
   PROPERTIES OBJECT_DEPENDS "${GIT_COMMIT_INFO_FILE}")
-target_include_directories(dxcompiler PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 set_target_properties(dxcompiler
   PROPERTIES
