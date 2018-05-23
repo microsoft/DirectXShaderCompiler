@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T cs_6_0 %s  | FileCheck %s
 
-// CHECK: %class.StructuredBuffer = type { %class.matrix.float.4.4 }
+// CHECK: %"class.StructuredBuffer<matrix<float, 4, 4> >" = type { %class.matrix.float.4.4 }
 
 StructuredBuffer<matrix> buf1;
 // Should be equivalent to:
