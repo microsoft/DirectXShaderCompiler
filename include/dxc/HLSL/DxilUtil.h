@@ -11,6 +11,9 @@
 
 #pragma once
 #include <unordered_set>
+#include <string>
+#include <memory>
+#include "llvm/ADT/StringRef.h"
 
 namespace llvm {
 class Type;
@@ -23,7 +26,7 @@ class DiagnosticInfo;
 class Value;
 class Instruction;
 class BasicBlock;
-class StringRef;
+class raw_ostream;
 }
 
 namespace hlsl {
@@ -32,6 +35,9 @@ class DxilFieldAnnotation;
 class DxilTypeSystem;
 
 namespace dxilutil {
+  extern const char ManglingPrefix[];
+  extern const char EntryPrefix[];
+
   unsigned
   GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
                                    llvm::Type *Ty, DxilTypeSystem &typeSys);
@@ -54,6 +60,10 @@ namespace dxilutil {
   void EmitResMappingError(llvm::Instruction *Res);
   // Simple demangle just support case "\01?name@" pattern.
   llvm::StringRef DemangleFunctionName(llvm::StringRef name);
+  // ReplaceFunctionName replaces the undecorated portion of originalName with undecorated newName
+  std::string ReplaceFunctionName(llvm::StringRef originalName, llvm::StringRef newName);
+  void PrintEscapedString(llvm::StringRef Name, llvm::raw_ostream &Out);
+  void PrintUnescapedString(llvm::StringRef Name, llvm::raw_ostream &Out);
   // Change select/phi on operands into select/phi on operation.
   // phi0 = phi a0, b0, c0
   // phi1 = phi a1, b1, c1

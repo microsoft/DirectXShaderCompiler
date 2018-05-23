@@ -41,6 +41,7 @@ add_llvm_library(LLVMHLSL
   DxilTargetTransformInfo.cpp
   DxilTypeSystem.cpp
   DxilUtil.cpp
+  DxilExportMap.cpp
   DxilValidation.cpp
   DxcOptimizer.cpp
   HLMatrixLowerPass.cpp

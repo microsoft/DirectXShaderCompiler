@@ -25,6 +25,8 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "dxc/Support/Global.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/Twine.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -32,6 +34,9 @@ using namespace hlsl;
 namespace hlsl {
 
 namespace dxilutil {
+
+const char ManglingPrefix[] = "\01?";
+const char EntryPrefix[] = "dx.entry.";
 
 Type *GetArrayEltTy(Type *Ty) {
   if (isa<PointerType>(Ty))
@@ -129,15 +134,58 @@ void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI, void *Context) {
 }
 
 StringRef DemangleFunctionName(StringRef name) {
-  if (!name.startswith("\01?")) {
-    // Name don't mangled.
+  if (!name.startswith(ManglingPrefix)) {
+    // Name isn't mangled.
     return name;
   }
 
   size_t nameEnd = name.find_first_of("@");
-  DXASSERT(nameEnd != StringRef::npos, "else Name don't mangled but has \01?");
+  DXASSERT(nameEnd != StringRef::npos, "else Name isn't mangled but has \01?");
 
   return name.substr(2, nameEnd - 2);
+}
+
+std::string ReplaceFunctionName(StringRef originalName, StringRef newName) {
+  if (originalName.startswith(ManglingPrefix)) {
+    return (Twine(ManglingPrefix) + newName +
+      originalName.substr(originalName.find_first_of('@'))).str();
+  } else if (originalName.startswith(EntryPrefix)) {
+    return (Twine(EntryPrefix) + newName).str();
+  }
+  return newName.str();
+}
+
+// From AsmWriter.cpp
+// PrintEscapedString - Print each character of the specified string, escaping
+// it if it is not printable or if it is an escape char.
+void PrintEscapedString(StringRef Name, raw_ostream &Out) {
+  for (unsigned i = 0, e = Name.size(); i != e; ++i) {
+    unsigned char C = Name[i];
+    if (isprint(C) && C != '\\' && C != '"')
+      Out << C;
+    else
+      Out << '\\' << hexdigit(C >> 4) << hexdigit(C & 0x0F);
+  }
+}
+
+void PrintUnescapedString(StringRef Name, raw_ostream &Out) {
+  for (unsigned i = 0, e = Name.size(); i != e; ++i) {
+    unsigned char C = Name[i];
+    if (C == '\\') {
+      C = Name[++i];
+      unsigned value = hexDigitValue(C);
+      if (value != -1U) {
+        C = (unsigned char)value;
+        unsigned value2 = hexDigitValue(Name[i+1]);
+        assert(value2 != -1U && "otherwise, not a two digit hex escape");
+        if (value2 != -1U) {
+          C = (C << 4) + (unsigned char)value2;
+          ++i;
+        }
+      } // else, the next character (in C) should be the escaped character
+    }
+    Out << C;
+  }
 }
 
 std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
@@ -293,5 +341,6 @@ llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
   return SkipAllocas(
     F->getEntryBlock().getFirstInsertionPt());
 }
+
 }
 }

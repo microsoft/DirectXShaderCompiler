@@ -233,6 +233,7 @@ def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOptio
   HelpText<"Enable 16bit types and disable min precision types. Available in HLSL 2018 and shader model 6.2">;
 def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def auto_binding_space : Separate<["-", "/"], "auto-binding-space">, Group<hlslcomp_Group>, Flags<[CoreOption]>, HelpText<"Set auto binding space - enables auto resource binding in libraries">;
+def exports : Separate<["-", "/"], "exports">, Group<hlslcomp_Group>, Flags<[CoreOption]>, HelpText<"Specify exports when compiling a library: export1[[,export1_clone,...]=internal_name][;...]">;
 
 // SPIRV Change Starts
 def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,

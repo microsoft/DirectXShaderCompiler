@@ -266,6 +266,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       // Set entry point to impossible name.
       opts.EntryPoint = "lib.no::entry";
     }
+  } else if (Args.getLastArg(OPT_exports)) {
+    errors << "library profile required when using -exports option";
+    return 1;
   }
 
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
@@ -350,6 +353,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       return 1;
     }
   }
+
+  opts.Exports = Args.getAllArgValues(OPT_exports);
 
   // Check options only allowed in shader model >= 6.2FPDenormalMode
   unsigned Major = 0;

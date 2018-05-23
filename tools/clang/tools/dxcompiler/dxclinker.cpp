@@ -69,23 +69,6 @@ public:
           *ppResult // Linker output status, buffer, and errors
   ) override;
 
-  // Links the shader with export and produces a shader blob that the Direct3D
-  // runtime can use.
-  HRESULT STDMETHODCALLTYPE LinkWithExports(
-      _In_opt_ LPCWSTR pEntryName, // Entry point name
-      _In_ LPCWSTR pTargetProfile, // shader profile to link
-      _In_count_(libCount)
-          const LPCWSTR *pLibNames, // Array of library names to link
-      UINT32 libCount,              // Number of libraries to link
-      _In_count_(argCount)
-          const LPCWSTR *pArguments, // Array of pointers to arguments
-      _In_ UINT32 argCount,          // Number of arguments
-      _In_count_(exportCount) const DxcDefine *pExports, // Array of exports
-      _In_ UINT32 exportCount,                           // Number of exports
-      _COM_Outptr_ IDxcOperationResult *
-          *ppResult // Linker output status, buffer, and errors
-      ) override;
-
   HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
       IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) override {
     DxcThreadMalloc TM(m_pMalloc);
@@ -166,6 +149,8 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
   }
 }
 
+// Links the shader and produces a shader blob that the Direct3D runtime can
+// use.
 HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     _In_opt_ LPCWSTR pEntryName, // Entry point name
     _In_ LPCWSTR pTargetProfile, // shader profile to link
@@ -175,27 +160,6 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     _In_count_(argCount)
         const LPCWSTR *pArguments, // Array of pointers to arguments
     _In_ UINT32 argCount,          // Number of arguments
-    _COM_Outptr_ IDxcOperationResult *
-        *ppResult // Linker output status, buffer, and errors
-) {
-  return LinkWithExports(pEntryName, pTargetProfile, pLibNames, libCount,
-                         pArguments, argCount, /*pExorts*/ nullptr,
-                         /*exportCount*/ 0, ppResult);
-}
-
-// Links the shader with export and produces a shader blob that the Direct3D
-// runtime can use.
-__override HRESULT STDMETHODCALLTYPE DxcLinker::LinkWithExports(
-    _In_opt_ LPCWSTR pEntryName, // Entry point name
-    _In_ LPCWSTR pTargetProfile, // shader profile to link
-    _In_count_(libCount)
-        const LPCWSTR *pLibNames, // Array of library names to link
-    UINT32 libCount,              // Number of libraries to link
-    _In_count_(argCount)
-        const LPCWSTR *pArguments, // Array of pointers to arguments
-    _In_ UINT32 argCount,          // Number of arguments
-    _In_count_(exportCount) const DxcDefine *pExports, // Array of exports
-    _In_ UINT32 exportCount,                           // Number of exports
     _COM_Outptr_ IDxcOperationResult *
         *ppResult // Linker output status, buffer, and errors
 ) {
@@ -237,7 +201,7 @@ __override HRESULT STDMETHODCALLTYPE DxcLinker::LinkWithExports(
     }
 
     std::string warnings;
-    llvm::raw_string_ostream w(warnings);
+    //llvm::raw_string_ostream w(warnings);
     IFT(CreateMemoryStream(pMalloc, &pDiagStream));
     raw_stream_ostream DiagStream(pDiagStream);
     llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
@@ -252,16 +216,11 @@ __override HRESULT STDMETHODCALLTYPE DxcLinker::LinkWithExports(
       bSuccess &= m_pLinker->AttachLib(pUtf8LibName.m_psz);
     }
 
+    dxilutil::ExportMap exportMap;
+    bSuccess = exportMap.ParseExports(opts.Exports, DiagStream);
+
     bool hasErrorOccurred = !bSuccess;
     if (bSuccess) {
-      StringMap<StringRef> exportMap;
-      std::vector<std::string> names(exportCount);
-      for (unsigned i=0;i<exportCount;i++) {
-        const DxcDefine &pExport = pExports[i];
-        names[i] = CW2A(pExport.Name);
-        exportMap[names[i]] = "";
-      }
-
       std::unique_ptr<Module> pM = m_pLinker->Link(
           opts.EntryPoint, pUtf8TargetProfile.m_psz, exportMap);
       if (pM) {

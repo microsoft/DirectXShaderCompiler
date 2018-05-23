@@ -373,6 +373,8 @@ private:
       }
     } else {
       std::vector<Function *> entries;
+      // Handle when multiple hull shaders point to the same patch constant function
+      DenseMap<Function*,Function*> patchConstantUpdates;
       for (iplist<Function>::iterator F : M.getFunctionList()) {
         if (DM.IsEntryThatUsesSignatures(F)) {
           auto *FT = F->getFunctionType();
@@ -384,9 +386,15 @@ private:
       for (Function *entry : entries) {
         DxilFunctionProps &props = DM.GetDxilFunctionProps(entry);
         if (props.IsHS()) {
+          Function* patchConstFunc = props.ShaderProps.HS.patchConstantFunc;
+          auto it = patchConstantUpdates.find(patchConstFunc);
+          if (it == patchConstantUpdates.end()) {
+            patchConstFunc = patchConstantUpdates[patchConstFunc] =
+              StripFunctionParameter(patchConstFunc, DM, FunctionDIs);
+          } else {
+            patchConstFunc = it->second;
+          }
           // Strip patch constant function first.
-          Function *patchConstFunc = StripFunctionParameter(
-              props.ShaderProps.HS.patchConstantFunc, DM, FunctionDIs);
           DM.SetPatchConstantFunctionForHS(entry, patchConstFunc);
         }
         StripFunctionParameter(entry, DM, FunctionDIs);

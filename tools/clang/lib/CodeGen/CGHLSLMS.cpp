@@ -28,6 +28,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -44,6 +45,7 @@
 #include "dxc/dxcapi.h"                 // stream support
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/HLSL/DxilGenerationPass.h" // support pause/resume passes
+#include "dxc/HLSL/DxilExportMap.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -125,6 +127,9 @@ private:
   bool  m_bDebugInfo;
   bool  m_bIsLib;
 
+  // For library, m_ExportMap maps from internal name to zero or more renames
+  dxilutil::ExportMap m_ExportMap;
+
   HLCBuffer &GetGlobalCBuffer() {
     return *static_cast<HLCBuffer*>(&(m_pHLModule->GetCBuffer(globalCBIndex)));
   }
@@ -143,7 +148,7 @@ private:
   };
 
   EntryFunctionInfo Entry;
-  
+
   // Map to save patch constant functions
   struct PatchConstantInfo {
     clang::SourceLocation SL = clang::SourceLocation();
@@ -436,6 +441,15 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   // set Float Denorm Mode
   m_pHLModule->SetFloat32DenormMode(CGM.getCodeGenOpts().HLSLFloat32DenormMode);
 
+  // Fill in m_ExportMap, which maps from internal name to zero or more renames
+  m_ExportMap.clear();
+  std::string errors;
+  llvm::raw_string_ostream os(errors);
+  if (!m_ExportMap.ParseExports(CGM.getCodeGenOpts().HLSLLibraryExports, os)) {
+    DiagnosticsEngine &Diags = CGM.getDiags();
+    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "Error parsing -exports options: %0");
+    Diags.Report(DiagID) << os.str();
+  }
 }
 
 bool CGMSHLSLRuntime::IsHlslObjectType(llvm::Type *Ty) {
@@ -1880,14 +1894,24 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
   }
 
+  // clear isExportedEntry if not exporting entry
+  bool isExportedEntry = profileAttributes != 0;
+  if (isExportedEntry) {
+    // use unmangled or mangled name depending on which is used for final entry function
+    StringRef name = isRay ? F->getName() : FD->getName();
+    if (!m_ExportMap.IsExported(name)) {
+      isExportedEntry = false;
+    }
+  }
+
   // Only add functionProps when exist.
-  if (profileAttributes || isEntry)
+  if (isExportedEntry || isEntry)
     m_pHLModule->AddDxilFunctionProps(F, funcProps);
   if (isPatchConstantFunction)
     patchConstantFunctionPropsMap[F] = std::move(funcProps);
 
   // Save F to entry map.
-  if (profileAttributes) {
+  if (isExportedEntry) {
     if (entryFunctionMap.count(FD->getName())) {
       DiagnosticsEngine &Diags = CGM.getDiags();
       unsigned DiagID = Diags.getCustomDiagID(
@@ -4110,44 +4134,48 @@ static void SimpleTransformForHLDXIR(llvm::Module *pM) {
     I->eraseFromParent();
 }
 
-// Clone shader entry function to be called by other functions.
-// The original function will be used as shader entry.
-static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
-                             HLModule &HLM) {
-  // Use mangled name for cloned one.
-  Function *F = Function::Create(ShaderF->getFunctionType(),
+static Function *CloneFunction(Function *Orig,
+                        const llvm::Twine &Name,
+                        llvm::Module *llvmModule,
+                        hlsl::DxilTypeSystem &TypeSys,
+                        hlsl::DxilTypeSystem &SrcTypeSys) {
+
+  Function *F = Function::Create(Orig->getFunctionType(),
                                  GlobalValue::LinkageTypes::ExternalLinkage,
-                                 "", HLM.GetModule());
-  F->takeName(ShaderF);
-  // Set to name before mangled.
-  ShaderF->setName(EntryName);
+                                 Name, llvmModule);
 
   SmallVector<ReturnInst *, 2> Returns;
   ValueToValueMapTy vmap;
   // Map params.
   auto entryParamIt = F->arg_begin();
-  for (Argument &param : ShaderF->args()) {
+  for (Argument &param : Orig->args()) {
     vmap[&param] = (entryParamIt++);
   }
 
-  llvm::CloneFunctionInto(F, ShaderF, vmap, /*ModuleLevelChagnes*/ false,
-                          Returns);
+  llvm::CloneFunctionInto(F, Orig, vmap, /*ModuleLevelChagnes*/ false, Returns);
+  TypeSys.CopyFunctionAnnotation(F, Orig, SrcTypeSys);
 
-  // Copy function annotation.
-  DxilFunctionAnnotation *shaderAnnot = HLM.GetFunctionAnnotation(ShaderF);
-  DxilFunctionAnnotation *annot = HLM.AddFunctionAnnotation(F);
+  return F;
+}
 
-  DxilParameterAnnotation &retAnnot = shaderAnnot->GetRetTypeAnnotation();
+// Clone shader entry function to be called by other functions.
+// The original function will be used as shader entry.
+static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
+                             HLModule &HLM) {
+  Function *F = CloneFunction(ShaderF, "", HLM.GetModule(),
+                              HLM.GetTypeSystem(), HLM.GetTypeSystem());
+
+  F->takeName(ShaderF);
+  // Set to name before mangled.
+  ShaderF->setName(EntryName);
+
+  DxilFunctionAnnotation *annot = HLM.GetFunctionAnnotation(F);
   DxilParameterAnnotation &cloneRetAnnot = annot->GetRetTypeAnnotation();
-  cloneRetAnnot = retAnnot;
   // Clear semantic for cloned one.
   cloneRetAnnot.SetSemanticString("");
   cloneRetAnnot.SetSemanticIndexVec({});
-  for (unsigned i = 0; i < shaderAnnot->GetNumParameters(); i++) {
+  for (unsigned i = 0; i < annot->GetNumParameters(); i++) {
     DxilParameterAnnotation &cloneParamAnnot = annot->GetParameterAnnotation(i);
-    DxilParameterAnnotation &paramAnnot =
-        shaderAnnot->GetParameterAnnotation(i);
-    cloneParamAnnot = paramAnnot;
     // Clear semantic for cloned one.
     cloneParamAnnot.SetSemanticString("");
     cloneParamAnnot.SetSemanticIndexVec({});
@@ -4429,6 +4457,8 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       if (m_pHLModule->GetDxilFunctionProps(it.second.Func).IsRay())
         continue;
 
+      // TODO: change flattened function names to dx.entry.<name>:
+      //std::string entryName = (Twine(dxilutil::EntryPrefix) + it.getKey()).str();
       CloneShaderEntry(it.second.Func, it.getKey(), *m_pHLModule);
 
       auto AttrIter = HSEntryPatchConstantFuncAttr.find(it.second.Func);
@@ -4480,6 +4510,17 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // translate opcode into parameter for intrinsic functions
   AddOpcodeParamForIntrinsics(*m_pHLModule, m_IntrinsicMap, resMetadataMap);
 
+  // Register patch constant functions referenced by exported Hull Shaders
+  if (m_bIsLib && !m_ExportMap.empty()) {
+    for (auto &it : entryFunctionMap) {
+      if (m_pHLModule->HasDxilFunctionProps(it.second.Func)) {
+        const DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(it.second.Func);
+        if (props.IsHS())
+          m_ExportMap.RegisterExportedFunction(props.ShaderProps.HS.patchConstantFunc);
+      }
+    }
+  }
+
   // Pin entry point and constant buffers, mark everything else internal.
   for (Function &f : m_pHLModule->GetModule()->functions()) {
     if (!m_bIsLib) {
@@ -4496,6 +4537,62 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     // Always inline for used functions.
     if (!f.user_empty() && !f.isDeclaration())
       f.addFnAttr(llvm::Attribute::AlwaysInline);
+  }
+
+  if (m_bIsLib && !m_ExportMap.empty()) {
+    m_ExportMap.BeginProcessing();
+    for (Function &f : m_pHLModule->GetModule()->functions()) {
+      if (f.isDeclaration() || f.isIntrinsic() ||
+        GetHLOpcodeGroup(&f) != HLOpcodeGroup::NotHL)
+        continue;
+      m_ExportMap.ProcessFunction(&f, true);
+    }
+    // TODO: add subobject export names here.
+    if (!m_ExportMap.EndProcessing()) {
+      for (auto &name : m_ExportMap.GetNameCollisions()) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+          "Export name collides with another export: %0");
+        std::string escaped;
+        llvm::raw_string_ostream os(escaped);
+        dxilutil::PrintEscapedString(name, os);
+        Diags.Report(DiagID) << os.str();
+      }
+      for (auto &name : m_ExportMap.GetUnusedExports()) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+          "Could not find target for export: %0");
+        std::string escaped;
+        llvm::raw_string_ostream os(escaped);
+        dxilutil::PrintEscapedString(name, os);
+        Diags.Report(DiagID) << os.str();
+      }
+    }
+  }
+
+  for (auto &it : m_ExportMap.GetFunctionRenames()) {
+    Function *F = it.first;
+    auto &renames = it.second;
+
+    if (renames.empty())
+      continue;
+
+    // Rename the original, if necessary, then clone the rest
+    if (renames.find(F->getName()) == renames.end())
+      F->setName(*renames.begin());
+
+    for (auto &itName : renames) {
+      if (F->getName() != itName) {
+        Function *pClone = CloneFunction(F, itName, m_pHLModule->GetModule(),
+          m_pHLModule->GetTypeSystem(), m_pHLModule->GetTypeSystem());
+        // add DxilFunctionProps if entry
+        if (m_pHLModule->HasDxilFunctionProps(F)) {
+          DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(F);
+          auto newProps = llvm::make_unique<DxilFunctionProps>(props);
+          m_pHLModule->AddDxilFunctionProps(pClone, newProps);
+        }
+      }
+    }
   }
 
   // Do simple transform to make later lower pass easier.

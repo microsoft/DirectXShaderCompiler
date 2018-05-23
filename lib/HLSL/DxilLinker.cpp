@@ -38,6 +38,8 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 
+#include "dxc/HLSL/DxilExportMap.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -65,7 +67,9 @@ void AddResourceMap(
   }
 }
 
-void CloneFunction(Function *F, Function *NewF, ValueToValueMapTy &vmap) {
+void CloneFunction(Function *F, Function *NewF, ValueToValueMapTy &vmap,
+                   hlsl::DxilTypeSystem *TypeSys = nullptr,
+                   hlsl::DxilTypeSystem *SrcTypeSys = nullptr) {
   SmallVector<ReturnInst *, 2> Returns;
   // Map params.
   auto paramIt = NewF->arg_begin();
@@ -74,6 +78,11 @@ void CloneFunction(Function *F, Function *NewF, ValueToValueMapTy &vmap) {
   }
 
   llvm::CloneFunctionInto(NewF, F, vmap, /*ModuleLevelChanges*/ true, Returns);
+  if (TypeSys) {
+    if (SrcTypeSys == nullptr)
+      SrcTypeSys = TypeSys;
+    TypeSys->CopyFunctionAnnotation(NewF, F, *SrcTypeSys);
+  }
 
   // Remove params from vmap.
   for (Argument &param : F->args()) {
@@ -138,8 +147,7 @@ public:
   void DetachAll() override;
 
   std::unique_ptr<llvm::Module>
-  Link(StringRef entry, StringRef profile,
-       llvm::StringMap<llvm::StringRef> &exportMap) override;
+  Link(StringRef entry, StringRef profile, dxilutil::ExportMap &exportMap) override;
 
 private:
   bool AttachLib(DxilLib *lib);
@@ -318,7 +326,7 @@ DxilResourceBase *DxilLib::GetResource(const llvm::Constant *GV) {
 namespace {
 // Create module from link defines.
 struct DxilLinkJob {
-  DxilLinkJob(LLVMContext &Ctx, llvm::StringMap<llvm::StringRef> &exportMap,
+  DxilLinkJob(LLVMContext &Ctx, dxilutil::ExportMap &exportMap,
               unsigned valMajor, unsigned valMinor)
       : m_ctx(Ctx), m_exportMap(exportMap), m_valMajor(valMajor),
         m_valMinor(valMinor) {}
@@ -350,7 +358,7 @@ private:
   llvm::StringMap<std::pair<DxilResourceBase *, llvm::GlobalVariable *>>
       m_resourceMap;
   LLVMContext &m_ctx;
-  llvm::StringMap<llvm::StringRef> &m_exportMap;
+  dxilutil::ExportMap &m_exportMap;
   unsigned m_valMajor, m_valMinor;
 };
 } // namespace
@@ -368,6 +376,9 @@ const char kNoEntryProps[] =
 const char kRedefineResource[] =
     "Resource already exists as ";
 const char kInvalidValidatorVersion[] = "Validator version does not support target profile ";
+const char kExportNameCollision[] = "Export name collides with another export: ";
+const char kExportFunctionMissing[] = "Could not find target for export: ";
+const char kNoFunctionsToExport[] = "Library has no functions to export";
 } // namespace
 //------------------------------------------------------------------------------
 //
@@ -783,6 +794,10 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
 std::unique_ptr<Module>
 DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
+  if (m_functionDefs.empty()) {
+    m_ctx.emitError(Twine(kNoFunctionsToExport));
+    return nullptr;
+  }
   DxilLib *pLib = m_functionDefs.begin()->second;
   DxilModule &tmpDM = pLib->GetDxilModule();
   // Create new module.
@@ -854,19 +869,68 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
   RunPreparePass(*pM);
 
   if (!m_exportMap.empty()) {
+    m_exportMap.BeginProcessing();
+
     DM.ClearDxilMetadata(*pM);
     for (auto it = pM->begin(); it != pM->end();) {
       Function *F = it++;
       if (F->isDeclaration())
         continue;
-      StringRef name = F->getName();
-      name = dxilutil::DemangleFunctionName(name);
-      // Remove Function not in exportMap.
-      if (m_exportMap.find(name) == m_exportMap.end()) {
+      if (!m_exportMap.ProcessFunction(F, true)) {
+        // Remove Function not in exportMap.
         DM.RemoveFunction(F);
         F->eraseFromParent();
       }
     }
+
+    if(!m_exportMap.EndProcessing()) {
+      for (auto &name : m_exportMap.GetNameCollisions()) {
+        std::string escaped;
+        llvm::raw_string_ostream os(escaped);
+        dxilutil::PrintEscapedString(name, os);
+        m_ctx.emitError(Twine(kExportNameCollision) + os.str());
+      }
+      for (auto &name : m_exportMap.GetUnusedExports()) {
+        std::string escaped;
+        llvm::raw_string_ostream os(escaped);
+        dxilutil::PrintEscapedString(name, os);
+        m_ctx.emitError(Twine(kExportFunctionMissing) + os.str());
+      }
+      return nullptr;
+    }
+
+    // Rename the original, if necessary, then clone the rest
+    for (auto &it : m_exportMap.GetFunctionRenames()) {
+      Function *F = it.first;
+      auto &renames = it.second;
+
+      if (renames.empty())
+        continue;
+
+      auto itName = renames.begin();
+
+      // Rename the original, if necessary, then clone the rest
+      if (renames.find(F->getName()) == renames.end())
+        F->setName(*(itName++));
+
+      while (itName != renames.end()) {
+        if (F->getName() != *itName) {
+          Function *NewF = Function::Create(F->getFunctionType(),
+            GlobalValue::LinkageTypes::ExternalLinkage,
+            *itName, DM.GetModule());
+          ValueToValueMapTy vmap;
+          CloneFunction(F, NewF, vmap, &DM.GetTypeSystem());
+          // add DxilFunctionProps if entry
+          if (DM.HasDxilFunctionProps(F)) {
+            DxilFunctionProps &props = DM.GetDxilFunctionProps(F);
+            auto newProps = llvm::make_unique<DxilFunctionProps>(props);
+            DM.AddDxilFunctionProps(NewF, newProps);
+          }
+        }
+        itName++;
+      }
+    }
+
     DM.EmitDxilMetadata();
   }
 
@@ -1153,8 +1217,7 @@ bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
 }
 
 std::unique_ptr<llvm::Module>
-DxilLinkerImpl::Link(StringRef entry, StringRef profile,
-                     llvm::StringMap<llvm::StringRef> &exportMap) {
+DxilLinkerImpl::Link(StringRef entry, StringRef profile, dxilutil::ExportMap &exportMap) {
   const ShaderModel *pSM = ShaderModel::GetByName(profile.data());
   DXIL::ShaderKind kind = pSM->GetKind();
   if (kind == DXIL::ShaderKind::Invalid ||
@@ -1170,16 +1233,13 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile,
     return nullptr;
   }
 
-  // Skip validation for lib target until implemented.
-  if (!pSM->IsLib()) {
-    // Verifying validator version supports the requested profile
-    unsigned minValMajor, minValMinor;
-    pSM->GetMinValidatorVersion(minValMajor, minValMinor);
-    if (minValMajor > m_valMajor ||
-        (minValMajor == m_valMajor && minValMinor > m_valMinor)) {
-      m_ctx.emitError(Twine(kInvalidValidatorVersion) + profile);
-      return nullptr;
-    }
+  // Verifying validator version supports the requested profile
+  unsigned minValMajor, minValMinor;
+  pSM->GetMinValidatorVersion(minValMajor, minValMinor);
+  if (minValMajor > m_valMajor ||
+      (minValMajor == m_valMajor && minValMinor > m_valMinor)) {
+    m_ctx.emitError(Twine(kInvalidValidatorVersion) + profile);
+    return nullptr;
   }
 
   DxilLinkJob linkJob(m_ctx, exportMap, m_valMajor, m_valMinor);
@@ -1234,9 +1294,8 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile,
       // Only add exported functions.
       for (auto &it : m_functionNameMap) {
         StringRef name = it.getKey();
-        StringRef demangledName = dxilutil::DemangleFunctionName(name);
         // Only add names exist in exportMap.
-        if (exportMap.find(demangledName) != exportMap.end())
+        if (exportMap.IsExported(name))
           workList.emplace_back(name);
       }
 
