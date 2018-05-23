@@ -7,6 +7,7 @@ Texture2D<uint2>  t2u2  : register(t2);
 TextureCube<int4> tCube : register(t3);
 // .GatherGreen() does not support Texture1D and Texture3D.
 
+// CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability SparseResidency
 
 // CHECK:      [[c12:%\d+]] = OpConstantComposite %v2int %int_1 %int_2

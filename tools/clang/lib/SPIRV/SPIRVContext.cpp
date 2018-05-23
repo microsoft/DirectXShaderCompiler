@@ -10,7 +10,6 @@
 #include <tuple>
 
 #include "clang/SPIRV/SPIRVContext.h"
-#include "llvm/llvm_assert/assert.h"
 
 namespace clang {
 namespace spirv {

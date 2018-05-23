@@ -879,6 +879,14 @@ def VKLocation : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKIndex : InheritableAttr {
+  let Spellings = [CXX11<"vk", "index">];
+  let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
+  let Args = [IntArgument<"Number">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 def VKBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "binding">];
   let Subjects = SubjectList<[GlobalVar, HLSLBuffer], ErrorDiag, "ExpectedGlobalVarOrCTBuffer">;

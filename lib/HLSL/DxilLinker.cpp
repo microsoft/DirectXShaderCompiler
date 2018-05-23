@@ -727,7 +727,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
     // Add signature.
     DxilEntrySignature &entrySig = entryDM.GetDxilEntrySignature(entryFunc);
     std::unique_ptr<DxilEntrySignature> newSig =
-        std::make_unique<DxilEntrySignature>(entrySig);
+        llvm::make_unique<DxilEntrySignature>(entrySig);
     DM.ResetEntrySignature(newSig.release());
   }
 
@@ -1017,7 +1017,7 @@ bool DxilLinkerImpl::RegisterLib(StringRef name,
 
   pM->setModuleIdentifier(name);
   std::unique_ptr<DxilLib> pLib =
-      std::make_unique<DxilLib>(std::move(pM));
+      llvm::make_unique<DxilLib>(std::move(pM));
   m_LibMap[name] = std::move(pLib);
   return true;
 }

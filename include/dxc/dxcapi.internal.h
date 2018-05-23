@@ -22,11 +22,11 @@ typedef interface ID3D10Blob ID3D10Blob;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Intrinsic definitions.
-#define AR_QUAL_IN             0x0000000000000010UI64
-#define AR_QUAL_OUT            0x0000000000000020UI64
-#define AR_QUAL_CONST          0x0000000000000200UI64
-#define AR_QUAL_ROWMAJOR       0x0000000000000400UI64
-#define AR_QUAL_COLMAJOR       0x0000000000000800UI64
+#define AR_QUAL_IN             0x0000000000000010ULL
+#define AR_QUAL_OUT            0x0000000000000020ULL
+#define AR_QUAL_CONST          0x0000000000000200ULL
+#define AR_QUAL_ROWMAJOR       0x0000000000000400ULL
+#define AR_QUAL_COLMAJOR       0x0000000000000800ULL
 
 #define AR_QUAL_IN_OUT (AR_QUAL_IN | AR_QUAL_OUT)
 

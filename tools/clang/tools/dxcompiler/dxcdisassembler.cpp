@@ -285,7 +285,12 @@ void PrintDxilSignature(LPCSTR pName, const DxilSignature &Signature,
     OS << comment << " ";
 
     OS << left_justify(sigElt->GetName(), 20);
-    OS << ' ' << format("%5u", sigElt->GetSemanticIndexVec()[0]);
+    auto &indexVec = sigElt->GetSemanticIndexVec();
+    unsigned index = 0;
+    if (!indexVec.empty()) {
+      index = sigElt->GetSemanticIndexVec()[0];
+    }
+    OS << ' ' << format("%5u", index);
     sigElt->GetInterpolationMode()->GetName();
     OS << ' ' << right_justify(sigElt->GetInterpolationMode()->GetName(), 22);
     OS << "   ";
@@ -1001,7 +1006,7 @@ static const char *OpCodeSignatures[] = {
 class DxcAssemblyAnnotationWriter : public llvm::AssemblyAnnotationWriter {
 public:
   ~DxcAssemblyAnnotationWriter() {}
-  __override void printInfoComment(const Value &V, formatted_raw_ostream &OS) {
+  void printInfoComment(const Value &V, formatted_raw_ostream &OS) override {
     const CallInst *CI = dyn_cast<const CallInst>(&V);
     if (!CI) {
       return;

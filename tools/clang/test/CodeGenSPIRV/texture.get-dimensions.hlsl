@@ -332,4 +332,32 @@ void main() {
 // CHECK-NEXT:   [[query23:%\d+]] = OpImageQueryLevels %uint [[t9]]
 // CHECK-NEXT:                      OpStore %numLevels [[query23]]
   t9.GetDimensions(mipLevel, width, height, elements, numLevels);
+
+// Try with signed integer as argument.
+
+// CHECK:                [[t3:%\d+]] = OpLoad %type_2d_image %t3
+// CHECK-NEXT:        [[query:%\d+]] = OpImageQuerySizeLod %v2uint [[t3]] %int_0
+// CHECK-NEXT: [[query_0_uint:%\d+]] = OpCompositeExtract %uint [[query]] 0
+// CHECK-NEXT:  [[query_0_int:%\d+]] = OpBitcast %int [[query_0_uint]]
+// CHECK-NEXT:                         OpStore %signedWidth [[query_0_int]]
+// CHECK-NEXT: [[query_1_uint:%\d+]] = OpCompositeExtract %uint [[query]] 1
+// CHECK-NEXT:  [[query_1_int:%\d+]] = OpBitcast %int [[query_1_uint]]
+// CHECK-NEXT:                         OpStore %signedHeight [[query_1_int]]
+  int signedMipLevel, signedWidth, signedHeight, signedNumLevels;
+  t3.GetDimensions(signedWidth, signedHeight);
+
+// CHECK-NEXT:                [[t3:%\d+]] = OpLoad %type_2d_image %t3
+// CHECK-NEXT:    [[signedMipLevel:%\d+]] = OpLoad %int %signedMipLevel
+// CHECK-NEXT:  [[unsignedMipLevel:%\d+]] = OpBitcast %uint [[signedMipLevel]]
+// CHECK-NEXT:             [[query:%\d+]] = OpImageQuerySizeLod %v2uint [[t3]] [[unsignedMipLevel]]
+// CHECK-NEXT:      [[query_0_uint:%\d+]] = OpCompositeExtract %uint [[query]] 0
+// CHECK-NEXT:       [[query_0_int:%\d+]] = OpBitcast %int [[query_0_uint]]
+// CHECK-NEXT:                              OpStore %signedWidth [[query_0_int]]
+// CHECK-NEXT:      [[query_1_uint:%\d+]] = OpCompositeExtract %uint [[query]] 1
+// CHECK-NEXT:       [[query_1_int:%\d+]] = OpBitcast %int [[query_1_uint]]
+// CHECK-NEXT:                              OpStore %signedHeight [[query_1_int]]
+// CHECK-NEXT: [[query_levels_uint:%\d+]] = OpImageQueryLevels %uint [[t3]]
+// CHECK-NEXT:  [[query_levels_int:%\d+]] = OpBitcast %int [[query_levels_uint]]
+// CHECK-NEXT:                              OpStore %signedNumLevels [[query_levels_int]]
+  t3.GetDimensions(signedMipLevel, signedWidth, signedHeight, signedNumLevels);
 }

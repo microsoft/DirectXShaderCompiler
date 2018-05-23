@@ -80,8 +80,8 @@ namespace llvm {
       ods_ostream() {
         SetUnbuffered();
       }
-      __override uint64_t current_pos() const { return 0; }
-      __override void write_impl(const char *Ptr, size_t Size) {
+      uint64_t current_pos() const override { return 0; }
+      void write_impl(const char *Ptr, size_t Size) override {
         // Need a null-terminated string here.
         char chunk[512];
         while (Size > 0) {

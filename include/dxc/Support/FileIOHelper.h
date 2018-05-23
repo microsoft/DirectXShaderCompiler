@@ -53,7 +53,7 @@ public:
   }
 
   explicit CDxcTMHeapPtr(_In_ T* pData) throw() :
-    CDxcTMHeapPtr<T, CDxcThreadMallocAllocator>(pData)
+    CHeapPtr<T, CDxcThreadMallocAllocator>(pData)
   {
   }
 };

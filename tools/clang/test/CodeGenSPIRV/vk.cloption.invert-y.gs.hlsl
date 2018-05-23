@@ -21,7 +21,7 @@ void main(in    line GsVIn              inData[2],
 // CHECK-NEXT: [[oldY:%\d+]] = OpCompositeExtract %float [[val]] 1
 // CHECK-NEXT: [[newY:%\d+]] = OpFNegate %float [[oldY]]
 // CHECK-NEXT:  [[pos:%\d+]] = OpCompositeInsert %v4float [[newY]] [[val]] 1
-// CHECK-NEXT:                 OpStore %gl_Position [[pos]]
+// CHECK-NEXT:                 OpStore %gl_Position_0 [[pos]]
     outData.Append(vertex);
 
     outData.RestartStrip();

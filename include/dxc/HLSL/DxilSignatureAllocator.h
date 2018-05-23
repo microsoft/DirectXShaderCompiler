@@ -54,20 +54,20 @@ public:
       dataBitWidth(DXIL::SignatureDataWidth::Undefined),
       indexFlags(0)
     {}
-    __override ~DummyElement() {}
-    __override uint32_t GetID() const { return id; }
-    __override DXIL::SemanticKind GetKind() const { return kind; }
-    __override DXIL::InterpolationMode GetInterpolationMode() const { return interpolation; }
-    __override DXIL::SemanticInterpretationKind GetInterpretation() const { return interpretation; }
-    __override DXIL::SignatureDataWidth GetDataBitWidth() const { return dataBitWidth; }
-    __override uint32_t GetRows() const { return rows; }
-    __override uint32_t GetCols() const { return cols; }
-    __override bool IsAllocated() const { return row != (uint32_t)-1; }
-    __override uint32_t GetStartRow() const { return row; }
-    __override uint32_t GetStartCol() const { return col; }
+    ~DummyElement() override {}
+    uint32_t GetID() const override { return id; }
+    DXIL::SemanticKind GetKind() const override { return kind; }
+    DXIL::InterpolationMode GetInterpolationMode() const override { return interpolation; }
+    DXIL::SemanticInterpretationKind GetInterpretation() const override { return interpretation; }
+    DXIL::SignatureDataWidth GetDataBitWidth() const override { return dataBitWidth; }
+    uint32_t GetRows() const override { return rows; }
+    uint32_t GetCols() const override { return cols; }
+    bool IsAllocated() const override { return row != (uint32_t)-1; }
+    uint32_t GetStartRow() const override { return row; }
+    uint32_t GetStartCol() const override { return col; }
 
-    __override void ClearLocation() { row = col = (uint32_t)-1; }
-    __override void SetLocation(uint32_t Row, uint32_t Col) { row = Row; col = Col; }
+    void ClearLocation() override { row = col = (uint32_t)-1; }
+    void SetLocation(uint32_t Row, uint32_t Col) override { row = Row; col = Col; }
   };
 
   // index flags

@@ -736,8 +736,7 @@ public:
   }
 
   // ISequentialStream implementation.
-  __override HRESULT STDMETHODCALLTYPE Read(void *pv, ULONG cb,
-                                            ULONG *pcbRead) {
+  HRESULT STDMETHODCALLTYPE Read(void *pv, ULONG cb, ULONG *pcbRead) override {
     if (!pv)
       return E_POINTER;
     if (cb == 0)
@@ -764,8 +763,8 @@ public:
     return hr;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Write(void const *pv, ULONG cb,
-                                             ULONG *pcbWritten) {
+  HRESULT STDMETHODCALLTYPE Write(void const *pv, ULONG cb,
+                                  ULONG *pcbWritten) override {
     if (!pv || !pcbWritten)
       return E_POINTER;
     if (cb == 0)
@@ -780,39 +779,39 @@ public:
   }
 
   // IStream implementation.
-  __override HRESULT STDMETHODCALLTYPE SetSize(ULARGE_INTEGER val) {
+  HRESULT STDMETHODCALLTYPE SetSize(ULARGE_INTEGER val) override {
     HhTrace(L"SetSize called - E_NOTIMPL");
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE CopyTo(IStream *, ULARGE_INTEGER,
-                                              ULARGE_INTEGER *,
-                                              ULARGE_INTEGER *) {
+  HRESULT STDMETHODCALLTYPE CopyTo(IStream *, ULARGE_INTEGER,
+                                   ULARGE_INTEGER *,
+                                   ULARGE_INTEGER *) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Commit(DWORD) { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Commit(DWORD) override { return E_NOTIMPL; }
 
-  __override HRESULT STDMETHODCALLTYPE Revert(void) { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Revert(void) override { return E_NOTIMPL; }
 
-  __override HRESULT STDMETHODCALLTYPE LockRegion(ULARGE_INTEGER,
-                                                  ULARGE_INTEGER, DWORD) {
+  HRESULT STDMETHODCALLTYPE LockRegion(ULARGE_INTEGER,
+                                       ULARGE_INTEGER, DWORD) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE UnlockRegion(ULARGE_INTEGER,
-                                                    ULARGE_INTEGER, DWORD) {
+  HRESULT STDMETHODCALLTYPE UnlockRegion(ULARGE_INTEGER,
+                                         ULARGE_INTEGER, DWORD) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Clone(IStream **) { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Clone(IStream **) override { return E_NOTIMPL; }
 
-  __override HRESULT STDMETHODCALLTYPE Seek(LARGE_INTEGER, DWORD,
-                                            ULARGE_INTEGER *) {
+  HRESULT STDMETHODCALLTYPE Seek(LARGE_INTEGER, DWORD,
+                                 ULARGE_INTEGER *) override {
     return E_NOTIMPL;
   }
 
-  __override HRESULT STDMETHODCALLTYPE Stat(STATSTG *, DWORD) {
+  HRESULT STDMETHODCALLTYPE Stat(STATSTG *, DWORD) override {
     HhTrace(L"Stat called - E_NOTIMPL");
     return E_NOTIMPL;
   }

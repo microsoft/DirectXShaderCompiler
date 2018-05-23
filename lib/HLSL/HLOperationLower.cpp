@@ -9,6 +9,10 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#define _USE_MATH_DEFINES
+#include <cmath>
+#include <unordered_set>
+
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
@@ -23,7 +27,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include <unordered_set>
 
 using namespace llvm;
 using namespace hlsl;
@@ -1274,8 +1277,6 @@ Value *TranslateAtan2(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   Value *atan =
       TrivialDxilUnaryOperation(OP::OpCode::Atan, tan, hlslOP, Builder);
-  // TODO: include M_PI from math.h.
-  const double M_PI = 3.14159265358979323846;
   // Modify atan result based on https://en.wikipedia.org/wiki/Atan2.
   Type *Ty = x->getType();
   Constant *pi = ConstantFP::get(Ty->getScalarType(), M_PI);
@@ -1407,8 +1408,6 @@ Value *TranslateDegrees(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Type *Ty = CI->getType();
   Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   // 180/pi.
-  // TODO: include M_PI from math.h.
-  const double M_PI = 3.14159265358979323846;
   Constant *toDegreeConst = ConstantFP::get(Ty->getScalarType(), 180 / M_PI);
   if (Ty != Ty->getScalarType()) {
     toDegreeConst =
@@ -1518,8 +1517,6 @@ Value *TranslateRadians(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Type *Ty = CI->getType();
   Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   // pi/180.
-  // TODO: include M_PI from math.h.
-  const double M_PI = 3.14159265358979323846;
   Constant *toRadianConst = ConstantFP::get(Ty->getScalarType(), M_PI / 180);
   if (Ty != Ty->getScalarType()) {
     toRadianConst =
@@ -1620,8 +1617,6 @@ Value *TranslateExp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   IRBuilder<> Builder(CI);
   Type *Ty = CI->getType();
   Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  // TODO: include M_LOG2E from math.h.
-  const double M_LOG2E = 1.44269504088896340736;
   Constant *log2eConst = ConstantFP::get(Ty->getScalarType(), M_LOG2E);
   if (Ty != Ty->getScalarType()) {
     log2eConst =
@@ -1638,8 +1633,6 @@ Value *TranslateLog(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   IRBuilder<> Builder(CI);
   Type *Ty = CI->getType();
   Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  // TODO: include M_LN2 from math.h.
-  const double M_LN2 = 0.693147180559945309417;
   Constant *ln2Const = ConstantFP::get(Ty->getScalarType(), M_LN2);
   if (Ty != Ty->getScalarType()) {
     ln2Const = ConstantVector::getSplat(Ty->getVectorNumElements(), ln2Const);
@@ -1655,9 +1648,6 @@ Value *TranslateLog10(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   IRBuilder<> Builder(CI);
   Type *Ty = CI->getType();
   Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  // TODO: include M_LN2 from math.h.
-  const double M_LN2 = 0.693147180559945309417;
-  const double M_LN10 = 2.30258509299404568402;
   Constant *log2_10Const = ConstantFP::get(Ty->getScalarType(), M_LN2 / M_LN10);
   if (Ty != Ty->getScalarType()) {
     log2_10Const =

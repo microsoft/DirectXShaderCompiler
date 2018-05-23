@@ -153,26 +153,26 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
 
   // Resources
   for (auto && C : H.GetCBuffers()) {
-    auto b = make_unique<DxilCBuffer>();
+    auto b = llvm::make_unique<DxilCBuffer>();
     InitResourceBase(C.get(), b.get());
     b->SetSize(C->GetSize());
     LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
     M.AddCBuffer(std::move(b));
   }
   for (auto && C : H.GetUAVs()) {
-    auto b = make_unique<DxilResource>();
+    auto b = llvm::make_unique<DxilResource>();
     InitResource(C.get(), b.get());
     LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
     M.AddUAV(std::move(b));
   }
   for (auto && C : H.GetSRVs()) {
-    auto b = make_unique<DxilResource>();
+    auto b = llvm::make_unique<DxilResource>();
     InitResource(C.get(), b.get());
     LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
     M.AddSRV(std::move(b));
   }
   for (auto && C : H.GetSamplers()) {
-    auto b = make_unique<DxilSampler>();
+    auto b = llvm::make_unique<DxilSampler>();
     InitResourceBase(C.get(), b.get());
     b->SetSamplerKind(C->GetSamplerKind());
     LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));

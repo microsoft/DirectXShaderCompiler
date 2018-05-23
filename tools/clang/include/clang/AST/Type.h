@@ -3298,7 +3298,7 @@ public:
   }
   const hlsl::ParameterModifier *parammods_begin() const {
     // param modifiers begin where exceptions end
-    return (hlsl::ParameterModifier*)exception_end();
+    return (const hlsl::ParameterModifier*)exception_end();
   }
   const hlsl::ParameterModifier *parammods_end() const {
     // modifiers begin where arguments end (in place of exceptions, in HLSL)

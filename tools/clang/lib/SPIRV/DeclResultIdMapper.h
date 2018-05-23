@@ -32,16 +32,29 @@
 namespace clang {
 namespace spirv {
 
+/// A struct containing information about a particular HLSL semantic.
+struct SemanticInfo {
+  llvm::StringRef str;            ///< The original semantic string
+  const hlsl::Semantic *semantic; ///< The unique semantic object
+  llvm::StringRef name;           ///< The semantic string without index
+  uint32_t index;                 ///< The semantic index
+  SourceLocation loc;             ///< Source code location
+
+  bool isValid() const { return semantic != nullptr; }
+
+  inline hlsl::Semantic::Kind getKind() const;
+  /// \brief Returns true if this semantic is a SV_Target.
+  inline bool isTarget() const;
+};
+
 /// \brief The class containing HLSL and SPIR-V information about a Vulkan stage
 /// (builtin/input/output) variable.
 class StageVar {
 public:
-  inline StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
-                  const hlsl::Semantic *sema, llvm::StringRef semaName,
-                  uint32_t semaIndex, const VKBuiltInAttr *builtin,
-                  uint32_t type, uint32_t locCount)
-      : sigPoint(sig), semanticStr(semaStr), semantic(sema),
-        semanticName(semaName), semanticIndex(semaIndex), builtinAttr(builtin),
+  inline StageVar(const hlsl::SigPoint *sig, SemanticInfo semaInfo,
+                  const VKBuiltInAttr *builtin, uint32_t type,
+                  uint32_t locCount)
+      : sigPoint(sig), semanticInfo(std::move(semaInfo)), builtinAttr(builtin),
         typeId(type), valueId(0), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
         locationCount(locCount) {
@@ -49,7 +62,8 @@ public:
   }
 
   const hlsl::SigPoint *getSigPoint() const { return sigPoint; }
-  const hlsl::Semantic *getSemantic() const { return semantic; }
+  const SemanticInfo &getSemanticInfo() const { return semanticInfo; }
+  std::string getSemanticStr() const;
 
   uint32_t getSpirvTypeId() const { return typeId; }
 
@@ -57,9 +71,6 @@ public:
   void setSpirvId(uint32_t id) { valueId = id; }
 
   const VKBuiltInAttr *getBuiltInAttr() const { return builtinAttr; }
-
-  std::string getSemanticStr() const;
-  uint32_t getSemanticIndex() const { return semanticIndex; }
 
   bool isSpirvBuitin() const { return isBuiltin; }
   void setIsSpirvBuiltin() { isBuiltin = true; }
@@ -70,20 +81,17 @@ public:
   const VKLocationAttr *getLocationAttr() const { return location; }
   void setLocationAttr(const VKLocationAttr *loc) { location = loc; }
 
+  const VKIndexAttr *getIndexAttr() const { return indexAttr; }
+  void setIndexAttr(const VKIndexAttr *idx) { indexAttr = idx; }
+
   uint32_t getLocationCount() const { return locationCount; }
 
 private:
   /// HLSL SigPoint. It uniquely identifies each set of parameters that may be
   /// input or output for each entry point.
   const hlsl::SigPoint *sigPoint;
-  /// Original HLSL semantic string in the source code.
-  llvm::StringRef semanticStr;
-  /// HLSL semantic.
-  const hlsl::Semantic *semantic;
-  /// Original HLSL semantic string (without index) in the source code.
-  llvm::StringRef semanticName;
-  /// HLSL semantic index.
-  uint32_t semanticIndex;
+  /// Information about HLSL semantic string.
+  SemanticInfo semanticInfo;
   /// SPIR-V BuiltIn attribute.
   const VKBuiltInAttr *builtinAttr;
   /// SPIR-V <type-id>.
@@ -96,6 +104,8 @@ private:
   spv::StorageClass storageClass;
   /// Location assignment if input/output variable.
   const VKLocationAttr *location;
+  /// Index assignment if PS output variable
+  const VKIndexAttr *indexAttr;
   /// How many locations this stage variable takes.
   uint32_t locationCount;
 };
@@ -112,7 +122,9 @@ public:
   const hlsl::RegisterAssignment *getRegister() const { return reg; }
   const VKBindingAttr *getBinding() const { return binding; }
   bool isCounter() const { return isCounterVar; }
-  const auto *getCounterBinding() const { return counterBinding; }
+  const VKCounterBindingAttr *getCounterBinding() const {
+    return counterBinding;
+  }
 
 private:
   uint32_t varId;                             ///< <result-id>
@@ -363,13 +375,10 @@ private:
   const DeclSpirvInfo *getDeclSpirvInfo(const ValueDecl *decl) const;
 
 public:
-  /// \brief Returns the information for the given decl. If the decl is not
-  /// registered previously, return an invalid SpirvEvalInfo.
+  /// \brief Returns the information for the given decl.
   ///
-  /// This method will emit a fatal error if checkRegistered is true and the
-  /// decl is not registered.
-  SpirvEvalInfo getDeclEvalInfo(const ValueDecl *decl,
-                                bool checkRegistered = true);
+  /// This method will panic if the given decl is not registered.
+  SpirvEvalInfo getDeclEvalInfo(const ValueDecl *decl);
 
   /// \brief Returns the <result-id> for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and
@@ -423,6 +432,9 @@ public:
   /// OpEmitVertex in GS.
   bool writeBackOutputStream(const NamedDecl *decl, QualType type,
                              uint32_t value);
+
+  /// \brief Inverts SV_Position.y is requested.
+  uint32_t invertYIfRequested(uint32_t position);
 
   /// \brief Decorates all stage input and output variables with proper
   /// location and returns true on success.
@@ -512,21 +524,14 @@ private:
   /// TextureBuffers, and PushConstants. usageKind must be set properly
   /// depending on the usage kind.
   ///
+  /// If arraySize is 0, the variable will be created as a struct ; if arraySize
+  /// is > 0, the variable will be created as an array; if arraySize is -1, the
+  /// variable will be created as a runtime array.
+  ///
   /// Panics if the DeclContext is neither HLSLBufferDecl or RecordDecl.
   uint32_t createStructOrStructArrayVarOfExplicitLayout(
-      const DeclContext *decl, uint32_t arraySize, ContextUsageKind usageKind,
+      const DeclContext *decl, int arraySize, ContextUsageKind usageKind,
       llvm::StringRef typeName, llvm::StringRef varName);
-
-  /// A struct containing information about a particular HLSL semantic.
-  struct SemanticInfo {
-    llvm::StringRef str;            ///< The original semantic string
-    const hlsl::Semantic *semantic; ///< The unique semantic object
-    llvm::StringRef name;           ///< The semantic string without index
-    uint32_t index;                 ///< The semantic index
-    SourceLocation loc;             ///< Source code location
-
-    bool isValid() const { return semantic != nullptr; }
-  };
 
   /// Returns the given decl's HLSL semantic information.
   static SemanticInfo getStageVarSemantic(const NamedDecl *decl);
@@ -567,6 +572,9 @@ private:
   /// creating a stage input/output variable.
   uint32_t createSpirvStageVar(StageVar *, const NamedDecl *decl,
                                const llvm::StringRef name, SourceLocation);
+
+  /// Returns true if all vk:: attributes usages are valid.
+  bool validateVKAttributes(const NamedDecl *decl);
 
   /// Returns true if all vk::builtin usages are valid.
   bool validateVKBuiltins(const NamedDecl *decl,
@@ -714,6 +722,14 @@ public:
   GlPerVertex glPerVertex;
 };
 
+hlsl::Semantic::Kind SemanticInfo::getKind() const {
+  assert(semantic);
+  return semantic->GetKind();
+}
+bool SemanticInfo::isTarget() const {
+  return semantic && semantic->GetKind() == hlsl::Semantic::Kind::Target;
+}
+
 void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
                                 ModuleBuilder &builder,
                                 TypeTranslator &translator) const {
@@ -731,7 +747,7 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
       astContext(context), diags(context.getDiagnostics()),
       typeTranslator(translator), featureManager(features), entryFunctionId(0),
       laneCountBuiltinId(0), laneIndexBuiltinId(0), needsLegalization(false),
-      glPerVertex(model, context, builder, typeTranslator, options.invertY) {}
+      glPerVertex(model, context, builder, typeTranslator) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
   // Try both input and output even if input location assignment failed

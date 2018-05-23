@@ -561,9 +561,9 @@ public:
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE
+  HRESULT STDMETHODCALLTYPE
   LoadSource(_In_ LPCWSTR pFilename,
-             _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource) {
+             _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource) override {
     try {
       *ppIncludeSource = includeFiles.at(std::wstring(pFilename));
       (*ppIncludeSource)->AddRef();

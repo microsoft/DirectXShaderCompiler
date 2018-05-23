@@ -237,8 +237,6 @@ def auto_binding_space : Separate<["-", "/"], "auto-binding-space">, Group<hlslc
 // SPIRV Change Starts
 def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Generate SPIR-V code">;
-def fvk_ignore_unused_resources : Flag<["-"], "fvk-ignore-unused-resources">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
-  HelpText<"Do not emit SPIR-V code for unused resources">;
 def fvk_stage_io_order_EQ : Joined<["-"], "fvk-stage-io-order=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Specify Vulkan stage I/O location assignment order">;
 def fvk_b_shift : MultiArg<["-"], "fvk-b-shift", 2>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
@@ -261,6 +259,8 @@ def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Fl
   HelpText<"Specify SPIR-V extension permitted to use">;
 def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify the target environment: vulkan1.0 (default) or vulkan1.1">;
+def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Do not emit warnings for ingored features resulting from no Vulkan support">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////

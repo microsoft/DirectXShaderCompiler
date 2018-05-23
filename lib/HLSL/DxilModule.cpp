@@ -44,7 +44,7 @@ public:
     : DiagnosticInfo(DK_FirstPluginKind, DiagnosticSeverity::DS_Error),
     m_message(str) { }
 
-  __override void print(DiagnosticPrinter &DP) const {
+  void print(DiagnosticPrinter &DP) const override {
     DP << m_message;
   }
 };
@@ -59,10 +59,10 @@ namespace hlsl {
 DxilModule::DxilModule(Module *pModule)
 : m_Ctx(pModule->getContext())
 , m_pModule(pModule)
-, m_pOP(std::make_unique<OP>(pModule->getContext(), pModule))
-, m_pTypeSystem(std::make_unique<DxilTypeSystem>(pModule))
-, m_pViewIdState(std::make_unique<DxilViewIdState>(this))
-, m_pMDHelper(std::make_unique<DxilMDHelper>(pModule, std::make_unique<DxilExtraPropertyHelper>(pModule)))
+, m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
+, m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
+, m_pViewIdState(llvm::make_unique<DxilViewIdState>(this))
+, m_pMDHelper(llvm::make_unique<DxilMDHelper>(pModule, llvm::make_unique<DxilExtraPropertyHelper>(pModule)))
 , m_pDebugInfoFinder(nullptr)
 , m_pEntryFunc(nullptr)
 , m_EntryName("")
@@ -608,8 +608,8 @@ void DxilModule::LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S) {
 template <typename TResource>
 static void RemoveResources(std::vector<std::unique_ptr<TResource>> &vec,
                     std::unordered_set<unsigned> &immResID) {
-  for (std::vector<std::unique_ptr<TResource>>::iterator p = vec.begin(); p != vec.end();) {
-    std::vector<std::unique_ptr<TResource>>::iterator c = p++;
+  for (auto p = vec.begin(); p != vec.end();) {
+    auto c = p++;
     if (immResID.count((*c)->GetID()) == 0) {
       p = vec.erase(c);
     }
@@ -1409,10 +1409,27 @@ void DxilModule::StripDebugRelatedCode() {
       }
     }
   }
+  // Remove dx.source metadata.
+  if (NamedMDNode *contents = m_pModule->getNamedMetadata(
+          DxilMDHelper::kDxilSourceContentsMDName)) {
+    contents->eraseFromParent();
+  }
+  if (NamedMDNode *defines =
+          m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceDefinesMDName)) {
+    defines->eraseFromParent();
+  }
+  if (NamedMDNode *mainFileName = m_pModule->getNamedMetadata(
+          DxilMDHelper::kDxilSourceMainFileNameMDName)) {
+    mainFileName->eraseFromParent();
+  }
+  if (NamedMDNode *arguments =
+          m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName)) {
+    arguments->eraseFromParent();
+  }
 }
 DebugInfoFinder &DxilModule::GetOrCreateDebugInfoFinder() {
   if (m_pDebugInfoFinder == nullptr) {
-    m_pDebugInfoFinder = std::make_unique<llvm::DebugInfoFinder>();
+    m_pDebugInfoFinder = llvm::make_unique<llvm::DebugInfoFinder>();
     m_pDebugInfoFinder->processModule(*m_pModule);
   }
   return *m_pDebugInfoFinder;
@@ -1491,7 +1508,7 @@ namespace llvm {
 hlsl::DxilModule &Module::GetOrCreateDxilModule(bool skipInit) {
   std::unique_ptr<hlsl::DxilModule> M;
   if (!HasDxilModule()) {
-    M = std::make_unique<hlsl::DxilModule>(this);
+    M = llvm::make_unique<hlsl::DxilModule>(this);
     if (!skipInit) {
       M->LoadDxilMetadata();
     }

@@ -337,7 +337,7 @@ public:
   dxc::DxcDllSupport &m_dllSupport;
   HRESULT m_defaultErrorCode = E_FAIL;
   TestIncludeHandler(dxc::DxcDllSupport &dllSupport) : m_dwRef(0), callIndex(0), m_dllSupport(dllSupport) { }
-  __override HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IDxcIncludeHandler>(this,  iid, ppvObject);
   }
 
@@ -363,10 +363,10 @@ public:
   std::vector<LoadSourceCallResult> CallResults;
   size_t callIndex;
 
-  __override HRESULT STDMETHODCALLTYPE LoadSource(
+  HRESULT STDMETHODCALLTYPE LoadSource(
     _In_ LPCWSTR pFilename,                   // Filename as written in #include statement
     _COM_Outptr_ IDxcBlob **ppIncludeSource   // Resultant source object for included file
-    ) {
+    ) override {
     CallInfos.push_back(LoadSourceCallInfo(pFilename));
 
     *ppIncludeSource = nullptr;
@@ -417,7 +417,9 @@ public:
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
   TEST_METHOD(CompileWhenVdThenProducesDxilContainer)
 
+#ifndef DXC_ON_APPVEYOR_CI
   TEST_METHOD(CompileWhenNoMemThenOOM)
+#endif // DXC_ON_APPVEYOR_CI
   TEST_METHOD(CompileWhenShaderModelMismatchAttributeThenFail)
   TEST_METHOD(CompileBadHlslThenFail)
   TEST_METHOD(CompileLegacyShaderModelThenFail)
@@ -2694,6 +2696,7 @@ public:
   virtual void STDMETHODCALLTYPE HeapMinimize(void) {}
 };
 
+#ifndef DXC_ON_APPVEYOR_CI
 TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -2781,6 +2784,7 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
     VERIFY_ARE_EQUAL(initialRefCount, InstrMalloc.GetRefCount());
   }
 }
+#endif // DXC_ON_APPVEYOR_CI
 
 TEST_F(CompilerTest, CompileWhenShaderModelMismatchAttributeThenFail) {
   CComPtr<IDxcCompiler> pCompiler;

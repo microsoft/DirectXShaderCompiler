@@ -97,7 +97,7 @@ public:
     return CreateFromResultErrorStatus(resultBlob, errorBlob, status, pResult);
   }
 
-  __override HRESULT STDMETHODCALLTYPE GetStatus(_Out_ HRESULT *pStatus) {
+  HRESULT STDMETHODCALLTYPE GetStatus(_Out_ HRESULT *pStatus) override {
     if (pStatus == nullptr)
       return E_INVALIDARG;
 
@@ -105,13 +105,13 @@ public:
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE
-    GetResult(_COM_Outptr_result_maybenull_ IDxcBlob **ppResult) {
+  HRESULT STDMETHODCALLTYPE
+    GetResult(_COM_Outptr_result_maybenull_ IDxcBlob **ppResult) override {
     return m_result.CopyTo(ppResult);
   }
 
-  __override HRESULT STDMETHODCALLTYPE
-    GetErrorBuffer(_COM_Outptr_result_maybenull_ IDxcBlobEncoding **ppErrors) {
+  HRESULT STDMETHODCALLTYPE
+    GetErrorBuffer(_COM_Outptr_result_maybenull_ IDxcBlobEncoding **ppErrors) override {
     return m_errors.CopyTo(ppErrors);
   }
 };

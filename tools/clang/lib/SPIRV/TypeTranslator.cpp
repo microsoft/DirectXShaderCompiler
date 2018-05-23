@@ -621,22 +621,37 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
                                     decorations);
   }
 
-  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
-    const uint32_t elemType = translateType(arrayType->getElementType(), rule);
-    // TODO: handle extra large array size?
-    const auto size =
-        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+  // Array type
+  if (const auto *arrayType = astContext.getAsArrayType(type)) {
+    const auto elemType = arrayType->getElementType();
+    const uint32_t elemTypeId = translateType(elemType, rule);
 
     llvm::SmallVector<const Decoration *, 4> decorations;
-    if (rule != LayoutRule::Void) {
+    if (rule != LayoutRule::Void &&
+        // We won't have stride information for structured/byte buffers since
+        // they contain runtime arrays.
+        !isAKindOfStructuredOrByteBuffer(elemType)) {
       uint32_t stride = 0;
       (void)getAlignmentAndSize(type, rule, &stride);
       decorations.push_back(
           Decoration::getArrayStride(*theBuilder.getSPIRVContext(), stride));
     }
 
-    return theBuilder.getArrayType(elemType, theBuilder.getConstantUint32(size),
-                                   decorations);
+    if (const auto *caType = astContext.getAsConstantArrayType(type)) {
+      const auto size = static_cast<uint32_t>(caType->getSize().getZExtValue());
+      return theBuilder.getArrayType(
+          elemTypeId, theBuilder.getConstantUint32(size), decorations);
+    } else {
+      assert(type->isIncompleteArrayType());
+      // Runtime arrays of resources needs additional capability.
+      if (hlsl::IsHLSLResourceType(arrayType->getElementType())) {
+        theBuilder.addExtension(Extension::EXT_descriptor_indexing,
+                                "runtime array of resources", {});
+        theBuilder.requireCapability(
+            spv::Capability::RuntimeDescriptorArrayEXT);
+      }
+      return theBuilder.getRuntimeArrayType(elemTypeId, decorations);
+    }
   }
 
   emitError("type %0 unimplemented") << type->getTypeClassName();
@@ -654,39 +669,6 @@ uint32_t TypeTranslator::getACSBufferCounter() {
 
   return theBuilder.getStructType(i32Type, "type.ACSBuffer.counter", {},
                                   decorations);
-}
-
-uint32_t TypeTranslator::getGlPerVertexStruct(
-    uint32_t clipArraySize, uint32_t cullArraySize, llvm::StringRef name,
-    const llvm::SmallVector<std::string, 4> &fieldSemantics) {
-  const uint32_t f32Type = theBuilder.getFloat32Type();
-  const uint32_t v4f32Type = theBuilder.getVecType(f32Type, 4);
-  const uint32_t clipType = theBuilder.getArrayType(
-      f32Type, theBuilder.getConstantUint32(clipArraySize));
-  const uint32_t cullType = theBuilder.getArrayType(
-      f32Type, theBuilder.getConstantUint32(cullArraySize));
-
-  auto &ctx = *theBuilder.getSPIRVContext();
-  llvm::SmallVector<const Decoration *, 1> decorations;
-
-  decorations.push_back(Decoration::getBuiltIn(ctx, spv::BuiltIn::Position, 0));
-  decorations.push_back(
-      Decoration::getBuiltIn(ctx, spv::BuiltIn::PointSize, 1));
-  decorations.push_back(
-      Decoration::getBuiltIn(ctx, spv::BuiltIn::ClipDistance, 2));
-  decorations.push_back(
-      Decoration::getBuiltIn(ctx, spv::BuiltIn::CullDistance, 3));
-  decorations.push_back(Decoration::getBlock(ctx));
-
-  if (spirvOptions.enableReflect) {
-    for (uint32_t i = 0; i < 4; ++i)
-      if (!fieldSemantics[i].empty())
-        decorations.push_back(
-            Decoration::getHlslSemanticGOOGLE(ctx, fieldSemantics[i], i));
-  }
-
-  return theBuilder.getStructType({v4f32Type, f32Type, clipType, cullType},
-                                  name, {}, decorations);
 }
 
 bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
@@ -749,6 +731,10 @@ bool TypeTranslator::isRWAppendConsumeSBuffer(QualType type) {
 }
 
 bool TypeTranslator::isAKindOfStructuredOrByteBuffer(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     return name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
@@ -773,6 +759,79 @@ bool TypeTranslator::isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
     }
   }
   return false;
+}
+
+bool TypeTranslator::isOrContains16BitType(QualType type) {
+  // Primitive types
+  {
+    QualType ty = {};
+    if (isScalarType(type, &ty)) {
+      if (const auto *builtinType = ty->getAs<BuiltinType>()) {
+        switch (builtinType->getKind()) {
+        case BuiltinType::Short:
+        case BuiltinType::UShort:
+        case BuiltinType::Min12Int:
+        case BuiltinType::Half:
+        case BuiltinType::Min10Float: {
+          return spirvOptions.enable16BitTypes;
+        }
+        default:
+          return false;
+        }
+      }
+    }
+  }
+
+  // Vector types
+  {
+    QualType elemType = {};
+    if (isVectorType(type, &elemType))
+      return isOrContains16BitType(elemType);
+  }
+
+  // Matrix types
+  {
+    QualType elemType = {};
+    if (isMxNMatrix(type, &elemType)) {
+      return isOrContains16BitType(elemType);
+    }
+  }
+
+  // Struct type
+  if (const auto *structType = type->getAs<RecordType>()) {
+    const auto *decl = structType->getDecl();
+
+    for (const auto *field : decl->fields()) {
+      if (isOrContains16BitType(field->getType()))
+        return true;
+    }
+
+    return false;
+  }
+
+  // Array type
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
+    return isOrContains16BitType(arrayType->getElementType());
+  }
+
+  // Reference types
+  if (const auto *refType = type->getAs<ReferenceType>()) {
+    return isOrContains16BitType(refType->getPointeeType());
+  }
+
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>()) {
+    return isOrContains16BitType(ptrType->getPointeeType());
+  }
+
+  if (const auto *typedefType = type->getAs<TypedefType>()) {
+    return isOrContains16BitType(typedefType->desugar());
+  }
+
+  emitError("checking 16-bit type for %0 unimplemented")
+      << type->getTypeClassName();
+  type->dump();
+  return 0;
 }
 
 bool TypeTranslator::isStructuredBuffer(QualType type) {
@@ -1326,8 +1385,7 @@ TypeTranslator::collectDeclsInDeclContext(const DeclContext *declContext) {
   return decls;
 }
 
-uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
-                                               bool isDepthCmp) {
+uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   // Resource types are either represented like C struct or C++ class in the
   // AST. Samplers are represented like C struct, so isStructureType() will
   // return true for it; textures are represented like C++ class, so
@@ -1357,7 +1415,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
       const auto isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return theBuilder.getImageType(translateType(getElementType(sampledType)),
-                                     dim, isDepthCmp, isArray, isMS);
+                                     dim, /*depth*/ 2, isArray, isMS);
     }
 
     // There is no RWTexture3DArray
@@ -1369,7 +1427,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       const auto format = translateSampledTypeToImageFormat(sampledType);
       return theBuilder.getImageType(translateType(getElementType(sampledType)),
-                                     dim, /*depth*/ 0, isArray, /*MS*/ 0,
+                                     dim, /*depth*/ 2, isArray, /*MS*/ 0,
                                      /*Sampled*/ 2u, format);
     }
   }
@@ -1465,7 +1523,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
     const auto format = translateSampledTypeToImageFormat(sampledType);
     return theBuilder.getImageType(
         translateType(getElementType(sampledType)), spv::Dim::Buffer,
-        /*depth*/ 0, /*isArray*/ 0, /*ms*/ 0,
+        /*depth*/ 2, /*isArray*/ 0, /*ms*/ 0,
         /*sampled*/ name == "Buffer" ? 1 : 2, format);
   }
 
@@ -1495,7 +1553,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule,
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     return theBuilder.getImageType(
         translateType(getElementType(sampledType)), spv::Dim::SubpassData,
-        /*depth*/ 0, /*isArray*/ false, /*ms*/ name == "SubpassInputMS",
+        /*depth*/ 2, /*isArray*/ false, /*ms*/ name == "SubpassInputMS",
         /*sampled*/ 2);
   }
 
@@ -1655,6 +1713,16 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
         case BuiltinType::LongLong:
         case BuiltinType::ULongLong:
           return {8, 8};
+        case BuiltinType::Short:
+        case BuiltinType::UShort:
+        case BuiltinType::Min12Int:
+        case BuiltinType::Half:
+        case BuiltinType::Min10Float: {
+          if (spirvOptions.enable16BitTypes)
+            return {2, 2};
+          else
+            return {4, 4};
+        }
         default:
           emitError("alignment and size calculation for type %0 unimplemented")
               << type;
@@ -1813,6 +1881,22 @@ std::string TypeTranslator::getName(QualType type) {
           return "uint";
         case BuiltinType::Float:
           return "float";
+        case BuiltinType::Double:
+          return "double";
+        case BuiltinType::LongLong:
+          return "int64";
+        case BuiltinType::ULongLong:
+          return "uint64";
+        case BuiltinType::Short:
+          return "short";
+        case BuiltinType::UShort:
+          return "ushort";
+        case BuiltinType::Half:
+          return "half";
+        case BuiltinType::Min12Int:
+          return "min12int";
+        case BuiltinType::Min10Float:
+          return "min10float";
         default:
           return "";
         }

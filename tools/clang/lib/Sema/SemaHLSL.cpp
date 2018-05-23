@@ -4149,7 +4149,7 @@ public:
   /// <param name="RHS">Right hand side.</param>
   /// <param name="QuestionLoc">Location of question mark in operator.</param>
   /// <returns>Result type of vector conditional expression.</returns>
-  clang::QualType HLSLExternalSource::CheckVectorConditional(
+  clang::QualType CheckVectorConditional(
     _In_ ExprResult &Cond,
     _In_ ExprResult &LHS,
     _In_ ExprResult &RHS,
@@ -6343,7 +6343,7 @@ UINT64 HLSLExternalSource::ScoreCast(QualType pLType, QualType pRType)
   }
 
 #define SCORE_COND(shift, cond) { \
-  if (cond) uScore += 1UI64 << (SCORE_MIN_SHIFT + SCORE_PARAM_SHIFT * shift); }
+  if (cond) uScore += 1ULL << (SCORE_MIN_SHIFT + SCORE_PARAM_SHIFT * shift); }
   SCORE_COND(0, uRSize < uLSize);
   SCORE_COND(1, bLPromo);
   SCORE_COND(2, bRPromo);
@@ -7442,6 +7442,9 @@ bool HLSLExternalSource::CanConvert(
   _Out_opt_ TYPE_CONVERSION_REMARKS* remarks,
   _Inout_opt_ StandardConversionSequence* standard)
 {
+  bool bCheckElt = false;
+  UINT uTSize, uSSize;
+
   DXASSERT_NOMSG(sourceExpr != nullptr);
   DXASSERT_NOMSG(!target.isNull());
 
@@ -7500,8 +7503,8 @@ bool HLSLExternalSource::CanConvert(
   CollectInfo(target, &TargetInfo);
   CollectInfo(source, &SourceInfo);
 
-  UINT uTSize = TargetInfo.uTotalElts;
-  UINT uSSize = SourceInfo.uTotalElts;
+  uTSize = TargetInfo.uTotalElts;
+  uSSize = SourceInfo.uTotalElts;
 
   // TODO: TYPE_CONVERSION_BY_REFERENCE does not seem possible here
   // are we missing cases?
@@ -7620,7 +7623,6 @@ bool HLSLExternalSource::CanConvert(
   // 5. The result of a matrix and a vector is similar to #4.
   //
 
-  bool bCheckElt = false;
 
   switch (TargetInfo.ShapeKind) {
   case AR_TOBJ_BASIC:
@@ -10664,6 +10666,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKLocationAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKIndex:
+    declAttr = ::new (S.Context) VKIndexAttr(A.getRange(), S.Context,
+      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKBinding:
     declAttr = ::new (S.Context) VKBindingAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), ValidateAttributeIntArg(S, A, 1),
@@ -11031,6 +11037,10 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     unsigned int nestedDiagId = 0;
     if (isTypedef) {
       nestedDiagId = diag::err_hlsl_unsupported_nested_typedef;
+    }
+
+    if (isField && pType && pType->isIncompleteArrayType()) {
+      nestedDiagId = diag::err_hlsl_unsupported_incomplete_array;
     }
 
     if (nestedDiagId) {

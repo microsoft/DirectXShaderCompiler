@@ -54,10 +54,10 @@ private:
 public:
   RewriteUnusedASTConsumer() {
   }
-  __override void InitializeSema(Sema& S) {
+  void InitializeSema(Sema& S) override {
     m_sema = &S;
   }
-  __override void ForgetSema() {
+  void ForgetSema() override {
     m_sema = nullptr;
   }
 };
@@ -339,7 +339,7 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
   // Setup a compiler instance.
   CompilerInstance compiler;
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-      std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());  
+      llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());  
   SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, pDefines);
 
   // Parse the source file.
@@ -500,7 +500,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   // Setup a compiler instance.
   CompilerInstance compiler;
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-      std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());    
+      llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());    
   SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, pDefines);
 
   // Parse the source file.
@@ -551,11 +551,11 @@ public:
     return DoBasicQueryInterface<IDxcRewriter, IDxcLangExtensions>(this, iid, ppvObject);
   }
 
-  __override HRESULT STDMETHODCALLTYPE RemoveUnusedGlobals(_In_ IDxcBlobEncoding *pSource,
-                                                           _In_z_ LPCWSTR pEntryPoint,
-                                                           _In_count_(defineCount) DxcDefine *pDefines,
-                                                           _In_ UINT32 defineCount,
-                                                           _COM_Outptr_ IDxcOperationResult **ppResult)
+  HRESULT STDMETHODCALLTYPE RemoveUnusedGlobals(_In_ IDxcBlobEncoding *pSource,
+                                                _In_z_ LPCWSTR pEntryPoint,
+                                                _In_count_(defineCount) DxcDefine *pDefines,
+                                                _In_ UINT32 defineCount,
+                                                _COM_Outptr_ IDxcOperationResult **ppResult) override
   {
     
     if (pSource == nullptr || ppResult == nullptr || (defineCount > 0 && pDefines == nullptr))
@@ -596,11 +596,11 @@ public:
     CATCH_CPP_RETURN_HRESULT();
   }
 
-  __override HRESULT STDMETHODCALLTYPE 
+  HRESULT STDMETHODCALLTYPE 
   RewriteUnchanged(_In_ IDxcBlobEncoding *pSource,
                    _In_count_(defineCount) DxcDefine *pDefines,
                    _In_ UINT32 defineCount,
-                   _COM_Outptr_ IDxcOperationResult **ppResult) {
+                   _COM_Outptr_ IDxcOperationResult **ppResult) override {
     if (pSource == nullptr || ppResult == nullptr || (defineCount > 0 && pDefines == nullptr))
       return E_POINTER;
 
@@ -641,7 +641,7 @@ public:
 
   }
 
-  __override HRESULT STDMETHODCALLTYPE RewriteUnchangedWithInclude(
+  HRESULT STDMETHODCALLTYPE RewriteUnchangedWithInclude(
       _In_ IDxcBlobEncoding *pSource,
       // Optional file name for pSource. Used in errors and include handlers.
       _In_opt_ LPCWSTR pSourceName, _In_count_(defineCount) DxcDefine *pDefines,
@@ -649,7 +649,7 @@ public:
       // user-provided interface to handle #include directives (optional)
       _In_opt_ IDxcIncludeHandler *pIncludeHandler,
       _In_ UINT32 rewriteOption,
-      _COM_Outptr_ IDxcOperationResult **ppResult) {
+      _COM_Outptr_ IDxcOperationResult **ppResult) override {
     if (pSource == nullptr || ppResult == nullptr || (defineCount > 0 && pDefines == nullptr))
       return E_POINTER;
 

@@ -2,19 +2,19 @@
 
 // CHECK: OpCapability Image1D
 
-// CHECK: %type_1d_image = OpTypeImage %int 1D 0 0 0 2 R32i
+// CHECK: %type_1d_image = OpTypeImage %int 1D 2 0 0 2 R32i
 // CHECK: %_ptr_UniformConstant_type_1d_image = OpTypePointer UniformConstant %type_1d_image
-// CHECK: %type_2d_image = OpTypeImage %uint 2D 0 0 0 2 Rg32ui
+// CHECK: %type_2d_image = OpTypeImage %uint 2D 2 0 0 2 Rg32ui
 // CHECK: %_ptr_UniformConstant_type_2d_image = OpTypePointer UniformConstant %type_2d_image
-// CHECK: %type_3d_image = OpTypeImage %float 3D 0 0 0 2 Rgba32f
+// CHECK: %type_3d_image = OpTypeImage %float 3D 2 0 0 2 Rgba32f
 // CHECK: %_ptr_UniformConstant_type_3d_image = OpTypePointer UniformConstant %type_3d_image
-// CHECK: %type_1d_image_array = OpTypeImage %int 1D 0 1 0 2 R32i
+// CHECK: %type_1d_image_array = OpTypeImage %int 1D 2 1 0 2 R32i
 // CHECK: %_ptr_UniformConstant_type_1d_image_array = OpTypePointer UniformConstant %type_1d_image_array
-// CHECK: %type_2d_image_array = OpTypeImage %uint 2D 0 1 0 2 Rg32ui
+// CHECK: %type_2d_image_array = OpTypeImage %uint 2D 2 1 0 2 Rg32ui
 // CHECK: %_ptr_UniformConstant_type_2d_image_array = OpTypePointer UniformConstant %type_2d_image_array
-// CHECK: %type_1d_image_array_0 = OpTypeImage %float 1D 0 1 0 2 Rgba32f
+// CHECK: %type_1d_image_array_0 = OpTypeImage %float 1D 2 1 0 2 Rgba32f
 // CHECK: %_ptr_UniformConstant_type_1d_image_array_0 = OpTypePointer UniformConstant %type_1d_image_array_0
-// CHECK: %type_2d_image_array_0 = OpTypeImage %float 2D 0 1 0 2 Rgba32f
+// CHECK: %type_2d_image_array_0 = OpTypeImage %float 2D 2 1 0 2 Rgba32f
 // CHECK: %_ptr_UniformConstant_type_2d_image_array_0 = OpTypePointer UniformConstant %type_2d_image_array_0
 
 

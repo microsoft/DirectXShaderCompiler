@@ -100,10 +100,13 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_multiview", Extension::KHR_multiview)
       .Case("SPV_KHR_shader_draw_parameters",
             Extension::KHR_shader_draw_parameters)
+      .Case("SPV_EXT_descriptor_indexing", Extension::EXT_descriptor_indexing)
       .Case("SPV_EXT_fragment_fully_covered",
             Extension::EXT_fragment_fully_covered)
       .Case("SPV_EXT_shader_stencil_export",
             Extension::EXT_shader_stencil_export)
+      .Case("SPV_EXT_shader_viewport_index_layer",
+            Extension::EXT_shader_viewport_index_layer)
       .Case("SPV_AMD_gpu_shader_half_float",
             Extension::AMD_gpu_shader_half_float)
       .Case("SPV_AMD_shader_explicit_vertex_parameter",
@@ -125,10 +128,14 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_multiview";
   case Extension::KHR_shader_draw_parameters:
     return "SPV_KHR_shader_draw_parameters";
+  case Extension::EXT_descriptor_indexing:
+    return "SPV_EXT_descriptor_indexing";
   case Extension::EXT_fragment_fully_covered:
     return "SPV_EXT_fragment_fully_covered";
   case Extension::EXT_shader_stencil_export:
     return "SPV_EXT_shader_stencil_export";
+  case Extension::EXT_shader_viewport_index_layer:
+    return "SPV_EXT_shader_viewport_index_layer";
   case Extension::AMD_gpu_shader_half_float:
     return "SPV_AMD_gpu_shader_half_float";
   case Extension::AMD_shader_explicit_vertex_parameter:
