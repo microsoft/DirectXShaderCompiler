@@ -47,7 +47,7 @@ float4 fn2(in Special in1: SEMANTIC_IN) : SEMANTIC_OUT {
   // CHECK: getelementptr
   // CHECK: load i32, i32*
   // CHECK: sitofp i32
-  // CHECK: fadd float
+  // CHECK: fadd fast float
   return in1.member + (float)s_special.a[i];
 }
 
