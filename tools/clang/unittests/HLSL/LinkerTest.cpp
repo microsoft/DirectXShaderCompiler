@@ -53,6 +53,10 @@ public:
   TEST_METHOD(RunLinkFailSelectRes);
   TEST_METHOD(RunLinkToLibWithUnresolvedFunctions);
   TEST_METHOD(RunLinkToLibWithUnresolvedFunctionsExports);
+  TEST_METHOD(RunLinkToLibWithExportNamesSwapped);
+  TEST_METHOD(RunLinkToLibWithExportCollision);
+  TEST_METHOD(RunLinkToLibWithUnusedExport);
+  TEST_METHOD(RunLinkToLibWithNoExports);
   TEST_METHOD(RunLinkWithPotentialIntrinsicNameCollisions);
 
 
@@ -98,10 +102,13 @@ public:
 
   void Link(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
             ArrayRef<LPCWSTR> libNames, llvm::ArrayRef<LPCSTR> pCheckMsgs,
-            llvm::ArrayRef<LPCSTR> pCheckNotMsgs) {
+            llvm::ArrayRef<LPCSTR> pCheckNotMsgs,
+            llvm::ArrayRef<LPCWSTR> pArguments = {}) {
     CComPtr<IDxcOperationResult> pResult;
     VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames.data(),
-                                   libNames.size(), nullptr, 0, &pResult));
+                                   libNames.size(),
+                                   pArguments.data(), pArguments.size(),
+                                   &pResult));
     CComPtr<IDxcBlob> pProgram;
     CheckOperationSucceeded(pResult, &pProgram);
 
@@ -113,40 +120,17 @@ public:
     VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
     std::string IR = BlobToUtf8(pDisassembly);
     CheckMsgs(IR.c_str(), IR.size(), pCheckMsgs.data(), pCheckMsgs.size(), false);
-    for (auto notMsg : pCheckNotMsgs) {
-      VERIFY_IS_TRUE(IR.find(notMsg) == std::string::npos);
-    }
+    CheckNotMsgs(IR.c_str(), IR.size(), pCheckNotMsgs.data(), pCheckNotMsgs.size(), false);
   }
 
-  void LinkWithExports(IDxcLinker *pLinker, ArrayRef<LPCWSTR> libNames,
-                       ArrayRef<DxcDefine> exportNames,
-                       llvm::ArrayRef<LPCSTR> pCheckMsgs,
-                       llvm::ArrayRef<LPCSTR> pCheckNotMsgs) {
-    CComPtr<IDxcOperationResult> pResult;
-    VERIFY_SUCCEEDED(pLinker->LinkWithExports(
-        /*pEntryName*/ nullptr, /*pShaderModel*/ L"lib_6_2", libNames.data(),
-        libNames.size(), nullptr, 0, exportNames.data(), exportNames.size(),
-        &pResult));
-    CComPtr<IDxcBlob> pProgram;
-    CheckOperationSucceeded(pResult, &pProgram);
-
-    CComPtr<IDxcCompiler> pCompiler;
-    CComPtr<IDxcBlobEncoding> pDisassembly;
-
-    VERIFY_SUCCEEDED(
-        m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-    VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
-    std::string IR = BlobToUtf8(pDisassembly);
-    CheckMsgs(IR.c_str(), IR.size(), pCheckMsgs.data(), pCheckMsgs.size(), false);
-    for (auto notMsg : pCheckNotMsgs) {
-      VERIFY_IS_TRUE(IR.find(notMsg) == std::string::npos);
-    }
-  }
   void LinkCheckMsg(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
-            ArrayRef<LPCWSTR> libNames, llvm::ArrayRef<LPCSTR> pErrorMsgs) {
+            ArrayRef<LPCWSTR> libNames, llvm::ArrayRef<LPCSTR> pErrorMsgs,
+            llvm::ArrayRef<LPCWSTR> pArguments = {}) {
     CComPtr<IDxcOperationResult> pResult;
-    VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames.data(),
-                                   libNames.size(), nullptr, 0, &pResult));
+    VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel,
+                                   libNames.data(), libNames.size(),
+                                   pArguments.data(), pArguments.size(),
+                                   &pResult));
     CheckOperationResultMsgs(pResult, pErrorMsgs.data(), pErrorMsgs.size(),
                              false, false);
   }
@@ -374,8 +358,10 @@ TEST_F(LinkerTest, RunLinkToLibExport) {
 
   LPCWSTR libName2 = L"test";
   RegisterDxcModule(libName2, pLib, pLinker);
-  DxcDefine exports[] = { {L"test", L""} };
-  LinkWithExports(pLinker, {libName, libName2}, exports, {"@\"\\01?test@@","@test"}, {"@\"\\01?GetBuf"});
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2},
+    { "@\"\\01?renamed_test@@","@\"\\01?cloned_test@@","@test" },
+    { "@\"\\01?GetBuf", "@renamed_test", "@cloned_test" },
+    {L"-exports", L"renamed_test,cloned_test=\\01?test@@YA?AV?$vector@M$03@@I@Z;test"});
 }
 
 TEST_F(LinkerTest, RunLinkFailSelectRes) {
@@ -447,15 +433,127 @@ TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctionsExports) {
   LPCWSTR libName2 = L"lib2";
   RegisterDxcModule(libName2, pLib2, pLinker);
 
-  DxcDefine exports[] = { { L"call_lib1", L"" }, { L"call_lib2", L"" } };
-  LinkWithExports(pLinker, { libName1, libName2 }, exports, {
-    "declare float @\"\\01?external_fn1@@YAMXZ\"()",
-    "declare float @\"\\01?external_fn2@@YAMXZ\"()",
-    "declare float @\"\\01?external_fn@@YAMXZ\"()",
-    "define float @\"\\01?call_lib1@@YAMXZ\"()",
-    "define float @\"\\01?call_lib2@@YAMXZ\"()"
-  }, { "declare float @\"\\01?unused_fn1", "declare float @\"\\01?unused_fn2",
-       "declare float @\"\\01?lib1_fn", "declare float @\"\\01?lib2_fn" });
+  Link(L"", L"lib_6_3", pLinker, { libName1, libName2 },
+    { "declare float @\"\\01?external_fn1@@YAMXZ\"()",
+      "declare float @\"\\01?external_fn2@@YAMXZ\"()",
+      "declare float @\"\\01?external_fn@@YAMXZ\"()",
+      "define float @\"\\01?renamed_lib1@@YAMXZ\"()",
+      "define float @\"\\01?call_lib2@@YAMXZ\"()"
+    },
+    { "float @\"\\01?unused_fn1", "float @\"\\01?unused_fn2",
+      "float @\"\\01?lib1_fn", "float @\"\\01?lib2_fn",
+      "float @\"\\01?call_lib1"
+    },
+    { L"-exports", L"renamed_lib1=call_lib1",
+      L"-exports", L"call_lib2"
+    });
+}
+
+TEST_F(LinkerTest, RunLinkToLibWithExportNamesSwapped) {
+  LPCWSTR option[] = { L"-Zi" };
+
+  CComPtr<IDxcBlob> pLib1;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+    &pLib1, option, 1);
+  CComPtr<IDxcBlob> pLib2;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+    &pLib2, option, 1);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName1 = L"lib1";
+  RegisterDxcModule(libName1, pLib1, pLinker);
+
+  LPCWSTR libName2 = L"lib2";
+  RegisterDxcModule(libName2, pLib2, pLinker);
+
+  Link(L"", L"lib_6_3", pLinker, { libName1, libName2 },
+    { "declare float @\"\\01?external_fn1@@YAMXZ\"()",
+      "declare float @\"\\01?external_fn2@@YAMXZ\"()",
+      "declare float @\"\\01?external_fn@@YAMXZ\"()",
+      "define float @\"\\01?call_lib1@@YAMXZ\"()",
+      "define float @\"\\01?call_lib2@@YAMXZ\"()"
+    },
+    { "float @\"\\01?unused_fn1", "float @\"\\01?unused_fn2",
+      "float @\"\\01?lib1_fn", "float @\"\\01?lib2_fn"
+    },
+    { L"-exports", L"call_lib2=call_lib1;call_lib1=call_lib2" });
+}
+
+TEST_F(LinkerTest, RunLinkToLibWithExportCollision) {
+  LPCWSTR option[] = { L"-Zi" };
+
+  CComPtr<IDxcBlob> pLib1;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+    &pLib1, option, 1);
+  CComPtr<IDxcBlob> pLib2;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+    &pLib2, option, 1);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName1 = L"lib1";
+  RegisterDxcModule(libName1, pLib1, pLinker);
+
+  LPCWSTR libName2 = L"lib2";
+  RegisterDxcModule(libName2, pLib2, pLinker);
+
+  LinkCheckMsg(L"", L"lib_6_3", pLinker, { libName1, libName2 },
+    { "Export name collides with another export: \\01?call_lib2@@YAMXZ"
+    },
+    { L"-exports", L"call_lib2=call_lib1;call_lib2" });
+}
+
+TEST_F(LinkerTest, RunLinkToLibWithUnusedExport) {
+  LPCWSTR option[] = { L"-Zi" };
+
+  CComPtr<IDxcBlob> pLib1;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+    &pLib1, option, 1);
+  CComPtr<IDxcBlob> pLib2;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+    &pLib2, option, 1);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName1 = L"lib1";
+  RegisterDxcModule(libName1, pLib1, pLinker);
+
+  LPCWSTR libName2 = L"lib2";
+  RegisterDxcModule(libName2, pLib2, pLinker);
+
+  LinkCheckMsg(L"", L"lib_6_3", pLinker, { libName1, libName2 },
+    { "Could not find target for export: call_lib"
+    },
+    { L"-exports", L"call_lib2=call_lib;call_lib1" });
+}
+
+TEST_F(LinkerTest, RunLinkToLibWithNoExports) {
+  LPCWSTR option[] = { L"-Zi" };
+
+  CComPtr<IDxcBlob> pLib1;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func1.hlsl",
+    &pLib1, option, 1);
+  CComPtr<IDxcBlob> pLib2;
+  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_unresolved_func2.hlsl",
+    &pLib2, option, 1);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName1 = L"lib1";
+  RegisterDxcModule(libName1, pLib1, pLinker);
+
+  LPCWSTR libName2 = L"lib2";
+  RegisterDxcModule(libName2, pLib2, pLinker);
+
+  LinkCheckMsg(L"", L"lib_6_3", pLinker, { libName1, libName2 },
+    { "Library has no functions to export"
+    },
+    { L"-exports", L"call_lib2=call_lib" });
 }
 
 TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {

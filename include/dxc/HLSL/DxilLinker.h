@@ -17,6 +17,7 @@
 #include "llvm/ADT/StringMap.h"
 #include <memory>
 #include "llvm/Support/ErrorOr.h"
+#include "dxc/HLSL/DxilExportMap.h"
 
 namespace llvm {
 class Function;
@@ -45,8 +46,7 @@ public:
   virtual void DetachAll() = 0;
 
   virtual std::unique_ptr<llvm::Module>
-  Link(llvm::StringRef entry, llvm::StringRef profile,
-       llvm::StringMap<llvm::StringRef> &exportMap) = 0;
+  Link(llvm::StringRef entry, llvm::StringRef profile, dxilutil::ExportMap &exportMap) = 0;
 
 protected:
   DxilLinker(llvm::LLVMContext &Ctx, unsigned valMajor, unsigned valMinor) : m_ctx(Ctx), m_valMajor(valMajor), m_valMinor(valMinor) {}

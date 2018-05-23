@@ -190,10 +190,13 @@ class DxilLibraryReflection : public DxilModuleReflection, public ID3D12LibraryR
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
-  typedef MapVector<StringRef, std::unique_ptr<CFunctionReflection> > FunctionMap;
+  // Storage, and function by name:
+  typedef DenseMap<StringRef, std::unique_ptr<CFunctionReflection> > FunctionMap;
   typedef DenseMap<const Function*, CFunctionReflection*> FunctionsByPtr;
   FunctionMap m_FunctionMap;
   FunctionsByPtr m_FunctionsByPtr;
+  // Enable indexing into functions in deterministic order:
+  std::vector<CFunctionReflection*> m_FunctionVector;
 
   void AddResourceUseToFunctions(DxilResourceBase &resource, unsigned resIndex);
   void AddResourceDependencies();
@@ -1223,8 +1226,8 @@ static D3D_SHADER_INPUT_TYPE ResourceToShaderInputType(DxilResourceBase *RB) {
     if (R->HasCounter()) return D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER;
     return D3D_SIT_UAV_RWSTRUCTURED;
   }
+  case DxilResource::Kind::TBuffer:
   case DxilResource::Kind::TypedBuffer:
-    return isUAV ? D3D_SIT_UAV_RWTYPED : D3D_SIT_STRUCTURED;
   case DxilResource::Kind::Texture1D:
   case DxilResource::Kind::Texture1DArray:
   case DxilResource::Kind::Texture2D:
@@ -1234,7 +1237,7 @@ static D3D_SHADER_INPUT_TYPE ResourceToShaderInputType(DxilResourceBase *RB) {
   case DxilResource::Kind::Texture3D:
   case DxilResource::Kind::TextureCube:
   case DxilResource::Kind::TextureCubeArray:
-    return R->IsRW() ? D3D_SIT_UAV_RWTYPED : D3D_SIT_TEXTURE;
+    return isUAV ? D3D_SIT_UAV_RWTYPED : D3D_SIT_TEXTURE;
   case DxilResource::Kind::RTAccelerationStructure:
     return (D3D_SHADER_INPUT_TYPE)D3D_SIT_RTACCELERATIONSTRUCTURE;
   default:
@@ -1266,6 +1269,7 @@ static D3D_SRV_DIMENSION ResourceToDimension(DxilResourceBase *RB) {
   switch (RB->GetKind()) {
   case DxilResource::Kind::StructuredBuffer:
   case DxilResource::Kind::TypedBuffer:
+  case DxilResource::Kind::TBuffer:
     return D3D_SRV_DIMENSION_BUFFER;
   case DxilResource::Kind::Texture1D:
     return D3D_SRV_DIMENSION_TEXTURE1D;
@@ -2248,14 +2252,22 @@ void DxilLibraryReflection::AddResourceUseToFunctions(DxilResourceBase &resource
 }
 
 void DxilLibraryReflection::AddResourceDependencies() {
+  std::map<StringRef, CFunctionReflection*> orderedMap;
   for (auto &F : m_pModule->functions()) {
     if (F.isDeclaration())
       continue;
-    auto &func = m_FunctionMap[F.getName().str()];
+    auto &func = m_FunctionMap[F.getName()];
     DXASSERT(!func.get(), "otherwise duplicate named functions");
     func.reset(new CFunctionReflection());
     func->Initialize(this, &F);
     m_FunctionsByPtr[&F] = func.get();
+    orderedMap[F.getName()] = func.get();
+  }
+  // Fill in function vector sorted by name
+  m_FunctionVector.clear();
+  m_FunctionVector.reserve(orderedMap.size());
+  for (auto &it : orderedMap) {
+    m_FunctionVector.push_back(it.second);
   }
   UINT resIndex = 0;
   for (auto &resource : m_Resources) {
@@ -2305,15 +2317,15 @@ HRESULT DxilLibraryReflection::GetDesc(D3D12_LIBRARY_DESC * pDesc) {
   //Unset:  LPCSTR    Creator;           // The name of the originator of the library.
   //Unset:  UINT      Flags;             // Compilation flags.
   //UINT      FunctionCount;     // Number of functions exported from the library.
-  pDesc->FunctionCount = (UINT)m_FunctionMap.size();
+  pDesc->FunctionCount = (UINT)m_FunctionVector.size();
   return S_OK;
 }
 
 _Use_decl_annotations_
 ID3D12FunctionReflection *DxilLibraryReflection::GetFunctionByIndex(INT FunctionIndex) {
-  if (FunctionIndex >= m_FunctionMap.size())
+  if (FunctionIndex >= m_FunctionVector.size())
     return &g_InvalidFunction;
-  return ((m_FunctionMap.begin() + FunctionIndex)->second).get();
+  return m_FunctionVector[FunctionIndex];
 }
 
 // DxilRuntimeReflection implementation

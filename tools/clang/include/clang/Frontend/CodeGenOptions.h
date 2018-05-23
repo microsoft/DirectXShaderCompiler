@@ -202,6 +202,8 @@ public:
   hlsl::DXIL::Float32DenormMode HLSLFloat32DenormMode;
   /// HLSLDefaultSpace also enables automatic binding for libraries if set. UINT_MAX == unset
   unsigned HLSLDefaultSpace = UINT_MAX;
+  /// HLSLLibraryExports specifies desired exports, with optional renaming
+  std::vector<std::string> HLSLLibraryExports;
   // HLSL Change Ends
   /// Regular expression to select optimizations for which we should enable
   /// optimization remarks. Transformation passes whose name matches this

@@ -876,6 +876,9 @@ public:
 
     // AutoBindingSpace also enables automatic binding for libraries if set. UINT_MAX == unset
     compiler.getCodeGenOpts().HLSLDefaultSpace = Opts.AutoBindingSpace;
+
+    // processed export names from -exports option:
+    compiler.getCodeGenOpts().HLSLLibraryExports = Opts.Exports;
   }
 
   // IDxcVersionInfo
