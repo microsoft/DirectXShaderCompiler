@@ -20,6 +20,8 @@ if "%1"=="-x86" (
   set BUILD_ARCH=x64
 ) else if "%1"=="-arm" (
   set BUILD_ARCH=ARM
+) else if "%1"=="-arm64" (
+  set BUILD_ARCH=ARM64
 ) else (
   goto :donearch
 )
