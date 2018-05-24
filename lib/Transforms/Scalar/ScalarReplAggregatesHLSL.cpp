@@ -3620,7 +3620,7 @@ struct PointerStatus {
     /// This ptr is stored to by multiple values or something else that we
     /// cannot track.
     Stored
-  } StoredType;
+  } storedType;
   /// Keep track of what loaded from the pointer look like.
   enum LoadedType {
     /// There is no load to this pointer.  It can thus be marked constant.
@@ -3632,7 +3632,7 @@ struct PointerStatus {
     /// This ptr is loaded to by multiple instructions or something else that we
     /// cannot track.
     Loaded
-  } LoadedType;
+  } loadedType;
   /// If only one value (besides the initializer constant) is ever stored to
   /// this global, keep track of what value it is.
   Value *StoredOnceValue;
@@ -3657,15 +3657,15 @@ struct PointerStatus {
                              DxilTypeSystem &typeSys, bool bStructElt);
 
   PointerStatus(unsigned size)
-      : StoredType(NotStored), LoadedType(NotLoaded), StoredOnceValue(nullptr),
+      : storedType(StoredType::NotStored), loadedType(LoadedType::NotLoaded), StoredOnceValue(nullptr),
         StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
         AccessingFunction(nullptr), HasMultipleAccessingFunctions(false),
         Size(size) {}
   void MarkAsStored() {
-    StoredType = PointerStatus::StoredType::Stored;
+    storedType = PointerStatus::StoredType::Stored;
     StoredOnceValue = nullptr;
   }
-  void MarkAsLoaded() { LoadedType = PointerStatus::LoadedType::Loaded; }
+  void MarkAsLoaded() { loadedType = PointerStatus::LoadedType::Loaded; }
 };
 
 void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
@@ -3696,8 +3696,8 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
         }
         if (MC->getRawDest() == V) {
           if (bFullCopy &&
-              PS.StoredType == PointerStatus::StoredType::NotStored) {
-            PS.StoredType = PointerStatus::StoredType::MemcopyDestOnce;
+              PS.storedType == PointerStatus::StoredType::NotStored) {
+            PS.storedType = PointerStatus::StoredType::MemcopyDestOnce;
             PS.StoringMemcpy = MI;
           } else {
             PS.MarkAsStored();
@@ -3705,8 +3705,8 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
           }
         } else if (MC->getRawSource() == V) {
           if (bFullCopy &&
-              PS.LoadedType == PointerStatus::LoadedType::NotLoaded) {
-            PS.LoadedType = PointerStatus::LoadedType::MemcopySrcOnce;
+              PS.loadedType == PointerStatus::LoadedType::NotLoaded) {
+            PS.loadedType = PointerStatus::LoadedType::MemcopySrcOnce;
             PS.LoadingMemcpy = MI;
           } else {
             PS.MarkAsLoaded();
@@ -3732,8 +3732,8 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
     } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
       Value *V = SI->getOperand(0);
 
-      if (PS.StoredType == PointerStatus::StoredType::NotStored) {
-        PS.StoredType = PointerStatus::StoredType::StoredOnce;
+      if (PS.storedType == PointerStatus::StoredType::NotStored) {
+        PS.storedType = PointerStatus::StoredType::StoredOnce;
         PS.StoredOnceValue = V;
       } else {
         PS.MarkAsStored();
@@ -3983,9 +3983,9 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
     if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
-      if (PS.StoredType == PointerStatus::StoredType::NotStored) {
-        PS.StoredType = PointerStatus::StoredType::InitializerStored;
-      } else if (PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce) {
+      if (PS.storedType == PointerStatus::StoredType::NotStored) {
+        PS.storedType = PointerStatus::StoredType::InitializerStored;
+      } else if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
         // For single mem store, if the store not dominator all users.
         // Makr it as Stored.
         // Case like:
@@ -3997,17 +3997,17 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         if (isa<ConstantAggregateZero>(GV->getInitializer())) {
           Instruction * Memcpy = PS.StoringMemcpy;
           if (!ReplaceUseOfZeroInitBeforeDef(Memcpy, GV)) {
-            PS.StoredType = PointerStatus::StoredType::Stored;
+            PS.storedType = PointerStatus::StoredType::Stored;
           }
         }
       } else {
-        PS.StoredType = PointerStatus::StoredType::Stored;
+        PS.storedType = PointerStatus::StoredType::Stored;
       }
     }
   }
 
   if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
-    if (PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce &&
+    if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce &&
         // Skip argument for input argument has input value, it is not dest once anymore.
         !isa<Argument>(V)) {
       // Replace with src of memcpy.
@@ -4041,13 +4041,13 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Check Src only have 1 store now.
           PointerStatus SrcPS(size);
           PointerStatus::analyzePointer(Src, SrcPS, typeSys, bStructElt);
-          if (SrcPS.StoredType != PointerStatus::StoredType::Stored) {
+          if (SrcPS.storedType != PointerStatus::StoredType::Stored) {
             ReplaceMemcpy(V, Src, MC);
             return true;
           }
         }
       }
-    } else if (PS.LoadedType == PointerStatus::LoadedType::MemcopySrcOnce) {
+    } else if (PS.loadedType == PointerStatus::LoadedType::MemcopySrcOnce) {
       // Replace dst of memcpy.
       MemCpyInst *MC = PS.LoadingMemcpy;
       if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
@@ -4064,7 +4064,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Check Dest only have 1 store now.
           PointerStatus DestPS(size);
           PointerStatus::analyzePointer(Dest, DestPS, typeSys, bStructElt);
-          if (DestPS.StoredType != PointerStatus::StoredType::Stored) {
+          if (DestPS.storedType != PointerStatus::StoredType::Stored) {
             ReplaceMemcpy(Dest, V, MC);
             // V still need to be flatten.
             // Lower memcpy come from Dest.
@@ -6552,8 +6552,8 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV
   PointerStatus PS(size);
   GV->removeDeadConstantUsers();
   PS.analyzePointer(GV, PS, typeSys, /*bStructElt*/ false);
-  bool NotStored = (PS.StoredType == PointerStatus::NotStored) ||
-                   (PS.StoredType == PointerStatus::InitializerStored);
+  bool NotStored = (PS.storedType == PointerStatus::StoredType::NotStored) ||
+                   (PS.storedType == PointerStatus::StoredType::InitializerStored);
   // Make sure GV only used in one function.
   // Skip GV which don't have store.
   if (PS.HasMultipleAccessingFunctions || NotStored)

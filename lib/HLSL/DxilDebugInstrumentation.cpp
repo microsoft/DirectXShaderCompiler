@@ -158,7 +158,7 @@ private:
       unsigned PrimitiveId;
       unsigned InstanceId;
     } GeometryShader;
-  } m_Parameters = { 0,0,0 };
+  } m_Parameters = { {0,0,0} };
 
   union SystemValueIndices {
     struct PixelShaderParameters {

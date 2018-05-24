@@ -336,6 +336,7 @@ if( MSVC )
   # also enable Reference optimization, ie dead function elimination.
   append("/Zi" CMAKE_CXX_FLAGS_RELEASE)
   append("/DEBUG /OPT:REF" CMAKE_SHARED_LINKER_FLAGS_RELEASE)
+  append("/DEBUG /OPT:REF" CMAKE_EXE_LINKER_FLAGS_RELEASE)
 
   # HLSL Changes End
 
