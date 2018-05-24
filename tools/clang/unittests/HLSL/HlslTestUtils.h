@@ -13,6 +13,7 @@
 #include <fstream>
 #include "dxc/Support/Unicode.h"
 #include "dxc/HLSL/DxilConstants.h" // DenormMode
+#include "llvm/Support/Atomic.h"
 #include <dxgiformat.h>
 
 // If TAEF verify macros are available, use them to alias other legacy
@@ -479,11 +480,11 @@ inline UINT GetByteSizeForFormat(DXGI_FORMAT value) {
 
 
 #define SIMPLE_IUNKNOWN_IMPL1(_IFACE_) \
-  private: volatile ULONG m_dwRef; \
+  private: volatile llvm::sys::cas_flag m_dwRef; \
   public:\
-  ULONG STDMETHODCALLTYPE AddRef() { return InterlockedIncrement(&m_dwRef); } \
+  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)llvm::sys::AtomicIncrement(&m_dwRef); } \
   ULONG STDMETHODCALLTYPE Release() { \
-    ULONG result = InterlockedDecrement(&m_dwRef); \
+    ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef); \
     if (result == 0) delete this; \
     return result; \
   } \
