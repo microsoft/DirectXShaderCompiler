@@ -23,6 +23,7 @@
 #include "dxc/dxcapi.h"
 #include "dxc/dxcisense.h"
 #include "dxc/Support/dxcapi.use.h"
+#include "llvm/Support/Atomic.h"
 
 inline HRESULT IFE(HRESULT hr) {
   if (FAILED(hr)) {
@@ -50,7 +51,7 @@ inline HRESULT GetFirstChildFromCursor(IDxcCursor *cursor,
 class TrivialDxcUnsavedFile : IDxcUnsavedFile
 {
 private:
-  volatile ULONG m_dwRef;
+  volatile llvm::sys::cas_flag m_dwRef;
   LPCSTR m_fileName;
   LPCSTR m_contents;
   unsigned m_length;
@@ -66,9 +67,9 @@ public:
     CComPtr<TrivialDxcUnsavedFile> pNewValue = new TrivialDxcUnsavedFile(fileName, contents);
     return pNewValue.QueryInterface(pResult);
   }
-  ULONG STDMETHODCALLTYPE AddRef() { return InterlockedIncrement(&m_dwRef); }
+  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)llvm::sys::AtomicIncrement(&m_dwRef); }
   ULONG STDMETHODCALLTYPE Release() { 
-    ULONG result = InterlockedDecrement(&m_dwRef);
+    ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef);
     if (result == 0) delete this;
     return result;
   }

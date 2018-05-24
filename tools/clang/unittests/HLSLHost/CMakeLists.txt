@@ -4,6 +4,7 @@
 
 set( LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
+  Support    # For Atomic increment/decrement
   )
 
 add_clang_executable(HLSLHost
