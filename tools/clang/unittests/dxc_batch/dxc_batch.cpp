@@ -206,13 +206,8 @@ static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
   const char *pData = hlsl::GetDxilPartData(*it);
   DWORD dataLen = (*it)->PartSize;
   StringRefUtf16 WideName(FName);
-#if _WIN32_WINNT >= _WIN32_WINNT_WIN8
-  CHandle file(CreateFile2(WideName, GENERIC_WRITE, FILE_SHARE_READ,
-                           CREATE_ALWAYS, nullptr));
-#else
   CHandle file(CreateFileW(WideName, GENERIC_WRITE, FILE_SHARE_READ, nullptr,
                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
-#endif
   if (file == INVALID_HANDLE_VALUE) {
     IFT_Data(HRESULT_FROM_WIN32(GetLastError()), WideName);
   }
@@ -722,13 +717,8 @@ static void WriteString(HANDLE hFile, _In_z_ LPCSTR value, LPCWSTR pFileName) {
 
 void DxcContext::WriteHeader(IDxcBlobEncoding *pDisassembly, IDxcBlob *pCode,
                              llvm::Twine &pVariableName, LPCWSTR pFileName) {
-#if _WIN32_WINNT >= _WIN32_WINNT_WIN8
-  CHandle file(CreateFile2(pFileName, GENERIC_WRITE, FILE_SHARE_READ,
-                           CREATE_ALWAYS, nullptr));
-#else
   CHandle file(CreateFileW(pFileName, GENERIC_WRITE, FILE_SHARE_READ, nullptr,
                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
-#endif
   if (file == INVALID_HANDLE_VALUE) {
     IFT_Data(HRESULT_FROM_WIN32(GetLastError()), pFileName);
   }
