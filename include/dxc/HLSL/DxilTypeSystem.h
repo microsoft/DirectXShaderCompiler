@@ -27,7 +27,7 @@ class MDNode;
 class Type;
 class StructType;
 class StringRef;
-};
+}
 
 
 namespace hlsl {

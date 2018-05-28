@@ -188,7 +188,7 @@ llvm::Value *ExtensionLowering::NoTranslation(CallInst *CI) {
   IRBuilder<> builder(CI);
   SmallVector<Value *, 8> args(CI->arg_operands().begin(), CI->arg_operands().end());
   return builder.CreateCall(NoTranslationFunction, args);
-};
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Replicated Lowering.
