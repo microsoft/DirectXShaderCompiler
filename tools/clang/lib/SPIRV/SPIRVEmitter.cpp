@@ -8450,11 +8450,11 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
       const auto actOnEachVec = [this, opcode](uint32_t /*index*/,
                                                uint32_t vecType,
                                                uint32_t curRowId) {
-        return theBuilder.createUnaryOp(opcode, vecType, {curRowId});
+        return theBuilder.createUnaryOp(opcode, vecType, curRowId);
       };
       return processEachVectorInMatrix(arg, argId, actOnEachVec);
     }
-    return theBuilder.createUnaryOp(opcode, returnType, {argId});
+    return theBuilder.createUnaryOp(opcode, returnType, argId);
   } else if (callExpr->getNumArgs() == 2u) {
     const Expr *arg0 = callExpr->getArg(0);
     const uint32_t arg0Id = doExpr(arg0);

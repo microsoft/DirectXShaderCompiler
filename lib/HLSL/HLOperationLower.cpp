@@ -156,7 +156,7 @@ private:
     // Add invalid first to avoid dead loop.
     HandleMetaMap[Handle] = {DXIL::ResourceClass::Invalid,
                              DXIL::ResourceKind::Invalid,
-                             StructType::get(Type::getVoidTy(HLM.GetCtx()))};
+                             StructType::get(Type::getVoidTy(HLM.GetCtx()), nullptr)};
     if (Argument *Arg = dyn_cast<Argument>(Handle)) {
       MDNode *MD = HLM.GetDxilResourceAttrib(Arg);
       if (!MD) {

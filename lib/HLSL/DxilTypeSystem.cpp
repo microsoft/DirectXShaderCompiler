@@ -108,7 +108,7 @@ bool DxilStructAnnotation::IsEmptyStruct() { return m_FieldAnnotations.empty(); 
 // DxilParameterAnnotation class methods.
 //
 DxilParameterAnnotation::DxilParameterAnnotation()
-: m_inputQual(DxilParamInputQual::In), DxilFieldAnnotation() {
+: DxilFieldAnnotation(), m_inputQual(DxilParamInputQual::In) {
 }
 
 DxilParamInputQual DxilParameterAnnotation::GetParamInputQual() const {

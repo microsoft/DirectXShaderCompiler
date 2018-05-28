@@ -172,10 +172,10 @@ void TypeTranslator::LiteralTypeHint::setHint(QualType ty) {
 }
 
 TypeTranslator::LiteralTypeHint::LiteralTypeHint(TypeTranslator &t)
-    : translator(t), type({}) {}
+    : type({}), translator(t) {}
 
 TypeTranslator::LiteralTypeHint::LiteralTypeHint(TypeTranslator &t, QualType ty)
-    : translator(t), type(ty) {
+    : type(ty), translator(t) {
   if (!isLiteralType(type))
     translator.pushIntendedLiteralType(type);
 }
