@@ -385,14 +385,6 @@ DXIL::ResourceKind HLModule::GetResourceKind(llvm::Type *Ty) {
   }
 }
 
-static unsigned GetIntAt(MDTuple *tuple, unsigned idx) {
-  return DxilMDHelper::ConstMDToUint32(tuple->getOperand(idx));
-}
-
-static unsigned GetFloatAt(MDTuple *tuple, unsigned idx) {
-  return DxilMDHelper::ConstMDToFloat(tuple->getOperand(idx));
-}
-
 DXIL::Float32DenormMode HLModule::GetFloat32DenormMode() const {
   return m_Float32DenormMode;
 }

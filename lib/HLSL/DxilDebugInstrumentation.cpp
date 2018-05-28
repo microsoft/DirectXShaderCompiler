@@ -583,14 +583,11 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC, Value * Th
     Function* StoreValue = BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
     Constant* StoreValueOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
     UndefValue* Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
-    Constant* ZeroArg;
     UndefValue* UndefArg;
     if (TheValueTypeID == Type::TypeID::IntegerTyID) {
-        ZeroArg = BC.HlslOP->GetU32Const(0);
         UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
     }
     else if (TheValueTypeID == Type::TypeID::FloatTyID) {
-        ZeroArg = BC.HlslOP->GetFloatConst(0.f);
         UndefArg = UndefValue::get(Type::getFloatTy(BC.Ctx));
     }
     else {

@@ -68,7 +68,6 @@ using namespace hlsl;
 STATISTIC(NumReplaced, "Number of allocas broken up");
 STATISTIC(NumPromoted, "Number of allocas promoted");
 STATISTIC(NumAdjusted, "Number of scalar allocas adjusted to allow promotion");
-STATISTIC(NumConverted, "Number of aggregates converted to scalar");
 
 namespace {
 
@@ -5931,11 +5930,8 @@ static void LegalizeDxilInputOutputs(Function *F,
             EntryAnnotation->GetParameterAnnotation(output->getArgNo());
 
         auto Iter = Builder.GetInsertPoint();
-        bool onlyRetBlk = false;
         if (RI != BB.begin())
           Iter--;
-        else
-          onlyRetBlk = true;
         // split copy.
         SplitCpy(output->getType(), output, temp, idxList, Builder, DL, typeSys,
                  &paramAnnotation);

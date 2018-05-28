@@ -507,9 +507,8 @@ HRESULT RootSignatureParser::Error(uint32_t uErrorNum, LPCSTR pError, ...)
 {
     va_list Args;
     char msg[512];
-    int len;
     va_start(Args, pError);
-    len = vsprintf_s(msg, pError, Args);
+    vsprintf_s(msg, pError, Args);
     va_end(Args);
     try {
       m_OS << msg;

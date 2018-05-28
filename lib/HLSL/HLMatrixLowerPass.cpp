@@ -524,22 +524,6 @@ Instruction *HLMatrixLowerPass::MatIntrinsicToVec(CallInst *CI) {
   return Builder.CreateCall(vecF, argList);
 }
 
-static Value *VectorizeScalarOp(Value *op, Type *dstTy, IRBuilder<> &Builder) {
-  if (op->getType() == dstTy)
-    return op;
-  op = Builder.CreateInsertElement(
-      UndefValue::get(VectorType::get(op->getType(), 1)), op, (uint64_t)0);
-  Type *I32Ty = IntegerType::get(dstTy->getContext(), 32);
-  Constant *zero = ConstantInt::get(I32Ty, 0);
-
-  std::vector<Constant *> MaskVec(dstTy->getVectorNumElements(), zero);
-  Value *castMask = ConstantVector::get(MaskVec);
-
-  Value *vecOp = new ShuffleVectorInst(op, op, castMask);
-  Builder.Insert(cast<Instruction>(vecOp));
-  return vecOp;
-}
-
 Instruction *HLMatrixLowerPass::TrivialMatUnOpToVec(CallInst *CI) {
   Type *ResultTy = LowerMatrixType(CI->getType());
   UndefValue *tmp = UndefValue::get(ResultTy);
@@ -1579,7 +1563,6 @@ void HLMatrixLowerPass::TranslateMatLoadStoreOnGlobal(GlobalVariable *matGlobal,
                                                       GlobalVariable *scalarArrayGlobal,
                                                       CallInst *matLdStInst) {
   // vecGlobals already in correct major.
-  const bool bColMajor = true;
   HLMatLoadStoreOpcode opcode =
       static_cast<HLMatLoadStoreOpcode>(GetHLOpcode(matLdStInst));
   switch (opcode) {
@@ -1827,41 +1810,6 @@ static void IterateInitList(MutableArrayRef<Value *> elts, unsigned &idx,
     } else {
       DXASSERT(valTy->isSingleValueType(), "must be single value type here");
       elts[idx++] = val;
-    }
-  }
-}
-// Store flattened init list elements into matrix array.
-static void GenerateMatArrayInit(ArrayRef<Value *> elts, Value *ptr,
-                                 unsigned &offset, IRBuilder<> &Builder) {
-  Type *Ty = ptr->getType()->getPointerElementType();
-  if (Ty->isVectorTy()) {
-    unsigned vecSize = Ty->getVectorNumElements();
-    Type *eltTy = Ty->getVectorElementType();
-    Value *result = UndefValue::get(Ty);
-
-    for (unsigned i = 0; i < vecSize; i++) {
-      Value *elt = elts[offset + i];
-      if (elt->getType() != eltTy) {
-        // FIXME: get signed/unsigned info.
-        elt = CreateTypeCast(HLCastOpcode::DefaultCast, eltTy, elt, Builder);
-      }
-
-      result = Builder.CreateInsertElement(result, elt, i);
-    }
-    // Update offset.
-    offset += vecSize;
-    Builder.CreateStore(result, ptr);
-  } else {
-    DXASSERT(Ty->isArrayTy(), "must be array type");
-    Type *i32Ty = Type::getInt32Ty(Ty->getContext());
-    Constant *zero = ConstantInt::get(i32Ty, 0);
-
-    unsigned arraySize = Ty->getArrayNumElements();
-
-    for (unsigned i = 0; i < arraySize; i++) {
-      Value *GEP =
-          Builder.CreateInBoundsGEP(ptr, {zero, ConstantInt::get(i32Ty, i)});
-      GenerateMatArrayInit(elts, GEP, offset, Builder);
     }
   }
 }

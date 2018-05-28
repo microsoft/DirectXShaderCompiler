@@ -24,15 +24,6 @@ namespace spirv {
 
 namespace {
 
-/// Returns the type of the given decl. If the given decl is a FunctionDecl,
-/// returns its result type.
-inline QualType getTypeOrFnRetType(const ValueDecl *decl) {
-  if (const auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
-    return funcDecl->getReturnType();
-  }
-  return decl->getType();
-}
-
 // Returns true if the given decl has the given semantic.
 bool hasSemantic(const DeclaratorDecl *decl,
                  hlsl::DXIL::SemanticKind semanticKind) {
@@ -5880,7 +5871,6 @@ SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_MulAssign:
   case BO_DivAssign:
   case BO_RemAssign: {
-    const uint32_t vecType = typeTranslator.getComponentVectorType(lhsType);
     const auto actOnEachVec = [this, spvOp, rhsVal](uint32_t index,
                                                     uint32_t vecType,
                                                     uint32_t lhsVec) {
@@ -7142,7 +7132,6 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
   const auto ipType = ipArg->getType();
   const auto returnType = callExpr->getType();
   const auto returnTypeId = typeTranslator.translateType(returnType);
-  const auto ipTypeId = typeTranslator.translateType(ipType);
   const uint32_t argId = doExpr(arg);
   const uint32_t ipId = doExpr(ipArg);
 
@@ -7584,9 +7573,7 @@ uint32_t SPIRVEmitter::processNonFpMatrixTranspose(QualType matType,
       TypeTranslator::isMxNMatrix(matType, &elemType, &numRows, &numCols);
   assert(isMat && !elemType->isFloatingType());
 
-  const auto rowQualType = astContext.getExtVectorType(elemType, numCols);
   const auto colQualType = astContext.getExtVectorType(elemType, numRows);
-  const uint32_t rowTypeId = typeTranslator.translateType(rowQualType);
   const uint32_t colTypeId = typeTranslator.translateType(colQualType);
   const uint32_t elemTypeId = typeTranslator.translateType(elemType);
 
@@ -7778,7 +7765,6 @@ uint32_t SPIRVEmitter::processNonFpMatrixTimesMatrix(QualType lhsType,
 }
 
 uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
-  const QualType returnType = callExpr->getType();
   const uint32_t returnTypeId =
       typeTranslator.translateType(callExpr->getType());
 

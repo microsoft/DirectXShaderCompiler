@@ -1432,14 +1432,6 @@ void HLSignatureLower::GenerateClipPlanesForVS(Value *outPosition) {
 }
 
 namespace {
-// Helper functions for Gs Streams.
-void GenerateStOutput(Function *stOutput, Value *eltVal, Value *outputID,
-                      Value *rowIdx, Value *colIdx, OP *hlslOP,
-                      IRBuilder<> Builder) {
-  Constant *OpArg = hlslOP->GetU32Const((unsigned)OP::OpCode::StoreOutput);
-  Builder.CreateCall(stOutput, {OpArg, outputID, rowIdx, colIdx, eltVal});
-}
-
 Value *TranslateStreamAppend(CallInst *CI, unsigned ID, hlsl::OP *OP) {
   Function *DxilFunc = OP->GetOpFunc(OP::OpCode::EmitStream, CI->getType());
   // TODO: generate a emit which has the data being emited as its argment.

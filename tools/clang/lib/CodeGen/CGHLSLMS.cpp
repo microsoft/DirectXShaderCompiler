@@ -912,7 +912,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
     unsigned CBufferOffset = offset;
 
-    bool userOffset = false;
     // Try to get info from fieldDecl.
     for (const hlsl::UnusualAnnotation *it :
          fieldDecl->getUnusualAnnotations()) {
@@ -927,7 +926,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
         CBufferOffset += cp->ComponentOffset;
         // Change to byte.
         CBufferOffset <<= 2;
-        userOffset = true;
       } break;
       case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
         // register assignment only works on global constant.
@@ -2110,27 +2108,6 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   hlslRes->SetID(m_pHLModule->GetSamplers().size());
   return m_pHLModule->AddSampler(std::move(hlslRes));
 }
-
-static void CollectScalarTypes(std::vector<llvm::Type *> &scalarTys, llvm::Type *Ty) {
-  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
-    for (llvm::Type *EltTy : ST->elements()) {
-      CollectScalarTypes(scalarTys, EltTy);
-    }
-  } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
-    llvm::Type *EltTy = AT->getElementType();
-    for (unsigned i=0;i<AT->getNumElements();i++) {
-      CollectScalarTypes(scalarTys, EltTy);
-    }
-  } else if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
-    llvm::Type *EltTy = VT->getElementType();
-    for (unsigned i=0;i<VT->getNumElements();i++) {
-      CollectScalarTypes(scalarTys, EltTy);
-    }
-  } else {
-    scalarTys.emplace_back(Ty);
-  }
-}
-
 
 static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
   if (Ty->isRecordType()) {
@@ -4367,8 +4344,6 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
                                                 const FunctionDecl *FD,
                                                 const CallExpr *E,
                                                 ReturnValueSlot ReturnValue) {
-  StringRef name = FD->getName();
-
   const Decl *TargetDecl = E->getCalleeDecl();
   llvm::Value *Callee = CGF.EmitScalarExpr(E->getCallee());
   RValue RV = CGF.EmitCall(E->getCallee()->getType(), Callee, E, ReturnValue,
@@ -4916,8 +4891,6 @@ static bool ExpTypeMatch(Expr *E, QualType Ty, ASTContext &Ctx, CodeGenTypes &Ty
     if (Ty->isStructureOrClassType()) {
       RecordDecl *record = Ty->castAs<RecordType>()->getDecl();
       bool bMatch = true;
-      auto It = record->field_begin();
-      auto ItEnd = record->field_end();
       unsigned i = 0;
       for (auto it = record->field_begin(), end = record->field_end();
            it != end; it++) {
@@ -5826,8 +5799,6 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     const clang::RecordType *RT = Type->getAsStructureType();
     RecordDecl *RD = RT->getDecl();
 
-    auto fieldIter = RD->field_begin();
-
     const CGRecordLayout &RL = CGF.getTypes().getCGRecordLayout(RD);
 
     if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
@@ -5912,7 +5883,6 @@ void CGMSHLSLRuntime::LoadFlattenedGepList(CodeGenFunction &CGF,
   unsigned eltSize = GepList.size();
   for (unsigned i = 0; i < eltSize; i++) {
     Value *Ptr = GepList[i];
-    QualType Type = EltTyList[i];
     // Everying is element type.
     EltList.push_back(CGF.Builder.CreateLoad(Ptr));
   }
@@ -6173,7 +6143,6 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(
 
     const clang::RecordType *RT = Type->getAsStructureType();
     RecordDecl *RD = RT->getDecl();
-    auto fieldIter = RD->field_begin();
 
     const CGRecordLayout &RL = CGF.getTypes().getCGRecordLayout(RD);
     // Take care base.

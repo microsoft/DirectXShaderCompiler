@@ -1059,10 +1059,6 @@ static void SetFlags(DxilRootDescriptor1 &D, DxilRootDescriptorFlags Flags)
 {
   D.Flags = Flags;
 }
-static DxilRootDescriptorFlags GetFlags(const DxilContainerRootDescriptor1 &D)
-{
-  return (DxilRootDescriptorFlags)D.Flags;
-}
 static void SetFlags(DxilContainerRootDescriptor1 &D, DxilRootDescriptorFlags Flags)
 {
   D.Flags = (uint32_t)Flags;

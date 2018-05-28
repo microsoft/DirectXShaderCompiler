@@ -337,19 +337,6 @@ private:
 };
 }
 
-static Value *MergeImmResClass(Value *resClass) {
-  if (ConstantInt *Imm = dyn_cast<ConstantInt>(resClass)) {
-    return resClass;
-  } else {
-    PHINode *phi = cast<PHINode>(resClass);
-    Value *immResClass = MergeImmResClass(phi->getIncomingValue(0));
-    unsigned numOperands = phi->getNumOperands();
-    for (unsigned i=0;i<numOperands;i++)
-      phi->setIncomingValue(i, immResClass);
-    return immResClass;
-  }
-}
-
 static const StringRef kResourceMapErrorMsg = "local resource not guaranteed to map to unique global resource.";
 static void EmitResMappingError(Instruction *Res) {
   const DebugLoc &DL = Res->getDebugLoc();
@@ -360,16 +347,6 @@ static void EmitResMappingError(Instruction *Res) {
   } else {
     Res->getContext().emitError(Twine(kResourceMapErrorMsg) + " With /Zi to show more information.");
   }
-}
-static Value *SelectOnOperand(Value *Cond, CallInst *CIT, CallInst *CIF,
-                              unsigned idx, IRBuilder<> &Builder) {
-  Value *OpT = CIT->getArgOperand(idx);
-  Value *OpF = CIF->getArgOperand(idx);
-  Value *OpSel = OpT;
-  if (OpT != OpF) {
-    OpSel = Builder.CreateSelect(Cond, OpT, OpF);
-  }
-  return OpSel;
 }
 
 static void ReplaceResourceUserWithHandle(LoadInst *Res, Value *handle) {
@@ -818,10 +795,8 @@ void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
     unsigned numOperands = Res->getNumOperands();
     IRBuilder<> Builder(Res);
 
-    unsigned startOpIdx = 0;
     // Skip Cond for Select.
     if (SelectInst *Sel = dyn_cast<SelectInst>(Res)) {
-      startOpIdx = 1;
       Value *Cond = Sel->getCondition();
 
       Value *resClassSel =

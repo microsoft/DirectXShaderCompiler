@@ -1719,8 +1719,6 @@ void HelpPrinterWrapper::operator=(bool Value) {
 static const bool PrintOptions = false;
 static const bool PrintAllOptions = false;
 
-void HelpPrinterWrapper::operator=(bool Value) {
-}
 #endif // HLSL Change Ends
 
 // Print the value of each option.
