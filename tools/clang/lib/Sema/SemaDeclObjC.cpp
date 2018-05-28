@@ -3709,6 +3709,7 @@ Decl *Sema::ActOnAtEnd(Scope *S, SourceRange AtEnd, ArrayRef<Decl *> allMethods,
 }
 
 
+#if 0 // HLSL Change Starts
 /// CvtQTToAstBitMask - utility routine to produce an AST bitmask for
 /// objective-c's type qualifier from the parser version of the same info.
 static Decl::ObjCDeclQualifier
@@ -3754,6 +3755,7 @@ CheckRelatedResultTypeCompatibility(Sema &S, ObjCMethodDecl *Method,
   
   return Sema::RTC_Incompatible;
 }
+#endif // HLSL Change Ends
 
 namespace {
 /// A helper class for searching for methods which a particular method
@@ -4004,6 +4006,7 @@ void Sema::CheckObjCMethodOverrides(ObjCMethodDecl *ObjCMethod,
   ObjCMethod->setOverriding(hasOverriddenMethodsInBaseOrProtocol);
 }
 
+#if 0 // HLSL Change Starts - HLSL does not support ObjC constructs
 /// Merge type nullability from for a redeclaration of the same entity,
 /// producing the updated type of the redeclared entity.
 static QualType mergeTypeNullabilityForRedecl(Sema &S, SourceLocation loc,
@@ -4086,6 +4089,7 @@ static void mergeInterfaceMethodToImpl(Sema &S,
     param->setType(newParamType);
   }
 }
+#endif // HLSL Change Ends - HLSL does not support ObjC constructs
 
 Decl *Sema::ActOnMethodDeclaration(
     Scope *S,

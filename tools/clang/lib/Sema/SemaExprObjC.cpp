@@ -3678,6 +3678,7 @@ bool Sema::isKnownName(StringRef name) {
   return LookupName(R, TUScope, false);
 }
 
+#if 0 // HLSL Change Start - No ObjC support
 static void addFixitForObjCARCConversion(Sema &S,
                                          DiagnosticBuilder &DiagB,
                                          Sema::CheckedConversionKind CCK,
@@ -3775,6 +3776,7 @@ static void addFixitForObjCARCConversion(Sema &S,
     }
   }
 }
+#endif // HLSL change End - No ObjC support
 
 template <typename T>
 static inline T *getObjCBridgeAttr(const TypedefType *TD) {

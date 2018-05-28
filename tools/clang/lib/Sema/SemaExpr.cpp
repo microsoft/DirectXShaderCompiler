@@ -8355,6 +8355,11 @@ static void diagnoseFunctionPointerToVoidComparison(Sema &S, SourceLocation Loc,
     << LHS.get()->getSourceRange() << RHS.get()->getSourceRange();
 }
 
+#if 1 // HLSL Change Starts
+Sema::ObjCLiteralKind Sema::CheckLiteralKind(Expr *FromE) {
+  return LK_None;
+}
+#else
 static bool isObjCObjectLiteral(ExprResult &E) {
   switch (E.get()->IgnoreParenImpCasts()->getStmtClass()) {
   case Stmt::ObjCArrayLiteralClass:
@@ -8368,11 +8373,6 @@ static bool isObjCObjectLiteral(ExprResult &E) {
   }
 }
 
-#if 1 // HLSL Change Starts
-Sema::ObjCLiteralKind Sema::CheckLiteralKind(Expr *FromE) {
-  return LK_None;
-}
-#else
 static bool hasIsEqualMethod(Sema &S, const Expr *LHS, const Expr *RHS) {
   const ObjCObjectPointerType *Type =
     LHS->getType()->getAs<ObjCObjectPointerType>();

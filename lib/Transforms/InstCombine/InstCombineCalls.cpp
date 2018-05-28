@@ -198,6 +198,7 @@ Instruction *InstCombiner::SimplifyMemSet(MemSetInst *MI) {
   return nullptr;
 }
 
+#if 0 // HLSL Change - remove platform intrinsics
 static Value *SimplifyX86insertps(const IntrinsicInst &II,
                                   InstCombiner::BuilderTy &Builder) {
   if (auto *CInt = dyn_cast<ConstantInt>(II.getArgOperand(2))) {
@@ -318,6 +319,8 @@ static Value *SimplifyX86vperm2(const IntrinsicInst &II,
   }
   return nullptr;
 }
+#endif // HLSL Change - remove platform intrinsics
+
 
 /// visitCallInst - CallInst simplification.  This mostly only handles folding
 /// of intrinsic instructions.  For normal calls, it allows visitCallSite to do

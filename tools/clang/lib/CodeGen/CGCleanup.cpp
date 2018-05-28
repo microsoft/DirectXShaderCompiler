@@ -599,7 +599,7 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough) {
   llvm::BasicBlock *EHEntry = Scope.getCachedEHDispatchBlock();
   assert(Scope.hasEHBranches() == (EHEntry != nullptr));
   bool RequiresEHCleanup = (EHEntry != nullptr);
-  EHScopeStack::stable_iterator EHParent = Scope.getEnclosingEHScope();
+  //EHScopeStack::stable_iterator EHParent = Scope.getEnclosingEHScope(); // HLSL Change - no support for exception handling
 
   // Check the three conditions which might require a normal cleanup:
 

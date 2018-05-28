@@ -378,9 +378,11 @@ void Function::addDereferenceableOrNullAttr(unsigned i, uint64_t Bytes) {
 // allocating an additional word in Function for programs which do not use GC
 // (i.e., most programs) at the cost of increased overhead for clients which do
 // use GC.
+#if 0 // HLSL Change
 static DenseMap<const Function*,PooledStringPtr> *GCNames;
 static StringPool *GCNamePool;
 static ManagedStatic<sys::SmartRWMutex<true> > GCLock;
+#endif // HLSL Change
 
 bool Function::hasGC() const {
 #if 0 // HLSL Change

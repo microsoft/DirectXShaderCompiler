@@ -21,7 +21,7 @@ using namespace llvm;
 #if 0 // HLSL Change Starts - option pending
 static cl::opt<bool> ViewBackground("view-background", cl::Hidden,
   cl::desc("Execute graph viewer in the background. Creates tmp file litter."));
-#else
+#elif defined (__APPLE__)
 static const bool ViewBackground = false;
 #endif // HLSL Change Ends
 

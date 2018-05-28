@@ -1571,7 +1571,6 @@ llvm::DIType *CGDebugInfo::CreateType(const ObjCObjectType *Ty,
   // Ignore protocols.
   return getOrCreateType(Ty->getBaseType(), Unit);
 }
-#endif // HLSL Change - no ObjC support
 
 /// \return true if Getter has the default name for the property PD.
 static bool hasDefaultGetterName(const ObjCPropertyDecl *PD,
@@ -1597,7 +1596,6 @@ static bool hasDefaultSetterName(const ObjCPropertyDecl *PD,
          Setter->getDeclName().getObjCSelector().getNameForSlot(0);
 }
 
-#if 0 // HLSL Change - no ObjC support
 llvm::DIType *CGDebugInfo::CreateType(const ObjCInterfaceType *Ty,
                                       llvm::DIFile *Unit) {
   ObjCInterfaceDecl *ID = Ty->getDecl();
@@ -2977,6 +2975,7 @@ void CGDebugInfo::EmitDeclareOfArgVariable(const VarDecl *VD, llvm::Value *AI,
   EmitDeclare(VD, llvm::dwarf::DW_TAG_arg_variable, AI, ArgNo, Builder);
 }
 
+#if 0 // HLSL Change - no block support
 namespace {
 struct BlockLayoutChunk {
   uint64_t OffsetInBits;
@@ -2987,7 +2986,6 @@ bool operator<(const BlockLayoutChunk &l, const BlockLayoutChunk &r) {
 }
 }
 
-#if 0 // HLSL Change - no block support
 void CGDebugInfo::EmitDeclareOfBlockLiteralArgVariable(const CGBlockInfo &block,
                                                        llvm::Value *Arg,
                                                        unsigned ArgNo,
