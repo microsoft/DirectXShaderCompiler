@@ -8527,7 +8527,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg0->getType())) {
-      const auto actOnEachVec = [this, glslInstSetId, opcode, arg0Id, arg1Id,
+      const auto actOnEachVec = [this, glslInstSetId, opcode, arg1Id,
                                  arg2Id](uint32_t index, uint32_t vecType,
                                          uint32_t arg0RowId) {
         const uint32_t arg1RowId =
