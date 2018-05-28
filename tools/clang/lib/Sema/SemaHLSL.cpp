@@ -4975,8 +4975,8 @@ bool HLSLExternalSource::MatchArguments(
 
     // Compare template
     if ((AR_TOBJ_UNKNOWN == Template[pIntrinsicArg->uTemplateId]) ||
-         (AR_TOBJ_SCALAR == Template[pIntrinsicArg->uTemplateId]) &&
-        (AR_TOBJ_VECTOR == TypeInfoShapeKind || AR_TOBJ_MATRIX == TypeInfoShapeKind)) {
+        ((AR_TOBJ_SCALAR == Template[pIntrinsicArg->uTemplateId]) &&
+         (AR_TOBJ_VECTOR == TypeInfoShapeKind || AR_TOBJ_MATRIX == TypeInfoShapeKind))) {
       Template[pIntrinsicArg->uTemplateId] = TypeInfoShapeKind;
     }
     else if (AR_TOBJ_SCALAR == TypeInfoShapeKind) {

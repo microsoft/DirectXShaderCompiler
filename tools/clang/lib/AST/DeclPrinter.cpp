@@ -330,9 +330,8 @@ void DeclPrinter::VisitDeclContext(DeclContext *DC, bool Indent) {
       continue;
     }
 
-    if (isa<AccessSpecDecl>(*D)
-        && !Policy.LangOpts.HLSL // HLSL Change - no access specifier for hlsl.
-        ) {
+    if (isa<AccessSpecDecl>(*D))
+      if (!Policy.LangOpts.HLSL) { // HLSL Change - no access specifier for hlsl.
       Indentation -= Policy.Indentation;
       this->Indent();
       Print(D->getAccess());

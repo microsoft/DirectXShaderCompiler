@@ -425,7 +425,7 @@ bool OP::IsDxilOpWave(OpCode C) {
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, QuadReadLaneAt=122, QuadOp=123, WaveAllBitCount=135,
   // WavePrefixBitCount=136
-  return 110 <= op && op <= 123 || 135 <= op && op <= 136;
+  return (110 <= op && op <= 123) || (135 <= op && op <= 136);
   // OPCODE-WAVE:END
 }
 
@@ -436,7 +436,7 @@ bool OP::IsDxilOpGradient(OpCode C) {
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, TextureGather=73,
   // TextureGatherCmp=74, CalculateLOD=81, DerivCoarseX=83, DerivCoarseY=84,
   // DerivFineX=85, DerivFineY=86
-  return 60 <= op && op <= 61 || op == 64 || 73 <= op && op <= 74 || op == 81 || 83 <= op && op <= 86;
+  return (60 <= op && op <= 61) || op == 64 || (73 <= op && op <= 74) || op == 81 || (83 <= op && op <= 86);
   // OPCODE-GRADIENT:END
 }
 
