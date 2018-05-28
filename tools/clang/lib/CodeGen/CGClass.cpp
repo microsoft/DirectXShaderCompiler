@@ -1458,7 +1458,7 @@ void CodeGenFunction::EmitDestructorBody(FunctionArgList &Args) {
                             /*Delegating=*/false, LoadCXXThis());
       break;
     }
-#endif 1 // HLSL Change - no support for exception handling
+#endif // HLSL Change - no support for exception handling
     // Fallthrough: act like we're in the base variant.
 
   case Dtor_Base:
