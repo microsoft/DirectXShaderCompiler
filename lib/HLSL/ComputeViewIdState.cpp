@@ -226,7 +226,6 @@ void DxilViewIdState::FuncInfo::Clear() {
 void DxilViewIdState::DetermineMaxPackedLocation(DxilSignature &DxilSig,
                                                  unsigned *pMaxSigLoc,
                                                  unsigned NumStreams) {
-  if (&DxilSig == nullptr) return;
   DXASSERT_NOMSG(NumStreams == 1 || NumStreams == kNumStreams);
 
   for (unsigned i = 0; i < NumStreams; i++) {
