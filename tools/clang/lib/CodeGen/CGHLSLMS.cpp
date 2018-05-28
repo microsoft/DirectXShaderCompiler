@@ -212,7 +212,7 @@ private:
                                          llvm::Type *Ty);
 
   void EmitHLSLRootSignature(CodeGenFunction &CGF, HLSLRootSignatureAttr *RSA,
-                             llvm::Function *Fn);
+                             llvm::Function *Fn) override;
 
   void CheckParameterAnnotation(SourceLocation SLoc,
                                 const DxilParameterAnnotation &paramInfo,

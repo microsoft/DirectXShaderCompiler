@@ -30,7 +30,7 @@ public:
   ULONG STDMETHODCALLTYPE Release() {
     return 1;
   }
-  STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) {
+  STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
   }
   virtual void *STDMETHODCALLTYPE Alloc(
@@ -183,7 +183,7 @@ private:
   UINT32 m_CodePage;
 public:
   DXC_MICROCOM_ADDREF_IMPL(m_dwRef)
-  ULONG STDMETHODCALLTYPE Release() {
+  ULONG STDMETHODCALLTYPE Release() override {
     // Because blobs are also used by tests and utilities, we avoid using TLS.
     ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef);
     if (result == 0) {
@@ -194,7 +194,7 @@ public:
     return result;
   }
   DXC_MICROCOM_TM_CTOR(InternalDxcBlobEncoding)
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
   }
 
@@ -265,7 +265,7 @@ public:
   virtual SIZE_T STDMETHODCALLTYPE GetBufferSize(void) override {
     return m_BufferSize;
   }
-  virtual HRESULT STDMETHODCALLTYPE GetEncoding(_Out_ BOOL *pKnown, _Out_ UINT32 *pCodePage) {
+  virtual HRESULT STDMETHODCALLTYPE GetEncoding(_Out_ BOOL *pKnown, _Out_ UINT32 *pCodePage) override {
     *pKnown = m_EncodingKnown ? TRUE : FALSE;
     *pCodePage = m_CodePage;
     return S_OK;
@@ -774,7 +774,7 @@ private:
   ULONG m_allocSize = 0;
 public:
   DXC_MICROCOM_ADDREF_IMPL(m_dwRef)
-  ULONG STDMETHODCALLTYPE Release() {
+  ULONG STDMETHODCALLTYPE Release() override {
     // Because memory streams are also used by tests and utilities,
     // we avoid using TLS.
     ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef);
@@ -788,7 +788,7 @@ public:
 
   DXC_MICROCOM_TM_CTOR(MemoryStream)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IStream, ISequentialStream, IDxcBlob>(this, iid, ppvObject);
   }
 
@@ -992,7 +992,7 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(ReadOnlyBlobStream)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IStream, ISequentialStream>(this, iid, ppvObject);
   }
 

@@ -569,7 +569,7 @@ public:
   DxcIncludeHandlerForInjectedSources() : m_dwRef(0) {};
   std::unordered_map<std::wstring, CComPtr<IDxcBlob>> includeFiles;
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
   }
 
