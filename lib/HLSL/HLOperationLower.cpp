@@ -1668,7 +1668,7 @@ Value *TranslateFUIBinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
       break;
     case IntrinsicOp::IOP_min:
     default:
-      DXASSERT(IOP == IntrinsicOp::IOP_min, "");
+      DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_min);
       opcode = OP::OpCode::FMin;
       break;
     }
@@ -1683,7 +1683,7 @@ Value *TranslateFUITrinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     switch (IOP) {
     case IntrinsicOp::IOP_mad:
     default:
-      DXASSERT(IOP == IntrinsicOp::IOP_mad, "");
+      DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_mad);
       opcode = OP::OpCode::FMad;
       break;
     }
@@ -3944,7 +3944,7 @@ Value *TranslateProcessIsolineTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpC
                               HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   // Get partition mode 
-  DXASSERT(helper.functionProps, "");
+  DXASSERT_NOMSG(helper.functionProps);
   DXASSERT(helper.functionProps->shaderKind == ShaderModel::Kind::Hull, "must be hull shader");
   DXIL::TessellatorPartitioning partition = helper.functionProps->ShaderProps.HS.partition;
   
@@ -4124,7 +4124,7 @@ Value *TranslateProcessTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpCode opc
                               HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   // Get partition mode 
-  DXASSERT(helper.functionProps, "");
+  DXASSERT_NOMSG(helper.functionProps);
   DXASSERT(helper.functionProps->shaderKind == ShaderModel::Kind::Hull, "must be hull shader");
   DXIL::TessellatorPartitioning partition = helper.functionProps->ShaderProps.HS.partition;
   
@@ -6262,7 +6262,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
       // Must be vector type here.
       unsigned vectorSize = Ty->getVectorNumElements();
-      DXASSERT(GEP->getNumIndices() == 2, "");
+      DXASSERT_NOMSG(GEP->getNumIndices() == 2);
       Use *GEPIdx = GEP->idx_begin();
       GEPIdx++;
       Value *EltIdx = *GEPIdx;

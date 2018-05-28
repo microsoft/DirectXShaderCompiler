@@ -227,7 +227,7 @@ void DxilSignatureElement::SetCompType(CompType CT) {
 
 uint8_t DxilSignatureElement::GetColsAsMask() const {
   unsigned StartCol = IsAllocated() ? m_StartCol : 0;
-  DXASSERT(StartCol + m_Cols <= 4, "else start %u and cols %u exceed limit", StartCol, m_Cols);
+  DXASSERT_ARGS(StartCol + m_Cols <= 4, "else start %u and cols %u exceed limit", StartCol, m_Cols);
   DXASSERT(m_Cols >= 1, "else signature takes no space");
   switch (StartCol) {
   case 0: {
