@@ -556,6 +556,7 @@ void DxilGenerationPass::TranslateDxilResourceUses(
         if (m_HasDbgInfo) {
           // TODO: set debug info.
           //Builder.SetCurrentDebugLocation(DL);
+          (void)(DL);
         }
         handleMapOnFunction[F] = Builder.CreateCall(createHandle, createHandleArgs, handleName);
       }
@@ -954,6 +955,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
         if (m_HasDbgInfo) {
           // TODO: add debug info.
           //handle->setDebugLoc(DL);
+          (void)(DL);
         }
         CI->replaceAllUsesWith(handle);
         CI->eraseFromParent();

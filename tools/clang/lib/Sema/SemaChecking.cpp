@@ -1323,7 +1323,7 @@ void Sema::checkCall(NamedDecl *FDecl, const FunctionProtoType *Proto,
     return;
 
 #if 1 // HLSL Change - no format string support
-  (IsMemberFunction); (CallType); (Range);
+  (void)(IsMemberFunction); (void)(CallType); (void)(Range);
 #else
   // Printf and scanf checking.
   llvm::SmallBitVector CheckedVarArgs;

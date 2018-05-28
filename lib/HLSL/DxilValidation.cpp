@@ -2183,7 +2183,7 @@ static bool IsValueMinPrec(DxilModule &DxilMod, Value *V) {
   DXASSERT(DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision,
            "else caller didn't check - currently this path should never be hit "
            "otherwise");
-  (DxilMod);
+  (void)(DxilMod);
   Type *Ty = V->getType();
   if (Ty->isIntegerTy()) {
     return 16 == Ty->getIntegerBitWidth();

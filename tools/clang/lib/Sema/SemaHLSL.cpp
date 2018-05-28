@@ -3633,7 +3633,7 @@ public:
   QualType NewQualifiedType(UINT64 qwUsages, QualType type)
   {
     // NOTE: NewQualifiedType does quite a bit more in the prior compiler
-    (qwUsages);
+    (void)(qwUsages);
     return type;
   }
 
