@@ -5165,7 +5165,7 @@ bool HLSLExternalSource::MatchArguments(
       // Use the templated input type, but resize it if the
       // intrinsic's rows/cols isn't 0
       if (pArgument->uRows && pArgument->uCols) {
-        UINT uRows, uCols;
+        UINT uRows, uCols = 0;
 
         // if type is overriden, use new type size, for
         // now it only supports scalars

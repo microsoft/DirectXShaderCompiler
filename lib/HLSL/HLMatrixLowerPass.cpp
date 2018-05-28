@@ -759,7 +759,7 @@ Instruction *HLMatrixLowerPass::TrivialMatBinOpToVec(CallInst *CI) {
 }
 
 void HLMatrixLowerPass::lowerToVec(Instruction *matInst) {
-  Instruction *vecInst;
+  Instruction *vecInst = nullptr;
 
   if (CallInst *CI = dyn_cast<CallInst>(matInst)) {
     hlsl::HLOpcodeGroup group =
