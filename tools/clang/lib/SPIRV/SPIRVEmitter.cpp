@@ -9739,7 +9739,7 @@ void SPIRVEmitter::processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt) {
     // Accumulate all non-case/default/break statements as the body for the
     // current case.
     std::vector<Stmt *> statements;
-    for (int i = curCaseIndex + 1;
+    for (unsigned i = curCaseIndex + 1;
          i < flatSwitch.size() && !isa<BreakStmt>(flatSwitch[i]); ++i) {
       if (!isa<CaseStmt>(flatSwitch[i]) && !isa<DefaultStmt>(flatSwitch[i]))
         statements.push_back(const_cast<Stmt *>(flatSwitch[i]));

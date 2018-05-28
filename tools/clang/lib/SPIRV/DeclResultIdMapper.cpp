@@ -989,7 +989,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       const auto attrLoc = attr->getLocation(); // Attr source code location
       const auto idx = var.getIndexAttr() ? var.getIndexAttr()->getNumber() : 0;
 
-      if (loc >= LocationSet::kMaxLoc) {
+      if ((const unsigned)loc >= LocationSet::kMaxLoc) {
         emitError("stage %select{output|input}0 location #%1 too large",
                   attrLoc)
             << forInput << loc;
