@@ -694,7 +694,7 @@ public:
 #ifdef _DEBUG
     if (fd == STDERR_FILENO) {
         char* copyWithNull = new char[count+1];
-        strncpy(copyWithNull, (char*)buffer, count);
+        strncpy(copyWithNull, (const char*)buffer, count);
         copyWithNull[count] = '\0';
         OutputDebugStringA(copyWithNull);
         delete[] copyWithNull;
