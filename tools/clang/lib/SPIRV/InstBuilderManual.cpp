@@ -188,7 +188,8 @@ InstBuilder &InstBuilder::opImageSample(
   TheInst.emplace_back(coordinate);
   if (dref)
     TheInst.emplace_back(dref);
-  if (image_operands.hasValue()) {
+  if (image_operands.hasValue() &&
+      image_operands.getValue() != spv::ImageOperandsMask::MaskNone) {
     const auto &val = image_operands.getValue();
     encodeImageOperands(val);
   }

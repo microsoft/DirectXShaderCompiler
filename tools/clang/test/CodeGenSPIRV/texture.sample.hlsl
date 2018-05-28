@@ -98,7 +98,7 @@ float4 main(int2 offset: A) : SV_Target {
 // Make sure OpImageSparseSampleImplicitLod returns a struct, in which the second member is a vec4.
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// CHECK: [[v4result:%\d+]] = OpImageSampleImplicitLod %v4float {{%\d+}} %float_0_5 None
+// CHECK: [[v4result:%\d+]] = OpImageSampleImplicitLod %v4float {{%\d+}} %float_0_5
 // CHECK:          {{%\d+}} = OpCompositeExtract %float [[v4result]] 0
 	float  val9  = t5.Sample(gSampler, 0.5);
 
