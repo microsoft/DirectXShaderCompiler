@@ -183,10 +183,12 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
 }
 
 CodeGenModule::~CodeGenModule() {
+#if 0 // HLSL Change - no ObjC, OpenCL, OpenMP, or CUDA support
   delete ObjCRuntime;
   delete OpenCLRuntime;
   delete OpenMPRuntime;
   delete CUDARuntime;
+#endif // HLSL Change
   delete HLSLRuntime;  // HLSL Change
   TheTargetCodeGenInfo.reset(nullptr); // HLSL Change
   delete TBAA;
@@ -3252,7 +3254,7 @@ void CodeGenModule::EmitObjCPropertyImplementations(const
                                  const_cast<ObjCImplementationDecl *>(D), PID);
     }
   }
-#endif 0 // HLSL Change - no ObjC support
+#endif // HLSL Change - no ObjC support
 }
 
 static bool needsDestructMethod(ObjCImplementationDecl *impl) {

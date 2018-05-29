@@ -347,7 +347,7 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
 
 bool OP::CheckOpCodeTable() {
   for (unsigned i = 0; i < (unsigned)OpCode::NumOpCodes; i++) {
-    if ((unsigned)m_OpCodeProps[i].OpCode != i)
+    if ((unsigned)m_OpCodeProps[i].opCode != i)
       return false;
   }
 

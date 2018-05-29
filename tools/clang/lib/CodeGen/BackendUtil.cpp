@@ -202,10 +202,12 @@ static void addAddDiscriminatorsPass(const PassManagerBuilder &Builder,
   PM.add(createAddDiscriminatorsPass());
 }
 
+#ifdef MS_ENABLE_OBJCARC // HLSL Change
 static void addBoundsCheckingPass(const PassManagerBuilder &Builder,
                                     legacy::PassManagerBase &PM) {
   PM.add(createBoundsCheckingPass());
 }
+#endif // MS_ENABLE_OBJCARC // HLSL Change
 
 #ifdef MS_ENABLE_INSTR // HLSL Change
 
