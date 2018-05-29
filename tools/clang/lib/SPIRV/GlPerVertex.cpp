@@ -62,7 +62,7 @@ inline bool hasGSPrimitiveTypeQualifier(const DeclaratorDecl *decl) {
 GlPerVertex::GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
                          ModuleBuilder &builder, TypeTranslator &translator)
     : shaderModel(sm), astContext(context), theBuilder(builder),
-      typeTranslator(translator), inClipVar(0), inCullVar(0), outClipVar(0),
+      inClipVar(0), inCullVar(0), outClipVar(0),
       outCullVar(0), inArraySize(0), outArraySize(0), inClipArraySize(1),
       outClipArraySize(1), inCullArraySize(1), outCullArraySize(1),
       inSemanticStrs(2, ""), outSemanticStrs(2, "") {}

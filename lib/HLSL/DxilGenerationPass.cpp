@@ -208,7 +208,7 @@ class DxilGenerationPass : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilGenerationPass(bool NoOpt = false)
-      : ModulePass(ID), m_pHLModule(nullptr), NotOptimized(NoOpt), m_extensionsCodegenHelper(nullptr) {}
+      : ModulePass(ID), m_pHLModule(nullptr), m_extensionsCodegenHelper(nullptr), NotOptimized(NoOpt) {}
 
   const char *getPassName() const override { return "DXIL Generator"; }
 
@@ -300,6 +300,8 @@ public:
     // Remove debug code when not debug info.
     if (!m_HasDbgInfo)
       DxilMod.StripDebugRelatedCode();
+
+    (void)NotOptimized; // Dummy out unused member to silence warnings
 
     return true;
   }
@@ -1328,11 +1330,9 @@ INITIALIZE_PASS(HLEnsureMetadata, "hlsl-hlensure", "HLSL High-Level Metadata Ens
 
 namespace {
 class DxilPrecisePropagatePass : public ModulePass {
-  HLModule *m_pHLModule;
-
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilPrecisePropagatePass() : ModulePass(ID), m_pHLModule(nullptr) {}
+  explicit DxilPrecisePropagatePass() : ModulePass(ID) {}
 
   const char *getPassName() const override { return "DXIL Precise Propagate"; }
 
@@ -1571,13 +1571,12 @@ private:
 char DxilLegalizeStaticResourceUsePass::ID = 0;
 
 class DxilLegalizeResourceUsePass : public FunctionPass {
-  HLModule *m_pHLModule;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilLegalizeResourceUsePass()
-      : FunctionPass(ID), m_pHLModule(nullptr) {}
+      : FunctionPass(ID) {}
 
   const char *getPassName() const override {
     return "DXIL Legalize Resource Use";
