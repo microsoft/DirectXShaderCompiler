@@ -922,7 +922,7 @@ void HLModule::MergeGepUse(Value *V) {
       } else {
         MergeGepUse(*Use);
       }
-    } else if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(*Use)) {
+    } else if (dyn_cast<GEPOperator>(*Use)) {
       if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
         // merge the 2 GEPs
         Value *newGEP = MergeGEP(prevGEP, GEP);
@@ -1071,7 +1071,7 @@ void HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
                                                llvm::Module &M) {
   for (User *U : Ptr->users()) {
     // Skip load inst.
-    if (LoadInst *LI = dyn_cast<LoadInst>(U))
+    if (dyn_cast<LoadInst>(U))
       continue;
     if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
       Value *V = SI->getValueOperand();

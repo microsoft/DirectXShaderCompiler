@@ -1517,10 +1517,10 @@ bool SROA_HLSL::performPromotion(Function &F) {
 bool SROA_HLSL::ShouldAttemptScalarRepl(AllocaInst *AI) {
   Type *T = AI->getAllocatedType();
   // promote every struct.
-  if (StructType *ST = dyn_cast<StructType>(T))
+  if (dyn_cast<StructType>(T))
     return true;
   // promote every array.
-  if (ArrayType *AT = dyn_cast<ArrayType>(T))
+  if (dyn_cast<ArrayType>(T))
     return true;
   return false;
 }
@@ -3412,9 +3412,9 @@ static Constant *GetEltInit(Type *Ty, Constant *Init, unsigned idx,
   if (isa<UndefValue>(Init))
     return UndefValue::get(EltTy);
 
-  if (StructType *ST = dyn_cast<StructType>(Ty)) {
+  if (dyn_cast<StructType>(Ty)) {
     return Init->getAggregateElement(idx);
-  } else if (VectorType *VT = dyn_cast<VectorType>(Ty)) {
+  } else if (dyn_cast<VectorType>(Ty)) {
     return Init->getAggregateElement(idx);
   } else {
     ArrayType *AT = cast<ArrayType>(Ty);
@@ -3738,7 +3738,7 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
       } else {
         PS.MarkAsStored();
       }
-    } else if (const LoadInst *LI = dyn_cast<LoadInst>(U)) {
+    } else if (dyn_cast<LoadInst>(U)) {
       PS.MarkAsLoaded();
     } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
       Function *F = CI->getCalledFunction();
@@ -4342,7 +4342,7 @@ bool SROA_Parameter_HLSL::hasDynamicVectorIndexing(Value *V) {
     if (!U->getType()->isPointerTy())
       continue;
 
-    if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+    if (dyn_cast<GEPOperator>(U)) {
 
       gep_type_iterator GEPIt = gep_type_begin(U), E = gep_type_end(U);
 
@@ -5778,9 +5778,9 @@ static void CheckArgUsage(Value *V, bool &bLoad, bool &bStore) {
   if (bLoad && bStore)
     return;
   for (User *user : V->users()) {
-    if (LoadInst *LI = dyn_cast<LoadInst>(user)) {
+    if (dyn_cast<LoadInst>(user)) {
       bLoad = true;
-    } else if (StoreInst *SI = dyn_cast<StoreInst>(user)) {
+    } else if (dyn_cast<StoreInst>(user)) {
       bStore = true;
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
       CheckArgUsage(GEP, bLoad, bStore);
@@ -6817,7 +6817,7 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
 
 bool DynamicIndexingVectorToArray::needToLower(Value *V) {
   Type *Ty = V->getType()->getPointerElementType();
-  if (VectorType *VT = dyn_cast<VectorType>(Ty)) {
+  if (dyn_cast<VectorType>(Ty)) {
     if (isa<GlobalVariable>(V) || ReplaceAllVectors) {
       return true;
     }

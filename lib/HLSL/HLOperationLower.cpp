@@ -723,7 +723,7 @@ Constant *GetLoadInputsForEvaluate(Value *V, std::vector<CallInst*> &loadList) {
 // for temporary insertelement instructions should maintain the existing size of the loadinput.
 // So we have to analyze the type of src in order to determine the actual size required.
 Type *GetInsertElementTypeForEvaluate(Value *src) {
-  if (InsertElementInst *IE = dyn_cast<InsertElementInst>(src)) {
+  if (dyn_cast<InsertElementInst>(src)) {
     return src->getType();
   }
   else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(src)) {
@@ -4623,7 +4623,7 @@ Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
   DXASSERT_LOCALVAR(baseIdx && zeroIdx, baseIdx == zeroIdx,
                     "base index must be 0");
   Value *idx = (GEP->idx_begin() + 1)->get();
-  if (ConstantInt *cidx = dyn_cast<ConstantInt>(idx)) {
+  if (dyn_cast<ConstantInt>(idx)) {
     return Builder.CreateExtractElement(ldData, idx);
   } else {
     // Dynamic indexing.

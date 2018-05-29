@@ -322,7 +322,7 @@ uint32_t TypeTranslator::getLocationCount(QualType type) {
            static_cast<uint32_t>(arrayType->getSize().getZExtValue());
 
   // Struct type
-  if (const auto *structType = type->getAs<RecordType>()) {
+  if (type->getAs<RecordType>()) {
     assert(false && "all structs should already be flattened");
     return 0;
   }

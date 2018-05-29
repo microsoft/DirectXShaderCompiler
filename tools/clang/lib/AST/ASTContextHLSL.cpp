@@ -1164,7 +1164,7 @@ static bool HasTessFactorSemanticRecurse(const ValueDecl *decl, QualType Ty) {
     return false;
   }
 
-  if (const clang::ArrayType *arrayTy = Ty->getAsArrayTypeUnsafe())
+  if (Ty->getAsArrayTypeUnsafe())
     return HasTessFactorSemantic(decl);
 
   return false;
