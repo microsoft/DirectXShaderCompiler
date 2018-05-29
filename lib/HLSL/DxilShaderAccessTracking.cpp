@@ -461,11 +461,12 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
       { DXIL::OpCode::TextureGather         , ShaderAccessFlags::Read   , true , f32i32 }, // todo: SM6: f16f32i16i32 },
       { DXIL::OpCode::TextureGatherCmp      , ShaderAccessFlags::Read   , false, f32i32 }, // todo: SM6: f16f32i16i32 },
       { DXIL::OpCode::BufferLoad            , ShaderAccessFlags::Read   , false, f32i32 },
-      { DXIL::OpCode::RawBufferLoad         , ShaderAccessFlags::Read   , false, f32i32 },
+      { DXIL::OpCode::RawBufferLoad         , ShaderAccessFlags::Read   , false, f16f32i16i32 },
       { DXIL::OpCode::BufferStore           , ShaderAccessFlags::Write  , false, f32i32 },
       { DXIL::OpCode::BufferUpdateCounter   , ShaderAccessFlags::Counter, false, voidType },
       { DXIL::OpCode::AtomicBinOp           , ShaderAccessFlags::Write  , false, i32 },
       { DXIL::OpCode::AtomicCompareExchange , ShaderAccessFlags::Write  , false, i32 },
+      { DXIL::OpCode::RawBufferStore        , ShaderAccessFlags::Write  , false, f16f32i16i32 },
     };
 
     for (const auto & raFunction : raFunctions) {
