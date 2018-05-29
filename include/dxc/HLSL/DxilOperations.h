@@ -129,7 +129,7 @@ private:
 private:
   // Static properties.
   struct OpCodeProperty {
-    OpCode OpCode;
+    OpCode opCode;
     const char *pOpCodeName;
     OpCodeClass opCodeClass;
     const char *pOpCodeClassName;
