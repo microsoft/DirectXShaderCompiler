@@ -272,9 +272,9 @@ struct DxilRootParameter1 {
 };
 struct DxilRootSignatureDesc {
   uint32_t NumParameters;
-  _Field_size_full_(NumParameters) const DxilRootParameter *pParameters;
+  _Field_size_full_(NumParameters) DxilRootParameter *pParameters;
   uint32_t NumStaticSamplers;
-  _Field_size_full_(NumStaticSamplers) const DxilStaticSamplerDesc *pStaticSamplers;
+  _Field_size_full_(NumStaticSamplers) DxilStaticSamplerDesc *pStaticSamplers;
   DxilRootSignatureFlags Flags;
 };
 struct DxilStaticSamplerDesc {
@@ -294,9 +294,9 @@ struct DxilStaticSamplerDesc {
 };
 struct DxilRootSignatureDesc1 {
   uint32_t NumParameters;
-  _Field_size_full_(NumParameters) const DxilRootParameter1 *pParameters;
+  _Field_size_full_(NumParameters) DxilRootParameter1 *pParameters;
   uint32_t NumStaticSamplers;
-  _Field_size_full_(NumStaticSamplers) const DxilStaticSamplerDesc *pStaticSamplers;
+  _Field_size_full_(NumStaticSamplers) DxilStaticSamplerDesc *pStaticSamplers;
   DxilRootSignatureFlags Flags;
 };
 struct DxilVersionedRootSignatureDesc {
