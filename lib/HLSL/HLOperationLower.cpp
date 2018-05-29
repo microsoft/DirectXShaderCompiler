@@ -3162,6 +3162,11 @@ static Constant *GetRawBufferMaskForETy(Type *Ty, unsigned NumComponents, hlsl::
   return OP->GetI8Const(mask);
 }
 
+void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
+  Value *status, Type *EltTy,
+  MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
+  IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment);
+
 void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
                    IRBuilder<> &Builder, hlsl::OP *OP, const DataLayout &DL) {
 
@@ -3179,6 +3184,22 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   Type *doubleTy = Builder.getDoubleTy();
   Type *EltTy = Ty->getScalarType();
   Constant *Alignment = OP->GetI32Const(OP->GetAllocSizeForType(EltTy));
+  unsigned numComponents = 1;
+  if (Ty->isVectorTy()) {
+    numComponents = Ty->getVectorNumElements();
+  }
+
+  if (RK == HLResource::Kind::StructuredBuffer) {
+    // Basic type case for StructuredBuffer::Load()
+    Value *ResultElts[4];
+    GenerateStructBufLd(helper.handle, helper.addr, OP->GetU32Const(0),
+      helper.status, EltTy, ResultElts, OP, Builder, numComponents, Alignment);
+    Value *retValNew = ScalarizeElements(Ty, ResultElts, Builder);
+    helper.retVal->replaceAllUsesWith(retValNew);
+    helper.retVal = retValNew;
+    return;
+  }
+
   bool is64 = EltTy == i64Ty || EltTy == doubleTy;
   if (is64) {
     EltTy = i32Ty;
@@ -3246,24 +3267,13 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
     // elementOffset, mask, alignment
     loadArgs.emplace_back(undefI);
     Type *rtnTy = helper.retVal->getType();
-    unsigned numComponents = 1;
-    if (VectorType *VTy = dyn_cast<VectorType>(rtnTy)) {
-      rtnTy = VTy->getElementType();
-      numComponents = VTy->getNumElements();
-    }
     loadArgs.emplace_back(GetRawBufferMaskForETy(rtnTy, numComponents, OP));
     loadArgs.emplace_back(Alignment);
   }
   else if (RK == DxilResource::Kind::TypedBuffer) {
     loadArgs.emplace_back(undefI);
   }
-  else if (RK == DxilResource::Kind::StructuredBuffer) {
-    // elementOffset, mask, alignment
-    loadArgs.emplace_back(
-      OP->GetU32Const(0)); // For case use built-in types in structure buffer.
-    loadArgs.emplace_back(OP->GetU8Const(0)); // When is this case hit?
-    loadArgs.emplace_back(Alignment);
-  }
+
   Value *ResRet =
       Builder.CreateCall(F, loadArgs, OP->GetOpCodeName(opcode));
 
@@ -3271,10 +3281,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (!is64) {
     retValNew = ScalarizeResRet(Ty, ResRet, Builder);
   } else {
-    unsigned size = 1;
-    if (Ty->isVectorTy()) {
-      size = Ty->getVectorNumElements();
-    }
+    unsigned size = numComponents;
     DXASSERT(size <= 2, "typed buffer only allow 4 dwords");
     EltTy = Ty->getScalarType();
     Value *Elts[2];
