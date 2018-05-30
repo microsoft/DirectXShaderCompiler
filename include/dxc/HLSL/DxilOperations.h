@@ -20,7 +20,7 @@ class Function;
 class Constant;
 class Value;
 class Instruction;
-};
+}
 #include "llvm/IR/Attributes.h"
 #include "llvm/ADT/StringRef.h"
 

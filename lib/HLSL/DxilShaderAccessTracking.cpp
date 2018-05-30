@@ -182,7 +182,7 @@ static char EncodeRegisterType(RegisterType r) {
   case RegisterType::Invalid: return 'I';
   }
   return '.';
-};
+}
 
 static void ValidateDelimiter(std::deque<char> & q, char d) {
   ThrowIf(q.front() != d);

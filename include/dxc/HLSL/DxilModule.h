@@ -35,7 +35,7 @@ class Instruction;
 class MDTuple;
 class MDOperand;
 class DebugInfoFinder;
-};
+}
 
 namespace hlsl {
 
