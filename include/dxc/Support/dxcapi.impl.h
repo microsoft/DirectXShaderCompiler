@@ -24,7 +24,7 @@ private:
     ULONG cbWritten;
     IFT(m_pStream->Write(Ptr, Size, &cbWritten));
   }
-  uint64_t current_pos() const { return m_pStream->GetPosition(); }
+  uint64_t current_pos() const override { return m_pStream->GetPosition(); }
 public:
   raw_stream_ostream(hlsl::AbstractMemoryStream* pStream) : m_pStream(pStream) { }
   ~raw_stream_ostream() override {
@@ -51,7 +51,7 @@ public:
   CComPtr<IDxcBlob> m_result;
   CComPtr<IDxcBlobEncoding> m_errors;
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcOperationResult>(this, iid, ppvObject);
   }
 

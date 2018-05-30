@@ -547,7 +547,7 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcRewriter)
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcRewriter, IDxcLangExtensions>(this, iid, ppvObject);
   }
 
