@@ -469,7 +469,7 @@ public:
       for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
         m_PSVInitInfo.SigOutputVectors[streamIndex] = m_Module.GetOutputSignature().NumVectorsUsed(streamIndex);
       }
-      m_PSVInitInfo.SigPatchConstantVectors = m_PSVInitInfo.SigPatchConstantVectors = 0;
+      m_PSVInitInfo.SigPatchConstantVectors = 0;
       if (SM->IsHS()) {
         m_PSVInitInfo.SigPatchConstantVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed(0);
       }
