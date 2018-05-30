@@ -369,7 +369,7 @@ bool FrontendAction::BeginSourceFile(CompilerInstance &CI,
       if (!CI.getASTContext().getExternalSource())
         goto failure;
     }
-#endif 0 // HLSL Change Ends - no support for AST serialization
+#endif // HLSL Change Ends - no support for AST serialization
 
     CI.setASTConsumer(std::move(Consumer));
     if (!CI.hasASTConsumer())
