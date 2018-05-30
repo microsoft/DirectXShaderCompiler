@@ -110,7 +110,7 @@ public:
     // - for occupied components, they signify element flags
     // - for unoccupied components, they signify conflict flags
     uint8_t Flags[4];
-    DXIL::InterpolationMode Interp : 4;
+    DXIL::InterpolationMode Interp : 8;
     uint8_t IndexFlags : 2;
     uint8_t IndexingFixed : 1;
     DXIL::SignatureDataWidth DataWidth; // length of each scalar type in bytes. (2 or 4 for now)
