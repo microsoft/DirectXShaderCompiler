@@ -9129,7 +9129,7 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_LEGACY_EFFECT:   // Used for all unsupported but ignored legacy effect types
     isWarning = true;
     break;                        // So we don't care what you tried to bind it to
-  };
+  }
 
   // fxc is inconsistent as to when it reports an error and when it ignores invalid bind semantics, so emit
   // a warning instead.

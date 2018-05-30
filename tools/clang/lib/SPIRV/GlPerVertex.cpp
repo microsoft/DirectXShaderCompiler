@@ -461,7 +461,7 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
   }
 
   return theBuilder.createCompositeConstruct(arrayType, arrayElements);
-};
+}
 
 bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
                             uint32_t semanticIndex, uint32_t *value) {
@@ -579,7 +579,7 @@ void GlPerVertex::writeClipCullArrayFromType(
 
   llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or vector of "
                    "float case sneaked in");
-};
+}
 
 bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
                              uint32_t semanticIndex,
