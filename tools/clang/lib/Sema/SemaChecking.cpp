@@ -1355,7 +1355,7 @@ void Sema::checkCall(NamedDecl *FDecl, const FunctionProtoType *Proto,
       }
     }
   }
-#endif 0 // HLSL Change - no format string support
+#endif // HLSL Change - no format string support
   if (FDecl || Proto) {
     CheckNonNullArguments(*this, FDecl, Proto, Args, Loc);
 
