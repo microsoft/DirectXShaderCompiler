@@ -371,7 +371,7 @@ void DxilMDHelper::LoadRootSignature(RootSignatureHandle &Sig) {
           DXC_E_INCORRECT_DXIL_METADATA);
 
   Sig.Clear();
-  Sig.LoadSerialized((uint8_t *)pData->getRawDataValues().begin(),
+  Sig.LoadSerialized((const uint8_t *)pData->getRawDataValues().begin(),
                      pData->getRawDataValues().size());
 }
 
@@ -1102,7 +1102,7 @@ void DxilMDHelper::LoadDxilViewIdState(DxilViewIdState &ViewIdState) {
   IFTBOOL(pData->getRawDataValues().size() < UINT_MAX && 
           (pData->getRawDataValues().size() & 3) == 0, DXC_E_INCORRECT_DXIL_METADATA);
 
-  ViewIdState.Deserialize((unsigned *)pData->getRawDataValues().begin(), 
+  ViewIdState.Deserialize((const unsigned *)pData->getRawDataValues().begin(),
                           (unsigned)pData->getRawDataValues().size() / 4);
 }
 

@@ -1017,7 +1017,7 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
      << comment << "\n";
 
   const unsigned offset = sizeof(unsigned);
-  const PSVRuntimeInfo0 *pInfo = (PSVRuntimeInfo0 *)(pBuffer + offset);
+  const PSVRuntimeInfo0 *pInfo = (const PSVRuntimeInfo0 *)(pBuffer + offset);
 
   switch (shaderKind) {
   case DXIL::ShaderKind::Hull: {
