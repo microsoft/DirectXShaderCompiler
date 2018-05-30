@@ -2847,7 +2847,7 @@ CodeGenFunction::EmitExtMatrixElementExpr(const ExtMatrixElementExpr *E) {
 
     // Store the vector to memory (because LValue wants an address).
     llvm::Value *VecMem = CreateMemTemp(E->getBase()->getType());
-    Builder.CreateStore(Vec, VecMem);
+    CGM.getHLSLRuntime().EmitHLSLMatrixStore(*this, Vec, VecMem, E->getBase()->getType());
     Base = MakeAddrLValue(VecMem, E->getBase()->getType());
   }
   
