@@ -52,7 +52,7 @@ TEST(ModuleBuilder, CreateBasicBlock) {
   const auto rType = context.takeNextId();
   const auto fType = context.takeNextId();
   const auto fId = context.getNextId();
-  EXPECT_NE(0, builder.beginFunction(fType, rType));
+  EXPECT_NE(0U, builder.beginFunction(fType, rType));
   const auto labelId = context.getNextId();
   const auto resultId = builder.createBasicBlock();
   EXPECT_EQ(labelId, resultId);
