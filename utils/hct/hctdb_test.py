@@ -838,7 +838,6 @@ def add_test_cases():
         '1', '0', '-5.5'
     ]],
     half_outputs=[['NaN', 'NaN', '0x07FE', '0', '0', 'Inf', '2', '0', '1', '1', '9.5']])
-
     # Denorm Tertiary Float
     add_test_case_denorm('FMadDenorm', ['FMad'], 'ulp', 1,
     [['0x80780000', '0x80780000', '0x00780000'],
@@ -1697,7 +1696,10 @@ def generate_table_for_taef():
                 print("unknown op: " + cur_inst.name)
                 print(cur_inst.dxil_class)
         tree._setroot(root)
-        tree.write(f)
+        from xml.dom.minidom import parseString
+        pretty_xml = parseString(ET.tostring(root)).toprettyxml(indent="    ")
+        f.write(pretty_xml)
+
         print("Saved file at: " + f.name)
         f.close()
 
@@ -1706,13 +1708,13 @@ def print_untested_inst():
     for name in [node.inst.name for node in g_instruction_nodes.values() if len(node.test_cases) == 0]:
         lst += [name]
     lst.sort()
+    print("Untested dxil ops: ")
     for name in lst:
         print(name)
     print("Total uncovered dxil ops: " + str(len(lst)))
     print("Total covered dxil ops: " + str(len(g_instruction_nodes)-len(lst)))
 
-
-# name to instruction dict
+# inst name to instruction dict
 g_instruction_nodes = {}
 # test name to test case dict
 g_test_cases = {}
