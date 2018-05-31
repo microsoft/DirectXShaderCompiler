@@ -99,25 +99,26 @@ void ReadBinaryFile(IMalloc *pMalloc, LPCWSTR pFileName, void **ppData,
   if (!GetFileSizeEx(hFile, &FileSize)) {
     IFT(HRESULT_FROM_WIN32(GetLastError()));
   }
-  if (FileSize.HighPart != 0) {
+  if (FileSize.u.HighPart != 0) {
     throw(hlsl::Exception(DXC_E_INPUT_FILE_TOO_LARGE, "input file is too large"));
   }
 
-  char *pData = (char *)pMalloc->Alloc(FileSize.LowPart);
+  char *pData = (char *)pMalloc->Alloc(FileSize.u.LowPart);
   if (!pData) {
     throw std::bad_alloc();
   }
 
   DWORD BytesRead;
-  if (!ReadFile(hFile, pData, FileSize.LowPart, &BytesRead, nullptr)) {
+  if (!ReadFile(hFile, pData, FileSize.u.LowPart, &BytesRead, nullptr)) {
     HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
     pMalloc->Free(pData);
     throw ::hlsl::Exception(hr);
   }
-  DXASSERT(FileSize.LowPart == BytesRead, "ReadFile operation failed");
+  DXASSERT(FileSize.u.LowPart == BytesRead, "ReadFile operation failed");
 
   *ppData = pData;
-  *pDataSize = FileSize.LowPart;
+  *pDataSize = FileSize.u.LowPart;
+
 }
 
 _Use_decl_annotations_
@@ -896,19 +897,19 @@ public:
 
   // IStream implementation.
   HRESULT STDMETHODCALLTYPE SetSize(ULARGE_INTEGER val) override {
-    if (val.HighPart != 0) {
+    if (val.u.HighPart != 0) {
       return E_OUTOFMEMORY;
     }
-    if (val.LowPart > m_allocSize) {
+    if (val.u.LowPart > m_allocSize) {
       return Grow(m_allocSize);
     }
-    if (val.LowPart < m_size) {
-      m_size = val.LowPart;
+    if (val.u.LowPart < m_size) {
+      m_size = val.u.LowPart;
       m_offset = std::min(m_offset, m_size);
     }
-    else if (val.LowPart > m_size) {
-      memset(m_pMemory + m_size, 0, val.LowPart - m_size);
-      m_size = val.LowPart;
+    else if (val.u.LowPart > m_size) {
+      memset(m_pMemory + m_size, 0, val.u.LowPart - m_size);
+      m_size = val.u.LowPart;
     }
     return S_OK;
   }
@@ -942,7 +943,7 @@ public:
       lpNewFilePointer->QuadPart = 0;
     }
 
-    if (liDistanceToMove.HighPart != 0) {
+    if (liDistanceToMove.u.HighPart != 0) {
       return E_FAIL;
     }
 
@@ -950,13 +951,13 @@ public:
 
     switch (dwOrigin) {
     case STREAM_SEEK_SET:
-      targetOffset = liDistanceToMove.LowPart;
+      targetOffset = liDistanceToMove.u.LowPart;
       break;
     case STREAM_SEEK_CUR:
-      targetOffset = liDistanceToMove.LowPart + m_offset;
+      targetOffset = liDistanceToMove.u.LowPart + m_offset;
       break;
     case STREAM_SEEK_END:
-      targetOffset = liDistanceToMove.LowPart + m_size;
+      targetOffset = liDistanceToMove.u.LowPart + m_size;
       break;
     default:
       return STG_E_INVALIDFUNCTION;
@@ -964,7 +965,7 @@ public:
 
     m_offset = targetOffset;
     if (lpNewFilePointer != nullptr) {
-      lpNewFilePointer->LowPart = targetOffset;
+      lpNewFilePointer->u.LowPart = targetOffset;
     }
     return S_OK;
   }
@@ -976,7 +977,7 @@ public:
     }
     ZeroMemory(pStatstg, sizeof(*pStatstg));
     pStatstg->type = STGTY_STREAM;
-    pStatstg->cbSize.LowPart = m_size;
+    pStatstg->cbSize.u.LowPart = m_size;
     return S_OK;
   }
 };
@@ -1053,7 +1054,7 @@ public:
       lpNewFilePointer->QuadPart = 0;
     }
 
-    if (liDistanceToMove.HighPart != 0) {
+    if (liDistanceToMove.u.HighPart != 0) {
       return E_FAIL;
     }
 
@@ -1061,13 +1062,13 @@ public:
 
     switch (dwOrigin) {
     case STREAM_SEEK_SET:
-      targetOffset = liDistanceToMove.LowPart;
+      targetOffset = liDistanceToMove.u.LowPart;
       break;
     case STREAM_SEEK_CUR:
-      targetOffset = liDistanceToMove.LowPart + m_offset;
+      targetOffset = liDistanceToMove.u.LowPart + m_offset;
       break;
     case STREAM_SEEK_END:
-      targetOffset = liDistanceToMove.LowPart + m_size;
+      targetOffset = liDistanceToMove.u.LowPart + m_size;
       break;
     default:
       return STG_E_INVALIDFUNCTION;
@@ -1080,7 +1081,7 @@ public:
 
     m_offset = targetOffset;
     if (lpNewFilePointer != nullptr) {
-      lpNewFilePointer->LowPart = targetOffset;
+      lpNewFilePointer->u.LowPart = targetOffset;
     }
     return S_OK;
   }
@@ -1092,7 +1093,7 @@ public:
     }
     ZeroMemory(pStatstg, sizeof(*pStatstg));
     pStatstg->type = STGTY_STREAM;
-    pStatstg->cbSize.LowPart = m_size;
+    pStatstg->cbSize.u.LowPart = m_size;
     return S_OK;
   }
 };
