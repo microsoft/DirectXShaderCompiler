@@ -388,8 +388,12 @@ public:
       // validator can be used as a fallback.
       bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
 
-      bool needsValidation = produceFullContainer && !opts.DisableValidation &&
-                             !opts.IsLibraryProfile();
+      bool needsValidation = produceFullContainer && !opts.DisableValidation;
+      // Disable validation for lib_6_1 and lib_6_2.
+      if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_1" ||
+          compiler.getCodeGenOpts().HLSLProfile == "lib_6_2") {
+        needsValidation = false;
+      }
 
       if (needsValidation || (opts.CodeGenHighLevel && !opts.DisableValidation)) {
         UINT32 majorVer, minorVer;
