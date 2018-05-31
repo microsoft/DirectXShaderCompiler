@@ -289,9 +289,12 @@ class db_dxil(object):
         for i in "DomainLocation".split(","):
             self.name_idx[i].category = "Domain shader"
             self.name_idx[i].shader_stages = ("domain",)
-        for i in "StorePatchConstant,OutputControlPointID,PrimitiveID".split(","):
+        for i in "StorePatchConstant,OutputControlPointID".split(","):
             self.name_idx[i].category = "Hull shader"
-            self.name_idx[i].shader_stages = ("geometry", "domain", "hull", "pixel") if i == "PrimitiveID" else ("hull",)
+            self.name_idx[i].shader_stages = ("hull",)
+        for i in "PrimitiveID".split(","):
+            self.name_idx[i].category = "Hull shader"
+            self.name_idx[i].shader_stages = ("geometry", "domain", "hull", "pixel","library","intersection","anyhit","closesthit")		
         for i in "ViewID".split(","):
             self.name_idx[i].category = "Graphics shader"
             self.name_idx[i].shader_stages = ("vertex", "hull", "domain", "geometry", "pixel")
@@ -322,7 +325,7 @@ class db_dxil(object):
         for i in "HitKind".split(","):
             self.name_idx[i].category = "Raytracing hit uint System Values"
             self.name_idx[i].shader_model = 6,3
-            self.name_idx[i].shader_stages = ("intersection","anyhit","closesthit",)
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit",)
         for i in "RayFlags".split(","):
             self.name_idx[i].category = "Raytracing uint System Values"
             self.name_idx[i].shader_model = 6,3
@@ -362,7 +365,6 @@ class db_dxil(object):
         for i in "CreateHandleFromResourceStructForLib".split(","):
             self.name_idx[i].category = "Library create handle from resource struct (like HL intrinsic)"
             self.name_idx[i].shader_model = 6,3
-            self.name_idx[i].shader_stages = ("library",)
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
