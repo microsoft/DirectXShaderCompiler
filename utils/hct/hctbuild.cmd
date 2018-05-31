@@ -221,6 +221,12 @@ if "%BUILD_ARCH%"=="Win32" (
   set BUILD_TOOLS=amd64_arm64
 )
 
+if "%BUILD_ARCH%"=="ARM" (
+  echo.
+  echo WARNING: ARM build is not supported. Your build may fail. Use ARM64 instead.
+  echo.
+)
+
 call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%"
 if errorlevel 1 exit /b 1
 

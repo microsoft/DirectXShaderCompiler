@@ -149,6 +149,11 @@ if errorlevel 1 (
   exit /b 1
 )
 echo Path adjusted to include TAEF te.exe.
+
+if "%BUILD_ARCH%"=="ARM" (
+  echo.
+  echo WARNING: ARM build is not supported. Your build may fail. Use ARM64 instead.
+)
 goto :eof
 
 :ifexistaddpath 
