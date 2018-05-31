@@ -5033,7 +5033,7 @@ Value *CGMSHLSLRuntime::EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr 
   llvm::Type *RetTy = CGF.ConvertType(ResultTy);
   if (DestPtr) {
     SmallVector<Value *, 4> ParamList;
-    DXASSERT(RetTy->isAggregateType(), "");
+    DXASSERT_NOMSG(RetTy->isAggregateType());
     ParamList.emplace_back(DestPtr);
     ParamList.append(EltValList.begin(), EltValList.end());
     idx = 0;

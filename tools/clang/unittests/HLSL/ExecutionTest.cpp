@@ -2461,7 +2461,7 @@ public:
         return &m_table[i];
       }
     }
-    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    DXASSERT_ARGS(false, "Invalid Table Parameter Name %s", name);
     return nullptr;
   }
 
@@ -2487,7 +2487,7 @@ public:
         return &(m_table[i].m_int32Table);
       }
     }
-    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    DXASSERT_ARGS(false, "Invalid Table Parameter Name %s", name);
     return nullptr;
   }
 
@@ -2498,7 +2498,7 @@ public:
         return &(m_table[i].m_int8Table);
       }
     }
-    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    DXASSERT_ARGS(false, "Invalid Table Parameter Name %s", name);
     return nullptr;
   }
 
@@ -2509,7 +2509,7 @@ public:
         return &(m_table[i].m_int16Table);
       }
     }
-    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    DXASSERT_ARGS(false, "Invalid Table Parameter Name %s", name);
     return nullptr;
   }
 
@@ -2520,7 +2520,7 @@ public:
         return &(m_table[i].m_uint32Table);
       }
     }
-    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    DXASSERT_ARGS(false, "Invalid Table Parameter Name %s", name);
     return nullptr;
   }
 
@@ -2531,7 +2531,7 @@ public:
         return &(m_table[i].m_floatTable);
       }
     }
-    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    DXASSERT_ARGS(false, "Invalid Table Parameter Name %s", name);
     return nullptr;
   }
 
@@ -2543,7 +2543,7 @@ public:
         return &(m_table[i].m_halfTable);
       }
     }
-    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    DXASSERT_ARGS(false, "Invalid Table Parameter Name %s", name);
     return nullptr;
   }
 
@@ -2554,7 +2554,7 @@ public:
         return &(m_table[i].m_doubleTable);
       }
     }
-    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    DXASSERT_ARGS(false, "Invalid Table Parameter Name %s", name);
     return nullptr;
   }
 
@@ -2565,7 +2565,7 @@ public:
         return &(m_table[i].m_boolTable);
       }
     }
-    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    DXASSERT_ARGS(false, "Invalid Table Parameter Name %s", name);
     return nullptr;
   }
 
@@ -5030,7 +5030,7 @@ ShaderOpKind GetShaderOpKind(LPCWSTR str) {
       return ShaderOpKindTable[i].kind;
     }
   }
-  DXASSERT(false, "Invalid ShaderOp name: %s", str);
+  DXASSERT_ARGS(false, "Invalid ShaderOp name: %s", str);
   return ShaderOpKind::ShaderOpInvalid;
 }
 
@@ -5259,7 +5259,7 @@ static OutType computeExpectedWithShaderOp(const std::vector<InType> &inputs,
   case ShaderOpKind::WaveActiveAllEqual:
     return computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllEqual>()(inputs, masks, maskValue, index);
   default:
-    DXASSERT(false, "Invalid ShaderOp Name: %s", str);
+    DXASSERT_ARGS(false, "Invalid ShaderOp Name: %s", str);
     return (OutType) 0;
   }
 };
