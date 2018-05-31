@@ -685,7 +685,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
     "float function1(float x, min12int i) {"
     "  return x + c_buf + b_buf.Load(x) + tex2[i].x; }"
     "float function2(float x) { return x + function_import(x); }"
-    "float function3(int i) {"
+    "void function3(int i) {"
     "  Foo f = consume_buf.Consume();"
     "  f.f2 += 0.5; append_buf.Append(f);"
     "  rov_buf.Store(i, f.i2.x);"
