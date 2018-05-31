@@ -889,7 +889,7 @@ void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertex
     if (group == HLOpcodeGroup::HLIntrinsic)
       return;
     unsigned opcode = GetHLOpcode(CI);
-    DXASSERT(group == HLOpcodeGroup::HLMatLoadStore, "");
+    DXASSERT_NOMSG(group == HLOpcodeGroup::HLMatLoadStore);
     HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
     switch (matOp) {
     case HLMatLoadStoreOpcode::ColMatLoad: {
@@ -1476,7 +1476,7 @@ void HLSignatureLower::GenerateStreamOutputOperation(Value *streamVal, unsigned 
     CallInst *CI = cast<CallInst>(user);
     HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
     unsigned opcode = GetHLOpcode(CI);
-    DXASSERT_LOCALVAR(group, group == HLOpcodeGroup::HLIntrinsic, "");
+    DXASSERT_LOCALVAR(group, group == HLOpcodeGroup::HLIntrinsic, "Must be HLIntrinsic here");
     IntrinsicOp IOP = static_cast<IntrinsicOp>(opcode);
     switch (IOP) {
     case IntrinsicOp::MOP_Append:

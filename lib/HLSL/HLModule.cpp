@@ -839,7 +839,7 @@ void HLModule::GetParameterRowsAndCols(Type *Ty, unsigned &rows, unsigned &cols,
       rows = matrix.Rows;
       cols = matrix.Cols;
     } else {
-      DXASSERT(matrix.Orientation == MatrixOrientation::ColumnMajor, "");
+      DXASSERT_NOMSG(matrix.Orientation == MatrixOrientation::ColumnMajor);
       cols = matrix.Rows;
       rows = matrix.Cols;
     }
