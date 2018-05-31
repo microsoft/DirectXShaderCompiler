@@ -1954,7 +1954,7 @@ static void EmitOMPAtomicCaptureExpr(CodeGenFunction &CGF, bool IsSeqCst,
     NewVValType = XRValExpr->getType();
     auto *ERValExpr = IsXLHSInRHSPart ? RHS : LHS;
     auto &&Gen = [&CGF, &NewVVal, UE, ExprRValue, XRValExpr, ERValExpr,
-                  IsSeqCst, IsPostfixUpdate](RValue XRValue) -> RValue {
+                  IsPostfixUpdate](RValue XRValue) -> RValue {
       CodeGenFunction::OpaqueValueMapping MapExpr(CGF, ERValExpr, ExprRValue);
       CodeGenFunction::OpaqueValueMapping MapX(CGF, XRValExpr, XRValue);
       RValue Res = CGF.EmitAnyExpr(UE);
@@ -1981,7 +1981,7 @@ static void EmitOMPAtomicCaptureExpr(CodeGenFunction &CGF, bool IsSeqCst,
     NewVValType = X->getType().getNonReferenceType();
     ExprRValue = convertToType(CGF, ExprRValue, E->getType(),
                                X->getType().getNonReferenceType());
-    auto &&Gen = [&CGF, &NewVVal, ExprRValue](RValue XRValue) -> RValue {
+    auto &&Gen = [&NewVVal, ExprRValue](RValue XRValue) -> RValue {
       NewVVal = XRValue;
       return ExprRValue;
     };
