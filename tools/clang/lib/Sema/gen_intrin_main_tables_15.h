@@ -70,12 +70,12 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args8[] =
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args9[] =
 {
-    {"DispatchRaysDimensions", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_UINT, 1, 2},
+    {"DispatchRaysDimensions", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_UINT, 1, 3},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args10[] =
 {
-    {"DispatchRaysIndex", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_UINT, 1, 2},
+    {"DispatchRaysIndex", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_UINT, 1, 3},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args11[] =

@@ -274,8 +274,8 @@ bool [[]]  ReportHit(in float THit, in uint HitKind, in udt Attributes);
 void [[]]  CallShader(in uint ShaderIndex, inout udt Parameter);
 void [[]]  IgnoreHit();
 void [[]]  AcceptHitAndEndSearch();
-uint<2> [[rn]] DispatchRaysIndex();
-uint<2> [[rn]] DispatchRaysDimensions();
+uint<3> [[rn]] DispatchRaysIndex();
+uint<3> [[rn]] DispatchRaysDimensions();
 // group: Ray Vectors
 float<3> [[rn]] WorldRayOrigin();
 float<3> [[rn]] WorldRayDirection();
