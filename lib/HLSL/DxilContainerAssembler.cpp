@@ -702,6 +702,86 @@ public:
   }
 };
 
+// Size-checked writer
+//  on overrun: throw buffer_overrun{};
+//  on overlap: throw buffer_overlap{};
+class CheckedWriter {
+  char *Ptr;
+  size_t Size;
+  size_t Offset;
+
+public:
+  class exception : public std::exception {};
+  class buffer_overrun : public exception {
+  public:
+    buffer_overrun() noexcept {}
+    virtual const char * what() const noexcept override {
+      return ("buffer_overrun");
+    }
+  };
+  class buffer_overlap : public exception {
+  public:
+    buffer_overlap() noexcept {}
+    virtual const char * what() const noexcept override {
+      return ("buffer_overlap");
+    }
+  };
+
+  CheckedWriter(void *ptr, size_t size) :
+    Ptr(reinterpret_cast<char*>(ptr)), Size(size), Offset(0) {}
+
+  size_t GetOffset() const { return Offset; }
+  void Reset(size_t offset = 0) {
+    if (offset >= Size) throw buffer_overrun{};
+    Offset = offset;
+  }
+  // offset is absolute, ensure offset is >= current offset
+  void Advance(size_t offset = 0) {
+    if (offset < Offset) throw buffer_overlap{};
+    if (offset >= Size) throw buffer_overrun{};
+    Offset = offset;
+  }
+  void CheckBounds(size_t size) const {
+    assert(Offset <= Size && "otherwise, offset larger than size");
+    if (size > Size - Offset)
+      throw buffer_overrun{};
+  }
+  template <typename T>
+  T *Cast(size_t size = 0) {
+    if (0 == size) size = sizeof(T);
+    CheckBounds(size);
+    return reinterpret_cast<T*>(Ptr + Offset);
+  }
+
+  // Map and Write advance Offset:
+  template <typename T>
+  T &Map() {
+    const size_t size = sizeof(T);
+    T * p = Cast<T>(size);
+    Offset += size;
+    return *p;
+  }
+  template <typename T>
+  T *MapArray(size_t count = 1) {
+    const size_t size = sizeof(T) * count;
+    T *p = Cast<T>(size);
+    Offset += size;
+    return p;
+  }
+  template <typename T>
+  void Write(const T &obj) {
+    const size_t size = sizeof(T);
+    *Cast<T>(size) = obj;
+    Offset += size;
+  }
+  template <typename T>
+  void WriteArray(const T *pArray, size_t count = 1) {
+    const size_t size = sizeof(T) * count;
+    memcpy(Cast<T>(size), pArray, size);
+    Offset += size;
+  }
+};
+
 // Like DXIL container, RDAT itself is a mini container that contains multiple RDAT parts
 class RDATPart {
 public:
@@ -728,92 +808,112 @@ public:
 
   void Write(void *ptr) {
     char *pCur = (char*)ptr;
-    for (auto row : m_rows) {
-      memcpy(pCur, &row, sizeof(T));
-      pCur += sizeof(T);
-    }
+    RuntimeDataTableHeader &header = *reinterpret_cast<RuntimeDataTableHeader*>(pCur);
+    header.RecordCount = m_rows.size();
+    header.RecordStride = sizeof(T);
+    pCur += sizeof(RuntimeDataTableHeader);
+    memcpy(pCur, m_rows.data(), header.RecordCount * header.RecordStride);
   };
 
-  uint32_t GetPartSize() const { return m_rows.size() * sizeof(T); }
+  uint32_t GetPartSize() const {
+    if (m_rows.empty())
+      return 0;
+    return sizeof(RuntimeDataTableHeader) + m_rows.size() * sizeof(T);
+  }
 };
 
 // Resource table will contain a list of RuntimeDataResourceInfo in order of
 // CBuffer, Sampler, SRV, and UAV resource classes.
 class ResourceTable : public RDATTable<RuntimeDataResourceInfo> {
 public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::Resource; }
+  RuntimeDataPartType GetType() const { return RuntimeDataPartType::ResourceTable; }
 };
 
 class FunctionTable : public RDATTable<RuntimeDataFunctionInfo> {
 public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::Function; }
+  RuntimeDataPartType GetType() const { return RuntimeDataPartType::FunctionTable; }
 };
 
-class StringTable : public RDATPart {
+class StringBufferPart : public RDATPart {
 private:
   StringMap<uint32_t> m_StringMap;
   SmallVector<char, 256> m_StringBuffer;
   uint32_t curIndex;
 public:
-  StringTable() : m_StringMap(), m_StringBuffer(), curIndex(0) {}
+  StringBufferPart() : m_StringMap(), m_StringBuffer(), curIndex(0) {
+    // Always start string table with null so empty/null strings have offset of zero
+    m_StringBuffer.push_back('\0');
+  }
   // returns the offset of the name inserted
   uint32_t Insert(StringRef name) {
+    if (name.empty())
+      return 0;
+
     // Don't add duplicate strings
     auto found = m_StringMap.find(name);
     if (found != m_StringMap.end())
       return found->second;
-    m_StringMap[name] = curIndex;
 
+    uint32_t prevIndex = (uint32_t)m_StringBuffer.size();
+    m_StringMap[name] = prevIndex;
     m_StringBuffer.reserve(m_StringBuffer.size() + name.size() + 1);
     m_StringBuffer.append(name.begin(), name.end());
     m_StringBuffer.push_back('\0');
-
-    uint32_t prevIndex = curIndex;
-    curIndex += (uint32_t)name.size() + 1;
     return prevIndex;
   }
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::String; }
+  RuntimeDataPartType GetType() const { return RuntimeDataPartType::StringBuffer; }
   uint32_t GetPartSize() const { return m_StringBuffer.size(); }
   void Write(void *ptr) { memcpy(ptr, m_StringBuffer.data(), m_StringBuffer.size()); }
 };
 
-struct IndexTable : public RDATPart {
+struct IndexArraysPart : public RDATPart {
 private:
-  typedef llvm::SmallVector<uint32_t, 8> Indices;
-  std::vector<Indices> m_IndicesList;
-  uint32_t m_curOffset;
+  std::vector<uint32_t> m_IndexBuffer;
+
+  // Use m_IndexSet with CmpIndices to avoid duplicate index arrays
+  struct CmpIndices {
+    const IndexArraysPart &Table;
+    CmpIndices(const IndexArraysPart &table) : Table(table) {}
+    bool operator()(uint32_t left, uint32_t right) const {
+      const uint32_t *pLeft = Table.m_IndexBuffer.data() + left;
+      const uint32_t *pRight = Table.m_IndexBuffer.data() + right;
+      if (*pLeft != *pRight)
+        return (*pLeft < *pRight);
+      uint32_t count = *pLeft;
+      for (unsigned i = 0; i < count; i++) {
+        ++pLeft; ++pRight;
+        if (*pLeft != *pRight)
+          return (*pLeft < *pRight);
+      }
+      return false;
+    }
+  };
+  std::set<uint32_t, CmpIndices> m_IndexSet;
 
 public:
-  IndexTable() : m_IndicesList(), m_curOffset(0) {}
+  IndexArraysPart() : m_IndexBuffer(), m_IndexSet(*this) {}
   template <class iterator>
   uint32_t AddIndex(iterator begin, iterator end) {
-    uint32_t prevOffset = m_curOffset;
-    m_IndicesList.emplace_back(Indices());
-    auto &curIndices = m_IndicesList.back();
-    for (iterator it = begin; it != end; ++it) {
-      curIndices.emplace_back(*it);
-    }
-    m_curOffset += curIndices.size() + 1;
-    return prevOffset;
+    uint32_t newOffset = m_IndexBuffer.size();
+    m_IndexBuffer.push_back(0); // Size: update after insertion
+    m_IndexBuffer.insert(m_IndexBuffer.end(), begin, end);
+    m_IndexBuffer[newOffset] = (m_IndexBuffer.size() - newOffset) - 1;
+    // Check for duplicate, return new offset if not duplicate
+    auto insertResult = m_IndexSet.insert(newOffset);
+    if (insertResult.second)
+      return newOffset;
+    // Otherwise it was a duplicate, so chop off the size and return the original
+    m_IndexBuffer.resize(newOffset);
+    return *insertResult.first;
   }
 
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::Index; }
+  RuntimeDataPartType GetType() const { return RuntimeDataPartType::IndexArrays; }
   uint32_t GetPartSize() const {
-    uint32_t size = 0;
-    for (auto Indices : m_IndicesList) {
-      size += Indices.size() + 1;
-    }
-    return sizeof(uint32_t) * size;
+    return sizeof(uint32_t) * m_IndexBuffer.size();
   }
 
   void Write(void *ptr) {
-    uint32_t *cur = (uint32_t*)ptr;
-    for (auto Indices : m_IndicesList) {
-      uint32_t count = Indices.size();
-      memcpy(cur, &count, 4);
-      std::copy(Indices.begin(), Indices.end(), cur + 1);
-      cur += sizeof(uint32_t)/sizeof(4) + Indices.size();
-    }
+    memcpy(ptr, m_IndexBuffer.data(), m_IndexBuffer.size() * sizeof(uint32_t));
   }
 };
 
@@ -824,7 +924,7 @@ private:
   const DxilModule &m_Module;
   SmallVector<char, 1024> m_RDATBuffer;
 
-  std::vector<std::unique_ptr<RDATPart>> m_tables;
+  std::vector<std::unique_ptr<RDATPart>> m_Parts;
   typedef llvm::SmallSetVector<uint32_t, 8> Indices;
   typedef std::unordered_map<llvm::Function *, Indices> FunctionIndexMap;
   FunctionIndexMap m_FuncToResNameOffset; // list of resources used
@@ -864,9 +964,9 @@ private:
   void InsertToResourceTable(DxilResourceBase &resource,
                              ResourceClass resourceClass,
                              ResourceTable &resourceTable,
-                             StringTable &stringTable,
+                             StringBufferPart &stringBufferPart,
                              uint32_t &resourceIndex) {
-    uint32_t stringIndex = stringTable.Insert(resource.GetGlobalName());
+    uint32_t stringIndex = stringBufferPart.Insert(resource.GetGlobalName());
     UpdateFunctionToResourceInfo(&resource, resourceIndex++);
     RuntimeDataResourceInfo info = {};
     info.ID = resource.GetID();
@@ -890,35 +990,35 @@ private:
     resourceTable.Insert(info);
   }
 
-  void UpdateResourceInfo(StringTable &stringTable) {
+  void UpdateResourceInfo(StringBufferPart &stringBufferPart) {
     // Try to allocate string table for resources. String table is a sequence
     // of strings delimited by \0
-    m_tables.emplace_back(std::make_unique<ResourceTable>());
-    ResourceTable &resourceTable = *(ResourceTable*)m_tables.back().get();
+    m_Parts.emplace_back(std::make_unique<ResourceTable>());
+    ResourceTable &resourceTable = *reinterpret_cast<ResourceTable*>(m_Parts.back().get());
     uint32_t resourceIndex = 0;
     for (auto &resource : m_Module.GetCBuffers()) {
-      InsertToResourceTable(*resource.get(), ResourceClass::CBuffer, resourceTable, stringTable,
+      InsertToResourceTable(*resource.get(), ResourceClass::CBuffer, resourceTable, stringBufferPart,
                             resourceIndex);
 
     }
     for (auto &resource : m_Module.GetSamplers()) {
-      InsertToResourceTable(*resource.get(), ResourceClass::Sampler, resourceTable, stringTable,
+      InsertToResourceTable(*resource.get(), ResourceClass::Sampler, resourceTable, stringBufferPart,
                             resourceIndex);
     }
     for (auto &resource : m_Module.GetSRVs()) {
-      InsertToResourceTable(*resource.get(), ResourceClass::SRV, resourceTable, stringTable,
+      InsertToResourceTable(*resource.get(), ResourceClass::SRV, resourceTable, stringBufferPart,
                             resourceIndex);
     }
     for (auto &resource : m_Module.GetUAVs()) {
-      InsertToResourceTable(*resource.get(), ResourceClass::UAV, resourceTable, stringTable,
+      InsertToResourceTable(*resource.get(), ResourceClass::UAV, resourceTable, stringBufferPart,
                             resourceIndex);
     }
   }
 
-  void UpdateFunctionDependency(llvm::Function *F, StringTable &stringTable) {
+  void UpdateFunctionDependency(llvm::Function *F, StringBufferPart &stringBufferPart) {
     for (const auto &user : F->users()) {
       llvm::Function *userFunction = FindUsingFunction(user);
-      uint32_t index = stringTable.Insert(F->getName());
+      uint32_t index = stringBufferPart.Insert(F->getName());
       if (m_FuncToDependencies.find(userFunction) ==
           m_FuncToDependencies.end()) {
         m_FuncToDependencies[userFunction] =
@@ -928,27 +1028,27 @@ private:
     }
   }
 
-  void UpdateFunctionInfo(StringTable &stringTable) {
+  void UpdateFunctionInfo(StringBufferPart &stringBufferPart) {
     // TODO: get a list of valid shader flags
     // TODO: get a minimum shader version
     std::unordered_map<llvm::Function *, std::vector<StringRef>>
         FuncToUnresolvedDependencies;
-    m_tables.emplace_back(std::make_unique<FunctionTable>());
-    FunctionTable &functionTable = *(FunctionTable*)(m_tables.back().get());
-    m_tables.emplace_back(std::make_unique<IndexTable>());
-    IndexTable &indexTable = *(IndexTable*)(m_tables.back().get());
+    m_Parts.emplace_back(std::make_unique<FunctionTable>());
+    FunctionTable &functionTable = *reinterpret_cast<FunctionTable*>(m_Parts.back().get());
+    m_Parts.emplace_back(std::make_unique<IndexArraysPart>());
+    IndexArraysPart &indexArraysPart = *reinterpret_cast<IndexArraysPart*>(m_Parts.back().get());
     for (auto &function : m_Module.GetModule()->getFunctionList()) {
       // If function is a declaration, it is an unresolved dependency in the library
       if (function.isDeclaration() && !OP::IsDxilOpFunc(&function)) {
-        UpdateFunctionDependency(&function, stringTable);
+        UpdateFunctionDependency(&function, stringBufferPart);
       }
     }
     for (auto &function : m_Module.GetModule()->getFunctionList()) {
       if (!function.isDeclaration()) {
         StringRef mangled = function.getName();
         StringRef unmangled = hlsl::dxilutil::DemangleFunctionName(function.getName());
-        uint32_t mangledIndex = stringTable.Insert(mangled);
-        uint32_t unmangledIndex = stringTable.Insert(unmangled);
+        uint32_t mangledIndex = stringBufferPart.Insert(mangled);
+        uint32_t unmangledIndex = stringBufferPart.Insert(unmangled);
         // Update resource Index
         uint32_t resourceIndex = UINT_MAX;
         uint32_t functionDependencies = UINT_MAX;
@@ -958,11 +1058,11 @@ private:
 
         if (m_FuncToResNameOffset.find(&function) != m_FuncToResNameOffset.end())
           resourceIndex =
-              indexTable.AddIndex(m_FuncToResNameOffset[&function].begin(),
+              indexArraysPart.AddIndex(m_FuncToResNameOffset[&function].begin(),
                                   m_FuncToResNameOffset[&function].end());
         if (m_FuncToDependencies.find(&function) != m_FuncToDependencies.end())
           functionDependencies =
-              indexTable.AddIndex(m_FuncToDependencies[&function].begin(),
+              indexArraysPart.AddIndex(m_FuncToDependencies[&function].begin(),
                                   m_FuncToDependencies[&function].end());
         if (m_Module.HasDxilFunctionProps(&function)) {
           auto props = m_Module.GetDxilFunctionProps(&function);
@@ -987,9 +1087,9 @@ private:
         info.FunctionDependencies = functionDependencies;
         info.PayloadSizeInBytes = payloadSizeInBytes;
         info.AttributeSizeInBytes = attrSizeInBytes;
-        uint64_t rawFlags = flags.GetShaderFlagsRaw();
-        info.FeatureInfo1 = rawFlags & 0xffffffff;
-        info.FeatureInfo2 = (rawFlags >> 32) & 0xffffffff;
+        uint64_t featureFlags = flags.GetFeatureInfo();
+        info.FeatureInfo1 = featureFlags & 0xffffffff;
+        info.FeatureInfo2 = (featureFlags >> 32) & 0xffffffff;
         functionTable.Insert(info);
       }
     }
@@ -997,41 +1097,57 @@ private:
 
 public:
   DxilRDATWriter(const DxilModule &module, uint32_t InfoVersion = 0)
-      : m_Module(module), m_RDATBuffer(), m_tables(), m_FuncToResNameOffset() {
+      : m_Module(module), m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
     // It's important to keep the order of this update
-    m_tables.emplace_back(std::make_unique<StringTable>());
-    StringTable &stringTable = *(StringTable*)m_tables.back().get();
-    UpdateResourceInfo(stringTable);
-    UpdateFunctionInfo(stringTable);
+    m_Parts.emplace_back(std::make_unique<StringBufferPart>());
+    StringBufferPart &stringBufferPart = *reinterpret_cast<StringBufferPart*>(m_Parts.back().get());
+    UpdateResourceInfo(stringBufferPart);
+    UpdateFunctionInfo(stringBufferPart);
+
+    // Delete any empty parts:
+    std::vector<std::unique_ptr<RDATPart>>::iterator it = m_Parts.begin();
+    while (it != m_Parts.end()) {
+      if (it->get()->GetPartSize() == 0) {
+        it = m_Parts.erase(it);
+      }
+      else
+        it++;
+    }
   }
 
   __override uint32_t size() const {
-    // one variable to count the number of blobs and two blobs
-    uint32_t total = 4 + m_tables.size() * sizeof(RuntimeDataTableHeader);
-    for (auto &&table : m_tables)
-      total += table->GetPartSize();
+    // header + offset array
+    uint32_t total = sizeof(RuntimeDataHeader) + m_Parts.size() * sizeof(uint32_t);
+    // For each part: part header + part size
+    for (auto &part : m_Parts)
+      total += sizeof(RuntimeDataPartHeader) + PSVALIGN4(part->GetPartSize());
     return total;
   }
 
   __override void write(AbstractMemoryStream *pStream) {
-    m_RDATBuffer.resize(size());
-    char *pCur = m_RDATBuffer.data();
-    // write number of tables
-    uint32_t size = m_tables.size();
-    memcpy(pCur, &size, sizeof(uint32_t));
-    pCur += sizeof(uint32_t);
-    // write records
-    uint32_t curTableOffset = size * sizeof(RuntimeDataTableHeader) + 4;
-    for (auto &&table : m_tables) {
-      RuntimeDataTableHeader record = { static_cast<uint32_t>(table->GetType()), table->GetPartSize(), curTableOffset };
-      memcpy(pCur, &record, sizeof(RuntimeDataTableHeader));
-      pCur += sizeof(RuntimeDataTableHeader);
-      curTableOffset += record.size;
+    try {
+      m_RDATBuffer.resize(size(), 0);
+      CheckedWriter W(m_RDATBuffer.data(), m_RDATBuffer.size());
+      // write RDAT header
+      RuntimeDataHeader &header = W.Map<RuntimeDataHeader>();
+      header.Version = RDAT_Version_0;
+      header.PartCount = m_Parts.size();
+      // map offsets
+      uint32_t *offsets = W.MapArray<uint32_t>(header.PartCount);
+      // write parts
+      unsigned i = 0;
+      for (auto &part : m_Parts) {
+        offsets[i++] = W.GetOffset();
+        RuntimeDataPartHeader &partHeader = W.Map<RuntimeDataPartHeader>();
+        partHeader.Type = part->GetType();
+        partHeader.Size = PSVALIGN4(part->GetPartSize());
+        DXASSERT(partHeader.Size, "otherwise, failed to remove empty part");
+        char *bytes = W.MapArray<char>(partHeader.Size);
+        part->Write(bytes);
+      }
     }
-    // write tables
-    for (auto &&table : m_tables) {
-      table->Write(pCur);
-      pCur += table->GetPartSize();
+    catch (CheckedWriter::exception e) {
+      throw hlsl::Exception(DXC_E_GENERAL_INTERNAL_ERROR, e.what());
     }
 
     ULONG cbWritten;
