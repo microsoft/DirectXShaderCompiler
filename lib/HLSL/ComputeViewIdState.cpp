@@ -516,7 +516,7 @@ void DxilViewIdState::CollectPhiCFValuesContributingToOutputRec(PHINode *pPhi,
     BasicBlock *pBB = pPhi->getIncomingBlock(i);
     DomTreeNodeBase<BasicBlock> *pDomNode = pFuncInfo->pDomTree->getNode(pBB);
     auto it = DomTreeMarkers.emplace(pDomNode, pValue);
-    DXASSERT_NOMSG(it.second || it.first->second == pValue); it;
+    DXASSERT_NOMSG(it.second || it.first->second == pValue); (void)it;
   }
   // Mark the dominator tree with "definition" values, walking up to the parent.
   for (unsigned i = 0; i < pPhi->getNumOperands(); i++) {

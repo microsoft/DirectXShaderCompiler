@@ -492,7 +492,7 @@ void OP::RefreshCache() {
       OpCode OpCode = OP::GetDxilOpFuncCallInst(CI);
       Type *pOverloadType = OP::GetOverloadType(OpCode, &F);
       Function *OpFunc = GetOpFunc(OpCode, pOverloadType);
-      (OpFunc);
+      (void)(OpFunc);
       DXASSERT_NOMSG(OpFunc == &F);
     }
   }
@@ -525,8 +525,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pI8 = Type::getInt8Ty(m_Ctx);
   Type *pI16 = Type::getInt16Ty(m_Ctx);
   Type *pI32 = Type::getInt32Ty(m_Ctx);
-  Type *pPI32 = Type::getInt32PtrTy(m_Ctx); (pPI32); // Currently unused.
-  Type *pI64 = Type::getInt64Ty(m_Ctx); (pI64); // Currently unused.
+  Type *pPI32 = Type::getInt32PtrTy(m_Ctx); (void)(pPI32); // Currently unused.
+  Type *pI64 = Type::getInt64Ty(m_Ctx); (void)(pI64); // Currently unused.
   Type *pF16 = Type::getHalfTy(m_Ctx);
   Type *pF32 = Type::getFloatTy(m_Ctx);
   Type *pPF32 = Type::getFloatPtrTy(m_Ctx);

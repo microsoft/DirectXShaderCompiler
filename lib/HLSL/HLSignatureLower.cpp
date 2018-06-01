@@ -505,8 +505,8 @@ void replaceStWithStOutput(Function *stOutput, StoreInst *stInst,
     Value *colIdx = Builder.getInt8(0);
     ArrayType *AT = cast<ArrayType>(val->getType());
     Value *args[] = {OpArg, outputID, idx, colIdx, /*val*/ nullptr};
-    args;
-    AT;
+    (void)args;
+    (void)AT;
   }
 }
 
@@ -618,7 +618,7 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
     param->replaceAllUsesWith(input);
   } else if (HLMatrixLower::IsMatrixType(Ty)) {
     Value *colIdx = hlslOP->GetU8Const(0);
-    colIdx;
+    (void)colIdx;
     DXASSERT(param->hasOneUse(),
              "matrix arg should only has one use as matrix to vec");
     CallInst *CI = cast<CallInst>(param->user_back());

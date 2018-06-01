@@ -3502,10 +3502,10 @@ Sema::ObjCContainerKind Sema::getObjCContainerKind() const {
 Decl *Sema::ActOnAtEnd(Scope *S, SourceRange AtEnd, ArrayRef<Decl *> allMethods,
                        ArrayRef<DeclGroupPtrTy> allTUVars) {
 #if 1 // HLSL Change Starts
-  (S);
-  (AtEnd);
-  (allMethods);
-  (allTUVars);
+  (void)(S);
+  (void)(AtEnd);
+  (void)(allMethods);
+  (void)(allTUVars);
   return nullptr;
 #else
   if (getObjCContainerKind() == Sema::OCK_None)
