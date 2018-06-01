@@ -5,6 +5,22 @@
 ###############################################################################
 import os
 
+all_stages = (
+    'vertex',
+    'pixel',
+    'geometry',
+    'compute',
+    'hull',
+    'domain',
+    'library',
+    'raygeneration',
+    'intersection',
+    'anyhit',
+    'closesthit',
+    'miss',
+    'callable',
+    )
+
 class db_dxil_enum_value(object):
     "A representation for a value in an enumeration type"
     def __init__(self, name, value, doc):
@@ -49,7 +65,7 @@ class db_dxil_inst(object):
         self.is_gradient = False        # whether this requires a gradient calculation
         self.is_wave = False            # whether this requires in-wave, cross-lane functionality
         self.requires_uniform_inputs = False  # whether this operation requires that all of its inputs are uniform across the wave
-        self.shader_stages = "*"        # shader stages to which this applies, * or one or more of cdghpv
+        self.shader_stages = ()         # shader stages to which this applies, empty for all.
         self.shader_model = 6,0         # minimum shader model required
         self.inst_helper_prefix = None
         self.fully_qualified_name_prefix = "hlsl::OP::OpCode"
@@ -119,7 +135,7 @@ class db_dxil_valrule(object):
         self.err_msg = ""                   # error message associated with rule
         self.category = ""                  # classification for this rule
         self.doc = ""                       # the documentation description of this rule
-        self.shader_stages = "*"            # shader stages to which this applies, * or one or more of cdghpv
+        self.shader_stages = ()             # shader stages to which this applies, empty for all.
         self.shader_model = 6,0             # minimum shader model required
         for k,v in list(kwargs.items()):
             setattr(self, k, v)
@@ -253,32 +269,35 @@ class db_dxil(object):
         for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
         for i in "Sample,SampleBias,SampleCmp,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
-            self.name_idx[i].shader_stages = "p"
+            self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp".split(","):
             self.name_idx[i].category = "Resources - gather"
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
         for i in "CalculateLOD,Discard,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,AttributeAtVertex".split(","):
             self.name_idx[i].category = "Pixel shader"
-            self.name_idx[i].shader_stages = "p"
+            self.name_idx[i].shader_stages = ("pixel",)
         for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
             self.name_idx[i].category = "Compute shader"
-            self.name_idx[i].shader_stages = "c"
+            self.name_idx[i].shader_stages = ("compute",)
         for i in "EmitStream,CutStream,EmitThenCutStream,GSInstanceID".split(","):
             self.name_idx[i].category = "Geometry shader"
-            self.name_idx[i].shader_stages = "g"
+            self.name_idx[i].shader_stages = ("geometry",)
         for i in "LoadOutputControlPoint,LoadPatchConstant".split(","):
             self.name_idx[i].category = "Domain and hull shader"
-            self.name_idx[i].shader_stages = "dh"
+            self.name_idx[i].shader_stages = ("domain", "hull")
         for i in "DomainLocation".split(","):
             self.name_idx[i].category = "Domain shader"
-            self.name_idx[i].shader_stages = "d"
-        for i in "StorePatchConstant,OutputControlPointID,PrimitiveID".split(","):
+            self.name_idx[i].shader_stages = ("domain",)
+        for i in "StorePatchConstant,OutputControlPointID".split(","):
             self.name_idx[i].category = "Hull shader"
-            self.name_idx[i].shader_stages = "gdhp" if i == "PrimitiveID" else "h"
+            self.name_idx[i].shader_stages = ("hull",)
+        for i in "PrimitiveID".split(","):
+            self.name_idx[i].category = "Hull shader"
+            self.name_idx[i].shader_stages = ("geometry", "domain", "hull", "pixel","library","intersection","anyhit","closesthit")		
         for i in "ViewID".split(","):
             self.name_idx[i].category = "Graphics shader"
-            self.name_idx[i].shader_stages = "vhdgp"
+            self.name_idx[i].shader_stages = ("vertex", "hull", "domain", "geometry", "pixel")
         for i in "MakeDouble,SplitDouble,LegacyDoubleToFloat,LegacyDoubleToSInt32,LegacyDoubleToUInt32".split(","):
             self.name_idx[i].category = "Double precision"
         for i in "CycleCounterLegacy".split(","):
@@ -295,27 +314,54 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6,1
         for i in "RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].shader_model = 6,2
-        for i in "InstanceID,InstanceIndex,HitKind,RayFlags".split(","):
-            self.name_idx[i].category = "Raytracing uint System Values"
-            self.name_idx[i].shader_model = 6,3
         for i in "DispatchRaysIndex,DispatchRaysDimensions".split(","):
             self.name_idx[i].category = "Ray Dispatch Arguments"
             self.name_idx[i].shader_model = 6,3
-        for i in "WorldRayOrigin,WorldRayDirection,ObjectRayOrigin,ObjectRayDirection".split(","):
+            self.name_idx[i].shader_stages = ("library", "raygeneration","intersection","anyhit", "closesthit","miss","callable")
+        for i in "InstanceID,InstanceIndex".split(","):
+            self.name_idx[i].category = "Raytracing object space uint System Values"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit")
+        for i in "HitKind".split(","):
+            self.name_idx[i].category = "Raytracing hit uint System Values"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit",)
+        for i in "RayFlags".split(","):
+            self.name_idx[i].category = "Raytracing uint System Values"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit","miss")
+        for i in "WorldRayOrigin,WorldRayDirection".split(","):
             self.name_idx[i].category = "Ray Vectors"
             self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit","miss")
+        for i in "ObjectRayOrigin,ObjectRayDirection".split(","):
+            self.name_idx[i].category = "Ray object space Vectors"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit")
         for i in "ObjectToWorld,WorldToObject".split(","):
             self.name_idx[i].category = "Ray Transforms"
             self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit")
         for i in "RayTMin,RayTCurrent".split(","):
             self.name_idx[i].category = "RayT"
             self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit", "miss")
         for i in "IgnoreHit,AcceptHitAndEndSearch".split(","):
             self.name_idx[i].category = "AnyHit Terminals"
             self.name_idx[i].shader_model = 6,3
-        for i in "TraceRay,ReportHit,CallShader".split(","):
+            self.name_idx[i].shader_stages = ("library","anyhit")
+        for i in "CallShader".split(","):
             self.name_idx[i].category = "Indirect Shader Invocation"
             self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library", "closesthit","raygeneration","miss","callable")
+        for i in "TraceRay".split(","):
+            self.name_idx[i].category = "Indirect Shader Invocation"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library", "raygeneration","closesthit","miss")
+        for i in "ReportHit".split(","):
+            self.name_idx[i].category = "Indirect Shader Invocation"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library", "intersection")
         for i in "CreateHandleFromResourceStructForLib".split(","):
             self.name_idx[i].category = "Library create handle from resource struct (like HL intrinsic)"
             self.name_idx[i].shader_model = 6,3
