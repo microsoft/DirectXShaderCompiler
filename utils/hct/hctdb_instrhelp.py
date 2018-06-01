@@ -598,8 +598,8 @@ class macro_table_gen:
     def print_table(self, table, macro_name):
         formatted = self.format_table(table)
         print(  '//   %s\n' % formatted[0] +
-                '#define %s(DO) \\\n' % macro_name +
-                ' \\\n'.join(['  DO(%s)' % frow for frow in formatted[1:]]))
+                '#define %s(ROW) \\\n' % macro_name +
+                ' \\\n'.join(['  ROW(%s)' % frow for frow in formatted[1:]]))
 
 class db_sigpoint_gen(macro_table_gen):
     "A generator for SigPoint tables."
@@ -921,6 +921,22 @@ def get_opsigs():
     code += "};\n"
     return code
 
+check_pSM_for_shader_stage = {
+    'vertex': 'pSM->IsVS()',
+    'pixel': 'pSM->IsPS()',
+    'geometry': 'pSM->IsGS()',
+    'compute': 'pSM->IsCS()',
+    'hull': 'pSM->IsHS()',
+    'domain': 'pSM->IsDS()',
+    'library': 'pSM->IsLib()',
+    'raygeneration': 'pSM->GetKind() == DXIL::ShaderKind::RayGeneration',
+    'intersection': 'pSM->GetKind() == DXIL::ShaderKind::Intersection',
+    'anyhit': 'pSM->GetKind() == DXIL::ShaderKind::AnyHit',
+    'closesthit': 'pSM->GetKind() == DXIL::ShaderKind::ClosestHit',
+    'miss': 'pSM->GetKind() == DXIL::ShaderKind::Miss',
+    'callable': 'pSM->GetKind() == DXIL::ShaderKind::Callable',
+}
+
 def get_valopcode_sm_text():
     db = get_db_dxil()
     instrs = [i for i in db.instr if i.is_dxil_op]
@@ -940,8 +956,8 @@ def get_valopcode_sm_text():
         if last_model != (6,0):
             model_cond = "pSM->GetMajor() > %d || (pSM->GetMajor() == %d && pSM->GetMinor() >= %d)" % (
                 last_model[0], last_model[0], last_model[1])
-        if last_stage != "*":
-            stage_cond = ' || '.join(["pSM->Is%sS()" % c.upper() for c in last_stage])
+        if last_stage:
+            stage_cond = ' || '.join([check_pSM_for_shader_stage[c] for c in last_stage])
         if model_cond or stage_cond:
             result += '\n      && '.join(
                 ["(%s)" % expr for expr in (model_cond, stage_cond) if expr] )

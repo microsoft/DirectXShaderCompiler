@@ -265,10 +265,14 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::RawBufferLoad,           "RawBufferLoad",            OCC::RawBufferLoad,            "rawBufferLoad",              false,  true,  true, false, false, false,  true,  true, false, false, false, Attribute::ReadOnly, },
   {  OC::RawBufferStore,          "RawBufferStore",           OCC::RawBufferStore,           "rawBufferStore",             false,  true,  true, false, false, false,  true,  true, false, false, false, Attribute::None,     },
 
-  // Raytracing uint System Values                                                                                          void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
+  // Raytracing object space uint System Values                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::InstanceID,              "InstanceID",               OCC::InstanceID,               "instanceID",                 false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
   {  OC::InstanceIndex,           "InstanceIndex",            OCC::InstanceIndex,            "instanceIndex",              false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
+
+  // Raytracing hit uint System Values                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::HitKind,                 "HitKind",                  OCC::HitKind,                  "hitKind",                    false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
+
+  // Raytracing uint System Values                                                                                          void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::RayFlags,                "RayFlags",                 OCC::RayFlags,                 "rayFlags",                   false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
 
   // Ray Dispatch Arguments                                                                                                 void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
@@ -278,6 +282,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Ray Vectors                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::WorldRayOrigin,          "WorldRayOrigin",           OCC::WorldRayOrigin,           "worldRayOrigin",             false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::WorldRayDirection,       "WorldRayDirection",        OCC::WorldRayDirection,        "worldRayDirection",          false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
+
+  // Ray object space Vectors                                                                                               void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::ObjectRayOrigin,         "ObjectRayOrigin",          OCC::ObjectRayOrigin,          "objectRayOrigin",            false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::ObjectRayDirection,      "ObjectRayDirection",       OCC::ObjectRayDirection,       "objectRayDirection",         false, false,  true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
 
@@ -838,10 +844,14 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::RawBufferLoad:          RRT(pETy);   A(pI32); A(pRes); A(pI32); A(pI32); A(pI8);  A(pI32); break;
   case OpCode::RawBufferStore:         A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  A(pI32); break;
 
-    // Raytracing uint System Values
+    // Raytracing object space uint System Values
   case OpCode::InstanceID:             A(pI32);     A(pI32); break;
   case OpCode::InstanceIndex:          A(pI32);     A(pI32); break;
+
+    // Raytracing hit uint System Values
   case OpCode::HitKind:                A(pI32);     A(pI32); break;
+
+    // Raytracing uint System Values
   case OpCode::RayFlags:               A(pI32);     A(pI32); break;
 
     // Ray Dispatch Arguments
@@ -851,6 +861,8 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
     // Ray Vectors
   case OpCode::WorldRayOrigin:         A(pF32);     A(pI32); A(pI8);  break;
   case OpCode::WorldRayDirection:      A(pF32);     A(pI32); A(pI8);  break;
+
+    // Ray object space Vectors
   case OpCode::ObjectRayOrigin:        A(pF32);     A(pI32); A(pI8);  break;
   case OpCode::ObjectRayDirection:     A(pF32);     A(pI32); A(pI8);  break;
 
