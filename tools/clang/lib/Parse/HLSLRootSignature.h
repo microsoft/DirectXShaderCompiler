@@ -193,7 +193,6 @@ public:
     Token PeekToken();
 
 private:
-    const char *m_pOrigStr;
     const char *m_pStrPos;
     const char *m_pEndPos;
 
