@@ -732,7 +732,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
       IFT(containerReflection->GetPartContent(i, &pBlob));
       // Validate using DxilRuntimeData
       DxilRuntimeData context;
-      context.InitFromRDAT((char *)pBlob->GetBufferPointer());
+      context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
       FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
       ResourceTableReader *resTableReader = context.GetResourceTableReader();
       VERIFY_ARE_EQUAL(funcTableReader->GetNumFunctions(), 4);
@@ -748,7 +748,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           hlsl::ShaderFlags flag;
           flag.SetUAVLoadAdditionalFormats(true);
           flag.SetLowPrecisionPresent(true);
-          uint64_t rawFlag = flag.GetShaderFlagsRaw();
+          uint64_t rawFlag = flag.GetFeatureInfo();
           VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
           ResourceReader resReader = funcReader.GetResource(0);
           VERIFY_ARE_EQUAL(resReader.GetResourceClass(), hlsl::DXIL::ResourceClass::UAV);
@@ -757,7 +757,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
         else if (cur_str.compare("function1") == 0) {
           hlsl::ShaderFlags flag;
           flag.SetLowPrecisionPresent(true);
-          uint64_t rawFlag = flag.GetShaderFlagsRaw();
+          uint64_t rawFlag = flag.GetFeatureInfo();
           VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
           VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 3);
         }
@@ -790,24 +790,24 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
       VERIFY_ARE_EQUAL(resTableReader->GetNumResources(), 8);
       // This is validation test for DxilRuntimeReflection implemented on DxilRuntimeReflection.inl
       unique_ptr<DxilRuntimeReflection> pReflection(CreateDxilRuntimeReflection());
-      VERIFY_IS_TRUE(pReflection->InitFromRDAT(pBlob->GetBufferPointer()));
-      DXIL_LIBRARY_DESC lib_reflection = pReflection->GetLibraryReflection();
+      VERIFY_IS_TRUE(pReflection->InitFromRDAT(pBlob->GetBufferPointer(), pBlob->GetBufferSize()));
+      DxilLibraryDesc lib_reflection = pReflection->GetLibraryReflection();
       VERIFY_ARE_EQUAL(lib_reflection.NumFunctions, 4);
       for (uint32_t j = 0; j < 3; ++j) {
-        DXIL_FUNCTION function = lib_reflection.pFunction[j];
+        DxilFunctionDesc function = lib_reflection.pFunction[j];
         std::string cur_str = str;
         cur_str.push_back('0' + j);
         if (cur_str.compare("function0") == 0) {
           hlsl::ShaderFlags flag;
           flag.SetUAVLoadAdditionalFormats(true);
           flag.SetLowPrecisionPresent(true);
-          uint64_t rawFlag = flag.GetShaderFlagsRaw();
+          uint64_t rawFlag = flag.GetFeatureInfo();
           uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
           featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
           VERIFY_ARE_EQUAL(featureFlag, rawFlag);
           VERIFY_ARE_EQUAL(function.NumResources, 1);
           VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
-          const DXIL_RESOURCE &resource = *function.Resources[0];
+          const DxilResourceDesc &resource = *function.Resources[0];
           VERIFY_ARE_EQUAL(resource.Class, (uint32_t)hlsl::DXIL::ResourceClass::UAV);
           VERIFY_ARE_EQUAL(resource.Kind, (uint32_t)hlsl::DXIL::ResourceKind::Texture1D);
           std::wstring wName = resource.Name;
@@ -816,7 +816,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
         else if (cur_str.compare("function1") == 0) {
           hlsl::ShaderFlags flag;
           flag.SetLowPrecisionPresent(true);
-          uint64_t rawFlag = flag.GetShaderFlagsRaw();
+          uint64_t rawFlag = flag.GetFeatureInfo();
           uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
           featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
           VERIFY_ARE_EQUAL(featureFlag, rawFlag);
@@ -824,7 +824,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
           std::unordered_set<std::wstring> stringSet = { L"$Globals", L"b_buf", L"tex2" };
           for (uint32_t j = 0; j < 3; ++j) {
-            const DXIL_RESOURCE &resource = *function.Resources[j];
+            const DxilResourceDesc &resource = *function.Resources[j];
             std::wstring compareName = resource.Name;
             VERIFY_IS_TRUE(stringSet.find(compareName) != stringSet.end());
           }
@@ -843,7 +843,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           VERIFY_ARE_EQUAL(function.NumResources, numResFlagCheck);
           VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
           for (unsigned i = 0; i < function.NumResources; ++i) {
-            const DXIL_RESOURCE *res = function.Resources[i];
+            const DxilResourceDesc *res = function.Resources[i];
             VERIFY_ARE_EQUAL(res->Class, static_cast<uint32_t>(hlsl::DXIL::ResourceClass::UAV));
             unsigned j = 0;
             for (; j < numResFlagCheck; ++j) {
@@ -911,7 +911,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
       CComPtr<IDxcBlob> pBlob;
       IFT(pReflection->GetPartContent(i, &pBlob));
       DxilRuntimeData context;
-      context.InitFromRDAT((char *)pBlob->GetBufferPointer());
+      context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
       FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
       ResourceTableReader *resTableReader = context.GetResourceTableReader();
       VERIFY_IS_TRUE(funcTableReader->GetNumFunctions() == 1);
