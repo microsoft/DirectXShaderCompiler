@@ -758,7 +758,8 @@ static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle, ValidationContext 
     if (!Res) {
       return EmitError();
     }
-    if (DxilSampler *S = dynamic_cast<DxilSampler *>(Res)) {
+    if (Res->GetClass() == DXIL::ResourceClass::Sampler) {
+      DxilSampler *S = (DxilSampler *)(Res);
       return S->GetSamplerKind();
     } else {
       return EmitError();
@@ -841,7 +842,9 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
       return EmitError();
     }
     // TODO: resIndex for Uav Counter.
-    if (DxilResource *Res = dynamic_cast<DxilResource *>(res)) {
+    if (res->GetClass() == DXIL::ResourceClass::UAV ||
+        res->GetClass() == DXIL::ResourceClass::SRV) {
+      DxilResource *Res = (DxilResource*)(res);
       CompTy = Res->GetCompType().GetKind();
     } else {
       return EmitError();
@@ -1219,7 +1222,8 @@ static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
     if (!Res) {
       return EmitError();
     }
-    if (DxilCBuffer *CB = dynamic_cast<DxilCBuffer *>(Res)) {
+    if (Res->GetClass() == DXIL::ResourceClass::CBuffer) {
+      DxilCBuffer *CB = (DxilCBuffer *)(Res);
       return CB->GetSize();
     } else {
       return EmitError();
