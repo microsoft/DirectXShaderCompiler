@@ -632,7 +632,6 @@ public:
 
       IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
 
-      const llvm::opt::OptTable *table = ::options::getHlslOptTable();
       int argCountInt;
       IFT(UIntToInt(argCount, &argCountInt));
       hlsl::options::MainArgs mainArgs(argCountInt, pArguments, 0);

@@ -134,7 +134,6 @@ private:
   const hlsl::ShaderModel &shaderModel;
   ASTContext &astContext;
   ModuleBuilder &theBuilder;
-  TypeTranslator &typeTranslator;
 
   /// Input/output ClipDistance/CullDistance variable.
   uint32_t inClipVar, inCullVar;
