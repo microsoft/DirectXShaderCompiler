@@ -2021,8 +2021,8 @@ static Value *LoadVectorOrStructArray(ArrayType *AT, ArrayRef<Value *> NewElts,
       Value *EltVal = LoadVectorOrStructArray(EltAT, NewElts, idxList, Builder);
       retVal = Builder.CreateInsertValue(retVal, EltVal, i);
     } else {
-      assert(EltTy->isVectorTy() ||
-             EltTy->isStructTy() && "must be a vector or struct type");
+      assert((EltTy->isVectorTy() ||
+              EltTy->isStructTy()) && "must be a vector or struct type");
       bool isVectorTy = EltTy->isVectorTy();
       Value *retVec = llvm::UndefValue::get(EltTy);
 
@@ -2068,8 +2068,8 @@ static void StoreVectorOrStructArray(ArrayType *AT, Value *val,
     if (ArrayType *EltAT = dyn_cast<ArrayType>(EltTy)) {
       StoreVectorOrStructArray(EltAT, elt, NewElts, idxList, Builder);
     } else {
-      assert(EltTy->isVectorTy() ||
-             EltTy->isStructTy() && "must be a vector or struct type");
+      assert((EltTy->isVectorTy() ||
+              EltTy->isStructTy()) && "must be a vector or struct type");
       bool isVectorTy = EltTy->isVectorTy();
       if (isVectorTy) {
         for (uint32_t c = 0; c < EltTy->getVectorNumElements(); c++) {

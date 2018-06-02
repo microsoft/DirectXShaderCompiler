@@ -3390,7 +3390,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         // If the argument doesn't match, perform a bitcast to coerce it.  This
         // can happen due to trivial type mismatches.
         if (FirstIRArg < IRFuncTy->getNumParams() &&
-            V->getType() != IRFuncTy->getParamType(FirstIRArg))
+            V->getType() != IRFuncTy->getParamType(FirstIRArg)) {
           // HLSL Change Starts
           // Generate AddrSpaceCast for shared memory.
           if (V->getType()->isPointerTy())
@@ -3399,6 +3399,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           else
             // HLSL Change Ends
             V = Builder.CreateBitCast(V, IRFuncTy->getParamType(FirstIRArg));
+        }
         IRCallArgs[FirstIRArg] = V;
         break;
       }

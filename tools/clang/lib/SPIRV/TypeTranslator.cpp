@@ -1035,7 +1035,7 @@ bool TypeTranslator::isOrContainsNonFpColMajorMatrix(QualType type,
                                                      const Decl *decl) const {
   const auto isColMajorDecl = [this](const Decl *decl) {
     return decl->hasAttr<HLSLColumnMajorAttr>() ||
-           !decl->hasAttr<HLSLRowMajorAttr>() && !spirvOptions.defaultRowMajor;
+           (!decl->hasAttr<HLSLRowMajorAttr>() && !spirvOptions.defaultRowMajor);
   };
 
   QualType elemType = {};

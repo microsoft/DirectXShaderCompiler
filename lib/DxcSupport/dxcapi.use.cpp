@@ -19,7 +19,7 @@ namespace dxc {
 static void TrimEOL(_Inout_z_ char *pMsg) {
   char *pEnd = pMsg + strlen(pMsg);
   --pEnd;
-  while (pEnd > pMsg && *pEnd == '\r' || *pEnd == '\n') {
+  while (pEnd > pMsg && (*pEnd == '\r' || *pEnd == '\n')) {
     --pEnd;
   }
   pEnd[1] = '\0';
