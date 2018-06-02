@@ -632,6 +632,8 @@ void DxilViewIdState::CollectReachingDeclsRec(Value *pValue, ValueSetType &Reach
     CollectReachingDeclsRec(SelI->getFalseValue(), ReachingDecls, Visited);
   } else if (Argument *pArg = dyn_cast<Argument>(pValue)) {
     ReachingDecls.emplace(pValue);
+  } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(pValue)) {
+    CollectReachingDeclsRec(BCI->getOperand(0), ReachingDecls, Visited);
   } else {
     IFT(DXC_E_GENERAL_INTERNAL_ERROR);
   }

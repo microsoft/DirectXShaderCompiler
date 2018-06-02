@@ -142,6 +142,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeLowerBitSetsPass(Registry);
     initializeLowerExpectIntrinsicPass(Registry);
     initializeLowerStaticGlobalIntoAllocaPass(Registry);
+    initializeMatrixBitcastLowerPassPass(Registry);
     initializeMergeFunctionsPass(Registry);
     initializeMergedLoadStoreMotionPass(Registry);
     initializeMultiDimArrayToOneDimArrayPass(Registry);

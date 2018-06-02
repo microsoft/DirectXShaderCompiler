@@ -1466,6 +1466,7 @@ class db_dxil(object):
         add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
         add_pass('static-global-to-alloca', 'LowerStaticGlobalIntoAlloca', 'Lower static global into Alloca', [])
         add_pass('hlmatrixlower', 'HLMatrixLowerPass', 'HLSL High-Level Matrix Lower', [])
+        add_pass('matrixbitcastlower', 'MatrixBitcastLowerPass', 'Matrix Bitcast lower', [])
         add_pass('dce', 'DCE', 'Dead Code Elimination', [])
         add_pass('die', 'DeadInstElimination', 'Dead Instruction Elimination', [])
         add_pass('globaldce', 'GlobalDCE', 'Dead Global Elimination', [])

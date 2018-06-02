@@ -2566,6 +2566,13 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
   if (DestTy != SrcTy) {
     return;
   }
+  // Try to find fieldAnnotation from user of Dest/Src.
+  if (!fieldAnnotation) {
+    Type *EltTy = dxilutil::GetArrayEltTy(DestTy);
+    if (HLMatrixLower::IsMatrixType(EltTy)) {
+      fieldAnnotation = HLMatrixLower::FindAnnotationFromMatUser(Dest, typeSys);
+    }
+  }
 
   llvm::SmallVector<llvm::Value *, 16> idxList;
   // split
@@ -6653,6 +6660,8 @@ void DynamicIndexingVectorToArray::ReplaceVectorArrayWithArray(Value *VA, Value 
       IRBuilder<> Builder(GEPOp->getContext());
       SmallVector<Value *, 4> idxList(GEPOp->idx_begin(), GEPOp->idx_end());
       ReplaceVecArrayGEP(GEPOp, idxList, A, Builder);
+    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(User)) {
+      BCI->setOperand(0, A);
     } else {
       DXASSERT(0, "Array pointer should only used by GEP");
     }
@@ -6799,6 +6808,10 @@ void MultiDimArrayToOneDimArray::lowerUseWithNewValue(Value *MultiDim, Value *On
     User *U = *(it++);
     if (U->user_empty())
       continue;
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+      BCI->setOperand(0, OneDim);
+      continue;
+    }
     // Must be GEP.
     GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U);
 
