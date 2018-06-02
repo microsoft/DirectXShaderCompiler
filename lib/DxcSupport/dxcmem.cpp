@@ -14,7 +14,6 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/ThreadLocal.h"
-#include "llvm/Support/WinFunctions.h"
 #include <memory>
 
 static llvm::sys::ThreadLocal<IMalloc> *g_ThreadMallocTls;
@@ -35,7 +34,6 @@ _Ret_maybenull_ _Post_writable_byte_size_(nBytes) void *DxcThreadAlloc(size_t nB
 void DxcThreadFree(void *) throw();
 
 HRESULT DxcInitThreadMalloc() throw() {
-  DXASSERT(g_ThreadMallocTlsIndex == 0, "else InitThreadMalloc already called");
   DXASSERT(g_pDefaultMalloc == nullptr, "else InitThreadMalloc already called");
 
   // We capture the default malloc early to avoid potential failures later on.
