@@ -688,12 +688,12 @@ static bool isAddressUse(Instruction *Inst, Value *OperandVal) {
 /// getAccessType - Return the type of the memory being accessed.
 static Type *getAccessType(const Instruction *Inst) {
   Type *AccessTy = Inst->getType();
-  if (const StoreInst *SI = dyn_cast<StoreInst>(Inst))
+  if (const StoreInst *SI = dyn_cast<StoreInst>(Inst)) {
     AccessTy = SI->getOperand(0)->getType();
-  else if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(Inst)) {
+#if 0 // HLSL Change - remove platform intrinsics
+  } else if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(Inst)) {
     // Addressing modes can also be folded into prefetches and a variety
     // of intrinsics.
-#if 0 // HLSL Change - remove platform intrinsics
     switch (II->getIntrinsicID()) {
     default: break;
     case Intrinsic::x86_sse_storeu_ps:

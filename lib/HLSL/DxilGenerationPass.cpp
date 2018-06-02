@@ -464,7 +464,7 @@ void DxilGenerationPass::TranslateParamDxilResourceHandles(Function *F, std::uno
               userBuilder, HLOpcodeGroup::HLCast, 0, handleTy, {res},
               *F->getParent());
           userBuilder.CreateStore(handle, castToHandle);
-        } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        } else if (dyn_cast<CallInst>(U)) {
           // Don't flatten argument here.
           continue;
         } else {
@@ -740,7 +740,7 @@ UpdateHandleOperands(Instruction *Res,
 
   unsigned startOpIdx = 0;
   // Skip Cond for Select.
-  if (SelectInst *Sel = dyn_cast<SelectInst>(Res))
+  if (dyn_cast<SelectInst>(Res))
     startOpIdx = 1;
 
   CallInst *Handle = handleMap[Res];
@@ -878,7 +878,7 @@ void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
 
       unsigned startOpIdx = 0;
       // Skip Cond for Select.
-      if (SelectInst *Sel = dyn_cast<SelectInst>(I))
+      if (dyn_cast<SelectInst>(I))
         startOpIdx = 1;
       if (MergeHandleOpWithSameValue(I, startOpIdx, numOperands)) {
         nonUniformOps.erase(I);
@@ -1060,7 +1060,7 @@ static void TranslatePreciseAttributeOnFunction(Function &F, Module &M) {
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
     BasicBlock *BB = BBI;
     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
-      if (FPMathOperator *FPMath = dyn_cast<FPMathOperator>(I)) {
+      if (dyn_cast<FPMathOperator>(I)) {
         // Set precise fast math on those instructions that support it.
         if (DxilModule::PreservesFastMathFlags(I))
           I->copyFastMathFlags(FMF);
@@ -1438,12 +1438,12 @@ PropagatePreciseAttribute(Instruction *I, DxilTypeSystem &typeSys,
   LLVMContext &Context = I->getContext();
   if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
     PropagatePreciseAttributeOnPointer(AI, typeSys, Context, processedSet);
-  } else if (CallInst *CI = dyn_cast<CallInst>(I)) {
+  } else if (dyn_cast<CallInst>(I)) {
     // Propagate every argument.
     // TODO: only propagate precise argument.
     for (Value *src : I->operands())
       PropagatePreciseAttributeOnOperand(src, typeSys, Context, processedSet);
-  } else if (FPMathOperator *FPMath = dyn_cast<FPMathOperator>(I)) {
+  } else if (dyn_cast<FPMathOperator>(I)) {
     // TODO: only propagate precise argument.
     for (Value *src : I->operands())
       PropagatePreciseAttributeOnOperand(src, typeSys, Context, processedSet);

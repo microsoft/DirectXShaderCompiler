@@ -933,7 +933,7 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
   //                     ::= <source-name>
   switch (Name.getNameKind()) {
   case DeclarationName::Identifier: {
-    if (const IdentifierInfo *II = Name.getAsIdentifierInfo()) {
+    if (Name.getAsIdentifierInfo()) {
       // We must avoid conflicts between internally- and externally-
       // linked variable and function declaration names in the same TU:
       //   void test() { extern void foo(); }

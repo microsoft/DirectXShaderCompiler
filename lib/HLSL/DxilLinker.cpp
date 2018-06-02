@@ -573,8 +573,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
     if (!NewF->hasFnAttribute(llvm::Attribute::NoInline))
       NewF->addFnAttr(llvm::Attribute::AlwaysInline);
 
-    if (DxilFunctionAnnotation *funcAnnotation =
-            tmpTypeSys.GetFunctionAnnotation(F)) {
+    if (tmpTypeSys.GetFunctionAnnotation(F)) {
       // Clone funcAnnotation to typeSys.
       typeSys.CopyFunctionAnnotation(NewF, F, tmpTypeSys);
     }

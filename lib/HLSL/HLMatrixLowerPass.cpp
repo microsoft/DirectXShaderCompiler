@@ -2006,7 +2006,7 @@ void HLMatrixLowerPass::TranslateMatArrayGEP(Value *matInst,
         DXASSERT(0, "invalid operation");
         break;
       }
-    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(useInst)) {
+    } else if (dyn_cast<BitCastInst>(useInst)) {
       // Just replace the src with vec version.
       useInst->setOperand(0, newGEP);
     } else {
@@ -2032,7 +2032,7 @@ void HLMatrixLowerPass::replaceMatWithVec(Instruction *matInst,
           hlsl::GetHLOpcodeGroupByName(useCall->getCalledFunction());
       switch (group) {
       case HLOpcodeGroup::HLIntrinsic: {
-        if (CallInst *matCI = dyn_cast<CallInst>(matInst)) {
+        if (dyn_cast<CallInst>(matInst)) {
           MatIntrinsicReplace(cast<CallInst>(matInst), vecInst, useCall);
         } else {
           IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(useCall));
@@ -2068,7 +2068,7 @@ void HLMatrixLowerPass::replaceMatWithVec(Instruction *matInst,
       case HLOpcodeGroup::HLMatLoadStore: {
         DXASSERT(matToVecMap.count(useCall), "must has vec version");
         Value *vecUser = matToVecMap[useCall];
-        if (AllocaInst *AI = dyn_cast<AllocaInst>(matInst)) {
+        if (dyn_cast<AllocaInst>(matInst)) {
           // Load Already translated in lowerToVec.
           // Store val operand will be set by the val use.
           // Do nothing here.
@@ -2090,7 +2090,7 @@ void HLMatrixLowerPass::replaceMatWithVec(Instruction *matInst,
         TranslateMatInit(useCall);
       } break;
       }
-    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(useInst)) {
+    } else if (dyn_cast<BitCastInst>(useInst)) {
       // Just replace the src with vec version.
       useInst->setOperand(0, vecInst);
     } else {

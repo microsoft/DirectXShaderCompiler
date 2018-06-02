@@ -939,7 +939,7 @@ static void CollectUsedResource(Value *resID,
     return;
 
   usedResID.insert(resID);
-  if (ConstantInt *cResID = dyn_cast<ConstantInt>(resID)) {
+  if (dyn_cast<ConstantInt>(resID)) {
     // Do nothing
   } else if (ZExtInst *ZEI = dyn_cast<ZExtInst>(resID)) {
     if (ZEI->getSrcTy()->isIntegerTy()) {

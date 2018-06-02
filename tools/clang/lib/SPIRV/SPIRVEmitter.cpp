@@ -752,9 +752,9 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
     doIfStmt(ifStmt, attrs);
   } else if (const auto *switchStmt = dyn_cast<SwitchStmt>(stmt)) {
     doSwitchStmt(switchStmt, attrs);
-  } else if (const auto *caseStmt = dyn_cast<CaseStmt>(stmt)) {
+  } else if (dyn_cast<CaseStmt>(stmt)) {
     processCaseStmtOrDefaultStmt(stmt);
-  } else if (const auto *defaultStmt = dyn_cast<DefaultStmt>(stmt)) {
+  } else if (dyn_cast<DefaultStmt>(stmt)) {
     processCaseStmtOrDefaultStmt(stmt);
   } else if (const auto *breakStmt = dyn_cast<BreakStmt>(stmt)) {
     doBreakStmt(breakStmt);
@@ -768,7 +768,7 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
     doWhileStmt(whileStmt, attrs);
   } else if (const auto *forStmt = dyn_cast<ForStmt>(stmt)) {
     doForStmt(forStmt, attrs);
-  } else if (const auto *nullStmt = dyn_cast<NullStmt>(stmt)) {
+  } else if (dyn_cast<NullStmt>(stmt)) {
     // For the null statement ";". We don't need to do anything.
   } else if (const auto *expr = dyn_cast<Expr>(stmt)) {
     // All cases for expressions used as statements
@@ -1141,7 +1141,7 @@ bool SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
     }
   }
 
-  if (const auto *iaiAttr = decl->getAttr<VKInputAttachmentIndexAttr>()) {
+  if (decl->getAttr<VKInputAttachmentIndexAttr>()) {
     if (!shaderModel.IsPS()) {
       emitError("SubpassInput(MS) only allowed in pixel shader",
                 decl->getLocation());
@@ -9088,7 +9088,7 @@ bool SPIRVEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
 void SPIRVEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
   theBuilder.addExecutionMode(entryFunctionId,
                               spv::ExecutionMode::OriginUpperLeft, {});
-  if (auto *numThreadsAttr = decl->getAttr<HLSLEarlyDepthStencilAttr>()) {
+  if (decl->getAttr<HLSLEarlyDepthStencilAttr>()) {
     theBuilder.addExecutionMode(entryFunctionId,
                                 spv::ExecutionMode::EarlyFragmentTests, {});
   }
