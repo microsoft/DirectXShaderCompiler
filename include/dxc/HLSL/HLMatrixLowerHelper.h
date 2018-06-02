@@ -22,9 +22,14 @@ namespace llvm {
 
 namespace hlsl {
 
+class DxilFieldAnnotation;
+class DxilTypeSystem;
+
 namespace HLMatrixLower {
 // TODO: use type annotation.
 bool IsMatrixType(llvm::Type *Ty);
+DxilFieldAnnotation *FindAnnotationFromMatUser(llvm::Value *Mat,
+                                               DxilTypeSystem &typeSys);
 // Translate matrix type to vector type.
 llvm::Type *LowerMatrixType(llvm::Type *Ty);
 // TODO: use type annotation.

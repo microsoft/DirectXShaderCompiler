@@ -1035,6 +1035,9 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   // SROA
   PM.add(createSROAPass(/*RequiresDomTree*/false));
 
+  // Lower matrix bitcast.
+  PM.add(createMatrixBitcastLowerPass());
+
   // mem2reg.
   PM.add(createPromoteMemoryToRegisterPass());
 
