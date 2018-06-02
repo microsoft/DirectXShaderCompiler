@@ -590,7 +590,7 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // CalculateLOD=81, Discard=82, DerivCoarseX=83, DerivCoarseY=84,
   // DerivFineX=85, DerivFineY=86, EvalSnapped=87, EvalSampleIndex=88,
   // EvalCentroid=89, SampleIndex=90, Coverage=91, InnerCoverage=92
-  if (60 <= op && op <= 61 || op == 64 || 76 <= op && op <= 77 || 81 <= op && op <= 92)
+  if ((60 <= op && op <= 61) || op == 64 || (76 <= op && op <= 77) || (81 <= op && op <= 92))
     return (pSM->IsPS());
   // Instructions: AttributeAtVertex=137
   if (op == 137)
@@ -2044,7 +2044,7 @@ static bool IsLLVMInstructionAllowed(llvm::Instruction &I) {
   // SExt=35, FPToUI=36, FPToSI=37, UIToFP=38, SIToFP=39, FPTrunc=40, FPExt=41,
   // BitCast=44, AddrSpaceCast=45, ICmp=46, FCmp=47, PHI=48, Call=49, Select=50,
   // ExtractValue=57
-  return 1 <= op && op <= 3 || 8 <= op && op <= 29 || 31 <= op && op <= 41 || 44 <= op && op <= 50 || op == 57;
+  return (1 <= op && op <= 3) || (8 <= op && op <= 29) || (31 <= op && op <= 41) || (44 <= op && op <= 50) || op == 57;
   // OPCODE-ALLOWED:END
 }
 

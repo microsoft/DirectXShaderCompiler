@@ -1003,17 +1003,19 @@ unsigned HLModule::FindCastOp(bool fromUnsigned, bool toUnsigned,
       return Instruction::FPExt;
   }
 
-  if (SrcTy->isIntOrIntVectorTy() && DstTy->isFPOrFPVectorTy())
+  if (SrcTy->isIntOrIntVectorTy() && DstTy->isFPOrFPVectorTy()) {
     if (fromUnsigned)
       return Instruction::UIToFP;
     else
       return Instruction::SIToFP;
+  }
 
-  if (SrcTy->isFPOrFPVectorTy() && DstTy->isIntOrIntVectorTy())
+  if (SrcTy->isFPOrFPVectorTy() && DstTy->isIntOrIntVectorTy()) {
     if (toUnsigned)
       return Instruction::FPToUI;
     else
       return Instruction::FPToSI;
+  }
 
   DXASSERT_NOMSG(0);
   return castOp;

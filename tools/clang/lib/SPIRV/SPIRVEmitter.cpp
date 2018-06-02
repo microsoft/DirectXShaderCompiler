@@ -3742,7 +3742,7 @@ void SPIRVEmitter::handleOffsetInMethodCall(const CXXMemberCallExpr *expr,
   assert(index < expr->getNumArgs());
 
   *constOffset = *varOffset = 0; // Initialize both first
-  if (*constOffset = tryToEvaluateAsConst(expr->getArg(index)))
+  if ((*constOffset = tryToEvaluateAsConst(expr->getArg(index))))
     return; // Constant offset
   else
     *varOffset = doExpr(expr->getArg(index));
@@ -5388,7 +5388,7 @@ SpirvEvalInfo SPIRVEmitter::createVectorSplat(const Expr *scalarExpr,
 
   // Try to evaluate the element as constant first. If successful, then we
   // can generate constant instructions for this vector splat.
-  if (scalarVal = tryToEvaluateAsConst(scalarExpr)) {
+  if ((scalarVal = tryToEvaluateAsConst(scalarExpr))) {
     isConstVal = true;
   } else {
     scalarVal = doExpr(scalarExpr);

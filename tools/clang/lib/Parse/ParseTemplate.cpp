@@ -202,6 +202,7 @@ Parser::ParseSingleDeclarationAfterTemplate(
 
   if (Tok.is(tok::kw_using))
     // HLSL Change Starts
+    {
     if (getLangOpts().HLSL) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << "using";
       SkipMalformedDecl();
@@ -210,6 +211,7 @@ Parser::ParseSingleDeclarationAfterTemplate(
     // HLSL Change Ends - succeeding statement is now conditional
       return ParseUsingDirectiveOrDeclaration(Context, TemplateInfo, DeclEnd,
                                               prefixAttrs);
+    } // HLSL Change - close conditional
     } // HLSL Change - close conditional
 
   // Parse the declaration specifiers, stealing any diagnostics from

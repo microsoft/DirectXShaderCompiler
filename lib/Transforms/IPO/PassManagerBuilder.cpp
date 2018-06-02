@@ -193,11 +193,12 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createCFGSimplificationPass());
   // HLSL Change - don't run SROA. 
   // HLSL uses special SROA added in addHLSLPasses.
-  if (HLSLHighLevel) // HLSL Change
+  if (HLSLHighLevel) { // HLSL Change
   if (UseNewSROA)
     FPM.add(createSROAPass());
   else
     FPM.add(createScalarReplAggregatesPass());
+  }
   // HLSL Change. FPM.add(createEarlyCSEPass());
   FPM.add(createLowerExpectIntrinsicPass());
 }
@@ -365,11 +366,12 @@ void PassManagerBuilder::populateModulePassManager(
   // Break up aggregate allocas, using SSAUpdater.
   // HLSL Change - don't run SROA. 
   // HLSL uses special SROA added in addHLSLPasses.
-  if (HLSLHighLevel) // HLSL Change
+  if (HLSLHighLevel) { // HLSL Change
   if (UseNewSROA)
     MPM.add(createSROAPass(/*RequiresDomTree*/ false));
   else
     MPM.add(createScalarReplAggregatesPass(-1, false));
+  }
   // HLSL Change. MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps.
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals

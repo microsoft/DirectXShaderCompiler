@@ -1094,7 +1094,7 @@ HLSLReservedKeyword:
   case tok::kw___real:     // unary-expression: '__real' cast-expression [GNU]
   case tok::kw___imag: {   // unary-expression: '__imag' cast-expression [GNU]
     // HLSL Change Starts
-    if (getLangOpts().HLSL && Tok.getKind() == tok::kw___real || Tok.getKind() == tok::kw___imag) {
+    if (getLangOpts().HLSL && (SavedKind == tok::kw___real || SavedKind == tok::kw___imag)) {
       goto HLSLReservedKeyword;
     }
     // HLSL Change Ends
