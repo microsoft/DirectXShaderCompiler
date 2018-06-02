@@ -2488,7 +2488,7 @@ bool GVN::performScalarPRE(Instruction *CurInst) {
 
   // HLSL Change Begin - Don't do PRE on pointer which may generate phi of
   // pointers.
-  if (PointerType *PT = dyn_cast<PointerType>(CurInst->getType())) {
+  if (dyn_cast<PointerType>(CurInst->getType())) {
     return false;
   }
   // HLSL Change End
