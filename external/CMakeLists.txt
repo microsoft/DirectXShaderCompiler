@@ -21,9 +21,6 @@ if (${ENABLE_SPIRV_CODEGEN})
 
   if (IS_DIRECTORY ${DXC_SPIRV_TOOLS_DIR})
     # We only need the library from SPIRV-Tools.
-    if (NOT WIN32)
-      add_compile_options(-Wno-covered-switch-default)
-    endif()
     set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip building SPIRV-Tools executables")
     set(SPIRV_TOOLS_EXTRA_DEFINITIONS /D_ITERATOR_DEBUG_LEVEL=0)
     add_subdirectory(${DXC_SPIRV_TOOLS_DIR} EXCLUDE_FROM_ALL)
