@@ -10525,6 +10525,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
       ValidateAttributeIntArg(S, A), ValidateAttributeIntArg(S, A, 1),
       A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKSet:
+    declAttr = ::new (S.Context) VKSetAttr(A.getRange(), S.Context,
+      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKCounterBinding:
     declAttr = ::new (S.Context) VKCounterBindingAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());

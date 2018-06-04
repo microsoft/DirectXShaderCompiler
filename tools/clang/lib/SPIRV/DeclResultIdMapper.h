@@ -114,13 +114,14 @@ class ResourceVar {
 public:
   ResourceVar(uint32_t id, const hlsl::RegisterAssignment *r,
               const VKBindingAttr *b, const VKCounterBindingAttr *cb,
-              bool counter = false)
-      : varId(id), reg(r), binding(b), counterBinding(cb),
+              const VKSetAttr *s, bool counter = false)
+      : varId(id), reg(r), binding(b), counterBinding(cb), set(s),
         isCounterVar(counter) {}
 
   uint32_t getSpirvId() const { return varId; }
   const hlsl::RegisterAssignment *getRegister() const { return reg; }
   const VKBindingAttr *getBinding() const { return binding; }
+  const VKSetAttr *getSet() const { return set; }
   bool isCounter() const { return isCounterVar; }
   const VKCounterBindingAttr *getCounterBinding() const {
     return counterBinding;
@@ -131,6 +132,7 @@ private:
   const hlsl::RegisterAssignment *reg;        ///< HLSL register assignment
   const VKBindingAttr *binding;               ///< Vulkan binding assignment
   const VKCounterBindingAttr *counterBinding; ///< Vulkan counter binding
+  const VKSetAttr *set;                       ///< Vulkan set assignment
   bool isCounterVar;                          ///< Couter variable or not
 };
 

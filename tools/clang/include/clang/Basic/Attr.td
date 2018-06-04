@@ -895,6 +895,14 @@ def VKBinding : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKSet : InheritableAttr {
+  let Spellings = [CXX11<"vk", "set">];
+  let Subjects = SubjectList<[GlobalVar, HLSLBuffer], ErrorDiag, "ExpectedGlobalVarOrCTBuffer">;
+  let Args = [IntArgument<"Set">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 // StructuredBuffer types that can have associated counters
 def CounterStructuredBuffer : SubsetSubject<
     Var,

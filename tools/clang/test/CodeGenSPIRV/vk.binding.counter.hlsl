@@ -13,6 +13,12 @@ RWStructuredBuffer<S> mySBuffer1;
 // CHECK:      OpDecorate %counter_var_mySBuffer1 DescriptorSet 3
 // CHECK-NEXT: OpDecorate %counter_var_mySBuffer1 Binding 10
 
+// vk::set + vk::counter_binding
+[[vk::set(4), vk::counter_binding(15)]]
+AppendStructuredBuffer<S> myASBufferS1;
+// CHECK:      OpDecorate %counter_var_myASBufferS1 DescriptorSet 4
+// CHECK-NEXT: OpDecorate %counter_var_myASBufferS1 Binding 15
+
 // :register + vk::counter_binding
 [[vk::counter_binding(20)]]
 AppendStructuredBuffer<S> myASBuffer1 : register(u1, space1);
@@ -31,6 +37,15 @@ RWStructuredBuffer<S> mySBuffer2;
 // CHECK:      OpDecorate %mySBuffer2 DescriptorSet 0
 // CHECK-NEXT: OpDecorate %mySBuffer2 Binding 1
 
+// CHECK-NEXT: OpDecorate %myASBufferS1 DescriptorSet 4
+// CHECK-NEXT: OpDecorate %myASBufferS1 Binding 0
+
+// vk::set + none
+[[vk::set(4)]]
+AppendStructuredBuffer<S> myASBufferS2;
+// CHECK-NEXT: OpDecorate %myASBufferS2 DescriptorSet 4
+// CHECK-NEXT: OpDecorate %myASBufferS2 Binding 1
+
 // CHECK-NEXT: OpDecorate %myASBuffer1 DescriptorSet 1
 // CHECK-NEXT: OpDecorate %myASBuffer1 Binding 1
 
@@ -44,6 +59,9 @@ AppendStructuredBuffer<S> myASBuffer2 : register(u3, space2);
 
 // CHECK-NEXT: OpDecorate %counter_var_mySBuffer2 DescriptorSet 0
 // CHECK-NEXT: OpDecorate %counter_var_mySBuffer2 Binding 3
+
+// CHECK-NEXT: OpDecorate %counter_var_myASBufferS2 DescriptorSet 4
+// CHECK-NEXT: OpDecorate %counter_var_myASBufferS2 Binding 2
 
 // CHECK-NEXT: OpDecorate %counter_var_myASBuffer2 DescriptorSet 2
 // CHECK-NEXT: OpDecorate %counter_var_myASBuffer2 Binding 0

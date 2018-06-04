@@ -145,7 +145,10 @@ Descriptors
 ~~~~~~~~~~~
 
 To specify which Vulkan descriptor a particular resource binds to, use the
-``[[vk::binding(X[, Y])]]`` attribute.
+``[[vk::set(X)]]`` attribute where X is the descriptor set.
+
+Alternatively, to specify both Vulkan binding numbers and descriptor sets use
+the ``[[vk::binding(X[, Y])]]`` attribute.
 
 Subpass inputs
 ~~~~~~~~~~~~~~
@@ -242,6 +245,10 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``binding(X[, Y])``: For specifying the descriptor set (``Y``) and binding
   (``X``) numbers for resource variables. The descriptor set (``Y``) is
   optional; if missing, it will be set to 0. Allowed on global variables.
+- ``set(X)``: For specifying the descriptor set (``X``) for resource variables.
+  Variables with this attribute will have their bindings assigned automatically
+  from those available in the specified descriptor set. Allowed on global
+  variables.
 - ``counter_binding(X)``: For specifying the binding number (``X``) for the
   associated counter for RW/Append/Consume structured buffer. The descriptor
   set number for the associated counter is always the same as the main resource.
@@ -1259,6 +1266,11 @@ have associated counters, which will occupy their own Vulkan descriptors.
 buffers to specify the binding number for the associated counter to ``Z``. Note
 that the set number of the counter is always the same as the main buffer.
 
+Alternatively, ``[[vk::set(X)]]`` can be attached to global variables to
+specify the descriptor set ``X`` only. Variables with this attribute will have
+their binding numbers assigned automatically from those available to the
+specified descriptor set.
+
 Implicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1282,10 +1294,13 @@ set #0.
 Summary
 ~~~~~~~
 
-In summary, the compiler essentially assigns binding numbers in three passes.
+In summary, the compiler essentially assigns binding numbers in four passes.
 
 - Firstly it handles all declarations with explicit ``[[vk::binding(X[, Y])]]``
   annotation.
+- Secondly it handles all declarations with explicit ``[[vk::set(X)]]``
+  annotation, assigning the next available binding number in the specified
+  descriptor set.
 - Then the compiler processes all remaining declarations with
   ``:register(xX, spaceY)`` annotation, by applying the shift passed in using
   command-line option ``-fvk-{b|s|t|u}-shift N M``, if provided.
@@ -1301,7 +1316,9 @@ As an example, for the following code:
   ConstantBuffer<S> cbuffer1 : register(b0);
   Texture2D<float4> texture1 : register(t0);
   Texture2D<float4> texture2 : register(t1, space1);
+  [[vk::set(1)]]
   SamplerState      sampler1;
+  SamplerState      sampler2;
   [[vk::binding(3)]]
   RWBuffer<float4> rwbuffer1 : register(u5, space2);
 
@@ -1309,11 +1326,13 @@ If we compile with ``-fvk-t-shift 10 0 -fvk-t-shift 20 1``:
 
 - ``rwbuffer1`` will take binding #3 in set #0, since explicit binding
   assignment has precedence over the rest.
+- ``sampler1`` will take binding 0 in set #1, since that's the next available
+  binding number in set #1.
 - ``cbuffer1`` will take binding #0 in set #0, since that's what deduced from
   the register assignment, and there is no shift requested from command line.
 - ``texture1`` will take binding #10 in set #0, and ``texture2`` will take
   binding #21 in set #1, since we requested an 10 shift on t-type registers.
-- ``sampler1`` will take binding 1 in set #0, since that's the next available
+- ``sampler2`` will take binding 1 in set #0, since that's the next available
   binding number in set #0.
 
 .. code:: hlsl
