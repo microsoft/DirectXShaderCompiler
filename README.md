@@ -48,6 +48,7 @@ You can also clean, build and run tests with this command.
 
     hctcheckin
 
+
 To see a list of additional commands available, run `hcthelp`
 
 ## Running Tests
@@ -75,7 +76,7 @@ support DXR in experimental mode.
 Drivers can be downloaded from [geforce.com](https://www.geforce.com/drivers).
 
 #### AMD
-AMD's latest driver with support for DXIL 1.0 and Shader Model 6 in experimental mode is [Radeon Software Crimson ReLive Edition 17.4.2](http://support.amd.com/en-us/kb-articles/Pages/Radeon-Software-Crimson-ReLive-Edition-17.4.2-Release-Notes.aspx).
+AMD’s driver (Radeon Software Adrenalin Edition 18.4.1 or later) provides release mode support for DXIL 1.1 and Shader Model 6.1. Drivers can be downloaded from [AMD's download site](https://support.amd.com/en-us/download).
 
 ### Intel
 Intel's 15.60 drivers (15.60.0.4849 and later) support release mode for DXIL 1.0 and Shader Model 6.0 as well as
