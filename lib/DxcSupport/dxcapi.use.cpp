@@ -16,6 +16,7 @@
 
 namespace dxc {
 
+#ifdef _WIN32
 static void TrimEOL(_Inout_z_ char *pMsg) {
   char *pEnd = pMsg + strlen(pMsg);
   --pEnd;
@@ -36,6 +37,7 @@ static std::string GetWin32ErrorMessage(DWORD err) {
   }
   return std::string();
 }
+#endif // _WIN32
 
 void IFT_Data(HRESULT hr, LPCWSTR data) {
   if (SUCCEEDED(hr)) return;

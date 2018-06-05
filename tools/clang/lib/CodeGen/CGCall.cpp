@@ -2149,6 +2149,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
   // HLSL Change Ends.
 }
 
+#if 0 // HLSL Change Start - no ObjC support
 static void eraseUnusedBitCasts(llvm::Instruction *insn) {
   while (insn->use_empty()) {
     llvm::BitCastInst *bitcast = dyn_cast<llvm::BitCastInst>(insn);
@@ -2305,6 +2306,7 @@ static llvm::Value *emitAutoreleaseOfResult(CodeGenFunction &CGF,
 
   return CGF.EmitARCAutoreleaseReturnValue(result);
 }
+#endif // HLSL Change Ends - no ObjC support
 
 /// Heuristically search for a dominating store to the return-value slot.
 static llvm::StoreInst *findDominatingStoreToReturnValue(CodeGenFunction &CGF) {
@@ -2582,6 +2584,7 @@ void CodeGenFunction::EmitDelegateCallArg(CallArgList &args,
   args.add(convertTempToRValue(local, type, loc), type);
 }
 
+#if 0 // HLSL Change - no ObjC support
 static bool isProvablyNull(llvm::Value *addr) {
   return isa<llvm::ConstantPointerNull>(addr);
 }
@@ -2590,7 +2593,6 @@ static bool isProvablyNonNull(llvm::Value *addr) {
   return isa<llvm::AllocaInst>(addr);
 }
 
-#if 0 // HLSL Change - no ObjC support
 /// Emit the actual writing-back of a writeback.
 static void emitWriteback(CodeGenFunction &CGF,
                           const CallArgList::Writeback &writeback) {
@@ -2677,6 +2679,7 @@ static void deactivateArgCleanupsBeforeCall(CodeGenFunction &CGF,
   }
 }
 
+#if 0 // HLSL Change - no ObjC support
 static const Expr *maybeGetUnaryAddrOfOperand(const Expr *E) {
   if (const UnaryOperator *uop = dyn_cast<UnaryOperator>(E->IgnoreParens()))
     if (uop->getOpcode() == UO_AddrOf)
@@ -2684,7 +2687,6 @@ static const Expr *maybeGetUnaryAddrOfOperand(const Expr *E) {
   return nullptr;
 }
 
-#if 0 // HLSL Change - no ObjC support
 
 /// Emit an argument that's being passed call-by-writeback.  That is,
 /// we are passing the address of 

@@ -2872,7 +2872,7 @@ struct RegisterFatalErrorHandler {
 };
 }
 
-static llvm::ManagedStatic<RegisterFatalErrorHandler> RegisterFatalErrorHandlerOnce;
+//static llvm::ManagedStatic<RegisterFatalErrorHandler> RegisterFatalErrorHandlerOnce; // HLSL Change - properly scoped mechanisms should be used
 
 // extern "C" {    // HLSL Change -Don't use c linkage.
 CXIndex clang_createIndex(int excludeDeclarationsFromPCH,

@@ -101,7 +101,9 @@ static const bool UseNewSROA = true;
 static const bool RunLoopRerolling = false;
 static const bool RunFloat2Int = true;
 static const bool RunLoadCombine = false;
+#if HLSL_VECTORIZATION_ENABLED // HLSL Change - don't build vectorization passes
 static const bool RunSLPAfterLoopVectorization = true;
+#endif // HLSL Change
 static const bool UseCFLAA = false;
 static const bool EnableMLSM = true;
 static const bool EnableLoopInterchange = false;
