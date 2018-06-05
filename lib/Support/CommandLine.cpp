@@ -1628,14 +1628,18 @@ protected:
 // at run time which should be invoked.
 class HelpPrinterWrapper {
 private:
+#if 0 // HLSL Change Starts
   HelpPrinter &UncategorizedPrinter;
   CategorizedHelpPrinter &CategorizedPrinter;
-
+#endif // HLSL Change Ends
 public:
   explicit HelpPrinterWrapper(HelpPrinter &UncategorizedPrinter,
                               CategorizedHelpPrinter &CategorizedPrinter)
+#if 0 // HLSL Change Starts
       : UncategorizedPrinter(UncategorizedPrinter),
-        CategorizedPrinter(CategorizedPrinter) {}
+        CategorizedPrinter(CategorizedPrinter)
+#endif // HLSL Change Starts
+  {}
 
   // Invoke the printer.
   void operator=(bool Value);
@@ -1715,6 +1719,7 @@ void HelpPrinterWrapper::operator=(bool Value) {
   } else
     UncategorizedPrinter = true; // Invoke uncategorized printer
 }
+
 #else
 static const bool PrintOptions = false;
 static const bool PrintAllOptions = false;

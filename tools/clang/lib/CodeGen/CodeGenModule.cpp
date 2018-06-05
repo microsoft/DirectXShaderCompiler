@@ -3258,6 +3258,7 @@ void CodeGenModule::EmitObjCPropertyImplementations(const
 #endif // HLSL Change - no ObjC support
 }
 
+#if 0 // HLSL Change - no ObjC support
 static bool needsDestructMethod(ObjCImplementationDecl *impl) {
   const ObjCInterfaceDecl *iface = impl->getClassInterface();
   for (const ObjCIvarDecl *ivar = iface->all_declared_ivar_begin();
@@ -3280,6 +3281,7 @@ static bool AllTrivialInitializers(CodeGenModule &CGM,
   }
   return true;
 }
+#endif
 
 /// EmitObjCIvarInitializations - Emit information for ivar initialization
 /// for an implementation.

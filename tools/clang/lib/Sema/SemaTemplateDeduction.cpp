@@ -3612,6 +3612,7 @@ Sema::DeduceTemplateArguments(FunctionTemplateDecl *FunctionTemplate,
   return TDK_Success;
 }
 
+#if 0 // HLSL Change Starts
 /// \brief Given a function declaration (e.g. a generic lambda conversion 
 ///  function) that contains an 'auto' in its result type, substitute it 
 ///  with TypeToReplaceAutoWith.  Be careful to pass in the type you want
@@ -3627,6 +3628,7 @@ SubstAutoWithinFunctionReturnType(FunctionDecl *F,
                                                TypeToReplaceAutoWith);
   S.Context.adjustDeducedFunctionResultType(F, DeducedResultType);
 }
+#endif // HLSL Change Ends
 
 /// \brief Given a specialized conversion operator of a generic lambda 
 /// create the corresponding specializations of the call operator and 

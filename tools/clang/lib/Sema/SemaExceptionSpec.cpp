@@ -182,6 +182,7 @@ Sema::UpdateExceptionSpec(FunctionDecl *FD,
     Context.adjustExceptionSpec(cast<FunctionDecl>(Redecl), ESI);
 }
 
+#if 0 // HLSL Change Starts
 /// Determine whether a function has an implicitly-generated exception
 /// specification.
 static bool hasImplicitExceptionSpec(FunctionDecl *Decl) {
@@ -202,6 +203,8 @@ static bool hasImplicitExceptionSpec(FunctionDecl *Decl) {
     Decl->getTypeSourceInfo()->getType()->getAs<FunctionProtoType>();
   return !Ty->hasExceptionSpec();
 }
+#endif // HLSL Change Ends
+
 
 bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
   // HLSL Change Starts

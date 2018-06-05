@@ -8564,6 +8564,7 @@ namespace {
   };
 }
 
+#if 0 // HLSL Change Starts
 /// Consider whether capturing the given variable can possibly lead to
 /// a retain cycle.
 static bool considerVariable(VarDecl *var, Expr *ref, RetainCycleOwner &owner) {
@@ -8657,7 +8658,7 @@ static bool findRetainCycleOwner(Sema &S, Expr *e, RetainCycleOwner &owner) {
     return false;
   }
 }
-
+#endif // HLSL Change Ends
 namespace {
   struct FindCaptureVisitor : EvaluatedExprVisitor<FindCaptureVisitor> {
     FindCaptureVisitor(ASTContext &Context, VarDecl *variable)
@@ -8710,6 +8711,7 @@ namespace {
   };
 }
 
+#if 0 // HLSL Change Starts
 /// Check whether the given argument is a block which captures a
 /// variable.
 static Expr *findCapturingExpr(Sema &S, Expr *e, RetainCycleOwner &owner) {
@@ -8780,8 +8782,6 @@ static bool isSetterLikeSelector(Selector sel) {
   return !isLowercase(str.front());
 }
 
-#if 1 // HLSL Change Starts
-#else // HLSL Change Ends
 static Optional<int> GetNSMutableArrayArgumentIndex(Sema &S,
                                                     ObjCMessageExpr *Message) {
   bool IsMutableArray = S.NSAPIObj->isSubclassOfNSClass(

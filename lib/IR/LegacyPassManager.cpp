@@ -94,6 +94,7 @@ static const bool PrintAfterAll = false;
 /// This is a helper to determine whether to print IR before or
 /// after a pass.
 
+#if 0 // HLSL Change
 static bool ShouldPrintBeforeOrAfterPass(const PassInfo *PI,
                                          PassOptionList &PassesToPrint) {
   for (auto *PassInf : PassesToPrint) {
@@ -104,6 +105,7 @@ static bool ShouldPrintBeforeOrAfterPass(const PassInfo *PI,
   }
   return false;
 }
+#endif
 
 /// This is a utility to check whether a pass should have IR dumped
 /// before it.
