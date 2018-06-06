@@ -149,7 +149,9 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
       }
       return true;
     } catch(CheckedReader::exception e) {
-      throw hlsl::Exception(DXC_E_MALFORMED_CONTAINER, e.what());
+      // TODO: error handling
+      //throw hlsl::Exception(DXC_E_MALFORMED_CONTAINER, e.what());
+      return false;
     }
   }
   return false;
@@ -199,7 +201,7 @@ bool DxilRuntimeData::InitFromRDAT_Prerelease(const void *pRDAT, size_t size) {
         case RuntimeDataPartType_Prerelease::Function: {
           uint32_t count = partSize / sizeof(RuntimeDataFunctionInfo);
           m_FunctionTableReader.SetFunctionInfo(PR.ReadArray<char>(partSize),
-            count, sizeof(RuntimeDataResourceInfo));
+            count, sizeof(RuntimeDataFunctionInfo));
           break;
         }
         default:
@@ -208,7 +210,9 @@ bool DxilRuntimeData::InitFromRDAT_Prerelease(const void *pRDAT, size_t size) {
       }
       return true;
     } catch(CheckedReader::exception e) {
-      throw hlsl::Exception(DXC_E_MALFORMED_CONTAINER, e.what());
+      // TODO: error handling
+      //throw hlsl::Exception(DXC_E_MALFORMED_CONTAINER, e.what());
+      return false;
     }
   }
   return false;

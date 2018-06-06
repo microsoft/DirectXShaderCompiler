@@ -238,7 +238,7 @@ public:
   raw_ostream &operator<<(const FormattedNumber &);
 
   raw_ostream &
-  operator<<(std::ios_base &(*iomanip)(std::ios_base &)); // HLSL Change
+  operator<<(std::ios_base &(__cdecl*iomanip)(std::ios_base &)); // HLSL Change
 
   /// indent - Insert 'NumSpaces' spaces.
   raw_ostream &indent(unsigned NumSpaces);

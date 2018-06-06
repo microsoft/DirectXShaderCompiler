@@ -383,9 +383,6 @@ private:
 
 public:
   FunctionTableReader() : m_context(nullptr) {}
-  FunctionTableReader(const RuntimeDataFunctionInfo *functionInfos,
-                      uint32_t count, RuntimeDataContext *context)
-      : m_context(context) {}
 
   FunctionReader GetItem(uint32_t i) const {
     return FunctionReader(m_Table.Row<RuntimeDataFunctionInfo>(i), m_context);
