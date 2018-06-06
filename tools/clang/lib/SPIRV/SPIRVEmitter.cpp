@@ -3474,7 +3474,12 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
 
   if (isAppend) {
     // Write out the value
-    storeValue(bufferInfo, doExpr(expr->getArg(0)), bufferElemTy);
+    auto arg0 = doExpr(expr->getArg(0));
+    if(!arg0.isRValue()) {
+      arg0.setResultId(theBuilder.createLoad(
+          typeTranslator.translateType(bufferElemTy), arg0));
+    }
+    storeValue(bufferInfo, arg0, bufferElemTy);
     return 0;
   } else {
     // Note that we are returning a pointer (lvalue) here inorder to further
