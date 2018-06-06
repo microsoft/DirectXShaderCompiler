@@ -1035,6 +1035,9 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   // SROA
   PM.add(createSROAPass(/*RequiresDomTree*/false));
 
+  // Remove MultiDimArray from function call arg.
+  PM.add(createMultiDimArrayToOneDimArrayPass());
+
   // Lower matrix bitcast.
   PM.add(createMatrixBitcastLowerPass());
 

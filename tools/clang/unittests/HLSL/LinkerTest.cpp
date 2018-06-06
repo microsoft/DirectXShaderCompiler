@@ -44,6 +44,9 @@ public:
   TEST_METHOD(RunLinkFailReDefine);
   TEST_METHOD(RunLinkGlobalInit);
   TEST_METHOD(RunLinkNoAlloca);
+  TEST_METHOD(RunLinkMatArrayParam);
+  TEST_METHOD(RunLinkMatParam);
+  TEST_METHOD(RunLinkMatParamToLib);
   TEST_METHOD(RunLinkResRet);
   TEST_METHOD(RunLinkToLib);
   TEST_METHOD(RunLinkToLibExport);
@@ -298,6 +301,62 @@ TEST_F(LinkerTest, RunLinkNoAlloca) {
   RegisterDxcModule(libName2, pLib, pLinker);
 
   Link(L"ps_main", L"ps_6_0", pLinker, {libName, libName2}, {}, {"alloca"});
+}
+
+TEST_F(LinkerTest, RunLinkMatArrayParam) {
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_entry.hlsl", &pEntryLib);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_cast.hlsl", &pLib);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+
+  Link(L"main", L"ps_6_0", pLinker, {libName, libName2},
+       {"alloca [24 x float]", "getelementptr [12 x float], [12 x float]*"},
+       {});
+}
+
+TEST_F(LinkerTest, RunLinkMatParam) {
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_entry2.hlsl", &pEntryLib);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_cast2.hlsl", &pLib);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+
+  Link(L"main", L"ps_6_0", pLinker, {libName, libName2},
+       {"alloca [12 x float]"},
+       {});
+}
+
+TEST_F(LinkerTest, RunLinkMatParamToLib) {
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_entry2.hlsl", &pEntryLib);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  Link(L"", L"lib_6_3", pLinker, {libName},
+       // The bitcast cannot be removed because user function call use it as
+       // argument.
+       {"bitcast <12 x float>* %1 to %class.matrix.float.4.3*"}, {});
 }
 
 TEST_F(LinkerTest, RunLinkResRet) {
