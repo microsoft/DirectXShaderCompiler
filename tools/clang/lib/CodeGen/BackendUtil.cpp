@@ -132,14 +132,15 @@ public:
                      const LangOptions &LOpts,
                      Module *M)
     : Diags(_Diags), CodeGenOpts(CGOpts), TargetOpts(TOpts), LangOpts(LOpts),
-      TheModule(M), CodeGenerationTime("Code Generation Time"),
-      CodeGenPasses(nullptr), PerModulePasses(nullptr),
-      PerFunctionPasses(nullptr),
+      TheModule(M),
       // HLSL Changes Start
       CodeGenPassesConfigOS(CodeGenPassesConfig),
       PerModulePassesConfigOS(PerModulePassesConfig),
-      PerFunctionPassesConfigOS(PerFunctionPassesConfig) {}
+      PerFunctionPassesConfigOS(PerFunctionPassesConfig),
       // HLSL Changes End
+      CodeGenerationTime("Code Generation Time"),
+      CodeGenPasses(nullptr), PerModulePasses(nullptr),
+      PerFunctionPasses(nullptr) {}
 
   ~EmitAssemblyHelper() {
     delete CodeGenPasses;

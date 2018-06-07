@@ -353,13 +353,14 @@ void clang::CompileRootSignature(
 // CGMSHLSLRuntime methods.
 //
 CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
-    : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()), Entry(),
+    : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()),
       TheModule(CGM.getModule()),
+      CBufferType(
+          llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")),
       dataLayout(CGM.getLangOpts().UseMinPrecision
                        ? hlsl::DXIL::kLegacyLayoutString
-                       : hlsl::DXIL::kNewLayoutString),
-      CBufferType(
-          llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")) {
+                       : hlsl::DXIL::kNewLayoutString),  Entry() {
+
   const hlsl::ShaderModel *SM =
       hlsl::ShaderModel::GetByName(CGM.getCodeGenOpts().HLSLProfile.c_str());
   // Only accept valid, 6.0 shader model.

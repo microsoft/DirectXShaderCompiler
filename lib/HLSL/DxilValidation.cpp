@@ -366,15 +366,14 @@ struct ValidationContext {
                     DxilModule &dxilModule,
                     DiagnosticPrinterRawOStream &DiagPrn)
       : M(llvmModule), pDebugModule(DebugModule), DxilMod(dxilModule),
-        DL(llvmModule.getDataLayout()),
+        DL(llvmModule.getDataLayout()), DiagPrinter(DiagPrn),
+        LastRuleEmit((ValidationRule)-1), hasViewID(false),
         kDxilControlFlowHintMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilControlFlowHintMDName)),
         kDxilPreciseMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilPreciseAttributeMDName)),
         kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
-        DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1),
-        m_bCoverageIn(false), m_bInnerCoverageIn(false),
-        hasViewID(false) {
+        m_bCoverageIn(false), m_bInnerCoverageIn(false) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;

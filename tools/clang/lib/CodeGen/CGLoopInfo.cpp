@@ -90,8 +90,8 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs) {
 
 LoopAttributes::LoopAttributes(bool IsParallel)
     : IsParallel(IsParallel), VectorizerEnable(LoopAttributes::VecUnspecified),
-      HlslLoop(false), HlslUnrollCount(0), // HLSL Change
-      VectorizerWidth(0), VectorizerUnroll(0) {}
+      VectorizerWidth(0), VectorizerUnroll(0),
+      HlslLoop(false), HlslUnrollCount(0) {} // HLSL Change
 
 void LoopAttributes::clear() {
   IsParallel = false;

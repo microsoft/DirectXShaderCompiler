@@ -623,7 +623,7 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC, Value * Th
 }
 
 void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext &BC) {
-  DebugShaderModifierRecordHeader marker{ 0 };
+  DebugShaderModifierRecordHeader marker{ {{0, 0, 0, 0}}, 0 };
   reserveDebugEntrySpace(BC, sizeof(marker));
 
   marker.Header.Details.SizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(marker));;
