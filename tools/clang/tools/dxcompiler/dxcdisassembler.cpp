@@ -1366,13 +1366,15 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
 
   if (pModule->getNamedMetadata("dx.version")) {
     DxilModule &dxilModule = pModule->GetOrCreateDxilModule();
-    PrintDxilSignature("Input", dxilModule.GetInputSignature(), Stream,
-                       /*comment*/ ";");
-    PrintDxilSignature("Output", dxilModule.GetOutputSignature(), Stream,
-                       /*comment*/ ";");
-    PrintDxilSignature("Patch Constant signature",
-                       dxilModule.GetPatchConstantSignature(), Stream,
-                       /*comment*/ ";");
+    if (!dxilModule.GetShaderModel()->IsLib()) {
+      PrintDxilSignature("Input", dxilModule.GetInputSignature(), Stream,
+                         /*comment*/ ";");
+      PrintDxilSignature("Output", dxilModule.GetOutputSignature(), Stream,
+                         /*comment*/ ";");
+      PrintDxilSignature("Patch Constant signature",
+                         dxilModule.GetPatchConstantSignature(), Stream,
+                         /*comment*/ ";");
+    }
     PrintBufferDefinitions(dxilModule, Stream, /*comment*/ ";");
     PrintResourceBindings(dxilModule, Stream, /*comment*/ ";");
     PrintViewIdState(dxilModule, Stream, /*comment*/ ";");

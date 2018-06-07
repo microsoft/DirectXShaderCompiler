@@ -63,9 +63,9 @@
 
 
 // Make sure function entrys exist.
-// CHECK: dx.func.signatures
+// CHECK: !dx.entryPoints = !{{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}}
 // Make sure cs don't have signature.
-// CHECK: @cs_main, null
+// CHECK: !"cs_main", null
 
 void StoreCSOutput(uint2 tid, uint2 gid);
 

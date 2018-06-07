@@ -22,6 +22,7 @@
 #include "HLSignatureLower.h"
 #include "dxc/HLSL/DxilUtil.h"
 #include "dxc/Support/exception.h"
+#include "DxilEntryProps.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -134,8 +135,7 @@ void InitResource(const DxilResource *pSource, DxilResource *pDest) {
   InitResourceBase(pSource, pDest);
 }
 
-void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *pSig, bool HasDebugInfo) {
-  std::unique_ptr<DxilEntrySignature> pSigPtr(pSig);
+void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
 
   // Subsystems.
   unsigned ValMajor, ValMinor;
@@ -145,7 +145,6 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
 
   // Entry function.
   Function *EntryFn = H.GetEntryFunction();
-  DxilFunctionProps *FnProps = H.HasDxilFunctionProps(EntryFn) ? &H.GetDxilFunctionProps(EntryFn) : nullptr;
   M.SetEntryFunction(EntryFn);
   M.SetEntryFunctionName(H.GetEntryFunctionName());
 
@@ -180,7 +179,6 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   }
 
   // Signatures.
-  M.ResetEntrySignature(pSigPtr.release());
   M.ResetRootSignature(H.ReleaseRootSignature());
 
   // Shader properties.
@@ -197,13 +195,6 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
   M.SetUseMinPrecision(H.GetHLOptions().bUseMinPrecision);
-
-  if (FnProps)
-    M.SetShaderProperties(FnProps);
-
-  // Move function props.
-  if (M.GetShaderModel()->IsLib())
-    M.ResetFunctionPropsMap(H.ReleaseFunctionPropsMap());
 
   // DXIL type system.
   M.ResetTypeSystem(H.ReleaseTypeSystem());
@@ -244,27 +235,40 @@ public:
     // used to load them.
     m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
 
-    std::unique_ptr<DxilEntrySignature> pSig =
-        llvm::make_unique<DxilEntrySignature>(SM->GetKind(), M.GetHLModule().GetHLOptions().bUseMinPrecision);
     // EntrySig for shader functions.
-    DxilEntrySignatureMap DxilEntrySignatureMap;
+    DxilEntryPropsMap EntryPropsMap;
 
     if (!SM->IsLib()) {
+      Function *EntryFn = m_pHLModule->GetEntryFunction();
+      if (!m_pHLModule->HasDxilFunctionProps(EntryFn)) {
+        M.getContext().emitError("Entry function don't have property.");
+        return false;
+      }
+      DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(EntryFn);
+      std::unique_ptr<DxilEntryProps> pProps =
+          llvm::make_unique<DxilEntryProps>(
+              props, m_pHLModule->GetHLOptions().bUseMinPrecision);
       HLSignatureLower sigLower(m_pHLModule->GetEntryFunction(), *m_pHLModule,
-                              *pSig);
+                                pProps->sig);
       sigLower.Run();
+      EntryPropsMap[EntryFn] = std::move(pProps);
     } else {
       for (auto It = M.begin(); It != M.end();) {
         Function &F = *(It++);
         // Lower signature for each graphics or compute entry function.
-        if (m_pHLModule->IsGraphicsShader(&F) || m_pHLModule->IsComputeShader(&F)) {
+        if (m_pHLModule->HasDxilFunctionProps(&F)) {
           DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(&F);
-          std::unique_ptr<DxilEntrySignature> pSig =
-              llvm::make_unique<DxilEntrySignature>(props.shaderKind, m_pHLModule->GetHLOptions().bUseMinPrecision);
-          HLSignatureLower sigLower(&F, *m_pHLModule, *pSig);
-          // TODO: BUG: This will lower patch constant function sigs twice if used by two hull shaders!
-          sigLower.Run();
-          DxilEntrySignatureMap[&F] = std::move(pSig);
+          std::unique_ptr<DxilEntryProps> pProps =
+              llvm::make_unique<DxilEntryProps>(
+                  props, m_pHLModule->GetHLOptions().bUseMinPrecision);
+          if (m_pHLModule->IsGraphicsShader(&F) ||
+              m_pHLModule->IsComputeShader(&F)) {
+            HLSignatureLower sigLower(&F, *m_pHLModule, pProps->sig);
+            // TODO: BUG: This will lower patch constant function sigs twice if
+            // used by two hull shaders!
+            sigLower.Run();
+          }
+          EntryPropsMap[&F] = std::move(pProps);
         }
       }
     }
@@ -305,10 +309,12 @@ public:
     // High-level metadata should now be turned into low-level metadata.
     const bool SkipInit = true;
     hlsl::DxilModule &DxilMod = M.GetOrCreateDxilModule(SkipInit);
-    InitDxilModuleFromHLModule(*m_pHLModule, DxilMod, pSig.release(),
-                               m_HasDbgInfo);
-    if (SM->IsLib())
-      DxilMod.ResetEntrySignatureMap(std::move(DxilEntrySignatureMap));
+    if (!SM->IsLib()) {
+      DxilMod.SetShaderProperties(&EntryPropsMap.begin()->second->props);
+    }
+    InitDxilModuleFromHLModule(*m_pHLModule, DxilMod, m_HasDbgInfo);
+
+    DxilMod.ResetEntryPropsMap(std::move(EntryPropsMap));
 
     HLModule::ClearHLMetadata(M);
     M.ResetHLModule();

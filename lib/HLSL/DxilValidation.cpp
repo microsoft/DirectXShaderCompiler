@@ -3115,20 +3115,6 @@ static void ValidateTypeAnnotation(ValidationContext &ValCtx) {
   }
 }
 
-static bool IsLibMetadata(ValidationContext &ValCtx, StringRef name) {
-    if (!ValCtx.isLibProfile)
-        return false;
-  // Skip dx.func.props and dx.func.signatures for now.
-  // And these 2 need validation also.
-  // Or we merge them into Entry, and validate as entry.
-  const char * libMetaNames[] = {"dx.func.props","dx.func.signatures"};
-  for (const char *libName : libMetaNames) {
-    if (name.equals(libName))
-      return true;
-  }
-  return false;
-}
-
 static void ValidateMetadata(ValidationContext &ValCtx) {
   Module *pModule = &ValCtx.M;
   const std::string &target = pModule->getTargetTriple();
@@ -3148,8 +3134,6 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
   for (auto &NamedMetaNode : pModule->named_metadata()) {
     if (!DxilModule::IsKnownNamedMetaData(NamedMetaNode)) {
       StringRef name = NamedMetaNode.getName();
-      if (IsLibMetadata(ValCtx, name))
-        continue;
       if (!name.startswith_lower("llvm.")) {
         ValCtx.EmitFormatError(ValidationRule::MetaKnown, {name.str()});
       }
@@ -3986,6 +3970,8 @@ static void ValidateNoInterpModeSignature(ValidationContext &ValCtx, const DxilS
 }
 
 static void ValidateSignatures(ValidationContext &ValCtx) {
+  if (ValCtx.isLibProfile)
+    return;
   DxilModule &M = ValCtx.DxilMod;
   bool isPS = M.GetShaderModel()->IsPS();
   bool isVS = M.GetShaderModel()->IsVS();
@@ -4475,6 +4461,8 @@ static void ValidateFlowControl(ValidationContext &ValCtx) {
 }
 
 static void ValidateUninitializedOutput(ValidationContext &ValCtx) {
+  if (ValCtx.isLibProfile)
+    return;
   // For HS only need to check Tessfactor which is in patch constant sig.
   if (ValCtx.DxilMod.GetShaderModel()->IsHS()) {
     std::vector<unsigned> &patchConstCols = ValCtx.patchConstCols;
@@ -4794,10 +4782,10 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
   }
 
   // Verify required parts found
-  if (FourCCFound.find(DFCC_InputSignature) == FourCCFound.end()) {
+  if (FourCCFound.find(DFCC_InputSignature) == FourCCFound.end() && !ValCtx.isLibProfile) {
     VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Input, nullptr, 0);
   }
-  if (FourCCFound.find(DFCC_OutputSignature) == FourCCFound.end()) {
+  if (FourCCFound.find(DFCC_OutputSignature) == FourCCFound.end() && !ValCtx.isLibProfile) {
     VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Output, nullptr, 0);
   }
   if (bTess && FourCCFound.find(DFCC_PatchConstantSignature) == FourCCFound.end() &&

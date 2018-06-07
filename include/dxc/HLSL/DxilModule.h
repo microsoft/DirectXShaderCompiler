@@ -44,8 +44,11 @@ class OP;
 class RootSignatureHandle;
 struct DxilFunctionProps;
 
-typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>> DxilFunctionPropsMap;
-typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilEntrySignature>> DxilEntrySignatureMap;
+class DxilEntryProps;
+
+using DxilEntryPropsMap =
+    std::unordered_map<const llvm::Function *, std::unique_ptr<DxilEntryProps>>;
+
 /// Use this class to manipulate DXIL of a shader.
 class DxilModule {
 public:
@@ -124,19 +127,22 @@ public:
   DxilSignature &GetPatchConstantSignature();
   const DxilSignature &GetPatchConstantSignature() const;
   const RootSignatureHandle &GetRootSignature() const;
+
   bool HasDxilEntrySignature(const llvm::Function *F) const;
   DxilEntrySignature &GetDxilEntrySignature(const llvm::Function *F);
-  // Move DxilEntrySignature of F to NewF.
-  void ReplaceDxilEntrySignature(llvm::Function *F, llvm::Function *NewF);
+  // Move DxilEntryProps of F to NewF.
+  void ReplaceDxilEntryProps(llvm::Function *F, llvm::Function *NewF);
+  // Clone DxilEntryProps of F to NewF.
+  void CloneDxilEntryProps(llvm::Function *F, llvm::Function *NewF);
+  bool HasDxilEntryProps(const llvm::Function *F) const;
+  DxilEntryProps &GetDxilEntryProps(const llvm::Function *F);
 
   // DxilFunctionProps.
   bool HasDxilFunctionProps(const llvm::Function *F) const;
   DxilFunctionProps &GetDxilFunctionProps(const llvm::Function *F);
   const DxilFunctionProps &GetDxilFunctionProps(const llvm::Function *F) const;
-  void AddDxilFunctionProps(const llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info);
 
   // Move DxilFunctionProps of F to NewF.
-  void ReplaceDxilFunctionProps(llvm::Function *F, llvm::Function *NewF);
   void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc);
   bool IsGraphicsShader(const llvm::Function *F) const; // vs,hs,ds,gs,ps
   bool IsPatchConstantShader(const llvm::Function *F) const;
@@ -180,8 +186,7 @@ public:
   void ResetRootSignature(RootSignatureHandle *pValue);
   void ResetTypeSystem(DxilTypeSystem *pValue);
   void ResetOP(hlsl::OP *hlslOP);
-  void ResetFunctionPropsMap(DxilFunctionPropsMap &&propsMap);
-  void ResetEntrySignatureMap(DxilEntrySignatureMap &&SigMap);
+  void ResetEntryPropsMap(DxilEntryPropsMap &&PropMap);
 
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
@@ -270,7 +275,6 @@ public:
 
 private:
   // Signatures.
-  std::unique_ptr<DxilEntrySignature> m_EntrySignature;
   std::unique_ptr<RootSignatureHandle> m_RootSignature;
 
   // Shader resources.
@@ -319,10 +323,8 @@ private:
   // Type annotations.
   std::unique_ptr<DxilTypeSystem> m_pTypeSystem;
 
-  // Function properties for shader functions.
-  DxilFunctionPropsMap m_DxilFunctionPropsMap;
-  // EntrySig for shader functions.
-  DxilEntrySignatureMap m_DxilEntrySignatureMap;
+  // EntryProps for shader functions.
+  DxilEntryPropsMap  m_DxilEntryPropsMap;
 
   // Keeps track of patch constant functions used by hull shaders
   std::unordered_set<const llvm::Function *>  m_PatchConstantFunctions;
@@ -333,8 +335,6 @@ private:
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();
   void LoadDxilResources(const llvm::MDOperand &MDO);
-  llvm::MDTuple *EmitDxilShaderProperties();
-  void LoadDxilShaderProperties(const llvm::MDOperand &MDO);
 
   // Helpers.
   template<typename T> unsigned AddResource(std::vector<std::unique_ptr<T> > &Vec, std::unique_ptr<T> pRes);
