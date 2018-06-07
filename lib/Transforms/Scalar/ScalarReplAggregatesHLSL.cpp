@@ -5263,7 +5263,7 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
             // Set arg to CI again.
             RowMat->setArgOperand(HLOperandIndex::kUnaryOpSrc0Idx, CI);
           } break;
-          case HLMatLoadStoreOpcode::RowMatStore:
+          case HLMatLoadStoreOpcode::RowMatStore: {
             // Update matrix function opcode to col major version.
             Value *rowOpArg = ConstantInt::get(
                 opcodeTy,
@@ -5275,6 +5275,10 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
                 Builder, HLOpcodeGroup::HLCast,
                 (unsigned)HLCastOpcode::RowMatrixToColMatrix, Ty, {Mat}, M);
             CI->setArgOperand(HLOperandIndex::kMatStoreValOpIdx, RowMat);
+          } break;
+          case HLMatLoadStoreOpcode::ColMatLoad:
+          case HLMatLoadStoreOpcode::ColMatStore:
+            // Only row matrices can be converted to col matrices.
             break;
           }
         }

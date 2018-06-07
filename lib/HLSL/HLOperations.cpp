@@ -168,9 +168,13 @@ llvm::StringRef GetHLOpcodeName(HLUnaryOpcode Op) {
   case HLUnaryOpcode::Minus:   return "-";
   case HLUnaryOpcode::Not:     return "~";
   case HLUnaryOpcode::LNot:    return "!";
+  case HLUnaryOpcode::Invalid:
+  case HLUnaryOpcode::NumOfUO:
+    // Invalid Unary Ops
+    break;
   }
   llvm_unreachable("Unknown unary operator");
-  
+
 }
 
 llvm::StringRef GetHLOpcodeName(HLBinaryOpcode Op) {
@@ -200,6 +204,10 @@ llvm::StringRef GetHLOpcodeName(HLBinaryOpcode Op) {
   case HLBinaryOpcode::Or:        return "|";
   case HLBinaryOpcode::LAnd:      return "&&";
   case HLBinaryOpcode::LOr:       return "||";
+  case HLBinaryOpcode::Invalid:
+  case HLBinaryOpcode::NumOfBO:
+    // Invalid Binary Ops
+    break;
   }
 
   llvm_unreachable("Invalid OpCode!");
@@ -425,6 +433,13 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
     F->addFnAttr(Attribute::NoInline);
     F->setLinkage(llvm::GlobalValue::LinkageTypes::InternalLinkage);
   } break;
+  case HLOpcodeGroup::NotHL:
+  case HLOpcodeGroup::HLExtIntrinsic:
+  case HLOpcodeGroup::HLIntrinsic:
+  case HLOpcodeGroup::HLSelect:
+  case HLOpcodeGroup::NumOfHLOps:
+    // No default attributes for these opcodes.
+    break;
   }
 }
 

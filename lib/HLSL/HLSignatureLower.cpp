@@ -54,9 +54,16 @@ unsigned UpateSemanticAndInterpMode(StringRef &semName,
     case InterpolationMode::Kind::Linear:
       mode = InterpolationMode::Kind::LinearNoperspective;
       break;
-    case InterpolationMode::Kind::Constant: {
+    case InterpolationMode::Kind::Constant:
+    case InterpolationMode::Kind::Undefined:
+    case InterpolationMode::Kind::Invalid: {
       Context.emitError("invalid interpolation mode for SV_Position");
     } break;
+    case InterpolationMode::Kind::LinearNoperspective:
+    case InterpolationMode::Kind::LinearNoperspectiveCentroid:
+    case InterpolationMode::Kind::LinearNoperspectiveSample:
+      // Already Noperspective modes.
+      break;
     }
   }
   return semIndex;
@@ -676,6 +683,9 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
       CI->replaceAllUsesWith(newVec);
       CI->eraseFromParent();
     } break;
+    default:
+      // Only matrix to vector casts are valid.
+      break;
     }
   } else {
     DXASSERT(0, "invalid type for direct input");

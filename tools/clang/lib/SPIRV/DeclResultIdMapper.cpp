@@ -1335,6 +1335,9 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
           hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type);
       typeId = theBuilder.getVecType(srcVecElemTypeId, 3);
       break;
+    default:
+      // Only the semantic kinds mentioned above are handled.
+      break;
     }
 
     // Handle the extra arrayness
@@ -1862,6 +1865,9 @@ uint32_t DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
   case spv::BuiltIn::SubgroupLocalInvocationId:
     laneIndexBuiltinId = varId;
     break;
+  default:
+    // Only relevant to subgroup builtins.
+    break;
   }
 
   return varId;
@@ -1910,6 +1916,9 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       theBuilder.addExtension(Extension::KHR_device_group,
                               stageVar->getSemanticStr(), srcLoc);
       theBuilder.requireCapability(spv::Capability::DeviceGroup);
+      break;
+    default:
+      // Just seeking builtins requiring extensions. The rest can be ignored.
       break;
     }
 

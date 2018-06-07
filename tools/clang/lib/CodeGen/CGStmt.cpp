@@ -137,7 +137,10 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::ReturnStmtClass:   EmitReturnStmt(cast<ReturnStmt>(*S));     break;
 
   case Stmt::SwitchStmtClass:   EmitSwitchStmt(cast<SwitchStmt>(*S));     break;
-#if 0 // HLSL Change - no support for assembler, captures, ObjC, exception handling, for-range, openmp
+#if 1 // HLSL Change - no support for assembler, captures, ObjC, exception handling, for-range, openmp
+  default:
+    break;
+#else
   case Stmt::GCCAsmStmtClass:   // Intentional fall-through.
   case Stmt::MSAsmStmtClass:    EmitAsmStmt(cast<AsmStmt>(*S));           break;
   case Stmt::CapturedStmtClass: {

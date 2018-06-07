@@ -708,6 +708,9 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
   case BuiltinType::Bool:
     kind = CompType::Kind::I1;
     break;
+  default:
+    // Other types not used by HLSL.
+    break;
   }
   return kind;
 }
@@ -1454,6 +1457,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     case ShaderModel::Kind::Pixel:
       DXASSERT(funcProps->shaderKind == SM->GetKind(),
                "attribute profile not match entry function profile");
+      break;
+    case ShaderModel::Kind::Library:
+    case ShaderModel::Kind::Invalid:
+      // Non-shader stage shadermodels don't have entry points.
       break;
     }
   }

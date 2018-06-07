@@ -1139,13 +1139,11 @@ UnusualAnnotation* hlsl::UnusualAnnotation::CopyToASTContext(ASTContext& Context
 
 static bool HasTessFactorSemantic(const ValueDecl *decl) {
   for (const UnusualAnnotation *it : decl->getUnusualAnnotations()) {
-    switch (it->getKind()) {
-    case UnusualAnnotation::UA_SemanticDecl: {
+    if (it->getKind() == UnusualAnnotation::UA_SemanticDecl) {
       const SemanticDecl *sd = cast<SemanticDecl>(it);
       const Semantic *pSemantic = Semantic::GetByName(sd->SemanticName);
       if (pSemantic && pSemantic->GetKind() == Semantic::Kind::TessFactor)
         return true;
-    }
     }
   }
   return false;
