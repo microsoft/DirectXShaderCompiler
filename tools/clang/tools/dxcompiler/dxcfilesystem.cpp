@@ -308,8 +308,7 @@ private:
 public:
   DxcArgsFileSystemImpl(_In_ IDxcBlob *pSource, LPCWSTR pSourceName, _In_opt_ IDxcIncludeHandler* pHandler)
       : m_pSource(pSource), m_pSourceName(pSourceName), m_pOutputStreamName(nullptr),
-        m_includeLoader(pHandler), m_bDisplayIncludeProcess(false)
-         {
+        m_includeLoader(pHandler), m_bDisplayIncludeProcess(false) {
     MakeAbsoluteOrCurDirRelativeW(m_pSourceName, m_pAbsSourceName);
     IFT(CreateReadOnlyBlobStream(m_pSource, &m_pSourceStream));
     m_includedFiles.push_back(IncludedFile(std::wstring(m_pSourceName), m_pSource, m_pSourceStream));
