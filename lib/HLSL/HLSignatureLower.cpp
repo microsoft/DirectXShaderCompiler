@@ -692,9 +692,9 @@ struct InputOutputAccessInfo {
   // Load/Store/LoadMat/StoreMat on input/output.
   Instruction *user;
   InputOutputAccessInfo(Value *index, Instruction *I)
-      : idx(index), user(I), vertexID(nullptr), vectorIdx(nullptr) {}
+      : idx(index), vertexID(nullptr), vectorIdx(nullptr), user(I) {}
   InputOutputAccessInfo(Value *index, Instruction *I, Value *ID, Value *vecIdx)
-      : idx(index), user(I), vertexID(ID), vectorIdx(vecIdx) {}
+      : idx(index), vertexID(ID), vectorIdx(vecIdx), user(I) {}
 };
 
 void collectInputOutputAccessInfo(

@@ -3198,7 +3198,8 @@ enum CXErrorCode clang_parseTranslationUnit2(
       llvm::makeArrayRef(unsaved_files, num_unsaved_files),
       options,
       out_TU,
-      result};
+      result,
+      nullptr};
   llvm::CrashRecoveryContext CRC;
 
   // HLSL Change Starts - allow an option to control this behavior.

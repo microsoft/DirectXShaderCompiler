@@ -95,7 +95,7 @@ const VersionedSemanticInterpretation SigPoint::ms_SemanticInterpretationTable[(
 // SigPoint Implementation
 
 SigPoint::SigPoint(DXIL::SigPointKind spk, const char *name, DXIL::SigPointKind rspk, DXIL::ShaderKind shk, DXIL::SignatureKind sigk, DXIL::PackingKind pk) :
-  m_Kind(spk), m_pszName(name), m_RelatedKind(rspk), m_ShaderKind(shk), m_SignatureKind(sigk), m_PackingKind(pk)
+  m_Kind(spk), m_RelatedKind(rspk), m_ShaderKind(shk), m_SignatureKind(sigk), m_pszName(name), m_PackingKind(pk)
 {}
 
 DXIL::SignatureKind SigPoint::GetSignatureKindWithFallback() const {
