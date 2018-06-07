@@ -1274,14 +1274,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   if (ValMajor == 1 && ValMinor == 0)
     Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
 
-  DxilProgramSignatureWriter inputSigWriter(
-      pModule->GetInputSignature(), pModule->GetTessellatorDomain(),
-      /*IsInput*/ true,
-      /*UseMinPrecision*/ pModule->GetUseMinPrecision());
-  DxilProgramSignatureWriter outputSigWriter(
-      pModule->GetOutputSignature(), pModule->GetTessellatorDomain(),
-      /*IsInput*/ false,
-      /*UseMinPrecision*/ pModule->GetUseMinPrecision());
   DxilContainerWriter_impl writer;
 
   // Write the feature part.
@@ -1290,39 +1282,55 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     featureInfoWriter.write(pStream);
   });
 
-  // Write the input and output signature parts.
-  writer.AddPart(DFCC_InputSignature, inputSigWriter.size(), [&](AbstractMemoryStream *pStream) {
-    inputSigWriter.write(pStream);
-  });
-  writer.AddPart(DFCC_OutputSignature, outputSigWriter.size(), [&](AbstractMemoryStream *pStream) {
-    outputSigWriter.write(pStream);
-  });
-
-  DxilProgramSignatureWriter patchConstantSigWriter(
-      pModule->GetPatchConstantSignature(), pModule->GetTessellatorDomain(),
-      /*IsInput*/ pModule->GetShaderModel()->IsDS(),
-      /*UseMinPrecision*/ pModule->GetUseMinPrecision());
-  if (pModule->GetPatchConstantSignature().GetElements().size()) {
-    writer.AddPart(DFCC_PatchConstantSignature, patchConstantSigWriter.size(),
+  std::unique_ptr<DxilProgramSignatureWriter> pInputSigWriter = nullptr;
+  std::unique_ptr<DxilProgramSignatureWriter> pOutputSigWriter = nullptr;
+  std::unique_ptr<DxilProgramSignatureWriter> pPatchConstantSigWriter = nullptr;
+  if (!pModule->GetShaderModel()->IsLib()) {
+    pInputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
+        pModule->GetInputSignature(), pModule->GetTessellatorDomain(),
+        /*IsInput*/ true,
+        /*UseMinPrecision*/ pModule->GetUseMinPrecision());
+    pOutputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
+        pModule->GetOutputSignature(), pModule->GetTessellatorDomain(),
+        /*IsInput*/ false,
+        /*UseMinPrecision*/ pModule->GetUseMinPrecision());
+    // Write the input and output signature parts.
+    writer.AddPart(DFCC_InputSignature, pInputSigWriter->size(),
                    [&](AbstractMemoryStream *pStream) {
-                     patchConstantSigWriter.write(pStream);
+                     pInputSigWriter->write(pStream);
                    });
-  }
+    writer.AddPart(DFCC_OutputSignature, pOutputSigWriter->size(),
+                   [&](AbstractMemoryStream *pStream) {
+                     pOutputSigWriter->write(pStream);
+                   });
 
+    pPatchConstantSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
+        pModule->GetPatchConstantSignature(), pModule->GetTessellatorDomain(),
+        /*IsInput*/ pModule->GetShaderModel()->IsDS(),
+        /*UseMinPrecision*/ pModule->GetUseMinPrecision());
+    if (pModule->GetPatchConstantSignature().GetElements().size()) {
+      writer.AddPart(DFCC_PatchConstantSignature,
+                     pPatchConstantSigWriter->size(),
+                     [&](AbstractMemoryStream *pStream) {
+                       pPatchConstantSigWriter->write(pStream);
+                     });
+    }
+  }
   // Write the DxilPipelineStateValidation (PSV0) part.
-  DxilRDATWriter RDATWriter(*pModule);
-  DxilPSVWriter PSVWriter(*pModule);
+  std::unique_ptr<DxilRDATWriter> pRDATWriter = nullptr;
+  std::unique_ptr<DxilPSVWriter> pPSVWriter = nullptr;
   unsigned int major, minor;
   pModule->GetDxilVersion(major, minor);
-  if (pModule->GetShaderModel()->IsLib() && (major >= 1 ||  minor == 1 && minor >= 3)) {
-    writer.AddPart(DFCC_RuntimeData, RDATWriter.size(), [&](AbstractMemoryStream *pStream) {
-        RDATWriter.write(pStream);
-    });
-  }
-  else {
-    writer.AddPart(DFCC_PipelineStateValidation, PSVWriter.size(), [&](AbstractMemoryStream *pStream) {
-        PSVWriter.write(pStream);
-    });
+  if (pModule->GetShaderModel()->IsLib()) {
+    pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
+    writer.AddPart(
+        DFCC_RuntimeData, pRDATWriter->size(),
+        [&](AbstractMemoryStream *pStream) { pRDATWriter->write(pStream); });
+  } else if (!pModule->GetShaderModel()->IsLib()) {
+    pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule);
+    writer.AddPart(
+        DFCC_PipelineStateValidation, pPSVWriter->size(),
+        [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });
   }
   // Write the root signature (RTS0) part.
   DxilProgramRootSignatureWriter rootSigWriter(pModule->GetRootSignature());

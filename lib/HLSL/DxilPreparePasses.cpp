@@ -172,8 +172,7 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
   }
   NewFunc->takeName(F);
   if (DM.HasDxilFunctionProps(F)) {
-    DM.ReplaceDxilEntrySignature(F, NewFunc);
-    DM.ReplaceDxilFunctionProps(F, NewFunc);
+    DM.ReplaceDxilEntryProps(F, NewFunc);
   }
   DM.GetTypeSystem().EraseFunctionAnnotation(F);
   F->eraseFromParent();
@@ -360,16 +359,19 @@ private:
       if (Function *PatchConstantFunc = DM.GetPatchConstantFunction()) {
         PatchConstantFunc =
             StripFunctionParameter(PatchConstantFunc, DM, FunctionDIs);
-        if (PatchConstantFunc)
+        if (PatchConstantFunc) {
           DM.SetPatchConstantFunction(PatchConstantFunc);
+          DM.SetPatchConstantFunctionForHS(DM.GetEntryFunction(), PatchConstantFunc);
+        }
       }
 
       if (Function *EntryFunc = DM.GetEntryFunction()) {
         StringRef Name = DM.GetEntryFunctionName();
         EntryFunc->setName(Name);
         EntryFunc = StripFunctionParameter(EntryFunc, DM, FunctionDIs);
-        if (EntryFunc)
+        if (EntryFunc) {
           DM.SetEntryFunction(EntryFunc);
+        }
       }
     } else {
       std::vector<Function *> entries;

@@ -12,10 +12,11 @@
 // CHECK: @"\01?entry
 
 // Make sure function props exist.
-// CHECK: dx.func.props
+// CHECK: !dx.entryPoints = !{{{.*}}, {{.*}}}
 
 // Make sure function props is correct for [numthreads(8,8,1)].
-// CHECK: @entry, i32 5, i32 8, i32 8, i32 1
+// CHECK: @entry,
+// CHECK: !{i32 8, i32 8, i32 1}
 
 cbuffer A {
   float a;

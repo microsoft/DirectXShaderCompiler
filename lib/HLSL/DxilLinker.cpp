@@ -10,6 +10,7 @@
 #include "dxc/HLSL/DxilLinker.h"
 #include "dxc/HLSL/DxilCBuffer.h"
 #include "dxc/HLSL/DxilFunctionProps.h"
+#include "DxilEntryProps.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilResource.h"
@@ -734,13 +735,13 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   Function *NewEntryFunc = m_newFunctions[entryFunc->getName()];
   DM.SetEntryFunction(NewEntryFunc);
   DM.SetEntryFunctionName(entryFunc->getName());
-  if (entryDM.HasDxilEntrySignature(entryFunc)) {
-    // Add signature.
-    DxilEntrySignature &entrySig = entryDM.GetDxilEntrySignature(entryFunc);
-    std::unique_ptr<DxilEntrySignature> newSig =
-        llvm::make_unique<DxilEntrySignature>(entrySig);
-    DM.ResetEntrySignature(newSig.release());
-  }
+
+  DxilEntryPropsMap EntryPropMap;
+  std::unique_ptr<DxilEntryProps> pProps =
+          std::make_unique<DxilEntryProps>(entryDM.GetDxilEntryProps(entryFunc));
+  EntryPropMap[NewEntryFunc] = std::move(pProps);
+  DM.ResetEntryPropsMap(std::move(EntryPropMap));
+
 
   if (NewEntryFunc->hasFnAttribute(llvm::Attribute::AlwaysInline))
     NewEntryFunc->removeFnAttr(llvm::Attribute::AlwaysInline);
@@ -823,30 +824,22 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
   AddFunctions(DM, vmap, initFuncSet);
 
   // Set DxilFunctionProps.
-  DxilEntrySignatureMap DxilEntrySignatureMap;
+  DxilEntryPropsMap EntryPropMap;
   for (auto &it : m_functionDefs) {
     DxilFunctionLinkInfo *linkInfo = it.first;
     DxilLib *pLib = it.second;
     DxilModule &tmpDM = pLib->GetDxilModule();
 
     Function *F = linkInfo->func;
-    if (tmpDM.HasDxilFunctionProps(F)) {
+    if (tmpDM.HasDxilEntryProps(F)) {
       Function *NewF = m_newFunctions[F->getName()];
-      DxilFunctionProps props = tmpDM.GetDxilFunctionProps(F);
-      std::unique_ptr<DxilFunctionProps> pProps =
-          std::make_unique<DxilFunctionProps>();
-      *pProps = props;
-      DM.AddDxilFunctionProps(NewF, pProps);
-    }
-
-    if (tmpDM.HasDxilEntrySignature(F)) {
-      Function *NewF = m_newFunctions[F->getName()];
-      std::unique_ptr<DxilEntrySignature> pSig =
-          llvm::make_unique<DxilEntrySignature>(tmpDM.GetDxilEntrySignature(F));
-      DxilEntrySignatureMap[NewF] = std::move(pSig);
+      DxilEntryProps &props = tmpDM.GetDxilEntryProps(F);
+      std::unique_ptr<DxilEntryProps> pProps =
+          std::make_unique<DxilEntryProps>(props);
+      EntryPropMap[NewF] = std::move(pProps);
     }
   }
-  DM.ResetEntrySignatureMap(std::move(DxilEntrySignatureMap));
+  DM.ResetEntryPropsMap(std::move(EntryPropMap));
 
   // Add global
   bool bSuccess = AddGlobals(DM, vmap);
@@ -922,9 +915,7 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
           CloneFunction(F, NewF, vmap, &DM.GetTypeSystem());
           // add DxilFunctionProps if entry
           if (DM.HasDxilFunctionProps(F)) {
-            DxilFunctionProps &props = DM.GetDxilFunctionProps(F);
-            auto newProps = llvm::make_unique<DxilFunctionProps>(props);
-            DM.AddDxilFunctionProps(NewF, newProps);
+            DM.CloneDxilEntryProps(F, NewF);
           }
         }
         itName++;

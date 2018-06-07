@@ -20,6 +20,9 @@ class Constant;
 
 namespace hlsl {
 struct DxilFunctionProps {
+  DxilFunctionProps() {
+    memset(this, 0, sizeof(DxilFunctionProps));
+  }
   union {
     // Compute shader.
     struct {

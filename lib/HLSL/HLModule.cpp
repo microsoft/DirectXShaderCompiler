@@ -509,7 +509,7 @@ void HLModule::LoadHLMetadata() {
       std::unique_ptr<hlsl::DxilFunctionProps> props =
           llvm::make_unique<hlsl::DxilFunctionProps>();
 
-      Function *F = m_pMDHelper->LoadDxilFunctionProps(pProps, props.get());
+      const Function *F = m_pMDHelper->LoadDxilFunctionProps(pProps, props.get());
 
       if (props->IsHS() && props->ShaderProps.HS.patchConstantFunc) {
         // Add patch constant function to m_PatchConstantFunctions
