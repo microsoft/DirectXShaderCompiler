@@ -208,7 +208,7 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
       (*semanticStrs)[index] = "SV_CullDistance";
   }
 
-  if (index < gClipDistanceIndex || index > gCullDistanceIndex) {
+  if (index > gCullDistanceIndex) {
     // Annotated with something other than SV_ClipDistance or SV_CullDistance.
     // We don't care about such cases.
     return true;

@@ -140,7 +140,7 @@ SimpleSerializer::~SimpleSerializer() {
     m_pSegment = pSegment->pNext;
 
     if (pSegment->bOwner) {
-      delete pSegment->pData;
+      delete[] (char*)pSegment->pData;
     }
 
     delete pSegment;
@@ -201,7 +201,7 @@ HRESULT SimpleSerializer::ReserveBlock(void **ppData, unsigned cbSize,
 
 Cleanup:
   if (FAILED(hr)) {
-    delete[] pClonedData;
+    delete[] (char*)pClonedData;
     delete pSegment;
   }
   return hr;
