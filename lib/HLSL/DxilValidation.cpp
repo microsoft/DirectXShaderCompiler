@@ -2113,6 +2113,7 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
 
   const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
   OP *hlslOP = ValCtx.DxilMod.GetOP();
+  bool isDxilOp = OP::IsDxilOpFunc(F);
   Type *voidTy = Type::getVoidTy(F->getContext());
   for (User *user : F->users()) {
     CallInst *CI = dyn_cast<CallInst>(user);
@@ -2120,6 +2121,10 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
       ValCtx.EmitGlobalValueError(F, ValidationRule::DeclFnIsCalled);
       continue;
     }
+
+    // Skip call to external user defined function
+    if (!isDxilOp)
+      continue;
 
     Value *argOpcode = CI->getArgOperand(0);
     ConstantInt *constOpcode = dyn_cast<ConstantInt>(argOpcode);
