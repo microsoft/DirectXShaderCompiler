@@ -15,6 +15,7 @@
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/Support/WinAdapter.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Constants.h"

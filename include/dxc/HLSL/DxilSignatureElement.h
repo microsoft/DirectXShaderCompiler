@@ -18,7 +18,7 @@
 #include "dxc/HLSL/DxilSignatureAllocator.h"
 #include <string>
 #include <vector>
-
+#include <limits.h>
 
 namespace hlsl {
 

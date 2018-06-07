@@ -14,7 +14,13 @@
 #ifndef LLVM_TABLEGEN_MAIN_H
 #define LLVM_TABLEGEN_MAIN_H
 
-#include <sal.h>  // HLSL Change - SAL
+// HLSL Change Begins
+#ifdef _WIN32
+#include <sal.h>
+#else
+#include "dxc/Support/WinAdapter.h"
+#endif
+// HLSL Change Ends
 
 namespace llvm {
 

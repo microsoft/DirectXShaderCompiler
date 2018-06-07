@@ -14,6 +14,7 @@
 #ifndef LLVM_MC_MCSTREAMER_H
 #define LLVM_MC_MCSTREAMER_H
 
+#include "dxc/Support/WinAdapter.h" // HLSL Change
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/MC/MCDirectives.h"

@@ -23,7 +23,7 @@ using namespace sys;
 //===          independent code.
 //===----------------------------------------------------------------------===//
 
-#ifdef MSFT_SUPPORTS_CHILD_PROCESSES
+#if defined(MSFT_SUPPORTS_CHILD_PROCESSES) || defined(LLVM_ON_UNIX)
 
 static bool Execute(ProcessInfo &PI, StringRef Program, const char **args,
                     const char **env, const StringRef **Redirects,
