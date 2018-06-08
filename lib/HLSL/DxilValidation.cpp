@@ -2583,6 +2583,7 @@ static bool IsLLVMInstructionAllowedForLib(Instruction &I, ValidationContext &Va
   switch (I.getOpcode()) {
   case Instruction::InsertElement:
   case Instruction::ExtractElement:
+  case Instruction::ShuffleVector:
     return true;
   case Instruction::Unreachable:
     if (Instruction *Prev = I.getPrevNode()) {
@@ -2675,6 +2676,9 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           bool legalUndef = isa<PHINode>(&I);
           if (InsertElementInst *InsertInst = dyn_cast<InsertElementInst>(&I)) {
             legalUndef = op == I.getOperand(0);
+          }
+          if (ShuffleVectorInst *Shuf = dyn_cast<ShuffleVectorInst>(&I)) {
+            legalUndef = op == I.getOperand(1);
           }
 
           if (!legalUndef)

@@ -262,8 +262,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::ViewID,                  "ViewID",                   OCC::ViewID,                   "viewID",                     false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
 
   // Resources                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
-  {  OC::RawBufferLoad,           "RawBufferLoad",            OCC::RawBufferLoad,            "rawBufferLoad",              false,  true,  true, false, false, false,  true,  true, false, false, false, Attribute::ReadOnly, },
-  {  OC::RawBufferStore,          "RawBufferStore",           OCC::RawBufferStore,           "rawBufferStore",             false,  true,  true, false, false, false,  true,  true, false, false, false, Attribute::None,     },
+  {  OC::RawBufferLoad,           "RawBufferLoad",            OCC::RawBufferLoad,            "rawBufferLoad",              false,  true,  true,  true, false, false,  true,  true,  true, false, false, Attribute::ReadOnly, },
+  {  OC::RawBufferStore,          "RawBufferStore",           OCC::RawBufferStore,           "rawBufferStore",             false,  true,  true,  true, false, false,  true,  true,  true, false, false, Attribute::None,     },
 
   // Raytracing object space uint System Values                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::InstanceID,              "InstanceID",               OCC::InstanceID,               "instanceID",                 false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },

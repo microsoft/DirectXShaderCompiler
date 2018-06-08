@@ -1154,7 +1154,7 @@ class db_dxil(object):
         # End of DXIL 1.1 opcodes.
         self.set_op_count_for_version(1, 1, next_op_idx)
 
-        self.add_dxil_op("RawBufferLoad", next_op_idx, "RawBufferLoad", "reads from a raw buffer and structured buffer", "hfwi", "ro", [
+        self.add_dxil_op("RawBufferLoad", next_op_idx, "RawBufferLoad", "reads from a raw buffer and structured buffer", "hfwidl", "ro", [
             db_dxil_param(0, "$r", "", "the loaded value"),
             db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
             db_dxil_param(3, "i32", "index", "element index for StructuredBuffer, or byte offset for ByteAddressBuffer"),
@@ -1163,7 +1163,7 @@ class db_dxil(object):
             db_dxil_param(6, "i32", "alignment", "relative load access alignment", is_const=True)])
         next_op_idx += 1
 
-        self.add_dxil_op("RawBufferStore", next_op_idx, "RawBufferStore", "writes to a RWByteAddressBuffer or RWStructuredBuffer", "hfwi", "", [
+        self.add_dxil_op("RawBufferStore", next_op_idx, "RawBufferStore", "writes to a RWByteAddressBuffer or RWStructuredBuffer", "hfwidl", "", [
             db_dxil_param(0, "v", "", ""),
             db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
             db_dxil_param(3, "i32", "index", "element index for StructuredBuffer, or byte offset for ByteAddressBuffer"),
