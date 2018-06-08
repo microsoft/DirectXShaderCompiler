@@ -20,6 +20,8 @@ if "%1"=="-x86" (
   set BUILD_ARCH=x64
 ) else if "%1"=="-arm" (
   set BUILD_ARCH=ARM
+) else if "%1"=="-arm64" (
+  set BUILD_ARCH=ARM64
 ) else (
   goto :donearch
 )
@@ -147,6 +149,11 @@ if errorlevel 1 (
   exit /b 1
 )
 echo Path adjusted to include TAEF te.exe.
+
+if "%BUILD_ARCH%"=="ARM" (
+  echo.
+  echo WARNING: ARM build is not supported. Your build may fail. Use ARM64 instead.
+)
 goto :eof
 
 :ifexistaddpath 
