@@ -364,6 +364,9 @@ ConvertHLSLVecMatTypeToExtVectorType(const clang::ASTContext &,
 bool IsHLSLVecMatType(clang::QualType);
 bool IsHLSLVecType(clang::QualType type);
 bool IsHLSLMatType(clang::QualType type);
+clang::QualType GetElementTypeOrType(clang::QualType type);
+bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor);
+bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm);
 bool IsHLSLInputPatchType(clang::QualType type);
 bool IsHLSLOutputPatchType(clang::QualType type);
 bool IsHLSLPointStreamType(clang::QualType type);

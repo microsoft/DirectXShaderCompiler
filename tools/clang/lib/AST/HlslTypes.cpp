@@ -124,6 +124,70 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   return false;
 }
 
+clang::QualType GetElementTypeOrType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+      dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
+      // TODO: check pointer instead of name
+      if (templateDecl->getName() == "vector") {
+        const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+        return argList[0].getAsType();
+      }
+      else if (templateDecl->getName() == "matrix") {
+        const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+        return argList[0].getAsType();
+      }
+    }
+  }
+  return type;
+}
+
+bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor) {
+  const AttributedType *AT = type->getAs<AttributedType>();
+  while (AT) {
+    AttributedType::Kind kind = AT->getAttrKind();
+    switch (kind) {
+    case AttributedType::attr_hlsl_row_major:
+      if (pIsRowMajor) *pIsRowMajor = true;
+      return true;
+    case AttributedType::attr_hlsl_column_major:
+      if (pIsRowMajor) *pIsRowMajor = false;
+      return true;
+    }
+    AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()->getAs<AttributedType>();
+  }
+  return false;
+}
+
+bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {
+  // snorm/unorm can be on outer vector/matrix as well as element type
+  // in the template form.  Outer-most type attribute wins.
+  // The following drills into attributed type for outer type,
+  // setting *pIsSNorm and returning true if snorm/unorm found.
+  // If not found on outer type, fall back to element type if different,
+  // indicating a vector or matrix, and try again.
+  clang::QualType elementType = GetElementTypeOrType(type);
+  while (true) {
+    const AttributedType *AT = type->getAs<AttributedType>();
+    while (AT) {
+      AttributedType::Kind kind = AT->getAttrKind();
+      switch (kind) {
+      case AttributedType::attr_hlsl_snorm:
+        if (pIsSNorm) *pIsSNorm = true;
+        return true;
+      case AttributedType::attr_hlsl_unorm:
+        if (pIsSNorm) *pIsSNorm = false;
+        return true;
+      }
+      AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()->getAs<AttributedType>();
+    }
+    if (type == elementType)
+      break;
+    type = elementType;
+  }
+  return false;
+}
+
 /// Checks whether the pAttributes indicate a parameter is inout or out; if
 /// inout, pIsIn will be set to true.
 bool IsParamAttributedAsOut(_In_opt_ clang::AttributeList *pAttributes,
