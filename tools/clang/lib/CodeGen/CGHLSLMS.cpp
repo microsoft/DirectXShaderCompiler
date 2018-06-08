@@ -781,21 +781,11 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
   QualType EltTy = Ty;
   if (hlsl::IsHLSLMatType(Ty)) {
     DxilMatrixAnnotation Matrix;
-    Matrix.Orientation = bDefaultRowMajor ? MatrixOrientation::RowMajor
-                                          : MatrixOrientation::ColumnMajor;
-    if (const AttributedType *AT = dyn_cast<AttributedType>(Ty)) {
-      switch (AT->getAttrKind()) {
-      case AttributedType::Kind::attr_hlsl_column_major:
-        Matrix.Orientation = MatrixOrientation::ColumnMajor;
-        break;
-      case AttributedType::Kind::attr_hlsl_row_major:
-        Matrix.Orientation = MatrixOrientation::RowMajor;
-        break;
-      default:
-        // Do nothing
-        break;
-      }
-    }
+    bool bRowMajor = bDefaultRowMajor;
+    HasHLSLMatOrientation(Ty, &bRowMajor);
+    Matrix.Orientation = bRowMajor ? MatrixOrientation::RowMajor
+                                   : MatrixOrientation::ColumnMajor;
+
 
     hlsl::GetHLSLMatRowColCount(Ty, Matrix.Rows, Matrix.Cols);
     fieldAnnotation.SetMatrixAnnotation(Matrix);
@@ -812,20 +802,8 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
 
   bool bSNorm = false;
   bool bUNorm = false;
-
-  if (const AttributedType *AT = dyn_cast<AttributedType>(Ty)) {
-    switch (AT->getAttrKind()) {
-    case AttributedType::Kind::attr_hlsl_snorm:
-      bSNorm = true;
-      break;
-    case AttributedType::Kind::attr_hlsl_unorm:
-      bUNorm = true;
-      break;
-    default:
-      // Do nothing
-      break;
-    }
-  }
+  if (HasHLSLUNormSNorm(Ty, &bSNorm) && !bSNorm)
+    bUNorm = true;
 
   if (EltTy->isBuiltinType()) {
     const BuiltinType *BTy = EltTy->getAs<BuiltinType>();
@@ -4714,16 +4692,9 @@ static const HLUnaryOpcode UnaryOperatorKindMap[] = {
 };
 
 static bool IsRowMajorMatrix(QualType Ty, bool bDefaultRowMajor) {
-  if (const AttributedType *AT = Ty->getAs<AttributedType>()) {
-    if (AT->getAttrKind() == AttributedType::attr_hlsl_row_major)
-      return true;
-    else if (AT->getAttrKind() == AttributedType::attr_hlsl_column_major)
-      return false;
-    else
-      return bDefaultRowMajor;
-  } else {
-    return bDefaultRowMajor;
-  }
+  bool bRowMajor = bDefaultRowMajor;
+  HasHLSLMatOrientation(Ty, &bRowMajor);
+  return bRowMajor;
 }
 
 static bool IsUnsigned(QualType Ty) {
