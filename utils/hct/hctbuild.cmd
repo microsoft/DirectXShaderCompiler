@@ -102,6 +102,9 @@ if "%1"=="-Release" (
   set BUILD_CONFIG=Release
   shift /1
 )
+if "%1"=="-vs2017" (
+  shift /1
+)
 if "%1"=="-vs2015" (
   set BUILD_GENERATOR=Visual Studio 14 2015
   set BUILD_VS_VER=2015
