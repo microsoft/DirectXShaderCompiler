@@ -763,6 +763,28 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
   }
 }
 
+namespace {
+MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
+  DXASSERT(hlsl::IsHLSLMatType(Ty), "");
+  bool bIsRowMajor = bDefaultRowMajor;
+  HasHLSLMatOrientation(Ty, &bIsRowMajor);
+  return bIsRowMajor ? MatrixOrientation::RowMajor
+                          : MatrixOrientation::ColumnMajor;
+}
+
+QualType GetArrayEltType(QualType Ty) {
+  // Get element type.
+  if (Ty->isArrayType()) {
+    while (isa<clang::ArrayType>(Ty)) {
+      const clang::ArrayType *ATy = dyn_cast<clang::ArrayType>(Ty);
+      Ty = ATy->getElementType();
+    }
+  }
+  return Ty;
+}
+
+} // namespace
+
 void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     DxilFieldAnnotation &fieldAnnotation, QualType fieldTy,
     bool bDefaultRowMajor) {
@@ -771,21 +793,13 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     Ty = Ty.getNonReferenceType();
 
   // Get element type.
-  if (Ty->isArrayType()) {
-    while (isa<clang::ArrayType>(Ty)) {
-      const clang::ArrayType *ATy = dyn_cast<clang::ArrayType>(Ty);
-      Ty = ATy->getElementType();
-    }
-  }
+  Ty = GetArrayEltType(Ty);
 
   QualType EltTy = Ty;
   if (hlsl::IsHLSLMatType(Ty)) {
     DxilMatrixAnnotation Matrix;
-    bool bRowMajor = bDefaultRowMajor;
-    HasHLSLMatOrientation(Ty, &bRowMajor);
-    Matrix.Orientation = bRowMajor ? MatrixOrientation::RowMajor
-                                   : MatrixOrientation::ColumnMajor;
 
+    Matrix.Orientation = GetMatrixMajor(Ty, bDefaultRowMajor);
 
     hlsl::GetHLSLMatRowColCount(Ty, Matrix.Rows, Matrix.Cols);
     fieldAnnotation.SetMatrixAnnotation(Matrix);
@@ -6269,11 +6283,24 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     clang::QualType DestTy) {
   llvm::Type *SrcPtrTy = SrcPtr->getType()->getPointerElementType();
   llvm::Type *DestPtrTy = DestPtr->getType()->getPointerElementType();
+
+  bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
   if (SrcPtrTy == DestPtrTy) {
-    // Memcpy if type is match.
-    unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
-    CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
-    return;
+    bool bMatArrayRotate = false;
+    if (HLMatrixLower::IsMatrixArrayPointer(SrcPtr->getType())) {
+      QualType SrcEltTy = GetArrayEltType(SrcTy);
+      QualType DestEltTy = GetArrayEltType(DestTy);
+      if (GetMatrixMajor(SrcEltTy, bDefaultRowMajor) !=
+          GetMatrixMajor(DestEltTy, bDefaultRowMajor)) {
+        bMatArrayRotate = true;
+      }
+    }
+    if (!bMatArrayRotate) {
+      // Memcpy if type is match.
+      unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+      CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
+      return;
+    }
   } else if (HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(SrcPtrTy)) &&
              HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(DestPtrTy))) {
     unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
