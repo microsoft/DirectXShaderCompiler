@@ -126,10 +126,15 @@ bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor) {
 }
 
 bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {
+  // snorm/unorm can be on outer vector/matrix as well as element type
+  // in the template form.  Outer-most type attribute wins.
+  // The following drills into attributed type for outer type,
+  // setting *pIsSNorm and returning true if snorm/unorm found.
+  // If not found on outer type, fall back to element type if different,
+  // indicating a vector or matrix, and try again.
   clang::QualType elementType = GetElementTypeOrType(type);
-  const AttributedType *AT = type->getAs<AttributedType>();
-  bool bFirst = true;
-  while (bFirst) {
+  while (true) {
+    const AttributedType *AT = type->getAs<AttributedType>();
     while (AT) {
       AttributedType::Kind kind = AT->getAttrKind();
       switch (kind) {
@@ -142,12 +147,9 @@ bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {
       }
       AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()->getAs<AttributedType>();
     }
-    if (bFirst && type != elementType) {
-      AT = elementType->getAs<AttributedType>();
-    } else {
+    if (type == elementType)
       break;
-    }
-    bFirst = false;
+    type = elementType;
   }
   return false;
 }
