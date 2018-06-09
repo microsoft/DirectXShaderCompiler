@@ -624,7 +624,7 @@ void UpdateOperandSelect(Instruction *SelInst, Instruction *Prototype,
 
 void RemovePhiOnResourceImp(Function *F, hlsl::OP *hlslOP) {
   Value *opArg = hlslOP->GetU32Const(
-      (unsigned)DXIL::OpCode::CreateHandleFromResourceStructForLib);
+      (unsigned)DXIL::OpCode::CreateHandleForLib);
 
   // Remove PhiNode createHandle first.
   std::vector<Instruction *> resSelects;
@@ -635,7 +635,7 @@ void RemovePhiOnResourceImp(Function *F, hlsl::OP *hlslOP) {
       continue;
     // must be call inst
     CallInst *CI = cast<CallInst>(user);
-    DxilInst_CreateHandleFromResourceStructForLib createHandle(CI);
+    DxilInst_CreateHandleForLib createHandle(CI);
     Value *res = createHandle.get_Resource();
     if (isa<SelectInst>(res) || isa<PHINode>(res))
       dxilutil::CollectSelect(cast<Instruction>(res), selectSet);
@@ -686,7 +686,7 @@ void DxilLowerCreateHandleForLib::RemovePhiOnResource() {
     if (hlslOP->IsDxilOpFunc(&F)) {
       hlsl::OP::OpCodeClass opClass;
       if (hlslOP->GetOpCodeClass(&F, opClass) &&
-          opClass == DXIL::OpCodeClass::CreateHandleFromResourceStructForLib) {
+          opClass == DXIL::OpCodeClass::CreateHandleForLib) {
         RemovePhiOnResourceImp(&F, hlslOP);
       }
     }
@@ -904,7 +904,7 @@ void ReplaceResourceUserWithHandle(
     LoadInst *Res, Value *handle) {
   for (auto resUser = Res->user_begin(); resUser != Res->user_end();) {
     CallInst *CI = dyn_cast<CallInst>(*(resUser++));
-    DxilInst_CreateHandleFromResourceStructForLib createHandle(CI);
+    DxilInst_CreateHandleForLib createHandle(CI);
     DXASSERT(createHandle, "must be createHandle");
     CI->replaceAllUsesWith(handle);
     CI->eraseFromParent();

@@ -635,7 +635,7 @@ TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
   RegisterDxcModule(libName2, pLib2, pLinker);
 
   Link(L"", L"lib_6_2", pLinker, { libName1, libName2 }, {
-    "declare %dx.types.Handle @\"dx.op.createHandleFromResourceStructForLib.class.Texture2D<vector<float, 4> >\"(i32, %\"class.Texture2D<vector<float, 4> >\")",
-    "declare %dx.types.Handle @\"dx.op.createHandleFromResourceStructForLib.class.Texture2D<float>\"(i32, %\"class.Texture2D<float>\")"
+    "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Texture2D<vector<float, 4> >\"(i32, %\"class.Texture2D<vector<float, 4> >\")",
+    "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Texture2D<float>\"(i32, %\"class.Texture2D<float>\")"
   }, { });
 }

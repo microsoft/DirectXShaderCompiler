@@ -213,6 +213,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Hull shader                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::StorePatchConstant,      "StorePatchConstant",       OCC::StorePatchConstant,       "storePatchConstant",         false,  true,  true, false, false, false,  true,  true, false, false, false, Attribute::None,     },
   {  OC::OutputControlPointID,    "OutputControlPointID",     OCC::OutputControlPointID,     "outputControlPointID",       false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
+
+  // Hull, Domain and Geometry shaders                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
   {  OC::PrimitiveID,             "PrimitiveID",              OCC::PrimitiveID,              "primitiveID",                false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
 
   // Other                                                                                                                  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
@@ -305,7 +307,10 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::CallShader,              "CallShader",               OCC::CallShader,               "callShader",                 false, false, false, false, false, false, false, false, false,  true, false, Attribute::None,     },
 
   // Library create handle from resource struct (like HL intrinsic)                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
-  {  OC::CreateHandleFromResourceStructForLib, "CreateHandleFromResourceStructForLib", OCC::CreateHandleFromResourceStructForLib, "createHandleFromResourceStructForLib",  false, false, false, false, false, false, false, false, false, false,  true, Attribute::ReadOnly, },
+  {  OC::CreateHandleForLib,      "CreateHandleForLib",       OCC::CreateHandleForLib,       "createHandleForLib",         false, false, false, false, false, false, false, false, false, false,  true, Attribute::ReadOnly, },
+
+  // Raytracing object space uint System Values                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute
+  {  OC::PrimitiveIndex,          "PrimitiveIndex",           OCC::PrimitiveIndex,           "primitiveIndex",             false, false, false, false, false, false, false,  true, false, false, false, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
 
@@ -792,6 +797,8 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
     // Hull shader
   case OpCode::StorePatchConstant:     A(pV);       A(pI32); A(pI32); A(pI32); A(pI8);  A(pETy); break;
   case OpCode::OutputControlPointID:   A(pI32);     A(pI32); break;
+
+    // Hull, Domain and Geometry shaders
   case OpCode::PrimitiveID:            A(pI32);     A(pI32); break;
 
     // Other
@@ -884,7 +891,10 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::CallShader:             A(pV);       A(pI32); A(pI32); A(udt);  break;
 
     // Library create handle from resource struct (like HL intrinsic)
-  case OpCode::CreateHandleFromResourceStructForLib:A(pRes);     A(pI32); A(obj);  break;
+  case OpCode::CreateHandleForLib:     A(pRes);     A(pI32); A(obj);  break;
+
+    // Raytracing object space uint System Values
+  case OpCode::PrimitiveIndex:         A(pI32);     A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -993,7 +1003,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::UAddc:
   case OpCode::USubb:
   case OpCode::WaveActiveAllEqual:
-  case OpCode::CreateHandleFromResourceStructForLib:
+  case OpCode::CreateHandleForLib:
     DXASSERT_NOMSG(FT->getNumParams() > 1);
     return FT->getParamType(1);
   case OpCode::TextureStore:
@@ -1059,6 +1069,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::RayFlags:
   case OpCode::DispatchRaysIndex:
   case OpCode::DispatchRaysDimensions:
+  case OpCode::PrimitiveIndex:
     return IntegerType::get(m_Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:

@@ -326,11 +326,11 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                 DXASSERT(false, "Resource class must be constant.");
               }
             }
-            else if (handleOp == DXIL::OpCode::CreateHandleFromResourceStructForLib) {
+            else if (handleOp == DXIL::OpCode::CreateHandleForLib) {
               // If library handle, find DxilResource by checking the name
               if (LoadInst *LI = dyn_cast<LoadInst>(handleCall->getArgOperand(
                       DXIL::OperandIndex::
-                          kCreateHandleFromResourceStructForLibResOpIdx))) {
+                          kCreateHandleForLibResOpIdx))) {
                 Value *resType = LI->getOperand(0);
                 for (auto &&res : M->GetUAVs()) {
                   if (res->GetGlobalSymbol() == resType) {

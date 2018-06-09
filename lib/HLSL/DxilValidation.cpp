@@ -609,7 +609,7 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
     return (pSM->IsGS());
   // Instructions: PrimitiveID=108
   if (op == 108)
-    return (pSM->IsGS() || pSM->IsDS() || pSM->IsHS() || pSM->IsPS() || pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit);
+    return (pSM->IsGS() || pSM->IsDS() || pSM->IsHS());
   // Instructions: StorePatchConstant=106, OutputControlPointID=107
   if (106 <= op && op <= 107)
     return (pSM->IsHS());
@@ -631,7 +631,7 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: RawBufferLoad=139, RawBufferStore=140
   if (139 <= op && op <= 140)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 2));
-  // Instructions: CreateHandleFromResourceStructForLib=160
+  // Instructions: CreateHandleForLib=160
   if (op == 160)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3));
   // Instructions: IgnoreHit=155, AcceptHitAndEndSearch=156
@@ -648,8 +648,8 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
         && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection);
   // Instructions: InstanceID=141, InstanceIndex=142, HitKind=143,
   // ObjectRayOrigin=149, ObjectRayDirection=150, ObjectToWorld=151,
-  // WorldToObject=152
-  if (141 <= op && op <= 143 || 149 <= op && op <= 152)
+  // WorldToObject=152, PrimitiveIndex=161
+  if (141 <= op && op <= 143 || 149 <= op && op <= 152 || op == 161)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
         && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit);
   // Instructions: RayFlags=144, WorldRayOrigin=147, WorldRayDirection=148,
@@ -747,7 +747,7 @@ static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle, ValidationContext 
       return EmitError();
     }
 
-    DxilInst_CreateHandleFromResourceStructForLib createHandleFromRes(
+    DxilInst_CreateHandleForLib createHandleFromRes(
         cast<CallInst>(samplerHandle));
     if (!createHandleFromRes) {
       return EmitError();
@@ -831,7 +831,7 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
     if (!ValCtx.isLibProfile) {
       return EmitError();
     }
-    DxilInst_CreateHandleFromResourceStructForLib createHandleFromRes(
+    DxilInst_CreateHandleForLib createHandleFromRes(
         cast<CallInst>(handle));
     if (!createHandleFromRes) {
       return EmitError();
@@ -1211,7 +1211,7 @@ static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
     if (!ValCtx.isLibProfile) {
       return EmitError();
     }
-    DxilInst_CreateHandleFromResourceStructForLib createHandleFromRes(
+    DxilInst_CreateHandleForLib createHandleFromRes(
         cast<CallInst>(cbHandle));
     if (!createHandleFromRes) {
       return EmitError();
@@ -2075,9 +2075,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
                              {"QuadReadLaneAt", "Pixel Shader"});
     break;
-  case DXIL::OpCode::CreateHandleFromResourceStructForLib:
+  case DXIL::OpCode::CreateHandleForLib:
     ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
-                           {"CreateHandleFromResourceStructForLib", "Library"});
+                           {"CreateHandleForLib", "Library"});
     break;
   default:
     // Skip opcodes don't need special check.

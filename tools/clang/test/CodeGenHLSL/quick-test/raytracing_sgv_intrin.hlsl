@@ -24,7 +24,7 @@
 
 // CHECK: call float @dx.op.rayTMin.f32(i32 153)
 // CHECK: call float @dx.op.rayTCurrent.f32(i32 154)
-// CHECK: call i32 @dx.op.primitiveID.i32(i32 108)
+// CHECK: call i32 @dx.op.primitiveIndex.i32(i32 161)
 // CHECK: call i32 @dx.op.instanceID.i32(i32 141)
 // CHECK: call i32 @dx.op.instanceIndex.i32(i32 142)
 // CHECK: call i32 @dx.op.hitKind.i32(i32 143)
