@@ -309,6 +309,10 @@ bool Declarator::isDeclarationOfFunction() const {
     case TST_unspecified:
     case TST_void:
     case TST_wchar:
+    // HLSL Change Starts
+    case TST_min10float:
+    case TST_min12int:
+    // HLSL Change Ends
       return false;
 
     case TST_decltype_auto:

@@ -286,6 +286,9 @@ spv::Op translateAtomicHlslOpcodeToSpirvOpcode(hlsl::IntrinsicOp opcode) {
   case IntrinsicOp::IOP_InterlockedExchange:
   case IntrinsicOp::MOP_InterlockedExchange:
     return Op::OpAtomicExchange;
+  default:
+    // Only atomic opcodes are relevant.
+    break;
   }
 
   assert(false && "unimplemented hlsl intrinsic opcode");
@@ -329,6 +332,9 @@ bool isAcceptedSpecConstantBinaryOp(spv::Op op) {
   case spv::Op::OpUGreaterThanEqual:
   case spv::Op::OpSGreaterThanEqual:
     return true;
+  default:
+    // Accepted binary opcodes return true. Anything else is false.
+    return false;
   }
   return false;
 }
@@ -510,6 +516,9 @@ spv::Capability getCapabilityForGroupNonUniform(spv::Op opcode) {
   case spv::Op::OpGroupNonUniformQuadBroadcast:
   case spv::Op::OpGroupNonUniformQuadSwap:
     return spv::Capability::GroupNonUniformQuad;
+  default:
+    assert(false && "unhandled opcode");
+    break;
   }
   assert(false && "unhandled opcode");
   return spv::Capability::Max;
@@ -5194,6 +5203,12 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   }
   case BO_Assign:
     llvm_unreachable("assignment should not be handled here");
+    break;
+  case BO_PtrMemD:
+  case BO_PtrMemI:
+  case BO_Comma:
+    // Unimplemented
+    break;
   }
 
   emitError("binary operator '%0' unimplemented", lhs->getExprLoc())
@@ -7017,6 +7032,9 @@ spv::Op SPIRVEmitter::translateWaveOp(hlsl::IntrinsicOp op, QualType type,
     WAVE_OP_CASE_SINT_UINT_FLOAT(ActiveMax, SMax, UMax, FMax);
     WAVE_OP_CASE_SINT_UINT_FLOAT(ActiveUMin, SMin, UMin, FMin);
     WAVE_OP_CASE_SINT_UINT_FLOAT(ActiveMin, SMin, UMin, FMin);
+  default:
+    // Only Simple Wave Ops are handled here.
+    break;
   }
 #undef WAVE_OP_CASE_INT_FLOAT
 #undef WAVE_OP_CASE_INT
@@ -8442,6 +8460,10 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
     case spv::Op::OpFwidthFine:
     case spv::Op::OpFwidthCoarse:
       needsLegalization = true;
+      break;
+    default:
+      // Only the given opcodes need legalization. Anything else should preserve previous.
+      break;
     }
 
   const uint32_t returnType = typeTranslator.translateType(callExpr->getType());

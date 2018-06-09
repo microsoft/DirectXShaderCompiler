@@ -789,6 +789,12 @@ void HLMatrixLowerPass::lowerToVec(Instruction *matInst) {
     case HLOpcodeGroup::HLSubscript: {
       vecInst = MatSubscriptToVec(CI);
     } break;
+    case HLOpcodeGroup::NotHL:
+    case HLOpcodeGroup::HLExtIntrinsic:
+    case HLOpcodeGroup::HLCreateHandle:
+    case HLOpcodeGroup::NumOfHLOps:
+      // Not matrix instructions
+      break;
     }
   } else if (AllocaInst *AI = dyn_cast<AllocaInst>(matInst)) {
     Type *Ty = AI->getAllocatedType();
@@ -841,6 +847,12 @@ void HLMatrixLowerPass::TrivialMatUnOpReplace(CallInst *matInst,
   case HLUnaryOpcode::PostDec:
   case HLUnaryOpcode::PreDec:
     vecUseInst->setOperand(0, vecInst);
+    break;
+  case HLUnaryOpcode::Invalid:
+  case HLUnaryOpcode::Plus:
+  case HLUnaryOpcode::Minus:
+  case HLUnaryOpcode::NumOfUO:
+    // No VecInst replacements for these.
     break;
   }
 }
@@ -2089,6 +2101,12 @@ void HLMatrixLowerPass::replaceMatWithVec(Instruction *matInst,
         DXASSERT(!isa<AllocaInst>(matInst), "array of matrix init should lowered in StoreInitListToDestPtr at CGHLSLMS.cpp");
         TranslateMatInit(useCall);
       } break;
+      case HLOpcodeGroup::NotHL:
+      case HLOpcodeGroup::HLExtIntrinsic:
+      case HLOpcodeGroup::HLCreateHandle:
+      case HLOpcodeGroup::NumOfHLOps:
+      // No vector equivalents for these ops.
+	break;
       }
     } else if (dyn_cast<BitCastInst>(useInst)) {
       // Just replace the src with vec version.

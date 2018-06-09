@@ -224,6 +224,9 @@ uint32_t ModuleBuilder::createUnaryOp(spv::Op op, uint32_t resultType,
   case spv::Op::OpImageQuerySamples:
     requireCapability(spv::Capability::ImageQuery);
     break;
+  default:
+    // Only checking for ImageQueries, the other Ops can be ignored.
+    break;
   }
   return id;
 }
@@ -238,6 +241,9 @@ uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
   case spv::Op::OpImageQueryLod:
   case spv::Op::OpImageQuerySizeLod:
     requireCapability(spv::Capability::ImageQuery);
+    break;
+  default:
+    // Only checking for ImageQueries, the other Ops can be ignored.
     break;
   }
   return id;
@@ -1097,6 +1103,10 @@ uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
   case spv::ImageFormat::R16ui:
   case spv::ImageFormat::R8ui:
     requireCapability(spv::Capability::StorageImageExtendedFormats);
+    break;
+  default:
+    // Only image formats requiring extended formats are relevant. The rest just pass through.
+    break;
   }
 
   if (dim == spv::Dim::Dim1D) {

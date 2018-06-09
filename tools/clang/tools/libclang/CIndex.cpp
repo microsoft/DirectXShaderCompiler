@@ -5326,6 +5326,8 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
     if (NamedDecl *Friend = cast<FriendTemplateDecl>(D)->getFriendDecl())
       return clang_getCursorDefinition(MakeCXCursor(Friend, TU));
     return clang_getNullCursor();
+  case Decl::HLSLBuffer: // HLSL Change
+    return clang_getNullCursor(); // HLSL Change
   }
 
   return clang_getNullCursor();

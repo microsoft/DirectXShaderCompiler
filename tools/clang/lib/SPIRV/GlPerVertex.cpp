@@ -192,6 +192,9 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
     isCull = true;
     index = gCullDistanceIndex;
     break;
+  default:
+    // Only Cull or Clip apply.
+    break;
   }
 
   // Remember the semantic strings provided by the developer so that we can
@@ -367,6 +370,9 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
       return true;
 
     return writeField(semanticKind, semanticIndex, invocationId, value);
+  default:
+    // Only interfaces that involve gl_PerVertex are needed.
+    break;
   }
 
   return false;
@@ -486,6 +492,9 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
                                      typeIter->second);
     return true;
   }
+  default:
+    // Only Cull or Clip apply.
+    break;
   }
   return false;
 }
@@ -621,6 +630,9 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
                                offsetIter->second, typeIter->second, *value);
     return true;
   }
+  default:
+    // Only Cull or Clip apply.
+    break;
   }
   return false;
 }
