@@ -19,7 +19,7 @@ before_build:
 - cmd: call utils\hct\hctstart %HLSL_SRC_DIR% %HLSL_BLD_DIR%
 
 build_script:
-- cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -vs2017 -spirvtest
+- cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -spirvtest
 
 test_script:
 - ps:  utils\appveyor\appveyor_test.ps1

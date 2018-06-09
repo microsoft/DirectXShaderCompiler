@@ -12,14 +12,15 @@ get_filename_component(VS15_P_PATH32 "C:/Program Files (x86)/Microsoft Visual St
 get_filename_component(VS15_E_PATH32 "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/Common7/IDE" ABSOLUTE CACHE)
 
 # Find the TAEF path, it will typically look something like this.
+# C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\DIA SDK\include
 # C:\Program Files (x86)\Microsoft Visual Studio 14.0\DIA SDK\include\dia2.h
 find_path(DIASDK_INCLUDE_DIR    # Set variable DIASDK_INCLUDE_DIR
           dia2.h                # Find a path with dia2.h
+          HINTS "${VS15_C_PATH32}/../../DIA SDK/include" 
+          HINTS "${VS15_P_PATH32}/../../DIA SDK/include"
+          HINTS "${VS15_E_PATH32}/../../DIA SDK/include"
           HINTS "${VS_PATH64}/../../DIA SDK/include"
-		  HINTS "${VS_PATH32}/../../DIA SDK/include"
-		  HINTS "${VS15_C_PATH32}/../../DIA SDK/include"
-		  HINTS "${VS15_P_PATH32}/../../DIA SDK/include"
-		  HINTS "${VS15_E_PATH32}/../../DIA SDK/include"
+          HINTS "${VS_PATH32}/../../DIA SDK/include"
           DOC "path to DIA SDK header files"
           HINTS
           )
