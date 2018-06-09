@@ -40,8 +40,8 @@ if "%BUILD_ARCH%"=="" (
   set BUILD_ARCH=Win32
 )
 
-set BUILD_GENERATOR=Visual Studio 14 2015
-set BUILD_VS_VER=2015
+set BUILD_GENERATOR=Visual Studio 15 2017
+set BUILD_VS_VER=2017
 set BUILD_CONFIG=Debug
 set DO_SETUP=1
 set DO_BUILD=1
@@ -86,11 +86,11 @@ if "%1"=="-x64" (
   set BUILD_ARCH=x64
   shift /1
 )
-if "%1"=="-arm" (
+if /i "%1"=="-arm" (
   set BUILD_ARCH=ARM
   shift /1
 )
-if "%1"=="-arm64" (
+if /i "%1"=="-arm64" (
   set BUILD_ARCH=ARM64
   shift /1
 )
@@ -103,8 +103,11 @@ if "%1"=="-Release" (
   shift /1
 )
 if "%1"=="-vs2017" (
-  set BUILD_GENERATOR=Visual Studio 15 2017
-  set BUILD_VS_VER=2017
+  shift /1
+)
+if "%1"=="-vs2015" (
+  set BUILD_GENERATOR=Visual Studio 14 2015
+  set BUILD_VS_VER=2015
   shift /1
 )
 
@@ -211,20 +214,14 @@ echo Cross-compiling enabled.
 
 rem This parameter is used with vcvarsall to force use of 64-bit build tools
 rem instead of 32-bit tools that run out of memory.
-if "%BUILD_ARCH%"=="Win32" (
+if /i "%BUILD_ARCH%"=="Win32" (
   set BUILD_TOOLS=amd64_x86
-) else if "%BUILD_ARCH%"=="x64" (
+) else if /i "%BUILD_ARCH%"=="x64" (
   set BUILD_TOOLS=amd64
-) else if "%BUILD_ARCH%"=="ARM" (
+) else if /i "%BUILD_ARCH%"=="ARM" (
   set BUILD_TOOLS=amd64_arm
-) else if "%BUILD_ARCH%"=="ARM64" (
+) else if /i "%BUILD_ARCH%"=="ARM64" (
   set BUILD_TOOLS=amd64_arm64
-)
-
-if "%BUILD_ARCH%"=="ARM" (
-  echo.
-  echo WARNING: ARM build is not supported. Your build may fail. Use ARM64 instead.
-  echo.
 )
 
 call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%"
@@ -242,7 +239,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-ninja] [-tblgen path]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -265,7 +262,7 @@ echo.
 echo AppVeyor Support
 echo   -Release builds release
 echo   -Debug builds debug
-echo   -vs2017 uses Visual Studio 2017 to build
+echo   -vs2015 uses Visual Studio 2015 to build; ARM64 not supported 
 echo.
 echo ARM build support
 echo   -tblgen sets path to x86 or x64 versions of clang-tblgen and llvm-tblgen tools
