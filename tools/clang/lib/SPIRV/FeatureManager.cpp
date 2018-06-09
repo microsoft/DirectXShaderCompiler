@@ -185,6 +185,10 @@ bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
     case Extension::KHR_multiview:
     case Extension::KHR_shader_draw_parameters:
       required = false;
+      break;
+    default:
+      // Only 1.1 extensions can be suppressed.
+      required = true;
     }
   }
 

@@ -1052,6 +1052,9 @@ HRESULT RootSignatureParser::ParseRegister(TokenType::Type RegType, uint32_t & R
         case TokenType::SReg:
             IFC(Error(ERR_RS_INCORRECT_REGISTER_TYPE, "Incorrect register type '%s' in Sampler/StaticSampler (expected s#)", Token.GetStr()));
             break;
+        default:
+          // Only Register types are relevant.
+	  break;
         }
     }
 

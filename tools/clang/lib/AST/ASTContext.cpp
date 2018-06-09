@@ -4618,6 +4618,8 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
     case FloatRank:      return FloatComplexTy;
     case DoubleRank:     return DoubleComplexTy;
     case LongDoubleRank: return LongDoubleComplexTy;
+    case LitFloatRank:   llvm_unreachable("Complex LitFloat is not supported");  // HLSL Change
+    case Min10FloatRank: llvm_unreachable("Complex Min10Float is not supported"); // HLSL Change
     }
   }
 
@@ -5457,6 +5459,13 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
     case BuiltinType::KIND:
 #include "clang/AST/BuiltinTypes.def"
       llvm_unreachable("invalid builtin type for @encode");
+    // HLSL Change Start
+    case BuiltinType::Min12Int:
+    case BuiltinType::Min10Float:
+    case BuiltinType::LitInt:
+    case BuiltinType::LitFloat:
+      llvm_unreachable("@encoding HLSL primitive type");
+    // HLSL Change Ends
     }
     llvm_unreachable("invalid BuiltinType::Kind value");
 }

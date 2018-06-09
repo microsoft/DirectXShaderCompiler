@@ -484,6 +484,24 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastKind CK, Expr *Op,
   case CK_BuiltinFnToFnPtr:
   case CK_ZeroToOCLEvent:
   case CK_AddressSpaceConversion:
+  // HLSL Change Start
+  case CK_FlatConversion:
+  case CK_HLSLVectorSplat:
+  case CK_HLSLMatrixSplat:
+  case CK_HLSLVectorToScalarCast:
+  case CK_HLSLMatrixToScalarCast:
+  case CK_HLSLVectorTruncationCast:
+  case CK_HLSLMatrixTruncationCast:
+  case CK_HLSLVectorToMatrixCast:
+  case CK_HLSLMatrixToVectorCast:
+  case CK_HLSLDerivedToBase:
+  case CK_HLSLCC_IntegralCast:
+  case CK_HLSLCC_IntegralToBoolean:
+  case CK_HLSLCC_IntegralToFloating:
+  case CK_HLSLCC_FloatingToIntegral:
+  case CK_HLSLCC_FloatingToBoolean:
+  case CK_HLSLCC_FloatingCast:
+  // HLSL Change End
     llvm_unreachable("invalid cast kind for complex value");
 
   case CK_FloatingRealToComplex:

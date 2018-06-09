@@ -5725,8 +5725,10 @@ static bool isHLSLTypeAttr(AttributeList::Kind Kind) {
   case AttributeList::AT_HLSLSnorm:
   case AttributeList::AT_HLSLUnorm:
     return true;
+  default:
+    // Only meant to catch attr handled by handleHLSLTypeAttr, ignore the rest
+    return false;
   }
-  return false;
 }
 
 static bool handleHLSLTypeAttr(TypeProcessingState &State,

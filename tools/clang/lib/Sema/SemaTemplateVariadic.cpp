@@ -740,6 +740,10 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
   case TST_decltype_auto:
   case TST_unknown_anytype:
   case TST_error:
+  // HLSL Change Start
+  case TST_min10float:
+  case TST_min12int:
+  // HLSL Change End
     break;
   }
 

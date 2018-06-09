@@ -460,6 +460,9 @@ bool IsParamAttributedAsOut(clang::AttributeList *pAttributes, bool *pIsIn) {
       outFound = true;
       inFound = true;
       break;
+    default:
+      // Ignore the majority of attributes that don't have in/out characteristics
+      break;
     }
     pAttributes = pAttributes->getNext();
   }
@@ -502,6 +505,9 @@ HLSLScalarType MakeUnsigned(HLSLScalarType T) {
         return HLSLScalarType_uint64;
     case HLSLScalarType_int16:
         return HLSLScalarType_uint16;
+    default:
+        // Only signed int types are relevant.
+        break;
     }
     return T;
 }
