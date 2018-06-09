@@ -353,7 +353,7 @@ private:
 namespace {
 void TranslateHLCreateHandle(Function *F, hlsl::OP &hlslOP) {
   Value *opArg = hlslOP.GetU32Const(
-      (unsigned)DXIL::OpCode::CreateHandleFromResourceStructForLib);
+      (unsigned)DXIL::OpCode::CreateHandleForLib);
 
   for (auto U = F->user_begin(); U != F->user_end();) {
     Value *user = *(U++);
@@ -367,7 +367,7 @@ void TranslateHLCreateHandle(Function *F, hlsl::OP &hlslOP) {
     // Res could be ld/phi/select. Will be removed in
     // DxilLowerCreateHandleForLib.
     Function *createHandle = hlslOP.GetOpFunc(
-        DXIL::OpCode::CreateHandleFromResourceStructForLib, res->getType());
+        DXIL::OpCode::CreateHandleForLib, res->getType());
     newHandle = Builder.CreateCall(createHandle, {opArg, res});
 
     CI->replaceAllUsesWith(newHandle);
@@ -620,7 +620,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
     std::unordered_set<Value *> &NonUniformSet) {
   // For CBuffer, handle are mapped to HLCreateHandle.
   OP *hlslOP = m_pHLModule->GetOP();
-  Value *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CreateHandleFromResourceStructForLib);
+  Value *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CreateHandleForLib);
   LLVMContext &Ctx = hlslOP->GetCtx();
   Value *zeroIdx = hlslOP->GetU32Const(0);
 
@@ -644,7 +644,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
 
     if (CB.GetRangeSize() == 1) {
       Function *createHandle =
-          hlslOP->GetOpFunc(OP::OpCode::CreateHandleFromResourceStructForLib,
+          hlslOP->GetOpFunc(OP::OpCode::CreateHandleForLib,
                             GV->getType()->getElementType());
       for (auto U = GV->user_begin(); U != GV->user_end(); ) {
         // Must HLCreateHandle.
@@ -665,7 +665,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
       Type *EltTy = Ty->getElementType()->getArrayElementType()->getPointerTo(
           Ty->getAddressSpace());
       Function *createHandle = hlslOP->GetOpFunc(
-          OP::OpCode::CreateHandleFromResourceStructForLib, EltTy->getPointerElementType());
+          OP::OpCode::CreateHandleForLib, EltTy->getPointerElementType());
 
       for (auto U = GV->user_begin(); U != GV->user_end();) {
         // Must HLCreateHandle.

@@ -293,8 +293,8 @@ class db_dxil(object):
             self.name_idx[i].category = "Hull shader"
             self.name_idx[i].shader_stages = ("hull",)
         for i in "PrimitiveID".split(","):
-            self.name_idx[i].category = "Hull shader"
-            self.name_idx[i].shader_stages = ("geometry", "domain", "hull", "pixel","library","intersection","anyhit","closesthit")		
+            self.name_idx[i].category = "Hull, Domain and Geometry shaders"
+            self.name_idx[i].shader_stages = ("geometry", "domain", "hull")
         for i in "ViewID".split(","):
             self.name_idx[i].category = "Graphics shader"
             self.name_idx[i].shader_stages = ("vertex", "hull", "domain", "geometry", "pixel")
@@ -318,7 +318,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Ray Dispatch Arguments"
             self.name_idx[i].shader_model = 6,3
             self.name_idx[i].shader_stages = ("library", "raygeneration","intersection","anyhit", "closesthit","miss","callable")
-        for i in "InstanceID,InstanceIndex".split(","):
+        for i in "InstanceID,InstanceIndex,PrimitiveIndex".split(","):
             self.name_idx[i].category = "Raytracing object space uint System Values"
             self.name_idx[i].shader_model = 6,3
             self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit")
@@ -362,7 +362,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Indirect Shader Invocation"
             self.name_idx[i].shader_model = 6,3
             self.name_idx[i].shader_stages = ("library", "intersection")
-        for i in "CreateHandleFromResourceStructForLib".split(","):
+        for i in "CreateHandleForLib".split(","):
             self.name_idx[i].category = "Library create handle from resource struct (like HL intrinsic)"
             self.name_idx[i].shader_model = 6,3
 
@@ -1286,10 +1286,19 @@ class db_dxil(object):
             db_dxil_param(3, "udt", "Parameter", "User-defined parameters to pass to the callable shader,This parameter structure must match the parameter structure used in the callable shader pointed to in the shader table")])
         next_op_idx += 1
 
-        self.add_dxil_op("CreateHandleFromResourceStructForLib", next_op_idx, "CreateHandleFromResourceStructForLib", "create resource handle from resource struct for library", "o", "ro", [
+        self.add_dxil_op("CreateHandleForLib", next_op_idx, "CreateHandleForLib", "create resource handle from resource struct for library", "o", "ro", [
             db_dxil_param(0, "res", "", "result"),
             db_dxil_param(2, "obj", "Resource", "resource to create the handle")])
         next_op_idx += 1
+
+        # Maps to PrimitiveIndex() intrinsics for raytracing (same meaning as PrimitiveID)
+        self.add_dxil_op("PrimitiveIndex", next_op_idx, "PrimitiveIndex", "PrimitiveIndex for raytracing shaders", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result")])
+        next_op_idx += 1
+
+        # End of DXIL 1.3 opcodes.
+        self.set_op_count_for_version(1, 3, next_op_idx)
+        assert next_op_idx == 162, "next operation index is %d rather than 162 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()

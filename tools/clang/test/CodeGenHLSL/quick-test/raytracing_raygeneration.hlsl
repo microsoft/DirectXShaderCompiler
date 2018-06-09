@@ -9,7 +9,7 @@
 // CHECK:   call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 0)
 // CHECK:   call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 1)
 // CHECK:   call i32 @dx.op.dispatchRaysDimensions.i32(i32 146, i8 0)
-// CHECK:   %[[i_8:[0-9]+]] = call %dx.types.Handle @dx.op.createHandleFromResourceStructForLib.struct.RaytracingAccelerationStructure(i32 160, %struct.RaytracingAccelerationStructure %[[i_0]])
+// CHECK:   %[[i_8:[0-9]+]] = call %dx.types.Handle @dx.op.createHandleForLib.struct.RaytracingAccelerationStructure(i32 160, %struct.RaytracingAccelerationStructure %[[i_0]])
 // CHECK:   call void @dx.op.traceRay.struct.MyPayload(i32 157, %dx.types.Handle %[[i_8]], i32 0, i32 0, i32 0, i32 1, i32 0, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.250000e-01, float {{.*}}, float {{.*}}, float {{.*}}, float 1.280000e+02, %struct.MyPayload* nonnull {{.*}})
 // CHECK:   ret void
 

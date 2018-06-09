@@ -4464,7 +4464,7 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_ObjectRayDirection, TranslateNoArgVectorOperation, DXIL::OpCode::ObjectRayDirection},
     {IntrinsicOp::IOP_ObjectRayOrigin, TranslateNoArgVectorOperation, DXIL::OpCode::ObjectRayOrigin},
     {IntrinsicOp::IOP_ObjectToWorld, TranslateNoArgMatrixOperation, DXIL::OpCode::ObjectToWorld},
-    {IntrinsicOp::IOP_PrimitiveIndex, TrivialNoArgWithRetOperation, DXIL::OpCode::PrimitiveID},
+    {IntrinsicOp::IOP_PrimitiveIndex, TrivialNoArgWithRetOperation, DXIL::OpCode::PrimitiveIndex},
     {IntrinsicOp::IOP_Process2DQuadTessFactorsAvg, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_Process2DQuadTessFactorsMax, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_Process2DQuadTessFactorsMin, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},

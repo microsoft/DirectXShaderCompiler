@@ -5300,12 +5300,12 @@ struct DxilInst_CallShader {
 };
 
 /// This instruction create resource handle from resource struct for library
-struct DxilInst_CreateHandleFromResourceStructForLib {
+struct DxilInst_CreateHandleForLib {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_CreateHandleFromResourceStructForLib(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_CreateHandleForLib(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleFromResourceStructForLib);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleForLib);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -5322,6 +5322,24 @@ struct DxilInst_CreateHandleFromResourceStructForLib {
   // Accessors
   llvm::Value *get_Resource() const { return Instr->getOperand(1); }
   void set_Resource(llvm::Value *val) { Instr->setOperand(1, val); }
+};
+
+/// This instruction PrimitiveIndex for raytracing shaders
+struct DxilInst_PrimitiveIndex {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_PrimitiveIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::PrimitiveIndex);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 // INSTR-HELPER:END
 } // namespace hlsl
