@@ -24,17 +24,21 @@ namespace hlsl {
 // Singnature methods.
 //
 DxilSignature::DxilSignature(DXIL::ShaderKind shaderKind,
-                             DXIL::SignatureKind sigKind, bool useMinPrecision)
+                             DXIL::SignatureKind sigKind,
+                             bool useMinPrecision)
     : m_sigPointKind(SigPoint::GetKind(shaderKind, sigKind,
                                        /*isPatchConstantFunction*/ false,
                                        /*isSpecialInput*/ false)),
       m_UseMinPrecision(useMinPrecision) {}
 
-DxilSignature::DxilSignature(DXIL::SigPointKind sigPointKind)
-: m_sigPointKind(sigPointKind) {}
+DxilSignature::DxilSignature(DXIL::SigPointKind sigPointKind,
+                             bool useMinPrecision)
+    : m_sigPointKind(sigPointKind),
+      m_UseMinPrecision(useMinPrecision) {}
 
 DxilSignature::DxilSignature(const DxilSignature &src)
-    : m_sigPointKind(src.m_sigPointKind) {
+    : m_sigPointKind(src.m_sigPointKind),
+      m_UseMinPrecision(src.m_UseMinPrecision) {
   const bool bSetID = false;
   for (auto &Elt : src.GetElements()) {
     std::unique_ptr<DxilSignatureElement> newElt = CreateElement();

@@ -59,7 +59,7 @@ public:
   llvm::LLVMContext &GetCtx() const;
   llvm::Module *GetModule() const;
   OP *GetOP() const;
-  void SetShaderModel(const ShaderModel *pSM);
+  void SetShaderModel(const ShaderModel *pSM, bool bUseMinPrecision = true);
   const ShaderModel *GetShaderModel() const;
   void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
   void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
@@ -224,7 +224,8 @@ public:
   bool ModuleHasMulticomponentUAVLoads();
 
   // Compute shader.
-  unsigned m_NumThreads[3];
+  void SetNumThreads(unsigned x, unsigned y, unsigned z);
+  unsigned GetNumThreads(unsigned idx) const;
 
   // Geometry shader.
   DXIL::InputPrimitive GetInputPrimitive() const;
@@ -243,7 +244,7 @@ public:
   unsigned GetActiveStreamMask() const;
 
   // Language options
-  void SetUseMinPrecision(bool useMinPrecision);
+  // UseMinPrecision must be set at SetShaderModel time.
   bool GetUseMinPrecision() const;
   void SetDisableOptimization(bool disableOptimization);
   bool GetDisableOptimization() const;
@@ -284,27 +285,13 @@ private:
   std::vector<std::unique_ptr<DxilSampler> > m_Samplers;
 
   // Geometry shader.
-  DXIL::InputPrimitive m_InputPrimitive;
-  unsigned m_MaxVertexCount;
   DXIL::PrimitiveTopology m_StreamPrimitiveTopology;
   unsigned m_ActiveStreamMask;
-  unsigned m_NumGSInstances;
-
-  // Hull and Domain shaders.
-  unsigned m_InputControlPointCount;
-  DXIL::TessellatorDomain m_TessellatorDomain;
-
-  // Hull shader.
-  unsigned m_OutputControlPointCount;
-  DXIL::TessellatorPartitioning m_TessellatorPartitioning;
-  DXIL::TessellatorOutputPrimitive m_TessellatorOutputPrimitive;
-  float m_MaxTessellationFactor;
 
 private:
   llvm::LLVMContext &m_Ctx;
   llvm::Module *m_pModule;
   llvm::Function *m_pEntryFunc;
-  llvm::Function *m_pPatchConstantFunc;
   std::string m_EntryName;
   std::unique_ptr<DxilMDHelper> m_pMDHelper;
   std::unique_ptr<llvm::DebugInfoFinder> m_pDebugInfoFinder;

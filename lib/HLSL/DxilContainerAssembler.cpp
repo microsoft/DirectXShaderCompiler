@@ -288,18 +288,21 @@ public:
 };
 
 DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind) {
+  DXIL::TessellatorDomain domain = DXIL::TessellatorDomain::Undefined;
+  if (M.GetShaderModel()->IsHS() || M.GetShaderModel()->IsDS())
+    domain = M.GetTessellatorDomain();
   switch (Kind) {
   case DXIL::SignatureKind::Input:
     return new DxilProgramSignatureWriter(
-        M.GetInputSignature(), M.GetTessellatorDomain(), true,
+        M.GetInputSignature(), domain, true,
         M.GetUseMinPrecision());
   case DXIL::SignatureKind::Output:
     return new DxilProgramSignatureWriter(
-        M.GetOutputSignature(), M.GetTessellatorDomain(), false,
+        M.GetOutputSignature(), domain, false,
         M.GetUseMinPrecision());
   case DXIL::SignatureKind::PatchConstant:
     return new DxilProgramSignatureWriter(
-        M.GetPatchConstantSignature(), M.GetTessellatorDomain(),
+        M.GetPatchConstantSignature(), domain,
         /*IsInput*/ M.GetShaderModel()->IsDS(),
         /*UseMinPrecision*/M.GetUseMinPrecision());
   }
@@ -1286,12 +1289,15 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   std::unique_ptr<DxilProgramSignatureWriter> pOutputSigWriter = nullptr;
   std::unique_ptr<DxilProgramSignatureWriter> pPatchConstantSigWriter = nullptr;
   if (!pModule->GetShaderModel()->IsLib()) {
+    DXIL::TessellatorDomain domain = DXIL::TessellatorDomain::Undefined;
+    if (pModule->GetShaderModel()->IsHS() || pModule->GetShaderModel()->IsDS())
+      domain = pModule->GetTessellatorDomain();
     pInputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
-        pModule->GetInputSignature(), pModule->GetTessellatorDomain(),
+        pModule->GetInputSignature(), domain,
         /*IsInput*/ true,
         /*UseMinPrecision*/ pModule->GetUseMinPrecision());
     pOutputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
-        pModule->GetOutputSignature(), pModule->GetTessellatorDomain(),
+        pModule->GetOutputSignature(), domain,
         /*IsInput*/ false,
         /*UseMinPrecision*/ pModule->GetUseMinPrecision());
     // Write the input and output signature parts.
@@ -1305,7 +1311,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                    });
 
     pPatchConstantSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
-        pModule->GetPatchConstantSignature(), pModule->GetTessellatorDomain(),
+        pModule->GetPatchConstantSignature(), domain,
         /*IsInput*/ pModule->GetShaderModel()->IsDS(),
         /*UseMinPrecision*/ pModule->GetUseMinPrecision());
     if (pModule->GetPatchConstantSignature().GetElements().size()) {
