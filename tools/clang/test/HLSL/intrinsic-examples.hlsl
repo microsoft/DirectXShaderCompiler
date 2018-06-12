@@ -45,13 +45,13 @@ float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
   r += uav1.Load2<float>(16);                               /* expected-error {{Explicit template arguments on intrinsic Load2 are not supported.}} */
   r += uav1.Load3<int>(20);                                 /* expected-error {{Explicit template arguments on intrinsic Load3 are not supported.}} */
   r += uav1.Load4<int16_t>(24);                             /* expected-error {{Explicit template arguments on intrinsic Load4 are not supported.}} */
-  r += uav1.Load<half3x4>(24);                              /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'matrix<__fp16, 3, 4>' to 'float4'}} */
+  r += uav1.Load<half3x4>(24);                              /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'matrix<half, 3, 4>' to 'float4'}} */
   r += uav1.Load<float, float3>(16, status);                /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} */
   r += uav1.Load<double3>(16, status);                      /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'vector<double, 3>' to 'float4'}} */
   r += uav1.Load2<float>(16, status);                       /* expected-error {{Explicit template arguments on intrinsic Load2 are not supported.}} */
   r += uav1.Load3<int>(20, status);                         /* expected-error {{Explicit template arguments on intrinsic Load3 are not supported.}} */
   r += uav1.Load4<int16_t>(24, status);                     /* expected-error {{Explicit template arguments on intrinsic Load4 are not supported.}} */
-  r += uav1.Load<half3x4>(24, status);                      /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'matrix<__fp16, 3, 4>' to 'float4'}} */
+  r += uav1.Load<half3x4>(24, status);                      /* expected-error {{Explicit template arguments on intrinsic Load requires HLSL version 2018 or above.}} expected-error {{cannot convert from 'matrix<half, 3, 4>' to 'float4'}} */
   // valid template argument
   uav1.Store(0, r);
   uav1.Store(0, r.x);
