@@ -141,12 +141,14 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   unsigned ValMajor, ValMinor;
   H.GetValidatorVersion(ValMajor, ValMinor);
   M.SetValidatorVersion(ValMajor, ValMinor);
-  M.SetShaderModel(H.GetShaderModel());
+  M.SetShaderModel(H.GetShaderModel(), H.GetHLOptions().bUseMinPrecision);
 
   // Entry function.
-  Function *EntryFn = H.GetEntryFunction();
-  M.SetEntryFunction(EntryFn);
-  M.SetEntryFunctionName(H.GetEntryFunctionName());
+  if (!M.GetShaderModel()->IsLib()) {
+    Function *EntryFn = H.GetEntryFunction();
+    M.SetEntryFunction(EntryFn);
+    M.SetEntryFunctionName(H.GetEntryFunctionName());
+  }
 
   std::vector<GlobalVariable* > &LLVMUsed = M.GetLLVMUsed();
 
@@ -193,8 +195,6 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   //bool m_bEnableRawAndStructuredBuffers;
   //bool m_bEnableMSAD;
   //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
-
-  M.SetUseMinPrecision(H.GetHLOptions().bUseMinPrecision);
 
   // DXIL type system.
   M.ResetTypeSystem(H.ReleaseTypeSystem());
@@ -309,12 +309,12 @@ public:
     // High-level metadata should now be turned into low-level metadata.
     const bool SkipInit = true;
     hlsl::DxilModule &DxilMod = M.GetOrCreateDxilModule(SkipInit);
-    if (!SM->IsLib()) {
-      DxilMod.SetShaderProperties(&EntryPropsMap.begin()->second->props);
-    }
+    auto pProps = &EntryPropsMap.begin()->second->props;
     InitDxilModuleFromHLModule(*m_pHLModule, DxilMod, m_HasDbgInfo);
-
     DxilMod.ResetEntryPropsMap(std::move(EntryPropsMap));
+    if (!SM->IsLib()) {
+      DxilMod.SetShaderProperties(pProps);
+    }
 
     HLModule::ClearHLMetadata(M);
     M.ResetHLModule();

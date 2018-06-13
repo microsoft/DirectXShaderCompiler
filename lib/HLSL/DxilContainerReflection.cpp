@@ -2035,6 +2035,8 @@ UINT DxilShaderReflection::GetConversionInstructionCount() { return 0; }
 UINT DxilShaderReflection::GetBitwiseInstructionCount() { return 0; }
 
 D3D_PRIMITIVE DxilShaderReflection::GetGSInputPrimitive() {
+  if (!m_pDxilModule->GetShaderModel()->IsGS())
+    return D3D_PRIMITIVE::D3D10_PRIMITIVE_UNDEFINED;
   return (D3D_PRIMITIVE)m_pDxilModule->GetInputPrimitive();
 }
 
@@ -2053,11 +2055,19 @@ HRESULT DxilShaderReflection::GetMinFeatureLevel(enum D3D_FEATURE_LEVEL* pLevel)
 
 _Use_decl_annotations_
 UINT DxilShaderReflection::GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY, UINT *pSizeZ) {
-  UINT *pNumThreads = m_pDxilModule->m_NumThreads;
-  AssignToOutOpt(pNumThreads[0], pSizeX);
-  AssignToOutOpt(pNumThreads[1], pSizeY);
-  AssignToOutOpt(pNumThreads[2], pSizeZ);
-  return pNumThreads[0] * pNumThreads[1] * pNumThreads[2];
+  if (!m_pDxilModule->GetShaderModel()->IsCS()) {
+    AssignToOutOpt((UINT)0, pSizeX);
+    AssignToOutOpt((UINT)0, pSizeY);
+    AssignToOutOpt((UINT)0, pSizeZ);
+    return 0;
+  }
+  unsigned x = m_pDxilModule->GetNumThreads(0);
+  unsigned y = m_pDxilModule->GetNumThreads(1);
+  unsigned z = m_pDxilModule->GetNumThreads(2);
+  AssignToOutOpt(x, pSizeX);
+  AssignToOutOpt(y, pSizeY);
+  AssignToOutOpt(z, pSizeZ);
+  return x * y * z;
 }
 
 UINT64 DxilShaderReflection::GetRequiresFlags() {
