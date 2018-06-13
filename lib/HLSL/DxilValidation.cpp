@@ -4197,9 +4197,9 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
   DXIL::ShaderKind ShaderType = M.GetShaderModel()->GetKind();
 
   if (ShaderType == DXIL::ShaderKind::Compute) {
-    unsigned x = M.m_NumThreads[0];
-    unsigned y = M.m_NumThreads[1];
-    unsigned z = M.m_NumThreads[2];
+    unsigned x = M.GetNumThreads(0);
+    unsigned y = M.GetNumThreads(1);
+    unsigned z = M.GetNumThreads(2);
 
     unsigned threadsInGroup = x * y * z;
 
@@ -4350,6 +4350,14 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
     }
 
     CheckPatchConstantSemantic(ValCtx);
+
+    unsigned outputControlPointCount = M.GetOutputControlPointCount();
+    if (outputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
+      ValCtx.EmitFormatError(
+        ValidationRule::SmOutputControlPointCountRange,
+        { std::to_string(DXIL::kMaxIAPatchControlPointCount),
+        std::to_string(outputControlPointCount) });
+    }
   } else if (ShaderType == DXIL::ShaderKind::Geometry) {
     unsigned maxVertexCount = M.GetMaxVertexCount();
     if (maxVertexCount > DXIL::kMaxGSOutputVertexCount) {
@@ -4382,14 +4390,6 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
     if (VertexCount == 0 && inputPrimitive != DXIL::InputPrimitive::Undefined) {
       ValCtx.EmitError(ValidationRule::SmGSValidInputPrimitive);
     }
-  }
-
-  unsigned outputControlPointCount = M.GetOutputControlPointCount();
-  if (outputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
-    ValCtx.EmitFormatError(
-        ValidationRule::SmOutputControlPointCountRange,
-        {std::to_string(DXIL::kMaxIAPatchControlPointCount),
-         std::to_string(outputControlPointCount)});
   }
 }
 

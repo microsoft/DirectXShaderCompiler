@@ -133,8 +133,31 @@ INITIALIZE_PASS(DxilDeadFunctionElimination, "dxil-dfe", "Remove all unused func
 
 namespace {
 
-Function *StripFunctionParameter(Function *F, DxilModule &DM,
+static void TransferEntryFunctionAttributes(Function *F, Function *NewFunc) {
+  // Keep necessary function attributes
+  AttributeSet attributeSet = F->getAttributes();
+  StringRef attrKind, attrValue;
+  if (attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
+    Attribute attribute = attributeSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
+    DXASSERT(attribute.isStringAttribute(), "otherwise we have wrong fp-denorm-mode attribute.");
+    attrKind = attribute.getKindAsString();
+    attrValue = attribute.getValueAsString();
+  }
+  if (F == NewFunc) {
+    NewFunc->removeAttributes(AttributeSet::FunctionIndex, attributeSet);
+  }
+  if (!attrKind.empty() && !attrValue.empty())
+    NewFunc->addFnAttr(attrKind, attrValue);
+}
+
+static Function *StripFunctionParameter(Function *F, DxilModule &DM,
     DenseMap<const Function *, DISubprogram *> &FunctionDIs) {
+  if (F->arg_empty() && F->getReturnType()->isVoidTy()) {
+    // This will strip non-entry function attributes
+    TransferEntryFunctionAttributes(F, F);
+    return nullptr;
+  }
+
   Module &M = *DM.GetModule();
   Type *VoidTy = Type::getVoidTy(M.getContext());
   FunctionType *FT = FunctionType::get(VoidTy, false);
@@ -152,13 +175,7 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
   // Splice the body of the old function right into the new function.
   NewFunc->getBasicBlockList().splice(NewFunc->begin(), F->getBasicBlockList());
 
-  // Keep necessary function attributes
-  AttributeSet attributeSet = F->getAttributes();
-  if (attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
-    Attribute attribute = attributeSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
-    DXASSERT(attribute.isStringAttribute(), "otherwise we have wrong fp-denorm-mode attribute.");
-    NewFunc->addFnAttr(attribute.getKindAsString(), attribute.getValueAsString());
-  }
+  TransferEntryFunctionAttributes(F, NewFunc);
 
   // Patch the pointer to LLVM function in debug info descriptor.
   auto DI = FunctionDIs.find(F);
@@ -361,7 +378,6 @@ private:
             StripFunctionParameter(PatchConstantFunc, DM, FunctionDIs);
         if (PatchConstantFunc) {
           DM.SetPatchConstantFunction(PatchConstantFunc);
-          DM.SetPatchConstantFunctionForHS(DM.GetEntryFunction(), PatchConstantFunc);
         }
       }
 
@@ -388,16 +404,17 @@ private:
       for (Function *entry : entries) {
         DxilFunctionProps &props = DM.GetDxilFunctionProps(entry);
         if (props.IsHS()) {
+          // Strip patch constant function first.
           Function* patchConstFunc = props.ShaderProps.HS.patchConstantFunc;
           auto it = patchConstantUpdates.find(patchConstFunc);
           if (it == patchConstantUpdates.end()) {
             patchConstFunc = patchConstantUpdates[patchConstFunc] =
-              StripFunctionParameter(patchConstFunc, DM, FunctionDIs);
+                StripFunctionParameter(patchConstFunc, DM, FunctionDIs);
           } else {
             patchConstFunc = it->second;
           }
-          // Strip patch constant function first.
-          DM.SetPatchConstantFunctionForHS(entry, patchConstFunc);
+          if (patchConstFunc)
+            DM.SetPatchConstantFunctionForHS(entry, patchConstFunc);
         }
         StripFunctionParameter(entry, DM, FunctionDIs);
       }

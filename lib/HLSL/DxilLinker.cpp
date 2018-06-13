@@ -720,7 +720,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   // Create DxilModule.
   const bool bSkipInit = true;
   DxilModule &DM = pM->GetOrCreateDxilModule(bSkipInit);
-  DM.SetShaderModel(pSM);
+  DM.SetShaderModel(pSM, entryDM.GetUseMinPrecision());
 
   // Set Validator version.
   DM.SetValidatorVersion(m_valMajor, m_valMinor);
@@ -812,7 +812,7 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
   // Create DxilModule.
   const bool bSkipInit = true;
   DxilModule &DM = pM->GetOrCreateDxilModule(bSkipInit);
-  DM.SetShaderModel(pSM);
+  DM.SetShaderModel(pSM, tmpDM.GetUseMinPrecision());
 
   // Set Validator version.
   DM.SetValidatorVersion(m_valMajor, m_valMinor);

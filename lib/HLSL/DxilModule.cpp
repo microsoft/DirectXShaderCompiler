@@ -87,31 +87,19 @@ DxilModule::DxilModule(Module *pModule)
 , m_pDebugInfoFinder(nullptr)
 , m_pEntryFunc(nullptr)
 , m_EntryName("")
-, m_pPatchConstantFunc(nullptr)
 , m_pSM(nullptr)
 , m_DxilMajor(DXIL::kDxilMajor)
 , m_DxilMinor(DXIL::kDxilMinor)
 , m_ValMajor(1)
 , m_ValMinor(0)
-, m_InputPrimitive(DXIL::InputPrimitive::Undefined)
-, m_MaxVertexCount(0)
 , m_StreamPrimitiveTopology(DXIL::PrimitiveTopology::Undefined)
 , m_ActiveStreamMask(0)
-, m_NumGSInstances(1)
-, m_InputControlPointCount(0)
-, m_TessellatorDomain(DXIL::TessellatorDomain::Undefined)
-, m_OutputControlPointCount(0)
-, m_TessellatorPartitioning(DXIL::TessellatorPartitioning::Undefined)
-, m_TessellatorOutputPrimitive(DXIL::TessellatorOutputPrimitive::Undefined)
-, m_MaxTessellationFactor(0.f)
 , m_RootSignature(nullptr)
 , m_bUseMinPrecision(true) // use min precision by default
 , m_bDisableOptimizations(false)
 , m_bAllResourcesBound(false)
 , m_AutoBindingSpace(UINT_MAX) {
   DXASSERT_NOMSG(m_pModule != nullptr);
-
-  m_NumThreads[0] = m_NumThreads[1] = m_NumThreads[2] = 0;
 
 #if defined(_DEBUG) || defined(DBG)
   // Pin LLVM dump methods.
@@ -130,13 +118,21 @@ LLVMContext &DxilModule::GetCtx() const { return m_Ctx; }
 Module *DxilModule::GetModule() const { return m_pModule; }
 OP *DxilModule::GetOP() const { return m_pOP.get(); }
 
-void DxilModule::SetShaderModel(const ShaderModel *pSM) {
+void DxilModule::SetShaderModel(const ShaderModel *pSM, bool bUseMinPrecision) {
   DXASSERT(m_pSM == nullptr || (pSM != nullptr && *m_pSM == *pSM), "shader model must not change for the module");
   DXASSERT(pSM != nullptr && pSM->IsValidForDxil(), "shader model must be valid");
   DXASSERT(pSM->IsValidForModule(), "shader model must be valid for top-level module use");
   m_pSM = pSM;
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
+  m_bUseMinPrecision = bUseMinPrecision;
+  if (!m_pSM->IsLib()) {
+    // Always have valid entry props for non-lib case from this point on.
+    DxilFunctionProps props;
+    props.shaderKind = m_pSM->GetKind();
+    m_DxilEntryPropsMap[nullptr] =
+      llvm::make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
+  }
   m_RootSignature.reset(new RootSignatureHandle());
 }
 
@@ -198,7 +194,18 @@ const Function *DxilModule::GetEntryFunction() const {
 }
 
 void DxilModule::SetEntryFunction(Function *pEntryFunc) {
+  if (m_pSM->IsLib()) {
+    DXASSERT(pEntryFunc == nullptr,
+             "Otherwise, trying to set an entry function on library");
+    m_pEntryFunc = nullptr;
+    return;
+  }
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
   m_pEntryFunc = pEntryFunc;
+  // Move entry props to new function in order to preserve them.
+  std::unique_ptr<DxilEntryProps> Props = std::move(m_DxilEntryPropsMap.begin()->second);
+  m_DxilEntryPropsMap.clear();
+  m_DxilEntryPropsMap[m_pEntryFunc] = std::move(Props);
 }
 
 const string &DxilModule::GetEntryFunctionName() const {
@@ -210,15 +217,37 @@ void DxilModule::SetEntryFunctionName(const string &name) {
 }
 
 llvm::Function *DxilModule::GetPatchConstantFunction() {
-  return m_pPatchConstantFunc;
+  if (!m_pSM->IsHS())
+    return nullptr;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  return props.ShaderProps.HS.patchConstantFunc;
 }
 
 const llvm::Function *DxilModule::GetPatchConstantFunction() const {
-  return m_pPatchConstantFunc;
+  if (!m_pSM->IsHS())
+    return nullptr;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  return props.ShaderProps.HS.patchConstantFunc;
 }
 
-void DxilModule::SetPatchConstantFunction(llvm::Function *pFunc) {
-  m_pPatchConstantFunc = pFunc;
+void DxilModule::SetPatchConstantFunction(llvm::Function *patchConstantFunc) {
+  if (!m_pSM->IsHS())
+    return;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  auto &HS = props.ShaderProps.HS;
+  if (HS.patchConstantFunc != patchConstantFunc) {
+    if (HS.patchConstantFunc)
+      m_PatchConstantFunctions.erase(HS.patchConstantFunc);
+    HS.patchConstantFunc = patchConstantFunc;
+    if (patchConstantFunc)
+      m_PatchConstantFunctions.insert(patchConstantFunc);
+  }
 }
 
 unsigned DxilModule::GetGlobalFlags() const {
@@ -326,24 +355,64 @@ void DxilModule::CollectShaderFlagsForModule() {
   CollectShaderFlagsForModule(m_ShaderFlags);
 }
 
+void DxilModule::SetNumThreads(unsigned x, unsigned y, unsigned z) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+           "only works for CS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsCS(), "Must be CS profile");
+  unsigned *numThreads = props.ShaderProps.CS.numThreads;
+  numThreads[0] = x;
+  numThreads[1] = y;
+  numThreads[2] = z;
+}
+unsigned DxilModule::GetNumThreads(unsigned idx) const {
+  DXASSERT(idx < 3, "Thread dimension index must be 0-2");
+  if (!m_pSM->IsCS())
+    return 0;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  __analysis_assume(idx < 3);
+  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsCS(), "Must be CS profile");
+  return props.ShaderProps.CS.numThreads[idx];
+}
+
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {
-  return m_InputPrimitive;
+  if (!m_pSM->IsGS())
+    return DXIL::InputPrimitive::Undefined;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsGS(), "Must be GS profile");
+  return props.ShaderProps.GS.inputPrimitive;
 }
 
 void DxilModule::SetInputPrimitive(DXIL::InputPrimitive IP) {
-  DXASSERT_NOMSG(m_InputPrimitive == DXIL::InputPrimitive::Undefined);
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsGS(),
+           "only works for GS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsGS(), "Must be GS profile");
+  auto &GS = props.ShaderProps.GS;
   DXASSERT_NOMSG(DXIL::InputPrimitive::Undefined < IP && IP < DXIL::InputPrimitive::LastEntry);
-  m_InputPrimitive = IP;
+  GS.inputPrimitive = IP;
 }
 
 unsigned DxilModule::GetMaxVertexCount() const {
-  DXASSERT_NOMSG(m_MaxVertexCount != 0);
-  return m_MaxVertexCount;
+  if (!m_pSM->IsGS())
+    return 0;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsGS(), "Must be GS profile");
+  auto &GS = props.ShaderProps.GS;
+  DXASSERT_NOMSG(GS.maxVertexCount != 0);
+  return GS.maxVertexCount;
 }
 
 void DxilModule::SetMaxVertexCount(unsigned Count) {
-  DXASSERT_NOMSG(m_MaxVertexCount == 0);
-  m_MaxVertexCount = Count;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsGS(),
+           "only works for GS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsGS(), "Must be GS profile");
+  auto &GS = props.ShaderProps.GS;
+  GS.maxVertexCount = Count;
 }
 
 DXIL::PrimitiveTopology DxilModule::GetStreamPrimitiveTopology() const {
@@ -352,6 +421,7 @@ DXIL::PrimitiveTopology DxilModule::GetStreamPrimitiveTopology() const {
 
 void DxilModule::SetStreamPrimitiveTopology(DXIL::PrimitiveTopology Topology) {
   m_StreamPrimitiveTopology = Topology;
+  SetActiveStreamMask(m_ActiveStreamMask);  // Update props
 }
 
 bool DxilModule::HasMultipleOutputStreams() const {
@@ -384,11 +454,20 @@ unsigned DxilModule::GetOutputStream() const {
 }
 
 unsigned DxilModule::GetGSInstanceCount() const {
-  return m_NumGSInstances;
+  if (!m_pSM->IsGS())
+    return 0;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsGS(), "Must be GS profile");
+  return props.ShaderProps.GS.instanceCount;
 }
 
 void DxilModule::SetGSInstanceCount(unsigned Count) {
-  m_NumGSInstances = Count;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsGS(),
+           "only works for GS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsGS(), "Must be GS profile");
+  props.ShaderProps.GS.instanceCount = Count;
 }
 
 bool DxilModule::IsStreamActive(unsigned Stream) const {
@@ -401,18 +480,25 @@ void DxilModule::SetStreamActive(unsigned Stream, bool bActive) {
   } else {
     m_ActiveStreamMask &= ~(1<<Stream);
   }
+  SetActiveStreamMask(m_ActiveStreamMask);
 }
 
 void DxilModule::SetActiveStreamMask(unsigned Mask) {
   m_ActiveStreamMask = Mask;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsGS(),
+           "only works for GS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsGS(), "Must be GS profile");
+  for (unsigned i = 0; i < 4; i++) {
+    if (IsStreamActive(i))
+      props.ShaderProps.GS.streamPrimitiveTopologies[i] = m_StreamPrimitiveTopology;
+    else
+      props.ShaderProps.GS.streamPrimitiveTopologies[i] = DXIL::PrimitiveTopology::Undefined;
+  }
 }
 
 unsigned DxilModule::GetActiveStreamMask() const {
   return m_ActiveStreamMask;
-}
-
-void DxilModule::SetUseMinPrecision(bool UseMinPrecision) {
-  m_bUseMinPrecision = UseMinPrecision;
 }
 
 bool DxilModule::GetUseMinPrecision() const {
@@ -436,51 +522,117 @@ bool DxilModule::GetAllResourcesBound() const {
 }
 
 unsigned DxilModule::GetInputControlPointCount() const {
-  return m_InputControlPointCount;
+  if (!(m_pSM->IsHS() || m_pSM->IsDS()))
+    return 0;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS() || props.IsDS(), "Must be HS or DS profile");
+  if (props.IsHS())
+    return props.ShaderProps.HS.inputControlPoints;
+  else
+    return props.ShaderProps.DS.inputControlPoints;
 }
 
 void DxilModule::SetInputControlPointCount(unsigned NumICPs) {
-  m_InputControlPointCount = NumICPs;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1
+           && (m_pSM->IsHS() || m_pSM->IsDS()),
+           "only works for non-lib profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS() || props.IsDS(), "Must be HS or DS profile");
+  if (props.IsHS())
+    props.ShaderProps.HS.inputControlPoints = NumICPs;
+  else
+    props.ShaderProps.DS.inputControlPoints = NumICPs;
 }
 
 DXIL::TessellatorDomain DxilModule::GetTessellatorDomain() const {
-  return m_TessellatorDomain;
+  if (!(m_pSM->IsHS() || m_pSM->IsDS()))
+    return DXIL::TessellatorDomain::Undefined;
+  DXASSERT_NOMSG(m_DxilEntryPropsMap.size() == 1);
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  if (props.IsHS())
+    return props.ShaderProps.HS.domain;
+  else
+    return props.ShaderProps.DS.domain;
 }
 
 void DxilModule::SetTessellatorDomain(DXIL::TessellatorDomain TessDomain) {
-  m_TessellatorDomain = TessDomain;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1
+           && (m_pSM->IsHS() || m_pSM->IsDS()),
+           "only works for HS or DS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS() || props.IsDS(), "Must be HS or DS profile");
+  if (props.IsHS())
+    props.ShaderProps.HS.domain = TessDomain;
+  else
+    props.ShaderProps.DS.domain = TessDomain;
 }
 
 unsigned DxilModule::GetOutputControlPointCount() const {
-  return m_OutputControlPointCount;
+  if (!m_pSM->IsHS())
+    return 0;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  return props.ShaderProps.HS.outputControlPoints;
 }
 
 void DxilModule::SetOutputControlPointCount(unsigned NumOCPs) {
-  m_OutputControlPointCount = NumOCPs;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsHS(),
+           "only works for HS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  props.ShaderProps.HS.outputControlPoints = NumOCPs;
 }
 
 DXIL::TessellatorPartitioning DxilModule::GetTessellatorPartitioning() const {
-  return m_TessellatorPartitioning;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsHS(),
+           "only works for HS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  return props.ShaderProps.HS.partition;
 }
 
 void DxilModule::SetTessellatorPartitioning(DXIL::TessellatorPartitioning TessPartitioning) {
-  m_TessellatorPartitioning = TessPartitioning;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsHS(),
+           "only works for HS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  props.ShaderProps.HS.partition = TessPartitioning;
 }
 
 DXIL::TessellatorOutputPrimitive DxilModule::GetTessellatorOutputPrimitive() const {
-  return m_TessellatorOutputPrimitive;
+  if (!m_pSM->IsHS())
+    return DXIL::TessellatorOutputPrimitive::Undefined;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  return props.ShaderProps.HS.outputPrimitive;
 }
 
 void DxilModule::SetTessellatorOutputPrimitive(DXIL::TessellatorOutputPrimitive TessOutputPrimitive) {
-  m_TessellatorOutputPrimitive = TessOutputPrimitive;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsHS(),
+           "only works for HS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  props.ShaderProps.HS.outputPrimitive = TessOutputPrimitive;
 }
 
 float DxilModule::GetMaxTessellationFactor() const {
-  return m_MaxTessellationFactor;
+  if (!m_pSM->IsHS())
+    return 0.0F;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1, "should have one entry prop");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  return props.ShaderProps.HS.maxTessFactor;
 }
 
 void DxilModule::SetMaxTessellationFactor(float MaxTessellationFactor) {
-  m_MaxTessellationFactor = MaxTessellationFactor;
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsHS(),
+           "only works for HS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT(props.IsHS(), "Must be HS profile");
+  props.ShaderProps.HS.maxTessFactor = MaxTessellationFactor;
 }
 
 void DxilModule::SetAutoBindingSpace(uint32_t Space) {
@@ -493,51 +645,39 @@ uint32_t DxilModule::GetAutoBindingSpace() const {
 void DxilModule::SetShaderProperties(DxilFunctionProps *props) {
   if (!props)
     return;
+  DxilFunctionProps &ourProps = GetDxilFunctionProps(GetEntryFunction());
+  if (props != &ourProps) {
+    ourProps.shaderKind = props->shaderKind;
+    ourProps.ShaderProps = props->ShaderProps;
+  }
   switch (props->shaderKind) {
   case DXIL::ShaderKind::Pixel: {
     auto &PS = props->ShaderProps.PS;
     m_ShaderFlags.SetForceEarlyDepthStencil(PS.EarlyDepthStencil);
   } break;
-  case DXIL::ShaderKind::Compute: {
-    auto &CS = props->ShaderProps.CS;
-    for (size_t i = 0; i < _countof(m_NumThreads); ++i)
-      m_NumThreads[i] = CS.numThreads[i];
-  } break;
-  case DXIL::ShaderKind::Domain: {
-    auto &DS = props->ShaderProps.DS;
-    SetTessellatorDomain(DS.domain);
-    SetInputControlPointCount(DS.inputControlPoints);
-  } break;
-  case DXIL::ShaderKind::Hull: {
-    auto &HS = props->ShaderProps.HS;
-    SetPatchConstantFunction(HS.patchConstantFunc);
-    SetTessellatorDomain(HS.domain);
-    SetTessellatorPartitioning(HS.partition);
-    SetTessellatorOutputPrimitive(HS.outputPrimitive);
-    SetInputControlPointCount(HS.inputControlPoints);
-    SetOutputControlPointCount(HS.outputControlPoints);
-    SetMaxTessellationFactor(HS.maxTessFactor);
-  } break;
+  case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Domain:
+  case DXIL::ShaderKind::Hull:
   case DXIL::ShaderKind::Vertex:
     break;
   default: {
     DXASSERT(props->shaderKind == DXIL::ShaderKind::Geometry,
              "else invalid shader kind");
     auto &GS = props->ShaderProps.GS;
-    SetInputPrimitive(GS.inputPrimitive);
-    SetMaxVertexCount(GS.maxVertexCount);
+    m_ActiveStreamMask = 0;
     for (size_t i = 0; i < _countof(GS.streamPrimitiveTopologies); ++i) {
       if (GS.streamPrimitiveTopologies[i] !=
           DXIL::PrimitiveTopology::Undefined) {
-        SetStreamActive(i, true);
-        DXASSERT_NOMSG(GetStreamPrimitiveTopology() ==
+        m_ActiveStreamMask |= (1 << i);
+        DXASSERT_NOMSG(m_StreamPrimitiveTopology ==
                            DXIL::PrimitiveTopology::Undefined ||
-                       GetStreamPrimitiveTopology() ==
+                       m_StreamPrimitiveTopology ==
                            GS.streamPrimitiveTopologies[i]);
-        SetStreamPrimitiveTopology(GS.streamPrimitiveTopologies[i]);
+        m_StreamPrimitiveTopology = GS.streamPrimitiveTopologies[i];
       }
     }
-    SetGSInstanceCount(GS.instanceCount);
+    // Refresh props:
+    SetActiveStreamMask(m_ActiveStreamMask);
   } break;
   }
 }
@@ -774,37 +914,37 @@ void DxilModule::RemoveUnusedResourceSymbols() {
 
 DxilSignature &DxilModule::GetInputSignature() {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && !m_pSM->IsLib(),
-           "only works for none lib profile");
+           "only works for non-lib profile");
   return m_DxilEntryPropsMap.begin()->second->sig.InputSignature;
 }
 
 const DxilSignature &DxilModule::GetInputSignature() const {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && !m_pSM->IsLib(),
-           "only works for none lib profile");
+           "only works for non-lib profile");
   return m_DxilEntryPropsMap.begin()->second->sig.InputSignature;
 }
 
 DxilSignature &DxilModule::GetOutputSignature() {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && !m_pSM->IsLib(),
-           "only works for none lib profile");
+           "only works for non-lib profile");
   return m_DxilEntryPropsMap.begin()->second->sig.OutputSignature;
 }
 
 const DxilSignature &DxilModule::GetOutputSignature() const {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && !m_pSM->IsLib(),
-           "only works for none lib profile");
+           "only works for non-lib profile");
   return m_DxilEntryPropsMap.begin()->second->sig.OutputSignature;
 }
 
 DxilSignature &DxilModule::GetPatchConstantSignature() {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && !m_pSM->IsLib(),
-           "only works for none lib profile");
+           "only works for non-lib profile");
   return m_DxilEntryPropsMap.begin()->second->sig.PatchConstantSignature;
 }
 
 const DxilSignature &DxilModule::GetPatchConstantSignature() const {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && !m_pSM->IsLib(),
-           "only works for none lib profile");
+           "only works for non-lib profile");
   return m_DxilEntryPropsMap.begin()->second->sig.PatchConstantSignature;
 }
 
@@ -862,11 +1002,14 @@ void DxilModule::SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, l
            "Hull shader must already have function props!");
   DxilFunctionProps &props = propIter->second->props;
   DXASSERT(props.IsHS(), "else hullShaderFunc is not a Hull Shader");
-  if (props.ShaderProps.HS.patchConstantFunc)
-    m_PatchConstantFunctions.erase(props.ShaderProps.HS.patchConstantFunc);
-  props.ShaderProps.HS.patchConstantFunc = patchConstantFunc;
-  if (patchConstantFunc)
-    m_PatchConstantFunctions.insert(patchConstantFunc);
+  auto &HS = props.ShaderProps.HS;
+  if (HS.patchConstantFunc != patchConstantFunc) {
+    if (HS.patchConstantFunc)
+      m_PatchConstantFunctions.erase(HS.patchConstantFunc);
+    HS.patchConstantFunc = patchConstantFunc;
+    if (patchConstantFunc)
+      m_PatchConstantFunctions.insert(patchConstantFunc);
+  }
 }
 bool DxilModule::IsGraphicsShader(const llvm::Function *F) const {
   return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsGraphics();
@@ -1084,20 +1227,54 @@ bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
 void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
-  const ShaderModel *loadedModule;
-  m_pMDHelper->LoadDxilShaderModel(loadedModule);
-  SetShaderModel(loadedModule);
+  const ShaderModel *loadedSM;
+  m_pMDHelper->LoadDxilShaderModel(loadedSM);
+
+  // This must be set before LoadDxilEntryProperties
+  m_pMDHelper->SetShaderModel(loadedSM);
+
+  // Setting module shader model requires UseMinPrecision flag,
+  // which requires loading m_ShaderFlags,
+  // which requires global entry properties,
+  // so load entry properties first, then set the shader model
 
   const llvm::NamedMDNode *pEntries = m_pMDHelper->GetDxilEntryPoints();
-  if (!loadedModule->IsLib()) {
+  if (!loadedSM->IsLib()) {
     IFTBOOL(pEntries->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
   }
   Function *pEntryFunc;
   string EntryName;
-  const llvm::MDOperand *pSignatures, *pResources, *pProperties;
-  m_pMDHelper->GetDxilEntryPoint(pEntries->getOperand(0), pEntryFunc, EntryName, pSignatures, pResources, pProperties);
+  const llvm::MDOperand *pEntrySignatures, *pEntryResources, *pEntryProperties;
+  m_pMDHelper->GetDxilEntryPoint(pEntries->getOperand(0),
+                                 pEntryFunc, EntryName,
+                                 pEntrySignatures, pEntryResources,
+                                 pEntryProperties);
 
-  if (loadedModule->IsLib()) {
+  uint64_t rawShaderFlags = 0;
+  DxilFunctionProps entryFuncProps;
+  entryFuncProps.shaderKind = loadedSM->GetKind();
+  if (loadedSM->IsLib()) {
+    // Get rawShaderFlags and m_AutoBindingSpace; entryFuncProps unused.
+    m_pMDHelper->LoadDxilEntryProperties(*pEntryProperties, rawShaderFlags,
+                                         entryFuncProps, m_AutoBindingSpace);
+  }
+  else {
+    m_pMDHelper->LoadDxilEntryProperties(*pEntryProperties, rawShaderFlags,
+                                         entryFuncProps, m_AutoBindingSpace);
+  }
+
+  m_bUseMinPrecision = true;
+  if (rawShaderFlags) {
+    m_ShaderFlags.SetShaderFlagsRaw(rawShaderFlags);
+    m_bUseMinPrecision = !m_ShaderFlags.GetUseNativeLowPrecision();
+    m_bDisableOptimizations = m_ShaderFlags.GetDisableOptimizations();
+    m_bAllResourcesBound = m_ShaderFlags.GetAllResourcesBound();
+  }
+
+  // Now that we have the UseMinPrecision flag, set shader model:
+  SetShaderModel(loadedSM, m_bUseMinPrecision);
+
+  if (loadedSM->IsLib()) {
     for (unsigned i = 1; i < pEntries->getNumOperands(); i++) {
       Function *pFunc;
       string Name;
@@ -1116,7 +1293,7 @@ void DxilModule::LoadDxilMetadata() {
       }
 
       std::unique_ptr<DxilEntryProps> pEntryProps =
-          llvm::make_unique<DxilEntryProps>(props, GetUseMinPrecision());
+          llvm::make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
       DXASSERT(pSignatures->get() == nullptr || !props.IsRay(),
                "Raytracing has no signature");
       m_pMDHelper->LoadDxilSignatures(*pSignatures, pEntryProps->sig);
@@ -1124,37 +1301,20 @@ void DxilModule::LoadDxilMetadata() {
       m_DxilEntryPropsMap[pFunc] = std::move(pEntryProps);
     }
   } else {
-    DxilFunctionProps props;
-    props.shaderKind = loadedModule->GetKind();
-
     std::unique_ptr<DxilEntryProps> pEntryProps =
-        llvm::make_unique<DxilEntryProps>(props, GetUseMinPrecision());
-    m_pMDHelper->LoadDxilSignatures(*pSignatures, pEntryProps->sig);
+        llvm::make_unique<DxilEntryProps>(entryFuncProps, m_bUseMinPrecision);
+    DxilFunctionProps *pFuncProps = &pEntryProps->props;
+    m_pMDHelper->LoadDxilSignatures(*pEntrySignatures, pEntryProps->sig);
 
+    m_DxilEntryPropsMap.clear();
     m_DxilEntryPropsMap[pEntryFunc] = std::move(pEntryProps);
-  }
-  SetEntryFunction(pEntryFunc);
-  SetEntryFunctionName(EntryName);
 
-  uint64_t rawShaderFlags = 0;
-  if (m_pSM->IsLib()) {
-    DxilFunctionProps props;
-    m_pMDHelper->LoadDxilEntryProperties(*pProperties, rawShaderFlags, props,
-                                          m_AutoBindingSpace);
-  } else {
-    DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
-    m_pMDHelper->LoadDxilEntryProperties(
-        *pProperties, rawShaderFlags,
-        props, m_AutoBindingSpace);
-    SetShaderProperties(&props);
+    SetEntryFunction(pEntryFunc);
+    SetEntryFunctionName(EntryName);
+    SetShaderProperties(pFuncProps);
   }
-  if (rawShaderFlags) {
-    m_ShaderFlags.SetShaderFlagsRaw(rawShaderFlags);
-    m_bUseMinPrecision = !m_ShaderFlags.GetUseNativeLowPrecision();
-    m_bDisableOptimizations = m_ShaderFlags.GetDisableOptimizations();
-    m_bAllResourcesBound = m_ShaderFlags.GetAllResourcesBound();
-  }
-  LoadDxilResources(*pResources);
+
+  LoadDxilResources(*pEntryResources);
 
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
 
