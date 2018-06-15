@@ -7257,8 +7257,7 @@ void ResourceToHandle::ReplaceResourceWithHandle(Value *ResPtr,
       // Remove resource Store.
       SI->eraseFromParent();
     } else {
-      if (!U->user_empty() || !isa<GEPOperator>(U))
-        DXASSERT(0, "invalid operation on resource");
+      DXASSERT(U->user_empty() && isa<GEPOperator>(U), "invalid operation on resource");
     }
   }
 }
