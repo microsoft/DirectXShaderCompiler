@@ -768,6 +768,7 @@ public:
       : hlsl::DXIL::kLegacyLayoutString;
     compiler.HlslLangExtensions = helper;
     compiler.createDiagnostics(diagPrinter, false);
+    compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
     compiler.createFileManager();
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(
