@@ -768,7 +768,9 @@ public:
       : hlsl::DXIL::kLegacyLayoutString;
     compiler.HlslLangExtensions = helper;
     compiler.createDiagnostics(diagPrinter, false);
-    compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
+    // output warning if either /Fe flag is present or /no-warnings is absent.
+    bool shouldOutputWarning = Opts.OutputWarnings || !Opts.OutputWarningsFile.empty();
+    compiler.getDiagnostics().setIgnoreAllWarnings(!shouldOutputWarning);
     compiler.createFileManager();
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(
