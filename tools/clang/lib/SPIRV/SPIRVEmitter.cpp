@@ -908,7 +908,7 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
   // Decorate with NonUniformEXT if loading from a pointer with that property.
   // We are likely loading an element from the resource array here.
   if (info.isNonUniform()) {
-    theBuilder.decorate(loadedId, spv::Decoration::NonUniformEXT);
+    theBuilder.decorateNonUniformEXT(loadedId);
   }
 
   // Special-case: According to the SPIR-V Spec: There is no physical size or
@@ -1359,7 +1359,7 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   }
 
   if (TypeTranslator::isRelaxedPrecisionType(decl->getType(), spirvOptions)) {
-    theBuilder.decorate(varId, spv::Decoration::RelaxedPrecision);
+    theBuilder.decorateRelaxedPrecision(varId);
   }
 
   // All variables that are of opaque struct types should request legalization.
@@ -2956,7 +2956,7 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr) {
   if (objectInfo.isNonUniform() || samplerState.isNonUniform()) {
     // The sampled image will be used to access resource's memory, so we need
     // to decorate it with NonUniformEXT.
-    theBuilder.decorate(sampledImage, spv::Decoration::NonUniformEXT);
+    theBuilder.decorateNonUniformEXT(sampledImage);
   }
 
   // The result type of OpImageQueryLod must be a float2.
@@ -3140,7 +3140,7 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
 
   if (objectInfo.isNonUniform()) {
     // Decoreate the image handle for OpImageFetch/OpImageRead
-    theBuilder.decorate(objectInfo, spv::Decoration::NonUniformEXT);
+    theBuilder.decorateNonUniformEXT(objectInfo);
   }
 
   // For Texture2DMS and Texture2DMSArray, Sample must be used rather than Lod.
@@ -5707,7 +5707,7 @@ SPIRVEmitter::tryToAssignToRWBufferRWTexture(const Expr *lhs,
     theBuilder.createImageWrite(imageType, imageId, locId, rhs);
     if (baseInfo.isNonUniform()) {
       // Decorate the image handle for OpImageWrite
-      theBuilder.decorate(imageId, spv::Decoration::NonUniformEXT);
+      theBuilder.decorateNonUniformEXT(imageId);
     }
     return rhs;
   }
@@ -6711,7 +6711,7 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       if (baseId.isNonUniform()) {
         // Image texel pointer will used to access image memory. Vulkan requires
         // it to be decorated with NonUniformEXT.
-        theBuilder.decorate(ptr, spv::Decoration::NonUniformEXT);
+        theBuilder.decorateNonUniformEXT(ptr);
       }
     }
   }
@@ -6773,7 +6773,7 @@ SPIRVEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
   // image instructions) and the resource descriptor being accessed is not
   // dynamically uniform, then the operand corresponding to that resource (e.g.
   // the pointer or sampled image operand) must be decorated with NonUniformEXT.
-  theBuilder.decorate(index, spv::Decoration::NonUniformEXT);
+  theBuilder.decorateNonUniformEXT(index);
 
   return index;
 }
