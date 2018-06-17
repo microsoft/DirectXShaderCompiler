@@ -639,15 +639,9 @@ using namespace hlsl;
 
 extern const char *HLSLScalarTypeNames[];
 
-static const int FirstTemplateDepth = 0;
-static const int FirstParamPosition = 0;
 static const bool ExplicitConversionFalse = false;// a conversion operation is not the result of an explicit cast
-static const bool InheritedFalse = false;         // template parameter default value is not inherited.
 static const bool ParameterPackFalse = false;     // template parameter is not an ellipsis.
 static const bool TypenameTrue = false;           // 'typename' specified rather than 'class' for a template argument.
-static const bool DelayTypeCreationTrue = true;   // delay type creation for a declaration
-static const bool DelayTypeCreationFalse = false; // immediately create a type when the declaration is created
-static const unsigned int NoQuals = 0;            // no qualifiers in effect
 static const SourceLocation NoLoc;                // no source location attribution available
 static const SourceRange NoRange;                 // no source range attribution available
 static const bool HasWrittenPrototypeTrue = true; // function had the prototype written
@@ -655,8 +649,6 @@ static const bool InlineSpecifiedFalse = false;   // function was not specified 
 static const bool IsConstexprFalse = false;       // function is not constexpr
 static const bool ListInitializationFalse = false;// not performing a list initialization
 static const bool SuppressWarningsFalse = false;  // do not suppress warning diagnostics
-static const bool SuppressWarningsTrue = true;    // suppress warning diagnostics
-static const bool SuppressErrorsFalse = false;    // do not suppress error diagnostics
 static const bool SuppressErrorsTrue = true;      // suppress error diagnostics
 static const int OneRow = 1;                      // a single row for a type
 static const bool MipsFalse = false;              // a type does not support the .mips member
@@ -1507,24 +1499,6 @@ const char* g_DeprecatedEffectObjectNames[] =
   "RenderTargetView", // 16
 };
 
-// The CompareStringsWithLen function lexicographically compares LHS and RHS and
-// returns a value indicating the relationship between the strings - < 0 if LHS is
-// less than RHS, 0 if they are equal, > 0 if LHS is greater than RHS.
-static
-int CompareStringsWithLen(
-  _In_count_(LHSlen) const char* LHS, size_t LHSlen,
-  _In_count_(RHSlen) const char* RHS, size_t RHSlen
-)
-{
-  // Check whether the name is greater or smaller (without walking past end).
-  size_t maxNameComparable = std::min(LHSlen, RHSlen);
-  int comparison = strncmp(LHS, RHS, maxNameComparable);
-  if (comparison != 0) return comparison;
-
-  // Check whether the name is greater or smaller based on extra characters.
-  return LHSlen - RHSlen;
-}
-
 static hlsl::ParameterModifier
 ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
   if (pArg->qwUsage == AR_QUAL_IN_OUT) {
@@ -1581,7 +1555,6 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
   unsigned opcode = (unsigned)pIntrinsic->Op;
   if (HasUnsignedOpcode(opcode) && IsBuiltinTable(tableName)) {
     QualType Ty = FD->getReturnType();
-    IntrinsicOp intrinOp = static_cast<IntrinsicOp>(pIntrinsic->Op);
     if (pIntrinsic->iOverloadParamIndex != -1) {
       const FunctionProtoType *FT =
           FD->getFunctionType()->getAs<FunctionProtoType>();
@@ -1637,7 +1610,6 @@ FunctionDecl *AddHLSLIntrinsicFunction(
   IdentifierInfo &functionId = context.Idents.get(
       StringRef(pIntrinsic->pArgs[0].pName), tok::TokenKind::identifier);
   DeclarationName functionName(&functionId);
-  QualType returnQualType = functionArgQualTypes[0];
   QualType functionType = context.getFunctionType(
       functionArgQualTypes[0],
       ArrayRef<QualType>(functionArgQualTypes + 1,
@@ -2117,32 +2089,6 @@ static
 bool DoesLegalTemplateAcceptMultipleTypes(BYTE value)
 {
   return DoesLegalTemplateAcceptMultipleTypes(static_cast<LEGAL_INTRINSIC_TEMPLATES>(value));
-}
-
-
-static
-bool DoesIntrinsicRequireTemplate(const HLSL_INTRINSIC* intrinsic)
-{
-  const HLSL_INTRINSIC_ARGUMENT* argument = intrinsic->pArgs;
-  for (size_t i = 0; i < intrinsic->uNumArgs; i++)
-  {
-    // The intrinsic will require a template for any of these reasons:
-    // - A type template (layout) or component needs to match something else.
-    // - A parameter can take multiple types.
-    // - Row or columns numbers may vary.
-    if (
-      argument->uTemplateId != i ||
-      DoesLegalTemplateAcceptMultipleTypes(argument->uLegalTemplates) ||
-      DoesComponentTypeAcceptMultipleTypes(argument->uLegalComponentTypes) ||
-      IsRowOrColumnVariable(argument->uCols) ||
-      IsRowOrColumnVariable(argument->uRows))
-    {
-      return true;
-    }
-    argument++;
-  }
-
-  return false;
 }
 
 static
@@ -3235,12 +3181,10 @@ public:
         R.addDecl(typeDecl);
       }
       else if (rowCount == 0) { // vector
-        QualType qt = LookupVectorType(parsedType, colCount);
         TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
         R.addDecl(qts);
       }
       else { // matrix
-        QualType qt = LookupMatrixType(parsedType, rowCount, colCount);
         TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
         R.addDecl(qts);
       }
@@ -4554,19 +4498,6 @@ QualType GetFirstElementTypeFromDecl(const Decl* decl)
     const TemplateArgumentList& list = specialization->getTemplateArgs();
     if (list.size()) {
       return list[0].getAsType();
-    }
-  }
-
-  return QualType();
-}
-
-static
-QualType GetFirstElementType(QualType type)
-{
-  if (!type.isNull()) {
-    const RecordType* record = type->getAs<RecordType>();
-    if (record) {
-      return GetFirstElementTypeFromDecl(record->getDecl());
     }
   }
 
@@ -8718,7 +8649,6 @@ bool HLSLExternalSource::TryStaticCastForHLSL(ExprResult &SrcExpr,
   DXASSERT(!SrcExpr.isInvalid(), "caller should check for invalid expressions and placeholder types");
   bool explicitConversion
     = (CCK == Sema::CCK_CStyleCast || CCK == Sema::CCK_FunctionalCast);
-  QualType sourceType = SrcExpr.get()->getType();
   bool suppressWarnings = explicitConversion || SuppressWarnings;
   SourceLocation loc = OpRange.getBegin();
   if (ValidateCast(loc, SrcExpr.get(), DestType, explicitConversion, suppressWarnings, SuppressErrors, standard)) {
@@ -9277,7 +9207,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
   // TODO: make these error 'real' errors rather than on-the-fly things
   // Validate that the entry point is available.
-  ASTContext &Ctx = self->getASTContext();
   DiagnosticsEngine &Diags = self->getDiagnostics();
   FunctionDecl *pEntryPointDecl = nullptr;
   FunctionDecl *pPatchFnDecl = nullptr;
@@ -10706,7 +10635,6 @@ Decl* Sema::ActOnStartHLSLBuffer(
   SourceLocation LBrace)
 {
   // For anonymous namespace, take the location of the left brace.
-  SourceLocation Loc = Ident ? IdentLoc : LBrace;
   DeclContext* lexicalParent = getCurLexicalContext();
   clang::HLSLBufferDecl *result = HLSLBufferDecl::Create(
       Context, lexicalParent, cbuffer, /*isConstantBufferView*/ false, KwLoc,
@@ -11064,9 +10992,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
 
   // Validate attributes
   clang::AttributeList
-    *pPrecise = nullptr,
-    *pShared = nullptr,
-    *pGroupShared = nullptr,
     *pUniform = nullptr,
     *pUsage = nullptr,
     *pNoInterpolation = nullptr,
@@ -11086,7 +11011,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
 
     switch (pAttr->getKind()) {
     case AttributeList::AT_HLSLPrecise: // precise is applicable everywhere.
-      pPrecise = pAttr;
       break;
     case AttributeList::AT_HLSLShared:
       if (!isGlobal) {
@@ -11100,7 +11024,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
             << pAttr->getRange();
         result = false;
       }
-      pShared = pAttr;
       break;
     case AttributeList::AT_HLSLGroupShared:
       if (!isGlobal) {
@@ -11114,7 +11037,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
             << pAttr->getRange();
         result = false;
       }
-      pGroupShared = pAttr;
       break;
     case AttributeList::AT_HLSLGloballyCoherent:
       if (!bIsObject) {

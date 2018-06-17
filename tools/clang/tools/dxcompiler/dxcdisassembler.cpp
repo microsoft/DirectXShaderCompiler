@@ -35,11 +35,6 @@ using namespace hlsl;
 namespace {
 // Disassemble helper functions.
 
-void PrintDiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
-  DiagnosticPrinter *printer = reinterpret_cast<DiagnosticPrinter *>(Context);
-  DI.print(*printer);
-}
-
 template <typename T>
 const T *ByteOffset(LPCVOID p, uint32_t byteOffset) {
   return reinterpret_cast<const T *>((const uint8_t *)p + byteOffset);

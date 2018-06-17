@@ -86,9 +86,6 @@ static cl::opt<bool>
 PrintAfterAll("print-after-all",
               llvm::cl::desc("Print IR after each pass"),
               cl::init(false));
-#else
-static const bool PrintBeforeAll = false;
-static const bool PrintAfterAll = false;
 #endif // HLSL Change Ends
 
 /// This is a helper to determine whether to print IR before or
