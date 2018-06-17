@@ -5725,7 +5725,6 @@ bool VectorExprEvaluator::VisitCastExpr(const CastExpr* E) {
           hlsl::GetHLSLVecElementType(E->getType()), Elem.getFloat());
       Elts.push_back(Elem);
     }
-    const auto EltsSize = Elts.size();
     return Success(Elts, E);
   }
   case CK_HLSLCC_IntegralToFloating: {
@@ -5740,7 +5739,6 @@ bool VectorExprEvaluator::VisitCastExpr(const CastExpr* E) {
                            ElemFloat);
       Elts.push_back(APValue(ElemFloat));
     }
-    const auto EltsSize = Elts.size();
     return Success(Elts, E);
   }
   case CK_HLSLCC_FloatingToIntegral: {

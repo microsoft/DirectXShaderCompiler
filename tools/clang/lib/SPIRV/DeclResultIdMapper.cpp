@@ -709,8 +709,8 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
   auto &info = astDecls[fn].info;
 
   bool isAlias = false;
-  const uint32_t type =
-      getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias, &info);
+
+  (void)getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias, &info);
 
   const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
   info.setResultId(id);
@@ -1711,8 +1711,6 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
   if (semanticInfo.isValid()) {
     // Found semantic attached directly to this Decl. Write the value for this
     // Decl to the corresponding stage output variable.
-
-    const uint32_t srcTypeId = typeTranslator.translateType(type);
 
     // Handle SV_Position, SV_ClipDistance, and SV_CullDistance
     if (glPerVertex.tryToAccess(

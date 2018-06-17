@@ -283,18 +283,6 @@ bool Sema::isKnownName(StringRef name) {
   return LookupName(R, TUScope, false);
 }
 
-static void addFixitForObjCARCConversion(Sema &S,
-  DiagnosticBuilder &DiagB,
-  Sema::CheckedConversionKind CCK,
-  SourceLocation afterLParen,
-  QualType castType,
-  Expr *castExpr,
-  Expr *realCast,
-  const char *bridgeKeyword,
-  const char *CFBridgeName) {
-  llvm_unreachable("HLSL does not support ObjC constructs");
-}
-
 void Sema::CheckTollFreeBridgeCast(QualType castType, Expr *castExpr) {
   llvm_unreachable("HLSL does not support ObjC constructs");
 }

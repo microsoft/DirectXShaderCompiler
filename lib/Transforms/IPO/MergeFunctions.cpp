@@ -119,8 +119,6 @@ static cl::opt<unsigned> NumFunctionsForSanityCheck(
              "MergeFunctions pass sanity check. "
              "'0' disables this check. Works only with '-debug' key."),
     cl::init(0), cl::Hidden);
-#else
-static const unsigned NumFunctionsForSanityCheck = 0;
 #endif
 
 namespace {
@@ -1157,6 +1155,7 @@ ModulePass *llvm::createMergeFunctionsPass() {
 }
 
 bool MergeFunctions::doSanityCheck(std::vector<WeakVH> &Worklist) {
+#if 0 // Begin HLSL Change (NumFunctionsForSanityCheck is always zero)
   if (const unsigned Max = NumFunctionsForSanityCheck) {
     unsigned TripleNumber = 0;
     bool Valid = true;
@@ -1225,6 +1224,7 @@ bool MergeFunctions::doSanityCheck(std::vector<WeakVH> &Worklist) {
     dbgs() << "MERGEFUNC-SANITY: " << (Valid ? "Passed." : "Failed.") << "\n";
     return Valid;
   }
+#endif // End HLSL Change
   return true;
 }
 

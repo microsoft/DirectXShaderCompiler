@@ -24,9 +24,6 @@ namespace {
 /// The alignment for 4-component float vectors.
 constexpr uint32_t kStd140Vec4Alignment = 16u;
 
-/// Returns true if the given value is a power of 2.
-inline bool isPow2(int val) { return (val & (val - 1)) == 0; }
-
 /// Rounds the given value up to the given power of 2.
 inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
   assert(pow2 != 0);
