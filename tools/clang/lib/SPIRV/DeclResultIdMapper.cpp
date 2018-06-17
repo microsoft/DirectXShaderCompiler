@@ -1383,7 +1383,7 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     // TODO: the following may not be correct?
     if (sigPoint->GetSignatureKind() ==
         hlsl::DXIL::SignatureKind::PatchConstant)
-      theBuilder.decorate(varId, spv::Decoration::Patch);
+      theBuilder.decoratePatch(varId);
 
     // Decorate with interpolation modes for pixel shader input variables
     if (shaderModel.IsPS() && sigPoint->IsInput() &&
@@ -1801,20 +1801,20 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
                 "parameters in pixel shader",
                 decl->getLocation());
     } else {
-      theBuilder.decorate(varId, spv::Decoration::Flat);
+      theBuilder.decorateFlat(varId);
     }
   } else {
     // Do nothing for HLSLLinearAttr since its the default
     // Attributes can be used together. So cannot use else if.
     if (decl->getAttr<HLSLCentroidAttr>())
-      theBuilder.decorate(varId, spv::Decoration::Centroid);
+      theBuilder.decorateCentroid(varId);
     if (decl->getAttr<HLSLNoInterpolationAttr>())
-      theBuilder.decorate(varId, spv::Decoration::Flat);
+      theBuilder.decorateFlat(varId);
     if (decl->getAttr<HLSLNoPerspectiveAttr>())
-      theBuilder.decorate(varId, spv::Decoration::NoPerspective);
+      theBuilder.decorateNoPerspective(varId);
     if (decl->getAttr<HLSLSampleAttr>()) {
       theBuilder.requireCapability(spv::Capability::SampleRateShading);
-      theBuilder.decorate(varId, spv::Decoration::Sample);
+      theBuilder.decorateSample(varId);
     }
   }
 }
