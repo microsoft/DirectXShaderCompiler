@@ -479,7 +479,7 @@ uint32_t ModuleBuilder::createImageSample(
   if (isNonUniform) {
     // The sampled image will be used to access resource's memory, so we need
     // to decorate it with NonUniformEXT.
-    decorate(sampledImgId, spv::Decoration::NonUniformEXT);
+    decorateNonUniformEXT(sampledImgId);
   }
 
   uint32_t texelId = theContext.takeNextId();
@@ -582,7 +582,7 @@ uint32_t ModuleBuilder::createImageGather(
   if (isNonUniform) {
     // The sampled image will be used to access resource's memory, so we need
     // to decorate it with NonUniformEXT.
-    decorate(sampledImgId, spv::Decoration::NonUniformEXT);
+    decorateNonUniformEXT(sampledImgId);
   }
 
   llvm::SmallVector<uint32_t, 2> params;
@@ -887,36 +887,43 @@ void ModuleBuilder::decorateSpecId(uint32_t targetId, uint32_t specId) {
   theModule.addDecoration(d, targetId);
 }
 
-void ModuleBuilder::decorate(uint32_t targetId, spv::Decoration decoration) {
-  const Decoration *d = nullptr;
-  switch (decoration) {
-  case spv::Decoration::Centroid:
-    d = Decoration::getCentroid(theContext);
-    break;
-  case spv::Decoration::Flat:
-    d = Decoration::getFlat(theContext);
-    break;
-  case spv::Decoration::NoPerspective:
-    d = Decoration::getNoPerspective(theContext);
-    break;
-  case spv::Decoration::Sample:
-    d = Decoration::getSample(theContext);
-    break;
-  case spv::Decoration::Block:
-    d = Decoration::getBlock(theContext);
-    break;
-  case spv::Decoration::RelaxedPrecision:
-    d = Decoration::getRelaxedPrecision(theContext);
-    break;
-  case spv::Decoration::Patch:
-    d = Decoration::getPatch(theContext);
-    break;
-  case spv::Decoration::NonUniformEXT:
-    d = Decoration::getNonUniformEXT(theContext);
-    break;
-  }
+void ModuleBuilder::decorateCentroid(uint32_t targetId) {
+  const Decoration *d = Decoration::getCentroid(theContext);
+  theModule.addDecoration(d, targetId);
+}
 
-  assert(d && "unimplemented decoration");
+void ModuleBuilder::decorateFlat(uint32_t targetId) {
+  const Decoration *d = Decoration::getFlat(theContext);
+  theModule.addDecoration(d, targetId);
+}
+
+void ModuleBuilder::decorateNoPerspective(uint32_t targetId) {
+  const Decoration *d = Decoration::getNoPerspective(theContext);
+  theModule.addDecoration(d, targetId);
+}
+
+void ModuleBuilder::decorateSample(uint32_t targetId) {
+  const Decoration *d = Decoration::getSample(theContext);
+  theModule.addDecoration(d, targetId);
+}
+
+void ModuleBuilder::decorateBlock(uint32_t targetId) {
+  const Decoration *d = Decoration::getBlock(theContext);
+  theModule.addDecoration(d, targetId);
+}
+
+void ModuleBuilder::decorateRelaxedPrecision(uint32_t targetId) {
+  const Decoration *d = Decoration::getRelaxedPrecision(theContext);
+  theModule.addDecoration(d, targetId);
+}
+
+void ModuleBuilder::decoratePatch(uint32_t targetId) {
+  const Decoration *d = Decoration::getPatch(theContext);
+  theModule.addDecoration(d, targetId);
+}
+
+void ModuleBuilder::decorateNonUniformEXT(uint32_t targetId) {
+  const Decoration *d = Decoration::getNonUniformEXT(theContext);
   theModule.addDecoration(d, targetId);
 }
 
