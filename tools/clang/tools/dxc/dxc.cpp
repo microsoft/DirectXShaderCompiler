@@ -57,8 +57,10 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
+#ifdef _WIN32
 #include <dia2.h>
 #include <comdef.h>
+#endif
 #include <algorithm>
 #include <unordered_map>
 

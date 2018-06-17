@@ -7,6 +7,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <limits.h>
+
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilSemantic.h"
 #include "dxc/Support/Global.h"

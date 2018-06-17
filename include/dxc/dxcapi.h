@@ -17,6 +17,10 @@
 #define DXC_API_IMPORT __declspec(dllimport)
 #endif
 
+#ifndef _WIN32
+#include "dxc/Support/WinAdapter.h"
+#endif
+
 struct IMalloc;
 struct IDxcIncludeHandler;
 

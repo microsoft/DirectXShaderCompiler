@@ -18,6 +18,7 @@
 #include <iterator>
 #include <functional>
 #include "dxc/HLSL/DxilConstants.h"
+#include "dxc/Support/WinAdapter.h"
 
 struct IDxcContainerReflection;
 namespace llvm { class Module; }

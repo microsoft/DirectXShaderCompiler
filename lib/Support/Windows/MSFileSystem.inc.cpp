@@ -14,7 +14,9 @@
 #define NOMINMAX
 #include "WindowsSupport.h"
 #include <fcntl.h>
+#ifdef _WIN32
 #include <io.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <system_error>

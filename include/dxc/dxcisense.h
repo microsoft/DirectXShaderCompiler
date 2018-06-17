@@ -12,6 +12,8 @@
 #ifndef __DXC_ISENSE__
 #define __DXC_ISENSE__
 
+#include "dxc/Support/WinAdapter.h"
+
 typedef enum DxcGlobalOptions
 {
   DxcGlobalOpt_None = 0x0,

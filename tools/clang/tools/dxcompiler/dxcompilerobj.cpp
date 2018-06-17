@@ -49,7 +49,9 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/DxcLangExtensionsHelper.h"
 #include "dxc/Support/HLSLOptions.h"
+#ifdef _WIN32
 #include "dxcetw.h"
+#endif
 #include "dxillib.h"
 #include <algorithm>
 
