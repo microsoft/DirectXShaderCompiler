@@ -24,7 +24,10 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+
+#ifdef _WIN32
 #include "dxcetw.h"
+#endif
 
 using namespace llvm;
 using namespace hlsl;

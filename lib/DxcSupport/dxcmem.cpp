@@ -10,7 +10,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/Global.h"
+#ifdef _WIN32
 #include <specstrings.h>
+#endif
 
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/ThreadLocal.h"

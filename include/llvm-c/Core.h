@@ -15,6 +15,7 @@
 #ifndef LLVM_C_CORE_H
 #define LLVM_C_CORE_H
 
+#include "dxc/Support/WinAdapter.h" // HLSL Change
 #include "llvm-c/Support.h"
 
 #ifdef __cplusplus

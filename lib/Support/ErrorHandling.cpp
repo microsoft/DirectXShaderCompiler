@@ -29,7 +29,9 @@
 #include <cassert>
 #include <cstdlib>
 
+#ifdef _WIN32
 #include "windows.h"  // HLSL Change
+#endif
 
 #if defined(HAVE_UNISTD_H)
 # include <unistd.h>

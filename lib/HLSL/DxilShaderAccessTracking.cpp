@@ -22,7 +22,9 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include <deque>
 
+#ifdef _WIN32
 #include <winerror.h>
+#endif
 
 using namespace llvm;
 using namespace hlsl;
