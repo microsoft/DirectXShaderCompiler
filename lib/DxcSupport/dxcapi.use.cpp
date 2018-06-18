@@ -106,8 +106,8 @@ void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, _In_ LPCWSTR pFileName) {
     return;
   }
 
-  CHandle file(CreateFile2(pFileName, GENERIC_WRITE, FILE_SHARE_READ,
-                           CREATE_ALWAYS, nullptr));
+  CHandle file(CreateFileW(pFileName, GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+                           CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
   if (file == INVALID_HANDLE_VALUE) {
     IFT_Data(HRESULT_FROM_WIN32(GetLastError()), pFileName);
   }
