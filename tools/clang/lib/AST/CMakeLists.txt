@@ -1,4 +1,4 @@
-set(LLVM_LINK_COMPONENTS support)
+set(LLVM_LINK_COMPONENTS hlsl support)
 
 set (HLSL_IGNORE_SOURCES
   NSAPI.cpp
@@ -63,8 +63,10 @@ add_clang_library(clangAST
   VTTBuilder.cpp
 
   LINK_LIBS
+  clangCodeGen
   clangBasic
   clangLex
+  clangSema
   )
 
 # MERGE REVIEW:

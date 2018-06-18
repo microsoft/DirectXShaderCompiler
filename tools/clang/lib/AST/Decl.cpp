@@ -1337,7 +1337,7 @@ public:
     // static can follow an extern, so we can have two decls with different
     // linkages.
     const LangOptions &Opts = D->getASTContext().getLangOpts();
-    (Opts); // HLSL Change - this only has static consts referenced
+    (void)(Opts); // HLSL Change - this only has static consts referenced
     if (!Opts.CPlusPlus || Opts.MicrosoftExt)
       return LV;
 
@@ -2066,7 +2066,7 @@ void VarDecl::setInit(Expr *I) {
 
 bool VarDecl::isUsableInConstantExpressions(ASTContext &C) const {
   const LangOptions &Lang = C.getLangOpts();
-  (Lang); // HLSL Change - this object is only accessed through static consts
+  (void)(Lang); // HLSL Change - this object is only accessed through static consts
 
   if (!Lang.CPlusPlus)
     return false;

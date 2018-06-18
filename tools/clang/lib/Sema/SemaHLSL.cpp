@@ -32,12 +32,14 @@
 #include "clang/Sema/SemaHLSL.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/WinAdapter.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "gen_intrin_main_tables_15.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/DxilShaderModel.h"
 #include <array>
+#include <float.h>
 
 enum ArBasicKind {
   AR_BASIC_BOOL,
@@ -639,15 +641,9 @@ using namespace hlsl;
 
 extern const char *HLSLScalarTypeNames[];
 
-static const int FirstTemplateDepth = 0;
-static const int FirstParamPosition = 0;
 static const bool ExplicitConversionFalse = false;// a conversion operation is not the result of an explicit cast
-static const bool InheritedFalse = false;         // template parameter default value is not inherited.
 static const bool ParameterPackFalse = false;     // template parameter is not an ellipsis.
 static const bool TypenameTrue = false;           // 'typename' specified rather than 'class' for a template argument.
-static const bool DelayTypeCreationTrue = true;   // delay type creation for a declaration
-static const bool DelayTypeCreationFalse = false; // immediately create a type when the declaration is created
-static const unsigned int NoQuals = 0;            // no qualifiers in effect
 static const SourceLocation NoLoc;                // no source location attribution available
 static const SourceRange NoRange;                 // no source range attribution available
 static const bool HasWrittenPrototypeTrue = true; // function had the prototype written
@@ -655,8 +651,6 @@ static const bool InlineSpecifiedFalse = false;   // function was not specified 
 static const bool IsConstexprFalse = false;       // function is not constexpr
 static const bool ListInitializationFalse = false;// not performing a list initialization
 static const bool SuppressWarningsFalse = false;  // do not suppress warning diagnostics
-static const bool SuppressWarningsTrue = true;    // suppress warning diagnostics
-static const bool SuppressErrorsFalse = false;    // do not suppress error diagnostics
 static const bool SuppressErrorsTrue = true;      // suppress error diagnostics
 static const int OneRow = 1;                      // a single row for a type
 static const bool MipsFalse = false;              // a type does not support the .mips member
@@ -1507,24 +1501,6 @@ const char* g_DeprecatedEffectObjectNames[] =
   "RenderTargetView", // 16
 };
 
-// The CompareStringsWithLen function lexicographically compares LHS and RHS and
-// returns a value indicating the relationship between the strings - < 0 if LHS is
-// less than RHS, 0 if they are equal, > 0 if LHS is greater than RHS.
-static
-int CompareStringsWithLen(
-  _In_count_(LHSlen) const char* LHS, size_t LHSlen,
-  _In_count_(RHSlen) const char* RHS, size_t RHSlen
-)
-{
-  // Check whether the name is greater or smaller (without walking past end).
-  size_t maxNameComparable = std::min(LHSlen, RHSlen);
-  int comparison = strncmp(LHS, RHS, maxNameComparable);
-  if (comparison != 0) return comparison;
-
-  // Check whether the name is greater or smaller based on extra characters.
-  return LHSlen - RHSlen;
-}
-
 static hlsl::ParameterModifier
 ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
   if (pArg->qwUsage == AR_QUAL_IN_OUT) {
@@ -1581,7 +1557,6 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
   unsigned opcode = (unsigned)pIntrinsic->Op;
   if (HasUnsignedOpcode(opcode) && IsBuiltinTable(tableName)) {
     QualType Ty = FD->getReturnType();
-    IntrinsicOp intrinOp = static_cast<IntrinsicOp>(pIntrinsic->Op);
     if (pIntrinsic->iOverloadParamIndex != -1) {
       const FunctionProtoType *FT =
           FD->getFunctionType()->getAs<FunctionProtoType>();
@@ -1637,7 +1612,6 @@ FunctionDecl *AddHLSLIntrinsicFunction(
   IdentifierInfo &functionId = context.Idents.get(
       StringRef(pIntrinsic->pArgs[0].pName), tok::TokenKind::identifier);
   DeclarationName functionName(&functionId);
-  QualType returnQualType = functionArgQualTypes[0];
   QualType functionType = context.getFunctionType(
       functionArgQualTypes[0],
       ArrayRef<QualType>(functionArgQualTypes + 1,
@@ -2119,32 +2093,6 @@ bool DoesLegalTemplateAcceptMultipleTypes(BYTE value)
   return DoesLegalTemplateAcceptMultipleTypes(static_cast<LEGAL_INTRINSIC_TEMPLATES>(value));
 }
 
-
-static
-bool DoesIntrinsicRequireTemplate(const HLSL_INTRINSIC* intrinsic)
-{
-  const HLSL_INTRINSIC_ARGUMENT* argument = intrinsic->pArgs;
-  for (size_t i = 0; i < intrinsic->uNumArgs; i++)
-  {
-    // The intrinsic will require a template for any of these reasons:
-    // - A type template (layout) or component needs to match something else.
-    // - A parameter can take multiple types.
-    // - Row or columns numbers may vary.
-    if (
-      argument->uTemplateId != i ||
-      DoesLegalTemplateAcceptMultipleTypes(argument->uLegalTemplates) ||
-      DoesComponentTypeAcceptMultipleTypes(argument->uLegalComponentTypes) ||
-      IsRowOrColumnVariable(argument->uCols) ||
-      IsRowOrColumnVariable(argument->uRows))
-    {
-      return true;
-    }
-    argument++;
-  }
-
-  return false;
-}
-
 static
 bool TemplateHasDefaultType(ArBasicKind kind)
 {
@@ -2164,8 +2112,10 @@ bool TemplateHasDefaultType(ArBasicKind kind)
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
     return true;
+  default:
+    // Objects with default types return true. Everything else is false.
+    return false;
   }
-  return false;
 }
 
 /// <summary>
@@ -2476,9 +2426,9 @@ namespace hlsl {
     void dump() const {
       OutputDebugStringW(L"Call Nodes:\r\n");
       for (auto &node : m_callNodes) {
-        OutputDebugFormatA("%s [%p]:\r\n", node.first->getName().str().c_str(), node.first);
+        OutputDebugFormatA("%s [%p]:\r\n", node.first->getName().str().c_str(), (void*)node.first);
         for (auto callee : node.second.CalleeFns) {
-          OutputDebugFormatA("    %s [%p]\r\n", callee->getName().str().c_str(), callee);
+          OutputDebugFormatA("    %s [%p]\r\n", callee->getName().str().c_str(), (void*)callee);
         }
       }
     }
@@ -2948,7 +2898,7 @@ private:
     TypeSourceInfo *float4TypeSourceInfo = m_context->getTrivialTypeSourceInfo(float4Type, NoLoc);
     m_objectTypeLazyInitMask = 0;
     unsigned effectKindIndex = 0;
-    for (int i = 0; i < _countof(g_ArBasicKindsAsTypes); i++)
+    for (unsigned i = 0; i < _countof(g_ArBasicKindsAsTypes); i++)
     {
       ArBasicKind kind = g_ArBasicKindsAsTypes[i];
       if (kind == AR_OBJECT_WAVE) { // wave objects are currently unused
@@ -2996,7 +2946,7 @@ private:
       // Create decls for each deprecated effect object type:
       unsigned effectObjBase = _countof(g_ArBasicKindsAsTypes);
       // TypeSourceInfo* effectObjTypeSource = m_context->getTrivialTypeSourceInfo(GetBasicKindType(AR_OBJECT_LEGACY_EFFECT));
-      for (int i = 0; i < _countof(g_DeprecatedEffectObjectNames); i++) {
+      for (unsigned i = 0; i < _countof(g_DeprecatedEffectObjectNames); i++) {
         IdentifierInfo& idInfo = m_context->Idents.get(StringRef(g_DeprecatedEffectObjectNames[i]), tok::TokenKind::identifier);
         //TypedefDecl* effectObjDecl = TypedefDecl::Create(*m_context, currentDeclContext, NoLoc, NoLoc, &idInfo, effectObjTypeSource);
         CXXRecordDecl *effectObjDecl = CXXRecordDecl::Create(*m_context, TagTypeKind::TTK_Struct, currentDeclContext, NoLoc, NoLoc, &idInfo);
@@ -3026,8 +2976,7 @@ private:
 
   clang::TypedefDecl *LookupMatrixShorthandType(HLSLScalarType scalarType, UINT rowCount, UINT colCount) {
     DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
-                   rowCount >= 0 && rowCount <= 4 && colCount >= 0 &&
-                   colCount <= 4);
+                   rowCount <= 4 && colCount <= 4);
     TypedefDecl *qts =
         m_matrixShorthandTypes[scalarType][rowCount - 1][colCount - 1];
     if (qts == nullptr) {
@@ -3041,7 +2990,7 @@ private:
 
   clang::TypedefDecl *LookupVectorShorthandType(HLSLScalarType scalarType, UINT colCount) {
     DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
-                   colCount >= 0 && colCount <= 4);
+                   colCount <= 4);
     TypedefDecl *qts = m_vectorTypedefs[scalarType][colCount - 1];
     if (qts == nullptr) {
       QualType type = LookupVectorType(scalarType, colCount);
@@ -3234,12 +3183,10 @@ public:
         R.addDecl(typeDecl);
       }
       else if (rowCount == 0) { // vector
-        QualType qt = LookupVectorType(parsedType, colCount);
         TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
         R.addDecl(qts);
       }
       else { // matrix
-        QualType qt = LookupMatrixType(parsedType, rowCount, colCount);
         TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
         R.addDecl(qts);
       }
@@ -3444,6 +3391,9 @@ public:
       case BuiltinType::Min10Float: return AR_BASIC_MIN10FLOAT;
       case BuiltinType::LitFloat: return AR_BASIC_LITERAL_FLOAT;
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
+      default:
+        // Only builtin types that have basickind equivalents.
+        break;
       }
     }
     if (const EnumType *ET = dyn_cast<EnumType>(type)) {
@@ -3458,13 +3408,12 @@ public:
     DXASSERT_NOMSG(table != nullptr);
 
     // Function intrinsics are added on-demand, objects get template methods.
-    for (int i = 0; i < _countof(g_ArBasicKindsAsTypes); i++) {
+    for (unsigned i = 0; i < _countof(g_ArBasicKindsAsTypes); i++) {
       // Grab information already processed by AddObjectTypes.
       ArBasicKind kind = g_ArBasicKindsAsTypes[i];
       const char *typeName = g_ArBasicTypeNames[kind];
       uint8_t templateArgCount = g_ArBasicKindsTemplateCount[i];
-      DXASSERT(0 <= templateArgCount && templateArgCount <= 2,
-        "otherwise a new case has been added");
+      DXASSERT(templateArgCount <= 2, "otherwise a new case has been added");
       int startDepth = (templateArgCount == 0) ? 0 : 1;
       CXXRecordDecl *recordDecl = m_objectTypeDecls[i];
       if (recordDecl == nullptr) {
@@ -3633,7 +3582,7 @@ public:
   QualType NewQualifiedType(UINT64 qwUsages, QualType type)
   {
     // NOTE: NewQualifiedType does quite a bit more in the prior compiler
-    (qwUsages);
+    (void)(qwUsages);
     return type;
   }
 
@@ -4557,19 +4506,6 @@ QualType GetFirstElementTypeFromDecl(const Decl* decl)
   return QualType();
 }
 
-static
-QualType GetFirstElementType(QualType type)
-{
-  if (!type.isNull()) {
-    const RecordType* record = type->getAs<RecordType>();
-    if (record) {
-      return GetFirstElementTypeFromDecl(record->getDecl());
-    }
-  }
-
-  return QualType();
-}
-
 void HLSLExternalSource::AddBaseTypes()
 {
   DXASSERT(m_baseTypes[HLSLScalarType_unknown].isNull(), "otherwise unknown was initialized to an actual type");
@@ -4733,6 +4669,9 @@ static bool CombineObjectTypes(ArBasicKind Target, _In_ ArBasicKind Source,
       AssignOpt(Target, pCombined);
       return true;
     }
+    break;
+  default:
+    // Not a combinable target.
     break;
   }
 
@@ -4975,8 +4914,8 @@ bool HLSLExternalSource::MatchArguments(
 
     // Compare template
     if ((AR_TOBJ_UNKNOWN == Template[pIntrinsicArg->uTemplateId]) ||
-         (AR_TOBJ_SCALAR == Template[pIntrinsicArg->uTemplateId]) &&
-        (AR_TOBJ_VECTOR == TypeInfoShapeKind || AR_TOBJ_MATRIX == TypeInfoShapeKind)) {
+        ((AR_TOBJ_SCALAR == Template[pIntrinsicArg->uTemplateId]) &&
+         (AR_TOBJ_VECTOR == TypeInfoShapeKind || AR_TOBJ_MATRIX == TypeInfoShapeKind))) {
       Template[pIntrinsicArg->uTemplateId] = TypeInfoShapeKind;
     }
     else if (AR_TOBJ_SCALAR == TypeInfoShapeKind) {
@@ -5165,7 +5104,7 @@ bool HLSLExternalSource::MatchArguments(
       // Use the templated input type, but resize it if the
       // intrinsic's rows/cols isn't 0
       if (pArgument->uRows && pArgument->uCols) {
-        UINT uRows, uCols;
+        UINT uRows, uCols = 0;
 
         // if type is overriden, use new type size, for
         // now it only supports scalars
@@ -5780,6 +5719,8 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
     case AR_BASIC_FLOAT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
   case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
@@ -5787,12 +5728,16 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     case AR_BASIC_FLOAT32:
     case AR_BASIC_FLOAT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
   case AR_BASIC_FLOAT32:
     switch (leftKind) {
     case AR_BASIC_FLOAT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
   case AR_BASIC_MIN10FLOAT:
@@ -5803,6 +5748,8 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
     case AR_BASIC_FLOAT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
   case AR_BASIC_MIN16FLOAT:
@@ -5812,6 +5759,8 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
     case AR_BASIC_FLOAT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
 
@@ -5826,6 +5775,8 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     case AR_BASIC_UINT32:
     case AR_BASIC_UINT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
   case AR_BASIC_INT16:
@@ -5837,6 +5788,8 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     case AR_BASIC_UINT32:
     case AR_BASIC_UINT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
   case AR_BASIC_INT32:
@@ -5846,6 +5799,8 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     case AR_BASIC_INT64:
     case AR_BASIC_UINT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
   case AR_BASIC_MIN12INT:
@@ -5854,6 +5809,8 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     case AR_BASIC_INT32:
     case AR_BASIC_INT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
   case AR_BASIC_MIN16INT:
@@ -5861,6 +5818,8 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     case AR_BASIC_INT32:
     case AR_BASIC_INT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
   case AR_BASIC_MIN16UINT:
@@ -5868,6 +5827,8 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     case AR_BASIC_UINT32:
     case AR_BASIC_UINT64:
       return true;
+    default:
+      return false; // No other type is a promotion.
     }
     break;
   }
@@ -5898,6 +5859,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     case AR_BASIC_UINT32:
     case AR_BASIC_UINT64:
       return false;
+    default:
+      break; // No other valid cast types
     }
     break;
 
@@ -5907,6 +5870,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     case AR_BASIC_LITERAL_INT:
     case AR_BASIC_UINT8:
       return false;
+    default:
+      break; // No other valid cast types
     }
     break;
 
@@ -5916,6 +5881,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     case AR_BASIC_LITERAL_INT:
     case AR_BASIC_UINT16:
       return false;
+    default:
+      break; // No other valid cast types
     }
     break;
 
@@ -5925,6 +5892,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     case AR_BASIC_LITERAL_INT:
     case AR_BASIC_UINT32:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
 
@@ -5934,6 +5903,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     case AR_BASIC_LITERAL_INT:
     case AR_BASIC_UINT64:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
 
@@ -5943,6 +5914,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     case AR_BASIC_LITERAL_INT:
     case AR_BASIC_INT8:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
 
@@ -5952,6 +5925,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     case AR_BASIC_LITERAL_INT:
     case AR_BASIC_INT16:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
 
@@ -5961,6 +5936,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     case AR_BASIC_LITERAL_INT:
     case AR_BASIC_INT32:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
 
@@ -5970,6 +5947,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     case AR_BASIC_LITERAL_INT:
     case AR_BASIC_INT64:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
 
@@ -5981,6 +5960,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
     case AR_BASIC_FLOAT64:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
 
@@ -5988,6 +5969,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     switch (rightKind) {
     case AR_BASIC_LITERAL_FLOAT:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
 
@@ -5995,6 +5978,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     switch (rightKind) {
     case AR_BASIC_LITERAL_FLOAT:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
 
@@ -6002,6 +5987,8 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     switch (rightKind) {
     case AR_BASIC_LITERAL_FLOAT:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
 
@@ -6009,8 +5996,12 @@ bool HLSLExternalSource::IsCast(ArBasicKind leftKind, ArBasicKind rightKind) {
     switch (rightKind) {
     case AR_BASIC_LITERAL_FLOAT:
       return false;
+    default:
+      break; // No other valid cast types.
     }
     break;
+  default:
+    break; // No other relevant targets.
   }
 
   return true;
@@ -6039,6 +6030,8 @@ bool HLSLExternalSource::IsIntCast(ArBasicKind leftKind, ArBasicKind rightKind) 
     case AR_BASIC_UINT32:
     case AR_BASIC_UINT64:
       return false;
+    default:
+      break; // No other valid conversions
     }
     break;
 
@@ -6053,6 +6046,8 @@ bool HLSLExternalSource::IsIntCast(ArBasicKind leftKind, ArBasicKind rightKind) 
     switch (rightKind) {
     case AR_BASIC_LITERAL_INT:
       return false;
+    default:
+      break; // No other valid conversions
     }
     break;
 
@@ -6064,6 +6059,8 @@ bool HLSLExternalSource::IsIntCast(ArBasicKind leftKind, ArBasicKind rightKind) 
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
     case AR_BASIC_FLOAT64:
       return false;
+    default:
+      break; // No other valid conversions
     }
     break;
 
@@ -6074,7 +6071,12 @@ bool HLSLExternalSource::IsIntCast(ArBasicKind leftKind, ArBasicKind rightKind) 
     switch (rightKind) {
     case AR_BASIC_LITERAL_FLOAT:
       return false;
+    default:
+      break; // No other valid conversions
     }
+    break;
+  default:
+    // No other relevant targets
     break;
   }
 
@@ -6991,6 +6993,9 @@ static clang::CastKind ImplicitConversionKindToCastKind(
     else if (IS_BASIC_AINT(FromKind) && IS_BASIC_BOOL(ToKind))
       return CK_IntegralToBoolean;
     break;
+  default:
+    // Only covers implicit conversions with cast kind equivalents.
+    return CK_Invalid;
   }
   return CK_Invalid;
 }
@@ -7008,6 +7013,9 @@ static clang::CastKind ConvertToComponentCastKind(clang::CastKind CK) {
     return CK_HLSLCC_FloatingToBoolean;
   case CK_IntegralToBoolean:
     return CK_HLSLCC_IntegralToBoolean;
+  default:
+    // Only HLSLCC castkinds are relevant. Ignore the rest.
+    return CK_Invalid;
   }
   return CK_Invalid;
 }
@@ -7215,6 +7223,9 @@ void HLSLExternalSource::GetConversionForm(
       pTypeInfo->ShapeKind = AR_TOBJ_BASIC;
     }
     break;
+  default:
+    // Only convertable shapekinds are relevant.
+    break;
   }
 }
 
@@ -7383,21 +7394,8 @@ bool HLSLExternalSource::CanConvert(
           goto lSuccess;
         }
         break;
-      }
-    }
-
-    if (const BuiltinType *BT = source->getAs<BuiltinType>()) {
-      BuiltinType::Kind kind = BT->getKind();
-      switch (kind) {
-      case BuiltinType::Kind::UInt:
-      case BuiltinType::Kind::Int:
-      case BuiltinType::Kind::Float:
-      case BuiltinType::Kind::LitFloat:
-      case BuiltinType::Kind::LitInt:
-        if (explicitConversion) {
-          Second = ICK_Flat_Conversion;
-          goto lSuccess;
-        }
+      default:
+        // Only flat conversion kinds are relevant.
         break;
       }
     }
@@ -7470,6 +7468,9 @@ bool HLSLExternalSource::CanConvert(
     case AR_TOBJ_INTERFACE:
     case AR_TOBJ_POINTER:
       return false;
+    default:
+      // Only valid conversion source types are handled.
+      break;
     }
 
     bCheckElt = true;
@@ -7524,6 +7525,9 @@ bool HLSLExternalSource::CanConvert(
     case AR_TOBJ_INTERFACE:
     case AR_TOBJ_POINTER:
       return false;
+    default:
+      // Only valid conversion source types are handled.
+      break;
     }
 
     bCheckElt = true;
@@ -7579,6 +7583,9 @@ bool HLSLExternalSource::CanConvert(
     case AR_TOBJ_INTERFACE:
     case AR_TOBJ_POINTER:
       return false;
+    default:
+      // Only valid conversion source types are handled.
+      break;
     }
 
     bCheckElt = true;
@@ -7699,6 +7706,9 @@ lSuccess:
         case ICK_HLSLVector_Splat:
           standard->First = ICK_Lvalue_To_Rvalue;
           break;
+        default:
+          // Only flat and splat conversions handled.
+          break;
         }
         switch (ComponentConversion)
         {
@@ -7709,6 +7719,9 @@ lSuccess:
         case ICK_Floating_Integral:
         case ICK_Boolean_Conversion:
           standard->First = ICK_Lvalue_To_Rvalue;
+          break;
+        default:
+          // Only potential assignments above covered.
           break;
         }
       }
@@ -7960,6 +7973,9 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     // In the HLSL case these cases don't apply or simply aren't surfaced.
     ResultTy = RHS.get()->getType();
     return;
+  default:
+    // Only assign and comma operations handled.
+    break;
   }
 
   // Leave this diagnostic for last to emulate fxc behavior.
@@ -8160,6 +8176,9 @@ QualType HLSLExternalSource::CheckUnaryOpForHLSL(
   case UO_Deref:
     m_sema->Diag(OpLoc, diag::err_hlsl_unsupported_operator);
     return QualType();
+  default:
+    // Only * and & covered.
+    break;
   }
 
   Expr* expr = InputExpr.get();
@@ -8603,6 +8622,9 @@ void HLSLExternalSource::DiagnoseAssignmentResultForHLSL(
   case AR_BASIC_MIN10FLOAT:
     warnAboutNarrowing = (src == AR_BASIC_INT32 || src == AR_BASIC_UINT32 || src == AR_BASIC_FLOAT32 || src == AR_BASIC_FLOAT64);
     break;
+  default:
+    // No other destination types result in narrowing.
+    break;
   }
 
   // fxc errors looked like this:
@@ -8629,7 +8651,6 @@ bool HLSLExternalSource::TryStaticCastForHLSL(ExprResult &SrcExpr,
   DXASSERT(!SrcExpr.isInvalid(), "caller should check for invalid expressions and placeholder types");
   bool explicitConversion
     = (CCK == Sema::CCK_CStyleCast || CCK == Sema::CCK_FunctionalCast);
-  QualType sourceType = SrcExpr.get()->getType();
   bool suppressWarnings = explicitConversion || SuppressWarnings;
   SourceLocation loc = OpRange.getBegin();
   if (ValidateCast(loc, SrcExpr.get(), DestType, explicitConversion, suppressWarnings, SuppressErrors, standard)) {
@@ -8703,6 +8724,9 @@ void GetFloatLimits(ArBasicKind basicKind, double* minValue, double* maxValue)
   case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
   case AR_BASIC_FLOAT32: *minValue = -(FLT_MIN); *maxValue = FLT_MAX; return;
   case AR_BASIC_FLOAT64: *minValue = -(DBL_MIN); *maxValue = DBL_MAX; return;
+  default:
+    // No other float types.
+    break;
   }
 
   DXASSERT(false, "unreachable");
@@ -8722,6 +8746,9 @@ void GetUnsignedLimit(ArBasicKind basicKind, uint64_t* maxValue)
   case AR_BASIC_UINT16: *maxValue = UINT16_MAX; return;
   case AR_BASIC_UINT32: *maxValue = UINT32_MAX; return;
   case AR_BASIC_UINT64: *maxValue = UINT64_MAX; return;
+  default:
+    // No other unsigned int types.
+    break;
   }
 
   DXASSERT(false, "unreachable");
@@ -8742,6 +8769,9 @@ void GetSignedLimits(ArBasicKind basicKind, int64_t* minValue, int64_t* maxValue
   case AR_BASIC_INT16: *minValue = INT16_MIN; *maxValue = INT16_MAX; return;
   case AR_BASIC_INT32: *minValue = INT32_MIN; *maxValue = INT32_MAX; return;
   case AR_BASIC_INT64: *minValue = INT64_MIN; *maxValue = INT64_MAX; return;
+  default:
+    // No other signed int types.
+    break;
   }
 
   DXASSERT(false, "unreachable");
@@ -9129,7 +9159,9 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_LEGACY_EFFECT:   // Used for all unsupported but ignored legacy effect types
     isWarning = true;
     break;                        // So we don't care what you tried to bind it to
-  };
+  default: // Other types have no associated registers.
+    break;
+  }
 
   // fxc is inconsistent as to when it reports an error and when it ignores invalid bind semantics, so emit
   // a warning instead.
@@ -9177,7 +9209,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
   // TODO: make these error 'real' errors rather than on-the-fly things
   // Validate that the entry point is available.
-  ASTContext &Ctx = self->getASTContext();
   DiagnosticsEngine &Diags = self->getDiagnostics();
   FunctionDecl *pEntryPointDecl = nullptr;
   FunctionDecl *pPatchFnDecl = nullptr;
@@ -10606,7 +10637,6 @@ Decl* Sema::ActOnStartHLSLBuffer(
   SourceLocation LBrace)
 {
   // For anonymous namespace, take the location of the left brace.
-  SourceLocation Loc = Ident ? IdentLoc : LBrace;
   DeclContext* lexicalParent = getCurLexicalContext();
   clang::HLSLBufferDecl *result = HLSLBufferDecl::Create(
       Context, lexicalParent, cbuffer, /*isConstantBufferView*/ false, KwLoc,
@@ -10964,9 +10994,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
 
   // Validate attributes
   clang::AttributeList
-    *pPrecise = nullptr,
-    *pShared = nullptr,
-    *pGroupShared = nullptr,
     *pUniform = nullptr,
     *pUsage = nullptr,
     *pNoInterpolation = nullptr,
@@ -10986,7 +11013,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
 
     switch (pAttr->getKind()) {
     case AttributeList::AT_HLSLPrecise: // precise is applicable everywhere.
-      pPrecise = pAttr;
       break;
     case AttributeList::AT_HLSLShared:
       if (!isGlobal) {
@@ -11000,7 +11026,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
             << pAttr->getRange();
         result = false;
       }
-      pShared = pAttr;
       break;
     case AttributeList::AT_HLSLGroupShared:
       if (!isGlobal) {
@@ -11014,7 +11039,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
             << pAttr->getRange();
         result = false;
       }
-      pGroupShared = pAttr;
       break;
     case AttributeList::AT_HLSLGloballyCoherent:
       if (!bIsObject) {
@@ -11108,6 +11132,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
               << pAttr->getName() << pAttr->getRange();
         }
         pCentroid = pAttr;
+        break;
+      default:
+        // Only relevant to the four attribs included in this block.
         break;
       }
       break;
@@ -11743,7 +11770,19 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLTriangleAdj:
   case clang::attr::HLSLGloballyCoherent:
   case clang::attr::NoInline:
+  case clang::attr::VKBinding:
+  case clang::attr::VKBuiltIn:
+  case clang::attr::VKConstantId:
+  case clang::attr::VKCounterBinding:
+  case clang::attr::VKIndex:
+  case clang::attr::VKInputAttachmentIndex:
+  case clang::attr::VKLocation:
+  case clang::attr::VKOffset:
+  case clang::attr::VKPushConstant:
     return true;
+  default:
+    // Only HLSL/VK Attributes return true. Only used for printPretty(), which doesn't support them.
+    break;
   }
   
   return false;

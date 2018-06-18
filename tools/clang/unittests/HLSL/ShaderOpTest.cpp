@@ -2005,7 +2005,7 @@ void ParseDataFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType
     V.insert(V.end(), pB, pB + sizeof(int));
   }
   else {
-    DXASSERT(false, "Unsupported stream component type : %u", compType);
+    DXASSERT_ARGS(false, "Unsupported stream component type : %u", compType);
   }
 }
 

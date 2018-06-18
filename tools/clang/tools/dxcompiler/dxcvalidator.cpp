@@ -24,7 +24,10 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+
+#ifdef _WIN32
 #include "dxcetw.h"
+#endif
 
 #include "GitCommitInfo.inc" // Auto generated file containing Git commit info
 
@@ -67,7 +70,7 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcValidator)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
   }
 

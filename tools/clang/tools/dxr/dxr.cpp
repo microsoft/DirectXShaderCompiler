@@ -143,10 +143,10 @@ public:
     if (!GetFileSizeEx(fileHandle, &FileSize)) {
       return HRESULT_FROM_WIN32(GetLastError());
     }
-    if (FileSize.HighPart != 0 || FileSize.LowPart == UINT_MAX) {
+    if (FileSize.u.HighPart != 0 || FileSize.u.LowPart == UINT_MAX) {
       return DXC_E_INPUT_FILE_TOO_LARGE;
     }
-    m_FileSize = FileSize.LowPart;
+    m_FileSize = FileSize.u.LowPart;
 
     return S_OK;
   }

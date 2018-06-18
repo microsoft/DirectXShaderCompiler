@@ -181,6 +181,9 @@ Value *DxilConvergentMark::FindConvergentOperand(Instruction *I) {
       case IntrinsicOp::MOP_GatherGreen:
       case IntrinsicOp::MOP_GatherRed:
         return CI->getArgOperand(HLOperandIndex::kGatherCoordArgIndex);
+      default:
+        // No other ops have convergent operands.
+        break;
       }
     }
   }

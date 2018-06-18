@@ -158,7 +158,7 @@ private:
       unsigned PrimitiveId;
       unsigned InstanceId;
     } GeometryShader;
-  } m_Parameters = { 0,0,0 };
+  } m_Parameters = { {0,0,0} };
 
   union SystemValueIndices {
     struct PixelShaderParameters {
@@ -583,14 +583,11 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC, Value * Th
     Function* StoreValue = BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
     Constant* StoreValueOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
     UndefValue* Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
-    Constant* ZeroArg;
     UndefValue* UndefArg;
     if (TheValueTypeID == Type::TypeID::IntegerTyID) {
-        ZeroArg = BC.HlslOP->GetU32Const(0);
         UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
     }
     else if (TheValueTypeID == Type::TypeID::FloatTyID) {
-        ZeroArg = BC.HlslOP->GetFloatConst(0.f);
         UndefArg = UndefValue::get(Type::getFloatTy(BC.Ctx));
     }
     else {
@@ -623,7 +620,7 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC, Value * Th
 }
 
 void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext &BC) {
-  DebugShaderModifierRecordHeader marker{ 0 };
+  DebugShaderModifierRecordHeader marker{ {{0, 0, 0, 0}}, 0 };
   reserveDebugEntrySpace(BC, sizeof(marker));
 
   marker.Header.Details.SizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(marker));;
@@ -691,6 +688,9 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC, Instruction
   case Type::TypeID::FunctionTyID:
   case Type::TypeID::ArrayTyID:
   case Type::TypeID::VectorTyID:
+  case Type::TypeID::X86_FP80TyID:
+  case Type::TypeID::X86_MMXTyID:
+  case Type::TypeID::PPC_FP128TyID:
     assert(false);
   }
 

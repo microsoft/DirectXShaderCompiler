@@ -11,6 +11,7 @@
 
 #pragma once
 
+#ifdef _WIN32
 // Redeclare some macros to not depend on winerror.h
 #define DXC_FAILED(hr) (((HRESULT)(hr)) < 0)
 #ifndef _HRESULT_DEFINED
@@ -21,9 +22,12 @@ typedef long HRESULT;
 typedef _Return_type_success_(return >= 0) long HRESULT;
 #endif // _Return_type_success_
 #endif // !_HRESULT_DEFINED
+#endif // _WIN32
 
 #include <stdarg.h>
+#include <system_error>
 #include "dxc/Support/exception.h"
+#include "dxc/Support/WinAdapter.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Memory allocation support.
@@ -72,7 +76,6 @@ struct DxcThreadMalloc {
 
 ///////////////////////////////////////////////////////////////////////////////
 // Error handling support.
-namespace std { class error_code; }
 void CheckLLVMErrorCode(const std::error_code &ec);
 
 
@@ -173,6 +176,8 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
 #ifdef DBG
 
+#ifdef _WIN32
+
 // DXASSERT is used to debug break when 'exp' evaluates to false and is only
 //     intended for internal developer use. It is compiled out in free
 //     builds.  This means that code that should be in the final exe should
@@ -185,25 +190,44 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 // This prints 'Hello World (i > 10)' and breaks in the debugger if the
 // assertion doesn't hold.
 //
-#define DXASSERT(exp, fmt, ...)\
+#define DXASSERT_ARGS(exp, fmt, ...)\
   do { _Analysis_assume_(exp); if(!(exp)) {                              \
     OutputDebugFormatA("Error: \t%s\nFile:\n%s(%d)\nFunc:\t%s.\n\t" fmt "\n", "!(" #exp ")", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
     __debugbreak();\
   } } while(0)
+#define DXASSERT(exp, msg) DXASSERT_ARGS(exp, msg)
 
-#define DXASSERT_LOCALVAR(local, exp, s, ...) DXASSERT(exp, s, __VA_ARGS__)
+#define DXASSERT_LOCALVAR(local, exp, msg) DXASSERT(exp, msg)
 
 #define DXASSERT_NOMSG(exp) DXASSERT(exp, "")
 
 #define DXVERIFY_NOMSG(exp) DXASSERT(exp, "")
 
-#else
+#else // _WIN32
+#include <cassert>
+
+#define DXASSERT_NOMSG assert
+
+#define DXASSERT_LOCALVAR(local, exp, msg) DXASSERT(exp, msg)
+
+#define DXVERIFY_NOMSG assert
+
+#define DXASSERT_ARGS(expr, fmt, ...) do { if (!(expr)) { fprintf(stderr, fmt, __VA_ARGS__); assert(false); } } while (0);
+
+#define DXASSERT(expr, msg) do { if (!(expr)) { fprintf(stderr, msg); assert(false && msg); } } while (0);
+
+#endif // _WIN32
+
+#else // DBG
+
+// DXASSERT_ARGS is disabled in free builds.
+#define DXASSERT_ARGS(exp, s, ...) _Analysis_assume_(exp)
 
 // DXASSERT is disabled in free builds.
-#define DXASSERT(exp, s, ...) _Analysis_assume_(exp)
+#define DXASSERT(exp, msg) _Analysis_assume_(exp)
 
 // DXASSERT_LOCALVAR is disabled in free builds, but we keep the local referenced to avoid a warning.
-#define DXASSERT_LOCALVAR(local, exp, s, ...) do { (local); _Analysis_assume_(exp); } while (0)
+#define DXASSERT_LOCALVAR(local, exp, s, ...) do { (void)(local); _Analysis_assume_(exp); } while (0)
 
 // DXASSERT_NOMSG is disabled in free builds.
 #define DXASSERT_NOMSG(exp) _Analysis_assume_(exp)

@@ -691,9 +691,11 @@ void ModuleSlotTracker::incorporateFunction(const Function &F) {
   this->F = &F;
 }
 
+#if 0 // HLSL Change - Unused
 static SlotTracker *createSlotTracker(const Module *M) {
   return new SlotTracker(M);
 }
+#endif
 
 static SlotTracker *createSlotTracker(const Value *V) {
   if (const Argument *FA = dyn_cast<Argument>(V))
@@ -2078,6 +2080,7 @@ AssemblyWriter::AssemblyWriter(formatted_raw_ostream &o, SlotTracker &Mac,
   init();
 }
 
+#if 0 // HLSL Change - Unused
 AssemblyWriter::AssemblyWriter(formatted_raw_ostream &o, const Module *M,
                                AssemblyAnnotationWriter *AAW,
                                bool ShouldPreserveUseListOrder)
@@ -2086,6 +2089,7 @@ AssemblyWriter::AssemblyWriter(formatted_raw_ostream &o, const Module *M,
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {
   init();
 }
+#endif
 
 void AssemblyWriter::writeOperand(const Value *Operand, bool PrintType) {
   if (!Operand) {

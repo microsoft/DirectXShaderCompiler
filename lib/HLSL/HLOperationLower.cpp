@@ -156,7 +156,7 @@ private:
     // Add invalid first to avoid dead loop.
     HandleMetaMap[Handle] = {DXIL::ResourceClass::Invalid,
                              DXIL::ResourceKind::Invalid,
-                             StructType::get(Type::getVoidTy(HLM.GetCtx()))};
+                             StructType::get(Type::getVoidTy(HLM.GetCtx()), nullptr)};
     if (Argument *Arg = dyn_cast<Argument>(Handle)) {
       MDNode *MD = HLM.GetDxilResourceAttrib(Arg);
       if (!MD) {
@@ -723,7 +723,7 @@ Constant *GetLoadInputsForEvaluate(Value *V, std::vector<CallInst*> &loadList) {
 // for temporary insertelement instructions should maintain the existing size of the loadinput.
 // So we have to analyze the type of src in order to determine the actual size required.
 Type *GetInsertElementTypeForEvaluate(Value *src) {
-  if (InsertElementInst *IE = dyn_cast<InsertElementInst>(src)) {
+  if (dyn_cast<InsertElementInst>(src)) {
     return src->getType();
   }
   else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(src)) {
@@ -1101,7 +1101,6 @@ Value *TransalteAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
     IRBuilder<> Builder(CI);
     Value *neg = Builder.CreateNeg(src);
-    Value *refArgs[] = {nullptr, src, neg};
     return TrivialDxilBinaryOperation(DXIL::OpCode::IMax, src, neg, hlslOP,
                                       Builder);
   }
@@ -1668,7 +1667,7 @@ Value *TranslateFUIBinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
       break;
     case IntrinsicOp::IOP_min:
     default:
-      DXASSERT(IOP == IntrinsicOp::IOP_min, "");
+      DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_min);
       opcode = OP::OpCode::FMin;
       break;
     }
@@ -1683,7 +1682,7 @@ Value *TranslateFUITrinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     switch (IOP) {
     case IntrinsicOp::IOP_mad:
     default:
-      DXASSERT(IOP == IntrinsicOp::IOP_mad, "");
+      DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_mad);
       opcode = OP::OpCode::FMad;
       break;
     }
@@ -3083,26 +3082,6 @@ void Make64bitResultForLoad(Type *EltTy, ArrayRef<Value *> resultElts32,
   }
 }
 
-static uint8_t GetRawBufferMaskFromIOP(IntrinsicOp IOP, hlsl::OP *OP) {
-  switch (IOP) {
-    // one component
-    case IntrinsicOp::MOP_Load:
-      return DXIL::kCompMask_X;
-    // two component
-    case IntrinsicOp::MOP_Load2:
-      return DXIL::kCompMask_X | DXIL::kCompMask_Y;
-    // three component
-    case IntrinsicOp::MOP_Load3:
-      return DXIL::kCompMask_X | DXIL::kCompMask_Y | DXIL::kCompMask_Z;
-    // four component
-    case IntrinsicOp::MOP_Load4:
-      return DXIL::kCompMask_All;
-    default:
-      DXASSERT(false, "Invalid Intrinsic for computing load mask.");
-      return 0;
-  }
-}
-
 static Constant *GetRawBufferMaskForETy(Type *Ty, unsigned NumComponents, hlsl::OP *OP) {
   Type *ETy = Ty->getScalarType();
   bool is64 = ETy->isDoubleTy() || ETy == Type::getInt64Ty(ETy->getContext());
@@ -3944,7 +3923,7 @@ Value *TranslateProcessIsolineTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpC
                               HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   // Get partition mode 
-  DXASSERT(helper.functionProps, "");
+  DXASSERT_NOMSG(helper.functionProps);
   DXASSERT(helper.functionProps->shaderKind == ShaderModel::Kind::Hull, "must be hull shader");
   DXIL::TessellatorPartitioning partition = helper.functionProps->ShaderProps.HS.partition;
   
@@ -4124,7 +4103,7 @@ Value *TranslateProcessTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpCode opc
                               HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   // Get partition mode 
-  DXASSERT(helper.functionProps, "");
+  DXASSERT_NOMSG(helper.functionProps);
   DXASSERT(helper.functionProps->shaderKind == ShaderModel::Kind::Hull, "must be hull shader");
   DXIL::TessellatorPartitioning partition = helper.functionProps->ShaderProps.HS.partition;
   
@@ -4623,7 +4602,7 @@ Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
   DXASSERT_LOCALVAR(baseIdx && zeroIdx, baseIdx == zeroIdx,
                     "base index must be 0");
   Value *idx = (GEP->idx_begin() + 1)->get();
-  if (ConstantInt *cidx = dyn_cast<ConstantInt>(idx)) {
+  if (dyn_cast<ConstantInt>(idx)) {
     return Builder.CreateExtractElement(ldData, idx);
   } else {
     // Dynamic indexing.
@@ -6234,8 +6213,6 @@ Value *UpdateVectorElt(Value *VecVal, Value *EltVal, Value *EltIdx,
 }
 
 void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
-  auto U = CI->user_begin();
-
   Value *ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
 
   hlsl::OP *hlslOP = &helper.hlslOP;
@@ -6262,7 +6239,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
       // Must be vector type here.
       unsigned vectorSize = Ty->getVectorNumElements();
-      DXASSERT(GEP->getNumIndices() == 2, "");
+      DXASSERT_NOMSG(GEP->getNumIndices() == 2);
       Use *GEPIdx = GEP->idx_begin();
       GEPIdx++;
       Value *EltIdx = *GEPIdx;

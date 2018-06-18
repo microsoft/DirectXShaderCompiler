@@ -513,7 +513,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   // and FP constants (specifically, the 'pp-number' regex), and assumes that
   // the byte at "*end" is both valid and not part of the regex.  Because of
   // this, it doesn't have to check for 'overscan' in various places.
-  assert(!isPreprocessingNumberBody(*ThisTokEnd) || *ThisTokEnd == '.' || *ThisTokEnd == '#' && "didn't maximally munch?"); // HLSL Change - '.' might be a second '.' for a '1.2.x' literal
+  assert((!isPreprocessingNumberBody(*ThisTokEnd) || *ThisTokEnd == '.' || *ThisTokEnd == '#') && "didn't maximally munch?"); // HLSL Change - '.' might be a second '.' for a '1.2.x' literal
 
   s = DigitsBegin = ThisTokBegin;
   saw_inf = false;

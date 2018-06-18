@@ -57,8 +57,10 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
+#ifdef _WIN32
 #include <dia2.h>
 #include <comdef.h>
+#endif
 #include <algorithm>
 #include <unordered_map>
 
@@ -569,7 +571,7 @@ public:
   DxcIncludeHandlerForInjectedSources() : m_dwRef(0) {};
   std::unordered_map<std::wstring, CComPtr<IDxcBlob>> includeFiles;
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
   }
 
@@ -946,7 +948,7 @@ HRESULT DxcContext::FindModuleBlob(hlsl::DxilFourCC fourCC, IDxcBlob *pSource, I
   }
   if (fourCC == pDxilPartHeader->PartFourCC) {
     UINT32 pBlobSize;
-    hlsl::DxilProgramHeader *pDxilProgramHeader = (hlsl::DxilProgramHeader*)(pDxilPartHeader + 1);
+    const hlsl::DxilProgramHeader *pDxilProgramHeader = (const hlsl::DxilProgramHeader*)(pDxilPartHeader + 1);
     hlsl::GetDxilProgramBitcode(pDxilProgramHeader, &pBitcode, &pBlobSize);
     UINT32 offset = (UINT32)(pBitcode - (const char *)pSource->GetBufferPointer());
     pLibrary->CreateBlobFromBlob(pSource, offset, pBlobSize, ppTargetBlob);

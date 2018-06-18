@@ -293,15 +293,6 @@ static void emitDxilDiag(const LLVMContext &Ctx, const char *str) {
   diagCtx.diagnose(DxilErrorDiagnosticInfo(str));
 }
 
-// Printing of types.
-static inline DiagnosticPrinter &operator<<(DiagnosticPrinter &OS, Type &T) {
-  std::string O;
-  raw_string_ostream OSS(O);
-  T.print(OSS);
-  OS << OSS.str();
-  return OS;
-}
-
 } // anon namespace
 
 namespace hlsl {
@@ -366,15 +357,14 @@ struct ValidationContext {
                     DxilModule &dxilModule,
                     DiagnosticPrinterRawOStream &DiagPrn)
       : M(llvmModule), pDebugModule(DebugModule), DxilMod(dxilModule),
-        DL(llvmModule.getDataLayout()),
+        DL(llvmModule.getDataLayout()), DiagPrinter(DiagPrn),
+        LastRuleEmit((ValidationRule)-1), hasViewID(false),
         kDxilControlFlowHintMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilControlFlowHintMDName)),
         kDxilPreciseMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilPreciseAttributeMDName)),
         kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
-        DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1),
-        m_bCoverageIn(false), m_bInnerCoverageIn(false),
-        hasViewID(false) {
+        m_bCoverageIn(false), m_bInnerCoverageIn(false) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;
@@ -590,7 +580,7 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // CalculateLOD=81, Discard=82, DerivCoarseX=83, DerivCoarseY=84,
   // DerivFineX=85, DerivFineY=86, EvalSnapped=87, EvalSampleIndex=88,
   // EvalCentroid=89, SampleIndex=90, Coverage=91, InnerCoverage=92
-  if (60 <= op && op <= 61 || op == 64 || 76 <= op && op <= 77 || 81 <= op && op <= 92)
+  if ((60 <= op && op <= 61) || op == 64 || (76 <= op && op <= 77) || (81 <= op && op <= 92))
     return (pSM->IsPS());
   // Instructions: AttributeAtVertex=137
   if (op == 137)
@@ -821,7 +811,6 @@ struct ResRetUsage {
 
 static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
                                      ValidationContext &ValCtx) {
-  const unsigned kMaxResRetElementIndex = 5;
   for (User *U : ResRet->users()) {
     if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
       for (unsigned idx : EVI->getIndices()) {
@@ -857,35 +846,6 @@ static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
   }
 }
 
-static void ValidateStatus(Instruction *ResRet, ValidationContext &ValCtx) {
-  ResRetUsage usage;
-  CollectGetDimResRetUsage(usage, ResRet, ValCtx);
-  if (usage.status) {
-    for (User *U : ResRet->users()) {
-      if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
-        for (unsigned idx : EVI->getIndices()) {
-          switch (idx) {
-          case DXIL::kResRetStatusIndex:
-            for (User *SU : EVI->users()) {
-              Instruction *I = cast<Instruction>(SU);
-              // Make sure all use is CheckAccess.
-              if (!isa<CallInst>(I)) {
-                ValCtx.EmitInstrError(I, ValidationRule::InstrStatus);
-                return;
-              }
-              if (!ValCtx.DxilMod.GetOP()->IsDxilOpFuncCallInst(
-                      I, DXIL::OpCode::CheckAccessFullyMapped)) {
-                ValCtx.EmitInstrError(I, ValidationRule::InstrStatus);
-                return;
-              }
-            }
-            break;
-          }
-        }
-      }
-    }
-  }
-}
 
 static void ValidateResourceCoord(CallInst *CI, DXIL::ResourceKind resKind,
                                   ArrayRef<Value *> coords,
@@ -1588,8 +1548,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     const unsigned uglobal =
         static_cast<unsigned>(DXIL::BarrierMode::UAVFenceGlobal);
     const unsigned g = static_cast<unsigned>(DXIL::BarrierMode::TGSMFence);
-    const unsigned t =
-        static_cast<unsigned>(DXIL::BarrierMode::SyncThreadGroup);
     const unsigned ut =
         static_cast<unsigned>(DXIL::BarrierMode::UAVFenceThreadGroup);
     unsigned barrierMode = cMode->getLimitedValue();
@@ -2044,7 +2002,7 @@ static bool IsLLVMInstructionAllowed(llvm::Instruction &I) {
   // SExt=35, FPToUI=36, FPToSI=37, UIToFP=38, SIToFP=39, FPTrunc=40, FPExt=41,
   // BitCast=44, AddrSpaceCast=45, ICmp=46, FCmp=47, PHI=48, Call=49, Select=50,
   // ExtractValue=57
-  return 1 <= op && op <= 3 || 8 <= op && op <= 29 || 31 <= op && op <= 41 || 44 <= op && op <= 50 || op == 57;
+  return (1 <= op && op <= 3) || (8 <= op && op <= 29) || (31 <= op && op <= 41) || (44 <= op && op <= 50) || op == 57;
   // OPCODE-ALLOWED:END
 }
 
@@ -2183,7 +2141,7 @@ static bool IsValueMinPrec(DxilModule &DxilMod, Value *V) {
   DXASSERT(DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision,
            "else caller didn't check - currently this path should never be hit "
            "otherwise");
-  (DxilMod);
+  (void)(DxilMod);
   Type *Ty = V->getType();
   if (Ty->isIntegerTy()) {
     return 16 == Ty->getIntegerBitWidth();
@@ -3151,12 +3109,10 @@ static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
 
 static void ValidateResources(ValidationContext &ValCtx) {
   const vector<unique_ptr<DxilResource>> &uavs = ValCtx.DxilMod.GetUAVs();
-  bool hasROV = false;
   SpacesAllocator<unsigned, DxilResourceBase> uavAllocator;
 
   for (auto &uav : uavs) {
     if (uav->IsROV()) {
-      hasROV = true;
       if (!ValCtx.DxilMod.GetShaderModel()->IsPS()) {
         ValCtx.EmitResourceError(uav.get(), ValidationRule::SmROVOnlyInPS);
       }
@@ -3253,28 +3209,25 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   unsigned compWidth = 0;
   bool compFloat = false;
   bool compInt = false;
-  bool compUnsigned = false;
   bool compBool = false;
-  bool compSNorm = false;
-  bool compUNorm = false;
 
   switch (compKind) {
-  case CompType::Kind::U64: compWidth = 64; compInt = true; compUnsigned = true; break;
+  case CompType::Kind::U64: compWidth = 64; compInt = true; break;
   case CompType::Kind::I64: compWidth = 64; compInt = true; break;
-  case CompType::Kind::U32: compWidth = 32; compInt = true; compUnsigned = true; break;
+  case CompType::Kind::U32: compWidth = 32; compInt = true; break;
   case CompType::Kind::I32: compWidth = 32; compInt = true; break;
-  case CompType::Kind::U16: compWidth = 16; compInt = true; compUnsigned = true; break;
+  case CompType::Kind::U16: compWidth = 16; compInt = true; break;
   case CompType::Kind::I16: compWidth = 16; compInt = true; break;
   case CompType::Kind::I1: compWidth = 1; compBool = true; break;
   case CompType::Kind::F64: compWidth = 64; compFloat = true; break;
   case CompType::Kind::F32: compWidth = 32; compFloat = true; break;
   case CompType::Kind::F16: compWidth = 16; compFloat = true; break;
-  case CompType::Kind::SNormF64: compWidth = 64; compFloat = true; compSNorm = true; break;
-  case CompType::Kind::SNormF32: compWidth = 32; compFloat = true; compSNorm = true; break;
-  case CompType::Kind::SNormF16: compWidth = 16; compFloat = true; compSNorm = true; break;
-  case CompType::Kind::UNormF64: compWidth = 64; compFloat = true; compUNorm = true; break;
-  case CompType::Kind::UNormF32: compWidth = 32; compFloat = true; compUNorm = true; break;
-  case CompType::Kind::UNormF16: compWidth = 16; compFloat = true; compUNorm = true; break;
+  case CompType::Kind::SNormF64: compWidth = 64; compFloat = true; break;
+  case CompType::Kind::SNormF32: compWidth = 32; compFloat = true; break;
+  case CompType::Kind::SNormF16: compWidth = 16; compFloat = true; break;
+  case CompType::Kind::UNormF64: compWidth = 64; compFloat = true; break;
+  case CompType::Kind::UNormF32: compWidth = 32; compFloat = true; break;
+  case CompType::Kind::UNormF16: compWidth = 16; compFloat = true; break;
   case CompType::Kind::Invalid:
   default:
     ValCtx.EmitFormatError(ValidationRule::MetaSignatureCompType, { SE.GetName() });

@@ -9,13 +9,13 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
+#ifdef _WIN32
 #include <specstrings.h>
-#include "dxc/Support/Unicode.h"
+#endif
 #include <string>
-
+#include "dxc/Support/Global.h"
+#include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
-
 
 namespace Unicode {
 

@@ -282,7 +282,7 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
 }
 
 SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
-  if (const auto *info = getDeclSpirvInfo(decl))
+  if (const auto *info = getDeclSpirvInfo(decl)) {
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
       // OpAccessChain to get the pointer to the variable since we created
@@ -303,6 +303,7 @@ SpirvEvalInfo DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl) {
     } else {
       return *info;
     }
+  }
 
   emitFatalError("found unregistered decl", decl->getLocation())
       << decl->getName();
@@ -708,8 +709,8 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
   auto &info = astDecls[fn].info;
 
   bool isAlias = false;
-  const uint32_t type =
-      getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias, &info);
+
+  (void)getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias, &info);
 
   const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
   info.setResultId(id);
@@ -989,7 +990,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       const auto attrLoc = attr->getLocation(); // Attr source code location
       const auto idx = var.getIndexAttr() ? var.getIndexAttr()->getNumber() : 0;
 
-      if (loc >= LocationSet::kMaxLoc) {
+      if ((const unsigned)loc >= LocationSet::kMaxLoc) {
         emitError("stage %select{output|input}0 location #%1 too large",
                   attrLoc)
             << forInput << loc;
@@ -1334,6 +1335,9 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
           hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type);
       typeId = theBuilder.getVecType(srcVecElemTypeId, 3);
       break;
+    default:
+      // Only the semantic kinds mentioned above are handled.
+      break;
     }
 
     // Handle the extra arrayness
@@ -1379,7 +1383,7 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     // TODO: the following may not be correct?
     if (sigPoint->GetSignatureKind() ==
         hlsl::DXIL::SignatureKind::PatchConstant)
-      theBuilder.decorate(varId, spv::Decoration::Patch);
+      theBuilder.decoratePatch(varId);
 
     // Decorate with interpolation modes for pixel shader input variables
     if (shaderModel.IsPS() && sigPoint->IsInput() &&
@@ -1708,8 +1712,6 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
     // Found semantic attached directly to this Decl. Write the value for this
     // Decl to the corresponding stage output variable.
 
-    const uint32_t srcTypeId = typeTranslator.translateType(type);
-
     // Handle SV_Position, SV_ClipDistance, and SV_CullDistance
     if (glPerVertex.tryToAccess(
             hlsl::DXIL::SigPointKind::GSOut, semanticInfo.semantic->GetKind(),
@@ -1799,20 +1801,20 @@ void DeclResultIdMapper::decoratePSInterpolationMode(const NamedDecl *decl,
                 "parameters in pixel shader",
                 decl->getLocation());
     } else {
-      theBuilder.decorate(varId, spv::Decoration::Flat);
+      theBuilder.decorateFlat(varId);
     }
   } else {
     // Do nothing for HLSLLinearAttr since its the default
     // Attributes can be used together. So cannot use else if.
     if (decl->getAttr<HLSLCentroidAttr>())
-      theBuilder.decorate(varId, spv::Decoration::Centroid);
+      theBuilder.decorateCentroid(varId);
     if (decl->getAttr<HLSLNoInterpolationAttr>())
-      theBuilder.decorate(varId, spv::Decoration::Flat);
+      theBuilder.decorateFlat(varId);
     if (decl->getAttr<HLSLNoPerspectiveAttr>())
-      theBuilder.decorate(varId, spv::Decoration::NoPerspective);
+      theBuilder.decorateNoPerspective(varId);
     if (decl->getAttr<HLSLSampleAttr>()) {
       theBuilder.requireCapability(spv::Capability::SampleRateShading);
-      theBuilder.decorate(varId, spv::Decoration::Sample);
+      theBuilder.decorateSample(varId);
     }
   }
 }
@@ -1860,6 +1862,9 @@ uint32_t DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn) {
     break;
   case spv::BuiltIn::SubgroupLocalInvocationId:
     laneIndexBuiltinId = varId;
+    break;
+  default:
+    // Only relevant to subgroup builtins.
     break;
   }
 
@@ -1909,6 +1914,9 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       theBuilder.addExtension(Extension::KHR_device_group,
                               stageVar->getSemanticStr(), srcLoc);
       theBuilder.requireCapability(spv::Capability::DeviceGroup);
+      break;
+    default:
+      // Just seeking builtins requiring extensions. The rest can be ignored.
       break;
     }
 

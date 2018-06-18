@@ -49,7 +49,9 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/DxcLangExtensionsHelper.h"
 #include "dxc/Support/HLSLOptions.h"
+#ifdef _WIN32
 #include "dxcetw.h"
+#endif
 #include "dxillib.h"
 #include <algorithm>
 
@@ -177,7 +179,7 @@ public:
     return false;
   }
 
-  virtual HLSLExtensionsCodegenHelper::CustomRootSignature::Status GetCustomRootSignature(CustomRootSignature *out) {
+  virtual HLSLExtensionsCodegenHelper::CustomRootSignature::Status GetCustomRootSignature(CustomRootSignature *out) override {
     // Find macro definition in preprocessor.
     Preprocessor &pp = m_CI.getPreprocessor();
     MacroInfo *macro = MacroExpander::FindMacroInfo(pp, m_rootSigDefine);
@@ -255,7 +257,7 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcCompiler,
                                  IDxcCompiler2,
                                  IDxcLangExtensions,
@@ -634,7 +636,6 @@ public:
 
       IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
 
-      const llvm::opt::OptTable *table = ::options::getHlslOptTable();
       int argCountInt;
       IFT(UIntToInt(argCount, &argCountInt));
       hlsl::options::MainArgs mainArgs(argCountInt, pArguments, 0);

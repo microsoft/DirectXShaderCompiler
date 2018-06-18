@@ -132,14 +132,15 @@ public:
                      const LangOptions &LOpts,
                      Module *M)
     : Diags(_Diags), CodeGenOpts(CGOpts), TargetOpts(TOpts), LangOpts(LOpts),
-      TheModule(M), CodeGenerationTime("Code Generation Time"),
-      CodeGenPasses(nullptr), PerModulePasses(nullptr),
-      PerFunctionPasses(nullptr),
+      TheModule(M),
       // HLSL Changes Start
       CodeGenPassesConfigOS(CodeGenPassesConfig),
       PerModulePassesConfigOS(PerModulePassesConfig),
-      PerFunctionPassesConfigOS(PerFunctionPassesConfig) {}
+      PerFunctionPassesConfigOS(PerFunctionPassesConfig),
       // HLSL Changes End
+      CodeGenerationTime("Code Generation Time"),
+      CodeGenPasses(nullptr), PerModulePasses(nullptr),
+      PerFunctionPasses(nullptr) {}
 
   ~EmitAssemblyHelper() {
     delete CodeGenPasses;
@@ -202,10 +203,12 @@ static void addAddDiscriminatorsPass(const PassManagerBuilder &Builder,
   PM.add(createAddDiscriminatorsPass());
 }
 
+#ifdef MS_ENABLE_OBJCARC // HLSL Change
 static void addBoundsCheckingPass(const PassManagerBuilder &Builder,
                                     legacy::PassManagerBase &PM) {
   PM.add(createBoundsCheckingPass());
 }
+#endif // MS_ENABLE_OBJCARC // HLSL Change
 
 #ifdef MS_ENABLE_INSTR // HLSL Change
 

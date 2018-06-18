@@ -785,6 +785,7 @@ void PrintPreambleAction::ExecuteAction() {
   case IK_PreprocessedObjCXX:
   case IK_AST:
   case IK_LLVM_IR:
+  case IK_HLSL: // HLSL Change
     // We can't do anything with these.
     return;
   }

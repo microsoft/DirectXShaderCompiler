@@ -53,7 +53,6 @@ namespace {
                    cl::Hidden, cl::location(getLibSupportInfoOutputFilename()));
 #else
   static const bool TrackSpace = false;
-  static const char InfoOutputFilename[] = "";
 #endif // HLSL Change Ends
 }
 

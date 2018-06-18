@@ -432,6 +432,7 @@ static std::error_code loadTestingFormat(StringRef Data,
   return std::error_code();
 }
 
+#if 0 // HLSL Change Starts - remove support for object files
 static ErrorOr<SectionRef> lookupSection(ObjectFile &OF, StringRef Name) {
   StringRef FoundName;
   for (const auto &Section : OF.sections()) {
@@ -442,6 +443,7 @@ static ErrorOr<SectionRef> lookupSection(ObjectFile &OF, StringRef Name) {
   }
   return coveragemap_error::no_data_found;
 }
+#endif // HLSL Change Ends - remove support for object files
 
 static std::error_code loadBinaryFormat(MemoryBufferRef ObjectBuffer,
                                         SectionData &ProfileNames,

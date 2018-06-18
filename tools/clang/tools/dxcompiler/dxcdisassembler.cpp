@@ -35,11 +35,6 @@ using namespace hlsl;
 namespace {
 // Disassemble helper functions.
 
-void PrintDiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
-  DiagnosticPrinter *printer = reinterpret_cast<DiagnosticPrinter *>(Context);
-  DI.print(*printer);
-}
-
 template <typename T>
 const T *ByteOffset(LPCVOID p, uint32_t byteOffset) {
   return reinterpret_cast<const T *>((const uint8_t *)p + byteOffset);
@@ -97,7 +92,7 @@ void PrintSignature(LPCSTR pName, const DxilProgramSignature *pSignature,
     if (pSig->Mask & DxilProgramSigMaskW)
       Mask[3] = 'w';
 
-    if (pSig->Register == -1) {
+    if (pSig->Register == (unsigned)-1) {
       OS << "    N/A";
       if (!_stricmp(pSemanticName, "SV_Depth"))
         OS << "   oDepth";
@@ -191,6 +186,9 @@ void PrintSignature(LPCSTR pName, const DxilProgramSignature *pSignature,
       break;
     case DxilProgramSigSemantic::Barycentrics:
       pSysValue = "BARYCEN";
+      break;
+    case DxilProgramSigSemantic::Undefined:
+      break;
     }
     OS << right_justify(pSysValue, 9);
 
@@ -223,6 +221,8 @@ void PrintSignature(LPCSTR pName, const DxilProgramSignature *pSignature,
     case DxilProgramSigCompType::Float64:
       pFormat = "double";
       break;
+    case DxilProgramSigCompType::Unknown:
+      break;
     }
 
     OS << right_justify(pFormat, 8);
@@ -242,7 +242,7 @@ void PrintSignature(LPCSTR pName, const DxilProgramSignature *pSignature,
     if (rwMask & DxilProgramSigMaskW)
       Mask[3] = 'w';
 
-    if (pSig->Register == -1)
+    if (pSig->Register == (unsigned)-1)
       OS << (rwMask ? "    YES" : "     NO");
     else
       OS << "   " << Mask[0] << Mask[1] << Mask[2] << Mask[3];
@@ -361,6 +361,8 @@ void PrintResourceFormat(DxilResourceBase &res, unsigned alignment,
       OS << right_justify(compName, alignment);
       break;
     }
+  case DxilResource::Class::Invalid:
+    break;
   }
 }
 
@@ -401,6 +403,8 @@ void PrintResourceDim(DxilResourceBase &res, unsigned alignment,
       OS << right_justify(res.GetResDimName(), alignment);
       break;
     }
+    break;
+  case DxilResourceBase::Class::Invalid:
     break;
   }
 }
@@ -587,6 +591,9 @@ void PrintTypeAndName(llvm::Type *Ty, DxilFieldAnnotation &annotation,
     case MatrixOrientation::ColumnMajor:
       Stream << "column_major ";
       break;
+    case MatrixOrientation::Undefined:
+    case MatrixOrientation::LastEntry:
+      break;
     }
     Stream << compTyName << Matrix.Rows << "x" << Matrix.Cols;
   } else if (Ty->isVectorTy())
@@ -631,6 +638,9 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
         break;
       case MatrixOrientation::ColumnMajor:
         arraySize /= Matrix.Cols;
+        break;
+      case MatrixOrientation::Undefined:
+      case MatrixOrientation::LastEntry:
         break;
       }
       if (EltTy->isVectorTy()) {
@@ -1017,7 +1027,7 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
      << comment << "\n";
 
   const unsigned offset = sizeof(unsigned);
-  const PSVRuntimeInfo0 *pInfo = (PSVRuntimeInfo0 *)(pBuffer + offset);
+  const PSVRuntimeInfo0 *pInfo = (const PSVRuntimeInfo0 *)(pBuffer + offset);
 
   switch (shaderKind) {
   case DXIL::ShaderKind::Hull: {
@@ -1230,6 +1240,11 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
     OS << comment << " DepthOutput=" << (bool)pInfo->PS.DepthOutput << "\n";
     OS << comment << " SampleFrequency=" << (bool)pInfo->PS.SampleFrequency
        << "\n";
+    break;
+  case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Library:
+  case DXIL::ShaderKind::Invalid:
+    // Nothing to print for these shader kinds.
     break;
   }
 

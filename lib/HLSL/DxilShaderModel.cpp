@@ -7,6 +7,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <limits.h>
+
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilSemantic.h"
 #include "dxc/Support/Global.h"
@@ -85,19 +87,19 @@ const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
 
 const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   // [ps|vs|gs|hs|ds|cs]_[major]_[minor]
-  Kind Kind;
+  Kind kind;
   switch (pszName[0]) {
-  case 'p':   Kind = Kind::Pixel;     break;
-  case 'v':   Kind = Kind::Vertex;    break;
-  case 'g':   Kind = Kind::Geometry;  break;
-  case 'h':   Kind = Kind::Hull;      break;
-  case 'd':   Kind = Kind::Domain;    break;
-  case 'c':   Kind = Kind::Compute;   break;
-  case 'l':   Kind = Kind::Library;   break;
+  case 'p':   kind = Kind::Pixel;     break;
+  case 'v':   kind = Kind::Vertex;    break;
+  case 'g':   kind = Kind::Geometry;  break;
+  case 'h':   kind = Kind::Hull;      break;
+  case 'd':   kind = Kind::Domain;    break;
+  case 'c':   kind = Kind::Compute;   break;
+  case 'l':   kind = Kind::Library;   break;
   default:    return GetInvalid();
   }
   unsigned Idx = 3;
-  if (Kind != Kind::Library) {
+  if (kind != Kind::Library) {
     if (pszName[1] != 's' || pszName[2] != '_')
       return GetInvalid();
   } else {
@@ -137,7 +139,7 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   if (pszName[Idx++] != 0)
     return GetInvalid();
 
-  return Get(Kind, Major, Minor);
+  return Get(kind, Major, Minor);
 }
 
 void ShaderModel::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const {

@@ -212,7 +212,7 @@ private:
                                          llvm::Type *Ty);
 
   void EmitHLSLRootSignature(CodeGenFunction &CGF, HLSLRootSignatureAttr *RSA,
-                             llvm::Function *Fn);
+                             llvm::Function *Fn) override;
 
   void CheckParameterAnnotation(SourceLocation SLoc,
                                 const DxilParameterAnnotation &paramInfo,
@@ -353,13 +353,14 @@ void clang::CompileRootSignature(
 // CGMSHLSLRuntime methods.
 //
 CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
-    : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()), Entry(),
+    : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()),
       TheModule(CGM.getModule()),
+      CBufferType(
+          llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")),
       dataLayout(CGM.getLangOpts().UseMinPrecision
                        ? hlsl::DXIL::kLegacyLayoutString
-                       : hlsl::DXIL::kNewLayoutString),
-      CBufferType(
-          llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")) {
+                       : hlsl::DXIL::kNewLayoutString),  Entry() {
+
   const hlsl::ShaderModel *SM =
       hlsl::ShaderModel::GetByName(CGM.getCodeGenOpts().HLSLProfile.c_str());
   // Only accept valid, 6.0 shader model.
@@ -707,6 +708,9 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
   case BuiltinType::Bool:
     kind = CompType::Kind::I1;
     break;
+  default:
+    // Other types not used by HLSL.
+    break;
   }
   return kind;
 }
@@ -912,7 +916,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
     unsigned CBufferOffset = offset;
 
-    bool userOffset = false;
     // Try to get info from fieldDecl.
     for (const hlsl::UnusualAnnotation *it :
          fieldDecl->getUnusualAnnotations()) {
@@ -927,7 +930,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
         CBufferOffset += cp->ComponentOffset;
         // Change to byte.
         CBufferOffset <<= 2;
-        userOffset = true;
       } break;
       case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
         // register assignment only works on global constant.
@@ -1453,6 +1455,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     case ShaderModel::Kind::Pixel:
       DXASSERT(funcProps->shaderKind == SM->GetKind(),
                "attribute profile not match entry function profile");
+      break;
+    case ShaderModel::Kind::Library:
+    case ShaderModel::Kind::Invalid:
+      // Non-shader stage shadermodels don't have entry points.
       break;
     }
   }
@@ -2110,27 +2116,6 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   hlslRes->SetID(m_pHLModule->GetSamplers().size());
   return m_pHLModule->AddSampler(std::move(hlslRes));
 }
-
-static void CollectScalarTypes(std::vector<llvm::Type *> &scalarTys, llvm::Type *Ty) {
-  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
-    for (llvm::Type *EltTy : ST->elements()) {
-      CollectScalarTypes(scalarTys, EltTy);
-    }
-  } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
-    llvm::Type *EltTy = AT->getElementType();
-    for (unsigned i=0;i<AT->getNumElements();i++) {
-      CollectScalarTypes(scalarTys, EltTy);
-    }
-  } else if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
-    llvm::Type *EltTy = VT->getElementType();
-    for (unsigned i=0;i<VT->getNumElements();i++) {
-      CollectScalarTypes(scalarTys, EltTy);
-    }
-  } else {
-    scalarTys.emplace_back(Ty);
-  }
-}
-
 
 static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
   if (Ty->isRecordType()) {
@@ -3607,9 +3592,9 @@ static void SimplifyBitCast(BitCastOperator *BC, SmallInstSet &deadInsts) {
           I->dropAllReferences();
           deadInsts.insert(I);
         }
-    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+    } else if (dyn_cast<CallInst>(U)) {
       // Skip function call.
-    } else if (BitCastInst *Cast = dyn_cast<BitCastInst>(U)) {
+    } else if (dyn_cast<BitCastInst>(U)) {
       // Skip bitcast.
     } else {
       DXASSERT(0, "not support yet");
@@ -4367,8 +4352,6 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
                                                 const FunctionDecl *FD,
                                                 const CallExpr *E,
                                                 ReturnValueSlot ReturnValue) {
-  StringRef name = FD->getName();
-
   const Decl *TargetDecl = E->getCalleeDecl();
   llvm::Value *Callee = CGF.EmitScalarExpr(E->getCallee());
   RValue RV = CGF.EmitCall(E->getCallee()->getType(), Callee, E, ReturnValue,
@@ -4916,8 +4899,6 @@ static bool ExpTypeMatch(Expr *E, QualType Ty, ASTContext &Ctx, CodeGenTypes &Ty
     if (Ty->isStructureOrClassType()) {
       RecordDecl *record = Ty->castAs<RecordType>()->getDecl();
       bool bMatch = true;
-      auto It = record->field_begin();
-      auto ItEnd = record->field_end();
       unsigned i = 0;
       for (auto it = record->field_begin(), end = record->field_end();
            it != end; it++) {
@@ -5033,7 +5014,7 @@ Value *CGMSHLSLRuntime::EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr 
   llvm::Type *RetTy = CGF.ConvertType(ResultTy);
   if (DestPtr) {
     SmallVector<Value *, 4> ParamList;
-    DXASSERT(RetTy->isAggregateType(), "");
+    DXASSERT_NOMSG(RetTy->isAggregateType());
     ParamList.emplace_back(DestPtr);
     ParamList.append(EltValList.begin(), EltValList.end());
     idx = 0;
@@ -5098,7 +5079,7 @@ static void FlatConstToList(Constant *C, SmallVector<Constant *, 4> &EltValList,
       FlatConstToList(C->getAggregateElement(i), EltValList, EltTy, Types,
                       bDefaultRowMajor);
     }
-  } else if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+  } else if (dyn_cast<llvm::StructType>(Ty)) {
     RecordDecl *RD = Type->getAsStructureType()->getDecl();
     const CGRecordLayout &RL = Types.getCGRecordLayout(RD);
     // Take care base.
@@ -5488,7 +5469,7 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
         return Builder.CreateFPTrunc(Src, DstTy);
       }
     }
-  } else if (UndefValue *UV = dyn_cast<UndefValue>(Src)) {
+  } else if (dyn_cast<UndefValue>(Src)) {
     return UndefValue::get(DstTy);
   } else {
     Instruction *I = cast<Instruction>(Src);
@@ -5543,7 +5524,7 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
             CalcHLSLLiteralToLowestPrecision(Builder, BO, bSigned);
         if (!CastResult)
           return nullptr;
-        if (llvm::IntegerType *IT = dyn_cast<llvm::IntegerType>(DstTy)) {
+        if (dyn_cast<llvm::IntegerType>(DstTy)) {
           if (DstTy == CastResult->getType()) {
             return CastResult;
           } else {
@@ -5826,8 +5807,6 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     const clang::RecordType *RT = Type->getAsStructureType();
     RecordDecl *RD = RT->getDecl();
 
-    auto fieldIter = RD->field_begin();
-
     const CGRecordLayout &RL = CGF.getTypes().getCGRecordLayout(RD);
 
     if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
@@ -5912,7 +5891,6 @@ void CGMSHLSLRuntime::LoadFlattenedGepList(CodeGenFunction &CGF,
   unsigned eltSize = GepList.size();
   for (unsigned i = 0; i < eltSize; i++) {
     Value *Ptr = GepList[i];
-    QualType Type = EltTyList[i];
     // Everying is element type.
     EltList.push_back(CGF.Builder.CreateLoad(Ptr));
   }
@@ -6173,7 +6151,6 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(
 
     const clang::RecordType *RT = Type->getAsStructureType();
     RecordDecl *RD = RT->getDecl();
-    auto fieldIter = RD->field_begin();
 
     const CGRecordLayout &RL = CGF.getTypes().getCGRecordLayout(RD);
     // Take care base.

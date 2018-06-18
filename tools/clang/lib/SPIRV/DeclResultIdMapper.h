@@ -627,7 +627,6 @@ private:
   DiagnosticsEngine &diags;
 
   TypeTranslator &typeTranslator;
-  FeatureManager &featureManager;
 
   uint32_t entryFunctionId;
 
@@ -745,7 +744,7 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        const EmitSPIRVOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
       astContext(context), diags(context.getDiagnostics()),
-      typeTranslator(translator), featureManager(features), entryFunctionId(0),
+      typeTranslator(translator), entryFunctionId(0),
       laneCountBuiltinId(0), laneIndexBuiltinId(0), needsLegalization(false),
       glPerVertex(model, context, builder, typeTranslator) {}
 

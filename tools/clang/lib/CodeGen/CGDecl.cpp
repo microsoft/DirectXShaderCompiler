@@ -92,6 +92,7 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::Import:
   case Decl::OMPThreadPrivate:
   case Decl::Empty:
+  case Decl::HLSLBuffer: // HLSL Change
     // None of these decls require codegen support.
     return;
 

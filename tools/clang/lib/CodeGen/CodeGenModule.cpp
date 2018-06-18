@@ -183,10 +183,12 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
 }
 
 CodeGenModule::~CodeGenModule() {
+#if 0 // HLSL Change - no ObjC, OpenCL, OpenMP, or CUDA support
   delete ObjCRuntime;
   delete OpenCLRuntime;
   delete OpenMPRuntime;
   delete CUDARuntime;
+#endif // HLSL Change
   delete HLSLRuntime;  // HLSL Change
   TheTargetCodeGenInfo.reset(nullptr); // HLSL Change
   delete TBAA;
@@ -1805,13 +1807,14 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
       return Entry;
 
     // Make sure the result is of the correct type.
-    if (Entry->getType()->getAddressSpace() != Ty->getAddressSpace())
+    if (Entry->getType()->getAddressSpace() != Ty->getAddressSpace()) {
       // HLSL Change Begins
       // TODO: do we put address space in type?
       if (LangOpts.HLSL) return Entry;
       else
       // HLSL Change Ends
       return llvm::ConstantExpr::getAddrSpaceCast(Entry, Ty);
+    }
 
     return llvm::ConstantExpr::getBitCast(Entry, Ty);
   }
@@ -3252,9 +3255,10 @@ void CodeGenModule::EmitObjCPropertyImplementations(const
                                  const_cast<ObjCImplementationDecl *>(D), PID);
     }
   }
-#endif 0 // HLSL Change - no ObjC support
+#endif // HLSL Change - no ObjC support
 }
 
+#if 0 // HLSL Change - no ObjC support
 static bool needsDestructMethod(ObjCImplementationDecl *impl) {
   const ObjCInterfaceDecl *iface = impl->getClassInterface();
   for (const ObjCIvarDecl *ivar = iface->all_declared_ivar_begin();
@@ -3277,6 +3281,7 @@ static bool AllTrivialInitializers(CodeGenModule &CGM,
   }
   return true;
 }
+#endif
 
 /// EmitObjCIvarInitializations - Emit information for ivar initialization
 /// for an implementation.

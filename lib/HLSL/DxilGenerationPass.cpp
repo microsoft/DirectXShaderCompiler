@@ -208,7 +208,7 @@ class DxilGenerationPass : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilGenerationPass(bool NoOpt = false)
-      : ModulePass(ID), m_pHLModule(nullptr), NotOptimized(NoOpt), m_extensionsCodegenHelper(nullptr) {}
+      : ModulePass(ID), m_pHLModule(nullptr), m_extensionsCodegenHelper(nullptr), NotOptimized(NoOpt) {}
 
   const char *getPassName() const override { return "DXIL Generator"; }
 
@@ -301,6 +301,8 @@ public:
     if (!m_HasDbgInfo)
       DxilMod.StripDebugRelatedCode();
 
+    (void)NotOptimized; // Dummy out unused member to silence warnings
+
     return true;
   }
 
@@ -337,19 +339,6 @@ private:
 };
 }
 
-static Value *MergeImmResClass(Value *resClass) {
-  if (ConstantInt *Imm = dyn_cast<ConstantInt>(resClass)) {
-    return resClass;
-  } else {
-    PHINode *phi = cast<PHINode>(resClass);
-    Value *immResClass = MergeImmResClass(phi->getIncomingValue(0));
-    unsigned numOperands = phi->getNumOperands();
-    for (unsigned i=0;i<numOperands;i++)
-      phi->setIncomingValue(i, immResClass);
-    return immResClass;
-  }
-}
-
 static const StringRef kResourceMapErrorMsg = "local resource not guaranteed to map to unique global resource.";
 static void EmitResMappingError(Instruction *Res) {
   const DebugLoc &DL = Res->getDebugLoc();
@@ -360,16 +349,6 @@ static void EmitResMappingError(Instruction *Res) {
   } else {
     Res->getContext().emitError(Twine(kResourceMapErrorMsg) + " With /Zi to show more information.");
   }
-}
-static Value *SelectOnOperand(Value *Cond, CallInst *CIT, CallInst *CIF,
-                              unsigned idx, IRBuilder<> &Builder) {
-  Value *OpT = CIT->getArgOperand(idx);
-  Value *OpF = CIF->getArgOperand(idx);
-  Value *OpSel = OpT;
-  if (OpT != OpF) {
-    OpSel = Builder.CreateSelect(Cond, OpT, OpF);
-  }
-  return OpSel;
 }
 
 static void ReplaceResourceUserWithHandle(LoadInst *Res, Value *handle) {
@@ -462,7 +441,7 @@ void DxilGenerationPass::TranslateParamDxilResourceHandles(Function *F, std::uno
               userBuilder, HLOpcodeGroup::HLCast, 0, handleTy, {res},
               *F->getParent());
           userBuilder.CreateStore(handle, castToHandle);
-        } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        } else if (dyn_cast<CallInst>(U)) {
           // Don't flatten argument here.
           continue;
         } else {
@@ -556,6 +535,7 @@ void DxilGenerationPass::TranslateDxilResourceUses(
         if (m_HasDbgInfo) {
           // TODO: set debug info.
           //Builder.SetCurrentDebugLocation(DL);
+          (void)(DL);
         }
         handleMapOnFunction[F] = Builder.CreateCall(createHandle, createHandleArgs, handleName);
       }
@@ -737,7 +717,7 @@ UpdateHandleOperands(Instruction *Res,
 
   unsigned startOpIdx = 0;
   // Skip Cond for Select.
-  if (SelectInst *Sel = dyn_cast<SelectInst>(Res))
+  if (dyn_cast<SelectInst>(Res))
     startOpIdx = 1;
 
   CallInst *Handle = handleMap[Res];
@@ -818,10 +798,8 @@ void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
     unsigned numOperands = Res->getNumOperands();
     IRBuilder<> Builder(Res);
 
-    unsigned startOpIdx = 0;
     // Skip Cond for Select.
     if (SelectInst *Sel = dyn_cast<SelectInst>(Res)) {
-      startOpIdx = 1;
       Value *Cond = Sel->getCondition();
 
       Value *resClassSel =
@@ -875,7 +853,7 @@ void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
 
       unsigned startOpIdx = 0;
       // Skip Cond for Select.
-      if (SelectInst *Sel = dyn_cast<SelectInst>(I))
+      if (dyn_cast<SelectInst>(I))
         startOpIdx = 1;
       if (MergeHandleOpWithSameValue(I, startOpIdx, numOperands)) {
         nonUniformOps.erase(I);
@@ -954,6 +932,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
         if (m_HasDbgInfo) {
           // TODO: add debug info.
           //handle->setDebugLoc(DL);
+          (void)(DL);
         }
         CI->replaceAllUsesWith(handle);
         CI->eraseFromParent();
@@ -1056,7 +1035,7 @@ static void TranslatePreciseAttributeOnFunction(Function &F, Module &M) {
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
     BasicBlock *BB = BBI;
     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
-      if (FPMathOperator *FPMath = dyn_cast<FPMathOperator>(I)) {
+      if (dyn_cast<FPMathOperator>(I)) {
         // Set precise fast math on those instructions that support it.
         if (DxilModule::PreservesFastMathFlags(I))
           I->copyFastMathFlags(FMF);
@@ -1127,7 +1106,7 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty, bool IsCBuf, DxilFieldAnnotation 
       rows = matrix.Rows;
       cols = matrix.Cols;
     } else {
-      DXASSERT(matrix.Orientation == MatrixOrientation::ColumnMajor, "");
+      DXASSERT_NOMSG(matrix.Orientation == MatrixOrientation::ColumnMajor);
       cols = matrix.Rows;
       rows = matrix.Cols;
     }
@@ -1328,11 +1307,9 @@ INITIALIZE_PASS(HLEnsureMetadata, "hlsl-hlensure", "HLSL High-Level Metadata Ens
 
 namespace {
 class DxilPrecisePropagatePass : public ModulePass {
-  HLModule *m_pHLModule;
-
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilPrecisePropagatePass() : ModulePass(ID), m_pHLModule(nullptr) {}
+  explicit DxilPrecisePropagatePass() : ModulePass(ID) {}
 
   const char *getPassName() const override { return "DXIL Precise Propagate"; }
 
@@ -1436,12 +1413,12 @@ PropagatePreciseAttribute(Instruction *I, DxilTypeSystem &typeSys,
   LLVMContext &Context = I->getContext();
   if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
     PropagatePreciseAttributeOnPointer(AI, typeSys, Context, processedSet);
-  } else if (CallInst *CI = dyn_cast<CallInst>(I)) {
+  } else if (dyn_cast<CallInst>(I)) {
     // Propagate every argument.
     // TODO: only propagate precise argument.
     for (Value *src : I->operands())
       PropagatePreciseAttributeOnOperand(src, typeSys, Context, processedSet);
-  } else if (FPMathOperator *FPMath = dyn_cast<FPMathOperator>(I)) {
+  } else if (dyn_cast<FPMathOperator>(I)) {
     // TODO: only propagate precise argument.
     for (Value *src : I->operands())
       PropagatePreciseAttributeOnOperand(src, typeSys, Context, processedSet);
@@ -1571,13 +1548,12 @@ private:
 char DxilLegalizeStaticResourceUsePass::ID = 0;
 
 class DxilLegalizeResourceUsePass : public FunctionPass {
-  HLModule *m_pHLModule;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilLegalizeResourceUsePass()
-      : FunctionPass(ID), m_pHLModule(nullptr) {}
+      : FunctionPass(ID) {}
 
   const char *getPassName() const override {
     return "DXIL Legalize Resource Use";

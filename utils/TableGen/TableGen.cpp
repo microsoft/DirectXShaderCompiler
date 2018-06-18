@@ -21,8 +21,11 @@
 #include "llvm/TableGen/SetTheory.h"
 
 // HLSL Change Starts
+#ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
+#endif
+
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 // HLSL Change Ends

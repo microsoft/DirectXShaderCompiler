@@ -43,7 +43,7 @@ function(llvm_update_compile_flags name)
     if (MSVC)
       list(APPEND LLVM_COMPILE_FLAGS "/EHsc")
     else (MSVC)
-      message(ERROR "Unimplemented")
+      # This is just the default exception handling on Linux
     endif (MSVC)
   endif (LLVM_ENABLE_EH)
   add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)

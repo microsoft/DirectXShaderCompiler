@@ -29,7 +29,7 @@ class MDTuple;
 class MDNode;
 class NamedMDNode;
 class GlobalVariable;
-};
+}
 
 namespace hlsl {
 

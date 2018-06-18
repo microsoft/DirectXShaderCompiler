@@ -75,7 +75,7 @@ bool IsDxilOpSourceOfDivergence(const CallInst *CI, OP *hlslOP,
 /// different across dispatch or thread group.
 bool DxilTTIImpl::isSourceOfDivergence(const Value *V) const {
 
-  if (const Argument *A = dyn_cast<Argument>(V))
+  if (dyn_cast<Argument>(V))
     return true;
 
   // Atomics are divergent because they are executed sequentially: when an

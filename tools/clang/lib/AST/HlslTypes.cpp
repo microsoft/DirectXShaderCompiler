@@ -150,9 +150,7 @@ uint32_t GetHLSLVecSize(clang::QualType type) {
          "otherwise caller shouldn't be invoking this");
 
   const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
-  const TemplateArgument &arg0 = argList[0];
   const TemplateArgument &arg1 = argList[1];
-  QualType elemTy = arg0.getAsType();
   llvm::APSInt vecSize = arg1.getAsIntegral();
   return vecSize.getLimitedValue();
 }
@@ -172,10 +170,8 @@ void GetRowsAndCols(clang::QualType type, uint32_t &rowCount,
          "otherwise caller shouldn't be invoking this");
 
   const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
-  const TemplateArgument &arg0 = argList[0];
   const TemplateArgument &arg1 = argList[1];
   const TemplateArgument &arg2 = argList[2];
-  QualType elemTy = arg0.getAsType();
   llvm::APSInt rowSize = arg1.getAsIntegral();
   llvm::APSInt colSize = arg2.getAsIntegral();
   rowCount = rowSize.getLimitedValue();
@@ -460,6 +456,9 @@ bool IsParamAttributedAsOut(clang::AttributeList *pAttributes, bool *pIsIn) {
       outFound = true;
       inFound = true;
       break;
+    default:
+      // Ignore the majority of attributes that don't have in/out characteristics
+      break;
     }
     pAttributes = pAttributes->getNext();
   }
@@ -502,6 +501,9 @@ HLSLScalarType MakeUnsigned(HLSLScalarType T) {
         return HLSLScalarType_uint64;
     case HLSLScalarType_int16:
         return HLSLScalarType_uint16;
+    default:
+        // Only signed int types are relevant.
+        break;
     }
     return T;
 }
