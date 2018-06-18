@@ -295,9 +295,15 @@ static const UINT32 DxcVersionInfoFlags_Internal = 2; // Internal Validator (non
 struct __declspec(uuid("b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e"))
 IDxcVersionInfo : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ const char **pCommitHash) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) = 0;
 };
+
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+struct __declspec(uuid("fb6904c4-42f0-4b62-9c46-983af7da7c83"))
+IDxcVersionInfo2 : public IDxcVersionInfo {
+  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) = 0;
+};
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
 // {73e22d93-e6ce-47f3-b5bf-f0664f39c1b0}
 __declspec(selectany) extern const CLSID CLSID_DxcCompiler = {

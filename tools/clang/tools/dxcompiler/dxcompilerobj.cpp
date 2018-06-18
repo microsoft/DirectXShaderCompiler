@@ -29,14 +29,6 @@
 #include "dxc/HLSL/DxilRootSignature.h"
 #include "dxcutil.h"
 #include "dxc/Support/dxcfilesystem.h"
-
-// SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
-#include "clang/SPIRV/EmitSPIRVAction.h"
-#endif
-// SPIRV change ends
-
-
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/dxcapi.internal.h"
@@ -55,7 +47,15 @@
 #include "dxillib.h"
 #include <algorithm>
 
+// SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+#include "clang/SPIRV/EmitSPIRVAction.h"
+#endif
+// SPIRV change ends
+
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
 #include "GitCommitInfo.inc" // Auto generated file containing Git commit info
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
 #define CP_UTF16 1200
 
@@ -198,7 +198,15 @@ public:
   }
 };
 
-class DxcCompiler : public IDxcCompiler2, public IDxcLangExtensions, public IDxcContainerEvent, public IDxcVersionInfo {
+class DxcCompiler : public IDxcCompiler2,
+                    public IDxcLangExtensions,
+                    public IDxcContainerEvent,
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+                    public IDxcVersionInfo2
+#else
+                    public IDxcVersionInfo
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+{
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -262,7 +270,11 @@ public:
                                  IDxcCompiler2,
                                  IDxcLangExtensions,
                                  IDxcContainerEvent,
-                                 IDxcVersionInfo>
+                                 IDxcVersionInfo
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+                                ,IDxcVersionInfo2
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+                                >
                                  (this, iid, ppvObject);
   }
 
@@ -908,14 +920,23 @@ public:
     *pMinor = DXIL::kDxilMinor;
     return S_OK;
   }
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
   HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount,
-                                          _Out_ const char **pCommitHash) override {
+                                          _Out_ char **pCommitHash) override {
     if (pCommitCount == nullptr || pCommitHash == nullptr)
       return E_INVALIDARG;
+
+    char *const hash = (char *)CoTaskMemAlloc(ARRAYSIZE(kGitCommitHash) + 1);
+    if (hash == nullptr)
+      return E_OUTOFMEMORY;
+    std::strcpy(hash, kGitCommitHash);
+
+    *pCommitHash = hash;
     *pCommitCount = kGitCommitCount;
-    *pCommitHash = kGitCommitHash;
+
     return S_OK;
   }
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
   HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override {
     if (pFlags == nullptr)
       return E_INVALIDARG;
@@ -925,7 +946,6 @@ public:
 #endif
     return S_OK;
   }
-
 };
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {

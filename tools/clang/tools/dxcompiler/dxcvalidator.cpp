@@ -29,7 +29,9 @@
 #include "dxcetw.h"
 #endif
 
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
 #include "GitCommitInfo.inc" // Auto generated file containing Git commit info
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
 using namespace llvm;
 using namespace hlsl;
@@ -51,7 +53,13 @@ struct DiagRestore {
   }
 };
 
-class DxcValidator : public IDxcValidator, public IDxcVersionInfo {
+class DxcValidator : public IDxcValidator,
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+                     public IDxcVersionInfo2
+#else
+                     public IDxcVersionInfo
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+{
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
@@ -92,8 +100,12 @@ public:
 
   // IDxcVersionInfo
   HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) override;
-  HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ const char **pCommitHash) override;
   HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override;
+
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+  // IDxcVersionInfo2
+  HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) override;
+#endif
 };
 
 // Compile a single entry point to the target shader model
@@ -159,14 +171,23 @@ HRESULT STDMETHODCALLTYPE DxcValidator::GetVersion(_Out_ UINT32 *pMajor, _Out_ U
   return S_OK;
 }
 
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
 HRESULT STDMETHODCALLTYPE DxcValidator::GetCommitInfo(
-    _Out_ UINT32 *pCommitCount, _Out_ const char **pCommitHash) {
+    _Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) {
   if (pCommitCount == nullptr || pCommitHash == nullptr)
     return E_INVALIDARG;
+
+  char *const hash = (char *)CoTaskMemAlloc(ARRAYSIZE(kGitCommitHash) + 1);
+  if (hash == nullptr)
+    return E_OUTOFMEMORY;
+  std::strcpy(hash, kGitCommitHash);
+
+  *pCommitHash = hash;
   *pCommitCount = kGitCommitCount;
-  *pCommitHash = kGitCommitHash;
+
   return S_OK;
 }
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
 HRESULT STDMETHODCALLTYPE DxcValidator::GetFlags(_Out_ UINT32 *pFlags) {
   if (pFlags == nullptr)
