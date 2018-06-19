@@ -129,6 +129,8 @@ template<typename T> T *VerifyNullAndThrow(T *p) {
 }
 #define VNT(__p) VerifyNullAndThrow(__p)
 
+#ifdef _MSC_VER
+
 extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(_In_opt_ const char *msg);
 
 inline void OutputDebugBytes(const void *ptr, size_t len) {
@@ -173,6 +175,8 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
     OutputDebugStringA("...\n");
   }
 }
+
+#endif // _MSC_VER
 
 #ifdef DBG
 

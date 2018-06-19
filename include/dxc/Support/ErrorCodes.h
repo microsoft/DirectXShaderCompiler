@@ -17,7 +17,7 @@
 #define DXC_MAKE_HRESULT(sev,fac,code) \
     ((HRESULT) (((unsigned long)(sev)<<31) | ((unsigned long)(fac)<<16) | ((unsigned long)(code))) )
 
-#define HRESULT_IS_WIN32ERR(hr) ((hr & 0xFFFF0000) == MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, 0))
+#define HRESULT_IS_WIN32ERR(hr) ((HRESULT)(hr & 0xFFFF0000) == MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, 0))
 #define HRESULT_AS_WIN32ERR(hr) (HRESULT_CODE(hr))
 
 // Error codes from C libraries (0n150) - 0x8096xxxx

@@ -211,7 +211,7 @@ void CreateOperationResultFromOutputs(
                                                       status, ppResult));
 }
 
-bool IsAbsoluteOrCurDirRelative(const Twine &T) {
+bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T) {
   if (llvm::sys::path::is_absolute(T)) {
     return true;
   }
