@@ -364,7 +364,7 @@ public:
     }
     for (unsigned i = 0, e = entries.size(); i != e; ++i) {
       const clang::HeaderSearchOptions::Entry &E = entries[i];
-      if (IsAbsoluteOrCurDirRelative(E.Path.c_str())) {
+      if (dxcutil::IsAbsoluteOrCurDirRelative(E.Path.c_str())) {
         m_searchEntries.emplace_back(Unicode::UTF8ToUTF16StringOrThrow(E.Path.c_str()));
       }
       else {

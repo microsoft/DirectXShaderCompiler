@@ -10,6 +10,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef _WIN32
+
 #include "dxc/Support/WinIncludes.h"
 #include <fcntl.h>
 #include <io.h>
@@ -1161,3 +1163,5 @@ HRESULT CreateMSFileSystemBlocked(::llvm::sys::fs::MSFileSystem** pResult) throw
   *pResult = new (std::nothrow) ::llvm::sys::fs::MSFileSystemBlocked();
   return (*pResult != nullptr) ? S_OK : E_OUTOFMEMORY;
 }
+
+#endif // _WIN32

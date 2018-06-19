@@ -254,7 +254,7 @@ protected:
   void ExecuteAction() override;
 
 public:
-  HLSLRootSignatureAction(StringRef rootSigMacro, unsigned major,
+  HLSLRootSignatureAction(llvm::StringRef rootSigMacro, unsigned major,
                           unsigned minor);
   /// Take the generated LLVM module, for use after the action has been run.
   /// The result may be null on failure.

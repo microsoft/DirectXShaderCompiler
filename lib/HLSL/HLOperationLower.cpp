@@ -1886,7 +1886,7 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 Value *TranslateReflect(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                         HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  //  v = i - 2 * n * dot(i•n).
+  //  v = i - 2 * n * dot(i, n).
   IRBuilder<> Builder(CI);
   Value *i = CI->getArgOperand(HLOperandIndex::kReflectOpIIdx);
   Value *n = CI->getArgOperand(HLOperandIndex::kReflectOpNIdx);
@@ -1906,7 +1906,7 @@ Value *TranslateReflect(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
 Value *TranslateRefract(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                         HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  //  d = dot(i•n);
+  //  d = dot(i, n);
   //  t = 1 - eta * eta * ( 1 - d*d);
   //  cond = t >= 1;
   //  r = eta * i - (eta * d + sqrt(t)) * n;
