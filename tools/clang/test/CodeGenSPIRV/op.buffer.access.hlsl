@@ -86,4 +86,20 @@ void main() {
 // CHECK:      [[r12:%\d+]] = OpImageRead %v4float [[img12]] {{%\d+}} None
 // CHECK-NEXT: OpStore %float4 [[r12]]
   float4 float4 = float4buf[address];
+
+// CHECK:      [[img13:%\d+]] = OpLoad %type_buffer_image_5 %int3buf
+// CHECK-NEXT:   [[f13:%\d+]] = OpImageFetch %v4int [[img13]] %uint_0 None
+// CHECK-NEXT:   [[r13:%\d+]] = OpVectorShuffle %v3int [[f13]] [[f13]] 0 1 2
+// CHECK-NEXT:                  OpStore %temp_var_vector [[r13]]
+// CHECK-NEXT:  [[ac13:%\d+]] = OpAccessChain %_ptr_Function_int %temp_var_vector %uint_1
+// CHECK-NEXT:     [[a:%\d+]] = OpLoad %int [[ac13]]
+// CHECK-NEXT:                  OpStore %a [[a]]
+  int   a = int3buf[0][1];
+// CHECK:      [[img14:%\d+]] = OpLoad %type_buffer_image_10 %float4buf
+// CHECK-NEXT:   [[f14:%\d+]] = OpImageRead %v4float [[img14]] {{%\d+}} None
+// CHECK-NEXT:                  OpStore %temp_var_vector_0 [[f14]]
+// CHECK-NEXT:  [[ac14:%\d+]] = OpAccessChain %_ptr_Function_float %temp_var_vector_0 %uint_2
+// CHECK-NEXT:     [[b:%\d+]] = OpLoad %float [[ac14]]
+// CHECK-NEXT:                  OpStore %b [[b]]
+  float b = float4buf[address][2];
 }

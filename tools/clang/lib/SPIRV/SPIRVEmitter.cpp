@@ -3475,7 +3475,7 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   if (isAppend) {
     // Write out the value
     auto arg0 = doExpr(expr->getArg(0));
-    if(!arg0.isRValue()) {
+    if (!arg0.isRValue()) {
       arg0.setResultId(theBuilder.createLoad(
           typeTranslator.translateType(bufferElemTy), arg0));
     }
@@ -5966,8 +5966,15 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
       if (rawIndex)
         return nullptr; // TODO: handle constant array index
 
+      // If this is indexing into resources, we need specific OpImage*
+      // instructions for accessing. Return directly to avoid further building
+      // up the access chain.
+      if (isBufferTextureIndexing(indexing))
+        return indexing;
+
       const Expr *thisBase =
           indexing->getArg(0)->IgnoreParenNoopCasts(astContext);
+
       const auto thisBaseType = thisBase->getType();
       const Expr *base = collectArrayStructIndices(thisBase, indices, rawIndex);
 
@@ -8448,7 +8455,8 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
       needsLegalization = true;
       break;
     default:
-      // Only the given opcodes need legalization. Anything else should preserve previous.
+      // Only the given opcodes need legalization. Anything else should preserve
+      // previous.
       break;
     }
 
