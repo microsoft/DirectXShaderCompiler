@@ -1017,10 +1017,22 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
     UINT32 compilerMajor = 1;
     UINT32 compilerMinor = 0;
     CComPtr<IDxcVersionInfo> VerInfo;
+
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+    UINT32 commitCount = 0;
+    CComHeapPtr<char> commitHash;
+    CComPtr<IDxcVersionInfo2> VerInfo2;
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+
     const char *compilerName =
         m_Opts.ExternalFn.empty() ? "dxcompiler.dll" : m_Opts.ExternalFn.data();
+
     if (SUCCEEDED(CreateInstance(CLSID_DxcCompiler, &VerInfo))) {
       VerInfo->GetVersion(&compilerMajor, &compilerMinor);
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+      if (SUCCEEDED(VerInfo->QueryInterface(&VerInfo2)))
+        VerInfo2->GetCommitInfo(&commitCount, &commitHash);
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
       OS << compilerName << ": " << compilerMajor << "." << compilerMinor;
     }
     // compiler.dll 1.0 did not support IdxcVersionInfo
@@ -1033,7 +1045,12 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
       // unofficial version always have file version 3.7.0.0
       if (version[0] == 3 && version[1] == 7 && version[2] == 0 &&
           version[3] == 0) {
-        OS << "(unofficial)";
+        OS << "(dev"
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+           << ";" << commitCount << "-"
+           << (commitHash.m_pData ? commitHash.m_pData : "<unknown-git-hash>")
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+           << ")";
       } else {
         OS << "(" << version[0] << "." << version[1] << "." << version[2] << "."
            << version[3] << ")";
