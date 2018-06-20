@@ -130,13 +130,18 @@ endif (WIN32)
 if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
   set(GIT_COMMIT_INFO_FILE ${CMAKE_CURRENT_BINARY_DIR}/GitCommitInfo.inc)
   set(GET_GIT_COMMIT_SCRIPT ${PROJECT_SOURCE_DIR}/utils/GetCommitInfo.py)
-  add_custom_target(generateGitCommitInfoFile
-    ${PYTHON_EXECUTABLE} ${GET_GIT_COMMIT_SCRIPT}
-                         ${PROJECT_SOURCE_DIR} ${GIT_COMMIT_INFO_FILE}
-    DEPENDS ${GET_GIT_COMMIT_SCRIPT}
+  add_custom_command(
+    OUTPUT  ${GIT_COMMIT_INFO_FILE}
+    COMMAND ${PYTHON_EXECUTABLE} ${GET_GIT_COMMIT_SCRIPT}
+            ${PROJECT_SOURCE_DIR} ${GIT_COMMIT_INFO_FILE}
+    DEPENDS ${GET_GIT_COMMIT_SCRIPT} GIT_COMMIT_INFO_ALWAYS_REBUILD
     COMMENT "Collect Git commit info for versioning"
   )
-  add_dependencies(dxcompiler generateGitCommitInfoFile)
+  add_custom_target(
+    GIT_COMMIT_INFO_ALWAYS_REBUILD
+    ${CMAKE_COMMAND} -E touch ${GET_GIT_COMMIT_SCRIPT}
+    COMMENT "Touch GetCommitInfo.py to trigger rebuild"
+  )
   set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/dxcompilerobj.cpp
     PROPERTIES OBJECT_DEPENDS "${GIT_COMMIT_INFO_FILE}")
   set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/dxcvalidator.cpp

@@ -1030,7 +1030,7 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
     if (SUCCEEDED(CreateInstance(CLSID_DxcCompiler, &VerInfo))) {
       VerInfo->GetVersion(&compilerMajor, &compilerMinor);
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-      if (SUCCEEDED(CreateInstance(CLSID_DxcCompiler, &VerInfo2)))
+      if (SUCCEEDED(VerInfo->QueryInterface(&VerInfo2)))
         VerInfo2->GetCommitInfo(&commitCount, &commitHash);
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
       OS << compilerName << ": " << compilerMajor << "." << compilerMinor;
