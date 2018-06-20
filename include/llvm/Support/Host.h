@@ -44,8 +44,13 @@ namespace sys {
   ///   CPU_TYPE-VENDOR-OPERATING_SYSTEM
   /// or
   ///   CPU_TYPE-VENDOR-KERNEL-OPERATING_SYSTEM
-  // std::string getDefaultTargetTriple(); // HLSL Change - single triple supported, no allocation required
+
+  // HLSL Change - single triple supported, no allocation required
+#ifdef _WIN32
   const char *getDefaultTargetTriple();
+#else
+  std::string getDefaultTargetTriple();
+#endif
 
   /// getProcessTriple() - Return an appropriate target triple for generating
   /// code to be loaded into the current process, e.g. when using the JIT.

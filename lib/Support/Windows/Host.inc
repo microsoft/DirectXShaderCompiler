@@ -18,13 +18,11 @@
 using namespace llvm;
 
 // HLSL Change Starts - this is a fixed static char array now.
-#if 0
+#if _WIN32
+const char *sys::getDefaultTargetTriple() { return "dxil-ms-dx"; }
+#else
 std::string sys::getDefaultTargetTriple() {
   return Triple::normalize(LLVM_DEFAULT_TARGET_TRIPLE);
-}
-#else
-const char *sys::getDefaultTargetTriple() {
-  return "dxil-ms-dx";
 }
 #endif
 // HLSL Change Ends - this is a fixed static char array now.
