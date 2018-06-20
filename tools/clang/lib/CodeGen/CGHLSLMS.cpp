@@ -848,9 +848,10 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     if (const BuiltinType *BTy =
             dyn_cast<BuiltinType>(type->getCanonicalTypeInternal()))
       fieldAnnotation.SetCompType(BuiltinTyToCompTy(BTy, bSNorm, bUNorm));
-  } else
+  } else {
     DXASSERT(!bSNorm && !bUNorm,
              "snorm/unorm on invalid type, validate at handleHLSLTypeAttr");
+  }
 }
 
 static void ConstructFieldInterpolation(DxilFieldAnnotation &fieldAnnotation,
@@ -1050,8 +1051,9 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     else if (Ty->isIncompleteArrayType()) {
       const IncompleteArrayType *arrayTy = CGM.getContext().getAsIncompleteArrayType(Ty);
       arrayElementTy = arrayTy->getElementType();
-    } else
+    } else {
       DXASSERT(0, "Must array type here");
+    }
 
     unsigned elementSize = AddTypeAnnotation(arrayElementTy, dxilTypeSys, arrayEltSize);
     // Only set arrayEltSize once.
@@ -4063,8 +4065,9 @@ bool BuildImmInit(Function *Ctor) {
         if (GlobalVariable *pGV = dyn_cast<GlobalVariable>(Ptr)) {
           if (GV == nullptr)
             GV = pGV;
-          else
+          else {
             DXASSERT(GV == pGV, "else pointer mismatch");
+          }
         }
       }
     } else {

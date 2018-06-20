@@ -431,6 +431,7 @@ static Instruction *findLocationForEntrySafepoint(Function &F,
   auto nextInstruction = [&hasNextInstruction](Instruction *I) {
     assert(hasNextInstruction(I) &&
            "first check if there is a next instruction!");
+    (void)hasNextInstruction; // HLSL Change - unused var
     if (I->isTerminator()) {
       return I->getParent()->getUniqueSuccessor()->begin();
     } else {

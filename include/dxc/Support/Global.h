@@ -231,12 +231,12 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 #define DXASSERT(exp, msg) _Analysis_assume_(exp)
 
 // DXASSERT_LOCALVAR is disabled in free builds, but we keep the local referenced to avoid a warning.
-#define DXASSERT_LOCALVAR(local, exp, s, ...) do { (void)(local); _Analysis_assume_(exp); } while (0)
+#define DXASSERT_LOCALVAR(local, exp, msg) do { (void)(local); _Analysis_assume_(exp); } while (0)
 
 // DXASSERT_NOMSG is disabled in free builds.
 #define DXASSERT_NOMSG(exp) _Analysis_assume_(exp)
 
 // DXVERIFY is patterned after NT_VERIFY and will evaluate the expression
-#define DXVERIFY_NOMSG(exp) do { (exp); _Analysis_assume_(exp); } while (0)
+#define DXVERIFY_NOMSG(exp) do { (void)(exp); _Analysis_assume_(exp); } while (0)
 
 #endif // DBG
