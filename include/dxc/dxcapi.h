@@ -298,6 +298,11 @@ IDxcVersionInfo : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) = 0;
 };
 
+struct __declspec(uuid("fb6904c4-42f0-4b62-9c46-983af7da7c83"))
+IDxcVersionInfo2 : public IDxcVersionInfo {
+  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) = 0;
+};
+
 // {73e22d93-e6ce-47f3-b5bf-f0664f39c1b0}
 __declspec(selectany) extern const CLSID CLSID_DxcCompiler = {
   0x73e22d93,

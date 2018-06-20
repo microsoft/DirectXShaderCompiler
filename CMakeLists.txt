@@ -83,11 +83,18 @@ option(HLSL_ENABLE_FIXED_VER "Sets up fixed version information." OFF) # HLSL Ch
 option(HLSL_ENABLE_ANALYZE "Enables compiler analysis during compilation." OFF) # HLSL Change
 option(HLSL_OPTIONAL_PROJS_IN_DEFAULT "Include optional projects in default build target." OFF) # HLSL Change
 
+# HLSL Change Starts - support commit querying
+option(HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO "Supports querying Git commit info." ON)
+if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
+  add_definitions(-DSUPPORT_QUERY_GIT_COMMIT_INFO)
+endif()
+# HLSL Chnage Ends
+
 # HLSL Change Starts - set flag for Appveyor CI
 if ( "$ENV{CI}" AND "$ENV{APPVEYOR}" )
   add_definitions(-DDXC_ON_APPVEYOR_CI)
 endif()
-# HLSL Change ends
+# HLSL Change Ends
 
 # SPIRV change starts
 option(ENABLE_SPIRV_CODEGEN "Enables SPIR-V code generation." OFF)
