@@ -21,12 +21,9 @@
 // MultiByteToWideChar which is a Windows-specific method.
 // This is a very simplistic implementation for non-Windows platforms. This
 // implementation completely ignores CodePage and dwFlags.
-int MultiByteToWideChar(uint32_t CodePage, uint32_t dwFlags,
+int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
                         const char *lpMultiByteStr, int cbMultiByte,
                         wchar_t *lpWideCharStr, int cchWideChar) {
-  (void)CodePage;
-  (void)dwFlags;
-
   // if cbMultiByte is -1, it indicates that lpMultiByteStr is null-terminated
   // and the entire string should be processed.
   if (cbMultiByte == -1) {
@@ -50,15 +47,11 @@ int MultiByteToWideChar(uint32_t CodePage, uint32_t dwFlags,
 // WideCharToMultiByte is a Windows-specific method.
 // This is a very simplistic implementation for non-Windows platforms. This
 // implementation completely ignores CodePage and dwFlags.
-int WideCharToMultiByte(uint32_t CodePage, uint32_t dwFlags,
+int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
                         const wchar_t *lpWideCharStr, int cchWideChar,
                         char *lpMultiByteStr, int cbMultiByte,
-                        const char *lpDefaultChar, bool *lpUsedDefaultChar) {
-  (void)CodePage;
-  (void)dwFlags;
-  (void)lpDefaultChar;
-  (void)lpUsedDefaultChar;
-
+                        const char * /*lpDefaultChar*/,
+                        bool * /*lpUsedDefaultChar*/) {
   // if cchWideChar is -1, it indicates that lpWideCharStr is null-terminated
   // and the entire string should be processed.
   if (cchWideChar == -1) {
