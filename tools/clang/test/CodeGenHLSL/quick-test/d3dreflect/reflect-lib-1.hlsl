@@ -11,7 +11,7 @@ float function0(min16float x) {
 float function1(float x, min12int i) {
   return x + cbval1 + b_buf.Load(x) + tex2.Sample(samp, x).x; }
 [shader("vertex")]
-float function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3.x; }
+float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3.x; }
 
 
 // CHECK: ID3D12LibraryReflection:
@@ -114,7 +114,7 @@ float function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3.
 // CHECK:         ReturnType: D3D_RETURN_TYPE_MIXED
 // CHECK:         Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?function2@@YAMV?$vector@M$03@@@Z
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?function2@@YA?AV?$vector@M$03@@V1@@Z
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       ConstantBuffers: 2
 // CHECK:       BoundResources: 2

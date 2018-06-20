@@ -2977,6 +2977,7 @@ INSTR.SAMPLEINDEXFORLOAD2DMS           load on Texture2DMS/2DMSArray require sam
 INSTR.SAMPLERMODEFORLOD                lod instruction requires sampler declared in default mode
 INSTR.SAMPLERMODEFORSAMPLE             sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
 INSTR.SAMPLERMODEFORSAMPLEC            sample_c_*/gather_c instructions require sampler declared in comparison mode
+INSTR.SIGNATUREOPERATIONNOTINENTRY     Dxil operation for input output signature must be in entryPoints.
 INSTR.STATUS                           Resource status should only used by CheckAccessFullyMapped
 INSTR.STRUCTBITCAST                    Bitcast on struct types is not allowed
 INSTR.TEXTUREOFFSET                    offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
@@ -3004,6 +3005,7 @@ META.INTERPMODEVALID                   Interpolation mode must be valid
 META.INVALIDCONTROLFLOWHINT            Invalid control flow hint
 META.KNOWN                             Named metadata should be known
 META.MAXTESSFACTOR                     Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
+META.NOENTRYPROPSFORENTRY              EntryPoints must have entry properties.
 META.NOSEMANTICOVERLAP                 Semantics must not overlap
 META.REQUIRED                          TODO - Required metadata missing
 META.SEMAKINDMATCHESNAME               Semantic name must match system value, when defined.
