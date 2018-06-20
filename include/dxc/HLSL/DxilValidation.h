@@ -112,6 +112,7 @@ enum class ValidationRule : unsigned {
   InstrSamplerModeForLOD, // lod instruction requires sampler declared in default mode
   InstrSamplerModeForSample, // sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
   InstrSamplerModeForSampleC, // sample_c_*/gather_c instructions require sampler declared in comparison mode
+  InstrSignatureOperationNotInEntry, // Dxil operation for input output signature must be in entryPoints.
   InstrStatus, // Resource status should only used by CheckAccessFullyMapped
   InstrStructBitCast, // Bitcast on struct types is not allowed
   InstrTGSMRaceCond, // Race condition writing to shared memory detected, consider making this write conditional
@@ -141,6 +142,7 @@ enum class ValidationRule : unsigned {
   MetaInvalidControlFlowHint, // Invalid control flow hint
   MetaKnown, // Named metadata should be known
   MetaMaxTessFactor, // Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
+  MetaNoEntryPropsForEntry, // EntryPoints must have entry properties.
   MetaNoSemanticOverlap, // Semantics must not overlap
   MetaRequired, // TODO - Required metadata missing
   MetaSemaKindMatchesName, // Semantic name must match system value, when defined.

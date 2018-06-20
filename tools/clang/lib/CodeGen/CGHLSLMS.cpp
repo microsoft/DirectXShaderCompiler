@@ -4496,6 +4496,18 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     if (!m_bIsLib) {
       if (&f == m_pHLModule->GetEntryFunction() ||
           IsPatchConstantFunction(&f) || f.isDeclaration()) {
+        if (f.isDeclaration() && !f.isIntrinsic() &&
+            GetHLOpcodeGroup(&f) == HLOpcodeGroup::NotHL) {
+          DiagnosticsEngine &Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "External function used in non-library profile: %0");
+          std::string escaped;
+          llvm::raw_string_ostream os(escaped);
+          dxilutil::PrintEscapedString(f.getName(), os);
+          Diags.Report(DiagID) << os.str();
+          return;
+        }
         f.setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
       } else {
         f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);

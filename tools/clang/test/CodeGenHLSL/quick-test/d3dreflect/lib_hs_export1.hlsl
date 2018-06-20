@@ -20,6 +20,12 @@ struct HSPerPatchData
   float inside   : SV_InsideTessFactor;
 };
 
+struct HSPerPatchDataQuad
+{
+  float edges[4] : SV_TessFactor;
+  float inside[2]   : SV_InsideTessFactor;
+};
+
 // Should not be selected, since later candidate function with same name exists.
 // If selected, it should fail, since patch size mismatches HS function.
 HSPerPatchData HSPerPatchFunc1(
@@ -35,15 +41,17 @@ HSPerPatchData HSPerPatchFunc1(
   return d;
 }
 
-HSPerPatchData HSPerPatchFunc2(
+HSPerPatchDataQuad HSPerPatchFunc2(
   const InputPatch< PSSceneIn, 4 > points)
 {
-  HSPerPatchData d;
+  HSPerPatchDataQuad d;
 
   d.edges[0] = -5;
   d.edges[1] = -6;
   d.edges[2] = -7;
-  d.inside = -8;
+  d.edges[3] = -7;
+  d.inside[0] = -8;
+  d.inside[1] = -8;
 
   return d;
 }
