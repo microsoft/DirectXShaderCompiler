@@ -22,25 +22,28 @@ VSOut main(VSIn input)
 // OpName %main "main"
 // OpName %VSIn "VSIn"
 // OpName %param_var_input "param.var.input"
+// OpName %VSOut "VSOut"
 // OpName %input "input"
 // OpName %result "result"
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void
 // %VSIn = OpTypeStruct
 // %_ptr_Function_VSIn = OpTypePointer Function %VSIn
-// %11 = OpTypeFunction %VSIn %_ptr_Function_VSIn
+// %VSOut = OpTypeStruct
+// %12 = OpTypeFunction %VSOut %_ptr_Function_VSIn
+// %_ptr_Function_VSOut = OpTypePointer Function %VSOut
 // %main = OpFunction %void None %3
 // %5 = OpLabel
 // %param_var_input = OpVariable %_ptr_Function_VSIn Function
 // %9 = OpCompositeConstruct %VSIn
 // OpStore %param_var_input %9
-// %10 = OpFunctionCall %VSIn %src_main %param_var_input
+// %11 = OpFunctionCall %VSOut %src_main %param_var_input
 // OpReturn
 // OpFunctionEnd
-// %src_main = OpFunction %VSIn None %11
+// %src_main = OpFunction %VSOut None %12
 // %input = OpFunctionParameter %_ptr_Function_VSIn
 // %bb_entry = OpLabel
-// %result = OpVariable %_ptr_Function_VSIn Function
-// %15 = OpLoad %VSIn %result
-// OpReturnValue %15
+// %result = OpVariable %_ptr_Function_VSOut Function
+// %17 = OpLoad %VSOut %result
+// OpReturnValue %17
 // OpFunctionEnd

@@ -5,7 +5,7 @@ struct Basic {
     float4 b;
 };
 
-// CHECK: %S = OpTypeStruct %_ptr_Uniform_type_AppendStructuredBuffer_v4float %_ptr_Uniform_type_AppendStructuredBuffer_v4float
+// CHECK: %S = OpTypeStruct %_ptr_Uniform_type_AppendStructuredBuffer_v4float %_ptr_Uniform_type_ConsumeStructuredBuffer_v4float
 struct S {
      AppendStructuredBuffer<float4> append;
     ConsumeStructuredBuffer<float4> consume;
@@ -52,7 +52,7 @@ float4 main() : SV_Target {
 // CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Function__ptr_Uniform_type_AppendStructuredBuffer_v4float %c %int_0 %int_0
 // CHECK-NEXT:                OpStore [[ptr]] %gASBuffer
     c.s.append = gASBuffer;
-// CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Function__ptr_Uniform_type_AppendStructuredBuffer_v4float %c %int_0 %int_1
+// CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Function__ptr_Uniform_type_ConsumeStructuredBuffer_v4float %c %int_0 %int_1
 // CHECK-NEXT:                OpStore [[ptr]] %gCSBuffer
     c.s.consume = gCSBuffer;
 
