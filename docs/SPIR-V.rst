@@ -150,6 +150,9 @@ To specify which Vulkan descriptor a particular resource binds to, use the
 Alternatively, to specify both Vulkan binding numbers and descriptor sets use
 the ``[[vk::binding(X[, Y])]]`` attribute.
 
+Only one of ``[[vk::set(X)]]`` or ``[[vk::binding(X[, Y])]]`` may be specified
+for the same variable.
+
 Subpass inputs
 ~~~~~~~~~~~~~~
 
@@ -1298,12 +1301,12 @@ In summary, the compiler essentially assigns binding numbers in four passes.
 
 - Firstly it handles all declarations with explicit ``[[vk::binding(X[, Y])]]``
   annotation.
-- Secondly it handles all declarations with explicit ``[[vk::set(X)]]``
-  annotation, assigning the next available binding number in the specified
-  descriptor set.
 - Then the compiler processes all remaining declarations with
   ``:register(xX, spaceY)`` annotation, by applying the shift passed in using
   command-line option ``-fvk-{b|s|t|u}-shift N M``, if provided.
+- Then it handles all declarations with explicit ``[[vk::set(X)]]``
+  annotation, assigning the next available binding number in the specified
+  descriptor set.
 - Finally, the compiler assigns next available binding numbers to the rest in
   the declaration order.
 
@@ -1326,12 +1329,12 @@ If we compile with ``-fvk-t-shift 10 0 -fvk-t-shift 20 1``:
 
 - ``rwbuffer1`` will take binding #3 in set #0, since explicit binding
   assignment has precedence over the rest.
-- ``sampler1`` will take binding 0 in set #1, since that's the next available
-  binding number in set #1.
 - ``cbuffer1`` will take binding #0 in set #0, since that's what deduced from
   the register assignment, and there is no shift requested from command line.
 - ``texture1`` will take binding #10 in set #0, and ``texture2`` will take
   binding #21 in set #1, since we requested an 10 shift on t-type registers.
+- ``sampler1`` will take binding 0 in set #1, since that's the next available
+  binding number in set #1.
 - ``sampler2`` will take binding 1 in set #0, since that's the next available
   binding number in set #0.
 

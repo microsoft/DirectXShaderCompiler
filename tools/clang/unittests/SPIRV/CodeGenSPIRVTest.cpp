@@ -1341,7 +1341,7 @@ TEST_F(FileTest, VulkanImplicitBinding) {
   runFileTest("vk.binding.implicit.hlsl");
 }
 TEST_F(FileTest, VulkanPrecedenceBinding) {
-  // Bindings from vk::binding and :register competing for dominance
+  // Bindings from vk::binding, :register, and vk::set competing for dominance
   runFileTest("vk.binding.precedence.hlsl");
 }
 TEST_F(FileTest, VulkanRegisterBinding) {
@@ -1362,6 +1362,10 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
   // and ConsumeStructuredBuffer
   runFileTest("vk.binding.counter.hlsl");
+}
+TEST_F(FileTest, VulkanSetBindingErrors) {
+  // Combine vk::set and vk::binding in various erroneous ways.
+  runFileTest("vk.binding.setbinding.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
