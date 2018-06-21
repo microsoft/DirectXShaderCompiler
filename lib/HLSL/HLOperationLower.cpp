@@ -6565,8 +6565,8 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
         TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP,
                                     helper.dataLayout);
         // Clear offset for typed buf.
-        for (auto User : handle->users()) {
-          CallInst *CI = cast<CallInst>(User);
+        for (auto User = handle->user_begin(); User != handle->user_end(); ) {
+          CallInst *CI = cast<CallInst>(*(User++));
           // Skip not lowered HL functions.
           if (hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction()) != HLOpcodeGroup::NotHL)
             continue;
