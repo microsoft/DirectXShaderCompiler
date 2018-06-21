@@ -489,7 +489,7 @@ void replaceStWithStOutput(Function *stOutput, StoreInst *stInst,
   Value *val = stInst->getValueOperand();
 
   if (VectorType *VT = dyn_cast<VectorType>(val->getType())) {
-    DXASSERT(cols == VT->getNumElements(), "vec size must match");
+    DXASSERT_LOCALVAR(VT, cols == VT->getNumElements(), "vec size must match");
     for (unsigned col = 0; col < cols; col++) {
       Value *subVal = Builder.CreateExtractElement(val, col);
       Value *colIdx = Builder.getInt8(col);
@@ -817,14 +817,16 @@ void collectInputOutputAccessInfo(
             InputOutputAccessInfo info = {idxVal, CI, vertexID, vectorIdx};
             accessInfoList.push_back(info);
           }
-        } else
+        } else {
           DXASSERT(0, "input output should only used by ld/st");
+        }
       }
     } else if (CallInst *CI = dyn_cast<CallInst>(I)) {
       InputOutputAccessInfo info = {constZero, CI};
       accessInfoList.push_back(info);
-    } else
+    } else {
       DXASSERT(0, "input output should only used by ld/st");
+    }
   }
 }
 
@@ -998,8 +1000,9 @@ void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertex
       CI->eraseFromParent();
     } break;
     }
-  } else
+  } else {
     DXASSERT(0, "invalid operation on input output");
+  }
 }
 
 } // namespace
@@ -1352,8 +1355,9 @@ void HLSignatureLower::GenerateDxilPatchConstantFunctionInputs() {
           Value *args[] = {OpArg, inputID, info.idx, info.vectorIdx,
                            info.vertexID};
           replaceLdWithLdInput(dxilLdFunc, ldInst, cols, args, bI1Cast);
-        } else
+        } else {
           DXASSERT(0, "input should only be ld");
+        }
       }
     }
   }

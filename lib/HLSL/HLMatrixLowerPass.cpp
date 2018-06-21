@@ -1202,7 +1202,7 @@ void HLMatrixLowerPass::TranslateMatMajorCast(CallInst *matInst,
     Type *castTy = GetMatrixInfo(castInst->getType(), castCol, castRow);
     unsigned srcCol, srcRow;
     Type *srcTy = GetMatrixInfo(matInst->getType(), srcCol, srcRow);
-    DXASSERT_LOCALVAR((castTy, srcTy), srcTy == castTy, "type must match");
+    DXASSERT_LOCALVAR((castTy == srcTy), srcTy == castTy, "type must match");
     DXASSERT(castCol == srcRow && castRow == srcCol, "col row must match");
     col = srcCol;
     row = srcRow;
@@ -1339,8 +1339,9 @@ void HLMatrixLowerPass::TranslateMatCast(CallInst *matInst,
       TranslateMatMatCast(matInst, vecInst, castInst);
     } else if (FromMat)
       TranslateMatToOtherCast(matInst, vecInst, castInst);
-    else
+    else {
       DXASSERT(0, "Not translate as user of matInst");
+    }
   }
 }
 
@@ -1434,8 +1435,9 @@ void HLMatrixLowerPass::TranslateMatSubscript(Value *matInst, Value *vecInst,
           vecLd = Builder.CreateInsertElement(vecLd, val, shufMask[0]);
           Builder.CreateStore(vecLd, vecInst);
         }
-      } else
+      } else {
         DXASSERT(0, "matrix element should only used by load/store.");
+      }
       AddToDeadInsts(CallUser);
     }
   } else {
@@ -1525,8 +1527,9 @@ void HLMatrixLowerPass::TranslateMatSubscript(Value *matInst, Value *vecInst,
         Value *GEPOffset = HLMatrixLower::LowerGEPOnMatIndexListToIndex(GEP, idxList);
         Value *NewGEP = Builder.CreateGEP(vecInst, {zero, GEPOffset});
         GEP->replaceAllUsesWith(NewGEP);
-      } else
+      } else {
         DXASSERT(0, "matrix subscript should only used by load/store.");
+      }
       AddToDeadInsts(CallUser);
     }
   }

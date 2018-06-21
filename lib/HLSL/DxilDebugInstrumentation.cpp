@@ -473,7 +473,7 @@ void DxilDebugInstrumentation::addUAV(BuilderContext &BC)
 void DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext &BC, SystemValueIndices SVIndices) {
   auto ShaderModel = BC.DM.GetShaderModel();
 
-  Value * ParameterTestResult;
+  Value * ParameterTestResult = nullptr;
   switch (ShaderModel->GetKind()) {
   case DXIL::ShaderKind::Pixel:
     ParameterTestResult = addPixelShaderProlog(BC, SVIndices);
@@ -583,7 +583,7 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC, Value * Th
     Function* StoreValue = BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
     Constant* StoreValueOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
     UndefValue* Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
-    UndefValue* UndefArg;
+    UndefValue* UndefArg = nullptr;
     if (TheValueTypeID == Type::TypeID::IntegerTyID) {
         UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
     }

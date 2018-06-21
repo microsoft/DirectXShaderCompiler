@@ -94,7 +94,6 @@ static cl::opt<bool> SROAStrictInbounds("sroa-strict-inbounds", cl::init(false),
                                         cl::Hidden);
 #else
 static const bool ForceSSAUpdater = false;
-static const bool SROARandomShuffleSlices = false;
 static const bool SROAStrictInbounds = false;
 #endif // HLSL Change Ends
 
@@ -1025,12 +1024,14 @@ AllocaSlices::AllocaSlices(const DataLayout &DL, AllocaInst &AI)
                               }),
                Slices.end());
 
+#if 0 // HLSL Change Starts - option pending
 #if __cplusplus >= 201103L && !defined(NDEBUG)
   if (SROARandomShuffleSlices) {
     std::mt19937 MT(static_cast<unsigned>(sys::TimeValue::now().msec()));
     std::shuffle(Slices.begin(), Slices.end(), MT);
   }
 #endif
+#endif // HLSL Change Ends - option pending
 
   // Sort the uses. This arranges for the offsets to be in ascending order,
   // and the sizes to be in descending order.
@@ -2072,6 +2073,7 @@ static VectorType *isVectorPromotionViable(AllocaSlices::Partition &P,
              "All non-integer types eliminated!");
       assert(LHSTy->getElementType()->isIntegerTy() &&
              "All non-integer types eliminated!");
+      (void)DL;// HLSL Change - unused var
       return RHSTy->getNumElements() < LHSTy->getNumElements();
     };
     std::sort(CandidateTys.begin(), CandidateTys.end(), RankVectorTypes);

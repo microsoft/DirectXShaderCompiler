@@ -3005,6 +3005,9 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     assert(!(MergeTypeWithOld && isa<FunctionNoProtoType>(NewFuncType) &&
              (OldProto = dyn_cast<FunctionProtoType>(OldFuncType))) &&
            "else fn with no prototype found");
+    (void)OldFuncType;
+    (void)NewFuncType;
+    (void)OldProto;
 #else
     if (MergeTypeWithOld && isa<FunctionNoProtoType>(NewFuncType) &&
         (OldProto = dyn_cast<FunctionProtoType>(OldFuncType))) {
