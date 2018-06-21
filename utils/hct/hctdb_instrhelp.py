@@ -921,6 +921,67 @@ def get_opsigs():
     code += "};\n"
     return code
 
+shader_stage_to_ShaderKind = {
+    'vertex': 'Vertex',
+    'pixel': 'Pixel',
+    'geometry': 'Geometry',
+    'compute': 'Compute',
+    'hull': 'Hull',
+    'domain': 'Domain',
+    'library': 'Library',
+    'raygeneration': 'RayGeneration',
+    'intersection': 'Intersection',
+    'anyhit': 'AnyHit',
+    'closesthit': 'ClosestHit',
+    'miss': 'Miss',
+    'callable': 'Callable',
+}
+
+def get_min_sm_and_mask_text():
+    db = get_db_dxil()
+    instrs = [i for i in db.instr if i.is_dxil_op]
+    instrs = sorted(instrs, key=lambda v : (v.shader_model, v.shader_model_translated, v.shader_stages, v.dxil_opid))
+    last_model = None
+    last_model_translated = None
+    last_stage = None
+    grouped_instrs = []
+    code = ""
+    def flush_instrs(grouped_instrs, last_model, last_model_translated, last_stage):
+        if len(grouped_instrs) == 0:
+            return ""
+        result = format_comment("// ", "Instructions: %s" % ", ".join([i.name + "=" + str(i.dxil_opid) for i in grouped_instrs]))
+        result += "if (" + build_range_code("op", [i.dxil_opid for i in grouped_instrs]) + ") {\n"
+        default = True
+        if last_model != (6,0):
+            default = False
+            if last_model_translated:
+                result += "  if (bWithTranslation) {\n"
+                result += "    major = %d;  minor = %d;\n  } else {\n  " % last_model_translated
+            result += "  major = %d;  minor = %d;\n" % last_model
+            if last_model_translated:
+                result += "  }\n"
+        if last_stage:
+            default = False
+            result += "  mask = %s;\n" % ' | '.join([   'SFLAG(%s)' % shader_stage_to_ShaderKind[c]
+                                                        for c in last_stage
+                                                        ])
+        if default:
+            # don't write these out, instead fall through
+            return ""
+        return result + "  return;\n}\n"
+
+    for i in instrs:
+        if ((i.shader_model, i.shader_model_translated, i.shader_stages) !=
+                (last_model, last_model_translated, last_stage)):
+            code += flush_instrs(grouped_instrs, last_model, last_model_translated, last_stage)
+            grouped_instrs = []
+            last_model = i.shader_model
+            last_model_translated = i.shader_model_translated
+            last_stage = i.shader_stages
+        grouped_instrs.append(i)
+    code += flush_instrs(grouped_instrs, last_model, last_model_translated, last_stage)
+    return code
+
 check_pSM_for_shader_stage = {
     'vertex': 'pSM->IsVS()',
     'pixel': 'pSM->IsPS()',
