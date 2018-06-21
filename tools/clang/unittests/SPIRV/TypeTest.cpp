@@ -384,23 +384,6 @@ TEST(Type, StructWithDecoratedMembers) {
   EXPECT_TRUE(t->hasDecoration(mem_1_offset));
 }
 
-TEST(Type, Opaque) {
-  SPIRVContext ctx;
-  const Type *t = Type::getOpaque(ctx, "opaque_type");
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeOpaque);
-  EXPECT_EQ(string::decodeSPIRVString(t->getArgs()), "opaque_type");
-  EXPECT_TRUE(t->getDecorations().empty());
-}
-
-TEST(Type, DecoratedOpaque) {
-  SPIRVContext ctx;
-  const Decoration *d = Decoration::getAliased(ctx);
-  const Type *t = Type::getOpaque(ctx, "opaque_type", {d});
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeOpaque);
-  EXPECT_EQ(string::decodeSPIRVString(t->getArgs()), "opaque_type");
-  EXPECT_THAT(t->getDecorations(), ElementsAre(d));
-}
-
 TEST(Type, Pointer) {
   SPIRVContext ctx;
   const Type *t = Type::getPointer(ctx, spv::StorageClass::Uniform, 2);
@@ -436,113 +419,6 @@ TEST(Type, DecoratedFunction) {
   const Type *t = Type::getFunction(ctx, 1, {2, 3, 4}, {d});
   EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeFunction);
   EXPECT_THAT(t->getArgs(), ElementsAre(1, 2, 3, 4));
-  EXPECT_THAT(t->getDecorations(), ElementsAre(d));
-}
-
-TEST(Type, Event) {
-  SPIRVContext ctx;
-  const Type *t = Type::getEvent(ctx);
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeEvent);
-  EXPECT_TRUE(t->getArgs().empty());
-  EXPECT_TRUE(t->getDecorations().empty());
-}
-
-TEST(Type, DecoratedEvent) {
-  SPIRVContext ctx;
-  const Decoration *d = Decoration::getAliased(ctx);
-  const Type *t = Type::getEvent(ctx, {d});
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeEvent);
-  EXPECT_TRUE(t->getArgs().empty());
-  EXPECT_THAT(t->getDecorations(), ElementsAre(d));
-}
-
-TEST(Type, DeviceEvent) {
-  SPIRVContext ctx;
-  const Type *t = Type::getDeviceEvent(ctx);
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeDeviceEvent);
-  EXPECT_TRUE(t->getArgs().empty());
-  EXPECT_TRUE(t->getDecorations().empty());
-}
-
-TEST(Type, DecoratedDeviceEvent) {
-  SPIRVContext ctx;
-  const Decoration *d = Decoration::getAliased(ctx);
-  const Type *t = Type::getDeviceEvent(ctx, {d});
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeDeviceEvent);
-  EXPECT_TRUE(t->getArgs().empty());
-  EXPECT_THAT(t->getDecorations(), ElementsAre(d));
-}
-
-TEST(Type, ReserveId) {
-  SPIRVContext ctx;
-  const Type *t = Type::getReserveId(ctx);
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeReserveId);
-  EXPECT_TRUE(t->getArgs().empty());
-  EXPECT_TRUE(t->getDecorations().empty());
-}
-
-TEST(Type, DecoratedReserveId) {
-  SPIRVContext ctx;
-  const Decoration *d = Decoration::getAliased(ctx);
-  const Type *t = Type::getReserveId(ctx, {d});
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeReserveId);
-  EXPECT_TRUE(t->getArgs().empty());
-  EXPECT_THAT(t->getDecorations(), ElementsAre(d));
-}
-
-TEST(Type, Queue) {
-  SPIRVContext ctx;
-  const Type *t = Type::getQueue(ctx);
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeQueue);
-  EXPECT_TRUE(t->getArgs().empty());
-  EXPECT_TRUE(t->getDecorations().empty());
-}
-
-TEST(Type, DecoratedQueue) {
-  SPIRVContext ctx;
-  const Decoration *d = Decoration::getAliased(ctx);
-  const Type *t = Type::getQueue(ctx, {d});
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeQueue);
-  EXPECT_TRUE(t->getArgs().empty());
-  EXPECT_THAT(t->getDecorations(), ElementsAre(d));
-}
-
-TEST(Type, Pipe) {
-  SPIRVContext ctx;
-  const Type *t = Type::getPipe(ctx, spv::AccessQualifier::WriteOnly);
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypePipe);
-  EXPECT_THAT(t->getArgs(), ElementsAre(static_cast<uint32_t>(
-                                spv::AccessQualifier::WriteOnly)));
-  EXPECT_TRUE(t->getDecorations().empty());
-}
-
-TEST(Type, DecoratedPipe) {
-  SPIRVContext ctx;
-  const Decoration *d = Decoration::getAliased(ctx);
-  const Type *t = Type::getPipe(ctx, spv::AccessQualifier::WriteOnly, {d});
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypePipe);
-  EXPECT_THAT(t->getArgs(), ElementsAre(static_cast<uint32_t>(
-                                spv::AccessQualifier::WriteOnly)));
-  EXPECT_THAT(t->getDecorations(), ElementsAre(d));
-}
-
-TEST(Type, ForwardPointer) {
-  SPIRVContext ctx;
-  const Type *t = Type::getForwardPointer(ctx, 6, spv::StorageClass::Workgroup);
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeForwardPointer);
-  EXPECT_THAT(t->getArgs(), ElementsAre(6, static_cast<uint32_t>(
-                                               spv::StorageClass::Workgroup)));
-  EXPECT_TRUE(t->getDecorations().empty());
-}
-
-TEST(Type, DecoratedForwardPointer) {
-  SPIRVContext ctx;
-  const Decoration *d = Decoration::getAliased(ctx);
-  const Type *t =
-      Type::getForwardPointer(ctx, 6, spv::StorageClass::Workgroup, {d});
-  EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeForwardPointer);
-  EXPECT_THAT(t->getArgs(), ElementsAre(6, static_cast<uint32_t>(
-                                               spv::StorageClass::Workgroup)));
   EXPECT_THAT(t->getDecorations(), ElementsAre(d));
 }
 
