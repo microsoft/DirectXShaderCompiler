@@ -552,7 +552,7 @@ Value *TrivialBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   unsigned t = static_cast<unsigned>(DXIL::BarrierMode::SyncThreadGroup);
   // unsigned ut = static_cast<unsigned>(DXIL::BarrierMode::UAVFenceThreadGroup);
 
-  unsigned barrierMode;
+  unsigned barrierMode = 0;
   switch (IOP) {
   case IntrinsicOp::IOP_AllMemoryBarrier:
     barrierMode = uglobal | g;
@@ -3317,7 +3317,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
                     Value *offset, IRBuilder<> &Builder, hlsl::OP *OP) {
   Type *Ty = val->getType();
 
-  OP::OpCode opcode;
+  OP::OpCode opcode = OP::OpCode::NumOpCodes;
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
   case DxilResource::Kind::StructuredBuffer:
@@ -4222,6 +4222,7 @@ Value *TranslateProcessTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpCode opc
   Type *outFactorTy = unroundedInsideFactor->getType()->getPointerElementType();
   if (outFactorTy != clampedI->getType()) {
     DXASSERT(isQuad, "quad only write one channel of out factor");
+    (void)isQuad;
     clampedI = Builder.CreateExtractElement(clampedI, (uint64_t)0);
     // Splat clampedI to float2.
     clampedI = SplatToVector(clampedI, outFactorTy, Builder);

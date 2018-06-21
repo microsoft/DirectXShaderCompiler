@@ -83,11 +83,10 @@ static cl::opt<ReplaceExitVal> ReplaceExitValue(
                           "always replace exit value whenever possible"),
                clEnumValEnd));
 #else
-static const bool VerifyIndvars = false;
 static const bool ReduceLiveIVs = false;
 enum ReplaceExitVal { NeverRepl, OnlyCheapRepl, AlwaysRepl };
 static const ReplaceExitVal ReplaceExitValue = OnlyCheapRepl;
-#endif
+#endif // HLSL Change Ends - option pending
 
 namespace {
 struct RewritePhi;
@@ -2090,6 +2089,7 @@ bool IndVarSimplify::runOnLoop(Loop *L, LPPassManager &LPM) {
   assert(L->isLCSSAForm(*DT) &&
          "Indvars did not leave the loop in lcssa form!");
 
+#if 0 // HLSL Change Starts - option pending
   // Verify that LFTR, and any other change have not interfered with SCEV's
   // ability to compute trip count.
 #ifndef NDEBUG
@@ -2106,6 +2106,7 @@ bool IndVarSimplify::runOnLoop(Loop *L, LPPassManager &LPM) {
     assert(BackedgeTakenCount == NewBECount && "indvars must preserve SCEV");
   }
 #endif
+#endif // HLSL Change Ends - option pending
 
   return Changed;
 }

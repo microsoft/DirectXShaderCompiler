@@ -426,6 +426,7 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
   QualType ty = {};
   const bool isScalar = isScalarType(type, &ty);
   assert(isScalar);
+  (void)isScalar;
   if (const auto *builtinType = ty->getAs<BuiltinType>()) {
     switch (builtinType->getKind()) {
     case BuiltinType::Bool:

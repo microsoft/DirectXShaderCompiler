@@ -926,6 +926,7 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
         const bool isMat =
             TypeTranslator::isMxNMatrix(exprType, nullptr, &numRows, &numCols);
         assert(isMat);
+        (void)isMat;
         const auto uintRowQualType =
             astContext.getExtVectorType(uintType, numCols);
         const auto uintRowQualTypeId =
@@ -2253,6 +2254,7 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
         TypeTranslator::isMxNMatrix(toType, &elemType, &rowCount, &colCount);
 
     assert(isMat && rowCount == 2 && colCount == 2);
+    (void)isMat;
 
     uint32_t vec2Type =
         theBuilder.getVecType(typeTranslator.translateType(elemType), 2);
@@ -3174,15 +3176,14 @@ SpirvEvalInfo SPIRVEmitter::processByteAddressBufferLoadStore(
     const CXXMemberCallExpr *expr, uint32_t numWords, bool doStore) {
   uint32_t resultId = 0;
   const auto object = expr->getImplicitObjectArgument();
-  const auto type = object->getType();
   const auto objectInfo = loadIfAliasVarRef(object);
   assert(numWords >= 1 && numWords <= 4);
   if (doStore) {
-    assert(typeTranslator.isRWByteAddressBuffer(type));
+    assert(typeTranslator.isRWByteAddressBuffer(object->getType()));
     assert(expr->getNumArgs() == 2);
   } else {
-    assert(typeTranslator.isRWByteAddressBuffer(type) ||
-           typeTranslator.isByteAddressBuffer(type));
+    assert(typeTranslator.isRWByteAddressBuffer(object->getType()) ||
+           typeTranslator.isByteAddressBuffer(object->getType()));
     if (expr->getNumArgs() == 2) {
       emitError(
           "(RW)ByteAddressBuffer::Load(in address, out status) not supported",
@@ -5628,6 +5629,7 @@ SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
           baseTypeId, oldVec, {accessor.Swz0}, rhs);
       const auto result = tryToAssignToRWBufferRWTexture(base, newVec);
       assert(result); // Definitely RWBuffer/RWTexture assignment
+      (void)result;
       return rhs;     // TODO: incorrect for compound assignments
     } else {
       // Assigning to one normal vector component. Nothing special, just fall
@@ -6115,6 +6117,7 @@ uint32_t SPIRVEmitter::castToInt(uint32_t fromVal, QualType fromType,
       const bool isMat = TypeTranslator::isMxNMatrix(toIntType, &toElemType,
                                                      &toNumRows, &toNumCols);
       assert(isMat && numRows == toNumRows && numCols == toNumCols);
+      (void)isMat;
       (void)toNumRows;
       (void)toNumCols;
 
@@ -6215,6 +6218,7 @@ uint32_t SPIRVEmitter::castToFloat(uint32_t fromVal, QualType fromType,
       const auto isMat = TypeTranslator::isMxNMatrix(toFloatType, &toElemType,
                                                      &toNumRows, &toNumCols);
       assert(isMat && numRows == toNumRows && numCols == toNumCols);
+      (void)isMat;
       (void)toNumRows;
       (void)toNumCols;
 
@@ -7602,6 +7606,7 @@ uint32_t SPIRVEmitter::processNonFpMatrixTranspose(QualType matType,
   const bool isMat =
       TypeTranslator::isMxNMatrix(matType, &elemType, &numRows, &numCols);
   assert(isMat && !elemType->isFloatingType());
+  (void)isMat;
 
   const auto colQualType = astContext.getExtVectorType(elemType, numRows);
   const uint32_t colTypeId = typeTranslator.translateType(colQualType);
@@ -7663,6 +7668,7 @@ uint32_t SPIRVEmitter::processNonFpScalarTimesMatrix(QualType scalarType,
       TypeTranslator::isMxNMatrix(matrixType, &elemType, &numRows, &numCols);
   assert(isMat);
   assert(typeTranslator.isSameType(scalarType, elemType));
+  (void)isMat;
 
   // We need to multiply the scalar by each vector of the matrix.
   // The front-end guarantees that the scalar and matrix element type are
@@ -7703,6 +7709,8 @@ uint32_t SPIRVEmitter::processNonFpVectorTimesMatrix(QualType vecType,
   assert(isVec);
   assert(isMat);
   assert(vecSize == numRows);
+  (void)isVec;
+  (void)isMat;
 
   // When processing vector times matrix, the vector is a row vector, and it
   // should be multiplied by the matrix *columns*. The most efficient way to
@@ -7740,6 +7748,8 @@ uint32_t SPIRVEmitter::processNonFpMatrixTimesVector(QualType matType,
   assert(isVec);
   assert(isMat);
   assert(vecSize == numCols);
+  (void)isVec;
+  (void)isMat;
 
   // When processing matrix times vector, the vector is a column vector. So we
   // simply get each row of the matrix and perform a dot product with the
@@ -7773,6 +7783,8 @@ uint32_t SPIRVEmitter::processNonFpMatrixTimesMatrix(QualType lhsType,
   assert(typeTranslator.isSameType(lhsElemType, rhsElemType));
   assert(lhsIsMat && rhsIsMat);
   assert(lhsNumCols == rhsNumRows);
+  (void)rhsIsMat;
+  (void)lhsIsMat;
 
   const uint32_t rhsTranspose = processNonFpMatrixTranspose(rhsType, rhsId);
 
@@ -7972,6 +7984,9 @@ uint32_t SPIRVEmitter::processIntrinsicDot(const CallExpr *callExpr) {
   assert(vec0ComponentType == vec1ComponentType);
   assert(vec0Size == vec1Size);
   assert(vec0Size >= 1 && vec0Size <= 4);
+  (void)vec0ComponentType;
+  (void)vec1ComponentType;
+  (void)vec1Size;
 
   // According to HLSL reference, the dot function only works on integers
   // and floats.
