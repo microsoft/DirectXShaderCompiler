@@ -1340,6 +1340,10 @@ TEST_F(FileTest, VulkanImplicitBinding) {
   // Resource binding from neither [[vk::binding()]] or :register()
   runFileTest("vk.binding.implicit.hlsl");
 }
+TEST_F(FileTest, VulkanPrecedenceBinding) {
+  // Bindings from vk::binding and :register competing for dominance
+  runFileTest("vk.binding.precedence.hlsl");
+}
 TEST_F(FileTest, VulkanRegisterBinding) {
   // Resource binding from :register()
   runFileTest("vk.binding.register.hlsl");
