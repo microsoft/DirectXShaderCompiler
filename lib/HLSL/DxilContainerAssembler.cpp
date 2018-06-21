@@ -929,18 +929,50 @@ private:
 
   std::vector<std::unique_ptr<RDATPart>> m_Parts;
   typedef llvm::SmallSetVector<uint32_t, 8> Indices;
-  typedef std::unordered_map<llvm::Function *, Indices> FunctionIndexMap;
+  typedef std::unordered_map<const llvm::Function *, Indices> FunctionIndexMap;
   FunctionIndexMap m_FuncToResNameOffset; // list of resources used
   FunctionIndexMap m_FuncToDependencies;  // list of unresolved functions used
 
-  llvm::Function *FindUsingFunction(llvm::Value *User) {
-    if (llvm::Instruction *I = dyn_cast<llvm::Instruction>(User)) {
+  struct ShaderCompatInfo {
+    ShaderCompatInfo()
+      : minMajor(6), minMinor(0),
+        mask(((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1)
+      {}
+    unsigned minMajor, minMinor, mask;
+  };
+  typedef std::unordered_map<const llvm::Function*, ShaderCompatInfo> FunctionShaderCompatMap;
+  FunctionShaderCompatMap m_FuncToShaderCompat;
+
+  void UpdateFunctionToShaderCompat(const llvm::Function* dxilFunc) {
+    for (const auto &user : dxilFunc->users()) {
+      if (const llvm::Instruction *I = dyn_cast<const llvm::Instruction>(user)) {
+        // Find calling function
+        const llvm::Function *F = cast<const llvm::Function>(I->getParent()->getParent());
+        // Insert or lookup info
+        ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+        OpCode opcode = OP::GetDxilOpFuncCallInst(I);
+        unsigned major, minor, mask;
+        // bWithTranslation = true for library modules
+        OP::GetMinShaderModelAndMask(opcode, /*bWithTranslation*/true, major, minor, mask);
+        if (major > info.minMajor) {
+          info.minMajor = major;
+          info.minMinor = minor;
+        } else if (minor > info.minMinor) {
+          info.minMinor = minor;
+        }
+        info.mask &= mask;
+      }
+    }
+  }
+
+  const llvm::Function *FindUsingFunction(const llvm::Value *User) {
+    if (const llvm::Instruction *I = dyn_cast<const llvm::Instruction>(User)) {
       // Instruction should be inside a basic block, which is in a function
-      return cast<llvm::Function>(I->getParent()->getParent());
+      return cast<const llvm::Function>(I->getParent()->getParent());
     }
     // User can be either instruction, constant, or operator. But User is an
     // operator only if constant is a scalar value, not resource pointer.
-    llvm::Constant *CU = cast<llvm::Constant>(User);
+    const llvm::Constant *CU = cast<const llvm::Constant>(User);
     if (!CU->user_empty())
       return FindUsingFunction(*CU->user_begin());
     else
@@ -953,7 +985,7 @@ private:
     if (var) {
       for (auto user : var->users()) {
         // Find the function.
-        llvm::Function *F = FindUsingFunction(user);
+        const llvm::Function *F = FindUsingFunction(user);
         if (!F)
           continue;
         if (m_FuncToResNameOffset.find(F) == m_FuncToResNameOffset.end()) {
@@ -1020,7 +1052,7 @@ private:
 
   void UpdateFunctionDependency(llvm::Function *F, StringBufferPart &stringBufferPart) {
     for (const auto &user : F->users()) {
-      llvm::Function *userFunction = FindUsingFunction(user);
+      const llvm::Function *userFunction = FindUsingFunction(user);
       uint32_t index = stringBufferPart.Insert(F->getName());
       if (m_FuncToDependencies.find(userFunction) ==
           m_FuncToDependencies.end()) {
@@ -1032,18 +1064,19 @@ private:
   }
 
   void UpdateFunctionInfo(StringBufferPart &stringBufferPart) {
-    // TODO: get a list of valid shader flags
-    // TODO: get a minimum shader version
-    std::unordered_map<llvm::Function *, std::vector<StringRef>>
-        FuncToUnresolvedDependencies;
     m_Parts.emplace_back(std::make_unique<FunctionTable>());
     FunctionTable &functionTable = *reinterpret_cast<FunctionTable*>(m_Parts.back().get());
     m_Parts.emplace_back(std::make_unique<IndexArraysPart>());
     IndexArraysPart &indexArraysPart = *reinterpret_cast<IndexArraysPart*>(m_Parts.back().get());
     for (auto &function : m_Module.GetModule()->getFunctionList()) {
-      // If function is a declaration, it is an unresolved dependency in the library
-      if (function.isDeclaration() && !OP::IsDxilOpFunc(&function)) {
-        UpdateFunctionDependency(&function, stringBufferPart);
+      if (function.isDeclaration() && !function.isIntrinsic()) {
+        if (OP::IsDxilOpFunc(&function)) {
+          // update min shader model and shader stage mask per function
+          UpdateFunctionToShaderCompat(&function);
+        } else {
+          // collect unresolved dependencies per function
+          UpdateFunctionDependency(&function, stringBufferPart);
+        }
       }
     }
     for (auto &function : m_Module.GetModule()->getFunctionList()) {
@@ -1093,6 +1126,33 @@ private:
         uint64_t featureFlags = flags.GetFeatureInfo();
         info.FeatureInfo1 = featureFlags & 0xffffffff;
         info.FeatureInfo2 = (featureFlags >> 32) & 0xffffffff;
+        // Init min target 6.0
+        unsigned minMajor = 6, minMinor = 0;
+        // Increase min target based on feature flags:
+        if (flags.GetUseNativeLowPrecision() && flags.GetLowPrecisionPresent()) {
+          minMinor = 2;
+        } else if (flags.GetBarycentrics() || flags.GetViewID()) {
+          minMinor = 1;
+        }
+        if ((DXIL::ShaderKind)shaderKind == DXIL::ShaderKind::Library) {
+          // Init mask to all kinds for library functions
+          info.ShaderStageFlag = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
+        } else {
+          // Init mask to current kind for shader functions
+          info.ShaderStageFlag = (unsigned)1 << shaderKind;
+        }
+        auto it = m_FuncToShaderCompat.find(&function);
+        if (it != m_FuncToShaderCompat.end()) {
+          auto &compatInfo = it->second;
+          if (compatInfo.minMajor > minMajor) {
+            minMajor = compatInfo.minMajor;
+            minMinor = compatInfo.minMinor;
+          } else if (compatInfo.minMinor > minMinor) {
+            minMinor = compatInfo.minMinor;
+          }
+          info.ShaderStageFlag &= compatInfo.mask;
+        }
+        info.MinShaderTarget = EncodeVersion((DXIL::ShaderKind)shaderKind, minMajor, minMinor);
         functionTable.Insert(info);
       }
     }
