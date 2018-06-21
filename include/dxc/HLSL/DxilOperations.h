@@ -103,10 +103,6 @@ public:
   static void GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
                                        unsigned &major, unsigned &minor,
                                        unsigned &mask);
-  static void ComputeMinShaderModelAndMask(const llvm::Function &function,
-                                           bool bWithTranslation,
-                                           unsigned &minMajor, unsigned &minMinor,
-                                           unsigned &shaderStageFlags);
 
 private:
   // Per-module properties.
