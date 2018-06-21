@@ -35,8 +35,8 @@
  *	@(#)regex.h	8.1 (Berkeley) 6/2/93
  */
 
-#ifndef _REGEX_H_
-#define	_REGEX_H_
+#ifndef _REGEX_IMPL_H_ // HLSL Change
+#define _REGEX_IMPL_H_ // HLSL Change
 
 #include "dxc/Support/WinAdapter.h" // HLSL Change
 #include <sys/types.h>
@@ -119,4 +119,4 @@ size_t  llvm_strlcpy(
 }
 #endif
 
-#endif /* !_REGEX_H_ */
+#endif /* !_REGEX_IMPL_H_ */ // HLSL Change

@@ -49,6 +49,10 @@ namespace {
 
 static HlslOptTable *g_HlslOptTable;
 
+#ifndef _WIN32
+#pragma GCC visibility push(hidden)
+#endif
+
 std::error_code hlsl::options::initHlslOptTable() {
   DXASSERT(g_HlslOptTable == nullptr, "else double-init");
   g_HlslOptTable = new (std::nothrow) HlslOptTable();
@@ -65,6 +69,10 @@ void hlsl::options::cleanupHlslOptTable() {
 const OptTable * hlsl::options::getHlslOptTable() {
   return g_HlslOptTable;
 }
+
+#ifndef _WIN32
+#pragma GCC visibility pop
+#endif
 
 void DxcDefines::push_back(llvm::StringRef value) {
   // Skip empty defines.
