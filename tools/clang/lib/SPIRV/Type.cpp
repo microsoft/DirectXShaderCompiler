@@ -130,11 +130,6 @@ const Type *Type::getStruct(SPIRVContext &context,
   Type t = Type(spv::Op::OpTypeStruct, std::vector<uint32_t>(members), d);
   return getUniqueType(context, t);
 }
-const Type *Type::getOpaque(SPIRVContext &context, std::string name,
-                            DecorationSet d) {
-  Type t = Type(spv::Op::OpTypeOpaque, string::encodeSPIRVString(name), d);
-  return getUniqueType(context, t);
-}
 const Type *Type::getPointer(SPIRVContext &context,
                              spv::StorageClass storage_class, uint32_t type,
                              DecorationSet d) {
@@ -150,34 +145,19 @@ const Type *Type::getFunction(SPIRVContext &context, uint32_t return_type,
   Type t = Type(spv::Op::OpTypeFunction, args, d);
   return getUniqueType(context, t);
 }
-const Type *Type::getEvent(SPIRVContext &context, DecorationSet d) {
-  Type t = Type(spv::Op::OpTypeEvent, {}, d);
-  return getUniqueType(context, t);
-}
-const Type *Type::getDeviceEvent(SPIRVContext &context, DecorationSet d) {
-  Type t = Type(spv::Op::OpTypeDeviceEvent, {}, d);
-  return getUniqueType(context, t);
-}
-const Type *Type::getReserveId(SPIRVContext &context, DecorationSet d) {
-  Type t = Type(spv::Op::OpTypeReserveId, {}, d);
-  return getUniqueType(context, t);
-}
-const Type *Type::getQueue(SPIRVContext &context, DecorationSet d) {
-  Type t = Type(spv::Op::OpTypeQueue, {}, d);
-  return getUniqueType(context, t);
-}
-const Type *Type::getPipe(SPIRVContext &context, spv::AccessQualifier qualifier,
-                          DecorationSet d) {
-  Type t = Type(spv::Op::OpTypePipe, {static_cast<uint32_t>(qualifier)}, d);
-  return getUniqueType(context, t);
-}
-const Type *Type::getForwardPointer(SPIRVContext &context,
-                                    uint32_t pointer_type,
-                                    spv::StorageClass storage_class,
-                                    DecorationSet d) {
-  Type t = Type(spv::Op::OpTypeForwardPointer,
-                {pointer_type, static_cast<uint32_t>(storage_class)}, d);
-  return getUniqueType(context, t);
+
+bool Type::operator==(const Type &other) const {
+  if (opcode == other.opcode && args == other.args &&
+      decorations.size() == other.decorations.size()) {
+    // If two types have the same decorations, but in different order,
+    // they are in fact the same type.
+    for (const Decoration *dec : decorations) {
+      if (other.decorations.count(dec) == 0)
+        return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 bool Type::isBooleanType() const { return opcode == spv::Op::OpTypeBool; }
