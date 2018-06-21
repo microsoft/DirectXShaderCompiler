@@ -5,7 +5,6 @@ platform: x64
 configuration: Release
 
 clone_folder: c:\projects\DirectXShaderCompiler
-clone_depth: 1
 
 environment:
   HLSL_SRC_DIR: c:\projects\DirectXShaderCompiler
