@@ -1131,7 +1131,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         uint32_t set = 0;
         if (const auto *vkBinding = var.getBinding())
           set = vkBinding->getSet();
-        if (const auto *reg = var.getRegister())
+        else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace;
 
         tryToDecorate(var.getSpirvId(), set, vkCBinding->getBinding());
