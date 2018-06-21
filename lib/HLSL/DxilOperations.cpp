@@ -644,30 +644,6 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
 #undef SFLAG
 }
 
-// This will only increase shader model and further restrict shader stages
-void OP::ComputeMinShaderModelAndMask(const llvm::Function &function,
-                                      bool bWithTranslation,
-                                      unsigned &minMajor, unsigned &minMinor,
-                                      unsigned &shaderStageFlags) {
-  for (const auto &Block : function) {
-    for (const auto &I : Block) {
-      if (IsDxilOpFuncCallInst(&I)) {
-        OpCode opcode = GetDxilOpFuncCallInst(&I);
-        unsigned major, minor, mask;
-        GetMinShaderModelAndMask(opcode, bWithTranslation, major, minor, mask);
-        if (major > minMajor) {
-          minMajor = major;
-          minMinor = minor;
-        }
-        else if (minor > minMinor) {
-          minMinor = minor;
-        }
-        shaderStageFlags &= mask;
-      }
-    }
-  }
-}
-
 static Type *GetOrCreateStructType(LLVMContext &Ctx, ArrayRef<Type*> types, StringRef Name, Module *pModule) {
   if (StructType *ST = pModule->getTypeByName(Name)) {
     // TODO: validate the exist type match types if needed.
