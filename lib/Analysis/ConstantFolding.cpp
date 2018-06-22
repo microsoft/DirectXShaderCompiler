@@ -1367,6 +1367,7 @@ static Constant *ConstantFoldBinaryFP(double (__cdecl *NativeFP)(double, double)
   return GetConstantFoldFPValue(V, Ty);
 }
 
+#if 0 // HLSL Change - remove platform intrinsics
 /// Attempt to fold an SSE floating point to integer conversion of a constant
 /// floating point. If roundTowardZero is false, the default IEEE rounding is
 /// used (toward nearest, ties to even). This matches the behavior of the
@@ -1392,6 +1393,7 @@ static Constant *ConstantFoldConvertToInt(const APFloat &Val,
     return nullptr;
   return ConstantInt::get(Ty, UIntVal, /*isSigned=*/true);
 }
+#endif // HLSL Change Ends
 
 // HLSL Change - make non-static.
 double llvm::getValueAsDouble(ConstantFP *Op) {

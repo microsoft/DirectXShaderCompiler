@@ -1299,6 +1299,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
 
 }
 
+#ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 /// Attempt to parse a visibility value out of the given argument.
 static Visibility parseVisibility(Arg *arg, ArgList &args,
                                   DiagnosticsEngine &diags) {
@@ -1316,6 +1317,7 @@ static Visibility parseVisibility(Arg *arg, ArgList &args,
     << arg->getAsString(args) << value;
   return DefaultVisibility;
 }
+#endif // MS_SUPPORT_VARIABLE_LANGOPTS
 
 static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                           DiagnosticsEngine &Diags) {

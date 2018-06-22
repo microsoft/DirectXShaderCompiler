@@ -2872,7 +2872,7 @@ struct RegisterFatalErrorHandler {
 };
 }
 
-static llvm::ManagedStatic<RegisterFatalErrorHandler> RegisterFatalErrorHandlerOnce;
+//static llvm::ManagedStatic<RegisterFatalErrorHandler> RegisterFatalErrorHandlerOnce; // HLSL Change - properly scoped mechanisms should be used
 
 // extern "C" {    // HLSL Change -Don't use c linkage.
 CXIndex clang_createIndex(int excludeDeclarationsFromPCH,
@@ -3198,7 +3198,8 @@ enum CXErrorCode clang_parseTranslationUnit2(
       llvm::makeArrayRef(unsaved_files, num_unsaved_files),
       options,
       out_TU,
-      result};
+      result,
+      nullptr};
   llvm::CrashRecoveryContext CRC;
 
   // HLSL Change Starts - allow an option to control this behavior.
@@ -5325,6 +5326,8 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
     if (NamedDecl *Friend = cast<FriendTemplateDecl>(D)->getFriendDecl())
       return clang_getCursorDefinition(MakeCXCursor(Friend, TU));
     return clang_getNullCursor();
+  case Decl::HLSLBuffer: // HLSL Change
+    return clang_getNullCursor(); // HLSL Change
   }
 
   return clang_getNullCursor();

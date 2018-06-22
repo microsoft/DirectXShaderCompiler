@@ -97,9 +97,9 @@ static PassRemarksOptNull PassRemarksOptLoc;
 static PassRemarksOptNull PassRemarksMissedOptLoc;
 static PassRemarksOptNull PassRemarksAnalysisOptLoc;
 
-static PassRemarksOptNull PassRemarks;
-static PassRemarksOptNull PassRemarksMissed;
-static PassRemarksOptNull PassRemarksAnalysis;
+// static PassRemarksOptNull PassRemarks; // HLSL Change
+// static PassRemarksOptNull PassRemarksMissed; // HLSL Change
+// static PassRemarksOptNull PassRemarksAnalysis; // HLSL Change
 }
 #endif
 

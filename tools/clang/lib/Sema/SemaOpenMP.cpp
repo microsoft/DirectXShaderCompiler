@@ -455,12 +455,6 @@ OMPClause *Sema::ActOnOpenMPLinearClause(ArrayRef<Expr *> VarList, Expr *Step,
   llvm_unreachable("HLSL does not support OpenMP constructs");
 }
 
-static bool FinishOpenMPLinearClause(OMPLinearClause &Clause, DeclRefExpr *IV,
-  Expr *NumIterations, Sema &SemaRef,
-  Scope *S) {
-  llvm_unreachable("HLSL does not support OpenMP constructs");
-}
-
 OMPClause *Sema::ActOnOpenMPAlignedClause(
   ArrayRef<Expr *> VarList, Expr *Alignment, SourceLocation StartLoc,
   SourceLocation LParenLoc, SourceLocation ColonLoc, SourceLocation EndLoc) {

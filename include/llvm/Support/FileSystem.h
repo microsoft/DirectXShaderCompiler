@@ -27,6 +27,7 @@
 #ifndef LLVM_SUPPORT_FILESYSTEM_H
 #define LLVM_SUPPORT_FILESYSTEM_H
 
+#include "dxc/Support/WinAdapter.h" // HLSL Change
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Twine.h"

@@ -62,7 +62,7 @@ inline bool hasGSPrimitiveTypeQualifier(const DeclaratorDecl *decl) {
 GlPerVertex::GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
                          ModuleBuilder &builder, TypeTranslator &translator)
     : shaderModel(sm), astContext(context), theBuilder(builder),
-      typeTranslator(translator), inClipVar(0), inCullVar(0), outClipVar(0),
+      inClipVar(0), inCullVar(0), outClipVar(0),
       outCullVar(0), inArraySize(0), outArraySize(0), inClipArraySize(1),
       outClipArraySize(1), inCullArraySize(1), outCullArraySize(1),
       inSemanticStrs(2, ""), outSemanticStrs(2, "") {}
@@ -192,6 +192,9 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
     isCull = true;
     index = gCullDistanceIndex;
     break;
+  default:
+    // Only Cull or Clip apply.
+    break;
   }
 
   // Remember the semantic strings provided by the developer so that we can
@@ -208,7 +211,7 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
       (*semanticStrs)[index] = "SV_CullDistance";
   }
 
-  if (index < gClipDistanceIndex || index > gCullDistanceIndex) {
+  if (index > gCullDistanceIndex) {
     // Annotated with something other than SV_ClipDistance or SV_CullDistance.
     // We don't care about such cases.
     return true;
@@ -367,6 +370,9 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
       return true;
 
     return writeField(semanticKind, semanticIndex, invocationId, value);
+  default:
+    // Only interfaces that involve gl_PerVertex are needed.
+    break;
   }
 
   return false;
@@ -461,7 +467,7 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
   }
 
   return theBuilder.createCompositeConstruct(arrayType, arrayElements);
-};
+}
 
 bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
                             uint32_t semanticIndex, uint32_t *value) {
@@ -486,6 +492,9 @@ bool GlPerVertex::readField(hlsl::Semantic::Kind semanticKind,
                                      typeIter->second);
     return true;
   }
+  default:
+    // Only Cull or Clip apply.
+    break;
   }
   return false;
 }
@@ -579,7 +588,7 @@ void GlPerVertex::writeClipCullArrayFromType(
 
   llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or vector of "
                    "float case sneaked in");
-};
+}
 
 bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
                              uint32_t semanticIndex,
@@ -621,6 +630,9 @@ bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
                                offsetIter->second, typeIter->second, *value);
     return true;
   }
+  default:
+    // Only Cull or Clip apply.
+    break;
   }
   return false;
 }

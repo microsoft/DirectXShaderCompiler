@@ -99,7 +99,7 @@ def build_range_code(var, i):
         if r[0] == r[1]:
             cond = var + " == " + str(r[0])
         else:
-            cond = "%d <= %s && %s <= %d" % (r[0], var, var, r[1])
+            cond = "(%d <= %s && %s <= %d)" % (r[0], var, var, r[1])
         if result == "":
             result = cond
         else:
@@ -360,7 +360,7 @@ class db_oload_gen:
 
         last_category = None
         # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong, u(dt)
-        f = lambda i,c : "true," if i.oload_types.find(c) >= 0 else "false,"
+        f = lambda i,c : "true" if i.oload_types.find(c) >= 0 else "false"
         lower_exceptions = { "CBufferLoad" : "cbufferLoad", "CBufferLoadLegacy" : "cbufferLoadLegacy", "GSInstanceID" : "gsInstanceID" }
         lower_fn = lambda t: lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
         attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate", "nr": "NoReturn" }
@@ -369,9 +369,9 @@ class db_oload_gen:
             if last_category != i.category:
                 if last_category != None:
                     print("")
-                print("  // {category:118} void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,  obj,  function attribute".format(category=i.category))
+                print("  // {category:118}  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute".format(category=i.category))
                 last_category = i.category
-            print("  {{  OC::{name:24} {quotName:27} OCC::{className:25} {classNameQuot:28} {v:>7}{h:>7}{f:>7}{d:>7}{b:>7}{e:>7}{w:>7}{i:>7}{l:>7}{u:>7}{o:>7} {attr:20} }},".format(
+            print("  {{  OC::{name:24} {quotName:27} OCC::{className:25} {classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6}}}, {attr:20} }},".format(
                 name=i.name+",", quotName='"'+i.name+'",', className=i.dxil_class+",", classNameQuot='"'+lower_fn(i.dxil_class)+'",',
                 v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), u=f(i,"u"), o=f(i,"o"), attr=attr_fn(i)))
         print("};")

@@ -101,7 +101,9 @@ static const bool UseNewSROA = true;
 static const bool RunLoopRerolling = false;
 static const bool RunFloat2Int = true;
 static const bool RunLoadCombine = false;
+#if HLSL_VECTORIZATION_ENABLED // HLSL Change - don't build vectorization passes
 static const bool RunSLPAfterLoopVectorization = true;
+#endif // HLSL Change
 static const bool UseCFLAA = false;
 static const bool EnableMLSM = true;
 static const bool EnableLoopInterchange = false;
@@ -193,11 +195,12 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createCFGSimplificationPass());
   // HLSL Change - don't run SROA. 
   // HLSL uses special SROA added in addHLSLPasses.
-  if (HLSLHighLevel) // HLSL Change
+  if (HLSLHighLevel) { // HLSL Change
   if (UseNewSROA)
     FPM.add(createSROAPass());
   else
     FPM.add(createScalarReplAggregatesPass());
+  }
   // HLSL Change. FPM.add(createEarlyCSEPass());
   FPM.add(createLowerExpectIntrinsicPass());
 }
@@ -365,11 +368,12 @@ void PassManagerBuilder::populateModulePassManager(
   // Break up aggregate allocas, using SSAUpdater.
   // HLSL Change - don't run SROA. 
   // HLSL uses special SROA added in addHLSLPasses.
-  if (HLSLHighLevel) // HLSL Change
+  if (HLSLHighLevel) { // HLSL Change
   if (UseNewSROA)
     MPM.add(createSROAPass(/*RequiresDomTree*/ false));
   else
     MPM.add(createScalarReplAggregatesPass(-1, false));
+  }
   // HLSL Change. MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps.
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals

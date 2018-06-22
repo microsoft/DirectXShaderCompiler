@@ -32,20 +32,13 @@ static const int FirstTemplateDepth = 0;
 static const int FirstParamPosition = 0;
 static const bool ForConstFalse = false;          // a construct is targeting a const type
 static const bool ForConstTrue = true;            // a construct is targeting a non-const type
-static const bool ExplicitConversionFalse = false;// a conversion operation is not the result of an explicit cast
-static const bool InheritedFalse = false;         // template parameter default value is not inherited.
 static const bool ParameterPackFalse = false;     // template parameter is not an ellipsis.
 static const bool TypenameFalse = false;          // 'typename' specified rather than 'class' for a template argument.
 static const bool DelayTypeCreationTrue = true;   // delay type creation for a declaration
-static const bool DelayTypeCreationFalse = false; // immediately create a type when the declaration is created
-static const unsigned int NoQuals = 0;            // no qualifiers in effect
 static const SourceLocation NoLoc;                // no source location attribution available
-static const bool HasWrittenPrototypeTrue = true; // function had the prototype written
 static const bool InlineFalse = false;            // namespace is not an inline namespace
 static const bool InlineSpecifiedFalse = false;   // function was not specified as inline
 static const bool IsConstexprFalse = false;       // function is not constexpr
-static const bool ListInitializationFalse = false;// not performing a list initialization
-static const bool SuppressDiagTrue = true;        // suppress diagnostics
 static const bool VirtualFalse = false;           // whether the base class is declares 'virtual'
 static const bool BaseClassFalse = false;         // whether the base class is declared as 'class' (vs. 'struct')
 
@@ -292,7 +285,7 @@ void AddSubscriptOperator(
     vectorType = context.getConstType(vectorType);
 
   QualType indexType = intType;
-  CXXMethodDecl* functionDecl = CreateObjectFunctionDeclarationWithParams(
+  CreateObjectFunctionDeclarationWithParams(
     context, templateRecordDecl, vectorType,
     ArrayRef<QualType>(indexType), ArrayRef<StringRef>(StringRef("index")),
     context.DeclarationNames.getCXXOperatorName(OO_Subscript), forConst);
@@ -575,7 +568,6 @@ CXXRecordDecl* CreateStdStructWithStaticBool(clang::ASTContext& context, Namespa
   // struct true_type { static const bool value = true; }
   TypeSourceInfo* boolTypeSource = context.getTrivialTypeSourceInfo(context.BoolTy.withConst());
   CXXRecordDecl* trueTypeDecl = CXXRecordDecl::Create(context, TagTypeKind::TTK_Struct, stdNamespace, NoLoc, NoLoc, &trueTypeId, nullptr, DelayTypeCreationTrue);
-  QualType trueTypeQT = context.getTagDeclType(trueTypeDecl); // Fault this in now.
 
   // static fields are variables in the AST
   VarDecl* trueValueDecl = VarDecl::Create(context, trueTypeDecl, NoLoc, NoLoc, &valueId,
@@ -1183,13 +1175,11 @@ UnusualAnnotation* hlsl::UnusualAnnotation::CopyToASTContext(ASTContext& Context
 
 static bool HasTessFactorSemantic(const ValueDecl *decl) {
   for (const UnusualAnnotation *it : decl->getUnusualAnnotations()) {
-    switch (it->getKind()) {
-    case UnusualAnnotation::UA_SemanticDecl: {
+    if (it->getKind() == UnusualAnnotation::UA_SemanticDecl) {
       const SemanticDecl *sd = cast<SemanticDecl>(it);
       const Semantic *pSemantic = Semantic::GetByName(sd->SemanticName);
       if (pSemantic && pSemantic->GetKind() == Semantic::Kind::TessFactor)
         return true;
-    }
     }
   }
   return false;
@@ -1208,7 +1198,7 @@ static bool HasTessFactorSemanticRecurse(const ValueDecl *decl, QualType Ty) {
     return false;
   }
 
-  if (const clang::ArrayType *arrayTy = Ty->getAsArrayTypeUnsafe())
+  if (Ty->getAsArrayTypeUnsafe())
     return HasTessFactorSemantic(decl);
 
   return false;

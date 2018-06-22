@@ -68,7 +68,6 @@ using namespace hlsl;
 STATISTIC(NumReplaced, "Number of allocas broken up");
 STATISTIC(NumPromoted, "Number of allocas promoted");
 STATISTIC(NumAdjusted, "Number of scalar allocas adjusted to allow promotion");
-STATISTIC(NumConverted, "Number of aggregates converted to scalar");
 
 namespace {
 
@@ -1518,10 +1517,10 @@ bool SROA_HLSL::performPromotion(Function &F) {
 bool SROA_HLSL::ShouldAttemptScalarRepl(AllocaInst *AI) {
   Type *T = AI->getAllocatedType();
   // promote every struct.
-  if (StructType *ST = dyn_cast<StructType>(T))
+  if (dyn_cast<StructType>(T))
     return true;
   // promote every array.
-  if (ArrayType *AT = dyn_cast<ArrayType>(T))
+  if (dyn_cast<ArrayType>(T))
     return true;
   return false;
 }
@@ -2031,8 +2030,8 @@ static Value *LoadVectorOrStructArray(ArrayType *AT, ArrayRef<Value *> NewElts,
       Value *EltVal = LoadVectorOrStructArray(EltAT, NewElts, idxList, Builder);
       retVal = Builder.CreateInsertValue(retVal, EltVal, i);
     } else {
-      assert(EltTy->isVectorTy() ||
-             EltTy->isStructTy() && "must be a vector or struct type");
+      assert((EltTy->isVectorTy() ||
+              EltTy->isStructTy()) && "must be a vector or struct type");
       bool isVectorTy = EltTy->isVectorTy();
       Value *retVec = llvm::UndefValue::get(EltTy);
 
@@ -2078,8 +2077,8 @@ static void StoreVectorOrStructArray(ArrayType *AT, Value *val,
     if (ArrayType *EltAT = dyn_cast<ArrayType>(EltTy)) {
       StoreVectorOrStructArray(EltAT, elt, NewElts, idxList, Builder);
     } else {
-      assert(EltTy->isVectorTy() ||
-             EltTy->isStructTy() && "must be a vector or struct type");
+      assert((EltTy->isVectorTy() ||
+              EltTy->isStructTy()) && "must be a vector or struct type");
       bool isVectorTy = EltTy->isVectorTy();
       if (isVectorTy) {
         for (uint32_t c = 0; c < EltTy->getVectorNumElements(); c++) {
@@ -3481,9 +3480,9 @@ static Constant *GetEltInit(Type *Ty, Constant *Init, unsigned idx,
   if (isa<UndefValue>(Init))
     return UndefValue::get(EltTy);
 
-  if (StructType *ST = dyn_cast<StructType>(Ty)) {
+  if (dyn_cast<StructType>(Ty)) {
     return Init->getAggregateElement(idx);
-  } else if (VectorType *VT = dyn_cast<VectorType>(Ty)) {
+  } else if (dyn_cast<VectorType>(Ty)) {
     return Init->getAggregateElement(idx);
   } else {
     ArrayType *AT = cast<ArrayType>(Ty);
@@ -3689,7 +3688,7 @@ struct PointerStatus {
     /// This ptr is stored to by multiple values or something else that we
     /// cannot track.
     Stored
-  } StoredType;
+  } storedType;
   /// Keep track of what loaded from the pointer look like.
   enum LoadedType {
     /// There is no load to this pointer.  It can thus be marked constant.
@@ -3701,7 +3700,7 @@ struct PointerStatus {
     /// This ptr is loaded to by multiple instructions or something else that we
     /// cannot track.
     Loaded
-  } LoadedType;
+  } loadedType;
   /// If only one value (besides the initializer constant) is ever stored to
   /// this global, keep track of what value it is.
   Value *StoredOnceValue;
@@ -3726,15 +3725,15 @@ struct PointerStatus {
                              DxilTypeSystem &typeSys, bool bStructElt);
 
   PointerStatus(unsigned size)
-      : StoredType(NotStored), LoadedType(NotLoaded), StoredOnceValue(nullptr),
+      : storedType(StoredType::NotStored), loadedType(LoadedType::NotLoaded), StoredOnceValue(nullptr),
         StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
         AccessingFunction(nullptr), HasMultipleAccessingFunctions(false),
         Size(size) {}
   void MarkAsStored() {
-    StoredType = PointerStatus::StoredType::Stored;
+    storedType = StoredType::Stored;
     StoredOnceValue = nullptr;
   }
-  void MarkAsLoaded() { LoadedType = PointerStatus::LoadedType::Loaded; }
+  void MarkAsLoaded() { loadedType = LoadedType::Loaded; }
 };
 
 void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
@@ -3765,8 +3764,8 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
         }
         if (MC->getRawDest() == V) {
           if (bFullCopy &&
-              PS.StoredType == PointerStatus::StoredType::NotStored) {
-            PS.StoredType = PointerStatus::StoredType::MemcopyDestOnce;
+              PS.storedType == StoredType::NotStored) {
+            PS.storedType = StoredType::MemcopyDestOnce;
             PS.StoringMemcpy = MI;
           } else {
             PS.MarkAsStored();
@@ -3774,8 +3773,8 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
           }
         } else if (MC->getRawSource() == V) {
           if (bFullCopy &&
-              PS.LoadedType == PointerStatus::LoadedType::NotLoaded) {
-            PS.LoadedType = PointerStatus::LoadedType::MemcopySrcOnce;
+              PS.loadedType == LoadedType::NotLoaded) {
+            PS.loadedType = LoadedType::MemcopySrcOnce;
             PS.LoadingMemcpy = MI;
           } else {
             PS.MarkAsLoaded();
@@ -3801,13 +3800,13 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
     } else if (const StoreInst *SI = dyn_cast<StoreInst>(U)) {
       Value *V = SI->getOperand(0);
 
-      if (PS.StoredType == PointerStatus::StoredType::NotStored) {
-        PS.StoredType = PointerStatus::StoredType::StoredOnce;
+      if (PS.storedType == StoredType::NotStored) {
+        PS.storedType = StoredType::StoredOnce;
         PS.StoredOnceValue = V;
       } else {
         PS.MarkAsStored();
       }
-    } else if (const LoadInst *LI = dyn_cast<LoadInst>(U)) {
+    } else if (dyn_cast<LoadInst>(U)) {
       PS.MarkAsLoaded();
     } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
       Function *F = CI->getCalledFunction();
@@ -4052,9 +4051,9 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
     if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
-      if (PS.StoredType == PointerStatus::StoredType::NotStored) {
-        PS.StoredType = PointerStatus::StoredType::InitializerStored;
-      } else if (PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce) {
+      if (PS.storedType == PointerStatus::StoredType::NotStored) {
+        PS.storedType = PointerStatus::StoredType::InitializerStored;
+      } else if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce) {
         // For single mem store, if the store not dominator all users.
         // Makr it as Stored.
         // Case like:
@@ -4066,17 +4065,17 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
         if (isa<ConstantAggregateZero>(GV->getInitializer())) {
           Instruction * Memcpy = PS.StoringMemcpy;
           if (!ReplaceUseOfZeroInitBeforeDef(Memcpy, GV)) {
-            PS.StoredType = PointerStatus::StoredType::Stored;
+            PS.storedType = PointerStatus::StoredType::Stored;
           }
         }
       } else {
-        PS.StoredType = PointerStatus::StoredType::Stored;
+        PS.storedType = PointerStatus::StoredType::Stored;
       }
     }
   }
 
   if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
-    if (PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce &&
+    if (PS.storedType == PointerStatus::StoredType::MemcopyDestOnce &&
         // Skip argument for input argument has input value, it is not dest once anymore.
         !isa<Argument>(V)) {
       // Replace with src of memcpy.
@@ -4110,13 +4109,13 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Check Src only have 1 store now.
           PointerStatus SrcPS(size);
           PointerStatus::analyzePointer(Src, SrcPS, typeSys, bStructElt);
-          if (SrcPS.StoredType != PointerStatus::StoredType::Stored) {
+          if (SrcPS.storedType != PointerStatus::StoredType::Stored) {
             ReplaceMemcpy(V, Src, MC);
             return true;
           }
         }
       }
-    } else if (PS.LoadedType == PointerStatus::LoadedType::MemcopySrcOnce) {
+    } else if (PS.loadedType == PointerStatus::LoadedType::MemcopySrcOnce) {
       // Replace dst of memcpy.
       MemCpyInst *MC = PS.LoadingMemcpy;
       if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
@@ -4133,7 +4132,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           // Check Dest only have 1 store now.
           PointerStatus DestPS(size);
           PointerStatus::analyzePointer(Dest, DestPS, typeSys, bStructElt);
-          if (DestPS.StoredType != PointerStatus::StoredType::Stored) {
+          if (DestPS.storedType != PointerStatus::StoredType::Stored) {
             ReplaceMemcpy(Dest, V, MC);
             // V still need to be flatten.
             // Lower memcpy come from Dest.
@@ -4431,7 +4430,7 @@ bool SROA_Parameter_HLSL::hasDynamicVectorIndexing(Value *V) {
     if (!U->getType()->isPointerTy())
       continue;
 
-    if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+    if (dyn_cast<GEPOperator>(U)) {
 
       gep_type_iterator GEPIt = gep_type_begin(U), E = gep_type_end(U);
 
@@ -4619,7 +4618,7 @@ static unsigned AllocateSemanticIndex(
       if (matrix.Orientation == MatrixOrientation::RowMajor) {
         rows = matrix.Rows;
       } else {
-        DXASSERT(matrix.Orientation == MatrixOrientation::ColumnMajor, "");
+        DXASSERT_NOMSG(matrix.Orientation == MatrixOrientation::ColumnMajor);
         rows = matrix.Cols;
       }
     }
@@ -5702,9 +5701,9 @@ static void CheckArgUsage(Value *V, bool &bLoad, bool &bStore) {
   if (bLoad && bStore)
     return;
   for (User *user : V->users()) {
-    if (LoadInst *LI = dyn_cast<LoadInst>(user)) {
+    if (dyn_cast<LoadInst>(user)) {
       bLoad = true;
-    } else if (StoreInst *SI = dyn_cast<StoreInst>(user)) {
+    } else if (dyn_cast<StoreInst>(user)) {
       bStore = true;
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
       CheckArgUsage(GEP, bLoad, bStore);
@@ -5856,11 +5855,8 @@ static void LegalizeDxilInputOutputs(Function *F,
             EntryAnnotation->GetParameterAnnotation(output->getArgNo());
 
         auto Iter = Builder.GetInsertPoint();
-        bool onlyRetBlk = false;
         if (RI != BB.begin())
           Iter--;
-        else
-          onlyRetBlk = true;
         // split copy.
         SplitCpy(output->getType(), output, temp, idxList, Builder, DL, typeSys,
                  &paramAnnotation);
@@ -6125,7 +6121,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   }
   flatF->setAttributes(flatAS);
 
-  DXASSERT(flatF->arg_size() == (extraParamSize + FlatParamAnnotationList.size()), "parameter count mismatch");
+  DXASSERT_LOCALVAR(extraParamSize, flatF->arg_size() == (extraParamSize + FlatParamAnnotationList.size()), "parameter count mismatch");
   // ShaderProps.
   if (m_pHLModule->HasDxilFunctionProps(F)) {
     DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
@@ -6281,8 +6277,8 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV
   PointerStatus PS(size);
   GV->removeDeadConstantUsers();
   PS.analyzePointer(GV, PS, typeSys, /*bStructElt*/ false);
-  bool NotStored = (PS.StoredType == PointerStatus::NotStored) ||
-                   (PS.StoredType == PointerStatus::InitializerStored);
+  bool NotStored = (PS.storedType == PointerStatus::StoredType::NotStored) ||
+                   (PS.storedType == PointerStatus::StoredType::InitializerStored);
   // Make sure GV only used in one function.
   // Skip GV which don't have store.
   if (PS.HasMultipleAccessingFunctions || NotStored)
@@ -6548,7 +6544,7 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
 
 bool DynamicIndexingVectorToArray::needToLower(Value *V) {
   Type *Ty = V->getType()->getPointerElementType();
-  if (VectorType *VT = dyn_cast<VectorType>(Ty)) {
+  if (dyn_cast<VectorType>(Ty)) {
     if (isa<GlobalVariable>(V) || ReplaceAllVectors) {
       return true;
     }

@@ -2830,6 +2830,7 @@ static bool TryToSimplifyUncondBranchWithICmpInIt(
   return true;
 }
 
+#if 0  // HLSL Change Begins. This will not help for hlsl.
 /// The specified branch is a conditional branch.
 /// Check to see if it is branching on an or/and chain of icmp instructions, and
 /// fold it into a switch instruction if so.
@@ -2937,6 +2938,8 @@ static bool SimplifyBranchOnICmpChain(BranchInst *BI, IRBuilder<> &Builder,
   DEBUG(dbgs() << "  ** 'icmp' chain result is:\n" << *BB << '\n');
   return true;
 }
+#endif // HLSL Change Ends
+
 
 bool SimplifyCFGOpt::SimplifyResume(ResumeInst *RI, IRBuilder<> &Builder) {
   // If this is a trivial landing pad that just continues unwinding the caught

@@ -86,14 +86,12 @@ static cl::opt<bool>
 PrintAfterAll("print-after-all",
               llvm::cl::desc("Print IR after each pass"),
               cl::init(false));
-#else
-static const bool PrintBeforeAll = false;
-static const bool PrintAfterAll = false;
 #endif // HLSL Change Ends
 
 /// This is a helper to determine whether to print IR before or
 /// after a pass.
 
+#if 0 // HLSL Change
 static bool ShouldPrintBeforeOrAfterPass(const PassInfo *PI,
                                          PassOptionList &PassesToPrint) {
   for (auto *PassInf : PassesToPrint) {
@@ -104,6 +102,7 @@ static bool ShouldPrintBeforeOrAfterPass(const PassInfo *PI,
   }
   return false;
 }
+#endif
 
 /// This is a utility to check whether a pass should have IR dumped
 /// before it.

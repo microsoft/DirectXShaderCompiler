@@ -16,10 +16,11 @@
 
 namespace dxc {
 
+#ifdef _WIN32
 static void TrimEOL(_Inout_z_ char *pMsg) {
   char *pEnd = pMsg + strlen(pMsg);
   --pEnd;
-  while (pEnd > pMsg && *pEnd == '\r' || *pEnd == '\n') {
+  while (pEnd > pMsg && (*pEnd == '\r' || *pEnd == '\n')) {
     --pEnd;
   }
   pEnd[1] = '\0';
@@ -36,6 +37,7 @@ static std::string GetWin32ErrorMessage(DWORD err) {
   }
   return std::string();
 }
+#endif // _WIN32
 
 void IFT_Data(HRESULT hr, LPCWSTR data) {
   if (SUCCEEDED(hr)) return;
@@ -104,8 +106,8 @@ void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, _In_ LPCWSTR pFileName) {
     return;
   }
 
-  CHandle file(CreateFile2(pFileName, GENERIC_WRITE, FILE_SHARE_READ,
-                           CREATE_ALWAYS, nullptr));
+  CHandle file(CreateFileW(pFileName, GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+                           CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
   if (file == INVALID_HANDLE_VALUE) {
     IFT_Data(HRESULT_FROM_WIN32(GetLastError()), pFileName);
   }

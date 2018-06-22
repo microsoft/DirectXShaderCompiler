@@ -30,7 +30,7 @@ public:
   ULONG STDMETHODCALLTYPE Release() {
     return 1;
   }
-  STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) {
+  STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
   }
   virtual void *STDMETHODCALLTYPE Alloc(
@@ -99,25 +99,26 @@ void ReadBinaryFile(IMalloc *pMalloc, LPCWSTR pFileName, void **ppData,
   if (!GetFileSizeEx(hFile, &FileSize)) {
     IFT(HRESULT_FROM_WIN32(GetLastError()));
   }
-  if (FileSize.HighPart != 0) {
+  if (FileSize.u.HighPart != 0) {
     throw(hlsl::Exception(DXC_E_INPUT_FILE_TOO_LARGE, "input file is too large"));
   }
 
-  char *pData = (char *)pMalloc->Alloc(FileSize.LowPart);
+  char *pData = (char *)pMalloc->Alloc(FileSize.u.LowPart);
   if (!pData) {
     throw std::bad_alloc();
   }
 
   DWORD BytesRead;
-  if (!ReadFile(hFile, pData, FileSize.LowPart, &BytesRead, nullptr)) {
+  if (!ReadFile(hFile, pData, FileSize.u.LowPart, &BytesRead, nullptr)) {
     HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
     pMalloc->Free(pData);
     throw ::hlsl::Exception(hr);
   }
-  DXASSERT(FileSize.LowPart == BytesRead, "ReadFile operation failed");
+  DXASSERT(FileSize.u.LowPart == BytesRead, "ReadFile operation failed");
 
   *ppData = pData;
-  *pDataSize = FileSize.LowPart;
+  *pDataSize = FileSize.u.LowPart;
+
 }
 
 _Use_decl_annotations_
@@ -183,9 +184,9 @@ private:
   UINT32 m_CodePage;
 public:
   DXC_MICROCOM_ADDREF_IMPL(m_dwRef)
-  ULONG STDMETHODCALLTYPE Release() {
+  ULONG STDMETHODCALLTYPE Release() override {
     // Because blobs are also used by tests and utilities, we avoid using TLS.
-    ULONG result = InterlockedDecrement(&m_dwRef);
+    ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef);
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
       this->~InternalDxcBlobEncoding();
@@ -194,7 +195,7 @@ public:
     return result;
   }
   DXC_MICROCOM_TM_CTOR(InternalDxcBlobEncoding)
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
   }
 
@@ -265,7 +266,7 @@ public:
   virtual SIZE_T STDMETHODCALLTYPE GetBufferSize(void) override {
     return m_BufferSize;
   }
-  virtual HRESULT STDMETHODCALLTYPE GetEncoding(_Out_ BOOL *pKnown, _Out_ UINT32 *pCodePage) {
+  virtual HRESULT STDMETHODCALLTYPE GetEncoding(_Out_ BOOL *pKnown, _Out_ UINT32 *pCodePage) override {
     *pKnown = m_EncodingKnown ? TRUE : FALSE;
     *pCodePage = m_CodePage;
     return S_OK;
@@ -294,7 +295,7 @@ static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
 
   // Calculate the length of the buffer in wchar_t elements.
   int numToConvertUTF16 =
-      MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, (char *)bufferPointer,
+      MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, (LPCSTR)bufferPointer,
                           bufferSize, nullptr, 0);
   if (numToConvertUTF16 == 0)
     return HRESULT_FROM_WIN32(GetLastError());
@@ -308,7 +309,7 @@ static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
   IFROOM(utf16NewCopy.m_pData);
 
   int numActuallyConvertedUTF16 =
-      MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, (char *)bufferPointer,
+      MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, (LPCSTR)bufferPointer,
                           bufferSize, utf16NewCopy, buffSizeUTF16);
   if (numActuallyConvertedUTF16 == 0)
     return HRESULT_FROM_WIN32(GetLastError());
@@ -587,7 +588,7 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) thro
 
   SIZE_T blobLen = pBlob->GetBufferSize();
   if (!known && blobLen > 0) {
-    codePage = DxcCodePageFromBytes((char *)pBlob->GetBufferPointer(), blobLen);
+    codePage = DxcCodePageFromBytes((const char *)pBlob->GetBufferPointer(), blobLen);
   }
 
   if (codePage == CP_UTF8) {
@@ -605,10 +606,10 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) thro
   // Any UTF-16 output must be converted to UTF-16 first, then
   // back to the target code page.
   CDxcMallocHeapPtr<WCHAR> utf16NewCopy(DxcGetThreadMallocNoRef());
-  wchar_t* utf16Chars = nullptr;
+  const wchar_t* utf16Chars = nullptr;
   UINT32 utf16CharCount;
   if (codePage == CP_UTF16) {
-    utf16Chars = (wchar_t*)pBlob->GetBufferPointer();
+    utf16Chars = (const wchar_t*)pBlob->GetBufferPointer();
     utf16CharCount = blobLen / sizeof(wchar_t);
   }
   else {
@@ -774,10 +775,10 @@ private:
   ULONG m_allocSize = 0;
 public:
   DXC_MICROCOM_ADDREF_IMPL(m_dwRef)
-  ULONG STDMETHODCALLTYPE Release() {
+  ULONG STDMETHODCALLTYPE Release() override {
     // Because memory streams are also used by tests and utilities,
     // we avoid using TLS.
-    ULONG result = InterlockedDecrement(&m_dwRef); \
+    ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef);
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
       this->~MemoryStream();
@@ -788,7 +789,7 @@ public:
 
   DXC_MICROCOM_TM_CTOR(MemoryStream)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IStream, ISequentialStream, IDxcBlob>(this, iid, ppvObject);
   }
 
@@ -896,19 +897,19 @@ public:
 
   // IStream implementation.
   HRESULT STDMETHODCALLTYPE SetSize(ULARGE_INTEGER val) override {
-    if (val.HighPart != 0) {
+    if (val.u.HighPart != 0) {
       return E_OUTOFMEMORY;
     }
-    if (val.LowPart > m_allocSize) {
+    if (val.u.LowPart > m_allocSize) {
       return Grow(m_allocSize);
     }
-    if (val.LowPart < m_size) {
-      m_size = val.LowPart;
+    if (val.u.LowPart < m_size) {
+      m_size = val.u.LowPart;
       m_offset = std::min(m_offset, m_size);
     }
-    else if (val.LowPart > m_size) {
-      memset(m_pMemory + m_size, 0, val.LowPart - m_size);
-      m_size = val.LowPart;
+    else if (val.u.LowPart > m_size) {
+      memset(m_pMemory + m_size, 0, val.u.LowPart - m_size);
+      m_size = val.u.LowPart;
     }
     return S_OK;
   }
@@ -942,7 +943,7 @@ public:
       lpNewFilePointer->QuadPart = 0;
     }
 
-    if (liDistanceToMove.HighPart != 0) {
+    if (liDistanceToMove.u.HighPart != 0) {
       return E_FAIL;
     }
 
@@ -950,13 +951,13 @@ public:
 
     switch (dwOrigin) {
     case STREAM_SEEK_SET:
-      targetOffset = liDistanceToMove.LowPart;
+      targetOffset = liDistanceToMove.u.LowPart;
       break;
     case STREAM_SEEK_CUR:
-      targetOffset = liDistanceToMove.LowPart + m_offset;
+      targetOffset = liDistanceToMove.u.LowPart + m_offset;
       break;
     case STREAM_SEEK_END:
-      targetOffset = liDistanceToMove.LowPart + m_size;
+      targetOffset = liDistanceToMove.u.LowPart + m_size;
       break;
     default:
       return STG_E_INVALIDFUNCTION;
@@ -964,7 +965,7 @@ public:
 
     m_offset = targetOffset;
     if (lpNewFilePointer != nullptr) {
-      lpNewFilePointer->LowPart = targetOffset;
+      lpNewFilePointer->u.LowPart = targetOffset;
     }
     return S_OK;
   }
@@ -976,7 +977,7 @@ public:
     }
     ZeroMemory(pStatstg, sizeof(*pStatstg));
     pStatstg->type = STGTY_STREAM;
-    pStatstg->cbSize.LowPart = m_size;
+    pStatstg->cbSize.u.LowPart = m_size;
     return S_OK;
   }
 };
@@ -992,7 +993,7 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(ReadOnlyBlobStream)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IStream, ISequentialStream>(this, iid, ppvObject);
   }
 
@@ -1053,7 +1054,7 @@ public:
       lpNewFilePointer->QuadPart = 0;
     }
 
-    if (liDistanceToMove.HighPart != 0) {
+    if (liDistanceToMove.u.HighPart != 0) {
       return E_FAIL;
     }
 
@@ -1061,13 +1062,13 @@ public:
 
     switch (dwOrigin) {
     case STREAM_SEEK_SET:
-      targetOffset = liDistanceToMove.LowPart;
+      targetOffset = liDistanceToMove.u.LowPart;
       break;
     case STREAM_SEEK_CUR:
-      targetOffset = liDistanceToMove.LowPart + m_offset;
+      targetOffset = liDistanceToMove.u.LowPart + m_offset;
       break;
     case STREAM_SEEK_END:
-      targetOffset = liDistanceToMove.LowPart + m_size;
+      targetOffset = liDistanceToMove.u.LowPart + m_size;
       break;
     default:
       return STG_E_INVALIDFUNCTION;
@@ -1080,7 +1081,7 @@ public:
 
     m_offset = targetOffset;
     if (lpNewFilePointer != nullptr) {
-      lpNewFilePointer->LowPart = targetOffset;
+      lpNewFilePointer->u.LowPart = targetOffset;
     }
     return S_OK;
   }
@@ -1092,7 +1093,7 @@ public:
     }
     ZeroMemory(pStatstg, sizeof(*pStatstg));
     pStatstg->type = STGTY_STREAM;
-    pStatstg->cbSize.LowPart = m_size;
+    pStatstg->cbSize.u.LowPart = m_size;
     return S_OK;
   }
 };

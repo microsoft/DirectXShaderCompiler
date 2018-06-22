@@ -9,8 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
-
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/Support/Global.h"
@@ -209,7 +207,7 @@ private:
     CComPtr<IStream> BlobStream;
     std::wstring Name;
     IncludedFile(std::wstring &&name, IDxcBlob *pBlob, IStream *pStream)
-      : Name(name), Blob(pBlob), BlobStream(pStream) { }
+      : Blob(pBlob), BlobStream(pStream), Name(name) { }
   };
   llvm::SmallVector<IncludedFile, 4> m_includedFiles;
 
@@ -307,8 +305,8 @@ private:
 
 public:
   DxcArgsFileSystemImpl(_In_ IDxcBlob *pSource, LPCWSTR pSourceName, _In_opt_ IDxcIncludeHandler* pHandler)
-      : m_pSource(pSource), m_pSourceName(pSourceName), m_includeLoader(pHandler), m_bDisplayIncludeProcess(false),
-        m_pOutputStreamName(nullptr) {
+      : m_pSource(pSource), m_pSourceName(pSourceName), m_pOutputStreamName(nullptr),
+        m_includeLoader(pHandler), m_bDisplayIncludeProcess(false) {
     MakeAbsoluteOrCurDirRelativeW(m_pSourceName, m_pAbsSourceName);
     IFT(CreateReadOnlyBlobStream(m_pSource, &m_pSourceStream));
     m_includedFiles.push_back(IncludedFile(std::wstring(m_pSourceName), m_pSource, m_pSourceStream));
@@ -366,7 +364,7 @@ public:
     }
     for (unsigned i = 0, e = entries.size(); i != e; ++i) {
       const clang::HeaderSearchOptions::Entry &E = entries[i];
-      if (IsAbsoluteOrCurDirRelative(E.Path.c_str())) {
+      if (dxcutil::IsAbsoluteOrCurDirRelative(E.Path.c_str())) {
         m_searchEntries.emplace_back(Unicode::UTF8ToUTF16StringOrThrow(E.Path.c_str()));
       }
       else {
@@ -464,7 +462,7 @@ public:
         SetLastError(ERROR_IO_DEVICE);
         return FALSE;
       }
-      lpFileInformation->nFileSizeLow = stat.cbSize.LowPart;
+      lpFileInformation->nFileSizeLow = stat.cbSize.u.LowPart;
       return TRUE;
     }
     else if (argsHandle.IsDirHandle()) {
@@ -649,8 +647,8 @@ public:
     }
 
     LARGE_INTEGER li;
-    li.LowPart = offset;
-    li.HighPart = 0;
+    li.u.LowPart = offset;
+    li.u.HighPart = 0;
     ULARGE_INTEGER newOffset;
     HRESULT hr = stream->Seek(li, origin, &newOffset);
     if (FAILED(hr)) {
@@ -658,7 +656,7 @@ public:
       return -1;
     }
 
-    return newOffset.LowPart;
+    return newOffset.u.LowPart;
   }
   int setmode(int fd, int mode) throw() override {
     return 0;
@@ -694,7 +692,7 @@ public:
 #ifdef _DEBUG
     if (fd == STDERR_FILENO) {
         char* copyWithNull = new char[count+1];
-        strncpy(copyWithNull, (char*)buffer, count);
+        strncpy(copyWithNull, (const char*)buffer, count);
         copyWithNull[count] = '\0';
         OutputDebugStringA(copyWithNull);
         delete[] copyWithNull;

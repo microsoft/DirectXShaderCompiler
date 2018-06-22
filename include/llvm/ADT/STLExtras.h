@@ -17,6 +17,7 @@
 #ifndef LLVM_ADT_STLEXTRAS_H
 #define LLVM_ADT_STLEXTRAS_H
 
+#include "dxc/Support/WinAdapter.h" // HLSL Change
 #include "llvm/Support/Compiler.h"
 #include <algorithm> // for std::all_of
 #include <cassert>

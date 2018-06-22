@@ -30,6 +30,7 @@
 #include <cstring>
 using namespace llvm;
 
+#if 0 // HLSL Change - remove platform intrinsics
 // Upgrade the declarations of the SSE4.1 functions whose arguments have
 // changed their type from v4f32 to v2i64.
 static bool UpgradeSSE41Function(Function* F, Intrinsic::ID IID,
@@ -61,6 +62,7 @@ static bool UpgradeX86IntrinsicsWith8BitMask(Function *F, Intrinsic::ID IID,
   NewFn = Intrinsic::getDeclaration(F->getParent(), IID);
   return true;
 }
+#endif // HLSL Change - remove platform intrinsics
 
 static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
   assert(F && "Illegal to upgrade a non-existent Function.");
@@ -246,6 +248,7 @@ bool llvm::UpgradeGlobalVariable(GlobalVariable *GV) {
   return false;
 }
 
+#if 0 // HLSL Change - remove platform intrinsics
 // Handles upgrading SSE2 and AVX2 PSLLDQ intrinsics by converting them
 // to byte shuffles.
 static Value *UpgradeX86PSLLDQIntrinsics(IRBuilder<> &Builder, LLVMContext &C,
@@ -319,6 +322,7 @@ static Value *UpgradeX86PSRLDQIntrinsics(IRBuilder<> &Builder, LLVMContext &C,
                                VectorType::get(Type::getInt64Ty(C), 2*NumLanes),
                                "cast");
 }
+#endif // HLSL Change - remove platform intrinsics
 
 // UpgradeIntrinsicCall - Upgrade a call to an old intrinsic to be a call the
 // upgraded intrinsic. All argument and return casting must be provided in

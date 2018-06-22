@@ -41,8 +41,7 @@ DEFINE_ENUM_FLAG_OPERATORS(DxilRootDescriptorFlags)
 DEFINE_ENUM_FLAG_OPERATORS(DxilDescriptorRangeFlags)
 
 RootSignatureTokenizer::RootSignatureTokenizer(const char *pStr, size_t len)
-  : m_pOrigStr(pStr)
-  , m_pStrPos(pStr)
+  : m_pStrPos(pStr)
   , m_pEndPos(pStr + len)
 {
     m_TokenBufferIdx = 0;
@@ -50,8 +49,7 @@ RootSignatureTokenizer::RootSignatureTokenizer(const char *pStr, size_t len)
 }
 
 RootSignatureTokenizer::RootSignatureTokenizer(const char *pStr)
-  : m_pOrigStr(pStr)
-  , m_pStrPos(pStr)
+  : m_pStrPos(pStr)
   , m_pEndPos(pStr + strlen(pStr))
 {
   m_TokenBufferIdx = 0;
@@ -507,9 +505,8 @@ HRESULT RootSignatureParser::Error(uint32_t uErrorNum, LPCSTR pError, ...)
 {
     va_list Args;
     char msg[512];
-    int len;
     va_start(Args, pError);
-    len = vsprintf_s(msg, pError, Args);
+    vsprintf_s(msg, pError, Args);
     va_end(Args);
     try {
       m_OS << msg;
@@ -1054,6 +1051,9 @@ HRESULT RootSignatureParser::ParseRegister(TokenType::Type RegType, uint32_t & R
         case TokenType::SReg:
             IFC(Error(ERR_RS_INCORRECT_REGISTER_TYPE, "Incorrect register type '%s' in Sampler/StaticSampler (expected s#)", Token.GetStr()));
             break;
+        default:
+          // Only Register types are relevant.
+	  break;
         }
     }
 

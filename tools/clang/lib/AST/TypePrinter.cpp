@@ -1152,6 +1152,9 @@ void TypePrinter::printAttributedBefore(const AttributedType *T,
     case AttributedType::attr_hlsl_column_major: OS << "column_major "; break;
     case AttributedType::attr_hlsl_unorm: OS << "unorm "; break;
     case AttributedType::attr_hlsl_snorm: OS << "snorm "; break;
+    default:
+      // Only HLSL attribute types are covered.
+      break;
     }
   }
   // HLSL Change Ends

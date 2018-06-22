@@ -188,7 +188,7 @@ llvm::Value *ExtensionLowering::NoTranslation(CallInst *CI) {
   IRBuilder<> builder(CI);
   SmallVector<Value *, 8> args(CI->arg_operands().begin(), CI->arg_operands().end());
   return builder.CreateCall(NoTranslationFunction, args);
-};
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Replicated Lowering.
@@ -425,7 +425,7 @@ private:
     unsigned numElements = vecTy->getVectorNumElements();
     for (unsigned i = 0; i < numElements; ++i) {
       Value *element = builder.CreateExtractValue(strukt, i);
-      packed = builder.CreateInsertElement(packed, element, { i });
+      packed = builder.CreateInsertElement(packed, element, i);
     }
 
     return packed;

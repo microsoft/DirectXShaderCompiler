@@ -15,6 +15,7 @@
 #ifndef LLVM_C_DISASSEMBLER_H
 #define LLVM_C_DISASSEMBLER_H
 
+#include "dxc/Support/WinAdapter.h" // HLSL Change
 #include "llvm/Support/DataTypes.h"
 #include <stddef.h>
 

@@ -1,5 +1,6 @@
 set(LLVM_OPTIONAL_SOURCES ARCMigrate.cpp) # HLSL Change - ignore file
 
+if (WIN32)
 set (HLSL_IGNORE_SOURCES
   BuildSystem.cpp
   )
@@ -43,6 +44,51 @@ set(SOURCES
   IndexingContext.h
   ../../include/clang-c/Index.h
   )
+else ()
+set(SOURCES
+#  ARCMigrate.cpp # HLSL Change - remove ARCMigrate
+  CIndex.cpp
+  CIndexCXX.cpp
+  CIndexCodeCompletion.cpp
+  CIndexDiagnostic.cpp
+  CIndexHigh.cpp
+  CIndexInclusionStack.cpp
+  CIndexUSRs.cpp
+  CIndexer.cpp
+  CXComment.cpp
+  CXCursor.cpp
+  CXCompilationDatabase.cpp
+  CXLoadedDiagnostic.cpp
+  CXSourceLocation.cpp
+  CXStoredDiagnostic.cpp
+  CXString.cpp
+  CXType.cpp
+  IndexBody.cpp
+  IndexDecl.cpp
+  IndexTypeSourceInfo.cpp
+  Indexing.cpp
+  IndexingContext.cpp
+  dxcrewriteunused.cpp # HLSL Change
+
+  ADDITIONAL_HEADERS
+  CIndexDiagnostic.h
+  CIndexer.h
+  CXCursor.h
+  CXLoadedDiagnostic.h
+  CXSourceLocation.h
+  CXString.h
+  CXTranslationUnit.h
+  CXType.h
+  Index_Internal.h
+  IndexingContext.h
+  ../../include/clang-c/Index.h
+  )
+
+set (HLSL_IGNORE_SOURCES
+  BuildSystem.cpp
+  dxcisenseimpl.cpp # HLSL Change
+)
+endif(WIN32)
 
 set(LIBS
   clangAST

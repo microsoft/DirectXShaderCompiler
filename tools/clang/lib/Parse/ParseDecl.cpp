@@ -408,7 +408,6 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
 
         ExprResult result;
         if (Tok.isNot(tok::r_square)) {
-          SourceLocation expressionLoc = Tok.getLocation();
           subcomponentResult = ParseConstantExpression();
           r.IsValid = r.IsValid && !subcomponentResult.isInvalid();
           Expr::EvalResult evalResult;

@@ -15,6 +15,7 @@
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/Support/WinAdapter.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Constants.h"
@@ -418,14 +419,6 @@ DXIL::ResourceKind HLModule::GetResourceKind(llvm::Type *Ty) {
   } else {
     return DXIL::ResourceKind::Invalid;
   }
-}
-
-static unsigned GetIntAt(MDTuple *tuple, unsigned idx) {
-  return DxilMDHelper::ConstMDToUint32(tuple->getOperand(idx));
-}
-
-static unsigned GetFloatAt(MDTuple *tuple, unsigned idx) {
-  return DxilMDHelper::ConstMDToFloat(tuple->getOperand(idx));
 }
 
 DXIL::Float32DenormMode HLModule::GetFloat32DenormMode() const {
@@ -885,7 +878,7 @@ void HLModule::GetParameterRowsAndCols(Type *Ty, unsigned &rows, unsigned &cols,
       rows = matrix.Rows;
       cols = matrix.Cols;
     } else {
-      DXASSERT(matrix.Orientation == MatrixOrientation::ColumnMajor, "");
+      DXASSERT_NOMSG(matrix.Orientation == MatrixOrientation::ColumnMajor);
       cols = matrix.Rows;
       rows = matrix.Cols;
     }
@@ -968,7 +961,7 @@ void HLModule::MergeGepUse(Value *V) {
       } else {
         MergeGepUse(*Use);
       }
-    } else if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(*Use)) {
+    } else if (dyn_cast<GEPOperator>(*Use)) {
       if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
         // merge the 2 GEPs
         Value *newGEP = MergeGEP(prevGEP, GEP);
@@ -1049,17 +1042,19 @@ unsigned HLModule::FindCastOp(bool fromUnsigned, bool toUnsigned,
       return Instruction::FPExt;
   }
 
-  if (SrcTy->isIntOrIntVectorTy() && DstTy->isFPOrFPVectorTy())
+  if (SrcTy->isIntOrIntVectorTy() && DstTy->isFPOrFPVectorTy()) {
     if (fromUnsigned)
       return Instruction::UIToFP;
     else
       return Instruction::SIToFP;
+  }
 
-  if (SrcTy->isFPOrFPVectorTy() && DstTy->isIntOrIntVectorTy())
+  if (SrcTy->isFPOrFPVectorTy() && DstTy->isIntOrIntVectorTy()) {
     if (toUnsigned)
       return Instruction::FPToUI;
     else
       return Instruction::FPToSI;
+  }
 
   DXASSERT_NOMSG(0);
   return castOp;
@@ -1117,7 +1112,7 @@ void HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
                                                llvm::Module &M) {
   for (User *U : Ptr->users()) {
     // Skip load inst.
-    if (LoadInst *LI = dyn_cast<LoadInst>(U))
+    if (dyn_cast<LoadInst>(U))
       continue;
     if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
       Value *V = SI->getValueOperand();

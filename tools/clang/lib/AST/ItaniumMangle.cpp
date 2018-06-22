@@ -933,7 +933,7 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
   //                     ::= <source-name>
   switch (Name.getNameKind()) {
   case DeclarationName::Identifier: {
-    if (const IdentifierInfo *II = Name.getAsIdentifierInfo()) {
+    if (Name.getAsIdentifierInfo()) {
       // We must avoid conflicts between internally- and externally-
       // linked variable and function declaration names in the same TU:
       //   void test() { extern void foo(); }
@@ -2039,6 +2039,12 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::OCLImage3d: Out << "11ocl_image3d"; break;
   case BuiltinType::OCLSampler: Out << "11ocl_sampler"; break;
   case BuiltinType::OCLEvent: Out << "9ocl_event"; break;
+    // HLSL Change starts
+  case BuiltinType::Min12Int: Out << "min21_int"; break;
+  case BuiltinType::LitInt: Out << "lit_int"; break;
+  case BuiltinType::LitFloat: Out << "lit_float"; break;
+  case BuiltinType::Min10Float: Out << "min10_float"; break;
+    // HLSL Change ends
   }
 }
 

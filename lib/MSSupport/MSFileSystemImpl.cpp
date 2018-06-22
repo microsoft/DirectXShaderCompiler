@@ -10,17 +10,24 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
 #include <fcntl.h>
+
+#ifdef _WIN32
 #include <io.h>
+#else
+#include <sys/types.h>
+#include <unistd.h>
+#endif
+
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <stdint.h>
 #include <errno.h>
-
-#include "llvm/Support/MSFileSystem.h"
-
 #include <new>
+
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/WinAdapter.h"
+#include "llvm/Support/MSFileSystem.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Externally visible functions.

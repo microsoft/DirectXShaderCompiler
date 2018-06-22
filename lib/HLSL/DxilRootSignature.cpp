@@ -140,7 +140,7 @@ SimpleSerializer::~SimpleSerializer() {
     m_pSegment = pSegment->pNext;
 
     if (pSegment->bOwner) {
-      delete pSegment->pData;
+      delete[] (char*)pSegment->pData;
     }
 
     delete pSegment;
@@ -201,7 +201,7 @@ HRESULT SimpleSerializer::ReserveBlock(void **ppData, unsigned cbSize,
 
 Cleanup:
   if (FAILED(hr)) {
-    delete[] pClonedData;
+    delete[] (char*)pClonedData;
     delete pSegment;
   }
   return hr;
@@ -1059,10 +1059,6 @@ static void SetFlags(DxilRootDescriptor1 &D, DxilRootDescriptorFlags Flags)
 {
   D.Flags = Flags;
 }
-static DxilRootDescriptorFlags GetFlags(const DxilContainerRootDescriptor1 &D)
-{
-  return (DxilRootDescriptorFlags)D.Flags;
-}
 static void SetFlags(DxilContainerRootDescriptor1 &D, DxilRootDescriptorFlags Flags)
 {
   D.Flags = (uint32_t)Flags;
@@ -1516,11 +1512,11 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
   const char *pData = (const char *)pSrcData;
   const char *pMaxPtr = pData + SrcDataSizeInBytes;
   UNREFERENCED_PARAMETER(DescVersion);
-  DXASSERT_NOMSG(((uint32_t*)pData)[0] == (uint32_t)DescVersion);
+  DXASSERT_NOMSG(((const uint32_t*)pData)[0] == (uint32_t)DescVersion);
 
   // Root signature.
   IFTBOOL(pData + sizeof(DxilContainerRootSignatureDesc) <= pMaxPtr, E_FAIL);
-  DxilContainerRootSignatureDesc *pRS = (DxilContainerRootSignatureDesc *)pData;
+  const DxilContainerRootSignatureDesc *pRS = (const DxilContainerRootSignatureDesc *)pData;
   pRootSignature->Flags = (DxilRootSignatureFlags)pRS->Flags;
   pRootSignature->NumParameters = pRS->NumParameters;
   pRootSignature->NumStaticSamplers = pRS->NumStaticSamplers;
@@ -1529,8 +1525,8 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
   pRootSignature->pStaticSamplers = nullptr;
 
   size_t s = sizeof(DxilContainerRootParameter)*pRS->NumParameters;
-  DxilContainerRootParameter *pInRTS = (DxilContainerRootParameter *)(pData + pRS->RootParametersOffset);
-  IFTBOOL(((char*)pInRTS) + s <= pMaxPtr, E_FAIL);
+  const DxilContainerRootParameter *pInRTS = (const DxilContainerRootParameter *)(pData + pRS->RootParametersOffset);
+  IFTBOOL(((const char*)pInRTS) + s <= pMaxPtr, E_FAIL);
   if (pRootSignature->NumParameters) {
     pRootSignature->pParameters = new T_ROOT_PARAMETER[pRootSignature->NumParameters];
   }
@@ -1543,12 +1539,12 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
     pOutRTS->ShaderVisibility = (DxilShaderVisibility)pInRTS[iRP].ShaderVisibility;
     switch(ParameterType) {
     case DxilRootParameterType::DescriptorTable: {
-      DxilContainerRootDescriptorTable *p1 = (DxilContainerRootDescriptorTable*)(pData + pInRTS[iRP].PayloadOffset);
-      IFTBOOL((char*)p1 + sizeof(DxilContainerRootDescriptorTable) <= pMaxPtr, E_FAIL);
+      const DxilContainerRootDescriptorTable *p1 = (const DxilContainerRootDescriptorTable*)(pData + pInRTS[iRP].PayloadOffset);
+      IFTBOOL((const char*)p1 + sizeof(DxilContainerRootDescriptorTable) <= pMaxPtr, E_FAIL);
       pOutRTS->DescriptorTable.NumDescriptorRanges = p1->NumDescriptorRanges;
       pOutRTS->DescriptorTable.pDescriptorRanges = nullptr;
-      T_DESCRIPTOR_RANGE_INTERNAL *p2 = (T_DESCRIPTOR_RANGE_INTERNAL*)(pData + p1->DescriptorRangesOffset);
-      IFTBOOL((char*)p2 + sizeof(T_DESCRIPTOR_RANGE_INTERNAL) <= pMaxPtr, E_FAIL);
+      const T_DESCRIPTOR_RANGE_INTERNAL *p2 = (const T_DESCRIPTOR_RANGE_INTERNAL*)(pData + p1->DescriptorRangesOffset);
+      IFTBOOL((const char*)p2 + sizeof(T_DESCRIPTOR_RANGE_INTERNAL) <= pMaxPtr, E_FAIL);
       if (p1->NumDescriptorRanges) {
         pOutRTS->DescriptorTable.pDescriptorRanges = new T_DESCRIPTOR_RANGE[p1->NumDescriptorRanges];
       }
@@ -1565,8 +1561,8 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
       break;
     }
     case DxilRootParameterType::Constants32Bit: {
-      DxilRootConstants *p = (DxilRootConstants*)(pData + pInRTS[iRP].PayloadOffset);
-      IFTBOOL((char*)p + sizeof(DxilRootConstants) <= pMaxPtr, E_FAIL);
+      const DxilRootConstants *p = (const DxilRootConstants*)(pData + pInRTS[iRP].PayloadOffset);
+      IFTBOOL((const char*)p + sizeof(DxilRootConstants) <= pMaxPtr, E_FAIL);
       pOutRTS->Constants.Num32BitValues = p->Num32BitValues;
       pOutRTS->Constants.ShaderRegister = p->ShaderRegister;
       pOutRTS->Constants.RegisterSpace  = p->RegisterSpace;
@@ -1575,8 +1571,8 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
     case DxilRootParameterType::CBV:
     case DxilRootParameterType::SRV:
     case DxilRootParameterType::UAV: {
-      T_ROOT_DESCRIPTOR *p = (T_ROOT_DESCRIPTOR *)(pData + pInRTS[iRP].PayloadOffset);
-      IFTBOOL((char*)p + sizeof(T_ROOT_DESCRIPTOR) <= pMaxPtr, E_FAIL);
+      const T_ROOT_DESCRIPTOR *p = (const T_ROOT_DESCRIPTOR *)(pData + pInRTS[iRP].PayloadOffset);
+      IFTBOOL((const char*)p + sizeof(T_ROOT_DESCRIPTOR) <= pMaxPtr, E_FAIL);
       pOutRTS->Descriptor.ShaderRegister = p->ShaderRegister;
       pOutRTS->Descriptor.RegisterSpace  = p->RegisterSpace;
       DxilRootDescriptorFlags Flags = GetFlags(*p);
@@ -1589,8 +1585,8 @@ void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const
   }
 
   s = sizeof(DxilStaticSamplerDesc)*pRS->NumStaticSamplers;
-  DxilStaticSamplerDesc *pInSS = (DxilStaticSamplerDesc *)(pData + pRS->StaticSamplersOffset);
-  IFTBOOL(((char*)pInSS) + s <= pMaxPtr, E_FAIL);
+  const DxilStaticSamplerDesc *pInSS = (const DxilStaticSamplerDesc *)(pData + pRS->StaticSamplersOffset);
+  IFTBOOL(((const char*)pInSS) + s <= pMaxPtr, E_FAIL);
   if (pRootSignature->NumStaticSamplers) {
     pRootSignature->pStaticSamplers = new DxilStaticSamplerDesc[pRootSignature->NumStaticSamplers];
   }
@@ -1607,7 +1603,7 @@ void DeserializeRootSignature(const void *pSrcData,
   const char *pData = (const char *)pSrcData;
   IFTBOOL(pData + sizeof(uint32_t) < pData + SrcDataSizeInBytes, E_FAIL);
 
-  DxilRootSignatureVersion Version = (DxilRootSignatureVersion)((uint32_t*)pData)[0];
+  DxilRootSignatureVersion Version = (const DxilRootSignatureVersion)((const uint32_t*)pData)[0];
 
   pRootSignature = new DxilVersionedRootSignatureDesc();
 

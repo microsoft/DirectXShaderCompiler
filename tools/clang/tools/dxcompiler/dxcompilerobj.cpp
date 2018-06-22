@@ -29,14 +29,6 @@
 #include "dxc/HLSL/DxilRootSignature.h"
 #include "dxcutil.h"
 #include "dxc/Support/dxcfilesystem.h"
-
-// SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
-#include "clang/SPIRV/EmitSPIRVAction.h"
-#endif
-// SPIRV change ends
-
-
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/dxcapi.internal.h"
@@ -49,9 +41,21 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/DxcLangExtensionsHelper.h"
 #include "dxc/Support/HLSLOptions.h"
+#ifdef _WIN32
 #include "dxcetw.h"
+#endif
 #include "dxillib.h"
 #include <algorithm>
+
+// SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+#include "clang/SPIRV/EmitSPIRVAction.h"
+#endif
+// SPIRV change ends
+
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+#include "GitCommitInfo.inc" // Auto generated file containing Git commit info
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
 #define CP_UTF16 1200
 
@@ -175,7 +179,7 @@ public:
     return false;
   }
 
-  virtual HLSLExtensionsCodegenHelper::CustomRootSignature::Status GetCustomRootSignature(CustomRootSignature *out) {
+  virtual HLSLExtensionsCodegenHelper::CustomRootSignature::Status GetCustomRootSignature(CustomRootSignature *out) override {
     // Find macro definition in preprocessor.
     Preprocessor &pp = m_CI.getPreprocessor();
     MacroInfo *macro = MacroExpander::FindMacroInfo(pp, m_rootSigDefine);
@@ -194,7 +198,15 @@ public:
   }
 };
 
-class DxcCompiler : public IDxcCompiler2, public IDxcLangExtensions, public IDxcContainerEvent, public IDxcVersionInfo {
+class DxcCompiler : public IDxcCompiler2,
+                    public IDxcLangExtensions,
+                    public IDxcContainerEvent,
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+                    public IDxcVersionInfo2
+#else
+                    public IDxcVersionInfo
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+{
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -231,12 +243,16 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcCompiler,
                                  IDxcCompiler2,
                                  IDxcLangExtensions,
                                  IDxcContainerEvent,
-                                 IDxcVersionInfo>
+                                 IDxcVersionInfo
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+                                ,IDxcVersionInfo2
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+                                >
                                  (this, iid, ppvObject);
   }
 
@@ -614,7 +630,6 @@ public:
 
       IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
 
-      const llvm::opt::OptTable *table = ::options::getHlslOptTable();
       int argCountInt;
       IFT(UIntToInt(argCount, &argCountInt));
       hlsl::options::MainArgs mainArgs(argCountInt, pArguments, 0);
@@ -751,6 +766,8 @@ public:
       : hlsl::DXIL::kLegacyLayoutString;
     compiler.HlslLangExtensions = helper;
     compiler.createDiagnostics(diagPrinter, false);
+    // don't output warning to stderr/file if "/no-warnings" is present.
+    compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
     compiler.createFileManager();
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(
@@ -893,6 +910,23 @@ public:
     *pMinor = DXIL::kDxilMinor;
     return S_OK;
   }
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+  HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount,
+                                          _Out_ char **pCommitHash) override {
+    if (pCommitCount == nullptr || pCommitHash == nullptr)
+      return E_INVALIDARG;
+
+    char *const hash = (char *)CoTaskMemAlloc(ARRAYSIZE(kGitCommitHash) + 1);
+    if (hash == nullptr)
+      return E_OUTOFMEMORY;
+    std::strcpy(hash, kGitCommitHash);
+
+    *pCommitHash = hash;
+    *pCommitCount = kGitCommitCount;
+
+    return S_OK;
+  }
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
   HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override {
     if (pFlags == nullptr)
       return E_INVALIDARG;
@@ -902,7 +936,6 @@ public:
 #endif
     return S_OK;
   }
-
 };
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {

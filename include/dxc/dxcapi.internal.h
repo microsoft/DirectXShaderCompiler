@@ -16,9 +16,9 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 // Forward declarations.
-typedef interface ITextFont ITextFont;
-typedef interface IEnumSTATSTG IEnumSTATSTG;
-typedef interface ID3D10Blob ID3D10Blob;
+typedef struct ITextFont ITextFont;
+typedef struct IEnumSTATSTG IEnumSTATSTG;
+typedef struct ID3D10Blob ID3D10Blob;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Intrinsic definitions.

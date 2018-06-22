@@ -226,7 +226,6 @@ void DxilViewIdState::FuncInfo::Clear() {
 void DxilViewIdState::DetermineMaxPackedLocation(DxilSignature &DxilSig,
                                                  unsigned *pMaxSigLoc,
                                                  unsigned NumStreams) {
-  if (&DxilSig == nullptr) return;
   DXASSERT_NOMSG(NumStreams == 1 || NumStreams == kNumStreams);
 
   for (unsigned i = 0; i < NumStreams; i++) {
@@ -249,6 +248,7 @@ void DxilViewIdState::ComputeReachableFunctionsRec(CallGraph &CG, CallGraphNode 
   if (F->empty()) return;
   auto itIns = FuncSet.emplace(F);
   DXASSERT_NOMSG(itIns.second);
+  (void)itIns;
   for (auto it = pNode->begin(), itEnd = pNode->end(); it != itEnd; ++it) {
     CallGraphNode *pSuccNode = it->second;
     ComputeReachableFunctionsRec(CG, pSuccNode, FuncSet);
@@ -432,7 +432,7 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
 void DxilViewIdState::CollectValuesContributingToOutputRec(EntryInfo &Entry,
                                                            Value *pContributingValue,
                                                            InstructionSetType &ContributingInstructions) {
-  if (Argument *pArg = dyn_cast<Argument>(pContributingValue)) {
+  if (dyn_cast<Argument>(pContributingValue)) {
     // This must be a leftover signature argument of an entry function.
     DXASSERT_NOMSG(Entry.pEntryFunc == m_pModule->GetEntryFunction() ||
                    Entry.pEntryFunc == m_pModule->GetPatchConstantFunction());
@@ -516,7 +516,7 @@ void DxilViewIdState::CollectPhiCFValuesContributingToOutputRec(PHINode *pPhi,
     BasicBlock *pBB = pPhi->getIncomingBlock(i);
     DomTreeNodeBase<BasicBlock> *pDomNode = pFuncInfo->pDomTree->getNode(pBB);
     auto it = DomTreeMarkers.emplace(pDomNode, pValue);
-    DXASSERT_NOMSG(it.second || it.first->second == pValue); it;
+    DXASSERT_NOMSG(it.second || it.first->second == pValue); (void)it;
   }
   // Mark the dominator tree with "definition" values, walking up to the parent.
   for (unsigned i = 0; i < pPhi->getNumOperands(); i++) {
@@ -610,7 +610,7 @@ void DxilViewIdState::CollectReachingDeclsRec(Value *pValue, ValueSetType &Reach
     }
   }
 
-  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(pValue)) {
+  if (dyn_cast<GlobalVariable>(pValue)) {
     ReachingDecls.emplace(pValue);
     return;
   }
@@ -621,7 +621,7 @@ void DxilViewIdState::CollectReachingDeclsRec(Value *pValue, ValueSetType &Reach
   } else if (GEPOperator *pGepOp = dyn_cast<GEPOperator>(pValue)) {
     Value *pPtrValue = pGepOp->getPointerOperand();
     CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
-  } else if (AllocaInst *AI = dyn_cast<AllocaInst>(pValue)) {
+  } else if (dyn_cast<AllocaInst>(pValue)) {
     ReachingDecls.emplace(pValue);
   } else if (PHINode *phi = dyn_cast<PHINode>(pValue)) {
     for (Value *pPtrValue : phi->operands()) {
@@ -630,7 +630,7 @@ void DxilViewIdState::CollectReachingDeclsRec(Value *pValue, ValueSetType &Reach
   } else if (SelectInst *SelI = dyn_cast<SelectInst>(pValue)) {
     CollectReachingDeclsRec(SelI->getTrueValue(), ReachingDecls, Visited);
     CollectReachingDeclsRec(SelI->getFalseValue(), ReachingDecls, Visited);
-  } else if (Argument *pArg = dyn_cast<Argument>(pValue)) {
+  } else if (dyn_cast<Argument>(pValue)) {
     ReachingDecls.emplace(pValue);
   } else {
     IFT(DXC_E_GENERAL_INTERNAL_ERROR);

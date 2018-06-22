@@ -1028,7 +1028,7 @@ Decl *Parser::ParseFunctionDefinition(ParsingDeclarator &D,
   // We should have either an opening brace or, in a C++ constructor,
   // we may have a colon.
   if (Tok.isNot(tok::l_brace) && 
-      (getLangOpts().HLSL && Tok.isNot(tok::colon) || // HLSL Change - for HLSL, only allow ':', not try or =
+      ((getLangOpts().HLSL && Tok.isNot(tok::colon)) || // HLSL Change - for HLSL, only allow ':', not try or =
       (!getLangOpts().CPlusPlus ||
        (Tok.isNot(tok::colon) && Tok.isNot(tok::kw_try) &&
         Tok.isNot(tok::equal))))) {

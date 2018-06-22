@@ -12,6 +12,8 @@
 #include <algorithm>
 #include <sstream>
 
+#include "dxc/Support/HLSLOptions.h"
+
 #include "SPIRVTestOptions.h"
 #include "gtest/gtest.h"
 
@@ -124,6 +126,10 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
   try {
     dxc::DxcDllSupport dllSupport;
     IFT(dllSupport.Initialize());
+    DxcInitThreadMalloc();
+
+    if (hlsl::options::initHlslOptTable())
+      throw std::bad_alloc();
 
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcCompiler> pCompiler;
@@ -154,6 +160,10 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     IFT(pCompiler->Compile(pSource, srcFile.c_str(), entry.c_str(),
                            profile.c_str(), flags.data(), flags.size(), nullptr,
                            0, pIncludeHandler, &pResult));
+
+    // Compilation is done. We can clean up the HlslOptTable.
+    hlsl::options::cleanupHlslOptTable();
+
     // Get compilation results.
     IFT(pResult->GetStatus(&resultStatus));
 
@@ -177,6 +187,7 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     success = false;
   }
 
+  DxcCleanupThreadMalloc();
   return success;
 }
 

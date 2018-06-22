@@ -22,7 +22,9 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include <deque>
 
+#ifdef _WIN32
 #include <winerror.h>
+#endif
 
 using namespace llvm;
 using namespace hlsl;
@@ -182,7 +184,7 @@ static char EncodeRegisterType(RegisterType r) {
   case RegisterType::Invalid: return 'I';
   }
   return '.';
-};
+}
 
 static void ValidateDelimiter(std::deque<char> & q, char d) {
   ThrowIf(q.front() != d);
@@ -414,7 +416,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M)
 
       ID = DM.AddUAV(std::move(pUAV));
 
-      assert(ID == UAVResourceHandle);
+      assert((unsigned)ID == UAVResourceHandle);
 
       // Create handle for the newly-added UAV
       Function* CreateHandleOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));

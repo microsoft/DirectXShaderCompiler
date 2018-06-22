@@ -274,7 +274,7 @@ public:
   /// \brief Set the flag indicating whether we should (re)build the global
   /// module index.
   void setBuildGlobalModuleIndex(bool Build) {
-    (Build);// BuildGlobalModuleIndex = Build; // HLSL Change - no support for modules
+    (void)(Build);// BuildGlobalModuleIndex = Build; // HLSL Change - no support for modules
   }
 
   /// }
