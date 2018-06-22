@@ -52,6 +52,9 @@ TEST_F(FileTest, MatrixTypesMajornessZpc) {
   runFileTest("type.matrix.majorness.zpc.hlsl");
 }
 TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
+TEST_F(FileTest, StructTypeUniqueness) {
+  runFileTest("type.struct.uniqueness.hlsl");
+}
 TEST_F(FileTest, ClassTypes) { runFileTest("type.class.hlsl"); }
 TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
 TEST_F(FileTest, RuntimeArrayTypes) { runFileTest("type.runtime-array.hlsl"); }

@@ -7,11 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/SPIRV/Type.h"
 #include "SPIRVTestUtils.h"
-#include "gmock/gmock.h"
 #include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/String.h"
-#include "clang/SPIRV/Type.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 using namespace clang::spirv;
@@ -47,15 +47,19 @@ TEST(Type, SameAggregateTypeWithDecorationsShouldHaveSameAddress) {
       Decoration::getBuiltIn(ctx, spv::BuiltIn::Position, 0);
 
   const Type *struct_1 = Type::getStruct(
-      ctx, {intt_id, boolt_id},
+      ctx, {intt_id, boolt_id}, "",
       {relaxed, bufferblock, mem_0_offset, mem_1_offset, mem_0_position});
 
   const Type *struct_2 = Type::getStruct(
-      ctx, {intt_id, boolt_id},
+      ctx, {intt_id, boolt_id}, "",
       {relaxed, bufferblock, mem_0_offset, mem_1_offset, mem_0_position});
 
   const Type *struct_3 = Type::getStruct(
-      ctx, {intt_id, boolt_id},
+      ctx, {intt_id, boolt_id}, "",
+      {bufferblock, mem_0_offset, mem_0_position, mem_1_offset, relaxed});
+
+  const Type *struct_4 = Type::getStruct(
+      ctx, {intt_id, boolt_id}, "name",
       {bufferblock, mem_0_offset, mem_0_position, mem_1_offset, relaxed});
 
   // 2 types with the same signature. We should get the same pointer.
@@ -63,6 +67,9 @@ TEST(Type, SameAggregateTypeWithDecorationsShouldHaveSameAddress) {
 
   // The order of decorations does not matter.
   EXPECT_EQ(struct_1, struct_3);
+
+  // Struct with different names are different.
+  EXPECT_NE(struct_3, struct_4);
 }
 
 TEST(Type, Void) {
@@ -354,7 +361,7 @@ TEST(Type, StructBasic) {
 TEST(Type, StructWithDecoration) {
   SPIRVContext ctx;
   const Decoration *bufferblock = Decoration::getBufferBlock(ctx);
-  const Type *t = Type::getStruct(ctx, {2, 3, 4}, {bufferblock});
+  const Type *t = Type::getStruct(ctx, {2, 3, 4}, "", {bufferblock});
   EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeStruct);
   EXPECT_THAT(t->getArgs(), ElementsAre(2, 3, 4));
   EXPECT_THAT(t->getDecorations(), ElementsAre(bufferblock));
@@ -370,7 +377,7 @@ TEST(Type, StructWithDecoratedMembers) {
       Decoration::getBuiltIn(ctx, spv::BuiltIn::Position, 0);
 
   const Type *t = Type::getStruct(
-      ctx, {2, 3, 4},
+      ctx, {2, 3, 4}, "",
       {relaxed, bufferblock, mem_0_position, mem_0_offset, mem_1_offset});
   EXPECT_EQ(t->getOpcode(), spv::Op::OpTypeStruct);
   EXPECT_THAT(t->getArgs(), ElementsAre(2, 3, 4));

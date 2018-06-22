@@ -14,8 +14,9 @@
 namespace clang {
 namespace spirv {
 
-Type::Type(spv::Op op, std::vector<uint32_t> arg, DecorationSet decs)
-    : opcode(op), args(std::move(arg)) {
+Type::Type(spv::Op op, std::vector<uint32_t> arg, DecorationSet decs,
+           llvm::StringRef n)
+    : opcode(op), args(std::move(arg)), name(n.str()) {
   decorations = llvm::SetVector<const Decoration *>(decs.begin(), decs.end());
 }
 
@@ -126,8 +127,9 @@ const Type *Type::getRuntimeArray(SPIRVContext &context,
   return getUniqueType(context, t);
 }
 const Type *Type::getStruct(SPIRVContext &context,
-                            llvm::ArrayRef<uint32_t> members, DecorationSet d) {
-  Type t = Type(spv::Op::OpTypeStruct, std::vector<uint32_t>(members), d);
+                            llvm::ArrayRef<uint32_t> members,
+                            llvm::StringRef name, DecorationSet d) {
+  Type t = Type(spv::Op::OpTypeStruct, std::vector<uint32_t>(members), d, name);
   return getUniqueType(context, t);
 }
 const Type *Type::getPointer(SPIRVContext &context,
@@ -148,7 +150,7 @@ const Type *Type::getFunction(SPIRVContext &context, uint32_t return_type,
 
 bool Type::operator==(const Type &other) const {
   if (opcode == other.opcode && args == other.args &&
-      decorations.size() == other.decorations.size()) {
+      decorations.size() == other.decorations.size() && name == other.name) {
     // If two types have the same decorations, but in different order,
     // they are in fact the same type.
     for (const Decoration *dec : decorations) {

@@ -1026,7 +1026,8 @@ ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
                              llvm::StringRef structName,
                              llvm::ArrayRef<llvm::StringRef> fieldNames,
                              Type::DecorationSet decorations) {
-  const Type *type = Type::getStruct(theContext, fieldTypes, decorations);
+  const Type *type =
+      Type::getStruct(theContext, fieldTypes, structName, decorations);
   bool isRegistered = false;
   const uint32_t typeId = theContext.getResultIdForType(type, &isRegistered);
   theModule.addType(type, typeId);
@@ -1112,7 +1113,8 @@ uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
     requireCapability(spv::Capability::StorageImageExtendedFormats);
     break;
   default:
-    // Only image formats requiring extended formats are relevant. The rest just pass through.
+    // Only image formats requiring extended formats are relevant. The rest just
+    // pass through.
     break;
   }
 
@@ -1204,7 +1206,7 @@ uint32_t ModuleBuilder::getByteAddressBufferType(bool isRW) {
   if (!isRW)
     typeDecs.push_back(Decoration::getNonWritable(theContext, 0));
 
-  const Type *type = Type::getStruct(theContext, {raTypeId}, typeDecs);
+  const Type *type = Type::getStruct(theContext, {raTypeId}, "", typeDecs);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
   theModule.addDebugName(typeId, isRW ? "type.RWByteAddressBuffer"
