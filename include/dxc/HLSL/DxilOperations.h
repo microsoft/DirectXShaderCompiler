@@ -100,6 +100,9 @@ public:
   static bool IsDupDxilOpType(llvm::StructType *ST);
   static llvm::StructType *GetOriginalDxilOpType(llvm::StructType *ST,
                                                  llvm::Module &M);
+  static void GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
+                                       unsigned &major, unsigned &minor,
+                                       unsigned &mask);
 
 private:
   // Per-module properties.

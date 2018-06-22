@@ -73,6 +73,7 @@ class db_dxil_inst(object):
             setattr(self, k, v)
         self.is_dxil_op = self.dxil_op != "" # whether this is a DXIL operation
         self.is_reserved = self.dxil_class == "Reserved"
+        self.shader_model_translated = None # minimum shader model required with translation by linker
 
     def __str__(self):
         return self.name
@@ -268,13 +269,18 @@ class db_dxil(object):
             self.name_idx[i].category = "Resources"
         for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
-        for i in "Sample,SampleBias,SampleCmp,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
+        for i in "Sample,SampleBias,SampleCmp".split(","):
+            self.name_idx[i].shader_stages = ("library", "pixel")
+        for i in "RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp".split(","):
             self.name_idx[i].category = "Resources - gather"
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
-        for i in "CalculateLOD,Discard,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,AttributeAtVertex".split(","):
+        for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
+            self.name_idx[i].category = "Pixel shader"
+            self.name_idx[i].shader_stages = ("library", "pixel")
+        for i in "Discard,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,AttributeAtVertex".split(","):
             self.name_idx[i].category = "Pixel shader"
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
@@ -314,6 +320,7 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6,1
         for i in "RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].shader_model = 6,2
+            self.name_idx[i].shader_model_translated = 6,0
         for i in "DispatchRaysIndex,DispatchRaysDimensions".split(","):
             self.name_idx[i].category = "Ray Dispatch Arguments"
             self.name_idx[i].shader_model = 6,3
@@ -365,6 +372,7 @@ class db_dxil(object):
         for i in "CreateHandleForLib".split(","):
             self.name_idx[i].category = "Library create handle from resource struct (like HL intrinsic)"
             self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_model_translated = 6,0
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.

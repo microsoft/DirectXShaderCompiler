@@ -509,6 +509,141 @@ bool OP::IsDxilOpGradient(OpCode C) {
   // OPCODE-GRADIENT:END
 }
 
+void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
+                                  unsigned &major, unsigned &minor,
+                                  unsigned &mask) {
+  unsigned op = (unsigned)C;
+  // Default is 6.0, all stages
+  major = 6;  minor = 0;
+  mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
+#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
+  /* <py::lines('OPCODE-SMMASK')>hctdb_instrhelp.get_min_sm_and_mask_text()</py>*/
+  // OPCODE-SMMASK:BEGIN
+  // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
+  // FlattenedThreadIdInGroup=96
+  if (93 <= op && op <= 96) {
+    mask = SFLAG(Compute);
+    return;
+  }
+  // Instructions: DomainLocation=105
+  if (op == 105) {
+    mask = SFLAG(Domain);
+    return;
+  }
+  // Instructions: LoadOutputControlPoint=103, LoadPatchConstant=104
+  if (103 <= op && op <= 104) {
+    mask = SFLAG(Domain) | SFLAG(Hull);
+    return;
+  }
+  // Instructions: EmitStream=97, CutStream=98, EmitThenCutStream=99,
+  // GSInstanceID=100
+  if (97 <= op && op <= 100) {
+    mask = SFLAG(Geometry);
+    return;
+  }
+  // Instructions: PrimitiveID=108
+  if (op == 108) {
+    mask = SFLAG(Geometry) | SFLAG(Domain) | SFLAG(Hull);
+    return;
+  }
+  // Instructions: StorePatchConstant=106, OutputControlPointID=107
+  if (106 <= op && op <= 107) {
+    mask = SFLAG(Hull);
+    return;
+  }
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
+  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
+  if (60 <= op && op <= 61 || op == 64 || op == 81 || 83 <= op && op <= 86) {
+    mask = SFLAG(Library) | SFLAG(Pixel);
+    return;
+  }
+  // Instructions: RenderTargetGetSamplePosition=76,
+  // RenderTargetGetSampleCount=77, Discard=82, EvalSnapped=87,
+  // EvalSampleIndex=88, EvalCentroid=89, SampleIndex=90, Coverage=91,
+  // InnerCoverage=92
+  if (76 <= op && op <= 77 || op == 82 || 87 <= op && op <= 92) {
+    mask = SFLAG(Pixel);
+    return;
+  }
+  // Instructions: AttributeAtVertex=137
+  if (op == 137) {
+    major = 6;  minor = 1;
+    mask = SFLAG(Pixel);
+    return;
+  }
+  // Instructions: ViewID=138
+  if (op == 138) {
+    major = 6;  minor = 1;
+    mask = SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(Pixel);
+    return;
+  }
+  // Instructions: RawBufferLoad=139, RawBufferStore=140
+  if (139 <= op && op <= 140) {
+    if (bWithTranslation) {
+      major = 6;  minor = 0;
+    } else {
+      major = 6;  minor = 2;
+    }
+    return;
+  }
+  // Instructions: IgnoreHit=155, AcceptHitAndEndSearch=156
+  if (155 <= op && op <= 156) {
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(AnyHit);
+    return;
+  }
+  // Instructions: CallShader=159
+  if (op == 159) {
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(ClosestHit) | SFLAG(RayGeneration) | SFLAG(Miss) | SFLAG(Callable);
+    return;
+  }
+  // Instructions: ReportHit=158
+  if (op == 158) {
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(Intersection);
+    return;
+  }
+  // Instructions: InstanceID=141, InstanceIndex=142, HitKind=143,
+  // ObjectRayOrigin=149, ObjectRayDirection=150, ObjectToWorld=151,
+  // WorldToObject=152, PrimitiveIndex=161
+  if (141 <= op && op <= 143 || 149 <= op && op <= 152 || op == 161) {
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit);
+    return;
+  }
+  // Instructions: RayFlags=144, WorldRayOrigin=147, WorldRayDirection=148,
+  // RayTMin=153, RayTCurrent=154
+  if (op == 144 || 147 <= op && op <= 148 || 153 <= op && op <= 154) {
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss);
+    return;
+  }
+  // Instructions: TraceRay=157
+  if (op == 157) {
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
+    return;
+  }
+  // Instructions: DispatchRaysIndex=145, DispatchRaysDimensions=146
+  if (145 <= op && op <= 146) {
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable);
+    return;
+  }
+  // Instructions: CreateHandleForLib=160
+  if (op == 160) {
+    if (bWithTranslation) {
+      major = 6;  minor = 0;
+    } else {
+      major = 6;  minor = 3;
+    }
+    return;
+  }
+  // OPCODE-SMMASK:END
+#undef SFLAG
+}
+
 static Type *GetOrCreateStructType(LLVMContext &Ctx, ArrayRef<Type*> types, StringRef Name, Module *pModule) {
   if (StructType *ST = pModule->getTypeByName(Name)) {
     // TODO: validate the exist type match types if needed.
