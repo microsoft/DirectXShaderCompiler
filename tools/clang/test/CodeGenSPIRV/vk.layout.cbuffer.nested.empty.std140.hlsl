@@ -5,7 +5,8 @@
 // CHECK: OpMemberDecorate %type_Params_cbuffer 0 Offset 0
 
 // CHECK:        %InnerStruct0 = OpTypeStruct
-// CHECK:         %OuterStruct = OpTypeStruct %InnerStruct0 %InnerStruct0
+// CHECK:        %InnerStruct1 = OpTypeStruct
+// CHECK:         %OuterStruct = OpTypeStruct %InnerStruct0 %InnerStruct1
 // CHECK: %type_Params_cbuffer = OpTypeStruct %OuterStruct
 
 struct InnerStruct0 {};

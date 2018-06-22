@@ -16,7 +16,7 @@ void main(in    line GsVIn              inData[2],
 
     GsVOut vertex;
     vertex = (GsVOut)0;
-// CHECK:      [[vert:%\d+]] = OpLoad %GsVIn %vertex
+// CHECK:      [[vert:%\d+]] = OpLoad %GsVOut %vertex
 // CHECK-NEXT:  [[val:%\d+]] = OpCompositeExtract %v4float [[vert]] 0
 // CHECK-NEXT: [[oldY:%\d+]] = OpCompositeExtract %float [[val]] 1
 // CHECK-NEXT: [[newY:%\d+]] = OpFNegate %float [[oldY]]

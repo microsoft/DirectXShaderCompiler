@@ -24,7 +24,7 @@ DsCpOut main(OutputPatch<DsCpIn, 3> patch,
   return dsOut;
 }
 
-// CHECK:      [[call:%\d+]] = OpFunctionCall %DsCpIn %src_main %param_var_patch %param_var_pcfData
+// CHECK:      [[call:%\d+]] = OpFunctionCall %DsCpOut %src_main %param_var_patch %param_var_pcfData
 // CHECK-NEXT:  [[val:%\d+]] = OpCompositeExtract %v4float [[call]] 0
 // CHECK-NEXT: [[oldY:%\d+]] = OpCompositeExtract %float [[val]] 1
 // CHECK-NEXT: [[newY:%\d+]] = OpFNegate %float [[oldY]]
