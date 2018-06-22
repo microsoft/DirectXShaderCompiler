@@ -20,6 +20,8 @@ if "%1"=="-x86" (
   set BUILD_ARCH=x64
 ) else if "%1"=="-arm" (
   set BUILD_ARCH=ARM
+) else if "%1"=="-arm64" (
+  set BUILD_ARCH=ARM64
 ) else (
   goto :donearch
 )
@@ -147,6 +149,11 @@ if errorlevel 1 (
   exit /b 1
 )
 echo Path adjusted to include TAEF te.exe.
+
+if "%BUILD_ARCH%"=="ARM" (
+  echo.
+  echo WARNING: ARM build is not supported. Your build may fail. Use ARM64 instead.
+)
 goto :eof
 
 :ifexistaddpath 
@@ -237,9 +244,11 @@ cmake --version | findstr 3.7.2 1>nul 2>nul
 if "0"=="%ERRORLEVEL%" exit /b 0
 cmake --version | findstr 3.9.0-MSVC 1>nul 2>nul
 if "0"=="%ERRORLEVEL%" exit /b 0
+cmake --version | findstr 3.11.2 1>nul 2>nul
+if "0"=="%ERRORLEVEL%" exit /b 0
 cmake --version | findstr /R 3.6.*MSVC 1>nul 2>nul
 if errorlevel 1 (
-  echo CMake 3.4.3, 3.7.2, or 3.9.0 are the currently supported versions for VS 2015 and VS 2017 - your installed cmake is not supported.
+  echo CMake 3.4.3, 3.7.2, 3.9.0 or 3.11.2 are the currently supported versions for VS 2015 and VS 2017 - your installed cmake is not supported.
   echo See README.md at the root for an explanation of dependencies.
   exit /b 1
 )

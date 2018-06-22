@@ -63,7 +63,12 @@ if (${ENABLE_SPIRV_CODEGEN})
     if (IS_DIRECTORY ${DXC_RE2_DIR})
       # Avoid exception handling warning from MSVC.
       # This add_compile_options() will only affect the current directory and its subdirectories.
-      add_compile_options(/EHs)
+      if (WIN32)
+        add_compile_options(/EHs)
+      else(WIN32)
+        # Disable all warnings in subproject RE2
+        add_compile_options(-w)
+      endif(WIN32)
       # Don't build/run re2's tests.
       set(RE2_BUILD_TESTING OFF CACHE BOOL "Skip RE2 tests")
       add_subdirectory(${DXC_RE2_DIR} EXCLUDE_FROM_ALL)

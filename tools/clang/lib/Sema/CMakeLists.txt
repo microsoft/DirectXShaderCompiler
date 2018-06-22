@@ -1,4 +1,5 @@
 set(LLVM_LINK_COMPONENTS
+  HLSL # SemaHLSL.cpp references {Has|Get}UnsignedOpcode()
   Support
   )
 

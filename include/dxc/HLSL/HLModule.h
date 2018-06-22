@@ -37,7 +37,7 @@ class MDNode;
 class GlobalVariable;
 class DIGlobalVariable;
 class DebugInfoFinder;
-};
+}
 
 
 namespace hlsl {

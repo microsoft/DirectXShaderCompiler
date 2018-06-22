@@ -61,7 +61,7 @@ const char DxilMDHelper::kDxilSourceDefinesMDName[]                   = "dx.sour
 const char DxilMDHelper::kDxilSourceMainFileNameMDName[]              = "dx.source.mainFileName";
 const char DxilMDHelper::kDxilSourceArgsMDName[]                      = "dx.source.args";
 
-static std::array<const char *, 7> DxilMDNames = {
+static std::array<const char *, 7> DxilMDNames = { {
   DxilMDHelper::kDxilVersionMDName,
   DxilMDHelper::kDxilShaderModelMDName,
   DxilMDHelper::kDxilEntryPointsMDName,
@@ -69,11 +69,11 @@ static std::array<const char *, 7> DxilMDNames = {
   DxilMDHelper::kDxilTypeSystemMDName,
   DxilMDHelper::kDxilValidatorVersionMDName,
   DxilMDHelper::kDxilViewIdStateMDName,
-};
+}};
 
 DxilMDHelper::DxilMDHelper(Module *pModule, std::unique_ptr<ExtraPropertyHelper> EPH)
-: m_pModule(pModule)
-, m_Ctx(pModule->getContext())
+: m_Ctx(pModule->getContext())
+, m_pModule(pModule)
 , m_pSM(nullptr)
 , m_ExtraPropertyHelper(std::move(EPH)) {
 }
@@ -371,7 +371,7 @@ void DxilMDHelper::LoadRootSignature(RootSignatureHandle &Sig) {
           DXC_E_INCORRECT_DXIL_METADATA);
 
   Sig.Clear();
-  Sig.LoadSerialized((uint8_t *)pData->getRawDataValues().begin(),
+  Sig.LoadSerialized((const uint8_t *)pData->getRawDataValues().begin(),
                      pData->getRawDataValues().size());
 }
 
@@ -1301,7 +1301,7 @@ void DxilMDHelper::LoadDxilViewIdState(DxilViewIdState &ViewIdState) {
   IFTBOOL(pData->getRawDataValues().size() < UINT_MAX && 
           (pData->getRawDataValues().size() & 3) == 0, DXC_E_INCORRECT_DXIL_METADATA);
 
-  ViewIdState.Deserialize((unsigned *)pData->getRawDataValues().begin(), 
+  ViewIdState.Deserialize((const unsigned *)pData->getRawDataValues().begin(),
                           (unsigned)pData->getRawDataValues().size() / 4);
 }
 
@@ -1529,8 +1529,8 @@ void DxilMDHelper::LoadDxilHSState(const MDOperand &MDO,
 // DxilExtraPropertyHelper methods.
 //
 DxilMDHelper::ExtraPropertyHelper::ExtraPropertyHelper(Module *pModule)
-: m_pModule(pModule)
-, m_Ctx(pModule->getContext()) {
+: m_Ctx(pModule->getContext())
+, m_pModule(pModule) {
 }
 
 DxilExtraPropertyHelper::DxilExtraPropertyHelper(Module *pModule)

@@ -107,6 +107,7 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   
   switch (S->getStmtClass()) {
   case Stmt::NoStmtClass:
+  case Stmt::DiscardStmtClass: // HLSL Change
     break;
   
   case Stmt::CaseStmtClass:

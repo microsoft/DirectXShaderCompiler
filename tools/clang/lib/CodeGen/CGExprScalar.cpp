@@ -3085,13 +3085,13 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
 }
 
 enum IntrinsicType { VCMPEQ, VCMPGT };
+#if 0 // HLSL Change - remove platform intrinsics
 // return corresponding comparison intrinsic for given vector type
 static llvm::Intrinsic::ID GetIntrinsic(IntrinsicType IT,
                                         BuiltinType::Kind ElemKind) {
   llvm_unreachable("HLSL Does not support altivec vectors");
   return llvm::Intrinsic::not_intrinsic;  // HLSL Change - remove platform intrinsics
 
-#if 0 // HLSL Change - remove platform intrinsics
   switch (ElemKind) {
   default: llvm_unreachable("unexpected element type");
   case BuiltinType::Char_U:
@@ -3120,8 +3120,8 @@ static llvm::Intrinsic::ID GetIntrinsic(IntrinsicType IT,
     return (IT == VCMPEQ) ? llvm::Intrinsic::ppc_altivec_vcmpeqfp_p :
                             llvm::Intrinsic::ppc_altivec_vcmpgtfp_p;
   }
-#endif // HLSL Change - remove platform intrinsics
 }
+#endif // HLSL Change - remove platform intrinsics
 
 Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,unsigned UICmpOpc,
                                       unsigned SICmpOpc, unsigned FCmpOpc) {

@@ -31,6 +31,8 @@ add_subdirectory(dxopt)
 add_subdirectory(dxl)
 add_subdirectory(dxr)
 add_subdirectory(dxv)
-add_subdirectory(dotnetc)
+if (WIN32) # UI powered by .NET
+  add_subdirectory(dotnetc)
+endif (WIN32)
 add_subdirectory(dxlib-sample)
 # HLSL Change Ends

@@ -1,6 +1,9 @@
 ﻿# Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
-find_package(DiaSDK REQUIRED) # Used for constants and declarations.
+
+if (WIN32)
+  find_package(DiaSDK REQUIRED) # Used for constants and declarations.
+endif (WIN32)
 
 set(LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
@@ -37,6 +40,7 @@ set(LLVM_LINK_COMPONENTS
   vectorize
   )
 
+if (WIN32)
 set(SOURCES
   dxcapi.cpp
   dxcassembler.cpp
@@ -53,7 +57,28 @@ set(SOURCES
   dxcutil.cpp
   dxcdisassembler.cpp
   dxclinker.cpp
-  )
+)
+else ()
+set(SOURCES
+  dxcapi.cpp
+  dxcassembler.cpp
+  dxclibrary.cpp
+  dxcompilerobj.cpp
+  dxcfilesystem.cpp
+  dxcontainerbuilder.cpp
+  dxcutil.cpp
+  dxcdisassembler.cpp
+  dxillib.cpp
+  dxcvalidator.cpp
+)
+set (HLSL_IGNORE_SOURCES
+  dxcdia.cpp
+  DXCompiler.cpp
+  DXCompiler.rc
+  DXCompiler.def
+  dxclinker.cpp
+)
+endif(WIN32)
 
 set(LIBRARIES
   clangIndex
@@ -86,14 +111,42 @@ set(GENERATED_HEADERS
   )
 
 add_clang_library(dxcompiler SHARED ${SOURCES})
-target_link_libraries(dxcompiler PRIVATE ${LIBRARIES} ${DIASDK_LIBRARIES})
-# SPIRV change starts
-if (ENABLE_SPIRV_CODEGEN)
-  target_link_libraries(dxcompiler PRIVATE clangSPIRV)
-endif (ENABLE_SPIRV_CODEGEN)
-# SPIRV change ends
-add_dependencies(dxcompiler DxcEtw)
-include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
+if (WIN32)
+  target_link_libraries(dxcompiler PRIVATE ${LIBRARIES} ${DIASDK_LIBRARIES})
+  if (ENABLE_SPIRV_CODEGEN)
+    target_link_libraries(dxcompiler PRIVATE clangSPIRV)
+  endif (ENABLE_SPIRV_CODEGEN)
+  add_dependencies(dxcompiler DxcEtw)
+  include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
+else ()
+  # No DIASDK or DxcEtw on non-Windows platforms.
+  target_link_libraries(dxcompiler PRIVATE ${LIBRARIES})
+  if (ENABLE_SPIRV_CODEGEN)
+    target_link_libraries(dxcompiler PRIVATE clangSPIRV)
+  endif (ENABLE_SPIRV_CODEGEN)
+  include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing)
+endif (WIN32)
+
+if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
+  set(GIT_COMMIT_INFO_FILE ${CMAKE_CURRENT_BINARY_DIR}/GitCommitInfo.inc)
+  set(GET_GIT_COMMIT_SCRIPT ${PROJECT_SOURCE_DIR}/utils/GetCommitInfo.py)
+  add_custom_command(
+    OUTPUT  ${GIT_COMMIT_INFO_FILE}
+    COMMAND ${PYTHON_EXECUTABLE} ${GET_GIT_COMMIT_SCRIPT}
+            ${PROJECT_SOURCE_DIR} ${GIT_COMMIT_INFO_FILE}
+    DEPENDS ${GET_GIT_COMMIT_SCRIPT} GIT_COMMIT_INFO_ALWAYS_REBUILD
+    COMMENT "Collect Git commit info for versioning"
+  )
+  add_custom_target(
+    GIT_COMMIT_INFO_ALWAYS_REBUILD
+    ${CMAKE_COMMAND} -E touch ${GET_GIT_COMMIT_SCRIPT}
+    COMMENT "Touch GetCommitInfo.py to trigger rebuild"
+  )
+  set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/dxcompilerobj.cpp
+    PROPERTIES OBJECT_DEPENDS "${GIT_COMMIT_INFO_FILE}")
+  set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/dxcvalidator.cpp
+    PROPERTIES OBJECT_DEPENDS "${GIT_COMMIT_INFO_FILE}")
+endif()
 
 set_target_properties(dxcompiler
   PROPERTIES

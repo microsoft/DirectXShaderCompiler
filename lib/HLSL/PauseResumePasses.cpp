@@ -47,8 +47,8 @@ void SetPauseResumePasses(Module &M, StringRef pause, StringRef resume) {
   LLVMContext &Ctx = M.getContext();
   NamedMDNode *N = M.getOrInsertNamedMetadata(kPauseResumeMDName);
   Metadata *MDs[kPauseResumeNumFields];
-  MDs[kPauseResumePassNameToPause] = MDString::get(Ctx, pause);
-  MDs[kPauseResumePassNameToResume] = MDString::get(Ctx, resume);
+  MDs[(int)kPauseResumePassNameToPause] = MDString::get(Ctx, pause);
+  MDs[(int)kPauseResumePassNameToResume] = MDString::get(Ctx, resume);
   if (N->getNumOperands() == 0)
     N->addOperand(MDNode::get(Ctx, MDs));
   else

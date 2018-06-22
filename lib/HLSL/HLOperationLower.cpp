@@ -156,7 +156,7 @@ private:
     // Add invalid first to avoid dead loop.
     HandleMetaMap[Handle] = {DXIL::ResourceClass::Invalid,
                              DXIL::ResourceKind::Invalid,
-                             StructType::get(Type::getVoidTy(HLM.GetCtx()))};
+                             StructType::get(Type::getVoidTy(HLM.GetCtx()), nullptr)};
     if (Argument *Arg = dyn_cast<Argument>(Handle)) {
       MDNode *MD = HLM.GetDxilResourceAttrib(Arg);
       if (!MD) {
@@ -557,7 +557,7 @@ Value *TrivialBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   unsigned t = static_cast<unsigned>(DXIL::BarrierMode::SyncThreadGroup);
   // unsigned ut = static_cast<unsigned>(DXIL::BarrierMode::UAVFenceThreadGroup);
 
-  unsigned barrierMode;
+  unsigned barrierMode = 0;
   switch (IOP) {
   case IntrinsicOp::IOP_AllMemoryBarrier:
     barrierMode = uglobal | g;
@@ -728,7 +728,7 @@ Constant *GetLoadInputsForEvaluate(Value *V, std::vector<CallInst*> &loadList) {
 // for temporary insertelement instructions should maintain the existing size of the loadinput.
 // So we have to analyze the type of src in order to determine the actual size required.
 Type *GetInsertElementTypeForEvaluate(Value *src) {
-  if (InsertElementInst *IE = dyn_cast<InsertElementInst>(src)) {
+  if (dyn_cast<InsertElementInst>(src)) {
     return src->getType();
   }
   else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(src)) {
@@ -1119,7 +1119,6 @@ Value *TransalteAbs(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
     IRBuilder<> Builder(CI);
     Value *neg = Builder.CreateNeg(src);
-    Value *refArgs[] = {nullptr, src, neg};
     return TrivialDxilBinaryOperation(DXIL::OpCode::IMax, src, neg, hlslOP,
                                       Builder);
   }
@@ -1686,7 +1685,7 @@ Value *TranslateFUIBinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
       break;
     case IntrinsicOp::IOP_min:
     default:
-      DXASSERT(IOP == IntrinsicOp::IOP_min, "");
+      DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_min);
       opcode = OP::OpCode::FMin;
       break;
     }
@@ -1701,7 +1700,7 @@ Value *TranslateFUITrinary(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     switch (IOP) {
     case IntrinsicOp::IOP_mad:
     default:
-      DXASSERT(IOP == IntrinsicOp::IOP_mad, "");
+      DXASSERT_NOMSG(IOP == IntrinsicOp::IOP_mad);
       opcode = OP::OpCode::FMad;
       break;
     }
@@ -1905,7 +1904,7 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 Value *TranslateReflect(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                         HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  //  v = i - 2 * n * dot(i•n).
+  //  v = i - 2 * n * dot(i, n).
   IRBuilder<> Builder(CI);
   Value *i = CI->getArgOperand(HLOperandIndex::kReflectOpIIdx);
   Value *n = CI->getArgOperand(HLOperandIndex::kReflectOpNIdx);
@@ -1925,7 +1924,7 @@ Value *TranslateReflect(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
 Value *TranslateRefract(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                         HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  //  d = dot(i•n);
+  //  d = dot(i, n);
   //  t = 1 - eta * eta * ( 1 - d*d);
   //  cond = t >= 1;
   //  r = eta * i - (eta * d + sqrt(t)) * n;
@@ -3101,26 +3100,6 @@ void Make64bitResultForLoad(Type *EltTy, ArrayRef<Value *> resultElts32,
   }
 }
 
-static uint8_t GetRawBufferMaskFromIOP(IntrinsicOp IOP, hlsl::OP *OP) {
-  switch (IOP) {
-    // one component
-    case IntrinsicOp::MOP_Load:
-      return DXIL::kCompMask_X;
-    // two component
-    case IntrinsicOp::MOP_Load2:
-      return DXIL::kCompMask_X | DXIL::kCompMask_Y;
-    // three component
-    case IntrinsicOp::MOP_Load3:
-      return DXIL::kCompMask_X | DXIL::kCompMask_Y | DXIL::kCompMask_Z;
-    // four component
-    case IntrinsicOp::MOP_Load4:
-      return DXIL::kCompMask_All;
-    default:
-      DXASSERT(false, "Invalid Intrinsic for computing load mask.");
-      return 0;
-  }
-}
-
 static Constant *GetRawBufferMaskForETy(Type *Ty, unsigned NumComponents, hlsl::OP *OP) {
   unsigned mask = 0;
 
@@ -3348,7 +3327,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
                     Value *offset, IRBuilder<> &Builder, hlsl::OP *OP) {
   Type *Ty = val->getType();
 
-  OP::OpCode opcode;
+  OP::OpCode opcode = OP::OpCode::NumOpCodes;
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
   case DxilResource::Kind::StructuredBuffer:
@@ -3955,7 +3934,7 @@ Value *TranslateProcessIsolineTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpC
                               HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   // Get partition mode 
-  DXASSERT(helper.functionProps, "");
+  DXASSERT_NOMSG(helper.functionProps);
   DXASSERT(helper.functionProps->shaderKind == ShaderModel::Kind::Hull, "must be hull shader");
   DXIL::TessellatorPartitioning partition = helper.functionProps->ShaderProps.HS.partition;
   
@@ -4135,7 +4114,7 @@ Value *TranslateProcessTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpCode opc
                               HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   // Get partition mode 
-  DXASSERT(helper.functionProps, "");
+  DXASSERT_NOMSG(helper.functionProps);
   DXASSERT(helper.functionProps->shaderKind == ShaderModel::Kind::Hull, "must be hull shader");
   DXIL::TessellatorPartitioning partition = helper.functionProps->ShaderProps.HS.partition;
   
@@ -4254,6 +4233,7 @@ Value *TranslateProcessTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpCode opc
   Type *outFactorTy = unroundedInsideFactor->getType()->getPointerElementType();
   if (outFactorTy != clampedI->getType()) {
     DXASSERT(isQuad, "quad only write one channel of out factor");
+    (void)isQuad;
     clampedI = Builder.CreateExtractElement(clampedI, (uint64_t)0);
     // Splat clampedI to float2.
     clampedI = SplatToVector(clampedI, outFactorTy, Builder);
@@ -4776,7 +4756,7 @@ Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
   DXASSERT_LOCALVAR(baseIdx && zeroIdx, baseIdx == zeroIdx,
                     "base index must be 0");
   Value *idx = (GEP->idx_begin() + 1)->get();
-  if (ConstantInt *cidx = dyn_cast<ConstantInt>(idx)) {
+  if (dyn_cast<ConstantInt>(idx)) {
     return Builder.CreateExtractElement(ldData, idx);
   } else {
     // Dynamic indexing.
@@ -6288,8 +6268,6 @@ Value *UpdateVectorElt(Value *VecVal, Value *EltVal, Value *EltIdx,
 }
 
 void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
-  auto U = CI->user_begin();
-
   Value *ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
 
   hlsl::OP *hlslOP = &helper.hlslOP;
@@ -6316,7 +6294,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
       // Must be vector type here.
       unsigned vectorSize = Ty->getVectorNumElements();
-      DXASSERT(GEP->getNumIndices() == 2, "");
+      DXASSERT_NOMSG(GEP->getNumIndices() == 2);
       Use *GEPIdx = GEP->idx_begin();
       GEPIdx++;
       Value *EltIdx = *GEPIdx;

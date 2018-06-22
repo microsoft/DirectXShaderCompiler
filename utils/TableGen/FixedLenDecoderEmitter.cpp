@@ -411,7 +411,7 @@ protected:
   }
 
   // Called from Filter::recurse() when singleton exists.  For debug purpose.
-  void SingletonExists(unsigned Opc) const;
+  //void SingletonExists(unsigned Opc) const; // HLSL Change - Unused
 
   bool PositionFiltered(unsigned i) const {
     return ValueSet(FilterBitValues[i]);
@@ -947,6 +947,7 @@ void FilterChooser::dumpStack(raw_ostream &o, const char *prefix) const {
   }
 }
 
+#if 0 // HLSL Change Unused
 // Called from Filter::recurse() when singleton exists.  For debug purpose.
 void FilterChooser::SingletonExists(unsigned Opc) const {
   insn_t Insn0;
@@ -970,6 +971,7 @@ void FilterChooser::SingletonExists(unsigned Opc) const {
     errs() << '\n';
   }
 }
+#endif // HLSL Change Ends - Unused
 
 // Calculates the island(s) needed to decode the instruction.
 // This returns a list of undecoded bits of an instructions, for example,

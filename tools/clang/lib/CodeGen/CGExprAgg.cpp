@@ -710,7 +710,6 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
   // HLSL Change Begins.
   case CK_FlatConversion: {
     QualType Ty = E->getSubExpr()->getType();
-    QualType PtrTy = CGF.getContext().getPointerType(Ty);
     llvm::Value *DestPtr = Dest.getAddr();
 
     if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(E->getSubExpr())) {

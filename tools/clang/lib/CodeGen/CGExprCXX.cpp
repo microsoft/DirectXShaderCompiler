@@ -85,8 +85,6 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
   llvm::SmallVector<LValue, 8> castArgList;
   // The argList of the CallExpr, may be update for out parameter
   llvm::SmallVector<const Stmt *, 8> argList(CE->arg_begin(), CE->arg_end());
-  ConstExprIterator argBegin = argList.data();
-  ConstExprIterator argEnd = argList.data() + CE->getNumArgs();
   // out param conversion
   CodeGenFunction::HLSLOutParamScope OutParamScope(*this);
   auto MapTemp = [&](const VarDecl *LocalVD, llvm::Value *TmpArg) {
@@ -122,8 +120,6 @@ RValue CodeGenFunction::EmitCXXStructorCall(
   llvm::SmallVector<LValue, 8> castArgList;
   // The argList of the CallExpr, may be update for out parameter
   llvm::SmallVector<const Stmt *, 8> argList(CE->arg_begin(), CE->arg_end());
-  ConstExprIterator argBegin = argList.data();
-  ConstExprIterator argEnd = argList.data() + CE->getNumArgs();
   // out param conversion
   CodeGenFunction::HLSLOutParamScope OutParamScope(*this);
   auto MapTemp = [&](const VarDecl *LocalVD, llvm::Value *TmpArg) {

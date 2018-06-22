@@ -38,7 +38,9 @@
 #ifndef _REGEX_H_
 #define	_REGEX_H_
 
+#include "dxc/Support/WinAdapter.h" // HLSL Change
 #include <sys/types.h>
+
 typedef off_t llvm_regoff_t;
 typedef struct {
   llvm_regoff_t rm_so;		/* start of match */

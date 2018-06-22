@@ -78,27 +78,28 @@ const char* kFP32DenormValueFtzString      = "ftz";
 //  DxilModule methods.
 //
 DxilModule::DxilModule(Module *pModule)
-: m_Ctx(pModule->getContext())
+: m_RootSignature(nullptr)
+, m_StreamPrimitiveTopology(DXIL::PrimitiveTopology::Undefined)
+, m_ActiveStreamMask(0)
+, m_Ctx(pModule->getContext())
 , m_pModule(pModule)
-, m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
-, m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
-, m_pViewIdState(llvm::make_unique<DxilViewIdState>(this))
-, m_pMDHelper(llvm::make_unique<DxilMDHelper>(pModule, llvm::make_unique<DxilExtraPropertyHelper>(pModule)))
-, m_pDebugInfoFinder(nullptr)
 , m_pEntryFunc(nullptr)
 , m_EntryName("")
+, m_pMDHelper(llvm::make_unique<DxilMDHelper>(pModule, llvm::make_unique<DxilExtraPropertyHelper>(pModule)))
+, m_pDebugInfoFinder(nullptr)
 , m_pSM(nullptr)
 , m_DxilMajor(DXIL::kDxilMajor)
 , m_DxilMinor(DXIL::kDxilMinor)
 , m_ValMajor(1)
 , m_ValMinor(0)
-, m_StreamPrimitiveTopology(DXIL::PrimitiveTopology::Undefined)
-, m_ActiveStreamMask(0)
-, m_RootSignature(nullptr)
-, m_bUseMinPrecision(true) // use min precision by default
+, m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
+, m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
+, m_pViewIdState(llvm::make_unique<DxilViewIdState>(this))
 , m_bDisableOptimizations(false)
+, m_bUseMinPrecision(true) // use min precision by default
 , m_bAllResourcesBound(false)
 , m_AutoBindingSpace(UINT_MAX) {
+
   DXASSERT_NOMSG(m_pModule != nullptr);
 
 #if defined(_DEBUG) || defined(DBG)
@@ -781,7 +782,7 @@ static void CollectUsedResource(Value *resID,
     return;
 
   usedResID.insert(resID);
-  if (ConstantInt *cResID = dyn_cast<ConstantInt>(resID)) {
+  if (dyn_cast<ConstantInt>(resID)) {
     // Do nothing
   } else if (ZExtInst *ZEI = dyn_cast<ZExtInst>(resID)) {
     if (ZEI->getSrcTy()->isIntegerTy()) {

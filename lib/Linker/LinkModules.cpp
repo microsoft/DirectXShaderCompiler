@@ -1808,7 +1808,11 @@ LLVMBool LLVMLinkModules(LLVMModuleRef Dest, LLVMModuleRef Src,
 
   if (OutMessages && Result) {
     Stream.flush();
+#ifdef _WIN32
     *OutMessages = _strdup(Message.c_str()); // HLSL Change for strdup
+#else
+    *OutMessages = strdup(Message.c_str());
+#endif
   }
   return Result;
 }

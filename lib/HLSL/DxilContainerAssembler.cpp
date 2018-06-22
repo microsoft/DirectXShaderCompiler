@@ -61,6 +61,9 @@ static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::Tesse
       return DxilProgramSigSemantic::FinalTriEdgeTessfactor;
     case DXIL::TessellatorDomain::Quad:
       return DxilProgramSigSemantic::FinalQuadEdgeTessfactor;
+    default:
+      // No other valid TesselatorDomain options.
+      return DxilProgramSigSemantic::Undefined;
     }
   }
   case Semantic::Kind::InsideTessFactor: {
@@ -72,6 +75,9 @@ static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::Tesse
       return DxilProgramSigSemantic::FinalTriInsideTessfactor;
     case DXIL::TessellatorDomain::Quad:
       return DxilProgramSigSemantic::FinalQuadInsideTessfactor;
+    default:
+      // No other valid DxilProgramSigSemantic options.
+      return DxilProgramSigSemantic::Undefined;
     }
   }
   case Semantic::Kind::Invalid:
@@ -305,6 +311,8 @@ DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::Signa
         M.GetPatchConstantSignature(), domain,
         /*IsInput*/ M.GetShaderModel()->IsDS(),
         /*UseMinPrecision*/M.GetUseMinPrecision());
+  case DXIL::SignatureKind::Invalid:
+    return nullptr;
   }
   return nullptr;
 }
@@ -479,7 +487,7 @@ public:
       for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
         m_PSVInitInfo.SigOutputVectors[streamIndex] = m_Module.GetOutputSignature().NumVectorsUsed(streamIndex);
       }
-      m_PSVInitInfo.SigPatchConstantVectors = m_PSVInitInfo.SigPatchConstantVectors = 0;
+      m_PSVInitInfo.SigPatchConstantVectors = 0;
       if (SM->IsHS()) {
         m_PSVInitInfo.SigPatchConstantVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed(0);
       }
@@ -589,6 +597,11 @@ public:
         }
         break;
       }
+    case ShaderModel::Kind::Compute:
+    case ShaderModel::Kind::Library:
+    case ShaderModel::Kind::Invalid:
+      // Compute, Library, and Invalide not relevant to PSVRuntimeInfo0
+      break;
     }
 
     // Set resource binding information

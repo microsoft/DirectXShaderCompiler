@@ -262,6 +262,7 @@ ExprResult Parser::ParseMSAsmIdentifier(llvm::SmallVectorImpl<Token> &LineToks,
                                            IsUnevaluatedContext);
 }
 
+#if 0 // HLSL Change Start - disable this block to avoid having to build/link llvmMC
 /// Turn a sequence of our tokens back into a string that we can hand
 /// to the MC asm parser.
 static bool buildMSAsmString(Preprocessor &PP, SourceLocation AsmLoc,
@@ -318,6 +319,7 @@ static bool buildMSAsmString(Preprocessor &PP, SourceLocation AsmLoc,
   assert(TokOffsets.size() == AsmToks.size());
   return false;
 }
+#endif // HLSL Change End - disable this block to avoid having to build/link llvmMC
 
 /// ParseMicrosoftAsmStatement. When -fms-extensions/-fasm-blocks is enabled,
 /// this routine is called to collect the tokens for an MS asm statement.

@@ -889,6 +889,16 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
   return !getDiagnostics().getClient()->getNumErrors();
 }
 
+#if 1 // HLSL Change Starts - no support for modules
+
+bool CompilerInstance::lookupMissingImports(StringRef, SourceLocation) { return false; }
+GlobalModuleIndex *CompilerInstance::loadGlobalModuleIndex(SourceLocation) { return nullptr; }
+void CompilerInstance::makeModuleVisible(Module *, Module::NameVisibilityKind, SourceLocation) { }
+ModuleLoadResult CompilerInstance::loadModule(SourceLocation, ModuleIdPath, Module::NameVisibilityKind, bool) { return ModuleLoadResult(); }
+bool CompilerInstance::loadModuleFile(StringRef) { return false; }
+void CompilerInstance::createModuleManager() { }
+
+#else
 /// \brief Determine the appropriate source input kind based on language
 /// options.
 static InputKind getSourceInputKindFromOptions(const LangOptions &LangOpts) {
@@ -902,17 +912,6 @@ static InputKind getSourceInputKindFromOptions(const LangOptions &LangOpts) {
     return LangOpts.CPlusPlus? IK_ObjCXX : IK_ObjC;
   return LangOpts.CPlusPlus? IK_CXX : IK_C;
 }
-
-#if 1 // HLSL Change Starts - no support for modules
-
-bool CompilerInstance::lookupMissingImports(StringRef, SourceLocation) { return false; }
-GlobalModuleIndex *CompilerInstance::loadGlobalModuleIndex(SourceLocation) { return nullptr; }
-void CompilerInstance::makeModuleVisible(Module *, Module::NameVisibilityKind, SourceLocation) { }
-ModuleLoadResult CompilerInstance::loadModule(SourceLocation, ModuleIdPath, Module::NameVisibilityKind, bool) { return ModuleLoadResult(); }
-bool CompilerInstance::loadModuleFile(StringRef) { return false; }
-void CompilerInstance::createModuleManager() { }
-
-#else
 
 /// \brief Compile a module file for the given module, using the options 
 /// provided by the importing compiler instance. Returns true if the module

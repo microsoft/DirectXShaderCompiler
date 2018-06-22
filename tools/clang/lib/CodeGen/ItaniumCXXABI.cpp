@@ -924,6 +924,7 @@ void ItaniumCXXABI::emitRethrow(CodeGenFunction &CGF, bool isNoReturn) {
     CGF.EmitRuntimeCallOrInvoke(Fn);
 }
 
+#if 0 // HLSL Change Starts
 static llvm::Constant *getAllocateExceptionFn(CodeGenModule &CGM) {
   // void *__cxa_allocate_exception(size_t thrown_size);
 
@@ -943,6 +944,7 @@ static llvm::Constant *getThrowFn(CodeGenModule &CGM) {
 
   return CGM.CreateRuntimeFunction(FTy, "__cxa_throw");
 }
+#endif
 
 void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 #if 1 // HLSL Change Starts
@@ -2366,6 +2368,12 @@ static bool TypeInfoIsInStandardLibrary(const BuiltinType *Ty) {
     case BuiltinType::ObjCClass:
     case BuiltinType::ObjCSel:
       llvm_unreachable("FIXME: Objective-C types are unsupported!");
+    case BuiltinType::Min12Int:
+    case BuiltinType::LitInt:
+    case BuiltinType::Min10Float:
+    case BuiltinType::LitFloat:
+      llvm_unreachable("FIXME: HLSL types are unsupported!");
+      break;
   }
 
   llvm_unreachable("Invalid BuiltinType Kind!");
@@ -3594,6 +3602,7 @@ void ItaniumCXXABI::emitBeginCatch(CodeGenFunction &CGF,
   CGF.EmitAutoVarCleanups(var);
 }
 
+#if 0 // HLSL Change Start
 /// Get or define the following function:
 ///   void @__clang_call_terminate(i8* %exn) nounwind noreturn
 /// This code is used only in C++.
@@ -3645,6 +3654,7 @@ static llvm::Constant *getClangCallTerminateFn(CodeGenModule &CGM) {
 
   return fnRef;
 }
+#endif // HLSL Change End
 
 llvm::CallInst *
 ItaniumCXXABI::emitTerminateForUnexpectedException(CodeGenFunction &CGF,

@@ -262,7 +262,7 @@ void TokenLexer::ExpandFunctionArguments() {
     // If it is not the LHS/RHS of a ## operator, we must pre-expand the
     // argument and substitute the expanded tokens into the result.  This is
     // C99 6.10.3.1p1.
-    if (PP.PPOpts.get()->ExpandTokPastingArg || !PasteBefore && !PasteAfter) { // HLSL Change
+    if (PP.PPOpts.get()->ExpandTokPastingArg || (!PasteBefore && !PasteAfter)) { // HLSL Change
       const Token *ResultArgToks;
 
       // Only preexpand the argument if it could possibly need it.  This

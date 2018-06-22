@@ -297,15 +297,6 @@ static void emitDxilDiag(const LLVMContext &Ctx, const char *str) {
   diagCtx.diagnose(DxilErrorDiagnosticInfo(str));
 }
 
-// Printing of types.
-static inline DiagnosticPrinter &operator<<(DiagnosticPrinter &OS, Type &T) {
-  std::string O;
-  raw_string_ostream OSS(O);
-  T.print(OSS);
-  OS << OSS.str();
-  return OS;
-}
-
 } // anon namespace
 
 namespace hlsl {
@@ -390,15 +381,15 @@ struct ValidationContext {
                     DxilModule &dxilModule,
                     DiagnosticPrinterRawOStream &DiagPrn)
       : M(llvmModule), pDebugModule(DebugModule), DxilMod(dxilModule),
-        DL(llvmModule.getDataLayout()),
+        DL(llvmModule.getDataLayout()), DiagPrinter(DiagPrn),
+        LastRuleEmit((ValidationRule)-1),
         kDxilControlFlowHintMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilControlFlowHintMDName)),
         kDxilPreciseMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilPreciseAttributeMDName)),
         kDxilNonUniformMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilNonUniformAttributeMDName)),
-        kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
-        DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1) {
+        kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
 
     for (Function &F : llvmModule.functions()) {
@@ -701,33 +692,33 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // VALOPCODESM-TEXT:BEGIN
   // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
   // FlattenedThreadIdInGroup=96
-  if (93 <= op && op <= 96)
+  if ((93 <= op && op <= 96))
     return (pSM->IsCS());
   // Instructions: DomainLocation=105
   if (op == 105)
     return (pSM->IsDS());
   // Instructions: LoadOutputControlPoint=103, LoadPatchConstant=104
-  if (103 <= op && op <= 104)
+  if ((103 <= op && op <= 104))
     return (pSM->IsDS() || pSM->IsHS());
   // Instructions: EmitStream=97, CutStream=98, EmitThenCutStream=99,
   // GSInstanceID=100
-  if (97 <= op && op <= 100)
+  if ((97 <= op && op <= 100))
     return (pSM->IsGS());
   // Instructions: PrimitiveID=108
   if (op == 108)
     return (pSM->IsGS() || pSM->IsDS() || pSM->IsHS());
   // Instructions: StorePatchConstant=106, OutputControlPointID=107
-  if (106 <= op && op <= 107)
+  if ((106 <= op && op <= 107))
     return (pSM->IsHS());
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
-  if (60 <= op && op <= 61 || op == 64 || op == 81 || 83 <= op && op <= 86)
+  if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86))
     return (pSM->IsLib() || pSM->IsPS());
   // Instructions: RenderTargetGetSamplePosition=76,
   // RenderTargetGetSampleCount=77, Discard=82, EvalSnapped=87,
   // EvalSampleIndex=88, EvalCentroid=89, SampleIndex=90, Coverage=91,
   // InnerCoverage=92
-  if (76 <= op && op <= 77 || op == 82 || 87 <= op && op <= 92)
+  if ((76 <= op && op <= 77) || op == 82 || (87 <= op && op <= 92))
     return (pSM->IsPS());
   // Instructions: AttributeAtVertex=137
   if (op == 137)
@@ -738,13 +729,13 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
         && (pSM->IsVS() || pSM->IsHS() || pSM->IsDS() || pSM->IsGS() || pSM->IsPS());
   // Instructions: RawBufferLoad=139, RawBufferStore=140
-  if (139 <= op && op <= 140)
+  if ((139 <= op && op <= 140))
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 2));
   // Instructions: CreateHandleForLib=160
   if (op == 160)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3));
   // Instructions: IgnoreHit=155, AcceptHitAndEndSearch=156
-  if (155 <= op && op <= 156)
+  if ((155 <= op && op <= 156))
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
         && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::AnyHit);
   // Instructions: CallShader=159
@@ -758,12 +749,12 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: InstanceID=141, InstanceIndex=142, HitKind=143,
   // ObjectRayOrigin=149, ObjectRayDirection=150, ObjectToWorld=151,
   // WorldToObject=152, PrimitiveIndex=161
-  if (141 <= op && op <= 143 || 149 <= op && op <= 152 || op == 161)
+  if ((141 <= op && op <= 143) || (149 <= op && op <= 152) || op == 161)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
         && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit);
   // Instructions: RayFlags=144, WorldRayOrigin=147, WorldRayDirection=148,
   // RayTMin=153, RayTCurrent=154
-  if (op == 144 || 147 <= op && op <= 148 || 153 <= op && op <= 154)
+  if (op == 144 || (147 <= op && op <= 148) || (153 <= op && op <= 154))
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
         && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::Miss);
   // Instructions: TraceRay=157
@@ -771,7 +762,7 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
         && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::RayGeneration || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::Miss);
   // Instructions: DispatchRaysIndex=145, DispatchRaysDimensions=146
-  if (145 <= op && op <= 146)
+  if ((145 <= op && op <= 146))
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
         && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::RayGeneration || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::Miss || pSM->GetKind() == DXIL::ShaderKind::Callable);
   return true;
@@ -1322,7 +1313,6 @@ struct ResRetUsage {
 
 static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
                                      ValidationContext &ValCtx) {
-  const unsigned kMaxResRetElementIndex = 5;
   for (User *U : ResRet->users()) {
     if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
       for (unsigned idx : EVI->getIndices()) {
@@ -1358,35 +1348,6 @@ static void CollectGetDimResRetUsage(ResRetUsage &usage, Instruction *ResRet,
   }
 }
 
-static void ValidateStatus(Instruction *ResRet, ValidationContext &ValCtx) {
-  ResRetUsage usage;
-  CollectGetDimResRetUsage(usage, ResRet, ValCtx);
-  if (usage.status) {
-    for (User *U : ResRet->users()) {
-      if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(U)) {
-        for (unsigned idx : EVI->getIndices()) {
-          switch (idx) {
-          case DXIL::kResRetStatusIndex:
-            for (User *SU : EVI->users()) {
-              Instruction *I = cast<Instruction>(SU);
-              // Make sure all use is CheckAccess.
-              if (!isa<CallInst>(I)) {
-                ValCtx.EmitInstrError(I, ValidationRule::InstrStatus);
-                return;
-              }
-              if (!ValCtx.DxilMod.GetOP()->IsDxilOpFuncCallInst(
-                      I, DXIL::OpCode::CheckAccessFullyMapped)) {
-                ValCtx.EmitInstrError(I, ValidationRule::InstrStatus);
-                return;
-              }
-            }
-            break;
-          }
-        }
-      }
-    }
-  }
-}
 
 static void ValidateResourceCoord(CallInst *CI, DXIL::ResourceKind resKind,
                                   ArrayRef<Value *> coords,
@@ -2709,7 +2670,7 @@ static bool IsLLVMInstructionAllowed(llvm::Instruction &I) {
   // SExt=35, FPToUI=36, FPToSI=37, UIToFP=38, SIToFP=39, FPTrunc=40, FPExt=41,
   // BitCast=44, AddrSpaceCast=45, ICmp=46, FCmp=47, PHI=48, Call=49, Select=50,
   // ExtractValue=57
-  return 1 <= op && op <= 3 || 8 <= op && op <= 29 || 31 <= op && op <= 41 || 44 <= op && op <= 50 || op == 57;
+  return (1 <= op && op <= 3) || (8 <= op && op <= 29) || (31 <= op && op <= 41) || (44 <= op && op <= 50) || op == 57;
   // OPCODE-ALLOWED:END
 }
 
@@ -2851,7 +2812,7 @@ static bool IsValueMinPrec(DxilModule &DxilMod, Value *V) {
   DXASSERT(DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision,
            "else caller didn't check - currently this path should never be hit "
            "otherwise");
-  (DxilMod);
+  (void)(DxilMod);
   Type *Ty = V->getType();
   if (Ty->isIntegerTy()) {
     return 16 == Ty->getIntegerBitWidth();
@@ -3897,12 +3858,10 @@ static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
 
 static void ValidateResources(ValidationContext &ValCtx) {
   const vector<unique_ptr<DxilResource>> &uavs = ValCtx.DxilMod.GetUAVs();
-  bool hasROV = false;
   SpacesAllocator<unsigned, DxilResourceBase> uavAllocator;
 
   for (auto &uav : uavs) {
     if (uav->IsROV()) {
-      hasROV = true;
       if (!ValCtx.DxilMod.GetShaderModel()->IsPS() && !ValCtx.isLibProfile) {
         ValCtx.EmitResourceError(uav.get(), ValidationRule::SmROVOnlyInPS);
       }
@@ -4002,28 +3961,25 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   unsigned compWidth = 0;
   bool compFloat = false;
   bool compInt = false;
-  bool compUnsigned = false;
   bool compBool = false;
-  bool compSNorm = false;
-  bool compUNorm = false;
 
   switch (compKind) {
-  case CompType::Kind::U64: compWidth = 64; compInt = true; compUnsigned = true; break;
+  case CompType::Kind::U64: compWidth = 64; compInt = true; break;
   case CompType::Kind::I64: compWidth = 64; compInt = true; break;
-  case CompType::Kind::U32: compWidth = 32; compInt = true; compUnsigned = true; break;
+  case CompType::Kind::U32: compWidth = 32; compInt = true; break;
   case CompType::Kind::I32: compWidth = 32; compInt = true; break;
-  case CompType::Kind::U16: compWidth = 16; compInt = true; compUnsigned = true; break;
+  case CompType::Kind::U16: compWidth = 16; compInt = true; break;
   case CompType::Kind::I16: compWidth = 16; compInt = true; break;
   case CompType::Kind::I1: compWidth = 1; compBool = true; break;
   case CompType::Kind::F64: compWidth = 64; compFloat = true; break;
   case CompType::Kind::F32: compWidth = 32; compFloat = true; break;
   case CompType::Kind::F16: compWidth = 16; compFloat = true; break;
-  case CompType::Kind::SNormF64: compWidth = 64; compFloat = true; compSNorm = true; break;
-  case CompType::Kind::SNormF32: compWidth = 32; compFloat = true; compSNorm = true; break;
-  case CompType::Kind::SNormF16: compWidth = 16; compFloat = true; compSNorm = true; break;
-  case CompType::Kind::UNormF64: compWidth = 64; compFloat = true; compUNorm = true; break;
-  case CompType::Kind::UNormF32: compWidth = 32; compFloat = true; compUNorm = true; break;
-  case CompType::Kind::UNormF16: compWidth = 16; compFloat = true; compUNorm = true; break;
+  case CompType::Kind::SNormF64: compWidth = 64; compFloat = true; break;
+  case CompType::Kind::SNormF32: compWidth = 32; compFloat = true; break;
+  case CompType::Kind::SNormF16: compWidth = 16; compFloat = true; break;
+  case CompType::Kind::UNormF64: compWidth = 64; compFloat = true; break;
+  case CompType::Kind::UNormF32: compWidth = 32; compFloat = true; break;
+  case CompType::Kind::UNormF16: compWidth = 16; compFloat = true; break;
   case CompType::Kind::Invalid:
   default:
     ValCtx.EmitFormatError(ValidationRule::MetaSignatureCompType, { SE.GetName() });

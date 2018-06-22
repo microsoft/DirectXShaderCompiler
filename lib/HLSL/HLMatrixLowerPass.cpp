@@ -618,22 +618,6 @@ Instruction *HLMatrixLowerPass::MatIntrinsicToVec(CallInst *CI) {
   return Builder.CreateCall(vecF, argList);
 }
 
-static Value *VectorizeScalarOp(Value *op, Type *dstTy, IRBuilder<> &Builder) {
-  if (op->getType() == dstTy)
-    return op;
-  op = Builder.CreateInsertElement(
-      UndefValue::get(VectorType::get(op->getType(), 1)), op, (uint64_t)0);
-  Type *I32Ty = IntegerType::get(dstTy->getContext(), 32);
-  Constant *zero = ConstantInt::get(I32Ty, 0);
-
-  std::vector<Constant *> MaskVec(dstTy->getVectorNumElements(), zero);
-  Value *castMask = ConstantVector::get(MaskVec);
-
-  Value *vecOp = new ShuffleVectorInst(op, op, castMask);
-  Builder.Insert(cast<Instruction>(vecOp));
-  return vecOp;
-}
-
 Instruction *HLMatrixLowerPass::TrivialMatUnOpToVec(CallInst *CI) {
   Type *ResultTy = LowerMatrixType(CI->getType());
   UndefValue *tmp = UndefValue::get(ResultTy);
@@ -979,6 +963,12 @@ void HLMatrixLowerPass::TrivialMatUnOpReplace(Value *matVal,
   case HLUnaryOpcode::PreDec:
     vecUseInst->setOperand(0, vecVal);
     break;
+  case HLUnaryOpcode::Invalid:
+  case HLUnaryOpcode::Plus:
+  case HLUnaryOpcode::Minus:
+  case HLUnaryOpcode::NumOfUO:
+    // No VecInst replacements for these.
+    break;
   }
 }
 
@@ -1096,7 +1086,7 @@ void HLMatrixLowerPass::TranslateMatVecMul(Value *matVal,
 
   unsigned col, row;
   Type *EltTy = GetMatrixInfo(matVal->getType(), col, row);
-  DXASSERT(RVal->getType()->getVectorNumElements() == col, "");
+  DXASSERT_NOMSG(RVal->getType()->getVectorNumElements() == col);
 
   bool isFloat = EltTy->isFloatingPointTy();
 
@@ -1148,7 +1138,7 @@ void HLMatrixLowerPass::TranslateVecMatMul(Value *matVal,
 
   unsigned col, row;
   Type *EltTy = GetMatrixInfo(matVal->getType(), col, row);
-  DXASSERT(LVal->getType()->getVectorNumElements() == row, "");
+  DXASSERT_NOMSG(LVal->getType()->getVectorNumElements() == row);
 
   bool isFloat = EltTy->isFloatingPointTy();
 
@@ -1354,7 +1344,7 @@ void HLMatrixLowerPass::TranslateMatMajorCast(Value *matVal,
     Type *castTy = GetMatrixInfo(castInst->getType(), castCol, castRow);
     unsigned srcCol, srcRow;
     Type *srcTy = GetMatrixInfo(matVal->getType(), srcCol, srcRow);
-    DXASSERT_LOCALVAR((void)(srcTy && castTy), srcTy == castTy, "type must match");
+    DXASSERT_LOCALVAR((castTy == srcTy), srcTy == castTy, "type must match");
     DXASSERT(castCol == srcRow && castRow == srcCol, "col row must match");
     col = srcCol;
     row = srcRow;
@@ -1474,8 +1464,9 @@ void HLMatrixLowerPass::TranslateMatCast(Value *matVal,
       TranslateMatMatCast(matVal, vecVal, castInst);
     } else if (FromMat)
       TranslateMatToOtherCast(matVal, vecVal, castInst);
-    else
+    else {
       DXASSERT(0, "Not translate as user of matInst");
+    }
   }
 }
 
@@ -1566,8 +1557,9 @@ void HLMatrixLowerPass::TranslateMatSubscript(Value *matVal, Value *vecVal,
           vecLd = Builder.CreateInsertElement(vecLd, val, shufMask[0]);
           Builder.CreateStore(vecLd, vecVal);
         }
-      } else
+      } else {
         DXASSERT(0, "matrix element should only used by load/store.");
+      }
       AddToDeadInsts(CallUser);
     }
   } else {
@@ -1657,8 +1649,9 @@ void HLMatrixLowerPass::TranslateMatSubscript(Value *matVal, Value *vecVal,
         Value *GEPOffset = HLMatrixLower::LowerGEPOnMatIndexListToIndex(GEP, idxList);
         Value *NewGEP = Builder.CreateGEP(vecVal, {zero, GEPOffset});
         GEP->replaceAllUsesWith(NewGEP);
-      } else
+      } else {
         DXASSERT(0, "matrix subscript should only used by load/store.");
+      }
       AddToDeadInsts(CallUser);
     }
   }
@@ -1707,7 +1700,6 @@ void HLMatrixLowerPass::TranslateMatLoadStoreOnGlobal(GlobalVariable *matGlobal,
                                                       GlobalVariable *scalarArrayGlobal,
                                                       CallInst *matLdStInst) {
   // vecGlobals already in correct major.
-  const bool bColMajor = true;
   HLMatLoadStoreOpcode opcode =
       static_cast<HLMatLoadStoreOpcode>(GetHLOpcode(matLdStInst));
   switch (opcode) {
@@ -1958,41 +1950,6 @@ static void IterateInitList(MutableArrayRef<Value *> elts, unsigned &idx,
     }
   }
 }
-// Store flattened init list elements into matrix array.
-static void GenerateMatArrayInit(ArrayRef<Value *> elts, Value *ptr,
-                                 unsigned &offset, IRBuilder<> &Builder) {
-  Type *Ty = ptr->getType()->getPointerElementType();
-  if (Ty->isVectorTy()) {
-    unsigned vecSize = Ty->getVectorNumElements();
-    Type *eltTy = Ty->getVectorElementType();
-    Value *result = UndefValue::get(Ty);
-
-    for (unsigned i = 0; i < vecSize; i++) {
-      Value *elt = elts[offset + i];
-      if (elt->getType() != eltTy) {
-        // FIXME: get signed/unsigned info.
-        elt = CreateTypeCast(HLCastOpcode::DefaultCast, eltTy, elt, Builder);
-      }
-
-      result = Builder.CreateInsertElement(result, elt, i);
-    }
-    // Update offset.
-    offset += vecSize;
-    Builder.CreateStore(result, ptr);
-  } else {
-    DXASSERT(Ty->isArrayTy(), "must be array type");
-    Type *i32Ty = Type::getInt32Ty(Ty->getContext());
-    Constant *zero = ConstantInt::get(i32Ty, 0);
-
-    unsigned arraySize = Ty->getArrayNumElements();
-
-    for (unsigned i = 0; i < arraySize; i++) {
-      Value *GEP =
-          Builder.CreateInBoundsGEP(ptr, {zero, ConstantInt::get(i32Ty, i)});
-      GenerateMatArrayInit(elts, GEP, offset, Builder);
-    }
-  }
-}
 
 void HLMatrixLowerPass::TranslateMatInit(CallInst *matInitInst) {
   // Array matrix init will be translated in TranslateMatArrayInitReplace.
@@ -2135,7 +2092,7 @@ void HLMatrixLowerPass::TranslateMatArrayGEP(Value *matInst,
         DXASSERT(0, "invalid operation");
         break;
       }
-    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(useInst)) {
+    } else if (dyn_cast<BitCastInst>(useInst)) {
       // Just replace the src with vec version.
       useInst->setOperand(0, newGEP);
     } else {
@@ -2238,8 +2195,13 @@ void HLMatrixLowerPass::replaceMatWithVec(Value *matVal,
       case HLOpcodeGroup::NotHL: {
         castMatrixArgs(matVal, vecVal, useCall);
       } break;
+      case HLOpcodeGroup::HLExtIntrinsic:
+      case HLOpcodeGroup::HLCreateHandle:
+      case HLOpcodeGroup::NumOfHLOps:
+      // No vector equivalents for these ops.
+        break;
       }
-    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(useInst)) {
+    } else if (dyn_cast<BitCastInst>(useInst)) {
       // Just replace the src with vec version.
       if (useInst != vecVal)
         useInst->setOperand(0, vecVal);

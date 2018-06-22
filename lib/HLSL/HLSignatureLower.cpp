@@ -55,9 +55,16 @@ unsigned UpateSemanticAndInterpMode(StringRef &semName,
     case InterpolationMode::Kind::Linear:
       mode = InterpolationMode::Kind::LinearNoperspective;
       break;
-    case InterpolationMode::Kind::Constant: {
+    case InterpolationMode::Kind::Constant:
+    case InterpolationMode::Kind::Undefined:
+    case InterpolationMode::Kind::Invalid: {
       Context.emitError("invalid interpolation mode for SV_Position");
     } break;
+    case InterpolationMode::Kind::LinearNoperspective:
+    case InterpolationMode::Kind::LinearNoperspectiveCentroid:
+    case InterpolationMode::Kind::LinearNoperspectiveSample:
+      // Already Noperspective modes.
+      break;
     }
   }
   return semIndex;
@@ -483,7 +490,7 @@ void replaceStWithStOutput(Function *stOutput, StoreInst *stInst,
   Value *val = stInst->getValueOperand();
 
   if (VectorType *VT = dyn_cast<VectorType>(val->getType())) {
-    DXASSERT(cols == VT->getNumElements(), "vec size must match");
+    DXASSERT_LOCALVAR(VT, cols == VT->getNumElements(), "vec size must match");
     for (unsigned col = 0; col < cols; col++) {
       Value *subVal = Builder.CreateExtractElement(val, col);
       Value *colIdx = Builder.getInt8(col);
@@ -506,8 +513,8 @@ void replaceStWithStOutput(Function *stOutput, StoreInst *stInst,
     Value *colIdx = Builder.getInt8(0);
     ArrayType *AT = cast<ArrayType>(val->getType());
     Value *args[] = {OpArg, outputID, idx, colIdx, /*val*/ nullptr};
-    args;
-    AT;
+    (void)args;
+    (void)AT;
   }
 }
 
@@ -620,7 +627,7 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
     param->replaceAllUsesWith(input);
   } else if (HLMatrixLower::IsMatrixType(Ty)) {
     Value *colIdx = hlslOP->GetU8Const(0);
-    colIdx;
+    (void)colIdx;
     DXASSERT(param->hasOneUse(),
              "matrix arg should only has one use as matrix to vec");
     CallInst *CI = cast<CallInst>(param->user_back());
@@ -678,6 +685,9 @@ void replaceDirectInputParameter(Value *param, Function *loadInput,
       CI->replaceAllUsesWith(newVec);
       CI->eraseFromParent();
     } break;
+    default:
+      // Only matrix to vector casts are valid.
+      break;
     }
   } else {
     DXASSERT(0, "invalid type for direct input");
@@ -694,9 +704,9 @@ struct InputOutputAccessInfo {
   // Load/Store/LoadMat/StoreMat on input/output.
   Instruction *user;
   InputOutputAccessInfo(Value *index, Instruction *I)
-      : idx(index), user(I), vertexID(nullptr), vectorIdx(nullptr) {}
+      : idx(index), vertexID(nullptr), vectorIdx(nullptr), user(I) {}
   InputOutputAccessInfo(Value *index, Instruction *I, Value *ID, Value *vecIdx)
-      : idx(index), user(I), vertexID(ID), vectorIdx(vecIdx) {}
+      : idx(index), vertexID(ID), vectorIdx(vecIdx), user(I) {}
 };
 
 void collectInputOutputAccessInfo(
@@ -809,14 +819,16 @@ void collectInputOutputAccessInfo(
             InputOutputAccessInfo info = {idxVal, CI, vertexID, vectorIdx};
             accessInfoList.push_back(info);
           }
-        } else
+        } else {
           DXASSERT(0, "input output should only used by ld/st");
+        }
       }
     } else if (CallInst *CI = dyn_cast<CallInst>(I)) {
       InputOutputAccessInfo info = {constZero, CI};
       accessInfoList.push_back(info);
-    } else
+    } else {
       DXASSERT(0, "input output should only used by ld/st");
+    }
   }
 }
 
@@ -891,7 +903,7 @@ void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertex
     if (group == HLOpcodeGroup::HLIntrinsic)
       return;
     unsigned opcode = GetHLOpcode(CI);
-    DXASSERT(group == HLOpcodeGroup::HLMatLoadStore, "");
+    DXASSERT_NOMSG(group == HLOpcodeGroup::HLMatLoadStore);
     HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
     switch (matOp) {
     case HLMatLoadStoreOpcode::ColMatLoad: {
@@ -990,8 +1002,9 @@ void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertex
       CI->eraseFromParent();
     } break;
     }
-  } else
+  } else {
     DXASSERT(0, "invalid operation on input output");
+  }
 }
 
 } // namespace
@@ -1344,8 +1357,9 @@ void HLSignatureLower::GenerateDxilPatchConstantFunctionInputs() {
           Value *args[] = {OpArg, inputID, info.idx, info.vectorIdx,
                            info.vertexID};
           replaceLdWithLdInput(dxilLdFunc, ldInst, cols, args, bI1Cast);
-        } else
+        } else {
           DXASSERT(0, "input should only be ld");
+        }
       }
     }
   }
@@ -1434,14 +1448,6 @@ void HLSignatureLower::GenerateClipPlanesForVS(Value *outPosition) {
 }
 
 namespace {
-// Helper functions for Gs Streams.
-void GenerateStOutput(Function *stOutput, Value *eltVal, Value *outputID,
-                      Value *rowIdx, Value *colIdx, OP *hlslOP,
-                      IRBuilder<> Builder) {
-  Constant *OpArg = hlslOP->GetU32Const((unsigned)OP::OpCode::StoreOutput);
-  Builder.CreateCall(stOutput, {OpArg, outputID, rowIdx, colIdx, eltVal});
-}
-
 Value *TranslateStreamAppend(CallInst *CI, unsigned ID, hlsl::OP *OP) {
   Function *DxilFunc = OP->GetOpFunc(OP::OpCode::EmitStream, CI->getType());
   // TODO: generate a emit which has the data being emited as its argment.
@@ -1478,7 +1484,7 @@ void HLSignatureLower::GenerateStreamOutputOperation(Value *streamVal, unsigned 
     CallInst *CI = cast<CallInst>(user);
     HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
     unsigned opcode = GetHLOpcode(CI);
-    DXASSERT_LOCALVAR(group, group == HLOpcodeGroup::HLIntrinsic, "");
+    DXASSERT_LOCALVAR(group, group == HLOpcodeGroup::HLIntrinsic, "Must be HLIntrinsic here");
     IntrinsicOp IOP = static_cast<IntrinsicOp>(opcode);
     switch (IOP) {
     case IntrinsicOp::MOP_Append:

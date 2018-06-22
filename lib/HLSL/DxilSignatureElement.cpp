@@ -32,8 +32,8 @@ DxilSignatureElement::DxilSignatureElement(DXIL::SigPointKind sigPointKind)
 : m_sigPointKind(sigPointKind)
 , m_pSemantic(nullptr)
 , m_ID(kUndefinedID)
-, m_InterpMode(InterpolationMode::Kind::Invalid)
 , m_CompType(CompType::Kind::Invalid)
+, m_InterpMode(InterpolationMode::Kind::Invalid)
 , m_Rows(0)
 , m_Cols(0)
 , m_StartRow(Semantic::kUndefinedRow)
@@ -227,7 +227,7 @@ void DxilSignatureElement::SetCompType(CompType CT) {
 
 uint8_t DxilSignatureElement::GetColsAsMask() const {
   unsigned StartCol = IsAllocated() ? m_StartCol : 0;
-  DXASSERT(StartCol + m_Cols <= 4, "else start %u and cols %u exceed limit", StartCol, m_Cols);
+  DXASSERT_ARGS(StartCol + m_Cols <= 4, "else start %u and cols %u exceed limit", StartCol, m_Cols);
   DXASSERT(m_Cols >= 1, "else signature takes no space");
   switch (StartCol) {
   case 0: {

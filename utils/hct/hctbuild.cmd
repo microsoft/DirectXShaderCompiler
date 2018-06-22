@@ -40,12 +40,13 @@ if "%BUILD_ARCH%"=="" (
   set BUILD_ARCH=Win32
 )
 
-set BUILD_GENERATOR=Visual Studio 14 2015
-set BUILD_VS_VER=2015
+set BUILD_GENERATOR=Visual Studio 15 2017
+set BUILD_VS_VER=2017
 set BUILD_CONFIG=Debug
 set DO_SETUP=1
 set DO_BUILD=1
 set CMAKE_OPTS=
+
 if "%1"=="-s" (
   set DO_BUILD=0
   shift /1
@@ -85,8 +86,12 @@ if "%1"=="-x64" (
   set BUILD_ARCH=x64
   shift /1
 )
-if "%1"=="-arm" (
+if /i "%1"=="-arm" (
   set BUILD_ARCH=ARM
+  shift /1
+)
+if /i "%1"=="-arm64" (
+  set BUILD_ARCH=ARM64
   shift /1
 )
 if "%1"=="-Debug" (
@@ -98,8 +103,21 @@ if "%1"=="-Release" (
   shift /1
 )
 if "%1"=="-vs2017" (
-  set BUILD_GENERATOR=Visual Studio 15 2017
-  set BUILD_VS_VER=2017
+  shift /1
+)
+if "%1"=="-vs2015" (
+  set BUILD_GENERATOR=Visual Studio 14 2015
+  set BUILD_VS_VER=2015
+  shift /1
+)
+
+if "%1"=="-tblgen" (
+  if "%2" == "" (
+    echo Missing path argument after -tblgen.
+    exit /b
+  ) 
+  set BUILD_TBLGEN_PATH=%2
+  shift /1
   shift /1
 )
 
@@ -126,8 +144,20 @@ if "%1"=="-spirvtest" (
 )
 rem End SPIRV change
 
-if "%BUILD_ARCH%"=="x64" (
+set BUILD_ARM_CROSSCOMPILING=0
+
+if /i "%BUILD_ARCH%"=="x64" (
   set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
+)
+
+if /i "%BUILD_ARCH%"=="arm" (
+  set BUILD_GENERATOR_PLATFORM=ARM
+  set BUILD_ARM_CROSSCOMPILING=1
+)
+
+if /i "%BUILD_ARCH%"=="arm64" (
+  set BUILD_GENERATOR_PLATFORM=ARM64
+  set BUILD_ARM_CROSSCOMPILING=1
 )
 
 if "%1"=="-ninja" (
@@ -160,14 +190,38 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=10.0.14393.0
 set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_BUILD_ARCH=%BUILD_ARCH%
 
+rem ARM cross-compile setup
+if %BUILD_ARM_CROSSCOMPILING% == 0 goto :after-cross-compile
+
+rem The ARM build needs to have access to x86 or x64 build of clang-tblgen and llvm-tblgen tools.
+call :verify-tblgen %BUILD_TBLGEN_PATH%
+if errorlevel 1 (
+  echo Cannot find x86/x64 version clang-tblgen and llvm-tblgen tools.
+  echo Please set BUILD_TBLGEN_PATH or use hctbuild -tblgen option to specify location of x86/x64 build of DXC.
+  call :handlefail
+  exit /b 1
+)
+
+echo TableGen path: %BUILD_TBLGEN_PATH%
+set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_CROSSCOMPILING=True
+set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_GENERATOR_PLATFORM=%BUILD_GENERATOR_PLATFORM%
+set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_TABLEGEN=%BUILD_TBLGEN_PATH%\llvm-tblgen.exe
+set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_TABLEGEN=%BUILD_TBLGEN_PATH%\clang-tblgen.exe
+
+echo Cross-compiling enabled.
+
+:after-cross-compile
+
 rem This parameter is used with vcvarsall to force use of 64-bit build tools
 rem instead of 32-bit tools that run out of memory.
-if "%BUILD_ARCH%"=="Win32" (
+if /i "%BUILD_ARCH%"=="Win32" (
   set BUILD_TOOLS=amd64_x86
-) else if "%BUILD_ARCH%"=="x64" (
+) else if /i "%BUILD_ARCH%"=="x64" (
   set BUILD_TOOLS=amd64
-) else if "%BUILD_ARCH%"=="ARM" (
+) else if /i "%BUILD_ARCH%"=="ARM" (
   set BUILD_TOOLS=amd64_arm
+) else if /i "%BUILD_ARCH%"=="ARM64" (
+  set BUILD_TOOLS=amd64_arm64
 )
 
 call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%"
@@ -185,7 +239,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-ninja]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -200,6 +254,7 @@ echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
 echo   -x64 targets an x64 build (aka. Win64)
 echo   -arm targets an ARM build
+echo   -arm64 targets an ARM64 build
 echo.
 echo Generator:
 echo   -ninja   use Ninja as the generator
@@ -207,7 +262,10 @@ echo.
 echo AppVeyor Support
 echo   -Release builds release
 echo   -Debug builds debug
-echo   -vs2017 uses Visual Studio 2017 to build
+echo   -vs2015 uses Visual Studio 2015 to build; ARM64 not supported 
+echo.
+echo ARM build support
+echo   -tblgen sets path to x86 or x64 versions of clang-tblgen and llvm-tblgen tools
 echo.
 if not "%HLSL_BLD_DIR%"=="" (
   echo The solution file is at %HLSL_BLD_DIR%\LLVM.sln
@@ -265,31 +323,35 @@ if "%DO_SETUP%"=="1" (
   )
 )
 
-if "%DO_BUILD%"=="1" (
-  rem Should add support for the non-x86-qualified programfiles.
-  echo Building solution files for %2 with %1 configuration.
-  if "%BUILD_GENERATOR%" NEQ "Ninja" (
-    if "%BUILD_VS_VER%"=="2015" (
-      if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" (
-        call :buildvs_x86dir %1 %2 %3
-        goto :donebuild
-      )
+if "%DO_BUILD%" neq "1" (
+  exit /b 0
+)
+
+rem Should add support for the non-x86-qualified programfiles.
+echo Building solution files for %2 with %1 configuration.
+if "%BUILD_GENERATOR%" NEQ "Ninja" (
+  if "%BUILD_VS_VER%"=="2015" (
+    if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" (
+      call :buildvs_x86dir %1 %2 %3
+      goto :donebuild
     )
   )
+)
 
-  rem Just defer to cmake for now.
-  cmake --build . --config %1
+rem Just defer to cmake for now.
+cmake --build . --config %1
+goto :donebuild
 
 :donebuild
-  if errorlevel 1 (
-    echo Failed to build projects.
-    echo After fixing, run 'cmake --build --config %1 .' in %2
-    call :handlefail
-    exit /b 1
-  )
-  endlocal
+if errorlevel 1 (
+  echo Failed to build projects.
+  echo After fixing, run 'cmake --build --config %1 .' in %2
+  call :handlefail
+  exit /b 1
 )
+endlocal
 exit /b 0
+
 
 :buildvs_x86dir
 rem Build with the VS tools in the x86 program files directory, maxcpucount makes this goes much faster.
@@ -306,6 +368,12 @@ if NOT "%ERRORLEVEL%"=="0" (
 )
 endlocal
 exit /b 0
+
+:verify-tblgen
+if exist %1\clang-tblgen.exe (
+  if exist %1\llvm-tblgen.exe exit /b 0
+)
+exit /b 1
 
 :handlefail
 cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hctspeak.js /say:"build failed"

@@ -449,6 +449,24 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
         CGM.getContext().getTypeAlign(BT), llvm::dwarf::DW_ATE_unsigned);
   case BuiltinType::OCLEvent:
     return getOrCreateStructPtrType("opencl_event_t", OCLEventDITy);
+#else
+  case BuiltinType::ObjCClass:
+  case BuiltinType::ObjCId:
+  case BuiltinType::ObjCSel:
+  case BuiltinType::OCLImage1d:
+  case BuiltinType::OCLImage1dArray:
+  case BuiltinType::OCLImage1dBuffer:
+  case BuiltinType::OCLImage2d:
+  case BuiltinType::OCLImage2dArray:
+  case BuiltinType::OCLImage3d:
+  case BuiltinType::OCLSampler:
+  case BuiltinType::OCLEvent:
+    llvm_unreachable("No ObjC or OpenCL support");
+  case BuiltinType::Min12Int:
+  case BuiltinType::LitInt:
+  case BuiltinType::Min10Float:
+  case BuiltinType::LitFloat:
+    llvm_unreachable("Unsupported HLSL types");
 #endif // HLSL Change - no ObjC or OpenCL support
 
   case BuiltinType::UChar:
@@ -1571,7 +1589,6 @@ llvm::DIType *CGDebugInfo::CreateType(const ObjCObjectType *Ty,
   // Ignore protocols.
   return getOrCreateType(Ty->getBaseType(), Unit);
 }
-#endif // HLSL Change - no ObjC support
 
 /// \return true if Getter has the default name for the property PD.
 static bool hasDefaultGetterName(const ObjCPropertyDecl *PD,
@@ -1597,7 +1614,6 @@ static bool hasDefaultSetterName(const ObjCPropertyDecl *PD,
          Setter->getDeclName().getObjCSelector().getNameForSlot(0);
 }
 
-#if 0 // HLSL Change - no ObjC support
 llvm::DIType *CGDebugInfo::CreateType(const ObjCInterfaceType *Ty,
                                       llvm::DIFile *Unit) {
   ObjCInterfaceDecl *ID = Ty->getDecl();
@@ -2135,6 +2151,11 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
     return CreateType(cast<ObjCObjectType>(Ty), Unit);
   case Type::ObjCInterface:
     return CreateType(cast<ObjCInterfaceType>(Ty), Unit);
+#else
+  case Type::ObjCObjectPointer:
+  case Type::ObjCObject:
+  case Type::ObjCInterface:
+    llvm_unreachable("No ObjC Support");
 #endif // HLSL Change - no ObjC support
   case Type::Builtin:
     return CreateType(cast<BuiltinType>(Ty));
@@ -2150,6 +2171,9 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
 #if 0 // HLSL Change - no block support
   case Type::BlockPointer:
     return CreateType(cast<BlockPointerType>(Ty), Unit);
+#else
+  case Type::BlockPointer:
+    llvm_unreachable("No Block Support");
 #endif // HLSL Change - no block support
   case Type::Typedef:
     return CreateType(cast<TypedefType>(Ty), Unit);
@@ -2977,6 +3001,7 @@ void CGDebugInfo::EmitDeclareOfArgVariable(const VarDecl *VD, llvm::Value *AI,
   EmitDeclare(VD, llvm::dwarf::DW_TAG_arg_variable, AI, ArgNo, Builder);
 }
 
+#if 0 // HLSL Change - no block support
 namespace {
 struct BlockLayoutChunk {
   uint64_t OffsetInBits;
@@ -2987,7 +3012,6 @@ bool operator<(const BlockLayoutChunk &l, const BlockLayoutChunk &r) {
 }
 }
 
-#if 0 // HLSL Change - no block support
 void CGDebugInfo::EmitDeclareOfBlockLiteralArgVariable(const CGBlockInfo &block,
                                                        llvm::Value *Arg,
                                                        unsigned ArgNo,

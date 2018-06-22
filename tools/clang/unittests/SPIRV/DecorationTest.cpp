@@ -88,7 +88,7 @@ TEST(Decoration, RowMajor) {
   SPIRVContext ctx;
   const Decoration *rowMajor = Decoration::getRowMajor(ctx, 2);
   EXPECT_EQ(rowMajor->getValue(), spv::Decoration::RowMajor);
-  EXPECT_EQ(rowMajor->getMemberIndex().getValue(), 2);
+  EXPECT_EQ(rowMajor->getMemberIndex().getValue(), 2U);
   EXPECT_TRUE(rowMajor->getArgs().empty());
 }
 
@@ -96,7 +96,7 @@ TEST(Decoration, ColMajor) {
   SPIRVContext ctx;
   const Decoration *colMajor = Decoration::getColMajor(ctx, 2);
   EXPECT_EQ(colMajor->getValue(), spv::Decoration::ColMajor);
-  EXPECT_EQ(colMajor->getMemberIndex().getValue(), 2);
+  EXPECT_EQ(colMajor->getMemberIndex().getValue(), 2U);
   EXPECT_TRUE(colMajor->getArgs().empty());
 }
 
@@ -112,7 +112,7 @@ TEST(Decoration, MatrixStride) {
   SPIRVContext ctx;
   const Decoration *matStride = Decoration::getMatrixStride(ctx, 4, 7);
   EXPECT_EQ(matStride->getValue(), spv::Decoration::MatrixStride);
-  EXPECT_EQ(matStride->getMemberIndex().getValue(), 7);
+  EXPECT_EQ(matStride->getMemberIndex().getValue(), 7U);
   EXPECT_THAT(matStride->getArgs(), ElementsAre(4));
 }
 
@@ -155,7 +155,7 @@ TEST(Decoration, BuiltInAppliedToMember) {
   const Decoration *dec =
       Decoration::getBuiltIn(ctx, spv::BuiltIn::Position, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::BuiltIn);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_THAT(dec->getArgs(),
               ElementsAre(static_cast<uint32_t>(spv::BuiltIn::Position)));
 }
@@ -172,7 +172,7 @@ TEST(Decoration, NoPerspectiveAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getNoPerspective(ctx, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::NoPerspective);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_TRUE(dec->getArgs().empty());
 }
 TEST(Decoration, Flat) {
@@ -187,7 +187,7 @@ TEST(Decoration, FlatAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getFlat(ctx, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Flat);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_TRUE(dec->getArgs().empty());
 }
 
@@ -203,7 +203,7 @@ TEST(Decoration, PatchAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getPatch(ctx, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Patch);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_TRUE(dec->getArgs().empty());
 }
 TEST(Decoration, Centroid) {
@@ -218,7 +218,7 @@ TEST(Decoration, CentroidAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getCentroid(ctx, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Centroid);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_TRUE(dec->getArgs().empty());
 }
 
@@ -234,7 +234,7 @@ TEST(Decoration, SampleAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getSample(ctx, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Sample);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_TRUE(dec->getArgs().empty());
 }
 
@@ -274,7 +274,7 @@ TEST(Decoration, VolatileAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getVolatile(ctx, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Volatile);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_TRUE(dec->getArgs().empty());
 }
 
@@ -298,7 +298,7 @@ TEST(Decoration, CoherentAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getCoherent(ctx, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Coherent);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_TRUE(dec->getArgs().empty());
 }
 TEST(Decoration, NonWritable) {
@@ -313,7 +313,7 @@ TEST(Decoration, NonWritableAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getNonWritable(ctx, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::NonWritable);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_TRUE(dec->getArgs().empty());
 }
 
@@ -329,7 +329,7 @@ TEST(Decoration, NonReadableAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getNonReadable(ctx, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::NonReadable);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_TRUE(dec->getArgs().empty());
 }
 
@@ -345,7 +345,7 @@ TEST(Decoration, UniformAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getUniform(ctx, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Uniform);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_TRUE(dec->getArgs().empty());
 }
 
@@ -369,7 +369,7 @@ TEST(Decoration, StreamAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getStream(ctx, 7, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Stream);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_THAT(dec->getArgs(), ElementsAre(7));
 }
 
@@ -385,7 +385,7 @@ TEST(Decoration, LocationAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getLocation(ctx, 7, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Location);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_THAT(dec->getArgs(), ElementsAre(7));
 }
 
@@ -401,7 +401,7 @@ TEST(Decoration, ComponentAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getComponent(ctx, 7, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Component);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_THAT(dec->getArgs(), ElementsAre(7));
 }
 
@@ -433,7 +433,7 @@ TEST(Decoration, Offset) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getOffset(ctx, 3, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::Offset);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_THAT(dec->getArgs(), ElementsAre(3));
 }
 
@@ -449,7 +449,7 @@ TEST(Decoration, XfbBufferAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getXfbBuffer(ctx, 7, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::XfbBuffer);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_THAT(dec->getArgs(), ElementsAre(7));
 }
 
@@ -465,7 +465,7 @@ TEST(Decoration, XfbStrideAppliedToMember) {
   SPIRVContext ctx;
   const Decoration *dec = Decoration::getXfbStride(ctx, 7, 3);
   EXPECT_EQ(dec->getValue(), spv::Decoration::XfbStride);
-  EXPECT_EQ(dec->getMemberIndex().getValue(), 3);
+  EXPECT_EQ(dec->getMemberIndex().getValue(), 3U);
   EXPECT_THAT(dec->getArgs(), ElementsAre(7));
 }
 

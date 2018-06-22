@@ -23,4 +23,4 @@ void CheckLLVMErrorCode(const std::error_code &ec) {
   }
 }
 
-static_assert(DXC_E_OVERLAPPING_SEMANTICS == 0x80AA0001, "Sanity check for DXC errors failed");
+static_assert(unsigned(DXC_E_OVERLAPPING_SEMANTICS) == 0x80AA0001, "Sanity check for DXC errors failed");

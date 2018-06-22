@@ -3486,6 +3486,17 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     llvm::Value *GEP = Builder.CreateInBoundsGEP(This, IdxList);
     return MakeAddrLValue(GEP, ToType);
   }
+  case CK_HLSLMatrixSplat:
+  case CK_HLSLMatrixToScalarCast:
+  case CK_HLSLMatrixTruncationCast:
+  case CK_HLSLMatrixToVectorCast:
+    // Matrices should be handled above.
+  case CK_HLSLVectorToMatrixCast:
+  case CK_HLSLCC_IntegralCast:
+  case CK_HLSLCC_IntegralToBoolean:
+  case CK_HLSLCC_FloatingToBoolean:
+  case CK_HLSLCC_FloatingCast:
+    llvm_unreachable("Unhandled HLSL lvalue cast");
   // HLSL Change Ends
   case CK_ZeroToOCLEvent:
     llvm_unreachable("NULL to OpenCL event lvalue cast is not valid");

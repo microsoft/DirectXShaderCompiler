@@ -18,7 +18,7 @@
 namespace llvm {
 class Value;
 class Constant;
-};
+}
 
 
 namespace hlsl {

@@ -513,6 +513,7 @@ powerOf5(integerPart *dst, unsigned int power)
   return result;
 }
 
+#if 0 // HLSL Change
 /* Zero at the end to avoid modular arithmetic when adding one; used
    when rounding up during hexadecimal output.  */
 static const char hexDigitsLower[] = "0123456789abcdef0";
@@ -572,6 +573,7 @@ writeSignedDecimal(_Out_writes_(11) char *dst, int value) // HLSL Change: '-2147
 
   return dst;
 }
+#endif // HLSL Change
 
 /* Constructors.  */
 void

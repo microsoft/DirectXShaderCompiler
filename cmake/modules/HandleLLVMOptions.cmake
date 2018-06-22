@@ -336,6 +336,7 @@ if( MSVC )
   # also enable Reference optimization, ie dead function elimination.
   append("/Zi" CMAKE_CXX_FLAGS_RELEASE)
   append("/DEBUG /OPT:REF" CMAKE_SHARED_LINKER_FLAGS_RELEASE)
+  append("/DEBUG /OPT:REF" CMAKE_EXE_LINKER_FLAGS_RELEASE)
 
   # HLSL Changes End
 
@@ -371,6 +372,15 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
     append("-Wall -W -Wno-unused-parameter -Wwrite-strings" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     append("-Wcast-qual" CMAKE_CXX_FLAGS)
 
+    # Disable unknown pragma warnings because the output is just too long with them.
+    append("-Wno-unknown-pragmas" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+
+    # Colorize GCC output even with ninja's stdout redirection.
+    if (CMAKE_COMPILER_IS_GNUCXX)
+       append("-fdiagnostics-color" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+       append("-std=c++11" CMAKE_CXX_FLAGS)
+    endif (CMAKE_COMPILER_IS_GNUCXX)
+
     # Turn off missing field initializer warnings for gcc to avoid noise from
     # false positives with empty {}. Turn them on otherwise (they're off by
     # default for clang).
@@ -384,7 +394,7 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
     endif()
 
     append_if(LLVM_ENABLE_PEDANTIC "-pedantic -Wno-long-long" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-    add_flag_if_supported("-Wcovered-switch-default" COVERED_SWITCH_DEFAULT_FLAG)
+    # add_flag_if_supported("-Wcovered-switch-default" COVERED_SWITCH_DEFAULT_FLAG) # HLSL Change
     append_if(USE_NO_UNINITIALIZED "-Wno-uninitialized" CMAKE_CXX_FLAGS)
     append_if(USE_NO_MAYBE_UNINITIALIZED "-Wno-maybe-uninitialized" CMAKE_CXX_FLAGS)
 

@@ -404,9 +404,29 @@ public:
   void decorateHlslSemantic(uint32_t targetId, llvm::StringRef semantic,
                             llvm::Optional<uint32_t> memberIdx = llvm::None);
 
-  /// \brief Decorates the given target <result-id> with the given decoration
-  /// (without additional parameters).
-  void decorate(uint32_t targetId, spv::Decoration);
+  /// \brief Decorates the given target <result-id> with centroid
+  void decorateCentroid(uint32_t targetId);
+
+  /// \brief Decorates the given target <result-id> with flat
+  void decorateFlat(uint32_t targetId);
+
+  /// \brief Decorates the given target <result-id> with noperspective
+  void decorateNoPerspective(uint32_t targetId);
+
+  /// \brief Decorates the given target <result-id> with sample
+  void decorateSample(uint32_t targetId);
+
+  /// \brief Decorates the given target <result-id> with block
+  void decorateBlock(uint32_t targetId);
+
+  /// \brief Decorates the given target <result-id> with relaxedprecision
+  void decorateRelaxedPrecision(uint32_t targetId);
+
+  /// \brief Decorates the given target <result-id> with patch
+  void decoratePatch(uint32_t targetId);
+
+  /// \brief Decorates the given target <result-id> with nonuniformEXT
+  void decorateNonUniformEXT(uint32_t targetId);
 
   // === Type ===
 

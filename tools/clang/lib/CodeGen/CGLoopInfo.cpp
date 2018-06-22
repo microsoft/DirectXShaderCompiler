@@ -90,8 +90,8 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs) {
 
 LoopAttributes::LoopAttributes(bool IsParallel)
     : IsParallel(IsParallel), VectorizerEnable(LoopAttributes::VecUnspecified),
-      HlslLoop(false), HlslUnrollCount(0), // HLSL Change
-      VectorizerWidth(0), VectorizerUnroll(0) {}
+      VectorizerWidth(0), VectorizerUnroll(0),
+      HlslLoop(false), HlslUnrollCount(0) {} // HLSL Change
 
 void LoopAttributes::clear() {
   IsParallel = false;
@@ -112,7 +112,7 @@ void LoopInfoStack::push(BasicBlock *Header,
   for (const auto *Attr : Attrs) {
     const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(Attr);
     // HLSL Change Begins
-    if (const HLSLLoopAttr *LoopAttr = dyn_cast<HLSLLoopAttr>(Attr)) {
+    if (dyn_cast<HLSLLoopAttr>(Attr)) {
       setHlslLoop(true);
     } else if (const HLSLUnrollAttr *UnrollAttr =
                    dyn_cast<HLSLUnrollAttr>(Attr)) {

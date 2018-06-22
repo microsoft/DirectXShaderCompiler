@@ -14,6 +14,7 @@
 #ifndef LLVM_SUPPORT_MATHEXTRAS_H
 #define LLVM_SUPPORT_MATHEXTRAS_H
 
+#include "dxc/Support/WinAdapter.h" // HLSL Change
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/SwapByteOrder.h"
 #include <cassert>

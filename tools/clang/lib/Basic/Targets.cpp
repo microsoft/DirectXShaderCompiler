@@ -36,6 +36,7 @@ using namespace clang;
 //  Common code shared among targets.
 //===----------------------------------------------------------------------===//
 
+#if 0 // HLSL Change Starts - remove unsupported targets
 /// DefineStd - Define a macro name and standard variants.  For example if
 /// MacroName is "unix", then this will define "__unix", "__unix__", and "unix"
 /// when in GNU mode.
@@ -62,6 +63,7 @@ static void defineCPUMacros(MacroBuilder &Builder, StringRef CPUName,
   if (Tuning)
     Builder.defineMacro("__tune_" + CPUName + "__");
 }
+#endif // HLSL Change Ends - remove unsupported targets
 
 //===----------------------------------------------------------------------===//
 // Defines specific to certain operating systems.

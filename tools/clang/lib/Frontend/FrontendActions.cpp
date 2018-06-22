@@ -728,12 +728,13 @@ void HLSLRootSignatureAction::ExecuteAction() {
   }
   else {
     assert(rootSigMinor == 1 &&
-      "else CGMSHLSLRuntime Constructor needs to be updated");
+      "else HLSLRootSignatureAction Constructor needs to be updated");
     rootSigVer = hlsl::DxilRootSignatureVersion::Version_1_1;
   }
 
   assert(rootSigMajor == 1 &&
-           "else CGMSHLSLRuntime Constructor needs to be updated");
+           "else HLSLRootSignatureAction Constructor needs to be updated");
+  (void)rootSigMajor;
 
   // Try to find HLSLRootSignatureMacro in macros.
   MacroInfo *rootSigMacro = hlsl::MacroExpander::FindMacroInfo(PP, HLSLRootSignatureMacro);
@@ -785,6 +786,7 @@ void PrintPreambleAction::ExecuteAction() {
   case IK_PreprocessedObjCXX:
   case IK_AST:
   case IK_LLVM_IR:
+  case IK_HLSL: // HLSL Change
     // We can't do anything with these.
     return;
   }
