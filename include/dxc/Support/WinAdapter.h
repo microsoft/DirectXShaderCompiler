@@ -740,7 +740,7 @@ public:
   // Allocate a buffer with the given number of bytes
   bool AllocateBytes(size_t nBytes) throw() {
     assert(m_pData == NULL);
-    m_pData = static_cast<T *>(malloc(nBytes * sizeof(char)));
+    m_pData = static_cast<T *>(Allocator::Allocate(nBytes * sizeof(char)));
     if (m_pData == NULL)
       return false;
 
@@ -749,7 +749,7 @@ public:
 
   // Attach to an existing pointer (takes ownership)
   void Attach(T *pData) throw() {
-    free(m_pData);
+    Allocator::Free(m_pData);
     m_pData = pData;
   }
 
@@ -762,14 +762,15 @@ public:
 
   // Free the memory pointed to, and set the pointer to NULL
   void Free() throw() {
-    free(m_pData);
+    Allocator::Free(m_pData);
     m_pData = NULL;
   }
 
   // Reallocate the buffer to hold a given number of bytes
   bool ReallocateBytes(size_t nBytes) throw() {
     T *pNew;
-    pNew = static_cast<T *>(realloc(m_pData, nBytes * sizeof(char)));
+    pNew =
+        static_cast<T *>(Allocator::Reallocate(m_pData, nBytes * sizeof(char)));
     if (pNew == NULL)
       return false;
     m_pData = pNew;

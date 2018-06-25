@@ -24,11 +24,11 @@ ULONG IUnknown::AddRef() {
   return m_count;
 }
 ULONG IUnknown::Release() {
-  --m_count;
+  ULONG result = --m_count;
   if (m_count == 0) {
     delete this;
   }
-  return m_count;
+  return result;
 }
 IUnknown::~IUnknown() {}
 
