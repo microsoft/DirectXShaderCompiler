@@ -569,6 +569,62 @@ spv::Capability getNonUniformCapability(QualType type) {
   return Capability::Max;
 }
 
+/// A class for converting a vector into a struct for supporting resource
+/// templating over struct types.
+class VectorToStructConverter {
+public:
+  VectorToStructConverter(ModuleBuilder &b, TypeTranslator &tr)
+      : theBuilder(b), translator(tr) {}
+
+  uint32_t extractScalar(uint32_t fromVal, uint32_t targetTypeId) {
+    return theBuilder.createCompositeExtract(targetTypeId, fromVal,
+                                             {vectorIndex++});
+  }
+
+  uint32_t extractVector(uint32_t fromVal, uint32_t elemTypeId,
+                         uint32_t elemCount) {
+    llvm::SmallVector<uint32_t, 4> indices;
+    for (uint32_t i = 0; i < elemCount; ++i) {
+      indices.push_back(vectorIndex++);
+    }
+
+    const uint32_t type = theBuilder.getVecType(elemTypeId, elemCount);
+    return theBuilder.createVectorShuffle(type, fromVal, fromVal, indices);
+  }
+
+  /// Converts a vector value into the given struct type with its element type's
+  /// <result-id> as elemTypeId.
+  ///
+  /// Assumes the vector and the struct have matching number of elements.
+  uint32_t convert(QualType structType, uint32_t elemTypeId, uint32_t vector) {
+    assert(structType->isStructureType());
+
+    vectorIndex = 0;
+    uint32_t elemCount = 1;
+    llvm::SmallVector<uint32_t, 4> members;
+
+    for (const auto *field :
+         structType->getAsStructureType()->getDecl()->fields()) {
+      if (TypeTranslator::isScalarType(field->getType())) {
+        members.push_back(extractScalar(vector, elemTypeId));
+      } else if (TypeTranslator::isVectorType(field->getType(), nullptr,
+                                              &elemCount)) {
+        members.push_back(extractVector(vector, elemTypeId, elemCount));
+      } else {
+        assert(false && "unhandled type");
+      }
+    }
+
+    return theBuilder.createCompositeConstruct(
+        translator.translateType(structType), members);
+  }
+
+private:
+  ModuleBuilder &theBuilder;
+  TypeTranslator &translator;
+  uint32_t vectorIndex;
+};
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
@@ -3148,7 +3204,20 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
   QualType elemType = sampledType;
   uint32_t elemCount = 1;
   uint32_t elemTypeId = 0;
-  (void)TypeTranslator::isVectorType(sampledType, &elemType, &elemCount);
+  bool isTemplateOverStruct = false;
+
+  // Check whether the template type is a vector type or struct type.
+  if (!TypeTranslator::isVectorType(sampledType, &elemType, &elemCount)) {
+    if (sampledType->getAsStructureType()) {
+      isTemplateOverStruct = true;
+      // For struct type, we need to make sure it can fit into a 4-component
+      // vector.
+      if (!typeTranslator.canFitInto4ElementVector(sampledType, &elemType,
+                                                   &elemCount))
+        return 0;
+    }
+  }
+
   if (elemType->isFloatingType()) {
     elemTypeId = theBuilder.getFloat32Type();
   } else if (elemType->isSignedIntegerType()) {
@@ -3156,7 +3225,7 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
   } else if (elemType->isUnsignedIntegerType()) {
     elemTypeId = theBuilder.getUint32Type();
   } else {
-    emitError("buffer/texture type unimplemented", object->getExprLoc());
+    emitError("loading %0 value unimplemented", object->getExprLoc()) << type;
     return 0;
   }
 
@@ -3169,6 +3238,11 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
   // If the result type is a vec1, vec2, or vec3, some extra processing
   // (extraction) is required.
   uint32_t retVal = extractVecFromVec4(texel, elemCount, elemTypeId);
+  if (isTemplateOverStruct) {
+    // Convert to the struct so that we are consistent with types in the AST.
+    retVal = VectorToStructConverter(theBuilder, typeTranslator)
+                 .convert(sampledType, elemTypeId, retVal);
+  }
   return SpirvEvalInfo(retVal).setRValue();
 }
 
@@ -5630,7 +5704,7 @@ SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
       const auto result = tryToAssignToRWBufferRWTexture(base, newVec);
       assert(result); // Definitely RWBuffer/RWTexture assignment
       (void)result;
-      return rhs;     // TODO: incorrect for compound assignments
+      return rhs; // TODO: incorrect for compound assignments
     } else {
       // Assigning to one normal vector component. Nothing special, just fall
       // back to the normal CodeGen path.

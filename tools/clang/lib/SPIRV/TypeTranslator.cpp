@@ -1045,7 +1045,8 @@ bool TypeTranslator::isOrContainsNonFpColMajorMatrix(QualType type,
                                                      const Decl *decl) const {
   const auto isColMajorDecl = [this](const Decl *decl) {
     return decl->hasAttr<HLSLColumnMajorAttr>() ||
-           (!decl->hasAttr<HLSLRowMajorAttr>() && !spirvOptions.defaultRowMajor);
+           (!decl->hasAttr<HLSLRowMajorAttr>() &&
+            !spirvOptions.defaultRowMajor);
   };
 
   QualType elemType = {};
@@ -1190,11 +1191,12 @@ bool TypeTranslator::isSameType(QualType type1, QualType type2) {
 QualType TypeTranslator::getElementType(QualType type) {
   QualType elemType = {};
   if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
-      isMxNMatrix(type, &elemType)) {
+      isMxNMatrix(type, &elemType) ||
+      canFitInto4ElementVector(type, &elemType)) {
   } else if (const auto *arrType = astContext.getAsConstantArrayType(type)) {
     elemType = arrType->getElementType();
   } else {
-    assert(false && "unhandled type");
+    emitError("unsupported type for resource template instantiation");
   }
   return elemType;
 }
@@ -1533,6 +1535,10 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   if (name == "Buffer" || name == "RWBuffer") {
     theBuilder.requireCapability(spv::Capability::SampledBuffer);
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+    if (sampledType->isStructureType() && name.startswith("RW")) {
+      emitError("RWBuffer over struct type %0 unsupported") << type;
+      return 0;
+    }
     const auto format = translateSampledTypeToImageFormat(sampledType);
     return theBuilder.getImageType(
         translateType(getElementType(sampledType)), spv::Dim::Buffer,
@@ -1578,7 +1584,8 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
   uint32_t elemCount = 1;
   QualType ty = {};
   if (isScalarType(sampledType, &ty) ||
-      isVectorType(sampledType, &ty, &elemCount)) {
+      isVectorType(sampledType, &ty, &elemCount) ||
+      canFitInto4ElementVector(sampledType, &ty, &elemCount)) {
     if (const auto *builtinType = ty->getAs<BuiltinType>()) {
       switch (builtinType->getKind()) {
       case BuiltinType::Int:
@@ -1601,6 +1608,46 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
   }
   emitError("resource type %0 unimplemented") << sampledType.getAsString();
   return spv::ImageFormat::Unknown;
+}
+
+bool TypeTranslator::canFitInto4ElementVector(QualType structType,
+                                              QualType *elemType,
+                                              uint32_t *elemCount) {
+  if (structType->getAsStructureType() == nullptr)
+    return false;
+
+  const auto *structDecl = structType->getAsStructureType()->getDecl();
+  QualType firstElemType;
+  uint32_t totalCount = 0;
+
+  for (const auto *field : structDecl->fields()) {
+    QualType type;
+    uint32_t count = 1;
+
+    if (isScalarType(field->getType(), &type) ||
+        isVectorType(field->getType(), &type, &count)) {
+      if (firstElemType.isNull()) {
+        firstElemType = type;
+      } else {
+        if (!canTreatAsSameScalarType(firstElemType, type)) {
+          emitError("all struct members should have the same element type for "
+                    "resource template instantiation");
+          return false;
+        }
+      }
+      totalCount += count;
+    } else {
+      emitError("unsupported struct element type for resource template "
+                "instantiation");
+      return false;
+    }
+  }
+
+  if (elemType)
+    *elemType = firstElemType;
+  if (elemCount)
+    *elemCount = totalCount;
+  return true;
 }
 
 void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
