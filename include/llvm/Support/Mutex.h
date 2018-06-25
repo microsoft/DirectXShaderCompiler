@@ -71,10 +71,10 @@ namespace llvm
     /// @{
     private:
 #if defined(LLVM_ENABLE_THREADS) && LLVM_ENABLE_THREADS != 0
-#if 0 // HLSL Change
-      void* data_; ///< We don't know what the data will be
-#else
+#if LLVM_ON_WIN32 // HLSL Change
       char data_[sizeof(void*) == 8 ? 40 : 24]; // C_ASSERT this is CRITICAL_SECTION-sized
+#else
+      void* data_; ///< We don't know what the data will be
 #endif // HLSL Change
 #endif
 
