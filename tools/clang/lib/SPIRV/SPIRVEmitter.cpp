@@ -6663,6 +6663,13 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   const uint32_t scope = theBuilder.getConstantUint32(1); // Device
   const auto *dest = expr->getArg(0);
   const auto baseType = dest->getType();
+
+  if (!baseType->isIntegerType()) {
+    emitError("can only perform atomic operations on scalar integer values",
+              dest->getLocStart());
+    return 0;
+  }
+
   const uint32_t baseTypeId = typeTranslator.translateType(baseType);
 
   const auto doArg = [baseType, this](const CallExpr *callExpr,
