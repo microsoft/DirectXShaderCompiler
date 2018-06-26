@@ -41,6 +41,9 @@
 #define C_ASSERT(expr) static_assert((expr), "")
 #define ATLASSERT assert
 
+#define CoTaskMemAlloc malloc
+#define CoTaskMemFree free
+
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
@@ -101,6 +104,7 @@
 #define ERROR_FILE_NOT_FOUND ENOENT
 #define ERROR_IO_DEVICE EIO
 #define ERROR_INVALID_HANDLE EBADF
+#define ERROR_ARITHMETIC_OVERFLOW EOVERFLOW
 
 // Used by HRESULT <--> WIN32 error code conversion
 #define SEVERITY_ERROR 1
