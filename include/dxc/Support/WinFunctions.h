@@ -22,6 +22,7 @@
 HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...);
 HRESULT UIntAdd(UINT uAugend, UINT uAddend, UINT *puResult);
 HRESULT IntToUInt(int in, UINT *out);
+HRESULT SizeTToInt(size_t in, INT *out);
 HRESULT UInt32Mult(UINT a, UINT b, UINT *out);
 int _stricmp(const char *str1, const char *str2);
 HRESULT CoGetMalloc(DWORD dwMemContext, IMalloc **ppMalloc);

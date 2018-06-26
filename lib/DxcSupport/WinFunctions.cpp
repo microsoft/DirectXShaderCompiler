@@ -40,7 +40,7 @@ HRESULT UIntAdd(UINT uAugend, UINT uAddend, UINT *puResult) {
     hr = S_OK;
   } else {
     *puResult = 0xffffffff;
-    hr = (HRESULT)1L;
+    hr = ERROR_ARITHMETIC_OVERFLOW;
   }
   return hr;
 }
@@ -51,14 +51,26 @@ HRESULT IntToUInt(int in, UINT *out) {
     hr = S_OK;
   } else {
     *out = 0xffffffff;
-    hr = (HRESULT)1L;
+    hr = ERROR_ARITHMETIC_OVERFLOW;
+  }
+  return hr;
+}
+HRESULT SizeTToInt(size_t in, int *out) {
+  HRESULT hr;
+  if(in <= INT_MAX) {
+    *out = (int)in;
+    hr = S_OK;
+  }
+  else {
+    *out = 0xffffffff;
+    hr = ERROR_ARITHMETIC_OVERFLOW;
   }
   return hr;
 }
 HRESULT UInt32Mult(UINT a, UINT b, UINT *out) {
   uint64_t result = (uint64_t)a * (uint64_t)b;
   if (result > uint64_t(UINT_MAX))
-    return (HRESULT)1L;
+    return ERROR_ARITHMETIC_OVERFLOW;
 
   *out = (uint32_t)result;
   return S_OK;
