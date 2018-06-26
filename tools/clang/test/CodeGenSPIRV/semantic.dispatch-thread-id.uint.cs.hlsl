@@ -8,5 +8,9 @@
 // CHECK: [[uint_DispatchThreadID:%\d+]] = OpCompositeExtract %uint [[gl_GlobalInvocationID]] 0
 // CHECK:                                  OpStore %param_var_tid [[uint_DispatchThreadID]]
 
-[numthreads(8, 8, 8)]
-void main(uint tid : SV_DispatchThreadId) {}
+RWBuffer<uint> MyBuffer;
+
+[numthreads(1, 1, 1)]
+void main(uint tid : SV_DispatchThreadId) {
+    MyBuffer[0] = tid;
+}

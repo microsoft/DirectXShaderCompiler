@@ -45,6 +45,6 @@ HS_CONSTANT_DATA_OUTPUT PCF(uint PatchID : SV_PrimitiveID) {
 BEZIER_CONTROL_POINT main(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip, uint i : SV_OutputControlPointID, uint PatchID : SV_PrimitiveID) {
   VS_CONTROL_POINT_OUTPUT vsOutput;
   BEZIER_CONTROL_POINT result;
-  result.vPosition = vsOutput.vPosition;
+  result.vPosition = vsOutput.vPosition + PatchID;
   return result;
 }

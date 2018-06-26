@@ -9,5 +9,9 @@
 // CHECK:   [[int2_GroupThreadID:%\d+]] = OpVectorShuffle %v2int [[gl_LocalInvocationID]] [[gl_LocalInvocationID]] 0 1
 // CHECK:                                 OpStore %param_var_gtid [[int2_GroupThreadID]]
 
-[numthreads(8, 8, 8)]
-void main(int2 gtid : SV_GroupThreadID) {}
+RWBuffer<int2> MyBuffer;
+
+[numthreads(1, 1, 1)]
+void main(int2 gtid : SV_GroupThreadID) {
+    MyBuffer[0] = gtid;
+}

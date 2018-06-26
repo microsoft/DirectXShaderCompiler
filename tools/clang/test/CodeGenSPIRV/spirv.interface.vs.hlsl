@@ -83,9 +83,8 @@ float main(out VSOut  vsOut,
     culldis5 = 3.;
     culldis3 = 4.;
     culldis6 = 5.;
-    inPos    = 6.;
 
-    return 7.;
+    return inPos.x + inClip.x + inCull.x;
 
 // Layout of ClipDistance array:
 //   clipdis0: 3 floats, offset 0

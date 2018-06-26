@@ -42,5 +42,6 @@ DS_OUTPUT BezierEvalDS( HS_CONSTANT_DATA_OUTPUT input,
                         const OutputPatch<BEZIER_CONTROL_POINT, 16> bezpatch )
 {
   DS_OUTPUT Output;
+  Output.vPosition = float4(UV, UV);
   return Output;
 }

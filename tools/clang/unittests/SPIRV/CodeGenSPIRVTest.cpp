@@ -1188,6 +1188,9 @@ TEST_F(FileTest, SpirvEntryFunctionWrapper) {
 TEST_F(FileTest, SpirvEntryFunctionInOut) {
   runFileTest("spirv.entry-function.inout.hlsl");
 }
+TEST_F(FileTest, SpirvEntryFunctionUnusedParameter) {
+  runFileTest("spirv.entry-function.unused-param.hlsl");
+}
 
 TEST_F(FileTest, SpirvBuiltInHelperInvocation) {
   runFileTest("spirv.builtin.helper-invocation.hlsl");

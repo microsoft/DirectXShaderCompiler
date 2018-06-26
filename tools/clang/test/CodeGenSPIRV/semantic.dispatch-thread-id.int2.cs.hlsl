@@ -9,5 +9,9 @@
 // CHECK:  [[int2_DispatchThreadID:%\d+]] = OpVectorShuffle %v2int [[gl_GlobalInvocationID]] [[gl_GlobalInvocationID]] 0 1
 // CHECK:                                   OpStore %param_var_tid [[int2_DispatchThreadID]]
 
-[numthreads(8, 8, 8)]
-void main(int2 tid : SV_DispatchThreadId) {}
+RWBuffer<int2> MyBuffer;
+
+[numthreads(1, 1, 1)]
+void main(int2 tid : SV_DispatchThreadId) {
+    MyBuffer[0] = tid;
+}

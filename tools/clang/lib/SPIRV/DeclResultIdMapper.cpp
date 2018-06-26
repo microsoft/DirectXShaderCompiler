@@ -214,13 +214,17 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
 
   SemanticInfo inheritSemantic = {};
 
+  // If storedValue is 0, it means this parameter in the original source code is
+  // not used at all. Avoid writing back.
+  //
+  // Write back of stage output variables in GS is manually controlled by
+  // .Append() intrinsic method, implemented in writeBackOutputStream(). So
+  // ignoreValue should be set to true for GS.
+  const bool noWriteBack = storedValue == 0 || shaderModel.IsGS();
+
   return createStageVars(sigPoint, decl, /*asInput=*/false, type,
                          /*arraySize=*/0, "out.var", llvm::None, &storedValue,
-                         // Write back of stage output variables in GS is
-                         // manually controlled by .Append() intrinsic method,
-                         // implemented in writeBackOutputStream(). So
-                         // noWriteBack should be set to true for GS.
-                         shaderModel.IsGS(), &inheritSemantic);
+                         noWriteBack, &inheritSemantic);
 }
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
