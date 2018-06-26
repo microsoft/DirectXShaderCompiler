@@ -3156,7 +3156,7 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
   } else if (elemType->isUnsignedIntegerType()) {
     elemTypeId = theBuilder.getUint32Type();
   } else {
-    emitError("buffer/texture type unimplemented", object->getExprLoc());
+    emitError("loading %0 value unsupported", object->getExprLoc()) << type;
     return 0;
   }
 

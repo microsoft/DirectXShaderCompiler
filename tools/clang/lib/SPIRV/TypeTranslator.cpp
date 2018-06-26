@@ -1045,7 +1045,8 @@ bool TypeTranslator::isOrContainsNonFpColMajorMatrix(QualType type,
                                                      const Decl *decl) const {
   const auto isColMajorDecl = [this](const Decl *decl) {
     return decl->hasAttr<HLSLColumnMajorAttr>() ||
-           (!decl->hasAttr<HLSLRowMajorAttr>() && !spirvOptions.defaultRowMajor);
+           (!decl->hasAttr<HLSLRowMajorAttr>() &&
+            !spirvOptions.defaultRowMajor);
   };
 
   QualType elemType = {};
@@ -1191,12 +1192,20 @@ QualType TypeTranslator::getElementType(QualType type) {
   QualType elemType = {};
   if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
       isMxNMatrix(type, &elemType)) {
-  } else if (const auto *arrType = astContext.getAsConstantArrayType(type)) {
-    elemType = arrType->getElementType();
-  } else {
-    assert(false && "unhandled type");
+    return elemType;
   }
-  return elemType;
+
+  if (const auto *arrType = astContext.getAsConstantArrayType(type)) {
+    return arrType->getElementType();
+  }
+
+  emitError("unsupported resource type parameter %0") << type;
+  // Note: We are returning the original type instead of a null QualType here
+  // to keep the translation going and avoid hitting asserts trying to query
+  // info from null QualType in other places of the compiler. Although we are
+  // likely generating invalid code here, it should be fine since the error
+  // reported will prevent the CodeGen from actually outputing.
+  return type;
 }
 
 uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
@@ -1533,6 +1542,16 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   if (name == "Buffer" || name == "RWBuffer") {
     theBuilder.requireCapability(spv::Capability::SampledBuffer);
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+    if (sampledType->isStructureType() && name.startswith("RW")) {
+      // Note: actually fxc supports RWBuffer over struct types. However, the
+      // struct member must fit into a 4-component vector and writing to a
+      // RWBuffer element must write all components. This is a feature that are
+      // rarely used by developers. We just emit an error saying not supported
+      // for now.
+      emitError("cannot instantiate RWBuffer with struct type %0")
+          << sampledType;
+      return 0;
+    }
     const auto format = translateSampledTypeToImageFormat(sampledType);
     return theBuilder.getImageType(
         translateType(getElementType(sampledType)), spv::Dim::Buffer,
@@ -1599,7 +1618,9 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
       }
     }
   }
-  emitError("resource type %0 unimplemented") << sampledType.getAsString();
+  emitError(
+      "cannot translate resource type parameter %0 to proper image format")
+      << sampledType;
   return spv::ImageFormat::Unknown;
 }
 
