@@ -14,6 +14,7 @@
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/dxcapi.h"
 
