@@ -34,6 +34,7 @@ namespace clang {
   class FunctionTemplateDecl;
   class InheritableAttr;
   class NamedDecl;
+  class Sema;
   class TypeSourceInfo;
   class TypedefDecl;
 }
