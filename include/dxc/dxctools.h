@@ -47,10 +47,17 @@ IDxcRewriter : public IUnknown {
                                                      _In_ UINT32  rewriteOption,
                                                      _COM_Outptr_ IDxcOperationResult **ppResult) = 0;
 
+  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcRewriter)
 };
 
+#ifdef _MSC_VER
+#define EXTERN extern
+#else
+#define EXTERN
+#endif
+
 __declspec(selectany)
-extern const CLSID CLSID_DxcRewriter = { /* b489b951-e07f-40b3-968d-93e124734da4 */
+EXTERN const CLSID CLSID_DxcRewriter = { /* b489b951-e07f-40b3-968d-93e124734da4 */
   0xb489b951,
   0xe07f,
   0x40b3,
