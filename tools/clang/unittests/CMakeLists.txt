@@ -39,8 +39,8 @@ if (HLSL_INCLUDE_TESTS)
   if (WIN32) # These tests require MS specific TAEF and DIA SDK
     add_subdirectory(HLSL)
     add_subdirectory(HLSLHost)
+    add_subdirectory(dxc_batch)
   endif (WIN32)
-  add_subdirectory(dxc_batch)
 endif (HLSL_INCLUDE_TESTS)
 
 # HLSL Change Ends

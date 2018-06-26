@@ -23,16 +23,19 @@ endif()
 add_llvm_external_project(clang-tools-extra extra)
 
 # HLSL Change Starts
-add_subdirectory(d3dcomp)
 add_subdirectory(dxcompiler)
-add_subdirectory(dxa)
 add_subdirectory(dxc)
+
+# These targets can currently only be built on Windows.
+if (WIN32)
+add_subdirectory(d3dcomp)
+add_subdirectory(dxa)
 add_subdirectory(dxopt)
 add_subdirectory(dxl)
 add_subdirectory(dxr)
 add_subdirectory(dxv)
-if (WIN32) # UI powered by .NET
-  add_subdirectory(dotnetc)
-endif (WIN32)
 add_subdirectory(dxlib-sample)
+# UI powered by .NET.
+add_subdirectory(dotnetc)
+endif (WIN32)
 # HLSL Change Ends
