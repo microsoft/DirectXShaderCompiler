@@ -95,6 +95,7 @@ void main(in      int4  param1: O,
     param3 = param1;
 
     param5 = param4;
+    param5.b = param7 + param8.e;
     param6.c = param4.a;
     param6.d = param4.b;
 }
