@@ -762,8 +762,15 @@ IDxcUnsavedFile : public IUnknown
 // Fun fact: 'extern' is required because const is by default static in C++, so
 // CLSID_DxcIntelliSense is not visible externally (this is OK in C, since const is
 // not by default static in C)
+
+#ifdef _MSC_VER
+#define EXTERN extern
+#else
+#define EXTERN
+#endif
+
 __declspec(selectany)
-extern const CLSID CLSID_DxcIntelliSense = { /* 3047833c-d1c0-4b8e-9d40-102878605985 */
+EXTERN const CLSID CLSID_DxcIntelliSense = { /* 3047833c-d1c0-4b8e-9d40-102878605985 */
     0x3047833c,
     0xd1c0,
     0x4b8e,

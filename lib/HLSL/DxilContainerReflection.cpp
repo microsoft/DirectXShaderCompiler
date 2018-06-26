@@ -28,8 +28,13 @@
 
 #include "dxc/dxcapi.h"
 
+#ifdef LLVM_ON_WIN32
 #include "d3d12shader.h" // for compatibility
 #include "d3d11shader.h" // for compatibility
+#endif
+
+#ifdef LLVM_ON_WIN32
+
 const GUID IID_ID3D11ShaderReflection_43 = {
     0x0a233719,
     0x3960,
@@ -1950,3 +1955,9 @@ UINT64 DxilShaderReflection::GetRequiresFlags() {
   if (features & ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer) result |= D3D_SHADER_REQUIRES_VIEWPORT_AND_RT_ARRAY_INDEX_FROM_ANY_SHADER_FEEDING_RASTERIZER;
   return result;
 }
+
+#else
+void hlsl::CreateDxcContainerReflection(IDxcContainerReflection **ppResult) {
+  *ppResult = nullptr;
+}
+#endif // LLVM_ON_WIN32
