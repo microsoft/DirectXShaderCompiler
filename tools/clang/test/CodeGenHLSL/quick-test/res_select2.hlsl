@@ -1,7 +1,14 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
-// Make sure phi of resource for lib.
-// CHECK: phi %"class.RWBuffer
+// Make sure phi/select of handle in lib.
+// CHECK-DAG: phi %dx.types.Handle
+// CHECK: phi %dx.types.Handle
+// CHECK: select i1 %{{[^,]+}}, %dx.types.Handle
+// CHECK-DAG: phi %dx.types.Handle
+// CHECK: phi %dx.types.Handle
+// CHECK: select i1 %{{[^,]+}}, %dx.types.Handle
+// CHECK-DAG: phi %dx.types.Handle
+// CHECK: phi %dx.types.Handle
 
 RWBuffer<float4> a;
 RWBuffer<float4> b;

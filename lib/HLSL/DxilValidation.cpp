@@ -832,17 +832,36 @@ ValidateSignatureAccess(Instruction *I, DxilSignature &sig, Value *sigID,
   return &SE;
 }
 
+static CallInst *GetHandleFromValue(Value *V, DenseSet<Value *> &Checked);
 static CallInst *GetHandleFromPhi(PHINode *Phi, DenseSet<Value *> &Checked) {
   // TODO: validate all incoming values for phi is same kind and class.
   for (Value *V : Phi->incoming_values()) {
-    if (Checked.count(V))
-      continue;
+    if (CallInst *CI = GetHandleFromValue(V, Checked))
+      return CI;
+  }
+  return nullptr;
+}
+static CallInst *GetHandleFromSelect(SelectInst *Sel, DenseSet<Value *> &Checked) {
+  // TODO: validate all incoming values for select is same kind and class.
+  for (Value *V = Sel->getTrueValue(), *F = Sel->getFalseValue(); V != F; V = F) {
+    if (CallInst *CI = GetHandleFromValue(V, Checked))
+      return CI;
+  }
+  return nullptr;
+}
+static CallInst *GetHandleFromValue(Value *V, DenseSet<Value *> &Checked) {
+  if (!Checked.count(V)) {
     Checked.insert(V);
     if (CallInst *CI = dyn_cast<CallInst>(V)) {
       return CI;
     }
-    if (PHINode *P = dyn_cast<PHINode>(V)) {
+    else if (PHINode *P = dyn_cast<PHINode>(V)) {
       if (CallInst *CI = GetHandleFromPhi(P, Checked)) {
+        return CI;
+      }
+    }
+    else if (SelectInst *S = dyn_cast<SelectInst>(V)) {
+      if (CallInst *CI = GetHandleFromSelect(S, Checked)) {
         return CI;
       }
     }
@@ -852,18 +871,14 @@ static CallInst *GetHandleFromPhi(PHINode *Phi, DenseSet<Value *> &Checked) {
 
 static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle,
                                         ValidationContext &ValCtx) {
-  if (PHINode *Phi = dyn_cast<PHINode>(samplerHandle)) {
+  if (!isa<CallInst>(samplerHandle)) {
     DenseSet<Value *> Checked;
-    samplerHandle = GetHandleFromPhi(Phi, Checked);
-    if (!samplerHandle) {
+    if (CallInst *CI = GetHandleFromValue(samplerHandle, Checked)) {
+      samplerHandle = CI;
+    } else {
       ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
       return DXIL::SamplerKind::Invalid;
     }
-  }
-
-  if (!isa<CallInst>(samplerHandle)) {
-    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
-    return DXIL::SamplerKind::Invalid;
   }
 
   DxilInst_CreateHandle createHandle(cast<CallInst>(samplerHandle));
@@ -947,19 +962,16 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
     ValidationContext &ValCtx) {
   CompTy = DXIL::ComponentType::Invalid;
   ResClass = DXIL::ResourceClass::Invalid;
-  if (PHINode *Phi = dyn_cast<PHINode>(handle)) {
+  if (!isa<CallInst>(handle)) {
     DenseSet<Value *> Checked;
-    handle = GetHandleFromPhi(Phi, Checked);
-    if (!handle) {
+    if (CallInst *CI = GetHandleFromValue(handle, Checked)) {
+      handle = CI;
+    } else {
       ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
       return DXIL::ResourceKind::Invalid;
     }
   }
   // TODO: validate ROV is used only in PS.
-  if (!isa<CallInst>(handle)) {
-    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
-    return DXIL::ResourceKind::Invalid;
-  }
 
   DxilInst_CreateHandle createHandle(cast<CallInst>(handle));
   if (!createHandle) {
@@ -1218,18 +1230,14 @@ DxilResourceBase *ValidationContext::GetResourceFromVal(Value *resVal) {
 }
 
 static DxilResource *GetResource(Value *handle, ValidationContext &ValCtx) {
-  if (PHINode *Phi = dyn_cast<PHINode>(handle)) {
+  if (!isa<CallInst>(handle)) {
     DenseSet<Value *> Checked;
-    handle = GetHandleFromPhi(Phi, Checked);
-    if (!handle) {
+    if (CallInst *CI = GetHandleFromValue(handle, Checked)) {
+      handle = CI;
+    } else {
       ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
       return nullptr;
     }
-  }
-
-  if (!isa<CallInst>(handle)) {
-    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
-    return nullptr;
   }
 
   DxilInst_CreateHandle createHandle(cast<CallInst>(handle));
@@ -1551,12 +1559,12 @@ static unsigned StoreValueToMask(ArrayRef<Value *> vals) {
 }
 
 static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
-  if (PHINode *Phi = dyn_cast<PHINode>(cbHandle)) {
+  if (!isa<CallInst>(cbHandle)) {
     DenseSet<Value *> Checked;
-    cbHandle = GetHandleFromPhi(Phi, Checked);
-    if (!cbHandle) {
-      ValCtx.EmitInstrError(Phi,
-                            ValidationRule::InstrHandleNotFromCreateHandle);
+    if (CallInst *CI = GetHandleFromValue(cbHandle, Checked)) {
+      cbHandle = CI;
+    } else {
+      ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
       return -1;
     }
   }
