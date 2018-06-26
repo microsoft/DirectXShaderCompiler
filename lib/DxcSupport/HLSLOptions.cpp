@@ -147,6 +147,17 @@ MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {
   }
 }
 
+MainArgs::MainArgs(int argc, const char **argv, int skipArgCount) {
+  if (argc > skipArgCount) {
+    Utf8StringVector.reserve(argc - skipArgCount);
+    Utf8CharPtrVector.reserve(argc - skipArgCount);
+    for (int i = skipArgCount; i < argc; ++i) {
+      Utf8StringVector.emplace_back(argv[i]);
+      Utf8CharPtrVector.push_back(Utf8StringVector.back().data());
+    }
+  }
+}
+
 MainArgs::MainArgs(llvm::ArrayRef<llvm::StringRef> args) {
   Utf8StringVector.reserve(args.size());
   Utf8CharPtrVector.reserve(args.size());

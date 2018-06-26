@@ -134,8 +134,8 @@ typedef enum DxcDiagnosticDisplayOptions
   // Display the category name associated with this diagnostic, if any.
   DxcDiagnostic_DisplayCategoryName = 0x20,
 
-	// Display the severity of the diagnostic message.
-	DxcDiagnostic_DisplaySeverity = 0x200
+  // Display the severity of the diagnostic message.
+  DxcDiagnostic_DisplaySeverity = 0x200
 } DxcDiagnosticDisplayOptions;
 
 typedef enum DxcTranslationUnitFlags
