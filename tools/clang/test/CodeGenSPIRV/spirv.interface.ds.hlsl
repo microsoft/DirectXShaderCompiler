@@ -140,6 +140,8 @@ DsOut main(    const OutputPatch<PerVertexIn, 3> patch,
 {
   DsOut dsOut;
   dsOut = (DsOut)0;
+  dsOut.pos = patch[0].ptSize;
+  clip5 = pcfData.foo + float3(loc, 1);
   return dsOut;
 // Layout of input ClipDistance array:
 //   clip0: 1 floats, offset 0

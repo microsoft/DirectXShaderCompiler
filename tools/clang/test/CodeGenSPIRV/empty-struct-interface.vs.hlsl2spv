@@ -36,7 +36,6 @@ VSOut main(VSIn input)
 // %5 = OpLabel
 // %param_var_input = OpVariable %_ptr_Function_VSIn Function
 // %9 = OpCompositeConstruct %VSIn
-// OpStore %param_var_input %9
 // %11 = OpFunctionCall %VSOut %src_main %param_var_input
 // OpReturn
 // OpFunctionEnd

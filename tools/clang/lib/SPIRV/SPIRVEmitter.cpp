@@ -5630,7 +5630,7 @@ SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
       const auto result = tryToAssignToRWBufferRWTexture(base, newVec);
       assert(result); // Definitely RWBuffer/RWTexture assignment
       (void)result;
-      return rhs;     // TODO: incorrect for compound assignments
+      return rhs; // TODO: incorrect for compound assignments
     } else {
       // Assigning to one normal vector component. Nothing special, just fall
       // back to the normal CodeGen path.
@@ -9378,7 +9378,10 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       if (!declIdMapper.createStageInputVar(param, &loadedValue, false))
         return false;
 
-      theBuilder.createStore(tempVar, loadedValue);
+      // Only initialize the temporary variable if the parameter is indeed used.
+      if (param->isUsed()) {
+        theBuilder.createStore(tempVar, loadedValue);
+      }
 
       // Record the temporary variable holding SV_OutputControlPointID,
       // SV_PrimitiveID, and SV_ViewID. It may be used later in the patch
@@ -9427,10 +9430,13 @@ bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       const uint32_t typeId = typeTranslator.translateType(param->getType());
       uint32_t loadedParam = 0;
 
+      // No need to write back the value if the parameter is not used at all in
+      // the original entry function.
+      //
       // Write back of stage output variables in GS is manually controlled by
       // .Append() intrinsic method. No need to load the parameter since we
       // won't need to write back here.
-      if (!shaderModel.IsGS())
+      if (param->isUsed() && !shaderModel.IsGS())
         loadedParam = theBuilder.createLoad(typeId, params[i]);
 
       if (!declIdMapper.createStageOutputVar(param, loadedParam, false))

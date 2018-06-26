@@ -8,5 +8,9 @@
 // CHECK:   [[uint_GroupThreadID:%\d+]] = OpCompositeExtract %uint [[gl_LocalInvocationID]] 0
 // CHECK:                                 OpStore %param_var_gtid [[uint_GroupThreadID]]
 
-[numthreads(8, 8, 8)]
-void main(uint gtid : SV_GroupThreadID) {}
+RWBuffer<uint> MyBuffer;
+
+[numthreads(1, 1, 1)]
+void main(uint gtid : SV_GroupThreadID) {
+    MyBuffer[0] = gtid;
+}
