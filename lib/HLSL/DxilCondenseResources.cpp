@@ -502,11 +502,11 @@ public:
 
     bChanged |= AllocateDxilResources(DM);
 
+    // Make sure no select on resource.
+    bChanged |= RemovePhiOnResource();
+
     if (m_bIsLib)
       return bChanged;
-
-    // Make sure no select on resource.
-    RemovePhiOnResource();
 
     bChanged = true;
 
@@ -530,7 +530,7 @@ public:
   }
 
 private:
-  void RemovePhiOnResource();
+  bool RemovePhiOnResource();
   void UpdateResourceSymbols();
   void TranslateDxilResourceUses(DxilResourceBase &res);
   void GenerateDxilResourceHandles();
@@ -622,7 +622,7 @@ void UpdateOperandSelect(Instruction *SelInst, Instruction *Prototype,
   }
 }
 
-void RemovePhiOnResourceImp(Function *F, hlsl::OP *hlslOP) {
+bool RemovePhiOnResourceImp(Function *F, hlsl::OP *hlslOP) {
   Value *opArg = hlslOP->GetU32Const(
       (unsigned)DXIL::OpCode::CreateHandleForLib);
 
@@ -676,21 +676,25 @@ void RemovePhiOnResourceImp(Function *F, hlsl::OP *hlslOP) {
       SelInst->replaceAllUsesWith(UndefValue::get(SelInst->getType()));
       SelInst->eraseFromParent();
     }
+    return true;
   }
+  return false;
 }
 } // namespace
 
-void DxilLowerCreateHandleForLib::RemovePhiOnResource() {
+bool DxilLowerCreateHandleForLib::RemovePhiOnResource() {
+  bool bChanged = false;
   hlsl::OP *hlslOP = m_DM->GetOP();
   for (Function &F : m_DM->GetModule()->functions()) {
     if (hlslOP->IsDxilOpFunc(&F)) {
       hlsl::OP::OpCodeClass opClass;
       if (hlslOP->GetOpCodeClass(&F, opClass) &&
           opClass == DXIL::OpCodeClass::CreateHandleForLib) {
-        RemovePhiOnResourceImp(&F, hlslOP);
+        bChanged |= RemovePhiOnResourceImp(&F, hlslOP);
       }
     }
   }
+  return bChanged;
 }
 
 // LegacyLayout.

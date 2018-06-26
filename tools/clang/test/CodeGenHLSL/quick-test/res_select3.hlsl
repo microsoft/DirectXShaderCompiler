@@ -1,7 +1,14 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
-// Make sure phi of resource in lib.
-// CHECK: phi %"class.RWStructuredBuffer
+// Make sure phi/select of handle in lib.
+// CHECK-DAG: phi %dx.types.Handle
+// CHECK: phi %dx.types.Handle
+// CHECK: select i1 %{{[^,]+}}, %dx.types.Handle
+// CHECK-DAG: phi %dx.types.Handle
+// CHECK: phi %dx.types.Handle
+// CHECK: select i1 %{{[^,]+}}, %dx.types.Handle
+// CHECK-DAG: phi %dx.types.Handle
+// CHECK: phi %dx.types.Handle
 
 // Make sure get dimensions returns 24
 // CHECK: ret i32 24
