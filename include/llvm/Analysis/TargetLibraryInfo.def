@@ -431,9 +431,11 @@ TLI_DEFINE_STRING_INTERNAL("fmodl")
 /// FILE *fopen(const char *filename, const char *mode);
 TLI_DEFINE_ENUM_INTERNAL(fopen)
 TLI_DEFINE_STRING_INTERNAL("fopen")
+#if 0 // HLSL Change Starts - Exclude potentially duplicate 64bit versions
 /// FILE *fopen64(const char *filename, const char *opentype)
 TLI_DEFINE_ENUM_INTERNAL(fopen64)
 TLI_DEFINE_STRING_INTERNAL("fopen64")
+#endif // HLSL Change Ends
 /// int fprintf(FILE *stream, const char *format, ...);
 TLI_DEFINE_ENUM_INTERNAL(fprintf)
 TLI_DEFINE_STRING_INTERNAL("fprintf")
@@ -467,9 +469,11 @@ TLI_DEFINE_STRING_INTERNAL("fseek")
 /// int fseeko(FILE *stream, off_t offset, int whence);
 TLI_DEFINE_ENUM_INTERNAL(fseeko)
 TLI_DEFINE_STRING_INTERNAL("fseeko")
+#if 0 // HLSL Change Starts - Exclude potentially duplicate 64bit versions
 /// int fseeko64(FILE *stream, off64_t offset, int whence)
 TLI_DEFINE_ENUM_INTERNAL(fseeko64)
 TLI_DEFINE_STRING_INTERNAL("fseeko64")
+#endif // HLSL Change Ends
 /// int fsetpos(FILE *stream, const fpos_t *pos);
 TLI_DEFINE_ENUM_INTERNAL(fsetpos)
 TLI_DEFINE_STRING_INTERNAL("fsetpos")
@@ -491,9 +495,11 @@ TLI_DEFINE_STRING_INTERNAL("ftell")
 /// off_t ftello(FILE *stream);
 TLI_DEFINE_ENUM_INTERNAL(ftello)
 TLI_DEFINE_STRING_INTERNAL("ftello")
+#if 0 // HLSL Change Starts - Exclude potentially duplicate 64bit versions
 /// off64_t ftello64(FILE *stream)
 TLI_DEFINE_ENUM_INTERNAL(ftello64)
 TLI_DEFINE_STRING_INTERNAL("ftello64")
+#endif // HLSL Change Ends
 /// int ftrylockfile(FILE *file);
 TLI_DEFINE_ENUM_INTERNAL(ftrylockfile)
 TLI_DEFINE_STRING_INTERNAL("ftrylockfile")
@@ -955,9 +961,11 @@ TLI_DEFINE_STRING_INTERNAL("times")
 /// FILE *tmpfile(void);
 TLI_DEFINE_ENUM_INTERNAL(tmpfile)
 TLI_DEFINE_STRING_INTERNAL("tmpfile")
+#if 0 // HLSL Change Starts - Exclude potentially duplicate 64bit versions
 /// FILE *tmpfile64(void)
 TLI_DEFINE_ENUM_INTERNAL(tmpfile64)
 TLI_DEFINE_STRING_INTERNAL("tmpfile64")
+#endif // HLSL Change Ends
 /// int toascii(int c);
 TLI_DEFINE_ENUM_INTERNAL(toascii)
 TLI_DEFINE_STRING_INTERNAL("toascii")

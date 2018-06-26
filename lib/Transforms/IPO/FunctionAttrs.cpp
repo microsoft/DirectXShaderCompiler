@@ -1627,6 +1627,7 @@ bool FunctionAttrs::inferPrototypeAttributes(Function &F) {
     setOnlyReadsMemory(F, 1);
     setOnlyReadsMemory(F, 2);
     break;
+#if 0 // HLSL Change Starts - Exclude potentially duplicate 64bit versions
   case LibFunc::fopen64:
     if (FTy->getNumParams() != 2 ||
         !FTy->getReturnType()->isPointerTy() ||
@@ -1653,6 +1654,7 @@ bool FunctionAttrs::inferPrototypeAttributes(Function &F) {
     setDoesNotThrow(F);
     setDoesNotAlias(F, 0);
     break;
+#endif // HLSL Change Ends - Exclude potentially duplicate 64bit versions
   case LibFunc::fstat64:
   case LibFunc::fstatvfs64:
     if (FTy->getNumParams() != 2 || !FTy->getParamType(1)->isPointerTy())
