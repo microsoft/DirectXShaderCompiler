@@ -37,6 +37,7 @@ namespace {
 #endif
 #endif
 
+#ifdef _WIN32
 #ifdef DBG
 
 // This should be improved with global enabled mask rather than a compile-time mask.
@@ -56,6 +57,10 @@ namespace {
 #define DXTRACE_FMT_APIFS(...)
 
 #endif // DBG
+#else  // _WIN32
+#define DXTRACE_FMT_APIFS(...)
+#endif // _WIN32
+
 
 
 enum class HandleKind {
@@ -137,6 +142,13 @@ bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
   if (Path[0] == L'\\') {
     return Path[1] == L'\\';
   }
+
+  #ifndef _WIN32
+  // Absolute paths on unix systems start with '/'
+  if (Path[0] == L'/') {
+    return TRUE;
+  }
+  #endif
 
   //
   // NOTE: there are a number of cases we don't handle, as they don't play well with the simple
@@ -470,7 +482,6 @@ public:
       lpFileInformation->nFileIndexHigh = 1;
       return TRUE;
     }
-
     SetLastError(ERROR_INVALID_HANDLE);
     return FALSE;
   }
