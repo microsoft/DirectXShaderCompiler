@@ -132,7 +132,7 @@ HANDLE CreateFileW(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess,
   assert(dwFlagsAndAttributes == FILE_ATTRIBUTE_NORMAL &&
          "Attributes other than NORMAL not supported in CreateFileW yet");
 
-  fd = open(pUtf8FileName, flags);
+  fd = open(pUtf8FileName, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 
   return (HANDLE)fd;
 }
