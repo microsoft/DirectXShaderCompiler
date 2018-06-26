@@ -31,9 +31,6 @@
 #ifdef LLVM_ON_WIN32
 #include "d3d12shader.h" // for compatibility
 #include "d3d11shader.h" // for compatibility
-#endif
-
-#ifdef LLVM_ON_WIN32
 
 const GUID IID_ID3D11ShaderReflection_43 = {
     0x0a233719,
