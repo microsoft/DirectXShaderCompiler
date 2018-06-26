@@ -25,6 +25,11 @@ static llvm::sys::Mutex *cs = nullptr;
 // This function is to prevent multiple attempts to load dxil.dll 
 HRESULT DxilLibInitialize() {
   cs = new llvm::sys::Mutex;
+#if LLVM_ON_WIN32
+  cs->lock();
+  g_DllLibResult = g_DllSupport.InitializeForDll(L"dxil.dll", "DxcCreateInstance");
+  cs->unlock();
+#endif
   return S_OK;
 }
 
