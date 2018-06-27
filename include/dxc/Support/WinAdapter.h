@@ -44,6 +44,12 @@
 #define CoTaskMemAlloc malloc
 #define CoTaskMemFree free
 
+// Windows-specific heap functions. Use malloc/realloc/free instead.
+#define HeapAlloc(hHeap,dwFlags, nBytes) malloc(nBytes)
+#define HeapReAlloc(hHeap, dwFlags, voidPtr, nBytes) realloc(voidPtr, nBytes)
+#define HeapFree(hHeap, dwFlags, voidPtr) free(voidPtr)
+#define HeapCreate(flags, nBytes, maxSize) malloc(nBytes)
+
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
