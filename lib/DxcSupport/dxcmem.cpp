@@ -15,6 +15,7 @@
 #endif
 
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/WinFunctions.h"
 #include "llvm/Support/ThreadLocal.h"
 #include <memory>
 

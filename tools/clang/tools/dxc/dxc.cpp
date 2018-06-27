@@ -767,6 +767,9 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcCompile
     ConcatArgs.size(), ConcatDefines.data(),
     ConcatDefines.size(), pIncludeHandler, &pResult));
   *ppCompileResult = pResult.Detach();
+#else
+  assert(false && "Recompile is currently only supported on Windows.");
+  *ppCompileResult = nullptr;
 #endif // _WIN32
 }
 
