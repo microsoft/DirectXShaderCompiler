@@ -21,19 +21,9 @@
 static llvm::sys::ThreadLocal<IMalloc> *g_ThreadMallocTls;
 static IMalloc *g_pDefaultMalloc;
 
-// Used by DllMain to set up and tear down per-thread tracking.
-HRESULT DxcInitThreadMalloc() throw();
-void DxcCleanupThreadMalloc() throw();
-
-// Used by APIs that are entry points to set up per-thread/invocation allocator.
-void DxcSetThreadMalloc(IMalloc *pMalloc) throw();
-void DxcSetThreadMallocOrDefault(IMalloc *pMalloc) throw(); 
-void DxcClearThreadMalloc() throw();
-
-// Used to retrieve the current invocation's allocator or perform an alloc/free/realloc.
-IMalloc *DxcGetThreadMallocNoRef() throw();
-_Ret_maybenull_ _Post_writable_byte_size_(nBytes) void *DxcThreadAlloc(size_t nBytes) throw();
-void DxcThreadFree(void *) throw();
+#ifndef _WIN32
+#pragma GCC visibility push(hidden)
+#endif
 
 HRESULT DxcInitThreadMalloc() throw() {
   DXASSERT(g_pDefaultMalloc == nullptr, "else InitThreadMalloc already called");
@@ -96,3 +86,7 @@ IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw() {
 IMalloc *DxcSwapThreadMallocOrDefault(IMalloc *pMallocOrNull, IMalloc **ppPrior) throw() {
   return DxcSwapThreadMalloc(pMallocOrNull ? pMallocOrNull : g_pDefaultMalloc, ppPrior);
 }
+
+#ifndef _WIN32
+#pragma GCC visibility pop
+#endif
