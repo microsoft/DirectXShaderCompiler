@@ -918,6 +918,9 @@ TEST_F(FileTest, IntrinsicsInterlockedMethodsPS) {
 TEST_F(FileTest, IntrinsicsInterlockedMethodsCS) {
   runFileTest("intrinsics.interlocked-methods.cs.hlsl");
 }
+TEST_F(FileTest, IntrinsicsInterlockedMethodsError) {
+  runFileTest("intrinsics.interlocked-methods.error.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
 TEST_F(FileTest, IntrinsicsLength) { runFileTest("intrinsics.length.hlsl"); }
