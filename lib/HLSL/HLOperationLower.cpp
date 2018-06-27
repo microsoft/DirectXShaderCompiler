@@ -5557,14 +5557,27 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
       // Indexing on vector.
       if (bImmIdx) {
         unsigned tempOffset = size * immIdx;
-        unsigned channelInc = tempOffset >> 2;
-        DXASSERT((channel + channelInc)<=4, "vector should not cross cb register");
-        channel += channelInc;
-        if (channel == 4) {
-          // Get to another row.
-          // Update index and channel.
-          channel = 0;
-          legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
+        if (size == 2) { // 16-bit types
+          unsigned channelInc = tempOffset >> 1;
+          DXASSERT((channel + channelInc) <= 8, "vector should not cross cb register (8x16bit)");
+          channel += channelInc;
+          if (channel == 8) {
+            // Get to another row.
+            // Update index and channel.
+            channel = 0;
+            legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
+          }
+        }
+        else {
+          unsigned channelInc = tempOffset >> 2;
+          DXASSERT((channel + channelInc) <= 4, "vector should not cross cb register (8x32bit)");
+          channel += channelInc;
+          if (channel == 4) {
+            // Get to another row.
+            // Update index and channel.
+            channel = 0;
+            legacyIndex = Builder.CreateAdd(legacyIndex, Builder.getInt32(1));
+          }
         }
       } else {
         Type *EltTy = GEPIt->getVectorElementType();
