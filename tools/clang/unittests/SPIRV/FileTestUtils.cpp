@@ -38,6 +38,8 @@ bool validateSpirvBinary(spv_target_env env, std::vector<uint32_t> &binary,
                          bool relaxLogicalPointer) {
   spvtools::ValidatorOptions options;
   options.SetRelaxLogicalPointer(relaxLogicalPointer);
+  // TODO: Fix the following to enable validating layout.
+  options.SetRelaxBlockLayout(true);
   spvtools::SpirvTools spirvTools(env);
   spirvTools.SetMessageConsumer(
       [](spv_message_level_t, const char *, const spv_position_t &,
