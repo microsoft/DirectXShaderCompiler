@@ -28,6 +28,9 @@ We have currently reached the point where we can successfully build and run DXC
 on Linux and macOS. Code generation works for both DXIL and SPIR-V, and we are
 also able to fully run the SPIR-V CodeGen test suite on these platforms.
 
+*Note: This work is currently in experimental phase. How we implement certain
+things for Unix platforms may change without considering backward portability.*
+
 Known Limitations
 -----------------
 
@@ -50,11 +53,14 @@ limitation, and DXIL CodeGen works as expected by running the DXC executable.
 
 Known Issues
 ------------
-Running the SPIR-V CodeGen tests results in opening a large number of file
-descriptors, and if the OS limitation on the number of FDs allowed to be opened
-by a process is low, it will cause test failures. We have not seen this as an
-issue on Windows and Linux. On macOS we currently increase the allowed limit to
-get around the problem for the time being.
+- Running the SPIR-V CodeGen tests results in opening a large number of file
+  descriptors, and if the OS limitation on the number of FDs allowed to be opened
+  by a process is low, it will cause test failures. We have not seen this as an
+  issue on Windows and Linux. On macOS we currently increase the allowed limit to
+  get around the problem for the time being.
+
+- The version number of the shared library is currently stuck at 3.7. We need to
+  fix this once a certain versioning scheme is in place.
 
 Building and Using
 ==================
