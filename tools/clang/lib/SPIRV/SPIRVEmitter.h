@@ -288,7 +288,7 @@ private:
   /// Creates an access chain to index into the given SPIR-V evaluation result
   /// and overwrites and returns the new SPIR-V evaluation result.
   SpirvEvalInfo &
-  turnIntoElementPtr(SpirvEvalInfo &info, QualType elemType,
+  turnIntoElementPtr(QualType baseType, SpirvEvalInfo &base, QualType elemType,
                      const llvm::SmallVector<uint32_t, 4> &indices);
 
 private:
