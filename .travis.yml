@@ -1,0 +1,74 @@
+# Linux Build Configuration for Travis
+
+language: cpp
+
+os:
+  - linux
+  - osx
+
+# Use Ubuntu 14.04 LTS (Trusty) as the Linux testing environment.
+sudo: required
+dist: trusty
+
+env:
+  - DXC_BUILD_TYPE=Release
+  - DXC_BUILD_TYPE=Debug
+
+compiler:
+  - clang
+
+matrix:
+  include:
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ubuntu-toolchain-r-test
+          packages: ninja-build g++-5
+      env: DXC_BUILD_TYPE=Debug
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ubuntu-toolchain-r-test
+          packages: ninja-build g++-5
+      env: DXC_BUILD_TYPE=Release
+  allow_failures:
+    - os: linux
+    - os: osx
+
+cache:
+  apt: true
+
+git:
+  depth: 1
+
+branches:
+  only:
+    - linux
+
+addons:
+  apt:
+    packages:
+      - ninja-build
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ninja; fi
+
+before_script:
+  - git submodule update --init
+  - if [ ${CC} = gcc ]; then CC=gcc-5; CXX=g++-5; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ulimit -Sn 1024; fi
+
+script:
+  - mkdir build && cd build
+  - cmake .. -GNinja
+      $(cat ../utils/cmake-predefined-config-params)
+      -DSPIRV_BUILD_TESTS=ON
+      -DCMAKE_BUILD_TYPE=${DXC_BUILD_TYPE}
+      -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX}
+  - ninja
+  - ./bin/dxc --help
+  - ./bin/dxc -T ps_6_0 ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
+  - ./bin/dxc -T ps_6_0 -Fo passthru-ps.dxil ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
+  - ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
