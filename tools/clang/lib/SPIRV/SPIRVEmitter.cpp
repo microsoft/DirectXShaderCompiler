@@ -240,6 +240,8 @@ bool spirvToolsValidate(spv_target_env env, std::vector<uint32_t> *module,
 
   spvtools::ValidatorOptions options;
   options.SetRelaxLogicalPointer(relaxLogicalPointer);
+  // TODO: Fix the following to enable validating layout.
+  options.SetRelaxBlockLayout(true);
 
   return tools.Validate(module->data(), module->size(), options);
 }
