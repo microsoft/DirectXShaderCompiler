@@ -41,6 +41,7 @@ if (HLSL_INCLUDE_TESTS)
     add_subdirectory(HLSLHost)
   endif (WIN32)
   add_subdirectory(dxc_batch)
+  add_subdirectory(DxrFallback)
 endif (HLSL_INCLUDE_TESTS)
 
 # HLSL Change Ends

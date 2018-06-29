@@ -22,3 +22,4 @@ add_subdirectory(ProfileData)
 # add_subdirectory(LibDriver) # HLSL Change
 add_subdirectory(DxcSupport) # HLSL Change
 add_subdirectory(HLSL) # HLSL Change
+add_subdirectory(DxrFallback) # HLSL Change
