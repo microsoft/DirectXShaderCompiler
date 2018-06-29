@@ -130,11 +130,14 @@ You can follow these steps to build and run the SPIR-V CodeGen tests:
 
   cd <dxc-build-dir>
   # Use SPIRV_BUILD_TESTS flag to enable building these tests.
-  cmake <dxc-src-dir> -GNinja -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release $(cat <dxc-src-dir>/utils/cmake-predefined-config-params)
-  # Build all targets. Includes 'dxc' and 'clang-spirv-tests'.
+  cmake <dxc-src-dir> \
+    $(cat <dxc-src-dir>/utils/cmake-predefined-config-params) \
+    -DCMAKE_BUILD_TYPE=Release -DSPIRV_BUILD_TESTS=ON \
+    -GNinja
+  # Build all targets. Includes 'dxc' and tests.
   ninja
   # Run all tests
-  <dxc-build-dir>/bin/clang-spirv-tests --spirv-test-root <dxc-src-dir>/tools/clang/test/CodeGenSPIRV/
+  ctest
 
 
 As described in the `Known Issues`_ section above, you currently need to
