@@ -26,6 +26,7 @@ add_llvm_library(LLVMHLSL
   DxilPreparePasses.cpp
   DxilRemoveDiscards.cpp
   DxilReduceMSAAToSingleSample.cpp
+  DxilPatchShaderRecordBindings.cpp
   DxilPreserveAllOutputs.cpp
   DxilResource.cpp
   DxilResourceBase.cpp
