@@ -262,7 +262,7 @@ std::error_code Process::SafelyCloseFileDescriptor(int FD) {
   // We need to save the error, if one occurs, because our subsequent call to
   // pthread_sigmask might tamper with errno.
   int ErrnoFromClose = 0;
-  if (::close(FD) < 0)
+  if (fs::msf_close(FD) < 0)
     ErrnoFromClose = errno;
   // Restore the signal mask back to what we saved earlier.
   int EC = 0;

@@ -89,6 +89,11 @@ public:
   virtual errno_t resize_file(_In_ LPCWSTR path, uint64_t size) throw() override;
   virtual int Read(int fd, _Out_bytecap_(count) void* buffer, unsigned int count) throw() override;
   virtual int Write(int fd, _In_bytecount_(count) const void* buffer, unsigned int count) throw() override;
+#ifndef _WIN32
+  virtual int Open(const char *lpFileName, int flags, mode_t mode) throw() override;
+  virtual int Stat(const char *lpFileName, struct stat *Status) throw() override;
+  virtual int Fstat(int FD, struct stat *Status) throw() override;
+#endif
 };
 
 MSFileSystemForDisk::MSFileSystemForDisk()
@@ -515,6 +520,20 @@ int MSFileSystemForDisk::Write(int fd, const void* buffer, unsigned int count) t
   return ::write(fd, buffer, count);
   #endif
 }
+
+#ifndef _WIN32
+int MSFileSystemForDisk::Open(const char *lpFileName, int flags, mode_t mode) throw() {
+  return ::open(lpFileName, flags, mode);
+}
+
+int MSFileSystemForDisk::Stat(const char *lpFileName, struct stat *Status) throw() {
+  return ::stat(lpFileName, Status);
+}
+
+int MSFileSystemForDisk::Fstat(int FD, struct stat *Status) throw() {
+  return ::fstat(FD, Status);
+}
+#endif
 
 } // end namespace fs
 } // end namespace sys
