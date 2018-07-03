@@ -1378,6 +1378,7 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
 TEST_F(FileTest, VulkanPushConstantOffset) {
+  // Checks the behavior of [[vk::offset]] with [[vk::push_constant]]
   runFileTest("vk.push-constant.offset.hlsl");
 }
 TEST_F(FileTest, VulkanPushConstantAnonymousStruct) {
@@ -1458,6 +1459,11 @@ TEST_F(FileTest, VulkanLayoutVectorRelaxedLayout) {
   // Allows vectors to be aligned according to their element types, if not
   // causing improper straddle
   runFileTest("vk.layout.vector.relaxed.hlsl");
+}
+
+TEST_F(FileTest, VulkanLayoutVkOffsetAttr) {
+  // Checks the behavior of [[vk::offset]]
+  runFileTest("vk.layout.attr.offset.hlsl");
 }
 
 TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
