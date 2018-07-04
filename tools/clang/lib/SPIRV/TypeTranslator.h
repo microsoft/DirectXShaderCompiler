@@ -237,9 +237,8 @@ public:
   /// type and can be fit into a 4-component vector. Writes element type and
   /// count to *elemType and *elemCount if not nullptr. Otherwise, emit errors
   /// explaining why not.
-  bool canFitInto4ElementVector(QualType structType,
-                                QualType *elemType = nullptr,
-                                uint32_t *elemCount = nullptr);
+  bool canFitIntoOneRegister(QualType structType, QualType *elemType = nullptr,
+                             uint32_t *elemCount = nullptr);
 
   /// \brief Returns the capability required for the given storage image type.
   /// Returns Capability::Max to mean no capability requirements.

@@ -1191,8 +1191,7 @@ bool TypeTranslator::isSameType(QualType type1, QualType type2) {
 QualType TypeTranslator::getElementType(QualType type) {
   QualType elemType = {};
   if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
-      isMxNMatrix(type, &elemType) ||
-      canFitInto4ElementVector(type, &elemType)) {
+      isMxNMatrix(type, &elemType) || canFitIntoOneRegister(type, &elemType)) {
     return elemType;
   }
 
@@ -1600,7 +1599,7 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
   QualType ty = {};
   if (isScalarType(sampledType, &ty) ||
       isVectorType(sampledType, &ty, &elemCount) ||
-      canFitInto4ElementVector(sampledType, &ty, &elemCount)) {
+      canFitIntoOneRegister(sampledType, &ty, &elemCount)) {
     if (const auto *builtinType = ty->getAs<BuiltinType>()) {
       switch (builtinType->getKind()) {
       case BuiltinType::Int:
@@ -1627,9 +1626,9 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
   return spv::ImageFormat::Unknown;
 }
 
-bool TypeTranslator::canFitInto4ElementVector(QualType structType,
-                                              QualType *elemType,
-                                              uint32_t *elemCount) {
+bool TypeTranslator::canFitIntoOneRegister(QualType structType,
+                                           QualType *elemType,
+                                           uint32_t *elemCount) {
   if (structType->getAsStructureType() == nullptr)
     return false;
 
@@ -1648,16 +1647,26 @@ bool TypeTranslator::canFitInto4ElementVector(QualType structType,
       } else {
         if (!canTreatAsSameScalarType(firstElemType, type)) {
           emitError("all struct members should have the same element type for "
-                    "resource template instantiation");
+                    "resource template instantiation",
+                    structDecl->getLocation());
           return false;
         }
       }
       totalCount += count;
     } else {
       emitError("unsupported struct element type for resource template "
-                "instantiation");
+                "instantiation",
+                structDecl->getLocation());
       return false;
     }
+  }
+
+  if (totalCount > 4) {
+    emitError(
+        "resource template element type %0 cannot fit into four 32-bit scalars",
+        structDecl->getLocation())
+        << structType;
+    return false;
   }
 
   if (elemType)
