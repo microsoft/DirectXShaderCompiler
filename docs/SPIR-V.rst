@@ -2280,8 +2280,8 @@ parameter is attached to the instruction as the parameter to the ``Lod`` SPIR-V
 image operands. The ``position`` parameter are used as the coordinate to the
 instruction directly.
 
-``.CalculateLevelOfDetail()``
-+++++++++++++++++++++++++++++
+``.CalculateLevelOfDetail()`` and ``.CalculateLevelOfDetailUnclamped()``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
@@ -2290,7 +2290,7 @@ instruction is used for translation. An ``OpSampledImage`` is created based on
 the ``SamplerState`` passed to the function. The resulting sampled image and
 the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
 The result of ``OpImageQueryLod`` is a ``float2``. The first element contains
-the mipmap array layer.
+the mipmap array layer. The second element contains the unclamped level of detail.
 
 ``Texture1D``
 ~~~~~~~~~~~~~
@@ -2753,9 +2753,6 @@ either because of no Vulkan equivalents at the moment, or because of deprecation
 * ``.GatherCmpGreen()``, ``.GatherCmpBlue()``, ``.GatherCmpAlpha()`` intrinsic
   method: no Vulkan equivalent. (SPIR-V ``OpImageDrefGather`` instruction does
   not take component as input.) The compiler will emit an error.
-* ``.CalculateLevelOfDetailUnclamped()`` intrinsic method: no Vulkan equivalent.
-  (SPIR-V ``OpImageQueryLod`` returns the clamped LOD in Vulkan.) The compiler
-  will emit an error.
 * Since ``StructuredBuffer``, ``RWStructuredBuffer``, ``ByteAddressBuffer``, and
   ``RWByteAddressBuffer`` are not represented as image types in SPIR-V, using the
   output unsigned integer ``status`` argument in their ``Load*`` methods is not
