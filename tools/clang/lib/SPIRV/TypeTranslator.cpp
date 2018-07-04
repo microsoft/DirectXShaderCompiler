@@ -1305,11 +1305,12 @@ llvm::SmallVector<const Decoration *, 4> TypeTranslator::getLayoutDecorations(
 
     if (rule == LayoutRule::RelaxedGLSLStd140 ||
         rule == LayoutRule::RelaxedGLSLStd430 ||
-        rule == LayoutRule::FxcCTBuffer)
+        rule == LayoutRule::FxcCTBuffer) {
       alignUsingHLSLRelaxedLayout(fieldType, memberSize, &memberAlignment,
                                   &offset);
-    else
+    } else {
       offset = roundToPow2(offset, memberAlignment);
+    }
 
     // The vk::offset attribute takes precedence over all.
     if (const auto *offsetAttr = decl->getAttr<VKOffsetAttr>()) {
@@ -1832,11 +1833,20 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
       if (rule == LayoutRule::RelaxedGLSLStd140 ||
           rule == LayoutRule::RelaxedGLSLStd430 ||
-          rule == LayoutRule::FxcCTBuffer)
+          rule == LayoutRule::FxcCTBuffer) {
         alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
                                     &memberAlignment, &structSize);
-      else
+      } else {
         structSize = roundToPow2(structSize, memberAlignment);
+      }
+
+      // Reset the current offset to the one specified in the source code
+      // if exists. It's debatable whether we should do sanity check here.
+      // If the developers want manually control the layout, we leave
+      // everything to them.
+      if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
+        structSize = offsetAttr->getOffset();
+      }
 
       // The base alignment of the structure is N, where N is the largest
       // base alignment value of any of its members...
