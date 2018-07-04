@@ -197,7 +197,7 @@ public:
 
 private:
   typedef std::vector<OutputWrite> OutputVec;
-  typedef std::unordered_map<unsigned, OutputElement>  OutputMap;
+  typedef std::map<unsigned, OutputElement>  OutputMap;
   OutputVec collectOutputStores(Function &F);
   OutputMap generateOutputMap(const OutputVec &calls, DxilModule &DM);
   void createTempAllocas(OutputMap &map, IRBuilder<> &builder);
