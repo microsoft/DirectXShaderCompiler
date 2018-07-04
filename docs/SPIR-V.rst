@@ -720,7 +720,7 @@ If the above layout rules do not satisfy your needs and you want to manually
 control the layout of struct members, you can use either
 
 * The native HLSL ``:packoffset()`` attribute: only available for cbuffers; or
-* The Vulkan-specific `[[vk::offset()]]`` attribute: applies to all resources.
+* The Vulkan-specific ``[[vk::offset()]]`` attribute: applies to all resources.
 
 ``[[vk::offset]]`` overrules ``:packoffset``. Attaching ``[[vk::offset]]``
 to a struct memeber affects all variables of the struct type in question. So
