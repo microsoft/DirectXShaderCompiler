@@ -711,7 +711,7 @@ TEST_F(FileTest, TextureCalculateLevelOfDetail) {
   runFileTest("texture.calculate-lod.hlsl");
 }
 TEST_F(FileTest, TextureCalculateLevelOfDetailUnclamped) {
-  runFileTest("texture.calculate-lod-unclamped.hlsl", Expect::Failure);
+  runFileTest("texture.calculate-lod-unclamped.hlsl");
 }
 TEST_F(FileTest, TextureGather) { runFileTest("texture.gather.hlsl"); }
 TEST_F(FileTest, TextureArrayGather) {

@@ -2932,7 +2932,8 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
 }
 
 uint32_t
-SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr) {
+SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
+                                          bool unclamped) {
   // Possible signatures are as follows:
   // Texture1D(Array).CalculateLevelOfDetail(SamplerState S, float x);
   // Texture2D(Array).CalculateLevelOfDetail(SamplerState S, float2 xy);
@@ -2960,9 +2961,11 @@ SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr) {
       theBuilder.getVecType(theBuilder.getFloat32Type(), 2u);
   const uint32_t query = theBuilder.createBinaryOp(
       spv::Op::OpImageQueryLod, queryResultType, sampledImage, coordinate);
+
   // The first component of the float2 contains the mipmap array layer.
+  // The second component of the float2 represents the unclamped lod.
   return theBuilder.createCompositeExtract(theBuilder.getFloat32Type(), query,
-                                           {0});
+                                           unclamped ? 1 : 0);
 }
 
 uint32_t SPIRVEmitter::processTextureGatherRGBACmpRGBA(
@@ -3842,7 +3845,9 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     retVal = processGetDimensions(expr);
     break;
   case IntrinsicOp::MOP_CalculateLevelOfDetail:
-    retVal = processTextureLevelOfDetail(expr);
+    retVal = processTextureLevelOfDetail(expr, /* unclamped */ false);
+  case IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped:
+    retVal = processTextureLevelOfDetail(expr, /* unclamped */ true);
     break;
   case IntrinsicOp::MOP_IncrementCounter:
     retVal = theBuilder.createUnaryOp(
@@ -3887,7 +3892,6 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_GatherCmpGreen:
   case IntrinsicOp::MOP_GatherCmpBlue:
   case IntrinsicOp::MOP_GatherCmpAlpha:
-  case IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped:
     emitError("no equivalent for %0 intrinsic method in Vulkan",
               expr->getCallee()->getExprLoc())
         << expr->getMethodDecl()->getName();
