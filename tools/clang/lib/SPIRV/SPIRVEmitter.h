@@ -755,8 +755,11 @@ private:
   uint32_t processTextureGatherCmp(const CXXMemberCallExpr *expr);
 
   /// \brief Returns the calculated level-of-detail (a single float value) for
-  /// the given texture. Handles intrinsic HLSL CalculateLevelOfDetail function.
-  uint32_t processTextureLevelOfDetail(const CXXMemberCallExpr *expr);
+  /// the given texture. Handles intrinsic HLSL CalculateLevelOfDetail or
+  /// CalculateLevelOfDetailUnclamped function depending on the given unclamped
+  /// parameter.
+  uint32_t processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
+                                       bool unclamped);
 
   /// \brief Processes the .GetDimensions() call on supported objects.
   uint32_t processGetDimensions(const CXXMemberCallExpr *);
