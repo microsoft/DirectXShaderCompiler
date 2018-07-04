@@ -63,8 +63,17 @@ TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
 TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
 TEST_F(FileTest, RWTextureTypes) { runFileTest("type.rwtexture.hlsl"); }
 TEST_F(FileTest, BufferType) { runFileTest("type.buffer.hlsl"); }
-TEST_F(FileTest, BufferTypeStructError) {
-  runFileTest("type.buffer.struct.error.hlsl", Expect::Failure);
+TEST_F(FileTest, BufferTypeStructError1) {
+  runFileTest("type.buffer.struct.error1.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, BufferTypeStructError2) {
+  runFileTest("type.buffer.struct.error2.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, BufferTypeStructError3) {
+  runFileTest("type.buffer.struct.error3.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, RWBufferTypeStructError) {
+  runFileTest("type.rwbuffer.struct.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
 TEST_F(FileTest, ConstantBufferType) {
