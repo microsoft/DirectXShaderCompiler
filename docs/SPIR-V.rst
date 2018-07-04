@@ -248,6 +248,9 @@ The namespace ``vk`` will be used for all Vulkan attributes:
 - ``push_constant``: For marking a variable as the push constant block. Allowed
   on global variables of struct type. At most one variable can be marked as
   ``push_constant`` in a shader.
+- ``offset(X)``: For manually layout struct members. Annotating a struct member
+  with this attribute will force the compiler to put the member at offset ``X``
+  w.r.t. the beginning of the struct. Only allowed on struct members.
 - ``constant_id(X)``: For marking a global constant as a specialization constant.
   Allowed on global variables of boolean/integer/float types.
 - ``input_attachment_index(X)``: To associate the Xth entry in the input pass
@@ -712,6 +715,21 @@ We will have the following offsets for each member:
 ``f_int_3``      112    112    128    96     76    112
 ``g_float2_2``   160    160    176    112    88    128
 ============== ====== ====== ====== ====== ====== ======
+
+If the above layout rules do not satisfy your needs and you want to manually
+control the layout of struct members, you can use either
+
+* The native HLSL ``:packoffset()`` attribute: only available for cbuffers; or
+* The Vulkan-specific ``[[vk::offset()]]`` attribute: applies to all resources.
+
+``[[vk::offset]]`` overrules ``:packoffset``. Attaching ``[[vk::offset]]``
+to a struct memeber affects all variables of the struct type in question. So
+sharing the same struct definition having ``[[vk::offset]]`` annotations means
+also sharing the layout.
+
+These attributes give great flexibility but also responsibility to the
+developer; the compiler will just take in what is specified in the source code
+and emit it to SPIR-V with no error checking.
 
 ``cbuffer`` and ``ConstantBuffer``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
