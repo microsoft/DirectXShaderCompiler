@@ -222,6 +222,14 @@ private:
   void splitVecLastElement(QualType vecType, uint32_t vec, uint32_t *residual,
                            uint32_t *lastElement);
 
+  /// Converts a vector value into the given struct type with its element type's
+  /// <result-id> as elemTypeId.
+  ///
+  /// Assumes the vector and the struct have matching number of elements. Panics
+  /// otherwise.
+  uint32_t convertVectorToStruct(QualType structType, uint32_t elemTypeId,
+                                 uint32_t vector);
+
   /// Translates a floatN * float multiplication into SPIR-V instructions and
   /// returns the <result-id>. Returns 0 if the given binary operation is not
   /// floatN * float.

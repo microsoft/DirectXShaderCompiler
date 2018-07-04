@@ -3151,7 +3151,21 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
   QualType elemType = sampledType;
   uint32_t elemCount = 1;
   uint32_t elemTypeId = 0;
-  (void)TypeTranslator::isVectorType(sampledType, &elemType, &elemCount);
+  bool isTemplateOverStruct = false;
+
+  // Check whether the template type is a vector type or struct type.
+  if (!TypeTranslator::isVectorType(sampledType, &elemType, &elemCount)) {
+    if (sampledType->getAsStructureType()) {
+      isTemplateOverStruct = true;
+      // For struct type, we need to make sure it can fit into a 4-component
+      // vector. Detailed failing reasons will be emitted by the function so
+      // we don't need to emit errors here.
+      if (!typeTranslator.canFitIntoOneRegister(sampledType, &elemType,
+                                                &elemCount))
+        return 0;
+    }
+  }
+
   if (elemType->isFloatingType()) {
     elemTypeId = theBuilder.getFloat32Type();
   } else if (elemType->isSignedIntegerType()) {
@@ -3172,6 +3186,10 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
   // If the result type is a vec1, vec2, or vec3, some extra processing
   // (extraction) is required.
   uint32_t retVal = extractVecFromVec4(texel, elemCount, elemTypeId);
+  if (isTemplateOverStruct) {
+    // Convert to the struct so that we are consistent with types in the AST.
+    retVal = convertVectorToStruct(sampledType, elemTypeId, retVal);
+  }
   return SpirvEvalInfo(retVal).setRValue();
 }
 
@@ -5444,6 +5462,38 @@ void SPIRVEmitter::splitVecLastElement(QualType vecType, uint32_t vec,
 
   *lastElement =
       theBuilder.createCompositeExtract(elemTypeId, vec, {count - 1});
+}
+
+uint32_t SPIRVEmitter::convertVectorToStruct(QualType structType,
+                                             uint32_t elemTypeId,
+                                             uint32_t vector) {
+  assert(structType->isStructureType());
+
+  const auto *structDecl = structType->getAsStructureType()->getDecl();
+  uint32_t vectorIndex = 0;
+  uint32_t elemCount = 1;
+  llvm::SmallVector<uint32_t, 4> members;
+
+  for (const auto *field : structDecl->fields()) {
+    if (TypeTranslator::isScalarType(field->getType())) {
+      members.push_back(theBuilder.createCompositeExtract(elemTypeId, vector,
+                                                          {vectorIndex++}));
+    } else if (TypeTranslator::isVectorType(field->getType(), nullptr,
+                                            &elemCount)) {
+      llvm::SmallVector<uint32_t, 4> indices;
+      for (uint32_t i = 0; i < elemCount; ++i)
+        indices.push_back(vectorIndex++);
+
+      const uint32_t type = theBuilder.getVecType(elemTypeId, elemCount);
+      members.push_back(
+          theBuilder.createVectorShuffle(type, vector, vector, indices));
+    } else {
+      assert(false && "unhandled type");
+    }
+  }
+
+  return theBuilder.createCompositeConstruct(
+      typeTranslator.translateType(structType), members);
 }
 
 SpirvEvalInfo

@@ -1191,7 +1191,7 @@ bool TypeTranslator::isSameType(QualType type1, QualType type2) {
 QualType TypeTranslator::getElementType(QualType type) {
   QualType elemType = {};
   if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
-      isMxNMatrix(type, &elemType)) {
+      isMxNMatrix(type, &elemType) || canFitIntoOneRegister(type, &elemType)) {
     return elemType;
   }
 
@@ -1598,7 +1598,8 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
   uint32_t elemCount = 1;
   QualType ty = {};
   if (isScalarType(sampledType, &ty) ||
-      isVectorType(sampledType, &ty, &elemCount)) {
+      isVectorType(sampledType, &ty, &elemCount) ||
+      canFitIntoOneRegister(sampledType, &ty, &elemCount)) {
     if (const auto *builtinType = ty->getAs<BuiltinType>()) {
       switch (builtinType->getKind()) {
       case BuiltinType::Int:
@@ -1623,6 +1624,56 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
       "cannot translate resource type parameter %0 to proper image format")
       << sampledType;
   return spv::ImageFormat::Unknown;
+}
+
+bool TypeTranslator::canFitIntoOneRegister(QualType structType,
+                                           QualType *elemType,
+                                           uint32_t *elemCount) {
+  if (structType->getAsStructureType() == nullptr)
+    return false;
+
+  const auto *structDecl = structType->getAsStructureType()->getDecl();
+  QualType firstElemType;
+  uint32_t totalCount = 0;
+
+  for (const auto *field : structDecl->fields()) {
+    QualType type;
+    uint32_t count = 1;
+
+    if (isScalarType(field->getType(), &type) ||
+        isVectorType(field->getType(), &type, &count)) {
+      if (firstElemType.isNull()) {
+        firstElemType = type;
+      } else {
+        if (!canTreatAsSameScalarType(firstElemType, type)) {
+          emitError("all struct members should have the same element type for "
+                    "resource template instantiation",
+                    structDecl->getLocation());
+          return false;
+        }
+      }
+      totalCount += count;
+    } else {
+      emitError("unsupported struct element type for resource template "
+                "instantiation",
+                structDecl->getLocation());
+      return false;
+    }
+  }
+
+  if (totalCount > 4) {
+    emitError(
+        "resource template element type %0 cannot fit into four 32-bit scalars",
+        structDecl->getLocation())
+        << structType;
+    return false;
+  }
+
+  if (elemType)
+    *elemType = firstElemType;
+  if (elemCount)
+    *elemCount = totalCount;
+  return true;
 }
 
 void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
