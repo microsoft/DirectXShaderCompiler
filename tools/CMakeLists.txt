@@ -17,7 +17,13 @@ endif()
 # add_llvm_tool_subdirectory(llvm-as) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-dis) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-mc) # HLSL Change
-add_llvm_tool_subdirectory(dxexp) # HLSL Change
+
+# HLSL Change Begins
+if (WIN32)
+# This target can currently only be built on Windows.
+add_llvm_tool_subdirectory(dxexp)
+endif (WIN32)
+# HLSL Change ends
 
 # add_llvm_tool_subdirectory(llc) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-ar) # HLSL Change

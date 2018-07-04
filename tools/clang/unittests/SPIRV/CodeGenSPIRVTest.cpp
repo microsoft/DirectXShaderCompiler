@@ -63,6 +63,9 @@ TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
 TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
 TEST_F(FileTest, RWTextureTypes) { runFileTest("type.rwtexture.hlsl"); }
 TEST_F(FileTest, BufferType) { runFileTest("type.buffer.hlsl"); }
+TEST_F(FileTest, BufferTypeStructError) {
+  runFileTest("type.buffer.struct.error.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
@@ -915,6 +918,9 @@ TEST_F(FileTest, IntrinsicsInterlockedMethodsPS) {
 TEST_F(FileTest, IntrinsicsInterlockedMethodsCS) {
   runFileTest("intrinsics.interlocked-methods.cs.hlsl");
 }
+TEST_F(FileTest, IntrinsicsInterlockedMethodsError) {
+  runFileTest("intrinsics.interlocked-methods.error.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
 TEST_F(FileTest, IntrinsicsLength) { runFileTest("intrinsics.length.hlsl"); }
@@ -1188,6 +1194,9 @@ TEST_F(FileTest, SpirvEntryFunctionWrapper) {
 TEST_F(FileTest, SpirvEntryFunctionInOut) {
   runFileTest("spirv.entry-function.inout.hlsl");
 }
+TEST_F(FileTest, SpirvEntryFunctionUnusedParameter) {
+  runFileTest("spirv.entry-function.unused-param.hlsl");
+}
 
 TEST_F(FileTest, SpirvBuiltInHelperInvocation) {
   runFileTest("spirv.builtin.helper-invocation.hlsl");
@@ -1369,6 +1378,7 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
 TEST_F(FileTest, VulkanPushConstantOffset) {
+  // Checks the behavior of [[vk::offset]] with [[vk::push_constant]]
   runFileTest("vk.push-constant.offset.hlsl");
 }
 TEST_F(FileTest, VulkanPushConstantAnonymousStruct) {
@@ -1449,6 +1459,11 @@ TEST_F(FileTest, VulkanLayoutVectorRelaxedLayout) {
   // Allows vectors to be aligned according to their element types, if not
   // causing improper straddle
   runFileTest("vk.layout.vector.relaxed.hlsl");
+}
+
+TEST_F(FileTest, VulkanLayoutVkOffsetAttr) {
+  // Checks the behavior of [[vk::offset]]
+  runFileTest("vk.layout.attr.offset.hlsl");
 }
 
 TEST_F(FileTest, VulkanLayoutPushConstantStd430) {

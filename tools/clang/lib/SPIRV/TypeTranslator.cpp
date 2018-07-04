@@ -1193,12 +1193,20 @@ QualType TypeTranslator::getElementType(QualType type) {
   if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
       isMxNMatrix(type, &elemType) ||
       canFitInto4ElementVector(type, &elemType)) {
-  } else if (const auto *arrType = astContext.getAsConstantArrayType(type)) {
-    elemType = arrType->getElementType();
-  } else {
-    emitError("unsupported type for resource template instantiation");
+    return elemType;
   }
-  return elemType;
+
+  if (const auto *arrType = astContext.getAsConstantArrayType(type)) {
+    return arrType->getElementType();
+  }
+
+  emitError("unsupported resource type parameter %0") << type;
+  // Note: We are returning the original type instead of a null QualType here
+  // to keep the translation going and avoid hitting asserts trying to query
+  // info from null QualType in other places of the compiler. Although we are
+  // likely generating invalid code here, it should be fine since the error
+  // reported will prevent the CodeGen from actually outputing.
+  return type;
 }
 
 uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
@@ -1298,11 +1306,12 @@ llvm::SmallVector<const Decoration *, 4> TypeTranslator::getLayoutDecorations(
 
     if (rule == LayoutRule::RelaxedGLSLStd140 ||
         rule == LayoutRule::RelaxedGLSLStd430 ||
-        rule == LayoutRule::FxcCTBuffer)
+        rule == LayoutRule::FxcCTBuffer) {
       alignUsingHLSLRelaxedLayout(fieldType, memberSize, &memberAlignment,
                                   &offset);
-    else
+    } else {
       offset = roundToPow2(offset, memberAlignment);
+    }
 
     // The vk::offset attribute takes precedence over all.
     if (const auto *offsetAttr = decl->getAttr<VKOffsetAttr>()) {
@@ -1536,7 +1545,13 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
     theBuilder.requireCapability(spv::Capability::SampledBuffer);
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     if (sampledType->isStructureType() && name.startswith("RW")) {
-      emitError("RWBuffer over struct type %0 unsupported") << type;
+      // Note: actually fxc supports RWBuffer over struct types. However, the
+      // struct member must fit into a 4-component vector and writing to a
+      // RWBuffer element must write all components. This is a feature that are
+      // rarely used by developers. We just emit an error saying not supported
+      // for now.
+      emitError("cannot instantiate RWBuffer with struct type %0")
+          << sampledType;
       return 0;
     }
     const auto format = translateSampledTypeToImageFormat(sampledType);
@@ -1606,7 +1621,9 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
       }
     }
   }
-  emitError("resource type %0 unimplemented") << sampledType.getAsString();
+  emitError(
+      "cannot translate resource type parameter %0 to proper image format")
+      << sampledType;
   return spv::ImageFormat::Unknown;
 }
 
@@ -1858,11 +1875,20 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
       if (rule == LayoutRule::RelaxedGLSLStd140 ||
           rule == LayoutRule::RelaxedGLSLStd430 ||
-          rule == LayoutRule::FxcCTBuffer)
+          rule == LayoutRule::FxcCTBuffer) {
         alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
                                     &memberAlignment, &structSize);
-      else
+      } else {
         structSize = roundToPow2(structSize, memberAlignment);
+      }
+
+      // Reset the current offset to the one specified in the source code
+      // if exists. It's debatable whether we should do sanity check here.
+      // If the developers want manually control the layout, we leave
+      // everything to them.
+      if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
+        structSize = offsetAttr->getOffset();
+      }
 
       // The base alignment of the structure is N, where N is the largest
       // base alignment value of any of its members...

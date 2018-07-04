@@ -108,12 +108,15 @@ llvm_regerror(int errcode, const llvm_regex_t *preg, _Out_writes_all_(errbuf_siz
 				assert(strlen(r->name) < sizeof(convbuf));
 				(void) llvm_strlcpy(convbuf, r->name, sizeof convbuf);
 			} else
+                          // Begin HLSL Change
 #ifdef _WIN32
 				(void)_snprintf_s(convbuf, _countof(convbuf), _countof(convbuf),
+				    "REG_0x%x", target);
 #else
 				(void)snprintf(convbuf, sizeof convbuf,
-#endif // WIN32
 				    "REG_0x%x", target);
+#endif // WIN32
+                          // End HLSL Change
 			s = convbuf;
 		} else
 			s = r->explain;

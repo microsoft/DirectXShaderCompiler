@@ -49,6 +49,10 @@ namespace {
 
 static HlslOptTable *g_HlslOptTable;
 
+#ifndef _WIN32
+#pragma GCC visibility push(hidden)
+#endif
+
 std::error_code hlsl::options::initHlslOptTable() {
   DXASSERT(g_HlslOptTable == nullptr, "else double-init");
   g_HlslOptTable = new (std::nothrow) HlslOptTable();
@@ -65,6 +69,10 @@ void hlsl::options::cleanupHlslOptTable() {
 const OptTable * hlsl::options::getHlslOptTable() {
   return g_HlslOptTable;
 }
+
+#ifndef _WIN32
+#pragma GCC visibility pop
+#endif
 
 void DxcDefines::push_back(llvm::StringRef value) {
   // Skip empty defines.
@@ -142,6 +150,17 @@ MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {
     Utf8CharPtrVector.reserve(argc - skipArgCount);
     for (int i = skipArgCount; i < argc; ++i) {
       Utf8StringVector.emplace_back(Unicode::UTF16ToUTF8StringOrThrow(argv[i]));
+      Utf8CharPtrVector.push_back(Utf8StringVector.back().data());
+    }
+  }
+}
+
+MainArgs::MainArgs(int argc, const char **argv, int skipArgCount) {
+  if (argc > skipArgCount) {
+    Utf8StringVector.reserve(argc - skipArgCount);
+    Utf8CharPtrVector.reserve(argc - skipArgCount);
+    for (int i = skipArgCount; i < argc; ++i) {
+      Utf8StringVector.emplace_back(argv[i]);
       Utf8CharPtrVector.push_back(Utf8StringVector.back().data());
     }
   }
