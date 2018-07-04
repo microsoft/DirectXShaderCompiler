@@ -788,7 +788,17 @@ HLSLReservedKeyword:
       return ExprError();
     assert(Tok.isNot(tok::kw_decltype) && Tok.isNot(tok::kw___super));
     return ParseCastExpression(isUnaryExpression, isAddressOfOperand);
-      
+
+    // HLSL Change Starts
+  case tok::kw_precise:
+  case tok::kw_sample:
+  case tok::kw_globallycoherent:
+    // Back-compat: 'precise', 'globallycoherent' and 'sample' are keywords when used as an interpolation 
+    // modifiers, but in FXC they can also be used an identifiers. No interpolation modifiers are expected here
+    // so we need to change the token type to tok::identifier and fall through to the next case.
+    Tok.setKind(tok::identifier);
+    __fallthrough;
+    // HLSL Change Ends
   case tok::identifier: {      // primary-expression: identifier
                                // unqualified-id: identifier
                                // constant: enumeration-constant

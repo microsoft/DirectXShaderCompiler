@@ -3715,10 +3715,8 @@ HLSLReservedKeyword:
       isStorageClass = true;
       break;
     // HLSL Change Starts
-    case tok::kw_precise:
     case tok::kw_shared:
     case tok::kw_groupshared:
-    case tok::kw_globallycoherent:
     case tok::kw_uniform:
     case tok::kw_in:
     case tok::kw_out:
@@ -3726,7 +3724,6 @@ HLSLReservedKeyword:
     case tok::kw_linear:
     case tok::kw_nointerpolation:
     case tok::kw_noperspective:
-    case tok::kw_sample:
     case tok::kw_centroid:
     case tok::kw_column_major:
     case tok::kw_row_major:
@@ -3747,7 +3744,21 @@ HLSLReservedKeyword:
         }
       }
       break;
-    // HLSL Change Ends
+    case tok::kw_precise:
+    case tok::kw_sample:
+    case tok::kw_globallycoherent:
+      // Back-compat: 'precise', 'globallycoherent' and 'sample' are keywords when used as an interpolation 
+      // modifiers, but in FXC they can also be used an identifiers. If the decl type has already been specified
+      // we need to update the token to be handled as an identifier.
+      if (getLangOpts().HLSL) {
+        if (DS.getTypeSpecType() != DeclSpec::TST_unspecified) {
+          Tok.setKind(tok::identifier);
+          continue;
+        }
+        DS.getAttributes().addNew(Tok.getIdentifierInfo(), Tok.getLocation(), 0, SourceLocation(), 0, 0, AttributeList::AS_CXX11);
+      }
+      break;
+      // HLSL Change Ends
     case tok::kw_auto:
       if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - auto is reserved for HLSL
       if (getLangOpts().CPlusPlus11) {
