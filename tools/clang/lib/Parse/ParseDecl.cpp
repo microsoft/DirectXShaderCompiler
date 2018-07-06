@@ -721,6 +721,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     //case AttributeList::AT_HLSLIn:
     //case AttributeList::AT_HLSLInOut:
     //case AttributeList::AT_HLSLLinear:
+    //case AttributeList::AT_HLSLCenter:
     //case AttributeList::AT_HLSLNoInterpolation:
     //case AttributeList::AT_HLSLNoPerspective:
     //case AttributeList::AT_HLSLOut:
@@ -3747,7 +3748,8 @@ HLSLReservedKeyword:
     case tok::kw_precise:
     case tok::kw_sample:
     case tok::kw_globallycoherent:
-      // Back-compat: 'precise', 'globallycoherent' and 'sample' are keywords when used as an interpolation 
+    case tok::kw_center:
+      // Back-compat: 'precise', 'globallycoherent', 'center' and 'sample' are keywords when used as an interpolation 
       // modifiers, but in FXC they can also be used an identifiers. If the decl type has already been specified
       // we need to update the token to be handled as an identifier.
       if (getLangOpts().HLSL) {
@@ -5174,6 +5176,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 
   // HLSL Change Starts
   case tok::kw_precise:
+  case tok::kw_center:
   case tok::kw_shared:
   case tok::kw_groupshared:
   case tok::kw_globallycoherent:

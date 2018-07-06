@@ -10312,6 +10312,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
       A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLLinear:
+  case AttributeList::AT_HLSLCenter:
     declAttr = ::new (S.Context) HLSLLinearAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
     break;
@@ -11092,6 +11093,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
       break;
 
     case AttributeList::AT_HLSLLinear:
+    case AttributeList::AT_HLSLCenter:
     case AttributeList::AT_HLSLNoPerspective:
     case AttributeList::AT_HLSLSample:
     case AttributeList::AT_HLSLCentroid:
@@ -11106,6 +11108,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
 
       switch (pAttr->getKind()) {
       case AttributeList::AT_HLSLLinear:
+      case AttributeList::AT_HLSLCenter:
         if (pLinear) {
           Diag(pAttr->getLoc(), diag::warn_hlsl_duplicate_specifier)
               << pAttr->getName() << pAttr->getRange();
@@ -11466,6 +11469,10 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "linear ";
     break;
 
+  case clang::attr::HLSLCenter:
+    Out << "center ";
+    break;
+
   case clang::attr::HLSLCentroid:
     Out << "centroid ";
     break;
@@ -11742,6 +11749,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLInOut:
   case clang::attr::HLSLInstance:
   case clang::attr::HLSLLinear:
+  case clang::attr::HLSLCenter:
   case clang::attr::HLSLLoop:
   case clang::attr::HLSLMaxTessFactor:
   case clang::attr::HLSLNoInterpolation:
