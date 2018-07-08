@@ -422,22 +422,22 @@ public:
 
   dxc::DxcDllSupport m_dllSupport;
 
-  TEST_METHOD(DefineWhenRegisteredThenPreserved);
-  TEST_METHOD(DefineValidationError);
-  TEST_METHOD(DefineValidationWarning);
-  TEST_METHOD(DefineNoValidatorOk);
-  TEST_METHOD(DefineFromMacro);
-  TEST_METHOD(IntrinsicWhenAvailableThenUsed);
-  TEST_METHOD(CustomIntrinsicName);
-  TEST_METHOD(NoLowering);
-  TEST_METHOD(PackedLowering);
-  TEST_METHOD(ReplicateLoweringWhenOnlyVectorIsResult);
-  TEST_METHOD(UnsignedOpcodeIsUnchanged);
-  TEST_METHOD(ResourceExtensionIntrinsic);
-  TEST_METHOD(NameLoweredWhenNoReplicationNeeded);
-  TEST_METHOD(DxilLoweringVector1);
-  TEST_METHOD(DxilLoweringVector2);
-  TEST_METHOD(DxilLoweringScalar);
+  TEST_METHOD(DefineWhenRegisteredThenPreserved)
+  TEST_METHOD(DefineValidationError)
+  TEST_METHOD(DefineValidationWarning)
+  TEST_METHOD(DefineNoValidatorOk)
+  TEST_METHOD(DefineFromMacro)
+  TEST_METHOD(IntrinsicWhenAvailableThenUsed)
+  TEST_METHOD(CustomIntrinsicName)
+  TEST_METHOD(NoLowering)
+  TEST_METHOD(PackedLowering)
+  TEST_METHOD(ReplicateLoweringWhenOnlyVectorIsResult)
+  TEST_METHOD(UnsignedOpcodeIsUnchanged)
+  TEST_METHOD(ResourceExtensionIntrinsic)
+  TEST_METHOD(NameLoweredWhenNoReplicationNeeded)
+  TEST_METHOD(DxilLoweringVector1)
+  TEST_METHOD(DxilLoweringVector2)
+  TEST_METHOD(DxilLoweringScalar)
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {

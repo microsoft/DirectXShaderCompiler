@@ -44,18 +44,18 @@ public:
   dxc::DxcDllSupport m_dllSupport;
 
   // Basic loading tests.
-  TEST_METHOD(LoadDxilModule_1_0);
-  TEST_METHOD(LoadDxilModule_1_1);
-  TEST_METHOD(LoadDxilModule_1_2);
+  TEST_METHOD(LoadDxilModule_1_0)
+  TEST_METHOD(LoadDxilModule_1_1)
+  TEST_METHOD(LoadDxilModule_1_2)
 
   // Precise query tests.
-  TEST_METHOD(Precise1);
-  TEST_METHOD(Precise2);
-  TEST_METHOD(Precise3);
-  TEST_METHOD(Precise4);
-  TEST_METHOD(Precise5);
-  TEST_METHOD(Precise6);
-  TEST_METHOD(Precise7);
+  TEST_METHOD(Precise1)
+  TEST_METHOD(Precise2)
+  TEST_METHOD(Precise3)
+  TEST_METHOD(Precise4)
+  TEST_METHOD(Precise5)
+  TEST_METHOD(Precise6)
+  TEST_METHOD(Precise7)
 };
 
 ///////////////////////////////////////////////////////////////////////////////

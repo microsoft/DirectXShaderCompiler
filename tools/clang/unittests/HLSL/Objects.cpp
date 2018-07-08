@@ -493,16 +493,16 @@ public:
 
   TEST_CLASS_SETUP(ObjectTestSetup);
 
-  TEST_METHOD(DeclareLocalObject);
-  TEST_METHOD(OptionalTemplateArgs);
-  TEST_METHOD(MissingTemplateArgs);
-  TEST_METHOD(TooManyTemplateArgs);
-  TEST_METHOD(PassAsParameter);
-  TEST_METHOD(AssignVariables);
-  TEST_METHOD(AssignReturnResult);
-  TEST_METHOD(PassToInoutArgs);
-  TEST_METHOD(TemplateArgConstraints);
-  TEST_METHOD(FunctionInvoke);
+  TEST_METHOD(DeclareLocalObject)
+  TEST_METHOD(OptionalTemplateArgs)
+  TEST_METHOD(MissingTemplateArgs)
+  TEST_METHOD(TooManyTemplateArgs)
+  TEST_METHOD(PassAsParameter)
+  TEST_METHOD(AssignVariables)
+  TEST_METHOD(AssignReturnResult)
+  TEST_METHOD(PassToInoutArgs)
+  TEST_METHOD(TemplateArgConstraints)
+  TEST_METHOD(FunctionInvoke)
 
   void FormatTypeNameAndPreamble(const ShaderObjectDataItem& sod,
                                  char (&typeName)[64],
