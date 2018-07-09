@@ -42,7 +42,7 @@ git:
 
 branches:
   only:
-    - linux
+    - master
 
 addons:
   apt:
