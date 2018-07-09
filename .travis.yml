@@ -33,6 +33,9 @@ matrix:
           sources: ubuntu-toolchain-r-test
           packages: ninja-build g++-5
       env: DXC_BUILD_TYPE=Release
+  allow_failures:
+    - os: linux
+    - os: osx
 
 cache:
   apt: true
