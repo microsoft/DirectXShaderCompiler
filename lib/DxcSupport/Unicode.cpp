@@ -24,6 +24,12 @@
 int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
                         const char *lpMultiByteStr, int cbMultiByte,
                         wchar_t *lpWideCharStr, int cchWideChar) {
+
+  if (cbMultiByte == 0) {
+    SetLastError(ERROR_INVALID_PARAMETER);
+    return 0;
+  }
+
   // if cbMultiByte is -1, it indicates that lpMultiByteStr is null-terminated
   // and the entire string should be processed.
   if (cbMultiByte == -1) {
@@ -38,10 +44,18 @@ int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
     wchar_t *tempStr = (wchar_t *)malloc(cbMultiByte * sizeof(wchar_t));
     size_t requiredSize = mbstowcs(tempStr, lpMultiByteStr, cbMultiByte);
     free(tempStr);
-    return requiredSize;
+    if (requiredSize == (size_t)cbMultiByte) return requiredSize;
+    return requiredSize + 1;
   }
 
-  return mbstowcs(lpWideCharStr, lpMultiByteStr, cbMultiByte);
+  if (cchWideChar < cbMultiByte) {
+    SetLastError(ERROR_INSUFFICIENT_BUFFER);
+    return 0;
+  }
+
+  size_t rv = mbstowcs(lpWideCharStr, lpMultiByteStr, cbMultiByte);
+  if (rv == (size_t)cbMultiByte) return rv;
+  return rv + 1; // mbstowcs excludes the terminating character
 }
 
 // WideCharToMultiByte is a Windows-specific method.
@@ -54,6 +68,10 @@ int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
                         bool * /*lpUsedDefaultChar*/) {
   // if cchWideChar is -1, it indicates that lpWideCharStr is null-terminated
   // and the entire string should be processed.
+  if (cchWideChar == 0) {
+    SetLastError(ERROR_INVALID_PARAMETER);
+    return 0;
+  }
   if (cchWideChar == -1) {
     for (cchWideChar = 0; lpWideCharStr[cchWideChar] != '\0'; ++cchWideChar)
       ;
@@ -66,10 +84,18 @@ int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
     char *tempStr = (char *)malloc(cchWideChar * sizeof(char));
     size_t requiredSize = wcstombs(tempStr, lpWideCharStr, cchWideChar);
     free(tempStr);
-    return requiredSize;
+    if (requiredSize == (size_t)cchWideChar) return requiredSize;
+    return requiredSize + 1;
   }
 
-  return wcstombs(lpMultiByteStr, lpWideCharStr, cchWideChar);
+  if (cbMultiByte < cchWideChar) {
+    SetLastError(ERROR_INSUFFICIENT_BUFFER);
+    return 0;
+  }
+
+  size_t rv = wcstombs(lpMultiByteStr, lpWideCharStr, cchWideChar);
+  if (rv == (size_t)cchWideChar) return rv;
+  return rv + 1; // mbstowcs excludes the terminating character
 }
 #endif // _WIN32
 
