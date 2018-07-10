@@ -213,22 +213,22 @@ TEST_F(OptionsTest, ReadOptionsWhenDefinesThenInit) {
 
   std::unique_ptr<DxcOpts> o;
   o = ReadOptsTest(ArgsNoDefinesArr, DxrFlags);
-  EXPECT_EQ(0, o->Defines.size());
+  EXPECT_EQ(0U, o->Defines.size());
   
   o = ReadOptsTest(ArgsOneDefineArr, DxrFlags);
-  EXPECT_EQ(1, o->Defines.size());
+  EXPECT_EQ(1U, o->Defines.size());
   EXPECT_STREQW(L"NAME1", o->Defines.data()[0].Name);
   EXPECT_STREQW(L"1", o->Defines.data()[0].Value);
 
   o = ReadOptsTest(ArgsTwoDefinesArr, DxrFlags);
-  EXPECT_EQ(2, o->Defines.size());
+  EXPECT_EQ(2U, o->Defines.size());
   EXPECT_STREQW(L"NAME1", o->Defines.data()[0].Name);
   EXPECT_STREQW(L"1", o->Defines.data()[0].Value);
   EXPECT_STREQW(L"NAME2", o->Defines.data()[1].Name);
   EXPECT_STREQW(L"2", o->Defines.data()[1].Value);
 
   o = ReadOptsTest(ArgsEmptyDefineArr, DxrFlags);
-  EXPECT_EQ(1, o->Defines.size());
+  EXPECT_EQ(1U, o->Defines.size());
   EXPECT_STREQW(L"NAME1", o->Defines.data()[0].Name);
   EXPECT_EQ(nullptr, o->Defines.data()[0].Value);
 }
@@ -292,7 +292,7 @@ TEST_F(OptionsTest, CopyOptionsWhenSingleThenOK) {
       table->ParseArgs(ArgsNoDefines, missingIndex, missingArgCount, DxcFlags);
   std::vector<std::wstring> outArgs;
   CopyArgsToWStrings(args, DxcFlags, outArgs);
-  EXPECT_EQ(4, outArgs.size()); // -unknown and hlsl.hlsl are missing
+  EXPECT_EQ(4U, outArgs.size()); // -unknown and hlsl.hlsl are missing
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"/T")));
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"ps_6_0")));
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"/E")));

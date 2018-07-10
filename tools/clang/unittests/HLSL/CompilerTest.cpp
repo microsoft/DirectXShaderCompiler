@@ -1357,7 +1357,7 @@ public:
     VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembleBlob));
 
     std::string disassembleString(BlobToUtf8(pDisassembleBlob));
-    VERIFY_ARE_NOT_EQUAL(0, disassembleString.size());
+    VERIFY_ARE_NOT_EQUAL(0U, disassembleString.size());
   }
 
   void CodeGenTestCheckFullPath(LPCWSTR fullPath) {
@@ -1838,7 +1838,7 @@ TEST_F(CompilerTest, CompileWhenIncorrectThenFails) {
   CComPtr<IDxcBlobEncoding> pErrorBuffer;
   VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrorBuffer));
   std::string errorString(BlobToUtf8(pErrorBuffer));
-  VERIFY_ARE_NOT_EQUAL(0, errorString.size());
+  VERIFY_ARE_NOT_EQUAL(0U, errorString.size());
   // Useful for examining actual error message:
   // CA2W errorStringW(errorString.c_str(), CP_UTF8);
   // WEX::Logging::Log::Comment(errorStringW.m_psz);
@@ -1866,7 +1866,7 @@ TEST_F(CompilerTest, CompileWhenWorksThenDisassembleWorks) {
   VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembleBlob));
 
   std::string disassembleString(BlobToUtf8(pDisassembleBlob));
-  VERIFY_ARE_NOT_EQUAL(0, disassembleString.size());
+  VERIFY_ARE_NOT_EQUAL(0U, disassembleString.size());
   // Useful for examining disassembly:
   // CA2W disassembleStringW(disassembleString.c_str(), CP_UTF8);
   // WEX::Logging::Log::Comment(disassembleStringW.m_psz);
