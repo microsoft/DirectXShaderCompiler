@@ -20,10 +20,11 @@
 #include <algorithm>
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#ifdef _WIN32
 #include <atlfile.h>
+#endif
 
 #include "HLSLTestData.h"
-#include "WexTestClass.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
 
