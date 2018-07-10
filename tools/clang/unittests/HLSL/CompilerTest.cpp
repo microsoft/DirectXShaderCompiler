@@ -23,10 +23,12 @@
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#ifdef _WIN32
 #include <atlfile.h>
+#include "dia2.h"
+#endif
 
 #include "HLSLTestData.h"
-#include "WexTestClass.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
 
@@ -36,7 +38,6 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
-#include "dia2.h"
 
 #include <fstream>
 #include "llvm/Support/FileSystem.h"
@@ -135,42 +136,13 @@ const char *UdtKindText[] =
   "Interface",
 };
 
-// BasicType is not contiguous.
-const char *GetBasicTypeText(enum BasicType value) {
-  switch (value) {
-  case btNoType: return "NoType";
-  case btVoid: return "Void";
-  case btChar: return "Char";
-  case btWChar: return "WChar";
-  case btInt: return "Int";
-  case btUInt: return "UInt";
-  case btFloat: return "Float";
-  case btBCD: return "BCD";
-  case btBool: return "Bool";
-  case btLong: return "Long";
-  case btULong: return "ULong";
-  case btCurrency: return "Currency";
-  case btDate: return "Date";
-  case btVariant: return "Variant";
-  case btComplex: return "Complex";
-  case btBit: return "Bit";
-  case btBSTR: return "BSTR";
-  case btHresult: return "Hresult";
-  // The following may not be present in cvconst.h
-  //case btChar16: return "Char16";
-  //case btChar32: return "Char32";
-  }
-  return "?";
-}
-
-
 class TestIncludeHandler : public IDxcIncludeHandler {
   DXC_MICROCOM_REF_FIELD(m_dwRef)
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   dxc::DxcDllSupport &m_dllSupport;
   HRESULT m_defaultErrorCode = E_FAIL;
-  TestIncludeHandler(dxc::DxcDllSupport &dllSupport) : m_dwRef(0), callIndex(0), m_dllSupport(dllSupport) { }
+  TestIncludeHandler(dxc::DxcDllSupport &dllSupport) : m_dwRef(0), m_dllSupport(dllSupport), callIndex(0) { }
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IDxcIncludeHandler>(this,  iid, ppvObject);
   }
@@ -215,7 +187,11 @@ public:
   }
 };
 
+#ifdef _WIN32
 class CompilerTest {
+#else
+class CompilerTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(CompilerTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -1005,9 +981,11 @@ public:
     return m_dllSupport.CreateInstance(CLSID_DxcCompiler, ppResult);
   }
 
+#ifdef _WIN32 // No ContainerBuilder support yet
   HRESULT CreateContainerBuilder(IDxcContainerBuilder **ppResult) {
     return m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, ppResult);
   }
+#endif
 
   template <typename T, typename TDefault, typename TIface>
   void WriteIfValue(TIface *pSymbol, std::wstringstream &o,
@@ -1019,6 +997,7 @@ public:
       o << L", " << valueLabel << L": " << value;
     }
   }
+#ifdef _WIN32 // exclude dia stuff
   template <typename TIface>
   void WriteIfValue(TIface *pSymbol, std::wstringstream &o,
     LPCWSTR valueLabel, HRESULT(__stdcall TIface::*pFn)(BSTR *)) {
@@ -1293,6 +1272,7 @@ public:
     }
     return lines;
   }
+#endif //  _WIN32 - exclude dia stuff
  
   std::string GetOption(std::string &cmd, char *opt) {
     std::string option = cmd.substr(cmd.find(opt));
@@ -1336,6 +1316,10 @@ public:
     VERIFY_SUCCEEDED(pCompiler->Compile(
         pSource, name, entry.c_str(), profile.c_str(), args.data(), args.size(),
         opts.Defines.data(), opts.Defines.size(), nullptr, &pResult));
+    if (pResult == nullptr) {
+      WEX::Logging::Log::Comment(L"Failed to compile - pResult NULL");
+      return;
+    }
     HRESULT result;
     VERIFY_SUCCEEDED(pResult->GetStatus(&result));
     if (FAILED(result)) {
@@ -1464,6 +1448,7 @@ public:
     return BlobToUtf8(pErrors);
   }
 
+#ifdef _WIN32 // - exclude dia stuff
   HRESULT CreateDiaSourceForCompile(const char *hlsl, IDiaDataSource **ppDiaSource)
   {
     if (!ppDiaSource)
@@ -1527,6 +1512,7 @@ public:
     *ppDiaSource = pDiaSource.Detach();
     return S_OK;
   }
+#endif // _WIN32 - exclude dia stuff
 };
 
 // Useful for debugging.
@@ -1590,6 +1576,7 @@ bool CompilerTest::InitSupport() {
   return true;
 }
 
+#if _WIN32 // - exclude dia stuff
 TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
   // BUG: the first test written was of this form:
   // float4 local = 0; return local;
@@ -1719,6 +1706,7 @@ TEST_F(CompilerTest, CompileDebugLines) {
   VERIFY_SUCCEEDED(pFile->get_fileName(&pName));
   VERIFY_ARE_EQUAL_WSTR(pName, L"source.hlsl");
 }
+#endif // _WIN32 - exclude dia stuff
 
 TEST_F(CompilerTest, CompileWhenDefinesThenApplied) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -1871,6 +1859,8 @@ TEST_F(CompilerTest, CompileWhenWorksThenDisassembleWorks) {
   // CA2W disassembleStringW(disassembleString.c_str(), CP_UTF8);
   // WEX::Logging::Log::Comment(disassembleStringW.m_psz);
 }
+
+#ifdef _WIN32 // Container builder unsupported
 
 TEST_F(CompilerTest, CompileWhenDebugWorksThenStripDebug) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -2084,6 +2074,7 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
                                         hlsl::DxilFourCC::DFCC_RootSignature);
   VERIFY_IS_NULL(pPartHeader);
 }
+#endif // Container builder unsupported
 
 TEST_F(CompilerTest, CompileWhenIncludeThenLoadInvoked) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -2132,9 +2123,16 @@ TEST_F(CompilerTest, CompileWhenIncludeAbsoluteThenLoadAbsolute) {
   CComPtr<TestIncludeHandler> pInclude;
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+#ifdef _WIN32 // OS-specific root
   CreateBlobFromText(
     "#include \"C:\\helper.h\"\r\n"
     "float4 main() : SV_Target { return ZERO; }", &pSource);
+#else
+  CreateBlobFromText(
+    "#include \"/helper.h\"\n"
+    "float4 main() : SV_Target { return ZERO; }", &pSource);
+#endif
+
 
   pInclude = new TestIncludeHandler(m_dllSupport);
   pInclude->CallResults.emplace_back("#define ZERO 0");
@@ -2142,7 +2140,11 @@ TEST_F(CompilerTest, CompileWhenIncludeAbsoluteThenLoadAbsolute) {
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
     L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
+#ifdef _WIN32 // OS-specific root
   VERIFY_ARE_EQUAL_WSTR(L"C:\\helper.h;", pInclude->GetAllFileNames().c_str());
+#else
+  VERIFY_ARE_EQUAL_WSTR(L"/helper.h;", pInclude->GetAllFileNames().c_str());
+#endif
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeLocalThenLoadRelative) {
@@ -2162,7 +2164,11 @@ TEST_F(CompilerTest, CompileWhenIncludeLocalThenLoadRelative) {
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
     L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
+#ifdef _WIN32 // OS-specific directory dividers
   VERIFY_ARE_EQUAL_WSTR(L"./..\\helper.h;", pInclude->GetAllFileNames().c_str());
+#else
+  VERIFY_ARE_EQUAL_WSTR(L"./../helper.h;", pInclude->GetAllFileNames().c_str());
+#endif
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeSystemThenLoadNotRelative) {
@@ -2186,7 +2192,11 @@ TEST_F(CompilerTest, CompileWhenIncludeSystemThenLoadNotRelative) {
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
     L"ps_6_0", args, _countof(args), nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
+#ifdef _WIN32 // OS-specific directory dividers
   VERIFY_ARE_EQUAL_WSTR(L"./subdir/other/file.h;./foo\\helper.h;", pInclude->GetAllFileNames().c_str());
+#else
+  VERIFY_ARE_EQUAL_WSTR(L"./subdir/other/file.h;./foo/helper.h;", pInclude->GetAllFileNames().c_str());
+#endif
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeSystemMissingThenLoadAttempt) {
@@ -2225,13 +2235,19 @@ TEST_F(CompilerTest, CompileWhenIncludeFlagsThenIncludeUsed) {
   pInclude = new TestIncludeHandler(m_dllSupport);
   pInclude->CallResults.emplace_back("#define ZERO 0");
 
-  LPCWSTR args[] = {
-    L"-I\\\\server\\share"
-  };
+#ifdef _WIN32  // OS-specific root
+  LPCWSTR args[] = { L"-I\\\\server\\share" };
+#else
+  LPCWSTR args[] = { L"-I/server/share" };
+#endif
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
     L"ps_6_0", args, _countof(args), nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
+#ifdef _WIN32  // OS-specific root
   VERIFY_ARE_EQUAL_WSTR(L"\\\\server\\share\\helper.h;", pInclude->GetAllFileNames().c_str());
+#else
+  VERIFY_ARE_EQUAL_WSTR(L"/server/share/helper.h;", pInclude->GetAllFileNames().c_str());
+#endif
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeMissingThenFail) {
@@ -2397,7 +2413,6 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
 
 static const UINT CaptureStacks = 0; // Set to 1 to enable captures
 static const UINT StackFrameCount = 12;
-static const UINT StackFrameCountForRefs = 4;
 
 struct InstrumentedHeapMalloc : public IMalloc {
 private:
@@ -2414,8 +2429,8 @@ private:
   LIST_ENTRY AllocList;
   struct PtrData {
     LIST_ENTRY Entry;
-    PVOID AllocFrames[CaptureStacks ? StackFrameCount * CaptureStacks : 1];
-    PVOID FreeFrames[CaptureStacks ? StackFrameCount * CaptureStacks : 1];
+    LPVOID AllocFrames[CaptureStacks ? StackFrameCount * CaptureStacks : 1];
+    LPVOID FreeFrames[CaptureStacks ? StackFrameCount * CaptureStacks : 1];
     UINT64 AllocAtCount;
     DWORD AllocFrameCount;
     DWORD FreeFrameCount;
@@ -2809,6 +2824,7 @@ TEST_F(CompilerTest, CompileCBufferTBufferASTDump) {
   CodeGenTestCheck(L"ctbuf.hlsl");
 }
 
+#ifdef _WIN32 // - exclude dia stuff
 TEST_F(CompilerTest, DiaLoadBadBitcodeThenFail) {
   CComPtr<IDxcBlob> pBadBitcode;
   CComPtr<IDiaDataSource> pDiaSource;
@@ -2877,6 +2893,7 @@ TEST_F(CompilerTest, DiaTableIndexThenOK) {
   vtIndex.uintVal = 100;
   VERIFY_FAILED(pEnumTables->Item(vtIndex, &pTable));
 }
+#endif // _WIN32 - exclude dia stuff
 
 TEST_F(CompilerTest, PixMSAAToSample0) {
   CodeGenTestCheck(L"pix\\msaaLoad.hlsl");
@@ -3425,7 +3442,7 @@ TEST_F(CompilerTest, CodeGenFloatMaxtessfactor) {
 }
 
 TEST_F(CompilerTest, CodeGenFModPS) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\fmodPS.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\fmodPs.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFuncCast) {
@@ -4220,7 +4237,7 @@ TEST_F(CompilerTest, CodeGenShortCircuiting3) {
 }
 
 TEST_F(CompilerTest, CodeGenSimpleDS1) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleDS1.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleDs1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleGS1) {
@@ -4260,47 +4277,47 @@ TEST_F(CompilerTest, CodeGenSimpleGS12) {
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS1) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS1.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS2) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS2.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS3) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS3.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs3.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS4) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS4.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS5) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS5.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs5.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS6) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS6.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs6.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS7) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS7.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs7.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS8) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS8.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs8.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS9) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS9.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs9.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS10) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS10.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs10.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS11) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS11.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHs11.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSMFail) {
@@ -4414,7 +4431,7 @@ TEST_F(CompilerTest, CodeGenStructCast) {
 }
 
 TEST_F(CompilerTest, CodeGenStructCast2) {
-  CodeGenTest(L"..\\CodeGenHLSL\\StructCast2.hlsl");
+  CodeGenTest(L"..\\CodeGenHLSL\\structCast2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStructInBuffer) {
@@ -5908,7 +5925,11 @@ TEST_F(CompilerTest, QuickLlTest) {
 	CodeGenTestCheckBatchDir(L"..\\CodeGenHLSL\\quick-ll-test");
 }
 
+#ifdef _WIN32
 TEST_F(CompilerTest, SingleFileCheckTest) {
+#else
+TEST_F(CompilerTest, DISABLED_SingleFileCheckTest) {
+#endif
   using namespace llvm;
   using namespace WEX::TestExecution;
   WEX::Common::String value;
