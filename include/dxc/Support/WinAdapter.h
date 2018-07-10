@@ -111,6 +111,8 @@
 #define ERROR_IO_DEVICE EIO
 #define ERROR_INVALID_HANDLE EBADF
 #define ERROR_ARITHMETIC_OVERFLOW EOVERFLOW
+#define ERROR_INSUFFICIENT_BUFFER ENOBUFS
+#define ERROR_INVALID_PARAMETER EINVAL
 
 // Used by HRESULT <--> WIN32 error code conversion
 #define SEVERITY_ERROR 1
@@ -841,7 +843,7 @@ public:
       return;
     }
 
-    int len = wcslen(psz) * 4;
+    int len = (wcslen(psz) + 1) * 4;
     m_psz = new char[len];
     std::wcstombs(m_psz, psz, len);
   }
