@@ -50,11 +50,15 @@
 #define HeapFree(hHeap, dwFlags, voidPtr) free(voidPtr)
 #define HeapCreate(flags, nBytes, maxSize) malloc(nBytes)
 
+#define SysFreeString free
+#define SysAllocStringLen(ptr, size) (wchar_t*)realloc(ptr, (size + 1)*sizeof(wchar_t))
+
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
 
 #define __declspec(x)
+#define DECLSPEC_SELECTANY
 
 #define uuid(id)
 
@@ -171,8 +175,15 @@
 #define _atoi64 atoll
 #define sprintf_s snprintf
 #define _strdup strdup
+
 #define vsprintf_s vsprintf
 #define strcat_s strcat
+#define strcpy_s(dst, n, src) strncpy(dst, src, n)
+#define _vscwprintf vwprintf
+#define vswprintf_s vswprintf
+#define swprintf_s swprintf
+
+#define StringCchCopyW(dst, n, src) wcsncpy(dst, src, n)
 
 #define OutputDebugStringW(msg) fputws(msg, stderr)
 
@@ -243,6 +254,7 @@
 
 #define _Out_
 #define _Out_bytecap_(nbytes)
+#define _Out_writes_to_(a, b)
 #define _Out_writes_to_opt_(a, b)
 #define _Outptr_
 #define _Outptr_opt_
@@ -717,6 +729,7 @@ public:
   }
   int GetSize() { return this->size(); }
   T *GetData() { return this->data(); }
+  void RemoveAll() { this->clear(); }
 };
 
 template <class T, class Allocator = CAllocator> class CHeapPtrBase {

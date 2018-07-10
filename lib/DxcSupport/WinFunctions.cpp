@@ -14,10 +14,28 @@
 
 #ifndef _WIN32
 #include <fcntl.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "dxc/Support/WinFunctions.h"
+
+HRESULT StringCchCopyEx(LPSTR pszDest, size_t cchDest, LPCSTR pszSrc,
+                        LPSTR *ppszDestEnd, size_t *pcchRemaining, DWORD dwFlags) {
+  assert(dwFlags == 0 && "dwFlag values not supported in StringCchCopyEx");
+  char *zPtr = 0;
+
+  zPtr = stpncpy(pszDest, pszSrc, cchDest);
+
+  if (ppszDestEnd)
+    *ppszDestEnd = zPtr;
+
+  if (pcchRemaining)
+    *pcchRemaining = cchDest - (zPtr - pszDest);
+
+  return S_OK;
+}
+
 
 HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...) {
   va_list args;
@@ -86,6 +104,35 @@ int _stricmp(const char *str1, const char *str2) {
   return str1[i] - str2[i];
 }
 
+int _wcsicmp(const wchar_t *str1, const wchar_t *str2) {
+  size_t i = 0;
+  for (; str1[i] && str2[i]; ++i) {
+    int d = std::towlower(str1[i]) - std::towlower(str2[i]);
+    if (d != 0)
+      return d;
+  }
+  return str1[i] - str2[i];
+}
+
+int _wcsnicmp(const wchar_t *str1, const wchar_t *str2, size_t n) {
+  size_t i = 0;
+  for (; str1[i] && str2[i]; ++i) {
+    int d = std::towlower(str1[i]) - std::towlower(str2[i]);
+    if (d != 0)
+      return d;
+  }
+  if (i >= n) return 0;
+  return str1[i] - str2[i];
+}
+
+unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask) {
+  unsigned long l;
+  if (!Mask) return 0;
+  for (l=0; !(Mask&1); l++) Mask >>= 1;
+  *Index = l;
+  return 1;
+}
+
 HRESULT CoGetMalloc(DWORD dwMemContext, IMalloc **ppMalloc) {
   *ppMalloc = new IMalloc;
   (*ppMalloc)->AddRef();
@@ -132,7 +179,10 @@ HANDLE CreateFileW(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess,
   assert(dwFlagsAndAttributes == FILE_ATTRIBUTE_NORMAL &&
          "Attributes other than NORMAL not supported in CreateFileW yet");
 
-  fd = open(pUtf8FileName, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+  while ((int)(fd = open(pUtf8FileName, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) < 0) {
+    if (errno != EINTR)
+      return INVALID_HANDLE_VALUE;
+  }
 
   return (HANDLE)fd;
 }

@@ -19,12 +19,18 @@
 
 #include "dxc/Support/WinAdapter.h"
 
+HRESULT StringCchCopyEx(LPSTR pszDest, size_t cchDest, LPCSTR pszSrc,
+                        LPSTR *ppszDestEnd, size_t *pcchRemaining, DWORD dwFlags);
 HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...);
 HRESULT UIntAdd(UINT uAugend, UINT uAddend, UINT *puResult);
 HRESULT IntToUInt(int in, UINT *out);
 HRESULT SizeTToInt(size_t in, INT *out);
 HRESULT UInt32Mult(UINT a, UINT b, UINT *out);
 int _stricmp(const char *str1, const char *str2);
+int _wcsicmp(const wchar_t *str1, const wchar_t *str2);
+int _wcsnicmp(const wchar_t *str1, const wchar_t *str2, size_t n);
+int wsprintf(wchar_t *wcs, const wchar_t *fmt, ...);
+unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask);
 HRESULT CoGetMalloc(DWORD dwMemContext, IMalloc **ppMalloc);
 
 HANDLE CreateFile2(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess,
