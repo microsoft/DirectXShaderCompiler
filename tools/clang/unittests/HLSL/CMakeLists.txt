@@ -69,7 +69,6 @@ set(HLSL_IGNORE_SOURCES
   FunctionTest.cpp
   LinkerTest.cpp
   MSFileSysTest.cpp
-  OptimizerTest.cpp
   OptionsTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
@@ -83,6 +82,7 @@ add_clang_unittest(clang-hlsl-tests
   DXIsenseTest.cpp
   HLSLTestOptions.cpp
   Objects.cpp
+  OptimizerTest.cpp
   TestMain.cpp
   VerifierTest.cpp
   )
