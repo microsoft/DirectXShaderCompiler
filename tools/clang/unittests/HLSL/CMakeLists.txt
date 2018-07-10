@@ -64,7 +64,6 @@ set(HLSL_IGNORE_SOURCES
   DxilModuleTest.cpp
   ExecutionTest.cpp
   ExtensionTest.cpp
-  FunctionTest.cpp
   LinkerTest.cpp
   MSFileSysTest.cpp
   OptionsTest.cpp
@@ -79,6 +78,7 @@ add_clang_unittest(clang-hlsl-tests
   DXIsenseTest.cpp
   FileCheckerTest.cpp
   FileCheckForTest.cpp
+  FunctionTest.cpp
   HLSLTestOptions.cpp
   Objects.cpp
   OptimizerTest.cpp
