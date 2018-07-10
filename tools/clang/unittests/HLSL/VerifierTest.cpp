@@ -16,14 +16,20 @@
 
 #include <fstream>
 
+#ifdef _WIN32
 #include "WexTestClass.h"
+#endif
 #include "HlslTestUtils.h"
 
 using namespace std;
 
 // The test fixture.
-class VerifierTest
-{
+#ifdef _WIN32
+class VerifierTest {
+#else
+class VerifierTest : public ::testing::Test {
+#endif
+
 public:
   BEGIN_TEST_CLASS(VerifierTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -94,7 +100,7 @@ public:
     //
 
     {
-      ifstream infile(path);
+      ifstream infile(CW2A(path).m_psz);
       ASSERT_EQ(false, infile.bad());
 
       infile.getline(firstLine, _countof(firstLine));

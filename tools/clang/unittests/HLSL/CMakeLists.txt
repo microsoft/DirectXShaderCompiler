@@ -71,7 +71,6 @@ set(HLSL_IGNORE_SOURCES
   ShaderOpTest.cpp
   SystemValueTest.cpp
   ValidationTest.cpp
-  VerifierTest.cpp
   )
 
 add_clang_unittest(clang-hlsl-tests
@@ -79,6 +78,7 @@ add_clang_unittest(clang-hlsl-tests
   DxcTestUtils.cpp
   HLSLTestOptions.cpp
   TestMain.cpp
+  VerifierTest.cpp
   )
 
 endif(WIN32)
