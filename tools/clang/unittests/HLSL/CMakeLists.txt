@@ -70,7 +70,6 @@ set(HLSL_IGNORE_SOURCES
   OptionsTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
-  SystemValueTest.cpp
   )
 
 add_clang_unittest(clang-hlsl-tests
@@ -82,6 +81,7 @@ add_clang_unittest(clang-hlsl-tests
   HLSLTestOptions.cpp
   Objects.cpp
   OptimizerTest.cpp
+  SystemValueTest.cpp
   TestMain.cpp
   ValidationTest.cpp
   VerifierTest.cpp
