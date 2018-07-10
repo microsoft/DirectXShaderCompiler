@@ -2547,7 +2547,8 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
                                               nullptr));
 
     string text = DisassembleProgram(m_dllSupport, pOptimizedModule);
-    LogCommentFmt(L"Final program:\r\n%S", text.c_str());
+    WEX::Logging::Log::Comment(L"Final program:");
+    WEX::Logging::Log::Comment(CA2W(text.c_str()));
 
     // At the very least, the module should be valid.
     pResult.Release();

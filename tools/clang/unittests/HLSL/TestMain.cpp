@@ -21,6 +21,9 @@
 #endif
 #endif
 
+bool moduleSetup();
+bool moduleTeardown();
+
 namespace {
 using namespace ::testing;
 
