@@ -60,8 +60,6 @@ set( LLVM_LINK_COMPONENTS
 
 set(HLSL_IGNORE_SOURCES
   CompilerTest.cpp
-  DxilContainerTest.cpp
-  DxilModuleTest.cpp
   ExecutionTest.cpp
   ExtensionTest.cpp
   FunctionTest.cpp
@@ -76,6 +74,8 @@ set(HLSL_IGNORE_SOURCES
 add_clang_unittest(clang-hlsl-tests
   AllocatorTest.cpp
   DxcTestUtils.cpp
+  DxilContainerTest.cpp
+  DxilModuleTest.cpp
   DXIsenseTest.cpp
   FileCheckerTest.cpp
   FileCheckForTest.cpp

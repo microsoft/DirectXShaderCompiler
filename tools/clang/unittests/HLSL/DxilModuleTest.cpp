@@ -8,7 +8,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "CompilationResult.h"
-#include "WexTestClass.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
 #include "dxc/Support/microcom.h"
@@ -24,7 +23,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ErrorOr.h"
-#include "llvm/BitCode/ReaderWriter.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/InstIterator.h"
 
@@ -34,7 +33,11 @@ using namespace llvm;
 ///////////////////////////////////////////////////////////////////////////////
 // DxilModule unit tests.
 
+#ifdef _WIN32
 class DxilModuleTest {
+#else
+class DxilModuleTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(DxilModuleTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
