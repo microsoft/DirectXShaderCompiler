@@ -13,7 +13,6 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include <strstream>
 #include "CompilationResult.h"
 #include "HLSLTestData.h"
 
@@ -139,7 +138,7 @@ TEST_F(FunctionTest, AllowedStorageClass) {
 TEST_F(FunctionTest, AllowedInParamUsesClass) {
   const char* fragments[] =  { "f", "1.0f" };
   for (const auto &iop : InOutParameterModifierData) {
-    for (int i = 0; i < _countof(fragments); i++) {
+    for (unsigned i = 0; i < _countof(fragments); i++) {
       char program[256];
       sprintf_s(program, _countof(program),
               "float ps(%s float o) { return o; }\n"

@@ -65,8 +65,8 @@ static string trim(string value) {
       Command(command), Arguments(arguments), CommandFileName(commandFileName) { }
     FileRunCommandPart::FileRunCommandPart(FileRunCommandPart && other) :
       Command(std::move(other.Command)),
-      CommandFileName(other.CommandFileName),
       Arguments(std::move(other.Arguments)),
+      CommandFileName(other.CommandFileName),
       RunResult(other.RunResult),
       StdOut(std::move(other.StdOut)),
       StdErr(std::move(other.StdErr)) { }

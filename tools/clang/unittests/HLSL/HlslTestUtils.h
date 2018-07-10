@@ -275,9 +275,6 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
 
   static const uint32_t SignMask = 0x8000;
 
-  // Maximum f32 value representable in f16 format
-  static const uint32_t Max16in32 = 0x477fe000;
-
   // Minimum f32 value representable in f16 format without denormalizing
   static const uint32_t Min16in32 = 0x38800000;
 
@@ -298,12 +295,12 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
   Bits Abs;
   Abs.u_bits = bits.u_bits ^ sign;
 
-  bool isLessThanNormal = Abs.f_bits < *(float*)&Min16in32;
+  bool isLessThanNormal = Abs.f_bits < *(const float*)&Min16in32;
   bool isInfOrNaN = Abs.u_bits > Max32;
 
   if (isLessThanNormal) {
     // Compute Denormal result
-    return (uint16_t)(Abs.f_bits * *(float*)(&DenormalRatio)) | (sign >> 16);
+    return (uint16_t)(Abs.f_bits * *(const float*)(&DenormalRatio)) | (sign >> 16);
   }
   else if (isInfOrNaN) {
     // Compute Inf or Nan result
@@ -372,7 +369,7 @@ inline bool CompareFloatULP(const float &fsrc, const float &fref,
   }
   // For FTZ or Preserve mode, we should get the expected number within
   // ULPTolerance for any operations.
-  int diff = *((DWORD *)&fsrc) - *((DWORD *)&fref);
+  int diff = *((const DWORD *)&fsrc) - *((const DWORD *)&fref);
   unsigned int uDiff = diff < 0 ? -diff : diff;
   return uDiff <= (unsigned int)ULPTolerance;
 }
