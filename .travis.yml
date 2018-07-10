@@ -75,3 +75,4 @@ script:
   - ./bin/dxc -T ps_6_0 -Fo passthru-ps.spv ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv -spirv
   - cmp passthru-ps.spv ../tools/clang/test/CodeGenSPIRV/passthru-ps.spv
   - ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
+  - ./bin/clang-hlsl-tests --HlslDataDir $PWD/../tools/clang/test/CodeGenSPIRV/

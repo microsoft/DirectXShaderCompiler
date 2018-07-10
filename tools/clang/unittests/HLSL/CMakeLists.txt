@@ -53,7 +53,6 @@ add_clang_library(clang-hlsl-tests SHARED
   )
 else (WIN32)
 set(HLSL_IGNORE_SOURCES
-  AllocatorTest.cpp
   CompilerTest.cpp
   DxilContainerTest.cpp
   DxilModuleTest.cpp
@@ -76,6 +75,7 @@ set(HLSL_IGNORE_SOURCES
   )
 
 add_clang_unittest(clang-hlsl-tests
+  AllocatorTest.cpp
   DxcTestUtils.cpp
   HLSLTestOptions.cpp
   TestMain.cpp
