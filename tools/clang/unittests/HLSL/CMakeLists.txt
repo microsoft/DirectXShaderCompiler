@@ -56,7 +56,6 @@ set(HLSL_IGNORE_SOURCES
   CompilerTest.cpp
   DxilContainerTest.cpp
   DxilModuleTest.cpp
-  DXIsenseTest.cpp
   ExecutionTest.cpp
   ExtensionTest.cpp
   FileCheckerTest.cpp
@@ -77,6 +76,7 @@ set(HLSL_IGNORE_SOURCES
 add_clang_unittest(clang-hlsl-tests
   AllocatorTest.cpp
   DxcTestUtils.cpp
+  DXIsenseTest.cpp
   HLSLTestOptions.cpp
   TestMain.cpp
   )
