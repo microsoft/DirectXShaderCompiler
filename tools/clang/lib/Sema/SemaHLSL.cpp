@@ -11002,6 +11002,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     *pNoPerspective = nullptr,
     *pSample = nullptr,
     *pCentroid = nullptr,
+    *pCenter = nullptr,
     *pAnyLinear = nullptr,                   // first linear attribute found
     *pTopology = nullptr;
   bool usageIn = false;
@@ -11108,12 +11109,18 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
 
       switch (pAttr->getKind()) {
       case AttributeList::AT_HLSLLinear:
-      case AttributeList::AT_HLSLCenter:
         if (pLinear) {
           Diag(pAttr->getLoc(), diag::warn_hlsl_duplicate_specifier)
               << pAttr->getName() << pAttr->getRange();
         }
         pLinear = pAttr;
+        break;
+      case AttributeList::AT_HLSLCenter:
+        if (pCenter) {
+          Diag(pAttr->getLoc(), diag::warn_hlsl_duplicate_specifier)
+            << pAttr->getName() << pAttr->getRange();
+        }
+        pCenter = pAttr;
         break;
       case AttributeList::AT_HLSLNoPerspective:
         if (pNoPerspective) {
@@ -11181,6 +11188,14 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   if (pSample && pCentroid) {
     Diag(pCentroid->getLoc(), diag::warn_hlsl_specifier_overridden)
         << pCentroid->getName() << pSample->getName() << pCentroid->getRange();
+  }
+  if (pCenter && pCentroid) {
+    Diag(pCentroid->getLoc(), diag::warn_hlsl_specifier_overridden)
+      << pCentroid->getName() << pCenter->getName() << pCentroid->getRange();
+  }
+  if (pSample && pCenter) {
+    Diag(pCenter->getLoc(), diag::warn_hlsl_specifier_overridden)
+      << pCenter->getName() << pSample->getName() << pCenter->getRange();
   }
   clang::AttributeList *pNonUniformAttr = pAnyLinear ? pAnyLinear : (
     pNoInterpolation ? pNoInterpolation : pTopology);
