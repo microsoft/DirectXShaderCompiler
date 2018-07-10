@@ -6717,6 +6717,157 @@ bool LowerTypePass::runOnModule(Module &M) {
 
 }
 
+//===----------------------------------------------------------------------===//
+// ScalarizeVectorAllocas
+//===----------------------------------------------------------------------===//
+
+namespace {
+  class ScalarizeVectorAllocas : public ModulePass {
+  public:
+    static char ID;
+    explicit ScalarizeVectorAllocas() : ModulePass(ID) {}
+    const char *getPassName() const override { return "Convert vector Allocas into scalar ones."; }
+
+    bool runOnModule(Module &M) override {
+      m_pModule = &M;
+      bool hasChanged = false;
+      for (Function &F : M.functions()) {
+        if (F.isDeclaration())
+          continue;
+        std::vector<AllocaInst*> AIList = GetVectorAllocas(F);
+        if (AIList.empty())
+          continue;
+        SplitVectorAllocas(AIList);
+        hasChanged = true;
+      }
+      return hasChanged;
+    }
+
+  private:
+    Module *m_pModule;
+    std::vector<AllocaInst*> GetVectorAllocas(Function& F);
+    void SplitVectorAllocas(std::vector<AllocaInst*> AIList);
+    void InsertAllocaDbgMetadata(AllocaInst* SrcAlloca, std::vector<AllocaInst*> DestAllocaList);
+  };
+
+  void ScalarizeVectorAllocas::InsertAllocaDbgMetadata(AllocaInst* SrcAlloca,
+    std::vector<AllocaInst*> DestAllocaList) {
+    DIBuilder DIB(*m_pModule, false);
+    if (DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(SrcAlloca)) {
+      unsigned debugOffset = 0;
+      for (AllocaInst *DestAlloca : DestAllocaList) {
+        Type *Ty = DestAlloca->getAllocatedType();
+        unsigned size = m_pModule->getDataLayout().getTypeAllocSize(Ty);
+        DIExpression *DDIExp = DIB.createBitPieceExpression(debugOffset, size);
+        debugOffset += size;
+        DIB.insertDeclare(DestAlloca, DDI->getVariable(), DDIExp, DDI->getDebugLoc(), DDI);
+      }
+    }
+  }
+
+  std::vector<AllocaInst*> ScalarizeVectorAllocas::GetVectorAllocas(Function& F) {
+    std::vector<AllocaInst*> VectorAllocas;
+    // Scan the entry basic block for vector allocas.
+    BasicBlock &BB = F.getEntryBlock();
+    for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I) {
+      if (!isa<AllocaInst>(I))
+        continue;
+      AllocaInst *A = cast<AllocaInst>(I);
+      if(A->getAllocatedType()->isVectorTy() &&
+        !dxilutil::HasDynamicIndexing(A))
+        VectorAllocas.emplace_back(A);
+    }
+    return VectorAllocas;
+  }
+
+  void ScalarizeVectorAllocas::SplitVectorAllocas(std::vector<AllocaInst*> AIList) {
+      for (AllocaInst* AI : AIList) {
+        Type *vectorTy = AI->getAllocatedType();
+        Type *scalarTy = vectorTy->getScalarType();
+        unsigned numEle = vectorTy->getVectorNumElements();
+
+        // insert scalar allocas
+        IRBuilder<> Builder(AI);
+        std::vector<AllocaInst*> ScalarAllocas;
+        for (unsigned i = 0; i < numEle; i++) {
+          AllocaInst *TempA = Builder.CreateAlloca(scalarTy, nullptr, AI->getName());
+          ScalarAllocas.emplace_back(TempA);
+        }
+        // insert debug decl
+        InsertAllocaDbgMetadata(AI, ScalarAllocas);
+
+        std::vector<Instruction*> DeadIList;
+        for (User *U : AI->users()) {
+          if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+            IRBuilder<> ScalarInstBuilder(LI);
+            LoadInst *SL = ScalarInstBuilder.CreateLoad(ScalarAllocas[0], LI->getName());
+            Value *IE = ScalarInstBuilder.CreateInsertElement(UndefValue::get(vectorTy), SL, (uint64_t)0, LI->getName());
+            for (unsigned i = 1; i < numEle; i++) {
+              SL = ScalarInstBuilder.CreateLoad(ScalarAllocas[i], LI->getName());
+              IE = ScalarInstBuilder.CreateInsertElement(IE, SL, i, LI->getName());
+            }
+            LI->replaceAllUsesWith(IE);
+          }
+          else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+            IRBuilder<> ScalarInstBuilder(SI);
+            Value *StVal = SI->getValueOperand();
+            for (unsigned i = 0; i < numEle; i++) {
+              Value *EE = ScalarInstBuilder.CreateExtractElement(StVal, i, StVal->getName());
+              ScalarInstBuilder.CreateStore(EE, ScalarAllocas[i]);
+            }
+          }
+          else {
+            // must be a GEP instruction at this point
+            GetElementPtrInst *GI = cast<GetElementPtrInst>(U);
+            DXASSERT(GI->getSourceElementType()->isVectorTy(), "source element must be of vector type.");
+            DXASSERT(GI->getNumIndices() == 2, "must have exactly two indices.");
+            // second idx corresponds to vector element idx
+            ConstantInt *VecElemIdx = cast<ConstantInt>(GI->getOperand(2));
+            unsigned Idx = VecElemIdx->getZExtValue();
+            DXASSERT(Idx < GI->getSourceElementType()->getVectorNumElements(), "index must be less than vector element count.");
+            IRBuilder<> ScalarInstBuilder(GI);
+            ConstantInt *ZeroIdx = ConstantInt::get(ScalarInstBuilder.getInt32Ty(), 0);
+            Value *NewGI = ScalarInstBuilder.CreateGEP(ScalarAllocas[Idx], ZeroIdx, GI->getName());
+            GI->replaceAllUsesWith(NewGI);
+          }
+          DeadIList.emplace_back(cast<Instruction>(U));
+        }
+
+        // remove dead vector allocas and its immediate dead users such as
+        // vector ld/st and geps.
+        if (DeadIList.size()>0) {
+          for (Instruction *DeadI : DeadIList) {
+            DXASSERT(DeadI->use_empty(), "user list must be empty.");
+            DeadI->eraseFromParent();
+          }
+          if (DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(AI)) {
+            DDI->eraseFromParent();
+          }
+          // at this point all users  of AI must be deleted.
+          DXASSERT(AI->use_empty(), "user list must be empty.");
+          AI->eraseFromParent();
+        } else {
+          // delete scalar allocas if for some reason we couldn't use them for replacement.
+          for (unsigned i = 0; i < numEle; i++) {
+            if (DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(ScalarAllocas[i])) {
+              DDI->eraseFromParent();
+            }
+            ScalarAllocas[i]->eraseFromParent();
+          }
+        }
+      }
+  }
+}
+
+char ScalarizeVectorAllocas::ID = 0;
+
+INITIALIZE_PASS(ScalarizeVectorAllocas, "scalarize-vector-allocas",
+  "Convert vector Allocas into scalar ones", false, false)
+
+  // Public interface to the ScalarizeVectorAllocas pass
+  ModulePass *llvm::createScalarizeVectorAllocasPass() {
+  return new ScalarizeVectorAllocas();
+}
 
 //===----------------------------------------------------------------------===//
 // DynamicIndexingVector to Array.

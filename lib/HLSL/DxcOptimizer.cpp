@@ -109,6 +109,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilRemoveDiscardsPass(Registry);
     initializeDxilShaderAccessTrackingPass(Registry);
     initializeDxilTranslateRawBufferPass(Registry);
+    initializeScalarizeVectorAllocasPass(Registry);
     initializeDynamicIndexingVectorToArrayPass(Registry);
     initializeEarlyCSELegacyPassPass(Registry);
     initializeEliminateAvailableExternallyPass(Registry);
@@ -265,6 +266,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
   static const LPCSTR DxilShaderAccessTrackingArgs[] = { "None", "None" };
+  static const LPCSTR ScalarizeVectorAllocasArgs[] = { "None" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "None" };
   static const LPCSTR Float2IntArgs[] = { "Max integer bitwidth to consider in float2int" };
   static const LPCSTR GVNArgs[] = { "None", "None", "None", "Max recurse depth" };
@@ -298,6 +300,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "hlsl-dxil-pix-shader-access-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilShaderAccessTrackingArgs, _countof(DxilShaderAccessTrackingArgs));
+  if (strcmp(passName, "scalarize-vector-allocas") == 0) return ArrayRef<LPCSTR>(ScalarizeVectorAllocasArgs, _countof(ScalarizeVectorAllocasArgs));
   if (strcmp(passName, "dynamic-vector-to-array") == 0) return ArrayRef<LPCSTR>(DynamicIndexingVectorToArrayArgs, _countof(DynamicIndexingVectorToArrayArgs));
   if (strcmp(passName, "float2int") == 0) return ArrayRef<LPCSTR>(Float2IntArgs, _countof(Float2IntArgs));
   if (strcmp(passName, "gvn") == 0) return ArrayRef<LPCSTR>(GVNArgs, _countof(GVNArgs));
