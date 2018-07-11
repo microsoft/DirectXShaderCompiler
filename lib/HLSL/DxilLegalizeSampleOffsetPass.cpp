@@ -153,6 +153,7 @@ void DxilLegalizeSampleOffsetPass::FinalCheck(
 void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
     std::vector<Instruction *> &illegalOffsets, Function &F) {
   legacy::FunctionPassManager PM(F.getParent());
+  // Scalarize aggregates as mem2reg only applies on scalars.
   PM.add(createSROAPass());
   // Always need mem2reg for simplify illegal offsets.
   PM.add(createPromoteMemoryToRegisterPass());
