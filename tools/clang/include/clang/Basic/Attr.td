@@ -754,6 +754,12 @@ def HLSLLinear : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLCenter : InheritableAttr {
+  let Spellings = [CXX11<"", "center", 2015>];
+  let Subjects = SubjectList<[Function, ParmVar, Field]>;
+  let Documentation = [Undocumented];
+}
+
 def HLSLNoPerspective : InheritableAttr {
   let Spellings = [CXX11<"", "noperspective", 2015>];
   let Subjects = SubjectList<[Function, ParmVar, Field]>;

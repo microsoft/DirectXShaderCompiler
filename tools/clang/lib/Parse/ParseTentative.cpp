@@ -1280,6 +1280,7 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw_noperspective:
   case tok::kw_sample:
   case tok::kw_precise:
+  case tok::kw_center:
   case tok::kw_shared:
   case tok::kw_groupshared:
   case tok::kw_globallycoherent:
