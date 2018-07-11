@@ -83,12 +83,25 @@ struct HandleBits {
 };
 struct DxcArgsHandle {
   DxcArgsHandle(HANDLE h) : Handle(h) {}
-  DxcArgsHandle(unsigned fileIndex)
-    : Bits{ fileIndex, 0, (unsigned)HandleKind::File } {}
-  DxcArgsHandle(HandleKind HK, unsigned fileIndex, unsigned dirLength)
-    : Bits{ fileIndex, dirLength, (unsigned)HK} {}
-  DxcArgsHandle(SpecialValue V)
-      : Bits{(unsigned)V, 0, (unsigned)HandleKind::Special} {}
+  DxcArgsHandle(unsigned fileIndex) {
+    Handle = 0;
+    Bits.Offset = fileIndex;
+    Bits.Length = 0;
+    Bits.Kind = (unsigned)HandleKind::File;
+  }
+  DxcArgsHandle(HandleKind HK, unsigned fileIndex, unsigned dirLength) {
+    Handle = 0;
+    Bits.Offset = fileIndex;
+    Bits.Length = dirLength;
+    Bits.Kind = (unsigned)HK;
+  }
+  DxcArgsHandle(SpecialValue V) {
+    Handle = 0;
+    Bits.Offset = (unsigned)V;
+    Bits.Length = 0;
+    Bits.Kind = (unsigned)HandleKind::Special;;
+  }
+
   union {
     HANDLE Handle;
     HandleBits Bits;
