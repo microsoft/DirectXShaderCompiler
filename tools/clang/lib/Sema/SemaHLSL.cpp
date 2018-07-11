@@ -11190,8 +11190,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
         << pCentroid->getName() << pSample->getName() << pCentroid->getRange();
   }
   if (pCenter && pCentroid) {
-    Diag(pCentroid->getLoc(), diag::warn_hlsl_specifier_overridden)
-      << pCentroid->getName() << pCenter->getName() << pCentroid->getRange();
+    Diag(pCenter->getLoc(), diag::warn_hlsl_specifier_overridden)
+      << pCenter->getName() << pCentroid->getName() << pCenter->getRange();
   }
   if (pSample && pCenter) {
     Diag(pCenter->getLoc(), diag::warn_hlsl_specifier_overridden)
