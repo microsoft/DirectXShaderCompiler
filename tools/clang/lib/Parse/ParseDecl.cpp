@@ -229,12 +229,14 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
   // It's valid to omit the register name.
   if (*name) {
     char *nameEnd;
+    unsigned long num;
     errno = 0;
-    *registerNumber = strtoul(name, &nameEnd, 10);
-    if (*nameEnd != '\0' || errno == ERANGE) {
+    num = strtoul(name, &nameEnd, 10);
+    if (*nameEnd != '\0' || errno == ERANGE || num > UINT32_MAX) {
       *diagId = diag::err_hlsl_unsupported_register_number;
       return;
     }
+    *registerNumber = num;
   } else {
     *registerNumber = 0;
   }
