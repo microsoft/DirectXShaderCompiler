@@ -132,6 +132,13 @@ void initializeLowerStaticGlobalIntoAllocaPass(PassRegistry&);
 
 //===----------------------------------------------------------------------===//
 //
+// ScalarizeVectorAllocas
+// Convert vector Allocas into scalar ones.
+//
+ModulePass *createScalarizeVectorAllocasPass();
+void initializeScalarizeVectorAllocasPass(PassRegistry&);
+//===----------------------------------------------------------------------===//
+//
 // DynamicIndexingVectorToArray 
 // Replace vector with array if it has dynamic indexing.
 //

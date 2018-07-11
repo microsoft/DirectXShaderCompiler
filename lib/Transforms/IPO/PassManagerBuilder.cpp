@@ -236,6 +236,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
     // If not run mem2reg, try to promote allocas used by EvalOperations.
     // Do this before change vector to array.
     MPM.add(createDxilLegalizeEvalOperationsPass());
+    MPM.add(createScalarizeVectorAllocasPass());
   }
 
   // Change dynamic indexing vector to array.
