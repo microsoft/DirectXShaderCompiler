@@ -1306,7 +1306,7 @@ llvm::SmallVector<const Decoration *, 4> TypeTranslator::getLayoutDecorations(
     if (rule == LayoutRule::RelaxedGLSLStd140 ||
         rule == LayoutRule::RelaxedGLSLStd430 ||
         rule == LayoutRule::FxcCTBuffer) {
-      alignUsingHLSLRelaxedLayout(fieldType, memberSize, &memberAlignment,
+      alignUsingHLSLRelaxedLayout(fieldType, memberSize, memberAlignment,
                                   &offset);
     } else {
       offset = roundToPow2(offset, memberAlignment);
@@ -1678,7 +1678,7 @@ bool TypeTranslator::canFitIntoOneRegister(QualType structType,
 
 void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
                                                  uint32_t fieldSize,
-                                                 uint32_t *fieldAlignment,
+                                                 uint32_t fieldAlignment,
                                                  uint32_t *currentOffset) {
   QualType vecElemType = {};
   const bool fieldIsVecType = isVectorType(fieldType, &vecElemType);
@@ -1691,17 +1691,17 @@ void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
     std::tie(scalarAlignment, std::ignore) =
         getAlignmentAndSize(vecElemType, LayoutRule::Void, nullptr);
     if (scalarAlignment <= 4)
-      *fieldAlignment = scalarAlignment;
+      fieldAlignment = scalarAlignment;
   }
 
-  *currentOffset = roundToPow2(*currentOffset, *fieldAlignment);
+  *currentOffset = roundToPow2(*currentOffset, fieldAlignment);
 
   // Adjust according to HLSL relaxed layout rules.
   // Bump to 4-component vector alignment if there is a bad straddle
   if (fieldIsVecType &&
       improperStraddle(fieldType, fieldSize, *currentOffset)) {
-    *fieldAlignment = kStd140Vec4Alignment;
-    *currentOffset = roundToPow2(*currentOffset, *fieldAlignment);
+    fieldAlignment = kStd140Vec4Alignment;
+    *currentOffset = roundToPow2(*currentOffset, fieldAlignment);
   }
 }
 
@@ -1886,7 +1886,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
           rule == LayoutRule::RelaxedGLSLStd430 ||
           rule == LayoutRule::FxcCTBuffer) {
         alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
-                                    &memberAlignment, &structSize);
+                                    memberAlignment, &structSize);
       } else {
         structSize = roundToPow2(structSize, memberAlignment);
       }

@@ -1273,34 +1273,34 @@ TEST_F(FileTest, SpirvInterpolationError) {
 }
 
 TEST_F(FileTest, SpirvLegalizationOpaqueStruct) {
-  runFileTest("spirv.legal.opaque-struct.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.opaque-struct.hlsl", Expect::Success);
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferUsage) {
-  runFileTest("spirv.legal.sbuffer.usage.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.usage.hlsl", Expect::Success);
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferMethods) {
-  runFileTest("spirv.legal.sbuffer.methods.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.methods.hlsl", Expect::Success);
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounter) {
-  runFileTest("spirv.legal.sbuffer.counter.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.counter.hlsl", Expect::Success);
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInStruct) {
   // Tests using struct/class having associated counters
-  runFileTest("spirv.legal.sbuffer.counter.struct.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.counter.struct.hlsl", Expect::Success);
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInMethod) {
   // Tests using methods whose enclosing struct/class having associated counters
-  runFileTest("spirv.legal.sbuffer.counter.method.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.counter.method.hlsl", Expect::Success);
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
-  runFileTest("spirv.legal.sbuffer.struct.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.struct.hlsl", Expect::Success);
 }
 TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
   runFileTest("spirv.legal.cbuffer.hlsl");
@@ -1414,12 +1414,15 @@ TEST_F(FileTest, VulkanLayoutCBufferMatrixZpc) {
   runFileTest("vk.layout.cbuffer.zpc.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutCBufferStd140) {
+  setGlLayout();
   runFileTest("vk.layout.cbuffer.std140.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutCBufferNestedStd140) {
+  setGlLayout();
   runFileTest("vk.layout.cbuffer.nested.std140.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutCBufferNestedEmptyStd140) {
+  setGlLayout();
   runFileTest("vk.layout.cbuffer.nested.empty.std140.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutCBufferBoolean) {
@@ -1429,27 +1432,35 @@ TEST_F(FileTest, VulkanLayoutRWStructuredBufferBoolean) {
   runFileTest("vk.layout.rwstructuredbuffer.boolean.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutSBufferStd430) {
+  setGlLayout();
   runFileTest("vk.layout.sbuffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutSBufferNestedStd430) {
+  setGlLayout();
   runFileTest("vk.layout.sbuffer.nested.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutAppendSBufferStd430) {
+  setGlLayout();
   runFileTest("vk.layout.asbuffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutConsumeSBufferStd430) {
+  setGlLayout();
   runFileTest("vk.layout.csbuffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutTBufferStd430) {
+  setGlLayout();
   runFileTest("vk.layout.tbuffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutTextureBufferStd430) {
+  setGlLayout();
   runFileTest("vk.layout.texture-buffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayout64BitTypesStd430) {
+  setGlLayout();
   runFileTest("vk.layout.64bit-types.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayout64BitTypesStd140) {
+  setGlLayout();
   runFileTest("vk.layout.64bit-types.std140.hlsl");
 }
 TEST_F(FileTest, VulkanLayout16BitTypesPushConstant) {
@@ -1469,13 +1480,19 @@ TEST_F(FileTest, VulkanLayoutVectorRelaxedLayout) {
   // causing improper straddle
   runFileTest("vk.layout.vector.relaxed.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutStructRelaxedLayout) {
+  // Checks VK_KHR_relaxed_block_layout on struct types
+  runFileTest("vk.layout.struct.relaxed.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutVkOffsetAttr) {
   // Checks the behavior of [[vk::offset]]
+  setDxLayout();
   runFileTest("vk.layout.attr.offset.hlsl");
 }
 
 TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
+  setGlLayout();
   runFileTest("vk.layout.push-constant.std430.hlsl");
 }
 
@@ -1488,10 +1505,12 @@ TEST_F(FileTest, VulkanLayoutCBufferPackOffsetError) {
 
 TEST_F(FileTest, VulkanLayoutFxcRulesSBuffer) {
   // structured buffers with fxc layout rules
+  setDxLayout();
   runFileTest("vk.layout.sbuffer.fxc.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
+  setDxLayout();
   runFileTest("vk.layout.cbuffer.fxc.hlsl");
 }
 
