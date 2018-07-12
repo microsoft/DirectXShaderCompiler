@@ -1274,33 +1274,33 @@ TEST_F(FileTest, SpirvInterpolationError) {
 
 TEST_F(FileTest, SpirvLegalizationOpaqueStruct) {
   setRelaxLogicalPointer();
-  runFileTest("spirv.legal.opaque-struct.hlsl", Expect::Success);
+  runFileTest("spirv.legal.opaque-struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferUsage) {
   setRelaxLogicalPointer();
-  runFileTest("spirv.legal.sbuffer.usage.hlsl", Expect::Success);
+  runFileTest("spirv.legal.sbuffer.usage.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferMethods) {
   setRelaxLogicalPointer();
-  runFileTest("spirv.legal.sbuffer.methods.hlsl", Expect::Success);
+  runFileTest("spirv.legal.sbuffer.methods.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounter) {
   setRelaxLogicalPointer();
-  runFileTest("spirv.legal.sbuffer.counter.hlsl", Expect::Success);
+  runFileTest("spirv.legal.sbuffer.counter.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInStruct) {
   // Tests using struct/class having associated counters
   setRelaxLogicalPointer();
-  runFileTest("spirv.legal.sbuffer.counter.struct.hlsl", Expect::Success);
+  runFileTest("spirv.legal.sbuffer.counter.struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInMethod) {
   // Tests using methods whose enclosing struct/class having associated counters
   setRelaxLogicalPointer();
-  runFileTest("spirv.legal.sbuffer.counter.method.hlsl", Expect::Success);
+  runFileTest("spirv.legal.sbuffer.counter.method.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
   setRelaxLogicalPointer();
-  runFileTest("spirv.legal.sbuffer.struct.hlsl", Expect::Success);
+  runFileTest("spirv.legal.sbuffer.struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
   runFileTest("spirv.legal.cbuffer.hlsl");
