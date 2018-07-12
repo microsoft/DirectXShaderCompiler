@@ -309,7 +309,7 @@ private:
   /// fieldSize and fieldAlignment are the original size and alignment
   /// calculated without considering the HLSL vector relaxed rule.
   void alignUsingHLSLRelaxedLayout(QualType fieldType, uint32_t fieldSize,
-                                   uint32_t *fieldAlignment,
+                                   uint32_t fieldAlignment,
                                    uint32_t *currentOffset);
 
 public:

@@ -230,7 +230,8 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
 }
 
 bool spirvToolsValidate(spv_target_env env, std::vector<uint32_t> *module,
-                        std::string *messages, bool relaxLogicalPointer) {
+                        std::string *messages, bool relaxLogicalPointer,
+                        bool glLayout, bool dxLayout) {
   spvtools::SpirvTools tools(env);
 
   tools.SetMessageConsumer(
@@ -240,8 +241,11 @@ bool spirvToolsValidate(spv_target_env env, std::vector<uint32_t> *module,
 
   spvtools::ValidatorOptions options;
   options.SetRelaxLogicalPointer(relaxLogicalPointer);
-  // TODO: Fix the following to enable validating layout.
-  options.SetRelaxBlockLayout(true);
+  // GL: strict block layout rules
+  // VK: relaxed block layout rules
+  // DX: Skip block layout rules
+  options.SetRelaxBlockLayout(!glLayout && !dxLayout);
+  options.SetSkipBlockLayout(dxLayout);
 
   return tools.Validate(module->data(), module->size(), options);
 }
@@ -694,8 +698,9 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   // Validate the generated SPIR-V code
   if (!spirvOptions.disableValidation) {
     std::string messages;
-    if (!spirvToolsValidate(targetEnv, &m, &messages,
-                            declIdMapper.requiresLegalization())) {
+    if (!spirvToolsValidate(
+            targetEnv, &m, &messages, declIdMapper.requiresLegalization(),
+            spirvOptions.useGlLayout, spirvOptions.useDxLayout)) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
       emitNote("please file a bug report on "
                "https://github.com/Microsoft/DirectXShaderCompiler/issues "
