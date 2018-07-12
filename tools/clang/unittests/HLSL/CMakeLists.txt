@@ -10,13 +10,6 @@ set( LLVM_LINK_COMPONENTS
   support
   mssupport
   dxcsupport
-  hlsl
-  option
-  bitreader
-  bitwriter
-  analysis
-  ipa
-  irreader
   )
 
 if(WIN32)
