@@ -61,7 +61,7 @@ bool FileTest::parseInputFile() {
 }
 
 void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
-                           bool runValidation, bool relaxLogicalPointer) {
+                           bool runValidation) {
   if (relaxLogicalPointer)
     assert(runValidation);
 
@@ -128,8 +128,8 @@ void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
 
   // Run SPIR-V validation for successful compilations
   if (runValidation && expect != Expect::Failure) {
-    EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
-                                           relaxLogicalPointer));
+    EXPECT_TRUE(utils::validateSpirvBinary(
+        targetEnv, generatedBinary, relaxLogicalPointer, glLayout, dxLayout));
   }
 }
 
