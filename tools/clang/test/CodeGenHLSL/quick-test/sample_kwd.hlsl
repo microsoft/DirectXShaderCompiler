@@ -37,9 +37,13 @@ float4 main(float4 input : SV_POSITION) : SV_TARGET
     globallycoherent += 10;
 
     // Check declaration group is accepted
-    float left, center = 1.0, right;
+    float4 left, center = 1.0, right;
 
-    return float4(foo(float3(precise, globallycoherent, sample)), center) +
+    // Check parentheses are accepted
+    // (they go through the path for type cast in frontend)
+    float w = (center).x;
+
+    return float4(foo(float3(precise, globallycoherent, sample)), w) +
            MyBuffer[0].center + MyBuffer[0].precise +
            MyBuffer[0].sample + MyBuffer[0].globallycoherent;
 }
