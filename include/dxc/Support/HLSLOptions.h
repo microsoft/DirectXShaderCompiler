@@ -188,6 +188,7 @@ public:
 
   MainArgs() = default;
   MainArgs(int argc, const wchar_t **argv, int skipArgCount = 1);
+  MainArgs(int argc, const char **argv, int skipArgCount = 1);
   MainArgs(llvm::ArrayRef<llvm::StringRef> args);
   MainArgs& operator=(const MainArgs &other);
   llvm::ArrayRef<const char *> getArrayRef() const {

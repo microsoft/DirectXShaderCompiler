@@ -93,101 +93,178 @@ public:
 
 MSFileSystemForDisk::MSFileSystemForDisk()
 {
+  #ifdef _WIN32
   _defaultAttributes = GetConsoleOutputTextAttributes();
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAW lpFindFileData) throw()
 {
+  #ifdef _WIN32
   return ::FindNextFileW(hFindFile, lpFindFileData);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 HANDLE MSFileSystemForDisk::FindFirstFileW(LPCWSTR lpFileName, LPWIN32_FIND_DATAW lpFindFileData) throw()
 {
+  #ifdef _WIN32
   return ::FindFirstFileW(lpFileName, lpFindFileData);
+  #else
+  assert(false && "Not implemented for Unix");
+  return nullptr;
+  #endif
 }
 
 void MSFileSystemForDisk::FindClose(HANDLE findHandle) throw()
 {
+  #ifdef _WIN32
   ::FindClose(findHandle);
+  #else
+  assert(false && "Not implemented for Unix");
+  #endif
 }
 
 _Use_decl_annotations_
 HANDLE MSFileSystemForDisk::CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes) throw()
 {
+  #ifdef _WIN32
   return ::CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, nullptr, dwCreationDisposition, dwFlagsAndAttributes, nullptr);
+  #else
+  assert(false && "Not implemented for Unix");
+  return nullptr;
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::SetFileTime(HANDLE hFile, _In_opt_ const FILETIME *lpCreationTime, _In_opt_ const FILETIME *lpLastAccessTime, _In_opt_ const FILETIME *lpLastWriteTime) throw()
 {
+  #ifdef _WIN32
   return ::SetFileTime(hFile, lpCreationTime, lpLastAccessTime, lpLastWriteTime);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::GetFileInformationByHandle(HANDLE hFile, LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw()
 {
+  #ifdef _WIN32
   return ::GetFileInformationByHandle(hFile, lpFileInformation);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 DWORD MSFileSystemForDisk::GetFileType(HANDLE hFile) throw()
 {
+  #ifdef _WIN32
   return ::GetFileType(hFile);
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::CreateHardLinkW(LPCWSTR lpFileName, LPCWSTR lpExistingFileName) throw()
 {
+  #ifdef _WIN32
   return ::CreateHardLinkW(lpFileName, lpExistingFileName, nullptr);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::MoveFileExW(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName, DWORD dwFlags) throw()
 {
+  #ifdef _WIN32
   return ::MoveFileExW(lpExistingFileName, lpNewFileName, dwFlags);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 DWORD MSFileSystemForDisk::GetFileAttributesW(LPCWSTR lpFileName) throw()
 {
+  #ifdef _WIN32
   return ::GetFileAttributesW(lpFileName);
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::CloseHandle(HANDLE hObject) throw()
 {
+  #ifdef _WIN32
   return ::CloseHandle(hObject);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::DeleteFileW(LPCWSTR lpFileName) throw()
 {
+  #ifdef _WIN32
   return ::DeleteFileW(lpFileName);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::RemoveDirectoryW(LPCWSTR lpFileName) throw()
 {
+  #ifdef _WIN32
   return ::RemoveDirectoryW(lpFileName);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::CreateDirectoryW(LPCWSTR lpPathName) throw()
 {
+  #ifdef _WIN32
   return ::CreateDirectoryW(lpPathName, nullptr);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 DWORD MSFileSystemForDisk::GetCurrentDirectoryW(DWORD nBufferLength,  LPWSTR lpBuffer) throw()
 {
+  #ifdef _WIN32
   return ::GetCurrentDirectoryW(nBufferLength, lpBuffer);
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
 _Use_decl_annotations_
 DWORD MSFileSystemForDisk::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize) throw()
 {
+  #ifdef _WIN32
   // Add some code to ensure that the result is null terminated.
   if (nSize <= 1)
   {
@@ -199,14 +276,24 @@ DWORD MSFileSystemForDisk::GetMainModuleFileNameW(LPWSTR lpFilename, DWORD nSize
   if (result == 0) return result;
   lpFilename[result] = L'\0';
   return result;
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
 _Use_decl_annotations_
 DWORD MSFileSystemForDisk::GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer) throw()
 {
+  #ifdef _WIN32
   return ::GetTempPathW(nBufferLength, lpBuffer);
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
+#ifdef _WIN32
 namespace {
   typedef BOOLEAN(WINAPI *PtrCreateSymbolicLinkW)(
     /*__in*/ LPCWSTR lpSymlinkFileName,
@@ -217,103 +304,181 @@ namespace {
     PtrCreateSymbolicLinkW(::GetProcAddress(
     ::GetModuleHandleW(L"Kernel32.dll"), "CreateSymbolicLinkW"));
 }
+#endif
 
 _Use_decl_annotations_
 BOOLEAN MSFileSystemForDisk::CreateSymbolicLinkW(LPCWSTR lpSymlinkFileName, LPCWSTR lpTargetFileName, DWORD dwFlags) throw()
 {
+  #ifdef _WIN32
   return create_symbolic_link_api(lpSymlinkFileName, lpTargetFileName, dwFlags);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 bool MSFileSystemForDisk::SupportsCreateSymbolicLink() throw()
 {
+  #ifdef _WIN32
   return create_symbolic_link_api != nullptr;
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead) throw()
 {
+  #ifdef _WIN32
   return ::ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, nullptr);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 _Use_decl_annotations_
 HANDLE MSFileSystemForDisk::CreateFileMappingW(HANDLE hFile, DWORD flProtect, DWORD dwMaximumSizeHigh, DWORD dwMaximumSizeLow) throw()
 {
+  #ifdef _WIN32
   return ::CreateFileMappingW(hFile, nullptr, flProtect, dwMaximumSizeHigh, dwMaximumSizeLow, nullptr);
+  #else
+  assert(false && "Not implemented for Unix");
+  return nullptr;
+  #endif
 }
 
 _Use_decl_annotations_
 LPVOID MSFileSystemForDisk::MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess, DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow, SIZE_T dwNumberOfBytesToMap) throw()
 {
+  #ifdef _WIN32
   return ::MapViewOfFile(hFileMappingObject, dwDesiredAccess, dwFileOffsetHigh, dwFileOffsetLow, dwNumberOfBytesToMap);
+  #else
+  assert(false && "Not implemented for Unix");
+  return nullptr;
+  #endif
 }
 
 _Use_decl_annotations_
 BOOL MSFileSystemForDisk::UnmapViewOfFile(LPCVOID lpBaseAddress) throw()
 {
+  #ifdef _WIN32
   return ::UnmapViewOfFile(lpBaseAddress);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 bool MSFileSystemForDisk::FileDescriptorIsDisplayed(int fd) throw()
 {
+  #ifdef _WIN32
   DWORD Mode;  // Unused
   return (GetConsoleMode((HANDLE)_get_osfhandle(fd), &Mode) != 0);
+  #else
+  assert(false && "Not implemented for Unix");
+  return false;
+  #endif
 }
 
 unsigned MSFileSystemForDisk::GetColumnCount(DWORD nStdHandle) throw()
 {
+  #ifdef _WIN32
   unsigned Columns = 0;
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   if (::GetConsoleScreenBufferInfo(GetStdHandle(nStdHandle), &csbi))
     Columns = csbi.dwSize.X;
   return Columns;
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
 unsigned MSFileSystemForDisk::GetConsoleOutputTextAttributes() throw()
 {
+  #ifdef _WIN32
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   if (::GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
     return csbi.wAttributes;
   return 0;
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
 void MSFileSystemForDisk::SetConsoleOutputTextAttributes(unsigned attributes) throw()
 {
+  #ifdef _WIN32
   ::SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), attributes);
+  #else
+  assert(false && "Not implemented for Unix");
+  #endif
 }
 
 void MSFileSystemForDisk::ResetConsoleOutputTextAttributes() throw()
 {
+  #ifdef _WIN32
   ::SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), _defaultAttributes);
+  #else
+  assert(false && "Not implemented for Unix");
+  #endif
 }
 
 int MSFileSystemForDisk::open_osfhandle(intptr_t osfhandle, int flags) throw()
 {
+  #ifdef _WIN32
   return ::_open_osfhandle(osfhandle, flags);
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
 intptr_t MSFileSystemForDisk::get_osfhandle(int fd) throw()
 {
+  #ifdef _WIN32
   return ::_get_osfhandle(fd);
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
 int MSFileSystemForDisk::close(int fd) throw()
 {
+  #ifdef _WIN32
   return ::_close(fd);
+  #else
+  return ::close(fd);
+  #endif
 }
 
 long MSFileSystemForDisk::lseek(int fd, long offset, int origin) throw()
 {
+  #ifdef _WIN32
   return ::_lseek(fd, offset, origin);
+  #else
+  return ::lseek(fd, offset, origin);
+  #endif
 }
 
 int MSFileSystemForDisk::setmode(int fd, int mode) throw()
 {
+  #ifdef _WIN32
   return ::_setmode(fd, mode);
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
 _Use_decl_annotations_
 errno_t MSFileSystemForDisk::resize_file(LPCWSTR path, uint64_t size) throw()
 {
+  #ifdef _WIN32
   int fd = ::_wopen(path, O_BINARY | _O_RDWR, S_IWRITE);
   if (fd == -1)
     return errno;
@@ -324,18 +489,31 @@ errno_t MSFileSystemForDisk::resize_file(LPCWSTR path, uint64_t size) throw()
 #endif
   ::_close(fd);
   return error;
+
+  #else
+  assert(false && "Not implemented for Unix");
+  return 0;
+  #endif
 }
 
 _Use_decl_annotations_
 int MSFileSystemForDisk::Read(int fd, void* buffer, unsigned int count) throw()
 {
+  #ifdef _WIN32
   return ::_read(fd, buffer, count);
+  #else
+  return ::read(fd, buffer, count);
+  #endif
 }
 
 _Use_decl_annotations_
 int MSFileSystemForDisk::Write(int fd, const void* buffer, unsigned int count) throw()
 {
+  #ifdef _WIN32
   return ::_write(fd, buffer, count);
+  #else
+  return ::write(fd, buffer, count);
+  #endif
 }
 
 } // end namespace fs

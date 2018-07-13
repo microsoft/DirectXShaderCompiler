@@ -1,6 +1,7 @@
 # DirectX Shader Compiler
 
 [![Build status](https://ci.appveyor.com/api/projects/status/oaf66n7w30xbrg38/branch/master?svg=true)](https://ci.appveyor.com/project/antiagainst/directxshadercompiler/branch/master)
+[![Build Status](https://travis-ci.org/Microsoft/DirectXShaderCompiler.svg?branch=master)](https://travis-ci.org/Microsoft/DirectXShaderCompiler)
 
 The DirectX Shader Compiler project includes a compiler and related tools used to compile High-Level Shader Language (HLSL) programs into DirectX Intermediate Language (DXIL) representation. Applications that make use of DirectX for graphics, games, and computation can use it to generate shader programs.
 
@@ -29,6 +30,8 @@ As an example of community contribution, this project can also target the [SPIR-
 ## Building Sources
 
 Note: Instead of building manually, you can download the artifacts built by Appveyor for the latest master branch at [here](https://ci.appveyor.com/project/antiagainst/directxshadercompiler/branch/master/artifacts).
+
+Note: If you intend to build from sources on Linux/macOS, follow [these instructions](docs/DxcOnUnix.rst).
 
 Before you build, you will need to have some additional software installed. This is the most straightforward path - see [Building Sources](https://github.com/Microsoft/DirectXShaderCompiler/wiki/Building-Sources) on the Wiki for more options, including Visual Studio 2015 and Ninja support.
 

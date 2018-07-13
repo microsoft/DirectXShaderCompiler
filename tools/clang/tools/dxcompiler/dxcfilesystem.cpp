@@ -37,6 +37,7 @@ namespace {
 #endif
 #endif
 
+#ifdef _WIN32
 #ifdef DBG
 
 // This should be improved with global enabled mask rather than a compile-time mask.
@@ -56,6 +57,10 @@ namespace {
 #define DXTRACE_FMT_APIFS(...)
 
 #endif // DBG
+#else  // _WIN32
+#define DXTRACE_FMT_APIFS(...)
+#endif // _WIN32
+
 
 
 enum class HandleKind {
@@ -78,12 +83,25 @@ struct HandleBits {
 };
 struct DxcArgsHandle {
   DxcArgsHandle(HANDLE h) : Handle(h) {}
-  DxcArgsHandle(unsigned fileIndex)
-    : Bits{ fileIndex, 0, (unsigned)HandleKind::File } {}
-  DxcArgsHandle(HandleKind HK, unsigned fileIndex, unsigned dirLength)
-    : Bits{ fileIndex, dirLength, (unsigned)HK} {}
-  DxcArgsHandle(SpecialValue V)
-      : Bits{(unsigned)V, 0, (unsigned)HandleKind::Special} {}
+  DxcArgsHandle(unsigned fileIndex) {
+    Handle = 0;
+    Bits.Offset = fileIndex;
+    Bits.Length = 0;
+    Bits.Kind = (unsigned)HandleKind::File;
+  }
+  DxcArgsHandle(HandleKind HK, unsigned fileIndex, unsigned dirLength) {
+    Handle = 0;
+    Bits.Offset = fileIndex;
+    Bits.Length = dirLength;
+    Bits.Kind = (unsigned)HK;
+  }
+  DxcArgsHandle(SpecialValue V) {
+    Handle = 0;
+    Bits.Offset = (unsigned)V;
+    Bits.Length = 0;
+    Bits.Kind = (unsigned)HandleKind::Special;;
+  }
+
   union {
     HANDLE Handle;
     HandleBits Bits;
@@ -137,6 +155,13 @@ bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
   if (Path[0] == L'\\') {
     return Path[1] == L'\\';
   }
+
+  #ifndef _WIN32
+  // Absolute paths on unix systems start with '/'
+  if (Path[0] == L'/') {
+    return TRUE;
+  }
+  #endif
 
   //
   // NOTE: there are a number of cases we don't handle, as they don't play well with the simple
@@ -470,7 +495,6 @@ public:
       lpFileInformation->nFileIndexHigh = 1;
       return TRUE;
     }
-
     SetLastError(ERROR_INVALID_HANDLE);
     return FALSE;
   }

@@ -229,12 +229,14 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
   // It's valid to omit the register name.
   if (*name) {
     char *nameEnd;
+    unsigned long num;
     errno = 0;
-    *registerNumber = strtoul(name, &nameEnd, 10);
-    if (*nameEnd != '\0' || errno == ERANGE) {
+    num = strtoul(name, &nameEnd, 10);
+    if (*nameEnd != '\0' || errno == ERANGE || num > UINT32_MAX) {
       *diagId = diag::err_hlsl_unsupported_register_number;
       return;
     }
+    *registerNumber = num;
   } else {
     *registerNumber = 0;
   }
@@ -721,6 +723,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     //case AttributeList::AT_HLSLIn:
     //case AttributeList::AT_HLSLInOut:
     //case AttributeList::AT_HLSLLinear:
+    //case AttributeList::AT_HLSLCenter:
     //case AttributeList::AT_HLSLNoInterpolation:
     //case AttributeList::AT_HLSLNoPerspective:
     //case AttributeList::AT_HLSLOut:
@@ -3715,10 +3718,8 @@ HLSLReservedKeyword:
       isStorageClass = true;
       break;
     // HLSL Change Starts
-    case tok::kw_precise:
     case tok::kw_shared:
     case tok::kw_groupshared:
-    case tok::kw_globallycoherent:
     case tok::kw_uniform:
     case tok::kw_in:
     case tok::kw_out:
@@ -3726,7 +3727,6 @@ HLSLReservedKeyword:
     case tok::kw_linear:
     case tok::kw_nointerpolation:
     case tok::kw_noperspective:
-    case tok::kw_sample:
     case tok::kw_centroid:
     case tok::kw_column_major:
     case tok::kw_row_major:
@@ -3747,7 +3747,22 @@ HLSLReservedKeyword:
         }
       }
       break;
-    // HLSL Change Ends
+    case tok::kw_precise:
+    case tok::kw_sample:
+    case tok::kw_globallycoherent:
+    case tok::kw_center:
+      // Back-compat: 'precise', 'globallycoherent', 'center' and 'sample' are keywords when used as an interpolation 
+      // modifiers, but in FXC they can also be used an identifiers. If the decl type has already been specified
+      // we need to update the token to be handled as an identifier.
+      if (getLangOpts().HLSL) {
+        if (DS.getTypeSpecType() != DeclSpec::TST_unspecified) {
+          Tok.setKind(tok::identifier);
+          continue;
+        }
+        DS.getAttributes().addNew(Tok.getIdentifierInfo(), Tok.getLocation(), 0, SourceLocation(), 0, 0, AttributeList::AS_CXX11);
+      }
+      break;
+      // HLSL Change Ends
     case tok::kw_auto:
       if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - auto is reserved for HLSL
       if (getLangOpts().CPlusPlus11) {
@@ -5163,6 +5178,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 
   // HLSL Change Starts
   case tok::kw_precise:
+  case tok::kw_center:
   case tok::kw_shared:
   case tok::kw_groupshared:
   case tok::kw_globallycoherent:

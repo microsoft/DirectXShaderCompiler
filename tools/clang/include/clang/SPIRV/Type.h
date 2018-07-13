@@ -18,6 +18,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace clang {
 namespace spirv {
@@ -95,7 +96,7 @@ public:
                                      DecorationSet decs = {});
   static const Type *getStruct(SPIRVContext &ctx,
                                llvm::ArrayRef<uint32_t> members,
-                               DecorationSet d = {});
+                               llvm::StringRef name = {}, DecorationSet d = {});
   static const Type *getPointer(SPIRVContext &ctx,
                                 spv::StorageClass storage_class, uint32_t type,
                                 DecorationSet decs = {});
@@ -109,7 +110,8 @@ public:
 
 private:
   /// \brief Private constructor.
-  Type(spv::Op op, std::vector<uint32_t> arg = {}, DecorationSet dec = {});
+  Type(spv::Op op, std::vector<uint32_t> arg = {}, DecorationSet dec = {},
+       llvm::StringRef name = {});
 
   /// \brief Returns the unique Type pointer within the given context.
   static const Type *getUniqueType(SPIRVContext &, const Type &);
@@ -117,6 +119,7 @@ private:
 private:
   spv::Op opcode;             ///< OpCode of the Type defined in SPIR-V Spec
   std::vector<uint32_t> args; ///< Arguments needed to define the type
+  std::string name;           ///< Source code name of this type
 
   /// The decorations that are applied to a type.
   /// Note: we use a SetVector because:

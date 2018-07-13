@@ -167,6 +167,7 @@ HsPcfOut pcf(InputPatch<HsCpIn, NumOutPoints> patch, uint patchId : SV_Primitive
 HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch, uint cpId : SV_OutputControlPointID, uint patchId : SV_PrimitiveID) {
     HsCpOut output;
     output = (HsCpOut)0;
+    output.clip7 = patch[0].pos.x + cpId + patchId;
     return output;
 
 // Read gl_Postion for HsCpIn::pos

@@ -52,7 +52,7 @@ struct T {
   S z;
 };
 
-void main() {
+float4 main() : A {
   N n;
   S s;
   T t;
@@ -66,4 +66,6 @@ void main() {
 
 // CHECK: %r1 = OpVariable %_ptr_Function_R Function
   R r1;
+
+  return x1.a + x2.a;
 }

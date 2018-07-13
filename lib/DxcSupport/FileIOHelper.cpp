@@ -14,14 +14,19 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/WinFunctions.h"
 #include "dxc/dxcapi.h"
 
 #include <algorithm>
 #include <memory>
+
+#ifdef _WIN32
 #include <intsafe.h>
+#endif
 
 #define CP_UTF16 1200
 
+#ifdef _WIN32
 struct HeapMalloc : public IMalloc {
 public:
   ULONG STDMETHODCALLTYPE AddRef() {
@@ -75,6 +80,9 @@ public:
   {
   }
 };
+#else
+typedef IMalloc HeapMalloc;
+#endif
 
 static HeapMalloc g_HeapMalloc;
 
@@ -311,9 +319,9 @@ static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
   int numActuallyConvertedUTF16 =
       MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, (LPCSTR)bufferPointer,
                           bufferSize, utf16NewCopy, buffSizeUTF16);
+
   if (numActuallyConvertedUTF16 == 0)
     return HRESULT_FROM_WIN32(GetLastError());
-
   ((LPWSTR)utf16NewCopy)[numActuallyConvertedUTF16] = L'\0';
   *pConvertedCharCount = numActuallyConvertedUTF16;
 

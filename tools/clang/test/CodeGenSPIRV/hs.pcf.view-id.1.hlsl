@@ -44,7 +44,7 @@ HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch,
              uint id : SV_OutputControlPointID,
              uint viewid : SV_ViewID) {
     HsCpOut output;
-    output = (HsCpOut)0;
+    output.bar = viewid;
     return output;
 // CHECK:             %main = OpFunction %void None {{%\d+}}
 // CHECK: %param_var_viewid = OpVariable %_ptr_Function_uint Function

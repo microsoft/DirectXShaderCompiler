@@ -30,8 +30,10 @@
 
 #include "dxc/dxcapi.h"
 
+#ifdef LLVM_ON_WIN32
 #include "d3d12shader.h" // for compatibility
 #include "d3d11shader.h" // for compatibility
+
 const GUID IID_ID3D11ShaderReflection_43 = {
     0x0a233719,
     0x3960,
@@ -2340,3 +2342,9 @@ ID3D12FunctionReflection *DxilLibraryReflection::GetFunctionByIndex(INT Function
 
 // DxilRuntimeReflection implementation
 #include "dxc/HLSL/DxilRuntimeReflection.inl"
+
+#else
+void hlsl::CreateDxcContainerReflection(IDxcContainerReflection **ppResult) {
+  *ppResult = nullptr;
+}
+#endif // LLVM_ON_WIN32
