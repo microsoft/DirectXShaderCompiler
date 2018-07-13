@@ -402,7 +402,7 @@ public:
     HRESULT resultCode;
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned((LPBYTE)pText, strlen(pText), CP_UTF8, &pTextBlob));
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pText, strlen(pText), CP_UTF8, &pTextBlob));
     VERIFY_SUCCEEDED(pCompiler->Compile(pTextBlob, L"hlsl.hlsl", pEntryPoint, pTargetProfile, nullptr, 0, nullptr, 0, nullptr, &pResult));
     VERIFY_SUCCEEDED(pResult->GetStatus(&resultCode));
     if (FAILED(resultCode)) {

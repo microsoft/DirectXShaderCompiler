@@ -125,7 +125,7 @@ IDxcLibrary : public IUnknown {
     LPCWSTR pFileName, _In_opt_ UINT32* codePage,
     _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) = 0;
   virtual HRESULT STDMETHODCALLTYPE CreateBlobWithEncodingFromPinned(
-    LPBYTE pText, UINT32 size, UINT32 codePage,
+    _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
     _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) = 0;
   virtual HRESULT STDMETHODCALLTYPE CreateBlobWithEncodingOnHeapCopy(
        _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,

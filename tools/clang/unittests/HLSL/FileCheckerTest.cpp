@@ -340,7 +340,7 @@ static string trim(string value) {
         CComPtr<IDxcAssembler> pAssembler;
         IFT(DllSupport->CreateInstance(CLSID_DxcAssembler, &pAssembler));
         IFT(pLibrary->CreateBlobWithEncodingFromPinned(
-            (LPBYTE)Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8,
+            Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8,
             &pSource));
       }
 
