@@ -184,6 +184,7 @@ Retry:
     // FXC they can also be used an identifiers. If the next token is a
     // punctuator, then we are using them as identifers. Need to change
     // the token type to tok::identifier and fall through to the next case.
+    // E.g., center = <RHS>.
     if (tok::isPunctuator(NextToken().getKind())) {
       Tok.setKind(tok::identifier);
       __fallthrough;

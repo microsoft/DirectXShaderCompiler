@@ -5970,6 +5970,7 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
     // FXC they can also be used an identifiers. If the next token is a
     // punctuator, then we are using them as identifers. Need to change
     // the token type to tok::identifier and fall through to the next case.
+    // E.g., <type> left, center, right;
     if (getLangOpts().HLSL) {
       switch (auto tk = Tok.getKind()) {
       case tok::kw_center:
