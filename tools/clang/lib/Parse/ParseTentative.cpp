@@ -1271,6 +1271,22 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
     return TPResult::True;
 
   // HLSL Change Starts
+  case tok::kw_sample:
+  case tok::kw_precise:
+  case tok::kw_center:
+  case tok::kw_globallycoherent:
+    // FXC compatiblity: these are keywords when used as modifiers, but in
+    // FXC they can also be used an identifiers. If the next token is a
+    // punctuator, then we are using them as identifers. Need to change
+    // the token type to tok::identifier and return false.
+    // E.g., return (center);
+    if (tok::isPunctuator(NextToken().getKind())) {
+      Tok.setKind(tok::identifier);
+      return TPResult::False;
+    } else {
+      return TPResult::True;
+    }
+
   case tok::kw_in:
   case tok::kw_inout:
   case tok::kw_out:
@@ -1278,12 +1294,8 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw_centroid:
   case tok::kw_nointerpolation:
   case tok::kw_noperspective:
-  case tok::kw_sample:
-  case tok::kw_precise:
-  case tok::kw_center:
   case tok::kw_shared:
   case tok::kw_groupshared:
-  case tok::kw_globallycoherent:
   case tok::kw_uniform:
   case tok::kw_row_major:
   case tok::kw_column_major:
