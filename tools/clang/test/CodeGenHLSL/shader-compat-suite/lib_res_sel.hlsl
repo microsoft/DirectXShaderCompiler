@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
-// Make sure select resource works for lib profile.
-// CHECK: call %dx.types.Handle @"dx.op.createHandleForLib.class.RWStructuredBuffer<vector<float, 2> >"
+// resource uses must resolve to a single resource global variable (single rangeID)
+// CHECK: error: local resource not guaranteed to map to unique global resource
 
 RWStructuredBuffer<float2> buf0;
 RWStructuredBuffer<float2> buf1;

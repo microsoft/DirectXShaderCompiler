@@ -1,7 +1,9 @@
 // RUN: %dxc -T lib_6_3  %s | FileCheck %s
 
-// Make sure simple local resource array works.
-// CHECK: main
+// resources in return/params disallowed for lib_6_3
+// CHECK: error: Exported function
+// CHECK: resStruct
+// CHECK: must not contain a resource in parameter or return type
 
 struct T {
 RWByteAddressBuffer outputBuffer;

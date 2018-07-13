@@ -2,7 +2,7 @@
 
 // CHECK: ; RTAS                              texture     i32         ras      T0             t5     1
 
-// CHECK:@"\01?RTAS@@3URaytracingAccelerationStructure@@A" = external global %struct.RaytracingAccelerationStructure, align 4
+// CHECK:@"\01?RTAS@@3URaytracingAccelerationStructure@@A" = external constant %struct.RaytracingAccelerationStructure, align 4
 
 // CHECK: define void [[raygen1:@"\\01\?raygen1@[^\"]+"]]() #0 {
 // CHECK:   %[[i_0:[0-9]+]] = load %struct.RaytracingAccelerationStructure, %struct.RaytracingAccelerationStructure* @"\01?RTAS@@3URaytracingAccelerationStructure@@A", align 4

@@ -2214,11 +2214,12 @@ hlsl::DxilResourceBase::Class CGMSHLSLRuntime::TypeToClass(clang::QualType Ty) {
 }
 
 uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
-  llvm::Constant *val = CGM.GetAddrOfGlobalVar(samplerDecl);
+  llvm::GlobalVariable *val =
+    cast<llvm::GlobalVariable>(CGM.GetAddrOfGlobalVar(samplerDecl));
 
   unique_ptr<DxilSampler> hlslRes(new DxilSampler);
   hlslRes->SetLowerBound(UINT_MAX);
-  hlslRes->SetGlobalSymbol(cast<llvm::GlobalVariable>(val));
+  hlslRes->SetGlobalSymbol(val);
   hlslRes->SetGlobalName(samplerDecl->getName());
   QualType VarTy = samplerDecl->getType();
   if (const clang::ArrayType *arrayType =
@@ -4123,6 +4124,7 @@ static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
                               HLM.GetTypeSystem(), HLM.GetTypeSystem());
 
   F->takeName(ShaderF);
+  F->setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
   // Set to name before mangled.
   ShaderF->setName(EntryName);
 
@@ -4394,6 +4396,39 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
   
 }
 
+static bool ContainsDisallowedTypeForExport(llvm::Type *Ty) {
+  // Unwrap pointer/array
+  while (llvm::isa<llvm::PointerType>(Ty))
+    Ty = llvm::cast<llvm::PointerType>(Ty)->getPointerElementType();
+  while (llvm::isa<llvm::ArrayType>(Ty))
+    Ty = llvm::cast<llvm::ArrayType>(Ty)->getArrayElementType();
+
+  if (llvm::StructType *ST = llvm::dyn_cast<llvm::StructType>(Ty)) {
+    if (ST->getName().startswith("dx.types."))
+      return true;
+    // TODO: How is this suppoed to check for Input/OutputPatch types if
+    // these have already been eliminated in function arguments during CG?
+    if (HLModule::IsHLSLObjectType(Ty))
+      return true;
+    // Otherwise, recurse elements of UDT
+    for (auto ETy : ST->elements()) {
+      if (ContainsDisallowedTypeForExport(ETy))
+        return true;
+    }
+  }
+  return false;
+}
+
+static void ReportDisallowedTypeInExportParam(CodeGenModule &CGM, StringRef name) {
+  DiagnosticsEngine &Diags = CGM.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+    "Exported function %0 must not contain a resource in parameter or return type.");
+  std::string escaped;
+  llvm::raw_string_ostream os(escaped);
+  dxilutil::PrintEscapedString(name, os);
+  Diags.Report(DiagID) << os.str();
+}
+
 void CGMSHLSLRuntime::FinishCodeGen() {
   // Library don't have entry.
   if (!m_bIsLib) {
@@ -4560,6 +4595,30 @@ void CGMSHLSLRuntime::FinishCodeGen() {
           DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(F);
           auto newProps = llvm::make_unique<DxilFunctionProps>(props);
           m_pHLModule->AddDxilFunctionProps(pClone, newProps);
+        }
+      }
+    }
+  }
+
+  // Disallow resource arguments in (non-entry) function exports
+  if (m_bIsLib) {
+    for (Function &f : m_pHLModule->GetModule()->functions()) {
+      // Skip llvm intrinsics, non-external linkage, entry/patch constant func, and HL intrinsics
+      if (!f.isIntrinsic() &&
+          f.getLinkage() == GlobalValue::LinkageTypes::ExternalLinkage &&
+          !m_pHLModule->HasDxilFunctionProps(&f) &&
+          !m_pHLModule->IsPatchConstantShader(&f) &&
+          GetHLOpcodeGroup(&f) == HLOpcodeGroup::NotHL) {
+        // Verify no resources in param/return types
+        if (ContainsDisallowedTypeForExport(f.getReturnType())) {
+          ReportDisallowedTypeInExportParam(CGM, f.getName());
+          continue;
+        }
+        for (auto &Arg : f.args()) {
+          if (ContainsDisallowedTypeForExport(Arg.getType())) {
+            ReportDisallowedTypeInExportParam(CGM, f.getName());
+            break;
+          }
         }
       }
     }

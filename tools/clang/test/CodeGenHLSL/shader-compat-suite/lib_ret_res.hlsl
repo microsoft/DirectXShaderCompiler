@@ -1,7 +1,9 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -Zi -auto-binding-space 11 %s | FileCheck %s
 
-// Make sure handle store not unpack.
-// CHECK: store %struct.SamplerState {{.*}}, %struct.SamplerState*
+// resources in return/params disallowed for lib_6_3
+// CHECK: error: Exported function
+// CHECK: GetSampler
+// CHECK: must not contain a resource in parameter or return type
 
 SamplerState    g_samLinear;
 

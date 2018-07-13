@@ -4,10 +4,6 @@
 // CHECK: @entry(
 // CHECK: @entry2(
 
-// Make sure cloned function exist.
-// CHECK: @"\01?entry
-// CHECK: @"\01?entry2
-
 // Make sure function props exist.
 // CHECK: !dx.entryPoints = !{{{.*}}, {{.*}}, {{.*}}}
 

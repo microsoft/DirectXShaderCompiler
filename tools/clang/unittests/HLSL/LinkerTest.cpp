@@ -47,13 +47,13 @@ public:
   TEST_METHOD(RunLinkMatArrayParam);
   TEST_METHOD(RunLinkMatParam);
   TEST_METHOD(RunLinkMatParamToLib);
-  TEST_METHOD(RunLinkResRet);
+  //TEST_METHOD(RunLinkResRet);
   TEST_METHOD(RunLinkToLib);
   TEST_METHOD(RunLinkToLibExport);
   TEST_METHOD(RunLinkFailReDefineGlobal);
   TEST_METHOD(RunLinkFailProfileMismatch);
   TEST_METHOD(RunLinkFailEntryNoProps);
-  TEST_METHOD(RunLinkFailSelectRes);
+  //TEST_METHOD(RunLinkFailSelectRes);
   TEST_METHOD(RunLinkToLibWithUnresolvedFunctions);
   TEST_METHOD(RunLinkToLibWithUnresolvedFunctionsExports);
   TEST_METHOD(RunLinkToLibWithExportNamesSwapped);
@@ -359,6 +359,7 @@ TEST_F(LinkerTest, RunLinkMatParamToLib) {
        {"bitcast <12 x float>* %1 to %class.matrix.float.4.3*"}, {});
 }
 
+#if 0 // unsupported for lib_6_3, but possibly future or offline-only target
 TEST_F(LinkerTest, RunLinkResRet) {
   CComPtr<IDxcBlob> pEntryLib;
   CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res.hlsl", &pEntryLib);
@@ -376,16 +377,17 @@ TEST_F(LinkerTest, RunLinkResRet) {
 
   Link(L"test", L"ps_6_0", pLinker, {libName, libName2}, {}, {"alloca"});
 }
+#endif
 
 TEST_F(LinkerTest, RunLinkToLib) {
   LPCWSTR option[] = {L"-Zi"};
 
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_entry2.hlsl",
              &pEntryLib, option, 1);
   CComPtr<IDxcBlob> pLib;
   CompileLib(
-      L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res_imp.hlsl",
+      L"..\\CodeGenHLSL\\quick-test\\lib_mat_cast2.hlsl",
       &pLib, option, 1);
 
   CComPtr<IDxcLinker> pLinker;
@@ -397,17 +399,16 @@ TEST_F(LinkerTest, RunLinkToLib) {
   LPCWSTR libName2 = L"test";
   RegisterDxcModule(libName2, pLib, pLinker);
 
-  Link(L"", L"lib_6_2", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {});
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"!llvm.dbg.cu"}, {});
 }
 
 TEST_F(LinkerTest, RunLinkToLibExport) {
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res.hlsl",
+  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_entry2.hlsl",
              &pEntryLib);
   CComPtr<IDxcBlob> pLib;
-  CompileLib(
-      L"..\\CodeGenHLSL\\shader-compat-suite\\lib_out_param_res_imp.hlsl",
-      &pLib);
+  CompileLib(L"..\\CodeGenHLSL\\quick-test\\lib_mat_cast2.hlsl",
+             &pLib);
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -418,11 +419,12 @@ TEST_F(LinkerTest, RunLinkToLibExport) {
   LPCWSTR libName2 = L"test";
   RegisterDxcModule(libName2, pLib, pLinker);
   Link(L"", L"lib_6_3", pLinker, {libName, libName2},
-    { "@\"\\01?renamed_test@@","@\"\\01?cloned_test@@","@test" },
-    { "@\"\\01?GetBuf", "@renamed_test", "@cloned_test" },
-    {L"-exports", L"renamed_test,cloned_test=\\01?test@@YA?AV?$vector@M$03@@I@Z;test"});
+    { "@\"\\01?renamed_test@@","@\"\\01?cloned_test@@","@main" },
+    { "@\"\\01?mat_test", "@renamed_test", "@cloned_test" },
+    {L"-exports", L"renamed_test,cloned_test=\\01?mat_test@@YA?AV?$vector@M$02@@V?$vector@M$03@@0AIAV?$matrix@M$03$02@@@Z;main"});
 }
 
+#if 0 // unsupported for lib_6_3, but possibly future or offline-only target
 TEST_F(LinkerTest, RunLinkFailSelectRes) {
   if (m_ver.SkipDxilVersion(1, 3)) return;
   CComPtr<IDxcBlob> pEntryLib;
@@ -442,6 +444,7 @@ TEST_F(LinkerTest, RunLinkFailSelectRes) {
   LinkCheckMsg(L"main", L"ps_6_0", pLinker, {libName, libName2},
                {"Local resource must map to global resource"});
 }
+#endif
 
 TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctions) {
   LPCWSTR option[] = { L"-Zi" };

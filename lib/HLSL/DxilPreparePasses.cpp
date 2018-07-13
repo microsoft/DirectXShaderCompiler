@@ -11,6 +11,7 @@
 
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilOperations.h"
+#include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
@@ -33,6 +34,49 @@
 
 using namespace llvm;
 using namespace hlsl;
+
+namespace {
+class FailUndefResource : public ModulePass {
+public:
+  static char ID;
+
+  explicit FailUndefResource() : ModulePass(ID) {
+    initializeScalarizerPass(*PassRegistry::getPassRegistry());
+  }
+
+  const char *getPassName() const override { return "Fail on undef resource use"; }
+
+  bool runOnModule(Module &M) override;
+};
+}
+
+char FailUndefResource::ID = 0;
+
+ModulePass *llvm::createFailUndefResourcePass() { return new FailUndefResource(); }
+
+INITIALIZE_PASS(FailUndefResource, "fail-undef-resource", "Fail on undef resource use", false, false)
+
+bool FailUndefResource::runOnModule(Module &M) {
+  // Undef resources may be removed on simplify due to the interpretation
+  // of undef that any value could be substituted for identical meaning.
+  // However, these likely indicate uninitialized locals being used in
+  // some code path, which we should catch and report.
+  for (auto &F : M.functions()) {
+    if (GetHLOpcodeGroupByName(&F) == HLOpcodeGroup::HLCreateHandle) {
+      Type *ResTy = F.getFunctionType()->getParamType(
+        HLOperandIndex::kCreateHandleResourceOpIdx);
+      UndefValue *UndefRes = UndefValue::get(ResTy);
+      for (auto U : UndefRes->users()) {
+        // Only report instruction users.
+        if (Instruction *I = dyn_cast<Instruction>(U))
+          dxilutil::EmitResMappingError(I);
+      }
+    }
+  }
+  return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 
 namespace {
 class SimplifyInst : public FunctionPass {

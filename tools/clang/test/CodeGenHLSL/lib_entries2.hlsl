@@ -6,9 +6,6 @@
 // CHECK: dx.op.threadId
 // CHECK: dx.op.groupId
 
-// Make sure cloned function exist.
-// CHECK: @"\01?ps_main
-
 // Make sure entry function exist.
 // CHECK: @gs_main()
 // Make sure signatures are lowered.
@@ -50,10 +47,6 @@
 // CHECK: dx.op.storeOutput
 // Finish ps_main
 // CHECK: ret void
-
-// Make sure cloned function signatures are not lowered.
-// CHECK-NOT: call float @dx.op.loadInput
-// CHECK-NOT: call void @dx.op.storeOutput
 
 
 

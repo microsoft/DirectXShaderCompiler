@@ -10,6 +10,7 @@ AppendStructuredBuffer<float4> appendUAVResource : register(u3);
 // Consume Structured Buffer (u4) 
 ConsumeStructuredBuffer<float4> consumeUAVResource : register(u4);
 
+[numthreads(1,1,1)]
 [shader("compute")]
 void test()
 {

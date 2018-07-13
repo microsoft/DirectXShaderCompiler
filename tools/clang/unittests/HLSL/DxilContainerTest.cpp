@@ -1100,7 +1100,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
       VERIFY_SUCCEEDED(containerReflection->GetPartReflection(i, IID_PPV_ARGS(&pLibraryReflection)));
       D3D12_LIBRARY_DESC LibDesc;
       VERIFY_SUCCEEDED(pLibraryReflection->GetDesc(&LibDesc));
-      VERIFY_ARE_EQUAL(LibDesc.FunctionCount, 4);
+      VERIFY_ARE_EQUAL(LibDesc.FunctionCount, 3);
       for (INT iFn = 0; iFn < (INT)LibDesc.FunctionCount; iFn++) {
         ID3D12FunctionReflection *pFunctionReflection = pLibraryReflection->GetFunctionByIndex(iFn);
         D3D12_FUNCTION_DESC FnDesc;
@@ -1164,35 +1164,6 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
               Ref1_CheckBinding_tex2(resDesc);
             } else if (resName.compare("b_buf") == 0) {
               Ref1_CheckBinding_b_buf(resDesc);
-            } else {
-              VERIFY_FAIL(L"Unexpected resource used");
-            }
-          }
-        } else if (Name.compare("\01?function2@@YAMV?$vector@M$03@@@Z") == 0) {
-          // library version of shader function is mangled
-          VERIFY_ARE_EQUAL(FnDesc.Version, EncodedVersion_lib_6_3);
-          VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 2);
-          VERIFY_ARE_EQUAL(FnDesc.BoundResources, 2);
-          for (INT iCB = 0; iCB < (INT)FnDesc.BoundResources; iCB++) {
-            D3D12_SHADER_BUFFER_DESC cbDesc;
-            ID3D12ShaderReflectionConstantBuffer *pCBReflection = pFunctionReflection->GetConstantBufferByIndex(0);
-            VERIFY_SUCCEEDED(pCBReflection->GetDesc(&cbDesc));
-            std::string cbName = cbDesc.Name;
-            if (cbName.compare("$Globals") == 0) {
-              Ref1_CheckCBuffer_Globals(pCBReflection, cbDesc);
-            } else if (cbName.compare("MyCB") == 0) {
-              Ref1_CheckCBuffer_MyCB(pCBReflection, cbDesc);
-            }
-          }
-
-          for (INT iRes = 0; iRes < (INT)FnDesc.BoundResources; iRes++) {
-            D3D12_SHADER_INPUT_BIND_DESC resDesc;
-            pFunctionReflection->GetResourceBindingDesc(iRes, &resDesc);
-            std::string resName = resDesc.Name;
-            if (resName.compare("$Globals") == 0) {
-              Ref1_CheckBinding_Globals(resDesc);
-            } else if (resName.compare("MyCB") == 0) {
-              Ref1_CheckBinding_MyCB(resDesc);
             } else {
               VERIFY_FAIL(L"Unexpected resource used");
             }

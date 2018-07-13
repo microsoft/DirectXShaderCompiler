@@ -14,6 +14,7 @@
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLOperations.h"
+#include "dxc/HLSL/DxilInstructions.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
@@ -33,6 +34,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -283,21 +285,17 @@ public:
     LowerHLCreateHandle();
     MarkNonUniform(NonUniformSet);
 
-    // For module which not promote mem2reg.
-    // Remove local resource alloca/load/store/phi.
-    // Skip lib in case alloca used as call arg.
-    if (!SM->IsLib()) {
-      for (auto It = M.begin(); It != M.end();) {
-        Function &F = *(It++);
-        if (!F.isDeclaration()) {
-          RemoveLocalDxilResourceAllocas(&F);
-          if (hlsl::GetHLOpcodeGroupByName(&F) ==
-              HLOpcodeGroup::HLCreateHandle) {
-            if (F.user_empty()) {
-              F.eraseFromParent();
-            } else {
-              M.getContext().emitError("Fail to lower createHandle.");
-            }
+    // LowerHLCreateHandle() should have translated HLCreateHandle to CreateHandleForLib.
+    // Clean up HLCreateHandle functions.
+    for (auto It = M.begin(); It != M.end();) {
+      Function &F = *(It++);
+      if (!F.isDeclaration()) {
+        if (hlsl::GetHLOpcodeGroupByName(&F) ==
+            HLOpcodeGroup::HLCreateHandle) {
+          if (F.user_empty()) {
+            F.eraseFromParent();
+          } else {
+            M.getContext().emitError("Fail to lower createHandle.");
           }
         }
       }
@@ -328,11 +326,7 @@ public:
   }
 
 private:
-  void RemoveLocalDxilResourceAllocas(Function *F);
   void MarkUpdateCounter(std::unordered_set<LoadInst *> &UpdateCounterSet);
-  void TranslateParamDxilResourceHandles(Function *F, std::unordered_map<Instruction *, Value *> &handleMap);
-  void GenerateParamDxilResourceHandles(
-      std::unordered_map<Instruction *, Value *> &handleMap);
   // Generate DXIL cbuffer handles.
   void
   GenerateDxilCBufferHandles(std::unordered_set<Value *> &NonUniformSet);
@@ -411,149 +405,25 @@ void DxilGenerationPass::MarkNonUniform(
   }
 }
 
-static const StringRef kResourceMapErrorMsg = "local resource not guaranteed to map to unique global resource.";
-static void EmitResMappingError(Instruction *Res) {
-  const DebugLoc &DL = Res->getDebugLoc();
-  if (DL.get()) {
-    Res->getContext().emitError("line:" + std::to_string(DL.getLine()) +
-        " col:" + std::to_string(DL.getCol()) + " " +
-        Twine(kResourceMapErrorMsg));
+static void
+MarkUavUpdateCounter(Value* LoadOrGEP,
+                     DxilResource &res,
+                     std::unordered_set<LoadInst *> &UpdateCounterSet) {
+  if (LoadInst *ldInst = dyn_cast<LoadInst>(LoadOrGEP)) {
+    if (UpdateCounterSet.count(ldInst)) {
+      DXASSERT_NOMSG(res.GetClass() == DXIL::ResourceClass::UAV);
+      res.SetHasCounter(true);
+    }
   } else {
-    Res->getContext().emitError(Twine(kResourceMapErrorMsg) + " With /Zi to show more information.");
-  }
-}
-
-static void ReplaceResourceUserWithHandle(LoadInst *Res, Value *handle) {
-  for (auto resUser = Res->user_begin(); resUser != Res->user_end();) {
-    CallInst *CI = dyn_cast<CallInst>(*(resUser++));
-    DXASSERT(GetHLOpcodeGroupByName(CI->getCalledFunction()) ==
-                 HLOpcodeGroup::HLCreateHandle,
-             "must be createHandle");
-    CI->replaceAllUsesWith(handle);
-    CI->eraseFromParent();
-  }
-  Res->eraseFromParent();
-}
-
-static bool IsResourceType(Type *Ty) {
-  bool isResource = HLModule::IsHLSLObjectType(Ty);
-
-  if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
-    Type *EltTy = AT->getElementType();
-    while (isa<ArrayType>(EltTy)) {
-      EltTy = EltTy->getArrayElementType();
-    }
-    isResource = HLModule::IsHLSLObjectType(EltTy);
-    // TODO: support local resource array.
-    DXASSERT(!isResource, "local resource array");
-  }
-  return isResource;
-}
-
-void DxilGenerationPass::RemoveLocalDxilResourceAllocas(Function *F) {
-  BasicBlock &BB = F->getEntryBlock(); // Get the entry node for the function
-  std::unordered_set<AllocaInst *> localResources;
-  for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
-    if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-      if (IsResourceType(AI->getAllocatedType())) {
-        localResources.insert(AI);
-      }
-    }
-
-  SSAUpdater SSA;
-  SmallVector<Instruction *, 4> Insts;
-
-  for (AllocaInst *AI : localResources) {
-    // Build list of instructions to promote.
-    for (User *U : AI->users())
-      Insts.emplace_back(cast<Instruction>(U));
-
-    ResourceRemover(Insts, SSA).run(AI, Insts);
-
-    Insts.clear();
-  }
-}
-void DxilGenerationPass::TranslateParamDxilResourceHandles(Function *F, std::unordered_map<Instruction *, Value *> &handleMap) {
-  Type *handleTy = m_pHLModule->GetOP()->GetHandleType();
-
-  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
-  for (Argument &arg : F->args()) {
-    Type *Ty = arg.getType();
-
-    if (isa<PointerType>(Ty))
-      Ty = Ty->getPointerElementType();
-
-    SmallVector<unsigned,4> arraySizeList;
-    while (isa<ArrayType>(Ty)) {
-      arraySizeList.push_back(Ty->getArrayNumElements());
-      Ty = Ty->getArrayElementType();
-    }
-    DXIL::ResourceClass RC = m_pHLModule->GetResourceClass(Ty);
-    if (RC != DXIL::ResourceClass::Invalid) {
-      Type *curTy = handleTy;
-      for (auto it = arraySizeList.rbegin(), E = arraySizeList.rend(); it != E;
-           it++) {
-        curTy = ArrayType::get(curTy, *it);
-      }
-      curTy = PointerType::get(curTy, 0);
-      CallInst *castToHandle = cast<CallInst>(HLModule::EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLCast, 0, curTy,
-          {UndefValue::get(arg.getType())}, *F->getParent()));
-
-      for (User *U : arg.users()) {
-        Instruction *I = cast<Instruction>(U);
-        IRBuilder<> userBuilder(I);
-        if (LoadInst *ldInst = dyn_cast<LoadInst>(U)) {
-          Value *handleLd = userBuilder.CreateLoad(castToHandle);
-          handleMap[ldInst] = handleLd;
-        } else if (StoreInst *stInst = dyn_cast<StoreInst>(U)) {
-          Value *res = stInst->getValueOperand();
-          Value *handle = HLModule::EmitHLOperationCall(
-              userBuilder, HLOpcodeGroup::HLCast, 0, handleTy, {res},
-              *F->getParent());
-          userBuilder.CreateStore(handle, castToHandle);
-        } else if (dyn_cast<CallInst>(U)) {
-          // Don't flatten argument here.
-          continue;
-        } else {
-          DXASSERT(
-              dyn_cast<GEPOperator>(U) != nullptr,
-              "else AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
-              "to only have ld/st refer to temp object");
-          GEPOperator *GEP = cast<GEPOperator>(U);
-          std::vector<Value *> idxList(GEP->idx_begin(), GEP->idx_end());
-          Value *handleGEP = userBuilder.CreateGEP(castToHandle, idxList);
-          for (auto GEPU : GEP->users()) {
-            Instruction *GEPI = cast<Instruction>(GEPU);
-            IRBuilder<> gepUserBuilder(GEPI);
-            if (LoadInst *ldInst = dyn_cast<LoadInst>(GEPU)) {
-              handleMap[ldInst] = gepUserBuilder.CreateLoad(handleGEP);
-            } else {
-              StoreInst *stInst = cast<StoreInst>(GEPU);
-              Value *res = stInst->getValueOperand();
-              Value *handle = HLModule::EmitHLOperationCall(
-                  gepUserBuilder, HLOpcodeGroup::HLCast, 0, handleTy, {res},
-                  *F->getParent());
-              gepUserBuilder.CreateStore(handle, handleGEP);
-            }
-          }
-        }
-      }
-
-      castToHandle->setArgOperand(0, &arg);
+    DXASSERT(dyn_cast<GEPOperator>(LoadOrGEP) != nullptr,
+             "else AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
+             "to only have ld/st refer to temp object");
+    GEPOperator *GEP = cast<GEPOperator>(LoadOrGEP);
+    for (auto GEPU : GEP->users()) {
+      MarkUavUpdateCounter(GEPU, res, UpdateCounterSet);
     }
   }
 }
-
-void DxilGenerationPass::GenerateParamDxilResourceHandles(
-    std::unordered_map<Instruction *, Value *> &handleMap) {
-  Module &M = *m_pHLModule->GetModule();
-  for (Function &F : M.functions()) {
-    if (!F.isDeclaration())
-      TranslateParamDxilResourceHandles(&F, handleMap);
-  }
-}
-
 static void
 MarkUavUpdateCounter(DxilResource &res,
                      std::unordered_set<LoadInst *> &UpdateCounterSet) {
@@ -563,27 +433,7 @@ MarkUavUpdateCounter(DxilResource &res,
     // Skip unused user.
     if (user->user_empty())
       continue;
-
-    if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
-      if (UpdateCounterSet.count(ldInst)) {
-        DXASSERT_NOMSG(res.GetClass() == DXIL::ResourceClass::UAV);
-        res.SetHasCounter(true);
-      }
-    } else {
-      DXASSERT(dyn_cast<GEPOperator>(user) != nullptr,
-               "else AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
-               "to only have ld/st refer to temp object");
-      GEPOperator *GEP = cast<GEPOperator>(user);
-      for (auto GEPU = GEP->user_begin(), GEPE = GEP->user_end();
-           GEPU != GEPE;) {
-        // Must be load inst.
-        LoadInst *ldInst = cast<LoadInst>(*(GEPU++));
-        if (UpdateCounterSet.count(ldInst)) {
-          DXASSERT_NOMSG(res.GetClass() == DXIL::ResourceClass::UAV);
-          res.SetHasCounter(true);
-        }
-      }
-    }
+    MarkUavUpdateCounter(user, res, UpdateCounterSet);
   }
 }
 
@@ -1042,10 +892,12 @@ INITIALIZE_PASS(HLDeadFunctionElimination, "hl-dfe", "Remove all unused function
 
 namespace {
 
-class DxilLegalizeStaticResourceUsePass : public ModulePass {
+static const StringRef kStaticResourceLibErrorMsg = "static global resource use is disallowed in library exports.";
+
+class DxilPromoteStaticResources : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilLegalizeStaticResourceUsePass()
+  explicit DxilPromoteStaticResources()
       : ModulePass(ID) {}
 
   const char *getPassName() const override {
@@ -1053,55 +905,22 @@ public:
   }
 
   bool runOnModule(Module &M) override {
-    HLModule &HLM = M.GetOrCreateHLModule();
-    OP *hlslOP = HLM.GetOP();
-    Type *HandleTy = hlslOP->GetHandleType();
     // Promote static global variables.
-    PromoteStaticGlobalResources(M);
-
-    // Lower handle cast.
-    for (Function &F : M.functions()) {
-      if (!F.isDeclaration())
-        continue;
-      HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(&F);
-      if (group != HLOpcodeGroup::HLCast)
-        continue;
-      Type *Ty = F.getFunctionType()->getReturnType();
-      if (Ty->isPointerTy())
-        Ty = Ty->getPointerElementType();
-      if (HLModule::IsHLSLObjectType(Ty)) {
-        TransformHandleCast(F);
-      }
-    }
-
-    Value *UndefHandle = UndefValue::get(HandleTy);
-    if (!UndefHandle->user_empty()) {
-      for (User *U : UndefHandle->users()) {
-        // Report error if undef handle used for function call.
-        if (isa<CallInst>(U)) {
-          if (Instruction *UI = dyn_cast<Instruction>(U))
-            EmitResMappingError(UI);
-          else
-            M.getContext().emitError(kResourceMapErrorMsg);
-        }
-      }
-    }
-    return true;
+    return PromoteStaticGlobalResources(M);
   }
 
 private:
-  void PromoteStaticGlobalResources(Module &M);
-  void TransformHandleCast(Function &F);
+  bool PromoteStaticGlobalResources(Module &M);
 };
 
-char DxilLegalizeStaticResourceUsePass::ID = 0;
+char DxilPromoteStaticResources::ID = 0;
 
-class DxilLegalizeResourceUsePass : public FunctionPass {
+class DxilPromoteLocalResources : public FunctionPass {
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilLegalizeResourceUsePass()
+  explicit DxilPromoteLocalResources()
       : FunctionPass(ID) {}
 
   const char *getPassName() const override {
@@ -1110,34 +929,29 @@ public:
 
   bool runOnFunction(Function &F) override {
     // Promote local resource first.
-    PromoteLocalResource(F);
-    return true;
+    return PromoteLocalResource(F);
   }
 
 private:
-  void PromoteLocalResource(Function &F);
+  bool PromoteLocalResource(Function &F);
 };
 
-char DxilLegalizeResourceUsePass::ID = 0;
+char DxilPromoteLocalResources::ID = 0;
 
 }
 
-void DxilLegalizeResourceUsePass::getAnalysisUsage(AnalysisUsage &AU) const {
+void DxilPromoteLocalResources::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.setPreservesAll();
 }
 
-void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
+bool DxilPromoteLocalResources::PromoteLocalResource(Function &F) {
+  bool bModified = false;
   std::vector<AllocaInst *> Allocas;
   DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   AssumptionCache &AC =
       getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-  HLModule &HLM = F.getParent()->GetOrCreateHLModule();
-  OP *hlslOP = HLM.GetOP();
-  Type *HandleTy = hlslOP->GetHandleType();
-
-  bool IsLib = HLM.GetShaderModel()->IsLib();
 
   BasicBlock &BB = F.getEntryBlock();
   unsigned allocaSize = 0;
@@ -1148,19 +962,9 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
     // the entry node
     for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
       if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-        if (HandleTy == dxilutil::GetArrayEltTy(AI->getAllocatedType())) {
-          // Skip for unpromotable for lib.
-          if (!isAllocaPromotable(AI) && IsLib)
-            continue;
-          if (!isAllocaPromotable(AI)) {
-            static const StringRef kNonPromotableLocalResourceErrorMsg =
-                "non-promotable local resource found.";
-            F.getContext().emitError(kNonPromotableLocalResourceErrorMsg);
-            throw hlsl::Exception(DXC_E_ABORT_COMPILATION_ERROR,
-                                  kNonPromotableLocalResourceErrorMsg);
-            continue;
-          }
-          Allocas.push_back(AI);
+        if (HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(AI->getAllocatedType()))) {
+          if (isAllocaPromotable(AI))
+            Allocas.push_back(AI);
         }
       }
     if (Allocas.empty())
@@ -1169,39 +973,65 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
     // No update.
     // Report error and break.
     if (allocaSize == Allocas.size()) {
-      F.getContext().emitError(kResourceMapErrorMsg);
+      F.getContext().emitError(dxilutil::kResourceMapErrorMsg);
       break;
     }
     allocaSize = Allocas.size();
 
     PromoteMemToReg(Allocas, *DT, nullptr, &AC);
+    bModified = true;
   }
 
-  return;
+  return bModified;
 }
 
-FunctionPass *llvm::createDxilLegalizeResourceUsePass() {
-  return new DxilLegalizeResourceUsePass();
+FunctionPass *llvm::createDxilPromoteLocalResources() {
+  return new DxilPromoteLocalResources();
 }
 
-INITIALIZE_PASS_BEGIN(DxilLegalizeResourceUsePass,
-                      "hlsl-dxil-legalize-resource-use",
-                      "DXIL legalize resource use", false, true)
+INITIALIZE_PASS_BEGIN(DxilPromoteLocalResources,
+                      "hlsl-dxil-promote-local-resources",
+                      "DXIL promote local resource use", false, true)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_END(DxilLegalizeResourceUsePass,
-                    "hlsl-dxil-legalize-resource-use",
-                    "DXIL legalize resource use", false, true)
+INITIALIZE_PASS_END(DxilPromoteLocalResources,
+                    "hlsl-dxil-promote-local-resources",
+                    "DXIL promote local resource use", false, true)
 
-void DxilLegalizeStaticResourceUsePass::PromoteStaticGlobalResources(
+bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
     Module &M) {
-  HLModule &HLM = M.GetOrCreateHLModule();
-  Type *HandleTy = HLM.GetOP()->GetHandleType();
+  if (M.GetOrCreateHLModule().GetShaderModel()->IsLib()) {
+    // Read/write to global static resource is disallowed for libraries:
+    // Resource use needs to be resolved to a single real global resource,
+    // but it may not be possible since any external function call may re-enter
+    // at any other library export, which could modify the global static
+    // between write and read.
+    // While it could work for certain cases, describing the boundary at
+    // the HLSL level is difficult, so at this point it's better to disallow.
+    // example of what could work:
+    //  After inlining, exported functions must have writes to static globals
+    //  before reads, and must not have any external function calls between
+    //  writes and subsequent reads, such that the static global may be
+    //  optimized away for the exported function.
+    for (auto &GV : M.globals()) {
+      if (GV.getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
+        HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {
+        if (!GV.user_empty()) {
+          if (Instruction *I = dyn_cast<Instruction>(*GV.user_begin())) {
+            dxilutil::EmitErrorOnInstruction(I, kStaticResourceLibErrorMsg);
+            break;
+          }
+        }
+      }
+    }
+    return false;
+  }
 
+  bool bModified = false;
   std::set<GlobalVariable *> staticResources;
   for (auto &GV : M.globals()) {
-    if (GV.getLinkage() == GlobalValue::LinkageTypes::InternalLinkage &&
-        HandleTy == dxilutil::GetArrayEltTy(GV.getType())) {
+    if (GV.getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
+        HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {
       staticResources.insert(&GV);
     }
   }
@@ -1227,50 +1057,21 @@ void DxilLegalizeStaticResourceUsePass::PromoteStaticGlobalResources(
       Insts.clear();
     }
     if (!bUpdated) {
-      M.getContext().emitError(kResourceMapErrorMsg);
+      M.getContext().emitError(dxilutil::kResourceMapErrorMsg);
       break;
     }
+    bModified = true;
   }
+  return bModified;
 }
 
-static void ReplaceResUseWithHandle(Instruction *Res, Value *Handle) {
-  Type *HandleTy = Handle->getType();
-  for (auto ResU = Res->user_begin(); ResU != Res->user_end();) {
-    Instruction *I = cast<Instruction>(*(ResU++));
-    if (isa<LoadInst>(I)) {
-      ReplaceResUseWithHandle(I, Handle);
-    } else if (isa<CallInst>(I)) {
-      if (I->getType() == HandleTy) {
-        I->replaceAllUsesWith(Handle);
-      } else {
-        DXASSERT(0, "must createHandle here");
-      }
-    } else {
-      DXASSERT(0, "should only used by load and createHandle");
-    }
-    if (I->user_empty() && !I->getType()->isVoidTy()) {
-      I->eraseFromParent();
-    }
-  }
+ModulePass *llvm::createDxilPromoteStaticResources() {
+  return new DxilPromoteStaticResources();
 }
 
-void DxilLegalizeStaticResourceUsePass::TransformHandleCast(Function &F) {
-  for (auto U = F.user_begin(); U != F.user_end(); ) {
-    CallInst *CI = cast<CallInst>(*(U++));
-    Value *Handle = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-    ReplaceResUseWithHandle(CI, Handle);
-    if (CI->user_empty())
-      CI->eraseFromParent();
-  }
-}
-
-ModulePass *llvm::createDxilLegalizeStaticResourceUsePass() {
-  return new DxilLegalizeStaticResourceUsePass();
-}
-
-INITIALIZE_PASS(DxilLegalizeStaticResourceUsePass,
-                "hlsl-dxil-legalize-static-resource-use",
-                "DXIL legalize static resource use", false, false)
+INITIALIZE_PASS(DxilPromoteStaticResources,
+                "hlsl-dxil-promote-static-resources",
+                "DXIL promote static resource use", false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Legalize EvalOperations.
