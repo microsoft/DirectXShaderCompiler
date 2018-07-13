@@ -1,7 +1,7 @@
 // RUN: %dxc -T ps_6_0 -Od -E main %s | FileCheck %s
 
 // CHECK: %precise = alloca float, align 4
-// CHECK: %globallycoherent = alloca float, align 4
+// CHECK: %globallycoherent = alloca i32, align 4
 // CHECK: %sample = alloca float, align 4
 // CHECK: %center = alloca float, align 4
 
@@ -37,7 +37,7 @@ float4 main(float4 input : SV_POSITION) : SV_TARGET
     globallycoherent += 10;
 
     // Check declaration group is accepted
-    float4 left, center = 1.0, right;
+    float left, center = 1.0, right;
 
     // Check parentheses are accepted
     // (they go through the path for type cast in frontend)

@@ -1278,7 +1278,7 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
     // FXC compatiblity: these are keywords when used as modifiers, but in
     // FXC they can also be used an identifiers. If the next token is a
     // punctuator, then we are using them as identifers. Need to change
-    // the token type to tok::identifier and return false;
+    // the token type to tok::identifier and return false.
     // E.g., return (center);
     if (tok::isPunctuator(NextToken().getKind())) {
       Tok.setKind(tok::identifier);
