@@ -4373,6 +4373,21 @@ Value *TranslateNoArgMatrixOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode o
   return retVal;
 }
 
+Value *TranslateNoArgNoReturnPreserveOutput(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+  HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  Instruction *pResult = cast<Instruction>(
+    TrivialNoArgOperation(CI, IOP, opcode, helper, pObjHelper, Translated));
+  // HL intrinsic must have had a return injected just after the call.
+  // SROA_Parameter_HLSL will copy from alloca to output just before each return.
+  // Now move call after the copy and just before the return.
+  if (isa<ReturnInst>(pResult->getNextNode()))
+    return pResult;
+  ReturnInst *RetI = cast<ReturnInst>(pResult->getParent()->getTerminator());
+  pResult->removeFromParent();
+  pResult->insertBefore(RetI);
+  return pResult;
+}
+
 } // namespace
 
 // Lower table.
@@ -4408,7 +4423,7 @@ Value *StreamOutputLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
 
 // This table has to match IntrinsicOp orders
 IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] = {
-    {IntrinsicOp::IOP_AcceptHitAndEndSearch, TrivialNoArgOperation, DXIL::OpCode::AcceptHitAndEndSearch},
+    {IntrinsicOp::IOP_AcceptHitAndEndSearch, TranslateNoArgNoReturnPreserveOutput, DXIL::OpCode::AcceptHitAndEndSearch},
     {IntrinsicOp::IOP_AddUint64,  TranslateAddUint64,  DXIL::OpCode::UAddc},
     {IntrinsicOp::IOP_AllMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
@@ -4428,7 +4443,7 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_GroupMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_HitKind, TrivialNoArgWithRetOperation, DXIL::OpCode::HitKind},
-    {IntrinsicOp::IOP_IgnoreHit, TrivialNoArgOperation, DXIL::OpCode::IgnoreHit},
+    {IntrinsicOp::IOP_IgnoreHit, TranslateNoArgNoReturnPreserveOutput, DXIL::OpCode::IgnoreHit},
     {IntrinsicOp::IOP_InstanceID, TrivialNoArgWithRetOperation, DXIL::OpCode::InstanceID},
     {IntrinsicOp::IOP_InstanceIndex, TrivialNoArgWithRetOperation, DXIL::OpCode::InstanceIndex},
     {IntrinsicOp::IOP_InterlockedAdd, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},

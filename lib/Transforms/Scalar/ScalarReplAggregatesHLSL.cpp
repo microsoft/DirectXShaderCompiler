@@ -4184,6 +4184,7 @@ static void LegalizeDxilInputOutputs(Function *F,
                                      DxilFunctionAnnotation *EntryAnnotation,
                                      const DataLayout &DL,
                                      DxilTypeSystem &typeSys);
+static void InjectReturnAfterNoReturnPreserveOutput(HLModule &HLM);
 
 namespace {
 class SROA_Parameter_HLSL : public ModulePass {
@@ -4204,6 +4205,8 @@ public:
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
     m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+
+    InjectReturnAfterNoReturnPreserveOutput(*m_pHLModule);
 
     std::deque<Function *> WorkList;
     std::vector<Function *> DeadHLFunctions;
@@ -5730,6 +5733,44 @@ static void CheckArgUsage(Value *V, bool &bLoad, bool &bStore) {
     }
   }
 }
+
+// AcceptHitAndEndSearch and IgnoreHit both will not return, but require
+// outputs to have been written before the call.  Do this by:
+//  - inject a return immediately after the call if not there already
+//  - LegalizeDxilInputOutputs will inject writes from temp alloca to
+//    outputs before each return.
+//  - in HLOperationLower, after lowering the intrinsic, move the intrinsic
+//    to just before the return.
+static void InjectReturnAfterNoReturnPreserveOutput(HLModule &HLM) {
+  for (Function &F : HLM.GetModule()->functions()) {
+    if (GetHLOpcodeGroup(&F) == HLOpcodeGroup::HLIntrinsic) {
+      for (auto U : F.users()) {
+        if (CallInst *CI = dyn_cast<CallInst>(U)) {
+          unsigned OpCode = GetHLOpcode(CI);
+          if (OpCode == (unsigned)IntrinsicOp::IOP_AcceptHitAndEndSearch ||
+              OpCode == (unsigned)IntrinsicOp::IOP_IgnoreHit) {
+            Instruction *pNextI = CI->getNextNode();
+            // Skip if already has a return immediatly following call
+            if (isa<ReturnInst>(pNextI))
+              continue;
+            // split block and add return:
+            BasicBlock *BB = CI->getParent();
+            BasicBlock *NewBB = BB->splitBasicBlock(pNextI);
+            TerminatorInst *Term = NewBB->getTerminator();
+            Term->eraseFromParent();
+            IRBuilder<> Builder(NewBB);
+            llvm::Type *RetTy = CI->getParent()->getParent()->getReturnType();
+            if (RetTy->isVoidTy())
+              Builder.CreateRetVoid();
+            else
+              Builder.CreateRet(UndefValue::get(RetTy));
+          }
+        }
+      }
+    }
+  }
+}
+
 // Support store to input and load from output.
 static void LegalizeDxilInputOutputs(Function *F,
                                      DxilFunctionAnnotation *EntryAnnotation,
