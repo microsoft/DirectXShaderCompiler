@@ -840,7 +840,7 @@ void DxilPatchShaderRecordBindings::InitializeViewTable() {
           pInputShaderInfo->pUAVRegisterSpaceArray, 
           *pInputShaderInfo->pNumUAVSpaces, 
           FallbackLayerNumDescriptorHeapSpacesPerView);
-        (void*)index;
+        (void)index;
         assert(index == 0);
     }
 }
