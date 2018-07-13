@@ -5972,7 +5972,7 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
     // the token type to tok::identifier and fall through to the next case.
     // E.g., <type> left, center, right;
     if (getLangOpts().HLSL) {
-      switch (auto tk = Tok.getKind()) {
+      switch (Tok.getKind()) {
       case tok::kw_center:
       case tok::kw_globallycoherent:
       case tok::kw_precise:
