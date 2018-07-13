@@ -5965,6 +5965,26 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
       // the l_paren token.
     }
 
+    // HLSL Change Starts
+    // FXC compatiblity: these are keywords when used as modifiers, but in
+    // FXC they can also be used an identifiers. If the next token is a
+    // punctuator, then we are using them as identifers. Need to change
+    // the token type to tok::identifier and fall through to the next case.
+    if (getLangOpts().HLSL) {
+      switch (auto tk = Tok.getKind()) {
+      case tok::kw_center:
+      case tok::kw_globallycoherent:
+      case tok::kw_precise:
+      case tok::kw_sample:
+        if (tok::isPunctuator(NextToken().getKind()))
+          Tok.setKind(tok::identifier);
+        break;
+      default:
+        break;
+      }
+    }
+    // HLSL Change Ends
+
     if (Tok.isOneOf(tok::identifier, tok::kw_operator, tok::annot_template_id,
                     tok::tilde)) {
       // We found something that indicates the start of an unqualified-id.
