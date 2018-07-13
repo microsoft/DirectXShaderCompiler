@@ -26,13 +26,18 @@ public:
     Failure, // Failure (with errors) - check error message
   };
 
-  FileTest() : targetEnv(SPV_ENV_VULKAN_1_0) {}
+  FileTest()
+      : targetEnv(SPV_ENV_VULKAN_1_0), relaxLogicalPointer(false),
+        glLayout(false), dxLayout(false) {}
 
   void useVulkan1p1() { targetEnv = SPV_ENV_VULKAN_1_1; }
+  void setRelaxLogicalPointer() { relaxLogicalPointer = true; }
+  void setGlLayout() { glLayout = true; }
+  void setDxLayout() { dxLayout = true; }
 
   /// \brief Runs a File Test! (See class description for more info)
   void runFileTest(llvm::StringRef path, Expect expect = Expect::Success,
-                   bool runValidation = true, bool relaxLogicalPointer = false);
+                   bool runValidation = true);
 
 private:
   /// \brief Reads in the given input file.
@@ -46,6 +51,9 @@ private:
   std::string checkCommands;             ///< CHECK commands that verify output
   std::string generatedSpirvAsm;         ///< Disassembled binary (SPIR-V code)
   spv_target_env targetEnv;              ///< Environment to validate against
+  bool relaxLogicalPointer;
+  bool glLayout;
+  bool dxLayout;
 };
 
 } // end namespace spirv

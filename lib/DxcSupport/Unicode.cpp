@@ -17,6 +17,88 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 
+#ifndef _WIN32
+// MultiByteToWideChar which is a Windows-specific method.
+// This is a very simplistic implementation for non-Windows platforms. This
+// implementation completely ignores CodePage and dwFlags.
+int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
+                        const char *lpMultiByteStr, int cbMultiByte,
+                        wchar_t *lpWideCharStr, int cchWideChar) {
+
+  if (cbMultiByte == 0) {
+    SetLastError(ERROR_INVALID_PARAMETER);
+    return 0;
+  }
+
+  // if cbMultiByte is -1, it indicates that lpMultiByteStr is null-terminated
+  // and the entire string should be processed.
+  if (cbMultiByte == -1) {
+    for (cbMultiByte = 0; lpMultiByteStr[cbMultiByte] != '\0'; ++cbMultiByte)
+      ;
+    // Add 1 for the null-terminating character.
+    ++cbMultiByte;
+  }
+  // if zero is given as the destination size, this function should
+  // return the required size (including the null-terminating character).
+  if (cchWideChar == 0) {
+    wchar_t *tempStr = (wchar_t *)malloc(cbMultiByte * sizeof(wchar_t));
+    size_t requiredSize = mbstowcs(tempStr, lpMultiByteStr, cbMultiByte);
+    free(tempStr);
+    if (requiredSize == (size_t)cbMultiByte) return requiredSize;
+    return requiredSize + 1;
+  }
+
+  if (cchWideChar < cbMultiByte) {
+    SetLastError(ERROR_INSUFFICIENT_BUFFER);
+    return 0;
+  }
+
+  size_t rv = mbstowcs(lpWideCharStr, lpMultiByteStr, cbMultiByte);
+  if (rv == (size_t)cbMultiByte) return rv;
+  return rv + 1; // mbstowcs excludes the terminating character
+}
+
+// WideCharToMultiByte is a Windows-specific method.
+// This is a very simplistic implementation for non-Windows platforms. This
+// implementation completely ignores CodePage and dwFlags.
+int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
+                        const wchar_t *lpWideCharStr, int cchWideChar,
+                        char *lpMultiByteStr, int cbMultiByte,
+                        const char * /*lpDefaultChar*/,
+                        bool * /*lpUsedDefaultChar*/) {
+  // if cchWideChar is -1, it indicates that lpWideCharStr is null-terminated
+  // and the entire string should be processed.
+  if (cchWideChar == 0) {
+    SetLastError(ERROR_INVALID_PARAMETER);
+    return 0;
+  }
+  if (cchWideChar == -1) {
+    for (cchWideChar = 0; lpWideCharStr[cchWideChar] != '\0'; ++cchWideChar)
+      ;
+    // Add 1 for the null-terminating character.
+    ++cchWideChar;
+  }
+  // if zero is given as the destination size, this function should
+  // return the required size (including the null-terminating character).
+  if (cbMultiByte == 0) {
+    char *tempStr = (char *)malloc(cchWideChar * sizeof(char));
+    size_t requiredSize = wcstombs(tempStr, lpWideCharStr, cchWideChar);
+    free(tempStr);
+    if (requiredSize == (size_t)cchWideChar) return requiredSize;
+    return requiredSize + 1;
+  }
+
+  if (cbMultiByte < cchWideChar) {
+    SetLastError(ERROR_INSUFFICIENT_BUFFER);
+    return 0;
+  }
+
+  size_t rv = wcstombs(lpMultiByteStr, lpWideCharStr, cchWideChar);
+  if (rv == (size_t)cchWideChar) return rv;
+  return rv + 1; // mbstowcs excludes the terminating character
+}
+#endif // _WIN32
+
 namespace Unicode {
 
 _Success_(return != false)

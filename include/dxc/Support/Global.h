@@ -60,8 +60,6 @@ IMalloc *DxcSwapThreadMallocOrDefault(IMalloc *pMalloc, IMalloc **ppPrior) throw
 
 // Used to retrieve the current invocation's allocator or perform an alloc/free/realloc.
 IMalloc *DxcGetThreadMallocNoRef() throw();
-_Ret_maybenull_ _Post_writable_byte_size_(nBytes) void *DxcThreadAlloc(size_t nBytes) throw();
-void DxcThreadFree(void *) throw();
 
 struct DxcThreadMalloc {
   DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {

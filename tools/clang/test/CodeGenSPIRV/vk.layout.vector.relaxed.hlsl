@@ -58,12 +58,13 @@
 // CHECK:                         %T = OpTypeStruct %S_0
 // CHECK:   %type_StructuredBuffer_T = OpTypeStruct %_runtimearr_T
 // CHECK: %type_RWStructuredBuffer_T = OpTypeStruct %_runtimearr_T
+// CHECK:              %type_CBuffer = OpTypeStruct %S
 // CHECK:              %type_TBuffer = OpTypeStruct %S_0
 
 // CHECK:   %MyCBuffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_T Uniform
 // CHECK:   %MySBuffer = OpVariable %_ptr_Uniform_type_StructuredBuffer_T Uniform
 // CHECK: %MyRWSBuffer = OpVariable %_ptr_Uniform_type_RWStructuredBuffer_T Uniform
-// CHECK:     %CBuffer = OpVariable %_ptr_Uniform_type_ConstantBuffer_T Uniform
+// CHECK:     %CBuffer = OpVariable %_ptr_Uniform_type_CBuffer Uniform
 // CHECK:     %TBuffer = OpVariable %_ptr_Uniform_type_TBuffer Uniform
 
 struct S {

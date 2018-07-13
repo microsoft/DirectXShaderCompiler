@@ -103,10 +103,10 @@ option(SPIRV_BUILD_TESTS "Build targets for the SPIR-V unit tests." OFF)
 # Enable SPIR-V CodeGen for Linux by default.
 if(NOT WIN32)
   set(ENABLE_SPIRV_CODEGEN ON)
-  set(SPIRV_BUILD_TESTS ON)
 endif()
 
 if (${SPIRV_BUILD_TESTS})
+  enable_testing()
   set(ENABLE_SPIRV_CODEGEN ON)
 endif()
 if (${ENABLE_SPIRV_CODEGEN})

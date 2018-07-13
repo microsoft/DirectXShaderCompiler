@@ -788,7 +788,18 @@ HLSLReservedKeyword:
       return ExprError();
     assert(Tok.isNot(tok::kw_decltype) && Tok.isNot(tok::kw___super));
     return ParseCastExpression(isUnaryExpression, isAddressOfOperand);
-      
+
+    // HLSL Change Starts
+  case tok::kw_precise:
+  case tok::kw_sample:
+  case tok::kw_globallycoherent:
+  case tok::kw_center:
+    // Back-compat: 'precise', 'globallycoherent', 'center' and 'sample' are keywords when used as an interpolation 
+    // modifiers, but in FXC they can also be used an identifiers. No interpolation modifiers are expected here
+    // so we need to change the token type to tok::identifier and fall through to the next case.
+    Tok.setKind(tok::identifier);
+    __fallthrough;
+    // HLSL Change Ends
   case tok::identifier: {      // primary-expression: identifier
                                // unqualified-id: identifier
                                // constant: enumeration-constant
@@ -1702,13 +1713,20 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       }
 
       // HLSL Change Starts
-      // 'sample' is a keyword when used as an interpolation modifier, but it is
-      // also a built-in field of some types. By the time we're considering a
+      // 'sample' and others are keywords when used as modifiers, but they are
+      // also built-in field of some types. By the time we're considering a
       // field access, update the token if necessary to reflect this.
       if (getLangOpts().HLSL) {
-        if (Tok.is(tok::kw_sample)) {
+        switch (auto tk = Tok.getKind()) {
+        case tok::kw_center:
+        case tok::kw_globallycoherent:
+        case tok::kw_precise:
+        case tok::kw_sample:
           Tok.setKind(tok::identifier);
-          Tok.setIdentifierInfo(PP.getIdentifierInfo(StringRef("sample")));
+          Tok.setIdentifierInfo(PP.getIdentifierInfo(getKeywordSpelling(tk)));
+          break;
+        default:
+          break;
         }
       }
       // HLSL Change Ends

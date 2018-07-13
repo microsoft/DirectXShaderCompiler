@@ -64,6 +64,7 @@ set(SOURCES
   dxcassembler.cpp
   dxclibrary.cpp
   dxcompilerobj.cpp
+  DXCompiler.cpp
   dxcfilesystem.cpp
   dxcontainerbuilder.cpp
   dxcutil.cpp
@@ -73,9 +74,6 @@ set(SOURCES
 )
 set (HLSL_IGNORE_SOURCES
   dxcdia.cpp
-  DXCompiler.cpp
-  DXCompiler.rc
-  DXCompiler.def
   dxclinker.cpp
 )
 endif(WIN32)

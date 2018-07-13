@@ -7,5 +7,10 @@
 // CHECK: [[gl_WorkGroupID:%\d+]] = OpLoad %v3uint %gl_WorkGroupID
 // CHECK:   [[uint_GroupID:%\d+]] = OpCompositeExtract %uint [[gl_WorkGroupID]] 0
 // CHECK:                           OpStore %param_var_tid [[uint_GroupID]]
+
+RWBuffer<uint> MyBuffer;
+
 [numthreads(8, 8, 8)]
-void main(uint tid : SV_GroupID) {}
+void main(uint tid : SV_GroupID) {
+    MyBuffer[0] = tid;
+}
