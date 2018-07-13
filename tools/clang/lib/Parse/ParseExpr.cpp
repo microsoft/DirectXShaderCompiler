@@ -1713,13 +1713,20 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       }
 
       // HLSL Change Starts
-      // 'sample' is a keyword when used as an interpolation modifier, but it is
-      // also a built-in field of some types. By the time we're considering a
+      // 'sample' and others are keywords when used as modifiers, but they are
+      // also built-in field of some types. By the time we're considering a
       // field access, update the token if necessary to reflect this.
       if (getLangOpts().HLSL) {
-        if (Tok.is(tok::kw_sample)) {
+        switch (auto tk = Tok.getKind()) {
+        case tok::kw_center:
+        case tok::kw_globallycoherent:
+        case tok::kw_precise:
+        case tok::kw_sample:
           Tok.setKind(tok::identifier);
-          Tok.setIdentifierInfo(PP.getIdentifierInfo(StringRef("sample")));
+          Tok.setIdentifierInfo(PP.getIdentifierInfo(getKeywordSpelling(tk)));
+          break;
+        default:
+          break;
         }
       }
       // HLSL Change Ends
