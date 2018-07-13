@@ -1,7 +1,7 @@
 // RUN: %dxc -T cs_6_0 -E main %s | FileCheck %s
 
 // Report error when cannot promote local resource.
-// CHECK: non-promotable local resource found
+// CHECK: local resource not guaranteed to map to unique global resource
 
 RWByteAddressBuffer outputBuffer;
 RWByteAddressBuffer outputBuffer2;

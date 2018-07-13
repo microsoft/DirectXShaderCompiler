@@ -3,8 +3,8 @@
 // CHECK: ; S                                 sampler      NA          NA      S0             s1     1
 // CHECK: ; T                                 texture     f32          2d      T0             t1     1
 
-// CHECK:@"\01?T@@3V?$Texture2D@V?$vector@M$03@@@@A" = external global %"class.Texture2D<vector<float, 4> >", align 4
-// CHECK:@"\01?S@@3USamplerState@@A" = external global %struct.SamplerState, align 4
+// CHECK:@"\01?T@@3V?$Texture2D@V?$vector@M$03@@@@A" = external constant %"class.Texture2D<vector<float, 4> >", align 4
+// CHECK:@"\01?S@@3USamplerState@@A" = external constant %struct.SamplerState, align 4
 
 // CHECK: define void [[callable1:@"\\01\?callable1@[^\"]+"]](%struct.MyParam* noalias nocapture %param) #0 {
 // CHECK:   %[[i_0:[0-9]+]] = load %struct.SamplerState, %struct.SamplerState* @"\01?S@@3USamplerState@@A", align 4

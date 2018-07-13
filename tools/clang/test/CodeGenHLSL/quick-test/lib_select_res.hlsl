@@ -1,8 +1,7 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -Zi -auto-binding-space 11 %s | FileCheck %s
 
-// Make sure createHandleForLib is used for resource.
-// CHECK:call %dx.types.Handle @dx.op.createHandleForLib.struct.ByteAddressBuffer(i32 160
-// CHECK:call %dx.types.Handle @dx.op.createHandleForLib.struct.RWByteAddressBuffer(i32 160
+// resource uses must resolve to a single resource global variable (single rangeID)
+// CHECK: local resource not guaranteed to map to unique global resource
 
 RWByteAddressBuffer outputBuffer : register(u0);
 ByteAddressBuffer ReadBuffer : register(t0);

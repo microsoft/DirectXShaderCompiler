@@ -1,14 +1,7 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
-// Make sure no phi/select of handle in lib.
-// CHECK: entry:
-// CHECK-NOT: phi %"class.
-// CHECK-NOT: phi %dx.types.Handle
-// CHECK-NOT: select i1 %{{[^,]+}}, %"class.
-// CHECK-NOT: select i1 %{{[^,]+}}, %dx.types.Handle
-
-// Make sure get dimensions returns 24
-// CHECK: ret i32 24
+// Make sure this fails
+// CHECK: error: local resource not guaranteed to map to unique global resource
 
 struct MyStruct {
   float2 a;
@@ -16,13 +9,11 @@ struct MyStruct {
   float3 c;
 };
 
-RWStructuredBuffer<MyStruct> BufArray[3];
+RWStructuredBuffer<MyStruct> a;
+RWStructuredBuffer<MyStruct> b;
+RWStructuredBuffer<MyStruct> c;
 
 uint test(int i, int j, int m) {
-  RWStructuredBuffer<MyStruct> a = BufArray[0];
-  RWStructuredBuffer<MyStruct> b = BufArray[1];
-  RWStructuredBuffer<MyStruct> c = BufArray[2];
-
   RWStructuredBuffer<MyStruct> buf = c;
   while (i > 9) {
      while (j < 4) {

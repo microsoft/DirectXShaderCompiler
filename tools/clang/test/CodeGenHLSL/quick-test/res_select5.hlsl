@@ -1,19 +1,10 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
-// Make sure index allocas are present for each dim of global resource
-// This handles local resource array with dynamic indexing
-// CHECK: alloca [6 x i32]
-// CHECK: alloca [6 x i32]
-// CHECK: alloca [6 x i32]
-
-// Make sure no phi/select of resource or handle in lib.
-// CHECK-NOT: phi %"class.
-// CHECK-NOT: phi %dx.types.Handle
-// CHECK-NOT: select i1 %{{[^,]+}}, %"class.
-// CHECK-NOT: select i1 %{{[^,]+}}, %dx.types.Handle
-// CHECK: ret <4 x float>
+// Make sure this fails
+// CHECK: error: local resource not guaranteed to map to unique global resource
 
 RWBuffer<float4> BufArray[2][2][3];
+RWBuffer<float4> Buf2;
 
 float4 test(int i, int j, int m) {
   RWBuffer<float4> a = BufArray[m][0][0];
@@ -27,7 +18,7 @@ float4 test(int i, int j, int m) {
         if (i < m)
           buf = b;
         else
-          bufarr[i%2][j%3] = buf;
+          bufarr[i%2][j%3] = Buf2;  // Illegal: assign different global resource
         buf[j] = i;
         j++;
      }

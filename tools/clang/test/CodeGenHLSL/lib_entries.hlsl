@@ -7,10 +7,6 @@
 // CHECK: dx.op.threadId
 // CHECK: dx.op.groupId
 
-
-// Make sure cloned function exist.
-// CHECK: @"\01?ps_main
-
 // Make sure entry function exist.
 // CHECK: @gs_main()
 // Make sure signatures are lowered.
@@ -55,16 +51,10 @@
 // Finish ps_main
 // CHECK: ret void
 
-// Make sure cloned function signatures are not lowered.
-// CHECK-NOT: call float @dx.op.loadInput
-// CHECK-NOT: call void @dx.op.storeOutput
-
-
-
 
 // Make sure function entrys exist.
 // CHECK: !dx.entryPoints = !{{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}}
-// Make sure cs don't have signature.
+// Make sure cs doesn't have signature.
 // CHECK: !"cs_main", null
 
 void StoreCSOutput(uint2 tid, uint2 gid);

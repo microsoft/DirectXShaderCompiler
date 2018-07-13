@@ -16,7 +16,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 
 // CHECK: ID3D12LibraryReflection:
 // CHECK:   D3D12_LIBRARY_DESC:
-// CHECK:     FunctionCount: 4
+// CHECK:     FunctionCount: 3
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?function0@@YAM$f16@@Z
 // CHECK:       Shader Version: Library 6.3
@@ -113,71 +113,6 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:         uID: 1
 // CHECK:         ReturnType: D3D_RETURN_TYPE_MIXED
 // CHECK:         Dimension: D3D_SRV_DIMENSION_BUFFER
-// CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?function2@@YA?AV?$vector@M$03@@V1@@Z
-// CHECK:       Shader Version: Library 6.3
-// CHECK:       ConstantBuffers: 2
-// CHECK:       BoundResources: 2
-// CHECK:     Constant Buffers:
-// CHECK:       ID3D12ShaderReflectionConstantBuffer:
-// CHECK:         D3D12_SHADER_BUFFER_DESC: Name: $Globals
-// CHECK:           Type: D3D_CT_CBUFFER
-// CHECK:           Size: 16
-// CHECK:           Num Variables: 1
-// CHECK:         {
-// CHECK:           ID3D12ShaderReflectionVariable:
-// CHECK:             D3D12_SHADER_VARIABLE_DESC: Name: cbval1
-// CHECK:               Size: 4
-// CHECK:               uFlags: 0x2
-// CHECK:             ID3D12ShaderReflectionType:
-// CHECK:               D3D12_SHADER_TYPE_DESC: Name: float
-// CHECK:                 Class: D3D_SVC_SCALAR
-// CHECK:                 Type: D3D_SVT_FLOAT
-// CHECK:                 Rows: 1
-// CHECK:                 Columns: 1
-// CHECK:             CBuffer: $Globals
-// CHECK:         }
-// CHECK:       ID3D12ShaderReflectionConstantBuffer:
-// CHECK:         D3D12_SHADER_BUFFER_DESC: Name: MyCB
-// CHECK:           Type: D3D_CT_CBUFFER
-// CHECK:           Size: 32
-// CHECK:           Num Variables: 2
-// CHECK:         {
-// CHECK:           ID3D12ShaderReflectionVariable:
-// CHECK:             D3D12_SHADER_VARIABLE_DESC: Name: cbval2
-// CHECK:               Size: 16
-// CHECK:               uFlags: 0x2
-// CHECK:             ID3D12ShaderReflectionType:
-// CHECK:               D3D12_SHADER_TYPE_DESC: Name: int4
-// CHECK:                 Class: D3D_SVC_VECTOR
-// CHECK:                 Type: D3D_SVT_INT
-// CHECK:                 Rows: 1
-// CHECK:                 Columns: 4
-// CHECK:             CBuffer: MyCB
-// CHECK:           ID3D12ShaderReflectionVariable:
-// CHECK:             D3D12_SHADER_VARIABLE_DESC: Name: cbval3
-// CHECK:               Size: 16
-// CHECK:               StartOffset: 16
-// CHECK:               uFlags: 0x2
-// CHECK:             ID3D12ShaderReflectionType:
-// CHECK:               D3D12_SHADER_TYPE_DESC: Name: int4
-// CHECK:                 Class: D3D_SVC_VECTOR
-// CHECK:                 Type: D3D_SVT_INT
-// CHECK:                 Rows: 1
-// CHECK:                 Columns: 4
-// CHECK:             CBuffer: MyCB
-// CHECK:         }
-// CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: $Globals
-// CHECK:         Type: D3D_SIT_CBUFFER
-// CHECK:         uID: 0
-// CHECK:         Dimension: D3D_SRV_DIMENSION_UNKNOWN
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: MyCB
-// CHECK:         Type: D3D_SIT_CBUFFER
-// CHECK:         uID: 1
-// CHECK:         BindPoint: 11
-// CHECK:         Space: 2
-// CHECK:         Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: function2
 // CHECK:       Shader Version: Vertex 6.3

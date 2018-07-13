@@ -99,14 +99,15 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilForceEarlyZPass(Registry);
     initializeDxilGenerationPassPass(Registry);
     initializeDxilLegalizeEvalOperationsPass(Registry);
-    initializeDxilLegalizeResourceUsePassPass(Registry);
+    initializeDxilLegalizeResourcesPass(Registry);
     initializeDxilLegalizeSampleOffsetPassPass(Registry);
-    initializeDxilLegalizeStaticResourceUsePassPass(Registry);
     initializeDxilLoadMetadataPass(Registry);
     initializeDxilLowerCreateHandleForLibPass(Registry);
     initializeDxilOutputColorBecomesConstantPass(Registry);
     initializeDxilPrecisePropagatePassPass(Registry);
     initializeDxilPreserveAllOutputsPass(Registry);
+    initializeDxilPromoteLocalResourcesPass(Registry);
+    initializeDxilPromoteStaticResourcesPass(Registry);
     initializeDxilReduceMSAAToSingleSamplePass(Registry);
     initializeDxilRemoveDiscardsPass(Registry);
     initializeDxilShaderAccessTrackingPass(Registry);
@@ -114,6 +115,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDynamicIndexingVectorToArrayPass(Registry);
     initializeEarlyCSELegacyPassPass(Registry);
     initializeEliminateAvailableExternallyPass(Registry);
+    initializeFailUndefResourcePass(Registry);
     initializeFloat2IntPass(Registry);
     initializeFunctionAttrsPass(Registry);
     initializeGVNPass(Registry);

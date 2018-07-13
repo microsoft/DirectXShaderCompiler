@@ -1,8 +1,8 @@
 // RUN: %dxc -T lib_6_3  %s | FileCheck %s
 
 // Make sure sure major change on matrix array works.
-// CHECK: bitcast [12 x float]* %4 to [2 x %class.matrix.float.3.2]*
-// CHECK: bitcast [12 x float]* %4 to [2 x %class.matrix.float.3.2]*
+// CHECK: bitcast [12 x float]* {{.*}} to [2 x %class.matrix.float.3.2]*
+// CHECK: bitcast [12 x float]* {{.*}} to [2 x %class.matrix.float.3.2]*
 // CHECK: bitcast %class.matrix.float.2.3* {{.*}} to <6 x float>*
 // CHECK: bitcast %class.matrix.float.2.3* {{.*}} to <6 x float>*
 

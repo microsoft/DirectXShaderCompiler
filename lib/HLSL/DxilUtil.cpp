@@ -213,18 +213,47 @@ std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
   return LoadModuleFromBitcode(pBitcodeBuf.get(), Ctx, DiagStr);
 }
 
-static const StringRef kResourceMapErrorMsg =
+// If we don't have debug location and this is select/phi,
+// try recursing users to find instruction with debug info.
+// Only recurse phi/select and limit depth to prevent doing
+// too much work if no debug location found.
+static bool EmitErrorOnInstructionFollowPhiSelect(
+    Instruction *I, StringRef Msg, unsigned depth=0) {
+  if (depth > 4)
+    return false;
+  if (I->getDebugLoc().get()) {
+    EmitErrorOnInstruction(I, Msg);
+    return true;
+  }
+  if (isa<PHINode>(I) || isa<SelectInst>(I)) {
+    for (auto U : I->users())
+      if (Instruction *UI = dyn_cast<Instruction>(U))
+        if (EmitErrorOnInstructionFollowPhiSelect(UI, Msg, depth+1))
+          return true;
+  }
+  return false;
+}
+
+void EmitErrorOnInstruction(Instruction *I, StringRef Msg) {
+  const DebugLoc &DL = I->getDebugLoc();
+  if (DL.get()) {
+    std::string locString;
+    raw_string_ostream os(locString);
+    DL.print(os);
+    I->getContext().emitError(os.str() + ": " + Twine(Msg));
+    return;
+  } else if (isa<PHINode>(I) || isa<SelectInst>(I)) {
+    if (EmitErrorOnInstructionFollowPhiSelect(I, Msg))
+      return;
+  }
+
+  I->getContext().emitError(Twine(Msg) + " Use /Zi for source location.");
+}
+
+const StringRef kResourceMapErrorMsg =
     "local resource not guaranteed to map to unique global resource.";
 void EmitResMappingError(Instruction *Res) {
-  const DebugLoc &DL = Res->getDebugLoc();
-  if (DL.get()) {
-    Res->getContext().emitError("line:" + std::to_string(DL.getLine()) +
-                                " col:" + std::to_string(DL.getCol()) + " " +
-                                Twine(kResourceMapErrorMsg));
-  } else {
-    Res->getContext().emitError(Twine(kResourceMapErrorMsg) +
-                                " With /Zi to show more information.");
-  }
+  EmitErrorOnInstruction(Res, kResourceMapErrorMsg);
 }
 
 void CollectSelect(llvm::Instruction *Inst,
@@ -253,7 +282,7 @@ void CollectSelect(llvm::Instruction *Inst,
   }
 }
 
-bool MergeSelectOnSameValue(Instruction *SelInst, unsigned startOpIdx,
+Value *MergeSelectOnSameValue(Instruction *SelInst, unsigned startOpIdx,
                             unsigned numOperands) {
   Value *op0 = nullptr;
   for (unsigned i = startOpIdx; i < numOperands; i++) {
@@ -262,15 +291,14 @@ bool MergeSelectOnSameValue(Instruction *SelInst, unsigned startOpIdx,
       op0 = op;
     } else {
       if (op0 != op)
-        return false;
+        return nullptr;
     }
   }
   if (op0) {
     SelInst->replaceAllUsesWith(op0);
     SelInst->eraseFromParent();
-    return true;
   }
-  return false;
+  return op0;
 }
 
 Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {

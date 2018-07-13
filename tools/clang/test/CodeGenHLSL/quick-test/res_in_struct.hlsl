@@ -1,7 +1,9 @@
 // RUN: %dxc -T lib_6_2 %s | FileCheck %s
 
-// make sure CreateHandleForLib is called.
-// CHECK: call %dx.types.Handle @"dx.op.createHandleForLib.class.Texture2D<vector<float, 4> >"(i32 160,
+// resources in return/params disallowed for lib_6_3
+// CHECK: error: Exported function
+// CHECK: emit
+// CHECK: must not contain a resource in parameter or return type.
 
 struct M {
    float3 a;

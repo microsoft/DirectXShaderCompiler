@@ -37,6 +37,7 @@ class DxilTypeSystem;
 namespace dxilutil {
   extern const char ManglingPrefix[];
   extern const char EntryPrefix[];
+  extern const llvm::StringRef kResourceMapErrorMsg;
 
   unsigned
   GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
@@ -57,6 +58,7 @@ namespace dxilutil {
   bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);
   bool RemoveUnusedFunctions(llvm::Module &M, llvm::Function *EntryFunc,
                              llvm::Function *PatchConstantFunc, bool IsLib);
+  void EmitErrorOnInstruction(llvm::Instruction *I, llvm::StringRef Msg);
   void EmitResMappingError(llvm::Instruction *Res);
   // Simple demangle just support case "\01?name@" pattern.
   llvm::StringRef DemangleFunctionName(llvm::StringRef name);
@@ -79,8 +81,10 @@ namespace dxilutil {
   void CollectSelect(llvm::Instruction *Inst,
                    std::unordered_set<llvm::Instruction *> &selectSet);
   // If all operands are the same for a select inst, replace it with the operand.
-  bool MergeSelectOnSameValue(llvm::Instruction *SelInst, unsigned startOpIdx,
-                            unsigned numOperands);
+  // Returns replacement value if successful
+  llvm::Value *MergeSelectOnSameValue(llvm::Instruction *SelInst,
+                                      unsigned startOpIdx,
+                                      unsigned numOperands);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
     llvm::LLVMContext &Ctx, std::string &DiagStr);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,

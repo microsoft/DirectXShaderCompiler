@@ -8,9 +8,6 @@
 // CHECK: RotateMat
 // CHECK: StoreOutputMat
 
-// Make sure cloned function exist.
-// CHECK: @"\01?entry
-
 // Make sure function props exist.
 // CHECK: !dx.entryPoints = !{{{.*}}, {{.*}}}
 
