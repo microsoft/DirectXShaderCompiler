@@ -171,6 +171,8 @@ public:
   virtual HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) = 0;
   /// <summary>Sets the name for the root metadata node used in DXIL to hold the semantic defines.</summary>
   virtual HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) = 0;
+
+  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
 };
 
 struct __declspec(uuid("454b764f-3549-475b-958c-a7a6fcd05fbc"))
