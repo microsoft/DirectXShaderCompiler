@@ -13,6 +13,7 @@
 #include <fstream>
 #ifdef _WIN32
 #include <dxgiformat.h>
+#include "WexTestClass.h"
 #else
 #include "WEXAdapter.h"
 #endif
