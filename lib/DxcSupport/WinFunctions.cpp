@@ -116,7 +116,7 @@ int _wcsicmp(const wchar_t *str1, const wchar_t *str2) {
 
 int _wcsnicmp(const wchar_t *str1, const wchar_t *str2, size_t n) {
   size_t i = 0;
-  for (; str1[i] && str2[i]; ++i) {
+  for (; i < n && str1[i] && str2[i]; ++i) {
     int d = std::towlower(str1[i]) - std::towlower(str2[i]);
     if (d != 0)
       return d;
