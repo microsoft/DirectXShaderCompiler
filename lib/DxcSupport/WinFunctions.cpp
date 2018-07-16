@@ -22,14 +22,17 @@
 HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...) {
   va_list args;
   va_start(args, format);
+  va_list argscopy;
+  va_copy(argscopy, args);
   // C++11 snprintf can return the size of the resulting string if it was to be
   // constructed.
-  size_t size = snprintf(nullptr, 0, format, args) + 1; // Extra space for '\0'
+  size_t size = vsnprintf(nullptr, 0, format, argscopy) + 1; // Extra space for '\0'
   if (size > dstSize) {
     *dst = '\0';
   } else {
-    snprintf(dst, size, format, args);
+    vsnprintf(dst, size, format, args);
   }
+  va_end(argscopy);
   va_end(args);
   return S_OK;
 }
