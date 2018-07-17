@@ -38,6 +38,8 @@ DEFINE_CROSS_PLATFORM_UUIDOF(IDxcContainerBuilder)
 DEFINE_CROSS_PLATFORM_UUIDOF(IDxcOptimizerPass)
 DEFINE_CROSS_PLATFORM_UUIDOF(IDxcOptimizer)
 DEFINE_CROSS_PLATFORM_UUIDOF(IDxcRewriter)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcIntelliSense)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLinker)
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcDiaDataSource(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -91,11 +93,11 @@ static HRESULT ThreadMallocDxcCreateInstance(
   else if (IsEqualCLSID(rclsid, CLSID_DxcOptimizer)) {
     hr = CreateDxcOptimizer(riid, ppv);
   }
-// Note: The following targets are not yet enabled for non-Windows platforms.
-#ifdef _WIN32
   else if (IsEqualCLSID(rclsid, CLSID_DxcIntelliSense)) {
     hr = CreateDxcIntelliSense(riid, ppv);
   }
+// Note: The following targets are not yet enabled for non-Windows platforms.
+#ifdef _WIN32
   else if (IsEqualCLSID(rclsid, CLSID_DxcRewriter)) {
     hr = CreateDxcRewriter(riid, ppv);
   }
