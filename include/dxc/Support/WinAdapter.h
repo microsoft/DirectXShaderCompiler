@@ -32,6 +32,7 @@
 #include <typeinfo>
 #include <vector>
 #endif // __cplusplus
+#include <execinfo.h>
 
 //===----------------------------------------------------------------------===//
 //
@@ -43,15 +44,6 @@
 
 #define CoTaskMemAlloc malloc
 #define CoTaskMemFree free
-
-// Windows-specific heap functions. Use malloc/realloc/free instead.
-#define HeapAlloc(hHeap,dwFlags, nBytes) malloc(nBytes)
-#define HeapReAlloc(hHeap, dwFlags, voidPtr, nBytes) realloc(voidPtr, nBytes)
-#define HeapFree(hHeap, dwFlags, voidPtr) free(voidPtr)
-#define HeapCreate(flags, nBytes, maxSize) malloc(nBytes)
-
-#define SysFreeString free
-#define SysAllocStringLen(ptr, size) (wchar_t*)realloc(ptr, (size + 1)*sizeof(wchar_t))
 
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
@@ -154,7 +146,8 @@
 #define STREAM_SEEK_CUR 1
 #define STREAM_SEEK_END 2
 
-#define HEAP_NO_SERIALIZE 1
+#define HEAP_NO_SERIALIZE 0x1
+#define HEAP_ZERO_MEMORY 0x8
 
 #define MB_ERR_INVALID_CHARS 0x00000008 // error for invalid chars
 
@@ -190,6 +183,9 @@
 
 #define OutputDebugStringA(msg) fputs(msg, stderr)
 #define OutputDebugFormatA(...) fprintf(stderr, __VA_ARGS__)
+
+#define CaptureStackBackTrace(FramesToSkip, FramesToCapture, BackTrace, BackTraceHash)\
+  backtrace(BackTrace, FramesToCapture)
 
 // Event Tracing for Windows (ETW) provides application programmers the ability
 // to start and stop event tracing sessions, instrument an application to

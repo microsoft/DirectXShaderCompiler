@@ -14,6 +14,7 @@
 
 #ifndef _WIN32
 #include <fcntl.h>
+#include <map>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -238,6 +239,99 @@ BOOL WriteFile(_In_ HANDLE hFile, _In_ LPCVOID lpBuffer,
 BOOL CloseHandle(_In_ HANDLE hObject) {
   int fd = (size_t)hObject;
   return !close(fd);
+}
+
+// Half-hearted implementation of a heap structure
+// Enables size queries, maximum allocation limit, and collective free at heap destruction
+// Does not perform any preallocation or allocation organization.
+// Does not respect any flags except for HEAP_ZERO_MEMORY
+struct SimpleAllocation {
+  LPVOID ptr;
+  SIZE_T size;
+};
+
+struct SimpleHeap {
+  std::map<LPCVOID, SimpleAllocation> allocs;
+  SIZE_T maxSize, curSize;
+};
+
+HANDLE HeapCreate(DWORD flOptions, SIZE_T dwInitialSize , SIZE_T dwMaximumSize) {
+  SimpleHeap *simpHeap = new SimpleHeap;
+  simpHeap->maxSize = dwMaximumSize;
+  simpHeap->curSize = 0;
+  return (HANDLE)simpHeap;
+}
+
+BOOL HeapDestroy(HANDLE hHeap) {
+  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+
+  for (auto it = simpHeap->allocs.begin(), e = simpHeap->allocs.end(); it != e; it++)
+    free(it->second.ptr);
+
+  delete simpHeap;
+  return true;
+}
+
+LPVOID HeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T dwBytes) {
+  LPVOID ptr = nullptr;
+  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+
+  if (simpHeap->maxSize && simpHeap->curSize + dwBytes > simpHeap->maxSize)
+    return nullptr;
+
+  if (dwFlags == HEAP_ZERO_MEMORY)
+    ptr = calloc(1, dwBytes);
+  else
+    ptr = malloc(dwBytes);
+
+  simpHeap->allocs[ptr] = {ptr, dwBytes};
+  simpHeap->curSize += dwBytes;
+
+  return ptr;
+}
+
+LPVOID HeapReAlloc(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem, SIZE_T dwBytes) {
+  LPVOID ptr = nullptr;
+  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  SIZE_T oSize = simpHeap->allocs[lpMem].size;
+
+  if (simpHeap->maxSize && simpHeap->curSize - oSize + dwBytes > simpHeap->maxSize)
+    return nullptr;
+
+  ptr = realloc(lpMem, dwBytes);
+  if (dwFlags == HEAP_ZERO_MEMORY && oSize < dwBytes)
+    memset((char*)ptr + oSize, 0, dwBytes - oSize);
+
+  simpHeap->allocs.erase(lpMem);
+  simpHeap->curSize -= oSize;
+
+  simpHeap->allocs[ptr] = {ptr, dwBytes};
+  simpHeap->curSize += dwBytes;
+
+  return ptr;
+}
+
+BOOL HeapFree(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem) {
+  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  SIZE_T oSize = simpHeap->allocs[lpMem].size;
+
+  free(lpMem);
+
+  simpHeap->allocs.erase(lpMem);
+  simpHeap->curSize -= oSize;
+
+  return true;
+}
+
+SIZE_T HeapSize(HANDLE hHeap, DWORD dwFlags, LPCVOID lpMem) {
+  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  return simpHeap->allocs[lpMem].size;
+}
+
+static SimpleHeap g_processHeap;
+
+HANDLE GetProcessHeap() {
+  return (HANDLE)&g_processHeap;
 }
 
 #endif // _WIN32
