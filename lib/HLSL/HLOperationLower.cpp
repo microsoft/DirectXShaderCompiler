@@ -4358,7 +4358,7 @@ Value *TranslateNoArgVectorOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode o
   return retVal;
 }
 
-Value *TranslateNoArgMatrixOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+Value *TranslateNoArgMatrix3x4Operation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                          HLOperationLowerHelper &helper,
                          HLObjectOperationLowerHelper *pObjHelper,
                          bool &Translated) {
@@ -4370,6 +4370,21 @@ Value *TranslateNoArgMatrixOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode o
   Constant *cols = ConstantDataVector::get(CI->getContext(), cVals);
   Value *retVal =
       TrivialDxilOperation(opcode, {nullptr, rows, cols}, Ty, CI, hlslOP);
+  return retVal;
+}
+
+Value *TranslateNoArgTransposedMatrix3x4Operation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                                                  HLOperationLowerHelper &helper,
+                                                  HLObjectOperationLowerHelper *pObjHelper,
+                                                  bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  VectorType *Ty = cast<VectorType>(CI->getType());
+  uint32_t rVals[] = { 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2 };
+  Constant *rows = ConstantDataVector::get(CI->getContext(), rVals);
+  uint8_t cVals[] = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3 };
+  Constant *cols = ConstantDataVector::get(CI->getContext(), cVals);
+  Value *retVal =
+    TrivialDxilOperation(opcode, { nullptr, rows, cols }, Ty, CI, hlslOP);
   return retVal;
 }
 
@@ -4458,7 +4473,9 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_NonUniformResourceIndex, TranslateNonUniformResourceIndex, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ObjectRayDirection, TranslateNoArgVectorOperation, DXIL::OpCode::ObjectRayDirection},
     {IntrinsicOp::IOP_ObjectRayOrigin, TranslateNoArgVectorOperation, DXIL::OpCode::ObjectRayOrigin},
-    {IntrinsicOp::IOP_ObjectToWorld, TranslateNoArgMatrixOperation, DXIL::OpCode::ObjectToWorld},
+    {IntrinsicOp::IOP_ObjectToWorld, TranslateNoArgMatrix3x4Operation, DXIL::OpCode::ObjectToWorld},
+    {IntrinsicOp::IOP_ObjectToWorld3x4, TranslateNoArgMatrix3x4Operation, DXIL::OpCode::ObjectToWorld},
+    {IntrinsicOp::IOP_ObjectToWorld4x3, TranslateNoArgTransposedMatrix3x4Operation, DXIL::OpCode::ObjectToWorld},
     {IntrinsicOp::IOP_PrimitiveIndex, TrivialNoArgWithRetOperation, DXIL::OpCode::PrimitiveIndex},
     {IntrinsicOp::IOP_Process2DQuadTessFactorsAvg, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_Process2DQuadTessFactorsMax, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
@@ -4501,7 +4518,9 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_WaveReadLaneFirst, TranslateWaveReadLaneFirst, DXIL::OpCode::WaveReadLaneFirst},
     {IntrinsicOp::IOP_WorldRayDirection, TranslateNoArgVectorOperation, DXIL::OpCode::WorldRayDirection},
     {IntrinsicOp::IOP_WorldRayOrigin, TranslateNoArgVectorOperation, DXIL::OpCode::WorldRayOrigin},
-    {IntrinsicOp::IOP_WorldToObject, TranslateNoArgMatrixOperation, DXIL::OpCode::WorldToObject},
+    {IntrinsicOp::IOP_WorldToObject, TranslateNoArgMatrix3x4Operation, DXIL::OpCode::WorldToObject},
+    {IntrinsicOp::IOP_WorldToObject3x4, TranslateNoArgMatrix3x4Operation, DXIL::OpCode::WorldToObject},
+    {IntrinsicOp::IOP_WorldToObject4x3, TranslateNoArgTransposedMatrix3x4Operation, DXIL::OpCode::WorldToObject},
     {IntrinsicOp::IOP_abort, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_abs, TransalteAbs, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_acos, TrivialUnaryOperation, DXIL::OpCode::Acos},

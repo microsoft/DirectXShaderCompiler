@@ -291,8 +291,12 @@ uint [[rn]] InstanceIndex();
 uint [[rn]] HitKind();
 uint [[rn]] RayFlags();
 // group: Ray Transforms
-row_major float<3,4> [[rn]] ObjectToWorld();
-row_major float<3,4> [[rn]] WorldToObject();
+float<3,4> [[rn]] ObjectToWorld();
+float<3,4> [[rn]] WorldToObject();
+float<3,4> [[rn]] ObjectToWorld3x4();
+float<3,4> [[rn]] WorldToObject3x4();
+float<4,3> [[rn]] ObjectToWorld4x3();
+float<4,3> [[rn]] WorldToObject4x3();
 } namespace
 
 namespace StreamMethods {
