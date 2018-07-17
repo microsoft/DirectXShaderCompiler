@@ -56,6 +56,15 @@ BOOL WriteFile(_In_ HANDLE hFile, _In_ LPCVOID lpBuffer,
 
 BOOL CloseHandle(_In_ HANDLE hObject);
 
+// Windows-specific heap functions
+HANDLE HeapCreate(DWORD flOptions, SIZE_T dwInitialSize , SIZE_T dwMaximumSize);
+BOOL HeapDestroy(HANDLE heap);
+LPVOID HeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T nBytes);
+LPVOID HeapReAlloc(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem, SIZE_T dwBytes);
+BOOL HeapFree(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem);
+SIZE_T HeapSize(HANDLE hHeap, DWORD dwFlags, LPCVOID lpMem);
+HANDLE GetProcessHeap();
+
 #endif // _WIN32
 
 #endif // LLVM_SUPPORT_WINFUNCTIONS_H

@@ -26,7 +26,6 @@
 
 #define CP_UTF16 1200
 
-#ifdef _WIN32
 struct HeapMalloc : public IMalloc {
 public:
   ULONG STDMETHODCALLTYPE AddRef() {
@@ -80,9 +79,6 @@ public:
   {
   }
 };
-#else
-typedef IMalloc HeapMalloc;
-#endif
 
 static HeapMalloc g_HeapMalloc;
 
