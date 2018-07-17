@@ -68,6 +68,7 @@ set(SOURCES
   IndexTypeSourceInfo.cpp
   Indexing.cpp
   IndexingContext.cpp
+  dxcisenseimpl.cpp # HLSL Change
   dxcrewriteunused.cpp # HLSL Change
 
   ADDITIONAL_HEADERS
@@ -86,7 +87,6 @@ set(SOURCES
 
 set (HLSL_IGNORE_SOURCES
   BuildSystem.cpp
-  dxcisenseimpl.cpp # HLSL Change
 )
 endif(WIN32)
 
