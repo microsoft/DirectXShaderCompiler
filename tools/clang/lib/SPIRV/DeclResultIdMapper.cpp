@@ -1499,7 +1499,7 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
               {0, 1});
       }
 
-      // Reciprocate SV_Position.y if requested
+      // Reciprocate SV_Position.w if requested
       if (semanticKind == hlsl::Semantic::Kind::Position)
         *value = invertWIfRequested(*value);
     } else {
