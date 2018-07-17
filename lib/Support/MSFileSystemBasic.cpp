@@ -222,6 +222,11 @@ public:
   virtual errno_t resize_file(_In_ LPCWSTR path, uint64_t size) throw() override;
   virtual int Read(int fd, _Out_bytecap_(count) void* buffer, unsigned int count) throw() override;
   virtual int Write(int fd, _In_bytecount_(count) const void* buffer, unsigned int count) throw() override;
+#ifndef _WIN32
+  virtual int Open(const char *lpFileName, int flags, mode_t mode) throw() override;
+  virtual int Stat(const char *lpFileName, struct stat *Status) throw() override;
+  virtual int Fstat(int FD, struct stat *Status) throw() override;
+#endif
 };
 
 _Use_decl_annotations_
@@ -942,6 +947,23 @@ Cleanup:
   return (int)cbWritten;
 }
 
+#ifndef _WIN32
+int MSFileSystemForIface::Open(const char *lpFileName, int flags, mode_t mode) throw() {
+  SetLastError(ERROR_FUNCTION_NOT_CALLED);
+  return FALSE;
+}
+
+int MSFileSystemForIface::Stat(const char *lpFileName, struct stat *Status) throw() {
+  SetLastError(ERROR_FUNCTION_NOT_CALLED);
+  return FALSE;
+}
+
+int MSFileSystemForIface::Fstat(int FD, struct stat *Status) throw() {
+  SetLastError(ERROR_FUNCTION_NOT_CALLED);
+  return FALSE;
+}
+#endif
+
 } // end namespace fs
 } // end namespace sys
 } // end namespace llvm
@@ -1098,6 +1120,18 @@ public:
 
   virtual int Write(int fd, const void* buffer, unsigned int count) throw() override
   { return MSFileSystemBlockedErrno(); }
+
+  // Unix interface
+#ifndef _WIN32
+  virtual int Open(const char *lpFileName, int flags, mode_t mode) throw() override
+  { return MSFileSystemBlockedErrno(); }
+
+  virtual int Stat(const char *lpFileName, struct stat *Status) throw() override
+  { return MSFileSystemBlockedErrno(); }
+
+  virtual int Fstat(int FD, struct stat *Status) throw() override
+  { return MSFileSystemBlockedErrno(); }
+#endif
 
 };
 
