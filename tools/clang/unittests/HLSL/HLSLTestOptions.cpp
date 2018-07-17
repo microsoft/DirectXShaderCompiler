@@ -30,16 +30,16 @@ namespace WEX {
 namespace TestExecution {
 namespace RuntimeParameters {
 HRESULT TryGetValue(const wchar_t *param, std::wstring &retStr) {
-#define RETURN_ARG(argname)\
-    if (wcscmp(param, L###argname) == 0) {\
-      if (!clang::hlsl::testOptions::argname.empty()) {\
-        retStr.assign(CA2W(clang::hlsl::testOptions::argname.c_str()).m_psz);\
-        return S_OK;\
-      } else\
-        return E_FAIL;\
-    }
-    ARG_LIST(RETURN_ARG)
-    return E_NOTIMPL;
+#define RETURN_ARG(argname)                                                    \
+  if (wcscmp(param, L## #argname) == 0) {                                      \
+    if (!clang::hlsl::testOptions::argname.empty()) {                          \
+      retStr.assign(CA2W(clang::hlsl::testOptions::argname.c_str()).m_psz);    \
+      return S_OK;                                                             \
+    } else                                                                     \
+      return E_FAIL;                                                           \
+  }
+  ARG_LIST(RETURN_ARG)
+  return E_NOTIMPL;
 }
 } // namespace RuntimeParameters
 } // namespace TestExecution

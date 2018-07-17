@@ -94,14 +94,15 @@ private:
 
 const char *TestMainArgv0;
 
-#define SAVE_ARG(argname) if (std::string("--" #argname) == argv[i]) {\
-      if (i + 1 < argc) {\
-        clang::hlsl::testOptions::argname = argv[++i];\
-      } else {\
-        fprintf(stderr, "Error: --"#argname" requires an argument\n");\
-        return 1;\
-      }\
-   }
+#define SAVE_ARG(argname)                                                      \
+  if (std::string("--" #argname) == argv[i]) {                                 \
+    if (i + 1 < argc) {                                                        \
+      clang::hlsl::testOptions::argname = argv[++i];                           \
+    } else {                                                                   \
+      fprintf(stderr, "Error: --" #argname " requires an argument\n");         \
+      return 1;                                                                \
+    }                                                                          \
+  }
 
 int main(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal(true /* Disable crash reporting */);
