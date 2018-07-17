@@ -12,14 +12,15 @@ void run() {
     RAY_FLAG_CULL_OPAQUE                     +
     RAY_FLAG_CULL_NON_OPAQUE;
 
-  rayFlags += RAY_FLAG_INVALID;                             /* expected-note@? {{'RAY_FLAG_NONE' declared here}} */ /* expected-error {{use of undeclared identifier 'RAY_FLAG_INVALID'; did you mean 'RAY_FLAG_NONE'?}} */
+  rayFlags += RAY_FLAG_INVALID;                             /* expected-note@? {{'RAY_FLAG_NONE' declared here}} expected-error {{use of undeclared identifier 'RAY_FLAG_INVALID'; did you mean 'RAY_FLAG_NONE'?}} */
 
   int intFlag = RAY_FLAG_CULL_OPAQUE;
 
   int hitKindFlag =
     HIT_KIND_TRIANGLE_FRONT_FACE + HIT_KIND_TRIANGLE_BACK_FACE;
 
-  hitKindFlag += HIT_KIND_INVALID;                          /* expected-error {{use of undeclared identifier 'HIT_KIND_INVALID'}} */
+  hitKindFlag += HIT_KIND_INVALID;                          /* expected-note@? {{'HIT_KIND_NONE' declared here}} expected-error {{use of undeclared identifier 'HIT_KIND_INVALID'; did you mean 'HIT_KIND_NONE'?}} */
+
 
   BuiltInTriangleIntersectionAttributes attr;
   attr.barycentrics = float2(0.3f, 0.4f);

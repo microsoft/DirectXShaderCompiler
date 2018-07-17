@@ -1072,6 +1072,26 @@ namespace DXIL {
     UseNativeLowPrecision
   };
 
+  // Corresponds to HIT_FLAG_* in HLSL
+  enum class RayFlag : uint8_t {
+    None = 0x00,
+    ForceOpaque = 0x01,
+    ForceNonOpaque = 0x02,
+    AcceptFirstHitAndEndSearch = 0x04,
+    SkipClosestHitShader = 0x08,
+    CullBackFacingTriangles = 0x10,
+    CullFrontFacingTriangles = 0x20,
+    CullOpaque = 0x40,
+    CullNonOpaque = 0x80,
+  };
+
+  // Corresponds to HIT_KIND_* in HLSL
+  enum class HitKind : uint8_t {
+    None = 0x00,
+    TriangleFrontFace = 0xFE,
+    TriangleBackFace = 0xFF,
+  };
+
 
   extern const char* kLegacyLayoutString;
   extern const char* kNewLayoutString;
