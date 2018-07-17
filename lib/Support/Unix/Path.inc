@@ -60,6 +60,8 @@
 # define PATH_MAX 4096
 #endif
 
+#include "llvm/Support/MSFileSystem.h" // HLSL change
+
 using namespace llvm;
 
 namespace llvm {
@@ -379,13 +381,15 @@ std::error_code status(const Twine &Path, file_status &Result) {
   StringRef P = Path.toNullTerminatedStringRef(PathStorage);
 
   struct stat Status;
-  int StatRet = ::stat(P.begin(), &Status);
+  MSFileSystem* fsr = GetCurrentThreadFileSystem(); // HLSL Change
+  int StatRet = fsr->Stat(P.begin(), &Status); // HLSL Change - FS abstraction
   return fillStatus(StatRet, Status, Result);
 }
 
 std::error_code status(int FD, file_status &Result) {
   struct stat Status;
-  int StatRet = ::fstat(FD, &Status);
+  MSFileSystem* fsr = GetCurrentThreadFileSystem(); // HLSL Change
+  int StatRet = fsr->Fstat(FD, &Status); // HLSL Change - FS abstraction
   return fillStatus(StatRet, Status, Result);
 }
 
@@ -504,7 +508,8 @@ std::error_code detail::directory_iterator_increment(detail::DirIterState &it) {
 std::error_code openFileForRead(const Twine &Name, int &ResultFD) {
   SmallString<128> Storage;
   StringRef P = Name.toNullTerminatedStringRef(Storage);
-  while ((ResultFD = open(P.begin(), O_RDONLY)) < 0) {
+  MSFileSystem* fsr = GetCurrentThreadFileSystem(); // HLSL Change
+  while ((ResultFD = fsr->Open(P.begin(), O_RDONLY)) < 0) { // HLSL Change - FS abstraction
     if (errno != EINTR)
       return std::error_code(errno, std::generic_category());
   }
@@ -534,7 +539,8 @@ std::error_code openFileForWrite(const Twine &Name, int &ResultFD,
 
   SmallString<128> Storage;
   StringRef P = Name.toNullTerminatedStringRef(Storage);
-  while ((ResultFD = open(P.begin(), OpenFlags, Mode)) < 0) {
+  MSFileSystem* fsr = GetCurrentThreadFileSystem(); // HLSL Change
+  while ((ResultFD = fsr->Open(P.begin(), OpenFlags, Mode)) < 0) { // HLSL Change - FS abstraction
     if (errno != EINTR)
       return std::error_code(errno, std::generic_category());
   }
@@ -624,7 +630,6 @@ void system_temp_directory(bool ErasedOnReboot, SmallVectorImpl<char> &Result) {
 // The following is implementation of MSFileSystem for Unix.
 // This will make usages of MSFileSystem throughout DirectXShaderCompiler
 // compatible with Unix.
-#include "llvm/Support/MSFileSystem.h"
 namespace llvm {
 namespace sys  {
 namespace fs {
@@ -700,6 +705,6 @@ int msf_setmode(int fd, int mode) throw() {
   return fsr->setmode(fd, mode);
 }
 
-}
-}
-}
+} // namespace fs
+} // namespace sys
+} // namespace llvm
