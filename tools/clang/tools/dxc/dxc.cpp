@@ -142,16 +142,7 @@ public:
     /* [annotation][in] */
     _In_opt_ _Post_writable_byte_size_(return)  void *pv)
   {
-#ifdef _WIN32
     return HeapSize(m_Handle, 0, pv);
-#else
-    // Note: There is no way to get the size of the dynamically allocated memory
-    // from the pointer in Linux. Therefore, we'd need to add a member variable
-    // to this class to keep track of the size. Not needed yet.
-    assert(false &&
-           "Can't get the size of dynamically allocated memory from pointer.");
-    return 0;
-#endif // _WIN32
   }
 
   virtual int STDMETHODCALLTYPE DidAlloc(

@@ -2347,4 +2347,6 @@ ID3D12FunctionReflection *DxilLibraryReflection::GetFunctionByIndex(INT Function
 void hlsl::CreateDxcContainerReflection(IDxcContainerReflection **ppResult) {
   *ppResult = nullptr;
 }
+
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcContainerReflection)
 #endif // LLVM_ON_WIN32
