@@ -45,6 +45,9 @@
 #define CoTaskMemAlloc malloc
 #define CoTaskMemFree free
 
+#define SysFreeString free
+#define SysAllocStringLen(ptr, size) (wchar_t*)realloc(ptr, (size + 1)*sizeof(wchar_t))
+
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
