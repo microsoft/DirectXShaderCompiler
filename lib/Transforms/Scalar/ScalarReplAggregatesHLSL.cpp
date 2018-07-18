@@ -5755,10 +5755,10 @@ static void InjectReturnAfterNoReturnPreserveOutput(HLModule &HLM) {
               continue;
             // split block and add return:
             BasicBlock *BB = CI->getParent();
-            BasicBlock *NewBB = BB->splitBasicBlock(pNextI);
-            TerminatorInst *Term = NewBB->getTerminator();
+            BB->splitBasicBlock(pNextI);
+            TerminatorInst *Term = BB->getTerminator();
             Term->eraseFromParent();
-            IRBuilder<> Builder(NewBB);
+            IRBuilder<> Builder(BB);
             llvm::Type *RetTy = CI->getParent()->getParent()->getReturnType();
             if (RetTy->isVoidTy())
               Builder.CreateRetVoid();

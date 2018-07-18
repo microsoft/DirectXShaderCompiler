@@ -513,7 +513,7 @@ void hlsl::AddRecordTypeWithHandle(ASTContext& context, _Outptr_ CXXRecordDecl**
 
 // creates a global static constant unsigned integer with value.
 // equivalent to: static const uint name = val;
-static void AddConstInt(clang::ASTContext& context, DeclContext *DC, StringRef name, int val) {
+static void AddConstUInt(clang::ASTContext& context, DeclContext *DC, StringRef name, unsigned val) {
   IdentifierInfo &Id = context.Idents.get(name, tok::TokenKind::identifier);
   QualType type = context.getConstType(context.UnsignedIntTy);
   VarDecl *varDecl = VarDecl::Create(context, DC, NoLoc, NoLoc, &Id, type,
@@ -536,23 +536,24 @@ void hlsl::AddRayFlags(ASTContext& context) {
   curDC->addDecl(rayFlagDecl);
   rayFlagDecl->setImplicit(true);
   // static const uint RAY_FLAG_* = *;
-  AddConstInt(context, curDC, StringRef("RAY_FLAG_NONE"), 0x00);
-  AddConstInt(context, curDC, StringRef("RAY_FLAG_FORCE_OPAQUE"), 0x01);
-  AddConstInt(context, curDC, StringRef("RAY_FLAG_FORCE_NON_OPAQUE"), 0x02);
-  AddConstInt(context, curDC, StringRef("RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH"), 0x04);
-  AddConstInt(context, curDC, StringRef("RAY_FLAG_SKIP_CLOSEST_HIT_SHADER"), 0x08);
-  AddConstInt(context, curDC, StringRef("RAY_FLAG_CULL_BACK_FACING_TRIANGLES"), 0x10);
-  AddConstInt(context, curDC, StringRef("RAY_FLAG_CULL_FRONT_FACING_TRIANGLES"), 0x20);
-  AddConstInt(context, curDC, StringRef("RAY_FLAG_CULL_OPAQUE"), 0x40);
-  AddConstInt(context, curDC, StringRef("RAY_FLAG_CULL_NON_OPAQUE"), 0x80);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_NONE"), (unsigned)DXIL::RayFlag::None);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_FORCE_OPAQUE"), (unsigned)DXIL::RayFlag::ForceOpaque);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_FORCE_NON_OPAQUE"), (unsigned)DXIL::RayFlag::ForceNonOpaque);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH"), (unsigned)DXIL::RayFlag::AcceptFirstHitAndEndSearch);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_SKIP_CLOSEST_HIT_SHADER"), (unsigned)DXIL::RayFlag::SkipClosestHitShader);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_CULL_BACK_FACING_TRIANGLES"), (unsigned)DXIL::RayFlag::CullBackFacingTriangles);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_CULL_FRONT_FACING_TRIANGLES"), (unsigned)DXIL::RayFlag::CullFrontFacingTriangles);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_CULL_OPAQUE"), (unsigned)DXIL::RayFlag::CullOpaque);
+  AddConstUInt(context, curDC, StringRef("RAY_FLAG_CULL_NON_OPAQUE"), (unsigned)DXIL::RayFlag::CullNonOpaque);
 }
 
 /// <summary> Adds a constant integers for hit kinds </summary>
 void hlsl::AddHitKinds(ASTContext& context) {
   DeclContext *curDC = context.getTranslationUnitDecl();
   // static const uint HIT_KIND_* = *;
-  AddConstInt(context, curDC, StringRef("HIT_KIND_TRIANGLE_FRONT_FACE"), 0xfe);
-  AddConstInt(context, curDC, StringRef("HIT_KIND_TRIANGLE_BACK_FACE"), 0xff);
+  AddConstUInt(context, curDC, StringRef("HIT_KIND_NONE"), (unsigned)DXIL::HitKind::None);
+  AddConstUInt(context, curDC, StringRef("HIT_KIND_TRIANGLE_FRONT_FACE"), (unsigned)DXIL::HitKind::TriangleFrontFace);
+  AddConstUInt(context, curDC, StringRef("HIT_KIND_TRIANGLE_BACK_FACE"), (unsigned)DXIL::HitKind::TriangleBackFace);
 }
 
 static
