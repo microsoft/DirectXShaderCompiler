@@ -26,6 +26,7 @@
 #include "llvm/Support/Host.h"
 #include "clang/Sema/SemaHLSL.h"
 
+#include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
 #include "dxcisenseimpl.h"

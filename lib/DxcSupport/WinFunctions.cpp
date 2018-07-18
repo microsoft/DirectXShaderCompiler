@@ -14,22 +14,44 @@
 
 #ifndef _WIN32
 #include <fcntl.h>
+#include <map>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "dxc/Support/WinFunctions.h"
 
+HRESULT StringCchCopyEx(LPSTR pszDest, size_t cchDest, LPCSTR pszSrc,
+                        LPSTR *ppszDestEnd, size_t *pcchRemaining, DWORD dwFlags) {
+  assert(dwFlags == 0 && "dwFlag values not supported in StringCchCopyEx");
+  char *zPtr = 0;
+
+  zPtr = stpncpy(pszDest, pszSrc, cchDest);
+
+  if (ppszDestEnd)
+    *ppszDestEnd = zPtr;
+
+  if (pcchRemaining)
+    *pcchRemaining = cchDest - (zPtr - pszDest);
+
+  return S_OK;
+}
+
+
 HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...) {
   va_list args;
   va_start(args, format);
+  va_list argscopy;
+  va_copy(argscopy, args);
   // C++11 snprintf can return the size of the resulting string if it was to be
   // constructed.
-  size_t size = snprintf(nullptr, 0, format, args) + 1; // Extra space for '\0'
+  size_t size = vsnprintf(nullptr, 0, format, argscopy) + 1; // Extra space for '\0'
   if (size > dstSize) {
     *dst = '\0';
   } else {
-    snprintf(dst, size, format, args);
+    vsnprintf(dst, size, format, args);
   }
+  va_end(argscopy);
   va_end(args);
   return S_OK;
 }
@@ -86,6 +108,35 @@ int _stricmp(const char *str1, const char *str2) {
   return str1[i] - str2[i];
 }
 
+int _wcsicmp(const wchar_t *str1, const wchar_t *str2) {
+  size_t i = 0;
+  for (; str1[i] && str2[i]; ++i) {
+    int d = std::towlower(str1[i]) - std::towlower(str2[i]);
+    if (d != 0)
+      return d;
+  }
+  return str1[i] - str2[i];
+}
+
+int _wcsnicmp(const wchar_t *str1, const wchar_t *str2, size_t n) {
+  size_t i = 0;
+  for (; i < n && str1[i] && str2[i]; ++i) {
+    int d = std::towlower(str1[i]) - std::towlower(str2[i]);
+    if (d != 0)
+      return d;
+  }
+  if (i >= n) return 0;
+  return str1[i] - str2[i];
+}
+
+unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask) {
+  unsigned long l;
+  if (!Mask) return 0;
+  for (l=0; !(Mask&1); l++) Mask >>= 1;
+  *Index = l;
+  return 1;
+}
+
 HRESULT CoGetMalloc(DWORD dwMemContext, IMalloc **ppMalloc) {
   *ppMalloc = new IMalloc;
   (*ppMalloc)->AddRef();
@@ -132,7 +183,10 @@ HANDLE CreateFileW(_In_ LPCWSTR lpFileName, _In_ DWORD dwDesiredAccess,
   assert(dwFlagsAndAttributes == FILE_ATTRIBUTE_NORMAL &&
          "Attributes other than NORMAL not supported in CreateFileW yet");
 
-  fd = open(pUtf8FileName, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+  while ((int)(fd = open(pUtf8FileName, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) < 0) {
+    if (errno != EINTR)
+      return INVALID_HANDLE_VALUE;
+  }
 
   return (HANDLE)fd;
 }
@@ -185,6 +239,99 @@ BOOL WriteFile(_In_ HANDLE hFile, _In_ LPCVOID lpBuffer,
 BOOL CloseHandle(_In_ HANDLE hObject) {
   int fd = (size_t)hObject;
   return !close(fd);
+}
+
+// Half-hearted implementation of a heap structure
+// Enables size queries, maximum allocation limit, and collective free at heap destruction
+// Does not perform any preallocation or allocation organization.
+// Does not respect any flags except for HEAP_ZERO_MEMORY
+struct SimpleAllocation {
+  LPVOID ptr;
+  SIZE_T size;
+};
+
+struct SimpleHeap {
+  std::map<LPCVOID, SimpleAllocation> allocs;
+  SIZE_T maxSize, curSize;
+};
+
+HANDLE HeapCreate(DWORD flOptions, SIZE_T dwInitialSize , SIZE_T dwMaximumSize) {
+  SimpleHeap *simpHeap = new SimpleHeap;
+  simpHeap->maxSize = dwMaximumSize;
+  simpHeap->curSize = 0;
+  return (HANDLE)simpHeap;
+}
+
+BOOL HeapDestroy(HANDLE hHeap) {
+  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+
+  for (auto it = simpHeap->allocs.begin(), e = simpHeap->allocs.end(); it != e; it++)
+    free(it->second.ptr);
+
+  delete simpHeap;
+  return true;
+}
+
+LPVOID HeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T dwBytes) {
+  LPVOID ptr = nullptr;
+  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+
+  if (simpHeap->maxSize && simpHeap->curSize + dwBytes > simpHeap->maxSize)
+    return nullptr;
+
+  if (dwFlags == HEAP_ZERO_MEMORY)
+    ptr = calloc(1, dwBytes);
+  else
+    ptr = malloc(dwBytes);
+
+  simpHeap->allocs[ptr] = {ptr, dwBytes};
+  simpHeap->curSize += dwBytes;
+
+  return ptr;
+}
+
+LPVOID HeapReAlloc(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem, SIZE_T dwBytes) {
+  LPVOID ptr = nullptr;
+  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  SIZE_T oSize = simpHeap->allocs[lpMem].size;
+
+  if (simpHeap->maxSize && simpHeap->curSize - oSize + dwBytes > simpHeap->maxSize)
+    return nullptr;
+
+  ptr = realloc(lpMem, dwBytes);
+  if (dwFlags == HEAP_ZERO_MEMORY && oSize < dwBytes)
+    memset((char*)ptr + oSize, 0, dwBytes - oSize);
+
+  simpHeap->allocs.erase(lpMem);
+  simpHeap->curSize -= oSize;
+
+  simpHeap->allocs[ptr] = {ptr, dwBytes};
+  simpHeap->curSize += dwBytes;
+
+  return ptr;
+}
+
+BOOL HeapFree(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem) {
+  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  SIZE_T oSize = simpHeap->allocs[lpMem].size;
+
+  free(lpMem);
+
+  simpHeap->allocs.erase(lpMem);
+  simpHeap->curSize -= oSize;
+
+  return true;
+}
+
+SIZE_T HeapSize(HANDLE hHeap, DWORD dwFlags, LPCVOID lpMem) {
+  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  return simpHeap->allocs[lpMem].size;
+}
+
+static SimpleHeap g_processHeap;
+
+HANDLE GetProcessHeap() {
+  return (HANDLE)&g_processHeap;
 }
 
 #endif // _WIN32

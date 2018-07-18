@@ -32,6 +32,7 @@
 #include <typeinfo>
 #include <vector>
 #endif // __cplusplus
+#include <execinfo.h>
 
 //===----------------------------------------------------------------------===//
 //
@@ -44,17 +45,15 @@
 #define CoTaskMemAlloc malloc
 #define CoTaskMemFree free
 
-// Windows-specific heap functions. Use malloc/realloc/free instead.
-#define HeapAlloc(hHeap,dwFlags, nBytes) malloc(nBytes)
-#define HeapReAlloc(hHeap, dwFlags, voidPtr, nBytes) realloc(voidPtr, nBytes)
-#define HeapFree(hHeap, dwFlags, voidPtr) free(voidPtr)
-#define HeapCreate(flags, nBytes, maxSize) malloc(nBytes)
+#define SysFreeString free
+#define SysAllocStringLen(ptr, size) (wchar_t*)realloc(ptr, (size + 1)*sizeof(wchar_t))
 
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
 
 #define __declspec(x)
+#define DECLSPEC_SELECTANY
 
 #define uuid(id)
 
@@ -103,16 +102,17 @@
 
 // Map these errors to equivalent errnos.
 #define ERROR_SUCCESS 0L
-#define ERROR_OUT_OF_STRUCTURES ENOMEM
-#define ERROR_UNHANDLED_EXCEPTION EINTR
-#define ERROR_NOT_FOUND ENOTSUP
-#define ERROR_NOT_CAPABLE EPERM
-#define ERROR_FILE_NOT_FOUND ENOENT
-#define ERROR_IO_DEVICE EIO
-#define ERROR_INVALID_HANDLE EBADF
 #define ERROR_ARITHMETIC_OVERFLOW EOVERFLOW
+#define ERROR_FILE_NOT_FOUND ENOENT
+#define ERROR_FUNCTION_NOT_CALLED ENOSYS
+#define ERROR_IO_DEVICE EIO
 #define ERROR_INSUFFICIENT_BUFFER ENOBUFS
+#define ERROR_INVALID_HANDLE EBADF
 #define ERROR_INVALID_PARAMETER EINVAL
+#define ERROR_OUT_OF_STRUCTURES ENOMEM
+#define ERROR_NOT_CAPABLE EPERM
+#define ERROR_NOT_FOUND ENOTSUP
+#define ERROR_UNHANDLED_EXCEPTION EINTR
 
 // Used by HRESULT <--> WIN32 error code conversion
 #define SEVERITY_ERROR 1
@@ -149,7 +149,8 @@
 #define STREAM_SEEK_CUR 1
 #define STREAM_SEEK_END 2
 
-#define HEAP_NO_SERIALIZE 1
+#define HEAP_NO_SERIALIZE 0x1
+#define HEAP_ZERO_MEMORY 0x8
 
 #define MB_ERR_INVALID_CHARS 0x00000008 // error for invalid chars
 
@@ -171,13 +172,23 @@
 #define _atoi64 atoll
 #define sprintf_s snprintf
 #define _strdup strdup
+
 #define vsprintf_s vsprintf
 #define strcat_s strcat
+#define strcpy_s(dst, n, src) strncpy(dst, src, n)
+#define _vscwprintf vwprintf
+#define vswprintf_s vswprintf
+#define swprintf_s swprintf
+
+#define StringCchCopyW(dst, n, src) wcsncpy(dst, src, n)
 
 #define OutputDebugStringW(msg) fputws(msg, stderr)
 
 #define OutputDebugStringA(msg) fputs(msg, stderr)
 #define OutputDebugFormatA(...) fprintf(stderr, __VA_ARGS__)
+
+#define CaptureStackBackTrace(FramesToSkip, FramesToCapture, BackTrace, BackTraceHash)\
+  backtrace(BackTrace, FramesToCapture)
 
 // Event Tracing for Windows (ETW) provides application programmers the ability
 // to start and stop event tracing sessions, instrument an application to
@@ -243,6 +254,7 @@
 
 #define _Out_
 #define _Out_bytecap_(nbytes)
+#define _Out_writes_to_(a, b)
 #define _Out_writes_to_opt_(a, b)
 #define _Outptr_
 #define _Outptr_opt_
@@ -717,6 +729,7 @@ public:
   }
   int GetSize() { return this->size(); }
   T *GetData() { return this->data(); }
+  void RemoveAll() { this->clear(); }
 };
 
 template <class T, class Allocator = CAllocator> class CHeapPtrBase {
