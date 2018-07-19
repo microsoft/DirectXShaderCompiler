@@ -126,25 +126,25 @@ public:
 
   TEST_CLASS_SETUP(InitSupport);
 
-  TEST_METHOD(WhenCorrectThenOK);
-  TEST_METHOD(WhenMisalignedThenFail);
-  TEST_METHOD(WhenEmptyFileThenFail);
-  TEST_METHOD(WhenIncorrectMagicThenFail);
-  TEST_METHOD(WhenIncorrectTargetTripleThenFail);
-  TEST_METHOD(WhenIncorrectModelThenFail);
-  TEST_METHOD(WhenIncorrectPSThenFail);
+  TEST_METHOD(WhenCorrectThenOK)
+  TEST_METHOD(WhenMisalignedThenFail)
+  TEST_METHOD(WhenEmptyFileThenFail)
+  TEST_METHOD(WhenIncorrectMagicThenFail)
+  TEST_METHOD(WhenIncorrectTargetTripleThenFail)
+  TEST_METHOD(WhenIncorrectModelThenFail)
+  TEST_METHOD(WhenIncorrectPSThenFail)
 
-  TEST_METHOD(WhenWaveAffectsGradientThenFail);
+  TEST_METHOD(WhenWaveAffectsGradientThenFail)
 
-  TEST_METHOD(WhenMultipleModulesThenFail);
-  TEST_METHOD(WhenUnexpectedEOFThenFail);
-  TEST_METHOD(WhenUnknownBlocksThenFail);
-  TEST_METHOD(WhenZeroInputPatchCountWithInputThenFail);
+  TEST_METHOD(WhenMultipleModulesThenFail)
+  TEST_METHOD(WhenUnexpectedEOFThenFail)
+  TEST_METHOD(WhenUnknownBlocksThenFail)
+  TEST_METHOD(WhenZeroInputPatchCountWithInputThenFail)
 
   TEST_METHOD(Float32DenormModeAttribute)
-  TEST_METHOD(LoadOutputControlPointNotInPatchConstantFunction);
-  TEST_METHOD(StorePatchControlNotInPatchConstantFunction);
-  TEST_METHOD(OutputControlPointIDInPatchConstantFunction);
+  TEST_METHOD(LoadOutputControlPointNotInPatchConstantFunction)
+  TEST_METHOD(StorePatchControlNotInPatchConstantFunction)
+  TEST_METHOD(OutputControlPointIDInPatchConstantFunction)
   TEST_METHOD(GsVertexIDOutOfBound)
   TEST_METHOD(StreamIDOutOfBound)
   TEST_METHOD(SignatureDataWidth)
@@ -253,73 +253,73 @@ public:
   TEST_METHOD(SemPackOverlap2)
   TEST_METHOD(SemMultiDepth)
 
-  TEST_METHOD(WhenInstrDisallowedThenFail);
-  TEST_METHOD(WhenDepthNotFloatThenFail);
-  TEST_METHOD(BarrierFail);
-  TEST_METHOD(CBufferLegacyOutOfBoundFail);
-  TEST_METHOD(CsThreadSizeFail);
-  TEST_METHOD(DeadLoopFail);
-  TEST_METHOD(EvalFail);
-  TEST_METHOD(GetDimCalcLODFail);
-  TEST_METHOD(HsAttributeFail);
-  TEST_METHOD(InnerCoverageFail);
-  TEST_METHOD(InterpChangeFail);
-  TEST_METHOD(InterpOnIntFail);
-  TEST_METHOD(InvalidSigCompTyFail);
-  TEST_METHOD(MultiStream2Fail);
-  TEST_METHOD(PhiTGSMFail);
-  TEST_METHOD(QuadOpInCS);
-  TEST_METHOD(ReducibleFail);
-  TEST_METHOD(SampleBiasFail);
-  TEST_METHOD(SamplerKindFail);
-  TEST_METHOD(SemaOverlapFail);
-  TEST_METHOD(SigOutOfRangeFail);
-  TEST_METHOD(SigOverlapFail);
-  TEST_METHOD(SimpleHs1Fail);
-  TEST_METHOD(SimpleHs3Fail);
-  TEST_METHOD(SimpleHs4Fail);
-  TEST_METHOD(SimpleDs1Fail);
-  TEST_METHOD(SimpleGs1Fail);
-  TEST_METHOD(UavBarrierFail);
-  TEST_METHOD(UndefValueFail);
-  TEST_METHOD(UpdateCounterFail);
-  TEST_METHOD(LocalResCopy);
+  TEST_METHOD(WhenInstrDisallowedThenFail)
+  TEST_METHOD(WhenDepthNotFloatThenFail)
+  TEST_METHOD(BarrierFail)
+  TEST_METHOD(CBufferLegacyOutOfBoundFail)
+  TEST_METHOD(CsThreadSizeFail)
+  TEST_METHOD(DeadLoopFail)
+  TEST_METHOD(EvalFail)
+  TEST_METHOD(GetDimCalcLODFail)
+  TEST_METHOD(HsAttributeFail)
+  TEST_METHOD(InnerCoverageFail)
+  TEST_METHOD(InterpChangeFail)
+  TEST_METHOD(InterpOnIntFail)
+  TEST_METHOD(InvalidSigCompTyFail)
+  TEST_METHOD(MultiStream2Fail)
+  TEST_METHOD(PhiTGSMFail)
+  TEST_METHOD(QuadOpInCS)
+  TEST_METHOD(ReducibleFail)
+  TEST_METHOD(SampleBiasFail)
+  TEST_METHOD(SamplerKindFail)
+  TEST_METHOD(SemaOverlapFail)
+  TEST_METHOD(SigOutOfRangeFail)
+  TEST_METHOD(SigOverlapFail)
+  TEST_METHOD(SimpleHs1Fail)
+  TEST_METHOD(SimpleHs3Fail)
+  TEST_METHOD(SimpleHs4Fail)
+  TEST_METHOD(SimpleDs1Fail)
+  TEST_METHOD(SimpleGs1Fail)
+  TEST_METHOD(UavBarrierFail)
+  TEST_METHOD(UndefValueFail)
+  TEST_METHOD(UpdateCounterFail)
+  TEST_METHOD(LocalResCopy)
 
-  TEST_METHOD(WhenSmUnknownThenFail);
-  TEST_METHOD(WhenSmLegacyThenFail);
+  TEST_METHOD(WhenSmUnknownThenFail)
+  TEST_METHOD(WhenSmLegacyThenFail)
 
-  TEST_METHOD(WhenMetaFlagsUsageDeclThenOK);
-  TEST_METHOD(WhenMetaFlagsUsageThenFail);
+  TEST_METHOD(WhenMetaFlagsUsageDeclThenOK)
+  TEST_METHOD(WhenMetaFlagsUsageThenFail)
 
-  TEST_METHOD(WhenRootSigMismatchThenFail);
-  TEST_METHOD(WhenRootSigCompatThenSucceed);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootConstVis);
-  TEST_METHOD(WhenRootSigMatchShaderFail_RootConstVis);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootCBV);
-  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Range);
-  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Space);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootSRV);
-  TEST_METHOD(WhenRootSigMatchShaderFail_RootSRV_ResType);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootUAV);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_GoodRange);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_Unbounded);
-  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range1);
-  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range2);
-  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range3);
-  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Space);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_Unbounded);
-  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded1);
-  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded2);
-  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded3);
-  TEST_METHOD(WhenProgramOutSigMissingThenFail);
-  TEST_METHOD(WhenProgramOutSigUnexpectedThenFail);
-  TEST_METHOD(WhenProgramSigMismatchThenFail);
-  TEST_METHOD(WhenProgramInSigMissingThenFail);
-  TEST_METHOD(WhenProgramSigMismatchThenFail2);
-  TEST_METHOD(WhenProgramPCSigMissingThenFail);
-  TEST_METHOD(WhenPSVMismatchThenFail);
-  TEST_METHOD(WhenFeatureInfoMismatchThenFail);
+  TEST_METHOD(WhenRootSigMismatchThenFail)
+  TEST_METHOD(WhenRootSigCompatThenSucceed)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootConstVis)
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootConstVis)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootCBV)
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Range)
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Space)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootSRV)
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootSRV_ResType)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootUAV)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_GoodRange)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_Unbounded)
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range1)
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range2)
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range3)
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Space)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_Unbounded)
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded1)
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded2)
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded3)
+  TEST_METHOD(WhenProgramOutSigMissingThenFail)
+  TEST_METHOD(WhenProgramOutSigUnexpectedThenFail)
+  TEST_METHOD(WhenProgramSigMismatchThenFail)
+  TEST_METHOD(WhenProgramInSigMissingThenFail)
+  TEST_METHOD(WhenProgramSigMismatchThenFail2)
+  TEST_METHOD(WhenProgramPCSigMissingThenFail)
+  TEST_METHOD(WhenPSVMismatchThenFail)
+  TEST_METHOD(WhenFeatureInfoMismatchThenFail)
 
   TEST_METHOD(ViewIDInCSFail)
   TEST_METHOD(ViewIDIn60Fail)

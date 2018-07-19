@@ -843,7 +843,7 @@ public:
   TEST_METHOD(CodeGenUnusedFunc)
   TEST_METHOD(CodeGenUnusedCB)
   TEST_METHOD(CodeGenUpdateCounter)
-  TEST_METHOD(CodeGenUpperCaseRegister1);
+  TEST_METHOD(CodeGenUpperCaseRegister1)
   TEST_METHOD(CodeGenVcmp)
   TEST_METHOD(CodeGenVecBitCast)
   TEST_METHOD(CodeGenVec_Comp_Arg)

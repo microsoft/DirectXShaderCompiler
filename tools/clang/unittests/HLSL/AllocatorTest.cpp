@@ -532,9 +532,9 @@ public:
 
   TEST_CLASS_SETUP(AllocatorTestSetup);
 
-  TEST_METHOD(Intersections);
-  TEST_METHOD(GapFilling);
-  TEST_METHOD(Allocate);
+  TEST_METHOD(Intersections)
+  TEST_METHOD(GapFilling)
+  TEST_METHOD(Allocate)
 
   void InitScenarios() {
     struct P {
