@@ -525,7 +525,7 @@ void DxilEmitMetadata::patchIsFrontfaceTy(Module &M) {
     return;
   unsigned ValMajor, ValMinor;
   DM.GetValidatorVersion(ValMajor, ValMinor);
-  bool bForceUint = ValMajor >= 1 && ValMinor >= 2;
+  bool bForceUint = ValMajor == 0 || (ValMajor >= 1 && ValMinor >= 2);
   if (pSM->IsPS()) {
     patchIsFrontface(DM.GetInputSignature(), bForceUint);
   } else if (pSM->IsGS()) {
