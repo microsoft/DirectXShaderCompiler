@@ -485,6 +485,7 @@ public:
           spirvOpts.codeGenHighLevel = opts.CodeGenHighLevel;
           spirvOpts.disableValidation = opts.DisableValidation;
           spirvOpts.invertY = opts.VkInvertY;
+          spirvOpts.invertW = opts.VkInvertW;
           spirvOpts.useGlLayout = opts.VkUseGlLayout;
           spirvOpts.useDxLayout = opts.VkUseDxLayout;
           spirvOpts.enableReflect = opts.SpvEnableReflect;
