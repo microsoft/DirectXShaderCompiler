@@ -162,6 +162,7 @@ public:
 #ifdef ENABLE_SPIRV_CODEGEN
   bool GenSPIRV;                           // OPT_spirv
   bool VkInvertY;                          // OPT_fvk_invert_y
+  bool VkInvertW;                          // OPT_fvk_invert_w
   bool VkUseGlLayout;                      // OPT_fvk_use_gl_layout
   bool VkUseDxLayout;                      // OPT_fvk_use_dx_layout
   bool SpvEnableReflect;                   // OPT_fspv_reflect
