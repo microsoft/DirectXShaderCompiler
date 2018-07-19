@@ -26,8 +26,8 @@ public:
   END_TEST_CLASS()
 
 protected:
-  TEST_CLASS_SETUP(DXIntellisenseTestClassSetup);
-  TEST_CLASS_CLEANUP(DXIntellisenseTestClassCleanup);
+  TEST_CLASS_SETUP(DXIntellisenseTestClassSetup)
+  TEST_CLASS_CLEANUP(DXIntellisenseTestClassCleanup)
 
   void GetLocationAt(IDxcTranslationUnit* TU, unsigned line, unsigned col, IDxcSourceLocation** pResult)
   {
@@ -77,42 +77,42 @@ protected:
     EXPECT_STREQW(expectedDecl, name);// << "declaration text at " << line << ":" << col;
   }
 
-  TEST_METHOD(CursorWhenCBufferRefThenFound);
-  TEST_METHOD(CursorWhenFieldRefThenSimpleNames);
-  TEST_METHOD(CursorWhenFindAtBodyCallThenMatch);
-  TEST_METHOD(CursorWhenFindAtGlobalThenMatch);
-  TEST_METHOD(CursorWhenFindBeforeBodyCallThenMatch);
-  TEST_METHOD(CursorWhenFindBeforeGlobalThenMatch);
-  TEST_METHOD(CursorWhenFunctionThenParamsAvailable);
-  TEST_METHOD(CursorWhenFunctionThenReturnTypeAvailable);
-  TEST_METHOD(CursorWhenFunctionThenSignatureAvailable);
-  TEST_METHOD(CursorWhenGlobalVariableThenSimpleNames);
-  TEST_METHOD(CursorWhenOverloadedIncompleteThenInvisible);
-  TEST_METHOD(CursorWhenOverloadedResolvedThenDirectSymbol);
-  TEST_METHOD(CursorWhenReferenceThenDefinitionAvailable);
-  TEST_METHOD(CursorWhenTypeOfVariableDeclThenNamesHaveType);
-  TEST_METHOD(CursorWhenVariableRefThenSimpleNames);
-  TEST_METHOD(CursorWhenVariableUsedThenDeclarationAvailable);
+  TEST_METHOD(CursorWhenCBufferRefThenFound)
+  TEST_METHOD(CursorWhenFieldRefThenSimpleNames)
+  TEST_METHOD(CursorWhenFindAtBodyCallThenMatch)
+  TEST_METHOD(CursorWhenFindAtGlobalThenMatch)
+  TEST_METHOD(CursorWhenFindBeforeBodyCallThenMatch)
+  TEST_METHOD(CursorWhenFindBeforeGlobalThenMatch)
+  TEST_METHOD(CursorWhenFunctionThenParamsAvailable)
+  TEST_METHOD(CursorWhenFunctionThenReturnTypeAvailable)
+  TEST_METHOD(CursorWhenFunctionThenSignatureAvailable)
+  TEST_METHOD(CursorWhenGlobalVariableThenSimpleNames)
+  TEST_METHOD(CursorWhenOverloadedIncompleteThenInvisible)
+  TEST_METHOD(CursorWhenOverloadedResolvedThenDirectSymbol)
+  TEST_METHOD(CursorWhenReferenceThenDefinitionAvailable)
+  TEST_METHOD(CursorWhenTypeOfVariableDeclThenNamesHaveType)
+  TEST_METHOD(CursorWhenVariableRefThenSimpleNames)
+  TEST_METHOD(CursorWhenVariableUsedThenDeclarationAvailable)
 
-  TEST_METHOD(FileWhenSameThenEqual);
-  TEST_METHOD(FileWhenNotSameThenNotEqual);
+  TEST_METHOD(FileWhenSameThenEqual)
+  TEST_METHOD(FileWhenNotSameThenNotEqual)
 
-  TEST_METHOD(InclusionWhenMissingThenError);
-  TEST_METHOD(InclusionWhenValidThenAvailable);
+  TEST_METHOD(InclusionWhenMissingThenError)
+  TEST_METHOD(InclusionWhenValidThenAvailable)
 
-  TEST_METHOD(TUWhenGetFileMissingThenFail);
-  TEST_METHOD(TUWhenGetFilePresentThenOK);
-  TEST_METHOD(TUWhenEmptyStructThenErrorIfISense);
-  TEST_METHOD(TUWhenRegionInactiveMissingThenCountIsZero);
-  TEST_METHOD(TUWhenRegionInactiveThenEndIsBeforeElseHash);
-  TEST_METHOD(TUWhenRegionInactiveThenEndIsBeforeEndifHash);
-  TEST_METHOD(TUWhenRegionInactiveThenStartIsAtIfdefEol);
-  TEST_METHOD(TUWhenUnsaveFileThenOK);
+  TEST_METHOD(TUWhenGetFileMissingThenFail)
+  TEST_METHOD(TUWhenGetFilePresentThenOK)
+  TEST_METHOD(TUWhenEmptyStructThenErrorIfISense)
+  TEST_METHOD(TUWhenRegionInactiveMissingThenCountIsZero)
+  TEST_METHOD(TUWhenRegionInactiveThenEndIsBeforeElseHash)
+  TEST_METHOD(TUWhenRegionInactiveThenEndIsBeforeEndifHash)
+  TEST_METHOD(TUWhenRegionInactiveThenStartIsAtIfdefEol)
+  TEST_METHOD(TUWhenUnsaveFileThenOK)
 
-  TEST_METHOD(QualifiedNameClass);
-  TEST_METHOD(QualifiedNameVariable);
+  TEST_METHOD(QualifiedNameClass)
+  TEST_METHOD(QualifiedNameVariable)
 
-  TEST_METHOD(TypeWhenICEThenEval);
+  TEST_METHOD(TypeWhenICEThenEval)
 };
 
 std::shared_ptr<HlslIntellisenseSupport> CompilationResult::DefaultHlslSupport;
