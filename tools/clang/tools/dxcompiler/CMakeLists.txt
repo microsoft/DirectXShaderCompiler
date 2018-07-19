@@ -140,6 +140,8 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
     ${CMAKE_COMMAND} -E touch ${GET_GIT_COMMIT_SCRIPT}
     COMMENT "Touch GetCommitInfo.py to trigger rebuild"
   )
+  set_property(TARGET GIT_COMMIT_INFO_ALWAYS_REBUILD
+    PROPERTY FOLDER "Utils")
   set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/dxcompilerobj.cpp
     PROPERTIES OBJECT_DEPENDS "${GIT_COMMIT_INFO_FILE}")
   set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/dxcvalidator.cpp
