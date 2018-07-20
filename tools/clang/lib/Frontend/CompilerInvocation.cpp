@@ -1910,10 +1910,17 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
   // where we have a dxc-based command-line. We choose to accept additional
   // options even if they don't get applied.
   const unsigned IncludedFlagsBitmask = 0;
+#ifdef _WIN32
+  const unsigned ExcludedFlagsBitmask = 0;
+#else
+  // Exception: Exclude cl.exe like arguments that can trip up Unix systems
+  const unsigned ExcludedFlagsBitmask = options::CLOption;
+#endif
+  // End HLSL Change
   unsigned MissingArgIndex, MissingArgCount;
   InputArgList Args =
       Opts->ParseArgs(llvm::makeArrayRef(ArgBegin, ArgEnd), MissingArgIndex,
-                      MissingArgCount, IncludedFlagsBitmask);
+                      MissingArgCount, IncludedFlagsBitmask, ExcludedFlagsBitmask);
 
   // Check for missing argument error.
   if (MissingArgCount) {
