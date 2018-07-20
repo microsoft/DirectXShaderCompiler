@@ -204,6 +204,8 @@ public:
   unsigned HLSLDefaultSpace = UINT_MAX;
   /// HLSLLibraryExports specifies desired exports, with optional renaming
   std::vector<std::string> HLSLLibraryExports;
+  /// ExportShadersOnly limits library export functions to shaders
+  bool ExportShadersOnly = false;
   // HLSL Change Ends
   /// Regular expression to select optimizations for which we should enable
   /// optimization remarks. Transformation passes whose name matches this

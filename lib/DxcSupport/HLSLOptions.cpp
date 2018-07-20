@@ -266,9 +266,19 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       // Set entry point to impossible name.
       opts.EntryPoint = "lib.no::entry";
     }
-  } else if (Args.getLastArg(OPT_exports)) {
-    errors << "library profile required when using -exports option";
-    return 1;
+    if (Args.getLastArg(OPT_exports) &&
+        Args.hasFlag(OPT_export_shaders_only)) {
+      errors << "-exports option cannot be used with -export-shaders-only";
+      return 1;
+    }
+  } else {
+    if (Args.getLastArg(OPT_exports)) {
+      errors << "library profile required when using -exports option";
+      return 1;
+    } else if (Args.hasFlag(OPT_export_shaders_only)) {
+      errors << "library profile required when using -export-shaders-only option";
+      return 1;
+    }
   }
 
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
@@ -423,6 +433,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DisassembleByteOffset = Args.hasFlag(OPT_No, OPT_INVALID, false);
   opts.DisaseembleHex = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.LegacyMacroExpansion = Args.hasFlag(OPT_flegacy_macro_expansion, OPT_INVALID, false);
+  opts.ExportShadersOnly = Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false);
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
