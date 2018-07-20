@@ -4600,6 +4600,20 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     }
   }
 
+  if (CGM.getCodeGenOpts().ExportShadersOnly) {
+    for (Function &f : m_pHLModule->GetModule()->functions()) {
+      // Skip declarations, intrinsics, shaders, and non-external linkage
+      if (f.isDeclaration() || f.isIntrinsic() ||
+          GetHLOpcodeGroup(&f) != HLOpcodeGroup::NotHL ||
+          m_pHLModule->HasDxilFunctionProps(&f) ||
+          m_pHLModule->IsPatchConstantShader(&f) ||
+          f.getLinkage() != GlobalValue::LinkageTypes::ExternalLinkage)
+        continue;
+      // Mark non-shader user functions as InternalLinkage
+      f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+    }
+  }
+
   // Disallow resource arguments in (non-entry) function exports
   if (m_bIsLib) {
     for (Function &f : m_pHLModule->GetModule()->functions()) {
