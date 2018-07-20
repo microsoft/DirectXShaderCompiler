@@ -4615,7 +4615,8 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   }
 
   // Disallow resource arguments in (non-entry) function exports
-  if (m_bIsLib) {
+  // unless offline linking target.
+  if (m_bIsLib && m_pHLModule->GetShaderModel()->GetMinor() != ShaderModel::kOfflineMinor) {
     for (Function &f : m_pHLModule->GetModule()->functions()) {
       // Skip llvm intrinsics, non-external linkage, entry/patch constant func, and HL intrinsics
       if (!f.isIntrinsic() &&

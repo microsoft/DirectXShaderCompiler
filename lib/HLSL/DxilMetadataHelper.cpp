@@ -183,7 +183,8 @@ void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
   unsigned Major = ConstMDToUint32(pShaderModelMD->getOperand(kDxilShaderModelMajorIdx));
   unsigned Minor = ConstMDToUint32(pShaderModelMD->getOperand(kDxilShaderModelMinorIdx));
   string ShaderModelName = pShaderTypeMD->getString();
-  ShaderModelName += "_" + std::to_string(Major) + "_" + std::to_string(Minor);
+  ShaderModelName += "_" + std::to_string(Major) + "_" +
+    (Minor == ShaderModel::kOfflineMinor ? "x" : std::to_string(Minor));
   pSM = ShaderModel::GetByName(ShaderModelName.c_str());
   if (!pSM->IsValidForDxil()) {
     char ErrorMsgTxt[40];

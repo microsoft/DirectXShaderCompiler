@@ -1046,6 +1046,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createGlobalDCEPass());
 
   PM.add(createDxilLowerCreateHandleForLibPass());
+  PM.add(createDxilTranslateRawBuffer());
   PM.add(createDxilFinalizeModulePass());
   PM.add(createComputeViewIdStatePass());
   PM.add(createDxilDeadFunctionEliminationPass());
