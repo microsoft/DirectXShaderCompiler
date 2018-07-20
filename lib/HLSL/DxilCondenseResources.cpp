@@ -506,6 +506,9 @@ public:
 
     bChanged |= AllocateDxilResources(DM);
 
+    if (m_bIsLib && DM.GetShaderModel()->GetMinor() == ShaderModel::kOfflineMinor)
+      return bChanged;
+
     // Make sure no select on resource.
     bChanged |= RemovePhiOnResource();
 

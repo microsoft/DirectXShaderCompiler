@@ -520,7 +520,7 @@ struct ValidationContext {
   }
 
   void EmitGlobalValueError(GlobalValue *GV, ValidationRule rule) {
-    EmitFormatError(rule, { GV->getName().str() });
+    EmitFormatError(rule, { dxilutil::DemangleFunctionName(GV->getName()) });
   }
 
   // This is the least desirable mechanism, as it has no context.
