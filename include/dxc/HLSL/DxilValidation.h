@@ -56,6 +56,7 @@ enum class ValidationRule : unsigned {
   InstrBarrierModeForNonCS, // sync in a non-Compute Shader must only sync UAV (sync_uglobal)
   InstrBarrierModeNoMemory, // sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional. 
   InstrBarrierModeUselessUGroup, // sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
+  InstrBufferUpdateCounterOnResHasCounter, // BufferUpdateCounter valid only when HasCounter is true
   InstrBufferUpdateCounterOnUAV, // BufferUpdateCounter valid only on UAV
   InstrCBufferClassForCBufferHandle, // Expect Cbuffer for CBufferLoad handle
   InstrCBufferOutOfBound, // Cbuffer access out of bound
@@ -106,8 +107,11 @@ enum class ValidationRule : unsigned {
   InstrResourceKindForSampleC, // samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray
   InstrResourceKindForTextureLoad, // texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray
   InstrResourceKindForTextureStore, // texture store only works on Texture1D/1DArray/2D/2DArray/3D
+  InstrResourceKindForTraceRay, // TraceRay should only use RTAccelerationStructure
+  InstrResourceMapToSingleEntry, // Fail to map resource to resource table
   InstrResourceOffsetMiss, // offset uninitialized
   InstrResourceOffsetTooMany, // out of bound offset must be undef
+  InstrResourceUser, // Resource should only used by Load/GEP/Call
   InstrSampleCompType, // sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.
   InstrSampleIndexForLoad2DMS, // load on Texture2DMS/2DMSArray require sampleIndex
   InstrSamplerModeForLOD, // lod instruction requires sampler declared in default mode
@@ -178,6 +182,7 @@ enum class ValidationRule : unsigned {
   FlowReducible, // Execution flow must be reducible
 
   // Shader model
+  Sm64bitRawBufferLoadStore, // i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3
   SmAppendAndConsumeOnSameUAV, // BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
   SmCBufferElementOverflow, // CBuffer elements must not overflow
   SmCBufferOffsetOverlap, // CBuffer offsets must not overlap
