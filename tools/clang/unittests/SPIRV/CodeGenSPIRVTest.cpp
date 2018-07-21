@@ -1332,6 +1332,9 @@ TEST_F(FileTest, VulkanCLOptionInvertYGS) {
   runFileTest("vk.cloption.invert-y.gs.hlsl");
 }
 
+TEST_F(FileTest, VulkanCLOptionInvertWDS) {
+  runFileTest("vk.cloption.invert-w.ds.hlsl");
+}
 TEST_F(FileTest, VulkanCLOptionInvertWPS) {
   runFileTest("vk.cloption.invert-w.ps.hlsl");
 }

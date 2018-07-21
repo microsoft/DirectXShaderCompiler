@@ -1796,7 +1796,7 @@ uint32_t DeclResultIdMapper::invertYIfRequested(uint32_t position) {
 
 uint32_t DeclResultIdMapper::invertWIfRequested(uint32_t position) {
   // Reciprocate SV_Position.w if requested
-  if (spirvOptions.invertW) {
+  if (spirvOptions.invertW && shaderModel.IsPS()) {
     const auto f32Type = theBuilder.getFloat32Type();
     const auto v4f32Type = theBuilder.getVecType(f32Type, 4);
     const auto oldW = theBuilder.createCompositeExtract(f32Type, position, {3});
