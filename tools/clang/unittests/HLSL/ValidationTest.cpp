@@ -324,6 +324,7 @@ public:
   TEST_METHOD(UndefValueFail);
   TEST_METHOD(UpdateCounterFail);
   TEST_METHOD(LocalResCopy);
+  TEST_METHOD(ResCounter);
 
   TEST_METHOD(WhenSmUnknownThenFail);
   TEST_METHOD(WhenSmLegacyThenFail);
@@ -3209,6 +3210,17 @@ TEST_F(ValidationTest, Float32DenormModeAttribute) {
     { "\"fp32-denorm-mode\"=\"invalid_mode\"" },
     "contains invalid attribute 'fp32-denorm-mode' with value 'invalid_mode'",
     true);
+}
+
+TEST_F(ValidationTest, ResCounter) {
+    if (m_ver.SkipDxilVersion(1, 3)) return;
+    RewriteAssemblyCheckMsg(
+        "RWStructuredBuffer<float4> buf; float GetCounter() {return buf.IncrementCounter();}",
+        "lib_6_3",
+        { "!\"buf\", i32 0, i32 -1, i32 1, i32 12, i1 false, i1 true, i1 false, !" },
+        { "!\"buf\", i32 0, i32 -1, i32 1, i32 12, i1 false, i1 false, i1 false, !" },
+        "BufferUpdateCounter valid only when HasCounter is true",
+        true);
 }
 
 TEST_F(ValidationTest, FunctionAttributes) {

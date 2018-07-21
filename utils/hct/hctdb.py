@@ -1908,6 +1908,9 @@ class db_dxil(object):
         self.add_valrule("Instr.ResourceClassForSamplerGather", "sample, lod and gather should on srv resource.")
         self.add_valrule("Instr.ResourceClassForUAVStore", "store should on uav resource.")
         self.add_valrule("Instr.ResourceClassForLoad", "load can only run on UAV/SRV resource")
+        self.add_valrule("Instr.ResourceMapToSingleEntry", "Fail to map resource to resource table")
+        self.add_valrule("Instr.ResourceUser", "Resource should only used by Load/GEP/Call")
+        self.add_valrule("Instr.ResourceKindForTraceRay", "TraceRay should only use RTAccelerationStructure")
         self.add_valrule("Instr.OffsetOnUAVLoad", "uav load don't support offset")
         self.add_valrule("Instr.MipOnUAVLoad", "uav load don't support mipLevel/sampleIndex")
         self.add_valrule("Instr.SampleIndexForLoad2DMS", "load on Texture2DMS/2DMSArray require sampleIndex")
@@ -1918,6 +1921,7 @@ class db_dxil(object):
         self.add_valrule("Instr.DxilStructUserOutOfBound", "Index out of bound when extract value from dxil struct types")
         self.add_valrule("Instr.HandleNotFromCreateHandle", "Resource handle should returned by createHandle")
         self.add_valrule("Instr.BufferUpdateCounterOnUAV", "BufferUpdateCounter valid only on UAV")
+        self.add_valrule("Instr.BufferUpdateCounterOnResHasCounter", "BufferUpdateCounter valid only when HasCounter is true")
         self.add_valrule("Instr.CBufferOutOfBound", "Cbuffer access out of bound")
         self.add_valrule("Instr.CBufferClassForCBufferHandle", "Expect Cbuffer for CBufferLoad handle")
         self.add_valrule("Instr.FailToResloveTGSMPointer", "TGSM pointers must originate from an unambiguous TGSM global variable.")
@@ -1993,6 +1997,7 @@ class db_dxil(object):
         self.add_valrule_msg("Sm.CBufferElementOverflow", "CBuffer elements must not overflow", "CBuffer %0 size insufficient for element at offset %1")
         self.add_valrule_msg("Sm.OpcodeInInvalidFunction", "Invalid DXIL opcode usage like StorePatchConstant in patch constant function", "opcode '%0' should only be used in '%1'")
         self.add_valrule_msg("Sm.ViewIDNeedsSlot", "ViewID requires compatible space in pixel shader input signature", "Pixel shader input signature lacks available space for ViewID")
+        self.add_valrule("Sm.64bitRawBufferLoadStore", "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3")
 
         # fxc relaxed check of gradient check.
         #self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")
