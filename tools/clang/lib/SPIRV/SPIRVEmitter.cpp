@@ -597,8 +597,6 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
   if (options.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
       !shaderModel.IsGS())
     emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
-  if (options.invertW && !shaderModel.IsPS())
-    emitError("-fvk-invert-w can only be used in PS", {});
 
   if (options.useGlLayout && options.useDxLayout)
     emitError("cannot specify both -fvk-use-dx-layout and -fvk-use-gl-layout",
