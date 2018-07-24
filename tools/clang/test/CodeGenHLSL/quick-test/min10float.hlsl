@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 -Zi %s | FileCheck %s
 
-// CHECK: warning: min12int is promoted to min16int
+// CHECK: warning: min10float is promoted to min16float
 // CHECK: define void @main
 // CHECK: ret void
 
