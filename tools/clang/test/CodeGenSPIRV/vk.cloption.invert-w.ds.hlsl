@@ -1,4 +1,4 @@
-// Run: %dxc -T ds_6_0 -E main -fvk-invert-w
+// Run: %dxc -T ds_6_0 -E main -fvk-use-dx-position-w
 
 // HS PCF output
 struct HsPcfOut {
@@ -24,6 +24,6 @@ DsCpOut main(OutputPatch<DsCpIn, 3> patch,
   return dsOut;
 }
 
-// Make sure -fvk-invert-w is ignored for non-PS stages
+// Make sure -fvk-use-dx-position-w is ignored for non-PS stages
 // CHECK:     OpLoad %_arr_v4float_uint_3 %gl_Position
 // CHECK-NOT: OpCompositeInsert %v4float {{%\d+}} {{%\d+}} 3
