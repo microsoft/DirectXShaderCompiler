@@ -900,6 +900,9 @@ public:
 
     // processed export names from -exports option:
     compiler.getCodeGenOpts().HLSLLibraryExports = Opts.Exports;
+
+    // only export shader functions for library
+    compiler.getCodeGenOpts().ExportShadersOnly = Opts.ExportShadersOnly;
   }
 
   // IDxcVersionInfo
