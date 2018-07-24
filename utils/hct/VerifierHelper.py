@@ -219,7 +219,7 @@ def ParseVerifierTestCpp():
                 FoundTest = m.group(1)
                 start += ProcessStatementOrBlock(lines, start, fn_process)
                 if FoundTest not in tests:
-                    print ('Could not parse file for test %s' % FoundTest)
+                    print('Could not parse file for test %s' % FoundTest)
                 FoundTest = None
             else:
                 start += ProcessStatementOrBlock(lines, start, fn_null)
@@ -327,7 +327,7 @@ def ParseAst(astlines):
             name = m.group(1)
             text = text[m.end(1):].strip()
         else:
-            print ('rxAstNode match failed on:\n  %s' % text)
+            print('rxAstNode match failed on:\n  %s' % text)
             return AstNode('ast-parse-failed', SourceLocation(), '', '', indent)
         text = rxAstHexAddress.sub('', text).strip()
         m = rxAstSourceLocation.search(text)
@@ -369,7 +369,7 @@ def ParseAst(astlines):
         # parse and add the node
         node = parsenode(line[col:], indent)
         if not node:
-            print ('error parsing line %d:\n%s' % (i+1, line))
+            print('error parsing line %d:\n%s' % (i+1, line))
             assert False
         push(node, col)
 
@@ -456,7 +456,7 @@ class File(object):
                     line_num += 1
                     line, expected, diag_col = self.RemoveDiags(line, self.expected.get(line_num, []))
                     for ew, message in expected:
-                        print ('Error: Line %d: Could not find: expected-%s {{%s}}!!' % (line_num, ew, message))
+                        print('Error: Line %d: Could not find: expected-%s {{%s}}!!' % (line_num, ew, message))
                     line = self.AddDiags(line, self.unexpected.get(line_num, []), diag_col)
                     line = self.SortDiags(line)
                     fout.write(line + '\n')
@@ -476,7 +476,7 @@ class File(object):
             m = rxVerifyArguments.search(line)
             if m:
                 verify_arguments = m.group(1)
-                print ('Found :FXC_VERIFY_ARGUMENTS: %s' % verify_arguments)
+                print('Found :FXC_VERIFY_ARGUMENTS: %s' % verify_arguments)
                 break
 
         # result will hold the final result after adding fxc error messages
@@ -557,10 +557,10 @@ class File(object):
                            (HlslBinDir, self.filename, temp_filename, temp_filename))
         # dxc dumps ast even if there exists any syntax error. If there is any error, dxc returns some nonzero errorcode.
         if not os.path.isfile(temp_filename+'.ast_dump'):
-            print ('ast-dump failed, see log:\n  %s.log' % (temp_filename))
+            print('ast-dump failed, see log:\n  %s.log' % (temp_filename))
             return
 ##        elif result:
-##            print ('ast-dump succeeded, but exited with error code %d, see log:\n  %s.log' % (result, temp_filename))
+##            print('ast-dump succeeded, but exited with error code %d, see log:\n  %s.log' % (result, temp_filename))
         astlines = []
         with open(temp_filename+'.ast_dump', 'rt') as fin:
             for line in fin.readlines():
@@ -570,7 +570,7 @@ class File(object):
         try:
             ast_root = ParseAst(astlines)
         except:
-            print ('ParseAst failed on "%s"' % (temp_filename + '.ast_dump'))
+            print('ParseAst failed on "%s"' % (temp_filename + '.ast_dump'))
             raise
         inlines = []
         with open(self.filename, 'rt') as fin:
@@ -654,29 +654,29 @@ def maybe_compare(filename1, filename2):
             before = fbefore.read()
             after = fafter.read()
     if before.strip() != after.strip():
-        print ('Differences found.  Compare:\n  %s\nwith:\n  %s' % (filename1, filename2))
+        print('Differences found.  Compare:\n  %s\nwith:\n  %s' % (filename1, filename2))
         if DiffTool:
             os.system('%s %s %s' % (DiffTool, filename1, filename2))
         return True
     return False
 
 def PrintUsage():
-    print (__doc__)
-    print ('Available tests and corresponding files:')
+    print(__doc__)
+    print('Available tests and corresponding files:')
     tests = sorted(VerifierTests.keys())
     width = len(max(tests, key=len))
     for name in tests:
-        print (('    %%-%ds  %%s' % width) % (name, VerifierTests[name]))
-    print ('Tests incompatible with fxc mode:')
+        print(('    %%-%ds  %%s' % width) % (name, VerifierTests[name]))
+    print('Tests incompatible with fxc mode:')
     for name in fxcExcludedTests:
-        print ('    %s' % name)
+        print('    %s' % name)
 
 def RunVerifierTest(test, HlslDataDir=HlslDataDir):
     import codecs
     temp_filename = os.path.expandvars(r'${TEMP}\VerifierHelper_temp.txt')
     cmd = ('te %s\\clang-hlsl-tests.dll /p:"HlslDataDir=%s" /name:VerifierTest::%s > %s' %
            (HlslBinDir, HlslDataDir, test, temp_filename))
-    print (cmd)
+    print(cmd)
     os.system(cmd)      # TAEF test
     # TAEF outputs unicode, so read as binary and convert:
     with open(temp_filename, 'rb') as f:
@@ -687,7 +687,7 @@ def main(*args):
     try:
         VerifierTests = ParseVerifierTestCpp()
     except:
-        print ('Unable to parse tests from VerifierTest.cpp; using defaults')
+        print('Unable to parse tests from VerifierTest.cpp; using defaults')
     if len(args) < 1 or (args[0][0] in '-/' and args[0][1:].lower() in ('h', '?', 'help')):
         PrintUsage()
         return -1
@@ -703,13 +703,13 @@ def main(*args):
             tests = [args[1]]
         differences = False
         for test in tests:
-            print ('---- %s ----' % test)
+            print('---- %s ----' % test)
             filename = os.path.join(HlslDataDir, VerifierTests[test])
             result_filename = os.path.expandvars(r'${TEMP}\%s.fxc' % os.path.split(filename)[1])
             File(filename).TryFxc()
             differences = maybe_compare(filename, result_filename) or differences
         if not differences:
-            print ('No differences found!')
+            print('No differences found!')
     elif mode == 'clang':
         if args[1] != '*' and args[1] not in VerifierTests:
             PrintUsage()
@@ -722,7 +722,7 @@ def main(*args):
                     result_filename = os.path.expandvars(r'${TEMP}\%s.result' % os.path.split(f.filename)[1])
                     differences = maybe_compare(f.filename, result_filename) or differences
         if not differences:
-            print ('No differences found!')
+            print('No differences found!')
     elif mode == 'ast':
         allAstTests = sorted(VerifierTests.keys())
         if args[1] == '*':
@@ -734,13 +734,13 @@ def main(*args):
             tests = [args[1]]
         differences = False
         for test in tests:
-            print ('---- %s ----' % test)
+            print('---- %s ----' % test)
             filename = os.path.join(HlslDataDir, VerifierTests[test])
             result_filename = os.path.expandvars(r'${TEMP}\%s.ast' % os.path.split(filename)[1])
             File(filename).TryAst()
             differences = maybe_compare(filename, result_filename) or differences
         if not differences:
-            print ('No differences found!')
+            print('No differences found!')
     elif mode == 'all':
         allTests = sorted(VerifierTests.keys())
         if args[1] == '*':
@@ -773,14 +773,14 @@ def main(*args):
         for test in tests:
             name = VerifierTests[test]
             sourceFile = sourceFiles[name]
-            print (('Test %%-%ds - %%s' % width) % (test, name))
+            print(('Test %%-%ds - %%s' % width) % (test, name))
             result_filename = os.path.expandvars(r'${TEMP}\%s.fxc' % name)
             if name not in fxcExcludedFiles:
                 File(sourceFile).TryFxc(result_filename)
                 sourceFiles[name] = result_filename
             differences = maybe_compare(os.path.join(HlslDataDir, name), sourceFiles[name]) or differences
         if not differences:
-            print ('No differences found!')
+            print('No differences found!')
     else:
         PrintUsage()
         return -1
