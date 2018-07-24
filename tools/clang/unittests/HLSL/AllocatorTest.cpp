@@ -9,7 +9,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/WinIncludes.h"
+#ifdef _WIN32
 #include "WexTestClass.h"
+#endif
 #include "HlslTestUtils.h"
 
 #include "dxc/HLSL/DxilSpanAllocator.h"
@@ -318,7 +320,8 @@ struct Scenario {
     }
     //   one = two = random
     if (maxIdx > 2) {
-      unsigned one = std::min(1 + (randGen() % (maxIdx - 2)), maxIdx);
+      unsigned randIdx = 1 + (randGen() % (maxIdx - 2));
+      unsigned one = std::min(randIdx, maxIdx);
       pairs.insert(Test(one, one));
     }
     //   one = two = last - 1
@@ -343,18 +346,22 @@ struct Scenario {
     }
     //   one = first, two = random
     if (maxIdx > 3) {
-      unsigned two = std::min(1 + (randGen() % (maxIdx - 2)), maxIdx);
+      unsigned randIdx = 1 + (randGen() % (maxIdx - 2));
+      unsigned two = std::min(randIdx, maxIdx);
       pairs.insert(Test(0, two));
     }
     //   one = random, two = random
     if (maxIdx > 4) {
-      unsigned one = std::min(1 + (randGen() % (maxIdx - 3)), maxIdx);
-      unsigned two = std::min(one + 1 + (randGen() % (maxIdx - (one + 1))), maxIdx);
+      unsigned randIdx = 1 + (randGen() % (maxIdx - 3));
+      unsigned one = std::min(randIdx, maxIdx);
+      randIdx = one + 1 + (randGen() % (maxIdx - (one + 1)));
+      unsigned two = std::min(randIdx, maxIdx);
       pairs.insert(Test(one, two));
     }
     //   one = random, two = last
     if (maxIdx > 3) {
-      unsigned one = std::min(1 + (randGen() % (maxIdx - 2)), maxIdx);
+      unsigned randIdx = 1 + (randGen() % (maxIdx - 2));
+      unsigned one = std::min(randIdx, maxIdx);
       pairs.insert(Test(one, maxIdx));
     }
     //   one = second, two = last-1
@@ -522,7 +529,12 @@ struct Scenario {
 };
 
 // The test fixture.
+#ifdef _WIN32
 class AllocatorTest {
+#else
+class AllocatorTest : public ::testing::Test {
+protected:
+#endif
   std::vector<Scenario> m_Scenarios;
 public:
   BEGIN_TEST_CLASS(AllocatorTest)
