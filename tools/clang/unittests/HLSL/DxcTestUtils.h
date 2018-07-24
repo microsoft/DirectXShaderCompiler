@@ -13,6 +13,7 @@
 #include <vector>
 #include "dxc/dxcapi.h"
 #include "dxc/Support/dxcapi.use.h"
+#include "llvm/ADT/ArrayRef.h"
 
 namespace hlsl {
 namespace options {
@@ -101,6 +102,9 @@ inline std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
 void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule, IDxcBlob **pContainer);
 std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob);
 void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
+bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
+                              llvm::ArrayRef<LPCSTR> pErrorMsgs,
+                              bool maySucceedAnyway, bool bRegex);
 bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
                               const LPCSTR *pErrorMsgs, size_t errorMsgCount,
                               bool maySucceedAnyway, bool bRegex);

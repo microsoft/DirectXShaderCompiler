@@ -115,8 +115,6 @@ protected:
   TEST_METHOD(TypeWhenICEThenEval)
 };
 
-std::shared_ptr<HlslIntellisenseSupport> CompilationResult::DefaultHlslSupport;
-
 bool DXIntellisenseTest::DXIntellisenseTestClassSetup() {
   std::shared_ptr<HlslIntellisenseSupport> result = std::make_shared<HlslIntellisenseSupport>();
   if (FAILED(result->Initialize()))
