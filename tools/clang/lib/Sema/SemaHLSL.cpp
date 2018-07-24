@@ -3596,6 +3596,11 @@ public:
     DXASSERT_VALIDBASICKIND(componentType);
 
     QualType pType;  // The type to return.
+    if (componentType < AR_BASIC_COUNT) {
+      // If basic numeric, call LookupScalarTypeDef to ensure on-demand
+      // initialization
+      LookupScalarTypeDef(ScalarTypeForBasic(componentType));
+    }
     QualType pEltType = GetBasicKindType(componentType);
     DXASSERT(!pEltType.isNull(), "otherwise caller is specifying an incorrect basic kind type");
 
