@@ -356,7 +356,7 @@ class db_dxil(object):
         for i in "IgnoreHit,AcceptHitAndEndSearch".split(","):
             self.name_idx[i].category = "AnyHit Terminals"
             self.name_idx[i].shader_model = 6,3
-            self.name_idx[i].shader_stages = ("library","anyhit")
+            self.name_idx[i].shader_stages = ("anyhit",)
         for i in "CallShader".split(","):
             self.name_idx[i].category = "Indirect Shader Invocation"
             self.name_idx[i].shader_model = 6,3
