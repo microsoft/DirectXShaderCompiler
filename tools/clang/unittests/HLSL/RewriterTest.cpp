@@ -16,6 +16,10 @@
 #define UNICODE
 #endif
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <memory>
 #include <vector>
 #include <string>
