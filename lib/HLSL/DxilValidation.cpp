@@ -802,7 +802,7 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: IgnoreHit=155, AcceptHitAndEndSearch=156
   if ((155 <= op && op <= 156))
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::AnyHit);
+        && (pSM->GetKind() == DXIL::ShaderKind::AnyHit);
   // Instructions: CallShader=159
   if (op == 159)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
