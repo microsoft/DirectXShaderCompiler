@@ -124,3 +124,7 @@ file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" DOS_STYLE_SOURCE_DIR)
 file(TO_NATIVE_PATH "${TAEF_BIN_DIR}" DOS_TAEF_BIN_DIR)
 configure_file(clang-hlsl-tests.vcxproj.user.txt clang-hlsl-tests.vcxproj.user)
 endif(WIN32)
+
+add_test(NAME test-hlsl-codegen
+  COMMAND clang-hlsl-tests --HlslDataDir
+          ${PROJECT_SOURCE_DIR}/tools/clang/test/HLSL)
