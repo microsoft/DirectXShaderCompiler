@@ -2903,12 +2903,18 @@ CONTAINER.PARTMATCHES                    DXIL Container Parts must match Module
 CONTAINER.PARTMISSING                    DXIL Container requires certain parts, corresponding to module
 CONTAINER.PARTREPEATED                   DXIL Container must have only one of each part type
 CONTAINER.ROOTSIGNATUREINCOMPATIBLE      Root Signature in DXIL Container must be compatible with shader
+DECL.ATTRSTRUCT                          Attributes parameter must be struct type
 DECL.DXILFNEXTERN                        External function must be a DXIL function
 DECL.DXILNSRESERVED                      The DXIL reserved prefixes must only be used by built-in functions and types
+DECL.EXTRAARGS                           Extra arguments not allowed for shader functions
 DECL.FNATTRIBUTE                         Functions should only contain known function attributes
 DECL.FNFLATTENPARAM                      Function parameters must not use struct types
 DECL.FNISCALLED                          Functions can only be used by call instructions
 DECL.NOTUSEDEXTERNAL                     External declaration should not be used
+DECL.PARAMSTRUCT                         Callable function parameter must be struct type
+DECL.PAYLOADSTRUCT                       Payload parameter must be struct type
+DECL.RESOURCEINFNSIG                     Resources not allowed in function signatures
+DECL.SHADERRETURNVOID                    Shader functions must return void
 DECL.USEDEXTERNALFUNCTION                External function must be used
 DECL.USEDINTERNAL                        Internal declaration must be used
 FLOW.DEADLOOP                            Loop must have break

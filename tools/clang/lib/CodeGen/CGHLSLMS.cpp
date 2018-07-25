@@ -4396,29 +4396,6 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
   
 }
 
-static bool ContainsDisallowedTypeForExport(llvm::Type *Ty) {
-  // Unwrap pointer/array
-  while (llvm::isa<llvm::PointerType>(Ty))
-    Ty = llvm::cast<llvm::PointerType>(Ty)->getPointerElementType();
-  while (llvm::isa<llvm::ArrayType>(Ty))
-    Ty = llvm::cast<llvm::ArrayType>(Ty)->getArrayElementType();
-
-  if (llvm::StructType *ST = llvm::dyn_cast<llvm::StructType>(Ty)) {
-    if (ST->getName().startswith("dx.types."))
-      return true;
-    // TODO: How is this suppoed to check for Input/OutputPatch types if
-    // these have already been eliminated in function arguments during CG?
-    if (HLModule::IsHLSLObjectType(Ty))
-      return true;
-    // Otherwise, recurse elements of UDT
-    for (auto ETy : ST->elements()) {
-      if (ContainsDisallowedTypeForExport(ETy))
-        return true;
-    }
-  }
-  return false;
-}
-
 static void ReportDisallowedTypeInExportParam(CodeGenModule &CGM, StringRef name) {
   DiagnosticsEngine &Diags = CGM.getDiags();
   unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
@@ -4625,12 +4602,12 @@ void CGMSHLSLRuntime::FinishCodeGen() {
           !m_pHLModule->IsPatchConstantShader(&f) &&
           GetHLOpcodeGroup(&f) == HLOpcodeGroup::NotHL) {
         // Verify no resources in param/return types
-        if (ContainsDisallowedTypeForExport(f.getReturnType())) {
+        if (dxilutil::ContainsHLSLObjectType(f.getReturnType())) {
           ReportDisallowedTypeInExportParam(CGM, f.getName());
           continue;
         }
         for (auto &Arg : f.args()) {
-          if (ContainsDisallowedTypeForExport(Arg.getType())) {
+          if (dxilutil::ContainsHLSLObjectType(Arg.getType())) {
             ReportDisallowedTypeInExportParam(CGM, f.getName());
             break;
           }

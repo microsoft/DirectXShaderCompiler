@@ -90,6 +90,8 @@ namespace dxilutil {
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
     llvm::LLVMContext &Ctx, std::string &DiagStr);
   void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI, void *Context);
+  // Returns true if type contains HLSL Object type (resource)
+  bool ContainsHLSLObjectType(llvm::Type *Ty);
 }
 
 }

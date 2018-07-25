@@ -41,12 +41,18 @@ enum class ValidationRule : unsigned {
   ContainerRootSignatureIncompatible, // Root Signature in DXIL Container must be compatible with shader
 
   // Declaration
+  DeclAttrStruct, // Attributes parameter must be struct type
   DeclDxilFnExtern, // External function must be a DXIL function
   DeclDxilNsReserved, // The DXIL reserved prefixes must only be used by built-in functions and types
+  DeclExtraArgs, // Extra arguments not allowed for shader functions
   DeclFnAttribute, // Functions should only contain known function attributes
   DeclFnFlattenParam, // Function parameters must not use struct types
   DeclFnIsCalled, // Functions can only be used by call instructions
   DeclNotUsedExternal, // External declaration should not be used
+  DeclParamStruct, // Callable function parameter must be struct type
+  DeclPayloadStruct, // Payload parameter must be struct type
+  DeclResourceInFnSig, // Resources not allowed in function signatures
+  DeclShaderReturnVoid, // Shader functions must return void
   DeclUsedExternalFunction, // External function must be used
   DeclUsedInternal, // Internal declaration must be used
 
