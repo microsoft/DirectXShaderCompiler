@@ -13,12 +13,19 @@
 #include "HLSLTestData.h"
 #include <stdint.h>
 
+#ifdef _WIN32
 #include "WexTestClass.h"
+#endif
 #include "HlslTestUtils.h"
 #include "dxc/Support/microcom.h"
 
-class DXIntellisenseTest
-{
+
+#ifdef _WIN32
+class DXIntellisenseTest {
+#else
+typedef BSTR CComBSTR;
+class DXIntellisenseTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(DXIntellisenseTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -579,7 +586,7 @@ TEST_F(DXIntellisenseTest, CursorWhenVariableUsedThenDeclarationAvailable) {
 
   CComBSTR name;
   ASSERT_HRESULT_SUCCEEDED(referenced->GetFormattedName(DxcCursorFormatting_Default, &name));
-  EXPECT_STREQW(L"i", name);
+  EXPECT_STREQW(L"i", (LPWSTR)name);
 }
 
 // TODO: get a referenced local variable as 'int localVar';
@@ -590,7 +597,7 @@ TEST_F(DXIntellisenseTest, CursorWhenVariableUsedThenDeclarationAvailable) {
 // TODO: code completion for a built-in function
 // TODO: code completion for a built-in method
 
-void DXIntellisenseTest::CursorWhenFunctionThenSignatureAvailable()
+TEST_F(DXIntellisenseTest, CursorWhenFunctionThenSignatureAvailable)
 {
   char program[] =
     "int myfunc(int a, float b) { return a + b; }\r\n"
@@ -604,7 +611,7 @@ void DXIntellisenseTest::CursorWhenFunctionThenSignatureAvailable()
   // TODO - how to get signature?
 }
 
-void DXIntellisenseTest::CursorWhenFunctionThenParamsAvailable()
+TEST_F(DXIntellisenseTest, CursorWhenFunctionThenParamsAvailable)
 {
   char program[] =
     "int myfunc(int a, float b) { return a + b; }\r\n"
@@ -623,7 +630,7 @@ void DXIntellisenseTest::CursorWhenFunctionThenParamsAvailable()
   // TODO - how to get signature?
 }
 
-void DXIntellisenseTest::CursorWhenFunctionThenReturnTypeAvailable()
+TEST_F(DXIntellisenseTest, CursorWhenFunctionThenReturnTypeAvailable)
 {
   char program[] =
     "int myfunc(int a, float b) { return a + b; }\r\n"
@@ -637,7 +644,7 @@ void DXIntellisenseTest::CursorWhenFunctionThenReturnTypeAvailable()
   // TODO - how to get signature?
 }
 
-void DXIntellisenseTest::CursorWhenReferenceThenDefinitionAvailable()
+TEST_F(DXIntellisenseTest, CursorWhenReferenceThenDefinitionAvailable)
 {
   char program[] =
     "int myfunc(int a, float b) { return a + b; }\r\n"
@@ -666,7 +673,7 @@ void DXIntellisenseTest::CursorWhenReferenceThenDefinitionAvailable()
   VERIFY_ARE_EQUAL(4, offset); // Offset is zero-based
 }
 
-void DXIntellisenseTest::CursorWhenFindAtBodyCallThenMatch()
+TEST_F(DXIntellisenseTest,CursorWhenFindAtBodyCallThenMatch)
 {
   char program[] =
     "int f();\r\n"
@@ -678,7 +685,7 @@ void DXIntellisenseTest::CursorWhenFindAtBodyCallThenMatch()
   ExpectCursorAt(result.TU, 3, 3, DxcCursor_DeclRefExpr, &cursor);
 }
 
-void DXIntellisenseTest::CursorWhenFindAtGlobalThenMatch()
+TEST_F(DXIntellisenseTest, CursorWhenFindAtGlobalThenMatch)
 {
   char program[] = "int a;";
   CompilationResult result(CompilationResult::CreateForProgram(program, _countof(program)));
@@ -687,7 +694,7 @@ void DXIntellisenseTest::CursorWhenFindAtGlobalThenMatch()
   ExpectCursorAt(result.TU, 1, 4, DxcCursor_VarDecl, &cursor);
 }
 
-void DXIntellisenseTest::CursorWhenFindBeforeBodyCallThenMatch()
+TEST_F(DXIntellisenseTest, CursorWhenFindBeforeBodyCallThenMatch)
 {
   char program[] =
     "int f();\r\n"
@@ -708,7 +715,7 @@ void DXIntellisenseTest::CursorWhenFindBeforeBodyCallThenMatch()
   VERIFY_ARE_EQUAL(DxcCursor_DeclRefExpr, cursorKind);
 }
 
-void DXIntellisenseTest::CursorWhenFindBeforeGlobalThenMatch()
+TEST_F(DXIntellisenseTest, CursorWhenFindBeforeGlobalThenMatch)
 {
   char program[] = "    int a;";
   CompilationResult result(CompilationResult::CreateForProgram(program, _countof(program)));
@@ -729,7 +736,7 @@ void DXIntellisenseTest::CursorWhenFindBeforeGlobalThenMatch()
   VERIFY_ARE_EQUAL(DxcCursor_VarDecl, cursorKind);
 }
 
-void DXIntellisenseTest::FileWhenSameThenEqual()
+TEST_F(DXIntellisenseTest, FileWhenSameThenEqual)
 {
   char program[] = "int a;\r\nint b;";
   CompilationResult result(CompilationResult::CreateForProgram(program, _countof(program)));
@@ -746,7 +753,7 @@ void DXIntellisenseTest::FileWhenSameThenEqual()
   VERIFY_ARE_EQUAL(TRUE, isEqual);
 }
 
-void DXIntellisenseTest::FileWhenNotSameThenNotEqual()
+TEST_F(DXIntellisenseTest, FileWhenNotSameThenNotEqual)
 {
   char program[] = "int a;\r\nint b;";
   CompilationResult result0(CompilationResult::CreateForProgram(program, _countof(program)));
@@ -764,7 +771,7 @@ void DXIntellisenseTest::FileWhenNotSameThenNotEqual()
   VERIFY_ARE_EQUAL(FALSE, isEqual);
 }
 
-void DXIntellisenseTest::TypeWhenICEThenEval()
+TEST_F(DXIntellisenseTest, TypeWhenICEThenEval)
 {
   // When an ICE is present in a declaration, it appears in the name.
   char program[] =
