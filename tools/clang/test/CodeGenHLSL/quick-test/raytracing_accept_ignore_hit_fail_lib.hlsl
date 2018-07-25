@@ -1,7 +1,9 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
-// TODO: verify failure for exported library function and flip the CHECK below
-// CHECK: define void @"\01?libfunc
+// verify failure for exported library function
+// CHECK: Opcode IgnoreHit not valid in shader model lib_6_3(lib)
+// CHECK: Opcode AcceptHitAndEndSearch not valid in shader model lib_6_3(lib)
+
 
 struct Payload {
   float foo;
