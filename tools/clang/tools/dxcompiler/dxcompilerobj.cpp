@@ -331,6 +331,8 @@ public:
     DxcThreadMalloc TM(m_pMalloc);
 
     try {
+      IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
+
       // Parse command-line options into DxcOpts
       int argCountInt;
       IFT(UIntToInt(argCount, &argCountInt));
@@ -377,7 +379,6 @@ public:
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
       IFTLLVM(pts.error_code());
 
-      IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
       IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
       if (opts.DisplayIncludeProcess)
