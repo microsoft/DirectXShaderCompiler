@@ -366,6 +366,14 @@ public:
   TEST_METHOD(ViewIDIn60Fail)
   TEST_METHOD(ViewIDNoSpaceFail)
 
+  TEST_METHOD(LibFunctionResInSig)
+  TEST_METHOD(RayPayloadIsStruct)
+  TEST_METHOD(RayAttrIsStruct)
+  TEST_METHOD(CallableParamIsStruct)
+  TEST_METHOD(RayShaderExtraArg)
+  TEST_METHOD(ResInShaderStruct)
+  TEST_METHOD(ShaderFunctionReturnTypeVoid)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -3209,7 +3217,7 @@ TEST_F(ValidationTest, Float32DenormModeAttribute) {
     { "\"fp32-denorm-mode\"=\"ftz\"" },
     { "\"fp32-denorm-mode\"=\"invalid_mode\"" },
     "contains invalid attribute 'fp32-denorm-mode' with value 'invalid_mode'",
-    true);
+    false);
 }
 
 TEST_F(ValidationTest, ResCounter) {
@@ -3232,5 +3240,240 @@ TEST_F(ValidationTest, FunctionAttributes) {
     { "\"fp32-denorm-mode\"=\"ftz\"" },
     { "\"dummy_attribute\"=\"invalid_mode\"" },
     "contains invalid attribute 'dummy_attribute' with value 'invalid_mode'",
-    true);
+    false);
 }// TODO: reject non-zero padding
+
+TEST_F(ValidationTest, LibFunctionResInSig) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  RewriteAssemblyCheckMsg(
+    "Texture2D<float4> T1;\n"
+    "struct ResInStruct { float f; Texture2D<float4> T; };\n"
+    "struct ResStructInStruct { float f; ResInStruct S; };\n"
+    "ResStructInStruct fnResInReturn(float f) : SV_Target {\n"
+    "  ResStructInStruct S1; S1.f = S1.S.f = f; S1.S.T = T1;\n"
+    "  return S1; }\n"
+    "float fnResInArg(ResStructInStruct S1) : SV_Target {\n"
+    "  return S1.f; }\n"
+    "struct Data { float f; };\n"
+    "float fnStreamInArg(float f, inout PointStream<Data> S1) : SV_Target {\n"
+    "  S1.Append((Data)f); return 1.0; }\n"
+    , "lib_6_x",
+    { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!2}" },
+    { "!{!\"lib\", i32 6, i32 3}", "!dx.valver = !{!1002}\n!1002 = !{i32 1, i32 3}" },
+    {  "Function '\\01?fnResInReturn@@YA?AUResStructInStruct@@M@Z' uses resource in function signature"
+      ,"Function '\\01?fnResInArg@@YAMUResStructInStruct@@@Z' uses resource in function signature"
+      ,"Function '\\01?fnStreamInArg@@YAMMV?$PointStream@UData@@@@@Z' uses resource in function signature"
+      // TODO: Unable to lower stream append, since it's used in a non-GS function.
+      // Should we fail to compile earlier (even on lib_6_x), or add lowering to linker?
+      ,"Function 'dx.hl.op..void (i32, %\"class.PointStream<Data>\"*, float*)' uses resource in function signature"
+    },
+    false);
+}
+
+TEST_F(ValidationTest, RayPayloadIsStruct) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  RewriteAssemblyCheckMsg(
+    "struct Payload { float f; }; struct Attributes { float2 b; };\n"
+    "[shader(\"anyhit\")] void AnyHitProto(inout Payload p, in Attributes a) { p.f += a.b.x; }\n"
+    "void BadAnyHit(inout float f, in Attributes a) { f += a.b.x; }\n"
+    "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
+    "void BadClosestHit(inout float f, in Attributes a) { f += a.b.y; }\n"
+    "[shader(\"miss\")] void MissProto(inout Payload p) { p.f += 1.0; }\n"
+    "void BadMiss(inout float f) { f += 1.0; }\n"
+    , "lib_6_3",
+    { "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void (%struct.Payload*)* @\"\\01?MissProto@@YAXUPayload@@@Z\", "
+        "!\"\\01?MissProto@@YAXUPayload@@@Z\","
+    },
+    { "!{void (float*, %struct.Attributes*)* @\"\\01?BadAnyHit@@YAXAIAMUAttributes@@@Z\", "
+        "!\"\\01?BadAnyHit@@YAXAIAMUAttributes@@@Z\",",
+      "!{void (float*, %struct.Attributes*)* @\"\\01?BadClosestHit@@YAXAIAMUAttributes@@@Z\", "
+        "!\"\\01?BadClosestHit@@YAXAIAMUAttributes@@@Z\",",
+      "!{void (float*)* @\"\\01?BadMiss@@YAXAIAM@Z\", "
+        "!\"\\01?BadMiss@@YAXAIAM@Z\","
+    },
+    {  "Argument 'f' must be a struct type for payload in shader function '\\01?BadAnyHit@@YAXAIAMUAttributes@@@Z'"
+      ,"Argument 'f' must be a struct type for payload in shader function '\\01?BadClosestHit@@YAXAIAMUAttributes@@@Z'"
+      ,"Argument 'f' must be a struct type for payload in shader function '\\01?BadMiss@@YAXAIAM@Z'"
+    },
+    false);
+}
+
+TEST_F(ValidationTest, RayAttrIsStruct) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  RewriteAssemblyCheckMsg(
+    "struct Payload { float f; }; struct Attributes { float2 b; };\n"
+    "[shader(\"anyhit\")] void AnyHitProto(inout Payload p, in Attributes a) { p.f += a.b.x; }\n"
+    "void BadAnyHit(inout Payload p, in float a) { p.f += a; }\n"
+    "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
+    "void BadClosestHit(inout Payload p, in float a) { p.f += a; }\n"
+    , "lib_6_3",
+    { "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\","
+    },
+    { "!{void (%struct.Payload*, float)* @\"\\01?BadAnyHit@@YAXUPayload@@M@Z\", "
+        "!\"\\01?BadAnyHit@@YAXUPayload@@M@Z\",",
+      "!{void (%struct.Payload*, float)* @\"\\01?BadClosestHit@@YAXUPayload@@M@Z\", "
+        "!\"\\01?BadClosestHit@@YAXUPayload@@M@Z\","
+    },
+    {  "Argument 'a' must be a struct type for attributes in shader function '\\01?BadAnyHit@@YAXUPayload@@M@Z'"
+      ,"Argument 'a' must be a struct type for attributes in shader function '\\01?BadClosestHit@@YAXUPayload@@M@Z'"
+    },
+    false);
+}
+
+TEST_F(ValidationTest, CallableParamIsStruct) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  RewriteAssemblyCheckMsg(
+    "struct Param { float f; };\n"
+    "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
+    "void BadCallable(inout float f) { f += 1.0; }\n"
+    , "lib_6_3",
+    { "!{void (%struct.Param*)* @\"\\01?CallableProto@@YAXUParam@@@Z\", "
+        "!\"\\01?CallableProto@@YAXUParam@@@Z\","
+    },
+    { "!{void (float*)* @\"\\01?BadCallable@@YAXAIAM@Z\", "
+        "!\"\\01?BadCallable@@YAXAIAM@Z\","
+    },
+    {  "Argument 'f' must be a struct type for callable shader function '\\01?BadCallable@@YAXAIAM@Z'"
+    },
+    false);
+}
+
+TEST_F(ValidationTest, RayShaderExtraArg) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  RewriteAssemblyCheckMsg(
+    "struct Payload { float f; }; struct Attributes { float2 b; };\n"
+    "struct Param { float f; };\n"
+    "[shader(\"anyhit\")] void AnyHitProto(inout Payload p, in Attributes a) { p.f += a.b.x; }\n"
+    "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
+    "[shader(\"miss\")] void MissProto(inout Payload p) { p.f += 1.0; }\n"
+    "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
+    "void BadAnyHit(inout Payload p, in Attributes a, float f) { p.f += f; }\n"
+    "void BadClosestHit(inout Payload p, in Attributes a, float f) { p.f += f; }\n"
+    "void BadMiss(inout Payload p, float f) { p.f += f; }\n"
+    "void BadCallable(inout Param p, float f) { p.f += f; }\n"
+    , "lib_6_3",
+    { "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\"",
+      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\"",
+      "!{void (%struct.Payload*)* @\"\\01?MissProto@@YAXUPayload@@@Z\", "
+        "!\"\\01?MissProto@@YAXUPayload@@@Z\"",
+      "!{void (%struct.Param*)* @\"\\01?CallableProto@@YAXUParam@@@Z\", "
+        "!\"\\01?CallableProto@@YAXUParam@@@Z\""
+    },
+    { "!{void (%struct.Payload*, %struct.Attributes*, float)* @\"\\01?BadAnyHit@@YAXUPayload@@UAttributes@@M@Z\", "
+        "!\"\\01?BadAnyHit@@YAXUPayload@@UAttributes@@M@Z\"",
+      "!{void (%struct.Payload*, %struct.Attributes*, float)* @\"\\01?BadClosestHit@@YAXUPayload@@UAttributes@@M@Z\", "
+        "!\"\\01?BadClosestHit@@YAXUPayload@@UAttributes@@M@Z\"",
+      "!{void (%struct.Payload*, float)* @\"\\01?BadMiss@@YAXUPayload@@M@Z\", "
+        "!\"\\01?BadMiss@@YAXUPayload@@M@Z\"",
+      "!{void (%struct.Param*, float)* @\"\\01?BadCallable@@YAXUParam@@M@Z\", "
+        "!\"\\01?BadCallable@@YAXUParam@@M@Z\""
+    },
+    {  "Extra argument 'f' not allowed for shader function '\\01?BadAnyHit@@YAXUPayload@@UAttributes@@M@Z'"
+      ,"Extra argument 'f' not allowed for shader function '\\01?BadClosestHit@@YAXUPayload@@UAttributes@@M@Z'"
+      ,"Extra argument 'f' not allowed for shader function '\\01?BadMiss@@YAXUPayload@@M@Z'"
+      ,"Extra argument 'f' not allowed for shader function '\\01?BadCallable@@YAXUParam@@M@Z'"
+    },
+    false);
+}
+
+TEST_F(ValidationTest, ResInShaderStruct) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  // Verify resource not used in shader argument structure
+  RewriteAssemblyCheckMsg(
+    "struct ResInStruct { float f; Texture2D<float4> T; };\n"
+    "struct ResStructInStruct { float f; ResInStruct S; };\n"
+    "struct Payload { float f; }; struct Attributes { float2 b; };\n"
+    "[shader(\"anyhit\")] void AnyHitProto(inout Payload p, in Attributes a) { p.f += a.b.x; }\n"
+    "void BadAnyHit(inout ResStructInStruct p, in Attributes a) { p.f += a.b.x; }\n"
+    "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
+    "void BadClosestHit(inout ResStructInStruct p, in Attributes a) { p.f += a.b.x; }\n"
+    "[shader(\"miss\")] void MissProto(inout Payload p) { p.f += 1.0; }\n"
+    "void BadMiss(inout ResStructInStruct p) { p.f += 1.0; }\n"
+    "struct Param { float f; };\n"
+    "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
+    "void BadCallable(inout ResStructInStruct p) { p.f += 1.0; }\n"
+    , "lib_6_x",
+    { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!2}",
+      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void (%struct.Payload*)* @\"\\01?MissProto@@YAXUPayload@@@Z\", "
+        "!\"\\01?MissProto@@YAXUPayload@@@Z\",",
+      "!{void (%struct.Param*)* @\"\\01?CallableProto@@YAXUParam@@@Z\", "
+        "!\"\\01?CallableProto@@YAXUParam@@@Z\","
+    },
+    { "!{!\"lib\", i32 6, i32 3}", "!dx.valver = !{!1002}\n!1002 = !{i32 1, i32 3}",
+      "!{void (%struct.ResStructInStruct*, %struct.Attributes*)* @\"\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z\", "
+        "!\"\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z\",",
+      "!{void (%struct.ResStructInStruct*, %struct.Attributes*)* @\"\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z\", "
+        "!\"\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z\",",
+      "!{void (%struct.ResStructInStruct*)* @\"\\01?BadMiss@@YAXUResStructInStruct@@@Z\", "
+        "!\"\\01?BadMiss@@YAXUResStructInStruct@@@Z\",",
+      "!{void (%struct.ResStructInStruct*)* @\"\\01?BadCallable@@YAXUResStructInStruct@@@Z\", "
+        "!\"\\01?BadCallable@@YAXUResStructInStruct@@@Z\",",
+    },
+    {  "Function '\\01?BadAnyHit@@YAXUResStructInStruct@@UAttributes@@@Z' uses resource in function signature"
+      ,"Function '\\01?BadClosestHit@@YAXUResStructInStruct@@UAttributes@@@Z' uses resource in function signature"
+      ,"Function '\\01?BadMiss@@YAXUResStructInStruct@@@Z' uses resource in function signature"
+      ,"Function '\\01?BadCallable@@YAXUResStructInStruct@@@Z' uses resource in function signature"
+    },
+    false);
+}
+
+TEST_F(ValidationTest, ShaderFunctionReturnTypeVoid) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  // Verify resource not used in shader argument structure
+  RewriteAssemblyCheckMsg(
+    "struct Payload { float f; }; struct Attributes { float2 b; };\n"
+    "struct Param { float f; };\n"
+    "[shader(\"raygeneration\")] void RayGenProto() { return; }\n"
+    "[shader(\"anyhit\")] void AnyHitProto(inout Payload p, in Attributes a) { p.f += a.b.x; }\n"
+    "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
+    "[shader(\"miss\")] void MissProto(inout Payload p) { p.f += 1.0; }\n"
+    "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
+    "float BadRayGen() { return 1; }\n"
+    "float BadAnyHit(inout Payload p, in Attributes a) { return p.f; }\n"
+    "float BadClosestHit(inout Payload p, in Attributes a) { return p.f; }\n"
+    "float BadMiss(inout Payload p) { return p.f; }\n"
+    "float BadCallable(inout Param p) { return p.f; }\n"
+    , "lib_6_3",
+    { "!{void ()* @\"\\01?RayGenProto@@YAXXZ\", "
+        "!\"\\01?RayGenProto@@YAXXZ\",",
+      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\",",
+      "!{void (%struct.Payload*)* @\"\\01?MissProto@@YAXUPayload@@@Z\", "
+        "!\"\\01?MissProto@@YAXUPayload@@@Z\",",
+      "!{void (%struct.Param*)* @\"\\01?CallableProto@@YAXUParam@@@Z\", "
+        "!\"\\01?CallableProto@@YAXUParam@@@Z\","
+    },
+    { "!{float ()* @\"\\01?BadRayGen@@YAMXZ\", "
+        "!\"\\01?BadRayGen@@YAMXZ\",",
+      "!{float (%struct.Payload*, %struct.Attributes*)* @\"\\01?BadAnyHit@@YAMUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?BadAnyHit@@YAMUPayload@@UAttributes@@@Z\",",
+      "!{float (%struct.Payload*, %struct.Attributes*)* @\"\\01?BadClosestHit@@YAMUPayload@@UAttributes@@@Z\", "
+        "!\"\\01?BadClosestHit@@YAMUPayload@@UAttributes@@@Z\",",
+      "!{float (%struct.Payload*)* @\"\\01?BadMiss@@YAMUPayload@@@Z\", "
+        "!\"\\01?BadMiss@@YAMUPayload@@@Z\",",
+      "!{float (%struct.Param*)* @\"\\01?BadCallable@@YAMUParam@@@Z\", "
+        "!\"\\01?BadCallable@@YAMUParam@@@Z\","
+    },
+    {  "Shader function '\\01?BadRayGen@@YAMXZ' must have void return type"
+      ,"Shader function '\\01?BadAnyHit@@YAMUPayload@@UAttributes@@@Z' must have void return type"
+      ,"Shader function '\\01?BadClosestHit@@YAMUPayload@@UAttributes@@@Z' must have void return type"
+      ,"Shader function '\\01?BadMiss@@YAMUPayload@@@Z' must have void return type"
+      ,"Shader function '\\01?BadCallable@@YAMUParam@@@Z' must have void return type"
+    },
+    false);
+}

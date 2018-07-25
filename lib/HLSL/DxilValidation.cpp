@@ -258,6 +258,12 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::DeclFnIsCalled: return "Function '%0' is used for something other than calling";
     case hlsl::ValidationRule::DeclFnFlattenParam: return "Type '%0' is a struct type but is used as a parameter in function '%1'";
     case hlsl::ValidationRule::DeclFnAttribute: return "Function '%0' contains invalid attribute '%1' with value '%2'";
+    case hlsl::ValidationRule::DeclResourceInFnSig: return "Function '%0' uses resource in function signature";
+    case hlsl::ValidationRule::DeclPayloadStruct: return "Argument '%0' must be a struct type for payload in shader function '%1'";
+    case hlsl::ValidationRule::DeclAttrStruct: return "Argument '%0' must be a struct type for attributes in shader function '%1'";
+    case hlsl::ValidationRule::DeclParamStruct: return "Argument '%0' must be a struct type for callable shader function '%1'";
+    case hlsl::ValidationRule::DeclExtraArgs: return "Extra argument '%0' not allowed for shader function '%1'";
+    case hlsl::ValidationRule::DeclShaderReturnVoid: return "Shader function '%0' must have void return type";
   }
   // VALRULE-TEXT:END
   llvm_unreachable("invalid value");
@@ -585,7 +591,7 @@ struct ValidationContext {
   }
 
   void EmitGlobalValueError(GlobalValue *GV, ValidationRule rule) {
-    EmitFormatError(rule, { dxilutil::DemangleFunctionName(GV->getName()) });
+    EmitFormatError(rule, { GV->getName() });
   }
 
   // This is the least desirable mechanism, as it has no context.
@@ -595,19 +601,27 @@ struct ValidationContext {
   }
 
   void FormatRuleText(std::string &ruleText, ArrayRef<StringRef> args) {
+    std::string escapedArg;
     // Consider changing const char * to StringRef
     for (unsigned i = 0; i < args.size(); i++) {
       std::string argIdx = "%" + std::to_string(i);
       StringRef pArg = args[i];
       if (pArg == "")
         pArg = "<null>";
+      if (pArg[0] == 1) {
+        escapedArg = "";
+        raw_string_ostream os(escapedArg);
+        dxilutil::PrintEscapedString(pArg, os);
+        os.flush();
+        pArg = escapedArg;
+      }
 
       std::string::size_type offset = ruleText.find(argIdx);
       if (offset == std::string::npos)
         continue;
 
       unsigned size = argIdx.size();
-      ruleText.replace(offset, size, args[i]);
+      ruleText.replace(offset, size, pArg);
     }
   }
 
@@ -3173,61 +3187,98 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
 static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
   if (F.isDeclaration()) {
     ValidateExternalFunction(&F, ValCtx);
+    if (F.isIntrinsic() || IsDxilFunction(&F))
+      return;
   } else {
-    bool isNoArgEntry = ValCtx.DxilMod.HasDxilFunctionProps(&F);
-    if (isNoArgEntry) {
-      switch (ValCtx.DxilMod.GetDxilFunctionProps(&F).shaderKind) {
+    DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Library;
+    bool isShader = ValCtx.DxilMod.HasDxilFunctionProps(&F);
+    unsigned numUDTShaderArgs = 0;
+    if (isShader) {
+      shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(&F).shaderKind;
+      switch (shaderKind) {
       case DXIL::ShaderKind::AnyHit:
-      case DXIL::ShaderKind::Callable:
       case DXIL::ShaderKind::ClosestHit:
+        numUDTShaderArgs = 2;
+        break;
       case DXIL::ShaderKind::Miss:
-        isNoArgEntry = false;
+      case DXIL::ShaderKind::Callable:
+        numUDTShaderArgs = 1;
         break;
       default:
-        isNoArgEntry = true;
         break;
       }
     } else {
-      isNoArgEntry = &F == ValCtx.DxilMod.GetEntryFunction();
-      isNoArgEntry |= &F == ValCtx.DxilMod.GetPatchConstantFunction();
+      isShader = ValCtx.DxilMod.IsPatchConstantShader(&F);
     }
+
     // Entry function should not have parameter.
-    if (!F.arg_empty() && isNoArgEntry)
-      ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall,
-                             {F.getName().str()});
+    if (isShader && 0 == numUDTShaderArgs && !F.arg_empty())
+      ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall, { F.getName() });
+
+    // Shader functions should return void.
+    if (isShader && !F.getReturnType()->isVoidTy())
+      ValCtx.EmitFormatError(ValidationRule::DeclShaderReturnVoid, { F.getName() });
 
     DxilFunctionAnnotation *funcAnnotation =
         ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);
     if (!funcAnnotation) {
-      ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation,
-                             {F.getName().str()});
+      ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation, { F.getName() });
       return;
     }
+
+    auto ArgFormatError = [&](Argument &arg, ValidationRule rule) {
+      if (arg.hasName())
+        ValCtx.EmitFormatError(rule, { arg.getName().str(), F.getName() });
+      else
+        ValCtx.EmitFormatError(rule, { std::to_string(arg.getArgNo()), F.getName() });
+    };
 
     // Validate parameter type.
     for (auto &arg : F.args()) {
       Type *argTy = arg.getType();
       if (argTy->isPointerTy())
         argTy = argTy->getPointerElementType();
+
+      if (numUDTShaderArgs) {
+        if (arg.getArgNo() >= numUDTShaderArgs) {
+          ArgFormatError(arg, ValidationRule::DeclExtraArgs);
+          break;
+        }
+        if (!argTy->isStructTy()) {
+          ArgFormatError(arg,
+            shaderKind == DXIL::ShaderKind::Callable
+              ? ValidationRule::DeclParamStruct
+              : arg.getArgNo() == 0 ? ValidationRule::DeclPayloadStruct
+                                    : ValidationRule::DeclAttrStruct);
+          break;
+        }
+      }
+
       while (argTy->isArrayTy()) {
         argTy = argTy->getArrayElementType();
       }
 
       if (argTy->isStructTy() && !ValCtx.isLibProfile) {
-        if (arg.hasName())
-          ValCtx.EmitFormatError(
-              ValidationRule::DeclFnFlattenParam,
-              {arg.getName().str(), F.getName().str()});
-        else
-          ValCtx.EmitFormatError(ValidationRule::DeclFnFlattenParam,
-                                 {std::to_string(arg.getArgNo()),
-                                  F.getName().str()});
+        ArgFormatError(arg, ValidationRule::DeclFnFlattenParam);
         break;
       }
     }
 
     ValidateFunctionBody(&F, ValCtx);
   }
+
+  // function params & return type must not contain resources
+  if (dxilutil::ContainsHLSLObjectType(F.getReturnType())) {
+    ValCtx.EmitGlobalValueError(&F, ValidationRule::DeclResourceInFnSig);
+    return;
+  }
+  for (auto &Arg : F.args()) {
+    if (dxilutil::ContainsHLSLObjectType(Arg.getType())) {
+      ValCtx.EmitGlobalValueError(&F, ValidationRule::DeclResourceInFnSig);
+      return;
+    }
+  }
+
   // TODO: Remove attribute for lib?
   if (!ValCtx.isLibProfile)
     ValidateFunctionAttribute(&F, ValCtx);
