@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-invert-w
+// Run: %dxc -T ps_6_0 -E main -fvk-use-dx-position-w
 
 float4 main(float4 pos: SV_Position) : SV_Target {
     return pos;
