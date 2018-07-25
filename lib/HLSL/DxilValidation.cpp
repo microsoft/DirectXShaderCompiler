@@ -751,85 +751,87 @@ struct ValidationContext {
 };
 
 static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
-                                    const ShaderModel *pSM) {
+                                    DXIL::ShaderKind SK,
+                                    unsigned major,
+                                    unsigned minor) {
   unsigned op = (unsigned)opcode;
   /* <py::lines('VALOPCODESM-TEXT')>hctdb_instrhelp.get_valopcode_sm_text()</py>*/
   // VALOPCODESM-TEXT:BEGIN
   // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
   // FlattenedThreadIdInGroup=96
   if ((93 <= op && op <= 96))
-    return (pSM->IsCS());
+    return (SK == DXIL::ShaderKind::Compute);
   // Instructions: DomainLocation=105
   if (op == 105)
-    return (pSM->IsDS());
+    return (SK == DXIL::ShaderKind::Domain);
   // Instructions: LoadOutputControlPoint=103, LoadPatchConstant=104
   if ((103 <= op && op <= 104))
-    return (pSM->IsDS() || pSM->IsHS());
+    return (SK == DXIL::ShaderKind::Domain || SK == DXIL::ShaderKind::Hull);
   // Instructions: EmitStream=97, CutStream=98, EmitThenCutStream=99,
   // GSInstanceID=100
   if ((97 <= op && op <= 100))
-    return (pSM->IsGS());
+    return (SK == DXIL::ShaderKind::Geometry);
   // Instructions: PrimitiveID=108
   if (op == 108)
-    return (pSM->IsGS() || pSM->IsDS() || pSM->IsHS());
+    return (SK == DXIL::ShaderKind::Geometry || SK == DXIL::ShaderKind::Domain || SK == DXIL::ShaderKind::Hull);
   // Instructions: StorePatchConstant=106, OutputControlPointID=107
   if ((106 <= op && op <= 107))
-    return (pSM->IsHS());
+    return (SK == DXIL::ShaderKind::Hull);
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
   if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86))
-    return (pSM->IsLib() || pSM->IsPS());
+    return (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Pixel);
   // Instructions: RenderTargetGetSamplePosition=76,
   // RenderTargetGetSampleCount=77, Discard=82, EvalSnapped=87,
   // EvalSampleIndex=88, EvalCentroid=89, SampleIndex=90, Coverage=91,
   // InnerCoverage=92
   if ((76 <= op && op <= 77) || op == 82 || (87 <= op && op <= 92))
-    return (pSM->IsPS());
+    return (SK == DXIL::ShaderKind::Pixel);
   // Instructions: AttributeAtVertex=137
   if (op == 137)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
-        && (pSM->IsPS());
+    return (major > 6 || (major == 6 && minor >= 1))
+        && (SK == DXIL::ShaderKind::Pixel);
   // Instructions: ViewID=138
   if (op == 138)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
-        && (pSM->IsVS() || pSM->IsHS() || pSM->IsDS() || pSM->IsGS() || pSM->IsPS());
+    return (major > 6 || (major == 6 && minor >= 1))
+        && (SK == DXIL::ShaderKind::Vertex || SK == DXIL::ShaderKind::Hull || SK == DXIL::ShaderKind::Domain || SK == DXIL::ShaderKind::Geometry || SK == DXIL::ShaderKind::Pixel);
   // Instructions: RawBufferLoad=139, RawBufferStore=140
   if ((139 <= op && op <= 140))
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 2));
+    return (major > 6 || (major == 6 && minor >= 2));
   // Instructions: CreateHandleForLib=160
   if (op == 160)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3));
+    return (major > 6 || (major == 6 && minor >= 3));
   // Instructions: IgnoreHit=155, AcceptHitAndEndSearch=156
   if ((155 <= op && op <= 156))
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->GetKind() == DXIL::ShaderKind::AnyHit);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::AnyHit);
   // Instructions: CallShader=159
   if (op == 159)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::RayGeneration || pSM->GetKind() == DXIL::ShaderKind::Miss || pSM->GetKind() == DXIL::ShaderKind::Callable);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::ClosestHit || SK == DXIL::ShaderKind::RayGeneration || SK == DXIL::ShaderKind::Miss || SK == DXIL::ShaderKind::Callable);
   // Instructions: ReportHit=158
   if (op == 158)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Intersection);
   // Instructions: InstanceID=141, InstanceIndex=142, HitKind=143,
   // ObjectRayOrigin=149, ObjectRayDirection=150, ObjectToWorld=151,
   // WorldToObject=152, PrimitiveIndex=161
   if ((141 <= op && op <= 143) || (149 <= op && op <= 152) || op == 161)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit);
   // Instructions: RayFlags=144, WorldRayOrigin=147, WorldRayDirection=148,
   // RayTMin=153, RayTCurrent=154
   if (op == 144 || (147 <= op && op <= 148) || (153 <= op && op <= 154))
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::Miss);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit || SK == DXIL::ShaderKind::Miss);
   // Instructions: TraceRay=157
   if (op == 157)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::RayGeneration || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::Miss);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::RayGeneration || SK == DXIL::ShaderKind::ClosestHit || SK == DXIL::ShaderKind::Miss);
   // Instructions: DispatchRaysIndex=145, DispatchRaysDimensions=146
   if ((145 <= op && op <= 146))
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::RayGeneration || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::Miss || pSM->GetKind() == DXIL::ShaderKind::Callable);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::RayGeneration || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit || SK == DXIL::ShaderKind::Miss || SK == DXIL::ShaderKind::Callable);
   return true;
   // VALOPCODESM-TEXT:END
 }
@@ -2454,12 +2456,32 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
       continue;
     }
 
-    if (!ValCtx.isLibProfile && !ValidateOpcodeInProfile(dxilOpcode, pSM)) {
-      // Opcode not available in profile.
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcode,
-                                  {hlslOP->GetOpCodeName(dxilOpcode),
-                                   pSM->GetName()});
-      continue;
+    unsigned major = pSM->GetMajor();
+    unsigned minor = pSM->GetMinor();
+    if (ValCtx.isLibProfile) {
+      Function *callingFunction = CI->getParent()->getParent();
+      DXIL::ShaderKind SK = DXIL::ShaderKind::Library;
+      if (ValCtx.DxilMod.HasDxilFunctionProps(callingFunction))
+        SK = ValCtx.DxilMod.GetDxilFunctionProps(callingFunction).shaderKind;
+      else if (ValCtx.DxilMod.IsPatchConstantShader(callingFunction))
+        SK = DXIL::ShaderKind::Hull;
+      if (!ValidateOpcodeInProfile(dxilOpcode, SK, major, minor)) {
+        // Opcode not available in profile.
+        // produces: "lib_6_3(ps)", or "lib_6_3(anyhit)" for shader types
+        // Or: "lib_6_3(lib)" for library function
+        std::string shaderModel = pSM->GetName();
+        shaderModel += "(" + ShaderModel::GetKindName(SK) + ")";
+        ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcode,
+          { hlslOP->GetOpCodeName(dxilOpcode), shaderModel });
+        continue;
+      }
+    } else {
+      if (!ValidateOpcodeInProfile(dxilOpcode, pSM->GetKind(), major, minor)) {
+        // Opcode not available in profile.
+        ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcode,
+          { hlslOP->GetOpCodeName(dxilOpcode), pSM->GetName() });
+        continue;
+      }
     }
 
     // Check more detail.

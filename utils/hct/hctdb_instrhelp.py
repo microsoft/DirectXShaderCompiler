@@ -983,19 +983,19 @@ def get_min_sm_and_mask_text():
     return code
 
 check_pSM_for_shader_stage = {
-    'vertex': 'pSM->IsVS()',
-    'pixel': 'pSM->IsPS()',
-    'geometry': 'pSM->IsGS()',
-    'compute': 'pSM->IsCS()',
-    'hull': 'pSM->IsHS()',
-    'domain': 'pSM->IsDS()',
-    'library': 'pSM->IsLib()',
-    'raygeneration': 'pSM->GetKind() == DXIL::ShaderKind::RayGeneration',
-    'intersection': 'pSM->GetKind() == DXIL::ShaderKind::Intersection',
-    'anyhit': 'pSM->GetKind() == DXIL::ShaderKind::AnyHit',
-    'closesthit': 'pSM->GetKind() == DXIL::ShaderKind::ClosestHit',
-    'miss': 'pSM->GetKind() == DXIL::ShaderKind::Miss',
-    'callable': 'pSM->GetKind() == DXIL::ShaderKind::Callable',
+    'vertex': 'SK == DXIL::ShaderKind::Vertex',
+    'pixel': 'SK == DXIL::ShaderKind::Pixel',
+    'geometry': 'SK == DXIL::ShaderKind::Geometry',
+    'compute': 'SK == DXIL::ShaderKind::Compute',
+    'hull': 'SK == DXIL::ShaderKind::Hull',
+    'domain': 'SK == DXIL::ShaderKind::Domain',
+    'library': 'SK == DXIL::ShaderKind::Library',
+    'raygeneration': 'SK == DXIL::ShaderKind::RayGeneration',
+    'intersection': 'SK == DXIL::ShaderKind::Intersection',
+    'anyhit': 'SK == DXIL::ShaderKind::AnyHit',
+    'closesthit': 'SK == DXIL::ShaderKind::ClosestHit',
+    'miss': 'SK == DXIL::ShaderKind::Miss',
+    'callable': 'SK == DXIL::ShaderKind::Callable',
 }
 
 def get_valopcode_sm_text():
@@ -1015,7 +1015,7 @@ def get_valopcode_sm_text():
 
         model_cond = stage_cond = None
         if last_model != (6,0):
-            model_cond = "pSM->GetMajor() > %d || (pSM->GetMajor() == %d && pSM->GetMinor() >= %d)" % (
+            model_cond = "major > %d || (major == %d && minor >= %d)" % (
                 last_model[0], last_model[0], last_model[1])
         if last_stage:
             stage_cond = ' || '.join([check_pSM_for_shader_stage[c] for c in last_stage])
