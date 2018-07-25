@@ -289,9 +289,14 @@ void SPIRVModule::take(InstBuilder *builder) {
       fileName = sourceFileNameId;
     }
 
+    llvm::Optional<llvm::StringRef> srcCode;
+    if (!sourceFileContent.empty()) {
+      srcCode = llvm::Optional<llvm::StringRef>(sourceFileContent);
+    }
+
     builder
         ->opSource(spv::SourceLanguage::HLSL, shaderModelVersion, fileName,
-                   llvm::None)
+                   srcCode)
         .x();
   }
 

@@ -234,7 +234,7 @@ InstBuilder &InstBuilder::opSpecConstant(uint32_t resultType, uint32_t resultId,
   return *this;
 }
 
-void InstBuilder::encodeString(std::string value) {
+void InstBuilder::encodeString(llvm::StringRef value) {
   const auto &words = string::encodeSPIRVString(value);
   TheInst.insert(TheInst.end(), words.begin(), words.end());
 }

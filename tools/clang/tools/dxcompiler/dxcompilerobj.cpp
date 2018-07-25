@@ -316,6 +316,7 @@ public:
         (argCount > 0 && pArguments == nullptr) || pEntryPoint == nullptr ||
         pTargetProfile == nullptr)
       return E_INVALIDARG;
+
     *ppResult = nullptr;
     AssignToOutOpt(nullptr, ppDebugBlobName);
     AssignToOutOpt(nullptr, ppDebugBlob);
@@ -324,12 +325,50 @@ public:
     CComPtr<IDxcBlobEncoding> utf8Source;
     CComPtr<AbstractMemoryStream> pOutputStream;
     CHeapPtr<wchar_t> DebugBlobName;
+
     DxcEtw_DXCompilerCompile_Start();
     pSourceName = (pSourceName && *pSourceName) ? pSourceName : L"hlsl.hlsl"; // declared optional, so pick a default
     DxcThreadMalloc TM(m_pMalloc);
-    IFC(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
     try {
+      // Parse command-line options into DxcOpts
+      int argCountInt;
+      IFT(UIntToInt(argCount, &argCountInt));
+      hlsl::options::MainArgs mainArgs(argCountInt, pArguments, 0);
+      hlsl::options::DxcOpts opts;
+      CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
+      // Set target profile before reading options and validate
+      opts.TargetProfile = pUtf8TargetProfile.m_psz;
+      bool finished = false;
+      ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
+      if (finished) {
+        hr = S_OK;
+        goto Cleanup;
+      }
+
+#ifdef ENABLE_SPIRV_CODEGEN
+      // We want to embed the preprocessed source code in the final SPIR-V if
+      // debug information is enabled. Therefore, we invoke Preprocess() here
+      // first for such case. Then we invoke the compilation process over the
+      // preprocessed source code, so that line numbers are consistent with the
+      // embedded source code.
+      CComPtr<IDxcBlob> ppSrcCode;
+      if (opts.GenSPIRV && opts.DebugInfo) {
+        CComPtr<IDxcOperationResult> ppSrcCodeResult;
+        IFT(Preprocess(pSource, pSourceName, pArguments, argCount, pDefines,
+                       defineCount, pIncludeHandler, &ppSrcCodeResult));
+        HRESULT status;
+        IFT(ppSrcCodeResult->GetStatus(&status));
+        if (SUCCEEDED(status)) {
+          IFT(ppSrcCodeResult->GetResult(&ppSrcCode));
+        }
+        pSource = ppSrcCode;
+      }
+#endif // ENABLE_SPIRV_CODEGEN
+
+      // Convert source code encoding
+      IFC(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
+
       CComPtr<IDxcBlob> pOutputBlob;
       dxcutil::DxcArgsFileSystem *msfPtr =
         dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler);
@@ -341,19 +380,6 @@ public:
       IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
       IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
-      int argCountInt;
-      IFT(UIntToInt(argCount, &argCountInt));
-      hlsl::options::MainArgs mainArgs(argCountInt, pArguments, 0);
-      hlsl::options::DxcOpts opts;
-      CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
-      // Set target profile before reading options and validate
-      opts.TargetProfile = pUtf8TargetProfile.m_psz;
-      bool finished;
-      ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
-      if (finished) {
-        hr = S_OK;
-        goto Cleanup;
-      }
       if (opts.DisplayIncludeProcess)
         msfPtr->EnableDisplayIncludeProcess();
 
@@ -500,6 +526,7 @@ public:
           spirvOpts.targetEnv = opts.SpvTargetEnv;
           spirvOpts.enable16BitTypes = opts.Enable16BitTypes;
           spirvOpts.enableDebugInfo = opts.DebugInfo;
+
           clang::EmitSPIRVAction action(spirvOpts);
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
           action.BeginSourceFile(compiler, file);
