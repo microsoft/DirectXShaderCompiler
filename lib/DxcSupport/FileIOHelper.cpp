@@ -28,33 +28,29 @@
 
 struct HeapMalloc : public IMalloc {
 public:
-  ULONG STDMETHODCALLTYPE AddRef() {
-    return 1;
-  }
-  ULONG STDMETHODCALLTYPE Release() {
-    return 1;
-  }
+  ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
+  ULONG STDMETHODCALLTYPE Release() override { return 1; }
   STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
   }
-  virtual void *STDMETHODCALLTYPE Alloc(
+  virtual void *STDMETHODCALLTYPE Alloc (
     /* [annotation][in] */
-    _In_  SIZE_T cb) {
+    _In_  SIZE_T cb) override {
     return HeapAlloc(GetProcessHeap(), 0, cb);
   }
 
-  virtual void *STDMETHODCALLTYPE Realloc(
+  virtual void *STDMETHODCALLTYPE Realloc (
     /* [annotation][in] */
     _In_opt_  void *pv,
     /* [annotation][in] */
-    _In_  SIZE_T cb)
+    _In_  SIZE_T cb) override
   {
     return HeapReAlloc(GetProcessHeap(), 0, pv, cb);
   }
 
-  virtual void STDMETHODCALLTYPE Free(
+  virtual void STDMETHODCALLTYPE Free (
     /* [annotation][in] */
-    _In_opt_  void *pv)
+    _In_opt_  void *pv) override
   {
     HeapFree(GetProcessHeap(), 0, pv);
   }
@@ -75,9 +71,7 @@ public:
   }
 
 
-  virtual void STDMETHODCALLTYPE HeapMinimize(void)
-  {
-  }
+  virtual void STDMETHODCALLTYPE HeapMinimize(void) {}
 };
 
 static HeapMalloc g_HeapMalloc;
