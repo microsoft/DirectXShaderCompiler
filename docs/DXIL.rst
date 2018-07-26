@@ -2914,6 +2914,7 @@ DECL.NOTUSEDEXTERNAL                     External declaration should not be used
 DECL.PARAMSTRUCT                         Callable function parameter must be struct type
 DECL.PAYLOADSTRUCT                       Payload parameter must be struct type
 DECL.RESOURCEINFNSIG                     Resources not allowed in function signatures
+DECL.SHADERMISSINGARG                    payload/params/attributes parameter is required for certain shader types
 DECL.SHADERRETURNVOID                    Shader functions must return void
 DECL.USEDEXTERNALFUNCTION                External function must be used
 DECL.USEDINTERNAL                        Internal declaration must be used
@@ -3049,7 +3050,7 @@ SM.CBUFFEROFFSETOVERLAP                  CBuffer offsets must not overlap
 SM.CBUFFERTEMPLATETYPEMUSTBESTRUCT       D3D12 constant/texture buffer template element can only be a struct
 SM.COMPLETEPOSITION                      Not all elements of SV_Position were written
 SM.COUNTERONLYONSTRUCTBUF                BufferUpdateCounter valid only on structured buffers
-SM.CSNORETURN                            Compute shaders can't return values, outputs must be written in writable resources (UAVs).
+SM.CSNOSIGNATURES                        Compute shaders must not have shader signatures.
 SM.DOMAINLOCATIONIDXOOB                  DomainLocation component index out of bounds for the domain.
 SM.DSINPUTCONTROLPOINTCOUNTRANGE         DS input control point count must be [0..%0].  %1 specified
 SM.DXILVERSION                           Target shader model requires specific Dxil Version
@@ -3083,6 +3084,8 @@ SM.PSMULTIPLEDEPTHSEMANTIC               Pixel Shader only allows one type of de
 SM.PSOUTPUTSEMANTIC                      Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
 SM.PSTARGETCOL0                          SV_Target packed location must start at column 0
 SM.PSTARGETINDEXMATCHESROW               SV_Target semantic index must match packed row location
+SM.RAYSHADERPAYLOADSIZE                  For shader '%0', %1 size is smaller than argument's allocation size
+SM.RAYSHADERSIGNATURES                   Ray tracing shader '%0' should not have any shader signatures
 SM.RESOURCERANGEOVERLAP                  Resource ranges must not overlap
 SM.ROVONLYINPS                           RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
 SM.SAMPLECOUNTONLYON2DMS                 Only Texture2DMS/2DMSArray could has sample count
