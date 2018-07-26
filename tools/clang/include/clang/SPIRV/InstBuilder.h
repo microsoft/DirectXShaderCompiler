@@ -23,6 +23,7 @@
 #include "spirv/unified1/spirv.hpp11"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace clang {
 namespace spirv {
@@ -93,10 +94,10 @@ public:
   // Instruction building methods.
   InstBuilder &opNop();
   InstBuilder &opUndef(uint32_t result_type, uint32_t result_id);
-  InstBuilder &opSourceContinued(std::string continued_source);
+  InstBuilder &opSourceContinued(llvm::StringRef continued_source);
   InstBuilder &opSource(spv::SourceLanguage source_language, uint32_t version,
                         llvm::Optional<uint32_t> file,
-                        llvm::Optional<std::string> source);
+                        llvm::Optional<llvm::StringRef> source);
   InstBuilder &opSourceExtension(std::string extension);
   InstBuilder &opName(uint32_t target, std::string name);
   InstBuilder &opMemberName(uint32_t type, uint32_t member, std::string name);
@@ -1092,7 +1093,7 @@ private:
   void encodeMemoryAccess(spv::MemoryAccessMask value);
   void encodeExecutionMode(spv::ExecutionMode value);
   void encodeDecoration(spv::Decoration value);
-  void encodeString(std::string value);
+  void encodeString(llvm::StringRef value);
 
   WordConsumer TheConsumer;
   std::vector<uint32_t> TheInst;       ///< The instruction under construction.
