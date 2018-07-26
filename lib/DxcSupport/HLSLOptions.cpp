@@ -193,17 +193,29 @@ StringRefUtf16::StringRefUtf16(llvm::StringRef value) {
 }
 
 static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *major, unsigned *minor) {
-  try {
-    *major = (unsigned)std::stoul(std::string(1, ref[ref.size() - 3]));
-    *minor = (unsigned)std::stoul(std::string(1, ref[ref.size() - 1]));
-    return true;
-  }
-  catch (std::invalid_argument &) {
+  *major = *minor = -1;
+  unsigned len = ref.size();
+  if (len < 6 || len > 11) // length: ps_6_0 to rootsig_1_0
     return false;
-  }
-  catch (std::out_of_range &) {
+  if (ref[len - 4] != '_' || ref[len - 2] != '_')
     return false;
-  }
+
+  char cMajor = ref[len - 3];
+  char cMinor = ref[len - 1];
+
+  if (cMajor >= '0' && cMajor <= '9')
+    *major = cMajor - '0';
+  else
+    return false;
+
+  if (cMinor == 'x')
+    *minor = 0xF;
+  else if (cMinor >= '0' && cMinor <= '9')
+    *minor = cMinor - '0';
+  else
+    return false;
+
+  return true;
 }
 
 namespace hlsl {
@@ -285,9 +297,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       // Set entry point to impossible name.
       opts.EntryPoint = "lib.no::entry";
     }
-  } else if (Args.getLastArg(OPT_exports)) {
-    errors << "library profile required when using -exports option";
-    return 1;
+  } else {
+    if (Args.getLastArg(OPT_exports)) {
+      errors << "library profile required when using -exports option";
+      return 1;
+    } else if (Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false)) {
+      errors << "library profile required when using -export-shaders-only option";
+      return 1;
+    }
   }
 
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
@@ -379,7 +396,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   unsigned Major = 0;
   unsigned Minor = 0;
   if (!opts.TargetProfile.empty()) {
-    GetTargetVersionFromString(opts.TargetProfile, &Major, &Minor);
+    if (!GetTargetVersionFromString(opts.TargetProfile, &Major, &Minor)) {
+      errors << "unable to parse shader model.";
+      return 1;
+    }
   }
 
   if (opts.TargetProfile.empty() || Major < 6 || (Major == 6 && Minor < 2)) {
@@ -442,6 +462,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DisassembleByteOffset = Args.hasFlag(OPT_No, OPT_INVALID, false);
   opts.DisaseembleHex = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.LegacyMacroExpansion = Args.hasFlag(OPT_flegacy_macro_expansion, OPT_INVALID, false);
+  opts.ExportShadersOnly = Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false);
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
@@ -512,6 +533,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   else if (opts.DebugNameForBinary && opts.DebugNameForSource) {
     errors << "Cannot specify both /Zss and /Zsb";
     return 1;
+  }
+
+  if (opts.IsLibraryProfile() && Minor == 0xF) {
+    // Disable validation for offline link only target
+    opts.DisableValidation = true;
   }
 
   // SPIRV Change Starts

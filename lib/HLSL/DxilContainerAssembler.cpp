@@ -1236,6 +1236,10 @@ DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M, uint32_t PSVVersion) {
   return new DxilPSVWriter(M, PSVVersion);
 }
 
+DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M, uint32_t InfoVersion) {
+  return new DxilRDATWriter(M, InfoVersion);
+}
+
 class DxilContainerWriter_impl : public DxilContainerWriter  {
 private:
   class DxilPart {

@@ -589,7 +589,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: IgnoreHit=155, AcceptHitAndEndSearch=156
   if ((155 <= op && op <= 156)) {
     major = 6;  minor = 3;
-    mask = SFLAG(Library) | SFLAG(AnyHit);
+    mask = SFLAG(AnyHit);
     return;
   }
   // Instructions: CallShader=159

@@ -30,6 +30,7 @@ public:
   // Major/Minor version of highest shader model
   static const unsigned kHighestMajor = 6;
   static const unsigned kHighestMinor = 3;
+  static const unsigned kOfflineMinor = 0xF;
 
   bool IsPS() const     { return m_Kind == Kind::Pixel; }
   bool IsVS() const     { return m_Kind == Kind::Vertex; }
@@ -58,7 +59,7 @@ public:
   bool IsSM62Plus() const   { return IsSMAtLeast(6, 2); }
   bool IsSM63Plus() const   { return IsSMAtLeast(6, 3); }
   const char *GetName() const { return m_pszName; }
-  std::string GetKindName() const;
+  const char *GetKindName() const;
   unsigned GetNumTempRegs() const { return DXIL::kMaxTempRegCount; }
   unsigned GetNumInputRegs() const { return m_NumInputRegs; }
   unsigned GetNumOutputRegs() const { return m_NumOutputRegs; }
@@ -72,7 +73,7 @@ public:
   static const ShaderModel *Get(unsigned Idx);
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(const char *pszName);
-  static std::string GetKindName(Kind kind);
+  static const char *GetKindName(Kind kind);
 
   bool operator==(const ShaderModel &other) const;
   bool operator!=(const ShaderModel &other) const { return !(*this == other); }
@@ -93,7 +94,7 @@ private:
               unsigned m_NumInputRegs, unsigned m_NumOutputRegs,
               bool m_bUAVs, bool m_bTypedUavs, unsigned m_UAVRegsLim);
 
-  static const unsigned kNumShaderModels = 48;
+  static const unsigned kNumShaderModels = 49;
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 
   static const ShaderModel *GetInvalid();

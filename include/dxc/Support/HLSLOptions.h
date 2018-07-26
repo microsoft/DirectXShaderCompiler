@@ -156,6 +156,7 @@ public:
   bool DisaseembleHex = false; //OPT_Lx
   bool LegacyMacroExpansion = false; // OPT_flegacy_macro_expansion
   unsigned long AutoBindingSpace = UINT_MAX; // OPT_auto_binding_space
+  bool ExportShadersOnly = false; // OPT_export_shaders_only
 
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();

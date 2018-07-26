@@ -1295,8 +1295,6 @@ void DxilModule::LoadDxilMetadata() {
 
       std::unique_ptr<DxilEntryProps> pEntryProps =
           llvm::make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
-      DXASSERT(pSignatures->get() == nullptr || !props.IsRay(),
-               "Raytracing has no signature");
       m_pMDHelper->LoadDxilSignatures(*pSignatures, pEntryProps->sig);
 
       m_DxilEntryPropsMap[pFunc] = std::move(pEntryProps);

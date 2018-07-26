@@ -1432,7 +1432,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   if (PHI) {
     auto &DL = Caller->getParent()->getDataLayout();
     if (Value *V = SimplifyInstruction(PHI, DL, nullptr, nullptr,
-                                       &IFI.ACT->getAssumptionCache(*Caller))) {
+          IFI.ACT ? &IFI.ACT->getAssumptionCache(*Caller) : nullptr)) { // HLSL Change: fix nullptr dereference
       PHI->replaceAllUsesWith(V);
       PHI->eraseFromParent();
     }
