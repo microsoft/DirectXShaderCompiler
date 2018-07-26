@@ -400,6 +400,11 @@ public:
       }
       compiler.getLangOpts().IsHLSLLibrary = opts.IsLibraryProfile();
 
+      // Clear entry function if library target
+      if (compiler.getLangOpts().IsHLSLLibrary)
+        compiler.getLangOpts().HLSLEntryFunction =
+          compiler.getCodeGenOpts().HLSLEntryFunction = "";
+
       // NOTE: this calls the validation component from dxil.dll; the built-in
       // validator can be used as a fallback.
       bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;

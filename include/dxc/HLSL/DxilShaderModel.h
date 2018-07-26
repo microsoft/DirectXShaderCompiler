@@ -59,7 +59,7 @@ public:
   bool IsSM62Plus() const   { return IsSMAtLeast(6, 2); }
   bool IsSM63Plus() const   { return IsSMAtLeast(6, 3); }
   const char *GetName() const { return m_pszName; }
-  std::string GetKindName() const;
+  const char *GetKindName() const;
   unsigned GetNumTempRegs() const { return DXIL::kMaxTempRegCount; }
   unsigned GetNumInputRegs() const { return m_NumInputRegs; }
   unsigned GetNumOutputRegs() const { return m_NumOutputRegs; }
@@ -73,7 +73,7 @@ public:
   static const ShaderModel *Get(unsigned Idx);
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(const char *pszName);
-  static std::string GetKindName(Kind kind);
+  static const char *GetKindName(Kind kind);
 
   bool operator==(const ShaderModel &other) const;
   bool operator!=(const ShaderModel &other) const { return !(*this == other); }

@@ -391,7 +391,8 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   // set profile
   m_pHLModule->SetShaderModel(SM);
   // set entry name
-  m_pHLModule->SetEntryFunctionName(CGM.getCodeGenOpts().HLSLEntryFunction);
+  if (!SM->IsLib())
+    m_pHLModule->SetEntryFunctionName(CGM.getCodeGenOpts().HLSLEntryFunction);
 
   // set root signature version.
   if (CGM.getLangOpts().RootSigMinor == 0) {

@@ -1990,7 +1990,7 @@ class db_dxil(object):
         self.add_valrule_msg("Sm.MultiStreamMustBePoint", "When multiple GS output streams are used they must be pointlists", "Multiple GS output streams are used but '%0' is not pointlist")
         self.add_valrule("Sm.CompletePosition", "Not all elements of SV_Position were written")
         self.add_valrule("Sm.UndefinedOutput", "Not all elements of output %0 were written")
-        self.add_valrule("Sm.CSNoReturn", "Compute shaders can't return values, outputs must be written in writable resources (UAVs).")
+        self.add_valrule("Sm.CSNoSignatures", "Compute shaders must not have shader signatures.")
         self.add_valrule("Sm.CBufferTemplateTypeMustBeStruct", "D3D12 constant/texture buffer template element can only be a struct")
         self.add_valrule_msg("Sm.ResourceRangeOverlap", "Resource ranges must not overlap", "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5")
         self.add_valrule_msg("Sm.CBufferOffsetOverlap", "CBuffer offsets must not overlap", "CBuffer %0 has offset overlaps at %1")
@@ -1998,6 +1998,8 @@ class db_dxil(object):
         self.add_valrule_msg("Sm.OpcodeInInvalidFunction", "Invalid DXIL opcode usage like StorePatchConstant in patch constant function", "opcode '%0' should only be used in '%1'")
         self.add_valrule_msg("Sm.ViewIDNeedsSlot", "ViewID requires compatible space in pixel shader input signature", "Pixel shader input signature lacks available space for ViewID")
         self.add_valrule("Sm.64bitRawBufferLoadStore", "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3")
+        self.add_valrule("Sm.RayShaderSignatures", "Ray tracing shader '%0' should not have any shader signatures")
+        self.add_valrule("Sm.RayShaderPayloadSize", "For shader '%0', %1 size is smaller than argument's allocation size")
 
         # fxc relaxed check of gradient check.
         #self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")
@@ -2024,6 +2026,7 @@ class db_dxil(object):
         self.add_valrule_msg("Decl.ParamStruct", "Callable function parameter must be struct type", "Argument '%0' must be a struct type for callable shader function '%1'")
         self.add_valrule_msg("Decl.ExtraArgs", "Extra arguments not allowed for shader functions", "Extra argument '%0' not allowed for shader function '%1'")
         self.add_valrule_msg("Decl.ShaderReturnVoid", "Shader functions must return void", "Shader function '%0' must have void return type")
+        self.add_valrule_msg("Decl.ShaderMissingArg", "payload/params/attributes parameter is required for certain shader types", "%0 shader '%1' missing required %2 parameter")
 
         # Assign sensible category names and build up an enumeration description
         cat_names = {

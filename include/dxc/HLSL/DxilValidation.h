@@ -52,6 +52,7 @@ enum class ValidationRule : unsigned {
   DeclParamStruct, // Callable function parameter must be struct type
   DeclPayloadStruct, // Payload parameter must be struct type
   DeclResourceInFnSig, // Resources not allowed in function signatures
+  DeclShaderMissingArg, // payload/params/attributes parameter is required for certain shader types
   DeclShaderReturnVoid, // Shader functions must return void
   DeclUsedExternalFunction, // External function must be used
   DeclUsedInternal, // Internal declaration must be used
@@ -193,7 +194,7 @@ enum class ValidationRule : unsigned {
   SmCBufferElementOverflow, // CBuffer elements must not overflow
   SmCBufferOffsetOverlap, // CBuffer offsets must not overlap
   SmCBufferTemplateTypeMustBeStruct, // D3D12 constant/texture buffer template element can only be a struct
-  SmCSNoReturn, // Compute shaders can't return values, outputs must be written in writable resources (UAVs).
+  SmCSNoSignatures, // Compute shaders must not have shader signatures.
   SmCompletePosition, // Not all elements of SV_Position were written
   SmCounterOnlyOnStructBuf, // BufferUpdateCounter valid only on structured buffers
   SmDSInputControlPointCountRange, // DS input control point count must be [0..%0].  %1 specified
@@ -230,6 +231,8 @@ enum class ValidationRule : unsigned {
   SmPSTargetIndexMatchesRow, // SV_Target semantic index must match packed row location
   SmPatchConstantOnlyForHSDS, // patch constant signature only valid in HS and DS
   SmROVOnlyInPS, // RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
+  SmRayShaderPayloadSize, // For shader '%0', %1 size is smaller than argument's allocation size
+  SmRayShaderSignatures, // Ray tracing shader '%0' should not have any shader signatures
   SmResourceRangeOverlap, // Resource ranges must not overlap
   SmSampleCountOnlyOn2DMS, // Only Texture2DMS/2DMSArray could has sample count
   SmSemantic, // Semantic must be defined in target shader model
@@ -271,6 +274,11 @@ bool VerifySignatureMatches(_In_ llvm::Module *pModule,
 bool VerifyPSVMatches(_In_ llvm::Module *pModule,
                       _In_reads_bytes_(PSVSize) const void *pPSVData,
                       _In_ uint32_t PSVSize);
+
+// PSV = data for Pipeline State Validation
+bool VerifyRDATMatches(_In_ llvm::Module *pModule,
+                       _In_reads_bytes_(RDATSize) const void *pRDATData,
+                       _In_ uint32_t RDATSize);
 
 bool VerifyFeatureInfoMatches(_In_ llvm::Module *pModule,
                               _In_reads_bytes_(FeatureInfoSize) const void *pFeatureInfoData,

@@ -163,7 +163,7 @@ void DxilMDHelper::EmitDxilShaderModel(const ShaderModel *pSM) {
   pShaderModelNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilShaderModelMDName);
 
   Metadata *MDVals[kDxilShaderModelNumFields];
-  MDVals[kDxilShaderModelTypeIdx ] = MDString::get(m_Ctx, pSM->GetKindName().c_str());
+  MDVals[kDxilShaderModelTypeIdx ] = MDString::get(m_Ctx, pSM->GetKindName());
   MDVals[kDxilShaderModelMajorIdx] = Uint32ToConstMD(pSM->GetMajor());
   MDVals[kDxilShaderModelMinorIdx] = Uint32ToConstMD(pSM->GetMinor());
 

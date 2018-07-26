@@ -237,7 +237,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmMultiStreamMustBePoint: return "Multiple GS output streams are used but '%0' is not pointlist";
     case hlsl::ValidationRule::SmCompletePosition: return "Not all elements of SV_Position were written";
     case hlsl::ValidationRule::SmUndefinedOutput: return "Not all elements of output %0 were written";
-    case hlsl::ValidationRule::SmCSNoReturn: return "Compute shaders can't return values, outputs must be written in writable resources (UAVs).";
+    case hlsl::ValidationRule::SmCSNoSignatures: return "Compute shaders must not have shader signatures.";
     case hlsl::ValidationRule::SmCBufferTemplateTypeMustBeStruct: return "D3D12 constant/texture buffer template element can only be a struct";
     case hlsl::ValidationRule::SmResourceRangeOverlap: return "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5";
     case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1";
@@ -245,6 +245,8 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmOpcodeInInvalidFunction: return "opcode '%0' should only be used in '%1'";
     case hlsl::ValidationRule::SmViewIDNeedsSlot: return "Pixel shader input signature lacks available space for ViewID";
     case hlsl::ValidationRule::Sm64bitRawBufferLoadStore: return "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3";
+    case hlsl::ValidationRule::SmRayShaderSignatures: return "Ray tracing shader '%0' should not have any shader signatures";
+    case hlsl::ValidationRule::SmRayShaderPayloadSize: return "For shader '%0', %1 size is smaller than argument's allocation size";
     case hlsl::ValidationRule::UniNoWaveSensitiveGradient: return "Gradient operations are not affected by wave-sensitive data or control flow.";
     case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
     case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted";
@@ -264,6 +266,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::DeclParamStruct: return "Argument '%0' must be a struct type for callable shader function '%1'";
     case hlsl::ValidationRule::DeclExtraArgs: return "Extra argument '%0' not allowed for shader function '%1'";
     case hlsl::ValidationRule::DeclShaderReturnVoid: return "Shader function '%0' must have void return type";
+    case hlsl::ValidationRule::DeclShaderMissingArg: return "%0 shader '%1' missing required %2 parameter";
   }
   // VALRULE-TEXT:END
   llvm_unreachable("invalid value");
@@ -2484,7 +2487,7 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
         // produces: "lib_6_3(ps)", or "lib_6_3(anyhit)" for shader types
         // Or: "lib_6_3(lib)" for library function
         std::string shaderModel = pSM->GetName();
-        shaderModel += "(" + ShaderModel::GetKindName(SK) + ")";
+        shaderModel += std::string("(") + ShaderModel::GetKindName(SK) + ")";
         ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcode,
           { hlslOP->GetOpCodeName(dxilOpcode), shaderModel });
         continue;
@@ -3234,24 +3237,24 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
     };
 
     // Validate parameter type.
+    unsigned numArgs = 0;
     for (auto &arg : F.args()) {
       Type *argTy = arg.getType();
       if (argTy->isPointerTy())
         argTy = argTy->getPointerElementType();
 
+      numArgs++;
       if (numUDTShaderArgs) {
         if (arg.getArgNo() >= numUDTShaderArgs) {
           ArgFormatError(arg, ValidationRule::DeclExtraArgs);
-          break;
-        }
-        if (!argTy->isStructTy()) {
+        } else if (!argTy->isStructTy()) {
           ArgFormatError(arg,
             shaderKind == DXIL::ShaderKind::Callable
               ? ValidationRule::DeclParamStruct
               : arg.getArgNo() == 0 ? ValidationRule::DeclPayloadStruct
                                     : ValidationRule::DeclAttrStruct);
-          break;
         }
+        continue;
       }
 
       while (argTy->isArrayTy()) {
@@ -3261,6 +3264,15 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
       if (argTy->isStructTy() && !ValCtx.isLibProfile) {
         ArgFormatError(arg, ValidationRule::DeclFnFlattenParam);
         break;
+      }
+    }
+
+    if (numArgs < numUDTShaderArgs) {
+      StringRef argType[2] = { shaderKind == DXIL::ShaderKind::Callable ?
+                                  "params" : "payload", "attributes" };
+      for (unsigned i = numArgs; i < numUDTShaderArgs; i++) {
+        ValCtx.EmitFormatError(ValidationRule::DeclShaderMissingArg,
+          { ShaderModel::GetKindName(shaderKind), F.getName(), argType[i] });
       }
     }
 
@@ -4330,15 +4342,58 @@ static void ValidateNoInterpModeSignature(ValidationContext &ValCtx, const DxilS
 }
 
 static void ValidateEntrySignatures(ValidationContext &ValCtx,
-                               const DxilEntryProps &entryProps,
-                               EntryStatus &Status) {
+                                    const DxilEntryProps &entryProps,
+                                    EntryStatus &Status,
+                                    Function &F) {
   const DxilFunctionProps &props = entryProps.props;
+  const DxilEntrySignature &S = entryProps.sig;
+
   if (props.IsRay()) {
-    // TODO: validate ray entry props.
+    // No signatures allowed
+    if (!S.InputSignature.GetElements().empty() ||
+        !S.OutputSignature.GetElements().empty() ||
+        !S.PatchConstantSignature.GetElements().empty()) {
+      ValCtx.EmitFormatError(ValidationRule::SmRayShaderSignatures, { F.getName() });
+    }
+
+    // Validate payload/attribute/params sizes
+    unsigned payloadSize = 0;
+    unsigned attrSize = 0;
+    auto itPayload = F.arg_begin();
+    auto itAttr = itPayload;
+    if (itAttr != F.arg_end())
+      itAttr++;
+    DataLayout DL(F.getParent());
+    switch (props.shaderKind) {
+    case DXIL::ShaderKind::AnyHit:
+    case DXIL::ShaderKind::ClosestHit:
+      if (itAttr != F.arg_end()) {
+        Type *Ty = itAttr->getType();
+        if (Ty->isPointerTy())
+          Ty = Ty->getPointerElementType();
+        attrSize = (unsigned)std::min(DL.getTypeAllocSize(Ty), (uint64_t)UINT_MAX);
+      }
+    case DXIL::ShaderKind::Miss:
+    case DXIL::ShaderKind::Callable:
+      if (itPayload != F.arg_end()) {
+        Type *Ty = itPayload->getType();
+        if (Ty->isPointerTy())
+          Ty = Ty->getPointerElementType();
+        payloadSize = (unsigned)std::min(DL.getTypeAllocSize(Ty), (uint64_t)UINT_MAX);
+      }
+      break;
+    }
+    if (props.ShaderProps.Ray.payloadSizeInBytes < payloadSize) {
+      ValCtx.EmitFormatError(ValidationRule::SmRayShaderPayloadSize,
+        { F.getName(), props.IsCallable() ? "params" : "payload" });
+    }
+    if (props.ShaderProps.Ray.attributeSizeInBytes < attrSize) {
+      ValCtx.EmitFormatError(ValidationRule::SmRayShaderPayloadSize,
+        { F.getName(), "attribute" });
+    }
     return;
   }
 
-  const DxilEntrySignature &S = entryProps.sig;
   bool isPS = props.IsPS();
   bool isVS = props.IsVS();
   bool isGS = props.IsGS();
@@ -4455,9 +4510,10 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
   }
 
   if (isCS) {
-      if (!S.OutputSignature.GetElements().empty() ||
+      if (!S.InputSignature.GetElements().empty() ||
+          !S.OutputSignature.GetElements().empty() ||
           !S.PatchConstantSignature.GetElements().empty()) {
-        ValCtx.EmitError(ValidationRule::SmCSNoReturn);
+        ValCtx.EmitError(ValidationRule::SmCSNoSignatures);
       }
   }
 }
@@ -4469,7 +4525,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx) {
       if (DM.HasDxilEntryProps(&F)) {
         DxilEntryProps &entryProps = DM.GetDxilEntryProps(&F);
         EntryStatus &Status = ValCtx.GetEntryStatus(&F);
-        ValidateEntrySignatures(ValCtx, entryProps, Status);
+        ValidateEntrySignatures(ValCtx, entryProps, Status, F);
       }
     }
   } else {
@@ -4481,7 +4537,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx) {
     }
     EntryStatus &Status = ValCtx.GetEntryStatus(Entry);
     DxilEntryProps &entryProps = DM.GetDxilEntryProps(Entry);
-    ValidateEntrySignatures(ValCtx, entryProps, Status);
+    ValidateEntrySignatures(ValCtx, entryProps, Status, *Entry);
   }
 }
 
@@ -4982,7 +5038,9 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // 1.2 adds:
   // - Metadata for floating point denorm mode
   // 1.3 adds:
-  // TODO: add comment
+  // - Library support
+  // - Raytracing support
+  // - i64/f64 overloads for rawBufferLoad/Store
   *pMajor = 1;
   *pMinor = 3;
 }
@@ -5147,6 +5205,28 @@ static void VerifyFeatureInfoMatches(_In_ ValidationContext &ValCtx,
   VerifyBlobPartMatches(ValCtx, "Feature Info", pWriter.get(), pFeatureInfoData, FeatureInfoSize);
 }
 
+static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
+                              _In_reads_bytes_(RDATSize) const void *pRDATData,
+                              _In_ uint32_t RDATSize) {
+  unique_ptr<DxilPartWriter> pWriter(NewRDATWriter(ValCtx.DxilMod, 0));
+  VerifyBlobPartMatches(ValCtx, "Runtime Data (RDAT)", pWriter.get(), pRDATData, RDATSize);
+}
+
+_Use_decl_annotations_
+bool VerifyRDATMatches(llvm::Module *pModule,
+                       const void *pRDATData,
+                       uint32_t RDATSize) {
+  std::string diagStr;
+  raw_string_ostream diagStream(diagStr);
+  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), DiagPrinter);
+  VerifyRDATMatches(ValCtx, pRDATData, RDATSize);
+  if (ValCtx.Failed) {
+    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
+  }
+  return !ValCtx.Failed;
+}
+
 _Use_decl_annotations_
 bool VerifyFeatureInfoMatches(llvm::Module *pModule,
                               const void *pFeatureInfoData,
@@ -5237,9 +5317,9 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     case DFCC_ShaderDebugName:
       continue;
 
-    // Lib part
+    // Runtime Data (RDAT) for libraries
     case DFCC_RuntimeData:
-      // TODO: Validate RuntimeData.
+      VerifyRDATMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
       break;
 
     case DFCC_Container:
