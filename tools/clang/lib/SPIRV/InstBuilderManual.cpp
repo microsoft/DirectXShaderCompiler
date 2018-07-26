@@ -84,6 +84,35 @@ InstBuilder &InstBuilder::specConstantBinaryOp(spv::Op op, uint32_t result_type,
   return *this;
 }
 
+InstBuilder &InstBuilder::atomicOp(spv::Op op, uint32_t result_type,
+                                   uint32_t result_id, uint32_t pointer,
+                                   uint32_t scope, uint32_t semantics,
+                                   uint32_t value) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+  if (result_type == 0) {
+    TheStatus = Status::ZeroResultType;
+    return *this;
+  }
+  if (result_id == 0) {
+    TheStatus = Status::ZeroResultId;
+    return *this;
+  }
+
+  TheInst.reserve(7);
+  TheInst.emplace_back(static_cast<uint32_t>(op));
+  TheInst.emplace_back(result_type);
+  TheInst.emplace_back(result_id);
+  TheInst.emplace_back(pointer);
+  TheInst.emplace_back(scope);
+  TheInst.emplace_back(semantics);
+  TheInst.emplace_back(value);
+
+  return *this;
+}
+
 InstBuilder &InstBuilder::groupNonUniformOp(spv::Op op, uint32_t result_type,
                                             uint32_t result_id,
                                             uint32_t exec_scope) {
