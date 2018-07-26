@@ -164,6 +164,9 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrResourceClassForSamplerGather: return "sample, lod and gather should on srv resource.";
     case hlsl::ValidationRule::InstrResourceClassForUAVStore: return "store should on uav resource.";
     case hlsl::ValidationRule::InstrResourceClassForLoad: return "load can only run on UAV/SRV resource";
+    case hlsl::ValidationRule::InstrResourceMapToSingleEntry: return "Fail to map resource to resource table";
+    case hlsl::ValidationRule::InstrResourceUser: return "Resource should only used by Load/GEP/Call";
+    case hlsl::ValidationRule::InstrResourceKindForTraceRay: return "TraceRay should only use RTAccelerationStructure";
     case hlsl::ValidationRule::InstrOffsetOnUAVLoad: return "uav load don't support offset";
     case hlsl::ValidationRule::InstrMipOnUAVLoad: return "uav load don't support mipLevel/sampleIndex";
     case hlsl::ValidationRule::InstrSampleIndexForLoad2DMS: return "load on Texture2DMS/2DMSArray require sampleIndex";
@@ -174,6 +177,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrDxilStructUserOutOfBound: return "Index out of bound when extract value from dxil struct types";
     case hlsl::ValidationRule::InstrHandleNotFromCreateHandle: return "Resource handle should returned by createHandle";
     case hlsl::ValidationRule::InstrBufferUpdateCounterOnUAV: return "BufferUpdateCounter valid only on UAV";
+    case hlsl::ValidationRule::InstrBufferUpdateCounterOnResHasCounter: return "BufferUpdateCounter valid only when HasCounter is true";
     case hlsl::ValidationRule::InstrCBufferOutOfBound: return "Cbuffer access out of bound";
     case hlsl::ValidationRule::InstrCBufferClassForCBufferHandle: return "Expect Cbuffer for CBufferLoad handle";
     case hlsl::ValidationRule::InstrFailToResloveTGSMPointer: return "TGSM pointers must originate from an unambiguous TGSM global variable.";
@@ -233,13 +237,16 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmMultiStreamMustBePoint: return "Multiple GS output streams are used but '%0' is not pointlist";
     case hlsl::ValidationRule::SmCompletePosition: return "Not all elements of SV_Position were written";
     case hlsl::ValidationRule::SmUndefinedOutput: return "Not all elements of output %0 were written";
-    case hlsl::ValidationRule::SmCSNoReturn: return "Compute shaders can't return values, outputs must be written in writable resources (UAVs).";
+    case hlsl::ValidationRule::SmCSNoSignatures: return "Compute shaders must not have shader signatures.";
     case hlsl::ValidationRule::SmCBufferTemplateTypeMustBeStruct: return "D3D12 constant/texture buffer template element can only be a struct";
     case hlsl::ValidationRule::SmResourceRangeOverlap: return "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5";
     case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1";
     case hlsl::ValidationRule::SmCBufferElementOverflow: return "CBuffer %0 size insufficient for element at offset %1";
     case hlsl::ValidationRule::SmOpcodeInInvalidFunction: return "opcode '%0' should only be used in '%1'";
     case hlsl::ValidationRule::SmViewIDNeedsSlot: return "Pixel shader input signature lacks available space for ViewID";
+    case hlsl::ValidationRule::Sm64bitRawBufferLoadStore: return "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3";
+    case hlsl::ValidationRule::SmRayShaderSignatures: return "Ray tracing shader '%0' should not have any shader signatures";
+    case hlsl::ValidationRule::SmRayShaderPayloadSize: return "For shader '%0', %1 size is smaller than argument's allocation size";
     case hlsl::ValidationRule::UniNoWaveSensitiveGradient: return "Gradient operations are not affected by wave-sensitive data or control flow.";
     case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
     case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted";
@@ -253,6 +260,13 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::DeclFnIsCalled: return "Function '%0' is used for something other than calling";
     case hlsl::ValidationRule::DeclFnFlattenParam: return "Type '%0' is a struct type but is used as a parameter in function '%1'";
     case hlsl::ValidationRule::DeclFnAttribute: return "Function '%0' contains invalid attribute '%1' with value '%2'";
+    case hlsl::ValidationRule::DeclResourceInFnSig: return "Function '%0' uses resource in function signature";
+    case hlsl::ValidationRule::DeclPayloadStruct: return "Argument '%0' must be a struct type for payload in shader function '%1'";
+    case hlsl::ValidationRule::DeclAttrStruct: return "Argument '%0' must be a struct type for attributes in shader function '%1'";
+    case hlsl::ValidationRule::DeclParamStruct: return "Argument '%0' must be a struct type for callable shader function '%1'";
+    case hlsl::ValidationRule::DeclExtraArgs: return "Extra argument '%0' not allowed for shader function '%1'";
+    case hlsl::ValidationRule::DeclShaderReturnVoid: return "Shader function '%0' must have void return type";
+    case hlsl::ValidationRule::DeclShaderMissingArg: return "%0 shader '%1' missing required %2 parameter";
   }
   // VALRULE-TEXT:END
   llvm_unreachable("invalid value");
@@ -366,8 +380,7 @@ struct ValidationContext {
   std::unordered_set<Function *> patchConstFuncCallSet;
   std::unordered_map<unsigned, bool> UavCounterIncMap;
   // TODO: save resource map for each createHandle/createHandleForLib.
-  std::unordered_map<Type *, DxilResourceBase *> ResTypeMap;
-  std::unordered_map<MDNode *, std::unique_ptr<DxilResourceBase>> ResInParam;
+  std::unordered_map<Value *, DxilResourceBase *> ResMap;
   std::unordered_map<Function *, std::vector<Function*>> PatchConstantFuncMap;
   std::unordered_map<Function *, std::unique_ptr<EntryStatus>> entryStatusMap;
   bool isLibProfile;
@@ -400,19 +413,7 @@ struct ValidationContext {
     }
 
     isLibProfile = dxilModule.GetShaderModel()->IsLib();
-    if (isLibProfile) {
-      auto collectResTy = [&](auto &ResTab) {
-        for (auto &Res : ResTab) {
-          Type *Ty = Res->GetGlobalSymbol()->getType()->getPointerElementType();
-          Ty = dxilutil::GetArrayEltTy(Ty);
-          ResTypeMap[Ty] = Res.get();
-        }
-      };
-      collectResTy(DxilMod.GetCBuffers());
-      collectResTy(DxilMod.GetUAVs());
-      collectResTy(DxilMod.GetSRVs());
-      collectResTy(DxilMod.GetSamplers());
-    }
+    BuildResMap();
     // Collect patch constant map.
     if (isLibProfile) {
       for (Function &F : dxilModule.GetModule()->functions()) {
@@ -439,74 +440,147 @@ struct ValidationContext {
     }
   }
 
+  void PropagateResMap(Value *V, DxilResourceBase *Res) {
+    auto it = ResMap.find(V);
+    if (it != ResMap.end()) {
+      if (it->second != Res) {
+        EmitError(ValidationRule::InstrResourceMapToSingleEntry);
+      }
+    } else {
+      ResMap[V] = Res;
+      for (User *U : V->users()) {
+        if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+          PropagateResMap(U, Res);
+        } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+          // Stop propagate on function call.
+          DxilInst_CreateHandleForLib hdl(CI);
+          if (hdl) {
+            ResMap[CI] = Res;
+          }
+        } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+          PropagateResMap(U, Res);
+        } else {
+          EmitError(ValidationRule::InstrResourceUser);
+        }
+      }
+    }
+  }
+
+  void BuildResMap() {
+    hlsl::OP *hlslOP = DxilMod.GetOP();
+
+    if (isLibProfile) {
+      std::unordered_set<Value *> ResSet;
+      // Start from all global variable in resTab.
+      auto collectRes = [&](auto &ResTab) {
+        for (auto &Res : ResTab) {
+          PropagateResMap(Res->GetGlobalSymbol(), Res.get());
+        }
+      };
+
+      collectRes(DxilMod.GetCBuffers());
+      collectRes(DxilMod.GetUAVs());
+      collectRes(DxilMod.GetSRVs());
+      collectRes(DxilMod.GetSamplers());
+    } else {
+      // Scan all createHandle.
+      for (auto &it : hlslOP->GetOpFuncList(DXIL::OpCode::CreateHandle)) {
+        Function *F = it.second;
+        if (!F)
+          continue;
+        for (User *U : F->users()) {
+          CallInst *CI = cast<CallInst>(U);
+          DxilInst_CreateHandle hdl(CI);
+          // Validate Class/RangeID/Index.
+          Value *resClass = hdl.get_resourceClass();
+          if (!isa<ConstantInt>(resClass)) {
+            EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+            continue;
+          }
+          Value *rangeIndex = hdl.get_rangeId();
+          if (!isa<ConstantInt>(rangeIndex)) {
+            EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+            continue;
+          }
+
+          DxilResourceBase *Res = nullptr;
+          unsigned rangeId = hdl.get_rangeId_val();
+          switch (
+              static_cast<DXIL::ResourceClass>(hdl.get_resourceClass_val())) {
+          default:
+            EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+            continue;
+            break;
+          case DXIL::ResourceClass::CBuffer:
+            if (DxilMod.GetCBuffers().size() > rangeId) {
+              Res = &DxilMod.GetCBuffer(rangeId);
+            } else {
+              // Emit Error.
+              EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+              continue;
+            }
+            break;
+          case DXIL::ResourceClass::Sampler:
+            if (DxilMod.GetSamplers().size() > rangeId) {
+              Res = &DxilMod.GetSampler(rangeId);
+            } else {
+              // Emit Error.
+              EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+              continue;
+            }
+            break;
+          case DXIL::ResourceClass::SRV:
+            if (DxilMod.GetSRVs().size() > rangeId) {
+              Res = &DxilMod.GetSRV(rangeId);
+            } else {
+              // Emit Error.
+              EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+              continue;
+            }
+            break;
+          case DXIL::ResourceClass::UAV:
+            if (DxilMod.GetUAVs().size() > rangeId) {
+              Res = &DxilMod.GetUAV(rangeId);
+            } else {
+              // Emit Error.
+              EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+              continue;
+            }
+            break;
+          }
+
+          ConstantInt *cIndex = dyn_cast<ConstantInt>(hdl.get_index());
+          if (!Res->GetGlobalSymbol()
+                   ->getType()
+                   ->getPointerElementType()
+                   ->isArrayTy()) {
+            if (!cIndex) {
+              // index must be 0 for none array resource.
+              EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+              continue;
+            }
+          }
+          if (cIndex) {
+            unsigned index = cIndex->getLimitedValue();
+            if (index < Res->GetLowerBound() || index > Res->GetUpperBound()) {
+              // index out of range.
+              EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+              continue;
+            }
+          }
+
+          ResMap[CI] = Res;
+        }
+      }
+    }
+  }
+
   bool HasEntryStatus(Function *F) {
     return entryStatusMap.find(F) != entryStatusMap.end();
   }
 
   EntryStatus &GetEntryStatus(Function *F) { return *entryStatusMap[F]; }
 
-  DxilResourceBase *GetResFromTy(Type *Ty) {
-    auto it = ResTypeMap.find(Ty);
-    if (it == ResTypeMap.end())
-      return nullptr;
-    else
-      return it->second;
-  }
-
-  DxilResourceBase *GetResourceFromMetadata(MDNode *Node) {
-    auto it = ResInParam.find(Node);
-    if (it != ResInParam.end())
-      return it->second.get();
-    DxilResourceBase Res(DxilResource::Class::Invalid);
-    DxilMod.LoadDxilResourceBaseFromMDNode(Node, Res);
-
-    std::unique_ptr<DxilResourceBase> ResBasePtr = nullptr;
-    switch (Res.GetClass()) {
-    case DXIL::ResourceClass::CBuffer: {
-      std::unique_ptr<DxilCBuffer> ResPtr = llvm::make_unique<DxilCBuffer>();
-      // TODO: set more field.
-      ResPtr->SetKind(Res.GetKind());
-      ResBasePtr = std::unique_ptr<DxilResourceBase>(ResPtr.release());
-    } break;
-    case DXIL::ResourceClass::Sampler: {
-      DxilSampler Res;
-      DxilMod.LoadDxilSamplerFromMDNode(Node, Res);
-      std::unique_ptr<DxilSampler> ResPtr = llvm::make_unique<DxilSampler>();
-      // TODO: set more field.
-      ResPtr->SetKind(Res.GetKind());
-      ResPtr->SetSamplerKind(Res.GetSamplerKind());
-      ResBasePtr = std::unique_ptr<DxilResourceBase>(ResPtr.release());
-    } break;
-    case DXIL::ResourceClass::SRV: {
-      DxilResource Res;
-      DxilMod.LoadDxilResourceFromMDNode(Node, Res);
-      std::unique_ptr<DxilResource> ResPtr = llvm::make_unique<DxilResource>();
-      // TODO: set more field.
-      ResPtr->SetKind(Res.GetKind());
-      ResPtr->SetRW(false);
-      ResBasePtr = std::unique_ptr<DxilResourceBase>(ResPtr.release());
-    } break;
-    case DXIL::ResourceClass::UAV: {
-      DxilResource Res;
-      DxilMod.LoadDxilResourceFromMDNode(Node, Res);
-      std::unique_ptr<DxilResource> ResPtr = llvm::make_unique<DxilResource>();
-      // TODO: set more field.
-      ResPtr->SetKind(Res.GetKind());
-      ResPtr->SetRW(true);
-      ResPtr->SetHasCounter(Res.HasCounter());
-      ResBasePtr = std::unique_ptr<DxilResourceBase>(ResPtr.release());
-    } break;
-    default:
-      return nullptr;
-    }
-
-    DxilResourceBase *Ptr = ResBasePtr.get();
-    ResInParam[Node] = std::move(ResBasePtr);
-    return Ptr;
-  }
-
-  DxilResourceBase *GetResourceFromResPtr(Value *resVal,
-                                          std::deque<unsigned> &offsets);
   DxilResourceBase *GetResourceFromVal(Value *resVal);
 
   // Provide direct access to the raw_ostream in DiagPrinter.
@@ -520,7 +594,7 @@ struct ValidationContext {
   }
 
   void EmitGlobalValueError(GlobalValue *GV, ValidationRule rule) {
-    EmitFormatError(rule, { GV->getName().str() });
+    EmitFormatError(rule, { GV->getName() });
   }
 
   // This is the least desirable mechanism, as it has no context.
@@ -530,19 +604,27 @@ struct ValidationContext {
   }
 
   void FormatRuleText(std::string &ruleText, ArrayRef<StringRef> args) {
+    std::string escapedArg;
     // Consider changing const char * to StringRef
     for (unsigned i = 0; i < args.size(); i++) {
       std::string argIdx = "%" + std::to_string(i);
       StringRef pArg = args[i];
       if (pArg == "")
         pArg = "<null>";
+      if (pArg[0] == 1) {
+        escapedArg = "";
+        raw_string_ostream os(escapedArg);
+        dxilutil::PrintEscapedString(pArg, os);
+        os.flush();
+        pArg = escapedArg;
+      }
 
       std::string::size_type offset = ruleText.find(argIdx);
       if (offset == std::string::npos)
         continue;
 
       unsigned size = argIdx.size();
-      ruleText.replace(offset, size, args[i]);
+      ruleText.replace(offset, size, pArg);
     }
   }
 
@@ -686,85 +768,87 @@ struct ValidationContext {
 };
 
 static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
-                                    const ShaderModel *pSM) {
+                                    DXIL::ShaderKind SK,
+                                    unsigned major,
+                                    unsigned minor) {
   unsigned op = (unsigned)opcode;
   /* <py::lines('VALOPCODESM-TEXT')>hctdb_instrhelp.get_valopcode_sm_text()</py>*/
   // VALOPCODESM-TEXT:BEGIN
   // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
   // FlattenedThreadIdInGroup=96
   if ((93 <= op && op <= 96))
-    return (pSM->IsCS());
+    return (SK == DXIL::ShaderKind::Compute);
   // Instructions: DomainLocation=105
   if (op == 105)
-    return (pSM->IsDS());
+    return (SK == DXIL::ShaderKind::Domain);
   // Instructions: LoadOutputControlPoint=103, LoadPatchConstant=104
   if ((103 <= op && op <= 104))
-    return (pSM->IsDS() || pSM->IsHS());
+    return (SK == DXIL::ShaderKind::Domain || SK == DXIL::ShaderKind::Hull);
   // Instructions: EmitStream=97, CutStream=98, EmitThenCutStream=99,
   // GSInstanceID=100
   if ((97 <= op && op <= 100))
-    return (pSM->IsGS());
+    return (SK == DXIL::ShaderKind::Geometry);
   // Instructions: PrimitiveID=108
   if (op == 108)
-    return (pSM->IsGS() || pSM->IsDS() || pSM->IsHS());
+    return (SK == DXIL::ShaderKind::Geometry || SK == DXIL::ShaderKind::Domain || SK == DXIL::ShaderKind::Hull);
   // Instructions: StorePatchConstant=106, OutputControlPointID=107
   if ((106 <= op && op <= 107))
-    return (pSM->IsHS());
+    return (SK == DXIL::ShaderKind::Hull);
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
   if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86))
-    return (pSM->IsLib() || pSM->IsPS());
+    return (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Pixel);
   // Instructions: RenderTargetGetSamplePosition=76,
   // RenderTargetGetSampleCount=77, Discard=82, EvalSnapped=87,
   // EvalSampleIndex=88, EvalCentroid=89, SampleIndex=90, Coverage=91,
   // InnerCoverage=92
   if ((76 <= op && op <= 77) || op == 82 || (87 <= op && op <= 92))
-    return (pSM->IsPS());
+    return (SK == DXIL::ShaderKind::Pixel);
   // Instructions: AttributeAtVertex=137
   if (op == 137)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
-        && (pSM->IsPS());
+    return (major > 6 || (major == 6 && minor >= 1))
+        && (SK == DXIL::ShaderKind::Pixel);
   // Instructions: ViewID=138
   if (op == 138)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
-        && (pSM->IsVS() || pSM->IsHS() || pSM->IsDS() || pSM->IsGS() || pSM->IsPS());
+    return (major > 6 || (major == 6 && minor >= 1))
+        && (SK == DXIL::ShaderKind::Vertex || SK == DXIL::ShaderKind::Hull || SK == DXIL::ShaderKind::Domain || SK == DXIL::ShaderKind::Geometry || SK == DXIL::ShaderKind::Pixel);
   // Instructions: RawBufferLoad=139, RawBufferStore=140
   if ((139 <= op && op <= 140))
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 2));
+    return (major > 6 || (major == 6 && minor >= 2));
   // Instructions: CreateHandleForLib=160
   if (op == 160)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3));
+    return (major > 6 || (major == 6 && minor >= 3));
   // Instructions: IgnoreHit=155, AcceptHitAndEndSearch=156
   if ((155 <= op && op <= 156))
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::AnyHit);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::AnyHit);
   // Instructions: CallShader=159
   if (op == 159)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::RayGeneration || pSM->GetKind() == DXIL::ShaderKind::Miss || pSM->GetKind() == DXIL::ShaderKind::Callable);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::ClosestHit || SK == DXIL::ShaderKind::RayGeneration || SK == DXIL::ShaderKind::Miss || SK == DXIL::ShaderKind::Callable);
   // Instructions: ReportHit=158
   if (op == 158)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Intersection);
   // Instructions: InstanceID=141, InstanceIndex=142, HitKind=143,
   // ObjectRayOrigin=149, ObjectRayDirection=150, ObjectToWorld=151,
   // WorldToObject=152, PrimitiveIndex=161
   if ((141 <= op && op <= 143) || (149 <= op && op <= 152) || op == 161)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit);
   // Instructions: RayFlags=144, WorldRayOrigin=147, WorldRayDirection=148,
   // RayTMin=153, RayTCurrent=154
   if (op == 144 || (147 <= op && op <= 148) || (153 <= op && op <= 154))
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::Miss);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit || SK == DXIL::ShaderKind::Miss);
   // Instructions: TraceRay=157
   if (op == 157)
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::RayGeneration || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::Miss);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::RayGeneration || SK == DXIL::ShaderKind::ClosestHit || SK == DXIL::ShaderKind::Miss);
   // Instructions: DispatchRaysIndex=145, DispatchRaysDimensions=146
   if ((145 <= op && op <= 146))
-    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 3))
-        && (pSM->IsLib() || pSM->GetKind() == DXIL::ShaderKind::RayGeneration || pSM->GetKind() == DXIL::ShaderKind::Intersection || pSM->GetKind() == DXIL::ShaderKind::AnyHit || pSM->GetKind() == DXIL::ShaderKind::ClosestHit || pSM->GetKind() == DXIL::ShaderKind::Miss || pSM->GetKind() == DXIL::ShaderKind::Callable);
+    return (major > 6 || (major == 6 && minor >= 3))
+        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::RayGeneration || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit || SK == DXIL::ShaderKind::Miss || SK == DXIL::ShaderKind::Callable);
   return true;
   // VALOPCODESM-TEXT:END
 }
@@ -832,129 +916,26 @@ ValidateSignatureAccess(Instruction *I, DxilSignature &sig, Value *sigID,
   return &SE;
 }
 
-static CallInst *GetHandleFromValue(Value *V, DenseSet<Value *> &Checked);
-static CallInst *GetHandleFromPhi(PHINode *Phi, DenseSet<Value *> &Checked) {
-  // TODO: validate all incoming values for phi is same kind and class.
-  for (Value *V : Phi->incoming_values()) {
-    if (CallInst *CI = GetHandleFromValue(V, Checked))
-      return CI;
-  }
-  return nullptr;
-}
-static CallInst *GetHandleFromSelect(SelectInst *Sel, DenseSet<Value *> &Checked) {
-  // TODO: validate all incoming values for select is same kind and class.
-  for (Value *V = Sel->getTrueValue(), *F = Sel->getFalseValue(); V != F; V = F) {
-    if (CallInst *CI = GetHandleFromValue(V, Checked))
-      return CI;
-  }
-  return nullptr;
-}
-static CallInst *GetHandleFromValue(Value *V, DenseSet<Value *> &Checked) {
-  if (!Checked.count(V)) {
-    Checked.insert(V);
-    if (CallInst *CI = dyn_cast<CallInst>(V)) {
-      return CI;
-    }
-    else if (PHINode *P = dyn_cast<PHINode>(V)) {
-      if (CallInst *CI = GetHandleFromPhi(P, Checked)) {
-        return CI;
-      }
-    }
-    else if (SelectInst *S = dyn_cast<SelectInst>(V)) {
-      if (CallInst *CI = GetHandleFromSelect(S, Checked)) {
-        return CI;
-      }
-    }
-  }
-  return nullptr;
-}
-
 static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle,
                                         ValidationContext &ValCtx) {
   if (!isa<CallInst>(samplerHandle)) {
-    DenseSet<Value *> Checked;
-    if (CallInst *CI = GetHandleFromValue(samplerHandle, Checked)) {
-      samplerHandle = CI;
-    } else {
-      ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
-      return DXIL::SamplerKind::Invalid;
-    }
-  }
-
-  DxilInst_CreateHandle createHandle(cast<CallInst>(samplerHandle));
-  if (!createHandle) {
-    auto EmitError = [&]() -> DXIL::SamplerKind {
-      ValCtx.EmitInstrError(cast<CallInst>(samplerHandle),
-                            ValidationRule::InstrHandleNotFromCreateHandle);
-      return DXIL::SamplerKind::Invalid;
-    };
-    if (!ValCtx.isLibProfile) {
-      return EmitError();
-    }
-
-    DxilInst_CreateHandleForLib createHandleFromRes(
-        cast<CallInst>(samplerHandle));
-    if (!createHandleFromRes) {
-      return EmitError();
-    }
-
-    DxilResourceBase *Res =
-        ValCtx.GetResFromTy(createHandleFromRes.get_Resource()->getType());
-    if (!Res) {
-      Res = ValCtx.GetResourceFromVal(createHandleFromRes.get_Resource());
-      if (!Res)
-        return EmitError();
-    }
-    if (Res->GetClass() == DXIL::ResourceClass::Sampler) {
-      DxilSampler *S = (DxilSampler *)(Res);
-      return S->GetSamplerKind();
-    } else {
-      return EmitError();
-    }
-  }
-
-  Value *resClass = createHandle.get_resourceClass();
-  if (!isa<ConstantInt>(resClass)) {
+    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return DXIL::SamplerKind::Invalid;
   }
 
-  if (createHandle.get_resourceClass_val() != static_cast<unsigned>(DXIL::ResourceClass::Sampler)) {
+  DxilResourceBase *Res = ValCtx.GetResourceFromVal(samplerHandle);
+  if (!Res) {
+      ValCtx.EmitInstrError(cast<CallInst>(samplerHandle),
+          ValidationRule::InstrHandleNotFromCreateHandle);
+      return DXIL::SamplerKind::Invalid;
+  }
+
+  if (Res->GetClass() != DXIL::ResourceClass::Sampler) {
     // must be sampler.
     return DXIL::SamplerKind::Invalid;
   }
 
-  Value *rangeIndex = createHandle.get_rangeId();
-  if (!isa<ConstantInt>(rangeIndex)) {
-    // must be constant
-    return DXIL::SamplerKind::Invalid;
-  }
-  unsigned samplerIndex = cast<ConstantInt>(rangeIndex)->getLimitedValue();
-  auto &samplers = ValCtx.DxilMod.GetSamplers();
-  if (samplerIndex >= samplers.size()) {
-    return DXIL::SamplerKind::Invalid;
-  }
-
-  DxilSampler *sampler = samplers[samplerIndex].get();
-
-  Value *index = createHandle.get_index();
-  ConstantInt *cIndex = dyn_cast<ConstantInt>(index);
-
-  if (!sampler->GetGlobalSymbol()->getType()->getPointerElementType()->isArrayTy()) {
-    if (!cIndex) {
-      // index must be 0 for none array resource.
-      return DXIL::SamplerKind::Invalid;
-    }
-  }
-
-  if (cIndex) {
-    unsigned index = cIndex->getLimitedValue();
-    if (index < sampler->GetLowerBound() || index > sampler->GetUpperBound()) {
-      // index out of range.
-      return DXIL::SamplerKind::Invalid;
-    }
-  }
-
-  return sampler->GetSamplerKind();
+  return ((DxilSampler*)Res)->GetSamplerKind();
 }
 
 static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::ComponentType &CompTy, DXIL::ResourceClass &ResClass,
@@ -963,56 +944,19 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
   CompTy = DXIL::ComponentType::Invalid;
   ResClass = DXIL::ResourceClass::Invalid;
   if (!isa<CallInst>(handle)) {
-    DenseSet<Value *> Checked;
-    if (CallInst *CI = GetHandleFromValue(handle, Checked)) {
-      handle = CI;
-    } else {
-      ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
-      return DXIL::ResourceKind::Invalid;
-    }
+    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
+    return DXIL::ResourceKind::Invalid;
   }
   // TODO: validate ROV is used only in PS.
 
-  DxilInst_CreateHandle createHandle(cast<CallInst>(handle));
-  if (!createHandle) {
-    auto EmitError = [&]() -> DXIL::ResourceKind {
-      ValCtx.EmitInstrError(cast<CallInst>(handle),
-                            ValidationRule::InstrHandleNotFromCreateHandle);
-      return DXIL::ResourceKind::Invalid;
-    };
-    if (!ValCtx.isLibProfile) {
-      return EmitError();
-    }
-    DxilInst_CreateHandleForLib createHandleFromRes(
-        cast<CallInst>(handle));
-    if (!createHandleFromRes) {
-      return EmitError();
-    }
-    DxilResourceBase *res =
-        ValCtx.GetResFromTy(createHandleFromRes.get_Resource()->getType());
-    if (!res) {
-      res = ValCtx.GetResourceFromVal(createHandleFromRes.get_Resource());
-      if (!res)
-        return EmitError();
-    }
-    // TODO: resIndex for Uav Counter.
-    if (res->GetClass() == DXIL::ResourceClass::UAV ||
-        res->GetClass() == DXIL::ResourceClass::SRV) {
-      DxilResource *Res = (DxilResource*)(res);
-      CompTy = Res->GetCompType().GetKind();
-    } else {
-      return EmitError();
-    }
-    ResClass = res->GetClass();
-    return res->GetKind();
-  }
-
-  Value *resourceClass = createHandle.get_resourceClass();
-  if (!isa<ConstantInt>(resourceClass)) {
+  DxilResourceBase *Res = ValCtx.GetResourceFromVal(handle);
+  if (!Res) {
+    ValCtx.EmitInstrError(cast<CallInst>(handle),
+                          ValidationRule::InstrHandleNotFromCreateHandle);
     return DXIL::ResourceKind::Invalid;
   }
 
-  ResClass = static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
+  ResClass = Res->GetClass();
 
   switch (ResClass) {
   case DXIL::ResourceClass::SRV:
@@ -1027,53 +971,11 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
     return DXIL::ResourceKind::Invalid;
   }
 
-  Value *rangeIndex = createHandle.get_rangeId();
-  if (!isa<ConstantInt>(rangeIndex)) {
-    ValCtx.EmitInstrError(cast<CallInst>(handle),
-                          ValidationRule::InstrCreateHandleImmRangeID);
-    // must be constant
-    return DXIL::ResourceKind::Invalid;
-  }
-  resIndex = cast<ConstantInt>(rangeIndex)->getLimitedValue();
+  resIndex = Res->GetID();
 
-  DxilResource *res = nullptr;
-  if (ResClass == DXIL::ResourceClass::UAV) {
-    auto &resources = ValCtx.DxilMod.GetUAVs();
-    if (resIndex >= resources.size()) {
-      return DXIL::ResourceKind::Invalid;
-    }
-    res = resources[resIndex].get();
-  } else {
-    if (ResClass != DXIL::ResourceClass::SRV) {
-      return DXIL::ResourceKind::Invalid;
-    }
-    auto &resources = ValCtx.DxilMod.GetSRVs();
-    if (resIndex >= resources.size()) {
-      return DXIL::ResourceKind::Invalid;
-    }
-    res = resources[resIndex].get();
-  }
+  CompTy = ((DxilResource*)Res)->GetCompType().GetKind();
 
-  CompTy = res->GetCompType().GetKind();
-
-  Value *index = createHandle.get_index();
-  ConstantInt *cIndex = dyn_cast<ConstantInt>(index);
-
-  if (!res->GetGlobalSymbol()->getType()->getPointerElementType()->isArrayTy()) {
-    if (!cIndex) {
-      // index must be 0 for none array resource.
-      return DXIL::ResourceKind::Invalid;
-    }
-  }
-  if (cIndex) {
-    unsigned index = cIndex->getLimitedValue();
-    if (index < res->GetLowerBound() || index > res->GetUpperBound()) {
-      // index out of range.
-      return DXIL::ResourceKind::Invalid;
-    }
-  }
-
-  return res->GetKind();
+  return Res->GetKind();
 }
 
 DxilFieldAnnotation *GetFieldAnnotation(Type *Ty,
@@ -1105,168 +1007,29 @@ DxilFieldAnnotation *GetFieldAnnotation(Type *Ty,
   return nullptr;
 }
 
-DxilResourceBase *
-ValidationContext::GetResourceFromResPtr(Value *resPtr,
-                                         std::deque<unsigned> &offsets) {
-  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(resPtr)) {
-    auto FindRes = [&](auto &ResTab) -> DxilResourceBase * {
-      for (auto &UAV : ResTab) {
-        if (UAV->GetGlobalSymbol() == GV) {
-          return UAV.get();
-        }
-      }
-      return nullptr;
-    };
-    DxilResourceBase *Res = FindRes(DxilMod.GetUAVs());
-    if (Res)
-      return Res;
-    Res = FindRes(DxilMod.GetSRVs());
-    if (Res)
-      return Res;
-    Res = FindRes(DxilMod.GetCBuffers());
-    if (Res)
-      return Res;
-    return FindRes(DxilMod.GetSamplers());
-  } else if (Argument *Arg = dyn_cast<Argument>(resPtr)) {
-    Function *F = Arg->getParent();
-    auto &typeSys = DxilMod.GetTypeSystem();
-    if (auto *FunctionAnnot = typeSys.GetFunctionAnnotation(F)) {
-      FunctionType *FT = F->getFunctionType();
-      auto &ParamAnnot = FunctionAnnot->GetParameterAnnotation(Arg->getArgNo());
-      if (offsets.size() == 1) {
-        MDNode *Node = ParamAnnot.GetResourceAttribute();
-        if (!Node)
-          return nullptr;
-        return GetResourceFromMetadata(Node);
-      } else {
-        Type *Ty = FT->getParamType(Arg->getArgNo());
-        if (!isa<PointerType>(Ty))
-          return nullptr;
-        Ty = Ty->getPointerElementType();
-        if (!isa<StructType>(Ty))
-          return nullptr;
-        if (DxilFieldAnnotation *fieldAnnot =
-                GetFieldAnnotation(Ty, typeSys, offsets)) {
-          MDNode *Node = fieldAnnot->GetResourceAttribute();
-          if (!Node)
-            return nullptr;
-          return GetResourceFromMetadata(Node);
-        } else {
-          return nullptr;
-        }
-      }
-    } else {
-      return nullptr;
-    }
-  } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(resPtr)) {
-    auto it = GEP->idx_begin();
-    auto end = GEP->idx_end();
-    // Skip first 0.
-    it++;
-    for (; it != end; it++) {
-      if (ConstantInt *idx = dyn_cast<ConstantInt>(*it)) {
-        offsets.emplace_back(idx->getLimitedValue());
-      } else {
-        offsets.emplace_back(0);
-      }
-    }
-    return GetResourceFromResPtr(GEP->getPointerOperand(), offsets);
-  } else if (AllocaInst *AI = dyn_cast<AllocaInst>(resPtr)) {
-    Type *Ty = AI->getAllocatedType();
-    auto &typeSys = DxilMod.GetTypeSystem();
-    while (isa<ArrayType>(Ty)) {
-      Ty = Ty->getArrayElementType();
-      offsets.pop_front();
-    }
-    if (offsets.size() == 1) {
-      // Try to find info from function call.
-      // Assume alloca of resource must be used by a function call.
-      for (User *U : AI->users()) {
-        if (CallInst *CI = dyn_cast<CallInst>(U)) {
-          for (unsigned i = 0; i < CI->getNumArgOperands(); i++) {
-            if (CI->getArgOperand(i) == AI) {
-              Function *F = CI->getCalledFunction();
-              if (auto *FunctionAnnot = typeSys.GetFunctionAnnotation(F)) {
-                auto &ParamAnnot = FunctionAnnot->GetParameterAnnotation(i);
-                if (offsets.size() == 1) {
-                  MDNode *Node = ParamAnnot.GetResourceAttribute();
-                  if (!Node)
-                    return nullptr;
-                  return GetResourceFromMetadata(Node);
-                }
-              }
-              break;
-            }
-          }
-        }
-      }
-      return nullptr;
-    } else if (DxilFieldAnnotation *fieldAnnot =
-                   GetFieldAnnotation(Ty, typeSys, offsets)) {
-      MDNode *Node = fieldAnnot->GetResourceAttribute();
-      if (!Node)
-        return nullptr;
-      return GetResourceFromMetadata(Node);
-    } else {
-      return nullptr;
-    }
-
-  } else {
-    return nullptr;
-  }
-}
 
 DxilResourceBase *ValidationContext::GetResourceFromVal(Value *resVal) {
-  if (LoadInst *LI = dyn_cast<LoadInst>(resVal)) {
-    // Add the first 0 for pointer.
-    std::deque<unsigned> offsets(1, 0);
-    DxilResourceBase *Res = GetResourceFromResPtr(LI->getPointerOperand(), offsets);
-    if (Res)
-      ResTypeMap[LI->getType()] = Res;
-    return Res;
-  } else {
+  auto it = ResMap.find(resVal);
+  if (it != ResMap.end())
+    return it->second;
+  else
     return nullptr;
-  }
 }
 
 static DxilResource *GetResource(Value *handle, ValidationContext &ValCtx) {
   if (!isa<CallInst>(handle)) {
-    DenseSet<Value *> Checked;
-    if (CallInst *CI = GetHandleFromValue(handle, Checked)) {
-      handle = CI;
-    } else {
-      ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
-      return nullptr;
-    }
-  }
-
-  DxilInst_CreateHandle createHandle(cast<CallInst>(handle));
-  if (!createHandle) {
-    auto EmitError = [&]() -> DXIL::ResourceKind {
-      ValCtx.EmitInstrError(cast<CallInst>(handle),
-                            ValidationRule::InstrHandleNotFromCreateHandle);
-      return DXIL::ResourceKind::Invalid;
-    };
-    if (!ValCtx.isLibProfile) {
-      EmitError();
-      return nullptr;
-    }
-    DxilInst_CreateHandleForLib createHandleFromRes(cast<CallInst>(handle));
-    if (!createHandleFromRes) {
-      EmitError();
-      return nullptr;
-    }
-    Value *resVal = createHandleFromRes.get_Resource();
-    return (DxilResource*)ValCtx.GetResourceFromVal(resVal);
-  }
-
-  Value *resourceClass = createHandle.get_resourceClass();
-  if (!isa<ConstantInt>(resourceClass)) {
+    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return nullptr;
   }
 
-  DXIL::ResourceClass ResClass =
-      static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
+  DxilResourceBase *Res = ValCtx.GetResourceFromVal(handle);
+  if (!Res) {
+    ValCtx.EmitInstrError(cast<CallInst>(handle),
+                          ValidationRule::InstrHandleNotFromCreateHandle);
+    return nullptr;
+  }
+
+  DXIL::ResourceClass ResClass = Res->GetClass();
 
   switch (ResClass) {
   case DXIL::ResourceClass::SRV:
@@ -1281,33 +1044,7 @@ static DxilResource *GetResource(Value *handle, ValidationContext &ValCtx) {
     return nullptr;
   }
 
-  Value *rangeIndex = createHandle.get_rangeId();
-  if (!isa<ConstantInt>(rangeIndex)) {
-    ValCtx.EmitInstrError(cast<CallInst>(handle),
-                          ValidationRule::InstrCreateHandleImmRangeID);
-    // must be constant
-    return nullptr;
-  }
-  unsigned resIndex = cast<ConstantInt>(rangeIndex)->getLimitedValue();
-
-  DxilResource *res = nullptr;
-  if (ResClass == DXIL::ResourceClass::UAV) {
-    auto &resources = ValCtx.DxilMod.GetUAVs();
-    if (resIndex >= resources.size()) {
-      return nullptr;
-    }
-    res = resources[resIndex].get();
-  } else {
-    if (ResClass != DXIL::ResourceClass::SRV) {
-      return nullptr;
-    }
-    auto &resources = ValCtx.DxilMod.GetSRVs();
-    if (resIndex >= resources.size()) {
-      return nullptr;
-    }
-    res = resources[resIndex].get();
-  }
-  return res;
+  return (DxilResource *)Res;
 }
 
 struct ResRetUsage {
@@ -1560,68 +1297,24 @@ static unsigned StoreValueToMask(ArrayRef<Value *> vals) {
 
 static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
   if (!isa<CallInst>(cbHandle)) {
-    DenseSet<Value *> Checked;
-    if (CallInst *CI = GetHandleFromValue(cbHandle, Checked)) {
-      cbHandle = CI;
-    } else {
-      ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
-      return -1;
-    }
-  }
-  DxilInst_CreateHandle createHandle(cast<CallInst>(cbHandle));
-  if (!createHandle) {
-    auto EmitError = [&]() -> int {
-      ValCtx.EmitInstrError(cast<CallInst>(cbHandle),
-                            ValidationRule::InstrHandleNotFromCreateHandle);
-      return -1;
-    };
-    if (!ValCtx.isLibProfile) {
-      return EmitError();
-    }
-    DxilInst_CreateHandleForLib createHandleFromRes(
-        cast<CallInst>(cbHandle));
-    if (!createHandleFromRes) {
-      return EmitError();
-    }
-
-    DxilResourceBase *Res =
-        ValCtx.GetResFromTy(createHandleFromRes.get_Resource()->getType());
-    if (!Res) {
-      Res = ValCtx.GetResourceFromVal(createHandleFromRes.get_Resource());
-      if (!Res)
-        return EmitError();
-    }
-    if (Res->GetClass() == DXIL::ResourceClass::CBuffer) {
-      DxilCBuffer *CB = (DxilCBuffer *)(Res);
-      return CB->GetSize();
-    } else {
-      return EmitError();
-    }
+    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
+    return -1;
   }
 
-  Value *resourceClass = createHandle.get_resourceClass();
-  if (!isa<ConstantInt>(resourceClass)) {
+  DxilResourceBase *Res = ValCtx.GetResourceFromVal(cbHandle);
+  if (!Res) {
     ValCtx.EmitInstrError(cast<CallInst>(cbHandle),
-                          ValidationRule::InstrOpConstRange);
+                          ValidationRule::InstrHandleNotFromCreateHandle);
     return -1;
   }
 
-  if (static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val()) !=
-      DXIL::ResourceClass::CBuffer) {
-    ValCtx.EmitInstrError(cast<CallInst>(cbHandle), ValidationRule::InstrCBufferClassForCBufferHandle);
-    return -1;
-  }
-
-  Value *rangeIndex = createHandle.get_rangeId();
-  if (!isa<ConstantInt>(rangeIndex)) {
+  if (Res->GetClass() != DXIL::ResourceClass::CBuffer) {
     ValCtx.EmitInstrError(cast<CallInst>(cbHandle),
-                          ValidationRule::InstrOpConstRange);
+                          ValidationRule::InstrCBufferClassForCBufferHandle);
     return -1;
   }
 
-  DxilCBuffer &CB = ValCtx.DxilMod.GetCBuffer(
-      cast<ConstantInt>(rangeIndex)->getLimitedValue());
-  return CB.GetSize();
+  return ((DxilCBuffer *)Res)->GetSize();
 }
 
 static unsigned GetNumVertices(DXIL::InputPrimitive inputPrimitive) {
@@ -2407,6 +2100,133 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
       }
     }
   } break;
+  case DXIL::OpCode::RawBufferLoad: {
+    hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
+    if (!ValCtx.DxilMod.GetShaderModel()->IsSM63Plus()) {
+      Type *Ty = hlslOP->GetOverloadType(DXIL::OpCode::RawBufferLoad,
+                                         CI->getCalledFunction());
+      if (ValCtx.DL.getTypeAllocSizeInBits(Ty) > 32) {
+        ValCtx.EmitInstrError(CI, ValidationRule::Sm64bitRawBufferLoadStore);
+      }
+    }
+    DxilInst_RawBufferLoad bufLd(CI);
+    DXIL::ComponentType compTy;
+    DXIL::ResourceClass resClass;
+    unsigned resIndex;
+    DXIL::ResourceKind resKind = GetResourceKindAndCompTy(
+        bufLd.get_srv(), compTy, resClass, resIndex, ValCtx);
+
+    if (resClass != DXIL::ResourceClass::SRV &&
+        resClass != DXIL::ResourceClass::UAV) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForLoad);
+    }
+
+    Value *offset = bufLd.get_elementOffset();
+    Value *align = bufLd.get_alignment();
+    unsigned alignSize = 0;
+    if (!isa<ConstantInt>(align)) {
+      ValCtx.EmitInstrError(CI,
+                            ValidationRule::InstrCoordinateCountForRawTypedBuf);
+    } else {
+      alignSize = bufLd.get_alignment_val();
+    }
+    switch (resKind) {
+    case DXIL::ResourceKind::RawBuffer:
+      if (!isa<UndefValue>(offset)) {
+        ValCtx.EmitInstrError(
+            CI, ValidationRule::InstrCoordinateCountForRawTypedBuf);
+      }
+      break;
+    case DXIL::ResourceKind::StructuredBuffer:
+      if (isa<UndefValue>(offset)) {
+        ValCtx.EmitInstrError(CI,
+                              ValidationRule::InstrCoordinateCountForStructBuf);
+      }
+      break;
+    default:
+      ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrResourceKindForBufferLoadStore);
+      break;
+    }
+  } break;
+  case DXIL::OpCode::RawBufferStore: {
+    hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
+    if (!ValCtx.DxilMod.GetShaderModel()->IsSM63Plus()) {
+      Type *Ty = hlslOP->GetOverloadType(DXIL::OpCode::RawBufferStore,
+                                         CI->getCalledFunction());
+      if (ValCtx.DL.getTypeAllocSizeInBits(Ty) > 32) {
+        ValCtx.EmitInstrError(CI, ValidationRule::Sm64bitRawBufferLoadStore);
+      }
+    }
+    DxilInst_RawBufferStore bufSt(CI);
+    DXIL::ComponentType compTy;
+    DXIL::ResourceClass resClass;
+    unsigned resIndex;
+    DXIL::ResourceKind resKind = GetResourceKindAndCompTy(
+        bufSt.get_uav(), compTy, resClass, resIndex, ValCtx);
+
+    if (resClass != DXIL::ResourceClass::UAV) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForUAVStore);
+    }
+
+    ConstantInt *mask = dyn_cast<ConstantInt>(bufSt.get_mask());
+    if (!mask) {
+      // Mask for buffer store should be immediate.
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                  {"Mask", "BufferStore"});
+      return;
+    }
+    unsigned uMask = mask->getLimitedValue();
+    unsigned stValMask =
+        StoreValueToMask({bufSt.get_value0(), bufSt.get_value1(),
+                          bufSt.get_value2(), bufSt.get_value3()});
+
+    if (stValMask != uMask) {
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrWriteMaskMatchValueForUAVStore,
+          {std::to_string(uMask), std::to_string(stValMask)});
+    }
+
+    Value *offset = bufSt.get_elementOffset();
+    Value *align = bufSt.get_alignment();
+    unsigned alignSize = 0;
+    if (!isa<ConstantInt>(align)) {
+      ValCtx.EmitInstrError(CI,
+                            ValidationRule::InstrCoordinateCountForRawTypedBuf);
+    } else {
+      alignSize = bufSt.get_alignment_val();
+    }
+    switch (resKind) {
+    case DXIL::ResourceKind::RawBuffer:
+      if (!isa<UndefValue>(offset)) {
+        ValCtx.EmitInstrError(
+            CI, ValidationRule::InstrCoordinateCountForRawTypedBuf);
+      }
+      break;
+    case DXIL::ResourceKind::StructuredBuffer:
+      if (isa<UndefValue>(offset)) {
+        ValCtx.EmitInstrError(CI,
+                              ValidationRule::InstrCoordinateCountForStructBuf);
+      }
+      break;
+    default:
+      ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrResourceKindForBufferLoadStore);
+      break;
+    }
+  } break;
+  case DXIL::OpCode::TraceRay: {
+    DxilInst_TraceRay traceRay(CI);
+    Value *hdl = traceRay.get_AccelerationStructure();
+    DxilResourceBase *Res = ValCtx.GetResourceFromVal(hdl);
+    if (!Res) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForTraceRay);
+      return;
+    }
+    if (Res->GetKind() != DXIL::ResourceKind::RTAccelerationStructure) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForTraceRay);
+    }
+  } break;
   default:
     break;
   }
@@ -2486,7 +2306,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     }
 
     if (!res->HasCounter()) {
-      // TODO: Must has counter to run UpdateCounter.
+      ValCtx.EmitInstrError(
+          CI, ValidationRule::InstrBufferUpdateCounterOnResHasCounter);
     }
 
     Value *inc = updateCounter.get_inc();
@@ -2652,12 +2473,32 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
       continue;
     }
 
-    if (!ValCtx.isLibProfile && !ValidateOpcodeInProfile(dxilOpcode, pSM)) {
-      // Opcode not available in profile.
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcode,
-                                  {hlslOP->GetOpCodeName(dxilOpcode),
-                                   pSM->GetName()});
-      continue;
+    unsigned major = pSM->GetMajor();
+    unsigned minor = pSM->GetMinor();
+    if (ValCtx.isLibProfile) {
+      Function *callingFunction = CI->getParent()->getParent();
+      DXIL::ShaderKind SK = DXIL::ShaderKind::Library;
+      if (ValCtx.DxilMod.HasDxilFunctionProps(callingFunction))
+        SK = ValCtx.DxilMod.GetDxilFunctionProps(callingFunction).shaderKind;
+      else if (ValCtx.DxilMod.IsPatchConstantShader(callingFunction))
+        SK = DXIL::ShaderKind::Hull;
+      if (!ValidateOpcodeInProfile(dxilOpcode, SK, major, minor)) {
+        // Opcode not available in profile.
+        // produces: "lib_6_3(ps)", or "lib_6_3(anyhit)" for shader types
+        // Or: "lib_6_3(lib)" for library function
+        std::string shaderModel = pSM->GetName();
+        shaderModel += std::string("(") + ShaderModel::GetKindName(SK) + ")";
+        ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcode,
+          { hlslOP->GetOpCodeName(dxilOpcode), shaderModel });
+        continue;
+      }
+    } else {
+      if (!ValidateOpcodeInProfile(dxilOpcode, pSM->GetKind(), major, minor)) {
+        // Opcode not available in profile.
+        ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcode,
+          { hlslOP->GetOpCodeName(dxilOpcode), pSM->GetName() });
+        continue;
+      }
     }
 
     // Check more detail.
@@ -3349,61 +3190,107 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
 static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
   if (F.isDeclaration()) {
     ValidateExternalFunction(&F, ValCtx);
+    if (F.isIntrinsic() || IsDxilFunction(&F))
+      return;
   } else {
-    bool isNoArgEntry = ValCtx.DxilMod.HasDxilFunctionProps(&F);
-    if (isNoArgEntry) {
-      switch (ValCtx.DxilMod.GetDxilFunctionProps(&F).shaderKind) {
+    DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Library;
+    bool isShader = ValCtx.DxilMod.HasDxilFunctionProps(&F);
+    unsigned numUDTShaderArgs = 0;
+    if (isShader) {
+      shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(&F).shaderKind;
+      switch (shaderKind) {
       case DXIL::ShaderKind::AnyHit:
-      case DXIL::ShaderKind::Callable:
       case DXIL::ShaderKind::ClosestHit:
+        numUDTShaderArgs = 2;
+        break;
       case DXIL::ShaderKind::Miss:
-        isNoArgEntry = false;
+      case DXIL::ShaderKind::Callable:
+        numUDTShaderArgs = 1;
         break;
       default:
-        isNoArgEntry = true;
         break;
       }
     } else {
-      isNoArgEntry = &F == ValCtx.DxilMod.GetEntryFunction();
-      isNoArgEntry |= &F == ValCtx.DxilMod.GetPatchConstantFunction();
+      isShader = ValCtx.DxilMod.IsPatchConstantShader(&F);
     }
+
     // Entry function should not have parameter.
-    if (!F.arg_empty() && isNoArgEntry)
-      ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall,
-                             {F.getName().str()});
+    if (isShader && 0 == numUDTShaderArgs && !F.arg_empty())
+      ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall, { F.getName() });
+
+    // Shader functions should return void.
+    if (isShader && !F.getReturnType()->isVoidTy())
+      ValCtx.EmitFormatError(ValidationRule::DeclShaderReturnVoid, { F.getName() });
 
     DxilFunctionAnnotation *funcAnnotation =
         ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);
     if (!funcAnnotation) {
-      ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation,
-                             {F.getName().str()});
+      ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation, { F.getName() });
       return;
     }
 
+    auto ArgFormatError = [&](Argument &arg, ValidationRule rule) {
+      if (arg.hasName())
+        ValCtx.EmitFormatError(rule, { arg.getName().str(), F.getName() });
+      else
+        ValCtx.EmitFormatError(rule, { std::to_string(arg.getArgNo()), F.getName() });
+    };
+
     // Validate parameter type.
+    unsigned numArgs = 0;
     for (auto &arg : F.args()) {
       Type *argTy = arg.getType();
       if (argTy->isPointerTy())
         argTy = argTy->getPointerElementType();
+
+      numArgs++;
+      if (numUDTShaderArgs) {
+        if (arg.getArgNo() >= numUDTShaderArgs) {
+          ArgFormatError(arg, ValidationRule::DeclExtraArgs);
+        } else if (!argTy->isStructTy()) {
+          ArgFormatError(arg,
+            shaderKind == DXIL::ShaderKind::Callable
+              ? ValidationRule::DeclParamStruct
+              : arg.getArgNo() == 0 ? ValidationRule::DeclPayloadStruct
+                                    : ValidationRule::DeclAttrStruct);
+        }
+        continue;
+      }
+
       while (argTy->isArrayTy()) {
         argTy = argTy->getArrayElementType();
       }
 
       if (argTy->isStructTy() && !ValCtx.isLibProfile) {
-        if (arg.hasName())
-          ValCtx.EmitFormatError(
-              ValidationRule::DeclFnFlattenParam,
-              {arg.getName().str(), F.getName().str()});
-        else
-          ValCtx.EmitFormatError(ValidationRule::DeclFnFlattenParam,
-                                 {std::to_string(arg.getArgNo()),
-                                  F.getName().str()});
+        ArgFormatError(arg, ValidationRule::DeclFnFlattenParam);
         break;
+      }
+    }
+
+    if (numArgs < numUDTShaderArgs) {
+      StringRef argType[2] = { shaderKind == DXIL::ShaderKind::Callable ?
+                                  "params" : "payload", "attributes" };
+      for (unsigned i = numArgs; i < numUDTShaderArgs; i++) {
+        ValCtx.EmitFormatError(ValidationRule::DeclShaderMissingArg,
+          { ShaderModel::GetKindName(shaderKind), F.getName(), argType[i] });
       }
     }
 
     ValidateFunctionBody(&F, ValCtx);
   }
+
+  // function params & return type must not contain resources
+  if (dxilutil::ContainsHLSLObjectType(F.getReturnType())) {
+    ValCtx.EmitGlobalValueError(&F, ValidationRule::DeclResourceInFnSig);
+    return;
+  }
+  for (auto &Arg : F.args()) {
+    if (dxilutil::ContainsHLSLObjectType(Arg.getType())) {
+      ValCtx.EmitGlobalValueError(&F, ValidationRule::DeclResourceInFnSig);
+      return;
+    }
+  }
+
   // TODO: Remove attribute for lib?
   if (!ValCtx.isLibProfile)
     ValidateFunctionAttribute(&F, ValCtx);
@@ -4455,15 +4342,58 @@ static void ValidateNoInterpModeSignature(ValidationContext &ValCtx, const DxilS
 }
 
 static void ValidateEntrySignatures(ValidationContext &ValCtx,
-                               const DxilEntryProps &entryProps,
-                               EntryStatus &Status) {
+                                    const DxilEntryProps &entryProps,
+                                    EntryStatus &Status,
+                                    Function &F) {
   const DxilFunctionProps &props = entryProps.props;
+  const DxilEntrySignature &S = entryProps.sig;
+
   if (props.IsRay()) {
-    // TODO: validate ray entry props.
+    // No signatures allowed
+    if (!S.InputSignature.GetElements().empty() ||
+        !S.OutputSignature.GetElements().empty() ||
+        !S.PatchConstantSignature.GetElements().empty()) {
+      ValCtx.EmitFormatError(ValidationRule::SmRayShaderSignatures, { F.getName() });
+    }
+
+    // Validate payload/attribute/params sizes
+    unsigned payloadSize = 0;
+    unsigned attrSize = 0;
+    auto itPayload = F.arg_begin();
+    auto itAttr = itPayload;
+    if (itAttr != F.arg_end())
+      itAttr++;
+    DataLayout DL(F.getParent());
+    switch (props.shaderKind) {
+    case DXIL::ShaderKind::AnyHit:
+    case DXIL::ShaderKind::ClosestHit:
+      if (itAttr != F.arg_end()) {
+        Type *Ty = itAttr->getType();
+        if (Ty->isPointerTy())
+          Ty = Ty->getPointerElementType();
+        attrSize = (unsigned)std::min(DL.getTypeAllocSize(Ty), (uint64_t)UINT_MAX);
+      }
+    case DXIL::ShaderKind::Miss:
+    case DXIL::ShaderKind::Callable:
+      if (itPayload != F.arg_end()) {
+        Type *Ty = itPayload->getType();
+        if (Ty->isPointerTy())
+          Ty = Ty->getPointerElementType();
+        payloadSize = (unsigned)std::min(DL.getTypeAllocSize(Ty), (uint64_t)UINT_MAX);
+      }
+      break;
+    }
+    if (props.ShaderProps.Ray.payloadSizeInBytes < payloadSize) {
+      ValCtx.EmitFormatError(ValidationRule::SmRayShaderPayloadSize,
+        { F.getName(), props.IsCallable() ? "params" : "payload" });
+    }
+    if (props.ShaderProps.Ray.attributeSizeInBytes < attrSize) {
+      ValCtx.EmitFormatError(ValidationRule::SmRayShaderPayloadSize,
+        { F.getName(), "attribute" });
+    }
     return;
   }
 
-  const DxilEntrySignature &S = entryProps.sig;
   bool isPS = props.IsPS();
   bool isVS = props.IsVS();
   bool isGS = props.IsGS();
@@ -4580,9 +4510,10 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
   }
 
   if (isCS) {
-      if (!S.OutputSignature.GetElements().empty() ||
+      if (!S.InputSignature.GetElements().empty() ||
+          !S.OutputSignature.GetElements().empty() ||
           !S.PatchConstantSignature.GetElements().empty()) {
-        ValCtx.EmitError(ValidationRule::SmCSNoReturn);
+        ValCtx.EmitError(ValidationRule::SmCSNoSignatures);
       }
   }
 }
@@ -4594,7 +4525,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx) {
       if (DM.HasDxilEntryProps(&F)) {
         DxilEntryProps &entryProps = DM.GetDxilEntryProps(&F);
         EntryStatus &Status = ValCtx.GetEntryStatus(&F);
-        ValidateEntrySignatures(ValCtx, entryProps, Status);
+        ValidateEntrySignatures(ValCtx, entryProps, Status, F);
       }
     }
   } else {
@@ -4606,7 +4537,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx) {
     }
     EntryStatus &Status = ValCtx.GetEntryStatus(Entry);
     DxilEntryProps &entryProps = DM.GetDxilEntryProps(Entry);
-    ValidateEntrySignatures(ValCtx, entryProps, Status);
+    ValidateEntrySignatures(ValCtx, entryProps, Status, *Entry);
   }
 }
 
@@ -5107,7 +5038,9 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // 1.2 adds:
   // - Metadata for floating point denorm mode
   // 1.3 adds:
-  // TODO: add comment
+  // - Library support
+  // - Raytracing support
+  // - i64/f64 overloads for rawBufferLoad/Store
   *pMajor = 1;
   *pMinor = 3;
 }
@@ -5272,6 +5205,28 @@ static void VerifyFeatureInfoMatches(_In_ ValidationContext &ValCtx,
   VerifyBlobPartMatches(ValCtx, "Feature Info", pWriter.get(), pFeatureInfoData, FeatureInfoSize);
 }
 
+static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
+                              _In_reads_bytes_(RDATSize) const void *pRDATData,
+                              _In_ uint32_t RDATSize) {
+  unique_ptr<DxilPartWriter> pWriter(NewRDATWriter(ValCtx.DxilMod, 0));
+  VerifyBlobPartMatches(ValCtx, "Runtime Data (RDAT)", pWriter.get(), pRDATData, RDATSize);
+}
+
+_Use_decl_annotations_
+bool VerifyRDATMatches(llvm::Module *pModule,
+                       const void *pRDATData,
+                       uint32_t RDATSize) {
+  std::string diagStr;
+  raw_string_ostream diagStream(diagStr);
+  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), DiagPrinter);
+  VerifyRDATMatches(ValCtx, pRDATData, RDATSize);
+  if (ValCtx.Failed) {
+    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
+  }
+  return !ValCtx.Failed;
+}
+
 _Use_decl_annotations_
 bool VerifyFeatureInfoMatches(llvm::Module *pModule,
                               const void *pFeatureInfoData,
@@ -5362,9 +5317,9 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     case DFCC_ShaderDebugName:
       continue;
 
-    // Lib part
+    // Runtime Data (RDAT) for libraries
     case DFCC_RuntimeData:
-      // TODO: Validate RuntimeData.
+      VerifyRDATMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
       break;
 
     case DFCC_Container:

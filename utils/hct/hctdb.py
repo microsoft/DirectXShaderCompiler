@@ -356,7 +356,7 @@ class db_dxil(object):
         for i in "IgnoreHit,AcceptHitAndEndSearch".split(","):
             self.name_idx[i].category = "AnyHit Terminals"
             self.name_idx[i].shader_model = 6,3
-            self.name_idx[i].shader_stages = ("library","anyhit")
+            self.name_idx[i].shader_stages = ("anyhit",)
         for i in "CallShader".split(","):
             self.name_idx[i].category = "Indirect Shader Invocation"
             self.name_idx[i].shader_model = 6,3
@@ -1908,6 +1908,9 @@ class db_dxil(object):
         self.add_valrule("Instr.ResourceClassForSamplerGather", "sample, lod and gather should on srv resource.")
         self.add_valrule("Instr.ResourceClassForUAVStore", "store should on uav resource.")
         self.add_valrule("Instr.ResourceClassForLoad", "load can only run on UAV/SRV resource")
+        self.add_valrule("Instr.ResourceMapToSingleEntry", "Fail to map resource to resource table")
+        self.add_valrule("Instr.ResourceUser", "Resource should only used by Load/GEP/Call")
+        self.add_valrule("Instr.ResourceKindForTraceRay", "TraceRay should only use RTAccelerationStructure")
         self.add_valrule("Instr.OffsetOnUAVLoad", "uav load don't support offset")
         self.add_valrule("Instr.MipOnUAVLoad", "uav load don't support mipLevel/sampleIndex")
         self.add_valrule("Instr.SampleIndexForLoad2DMS", "load on Texture2DMS/2DMSArray require sampleIndex")
@@ -1918,6 +1921,7 @@ class db_dxil(object):
         self.add_valrule("Instr.DxilStructUserOutOfBound", "Index out of bound when extract value from dxil struct types")
         self.add_valrule("Instr.HandleNotFromCreateHandle", "Resource handle should returned by createHandle")
         self.add_valrule("Instr.BufferUpdateCounterOnUAV", "BufferUpdateCounter valid only on UAV")
+        self.add_valrule("Instr.BufferUpdateCounterOnResHasCounter", "BufferUpdateCounter valid only when HasCounter is true")
         self.add_valrule("Instr.CBufferOutOfBound", "Cbuffer access out of bound")
         self.add_valrule("Instr.CBufferClassForCBufferHandle", "Expect Cbuffer for CBufferLoad handle")
         self.add_valrule("Instr.FailToResloveTGSMPointer", "TGSM pointers must originate from an unambiguous TGSM global variable.")
@@ -1986,13 +1990,16 @@ class db_dxil(object):
         self.add_valrule_msg("Sm.MultiStreamMustBePoint", "When multiple GS output streams are used they must be pointlists", "Multiple GS output streams are used but '%0' is not pointlist")
         self.add_valrule("Sm.CompletePosition", "Not all elements of SV_Position were written")
         self.add_valrule("Sm.UndefinedOutput", "Not all elements of output %0 were written")
-        self.add_valrule("Sm.CSNoReturn", "Compute shaders can't return values, outputs must be written in writable resources (UAVs).")
+        self.add_valrule("Sm.CSNoSignatures", "Compute shaders must not have shader signatures.")
         self.add_valrule("Sm.CBufferTemplateTypeMustBeStruct", "D3D12 constant/texture buffer template element can only be a struct")
         self.add_valrule_msg("Sm.ResourceRangeOverlap", "Resource ranges must not overlap", "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5")
         self.add_valrule_msg("Sm.CBufferOffsetOverlap", "CBuffer offsets must not overlap", "CBuffer %0 has offset overlaps at %1")
         self.add_valrule_msg("Sm.CBufferElementOverflow", "CBuffer elements must not overflow", "CBuffer %0 size insufficient for element at offset %1")
         self.add_valrule_msg("Sm.OpcodeInInvalidFunction", "Invalid DXIL opcode usage like StorePatchConstant in patch constant function", "opcode '%0' should only be used in '%1'")
         self.add_valrule_msg("Sm.ViewIDNeedsSlot", "ViewID requires compatible space in pixel shader input signature", "Pixel shader input signature lacks available space for ViewID")
+        self.add_valrule("Sm.64bitRawBufferLoadStore", "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3")
+        self.add_valrule("Sm.RayShaderSignatures", "Ray tracing shader '%0' should not have any shader signatures")
+        self.add_valrule("Sm.RayShaderPayloadSize", "For shader '%0', %1 size is smaller than argument's allocation size")
 
         # fxc relaxed check of gradient check.
         #self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")
@@ -2013,6 +2020,13 @@ class db_dxil(object):
         self.add_valrule_msg("Decl.FnIsCalled", "Functions can only be used by call instructions", "Function '%0' is used for something other than calling")
         self.add_valrule_msg("Decl.FnFlattenParam", "Function parameters must not use struct types", "Type '%0' is a struct type but is used as a parameter in function '%1'")
         self.add_valrule_msg("Decl.FnAttribute", "Functions should only contain known function attributes", "Function '%0' contains invalid attribute '%1' with value '%2'")
+        self.add_valrule_msg("Decl.ResourceInFnSig", "Resources not allowed in function signatures", "Function '%0' uses resource in function signature")
+        self.add_valrule_msg("Decl.PayloadStruct", "Payload parameter must be struct type", "Argument '%0' must be a struct type for payload in shader function '%1'")
+        self.add_valrule_msg("Decl.AttrStruct", "Attributes parameter must be struct type", "Argument '%0' must be a struct type for attributes in shader function '%1'")
+        self.add_valrule_msg("Decl.ParamStruct", "Callable function parameter must be struct type", "Argument '%0' must be a struct type for callable shader function '%1'")
+        self.add_valrule_msg("Decl.ExtraArgs", "Extra arguments not allowed for shader functions", "Extra argument '%0' not allowed for shader function '%1'")
+        self.add_valrule_msg("Decl.ShaderReturnVoid", "Shader functions must return void", "Shader function '%0' must have void return type")
+        self.add_valrule_msg("Decl.ShaderMissingArg", "payload/params/attributes parameter is required for certain shader types", "%0 shader '%1' missing required %2 parameter")
 
         # Assign sensible category names and build up an enumeration description
         cat_names = {

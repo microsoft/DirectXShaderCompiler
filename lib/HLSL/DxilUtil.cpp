@@ -14,6 +14,7 @@
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilUtil.h"
 #include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/HLModule.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
@@ -369,6 +370,30 @@ llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
   return SkipAllocas(
     F->getEntryBlock().getFirstInsertionPt());
 }
+
+bool ContainsHLSLObjectType(llvm::Type *Ty) {
+  // Unwrap pointer/array
+  while (llvm::isa<llvm::PointerType>(Ty))
+    Ty = llvm::cast<llvm::PointerType>(Ty)->getPointerElementType();
+  while (llvm::isa<llvm::ArrayType>(Ty))
+    Ty = llvm::cast<llvm::ArrayType>(Ty)->getArrayElementType();
+
+  if (llvm::StructType *ST = llvm::dyn_cast<llvm::StructType>(Ty)) {
+    if (ST->getName().startswith("dx.types."))
+      return true;
+    // TODO: How is this suppoed to check for Input/OutputPatch types if
+    // these have already been eliminated in function arguments during CG?
+    if (HLModule::IsHLSLObjectType(Ty))
+      return true;
+    // Otherwise, recurse elements of UDT
+    for (auto ETy : ST->elements()) {
+      if (ContainsHLSLObjectType(ETy))
+        return true;
+    }
+  }
+  return false;
+}
+
 
 }
 }

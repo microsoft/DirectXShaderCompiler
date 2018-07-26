@@ -224,7 +224,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
   M->GetValidatorVersion(valMajor, valMinor);
-  bool hasMulticomponentUAVLoadsBackCompat = valMajor <= 1 && valMinor == 0;
+  bool hasMulticomponentUAVLoadsBackCompat = valMajor == 1 && valMinor == 0;
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());

@@ -400,6 +400,11 @@ public:
       }
       compiler.getLangOpts().IsHLSLLibrary = opts.IsLibraryProfile();
 
+      // Clear entry function if library target
+      if (compiler.getLangOpts().IsHLSLLibrary)
+        compiler.getLangOpts().HLSLEntryFunction =
+          compiler.getCodeGenOpts().HLSLEntryFunction = "";
+
       // NOTE: this calls the validation component from dxil.dll; the built-in
       // validator can be used as a fallback.
       bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
@@ -900,6 +905,9 @@ public:
 
     // processed export names from -exports option:
     compiler.getCodeGenOpts().HLSLLibraryExports = Opts.Exports;
+
+    // only export shader functions for library
+    compiler.getCodeGenOpts().ExportShadersOnly = Opts.ExportShadersOnly;
   }
 
   // IDxcVersionInfo
