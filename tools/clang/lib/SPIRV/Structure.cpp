@@ -17,6 +17,32 @@ namespace spirv {
 namespace {
 constexpr uint32_t kGeneratorNumber = 14;
 constexpr uint32_t kToolVersion = 0;
+
+/// Chops the given original string into multiple smaller ones to make sure they
+/// can be encoded in a sequence of OpSourceContinued instructions following an
+/// OpSource instruction.
+void chopString(llvm::StringRef original,
+                llvm::SmallVectorImpl<llvm::StringRef> *chopped) {
+  const uint32_t maxCharInOpSource = 0xFFFFu - 5u; // Minus operands and nul
+  const uint32_t maxCharInContinue = 0xFFFFu - 2u; // Minus opcode and nul
+
+  chopped->clear();
+  if (original.size() > maxCharInOpSource) {
+    chopped->push_back(llvm::StringRef(original.data(), maxCharInOpSource));
+    original = llvm::StringRef(original.data() + maxCharInOpSource,
+                               original.size() - maxCharInOpSource);
+    while (original.size() > maxCharInContinue) {
+      chopped->push_back(llvm::StringRef(original.data(), maxCharInContinue));
+      original = llvm::StringRef(original.data() + maxCharInContinue,
+                                 original.size() - maxCharInContinue);
+    }
+    if (!original.empty()) {
+      chopped->push_back(original);
+    }
+  } else if (!original.empty()) {
+    chopped->push_back(original);
+  }
+}
 } // namespace
 
 // === Instruction implementations ===
@@ -289,10 +315,21 @@ void SPIRVModule::take(InstBuilder *builder) {
       fileName = sourceFileNameId;
     }
 
+    llvm::SmallVector<llvm::StringRef, 2> choppedSrcCode;
+    llvm::Optional<llvm::StringRef> firstSnippet;
+    chopString(sourceFileContent, &choppedSrcCode);
+    if (!choppedSrcCode.empty()) {
+      firstSnippet = llvm::Optional<llvm::StringRef>(choppedSrcCode.front());
+    }
+
     builder
         ->opSource(spv::SourceLanguage::HLSL, shaderModelVersion, fileName,
-                   llvm::None)
+                   firstSnippet)
         .x();
+
+    for (uint32_t i = 1; i < choppedSrcCode.size(); ++i) {
+      builder->opSourceContinued(choppedSrcCode[i]).x();
+    }
   }
 
   // BasicBlock debug names should be emitted only for blocks that are

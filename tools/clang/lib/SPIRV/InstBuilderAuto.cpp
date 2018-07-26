@@ -116,7 +116,7 @@ InstBuilder &InstBuilder::opUndef(uint32_t result_type, uint32_t result_id) {
   return *this;
 }
 
-InstBuilder &InstBuilder::opSourceContinued(std::string continued_source) {
+InstBuilder &InstBuilder::opSourceContinued(llvm::StringRef continued_source) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -132,7 +132,7 @@ InstBuilder &InstBuilder::opSourceContinued(std::string continued_source) {
 InstBuilder &InstBuilder::opSource(spv::SourceLanguage source_language,
                                    uint32_t version,
                                    llvm::Optional<uint32_t> file,
-                                   llvm::Optional<std::string> source) {
+                                   llvm::Optional<llvm::StringRef> source) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
