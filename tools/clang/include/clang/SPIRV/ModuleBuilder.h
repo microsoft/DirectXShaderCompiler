@@ -341,6 +341,8 @@ public:
   /// \brief Sets the source file name and the <result-id> for the OpString for
   /// the file name.
   inline void setSourceFileName(uint32_t id, std::string name);
+  /// \brief Sets the main source file content.
+  inline void setSourceFileContent(llvm::StringRef content);
 
   /// \brief Adds an execution mode to the module under construction.
   void addExecutionMode(uint32_t entryPointId, spv::ExecutionMode em,
@@ -551,6 +553,10 @@ void ModuleBuilder::setShaderModelVersion(uint32_t major, uint32_t minor) {
 
 void ModuleBuilder::setSourceFileName(uint32_t id, std::string name) {
   theModule.setSourceFileName(id, std::move(name));
+}
+
+void ModuleBuilder::setSourceFileContent(llvm::StringRef content) {
+  theModule.setSourceFileContent(content);
 }
 
 } // end namespace spirv

@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "HLSLTestOptions.h"
+#include "WEXAdapter.h"
 #include "dxc/Support/WinAdapter.h"
 
 namespace clang {
@@ -29,7 +30,7 @@ ARG_LIST(ARG_DEFINE)
 namespace WEX {
 namespace TestExecution {
 namespace RuntimeParameters {
-HRESULT TryGetValue(const wchar_t *param, std::wstring &retStr) {
+HRESULT TryGetValue(const wchar_t *param, WEX::Common::String &retStr) {
 #define RETURN_ARG(argname)                                                    \
   if (wcscmp(param, L## #argname) == 0) {                                      \
     if (!clang::hlsl::testOptions::argname.empty()) {                          \

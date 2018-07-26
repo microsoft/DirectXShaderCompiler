@@ -2716,9 +2716,14 @@ codegen for Vulkan:
 - ``-fvk-use-gl-layout``: Uses strict OpenGL ``std140``/``std430``
   layout rules for resources.
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
-- ``-fvk-invert-y``: Inverts SV_Position.y before writing to stage output.
-  Used to accommodate the difference between Vulkan's coordinate system and
-  DirectX's. Only allowed in VS/DS/GS.
+- ``-fvk-invert-y``: Negates (additively inverts) SV_Position.y before writing
+  to stage output. Used to accommodate the difference between Vulkan's
+  coordinate system and DirectX's. Only allowed in VS/DS/GS.
+- ``-fvk-use-dx-position-w``: Reciprocates (multiplicatively inverts)
+  SV_Position.w after reading from stage input. Used to accommodate the
+  difference between Vulkan DirectX: the w component of SV_Position in PS is
+  stored as 1/w in Vulkan. Only recognized in PS; applying to other stages
+  is no-op.
 - ``-fvk-stage-io-order={alpha|decl}``: Assigns the stage input/output variable
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.

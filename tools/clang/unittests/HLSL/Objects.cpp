@@ -12,7 +12,9 @@
 #include "HLSLTestData.h"
 #include <stdint.h>
 
+#ifdef _WIN32
 #include "WexTestClass.h"
+#endif
 #include "HlslTestUtils.h"
 
 #include <exception>
@@ -477,12 +479,15 @@ const ShaderObjectIntrinsicDataItem& GetIntrinsicData(const ShaderObjectDataItem
     }
   }
 
-  throw std::exception("cannot find shader object kind");
+  throw std::runtime_error("cannot find shader object kind");
 }
 
 // The test fixture.
-class ObjectTest
-{
+#ifdef _WIN32
+class ObjectTest {
+#else
+class ObjectTest : public ::testing::Test {
+#endif
 private:
   HlslIntellisenseSupport m_isenseSupport;
 public:
@@ -493,16 +498,16 @@ public:
 
   TEST_CLASS_SETUP(ObjectTestSetup);
 
-  TEST_METHOD(DeclareLocalObject);
-  TEST_METHOD(OptionalTemplateArgs);
-  TEST_METHOD(MissingTemplateArgs);
-  TEST_METHOD(TooManyTemplateArgs);
-  TEST_METHOD(PassAsParameter);
-  TEST_METHOD(AssignVariables);
-  TEST_METHOD(AssignReturnResult);
-  TEST_METHOD(PassToInoutArgs);
-  TEST_METHOD(TemplateArgConstraints);
-  TEST_METHOD(FunctionInvoke);
+  TEST_METHOD(DeclareLocalObject)
+  TEST_METHOD(OptionalTemplateArgs)
+  TEST_METHOD(MissingTemplateArgs)
+  TEST_METHOD(TooManyTemplateArgs)
+  TEST_METHOD(PassAsParameter)
+  TEST_METHOD(AssignVariables)
+  TEST_METHOD(AssignReturnResult)
+  TEST_METHOD(PassToInoutArgs)
+  TEST_METHOD(TemplateArgConstraints)
+  TEST_METHOD(FunctionInvoke)
 
   void FormatTypeNameAndPreamble(const ShaderObjectDataItem& sod,
                                  char (&typeName)[64],
@@ -619,6 +624,9 @@ public:
     case SOK_StreamOutputTriangle:
       parmType = "inout " + parmType;
       break;
+    default:
+      // Other kinds need no alteration
+      break;
     }
 
     sprintf_s(result, _countof(result),
@@ -684,8 +692,6 @@ public:
 
 bool ObjectTest::ObjectTestSetup()
 {
-  // Runs once for all tests in this class.
-  // Load the dxcompiler DLL and hold a reference to it to avoid unload/reloads.
   m_isenseSupport.Initialize();
   return m_isenseSupport.IsEnabled();
 }
@@ -787,6 +793,9 @@ TEST_F(ObjectTest, PassToInoutArgs) {
         // Stream-output objects can only be inout. Skip other cases.
         if (std::string(iop.Keyword) != "inout")
           continue;
+      default:
+        // other cases can be what they want
+        break;
       }
 
       char typeName[64];
@@ -843,6 +852,9 @@ CreateSampleDataForTemplateArg(
   auto templateData = GetTemplateData(sod);
   assert(templateData.TemplateKind != SOTK_NoParams && "shouldn't call CreateSampleDataForTemplateArg");
   switch (templateData.TemplateKind) {
+  case SOTK_NoParams:
+    assert(!"shouldn't call CreateSampleDataForTemplateArg");
+    break;
   case SOTK_SingleSVParam:
   case SOTK_SingleSVCParam:
     sprintf_s(typeName, _countof(typeName), "%s<float4>", sod.TypeName);

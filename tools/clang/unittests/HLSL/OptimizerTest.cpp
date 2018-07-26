@@ -46,33 +46,6 @@ using namespace std;
 using namespace hlsl_test;
 
 ///////////////////////////////////////////////////////////////////////////////
-// Helper functions to deal with passes.
-
-void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes) {
-  while (*pPassesBuffer) {
-    // Skip comment lines.
-    if (*pPassesBuffer == L'#') {
-      while (*pPassesBuffer && *pPassesBuffer != '\n' && *pPassesBuffer != '\r') {
-        ++pPassesBuffer;
-      }
-      while (*pPassesBuffer == '\n' || *pPassesBuffer == '\r') {
-        ++pPassesBuffer;
-      }
-      continue;
-    }
-    // Every other line is an option. Find the end of the line/buffer and terminate it.
-    passes.push_back(pPassesBuffer);
-    while (*pPassesBuffer && *pPassesBuffer != '\n' && *pPassesBuffer != '\r') {
-      ++pPassesBuffer;
-    }
-    while (*pPassesBuffer == '\n' || *pPassesBuffer == '\r') {
-      *pPassesBuffer = L'\0';
-      ++pPassesBuffer;
-    }
-  }
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // Optimizer test cases.
 
 class OptimizerTest {

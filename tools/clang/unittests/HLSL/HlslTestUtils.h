@@ -11,10 +11,15 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#ifdef _WIN32
+#include <dxgiformat.h>
+#include "WexTestClass.h"
+#else
+#include "WEXAdapter.h"
+#endif
 #include "dxc/Support/Unicode.h"
 #include "dxc/HLSL/DxilConstants.h" // DenormMode
 #include "llvm/Support/Atomic.h"
-#include <dxgiformat.h>
 
 // If TAEF verify macros are available, use them to alias other legacy
 // comparison macros that don't have a direct translation.
@@ -28,10 +33,12 @@
 // preprocessor settings.
 
 #ifdef VERIFY_ARE_EQUAL
+#ifndef EXPECT_STREQ
 #define EXPECT_STREQ(a, b) VERIFY_ARE_EQUAL(0, strcmp(a, b))
+#endif
 #define EXPECT_STREQW(a, b) VERIFY_ARE_EQUAL(0, wcscmp(a, b))
 #define VERIFY_ARE_EQUAL_CMP(a, b, ...) VERIFY_IS_TRUE(a == b, __VA_ARGS__)
-#define VERIFY_ARE_EQUAL_STR(a, b, ...) { \
+#define VERIFY_ARE_EQUAL_STR(a, b) { \
   const char *pTmpA = (a);\
   const char *pTmpB = (b);\
   if (0 != strcmp(pTmpA, pTmpB)) {\
@@ -41,17 +48,25 @@
     wchar_t diffMsg[32]; swprintf_s(diffMsg, _countof(diffMsg), L"diff at %u", (unsigned)(pA-pTmpA)); \
     WEX::Logging::Log::Comment(diffMsg); \
   } \
-  VERIFY_ARE_EQUAL(0, strcmp(pTmpA, pTmpB), __VA_ARGS__); \
+  VERIFY_ARE_EQUAL(0, strcmp(pTmpA, pTmpB)); \
 }
-#define VERIFY_ARE_EQUAL_WSTR(a, b, ...) { \
+#define VERIFY_ARE_EQUAL_WSTR(a, b) { \
   if (0 != wcscmp(a, b)) { WEX::Logging::Log::Comment(b);} \
-  VERIFY_ARE_EQUAL(0, wcscmp(a, b), __VA_ARGS__); \
+  VERIFY_ARE_EQUAL(0, wcscmp(a, b)); \
 }
+#ifndef ASSERT_EQ
 #define ASSERT_EQ(expected, actual) VERIFY_ARE_EQUAL(expected, actual)
+#endif
+#ifndef ASSERT_NE
 #define ASSERT_NE(expected, actual) VERIFY_ARE_NOT_EQUAL(expected, actual)
+#endif
+#ifndef TEST_F
 #define TEST_F(typeName, functionName) void typeName::functionName()
+#endif
 #define ASSERT_HRESULT_SUCCEEDED VERIFY_SUCCEEDED
+#ifndef EXPECT_EQ
 #define EXPECT_EQ(expected, actual) VERIFY_ARE_EQUAL(expected, actual)
+#endif
 #endif
 
 namespace hlsl_test {
@@ -59,9 +74,16 @@ namespace hlsl_test {
 inline std::wstring
 vFormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, va_list argptr) {
   std::wstring result;
+#ifdef _WIN32
   int len = _vscwprintf(fmt, argptr);
   result.resize(len + 1);
   vswprintf_s((wchar_t *)result.data(), len + 1, fmt, argptr);
+#else
+  wchar_t fmtOut[1000];
+  int len = vswprintf(fmtOut, 1000, fmt, argptr);
+  assert(len >= 0 && "Too long formatted string in vFormatToWstring");
+  result = fmtOut;
+#endif
   return result;
 }
 
@@ -97,14 +119,18 @@ inline std::wstring GetPathToHlslDataFile(const wchar_t* relative) {
 
   wchar_t envPath[MAX_PATH];
   wchar_t expanded[MAX_PATH];
-  swprintf_s(envPath, _countof(envPath), L"%s\\%s", reinterpret_cast<wchar_t*>(HlslDataDirValue.GetBuffer()), relative);
+  swprintf_s(envPath, _countof(envPath), L"%ls\\%ls", reinterpret_cast<const wchar_t*>(HlslDataDirValue.GetBuffer()), relative);
   VERIFY_WIN32_BOOL_SUCCEEDED(ExpandEnvironmentStringsW(envPath, expanded, _countof(expanded)));
   return std::wstring(expanded);
 }
 
 inline bool PathLooksAbsolute(LPCWSTR name) {
   // Very simplified, only for the cases we care about in the test suite.
+#ifdef _WIN32
   return name && *name && ((*name == L'\\') || (name[1] == L':'));
+#else
+  return name && *name && (*name == L'/');
+#endif
 }
 
 inline std::string GetFirstLine(LPCWSTR name) {
@@ -114,7 +140,11 @@ inline std::string GetFirstLine(LPCWSTR name) {
   const std::wstring path = PathLooksAbsolute(name)
                                 ? std::wstring(name)
                                 : hlsl_test::GetPathToHlslDataFile(name);
+#ifdef _WIN32
   std::ifstream infile(path);
+#else
+  std::ifstream infile((CW2A(path.c_str())));
+#endif
   if (infile.bad()) {
     std::wstring errMsg(L"Unable to read file ");
     errMsg += path;
@@ -174,7 +204,7 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
           L"Adapter", AdapterValue))) {
     return defaultVal;
   }
-  if (defaultVal && AdapterValue.IsEmpty() ||
+  if ((defaultVal && AdapterValue.IsEmpty()) ||
       AdapterValue.CompareNoCase(L"WARP") == 0) {
     return true;
   }
@@ -184,11 +214,11 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
 }
 
 inline bool isdenorm(float f) {
-  return FP_SUBNORMAL == fpclassify(f);
+  return FP_SUBNORMAL == std::fpclassify(f);
 }
 
 inline bool isdenorm(double d) {
-  return FP_SUBNORMAL == fpclassify(d);
+  return FP_SUBNORMAL == std::fpclassify(d);
 }
 
 inline float ifdenorm_flushf(float a) {
@@ -200,7 +230,7 @@ inline bool ifdenorm_flushf_eq(float a, float b) {
 }
 
 inline bool ifdenorm_flushf_eq_or_nans(float a, float b) {
-  if (isnan(a) && isnan(b)) return true;
+  if (std::isnan(a) && std::isnan(b)) return true;
   return ifdenorm_flushf(a) == ifdenorm_flushf(b);
 }
 
@@ -331,13 +361,13 @@ inline bool CompareFloatULP(const float &fsrc, const float &fref,
   if (fsrc == fref) {
     return true;
   }
-  if (isnan(fsrc)) {
-    return isnan(fref);
+  if (std::isnan(fsrc)) {
+    return std::isnan(fref);
   }
   if (mode == hlsl::DXIL::Float32DenormMode::Any) {
     // If denorm expected, output can be sign preserved zero. Otherwise output
     // should pass the regular ulp testing.
-    if (isdenorm(fref) && fsrc == 0 && signbit(fsrc) == signbit(fref))
+    if (isdenorm(fref) && fsrc == 0 && std::signbit(fsrc) == std::signbit(fref))
       return true;
   }
   // For FTZ or Preserve mode, we should get the expected number within
@@ -353,13 +383,13 @@ CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon,
   if (fsrc == fref) {
     return true;
   }
-  if (isnan(fsrc)) {
-    return isnan(fref);
+  if (std::isnan(fsrc)) {
+    return std::isnan(fref);
   }
   if (mode == hlsl::DXIL::Float32DenormMode::Any) {
     // If denorm expected, output can be sign preserved zero. Otherwise output
     // should pass the regular epsilon testing.
-    if (isdenorm(fref) && fsrc == 0 && signbit(fsrc) == signbit(fref))
+    if (isdenorm(fref) && fsrc == 0 && std::signbit(fsrc) == std::signbit(fref))
       return true;
   }
   // For FTZ or Preserve mode, we should get the expected number within
@@ -393,7 +423,7 @@ inline bool CompareHalfEpsilon(const uint16_t &fsrc, const uint16_t &fref, float
     return isnanFloat16(fref);
   float src_f32 = ConvertFloat16ToFloat32(fsrc);
   float ref_f32 = ConvertFloat16ToFloat32(fref);
-  return abs(src_f32-ref_f32) < epsilon;
+  return std::abs(src_f32-ref_f32) < epsilon;
 }
 
 inline bool
@@ -402,6 +432,7 @@ CompareHalfRelativeEpsilon(const uint16_t &fsrc, const uint16_t &fref,
   return CompareHalfULP(fsrc, fref, 10 - nRelativeExp);
 }
 
+#ifdef _WIN32
 // returns the number of bytes per pixel for a given dxgi format
 // add more cases if different format needed to copy back resources
 inline UINT GetByteSizeForFormat(DXGI_FORMAT value) {
@@ -477,7 +508,7 @@ inline UINT GetByteSizeForFormat(DXGI_FORMAT value) {
         return 0;
     }
 }
-
+#endif
 
 #define SIMPLE_IUNKNOWN_IMPL1(_IFACE_) \
   private: volatile llvm::sys::cas_flag m_dwRef; \
