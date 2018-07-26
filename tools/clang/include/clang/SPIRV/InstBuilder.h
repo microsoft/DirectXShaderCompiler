@@ -94,7 +94,7 @@ public:
   // Instruction building methods.
   InstBuilder &opNop();
   InstBuilder &opUndef(uint32_t result_type, uint32_t result_id);
-  InstBuilder &opSourceContinued(std::string continued_source);
+  InstBuilder &opSourceContinued(llvm::StringRef continued_source);
   InstBuilder &opSource(spv::SourceLanguage source_language, uint32_t version,
                         llvm::Optional<uint32_t> file,
                         llvm::Optional<llvm::StringRef> source);
