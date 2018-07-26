@@ -13,6 +13,7 @@
 #include "llvm/Support/Signals.h"
 
 #include "HLSLTestOptions.h"
+#include "WEXAdapter.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -139,6 +140,8 @@ int main(int argc, char **argv) {
 #endif
 #endif
 
+  moduleSetup();
   int rv = RUN_ALL_TESTS();
+  moduleTeardown();
   return rv;
 }

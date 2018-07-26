@@ -13,71 +13,71 @@
 #include <string>
 #include "CompilationResult.h"
 #include "HLSLTestData.h"
-#include "llvm/Support/ManagedStatic.h"
-#include "dxc/Support/HLSLOptions.h"
-#include "llvm/Support/FileSystem.h"
 
 #include <fstream>
 
+#ifdef _WIN32
 #include "WexTestClass.h"
+#endif
 #include "HlslTestUtils.h"
 
 using namespace std;
 
-MODULE_SETUP(TestModuleSetup);
-MODULE_CLEANUP(TestModuleCleanup);
-
 // The test fixture.
-class VerifierTest
-{
+#ifdef _WIN32
+class VerifierTest {
+#else
+class VerifierTest : public ::testing::Test {
+#endif
+
 public:
   BEGIN_TEST_CLASS(VerifierTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
-  TEST_METHOD(RunAttributes);
-  TEST_METHOD(RunConstExpr);
-  TEST_METHOD(RunConstAssign);
-  TEST_METHOD(RunConstDefault);
-  TEST_METHOD(RunCppErrors);
-  TEST_METHOD(RunCXX11Attributes);
-  TEST_METHOD(RunEnums);
-  TEST_METHOD(RunFunctions);
-  TEST_METHOD(RunIndexingOperator);
-  TEST_METHOD(RunIntrinsicExamples);
-  TEST_METHOD(RunMatrixAssignments);
-  TEST_METHOD(RunMatrixSyntax);
-  TEST_METHOD(RunMatrixSyntaxExactPrecision);
-  TEST_METHOD(RunMoreOperators);
-  TEST_METHOD(RunObjectOperators);
-  TEST_METHOD(RunPackReg);
-  TEST_METHOD(RunRayTracings);
-  TEST_METHOD(RunScalarAssignments);
-  TEST_METHOD(RunScalarAssignmentsExactPrecision);
-  TEST_METHOD(RunScalarOperatorsAssign);
-  TEST_METHOD(RunScalarOperatorsAssignExactPrecision);
-  TEST_METHOD(RunScalarOperators);
-  TEST_METHOD(RunScalarOperatorsExactPrecision);
-  TEST_METHOD(RunString);
-  TEST_METHOD(RunStructAssignments);
-  TEST_METHOD(RunIncompleteArray);
-  TEST_METHOD(RunTemplateChecks);
-  TEST_METHOD(RunVarmodsSyntax);
-  TEST_METHOD(RunVectorAssignments);
-  TEST_METHOD(RunVectorSyntaxMix);
-  TEST_METHOD(RunVectorSyntax);
-  TEST_METHOD(RunVectorSyntaxExactPrecision);
-  TEST_METHOD(RunTypemodsSyntax);
-  TEST_METHOD(RunSemantics);
-  TEST_METHOD(RunImplicitCasts);
-  TEST_METHOD(RunDerivedToBaseCasts);
-  TEST_METHOD(RunLiterals);
-  TEST_METHOD(RunEffectsSyntax);
-  TEST_METHOD(RunVectorConditional);
-  TEST_METHOD(RunUint4Add3);
-  TEST_METHOD(RunBadInclude);
-  TEST_METHOD(RunWave);
+  TEST_METHOD(RunAttributes)
+  TEST_METHOD(RunConstExpr)
+  TEST_METHOD(RunConstAssign)
+  TEST_METHOD(RunConstDefault)
+  TEST_METHOD(RunCppErrors)
+  TEST_METHOD(RunCXX11Attributes)
+  TEST_METHOD(RunEnums)
+  TEST_METHOD(RunFunctions)
+  TEST_METHOD(RunIndexingOperator)
+  TEST_METHOD(RunIntrinsicExamples)
+  TEST_METHOD(RunMatrixAssignments)
+  TEST_METHOD(RunMatrixSyntax)
+  TEST_METHOD(RunMatrixSyntaxExactPrecision)
+  TEST_METHOD(RunMoreOperators)
+  TEST_METHOD(RunObjectOperators)
+  TEST_METHOD(RunPackReg)
+  TEST_METHOD(RunRayTracings)
+  TEST_METHOD(RunScalarAssignments)
+  TEST_METHOD(RunScalarAssignmentsExactPrecision)
+  TEST_METHOD(RunScalarOperatorsAssign)
+  TEST_METHOD(RunScalarOperatorsAssignExactPrecision)
+  TEST_METHOD(RunScalarOperators)
+  TEST_METHOD(RunScalarOperatorsExactPrecision)
+  TEST_METHOD(RunString)
+  TEST_METHOD(RunStructAssignments)
+  TEST_METHOD(RunIncompleteArray)
+  TEST_METHOD(RunTemplateChecks)
+  TEST_METHOD(RunVarmodsSyntax)
+  TEST_METHOD(RunVectorAssignments)
+  TEST_METHOD(RunVectorSyntaxMix)
+  TEST_METHOD(RunVectorSyntax)
+  TEST_METHOD(RunVectorSyntaxExactPrecision)
+  TEST_METHOD(RunTypemodsSyntax)
+  TEST_METHOD(RunSemantics)
+  TEST_METHOD(RunImplicitCasts)
+  TEST_METHOD(RunDerivedToBaseCasts)
+  TEST_METHOD(RunLiterals)
+  TEST_METHOD(RunEffectsSyntax)
+  TEST_METHOD(RunVectorConditional)
+  TEST_METHOD(RunUint4Add3)
+  TEST_METHOD(RunBadInclude)
+  TEST_METHOD(RunWave)
 
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -101,7 +101,7 @@ public:
     //
 
     {
-      ifstream infile(path);
+      ifstream infile(CW2A(path).m_psz);
       ASSERT_EQ(false, infile.bad());
 
       infile.getline(firstLine, _countof(firstLine));
@@ -131,26 +131,6 @@ public:
     CheckVerifies(hlsl_test::GetPathToHlslDataFile(name).c_str());
   }
 };
-
-bool TestModuleSetup() {
-  if (llvm::sys::fs::SetupPerThreadFileSystem())
-    return false;
-  // Use this module-level function to set up LLVM dependencies.
-  if (hlsl::options::initHlslOptTable()) {
-    return false;
-  }
-  return true;
-}
-
-bool TestModuleCleanup() {
-  // Use this module-level function to set up LLVM dependencies.
-  // In particular, clean up managed static allocations used by
-  // parsing options with the LLVM library.
-  ::hlsl::options::cleanupHlslOptTable();
-  llvm::sys::fs::CleanupPerThreadFileSystem();
-  ::llvm::llvm_shutdown();
-  return true;
-}
 
 TEST_F(VerifierTest, RunAttributes) {
   CheckVerifiesHLSL(L"attributes.hlsl");

@@ -32,7 +32,8 @@ struct EmitSPIRVOptions {
   bool codeGenHighLevel;
   bool defaultRowMajor;
   bool disableValidation;
-  bool invertY;
+  bool invertY; // Additive inverse
+  bool invertW; // Multiplicative inverse
   bool useGlLayout;
   bool useDxLayout;
   bool enable16BitTypes;

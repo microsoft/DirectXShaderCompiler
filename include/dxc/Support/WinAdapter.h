@@ -598,7 +598,7 @@ protected:
   }
 
 public:
-  virtual ~CComPtrBase() throw() {
+  ~CComPtrBase() throw() {
     if (p) {
       p->Release();
       p = nullptr;

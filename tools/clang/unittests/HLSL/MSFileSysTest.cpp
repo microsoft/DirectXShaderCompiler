@@ -37,14 +37,14 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
-  TEST_METHOD(CreationWhenInvokedThenNonNull);
+  TEST_METHOD(CreationWhenInvokedThenNonNull)
 
-  TEST_METHOD(FindFirstWhenInvokedThenHasFile);
-  TEST_METHOD(FindFirstWhenInvokedThenFailsIfNoMatch);
-  TEST_METHOD(FindNextWhenLastThenNoMatch);
-  TEST_METHOD(FindNextWhenExistsThenMatch);
+  TEST_METHOD(FindFirstWhenInvokedThenHasFile)
+  TEST_METHOD(FindFirstWhenInvokedThenFailsIfNoMatch)
+  TEST_METHOD(FindNextWhenLastThenNoMatch)
+  TEST_METHOD(FindNextWhenExistsThenMatch)
 
-  TEST_METHOD(OpenWhenNewThenZeroSize);
+  TEST_METHOD(OpenWhenNewThenZeroSize)
 };
 
 static

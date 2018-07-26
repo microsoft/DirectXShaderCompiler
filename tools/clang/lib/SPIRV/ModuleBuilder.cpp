@@ -301,51 +301,10 @@ uint32_t ModuleBuilder::createAtomicOp(spv::Op opcode, uint32_t resultType,
                                        uint32_t valueToOp) {
   assert(insertPoint && "null insert point");
   const uint32_t id = theContext.takeNextId();
-  switch (opcode) {
-  case spv::Op::OpAtomicIAdd:
-    instBuilder.opAtomicIAdd(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicISub:
-    instBuilder.opAtomicISub(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicAnd:
-    instBuilder.opAtomicAnd(resultType, id, orignalValuePtr, scopeId,
-                            memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicOr:
-    instBuilder.opAtomicOr(resultType, id, orignalValuePtr, scopeId,
-                           memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicXor:
-    instBuilder.opAtomicXor(resultType, id, orignalValuePtr, scopeId,
-                            memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicUMax:
-    instBuilder.opAtomicUMax(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicUMin:
-    instBuilder.opAtomicUMin(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicSMax:
-    instBuilder.opAtomicSMax(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicSMin:
-    instBuilder.opAtomicSMin(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicExchange:
-    instBuilder.opAtomicExchange(resultType, id, orignalValuePtr, scopeId,
-                                 memorySemanticsId, valueToOp);
-    break;
-  default:
-    assert(false && "unimplemented atomic opcode");
-  }
-  instBuilder.x();
+  instBuilder
+      .atomicOp(opcode, resultType, id, orignalValuePtr, scopeId,
+                memorySemanticsId, valueToOp)
+      .x();
   insertPoint->appendInstruction(std::move(constructSite));
   return id;
 }

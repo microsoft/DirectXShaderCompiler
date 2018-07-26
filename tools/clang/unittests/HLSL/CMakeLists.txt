@@ -6,6 +6,7 @@ find_package(DiaSDK REQUIRED) # Used for constants and declarations.
 find_package(D3D12 REQUIRED) # Used for ExecutionTest.cpp.
 ENDif(WIN32)
 
+if(WIN32)
 set( LLVM_LINK_COMPONENTS
   support
   mssupport
@@ -19,7 +20,6 @@ set( LLVM_LINK_COMPONENTS
   irreader
   )
 
-if(WIN32)
 set(HLSL_IGNORE_SOURCES
   TestMain.cpp
   HLSLTestOptions.cpp
@@ -28,6 +28,7 @@ add_clang_library(clang-hlsl-tests SHARED
   AllocatorTest.cpp
   CompilationResult.h
   CompilerTest.cpp
+  DxcTestUtils.cpp
   DxilContainerTest.cpp
   DxilModuleTest.cpp
   DXIsenseTest.cpp
@@ -52,12 +53,16 @@ add_clang_library(clang-hlsl-tests SHARED
   clang-hlsl-tests.rc
   )
 else (WIN32)
+set( LLVM_LINK_COMPONENTS
+  support
+  mssupport
+  dxcsupport
+  )
+
 set(HLSL_IGNORE_SOURCES
-  AllocatorTest.cpp
   CompilerTest.cpp
   DxilContainerTest.cpp
   DxilModuleTest.cpp
-  DXIsenseTest.cpp
   ExecutionTest.cpp
   ExtensionTest.cpp
   FileCheckerTest.cpp
@@ -65,19 +70,22 @@ set(HLSL_IGNORE_SOURCES
   FunctionTest.cpp
   LinkerTest.cpp
   MSFileSysTest.cpp
-  Objects.cpp
   OptimizerTest.cpp
   OptionsTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
   SystemValueTest.cpp
   ValidationTest.cpp
-  VerifierTest.cpp
   )
 
 add_clang_unittest(clang-hlsl-tests
-  TestMain.cpp
+  AllocatorTest.cpp
+  DxcTestUtils.cpp
+  DXIsenseTest.cpp
   HLSLTestOptions.cpp
+  Objects.cpp
+  TestMain.cpp
+  VerifierTest.cpp
   )
 
 endif(WIN32)
@@ -123,3 +131,7 @@ file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" DOS_STYLE_SOURCE_DIR)
 file(TO_NATIVE_PATH "${TAEF_BIN_DIR}" DOS_TAEF_BIN_DIR)
 configure_file(clang-hlsl-tests.vcxproj.user.txt clang-hlsl-tests.vcxproj.user)
 endif(WIN32)
+
+add_test(NAME test-hlsl-codegen
+  COMMAND clang-hlsl-tests --HlslDataDir
+          ${PROJECT_SOURCE_DIR}/tools/clang/test/HLSL)

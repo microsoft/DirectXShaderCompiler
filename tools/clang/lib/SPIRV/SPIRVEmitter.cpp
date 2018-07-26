@@ -610,9 +610,18 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
 
   // Set debug info
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
-  if (options.enableDebugInfo && !inputFiles.empty())
+  if (options.enableDebugInfo && !inputFiles.empty()) {
+    // File name
     theBuilder.setSourceFileName(theContext.takeNextId(),
                                  inputFiles.front().getFile().str());
+
+    // Source code
+    const auto &sm = ci.getSourceManager();
+    const llvm::MemoryBuffer *mainFile =
+        sm.getBuffer(sm.getMainFileID(), SourceLocation());
+    theBuilder.setSourceFileContent(
+        StringRef(mainFile->getBufferStart(), mainFile->getBufferSize()));
+  }
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
