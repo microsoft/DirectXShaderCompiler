@@ -590,7 +590,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
                    featureManager, options),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
       seenPushConstantAt(), isSpecConstantMode(false),
-      foundNonUniformResourceIndex(false), needsLegalization(false) {
+      foundNonUniformResourceIndex(false), needsLegalization(false),
+      mainSourceFileId(0) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 
@@ -612,7 +613,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
   if (options.enableDebugInfo && !inputFiles.empty()) {
     // File name
-    theBuilder.setSourceFileName(theContext.takeNextId(),
+    mainSourceFileId = theContext.takeNextId();
+    theBuilder.setSourceFileName(mainSourceFileId,
                                  inputFiles.front().getFile().str());
 
     // Source code
@@ -1986,6 +1988,8 @@ SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
 }
 
 SpirvEvalInfo SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
+  emitDebugLine(callExpr->getLocStart());
+
   if (const auto *operatorCall = dyn_cast<CXXOperatorCallExpr>(callExpr))
     return doCXXOperatorCallExpr(operatorCall);
 
@@ -9947,6 +9951,14 @@ uint32_t SPIRVEmitter::extractVecFromVec4(uint32_t fromId,
     return fromId;
   default:
     llvm_unreachable("vector element count must be 1, 2, 3, or 4");
+  }
+}
+
+void SPIRVEmitter::emitDebugLine(SourceLocation loc) {
+  if (spirvOptions.enableDebugInfo && mainSourceFileId != 0) {
+    auto floc = FullSourceLoc(loc, theCompilerInstance.getSourceManager());
+    theBuilder.debugLine(mainSourceFileId, floc.getSpellingLineNumber(),
+                         floc.getSpellingColumnNumber());
   }
 }
 
