@@ -873,6 +873,9 @@ private:
                              uint32_t constOffsets, uint32_t sample,
                              uint32_t minLod, uint32_t residencyCodeId);
 
+  /// \brief Emit an OpLine instruction for the given source location.
+  void emitDebugLine(SourceLocation);
+
 private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
@@ -1017,6 +1020,9 @@ private:
   /// This is the Patch Constant Function. This function is not explicitly
   /// called from the entry point function.
   FunctionDecl *patchConstFunc;
+
+  /// The <result-id> of the OpString containing the main source file's path.
+  uint32_t mainSourceFileId;
 };
 
 void SPIRVEmitter::doDeclStmt(const DeclStmt *declStmt) {
