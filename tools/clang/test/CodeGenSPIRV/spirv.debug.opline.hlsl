@@ -58,5 +58,11 @@ float4 main(uint val : A) : SV_Target {
   // CHECK-NEXT: OpISub
   while (--b > 0);
 
+  do {
+    c++;
+  // CHECK:      OpLine [[file]] 66 12
+  // CHECK-NEXT: OpAccessChain %_ptr_Function_float %c %int_0
+  } while (c.x < 10);
+
   return b * c;
 }

@@ -1486,6 +1486,7 @@ void SPIRVEmitter::doDoStmt(const DoStmt *theDoStmt,
   theBuilder.setInsertPoint(continueBB);
   uint32_t condition = 0;
   if (const Expr *check = theDoStmt->getCond()) {
+    emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
     condition = theBuilder.getConstantBool(true);
