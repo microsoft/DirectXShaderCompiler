@@ -961,6 +961,13 @@ def VKConstantId : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKPostDepthCoverage : InheritableAttr {
+  let Spellings = [CXX11<"vk", "post_depth_coverage">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 // SPIRV Change Ends
 
 def C11NoReturn : InheritableAttr {

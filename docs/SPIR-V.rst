@@ -261,6 +261,8 @@ The namespace ``vk`` will be used for all Vulkan attributes:
   and struct fields.
 - ``index(X)``: For specifying the index at a specific pixel shader output
   location. Used for dual-source blending.
+- ``post_depth_coverage``: The input variable decorated with SampleMask will
+  reflect the result of the EarlyFragmentTests. Only valid in pixel shaders.
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
