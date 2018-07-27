@@ -9229,7 +9229,7 @@ void SPIRVEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
   }
   if (decl->getAttr<VKPostDepthCoverageAttr>()) {
     theBuilder.addExtension(Extension::KHR_post_depth_coverage,
-                            "PostDepthCoverage", decl->getLocation());
+                            "[[vk::post_depth_coverage]]", decl->getLocation());
     theBuilder.requireCapability(spv::Capability::SampleMaskPostDepthCoverage);
     theBuilder.addExecutionMode(entryFunctionId,
                                 spv::ExecutionMode::PostDepthCoverage, {});
