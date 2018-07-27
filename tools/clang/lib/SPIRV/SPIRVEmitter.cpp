@@ -9233,6 +9233,13 @@ void SPIRVEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
     theBuilder.addExecutionMode(entryFunctionId,
                                 spv::ExecutionMode::EarlyFragmentTests, {});
   }
+  if (decl->getAttr<VKPostDepthCoverageAttr>()) {
+    theBuilder.addExtension(Extension::KHR_post_depth_coverage,
+                            "[[vk::post_depth_coverage]]", decl->getLocation());
+    theBuilder.requireCapability(spv::Capability::SampleMaskPostDepthCoverage);
+    theBuilder.addExecutionMode(entryFunctionId,
+                                spv::ExecutionMode::PostDepthCoverage, {});
+  }
 }
 
 void SPIRVEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {

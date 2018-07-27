@@ -1008,6 +1008,9 @@ TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
 TEST_F(FileTest, AttributeEarlyDepthStencil) {
   runFileTest("attribute.earlydepthstencil.ps.hlsl");
 }
+TEST_F(FileTest, AttributePostDepthCoverage) {
+  runFileTest("attribute.postdepthcoverage.ps.hlsl");
+}
 TEST_F(FileTest, AttributeNumThreads) {
   runFileTest("attribute.numthreads.hlsl");
 }
