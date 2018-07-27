@@ -1486,6 +1486,7 @@ void SPIRVEmitter::doDoStmt(const DoStmt *theDoStmt,
   theBuilder.setInsertPoint(continueBB);
   uint32_t condition = 0;
   if (const Expr *check = theDoStmt->getCond()) {
+    emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
     condition = theBuilder.getConstantBool(true);
@@ -1585,6 +1586,7 @@ void SPIRVEmitter::doWhileStmt(const WhileStmt *whileStmt,
 
   uint32_t condition = 0;
   if (const Expr *check = whileStmt->getCond()) {
+    emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
     condition = theBuilder.getConstantBool(true);
@@ -1676,6 +1678,7 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
 
   // Process the <init> block
   if (const Stmt *initStmt = forStmt->getInit()) {
+    emitDebugLine(initStmt->getLocStart());
     doStmt(initStmt);
   }
   theBuilder.createBranch(checkBB);
@@ -1685,6 +1688,7 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
   theBuilder.setInsertPoint(checkBB);
   uint32_t condition;
   if (const Expr *check = forStmt->getCond()) {
+    emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
     condition = theBuilder.getConstantBool(true);
@@ -1713,6 +1717,7 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
   // Process the <continue> block
   theBuilder.setInsertPoint(continueBB);
   if (const Expr *cont = forStmt->getInc()) {
+    emitDebugLine(cont->getLocStart());
     doExpr(cont);
   }
   theBuilder.createBranch(checkBB); // <continue> should jump back to header
@@ -1786,6 +1791,7 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt,
   if (const auto *declStmt = ifStmt->getConditionVariableDeclStmt())
     doDeclStmt(declStmt);
 
+  emitDebugLine(ifStmt->getCond()->getLocStart());
   // First emit the instruction for evaluating the condition.
   const uint32_t condition = doExpr(ifStmt->getCond());
 
