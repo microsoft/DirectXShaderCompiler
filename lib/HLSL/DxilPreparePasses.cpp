@@ -330,12 +330,11 @@ public:
       // Strip parameters of entry function.
       StripEntryParameters(M, DM, IsLib);
 
-      // Skip shader flag for library.
-      if (!IsLib) {
-        DM.CollectShaderFlagsForModule(); // Update flags to reflect any changes.
-                                 // Update Validator Version
-        DM.UpgradeToMinValidatorVersion();
-      }
+      // Update flags to reflect any changes.
+      DM.CollectShaderFlagsForModule();
+
+      // Update Validator Version
+      DM.UpgradeToMinValidatorVersion();
 
       return true;
     }
