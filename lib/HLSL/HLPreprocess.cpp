@@ -59,27 +59,30 @@ public:
 
     StackSave->eraseFromParent();
     StackRestore->eraseFromParent();
-    // Has stacksave/store mean alloca not in entry block.
-    if (bUpdated) {
-      // Make sure all allocas are in entry block.
-      for (Function &F : M.functions()) {
-        MoveAllocasToEntryBlock(&F);
-      }
+
+    // If stacksave/store is present, it means alloca not in the
+    // entry block. However, there could be other cases where allocas
+    // could be present in the non-entry blocks.
+    // Therefore, always go through all non-entry blocks and
+    // make sure all allocas are moved to the entry block.
+    for (Function &F : M.functions()) {
+      bUpdated |= MoveAllocasToEntryBlock(&F);
     }
 
     return bUpdated;
   }
 
 private:
-  void MoveAllocasToEntryBlock(Function *F);
+  bool MoveAllocasToEntryBlock(Function *F);
 };
 
 char HLPreprocess::ID = 0;
 
 // Make sure all allocas are in entry block.
-void HLPreprocess::MoveAllocasToEntryBlock(Function *F) {
+bool HLPreprocess::MoveAllocasToEntryBlock(Function *F) {
+  bool changed = false;
   if (F->getBasicBlockList().size() < 2)
-    return;
+    return changed;
   BasicBlock &Entry = F->getEntryBlock();
   IRBuilder<> Builder(Entry.getFirstInsertionPt());
 
@@ -92,9 +95,11 @@ void HLPreprocess::MoveAllocasToEntryBlock(Function *F) {
       if (isa<AllocaInst>(I)) {
         I->removeFromParent();
         Builder.Insert(I);
+        changed = true;
       }
     }
   }
+  return changed;
 }
 
 } // namespace
