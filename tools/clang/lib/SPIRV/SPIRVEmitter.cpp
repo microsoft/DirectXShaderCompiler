@@ -705,7 +705,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     // Run optimization passes
     if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
       std::string messages;
-      if (!spirvToolsOptimize(targetEnv, &m, spirvOptions.oConfig, &messages)) {
+      if (!spirvToolsOptimize(targetEnv, &m, spirvOptions.optConfig,
+                              &messages)) {
         emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
         emitNote("please file a bug report on "
                  "https://github.com/Microsoft/DirectXShaderCompiler/issues "

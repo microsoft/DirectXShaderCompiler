@@ -577,11 +577,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       errors << "-Oconfig should not be specified more than once";
       return 1;
     }
-    for (const auto opt : {OPT_O0, OPT_O1, OPT_O2, OPT_O3, OPT_O4}) {
-      if (Args.hasArg(opt)) {
-        errors << "-Oconfig should not be used together with -O";
-        return 1;
-      }
+    if (Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3, OPT_O4)) {
+      errors << "-Oconfig should not be used together with -O";
+      return 1;
     }
     for (const auto v : A->getValues()) {
       opts.SpvOconfig.push_back(v);
@@ -599,6 +597,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_target_env_EQ).empty() ||
+      !Args.getLastArgValue(OPT_Oconfig).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||

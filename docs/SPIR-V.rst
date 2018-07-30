@@ -347,7 +347,65 @@ Optimization
 
 Optimization is also delegated to SPIRV-Tools. Right now there are no difference
 between optimization levels greater than zero; they will all invoke the same
-optimization recipe. This may change in the future.
+optimization recipe. If you want to run a custom optimization recipe, you can do
+so using ``-Oconfig=`` and specifying a comma-separated list of your desired passes.
+
+For example, you can specify: ``-Oconfig=--loop-unroll,--eliminate-dead-variables,--scalar-replacement=300``.
+
+Here is a list of valid passes:
+
+* ``--ccp``
+* ``--cfg-cleanup``
+* ``--compact-ids``
+* ``--convert-local-access-chains``
+* ``--copy-propagate-arrays``
+* ``--eliminate-common-uniform``
+* ``--eliminate-dead-branches``
+* ``--eliminate-dead-code-aggressive``
+* ``--eliminate-dead-const``
+* ``--eliminate-dead-functions``
+* ``--eliminate-dead-insert``
+* ``--eliminate-dead-variables``
+* ``--eliminate-local-multi-store``
+* ``--eliminate-local-single-block``
+* ``--eliminate-local-single-store``
+* ``--flatten-decorations``
+* ``--fold-spec-const-op-composite``
+* ``--freeze-spec-const``
+* ``--if-conversion``
+* ``--inline-entry-points-exhaustive``
+* ``--legalize-hlsl``
+* ``--local-redundancy-elimination``
+* ``--loop-fission``
+* ``--loop-fusion``
+* ``--loop-unroll``
+* ``--loop-unroll-partial``
+* ``--loop-peeling``
+* ``--loop-peeling-threshold``
+* ``--merge-blocks``
+* ``--merge-return``
+* ``--loop-unswitch``
+* ``-O``
+* ``-Os``
+* ``--private-to-local``
+* ``--reduce-load-size``
+* ``--redundancy-elimination``
+* ``--relax-struct-store``
+* ``--remove-duplicates``
+* ``--replace-invalid-opcode``
+* ``--ssa-rewrite``
+* ``--scalar-replacement[=<n>]``
+* ``--set-spec-const-default-value "<spec id>:<default value> ..."``
+* ``--simplify-instructions``
+* ``--strength-reduction``
+* ``--strip-debug``
+* ``--strip-reflect``
+* ``--vector-dce``
+* ``--workaround-1209``
+* ``--unify-const``
+
+For an up-to-date list of available passes and for more information about each one, please
+see the SPIRV-Tools optimizer help manual (``spirv-opt.exe --help``).
 
 Validation
 ~~~~~~~~~~
