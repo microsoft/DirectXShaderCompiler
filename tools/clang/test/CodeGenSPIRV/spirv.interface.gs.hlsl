@@ -105,6 +105,7 @@ void main(in    line float2                     bar   [2] : BAR,
     GsPerVertexOut vertex;
 
     vertex = (GsPerVertexOut)0;
+    vertex.bar = float4(bar[0], bar[1]) + inData[0].pos;
 
     outData.Append(vertex);
 

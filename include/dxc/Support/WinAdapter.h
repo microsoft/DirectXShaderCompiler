@@ -32,6 +32,7 @@
 #include <typeinfo>
 #include <vector>
 #endif // __cplusplus
+#include <execinfo.h>
 
 //===----------------------------------------------------------------------===//
 //
@@ -41,11 +42,18 @@
 #define C_ASSERT(expr) static_assert((expr), "")
 #define ATLASSERT assert
 
+#define CoTaskMemAlloc malloc
+#define CoTaskMemFree free
+
+#define SysFreeString free
+#define SysAllocStringLen(ptr, size) (wchar_t*)realloc(ptr, (size + 1)*sizeof(wchar_t))
+
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
 
 #define __declspec(x)
+#define DECLSPEC_SELECTANY
 
 #define uuid(id)
 
@@ -94,13 +102,17 @@
 
 // Map these errors to equivalent errnos.
 #define ERROR_SUCCESS 0L
-#define ERROR_OUT_OF_STRUCTURES ENOMEM
-#define ERROR_UNHANDLED_EXCEPTION EINTR
-#define ERROR_NOT_FOUND ENOTSUP
-#define ERROR_NOT_CAPABLE EPERM
+#define ERROR_ARITHMETIC_OVERFLOW EOVERFLOW
 #define ERROR_FILE_NOT_FOUND ENOENT
+#define ERROR_FUNCTION_NOT_CALLED ENOSYS
 #define ERROR_IO_DEVICE EIO
+#define ERROR_INSUFFICIENT_BUFFER ENOBUFS
 #define ERROR_INVALID_HANDLE EBADF
+#define ERROR_INVALID_PARAMETER EINVAL
+#define ERROR_OUT_OF_STRUCTURES ENOMEM
+#define ERROR_NOT_CAPABLE EPERM
+#define ERROR_NOT_FOUND ENOTSUP
+#define ERROR_UNHANDLED_EXCEPTION EINTR
 
 // Used by HRESULT <--> WIN32 error code conversion
 #define SEVERITY_ERROR 1
@@ -137,20 +149,46 @@
 #define STREAM_SEEK_CUR 1
 #define STREAM_SEEK_END 2
 
-#define HEAP_NO_SERIALIZE 1
+#define HEAP_NO_SERIALIZE 0x1
+#define HEAP_ZERO_MEMORY 0x8
 
 #define MB_ERR_INVALID_CHARS 0x00000008 // error for invalid chars
+
+// File IO
+
+#define CREATE_ALWAYS 2
+#define CREATE_NEW 1
+#define OPEN_ALWAYS 4
+#define OPEN_EXISTING 3
+#define TRUNCATE_EXISTING 5
+
+#define FILE_SHARE_DELETE 0x00000004
+#define FILE_SHARE_READ 0x00000001
+#define FILE_SHARE_WRITE 0x00000002
+
+#define GENERIC_READ 0x80000000
+#define GENERIC_WRITE 0x40000000
 
 #define _atoi64 atoll
 #define sprintf_s snprintf
 #define _strdup strdup
+
 #define vsprintf_s vsprintf
 #define strcat_s strcat
+#define strcpy_s(dst, n, src) strncpy(dst, src, n)
+#define _vscwprintf vwprintf
+#define vswprintf_s vswprintf
+#define swprintf_s swprintf
+
+#define StringCchCopyW(dst, n, src) wcsncpy(dst, src, n)
 
 #define OutputDebugStringW(msg) fputws(msg, stderr)
 
 #define OutputDebugStringA(msg) fputs(msg, stderr)
 #define OutputDebugFormatA(...) fprintf(stderr, __VA_ARGS__)
+
+#define CaptureStackBackTrace(FramesToSkip, FramesToCapture, BackTrace, BackTraceHash)\
+  backtrace(BackTrace, FramesToCapture)
 
 // Event Tracing for Windows (ETW) provides application programmers the ability
 // to start and stop event tracing sessions, instrument an application to
@@ -216,6 +254,7 @@
 
 #define _Out_
 #define _Out_bytecap_(nbytes)
+#define _Out_writes_to_(a, b)
 #define _Out_writes_to_opt_(a, b)
 #define _Outptr_
 #define _Outptr_opt_
@@ -370,6 +409,22 @@ typedef void *HMODULE;
 #define STD_OUTPUT_HANDLE ((DWORD)-11)
 #define STD_ERROR_HANDLE ((DWORD)-12)
 
+//===--------------------- ID Types and Macros for COM --------------------===//
+
+struct GUID {
+  uint32_t Data1;
+  uint16_t Data2;
+  uint16_t Data3;
+  uint8_t Data4[8];
+};
+typedef GUID CLSID;
+typedef const GUID &REFGUID;
+typedef const void *REFIID;
+typedef const GUID &REFCLSID;
+
+#define IsEqualIID(a, b) a == b
+#define IsEqualCLSID(a, b) !memcmp(&a, &b, sizeof(GUID))
+
 //===--------------------- Struct Types -----------------------------------===//
 
 typedef struct _FILETIME {
@@ -444,7 +499,418 @@ enum tagSTATFLAG {
   STATFLAG_NOOPEN = 2
 };
 
-// TODO: More definitions will be added here.
+//===--------------------- UUID Related Macros ----------------------------===//
+
+// The following macros are defined to facilitate the lack of 'uuid' on Linux.
+#define DECLARE_CROSS_PLATFORM_UUIDOF(T)                                       \
+public:                                                                        \
+  static REFIID uuidof() { return static_cast<REFIID>(&T##_ID); }              \
+                                                                               \
+private:                                                                       \
+  static const char T##_ID;
+
+#define DEFINE_CROSS_PLATFORM_UUIDOF(T) const char T::T##_ID = '\0';
+#define __uuidof(T) T::uuidof()
+#define IID_PPV_ARGS(ppType)                                                   \
+  (**(ppType)).uuidof(), reinterpret_cast<void **>(ppType)
+
+//===--------------------- COM Interfaces ---------------------------------===//
+
+struct IUnknown {
+  virtual HRESULT QueryInterface(REFIID riid, void **ppvObject) = 0;
+  virtual ULONG AddRef();
+  virtual ULONG Release();
+  virtual ~IUnknown();
+  template <class Q> HRESULT QueryInterface(Q **pp) {
+    return QueryInterface(__uuidof(Q), (void **)pp);
+  }
+
+private:
+  std::atomic<unsigned long> m_count;
+
+  DECLARE_CROSS_PLATFORM_UUIDOF(IUnknown)
+};
+
+struct INoMarshal : public IUnknown {
+  DECLARE_CROSS_PLATFORM_UUIDOF(INoMarshal)
+};
+
+struct IMalloc : public IUnknown {
+  virtual void *Alloc(size_t size);
+  virtual void *Realloc(void *ptr, size_t size);
+  virtual void Free(void *ptr);
+  virtual HRESULT QueryInterface(REFIID riid, void **ppvObject);
+};
+
+struct ISequentialStream : public IUnknown {
+  virtual HRESULT Read(void *pv, ULONG cb, ULONG *pcbRead) = 0;
+  virtual HRESULT Write(const void *pv, ULONG cb, ULONG *pcbWritten) = 0;
+
+  DECLARE_CROSS_PLATFORM_UUIDOF(ISequentialStream)
+};
+
+struct IStream : public ISequentialStream {
+  virtual HRESULT Seek(LARGE_INTEGER dlibMove, DWORD dwOrigin,
+                       ULARGE_INTEGER *plibNewPosition) = 0;
+  virtual HRESULT SetSize(ULARGE_INTEGER libNewSize) = 0;
+  virtual HRESULT CopyTo(IStream *pstm, ULARGE_INTEGER cb,
+                         ULARGE_INTEGER *pcbRead,
+                         ULARGE_INTEGER *pcbWritten) = 0;
+
+  virtual HRESULT Commit(DWORD grfCommitFlags) = 0;
+
+  virtual HRESULT Revert(void) = 0;
+
+  virtual HRESULT LockRegion(ULARGE_INTEGER libOffset, ULARGE_INTEGER cb,
+                             DWORD dwLockType) = 0;
+
+  virtual HRESULT UnlockRegion(ULARGE_INTEGER libOffset, ULARGE_INTEGER cb,
+                               DWORD dwLockType) = 0;
+
+  virtual HRESULT Stat(STATSTG *pstatstg, DWORD grfStatFlag) = 0;
+
+  virtual HRESULT Clone(IStream **ppstm) = 0;
+
+  DECLARE_CROSS_PLATFORM_UUIDOF(IStream)
+};
+
+//===--------------------- COM Pointer Types ------------------------------===//
+
+class CAllocator {
+public:
+  static void *Reallocate(void *p, size_t nBytes) throw();
+  static void *Allocate(size_t nBytes) throw();
+  static void Free(void *p) throw();
+};
+
+template <class T> class CComPtrBase {
+protected:
+  CComPtrBase() throw() { p = nullptr; }
+  CComPtrBase(T *lp) throw() {
+    p = lp;
+    if (p != nullptr)
+      p->AddRef();
+  }
+  void Swap(CComPtrBase &other) {
+    T *pTemp = p;
+    p = other.p;
+    other.p = pTemp;
+  }
+
+public:
+  ~CComPtrBase() throw() {
+    if (p) {
+      p->Release();
+      p = nullptr;
+    }
+  }
+  operator T *() const throw() { return p; }
+  T &operator*() const { return *p; }
+  T *operator->() const { return p; }
+  T **operator&() throw() {
+    assert(p == nullptr);
+    return &p;
+  }
+  bool operator!() const throw() { return (p == nullptr); }
+  bool operator<(T *pT) const throw() { return p < pT; }
+  bool operator!=(T *pT) const { return !operator==(pT); }
+  bool operator==(T *pT) const throw() { return p == pT; }
+
+  // Release the interface and set to nullptr
+  void Release() throw() {
+    T *pTemp = p;
+    if (pTemp) {
+      p = nullptr;
+      pTemp->Release();
+    }
+  }
+
+  // Attach to an existing interface (does not AddRef)
+  void Attach(T *p2) throw() {
+    if (p) {
+      ULONG ref = p->Release();
+      (void)(ref);
+      // Attaching to the same object only works if duplicate references are
+      // being coalesced.  Otherwise re-attaching will cause the pointer to be
+      // released and may cause a crash on a subsequent dereference.
+      assert(ref != 0 || p2 != p);
+    }
+    p = p2;
+  }
+
+  // Detach the interface (does not Release)
+  T *Detach() throw() {
+    T *pt = p;
+    p = nullptr;
+    return pt;
+  }
+
+  HRESULT CopyTo(T **ppT) throw() {
+    assert(ppT != nullptr);
+    if (ppT == nullptr)
+      return E_POINTER;
+    *ppT = p;
+    if (p)
+      p->AddRef();
+    return S_OK;
+  }
+
+  template <class Q> HRESULT QueryInterface(Q **pp) const throw() {
+    assert(pp != nullptr);
+    return p->QueryInterface(__uuidof(Q), (void **)pp);
+  }
+
+  T *p;
+};
+
+template <class T> class CComPtr : public CComPtrBase<T> {
+public:
+  CComPtr() throw() {}
+  CComPtr(T *lp) throw() : CComPtrBase<T>(lp) {}
+  CComPtr(const CComPtr<T> &lp) throw() : CComPtrBase<T>(lp.p) {}
+  T *operator=(T *lp) throw() {
+    if (*this != lp) {
+      CComPtr(lp).Swap(*this);
+    }
+    return *this;
+  }
+
+  inline bool IsEqualObject(IUnknown *pOther) throw() {
+    if (this->p == nullptr && pOther == nullptr)
+      return true; // They are both NULL objects
+
+    if (this->p == nullptr || pOther == nullptr)
+      return false; // One is NULL the other is not
+
+    CComPtr<IUnknown> punk1;
+    CComPtr<IUnknown> punk2;
+    this->p->QueryInterface(__uuidof(IUnknown), (void **)&punk1);
+    pOther->QueryInterface(__uuidof(IUnknown), (void **)&punk2);
+    return punk1 == punk2;
+  }
+
+  void ComPtrAssign(IUnknown **pp, IUnknown *lp, REFIID riid) {
+    IUnknown *pTemp = *pp; // takes ownership
+    if (lp == nullptr || FAILED(lp->QueryInterface(riid, (void **)pp)))
+      *pp = nullptr;
+    if (pTemp)
+      pTemp->Release();
+  }
+
+  template <typename Q> T *operator=(const CComPtr<Q> &lp) throw() {
+    if (!this->IsEqualObject(lp)) {
+      ComPtrAssign((IUnknown **)&this->p, lp, __uuidof(T));
+    }
+    return *this;
+  }
+
+  T *operator=(const CComPtr<T> &lp) throw() {
+    if (*this != lp) {
+      CComPtr(lp).Swap(*this);
+    }
+    return *this;
+  }
+
+  CComPtr(CComPtr<T> &&lp) throw() : CComPtrBase<T>() { lp.Swap(*this); }
+
+  T *operator=(CComPtr<T> &&lp) throw() {
+    if (*this != lp) {
+      CComPtr(static_cast<CComPtr &&>(lp)).Swap(*this);
+    }
+    return *this;
+  }
+};
+
+template <class T> class CSimpleArray : public std::vector<T> {
+public:
+  bool Add(const T &t) {
+    this->push_back(t);
+    return true;
+  }
+  int GetSize() { return this->size(); }
+  T *GetData() { return this->data(); }
+  void RemoveAll() { this->clear(); }
+};
+
+template <class T, class Allocator = CAllocator> class CHeapPtrBase {
+protected:
+  CHeapPtrBase() throw() : m_pData(NULL) {}
+  CHeapPtrBase(CHeapPtrBase<T, Allocator> &p) throw() {
+    m_pData = p.Detach(); // Transfer ownership
+  }
+  explicit CHeapPtrBase(T *pData) throw() : m_pData(pData) {}
+
+public:
+  ~CHeapPtrBase() throw() { Free(); }
+
+protected:
+  CHeapPtrBase<T, Allocator> &operator=(CHeapPtrBase<T, Allocator> &p) throw() {
+    if (m_pData != p.m_pData)
+      Attach(p.Detach()); // Transfer ownership
+    return *this;
+  }
+
+public:
+  operator T *() const throw() { return m_pData; }
+  T *operator->() const throw() {
+    assert(m_pData != NULL);
+    return m_pData;
+  }
+
+  T **operator&() throw() {
+    assert(m_pData == NULL);
+    return &m_pData;
+  }
+
+  // Allocate a buffer with the given number of bytes
+  bool AllocateBytes(size_t nBytes) throw() {
+    assert(m_pData == NULL);
+    m_pData = static_cast<T *>(Allocator::Allocate(nBytes * sizeof(char)));
+    if (m_pData == NULL)
+      return false;
+
+    return true;
+  }
+
+  // Attach to an existing pointer (takes ownership)
+  void Attach(T *pData) throw() {
+    Allocator::Free(m_pData);
+    m_pData = pData;
+  }
+
+  // Detach the pointer (releases ownership)
+  T *Detach() throw() {
+    T *pTemp = m_pData;
+    m_pData = NULL;
+    return pTemp;
+  }
+
+  // Free the memory pointed to, and set the pointer to NULL
+  void Free() throw() {
+    Allocator::Free(m_pData);
+    m_pData = NULL;
+  }
+
+  // Reallocate the buffer to hold a given number of bytes
+  bool ReallocateBytes(size_t nBytes) throw() {
+    T *pNew;
+    pNew =
+        static_cast<T *>(Allocator::Reallocate(m_pData, nBytes * sizeof(char)));
+    if (pNew == NULL)
+      return false;
+    m_pData = pNew;
+
+    return true;
+  }
+
+public:
+  T *m_pData;
+};
+
+template <typename T, class Allocator = CAllocator>
+class CHeapPtr : public CHeapPtrBase<T, Allocator> {
+public:
+  CHeapPtr() throw() {}
+  CHeapPtr(CHeapPtr<T, Allocator> &p) throw() : CHeapPtrBase<T, Allocator>(p) {}
+  explicit CHeapPtr(T *p) throw() : CHeapPtrBase<T, Allocator>(p) {}
+  CHeapPtr<T> &operator=(CHeapPtr<T, Allocator> &p) throw() {
+    CHeapPtrBase<T, Allocator>::operator=(p);
+    return *this;
+  }
+
+  // Allocate a buffer with the given number of elements
+  bool Allocate(size_t nElements = 1) throw() {
+    size_t nBytes = nElements * sizeof(T);
+    return this->AllocateBytes(nBytes);
+  }
+
+  // Reallocate the buffer to hold a given number of elements
+  bool Reallocate(size_t nElements) throw() {
+    size_t nBytes = nElements * sizeof(T);
+    return this->ReallocateBytes(nBytes);
+  }
+};
+
+#define CComHeapPtr CHeapPtr
+
+//===--------------------- UTF-8 Related Types ----------------------------===//
+
+// Code Page
+#define CP_ACP 0
+#define CP_UTF8 65001 // UTF-8 translation.
+
+// The t_nBufferLength parameter is part of the published interface, but not
+// used here.
+template <int t_nBufferLength = 128> class CW2AEX {
+public:
+  CW2AEX(LPCWSTR psz, UINT nCodePage = CP_UTF8) {
+    if (nCodePage != CP_UTF8) {
+      // Current Implementation only supports CP_UTF8
+      assert(false && "CW2AEX implementation for Linux does not handle "
+                      "non-UTF8 code pages");
+      return;
+    }
+
+    if (!psz) {
+      m_psz = NULL;
+      return;
+    }
+
+    int len = (wcslen(psz) + 1) * 4;
+    m_psz = new char[len];
+    std::wcstombs(m_psz, psz, len);
+  }
+
+  ~CW2AEX() { delete[] m_psz; }
+
+  operator LPSTR() const { return m_psz; }
+
+  char *m_psz;
+};
+typedef CW2AEX<> CW2A;
+
+// The t_nBufferLength parameter is part of the published interface, but not
+// used here.
+template <int t_nBufferLength = 128> class CA2WEX {
+public:
+  CA2WEX(LPCSTR psz, UINT nCodePage = CP_UTF8) {
+    if (nCodePage != CP_UTF8) {
+      // Current Implementation only supports CP_UTF8
+      assert(false && "CA2WEX implementation for Linux does not handle "
+                      "non-UTF8 code pages");
+      return;
+    }
+
+    if (!psz) {
+      m_psz = NULL;
+      return;
+    }
+
+    int len = strlen(psz) + 1;
+    m_psz = new wchar_t[len];
+    std::mbstowcs(m_psz, psz, len);
+  }
+
+  ~CA2WEX() { delete[] m_psz; }
+
+  operator LPWSTR() const { return m_psz; }
+
+  wchar_t *m_psz;
+};
+
+typedef CA2WEX<> CA2W;
+
+//===--------- File IO Related Types ----------------===//
+
+class CHandle {
+public:
+  CHandle(HANDLE h);
+  ~CHandle();
+  operator HANDLE() const throw();
+
+private:
+  HANDLE m_h;
+};
 
 #endif // __cplusplus
 

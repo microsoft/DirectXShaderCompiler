@@ -377,6 +377,7 @@ getOpenFileImpl(int FD, const Twine &Filename, uint64_t FileSize,
   char *BufPtr = const_cast<char *>(Buf->getBufferStart());
 
   size_t BytesLeft = MapSize;
+#undef HAVE_PREAD // HLSL Change - pread bypasses needed layers
 #ifndef HAVE_PREAD
   if (llvm::sys::fs::msf_lseek(FD, Offset, SEEK_SET) == -1)  // HLSL Change - use msf_lseek
     return std::error_code(errno, std::generic_category());

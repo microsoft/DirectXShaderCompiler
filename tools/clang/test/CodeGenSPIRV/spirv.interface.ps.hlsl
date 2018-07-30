@@ -45,7 +45,7 @@ float4 main(   PsIn   psIn,
                float3 cull1 : SV_CullDistance1, // Builtin CullDistance
             in float  bar   : BAR               // Input variable
            ) : SV_Target {                      // Output variable
-    return 1.0;
+    return psIn.pos + float4(clip1 + bar, cull1);
 // Layout of input ClipDistance array:
 //   clip0: 2 floats, offset 0
 //   clip1: 1 floats, offset 2

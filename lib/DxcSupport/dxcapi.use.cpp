@@ -13,6 +13,7 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
+#include "dxc/Support/WinFunctions.h"
 
 namespace dxc {
 
@@ -36,6 +37,12 @@ static std::string GetWin32ErrorMessage(DWORD err) {
     return std::string(formattedMsg);
   }
   return std::string();
+}
+#else
+static std::string GetWin32ErrorMessage(DWORD err) {
+  // Since we use errno for handling messages, we use strerror to get the error
+  // message.
+  return std::string(std::strerror(err));
 }
 #endif // _WIN32
 
@@ -160,7 +167,7 @@ void WriteUtf8ToConsoleSizeT(_In_opt_count_(charCount) const char *pText,
     return;
   }
 
-  int charCountInt;
+  int charCountInt = 0;
   IFT(SizeTToInt(charCount, &charCountInt));
   WriteUtf8ToConsole(pText, charCountInt, streamType);
 }

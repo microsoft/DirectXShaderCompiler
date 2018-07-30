@@ -29,133 +29,6 @@
 using namespace std;
 using namespace hlsl;
 
-void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob) {
-  HRESULT status;
-  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-  VERIFY_SUCCEEDED(status);
-  VERIFY_SUCCEEDED(pResult->GetResult(ppBlob));
-}
-
-static bool CheckMsgs(llvm::StringRef text, llvm::ArrayRef<LPCSTR> pMsgs,
-                      bool bRegex) {
-  const char *pStart = !text.empty() ? text.begin() : nullptr;
-  const char *pEnd = !text.empty() ? text.end() : nullptr;
-  for (auto pMsg : pMsgs) {
-    if (bRegex) {
-      llvm::Regex RE(pMsg);
-      std::string reErrors;
-      VERIFY_IS_TRUE(RE.isValid(reErrors));
-      if (!RE.match(text)) {
-        WEX::Logging::Log::Comment(WEX::Common::String().Format(
-          L"Unable to find regex '%S' in text:\r\n%.*S", pMsg, (pEnd - pStart),
-          pStart));
-        VERIFY_IS_TRUE(false);
-      }
-    } else {
-      const char *pMatch = std::search(pStart, pEnd, pMsg, pMsg + strlen(pMsg));
-      if (pEnd == pMatch) {
-        WEX::Logging::Log::Comment(WEX::Common::String().Format(
-            L"Unable to find '%S' in text:\r\n%.*S", pMsg, (pEnd - pStart),
-            pStart));
-      }
-      VERIFY_IS_FALSE(pEnd == pMatch);
-    }
-  }
-  return true;
-}
-
-bool CheckMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
-               size_t errorMsgCount, bool bRegex) {
-  return CheckMsgs(llvm::StringRef(pText, TextCount),
-                   llvm::ArrayRef<LPCSTR>(pErrorMsgs, errorMsgCount), bRegex);
-}
-
-static bool CheckNotMsgs(llvm::StringRef text, llvm::ArrayRef<LPCSTR> pMsgs,
-                         bool bRegex) {
-  const char *pStart = !text.empty() ? text.begin() : nullptr;
-  const char *pEnd = !text.empty() ? text.end() : nullptr;
-  for (auto pMsg : pMsgs) {
-    if (bRegex) {
-      llvm::Regex RE(pMsg);
-      std::string reErrors;
-      VERIFY_IS_TRUE(RE.isValid(reErrors));
-      if (RE.match(text)) {
-        WEX::Logging::Log::Comment(WEX::Common::String().Format(
-          L"Unexpectedly found regex '%S' in text:\r\n%.*S", pMsg, (pEnd - pStart),
-          pStart));
-        VERIFY_IS_TRUE(false);
-      }
-    }
-    else {
-      const char *pMatch = std::search(pStart, pEnd, pMsg, pMsg + strlen(pMsg));
-      if (pEnd != pMatch) {
-        WEX::Logging::Log::Comment(WEX::Common::String().Format(
-          L"Unexpectedly found '%S' in text:\r\n%.*S", pMsg, (pEnd - pStart),
-          pStart));
-      }
-      VERIFY_IS_TRUE(pEnd == pMatch);
-    }
-  }
-  return true;
-}
-
-bool CheckNotMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
-                  size_t errorMsgCount, bool bRegex) {
-  return CheckNotMsgs(llvm::StringRef(pText, TextCount),
-    llvm::ArrayRef<LPCSTR>(pErrorMsgs, errorMsgCount), bRegex);
-}
-
-static
-bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
-                              llvm::ArrayRef<LPCSTR> pErrorMsgs,
-                              bool maySucceedAnyway, bool bRegex) {
-  HRESULT status;
-  CComPtr<IDxcBlobEncoding> text;
-  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&text));
-  const char *pStart = text ? (const char *)text->GetBufferPointer() : nullptr;
-  const char *pEnd = text ? pStart + text->GetBufferSize() : nullptr;
-  if (pErrorMsgs.empty() || (pErrorMsgs.size() == 1 && !pErrorMsgs[0])) {
-    if (FAILED(status) && pStart) {
-      WEX::Logging::Log::Comment(WEX::Common::String().Format(
-          L"Expected success but found errors\r\n%.*S", (pEnd - pStart),
-          pStart));
-    }
-    VERIFY_SUCCEEDED(status);
-  }
-  else {
-    if (SUCCEEDED(status) && maySucceedAnyway) {
-      return false;
-    }
-    CheckMsgs(llvm::StringRef((const char *)text->GetBufferPointer(),
-                              text->GetBufferSize()),
-              pErrorMsgs, bRegex);
-  }
-  return true;
-}
-
-bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
-                              const LPCSTR *pErrorMsgs, size_t errorMsgCount,
-                              bool maySucceedAnyway, bool bRegex) {
-  return CheckOperationResultMsgs(
-      pResult, llvm::ArrayRef<LPCSTR>(pErrorMsgs, errorMsgCount),
-      maySucceedAnyway, bRegex);
-}
-
-std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
-                               IDxcBlob *pProgram) {
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcBlobEncoding> pDisassembly;
-
-  if (!dllSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(dllSupport.Initialize());
-  }
-
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-  VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
-  return BlobToUtf8(pDisassembly);
-}
-
 class ValidationTest
 {
 public:
@@ -166,25 +39,25 @@ public:
 
   TEST_CLASS_SETUP(InitSupport);
 
-  TEST_METHOD(WhenCorrectThenOK);
-  TEST_METHOD(WhenMisalignedThenFail);
-  TEST_METHOD(WhenEmptyFileThenFail);
-  TEST_METHOD(WhenIncorrectMagicThenFail);
-  TEST_METHOD(WhenIncorrectTargetTripleThenFail);
-  TEST_METHOD(WhenIncorrectModelThenFail);
-  TEST_METHOD(WhenIncorrectPSThenFail);
+  TEST_METHOD(WhenCorrectThenOK)
+  TEST_METHOD(WhenMisalignedThenFail)
+  TEST_METHOD(WhenEmptyFileThenFail)
+  TEST_METHOD(WhenIncorrectMagicThenFail)
+  TEST_METHOD(WhenIncorrectTargetTripleThenFail)
+  TEST_METHOD(WhenIncorrectModelThenFail)
+  TEST_METHOD(WhenIncorrectPSThenFail)
 
-  TEST_METHOD(WhenWaveAffectsGradientThenFail);
+  TEST_METHOD(WhenWaveAffectsGradientThenFail)
 
-  TEST_METHOD(WhenMultipleModulesThenFail);
-  TEST_METHOD(WhenUnexpectedEOFThenFail);
-  TEST_METHOD(WhenUnknownBlocksThenFail);
-  TEST_METHOD(WhenZeroInputPatchCountWithInputThenFail);
+  TEST_METHOD(WhenMultipleModulesThenFail)
+  TEST_METHOD(WhenUnexpectedEOFThenFail)
+  TEST_METHOD(WhenUnknownBlocksThenFail)
+  TEST_METHOD(WhenZeroInputPatchCountWithInputThenFail)
 
   TEST_METHOD(Float32DenormModeAttribute)
-  TEST_METHOD(LoadOutputControlPointNotInPatchConstantFunction);
-  TEST_METHOD(StorePatchControlNotInPatchConstantFunction);
-  TEST_METHOD(OutputControlPointIDInPatchConstantFunction);
+  TEST_METHOD(LoadOutputControlPointNotInPatchConstantFunction)
+  TEST_METHOD(StorePatchControlNotInPatchConstantFunction)
+  TEST_METHOD(OutputControlPointIDInPatchConstantFunction)
   TEST_METHOD(GsVertexIDOutOfBound)
   TEST_METHOD(StreamIDOutOfBound)
   TEST_METHOD(SignatureDataWidth)
@@ -293,75 +166,75 @@ public:
   TEST_METHOD(SemPackOverlap2)
   TEST_METHOD(SemMultiDepth)
 
-  TEST_METHOD(WhenInstrDisallowedThenFail);
-  TEST_METHOD(WhenDepthNotFloatThenFail);
-  TEST_METHOD(BarrierFail);
-  TEST_METHOD(CBufferLegacyOutOfBoundFail);
-  TEST_METHOD(CsThreadSizeFail);
-  TEST_METHOD(DeadLoopFail);
-  TEST_METHOD(EvalFail);
-  TEST_METHOD(GetDimCalcLODFail);
-  TEST_METHOD(HsAttributeFail);
-  TEST_METHOD(InnerCoverageFail);
-  TEST_METHOD(InterpChangeFail);
-  TEST_METHOD(InterpOnIntFail);
-  TEST_METHOD(InvalidSigCompTyFail);
-  TEST_METHOD(MultiStream2Fail);
-  TEST_METHOD(PhiTGSMFail);
-  TEST_METHOD(QuadOpInCS);
-  TEST_METHOD(ReducibleFail);
-  TEST_METHOD(SampleBiasFail);
-  TEST_METHOD(SamplerKindFail);
-  TEST_METHOD(SemaOverlapFail);
-  TEST_METHOD(SigOutOfRangeFail);
-  TEST_METHOD(SigOverlapFail);
-  TEST_METHOD(SimpleHs1Fail);
-  TEST_METHOD(SimpleHs3Fail);
-  TEST_METHOD(SimpleHs4Fail);
-  TEST_METHOD(SimpleDs1Fail);
-  TEST_METHOD(SimpleGs1Fail);
-  TEST_METHOD(UavBarrierFail);
-  TEST_METHOD(UndefValueFail);
-  TEST_METHOD(UpdateCounterFail);
-  TEST_METHOD(LocalResCopy);
-  TEST_METHOD(ResCounter);
+  TEST_METHOD(WhenInstrDisallowedThenFail)
+  TEST_METHOD(WhenDepthNotFloatThenFail)
+  TEST_METHOD(BarrierFail)
+  TEST_METHOD(CBufferLegacyOutOfBoundFail)
+  TEST_METHOD(CsThreadSizeFail)
+  TEST_METHOD(DeadLoopFail)
+  TEST_METHOD(EvalFail)
+  TEST_METHOD(GetDimCalcLODFail)
+  TEST_METHOD(HsAttributeFail)
+  TEST_METHOD(InnerCoverageFail)
+  TEST_METHOD(InterpChangeFail)
+  TEST_METHOD(InterpOnIntFail)
+  TEST_METHOD(InvalidSigCompTyFail)
+  TEST_METHOD(MultiStream2Fail)
+  TEST_METHOD(PhiTGSMFail)
+  TEST_METHOD(QuadOpInCS)
+  TEST_METHOD(ReducibleFail)
+  TEST_METHOD(SampleBiasFail)
+  TEST_METHOD(SamplerKindFail)
+  TEST_METHOD(SemaOverlapFail)
+  TEST_METHOD(SigOutOfRangeFail)
+  TEST_METHOD(SigOverlapFail)
+  TEST_METHOD(SimpleHs1Fail)
+  TEST_METHOD(SimpleHs3Fail)
+  TEST_METHOD(SimpleHs4Fail)
+  TEST_METHOD(SimpleDs1Fail)
+  TEST_METHOD(SimpleGs1Fail)
+  TEST_METHOD(UavBarrierFail)
+  TEST_METHOD(UndefValueFail)
+  TEST_METHOD(UpdateCounterFail)
+  TEST_METHOD(LocalResCopy)
+  TEST_METHOD(ResCounter)
 
-  TEST_METHOD(WhenSmUnknownThenFail);
-  TEST_METHOD(WhenSmLegacyThenFail);
+  TEST_METHOD(WhenSmUnknownThenFail)
+  TEST_METHOD(WhenSmLegacyThenFail)
 
-  TEST_METHOD(WhenMetaFlagsUsageDeclThenOK);
-  TEST_METHOD(WhenMetaFlagsUsageThenFail);
+  TEST_METHOD(WhenMetaFlagsUsageDeclThenOK)
+  TEST_METHOD(WhenMetaFlagsUsageThenFail)
 
-  TEST_METHOD(WhenRootSigMismatchThenFail);
-  TEST_METHOD(WhenRootSigCompatThenSucceed);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootConstVis);
-  TEST_METHOD(WhenRootSigMatchShaderFail_RootConstVis);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootCBV);
-  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Range);
-  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Space);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootSRV);
-  TEST_METHOD(WhenRootSigMatchShaderFail_RootSRV_ResType);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootUAV);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_GoodRange);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_Unbounded);
-  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range1);
-  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range2);
-  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range3);
-  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Space);
-  TEST_METHOD(WhenRootSigMatchShaderSucceed_Unbounded);
-  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded1);
-  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded2);
-  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded3);
-  TEST_METHOD(WhenProgramOutSigMissingThenFail);
-  TEST_METHOD(WhenProgramOutSigUnexpectedThenFail);
-  TEST_METHOD(WhenProgramSigMismatchThenFail);
-  TEST_METHOD(WhenProgramInSigMissingThenFail);
-  TEST_METHOD(WhenProgramSigMismatchThenFail2);
-  TEST_METHOD(WhenProgramPCSigMissingThenFail);
-  TEST_METHOD(WhenPSVMismatchThenFail);
-  TEST_METHOD(WhenRDATMismatchThenFail);
-  TEST_METHOD(WhenFeatureInfoMismatchThenFail);
+  TEST_METHOD(WhenRootSigMismatchThenFail)
+  TEST_METHOD(WhenRootSigCompatThenSucceed)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootConstVis)
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootConstVis)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootCBV)
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Range)
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Space)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootSRV)
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootSRV_ResType)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootUAV)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_GoodRange)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_Unbounded)
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range1)
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range2)
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range3)
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Space)
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_Unbounded)
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded1)
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded2)
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded3)
+  TEST_METHOD(WhenProgramOutSigMissingThenFail)
+  TEST_METHOD(WhenProgramOutSigUnexpectedThenFail)
+  TEST_METHOD(WhenProgramSigMismatchThenFail)
+  TEST_METHOD(WhenProgramInSigMissingThenFail)
+  TEST_METHOD(WhenProgramSigMismatchThenFail2)
+  TEST_METHOD(WhenProgramPCSigMissingThenFail)
+  TEST_METHOD(WhenPSVMismatchThenFail)
+  TEST_METHOD(WhenRDATMismatchThenFail)
+  TEST_METHOD(WhenFeatureInfoMismatchThenFail)
   TEST_METHOD(RayShaderWithSignaturesFail)
 
   TEST_METHOD(ViewIDInCSFail)

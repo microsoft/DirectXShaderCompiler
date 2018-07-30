@@ -40,3 +40,7 @@ target_include_directories(clang-spirv-tests
 
 set_output_directory(clang-spirv-tests
   ${LLVM_RUNTIME_OUTPUT_INTDIR} ${LLVM_LIBRARY_OUTPUT_INTDIR})
+
+add_test(NAME test-spirv-codegen
+  COMMAND clang-spirv-tests --spirv-test-root
+          ${PROJECT_SOURCE_DIR}/tools/clang/test/CodeGenSPIRV)

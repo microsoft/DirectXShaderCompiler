@@ -7,10 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gmock/gmock.h"
-#include "clang/SPIRV/Decoration.h"
 #include "clang/SPIRV/SPIRVContext.h"
+#include "clang/SPIRV/Decoration.h"
 #include "clang/SPIRV/Type.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 using namespace clang::spirv;
@@ -61,18 +61,26 @@ TEST(SPIRVContext, UniqueIdForUniqueAggregateType) {
       Decoration::getBuiltIn(ctx, spv::BuiltIn::Position, 0);
 
   const Type *struct_1 = Type::getStruct(
-      ctx, {intt_id, boolt_id},
+      ctx, {intt_id, boolt_id}, "struct1",
       {relaxed, bufferblock, mem_0_offset, mem_1_offset, mem_0_position});
 
   const Type *struct_2 = Type::getStruct(
-      ctx, {intt_id, boolt_id},
+      ctx, {intt_id, boolt_id}, "struct1",
+      {relaxed, bufferblock, mem_0_offset, mem_1_offset, mem_0_position});
+
+  const Type *struct_3 = Type::getStruct(
+      ctx, {intt_id, boolt_id}, "struct2",
       {relaxed, bufferblock, mem_0_offset, mem_1_offset, mem_0_position});
 
   const uint32_t struct_1_id = ctx.getResultIdForType(struct_1);
   const uint32_t struct_2_id = ctx.getResultIdForType(struct_2);
+  const uint32_t struct_3_id = ctx.getResultIdForType(struct_3);
 
   // We should be able to retrieve the same ID for the same Type.
   EXPECT_EQ(struct_1_id, struct_2_id);
+
+  // Name matters.
+  EXPECT_NE(struct_1_id, struct_3_id);
 }
 
 TEST(SPIRVContext, UniqueIdForUniqueConstants) {

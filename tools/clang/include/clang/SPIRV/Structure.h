@@ -308,6 +308,7 @@ public:
   inline void addExecutionMode(Instruction &&);
   inline void setShaderModelVersion(uint32_t);
   inline void setSourceFileName(uint32_t id, std::string name);
+  inline void setSourceFileContent(llvm::StringRef content);
   // TODO: source code debug information
   inline void addDebugName(uint32_t targetId, llvm::StringRef name,
                            llvm::Optional<uint32_t> memberIndex = llvm::None);
@@ -341,6 +342,7 @@ private:
   uint32_t shaderModelVersion;
   uint32_t sourceFileNameId; // The <result-id> for the OpString for file name
   std::string sourceFileName;
+  llvm::StringRef sourceFileContent;
   // TODO: source code debug information
   std::set<DebugName> debugNames;
   llvm::SetVector<std::pair<uint32_t, const Decoration *>> decorations;
@@ -501,6 +503,10 @@ void SPIRVModule::setShaderModelVersion(uint32_t version) {
 void SPIRVModule::setSourceFileName(uint32_t id, std::string name) {
   sourceFileNameId = id;
   sourceFileName = std::move(name);
+}
+
+void SPIRVModule::setSourceFileContent(llvm::StringRef content) {
+  sourceFileContent = content;
 }
 
 void SPIRVModule::addDebugName(uint32_t targetId, llvm::StringRef name,

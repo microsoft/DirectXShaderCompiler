@@ -100,6 +100,18 @@ inline bool isAnnotation(TokenKind K) {
   return false;
 }
 
+// HLSL Change Starts
+/// \brief Return true if this is a punctuator token.
+inline bool isPunctuator(TokenKind K) {
+#define PUNCTUATOR(NAME, SYMBOL) \
+  if (K == tok::NAME) \
+    return true;
+#include "clang/Basic/TokenKinds.def"
+#undef PUNCTUATOR
+  return false;
+}
+// HLSL Change Ends
+
 }  // end namespace tok
 }  // end namespace clang
 

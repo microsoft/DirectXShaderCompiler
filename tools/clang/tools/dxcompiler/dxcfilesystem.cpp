@@ -21,6 +21,11 @@
 #include "dxc/Support/Unicode.h"
 #include "clang/Frontend/CompilerInstance.h"
 
+#ifndef _WIN32
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -37,6 +42,7 @@ namespace {
 #endif
 #endif
 
+#ifdef _WIN32
 #ifdef DBG
 
 // This should be improved with global enabled mask rather than a compile-time mask.
@@ -56,6 +62,10 @@ namespace {
 #define DXTRACE_FMT_APIFS(...)
 
 #endif // DBG
+#else  // _WIN32
+#define DXTRACE_FMT_APIFS(...)
+#endif // _WIN32
+
 
 
 enum class HandleKind {
@@ -78,12 +88,25 @@ struct HandleBits {
 };
 struct DxcArgsHandle {
   DxcArgsHandle(HANDLE h) : Handle(h) {}
-  DxcArgsHandle(unsigned fileIndex)
-    : Bits{ fileIndex, 0, (unsigned)HandleKind::File } {}
-  DxcArgsHandle(HandleKind HK, unsigned fileIndex, unsigned dirLength)
-    : Bits{ fileIndex, dirLength, (unsigned)HK} {}
-  DxcArgsHandle(SpecialValue V)
-      : Bits{(unsigned)V, 0, (unsigned)HandleKind::Special} {}
+  DxcArgsHandle(unsigned fileIndex) {
+    Handle = 0;
+    Bits.Offset = fileIndex;
+    Bits.Length = 0;
+    Bits.Kind = (unsigned)HandleKind::File;
+  }
+  DxcArgsHandle(HandleKind HK, unsigned fileIndex, unsigned dirLength) {
+    Handle = 0;
+    Bits.Offset = fileIndex;
+    Bits.Length = dirLength;
+    Bits.Kind = (unsigned)HK;
+  }
+  DxcArgsHandle(SpecialValue V) {
+    Handle = 0;
+    Bits.Offset = (unsigned)V;
+    Bits.Length = 0;
+    Bits.Kind = (unsigned)HandleKind::Special;;
+  }
+
   union {
     HANDLE Handle;
     HandleBits Bits;
@@ -137,6 +160,13 @@ bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
   if (Path[0] == L'\\') {
     return Path[1] == L'\\';
   }
+
+  #ifndef _WIN32
+  // Absolute paths on unix systems start with '/'
+  if (Path[0] == L'/') {
+    return TRUE;
+  }
+  #endif
 
   //
   // NOTE: there are a number of cases we don't handle, as they don't play well with the simple
@@ -470,7 +500,6 @@ public:
       lpFileInformation->nFileIndexHigh = 1;
       return TRUE;
     }
-
     SetLastError(ERROR_INVALID_HANDLE);
     return FALSE;
   }
@@ -708,6 +737,78 @@ public:
 
     return (int)written;
   }
+#ifndef _WIN32
+  // Replicate Unix interfaces using DxcArgsFileSystemImpl
+
+  int getStatus(HANDLE FileHandle, struct stat *Status) {
+    if (FileHandle == INVALID_HANDLE_VALUE)
+      return -1;
+
+    memset(Status, 0, sizeof(*Status));
+    switch (GetFileType(FileHandle)) {
+      default:
+        llvm_unreachable("Don't know anything about this file type");
+      case FILE_TYPE_DISK:
+        break;
+      case FILE_TYPE_CHAR:
+        Status->st_mode = S_IFCHR;
+        return 0;
+      case FILE_TYPE_PIPE:
+        Status->st_mode = S_IFIFO;
+        return 0;
+      }
+
+    BY_HANDLE_FILE_INFORMATION Info;
+    if (!GetFileInformationByHandle(FileHandle, &Info))
+      return -1;
+
+    if (Info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+      Status->st_mode = S_IFDIR;
+    else
+      Status->st_mode = S_IFREG;
+
+    Status->st_dev = Info.nFileIndexHigh;
+    Status->st_ino = Info.nFileIndexLow;
+    Status->st_mtime = Info.ftLastWriteTime.dwLowDateTime;
+    Status->st_size = Info.nFileSizeLow;
+    return 0;
+  }
+
+  virtual int Open(const char *lpFileName, int flags, mode_t mode) throw() override {
+    HANDLE H = CreateFileW(CA2W(lpFileName), GENERIC_READ | GENERIC_WRITE,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
+    if (H == INVALID_HANDLE_VALUE)
+      return -1;
+    int FD = open_osfhandle(intptr_t(H), 0);
+    if (FD == -1)
+      CloseHandle(H);
+    return FD;
+  }
+
+  // fake my way toward as linux-y a file_status as I can get
+  virtual int Stat(const char *lpFileName, struct stat *Status) throw() override {
+    CA2W fileName_utf16(lpFileName);
+
+    DWORD attr = GetFileAttributesW(fileName_utf16);
+    if (attr == INVALID_FILE_ATTRIBUTES)
+      return -1;
+
+    HANDLE H = CreateFileW(fileName_utf16, 0, // Attributes only.
+                           FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
+    if (H == INVALID_HANDLE_VALUE)
+      return -1;
+
+    return getStatus(H, Status);
+  }
+
+  virtual int Fstat(int FD, struct stat *Status) throw() override {
+    HANDLE FileHandle = reinterpret_cast<HANDLE>(get_osfhandle(FD));
+    return getStatus(FileHandle, Status);
+  }
+#endif // _WIN32
+
 };
 }
 

@@ -12,6 +12,7 @@
 #ifndef __DXC_ISENSE__
 #define __DXC_ISENSE__
 
+#include "dxc/dxcapi.h"
 #include "dxc/Support/WinAdapter.h"
 
 typedef enum DxcGlobalOptions
@@ -134,8 +135,8 @@ typedef enum DxcDiagnosticDisplayOptions
   // Display the category name associated with this diagnostic, if any.
   DxcDiagnostic_DisplayCategoryName = 0x20,
 
-	// Display the severity of the diagnostic message.
-	DxcDiagnostic_DisplaySeverity = 0x200
+  // Display the severity of the diagnostic message.
+  DxcDiagnostic_DisplaySeverity = 0x200
 } DxcDiagnosticDisplayOptions;
 
 typedef enum DxcTranslationUnitFlags
@@ -663,6 +664,8 @@ IDxcIntelliSense : public IUnknown
     _Out_ DxcDiagnosticDisplayOptions* pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetDefaultEditingTUOptions(_Out_ DxcTranslationUnitFlags* pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE CreateUnsavedFile(_In_ LPCSTR fileName, _In_ LPCSTR contents, unsigned contentLength, _Outptr_result_nullonfailure_ IDxcUnsavedFile** pResult) = 0;
+
+  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcIntelliSense)
 };
 
 struct __declspec(uuid("937824a0-7f5a-4815-9ba7-7fc0424f4173"))
@@ -762,8 +765,15 @@ IDxcUnsavedFile : public IUnknown
 // Fun fact: 'extern' is required because const is by default static in C++, so
 // CLSID_DxcIntelliSense is not visible externally (this is OK in C, since const is
 // not by default static in C)
+
+#ifdef _MSC_VER
+#define EXTERN extern
+#else
+#define EXTERN
+#endif
+
 __declspec(selectany)
-extern const CLSID CLSID_DxcIntelliSense = { /* 3047833c-d1c0-4b8e-9d40-102878605985 */
+EXTERN const CLSID CLSID_DxcIntelliSense = { /* 3047833c-d1c0-4b8e-9d40-102878605985 */
     0x3047833c,
     0xd1c0,
     0x4b8e,

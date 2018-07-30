@@ -301,51 +301,10 @@ uint32_t ModuleBuilder::createAtomicOp(spv::Op opcode, uint32_t resultType,
                                        uint32_t valueToOp) {
   assert(insertPoint && "null insert point");
   const uint32_t id = theContext.takeNextId();
-  switch (opcode) {
-  case spv::Op::OpAtomicIAdd:
-    instBuilder.opAtomicIAdd(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicISub:
-    instBuilder.opAtomicISub(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicAnd:
-    instBuilder.opAtomicAnd(resultType, id, orignalValuePtr, scopeId,
-                            memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicOr:
-    instBuilder.opAtomicOr(resultType, id, orignalValuePtr, scopeId,
-                           memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicXor:
-    instBuilder.opAtomicXor(resultType, id, orignalValuePtr, scopeId,
-                            memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicUMax:
-    instBuilder.opAtomicUMax(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicUMin:
-    instBuilder.opAtomicUMin(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicSMax:
-    instBuilder.opAtomicSMax(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicSMin:
-    instBuilder.opAtomicSMin(resultType, id, orignalValuePtr, scopeId,
-                             memorySemanticsId, valueToOp);
-    break;
-  case spv::Op::OpAtomicExchange:
-    instBuilder.opAtomicExchange(resultType, id, orignalValuePtr, scopeId,
-                                 memorySemanticsId, valueToOp);
-    break;
-  default:
-    assert(false && "unimplemented atomic opcode");
-  }
-  instBuilder.x();
+  instBuilder
+      .atomicOp(opcode, resultType, id, orignalValuePtr, scopeId,
+                memorySemanticsId, valueToOp)
+      .x();
   insertPoint->appendInstruction(std::move(constructSite));
   return id;
 }
@@ -1026,7 +985,8 @@ ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
                              llvm::StringRef structName,
                              llvm::ArrayRef<llvm::StringRef> fieldNames,
                              Type::DecorationSet decorations) {
-  const Type *type = Type::getStruct(theContext, fieldTypes, decorations);
+  const Type *type =
+      Type::getStruct(theContext, fieldTypes, structName, decorations);
   bool isRegistered = false;
   const uint32_t typeId = theContext.getResultIdForType(type, &isRegistered);
   theModule.addType(type, typeId);
@@ -1112,7 +1072,8 @@ uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
     requireCapability(spv::Capability::StorageImageExtendedFormats);
     break;
   default:
-    // Only image formats requiring extended formats are relevant. The rest just pass through.
+    // Only image formats requiring extended formats are relevant. The rest just
+    // pass through.
     break;
   }
 
@@ -1204,7 +1165,7 @@ uint32_t ModuleBuilder::getByteAddressBufferType(bool isRW) {
   if (!isRW)
     typeDecs.push_back(Decoration::getNonWritable(theContext, 0));
 
-  const Type *type = Type::getStruct(theContext, {raTypeId}, typeDecs);
+  const Type *type = Type::getStruct(theContext, {raTypeId}, "", typeDecs);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
   theModule.addDebugName(typeId, isRW ? "type.RWByteAddressBuffer"

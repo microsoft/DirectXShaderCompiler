@@ -165,6 +165,7 @@ public:
 #ifdef ENABLE_SPIRV_CODEGEN
   bool GenSPIRV;                           // OPT_spirv
   bool VkInvertY;                          // OPT_fvk_invert_y
+  bool VkInvertW;                          // OPT_fvk_use_dx_position_w
   bool VkUseGlLayout;                      // OPT_fvk_use_gl_layout
   bool VkUseDxLayout;                      // OPT_fvk_use_dx_layout
   bool SpvEnableReflect;                   // OPT_fspv_reflect
@@ -189,6 +190,7 @@ public:
 
   MainArgs() = default;
   MainArgs(int argc, const wchar_t **argv, int skipArgCount = 1);
+  MainArgs(int argc, const char **argv, int skipArgCount = 1);
   MainArgs(llvm::ArrayRef<llvm::StringRef> args);
   MainArgs& operator=(const MainArgs &other);
   llvm::ArrayRef<const char *> getArrayRef() const {

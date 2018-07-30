@@ -26,6 +26,7 @@
 #include "llvm/Support/Host.h"
 #include "clang/Sema/SemaHLSL.h"
 
+#include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
 #include "dxcisenseimpl.h"
@@ -59,7 +60,7 @@ private:
   unsigned m_length;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     return DoBasicQueryInterface<IDxcUnsavedFile>(this, iid, ppvObject);
   }
@@ -359,10 +360,15 @@ HRESULT SetupUnsavedFiles(
       break;
     }
 
-    hr = unsaved_files[i]->GetFileName((LPSTR*)&localFiles[i].Filename);
+    LPSTR strPtr;
+    hr = unsaved_files[i]->GetFileName(&strPtr);
     if (FAILED(hr)) break;
-    hr = unsaved_files[i]->GetContents((LPSTR*)&localFiles[i].Contents);
+    localFiles[i].Filename = strPtr;
+
+    hr = unsaved_files[i]->GetContents(&strPtr);
     if (FAILED(hr)) break;
+    localFiles[i].Contents = strPtr;
+
     hr = unsaved_files[i]->GetLength((unsigned*)&localFiles[i].Length);
     if (FAILED(hr)) break;
   }
@@ -508,7 +514,7 @@ CXChildVisitResult LIBCLANG_CC SourceCursorVisit(CXCursor cursor, CXCursor paren
     bool cursorIsBetter =
       context->found == false ||
       (cursorStartOffset < context->resultOffset) ||
-      (cursorStartOffset == context->resultOffset && cursor.kind == DxcCursor_DeclRefExpr);
+      (cursorStartOffset == context->resultOffset && (int)cursor.kind == (int)DxcCursor_DeclRefExpr);
     if (cursorIsBetter)
     {
       context->found = true;
@@ -1027,7 +1033,7 @@ HRESULT DxcFile::IsEqualTo(IDxcFile* other, BOOL* pResult)
 ///////////////////////////////////////////////////////////////////////////////
 
 DxcInclusion::DxcInclusion()
-    : m_file(nullptr), m_locationLength(0), m_locations(nullptr) {
+    : m_file(nullptr), m_locations(nullptr), m_locationLength(0) {
   m_pMalloc = DxcGetThreadMallocNoRef();
 }
 
@@ -1170,7 +1176,7 @@ HRESULT DxcIndex::ParseTranslationUnit(
     // TODO: until an interface to file access is defined and implemented, simply fall back to pure Win32/CRT calls.
     ::llvm::sys::fs::MSFileSystem* msfPtr;
     IFT(CreateMSFileSystemForDisk(&msfPtr));
-    std::auto_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
     ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
     IFTLLVM(pts.error_code());
@@ -1498,7 +1504,7 @@ DxcTranslationUnit::~DxcTranslationUnit() {
     ::llvm::sys::fs::MSFileSystem* msfPtr;
     CreateMSFileSystemForDisk(&msfPtr);
     assert(msfPtr != nullptr);
-    std::auto_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
     ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
     assert(!pts.error_code());
@@ -1618,7 +1624,7 @@ HRESULT DxcTranslationUnit::GetFile(LPCSTR name, IDxcFile** pResult)
   DxcThreadMalloc TM(m_pMalloc);
   ::llvm::sys::fs::MSFileSystem* msfPtr;
   IFR(CreateMSFileSystemForDisk(&msfPtr));
-  std::auto_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+  std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
   ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
 
   CXFile localFile = clang_getFile(m_tu, name);
@@ -1877,172 +1883,172 @@ HRESULT DxcType::GetKind(DxcTypeKind* pResult)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-C_ASSERT(DxcCursor_UnexposedDecl == CXCursor_UnexposedDecl);
-C_ASSERT(DxcCursor_StructDecl == CXCursor_StructDecl);
-C_ASSERT(DxcCursor_UnionDecl == CXCursor_UnionDecl);
-C_ASSERT(DxcCursor_ClassDecl == CXCursor_ClassDecl);
-C_ASSERT(DxcCursor_EnumDecl == CXCursor_EnumDecl);
-C_ASSERT(DxcCursor_FieldDecl == CXCursor_FieldDecl);
-C_ASSERT(DxcCursor_EnumConstantDecl == CXCursor_EnumConstantDecl);
-C_ASSERT(DxcCursor_FunctionDecl == CXCursor_FunctionDecl);
-C_ASSERT(DxcCursor_VarDecl == CXCursor_VarDecl);
-C_ASSERT(DxcCursor_ParmDecl == CXCursor_ParmDecl);
-C_ASSERT(DxcCursor_ObjCInterfaceDecl == CXCursor_ObjCInterfaceDecl);
-C_ASSERT(DxcCursor_ObjCCategoryDecl == CXCursor_ObjCCategoryDecl);
-C_ASSERT(DxcCursor_ObjCProtocolDecl == CXCursor_ObjCProtocolDecl);
-C_ASSERT(DxcCursor_ObjCPropertyDecl == CXCursor_ObjCPropertyDecl);
-C_ASSERT(DxcCursor_ObjCIvarDecl == CXCursor_ObjCIvarDecl);
-C_ASSERT(DxcCursor_ObjCInstanceMethodDecl == CXCursor_ObjCInstanceMethodDecl);
-C_ASSERT(DxcCursor_ObjCClassMethodDecl == CXCursor_ObjCClassMethodDecl);
-C_ASSERT(DxcCursor_ObjCImplementationDecl == CXCursor_ObjCImplementationDecl);
-C_ASSERT(DxcCursor_ObjCCategoryImplDecl == CXCursor_ObjCCategoryImplDecl);
-C_ASSERT(DxcCursor_TypedefDecl == CXCursor_TypedefDecl);
-C_ASSERT(DxcCursor_CXXMethod == CXCursor_CXXMethod);
-C_ASSERT(DxcCursor_Namespace == CXCursor_Namespace);
-C_ASSERT(DxcCursor_LinkageSpec == CXCursor_LinkageSpec);
-C_ASSERT(DxcCursor_Constructor == CXCursor_Constructor);
-C_ASSERT(DxcCursor_Destructor == CXCursor_Destructor);
-C_ASSERT(DxcCursor_ConversionFunction == CXCursor_ConversionFunction);
-C_ASSERT(DxcCursor_TemplateTypeParameter == CXCursor_TemplateTypeParameter);
-C_ASSERT(DxcCursor_NonTypeTemplateParameter == CXCursor_NonTypeTemplateParameter);
-C_ASSERT(DxcCursor_TemplateTemplateParameter == CXCursor_TemplateTemplateParameter);
-C_ASSERT(DxcCursor_FunctionTemplate == CXCursor_FunctionTemplate);
-C_ASSERT(DxcCursor_ClassTemplate == CXCursor_ClassTemplate);
-C_ASSERT(DxcCursor_ClassTemplatePartialSpecialization == CXCursor_ClassTemplatePartialSpecialization);
-C_ASSERT(DxcCursor_NamespaceAlias == CXCursor_NamespaceAlias);
-C_ASSERT(DxcCursor_UsingDirective == CXCursor_UsingDirective);
-C_ASSERT(DxcCursor_UsingDeclaration == CXCursor_UsingDeclaration);
-C_ASSERT(DxcCursor_TypeAliasDecl == CXCursor_TypeAliasDecl);
-C_ASSERT(DxcCursor_ObjCSynthesizeDecl == CXCursor_ObjCSynthesizeDecl);
-C_ASSERT(DxcCursor_ObjCDynamicDecl == CXCursor_ObjCDynamicDecl);
-C_ASSERT(DxcCursor_CXXAccessSpecifier == CXCursor_CXXAccessSpecifier);
-C_ASSERT(DxcCursor_FirstDecl == CXCursor_FirstDecl);
-C_ASSERT(DxcCursor_LastDecl == CXCursor_LastDecl);
-C_ASSERT(DxcCursor_FirstRef == CXCursor_FirstRef);
-C_ASSERT(DxcCursor_ObjCSuperClassRef == CXCursor_ObjCSuperClassRef);
-C_ASSERT(DxcCursor_ObjCProtocolRef == CXCursor_ObjCProtocolRef);
-C_ASSERT(DxcCursor_ObjCClassRef == CXCursor_ObjCClassRef);
-C_ASSERT(DxcCursor_TypeRef == CXCursor_TypeRef);
-C_ASSERT(DxcCursor_CXXBaseSpecifier == CXCursor_CXXBaseSpecifier);
-C_ASSERT(DxcCursor_TemplateRef == CXCursor_TemplateRef);
-C_ASSERT(DxcCursor_NamespaceRef == CXCursor_NamespaceRef);
-C_ASSERT(DxcCursor_MemberRef == CXCursor_MemberRef);
-C_ASSERT(DxcCursor_LabelRef == CXCursor_LabelRef);
-C_ASSERT(DxcCursor_OverloadedDeclRef == CXCursor_OverloadedDeclRef);
-C_ASSERT(DxcCursor_VariableRef == CXCursor_VariableRef);
-C_ASSERT(DxcCursor_LastRef == CXCursor_LastRef);
-C_ASSERT(DxcCursor_FirstInvalid == CXCursor_FirstInvalid);
-C_ASSERT(DxcCursor_InvalidFile == CXCursor_InvalidFile);
-C_ASSERT(DxcCursor_NoDeclFound == CXCursor_NoDeclFound);
-C_ASSERT(DxcCursor_NotImplemented == CXCursor_NotImplemented);
-C_ASSERT(DxcCursor_InvalidCode == CXCursor_InvalidCode);
-C_ASSERT(DxcCursor_LastInvalid == CXCursor_LastInvalid);
-C_ASSERT(DxcCursor_FirstExpr == CXCursor_FirstExpr);
-C_ASSERT(DxcCursor_UnexposedExpr == CXCursor_UnexposedExpr);
-C_ASSERT(DxcCursor_DeclRefExpr == CXCursor_DeclRefExpr);
-C_ASSERT(DxcCursor_MemberRefExpr == CXCursor_MemberRefExpr);
-C_ASSERT(DxcCursor_CallExpr == CXCursor_CallExpr);
-C_ASSERT(DxcCursor_ObjCMessageExpr == CXCursor_ObjCMessageExpr);
-C_ASSERT(DxcCursor_BlockExpr == CXCursor_BlockExpr);
-C_ASSERT(DxcCursor_IntegerLiteral == CXCursor_IntegerLiteral);
-C_ASSERT(DxcCursor_FloatingLiteral == CXCursor_FloatingLiteral);
-C_ASSERT(DxcCursor_ImaginaryLiteral == CXCursor_ImaginaryLiteral);
-C_ASSERT(DxcCursor_StringLiteral == CXCursor_StringLiteral);
-C_ASSERT(DxcCursor_CharacterLiteral == CXCursor_CharacterLiteral);
-C_ASSERT(DxcCursor_ParenExpr == CXCursor_ParenExpr);
-C_ASSERT(DxcCursor_UnaryOperator == CXCursor_UnaryOperator);
-C_ASSERT(DxcCursor_ArraySubscriptExpr == CXCursor_ArraySubscriptExpr);
-C_ASSERT(DxcCursor_BinaryOperator == CXCursor_BinaryOperator);
-C_ASSERT(DxcCursor_CompoundAssignOperator == CXCursor_CompoundAssignOperator);
-C_ASSERT(DxcCursor_ConditionalOperator == CXCursor_ConditionalOperator);
-C_ASSERT(DxcCursor_CStyleCastExpr == CXCursor_CStyleCastExpr);
-C_ASSERT(DxcCursor_CompoundLiteralExpr == CXCursor_CompoundLiteralExpr);
-C_ASSERT(DxcCursor_InitListExpr == CXCursor_InitListExpr);
-C_ASSERT(DxcCursor_AddrLabelExpr == CXCursor_AddrLabelExpr);
-C_ASSERT(DxcCursor_StmtExpr == CXCursor_StmtExpr);
-C_ASSERT(DxcCursor_GenericSelectionExpr == CXCursor_GenericSelectionExpr);
-C_ASSERT(DxcCursor_GNUNullExpr == CXCursor_GNUNullExpr);
-C_ASSERT(DxcCursor_CXXStaticCastExpr == CXCursor_CXXStaticCastExpr);
-C_ASSERT(DxcCursor_CXXDynamicCastExpr == CXCursor_CXXDynamicCastExpr);
-C_ASSERT(DxcCursor_CXXReinterpretCastExpr == CXCursor_CXXReinterpretCastExpr);
-C_ASSERT(DxcCursor_CXXConstCastExpr == CXCursor_CXXConstCastExpr);
-C_ASSERT(DxcCursor_CXXFunctionalCastExpr == CXCursor_CXXFunctionalCastExpr);
-C_ASSERT(DxcCursor_CXXTypeidExpr == CXCursor_CXXTypeidExpr);
-C_ASSERT(DxcCursor_CXXBoolLiteralExpr == CXCursor_CXXBoolLiteralExpr);
-C_ASSERT(DxcCursor_CXXNullPtrLiteralExpr == CXCursor_CXXNullPtrLiteralExpr);
-C_ASSERT(DxcCursor_CXXThisExpr == CXCursor_CXXThisExpr);
-C_ASSERT(DxcCursor_CXXThrowExpr == CXCursor_CXXThrowExpr);
-C_ASSERT(DxcCursor_CXXNewExpr == CXCursor_CXXNewExpr);
-C_ASSERT(DxcCursor_CXXDeleteExpr == CXCursor_CXXDeleteExpr);
-C_ASSERT(DxcCursor_UnaryExpr == CXCursor_UnaryExpr);
-C_ASSERT(DxcCursor_ObjCStringLiteral == CXCursor_ObjCStringLiteral);
-C_ASSERT(DxcCursor_ObjCEncodeExpr == CXCursor_ObjCEncodeExpr);
-C_ASSERT(DxcCursor_ObjCSelectorExpr == CXCursor_ObjCSelectorExpr);
-C_ASSERT(DxcCursor_ObjCProtocolExpr == CXCursor_ObjCProtocolExpr);
-C_ASSERT(DxcCursor_ObjCBridgedCastExpr == CXCursor_ObjCBridgedCastExpr);
-C_ASSERT(DxcCursor_PackExpansionExpr == CXCursor_PackExpansionExpr);
-C_ASSERT(DxcCursor_SizeOfPackExpr == CXCursor_SizeOfPackExpr);
-C_ASSERT(DxcCursor_LambdaExpr == CXCursor_LambdaExpr);
-C_ASSERT(DxcCursor_ObjCBoolLiteralExpr == CXCursor_ObjCBoolLiteralExpr);
-C_ASSERT(DxcCursor_ObjCSelfExpr == CXCursor_ObjCSelfExpr);
-C_ASSERT(DxcCursor_LastExpr == CXCursor_LastExpr);
-C_ASSERT(DxcCursor_FirstStmt == CXCursor_FirstStmt);
-C_ASSERT(DxcCursor_UnexposedStmt == CXCursor_UnexposedStmt);
-C_ASSERT(DxcCursor_LabelStmt == CXCursor_LabelStmt);
-C_ASSERT(DxcCursor_CompoundStmt == CXCursor_CompoundStmt);
-C_ASSERT(DxcCursor_CaseStmt == CXCursor_CaseStmt);
-C_ASSERT(DxcCursor_DefaultStmt == CXCursor_DefaultStmt);
-C_ASSERT(DxcCursor_IfStmt == CXCursor_IfStmt);
-C_ASSERT(DxcCursor_SwitchStmt == CXCursor_SwitchStmt);
-C_ASSERT(DxcCursor_WhileStmt == CXCursor_WhileStmt);
-C_ASSERT(DxcCursor_DoStmt == CXCursor_DoStmt);
-C_ASSERT(DxcCursor_ForStmt == CXCursor_ForStmt);
-C_ASSERT(DxcCursor_GotoStmt == CXCursor_GotoStmt);
-C_ASSERT(DxcCursor_IndirectGotoStmt == CXCursor_IndirectGotoStmt);
-C_ASSERT(DxcCursor_ContinueStmt == CXCursor_ContinueStmt);
-C_ASSERT(DxcCursor_BreakStmt == CXCursor_BreakStmt);
-C_ASSERT(DxcCursor_ReturnStmt == CXCursor_ReturnStmt);
-C_ASSERT(DxcCursor_GCCAsmStmt == CXCursor_GCCAsmStmt);
-C_ASSERT(DxcCursor_AsmStmt == CXCursor_AsmStmt);
-C_ASSERT(DxcCursor_ObjCAtTryStmt == CXCursor_ObjCAtTryStmt);
-C_ASSERT(DxcCursor_ObjCAtCatchStmt == CXCursor_ObjCAtCatchStmt);
-C_ASSERT(DxcCursor_ObjCAtFinallyStmt == CXCursor_ObjCAtFinallyStmt);
-C_ASSERT(DxcCursor_ObjCAtThrowStmt == CXCursor_ObjCAtThrowStmt);
-C_ASSERT(DxcCursor_ObjCAtSynchronizedStmt == CXCursor_ObjCAtSynchronizedStmt);
-C_ASSERT(DxcCursor_ObjCAutoreleasePoolStmt == CXCursor_ObjCAutoreleasePoolStmt);
-C_ASSERT(DxcCursor_ObjCForCollectionStmt == CXCursor_ObjCForCollectionStmt);
-C_ASSERT(DxcCursor_CXXCatchStmt == CXCursor_CXXCatchStmt);
-C_ASSERT(DxcCursor_CXXTryStmt == CXCursor_CXXTryStmt);
-C_ASSERT(DxcCursor_CXXForRangeStmt == CXCursor_CXXForRangeStmt);
-C_ASSERT(DxcCursor_SEHTryStmt == CXCursor_SEHTryStmt);
-C_ASSERT(DxcCursor_SEHExceptStmt == CXCursor_SEHExceptStmt);
-C_ASSERT(DxcCursor_SEHFinallyStmt == CXCursor_SEHFinallyStmt);
-C_ASSERT(DxcCursor_MSAsmStmt == CXCursor_MSAsmStmt);
-C_ASSERT(DxcCursor_NullStmt == CXCursor_NullStmt);
-C_ASSERT(DxcCursor_DeclStmt == CXCursor_DeclStmt);
-C_ASSERT(DxcCursor_OMPParallelDirective == CXCursor_OMPParallelDirective);
-C_ASSERT(DxcCursor_LastStmt == CXCursor_LastStmt);
-C_ASSERT(DxcCursor_TranslationUnit == CXCursor_TranslationUnit);
-C_ASSERT(DxcCursor_FirstAttr == CXCursor_FirstAttr);
-C_ASSERT(DxcCursor_UnexposedAttr == CXCursor_UnexposedAttr);
-C_ASSERT(DxcCursor_IBActionAttr == CXCursor_IBActionAttr);
-C_ASSERT(DxcCursor_IBOutletAttr == CXCursor_IBOutletAttr);
-C_ASSERT(DxcCursor_IBOutletCollectionAttr == CXCursor_IBOutletCollectionAttr);
-C_ASSERT(DxcCursor_CXXFinalAttr == CXCursor_CXXFinalAttr);
-C_ASSERT(DxcCursor_CXXOverrideAttr == CXCursor_CXXOverrideAttr);
-C_ASSERT(DxcCursor_AnnotateAttr == CXCursor_AnnotateAttr);
-C_ASSERT(DxcCursor_AsmLabelAttr == CXCursor_AsmLabelAttr);
-C_ASSERT(DxcCursor_PackedAttr == CXCursor_PackedAttr);
-C_ASSERT(DxcCursor_LastAttr == CXCursor_LastAttr);
-C_ASSERT(DxcCursor_PreprocessingDirective == CXCursor_PreprocessingDirective);
-C_ASSERT(DxcCursor_MacroDefinition == CXCursor_MacroDefinition);
-C_ASSERT(DxcCursor_MacroExpansion == CXCursor_MacroExpansion);
-C_ASSERT(DxcCursor_MacroInstantiation == CXCursor_MacroInstantiation);
-C_ASSERT(DxcCursor_InclusionDirective == CXCursor_InclusionDirective);
-C_ASSERT(DxcCursor_FirstPreprocessing == CXCursor_FirstPreprocessing);
-C_ASSERT(DxcCursor_LastPreprocessing == CXCursor_LastPreprocessing);
-C_ASSERT(DxcCursor_ModuleImportDecl == CXCursor_ModuleImportDecl);
-C_ASSERT(DxcCursor_FirstExtraDecl == CXCursor_FirstExtraDecl);
-C_ASSERT(DxcCursor_LastExtraDecl == CXCursor_LastExtraDecl);
+C_ASSERT((int)DxcCursor_UnexposedDecl == (int)CXCursor_UnexposedDecl);
+C_ASSERT((int)DxcCursor_StructDecl == (int)CXCursor_StructDecl);
+C_ASSERT((int)DxcCursor_UnionDecl == (int)CXCursor_UnionDecl);
+C_ASSERT((int)DxcCursor_ClassDecl == (int)CXCursor_ClassDecl);
+C_ASSERT((int)DxcCursor_EnumDecl == (int)CXCursor_EnumDecl);
+C_ASSERT((int)DxcCursor_FieldDecl == (int)CXCursor_FieldDecl);
+C_ASSERT((int)DxcCursor_EnumConstantDecl == (int)CXCursor_EnumConstantDecl);
+C_ASSERT((int)DxcCursor_FunctionDecl == (int)CXCursor_FunctionDecl);
+C_ASSERT((int)DxcCursor_VarDecl == (int)CXCursor_VarDecl);
+C_ASSERT((int)DxcCursor_ParmDecl == (int)CXCursor_ParmDecl);
+C_ASSERT((int)DxcCursor_ObjCInterfaceDecl == (int)CXCursor_ObjCInterfaceDecl);
+C_ASSERT((int)DxcCursor_ObjCCategoryDecl == (int)CXCursor_ObjCCategoryDecl);
+C_ASSERT((int)DxcCursor_ObjCProtocolDecl == (int)CXCursor_ObjCProtocolDecl);
+C_ASSERT((int)DxcCursor_ObjCPropertyDecl == (int)CXCursor_ObjCPropertyDecl);
+C_ASSERT((int)DxcCursor_ObjCIvarDecl == (int)CXCursor_ObjCIvarDecl);
+C_ASSERT((int)DxcCursor_ObjCInstanceMethodDecl == (int)CXCursor_ObjCInstanceMethodDecl);
+C_ASSERT((int)DxcCursor_ObjCClassMethodDecl == (int)CXCursor_ObjCClassMethodDecl);
+C_ASSERT((int)DxcCursor_ObjCImplementationDecl == (int)CXCursor_ObjCImplementationDecl);
+C_ASSERT((int)DxcCursor_ObjCCategoryImplDecl == (int)CXCursor_ObjCCategoryImplDecl);
+C_ASSERT((int)DxcCursor_TypedefDecl == (int)CXCursor_TypedefDecl);
+C_ASSERT((int)DxcCursor_CXXMethod == (int)CXCursor_CXXMethod);
+C_ASSERT((int)DxcCursor_Namespace == (int)CXCursor_Namespace);
+C_ASSERT((int)DxcCursor_LinkageSpec == (int)CXCursor_LinkageSpec);
+C_ASSERT((int)DxcCursor_Constructor == (int)CXCursor_Constructor);
+C_ASSERT((int)DxcCursor_Destructor == (int)CXCursor_Destructor);
+C_ASSERT((int)DxcCursor_ConversionFunction == (int)CXCursor_ConversionFunction);
+C_ASSERT((int)DxcCursor_TemplateTypeParameter == (int)CXCursor_TemplateTypeParameter);
+C_ASSERT((int)DxcCursor_NonTypeTemplateParameter == (int)CXCursor_NonTypeTemplateParameter);
+C_ASSERT((int)DxcCursor_TemplateTemplateParameter == (int)CXCursor_TemplateTemplateParameter);
+C_ASSERT((int)DxcCursor_FunctionTemplate == (int)CXCursor_FunctionTemplate);
+C_ASSERT((int)DxcCursor_ClassTemplate == (int)CXCursor_ClassTemplate);
+C_ASSERT((int)DxcCursor_ClassTemplatePartialSpecialization == (int)CXCursor_ClassTemplatePartialSpecialization);
+C_ASSERT((int)DxcCursor_NamespaceAlias == (int)CXCursor_NamespaceAlias);
+C_ASSERT((int)DxcCursor_UsingDirective == (int)CXCursor_UsingDirective);
+C_ASSERT((int)DxcCursor_UsingDeclaration == (int)CXCursor_UsingDeclaration);
+C_ASSERT((int)DxcCursor_TypeAliasDecl == (int)CXCursor_TypeAliasDecl);
+C_ASSERT((int)DxcCursor_ObjCSynthesizeDecl == (int)CXCursor_ObjCSynthesizeDecl);
+C_ASSERT((int)DxcCursor_ObjCDynamicDecl == (int)CXCursor_ObjCDynamicDecl);
+C_ASSERT((int)DxcCursor_CXXAccessSpecifier == (int)CXCursor_CXXAccessSpecifier);
+C_ASSERT((int)DxcCursor_FirstDecl == (int)CXCursor_FirstDecl);
+C_ASSERT((int)DxcCursor_LastDecl == (int)CXCursor_LastDecl);
+C_ASSERT((int)DxcCursor_FirstRef == (int)CXCursor_FirstRef);
+C_ASSERT((int)DxcCursor_ObjCSuperClassRef == (int)CXCursor_ObjCSuperClassRef);
+C_ASSERT((int)DxcCursor_ObjCProtocolRef == (int)CXCursor_ObjCProtocolRef);
+C_ASSERT((int)DxcCursor_ObjCClassRef == (int)CXCursor_ObjCClassRef);
+C_ASSERT((int)DxcCursor_TypeRef == (int)CXCursor_TypeRef);
+C_ASSERT((int)DxcCursor_CXXBaseSpecifier == (int)CXCursor_CXXBaseSpecifier);
+C_ASSERT((int)DxcCursor_TemplateRef == (int)CXCursor_TemplateRef);
+C_ASSERT((int)DxcCursor_NamespaceRef == (int)CXCursor_NamespaceRef);
+C_ASSERT((int)DxcCursor_MemberRef == (int)CXCursor_MemberRef);
+C_ASSERT((int)DxcCursor_LabelRef == (int)CXCursor_LabelRef);
+C_ASSERT((int)DxcCursor_OverloadedDeclRef == (int)CXCursor_OverloadedDeclRef);
+C_ASSERT((int)DxcCursor_VariableRef == (int)CXCursor_VariableRef);
+C_ASSERT((int)DxcCursor_LastRef == (int)CXCursor_LastRef);
+C_ASSERT((int)DxcCursor_FirstInvalid == (int)CXCursor_FirstInvalid);
+C_ASSERT((int)DxcCursor_InvalidFile == (int)CXCursor_InvalidFile);
+C_ASSERT((int)DxcCursor_NoDeclFound == (int)CXCursor_NoDeclFound);
+C_ASSERT((int)DxcCursor_NotImplemented == (int)CXCursor_NotImplemented);
+C_ASSERT((int)DxcCursor_InvalidCode == (int)CXCursor_InvalidCode);
+C_ASSERT((int)DxcCursor_LastInvalid == (int)CXCursor_LastInvalid);
+C_ASSERT((int)DxcCursor_FirstExpr == (int)CXCursor_FirstExpr);
+C_ASSERT((int)DxcCursor_UnexposedExpr == (int)CXCursor_UnexposedExpr);
+C_ASSERT((int)DxcCursor_DeclRefExpr == (int)CXCursor_DeclRefExpr);
+C_ASSERT((int)DxcCursor_MemberRefExpr == (int)CXCursor_MemberRefExpr);
+C_ASSERT((int)DxcCursor_CallExpr == (int)CXCursor_CallExpr);
+C_ASSERT((int)DxcCursor_ObjCMessageExpr == (int)CXCursor_ObjCMessageExpr);
+C_ASSERT((int)DxcCursor_BlockExpr == (int)CXCursor_BlockExpr);
+C_ASSERT((int)DxcCursor_IntegerLiteral == (int)CXCursor_IntegerLiteral);
+C_ASSERT((int)DxcCursor_FloatingLiteral == (int)CXCursor_FloatingLiteral);
+C_ASSERT((int)DxcCursor_ImaginaryLiteral == (int)CXCursor_ImaginaryLiteral);
+C_ASSERT((int)DxcCursor_StringLiteral == (int)CXCursor_StringLiteral);
+C_ASSERT((int)DxcCursor_CharacterLiteral == (int)CXCursor_CharacterLiteral);
+C_ASSERT((int)DxcCursor_ParenExpr == (int)CXCursor_ParenExpr);
+C_ASSERT((int)DxcCursor_UnaryOperator == (int)CXCursor_UnaryOperator);
+C_ASSERT((int)DxcCursor_ArraySubscriptExpr == (int)CXCursor_ArraySubscriptExpr);
+C_ASSERT((int)DxcCursor_BinaryOperator == (int)CXCursor_BinaryOperator);
+C_ASSERT((int)DxcCursor_CompoundAssignOperator == (int)CXCursor_CompoundAssignOperator);
+C_ASSERT((int)DxcCursor_ConditionalOperator == (int)CXCursor_ConditionalOperator);
+C_ASSERT((int)DxcCursor_CStyleCastExpr == (int)CXCursor_CStyleCastExpr);
+C_ASSERT((int)DxcCursor_CompoundLiteralExpr == (int)CXCursor_CompoundLiteralExpr);
+C_ASSERT((int)DxcCursor_InitListExpr == (int)CXCursor_InitListExpr);
+C_ASSERT((int)DxcCursor_AddrLabelExpr == (int)CXCursor_AddrLabelExpr);
+C_ASSERT((int)DxcCursor_StmtExpr == (int)CXCursor_StmtExpr);
+C_ASSERT((int)DxcCursor_GenericSelectionExpr == (int)CXCursor_GenericSelectionExpr);
+C_ASSERT((int)DxcCursor_GNUNullExpr == (int)CXCursor_GNUNullExpr);
+C_ASSERT((int)DxcCursor_CXXStaticCastExpr == (int)CXCursor_CXXStaticCastExpr);
+C_ASSERT((int)DxcCursor_CXXDynamicCastExpr == (int)CXCursor_CXXDynamicCastExpr);
+C_ASSERT((int)DxcCursor_CXXReinterpretCastExpr == (int)CXCursor_CXXReinterpretCastExpr);
+C_ASSERT((int)DxcCursor_CXXConstCastExpr == (int)CXCursor_CXXConstCastExpr);
+C_ASSERT((int)DxcCursor_CXXFunctionalCastExpr == (int)CXCursor_CXXFunctionalCastExpr);
+C_ASSERT((int)DxcCursor_CXXTypeidExpr == (int)CXCursor_CXXTypeidExpr);
+C_ASSERT((int)DxcCursor_CXXBoolLiteralExpr == (int)CXCursor_CXXBoolLiteralExpr);
+C_ASSERT((int)DxcCursor_CXXNullPtrLiteralExpr == (int)CXCursor_CXXNullPtrLiteralExpr);
+C_ASSERT((int)DxcCursor_CXXThisExpr == (int)CXCursor_CXXThisExpr);
+C_ASSERT((int)DxcCursor_CXXThrowExpr == (int)CXCursor_CXXThrowExpr);
+C_ASSERT((int)DxcCursor_CXXNewExpr == (int)CXCursor_CXXNewExpr);
+C_ASSERT((int)DxcCursor_CXXDeleteExpr == (int)CXCursor_CXXDeleteExpr);
+C_ASSERT((int)DxcCursor_UnaryExpr == (int)CXCursor_UnaryExpr);
+C_ASSERT((int)DxcCursor_ObjCStringLiteral == (int)CXCursor_ObjCStringLiteral);
+C_ASSERT((int)DxcCursor_ObjCEncodeExpr == (int)CXCursor_ObjCEncodeExpr);
+C_ASSERT((int)DxcCursor_ObjCSelectorExpr == (int)CXCursor_ObjCSelectorExpr);
+C_ASSERT((int)DxcCursor_ObjCProtocolExpr == (int)CXCursor_ObjCProtocolExpr);
+C_ASSERT((int)DxcCursor_ObjCBridgedCastExpr == (int)CXCursor_ObjCBridgedCastExpr);
+C_ASSERT((int)DxcCursor_PackExpansionExpr == (int)CXCursor_PackExpansionExpr);
+C_ASSERT((int)DxcCursor_SizeOfPackExpr == (int)CXCursor_SizeOfPackExpr);
+C_ASSERT((int)DxcCursor_LambdaExpr == (int)CXCursor_LambdaExpr);
+C_ASSERT((int)DxcCursor_ObjCBoolLiteralExpr == (int)CXCursor_ObjCBoolLiteralExpr);
+C_ASSERT((int)DxcCursor_ObjCSelfExpr == (int)CXCursor_ObjCSelfExpr);
+C_ASSERT((int)DxcCursor_LastExpr == (int)CXCursor_LastExpr);
+C_ASSERT((int)DxcCursor_FirstStmt == (int)CXCursor_FirstStmt);
+C_ASSERT((int)DxcCursor_UnexposedStmt == (int)CXCursor_UnexposedStmt);
+C_ASSERT((int)DxcCursor_LabelStmt == (int)CXCursor_LabelStmt);
+C_ASSERT((int)DxcCursor_CompoundStmt == (int)CXCursor_CompoundStmt);
+C_ASSERT((int)DxcCursor_CaseStmt == (int)CXCursor_CaseStmt);
+C_ASSERT((int)DxcCursor_DefaultStmt == (int)CXCursor_DefaultStmt);
+C_ASSERT((int)DxcCursor_IfStmt == (int)CXCursor_IfStmt);
+C_ASSERT((int)DxcCursor_SwitchStmt == (int)CXCursor_SwitchStmt);
+C_ASSERT((int)DxcCursor_WhileStmt == (int)CXCursor_WhileStmt);
+C_ASSERT((int)DxcCursor_DoStmt == (int)CXCursor_DoStmt);
+C_ASSERT((int)DxcCursor_ForStmt == (int)CXCursor_ForStmt);
+C_ASSERT((int)DxcCursor_GotoStmt == (int)CXCursor_GotoStmt);
+C_ASSERT((int)DxcCursor_IndirectGotoStmt == (int)CXCursor_IndirectGotoStmt);
+C_ASSERT((int)DxcCursor_ContinueStmt == (int)CXCursor_ContinueStmt);
+C_ASSERT((int)DxcCursor_BreakStmt == (int)CXCursor_BreakStmt);
+C_ASSERT((int)DxcCursor_ReturnStmt == (int)CXCursor_ReturnStmt);
+C_ASSERT((int)DxcCursor_GCCAsmStmt == (int)CXCursor_GCCAsmStmt);
+C_ASSERT((int)DxcCursor_AsmStmt == (int)CXCursor_AsmStmt);
+C_ASSERT((int)DxcCursor_ObjCAtTryStmt == (int)CXCursor_ObjCAtTryStmt);
+C_ASSERT((int)DxcCursor_ObjCAtCatchStmt == (int)CXCursor_ObjCAtCatchStmt);
+C_ASSERT((int)DxcCursor_ObjCAtFinallyStmt == (int)CXCursor_ObjCAtFinallyStmt);
+C_ASSERT((int)DxcCursor_ObjCAtThrowStmt == (int)CXCursor_ObjCAtThrowStmt);
+C_ASSERT((int)DxcCursor_ObjCAtSynchronizedStmt == (int)CXCursor_ObjCAtSynchronizedStmt);
+C_ASSERT((int)DxcCursor_ObjCAutoreleasePoolStmt == (int)CXCursor_ObjCAutoreleasePoolStmt);
+C_ASSERT((int)DxcCursor_ObjCForCollectionStmt == (int)CXCursor_ObjCForCollectionStmt);
+C_ASSERT((int)DxcCursor_CXXCatchStmt == (int)CXCursor_CXXCatchStmt);
+C_ASSERT((int)DxcCursor_CXXTryStmt == (int)CXCursor_CXXTryStmt);
+C_ASSERT((int)DxcCursor_CXXForRangeStmt == (int)CXCursor_CXXForRangeStmt);
+C_ASSERT((int)DxcCursor_SEHTryStmt == (int)CXCursor_SEHTryStmt);
+C_ASSERT((int)DxcCursor_SEHExceptStmt == (int)CXCursor_SEHExceptStmt);
+C_ASSERT((int)DxcCursor_SEHFinallyStmt == (int)CXCursor_SEHFinallyStmt);
+C_ASSERT((int)DxcCursor_MSAsmStmt == (int)CXCursor_MSAsmStmt);
+C_ASSERT((int)DxcCursor_NullStmt == (int)CXCursor_NullStmt);
+C_ASSERT((int)DxcCursor_DeclStmt == (int)CXCursor_DeclStmt);
+C_ASSERT((int)DxcCursor_OMPParallelDirective == (int)CXCursor_OMPParallelDirective);
+C_ASSERT((int)DxcCursor_LastStmt == (int)CXCursor_LastStmt);
+C_ASSERT((int)DxcCursor_TranslationUnit == (int)CXCursor_TranslationUnit);
+C_ASSERT((int)DxcCursor_FirstAttr == (int)CXCursor_FirstAttr);
+C_ASSERT((int)DxcCursor_UnexposedAttr == (int)CXCursor_UnexposedAttr);
+C_ASSERT((int)DxcCursor_IBActionAttr == (int)CXCursor_IBActionAttr);
+C_ASSERT((int)DxcCursor_IBOutletAttr == (int)CXCursor_IBOutletAttr);
+C_ASSERT((int)DxcCursor_IBOutletCollectionAttr == (int)CXCursor_IBOutletCollectionAttr);
+C_ASSERT((int)DxcCursor_CXXFinalAttr == (int)CXCursor_CXXFinalAttr);
+C_ASSERT((int)DxcCursor_CXXOverrideAttr == (int)CXCursor_CXXOverrideAttr);
+C_ASSERT((int)DxcCursor_AnnotateAttr == (int)CXCursor_AnnotateAttr);
+C_ASSERT((int)DxcCursor_AsmLabelAttr == (int)CXCursor_AsmLabelAttr);
+C_ASSERT((int)DxcCursor_PackedAttr == (int)CXCursor_PackedAttr);
+C_ASSERT((int)DxcCursor_LastAttr == (int)CXCursor_LastAttr);
+C_ASSERT((int)DxcCursor_PreprocessingDirective == (int)CXCursor_PreprocessingDirective);
+C_ASSERT((int)DxcCursor_MacroDefinition == (int)CXCursor_MacroDefinition);
+C_ASSERT((int)DxcCursor_MacroExpansion == (int)CXCursor_MacroExpansion);
+C_ASSERT((int)DxcCursor_MacroInstantiation == (int)CXCursor_MacroInstantiation);
+C_ASSERT((int)DxcCursor_InclusionDirective == (int)CXCursor_InclusionDirective);
+C_ASSERT((int)DxcCursor_FirstPreprocessing == (int)CXCursor_FirstPreprocessing);
+C_ASSERT((int)DxcCursor_LastPreprocessing == (int)CXCursor_LastPreprocessing);
+C_ASSERT((int)DxcCursor_ModuleImportDecl == (int)CXCursor_ModuleImportDecl);
+C_ASSERT((int)DxcCursor_FirstExtraDecl == (int)CXCursor_FirstExtraDecl);
+C_ASSERT((int)DxcCursor_LastExtraDecl == (int)CXCursor_LastExtraDecl);
 
-C_ASSERT(DxcTranslationUnitFlags_UseCallerThread == CXTranslationUnit_UseCallerThread);
+C_ASSERT((int)DxcTranslationUnitFlags_UseCallerThread == (int)CXTranslationUnit_UseCallerThread);

@@ -28,9 +28,9 @@ using Microsoft::WRL::ComPtr;
 
 #include "ShaderTesterImpl.h"
 
-#include <dxc/dxcapi.h>
-#include <dxc/Support/dxcapi.use.h>
-#include <atlcomcli.h>
+#include <atlbase.h>
+#include "dxc/dxcapi.h"
+#include "dxc/Support/dxcapi.use.h"
 
 
 

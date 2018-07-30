@@ -1,10 +1,13 @@
 // Run: %dxc -T ps_6_0 -E main
 
 struct S {
-    bool a;
-    uint2 b;
+    bool     a;
+    uint2    b;
     float2x3 c;
-    float4 d;
+    float4   d;
+    float4   e[1];
+    float    f[4];
+    int      g;
 };
 
 struct T {
@@ -15,6 +18,17 @@ struct T {
 T foo() {
     T ret = (T)0;
     return ret;
+}
+
+S bar() {
+    S ret = (S)0;
+    return ret;
+}
+
+ConstantBuffer<S> MyBuffer;
+
+S baz() {
+    return MyBuffer;
 }
 
 float4 main() : SV_Target {
@@ -74,6 +88,18 @@ float4 main() : SV_Target {
 // CHECK:      [[c0:%\d+]] = OpAccessChain %_ptr_Function_v3float %t %int_1 %int_2 %uint_0
 // CHECK-NEXT: OpStore [[c0]] {{%\d+}}
     t.i.c[0] = v6;
+
+// CHECK:       [[baz:%\d+]] = OpFunctionCall %S %baz
+// CHECK-NEXT:                 OpStore %temp_var_S [[baz]]
+// CHECK-NEXT:                 OpAccessChain %_ptr_Function_v4float %temp_var_S %int_4 %int_0
+// CHECK:       [[bar:%\d+]] = OpFunctionCall %S %bar
+// CHECK-NEXT:                 OpStore %temp_var_S_0 [[bar]]
+// CHECK-NEXT:                 OpAccessChain %_ptr_Function_float %temp_var_S_0 %int_5 %int_1
+    float4 val1 = bar().f[1] * baz().e[0];
+
+// CHECK:        [[ac:%\d+]] = OpAccessChain %_ptr_Function_int %temp_var_S_1 %int_6
+// CHECK-NEXT:                 OpLoad %int [[ac]]
+    bool val2 = bar().g; // Need cast on rvalue function return
 
 // CHECK:      [[ret:%\d+]] = OpFunctionCall %T %foo
 // CHECK-NEXT: OpStore %temp_var_T [[ret]]

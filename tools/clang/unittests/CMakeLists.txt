@@ -36,12 +36,12 @@ endif (CLANG_INCLUDE_TESTS) # HLSL Change
 # HLSL Change Starts
 
 if (HLSL_INCLUDE_TESTS) 
+  add_subdirectory(HLSL)
   if (WIN32) # These tests require MS specific TAEF and DIA SDK
-    add_subdirectory(HLSL)
     add_subdirectory(HLSLHost)
+    add_subdirectory(dxc_batch)
+    add_subdirectory(DxrFallback)
   endif (WIN32)
-  add_subdirectory(dxc_batch)
-  add_subdirectory(DxrFallback)
 endif (HLSL_INCLUDE_TESTS)
 
 # HLSL Change Ends
