@@ -590,7 +590,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
                    featureManager, options),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
       seenPushConstantAt(), isSpecConstantMode(false),
-      foundNonUniformResourceIndex(false), needsLegalization(false) {
+      foundNonUniformResourceIndex(false), needsLegalization(false),
+      mainSourceFileId(0) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 
@@ -612,7 +613,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
   if (options.enableDebugInfo && !inputFiles.empty()) {
     // File name
-    theBuilder.setSourceFileName(theContext.takeNextId(),
+    mainSourceFileId = theContext.takeNextId();
+    theBuilder.setSourceFileName(mainSourceFileId,
                                  inputFiles.front().getFile().str());
 
     // Source code
@@ -1484,6 +1486,7 @@ void SPIRVEmitter::doDoStmt(const DoStmt *theDoStmt,
   theBuilder.setInsertPoint(continueBB);
   uint32_t condition = 0;
   if (const Expr *check = theDoStmt->getCond()) {
+    emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
     condition = theBuilder.getConstantBool(true);
@@ -1583,6 +1586,7 @@ void SPIRVEmitter::doWhileStmt(const WhileStmt *whileStmt,
 
   uint32_t condition = 0;
   if (const Expr *check = whileStmt->getCond()) {
+    emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
     condition = theBuilder.getConstantBool(true);
@@ -1674,6 +1678,7 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
 
   // Process the <init> block
   if (const Stmt *initStmt = forStmt->getInit()) {
+    emitDebugLine(initStmt->getLocStart());
     doStmt(initStmt);
   }
   theBuilder.createBranch(checkBB);
@@ -1683,6 +1688,7 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
   theBuilder.setInsertPoint(checkBB);
   uint32_t condition;
   if (const Expr *check = forStmt->getCond()) {
+    emitDebugLine(check->getLocStart());
     condition = doExpr(check);
   } else {
     condition = theBuilder.getConstantBool(true);
@@ -1711,6 +1717,7 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
   // Process the <continue> block
   theBuilder.setInsertPoint(continueBB);
   if (const Expr *cont = forStmt->getInc()) {
+    emitDebugLine(cont->getLocStart());
     doExpr(cont);
   }
   theBuilder.createBranch(checkBB); // <continue> should jump back to header
@@ -1784,6 +1791,7 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt,
   if (const auto *declStmt = ifStmt->getConditionVariableDeclStmt())
     doDeclStmt(declStmt);
 
+  emitDebugLine(ifStmt->getCond()->getLocStart());
   // First emit the instruction for evaluating the condition.
   const uint32_t condition = doExpr(ifStmt->getCond());
 
@@ -1986,6 +1994,8 @@ SpirvEvalInfo SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
 }
 
 SpirvEvalInfo SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
+  emitDebugLine(callExpr->getLocStart());
+
   if (const auto *operatorCall = dyn_cast<CXXOperatorCallExpr>(callExpr))
     return doCXXOperatorCallExpr(operatorCall);
 
@@ -9223,6 +9233,13 @@ void SPIRVEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
     theBuilder.addExecutionMode(entryFunctionId,
                                 spv::ExecutionMode::EarlyFragmentTests, {});
   }
+  if (decl->getAttr<VKPostDepthCoverageAttr>()) {
+    theBuilder.addExtension(Extension::KHR_post_depth_coverage,
+                            "[[vk::post_depth_coverage]]", decl->getLocation());
+    theBuilder.requireCapability(spv::Capability::SampleMaskPostDepthCoverage);
+    theBuilder.addExecutionMode(entryFunctionId,
+                                spv::ExecutionMode::PostDepthCoverage, {});
+  }
 }
 
 void SPIRVEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
@@ -9947,6 +9964,14 @@ uint32_t SPIRVEmitter::extractVecFromVec4(uint32_t fromId,
     return fromId;
   default:
     llvm_unreachable("vector element count must be 1, 2, 3, or 4");
+  }
+}
+
+void SPIRVEmitter::emitDebugLine(SourceLocation loc) {
+  if (spirvOptions.enableDebugInfo && mainSourceFileId != 0) {
+    auto floc = FullSourceLoc(loc, theCompilerInstance.getSourceManager());
+    theBuilder.debugLine(mainSourceFileId, floc.getSpellingLineNumber(),
+                         floc.getSpellingColumnNumber());
   }
 }
 

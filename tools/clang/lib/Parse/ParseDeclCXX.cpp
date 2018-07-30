@@ -2891,8 +2891,9 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
         NonNestedClass = false;
 
         // HLSL Change Starts
-        if (getLangOpts().HLSL) {
-          Diag(RecordLoc, diag::err_hlsl_unsupported_construct) << "nested class";
+        if (getLangOpts().HLSL && getLangOpts().HLSLVersion < 2016 &&
+            cast<NamedDecl>(TagDecl)->getDeclName()) {
+          Diag(RecordLoc, diag::err_hlsl_unsupported_nested_struct);
           break;
         } else {
         // HLSL Change Ends - succeeding block is now conditional

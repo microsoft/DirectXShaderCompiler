@@ -484,6 +484,9 @@ public:
                                 llvm::ArrayRef<uint32_t> constituents);
   uint32_t getConstantNull(uint32_t type);
 
+  // === Debug ===
+  void debugLine(uint32_t file, uint32_t line, uint32_t column);
+
 private:
   /// \brief Map from basic blocks' <label-id> to their structured
   /// representation.

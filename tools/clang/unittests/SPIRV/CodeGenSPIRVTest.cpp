@@ -1008,6 +1008,9 @@ TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
 TEST_F(FileTest, AttributeEarlyDepthStencil) {
   runFileTest("attribute.earlydepthstencil.ps.hlsl");
 }
+TEST_F(FileTest, AttributePostDepthCoverage) {
+  runFileTest("attribute.postdepthcoverage.ps.hlsl");
+}
 TEST_F(FileTest, AttributeNumThreads) {
   runFileTest("attribute.numthreads.hlsl");
 }
@@ -1313,6 +1316,10 @@ TEST_F(FileTest, SpirvLegalizationTextureBuffer) {
 
 TEST_F(FileTest, SpirvDebugOpSource) {
   runFileTest("spirv.debug.opsource.hlsl");
+}
+
+TEST_F(FileTest, SpirvDebugOpLine) {
+  runFileTest("spirv.debug.opline.hlsl");
 }
 
 TEST_F(FileTest, VulkanAttributeErrors) {
