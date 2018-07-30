@@ -401,7 +401,10 @@ void PassManagerBuilder::populateModulePassManager(
   //MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3)); // HLSL Change - may move barrier inside divergent if.
   MPM.add(createInstructionCombiningPass());
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
-  MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
+  // HLSL Change Begins
+  // Don't allow loop idiom pass which may insert memset/memcpy thereby breaking the dxil
+  //MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
+  // HLSL Change Ends
   MPM.add(createLoopDeletionPass());          // Delete dead loops
   if (EnableLoopInterchange) {
     MPM.add(createLoopInterchangePass()); // Interchange loops
