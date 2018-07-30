@@ -568,6 +568,26 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   opts.SpvTargetEnv = Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
+
+  // Handle -Oconfig=<comma-separated-list> option.
+  uint32_t numOconfigs = 0;
+  for (const Arg *A : Args.filtered(OPT_Oconfig)) {
+    ++numOconfigs;
+    if (numOconfigs > 1) {
+      errors << "-Oconfig should not be specified more than once";
+      return 1;
+    }
+    for (const auto opt : {OPT_O0, OPT_O1, OPT_O2, OPT_O3, OPT_O4}) {
+      if (Args.hasArg(opt)) {
+        errors << "-Oconfig should not be used together with -O";
+        return 1;
+      }
+    }
+    for (const auto v : A->getValues()) {
+      opts.SpvOconfig.push_back(v);
+    }
+  }
+
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||

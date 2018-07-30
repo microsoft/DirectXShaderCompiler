@@ -50,6 +50,7 @@ struct EmitSPIRVOptions {
   spirv::LayoutRule cBufferLayoutRule;
   spirv::LayoutRule tBufferLayoutRule;
   spirv::LayoutRule sBufferLayoutRule;
+  llvm::SmallVector<llvm::StringRef, 4> oConfig;
 
   // Initializes dependent fields appropriately
   void Initialize();

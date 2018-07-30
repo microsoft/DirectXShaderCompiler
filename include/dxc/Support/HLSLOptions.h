@@ -174,6 +174,7 @@ public:
   llvm::SmallVector<int32_t, 4> VkUShift;  // OPT_fvk_u_shift
   llvm::SmallVector<llvm::StringRef, 4> SpvExtensions; // OPT_fspv_extension
   llvm::StringRef SpvTargetEnv;                        // OPT_fspv_target_env
+  llvm::SmallVector<llvm::StringRef, 4> SpvOconfig;    // OPT_Oconfig
 #endif
   // SPIRV Change Ends
 };
