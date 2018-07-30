@@ -34,6 +34,7 @@ enum class Extension {
   KHR_device_group,
   KHR_multiview,
   KHR_shader_draw_parameters,
+  KHR_post_depth_coverage,
   EXT_descriptor_indexing,
   EXT_fragment_fully_covered,
   EXT_shader_stencil_export,

@@ -7547,7 +7547,7 @@ def err_hlsl_unsupported_div_minint : Error<
 def err_hlsl_unsupported_mod_double : Error<
   "modulo cannot be used with doubles, cast to float first">;
 def err_hlsl_unsupported_nested_struct : Error<
-  "nested class/struct/interfaces are not supported in HLSL">;
+  "nested named class/struct/interfaces are not supported in HLSL">;
 def err_hlsl_unsupported_nested_typedef : Error<
   "nested typedefs are not supported in HLSL">;
 def err_hlsl_unsupported_operator : Error<
