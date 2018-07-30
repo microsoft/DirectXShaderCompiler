@@ -433,8 +433,12 @@ public:
   bool writeBackOutputStream(const NamedDecl *decl, QualType type,
                              uint32_t value);
 
-  /// \brief Inverts SV_Position.y is requested.
+  /// \brief Negates to get the additive inverse of SV_Position.y if requested.
   uint32_t invertYIfRequested(uint32_t position);
+
+  /// \brief Reciprocates to get the multiplicative inverse of SV_Position.w
+  /// if requested.
+  uint32_t invertWIfRequested(uint32_t position);
 
   /// \brief Decorates all stage input and output variables with proper
   /// location and returns true on success.
@@ -744,8 +748,8 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        const EmitSPIRVOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
       astContext(context), diags(context.getDiagnostics()),
-      typeTranslator(translator), entryFunctionId(0),
-      laneCountBuiltinId(0), laneIndexBuiltinId(0), needsLegalization(false),
+      typeTranslator(translator), entryFunctionId(0), laneCountBuiltinId(0),
+      laneIndexBuiltinId(0), needsLegalization(false),
       glPerVertex(model, context, builder, typeTranslator) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {

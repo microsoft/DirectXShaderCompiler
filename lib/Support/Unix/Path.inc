@@ -60,6 +60,8 @@
 # define PATH_MAX 4096
 #endif
 
+#include "llvm/Support/MSFileSystem.h" // HLSL change
+
 using namespace llvm;
 
 namespace llvm {
@@ -379,13 +381,15 @@ std::error_code status(const Twine &Path, file_status &Result) {
   StringRef P = Path.toNullTerminatedStringRef(PathStorage);
 
   struct stat Status;
-  int StatRet = ::stat(P.begin(), &Status);
+  MSFileSystem* fsr = GetCurrentThreadFileSystem(); // HLSL Change
+  int StatRet = fsr->Stat(P.begin(), &Status); // HLSL Change - FS abstraction
   return fillStatus(StatRet, Status, Result);
 }
 
 std::error_code status(int FD, file_status &Result) {
   struct stat Status;
-  int StatRet = ::fstat(FD, &Status);
+  MSFileSystem* fsr = GetCurrentThreadFileSystem(); // HLSL Change
+  int StatRet = fsr->Fstat(FD, &Status); // HLSL Change - FS abstraction
   return fillStatus(StatRet, Status, Result);
 }
 
@@ -504,7 +508,8 @@ std::error_code detail::directory_iterator_increment(detail::DirIterState &it) {
 std::error_code openFileForRead(const Twine &Name, int &ResultFD) {
   SmallString<128> Storage;
   StringRef P = Name.toNullTerminatedStringRef(Storage);
-  while ((ResultFD = open(P.begin(), O_RDONLY)) < 0) {
+  MSFileSystem* fsr = GetCurrentThreadFileSystem(); // HLSL Change
+  while ((ResultFD = fsr->Open(P.begin(), O_RDONLY)) < 0) { // HLSL Change - FS abstraction
     if (errno != EINTR)
       return std::error_code(errno, std::generic_category());
   }
@@ -534,7 +539,8 @@ std::error_code openFileForWrite(const Twine &Name, int &ResultFD,
 
   SmallString<128> Storage;
   StringRef P = Name.toNullTerminatedStringRef(Storage);
-  while ((ResultFD = open(P.begin(), OpenFlags, Mode)) < 0) {
+  MSFileSystem* fsr = GetCurrentThreadFileSystem(); // HLSL Change
+  while ((ResultFD = fsr->Open(P.begin(), OpenFlags, Mode)) < 0) { // HLSL Change - FS abstraction
     if (errno != EINTR)
       return std::error_code(errno, std::generic_category());
   }
@@ -619,3 +625,86 @@ void system_temp_directory(bool ErasedOnReboot, SmallVectorImpl<char> &Result) {
 
 } // end namespace sys
 } // end namespace llvm
+
+
+// The following is implementation of MSFileSystem for Unix.
+// This will make usages of MSFileSystem throughout DirectXShaderCompiler
+// compatible with Unix.
+namespace llvm {
+namespace sys  {
+namespace fs {
+
+thread_local MSFileSystem* threadFS = nullptr;
+
+std::error_code SetupPerThreadFileSystem() throw() {
+  // This method is now a no-op since we are using thread_local.
+  return std::error_code();
+}
+void CleanupPerThreadFileSystem() throw() {
+  // This method is now a no-op since we are using thread_local.
+}
+
+MSFileSystem* GetCurrentThreadFileSystem() throw() {
+  return threadFS;
+}
+
+std::error_code SetCurrentThreadFileSystem(MSFileSystem* value) throw() {
+  // For now, disallow reentrancy in APIs (i.e., replace the current instance with another one).
+  if (value != nullptr) {
+    MSFileSystem* current = GetCurrentThreadFileSystem();
+    if (current != nullptr) {
+      return std::error_code(1131L, std::system_category());
+    }
+  }
+  threadFS = value;
+  return std::error_code();
+}
+
+int msf_read(int fd, void* buffer, unsigned int count) throw() {
+  MSFileSystem* fsr = GetCurrentThreadFileSystem();
+  if (fsr == nullptr) {
+    errno = EBADF;
+    return -1;
+  }
+  return fsr->Read(fd, buffer, count);
+}
+
+int msf_write(int fd, const void* buffer, unsigned int count) throw() {
+  MSFileSystem* fsr = GetCurrentThreadFileSystem();
+  if (fsr == nullptr) {
+    errno = EBADF;
+    return -1;
+  }
+  return fsr->Write(fd, buffer, count);
+}
+
+int msf_close(int fd) throw() {
+  MSFileSystem* fsr = GetCurrentThreadFileSystem();
+  if (fsr == nullptr) {
+    errno = EBADF;
+    return -1;
+  }
+  return fsr->close(fd);
+}
+
+long msf_lseek(int fd, long offset, int origin) {
+  MSFileSystem* fsr = GetCurrentThreadFileSystem();
+  if (fsr == nullptr) {
+    errno = EBADF;
+    return -1;
+  }
+  return fsr->lseek(fd, offset, origin);
+}
+
+int msf_setmode(int fd, int mode) throw() {
+  MSFileSystem* fsr = GetCurrentThreadFileSystem();
+  if (fsr == nullptr) {
+    errno = EBADF;
+    return -1;
+  }
+  return fsr->setmode(fd, mode);
+}
+
+} // namespace fs
+} // namespace sys
+} // namespace llvm

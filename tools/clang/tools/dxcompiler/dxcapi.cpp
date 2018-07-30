@@ -16,9 +16,30 @@
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
 #include "dxc/Support/Global.h"
+#ifdef _WIN32
 #include "dxcetw.h"
+#endif
 #include "dxillib.h"
 #include <memory>
+
+// Initialize the UUID for the interfaces.
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLibrary)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcBlobEncoding)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcOperationResult)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcAssembler)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcBlob)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcIncludeHandler)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcCompiler)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcCompiler2)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcVersionInfo)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcVersionInfo2)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcValidator)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcContainerBuilder)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcOptimizerPass)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcOptimizer)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcRewriter)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcIntelliSense)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLinker)
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcDiaDataSource(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -53,13 +74,7 @@ static HRESULT ThreadMallocDxcCreateInstance(
                   _Out_ LPVOID   *ppv) {
   HRESULT hr = S_OK;
   *ppv = nullptr;
-  if (IsEqualCLSID(rclsid, CLSID_DxcIntelliSense)) {
-    hr = CreateDxcIntelliSense(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcRewriter)) {
-    hr = CreateDxcRewriter(riid, ppv);
-  }
-  else if (IsEqualCLSID(rclsid, CLSID_DxcCompiler)) {
+  if (IsEqualCLSID(rclsid, CLSID_DxcCompiler)) {
     hr = CreateDxcCompiler(riid, ppv);
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcLibrary)) {
@@ -78,6 +93,14 @@ static HRESULT ThreadMallocDxcCreateInstance(
   else if (IsEqualCLSID(rclsid, CLSID_DxcOptimizer)) {
     hr = CreateDxcOptimizer(riid, ppv);
   }
+  else if (IsEqualCLSID(rclsid, CLSID_DxcIntelliSense)) {
+    hr = CreateDxcIntelliSense(riid, ppv);
+  }
+// Note: The following targets are not yet enabled for non-Windows platforms.
+#ifdef _WIN32
+  else if (IsEqualCLSID(rclsid, CLSID_DxcRewriter)) {
+    hr = CreateDxcRewriter(riid, ppv);
+  }
   else if (IsEqualCLSID(rclsid, CLSID_DxcDiaDataSource)) {
     hr = CreateDxcDiaDataSource(riid, ppv);
   }
@@ -90,6 +113,7 @@ static HRESULT ThreadMallocDxcCreateInstance(
   else if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
     hr = CreateDxcContainerBuilder(riid, ppv);
   }
+#endif
   else {
     hr = REGDB_E_CLASSNOTREG;
   }

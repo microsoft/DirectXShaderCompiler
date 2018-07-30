@@ -1045,7 +1045,8 @@ bool TypeTranslator::isOrContainsNonFpColMajorMatrix(QualType type,
                                                      const Decl *decl) const {
   const auto isColMajorDecl = [this](const Decl *decl) {
     return decl->hasAttr<HLSLColumnMajorAttr>() ||
-           (!decl->hasAttr<HLSLRowMajorAttr>() && !spirvOptions.defaultRowMajor);
+           (!decl->hasAttr<HLSLRowMajorAttr>() &&
+            !spirvOptions.defaultRowMajor);
   };
 
   QualType elemType = {};
@@ -1190,13 +1191,21 @@ bool TypeTranslator::isSameType(QualType type1, QualType type2) {
 QualType TypeTranslator::getElementType(QualType type) {
   QualType elemType = {};
   if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
-      isMxNMatrix(type, &elemType)) {
-  } else if (const auto *arrType = astContext.getAsConstantArrayType(type)) {
-    elemType = arrType->getElementType();
-  } else {
-    assert(false && "unhandled type");
+      isMxNMatrix(type, &elemType) || canFitIntoOneRegister(type, &elemType)) {
+    return elemType;
   }
-  return elemType;
+
+  if (const auto *arrType = astContext.getAsConstantArrayType(type)) {
+    return arrType->getElementType();
+  }
+
+  emitError("unsupported resource type parameter %0") << type;
+  // Note: We are returning the original type instead of a null QualType here
+  // to keep the translation going and avoid hitting asserts trying to query
+  // info from null QualType in other places of the compiler. Although we are
+  // likely generating invalid code here, it should be fine since the error
+  // reported will prevent the CodeGen from actually outputing.
+  return type;
 }
 
 uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
@@ -1296,11 +1305,12 @@ llvm::SmallVector<const Decoration *, 4> TypeTranslator::getLayoutDecorations(
 
     if (rule == LayoutRule::RelaxedGLSLStd140 ||
         rule == LayoutRule::RelaxedGLSLStd430 ||
-        rule == LayoutRule::FxcCTBuffer)
-      alignUsingHLSLRelaxedLayout(fieldType, memberSize, &memberAlignment,
+        rule == LayoutRule::FxcCTBuffer) {
+      alignUsingHLSLRelaxedLayout(fieldType, memberSize, memberAlignment,
                                   &offset);
-    else
+    } else {
       offset = roundToPow2(offset, memberAlignment);
+    }
 
     // The vk::offset attribute takes precedence over all.
     if (const auto *offsetAttr = decl->getAttr<VKOffsetAttr>()) {
@@ -1533,6 +1543,16 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   if (name == "Buffer" || name == "RWBuffer") {
     theBuilder.requireCapability(spv::Capability::SampledBuffer);
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+    if (sampledType->isStructureType() && name.startswith("RW")) {
+      // Note: actually fxc supports RWBuffer over struct types. However, the
+      // struct member must fit into a 4-component vector and writing to a
+      // RWBuffer element must write all components. This is a feature that are
+      // rarely used by developers. We just emit an error saying not supported
+      // for now.
+      emitError("cannot instantiate RWBuffer with struct type %0")
+          << sampledType;
+      return 0;
+    }
     const auto format = translateSampledTypeToImageFormat(sampledType);
     return theBuilder.getImageType(
         translateType(getElementType(sampledType)), spv::Dim::Buffer,
@@ -1578,7 +1598,8 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
   uint32_t elemCount = 1;
   QualType ty = {};
   if (isScalarType(sampledType, &ty) ||
-      isVectorType(sampledType, &ty, &elemCount)) {
+      isVectorType(sampledType, &ty, &elemCount) ||
+      canFitIntoOneRegister(sampledType, &ty, &elemCount)) {
     if (const auto *builtinType = ty->getAs<BuiltinType>()) {
       switch (builtinType->getKind()) {
       case BuiltinType::Int:
@@ -1599,13 +1620,65 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
       }
     }
   }
-  emitError("resource type %0 unimplemented") << sampledType.getAsString();
+  emitError(
+      "cannot translate resource type parameter %0 to proper image format")
+      << sampledType;
   return spv::ImageFormat::Unknown;
+}
+
+bool TypeTranslator::canFitIntoOneRegister(QualType structType,
+                                           QualType *elemType,
+                                           uint32_t *elemCount) {
+  if (structType->getAsStructureType() == nullptr)
+    return false;
+
+  const auto *structDecl = structType->getAsStructureType()->getDecl();
+  QualType firstElemType;
+  uint32_t totalCount = 0;
+
+  for (const auto *field : structDecl->fields()) {
+    QualType type;
+    uint32_t count = 1;
+
+    if (isScalarType(field->getType(), &type) ||
+        isVectorType(field->getType(), &type, &count)) {
+      if (firstElemType.isNull()) {
+        firstElemType = type;
+      } else {
+        if (!canTreatAsSameScalarType(firstElemType, type)) {
+          emitError("all struct members should have the same element type for "
+                    "resource template instantiation",
+                    structDecl->getLocation());
+          return false;
+        }
+      }
+      totalCount += count;
+    } else {
+      emitError("unsupported struct element type for resource template "
+                "instantiation",
+                structDecl->getLocation());
+      return false;
+    }
+  }
+
+  if (totalCount > 4) {
+    emitError(
+        "resource template element type %0 cannot fit into four 32-bit scalars",
+        structDecl->getLocation())
+        << structType;
+    return false;
+  }
+
+  if (elemType)
+    *elemType = firstElemType;
+  if (elemCount)
+    *elemCount = totalCount;
+  return true;
 }
 
 void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
                                                  uint32_t fieldSize,
-                                                 uint32_t *fieldAlignment,
+                                                 uint32_t fieldAlignment,
                                                  uint32_t *currentOffset) {
   QualType vecElemType = {};
   const bool fieldIsVecType = isVectorType(fieldType, &vecElemType);
@@ -1618,17 +1691,17 @@ void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
     std::tie(scalarAlignment, std::ignore) =
         getAlignmentAndSize(vecElemType, LayoutRule::Void, nullptr);
     if (scalarAlignment <= 4)
-      *fieldAlignment = scalarAlignment;
+      fieldAlignment = scalarAlignment;
   }
 
-  *currentOffset = roundToPow2(*currentOffset, *fieldAlignment);
+  *currentOffset = roundToPow2(*currentOffset, fieldAlignment);
 
   // Adjust according to HLSL relaxed layout rules.
   // Bump to 4-component vector alignment if there is a bad straddle
   if (fieldIsVecType &&
       improperStraddle(fieldType, fieldSize, *currentOffset)) {
-    *fieldAlignment = kStd140Vec4Alignment;
-    *currentOffset = roundToPow2(*currentOffset, *fieldAlignment);
+    fieldAlignment = kStd140Vec4Alignment;
+    *currentOffset = roundToPow2(*currentOffset, fieldAlignment);
   }
 }
 
@@ -1811,11 +1884,20 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
       if (rule == LayoutRule::RelaxedGLSLStd140 ||
           rule == LayoutRule::RelaxedGLSLStd430 ||
-          rule == LayoutRule::FxcCTBuffer)
+          rule == LayoutRule::FxcCTBuffer) {
         alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
-                                    &memberAlignment, &structSize);
-      else
+                                    memberAlignment, &structSize);
+      } else {
         structSize = roundToPow2(structSize, memberAlignment);
+      }
+
+      // Reset the current offset to the one specified in the source code
+      // if exists. It's debatable whether we should do sanity check here.
+      // If the developers want manually control the layout, we leave
+      // everything to them.
+      if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
+        structSize = offsetAttr->getOffset();
+      }
 
       // The base alignment of the structure is N, where N is the largest
       // base alignment value of any of its members...

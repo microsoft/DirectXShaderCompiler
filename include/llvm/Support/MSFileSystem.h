@@ -14,6 +14,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MSFileSystem interface.
+struct stat;
 
 namespace llvm {
 namespace sys  {
@@ -86,6 +87,13 @@ public:
   virtual errno_t resize_file(_In_ LPCWSTR path, uint64_t size) throw() = 0; // A number of C calls.
   virtual int Read(int fd, _Out_bytecap_(count) void* buffer, unsigned int count) throw() = 0;
   virtual int Write(int fd, _In_bytecount_(count) const void* buffer, unsigned int count) throw() = 0;
+
+  // Unix interface
+#ifndef _WIN32
+  virtual int Open(const char *lpFileName, int flags, mode_t mode = 0) throw() = 0;
+  virtual int Stat(const char *lpFileName, struct stat *Status) throw() = 0;
+  virtual int Fstat(int FD, struct stat *Status) throw() = 0;
+#endif
 };
 
 

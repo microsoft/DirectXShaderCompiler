@@ -14,7 +14,9 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/HLSLOptions.h"
+#ifdef LLVM_ON_WIN32
 #include "dxcetw.h"
+#endif
 #include "dxillib.h"
 
 namespace hlsl { HRESULT SetupRegistryPassForHLSL(); }
@@ -22,6 +24,7 @@ namespace hlsl { HRESULT SetupRegistryPassForHLSL(); }
 // C++ exception specification ignored except to indicate a function is not __declspec(nothrow)
 #pragma warning( disable : 4290 )
 
+#ifdef LLVM_ON_WIN32
 // operator new and friends.
 void *  __CRTDECL operator new(std::size_t size) throw(std::bad_alloc) {
   void * ptr = DxcGetThreadMallocNoRef()->Alloc(size);
@@ -39,6 +42,7 @@ void  __CRTDECL operator delete (void* ptr) throw() {
 void  __CRTDECL operator delete (void* ptr, const std::nothrow_t& nothrow_constant) throw() {
   DxcGetThreadMallocNoRef()->Free(ptr);
 }
+#endif
 
 static HRESULT InitMaybeFail() throw() {
   HRESULT hr;
@@ -72,7 +76,20 @@ Cleanup:
   }
   return hr;
 }
+#if defined(LLVM_ON_UNIX)
+HRESULT __attribute__ ((constructor)) DllMain() {
+  return InitMaybeFail();
+}
 
+void __attribute__ ((destructor)) DllShutdown() {
+  DxcSetThreadMallocOrDefault(nullptr);
+  ::hlsl::options::cleanupHlslOptTable();
+  ::llvm::sys::fs::CleanupPerThreadFileSystem();
+  ::llvm::llvm_shutdown();
+  DxcClearThreadMalloc();
+  DxcCleanupThreadMalloc();
+}
+#else // LLVM_ON_UNIX
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
   BOOL result = TRUE;
   if (Reason == DLL_PROCESS_ATTACH) {
@@ -102,3 +119,4 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
 
   return result;
 }
+#endif // LLVM_ON_UNIX

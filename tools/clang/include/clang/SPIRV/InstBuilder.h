@@ -23,6 +23,7 @@
 #include "spirv/unified1/spirv.hpp11"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace clang {
 namespace spirv {
@@ -93,10 +94,10 @@ public:
   // Instruction building methods.
   InstBuilder &opNop();
   InstBuilder &opUndef(uint32_t result_type, uint32_t result_id);
-  InstBuilder &opSourceContinued(std::string continued_source);
+  InstBuilder &opSourceContinued(llvm::StringRef continued_source);
   InstBuilder &opSource(spv::SourceLanguage source_language, uint32_t version,
                         llvm::Optional<uint32_t> file,
-                        llvm::Optional<std::string> source);
+                        llvm::Optional<llvm::StringRef> source);
   InstBuilder &opSourceExtension(std::string extension);
   InstBuilder &opName(uint32_t target, std::string name);
   InstBuilder &opMemberName(uint32_t type, uint32_t member, std::string name);
@@ -307,179 +308,9 @@ public:
                                   uint32_t image);
   InstBuilder &opImageQuerySamples(uint32_t result_type, uint32_t result_id,
                                    uint32_t image);
-  InstBuilder &opConvertFToU(uint32_t result_type, uint32_t result_id,
-                             uint32_t float_value);
-  InstBuilder &opConvertFToS(uint32_t result_type, uint32_t result_id,
-                             uint32_t float_value);
-  InstBuilder &opConvertSToF(uint32_t result_type, uint32_t result_id,
-                             uint32_t signed_value);
-  InstBuilder &opConvertUToF(uint32_t result_type, uint32_t result_id,
-                             uint32_t unsigned_value);
-  InstBuilder &opUConvert(uint32_t result_type, uint32_t result_id,
-                          uint32_t unsigned_value);
-  InstBuilder &opSConvert(uint32_t result_type, uint32_t result_id,
-                          uint32_t signed_value);
-  InstBuilder &opFConvert(uint32_t result_type, uint32_t result_id,
-                          uint32_t float_value);
-  InstBuilder &opQuantizeToF16(uint32_t result_type, uint32_t result_id,
-                               uint32_t value);
-  InstBuilder &opConvertPtrToU(uint32_t result_type, uint32_t result_id,
-                               uint32_t pointer);
-  InstBuilder &opSatConvertSToU(uint32_t result_type, uint32_t result_id,
-                                uint32_t signed_value);
-  InstBuilder &opSatConvertUToS(uint32_t result_type, uint32_t result_id,
-                                uint32_t unsigned_value);
-  InstBuilder &opConvertUToPtr(uint32_t result_type, uint32_t result_id,
-                               uint32_t integer_value);
-  InstBuilder &opPtrCastToGeneric(uint32_t result_type, uint32_t result_id,
-                                  uint32_t pointer);
-  InstBuilder &opGenericCastToPtr(uint32_t result_type, uint32_t result_id,
-                                  uint32_t pointer);
-  InstBuilder &opGenericCastToPtrExplicit(uint32_t result_type,
-                                          uint32_t result_id, uint32_t pointer,
-                                          spv::StorageClass storage);
-  InstBuilder &opBitcast(uint32_t result_type, uint32_t result_id,
-                         uint32_t operand);
-  InstBuilder &opSNegate(uint32_t result_type, uint32_t result_id,
-                         uint32_t operand);
-  InstBuilder &opFNegate(uint32_t result_type, uint32_t result_id,
-                         uint32_t operand);
-  InstBuilder &opIAdd(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFAdd(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opISub(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFSub(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opIMul(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFMul(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opUDiv(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opSDiv(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFDiv(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opUMod(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opSRem(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opSMod(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFRem(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFMod(uint32_t result_type, uint32_t result_id,
-                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opVectorTimesScalar(uint32_t result_type, uint32_t result_id,
-                                   uint32_t vector, uint32_t scalar);
-  InstBuilder &opMatrixTimesScalar(uint32_t result_type, uint32_t result_id,
-                                   uint32_t matrix, uint32_t scalar);
-  InstBuilder &opVectorTimesMatrix(uint32_t result_type, uint32_t result_id,
-                                   uint32_t vector, uint32_t matrix);
-  InstBuilder &opMatrixTimesVector(uint32_t result_type, uint32_t result_id,
-                                   uint32_t matrix, uint32_t vector);
-  InstBuilder &opMatrixTimesMatrix(uint32_t result_type, uint32_t result_id,
-                                   uint32_t left_matrix, uint32_t right_matrix);
-  InstBuilder &opOuterProduct(uint32_t result_type, uint32_t result_id,
-                              uint32_t vector_1, uint32_t vector_2);
-  InstBuilder &opDot(uint32_t result_type, uint32_t result_id,
-                     uint32_t vector_1, uint32_t vector_2);
-  InstBuilder &opIAddCarry(uint32_t result_type, uint32_t result_id,
-                           uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opISubBorrow(uint32_t result_type, uint32_t result_id,
-                            uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opUMulExtended(uint32_t result_type, uint32_t result_id,
-                              uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opSMulExtended(uint32_t result_type, uint32_t result_id,
-                              uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opAny(uint32_t result_type, uint32_t result_id, uint32_t vector);
-  InstBuilder &opAll(uint32_t result_type, uint32_t result_id, uint32_t vector);
-  InstBuilder &opIsNan(uint32_t result_type, uint32_t result_id, uint32_t x);
-  InstBuilder &opIsInf(uint32_t result_type, uint32_t result_id, uint32_t x);
-  InstBuilder &opIsFinite(uint32_t result_type, uint32_t result_id, uint32_t x);
-  InstBuilder &opIsNormal(uint32_t result_type, uint32_t result_id, uint32_t x);
-  InstBuilder &opSignBitSet(uint32_t result_type, uint32_t result_id,
-                            uint32_t x);
-  InstBuilder &opLessOrGreater(uint32_t result_type, uint32_t result_id,
-                               uint32_t x, uint32_t y);
-  InstBuilder &opOrdered(uint32_t result_type, uint32_t result_id, uint32_t x,
-                         uint32_t y);
-  InstBuilder &opUnordered(uint32_t result_type, uint32_t result_id, uint32_t x,
-                           uint32_t y);
-  InstBuilder &opLogicalEqual(uint32_t result_type, uint32_t result_id,
-                              uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opLogicalNotEqual(uint32_t result_type, uint32_t result_id,
-                                 uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opLogicalOr(uint32_t result_type, uint32_t result_id,
-                           uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opLogicalAnd(uint32_t result_type, uint32_t result_id,
-                            uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opLogicalNot(uint32_t result_type, uint32_t result_id,
-                            uint32_t operand);
   InstBuilder &opSelect(uint32_t result_type, uint32_t result_id,
                         uint32_t condition, uint32_t object_1,
                         uint32_t object_2);
-  InstBuilder &opIEqual(uint32_t result_type, uint32_t result_id,
-                        uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opINotEqual(uint32_t result_type, uint32_t result_id,
-                           uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opUGreaterThan(uint32_t result_type, uint32_t result_id,
-                              uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opSGreaterThan(uint32_t result_type, uint32_t result_id,
-                              uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opUGreaterThanEqual(uint32_t result_type, uint32_t result_id,
-                                   uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opSGreaterThanEqual(uint32_t result_type, uint32_t result_id,
-                                   uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opULessThan(uint32_t result_type, uint32_t result_id,
-                           uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opSLessThan(uint32_t result_type, uint32_t result_id,
-                           uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opULessThanEqual(uint32_t result_type, uint32_t result_id,
-                                uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opSLessThanEqual(uint32_t result_type, uint32_t result_id,
-                                uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFOrdEqual(uint32_t result_type, uint32_t result_id,
-                           uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFUnordEqual(uint32_t result_type, uint32_t result_id,
-                             uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFOrdNotEqual(uint32_t result_type, uint32_t result_id,
-                              uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFUnordNotEqual(uint32_t result_type, uint32_t result_id,
-                                uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFOrdLessThan(uint32_t result_type, uint32_t result_id,
-                              uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFUnordLessThan(uint32_t result_type, uint32_t result_id,
-                                uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFOrdGreaterThan(uint32_t result_type, uint32_t result_id,
-                                 uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFUnordGreaterThan(uint32_t result_type, uint32_t result_id,
-                                   uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFOrdLessThanEqual(uint32_t result_type, uint32_t result_id,
-                                   uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFUnordLessThanEqual(uint32_t result_type, uint32_t result_id,
-                                     uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFOrdGreaterThanEqual(uint32_t result_type, uint32_t result_id,
-                                      uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opFUnordGreaterThanEqual(uint32_t result_type,
-                                        uint32_t result_id, uint32_t operand_1,
-                                        uint32_t operand_2);
-  InstBuilder &opShiftRightLogical(uint32_t result_type, uint32_t result_id,
-                                   uint32_t base, uint32_t shift);
-  InstBuilder &opShiftRightArithmetic(uint32_t result_type, uint32_t result_id,
-                                      uint32_t base, uint32_t shift);
-  InstBuilder &opShiftLeftLogical(uint32_t result_type, uint32_t result_id,
-                                  uint32_t base, uint32_t shift);
-  InstBuilder &opBitwiseOr(uint32_t result_type, uint32_t result_id,
-                           uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opBitwiseXor(uint32_t result_type, uint32_t result_id,
-                            uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opBitwiseAnd(uint32_t result_type, uint32_t result_id,
-                            uint32_t operand_1, uint32_t operand_2);
-  InstBuilder &opNot(uint32_t result_type, uint32_t result_id,
-                     uint32_t operand);
   InstBuilder &opBitFieldInsert(uint32_t result_type, uint32_t result_id,
                                 uint32_t base, uint32_t insert, uint32_t offset,
                                 uint32_t count);
@@ -536,33 +367,6 @@ public:
   InstBuilder &opAtomicIDecrement(uint32_t result_type, uint32_t result_id,
                                   uint32_t pointer, uint32_t scope,
                                   uint32_t semantics);
-  InstBuilder &opAtomicIAdd(uint32_t result_type, uint32_t result_id,
-                            uint32_t pointer, uint32_t scope,
-                            uint32_t semantics, uint32_t value);
-  InstBuilder &opAtomicISub(uint32_t result_type, uint32_t result_id,
-                            uint32_t pointer, uint32_t scope,
-                            uint32_t semantics, uint32_t value);
-  InstBuilder &opAtomicSMin(uint32_t result_type, uint32_t result_id,
-                            uint32_t pointer, uint32_t scope,
-                            uint32_t semantics, uint32_t value);
-  InstBuilder &opAtomicUMin(uint32_t result_type, uint32_t result_id,
-                            uint32_t pointer, uint32_t scope,
-                            uint32_t semantics, uint32_t value);
-  InstBuilder &opAtomicSMax(uint32_t result_type, uint32_t result_id,
-                            uint32_t pointer, uint32_t scope,
-                            uint32_t semantics, uint32_t value);
-  InstBuilder &opAtomicUMax(uint32_t result_type, uint32_t result_id,
-                            uint32_t pointer, uint32_t scope,
-                            uint32_t semantics, uint32_t value);
-  InstBuilder &opAtomicAnd(uint32_t result_type, uint32_t result_id,
-                           uint32_t pointer, uint32_t scope, uint32_t semantics,
-                           uint32_t value);
-  InstBuilder &opAtomicOr(uint32_t result_type, uint32_t result_id,
-                          uint32_t pointer, uint32_t scope, uint32_t semantics,
-                          uint32_t value);
-  InstBuilder &opAtomicXor(uint32_t result_type, uint32_t result_id,
-                           uint32_t pointer, uint32_t scope, uint32_t semantics,
-                           uint32_t value);
   InstBuilder &
   opPhi(uint32_t result_type, uint32_t result_id,
         llvm::ArrayRef<std::pair<uint32_t, uint32_t>> variable_parent_);
@@ -581,145 +385,6 @@ public:
   InstBuilder &opReturn();
   InstBuilder &opReturnValue(uint32_t value);
   InstBuilder &opUnreachable();
-  InstBuilder &opLifetimeStart(uint32_t pointer, uint32_t size);
-  InstBuilder &opLifetimeStop(uint32_t pointer, uint32_t size);
-  InstBuilder &opGroupAsyncCopy(uint32_t result_type, uint32_t result_id,
-                                uint32_t execution, uint32_t destination,
-                                uint32_t source, uint32_t num_elements,
-                                uint32_t stride, uint32_t event);
-  InstBuilder &opGroupWaitEvents(uint32_t execution, uint32_t num_events,
-                                 uint32_t events_list);
-  InstBuilder &opGroupAll(uint32_t result_type, uint32_t result_id,
-                          uint32_t execution, uint32_t predicate);
-  InstBuilder &opGroupAny(uint32_t result_type, uint32_t result_id,
-                          uint32_t execution, uint32_t predicate);
-  InstBuilder &opGroupBroadcast(uint32_t result_type, uint32_t result_id,
-                                uint32_t execution, uint32_t value,
-                                uint32_t local_id);
-  InstBuilder &opGroupIAdd(uint32_t result_type, uint32_t result_id,
-                           uint32_t execution, spv::GroupOperation operation,
-                           uint32_t x);
-  InstBuilder &opGroupFAdd(uint32_t result_type, uint32_t result_id,
-                           uint32_t execution, spv::GroupOperation operation,
-                           uint32_t x);
-  InstBuilder &opGroupFMin(uint32_t result_type, uint32_t result_id,
-                           uint32_t execution, spv::GroupOperation operation,
-                           uint32_t x);
-  InstBuilder &opGroupUMin(uint32_t result_type, uint32_t result_id,
-                           uint32_t execution, spv::GroupOperation operation,
-                           uint32_t x);
-  InstBuilder &opGroupSMin(uint32_t result_type, uint32_t result_id,
-                           uint32_t execution, spv::GroupOperation operation,
-                           uint32_t x);
-  InstBuilder &opGroupFMax(uint32_t result_type, uint32_t result_id,
-                           uint32_t execution, spv::GroupOperation operation,
-                           uint32_t x);
-  InstBuilder &opGroupUMax(uint32_t result_type, uint32_t result_id,
-                           uint32_t execution, spv::GroupOperation operation,
-                           uint32_t x);
-  InstBuilder &opGroupSMax(uint32_t result_type, uint32_t result_id,
-                           uint32_t execution, spv::GroupOperation operation,
-                           uint32_t x);
-  InstBuilder &opReadPipe(uint32_t result_type, uint32_t result_id,
-                          uint32_t pipe, uint32_t pointer, uint32_t packet_size,
-                          uint32_t packet_alignment);
-  InstBuilder &opWritePipe(uint32_t result_type, uint32_t result_id,
-                           uint32_t pipe, uint32_t pointer,
-                           uint32_t packet_size, uint32_t packet_alignment);
-  InstBuilder &opReservedReadPipe(uint32_t result_type, uint32_t result_id,
-                                  uint32_t pipe, uint32_t reserve_id,
-                                  uint32_t index, uint32_t pointer,
-                                  uint32_t packet_size,
-                                  uint32_t packet_alignment);
-  InstBuilder &opReservedWritePipe(uint32_t result_type, uint32_t result_id,
-                                   uint32_t pipe, uint32_t reserve_id,
-                                   uint32_t index, uint32_t pointer,
-                                   uint32_t packet_size,
-                                   uint32_t packet_alignment);
-  InstBuilder &opReserveReadPipePackets(uint32_t result_type,
-                                        uint32_t result_id, uint32_t pipe,
-                                        uint32_t num_packets,
-                                        uint32_t packet_size,
-                                        uint32_t packet_alignment);
-  InstBuilder &opReserveWritePipePackets(uint32_t result_type,
-                                         uint32_t result_id, uint32_t pipe,
-                                         uint32_t num_packets,
-                                         uint32_t packet_size,
-                                         uint32_t packet_alignment);
-  InstBuilder &opCommitReadPipe(uint32_t pipe, uint32_t reserve_id,
-                                uint32_t packet_size,
-                                uint32_t packet_alignment);
-  InstBuilder &opCommitWritePipe(uint32_t pipe, uint32_t reserve_id,
-                                 uint32_t packet_size,
-                                 uint32_t packet_alignment);
-  InstBuilder &opIsValidReserveId(uint32_t result_type, uint32_t result_id,
-                                  uint32_t reserve_id);
-  InstBuilder &opGetNumPipePackets(uint32_t result_type, uint32_t result_id,
-                                   uint32_t pipe, uint32_t packet_size,
-                                   uint32_t packet_alignment);
-  InstBuilder &opGetMaxPipePackets(uint32_t result_type, uint32_t result_id,
-                                   uint32_t pipe, uint32_t packet_size,
-                                   uint32_t packet_alignment);
-  InstBuilder &opGroupReserveReadPipePackets(uint32_t result_type,
-                                             uint32_t result_id,
-                                             uint32_t execution, uint32_t pipe,
-                                             uint32_t num_packets,
-                                             uint32_t packet_size,
-                                             uint32_t packet_alignment);
-  InstBuilder &opGroupReserveWritePipePackets(uint32_t result_type,
-                                              uint32_t result_id,
-                                              uint32_t execution, uint32_t pipe,
-                                              uint32_t num_packets,
-                                              uint32_t packet_size,
-                                              uint32_t packet_alignment);
-  InstBuilder &opGroupCommitReadPipe(uint32_t execution, uint32_t pipe,
-                                     uint32_t reserve_id, uint32_t packet_size,
-                                     uint32_t packet_alignment);
-  InstBuilder &opGroupCommitWritePipe(uint32_t execution, uint32_t pipe,
-                                      uint32_t reserve_id, uint32_t packet_size,
-                                      uint32_t packet_alignment);
-  InstBuilder &opEnqueueMarker(uint32_t result_type, uint32_t result_id,
-                               uint32_t queue, uint32_t num_events,
-                               uint32_t wait_events, uint32_t ret_event);
-  InstBuilder &opEnqueueKernel(uint32_t result_type, uint32_t result_id,
-                               uint32_t queue, uint32_t flags,
-                               uint32_t nd_range, uint32_t num_events,
-                               uint32_t wait_events, uint32_t ret_event,
-                               uint32_t invoke, uint32_t param,
-                               uint32_t param_size, uint32_t param_align,
-                               llvm::ArrayRef<uint32_t> local_size);
-  InstBuilder &opGetKernelNDrangeSubGroupCount(uint32_t result_type,
-                                               uint32_t result_id,
-                                               uint32_t nd_range,
-                                               uint32_t invoke, uint32_t param,
-                                               uint32_t param_size,
-                                               uint32_t param_align);
-  InstBuilder &
-  opGetKernelNDrangeMaxSubGroupSize(uint32_t result_type, uint32_t result_id,
-                                    uint32_t nd_range, uint32_t invoke,
-                                    uint32_t param, uint32_t param_size,
-                                    uint32_t param_align);
-  InstBuilder &opGetKernelWorkGroupSize(uint32_t result_type,
-                                        uint32_t result_id, uint32_t invoke,
-                                        uint32_t param, uint32_t param_size,
-                                        uint32_t param_align);
-  InstBuilder &opGetKernelPreferredWorkGroupSizeMultiple(
-      uint32_t result_type, uint32_t result_id, uint32_t invoke, uint32_t param,
-      uint32_t param_size, uint32_t param_align);
-  InstBuilder &opRetainEvent(uint32_t event);
-  InstBuilder &opReleaseEvent(uint32_t event);
-  InstBuilder &opCreateUserEvent(uint32_t result_type, uint32_t result_id);
-  InstBuilder &opIsValidEvent(uint32_t result_type, uint32_t result_id,
-                              uint32_t event);
-  InstBuilder &opSetUserEventStatus(uint32_t event, uint32_t status);
-  InstBuilder &opCaptureEventProfilingInfo(uint32_t event,
-                                           uint32_t profiling_info,
-                                           uint32_t value);
-  InstBuilder &opGetDefaultQueue(uint32_t result_type, uint32_t result_id);
-  InstBuilder &opBuildNDRange(uint32_t result_type, uint32_t result_id,
-                              uint32_t global_work_size,
-                              uint32_t local_work_size,
-                              uint32_t global_work_offset);
   InstBuilder &opImageSparseSampleImplicitLod(
       uint32_t result_type, uint32_t result_id, uint32_t sampled_image,
       uint32_t coordinate,
@@ -806,219 +471,6 @@ public:
   InstBuilder &opModuleProcessed(std::string process);
   InstBuilder &opExecutionModeId(uint32_t entry_point, spv::ExecutionMode mode);
   InstBuilder &opDecorateId(uint32_t target, spv::Decoration decoration);
-  InstBuilder &opGroupNonUniformElect(uint32_t result_type, uint32_t result_id,
-                                      uint32_t execution);
-  InstBuilder &opGroupNonUniformAll(uint32_t result_type, uint32_t result_id,
-                                    uint32_t execution, uint32_t predicate);
-  InstBuilder &opGroupNonUniformAny(uint32_t result_type, uint32_t result_id,
-                                    uint32_t execution, uint32_t predicate);
-  InstBuilder &opGroupNonUniformAllEqual(uint32_t result_type,
-                                         uint32_t result_id, uint32_t execution,
-                                         uint32_t value);
-  InstBuilder &opGroupNonUniformBroadcast(uint32_t result_type,
-                                          uint32_t result_id,
-                                          uint32_t execution, uint32_t value,
-                                          uint32_t id);
-  InstBuilder &opGroupNonUniformBroadcastFirst(uint32_t result_type,
-                                               uint32_t result_id,
-                                               uint32_t execution,
-                                               uint32_t value);
-  InstBuilder &opGroupNonUniformBallot(uint32_t result_type, uint32_t result_id,
-                                       uint32_t execution, uint32_t predicate);
-  InstBuilder &opGroupNonUniformInverseBallot(uint32_t result_type,
-                                              uint32_t result_id,
-                                              uint32_t execution,
-                                              uint32_t value);
-  InstBuilder &opGroupNonUniformBallotBitExtract(uint32_t result_type,
-                                                 uint32_t result_id,
-                                                 uint32_t execution,
-                                                 uint32_t value,
-                                                 uint32_t index);
-  InstBuilder &opGroupNonUniformBallotBitCount(uint32_t result_type,
-                                               uint32_t result_id,
-                                               uint32_t execution,
-                                               spv::GroupOperation operation,
-                                               uint32_t value);
-  InstBuilder &opGroupNonUniformBallotFindLSB(uint32_t result_type,
-                                              uint32_t result_id,
-                                              uint32_t execution,
-                                              uint32_t value);
-  InstBuilder &opGroupNonUniformBallotFindMSB(uint32_t result_type,
-                                              uint32_t result_id,
-                                              uint32_t execution,
-                                              uint32_t value);
-  InstBuilder &opGroupNonUniformShuffle(uint32_t result_type,
-                                        uint32_t result_id, uint32_t execution,
-                                        uint32_t value, uint32_t id);
-  InstBuilder &opGroupNonUniformShuffleXor(uint32_t result_type,
-                                           uint32_t result_id,
-                                           uint32_t execution, uint32_t value,
-                                           uint32_t mask);
-  InstBuilder &opGroupNonUniformShuffleUp(uint32_t result_type,
-                                          uint32_t result_id,
-                                          uint32_t execution, uint32_t value,
-                                          uint32_t delta);
-  InstBuilder &opGroupNonUniformShuffleDown(uint32_t result_type,
-                                            uint32_t result_id,
-                                            uint32_t execution, uint32_t value,
-                                            uint32_t delta);
-  InstBuilder &opGroupNonUniformIAdd(uint32_t result_type, uint32_t result_id,
-                                     uint32_t execution,
-                                     spv::GroupOperation operation,
-                                     uint32_t value,
-                                     llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &opGroupNonUniformFAdd(uint32_t result_type, uint32_t result_id,
-                                     uint32_t execution,
-                                     spv::GroupOperation operation,
-                                     uint32_t value,
-                                     llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &opGroupNonUniformIMul(uint32_t result_type, uint32_t result_id,
-                                     uint32_t execution,
-                                     spv::GroupOperation operation,
-                                     uint32_t value,
-                                     llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &opGroupNonUniformFMul(uint32_t result_type, uint32_t result_id,
-                                     uint32_t execution,
-                                     spv::GroupOperation operation,
-                                     uint32_t value,
-                                     llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &opGroupNonUniformSMin(uint32_t result_type, uint32_t result_id,
-                                     uint32_t execution,
-                                     spv::GroupOperation operation,
-                                     uint32_t value,
-                                     llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &opGroupNonUniformUMin(uint32_t result_type, uint32_t result_id,
-                                     uint32_t execution,
-                                     spv::GroupOperation operation,
-                                     uint32_t value,
-                                     llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &opGroupNonUniformFMin(uint32_t result_type, uint32_t result_id,
-                                     uint32_t execution,
-                                     spv::GroupOperation operation,
-                                     uint32_t value,
-                                     llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &opGroupNonUniformSMax(uint32_t result_type, uint32_t result_id,
-                                     uint32_t execution,
-                                     spv::GroupOperation operation,
-                                     uint32_t value,
-                                     llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &opGroupNonUniformUMax(uint32_t result_type, uint32_t result_id,
-                                     uint32_t execution,
-                                     spv::GroupOperation operation,
-                                     uint32_t value,
-                                     llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &opGroupNonUniformFMax(uint32_t result_type, uint32_t result_id,
-                                     uint32_t execution,
-                                     spv::GroupOperation operation,
-                                     uint32_t value,
-                                     llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &
-  opGroupNonUniformBitwiseAnd(uint32_t result_type, uint32_t result_id,
-                              uint32_t execution, spv::GroupOperation operation,
-                              uint32_t value,
-                              llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &
-  opGroupNonUniformBitwiseOr(uint32_t result_type, uint32_t result_id,
-                             uint32_t execution, spv::GroupOperation operation,
-                             uint32_t value,
-                             llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &
-  opGroupNonUniformBitwiseXor(uint32_t result_type, uint32_t result_id,
-                              uint32_t execution, spv::GroupOperation operation,
-                              uint32_t value,
-                              llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &
-  opGroupNonUniformLogicalAnd(uint32_t result_type, uint32_t result_id,
-                              uint32_t execution, spv::GroupOperation operation,
-                              uint32_t value,
-                              llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &
-  opGroupNonUniformLogicalOr(uint32_t result_type, uint32_t result_id,
-                             uint32_t execution, spv::GroupOperation operation,
-                             uint32_t value,
-                             llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &
-  opGroupNonUniformLogicalXor(uint32_t result_type, uint32_t result_id,
-                              uint32_t execution, spv::GroupOperation operation,
-                              uint32_t value,
-                              llvm::Optional<uint32_t> cluster_size);
-  InstBuilder &opGroupNonUniformQuadBroadcast(uint32_t result_type,
-                                              uint32_t result_id,
-                                              uint32_t execution,
-                                              uint32_t value, uint32_t index);
-  InstBuilder &opGroupNonUniformQuadSwap(uint32_t result_type,
-                                         uint32_t result_id, uint32_t execution,
-                                         uint32_t value, uint32_t direction);
-  InstBuilder &opSubgroupBallotKHR(uint32_t result_type, uint32_t result_id,
-                                   uint32_t predicate);
-  InstBuilder &opSubgroupFirstInvocationKHR(uint32_t result_type,
-                                            uint32_t result_id, uint32_t value);
-  InstBuilder &opSubgroupAllKHR(uint32_t result_type, uint32_t result_id,
-                                uint32_t predicate);
-  InstBuilder &opSubgroupAnyKHR(uint32_t result_type, uint32_t result_id,
-                                uint32_t predicate);
-  InstBuilder &opSubgroupAllEqualKHR(uint32_t result_type, uint32_t result_id,
-                                     uint32_t predicate);
-  InstBuilder &opSubgroupReadInvocationKHR(uint32_t result_type,
-                                           uint32_t result_id, uint32_t value,
-                                           uint32_t index);
-  InstBuilder &opGroupIAddNonUniformAMD(uint32_t result_type,
-                                        uint32_t result_id, uint32_t execution,
-                                        spv::GroupOperation operation,
-                                        uint32_t x);
-  InstBuilder &opGroupFAddNonUniformAMD(uint32_t result_type,
-                                        uint32_t result_id, uint32_t execution,
-                                        spv::GroupOperation operation,
-                                        uint32_t x);
-  InstBuilder &opGroupFMinNonUniformAMD(uint32_t result_type,
-                                        uint32_t result_id, uint32_t execution,
-                                        spv::GroupOperation operation,
-                                        uint32_t x);
-  InstBuilder &opGroupUMinNonUniformAMD(uint32_t result_type,
-                                        uint32_t result_id, uint32_t execution,
-                                        spv::GroupOperation operation,
-                                        uint32_t x);
-  InstBuilder &opGroupSMinNonUniformAMD(uint32_t result_type,
-                                        uint32_t result_id, uint32_t execution,
-                                        spv::GroupOperation operation,
-                                        uint32_t x);
-  InstBuilder &opGroupFMaxNonUniformAMD(uint32_t result_type,
-                                        uint32_t result_id, uint32_t execution,
-                                        spv::GroupOperation operation,
-                                        uint32_t x);
-  InstBuilder &opGroupUMaxNonUniformAMD(uint32_t result_type,
-                                        uint32_t result_id, uint32_t execution,
-                                        spv::GroupOperation operation,
-                                        uint32_t x);
-  InstBuilder &opGroupSMaxNonUniformAMD(uint32_t result_type,
-                                        uint32_t result_id, uint32_t execution,
-                                        spv::GroupOperation operation,
-                                        uint32_t x);
-  InstBuilder &opFragmentMaskFetchAMD(uint32_t result_type, uint32_t result_id,
-                                      uint32_t image, uint32_t coordinate);
-  InstBuilder &opFragmentFetchAMD(uint32_t result_type, uint32_t result_id,
-                                  uint32_t image, uint32_t coordinate,
-                                  uint32_t fragment_index);
-  InstBuilder &opSubgroupShuffleINTEL(uint32_t result_type, uint32_t result_id,
-                                      uint32_t data, uint32_t invocation_id);
-  InstBuilder &opSubgroupShuffleDownINTEL(uint32_t result_type,
-                                          uint32_t result_id, uint32_t current,
-                                          uint32_t next, uint32_t delta);
-  InstBuilder &opSubgroupShuffleUpINTEL(uint32_t result_type,
-                                        uint32_t result_id, uint32_t previous,
-                                        uint32_t current, uint32_t delta);
-  InstBuilder &opSubgroupShuffleXorINTEL(uint32_t result_type,
-                                         uint32_t result_id, uint32_t data,
-                                         uint32_t value);
-  InstBuilder &opSubgroupBlockReadINTEL(uint32_t result_type,
-                                        uint32_t result_id, uint32_t ptr);
-  InstBuilder &opSubgroupBlockWriteINTEL(uint32_t ptr, uint32_t data);
-  InstBuilder &opSubgroupImageBlockReadINTEL(uint32_t result_type,
-                                             uint32_t result_id, uint32_t image,
-                                             uint32_t coordinate);
-  InstBuilder &opSubgroupImageBlockWriteINTEL(uint32_t image,
-                                              uint32_t coordinate,
-                                              uint32_t data);
   InstBuilder &opDecorateStringGOOGLE(uint32_t target,
                                       spv::Decoration decoration);
   InstBuilder &opMemberDecorateStringGOOGLE(uint32_t struct_type,
@@ -1033,6 +485,9 @@ public:
   InstBuilder &specConstantBinaryOp(spv::Op op, uint32_t result_type,
                                     uint32_t result_id, uint32_t lhs,
                                     uint32_t rhs);
+  InstBuilder &atomicOp(spv::Op op, uint32_t result_type, uint32_t result_id,
+                        uint32_t pointer, uint32_t scope, uint32_t semantics,
+                        uint32_t value);
 
   // All-in-one methods for creating OpGroupNonUniform* operations.
   InstBuilder &groupNonUniformOp(spv::Op op, uint32_t result_type,
@@ -1092,7 +547,7 @@ private:
   void encodeMemoryAccess(spv::MemoryAccessMask value);
   void encodeExecutionMode(spv::ExecutionMode value);
   void encodeDecoration(spv::Decoration value);
-  void encodeString(std::string value);
+  void encodeString(llvm::StringRef value);
 
   WordConsumer TheConsumer;
   std::vector<uint32_t> TheInst;       ///< The instruction under construction.

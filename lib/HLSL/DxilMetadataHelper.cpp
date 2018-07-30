@@ -31,6 +31,7 @@
 #include <algorithm>
 
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/WinFunctions.h"
 
 using namespace llvm;
 using std::string;

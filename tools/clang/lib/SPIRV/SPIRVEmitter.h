@@ -222,6 +222,14 @@ private:
   void splitVecLastElement(QualType vecType, uint32_t vec, uint32_t *residual,
                            uint32_t *lastElement);
 
+  /// Converts a vector value into the given struct type with its element type's
+  /// <result-id> as elemTypeId.
+  ///
+  /// Assumes the vector and the struct have matching number of elements. Panics
+  /// otherwise.
+  uint32_t convertVectorToStruct(QualType structType, uint32_t elemTypeId,
+                                 uint32_t vector);
+
   /// Translates a floatN * float multiplication into SPIR-V instructions and
   /// returns the <result-id>. Returns 0 if the given binary operation is not
   /// floatN * float.
@@ -288,7 +296,7 @@ private:
   /// Creates an access chain to index into the given SPIR-V evaluation result
   /// and overwrites and returns the new SPIR-V evaluation result.
   SpirvEvalInfo &
-  turnIntoElementPtr(SpirvEvalInfo &info, QualType elemType,
+  turnIntoElementPtr(QualType baseType, SpirvEvalInfo &base, QualType elemType,
                      const llvm::SmallVector<uint32_t, 4> &indices);
 
 private:
@@ -747,8 +755,11 @@ private:
   uint32_t processTextureGatherCmp(const CXXMemberCallExpr *expr);
 
   /// \brief Returns the calculated level-of-detail (a single float value) for
-  /// the given texture. Handles intrinsic HLSL CalculateLevelOfDetail function.
-  uint32_t processTextureLevelOfDetail(const CXXMemberCallExpr *expr);
+  /// the given texture. Handles intrinsic HLSL CalculateLevelOfDetail or
+  /// CalculateLevelOfDetailUnclamped function depending on the given unclamped
+  /// parameter.
+  uint32_t processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
+                                       bool unclamped);
 
   /// \brief Processes the .GetDimensions() call on supported objects.
   uint32_t processGetDimensions(const CXXMemberCallExpr *);

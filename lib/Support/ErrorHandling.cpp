@@ -87,7 +87,7 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
     handlerData = ErrorHandlerUserData;
   }
 
-#if 0 // HLSL Change - unwind if necessary, but don't terminate the process
+#ifndef LLVM_ON_WIN32 // HLSL Change - unwind if necessary, but don't terminate the process
   if (handler) {
     handler(handlerData, Reason.str(), GenCrashDiag);
   } else {
@@ -98,7 +98,7 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
     raw_svector_ostream OS(Buffer);
     OS << "LLVM ERROR: " << Reason << "\n";
     StringRef MessageStr = OS.str();
-    ssize_t written = ::_write(2, MessageStr.data(), MessageStr.size());
+    ssize_t written = ::write(2, MessageStr.data(), MessageStr.size());
     (void)written; // If something went wrong, we deliberately just give up.
   }
 
@@ -127,7 +127,7 @@ void llvm::llvm_unreachable_internal(const char *msg, const char *file,
   if (file)
     dbgs() << " at " << file << ":" << line;
   dbgs() << "!\n";
-#if 0 // HLSL Change - unwind if necessary, but don't terminate the process
+#ifndef LLVM_ON_WIN32 // HLSL Change - unwind if necessary, but don't terminate the process
   abort();
 #else
   RaiseException(STATUS_LLVM_UNREACHABLE, 0, 0, 0);

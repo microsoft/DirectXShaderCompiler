@@ -31,9 +31,9 @@ public:
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
-  TEST_METHOD(AllowedStorageClass);
-  TEST_METHOD(AllowedInParamUsesClass);
-  TEST_METHOD(ParseRootSignature);
+  TEST_METHOD(AllowedStorageClass)
+  TEST_METHOD(AllowedInParamUsesClass)
+  TEST_METHOD(ParseRootSignature)
 
   dxc::DxcDllSupport m_support;
   std::vector<char> rootSigText;

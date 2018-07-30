@@ -408,6 +408,7 @@ SyntaxOnlyAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   return llvm::make_unique<ASTConsumer>();
 }
 
+#if 0 // HLSL Change Starts - no support for modules or PCH
 std::unique_ptr<ASTConsumer>
 DumpModuleInfoAction::CreateASTConsumer(CompilerInstance &CI,
                                         StringRef InFile) {
@@ -418,8 +419,6 @@ std::unique_ptr<ASTConsumer>
 VerifyPCHAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   return llvm::make_unique<ASTConsumer>();
 }
-
-#if 0 // HLSL Change Starts - no support for modules or PCH
 
 void VerifyPCHAction::ExecuteAction() {
   CompilerInstance &CI = getCompilerInstance();

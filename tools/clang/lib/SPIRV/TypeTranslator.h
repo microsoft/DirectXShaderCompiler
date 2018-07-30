@@ -233,6 +233,13 @@ public:
   /// matrix type.
   uint32_t getComponentVectorType(QualType matrixType);
 
+  /// \brief Returns true if all members in structType are of the same element
+  /// type and can be fit into a 4-component vector. Writes element type and
+  /// count to *elemType and *elemCount if not nullptr. Otherwise, emit errors
+  /// explaining why not.
+  bool canFitIntoOneRegister(QualType structType, QualType *elemType = nullptr,
+                             uint32_t *elemCount = nullptr);
+
   /// \brief Returns the capability required for the given storage image type.
   /// Returns Capability::Max to mean no capability requirements.
   static spv::Capability getCapabilityForStorageImageReadWrite(QualType type);
@@ -302,7 +309,7 @@ private:
   /// fieldSize and fieldAlignment are the original size and alignment
   /// calculated without considering the HLSL vector relaxed rule.
   void alignUsingHLSLRelaxedLayout(QualType fieldType, uint32_t fieldSize,
-                                   uint32_t *fieldAlignment,
+                                   uint32_t fieldAlignment,
                                    uint32_t *currentOffset);
 
 public:

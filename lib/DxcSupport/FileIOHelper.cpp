@@ -14,43 +14,43 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/WinFunctions.h"
 #include "dxc/dxcapi.h"
 
 #include <algorithm>
 #include <memory>
+
+#ifdef _WIN32
 #include <intsafe.h>
+#endif
 
 #define CP_UTF16 1200
 
 struct HeapMalloc : public IMalloc {
 public:
-  ULONG STDMETHODCALLTYPE AddRef() {
-    return 1;
-  }
-  ULONG STDMETHODCALLTYPE Release() {
-    return 1;
-  }
+  ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
+  ULONG STDMETHODCALLTYPE Release() override { return 1; }
   STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
   }
-  virtual void *STDMETHODCALLTYPE Alloc(
+  virtual void *STDMETHODCALLTYPE Alloc (
     /* [annotation][in] */
-    _In_  SIZE_T cb) {
+    _In_  SIZE_T cb) override {
     return HeapAlloc(GetProcessHeap(), 0, cb);
   }
 
-  virtual void *STDMETHODCALLTYPE Realloc(
+  virtual void *STDMETHODCALLTYPE Realloc (
     /* [annotation][in] */
     _In_opt_  void *pv,
     /* [annotation][in] */
-    _In_  SIZE_T cb)
+    _In_  SIZE_T cb) override
   {
     return HeapReAlloc(GetProcessHeap(), 0, pv, cb);
   }
 
-  virtual void STDMETHODCALLTYPE Free(
+  virtual void STDMETHODCALLTYPE Free (
     /* [annotation][in] */
-    _In_opt_  void *pv)
+    _In_opt_  void *pv) override
   {
     HeapFree(GetProcessHeap(), 0, pv);
   }
@@ -71,9 +71,7 @@ public:
   }
 
 
-  virtual void STDMETHODCALLTYPE HeapMinimize(void)
-  {
-  }
+  virtual void STDMETHODCALLTYPE HeapMinimize(void) {}
 };
 
 static HeapMalloc g_HeapMalloc;
@@ -311,9 +309,9 @@ static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
   int numActuallyConvertedUTF16 =
       MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, (LPCSTR)bufferPointer,
                           bufferSize, utf16NewCopy, buffSizeUTF16);
+
   if (numActuallyConvertedUTF16 == 0)
     return HRESULT_FROM_WIN32(GetLastError());
-
   ((LPWSTR)utf16NewCopy)[numActuallyConvertedUTF16] = L'\0';
   *pConvertedCharCount = numActuallyConvertedUTF16;
 

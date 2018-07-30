@@ -52,6 +52,9 @@ TEST_F(FileTest, MatrixTypesMajornessZpc) {
   runFileTest("type.matrix.majorness.zpc.hlsl");
 }
 TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
+TEST_F(FileTest, StructTypeUniqueness) {
+  runFileTest("type.struct.uniqueness.hlsl");
+}
 TEST_F(FileTest, ClassTypes) { runFileTest("type.class.hlsl"); }
 TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
 TEST_F(FileTest, RuntimeArrayTypes) { runFileTest("type.runtime-array.hlsl"); }
@@ -60,6 +63,18 @@ TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
 TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
 TEST_F(FileTest, RWTextureTypes) { runFileTest("type.rwtexture.hlsl"); }
 TEST_F(FileTest, BufferType) { runFileTest("type.buffer.hlsl"); }
+TEST_F(FileTest, BufferTypeStructError1) {
+  runFileTest("type.buffer.struct.error1.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, BufferTypeStructError2) {
+  runFileTest("type.buffer.struct.error2.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, BufferTypeStructError3) {
+  runFileTest("type.buffer.struct.error3.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, RWBufferTypeStructError) {
+  runFileTest("type.rwbuffer.struct.error.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
@@ -696,7 +711,7 @@ TEST_F(FileTest, TextureCalculateLevelOfDetail) {
   runFileTest("texture.calculate-lod.hlsl");
 }
 TEST_F(FileTest, TextureCalculateLevelOfDetailUnclamped) {
-  runFileTest("texture.calculate-lod-unclamped.hlsl", Expect::Failure);
+  runFileTest("texture.calculate-lod-unclamped.hlsl");
 }
 TEST_F(FileTest, TextureGather) { runFileTest("texture.gather.hlsl"); }
 TEST_F(FileTest, TextureArrayGather) {
@@ -911,6 +926,9 @@ TEST_F(FileTest, IntrinsicsInterlockedMethodsPS) {
 }
 TEST_F(FileTest, IntrinsicsInterlockedMethodsCS) {
   runFileTest("intrinsics.interlocked-methods.cs.hlsl");
+}
+TEST_F(FileTest, IntrinsicsInterlockedMethodsError) {
+  runFileTest("intrinsics.interlocked-methods.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
@@ -1185,6 +1203,9 @@ TEST_F(FileTest, SpirvEntryFunctionWrapper) {
 TEST_F(FileTest, SpirvEntryFunctionInOut) {
   runFileTest("spirv.entry-function.inout.hlsl");
 }
+TEST_F(FileTest, SpirvEntryFunctionUnusedParameter) {
+  runFileTest("spirv.entry-function.unused-param.hlsl");
+}
 
 TEST_F(FileTest, SpirvBuiltInHelperInvocation) {
   runFileTest("spirv.builtin.helper-invocation.hlsl");
@@ -1252,34 +1273,34 @@ TEST_F(FileTest, SpirvInterpolationError) {
 }
 
 TEST_F(FileTest, SpirvLegalizationOpaqueStruct) {
-  runFileTest("spirv.legal.opaque-struct.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.opaque-struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferUsage) {
-  runFileTest("spirv.legal.sbuffer.usage.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.usage.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferMethods) {
-  runFileTest("spirv.legal.sbuffer.methods.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.methods.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounter) {
-  runFileTest("spirv.legal.sbuffer.counter.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.counter.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInStruct) {
   // Tests using struct/class having associated counters
-  runFileTest("spirv.legal.sbuffer.counter.struct.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.counter.struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferCounterInMethod) {
   // Tests using methods whose enclosing struct/class having associated counters
-  runFileTest("spirv.legal.sbuffer.counter.method.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.counter.method.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
-  runFileTest("spirv.legal.sbuffer.struct.hlsl", Expect::Success,
-              /*runValidation=*/true, /*relaxLogicalPointer=*/true);
+  setRelaxLogicalPointer();
+  runFileTest("spirv.legal.sbuffer.struct.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
   runFileTest("spirv.legal.cbuffer.hlsl");
@@ -1309,6 +1330,13 @@ TEST_F(FileTest, VulkanCLOptionInvertYDS) {
 }
 TEST_F(FileTest, VulkanCLOptionInvertYGS) {
   runFileTest("vk.cloption.invert-y.gs.hlsl");
+}
+
+TEST_F(FileTest, VulkanCLOptionInvertWDS) {
+  runFileTest("vk.cloption.invert-w.ds.hlsl");
+}
+TEST_F(FileTest, VulkanCLOptionInvertWPS) {
+  runFileTest("vk.cloption.invert-w.ps.hlsl");
 }
 
 // Vulkan specific
@@ -1366,6 +1394,7 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
 TEST_F(FileTest, VulkanPushConstantOffset) {
+  // Checks the behavior of [[vk::offset]] with [[vk::push_constant]]
   runFileTest("vk.push-constant.offset.hlsl");
 }
 TEST_F(FileTest, VulkanPushConstantAnonymousStruct) {
@@ -1392,12 +1421,15 @@ TEST_F(FileTest, VulkanLayoutCBufferMatrixZpc) {
   runFileTest("vk.layout.cbuffer.zpc.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutCBufferStd140) {
+  setGlLayout();
   runFileTest("vk.layout.cbuffer.std140.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutCBufferNestedStd140) {
+  setGlLayout();
   runFileTest("vk.layout.cbuffer.nested.std140.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutCBufferNestedEmptyStd140) {
+  setGlLayout();
   runFileTest("vk.layout.cbuffer.nested.empty.std140.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutCBufferBoolean) {
@@ -1407,27 +1439,35 @@ TEST_F(FileTest, VulkanLayoutRWStructuredBufferBoolean) {
   runFileTest("vk.layout.rwstructuredbuffer.boolean.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutSBufferStd430) {
+  setGlLayout();
   runFileTest("vk.layout.sbuffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutSBufferNestedStd430) {
+  setGlLayout();
   runFileTest("vk.layout.sbuffer.nested.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutAppendSBufferStd430) {
+  setGlLayout();
   runFileTest("vk.layout.asbuffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutConsumeSBufferStd430) {
+  setGlLayout();
   runFileTest("vk.layout.csbuffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutTBufferStd430) {
+  setGlLayout();
   runFileTest("vk.layout.tbuffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutTextureBufferStd430) {
+  setGlLayout();
   runFileTest("vk.layout.texture-buffer.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayout64BitTypesStd430) {
+  setGlLayout();
   runFileTest("vk.layout.64bit-types.std430.hlsl");
 }
 TEST_F(FileTest, VulkanLayout64BitTypesStd140) {
+  setGlLayout();
   runFileTest("vk.layout.64bit-types.std140.hlsl");
 }
 TEST_F(FileTest, VulkanLayout16BitTypesPushConstant) {
@@ -1447,8 +1487,19 @@ TEST_F(FileTest, VulkanLayoutVectorRelaxedLayout) {
   // causing improper straddle
   runFileTest("vk.layout.vector.relaxed.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutStructRelaxedLayout) {
+  // Checks VK_KHR_relaxed_block_layout on struct types
+  runFileTest("vk.layout.struct.relaxed.hlsl");
+}
+
+TEST_F(FileTest, VulkanLayoutVkOffsetAttr) {
+  // Checks the behavior of [[vk::offset]]
+  setDxLayout();
+  runFileTest("vk.layout.attr.offset.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutPushConstantStd430) {
+  setGlLayout();
   runFileTest("vk.layout.push-constant.std430.hlsl");
 }
 
@@ -1461,10 +1512,12 @@ TEST_F(FileTest, VulkanLayoutCBufferPackOffsetError) {
 
 TEST_F(FileTest, VulkanLayoutFxcRulesSBuffer) {
   // structured buffers with fxc layout rules
+  setDxLayout();
   runFileTest("vk.layout.sbuffer.fxc.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
+  setDxLayout();
   runFileTest("vk.layout.cbuffer.fxc.hlsl");
 }
 

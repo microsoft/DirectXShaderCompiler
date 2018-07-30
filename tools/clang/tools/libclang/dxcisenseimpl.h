@@ -37,7 +37,7 @@ private:
   CXCursor m_cursor;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     return DoBasicQueryInterface<IDxcCursor>(this, iid, ppvObject);
   }
@@ -86,7 +86,7 @@ private:
   CXDiagnostic m_diagnostic;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     return DoBasicQueryInterface<IDxcDiagnostic>(this, iid, ppvObject);
   }
@@ -117,7 +117,7 @@ private:
   CXFile m_file;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     return DoBasicQueryInterface<IDxcFile>(this, iid, ppvObject);
   }
@@ -142,7 +142,7 @@ private:
   unsigned m_locationLength;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     return DoBasicQueryInterface<IDxcInclusion>(this, iid, ppvObject);
   }
@@ -166,7 +166,7 @@ private:
     hlsl::DxcLangExtensionsHelper m_langHelper;
 public:
     DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
     {
       return DoBasicQueryInterface<IDxcIndex>(this, iid, ppvObject);
     }
@@ -190,14 +190,14 @@ public:
 
 class DxcIntelliSense : public IDxcIntelliSense, public IDxcLangExtensions {
 private:
-  DXC_MICROCOM_TM_REF_FIELDS();
+  DXC_MICROCOM_TM_REF_FIELDS()
   hlsl::DxcLangExtensionsHelper m_langHelper;
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL();
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langHelper);
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcIntelliSense, IDxcLangExtensions>(
         this, iid, ppvObject);
   }
@@ -226,7 +226,7 @@ private:
   CXSourceLocation m_location;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     return DoBasicQueryInterface<IDxcSourceLocation>(this, iid, ppvObject);
   }
@@ -253,7 +253,7 @@ private:
   CXSourceRange m_range;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     return DoBasicQueryInterface<IDxcSourceRange>(this, iid, ppvObject);
   }
@@ -278,7 +278,7 @@ private:
   CXTranslationUnit m_tu;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     return DoBasicQueryInterface<IDxcToken>(this, iid, ppvObject);
   }
@@ -301,7 +301,7 @@ private:
     CXTranslationUnit m_tu;
 public:
     DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
     {
       return DoBasicQueryInterface<IDxcTranslationUnit>(this, iid, ppvObject);
     }
@@ -347,7 +347,7 @@ private:
   CXType m_type;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     return DoBasicQueryInterface<IDxcType>(this, iid, ppvObject);
   }

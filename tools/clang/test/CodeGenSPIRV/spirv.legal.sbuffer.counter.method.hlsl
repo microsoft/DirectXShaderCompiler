@@ -65,7 +65,7 @@ float main() : VVV {
 // CHECK-NEXT:                    OpStore %counter_var_getCSBuffer_this_1_1 [[counter]]
 // CHECK-NEXT: [[counter:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_localBundle_1_2
 // CHECK-NEXT:                    OpStore %counter_var_getCSBuffer_this_1_2 [[counter]]
-// CHECK-NEXT:                    OpFunctionCall %_ptr_Uniform_type_RWStructuredBuffer_float %TwoBundle_getCSBuffer %localBundle
+// CHECK-NEXT:                    OpFunctionCall %_ptr_Uniform_type_ConsumeStructuredBuffer_float %TwoBundle_getCSBuffer %localBundle
     float value = localBundle.getCSBuffer().Consume();
 
 // CHECK:      [[counter:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_localWrapper_0_0_0
@@ -80,7 +80,7 @@ float main() : VVV {
 // CHECK-NEXT:                    OpStore %counter_var_getASBuffer_this_0_1_1 [[counter]]
 // CHECK-NEXT: [[counter:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_localWrapper_0_1_2
 // CHECK-NEXT:                    OpStore %counter_var_getASBuffer_this_0_1_2 [[counter]]
-// CHECK-NEXT:                    OpFunctionCall %_ptr_Uniform_type_RWStructuredBuffer_float %Wrapper_getASBuffer %localWrapper
+// CHECK-NEXT:                    OpFunctionCall %_ptr_Uniform_type_AppendStructuredBuffer_float %Wrapper_getASBuffer %localWrapper
     localWrapper.getASBuffer().Append(4.2);
 
 // CHECK:      [[counter:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_localWrapper_0_0_0

@@ -175,6 +175,25 @@ Retry:
     cutOffParsing();
     return StmtError();
 
+    // HLSL Change Starts
+  case tok::kw_precise:
+  case tok::kw_sample:
+  case tok::kw_globallycoherent:
+  case tok::kw_center: {
+    // FXC compatiblity: these are keywords when used as modifiers, but in
+    // FXC they can also be used an identifiers. If the next token is a
+    // punctuator, then we are using them as identifers. Need to change
+    // the token type to tok::identifier and fall through to the next case.
+    // E.g., center = <RHS>.
+    if (tok::isPunctuator(NextToken().getKind())) {
+      Tok.setKind(tok::identifier);
+      __fallthrough;
+    } else {
+      goto tok_default_case;
+    }
+  }
+    // HLSL Change Ends
+
   case tok::identifier: {
     Token Next = NextToken();
     if (Next.is(tok::colon)) { // C99 6.8.1: labeled-statement

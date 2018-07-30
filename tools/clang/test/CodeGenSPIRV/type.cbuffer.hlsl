@@ -42,5 +42,6 @@ cbuffer AnotherCBuffer : register(b2) {
 // CHECK: %MyCbuffer = OpVariable %_ptr_Uniform_type_MyCbuffer Uniform
 // CHECK: %AnotherCBuffer = OpVariable %_ptr_Uniform_type_AnotherCBuffer Uniform
 
-void main() {
+float  main() : A {
+  return t[0] + m[0];
 }

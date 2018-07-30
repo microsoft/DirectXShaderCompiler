@@ -212,11 +212,8 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // %35 = OpCompositeExtract %v3float %24 2
 // %36 = OpCompositeConstruct %VS_CONTROL_POINT_OUTPUT %33 %34 %35
 // %37 = OpCompositeConstruct %_arr_VS_CONTROL_POINT_OUTPUT_uint_3 %28 %32 %36
-// OpStore %param_var_ip %37
 // %42 = OpLoad %uint %gl_InvocationID
-// OpStore %param_var_cpid %42
 // %45 = OpLoad %uint %gl_PrimitiveID
-// OpStore %param_var_PatchID %45
 // %47 = OpFunctionCall %BEZIER_CONTROL_POINT %src_SubDToBezierHS %param_var_ip %param_var_cpid %param_var_PatchID
 // %48 = OpCompositeExtract %v3float %47 0
 // %52 = OpAccessChain %_ptr_Output_v3float %out_var_BEZIERPOS %42

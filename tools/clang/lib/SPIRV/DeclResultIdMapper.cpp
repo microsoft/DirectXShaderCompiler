@@ -214,13 +214,17 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
 
   SemanticInfo inheritSemantic = {};
 
+  // If storedValue is 0, it means this parameter in the original source code is
+  // not used at all. Avoid writing back.
+  //
+  // Write back of stage output variables in GS is manually controlled by
+  // .Append() intrinsic method, implemented in writeBackOutputStream(). So
+  // ignoreValue should be set to true for GS.
+  const bool noWriteBack = storedValue == 0 || shaderModel.IsGS();
+
   return createStageVars(sigPoint, decl, /*asInput=*/false, type,
                          /*arraySize=*/0, "out.var", llvm::None, &storedValue,
-                         // Write back of stage output variables in GS is
-                         // manually controlled by .Append() intrinsic method,
-                         // implemented in writeBackOutputStream(). So
-                         // noWriteBack should be set to true for GS.
-                         shaderModel.IsGS(), &inheritSemantic);
+                         noWriteBack, &inheritSemantic);
 }
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
@@ -1494,12 +1498,16 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
               theBuilder.getVecType(srcVecElemTypeId, 2), *value, *value,
               {0, 1});
       }
+
+      // Reciprocate SV_Position.w if requested
+      if (semanticKind == hlsl::Semantic::Kind::Position)
+        *value = invertWIfRequested(*value);
     } else {
       if (noWriteBack)
         return true;
 
       // Negate SV_Position.y if requested
-      if (semanticToUse->semantic->GetKind() == hlsl::Semantic::Kind::Position)
+      if (semanticKind == hlsl::Semantic::Kind::Position)
         *value = invertYIfRequested(*value);
 
       uint32_t ptr = varId;
@@ -1782,6 +1790,19 @@ uint32_t DeclResultIdMapper::invertYIfRequested(uint32_t position) {
     const auto newY =
         theBuilder.createUnaryOp(spv::Op::OpFNegate, f32Type, oldY);
     position = theBuilder.createCompositeInsert(v4f32Type, position, {1}, newY);
+  }
+  return position;
+}
+
+uint32_t DeclResultIdMapper::invertWIfRequested(uint32_t position) {
+  // Reciprocate SV_Position.w if requested
+  if (spirvOptions.invertW && shaderModel.IsPS()) {
+    const auto f32Type = theBuilder.getFloat32Type();
+    const auto v4f32Type = theBuilder.getVecType(f32Type, 4);
+    const auto oldW = theBuilder.createCompositeExtract(f32Type, position, {3});
+    const auto newW = theBuilder.createBinaryOp(
+        spv::Op::OpFDiv, f32Type, theBuilder.getConstantFloat32(1), oldW);
+    position = theBuilder.createCompositeInsert(v4f32Type, position, {3}, newW);
   }
   return position;
 }

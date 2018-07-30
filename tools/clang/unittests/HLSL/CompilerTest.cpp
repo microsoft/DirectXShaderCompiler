@@ -48,172 +48,6 @@
 using namespace std;
 using namespace hlsl_test;
 
-void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule, IDxcBlob **pContainer) {
-  CComPtr<IDxcAssembler> pAssembler;
-  CComPtr<IDxcOperationResult> pResult;
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-  VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pModule, &pResult));
-  CheckOperationSucceeded(pResult, pContainer);
-}
-
-std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob) {
-  CComPtr<IDxcBlobEncoding> pBlobEncoding;
-  const UINT CP_UTF16 = 1200;
-  IFT(pBlob->QueryInterface(&pBlobEncoding));
-  BOOL known;
-  UINT32 codePage;
-  IFT(pBlobEncoding->GetEncoding(&known, &codePage));
-  std::wstring result;
-  if (codePage == CP_UTF16) {
-    result.resize(pBlob->GetBufferSize() + 1);
-    memcpy((void *)result.data(), pBlob->GetBufferPointer(),
-           pBlob->GetBufferSize());
-    return result;
-  } else if (codePage == CP_UTF8) {
-    Unicode::UTF8ToUTF16String((char *)pBlob->GetBufferPointer(),
-                               pBlob->GetBufferSize(), &result);
-    return result;
-  } else {
-    throw std::exception("Unsupported codepage.");
-  }
-}
-
-void GetDxilPart(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram, IDxcBlob **pDxilPart) {
-  const UINT32 DxilPartKind = 'LIXD'; // DXIL
-  UINT32 DxilIndex;
-  CComPtr<IDxcContainerReflection> pContainerReflection;
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pContainerReflection));
-  VERIFY_SUCCEEDED(pContainerReflection->Load(pProgram));
-  VERIFY_SUCCEEDED(pContainerReflection->FindFirstPartKind(DxilPartKind, &DxilIndex));
-  VERIFY_SUCCEEDED(pContainerReflection->GetPartContent(DxilIndex, pDxilPart));
-}
-
-void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob) {
-  CComPtr<IDxcLibrary> library;
-  IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-  IFT(library->CreateBlobWithEncodingOnHeapCopy(pVal, strlen(pVal), CP_UTF8, ppBlob));
-}
-
-void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlobEncoding **ppBlob) {
-  CComPtr<IDxcLibrary> library;
-  IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-  IFT(library->CreateBlobWithEncodingOnHeapCopy(val.data(), val.size(), CP_UTF8, ppBlob));
-}
-
-void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlob **ppBlob) {
-  Utf8ToBlob(dllSupport, val, (IDxcBlobEncoding**)ppBlob);
-}
-
-void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob) {
-  const UINT32 CP_UTF16 = 1200;
-  CComPtr<IDxcLibrary> library;
-  IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-  IFT(library->CreateBlobWithEncodingOnHeapCopy(val.data(), val.size() * sizeof(wchar_t), CP_UTF16, ppBlob));
-}
-
-void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob) {
-  Utf16ToBlob(dllSupport, val, (IDxcBlobEncoding**)ppBlob);
-}
-
-void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
-                     LPWSTR pTargetProfile, LPCWSTR pArgs,
-                     _Outptr_ IDxcBlob **ppResult) {
-  std::vector<std::wstring> argsW;
-  std::vector<LPCWSTR> args;
-  if (pArgs) {
-    wistringstream argsS(pArgs);
-    copy(istream_iterator<wstring, wchar_t>(argsS),
-         istream_iterator<wstring, wchar_t>(), back_inserter(argsW));
-    transform(argsW.begin(), argsW.end(), back_inserter(args),
-              [](const wstring &w) { return w.data(); });
-  }
-  VerifyCompileOK(dllSupport, pText, pTargetProfile, args, ppResult);
-}
-
-void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
-  LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
-  _Outptr_ IDxcBlob **ppResult) {
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcOperationResult> pResult;
-  HRESULT hrCompile;
-  *ppResult = nullptr;
-  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-  Utf8ToBlob(dllSupport, pText, &pSource);
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    pTargetProfile, args.data(), args.size(),
-    nullptr, 0, nullptr, &pResult));
-  VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
-  VERIFY_SUCCEEDED(hrCompile);
-  VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
-}
-
-
-// VersionSupportInfo Implementation
-VersionSupportInfo::VersionSupportInfo() :
-  m_CompilerIsDebugBuild(false),
-  m_InternalValidator(false),
-  m_DxilMajor(0),
-  m_DxilMinor(0),
-  m_ValMajor(0),
-  m_ValMinor(0)
-{}
-
-void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
-  VERIFY_IS_TRUE(dllSupport.IsEnabled());
-
-  // Default to Dxil 1.0 and internal Val 1.0
-  m_DxilMajor = m_ValMajor = 1;
-  m_DxilMinor = m_ValMinor = 0;
-  m_InternalValidator = true;
-  CComPtr<IDxcVersionInfo> pVersionInfo;
-  UINT32 VersionFlags = 0;
-
-  // If the following fails, we have Dxil 1.0 compiler
-  if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pVersionInfo))) {
-    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_DxilMajor, &m_DxilMinor));
-    VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-    m_CompilerIsDebugBuild = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
-    pVersionInfo.Release();
-  }
-
-  if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcValidator, &pVersionInfo))) {
-    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_ValMajor, &m_ValMinor));
-    VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-    if (m_ValMinor > 0) {
-      // flag only exists on newer validator, assume internal otherwise.
-      m_InternalValidator = (VersionFlags & DxcVersionInfoFlags_Internal) ? true : false;
-    } else {
-      // With old compiler, validator is the only way to get this
-      m_CompilerIsDebugBuild = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
-    }
-  } else {
-    // If create instance of IDxcVersionInfo on validator failed, we have an old validator from dxil.dll
-    m_InternalValidator = false;
-  }
-}
-bool VersionSupportInfo::SkipIRSensitiveTest() {
-  // Only debug builds preserve BB names.
-  if (!m_CompilerIsDebugBuild) {
-    WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirement.");
-    return true;
-  }
-  return false;
-}
-bool VersionSupportInfo::SkipDxilVersion(unsigned major, unsigned minor) {
-  if (m_DxilMajor < major || (m_DxilMajor == major && m_DxilMinor < minor) ||
-      m_ValMajor < major || (m_ValMajor == major && m_ValMinor < minor)) {
-    WEX::Logging::Log::Comment(WEX::Common::String().Format(
-        L"Test skipped because it requires Dxil %u.%u and Validator %u.%u.",
-        major, minor, major, minor));
-    return true;
-  }
-  return false;
-}
-bool VersionSupportInfo::SkipOutOfMemoryTest() {
-  return false;
-}
-
 // Aligned to SymTagEnum.
 const char *SymTagEnumText[] =
 {
@@ -843,7 +677,7 @@ public:
   TEST_METHOD(CodeGenUnusedFunc)
   TEST_METHOD(CodeGenUnusedCB)
   TEST_METHOD(CodeGenUpdateCounter)
-  TEST_METHOD(CodeGenUpperCaseRegister1);
+  TEST_METHOD(CodeGenUpperCaseRegister1)
   TEST_METHOD(CodeGenVcmp)
   TEST_METHOD(CodeGenVecBitCast)
   TEST_METHOD(CodeGenVec_Comp_Arg)
@@ -2547,7 +2381,8 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
                                               nullptr));
 
     string text = DisassembleProgram(m_dllSupport, pOptimizedModule);
-    LogCommentFmt(L"Final program:\r\n%S", text.c_str());
+    WEX::Logging::Log::Comment(L"Final program:");
+    WEX::Logging::Log::Comment(CA2W(text.c_str()));
 
     // At the very least, the module should be valid.
     pResult.Release();

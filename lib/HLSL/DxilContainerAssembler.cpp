@@ -1431,6 +1431,10 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
+  const uint32_t DebugInfoNameHashLen = 32;   // 32 chars of MD5
+  const uint32_t DebugInfoNameSuffix = 4;     // '.lld'
+  const uint32_t DebugInfoNameNullAndPad = 4; // '\0\0\0\0'
+  CComPtr<AbstractMemoryStream> pHashStream;
   if (HasDebugInfo(*pModule->GetModule())) {
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
@@ -1450,16 +1454,12 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     WriteBitcodeToFile(pModule->GetModule(), outStream, true);
 
     if (Flags & SerializeDxilFlags::IncludeDebugNamePart) {
-      CComPtr<AbstractMemoryStream> pHashStream;
       // If the debug name should be specific to the sources, base the name on the debug
       // bitcode, which will include the source references, line numbers, etc. Otherwise,
       // do it exclusively on the target shader bitcode.
       pHashStream = (int)(Flags & SerializeDxilFlags::DebugNameDependOnSource)
                         ? CComPtr<AbstractMemoryStream>(pModuleBitcode)
                         : CComPtr<AbstractMemoryStream>(pProgramStream);
-      const uint32_t DebugInfoNameHashLen = 32;   // 32 chars of MD5
-      const uint32_t DebugInfoNameSuffix = 4;     // '.lld'
-      const uint32_t DebugInfoNameNullAndPad = 4; // '\0\0\0\0'
       const uint32_t DebugInfoContentLen =
           sizeof(DxilShaderDebugName) + DebugInfoNameHashLen +
           DebugInfoNameSuffix + DebugInfoNameNullAndPad;

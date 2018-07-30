@@ -3736,6 +3736,11 @@ public:
     DXASSERT_VALIDBASICKIND(componentType);
 
     QualType pType;  // The type to return.
+    if (componentType < AR_BASIC_COUNT) {
+      // If basic numeric, call LookupScalarTypeDef to ensure on-demand
+      // initialization
+      LookupScalarTypeDef(ScalarTypeForBasic(componentType));
+    }
     QualType pEltType = GetBasicKindType(componentType);
     DXASSERT(!pEltType.isNull(), "otherwise caller is specifying an incorrect basic kind type");
 
@@ -10494,6 +10499,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
       A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLLinear:
+  case AttributeList::AT_HLSLCenter:
     declAttr = ::new (S.Context) HLSLLinearAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
     break;
@@ -11183,6 +11189,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     *pNoPerspective = nullptr,
     *pSample = nullptr,
     *pCentroid = nullptr,
+    *pCenter = nullptr,
     *pAnyLinear = nullptr,                   // first linear attribute found
     *pTopology = nullptr;
   bool usageIn = false;
@@ -11274,6 +11281,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
       break;
 
     case AttributeList::AT_HLSLLinear:
+    case AttributeList::AT_HLSLCenter:
     case AttributeList::AT_HLSLNoPerspective:
     case AttributeList::AT_HLSLSample:
     case AttributeList::AT_HLSLCentroid:
@@ -11293,6 +11301,13 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
               << pAttr->getName() << pAttr->getRange();
         }
         pLinear = pAttr;
+        break;
+      case AttributeList::AT_HLSLCenter:
+        if (pCenter) {
+          Diag(pAttr->getLoc(), diag::warn_hlsl_duplicate_specifier)
+            << pAttr->getName() << pAttr->getRange();
+        }
+        pCenter = pAttr;
         break;
       case AttributeList::AT_HLSLNoPerspective:
         if (pNoPerspective) {
@@ -11360,6 +11375,14 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   if (pSample && pCentroid) {
     Diag(pCentroid->getLoc(), diag::warn_hlsl_specifier_overridden)
         << pCentroid->getName() << pSample->getName() << pCentroid->getRange();
+  }
+  if (pCenter && pCentroid) {
+    Diag(pCenter->getLoc(), diag::warn_hlsl_specifier_overridden)
+      << pCenter->getName() << pCentroid->getName() << pCenter->getRange();
+  }
+  if (pSample && pCenter) {
+    Diag(pCenter->getLoc(), diag::warn_hlsl_specifier_overridden)
+      << pCenter->getName() << pSample->getName() << pCenter->getRange();
   }
   clang::AttributeList *pNonUniformAttr = pAnyLinear ? pAnyLinear : (
     pNoInterpolation ? pNoInterpolation : pTopology);
@@ -11648,6 +11671,10 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "linear ";
     break;
 
+  case clang::attr::HLSLCenter:
+    Out << "center ";
+    break;
+
   case clang::attr::HLSLCentroid:
     Out << "centroid ";
     break;
@@ -11924,6 +11951,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLInOut:
   case clang::attr::HLSLInstance:
   case clang::attr::HLSLLinear:
+  case clang::attr::HLSLCenter:
   case clang::attr::HLSLLoop:
   case clang::attr::HLSLMaxTessFactor:
   case clang::attr::HLSLNoInterpolation:
