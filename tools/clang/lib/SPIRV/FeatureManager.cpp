@@ -113,6 +113,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::AMD_shader_explicit_vertex_parameter)
       .Case("SPV_GOOGLE_hlsl_functionality1",
             Extension::GOOGLE_hlsl_functionality1)
+      .Case("SPV_KHR_post_depth_coverage",
+            Extension::KHR_post_depth_coverage)
       .Default(Extension::Unknown);
 }
 
@@ -128,6 +130,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_multiview";
   case Extension::KHR_shader_draw_parameters:
     return "SPV_KHR_shader_draw_parameters";
+  case Extension::KHR_post_depth_coverage:
+    return "SPV_KHR_post_depth_coverage";
   case Extension::EXT_descriptor_indexing:
     return "SPV_EXT_descriptor_indexing";
   case Extension::EXT_fragment_fully_covered:

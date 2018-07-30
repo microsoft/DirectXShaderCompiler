@@ -1258,6 +1258,11 @@ uint32_t ModuleBuilder::getConstantNull(uint32_t typeId) {
   return constId;
 }
 
+void ModuleBuilder::debugLine(uint32_t file, uint32_t line, uint32_t column) {
+  instBuilder.opLine(file, line, column).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
 BasicBlock *ModuleBuilder::getBasicBlock(uint32_t labelId) {
   auto it = basicBlocks.find(labelId);
   if (it == basicBlocks.end()) {
