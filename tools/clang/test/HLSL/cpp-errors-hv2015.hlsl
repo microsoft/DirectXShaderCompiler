@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
+// RUN: %clang_cc1 -HV 2015 -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
 
 float f_arr_empty_init[] = { 1, 2, 3 };
 float f_arr_empty_pack[] = { 1, 2 ... }; // expected-error {{expansion is unsupported in HLSL}}
@@ -251,8 +251,8 @@ void vla(int size) {
   return n[0];
 }
 
-enum MyEnum  { MyEnum_MyVal1, MyEnum_MyVal2 };
-enum class MyEnumWithClass { MyEnumWithClass_MyVal1, MyEnumWithClass_MyVal2 };
+enum MyEnum  { MyEnum_MyVal1, MyEnum_MyVal2 }; //           /* expected-error {{enum is unsupported in HLSL before 2017}} expected-warning {{declaration does not declare anything}} */
+enum class MyEnumWithClass { MyEnumWithClass_MyVal1, MyEnumWithClass_MyVal2 }; //    /* expected-error {{enum is unsupported in HLSL before 2017}} expected-warning {{declaration does not declare anything}} */
 
 float4 fn_with_semantic() : SV_Target0{
   return 0;
@@ -319,7 +319,7 @@ interface my_interface_2 : my_interface { }; // expected-error {{interfaces cann
 
 class my_class_public : public my_class { }; // expected-error {{base type access specifier is unsupported in HLSL}}
 
-struct forward_struct; // this fails in fxc, but we allow it now
+struct forward_struct; // this fails in fxc, but we allow it now    /* expected-error {{struct declaration without definition is unsupported in HLSL}} */
 struct my_struct_type_decl { int a; } my_struct_var_decl;
 struct my_struct_type_decl_parens { int a; } (my_struct_var_decl_parens); // expected-error {{HLSL requires a type specifier for all declarations}} expected-error {{expected ';' after struct}}
 struct my_struct_type_const { int a; } const my_struct_type_var; // // expected-error {{HLSL requires a type specifier for all declarations}} expected-error {{expected ';' after struct}}
@@ -349,7 +349,7 @@ struct s_with_multiple {
 
 class c_outer {
   struct { int allowed; };
-  struct c_inner { int allowed_HV2016; };
+  struct c_inner { int disallowed; }; // expected-error {{nested named class/struct/interfaces are not supported in HLSL}}
 };
 
 class c_outer_typedef {
@@ -441,7 +441,7 @@ my_label: local_i = 1; // expected-error {{label is unsupported in HLSL}}
   case 1 + 2:
     local_i = 3;
     break;
-  case local_i: // expected-error {{case value is not a constant expression}} expected-note {{read of non-const variable 'local_i' is not allowed in a constant expression}}
+  case local_i: // expected-error {{expression is not an integral constant expression}} expected-note {{read of non-const variable 'local_i' is not allowed in a constant expression}}
     break;
   case 10 ... 12: // expected-error {{case range is unsupported in HLSL}}
     break;
