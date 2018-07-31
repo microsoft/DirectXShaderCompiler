@@ -672,7 +672,7 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesFeatureInfo) {
                            hlsl::DxilPartIsType(hlsl::DFCC_FeatureInfo));
   VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
   VERIFY_ARE_EQUAL(sizeof(uint64_t), (*pPartIter)->PartSize);
-  VERIFY_ARE_EQUAL(0, *(uint64_t *)hlsl::GetDxilPartData(*pPartIter));
+  VERIFY_ARE_EQUAL(0U, *(const uint64_t *)hlsl::GetDxilPartData(*pPartIter));
 }
 
 TEST_F(DxilContainerTest, DisassemblyWhenBCInvalidThenFails) {
@@ -808,7 +808,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenValidThenOK) {
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
   std::string disassembleString(BlobToUtf8(pDisassembly));
-  VERIFY_ARE_NOT_EQUAL(0, disassembleString.size());
+  VERIFY_ARE_NOT_EQUAL(0U, disassembleString.size());
 }
 
 class HlslFileVariables {
