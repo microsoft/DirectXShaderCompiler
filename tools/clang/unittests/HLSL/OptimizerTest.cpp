@@ -25,7 +25,6 @@
 #include "dxc/dxcapi.h"
 
 #include "HLSLTestData.h"
-#include "WexTestClass.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
 
@@ -48,7 +47,11 @@ using namespace hlsl_test;
 ///////////////////////////////////////////////////////////////////////////////
 // Optimizer test cases.
 
+#ifdef _WIN32
 class OptimizerTest {
+#else
+class OptimizerTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(OptimizerTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -155,8 +158,8 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCWSTR pText, LPCWS
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
 
   // Create the target program with a single invocation.
-  wchar_t OptArg[4];
-  wsprintf(OptArg, L"/O%i", optLevel);
+  wchar_t OptArg[4] = L"/O0";
+  OptArg[2] = L'0' + optLevel;
   Utf16ToBlob(m_dllSupport, pText, &pSource);
   LPCWSTR args[] = { L"/Vd", OptArg };
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
