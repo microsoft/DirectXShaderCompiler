@@ -238,6 +238,8 @@ def exports : Separate<["-", "/"], "exports">, Group<hlslcomp_Group>, Flags<[Cor
   HelpText<"Specify exports when compiling a library: export1[[,export1_clone,...]=internal_name][;...]">;
 def export_shaders_only : Flag<["-", "/"], "export-shaders-only">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Only export shaders when compiling a library">;
+def default_linkage : Separate<["-", "/"], "default-linkage">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Set default linkage for non-shader functions when compiling or linking to a library target (internal, external)">;
 
 // SPIRV Change Starts
 def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,

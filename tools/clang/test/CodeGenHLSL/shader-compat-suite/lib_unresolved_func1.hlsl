@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // CHECK-DAG: define float @"\01?lib1_fn@@YAMXZ"()
 // CHECK-DAG: declare float @"\01?external_fn@@YAMXZ"()

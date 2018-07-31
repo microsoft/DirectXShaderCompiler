@@ -110,6 +110,7 @@ public:
   llvm::StringRef RootSignatureDefine; // OPT_rootsig_define
   llvm::StringRef FloatDenormalMode; // OPT_denorm
   std::vector<std::string> Exports; // OPT_exports
+  llvm::StringRef DefaultLinkage; // OPT_default_linkage
 
   bool AllResourcesBound = false; // OPT_all_resources_bound
   bool AstDump = false; // OPT_ast_dump

@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -Zi -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -Zi -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // resources in return/params disallowed for lib_6_3
 // CHECK: error: Exported function

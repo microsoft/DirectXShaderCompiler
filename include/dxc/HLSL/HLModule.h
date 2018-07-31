@@ -156,6 +156,10 @@ public:
   void SetFloat32DenormMode(const DXIL::Float32DenormMode mode);
   DXIL::Float32DenormMode GetFloat32DenormMode() const;
 
+  // Default function linkage for libraries
+  DXIL::DefaultLinkage GetDefaultLinkage() const;
+  void SetDefaultLinkage(const DXIL::DefaultLinkage linkage);
+
   // HLDXIR metadata manipulation.
   /// Serialize HLDXIR in-memory form to metadata form.
   void EmitHLMetadata();
@@ -275,6 +279,7 @@ private:
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;
   uint32_t m_AutoBindingSpace;
+  DXIL::DefaultLinkage m_DefaultLinkage;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitHLResources();

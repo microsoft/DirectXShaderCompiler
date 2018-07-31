@@ -2927,8 +2927,8 @@ TEST_F(ValidationTest, WhenPSVMismatchThenFail) {
 
 TEST_F(ValidationTest, WhenRDATMismatchThenFail) {
   ReplaceContainerPartsCheckMsgs(
-    "float4 main(float f) : semantic { return f; }",
-    "float4 main() : semantic { return 0; }",
+    "export float4 main(float f) : semantic { return f; }",
+    "export float4 main() : semantic { return 0; }",
     "lib_6_3",
     { DFCC_RuntimeData },
     {
@@ -3162,7 +3162,7 @@ TEST_F(ValidationTest, Float32DenormModeAttribute) {
 TEST_F(ValidationTest, ResCounter) {
     if (m_ver.SkipDxilVersion(1, 3)) return;
     RewriteAssemblyCheckMsg(
-        "RWStructuredBuffer<float4> buf; float GetCounter() {return buf.IncrementCounter();}",
+        "RWStructuredBuffer<float4> buf; export float GetCounter() {return buf.IncrementCounter();}",
         "lib_6_3",
         { "!\"buf\", i32 0, i32 -1, i32 1, i32 12, i1 false, i1 true, i1 false, !" },
         { "!\"buf\", i32 0, i32 -1, i32 1, i32 12, i1 false, i1 false, i1 false, !" },
@@ -3214,11 +3214,11 @@ TEST_F(ValidationTest, RayPayloadIsStruct) {
   RewriteAssemblyCheckMsg(
     "struct Payload { float f; }; struct Attributes { float2 b; };\n"
     "[shader(\"anyhit\")] void AnyHitProto(inout Payload p, in Attributes a) { p.f += a.b.x; }\n"
-    "void BadAnyHit(inout float f, in Attributes a) { f += a.b.x; }\n"
+    "export void BadAnyHit(inout float f, in Attributes a) { f += a.b.x; }\n"
     "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
-    "void BadClosestHit(inout float f, in Attributes a) { f += a.b.y; }\n"
+    "export void BadClosestHit(inout float f, in Attributes a) { f += a.b.y; }\n"
     "[shader(\"miss\")] void MissProto(inout Payload p) { p.f += 1.0; }\n"
-    "void BadMiss(inout float f) { f += 1.0; }\n"
+    "export void BadMiss(inout float f) { f += 1.0; }\n"
     , "lib_6_3",
     { "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
         "!\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\",",
@@ -3246,9 +3246,9 @@ TEST_F(ValidationTest, RayAttrIsStruct) {
   RewriteAssemblyCheckMsg(
     "struct Payload { float f; }; struct Attributes { float2 b; };\n"
     "[shader(\"anyhit\")] void AnyHitProto(inout Payload p, in Attributes a) { p.f += a.b.x; }\n"
-    "void BadAnyHit(inout Payload p, in float a) { p.f += a; }\n"
+    "export void BadAnyHit(inout Payload p, in float a) { p.f += a; }\n"
     "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
-    "void BadClosestHit(inout Payload p, in float a) { p.f += a; }\n"
+    "export void BadClosestHit(inout Payload p, in float a) { p.f += a; }\n"
     , "lib_6_3",
     { "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
         "!\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\",",
@@ -3271,7 +3271,7 @@ TEST_F(ValidationTest, CallableParamIsStruct) {
   RewriteAssemblyCheckMsg(
     "struct Param { float f; };\n"
     "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
-    "void BadCallable(inout float f) { f += 1.0; }\n"
+    "export void BadCallable(inout float f) { f += 1.0; }\n"
     , "lib_6_3",
     { "!{void (%struct.Param*)* @\"\\01?CallableProto@@YAXUParam@@@Z\", "
         "!\"\\01?CallableProto@@YAXUParam@@@Z\","
@@ -3293,10 +3293,10 @@ TEST_F(ValidationTest, RayShaderExtraArg) {
     "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
     "[shader(\"miss\")] void MissProto(inout Payload p) { p.f += 1.0; }\n"
     "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
-    "void BadAnyHit(inout Payload p, in Attributes a, float f) { p.f += f; }\n"
-    "void BadClosestHit(inout Payload p, in Attributes a, float f) { p.f += f; }\n"
-    "void BadMiss(inout Payload p, float f) { p.f += f; }\n"
-    "void BadCallable(inout Param p, float f) { p.f += f; }\n"
+    "export void BadAnyHit(inout Payload p, in Attributes a, float f) { p.f += f; }\n"
+    "export void BadClosestHit(inout Payload p, in Attributes a, float f) { p.f += f; }\n"
+    "export void BadMiss(inout Payload p, float f) { p.f += f; }\n"
+    "export void BadCallable(inout Param p, float f) { p.f += f; }\n"
     , "lib_6_3",
     { "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
         "!\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\"",
@@ -3332,14 +3332,14 @@ TEST_F(ValidationTest, ResInShaderStruct) {
     "struct ResStructInStruct { float f; ResInStruct S; };\n"
     "struct Payload { float f; }; struct Attributes { float2 b; };\n"
     "[shader(\"anyhit\")] void AnyHitProto(inout Payload p, in Attributes a) { p.f += a.b.x; }\n"
-    "void BadAnyHit(inout ResStructInStruct p, in Attributes a) { p.f += a.b.x; }\n"
+    "export void BadAnyHit(inout ResStructInStruct p, in Attributes a) { p.f += a.b.x; }\n"
     "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
-    "void BadClosestHit(inout ResStructInStruct p, in Attributes a) { p.f += a.b.x; }\n"
+    "export void BadClosestHit(inout ResStructInStruct p, in Attributes a) { p.f += a.b.x; }\n"
     "[shader(\"miss\")] void MissProto(inout Payload p) { p.f += 1.0; }\n"
-    "void BadMiss(inout ResStructInStruct p) { p.f += 1.0; }\n"
+    "export void BadMiss(inout ResStructInStruct p) { p.f += 1.0; }\n"
     "struct Param { float f; };\n"
     "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
-    "void BadCallable(inout ResStructInStruct p) { p.f += 1.0; }\n"
+    "export void BadCallable(inout ResStructInStruct p) { p.f += 1.0; }\n"
     , "lib_6_x",
     { "!{!\"lib\", i32 6, i32 15}", "!dx.valver = !{!2}",
       "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", "
@@ -3383,12 +3383,12 @@ TEST_F(ValidationTest, WhenPayloadSizeTooSmallThenFail) {
     "\n"
     "struct BadPayload { float2 f; }; struct BadAttributes { float3 b; };\n"
     "struct BadParam { float2 f; };\n"
-    "void BadRayGen() { return; }\n"
-    "void BadIntersection() { return; }\n"
-    "void BadAnyHit(inout BadPayload p, in BadAttributes a) { p.f += a.b.x; }\n"
-    "void BadClosestHit(inout BadPayload p, in BadAttributes a) { p.f += a.b.y; }\n"
-    "void BadMiss(inout BadPayload p) { p.f += 1.0; }\n"
-    "void BadCallable(inout BadParam p) { p.f += 1.0; }\n"
+    "export void BadRayGen() { return; }\n"
+    "export void BadIntersection() { return; }\n"
+    "export void BadAnyHit(inout BadPayload p, in BadAttributes a) { p.f += a.b.x; }\n"
+    "export void BadClosestHit(inout BadPayload p, in BadAttributes a) { p.f += a.b.y; }\n"
+    "export void BadMiss(inout BadPayload p) { p.f += 1.0; }\n"
+    "export void BadCallable(inout BadParam p) { p.f += 1.0; }\n"
     , "lib_6_3",
     {  "!{void ()* @\"\\01?RayGenProto@@YAXXZ\", !\"\\01?RayGenProto@@YAXXZ\","
       ,"!{void ()* @\"\\01?IntersectionProto@@YAXXZ\", !\"\\01?IntersectionProto@@YAXXZ\","
@@ -3423,10 +3423,10 @@ TEST_F(ValidationTest, WhenMissingPayloadThenFail) {
     "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
     "[shader(\"miss\")] void MissProto(inout Payload p) { p.f += 1.0; }\n"
     "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
-    "void BadAnyHit(inout Payload p) { p.f += 1.0; }\n"
-    "void BadClosestHit() {}\n"
-    "void BadMiss() {}\n"
-    "void BadCallable() {}\n"
+    "export void BadAnyHit(inout Payload p) { p.f += 1.0; }\n"
+    "export void BadClosestHit() {}\n"
+    "export void BadMiss() {}\n"
+    "export void BadCallable() {}\n"
     , "lib_6_3",
     {  "!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\", !\"\\01?AnyHitProto@@YAXUPayload@@UAttributes@@@Z\","
       ,"!{void (%struct.Payload*, %struct.Attributes*)* @\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\", !\"\\01?ClosestHitProto@@YAXUPayload@@UAttributes@@@Z\","
@@ -3458,11 +3458,11 @@ TEST_F(ValidationTest, ShaderFunctionReturnTypeVoid) {
     "[shader(\"closesthit\")] void ClosestHitProto(inout Payload p, in Attributes a) { p.f += a.b.y; }\n"
     "[shader(\"miss\")] void MissProto(inout Payload p) { p.f += 1.0; }\n"
     "[shader(\"callable\")] void CallableProto(inout Param p) { p.f += 1.0; }\n"
-    "float BadRayGen() { return 1; }\n"
-    "float BadAnyHit(inout Payload p, in Attributes a) { return p.f; }\n"
-    "float BadClosestHit(inout Payload p, in Attributes a) { return p.f; }\n"
-    "float BadMiss(inout Payload p) { return p.f; }\n"
-    "float BadCallable(inout Param p) { return p.f; }\n"
+    "export float BadRayGen() { return 1; }\n"
+    "export float BadAnyHit(inout Payload p, in Attributes a) { return p.f; }\n"
+    "export float BadClosestHit(inout Payload p, in Attributes a) { return p.f; }\n"
+    "export float BadMiss(inout Payload p) { return p.f; }\n"
+    "export float BadCallable(inout Param p) { return p.f; }\n"
     , "lib_6_3",
     { "!{void ()* @\"\\01?RayGenProto@@YAXXZ\", "
         "!\"\\01?RayGenProto@@YAXXZ\",",

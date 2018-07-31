@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // verify failure for exported library function
 // CHECK: Opcode IgnoreHit not valid in shader model lib_6_3(lib)

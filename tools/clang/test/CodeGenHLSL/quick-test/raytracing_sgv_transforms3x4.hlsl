@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // CHECK: call float @dx.op.objectToWorld.f32(i32 151, i32 2, i8 0)
 // CHECK: call float @dx.op.objectToWorld.f32(i32 151, i32 2, i8 1)

@@ -429,6 +429,14 @@ void HLModule::SetFloat32DenormMode(const DXIL::Float32DenormMode mode) {
   m_Float32DenormMode = mode;
 }
 
+DXIL::DefaultLinkage HLModule::GetDefaultLinkage() const {
+  return m_DefaultLinkage;
+}
+
+void HLModule::SetDefaultLinkage(const DXIL::DefaultLinkage linkage) {
+  m_DefaultLinkage = linkage;
+}
+
 static const StringRef kHLDxilFunctionPropertiesMDName           = "dx.fnprops";
 static const StringRef kHLDxilOptionsMDName                      = "dx.options";
 static const StringRef kHLDxilResourceTypeAnnotationMDName       = "dx.resource.type.annotation";

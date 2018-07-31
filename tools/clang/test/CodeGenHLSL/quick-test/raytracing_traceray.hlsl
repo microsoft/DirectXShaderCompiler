@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // CHECK: call void @dx.op.traceRay.struct.Payload(i32 157,
 

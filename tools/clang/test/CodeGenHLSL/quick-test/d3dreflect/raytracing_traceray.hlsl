@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | %D3DReflect %s | FileCheck %s
 
 struct Payload {
    float2 t;

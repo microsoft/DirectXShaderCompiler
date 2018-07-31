@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3  %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -default-linkage external %s | FileCheck %s
 
 // Make sure return matrix struct works.
 // CHECK: bitcast %class.matrix.float.3.2* {{.*}} to <6 x float>*
