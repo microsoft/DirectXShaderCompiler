@@ -64,8 +64,6 @@ set(HLSL_IGNORE_SOURCES
   DxilModuleTest.cpp
   ExecutionTest.cpp
   ExtensionTest.cpp
-  FileCheckerTest.cpp
-  FileCheckForTest.cpp
   FunctionTest.cpp
   LinkerTest.cpp
   MSFileSysTest.cpp
@@ -73,17 +71,19 @@ set(HLSL_IGNORE_SOURCES
   RewriterTest.cpp
   ShaderOpTest.cpp
   SystemValueTest.cpp
-  ValidationTest.cpp
   )
 
 add_clang_unittest(clang-hlsl-tests
   AllocatorTest.cpp
   DxcTestUtils.cpp
   DXIsenseTest.cpp
+  FileCheckerTest.cpp
+  FileCheckForTest.cpp
   HLSLTestOptions.cpp
   Objects.cpp
   OptimizerTest.cpp
   TestMain.cpp
+  ValidationTest.cpp
   VerifierTest.cpp
   )
 
