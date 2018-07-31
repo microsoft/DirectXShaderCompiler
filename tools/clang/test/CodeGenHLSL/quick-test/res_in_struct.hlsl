@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_2 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -default-linkage external %s | FileCheck %s
 
 // resources in return/params disallowed for lib_6_3
 // CHECK: error: Exported function

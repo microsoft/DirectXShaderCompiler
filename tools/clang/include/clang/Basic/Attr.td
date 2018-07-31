@@ -865,6 +865,12 @@ def HLSLExperimental : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLExport : InheritableAttr {
+  let Spellings = [CXX11<"", "export", 2015>];
+  let Subjects = SubjectList<[Function], ErrorDiag, "ExpectedFunction">;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts

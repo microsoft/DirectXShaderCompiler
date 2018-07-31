@@ -10674,6 +10674,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_NoInline:
     declAttr = ::new (S.Context) NoInlineAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLExport:
+    declAttr = ::new (S.Context) HLSLExportAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
@@ -11364,6 +11367,20 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
       pTopology = pAttr;
       break;
 
+    case AttributeList::AT_HLSLExport:
+      if (!isFunction) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
+          << pAttr->getName() << declarationType << pAttr->getRange();
+        result = false;
+      }
+      if (isStatic) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
+          << "'static'" << pAttr->getName() << declarationType
+          << pAttr->getRange();
+        result = false;
+      }
+      break;
+
     default:
       break;
     }
@@ -11834,7 +11851,12 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "[noinline]\n";
     break;
 
-  // Statement attributes
+  case clang::attr::HLSLExport:
+    Indent(Indentation, Out);
+    Out << "export\n";
+    break;
+
+    // Statement attributes
   case clang::attr::HLSLAllowUAVCondition:
     Indent(Indentation, Out);
     Out << "[allow_uav_condition]\n";
@@ -11983,6 +12005,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLTriangleAdj:
   case clang::attr::HLSLGloballyCoherent:
   case clang::attr::NoInline:
+  case clang::attr::HLSLExport:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:

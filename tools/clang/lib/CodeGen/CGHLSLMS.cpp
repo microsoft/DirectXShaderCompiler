@@ -421,6 +421,9 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   // set Float Denorm Mode
   m_pHLModule->SetFloat32DenormMode(CGM.getCodeGenOpts().HLSLFloat32DenormMode);
 
+  // set DefaultLinkage
+  m_pHLModule->SetDefaultLinkage(CGM.getCodeGenOpts().DefaultLinkage);
+
   // Fill in m_ExportMap, which maps from internal name to zero or more renames
   m_ExportMap.clear();
   std::string errors;
@@ -1955,6 +1958,23 @@ void CGMSHLSLRuntime::EmitHLSLFunctionProlog(Function *F, const FunctionDecl *FD
       AddClipPlane(clipPlane, 5);
 
     clipPlaneFuncList.emplace_back(F);
+  }
+
+  // Update function linkage based on DefaultLinkage
+  if (!m_pHLModule->HasDxilFunctionProps(F) && !IsPatchConstantFunction(F)) {
+    if (F->getLinkage() == GlobalValue::LinkageTypes::ExternalLinkage) {
+      if (!FD->hasAttr<HLSLExportAttr>()) {
+        switch (CGM.getCodeGenOpts().DefaultLinkage) {
+        case DXIL::DefaultLinkage::Default:
+          if (m_pHLModule->GetShaderModel()->GetMinor() != ShaderModel::kOfflineMinor)
+            F->setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+          break;
+        case DXIL::DefaultLinkage::Internal:
+          F->setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+          break;
+        }
+      }
+    }
   }
 }
 

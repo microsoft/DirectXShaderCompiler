@@ -304,8 +304,12 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     } else if (Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false)) {
       errors << "library profile required when using -export-shaders-only option";
       return 1;
+    } else if (Args.getLastArg(OPT_default_linkage)) {
+      errors << "library profile required when using -default-linkage option";
+      return 1;
     }
   }
+
 
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
   if (ver.empty()) { opts.HLSLVersion = 2018; }   // Default to latest version
@@ -391,6 +395,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   opts.Exports = Args.getAllArgValues(OPT_exports);
+
+  opts.DefaultLinkage = Args.getLastArgValue(OPT_default_linkage);
+  if (!opts.DefaultLinkage.empty()) {
+    if (!(opts.DefaultLinkage.equals_lower("internal") ||
+          opts.DefaultLinkage.equals_lower("external"))) {
+      errors << "Unsupported value '" << opts.DefaultLinkage
+             << "for -default-linkage option.";
+      return 1;
+    }
+  }
 
   // Check options only allowed in shader model >= 6.2FPDenormalMode
   unsigned Major = 0;

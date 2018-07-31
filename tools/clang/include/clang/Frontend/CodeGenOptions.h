@@ -206,6 +206,9 @@ public:
   std::vector<std::string> HLSLLibraryExports;
   /// ExportShadersOnly limits library export functions to shaders
   bool ExportShadersOnly = false;
+  /// DefaultLinkage Internal, External, or Default.  If Default, default
+  /// function linkage is determined by library target.
+  hlsl::DXIL::DefaultLinkage DefaultLinkage = hlsl::DXIL::DefaultLinkage::Default;
   // HLSL Change Ends
   /// Regular expression to select optimizations for which we should enable
   /// optimization remarks. Transformation passes whose name matches this

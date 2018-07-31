@@ -248,6 +248,12 @@ namespace DXIL {
     Invalid,
   };
 
+  enum class DefaultLinkage : unsigned {
+    Default = 0,
+    Internal = 1,
+    External = 2,
+  };
+
   enum class SamplerKind : unsigned {
     Default = 0,
     Comparison,

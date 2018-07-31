@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // Make sure function call on external function has correct type.
 // CHECK: call float @"\01?test_extern@@YAMUT@@Y01U1@U1@AIAV?$matrix@M$01$01@@@Z"(%struct.T* {{.*}}, [2 x %struct.T]* {{.*}}, %struct.T* nonnull {{.*}}, %class.matrix.float.2.2* dereferenceable(16) {{.*}})
