@@ -153,10 +153,10 @@ TEST_F(DXIntellisenseTest, CursorWhenCBufferRefThenFound) {
   ExpectCursorAt(c.TU, 4, 1, DxcCursor_DeclRefExpr, &varRefCursor);
   VERIFY_SUCCEEDED(c.TU->GetFile(CompilationResult::getDefaultFileName(), &file));
   VERIFY_SUCCEEDED(varRefCursor->FindReferencesInFile(file, 0, 4, refs.size_ref(), refs.data_ref()));
-  VERIFY_ARE_EQUAL(2, refs.size());
+  VERIFY_ARE_EQUAL(2U, refs.size());
   VERIFY_SUCCEEDED(refs.begin()[0]->GetLocation(&loc));
   VERIFY_SUCCEEDED(loc->GetSpellingLocation(nullptr, &line, nullptr, nullptr));
-  VERIFY_ARE_EQUAL(2, line);
+  VERIFY_ARE_EQUAL(2U, line);
 }
 
 TEST_F(DXIntellisenseTest, InclusionWhenMissingThenError) {
@@ -174,7 +174,7 @@ TEST_F(DXIntellisenseTest, InclusionWhenMissingThenError) {
   VERIFY_SUCCEEDED(index->ParseTranslationUnit("file.hlsl", nullptr, 0, &unsaved.p, 1,
     DxcTranslationUnitFlags_UseCallerThread, &TU));
   VERIFY_SUCCEEDED(TU->GetNumDiagnostics(&diagCount));
-  VERIFY_ARE_EQUAL(1, diagCount);
+  VERIFY_ARE_EQUAL(1U, diagCount);
   VERIFY_SUCCEEDED(TU->GetDiagnostic(0, &pDiag));
   VERIFY_SUCCEEDED(pDiag->GetSeverity(&Severity));
   VERIFY_IS_TRUE(Severity == DxcDiagnosticSeverity::DxcDiagnostic_Error ||
@@ -199,9 +199,9 @@ TEST_F(DXIntellisenseTest, InclusionWhenValidThenAvailable) {
   VERIFY_SUCCEEDED(index->ParseTranslationUnit("file.hlsl", nullptr, 0, &unsaved[0].p, 2,
     DxcTranslationUnitFlags_UseCallerThread, &TU));
   VERIFY_SUCCEEDED(TU->GetNumDiagnostics(&diagCount));
-  VERIFY_ARE_EQUAL(0, diagCount);
+  VERIFY_ARE_EQUAL(0U, diagCount);
   VERIFY_SUCCEEDED(TU->GetInclusionList(inclusions.size_ref(), inclusions.data_ref()));
-  VERIFY_ARE_EQUAL(2, inclusions.size());
+  VERIFY_ARE_EQUAL(2U, inclusions.size());
   for (IDxcInclusion * i : inclusions) {
     CComPtr<IDxcFile> file;
     CComHeapPtr<char> fileName;
@@ -263,7 +263,7 @@ TEST_F(DXIntellisenseTest, TUWhenRegionInactiveMissingThenCountIsZero) {
   IDxcSourceRange** results;
   VERIFY_SUCCEEDED(result.TU->GetFile("filename.hlsl", &file));
   VERIFY_SUCCEEDED(result.TU->GetSkippedRanges(file.p, &resultCount, &results));
-  VERIFY_ARE_EQUAL(0, resultCount);
+  VERIFY_ARE_EQUAL(0U, resultCount);
   VERIFY_IS_NULL(results);
 }
 
@@ -285,15 +285,15 @@ TEST_F(DXIntellisenseTest, TUWhenRegionInactiveThenEndIsBeforeElseHash) {
   VERIFY_SUCCEEDED(result.TU->GetSkippedRanges(file.p, &resultCount, &results));
 
   ::WEX::TestExecution::DisableVerifyExceptions disable;
-  VERIFY_ARE_EQUAL(1, resultCount);
+  VERIFY_ARE_EQUAL(1U, resultCount);
   for (unsigned i = 0; i < resultCount; ++i)
   {
     CComPtr<IDxcSourceLocation> endLoc;
     VERIFY_SUCCEEDED(results[i]->GetEnd(&endLoc));
     unsigned line, col, offset;
     VERIFY_SUCCEEDED(endLoc->GetSpellingLocation(nullptr, &line, &col, &offset));
-    VERIFY_ARE_EQUAL(3, line);
-    VERIFY_ARE_EQUAL(1, col);
+    VERIFY_ARE_EQUAL(3U, line);
+    VERIFY_ARE_EQUAL(1U, col);
     results[i]->Release();
   }
   CoTaskMemFree(results);
@@ -315,15 +315,15 @@ TEST_F(DXIntellisenseTest, TUWhenRegionInactiveThenEndIsBeforeEndifHash) {
   VERIFY_SUCCEEDED(result.TU->GetSkippedRanges(file.p, &resultCount, &results));
 
   ::WEX::TestExecution::DisableVerifyExceptions disable;
-  VERIFY_ARE_EQUAL(1, resultCount);
+  VERIFY_ARE_EQUAL(1U, resultCount);
   for (unsigned i = 0; i < resultCount; ++i)
   {
     CComPtr<IDxcSourceLocation> endLoc;
     VERIFY_SUCCEEDED(results[i]->GetEnd(&endLoc));
     unsigned line, col, offset;
     VERIFY_SUCCEEDED(endLoc->GetSpellingLocation(nullptr, &line, &col, &offset));
-    VERIFY_ARE_EQUAL(3, line);
-    VERIFY_ARE_EQUAL(1, col);
+    VERIFY_ARE_EQUAL(3U, line);
+    VERIFY_ARE_EQUAL(1U, col);
     results[i]->Release();
   }
   CoTaskMemFree(results);
@@ -347,15 +347,15 @@ TEST_F(DXIntellisenseTest, TUWhenRegionInactiveThenStartIsAtIfdefEol) {
   VERIFY_SUCCEEDED(result.TU->GetSkippedRanges(file.p, &resultCount, &results));
 
   ::WEX::TestExecution::DisableVerifyExceptions disable;
-  VERIFY_ARE_EQUAL(1, resultCount);
+  VERIFY_ARE_EQUAL(1U, resultCount);
   for (unsigned i = 0; i < resultCount; ++i)
   {
     CComPtr<IDxcSourceLocation> startLoc;
     VERIFY_SUCCEEDED(results[i]->GetStart(&startLoc));
     unsigned line, col, offset;
     VERIFY_SUCCEEDED(startLoc->GetSpellingLocation(nullptr, &line, &col, &offset));
-    VERIFY_ARE_EQUAL(1, line);
-    VERIFY_ARE_EQUAL(24, col);
+    VERIFY_ARE_EQUAL(1U, line);
+    VERIFY_ARE_EQUAL(24U, col);
     results[i]->Release();
   }
   CoTaskMemFree(results);
@@ -416,7 +416,7 @@ TEST_F(DXIntellisenseTest, TUWhenUnsaveFileThenOK) {
     // No errors expected.
     unsigned numDiagnostics;
     VERIFY_SUCCEEDED(tu->GetNumDiagnostics(&numDiagnostics));
-    VERIFY_ARE_EQUAL(0, numDiagnostics);
+    VERIFY_ARE_EQUAL(0U, numDiagnostics);
 
     CComPtr<IDxcCursor> tuCursor;
     CComInterfaceArray<IDxcCursor> cursors;
@@ -668,9 +668,9 @@ TEST_F(DXIntellisenseTest, CursorWhenReferenceThenDefinitionAvailable)
   
   VERIFY_SUCCEEDED(defCursor->GetLocation(&defLocation));
   VERIFY_SUCCEEDED(defLocation->GetSpellingLocation(&defFile, &line, &col, &offset));
-  VERIFY_ARE_EQUAL(1, line);
-  VERIFY_ARE_EQUAL(5, col); // Points to 'myfunc'
-  VERIFY_ARE_EQUAL(4, offset); // Offset is zero-based
+  VERIFY_ARE_EQUAL(1U, line);
+  VERIFY_ARE_EQUAL(5U, col); // Points to 'myfunc'
+  VERIFY_ARE_EQUAL(4U, offset); // Offset is zero-based
 }
 
 TEST_F(DXIntellisenseTest,CursorWhenFindAtBodyCallThenMatch)
