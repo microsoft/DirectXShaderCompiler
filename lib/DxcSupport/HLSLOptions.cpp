@@ -206,6 +206,59 @@ static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *major, uns
   }
 }
 
+// SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+/// Checks and collects the arguments for -fvk-{b|s|t|u}-shift into *shifts.
+static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
+                              const char *name,
+                              llvm::SmallVectorImpl<int32_t> *shifts,
+                              llvm::raw_ostream &errors) {
+  const auto values = args.getAllArgValues(id);
+
+  if (values.empty())
+    return true;
+
+  if (!args.hasArg(OPT_spirv)) {
+    errors << "-fvk-" << name << "-shift requires -spirv";
+    return false;
+  }
+
+  if (!args.getLastArgValue(OPT_fvk_bind_register).empty()) {
+    errors << "-fvk-" << name
+           << "-shift cannot be used together with -fvk-bind-register";
+    return false;
+  }
+
+  shifts->clear();
+  bool setForAll = false;
+
+  for (const auto &val : values) {
+    int32_t number = 0;
+    if (val == "all") {
+      number = -1;
+      setForAll = true;
+    } else {
+      if (llvm::StringRef(val).getAsInteger(10, number)) {
+        errors << "invalid -fvk-" << name << "-shift argument: " << val;
+        return false;
+      }
+      if (number < 0) {
+        errors << "negative -fvk-" << name << "-shift argument: " << val;
+        return false;
+      }
+    }
+    shifts->push_back(number);
+  }
+  if (setForAll && shifts->size() > 2) {
+    errors << "setting all sets via -fvk-" << name
+           << "-shift argument should be used alone";
+    return false;
+  }
+  return true;
+};
+#endif
+// SPIRV Change Ends
+
 namespace hlsl {
 namespace options {
 
@@ -511,50 +564,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpvEnableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
   opts.VkNoWarnIgnoredFeatures = Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false);
 
-  // Collects the arguments for -fvk-{b|s|t|u}-shift.
-  const auto handleVkShiftArgs =
-      [genSpirv, &Args, &errors](OptSpecifier id, const char *name,
-                                 llvm::SmallVectorImpl<int32_t> *shifts) {
-        const auto values = Args.getAllArgValues(id);
-
-        if (!genSpirv && !values.empty()) {
-          errors << "-fvk-" << name << "-shift requires -spirv";
-          return false;
-        }
-
-        shifts->clear();
-        bool setForAll = false;
-
-        for (const auto &val : values) {
-          int32_t number = 0;
-          if (val == "all") {
-            number = -1;
-            setForAll = true;
-          } else {
-            if (llvm::StringRef(val).getAsInteger(10, number)) {
-              errors << "invalid -fvk-" << name << "-shift argument: " << val;
-              return false;
-            }
-            if (number < 0) {
-              errors << "negative -fvk-" << name << "-shift argument: " << val;
-              return false;
-            }
-          }
-          shifts->push_back(number);
-        }
-        if (setForAll && shifts->size() > 2) {
-          errors << "setting all sets via -fvk-" << name
-                 << "-shift argument should be used alone";
-          return false;
-        }
-        return true;
-      };
-
-  if (!handleVkShiftArgs(OPT_fvk_b_shift, "b", &opts.VkBShift) ||
-      !handleVkShiftArgs(OPT_fvk_t_shift, "t", &opts.VkTShift) ||
-      !handleVkShiftArgs(OPT_fvk_s_shift, "s", &opts.VkSShift) ||
-      !handleVkShiftArgs(OPT_fvk_u_shift, "u", &opts.VkUShift))
+  if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.VkBShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.VkTShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_s_shift, "s", &opts.VkSShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_u_shift, "u", &opts.VkUShift, errors))
     return 1;
+
+  opts.VkBindRegister = Args.getAllArgValues(OPT_fvk_bind_register);
 
   opts.VkStageIoOrder = Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
   if (opts.VkStageIoOrder != "alpha" && opts.VkStageIoOrder != "decl") {
@@ -598,16 +614,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_target_env_EQ).empty() ||
       !Args.getLastArgValue(OPT_Oconfig).empty() ||
+      !Args.getLastArgValue(OPT_fvk_bind_register).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||
-      !Args.getLastArgValue(OPT_fvk_u_shift).empty()
-      ) {
+      !Args.getLastArgValue(OPT_fvk_u_shift).empty()) {
     errors << "SPIR-V CodeGen not available. "
               "Please recompile with -DENABLE_SPIRV_CODEGEN=ON.";
     return 1;
   }
-#endif
+#endif // ENABLE_SPIRV_CODEGEN
   // SPIRV Change Ends
 
   opts.Args = std::move(Args);

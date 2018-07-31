@@ -525,6 +525,7 @@ public:
           spirvOpts.tShift = opts.VkTShift;
           spirvOpts.sShift = opts.VkSShift;
           spirvOpts.uShift = opts.VkUShift;
+          spirvOpts.bindRegister = opts.VkBindRegister;
           spirvOpts.allowedExtensions = opts.SpvExtensions;
           spirvOpts.targetEnv = opts.SpvTargetEnv;
           spirvOpts.enable16BitTypes = opts.Enable16BitTypes;

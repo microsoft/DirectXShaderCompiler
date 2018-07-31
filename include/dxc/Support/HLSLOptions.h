@@ -172,6 +172,7 @@ public:
   llvm::SmallVector<int32_t, 4> VkTShift;  // OPT_fvk_t_shift
   llvm::SmallVector<int32_t, 4> VkSShift;  // OPT_fvk_s_shift
   llvm::SmallVector<int32_t, 4> VkUShift;  // OPT_fvk_u_shift
+  std::vector<std::string> VkBindRegister; // OPT_fvk_bind_register
   llvm::SmallVector<llvm::StringRef, 4> SpvExtensions; // OPT_fspv_extension
   llvm::StringRef SpvTargetEnv;                        // OPT_fspv_target_env
   llvm::SmallVector<llvm::StringRef, 4> SpvOconfig;    // OPT_Oconfig
