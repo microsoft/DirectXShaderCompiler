@@ -428,8 +428,9 @@ static DiagnosticHandlerFunction getDiagHandler(DiagnosticHandlerFunction F,
 
 // HLSL Change Starts
 static void ReportWarning(DiagnosticHandlerFunction F, const char *Msg) {
+  Twine tmsg(Msg);
   BitcodeDiagnosticInfo BDI(std::error_code(), DiagnosticSeverity::DS_Warning,
-                            Msg);
+                            tmsg);
   F(BDI);
 }
 // HLSL Change Ends
