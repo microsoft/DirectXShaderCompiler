@@ -1245,6 +1245,29 @@ TEST_F(FileTest, SpirvExtensionCLUnknown) {
 TEST_F(FileTest, SpirvExtensionAllowAllKHR) {
   runFileTest("spirv.ext.allow-all-khr.hlsl");
 }
+// Test -Oconfig command line option.
+TEST_F(FileTest, SpirvOptOconfigMultipleUses) {
+  runFileTest("spirv.opt.multiple.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigAndO0) {
+  runFileTest("spirv.opt.with-O0.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigAndO1) {
+  runFileTest("spirv.opt.with-O1.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigAndO2) {
+  runFileTest("spirv.opt.with-O2.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigAndO3) {
+  runFileTest("spirv.opt.with-O3.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigAndO4) {
+  runFileTest("spirv.opt.with-O4.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigInvalidFlag) {
+  runFileTest("spirv.opt.invalid-flag.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfig) { runFileTest("spirv.opt.cl.oconfig.hlsl"); }
 
 // For shader stage input/output interface
 // For semantic SV_Position, SV_ClipDistance, SV_CullDistance

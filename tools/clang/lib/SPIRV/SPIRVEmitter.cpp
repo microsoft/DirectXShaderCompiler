@@ -214,6 +214,7 @@ bool spirvToolsLegalize(spv_target_env env, std::vector<uint32_t> *module,
 }
 
 bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
+                        const llvm::SmallVector<llvm::StringRef, 4> &flags,
                         std::string *messages) {
   spvtools::Optimizer optimizer(env);
 
@@ -222,9 +223,18 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
                  const spv_position_t & /*position*/,
                  const char *message) { *messages += message; });
 
-  optimizer.RegisterPerformancePasses();
-
-  optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
+  if (flags.empty()) {
+    optimizer.RegisterPerformancePasses();
+    optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
+  } else {
+    // Command line options use llvm::SmallVector and llvm::StringRef, whereas
+    // SPIR-V optimizer uses std::vector and std::string.
+    std::vector<std::string> stdFlags;
+    for (const auto &f : flags)
+      stdFlags.push_back(f.str());
+    if (!optimizer.RegisterPassesFromFlags(stdFlags))
+      return false;
+  }
 
   return optimizer.Run(module->data(), module->size(), module);
 }
@@ -695,7 +705,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     // Run optimization passes
     if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
       std::string messages;
-      if (!spirvToolsOptimize(targetEnv, &m, &messages)) {
+      if (!spirvToolsOptimize(targetEnv, &m, spirvOptions.optConfig,
+                              &messages)) {
         emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
         emitNote("please file a bug report on "
                  "https://github.com/Microsoft/DirectXShaderCompiler/issues "

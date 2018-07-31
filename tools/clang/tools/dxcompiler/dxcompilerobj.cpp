@@ -527,6 +527,7 @@ public:
           spirvOpts.targetEnv = opts.SpvTargetEnv;
           spirvOpts.enable16BitTypes = opts.Enable16BitTypes;
           spirvOpts.enableDebugInfo = opts.DebugInfo;
+          spirvOpts.optConfig = opts.SpvOconfig;
 
           clang::EmitSPIRVAction action(spirvOpts);
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);

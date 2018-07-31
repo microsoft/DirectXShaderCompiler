@@ -347,7 +347,61 @@ Optimization
 
 Optimization is also delegated to SPIRV-Tools. Right now there are no difference
 between optimization levels greater than zero; they will all invoke the same
-optimization recipe. This may change in the future.
+optimization recipe. That is, the recipe behind ``spirv-opt -O``.  If you want to
+run a custom optimization recipe, you can do so using the command line option ``-Oconfig=``
+and specifying a comma-separated list of your desired passes. The passes are invoked in the 
+specified order.
+
+For example, you can specify ``-Oconfig=--loop-unroll,--scalar-replacement=300,--eliminate-dead-code-aggressive``
+to firstly invoke loop unrolling, then invoke scalar replacement of aggregates, lastly invoke aggressive dead code elimination.
+All valid options to ``spirv-opt`` are accepted as components to the comma-separated list.
+
+Here are the typical passes in alphabetical order:
+
+* ``--ccp``
+* ``--cfg-cleanup``
+* ``--convert-local-access-chains``
+* ``--copy-propagate-arrays``
+* ``--eliminate-dead-branches``
+* ``--eliminate-dead-code-aggressive``
+* ``--eliminate-dead-functions``
+* ``--eliminate-local-multi-store``
+* ``--eliminate-local-single-block``
+* ``--eliminate-local-single-store``
+* ``--flatten-decorations``
+* ``--if-conversion``
+* ``--inline-entry-points-exhaustive``
+* ``--local-redundancy-elimination``
+* ``--loop-fission``
+* ``--loop-fusion``
+* ``--loop-unroll``
+* ``--loop-unroll-partial=[<n>]``
+* ``--loop-peeling`` (requires ``--loop-peeling-threshold``)
+* ``--merge-blocks``
+* ``--merge-return``
+* ``--loop-unswitch``
+* ``--private-to-local``
+* ``--reduce-load-size``
+* ``--redundancy-elimination``
+* ``--remove-duplicates``
+* ``--replace-invalid-opcode``
+* ``--ssa-rewrite``
+* ``--scalar-replacement[=<n>]``
+* ``--simplify-instructions``
+* ``--vector-dce``
+
+
+Besides, there are two special batch options; each stands for a recommended recipe by itself:
+
+* ``-O``: A bunch of passes in an appropriate order that attempt to improve performance of generated code. Same as ``spirv-opt -O``. Also same as SPIR-V CodeGen's default recipe.
+
+* ``-Os``: A bunch of passes in an appropriate order that attempt to reduce the size of the generated code. Same as ``spirv-opt -Os``.
+
+So if you want to run loop unrolling additionally after the default optimization recipe, you can specify
+``-Oconfig=-O,--loop-unroll``.
+
+For the whole list of accepted passes and details about each one, please see ``spirv-opt``'s help manual (``spirv-opt --help``),
+or the SPIRV-Tools `optimizer header file <https://github.com/KhronosGroup/SPIRV-Tools/blob/master/include/spirv-tools/optimizer.hpp>`_.
 
 Validation
 ~~~~~~~~~~
