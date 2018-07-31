@@ -13,6 +13,11 @@
 #define UNICODE
 #endif
 
+#ifdef __APPLE__
+// Workaround for ambiguous wcsstr on Mac
+#define _WCHAR_H_CPLUSPLUS_98_CONFORMANCE_
+#endif
+
 #include <memory>
 #include <vector>
 #include <string>
