@@ -149,8 +149,8 @@ public:
     IsenseSupport(support),
     Intellisense(isense),
     Index(index),
-    TU(tu),
-    NumErrorDiagnostics(0)
+    NumErrorDiagnostics(0),
+    TU(tu)
   {
     if (tu) {
       IFE(tu->GetNumDiagnostics(&NumDiagnostics));
@@ -224,7 +224,6 @@ public:
     CComPtr<IDxcIndex> tuIndex;
     CComPtr<IDxcTranslationUnit> tu;
     const char *fileName = getDefaultFileName();
-    const int DisplayDiagnosticsToStdErrFalse = 0;
     if (textLen == 0) textLen = strlen(text);
 
     IFE(isense->CreateIndex(&tuIndex));
@@ -267,7 +266,6 @@ public:
     IFE(support->CreateIntellisense(&isense));
     CComPtr<IDxcIndex> tuIndex;
     CComPtr<IDxcTranslationUnit> tu;
-    const int DisplayDiagnosticsToStdErrFalse = 0;
     const char* commandLineArgs[32];
     unsigned commandLineArgsCount = 0;
     char* nextArg = arguments;

@@ -130,20 +130,6 @@ enum ShaderType
   ST_All = ST_Vertex | ST_Hull | ST_Domain | ST_Geometry | ST_Pixel | ST_Compute
 };
 
-static
-const char* GetShaderTypeName(ShaderType value)
-{
-  switch (value) {
-  case ST_Vertex: return "Vertex shader";
-  case ST_Hull: return "Hull shader";
-  case ST_Domain: return "Domain shader";
-  case ST_Geometry: return "Geometry shader";
-  case ST_Pixel: return "Pixel shader";
-  case ST_Compute: return "Compute shader";
-  default: return "(unknown)";
-  }
-}
-
 typedef EnumFlagsIterator<ShaderType> ShaderTypeIterator;
 ShaderTypeIterator begin(ShaderType value) { return ShaderTypeIterator(value); }
 ShaderTypeIterator end(ShaderType value) { return ShaderTypeIterator((ShaderType)0); }
@@ -231,14 +217,6 @@ enum ShaderObjectKind
   /// A read-only resource.
   SOK_TextureCubeArray
 };
-
-static
-bool IsStreamOutputObject(ShaderObjectKind value)
-{
-  return (value == SOK_StreamOutputPoint) || 
-    (value == SOK_StreamOutputLine) || 
-    (value == SOK_StreamOutputTriangle);
-}
 
 struct ShaderObjectDataItem
 {
@@ -361,14 +339,6 @@ const ShaderObjectTemplateDataItem& GetTemplateData(const ShaderObjectDataItem& 
 }
 
 static
-bool HasOptionalTemplateArguments(const ShaderObjectDataItem& sod)
-{
-  const ShaderObjectTemplateDataItem& templateData = GetTemplateData(sod);
-  return templateData.TemplateKind != SOTK_NoParams &&
-    templateData.TemplateParamsOptional;
-}
-
-static
 int CountOptionalTemplateArguments(const ShaderObjectTemplateDataItem& templateData)
 {
   if (!templateData.TemplateParamsOptional) {
@@ -384,38 +354,6 @@ int CountOptionalTemplateArguments(const ShaderObjectTemplateDataItem& templateD
   case SOTK_SVCAndControlPointCountParams: return 2;
  }
 }
-
-struct ShaderObjectMethodDataItem
-{
-  ShaderObjectKind ObjectKind;
-  const char* MethodName;
-};
-
-static const
-ShaderObjectDataItem ShaderObjectMethodData[] =
-{
-  { SOK_AppendStructuredBuffer, "Append" },
-  { SOK_AppendStructuredBuffer, "GetDimensions" },
-  { SOK_Buffer, "GetDimensions" },
-  { SOK_Buffer, "Load" }, // overloaded!
-  { SOK_Buffer, "operator[]" },
-  { SOK_ByteAddressBuffer, "GetDimensions" },
-  { SOK_ByteAddressBuffer, "Load" },  // overloaded
-  { SOK_ByteAddressBuffer, "Load2" }, // overloaded
-  { SOK_ByteAddressBuffer, "Load3" }, // overloaded
-  { SOK_ByteAddressBuffer, "Load4" }, // overloaded
-  { SOK_ConsumeStructuredBuffer, "Consume" },
-  { SOK_ConsumeStructuredBuffer, "GetDimensions" },
-  { SOK_InputPatch, "operator[]" },
-  { SOK_InputPatch, "Length" }, // actually a property
-  { SOK_OutputPatch, "operator[]" },
-  { SOK_OutputPatch, "Length" }, // actually a property
-  { SOK_RWBuffer, "GetDimensions" },
-  { SOK_RWBuffer, "Load" }, // overloaded!
-  { SOK_RWBuffer, "operator[]" }
-// TODO: add RWByteAddressBuffer members
-// TODO: add RWStructuredBuffer members
-};
 
 // - a RWBuffer supports globallycoherent storage class to generate memory barriers
 // TODO: ByteAddressBuffer is supported on SM4 on compute shaders
@@ -438,6 +376,9 @@ struct ShaderObjectIntrinsicDataItem
   size_t IntrinsicCount;
 };
 
+// The test that requires this is pending complete
+// support for primitive types
+#if 0
 const ShaderObjectIntrinsicDataItem ShaderObjectIntrinsicData[] = {
   { SOK_AppendStructuredBuffer, g_AppendStructuredBufferMethods, _countof(g_AppendStructuredBufferMethods) },
   { SOK_Buffer, g_BufferMethods, _countof(g_BufferMethods) },
@@ -471,7 +412,7 @@ const ShaderObjectIntrinsicDataItem ShaderObjectIntrinsicData[] = {
 static
 const ShaderObjectIntrinsicDataItem& GetIntrinsicData(const ShaderObjectDataItem& sod)
 {
-  for (int i = 0; i < _countof(ShaderObjectIntrinsicData); i++)
+  for (unsigned i = 0; i < _countof(ShaderObjectIntrinsicData); i++)
   {
     if (sod.Kind == ShaderObjectIntrinsicData[i].Kind)
     {
@@ -481,6 +422,7 @@ const ShaderObjectIntrinsicDataItem& GetIntrinsicData(const ShaderObjectDataItem
 
   throw std::runtime_error("cannot find shader object kind");
 }
+#endif
 
 // The test fixture.
 #ifdef _WIN32
@@ -700,7 +642,7 @@ TEST_F(ObjectTest, DeclareLocalObject) {
   for (const auto &sod : ShaderObjectData) {
     // When shader models are validated, run through all of them.
     // for (const auto &st : sod.ValidShaderTypes)
-    const auto st = std::first(sod.ValidShaderTypes);
+    // const auto st = std::first(sod.ValidShaderTypes);
     CheckCompiles(BuildDeclarationFunction(sod), true);
   }
 }
@@ -709,7 +651,7 @@ TEST_F(ObjectTest, OptionalTemplateArgs) {
   for (const auto &sod : ShaderObjectData) {
     // When shader models are validated, run through all of them.
     // for (const auto &st : sod.ValidShaderTypes)
-    const auto st = std::first(sod.ValidShaderTypes);
+    //const auto st = std::first(sod.ValidShaderTypes);
 
     const ShaderObjectTemplateDataItem& templateData = GetTemplateData(sod);
     int argCount = CountOptionalTemplateArguments(templateData);
@@ -727,7 +669,7 @@ TEST_F(ObjectTest, MissingTemplateArgs) {
   for (const auto &sod : ShaderObjectData) {
     // When shader models are validated, run through all of them.
     // for (const auto &st : sod.ValidShaderTypes)
-    const auto st = std::first(sod.ValidShaderTypes);
+    // const auto st = std::first(sod.ValidShaderTypes);
 
     const ShaderObjectTemplateDataItem& templateData = GetTemplateData(sod);
     int argCount = CountOptionalTemplateArguments(templateData);
@@ -743,7 +685,7 @@ TEST_F(ObjectTest, TooManyTemplateArgs) {
   for (const auto &sod : ShaderObjectData) {
     // When shader models are validated, run through all of them.
     // for (const auto &st : sod.ValidShaderTypes)
-    const auto st = std::first(sod.ValidShaderTypes);
+    // const auto st = std::first(sod.ValidShaderTypes);
 
     CheckCompiles(BuildDeclarationFunctionTooManyArgs(sod), false);
   }
@@ -753,7 +695,7 @@ TEST_F(ObjectTest, PassAsParameter) {
   for (const auto &sod : ShaderObjectData) {
     // When shader models are validated, run through all of them.
     // for (const auto &st : sod.ValidShaderTypes)
-    const auto st = std::first(sod.ValidShaderTypes);
+    // const auto st = std::first(sod.ValidShaderTypes);
 
     CheckCompiles(BuildPassAsParameter(sod), true);
   }
@@ -763,7 +705,7 @@ TEST_F(ObjectTest, AssignVariables) {
   for (const auto &sod : ShaderObjectData) {
     // When shader models are validated, run through all of them.
     // for (const auto &st : sod.ValidShaderTypes)
-    const auto st = std::first(sod.ValidShaderTypes);
+    // const auto st = std::first(sod.ValidShaderTypes);
 
     CheckCompiles(BuildAssignment(sod), true);
   }
@@ -773,7 +715,7 @@ TEST_F(ObjectTest, AssignReturnResult) {
   for (const auto &sod : ShaderObjectData) {
     // When shader models are validated, run through all of them.
     // for (const auto &st : sod.ValidShaderTypes)
-    const auto st = std::first(sod.ValidShaderTypes);
+    // const auto st = std::first(sod.ValidShaderTypes);
 
     CheckCompiles(BuildAssignmentFromResult(sod), true);
   }
@@ -803,7 +745,7 @@ TEST_F(ObjectTest, PassToInoutArgs) {
 
       // When shader models are validated, run through all of them.
       // for (const auto &st : sod.ValidShaderTypes)
-      const auto st = std::first(sod.ValidShaderTypes);
+      // const auto st = std::first(sod.ValidShaderTypes);
 
       FormatTypeNameAndPreamble(sod, typeName, &preambleDecl);
       if (uniqueId == 0) { // do this only once
@@ -894,7 +836,7 @@ TEST_F(ObjectTest, TemplateArgConstraints) {
   for (const auto &sod : ShaderObjectData) {
     // When shader models are validated, run through all of them.
     // for (const auto &st : sod.ValidShaderTypes)
-    const auto st = std::first(sod.ValidShaderTypes);
+    // const auto st = std::first(sod.ValidShaderTypes);
 
     const ShaderObjectTemplateDataItem& templateData = GetTemplateData(sod);
     int argCount = CountOptionalTemplateArguments(templateData);
@@ -919,6 +861,9 @@ TEST_F(ObjectTest, TemplateArgConstraints) {
   }
 }
 
+// The test that requires this function is pending complete
+// support for primitive types
+#if 0
 static
 std::string SelectComponentType(BYTE legalTypes)
 {
@@ -951,6 +896,7 @@ std::string SelectComponentType(BYTE legalTypes)
       //LICOMPTYPE_STRING,
   }
 }
+#endif
 
 TEST_F(ObjectTest, FunctionInvoke) {
   // This is pending complete support for primitive types - there are many

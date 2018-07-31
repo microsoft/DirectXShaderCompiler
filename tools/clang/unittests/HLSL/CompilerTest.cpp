@@ -1417,11 +1417,11 @@ public:
     }
   }
 
-  std::string VerifyCompileFailed(LPCSTR pText, LPWSTR pTargetProfile, LPCSTR pErrorMsg) {
+  std::string VerifyCompileFailed(LPCSTR pText, LPCWSTR pTargetProfile, LPCSTR pErrorMsg) {
     return VerifyCompileFailed(pText, pTargetProfile, pErrorMsg, L"main");
   }
 
-  std::string VerifyCompileFailed(LPCSTR pText, LPWSTR pTargetProfile, LPCSTR pErrorMsg, LPCWSTR pEntryPoint) {
+  std::string VerifyCompileFailed(LPCSTR pText, LPCWSTR pTargetProfile, LPCSTR pErrorMsg, LPCWSTR pEntryPoint) {
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcOperationResult> pResult;
     CComPtr<IDxcBlobEncoding> pSource;
