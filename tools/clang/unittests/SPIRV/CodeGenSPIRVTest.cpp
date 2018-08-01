@@ -1434,6 +1434,9 @@ TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingAttr) {
 TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingCLOption) {
   runFileTest("vk.binding.cl.register.missing-cl.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingAssociatedCounter) {
+  runFileTest("vk.binding.cl.register.counter.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
   // and ConsumeStructuredBuffer
