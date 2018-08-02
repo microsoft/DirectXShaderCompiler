@@ -696,7 +696,7 @@ void ShaderOpTest::CreateShaders() {
       HRESULT resultCode;
       CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
       CHECK_HR(pLibrary->CreateBlobWithEncodingFromPinned(
-          (LPBYTE)pText, (UINT32)strlen(pText), CP_UTF8, &pTextBlob));
+          pText, (UINT32)strlen(pText), CP_UTF8, &pTextBlob));
       CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcCompiler, &pCompiler));
       CHECK_HR(pCompiler->Compile(pTextBlob, nameW, entryPointW, targetW,
                                   (LPCWSTR *)argumentsWList.data(), argumentsWList.size(),
