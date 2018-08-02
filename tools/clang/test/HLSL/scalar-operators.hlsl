@@ -102,7 +102,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(halfs + bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs + ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs + uints)>::value, "");
-  _Static_assert(std::is_same<half, __decltype(halfs + halfs)>::value, "");
+  _Static_assert(std::is_same<float, __decltype(halfs + halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs + floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(halfs + doubles)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs + min16floats)>::value, "");
@@ -223,7 +223,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(halfs - bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs - ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs - uints)>::value, "");
-  _Static_assert(std::is_same<half, __decltype(halfs - halfs)>::value, "");
+  _Static_assert(std::is_same<float, __decltype(halfs - halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs - floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(halfs - doubles)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs - min16floats)>::value, "");
@@ -344,7 +344,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(halfs / bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs / ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs / uints)>::value, "");
-  _Static_assert(std::is_same<half, __decltype(halfs / halfs)>::value, "");
+  _Static_assert(std::is_same<float, __decltype(halfs / halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs / floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(halfs / doubles)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs / min16floats)>::value, "");
@@ -474,7 +474,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(halfs % bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs % ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs % uints)>::value, "");
-  _Static_assert(std::is_same<half, __decltype(halfs % halfs)>::value, "");
+  _Static_assert(std::is_same<float, __decltype(halfs % halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs % floats)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-50): error X3684: modulo cannot be used with doubles, cast to float first;compilation failed; no code produced;
   halfs = (halfs % doubles); // expected-error {{modulo cannot be used with doubles, cast to float first}} expected-warning {{conversion from larger type 'double' to smaller type 'half', possible loss of data}} fxc-error {{X3684: modulo cannot be used with doubles, cast to float first}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}}
