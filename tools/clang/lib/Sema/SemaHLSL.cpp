@@ -3379,7 +3379,7 @@ public:
       case BuiltinType::Double: return AR_BASIC_FLOAT64;
       case BuiltinType::Float: return AR_BASIC_FLOAT32;
       case BuiltinType::Half: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16FLOAT : AR_BASIC_FLOAT16;
-      case BuiltinType::HalfFloat: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_FLOAT32_PARTIAL_PRECISION : AR_BASIC_FLOAT16;
+      case BuiltinType::HalfFloat: return AR_BASIC_FLOAT32_PARTIAL_PRECISION;
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
       case BuiltinType::Short: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16INT : AR_BASIC_INT16;
