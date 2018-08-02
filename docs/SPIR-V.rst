@@ -2856,8 +2856,12 @@ codegen for Vulkan:
 - ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
 - ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
 - ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.
-- ``-fvk-bind-register xX Y N M``: Binds the resouce at ``register(xX, spaceY)``
-  to descriptor set ``M`` and binding ``N``.
+- ``-fvk-bind-register xX Y N M`` (short alias: ``-vkbr``): Binds the resouce
+  at ``register(xX, spaceY)`` to descriptor set ``M`` and binding ``N``. This
+  option cannot be used together with other binding assignment options.
+  It requires all source code resources have ``:register()`` attribute and
+  all registers have corresponding Vulkan descriptors specified using this
+  option.
 - ``-fvk-use-gl-layout``: Uses strict OpenGL ``std140``/``std430``
   layout rules for resources.
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
