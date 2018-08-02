@@ -59,7 +59,28 @@ RWStructuredBuffer<S> sbuffer2 : register(u6);
 // CHECK-NEXT: OpDecorate %asbuffer Binding 1
 // CHECK-NEXT: OpDecorate %csbuffer DescriptorSet 1
 // CHECK-NEXT: OpDecorate %csbuffer Binding 21
-// CHECK-NEXT: OpDecorate %counter_var_sbuffer2 DescriptorSet 3
+
+// CHECK:      OpDecorate %samplerA DescriptorSet 1
+// CHECK-NEXT: OpDecorate %samplerA Binding 7
+[[vk::set(0)]]
+SamplerState samplerA      : register(s7, space1);
+// CHECK:      OpDecorate %samplerB DescriptorSet 1
+// CHECK-NEXT: OpDecorate %samplerB Binding 8
+[[vk::set(0)]]
+SamplerState samplerB      : register(s8, space1);
+// CHECK:      OpDecorate %samplerC DescriptorSet 2
+// CHECK-NEXT: OpDecorate %samplerC Binding 0
+[[vk::set(2)]]
+SamplerState samplerC;
+// CHECK:      OpDecorate %samplerD DescriptorSet 2
+// CHECK-NEXT: OpDecorate %samplerD Binding 1
+[[vk::set(2)]]
+SamplerState samplerD;
+// CHECK:      OpDecorate %samplerE DescriptorSet 2
+// CHECK-NEXT: OpDecorate %samplerE Binding 4
+[[vk::set(2)]]
+SamplerState samplerE;
+// CHECK: OpDecorate %counter_var_sbuffer2 DescriptorSet 3
 // CHECK-NEXT: OpDecorate %counter_var_sbuffer2 Binding 0
 // CHECK-NEXT: OpDecorate %counter_var_asbuffer DescriptorSet 1
 // CHECK-NEXT: OpDecorate %counter_var_asbuffer Binding 0

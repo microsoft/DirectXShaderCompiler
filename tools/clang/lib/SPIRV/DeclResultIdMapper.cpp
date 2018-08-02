@@ -435,8 +435,10 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto *regAttr = getResourceBinding(var);
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
   const auto *counterBindingAttr = var->getAttr<VKCounterBindingAttr>();
+  const auto *setAttr = var->getAttr<VKSetAttr>();
+  SourceLocation loc = var->getLocation();
 
-  resourceVars.emplace_back(id, regAttr, bindingAttr, counterBindingAttr);
+  resourceVars.emplace_back(id, loc, regAttr, bindingAttr, counterBindingAttr, setAttr);
 
   if (const auto *inputAttachment = var->getAttr<VKInputAttachmentIndexAttr>())
     theBuilder.decorateInputAttachmentIndex(id, inputAttachment->getIndex());
@@ -594,9 +596,11 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
                                              : spirvOptions.tBufferLayoutRule);
     astDecls[varDecl].indexInCTBuffer = index++;
   }
-  resourceVars.emplace_back(bufferVar, getResourceBinding(decl),
+  resourceVars.emplace_back(bufferVar, decl->getLocation(),
+			    getResourceBinding(decl),
                             decl->getAttr<VKBindingAttr>(),
-                            decl->getAttr<VKCounterBindingAttr>());
+                            decl->getAttr<VKCounterBindingAttr>(),
+                            decl->getAttr<VKSetAttr>());
 
   return bufferVar;
 }
@@ -642,9 +646,11 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
           .setStorageClass(spv::StorageClass::Uniform)
           .setLayoutRule(context->isCBuffer() ? spirvOptions.cBufferLayoutRule
                                               : spirvOptions.tBufferLayoutRule);
-  resourceVars.emplace_back(bufferVar, getResourceBinding(context),
+  resourceVars.emplace_back(bufferVar, decl->getLocation(),
+			    getResourceBinding(context),
                             decl->getAttr<VKBindingAttr>(),
-                            decl->getAttr<VKCounterBindingAttr>());
+                            decl->getAttr<VKCounterBindingAttr>(),
+                            decl->getAttr<VKSetAttr>());
 
   return bufferVar;
 }
@@ -679,7 +685,8 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
       context, /*arraySize*/ 0, ContextUsageKind::Globals, "type.$Globals",
       "$Globals");
 
-  resourceVars.emplace_back(globals, nullptr, nullptr, nullptr);
+  SourceLocation noLoc;
+  resourceVars.emplace_back(globals, noLoc, nullptr, nullptr, nullptr, nullptr);
 
   uint32_t index = 0;
   for (const auto *decl : typeTranslator.collectDeclsInDeclContext(context))
@@ -793,9 +800,11 @@ void DeclResultIdMapper::createCounterVar(
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that
     // descriptors can be allocated for them.
-    resourceVars.emplace_back(counterId, getResourceBinding(decl),
+    resourceVars.emplace_back(counterId, decl->getLocation(),
+			      getResourceBinding(decl),
                               decl->getAttr<VKBindingAttr>(),
-                              decl->getAttr<VKCounterBindingAttr>(), true);
+                              decl->getAttr<VKCounterBindingAttr>(),
+                              decl->getAttr<VKSetAttr>(), true);
     assert(declId);
     theBuilder.decorateCounterBufferId(declId, counterId);
   }
@@ -1099,23 +1108,25 @@ private:
 } // namespace
 
 bool DeclResultIdMapper::decorateResourceBindings() {
-  // For normal resource, we support 3 approaches of setting binding numbers:
+  // For normal resource, we support 4 approaches of setting binding numbers:
   // - m1: [[vk::binding(...)]]
   // - m2: :register(...)
-  // - m3: None
+  // - m3: [[vk::set(...)]]
+  // - m4: None
   //
   // For associated counters, we support 2 approaches:
   // - c1: [[vk::counter_binding(...)]
   // - c2: None
   //
   // In combination, we need to handle 9 cases:
-  // - 3 cases for nomral resoures (m1, m2, m3)
-  // - 6 cases for associated counters (mX * cY)
+  // - 4 cases for nomral resoures (m1, m2, m3, m4)
+  // - 8 cases for associated counters (mX * cY)
   //
   // In the following order:
   // - m1, mX * c1
   // - m2
-  // - m3, mX * c2
+  // - m3
+  // - m4, mX * c2
 
   BindingSet bindingSet;
 
@@ -1137,11 +1148,16 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           set = vkBinding->getSet();
         else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace;
+	else if (const auto *vkSet = var.getSet())
+          set = vkSet->getSet();
 
         tryToDecorate(var.getSpirvId(), set, vkCBinding->getBinding());
       }
     } else {
       if (const auto *vkBinding = var.getBinding()) {
+	if (const auto *vkSet = var.getSet()) {
+	  emitError("Invalid inclusion of vk::set with vk::binding", var.getLocation());
+	}
         // Process m1
         tryToDecorate(var.getSpirvId(), vkBinding->getSet(),
                       vkBinding->getBinding());
@@ -1183,6 +1199,17 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         tryToDecorate(var.getSpirvId(), set, binding);
       }
 
+  // Process m3
+  for (const auto &var : resourceVars) {
+    if (!var.isCounter() && !var.getBinding() && !var.getRegister()) {
+      if (const auto *vkSet = var.getSet()) {
+        uint32_t set = vkSet->getSet();
+        theBuilder.decorateDSetBinding(var.getSpirvId(), set,
+                                       bindingSet.useNextBinding(set));
+      }
+    }
+  }
+
   for (const auto &var : resourceVars) {
     if (var.isCounter()) {
       if (!var.getCounterBinding()) {
@@ -1192,12 +1219,14 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           set = vkBinding->getSet();
         else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace;
+	else if (const auto *vkSet = var.getSet())
+          set = vkSet->getSet();
 
         theBuilder.decorateDSetBinding(var.getSpirvId(), set,
                                        bindingSet.useNextBinding(set));
       }
-    } else if (!var.getBinding() && !var.getRegister()) {
-      // Process m3
+    } else if (!var.getBinding() && !var.getRegister() && !var.getSet()) {
+      // Process m4
       theBuilder.decorateDSetBinding(var.getSpirvId(), 0,
                                      bindingSet.useNextBinding(0));
     }
