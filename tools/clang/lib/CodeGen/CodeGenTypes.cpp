@@ -425,7 +425,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
                                Context.getLangOpts().HalfArgsAndReturns);
       break;
     case BuiltinType::LitFloat: // HLSL Change
-    case BuiltinType::HalfFloat:
+    case BuiltinType::HalfFloat: // HLSL Change
     case BuiltinType::Float:
     case BuiltinType::Double:
     case BuiltinType::LongDouble:

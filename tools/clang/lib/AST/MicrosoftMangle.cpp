@@ -1598,7 +1598,7 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
     Out << "$min10f@";
     break;
   case BuiltinType::HalfFloat:
-    Out << "$halfff@";
+    Out << "$halff@";
     break;
   case BuiltinType::Min12Int:
     Out << "$min12i@";

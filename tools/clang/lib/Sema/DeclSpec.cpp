@@ -464,7 +464,7 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
   case DeclSpec::TST_min12int:    return "min12int";
     // HLSL Change Ends
   case DeclSpec::TST_half:        return "half";
-  case DeclSpec::TST_halffloat:
+  case DeclSpec::TST_halffloat: // HLSL Change
   case DeclSpec::TST_float:       return "float";
   case DeclSpec::TST_double:      return "double";
   case DeclSpec::TST_bool:        return Policy.Bool ? "bool" : "_Bool";

@@ -57,7 +57,7 @@ unsigned ASTContext::NumImplicitDestructors;
 unsigned ASTContext::NumImplicitDestructorsDeclared;
 
 enum FloatingRank {
-  LitFloatRank, Min10FloatRank, HalfRank, FloatRank, DoubleRank, LongDoubleRank, HalfFloatRank // HLSL Change - adds LitFloatRank and Min10FloatRank
+  LitFloatRank, Min10FloatRank, HalfRank, FloatRank, DoubleRank, LongDoubleRank, HalfFloatRank // HLSL Change - adds LitFloatRank, Min10FloatRank and HalfFloat
 };
 
 RawComment *ASTContext::getRawCommentForDeclNoCache(const Decl *D) const {
@@ -1321,7 +1321,7 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
   case BuiltinType::Min10Float:
   // HLSL Change Ends
   case BuiltinType::Half:       return Target->getHalfFormat();
-  case BuiltinType::HalfFloat:
+  case BuiltinType::HalfFloat: // HLSL Change
   case BuiltinType::Float:      return Target->getFloatFormat();
   case BuiltinType::Double:     return Target->getDoubleFormat();
   case BuiltinType::LongDouble: return Target->getLongDoubleFormat();
@@ -1639,7 +1639,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getHalfWidth();
       Align = Target->getHalfAlign();
       break;
-    case BuiltinType::HalfFloat:
+    case BuiltinType::HalfFloat: // HLSL Change
     case BuiltinType::Float:
       Width = Target->getFloatWidth();
       Align = Target->getFloatAlign();
