@@ -50,6 +50,20 @@ void *CAllocator::Reallocate(void *p, size_t nBytes) throw() {
 void *CAllocator::Allocate(size_t nBytes) throw() { return malloc(nBytes); }
 void CAllocator::Free(void *p) throw() { free(p); }
 
+//===---------------------- Char converstion ------------------------------===//
+
+const char *CPToLocale(uint32_t CodePage) {
+  static const char *utf8 = "en_US.utf8";
+  static const char *iso88591 = "en_US.iso88591";
+  if (CodePage == CP_UTF8) {
+    return utf8;
+  } else if (CodePage == CP_ACP) {
+    // Experimentation suggests that ACP is expected to be ISO-8859-1
+    return iso88591;
+  }
+  return nullptr;
+}
+
 //===--------------------------- CHandle -------------------------------===//
 
 CHandle::CHandle(HANDLE h) { m_h = h; }
