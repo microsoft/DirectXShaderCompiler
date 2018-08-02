@@ -109,7 +109,7 @@ public:
                         UINT32 codePage, _In_ IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-    IFT(library->CreateBlobWithEncodingFromPinned((LPBYTE)data, size, codePage,
+    IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
                                                   ppBlob));
   }
 
@@ -172,7 +172,7 @@ public:
       IFT(mapping.MapFile(file));
       CComPtr<IDxcLibrary> library;
       IFT(support.CreateInstance(CLSID_DxcLibrary, &library));
-      IFT(library->CreateBlobWithEncodingFromPinned((LPBYTE)mapping.GetData(),
+      IFT(library->CreateBlobWithEncodingFromPinned(mapping.GetData(),
                                                     mapping.GetMappingSize(),
                                                     CP_UTF8, &BlobEncoding));
     }

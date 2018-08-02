@@ -985,7 +985,7 @@ public:
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-    IFT(library->CreateBlobWithEncodingFromPinned((LPBYTE)data, size, codePage,
+    IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
                                                   ppBlob));
   }
 
