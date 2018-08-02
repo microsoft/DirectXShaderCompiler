@@ -321,6 +321,7 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
   case BuiltinType::Double:
   case BuiltinType::LongDouble:
   // HLSL Change Starts
+  case BuiltinType::HalfFloat:
   case BuiltinType::Min10Float:
   case BuiltinType::Min12Int:
   case BuiltinType::LitFloat:

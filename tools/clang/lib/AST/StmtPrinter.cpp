@@ -1166,6 +1166,7 @@ static void PrintFloatingLiteral(raw_ostream &OS, FloatingLiteral *Node,
     case BuiltinType::Min10Float: break; // no suffix, as this is a literal and 'F' would pollute expression
     case BuiltinType::Half:       OS << 'H'; break; // HLSL Change -- added suffix
     case BuiltinType::Double:     OS << 'L'; break; // HLSL Change -- added suffix
+    case BuiltinType::HalfFloat:
     case BuiltinType::Float:      OS << 'F'; break;
     // Note absence of LongDouble - should not be possible in HLSL
     }

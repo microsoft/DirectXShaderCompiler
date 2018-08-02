@@ -57,7 +57,7 @@ unsigned ASTContext::NumImplicitDestructors;
 unsigned ASTContext::NumImplicitDestructorsDeclared;
 
 enum FloatingRank {
-  LitFloatRank, Min10FloatRank, HalfRank, FloatRank, DoubleRank, LongDoubleRank // HLSL Change - adds LitFloatRank and Min10FloatRank
+  LitFloatRank, Min10FloatRank, HalfRank, FloatRank, DoubleRank, LongDoubleRank, HalfFloatRank // HLSL Change - adds LitFloatRank and Min10FloatRank
 };
 
 RawComment *ASTContext::getRawCommentForDeclNoCache(const Decl *D) const {
@@ -1096,6 +1096,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
   if (LangOpts.HLSL) {
     InitBuiltinType(Min12IntTy, BuiltinType::Min12Int);
     InitBuiltinType(Min10FloatTy, BuiltinType::Min10Float);
+    InitBuiltinType(HalfFloatTy, BuiltinType::HalfFloat);
     InitBuiltinType(LitIntTy, BuiltinType::LitInt);
     InitBuiltinType(LitFloatTy, BuiltinType::LitFloat);
     hlsl::InitializeASTContextForHLSL(*this); // Previously in constructor, guarded by !DelayInitialization
@@ -1320,6 +1321,7 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
   case BuiltinType::Min10Float:
   // HLSL Change Ends
   case BuiltinType::Half:       return Target->getHalfFormat();
+  case BuiltinType::HalfFloat:
   case BuiltinType::Float:      return Target->getFloatFormat();
   case BuiltinType::Double:     return Target->getDoubleFormat();
   case BuiltinType::LongDouble: return Target->getLongDoubleFormat();
@@ -1637,6 +1639,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getHalfWidth();
       Align = Target->getHalfAlign();
       break;
+    case BuiltinType::HalfFloat:
     case BuiltinType::Float:
       Width = Target->getFloatWidth();
       Align = Target->getFloatAlign();
@@ -4601,6 +4604,7 @@ static FloatingRank getFloatingRank(QualType T) {
   case BuiltinType::Double:     return DoubleRank;
   case BuiltinType::LongDouble: return LongDoubleRank;
   case BuiltinType::Min10Float: return Min10FloatRank; // HLSL Change
+  case BuiltinType::HalfFloat: return HalfFloatRank; // HLSL Change
   case BuiltinType::LitFloat:   return LitFloatRank; // HLSL Change
   }
 }
@@ -4620,6 +4624,7 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
     case LongDoubleRank: return LongDoubleComplexTy;
     case LitFloatRank:   llvm_unreachable("Complex LitFloat is not supported");  // HLSL Change
     case Min10FloatRank: llvm_unreachable("Complex Min10Float is not supported"); // HLSL Change
+    case HalfFloatRank: llvm_unreachable("Complex HalfFloat is not supported"); // HLSL Change
     }
   }
 
@@ -5462,6 +5467,7 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
     // HLSL Change Start
     case BuiltinType::Min12Int:
     case BuiltinType::Min10Float:
+    case BuiltinType::HalfFloat:
     case BuiltinType::LitInt:
     case BuiltinType::LitFloat:
       llvm_unreachable("@encoding HLSL primitive type");

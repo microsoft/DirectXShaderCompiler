@@ -142,6 +142,9 @@ FLOATING_TYPE(LongDouble, LongDoubleTy)
 // HLSL Change - 'min10float' in HLSL
 FLOATING_TYPE(Min10Float, Min10FloatTy)
 
+// HLSL Change - 'halffloat' in HLSL
+FLOATING_TYPE(HalfFloat, HalfFloatTy)
+
 // HLSL Change - literal float in HLSL
 FLOATING_TYPE(LitFloat, LitFloatTy)
 

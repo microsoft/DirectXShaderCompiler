@@ -3379,6 +3379,7 @@ public:
       case BuiltinType::Double: return AR_BASIC_FLOAT64;
       case BuiltinType::Float: return AR_BASIC_FLOAT32;
       case BuiltinType::Half: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16FLOAT : AR_BASIC_FLOAT16;
+      case BuiltinType::HalfFloat: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_FLOAT32_PARTIAL_PRECISION : AR_BASIC_FLOAT16;
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
       case BuiltinType::Short: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16INT : AR_BASIC_INT16;
@@ -4518,7 +4519,7 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_int] = m_context->IntTy;
   m_baseTypes[HLSLScalarType_uint] = m_context->UnsignedIntTy;
   m_baseTypes[HLSLScalarType_dword] = m_context->UnsignedIntTy;
-  m_baseTypes[HLSLScalarType_half] = m_context->getLangOpts().UseMinPrecision ? m_context->FloatTy : m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_half] = m_context->getLangOpts().UseMinPrecision ? m_context->HalfFloatTy : m_context->HalfTy;
   m_baseTypes[HLSLScalarType_float] = m_context->FloatTy;
   m_baseTypes[HLSLScalarType_double] = m_context->DoubleTy;
   m_baseTypes[HLSLScalarType_float_min10] = m_context->HalfTy;
