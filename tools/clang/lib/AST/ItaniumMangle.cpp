@@ -2044,6 +2044,7 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::LitInt: Out << "lit_int"; break;
   case BuiltinType::LitFloat: Out << "lit_float"; break;
   case BuiltinType::Min10Float: Out << "min10_float"; break;
+  case BuiltinType::HalfFloat: Out << "half_float"; break;
     // HLSL Change ends
   }
 }

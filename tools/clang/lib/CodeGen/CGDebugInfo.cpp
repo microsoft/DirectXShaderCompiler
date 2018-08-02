@@ -465,6 +465,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::Min12Int:
   case BuiltinType::LitInt:
   case BuiltinType::Min10Float:
+  case BuiltinType::HalfFloat:
   case BuiltinType::LitFloat:
     llvm_unreachable("Unsupported HLSL types");
 #endif // HLSL Change - no ObjC or OpenCL support

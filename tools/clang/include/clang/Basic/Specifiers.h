@@ -49,6 +49,7 @@ namespace clang {
     TST_min10float,   // HLSL Change - HLSL type
     TST_min12int,     // HLSL Change - HLSL type
     TST_half,         // OpenCL half, ARM NEON __fp16
+    TST_halffloat,
     TST_float,
     TST_double,
     TST_bool,         // _Bool

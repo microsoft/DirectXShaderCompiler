@@ -689,6 +689,7 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
     else
       kind = CompType::Kind::F16;
     break;
+  case BuiltinType::HalfFloat:
   case BuiltinType::Float:
     if (bSNorm)
       kind = CompType::Kind::SNormF32;
@@ -1887,6 +1888,7 @@ hlsl::CompType CGMSHLSLRuntime::GetCompType(const BuiltinType *BT) {
   case BuiltinType::Double:
     ElementType = hlsl::CompType::getF64();
     break;
+  case BuiltinType::HalfFloat:
   case BuiltinType::Float:
     ElementType = hlsl::CompType::getF32();
     break;
