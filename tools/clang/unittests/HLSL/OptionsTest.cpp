@@ -23,10 +23,13 @@
 #include "dxc/dxcapi.h"
 
 #include "HLSLTestData.h"
+#ifdef _WIN32
 #include "WexTestClass.h"
+#endif
 #include "HlslTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/ADT/STLExtras.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
@@ -46,7 +49,11 @@ public:
   MainArgsArr(const wchar_t *(&arr)[n]) : MainArgs(n, arr) {}
 };
 
+#ifdef _WIN32
 class OptionsTest {
+#else
+class OptionsTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(OptionsTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -77,7 +84,7 @@ public:
                                         bool shouldMessage = false) {
     std::string errorString;
     llvm::raw_string_ostream errorStream(errorString);
-    std::unique_ptr<DxcOpts> opts = std::make_unique<DxcOpts>();
+    std::unique_ptr<DxcOpts> opts = llvm::make_unique<DxcOpts>();
     int result = ReadDxcOpts(getHlslOptTable(), flagsToInclude, mainArgs,
                              *(opts.get()), errorStream);
     EXPECT_EQ(shouldFail, result != 0);
@@ -89,7 +96,7 @@ public:
       const char *expectErrorMsg) {
     std::string errorString;
     llvm::raw_string_ostream errorStream(errorString);
-    std::unique_ptr<DxcOpts> opts = std::make_unique<DxcOpts>();
+    std::unique_ptr<DxcOpts> opts = llvm::make_unique<DxcOpts>();
     int result = ReadDxcOpts(getHlslOptTable(), flagsToInclude, mainArgs,
                              *(opts.get()), errorStream);
     EXPECT_EQ(result, 1);
