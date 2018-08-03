@@ -41,7 +41,7 @@ cache:
   apt: true
 
 git:
-  depth: 1
+  depth: false
 
 branches:
   only:
