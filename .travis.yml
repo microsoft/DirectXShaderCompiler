@@ -40,6 +40,9 @@ matrix:
 cache:
   apt: true
 
+git:
+  depth: false
+
 branches:
   only:
     - master
