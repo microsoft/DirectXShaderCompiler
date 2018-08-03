@@ -373,8 +373,12 @@ private:
       E.SemanticName = 0;
     }
     // Search index buffer for matching semantic index sequence
-    DXASSERT_NOMSG(SE.GetRows() == SE.GetSemanticIndexVec().size());
-    auto &SemIdx = SE.GetSemanticIndexVec();
+    auto SemIdx = SE.GetSemanticIndexVec();
+    if (SemIdx.empty()) {
+      // the 11on12 DXBC->DXIL converter can produce no semantic indices for
+      // system values. Fake up a vector of (probably one) zeroes:
+      SemIdx.assign(static_cast<size_t>(SE.GetRows()), 0);
+    }
     bool match = false;
     for (uint32_t offset = 0; offset + SE.GetRows() - 1 < m_SemanticIndexBuffer.size(); offset++) {
       match = true;
