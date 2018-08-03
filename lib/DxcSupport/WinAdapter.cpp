@@ -53,8 +53,13 @@ void CAllocator::Free(void *p) throw() { free(p); }
 //===---------------------- Char converstion ------------------------------===//
 
 const char *CPToLocale(uint32_t CodePage) {
+#ifdef __APPLE__
+  static const char *utf8 = "en_US.UTF-8";
+  static const char *iso88591 = "en_US.ISO8859-1";
+#else
   static const char *utf8 = "en_US.utf8";
   static const char *iso88591 = "en_US.iso88591";
+#endif
   if (CodePage == CP_UTF8) {
     return utf8;
   } else if (CodePage == CP_ACP) {
