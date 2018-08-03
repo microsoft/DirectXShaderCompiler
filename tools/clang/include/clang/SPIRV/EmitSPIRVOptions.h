@@ -9,6 +9,9 @@
 #ifndef LLVM_CLANG_SPIRV_EMITSPIRVOPTIONS_H
 #define LLVM_CLANG_SPIRV_EMITSPIRVOPTIONS_H
 
+#include <string>
+#include <vector>
+
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -45,6 +48,7 @@ struct EmitSPIRVOptions {
   llvm::SmallVector<int32_t, 4> tShift;
   llvm::SmallVector<int32_t, 4> sShift;
   llvm::SmallVector<int32_t, 4> uShift;
+  std::vector<std::string> bindRegister;
   llvm::SmallVector<llvm::StringRef, 4> allowedExtensions;
   llvm::StringRef targetEnv;
   spirv::LayoutRule cBufferLayoutRule;

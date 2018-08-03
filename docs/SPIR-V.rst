@@ -144,8 +144,35 @@ constructs when possible. If that is inadequate, we then consider attaching
 Descriptors
 ~~~~~~~~~~~
 
-To specify which Vulkan descriptor a particular resource binds to, use the
-``[[vk::binding(X[, Y])]]`` attribute.
+The compiler provides multiple mechanisms to specify which Vulkan descriptor
+a particular resource binds to.
+
+In the source code, you can use the ``[[vk::binding(X[, Y])]]`` and
+``[[vk::counter_binding(X)]]`` attribute. The native ``:register()`` attribute
+is also respected.
+
+On the command-line, you can use the ``-fvk-{b|s|t|u}-shift`` or
+``-fvk-bind-register`` option.
+
+If you can modify the source code, the ``[[vk::binding(X[, Y])]]`` and
+``[[vk::counter_binding(X)]]`` attribute gives you find-grained control over
+descriptor assignment.
+
+If you cannot modify the source code, you can use command-line options to change
+how ``:register()`` attribute is handled by the compiler. ``-fvk-bind-register``
+lets you to specify the descriptor for the source at a certain register.
+``-fvk-{b|s|t|u}-shift`` lets you to apply shifts to all register numbers
+of a certain register type. They cannot be used together, though.
+
+Without attribute and command-line option, ``:register(xX, spaceY)`` will be
+mapped to binding ``X`` in descriptor set ``Y``. Note that register type ``x``
+is ignored, so this may cause overlap.
+
+The more specific a mechanism is, the higher precedence it has, and command-line
+option has higher precedence over source code attribute.
+
+For more details, see `HLSL register and Vulkan binding`_, `Vulkan specific
+attributes`_, and `Vulkan-specific options`_.
 
 Subpass inputs
 ~~~~~~~~~~~~~~
@@ -2829,6 +2856,12 @@ codegen for Vulkan:
 - ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
 - ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
 - ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.
+- ``-fvk-bind-register xX Y N M`` (short alias: ``-vkbr``): Binds the resouce
+  at ``register(xX, spaceY)`` to descriptor set ``M`` and binding ``N``. This
+  option cannot be used together with other binding assignment options.
+  It requires all source code resources have ``:register()`` attribute and
+  all registers have corresponding Vulkan descriptors specified using this
+  option.
 - ``-fvk-use-gl-layout``: Uses strict OpenGL ``std140``/``std430``
   layout rules for resources.
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
