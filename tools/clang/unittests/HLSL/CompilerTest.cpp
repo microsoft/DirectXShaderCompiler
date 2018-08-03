@@ -1316,10 +1316,7 @@ public:
     VERIFY_SUCCEEDED(pCompiler->Compile(
         pSource, name, entry.c_str(), profile.c_str(), args.data(), args.size(),
         opts.Defines.data(), opts.Defines.size(), nullptr, &pResult));
-    if (pResult == nullptr) {
-      WEX::Logging::Log::Comment(L"Failed to compile - pResult NULL");
-      return;
-    }
+    VERIFY_IS_NOT_NULL(pResult, L"Failed to compile - pResult NULL");
     HRESULT result;
     VERIFY_SUCCEEDED(pResult->GetStatus(&result));
     if (FAILED(result)) {
