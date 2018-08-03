@@ -25,24 +25,45 @@
 #define MACRO_N_(PREFIX, N, ...) CONCAT(PREFIX, N)(__VA_ARGS__)
 #define MACRO_N(PREFIX, ...) MACRO_N_(PREFIX, NARG(__VA_ARGS__), __VA_ARGS__)
 
-// single and double argument versions
+// Macros to convert TAEF macros to gtest equivalents
+// Single and double argument versions for optional failure messages
 #define VERIFY_SUCCEEDED_1(expr) EXPECT_TRUE(SUCCEEDED(expr))
 #define VERIFY_SUCCEEDED_2(expr, msg) EXPECT_TRUE(SUCCEEDED(expr)) << msg
 #define VERIFY_SUCCEEDED(...) MACRO_N(VERIFY_SUCCEEDED_, __VA_ARGS__)
+
+#define VERIFY_FAILED_1(expr) EXPECT_FALSE(SUCCEEDED(expr))
+#define VERIFY_FAILED_2(expr, msg) EXPECT_FALSE(SUCCEEDED(expr)) << msg
+#define VERIFY_FAILED(...) MACRO_N(VERIFY_FAILED_, __VA_ARGS__)
 
 #define VERIFY_ARE_EQUAL_2(A, B) EXPECT_EQ(A, B)
 #define VERIFY_ARE_EQUAL_3(A, B, msg) EXPECT_EQ(A, B) << msg
 #define VERIFY_ARE_EQUAL(...) MACRO_N(VERIFY_ARE_EQUAL_, __VA_ARGS__)
 
-// Macros to convert TAEF macros to gtest equivalents
-#define VERIFY_IS_TRUE EXPECT_TRUE
-#define VERIFY_FAILED(expr) EXPECT_FALSE(SUCCEEDED(expr))
-#define VERIFY_IS_FALSE EXPECT_FALSE
-#define VERIFY_IS_NULL(exp) EXPECT_EQ(nullptr, (exp))
-#define VERIFY_IS_NOT_NULL(exp) EXPECT_NE(nullptr, (exp))
+#define VERIFY_ARE_NOT_EQUAL_2(A, B) EXPECT_NE(A, B)
+#define VERIFY_ARE_NOT_EQUAL_3(A, B, msg) EXPECT_NE(A, B) << msg
+#define VERIFY_ARE_NOT_EQUAL(...) MACRO_N(VERIFY_ARE_NOT_EQUAL_, __VA_ARGS__)
+
+#define VERIFY_IS_TRUE_1(expr) EXPECT_TRUE(expr)
+#define VERIFY_IS_TRUE_2(expr, msg) EXPECT_TRUE(expr) << msg
+#define VERIFY_IS_TRUE(...) MACRO_N(VERIFY_IS_TRUE_, __VA_ARGS__)
+
+#define VERIFY_IS_FALSE_1(expr) EXPECT_FALSE(expr)
+#define VERIFY_IS_FALSE_2(expr, msg) EXPECT_FALSE(expr) << msg
+#define VERIFY_IS_FALSE(...) MACRO_N(VERIFY_IS_FALSE_, __VA_ARGS__)
+
+#define VERIFY_IS_NULL_1(expr) EXPECT_EQ(nullptr, (expr))
+#define VERIFY_IS_NULL_2(expr, msg) EXPECT_EQ(nullptr, (expr)) << msg
+#define VERIFY_IS_NULL(...) MACRO_N(VERIFY_IS_NULL_, __VA_ARGS__)
+
+#define VERIFY_IS_NOT_NULL_1(expr) EXPECT_NE(nullptr, (expr))
+#define VERIFY_IS_NOT_NULL_2(expr, msg) EXPECT_NE(nullptr, (expr)) << msg
+#define VERIFY_IS_NOT_NULL(...) MACRO_N(VERIFY_IS_NOT_NULL_, __VA_ARGS__)
+
+#define VERIFY_WIN32_BOOL_SUCCEEDED_1(expr) EXPECT_TRUE(expr)
+#define VERIFY_WIN32_BOOL_SUCCEEDED_2(expr, msg) EXPECT_TRUE(expr) << msg
+#define VERIFY_WIN32_BOOL_SUCCEEDED(...) MACRO_N(VERIFY_WIN32_BOOL_SUCCEEDED_, __VA_ARGS__)
+
 #define VERIFY_FAIL ADD_FAILURE
-#define VERIFY_ARE_NOT_EQUAL EXPECT_NE
-#define VERIFY_WIN32_BOOL_SUCCEEDED EXPECT_TRUE
 
 #define TEST_CLASS_SETUP(method)                                               \
   bool method();                                                               \
