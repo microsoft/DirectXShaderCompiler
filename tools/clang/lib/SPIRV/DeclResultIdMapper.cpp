@@ -20,6 +20,7 @@
 #include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
 
 namespace clang {
@@ -436,7 +437,8 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
   const auto *counterBindingAttr = var->getAttr<VKCounterBindingAttr>();
 
-  resourceVars.emplace_back(id, regAttr, bindingAttr, counterBindingAttr);
+  resourceVars.emplace_back(id, var->getLocation(), regAttr, bindingAttr,
+                            counterBindingAttr);
 
   if (const auto *inputAttachment = var->getAttr<VKInputAttachmentIndexAttr>())
     theBuilder.decorateInputAttachmentIndex(id, inputAttachment->getIndex());
@@ -594,9 +596,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
                                              : spirvOptions.tBufferLayoutRule);
     astDecls[varDecl].indexInCTBuffer = index++;
   }
-  resourceVars.emplace_back(bufferVar, getResourceBinding(decl),
-                            decl->getAttr<VKBindingAttr>(),
-                            decl->getAttr<VKCounterBindingAttr>());
+  resourceVars.emplace_back(
+      bufferVar, decl->getLocation(), getResourceBinding(decl),
+      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
 }
@@ -642,9 +644,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
           .setStorageClass(spv::StorageClass::Uniform)
           .setLayoutRule(context->isCBuffer() ? spirvOptions.cBufferLayoutRule
                                               : spirvOptions.tBufferLayoutRule);
-  resourceVars.emplace_back(bufferVar, getResourceBinding(context),
-                            decl->getAttr<VKBindingAttr>(),
-                            decl->getAttr<VKCounterBindingAttr>());
+  resourceVars.emplace_back(
+      bufferVar, decl->getLocation(), getResourceBinding(context),
+      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
 }
@@ -679,7 +681,8 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
       context, /*arraySize*/ 0, ContextUsageKind::Globals, "type.$Globals",
       "$Globals");
 
-  resourceVars.emplace_back(globals, nullptr, nullptr, nullptr);
+  resourceVars.emplace_back(globals, SourceLocation(), nullptr, nullptr,
+                            nullptr);
 
   uint32_t index = 0;
   for (const auto *decl : typeTranslator.collectDeclsInDeclContext(context))
@@ -793,7 +796,8 @@ void DeclResultIdMapper::createCounterVar(
   if (!isAlias) {
     // Non-alias counter variables should be put in to resourceVars so that
     // descriptors can be allocated for them.
-    resourceVars.emplace_back(counterId, getResourceBinding(decl),
+    resourceVars.emplace_back(counterId, decl->getLocation(),
+                              getResourceBinding(decl),
                               decl->getAttr<VKBindingAttr>(),
                               decl->getAttr<VKCounterBindingAttr>(), true);
     assert(declId);
@@ -1096,6 +1100,59 @@ private:
   uint32_t masterShift; /// Shift amount applies to all sets.
   llvm::DenseMap<int32_t, int32_t> perSetShift;
 };
+
+/// A class for maintaining the mapping from source code register attributes to
+/// descriptor set and number settings.
+class RegisterBindingMapper {
+public:
+  /// Takes in the relation between register attributes and descriptor settings.
+  /// Each relation is represented by four strings:
+  ///   <register-type-number> <space> <descriptor-binding> <set>
+  bool takeInRelation(const std::vector<std::string> &relation,
+                      std::string *error) {
+    assert(relation.size() % 4 == 0);
+    mapping.clear();
+
+    for (uint32_t i = 0; i < relation.size(); i += 4) {
+      int32_t spaceNo = -1, setNo = -1, bindNo = -1;
+      if (StringRef(relation[i + 1]).getAsInteger(10, spaceNo) || spaceNo < 0) {
+        *error = "space number: " + relation[i + 1];
+        return false;
+      }
+      if (StringRef(relation[i + 2]).getAsInteger(10, bindNo) || bindNo < 0) {
+        *error = "binding number: " + relation[i + 2];
+        return false;
+      }
+      if (StringRef(relation[i + 3]).getAsInteger(10, setNo) || setNo < 0) {
+        *error = "set number: " + relation[i + 3];
+        return false;
+      }
+      mapping[relation[i + 1] + relation[i]] = std::make_pair(setNo, bindNo);
+    }
+    return true;
+  }
+
+  /// Returns true and set the correct set and binding number if we can find a
+  /// descriptor setting for the given register. False otherwise.
+  bool getSetBinding(const hlsl::RegisterAssignment *regAttr, int *setNo,
+                     int *bindNo) const {
+    std::ostringstream iss;
+    iss << regAttr->RegisterSpace << regAttr->RegisterType
+        << regAttr->RegisterNumber;
+
+    auto found = mapping.find(iss.str());
+    if (found != mapping.end()) {
+      *setNo = found->second.first;
+      *bindNo = found->second.second;
+      return true;
+    }
+
+    return false;
+  }
+
+private:
+  llvm::StringMap<std::pair<int, int>> mapping;
+};
 } // namespace
 
 bool DeclResultIdMapper::decorateResourceBindings() {
@@ -1116,6 +1173,43 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   // - m1, mX * c1
   // - m2
   // - m3, mX * c2
+
+  // Special handling of -fvk-bind-register, which requires
+  // * All resources are annoated with :register() in the source code
+  // * -fvk-bind-register is specified for every resource
+  if (!spirvOptions.bindRegister.empty()) {
+    RegisterBindingMapper bindingMapper;
+    std::string error;
+
+    if (!bindingMapper.takeInRelation(spirvOptions.bindRegister, &error)) {
+      emitError("invalid -fvk-bind-register %0", {}) << error;
+      return false;
+    }
+
+    for (const auto &var : resourceVars)
+      if (const auto *regAttr = var.getRegister()) {
+        if (var.isCounter()) {
+          emitError("-fvk-bind-register for RW/Append/Consume StructuredBuffer "
+                    "umimplemented",
+                    var.getSourceLocation());
+        } else {
+          int setNo = 0, bindNo = 0;
+          if (!bindingMapper.getSetBinding(regAttr, &setNo, &bindNo)) {
+            emitError("missing -fvk-bind-register for resource",
+                      var.getSourceLocation());
+            return false;
+          }
+          theBuilder.decorateDSetBinding(var.getSpirvId(), setNo, bindNo);
+        }
+      } else {
+        emitError(
+            "-fvk-bind-register requires register annotations on all resources",
+            var.getSourceLocation());
+        return false;
+      }
+
+    return true;
+  }
 
   BindingSet bindingSet;
 

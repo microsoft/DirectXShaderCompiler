@@ -1409,12 +1409,33 @@ TEST_F(FileTest, VulkanRegisterBinding) {
 TEST_F(FileTest, VulkanRegisterBindingShift) {
   // Resource binding from :register() with shift specified via
   // command line option
-  runFileTest("vk.binding.cl.hlsl");
+  runFileTest("vk.binding.cl.shift.hlsl");
 }
 TEST_F(FileTest, VulkanRegisterBindingShiftAllSets) {
   // Resource binding from :register() with shift specified for all sets via
   // command line option
-  runFileTest("vk.binding.cl.all-sets.hlsl");
+  runFileTest("vk.binding.cl.shift.all-sets.hlsl");
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1Mapping) {
+  runFileTest("vk.binding.cl.register.hlsl");
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidSpaceNo) {
+  runFileTest("vk.binding.cl.register.invalid-space.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidSetNo) {
+  runFileTest("vk.binding.cl.register.invalid-set.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidBindNo) {
+  runFileTest("vk.binding.cl.register.invalid-bind.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingAttr) {
+  runFileTest("vk.binding.cl.register.missing-attr.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingCLOption) {
+  runFileTest("vk.binding.cl.register.missing-cl.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingAssociatedCounter) {
+  runFileTest("vk.binding.cl.register.counter.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
