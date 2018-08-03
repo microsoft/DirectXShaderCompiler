@@ -10,7 +10,7 @@
 //
 // Copyright (c) Microsoft Corporation. All rights reserved.
 //--------------------------------------------------------------------------------------
-#include "Shader_include.hlsli"
+#include "shader_include.hlsli"
 
 //--------------------------------------------------------------------------------------
 // Internal defines

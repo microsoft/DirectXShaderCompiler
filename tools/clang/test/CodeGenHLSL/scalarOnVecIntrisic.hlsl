@@ -24,7 +24,7 @@ float4 main(float4 a : A) : SV_TARGET {
 
 // reflect(i, n): = i - 2 * n * dot(i, n) -> 1- 4*2 = -7
 // dot(2,3) -> 6
-// faceforward(n,i,ng): -n× sign(dot(i, ng))  -> -1
+// faceforward(n,i,ng): -nx sign(dot(i, ng))  -> -1
 
 // 1 - (2 + sqrt(4)) * 2 + -7 + 6 + -1 = -1 (2 + sqrt(4)) * 2
 // = -1 - (2 + sqrt(4)) * 2

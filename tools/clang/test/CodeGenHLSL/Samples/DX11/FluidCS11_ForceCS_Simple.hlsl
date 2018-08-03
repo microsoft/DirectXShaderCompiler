@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
+﻿// RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
 // CHECK: threadId
 // CHECK: bufferLoad
@@ -18,7 +18,7 @@
 //--------------------------------------------------------------------------------------
 // Smoothed Particle Hydrodynamics Algorithm Based Upon:
 // Particle-Based Fluid Simulation for Interactive Applications
-// Matthias M�ller
+// Matthias Müller
 //--------------------------------------------------------------------------------------
 
 //--------------------------------------------------------------------------------------
