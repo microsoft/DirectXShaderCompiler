@@ -323,6 +323,9 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
   // HLSL Change Starts
   case BuiltinType::HalfFloat:
   case BuiltinType::Min10Float:
+  case BuiltinType::Min16Float:
+  case BuiltinType::Min16Int:
+  case BuiltinType::Min16UInt:
   case BuiltinType::Min12Int:
   case BuiltinType::LitFloat:
   case BuiltinType::LitInt:

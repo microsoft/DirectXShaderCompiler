@@ -2522,6 +2522,9 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case OCLEvent:          return "event_t";
   // HLSL Change Starts
   case Min10Float:        return "min10float";
+  case Min16Float:        return "min16float";
+  case Min16Int:          return "min16int";
+  case Min16UInt:         return "min16uint";
   case Min12Int:          return "min12int";
   case LitFloat:          return "literal float";
   case LitInt:            return "literal int";

@@ -2369,8 +2369,11 @@ static bool TypeInfoIsInStandardLibrary(const BuiltinType *Ty) {
     case BuiltinType::ObjCSel:
       llvm_unreachable("FIXME: Objective-C types are unsupported!");
     case BuiltinType::Min12Int:
+    case BuiltinType::Min16Int:
+    case BuiltinType::Min16UInt:
     case BuiltinType::LitInt:
     case BuiltinType::Min10Float:
+    case BuiltinType::Min16Float:
     case BuiltinType::HalfFloat:
     case BuiltinType::LitFloat:
       llvm_unreachable("FIXME: HLSL types are unsupported!");

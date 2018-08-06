@@ -3389,6 +3389,9 @@ public:
       case BuiltinType::LongLong: return AR_BASIC_INT64;
       case BuiltinType::ULongLong: return AR_BASIC_UINT64;
       case BuiltinType::Min12Int: return AR_BASIC_MIN12INT;
+      case BuiltinType::Min16Float: return AR_BASIC_MIN16FLOAT;
+      case BuiltinType::Min16Int: return AR_BASIC_MIN16INT;
+      case BuiltinType::Min16UInt: return AR_BASIC_MIN16UINT;
       case BuiltinType::Min10Float: return AR_BASIC_MIN10FLOAT;
       case BuiltinType::LitFloat: return AR_BASIC_LITERAL_FLOAT;
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
@@ -4522,11 +4525,11 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_half] = m_context->getLangOpts().UseMinPrecision ? m_context->HalfFloatTy : m_context->HalfTy;
   m_baseTypes[HLSLScalarType_float] = m_context->FloatTy;
   m_baseTypes[HLSLScalarType_double] = m_context->DoubleTy;
-  m_baseTypes[HLSLScalarType_float_min10] = m_context->HalfTy;
-  m_baseTypes[HLSLScalarType_float_min16] = m_context->HalfTy;
-  m_baseTypes[HLSLScalarType_int_min12] = m_context->ShortTy;
-  m_baseTypes[HLSLScalarType_int_min16] = m_context->ShortTy;
-  m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
+  m_baseTypes[HLSLScalarType_float_min10] = m_context->getLangOpts().UseMinPrecision ? m_context->Min10FloatTy : m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_float_min16] = m_context->getLangOpts().UseMinPrecision ? m_context->Min16FloatTy : m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_int_min12] = m_context->getLangOpts().UseMinPrecision ? m_context->Min12IntTy : m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_int_min16] = m_context->getLangOpts().UseMinPrecision ? m_context->Min16IntTy : m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_uint_min16] = m_context->getLangOpts().UseMinPrecision ? m_context->Min16UIntTy : m_context->UnsignedShortTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
   m_baseTypes[HLSLScalarType_int16] = m_context->ShortTy;

@@ -72,7 +72,7 @@ void matrix_unsigned() {
    unsigned bool3x4 boolMatirx;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned half4x1 halfMatrix;   /* expected-error {{'half' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned double1x2 doubleMatrix;                           /* expected-error {{'double' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min12int2x3 min12intMatrix;                       /* expected-warning {{min12int is promoted to int16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min12int2x3 min12intMatrix;                       /* expected-warning {{min12int is promoted to int16_t}} fxc-pass {{}} */
    unsigned min16float3x4 min16floatMatrix;                   /* expected-error {{'half' cannot be signed or unsigned}} expected-warning {{min16float is promoted to float16_t}} fxc-error {{X3085: unsigned can not be used with type}} */
 
    unsigned int16_t2x3 uint16_tMatrix1;                       /* fxc-error {{X3000: syntax error: unexpected token 'int16_t2x3'}} */

@@ -1131,7 +1131,9 @@ void StmtPrinter::VisitIntegerLiteral(IntegerLiteral *Node) {
   case BuiltinType::Char_S:
   case BuiltinType::Char_U:    OS << "i8"; break;
   case BuiltinType::UChar:     OS << "Ui8"; break;
+  case BuiltinType::Min16Int:
   case BuiltinType::Short:     OS << "i16"; break;
+  case BuiltinType::Min16UInt:
   case BuiltinType::UShort:    OS << "Ui16"; break;
   case BuiltinType::LitInt:    break; // HLSL Change
   case BuiltinType::Int:       break; // no suffix.
@@ -1164,9 +1166,10 @@ static void PrintFloatingLiteral(raw_ostream &OS, FloatingLiteral *Node,
     default: llvm_unreachable("Unexpected type for float literal!");
     case BuiltinType::LitFloat:   break; // HLSL Change -- no suffix
     case BuiltinType::Min10Float: break; // no suffix, as this is a literal and 'F' would pollute expression
+    case BuiltinType::HalfFloat:
+    case BuiltinType::Min16Float:
     case BuiltinType::Half:       OS << 'H'; break; // HLSL Change -- added suffix
     case BuiltinType::Double:     OS << 'L'; break; // HLSL Change -- added suffix
-    case BuiltinType::HalfFloat:
     case BuiltinType::Float:      OS << 'F'; break;
     // Note absence of LongDouble - should not be possible in HLSL
     }
