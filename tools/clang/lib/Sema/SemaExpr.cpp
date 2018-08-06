@@ -4041,6 +4041,19 @@ Sema::ActOnArraySubscriptExpr(Scope *S, Expr *base, SourceLocation lbLoc,
     base = result.get();
   }
 
+  // HLSL Changes Start
+  // If a zero-index is used on an r-value expression (such as FOO(x)[0])
+  // of scalar type, then convert the expr to vector.
+  IntegerLiteral *idxVal = dyn_cast<IntegerLiteral>(idx);
+  bool isZeroIdx = idxVal != nullptr && !(idxVal->getValue().getBoolValue());
+  if (getLangOpts().HLSL && isZeroIdx && base->isRValue()) {
+    ExprResult result = hlsl::MaybeConvertScalarToVector(this, base);
+    if (result.isInvalid())
+      return ExprError();
+    base = result.get();
+  }
+  // HLSL Changes End
+
   // Handle any non-overload placeholder types in the base and index
   // expressions.  We can't handle overloads here because the other
   // operand might be an overloadable type, in which case the overload
