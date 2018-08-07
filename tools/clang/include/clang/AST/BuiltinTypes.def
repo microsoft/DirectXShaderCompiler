@@ -81,6 +81,9 @@ UNSIGNED_TYPE(Char32, Char32Ty)
 // 'unsigned short'
 UNSIGNED_TYPE(UShort, UnsignedShortTy)
 
+// HLSL Change - 'min16uint' in HLSL
+UNSIGNED_TYPE(Min16UInt, Min16UIntTy)
+
 // 'unsigned int'
 UNSIGNED_TYPE(UInt, UnsignedIntTy)
 
@@ -122,6 +125,9 @@ SIGNED_TYPE(Int128, Int128Ty)
 // HLSL Change - 'min12int' in HLSL
 SIGNED_TYPE(Min12Int, Min12IntTy)
 
+// HLSL Change - 'min16int' in HLSL
+SIGNED_TYPE(Min16Int, Min16IntTy)
+
 // HLSL Change - literal int in HLSL
 SIGNED_TYPE(LitInt, LitIntTy)
 
@@ -141,6 +147,12 @@ FLOATING_TYPE(LongDouble, LongDoubleTy)
 
 // HLSL Change - 'min10float' in HLSL
 FLOATING_TYPE(Min10Float, Min10FloatTy)
+
+// HLSL Change - 'min16float' in HLSL
+FLOATING_TYPE(Min16Float, Min16FloatTy)
+
+// HLSL Change - 'halffloat' in HLSL
+FLOATING_TYPE(HalfFloat, HalfFloatTy)
 
 // HLSL Change - literal float in HLSL
 FLOATING_TYPE(LitFloat, LitFloatTy)

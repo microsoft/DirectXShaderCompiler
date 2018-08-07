@@ -310,6 +310,10 @@ bool Declarator::isDeclarationOfFunction() const {
     case TST_void:
     case TST_wchar:
     // HLSL Change Starts
+    case TST_halffloat:
+    case TST_min16float:
+    case TST_min16int:
+    case TST_min16uint:
     case TST_min10float:
     case TST_min12int:
     // HLSL Change Ends
@@ -459,8 +463,12 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
   case DeclSpec::TST_int:         return "int";
   case DeclSpec::TST_int128:      return "__int128";
   // HLSL Change Starts
+  case DeclSpec::TST_min16float:  return "min16float";
+  case DeclSpec::TST_min16int:    return "min16int";
+  case DeclSpec::TST_min16uint:   return "min16uint";
   case DeclSpec::TST_min10float:  return "min10float";
   case DeclSpec::TST_min12int:    return "min12int";
+  case DeclSpec::TST_halffloat:
     // HLSL Change Ends
   case DeclSpec::TST_half:        return "half";
   case DeclSpec::TST_float:       return "float";

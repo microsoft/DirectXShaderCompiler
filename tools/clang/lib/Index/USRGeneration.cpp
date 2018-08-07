@@ -566,6 +566,7 @@ void USRGenerator::VisitType(QualType T) {
           c = 'q'; break;
         case BuiltinType::Char32:
           c = 'w'; break;
+        case BuiltinType::Min16UInt: // HLSL Change
         case BuiltinType::UShort:
           c = 's'; break;
         case BuiltinType::UInt:
@@ -584,6 +585,7 @@ void USRGenerator::VisitType(QualType T) {
         case BuiltinType::WChar_S:
         case BuiltinType::WChar_U:
           c = 'W'; break;
+        case BuiltinType::Min16Int: // HLSL Change
         case BuiltinType::Short:
           c = 'S'; break;
         case BuiltinType::Int:
@@ -596,6 +598,7 @@ void USRGenerator::VisitType(QualType T) {
           c = 'J'; break;
         case BuiltinType::Half:
           c = 'h'; break;
+        case BuiltinType::HalfFloat: // HLSL Change
         case BuiltinType::Float:
           c = 'f'; break;
         case BuiltinType::Double:
@@ -604,6 +607,7 @@ void USRGenerator::VisitType(QualType T) {
           c = 'D'; break;
         // HLSL Change Starts
         case BuiltinType::Min10Float:
+        case BuiltinType::Min16Float:
           c = 'r'; break;
         case BuiltinType::Min12Int:
           c = 'R'; break;
