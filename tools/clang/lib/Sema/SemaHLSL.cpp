@@ -263,6 +263,7 @@ enum ArBasicKind {
 
 #define GET_BPROP_PRIM_KIND(_Props) \
     ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING))
+
 #define GET_BPROP_PRIM_KIND_SU(_Props) \
     ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING | BPROP_UNSIGNED))
 
@@ -278,9 +279,11 @@ enum ArBasicKind {
 #define IS_BPROP_SINT(_Props) \
     (((_Props) & (BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BOOLEAN)) == \
      BPROP_INTEGER)
+
 #define IS_BPROP_UINT(_Props) \
     (((_Props) & (BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BOOLEAN)) == \
      (BPROP_INTEGER | BPROP_UNSIGNED))
+
 #define IS_BPROP_AINT(_Props) \
     (((_Props) & (BPROP_INTEGER | BPROP_BOOLEAN)) == BPROP_INTEGER)
 
@@ -298,6 +301,33 @@ enum ArBasicKind {
 
 #define IS_BPROP_MIN_PRECISION(_Props) \
     (((_Props) & BPROP_MIN_PRECISION) != 0)
+
+#define IS_BPROP_16BIT_NO_MIN_PRECISION(_Props) \
+    (!IS_BPROP_MIN_PRECISION(_Props) && GET_BPROP_BITS(_Props) == BPROP_BITS16)
+
+#define IS_BPROP_16BIT_MIN_PRECISION(_Props) \
+    (IS_BPROP_MIN_PRECISION(_Props) && GET_BPROP_BITS(_Props) == BPROP_BITS16)
+
+#define IS_BPROP_16BIT_FLOAT_NO_MIN_PRECISION(_Props) \
+    (IS_BPROP_16BIT_NO_MIN_PRECISION(_Props) && IS_BPROP_FLOAT(_Props))
+
+#define IS_BPROP_16BIT_SINT_NO_MIN_PRECISION(_Props) \
+    (IS_BPROP_16BIT_NO_MIN_PRECISION(_Props) && IS_BPROP_SINT(_Props))
+
+#define IS_BPROP_16BIT_AINT_NO_MIN_PRECISION(_Props) \
+    (IS_BPROP_16BIT_NO_MIN_PRECISION(_Props) && (IS_BPROP_SINT(_Props) || IS_BPROP_UINT(_Props)))
+
+#define IS_BPROP_16BIT_UINT_NO_MIN_PRECISION(_Props) \
+    (IS_BPROP_16BIT_NO_MIN_PRECISION(_Props) && IS_BPROP_UINT(_Props))
+
+#define IS_BPROP_16BIT_SINT_MIN_PRECISION(_Props) \
+    (IS_BPROP_16BIT_MIN_PRECISION(_Props) && IS_BPROP_SINT(_Props))
+
+#define IS_BPROP_16BIT_AINT_MIN_PRECISION(_Props) \
+    (IS_BPROP_16BIT_MIN_PRECISION(_Props) && (IS_BPROP_SINT(_Props) || IS_BPROP_UINT(_Props)))
+
+#define IS_BPROP_16BIT_UINT_MIN_PRECISION(_Props) \
+    (IS_BPROP_16BIT_MIN_PRECISION(_Props) && IS_BPROP_UINT(_Props))
 
 #define IS_BPROP_UNSIGNABLE(_Props) \
     (IS_BPROP_AINT(_Props) && GET_BPROP_BITS(_Props) != BPROP_BITS12)
@@ -1801,8 +1831,14 @@ static bool CombineBasicTypes(
     switch (uBits)
     {
     case BPROP_BITS8:  *pOutKind = AR_BASIC_UINT8;  break;
-    case BPROP_BITS16: (uEitherFlags & BPROP_MIN_PRECISION) ?
-      *pOutKind = AR_BASIC_MIN16UINT : *pOutKind = AR_BASIC_UINT16; break;
+    case BPROP_BITS16:
+      if (IS_BPROP_16BIT_UINT_NO_MIN_PRECISION(uLeftProps) ||
+        IS_BPROP_16BIT_UINT_NO_MIN_PRECISION(uRightProps)) {
+        *pOutKind = AR_BASIC_UINT16;
+      } else {
+        *pOutKind = AR_BASIC_MIN16UINT;
+      }
+      break;
     case BPROP_BITS32: *pOutKind = AR_BASIC_UINT32; break;
     case BPROP_BITS64: *pOutKind = AR_BASIC_UINT64; break;
     default: DXASSERT_NOMSG(false);   break;
@@ -1819,8 +1855,14 @@ static bool CombineBasicTypes(
       switch (uBits)
       {
       case BPROP_BITS8:  *pOutKind = AR_BASIC_UINT8;     break;
-      case BPROP_BITS16: (uEitherFlags & BPROP_MIN_PRECISION) ?
-        *pOutKind = AR_BASIC_MIN16UINT : *pOutKind = AR_BASIC_UINT16; break;
+      case BPROP_BITS16:
+        if (IS_BPROP_16BIT_AINT_NO_MIN_PRECISION(uLeftProps) ||
+          IS_BPROP_16BIT_AINT_NO_MIN_PRECISION(uRightProps)) {
+          *pOutKind = AR_BASIC_UINT16;
+        } else {
+          *pOutKind = AR_BASIC_MIN16UINT;
+        }
+        break;
       case BPROP_BITS32: *pOutKind = AR_BASIC_UINT32;    break;
       case BPROP_BITS64: *pOutKind = AR_BASIC_UINT64;    break;
       default: DXASSERT_NOMSG(false);   break;
@@ -1833,8 +1875,15 @@ static bool CombineBasicTypes(
       case BPROP_BITS0:  *pOutKind = AR_BASIC_LITERAL_INT; break;
       case BPROP_BITS8:  *pOutKind = AR_BASIC_INT8;        break;
       case BPROP_BITS12: *pOutKind = AR_BASIC_MIN12INT;    break;
-      case BPROP_BITS16: (uEitherFlags & BPROP_MIN_PRECISION) ?
-        *pOutKind = AR_BASIC_MIN16INT : *pOutKind = AR_BASIC_INT16; break;
+      case BPROP_BITS16:
+        if (IS_BPROP_16BIT_SINT_NO_MIN_PRECISION(uLeftProps) ||
+            IS_BPROP_16BIT_SINT_NO_MIN_PRECISION(uRightProps)) {
+          *pOutKind = AR_BASIC_INT16;
+        }
+        else {
+          *pOutKind = AR_BASIC_MIN16INT;
+        }
+        break;
       case BPROP_BITS32: *pOutKind = AR_BASIC_INT32;       break;
       case BPROP_BITS64: *pOutKind = AR_BASIC_INT64;       break;
       default: DXASSERT_NOMSG(false);  break;
@@ -1881,27 +1930,20 @@ static bool CombineBasicTypes(
     *pOutKind = AR_BASIC_MIN10FLOAT;
     break;
   case BPROP_BITS16:
-    if ((uEitherFlags & BPROP_MIN_PRECISION) != 0)
-    {
-      *pOutKind = AR_BASIC_MIN16FLOAT;
-    }
-    else
-    {
+    if (IS_BPROP_16BIT_FLOAT_NO_MIN_PRECISION(uLeftProps) ||
+        IS_BPROP_16BIT_FLOAT_NO_MIN_PRECISION(uRightProps)) {
       *pOutKind = AR_BASIC_FLOAT16;
+    } else {
+      *pOutKind = AR_BASIC_MIN16FLOAT;
     }
     break;
   case BPROP_BITS32:
     if ((uEitherFlags & BPROP_LITERAL) != 0 &&
-      (uEitherFlags & BPROP_PARTIAL_PRECISION) != 0)
-    {
+        (uEitherFlags & BPROP_PARTIAL_PRECISION) != 0) {
       *pOutKind = AR_BASIC_FLOAT32_PARTIAL_PRECISION;
-    }
-    else if ((uBothFlags & BPROP_PARTIAL_PRECISION) != 0)
-    {
+    } else if ((uBothFlags & BPROP_PARTIAL_PRECISION) != 0) {
       *pOutKind = AR_BASIC_FLOAT32_PARTIAL_PRECISION;
-    }
-    else
-    {
+    } else {
       *pOutKind = AR_BASIC_FLOAT32;
     }
     break;
@@ -3378,16 +3420,20 @@ public:
       case BuiltinType::Bool: return AR_BASIC_BOOL;
       case BuiltinType::Double: return AR_BASIC_FLOAT64;
       case BuiltinType::Float: return AR_BASIC_FLOAT32;
-      case BuiltinType::Half: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16FLOAT : AR_BASIC_FLOAT16;
+      case BuiltinType::Half: return AR_BASIC_FLOAT16;
+      case BuiltinType::HalfFloat: return AR_BASIC_FLOAT32_PARTIAL_PRECISION;
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
-      case BuiltinType::Short: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16INT : AR_BASIC_INT16;
-      case BuiltinType::UShort: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16UINT : AR_BASIC_UINT16;
+      case BuiltinType::Short: return AR_BASIC_INT16;
+      case BuiltinType::UShort: return AR_BASIC_UINT16;
       case BuiltinType::Long: return AR_BASIC_INT32;
       case BuiltinType::ULong: return AR_BASIC_UINT32;
       case BuiltinType::LongLong: return AR_BASIC_INT64;
       case BuiltinType::ULongLong: return AR_BASIC_UINT64;
       case BuiltinType::Min12Int: return AR_BASIC_MIN12INT;
+      case BuiltinType::Min16Float: return AR_BASIC_MIN16FLOAT;
+      case BuiltinType::Min16Int: return AR_BASIC_MIN16INT;
+      case BuiltinType::Min16UInt: return AR_BASIC_MIN16UINT;
       case BuiltinType::Min10Float: return AR_BASIC_MIN10FLOAT;
       case BuiltinType::LitFloat: return AR_BASIC_LITERAL_FLOAT;
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
@@ -3488,7 +3534,7 @@ public:
     case AR_BASIC_BOOL:           return m_context->BoolTy;
     case AR_BASIC_LITERAL_FLOAT:  return m_context->LitFloatTy;
     case AR_BASIC_FLOAT16:        return m_context->HalfTy;
-    case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->FloatTy;
+    case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->HalfFloatTy;
     case AR_BASIC_FLOAT32:        return m_context->FloatTy;
     case AR_BASIC_FLOAT64:        return m_context->DoubleTy;
     case AR_BASIC_LITERAL_INT:    return m_context->LitIntTy;
@@ -4518,14 +4564,14 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_int] = m_context->IntTy;
   m_baseTypes[HLSLScalarType_uint] = m_context->UnsignedIntTy;
   m_baseTypes[HLSLScalarType_dword] = m_context->UnsignedIntTy;
-  m_baseTypes[HLSLScalarType_half] = m_context->getLangOpts().UseMinPrecision ? m_context->FloatTy : m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_half] = m_context->getLangOpts().UseMinPrecision ? m_context->HalfFloatTy : m_context->HalfTy;
   m_baseTypes[HLSLScalarType_float] = m_context->FloatTy;
   m_baseTypes[HLSLScalarType_double] = m_context->DoubleTy;
-  m_baseTypes[HLSLScalarType_float_min10] = m_context->HalfTy;
-  m_baseTypes[HLSLScalarType_float_min16] = m_context->HalfTy;
-  m_baseTypes[HLSLScalarType_int_min12] = m_context->ShortTy;
-  m_baseTypes[HLSLScalarType_int_min16] = m_context->ShortTy;
-  m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
+  m_baseTypes[HLSLScalarType_float_min10] = m_context->Min10FloatTy;
+  m_baseTypes[HLSLScalarType_float_min16] = m_context->Min16FloatTy;
+  m_baseTypes[HLSLScalarType_int_min12] = m_context->Min12IntTy;
+  m_baseTypes[HLSLScalarType_int_min16] = m_context->Min16IntTy;
+  m_baseTypes[HLSLScalarType_uint_min16] = m_context->Min16UIntTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
   m_baseTypes[HLSLScalarType_int16] = m_context->ShortTy;

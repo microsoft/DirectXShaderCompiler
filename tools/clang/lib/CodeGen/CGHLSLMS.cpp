@@ -664,6 +664,7 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
   case BuiltinType::UInt:
     kind = CompType::Kind::U32;
     break;
+  case BuiltinType::Min16UInt: // HLSL Change
   case BuiltinType::UShort:
     kind = CompType::Kind::U16;
     break;
@@ -673,14 +674,20 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
   case BuiltinType::Int:
     kind = CompType::Kind::I32;
     break;
+  // HLSL Changes begin
   case BuiltinType::Min12Int:
+  case BuiltinType::Min16Int:
+  // HLSL Changes end
   case BuiltinType::Short:
     kind = CompType::Kind::I16;
     break;
   case BuiltinType::LongLong:
     kind = CompType::Kind::I64;
     break;
+  // HLSL Changes begin
   case BuiltinType::Min10Float:
+  case BuiltinType::Min16Float:
+  // HLSL Changes end
   case BuiltinType::Half:
     if (bSNorm)
       kind = CompType::Kind::SNormF16;
@@ -689,6 +696,7 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
     else
       kind = CompType::Kind::F16;
     break;
+  case BuiltinType::HalfFloat: // HLSL Change
   case BuiltinType::Float:
     if (bSNorm)
       kind = CompType::Kind::SNormF32;
@@ -1887,10 +1895,14 @@ hlsl::CompType CGMSHLSLRuntime::GetCompType(const BuiltinType *BT) {
   case BuiltinType::Double:
     ElementType = hlsl::CompType::getF64();
     break;
+  case BuiltinType::HalfFloat: // HLSL Change
   case BuiltinType::Float:
     ElementType = hlsl::CompType::getF32();
     break;
+  // HLSL Changes begin
   case BuiltinType::Min10Float:
+  case BuiltinType::Min16Float:
+  // HLSL Changes end
   case BuiltinType::Half:
     ElementType = hlsl::CompType::getF16();
     break;
@@ -1900,7 +1912,10 @@ hlsl::CompType CGMSHLSLRuntime::GetCompType(const BuiltinType *BT) {
   case BuiltinType::LongLong:
     ElementType = hlsl::CompType::getI64();
     break;
+  // HLSL Changes begin
   case BuiltinType::Min12Int:
+  case BuiltinType::Min16Int:
+  // HLSL Changes end
   case BuiltinType::Short:
     ElementType = hlsl::CompType::getI16();
     break;
@@ -1910,6 +1925,7 @@ hlsl::CompType CGMSHLSLRuntime::GetCompType(const BuiltinType *BT) {
   case BuiltinType::ULongLong:
     ElementType = hlsl::CompType::getU64();
     break;
+  case BuiltinType::Min16UInt: // HLSL Change
   case BuiltinType::UShort:
     ElementType = hlsl::CompType::getU16();
     break;

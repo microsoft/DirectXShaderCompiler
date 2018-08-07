@@ -462,9 +462,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::OCLSampler:
   case BuiltinType::OCLEvent:
     llvm_unreachable("No ObjC or OpenCL support");
-  case BuiltinType::Min12Int:
   case BuiltinType::LitInt:
-  case BuiltinType::Min10Float:
   case BuiltinType::LitFloat:
     llvm_unreachable("Unsupported HLSL types");
 #endif // HLSL Change - no ObjC or OpenCL support
@@ -482,6 +480,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
     Encoding = llvm::dwarf::DW_ATE_UTF;
     break;
   case BuiltinType::UShort:
+  case BuiltinType::Min16UInt: // HLSL Change
   case BuiltinType::UInt:
   case BuiltinType::UInt128:
   case BuiltinType::ULong:
@@ -489,6 +488,10 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::ULongLong:
     Encoding = llvm::dwarf::DW_ATE_unsigned;
     break;
+  // HLSL Changes begin
+  case BuiltinType::Min12Int:
+  case BuiltinType::Min16Int:
+  // HLSL Changed end
   case BuiltinType::Short:
   case BuiltinType::Int:
   case BuiltinType::Int128:
@@ -500,6 +503,11 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::Bool:
     Encoding = llvm::dwarf::DW_ATE_boolean;
     break;
+  // HLSL Changes begin
+  case BuiltinType::Min10Float:
+  case BuiltinType::Min16Float:
+  case BuiltinType::HalfFloat:
+  // HLSL Changes end
   case BuiltinType::Half:
   case BuiltinType::Float:
   case BuiltinType::LongDouble:

@@ -46,9 +46,15 @@ namespace clang {
     TST_char32,       // C++11 char32_t
     TST_int,
     TST_int128,
-    TST_min10float,   // HLSL Change - HLSL type
-    TST_min12int,     // HLSL Change - HLSL type
+    // HLSL Changes begin
+    TST_min16float,
+    TST_min16int,
+    TST_min16uint,
+    TST_min10float,
+    TST_min12int,
+    // HLSL Changes end
     TST_half,         // OpenCL half, ARM NEON __fp16
+    TST_halffloat, // HLSL Change
     TST_float,
     TST_double,
     TST_bool,         // _Bool
