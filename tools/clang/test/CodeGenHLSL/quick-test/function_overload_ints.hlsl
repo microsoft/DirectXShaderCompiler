@@ -1,11 +1,11 @@
 // RUN: %dxc /Tps_6_2 /Emain > %s | FileCheck %s
 // CHECK: define void @main()
+// CHECK: %{{[a-z0-9]+}} = call i16 @dx.op.loadInput.i16(i32 4, i32 4, i32 0, i8 0, i32 undef)
+// CHECK: %{{[a-z0-9]+}} = call i16 @dx.op.loadInput.i16(i32 4, i32 3, i32 0, i8 0, i32 undef)
+// CHECK: %{{[a-z0-9]+}} = call i16 @dx.op.loadInput.i16(i32 4, i32 2, i32 0, i8 0, i32 undef)
+// CHECK: %{{[a-z0-9]+}} = call i32 @dx.op.loadInput.i32(i32 4, i32 1, i32 0, i8 0, i32 undef)
+// CHECK: %{{[a-z0-9]+}} = call i32 @dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 0, i32 undef)
 // CHECK: entry
-// CHECK: %{{[0-9]+}} = call i16 @dx.op.loadInput.i16(i32 4, i32 4, i32 0, i8 0, i32 undef)
-// CHECK: %{{[0-9]+}} = call i16 @dx.op.loadInput.i16(i32 4, i32 3, i32 0, i8 0, i32 undef)
-// CHECK: %{{[0-9]+}} = call i16 @dx.op.loadInput.i16(i32 4, i32 2, i32 0, i8 0, i32 undef)
-// CHECK: %{{[0-9]+}} = call i32 @dx.op.loadInput.i32(i32 4, i32 1, i32 0, i8 0, i32 undef)
-// CHECK: %{{[0-9]+}} = call i32 @dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 0, i32 undef)
 
 int4 foo(int v0, int v1, int v2, int v3) { return int4(v0, v0 * v1, v0 * v1 * v2, v0 * v1 * v2 * v3); }
 uint4 foo(uint v0, uint v1, uint v2, uint v3) { return uint4(v0, v0 * v1, v0 * v1 * v2, v0 * v1 * v2 * v3); }

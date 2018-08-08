@@ -1,7 +1,7 @@
 // RUN: %dxc /Tps_6_2 /Emain > %s | FileCheck %s
 // CHECK: define void @main()
+// CHECK: %{{[a-z0-9]+.*[a-z0-9]*}} = shl i16 %{{[a-z0-9]+.*[a-z0-9]*}}, %{{[a-z0-9]+.*[a-z0-9]*}}
 // CHECK: entry
-// CHECK: %shl.i = shl i16 %{{[0-9]+}}, %{{[0-9]+}}
 
 int foo(int v0, int v1) { return v0 / v1; }
 uint foo(uint v0, uint v1) { return v0 * v1; }

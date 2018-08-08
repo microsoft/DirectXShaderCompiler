@@ -1,8 +1,7 @@
 // RUN: %dxc /Tps_6_2 /Emain > %s | FileCheck %s
 // CHECK: define void @main()
+// CHECK: %{{[a-z0-9]+.*[a-z0-9]*}} = fmul fast float %{{[a-z0-9]+.*[a-z0-9]*}}, %{{[a-z0-9]+.*[a-z0-9]*}}
 // CHECK: entry
-// CHECK: %mul.i = fmul fast float %frem, %{{[0-9]+}}
-
 
 float foo(float v0, float v1) { return v0 / v1; }
 half foo(half v0, half v1) { return v0 * v1; }

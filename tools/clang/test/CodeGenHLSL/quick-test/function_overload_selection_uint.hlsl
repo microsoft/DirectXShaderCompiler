@@ -1,7 +1,7 @@
 // RUN: %dxc /Tps_6_2 /Emain > %s | FileCheck %s
 // CHECK: define void @main()
+// CHECK: %{{[a-z0-9]+.*[a-z0-9]*}} = mul i32 %{{[a-z0-9]+.*[a-z0-9]*}}, %{{[a-z0-9]+.*[a-z0-9]*}}
 // CHECK: entry
-// CHECK: %mul.i = mul i32 %rem, %{{[0-9]+}}
 
 int foo(int v0, int v1) { return v0 / v1; }
 uint foo(uint v0, uint v1) { return v0 * v1; }

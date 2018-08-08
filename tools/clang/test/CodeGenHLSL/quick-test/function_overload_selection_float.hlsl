@@ -1,8 +1,8 @@
 // RUN: %dxc /Tps_6_2 /Emain > %s | FileCheck %s
 // CHECK: define void @main()
+// CHECK: %{{[a-z0-9]+.*[a-z0-9]*}} = frem fast float %{{[a-z0-9]+.*[a-z0-9]*}}, 1.000000e+01
+// CHECK: %{{[a-z0-9]+.*[a-z0-9]*}} = fdiv fast float %{{[a-z0-9]+.*[a-z0-9]*}}, %{{[a-z0-9]+.*[a-z0-9]*}}
 // CHECK: entry
-// CHECK: %frem = frem fast float %{{[0-9]+}}, 1.000000e+01
-// CHECK: %div.i = fdiv fast float %{{[0-9]+}}, %frem
 
 float foo(float v0, float v1) { return v0 / v1; }
 half foo(half v0, half v1) { return v0 * v1; }
