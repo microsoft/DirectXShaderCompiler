@@ -40,12 +40,6 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-rem When dxil.dll is present, /Fd with trailing will not produce a name.
-if exist dxil.dll (
-  echo Skipping /Fd with trailing backslash when dxil.dll is present.
-  echo A future dxil.dll will provide this information.
-  goto :skipfdtrail
-)
 dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Zi /Fd %CD%\ /Fo smoke.hlsl.strip 1>nul
 if %errorlevel% neq 0 (
   echo Failed - %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Zi /Fd %CD%\
@@ -73,7 +67,6 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
-:skipfdtrail
 dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Fe smoke.hlsl.e 1>nul
 if %errorlevel% neq 0 (
   echo Failed - %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Fe %CD%\smoke.hlsl.e
@@ -547,13 +540,6 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-rem Skipping shader model 6.2 when dxil.dll is present
-if exist dxil.dll (
-  echo Skipping shader model 6.2 when dxil.dll is present
-  echo A future dxil.dll will support this model.
-  goto :skipsm62
-)
-
 echo Test for denorm options ...
 dxc.exe %script_dir%\smoke.hlsl /Tps_6_2 /denorm preserve 1>nul
 if %errorlevel% neq 0 (
@@ -630,7 +616,6 @@ if %spirv_smoke_success% neq 1 (
 )
 rem SPIR-V Change Ends
 
-:skipsm62
 call :cleanup
 exit /b 0
 
