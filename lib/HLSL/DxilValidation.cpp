@@ -2831,6 +2831,26 @@ static void ValidateLoopMetadata(MDNode *Node, ValidationContext &ValCtx) {
   }
 }
 
+static void ValidateNonUniformMetadata(Instruction &I, MDNode *pMD,
+                                       ValidationContext &ValCtx) {
+  if (!ValCtx.isLibProfile) {
+    ValCtx.EmitMetaError(pMD, ValidationRule::MetaUsed);
+  }
+  if (!isa<GetElementPtrInst>(I)) {
+    ValCtx.EmitMetaError(pMD, ValidationRule::MetaWellFormed);
+  }
+  if (pMD->getNumOperands() != 1) {
+    ValCtx.EmitMetaError(pMD, ValidationRule::MetaWellFormed);
+  }
+  uint64_t val;
+  if (!GetNodeOperandAsInt(ValCtx, pMD, 0, &val)) {
+    ValCtx.EmitMetaError(pMD, ValidationRule::MetaWellFormed);
+  }
+  if (val != 1) {
+    ValCtx.EmitMetaError(pMD, ValidationRule::MetaValueRange);
+  }
+}
+
 static void ValidateInstructionMetadata(Instruction *I,
                                         ValidationContext &ValCtx) {
   SmallVector<std::pair<unsigned, MDNode *>, 2> MDNodes;
@@ -2852,6 +2872,8 @@ static void ValidateInstructionMetadata(Instruction *I,
     } else if (MD.first == LLVMContext::MD_noalias ||
                MD.first == LLVMContext::MD_alias_scope) {
       // noalias for DXIL validator >= 1.2
+    } else if (MD.first == ValCtx.kDxilNonUniformMDKind) {
+      ValidateNonUniformMetadata(*I, MD.second, ValCtx);
     } else {
       ValCtx.EmitMetaError(MD.second, ValidationRule::MetaUsed);
     }

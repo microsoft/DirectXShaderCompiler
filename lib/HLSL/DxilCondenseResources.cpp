@@ -1306,8 +1306,7 @@ public:
       DxilInst_CreateHandleForLib createHandle(CI);
       Value *res = createHandle.get_Resource();
       // Skip extra work if nothing between load and create handle
-      LoadInst *LI = dyn_cast<LoadInst>(res);
-      if (LI) {
+      if (LoadInst *LI = dyn_cast<LoadInst>(res)) {
         Value *Ptr = LI->getPointerOperand();
         if (GEPOperator *GEP = dyn_cast<GEPOperator>(Ptr))
           Ptr = GEP->getPointerOperand();
@@ -1317,7 +1316,7 @@ public:
       GlobalVariable *GV = LookupResourceGV(res);
       if (!GV)
         continue; // skip value removed due to conflict
-      IRBuilder<> Builder(LI ? (Instruction*)LI : (Instruction*)CI);
+      IRBuilder<> Builder(CI);
       IndexVector &idxVector = ResToIdxReplacement[res];
       DXASSERT(idxVector.size() == CountArrayDimensions(GV->getType()), "replacements empty or invalid");
       SmallVector<Value*, 4> gepIndices;
@@ -1325,23 +1324,14 @@ public:
       for (auto idxVal : idxVector)
         gepIndices.push_back(LookupValue(idxVal));
       Value *GEP = Builder.CreateInBoundsGEP(GV, gepIndices);
-      bool bNonUniform = NonUniformSet.count(res) != 0;
-      if (LI) {
-        if (NonUniformSet.count(LI) != 0)
-          bNonUniform = true;
-        if (Instruction *ptrI = dyn_cast<Instruction>(LI->getPointerOperand()))
-          CleanupInsts.insert(ptrI);
-        LI->getPointerOperand()->replaceAllUsesWith(GEP);
-      } else {
-        LI = Builder.CreateLoad(GEP);
-        res->replaceAllUsesWith(LI);
-        if (Instruction *resI = dyn_cast<Instruction>(res))
-          CleanupInsts.insert(resI);
-      }
       // Mark new GEP instruction non-uniform if necessary
-      if (bNonUniform)
+      if (NonUniformSet.count(res) != 0 || NonUniformSet.count(CI) != 0)
         if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP))
           DxilMDHelper::MarkNonUniform(GEPInst);
+      LoadInst *LI = Builder.CreateLoad(GEP);
+      createHandle.set_Resource(LI);
+      if (Instruction *resI = dyn_cast<Instruction>(res))
+        CleanupInsts.insert(resI);
     }
   }
 
