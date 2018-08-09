@@ -3370,14 +3370,21 @@ namespace MainNs
             string resultText = "";
             IDxcBlob source = null;
             {
-                var result = compiler.Compile(this.CreateBlobForCodeText(), fileName, fileVars.Entry, fileVars.Target, args, args.Length, null, 0, library.CreateIncludeHandler());
-                if (result.GetStatus() == 0)
+                try
                 {
-                    source = result.GetResult();
+                    var result = compiler.Compile(this.CreateBlobForCodeText(), fileName, fileVars.Entry, fileVars.Target, args, args.Length, null, 0, library.CreateIncludeHandler());
+                    if (result.GetStatus() == 0)
+                    {
+                        source = result.GetResult();
+                    }
+                    else
+                    {
+                        resultText = GetStringFromBlob(result.GetErrors());
+                    }
                 }
-                else
+                catch (System.ArgumentException e)
                 {
-                    resultText = GetStringFromBlob(result.GetErrors());
+                    MessageBox.Show(this, $"{e.Message}.", "Invalid form entry");
                 }
             }
             return new HighLevelCompileResult() { Blob = source, ResultText = resultText };
