@@ -82,13 +82,13 @@ bool TypeTranslator::isRelaxedPrecisionType(QualType type,
     if (isScalarType(type, &ty))
       if (const auto *builtinType = ty->getAs<BuiltinType>())
         switch (builtinType->getKind()) {
-        // TODO: Figure out why 'min16float' and 'half' share an enum.
-        // 'half' should not get RelaxedPrecision decoration, but due to the
-        // shared enum, we currently do so.
-        case BuiltinType::Half:
+        case BuiltinType::HalfFloat:
         case BuiltinType::Short:
         case BuiltinType::UShort:
         case BuiltinType::Min12Int:
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
+        case BuiltinType::Min16Float:
         case BuiltinType::Min10Float: {
           // If '-enable-16bit-types' options is enabled, these types are
           // translated to real 16-bit type, and therefore are not
@@ -438,13 +438,22 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
     case BuiltinType::LongLong:
     case BuiltinType::ULongLong:
       return 64;
-    // min16int (short), ushort, min12int, half, and min10float are treated as
-    // 16-bit if '-enable-16bit-types' option is enabled. They are treated as
+    // The HLSL 'half' keyword is translated to 'HalfFloat' enum internally,
+    // which can be 16 or 32 bits wide depending on command line options. The
+    // The internal 'Half' enum is used to represent float16_t, which is always
+    // 16 bits wide.
+    case BuiltinType::Half:
+      return 16;
+    // min16int (short), ushort, min12int, HalfFloat, and min10float are treated
+    // as 16-bit if '-enable-16bit-types' option is enabled. They are treated as
     // 32-bit otherwise.
     case BuiltinType::Short:
     case BuiltinType::UShort:
     case BuiltinType::Min12Int:
-    case BuiltinType::Half:
+    case BuiltinType::Min16Int:
+    case BuiltinType::Min16UInt:
+    case BuiltinType::HalfFloat:
+    case BuiltinType::Min16Float:
     case BuiltinType::Min10Float: {
       return spirvOptions.enable16BitTypes ? 16 : 32;
     }
@@ -511,14 +520,18 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
         case BuiltinType::Int:
         case BuiltinType::UInt:
         case BuiltinType::Short:
-        case BuiltinType::Min12Int:
         case BuiltinType::UShort:
+        case BuiltinType::Min12Int:
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
         case BuiltinType::LongLong:
         case BuiltinType::ULongLong:
         // All the floats
-        case BuiltinType::Float:
         case BuiltinType::Double:
+        case BuiltinType::Float:
         case BuiltinType::Half:
+        case BuiltinType::HalfFloat:
+        case BuiltinType::Min16Float:
         case BuiltinType::Min10Float: {
           const auto bitwidth = getElementSpirvBitwidth(ty);
           return getTypeWithCustomBitwidth(ty, bitwidth);
@@ -781,10 +794,16 @@ bool TypeTranslator::isOrContains16BitType(QualType type) {
         case BuiltinType::Short:
         case BuiltinType::UShort:
         case BuiltinType::Min12Int:
-        case BuiltinType::Half:
-        case BuiltinType::Min10Float: {
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
+        // the HLSL 'half' keyword is mapped to the 'HalfFloat' enum.
+        case BuiltinType::HalfFloat:
+        case BuiltinType::Min10Float:
+        case BuiltinType::Min16Float:
           return spirvOptions.enable16BitTypes;
-        }
+        // Internal 'Half' enum is used to represent 16-bit floats.
+        case BuiltinType::Half:
+          return true;
         default:
           return false;
         }
@@ -1805,13 +1824,19 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
         case BuiltinType::Short:
         case BuiltinType::UShort:
         case BuiltinType::Min12Int:
-        case BuiltinType::Half:
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
+        case BuiltinType::HalfFloat:
+        case BuiltinType::Min16Float:
         case BuiltinType::Min10Float: {
           if (spirvOptions.enable16BitTypes)
             return {2, 2};
           else
             return {4, 4};
         }
+        // Handle 16-bit floats.
+        case BuiltinType::Half:
+          return {2, 2};
         default:
           emitError("alignment and size calculation for type %0 unimplemented")
               << type;
@@ -1990,9 +2015,17 @@ std::string TypeTranslator::getName(QualType type) {
         case BuiltinType::UShort:
           return "ushort";
         case BuiltinType::Half:
+          return "float16";
+        case BuiltinType::HalfFloat:
           return "half";
         case BuiltinType::Min12Int:
           return "min12int";
+        case BuiltinType::Min16Int:
+          return "min16int";
+        case BuiltinType::Min16UInt:
+          return "min16uint";
+        case BuiltinType::Min16Float:
+          return "min16float";
         case BuiltinType::Min10Float:
           return "min10float";
         default:
