@@ -50,7 +50,7 @@ Moreover, since the HLSL CodeGen tests were originally written with Windows in
 mind, they require the Windows-specific `TAEF Framework <https://docs.microsoft.com/en-us/windows-hardware/drivers/taef/>`_
 to run. Besides, some tests also require DirectX to execute. Therefore we are
 not able to compile/run all these tests on non-Windows platforms. Note that
-it is only the testing infrastructure that has this limitation, and DXILCodeGen
+it is only the testing infrastructure that has this limitation, and DXIL CodeGen
 works as expected by running the DXC executable.
 
 Known Issues
