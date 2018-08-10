@@ -302,33 +302,6 @@ enum ArBasicKind {
 #define IS_BPROP_MIN_PRECISION(_Props) \
     (((_Props) & BPROP_MIN_PRECISION) != 0)
 
-#define IS_BPROP_16BIT_NO_MIN_PRECISION(_Props) \
-    (!IS_BPROP_MIN_PRECISION(_Props) && GET_BPROP_BITS(_Props) == BPROP_BITS16)
-
-#define IS_BPROP_16BIT_MIN_PRECISION(_Props) \
-    (IS_BPROP_MIN_PRECISION(_Props) && GET_BPROP_BITS(_Props) == BPROP_BITS16)
-
-#define IS_BPROP_16BIT_FLOAT_NO_MIN_PRECISION(_Props) \
-    (IS_BPROP_16BIT_NO_MIN_PRECISION(_Props) && IS_BPROP_FLOAT(_Props))
-
-#define IS_BPROP_16BIT_SINT_NO_MIN_PRECISION(_Props) \
-    (IS_BPROP_16BIT_NO_MIN_PRECISION(_Props) && IS_BPROP_SINT(_Props))
-
-#define IS_BPROP_16BIT_AINT_NO_MIN_PRECISION(_Props) \
-    (IS_BPROP_16BIT_NO_MIN_PRECISION(_Props) && (IS_BPROP_SINT(_Props) || IS_BPROP_UINT(_Props)))
-
-#define IS_BPROP_16BIT_UINT_NO_MIN_PRECISION(_Props) \
-    (IS_BPROP_16BIT_NO_MIN_PRECISION(_Props) && IS_BPROP_UINT(_Props))
-
-#define IS_BPROP_16BIT_SINT_MIN_PRECISION(_Props) \
-    (IS_BPROP_16BIT_MIN_PRECISION(_Props) && IS_BPROP_SINT(_Props))
-
-#define IS_BPROP_16BIT_AINT_MIN_PRECISION(_Props) \
-    (IS_BPROP_16BIT_MIN_PRECISION(_Props) && (IS_BPROP_SINT(_Props) || IS_BPROP_UINT(_Props)))
-
-#define IS_BPROP_16BIT_UINT_MIN_PRECISION(_Props) \
-    (IS_BPROP_16BIT_MIN_PRECISION(_Props) && IS_BPROP_UINT(_Props))
-
 #define IS_BPROP_UNSIGNABLE(_Props) \
     (IS_BPROP_AINT(_Props) && GET_BPROP_BITS(_Props) != BPROP_BITS12)
 
@@ -1779,13 +1752,34 @@ inline void AssignOpt(T value, _Out_opt_ T* ptr)
   }
 }
 
-static bool CombineBasicTypes(
-  ArBasicKind LeftKind,
-  ArBasicKind RightKind,
-  _Out_ ArBasicKind* pOutKind,
-  _Out_opt_ CastKind* leftCastKind = nullptr,
-  _Out_opt_ CastKind* rightCastKind = nullptr)
-{
+static void AssignCastKinds(CastKind *castKind, ArBasicKind DestBasicKind,
+                            ArBasicKind SrcKind) {
+  UINT uDestProps = GetBasicKindProps(DestBasicKind);
+  UINT uSrcProps = GetBasicKindProps(SrcKind);
+  bool isCastKind = DestBasicKind != SrcKind;
+
+  if (!isCastKind)
+    return;
+
+  if (BPROP_FLOATING & uDestProps) {
+    if (BPROP_FLOATING & uSrcProps) {
+      AssignOpt(CK_FloatingCast, castKind);
+    } else {
+      AssignOpt(CK_IntegralToFloating, castKind);
+    }
+  } else {
+    if (BPROP_FLOATING & uSrcProps) {
+      AssignOpt(CK_FloatingToIntegral, castKind);
+    } else {
+      AssignOpt(CK_IntegralCast, castKind);
+    }
+  }
+}
+
+static bool CombineBasicTypes(ArBasicKind LeftKind, ArBasicKind RightKind,
+                              _Out_ ArBasicKind *pOutKind,
+                              _Out_opt_ CastKind *leftCastKind = nullptr,
+                              _Out_opt_ CastKind *rightCastKind = nullptr) {
   AssignOpt(CastKind::CK_NoOp, leftCastKind);
   AssignOpt(CastKind::CK_NoOp, rightCastKind);
 
@@ -1802,146 +1796,234 @@ static bool CombineBasicTypes(
   UINT uLeftProps = GetBasicKindProps(LeftKind);
   UINT uRightProps = GetBasicKindProps(RightKind);
 
-  UINT uBits = GET_BPROP_BITS(uLeftProps) > GET_BPROP_BITS(uRightProps) ?
-    GET_BPROP_BITS(uLeftProps) : GET_BPROP_BITS(uRightProps);
+  UINT uBits = GET_BPROP_BITS(uLeftProps) > GET_BPROP_BITS(uRightProps)
+                   ? GET_BPROP_BITS(uLeftProps)
+                   : GET_BPROP_BITS(uRightProps);
   UINT uBothFlags = uLeftProps & uRightProps;
   UINT uEitherFlags = uLeftProps | uRightProps;
 
-  if ((BPROP_BOOLEAN & uBothFlags) != 0)
-  {
+  if ((BPROP_BOOLEAN & uBothFlags) != 0) {
     *pOutKind = AR_BASIC_BOOL;
     return true;
   }
 
-  if ((BPROP_LITERAL & uBothFlags) != 0)
-  {
-    if ((BPROP_INTEGER & uBothFlags) != 0)
-    {
+  if ((BPROP_LITERAL & uBothFlags) != 0) {
+    if ((BPROP_INTEGER & uBothFlags) != 0) {
       *pOutKind = AR_BASIC_LITERAL_INT;
-    }
-    else
-    {
+    } else {
       *pOutKind = AR_BASIC_LITERAL_FLOAT;
     }
+    AssignCastKinds(leftCastKind, *pOutKind, LeftKind);
+    AssignCastKinds(rightCastKind, *pOutKind, RightKind);
     return true;
   }
 
-  if ((BPROP_UNSIGNED & uBothFlags) != 0)
-  {
-    switch (uBits)
-    {
-    case BPROP_BITS8:  *pOutKind = AR_BASIC_UINT8;  break;
-    case BPROP_BITS16:
-      if (IS_BPROP_16BIT_UINT_NO_MIN_PRECISION(uLeftProps) ||
-        IS_BPROP_16BIT_UINT_NO_MIN_PRECISION(uRightProps)) {
-        *pOutKind = AR_BASIC_UINT16;
+  if (BPROP_LITERAL & uEitherFlags) {
+    if (IS_BPROP_BOOL(uEitherFlags)) {
+      if (IS_BPROP_FLOAT(uEitherFlags)) {
+        *pOutKind = AR_BASIC_FLOAT32;
       } else {
+        *pOutKind = AR_BASIC_INT32;
+      }
+    } else {
+      // Handle literal int case
+      if ((BPROP_LITERAL & uLeftProps) && (BPROP_INTEGER & uLeftProps)) {
+        // if uBits is BITS0, then the other type must be AR_BASIC_ENUM/AR_BASIC_COUNT
+        // and in this case we should return AR_BASIC_INT32
+        if (uBits == BPROP_BITS0) {
+          *pOutKind = AR_BASIC_INT32;
+        } else {
+          *pOutKind = RightKind;
+        }
+      } else if (((BPROP_LITERAL & uRightProps) &&
+                  (BPROP_INTEGER & uRightProps))) {
+        // if uBits is BITS0, then the other type must be AR_BASIC_ENUM/AR_BASIC_COUNT
+        // and in this case we should return AR_BASIC_INT32
+        if (uBits == BPROP_BITS0) {
+          *pOutKind = AR_BASIC_INT32;
+        } else {
+          *pOutKind = LeftKind;
+        }
+      } else { // Handle literal float case
+        UINT uNonLiteralProps = uLeftProps;
+        if (BPROP_LITERAL & uLeftProps) {
+          uBits = GET_BPROP_BITS(uRightProps);
+          uNonLiteralProps = uRightProps;
+        } else {
+          uBits = GET_BPROP_BITS(uLeftProps);
+        }
+
+        switch (uBits) {
+        case BPROP_BITS8:
+          *pOutKind = AR_BASIC_FLOAT32;
+          break;
+        case BPROP_BITS10:
+          *pOutKind = AR_BASIC_MIN10FLOAT;
+          break;
+        case BPROP_BITS12:
+          *pOutKind = AR_BASIC_MIN16FLOAT;
+          break;
+        case BPROP_BITS16:
+          if (IS_BPROP_MIN_PRECISION(uNonLiteralProps)) {
+            *pOutKind = AR_BASIC_MIN16FLOAT;
+          } else {
+            *pOutKind = AR_BASIC_FLOAT16;
+          }
+          break;
+        case BPROP_BITS32:
+          if (uNonLiteralProps & BPROP_PARTIAL_PRECISION) {
+            *pOutKind = AR_BASIC_FLOAT32_PARTIAL_PRECISION;
+          } else {
+            *pOutKind = AR_BASIC_FLOAT32;
+          }
+          break;
+        case BPROP_BITS64:
+          if (BPROP_FLOATING & uNonLiteralProps) {
+            *pOutKind = AR_BASIC_FLOAT64;
+          } else {
+            *pOutKind = AR_BASIC_FLOAT32;
+          }
+          break;
+        default:
+          DXASSERT(false, "unexpected bit count");
+          *pOutKind = AR_BASIC_FLOAT32;
+          break;
+        }
+      }
+    }
+    AssignCastKinds(leftCastKind, *pOutKind, LeftKind);
+    AssignCastKinds(rightCastKind, *pOutKind, RightKind);
+    return true;
+  }
+
+  // At this point we shouldn't have any literals.
+  if (IS_BPROP_BOOL(uEitherFlags)) {
+    // just return the other type
+    if (IS_BPROP_BOOL(uLeftProps)) {
+      *pOutKind = RightKind;
+    } else {
+      *pOutKind = LeftKind;
+    }
+    AssignCastKinds(leftCastKind, *pOutKind, LeftKind);
+    AssignCastKinds(rightCastKind, *pOutKind, RightKind);
+    return true;
+  }
+
+  // At this point we shouldn't have any bools or literals
+  if ((BPROP_UNSIGNED & uBothFlags) != 0) {
+    switch (uBits) {
+    case BPROP_BITS8:
+      *pOutKind = AR_BASIC_UINT8;
+      break;
+    case BPROP_BITS16:
+      if (BPROP_MIN_PRECISION & uBothFlags) {
         *pOutKind = AR_BASIC_MIN16UINT;
+      } else {
+        *pOutKind = AR_BASIC_UINT16;
       }
       break;
-    case BPROP_BITS32: *pOutKind = AR_BASIC_UINT32; break;
-    case BPROP_BITS64: *pOutKind = AR_BASIC_UINT64; break;
-    default: DXASSERT_NOMSG(false);   break;
+    case BPROP_BITS32:
+      *pOutKind = AR_BASIC_UINT32;
+      break;
+    case BPROP_BITS64:
+      *pOutKind = AR_BASIC_UINT64;
+      break;
+    default:
+      DXASSERT_NOMSG(false);
+      break;
     }
-    AssignOpt(CK_IntegralCast, leftCastKind);
-    AssignOpt(CK_IntegralCast, rightCastKind);
+    AssignCastKinds(leftCastKind, *pOutKind, LeftKind);
+    AssignCastKinds(rightCastKind, *pOutKind, RightKind);
     return true;
   }
 
-  if ((BPROP_INTEGER & uBothFlags) != 0)
-  {
-    if ((BPROP_UNSIGNED & uEitherFlags) != 0)
-    {
-      switch (uBits)
-      {
-      case BPROP_BITS8:  *pOutKind = AR_BASIC_UINT8;     break;
+  if ((BPROP_INTEGER & uBothFlags) != 0) {
+    if ((BPROP_UNSIGNED & uEitherFlags) != 0) {
+      switch (uBits) {
+      case BPROP_BITS8:
+        *pOutKind = AR_BASIC_UINT8;
+        break;
       case BPROP_BITS16:
-        if (IS_BPROP_16BIT_AINT_NO_MIN_PRECISION(uLeftProps) ||
-          IS_BPROP_16BIT_AINT_NO_MIN_PRECISION(uRightProps)) {
-          *pOutKind = AR_BASIC_UINT16;
-        } else {
+        if (BPROP_MIN_PRECISION & uBothFlags) {
           *pOutKind = AR_BASIC_MIN16UINT;
+        } else {
+          *pOutKind = AR_BASIC_UINT16;
         }
         break;
-      case BPROP_BITS32: *pOutKind = AR_BASIC_UINT32;    break;
-      case BPROP_BITS64: *pOutKind = AR_BASIC_UINT64;    break;
-      default: DXASSERT_NOMSG(false);   break;
+      case BPROP_BITS32:
+        *pOutKind = AR_BASIC_UINT32;
+        break;
+      case BPROP_BITS64:
+        *pOutKind = AR_BASIC_UINT64;
+        break;
+      default:
+        DXASSERT_NOMSG(false);
+        break;
       }
-    }
-    else
-    {
-      switch (uBits)
-      {
-      case BPROP_BITS0:  *pOutKind = AR_BASIC_LITERAL_INT; break;
-      case BPROP_BITS8:  *pOutKind = AR_BASIC_INT8;        break;
-      case BPROP_BITS12: *pOutKind = AR_BASIC_MIN12INT;    break;
+    } else {
+      switch (uBits) {
+      case BPROP_BITS8:
+        *pOutKind = AR_BASIC_INT8;
+        break;
+      case BPROP_BITS12:
+        *pOutKind = AR_BASIC_MIN12INT;
+        break;
       case BPROP_BITS16:
-        if (IS_BPROP_16BIT_SINT_NO_MIN_PRECISION(uLeftProps) ||
-            IS_BPROP_16BIT_SINT_NO_MIN_PRECISION(uRightProps)) {
+        if (BPROP_MIN_PRECISION & uBothFlags) {
+          *pOutKind = AR_BASIC_MIN16INT;
+        } else {
           *pOutKind = AR_BASIC_INT16;
         }
-        else {
-          *pOutKind = AR_BASIC_MIN16INT;
-        }
         break;
-      case BPROP_BITS32: *pOutKind = AR_BASIC_INT32;       break;
-      case BPROP_BITS64: *pOutKind = AR_BASIC_INT64;       break;
-      default: DXASSERT_NOMSG(false);  break;
+      case BPROP_BITS32:
+        *pOutKind = AR_BASIC_INT32;
+        break;
+      case BPROP_BITS64:
+        *pOutKind = AR_BASIC_INT64;
+        break;
+      default:
+        DXASSERT_NOMSG(false);
+        break;
       }
     }
-    AssignOpt(CK_IntegralCast, leftCastKind);
-    AssignOpt(CK_IntegralCast, rightCastKind);
+    AssignCastKinds(leftCastKind, *pOutKind, LeftKind);
+    AssignCastKinds(rightCastKind, *pOutKind, RightKind);
     return true;
   }
 
   // At least one side is floating-point. Assume both are and fix later
   // in this function.
   DXASSERT_NOMSG((BPROP_FLOATING & uEitherFlags) != 0);
-  AssignOpt(CK_FloatingCast, leftCastKind);
-  AssignOpt(CK_FloatingCast, rightCastKind);
-
-  if ((BPROP_FLOATING & uBothFlags) == 0)
-  {
+  if ((BPROP_FLOATING & uBothFlags) == 0) {
     // One side is floating-point and one isn't,
     // convert to the floating-point type.
-    if ((BPROP_FLOATING & uLeftProps) != 0)
-    {
+    if ((BPROP_FLOATING & uLeftProps) != 0) {
       uBits = GET_BPROP_BITS(uLeftProps);
-      AssignOpt(CK_IntegralToFloating, rightCastKind);
-    }
-    else
-    {
+    } else {
       DXASSERT_NOMSG((BPROP_FLOATING & uRightProps) != 0);
       uBits = GET_BPROP_BITS(uRightProps);
-      AssignOpt(CK_IntegralToFloating, leftCastKind);
     }
 
-    if (uBits == 0)
-    {
+    if (uBits == 0) {
       // We have a literal plus a non-literal so drop
       // any literalness.
       uBits = BPROP_BITS32;
     }
   }
 
-  switch (uBits)
-  {
+  switch (uBits) {
   case BPROP_BITS10:
     *pOutKind = AR_BASIC_MIN10FLOAT;
     break;
   case BPROP_BITS16:
-    if (IS_BPROP_16BIT_FLOAT_NO_MIN_PRECISION(uLeftProps) ||
-        IS_BPROP_16BIT_FLOAT_NO_MIN_PRECISION(uRightProps)) {
-      *pOutKind = AR_BASIC_FLOAT16;
-    } else {
+    if (BPROP_MIN_PRECISION & uBothFlags) {
       *pOutKind = AR_BASIC_MIN16FLOAT;
+    } else {
+      *pOutKind = AR_BASIC_FLOAT16;
     }
     break;
   case BPROP_BITS32:
-    if ((uEitherFlags & BPROP_LITERAL) != 0 &&
-        (uEitherFlags & BPROP_PARTIAL_PRECISION) != 0) {
-      *pOutKind = AR_BASIC_FLOAT32_PARTIAL_PRECISION;
-    } else if ((uBothFlags & BPROP_PARTIAL_PRECISION) != 0) {
+    if ((uBothFlags & BPROP_PARTIAL_PRECISION) != 0) {
       *pOutKind = AR_BASIC_FLOAT32_PARTIAL_PRECISION;
     } else {
       *pOutKind = AR_BASIC_FLOAT32;
@@ -1955,7 +2037,8 @@ static bool CombineBasicTypes(
     *pOutKind = AR_BASIC_FLOAT32;
     break;
   }
-
+  AssignCastKinds(leftCastKind, *pOutKind, LeftKind);
+  AssignCastKinds(rightCastKind, *pOutKind, RightKind);
   return true;
 }
 
@@ -3500,7 +3583,7 @@ public:
     switch (kind) {
     case AR_BASIC_BOOL:           return HLSLScalarType_bool;
     case AR_BASIC_LITERAL_FLOAT:  return HLSLScalarType_float_lit;
-    case AR_BASIC_FLOAT16:        return HLSLScalarType_float_min16;
+    case AR_BASIC_FLOAT16:        return HLSLScalarType_half;
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
                                   return HLSLScalarType_float;
     case AR_BASIC_FLOAT32:        return HLSLScalarType_float;
