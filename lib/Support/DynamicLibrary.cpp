@@ -137,8 +137,9 @@ void* DynamicLibrary::SearchForAddressOfSymbol(const char *symbolName) {
     return Result;
 
 // This macro returns the address of a well-known, explicit symbol
-#define EXPLICIT_SYMBOL(SYM) \
-   if (!strcmp(symbolName, #SYM)) return &SYM
+#define EXPLICIT_SYMBOL(SYM)                                                   \
+  if (!strcmp(symbolName, #SYM))                                               \
+    return (void *)&SYM
 
 // On linux we have a weird situation. The stderr/out/in symbols are both
 // macros and global variables because of standards requirements. So, we
