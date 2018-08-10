@@ -1919,6 +1919,7 @@ bool Sema::IsFloatingPointPromotion(QualType FromType, QualType ToType) {
         return true;
 
       // HLSL Change Starts
+      // TODO: Update this for new builtin types min16float, min16int, min16uint.
       if (getLangOpts().HLSL) {
         if (FromBuiltin->getKind() == BuiltinType::LitFloat &&
             (ToBuiltin->getKind() == BuiltinType::Min10Float ||

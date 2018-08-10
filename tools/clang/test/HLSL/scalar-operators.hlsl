@@ -72,7 +72,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(bools + halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(bools + floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(bools + doubles)>::value, "");
-  _Static_assert(std::is_same<min16float, __decltype(bools + min16floats)>::value, "");    /* expected-error {{static_assert failed ""}} FIXME: Github bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 */
+  _Static_assert(std::is_same<min16float, __decltype(bools + min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(bools + min10floats)>::value, ""); // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<int, __decltype(bools + min16ints)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools + min12ints)>::value, "");
@@ -83,7 +83,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(ints + halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(ints + floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(ints + doubles)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(ints + min16floats)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(ints + min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(ints + min10floats)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<int, __decltype(ints + min16ints)>::value, "");
   _Static_assert(std::is_same<int, __decltype(ints + min12ints)>::value, "");
@@ -94,7 +94,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(uints + halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(uints + floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(uints + doubles)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(uints + min16floats)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(uints + min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(uints + min10floats)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<uint, __decltype(uints + min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints + min12ints)>::value, "");
@@ -133,8 +133,8 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<double, __decltype(doubles + min12ints)>::value, "");
   _Static_assert(std::is_same<double, __decltype(doubles + min16uints)>::value, "");
   _Static_assert(std::is_same<min16float, __decltype(min16floats + bools)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(min16floats + ints)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(min16floats + uints)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(min16floats + ints)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(min16floats + uints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(min16floats + halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(min16floats + floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(min16floats + doubles)>::value, "");
@@ -193,7 +193,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(bools - halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(bools - floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(bools - doubles)>::value, "");
-  _Static_assert(std::is_same<min16float, __decltype(bools - min16floats)>::value, "");        /* expected-error {{static_assert failed ""}}  FIXME: Github bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 */
+  _Static_assert(std::is_same<min16float, __decltype(bools - min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(bools - min10floats)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<int, __decltype(bools - min16ints)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools - min12ints)>::value, "");
@@ -204,7 +204,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(ints - halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(ints - floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(ints - doubles)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(ints - min16floats)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(ints - min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(ints - min10floats)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<int, __decltype(ints - min16ints)>::value, "");
   _Static_assert(std::is_same<int, __decltype(ints - min12ints)>::value, "");
@@ -215,7 +215,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(uints - halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(uints - floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(uints - doubles)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(uints - min16floats)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(uints - min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(uints - min10floats)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<uint, __decltype(uints - min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints - min12ints)>::value, "");
@@ -254,8 +254,8 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<double, __decltype(doubles - min12ints)>::value, "");
   _Static_assert(std::is_same<double, __decltype(doubles - min16uints)>::value, "");
   _Static_assert(std::is_same<min16float, __decltype(min16floats - bools)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(min16floats - ints)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(min16floats - uints)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(min16floats - ints)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(min16floats - uints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(min16floats - halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(min16floats - floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(min16floats - doubles)>::value, "");
@@ -314,7 +314,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(bools / halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(bools / floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(bools / doubles)>::value, "");
-  _Static_assert(std::is_same<min16float, __decltype(bools / min16floats)>::value, "");        /* expected-error {{static_assert failed ""}}  FIXME: Github bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 */
+  _Static_assert(std::is_same<min16float, __decltype(bools / min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(bools / min10floats)>::value, "");   // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<int, __decltype(bools / min16ints)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools / min12ints)>::value, "");
@@ -325,7 +325,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(ints / halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(ints / floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(ints / doubles)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(ints / min16floats)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(ints / min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(ints / min10floats)>::value, "");   // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<int, __decltype(ints / min16ints)>::value, "");
   _Static_assert(std::is_same<int, __decltype(ints / min12ints)>::value, "");
@@ -336,7 +336,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(uints / halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(uints / floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(uints / doubles)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(uints / min16floats)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(uints / min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(uints / min10floats)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<uint, __decltype(uints / min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints / min12ints)>::value, "");
@@ -375,8 +375,8 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<double, __decltype(doubles / min12ints)>::value, "");
   _Static_assert(std::is_same<double, __decltype(doubles / min16uints)>::value, "");
   _Static_assert(std::is_same<min16float, __decltype(min16floats / bools)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(min16floats / ints)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(min16floats / uints)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(min16floats / ints)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(min16floats / uints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(min16floats / halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(min16floats / floats)>::value, "");
   _Static_assert(std::is_same<double, __decltype(min16floats / doubles)>::value, "");
@@ -442,7 +442,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(bools % floats)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-50): error X3684: modulo cannot be used with doubles, cast to float first;compilation failed; no code produced;
   bools = (bools % doubles); // expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-error {{X3684: modulo cannot be used with doubles, cast to float first}}
-  _Static_assert(std::is_same<min16float, __decltype(bools % min16floats)>::value, "");    /* expected-error {{static_assert failed ""}}  FIXME: Github bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 */
+  _Static_assert(std::is_same<min16float, __decltype(bools % min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(bools % min10floats)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<int, __decltype(bools % min16ints)>::value, "");
   _Static_assert(std::is_same<int, __decltype(bools % min12ints)>::value, "");
@@ -454,7 +454,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(ints % floats)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-49): error X3684: modulo cannot be used with doubles, cast to float first;compilation failed; no code produced;
   ints = (ints % doubles); // expected-error {{modulo cannot be used with doubles, cast to float first}} expected-warning {{conversion from larger type 'double' to smaller type 'int', possible loss of data}} fxc-error {{X3684: modulo cannot be used with doubles, cast to float first}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}}
-  _Static_assert(std::is_same<__fp16, __decltype(ints % min16floats)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(ints % min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(ints % min10floats)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<int, __decltype(ints % min16ints)>::value, "");
   _Static_assert(std::is_same<int, __decltype(ints % min12ints)>::value, "");
@@ -466,7 +466,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<float, __decltype(uints % floats)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-50): error X3684: modulo cannot be used with doubles, cast to float first;compilation failed; no code produced;
   uints = (uints % doubles); // expected-error {{modulo cannot be used with doubles, cast to float first}} expected-warning {{conversion from larger type 'double' to smaller type 'uint', possible loss of data}} fxc-error {{X3684: modulo cannot be used with doubles, cast to float first}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}}
-  _Static_assert(std::is_same<__fp16, __decltype(uints % min16floats)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(uints % min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(uints % min10floats)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
   _Static_assert(std::is_same<uint, __decltype(uints % min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints % min12ints)>::value, "");
@@ -518,8 +518,8 @@ float4 plain(float4 param4 : FOO) : FOO {
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-55): error X3684: modulo cannot be used with doubles, cast to float first;compilation failed; no code produced;
   doubles = (doubles % min16uints); // expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-error {{X3684: modulo cannot be used with doubles, cast to float first}}
   _Static_assert(std::is_same<min16float, __decltype(min16floats % bools)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(min16floats % ints)>::value, "");
-  _Static_assert(std::is_same<__fp16, __decltype(min16floats % uints)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(min16floats % ints)>::value, "");
+  _Static_assert(std::is_same<min16float, __decltype(min16floats % uints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(min16floats % halfs)>::value, "");
   _Static_assert(std::is_same<float, __decltype(min16floats % floats)>::value, "");
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3684: modulo cannot be used with doubles, cast to float first;compilation failed; no code produced;

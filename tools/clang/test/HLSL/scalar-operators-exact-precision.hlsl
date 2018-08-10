@@ -155,7 +155,7 @@ _Static_assert(std::is_same<uint, __decltype(bools + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(bools + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(bools + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(bools + doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(bools + min16floats)>::value, "");    /* expected-error {{static_assert failed ""}} FIXME: GitHub bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(bools + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
 _Static_assert(std::is_same<min10float, __decltype(bools + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int, __decltype(bools + min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(bools + min12ints)>::value, "");
@@ -175,7 +175,7 @@ _Static_assert(std::is_same<uint, __decltype(ints + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(ints + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(ints + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(ints + doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(ints + min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(ints + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(ints + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int, __decltype(ints + min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(ints + min12ints)>::value, "");
@@ -195,7 +195,7 @@ _Static_assert(std::is_same<uint, __decltype(uints + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uints + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uints + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uints + doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uints + min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uints + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uints + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint, __decltype(uints + min16ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints + min12ints)>::value, "");
@@ -270,8 +270,8 @@ _Static_assert(std::is_same<double, __decltype(doubles + float16_ts)>::value, ""
 _Static_assert(std::is_same<double, __decltype(doubles + float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(doubles + float64_ts)>::value, "");
 _Static_assert(std::is_same<min16float, __decltype(min16floats + bools)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats + ints)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats + uints)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<half, __decltype(min16floats + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16floats + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16floats + doubles)>::value, "");
@@ -280,12 +280,12 @@ _Static_assert(std::is_same<min16float, __decltype(min16floats + min10floats)>::
 _Static_assert(std::is_same<min16float, __decltype(min16floats + min16ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min16float, __decltype(min16floats + min12ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min16float, __decltype(min16floats + min16uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats + int16_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats + int32_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats + int64_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats + uint16_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats + uint32_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats + uint64_ts)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + int16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + int32_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + int64_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + uint16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + uint32_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats + uint64_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<float16_t, __decltype(min16floats + float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16floats + float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16floats + float64_ts)>::value, "");
@@ -375,7 +375,7 @@ _Static_assert(std::is_same<uint, __decltype(int16_ts + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int16_ts + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int16_ts + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int16_ts + doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(int16_ts + min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int16_ts + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int16_ts + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts + min16ints)>::value, "");    /* fxc-pass {{}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts + min12ints)>::value, "");
@@ -395,7 +395,7 @@ _Static_assert(std::is_same<uint, __decltype(int32_ts + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int32_ts + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int32_ts + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int32_ts + doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(int32_ts + min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int32_ts + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int32_ts + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts + min16ints)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts + min12ints)>::value, "");
@@ -415,7 +415,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(int64_ts + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int64_ts + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int64_ts + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int64_ts + doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(int64_ts + min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int64_ts + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int64_ts + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts + min16ints)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts + min12ints)>::value, "");
@@ -435,7 +435,7 @@ _Static_assert(std::is_same<uint, __decltype(uint16_ts + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint16_ts + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint16_ts + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint16_ts + doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uint16_ts + min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint16_ts + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint16_ts + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts + min16ints)>::value, "");    /* fxc-pass {{}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts + min12ints)>::value, "");
@@ -455,7 +455,7 @@ _Static_assert(std::is_same<uint, __decltype(uint32_ts + uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint32_ts + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint32_ts + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint32_ts + doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uint32_ts + min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint32_ts + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint32_ts + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts + min16ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts + min12ints)>::value, "");
@@ -475,7 +475,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts + uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint64_ts + halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint64_ts + floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint64_ts + doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uint64_ts + min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint64_ts + min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint64_ts + min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts + min16ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts + min12ints)>::value, "");
@@ -555,7 +555,7 @@ _Static_assert(std::is_same<uint, __decltype(bools - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(bools - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(bools - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(bools - doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(bools - min16floats)>::value, "");    /* expected-error {{static_assert failed ""}} FIXME: GitHub bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(bools - min16floats)>::value, "");        /* expected-warning {{min16float is promoted to float16_t}} */
 _Static_assert(std::is_same<min10float, __decltype(bools - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int, __decltype(bools - min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(bools - min12ints)>::value, "");
@@ -575,7 +575,7 @@ _Static_assert(std::is_same<uint, __decltype(ints - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(ints - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(ints - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(ints - doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(ints - min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(ints - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(ints - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int, __decltype(ints - min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(ints - min12ints)>::value, "");
@@ -595,7 +595,7 @@ _Static_assert(std::is_same<uint, __decltype(uints - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uints - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uints - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uints - doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uints - min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uints - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uints - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint, __decltype(uints - min16ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints - min12ints)>::value, "");
@@ -670,8 +670,8 @@ _Static_assert(std::is_same<double, __decltype(doubles - float16_ts)>::value, ""
 _Static_assert(std::is_same<double, __decltype(doubles - float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(doubles - float64_ts)>::value, "");
 _Static_assert(std::is_same<min16float, __decltype(min16floats - bools)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats - ints)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats - uints)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<half, __decltype(min16floats - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16floats - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16floats - doubles)>::value, "");
@@ -680,12 +680,12 @@ _Static_assert(std::is_same<min16float, __decltype(min16floats - min10floats)>::
 _Static_assert(std::is_same<min16float, __decltype(min16floats - min16ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min16float, __decltype(min16floats - min12ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min16float, __decltype(min16floats - min16uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats - int16_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats - int32_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats - int64_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats - uint16_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats - uint32_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats - uint64_ts)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - int16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - int32_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - int64_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - uint16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - uint32_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats - uint64_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<float16_t, __decltype(min16floats - float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16floats - float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16floats - float64_ts)>::value, "");
@@ -775,7 +775,7 @@ _Static_assert(std::is_same<uint, __decltype(int16_ts - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int16_ts - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int16_ts - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int16_ts - doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(int16_ts - min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int16_ts - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int16_ts - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts - min16ints)>::value, "");    /* fxc-pass {{}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts - min12ints)>::value, "");
@@ -795,7 +795,7 @@ _Static_assert(std::is_same<uint, __decltype(int32_ts - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int32_ts - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int32_ts - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int32_ts - doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(int32_ts - min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int32_ts - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int32_ts - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts - min16ints)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts - min12ints)>::value, "");
@@ -815,7 +815,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(int64_ts - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int64_ts - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int64_ts - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int64_ts - doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(int64_ts - min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int64_ts - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int64_ts - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts - min16ints)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts - min12ints)>::value, "");
@@ -835,7 +835,7 @@ _Static_assert(std::is_same<uint, __decltype(uint16_ts - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint16_ts - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint16_ts - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint16_ts - doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uint16_ts - min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint16_ts - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint16_ts - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts - min16ints)>::value, "");    /* fxc-pass {{}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts - min12ints)>::value, "");
@@ -855,7 +855,7 @@ _Static_assert(std::is_same<uint, __decltype(uint32_ts - uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint32_ts - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint32_ts - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint32_ts - doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uint32_ts - min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint32_ts - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint32_ts - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts - min16ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts - min12ints)>::value, "");
@@ -875,7 +875,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts - uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint64_ts - halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint64_ts - floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint64_ts - doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uint64_ts - min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint64_ts - min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint64_ts - min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts - min16ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts - min12ints)>::value, "");
@@ -955,7 +955,7 @@ _Static_assert(std::is_same<uint, __decltype(bools / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(bools / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(bools / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(bools / doubles)>::value, "");
-_Static_assert(std::is_same<min16float, __decltype(bools / min16floats)>::value, "");    /* expected-error {{static_assert failed ""}} FIXME: GitHub bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(bools / min16floats)>::value, "");        /* expected-warning {{min16float is promoted to float16_t}} */
 _Static_assert(std::is_same<min10float, __decltype(bools / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int, __decltype(bools / min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(bools / min12ints)>::value, "");
@@ -975,7 +975,7 @@ _Static_assert(std::is_same<uint, __decltype(ints / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(ints / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(ints / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(ints / doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(ints / min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(ints / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(ints / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int, __decltype(ints / min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(ints / min12ints)>::value, "");
@@ -995,7 +995,7 @@ _Static_assert(std::is_same<uint, __decltype(uints / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uints / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uints / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uints / doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uints / min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uints / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uints / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint, __decltype(uints / min16ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints / min12ints)>::value, "");
@@ -1070,8 +1070,8 @@ _Static_assert(std::is_same<double, __decltype(doubles / float16_ts)>::value, ""
 _Static_assert(std::is_same<double, __decltype(doubles / float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(doubles / float64_ts)>::value, "");
 _Static_assert(std::is_same<min16float, __decltype(min16floats / bools)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats / ints)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats / uints)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<half, __decltype(min16floats / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16floats / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16floats / doubles)>::value, "");
@@ -1080,12 +1080,12 @@ _Static_assert(std::is_same<min16float, __decltype(min16floats / min10floats)>::
 _Static_assert(std::is_same<min16float, __decltype(min16floats / min16ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min16float, __decltype(min16floats / min12ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min16float, __decltype(min16floats / min16uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats / int16_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats / int32_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats / int64_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats / uint16_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats / uint32_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats / uint64_ts)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / int16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / int32_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / int64_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / uint16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / uint32_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats / uint64_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<float16_t, __decltype(min16floats / float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16floats / float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16floats / float64_ts)>::value, "");
@@ -1175,7 +1175,7 @@ _Static_assert(std::is_same<uint, __decltype(int16_ts / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int16_ts / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int16_ts / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int16_ts / doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(int16_ts / min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int16_ts / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int16_ts / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts / min16ints)>::value, "");    /* fxc-pass {{}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts / min12ints)>::value, "");
@@ -1195,7 +1195,7 @@ _Static_assert(std::is_same<uint, __decltype(int32_ts / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int32_ts / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int32_ts / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int32_ts / doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(int32_ts / min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int32_ts / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int32_ts / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts / min16ints)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts / min12ints)>::value, "");
@@ -1215,7 +1215,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(int64_ts / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int64_ts / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int64_ts / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int64_ts / doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(int64_ts / min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int64_ts / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int64_ts / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts / min16ints)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts / min12ints)>::value, "");
@@ -1235,7 +1235,7 @@ _Static_assert(std::is_same<uint, __decltype(uint16_ts / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint16_ts / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint16_ts / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint16_ts / doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uint16_ts / min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint16_ts / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint16_ts / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts / min16ints)>::value, "");    /* fxc-pass {{}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts / min12ints)>::value, "");
@@ -1255,7 +1255,7 @@ _Static_assert(std::is_same<uint, __decltype(uint32_ts / uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint32_ts / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint32_ts / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint32_ts / doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uint32_ts / min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint32_ts / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint32_ts / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts / min16ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts / min12ints)>::value, "");
@@ -1275,7 +1275,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts / uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint64_ts / halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint64_ts / floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint64_ts / doubles)>::value, "");
-_Static_assert(std::is_same<half, __decltype(uint64_ts / min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint64_ts / min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint64_ts / min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts / min16ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts / min12ints)>::value, "");
@@ -1355,7 +1355,7 @@ _Static_assert(std::is_same<uint, __decltype(bools % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(bools % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(bools % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(bools % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
-_Static_assert(std::is_same<min16float, __decltype(bools % min16floats)>::value, "");    /* expected-error {{static_assert failed ""}} FIXME: GitHub bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(bools % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} */
 _Static_assert(std::is_same<min10float, __decltype(bools % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int, __decltype(bools % min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(bools % min12ints)>::value, "");
@@ -1375,7 +1375,7 @@ _Static_assert(std::is_same<uint, __decltype(ints % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(ints % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(ints % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(ints % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(ints % min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(ints % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(ints % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int, __decltype(ints % min16ints)>::value, "");
 _Static_assert(std::is_same<int, __decltype(ints % min12ints)>::value, "");
@@ -1395,7 +1395,7 @@ _Static_assert(std::is_same<uint, __decltype(uints % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uints % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uints % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uints % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(uints % min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uints % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uints % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint, __decltype(uints % min16ints)>::value, "");
 _Static_assert(std::is_same<uint, __decltype(uints % min12ints)>::value, "");
@@ -1470,8 +1470,8 @@ _Static_assert(std::is_same<double, __decltype(doubles % float16_ts)>::value, ""
 _Static_assert(std::is_same<double, __decltype(doubles % float32_ts)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
 _Static_assert(std::is_same<float64_t, __decltype(doubles % float64_ts)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
 _Static_assert(std::is_same<min16float, __decltype(min16floats % bools)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats % ints)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats % uints)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<half, __decltype(min16floats % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(min16floats % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(min16floats % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
@@ -1480,12 +1480,12 @@ _Static_assert(std::is_same<min16float, __decltype(min16floats % min10floats)>::
 _Static_assert(std::is_same<min16float, __decltype(min16floats % min16ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min16float, __decltype(min16floats % min12ints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min16float, __decltype(min16floats % min16uints)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats % int16_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats % int32_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats % int64_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats % uint16_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats % uint32_ts)>::value, "");    /* fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(min16floats % uint64_ts)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % int16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % int32_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % int64_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % uint16_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % uint32_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(min16floats % uint64_ts)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<float16_t, __decltype(min16floats % float16_ts)>::value, "");
 _Static_assert(std::is_same<float32_t, __decltype(min16floats % float32_ts)>::value, "");
 _Static_assert(std::is_same<float64_t, __decltype(min16floats % float64_ts)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
@@ -1575,7 +1575,7 @@ _Static_assert(std::is_same<uint, __decltype(int16_ts % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int16_ts % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int16_ts % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int16_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(int16_ts % min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int16_ts % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int16_ts % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts % min16ints)>::value, "");    /* fxc-pass {{}} */
 _Static_assert(std::is_same<int16_t, __decltype(int16_ts % min12ints)>::value, "");
@@ -1595,7 +1595,7 @@ _Static_assert(std::is_same<uint, __decltype(int32_ts % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int32_ts % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int32_ts % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int32_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(int32_ts % min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int32_ts % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int32_ts % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts % min16ints)>::value, "");
 _Static_assert(std::is_same<int32_t, __decltype(int32_ts % min12ints)>::value, "");
@@ -1615,7 +1615,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(int64_ts % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(int64_ts % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(int64_ts % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(int64_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(int64_ts % min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(int64_ts % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(int64_ts % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts % min16ints)>::value, "");
 _Static_assert(std::is_same<int64_t, __decltype(int64_ts % min12ints)>::value, "");
@@ -1635,7 +1635,7 @@ _Static_assert(std::is_same<uint, __decltype(uint16_ts % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint16_ts % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint16_ts % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint16_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(uint16_ts % min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint16_ts % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint16_ts % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts % min16ints)>::value, "");    /* fxc-pass {{}} */
 _Static_assert(std::is_same<uint16_t, __decltype(uint16_ts % min12ints)>::value, "");
@@ -1655,7 +1655,7 @@ _Static_assert(std::is_same<uint, __decltype(uint32_ts % uints)>::value, "");
 _Static_assert(std::is_same<half, __decltype(uint32_ts % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint32_ts % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint32_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(uint32_ts % min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint32_ts % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint32_ts % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts % min16ints)>::value, "");
 _Static_assert(std::is_same<uint32_t, __decltype(uint32_ts % min12ints)>::value, "");
@@ -1675,7 +1675,7 @@ _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts % uints)>::value, "")
 _Static_assert(std::is_same<half, __decltype(uint64_ts % halfs)>::value, "");
 _Static_assert(std::is_same<float, __decltype(uint64_ts % floats)>::value, "");
 _Static_assert(std::is_same<double, __decltype(uint64_ts % doubles)>::value, "");    /* expected-error {{modulo cannot be used with doubles, cast to float first}} fxc-pass {{}} */
-_Static_assert(std::is_same<half, __decltype(uint64_ts % min16floats)>::value, "");    /* fxc-pass {{}} */
+_Static_assert(std::is_same<min16float, __decltype(uint64_ts % min16floats)>::value, "");    /* expected-warning {{min16float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<min10float, __decltype(uint64_ts % min10floats)>::value, "");    /* expected-warning {{min10float is promoted to float16_t}} fxc-pass {{}} */
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts % min16ints)>::value, "");
 _Static_assert(std::is_same<uint64_t, __decltype(uint64_ts % min12ints)>::value, "");

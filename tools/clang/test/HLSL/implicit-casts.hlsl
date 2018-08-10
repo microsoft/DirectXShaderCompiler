@@ -573,7 +573,7 @@ float4 test(): SV_Target {
           `-ImplicitCastExpr <col:17> 'min16float':'__fp16' <LValueToRValue>
             `-DeclRefExpr <col:17> 'min16float':'__fp16' lvalue Var 'm16f' 'min16float':'__fp16'
   */
-  m16f4x4 = i4x4 * (m16f + 1);                  /* expected-warning {{conversion from larger type 'matrix<__fp16, 4, 4>' to smaller type 'min16float4x4', possible loss of data}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
+  m16f4x4 = i4x4 * (m16f + 1);                  /* fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
   /*verify-ast
     BinaryOperator <col:3, col:29> 'min16float4x4':'matrix<min16float, 4, 4>' '='
     |-DeclRefExpr <col:3> 'min16float4x4':'matrix<min16float, 4, 4>' lvalue Var 'm16f4x4' 'min16float4x4':'matrix<min16float, 4, 4>'

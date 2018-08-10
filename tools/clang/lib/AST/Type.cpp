@@ -2492,8 +2492,10 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case ULong:             return "unsigned long";
   case ULongLong:         return "unsigned long long";
   case UInt128:           return "unsigned __int128";
-  case HalfFloat: // HLSL Change
-  case Half:              return Policy.Half ? "half" : "__fp16";
+  // HLSL Changes begin
+  case HalfFloat:
+  case Half:              return /*Policy.Half*/ true ? "half" : "__fp16";
+  // HLSL Changes end
   case Float:             return "float";
   case Double:            return "double";
   case LongDouble:        return "long double";
