@@ -220,7 +220,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<uint, __decltype(uints - min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints - min12ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints - min16uints)>::value, "");
-  _Static_assert(std::is_same<float, __decltype(halfs - bools)>::value, "");             /* expected-error {{static_assert failed ""}}  FIXME: Github bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 */
+  _Static_assert(std::is_same<half, __decltype(halfs - bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs - ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs - uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(halfs - halfs)>::value, "");
@@ -341,7 +341,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<uint, __decltype(uints / min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints / min12ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints / min16uints)>::value, "");
-  _Static_assert(std::is_same<float, __decltype(halfs / bools)>::value, "");             /* expected-error {{static_assert failed ""}}  FIXME: Github bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 */
+  _Static_assert(std::is_same<half, __decltype(halfs / bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs / ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs / uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(halfs / halfs)>::value, "");
@@ -471,7 +471,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<uint, __decltype(uints % min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints % min12ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints % min16uints)>::value, "");
-  _Static_assert(std::is_same<float, __decltype(halfs % bools)>::value, "");             /* expected-error {{static_assert failed ""}}  FIXME: Github bug: https://github.com/Microsoft/DirectXShaderCompiler/issues/1497 */
+  _Static_assert(std::is_same<half, __decltype(halfs % bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs % ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs % uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(halfs % halfs)>::value, "");
