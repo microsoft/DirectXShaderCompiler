@@ -2503,6 +2503,8 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         case BuiltinType::Int:
         case BuiltinType::Short:
         case BuiltinType::Min12Int:
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
         case BuiltinType::UShort:
         case BuiltinType::UInt:
         case BuiltinType::Long:
@@ -2514,7 +2516,9 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         case BuiltinType::Double:
         case BuiltinType::Float:
         case BuiltinType::Half:
+        case BuiltinType::HalfFloat:
         case BuiltinType::Min10Float:
+        case BuiltinType::Min16Float:
           return castToFloat(initId, initType, ty, srcLoc);
         default:
           emitError("flat conversion of type %0 unimplemented", srcLoc)

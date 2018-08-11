@@ -321,7 +321,7 @@ float4 test(): SV_Target {
   VERIFY_TYPES(float4x4, i4x4 * f);
   VERIFY_TYPES(float4x4, f * i4x4);
   VERIFY_TYPES(bool, b = i4);                   /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
-  
+
   VERIFY_TYPES(float4x4, overload1(i4x4 * f));
   VERIFY_TYPES(float4x4, overload1(i4x4 * 1.5F));
   VERIFY_TYPES(float4x4, overload1(i4x4 * 1.5));
@@ -335,10 +335,10 @@ float4 test(): SV_Target {
   VERIFY_TYPES(int4x4, overload2(f, i4x4));
 
   VERIFY_TYPES(uint64_t4x4, overload2(u644x4, d));
-  VERIFY_TYPES(uint64_t4x4, overload2(d, u644x4)); 
+  VERIFY_TYPES(uint64_t4x4, overload2(d, u644x4));
   VERIFY_TYPES(int64_t4x4, overload2(i644x4, d));
-  VERIFY_TYPES(int64_t4x4, overload2(d, i644x4)); 
-  
+  VERIFY_TYPES(int64_t4x4, overload2(d, i644x4));
+
   // ambiguous:
   //VERIFY_TYPES(float4, overload2(f4, i4));
 
@@ -359,7 +359,7 @@ float4 test(): SV_Target {
       `-ImplicitCastExpr <col:8> 'int' <LValueToRValue>
         `-DeclRefExpr <col:8> 'int' lvalue Var 'i' 'int'
   */
-  
+
   u64 = d;
   /*verify-ast
     BinaryOperator <col:3, col:9> 'uint64_t':'unsigned long long' '='

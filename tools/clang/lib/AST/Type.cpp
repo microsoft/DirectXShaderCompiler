@@ -2492,7 +2492,10 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case ULong:             return "unsigned long";
   case ULongLong:         return "unsigned long long";
   case UInt128:           return "unsigned __int128";
-  case Half:              return Policy.Half ? "half" : "__fp16";
+  // HLSL Changes begin
+  case HalfFloat:
+  case Half:              return /*Policy.Half*/ true ? "half" : "__fp16";
+  // HLSL Changes end
   case Float:             return "float";
   case Double:            return "double";
   case LongDouble:        return "long double";
@@ -2521,6 +2524,9 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case OCLEvent:          return "event_t";
   // HLSL Change Starts
   case Min10Float:        return "min10float";
+  case Min16Float:        return "min16float";
+  case Min16Int:          return "min16int";
+  case Min16UInt:         return "min16uint";
   case Min12Int:          return "min12int";
   case LitFloat:          return "literal float";
   case LitInt:            return "literal int";
