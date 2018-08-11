@@ -838,8 +838,11 @@ public:
   CanQualType OCLImage2dTy, OCLImage2dArrayTy;
   CanQualType OCLImage3dTy;
   CanQualType OCLSamplerTy, OCLEventTy;
-  CanQualType Min12IntTy, Min10FloatTy; // HLSL Change - HLSL-specific types
-  CanQualType LitIntTy, LitFloatTy; // HLSL Change - HLSL-specific types
+  // HLSL Changes begin
+  CanQualType Min12IntTy, Min10FloatTy;
+  CanQualType LitIntTy, LitFloatTy;
+  CanQualType HalfFloatTy, Min16FloatTy, Min16IntTy, Min16UIntTy;
+  // HLSL Changes end
 
   // Types for deductions in C++0x [stmt.ranged]'s desugaring. Built on demand.
   mutable QualType AutoDeductTy;     // Deduction against 'auto'.

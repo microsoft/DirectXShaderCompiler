@@ -99,7 +99,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<uint, __decltype(uints + min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints + min12ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints + min16uints)>::value, "");
-  _Static_assert(std::is_same<float, __decltype(halfs + bools)>::value, "");
+  _Static_assert(std::is_same<half, __decltype(halfs + bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs + ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs + uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(halfs + halfs)>::value, "");
@@ -220,7 +220,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<uint, __decltype(uints - min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints - min12ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints - min16uints)>::value, "");
-  _Static_assert(std::is_same<float, __decltype(halfs - bools)>::value, "");
+  _Static_assert(std::is_same<half, __decltype(halfs - bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs - ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs - uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(halfs - halfs)>::value, "");
@@ -341,7 +341,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<uint, __decltype(uints / min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints / min12ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints / min16uints)>::value, "");
-  _Static_assert(std::is_same<float, __decltype(halfs / bools)>::value, "");
+  _Static_assert(std::is_same<half, __decltype(halfs / bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs / ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs / uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(halfs / halfs)>::value, "");
@@ -420,7 +420,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<min16float, __decltype(min12ints / min16floats)>::value, "");
   _Static_assert(std::is_same<min10float, __decltype(min12ints / min10floats)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
-  min12ints = (min12ints / min16ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}}
+  min12ints = (min12ints / min16ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} expected-warning {{conversion from larger type 'min16int' to smaller type 'min12int', possible loss of data}} fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}}
   // X:\temp\Sfbl_grfx_dev_p\x86\chk\operators.js.hlsl(16,22-56): error X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.;compilation failed; no code produced;
   min12ints = (min12ints / min12ints); // expected-error {{signed integer division is not supported on minimum-precision types, cast to int to use 32-bit division}} fxc-error {{X3706: signed integer division is not supported on minimum-precision types. Cast to int to use 32-bit division.}}
   _Static_assert(std::is_same<min16uint, __decltype(min12ints / min16uints)>::value, "");
@@ -471,7 +471,7 @@ float4 plain(float4 param4 : FOO) : FOO {
   _Static_assert(std::is_same<uint, __decltype(uints % min16ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints % min12ints)>::value, "");
   _Static_assert(std::is_same<uint, __decltype(uints % min16uints)>::value, "");
-  _Static_assert(std::is_same<float, __decltype(halfs % bools)>::value, "");
+  _Static_assert(std::is_same<half, __decltype(halfs % bools)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs % ints)>::value, "");
   _Static_assert(std::is_same<float, __decltype(halfs % uints)>::value, "");
   _Static_assert(std::is_same<half, __decltype(halfs % halfs)>::value, "");
