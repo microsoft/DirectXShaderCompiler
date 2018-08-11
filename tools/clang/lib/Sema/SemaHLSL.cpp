@@ -1753,8 +1753,8 @@ inline void AssignOpt(T value, _Out_opt_ T* ptr)
 }
 
 static bool CombineBasicTypes(ArBasicKind LeftKind,
-  ArBasicKind RightKind,
-  _Out_ ArBasicKind* pOutKind)
+                              ArBasicKind RightKind,
+                              _Out_ ArBasicKind* pOutKind)
 {
   if ((LeftKind < 0 || LeftKind >= AR_BASIC_COUNT) ||
     (RightKind < 0 || RightKind >= AR_BASIC_COUNT)) {
@@ -1769,21 +1769,19 @@ static bool CombineBasicTypes(ArBasicKind LeftKind,
   UINT uLeftProps = GetBasicKindProps(LeftKind);
   UINT uRightProps = GetBasicKindProps(RightKind);
   UINT uBits = GET_BPROP_BITS(uLeftProps) > GET_BPROP_BITS(uRightProps) ?
-    GET_BPROP_BITS(uLeftProps) : GET_BPROP_BITS(uRightProps);
+               GET_BPROP_BITS(uLeftProps) : GET_BPROP_BITS(uRightProps);
   UINT uBothFlags = uLeftProps & uRightProps;
   UINT uEitherFlags = uLeftProps | uRightProps;
 
   // Notes: all numeric types have either BPROP_FLOATING or BPROP_INTEGER (even bool)
   //        unsigned only applies to non-literal ints, not bool or enum
   //        literals, bool, and enum are all BPROP_BITS0
-
   if (uBothFlags & BPROP_BOOLEAN) {
     *pOutKind = AR_BASIC_BOOL;
     return true;
   }
 
   bool bFloatResult = 0 != (uEitherFlags & BPROP_FLOATING);
-
   if (uBothFlags & BPROP_LITERAL) {
     *pOutKind = bFloatResult ? AR_BASIC_LITERAL_FLOAT : AR_BASIC_LITERAL_INT;
     return true;
@@ -1832,14 +1830,12 @@ static bool CombineBasicTypes(ArBasicKind LeftKind,
 
   if (bMinPrecisionResult) {
     DXASSERT(uBits < BPROP_BITS32, "CombineBasicTypes: min-precision result must be less than 32-bits");
-  }
-  else {
+  } else {
     DXASSERT(uBits > BPROP_BITS12, "CombineBasicTypes: 10 or 12 bit result must be min precision");
   }
   if (bFloatResult) {
     DXASSERT(uBits != BPROP_BITS12, "CombineBasicTypes: 12-bit result must be int");
-  }
-  else {
+  } else {
     DXASSERT(uBits != BPROP_BITS10, "CombineBasicTypes: 10-bit result must be float");
   }
   if (uBits == BPROP_BITS12) {
@@ -1864,8 +1860,7 @@ static bool CombineBasicTypes(ArBasicKind LeftKind,
       DXASSERT(false, "Unexpected bit count for float result");
       break;
     }
-  }
-  else {
+  } else {
     // int or unsigned int
     switch (uBits) {
     case BPROP_BITS12:
