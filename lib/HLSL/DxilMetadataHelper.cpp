@@ -439,6 +439,10 @@ void DxilMDHelper::LoadSignatureElement(const MDOperand &MDO, DxilSignatureEleme
   SE.Initialize(pName->getString(), CT, IM, NumRows, NumCols, StartRow, StartCol, ID, SemanticIndexVector);
   SE.SetKind(SemKind);
 
+  // For case a system semantic don't have index, add 0 for it.
+  if (SemanticIndexVector.empty() && !SE.IsArbitrary()) {
+    SE.SetSemanticIndexVec({0});
+  }
   // Name-value list of extended properties.
   m_ExtraPropertyHelper->LoadSignatureElementProperties(pTupleMD->getOperand(kDxilSignatureElementNameValueList), SE);
 }
