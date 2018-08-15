@@ -6265,6 +6265,22 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
           SI->eraseFromParent();
           continue;
         }
+        if (LoadInst *LI = dyn_cast<LoadInst>(GEPUser)) {
+          IRBuilder<> LdBuilder(LI);
+
+          // Generate tmp vector load with vector type & translate it
+          LoadInst *tmpLd = LdBuilder.CreateLoad(CI);
+
+          Value *ldVal = TranslateTypedBufLoad(CI, RK, RC, handle, tmpLd, LdBuilder,
+            hlslOP, helper.dataLayout);
+
+          // get the single element
+          ldVal = LdBuilder.CreateExtractElement(ldVal, EltIdx);
+
+          LI->replaceAllUsesWith(ldVal);
+          LI->eraseFromParent();
+          continue;
+        }
         if (!isa<CallInst>(GEPUser)) {
           // Invalid operations.
           Translated = false;
