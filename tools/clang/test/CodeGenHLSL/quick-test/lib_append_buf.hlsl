@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_2 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
 
 // Make sure append/consume works for lib.
 // CHECK: bufferUpdateCounter(i32 70, {{.*}}, i8 -1)

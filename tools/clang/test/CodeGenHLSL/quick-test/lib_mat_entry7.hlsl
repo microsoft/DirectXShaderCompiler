@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1  %s | FileCheck %s
+// RUN: %dxc -T lib_6_1 -Vd  %s | FileCheck %s
 
 // Make sure double matrix flattened and have correct offset.
 // CHECK:dx.op.bufferLoad.i32(i32 68, %dx.types.Handle {{.*}}, i32 {{.*}}, i32 0)
