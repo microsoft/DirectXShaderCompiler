@@ -75,7 +75,7 @@ if errorlevel 1 (
 
 rem Set path to x86 tblgen tools for the ARM64 build
 if "%BUILD_TBLGEN_PATH%" == "" (
-  set BUILD_TBLGEN_PATH=%HLSL_BLD_DIR%\x86\Debug\bin
+  set BUILD_TBLGEN_PATH=%HLSL_BLD_DIR%\x86\Release\bin
 )
 
 call :verify_arch arm64 %ARM64_TST% %ARM64_DBG% %ARM64_REL%
