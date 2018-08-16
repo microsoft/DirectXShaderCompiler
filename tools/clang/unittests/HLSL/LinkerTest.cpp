@@ -461,7 +461,7 @@ TEST_F(LinkerTest, RunLinkToLibWithUnresolvedFunctions) {
   LPCWSTR libName2 = L"lib2";
   RegisterDxcModule(libName2, pLib2, pLinker);
 
-  Link(L"", L"lib_6_2", pLinker, { libName1, libName2 }, {
+  Link(L"", L"lib_6_3", pLinker, { libName1, libName2 }, {
     "declare float @\"\\01?external_fn1@@YAMXZ\"()",
     "declare float @\"\\01?external_fn2@@YAMXZ\"()",
     "declare float @\"\\01?external_fn@@YAMXZ\"()",
@@ -633,7 +633,7 @@ TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
   LPCWSTR libName2 = L"lib2";
   RegisterDxcModule(libName2, pLib2, pLinker);
 
-  Link(L"", L"lib_6_2", pLinker, { libName1, libName2 }, {
+  Link(L"", L"lib_6_3", pLinker, { libName1, libName2 }, {
     "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Texture2D<vector<float, 4> >\"(i32, %\"class.Texture2D<vector<float, 4> >\")",
     "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Texture2D<float>\"(i32, %\"class.Texture2D<float>\")"
   }, { });

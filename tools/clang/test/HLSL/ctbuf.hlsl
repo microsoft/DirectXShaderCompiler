@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 -ast-dump %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -ast-dump %s | FileCheck %s
 
 struct S {
   float4 f;

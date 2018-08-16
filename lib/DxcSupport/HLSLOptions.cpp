@@ -554,7 +554,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.DisableValidation = true;
   }
 
-  // SPIRV Change Starts
+  // Disable lib_6_1 and lib_6_2 if /Vd is not present
+  if (opts.IsLibraryProfile() && (Major < 6 || (Major == 6 && Minor < 3))) {
+    if (!opts.DisableValidation) {
+      errors << "Must disable validation for unsupported lib_6_1 or lib_6_2 "
+                "targets.";
+      return 1;
+    }
+  }
+
+    // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
   opts.VkInvertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);

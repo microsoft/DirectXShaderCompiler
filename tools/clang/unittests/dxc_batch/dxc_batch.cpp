@@ -856,7 +856,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     std::vector<std::string> args(tmpArgStrings.begin(), tmpArgStrings.end());
     // Add target to avoid fail.
     args.emplace_back("-T");
-    args.emplace_back("lib_6_1");
+    args.emplace_back("lib_6_x");
 
     std::vector<StringRef> refArgs;
     refArgs.reserve(args.size());

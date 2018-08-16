@@ -520,15 +520,15 @@ if %errorlevel% neq 0 (
 )
 
 echo Smoke test for dxl command line ...
-dxc.exe -T lib_6_1 "%2"\..\CodeGenHLSL\lib_entry4.hlsl -Fo lib_entry4.dxbc 1>nul
+dxc.exe -T lib_6_x "%2"\..\CodeGenHLSL\lib_entry4.hlsl -Fo lib_entry4.dxbc 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to run dxc.exe -T "%2"\..\CodeGenHLSL\lib_6_1 lib_entry4.hlsl -Fo lib_entry4.dxbc
+  echo Failed to run dxc.exe -T "%2"\..\CodeGenHLSL\lib_6_x lib_entry4.hlsl -Fo lib_entry4.dxbc
   call :cleanup 2>nul
   exit /b 1
 )
-dxc.exe -T lib_6_1 "%2"\..\CodeGenHLSL\lib_res_match.hlsl -Fo lib_res_match.dxbc 1>nul
+dxc.exe -T lib_6_x "%2"\..\CodeGenHLSL\lib_res_match.hlsl -Fo lib_res_match.dxbc 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to run dxc.exe -T "%2"\..\CodeGenHLSL\lib_6_1 lib_res_match.hlsl -Fo lib_res_match.dxbc
+  echo Failed to run dxc.exe -T "%2"\..\CodeGenHLSL\lib_6_x lib_res_match.hlsl -Fo lib_res_match.dxbc
   call :cleanup 2>nul
   exit /b 1
 )
