@@ -82,7 +82,7 @@ static void printDotGraph(const std::vector<Node*> nodes, const std::string& fil
   out << "  labeljust = \"l\"\n";
   out << "]\n";
 
-  for (int i = 0; i < nodes.size(); ++i)
+  for (unsigned i = 0; i < nodes.size(); ++i)
   {
     Node* N = nodes[i];
 
