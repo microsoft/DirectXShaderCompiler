@@ -357,7 +357,7 @@ TEST_F(LinkerTest, RunLinkMatParamToLib) {
   Link(L"", L"lib_6_3", pLinker, {libName},
        // The bitcast cannot be removed because user function call use it as
        // argument.
-       {"bitcast \\<12 x float\\>\\* \\%\\d+ to \\%class\\.matrix\\.float\\.4\\.3\\*"}, {}, {}, true);
+       {"bitcast <12 x float>\\* %.* to %class\\.matrix\\.float\\.4\\.3\\*"}, {}, {}, true);
 }
 
 TEST_F(LinkerTest, RunLinkResRet) {
