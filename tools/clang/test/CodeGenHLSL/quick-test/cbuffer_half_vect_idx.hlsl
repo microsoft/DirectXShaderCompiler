@@ -1,11 +1,11 @@
 // RUN: %dxc -E main -T ps_6_2 -enable-16bit-types %s | FileCheck %s
 
-// CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %constants_cbuffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
-// CHECK: extractvalue %dx.types.CBufRet.f16.8 %0, 0
-// CHECK: extractvalue %dx.types.CBufRet.f16.8 %0, 1
-// CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %constants_cbuffer, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
-// CHECK: extractvalue %dx.types.CBufRet.f16.8 %3, 6
-// CHECK: extractvalue %dx.types.CBufRet.f16.8 %3, 7
+// CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %constants_cbuffer, i32 0)
+// CHECK: extractvalue %dx.types.CBufRet.f16.8 %{{[^,]+}}, 0
+// CHECK: extractvalue %dx.types.CBufRet.f16.8 %{{[^,]+}}, 1
+// CHECK: call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %constants_cbuffer, i32 1)
+// CHECK: extractvalue %dx.types.CBufRet.f16.8 %{{[^,]+}}, 6
+// CHECK: extractvalue %dx.types.CBufRet.f16.8 %{{[^,]+}}, 7
 
 cbuffer constants : register(b0)
 {

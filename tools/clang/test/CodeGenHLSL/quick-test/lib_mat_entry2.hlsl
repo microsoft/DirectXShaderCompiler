@@ -1,6 +1,6 @@
 // RUN: %dxc -T lib_6_3  %s | FileCheck %s
 
-// CHECK: [[BCI:%.*]] = bitcast <12 x float>* %1 to %class.matrix.float.4.3*
+// CHECK: [[BCI:%.*]] = bitcast <12 x float>* {{.*}} to %class.matrix.float.4.3*
 // CHECK:call <3 x float> @"\01?mat_test@@YA?AV?$vector@M$02@@V?$vector@M$03@@0AIAV?$matrix@M$03$02@@@Z"(<4 x float> {{.*}}, <4 x float> {{.*}}, %class.matrix.float.4.3* {{.*}}[[BCI]])
 
 float3 mat_test(in float4 in0,

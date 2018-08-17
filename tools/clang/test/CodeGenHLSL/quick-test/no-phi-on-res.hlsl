@@ -2,7 +2,7 @@
 
 // Verify no phi on resource, handle, or anything
 
-// CHECK: entry:
+// CHECK: define void @"\01?main@@YAXXZ"()
 // CHECK-NOT: phi
 // CHECK: ret void
 

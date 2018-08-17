@@ -4,8 +4,8 @@
 // CHECK: alloca %struct.T
 // CHECK: store %struct.RWByteAddressBuffer
 // CHECK: call void @"\01?resStruct@@YA?AUT2@@UT@@V?$vector@I$01@@@Z"(%struct.T2
-// CHECK: %[[ptr:[^, ]]] = getelementptr inbounds %struct.T2
-// CHECK: %[[val:[^, ]]] = load %"class.RWStructuredBuffer<D>", %"class.RWStructuredBuffer<D>"* %[[ptr]]
+// CHECK: %[[ptr:[^, ]+]] = getelementptr inbounds %struct.T2
+// CHECK: %[[val:[^, ]+]] = load %"class.RWStructuredBuffer<D>", %"class.RWStructuredBuffer<D>"* %[[ptr]]
 // CHECK: call %dx.types.Handle @"dx.op.createHandleForLib.class.RWStructuredBuffer<D>"(i32 160, %"class.RWStructuredBuffer<D>" %[[val]])
 
 
