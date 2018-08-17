@@ -2335,7 +2335,7 @@ HRESULT DxilLibraryReflection::GetDesc(D3D12_LIBRARY_DESC * pDesc) {
 
 _Use_decl_annotations_
 ID3D12FunctionReflection *DxilLibraryReflection::GetFunctionByIndex(INT FunctionIndex) {
-  if (FunctionIndex >= m_FunctionVector.size())
+  if ((UINT)FunctionIndex >= m_FunctionVector.size())
     return &g_InvalidFunction;
   return m_FunctionVector[FunctionIndex];
 }
