@@ -106,7 +106,8 @@ public:
   void Link(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
             ArrayRef<LPCWSTR> libNames, llvm::ArrayRef<LPCSTR> pCheckMsgs,
             llvm::ArrayRef<LPCSTR> pCheckNotMsgs,
-            llvm::ArrayRef<LPCWSTR> pArguments = {}) {
+            llvm::ArrayRef<LPCWSTR> pArguments = {},
+            bool bRegEx = false) {
     CComPtr<IDxcOperationResult> pResult;
     VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames.data(),
                                    libNames.size(),
@@ -122,8 +123,8 @@ public:
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
     std::string IR = BlobToUtf8(pDisassembly);
-    CheckMsgs(IR.c_str(), IR.size(), pCheckMsgs.data(), pCheckMsgs.size(), false);
-    CheckNotMsgs(IR.c_str(), IR.size(), pCheckNotMsgs.data(), pCheckNotMsgs.size(), false);
+    CheckMsgs(IR.c_str(), IR.size(), pCheckMsgs.data(), pCheckMsgs.size(), bRegEx);
+    CheckNotMsgs(IR.c_str(), IR.size(), pCheckNotMsgs.data(), pCheckNotMsgs.size(), bRegEx);
   }
 
   void LinkCheckMsg(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
@@ -356,7 +357,7 @@ TEST_F(LinkerTest, RunLinkMatParamToLib) {
   Link(L"", L"lib_6_3", pLinker, {libName},
        // The bitcast cannot be removed because user function call use it as
        // argument.
-       {"bitcast <12 x float>* %1 to %class.matrix.float.4.3*"}, {});
+       {"bitcast \\<12 x float\\>\\* \\%\\d+ to \\%class\\.matrix\\.float\\.4\\.3\\*"}, {}, {}, true);
 }
 
 TEST_F(LinkerTest, RunLinkResRet) {

@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // Make sure no phi/select of handle in lib.
-// CHECK: entry:
+// CHECK: define i32 @"\01?test@@YAIHHH@Z"(i32 %i, i32 %j, i32 %m)
 // CHECK-NOT: phi %"class.
 // CHECK-NOT: phi %dx.types.Handle
 // CHECK-NOT: select i1 %{{[^,]+}}, %"class.
