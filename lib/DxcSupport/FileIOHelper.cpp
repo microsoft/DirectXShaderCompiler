@@ -184,7 +184,7 @@ public:
   DXC_MICROCOM_ADDREF_IMPL(m_dwRef)
   ULONG STDMETHODCALLTYPE Release() override {
     // Because blobs are also used by tests and utilities, we avoid using TLS.
-    ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef);
+    ULONG result = (ULONG)--m_dwRef;
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
       this->~InternalDxcBlobEncoding();
@@ -776,7 +776,7 @@ public:
   ULONG STDMETHODCALLTYPE Release() override {
     // Because memory streams are also used by tests and utilities,
     // we avoid using TLS.
-    ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef);
+    ULONG result = (ULONG)--m_dwRef;
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
       this->~MemoryStream();
