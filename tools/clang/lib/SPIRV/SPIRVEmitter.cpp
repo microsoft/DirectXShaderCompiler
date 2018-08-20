@@ -8782,25 +8782,39 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
   {
     QualType scalarType = {};
     if (TypeTranslator::isScalarType(type, &scalarType)) {
-      // TODO: Support other types such as short, half, etc.
+      if (scalarType->isBooleanType()) {
+        return theBuilder.getConstantBool(true);
+      }
 
+      const auto bitWidth = typeTranslator.getElementSpirvBitwidth(scalarType);
       if (scalarType->isSignedIntegerType()) {
-        return theBuilder.getConstantInt32(1);
+        switch (bitWidth) {
+        case 16:
+          return theBuilder.getConstantInt16(1);
+        case 32:
+          return theBuilder.getConstantInt32(1);
+        case 64:
+          return theBuilder.getConstantInt64(1);
+        }
       }
-
       if (scalarType->isUnsignedIntegerType()) {
-        return theBuilder.getConstantUint32(1);
+        switch (bitWidth) {
+        case 16:
+          return theBuilder.getConstantUint16(1);
+        case 32:
+          return theBuilder.getConstantUint32(1);
+        case 64:
+          return theBuilder.getConstantUint64(1);
+        }
       }
-
-      if (scalarType->isSpecificBuiltinType(BuiltinType::LitFloat))
-        scalarType = typeTranslator.getIntendedLiteralType(scalarType);
-      if (const auto *builtinType = scalarType->getAs<BuiltinType>()) {
-        // TODO: Add support for other types that are not covered yet.
-        switch (builtinType->getKind()) {
-        case BuiltinType::Double:
-          return theBuilder.getConstantFloat64(1.0);
-        case BuiltinType::Float:
+      if (scalarType->isFloatingType()) {
+        switch (bitWidth) {
+        case 16:
+          return theBuilder.getConstantFloat16(1.0);
+        case 32:
           return theBuilder.getConstantFloat32(1.0);
+        case 64:
+          return theBuilder.getConstantFloat64(1.0);
         }
       }
     }
