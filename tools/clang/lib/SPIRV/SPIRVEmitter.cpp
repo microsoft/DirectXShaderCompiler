@@ -210,7 +210,8 @@ bool spirvToolsLegalize(spv_target_env env, std::vector<uint32_t> *module,
 
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
-  return optimizer.Run(module->data(), module->size(), module);
+  return optimizer.Run(module->data(), module->size(), module, {},
+                       /*skip_validation=*/true);
 }
 
 bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
@@ -236,7 +237,8 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
       return false;
   }
 
-  return optimizer.Run(module->data(), module->size(), module);
+  return optimizer.Run(module->data(), module->size(), module, {},
+                       /*skip_validation=*/true);
 }
 
 bool spirvToolsValidate(spv_target_env env, std::vector<uint32_t> *module,
