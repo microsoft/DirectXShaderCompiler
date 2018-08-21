@@ -17,6 +17,7 @@
 #include <cassert>
 #include <sstream>
 #include <algorithm>
+#include <atomic>
 
 #include "dxc/Support/WinIncludes.h"
 
@@ -51,7 +52,7 @@ inline HRESULT GetFirstChildFromCursor(IDxcCursor *cursor,
 class TrivialDxcUnsavedFile : IDxcUnsavedFile
 {
 private:
-  volatile llvm::sys::cas_flag m_dwRef;
+  volatile std::atomic<llvm::sys::cas_flag> m_dwRef;
   LPCSTR m_fileName;
   LPCSTR m_contents;
   unsigned m_length;
@@ -67,9 +68,9 @@ public:
     CComPtr<TrivialDxcUnsavedFile> pNewValue = new TrivialDxcUnsavedFile(fileName, contents);
     return pNewValue.QueryInterface(pResult);
   }
-  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)llvm::sys::AtomicIncrement(&m_dwRef); }
+  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)++m_dwRef; }
   ULONG STDMETHODCALLTYPE Release() { 
-    ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef);
+    ULONG result = (ULONG)--m_dwRef;
     if (result == 0) delete this;
     return result;
   }
