@@ -8810,7 +8810,7 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
       if (scalarType->isFloatingType()) {
         switch (bitWidth) {
         case 16:
-          return theBuilder.getConstantFloat16(1.0);
+          return theBuilder.getConstantFloat16(1);
         case 32:
           return theBuilder.getConstantFloat32(1.0);
         case 64:
