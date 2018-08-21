@@ -11,6 +11,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <atomic>
 #ifdef _WIN32
 #include <dxgiformat.h>
 #include "WexTestClass.h"
@@ -508,11 +509,11 @@ inline UINT GetByteSizeForFormat(DXGI_FORMAT value) {
 #endif
 
 #define SIMPLE_IUNKNOWN_IMPL1(_IFACE_) \
-  private: volatile llvm::sys::cas_flag m_dwRef; \
+  private: volatile std::atomic<llvm::sys::cas_flag> m_dwRef; \
   public:\
-  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)llvm::sys::AtomicIncrement(&m_dwRef); } \
+  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)++m_dwRef; } \
   ULONG STDMETHODCALLTYPE Release() { \
-    ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef); \
+    ULONG result = (ULONG)--m_dwRef; \
     if (result == 0) delete this; \
     return result; \
   } \
