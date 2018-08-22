@@ -198,5 +198,21 @@ int4 main() : SV_Target {
     float FaddU = MyEnumUInt::FOURU + 283.48f;
     float Fadd64 = MyEnum64::ZERO64  - 8471.0f;
 
+    if (MyEnum == ONE) 
+      ;
+    if (MyEnum != ONE) 
+      ;
+    if (MyEnum > ONE) 
+      ;
+
+    if (MyEnumClass == MyEnumClass::ONEC) 
+      ;
+    if (MyEnumClass != MyEnumClass::ONEC) 
+      ;
+    if (MyEnumClass < MyEnumClass::ONEC) /* expected-error {{numeric type expected}} */
+      ;
+
+    if (MyEnum == MyEnumClass::ONEC) ;  /* expected-error {{type mismatch}} */
+
     return 1;
 }
