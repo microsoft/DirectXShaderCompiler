@@ -3448,6 +3448,7 @@ public:
 
     case AR_BASIC_INT64:          return HLSLScalarType_int64;
     case AR_BASIC_UINT64:         return HLSLScalarType_uint64;
+    case AR_BASIC_ENUM:           return HLSLScalarType_int;
     default:
       return HLSLScalarType_unknown;
     }
@@ -3479,6 +3480,8 @@ public:
     case AR_BASIC_MIN12INT:       return m_scalarTypes[HLSLScalarType_int_min12];
     case AR_BASIC_MIN16INT:       return m_scalarTypes[HLSLScalarType_int_min16];
     case AR_BASIC_MIN16UINT:      return m_scalarTypes[HLSLScalarType_uint_min16];
+    case AR_BASIC_ENUM:           return m_context->IntTy;
+    case AR_BASIC_ENUM_CLASS:     return m_context->IntTy;
 
     case AR_OBJECT_STRING: return QualType();
 
