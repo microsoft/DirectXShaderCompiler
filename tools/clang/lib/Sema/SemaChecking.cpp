@@ -32,6 +32,7 @@
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/Sema.h"
+#include "clang/Sema/SemaHLSL.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallString.h"
@@ -7084,6 +7085,13 @@ void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
   }
   if (auto VecTy = dyn_cast<VectorType>(Target))
     Target = VecTy->getElementType().getTypePtr();
+
+  // HLSL Change Begins: Vector/matrix implicit conversions already diagnosed
+  if (hlsl::IsVectorType(&S, QualType(Source, 0)) || hlsl::IsMatrixType(&S, QualType(Source, 0)) ||
+      hlsl::IsVectorType(&S, QualType(Target, 0)) || hlsl::IsMatrixType(&S, QualType(Target, 0))) {
+    return;
+  }
+  // HLSL Change Ends
 
   // Strip complex types.
   if (isa<ComplexType>(Source)) {
