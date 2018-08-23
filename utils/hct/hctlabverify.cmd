@@ -13,6 +13,9 @@ set X86_TST=1
 set X64_DBG=1
 set X64_REL=1
 set X64_TST=1
+set ARM64_DBG=1
+set ARM64_REL=1
+set ARM64_TST=0
 set ANALYZE=-analyze
 set FV_FLAG=
 set CV_FLAG=
@@ -25,6 +28,9 @@ if "%1"=="-short" (
   set X64_DBG=1
   set X64_REL=0
   set X64_TST=1
+  set ARM64_DBG=1
+  set ARM64_REL=0
+  set ARM64_TST=0
   set ANALYZE=
   shift /1
 )
@@ -57,7 +63,7 @@ if "%1"=="-buildoutdir" (
   shift /1
 )
 
-rem Create the solutions per architecture.
+rem Build all supported architectures (x86, x64, ARM64)
 call :verify_arch x86 %X86_TST% %X86_DBG% %X86_REL%
 if errorlevel 1 (
   echo Failed to verify for x86.
@@ -70,11 +76,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
-rem Don't run tests for arm
-rem Disable until the work goes in to pick up tablegen for x86/x64.
-rem call :verify_arch arm 0
+rem Set path to x86 tblgen tools for the ARM64 build
+if "%BUILD_TBLGEN_PATH%" == "" (
+  set BUILD_TBLGEN_PATH=%HLSL_BLD_DIR%\x86\Release\bin
+)
+
+call :verify_arch arm64 %ARM64_TST% %ARM64_DBG% %ARM64_REL%
 if errorlevel 1 (
-  echo Failed to verify for arm.
+  echo Failed to verify for arm64.
   exit /b 1
 )
 
@@ -107,6 +116,7 @@ set HLSL_BLD_DIR=%HLSL_BLD_DIR%\%1
 mkdir %HLSL_BLD_DIR%
 
 rem Build the solution.
+call :announce Building solution files for %1
 call %HLSL_SRC_DIR%\utils\hct\hctbuild.cmd -s %FV_FLAG% %CV_FLAG% -%1
 if errorlevel 1 (
   echo Failed to create solution for architecture %1
@@ -115,15 +125,17 @@ if errorlevel 1 (
 
 rem Build debug.
 if "%3"=="1" (
+  call :announce Debug build - %1
   call %HLSL_SRC_DIR%\utils\hct\hctbuild.cmd -b -%1
   if errorlevel 1 (
     echo Failed to build for architecture %1
     exit /b 1
   )
-)
+);
 
 rem Build retail.
 if "%4"=="1" (
+  call :announce Retail build - %1
   call %HLSL_SRC_DIR%\utils\hct\hctbuild.cmd -b %ANALYZE% -rel -%1
   if errorlevel 1 (
     echo Failed to build for architecture %1 in release
@@ -133,6 +145,7 @@ if "%4"=="1" (
 
 rem Run tests.
 if "%2"=="1" (
+  call :announce Starting tests
   rem Pick Debug if available, retail otherwise.
   if "%3"=="1" (
     call %HLSL_SRC_DIR%\utils\hct\hcttest.cmd
@@ -144,4 +157,12 @@ if "%2"=="1" (
 )
 
 endlocal
+exit /b 0
+
+:announce 
+echo -------------------------------------------------------------------------
+echo.
+echo     %*
+echo.
+echo -------------------------------------------------------------------------
 exit /b 0
