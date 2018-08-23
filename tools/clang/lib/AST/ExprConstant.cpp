@@ -9064,6 +9064,13 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
         if (!Dcl->getType()->isIntegralOrEnumerationType())
           return ICEDiag(IK_NotICE, cast<DeclRefExpr>(E)->getLocation());
 
+        // HLSL Change: cbuffer vars with init are not really constant in this way
+        if (Ctx.getLangOpts().HLSL &&
+            Dcl->hasGlobalStorage() &&
+            Dcl->getStorageClass() != SC_Static) {
+          return ICEDiag(IK_NotICE, cast<DeclRefExpr>(E)->getLocation());
+        }
+
         const VarDecl *VD;
         // Look for a declaration of this variable that has an initializer, and
         // check whether it is an ICE.
