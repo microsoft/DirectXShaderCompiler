@@ -182,7 +182,8 @@ Pass *llvm::createLICMPass() { return new LICM(); }
 bool LICM::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (skipOptnoneFunction(L))
     return false;
-
+  return false; // HLSL Change - disable LICM in frontend for not consider
+                // register pressure.
   Changed = false;
 
   // Get our Loop and Alias Analysis information...
