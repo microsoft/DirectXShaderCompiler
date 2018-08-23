@@ -28,6 +28,9 @@ if "%1"=="-short" (
   set X64_DBG=1
   set X64_REL=0
   set X64_TST=1
+  set ARM64_DBG=1
+  set ARM64_REL=0
+  set ARM64_TST=0
   set ANALYZE=
   shift /1
 )
