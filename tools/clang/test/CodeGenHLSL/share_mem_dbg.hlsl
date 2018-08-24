@@ -12,12 +12,9 @@
 // CHECK: !dx.source.mainFileName
 // CHECK: !dx.source.args
 
-// CHECK: DIGlobalVariable(name: "dataC.1.0"
-// CHECK: DIDerivedType(tag: DW_TAG_member, name: ".1.0"
-// CHECK: DIGlobalVariable(name: "dataC.1.1"
-// CHECK: DIDerivedType(tag: DW_TAG_member, name: ".1.1"
-// CHECK: DIGlobalVariable(name: "dataC.0
-// CHECK: DIDerivedType(tag: DW_TAG_member, name: ".0"
+// CHECK: DIGlobalVariable(name: "dataC"
+// CHECK: DIDerivedType(tag: DW_TAG_member, name: "d"
+// CHECK: DIDerivedType(tag: DW_TAG_member, name: "b"
 
 // Make sure source info contents exist.
 // CHECK: share_mem_dbg.hlsl", !"// RUN: %dxc
