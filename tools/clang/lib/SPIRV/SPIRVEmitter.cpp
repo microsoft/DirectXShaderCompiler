@@ -589,15 +589,14 @@ spv::Capability getNonUniformCapability(QualType type) {
 
 } // namespace
 
-SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options,
-                           llvm::StringRef clOptStr)
+SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
     : theCompilerInstance(ci), astContext(ci.getASTContext()),
       diags(ci.getDiagnostics()), spirvOptions(options),
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
       theContext(), featureManager(diags, options),
-      theBuilder(&theContext, &featureManager, options, clOptStr),
+      theBuilder(&theContext, &featureManager, options),
       typeTranslator(astContext, theBuilder, diags, options),
       declIdMapper(shaderModel, astContext, theBuilder, typeTranslator,
                    featureManager, options),

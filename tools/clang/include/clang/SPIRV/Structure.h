@@ -363,7 +363,7 @@ private:
   std::vector<Instruction> variables;
   std::vector<std::unique_ptr<Function>> functions;
 
-  llvm::StringRef clOptions; ///< String representation of command line options.
+  std::string clOptions; ///< String representation of command line options.
 };
 
 // === Instruction inline implementations ===

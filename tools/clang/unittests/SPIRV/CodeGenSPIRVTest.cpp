@@ -1270,9 +1270,9 @@ TEST_F(FileTest, SpirvOptOconfigInvalidFlag) {
 TEST_F(FileTest, SpirvOptOconfig) { runFileTest("spirv.opt.cl.oconfig.hlsl"); }
 
 // Test that command line options are exposed using OpModuleProcessed.
-TEST_F(FileTest, SpirvAllClOpts) {
+TEST_F(FileTest, SpirvDebugClOption) {
   useVulkan1p1();
-  runFileTest("spirv.cl.all.hlsl");
+  runFileTest("spirv.debug.cl-option.hlsl");
 }
 
 // For shader stage input/output interface

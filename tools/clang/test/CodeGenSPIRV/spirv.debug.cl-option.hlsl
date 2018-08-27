@@ -3,7 +3,7 @@
 // This test ensures that command line options used to generate this module
 // are added to the SPIR-V using OpModuleProcessed.
 
-// Note: -spirv, -fcgl, and -Vd are added by the test infrastructure automatically.
-// CHECK: OpModuleProcessed "dxc-cl-option: -E main -T ps_6_1 -spirv -fcgl -Vd -fspv-target-env=vulkan1.1 -Zi
+// CHECK: OpModuleProcessed "dxc-cl-option: -E main -T ps_6_1 
+// CHECK-SAME: -fspv-target-env=vulkan1.1 -Zi
 
 void main() {}

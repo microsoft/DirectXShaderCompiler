@@ -46,8 +46,7 @@ namespace spirv {
 /// through the AST is done manually instead of using ASTConsumer's harness.
 class SPIRVEmitter : public ASTConsumer {
 public:
-  SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options,
-               llvm::StringRef clOptStr);
+  SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options);
 
   void HandleTranslationUnit(ASTContext &context) override;
 

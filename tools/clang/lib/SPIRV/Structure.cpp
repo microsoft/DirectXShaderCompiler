@@ -375,8 +375,8 @@ void SPIRVModule::take(InstBuilder *builder) {
     // Emit OpModuleProcessed to indicate the command line options that were
     // used to generate this module.
     if (!clOptions.empty()) {
-      // Using this format: "dxc-cl-option:XXXXXX"
-      std::string clOptionStr = "dxc-cl-option:" + clOptions.str();
+      // Using this format: "dxc-cl-option: XXXXXX"
+      std::string clOptionStr = "dxc-cl-option:" + clOptions;
       builder->opModuleProcessed(clOptionStr).x();
     }
   }

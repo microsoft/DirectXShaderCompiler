@@ -18,8 +18,7 @@ namespace clang {
 namespace spirv {
 
 ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
-                             const EmitSPIRVOptions &opts,
-                             llvm::StringRef clOpts)
+                             const EmitSPIRVOptions &opts)
     : theContext(*C), featureManager(features), spirvOptions(opts), theModule(),
       theFunction(nullptr), insertPoint(nullptr), instBuilder(nullptr),
       glslExtSetId(0) {
@@ -32,7 +31,7 @@ ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
   if (featureManager && featureManager->getTargetEnv() == SPV_ENV_VULKAN_1_1) {
     theModule.useVulkan1p1();
     if (spirvOptions.enableDebugInfo)
-      theModule.setClOptions(clOpts);
+      theModule.setClOptions(opts.clOptions);
   }
 }
 

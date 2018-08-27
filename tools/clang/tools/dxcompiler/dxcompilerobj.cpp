@@ -532,7 +532,12 @@ public:
           spirvOpts.enableDebugInfo = opts.DebugInfo;
           spirvOpts.optConfig = opts.SpvOconfig;
 
-          clang::EmitSPIRVAction action(spirvOpts, mainArgs.getArrayRef());
+          // Store a string representation of command line options.
+          if (opts.DebugInfo)
+            for (auto opt : mainArgs.getArrayRef())
+              spirvOpts.clOptions += " " + std::string(opt);
+
+          clang::EmitSPIRVAction action(spirvOpts);
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
           action.BeginSourceFile(compiler, file);
           action.Execute();
