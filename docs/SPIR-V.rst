@@ -2926,7 +2926,7 @@ Appendix
 Appendix A. Matrix Representation
 ---------------------------------
 Consider a matrix in HLSL defined as ``float2x3 m;``. Conceptually, this is a matrix with 2 rows and 3 columns.
-This means that you can access its elements via expressions such as ``m[i][j]``, where ``i`` can be ``{0, 1}`` and ``j`` can be ``{1, 2, 3}``.
+This means that you can access its elements via expressions such as ``m[i][j]``, where ``i`` can be ``{0, 1}`` and ``j`` can be ``{0, 1, 2}``.
 
 Now let's look how matrices are defined in SPIR-V:
 
