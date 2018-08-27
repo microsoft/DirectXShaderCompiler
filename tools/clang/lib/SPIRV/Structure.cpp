@@ -11,6 +11,15 @@
 
 #include "BlockReadableOrder.h"
 
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+#include "clang/Basic/Version.h"
+#else
+namespace clang {
+uint32_t getGitCommitCount() { return 0; }
+const char *getGitCommitHash() { return "<unknown-hash>"; }
+} // namespace clang
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+
 namespace clang {
 namespace spirv {
 
@@ -351,6 +360,16 @@ void SPIRVModule::take(InstBuilder *builder) {
     } else {
       builder->opName(inst.targetId, std::move(inst.name)).x();
     }
+  }
+
+  if (isVulkan1p1) {
+    std::string commitHash =
+        std::string("dxc-commit-hash: ") + clang::getGitCommitHash();
+    builder->opModuleProcessed(commitHash).x();
+
+    std::string commitCount = std::string("dxc-commit-count: ") +
+                              std::to_string(clang::getGitCommitCount());
+    builder->opModuleProcessed(commitCount).x();
   }
 
   for (const auto &idDecorPair : decorations) {
