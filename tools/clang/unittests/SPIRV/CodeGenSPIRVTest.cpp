@@ -1345,6 +1345,11 @@ TEST_F(FileTest, SpirvDebugOpLine) {
   runFileTest("spirv.debug.opline.hlsl");
 }
 
+TEST_F(FileTest, SpirvDebugDxcCommitInfo) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.commit.hlsl");
+}
+
 TEST_F(FileTest, VulkanAttributeErrors) {
   runFileTest("vk.attribute.error.hlsl", Expect::Failure);
 }
