@@ -6,7 +6,7 @@ import subprocess
 
 def git_get_commit_hash():
     return subprocess.check_output(
-        ['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
+        ['git', 'rev-parse', '--short=8', 'HEAD']).decode('ascii').strip()
 
 
 def git_get_commit_count():

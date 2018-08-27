@@ -180,4 +180,12 @@ std::string getClangFullCPPVersion() {
 #endif // HLSL Change Ends
 }
 
+// HLSL Change Starts
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+#include "GitCommitInfo.inc"
+uint32_t getGitCommitCount() { return kGitCommitCount; }
+const char *getGitCommitHash() { return kGitCommitHash; }
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+// HLSL Change Ends
+
 } // end namespace clang

@@ -30,7 +30,7 @@
 #endif
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-#include "GitCommitInfo.inc" // Auto generated file containing Git commit info
+#include "clang/Basic/Version.h"
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
 using namespace llvm;
@@ -177,13 +177,13 @@ HRESULT STDMETHODCALLTYPE DxcValidator::GetCommitInfo(
   if (pCommitCount == nullptr || pCommitHash == nullptr)
     return E_INVALIDARG;
 
-  char *const hash = (char *)CoTaskMemAlloc(ARRAYSIZE(kGitCommitHash) + 1);
+  char *const hash = (char *)CoTaskMemAlloc(8 + 1); // 8 is guaranteed by utils/GetCommitInfo.py
   if (hash == nullptr)
     return E_OUTOFMEMORY;
-  std::strcpy(hash, kGitCommitHash);
+  std::strcpy(hash, clang::getGitCommitHash());
 
   *pCommitHash = hash;
-  *pCommitCount = kGitCommitCount;
+  *pCommitCount = clang::getGitCommitCount();
 
   return S_OK;
 }
