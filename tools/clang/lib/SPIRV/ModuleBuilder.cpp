@@ -28,7 +28,7 @@ ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
 
   // Set the SPIR-V version if needed.
   if (featureManager && featureManager->getTargetEnv() == SPV_ENV_VULKAN_1_1)
-    theModule.setVersion(0x00010300);
+    theModule.useVulkan1p1();
 }
 
 std::vector<uint32_t> ModuleBuilder::takeModule() {

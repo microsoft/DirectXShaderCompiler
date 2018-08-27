@@ -293,7 +293,7 @@ public:
   /// destructive; the module will be consumed and cleared after calling it.
   void take(InstBuilder *builder);
 
-  inline void setVersion(uint32_t version);
+  inline void useVulkan1p1();
   /// \brief Sets the id bound to the given bound.
   inline void setBound(uint32_t newBound);
 
@@ -328,6 +328,7 @@ public:
   inline uint32_t getExtInstSetId(llvm::StringRef setName);
 
 private:
+  bool isVulkan1p1;
   Header header; ///< SPIR-V module header.
   llvm::SetVector<spv::Capability> capabilities;
   llvm::SetVector<std::string> extensions;
@@ -453,10 +454,13 @@ TypeIdPair::TypeIdPair(const Type &ty, uint32_t id) : type(ty), resultId(id) {}
 // === Module inline implementations ===
 
 SPIRVModule::SPIRVModule()
-    : addressingModel(llvm::None), memoryModel(llvm::None),
+    : isVulkan1p1(false), addressingModel(llvm::None), memoryModel(llvm::None),
       shaderModelVersion(0), sourceFileNameId(0) {}
 
-void SPIRVModule::setVersion(uint32_t version) { header.version = version; }
+void SPIRVModule::useVulkan1p1() {
+  isVulkan1p1 = true;
+  header.version = 0x00010300u;
+}
 void SPIRVModule::setBound(uint32_t newBound) { header.bound = newBound; }
 
 void SPIRVModule::addCapability(spv::Capability cap) {
