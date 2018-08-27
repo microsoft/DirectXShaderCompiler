@@ -77,6 +77,15 @@ namespace clang {
   /// for use in the CPP __VERSION__ macro, which includes the clang version
   /// number, the repository version, and the vendor tag.
   std::string getClangFullCPPVersion();
+
+  // HLSL Change Starts
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+  /// \brief Returns the number of Git commits in current branch.
+  uint32_t getGitCommitCount();
+  /// \brief Returns the hash of the current Git commit.
+  const char *getGitCommitHash();
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+  // HLSL Change Ends
 }
 
 #endif // LLVM_CLANG_BASIC_VERSION_H
