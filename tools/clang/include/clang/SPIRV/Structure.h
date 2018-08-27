@@ -297,6 +297,9 @@ public:
   /// \brief Sets the id bound to the given bound.
   inline void setBound(uint32_t newBound);
 
+  /// \brief Sets the string representation of the command line options.
+  inline void setClOptions(llvm::StringRef opts);
+
   inline void addCapability(spv::Capability);
   inline void addExtension(llvm::StringRef extension);
   inline void addExtInstSet(uint32_t setId, llvm::StringRef extInstSet);
@@ -359,6 +362,8 @@ private:
 
   std::vector<Instruction> variables;
   std::vector<std::unique_ptr<Function>> functions;
+
+  llvm::StringRef clOptions; ///< String representation of command line options.
 };
 
 // === Instruction inline implementations ===
@@ -462,6 +467,7 @@ void SPIRVModule::useVulkan1p1() {
   header.version = 0x00010300u;
 }
 void SPIRVModule::setBound(uint32_t newBound) { header.bound = newBound; }
+void SPIRVModule::setClOptions(llvm::StringRef opts) { clOptions = opts; }
 
 void SPIRVModule::addCapability(spv::Capability cap) {
   capabilities.insert(cap);

@@ -18,7 +18,7 @@ namespace clang {
 namespace spirv {
 
 ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
-                             bool reflect)
+                             bool reflect, llvm::StringRef clOpts)
     : theContext(*C), featureManager(features), allowReflect(reflect),
       theModule(), theFunction(nullptr), insertPoint(nullptr),
       instBuilder(nullptr), glslExtSetId(0) {
@@ -26,9 +26,12 @@ ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
     this->constructSite = std::move(words);
   });
 
-  // Set the SPIR-V version if needed.
-  if (featureManager && featureManager->getTargetEnv() == SPV_ENV_VULKAN_1_1)
+  // Set the SPIR-V version and the command line options that were used to
+  // generate this module, if needed.
+  if (featureManager && featureManager->getTargetEnv() == SPV_ENV_VULKAN_1_1) {
     theModule.useVulkan1p1();
+    theModule.setClOptions(clOpts);
+  }
 }
 
 std::vector<uint32_t> ModuleBuilder::takeModule() {

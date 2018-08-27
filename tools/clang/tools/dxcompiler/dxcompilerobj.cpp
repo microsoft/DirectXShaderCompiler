@@ -532,7 +532,7 @@ public:
           spirvOpts.enableDebugInfo = opts.DebugInfo;
           spirvOpts.optConfig = opts.SpvOconfig;
 
-          clang::EmitSPIRVAction action(spirvOpts);
+          clang::EmitSPIRVAction action(spirvOpts, mainArgs.getArrayRef());
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
           action.BeginSourceFile(compiler, file);
           action.Execute();

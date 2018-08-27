@@ -17,7 +17,12 @@ namespace clang {
 
 class EmitSPIRVAction : public ASTFrontendAction {
 public:
-  EmitSPIRVAction(const EmitSPIRVOptions &opts) : options(opts) {}
+  EmitSPIRVAction(const EmitSPIRVOptions &opts,
+                  llvm::ArrayRef<const char *> optsArray)
+      : options(opts) {
+    for (auto opt : optsArray)
+      clOptions += " " + std::string(opt);
+  }
 
 protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
@@ -25,6 +30,7 @@ protected:
 
 private:
   EmitSPIRVOptions options;
+  std::string clOptions;
 };
 
 } // end namespace clang

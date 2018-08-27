@@ -36,7 +36,8 @@ namespace spirv {
 class ModuleBuilder {
 public:
   /// \brief Constructs a ModuleBuilder with the given SPIR-V context.
-  ModuleBuilder(SPIRVContext *, FeatureManager *features, bool enableReflect);
+  ModuleBuilder(SPIRVContext *, FeatureManager *features, bool enableReflect,
+                llvm::StringRef clOpts = "");
 
   /// \brief Returns the associated SPIRVContext.
   inline SPIRVContext *getSPIRVContext();

@@ -1269,6 +1269,12 @@ TEST_F(FileTest, SpirvOptOconfigInvalidFlag) {
 }
 TEST_F(FileTest, SpirvOptOconfig) { runFileTest("spirv.opt.cl.oconfig.hlsl"); }
 
+// Test that command line options are exposed using OpModuleProcessed.
+TEST_F(FileTest, SpirvAllClOpts) {
+  useVulkan1p1();
+  runFileTest("spirv.cl.all.hlsl");
+}
+
 // For shader stage input/output interface
 // For semantic SV_Position, SV_ClipDistance, SV_CullDistance
 TEST_F(FileTest, SpirvStageIOInterfaceVS) {
