@@ -363,6 +363,7 @@ void SPIRVModule::take(InstBuilder *builder) {
   }
 
   if (isVulkan1p1) {
+    // Emit OpModuleProcessed to indicate the commit information.
     std::string commitHash =
         std::string("dxc-commit-hash: ") + clang::getGitCommitHash();
     builder->opModuleProcessed(commitHash).x();
@@ -370,6 +371,14 @@ void SPIRVModule::take(InstBuilder *builder) {
     std::string commitCount = std::string("dxc-commit-count: ") +
                               std::to_string(clang::getGitCommitCount());
     builder->opModuleProcessed(commitCount).x();
+
+    // Emit OpModuleProcessed to indicate the command line options that were
+    // used to generate this module.
+    if (!clOptions.empty()) {
+      // Using this format: "dxc-cl-option: XXXXXX"
+      std::string clOptionStr = "dxc-cl-option:" + clOptions;
+      builder->opModuleProcessed(clOptionStr).x();
+    }
   }
 
   for (const auto &idDecorPair : decorations) {

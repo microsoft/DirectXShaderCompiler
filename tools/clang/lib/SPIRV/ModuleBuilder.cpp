@@ -18,17 +18,21 @@ namespace clang {
 namespace spirv {
 
 ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
-                             bool reflect)
-    : theContext(*C), featureManager(features), allowReflect(reflect),
-      theModule(), theFunction(nullptr), insertPoint(nullptr),
-      instBuilder(nullptr), glslExtSetId(0) {
+                             const EmitSPIRVOptions &opts)
+    : theContext(*C), featureManager(features), spirvOptions(opts), theModule(),
+      theFunction(nullptr), insertPoint(nullptr), instBuilder(nullptr),
+      glslExtSetId(0) {
   instBuilder.setConsumer([this](std::vector<uint32_t> &&words) {
     this->constructSite = std::move(words);
   });
 
-  // Set the SPIR-V version if needed.
-  if (featureManager && featureManager->getTargetEnv() == SPV_ENV_VULKAN_1_1)
+  // Set the SPIR-V version and the command line options that were used to
+  // generate this module, if needed.
+  if (featureManager && featureManager->getTargetEnv() == SPV_ENV_VULKAN_1_1) {
     theModule.useVulkan1p1();
+    if (spirvOptions.enableDebugInfo)
+      theModule.setClOptions(opts.clOptions);
+  }
 }
 
 std::vector<uint32_t> ModuleBuilder::takeModule() {
@@ -809,7 +813,7 @@ void ModuleBuilder::decorateInputAttachmentIndex(uint32_t targetId,
 
 void ModuleBuilder::decorateCounterBufferId(uint32_t mainBufferId,
                                             uint32_t counterBufferId) {
-  if (allowReflect) {
+  if (spirvOptions.enableReflect) {
     addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
                  {});
     theModule.addDecoration(
@@ -821,7 +825,7 @@ void ModuleBuilder::decorateCounterBufferId(uint32_t mainBufferId,
 void ModuleBuilder::decorateHlslSemantic(uint32_t targetId,
                                          llvm::StringRef semantic,
                                          llvm::Optional<uint32_t> memberIdx) {
-  if (allowReflect) {
+  if (spirvOptions.enableReflect) {
     addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
                  {});
     theModule.addDecoration(

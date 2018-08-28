@@ -55,6 +55,8 @@ struct EmitSPIRVOptions {
   spirv::LayoutRule tBufferLayoutRule;
   spirv::LayoutRule sBufferLayoutRule;
   llvm::SmallVector<llvm::StringRef, 4> optConfig;
+  // String representation of all command line options.
+  std::string clOptions;
 
   // Initializes dependent fields appropriately
   void Initialize();
