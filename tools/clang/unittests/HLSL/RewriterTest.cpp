@@ -52,6 +52,7 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
+  TEST_METHOD(RunArrayLength);
   TEST_METHOD(RunAttributes);
   TEST_METHOD(RunAnonymousStruct);
   TEST_METHOD(RunCppErrors);
@@ -287,6 +288,10 @@ public:
     return CompareGold(rewriteText, GetPathToHlslDataFile(goldPath).c_str());
   }
 };
+
+TEST_F(RewriterTest, RunArrayLength) {
+  CheckVerifiesHLSL(L"rewriter\\array-length-rw.hlsl", L"rewriter\\correct_rewrites\\array-length-rw_gold.hlsl");
+}
 
 TEST_F(RewriterTest, RunAttributes) {
     CheckVerifiesHLSL(L"rewriter\\attributes_noerr.hlsl", L"rewriter\\correct_rewrites\\attributes_gold.hlsl");

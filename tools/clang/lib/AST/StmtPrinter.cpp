@@ -1265,32 +1265,38 @@ void StmtPrinter::VisitOffsetOfExpr(OffsetOfExpr *Node) {
 }
 
 void StmtPrinter::VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *Node){
-  switch(Node->getKind()) {
-  case UETT_SizeOf:
-    OS << "sizeof";
-    break;
-  case UETT_AlignOf:
-    if (Policy.LangOpts.CPlusPlus)
-      OS << "alignof";
-    else if (Policy.LangOpts.C11)
-      OS << "_Alignof";
-    else
-      OS << "__alignof";
-    break;
-  case UETT_VecStep:
-    OS << "vec_step";
-    break;
-  case UETT_OpenMPRequiredSimdAlign:
-    OS << "__builtin_omp_required_simd_align";
-    break;
-  }
-  if (Node->isArgumentType()) {
-    OS << '(';
-    Node->getArgumentType().print(OS, Policy);
-    OS << ')';
-  } else {
-    OS << " ";
+  if (Node->getKind() == UETT_ArrayLength) {
     PrintExpr(Node->getArgumentExpr());
+    OS << ".Length";
+  }
+  else {
+    switch(Node->getKind()) {
+    case UETT_SizeOf:
+      OS << "sizeof";
+      break;
+    case UETT_AlignOf:
+      if (Policy.LangOpts.CPlusPlus)
+        OS << "alignof";
+      else if (Policy.LangOpts.C11)
+        OS << "_Alignof";
+      else
+        OS << "__alignof";
+      break;
+    case UETT_VecStep:
+      OS << "vec_step";
+      break;
+    case UETT_OpenMPRequiredSimdAlign:
+      OS << "__builtin_omp_required_simd_align";
+      break;
+    }
+    if (Node->isArgumentType()) {
+      OS << '(';
+      Node->getArgumentType().print(OS, Policy);
+      OS << ')';
+    } else {
+      OS << " ";
+      PrintExpr(Node->getArgumentExpr());
+    }
   }
 }
 

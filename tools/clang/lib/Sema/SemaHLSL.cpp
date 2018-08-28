@@ -4130,6 +4130,22 @@ public:
     SourceLocation MemberLoc,
     ExprResult* result);
 
+  /// <summary>Performs a member lookup on the specified BaseExpr if it's an array.</summary>
+  /// <param name="BaseExpr">Base expression for member access.</param>
+  /// <param name="MemberName">Name of member to look up.</param>
+  /// <param name="IsArrow">Whether access is through arrow (a->b) rather than period (a.b).</param>
+  /// <param name="OpLoc">Location of access operand.</param>
+  /// <param name="MemberLoc">Location of member.</param>
+  /// <param name="result">Result of lookup operation.</param>
+  /// <returns>true if the base type is an array and the lookup has been handled.</returns>
+  bool LookupArrayMemberExprForHLSL(
+    Expr& BaseExpr,
+    DeclarationName MemberName,
+    bool IsArrow,
+    SourceLocation OpLoc,
+    SourceLocation MemberLoc,
+    ExprResult* result);
+
   /// <summary>If E is a scalar, converts it to a 1-element vector.</summary>
   /// <param name="E">Expression to convert.</param>
   /// <returns>The result of the conversion; or E if the type is not a scalar.</returns>
@@ -6932,6 +6948,49 @@ bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
   return true;
 }
 
+bool HLSLExternalSource::LookupArrayMemberExprForHLSL(
+  Expr& BaseExpr,
+  DeclarationName MemberName,
+  bool IsArrow,
+  SourceLocation OpLoc,
+  SourceLocation MemberLoc,
+  ExprResult* result) {
+
+  DXASSERT_NOMSG(result != nullptr);
+
+  QualType BaseType = BaseExpr.getType();
+  DXASSERT(!BaseType.isNull(), "otherwise caller should have stopped analysis much earlier");
+
+  // Assume failure.
+  *result = ExprError();
+
+  if (GetTypeObjectKind(BaseType) != AR_TOBJ_ARRAY) {
+    return false;
+  }
+
+  IdentifierInfo *member = MemberName.getAsIdentifierInfo();
+  const char *memberText = member->getNameStart();
+
+  // The only property available on arrays is Length; it is deprecated and available only on HLSL version <=2018
+  if (member->getLength() == 6 && 0 == strcmp(memberText, "Length")) {
+    if (getSema()->getLangOpts().HLSLVersion > 2018) {
+      return false;
+    }
+
+    if (const ConstantArrayType *CAT = dyn_cast<ConstantArrayType>(BaseType)) {
+      m_sema->Diag(MemberLoc, diag::warn_deprecated) << "Length";
+
+      UnaryExprOrTypeTraitExpr *arrayLenExpr = new (m_context) UnaryExprOrTypeTraitExpr(
+        UETT_ArrayLength, &BaseExpr, m_context->getSizeType(), MemberLoc, BaseExpr.getSourceRange().getEnd());
+
+      *result = arrayLenExpr;
+      return true;
+    }
+  }
+  return false;
+}
+  
+
 ExprResult HLSLExternalSource::MaybeConvertScalarToVector(_In_ clang::Expr* E) {
   DXASSERT_NOMSG(E != nullptr);
   ArBasicKind basic = GetTypeElementKind(E->getType());
@@ -9414,6 +9473,19 @@ bool hlsl::LookupVectorMemberExprForHLSL(
 {
   return HLSLExternalSource::FromSema(self)
     ->LookupVectorMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc, result);
+}
+
+bool hlsl::LookupArrayMemberExprForHLSL(
+  Sema* self,
+  Expr& BaseExpr,
+  DeclarationName MemberName,
+  bool IsArrow,
+  SourceLocation OpLoc,
+  SourceLocation MemberLoc,
+  ExprResult* result)
+{
+  return HLSLExternalSource::FromSema(self)
+    ->LookupArrayMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc, result);
 }
 
 clang::ExprResult hlsl::MaybeConvertScalarToVector(

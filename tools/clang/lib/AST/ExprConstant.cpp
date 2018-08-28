@@ -7496,6 +7496,13 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
                     Info.Ctx.getOpenMPDefaultSimdAlign(E->getArgumentType()))
             .getQuantity(),
         E);
+
+  case UETT_ArrayLength: {
+    QualType SrcTy = E->getTypeOfArgument();
+    assert(isa<ConstantArrayType>(SrcTy));
+    const ConstantArrayType *CAT = cast<ConstantArrayType>(SrcTy);
+    return Success(CAT->getSize(), E);
+  }
   }
 
   llvm_unreachable("unknown expr/type trait");

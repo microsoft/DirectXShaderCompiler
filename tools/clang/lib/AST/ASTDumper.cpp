@@ -1971,6 +1971,8 @@ void ASTDumper::VisitUnaryExprOrTypeTraitExpr(
   case UETT_OpenMPRequiredSimdAlign:
     OS << " __builtin_omp_required_simd_align";
     break;
+  case UETT_ArrayLength:
+    OS << " Length";
   }
   if (Node->isArgumentType())
     dumpType(Node->getArgumentType());
