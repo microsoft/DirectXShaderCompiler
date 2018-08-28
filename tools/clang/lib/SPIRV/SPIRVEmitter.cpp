@@ -596,7 +596,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
       theContext(), featureManager(diags, options),
-      theBuilder(&theContext, &featureManager, options.enableReflect),
+      theBuilder(&theContext, &featureManager, options),
       typeTranslator(astContext, theBuilder, diags, options),
       declIdMapper(shaderModel, astContext, theBuilder, typeTranslator,
                    featureManager, options),
