@@ -451,6 +451,9 @@ let the compiler emit the following additional debug information:
 * Full path of the main source file using ``OpSource``
 * Preprocessed source code using ``OpSource`` and ``OpSourceContinued``
 * Line information for certain instructions using ``OpLine`` (WIP)
+* DXC Git commit hash using ``OpModuleProcessed`` (requires Vulkan 1.1)
+* DXC command-line options used to compile the shader using ``OpModuleProcessed``
+  (requires Vulkan 1.1)
 
 We chose to embed preprocessed source code instead of original source code to
 avoid pulling in lots of contents unrelated to the current entry point, and
@@ -463,6 +466,19 @@ embedded source, the compiler is invoked twice; the first time is for
 preprocessing the source code, and the second time is for feeding the
 preprocessed source code as input for a whole compilation. So using ``-Zi``
 means performance penality.
+
+If you want to have fine-grained control over the categories of emitted debug
+information, you can use ``-fspv-debug=``. It accepts:
+
+* ``file``: for emitting full path of the main source file
+* ``source``: for emitting preprocessed source code (turns on ``file`` implicitly)
+* ``line``: for emitting line information (turns on ``source`` implicitly)
+* ``tool``: for emitting DXC Git commit hash and command-line options
+
+``-fspv-debug=`` overrules ``-Zi``. And you can provide multiple instances of
+``-fspv-debug=``. For example, you can use ``-fspv-debug=file -fspv-debug=tool``
+to turn on emitting file path and DXC information; source code and line
+information will not be emitted.
 
 Reflection
 ----------
@@ -2877,6 +2893,9 @@ codegen for Vulkan:
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.
 - ``-fspv-reflect``: Emits additional SPIR-V instructions to aid reflection.
+- ``-fspv-debug=<category>``: Controls what category of debug information
+  should be emitted. Accepted values are ``file``, ``source``, ``line``, and
+  ``tool``. See `Debugging`_ for more details.
 - ``-fspv-extension=<extension>``: Only allows using ``<extension>`` in CodeGen.
   If you want to allow multiple extensions, provide more than one such option. If you
   want to allow *all* KHR extensions, use ``-fspv-extension=KHR``.

@@ -623,7 +623,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
 
   // Set debug info
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
-  if (options.enableDebugInfo && !inputFiles.empty()) {
+  if (options.debugInfoFile && !inputFiles.empty()) {
     // File name
     mainSourceFileId = theContext.takeNextId();
     theBuilder.setSourceFileName(mainSourceFileId,
@@ -9999,7 +9999,7 @@ uint32_t SPIRVEmitter::extractVecFromVec4(uint32_t fromId,
 }
 
 void SPIRVEmitter::emitDebugLine(SourceLocation loc) {
-  if (spirvOptions.enableDebugInfo && mainSourceFileId != 0) {
+  if (spirvOptions.debugInfoLine && mainSourceFileId != 0) {
     auto floc = FullSourceLoc(loc, theCompilerInstance.getSourceManager());
     theBuilder.debugLine(mainSourceFileId, floc.getSpellingLineNumber(),
                          floc.getSpellingColumnNumber());

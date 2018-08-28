@@ -529,7 +529,10 @@ public:
           spirvOpts.allowedExtensions = opts.SpvExtensions;
           spirvOpts.targetEnv = opts.SpvTargetEnv;
           spirvOpts.enable16BitTypes = opts.Enable16BitTypes;
-          spirvOpts.enableDebugInfo = opts.DebugInfo;
+          spirvOpts.debugInfoFile = opts.SpvDebugFile;
+          spirvOpts.debugInfoSource = opts.SpvDebugSource;
+          spirvOpts.debugInfoLine = opts.SpvDebugLine;
+          spirvOpts.debugInfoTool = opts.SpvDebugTool;
           spirvOpts.optConfig = opts.SpvOconfig;
 
           // Store a string representation of command line options.
