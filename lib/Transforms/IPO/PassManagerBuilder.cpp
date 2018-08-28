@@ -388,7 +388,8 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createReassociatePass());           // Reassociate expressions
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
-  MPM.add(createLICMPass());                  // Hoist loop invariants
+  // HLSL Change - disable LICM in frontend for not consider register pressure.
+  //MPM.add(createLICMPass());                  // Hoist loop invariants
   //MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3)); // HLSL Change - may move barrier inside divergent if.
   MPM.add(createInstructionCombiningPass());
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
@@ -428,7 +429,8 @@ void PassManagerBuilder::populateModulePassManager(
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps
   MPM.add(createCorrelatedValuePropagationPass());
   MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
-  MPM.add(createLICMPass());
+  // HLSL Change - disable LICM in frontend for not consider register pressure.
+  // MPM.add(createLICMPass());
 
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
 
@@ -548,7 +550,8 @@ void PassManagerBuilder::populateModulePassManager(
     // unrolled loop is a inner loop, then the prologue will be inside the
     // outer loop. LICM pass can help to promote the runtime check out if the
     // checked value is loop invariant.
-    MPM.add(createLICMPass());
+    // MPM.add(createLICMPass());// HLSL Change - disable LICM in frontend for
+                                 // not consider register pressure.
   }
 
   // After vectorization and unrolling, assume intrinsics may tell us more
@@ -658,7 +661,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createFunctionAttrsPass()); // Add nocapture.
   PM.add(createGlobalsModRefPass()); // IP alias analysis.
 
-  PM.add(createLICMPass());                 // Hoist loop invariants.
+  // HLSL Change - disable LICM in frontend for not consider register pressure.
+  // PM.add(createLICMPass());                 // Hoist loop invariants.
   if (EnableMLSM)
     PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
   PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
