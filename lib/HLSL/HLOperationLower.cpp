@@ -4623,6 +4623,8 @@ Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
       Builder.CreateStore(Elt, Ptr);
     }
     // Load from temp array.
+    // Insert the new GEP just before the old and to-be-deleted GEP
+    Builder.SetInsertPoint(GEP);
     Value *EltGEP = Builder.CreateInBoundsGEP(tempArray, {zero, idx});
     return Builder.CreateLoad(EltGEP);
   }
