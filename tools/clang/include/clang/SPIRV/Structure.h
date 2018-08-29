@@ -26,6 +26,7 @@
 
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/SPIRV/Constant.h"
+#include "clang/SPIRV/EmitSPIRVOptions.h"
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/Type.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -272,7 +273,7 @@ struct TypeIdPair {
 class SPIRVModule {
 public:
   /// \brief Default constructs an empty SPIR-V module.
-  inline SPIRVModule();
+  inline SPIRVModule(const EmitSPIRVOptions &options);
 
   // Disable copy constructor/assignment
   SPIRVModule(const SPIRVModule &) = delete;
@@ -293,13 +294,10 @@ public:
   /// destructive; the module will be consumed and cleared after calling it.
   void take(InstBuilder *builder);
 
-  inline void useVulkan1p1();
   /// \brief Sets the id bound to the given bound.
   inline void setBound(uint32_t newBound);
 
   /// \brief Sets the string representation of the command line options.
-  inline void setClOptions(llvm::StringRef opts);
-
   inline void addCapability(spv::Capability);
   inline void addExtension(llvm::StringRef extension);
   inline void addExtInstSet(uint32_t setId, llvm::StringRef extInstSet);
@@ -331,7 +329,8 @@ public:
   inline uint32_t getExtInstSetId(llvm::StringRef setName);
 
 private:
-  bool isVulkan1p1;
+  const EmitSPIRVOptions &spirvOptions;
+
   Header header; ///< SPIR-V module header.
   llvm::SetVector<spv::Capability> capabilities;
   llvm::SetVector<std::string> extensions;
@@ -458,16 +457,11 @@ TypeIdPair::TypeIdPair(const Type &ty, uint32_t id) : type(ty), resultId(id) {}
 
 // === Module inline implementations ===
 
-SPIRVModule::SPIRVModule()
-    : isVulkan1p1(false), addressingModel(llvm::None), memoryModel(llvm::None),
-      shaderModelVersion(0), sourceFileNameId(0) {}
+SPIRVModule::SPIRVModule(const EmitSPIRVOptions &options)
+    : spirvOptions(options), addressingModel(llvm::None),
+      memoryModel(llvm::None), shaderModelVersion(0), sourceFileNameId(0) {}
 
-void SPIRVModule::useVulkan1p1() {
-  isVulkan1p1 = true;
-  header.version = 0x00010300u;
-}
 void SPIRVModule::setBound(uint32_t newBound) { header.bound = newBound; }
-void SPIRVModule::setClOptions(llvm::StringRef opts) { clOptions = opts; }
 
 void SPIRVModule::addCapability(spv::Capability cap) {
   capabilities.insert(cap);

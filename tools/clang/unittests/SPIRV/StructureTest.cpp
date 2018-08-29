@@ -107,12 +107,12 @@ TEST(Structure, AfterClearFunctionIsEmpty) {
 }
 
 TEST(Structure, DefaultConstructedModuleIsEmpty) {
-  auto m = SPIRVModule();
+  auto m = SPIRVModule({});
   EXPECT_TRUE(m.isEmpty());
 }
 
 TEST(Structure, AfterClearModuleIsEmpty) {
-  auto m = SPIRVModule();
+  auto m = SPIRVModule({});
   m.setBound(12);
   EXPECT_FALSE(m.isEmpty());
   m.clear();
@@ -121,7 +121,7 @@ TEST(Structure, AfterClearModuleIsEmpty) {
 
 TEST(Structure, TakeModuleHaveAllContents) {
   SPIRVContext context;
-  auto m = SPIRVModule();
+  auto m = SPIRVModule({});
 
   // Will fix up the bound later.
   SimpleInstBuilder sib(0);
@@ -226,7 +226,7 @@ TEST(Structure, TakeModuleHaveAllContents) {
 
 TEST(Structure, TakeModuleWithArrayAndConstantDependency) {
   SPIRVContext context;
-  auto m = SPIRVModule();
+  auto m = SPIRVModule({});
 
   // Will fix up the id bound later.
   SimpleInstBuilder sib(0);
