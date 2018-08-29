@@ -1269,12 +1269,6 @@ TEST_F(FileTest, SpirvOptOconfigInvalidFlag) {
 }
 TEST_F(FileTest, SpirvOptOconfig) { runFileTest("spirv.opt.cl.oconfig.hlsl"); }
 
-// Test that command line options are exposed using OpModuleProcessed.
-TEST_F(FileTest, SpirvDebugClOption) {
-  useVulkan1p1();
-  runFileTest("spirv.debug.cl-option.hlsl");
-}
-
 // For shader stage input/output interface
 // For semantic SV_Position, SV_ClipDistance, SV_CullDistance
 TEST_F(FileTest, SpirvStageIOInterfaceVS) {
@@ -1354,6 +1348,33 @@ TEST_F(FileTest, SpirvDebugOpLine) {
 TEST_F(FileTest, SpirvDebugDxcCommitInfo) {
   useVulkan1p1();
   runFileTest("spirv.debug.commit.hlsl");
+}
+
+// Test that command line options are exposed using OpModuleProcessed.
+TEST_F(FileTest, SpirvDebugClOption) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.cl-option.hlsl");
+}
+
+TEST_F(FileTest, SpirvDebugControlFile) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.ctrl.file.hlsl");
+}
+TEST_F(FileTest, SpirvDebugControlSource) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.ctrl.source.hlsl");
+}
+TEST_F(FileTest, SpirvDebugControlLine) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.ctrl.line.hlsl");
+}
+TEST_F(FileTest, SpirvDebugControlTool) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.ctrl.tool.hlsl");
+}
+TEST_F(FileTest, SpirvDebugControlUnknown) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.ctrl.unknown.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanAttributeErrors) {

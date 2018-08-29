@@ -41,7 +41,10 @@ struct EmitSPIRVOptions {
   bool useDxLayout;
   bool enable16BitTypes;
   bool enableReflect;
-  bool enableDebugInfo;
+  bool debugInfoFile;
+  bool debugInfoSource;
+  bool debugInfoLine;
+  bool debugInfoTool;
   bool noWarnIgnoredFeatures;
   llvm::StringRef stageIoOrder;
   llvm::SmallVector<int32_t, 4> bShift;
@@ -55,10 +58,11 @@ struct EmitSPIRVOptions {
   spirv::LayoutRule tBufferLayoutRule;
   spirv::LayoutRule sBufferLayoutRule;
   llvm::SmallVector<llvm::StringRef, 4> optConfig;
+
   // String representation of all command line options.
   std::string clOptions;
 
-  // Initializes dependent fields appropriately
+  /// Initializes dependent fields appropriately
   void Initialize();
 };
 } // end namespace clang

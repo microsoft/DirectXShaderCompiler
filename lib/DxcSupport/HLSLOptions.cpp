@@ -556,7 +556,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
-  const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
+  opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
   opts.VkInvertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
   opts.VkInvertW = Args.hasFlag(OPT_fvk_use_dx_position_w, OPT_INVALID, false);
   opts.VkUseGlLayout = Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
@@ -581,6 +581,32 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   for (const Arg *A : Args.filtered(OPT_fspv_extension_EQ)) {
     opts.SpvExtensions.push_back(A->getValue());
+  }
+
+  opts.SpvDebugFile = opts.SpvDebugSource = false;
+  opts.SpvDebugLine = opts.SpvDebugTool = false;
+  if (Args.hasArg(OPT_fspv_debug_EQ)) {
+    opts.DebugInfo = true;
+    for (const Arg *A : Args.filtered(OPT_fspv_debug_EQ)) {
+      const llvm::StringRef v = A->getValue();
+      if (v == "file") {
+        opts.SpvDebugFile = true;
+      } else if (v == "source") {
+        opts.SpvDebugFile = opts.SpvDebugSource = true;
+      } else if (v == "line") {
+        opts.SpvDebugFile = opts.SpvDebugSource = true;
+        opts.SpvDebugLine = true;
+      } else if (v == "tool") {
+        opts.SpvDebugTool = true;
+      } else {
+        errors << "unknown SPIR-V debug info control parameter: " << v;
+        return 1;
+      }
+    }
+  } else if (opts.DebugInfo) {
+    // By default turn on all categories
+    opts.SpvDebugFile = opts.SpvDebugSource = true;
+    opts.SpvDebugLine = opts.SpvDebugTool = true;
   }
 
   opts.SpvTargetEnv = Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
@@ -611,6 +637,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fspv_debug_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_target_env_EQ).empty() ||
       !Args.getLastArgValue(OPT_Oconfig).empty() ||

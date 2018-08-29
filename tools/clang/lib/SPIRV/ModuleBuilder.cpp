@@ -10,7 +10,7 @@
 #include "clang/SPIRV/ModuleBuilder.h"
 
 #include "TypeTranslator.h"
-#include "spirv/unified1//spirv.hpp11"
+#include "spirv/unified1/spirv.hpp11"
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/InstBuilder.h"
 
@@ -19,20 +19,12 @@ namespace spirv {
 
 ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
                              const EmitSPIRVOptions &opts)
-    : theContext(*C), featureManager(features), spirvOptions(opts), theModule(),
-      theFunction(nullptr), insertPoint(nullptr), instBuilder(nullptr),
-      glslExtSetId(0) {
+    : theContext(*C), featureManager(features), spirvOptions(opts),
+      theModule(opts), theFunction(nullptr), insertPoint(nullptr),
+      instBuilder(nullptr), glslExtSetId(0) {
   instBuilder.setConsumer([this](std::vector<uint32_t> &&words) {
     this->constructSite = std::move(words);
   });
-
-  // Set the SPIR-V version and the command line options that were used to
-  // generate this module, if needed.
-  if (featureManager && featureManager->getTargetEnv() == SPV_ENV_VULKAN_1_1) {
-    theModule.useVulkan1p1();
-    if (spirvOptions.enableDebugInfo)
-      theModule.setClOptions(opts.clOptions);
-  }
 }
 
 std::vector<uint32_t> ModuleBuilder::takeModule() {

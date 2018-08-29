@@ -167,6 +167,10 @@ public:
   bool VkUseDxLayout;                      // OPT_fvk_use_dx_layout
   bool SpvEnableReflect;                   // OPT_fspv_reflect
   bool VkNoWarnIgnoredFeatures;            // OPT_Wno_vk_ignored_features
+  bool SpvDebugFile;                       // OPT_fspv_debug
+  bool SpvDebugSource;                     // OPT_fspv_debug
+  bool SpvDebugLine;                       // OPT_fspv_debug
+  bool SpvDebugTool;                       // OPT_fspv_debug
   llvm::StringRef VkStageIoOrder;          // OPT_fvk_stage_io_order
   llvm::SmallVector<int32_t, 4> VkBShift;  // OPT_fvk_b_shift
   llvm::SmallVector<int32_t, 4> VkTShift;  // OPT_fvk_t_shift
