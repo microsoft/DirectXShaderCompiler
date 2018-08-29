@@ -14,7 +14,7 @@
 
 #include "clang/AST/Type.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/SPIRV/EmitSPIRVOptions.h"
+#include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/Optional.h"
 
@@ -33,7 +33,7 @@ namespace spirv {
 class TypeTranslator {
 public:
   TypeTranslator(ASTContext &context, ModuleBuilder &builder,
-                 DiagnosticsEngine &diag, const EmitSPIRVOptions &opts)
+                 DiagnosticsEngine &diag, const SpirvCodeGenOptions &opts)
       : astContext(context), theBuilder(builder), diags(diag),
         spirvOptions(opts) {}
 
@@ -53,7 +53,7 @@ public:
   /// on will be generated and all with layout decorations (if decorateLayout
   /// is true).
   uint32_t translateType(QualType type,
-                         LayoutRule layoutRule = LayoutRule::Void);
+                         SpirvLayoutRule layoutRule = SpirvLayoutRule::Void);
 
   /// \brief Generates the SPIR-V type for the counter associated with a
   /// {Append|Consume}StructuredBuffer: an OpTypeStruct with a single 32-bit
@@ -201,7 +201,7 @@ public:
   /// \brief Returns true if the given type can use relaxed precision
   /// decoration. Integer and float types with lower than 32 bits can be
   /// operated on with a relaxed precision.
-  static bool isRelaxedPrecisionType(QualType, const EmitSPIRVOptions &);
+  static bool isRelaxedPrecisionType(QualType, const SpirvCodeGenOptions &);
 
   /// Returns true if the given type will be translated into a SPIR-V image,
   /// sampler or struct containing images or samplers.
@@ -257,7 +257,7 @@ public:
   /// of a struct member.
   llvm::SmallVector<const Decoration *, 4>
   getLayoutDecorations(const llvm::SmallVector<const Decl *, 4> &declGroup,
-                       LayoutRule rule);
+                       SpirvLayoutRule rule);
 
   /// \brief Returns how many sequential locations are consumed by a given type.
   uint32_t getLocationCount(QualType type);
@@ -297,7 +297,7 @@ private:
 
   /// \brief Translates the given HLSL resource type into its SPIR-V
   /// instructions and returns the <result-id>. Returns 0 on failure.
-  uint32_t translateResourceType(QualType type, LayoutRule rule);
+  uint32_t translateResourceType(QualType type, SpirvLayoutRule rule);
 
   /// \brief For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
@@ -324,7 +324,7 @@ public:
   /// to get the next available location (alignment + size), which means
   /// size contains post-paddings required by the given type.
   std::pair<uint32_t, uint32_t>
-  getAlignmentAndSize(QualType type, LayoutRule rule, uint32_t *stride);
+  getAlignmentAndSize(QualType type, SpirvLayoutRule rule, uint32_t *stride);
 
   /// \brief If a hint exists regarding the usage of literal types, it
   /// is returned. Otherwise, the given type itself is returned.
@@ -368,7 +368,7 @@ private:
   ASTContext &astContext;
   ModuleBuilder &theBuilder;
   DiagnosticsEngine &diags;
-  const EmitSPIRVOptions &spirvOptions;
+  const SpirvCodeGenOptions &spirvOptions;
 
   /// \brief This is a stack which is used to track the intended usage type for
   /// literals. For example: while a floating literal is being visited, if the

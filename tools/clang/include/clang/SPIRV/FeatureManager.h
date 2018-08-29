@@ -19,10 +19,9 @@
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/Frontend/CompilerInstance.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringRef.h"
-
-#include "EmitSPIRVOptions.h"
 
 namespace clang {
 namespace spirv {
@@ -48,7 +47,7 @@ enum class Extension {
 /// The class for handling SPIR-V version and extension requests.
 class FeatureManager {
 public:
-  FeatureManager(DiagnosticsEngine &de, const EmitSPIRVOptions &);
+  FeatureManager(DiagnosticsEngine &de, const SpirvCodeGenOptions &);
 
   /// Allows the given extension to be used in CodeGen.
   bool allowExtension(llvm::StringRef);

@@ -26,7 +26,7 @@
 
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/SPIRV/Constant.h"
-#include "clang/SPIRV/EmitSPIRVOptions.h"
+#include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/Type.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -273,7 +273,7 @@ struct TypeIdPair {
 class SPIRVModule {
 public:
   /// \brief Default constructs an empty SPIR-V module.
-  inline SPIRVModule(const EmitSPIRVOptions &options);
+  inline SPIRVModule(const SpirvCodeGenOptions &options);
 
   // Disable copy constructor/assignment
   SPIRVModule(const SPIRVModule &) = delete;
@@ -329,7 +329,7 @@ public:
   inline uint32_t getExtInstSetId(llvm::StringRef setName);
 
 private:
-  const EmitSPIRVOptions &spirvOptions;
+  const SpirvCodeGenOptions &spirvOptions;
 
   Header header; ///< SPIR-V module header.
   llvm::SetVector<spv::Capability> capabilities;
@@ -457,7 +457,7 @@ TypeIdPair::TypeIdPair(const Type &ty, uint32_t id) : type(ty), resultId(id) {}
 
 // === Module inline implementations ===
 
-SPIRVModule::SPIRVModule(const EmitSPIRVOptions &options)
+SPIRVModule::SPIRVModule(const SpirvCodeGenOptions &options)
     : spirvOptions(options), addressingModel(llvm::None),
       memoryModel(llvm::None), shaderModelVersion(0), sourceFileNameId(0) {}
 

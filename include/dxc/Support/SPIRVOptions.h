@@ -1,24 +1,25 @@
-//===-- EmitSPIRVOptions.h - Options for SPIR-V CodeGen ---------*- C++ -*-===//
-//
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
-//
-//===----------------------------------------------------------------------===//
-#ifndef LLVM_CLANG_SPIRV_EMITSPIRVOPTIONS_H
-#define LLVM_CLANG_SPIRV_EMITSPIRVOPTIONS_H
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// SPIRVOptions.h                                                            //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
+//                                                                           //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
 
-#include <string>
-#include <vector>
+#pragma once
 
-#include "llvm/ADT/SmallVector.h"
+#ifndef LLVM_SPIRV_OPTIONS_H
+#define LLVM_SPIRV_OPTIONS_H
+
+#ifdef ENABLE_SPIRV_CODEGEN
+
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Option/ArgList.h"
 
-namespace clang {
-namespace spirv {
-/// Memory layout rules
-enum class LayoutRule {
+enum class SpirvLayoutRule {
   Void,
   GLSLStd140,
   GLSLStd430,
@@ -27,10 +28,8 @@ enum class LayoutRule {
   FxcCTBuffer,       // fxc.exe layout rule for cbuffer/tbuffer
   FxcSBuffer,        // fxc.exe layout rule for structured buffers
 };
-} // namespace spirv
 
-/// Structs for controlling behaviors of SPIR-V codegen.
-struct EmitSPIRVOptions {
+struct SpirvCodeGenOptions {
   /// Disable legalization and optimization and emit raw SPIR-V
   bool codeGenHighLevel;
   bool defaultRowMajor;
@@ -54,17 +53,14 @@ struct EmitSPIRVOptions {
   std::vector<std::string> bindRegister;
   llvm::SmallVector<llvm::StringRef, 4> allowedExtensions;
   llvm::StringRef targetEnv;
-  spirv::LayoutRule cBufferLayoutRule;
-  spirv::LayoutRule tBufferLayoutRule;
-  spirv::LayoutRule sBufferLayoutRule;
+  SpirvLayoutRule cBufferLayoutRule;
+  SpirvLayoutRule tBufferLayoutRule;
+  SpirvLayoutRule sBufferLayoutRule;
   llvm::SmallVector<llvm::StringRef, 4> optConfig;
 
   // String representation of all command line options.
   std::string clOptions;
-
-  /// Initializes dependent fields appropriately
-  void Initialize();
 };
-} // end namespace clang
 
-#endif
+#endif // ENABLE_SPIRV_CODEGEN
+#endif // LLVM_SPIRV_OPTIONS_H
