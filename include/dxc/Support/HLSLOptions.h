@@ -14,11 +14,11 @@
 #ifndef LLVM_HLSL_OPTIONS_H
 #define LLVM_HLSL_OPTIONS_H
 
-#include "SPIRVOptions.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 #include "dxc/dxcapi.h"
+#include "dxc/Support/SPIRVOptions.h"
 
 namespace llvm {
 namespace opt {

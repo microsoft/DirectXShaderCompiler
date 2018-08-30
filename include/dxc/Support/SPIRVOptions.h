@@ -36,27 +36,27 @@ enum class SpirvLayoutRule {
 struct SpirvCodeGenOptions {
   /// Disable legalization and optimization and emit raw SPIR-V
   bool codeGenHighLevel;
+  bool debugInfoFile;
+  bool debugInfoLine;
+  bool debugInfoSource;
+  bool debugInfoTool;
   bool defaultRowMajor;
   bool disableValidation;
-  bool invertY; // Additive inverse
-  bool invertW; // Multiplicative inverse
-  bool useGlLayout;
-  bool useDxLayout;
   bool enable16BitTypes;
   bool enableReflect;
-  bool debugInfoFile;
-  bool debugInfoSource;
-  bool debugInfoLine;
-  bool debugInfoTool;
+  bool invertY; // Additive inverse
+  bool invertW; // Multiplicative inverse
   bool noWarnIgnoredFeatures;
+  bool useDxLayout;
+  bool useGlLayout;
   SpirvLayoutRule cBufferLayoutRule;
-  SpirvLayoutRule tBufferLayoutRule;
   SpirvLayoutRule sBufferLayoutRule;
+  SpirvLayoutRule tBufferLayoutRule;
   llvm::StringRef stageIoOrder;
   llvm::StringRef targetEnv;
   llvm::SmallVector<int32_t, 4> bShift;
-  llvm::SmallVector<int32_t, 4> tShift;
   llvm::SmallVector<int32_t, 4> sShift;
+  llvm::SmallVector<int32_t, 4> tShift;
   llvm::SmallVector<int32_t, 4> uShift;
   llvm::SmallVector<llvm::StringRef, 4> allowedExtensions;
   llvm::SmallVector<llvm::StringRef, 4> optConfig;
