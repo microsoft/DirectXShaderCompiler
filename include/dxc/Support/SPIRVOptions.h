@@ -1,4 +1,4 @@
-//===-- EmitSPIRVOptions.h - Options for SPIR-V CodeGen ---------*- C++ -*-===//
+//===------- SPIRVOptions.h -------------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -6,19 +6,24 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_CLANG_SPIRV_EMITSPIRVOPTIONS_H
-#define LLVM_CLANG_SPIRV_EMITSPIRVOPTIONS_H
+//
+//  This file outlines the command-line options used by SPIR-V CodeGen.
+//
+//===----------------------------------------------------------------------===//
 
-#include <string>
-#include <vector>
+#ifndef LLVM_SPIRV_OPTIONS_H
+#define LLVM_SPIRV_OPTIONS_H
 
-#include "llvm/ADT/SmallVector.h"
+#ifdef ENABLE_SPIRV_CODEGEN
+
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Option/ArgList.h"
 
 namespace clang {
 namespace spirv {
-/// Memory layout rules
-enum class LayoutRule {
+
+enum class SpirvLayoutRule {
   Void,
   GLSLStd140,
   GLSLStd430,
@@ -27,44 +32,42 @@ enum class LayoutRule {
   FxcCTBuffer,       // fxc.exe layout rule for cbuffer/tbuffer
   FxcSBuffer,        // fxc.exe layout rule for structured buffers
 };
-} // namespace spirv
 
-/// Structs for controlling behaviors of SPIR-V codegen.
-struct EmitSPIRVOptions {
+struct SpirvCodeGenOptions {
   /// Disable legalization and optimization and emit raw SPIR-V
   bool codeGenHighLevel;
+  bool debugInfoFile;
+  bool debugInfoLine;
+  bool debugInfoSource;
+  bool debugInfoTool;
   bool defaultRowMajor;
   bool disableValidation;
-  bool invertY; // Additive inverse
-  bool invertW; // Multiplicative inverse
-  bool useGlLayout;
-  bool useDxLayout;
   bool enable16BitTypes;
   bool enableReflect;
-  bool debugInfoFile;
-  bool debugInfoSource;
-  bool debugInfoLine;
-  bool debugInfoTool;
+  bool invertY; // Additive inverse
+  bool invertW; // Multiplicative inverse
   bool noWarnIgnoredFeatures;
+  bool useDxLayout;
+  bool useGlLayout;
+  SpirvLayoutRule cBufferLayoutRule;
+  SpirvLayoutRule sBufferLayoutRule;
+  SpirvLayoutRule tBufferLayoutRule;
   llvm::StringRef stageIoOrder;
-  llvm::SmallVector<int32_t, 4> bShift;
-  llvm::SmallVector<int32_t, 4> tShift;
-  llvm::SmallVector<int32_t, 4> sShift;
-  llvm::SmallVector<int32_t, 4> uShift;
-  std::vector<std::string> bindRegister;
-  llvm::SmallVector<llvm::StringRef, 4> allowedExtensions;
   llvm::StringRef targetEnv;
-  spirv::LayoutRule cBufferLayoutRule;
-  spirv::LayoutRule tBufferLayoutRule;
-  spirv::LayoutRule sBufferLayoutRule;
+  llvm::SmallVector<int32_t, 4> bShift;
+  llvm::SmallVector<int32_t, 4> sShift;
+  llvm::SmallVector<int32_t, 4> tShift;
+  llvm::SmallVector<int32_t, 4> uShift;
+  llvm::SmallVector<llvm::StringRef, 4> allowedExtensions;
   llvm::SmallVector<llvm::StringRef, 4> optConfig;
+  std::vector<std::string> bindRegister;
 
   // String representation of all command line options.
   std::string clOptions;
-
-  /// Initializes dependent fields appropriately
-  void Initialize();
 };
-} // end namespace clang
 
-#endif
+} // namespace spirv
+} // namespace clang
+
+#endif // ENABLE_SPIRV_CODEGEN
+#endif // LLVM_SPIRV_OPTIONS_H

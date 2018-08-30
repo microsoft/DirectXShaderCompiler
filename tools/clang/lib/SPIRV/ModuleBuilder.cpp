@@ -18,7 +18,7 @@ namespace clang {
 namespace spirv {
 
 ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
-                             const EmitSPIRVOptions &opts)
+                             const SpirvCodeGenOptions &opts)
     : theContext(*C), featureManager(features), spirvOptions(opts),
       theModule(opts), theFunction(nullptr), insertPoint(nullptr),
       instBuilder(nullptr), glslExtSetId(0) {

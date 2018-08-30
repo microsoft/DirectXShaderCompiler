@@ -557,47 +557,48 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
-  opts.VkInvertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
-  opts.VkInvertW = Args.hasFlag(OPT_fvk_use_dx_position_w, OPT_INVALID, false);
-  opts.VkUseGlLayout = Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
-  opts.VkUseDxLayout = Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false);
-  opts.SpvEnableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
-  opts.VkNoWarnIgnoredFeatures = Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false);
+  opts.SpirvOptions.invertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
+  opts.SpirvOptions.invertW = Args.hasFlag(OPT_fvk_use_dx_position_w, OPT_INVALID, false);
+  opts.SpirvOptions.useGlLayout = Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
+  opts.SpirvOptions.useDxLayout = Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false);
+  opts.SpirvOptions.enableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
+  opts.SpirvOptions.noWarnIgnoredFeatures = Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false);
 
-  if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.VkBShift, errors) ||
-      !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.VkTShift, errors) ||
-      !handleVkShiftArgs(Args, OPT_fvk_s_shift, "s", &opts.VkSShift, errors) ||
-      !handleVkShiftArgs(Args, OPT_fvk_u_shift, "u", &opts.VkUShift, errors))
+  if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_s_shift, "s", &opts.SpirvOptions.sShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_u_shift, "u", &opts.SpirvOptions.uShift, errors))
     return 1;
 
-  opts.VkBindRegister = Args.getAllArgValues(OPT_fvk_bind_register);
-
-  opts.VkStageIoOrder = Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
-  if (opts.VkStageIoOrder != "alpha" && opts.VkStageIoOrder != "decl") {
+  opts.SpirvOptions.bindRegister = Args.getAllArgValues(OPT_fvk_bind_register);
+  opts.SpirvOptions.stageIoOrder = Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
+  if (opts.SpirvOptions.stageIoOrder != "alpha" && opts.SpirvOptions.stageIoOrder != "decl") {
     errors << "unknown Vulkan stage I/O location assignment order: "
-           << opts.VkStageIoOrder;
+           << opts.SpirvOptions.stageIoOrder;
     return 1;
   }
 
   for (const Arg *A : Args.filtered(OPT_fspv_extension_EQ)) {
-    opts.SpvExtensions.push_back(A->getValue());
+    opts.SpirvOptions.allowedExtensions.push_back(A->getValue());
   }
 
-  opts.SpvDebugFile = opts.SpvDebugSource = false;
-  opts.SpvDebugLine = opts.SpvDebugTool = false;
+  opts.SpirvOptions.debugInfoFile = opts.SpirvOptions.debugInfoSource = false;
+  opts.SpirvOptions.debugInfoLine = opts.SpirvOptions.debugInfoTool = false;
   if (Args.hasArg(OPT_fspv_debug_EQ)) {
     opts.DebugInfo = true;
     for (const Arg *A : Args.filtered(OPT_fspv_debug_EQ)) {
       const llvm::StringRef v = A->getValue();
       if (v == "file") {
-        opts.SpvDebugFile = true;
+        opts.SpirvOptions.debugInfoFile = true;
       } else if (v == "source") {
-        opts.SpvDebugFile = opts.SpvDebugSource = true;
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
       } else if (v == "line") {
-        opts.SpvDebugFile = opts.SpvDebugSource = true;
-        opts.SpvDebugLine = true;
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
+        opts.SpirvOptions.debugInfoLine = true;
       } else if (v == "tool") {
-        opts.SpvDebugTool = true;
+        opts.SpirvOptions.debugInfoTool = true;
       } else {
         errors << "unknown SPIR-V debug info control parameter: " << v;
         return 1;
@@ -605,11 +606,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   } else if (opts.DebugInfo) {
     // By default turn on all categories
-    opts.SpvDebugFile = opts.SpvDebugSource = true;
-    opts.SpvDebugLine = opts.SpvDebugTool = true;
+    opts.SpirvOptions.debugInfoFile = opts.SpirvOptions.debugInfoSource = true;
+    opts.SpirvOptions.debugInfoLine = opts.SpirvOptions.debugInfoTool = true;
   }
 
-  opts.SpvTargetEnv = Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
+  opts.SpirvOptions.targetEnv = Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
 
   // Handle -Oconfig=<comma-separated-list> option.
   uint32_t numOconfigs = 0;
@@ -624,7 +625,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       return 1;
     }
     for (const auto v : A->getValues()) {
-      opts.SpvOconfig.push_back(v);
+      opts.SpirvOptions.optConfig.push_back(v);
     }
   }
 

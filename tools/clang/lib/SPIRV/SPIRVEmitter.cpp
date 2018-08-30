@@ -589,17 +589,18 @@ spv::Capability getNonUniformCapability(QualType type) {
 
 } // namespace
 
-SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
+SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
     : theCompilerInstance(ci), astContext(ci.getASTContext()),
-      diags(ci.getDiagnostics()), spirvOptions(options),
+      diags(ci.getDiagnostics()),
+      spirvOptions(ci.getCodeGenOpts().SpirvOptions),
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
-      theContext(), featureManager(diags, options),
-      theBuilder(&theContext, &featureManager, options),
-      typeTranslator(astContext, theBuilder, diags, options),
+      theContext(), featureManager(diags, spirvOptions),
+      theBuilder(&theContext, &featureManager, spirvOptions),
+      typeTranslator(astContext, theBuilder, diags, spirvOptions),
       declIdMapper(shaderModel, astContext, theBuilder, typeTranslator,
-                   featureManager, options),
+                   featureManager, spirvOptions),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
       seenPushConstantAt(), isSpecConstantMode(false),
       foundNonUniformResourceIndex(false), needsLegalization(false),
@@ -607,15 +608,27 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 
-  if (options.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
+  if (spirvOptions.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
       !shaderModel.IsGS())
     emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
 
-  if (options.useGlLayout && options.useDxLayout)
+  if (spirvOptions.useGlLayout && spirvOptions.useDxLayout)
     emitError("cannot specify both -fvk-use-dx-layout and -fvk-use-gl-layout",
               {});
 
-  options.Initialize();
+  if (spirvOptions.useDxLayout) {
+    spirvOptions.cBufferLayoutRule = SpirvLayoutRule::FxcCTBuffer;
+    spirvOptions.tBufferLayoutRule = SpirvLayoutRule::FxcCTBuffer;
+    spirvOptions.sBufferLayoutRule = SpirvLayoutRule::FxcSBuffer;
+  } else if (spirvOptions.useGlLayout) {
+    spirvOptions.cBufferLayoutRule = SpirvLayoutRule::GLSLStd140;
+    spirvOptions.tBufferLayoutRule = SpirvLayoutRule::GLSLStd430;
+    spirvOptions.sBufferLayoutRule = SpirvLayoutRule::GLSLStd430;
+  } else {
+    spirvOptions.cBufferLayoutRule = SpirvLayoutRule::RelaxedGLSLStd140;
+    spirvOptions.tBufferLayoutRule = SpirvLayoutRule::RelaxedGLSLStd430;
+    spirvOptions.sBufferLayoutRule = SpirvLayoutRule::RelaxedGLSLStd430;
+  }
 
   // Set shader module version
   theBuilder.setShaderModelVersion(shaderModel.GetMajor(),
@@ -623,7 +636,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
 
   // Set debug info
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
-  if (options.debugInfoFile && !inputFiles.empty()) {
+  if (spirvOptions.debugInfoFile && !inputFiles.empty()) {
     // File name
     mainSourceFileId = theContext.takeNextId();
     theBuilder.setSourceFileName(mainSourceFileId,
@@ -939,7 +952,7 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
   // the uint, we should perform a comparison.
   {
     uint32_t vecSize = 1, numRows = 0, numCols = 0;
-    if (info.getLayoutRule() != LayoutRule::Void &&
+    if (info.getLayoutRule() != SpirvLayoutRule::Void &&
         isBoolOrVecMatOfBoolType(expr->getType())) {
       const auto exprType = expr->getType();
       QualType uintType = astContext.UnsignedIntTy;
@@ -978,7 +991,7 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
       }
       // Now that it is converted to Bool, it has no layout rule.
       // This result-id should be evaluated as bool from here on out.
-      info.setLayoutRule(LayoutRule::Void);
+      info.setLayoutRule(SpirvLayoutRule::Void);
     }
   }
 
@@ -4528,7 +4541,7 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
   // Note: Special-case: Booleans have no physical layout, and therefore when
   // layout is required booleans are represented as unsigned integers.
   // Therefore, after loading the uint we should convert it boolean.
-  if (elemType->isBooleanType() && layoutRule != LayoutRule::Void) {
+  if (elemType->isBooleanType() && layoutRule != SpirvLayoutRule::Void) {
     const auto fromType =
         size == 1 ? astContext.UnsignedIntTy
                   : astContext.getExtVectorType(astContext.UnsignedIntTy, size);
@@ -4592,7 +4605,7 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
       // Special-case: Booleans in SPIR-V do not have a physical layout. Uint is
       // used to represent them when layout is required.
       if (expr->getType()->isBooleanType() &&
-          baseInfo.getLayoutRule() != LayoutRule::Void)
+          baseInfo.getLayoutRule() != SpirvLayoutRule::Void)
         result =
             castToBool(result, astContext.UnsignedIntTy, astContext.BoolTy);
       return baseInfo.setResultId(result);
@@ -4907,7 +4920,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // is used to represent booleans when layout is required. In such cases,
     // we should cast the boolean to uint before creating OpStore.
     if (isBoolOrVecOfBoolType(lhsValType) &&
-        lhsPtr.getLayoutRule() != LayoutRule::Void) {
+        lhsPtr.getLayoutRule() != SpirvLayoutRule::Void) {
       uint32_t vecSize = 1;
       const bool isVec =
           TypeTranslator::isVectorType(lhsValType, nullptr, &vecSize);
@@ -5001,7 +5014,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
 
 uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
                                         const QualType valType,
-                                        LayoutRule dstLR) {
+                                        SpirvLayoutRule dstLR) {
   // Lambda for casting scalar or vector of bool<-->uint in cases where one side
   // of the reconstruction (lhs or rhs) has a layout rule.
   const auto handleBooleanLayout = [this, &srcVal, dstLR](uint32_t val,
@@ -5010,15 +5023,15 @@ uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
     if (!isBoolOrVecOfBoolType(valType))
       return val;
 
-    LayoutRule srcLR = srcVal.getLayoutRule();
+    SpirvLayoutRule srcLR = srcVal.getLayoutRule();
     // Source value has a layout rule, and has therefore been represented
     // as a uint. Cast it to boolean before using.
     bool shouldCastToBool =
-        srcLR != LayoutRule::Void && dstLR == LayoutRule::Void;
+        srcLR != SpirvLayoutRule::Void && dstLR == SpirvLayoutRule::Void;
     // Destination has a layout rule, and should therefore be represented
     // as a uint. Cast to uint before using.
     bool shouldCastToUint =
-        srcLR == LayoutRule::Void && dstLR != LayoutRule::Void;
+        srcLR == SpirvLayoutRule::Void && dstLR != SpirvLayoutRule::Void;
     // No boolean layout issues to take care of.
     if (!shouldCastToBool && !shouldCastToUint)
       return val;
@@ -6127,7 +6140,7 @@ SpirvEvalInfo &SPIRVEmitter::turnIntoElementPtr(
     auto varName = TypeTranslator::getName(baseType);
     const auto var = createTemporaryVar(baseType, varName, base);
     base.setResultId(var)
-        .setLayoutRule(LayoutRule::Void)
+        .setLayoutRule(SpirvLayoutRule::Void)
         .setStorageClass(spv::StorageClass::Function);
   }
 
