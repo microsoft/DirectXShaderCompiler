@@ -75,7 +75,7 @@ const hlsl::ConstantPacking *getPackOffset(const NamedDecl *decl) {
 } // anonymous namespace
 
 bool TypeTranslator::isRelaxedPrecisionType(QualType type,
-                                            const EmitSPIRVOptions &opts) {
+                                            const SpirvCodeGenOptions &opts) {
   // Primitive types
   {
     QualType ty = {};
@@ -489,7 +489,7 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
   llvm_unreachable("invalid type passed to getElementSpirvBitwidth");
 }
 
-uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
+uint32_t TypeTranslator::translateType(QualType type, SpirvLayoutRule rule) {
   const auto desugaredType = desugarType(type);
   if (desugaredType != type) {
     const auto id = translateType(desugaredType, rule);
@@ -510,7 +510,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
           // According to the SPIR-V Spec: There is no physical size or bit
           // pattern defined for boolean type. Therefore an unsigned integer is
           // used to represent booleans when layout is required.
-          if (rule == LayoutRule::Void)
+          if (rule == SpirvLayoutRule::Void)
             return theBuilder.getBoolType();
           else
             return theBuilder.getUint32Type();
@@ -594,7 +594,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
       // If the matrix element type is not float, it is represented as an array
       // of vectors, and should therefore have the ArrayStride decoration.
       llvm::SmallVector<const Decoration *, 4> decorations;
-      if (!elemType->isFloatingType() && rule != LayoutRule::Void) {
+      if (!elemType->isFloatingType() && rule != SpirvLayoutRule::Void) {
         uint32_t stride = 0;
         (void)getAlignmentAndSize(type, rule, &stride);
         decorations.push_back(
@@ -635,7 +635,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
     }
 
     llvm::SmallVector<const Decoration *, 4> decorations;
-    if (rule != LayoutRule::Void) {
+    if (rule != SpirvLayoutRule::Void) {
       decorations = getLayoutDecorations(collectDeclsInDeclContext(decl), rule);
     }
 
@@ -649,7 +649,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
     const uint32_t elemTypeId = translateType(elemType, rule);
 
     llvm::SmallVector<const Decoration *, 4> decorations;
-    if (rule != LayoutRule::Void &&
+    if (rule != SpirvLayoutRule::Void &&
         // We won't have stride information for structured/byte buffers since
         // they contain runtime arrays.
         !isAKindOfStructuredOrByteBuffer(elemType)) {
@@ -1304,7 +1304,7 @@ bool TypeTranslator::shouldSkipInStructLayout(const Decl *decl) {
 }
 
 llvm::SmallVector<const Decoration *, 4> TypeTranslator::getLayoutDecorations(
-    const llvm::SmallVector<const Decl *, 4> &decls, LayoutRule rule) {
+    const llvm::SmallVector<const Decl *, 4> &decls, SpirvLayoutRule rule) {
   const auto spirvContext = theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 4> decorations;
   uint32_t offset = 0, index = 0;
@@ -1321,9 +1321,9 @@ llvm::SmallVector<const Decoration *, 4> TypeTranslator::getLayoutDecorations(
     // The next avaiable location after layouting the previos members
     const uint32_t nextLoc = offset;
 
-    if (rule == LayoutRule::RelaxedGLSLStd140 ||
-        rule == LayoutRule::RelaxedGLSLStd430 ||
-        rule == LayoutRule::FxcCTBuffer) {
+    if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+        rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
+        rule == SpirvLayoutRule::FxcCTBuffer) {
       alignUsingHLSLRelaxedLayout(fieldType, memberSize, memberAlignment,
                                   &offset);
     } else {
@@ -1426,7 +1426,8 @@ TypeTranslator::collectDeclsInDeclContext(const DeclContext *declContext) {
   return decls;
 }
 
-uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
+uint32_t TypeTranslator::translateResourceType(QualType type,
+                                               SpirvLayoutRule rule) {
   // Resource types are either represented like C struct or C++ class in the
   // AST. Samplers are represented like C struct, so isStructureType() will
   // return true for it; textures are represented like C++ class, so
@@ -1488,7 +1489,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
     // The aliased-to variable should surely be in the Uniform storage class,
     // which has layout decorations.
     bool asAlias = false;
-    if (rule == LayoutRule::Void) {
+    if (rule == SpirvLayoutRule::Void) {
       asAlias = true;
       rule = spirvOptions.sBufferLayoutRule;
     }
@@ -1539,7 +1540,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   // ByteAddressBuffer types.
   if (name == "ByteAddressBuffer") {
     const auto bufferType = theBuilder.getByteAddressBufferType(/*isRW*/ false);
-    if (rule == LayoutRule::Void) {
+    if (rule == SpirvLayoutRule::Void) {
       // All byte address buffers are in the Uniform storage class.
       return theBuilder.getPointerType(bufferType, spv::StorageClass::Uniform);
     } else {
@@ -1549,7 +1550,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   // RWByteAddressBuffer types.
   if (name == "RWByteAddressBuffer") {
     const auto bufferType = theBuilder.getByteAddressBufferType(/*isRW*/ true);
-    if (rule == LayoutRule::Void) {
+    if (rule == SpirvLayoutRule::Void) {
       // All byte address buffers are in the Uniform storage class.
       return theBuilder.getPointerType(bufferType, spv::StorageClass::Uniform);
     } else {
@@ -1707,7 +1708,7 @@ void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
   if (fieldIsVecType) {
     uint32_t scalarAlignment = 0;
     std::tie(scalarAlignment, std::ignore) =
-        getAlignmentAndSize(vecElemType, LayoutRule::Void, nullptr);
+        getAlignmentAndSize(vecElemType, SpirvLayoutRule::Void, nullptr);
     if (scalarAlignment <= 4)
       fieldAlignment = scalarAlignment;
   }
@@ -1724,7 +1725,7 @@ void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
 }
 
 std::pair<uint32_t, uint32_t>
-TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
+TypeTranslator::getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
                                     uint32_t *stride) {
   // std140 layout rules:
 
@@ -1853,7 +1854,8 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
       uint32_t alignment = 0, size = 0;
       std::tie(alignment, size) = getAlignmentAndSize(elemType, rule, stride);
       // Use element alignment for fxc rules
-      if (rule != LayoutRule::FxcCTBuffer && rule != LayoutRule::FxcSBuffer)
+      if (rule != SpirvLayoutRule::FxcCTBuffer &&
+          rule != SpirvLayoutRule::FxcSBuffer)
         alignment = (elemCount == 3 ? 4 : elemCount) * size;
 
       return {alignment, elemCount * size};
@@ -1875,16 +1877,16 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
       const uint32_t vecStorageSize = isRowMajor ? colCount : rowCount;
 
-      if (rule == LayoutRule::FxcSBuffer) {
+      if (rule == SpirvLayoutRule::FxcSBuffer) {
         *stride = vecStorageSize * size;
         // Use element alignment for fxc structured buffers
         return {alignment, rowCount * colCount * size};
       }
 
       alignment *= (vecStorageSize == 3 ? 4 : vecStorageSize);
-      if (rule == LayoutRule::GLSLStd140 ||
-          rule == LayoutRule::RelaxedGLSLStd140 ||
-          rule == LayoutRule::FxcCTBuffer) {
+      if (rule == SpirvLayoutRule::GLSLStd140 ||
+          rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+          rule == SpirvLayoutRule::FxcCTBuffer) {
         alignment = roundToPow2(alignment, kStd140Vec4Alignment);
       }
       *stride = alignment;
@@ -1909,9 +1911,9 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
       std::tie(memberAlignment, memberSize) =
           getAlignmentAndSize(field->getType(), rule, stride);
 
-      if (rule == LayoutRule::RelaxedGLSLStd140 ||
-          rule == LayoutRule::RelaxedGLSLStd430 ||
-          rule == LayoutRule::FxcCTBuffer) {
+      if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+          rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
+          rule == SpirvLayoutRule::FxcCTBuffer) {
         alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
                                     memberAlignment, &structSize);
       } else {
@@ -1932,13 +1934,14 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
       structSize += memberSize;
     }
 
-    if (rule == LayoutRule::GLSLStd140 ||
-        rule == LayoutRule::RelaxedGLSLStd140) {
+    if (rule == SpirvLayoutRule::GLSLStd140 ||
+        rule == SpirvLayoutRule::RelaxedGLSLStd140) {
       // ... and rounded up to the base alignment of a vec4.
       maxAlignment = roundToPow2(maxAlignment, kStd140Vec4Alignment);
     }
 
-    if (rule != LayoutRule::FxcCTBuffer && rule != LayoutRule::FxcSBuffer) {
+    if (rule != SpirvLayoutRule::FxcCTBuffer &&
+        rule != SpirvLayoutRule::FxcSBuffer) {
       // The base offset of the member following the sub-structure is rounded up
       // to the next multiple of the base alignment of the structure.
       structSize = roundToPow2(structSize, maxAlignment);
@@ -1953,21 +1956,21 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     std::tie(alignment, size) =
         getAlignmentAndSize(arrayType->getElementType(), rule, stride);
 
-    if (rule == LayoutRule::FxcSBuffer) {
+    if (rule == SpirvLayoutRule::FxcSBuffer) {
       *stride = size;
       // Use element alignment for fxc structured buffers
       return {alignment, size * elemCount};
     }
 
-    if (rule == LayoutRule::GLSLStd140 ||
-        rule == LayoutRule::RelaxedGLSLStd140 ||
-        rule == LayoutRule::FxcCTBuffer) {
+    if (rule == SpirvLayoutRule::GLSLStd140 ||
+        rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+        rule == SpirvLayoutRule::FxcCTBuffer) {
       // The base alignment and array stride are set to match the base alignment
       // of a single array element, according to rules 1, 2, and 3, and rounded
       // up to the base alignment of a vec4.
       alignment = roundToPow2(alignment, kStd140Vec4Alignment);
     }
-    if (rule == LayoutRule::FxcCTBuffer) {
+    if (rule == SpirvLayoutRule::FxcCTBuffer) {
       // In fxc cbuffer/tbuffer packing rules, arrays does not affect the data
       // packing after it. But we still need to make sure paddings are inserted
       // internally if necessary.

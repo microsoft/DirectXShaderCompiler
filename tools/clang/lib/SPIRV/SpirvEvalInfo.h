@@ -78,8 +78,8 @@ public:
   inline SpirvEvalInfo &setStorageClass(spv::StorageClass sc);
   spv::StorageClass getStorageClass() const { return storageClass; }
 
-  inline SpirvEvalInfo &setLayoutRule(LayoutRule rule);
-  LayoutRule getLayoutRule() const { return layoutRule; }
+  inline SpirvEvalInfo &setLayoutRule(SpirvLayoutRule rule);
+  SpirvLayoutRule getLayoutRule() const { return layoutRule; }
 
   inline SpirvEvalInfo &setRValue(bool rvalue = true);
   bool isRValue() const { return isRValue_; }
@@ -109,7 +109,7 @@ private:
   bool containsAlias;
 
   spv::StorageClass storageClass;
-  LayoutRule layoutRule;
+  SpirvLayoutRule layoutRule;
 
   bool isRValue_;
   bool isConstant_;
@@ -120,9 +120,10 @@ private:
 
 SpirvEvalInfo::SpirvEvalInfo(uint32_t id)
     : resultId(id), containsAlias(false),
-      storageClass(spv::StorageClass::Function), layoutRule(LayoutRule::Void),
-      isRValue_(false), isConstant_(false), isSpecConstant_(false),
-      isRelaxedPrecision_(false), isNonUniform_(false) {}
+      storageClass(spv::StorageClass::Function),
+      layoutRule(SpirvLayoutRule::Void), isRValue_(false), isConstant_(false),
+      isSpecConstant_(false), isRelaxedPrecision_(false), isNonUniform_(false) {
+}
 
 SpirvEvalInfo &SpirvEvalInfo::setResultId(uint32_t id) {
   resultId = id;
@@ -145,7 +146,7 @@ SpirvEvalInfo &SpirvEvalInfo::setStorageClass(spv::StorageClass sc) {
   return *this;
 }
 
-SpirvEvalInfo &SpirvEvalInfo::setLayoutRule(LayoutRule rule) {
+SpirvEvalInfo &SpirvEvalInfo::setLayoutRule(SpirvLayoutRule rule) {
   layoutRule = rule;
   return *this;
 }

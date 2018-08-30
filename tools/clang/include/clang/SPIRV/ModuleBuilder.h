@@ -37,7 +37,7 @@ class ModuleBuilder {
 public:
   /// \brief Constructs a ModuleBuilder with the given SPIR-V context.
   ModuleBuilder(SPIRVContext *, FeatureManager *features,
-                const EmitSPIRVOptions &opts);
+                const SpirvCodeGenOptions &opts);
 
   /// \brief Returns the associated SPIRVContext.
   inline SPIRVContext *getSPIRVContext();
@@ -509,9 +509,9 @@ private:
       uint32_t sample, uint32_t minLod,
       llvm::SmallVectorImpl<uint32_t> *orderedParams);
 
-  SPIRVContext &theContext;             ///< The SPIR-V context.
-  FeatureManager *featureManager;       ///< SPIR-V version/extension manager.
-  const EmitSPIRVOptions &spirvOptions; ///< Command line options.
+  SPIRVContext &theContext;       ///< The SPIR-V context.
+  FeatureManager *featureManager; ///< SPIR-V version/extension manager.
+  const SpirvCodeGenOptions &spirvOptions; ///< Command line options.
 
   SPIRVModule theModule;                 ///< The module under building.
   std::unique_ptr<Function> theFunction; ///< The function under building.

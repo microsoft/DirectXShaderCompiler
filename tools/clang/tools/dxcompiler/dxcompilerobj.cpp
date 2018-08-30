@@ -509,44 +509,25 @@ public:
       // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
       else if (opts.GenSPIRV) {
-          clang::EmitSPIRVOptions spirvOpts;
+        // Since SpirvOptions is passed to the SPIR-V CodeGen as a whole
+        // structure, we need to copy a few non-spirv-specific options into the
+        // structure.
+        opts.SpirvOptions.enable16BitTypes = opts.Enable16BitTypes;
+        opts.SpirvOptions.codeGenHighLevel = opts.CodeGenHighLevel;
+        opts.SpirvOptions.defaultRowMajor = opts.DefaultRowMajor;
+        opts.SpirvOptions.disableValidation = opts.DisableValidation;
+        // Store a string representation of command line options.
+        if (opts.DebugInfo)
+          for (auto opt : mainArgs.getArrayRef())
+            opts.SpirvOptions.clOptions += " " + std::string(opt);
 
-          spirvOpts.codeGenHighLevel = opts.CodeGenHighLevel;
-          spirvOpts.disableValidation = opts.DisableValidation;
-          spirvOpts.invertY = opts.VkInvertY;
-          spirvOpts.invertW = opts.VkInvertW;
-          spirvOpts.useGlLayout = opts.VkUseGlLayout;
-          spirvOpts.useDxLayout = opts.VkUseDxLayout;
-          spirvOpts.enableReflect = opts.SpvEnableReflect;
-          spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
-          spirvOpts.stageIoOrder = opts.VkStageIoOrder;
-          spirvOpts.noWarnIgnoredFeatures = opts.VkNoWarnIgnoredFeatures;
-          spirvOpts.noWarnEmulatedFeatures = opts.VkNoWarnEmulatedFeatures;
-          spirvOpts.bShift = opts.VkBShift;
-          spirvOpts.tShift = opts.VkTShift;
-          spirvOpts.sShift = opts.VkSShift;
-          spirvOpts.uShift = opts.VkUShift;
-          spirvOpts.bindRegister = opts.VkBindRegister;
-          spirvOpts.allowedExtensions = opts.SpvExtensions;
-          spirvOpts.targetEnv = opts.SpvTargetEnv;
-          spirvOpts.enable16BitTypes = opts.Enable16BitTypes;
-          spirvOpts.debugInfoFile = opts.SpvDebugFile;
-          spirvOpts.debugInfoSource = opts.SpvDebugSource;
-          spirvOpts.debugInfoLine = opts.SpvDebugLine;
-          spirvOpts.debugInfoTool = opts.SpvDebugTool;
-          spirvOpts.optConfig = opts.SpvOconfig;
-
-          // Store a string representation of command line options.
-          if (opts.DebugInfo)
-            for (auto opt : mainArgs.getArrayRef())
-              spirvOpts.clOptions += " " + std::string(opt);
-
-          clang::EmitSPIRVAction action(spirvOpts);
-          FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
-          action.BeginSourceFile(compiler, file);
-          action.Execute();
-          action.EndSourceFile();
-          outStream.flush();
+        compiler.getCodeGenOpts().SpirvOptions = opts.SpirvOptions;
+        clang::EmitSPIRVAction action;
+        FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
+        action.BeginSourceFile(compiler, file);
+        action.Execute();
+        action.EndSourceFile();
+        outStream.flush();
       }
 #endif
       // SPIRV change ends
