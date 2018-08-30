@@ -1412,8 +1412,10 @@ spv::LoopControlMask SPIRVEmitter::translateLoopAttribute(const Stmt *stmt,
   case attr::HLSLUnroll:
     return spv::LoopControlMask::Unroll;
   case attr::HLSLAllowUAVCondition:
-    emitWarning("unsupported allow_uav_condition attribute ignored",
-                stmt->getLocStart());
+    if (!spirvOptions.noWarnIgnoredFeatures) {
+      emitWarning("unsupported allow_uav_condition attribute ignored",
+                  stmt->getLocStart());
+    }
     break;
   default:
     llvm_unreachable("found unknown loop attribute");
@@ -1807,9 +1809,11 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt,
       selectionControl = spv::SelectionControlMask::Flatten;
       break;
     default:
-      emitWarning("unknown if statement attribute '%0' ignored",
-                  attribute->getLocation())
-          << attribute->getSpelling();
+      if (!spirvOptions.noWarnIgnoredFeatures) {
+        emitWarning("unknown if statement attribute '%0' ignored",
+                    attribute->getLocation())
+            << attribute->getSpelling();
+      }
       break;
     }
   }
@@ -1958,10 +1962,12 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
       (attrs.empty() || isAttrForceCase) &&
       allSwitchCasesAreIntegerLiterals(switchStmt->getBody());
 
-  if (isAttrForceCase && !canUseSpirvOpSwitch)
+  if (isAttrForceCase && !canUseSpirvOpSwitch &&
+      !spirvOptions.noWarnIgnoredFeatures) {
     emitWarning("ignored 'forcecase' attribute for the switch statement "
                 "since one or more case values are not integer literals",
                 switchStmt->getLocStart());
+  }
 
   if (canUseSpirvOpSwitch)
     processSwitchStmtUsingSpirvOpSwitch(switchStmt);
@@ -2829,10 +2835,12 @@ uint32_t SPIRVEmitter::processGetSamplePosition(const CXXMemberCallExpr *expr) {
   const auto sampleCount = theBuilder.createUnaryOp(
       spv::Op::OpImageQuerySamples, theBuilder.getUint32Type(),
       loadIfGLValue(object));
-  emitWarning(
-      "GetSamplePosition only supports standard sample settings with 1, 2, 4, "
-      "8, or 16 samples and will return float2(0, 0) for other cases",
-      expr->getCallee()->getExprLoc());
+  if (!spirvOptions.noWarnEmulatedFeatures)
+    emitWarning("GetSamplePosition is emulated using many SPIR-V instructions "
+                "due to lack of direct SPIR-V equivalent, so it only supports "
+                "standard sample settings with 1, 2, 4, 8, or 16 samples and "
+                "will return float2(0, 0) for other cases",
+                expr->getCallee()->getExprLoc());
   return emitGetSamplePosition(sampleCount, doExpr(expr->getArg(0)));
 }
 
@@ -6915,9 +6923,10 @@ SPIRVEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
 }
 
 uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
-  emitWarning("msad4 intrinsic function is emulated using many SPIR-V "
-              "instructions due to lack of direct SPIR-V equivalent",
-              callExpr->getExprLoc());
+  if (!spirvOptions.noWarnEmulatedFeatures)
+    emitWarning("msad4 intrinsic function is emulated using many SPIR-V "
+                "instructions due to lack of direct SPIR-V equivalent",
+                callExpr->getExprLoc());
 
   // Compares a 4-byte reference value and an 8-byte source value and
   // accumulates a vector of 4 sums. Each sum corresponds to the masked sum
