@@ -19,7 +19,7 @@
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceLocation.h"
-#include "clang/Frontend/CompilerInstance.h"
+#include "dxc/Support/SPIRVOptions.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringRef.h"
 

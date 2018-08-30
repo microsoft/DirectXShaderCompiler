@@ -557,35 +557,22 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
-  opts.SpirvOptions.invertY =
-      Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
-  opts.SpirvOptions.invertW =
-      Args.hasFlag(OPT_fvk_use_dx_position_w, OPT_INVALID, false);
-  opts.SpirvOptions.useGlLayout =
-      Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
-  opts.SpirvOptions.useDxLayout =
-      Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false);
-  opts.SpirvOptions.enableReflect =
-      Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
-  opts.SpirvOptions.noWarnIgnoredFeatures =
-      Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false);
+  opts.SpirvOptions.invertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
+  opts.SpirvOptions.invertW = Args.hasFlag(OPT_fvk_use_dx_position_w, OPT_INVALID, false);
+  opts.SpirvOptions.useGlLayout = Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
+  opts.SpirvOptions.useDxLayout = Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false);
+  opts.SpirvOptions.enableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
+  opts.SpirvOptions.noWarnIgnoredFeatures = Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false);
 
-  if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift,
-                         errors) ||
-      !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift,
-                         errors) ||
-      !handleVkShiftArgs(Args, OPT_fvk_s_shift, "s", &opts.SpirvOptions.sShift,
-                         errors) ||
-      !handleVkShiftArgs(Args, OPT_fvk_u_shift, "u", &opts.SpirvOptions.uShift,
-                         errors))
+  if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_s_shift, "s", &opts.SpirvOptions.sShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_u_shift, "u", &opts.SpirvOptions.uShift, errors))
     return 1;
 
   opts.SpirvOptions.bindRegister = Args.getAllArgValues(OPT_fvk_bind_register);
-
-  opts.SpirvOptions.stageIoOrder =
-      Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
-  if (opts.SpirvOptions.stageIoOrder != "alpha" &&
-      opts.SpirvOptions.stageIoOrder != "decl") {
+  opts.SpirvOptions.stageIoOrder = Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
+  if (opts.SpirvOptions.stageIoOrder != "alpha" && opts.SpirvOptions.stageIoOrder != "decl") {
     errors << "unknown Vulkan stage I/O location assignment order: "
            << opts.SpirvOptions.stageIoOrder;
     return 1;

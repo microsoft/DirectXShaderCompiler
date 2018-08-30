@@ -1,14 +1,15 @@
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SPIRVOptions.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// This file is distributed under the University of Illinois Open Source     //
-// License. See LICENSE.TXT for details.                                     //
-//                                                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-
-#pragma once
+//===------- SPIRVOptions.h -------------------------------------*- C++ -*-===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file outlines the command-line options used by SPIR-V CodeGen.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SPIRV_OPTIONS_H
 #define LLVM_SPIRV_OPTIONS_H
@@ -18,6 +19,9 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
+
+namespace clang {
+namespace spirv {
 
 enum class SpirvLayoutRule {
   Void,
@@ -45,22 +49,25 @@ struct SpirvCodeGenOptions {
   bool debugInfoLine;
   bool debugInfoTool;
   bool noWarnIgnoredFeatures;
+  SpirvLayoutRule cBufferLayoutRule;
+  SpirvLayoutRule tBufferLayoutRule;
+  SpirvLayoutRule sBufferLayoutRule;
   llvm::StringRef stageIoOrder;
+  llvm::StringRef targetEnv;
   llvm::SmallVector<int32_t, 4> bShift;
   llvm::SmallVector<int32_t, 4> tShift;
   llvm::SmallVector<int32_t, 4> sShift;
   llvm::SmallVector<int32_t, 4> uShift;
-  std::vector<std::string> bindRegister;
   llvm::SmallVector<llvm::StringRef, 4> allowedExtensions;
-  llvm::StringRef targetEnv;
-  SpirvLayoutRule cBufferLayoutRule;
-  SpirvLayoutRule tBufferLayoutRule;
-  SpirvLayoutRule sBufferLayoutRule;
   llvm::SmallVector<llvm::StringRef, 4> optConfig;
+  std::vector<std::string> bindRegister;
 
   // String representation of all command line options.
   std::string clOptions;
 };
+
+} // namespace spirv
+} // namespace clang
 
 #endif // ENABLE_SPIRV_CODEGEN
 #endif // LLVM_SPIRV_OPTIONS_H

@@ -14,13 +14,13 @@
 #ifndef LLVM_CLANG_FRONTEND_CODEGENOPTIONS_H
 #define LLVM_CLANG_FRONTEND_CODEGENOPTIONS_H
 
-#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
-#include "dxc/Support/SPIRVOptions.h"
 #include "clang/Basic/Sanitizers.h"
 #include "llvm/Support/Regex.h"
 #include <memory>
 #include <string>
 #include <vector>
+#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
+#include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 
 namespace clang {
 
@@ -43,9 +43,9 @@ protected:
 class CodeGenOptions : public CodeGenOptionsBase {
 public:
   enum InliningMethod {
-    NoInlining,        // Perform no inlining whatsoever.
-    NormalInlining,    // Use the standard function inlining pass.
-    OnlyAlwaysInlining // Only run the always inlining pass.
+    NoInlining,         // Perform no inlining whatsoever.
+    NormalInlining,     // Use the standard function inlining pass.
+    OnlyAlwaysInlining  // Only run the always inlining pass.
   };
 
   enum VectorLibrary {
@@ -53,30 +53,34 @@ public:
     Accelerate // Use the Accelerate framework.
   };
 
-  enum ObjCDispatchMethodKind { Legacy = 0, NonLegacy = 1, Mixed = 2 };
+  enum ObjCDispatchMethodKind {
+    Legacy = 0,
+    NonLegacy = 1,
+    Mixed = 2
+  };
 
   enum DebugInfoKind {
-    NoDebugInfo, /// Don't generate debug info.
+    NoDebugInfo,          /// Don't generate debug info.
 
-    LocTrackingOnly, /// Emit location information but do not generate
-                     /// debug info in the output. This is useful in
-                     /// cases where the backend wants to track source
-                     /// locations for instructions without actually
-                     /// emitting debug info for them (e.g., when -Rpass
-                     /// is used).
+    LocTrackingOnly,      /// Emit location information but do not generate
+                          /// debug info in the output. This is useful in
+                          /// cases where the backend wants to track source
+                          /// locations for instructions without actually
+                          /// emitting debug info for them (e.g., when -Rpass
+                          /// is used).
 
-    DebugLineTablesOnly, /// Emit only debug info necessary for generating
-                         /// line number tables (-gline-tables-only).
+    DebugLineTablesOnly,  /// Emit only debug info necessary for generating
+                          /// line number tables (-gline-tables-only).
 
-    LimitedDebugInfo, /// Limit generated debug info to reduce size
-                      /// (-fno-standalone-debug). This emits
-                      /// forward decls for types that could be
-                      /// replaced with forward decls in the source
-                      /// code. For dynamic C++ classes type info
-                      /// is only emitted int the module that
-                      /// contains the classe's vtable.
+    LimitedDebugInfo,     /// Limit generated debug info to reduce size
+                          /// (-fno-standalone-debug). This emits
+                          /// forward decls for types that could be
+                          /// replaced with forward decls in the source
+                          /// code. For dynamic C++ classes type info
+                          /// is only emitted int the module that
+                          /// contains the classe's vtable.
 
-    FullDebugInfo /// Generate complete debug info.
+    FullDebugInfo         /// Generate complete debug info.
   };
 
   enum TLSModel {
@@ -87,15 +91,15 @@ public:
   };
 
   enum FPContractModeKind {
-    FPC_Off, // Form fused FP ops only where result will not be affected.
-    FPC_On,  // Form fused FP ops according to FP_CONTRACT rules.
-    FPC_Fast // Aggressively fuse FP ops (E.g. FMA).
+    FPC_Off,        // Form fused FP ops only where result will not be affected.
+    FPC_On,         // Form fused FP ops according to FP_CONTRACT rules.
+    FPC_Fast        // Aggressively fuse FP ops (E.g. FMA).
   };
 
   enum StructReturnConventionKind {
-    SRCK_Default, // No special option was passed.
-    SRCK_OnStack, // Small structs on the stack (-fpcc-struct-return).
-    SRCK_InRegs   // Small structs in registers (-freg-struct-return).
+    SRCK_Default,  // No special option was passed.
+    SRCK_OnStack,  // Small structs on the stack (-fpcc-struct-return).
+    SRCK_InRegs    // Small structs in registers (-freg-struct-return).
   };
 
   /// The code model to use (-mcmodel).
@@ -201,7 +205,7 @@ public:
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
-  SpirvCodeGenOptions SpirvOptions;
+  clang::spirv::SpirvCodeGenOptions SpirvOptions;
 #endif
   // SPIRV Change Ends
 
@@ -240,14 +244,14 @@ public:
 public:
   // Define accessors/mutators for code generation options of enumeration type.
 #define CODEGENOPT(Name, Bits, Default)
-#define ENUM_CODEGENOPT(Name, Type, Bits, Default)                             \
-  Type get##Name() const { return static_cast<Type>(Name); }                   \
+#define ENUM_CODEGENOPT(Name, Type, Bits, Default) \
+  Type get##Name() const { return static_cast<Type>(Name); } \
   void set##Name(Type Value) { Name = static_cast<unsigned>(Value); }
 #include "clang/Frontend/CodeGenOptions.def"
 
   CodeGenOptions();
 };
 
-} // end namespace clang
+}  // end namespace clang
 
 #endif

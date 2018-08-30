@@ -14,8 +14,8 @@
 
 #include "clang/AST/Type.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/ModuleBuilder.h"
+#include "dxc/Support/SPIRVOptions.h"
 #include "llvm/ADT/Optional.h"
 
 #include "SpirvEvalInfo.h"

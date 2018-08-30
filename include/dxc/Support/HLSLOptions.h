@@ -162,7 +162,7 @@ public:
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   bool GenSPIRV;                    // OPT_spirv
-  SpirvCodeGenOptions SpirvOptions; // All SPIRV CodeGen-related options
+  clang::spirv::SpirvCodeGenOptions SpirvOptions; // All SPIR-V CodeGen-related options
 #endif
   // SPIRV Change Ends
 };

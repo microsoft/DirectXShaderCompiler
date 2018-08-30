@@ -26,7 +26,6 @@
 
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/SPIRV/Constant.h"
-#include "clang/Frontend/CompilerInstance.h"
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/Type.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -35,6 +34,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "dxc/Support/SPIRVOptions.h"
 
 namespace clang {
 namespace spirv {
