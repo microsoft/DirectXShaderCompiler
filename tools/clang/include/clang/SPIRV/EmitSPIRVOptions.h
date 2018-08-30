@@ -46,6 +46,7 @@ struct EmitSPIRVOptions {
   bool debugInfoLine;
   bool debugInfoTool;
   bool noWarnIgnoredFeatures;
+  bool noWarnEmulatedFeatures;
   llvm::StringRef stageIoOrder;
   llvm::SmallVector<int32_t, 4> bShift;
   llvm::SmallVector<int32_t, 4> tShift;

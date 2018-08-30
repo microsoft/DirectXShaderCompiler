@@ -521,6 +521,7 @@ public:
           spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
           spirvOpts.stageIoOrder = opts.VkStageIoOrder;
           spirvOpts.noWarnIgnoredFeatures = opts.VkNoWarnIgnoredFeatures;
+          spirvOpts.noWarnEmulatedFeatures = opts.VkNoWarnEmulatedFeatures;
           spirvOpts.bShift = opts.VkBShift;
           spirvOpts.tShift = opts.VkTShift;
           spirvOpts.sShift = opts.VkSShift;

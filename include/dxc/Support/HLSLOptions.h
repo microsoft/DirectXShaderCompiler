@@ -167,6 +167,7 @@ public:
   bool VkUseDxLayout;                      // OPT_fvk_use_dx_layout
   bool SpvEnableReflect;                   // OPT_fspv_reflect
   bool VkNoWarnIgnoredFeatures;            // OPT_Wno_vk_ignored_features
+  bool VkNoWarnEmulatedFeatures;           // OPT_Wno_vk_ignored_features
   bool SpvDebugFile;                       // OPT_fspv_debug
   bool SpvDebugSource;                     // OPT_fspv_debug
   bool SpvDebugLine;                       // OPT_fspv_debug
