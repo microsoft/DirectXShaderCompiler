@@ -372,7 +372,7 @@ SpirvEvalInfo DeclResultIdMapper::createFileVar(const VarDecl *var,
 
 SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
-  auto rule = LayoutRule::Void;
+  auto rule = SpirvLayoutRule::Void;
   bool isACRWSBuffer = false; // Whether is {Append|Consume|RW}StructuredBuffer
 
   if (var->getAttr<HLSLGroupSharedAttr>()) {
@@ -454,7 +454,7 @@ SpirvEvalInfo DeclResultIdMapper::createExternVar(const VarDecl *var) {
 
 uint32_t DeclResultIdMapper::getMatrixStructType(const VarDecl *matVar,
                                                  spv::StorageClass sc,
-                                                 LayoutRule rule) {
+                                                 SpirvLayoutRule rule) {
   const auto matType = matVar->getType();
   assert(TypeTranslator::isMxNMatrix(matType));
 
@@ -492,7 +492,7 @@ uint32_t DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forPC = usageKind == ContextUsageKind::PushConstant;
 
   auto &context = *theBuilder.getSPIRVContext();
-  const LayoutRule layoutRule =
+  const SpirvLayoutRule layoutRule =
       (forCBuffer || forGlobals)
           ? spirvOptions.cBufferLayoutRule
           : (forTBuffer ? spirvOptions.tBufferLayoutRule

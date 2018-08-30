@@ -27,7 +27,6 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Frontend/CompilerInstance.h"
-#include "clang/SPIRV/EmitSPIRVOptions.h"
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/STLExtras.h"
@@ -46,7 +45,7 @@ namespace spirv {
 /// through the AST is done manually instead of using ASTConsumer's harness.
 class SPIRVEmitter : public ASTConsumer {
 public:
-  SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options);
+  SPIRVEmitter(CompilerInstance &ci);
 
   void HandleTranslationUnit(ASTContext &context) override;
 
@@ -152,7 +151,7 @@ private:
   /// Decomposes and reconstructs the given srcVal of the given valType to meet
   /// the requirements of the dstLR layout rule.
   uint32_t reconstructValue(const SpirvEvalInfo &srcVal, QualType valType,
-                            LayoutRule dstLR);
+                            SpirvLayoutRule dstLR);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs.
@@ -919,7 +918,7 @@ private:
   ASTContext &astContext;
   DiagnosticsEngine &diags;
 
-  const EmitSPIRVOptions &spirvOptions;
+  SpirvCodeGenOptions &spirvOptions;
 
   /// Entry function name and shader stage. Both of them are derived from the
   /// command line and should be const.
