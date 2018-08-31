@@ -24,7 +24,8 @@ using namespace clang;
 #endif // MS_SUPPORT_VARIABLE_LANGOPTS
 #endif // LLVM_ON_UNIX
 
-LangOptions::LangOptions() {
+LangOptions::LangOptions() 
+    : HLSLVersion(2018) {
 #ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 #define LANGOPT(Name, Bits, Default, Description) Name = Default;
 #define ENUM_LANGOPT(Name, Type, Bits, Default, Description) set##Name(Default);
