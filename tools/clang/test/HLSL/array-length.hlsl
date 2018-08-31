@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify -HV 2016  %s
 
 float4 planes1[8];
 float4 planes2[3+2]; 

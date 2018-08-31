@@ -6973,12 +6973,16 @@ bool HLSLExternalSource::LookupArrayMemberExprForHLSL(
 
   // The only property available on arrays is Length; it is deprecated and available only on HLSL version <=2018
   if (member->getLength() == 6 && 0 == strcmp(memberText, "Length")) {
-    if (getSema()->getLangOpts().HLSLVersion > 2018) {
-      return false;
-    }
-
     if (const ConstantArrayType *CAT = dyn_cast<ConstantArrayType>(BaseType)) {
-      m_sema->Diag(MemberLoc, diag::warn_deprecated) << "Length";
+      // check version support
+      unsigned hlslVer = getSema()->getLangOpts().HLSLVersion;
+      if (hlslVer > 2016) {
+        m_sema->Diag(MemberLoc, diag::err_hlsl_unsupported_for_version_lower) << "Length" << "2016";
+        return false;
+      }
+      if (hlslVer == 2016) {
+        m_sema->Diag(MemberLoc, diag::warn_deprecated) << "Length";
+      }
 
       UnaryExprOrTypeTraitExpr *arrayLenExpr = new (m_context) UnaryExprOrTypeTraitExpr(
         UETT_ArrayLength, &BaseExpr, m_context->getSizeType(), MemberLoc, BaseExpr.getSourceRange().getEnd());
