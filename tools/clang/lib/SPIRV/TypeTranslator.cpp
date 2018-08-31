@@ -1790,7 +1790,6 @@ TypeTranslator::getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
   // - Vector base alignment is set as its element type's base alignment.
   // - Arrays/structs do not need to have padding at the end; arrays/structs do
   //   not affect the base offset of the member following them.
-  // - Struct base alignment does not need to be rounded up to a multiple of 16.
   //
   // FxcSBuffer:
   // - Vector/matrix/array base alignment is set as its element type's base
@@ -1935,7 +1934,8 @@ TypeTranslator::getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
     }
 
     if (rule == SpirvLayoutRule::GLSLStd140 ||
-        rule == SpirvLayoutRule::RelaxedGLSLStd140) {
+        rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+        rule == SpirvLayoutRule::FxcCTBuffer) {
       // ... and rounded up to the base alignment of a vec4.
       maxAlignment = roundToPow2(maxAlignment, kStd140Vec4Alignment);
     }
