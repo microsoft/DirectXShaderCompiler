@@ -7497,12 +7497,14 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
             .getQuantity(),
         E);
 
+  // HLSL Change Begins
   case UETT_ArrayLength: {
     QualType SrcTy = E->getTypeOfArgument();
     assert(isa<ConstantArrayType>(SrcTy));
     const ConstantArrayType *CAT = cast<ConstantArrayType>(SrcTy);
     return Success(CAT->getSize(), E);
   }
+  // HLSL Change Ends
   }
 
   llvm_unreachable("unknown expr/type trait");

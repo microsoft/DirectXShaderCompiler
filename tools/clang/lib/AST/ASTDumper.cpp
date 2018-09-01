@@ -1971,8 +1971,10 @@ void ASTDumper::VisitUnaryExprOrTypeTraitExpr(
   case UETT_OpenMPRequiredSimdAlign:
     OS << " __builtin_omp_required_simd_align";
     break;
+  // HLSL Change Begins
   case UETT_ArrayLength:
     OS << " Length";
+  // HLSLC Change Ends
   }
   if (Node->isArgumentType())
     dumpType(Node->getArgumentType());

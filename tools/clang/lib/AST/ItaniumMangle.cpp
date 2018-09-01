@@ -3063,6 +3063,7 @@ recurse:
       Diags.Report(DiagID);
       return; 
     }
+    // HLSL Change Begins
     case UETT_ArrayLength: {
       DiagnosticsEngine & Diags = Context.getDiags();
       unsigned DiagID = Diags.getCustomDiagID(
@@ -3071,6 +3072,7 @@ recurse:
       Diags.Report(DiagID);
       return;
     }
+    // HLSL Change Begins
     }
     if (SAE->isArgumentType()) {
       Out << 't';
