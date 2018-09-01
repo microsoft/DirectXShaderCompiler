@@ -1265,6 +1265,13 @@ void StmtPrinter::VisitOffsetOfExpr(OffsetOfExpr *Node) {
 }
 
 void StmtPrinter::VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *Node){
+  // HLSL Change Begin
+  if (Node->getKind() == UETT_ArrayLength) {
+    PrintExpr(Node->getArgumentExpr());
+    OS << ".Length";
+    return;
+  }
+  // HLSL Change Ends
   switch(Node->getKind()) {
   case UETT_SizeOf:
     OS << "sizeof";

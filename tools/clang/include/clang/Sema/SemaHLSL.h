@@ -150,6 +150,15 @@ bool LookupVectorMemberExprForHLSL(
   clang::SourceLocation MemberLoc,
   _Inout_ clang::ExprResult* result);
 
+bool LookupArrayMemberExprForHLSL(
+  clang::Sema* self,
+  clang::Expr& BaseExpr,
+  clang::DeclarationName MemberName,
+  bool IsArrow,
+  clang::SourceLocation OpLoc,
+  clang::SourceLocation MemberLoc,
+  _Inout_ clang::ExprResult* result);
+
 clang::ExprResult MaybeConvertScalarToVector(
   _In_ clang::Sema* Self,
   _In_ clang::Expr* E);

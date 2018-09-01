@@ -149,7 +149,7 @@ public:
 #endif
 
   // HLSL Change Starts
-  unsigned HLSLVersion;  // Only supported for IntelliSense scenarios.
+  unsigned HLSLVersion; 
   std::string HLSLEntryFunction;
   std::string HLSLProfile;
   unsigned RootSigMajor;

@@ -3055,13 +3055,24 @@ recurse:
       Diags.Report(DiagID);
       return;
     }
-    case UETT_OpenMPRequiredSimdAlign:
+    case UETT_OpenMPRequiredSimdAlign: {
       DiagnosticsEngine &Diags = Context.getDiags();
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error,
           "cannot yet mangle __builtin_omp_required_simd_align expression");
       Diags.Report(DiagID);
+      return; 
+    }
+    // HLSL Change Begins
+    case UETT_ArrayLength: {
+      DiagnosticsEngine & Diags = Context.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "cannot yet mangle .Length expression");
+      Diags.Report(DiagID);
       return;
+    }
+    // HLSL Change Begins
     }
     if (SAE->isArgumentType()) {
       Out << 't';
