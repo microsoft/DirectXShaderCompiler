@@ -379,10 +379,6 @@ void SPIRVModule::take(InstBuilder *builder) {
         std::string("dxc-commit-hash: ") + clang::getGitCommitHash();
     builder->opModuleProcessed(commitHash).x();
 
-    std::string commitCount = std::string("dxc-commit-count: ") +
-                              std::to_string(clang::getGitCommitCount());
-    builder->opModuleProcessed(commitCount).x();
-
     // Emit OpModuleProcessed to indicate the command line options that were
     // used to generate this module.
     if (!spirvOptions.clOptions.empty()) {
