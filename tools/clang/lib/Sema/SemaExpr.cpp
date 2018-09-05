@@ -9224,17 +9224,6 @@ static bool IsTypeModifiable(QualType Ty, bool IsDereference) {
   return !Ty.isConstQualified();
 }
 
-static const DeclRefExpr *GetDeclRefExpr(const Expr *E) {
-  if (const ArraySubscriptExpr *ASE = dyn_cast<ArraySubscriptExpr>(E)) {
-    if (const ImplicitCastExpr *ICE =
-            dyn_cast<ImplicitCastExpr>(ASE->getBase())) {
-      return dyn_cast<DeclRefExpr>(ICE->getSubExpr());
-    }
-  }
-
-  return dyn_cast<DeclRefExpr>(E);
-}
-
 /// Emit the "read-only variable not assignable" error and print notes to give
 /// more information about why the variable is not assignable, such as pointing
 /// to the declaration of a const variable, showing that a method is const, or
@@ -9325,20 +9314,10 @@ static void DiagnoseConstAssignment(Sema &S, const Expr *E,
           << ConstFunction << FD << FD->getReturnType()
           << FD->getReturnTypeSourceRange();
     }
-  } else if (const DeclRefExpr *DRE = GetDeclRefExpr(E)) { // HLSL Change
+  } else if (const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(E)) {
     // Point to variable declaration.
     if (const ValueDecl *VD = DRE->getDecl()) {
       if (!IsTypeModifiable(VD->getType(), IsDereference)) {
-        // HLSL changes begin
-        // if a global variable is constant qualified and HLSLVersion <= 2016
-        // then allow writing to the global variable.
-        if (S.getLangOpts().HLSL && S.getLangOpts().HLSLVersion <= 2016) {
-          if (const VarDecl *VRD = dyn_cast<VarDecl>(VD)) {
-            if (VRD->hasGlobalStorage())
-              return;
-          }
-        }
-        // HLSL changes end
         if (!DiagnosticEmitted) {
           S.Diag(Loc, diag::err_typecheck_assign_const)
               << ExprRange << ConstVariable << VD << VD->getType();
