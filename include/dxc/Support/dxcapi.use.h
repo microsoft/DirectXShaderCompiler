@@ -23,29 +23,32 @@ protected:
   DxcCreateInstanceProc m_createFn;
   DxcCreateInstance2Proc m_createFn2;
 
-  #ifndef _WIN32
-  void FreeLibrary(void* handle) {
-    ::dlclose(handle);
-  }
-  HMODULE LoadLibraryW(LPCWSTR name) {
-    char nameStr[256];
-    std::wcstombs(nameStr, name, 256);
-    return ::dlopen(nameStr, RTLD_LAZY);
-  }
-  HMODULE GetProcAddress(HMODULE dll, LPCSTR fnName) {
-    return ::dlsym(dll, fnName);
-  }
-  #endif
-
   HRESULT InitializeInternal(LPCWSTR dllName, LPCSTR fnName) {
     if (m_dll != nullptr) return S_OK;
+
+#ifdef _WIN32
     m_dll = LoadLibraryW(dllName);
+#else
+    char nameStr[256];
+    std::wcstombs(nameStr, dllName, 256);
+    m_dll = ::dlopen(nameStr, RTLD_LAZY);
+#endif
+
     if (m_dll == nullptr) return HRESULT_FROM_WIN32(GetLastError());
+
+#ifdef _WIN32
     m_createFn = (DxcCreateInstanceProc)GetProcAddress(m_dll, fnName);
+#else
+    m_createFn = (DxcCreateInstanceProc)::dlsym(m_dll, fnName);
+#endif
 
     if (m_createFn == nullptr) {
       HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
+#ifdef _WIN32
       FreeLibrary(m_dll);
+#else
+      ::dlclose(m_dll);
+#endif
       m_dll = nullptr;
       return hr;
     }
@@ -58,7 +61,11 @@ protected:
       memcpy(fnName2, fnName, s);
       fnName2[s] = '2';
       fnName2[s + 1] = '\0';
+#ifdef _WIN32
       m_createFn2 = (DxcCreateInstance2Proc)GetProcAddress(m_dll, fnName2);
+#else
+      m_createFn2 = (DxcCreateInstance2Proc)::dlsym(m_dll, fnName2);
+#endif
     }
 
     return S_OK;
@@ -129,7 +136,11 @@ public:
     if (m_dll != nullptr) {
       m_createFn = nullptr;
       m_createFn2 = nullptr;
+#ifdef _WIN32
       FreeLibrary(m_dll);
+#else
+      ::dlclose(m_dll);
+#endif
       m_dll = nullptr;
     }
   }
