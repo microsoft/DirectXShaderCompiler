@@ -4246,6 +4246,49 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
   
 }
 
+static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
+  Constant *GC = M->getOrInsertGlobal(GV->getName().str() + "_static_copy", GV->getType()->getPointerElementType());
+  GlobalVariable *NGV = cast<GlobalVariable>(GC);
+  if (GV->hasInitializer()) {
+    NGV->setInitializer(GV->getInitializer());
+  }
+  // static global should have internal linkage
+  NGV->setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+  return NGV;
+}
+
+static bool CreateWriteEnabledStaticGlobals(llvm::Module *M) {
+  std::vector<GlobalVariable*> worklist;
+  for (GlobalVariable &GV : M->globals()) {
+    if (!GV.isConstant()) {
+      worklist.emplace_back(&GV);
+      GV.setConstant(true);
+    }
+  }
+
+  for (GlobalVariable *GV : worklist) {
+    std::set<BasicBlock*> entryBlocks;
+    for (User *U : GV->users()) {
+      if (Instruction *I = dyn_cast<Instruction>(U)) {
+        BasicBlock* entryBlock = &(I->getParent()->getParent()->getEntryBlock());
+        if (entryBlocks.find(entryBlock) == entryBlocks.end())
+          entryBlocks.insert(entryBlock);
+      }
+    }
+
+    GlobalVariable *NGV = CreateStaticGlobal(M, GV);
+    // insert memcpy in all entryblocks
+    for (BasicBlock *BB : entryBlocks) {
+      IRBuilder<> Builder(BB->getFirstNonPHI());
+      uint64_t size = M->getDataLayout().getTypeAllocSize(GV->getType()->getPointerElementType());
+      Builder.CreateMemCpy(NGV, GV, size, 1);
+    }
+    GV->replaceAllUsesWith(NGV);
+  }
+
+  return true;
+}
+
 void CGMSHLSLRuntime::FinishCodeGen() {
   // Library don't have entry.
   if (!m_bIsLib) {
@@ -4258,6 +4301,7 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       return;
     }
 
+    CreateWriteEnabledStaticGlobals(m_pHLModule->GetModule());
     if (m_pHLModule->GetShaderModel()->IsHS()) {
       SetPatchConstantFunction(Entry);
     }

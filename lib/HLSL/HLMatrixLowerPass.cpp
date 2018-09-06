@@ -2318,7 +2318,9 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
 
     for (auto U = GV->user_begin(); U != GV->user_end();) {
       Value *user = *(U++);
-      CallInst *CI = cast<CallInst>(user);
+      CallInst *CI = dyn_cast<CallInst>(user);
+      if (!CI)
+        continue;
       HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
       if (group == HLOpcodeGroup::HLMatLoadStore) {
         TranslateMatLoadStoreOnGlobal(GV, arrayMat, CI);
