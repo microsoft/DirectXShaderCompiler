@@ -4301,7 +4301,8 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       return;
     }
 
-    CreateWriteEnabledStaticGlobals(m_pHLModule->GetModule());
+    if(CGM.getLangOpts().EnableBackCompatMode && CGM.getLangOpts().HLSLVersion <= 2016)
+      CreateWriteEnabledStaticGlobals(m_pHLModule->GetModule());
     if (m_pHLModule->GetShaderModel()->IsHS()) {
       SetPatchConstantFunction(Entry);
     }
