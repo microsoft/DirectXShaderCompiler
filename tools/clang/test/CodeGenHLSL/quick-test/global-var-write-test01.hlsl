@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 /Gec -HV 2016 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 /Gec -HV 2016 > %s | FileCheck %s
 
 // Writing to globals only supported with HV <= 2016
 // CHECK: define void @main

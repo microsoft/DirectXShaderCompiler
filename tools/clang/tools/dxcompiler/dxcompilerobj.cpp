@@ -813,6 +813,10 @@ public:
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(
         TargetInfo::CreateTargetInfo(compiler.getDiagnostics(), targetOptions));
+    if (Opts.EnableBackCompatMode) {
+      auto const ID = compiler.getDiagnostics().getCustomDiagID(clang::DiagnosticsEngine::Warning, "/Gec flag is a deprecated functionality.");
+      compiler.getDiagnostics().Report(ID);
+    }
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
     // Setup debug information.

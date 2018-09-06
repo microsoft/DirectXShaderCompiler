@@ -4247,7 +4247,8 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
 }
 
 static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
-  Constant *GC = M->getOrInsertGlobal(GV->getName().str() + "_static_copy", GV->getType()->getPointerElementType());
+  Constant *GC = M->getOrInsertGlobal(GV->getName().str() + "_static_copy",
+                                      GV->getType()->getPointerElementType());
   GlobalVariable *NGV = cast<GlobalVariable>(GC);
   if (GV->hasInitializer()) {
     NGV->setInitializer(GV->getInitializer());
@@ -4258,7 +4259,7 @@ static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
 }
 
 static bool CreateWriteEnabledStaticGlobals(llvm::Module *M) {
-  std::vector<GlobalVariable*> worklist;
+  std::vector<GlobalVariable *> worklist;
   for (GlobalVariable &GV : M->globals()) {
     if (!GV.isConstant()) {
       worklist.emplace_back(&GV);
@@ -4267,10 +4268,11 @@ static bool CreateWriteEnabledStaticGlobals(llvm::Module *M) {
   }
 
   for (GlobalVariable *GV : worklist) {
-    std::set<BasicBlock*> entryBlocks;
+    std::set<BasicBlock *> entryBlocks;
     for (User *U : GV->users()) {
       if (Instruction *I = dyn_cast<Instruction>(U)) {
-        BasicBlock* entryBlock = &(I->getParent()->getParent()->getEntryBlock());
+        BasicBlock *entryBlock =
+            &(I->getParent()->getParent()->getEntryBlock());
         if (entryBlocks.find(entryBlock) == entryBlocks.end())
           entryBlocks.insert(entryBlock);
       }
@@ -4280,7 +4282,8 @@ static bool CreateWriteEnabledStaticGlobals(llvm::Module *M) {
     // insert memcpy in all entryblocks
     for (BasicBlock *BB : entryBlocks) {
       IRBuilder<> Builder(BB->getFirstNonPHI());
-      uint64_t size = M->getDataLayout().getTypeAllocSize(GV->getType()->getPointerElementType());
+      uint64_t size = M->getDataLayout().getTypeAllocSize(
+          GV->getType()->getPointerElementType());
       Builder.CreateMemCpy(NGV, GV, size, 1);
     }
     GV->replaceAllUsesWith(NGV);
@@ -4301,6 +4304,8 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       return;
     }
 
+    // In back-compat mode (with /Gec flag) create a static global for each const global
+    // to allow writing to it.
     if(CGM.getLangOpts().EnableBackCompatMode && CGM.getLangOpts().HLSLVersion <= 2016)
       CreateWriteEnabledStaticGlobals(m_pHLModule->GetModule());
     if (m_pHLModule->GetShaderModel()->IsHS()) {

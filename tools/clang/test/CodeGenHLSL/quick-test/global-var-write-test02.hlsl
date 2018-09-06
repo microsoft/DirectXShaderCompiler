@@ -1,6 +1,7 @@
-// RUN: %dxc -E main -T ps_6_0 -HV 2016 2> %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 /Gec -HV 2016 2> %s | FileCheck %s
 
 // Modifying local const should fail even with HV <= 2016
+// CHECK: warning: /Gec flag is a deprecated functionality.
 // CHECK: error: cannot assign to variable 'l_s' with const-qualified type 'const int'
 // CHECK: note: variable 'l_s' declared const here
 
