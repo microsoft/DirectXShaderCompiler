@@ -36,6 +36,7 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 
 #include "dxc/HLSL/DxilRootSignature.h"
 #include "dxc/HLSL/DxilCBuffer.h"
@@ -4246,6 +4247,35 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
   
 }
 
+// Returns true a global value is being updated
+static bool IsWriteEnabledGlobalRec(Value *V, std::set<Value*> &visited) {
+  bool isWriteEnabled = false;
+  if (V && visited.find(V) == visited.end()) {
+    visited.insert(V);
+    for (User *U : V->users()) {
+      if (isa<StoreInst>(U))
+        isWriteEnabled = true;
+      else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
+        for(User *GU : GEP->users())
+          if(isa<StoreInst>(GU))
+            isWriteEnabled = true;
+          else
+            isWriteEnabled |= IsWriteEnabledGlobalRec(GU, visited);
+      } else isWriteEnabled |= IsWriteEnabledGlobalRec(U, visited);
+    }
+  }
+  return isWriteEnabled;
+}
+
+// Returns true if any of the direct user of a global is a store inst
+// otherwise recurse through the remaining users and check if any GEP
+// exists and which in turn has a store inst as user.
+static bool IsWriteEnabledGlobal(GlobalVariable *GV) {
+  std::set<Value*> visited;
+  Value* V = cast<Value>(GV);
+  return IsWriteEnabledGlobalRec(V, visited);
+}
+
 static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
   Constant *GC = M->getOrInsertGlobal(GV->getName().str() + ".static.copy",
                                       GV->getType()->getPointerElementType());
@@ -4262,7 +4292,8 @@ static void CreateWriteEnabledStaticGlobals(llvm::Module *M, llvm::Function *EF)
   std::vector<GlobalVariable *> worklist;
   for (GlobalVariable &GV : M->globals()) {
     if (!GV.isConstant() && GV.getLinkage() != GlobalValue::InternalLinkage) {
-      worklist.emplace_back(&GV);
+      if (IsWriteEnabledGlobal(&GV))
+        worklist.emplace_back(&GV);
       // TODO: Ensure that constant globals aren't using initializer
       GV.setConstant(true);
     }
