@@ -182,7 +182,7 @@ public:
 
   bool CompareGold(std::string &firstPass, LPCWSTR goldPath) {
     HANDLE goldHandle = CreateFileW(goldPath, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
-      VERIFY_ARE_NOT_EQUAL(goldHandle, INVALID_HANDLE_VALUE);
+    VERIFY_ARE_NOT_EQUAL(goldHandle, INVALID_HANDLE_VALUE);
     CHandle checkedGoldHandle(goldHandle);
 
     DWORD gFileSize = GetFileSize(goldHandle, NULL);
