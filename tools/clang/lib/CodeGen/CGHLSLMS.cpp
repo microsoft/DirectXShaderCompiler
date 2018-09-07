@@ -4254,27 +4254,29 @@ static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
     NGV->setInitializer(GV->getInitializer());
   }
   // static global should have internal linkage
-  NGV->setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+  NGV->setLinkage(GlobalValue::InternalLinkage);
   return NGV;
 }
 
 static void CreateWriteEnabledStaticGlobals(llvm::Module *M, llvm::Function *EF) {
   std::vector<GlobalVariable *> worklist;
   for (GlobalVariable &GV : M->globals()) {
-    if (!GV.isConstant() && GV.getLinkage() != GlobalValue::LinkageTypes::InternalLinkage) {
+    if (!GV.isConstant() && GV.getLinkage() != GlobalValue::InternalLinkage) {
       worklist.emplace_back(&GV);
+      // TODO: Ensure that constant globals aren't using initializer
       GV.setConstant(true);
     }
   }
 
-  IRBuilder<> Builder(EF->getEntryBlock().getFirstNonPHI());
+  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(&EF->getEntryBlock()));
   for (GlobalVariable *GV : worklist) {
     GlobalVariable *NGV = CreateStaticGlobal(M, GV);
+    GV->replaceAllUsesWith(NGV);
+
     // insert memcpy in all entryblocks
     uint64_t size = M->getDataLayout().getTypeAllocSize(
       GV->getType()->getPointerElementType());
     Builder.CreateMemCpy(NGV, GV, size, 1);
-    GV->replaceAllUsesWith(NGV);
   }
 }
 
@@ -4292,6 +4294,7 @@ void CGMSHLSLRuntime::FinishCodeGen() {
 
     // In back-compat mode (with /Gec flag) create a static global for each const global
     // to allow writing to it.
+    // TODO: Verfiy the behavior of static globals in hull shader
     if(CGM.getLangOpts().EnableBackCompatMode && CGM.getLangOpts().HLSLVersion <= 2016)
       CreateWriteEnabledStaticGlobals(m_pHLModule->GetModule(), m_pHLModule->GetEntryFunction());
     if (m_pHLModule->GetShaderModel()->IsHS()) {
