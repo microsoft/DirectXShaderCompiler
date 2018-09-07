@@ -4247,7 +4247,7 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
 }
 
 static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
-  Constant *GC = M->getOrInsertGlobal(GV->getName().str() + "_static_copy",
+  Constant *GC = M->getOrInsertGlobal(GV->getName().str() + ".static.copy",
                                       GV->getType()->getPointerElementType());
   GlobalVariable *NGV = cast<GlobalVariable>(GC);
   if (GV->hasInitializer()) {
@@ -4261,32 +4261,37 @@ static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
 static bool CreateWriteEnabledStaticGlobals(llvm::Module *M) {
   std::vector<GlobalVariable *> worklist;
   for (GlobalVariable &GV : M->globals()) {
-    if (!GV.isConstant()) {
+    if (!GV.isConstant() && GV.getLinkage() != GlobalValue::LinkageTypes::InternalLinkage) {
       worklist.emplace_back(&GV);
       GV.setConstant(true);
     }
   }
 
+  BasicBlock *mainFunctionEntryBlock = nullptr;
   for (GlobalVariable *GV : worklist) {
-    std::set<BasicBlock *> entryBlocks;
-    for (User *U : GV->users()) {
-      if (Instruction *I = dyn_cast<Instruction>(U)) {
-        BasicBlock *entryBlock =
-            &(I->getParent()->getParent()->getEntryBlock());
-        if (entryBlocks.find(entryBlock) == entryBlocks.end())
-          entryBlocks.insert(entryBlock);
+    // find the entry block of main() function
+    if (!mainFunctionEntryBlock) {
+      for (User *U : GV->users()) {
+        if (Instruction *I = dyn_cast<Instruction>(U)) {
+          Function *F = I->getParent()->getParent();
+          if (F->getName() == "main") {
+            mainFunctionEntryBlock = &F->getEntryBlock();
+            break;
+          }
+        }
       }
     }
 
-    GlobalVariable *NGV = CreateStaticGlobal(M, GV);
-    // insert memcpy in all entryblocks
-    for (BasicBlock *BB : entryBlocks) {
-      IRBuilder<> Builder(BB->getFirstNonPHI());
+    DXASSERT(mainFunctionEntryBlock != nullptr, "entry block for main function must exist.");
+    if (mainFunctionEntryBlock) {
+      GlobalVariable *NGV = CreateStaticGlobal(M, GV);
+      // insert memcpy in all entryblocks
+      IRBuilder<> Builder(mainFunctionEntryBlock->getFirstNonPHI());
       uint64_t size = M->getDataLayout().getTypeAllocSize(
           GV->getType()->getPointerElementType());
       Builder.CreateMemCpy(NGV, GV, size, 1);
+      GV->replaceAllUsesWith(NGV);
     }
-    GV->replaceAllUsesWith(NGV);
   }
 
   return true;
