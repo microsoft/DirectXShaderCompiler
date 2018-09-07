@@ -6,14 +6,12 @@ SamplerState samLinear : register(s7);
 sampler S : register(s1);
 SamplerComparisonState SC : register(s3);
 float4 main() : SV_Target {
-  int SB;
   {
     int StateBlock = 1;
   }
   int PixelShadeR = 1;
   Texture2D l_tex;
   int foobar;
-  int foobar2;
   int RenderTargetView = 1;
   int PixelShader = 1;
   int pixelshader = 1;
@@ -22,7 +20,5 @@ float4 main() : SV_Target {
 }
 
 
-const int TechNiQue;
 const int foobar3;
-const int T5;
 const int foobar4;
