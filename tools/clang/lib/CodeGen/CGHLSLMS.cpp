@@ -4258,7 +4258,7 @@ static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
   return NGV;
 }
 
-static bool CreateWriteEnabledStaticGlobals(llvm::Module *M) {
+static void CreateWriteEnabledStaticGlobals(llvm::Module *M, llvm::Function *EF) {
   std::vector<GlobalVariable *> worklist;
   for (GlobalVariable &GV : M->globals()) {
     if (!GV.isConstant() && GV.getLinkage() != GlobalValue::LinkageTypes::InternalLinkage) {
@@ -4267,34 +4267,15 @@ static bool CreateWriteEnabledStaticGlobals(llvm::Module *M) {
     }
   }
 
-  BasicBlock *mainFunctionEntryBlock = nullptr;
+  IRBuilder<> Builder(EF->getEntryBlock().getFirstNonPHI());
   for (GlobalVariable *GV : worklist) {
-    // find the entry block of main() function
-    if (!mainFunctionEntryBlock) {
-      for (User *U : GV->users()) {
-        if (Instruction *I = dyn_cast<Instruction>(U)) {
-          Function *F = I->getParent()->getParent();
-          if (F->getName() == "main") {
-            mainFunctionEntryBlock = &F->getEntryBlock();
-            break;
-          }
-        }
-      }
-    }
-
-    DXASSERT(mainFunctionEntryBlock != nullptr, "entry block for main function must exist.");
-    if (mainFunctionEntryBlock) {
-      GlobalVariable *NGV = CreateStaticGlobal(M, GV);
-      // insert memcpy in all entryblocks
-      IRBuilder<> Builder(mainFunctionEntryBlock->getFirstNonPHI());
-      uint64_t size = M->getDataLayout().getTypeAllocSize(
-          GV->getType()->getPointerElementType());
-      Builder.CreateMemCpy(NGV, GV, size, 1);
-      GV->replaceAllUsesWith(NGV);
-    }
+    GlobalVariable *NGV = CreateStaticGlobal(M, GV);
+    // insert memcpy in all entryblocks
+    uint64_t size = M->getDataLayout().getTypeAllocSize(
+      GV->getType()->getPointerElementType());
+    Builder.CreateMemCpy(NGV, GV, size, 1);
+    GV->replaceAllUsesWith(NGV);
   }
-
-  return true;
 }
 
 void CGMSHLSLRuntime::FinishCodeGen() {
@@ -4312,7 +4293,7 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     // In back-compat mode (with /Gec flag) create a static global for each const global
     // to allow writing to it.
     if(CGM.getLangOpts().EnableBackCompatMode && CGM.getLangOpts().HLSLVersion <= 2016)
-      CreateWriteEnabledStaticGlobals(m_pHLModule->GetModule());
+      CreateWriteEnabledStaticGlobals(m_pHLModule->GetModule(), m_pHLModule->GetEntryFunction());
     if (m_pHLModule->GetShaderModel()->IsHS()) {
       SetPatchConstantFunction(Entry);
     }
