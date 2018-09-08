@@ -4248,20 +4248,15 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
 }
 
 // Returns true a global value is being updated
-static bool IsWriteEnabledGlobalRec(Value *V, std::set<Value*> &visited) {
+static bool GlobalHasStoreUserRec(Value *V, std::set<Value *> &visited) {
   bool isWriteEnabled = false;
   if (V && visited.find(V) == visited.end()) {
     visited.insert(V);
     for (User *U : V->users()) {
       if (isa<StoreInst>(U))
-        isWriteEnabled = true;
-      else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
-        for(User *GU : GEP->users())
-          if(isa<StoreInst>(GU))
-            isWriteEnabled = true;
-          else
-            isWriteEnabled |= IsWriteEnabledGlobalRec(GU, visited);
-      } else isWriteEnabled |= IsWriteEnabledGlobalRec(U, visited);
+        return true;
+      else if (isa<CallInst>(U) || isa<GEPOperator>(U) || isa<PHINode>(U) || isa<SelectInst>(U))
+        isWriteEnabled |= GlobalHasStoreUserRec(U, visited);
     }
   }
   return isWriteEnabled;
@@ -4270,10 +4265,10 @@ static bool IsWriteEnabledGlobalRec(Value *V, std::set<Value*> &visited) {
 // Returns true if any of the direct user of a global is a store inst
 // otherwise recurse through the remaining users and check if any GEP
 // exists and which in turn has a store inst as user.
-static bool IsWriteEnabledGlobal(GlobalVariable *GV) {
-  std::set<Value*> visited;
-  Value* V = cast<Value>(GV);
-  return IsWriteEnabledGlobalRec(V, visited);
+static bool GlobalHasStoreUser(GlobalVariable *GV) {
+  std::set<Value *> visited;
+  Value *V = cast<Value>(GV);
+  return GlobalHasStoreUserRec(V, visited);
 }
 
 static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
@@ -4288,25 +4283,27 @@ static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
   return NGV;
 }
 
-static void CreateWriteEnabledStaticGlobals(llvm::Module *M, llvm::Function *EF) {
+static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
+                                            llvm::Function *EF) {
   std::vector<GlobalVariable *> worklist;
   for (GlobalVariable &GV : M->globals()) {
     if (!GV.isConstant() && GV.getLinkage() != GlobalValue::InternalLinkage) {
-      if (IsWriteEnabledGlobal(&GV))
+      if (GlobalHasStoreUser(&GV))
         worklist.emplace_back(&GV);
       // TODO: Ensure that constant globals aren't using initializer
       GV.setConstant(true);
     }
   }
 
-  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(&EF->getEntryBlock()));
+  IRBuilder<> Builder(
+      dxilutil::FirstNonAllocaInsertionPt(&EF->getEntryBlock()));
   for (GlobalVariable *GV : worklist) {
     GlobalVariable *NGV = CreateStaticGlobal(M, GV);
     GV->replaceAllUsesWith(NGV);
 
     // insert memcpy in all entryblocks
     uint64_t size = M->getDataLayout().getTypeAllocSize(
-      GV->getType()->getPointerElementType());
+        GV->getType()->getPointerElementType());
     Builder.CreateMemCpy(NGV, GV, size, 1);
   }
 }
