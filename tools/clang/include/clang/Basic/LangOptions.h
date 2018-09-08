@@ -156,6 +156,7 @@ public:
   unsigned RootSigMinor;
   bool IsHLSLLibrary;
   bool UseMinPrecision; // use min precision, not native precision.
+  bool EnableBackCompatMode;
   // HLSL Change Ends
 
   bool SPIRV = false;  // SPIRV Change
