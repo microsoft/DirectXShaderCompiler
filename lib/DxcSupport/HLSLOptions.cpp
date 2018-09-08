@@ -340,9 +340,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   }
 
+  opts.EnableBackCompatMode = Args.hasFlag(OPT_Gec, OPT_INVALID, false);
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  if (ver.empty()) { opts.HLSLVersion = 2018; }   // Default to latest version
-  else {
+  if (ver.empty()) {
+    if (opts.EnableBackCompatMode)
+      opts.HLSLVersion = 2016; // Default to max supported version with /Gec flag
+    else
+      opts.HLSLVersion = 2018; // Default to latest version
+  } else {
     try {
       opts.HLSLVersion = std::stoul(std::string(ver));
       if (opts.HLSLVersion < 2015 || opts.HLSLVersion > 2018) {
@@ -362,6 +367,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   if (opts.HLSLVersion == 2015 && !(flagsToInclude & HlslFlags::ISenseOption)) {
     errors << "HLSL Version 2015 is only supported for language services";
+    return 1;
+  }
+
+  if (opts.EnableBackCompatMode && opts.HLSLVersion > 2016) {
+    errors << "/Gec is not supported with HLSLVersion " << opts.HLSLVersion;
     return 1;
   }
 

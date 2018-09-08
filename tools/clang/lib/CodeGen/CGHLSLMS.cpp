@@ -36,6 +36,7 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 
 #include "dxc/HLSL/DxilRootSignature.h"
 #include "dxc/HLSL/DxilCBuffer.h"
@@ -4246,6 +4247,92 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
   
 }
 
+// Returns true a global value is being updated
+static bool GlobalHasStoreUserRec(Value *V, std::set<Value *> &visited) {
+  bool isWriteEnabled = false;
+  if (V && visited.find(V) == visited.end()) {
+    visited.insert(V);
+    for (User *U : V->users()) {
+      if (isa<StoreInst>(U)) {
+        return true;
+      } else if (CallInst* CI = dyn_cast<CallInst>(U)) {
+        Function *F = CI->getCalledFunction();
+        if (!F->isIntrinsic()) {
+          HLOpcodeGroup hlGroup = GetHLOpcodeGroup(F);
+          switch (hlGroup) {
+          case HLOpcodeGroup::NotHL:
+            return true;
+          case HLOpcodeGroup::HLMatLoadStore:
+          {
+            HLMatLoadStoreOpcode opCode = static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
+            if (opCode == HLMatLoadStoreOpcode::ColMatStore || opCode == HLMatLoadStoreOpcode::RowMatStore)
+              return true;
+            break;
+          }
+          case HLOpcodeGroup::HLCast:
+          case HLOpcodeGroup::HLSubscript:
+            if (GlobalHasStoreUserRec(U, visited))
+              return true;
+            break;
+          default:
+            break;
+          }
+        }
+      } else if (isa<GEPOperator>(U) || isa<PHINode>(U) || isa<SelectInst>(U)) {
+        if (GlobalHasStoreUserRec(U, visited))
+          return true;
+      }
+    }
+  }
+  return isWriteEnabled;
+}
+
+// Returns true if any of the direct user of a global is a store inst
+// otherwise recurse through the remaining users and check if any GEP
+// exists and which in turn has a store inst as user.
+static bool GlobalHasStoreUser(GlobalVariable *GV) {
+  std::set<Value *> visited;
+  Value *V = cast<Value>(GV);
+  return GlobalHasStoreUserRec(V, visited);
+}
+
+static GlobalVariable *CreateStaticGlobal(llvm::Module *M, GlobalVariable *GV) {
+  Constant *GC = M->getOrInsertGlobal(GV->getName().str() + ".static.copy",
+                                      GV->getType()->getPointerElementType());
+  GlobalVariable *NGV = cast<GlobalVariable>(GC);
+  if (GV->hasInitializer()) {
+    NGV->setInitializer(GV->getInitializer());
+  }
+  // static global should have internal linkage
+  NGV->setLinkage(GlobalValue::InternalLinkage);
+  return NGV;
+}
+
+static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
+                                            llvm::Function *EF) {
+  std::vector<GlobalVariable *> worklist;
+  for (GlobalVariable &GV : M->globals()) {
+    if (!GV.isConstant() && GV.getLinkage() != GlobalValue::InternalLinkage) {
+      if (GlobalHasStoreUser(&GV))
+        worklist.emplace_back(&GV);
+      // TODO: Ensure that constant globals aren't using initializer
+      GV.setConstant(true);
+    }
+  }
+
+  IRBuilder<> Builder(
+      dxilutil::FirstNonAllocaInsertionPt(&EF->getEntryBlock()));
+  for (GlobalVariable *GV : worklist) {
+    GlobalVariable *NGV = CreateStaticGlobal(M, GV);
+    GV->replaceAllUsesWith(NGV);
+
+    // insert memcpy in all entryblocks
+    uint64_t size = M->getDataLayout().getTypeAllocSize(
+        GV->getType()->getPointerElementType());
+    Builder.CreateMemCpy(NGV, GV, size, 1);
+  }
+}
+
 void CGMSHLSLRuntime::FinishCodeGen() {
   // Library don't have entry.
   if (!m_bIsLib) {
@@ -4258,6 +4345,11 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       return;
     }
 
+    // In back-compat mode (with /Gec flag) create a static global for each const global
+    // to allow writing to it.
+    // TODO: Verfiy the behavior of static globals in hull shader
+    if(CGM.getLangOpts().EnableBackCompatMode && CGM.getLangOpts().HLSLVersion <= 2016)
+      CreateWriteEnabledStaticGlobals(m_pHLModule->GetModule(), m_pHLModule->GetEntryFunction());
     if (m_pHLModule->GetShaderModel()->IsHS()) {
       SetPatchConstantFunction(Entry);
     }

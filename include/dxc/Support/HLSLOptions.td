@@ -306,6 +306,7 @@ def Zsb : Flag<["-", "/"], "Zsb">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
 def Gfa : Flag<["-", "/"], "Gfa">, HelpText<"Avoid flow control constructs">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def Gfp : Flag<["-", "/"], "Gfp">, HelpText<"Prefer flow control constructs">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 // /Gdp - disable effect performance mode - unsupported
+def Gec : Flag<["-", "/"], "Gec">, HelpText<"Enable backward compatibility mode">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def Ges : Flag<["-", "/"], "Ges">, HelpText<"Enable strict mode">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def Gis : Flag<["-", "/"], "Gis">, HelpText<"Force IEEE strictness">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
@@ -368,7 +369,7 @@ def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption
 def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption]>,
   HelpText<"Suppress copyright message">;
 
-// Also removed: compress, decompress, /Gch (child effect), /Gec (back compat), /Gpp (partial precision)
+// Also removed: compress, decompress, /Gch (child effect), /Gpp (partial precision)
 // /Op - no support for preshaders.
 
 def flegacy_macro_expansion : Flag<["-"], "flegacy-macro-expansion">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
