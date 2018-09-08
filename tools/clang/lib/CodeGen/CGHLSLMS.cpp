@@ -4271,14 +4271,16 @@ static bool GlobalHasStoreUserRec(Value *V, std::set<Value *> &visited) {
           }
           case HLOpcodeGroup::HLCast:
           case HLOpcodeGroup::HLSubscript:
-            isWriteEnabled |= GlobalHasStoreUserRec(U, visited);
+            if (GlobalHasStoreUserRec(U, visited))
+              return true;
             break;
           default:
             break;
           }
         }
       } else if (isa<GEPOperator>(U) || isa<PHINode>(U) || isa<SelectInst>(U)) {
-        isWriteEnabled |= GlobalHasStoreUserRec(U, visited);
+        if (GlobalHasStoreUserRec(U, visited))
+          return true;
       }
     }
   }
