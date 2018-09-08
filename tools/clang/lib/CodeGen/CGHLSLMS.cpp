@@ -4253,10 +4253,33 @@ static bool GlobalHasStoreUserRec(Value *V, std::set<Value *> &visited) {
   if (V && visited.find(V) == visited.end()) {
     visited.insert(V);
     for (User *U : V->users()) {
-      if (isa<StoreInst>(U))
+      if (isa<StoreInst>(U)) {
         return true;
-      else if (isa<CallInst>(U) || isa<GEPOperator>(U) || isa<PHINode>(U) || isa<SelectInst>(U))
+      } else if (CallInst* CI = dyn_cast<CallInst>(U)) {
+        Function *F = CI->getCalledFunction();
+        if (!F->isIntrinsic()) {
+          HLOpcodeGroup hlGroup = GetHLOpcodeGroup(F);
+          switch (hlGroup) {
+          case HLOpcodeGroup::NotHL:
+            return true;
+          case HLOpcodeGroup::HLMatLoadStore:
+          {
+            HLMatLoadStoreOpcode opCode = static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
+            if (opCode == HLMatLoadStoreOpcode::ColMatStore || opCode == HLMatLoadStoreOpcode::RowMatStore)
+              return true;
+            break;
+          }
+          case HLOpcodeGroup::HLCast:
+          case HLOpcodeGroup::HLSubscript:
+            isWriteEnabled |= GlobalHasStoreUserRec(U, visited);
+            break;
+          default:
+            break;
+          }
+        }
+      } else if (isa<GEPOperator>(U) || isa<PHINode>(U) || isa<SelectInst>(U)) {
         isWriteEnabled |= GlobalHasStoreUserRec(U, visited);
+      }
     }
   }
   return isWriteEnabled;
