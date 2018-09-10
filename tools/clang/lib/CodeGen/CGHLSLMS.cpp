@@ -4312,7 +4312,10 @@ static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
                                             llvm::Function *EF) {
   std::vector<GlobalVariable *> worklist;
   for (GlobalVariable &GV : M->globals()) {
-    if (!GV.isConstant() && GV.getLinkage() != GlobalValue::InternalLinkage) {
+    if (!GV.isConstant() && GV.getLinkage() != GlobalValue::InternalLinkage &&
+        // skip globals which are HLSL objects or group shared
+        !HLModule::IsHLSLObjectType(GV.getType()->getPointerElementType()) &&
+        !dxilutil::IsSharedMemoryGlobal(&GV)) {
       if (GlobalHasStoreUser(&GV))
         worklist.emplace_back(&GV);
       // TODO: Ensure that constant globals aren't using initializer
