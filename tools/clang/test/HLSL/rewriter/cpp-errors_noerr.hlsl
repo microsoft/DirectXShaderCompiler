@@ -328,7 +328,7 @@ struct my_struct_5 : my_class, my_interface { };
 //
 //class my_class_public : public my_class { }; // expected-error {{base type access specifier is unsupported in HLSL}}
 
-struct forward_struct; // this fails in fxc, but we allow it now
+//struct forward_struct; // this fails in fxc, but we allow it now for HLSL version >= 2016
 struct my_struct_type_decl { int a; } my_struct_var_decl;
 //struct my_struct_type_decl_parens { int a; } (my_struct_var_decl_parens); // expected-error {{expected ';' after struct}} expected-error {{HLSL requires a type specifier for all declarations}}
 //struct my_struct_type_const { int a; } const my_struct_type_var; // // expected-error {{expected ';' after struct}} expected-error {{HLSL requires a type specifier for all declarations}}

@@ -71,7 +71,6 @@ struct my_struct_4 : my_interface {
 };
 struct my_struct_5 : my_class, my_interface {
 };
-struct forward_struct;
 struct my_struct_type_decl {
   int a;
 };

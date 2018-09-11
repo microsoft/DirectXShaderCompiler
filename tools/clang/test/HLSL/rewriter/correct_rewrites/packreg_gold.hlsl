@@ -15,7 +15,6 @@ sampler myVar_2 : register(vs, s8);
 sampler myVar65536 : register(vs, s65536);
 sampler myVar5 : register(vs, s0);
 AppendStructuredBuffer<float4> myVar11 : register(ps, u1);
-Buffer<float4> myVar11_plain : register(ps, u2);
 RWStructuredBuffer<float4> myVar11_rw : register(ps, u0);
 sampler myVar_s : register(ps, s0);
 Texture2D myVar_t : register(ps, t0);

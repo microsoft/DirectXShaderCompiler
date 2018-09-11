@@ -52,8 +52,7 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
-  //TODO: Enable this tests with -HV 2016 once we have a way to change HLSL version
-  //TEST_METHOD(RunArrayLength);
+  TEST_METHOD(RunArrayLength);
   TEST_METHOD(RunAttributes);
   TEST_METHOD(RunAnonymousStruct);
   TEST_METHOD(RunCppErrors);
@@ -86,6 +85,7 @@ public:
   TEST_METHOD(RunNoFunctionBodyInclude);
   TEST_METHOD(RunNoStatic);
   TEST_METHOD(RunKeepUserMacro);
+  TEST_METHOD(RunRewriterFails)
 
   dxc::DxcDllSupport m_dllSupport;
   CComPtr<IDxcIncludeHandler> m_pIncludeHandler;
@@ -227,6 +227,20 @@ public:
     VERIFY_SUCCEEDED(rewriter->RewriteUnchanged(source.BlobEncoding, myDefines,
                                                 myDefinesCount, ppResult));
 
+    // check for compilation errors
+    HRESULT hrStatus;
+    VERIFY_SUCCEEDED((*ppResult)->GetStatus(&hrStatus));
+
+    if (!(SUCCEEDED(hrStatus))) {
+        ::WEX::Logging::Log::Error(L"\nCompilation failed.\n");
+        CComPtr<IDxcBlobEncoding> pErrorBuffer;
+        IFT((*ppResult)->GetErrorBuffer(&pErrorBuffer));
+        std::wstring errorStr = BlobToUtf16(pErrorBuffer);
+        ::WEX::Logging::Log::Error(errorStr.data());
+        VERIFY_SUCCEEDED(hrStatus);
+        return;
+    }
+
     CComPtr<IDxcBlob> pRewriteResult;
     IFT((*ppResult)->GetResult(&pRewriteResult));
     std::string firstPass = BlobToUtf8(pRewriteResult);
@@ -290,10 +304,9 @@ public:
   }
 };
 
-//TODO: Enable this tests with -HV 2016 once we have a way to change HLSL version
-// TEST_F(RewriterTest, RunArrayLength) {
-//  CheckVerifiesHLSL(L"rewriter\\array-length-rw.hlsl", L"rewriter\\correct_rewrites\\array-length-rw_gold.hlsl");
-//}
+TEST_F(RewriterTest, RunArrayLength) {
+  CheckVerifiesHLSL(L"rewriter\\array-length-rw.hlsl", L"rewriter\\correct_rewrites\\array-length-rw_gold.hlsl");
+}
 
 TEST_F(RewriterTest, RunAttributes) {
     CheckVerifiesHLSL(L"rewriter\\attributes_noerr.hlsl", L"rewriter\\correct_rewrites\\attributes_gold.hlsl");
@@ -478,7 +491,7 @@ TEST_F(RewriterTest, RunNonUnicode) {
 }
 
 TEST_F(RewriterTest, RunEffect) {
-  CheckVerifiesHLSL(L"rewriter\\effects-syntax.hlsl", L"rewriter\\correct_rewrites\\effects-syntax_gold.hlsl");
+  CheckVerifiesHLSL(L"rewriter\\effects-syntax_noerr.hlsl", L"rewriter\\correct_rewrites\\effects-syntax_gold.hlsl");
 }
 
 TEST_F(RewriterTest, RunSemanticDefines) {
@@ -619,4 +632,37 @@ float test(float a, float b) {\n\
 #define X 1\n\
 #define Y(A, B)  ( ( A ) + ( B ) )\n\
 ") == 0);
+}
+
+TEST_F(RewriterTest, RunRewriterFails) {
+  CComPtr<IDxcRewriter> pRewriter;
+  CComPtr<IDxcRewriter2> pRewriter2;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  VERIFY_SUCCEEDED(pRewriter->QueryInterface(&pRewriter2));
+
+  // Get the source text from a file
+  std::wstring sourceName = GetPathToHlslDataFile(L"rewriter\\array-length-rw.hlsl");
+  FileWithBlob source(m_dllSupport, sourceName.c_str());
+
+  // Compilation should fail with these options
+  CComPtr<IDxcOperationResult> pRewriteResult;
+  LPCWSTR compileOptions[] = {L"-HV", L"2018"};
+  
+  // Run rewrite on the source code
+  VERIFY_SUCCEEDED(pRewriter2->RewriteWithOptions(source.BlobEncoding, sourceName.c_str(), compileOptions, 2, 
+                                                  nullptr, 0, nullptr, &pRewriteResult));
+
+  // Verify it failed
+  HRESULT hrStatus;
+  VERIFY_SUCCEEDED(pRewriteResult->GetStatus(&hrStatus));
+  VERIFY_FAILED(hrStatus);
+
+  ::WEX::Logging::Log::Comment(L"\nCompilation failed as expected.\n");
+  CComPtr<IDxcBlobEncoding> pErrorBuffer;
+  IFT(pRewriteResult->GetErrorBuffer(&pErrorBuffer));
+  std::wstring errorStr = BlobToUtf16(pErrorBuffer);
+  
+  ::WEX::Logging::Log::Comment(errorStr.data());
+
+  VERIFY_IS_TRUE(errorStr.find(L"Length is only allowed for HLSL 2016 and lower.") >= 0);
 }
