@@ -684,7 +684,7 @@ TEST_F(ValidationTest, DeadLoopFail) {
       {"br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !([0-9]+)",
        "?%add(\\.lcssa)? = phi float \\[ %add, %for.body \\]",
        "!dx.entryPoints = !\\{!([0-9]+)\\}",
-    "\\[ %add(\\.lcssa)?, %for.end.loopexit \\]"
+       "\\[ %add(\\.lcssa)?, %for.end.loopexit \\]"
       },
       {"br label %for.body",
        "",
