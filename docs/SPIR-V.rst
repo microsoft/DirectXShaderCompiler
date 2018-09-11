@@ -566,9 +566,9 @@ type instructions:
 ============================== ======================= ================== =========== =================================
 
 Please note that ``half`` is translated into 32-bit floating point numbers
-right now because MSDN says that "this data type is provided only for language
-compatibility. Direct3D 10 shader targets map all ``half`` data types to
-``float`` data types."
+if without ``-enable-16bit-types`` because MSDN says that "this data type
+is provided only for language compatibility. Direct3D 10 shader targets map
+all ``half`` data types to ``float`` data types."
 
 Minimal precision scalar types
 ------------------------------
