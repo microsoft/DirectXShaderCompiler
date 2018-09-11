@@ -41,6 +41,7 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/DxcLangExtensionsHelper.h"
 #include "dxc/Support/dxcfilesystem.h"
+#include "dxc/Support/HLSLOptions.h"
 
 #define CP_UTF16 1200
 
@@ -109,6 +110,7 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
                              _In_ LPCSTR pMainFile,
                              _In_ TextDiagnosticPrinter *diagPrinter,
                              _In_opt_ ASTUnit::RemappedFile *rewrite,
+                             _In_ hlsl::options::DxcOpts &opts,
                              _In_opt_ LPCSTR pDefines) {
   // Setup a compiler instance.
   std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
@@ -120,6 +122,13 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
   compiler.setTarget(TargetInfo::CreateTargetInfo(compiler.getDiagnostics(), targetOptions));
   // Not use builtin includes.
   compiler.getHeaderSearchOpts().UseBuiltinIncludes = false;
+
+  // apply compiler options applicable for rewrite
+  if (opts.WarningAsError)
+    compiler.getDiagnostics().setWarningsAsErrors(true);
+  compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
+  compiler.getLangOpts().HLSLVersion = (unsigned)opts.HLSLVersion;
+  compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
 
   PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
   if (rewrite != nullptr) {
@@ -322,6 +331,35 @@ void WriteUserMacroDefines(CompilerInstance &compiler, raw_string_ostream &o) {
 }
 
 static
+HRESULT ReadOptsAndValidate(LPCWSTR *pArguments, _In_ UINT32 argCount,
+                            hlsl::options::DxcOpts &opts,
+                            _COM_Outptr_ IDxcOperationResult **ppResult) {
+  hlsl::options::MainArgs mainArgs(argCount, pArguments, 0);
+  const llvm::opt::OptTable *table = ::options::getHlslOptTable();
+
+  CComPtr<AbstractMemoryStream> pOutputStream;
+  IFT(CreateMemoryStream(GetGlobalHeapMalloc(), &pOutputStream));
+  raw_stream_ostream outStream(pOutputStream);
+
+  if (0 != hlsl::options::ReadDxcOpts(table, hlsl::options::CompilerFlags,
+                                      mainArgs, opts, outStream)) {
+    CComPtr<IDxcBlob> pErrorBlob;
+    IFT(pOutputStream->QueryInterface(&pErrorBlob));
+    CComPtr<IDxcBlobEncoding> pErrorBlobWithEncoding;
+    outStream.flush();
+    IFT(DxcCreateBlobWithEncodingSet(pErrorBlob.p, CP_UTF8,
+                                     &pErrorBlobWithEncoding));
+    IFT(DxcOperationResult::CreateFromResultErrorStatus(
+        nullptr, pErrorBlobWithEncoding.p, E_INVALIDARG, ppResult));
+    return E_INVALIDARG;
+  }
+  DXASSERT(opts.HLSLVersion > 2015,
+           "else ReadDxcOpts didn't fail for non-isense");
+  return S_OK;
+}
+
+
+static
 HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
                      _In_ LPCSTR pFileName,
                      _In_ ASTUnit::RemappedFile *pRemap,
@@ -340,7 +378,11 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
   CompilerInstance compiler;
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
       llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());  
-  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, pDefines);
+
+  hlsl::options::DxcOpts opts;
+  opts.HLSLVersion = 2015;
+
+  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, opts, pDefines);
 
   // Parse the source file.
   compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
@@ -481,6 +523,7 @@ static
 HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ LPCSTR pFileName,
                _In_ ASTUnit::RemappedFile *pRemap,
+               _In_ hlsl::options::DxcOpts &opts,
                _In_ LPCSTR pDefines,
                _In_ UINT32 rewriteOption,
                _Outptr_result_z_ LPSTR *pWarnings,
@@ -501,7 +544,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   CompilerInstance compiler;
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
       llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());    
-  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, pDefines);
+  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, opts, pDefines);
 
   // Parse the source file.
   compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
@@ -538,7 +581,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   return S_OK;
 }
 
-class DxcRewriter : public IDxcRewriter, public IDxcLangExtensions {
+class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -548,7 +591,7 @@ public:
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcRewriter, IDxcLangExtensions>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcRewriter2, IDxcRewriter, IDxcLangExtensions>(this, iid, ppvObject);
   }
 
   HRESULT STDMETHODCALLTYPE RemoveUnusedGlobals(_In_ IDxcBlobEncoding *pSource,
@@ -625,10 +668,13 @@ public:
 
       std::string definesStr = DefinesToString(pDefines, defineCount);
 
+      hlsl::options::DxcOpts opts;
+      opts.HLSLVersion = 2015;
+
       LPSTR errors = nullptr;
       LPSTR rewrite = nullptr;
       HRESULT status =
-          DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(),
+          DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
                           RewriterOptionMask::Default, &errors, &rewrite);
 
@@ -673,10 +719,13 @@ public:
 
       std::string definesStr = DefinesToString(pDefines, defineCount);
 
+      hlsl::options::DxcOpts opts;
+      opts.HLSLVersion = 2015;
+
       LPSTR errors = nullptr;
       LPSTR rewrite = nullptr;
       HRESULT status =
-          DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(),
+          DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
                           rewriteOption, &errors, &rewrite);
 
@@ -685,6 +734,65 @@ public:
     }
     CATCH_CPP_RETURN_HRESULT();
 
+  }
+
+    HRESULT STDMETHODCALLTYPE RewriteWithOptions(
+        _In_ IDxcBlobEncoding *pSource,
+        // Optional file name for pSource. Used in errors and include handlers.
+        _In_opt_ LPCWSTR pSourceName, 
+        // Compiler arguments
+        _In_count_(argCount) LPCWSTR *pArguments, _In_ UINT32 argCount, 
+        // Defines
+        _In_count_(defineCount) DxcDefine *pDefines, _In_ UINT32 defineCount,
+        // user-provided interface to handle #include directives (optional)
+        _In_opt_ IDxcIncludeHandler *pIncludeHandler,
+        _COM_Outptr_ IDxcOperationResult **ppResult) override {
+
+    if (pSource == nullptr || ppResult == nullptr ||
+        (argCount > 0 && pArguments == nullptr) ||
+        (defineCount > 0 && pDefines == nullptr))
+      return E_POINTER;
+
+    *ppResult = nullptr;
+
+    DxcThreadMalloc TM(m_pMalloc);
+
+    CComPtr<IDxcBlobEncoding> utf8Source;
+    IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
+
+    CW2A utf8SourceName(pSourceName, CP_UTF8);
+    LPCSTR fName = utf8SourceName.m_psz;
+
+    try {
+      dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(
+          utf8Source, pSourceName, pIncludeHandler);
+      std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+      ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+      IFTLLVM(pts.error_code());
+
+      StringRef Data((LPCSTR)utf8Source->GetBufferPointer(),
+                     utf8Source->GetBufferSize());
+      std::unique_ptr<llvm::MemoryBuffer> pBuffer(
+          llvm::MemoryBuffer::getMemBufferCopy(Data, fName));
+      std::unique_ptr<ASTUnit::RemappedFile> pRemap(
+          new ASTUnit::RemappedFile(fName, pBuffer.release()));
+
+      std::string definesStr = DefinesToString(pDefines, defineCount);
+
+      hlsl::options::DxcOpts opts;
+      IFR(ReadOptsAndValidate(pArguments, argCount, opts, ppResult));
+
+      LPSTR errors = nullptr;
+      LPSTR rewrite = nullptr;
+      HRESULT status =
+          DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(), opts,
+                          defineCount > 0 ? definesStr.c_str() : nullptr,
+                          Default, &errors, &rewrite);
+
+      return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
+                                                       ppResult);
+    }
+    CATCH_CPP_RETURN_HRESULT();
   }
 
   std::string DefinesToString(_In_count_(defineCount) DxcDefine *pDefines, _In_ UINT32 defineCount) {

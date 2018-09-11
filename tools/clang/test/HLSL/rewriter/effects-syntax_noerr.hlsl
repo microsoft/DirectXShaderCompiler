@@ -48,7 +48,7 @@ SamplerComparisonState SC : register(s3) = sampler_state {texture=tex;};    /* e
 
 float4 main() : SV_Target
 {
-  StateBlock SB;                                            /* expected-error {{unknown type name 'StateBlock'}} fxc-error {{X3000: unrecognized identifier 'SB'}} fxc-error {{X3000: unrecognized identifier 'StateBlock'}} */
+  //StateBlock SB;                                            /* expected-error {{unknown type name 'StateBlock'}} fxc-error {{X3000: unrecognized identifier 'SB'}} fxc-error {{X3000: unrecognized identifier 'StateBlock'}} */
 
   {
     int StateBlock = 1;
@@ -70,7 +70,7 @@ float4 main() : SV_Target
   // This is allowed (deprecated effect state block warning):
   int foobar {blah=foo;};                                   /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
   // This is not:
-  int foobar2 {blah=foo;} = 5;                              /* expected-error {{expected ';' at end of declaration}} expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-error {{X3000: syntax error: unexpected token '='}} */
+  //int foobar2 {blah=foo;} = 5;                              /* expected-error {{expected ';' at end of declaration}} expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-error {{X3000: syntax error: unexpected token '='}} */
 
   // But this isn't:
   int RenderTargetView = 1;                                 /* fxc-error {{X3000: syntax error: unexpected token 'RenderTargetView'}} */
@@ -107,12 +107,12 @@ static const PixelShader ps1 { state=foo; };                /* expected-warning 
   VarDecl <col:1, col:26> col:26 invalid ps1 'const PixelShader':'const deprecated effect object' static
 */
 // expected-note@? {{'PixelShader' declared here}}
-PixelShadeR ps < int foo=1;>  = ps1;   // Case insensitive! /* expected-error {{unknown type name 'PixelShadeR'; did you mean 'PixelShader'?}} expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{possible effect annotation ignored - effect syntax is deprecated}} expected-error {{use of undeclared identifier 'ps1'}}fxc-pass {{}} */
+//PixelShadeR ps < int foo=1;>  = ps1;   // Case insensitive! /* expected-error {{unknown type name 'PixelShadeR'; did you mean 'PixelShader'?}} expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{possible effect annotation ignored - effect syntax is deprecated}} expected-error {{use of undeclared identifier 'ps1'}}fxc-pass {{}} */
 /*verify-ast
   VarDecl <col:1, col:13> col:13 invalid ps 'PixelShader':'deprecated effect object'
 */
 // expected-note@? {{'VertexShader' declared here}}
-VertexShadeR vs;        // Case insensitive!                /* expected-error {{unknown type name 'VertexShadeR'; did you mean 'VertexShader'?}} expected-warning {{effect object ignored - effect syntax is deprecated}} fxc-pass {{}} */
+//VertexShadeR vs;        // Case insensitive!                /* expected-error {{unknown type name 'VertexShadeR'; did you mean 'VertexShader'?}} expected-warning {{effect object ignored - effect syntax is deprecated}} fxc-pass {{}} */
 
 // Case sensitive
 pixelfragment pfrag;                                        /* expected-warning {{effect object ignored - effect syntax is deprecated}} fxc-pass {{}} */
@@ -155,24 +155,24 @@ technique10                                                 /* expected-warning 
 }
 
 // We don't bother handling weird casing, so this will be a syntax error:
-TechNiQue                                                   /* expected-error {{HLSL requires a type specifier for all declarations}} fxc-pass {{}} */
+//TechNiQue                                                   /* expected-error {{HLSL requires a type specifier for all declarations}} fxc-pass {{}} */
 /*verify-ast
   VarDecl <col:1> col:1 invalid TechNiQue 'int'
 */
-{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
-  pass {}
-}                                                           /* expected-error {{expected ';' after top level declarator}} fxc-pass {{}} */
+//{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+//  pass {}
+//}                                                           /* expected-error {{expected ';' after top level declarator}} fxc-pass {{}} */
 int foobar3;
 /*verify-ast
   VarDecl <col:1, col:5> col:5 foobar3 'int'
 */
-TechNique T5                                                /* expected-error {{unknown type name 'TechNique'}} fxc-pass {{}} */
+//TechNique T5                                                /* expected-error {{unknown type name 'TechNique'}} fxc-pass {{}} */
 /*verify-ast
   VarDecl <col:1, col:11> col:11 invalid T5 'int'
 */
-{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
-  pass {}
-}                                                           /* expected-error {{expected ';' after top level declarator}} fxc-pass {{}} */
+//{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+//  pass {}
+//}                                                           /* expected-error {{expected ';' after top level declarator}} fxc-pass {{}} */
 int foobar4;
 /*verify-ast
   VarDecl <col:1, col:5> col:5 foobar4 'int'
