@@ -1604,6 +1604,12 @@ TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
   runFileTest("vk.layout.cbuffer.fxc.hlsl");
 }
 
+TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer1) {
+  // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.1.hlsl");
+}
+
 TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
 TEST_F(FileTest, VulkanSubpassInputBinding) {
   runFileTest("vk.subpass-input.binding.hlsl");
