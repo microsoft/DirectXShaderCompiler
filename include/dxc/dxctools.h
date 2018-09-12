@@ -78,7 +78,7 @@ IDxcRewriter2 : public IDxcRewriter {
                                                      _In_opt_ IDxcIncludeHandler *pIncludeHandler,
                                                      _COM_Outptr_ IDxcOperationResult **ppResult) = 0;
 
-  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcRewriter)
+  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcRewriter2)
 };
 
 #endif
