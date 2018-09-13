@@ -16,9 +16,9 @@
 #include "dxc/HLSL/DxilSemantic.h"
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilSigPoint.h"
+#include "dxc/Support/SPIRVOptions.h"
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Attr.h"
-#include "clang/SPIRV/EmitSPIRVOptions.h"
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/DenseMap.h"
@@ -112,13 +112,14 @@ private:
 
 class ResourceVar {
 public:
-  ResourceVar(uint32_t id, const hlsl::RegisterAssignment *r,
-              const VKBindingAttr *b, const VKCounterBindingAttr *cb,
-              bool counter = false)
-      : varId(id), reg(r), binding(b), counterBinding(cb),
+  ResourceVar(uint32_t id, SourceLocation loc,
+              const hlsl::RegisterAssignment *r, const VKBindingAttr *b,
+              const VKCounterBindingAttr *cb, bool counter = false)
+      : varId(id), srcLoc(loc), reg(r), binding(b), counterBinding(cb),
         isCounterVar(counter) {}
 
   uint32_t getSpirvId() const { return varId; }
+  SourceLocation getSourceLocation() const { return srcLoc; }
   const hlsl::RegisterAssignment *getRegister() const { return reg; }
   const VKBindingAttr *getBinding() const { return binding; }
   bool isCounter() const { return isCounterVar; }
@@ -128,6 +129,7 @@ public:
 
 private:
   uint32_t varId;                             ///< <result-id>
+  SourceLocation srcLoc;                      ///< Source location
   const hlsl::RegisterAssignment *reg;        ///< HLSL register assignment
   const VKBindingAttr *binding;               ///< Vulkan binding assignment
   const VKCounterBindingAttr *counterBinding; ///< Vulkan counter binding
@@ -257,7 +259,7 @@ public:
   inline DeclResultIdMapper(const hlsl::ShaderModel &stage, ASTContext &context,
                             ModuleBuilder &builder, TypeTranslator &translator,
                             FeatureManager &features,
-                            const EmitSPIRVOptions &spirvOptions);
+                            const SpirvCodeGenOptions &spirvOptions);
 
   /// \brief Returns the <result-id> for a SPIR-V builtin variable.
   uint32_t getBuiltinVar(spv::BuiltIn builtIn);
@@ -509,7 +511,7 @@ private:
   /// \brief Wraps the given matrix type with a struct and returns the struct
   /// type's <result-id>.
   uint32_t getMatrixStructType(const VarDecl *matVar, spv::StorageClass,
-                               LayoutRule);
+                               SpirvLayoutRule);
 
   /// \brief An enum class for representing what the DeclContext is used for
   enum class ContextUsageKind {
@@ -626,7 +628,7 @@ private:
 private:
   const hlsl::ShaderModel &shaderModel;
   ModuleBuilder &theBuilder;
-  const EmitSPIRVOptions &spirvOptions;
+  const SpirvCodeGenOptions &spirvOptions;
   ASTContext &astContext;
   DiagnosticsEngine &diags;
 
@@ -745,7 +747,7 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        ModuleBuilder &builder,
                                        TypeTranslator &translator,
                                        FeatureManager &features,
-                                       const EmitSPIRVOptions &options)
+                                       const SpirvCodeGenOptions &options)
     : shaderModel(model), theBuilder(builder), spirvOptions(options),
       astContext(context), diags(context.getDiagnostics()),
       typeTranslator(translator), entryFunctionId(0), laneCountBuiltinId(0),

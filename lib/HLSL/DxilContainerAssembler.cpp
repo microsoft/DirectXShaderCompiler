@@ -141,8 +141,10 @@ struct sort_second {
 struct sort_sig {
   bool operator()(const DxilProgramSignatureElement &a,
                   const DxilProgramSignatureElement &b) {
-    return (a.Stream < b.Stream) |
-           ((a.Stream == b.Stream) & (a.Register < b.Register));
+    return (a.Stream < b.Stream) ||
+           ((a.Stream == b.Stream) && (a.Register < b.Register)) ||
+           ((a.Stream == b.Stream) && (a.Register == b.Register) &&
+            (a.SemanticName < b.SemanticName));
   }
 };
 

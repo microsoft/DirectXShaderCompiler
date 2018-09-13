@@ -18,6 +18,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 #include "dxc/dxcapi.h"
+#include "dxc/Support/SPIRVOptions.h"
 
 namespace llvm {
 namespace opt {
@@ -131,6 +132,7 @@ public:
   bool AvoidFlowControl = false;     // OPT_Gfa
   bool PreferFlowControl = false;    // OPT_Gfp
   bool EnableStrictMode = false;     // OPT_Ges
+  bool EnableBackCompatMode = false;     // OPT_Gec
   unsigned long HLSLVersion = 0; // OPT_hlsl_version (2015-2018)
   bool Enable16BitTypes = false; // OPT_enable_16bit_types
   bool OptDump = false; // OPT_ODump - dump optimizer commands
@@ -164,20 +166,8 @@ public:
 
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
-  bool GenSPIRV;                           // OPT_spirv
-  bool VkInvertY;                          // OPT_fvk_invert_y
-  bool VkInvertW;                          // OPT_fvk_use_dx_position_w
-  bool VkUseGlLayout;                      // OPT_fvk_use_gl_layout
-  bool VkUseDxLayout;                      // OPT_fvk_use_dx_layout
-  bool SpvEnableReflect;                   // OPT_fspv_reflect
-  bool VkNoWarnIgnoredFeatures;            // OPT_Wno_vk_ignored_features
-  llvm::StringRef VkStageIoOrder;          // OPT_fvk_stage_io_order
-  llvm::SmallVector<int32_t, 4> VkBShift;  // OPT_fvk_b_shift
-  llvm::SmallVector<int32_t, 4> VkTShift;  // OPT_fvk_t_shift
-  llvm::SmallVector<int32_t, 4> VkSShift;  // OPT_fvk_s_shift
-  llvm::SmallVector<int32_t, 4> VkUShift;  // OPT_fvk_u_shift
-  llvm::SmallVector<llvm::StringRef, 4> SpvExtensions; // OPT_fspv_extension
-  llvm::StringRef SpvTargetEnv;                        // OPT_fspv_target_env
+  bool GenSPIRV;                    // OPT_spirv
+  clang::spirv::SpirvCodeGenOptions SpirvOptions; // All SPIR-V CodeGen-related options
 #endif
   // SPIRV Change Ends
 };

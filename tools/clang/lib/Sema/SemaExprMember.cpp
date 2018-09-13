@@ -1248,6 +1248,13 @@ static ExprResult LookupMemberExpr(Sema &S, LookupResult &R,
       return vectorResult;
     }
   }
+  {
+    ExprResult arrayResult;
+    if (S.getLangOpts().HLSL &&
+      hlsl::LookupArrayMemberExprForHLSL(&S, *BaseExpr.get(), MemberName, IsArrow, OpLoc, MemberLoc, &arrayResult)) {
+      return arrayResult;
+    }
+  }
   // HLSL Change Ends
 
   // Handle field access to simple records.

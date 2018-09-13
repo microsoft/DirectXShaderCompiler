@@ -2044,6 +2044,10 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::LitInt: Out << "lit_int"; break;
   case BuiltinType::LitFloat: Out << "lit_float"; break;
   case BuiltinType::Min10Float: Out << "min10_float"; break;
+  case BuiltinType::Min16Float: Out << "min16_float"; break;
+  case BuiltinType::Min16Int: Out << "min16_int"; break;
+  case BuiltinType::Min16UInt: Out << "min16_uint"; break;
+  case BuiltinType::HalfFloat: Out << "half_float"; break;
     // HLSL Change ends
   }
 }
@@ -3051,13 +3055,24 @@ recurse:
       Diags.Report(DiagID);
       return;
     }
-    case UETT_OpenMPRequiredSimdAlign:
+    case UETT_OpenMPRequiredSimdAlign: {
       DiagnosticsEngine &Diags = Context.getDiags();
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error,
           "cannot yet mangle __builtin_omp_required_simd_align expression");
       Diags.Report(DiagID);
+      return; 
+    }
+    // HLSL Change Begins
+    case UETT_ArrayLength: {
+      DiagnosticsEngine & Diags = Context.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "cannot yet mangle .Length expression");
+      Diags.Report(DiagID);
       return;
+    }
+    // HLSL Change Begins
     }
     if (SAE->isArgumentType()) {
       Out << 't';

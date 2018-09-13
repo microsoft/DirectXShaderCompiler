@@ -16,7 +16,7 @@ namespace clang {
 namespace spirv {
 
 FeatureManager::FeatureManager(DiagnosticsEngine &de,
-                               const EmitSPIRVOptions &opts)
+                               const SpirvCodeGenOptions &opts)
     : diags(de) {
   allowedExtensions.resize(static_cast<unsigned>(Extension::Unknown) + 1);
 

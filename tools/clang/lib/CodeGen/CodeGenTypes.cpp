@@ -412,6 +412,8 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     case BuiltinType::WChar_U:
     // HLSL Change Starts
     case BuiltinType::Min12Int:
+    case BuiltinType::Min16Int:
+    case BuiltinType::Min16UInt:
     case BuiltinType::LitInt:
     // HLSL Change Ends
     case BuiltinType::Char16:
@@ -421,6 +423,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
       break;
     // HLSL Change Starts
     case BuiltinType::Min10Float:
+    case BuiltinType::Min16Float:
 // OACR error 6287
 #pragma prefast(disable: __WARNING_REDUNDANTTEST, "language options are constants, by design")
     // HLSL Change Ends
@@ -432,6 +435,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
                                Context.getLangOpts().HalfArgsAndReturns);
       break;
     case BuiltinType::LitFloat: // HLSL Change
+    case BuiltinType::HalfFloat: // HLSL Change
     case BuiltinType::Float:
     case BuiltinType::Double:
     case BuiltinType::LongDouble:

@@ -18,19 +18,23 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "dxc/HLSL/DxilContainer.h"
 
+#ifdef _WIN32
 #include <atlbase.h>
+#endif
 #include "dxc/Support/Global.h"
 #include "dxc/Support/FileIOHelper.h"
 
-#include "WexTestClass.h"
 #include "DxcTestUtils.h"
 #include "HlslTestUtils.h"
 
 using namespace std;
 using namespace hlsl;
 
-class ValidationTest
-{
+#ifdef _WIN32
+class ValidationTest {
+#else
+class ValidationTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(ValidationTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -288,7 +292,7 @@ public:
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pBlobEncoding; // Encoding doesn't actually matter, it's binary.
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned((LPBYTE)pBlob, blobSize, CP_UTF8, &pBlobEncoding));
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pBlob, blobSize, CP_UTF8, &pBlobEncoding));
     CheckValidationMsgs(pBlobEncoding, pErrorMsgs, bRegex);
   }
 
@@ -466,7 +470,7 @@ public:
       pProgram2 = pProgram1;
     }
 
-    // construct container with moudle from pProgram1 with other parts from pProgram2:
+    // construct container with module from pProgram1 with other parts from pProgram2:
     const DxilContainerHeader *pHeader1 = IsDxilContainerLike(pProgram1->GetBufferPointer(), pProgram1->GetBufferSize());
     VERIFY_IS_NOT_NULL(pHeader1);
     const DxilContainerHeader *pHeader2 = IsDxilContainerLike(pProgram2->GetBufferPointer(), pProgram2->GetBufferSize());
@@ -547,7 +551,7 @@ TEST_F(ValidationTest, WhenMisalignedThenFail) {
 TEST_F(ValidationTest, WhenEmptyFileThenFail) {
   // No blocks after signature.
   const char blob[] = {
-    'B', 'C', 0xc0, 0xde
+    'B', 'C', (char)0xc0, (char)0xde
   };
   CheckValidationMsgs(blob, _countof(blob), "Malformed IR file");
 }
@@ -555,21 +559,21 @@ TEST_F(ValidationTest, WhenEmptyFileThenFail) {
 TEST_F(ValidationTest, WhenIncorrectMagicThenFail) {
   // Signature isn't 'B', 'C', 0xC0 0xDE
   const char blob[] = {
-    'B', 'C', 0xc0, 0xdd
+    'B', 'C', (char)0xc0, (char)0xdd
   };
   CheckValidationMsgs(blob, _countof(blob), "Invalid bitcode signature");
 }
 
 TEST_F(ValidationTest, WhenIncorrectTargetTripleThenFail) {
   const char blob[] = {
-    'B', 'C', 0xc0, 0xde
+    'B', 'C', (char)0xc0, (char)0xde
   };
   CheckValidationMsgs(blob, _countof(blob), "Malformed IR file");
 }
 
 TEST_F(ValidationTest, WhenMultipleModulesThenFail) {
   const char blob[] = {
-    'B', 'C', 0xc0, 0xde,
+    'B', 'C', (char)0xc0, (char)0xde,
     0x21, 0x0c, 0x00, 0x00, // Enter sub-block, BlockID = 8, Code Size=3, padding x2
     0x00, 0x00, 0x00, 0x00, // NumWords = 0
     0x08, 0x00, 0x00, 0x00, // End-of-block, padding
@@ -583,7 +587,7 @@ TEST_F(ValidationTest, WhenMultipleModulesThenFail) {
 TEST_F(ValidationTest, WhenUnexpectedEOFThenFail) {
   // Importantly, this is testing the usage of report_fatal_error during deserialization.
   const char blob[] = {
-    'B', 'C', 0xc0, 0xde,
+    'B', 'C', (char)0xc0, (char)0xde,
     0x21, 0x0c, 0x00, 0x00, // Enter sub-block, BlockID = 8, Code Size=3, padding x2
     0x00, 0x00, 0x00, 0x00, // NumWords = 0
   };
@@ -592,7 +596,7 @@ TEST_F(ValidationTest, WhenUnexpectedEOFThenFail) {
 
 TEST_F(ValidationTest, WhenUnknownBlocksThenFail) {
   const char blob[] = {
-    'B', 'C', 0xc0, 0xde,   // Signature
+    'B', 'C', (char)0xc0, (char)0xde,   // Signature
     0x31, 0x00, 0x00, 0x00  // Enter sub-block, BlockID != 8
   };
   CheckValidationMsgs(blob, _countof(blob), "Unrecognized block found");
@@ -695,9 +699,9 @@ TEST_F(ValidationTest, DeadLoopFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\loop1.hlsl", "ps_6_0",
       {"br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !([0-9]+)",
-       "%add.lcssa = phi float \\[ %add, %for.body \\]",
+       "?%add(\\.lcssa)? = phi float \\[ %add, %for.body \\]",
        "!dx.entryPoints = !\\{!([0-9]+)\\}",
-       "\\[ %add.lcssa, %for.end.loopexit \\]"
+       "\\[ %add(\\.lcssa)?, %for.end.loopexit \\]"
       },
       {"br label %for.body",
        "",
@@ -711,7 +715,7 @@ TEST_F(ValidationTest, DeadLoopFail) {
 }
 TEST_F(ValidationTest, EvalFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\Eval.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\eval.hlsl", "ps_6_0",
       "!\"A\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 4",
       "!\"A\", i8 9, i8 0, !\\1, i8 0, i32 1, i8 4",
       "Interpolation mode on A used with eval_\\* instruction must be ",
@@ -840,7 +844,7 @@ TEST_F(ValidationTest, SampleBiasFail) {
 }
 TEST_F(ValidationTest, SamplerKindFail) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\samplerKind.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\SamplerKind.hlsl", "ps_6_0",
       {"uav1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1",
        "g_txDiffuse_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0",
        "\"g_samLinear\", i32 0, i32 0, i32 1, i32 0",
@@ -947,7 +951,7 @@ TEST_F(ValidationTest, SimpleDs1Fail) {
 TEST_F(ValidationTest, SimpleGs1Fail) {
   return;   // Skip for now since this fails AssembleToContainer in PSV creation due to out of range stream index
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\SimpleGS1.hlsl", "gs_6_0",
       {"!{i32 1, i32 3, i32 1, i32 5, i32 1}",
        "i8 4, i32 1, i8 4, i32 2, i8 0, null}"
       },
@@ -986,7 +990,7 @@ TEST_F(ValidationTest, UndefValueFail) {
 TEST_F(ValidationTest, UpdateCounterFail) {
   if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\UpdateCounter2.hlsl", "ps_6_0",
+      L"..\\CodeGenHLSL\\updateCounter2.hlsl", "ps_6_0",
       {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)",
        "%3 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)"
       },
@@ -1038,7 +1042,7 @@ TEST_F(ValidationTest, WhenMetaFlagsUsageDeclThenOK) {
 
 TEST_F(ValidationTest, GsVertexIDOutOfBound) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\SimpleGS1.hlsl", "gs_6_0",
       "dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 2, i32 0)",
       "dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 2, i32 1)", 
       "expect VertexID between 0~1, got 1");
@@ -1046,7 +1050,7 @@ TEST_F(ValidationTest, GsVertexIDOutOfBound) {
 
 TEST_F(ValidationTest, StreamIDOutOfBound) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\SimpleGS1.hlsl", "gs_6_0",
       "dx.op.emitStream(i32 97, i8 0)",
       "dx.op.emitStream(i32 97, i8 1)", 
       "expect StreamID between 0 , got 1");
@@ -1306,7 +1310,7 @@ TEST_F(ValidationTest, DsOutputSemantic) {
 
 TEST_F(ValidationTest, GsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\SimpleGS1.hlsl", "gs_6_0",
       "!\"POSSIZE\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as gs Input");
@@ -1314,7 +1318,7 @@ TEST_F(ValidationTest, GsInputSemantic) {
 
 TEST_F(ValidationTest, GsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
+      L"..\\CodeGenHLSL\\SimpleGS1.hlsl", "gs_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as gs Output");

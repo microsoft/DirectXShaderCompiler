@@ -20,10 +20,11 @@
 #include <algorithm>
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#ifdef _WIN32
 #include <atlfile.h>
+#endif
 
 #include "HLSLTestData.h"
-#include "WexTestClass.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
 
@@ -69,8 +70,8 @@ static string trim(string value) {
       Command(command), Arguments(arguments), CommandFileName(commandFileName) { }
     FileRunCommandPart::FileRunCommandPart(FileRunCommandPart && other) :
       Command(std::move(other.Command)),
-      CommandFileName(other.CommandFileName),
       Arguments(std::move(other.Arguments)),
+      CommandFileName(other.CommandFileName),
       RunResult(other.RunResult),
       StdOut(std::move(other.StdOut)),
       StdErr(std::move(other.StdErr)) { }
@@ -346,7 +347,7 @@ static string trim(string value) {
         CComPtr<IDxcAssembler> pAssembler;
         IFT(DllSupport->CreateInstance(CLSID_DxcAssembler, &pAssembler));
         IFT(pLibrary->CreateBlobWithEncodingFromPinned(
-            (LPBYTE)Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8,
+            Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8,
             &pSource));
       }
 

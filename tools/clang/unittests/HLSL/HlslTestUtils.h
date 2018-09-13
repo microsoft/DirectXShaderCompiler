@@ -11,6 +11,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <atomic>
 #ifdef _WIN32
 #include <dxgiformat.h>
 #include "WexTestClass.h"
@@ -275,9 +276,6 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
 
   static const uint32_t SignMask = 0x8000;
 
-  // Maximum f32 value representable in f16 format
-  static const uint32_t Max16in32 = 0x477fe000;
-
   // Minimum f32 value representable in f16 format without denormalizing
   static const uint32_t Min16in32 = 0x38800000;
 
@@ -298,12 +296,12 @@ inline uint16_t ConvertFloat32ToFloat16(float val) {
   Bits Abs;
   Abs.u_bits = bits.u_bits ^ sign;
 
-  bool isLessThanNormal = Abs.f_bits < *(float*)&Min16in32;
+  bool isLessThanNormal = Abs.f_bits < *(const float*)&Min16in32;
   bool isInfOrNaN = Abs.u_bits > Max32;
 
   if (isLessThanNormal) {
     // Compute Denormal result
-    return (uint16_t)(Abs.f_bits * *(float*)(&DenormalRatio)) | (sign >> 16);
+    return (uint16_t)(Abs.f_bits * *(const float*)(&DenormalRatio)) | (sign >> 16);
   }
   else if (isInfOrNaN) {
     // Compute Inf or Nan result
@@ -372,7 +370,7 @@ inline bool CompareFloatULP(const float &fsrc, const float &fref,
   }
   // For FTZ or Preserve mode, we should get the expected number within
   // ULPTolerance for any operations.
-  int diff = *((DWORD *)&fsrc) - *((DWORD *)&fref);
+  int diff = *((const DWORD *)&fsrc) - *((const DWORD *)&fref);
   unsigned int uDiff = diff < 0 ? -diff : diff;
   return uDiff <= (unsigned int)ULPTolerance;
 }
@@ -511,11 +509,11 @@ inline UINT GetByteSizeForFormat(DXGI_FORMAT value) {
 #endif
 
 #define SIMPLE_IUNKNOWN_IMPL1(_IFACE_) \
-  private: volatile llvm::sys::cas_flag m_dwRef; \
+  private: volatile std::atomic<llvm::sys::cas_flag> m_dwRef; \
   public:\
-  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)llvm::sys::AtomicIncrement(&m_dwRef); } \
+  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)++m_dwRef; } \
   ULONG STDMETHODCALLTYPE Release() { \
-    ULONG result = (ULONG)llvm::sys::AtomicDecrement(&m_dwRef); \
+    ULONG result = (ULONG)--m_dwRef; \
     if (result == 0) delete this; \
     return result; \
   } \

@@ -8,7 +8,7 @@
 // CHECK: uitofp i32 {{.*}} to float
 
 float main(float4 a : A, float b : B) : SV_Target {
-  uint c = b;
+  uint c = b;
   c += a;
   return c;
 }

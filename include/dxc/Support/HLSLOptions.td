@@ -254,6 +254,9 @@ def fvk_s_shift : MultiArg<["-"], "fvk-s-shift", 2>, MetaVarName<"<shift> <space
   HelpText<"Specify Vulkan binding number shift for s-type register">;
 def fvk_u_shift : MultiArg<["-"], "fvk-u-shift", 2>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify Vulkan binding number shift for u-type register">;
+def fvk_bind_register : MultiArg<["-"], "fvk-bind-register", 4>, MetaVarName<"<type-number> <space> <binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify Vulkan descriptor set and binding for a specific register">;
+def vkbr : MultiArg<["-"], "vkbr", 4>, Flags<[CoreOption, DriverOption]>, Alias<fvk_bind_register>;
 def fvk_invert_y: Flag<["-"], "fvk-invert-y">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Negate SV_Position.y before writing to stage output in VS/DS/GS to accommodate Vulkan's coordinate system">;
 def fvk_use_dx_position_w: Flag<["-"], "fvk-use-dx-position-w">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
@@ -264,12 +267,18 @@ def fvk_use_dx_layout: Flag<["-"], "fvk-use-dx-layout">, Group<spirv_Group>, Fla
   HelpText<"Use DirectX memory layout for Vulkan resources">;
 def fspv_reflect: Flag<["-"], "fspv-reflect">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Emit additional SPIR-V instructions to aid reflection">;
+def fspv_debug_EQ : Joined<["-"], "fspv-debug=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify whitelist of debug info category (file -> source -> line, tool)">;
 def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify SPIR-V extension permitted to use">;
 def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify the target environment: vulkan1.0 (default) or vulkan1.1">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Do not emit warnings for ingored features resulting from no Vulkan support">;
+def Wno_vk_emulated_features : Joined<["-"], "Wno-vk-emulated-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Do not emit warnings for emulated features resulting from no direct mapping">;
+def Oconfig : CommaJoined<["-"], "Oconfig=">, Group<spirv_Group>, Flags<[CoreOption]>,
+  HelpText<"Specify a comma-separated list of SPIRV-Tools passes to customize optimization configuration (see http://khr.io/hlsl2spirv#optimization)">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////
@@ -305,6 +314,7 @@ def Zsb : Flag<["-", "/"], "Zsb">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
 def Gfa : Flag<["-", "/"], "Gfa">, HelpText<"Avoid flow control constructs">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def Gfp : Flag<["-", "/"], "Gfp">, HelpText<"Prefer flow control constructs">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 // /Gdp - disable effect performance mode - unsupported
+def Gec : Flag<["-", "/"], "Gec">, HelpText<"Enable backward compatibility mode">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def Ges : Flag<["-", "/"], "Ges">, HelpText<"Enable strict mode">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def Gis : Flag<["-", "/"], "Gis">, HelpText<"Force IEEE strictness">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
@@ -367,7 +377,7 @@ def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption
 def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption]>,
   HelpText<"Suppress copyright message">;
 
-// Also removed: compress, decompress, /Gch (child effect), /Gec (back compat), /Gpp (partial precision)
+// Also removed: compress, decompress, /Gch (child effect), /Gpp (partial precision)
 // /Op - no support for preshaders.
 
 def flegacy_macro_expansion : Flag<["-"], "flegacy-macro-expansion">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,

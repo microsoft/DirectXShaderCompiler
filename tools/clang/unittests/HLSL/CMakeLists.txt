@@ -60,31 +60,31 @@ set( LLVM_LINK_COMPONENTS
   )
 
 set(HLSL_IGNORE_SOURCES
-  CompilerTest.cpp
-  DxilContainerTest.cpp
-  DxilModuleTest.cpp
   ExecutionTest.cpp
-  ExtensionTest.cpp
-  FileCheckerTest.cpp
-  FileCheckForTest.cpp
-  FunctionTest.cpp
   LinkerTest.cpp
   MSFileSysTest.cpp
-  OptimizerTest.cpp
-  OptionsTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
-  SystemValueTest.cpp
-  ValidationTest.cpp
   )
 
 add_clang_unittest(clang-hlsl-tests
   AllocatorTest.cpp
+  CompilerTest.cpp
   DxcTestUtils.cpp
+  DxilContainerTest.cpp
+  DxilModuleTest.cpp
   DXIsenseTest.cpp
+  ExtensionTest.cpp
+  FileCheckerTest.cpp
+  FileCheckForTest.cpp
+  FunctionTest.cpp
   HLSLTestOptions.cpp
   Objects.cpp
+  OptimizerTest.cpp
+  OptionsTest.cpp
+  SystemValueTest.cpp
   TestMain.cpp
+  ValidationTest.cpp
   VerifierTest.cpp
   )
 

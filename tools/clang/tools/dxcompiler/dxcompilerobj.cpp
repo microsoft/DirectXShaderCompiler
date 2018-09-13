@@ -54,7 +54,7 @@
 // SPIRV change ends
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-#include "GitCommitInfo.inc" // Auto generated file containing Git commit info
+#include "clang/Basic/Version.h"
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
 #define CP_UTF16 1200
@@ -63,6 +63,8 @@ using namespace llvm;
 using namespace clang;
 using namespace hlsl;
 using std::string;
+
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
 
 // This declaration is used for the locally-linked validator.
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -494,33 +496,25 @@ public:
       // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
       else if (opts.GenSPIRV) {
-          clang::EmitSPIRVOptions spirvOpts;
+        // Since SpirvOptions is passed to the SPIR-V CodeGen as a whole
+        // structure, we need to copy a few non-spirv-specific options into the
+        // structure.
+        opts.SpirvOptions.enable16BitTypes = opts.Enable16BitTypes;
+        opts.SpirvOptions.codeGenHighLevel = opts.CodeGenHighLevel;
+        opts.SpirvOptions.defaultRowMajor = opts.DefaultRowMajor;
+        opts.SpirvOptions.disableValidation = opts.DisableValidation;
+        // Store a string representation of command line options.
+        if (opts.DebugInfo)
+          for (auto opt : mainArgs.getArrayRef())
+            opts.SpirvOptions.clOptions += " " + std::string(opt);
 
-          spirvOpts.codeGenHighLevel = opts.CodeGenHighLevel;
-          spirvOpts.disableValidation = opts.DisableValidation;
-          spirvOpts.invertY = opts.VkInvertY;
-          spirvOpts.invertW = opts.VkInvertW;
-          spirvOpts.useGlLayout = opts.VkUseGlLayout;
-          spirvOpts.useDxLayout = opts.VkUseDxLayout;
-          spirvOpts.enableReflect = opts.SpvEnableReflect;
-          spirvOpts.defaultRowMajor = opts.DefaultRowMajor;
-          spirvOpts.stageIoOrder = opts.VkStageIoOrder;
-          spirvOpts.noWarnIgnoredFeatures = opts.VkNoWarnIgnoredFeatures;
-          spirvOpts.bShift = opts.VkBShift;
-          spirvOpts.tShift = opts.VkTShift;
-          spirvOpts.sShift = opts.VkSShift;
-          spirvOpts.uShift = opts.VkUShift;
-          spirvOpts.allowedExtensions = opts.SpvExtensions;
-          spirvOpts.targetEnv = opts.SpvTargetEnv;
-          spirvOpts.enable16BitTypes = opts.Enable16BitTypes;
-          spirvOpts.enableDebugInfo = opts.DebugInfo;
-
-          clang::EmitSPIRVAction action(spirvOpts);
-          FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
-          action.BeginSourceFile(compiler, file);
-          action.Execute();
-          action.EndSourceFile();
-          outStream.flush();
+        compiler.getCodeGenOpts().SpirvOptions = opts.SpirvOptions;
+        clang::EmitSPIRVAction action;
+        FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
+        action.BeginSourceFile(compiler, file);
+        action.Execute();
+        action.EndSourceFile();
+        outStream.flush();
       }
 #endif
       // SPIRV change ends
@@ -806,6 +800,10 @@ public:
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(
         TargetInfo::CreateTargetInfo(compiler.getDiagnostics(), targetOptions));
+    if (Opts.EnableBackCompatMode) {
+      auto const ID = compiler.getDiagnostics().getCustomDiagID(clang::DiagnosticsEngine::Warning, "/Gec flag is a deprecated functionality.");
+      compiler.getDiagnostics().Report(ID);
+    }
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
     // Setup debug information.
@@ -857,6 +855,7 @@ public:
     compiler.getLangOpts().RootSigMajor = 1;
     compiler.getLangOpts().RootSigMinor = rootSigMinor;
     compiler.getLangOpts().HLSLVersion = (unsigned) Opts.HLSLVersion;
+    compiler.getLangOpts().EnableBackCompatMode = Opts.EnableBackCompatMode;
 
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
@@ -961,13 +960,13 @@ public:
     if (pCommitCount == nullptr || pCommitHash == nullptr)
       return E_INVALIDARG;
 
-    char *const hash = (char *)CoTaskMemAlloc(ARRAYSIZE(kGitCommitHash) + 1);
+    char *const hash = (char *)CoTaskMemAlloc(8 + 1); // 8 is guaranteed by utils/GetCommitInfo.py
     if (hash == nullptr)
       return E_OUTOFMEMORY;
-    std::strcpy(hash, kGitCommitHash);
+    std::strcpy(hash, getGitCommitHash());
 
     *pCommitHash = hash;
-    *pCommitCount = kGitCommitCount;
+    *pCommitCount = getGitCommitCount();
 
     return S_OK;
   }

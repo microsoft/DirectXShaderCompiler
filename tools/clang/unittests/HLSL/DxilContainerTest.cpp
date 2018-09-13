@@ -13,6 +13,11 @@
 #define UNICODE
 #endif
 
+#ifdef __APPLE__
+// Workaround for ambiguous wcsstr on Mac
+#define _WCHAR_H_CPLUSPLUS_98_CONFORMANCE_
+#endif
+
 #include <memory>
 #include <vector>
 #include <string>
@@ -23,10 +28,14 @@
 #include <unordered_set>
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#ifdef _WIN32
 #include <atlfile.h>
+#include <d3dcompiler.h>
+#pragma comment(lib, "d3dcompiler.lib")
+#include <filesystem>
+#endif
 
 #include "HLSLTestData.h"
-#include "WexTestClass.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
 
@@ -39,17 +48,14 @@
 #include "dxc/HLSL/DxilUtil.h"
 
 #include <fstream>
-#include <filesystem>
 #include <chrono>
-
-#include <d3dcompiler.h>
-#pragma comment(lib, "d3dcompiler.lib")
 
 #include <codecvt>
 
 
 using namespace std;
 using namespace hlsl_test;
+#ifdef _WIN32
 using namespace std::experimental::filesystem;
 
 static uint8_t MaskCount(uint8_t V) {
@@ -62,8 +68,13 @@ static uint8_t MaskCount(uint8_t V) {
   };
   return Count[V];
 }
+#endif
 
+#ifdef _WIN32
 class DxilContainerTest {
+#else
+class DxilContainerTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(DxilContainerTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -114,6 +125,7 @@ public:
     return m_dllSupport.CreateInstance(CLSID_DxcCompiler, ppResult);
   }
 
+#ifdef _WIN32 // - Reflection Unsupported
   void CompareShaderInputBindDesc(D3D12_SHADER_INPUT_BIND_DESC *pTestDesc,
     D3D12_SHADER_INPUT_BIND_DESC *pBaseDesc) {
     VERIFY_ARE_EQUAL(pTestDesc->BindCount, pBaseDesc->BindCount);
@@ -331,6 +343,7 @@ public:
       VERIFY_ARE_EQUAL(testZ, baseZ);
     }
   }
+#endif // _WIN32 - Reflection unsupported
 
   void split(const wstring &s, wchar_t delim, vector<wstring> &elems) {
     wstringstream ss(s);
@@ -369,6 +382,7 @@ public:
     parts.push_back(P);
   }
 
+#ifdef _WIN32  // - Reflection unsupported
   HRESULT CompileFromFile(LPCWSTR path, bool useDXBC, IDxcBlob **ppBlob) {
     std::vector<FileRunCommandPart> parts;
     //NameParseCommandPartsFromFile(path, parts);
@@ -418,6 +432,7 @@ public:
         D3DReflect(pBlob->GetBufferPointer(), pBlob->GetBufferSize(),
                    __uuidof(ID3D12ShaderReflection), (void **)ppReflection));
   }
+#endif // _WIN32 - Reflection unsupported
 
   void CompileToProgram(LPCSTR program, LPCWSTR entryPoint, LPCWSTR target,
                         LPCWSTR *pArguments, UINT32 argCount,
@@ -499,6 +514,7 @@ public:
     }
   }
 
+#ifdef _WIN32 // Reflection unsupported
   WEX::Common::String WStrFmt(const wchar_t* msg, ...) {
     va_list args;
     va_start(args, msg);
@@ -530,6 +546,7 @@ public:
 
     CompareReflection(pProgramReflection, pProgramReflectionDXBC);
   }
+#endif // _WIN32 - Reflection unsupported
 };
 
 bool DxilContainerTest::InitSupport() {
@@ -540,6 +557,7 @@ bool DxilContainerTest::InitSupport() {
   return true;
 }
 
+#ifdef _WIN32
 TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   char program1[] = "float4 main() : SV_Target { return 0; }";
   char program2[] = "  float4 main() : SV_Target { return 0; }  ";
@@ -576,6 +594,7 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   VERIFY_ARE_EQUAL_STR(binName1.c_str(), binName2.c_str());
   VERIFY_IS_FALSE(0 == strcmp(sourceName1Zss.c_str(), binName1.c_str()));
 }
+#endif // _WIN32
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
   char program[] =
@@ -1230,7 +1249,7 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesFeatureInfo) {
                            hlsl::DxilPartIsType(hlsl::DFCC_FeatureInfo));
   VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
   VERIFY_ARE_EQUAL(sizeof(uint64_t), (*pPartIter)->PartSize);
-  VERIFY_ARE_EQUAL(0, *(uint64_t *)hlsl::GetDxilPartData(*pPartIter));
+  VERIFY_ARE_EQUAL(0U, *(const uint64_t *)hlsl::GetDxilPartData(*pPartIter));
 }
 
 TEST_F(DxilContainerTest, DisassemblyWhenBCInvalidThenFails) {
@@ -1366,7 +1385,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenValidThenOK) {
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
   VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
   std::string disassembleString(BlobToUtf8(pDisassembly));
-  VERIFY_ARE_NOT_EQUAL(0, disassembleString.size());
+  VERIFY_ARE_NOT_EQUAL(0U, disassembleString.size());
 }
 
 class HlslFileVariables {
@@ -1450,6 +1469,7 @@ HRESULT HlslFileVariables::SetFromText(_In_count_(len) const char *pText, size_t
   return S_OK;
 }
 
+#ifdef _WIN32 // Reflection unsupported
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\Samples\\DX11\\SimpleBezier11DS.hlsl").c_str(), false);
@@ -1502,6 +1522,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
     }
   }
 }
+#endif // _WIN32 - Reflection unsupported
 
 TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
   CodeGenTestCheck(L"abs2_m.ll");

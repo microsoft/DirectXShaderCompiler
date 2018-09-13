@@ -7654,6 +7654,8 @@ def err_hlsl_func_in_func_decl : Error<
    "function declaration is not allowed in function parameters">;
 def err_hlsl_unsupported_keyword_for_version : Error<
    "%0 is only allowed for HLSL %1 and above.">;
+def err_hlsl_unsupported_for_version_lower : Error<
+   "%0 is only allowed for HLSL %1 and lower.">;
 def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<

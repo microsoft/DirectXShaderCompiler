@@ -94,6 +94,7 @@ namespace clang {
     UETT_AlignOf,
     UETT_VecStep,
     UETT_OpenMPRequiredSimdAlign,
+    UETT_ArrayLength,    // HLSL Change
   };
 }
 

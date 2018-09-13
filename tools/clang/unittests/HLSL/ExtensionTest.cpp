@@ -8,7 +8,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "CompilationResult.h"
-#include "WexTestClass.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
 #include "dxc/Support/microcom.h"
@@ -149,7 +148,7 @@ Intrinsic BufferIntrinsics[] = {
 
 class IntrinsicTable {
 public:
-  IntrinsicTable(wchar_t *ns, Intrinsic *begin, Intrinsic *end)
+  IntrinsicTable(const wchar_t *ns, Intrinsic *begin, Intrinsic *end)
     :  m_namespace(ns), m_begin(begin), m_end(end)
   { }
 
@@ -209,7 +208,7 @@ private:
 
 class TestIntrinsicTable : public IDxcIntrinsicTable {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef);
+  DXC_MICROCOM_REF_FIELD(m_dwRef)
   std::vector<IntrinsicTable> m_tables;
 public:
   TestIntrinsicTable() : m_dwRef(0) { 
@@ -307,7 +306,7 @@ public:
 // the correct type (integer, string, etc).
 class TestSemanticDefineValidator : public IDxcSemanticDefineValidator {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef);
+  DXC_MICROCOM_REF_FIELD(m_dwRef)
   std::vector<std::string> m_errorDefines;
   std::vector<std::string> m_warningDefines;
 public:
@@ -322,7 +321,7 @@ public:
     return DoBasicQueryInterface<IDxcSemanticDefineValidator>(this, iid, ppvObject);
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetSemanticDefineWarningsAndErrors(LPCSTR pName, LPCSTR pValue, IDxcBlobEncoding **ppWarningBlob, IDxcBlobEncoding **ppErrorBlob) {
+  virtual HRESULT STDMETHODCALLTYPE GetSemanticDefineWarningsAndErrors(LPCSTR pName, LPCSTR pValue, IDxcBlobEncoding **ppWarningBlob, IDxcBlobEncoding **ppErrorBlob) override {
     if (!pName || !pValue || !ppWarningBlob || !ppErrorBlob)
       return E_FAIL;
 
@@ -413,7 +412,11 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 // Extension unit tests.
 
+#ifdef _WIN32
 class ExtensionTest {
+#else
+class ExtensionTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(ExtensionTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")

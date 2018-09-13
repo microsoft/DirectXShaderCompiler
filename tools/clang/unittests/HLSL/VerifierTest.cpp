@@ -36,6 +36,7 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
+  TEST_METHOD(RunArrayLength)
   TEST_METHOD(RunAttributes)
   TEST_METHOD(RunConstExpr)
   TEST_METHOD(RunConstAssign)
@@ -132,6 +133,10 @@ public:
     CheckVerifies(hlsl_test::GetPathToHlslDataFile(name).c_str());
   }
 };
+
+TEST_F(VerifierTest, RunArrayLength) {
+  CheckVerifiesHLSL(L"array-length.hlsl");
+}
 
 TEST_F(VerifierTest, RunAttributes) {
   CheckVerifiesHLSL(L"attributes.hlsl");

@@ -10,7 +10,7 @@
 #include "clang/SPIRV/ModuleBuilder.h"
 
 #include "TypeTranslator.h"
-#include "spirv/unified1//spirv.hpp11"
+#include "spirv/unified1/spirv.hpp11"
 #include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/InstBuilder.h"
 
@@ -18,17 +18,13 @@ namespace clang {
 namespace spirv {
 
 ModuleBuilder::ModuleBuilder(SPIRVContext *C, FeatureManager *features,
-                             bool reflect)
-    : theContext(*C), featureManager(features), allowReflect(reflect),
-      theModule(), theFunction(nullptr), insertPoint(nullptr),
+                             const SpirvCodeGenOptions &opts)
+    : theContext(*C), featureManager(features), spirvOptions(opts),
+      theModule(opts), theFunction(nullptr), insertPoint(nullptr),
       instBuilder(nullptr), glslExtSetId(0) {
   instBuilder.setConsumer([this](std::vector<uint32_t> &&words) {
     this->constructSite = std::move(words);
   });
-
-  // Set the SPIR-V version if needed.
-  if (featureManager && featureManager->getTargetEnv() == SPV_ENV_VULKAN_1_1)
-    theModule.setVersion(0x00010300);
 }
 
 std::vector<uint32_t> ModuleBuilder::takeModule() {
@@ -809,7 +805,7 @@ void ModuleBuilder::decorateInputAttachmentIndex(uint32_t targetId,
 
 void ModuleBuilder::decorateCounterBufferId(uint32_t mainBufferId,
                                             uint32_t counterBufferId) {
-  if (allowReflect) {
+  if (spirvOptions.enableReflect) {
     addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
                  {});
     theModule.addDecoration(
@@ -821,7 +817,7 @@ void ModuleBuilder::decorateCounterBufferId(uint32_t mainBufferId,
 void ModuleBuilder::decorateHlslSemantic(uint32_t targetId,
                                          llvm::StringRef semantic,
                                          llvm::Optional<uint32_t> memberIdx) {
-  if (allowReflect) {
+  if (spirvOptions.enableReflect) {
     addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
                  {});
     theModule.addDecoration(

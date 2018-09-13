@@ -13,19 +13,20 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include <strstream>
 #include "CompilationResult.h"
 #include "HLSLTestData.h"
 
 #undef _read
-#include "WexTestClass.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/DxilContainer.h"
 
-class FunctionTest
-{
+#ifdef _WIN32
+class FunctionTest {
+#else
+class FunctionTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(FunctionTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -98,6 +99,7 @@ public:
       CComPtr<IDxcBlob> pContainer;
 
       VERIFY_SUCCEEDED(pResult->GetResult(&pContainer));
+#ifdef _WIN32 // No reflection support
       VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
       VERIFY_SUCCEEDED(pReflection->Load(pContainer));
       UINT count;
@@ -112,6 +114,7 @@ public:
         }
       }
       VERIFY_IS_TRUE(found);
+#endif // _WIN32 - No reflection support
     }
   }
 
@@ -139,7 +142,7 @@ TEST_F(FunctionTest, AllowedStorageClass) {
 TEST_F(FunctionTest, AllowedInParamUsesClass) {
   const char* fragments[] =  { "f", "1.0f" };
   for (const auto &iop : InOutParameterModifierData) {
-    for (int i = 0; i < _countof(fragments); i++) {
+    for (unsigned i = 0; i < _countof(fragments); i++) {
       char program[256];
       sprintf_s(program, _countof(program),
               "float ps(%s float o) { return o; }\n"
@@ -154,6 +157,7 @@ TEST_F(FunctionTest, AllowedInParamUsesClass) {
 }
 
 TEST_F(FunctionTest, ParseRootSignature) {
+#ifdef _WIN32 // - dxil.dll can only be found on Windows
   struct AutoModule {
     HMODULE m_module;
     AutoModule(const wchar_t *pName) {
@@ -165,6 +169,7 @@ TEST_F(FunctionTest, ParseRootSignature) {
     }
   };
   AutoModule dxilAM(L"dxil.dll"); // Pin this if available to avoid reloading on each compile.
+#endif // _WIN32 - dxil.dll can only be found on Windows
 
   VERIFY_SUCCEEDED(m_support.Initialize());
 

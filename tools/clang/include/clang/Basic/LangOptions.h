@@ -149,13 +149,14 @@ public:
 #endif
 
   // HLSL Change Starts
-  unsigned HLSLVersion;  // Only supported for IntelliSense scenarios.
+  unsigned HLSLVersion; 
   std::string HLSLEntryFunction;
   std::string HLSLProfile;
   unsigned RootSigMajor;
   unsigned RootSigMinor;
   bool IsHLSLLibrary;
   bool UseMinPrecision; // use min precision, not native precision.
+  bool EnableBackCompatMode;
   // HLSL Change Ends
 
   bool SPIRV = false;  // SPIRV Change

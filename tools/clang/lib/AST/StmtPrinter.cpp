@@ -1131,7 +1131,9 @@ void StmtPrinter::VisitIntegerLiteral(IntegerLiteral *Node) {
   case BuiltinType::Char_S:
   case BuiltinType::Char_U:    OS << "i8"; break;
   case BuiltinType::UChar:     OS << "Ui8"; break;
+  case BuiltinType::Min16Int: // HLSL Change
   case BuiltinType::Short:     OS << "i16"; break;
+  case BuiltinType::Min16UInt: // HLSL Change
   case BuiltinType::UShort:    OS << "Ui16"; break;
   case BuiltinType::LitInt:    break; // HLSL Change
   case BuiltinType::Int:       break; // no suffix.
@@ -1164,6 +1166,8 @@ static void PrintFloatingLiteral(raw_ostream &OS, FloatingLiteral *Node,
     default: llvm_unreachable("Unexpected type for float literal!");
     case BuiltinType::LitFloat:   break; // HLSL Change -- no suffix
     case BuiltinType::Min10Float: break; // no suffix, as this is a literal and 'F' would pollute expression
+    case BuiltinType::HalfFloat:
+    case BuiltinType::Min16Float:
     case BuiltinType::Half:       OS << 'H'; break; // HLSL Change -- added suffix
     case BuiltinType::Double:     OS << 'L'; break; // HLSL Change -- added suffix
     case BuiltinType::Float:      OS << 'F'; break;
@@ -1261,6 +1265,13 @@ void StmtPrinter::VisitOffsetOfExpr(OffsetOfExpr *Node) {
 }
 
 void StmtPrinter::VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *Node){
+  // HLSL Change Begin
+  if (Node->getKind() == UETT_ArrayLength) {
+    PrintExpr(Node->getArgumentExpr());
+    OS << ".Length";
+    return;
+  }
+  // HLSL Change Ends
   switch(Node->getKind()) {
   case UETT_SizeOf:
     OS << "sizeof";

@@ -57,7 +57,7 @@ unsigned ASTContext::NumImplicitDestructors;
 unsigned ASTContext::NumImplicitDestructorsDeclared;
 
 enum FloatingRank {
-  LitFloatRank, Min10FloatRank, HalfRank, FloatRank, DoubleRank, LongDoubleRank // HLSL Change - adds LitFloatRank and Min10FloatRank
+  LitFloatRank, Min10FloatRank, Min16FloatRank, HalfRank, HalfFloatRank, FloatRank, DoubleRank, LongDoubleRank // HLSL Change - adds LitFloatRank, Min10FloatRank, HalfFloat, and Min16FloatRank
 };
 
 RawComment *ASTContext::getRawCommentForDeclNoCache(const Decl *D) const {
@@ -1095,7 +1095,11 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
   // HLSL Change Starts
   if (LangOpts.HLSL) {
     InitBuiltinType(Min12IntTy, BuiltinType::Min12Int);
+    InitBuiltinType(Min16IntTy, BuiltinType::Min16Int);
+    InitBuiltinType(Min16UIntTy, BuiltinType::Min16UInt);
+    InitBuiltinType(Min16FloatTy, BuiltinType::Min16Float);
     InitBuiltinType(Min10FloatTy, BuiltinType::Min10Float);
+    InitBuiltinType(HalfFloatTy, BuiltinType::HalfFloat);
     InitBuiltinType(LitIntTy, BuiltinType::LitInt);
     InitBuiltinType(LitFloatTy, BuiltinType::LitFloat);
     hlsl::InitializeASTContextForHLSL(*this); // Previously in constructor, guarded by !DelayInitialization
@@ -1318,8 +1322,10 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
   default: llvm_unreachable("Not a floating point type!");
   // HLSL Change Starts
   case BuiltinType::Min10Float:
+  case BuiltinType::Min16Float:
   // HLSL Change Ends
   case BuiltinType::Half:       return Target->getHalfFormat();
+  case BuiltinType::HalfFloat: // HLSL Change
   case BuiltinType::Float:      return Target->getFloatFormat();
   case BuiltinType::Double:     return Target->getDoubleFormat();
   case BuiltinType::LongDouble: return Target->getLongDoubleFormat();
@@ -1608,6 +1614,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getChar32Width();
       Align = Target->getChar32Align();
       break;
+    case BuiltinType::Min16UInt: // HLSL Change
     case BuiltinType::UShort:
     case BuiltinType::Short:
       Width = Target->getShortWidth();
@@ -1637,6 +1644,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getHalfWidth();
       Align = Target->getHalfAlign();
       break;
+    case BuiltinType::HalfFloat: // HLSL Change
     case BuiltinType::Float:
       Width = Target->getFloatWidth();
       Align = Target->getFloatAlign();
@@ -1647,10 +1655,12 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       break;
     // HLSL Change Starts
     case BuiltinType::Min10Float:
+    case BuiltinType::Min16Float:
       Width = 16;
       Align = 16;
       break;
     case BuiltinType::Min12Int:
+    case BuiltinType::Min16Int:
       Width = 16;
       Align = 16;
       break;
@@ -4600,8 +4610,12 @@ static FloatingRank getFloatingRank(QualType T) {
   case BuiltinType::Float:      return FloatRank;
   case BuiltinType::Double:     return DoubleRank;
   case BuiltinType::LongDouble: return LongDoubleRank;
-  case BuiltinType::Min10Float: return Min10FloatRank; // HLSL Change
-  case BuiltinType::LitFloat:   return LitFloatRank; // HLSL Change
+  // HLSL Changes begin
+  case BuiltinType::Min10Float: return Min10FloatRank;
+  case BuiltinType::Min16Float: return Min16FloatRank;
+  case BuiltinType::HalfFloat: return HalfFloatRank;
+  case BuiltinType::LitFloat:   return LitFloatRank;
+  // HLSL Changes end
   }
 }
 
@@ -4614,12 +4628,17 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
   FloatingRank EltRank = getFloatingRank(Size);
   if (Domain->isComplexType()) {
     switch (EltRank) {
-    case HalfRank: llvm_unreachable("Complex half is not supported");
     case FloatRank:      return FloatComplexTy;
     case DoubleRank:     return DoubleComplexTy;
     case LongDoubleRank: return LongDoubleComplexTy;
-    case LitFloatRank:   llvm_unreachable("Complex LitFloat is not supported");  // HLSL Change
-    case Min10FloatRank: llvm_unreachable("Complex Min10Float is not supported"); // HLSL Change
+    // HLSL Changes begin
+    case HalfRank:
+    case LitFloatRank:
+    case Min10FloatRank:
+    case Min16FloatRank:
+    case HalfFloatRank:
+      llvm_unreachable("Complex type is not supported in HLSL.");
+    // HLSL Changes end
     }
   }
 
@@ -5462,6 +5481,10 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
     // HLSL Change Start
     case BuiltinType::Min12Int:
     case BuiltinType::Min10Float:
+    case BuiltinType::Min16Float:
+    case BuiltinType::Min16Int:
+    case BuiltinType::Min16UInt:
+    case BuiltinType::HalfFloat:
     case BuiltinType::LitInt:
     case BuiltinType::LitFloat:
       llvm_unreachable("@encoding HLSL primitive type");

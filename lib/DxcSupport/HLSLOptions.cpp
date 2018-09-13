@@ -218,6 +218,59 @@ static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *major, uns
   return true;
 }
 
+// SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+/// Checks and collects the arguments for -fvk-{b|s|t|u}-shift into *shifts.
+static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
+                              const char *name,
+                              llvm::SmallVectorImpl<int32_t> *shifts,
+                              llvm::raw_ostream &errors) {
+  const auto values = args.getAllArgValues(id);
+
+  if (values.empty())
+    return true;
+
+  if (!args.hasArg(OPT_spirv)) {
+    errors << "-fvk-" << name << "-shift requires -spirv";
+    return false;
+  }
+
+  if (!args.getLastArgValue(OPT_fvk_bind_register).empty()) {
+    errors << "-fvk-" << name
+           << "-shift cannot be used together with -fvk-bind-register";
+    return false;
+  }
+
+  shifts->clear();
+  bool setForAll = false;
+
+  for (const auto &val : values) {
+    int32_t number = 0;
+    if (val == "all") {
+      number = -1;
+      setForAll = true;
+    } else {
+      if (llvm::StringRef(val).getAsInteger(10, number)) {
+        errors << "invalid -fvk-" << name << "-shift argument: " << val;
+        return false;
+      }
+      if (number < 0) {
+        errors << "negative -fvk-" << name << "-shift argument: " << val;
+        return false;
+      }
+    }
+    shifts->push_back(number);
+  }
+  if (setForAll && shifts->size() > 2) {
+    errors << "setting all sets via -fvk-" << name
+           << "-shift argument should be used alone";
+    return false;
+  }
+  return true;
+};
+#endif
+// SPIRV Change Ends
+
 namespace hlsl {
 namespace options {
 
@@ -310,10 +363,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   }
 
-
+  opts.EnableBackCompatMode = Args.hasFlag(OPT_Gec, OPT_INVALID, false);
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  if (ver.empty()) { opts.HLSLVersion = 2018; }   // Default to latest version
-  else {
+  if (ver.empty()) {
+    if (opts.EnableBackCompatMode)
+      opts.HLSLVersion = 2016; // Default to max supported version with /Gec flag
+    else
+      opts.HLSLVersion = 2018; // Default to latest version
+  } else {
     try {
       opts.HLSLVersion = std::stoul(std::string(ver));
       if (opts.HLSLVersion < 2015 || opts.HLSLVersion > 2018) {
@@ -333,6 +390,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   if (opts.HLSLVersion == 2015 && !(flagsToInclude & HlslFlags::ISenseOption)) {
     errors << "HLSL Version 2015 is only supported for language services";
+    return 1;
+  }
+
+  if (opts.EnableBackCompatMode && opts.HLSLVersion > 2016) {
+    errors << "/Gec is not supported with HLSLVersion " << opts.HLSLVersion;
     return 1;
   }
 
@@ -565,71 +627,80 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
     // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
-  const bool genSpirv = opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
-  opts.VkInvertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
-  opts.VkInvertW = Args.hasFlag(OPT_fvk_use_dx_position_w, OPT_INVALID, false);
-  opts.VkUseGlLayout = Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
-  opts.VkUseDxLayout = Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false);
-  opts.SpvEnableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
-  opts.VkNoWarnIgnoredFeatures = Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false);
+  opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
+  opts.SpirvOptions.invertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
+  opts.SpirvOptions.invertW = Args.hasFlag(OPT_fvk_use_dx_position_w, OPT_INVALID, false);
+  opts.SpirvOptions.useGlLayout = Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
+  opts.SpirvOptions.useDxLayout = Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false);
+  opts.SpirvOptions.enableReflect = Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false);
+  opts.SpirvOptions.noWarnIgnoredFeatures = Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false);
+  opts.SpirvOptions.noWarnEmulatedFeatures = Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false);
 
-  // Collects the arguments for -fvk-{b|s|t|u}-shift.
-  const auto handleVkShiftArgs =
-      [genSpirv, &Args, &errors](OptSpecifier id, const char *name,
-                                 llvm::SmallVectorImpl<int32_t> *shifts) {
-        const auto values = Args.getAllArgValues(id);
-
-        if (!genSpirv && !values.empty()) {
-          errors << "-fvk-" << name << "-shift requires -spirv";
-          return false;
-        }
-
-        shifts->clear();
-        bool setForAll = false;
-
-        for (const auto &val : values) {
-          int32_t number = 0;
-          if (val == "all") {
-            number = -1;
-            setForAll = true;
-          } else {
-            if (llvm::StringRef(val).getAsInteger(10, number)) {
-              errors << "invalid -fvk-" << name << "-shift argument: " << val;
-              return false;
-            }
-            if (number < 0) {
-              errors << "negative -fvk-" << name << "-shift argument: " << val;
-              return false;
-            }
-          }
-          shifts->push_back(number);
-        }
-        if (setForAll && shifts->size() > 2) {
-          errors << "setting all sets via -fvk-" << name
-                 << "-shift argument should be used alone";
-          return false;
-        }
-        return true;
-      };
-
-  if (!handleVkShiftArgs(OPT_fvk_b_shift, "b", &opts.VkBShift) ||
-      !handleVkShiftArgs(OPT_fvk_t_shift, "t", &opts.VkTShift) ||
-      !handleVkShiftArgs(OPT_fvk_s_shift, "s", &opts.VkSShift) ||
-      !handleVkShiftArgs(OPT_fvk_u_shift, "u", &opts.VkUShift))
+  if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_s_shift, "s", &opts.SpirvOptions.sShift, errors) ||
+      !handleVkShiftArgs(Args, OPT_fvk_u_shift, "u", &opts.SpirvOptions.uShift, errors))
     return 1;
 
-  opts.VkStageIoOrder = Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
-  if (opts.VkStageIoOrder != "alpha" && opts.VkStageIoOrder != "decl") {
+  opts.SpirvOptions.bindRegister = Args.getAllArgValues(OPT_fvk_bind_register);
+  opts.SpirvOptions.stageIoOrder = Args.getLastArgValue(OPT_fvk_stage_io_order_EQ, "decl");
+  if (opts.SpirvOptions.stageIoOrder != "alpha" && opts.SpirvOptions.stageIoOrder != "decl") {
     errors << "unknown Vulkan stage I/O location assignment order: "
-           << opts.VkStageIoOrder;
+           << opts.SpirvOptions.stageIoOrder;
     return 1;
   }
 
   for (const Arg *A : Args.filtered(OPT_fspv_extension_EQ)) {
-    opts.SpvExtensions.push_back(A->getValue());
+    opts.SpirvOptions.allowedExtensions.push_back(A->getValue());
   }
 
-  opts.SpvTargetEnv = Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
+  opts.SpirvOptions.debugInfoFile = opts.SpirvOptions.debugInfoSource = false;
+  opts.SpirvOptions.debugInfoLine = opts.SpirvOptions.debugInfoTool = false;
+  if (Args.hasArg(OPT_fspv_debug_EQ)) {
+    opts.DebugInfo = true;
+    for (const Arg *A : Args.filtered(OPT_fspv_debug_EQ)) {
+      const llvm::StringRef v = A->getValue();
+      if (v == "file") {
+        opts.SpirvOptions.debugInfoFile = true;
+      } else if (v == "source") {
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
+      } else if (v == "line") {
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
+        opts.SpirvOptions.debugInfoLine = true;
+      } else if (v == "tool") {
+        opts.SpirvOptions.debugInfoTool = true;
+      } else {
+        errors << "unknown SPIR-V debug info control parameter: " << v;
+        return 1;
+      }
+    }
+  } else if (opts.DebugInfo) {
+    // By default turn on all categories
+    opts.SpirvOptions.debugInfoFile = opts.SpirvOptions.debugInfoSource = true;
+    opts.SpirvOptions.debugInfoLine = opts.SpirvOptions.debugInfoTool = true;
+  }
+
+  opts.SpirvOptions.targetEnv = Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
+
+  // Handle -Oconfig=<comma-separated-list> option.
+  uint32_t numOconfigs = 0;
+  for (const Arg *A : Args.filtered(OPT_Oconfig)) {
+    ++numOconfigs;
+    if (numOconfigs > 1) {
+      errors << "-Oconfig should not be specified more than once";
+      return 1;
+    }
+    if (Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3, OPT_O4)) {
+      errors << "-Oconfig should not be used together with -O";
+      return 1;
+    }
+    for (const auto v : A->getValues()) {
+      opts.SpirvOptions.optConfig.push_back(v);
+    }
+  }
+
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||
@@ -638,19 +709,22 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
+      !Args.getLastArgValue(OPT_fspv_debug_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_target_env_EQ).empty() ||
+      !Args.getLastArgValue(OPT_Oconfig).empty() ||
+      !Args.getLastArgValue(OPT_fvk_bind_register).empty() ||
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||
-      !Args.getLastArgValue(OPT_fvk_u_shift).empty()
-      ) {
+      !Args.getLastArgValue(OPT_fvk_u_shift).empty()) {
     errors << "SPIR-V CodeGen not available. "
               "Please recompile with -DENABLE_SPIRV_CODEGEN=ON.";
     return 1;
   }
-#endif
+#endif // ENABLE_SPIRV_CODEGEN
   // SPIRV Change Ends
 
   opts.Args = std::move(Args);

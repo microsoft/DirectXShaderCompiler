@@ -144,8 +144,35 @@ constructs when possible. If that is inadequate, we then consider attaching
 Descriptors
 ~~~~~~~~~~~
 
-To specify which Vulkan descriptor a particular resource binds to, use the
-``[[vk::binding(X[, Y])]]`` attribute.
+The compiler provides multiple mechanisms to specify which Vulkan descriptor
+a particular resource binds to.
+
+In the source code, you can use the ``[[vk::binding(X[, Y])]]`` and
+``[[vk::counter_binding(X)]]`` attribute. The native ``:register()`` attribute
+is also respected.
+
+On the command-line, you can use the ``-fvk-{b|s|t|u}-shift`` or
+``-fvk-bind-register`` option.
+
+If you can modify the source code, the ``[[vk::binding(X[, Y])]]`` and
+``[[vk::counter_binding(X)]]`` attribute gives you find-grained control over
+descriptor assignment.
+
+If you cannot modify the source code, you can use command-line options to change
+how ``:register()`` attribute is handled by the compiler. ``-fvk-bind-register``
+lets you to specify the descriptor for the source at a certain register.
+``-fvk-{b|s|t|u}-shift`` lets you to apply shifts to all register numbers
+of a certain register type. They cannot be used together, though.
+
+Without attribute and command-line option, ``:register(xX, spaceY)`` will be
+mapped to binding ``X`` in descriptor set ``Y``. Note that register type ``x``
+is ignored, so this may cause overlap.
+
+The more specific a mechanism is, the higher precedence it has, and command-line
+option has higher precedence over source code attribute.
+
+For more details, see `HLSL register and Vulkan binding`_, `Vulkan specific
+attributes`_, and `Vulkan-specific options`_.
 
 Subpass inputs
 ~~~~~~~~~~~~~~
@@ -347,7 +374,65 @@ Optimization
 
 Optimization is also delegated to SPIRV-Tools. Right now there are no difference
 between optimization levels greater than zero; they will all invoke the same
-optimization recipe. This may change in the future.
+optimization recipe. That is, the recipe behind ``spirv-opt -O``.  If you want to
+run a custom optimization recipe, you can do so using the command line option
+``-Oconfig=`` and specifying a comma-separated list of your desired passes.
+The passes are invoked in the specified order.
+
+For example, you can specify ``-Oconfig=--loop-unroll,--scalar-replacement=300,--eliminate-dead-code-aggressive``
+to firstly invoke loop unrolling, then invoke scalar replacement of aggregates,
+lastly invoke aggressive dead code elimination. All valid options to
+``spirv-opt`` are accepted as components to the comma-separated list.
+
+Here are the typical passes in alphabetical order:
+
+* ``--ccp``
+* ``--cfg-cleanup``
+* ``--convert-local-access-chains``
+* ``--copy-propagate-arrays``
+* ``--eliminate-dead-branches``
+* ``--eliminate-dead-code-aggressive``
+* ``--eliminate-dead-functions``
+* ``--eliminate-local-multi-store``
+* ``--eliminate-local-single-block``
+* ``--eliminate-local-single-store``
+* ``--flatten-decorations``
+* ``--if-conversion``
+* ``--inline-entry-points-exhaustive``
+* ``--local-redundancy-elimination``
+* ``--loop-fission``
+* ``--loop-fusion``
+* ``--loop-unroll``
+* ``--loop-unroll-partial=[<n>]``
+* ``--loop-peeling`` (requires ``--loop-peeling-threshold``)
+* ``--merge-blocks``
+* ``--merge-return``
+* ``--loop-unswitch``
+* ``--private-to-local``
+* ``--reduce-load-size``
+* ``--redundancy-elimination``
+* ``--remove-duplicates``
+* ``--replace-invalid-opcode``
+* ``--ssa-rewrite``
+* ``--scalar-replacement[=<n>]``
+* ``--simplify-instructions``
+* ``--vector-dce``
+
+
+Besides, there are two special batch options; each stands for a recommended
+recipe by itself:
+
+* ``-O``: A bunch of passes in an appropriate order that attempt to improve
+  performance of generated code. Same as ``spirv-opt -O``. Also same as SPIR-V
+  CodeGen's default recipe.
+* ``-Os``: A bunch of passes in an appropriate order that attempt to reduce the
+  size of the generated code. Same as ``spirv-opt -Os``.
+
+So if you want to run loop unrolling additionally after the default optimization
+recipe, you can specify ``-Oconfig=-O,--loop-unroll``.
+
+For the whole list of accepted passes and details about each one, please see
+``spirv-opt``'s help manual (``spirv-opt --help``), or the SPIRV-Tools `optimizer header file <https://github.com/KhronosGroup/SPIRV-Tools/blob/master/include/spirv-tools/optimizer.hpp>`_.
 
 Validation
 ~~~~~~~~~~
@@ -355,6 +440,45 @@ Validation
 Validation is turned on by default as the last stage of SPIR-V CodeGen. Failing
 validation, which indicates there is a CodeGen bug, will trigger a fatal error.
 Please file an issue if you see that.
+
+Debugging
+---------
+
+By default, the compiler will only emit names for types and variables as debug
+information, to aid reading of the generated SPIR-V. The ``-Zi`` option will
+let the compiler emit the following additional debug information:
+
+* Full path of the main source file using ``OpSource``
+* Preprocessed source code using ``OpSource`` and ``OpSourceContinued``
+* Line information for certain instructions using ``OpLine`` (WIP)
+* DXC Git commit hash using ``OpModuleProcessed`` (requires Vulkan 1.1)
+* DXC command-line options used to compile the shader using ``OpModuleProcessed``
+  (requires Vulkan 1.1)
+
+We chose to embed preprocessed source code instead of original source code to
+avoid pulling in lots of contents unrelated to the current entry point, and
+boilerplate contents generated by engines. We may add a mode for selecting
+between preprocessed single source code and original separated source code in
+the future.
+
+One thing to note is that to keep the line numbers in consistent with the
+embedded source, the compiler is invoked twice; the first time is for
+preprocessing the source code, and the second time is for feeding the
+preprocessed source code as input for a whole compilation. So using ``-Zi``
+means performance penality.
+
+If you want to have fine-grained control over the categories of emitted debug
+information, you can use ``-fspv-debug=``. It accepts:
+
+* ``file``: for emitting full path of the main source file
+* ``source``: for emitting preprocessed source code (turns on ``file`` implicitly)
+* ``line``: for emitting line information (turns on ``source`` implicitly)
+* ``tool``: for emitting DXC Git commit hash and command-line options
+
+``-fspv-debug=`` overrules ``-Zi``. And you can provide multiple instances of
+``-fspv-debug=``. For example, you can use ``-fspv-debug=file -fspv-debug=tool``
+to turn on emitting file path and DXC information; source code and line
+information will not be emitted.
 
 Reflection
 ----------
@@ -442,9 +566,9 @@ type instructions:
 ============================== ======================= ================== =========== =================================
 
 Please note that ``half`` is translated into 32-bit floating point numbers
-right now because MSDN says that "this data type is provided only for language
-compatibility. Direct3D 10 shader targets map all ``half`` data types to
-``float`` data types."
+if without ``-enable-16bit-types`` because MSDN says that "this data type
+is provided only for language compatibility. Direct3D 10 shader targets map
+all ``half`` data types to ``float`` data types."
 
 Minimal precision scalar types
 ------------------------------
@@ -2696,8 +2820,41 @@ Quad          ``QuadReadAcrossDiagonal()`` ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadLaneAt()``         ``OpGroupNonUniformQuadBroadcast``
 ============= ============================ =================================== ======================
 
-Vulkan Command-line Options
-===========================
+Supported Command-line Options
+==============================
+
+Command-line options supported by SPIR-V CodeGen are listed below. They are
+also recognized by the library API calls.
+
+General options
+---------------
+
+- ``-T``: specifies shader profile
+- ``-E``: specifies entry point
+- ``-D``: Defines macro
+- ``-I``: Adds directory to include search path
+- ``-O{|0|1|2|3}``: Specifies optimization level
+- ``-enable-16bit-types``: enables 16-bit types and disables min precision types
+- ``-Zpc``: Packs matrices in column-major order by deafult
+- ``-Zpr``: Packs matrices in row-major order by deafult
+- ``-Fc``: outputs SPIR-V disassembly to the given file
+- ``-Fe``: outputs warnings and errors to the given file
+- ``-Fo``: outputs SPIR-V code to the given file
+- ``-Fh``: outputs SPIR-V code as a header file
+- ``-Vn``: specifies the variable name for SPIR-V code in generated header file
+- ``-Zi``: Emits more debug information (see `Debugging`_)
+- ``-Cc``: colorizes SPIR-V disassembly
+- ``-No``: adds instruction byte offsets to SPIR-V disassembly
+- ``-H``:  Shows header includes and nesting depth
+- ``-Vi``: Shows details about the include process
+- ``-Vd``: Disables SPIR-V verification
+- ``-WX``: Treats warnings as errors
+- ``-no-warnings``: Suppresses all warnings
+- ``-flegacy-macro-expansion``: expands the operands before performing
+  token-pasting operation (fxc behavior)
+
+Vulkan-specific options
+-----------------------
 
 The following command line options are added into ``dxc`` to support SPIR-V
 codegen for Vulkan:
@@ -2715,6 +2872,12 @@ codegen for Vulkan:
 - ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
 - ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
 - ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.
+- ``-fvk-bind-register xX Y N M`` (short alias: ``-vkbr``): Binds the resouce
+  at ``register(xX, spaceY)`` to descriptor set ``M`` and binding ``N``. This
+  option cannot be used together with other binding assignment options.
+  It requires all source code resources have ``:register()`` attribute and
+  all registers have corresponding Vulkan descriptors specified using this
+  option.
 - ``-fvk-use-gl-layout``: Uses strict OpenGL ``std140``/``std430``
   layout rules for resources.
 - ``-fvk-use-dx-layout``: Uses DirectX layout rules for resources.
@@ -2730,6 +2893,9 @@ codegen for Vulkan:
   location number according to alphabetical order or declaration order. See
   `HLSL semantic and Vulkan Location`_ for more details.
 - ``-fspv-reflect``: Emits additional SPIR-V instructions to aid reflection.
+- ``-fspv-debug=<category>``: Controls what category of debug information
+  should be emitted. Accepted values are ``file``, ``source``, ``line``, and
+  ``tool``. See `Debugging`_ for more details.
 - ``-fspv-extension=<extension>``: Only allows using ``<extension>`` in CodeGen.
   If you want to allow multiple extensions, provide more than one such option. If you
   want to allow *all* KHR extensions, use ``-fspv-extension=KHR``.
@@ -2779,7 +2945,7 @@ Appendix
 Appendix A. Matrix Representation
 ---------------------------------
 Consider a matrix in HLSL defined as ``float2x3 m;``. Conceptually, this is a matrix with 2 rows and 3 columns.
-This means that you can access its elements via expressions such as ``m[i][j]``, where ``i`` can be ``{0, 1}`` and ``j`` can be ``{1, 2, 3}``.
+This means that you can access its elements via expressions such as ``m[i][j]``, where ``i`` can be ``{0, 1}`` and ``j`` can be ``{0, 1, 2}``.
 
 Now let's look how matrices are defined in SPIR-V:
 
