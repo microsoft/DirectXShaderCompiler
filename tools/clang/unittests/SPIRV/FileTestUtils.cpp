@@ -143,14 +143,21 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     CComPtr<IDxcIncludeHandler> pIncludeHandler;
     HRESULT resultStatus;
 
+    bool running_specific_opt_recipe = false;
+    for (const auto &arg : rest)
+      if (arg.substr(0, 8) == L"-Oconfig")
+        running_specific_opt_recipe = true;
+
     std::vector<LPCWSTR> flags;
     flags.push_back(L"-E");
     flags.push_back(entry.c_str());
     flags.push_back(L"-T");
     flags.push_back(profile.c_str());
     flags.push_back(L"-spirv");
-    // Disable legalization and optimization for testing
-    flags.push_back(L"-fcgl");
+    // Disable legalization and optimization for testing, unless the caller
+    // wants to run a specific optimization recipe (with -Oconfig).
+    if (!running_specific_opt_recipe)
+      flags.push_back(L"-fcgl");
     // Disable validation. We'll run it manually.
     flags.push_back(L"-Vd");
     for (const auto &arg : rest)

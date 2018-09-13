@@ -11,6 +11,8 @@
 
 #ifdef _WIN32
 #include <specstrings.h>
+#else
+#include <clocale>
 #endif
 #include <string>
 #include "dxc/Support/Global.h"
@@ -21,7 +23,7 @@
 // MultiByteToWideChar which is a Windows-specific method.
 // This is a very simplistic implementation for non-Windows platforms. This
 // implementation completely ignores CodePage and dwFlags.
-int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
+int MultiByteToWideChar(uint32_t CodePage, uint32_t /*dwFlags*/,
                         const char *lpMultiByteStr, int cbMultiByte,
                         wchar_t *lpWideCharStr, int cchWideChar) {
 
@@ -38,22 +40,29 @@ int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
     // Add 1 for the null-terminating character.
     ++cbMultiByte;
   }
-  // if zero is given as the destination size, this function should
+  // If zero is given as the destination size, this function should
   // return the required size (including the null-terminating character).
+  // This is the behavior of mbstowcs when the target is null.
   if (cchWideChar == 0) {
-    wchar_t *tempStr = (wchar_t *)malloc(cbMultiByte * sizeof(wchar_t));
-    size_t requiredSize = mbstowcs(tempStr, lpMultiByteStr, cbMultiByte);
-    free(tempStr);
-    if (requiredSize == (size_t)cbMultiByte) return requiredSize;
-    return requiredSize + 1;
-  }
-
-  if (cchWideChar < cbMultiByte) {
+    lpWideCharStr = nullptr;
+  } else if (cchWideChar < cbMultiByte) {
     SetLastError(ERROR_INSUFFICIENT_BUFFER);
     return 0;
   }
 
-  size_t rv = mbstowcs(lpWideCharStr, lpMultiByteStr, cbMultiByte);
+  size_t rv;
+  const char *locale = CPToLocale(CodePage);
+  locale = setlocale(LC_ALL, locale);
+  if (lpMultiByteStr[cbMultiByte] != '\0') {
+    char *srcStr = (char *)malloc((cbMultiByte +1) * sizeof(char));
+    strncpy(srcStr, lpMultiByteStr, cbMultiByte);
+    srcStr[cbMultiByte]='\0';
+    rv = mbstowcs(lpWideCharStr, srcStr, cchWideChar);
+    free(srcStr);
+  } else {
+    rv = mbstowcs(lpWideCharStr, lpMultiByteStr, cchWideChar);
+  }
+  setlocale(LC_ALL, locale);
   if (rv == (size_t)cbMultiByte) return rv;
   return rv + 1; // mbstowcs excludes the terminating character
 }
@@ -61,39 +70,48 @@ int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
 // WideCharToMultiByte is a Windows-specific method.
 // This is a very simplistic implementation for non-Windows platforms. This
 // implementation completely ignores CodePage and dwFlags.
-int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
+int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
                         const wchar_t *lpWideCharStr, int cchWideChar,
                         char *lpMultiByteStr, int cbMultiByte,
                         const char * /*lpDefaultChar*/,
                         bool * /*lpUsedDefaultChar*/) {
-  // if cchWideChar is -1, it indicates that lpWideCharStr is null-terminated
-  // and the entire string should be processed.
+
   if (cchWideChar == 0) {
     SetLastError(ERROR_INVALID_PARAMETER);
     return 0;
   }
+
+  // if cchWideChar is -1, it indicates that lpWideCharStr is null-terminated
+  // and the entire string should be processed.
   if (cchWideChar == -1) {
     for (cchWideChar = 0; lpWideCharStr[cchWideChar] != '\0'; ++cchWideChar)
       ;
     // Add 1 for the null-terminating character.
     ++cchWideChar;
   }
-  // if zero is given as the destination size, this function should
+  // If zero is given as the destination size, this function should
   // return the required size (including the null-terminating character).
+  // This is the behavior of wcstombs when the target is null.
   if (cbMultiByte == 0) {
-    char *tempStr = (char *)malloc(cchWideChar * sizeof(char));
-    size_t requiredSize = wcstombs(tempStr, lpWideCharStr, cchWideChar);
-    free(tempStr);
-    if (requiredSize == (size_t)cchWideChar) return requiredSize;
-    return requiredSize + 1;
-  }
-
-  if (cbMultiByte < cchWideChar) {
+    lpMultiByteStr = nullptr;
+  } else if (cbMultiByte < cchWideChar) {
     SetLastError(ERROR_INSUFFICIENT_BUFFER);
     return 0;
   }
 
-  size_t rv = wcstombs(lpMultiByteStr, lpWideCharStr, cchWideChar);
+  size_t rv;
+  const char *locale = CPToLocale(CodePage);
+  locale = setlocale(LC_ALL, locale);
+  if (lpWideCharStr[cchWideChar] != L'\0') {
+    wchar_t *srcStr = (wchar_t *)malloc((cchWideChar+1) * sizeof(wchar_t));
+    wcsncpy(srcStr, lpWideCharStr, cchWideChar);
+    srcStr[cchWideChar] = L'\0';
+    rv = wcstombs(lpMultiByteStr, srcStr, cbMultiByte);
+    free(srcStr);
+  } else {
+    rv = wcstombs(lpMultiByteStr, lpWideCharStr, cbMultiByte);
+  }
+  setlocale(LC_ALL, locale);
   if (rv == (size_t)cchWideChar) return rv;
   return rv + 1; // mbstowcs excludes the terminating character
 }

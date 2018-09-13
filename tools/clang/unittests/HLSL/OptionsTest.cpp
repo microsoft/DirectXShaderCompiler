@@ -23,10 +23,13 @@
 #include "dxc/dxcapi.h"
 
 #include "HLSLTestData.h"
+#ifdef _WIN32
 #include "WexTestClass.h"
+#endif
 #include "HlslTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/ADT/STLExtras.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
@@ -46,7 +49,11 @@ public:
   MainArgsArr(const wchar_t *(&arr)[n]) : MainArgs(n, arr) {}
 };
 
+#ifdef _WIN32
 class OptionsTest {
+#else
+class OptionsTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(OptionsTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -77,7 +84,7 @@ public:
                                         bool shouldMessage = false) {
     std::string errorString;
     llvm::raw_string_ostream errorStream(errorString);
-    std::unique_ptr<DxcOpts> opts = std::make_unique<DxcOpts>();
+    std::unique_ptr<DxcOpts> opts = llvm::make_unique<DxcOpts>();
     int result = ReadDxcOpts(getHlslOptTable(), flagsToInclude, mainArgs,
                              *(opts.get()), errorStream);
     EXPECT_EQ(shouldFail, result != 0);
@@ -89,7 +96,7 @@ public:
       const char *expectErrorMsg) {
     std::string errorString;
     llvm::raw_string_ostream errorStream(errorString);
-    std::unique_ptr<DxcOpts> opts = std::make_unique<DxcOpts>();
+    std::unique_ptr<DxcOpts> opts = llvm::make_unique<DxcOpts>();
     int result = ReadDxcOpts(getHlslOptTable(), flagsToInclude, mainArgs,
                              *(opts.get()), errorStream);
     EXPECT_EQ(result, 1);
@@ -213,22 +220,22 @@ TEST_F(OptionsTest, ReadOptionsWhenDefinesThenInit) {
 
   std::unique_ptr<DxcOpts> o;
   o = ReadOptsTest(ArgsNoDefinesArr, DxrFlags);
-  EXPECT_EQ(0, o->Defines.size());
+  EXPECT_EQ(0U, o->Defines.size());
   
   o = ReadOptsTest(ArgsOneDefineArr, DxrFlags);
-  EXPECT_EQ(1, o->Defines.size());
+  EXPECT_EQ(1U, o->Defines.size());
   EXPECT_STREQW(L"NAME1", o->Defines.data()[0].Name);
   EXPECT_STREQW(L"1", o->Defines.data()[0].Value);
 
   o = ReadOptsTest(ArgsTwoDefinesArr, DxrFlags);
-  EXPECT_EQ(2, o->Defines.size());
+  EXPECT_EQ(2U, o->Defines.size());
   EXPECT_STREQW(L"NAME1", o->Defines.data()[0].Name);
   EXPECT_STREQW(L"1", o->Defines.data()[0].Value);
   EXPECT_STREQW(L"NAME2", o->Defines.data()[1].Name);
   EXPECT_STREQW(L"2", o->Defines.data()[1].Value);
 
   o = ReadOptsTest(ArgsEmptyDefineArr, DxrFlags);
-  EXPECT_EQ(1, o->Defines.size());
+  EXPECT_EQ(1U, o->Defines.size());
   EXPECT_STREQW(L"NAME1", o->Defines.data()[0].Name);
   EXPECT_EQ(nullptr, o->Defines.data()[0].Value);
 }
@@ -292,7 +299,7 @@ TEST_F(OptionsTest, CopyOptionsWhenSingleThenOK) {
       table->ParseArgs(ArgsNoDefines, missingIndex, missingArgCount, DxcFlags);
   std::vector<std::wstring> outArgs;
   CopyArgsToWStrings(args, DxcFlags, outArgs);
-  EXPECT_EQ(4, outArgs.size()); // -unknown and hlsl.hlsl are missing
+  EXPECT_EQ(4U, outArgs.size()); // -unknown and hlsl.hlsl are missing
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"/T")));
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"ps_6_0")));
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"/E")));

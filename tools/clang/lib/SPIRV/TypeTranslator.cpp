@@ -75,20 +75,17 @@ const hlsl::ConstantPacking *getPackOffset(const NamedDecl *decl) {
 } // anonymous namespace
 
 bool TypeTranslator::isRelaxedPrecisionType(QualType type,
-                                            const EmitSPIRVOptions &opts) {
+                                            const SpirvCodeGenOptions &opts) {
   // Primitive types
   {
     QualType ty = {};
     if (isScalarType(type, &ty))
       if (const auto *builtinType = ty->getAs<BuiltinType>())
         switch (builtinType->getKind()) {
-        // TODO: Figure out why 'min16float' and 'half' share an enum.
-        // 'half' should not get RelaxedPrecision decoration, but due to the
-        // shared enum, we currently do so.
-        case BuiltinType::Half:
-        case BuiltinType::Short:
-        case BuiltinType::UShort:
         case BuiltinType::Min12Int:
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
+        case BuiltinType::Min16Float:
         case BuiltinType::Min10Float: {
           // If '-enable-16bit-types' options is enabled, these types are
           // translated to real 16-bit type, and therefore are not
@@ -438,13 +435,24 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
     case BuiltinType::LongLong:
     case BuiltinType::ULongLong:
       return 64;
-    // min16int (short), ushort, min12int, half, and min10float are treated as
-    // 16-bit if '-enable-16bit-types' option is enabled. They are treated as
-    // 32-bit otherwise.
+    // Half builtin type is always 16-bit. The HLSL 'half' keyword is translated
+    // to 'Half' enum if -enable-16bit-types is true.
+    // int16_t and uint16_t map to Short and UShort
+    case BuiltinType::Half:
     case BuiltinType::Short:
     case BuiltinType::UShort:
+      return 16;
+    // HalfFloat builtin type is just an alias for Float builtin type and is
+    // always 32-bit. The HLSL 'half' keyword is translated to 'HalfFloat' enum
+    // if -enable-16bit-types is false.
+    case BuiltinType::HalfFloat:
+      return 32;
+    // The following types are treated as 16-bit if '-enable-16bit-types' option
+    // is enabled. They are treated as 32-bit otherwise.
     case BuiltinType::Min12Int:
-    case BuiltinType::Half:
+    case BuiltinType::Min16Int:
+    case BuiltinType::Min16UInt:
+    case BuiltinType::Min16Float:
     case BuiltinType::Min10Float: {
       return spirvOptions.enable16BitTypes ? 16 : 32;
     }
@@ -481,7 +489,7 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
   llvm_unreachable("invalid type passed to getElementSpirvBitwidth");
 }
 
-uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
+uint32_t TypeTranslator::translateType(QualType type, SpirvLayoutRule rule) {
   const auto desugaredType = desugarType(type);
   if (desugaredType != type) {
     const auto id = translateType(desugaredType, rule);
@@ -502,7 +510,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
           // According to the SPIR-V Spec: There is no physical size or bit
           // pattern defined for boolean type. Therefore an unsigned integer is
           // used to represent booleans when layout is required.
-          if (rule == LayoutRule::Void)
+          if (rule == SpirvLayoutRule::Void)
             return theBuilder.getBoolType();
           else
             return theBuilder.getUint32Type();
@@ -511,14 +519,18 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
         case BuiltinType::Int:
         case BuiltinType::UInt:
         case BuiltinType::Short:
-        case BuiltinType::Min12Int:
         case BuiltinType::UShort:
+        case BuiltinType::Min12Int:
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
         case BuiltinType::LongLong:
         case BuiltinType::ULongLong:
         // All the floats
-        case BuiltinType::Float:
         case BuiltinType::Double:
+        case BuiltinType::Float:
         case BuiltinType::Half:
+        case BuiltinType::HalfFloat:
+        case BuiltinType::Min16Float:
         case BuiltinType::Min10Float: {
           const auto bitwidth = getElementSpirvBitwidth(ty);
           return getTypeWithCustomBitwidth(ty, bitwidth);
@@ -582,7 +594,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
       // If the matrix element type is not float, it is represented as an array
       // of vectors, and should therefore have the ArrayStride decoration.
       llvm::SmallVector<const Decoration *, 4> decorations;
-      if (!elemType->isFloatingType() && rule != LayoutRule::Void) {
+      if (!elemType->isFloatingType() && rule != SpirvLayoutRule::Void) {
         uint32_t stride = 0;
         (void)getAlignmentAndSize(type, rule, &stride);
         decorations.push_back(
@@ -623,7 +635,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
     }
 
     llvm::SmallVector<const Decoration *, 4> decorations;
-    if (rule != LayoutRule::Void) {
+    if (rule != SpirvLayoutRule::Void) {
       decorations = getLayoutDecorations(collectDeclsInDeclContext(decl), rule);
     }
 
@@ -637,7 +649,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule) {
     const uint32_t elemTypeId = translateType(elemType, rule);
 
     llvm::SmallVector<const Decoration *, 4> decorations;
-    if (rule != LayoutRule::Void &&
+    if (rule != SpirvLayoutRule::Void &&
         // We won't have stride information for structured/byte buffers since
         // they contain runtime arrays.
         !isAKindOfStructuredOrByteBuffer(elemType)) {
@@ -778,13 +790,19 @@ bool TypeTranslator::isOrContains16BitType(QualType type) {
     if (isScalarType(type, &ty)) {
       if (const auto *builtinType = ty->getAs<BuiltinType>()) {
         switch (builtinType->getKind()) {
+        case BuiltinType::Min12Int:
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
+        case BuiltinType::Min10Float:
+        case BuiltinType::Min16Float:
+          return spirvOptions.enable16BitTypes;
+        // the 'Half' enum always represents 16-bit and 'HalfFloat' always
+        // represents 32-bit floats.
+        // int16_t and uint16_t map to Short and UShort
         case BuiltinType::Short:
         case BuiltinType::UShort:
-        case BuiltinType::Min12Int:
         case BuiltinType::Half:
-        case BuiltinType::Min10Float: {
-          return spirvOptions.enable16BitTypes;
-        }
+          return true;
         default:
           return false;
         }
@@ -1286,7 +1304,7 @@ bool TypeTranslator::shouldSkipInStructLayout(const Decl *decl) {
 }
 
 llvm::SmallVector<const Decoration *, 4> TypeTranslator::getLayoutDecorations(
-    const llvm::SmallVector<const Decl *, 4> &decls, LayoutRule rule) {
+    const llvm::SmallVector<const Decl *, 4> &decls, SpirvLayoutRule rule) {
   const auto spirvContext = theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 4> decorations;
   uint32_t offset = 0, index = 0;
@@ -1303,9 +1321,9 @@ llvm::SmallVector<const Decoration *, 4> TypeTranslator::getLayoutDecorations(
     // The next avaiable location after layouting the previos members
     const uint32_t nextLoc = offset;
 
-    if (rule == LayoutRule::RelaxedGLSLStd140 ||
-        rule == LayoutRule::RelaxedGLSLStd430 ||
-        rule == LayoutRule::FxcCTBuffer) {
+    if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+        rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
+        rule == SpirvLayoutRule::FxcCTBuffer) {
       alignUsingHLSLRelaxedLayout(fieldType, memberSize, memberAlignment,
                                   &offset);
     } else {
@@ -1408,7 +1426,8 @@ TypeTranslator::collectDeclsInDeclContext(const DeclContext *declContext) {
   return decls;
 }
 
-uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
+uint32_t TypeTranslator::translateResourceType(QualType type,
+                                               SpirvLayoutRule rule) {
   // Resource types are either represented like C struct or C++ class in the
   // AST. Samplers are represented like C struct, so isStructureType() will
   // return true for it; textures are represented like C++ class, so
@@ -1470,7 +1489,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
     // The aliased-to variable should surely be in the Uniform storage class,
     // which has layout decorations.
     bool asAlias = false;
-    if (rule == LayoutRule::Void) {
+    if (rule == SpirvLayoutRule::Void) {
       asAlias = true;
       rule = spirvOptions.sBufferLayoutRule;
     }
@@ -1521,7 +1540,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   // ByteAddressBuffer types.
   if (name == "ByteAddressBuffer") {
     const auto bufferType = theBuilder.getByteAddressBufferType(/*isRW*/ false);
-    if (rule == LayoutRule::Void) {
+    if (rule == SpirvLayoutRule::Void) {
       // All byte address buffers are in the Uniform storage class.
       return theBuilder.getPointerType(bufferType, spv::StorageClass::Uniform);
     } else {
@@ -1531,7 +1550,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   // RWByteAddressBuffer types.
   if (name == "RWByteAddressBuffer") {
     const auto bufferType = theBuilder.getByteAddressBufferType(/*isRW*/ true);
-    if (rule == LayoutRule::Void) {
+    if (rule == SpirvLayoutRule::Void) {
       // All byte address buffers are in the Uniform storage class.
       return theBuilder.getPointerType(bufferType, spv::StorageClass::Uniform);
     } else {
@@ -1689,7 +1708,7 @@ void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
   if (fieldIsVecType) {
     uint32_t scalarAlignment = 0;
     std::tie(scalarAlignment, std::ignore) =
-        getAlignmentAndSize(vecElemType, LayoutRule::Void, nullptr);
+        getAlignmentAndSize(vecElemType, SpirvLayoutRule::Void, nullptr);
     if (scalarAlignment <= 4)
       fieldAlignment = scalarAlignment;
   }
@@ -1706,7 +1725,7 @@ void TypeTranslator::alignUsingHLSLRelaxedLayout(QualType fieldType,
 }
 
 std::pair<uint32_t, uint32_t>
-TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
+TypeTranslator::getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
                                     uint32_t *stride) {
   // std140 layout rules:
 
@@ -1771,7 +1790,6 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
   // - Vector base alignment is set as its element type's base alignment.
   // - Arrays/structs do not need to have padding at the end; arrays/structs do
   //   not affect the base offset of the member following them.
-  // - Struct base alignment does not need to be rounded up to a multiple of 16.
   //
   // FxcSBuffer:
   // - Vector/matrix/array base alignment is set as its element type's base
@@ -1802,16 +1820,25 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
         case BuiltinType::LongLong:
         case BuiltinType::ULongLong:
           return {8, 8};
-        case BuiltinType::Short:
-        case BuiltinType::UShort:
         case BuiltinType::Min12Int:
-        case BuiltinType::Half:
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
+        case BuiltinType::Min16Float:
         case BuiltinType::Min10Float: {
           if (spirvOptions.enable16BitTypes)
             return {2, 2};
           else
             return {4, 4};
         }
+        // the 'Half' enum always represents 16-bit floats.
+        // int16_t and uint16_t map to Short and UShort.
+        case BuiltinType::Short:
+        case BuiltinType::UShort:
+        case BuiltinType::Half:
+          return {2, 2};
+        // 'HalfFloat' always represents 32-bit floats.
+        case BuiltinType::HalfFloat:
+          return {4, 4};
         default:
           emitError("alignment and size calculation for type %0 unimplemented")
               << type;
@@ -1826,7 +1853,8 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
       uint32_t alignment = 0, size = 0;
       std::tie(alignment, size) = getAlignmentAndSize(elemType, rule, stride);
       // Use element alignment for fxc rules
-      if (rule != LayoutRule::FxcCTBuffer && rule != LayoutRule::FxcSBuffer)
+      if (rule != SpirvLayoutRule::FxcCTBuffer &&
+          rule != SpirvLayoutRule::FxcSBuffer)
         alignment = (elemCount == 3 ? 4 : elemCount) * size;
 
       return {alignment, elemCount * size};
@@ -1848,16 +1876,16 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
       const uint32_t vecStorageSize = isRowMajor ? colCount : rowCount;
 
-      if (rule == LayoutRule::FxcSBuffer) {
+      if (rule == SpirvLayoutRule::FxcSBuffer) {
         *stride = vecStorageSize * size;
         // Use element alignment for fxc structured buffers
         return {alignment, rowCount * colCount * size};
       }
 
       alignment *= (vecStorageSize == 3 ? 4 : vecStorageSize);
-      if (rule == LayoutRule::GLSLStd140 ||
-          rule == LayoutRule::RelaxedGLSLStd140 ||
-          rule == LayoutRule::FxcCTBuffer) {
+      if (rule == SpirvLayoutRule::GLSLStd140 ||
+          rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+          rule == SpirvLayoutRule::FxcCTBuffer) {
         alignment = roundToPow2(alignment, kStd140Vec4Alignment);
       }
       *stride = alignment;
@@ -1882,9 +1910,9 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
       std::tie(memberAlignment, memberSize) =
           getAlignmentAndSize(field->getType(), rule, stride);
 
-      if (rule == LayoutRule::RelaxedGLSLStd140 ||
-          rule == LayoutRule::RelaxedGLSLStd430 ||
-          rule == LayoutRule::FxcCTBuffer) {
+      if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+          rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
+          rule == SpirvLayoutRule::FxcCTBuffer) {
         alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
                                     memberAlignment, &structSize);
       } else {
@@ -1905,13 +1933,15 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
       structSize += memberSize;
     }
 
-    if (rule == LayoutRule::GLSLStd140 ||
-        rule == LayoutRule::RelaxedGLSLStd140) {
+    if (rule == SpirvLayoutRule::GLSLStd140 ||
+        rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+        rule == SpirvLayoutRule::FxcCTBuffer) {
       // ... and rounded up to the base alignment of a vec4.
       maxAlignment = roundToPow2(maxAlignment, kStd140Vec4Alignment);
     }
 
-    if (rule != LayoutRule::FxcCTBuffer && rule != LayoutRule::FxcSBuffer) {
+    if (rule != SpirvLayoutRule::FxcCTBuffer &&
+        rule != SpirvLayoutRule::FxcSBuffer) {
       // The base offset of the member following the sub-structure is rounded up
       // to the next multiple of the base alignment of the structure.
       structSize = roundToPow2(structSize, maxAlignment);
@@ -1926,21 +1956,21 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
     std::tie(alignment, size) =
         getAlignmentAndSize(arrayType->getElementType(), rule, stride);
 
-    if (rule == LayoutRule::FxcSBuffer) {
+    if (rule == SpirvLayoutRule::FxcSBuffer) {
       *stride = size;
       // Use element alignment for fxc structured buffers
       return {alignment, size * elemCount};
     }
 
-    if (rule == LayoutRule::GLSLStd140 ||
-        rule == LayoutRule::RelaxedGLSLStd140 ||
-        rule == LayoutRule::FxcCTBuffer) {
+    if (rule == SpirvLayoutRule::GLSLStd140 ||
+        rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+        rule == SpirvLayoutRule::FxcCTBuffer) {
       // The base alignment and array stride are set to match the base alignment
       // of a single array element, according to rules 1, 2, and 3, and rounded
       // up to the base alignment of a vec4.
       alignment = roundToPow2(alignment, kStd140Vec4Alignment);
     }
-    if (rule == LayoutRule::FxcCTBuffer) {
+    if (rule == SpirvLayoutRule::FxcCTBuffer) {
       // In fxc cbuffer/tbuffer packing rules, arrays does not affect the data
       // packing after it. But we still need to make sure paddings are inserted
       // internally if necessary.
@@ -1990,9 +2020,16 @@ std::string TypeTranslator::getName(QualType type) {
         case BuiltinType::UShort:
           return "ushort";
         case BuiltinType::Half:
+        case BuiltinType::HalfFloat:
           return "half";
         case BuiltinType::Min12Int:
           return "min12int";
+        case BuiltinType::Min16Int:
+          return "min16int";
+        case BuiltinType::Min16UInt:
+          return "min16uint";
+        case BuiltinType::Min16Float:
+          return "min16float";
         case BuiltinType::Min10Float:
           return "min10float";
         default:

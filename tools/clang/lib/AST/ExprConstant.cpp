@@ -7496,6 +7496,15 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
                     Info.Ctx.getOpenMPDefaultSimdAlign(E->getArgumentType()))
             .getQuantity(),
         E);
+
+  // HLSL Change Begins
+  case UETT_ArrayLength: {
+    QualType SrcTy = E->getTypeOfArgument();
+    assert(isa<ConstantArrayType>(SrcTy));
+    const ConstantArrayType *CAT = cast<ConstantArrayType>(SrcTy);
+    return Success(CAT->getSize(), E);
+  }
+  // HLSL Change Ends
   }
 
   llvm_unreachable("unknown expr/type trait");
@@ -9063,6 +9072,13 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
       if (const VarDecl *Dcl = dyn_cast<VarDecl>(D)) {
         if (!Dcl->getType()->isIntegralOrEnumerationType())
           return ICEDiag(IK_NotICE, cast<DeclRefExpr>(E)->getLocation());
+
+        // HLSL Change: cbuffer vars with init are not really constant in this way
+        if (Ctx.getLangOpts().HLSL &&
+            Dcl->hasGlobalStorage() &&
+            Dcl->getStorageClass() != SC_Static) {
+          return ICEDiag(IK_NotICE, cast<DeclRefExpr>(E)->getLocation());
+        }
 
         const VarDecl *VD;
         // Look for a declaration of this variable that has an initializer, and

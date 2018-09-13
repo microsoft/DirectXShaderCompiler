@@ -219,7 +219,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
       if (Base->getValueKind() != ExprValueKind::VK_RValue) {
         LValue LV = EmitLValue(Base);
         if (LV.isSimple()) {
-          This = EmitLValue(Base).getAddress();
+          This = LV.getAddress();
           if (isa<ExtMatrixElementExpr>(Base)) {
             llvm::Value *Val = Builder.CreateLoad(This);
             This = Builder.CreateAlloca(Val->getType());

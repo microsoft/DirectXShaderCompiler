@@ -268,6 +268,7 @@ enum ArBasicKind {
 
 #define GET_BPROP_PRIM_KIND(_Props) \
     ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING))
+
 #define GET_BPROP_PRIM_KIND_SU(_Props) \
     ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING | BPROP_UNSIGNED))
 
@@ -283,9 +284,11 @@ enum ArBasicKind {
 #define IS_BPROP_SINT(_Props) \
     (((_Props) & (BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BOOLEAN)) == \
      BPROP_INTEGER)
+
 #define IS_BPROP_UINT(_Props) \
     (((_Props) & (BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BOOLEAN)) == \
      (BPROP_INTEGER | BPROP_UNSIGNED))
+
 #define IS_BPROP_AINT(_Props) \
     (((_Props) & (BPROP_INTEGER | BPROP_BOOLEAN)) == BPROP_INTEGER)
 
@@ -1799,18 +1802,12 @@ inline void AssignOpt(T value, _Out_opt_ T* ptr)
   }
 }
 
-static bool CombineBasicTypes(
-  ArBasicKind LeftKind,
-  ArBasicKind RightKind,
-  _Out_ ArBasicKind* pOutKind,
-  _Out_opt_ CastKind* leftCastKind = nullptr,
-  _Out_opt_ CastKind* rightCastKind = nullptr)
+static bool CombineBasicTypes(ArBasicKind LeftKind,
+                              ArBasicKind RightKind,
+                              _Out_ ArBasicKind* pOutKind)
 {
-  AssignOpt(CastKind::CK_NoOp, leftCastKind);
-  AssignOpt(CastKind::CK_NoOp, rightCastKind);
-
   if ((LeftKind < 0 || LeftKind >= AR_BASIC_COUNT) ||
-      (RightKind < 0 || RightKind >= AR_BASIC_COUNT)) {
+    (RightKind < 0 || RightKind >= AR_BASIC_COUNT)) {
     return false;
   }
 
@@ -1821,147 +1818,120 @@ static bool CombineBasicTypes(
 
   UINT uLeftProps = GetBasicKindProps(LeftKind);
   UINT uRightProps = GetBasicKindProps(RightKind);
-
   UINT uBits = GET_BPROP_BITS(uLeftProps) > GET_BPROP_BITS(uRightProps) ?
-    GET_BPROP_BITS(uLeftProps) : GET_BPROP_BITS(uRightProps);
+               GET_BPROP_BITS(uLeftProps) : GET_BPROP_BITS(uRightProps);
   UINT uBothFlags = uLeftProps & uRightProps;
   UINT uEitherFlags = uLeftProps | uRightProps;
 
-  if ((BPROP_BOOLEAN & uBothFlags) != 0)
-  {
+  // Notes: all numeric types have either BPROP_FLOATING or BPROP_INTEGER (even bool)
+  //        unsigned only applies to non-literal ints, not bool or enum
+  //        literals, bool, and enum are all BPROP_BITS0
+  if (uBothFlags & BPROP_BOOLEAN) {
     *pOutKind = AR_BASIC_BOOL;
     return true;
   }
 
-  if ((BPROP_LITERAL & uBothFlags) != 0)
-  {
-    if ((BPROP_INTEGER & uBothFlags) != 0)
-    {
-      *pOutKind = AR_BASIC_LITERAL_INT;
-    }
-    else
-    {
-      *pOutKind = AR_BASIC_LITERAL_FLOAT;
-    }
+  bool bFloatResult = 0 != (uEitherFlags & BPROP_FLOATING);
+  if (uBothFlags & BPROP_LITERAL) {
+    *pOutKind = bFloatResult ? AR_BASIC_LITERAL_FLOAT : AR_BASIC_LITERAL_INT;
     return true;
   }
 
-  if ((BPROP_UNSIGNED & uBothFlags) != 0)
-  {
-    switch (uBits)
-    {
-    case BPROP_BITS8:  *pOutKind = AR_BASIC_UINT8;  break;
-    case BPROP_BITS16: (uEitherFlags & BPROP_MIN_PRECISION) ?
-      *pOutKind = AR_BASIC_MIN16UINT : *pOutKind = AR_BASIC_UINT16; break;
-    case BPROP_BITS32: *pOutKind = AR_BASIC_UINT32; break;
-    case BPROP_BITS64: *pOutKind = AR_BASIC_UINT64; break;
-    default: DXASSERT_NOMSG(false);   break;
-    }
-    AssignOpt(CK_IntegralCast, leftCastKind);
-    AssignOpt(CK_IntegralCast, rightCastKind);
+  // Starting approximation of result properties:
+  // - float if either are float, otherwise int (see Notes above)
+  // - min/partial precision if both have same flag
+  // - if not float, add unsigned if either is unsigned
+  UINT uResultFlags =
+    (uBothFlags & (BPROP_INTEGER | BPROP_MIN_PRECISION | BPROP_PARTIAL_PRECISION)) |
+    (uEitherFlags & BPROP_FLOATING) |
+    (!bFloatResult ? (uEitherFlags & BPROP_UNSIGNED) : 0);
+
+  // If one is literal/bool/enum, use min/partial precision from the other
+  if (uEitherFlags & (BPROP_LITERAL | BPROP_BOOLEAN | BPROP_ENUM)) {
+    uResultFlags |= uEitherFlags & (BPROP_MIN_PRECISION | BPROP_PARTIAL_PRECISION);
+  }
+
+  // Now if we have partial precision, we know the result must be half
+  if (uResultFlags & BPROP_PARTIAL_PRECISION) {
+    *pOutKind = AR_BASIC_FLOAT32_PARTIAL_PRECISION;
     return true;
   }
 
-  if ((BPROP_INTEGER & uBothFlags) != 0)
-  {
-    if ((BPROP_UNSIGNED & uEitherFlags) != 0)
-    {
-      switch (uBits)
-      {
-      case BPROP_BITS8:  *pOutKind = AR_BASIC_UINT8;     break;
-      case BPROP_BITS16: (uEitherFlags & BPROP_MIN_PRECISION) ?
-        *pOutKind = AR_BASIC_MIN16UINT : *pOutKind = AR_BASIC_UINT16; break;
-      case BPROP_BITS32: *pOutKind = AR_BASIC_UINT32;    break;
-      case BPROP_BITS64: *pOutKind = AR_BASIC_UINT64;    break;
-      default: DXASSERT_NOMSG(false);   break;
-      }
-    }
-    else
-    {
-      switch (uBits)
-      {
-      case BPROP_BITS0:  *pOutKind = AR_BASIC_LITERAL_INT; break;
-      case BPROP_BITS8:  *pOutKind = AR_BASIC_INT8;        break;
-      case BPROP_BITS12: *pOutKind = AR_BASIC_MIN12INT;    break;
-      case BPROP_BITS16: (uEitherFlags & BPROP_MIN_PRECISION) ?
-        *pOutKind = AR_BASIC_MIN16INT : *pOutKind = AR_BASIC_INT16; break;
-      case BPROP_BITS32: *pOutKind = AR_BASIC_INT32;       break;
-      case BPROP_BITS64: *pOutKind = AR_BASIC_INT64;       break;
-      default: DXASSERT_NOMSG(false);  break;
-      }
-    }
-    AssignOpt(CK_IntegralCast, leftCastKind);
-    AssignOpt(CK_IntegralCast, rightCastKind);
-    return true;
+  // uBits are already initialized to max of either side, so now:
+  // if only one is float, get result props from float side
+  //  min16float + int -> min16float
+  //  also take min precision from that side
+  if (bFloatResult && 0 == (uBothFlags & BPROP_FLOATING)) {
+    uResultFlags = (uLeftProps & BPROP_FLOATING) ? uLeftProps : uRightProps;
+    uBits = GET_BPROP_BITS(uResultFlags);
+    uResultFlags &= ~BPROP_LITERAL;
   }
 
-  // At least one side is floating-point. Assume both are and fix later
-  // in this function.
-  DXASSERT_NOMSG((BPROP_FLOATING & uEitherFlags) != 0);
-  AssignOpt(CK_FloatingCast, leftCastKind);
-  AssignOpt(CK_FloatingCast, rightCastKind);
+  bool bMinPrecisionResult = uResultFlags & BPROP_MIN_PRECISION;
 
-  if ((BPROP_FLOATING & uBothFlags) == 0)
-  {
-    // One side is floating-point and one isn't,
-    // convert to the floating-point type.
-    if ((BPROP_FLOATING & uLeftProps) != 0)
-    {
-      uBits = GET_BPROP_BITS(uLeftProps);
-      AssignOpt(CK_IntegralToFloating, rightCastKind);
-    }
-    else
-    {
-      DXASSERT_NOMSG((BPROP_FLOATING & uRightProps) != 0);
-      uBits = GET_BPROP_BITS(uRightProps);
-      AssignOpt(CK_IntegralToFloating, leftCastKind);
-    }
+  // if uBits is 0 here, upgrade to 32-bits
+  // this happens if bool, literal or enum on both sides,
+  // or if float came from literal side
+  if (uBits == BPROP_BITS0)
+    uBits = BPROP_BITS32;
 
-    if (uBits == 0)
-    {
-      // We have a literal plus a non-literal so drop
-      // any literalness.
-      uBits = BPROP_BITS32;
-    }
+  DXASSERT(uBits != BPROP_BITS0, "CombineBasicTypes: uBits should not be zero at this point");
+  DXASSERT(uBits != BPROP_BITS8, "CombineBasicTypes: 8-bit types not supported at this time");
+
+  if (bMinPrecisionResult) {
+    DXASSERT(uBits < BPROP_BITS32, "CombineBasicTypes: min-precision result must be less than 32-bits");
+  } else {
+    DXASSERT(uBits > BPROP_BITS12, "CombineBasicTypes: 10 or 12 bit result must be min precision");
+  }
+  if (bFloatResult) {
+    DXASSERT(uBits != BPROP_BITS12, "CombineBasicTypes: 12-bit result must be int");
+  } else {
+    DXASSERT(uBits != BPROP_BITS10, "CombineBasicTypes: 10-bit result must be float");
+  }
+  if (uBits == BPROP_BITS12) {
+    DXASSERT(!(uResultFlags & BPROP_UNSIGNED), "CombineBasicTypes: 12-bit result must not be unsigned");
   }
 
-  switch (uBits)
-  {
-  case BPROP_BITS10:
-    *pOutKind = AR_BASIC_MIN10FLOAT;
-    break;
-  case BPROP_BITS16:
-    if ((uEitherFlags & BPROP_MIN_PRECISION) != 0)
-    {
-      *pOutKind = AR_BASIC_MIN16FLOAT;
-    }
-    else
-    {
-      *pOutKind = AR_BASIC_FLOAT16;
-    }
-    break;
-  case BPROP_BITS32:
-    if ((uEitherFlags & BPROP_LITERAL) != 0 &&
-      (uEitherFlags & BPROP_PARTIAL_PRECISION) != 0)
-    {
-      *pOutKind = AR_BASIC_FLOAT32_PARTIAL_PRECISION;
-    }
-    else if ((uBothFlags & BPROP_PARTIAL_PRECISION) != 0)
-    {
-      *pOutKind = AR_BASIC_FLOAT32_PARTIAL_PRECISION;
-    }
-    else
-    {
+  if (bFloatResult) {
+    switch (uBits) {
+    case BPROP_BITS10:
+      *pOutKind = AR_BASIC_MIN10FLOAT;
+      break;
+    case BPROP_BITS16:
+      *pOutKind = bMinPrecisionResult ? AR_BASIC_MIN16FLOAT : AR_BASIC_FLOAT16;
+      break;
+    case BPROP_BITS32:
       *pOutKind = AR_BASIC_FLOAT32;
+      break;
+    case BPROP_BITS64:
+      *pOutKind = AR_BASIC_FLOAT64;
+      break;
+    default:
+      DXASSERT(false, "Unexpected bit count for float result");
+      break;
     }
-    break;
-  case BPROP_BITS64:
-    *pOutKind = AR_BASIC_FLOAT64;
-    break;
-  default:
-    DXASSERT(false, "unexpected bit count");
-    *pOutKind = AR_BASIC_FLOAT32;
-    break;
+  } else {
+    // int or unsigned int
+    switch (uBits) {
+    case BPROP_BITS12:
+      *pOutKind = AR_BASIC_MIN12INT;
+      break;
+    case BPROP_BITS16:
+      if (uResultFlags & BPROP_UNSIGNED)
+        *pOutKind = bMinPrecisionResult ? AR_BASIC_MIN16UINT : AR_BASIC_UINT16;
+      else
+        *pOutKind = bMinPrecisionResult ? AR_BASIC_MIN16INT : AR_BASIC_INT16;
+      break;
+    case BPROP_BITS32:
+      *pOutKind = (uResultFlags & BPROP_UNSIGNED) ? AR_BASIC_UINT32 : AR_BASIC_INT32;
+      break;
+    case BPROP_BITS64:
+      *pOutKind = (uResultFlags & BPROP_UNSIGNED) ? AR_BASIC_UINT64 : AR_BASIC_INT64;
+      break;
+    default:
+      DXASSERT(false, "Unexpected bit count for int result");
+      break;
+    }
   }
 
   return true;
@@ -3515,16 +3485,20 @@ public:
       case BuiltinType::Bool: return AR_BASIC_BOOL;
       case BuiltinType::Double: return AR_BASIC_FLOAT64;
       case BuiltinType::Float: return AR_BASIC_FLOAT32;
-      case BuiltinType::Half: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16FLOAT : AR_BASIC_FLOAT16;
+      case BuiltinType::Half: return AR_BASIC_FLOAT16;
+      case BuiltinType::HalfFloat: return AR_BASIC_FLOAT32_PARTIAL_PRECISION;
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
-      case BuiltinType::Short: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16INT : AR_BASIC_INT16;
-      case BuiltinType::UShort: return m_context->getLangOpts().UseMinPrecision ? AR_BASIC_MIN16UINT : AR_BASIC_UINT16;
+      case BuiltinType::Short: return AR_BASIC_INT16;
+      case BuiltinType::UShort: return AR_BASIC_UINT16;
       case BuiltinType::Long: return AR_BASIC_INT32;
       case BuiltinType::ULong: return AR_BASIC_UINT32;
       case BuiltinType::LongLong: return AR_BASIC_INT64;
       case BuiltinType::ULongLong: return AR_BASIC_UINT64;
       case BuiltinType::Min12Int: return AR_BASIC_MIN12INT;
+      case BuiltinType::Min16Float: return AR_BASIC_MIN16FLOAT;
+      case BuiltinType::Min16Int: return AR_BASIC_MIN16INT;
+      case BuiltinType::Min16UInt: return AR_BASIC_MIN16UINT;
       case BuiltinType::Min10Float: return AR_BASIC_MIN10FLOAT;
       case BuiltinType::LitFloat: return AR_BASIC_LITERAL_FLOAT;
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
@@ -3591,7 +3565,7 @@ public:
     switch (kind) {
     case AR_BASIC_BOOL:           return HLSLScalarType_bool;
     case AR_BASIC_LITERAL_FLOAT:  return HLSLScalarType_float_lit;
-    case AR_BASIC_FLOAT16:        return HLSLScalarType_float_min16;
+    case AR_BASIC_FLOAT16:        return HLSLScalarType_half;
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
                                   return HLSLScalarType_float;
     case AR_BASIC_FLOAT32:        return HLSLScalarType_float;
@@ -3611,6 +3585,7 @@ public:
 
     case AR_BASIC_INT64:          return HLSLScalarType_int64;
     case AR_BASIC_UINT64:         return HLSLScalarType_uint64;
+    case AR_BASIC_ENUM:           return HLSLScalarType_int;
     default:
       return HLSLScalarType_unknown;
     }
@@ -3625,7 +3600,7 @@ public:
     case AR_BASIC_BOOL:           return m_context->BoolTy;
     case AR_BASIC_LITERAL_FLOAT:  return m_context->LitFloatTy;
     case AR_BASIC_FLOAT16:        return m_context->HalfTy;
-    case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->FloatTy;
+    case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->HalfFloatTy;
     case AR_BASIC_FLOAT32:        return m_context->FloatTy;
     case AR_BASIC_FLOAT64:        return m_context->DoubleTy;
     case AR_BASIC_LITERAL_INT:    return m_context->LitIntTy;
@@ -3642,6 +3617,8 @@ public:
     case AR_BASIC_MIN12INT:       return m_scalarTypes[HLSLScalarType_int_min12];
     case AR_BASIC_MIN16INT:       return m_scalarTypes[HLSLScalarType_int_min16];
     case AR_BASIC_MIN16UINT:      return m_scalarTypes[HLSLScalarType_uint_min16];
+    case AR_BASIC_ENUM:           return m_context->IntTy;
+    case AR_BASIC_ENUM_CLASS:     return m_context->IntTy;
 
     case AR_OBJECT_STRING: return QualType();
 
@@ -4297,6 +4274,22 @@ public:
     SourceLocation MemberLoc,
     ExprResult* result);
 
+  /// <summary>Performs a member lookup on the specified BaseExpr if it's an array.</summary>
+  /// <param name="BaseExpr">Base expression for member access.</param>
+  /// <param name="MemberName">Name of member to look up.</param>
+  /// <param name="IsArrow">Whether access is through arrow (a->b) rather than period (a.b).</param>
+  /// <param name="OpLoc">Location of access operand.</param>
+  /// <param name="MemberLoc">Location of member.</param>
+  /// <param name="result">Result of lookup operation.</param>
+  /// <returns>true if the base type is an array and the lookup has been handled.</returns>
+  bool LookupArrayMemberExprForHLSL(
+    Expr& BaseExpr,
+    DeclarationName MemberName,
+    bool IsArrow,
+    SourceLocation OpLoc,
+    SourceLocation MemberLoc,
+    ExprResult* result);
+
   /// <summary>If E is a scalar, converts it to a 1-element vector.</summary>
   /// <param name="E">Expression to convert.</param>
   /// <returns>The result of the conversion; or E if the type is not a scalar.</returns>
@@ -4662,14 +4655,14 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_int] = m_context->IntTy;
   m_baseTypes[HLSLScalarType_uint] = m_context->UnsignedIntTy;
   m_baseTypes[HLSLScalarType_dword] = m_context->UnsignedIntTy;
-  m_baseTypes[HLSLScalarType_half] = m_context->getLangOpts().UseMinPrecision ? m_context->FloatTy : m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_half] = m_context->getLangOpts().UseMinPrecision ? m_context->HalfFloatTy : m_context->HalfTy;
   m_baseTypes[HLSLScalarType_float] = m_context->FloatTy;
   m_baseTypes[HLSLScalarType_double] = m_context->DoubleTy;
-  m_baseTypes[HLSLScalarType_float_min10] = m_context->HalfTy;
-  m_baseTypes[HLSLScalarType_float_min16] = m_context->HalfTy;
-  m_baseTypes[HLSLScalarType_int_min12] = m_context->ShortTy;
-  m_baseTypes[HLSLScalarType_int_min16] = m_context->ShortTy;
-  m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
+  m_baseTypes[HLSLScalarType_float_min10] = m_context->Min10FloatTy;
+  m_baseTypes[HLSLScalarType_float_min16] = m_context->Min16FloatTy;
+  m_baseTypes[HLSLScalarType_int_min12] = m_context->Min12IntTy;
+  m_baseTypes[HLSLScalarType_int_min16] = m_context->Min16IntTy;
+  m_baseTypes[HLSLScalarType_uint_min16] = m_context->Min16UIntTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
   m_baseTypes[HLSLScalarType_int16] = m_context->ShortTy;
@@ -7136,6 +7129,53 @@ bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
   return true;
 }
 
+bool HLSLExternalSource::LookupArrayMemberExprForHLSL(
+  Expr& BaseExpr,
+  DeclarationName MemberName,
+  bool IsArrow,
+  SourceLocation OpLoc,
+  SourceLocation MemberLoc,
+  ExprResult* result) {
+
+  DXASSERT_NOMSG(result != nullptr);
+
+  QualType BaseType = BaseExpr.getType();
+  DXASSERT(!BaseType.isNull(), "otherwise caller should have stopped analysis much earlier");
+
+  // Assume failure.
+  *result = ExprError();
+
+  if (GetTypeObjectKind(BaseType) != AR_TOBJ_ARRAY) {
+    return false;
+  }
+
+  IdentifierInfo *member = MemberName.getAsIdentifierInfo();
+  const char *memberText = member->getNameStart();
+
+  // The only property available on arrays is Length; it is deprecated and available only on HLSL version <=2018
+  if (member->getLength() == 6 && 0 == strcmp(memberText, "Length")) {
+    if (const ConstantArrayType *CAT = dyn_cast<ConstantArrayType>(BaseType)) {
+      // check version support
+      unsigned hlslVer = getSema()->getLangOpts().HLSLVersion;
+      if (hlslVer > 2016) {
+        m_sema->Diag(MemberLoc, diag::err_hlsl_unsupported_for_version_lower) << "Length" << "2016";
+        return false;
+      }
+      if (hlslVer == 2016) {
+        m_sema->Diag(MemberLoc, diag::warn_deprecated) << "Length";
+      }
+
+      UnaryExprOrTypeTraitExpr *arrayLenExpr = new (m_context) UnaryExprOrTypeTraitExpr(
+        UETT_ArrayLength, &BaseExpr, m_context->getSizeType(), MemberLoc, BaseExpr.getSourceRange().getEnd());
+
+      *result = arrayLenExpr;
+      return true;
+    }
+  }
+  return false;
+}
+  
+
 ExprResult HLSLExternalSource::MaybeConvertScalarToVector(_In_ clang::Expr* E) {
   DXASSERT_NOMSG(E != nullptr);
   ArBasicKind basic = GetTypeElementKind(E->getType());
@@ -8243,7 +8283,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     if (BinaryOperatorKindIsLogical(Opc)) {
       resultElementKind = AR_BASIC_BOOL;
     } else if (!BinaryOperatorKindIsBitwiseShift(Opc) && leftElementKind != rightElementKind) {
-      if (!CombineBasicTypes(leftElementKind, rightElementKind, &resultElementKind, nullptr, nullptr)) {
+      if (!CombineBasicTypes(leftElementKind, rightElementKind, &resultElementKind)) {
         m_sema->Diag(OpLoc, diag::err_hlsl_type_mismatch);
         return;
       }
@@ -8506,7 +8546,7 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   ArBasicKind resultElementKind = leftElementKind;
   // Combine LHS and RHS element types for computation.
   if (leftElementKind != rightElementKind) {
-    if (!CombineBasicTypes(leftElementKind, rightElementKind, &resultElementKind, nullptr, nullptr)) {
+    if (!CombineBasicTypes(leftElementKind, rightElementKind, &resultElementKind)) {
       m_sema->Diag(QuestionLoc, diag::err_hlsl_conditional_result_comptype_mismatch);
       return QualType();
     }
@@ -9618,6 +9658,19 @@ bool hlsl::LookupVectorMemberExprForHLSL(
 {
   return HLSLExternalSource::FromSema(self)
     ->LookupVectorMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc, result);
+}
+
+bool hlsl::LookupArrayMemberExprForHLSL(
+  Sema* self,
+  Expr& BaseExpr,
+  DeclarationName MemberName,
+  bool IsArrow,
+  SourceLocation OpLoc,
+  SourceLocation MemberLoc,
+  ExprResult* result)
+{
+  return HLSLExternalSource::FromSema(self)
+    ->LookupArrayMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc, result);
 }
 
 clang::ExprResult hlsl::MaybeConvertScalarToVector(

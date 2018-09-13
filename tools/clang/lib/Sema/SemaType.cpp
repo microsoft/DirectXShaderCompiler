@@ -1334,6 +1334,10 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   case DeclSpec::TST_half: Result = Context.HalfTy; break;
   case DeclSpec::TST_float: Result = Context.FloatTy; break;
     // HLSL Change Starts
+  case DeclSpec::TST_halffloat: Result = Context.HalfFloatTy; break;
+  case DeclSpec::TST_min16float: Result = Context.Min16FloatTy; break;
+  case DeclSpec::TST_min16int: Result = Context.Min16IntTy; break;
+  case DeclSpec::TST_min16uint: Result = Context.Min16UIntTy; break;
   case DeclSpec::TST_min10float: Result = Context.Min10FloatTy; break;
   case DeclSpec::TST_min12int: Result = Context.Min12IntTy; break;
     // HLSL Change Ends

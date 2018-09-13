@@ -77,7 +77,7 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE CreateBlobWithEncodingFromPinned(
-    LPBYTE pText, UINT32 size, UINT32 codePage,
+    _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
     _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) override {
     DxcThreadMalloc TM(m_pMalloc);
     return ::hlsl::DxcCreateBlobWithEncodingFromPinned(pText, size, codePage, pBlobEncoding);

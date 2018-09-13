@@ -210,10 +210,12 @@ bool spirvToolsLegalize(spv_target_env env, std::vector<uint32_t> *module,
 
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
-  return optimizer.Run(module->data(), module->size(), module);
+  return optimizer.Run(module->data(), module->size(), module, {},
+                       /*skip_validation=*/true);
 }
 
 bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
+                        const llvm::SmallVector<llvm::StringRef, 4> &flags,
                         std::string *messages) {
   spvtools::Optimizer optimizer(env);
 
@@ -222,11 +224,21 @@ bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *module,
                  const spv_position_t & /*position*/,
                  const char *message) { *messages += message; });
 
-  optimizer.RegisterPerformancePasses();
+  if (flags.empty()) {
+    optimizer.RegisterPerformancePasses();
+    optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
+  } else {
+    // Command line options use llvm::SmallVector and llvm::StringRef, whereas
+    // SPIR-V optimizer uses std::vector and std::string.
+    std::vector<std::string> stdFlags;
+    for (const auto &f : flags)
+      stdFlags.push_back(f.str());
+    if (!optimizer.RegisterPassesFromFlags(stdFlags))
+      return false;
+  }
 
-  optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
-
-  return optimizer.Run(module->data(), module->size(), module);
+  return optimizer.Run(module->data(), module->size(), module, {},
+                       /*skip_validation=*/true);
 }
 
 bool spirvToolsValidate(spv_target_env env, std::vector<uint32_t> *module,
@@ -577,17 +589,18 @@ spv::Capability getNonUniformCapability(QualType type) {
 
 } // namespace
 
-SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
+SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
     : theCompilerInstance(ci), astContext(ci.getASTContext()),
-      diags(ci.getDiagnostics()), spirvOptions(options),
+      diags(ci.getDiagnostics()),
+      spirvOptions(ci.getCodeGenOpts().SpirvOptions),
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
-      theContext(), featureManager(diags, options),
-      theBuilder(&theContext, &featureManager, options.enableReflect),
-      typeTranslator(astContext, theBuilder, diags, options),
+      theContext(), featureManager(diags, spirvOptions),
+      theBuilder(&theContext, &featureManager, spirvOptions),
+      typeTranslator(astContext, theBuilder, diags, spirvOptions),
       declIdMapper(shaderModel, astContext, theBuilder, typeTranslator,
-                   featureManager, options),
+                   featureManager, spirvOptions),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
       seenPushConstantAt(), isSpecConstantMode(false),
       foundNonUniformResourceIndex(false), needsLegalization(false),
@@ -595,15 +608,27 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0", {}) << shaderModel.GetName();
 
-  if (options.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
+  if (spirvOptions.invertY && !shaderModel.IsVS() && !shaderModel.IsDS() &&
       !shaderModel.IsGS())
     emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
 
-  if (options.useGlLayout && options.useDxLayout)
+  if (spirvOptions.useGlLayout && spirvOptions.useDxLayout)
     emitError("cannot specify both -fvk-use-dx-layout and -fvk-use-gl-layout",
               {});
 
-  options.Initialize();
+  if (spirvOptions.useDxLayout) {
+    spirvOptions.cBufferLayoutRule = SpirvLayoutRule::FxcCTBuffer;
+    spirvOptions.tBufferLayoutRule = SpirvLayoutRule::FxcCTBuffer;
+    spirvOptions.sBufferLayoutRule = SpirvLayoutRule::FxcSBuffer;
+  } else if (spirvOptions.useGlLayout) {
+    spirvOptions.cBufferLayoutRule = SpirvLayoutRule::GLSLStd140;
+    spirvOptions.tBufferLayoutRule = SpirvLayoutRule::GLSLStd430;
+    spirvOptions.sBufferLayoutRule = SpirvLayoutRule::GLSLStd430;
+  } else {
+    spirvOptions.cBufferLayoutRule = SpirvLayoutRule::RelaxedGLSLStd140;
+    spirvOptions.tBufferLayoutRule = SpirvLayoutRule::RelaxedGLSLStd430;
+    spirvOptions.sBufferLayoutRule = SpirvLayoutRule::RelaxedGLSLStd430;
+  }
 
   // Set shader module version
   theBuilder.setShaderModelVersion(shaderModel.GetMajor(),
@@ -611,7 +636,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci, EmitSPIRVOptions &options)
 
   // Set debug info
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
-  if (options.enableDebugInfo && !inputFiles.empty()) {
+  if (spirvOptions.debugInfoFile && !inputFiles.empty()) {
     // File name
     mainSourceFileId = theContext.takeNextId();
     theBuilder.setSourceFileName(mainSourceFileId,
@@ -695,7 +720,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     // Run optimization passes
     if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
       std::string messages;
-      if (!spirvToolsOptimize(targetEnv, &m, &messages)) {
+      if (!spirvToolsOptimize(targetEnv, &m, spirvOptions.optConfig,
+                              &messages)) {
         emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
         emitNote("please file a bug report on "
                  "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -926,7 +952,7 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
   // the uint, we should perform a comparison.
   {
     uint32_t vecSize = 1, numRows = 0, numCols = 0;
-    if (info.getLayoutRule() != LayoutRule::Void &&
+    if (info.getLayoutRule() != SpirvLayoutRule::Void &&
         isBoolOrVecMatOfBoolType(expr->getType())) {
       const auto exprType = expr->getType();
       QualType uintType = astContext.UnsignedIntTy;
@@ -965,7 +991,7 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
       }
       // Now that it is converted to Bool, it has no layout rule.
       // This result-id should be evaluated as bool from here on out.
-      info.setLayoutRule(LayoutRule::Void);
+      info.setLayoutRule(SpirvLayoutRule::Void);
     }
   }
 
@@ -1386,8 +1412,10 @@ spv::LoopControlMask SPIRVEmitter::translateLoopAttribute(const Stmt *stmt,
   case attr::HLSLUnroll:
     return spv::LoopControlMask::Unroll;
   case attr::HLSLAllowUAVCondition:
-    emitWarning("unsupported allow_uav_condition attribute ignored",
-                stmt->getLocStart());
+    if (!spirvOptions.noWarnIgnoredFeatures) {
+      emitWarning("unsupported allow_uav_condition attribute ignored",
+                  stmt->getLocStart());
+    }
     break;
   default:
     llvm_unreachable("found unknown loop attribute");
@@ -1781,9 +1809,11 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt,
       selectionControl = spv::SelectionControlMask::Flatten;
       break;
     default:
-      emitWarning("unknown if statement attribute '%0' ignored",
-                  attribute->getLocation())
-          << attribute->getSpelling();
+      if (!spirvOptions.noWarnIgnoredFeatures) {
+        emitWarning("unknown if statement attribute '%0' ignored",
+                    attribute->getLocation())
+            << attribute->getSpelling();
+      }
       break;
     }
   }
@@ -1932,10 +1962,12 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
       (attrs.empty() || isAttrForceCase) &&
       allSwitchCasesAreIntegerLiterals(switchStmt->getBody());
 
-  if (isAttrForceCase && !canUseSpirvOpSwitch)
+  if (isAttrForceCase && !canUseSpirvOpSwitch &&
+      !spirvOptions.noWarnIgnoredFeatures) {
     emitWarning("ignored 'forcecase' attribute for the switch statement "
                 "since one or more case values are not integer literals",
                 switchStmt->getLocStart());
+  }
 
   if (canUseSpirvOpSwitch)
     processSwitchStmtUsingSpirvOpSwitch(switchStmt);
@@ -2492,6 +2524,8 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         case BuiltinType::Int:
         case BuiltinType::Short:
         case BuiltinType::Min12Int:
+        case BuiltinType::Min16Int:
+        case BuiltinType::Min16UInt:
         case BuiltinType::UShort:
         case BuiltinType::UInt:
         case BuiltinType::Long:
@@ -2503,7 +2537,9 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
         case BuiltinType::Double:
         case BuiltinType::Float:
         case BuiltinType::Half:
+        case BuiltinType::HalfFloat:
         case BuiltinType::Min10Float:
+        case BuiltinType::Min16Float:
           return castToFloat(initId, initType, ty, srcLoc);
         default:
           emitError("flat conversion of type %0 unimplemented", srcLoc)
@@ -2799,10 +2835,12 @@ uint32_t SPIRVEmitter::processGetSamplePosition(const CXXMemberCallExpr *expr) {
   const auto sampleCount = theBuilder.createUnaryOp(
       spv::Op::OpImageQuerySamples, theBuilder.getUint32Type(),
       loadIfGLValue(object));
-  emitWarning(
-      "GetSamplePosition only supports standard sample settings with 1, 2, 4, "
-      "8, or 16 samples and will return float2(0, 0) for other cases",
-      expr->getCallee()->getExprLoc());
+  if (!spirvOptions.noWarnEmulatedFeatures)
+    emitWarning("GetSamplePosition is emulated using many SPIR-V instructions "
+                "due to lack of direct SPIR-V equivalent, so it only supports "
+                "standard sample settings with 1, 2, 4, 8, or 16 samples and "
+                "will return float2(0, 0) for other cases",
+                expr->getCallee()->getExprLoc());
   return emitGetSamplePosition(sampleCount, doExpr(expr->getArg(0)));
 }
 
@@ -4511,7 +4549,7 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
   // Note: Special-case: Booleans have no physical layout, and therefore when
   // layout is required booleans are represented as unsigned integers.
   // Therefore, after loading the uint we should convert it boolean.
-  if (elemType->isBooleanType() && layoutRule != LayoutRule::Void) {
+  if (elemType->isBooleanType() && layoutRule != SpirvLayoutRule::Void) {
     const auto fromType =
         size == 1 ? astContext.UnsignedIntTy
                   : astContext.getExtVectorType(astContext.UnsignedIntTy, size);
@@ -4575,7 +4613,7 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
       // Special-case: Booleans in SPIR-V do not have a physical layout. Uint is
       // used to represent them when layout is required.
       if (expr->getType()->isBooleanType() &&
-          baseInfo.getLayoutRule() != LayoutRule::Void)
+          baseInfo.getLayoutRule() != SpirvLayoutRule::Void)
         result =
             castToBool(result, astContext.UnsignedIntTy, astContext.BoolTy);
       return baseInfo.setResultId(result);
@@ -4890,7 +4928,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     // is used to represent booleans when layout is required. In such cases,
     // we should cast the boolean to uint before creating OpStore.
     if (isBoolOrVecOfBoolType(lhsValType) &&
-        lhsPtr.getLayoutRule() != LayoutRule::Void) {
+        lhsPtr.getLayoutRule() != SpirvLayoutRule::Void) {
       uint32_t vecSize = 1;
       const bool isVec =
           TypeTranslator::isVectorType(lhsValType, nullptr, &vecSize);
@@ -4984,7 +5022,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
 
 uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
                                         const QualType valType,
-                                        LayoutRule dstLR) {
+                                        SpirvLayoutRule dstLR) {
   // Lambda for casting scalar or vector of bool<-->uint in cases where one side
   // of the reconstruction (lhs or rhs) has a layout rule.
   const auto handleBooleanLayout = [this, &srcVal, dstLR](uint32_t val,
@@ -4993,15 +5031,15 @@ uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
     if (!isBoolOrVecOfBoolType(valType))
       return val;
 
-    LayoutRule srcLR = srcVal.getLayoutRule();
+    SpirvLayoutRule srcLR = srcVal.getLayoutRule();
     // Source value has a layout rule, and has therefore been represented
     // as a uint. Cast it to boolean before using.
     bool shouldCastToBool =
-        srcLR != LayoutRule::Void && dstLR == LayoutRule::Void;
+        srcLR != SpirvLayoutRule::Void && dstLR == SpirvLayoutRule::Void;
     // Destination has a layout rule, and should therefore be represented
     // as a uint. Cast to uint before using.
     bool shouldCastToUint =
-        srcLR == LayoutRule::Void && dstLR != LayoutRule::Void;
+        srcLR == SpirvLayoutRule::Void && dstLR != SpirvLayoutRule::Void;
     // No boolean layout issues to take care of.
     if (!shouldCastToBool && !shouldCastToUint)
       return val;
@@ -6110,7 +6148,7 @@ SpirvEvalInfo &SPIRVEmitter::turnIntoElementPtr(
     auto varName = TypeTranslator::getName(baseType);
     const auto var = createTemporaryVar(baseType, varName, base);
     base.setResultId(var)
-        .setLayoutRule(LayoutRule::Void)
+        .setLayoutRule(SpirvLayoutRule::Void)
         .setStorageClass(spv::StorageClass::Function);
   }
 
@@ -6885,9 +6923,10 @@ SPIRVEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
 }
 
 uint32_t SPIRVEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
-  emitWarning("msad4 intrinsic function is emulated using many SPIR-V "
-              "instructions due to lack of direct SPIR-V equivalent",
-              callExpr->getExprLoc());
+  if (!spirvOptions.noWarnEmulatedFeatures)
+    emitWarning("msad4 intrinsic function is emulated using many SPIR-V "
+                "instructions due to lack of direct SPIR-V equivalent",
+                callExpr->getExprLoc());
 
   // Compares a 4-byte reference value and an 8-byte source value and
   // accumulates a vector of 4 sums. Each sum corresponds to the masked sum
@@ -8765,25 +8804,39 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
   {
     QualType scalarType = {};
     if (TypeTranslator::isScalarType(type, &scalarType)) {
-      // TODO: Support other types such as short, half, etc.
+      if (scalarType->isBooleanType()) {
+        return theBuilder.getConstantBool(true);
+      }
 
+      const auto bitWidth = typeTranslator.getElementSpirvBitwidth(scalarType);
       if (scalarType->isSignedIntegerType()) {
-        return theBuilder.getConstantInt32(1);
+        switch (bitWidth) {
+        case 16:
+          return theBuilder.getConstantInt16(1);
+        case 32:
+          return theBuilder.getConstantInt32(1);
+        case 64:
+          return theBuilder.getConstantInt64(1);
+        }
       }
-
       if (scalarType->isUnsignedIntegerType()) {
-        return theBuilder.getConstantUint32(1);
+        switch (bitWidth) {
+        case 16:
+          return theBuilder.getConstantUint16(1);
+        case 32:
+          return theBuilder.getConstantUint32(1);
+        case 64:
+          return theBuilder.getConstantUint64(1);
+        }
       }
-
-      if (scalarType->isSpecificBuiltinType(BuiltinType::LitFloat))
-        scalarType = typeTranslator.getIntendedLiteralType(scalarType);
-      if (const auto *builtinType = scalarType->getAs<BuiltinType>()) {
-        // TODO: Add support for other types that are not covered yet.
-        switch (builtinType->getKind()) {
-        case BuiltinType::Double:
-          return theBuilder.getConstantFloat64(1.0);
-        case BuiltinType::Float:
+      if (scalarType->isFloatingType()) {
+        switch (bitWidth) {
+        case 16:
+          return theBuilder.getConstantFloat16(1);
+        case 32:
           return theBuilder.getConstantFloat32(1.0);
+        case 64:
+          return theBuilder.getConstantFloat64(1.0);
         }
       }
     }
@@ -9968,7 +10021,7 @@ uint32_t SPIRVEmitter::extractVecFromVec4(uint32_t fromId,
 }
 
 void SPIRVEmitter::emitDebugLine(SourceLocation loc) {
-  if (spirvOptions.enableDebugInfo && mainSourceFileId != 0) {
+  if (spirvOptions.debugInfoLine && mainSourceFileId != 0) {
     auto floc = FullSourceLoc(loc, theCompilerInstance.getSourceManager());
     theBuilder.debugLine(mainSourceFileId, floc.getSpellingLineNumber(),
                          floc.getSpellingColumnNumber());

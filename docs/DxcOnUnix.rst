@@ -26,7 +26,8 @@ Up and Running
 --------------
 We have currently reached the point where we can successfully build and run DXC
 on Linux and macOS. Code generation works for both DXIL and SPIR-V, and we are
-also able to fully run the SPIR-V CodeGen test suite on these platforms.
+also able to run the whole SPIR-V and a large portion of DXIL CodeGen test suite
+on these platforms.
 
 *Note: This work is currently in experimental phase. How we implement certain
 things for Unix platforms may change without considering backward portability.*
@@ -47,9 +48,10 @@ is an area where further contributions can be made:
 
 Moreover, since the HLSL CodeGen tests were originally written with Windows in
 mind, they require the Windows-specific `TAEF Framework <https://docs.microsoft.com/en-us/windows-hardware/drivers/taef/>`_
-to run. Therefore we are not able to compile/run these tests on non-Windows
-platforms. Note that it is only the testing infrastructure that has this
-limitation, and DXIL CodeGen works as expected by running the DXC executable.
+to run. Besides, some tests also require DirectX to execute. Therefore we are
+not able to compile/run all these tests on non-Windows platforms. Note that
+it is only the testing infrastructure that has this limitation, and DXIL CodeGen
+works as expected by running the DXC executable.
 
 Known Issues
 ------------
@@ -70,7 +72,7 @@ Build Requirements
 Please make sure you have the following resources before building:
 
 - `Git <https://git-scm.com/downloads>`_
-- `Python <https://www.python.org/downloads/>`_. Version 2.7.x is required, 3.x might work but it's not officially supported. 
+- `Python <https://www.python.org/downloads/>`_. Version 2.7.x is required, 3.x might work but it's not officially supported.
 - `Ninja <https://github.com/ninja-build/ninja/releases>`_ (*Optional* CMake generator)
 - Either of gcc/g++ or clang/clang++ compilers. Minimum supported version:
 
@@ -114,17 +116,12 @@ And you should be able to successfully run commands as you would on Windows, e.g
 Note that you cannot use slashes (``/``) for specifying command line options as
 you would on Windows. You should use dashes as per usual Unix style.
 
-Building and Running HLSL CodeGen Tests
----------------------------------------
-As described in the `Known Limitations`_ section, we can not run these tests on
-non-Windows platforms due to their dependency on TAEF.
+Building and Running Tests
+--------------------------
 
-Building and Running SPIR-V CodeGen Tests
------------------------------------------
-The SPIR-V CodeGen tests were written within the googletest framework, and can
-therefore be built and run on non-Windows platforms.
+The tests are run using the GoogleTest framework.
 
-You can follow these steps to build and run the SPIR-V CodeGen tests:
+You can follow these steps to build and run the tests:
 
 .. code:: sh
 

@@ -85,7 +85,7 @@ sampler myVar5 : register(vs, s);
 // fxc error X3000: error X3530: register a not valid
 //sampler myVar10 : register(ps, a); // expected-error {{register type is unsupported - valid values are 'b', 'c', 'i', 's', 't'}} fxc-pass {{}} 
 AppendStructuredBuffer<float4> myVar11 : register(ps, u1);
-Buffer<float4> myVar11_plain : register(ps, u2);
+//Buffer<float4> myVar11_plain : register(ps, u2); 
 RWStructuredBuffer<float4> myVar11_rw : register(ps, u);
 // fxc error X3000: syntax error: unexpected integer constant
 //sampler myVar12 : register(ps, 3); // expected-error {{expected identifier}} fxc-pass {{}} 

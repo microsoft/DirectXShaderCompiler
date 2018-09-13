@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
+#include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 
 namespace clang {
 
@@ -210,6 +211,13 @@ public:
   /// function linkage is determined by library target.
   hlsl::DXIL::DefaultLinkage DefaultLinkage = hlsl::DXIL::DefaultLinkage::Default;
   // HLSL Change Ends
+
+  // SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  clang::spirv::SpirvCodeGenOptions SpirvOptions;
+#endif
+  // SPIRV Change Ends
+
   /// Regular expression to select optimizations for which we should enable
   /// optimization remarks. Transformation passes whose name matches this
   /// expression (and support this feature), will emit a diagnostic

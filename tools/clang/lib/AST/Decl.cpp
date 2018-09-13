@@ -2068,6 +2068,11 @@ bool VarDecl::isUsableInConstantExpressions(ASTContext &C) const {
   const LangOptions &Lang = C.getLangOpts();
   (void)(Lang); // HLSL Change - this object is only accessed through static consts
 
+  // HLSL Change: non-static globals are constant buffer variables that look
+  // like const globals, but cannot be used in constant expressions.
+  if (Lang.HLSL && hasGlobalStorage() && getStorageClass() != SC_Static)
+    return false;
+
   if (!Lang.CPlusPlus)
     return false;
 

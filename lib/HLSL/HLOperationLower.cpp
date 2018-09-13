@@ -4810,6 +4810,8 @@ Value *GenerateVecEltFromGEP(Value *ldData, GetElementPtrInst *GEP,
       Builder.CreateStore(Elt, Ptr);
     }
     // Load from temp array.
+    // Insert the new GEP just before the old and to-be-deleted GEP
+    Builder.SetInsertPoint(GEP);
     Value *EltGEP = Builder.CreateInBoundsGEP(tempArray, {zero, idx});
     return Builder.CreateLoad(EltGEP);
   }
@@ -6364,6 +6366,22 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
                          CI->getArgOperand(HLOperandIndex::kStoreOffsetOpIdx),
                          StBuilder, hlslOP);
           SI->eraseFromParent();
+          continue;
+        }
+        if (LoadInst *LI = dyn_cast<LoadInst>(GEPUser)) {
+          IRBuilder<> LdBuilder(LI);
+
+          // Generate tmp vector load with vector type & translate it
+          LoadInst *tmpLd = LdBuilder.CreateLoad(CI);
+
+          Value *ldVal = TranslateTypedBufLoad(CI, RK, RC, handle, tmpLd, LdBuilder,
+            hlslOP, helper.dataLayout);
+
+          // get the single element
+          ldVal = LdBuilder.CreateExtractElement(ldVal, EltIdx);
+
+          LI->replaceAllUsesWith(ldVal);
+          LI->eraseFromParent();
           continue;
         }
         if (!isa<CallInst>(GEPUser)) {

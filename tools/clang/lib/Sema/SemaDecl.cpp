@@ -9818,7 +9818,11 @@ void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
       ActiveTemplateInstantiations.empty()) {
     PragmaStack<StringLiteral *> *Stack = nullptr;
     int SectionFlags = ASTContext::PSF_Implicit | ASTContext::PSF_Read;
-    if (var->getType().isConstQualified())
+    if (var->getType().isConstQualified()
+      // HLSL Change: for HLSL, const initialized isn't the same, unless static
+        && (!getLangOpts().HLSL ||
+            var->getTLSKind() == VarDecl::TLS_Static)
+        )
       Stack = &ConstSegStack;
     else if (!var->getInit()) {
       Stack = &BSSSegStack;

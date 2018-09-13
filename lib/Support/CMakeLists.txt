@@ -28,7 +28,7 @@ if( NOT MSVC )
 endif( NOT MSVC )
 
 # HLSL Change - add ignored sources
-set(HLSL_IGNORE_SOURCES PluginLoader.cpp)
+set(HLSL_IGNORE_SOURCES DynamicLibrary.cpp PluginLoader.cpp)
 
 add_llvm_library(LLVMSupport
   APFloat.cpp
@@ -52,7 +52,6 @@ add_llvm_library(LLVMSupport
   DeltaAlgorithm.cpp
   DAGDeltaAlgorithm.cpp
   Dwarf.cpp
-  DynamicLibrary.cpp
   ErrorHandling.cpp
   FileUtilities.cpp
   FileOutputBuffer.cpp

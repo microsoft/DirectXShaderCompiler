@@ -34,6 +34,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "dxc/Support/SPIRVOptions.h"
 
 namespace clang {
 namespace spirv {
@@ -272,7 +273,7 @@ struct TypeIdPair {
 class SPIRVModule {
 public:
   /// \brief Default constructs an empty SPIR-V module.
-  inline SPIRVModule();
+  inline SPIRVModule(const SpirvCodeGenOptions &options);
 
   // Disable copy constructor/assignment
   SPIRVModule(const SPIRVModule &) = delete;
@@ -293,10 +294,10 @@ public:
   /// destructive; the module will be consumed and cleared after calling it.
   void take(InstBuilder *builder);
 
-  inline void setVersion(uint32_t version);
   /// \brief Sets the id bound to the given bound.
   inline void setBound(uint32_t newBound);
 
+  /// \brief Sets the string representation of the command line options.
   inline void addCapability(spv::Capability);
   inline void addExtension(llvm::StringRef extension);
   inline void addExtInstSet(uint32_t setId, llvm::StringRef extInstSet);
@@ -328,6 +329,8 @@ public:
   inline uint32_t getExtInstSetId(llvm::StringRef setName);
 
 private:
+  const SpirvCodeGenOptions &spirvOptions;
+
   Header header; ///< SPIR-V module header.
   llvm::SetVector<spv::Capability> capabilities;
   llvm::SetVector<std::string> extensions;
@@ -358,6 +361,8 @@ private:
 
   std::vector<Instruction> variables;
   std::vector<std::unique_ptr<Function>> functions;
+
+  std::string clOptions; ///< String representation of command line options.
 };
 
 // === Instruction inline implementations ===
@@ -452,11 +457,10 @@ TypeIdPair::TypeIdPair(const Type &ty, uint32_t id) : type(ty), resultId(id) {}
 
 // === Module inline implementations ===
 
-SPIRVModule::SPIRVModule()
-    : addressingModel(llvm::None), memoryModel(llvm::None),
-      shaderModelVersion(0), sourceFileNameId(0) {}
+SPIRVModule::SPIRVModule(const SpirvCodeGenOptions &options)
+    : spirvOptions(options), addressingModel(llvm::None),
+      memoryModel(llvm::None), shaderModelVersion(0), sourceFileNameId(0) {}
 
-void SPIRVModule::setVersion(uint32_t version) { header.version = version; }
 void SPIRVModule::setBound(uint32_t newBound) { header.bound = newBound; }
 
 void SPIRVModule::addCapability(spv::Capability cap) {

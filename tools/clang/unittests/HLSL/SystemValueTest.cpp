@@ -18,7 +18,6 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 
-#include "WexTestClass.h"
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
 
@@ -39,7 +38,11 @@ using namespace std;
 using namespace hlsl_test;
 using namespace hlsl;
 
+#ifdef _WIN32
 class SystemValueTest {
+#else
+class SystemValueTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(SystemValueTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -107,6 +110,10 @@ public:
       case DXIL::ShaderKind::Hull:      entry = L"HSMain"; profile = L"hs_6_1"; break;
       case DXIL::ShaderKind::Domain:    entry = L"DSMain"; profile = L"ds_6_1"; break;
       case DXIL::ShaderKind::Compute:   entry = L"CSMain"; profile = L"cs_6_1"; break;
+      case DXIL::ShaderKind::Library:
+      case DXIL::ShaderKind::Invalid:
+        assert(!"invalid shaderKind");
+        break;
     }
     if (Major == 0) {
       Major = m_HighestMajor;
@@ -191,6 +198,8 @@ static bool ArbAllowed(DXIL::SigPointKind sp) {
   case DXIL::SigPointKind::DSOut:
   case DXIL::SigPointKind::PSIn:
     return true;
+  default:
+    return false;
   }
   return false;
 }

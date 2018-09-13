@@ -1245,6 +1245,29 @@ TEST_F(FileTest, SpirvExtensionCLUnknown) {
 TEST_F(FileTest, SpirvExtensionAllowAllKHR) {
   runFileTest("spirv.ext.allow-all-khr.hlsl");
 }
+// Test -Oconfig command line option.
+TEST_F(FileTest, SpirvOptOconfigMultipleUses) {
+  runFileTest("spirv.opt.multiple.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigAndO0) {
+  runFileTest("spirv.opt.with-O0.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigAndO1) {
+  runFileTest("spirv.opt.with-O1.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigAndO2) {
+  runFileTest("spirv.opt.with-O2.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigAndO3) {
+  runFileTest("spirv.opt.with-O3.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigAndO4) {
+  runFileTest("spirv.opt.with-O4.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfigInvalidFlag) {
+  runFileTest("spirv.opt.invalid-flag.cl.oconfig.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, SpirvOptOconfig) { runFileTest("spirv.opt.cl.oconfig.hlsl"); }
 
 // For shader stage input/output interface
 // For semantic SV_Position, SV_ClipDistance, SV_CullDistance
@@ -1322,6 +1345,38 @@ TEST_F(FileTest, SpirvDebugOpLine) {
   runFileTest("spirv.debug.opline.hlsl");
 }
 
+TEST_F(FileTest, SpirvDebugDxcCommitInfo) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.commit.hlsl");
+}
+
+// Test that command line options are exposed using OpModuleProcessed.
+TEST_F(FileTest, SpirvDebugClOption) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.cl-option.hlsl");
+}
+
+TEST_F(FileTest, SpirvDebugControlFile) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.ctrl.file.hlsl");
+}
+TEST_F(FileTest, SpirvDebugControlSource) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.ctrl.source.hlsl");
+}
+TEST_F(FileTest, SpirvDebugControlLine) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.ctrl.line.hlsl");
+}
+TEST_F(FileTest, SpirvDebugControlTool) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.ctrl.tool.hlsl");
+}
+TEST_F(FileTest, SpirvDebugControlUnknown) {
+  useVulkan1p1();
+  runFileTest("spirv.debug.ctrl.unknown.hlsl", Expect::Failure);
+}
+
 TEST_F(FileTest, VulkanAttributeErrors) {
   runFileTest("vk.attribute.error.hlsl", Expect::Failure);
 }
@@ -1386,12 +1441,33 @@ TEST_F(FileTest, VulkanRegisterBinding) {
 TEST_F(FileTest, VulkanRegisterBindingShift) {
   // Resource binding from :register() with shift specified via
   // command line option
-  runFileTest("vk.binding.cl.hlsl");
+  runFileTest("vk.binding.cl.shift.hlsl");
 }
 TEST_F(FileTest, VulkanRegisterBindingShiftAllSets) {
   // Resource binding from :register() with shift specified for all sets via
   // command line option
-  runFileTest("vk.binding.cl.all-sets.hlsl");
+  runFileTest("vk.binding.cl.shift.all-sets.hlsl");
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1Mapping) {
+  runFileTest("vk.binding.cl.register.hlsl");
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidSpaceNo) {
+  runFileTest("vk.binding.cl.register.invalid-space.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidSetNo) {
+  runFileTest("vk.binding.cl.register.invalid-set.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingInvalidBindNo) {
+  runFileTest("vk.binding.cl.register.invalid-bind.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingAttr) {
+  runFileTest("vk.binding.cl.register.missing-attr.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingMissingCLOption) {
+  runFileTest("vk.binding.cl.register.missing-cl.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanRegisterBinding1to1MappingAssociatedCounter) {
+  runFileTest("vk.binding.cl.register.counter.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, VulkanStructuredBufferCounter) {
   // [[vk::counter_binding()]] for RWStructuredBuffer, AppendStructuredBuffer,
@@ -1526,6 +1602,12 @@ TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
   setDxLayout();
   runFileTest("vk.layout.cbuffer.fxc.hlsl");
+}
+
+TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer1) {
+  // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.1.hlsl");
 }
 
 TEST_F(FileTest, VulkanSubpassInput) { runFileTest("vk.subpass-input.hlsl"); }
