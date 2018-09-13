@@ -92,8 +92,6 @@ public:
   void clear();
 
   // Instruction building methods.
-  InstBuilder &opNop();
-  InstBuilder &opUndef(uint32_t result_type, uint32_t result_id);
   InstBuilder &opSourceContinued(llvm::StringRef continued_source);
   InstBuilder &opSource(spv::SourceLanguage source_language, uint32_t version,
                         llvm::Optional<uint32_t> file,
@@ -155,17 +153,11 @@ public:
   InstBuilder &opConstantFalse(uint32_t result_type, uint32_t result_id);
   InstBuilder &opConstantComposite(uint32_t result_type, uint32_t result_id,
                                    llvm::ArrayRef<uint32_t> constituents);
-  InstBuilder &
-  opConstantSampler(uint32_t result_type, uint32_t result_id,
-                    spv::SamplerAddressingMode sampler_addressing_mode,
-                    uint32_t param, spv::SamplerFilterMode sampler_filter_mode);
   InstBuilder &opConstantNull(uint32_t result_type, uint32_t result_id);
   InstBuilder &opSpecConstantTrue(uint32_t result_type, uint32_t result_id);
   InstBuilder &opSpecConstantFalse(uint32_t result_type, uint32_t result_id);
   InstBuilder &opSpecConstantComposite(uint32_t result_type, uint32_t result_id,
                                        llvm::ArrayRef<uint32_t> constituents);
-  InstBuilder &opSpecConstantOp(uint32_t result_type, uint32_t result_id,
-                                spv::Op opcode);
   InstBuilder &opFunction(uint32_t result_type, uint32_t result_id,
                           spv::FunctionControlMask function_control,
                           uint32_t function_type);
@@ -185,28 +177,8 @@ public:
                       llvm::Optional<spv::MemoryAccessMask> memory_access);
   InstBuilder &opStore(uint32_t pointer, uint32_t object,
                        llvm::Optional<spv::MemoryAccessMask> memory_access);
-  InstBuilder &
-  opCopyMemory(uint32_t target, uint32_t source,
-               llvm::Optional<spv::MemoryAccessMask> memory_access);
-  InstBuilder &
-  opCopyMemorySized(uint32_t target, uint32_t source, uint32_t size,
-                    llvm::Optional<spv::MemoryAccessMask> memory_access);
   InstBuilder &opAccessChain(uint32_t result_type, uint32_t result_id,
                              uint32_t base, llvm::ArrayRef<uint32_t> indexes);
-  InstBuilder &opInBoundsAccessChain(uint32_t result_type, uint32_t result_id,
-                                     uint32_t base,
-                                     llvm::ArrayRef<uint32_t> indexes);
-  InstBuilder &opPtrAccessChain(uint32_t result_type, uint32_t result_id,
-                                uint32_t base, uint32_t element,
-                                llvm::ArrayRef<uint32_t> indexes);
-  InstBuilder &opArrayLength(uint32_t result_type, uint32_t result_id,
-                             uint32_t structure, uint32_t array_member);
-  InstBuilder &opGenericPtrMemSemantics(uint32_t result_type,
-                                        uint32_t result_id, uint32_t pointer);
-  InstBuilder &opInBoundsPtrAccessChain(uint32_t result_type,
-                                        uint32_t result_id, uint32_t base,
-                                        uint32_t element,
-                                        llvm::ArrayRef<uint32_t> indexes);
   InstBuilder &opDecorate(uint32_t target, spv::Decoration decoration);
   InstBuilder &opMemberDecorate(uint32_t structure_type, uint32_t member,
                                 spv::Decoration decoration);
@@ -216,11 +188,6 @@ public:
   InstBuilder &
   opGroupMemberDecorate(uint32_t decoration_group,
                         llvm::ArrayRef<std::pair<uint32_t, uint32_t>> targets);
-  InstBuilder &opVectorExtractDynamic(uint32_t result_type, uint32_t result_id,
-                                      uint32_t vector, uint32_t index);
-  InstBuilder &opVectorInsertDynamic(uint32_t result_type, uint32_t result_id,
-                                     uint32_t vector, uint32_t component,
-                                     uint32_t index);
   InstBuilder &opVectorShuffle(uint32_t result_type, uint32_t result_id,
                                uint32_t vector_1, uint32_t vector_2,
                                llvm::ArrayRef<uint32_t> components);
@@ -232,8 +199,6 @@ public:
   InstBuilder &opCompositeInsert(uint32_t result_type, uint32_t result_id,
                                  uint32_t object, uint32_t composite,
                                  llvm::ArrayRef<uint32_t> indexes);
-  InstBuilder &opCopyObject(uint32_t result_type, uint32_t result_id,
-                            uint32_t operand);
   InstBuilder &opTranspose(uint32_t result_type, uint32_t result_id,
                            uint32_t matrix);
   InstBuilder &opSampledImage(uint32_t result_type, uint32_t result_id,
@@ -256,23 +221,6 @@ public:
                                uint32_t sampled_image, uint32_t coordinate,
                                uint32_t dref,
                                spv::ImageOperandsMask image_operands);
-  InstBuilder &opImageSampleProjImplicitLod(
-      uint32_t result_type, uint32_t result_id, uint32_t sampled_image,
-      uint32_t coordinate,
-      llvm::Optional<spv::ImageOperandsMask> image_operands);
-  InstBuilder &
-  opImageSampleProjExplicitLod(uint32_t result_type, uint32_t result_id,
-                               uint32_t sampled_image, uint32_t coordinate,
-                               spv::ImageOperandsMask image_operands);
-  InstBuilder &opImageSampleProjDrefImplicitLod(
-      uint32_t result_type, uint32_t result_id, uint32_t sampled_image,
-      uint32_t coordinate, uint32_t dref,
-      llvm::Optional<spv::ImageOperandsMask> image_operands);
-  InstBuilder &
-  opImageSampleProjDrefExplicitLod(uint32_t result_type, uint32_t result_id,
-                                   uint32_t sampled_image, uint32_t coordinate,
-                                   uint32_t dref,
-                                   spv::ImageOperandsMask image_operands);
   InstBuilder &
   opImageFetch(uint32_t result_type, uint32_t result_id, uint32_t image,
                uint32_t coordinate,
@@ -292,8 +240,6 @@ public:
   InstBuilder &
   opImageWrite(uint32_t image, uint32_t coordinate, uint32_t texel,
                llvm::Optional<spv::ImageOperandsMask> image_operands);
-  InstBuilder &opImage(uint32_t result_type, uint32_t result_id,
-                       uint32_t sampled_image);
   InstBuilder &opImageQueryFormat(uint32_t result_type, uint32_t result_id,
                                   uint32_t image);
   InstBuilder &opImageQueryOrder(uint32_t result_type, uint32_t result_id,
@@ -339,16 +285,9 @@ public:
                               uint32_t p);
   InstBuilder &opEmitVertex();
   InstBuilder &opEndPrimitive();
-  InstBuilder &opEmitStreamVertex(uint32_t stream);
-  InstBuilder &opEndStreamPrimitive(uint32_t stream);
   InstBuilder &opControlBarrier(uint32_t execution, uint32_t memory,
                                 uint32_t semantics);
   InstBuilder &opMemoryBarrier(uint32_t memory, uint32_t semantics);
-  InstBuilder &opAtomicLoad(uint32_t result_type, uint32_t result_id,
-                            uint32_t pointer, uint32_t scope,
-                            uint32_t semantics);
-  InstBuilder &opAtomicStore(uint32_t pointer, uint32_t scope,
-                             uint32_t semantics, uint32_t value);
   InstBuilder &opAtomicExchange(uint32_t result_type, uint32_t result_id,
                                 uint32_t pointer, uint32_t scope,
                                 uint32_t semantics, uint32_t value);
@@ -356,20 +295,6 @@ public:
                                        uint32_t pointer, uint32_t scope,
                                        uint32_t equal, uint32_t unequal,
                                        uint32_t value, uint32_t comparator);
-  InstBuilder &opAtomicCompareExchangeWeak(uint32_t result_type,
-                                           uint32_t result_id, uint32_t pointer,
-                                           uint32_t scope, uint32_t equal,
-                                           uint32_t unequal, uint32_t value,
-                                           uint32_t comparator);
-  InstBuilder &opAtomicIIncrement(uint32_t result_type, uint32_t result_id,
-                                  uint32_t pointer, uint32_t scope,
-                                  uint32_t semantics);
-  InstBuilder &opAtomicIDecrement(uint32_t result_type, uint32_t result_id,
-                                  uint32_t pointer, uint32_t scope,
-                                  uint32_t semantics);
-  InstBuilder &
-  opPhi(uint32_t result_type, uint32_t result_id,
-        llvm::ArrayRef<std::pair<uint32_t, uint32_t>> variable_parent_);
   InstBuilder &opLoopMerge(uint32_t merge_block, uint32_t continue_target,
                            spv::LoopControlMask loop_control);
   InstBuilder &opSelectionMerge(uint32_t merge_block,
@@ -402,21 +327,6 @@ public:
                                      uint32_t sampled_image,
                                      uint32_t coordinate, uint32_t dref,
                                      spv::ImageOperandsMask image_operands);
-  InstBuilder &opImageSparseSampleProjImplicitLod(
-      uint32_t result_type, uint32_t result_id, uint32_t sampled_image,
-      uint32_t coordinate,
-      llvm::Optional<spv::ImageOperandsMask> image_operands);
-  InstBuilder &opImageSparseSampleProjExplicitLod(
-      uint32_t result_type, uint32_t result_id, uint32_t sampled_image,
-      uint32_t coordinate, spv::ImageOperandsMask image_operands);
-  InstBuilder &opImageSparseSampleProjDrefImplicitLod(
-      uint32_t result_type, uint32_t result_id, uint32_t sampled_image,
-      uint32_t coordinate, uint32_t dref,
-      llvm::Optional<spv::ImageOperandsMask> image_operands);
-  InstBuilder &opImageSparseSampleProjDrefExplicitLod(
-      uint32_t result_type, uint32_t result_id, uint32_t sampled_image,
-      uint32_t coordinate, uint32_t dref,
-      spv::ImageOperandsMask image_operands);
   InstBuilder &
   opImageSparseFetch(uint32_t result_type, uint32_t result_id, uint32_t image,
                      uint32_t coordinate,
@@ -433,41 +343,10 @@ public:
   InstBuilder &opImageSparseTexelsResident(uint32_t result_type,
                                            uint32_t result_id,
                                            uint32_t resident_code);
-  InstBuilder &opNoLine();
-  InstBuilder &opAtomicFlagTestAndSet(uint32_t result_type, uint32_t result_id,
-                                      uint32_t pointer, uint32_t scope,
-                                      uint32_t semantics);
-  InstBuilder &opAtomicFlagClear(uint32_t pointer, uint32_t scope,
-                                 uint32_t semantics);
   InstBuilder &
   opImageSparseRead(uint32_t result_type, uint32_t result_id, uint32_t image,
                     uint32_t coordinate,
                     llvm::Optional<spv::ImageOperandsMask> image_operands);
-  InstBuilder &opSizeOf(uint32_t result_type, uint32_t result_id,
-                        uint32_t pointer);
-  InstBuilder &opTypePipeStorage(uint32_t result_id);
-  InstBuilder &opConstantPipeStorage(uint32_t result_type, uint32_t result_id,
-                                     uint32_t packet_size,
-                                     uint32_t packet_alignment,
-                                     uint32_t capacity);
-  InstBuilder &opCreatePipeFromPipeStorage(uint32_t result_type,
-                                           uint32_t result_id,
-                                           uint32_t pipe_storage);
-  InstBuilder &
-  opGetKernelLocalSizeForSubgroupCount(uint32_t result_type, uint32_t result_id,
-                                       uint32_t subgroup_count, uint32_t invoke,
-                                       uint32_t param, uint32_t param_size,
-                                       uint32_t param_align);
-  InstBuilder &opGetKernelMaxNumSubgroups(uint32_t result_type,
-                                          uint32_t result_id, uint32_t invoke,
-                                          uint32_t param, uint32_t param_size,
-                                          uint32_t param_align);
-  InstBuilder &opTypeNamedBarrier(uint32_t result_id);
-  InstBuilder &opNamedBarrierInitialize(uint32_t result_type,
-                                        uint32_t result_id,
-                                        uint32_t subgroup_count);
-  InstBuilder &opMemoryNamedBarrier(uint32_t named_barrier, uint32_t memory,
-                                    uint32_t semantics);
   InstBuilder &opModuleProcessed(std::string process);
   InstBuilder &opExecutionModeId(uint32_t entry_point, spv::ExecutionMode mode);
   InstBuilder &opDecorateId(uint32_t target, spv::Decoration decoration);

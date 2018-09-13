@@ -20,9 +20,9 @@ using ::testing::ContainerEq;
 TEST(InstBuilder, InstWoParams) {
   std::vector<uint32_t> result;
   auto ib = constructInstBuilder(result);
-  expectBuildSuccess(ib.opNop().x());
-  // OpNop takes no parameters.
-  auto expected = constructInst(spv::Op::OpNop, {});
+  expectBuildSuccess(ib.opFunctionEnd().x());
+  // opFunctionEnd takes no parameters.
+  auto expected = constructInst(spv::Op::OpFunctionEnd, {});
   EXPECT_THAT(result, ContainerEq(expected));
 }
 
@@ -155,7 +155,7 @@ TEST(InstBuilder, InstMissingAdditionalLiteralString) {
 
 TEST(InstBuilder, NullConsumerResultsInError) {
   auto ib = InstBuilder(nullptr);
-  EXPECT_EQ(InstBuilder::Status::NullConsumer, ib.opNop().x());
+  EXPECT_EQ(InstBuilder::Status::NullConsumer, ib.opLine(1, 2, 3).x());
 }
 
 TEST(InstBuilder, InstWStringParams) {
