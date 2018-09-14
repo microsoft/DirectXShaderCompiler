@@ -21,7 +21,7 @@ using ::testing::ElementsAre;
 
 TEST(ModuleBuilder, TakeModuleDirectlyCreatesHeader) {
   SPIRVContext context;
-  ModuleBuilder builder(&context, nullptr, {0});
+  ModuleBuilder builder(&context, nullptr, {});
 
   EXPECT_THAT(builder.takeModule(),
               ElementsAre(spv::MagicNumber, 0x00010000, 14u << 16, 1u, 0u));
@@ -29,7 +29,7 @@ TEST(ModuleBuilder, TakeModuleDirectlyCreatesHeader) {
 
 TEST(ModuleBuilder, CreateFunction) {
   SPIRVContext context;
-  ModuleBuilder builder(&context, nullptr, {0});
+  ModuleBuilder builder(&context, nullptr, {});
 
   const auto rType = context.takeNextId();
   const auto fType = context.takeNextId();
@@ -47,7 +47,7 @@ TEST(ModuleBuilder, CreateFunction) {
 
 TEST(ModuleBuilder, CreateBasicBlock) {
   SPIRVContext context;
-  ModuleBuilder builder(&context, nullptr, {0});
+  ModuleBuilder builder(&context, nullptr, {});
 
   const auto rType = context.takeNextId();
   const auto fType = context.takeNextId();
