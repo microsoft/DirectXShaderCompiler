@@ -74,6 +74,27 @@ const hlsl::ConstantPacking *getPackOffset(const NamedDecl *decl) {
 
 } // anonymous namespace
 
+QualType TypeTranslator::getBoolTypeWithSourceComponents(QualType sourceType) {
+  if (isScalarType(sourceType)) {
+    return astContext.BoolTy;
+  }
+  uint32_t elemCount = 0;
+  if (isVectorType(sourceType, nullptr, &elemCount)) {
+    return astContext.getExtVectorType(astContext.BoolTy, elemCount);
+  }
+  return {};
+}
+QualType TypeTranslator::getUintTypeWithSourceComponents(QualType sourceType) {
+  if (isScalarType(sourceType)) {
+    return astContext.UnsignedIntTy;
+  }
+  uint32_t elemCount = 0;
+  if (isVectorType(sourceType, nullptr, &elemCount)) {
+    return astContext.getExtVectorType(astContext.UnsignedIntTy, elemCount);
+  }
+  return {};
+}
+
 bool TypeTranslator::isRelaxedPrecisionType(QualType type,
                                             const SpirvCodeGenOptions &opts) {
   // Primitive types
