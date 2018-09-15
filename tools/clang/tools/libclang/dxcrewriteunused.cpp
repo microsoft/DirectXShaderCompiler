@@ -129,6 +129,7 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getLangOpts().HLSLVersion = (unsigned)opts.HLSLVersion;
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
+  compiler.getLangOpts().EnableBackCompatMode = opts.EnableBackCompatMode;
 
   PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
   if (rewrite != nullptr) {
