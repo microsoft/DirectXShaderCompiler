@@ -2,7 +2,7 @@
 
 // CHECK: {{.*cbvar.*}} = constant float 0.000000e+00, align 4
 // CHECK: define void @PSMain()
-// CHECK: call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %"$Globals_buffer", i32 0)
+// CHECK: call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %"$Globals_cbuffer", i32 0)
 // CHECK: %{{[a-z0-9]+.*[a-z0-9]*}} = fadd fast float %{{[a-z0-9]+.*[a-z0-9]*}}, 5.000000e+00
 // CHECK: %{{[a-z0-9]+.*[a-z0-9]*}} = fmul fast float %{{[a-z0-9]+.*[a-z0-9]*}}, 3.000000e+00
 // CHECK: ret void

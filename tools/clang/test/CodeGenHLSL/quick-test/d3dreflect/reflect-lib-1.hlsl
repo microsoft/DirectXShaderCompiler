@@ -18,7 +18,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     FunctionCount: 3
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?function0@@YAM$f16@@Z
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?function0@@YAM$min16f@@Z
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       ConstantBuffers: 1
 // CHECK:       BoundResources: 2
@@ -68,7 +68,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:         Dimension: D3D_SRV_DIMENSION_TEXTURE1D
 // CHECK:         uFlags: 0xc
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?function1@@YAMMF@Z
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?function1@@YAMM$min12i@@Z
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       ConstantBuffers: 1
 // CHECK:       BoundResources: 4
