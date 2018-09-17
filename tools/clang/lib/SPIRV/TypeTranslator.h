@@ -233,6 +233,17 @@ public:
   /// matrix type.
   uint32_t getComponentVectorType(QualType matrixType);
 
+  /// \brief Returns the QualType that has the same components as the source
+  /// type, but with boolean element type. For instance, if the source type is a
+  /// vector of 3 integers, returns the QualType for a vector of 3 booleans.
+  /// Supports only scalars and vectors.
+  QualType getBoolTypeWithSourceComponents(QualType srceType);
+  /// \brief Returns the QualType that has the same components as the source
+  /// type, but with 32-bit uint element type. For instance, if the source type
+  /// is a vector of 3 booleans, returns the QualType for a vector of 3 uints.
+  /// Supports only scalars and vectors.
+  QualType getUintTypeWithSourceComponents(QualType srceType);
+
   /// \brief Returns true if all members in structType are of the same element
   /// type and can be fit into a 4-component vector. Writes element type and
   /// count to *elemType and *elemCount if not nullptr. Otherwise, emit errors

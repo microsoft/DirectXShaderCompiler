@@ -599,7 +599,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
       theContext(), featureManager(diags, spirvOptions),
       theBuilder(&theContext, &featureManager, spirvOptions),
       typeTranslator(astContext, theBuilder, diags, spirvOptions),
-      declIdMapper(shaderModel, astContext, theBuilder, typeTranslator,
+      declIdMapper(shaderModel, astContext, theBuilder, *this, typeTranslator,
                    featureManager, spirvOptions),
       entryFunctionId(0), curFunction(nullptr), curThis(0),
       seenPushConstantAt(), isSpecConstantMode(false),

@@ -32,6 +32,8 @@
 namespace clang {
 namespace spirv {
 
+class SPIRVEmitter;
+
 /// A struct containing information about a particular HLSL semantic.
 struct SemanticInfo {
   llvm::StringRef str;            ///< The original semantic string
@@ -257,7 +259,8 @@ private:
 class DeclResultIdMapper {
 public:
   inline DeclResultIdMapper(const hlsl::ShaderModel &stage, ASTContext &context,
-                            ModuleBuilder &builder, TypeTranslator &translator,
+                            ModuleBuilder &builder, SPIRVEmitter &emitter,
+                            TypeTranslator &translator,
                             FeatureManager &features,
                             const SpirvCodeGenOptions &spirvOptions);
 
@@ -628,6 +631,7 @@ private:
 private:
   const hlsl::ShaderModel &shaderModel;
   ModuleBuilder &theBuilder;
+  SPIRVEmitter &theEmitter;
   const SpirvCodeGenOptions &spirvOptions;
   ASTContext &astContext;
   DiagnosticsEngine &diags;
@@ -742,16 +746,15 @@ void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
   builder.createStore(resultId, srcPair.get(builder, translator));
 }
 
-DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
-                                       ASTContext &context,
-                                       ModuleBuilder &builder,
-                                       TypeTranslator &translator,
-                                       FeatureManager &features,
-                                       const SpirvCodeGenOptions &options)
-    : shaderModel(model), theBuilder(builder), spirvOptions(options),
-      astContext(context), diags(context.getDiagnostics()),
-      typeTranslator(translator), entryFunctionId(0), laneCountBuiltinId(0),
-      laneIndexBuiltinId(0), needsLegalization(false),
+DeclResultIdMapper::DeclResultIdMapper(
+    const hlsl::ShaderModel &model, ASTContext &context, ModuleBuilder &builder,
+    SPIRVEmitter &emitter, TypeTranslator &translator, FeatureManager &features,
+    const SpirvCodeGenOptions &options)
+    : shaderModel(model), theBuilder(builder), theEmitter(emitter),
+      spirvOptions(options), astContext(context),
+      diags(context.getDiagnostics()), typeTranslator(translator),
+      entryFunctionId(0), laneCountBuiltinId(0), laneIndexBuiltinId(0),
+      needsLegalization(false),
       glPerVertex(model, context, builder, typeTranslator) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
