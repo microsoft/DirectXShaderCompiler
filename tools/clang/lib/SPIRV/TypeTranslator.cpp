@@ -74,6 +74,30 @@ const hlsl::ConstantPacking *getPackOffset(const NamedDecl *decl) {
 
 } // anonymous namespace
 
+QualType TypeTranslator::getBoolTypeWithSourceComponents(QualType sourceType) {
+  if (isScalarType(sourceType)) {
+    return astContext.BoolTy;
+  }
+  uint32_t elemCount = 0;
+  if (isVectorType(sourceType, nullptr, &elemCount)) {
+    return astContext.getExtVectorType(astContext.BoolTy, elemCount);
+  }
+
+  llvm_unreachable("only scalar and vector types are supported in "
+                   "getBoolTypeWithSourceComponents");
+}
+QualType TypeTranslator::getUintTypeWithSourceComponents(QualType sourceType) {
+  if (isScalarType(sourceType)) {
+    return astContext.UnsignedIntTy;
+  }
+  uint32_t elemCount = 0;
+  if (isVectorType(sourceType, nullptr, &elemCount)) {
+    return astContext.getExtVectorType(astContext.UnsignedIntTy, elemCount);
+  }
+  llvm_unreachable("only scalar and vector types are supported in "
+                   "getUintTypeWithSourceComponents");
+}
+
 bool TypeTranslator::isRelaxedPrecisionType(QualType type,
                                             const SpirvCodeGenOptions &opts) {
   // Primitive types

@@ -5,7 +5,7 @@
 
 // CHECK:      OpDecorate %out_var_SV_IsFrontFace Location 0
 
-// CHECK:      %out_var_SV_IsFrontFace = OpVariable %_ptr_Output_bool Output
+// CHECK:      %out_var_SV_IsFrontFace = OpVariable %_ptr_Output_uint Output
 
 // GS per-vertex input
 struct GsVIn {

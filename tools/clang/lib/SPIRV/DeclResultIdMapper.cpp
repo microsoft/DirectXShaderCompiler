@@ -23,10 +23,34 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
 
+#include "SPIRVEmitter.h"
+
 namespace clang {
 namespace spirv {
 
 namespace {
+/// \brief Returns true if the given decl is a boolean stage I/O variable.
+/// Returns false if the type is not boolean, or the decl is a built-in stage
+/// variable.
+bool isBooleanStageIOVar(const NamedDecl *decl, QualType type,
+                         const hlsl::DXIL::SemanticKind semanticKind,
+                         const hlsl::SigPoint::Kind sigPointKind) {
+  // [[vk::builtin(...)]] makes the decl a built-in stage variable.
+  // IsFrontFace (if used as PSIn) is the only known boolean built-in stage
+  // variable.
+  const bool isBooleanBuiltin =
+      (decl->getAttr<VKBuiltInAttr>() != nullptr) ||
+      (semanticKind == hlsl::Semantic::Kind::IsFrontFace &&
+       sigPointKind == hlsl::SigPoint::Kind::PSIn);
+
+  // TODO: support boolean matrix stage I/O variable if needed.
+  QualType elemType = {};
+  const bool isBooleanType = ((TypeTranslator::isScalarType(type, &elemType) ||
+                               TypeTranslator::isVectorType(type, &elemType)) &&
+                              elemType->isBooleanType());
+
+  return isBooleanType && !isBooleanBuiltin;
+}
 
 /// \brief Returns the stage variable's register assignment for the given Decl.
 const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
@@ -1402,6 +1426,7 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       return true;
 
     const uint32_t srcTypeId = typeId; // Variable type in source code
+    const QualType srcQualType = type; // Variable type in source code
     uint32_t srcVecElemTypeId = 0;     // Variable element type if vector
 
     switch (semanticKind) {
@@ -1436,6 +1461,13 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
     default:
       // Only the semantic kinds mentioned above are handled.
       break;
+    }
+
+    // Boolean stage I/O variables must be represented as unsigned integers.
+    // Boolean built-in variables are represented as bool.
+    if (isBooleanStageIOVar(decl, type, semanticKind, sigPoint->GetKind())) {
+      type = typeTranslator.getUintTypeWithSourceComponents(type);
+      typeId = typeTranslator.translateType(type);
     }
 
     // Handle the extra arrayness
@@ -1596,6 +1628,14 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
       // Reciprocate SV_Position.w if requested
       if (semanticKind == hlsl::Semantic::Kind::Position)
         *value = invertWIfRequested(*value);
+
+      // Since boolean stage input variables are represented as unsigned
+      // integers, after loading them, we should cast them to boolean.
+      if (isBooleanStageIOVar(decl, srcQualType, semanticKind,
+                              sigPoint->GetKind())) {
+        *value = theEmitter.castToType(*value, type, srcQualType,
+                                       decl->getLocation());
+      }
     } else {
       if (noWriteBack)
         return true;
@@ -1655,6 +1695,14 @@ bool DeclResultIdMapper::createStageVars(const hlsl::SigPoint *sigPoint,
             theBuilder.getPointerType(elementTypeId, spv::StorageClass::Output);
         const uint32_t index = invocationId.getValue();
         ptr = theBuilder.createAccessChain(ptrType, varId, index);
+        theBuilder.createStore(ptr, *value);
+      }
+      // Since boolean output stage variables are represented as unsigned
+      // integers, we must cast the value to uint before storing.
+      else if (isBooleanStageIOVar(decl, srcQualType, semanticKind,
+                                   sigPoint->GetKind())) {
+        *value = theEmitter.castToType(*value, srcQualType, type,
+                                       decl->getLocation());
         theBuilder.createStore(ptr, *value);
       }
       // For all normal cases
@@ -1832,6 +1880,13 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
     // Negate SV_Position.y if requested
     if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)
       value = invertYIfRequested(value);
+
+    // Boolean stage output variables are represented as unsigned integers.
+    if (isBooleanStageIOVar(decl, type, semanticInfo.semantic->GetKind(),
+                            hlsl::SigPoint::Kind::GSOut)) {
+      QualType uintType = typeTranslator.getUintTypeWithSourceComponents(type);
+      value = theEmitter.castToType(value, type, uintType, decl->getLocation());
+    }
 
     theBuilder.createStore(found->second, value);
     return true;
