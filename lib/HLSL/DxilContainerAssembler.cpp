@@ -1193,7 +1193,7 @@ public:
     }
   }
 
-  __override uint32_t size() const {
+  uint32_t size() const override {
     // header + offset array
     uint32_t total = sizeof(RuntimeDataHeader) + m_Parts.size() * sizeof(uint32_t);
     // For each part: part header + part size
@@ -1202,7 +1202,7 @@ public:
     return total;
   }
 
-  __override void write(AbstractMemoryStream *pStream) {
+  void write(AbstractMemoryStream *pStream) override {
     try {
       m_RDATBuffer.resize(size(), 0);
       CheckedWriter W(m_RDATBuffer.data(), m_RDATBuffer.size());
