@@ -82,7 +82,9 @@ QualType TypeTranslator::getBoolTypeWithSourceComponents(QualType sourceType) {
   if (isVectorType(sourceType, nullptr, &elemCount)) {
     return astContext.getExtVectorType(astContext.BoolTy, elemCount);
   }
-  return {};
+
+  llvm_unreachable("only scalar and vector types are supported in "
+                   "getBoolTypeWithSourceComponents");
 }
 QualType TypeTranslator::getUintTypeWithSourceComponents(QualType sourceType) {
   if (isScalarType(sourceType)) {
@@ -92,7 +94,8 @@ QualType TypeTranslator::getUintTypeWithSourceComponents(QualType sourceType) {
   if (isVectorType(sourceType, nullptr, &elemCount)) {
     return astContext.getExtVectorType(astContext.UnsignedIntTy, elemCount);
   }
-  return {};
+  llvm_unreachable("only scalar and vector types are supported in "
+                   "getUintTypeWithSourceComponents");
 }
 
 bool TypeTranslator::isRelaxedPrecisionType(QualType type,
