@@ -1043,7 +1043,7 @@ private:
   void UpdateResourceInfo(StringBufferPart &stringBufferPart) {
     // Try to allocate string table for resources. String table is a sequence
     // of strings delimited by \0
-    m_Parts.emplace_back(std::make_unique<ResourceTable>());
+    m_Parts.emplace_back(llvm::make_unique<ResourceTable>());
     ResourceTable &resourceTable = *reinterpret_cast<ResourceTable*>(m_Parts.back().get());
     uint32_t resourceIndex = 0;
     for (auto &resource : m_Module.GetCBuffers()) {
@@ -1079,9 +1079,9 @@ private:
   }
 
   void UpdateFunctionInfo(StringBufferPart &stringBufferPart) {
-    m_Parts.emplace_back(std::make_unique<FunctionTable>());
+    m_Parts.emplace_back(llvm::make_unique<FunctionTable>());
     FunctionTable &functionTable = *reinterpret_cast<FunctionTable*>(m_Parts.back().get());
-    m_Parts.emplace_back(std::make_unique<IndexArraysPart>());
+    m_Parts.emplace_back(llvm::make_unique<IndexArraysPart>());
     IndexArraysPart &indexArraysPart = *reinterpret_cast<IndexArraysPart*>(m_Parts.back().get());
     for (auto &function : m_Module.GetModule()->getFunctionList()) {
       if (function.isDeclaration() && !function.isIntrinsic()) {
@@ -1177,7 +1177,7 @@ public:
   DxilRDATWriter(const DxilModule &module, uint32_t InfoVersion = 0)
       : m_Module(module), m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
     // It's important to keep the order of this update
-    m_Parts.emplace_back(std::make_unique<StringBufferPart>());
+    m_Parts.emplace_back(llvm::make_unique<StringBufferPart>());
     StringBufferPart &stringBufferPart = *reinterpret_cast<StringBufferPart*>(m_Parts.back().get());
     UpdateResourceInfo(stringBufferPart);
     UpdateFunctionInfo(stringBufferPart);
