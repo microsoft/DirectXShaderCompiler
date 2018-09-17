@@ -21,10 +21,15 @@
 #define FallbackLayerDispatchConstantsRegister 0
 #define FallbackLayerAccelerationStructureList 1
 
+#ifndef _WIN32
+#define __int32 int
+#define __int64 long long
+#endif
+
 #ifndef HLSL
 struct ViewKey {
   unsigned int ViewType;
-  union 
+  union
   {
     unsigned int StructuredStride; // When ViewType == StructuredBuffer
     unsigned int SRVComponentType; // When ViewType != StructuredBuffer &&  ViewType != RawBuffer
