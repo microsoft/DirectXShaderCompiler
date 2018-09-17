@@ -738,7 +738,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
   DxilEntryPropsMap EntryPropMap;
   std::unique_ptr<DxilEntryProps> pProps =
-          std::make_unique<DxilEntryProps>(entryDM.GetDxilEntryProps(entryFunc));
+      llvm::make_unique<DxilEntryProps>(entryDM.GetDxilEntryProps(entryFunc));
   EntryPropMap[NewEntryFunc] = std::move(pProps);
   DM.ResetEntryPropsMap(std::move(EntryPropMap));
 
@@ -835,7 +835,7 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
       Function *NewF = m_newFunctions[F->getName()];
       DxilEntryProps &props = tmpDM.GetDxilEntryProps(F);
       std::unique_ptr<DxilEntryProps> pProps =
-          std::make_unique<DxilEntryProps>(props);
+          llvm::make_unique<DxilEntryProps>(props);
       EntryPropMap[NewF] = std::move(pProps);
     }
   }

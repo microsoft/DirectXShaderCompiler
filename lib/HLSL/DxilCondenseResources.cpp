@@ -1868,9 +1868,9 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
         // Must be instruction for multi dim array.
         std::unique_ptr<IRBuilder<> > Builder;
         if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
-          Builder = std::make_unique<IRBuilder<> >(GEPInst);
+          Builder = llvm::make_unique<IRBuilder<> >(GEPInst);
         } else {
-          Builder = std::make_unique<IRBuilder<> >(GV->getContext());
+          Builder = llvm::make_unique<IRBuilder<> >(GV->getContext());
         }
         for (; GEPIt != E; ++GEPIt) {
           if (GEPIt->isArrayTy()) {
