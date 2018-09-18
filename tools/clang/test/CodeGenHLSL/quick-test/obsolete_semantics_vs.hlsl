@@ -1,6 +1,7 @@
 // RUN: %dxc -E main -T vs_6_0 %s -Gec | FileCheck %s
 
-// CHECK: SV_Position              0   xyzw        0      POS   float   xyzw
+// CHECK: COLOR                    0   xyzw        0     NONE   float
+// CHECK: SV_Position              0   xyzw        0      POS   float
 
 struct VSOut
 {

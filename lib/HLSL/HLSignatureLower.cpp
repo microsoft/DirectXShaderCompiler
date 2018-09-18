@@ -403,10 +403,10 @@ void HLSignatureLower::RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo,
   DXIL::SigPointKind sigPointKind = pSigPoint->GetKind();
   if (sigPointKind == DXIL::SigPointKind::PSOut) {
     if (semName.size() == 5) {
-      if (strncmp(semName.data(), "COLOR", 5) == 0) {
+      if (strnicmp(semName.data(), "COLOR", 5) == 0) {
         RemapSemanticAndWarn(semName, semFullName, "SV_Target", paramInfo);
       }
-      else if (strncmp(semName.data(), "DEPTH", 5) == 0) {
+      else if (strnicmp(semName.data(), "DEPTH", 5) == 0) {
         RemapSemanticAndWarn(semName, semFullName, "SV_Depth", paramInfo);
       }
     }

@@ -1791,10 +1791,10 @@ void CGMSHLSLRuntime::RemapObsoleteSemantic(SourceLocation SLoc, DxilParameterAn
 
   if (sigPoint == DXIL::SigPointKind::PSOut) {
     if (semName.size() == 5) {
-      if (strncmp(semName.data(), "COLOR", 5) == 0) {
+      if (strnicmp(semName.data(), "COLOR", 5) == 0) {
         RemapSemanticAndWarn(semName, semFullName, "SV_Target", SLoc, paramInfo);
       }
-      else if (strncmp(semName.data(), "DEPTH", 5) == 0) {
+      else if (strnicmp(semName.data(), "DEPTH", 5) == 0) {
         RemapSemanticAndWarn(semName, semFullName, "SV_Depth", SLoc, paramInfo);
       }
     }

@@ -11,11 +11,11 @@ struct PSIn
 
 struct PSOut
 {
- float4 c : COLOR1;
- float d : DEPTH;
+  float4 c : COLOR1;
+  float d  : DEPTH;
 };
 
-PSOut main(PSIn In : VPOS)
+PSOut main(PSIn In : VPOS) 
 {
     PSOut retValue = { {1, 0, 1, 0}, 0.5 };
     return retValue;
