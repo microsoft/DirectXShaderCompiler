@@ -472,16 +472,14 @@ struct ValidationContext {
     if (isLibProfile) {
       std::unordered_set<Value *> ResSet;
       // Start from all global variable in resTab.
-      auto collectRes = [&](auto &ResTab) {
-        for (auto &Res : ResTab) {
-          PropagateResMap(Res->GetGlobalSymbol(), Res.get());
-        }
-      };
-
-      collectRes(DxilMod.GetCBuffers());
-      collectRes(DxilMod.GetUAVs());
-      collectRes(DxilMod.GetSRVs());
-      collectRes(DxilMod.GetSamplers());
+      for (auto &Res : DxilMod.GetCBuffers())
+        PropagateResMap(Res->GetGlobalSymbol(), Res.get());
+      for (auto &Res : DxilMod.GetUAVs())
+        PropagateResMap(Res->GetGlobalSymbol(), Res.get());
+      for (auto &Res : DxilMod.GetSRVs())
+        PropagateResMap(Res->GetGlobalSymbol(), Res.get());
+      for (auto &Res : DxilMod.GetSamplers())
+        PropagateResMap(Res->GetGlobalSymbol(), Res.get());
     } else {
       // Scan all createHandle.
       for (auto &it : hlslOP->GetOpFuncList(DXIL::OpCode::CreateHandle)) {
@@ -3328,18 +3326,29 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
       dxilutil::IsStaticGlobal(&GV) || dxilutil::IsSharedMemoryGlobal(&GV);
 
   if (ValCtx.isLibProfile) {
-    auto isResourceGlobal = [&](auto &ResTab) -> bool {
-      for (auto &Res : ResTab) {
+    auto isCBufferGlobal = [&](const std::vector<std::unique_ptr<DxilCBuffer>> &ResTab) -> bool {
+      for (auto &Res : ResTab)
         if (Res->GetGlobalSymbol() == &GV)
           return true;
-      }
+      return false;
+    };
+    auto isResourceGlobal = [&](const std::vector<std::unique_ptr<DxilResource>> &ResTab) -> bool {
+      for (auto &Res : ResTab)
+        if (Res->GetGlobalSymbol() == &GV)
+          return true;
+      return false;
+    };
+    auto isSamplerGlobal = [&](const std::vector<std::unique_ptr<DxilSampler>> &ResTab) -> bool {
+      for (auto &Res : ResTab)
+        if (Res->GetGlobalSymbol() == &GV)
+          return true;
       return false;
     };
 
-    bool isRes = isResourceGlobal(ValCtx.DxilMod.GetCBuffers());
+    bool isRes = isCBufferGlobal(ValCtx.DxilMod.GetCBuffers());
     isRes |= isResourceGlobal(ValCtx.DxilMod.GetUAVs());
     isRes |= isResourceGlobal(ValCtx.DxilMod.GetSRVs());
-    isRes |= isResourceGlobal(ValCtx.DxilMod.GetSamplers());
+    isRes |= isSamplerGlobal(ValCtx.DxilMod.GetSamplers());
     isInternalGV |= isRes;
   }
 
