@@ -15,6 +15,7 @@
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/HLSL/DxilRootSignature.h"
 #include "dxc/HLSL/DxilFunctionProps.h"
+#include "dxc/Support/WinAdapter.h"
 #include "DxilEntryProps.h"
 
 #include "llvm/IR/Constants.h"
@@ -889,8 +890,8 @@ namespace {
 template <typename TResource>
 static void RemoveResourceSymbols(std::vector<std::unique_ptr<TResource>> &vec) {
   unsigned resID = 0;
-  for (std::vector<std::unique_ptr<TResource>>::iterator p = vec.begin(); p != vec.end();) {
-    std::vector<std::unique_ptr<TResource>>::iterator c = p++;
+  for (auto p = vec.begin(); p != vec.end();) {
+    auto c = p++;
     GlobalVariable *GV = cast<GlobalVariable>((*c)->GetGlobalSymbol());
     GV->removeDeadConstantUsers();
     if (GV->user_empty()) {
@@ -1197,7 +1198,7 @@ void DxilModule::EmitDxilMetadata() {
     std::transform( m_DxilEntryPropsMap.begin(),
                     m_DxilEntryPropsMap.end(),
                     std::back_inserter(funcOrder),
-                    [](auto &p) -> const Function* { return p.first; } );
+                    [](const std::pair<const llvm::Function * const, std::unique_ptr<DxilEntryProps>> &p) -> const Function* { return p.first; } );
     std::sort(funcOrder.begin(), funcOrder.end(), [](const Function *F1, const Function *F2) {
       return F1->getName() < F2->getName();
     });
