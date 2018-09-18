@@ -17,6 +17,7 @@ namespace llvm {
 class Value;
 class Argument;
 class Function;
+class StringRef;
 } // namespace llvm
 
 namespace hlsl {
@@ -26,6 +27,8 @@ class DxilFunctionAnnotation;
 class ShaderModel;
 struct DxilFunctionProps;
 class DxilSignatureElement;
+class DxilParameterAnnotation;
+class SigPoint;
 
 class HLSignatureLower {
 public:
@@ -56,6 +59,9 @@ private:
   void GenerateStreamOutputOperation(llvm::Value *streamVal, unsigned streamID);
   // Generate DXIL stream output operations.
   void GenerateStreamOutputOperations();
+  // Remap obsolete semantics
+  void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, const SigPoint *pSigPoint);
+  void RemapSemanticAndWarn(llvm::StringRef &oldSemName, llvm::StringRef &oldSemFullName, const char *newSemName, DxilParameterAnnotation &paramInfo);
 
 private:
   llvm::Function *Entry;

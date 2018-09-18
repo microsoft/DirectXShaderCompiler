@@ -48,7 +48,7 @@ class RootSignatureHandle;
 struct HLOptions {
   HLOptions()
       : bDefaultRowMajor(false), bIEEEStrict(false), bDisableOptimizations(false),
-        bLegacyCBufferLoad(false), PackingStrategy(0), unused(0) {
+        bLegacyCBufferLoad(false), PackingStrategy(0), bBackCompatMode(0), unused(0) {
   }
   uint32_t GetHLOptionsRaw() const;
   void SetHLOptionsRaw(uint32_t data);
@@ -60,7 +60,8 @@ struct HLOptions {
   unsigned PackingStrategy         : 2;
   static_assert((unsigned)DXIL::PackingStrategy::Invalid < 4, "otherwise 2 bits is not enough to store PackingStrategy");
   unsigned bUseMinPrecision        : 1;
-  unsigned unused                  : 24;
+  unsigned bBackCompatMode         : 1;
+  unsigned unused                  : 23;
 };
 
 /// Use this class to manipulate HLDXIR of a shader.

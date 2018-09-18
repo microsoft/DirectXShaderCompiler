@@ -170,6 +170,13 @@ void LLVMContext::emitError(const Twine &ErrorStr) {
   diagnose(DiagnosticInfoInlineAsm(ErrorStr));
 }
 
+// HLSL Change Start
+void LLVMContext::emitWarning(const Twine &WarningStr) {
+  diagnose(DiagnosticInfoInlineAsm(WarningStr, DiagnosticSeverity::DS_Warning));
+}
+// HLSL Change End
+
+
 void LLVMContext::emitError(const Instruction *I, const Twine &ErrorStr) {
   assert (I && "Invalid instruction");
   diagnose(DiagnosticInfoInlineAsm(*I, ErrorStr));

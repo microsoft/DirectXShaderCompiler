@@ -222,6 +222,17 @@ private:
                                 DxilParamInputQual paramQual,
                                 llvm::StringRef semFullName,
                                 bool isPatchConstantFunction);
+
+  void RemapObsoleteSemantic(SourceLocation SLoc, 
+                             DxilParameterAnnotation &paramInfo,
+                             bool isPatchConstantFunction);
+
+  void RemapSemanticAndWarn(llvm::StringRef &oldSemName, 
+                            llvm::StringRef &oldSemFullName,
+                            const char *newSemName,
+                            SourceLocation SLoc,
+                            DxilParameterAnnotation &paramInfo);
+
   void SetEntryFunction();
   SourceLocation SetSemantic(const NamedDecl *decl,
                              DxilParameterAnnotation &paramInfo);
@@ -398,6 +409,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
 
   opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
+  opts.bBackCompatMode = CGM.getLangOpts().EnableBackCompatMode;
 
   m_pHLModule->SetHLOptions(opts);
 
@@ -480,10 +492,9 @@ void CGMSHLSLRuntime::CheckParameterAnnotation(
       Semantic::GetByName(semName, sigPoint, SM->GetMajor(), SM->GetMinor());
   if (pSemantic->IsInvalid()) {
     DiagnosticsEngine &Diags = CGM.getDiags();
-    const ShaderModel *shader = m_pHLModule->GetShaderModel();
     unsigned DiagID =
-        Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid semantic '%0' for %1 %2.%3");
-    Diags.Report(SLoc, DiagID) << semName << shader->GetKindName() << shader->GetMajor() << shader->GetMinor();
+      Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid semantic '%0' for %1 %2.%3");
+    Diags.Report(SLoc, DiagID) << semName << SM->GetKindName() << SM->GetMajor() << SM->GetMinor();
   }
 }
 
@@ -1512,6 +1523,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   SourceLocation retTySemanticLoc = SetSemantic(FD, retTyAnnotation);
   retTyAnnotation.SetParamInputQual(DxilParamInputQual::Out);
   if (isEntry) {
+    if (CGM.getLangOpts().EnableBackCompatMode && retTyAnnotation.HasSemanticString()) {
+      RemapObsoleteSemantic(retTySemanticLoc, retTyAnnotation, 
+                             /*isPatchConstantFunction*/ false);
+    }
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
                              /*isPatchConstantFunction*/ false);
   }
@@ -1697,6 +1712,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     paramAnnotation.SetParamInputQual(dxilInputQ);
     if (isEntry) {
+      if (CGM.getLangOpts().EnableBackCompatMode && paramAnnotation.HasSemanticString()) {
+        RemapObsoleteSemantic(paramSemanticLoc, paramAnnotation,
+          /*isPatchConstantFunction*/ false);
+      }
       CheckParameterAnnotation(paramSemanticLoc, paramAnnotation,
                                /*isPatchConstantFunction*/ false);
     }
@@ -1757,6 +1776,52 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     F->addFnAttr(Twine("exp-", Attr->getName()).str(), Attr->getValue());
   }
 }
+
+void CGMSHLSLRuntime::RemapObsoleteSemantic(SourceLocation SLoc, DxilParameterAnnotation &paramInfo, bool isPatchConstantFunction) {
+  DXASSERT(CGM.getLangOpts().EnableBackCompatMode, "should be used only in back-compat mode");
+  DXASSERT(paramInfo.HasSemanticString(), "expected paramInfo with semantic");
+
+  const ShaderModel *SM = m_pHLModule->GetShaderModel();
+  DXIL::SigPointKind sigPoint = SigPointFromInputQual(paramInfo.GetParamInputQual(), SM->GetKind(), isPatchConstantFunction);
+
+  llvm::StringRef semFullName = paramInfo.GetSemanticStringRef();
+  llvm::StringRef semName;
+  unsigned semIndex;
+  Semantic::DecomposeNameAndIndex(semFullName, &semName, &semIndex);
+
+  if (sigPoint == DXIL::SigPointKind::PSOut) {
+    if (semName.size() == 5) {
+      if (strncmp(semName.data(), "COLOR", 5) == 0) {
+        RemapSemanticAndWarn(semName, semFullName, "SV_Target", SLoc, paramInfo);
+      }
+      else if (strncmp(semName.data(), "DEPTH", 5) == 0) {
+        RemapSemanticAndWarn(semName, semFullName, "SV_Depth", SLoc, paramInfo);
+      }
+    }
+  }
+  else if ((sigPoint == DXIL::SigPointKind::VSOut && semName.size() == 8 && strncmp(semName.data(), "POSITION", 8) == 0) ||
+           (sigPoint == DXIL::SigPointKind::PSIn  && semName.size() == 4 && strncmp(semName.data(), "VPOS", 4) == 0)) {
+    RemapSemanticAndWarn(semName, semFullName, "SV_Position", SLoc, paramInfo);
+  }
+}
+
+void CGMSHLSLRuntime::RemapSemanticAndWarn(llvm::StringRef &oldSemName, llvm::StringRef &oldSemFullName, const char *newSemName,
+                                           SourceLocation SLoc, DxilParameterAnnotation &paramInfo) {
+  // obsolete warning
+  DiagnosticsEngine &Diags = CGM.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Warning, "%0 semantic is deprecated, use %1 instead");
+  Diags.Report(SLoc, DiagID) << oldSemName << newSemName;
+  
+  // create new semantic name with the same index
+  std::string newSemNameStr(newSemName);
+  unsigned indexLen = oldSemFullName.size() - oldSemName.size();
+  if (indexLen > 0) {
+    newSemNameStr = newSemNameStr.append(oldSemFullName.data() + oldSemName.size(), indexLen);
+  }
+
+  paramInfo.SetSemanticString(newSemNameStr);
+}
+
 
 void CGMSHLSLRuntime::EmitHLSLFunctionProlog(Function *F, const FunctionDecl *FD) {
   // Support clip plane need debug info which not available when create function attribute.
