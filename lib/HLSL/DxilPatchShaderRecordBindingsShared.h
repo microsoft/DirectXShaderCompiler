@@ -21,11 +21,6 @@
 #define FallbackLayerDispatchConstantsRegister 0
 #define FallbackLayerAccelerationStructureList 1
 
-#ifndef _WIN32
-#define __int32 int
-#define __int64 long long
-#endif
-
 #ifndef HLSL
 struct ViewKey {
   unsigned int ViewType;
@@ -51,14 +46,14 @@ struct ShaderInfo {
 };
 
 struct DispatchRaysConstants {
-  unsigned __int32 RayDispatchDimensionsWidth;
-  unsigned __int32 RayDispatchDimensionsHeight;
-  unsigned __int32 HitGroupShaderRecordStride;
-  unsigned __int32 MissShaderRecordStride;
+  uint32_t RayDispatchDimensionsWidth;
+  uint32_t RayDispatchDimensionsHeight;
+  uint32_t HitGroupShaderRecordStride;
+  uint32_t MissShaderRecordStride;
 
   // 64-bit values
-  unsigned __int64 SamplerDescriptorHeapStart;
-  unsigned __int64 SrvCbvUavDescriptorHeapStart;
+  uint64_t SamplerDescriptorHeapStart;
+  uint64_t SrvCbvUavDescriptorHeapStart;
 };
 
 enum DescriptorRangeTypes { SRV = 0, CBV, UAV, Sampler, NumRangeTypes };
