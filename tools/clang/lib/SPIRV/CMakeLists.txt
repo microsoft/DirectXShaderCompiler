@@ -17,6 +17,7 @@ add_clang_library(clangSPIRV
   ModuleBuilder.cpp
   SPIRVContext.cpp
   SPIRVEmitter.cpp
+  SpirvInstruction.cpp
   String.cpp
   Structure.cpp
   Type.cpp
