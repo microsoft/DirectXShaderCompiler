@@ -2438,7 +2438,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
         // HLSL Change Begins
         if (hlsl::IsHLSLMatType(RetTy))
           RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
-                                                       RetTy);
+                                      FnRetTy);  // FnRetTy retains attributed type
         else
           // HLSL Change Ends
           RV = Builder.CreateLoad(ReturnValue);
@@ -2471,7 +2471,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
         // HLSL Change Begins
         if (hlsl::IsHLSLMatType(RetTy))
           RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
-                                                       RetTy);
+                                      FnRetTy);  // FnRetTy retains attributed type
         else
           // HLSL Change Ends
           RV = Builder.CreateLoad(ReturnValue);
