@@ -232,6 +232,14 @@ def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Grou
 def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>,
   HelpText<"Enable 16bit types and disable min precision types. Available in HLSL 2018 and shader model 6.2">;
 def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
+def auto_binding_space : Separate<["-", "/"], "auto-binding-space">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Set auto binding space - enables auto resource binding in libraries">;
+def exports : Separate<["-", "/"], "exports">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Specify exports when compiling a library: export1[[,export1_clone,...]=internal_name][;...]">;
+def export_shaders_only : Flag<["-", "/"], "export-shaders-only">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Only export shaders when compiling a library">;
+def default_linkage : Separate<["-", "/"], "default-linkage">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Set default linkage for non-shader functions when compiling or linking to a library target (internal, external)">;
 
 // SPIRV Change Starts
 def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
@@ -277,7 +285,7 @@ def Oconfig : CommaJoined<["-"], "Oconfig=">, Group<spirv_Group>, Flags<[CoreOpt
 // fxc-based flags that don't match those previously defined.
 
 def target_profile : JoinedOrSeparate<["-", "/"], "T">, Flags<[CoreOption]>, Group<hlslcomp_Group>, MetaVarName<"<profile>">,
-  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, vs_6_0, vs_6_1, vs_6_2, \n\t\t cs_6_0, cs_6_1, cs_6_2, gs_6_0, gs_6_1, gs_6_2, \n\t\t ds_6_0, ds_6_1, ds_6_2, hs_6_0, hs_6_1, hs_6_2, \n\t\t lib_6_0, lib_6_1, lib_6_2">;
+  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, ps_6_3, \n\t\t vs_6_0, vs_6_1, vs_6_2, vs_6_3, \n\t\t cs_6_0, cs_6_1, cs_6_2, cs_6_3, \n\t\t gs_6_0, gs_6_1, gs_6_2, gs_6_3, \n\t\t ds_6_0, ds_6_1, ds_6_2, ds_6_3, \n\t\t hs_6_0, hs_6_1, hs_6_2, hs_6_3, \n\t\t lib_6_3">;
 def entrypoint :  JoinedOrSeparate<["-", "/"], "E">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Entry point name">;
 // /I <include> - already defined above

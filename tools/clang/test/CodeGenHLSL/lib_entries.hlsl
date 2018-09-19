@@ -1,4 +1,5 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
+
 
 // Make sure entry function exist.
 // CHECK: @cs_main()
@@ -50,19 +51,11 @@
 // Finish ps_main
 // CHECK: ret void
 
-// Make sure cloned function signatures are not lowered.
-// CHECK-NOT: call float @dx.op.loadInput
-// CHECK-NOT: call void @dx.op.storeOutput
-
-
-// Make sure cloned function exist.
-// CHECK: @"\01?ps_main
-
 
 // Make sure function entrys exist.
-// CHECK: dx.func.signatures
-// Make sure cs don't have signature.
-// CHECK: @cs_main, null
+// CHECK: !dx.entryPoints = !{{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}}
+// Make sure cs doesn't have signature.
+// CHECK: !"cs_main", null
 
 void StoreCSOutput(uint2 tid, uint2 gid);
 

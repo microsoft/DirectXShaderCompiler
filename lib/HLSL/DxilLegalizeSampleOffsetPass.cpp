@@ -184,8 +184,9 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
 void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
     std::vector<Instruction *> &illegalOffsets, Function &CurF,
     DXIL::OpCode opcode, hlsl::OP *hlslOP) {
-  ArrayRef<Function *> intrFuncList = hlslOP->GetOpFuncList(opcode);
-  for (Function *intrFunc : intrFuncList) {
+  auto &intrFuncList = hlslOP->GetOpFuncList(opcode);
+  for (auto it : intrFuncList) {
+    Function *intrFunc = it.second;
     if (!intrFunc)
       continue;
     for (User *U : intrFunc->users()) {

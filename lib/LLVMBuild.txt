@@ -38,8 +38,9 @@ subdirectories =
  Target
  Transforms
  HLSL
+ DxrFallback
 
-; HLSL Change: remove LibDriver, LineEditor, add HLSL
+; HLSL Change: remove LibDriver, LineEditor, add HLSL, add DxrtFallback
 
 [component_0]
 type = Group

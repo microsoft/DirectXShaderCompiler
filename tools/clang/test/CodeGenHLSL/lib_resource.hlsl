@@ -1,14 +1,8 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
-// Make sure globals for link info exist.
-// CHECK: g_txDiffuse_rangeID
-// CHECK: g_samLinear_rangeID
-
-// Make sure link info metadata exist.
-// CHECK: dx.resources.link.info
-// CHECK: !{i32* @g_txDiffuse_rangeID}
-// CHECK: !{i32* @g_samLinear_rangeID}
-
+// Make sure globals for resource exist.
+// CHECK: @"\01?g_txDiffuse@@3V?$Texture2D@V?$vector@M$03@@@@A" = external constant %"class.Texture2D<vector<float, 4> >", align 4
+// CHECK: @"\01?g_samLinear@@3USamplerState@@A" = external constant %struct.SamplerState, align 4
 
 Texture2D    g_txDiffuse;
 SamplerState    g_samLinear;

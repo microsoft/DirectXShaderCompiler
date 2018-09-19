@@ -1,10 +1,8 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // Make sure struct param used as out arg works.
 
 // CHECK: call void @"\01?getT@@YA?AUT@@XZ"
-// CHECK: store
-// CHECK: store
 
 struct T {
   float a;

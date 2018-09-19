@@ -4,7 +4,7 @@
 // CHECK-NOT: lshr
 // CHECK:[[ID:[^ ]+]] = call i32 @dx.op.loadInput.i32
 // CHECK:[[ADD:[^ ]+]] = add nsw i32 [[ID]], 2
-// CHECK:call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %"$Globals_buffer", i32 [[ADD]])
+// CHECK:call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %"$Globals_cbuffer", i32 [[ADD]])
 
 
 float A[6] : register(b0);

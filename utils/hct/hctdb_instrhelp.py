@@ -99,7 +99,7 @@ def build_range_code(var, i):
         if r[0] == r[1]:
             cond = var + " == " + str(r[0])
         else:
-            cond = "%d <= %s && %s <= %d" % (r[0], var, var, r[1])
+            cond = "(%d <= %s && %s <= %d)" % (r[0], var, var, r[1])
         if result == "":
             result = cond
         else:
@@ -352,28 +352,28 @@ class db_oload_gen:
 
     def print_opfunc_props(self):
         print("const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {")
-        print("//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute")
+        print("//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,  function attribute")
         # Example formatted string:
         #   {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",                false,  true,  true, false,  true, false,  true,  true, false, Attribute::ReadOnly, },
         # 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
         # 0         1         2         3         4         5         6         7         8         9         0         1         2         3         4         5         6         7         8         9         0
 
         last_category = None
-        # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong
-        f = lambda i,c : "true," if i.oload_types.find(c) >= 0 else "false,"
+        # overload types are a string of (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong, u(dt)
+        f = lambda i,c : "true" if i.oload_types.find(c) >= 0 else "false"
         lower_exceptions = { "CBufferLoad" : "cbufferLoad", "CBufferLoadLegacy" : "cbufferLoadLegacy", "GSInstanceID" : "gsInstanceID" }
         lower_fn = lambda t: lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
-        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate" }
+        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate", "nr": "NoReturn" }
         attr_fn = lambda i : "Attribute::" + attr_dict[i.fn_attr] + ","
         for i in self.instrs:
             if last_category != i.category:
                 if last_category != None:
                     print("")
-                print("  // {category:118} void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute".format(category=i.category))
+                print("  // {category:118}  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute".format(category=i.category))
                 last_category = i.category
-            print("  {{  OC::{name:24} {quotName:27} OCC::{className:25} {classNameQuot:28} {v:>7}{h:>7}{f:>7}{d:>7}{b:>7}{e:>7}{w:>7}{i:>7}{l:>7} {attr:20} }},".format(
+            print("  {{  OC::{name:24} {quotName:27} OCC::{className:25} {classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6}}}, {attr:20} }},".format(
                 name=i.name+",", quotName='"'+i.name+'",', className=i.dxil_class+",", classNameQuot='"'+lower_fn(i.dxil_class)+'",',
-                v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), attr=attr_fn(i)))
+                v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), u=f(i,"u"), o=f(i,"o"), attr=attr_fn(i)))
         print("};")
 
     def print_opfunc_table(self):
@@ -406,6 +406,8 @@ class db_oload_gen:
             "v": "A(pV);",
             "w": "A(pWav);",
             "SamplePos": "A(pPos);",
+            "udt": "A(udt);",
+            "obj": "A(obj);",
         }
         last_category = None
         for i in self.instrs:
@@ -430,6 +432,8 @@ class db_oload_gen:
         elt_ty = "$o"
         res_ret_ty = "$r"
         cb_ret_ty = "$cb"
+        udt_ty = "udt"
+        obj_ty = "obj"
 
         last_category = None
 
@@ -471,6 +475,15 @@ class db_oload_gen:
                         index_dict[index].append(instr.name)
                     in_param_ty = True
                     break
+                if (op_type == udt_ty or op_type == obj_ty):
+                    # Skip return op
+                    index = index - 1
+                    if index not in index_dict:
+                        index_dict[index] = [instr.name]
+                    else:
+                        index_dict[index].append(instr.name)
+                    in_param_ty = True
+
 
             if in_param_ty:
                 continue
@@ -488,6 +501,8 @@ class db_oload_gen:
             "i": "IntegerType::get(m_Ctx, 32)",
             "l": "IntegerType::get(m_Ctx, 64)",
             "v": "Type::getVoidTy(m_Ctx)",
+            "u": "Type::getInt32PtrTy(m_Ctx)",
+            "o": "Type::getInt32PtrTy(m_Ctx)",
             }
             assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
             ty_code = type_code_texts[ty]
@@ -583,8 +598,8 @@ class macro_table_gen:
     def print_table(self, table, macro_name):
         formatted = self.format_table(table)
         print(  '//   %s\n' % formatted[0] +
-                '#define %s(DO) \\\n' % macro_name +
-                ' \\\n'.join(['  DO(%s)' % frow for frow in formatted[1:]]))
+                '#define %s(ROW) \\\n' % macro_name +
+                ' \\\n'.join(['  ROW(%s)' % frow for frow in formatted[1:]]))
 
 class db_sigpoint_gen(macro_table_gen):
     "A generator for SigPoint tables."
@@ -906,6 +921,83 @@ def get_opsigs():
     code += "};\n"
     return code
 
+shader_stage_to_ShaderKind = {
+    'vertex': 'Vertex',
+    'pixel': 'Pixel',
+    'geometry': 'Geometry',
+    'compute': 'Compute',
+    'hull': 'Hull',
+    'domain': 'Domain',
+    'library': 'Library',
+    'raygeneration': 'RayGeneration',
+    'intersection': 'Intersection',
+    'anyhit': 'AnyHit',
+    'closesthit': 'ClosestHit',
+    'miss': 'Miss',
+    'callable': 'Callable',
+}
+
+def get_min_sm_and_mask_text():
+    db = get_db_dxil()
+    instrs = [i for i in db.instr if i.is_dxil_op]
+    instrs = sorted(instrs, key=lambda v : (v.shader_model, v.shader_model_translated, v.shader_stages, v.dxil_opid))
+    last_model = None
+    last_model_translated = None
+    last_stage = None
+    grouped_instrs = []
+    code = ""
+    def flush_instrs(grouped_instrs, last_model, last_model_translated, last_stage):
+        if len(grouped_instrs) == 0:
+            return ""
+        result = format_comment("// ", "Instructions: %s" % ", ".join([i.name + "=" + str(i.dxil_opid) for i in grouped_instrs]))
+        result += "if (" + build_range_code("op", [i.dxil_opid for i in grouped_instrs]) + ") {\n"
+        default = True
+        if last_model != (6,0):
+            default = False
+            if last_model_translated:
+                result += "  if (bWithTranslation) {\n"
+                result += "    major = %d;  minor = %d;\n  } else {\n  " % last_model_translated
+            result += "  major = %d;  minor = %d;\n" % last_model
+            if last_model_translated:
+                result += "  }\n"
+        if last_stage:
+            default = False
+            result += "  mask = %s;\n" % ' | '.join([   'SFLAG(%s)' % shader_stage_to_ShaderKind[c]
+                                                        for c in last_stage
+                                                        ])
+        if default:
+            # don't write these out, instead fall through
+            return ""
+        return result + "  return;\n}\n"
+
+    for i in instrs:
+        if ((i.shader_model, i.shader_model_translated, i.shader_stages) !=
+                (last_model, last_model_translated, last_stage)):
+            code += flush_instrs(grouped_instrs, last_model, last_model_translated, last_stage)
+            grouped_instrs = []
+            last_model = i.shader_model
+            last_model_translated = i.shader_model_translated
+            last_stage = i.shader_stages
+        grouped_instrs.append(i)
+    code += flush_instrs(grouped_instrs, last_model, last_model_translated, last_stage)
+    return code
+
+check_pSM_for_shader_stage = {
+    'vertex': 'SK == DXIL::ShaderKind::Vertex',
+    'pixel': 'SK == DXIL::ShaderKind::Pixel',
+    'geometry': 'SK == DXIL::ShaderKind::Geometry',
+    'compute': 'SK == DXIL::ShaderKind::Compute',
+    'hull': 'SK == DXIL::ShaderKind::Hull',
+    'domain': 'SK == DXIL::ShaderKind::Domain',
+    'library': 'SK == DXIL::ShaderKind::Library',
+    'raygeneration': 'SK == DXIL::ShaderKind::RayGeneration',
+    'intersection': 'SK == DXIL::ShaderKind::Intersection',
+    'anyhit': 'SK == DXIL::ShaderKind::AnyHit',
+    'closesthit': 'SK == DXIL::ShaderKind::ClosestHit',
+    'miss': 'SK == DXIL::ShaderKind::Miss',
+    'callable': 'SK == DXIL::ShaderKind::Callable',
+}
+
 def get_valopcode_sm_text():
     db = get_db_dxil()
     instrs = [i for i in db.instr if i.is_dxil_op]
@@ -923,10 +1015,10 @@ def get_valopcode_sm_text():
 
         model_cond = stage_cond = None
         if last_model != (6,0):
-            model_cond = "pSM->GetMajor() > %d || (pSM->GetMajor() == %d && pSM->GetMinor() >= %d)" % (
+            model_cond = "major > %d || (major == %d && minor >= %d)" % (
                 last_model[0], last_model[0], last_model[1])
-        if last_stage != "*":
-            stage_cond = ' || '.join(["pSM->Is%sS()" % c.upper() for c in last_stage])
+        if last_stage:
+            stage_cond = ' || '.join([check_pSM_for_shader_stage[c] for c in last_stage])
         if model_cond or stage_cond:
             result += '\n      && '.join(
                 ["(%s)" % expr for expr in (model_cond, stage_cond) if expr] )

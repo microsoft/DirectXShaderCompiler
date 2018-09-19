@@ -44,6 +44,8 @@ namespace llvm {
 /// \brief Create and return a pass that tranform the module into a DXIL module
 /// Note that this pass is designed for use with the legacy pass manager.
 ModulePass *createDxilCondenseResourcesPass();
+ModulePass *createDxilLowerCreateHandleForLibPass();
+ModulePass *createDxilAllocateResourcesForLibPass();
 ModulePass *createDxilEliminateOutputDynamicIndexingPass();
 ModulePass *createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper);
 ModulePass *createHLEmitMetadataPass();
@@ -59,17 +61,22 @@ ModulePass *createHLDeadFunctionEliminationPass();
 ModulePass *createHLPreprocessPass();
 ModulePass *createDxilPrecisePropagatePass();
 FunctionPass *createDxilPreserveAllOutputsPass();
-FunctionPass *createDxilLegalizeResourceUsePass();
-ModulePass *createDxilLegalizeStaticResourceUsePass();
+FunctionPass *createDxilPromoteLocalResources();
+ModulePass *createDxilPromoteStaticResources();
+ModulePass *createDxilLegalizeResources();
 ModulePass *createDxilLegalizeEvalOperationsPass();
 FunctionPass *createDxilLegalizeSampleOffsetPass();
+ModulePass *createFailUndefResourcePass();
 FunctionPass *createSimplifyInstPass();
 ModulePass *createDxilTranslateRawBuffer();
 ModulePass *createNoPausePassesPass();
 ModulePass *createPausePassesPass();
 ModulePass *createResumePassesPass();
+FunctionPass *createMatrixBitcastLowerPass();
 
 void initializeDxilCondenseResourcesPass(llvm::PassRegistry&);
+void initializeDxilLowerCreateHandleForLibPass(llvm::PassRegistry&);
+void initializeDxilAllocateResourcesForLibPass(llvm::PassRegistry&);
 void initializeDxilEliminateOutputDynamicIndexingPass(llvm::PassRegistry&);
 void initializeDxilGenerationPassPass(llvm::PassRegistry&);
 void initializeHLEnsureMetadataPass(llvm::PassRegistry&);
@@ -85,15 +92,18 @@ void initializeDxilConvergentMarkPass(llvm::PassRegistry&);
 void initializeDxilConvergentClearPass(llvm::PassRegistry&);
 void initializeDxilPrecisePropagatePassPass(llvm::PassRegistry&);
 void initializeDxilPreserveAllOutputsPass(llvm::PassRegistry&);
-void initializeDxilLegalizeResourceUsePassPass(llvm::PassRegistry&);
-void initializeDxilLegalizeStaticResourceUsePassPass(llvm::PassRegistry&);
+void initializeDxilPromoteLocalResourcesPass(llvm::PassRegistry&);
+void initializeDxilPromoteStaticResourcesPass(llvm::PassRegistry&);
+void initializeDxilLegalizeResourcesPass(llvm::PassRegistry&);
 void initializeDxilLegalizeEvalOperationsPass(llvm::PassRegistry&);
 void initializeDxilLegalizeSampleOffsetPassPass(llvm::PassRegistry&);
+void initializeFailUndefResourcePass(llvm::PassRegistry&);
 void initializeSimplifyInstPass(llvm::PassRegistry&);
 void initializeDxilTranslateRawBufferPass(llvm::PassRegistry&);
 void initializeNoPausePassesPass(llvm::PassRegistry&);
 void initializePausePassesPass(llvm::PassRegistry&);
 void initializeResumePassesPass(llvm::PassRegistry&);
+void initializeMatrixBitcastLowerPassPass(llvm::PassRegistry&);
 
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 

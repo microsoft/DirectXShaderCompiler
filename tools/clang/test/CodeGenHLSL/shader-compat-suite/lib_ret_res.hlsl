@@ -1,7 +1,9 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -Zi -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
-// Make sure handle store not unpack.
-// CHECK: store %dx.types.Handle %g_samLinear_sampler, %dx.types.Handle*
+// resources in return/params disallowed for lib_6_3
+// CHECK: error: Exported function
+// CHECK: GetSampler
+// CHECK: must not contain a resource in parameter or return type
 
 SamplerState    g_samLinear;
 

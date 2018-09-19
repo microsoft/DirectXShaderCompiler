@@ -78,7 +78,8 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
     OS << suffix;
 
   // HLSL Change Starts
-  
+
+  const clang::PrintingPolicy &policy = RD->getASTContext().getPrintingPolicy();
   // Note that this check, like the 'abs' check, shouldn't happen by simple
   // string comparison; instead we can map the types and functions we
   // inject and look them up by a simple pointer value check.
@@ -86,10 +87,16 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
   if (isMatrix) {
     // Encode additional information into the type.
     const ClassTemplateSpecializationDecl* templateDecl = dyn_cast<ClassTemplateSpecializationDecl>(RD);
-    OS
-      << "." << templateDecl->getTemplateArgs().get(0).getAsType().getAsString()
-      << "." << templateDecl->getTemplateArgs().get(1).getAsIntegral().toString(10)
-      << "." << templateDecl->getTemplateArgs().get(2).getAsIntegral().toString(10);
+    QualType CompType = templateDecl->getTemplateArgs().get(0).getAsType();
+    OS  << ".";   CompType.print(OS, policy);
+    OS  << "." << templateDecl->getTemplateArgs().get(1).getAsIntegral().toString(10)
+        << "." << templateDecl->getTemplateArgs().get(2).getAsIntegral().toString(10);
+  } else if (const ClassTemplateSpecializationDecl *Spec = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
+    const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
+    TemplateSpecializationType::PrintTemplateArgumentList(OS,
+                                                          TemplateArgs.data(),
+                                                          TemplateArgs.size(),
+                                                          policy);
   }
 
   // HLSL Change Ends

@@ -17,6 +17,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/Support/FileSystem.h"
 
 using namespace std;
 using namespace hlsl_test;
@@ -26,6 +27,8 @@ MODULE_CLEANUP(TestModuleCleanup);
 
 bool TestModuleSetup() {
   // Use this module-level function to set up LLVM dependencies.
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return false;
   if (FAILED(DxcInitThreadMalloc()))
     return false;
   DxcSetThreadMallocOrDefault(nullptr);
@@ -44,6 +47,7 @@ bool TestModuleCleanup() {
   ::llvm::llvm_shutdown();
   DxcClearThreadMalloc();
   DxcCleanupThreadMalloc();
+  llvm::sys::fs::CleanupPerThreadFileSystem();
   return true;
 }
 
@@ -65,15 +69,20 @@ static bool CheckMsgs(llvm::StringRef text, llvm::ArrayRef<LPCSTR> pMsgs,
       llvm::Regex RE(pMsg);
       std::string reErrors;
       VERIFY_IS_TRUE(RE.isValid(reErrors));
-      VERIFY_IS_TRUE(RE.match(text));
+      if (!RE.match(text)) {
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+          L"Unable to find regex '%S' in text:\r\n%.*S", pMsg, (pEnd - pStart),
+          pStart));
+        VERIFY_IS_TRUE(false);
+      }
     } else {
       const char *pMatch = std::search(pStart, pEnd, pMsg, pMsg + strlen(pMsg));
       if (pEnd == pMatch) {
         WEX::Logging::Log::Comment(WEX::Common::String().Format(
-            L"Unable to find '%s' in text:\r\n%.*s", pMsg, (pEnd - pStart),
+            L"Unable to find '%S' in text:\r\n%.*S", pMsg, (pEnd - pStart),
             pStart));
       }
-      VERIFY_ARE_NOT_EQUAL(pEnd, pMatch);
+      VERIFY_IS_FALSE(pEnd == pMatch);
     }
   }
   return true;
@@ -83,6 +92,41 @@ bool CheckMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
                size_t errorMsgCount, bool bRegex) {
   return CheckMsgs(llvm::StringRef(pText, TextCount),
                    llvm::ArrayRef<LPCSTR>(pErrorMsgs, errorMsgCount), bRegex);
+}
+
+static bool CheckNotMsgs(llvm::StringRef text, llvm::ArrayRef<LPCSTR> pMsgs,
+                         bool bRegex) {
+  const char *pStart = !text.empty() ? text.begin() : nullptr;
+  const char *pEnd = !text.empty() ? text.end() : nullptr;
+  for (auto pMsg : pMsgs) {
+    if (bRegex) {
+      llvm::Regex RE(pMsg);
+      std::string reErrors;
+      VERIFY_IS_TRUE(RE.isValid(reErrors));
+      if (RE.match(text)) {
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+          L"Unexpectedly found regex '%S' in text:\r\n%.*S", pMsg, (pEnd - pStart),
+          pStart));
+        VERIFY_IS_TRUE(false);
+      }
+    }
+    else {
+      const char *pMatch = std::search(pStart, pEnd, pMsg, pMsg + strlen(pMsg));
+      if (pEnd != pMatch) {
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+          L"Unexpectedly found '%S' in text:\r\n%.*S", pMsg, (pEnd - pStart),
+          pStart));
+      }
+      VERIFY_IS_TRUE(pEnd == pMatch);
+    }
+  }
+  return true;
+}
+
+bool CheckNotMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
+                  size_t errorMsgCount, bool bRegex) {
+  return CheckNotMsgs(llvm::StringRef(pText, TextCount),
+    llvm::ArrayRef<LPCSTR>(pErrorMsgs, errorMsgCount), bRegex);
 }
 
 bool CheckOperationResultMsgs(IDxcOperationResult *pResult,

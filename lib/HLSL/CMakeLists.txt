@@ -26,12 +26,14 @@ add_llvm_library(LLVMHLSL
   DxilPreparePasses.cpp
   DxilRemoveDiscards.cpp
   DxilReduceMSAAToSingleSample.cpp
+  DxilPatchShaderRecordBindings.cpp
   DxilPreserveAllOutputs.cpp
   DxilResource.cpp
   DxilResourceBase.cpp
   DxilRootSignature.cpp
   DxilSampler.cpp
   DxilSemantic.cpp
+  DxilShaderFlags.cpp
   DxilShaderAccessTracking.cpp
   DxilShaderModel.cpp
   DxilSignature.cpp
@@ -40,6 +42,7 @@ add_llvm_library(LLVMHLSL
   DxilTargetTransformInfo.cpp
   DxilTypeSystem.cpp
   DxilUtil.cpp
+  DxilExportMap.cpp
   DxilValidation.cpp
   DxcOptimizer.cpp
   HLMatrixLowerPass.cpp

@@ -1,9 +1,11 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // Make sure no undef in test3.
-// CHECK: define void
+// CHECK: define <4 x float>
+// CHECK: insertelement <2 x float> undef
+// CHECK: insertelement <4 x float> undef
 // CHECK-NOT: undef
-// CHECK: ret void
+// CHECK: ret <4 x float>
 
 struct T {
   float2 v;
