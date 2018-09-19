@@ -86,12 +86,26 @@ const VersionedSemanticInterpretation SigPoint::ms_SemanticInterpretationTable[(
 #define _41 ,4,1
 #define _50 ,5,0
 #define _61 ,6,1
-#define DO(k) VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::k)
 #define DO_ROW(SEM, VSIn, VSOut, PCIn, HSIn, HSCPIn, HSCPOut, PCOut, DSIn, DSCPIn, DSOut, GSVIn, GSIn, GSOut, PSIn, PSOut, CSIn) \
-  { DO(VSIn), DO(VSOut), DO(PCIn), DO(HSIn), DO(HSCPIn), DO(HSCPOut), DO(PCOut), DO(DSIn), DO(DSCPIn), DO(DSOut), DO(GSVIn), DO(GSIn), DO(GSOut), DO(PSIn), DO(PSOut), DO(CSIn) },
+  { VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::VSIn), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::VSOut), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::PCIn), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::HSIn), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::HSCPIn), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::HSCPOut), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::PCOut), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::DSIn), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::DSCPIn), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::DSOut), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::GSVIn), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::GSIn), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::GSOut), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::PSIn), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::PSOut), \
+    VersionedSemanticInterpretation(DXIL::SemanticInterpretationKind::CSIn), \
+  },
   DO_INTERPRETATION_TABLE(DO_ROW)
 #undef DO_ROW
-#undef DO
 };
 
 // -----------------------
