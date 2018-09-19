@@ -201,6 +201,15 @@ public:
   unsigned HLSLSignaturePackingStrategy = 0;
   /// denormalized number mode ("ieee" for default)
   hlsl::DXIL::Float32DenormMode HLSLFloat32DenormMode;
+  /// HLSLDefaultSpace also enables automatic binding for libraries if set. UINT_MAX == unset
+  unsigned HLSLDefaultSpace = UINT_MAX;
+  /// HLSLLibraryExports specifies desired exports, with optional renaming
+  std::vector<std::string> HLSLLibraryExports;
+  /// ExportShadersOnly limits library export functions to shaders
+  bool ExportShadersOnly = false;
+  /// DefaultLinkage Internal, External, or Default.  If Default, default
+  /// function linkage is determined by library target.
+  hlsl::DXIL::DefaultLinkage DefaultLinkage = hlsl::DXIL::DefaultLinkage::Default;
   // HLSL Change Ends
 
   // SPIRV Change Starts

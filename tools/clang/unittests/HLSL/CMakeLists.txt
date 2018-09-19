@@ -39,6 +39,7 @@ add_clang_library(clang-hlsl-tests SHARED
   FunctionTest.cpp
   HLSLTestData.h
   HlslTestUtils.h
+  D3DReflectionDumper.cpp
   LinkerTest.cpp
   MSFileSysTest.cpp
   Objects.cpp
@@ -64,17 +65,19 @@ set(HLSL_IGNORE_SOURCES
   MSFileSysTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
+  D3DReflectionDumper.cpp
+  DxilContainerTest.cpp
+  FileCheckerTest.cpp
+  ValidationTest.cpp
+  CompilerTest.cpp
   )
 
 add_clang_unittest(clang-hlsl-tests
   AllocatorTest.cpp
-  CompilerTest.cpp
   DxcTestUtils.cpp
-  DxilContainerTest.cpp
   DxilModuleTest.cpp
   DXIsenseTest.cpp
   ExtensionTest.cpp
-  FileCheckerTest.cpp
   FileCheckForTest.cpp
   FunctionTest.cpp
   HLSLTestOptions.cpp
@@ -83,7 +86,6 @@ add_clang_unittest(clang-hlsl-tests
   OptionsTest.cpp
   SystemValueTest.cpp
   TestMain.cpp
-  ValidationTest.cpp
   VerifierTest.cpp
   )
 

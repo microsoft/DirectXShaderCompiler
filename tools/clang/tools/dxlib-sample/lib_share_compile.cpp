@@ -11,6 +11,7 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
+#include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/Support/Global.h"
 #include "dxc/dxcapi.h"
 
@@ -55,7 +56,7 @@ HRESULT CompileToLib(IDxcBlob *pSource, std::vector<DxcDefine> &defines,
   CComPtr<IDxcOperationResult> operationResult;
 
   IFR(CreateCompiler(&compiler));
-  IFR(compiler->Compile(pSource, L"input.hlsl", L"", L"lib_6_1",
+  IFR(compiler->Compile(pSource, L"input.hlsl", L"", L"lib_6_x",
                         arguments.data(), (UINT)arguments.size(),
                         defines.data(), (UINT)defines.size(), pInclude,
                         &operationResult));
@@ -107,9 +108,12 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
   CComPtr<IDxcLinker> linker;
 
   // Upconvert legacy targets
-  char Target[7] = "?s_6_0";
-  Target[6] = 0;
-  Target[0] = pTarget[0];
+  const hlsl::ShaderModel *SM =
+    hlsl::ShaderModel::GetByName(pTarget);
+  const char *Target = pTarget;
+  if (SM->IsValid() && SM->GetMajor() < 6) {
+    Target = hlsl::ShaderModel::Get(SM->GetKind(), 6, 0)->GetName();
+  }
 
   HRESULT hr = S_OK;
   try {

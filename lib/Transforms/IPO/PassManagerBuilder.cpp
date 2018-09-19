@@ -227,7 +227,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
                                              /*Promote*/ !NoOpt));
 
   MPM.add(createHLMatrixLowerPass());
-  MPM.add(createResourceToHandlePass());
   // DCE should after SROA to remove unused element.
   MPM.add(createDeadCodeEliminationPass());
   MPM.add(createGlobalDCEPass());
@@ -253,14 +252,24 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
     MPM.add(createLoopRotatePass());
     MPM.add(createLoopUnrollPass());
   }
+
+  if (!NoOpt) {
+    // Verify no undef resource path before simplify, since that can remove undef
+    // paths.  For NoOpt, resources are unpromoted here, so this will not work.
+    MPM.add(createFailUndefResourcePass());
+  }
   MPM.add(createSimplifyInstPass());
 
   MPM.add(createCFGSimplificationPass());
 
-  MPM.add(createDxilLegalizeResourceUsePass());
-  MPM.add(createDxilLegalizeStaticResourceUsePass());
+  MPM.add(createDxilPromoteLocalResources());
+  MPM.add(createDxilPromoteStaticResources());
+  // Verify no undef resource again after promotion
+  MPM.add(createFailUndefResourcePass());
+
   MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
   MPM.add(createDxilLoadMetadataPass()); // Ensure DxilModule is loaded for optimizations.
+
   // Propagate precise attribute.
   MPM.add(createDxilPrecisePropagatePass());
 
@@ -274,7 +283,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   MPM.add(createCFGSimplificationPass());
 
   MPM.add(createDeadCodeEliminationPass());
-  MPM.add(createDxilTranslateRawBuffer());
 }
 // HLSL Change Ends
 
@@ -308,7 +316,8 @@ void PassManagerBuilder::populateModulePassManager(
     if (!HLSLHighLevel) {
       MPM.add(createDxilConvergentClearPass());
       MPM.add(createMultiDimArrayToOneDimArrayPass());
-      MPM.add(createDxilCondenseResourcesPass());
+      MPM.add(createDxilLowerCreateHandleForLibPass());
+      MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
       MPM.add(createDxilFinalizeModulePass());
       MPM.add(createComputeViewIdStatePass());
@@ -588,7 +597,8 @@ void PassManagerBuilder::populateModulePassManager(
   if (!HLSLHighLevel) {
     MPM.add(createDxilConvergentClearPass());
     MPM.add(createMultiDimArrayToOneDimArrayPass());
-    MPM.add(createDxilCondenseResourcesPass());
+    MPM.add(createDxilLowerCreateHandleForLibPass());
+    MPM.add(createDxilTranslateRawBuffer());
     MPM.add(createDeadCodeEliminationPass());
     if (DisableUnrollLoops)
       MPM.add(createDxilLegalizeSampleOffsetPass());

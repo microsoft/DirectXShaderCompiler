@@ -182,6 +182,11 @@ enum ArBasicKind {
 
   AR_OBJECT_WAVE,
 
+  AR_OBJECT_RAY_DESC,
+  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_OBJECT_USER_DEFINED_TYPE,
+  AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES,
+
   AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -443,6 +448,10 @@ const UINT g_uBasicKindProps[] =
 
   BPROP_OBJECT,   // AR_OBJECT_WAVE
 
+  LICOMPTYPE_RAYDESC,               // AR_OBJECT_RAY_DESC
+  LICOMPTYPE_ACCELERATION_STRUCT,   // AR_OBJECT_ACCELARATION_STRUCT
+  LICOMPTYPE_USER_DEFINED_TYPE,      // AR_OBJECT_USER_DEFINED_TYPE
+  0,      // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -647,6 +656,7 @@ extern const char *HLSLScalarTypeNames[];
 static const bool ExplicitConversionFalse = false;// a conversion operation is not the result of an explicit cast
 static const bool ParameterPackFalse = false;     // template parameter is not an ellipsis.
 static const bool TypenameTrue = false;           // 'typename' specified rather than 'class' for a template argument.
+static const bool DelayTypeCreationTrue = true;   // delay type creation for a declaration
 static const SourceLocation NoLoc;                // no source location attribution available
 static const SourceRange NoRange;                 // no source range attribution available
 static const bool HasWrittenPrototypeTrue = true; // function had the prototype written
@@ -1056,6 +1066,24 @@ static const ArBasicKind g_SamplerCT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_RayDescCT[] =
+{
+  AR_OBJECT_RAY_DESC,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AccelarationStructCT[] =
+{
+  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_UDTCT[] =
+{
+  AR_OBJECT_USER_DEFINED_TYPE,
+  AR_BASIC_UNKNOWN
+};
+
 static const ArBasicKind g_StringCT[] =
 {
   AR_OBJECT_STRING,
@@ -1144,7 +1172,10 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_Float16CT,          // LICOMPTYPE_FLOAT16
   g_Int16CT,            // LICOMPTYPE_INT16
   g_UInt16CT,           // LICOMPTYPE_UINT16
-  g_Numeric16OnlyCT     // LICOMPTYPE_NUMERIC16_ONLY
+  g_Numeric16OnlyCT,    // LICOMPTYPE_NUMERIC16_ONLY
+  g_RayDescCT,          // LICOMPTYPE_RAYDESC
+  g_AccelarationStructCT,   // LICOMPTYPE_ACCELERATION_STRUCT,
+  g_UDTCT,              // LICOMPTYPE_USER_DEFINED_TYPE
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT);
 
@@ -1215,7 +1246,10 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
 
   AR_OBJECT_LEGACY_EFFECT,      // Used for all unsupported but ignored legacy effect types
 
-  AR_OBJECT_WAVE
+  AR_OBJECT_WAVE,
+  AR_OBJECT_RAY_DESC,
+  AR_OBJECT_ACCELARATION_STRUCT,
+  AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES,
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1283,6 +1317,9 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
 
   0, // AR_OBJECT_LEGACY_EFFECT   // Used for all unsupported but ignored legacy effect types
   0, // AR_OBJECT_WAVE
+  0, // AR_OBJECT_RAY_DESC
+  0, // AR_OBJECT_ACCELARATION_STRUCT
+  0, // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1359,7 +1396,10 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   // SPIRV change ends
 
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_LEGACY_EFFECT (legacy effect objects)
-  { 0, MipsFalse, SampleFalse }  // AR_OBJECT_WAVE
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_WAVE
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_DESC
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_ACCELARATION_STRUCT
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1457,7 +1497,11 @@ const char* g_ArBasicTypeNames[] =
   "<internal inner type object>",
 
   "deprecated effect object",
-  "wave_t"
+  "wave_t",
+  "RayDesc",
+  "RaytracingAccelerationStructure",
+  "user defined type",
+  "BuiltInTriangleIntersectionAttributes"
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -1588,7 +1632,7 @@ FunctionDecl *AddHLSLIntrinsicFunction(
     _In_ const HLSL_INTRINSIC *pIntrinsic,
     _In_count_(functionArgTypeCount) QualType *functionArgQualTypes,
     _In_range_(0, g_MaxIntrinsicParamCount - 1) size_t functionArgTypeCount) {
-  DXASSERT(functionArgTypeCount - 1 < g_MaxIntrinsicParamCount,
+  DXASSERT(functionArgTypeCount - 1 <= g_MaxIntrinsicParamCount,
            "otherwise g_MaxIntrinsicParamCount should be larger");
   DeclContext *currentDeclContext = context.getTranslationUnitDecl();
 
@@ -1608,7 +1652,13 @@ FunctionDecl *AddHLSLIntrinsicFunction(
   for (size_t i = 1; i < functionArgTypeCount; i++) {
     // Change out/inout param to reference type.
     if (paramMods[i-1].isAnyOut()) {
-      functionArgQualTypes[i] = context.getLValueReferenceType(functionArgQualTypes[i]);
+      QualType Ty = functionArgQualTypes[i];
+      // Aggregate type will be indirect param convert to pointer type.
+      // Don't need add reference for it.
+      if ((!Ty->isArrayType() && !Ty->isRecordType()) ||
+          hlsl::IsHLSLVecMatType(Ty)) {
+        functionArgQualTypes[i] = context.getLValueReferenceType(Ty);
+      }
     }
   }
 
@@ -1737,7 +1787,7 @@ public:
   }
 
 private:
-  QualType m_args[g_MaxIntrinsicParamCount];
+  QualType m_args[g_MaxIntrinsicParamCount+1];
   size_t m_argLength;
   const HLSL_INTRINSIC* m_intrinsicSource;
   mutable FunctionDecl* m_functionDecl;
@@ -2269,6 +2319,79 @@ public:
 static void AddHLSLSubscriptAttr(Decl *D, ASTContext &context, HLSubscriptOpcode opcode) {
   StringRef group = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
   D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "", static_cast<unsigned>(opcode)));
+}
+
+static void CreateSimpleField(clang::ASTContext &context,
+                              CXXRecordDecl *recordDecl, StringRef Name,
+                              QualType Ty) {
+  IdentifierInfo &fieldId =
+      context.Idents.get(Name, tok::TokenKind::identifier);
+  TypeSourceInfo *filedTypeSource = context.getTrivialTypeSourceInfo(Ty, NoLoc);
+  const bool MutableFalse = false;
+  const InClassInitStyle initStyle = InClassInitStyle::ICIS_NoInit;
+
+  FieldDecl *fieldDecl =
+      FieldDecl::Create(context, recordDecl, NoLoc, NoLoc, &fieldId, Ty,
+                        filedTypeSource, nullptr, MutableFalse, initStyle);
+  fieldDecl->setAccess(AccessSpecifier::AS_public);
+  fieldDecl->setImplicit(true);
+
+  recordDecl->addDecl(fieldDecl);
+}
+
+// struct RayDesc
+//{
+//    float3 Origin;
+//    float  TMin;
+//    float3 Direction;
+//    float  TMax;
+//};
+static CXXRecordDecl *CreateRayDescStruct(clang::ASTContext &context,
+                                          QualType float3Ty) {
+  DeclContext *currentDeclContext = context.getTranslationUnitDecl();
+  IdentifierInfo &rayDesc =
+      context.Idents.get(StringRef("RayDesc"), tok::TokenKind::identifier);
+  CXXRecordDecl *rayDescDecl = CXXRecordDecl::Create(
+      context, TagTypeKind::TTK_Struct, currentDeclContext, NoLoc, NoLoc,
+      &rayDesc, nullptr, DelayTypeCreationTrue);
+  rayDescDecl->startDefinition();
+
+  QualType floatTy = context.FloatTy;
+  // float3 Origin;
+  CreateSimpleField(context, rayDescDecl, "Origin", float3Ty);
+  // float TMin;
+  CreateSimpleField(context, rayDescDecl, "TMin", floatTy);
+  // float3 Direction;
+  CreateSimpleField(context, rayDescDecl, "Direction", float3Ty);
+  // float  TMax;
+  CreateSimpleField(context, rayDescDecl, "TMax", floatTy);
+
+  rayDescDecl->completeDefinition();
+  // Both declarations need to be present for correct handling.
+  currentDeclContext->addDecl(rayDescDecl);
+  rayDescDecl->setImplicit(true);
+  return rayDescDecl;
+}
+
+// struct BuiltInTriangleIntersectionAttributes
+// {
+//   float2 barycentrics;
+// };
+static CXXRecordDecl *AddBuiltInTriangleIntersectionAttributes(ASTContext& context, QualType baryType) {
+    DeclContext *curDC = context.getTranslationUnitDecl();
+    IdentifierInfo &attributesId =
+        context.Idents.get(StringRef("BuiltInTriangleIntersectionAttributes"),
+            tok::TokenKind::identifier);
+    CXXRecordDecl *attributesDecl = CXXRecordDecl::Create(
+        context, TagTypeKind::TTK_Struct, curDC, NoLoc, NoLoc,
+        &attributesId, nullptr, DelayTypeCreationTrue);
+    attributesDecl->startDefinition();
+    // float2 barycentrics;
+    CreateSimpleField(context, attributesDecl, "barycentrics", baryType);
+    attributesDecl->completeDefinition();
+    attributesDecl->setImplicit(true);
+    curDC->addDecl(attributesDecl);
+    return attributesDecl;
 }
 
 //
@@ -2882,6 +3005,13 @@ private:
       const char* typeName = g_ArBasicTypeNames[kind];
       uint8_t templateArgCount = g_ArBasicKindsTemplateCount[i];
       CXXRecordDecl* recordDecl = nullptr;
+      if (kind == AR_OBJECT_RAY_DESC) {
+        QualType float3Ty = LookupVectorType(HLSLScalarType::HLSLScalarType_float, 3);
+        recordDecl = CreateRayDescStruct(*m_context, float3Ty);
+      } else if (kind == AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES) {
+        QualType float2Type = LookupVectorType(HLSLScalarType::HLSLScalarType_float, 2);
+        recordDecl = AddBuiltInTriangleIntersectionAttributes(*m_context, float2Type);
+      } else
       if (templateArgCount == 0)
       {
         AddRecordTypeWithHandle(*m_context, &recordDecl, typeName);
@@ -3185,8 +3315,15 @@ public:
     }
 
     if (typeRecordDecl && typeRecordDecl->isImplicit()) {
-      if (typeRecordDecl->getDeclContext()->isFileContext())
+      if (typeRecordDecl->getDeclContext()->isFileContext()) {
+        int index = FindObjectBasicKindIndex(typeRecordDecl);
+        if (index != -1) {
+          ArBasicKind kind  = g_ArBasicKindsAsTypes[index];
+          if ( AR_OBJECT_RAY_DESC == kind || AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES == kind)
+            return AR_TOBJ_COMPOUND;
+        }
         return AR_TOBJ_OBJECT;
+      }
       else
         return AR_TOBJ_INNER_OBJ;
     }
@@ -3523,7 +3660,10 @@ public:
     case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
     case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
     case AR_OBJECT_WAVE:
-{
+    case AR_OBJECT_ACCELARATION_STRUCT:
+    case AR_OBJECT_RAY_DESC:
+    case AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES:
+    {
         const ArBasicKind* match = std::find(g_ArBasicKindsAsTypes, &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], kind);
         DXASSERT(match != &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], "otherwise can't find constant in basic kinds");
         size_t index = match - g_ArBasicKindsAsTypes;
@@ -3760,6 +3900,10 @@ public:
     DXASSERT(m_vectorTemplateDecl != nullptr, "AddHLSLVectorTypes failed to return the vector template declaration");
     AddHLSLMatrixTemplate(*m_context, m_vectorTemplateDecl, &m_matrixTemplateDecl);
     DXASSERT(m_matrixTemplateDecl != nullptr, "AddHLSLMatrixTypes failed to return the matrix template declaration");
+
+    // Initializing built in integers for ray tracing
+    AddRayFlags(*m_context);
+    AddHitKinds(*m_context);
 
     return true;
   }
@@ -4865,15 +5009,44 @@ bool HLSLExternalSource::MatchArguments(
     pIntrinsicArg = &pIntrinsic->pArgs[iArg];
     DXASSERT(pIntrinsicArg->uTemplateId != INTRIN_TEMPLATE_VARARGS, "no vararg support");
 
+    QualType pType = pCallArg->getType();
+    ArTypeObjectKind TypeInfoShapeKind = GetTypeObjectKind(pType);
+    ArBasicKind TypeInfoEltKind = GetTypeElementKind(pType);
+
+    if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_RAYDESC) {
+      if (TypeInfoShapeKind == AR_TOBJ_COMPOUND) {
+        if (CXXRecordDecl *pDecl = pType->getAsCXXRecordDecl()) {
+          int index = FindObjectBasicKindIndex(pDecl);
+          if (index != -1 && AR_OBJECT_RAY_DESC == g_ArBasicKindsAsTypes[index]) {
+            ++iArg;
+            continue;
+          }
+        }
+      }
+      m_sema->Diag(pCallArg->getExprLoc(),
+                   diag::err_hlsl_ray_desc_required);
+      return false;
+    }
+
+    if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
+      DXASSERT(objectElement.isNull(), "");
+      QualType Ty = pCallArg->getType();
+      // Must be user define type for LICOMPTYPE_USER_DEFINED_TYPE arg.
+      if (TypeInfoShapeKind != AR_TOBJ_COMPOUND) {
+        m_sema->Diag(pCallArg->getExprLoc(),
+                     diag::err_hlsl_no_struct_user_defined_type);
+        return false;
+      }
+      objectElement = Ty;
+      ++iArg;
+      continue;
+    }
+
     // If we are a type and templateID requires one, this isn't a match.
     if (pIntrinsicArg->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
       ++iArg;
       continue;
     }
-
-    QualType pType = pCallArg->getType();
-    ArTypeObjectKind TypeInfoShapeKind = GetTypeObjectKind(pType);
-    ArBasicKind TypeInfoEltKind = GetTypeElementKind(pType);
 
     if (TypeInfoEltKind == AR_BASIC_LITERAL_INT ||
         TypeInfoEltKind == AR_BASIC_LITERAL_FLOAT) {
@@ -5026,6 +5199,9 @@ bool HLSLExternalSource::MatchArguments(
     if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
       continue; // Already verified that this is available.
     }
+    if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
+      continue;
+    }
 
     const ArTypeObjectKind *pTT = g_LegalIntrinsicTemplates[pArgument->uLegalTemplates];
     if (AR_TOBJ_UNKNOWN != Template[i]) {
@@ -5097,6 +5273,7 @@ bool HLSLExternalSource::MatchArguments(
     QualType pNewType;
     unsigned int quals = 0; // qualifications for this argument
 
+
     // If we have no type, set it to our input type (templatized)
     if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE) {
       // Use the templated input type, but resize it if the
@@ -5151,8 +5328,12 @@ bool HLSLExternalSource::MatchArguments(
         }
         pNewType = objectElement;
       }
-    }
-    else {
+    } else if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
+      if (objectElement.isNull()) {
+        return false;
+      }
+      pNewType = objectElement;
+    } else {
       ArBasicKind pEltType;
 
       // ComponentType, if the Id is special then it gets the
@@ -9809,7 +9990,6 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
   }
 
   ArTypeObjectKind objectKind = m_source.GetTypeObjectKind(type);
-
   QualType elementType;
   unsigned int elementCount;
   const RecordType* recordType;
@@ -9878,10 +10058,12 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
       m_source.GetMatrixOrVectorElementType(type),
       GetHLSLVecSize(type), nullptr));
     return true;
-  case ArTypeObjectKind::AR_TOBJ_OBJECT:
+  case ArTypeObjectKind::AR_TOBJ_OBJECT: {
     // Object have no sub-types.
-    m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(type.getCanonicalType(), 1, expression));
+    m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(
+        type.getCanonicalType(), 1, expression));
     return true;
+  }
   default:
     DXASSERT(false, "unreachable");
     return false;
@@ -10530,7 +10712,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLShaderAttr(
         A.getRange(), S.Context,
         ValidateAttributeStringArg(S, A,
-                                   "compute,vertex,pixel,hull,domain,geometry"),
+                                   "compute,vertex,pixel,hull,domain,geometry,raygeneration,intersection,anyhit,closesthit,miss,callable"),
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLMaxVertexCount:
@@ -10544,6 +10726,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     break;
   case AttributeList::AT_NoInline:
     declAttr = ::new (S.Context) NoInlineAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLExport:
+    declAttr = ::new (S.Context) HLSLExportAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   default:
     Handled = false;
@@ -11235,6 +11420,20 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
       pTopology = pAttr;
       break;
 
+    case AttributeList::AT_HLSLExport:
+      if (!isFunction) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
+          << pAttr->getName() << declarationType << pAttr->getRange();
+        result = false;
+      }
+      if (isStatic) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
+          << "'static'" << pAttr->getName() << declarationType
+          << pAttr->getRange();
+        result = false;
+      }
+      break;
+
     default:
       break;
     }
@@ -11705,7 +11904,12 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "[noinline]\n";
     break;
 
-  // Statement attributes
+  case clang::attr::HLSLExport:
+    Indent(Indentation, Out);
+    Out << "export\n";
+    break;
+
+    // Statement attributes
   case clang::attr::HLSLAllowUAVCondition:
     Indent(Indentation, Out);
     Out << "[allow_uav_condition]\n";
@@ -11854,6 +12058,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLTriangleAdj:
   case clang::attr::HLSLGloballyCoherent:
   case clang::attr::NoInline:
+  case clang::attr::HLSLExport:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:

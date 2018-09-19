@@ -13,6 +13,7 @@
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilPIXPasses.h"
+#include "dxc/HLSL/DxilUtil.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
@@ -728,7 +729,7 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   //  value at (UAVSize) - (Small Amount) * 2 (which is actually a conservative definition of overflow).
   //
 
-  Instruction* firstInsertionPt = DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt();
+  Instruction* firstInsertionPt = dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction());
   IRBuilder<> Builder(firstInsertionPt);
 
   BuilderContext BC{ M, DM, Ctx, HlslOP, Builder };

@@ -493,6 +493,8 @@ Function *GetOrCreateHLFunctionWithBody(Module &M, FunctionType *funcTy,
 
   SetHLFunctionAttribute(F, group, opcode);
 
+  F->setLinkage(llvm::GlobalValue::LinkageTypes::InternalLinkage);
+
   return F;
 }
 

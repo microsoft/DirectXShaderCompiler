@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
 // Make sure entry function exist.
 // CHECK: @entry(
@@ -8,14 +8,12 @@
 // CHECK: RotateMat
 // CHECK: StoreOutputMat
 
-// Make sure cloned function exist.
-// CHECK: @"\01?entry
-
 // Make sure function props exist.
-// CHECK: dx.func.props
+// CHECK: !dx.entryPoints = !{{{.*}}, {{.*}}}
 
 // Make sure function props is correct for [numthreads(8,8,1)].
-// CHECK: @entry, i32 5, i32 8, i32 8, i32 1
+// CHECK: @entry,
+// CHECK: !{i32 8, i32 8, i32 1}
 
 cbuffer A {
   float a;

@@ -83,6 +83,7 @@ enum DxilFourCC {
   DFCC_RootSignature            = DXIL_FOURCC('R', 'T', 'S', '0'),
   DFCC_DXIL                     = DXIL_FOURCC('D', 'X', 'I', 'L'),
   DFCC_PipelineStateValidation  = DXIL_FOURCC('P', 'S', 'V', '0'),
+  DFCC_RuntimeData              = DXIL_FOURCC('R', 'D', 'A', 'T'),
 };
 
 #undef DXIL_FOURCC
@@ -428,6 +429,7 @@ DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKi
 DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
 DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = 0);
+DxilPartWriter *NewRDATWriter(const DxilModule &M, uint32_t InfoVersion = 0);
 
 class DxilContainerWriter : public DxilPartWriter  {
 public:

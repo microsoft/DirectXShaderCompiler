@@ -292,6 +292,7 @@
 #define _Ret_opt_
 
 #define _Use_decl_annotations_
+#define __analysis_assume(expr)
 #define _Analysis_assume_(expr)
 #define _Analysis_assume_nullterminated_(x)
 #define _Success_(expr)

@@ -19,6 +19,7 @@
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "dxc/HLSL/DxilUtil.h"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DebugInfo.h"
@@ -537,6 +538,7 @@ Value *replaceLdWithLdInput(Function *loadInput, LoadInst *ldInst,
                             unsigned cols, MutableArrayRef<Value *> args,
                             bool bCast) {
   IRBuilder<> Builder(ldInst);
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(ldInst));
   Type *Ty = ldInst->getType();
   Type *EltTy = Ty->getScalarType();
   // Change i1 to i32 for load input.
@@ -577,7 +579,7 @@ Value *replaceLdWithLdInput(Function *loadInput, LoadInst *ldInst,
       // Vector indexing.
       // Load to array.
       ArrayType *AT = ArrayType::get(ldInst->getType(), cols);
-      Value *arrayVec = Builder.CreateAlloca(AT);
+      Value *arrayVec = AllocaBuilder.CreateAlloca(AT);
       Value *zeroIdx = Builder.getInt32(0);
 
       for (unsigned col = 0; col < cols; col++) {

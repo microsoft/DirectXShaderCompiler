@@ -1,8 +1,7 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -Zi -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
-// Make sure load resource rangeID when select resource.
-// CHECK:load i32, i32* @ReadBuffer1_rangeID
-// CHECK:load i32, i32* @ReadBuffer_rangeID
+// resource uses must resolve to a single resource global variable (single rangeID)
+// CHECK: local resource not guaranteed to map to unique global resource
 
 RWByteAddressBuffer outputBuffer : register(u0);
 ByteAddressBuffer ReadBuffer : register(t0);

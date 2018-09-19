@@ -267,6 +267,36 @@ $type1 [[]] QuadReadAcrossX(in numeric<> value);
 $type1 [[]] QuadReadAcrossY(in numeric<> value);
 $type1 [[]] QuadReadAcrossDiagonal(in numeric<> value);
 
+// Raytracing
+void [[]]  TraceRay(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in uint RayContributionToHitGroupIndex, in uint MultiplierForGeometryContributionToHitGroupIndex, in uint MissShaderIndex, in ray_desc Ray, inout udt Payload);
+
+bool [[]]  ReportHit(in float THit, in uint HitKind, in udt Attributes);
+void [[]]  CallShader(in uint ShaderIndex, inout udt Parameter);
+void [[]]  IgnoreHit();
+void [[]]  AcceptHitAndEndSearch();
+uint<3> [[rn]] DispatchRaysIndex();
+uint<3> [[rn]] DispatchRaysDimensions();
+// group: Ray Vectors
+float<3> [[rn]] WorldRayOrigin();
+float<3> [[rn]] WorldRayDirection();
+float<3> [[rn]] ObjectRayOrigin();
+float<3> [[rn]] ObjectRayDirection();
+// group: RayT
+float [[rn]] RayTMin();
+float [[rn]] RayTCurrent();
+// group: Raytracing uint System Values
+uint [[rn]] PrimitiveIndex();
+uint [[rn]] InstanceID();
+uint [[rn]] InstanceIndex();
+uint [[rn]] HitKind();
+uint [[rn]] RayFlags();
+// group: Ray Transforms
+float<3,4> [[rn]] ObjectToWorld();
+float<3,4> [[rn]] WorldToObject();
+float<3,4> [[rn]] ObjectToWorld3x4();
+float<3,4> [[rn]] WorldToObject3x4();
+float<4,3> [[rn]] ObjectToWorld4x3();
+float<4,3> [[rn]] WorldToObject4x3();
 } namespace
 
 namespace StreamMethods {

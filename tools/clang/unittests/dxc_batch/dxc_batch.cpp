@@ -91,56 +91,41 @@ public:
 };
 
 static void PrintHlslException(const ::hlsl::Exception &hlslException,
-                               llvm::StringRef stage) {
-  printf("%s failed\n", stage.str().c_str());
+                               llvm::StringRef stage,
+                               llvm::raw_string_ostream &errorStream) {
+  errorStream << stage << " failed\n";
   try {
-    const char *msg = hlslException.what();
-    Unicode::acp_char
-        printBuffer[128]; // printBuffer is safe to treat as
-                          // UTF-8 because we use ASCII only errors
-    if (msg == nullptr || *msg == '\0') {
-      if (hlslException.hr == DXC_E_DUPLICATE_PART) {
-        sprintf_s(
-            printBuffer, _countof(printBuffer),
-            "dxc_batch failed : DXIL container already contains the given part.");
-      } else if (hlslException.hr == DXC_E_MISSING_PART) {
-        sprintf_s(
-            printBuffer, _countof(printBuffer),
-            "dxc_batch failed : DXIL container does not contain the given part.");
-      } else if (hlslException.hr == DXC_E_CONTAINER_INVALID) {
-        sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc_batch failed : Invalid DXIL container.");
-      } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DXIL) {
-        sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc_batch failed : DXIL container is missing DXIL part.");
-      } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DEBUG) {
-        sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc_batch failed : DXIL container is missing Debug Info part.");
-      } else if (hlslException.hr == E_OUTOFMEMORY) {
-        sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc_batch failed : Out of Memory.");
-      } else if (hlslException.hr == E_INVALIDARG) {
-        sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc_batch failed : Invalid argument.");
-      } else {
-        sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc_batch failed : error code 0x%08x.\n", hlslException.hr);
-      }
-      msg = printBuffer;
+    errorStream << hlslException.what();
+    if (hlslException.hr == DXC_E_DUPLICATE_PART) {
+      errorStream << "dxc_batch failed : DXIL container already contains the given part.";
+    } else if (hlslException.hr == DXC_E_MISSING_PART) {
+      errorStream << "dxc_batch failed : DXIL container does not contain the given part.";
+    } else if (hlslException.hr == DXC_E_CONTAINER_INVALID) {
+      errorStream << "dxc_batch failed : Invalid DXIL container.";
+    } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DXIL) {
+      errorStream << "dxc_batch failed : DXIL container is missing DXIL part.";
+    } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DEBUG) {
+      errorStream << "dxc_batch failed : DXIL container is missing Debug Info part.";
+    } else if (hlslException.hr == E_OUTOFMEMORY) {
+      errorStream << "dxc_batch failed : Out of Memory.";
+    } else if (hlslException.hr == E_INVALIDARG) {
+      errorStream << "dxc_batch failed : Invalid argument.";
+    } else {
+      errorStream << "dxc_batch failed : error code 0x" << std::hex << hlslException.hr << ".";
     }
-
-    dxc::WriteUtf8ToConsoleSizeT(msg, strlen(msg), STD_ERROR_HANDLE);
-    printf("\n");
+    errorStream << "\n";
   } catch (...) {
-    printf("  unable to retrieve error message.\n");
+    errorStream << "  unable to retrieve error message.\n";
   }
 }
 
 static int Compile(llvm::StringRef command, DxcDllSupport &dxcSupport,
-                   llvm::StringRef path, bool bLinkLib) {
+                   llvm::StringRef path, bool bLinkLib,
+                   std::string &errorString) {
+                   //llvm::raw_string_ostream &errorStream) {
   const OptTable *optionTable = getHlslOptTable();
   llvm::SmallVector<llvm::StringRef, 4> args;
-  command.split(args, " ");
+  command.split(args, " ", /*MaxSplit*/-1, /*KeepEmpty*/false);
   if (!path.empty()) {
     args.emplace_back("-I");
     args.emplace_back(path);
@@ -148,40 +133,40 @@ static int Compile(llvm::StringRef command, DxcDllSupport &dxcSupport,
 
   MainArgs argStrings(args);
   DxcOpts dxcOpts;
-
-  std::string errorString;
   llvm::raw_string_ostream errorStream(errorString);
-  int optResult =
+
+  int retVal =
       ReadDxcOpts(optionTable, DxcFlags, argStrings, dxcOpts, errorStream);
-  errorStream.flush();
-  if (errorString.size()) {
-    fprintf(stderr, "dxc_batch failed : %s", errorString.data());
-  }
-  if (optResult != 0) {
-    return optResult;
+
+  if (0 == retVal) {
+    try {
+      DxcContext context(dxcOpts, dxcSupport);
+      // TODO: implement all other actions.
+      if (!dxcOpts.Preprocess.empty()) {
+        context.Preprocess();
+      }
+      else if (dxcOpts.DumpBin) {
+        retVal = context.DumpBinary();
+      }
+      else {
+        retVal = context.Compile(path, bLinkLib);
+      }
+    }
+    catch (const ::hlsl::Exception &hlslException) {
+      PrintHlslException(hlslException, command, errorStream);
+      retVal = 1;
+    }
+    catch (std::bad_alloc &) {
+      errorStream << command << " failed - out of memory.\n";
+      retVal = 1;
+    }
+    catch (...) {
+      errorStream << command << " failed - unknown error.\n";
+      retVal = 1;
+    }
   }
 
-  int retVal = 0;
-  try {
-    DxcContext context(dxcOpts, dxcSupport);
-    // TODO: implement all other actions.
-    if (!dxcOpts.Preprocess.empty()) {
-      context.Preprocess();
-    } else if (dxcOpts.DumpBin) {
-      retVal = context.DumpBinary();
-    } else {
-      retVal = context.Compile(path, bLinkLib);
-    }
-  } catch (const ::hlsl::Exception &hlslException) {
-    PrintHlslException(hlslException, command.str().c_str());
-    return 1;
-  } catch (std::bad_alloc &) {
-    printf("%s failed - out of memory.\n", command.str().c_str());
-    return 1;
-  } catch (...) {
-    printf("%s failed - unknown error.\n", command.str().c_str());
-    return 1;
-  }
+  errorStream.flush();
   return retVal;
 }
 
@@ -778,6 +763,7 @@ private:
 };
 
 int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
+  int retVal = 0;
   DxcOpts tmp_Opts;
   // tmp_Opts = m_Opts;
   m_Opts.InputFile;
@@ -789,13 +775,14 @@ int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
   llvm::StringRef source((char *)pSource->GetBufferPointer(),
                          pSource->GetBufferSize());
   llvm::SmallVector<llvm::StringRef, 4> commands;
-  source.split(commands, "\n");
+  source.split(commands, "\n", /*MaxSplit*/-1, /*KeepEmpty*/false);
 
   if (bMultiThread) {
     unsigned int threadNum = std::min<unsigned>(
         std::thread::hardware_concurrency(), commands.size());
     auto empty_fn = []() {};
     std::vector<std::thread> threads(threadNum);
+    std::vector<std::string> errorStrings(threadNum);
     for (unsigned i = 0; i < threadNum; i++)
       threads[i] = std::thread(empty_fn);
 
@@ -811,27 +798,48 @@ int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
       threads[threadIdx].join();
 
       threads[threadIdx] = std::thread(
-          ::Compile, command, std::ref(m_dxcSupport), path.str(), bLibLink);
+          ::Compile, command, std::ref(m_dxcSupport), path.str(), bLibLink,
+                     std::ref(errorStrings[threadIdx]));
     }
     for (auto &th : threads)
       th.join();
+
+    for (unsigned i = 0; i < threadNum; i++) {
+      auto &errorString = errorStrings[i];
+      if (errorString.size()) {
+        fprintf(stderr, "dxc_batch failed : %s", errorString.c_str());
+        if (0 == retVal)
+          retVal = 1;
+      }
+    }
   } else {
     for (llvm::StringRef command : commands) {
+      // trim to remove /r if exist.
+      command = command.trim();
       if (command.empty())
         continue;
       if (command.startswith("//"))
         continue;
-      llvm::SmallVector<llvm::StringRef, 4> args;
-      command.split(args, " ");
-      Compile(command, m_dxcSupport, path.str(), bLibLink);
+      std::string errorString;
+      int ret = Compile(command, m_dxcSupport, path.str(), bLibLink, errorString);
+      if (ret && 0 == retVal)
+        retVal = ret;
+      if (errorString.size()) {
+        fprintf(stderr, "dxc_batch failed : %s", errorString.c_str());
+        if (0 == retVal)
+          retVal = 1;
+      }
     }
   }
-  return 0;
+  return retVal;
 }
 
 int __cdecl wmain(int argc, const wchar_t **argv_) {
   const char *pStage = "Initialization";
   int retVal = 0;
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return 1;
+  llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
   try {
     auto t_start = std::chrono::high_resolution_clock::now();
 
@@ -853,7 +861,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     std::vector<std::string> args(tmpArgStrings.begin(), tmpArgStrings.end());
     // Add target to avoid fail.
     args.emplace_back("-T");
-    args.emplace_back("lib_6_1");
+    args.emplace_back("lib_6_x");
 
     std::vector<StringRef> refArgs;
     refArgs.reserve(args.size());
@@ -924,7 +932,11 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       fprintf(stderr, "duration: %f sec\n", duration_ms / 1000);
     }
   } catch (const ::hlsl::Exception &hlslException) {
-    PrintHlslException(hlslException, pStage);
+    std::string errorString;
+    llvm::raw_string_ostream errorStream(errorString);
+    PrintHlslException(hlslException, pStage, errorStream);
+    errorStream.flush();
+    fprintf(stderr, "dxc_batch failed : %s", errorString.c_str());
     return 1;
   } catch (std::bad_alloc &) {
     printf("%s failed - out of memory.\n", pStage);

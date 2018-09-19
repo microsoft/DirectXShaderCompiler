@@ -5,6 +5,22 @@
 ###############################################################################
 import os
 
+all_stages = (
+    'vertex',
+    'pixel',
+    'geometry',
+    'compute',
+    'hull',
+    'domain',
+    'library',
+    'raygeneration',
+    'intersection',
+    'anyhit',
+    'closesthit',
+    'miss',
+    'callable',
+    )
+
 class db_dxil_enum_value(object):
     "A representation for a value in an enumeration type"
     def __init__(self, name, value, doc):
@@ -49,7 +65,7 @@ class db_dxil_inst(object):
         self.is_gradient = False        # whether this requires a gradient calculation
         self.is_wave = False            # whether this requires in-wave, cross-lane functionality
         self.requires_uniform_inputs = False  # whether this operation requires that all of its inputs are uniform across the wave
-        self.shader_stages = "*"        # shader stages to which this applies, * or one or more of cdghpv
+        self.shader_stages = ()         # shader stages to which this applies, empty for all.
         self.shader_model = 6,0         # minimum shader model required
         self.inst_helper_prefix = None
         self.fully_qualified_name_prefix = "hlsl::OP::OpCode"
@@ -57,6 +73,7 @@ class db_dxil_inst(object):
             setattr(self, k, v)
         self.is_dxil_op = self.dxil_op != "" # whether this is a DXIL operation
         self.is_reserved = self.dxil_class == "Reserved"
+        self.shader_model_translated = None # minimum shader model required with translation by linker
 
     def __str__(self):
         return self.name
@@ -119,7 +136,7 @@ class db_dxil_valrule(object):
         self.err_msg = ""                   # error message associated with rule
         self.category = ""                  # classification for this rule
         self.doc = ""                       # the documentation description of this rule
-        self.shader_stages = "*"            # shader stages to which this applies, * or one or more of cdghpv
+        self.shader_stages = ()             # shader stages to which this applies, empty for all.
         self.shader_model = 6,0             # minimum shader model required
         for k,v in list(kwargs.items()):
             setattr(self, k, v)
@@ -252,33 +269,41 @@ class db_dxil(object):
             self.name_idx[i].category = "Resources"
         for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
-        for i in "Sample,SampleBias,SampleCmp,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
-            self.name_idx[i].shader_stages = "p"
+        for i in "Sample,SampleBias,SampleCmp".split(","):
+            self.name_idx[i].shader_stages = ("library", "pixel")
+        for i in "RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
+            self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp".split(","):
             self.name_idx[i].category = "Resources - gather"
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
-        for i in "CalculateLOD,Discard,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,AttributeAtVertex".split(","):
+        for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
             self.name_idx[i].category = "Pixel shader"
-            self.name_idx[i].shader_stages = "p"
+            self.name_idx[i].shader_stages = ("library", "pixel")
+        for i in "Discard,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,AttributeAtVertex".split(","):
+            self.name_idx[i].category = "Pixel shader"
+            self.name_idx[i].shader_stages = ("pixel",)
         for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
             self.name_idx[i].category = "Compute shader"
-            self.name_idx[i].shader_stages = "c"
+            self.name_idx[i].shader_stages = ("compute",)
         for i in "EmitStream,CutStream,EmitThenCutStream,GSInstanceID".split(","):
             self.name_idx[i].category = "Geometry shader"
-            self.name_idx[i].shader_stages = "g"
+            self.name_idx[i].shader_stages = ("geometry",)
         for i in "LoadOutputControlPoint,LoadPatchConstant".split(","):
             self.name_idx[i].category = "Domain and hull shader"
-            self.name_idx[i].shader_stages = "dh"
+            self.name_idx[i].shader_stages = ("domain", "hull")
         for i in "DomainLocation".split(","):
             self.name_idx[i].category = "Domain shader"
-            self.name_idx[i].shader_stages = "d"
-        for i in "StorePatchConstant,OutputControlPointID,PrimitiveID".split(","):
+            self.name_idx[i].shader_stages = ("domain",)
+        for i in "StorePatchConstant,OutputControlPointID".split(","):
             self.name_idx[i].category = "Hull shader"
-            self.name_idx[i].shader_stages = "gdhp" if i == "PrimitiveID" else "h"
+            self.name_idx[i].shader_stages = ("hull",)
+        for i in "PrimitiveID".split(","):
+            self.name_idx[i].category = "Hull, Domain and Geometry shaders"
+            self.name_idx[i].shader_stages = ("geometry", "domain", "hull")
         for i in "ViewID".split(","):
             self.name_idx[i].category = "Graphics shader"
-            self.name_idx[i].shader_stages = "vhdgp"
+            self.name_idx[i].shader_stages = ("vertex", "hull", "domain", "geometry", "pixel")
         for i in "MakeDouble,SplitDouble,LegacyDoubleToFloat,LegacyDoubleToSInt32,LegacyDoubleToUInt32".split(","):
             self.name_idx[i].category = "Double precision"
         for i in "CycleCounterLegacy".split(","):
@@ -295,6 +320,59 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6,1
         for i in "RawBufferLoad,RawBufferStore".split(","):
             self.name_idx[i].shader_model = 6,2
+            self.name_idx[i].shader_model_translated = 6,0
+        for i in "DispatchRaysIndex,DispatchRaysDimensions".split(","):
+            self.name_idx[i].category = "Ray Dispatch Arguments"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library", "raygeneration","intersection","anyhit", "closesthit","miss","callable")
+        for i in "InstanceID,InstanceIndex,PrimitiveIndex".split(","):
+            self.name_idx[i].category = "Raytracing object space uint System Values"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit")
+        for i in "HitKind".split(","):
+            self.name_idx[i].category = "Raytracing hit uint System Values"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit",)
+        for i in "RayFlags".split(","):
+            self.name_idx[i].category = "Raytracing uint System Values"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit","miss")
+        for i in "WorldRayOrigin,WorldRayDirection".split(","):
+            self.name_idx[i].category = "Ray Vectors"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit","miss")
+        for i in "ObjectRayOrigin,ObjectRayDirection".split(","):
+            self.name_idx[i].category = "Ray object space Vectors"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit")
+        for i in "ObjectToWorld,WorldToObject".split(","):
+            self.name_idx[i].category = "Ray Transforms"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit")
+        for i in "RayTMin,RayTCurrent".split(","):
+            self.name_idx[i].category = "RayT"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library","intersection","anyhit","closesthit", "miss")
+        for i in "IgnoreHit,AcceptHitAndEndSearch".split(","):
+            self.name_idx[i].category = "AnyHit Terminals"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("anyhit",)
+        for i in "CallShader".split(","):
+            self.name_idx[i].category = "Indirect Shader Invocation"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library", "closesthit","raygeneration","miss","callable")
+        for i in "TraceRay".split(","):
+            self.name_idx[i].category = "Indirect Shader Invocation"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library", "raygeneration","closesthit","miss")
+        for i in "ReportHit".split(","):
+            self.name_idx[i].category = "Indirect Shader Invocation"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_stages = ("library", "intersection")
+        for i in "CreateHandleForLib".split(","):
+            self.name_idx[i].category = "Library create handle from resource struct (like HL intrinsic)"
+            self.name_idx[i].shader_model = 6,3
+            self.name_idx[i].shader_model_translated = 6,0
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1084,7 +1162,7 @@ class db_dxil(object):
         # End of DXIL 1.1 opcodes.
         self.set_op_count_for_version(1, 1, next_op_idx)
 
-        self.add_dxil_op("RawBufferLoad", next_op_idx, "RawBufferLoad", "reads from a raw buffer and structured buffer", "hfwi", "ro", [
+        self.add_dxil_op("RawBufferLoad", next_op_idx, "RawBufferLoad", "reads from a raw buffer and structured buffer", "hfwidl", "ro", [
             db_dxil_param(0, "$r", "", "the loaded value"),
             db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
             db_dxil_param(3, "i32", "index", "element index for StructuredBuffer, or byte offset for ByteAddressBuffer"),
@@ -1093,7 +1171,7 @@ class db_dxil(object):
             db_dxil_param(6, "i32", "alignment", "relative load access alignment", is_const=True)])
         next_op_idx += 1
 
-        self.add_dxil_op("RawBufferStore", next_op_idx, "RawBufferStore", "writes to a RWByteAddressBuffer or RWStructuredBuffer", "hfwi", "", [
+        self.add_dxil_op("RawBufferStore", next_op_idx, "RawBufferStore", "writes to a RWByteAddressBuffer or RWStructuredBuffer", "hfwidl", "", [
             db_dxil_param(0, "v", "", ""),
             db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
             db_dxil_param(3, "i32", "index", "element index for StructuredBuffer, or byte offset for ByteAddressBuffer"),
@@ -1109,6 +1187,126 @@ class db_dxil(object):
         # End of DXIL 1.2 opcodes.
         self.set_op_count_for_version(1, 2, next_op_idx)
         assert next_op_idx == 141, "next operation index is %d rather than 141 and thus opcodes are broken" % next_op_idx
+
+        self.add_dxil_op("InstanceID", next_op_idx, "InstanceID", "The user-provided InstanceID on the bottom-level acceleration structure instance within the top-level structure", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result")])
+        next_op_idx += 1
+
+        self.add_dxil_op("InstanceIndex", next_op_idx, "InstanceIndex", "The autogenerated index of the current instance in the top-level structure", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result")])
+        next_op_idx += 1
+
+        self.add_dxil_op("HitKind", next_op_idx, "HitKind", "Returns the value passed as HitKind in ReportIntersection().  If intersection was reported by fixed-function triangle intersection, HitKind will be one of HIT_KIND_TRIANGLE_FRONT_FACE or HIT_KIND_TRIANGLE_BACK_FACE.", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayFlags", next_op_idx, "RayFlags", "uint containing the current ray flags.", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result")])
+        next_op_idx += 1
+
+        self.add_dxil_op("DispatchRaysIndex", next_op_idx, "DispatchRaysIndex", "The current x and y location within the Width and Height", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result"),
+            db_dxil_param(2, "i8", "col", "column, relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("DispatchRaysDimensions", next_op_idx, "DispatchRaysDimensions", "The Width and Height values from the D3D12_DISPATCH_RAYS_DESC structure provided to the originating DispatchRays() call.", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result"),
+            db_dxil_param(2, "i8", "col", "column, relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("WorldRayOrigin", next_op_idx, "WorldRayOrigin", "The world-space origin for the current ray.", "f", "rn", [
+            db_dxil_param(0, "f", "", "result"),
+            db_dxil_param(2, "i8", "col", "column, relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("WorldRayDirection", next_op_idx, "WorldRayDirection", "The world-space direction for the current ray.", "f", "rn", [
+            db_dxil_param(0, "f", "", "result"),
+            db_dxil_param(2, "i8", "col", "column, relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("ObjectRayOrigin", next_op_idx, "ObjectRayOrigin", "Object-space origin for the current ray.", "f", "rn", [
+            db_dxil_param(0, "f", "", "result"),
+            db_dxil_param(2, "i8", "col", "column, relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("ObjectRayDirection", next_op_idx, "ObjectRayDirection", "Object-space direction for the current ray.", "f", "rn", [
+            db_dxil_param(0, "f", "", "result"),
+            db_dxil_param(2, "i8", "col", "column, relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("ObjectToWorld", next_op_idx, "ObjectToWorld", "Matrix for transforming from object-space to world-space.", "f", "rn", [
+            db_dxil_param(0, "f", "", "result"),
+            db_dxil_param(2, "i32", "row", "row, relative to the element"),
+            db_dxil_param(3, "i8", "col", "column, relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("WorldToObject", next_op_idx, "WorldToObject", "Matrix for transforming from world-space to object-space.", "f", "rn", [
+            db_dxil_param(0, "f", "", "result"),
+            db_dxil_param(2, "i32", "row", "row, relative to the element"),
+            db_dxil_param(3, "i8", "col", "column, relative to the element")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayTMin", next_op_idx, "RayTMin", "float representing the parametric starting point for the ray.", "f", "rn", [
+            db_dxil_param(0, "f", "", "result")])
+        next_op_idx += 1
+
+        self.add_dxil_op("RayTCurrent", next_op_idx, "RayTCurrent", "float representing the current parametric ending point for the ray", "f", "ro", [
+            db_dxil_param(0, "f", "", "result")])
+        next_op_idx += 1
+
+        self.add_dxil_op("IgnoreHit", next_op_idx, "IgnoreHit", "Used in an any hit shader to reject an intersection and terminate the shader", "v", "nr", [
+            db_dxil_param(0, "v", "", "")])
+        next_op_idx += 1
+
+        self.add_dxil_op("AcceptHitAndEndSearch", next_op_idx, "AcceptHitAndEndSearch", "Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far", "v", "nr", [
+            db_dxil_param(0, "v", "", "")])
+        next_op_idx += 1
+
+        self.add_dxil_op("TraceRay", next_op_idx, "TraceRay", "returns the view index", "u", "", [
+            db_dxil_param(0, "v", "", ""),
+            db_dxil_param(2, "res", "AccelerationStructure", "Top-level acceleration structure to use"),
+            db_dxil_param(3, "i32", "RayFlags", "Valid combination of Ray_flags"),
+            db_dxil_param(4, "i32", "InstanceInclusionMask", "Bottom 8 bits of InstanceInclusionMask are used to include/rejectgeometry instances based on the InstanceMask in each instance: if(!((InstanceInclusionMask & InstanceMask) & 0xff)) { ignore intersection }"),
+            db_dxil_param(5, "i32", "RayContributionToHitGroupIndex", "Offset to add into Addressing calculations within shader tables for hit group indexing.  Only the bottom 4 bits of this value are used"),
+            db_dxil_param(6, "i32", "MultiplierForGeometryContributionToShaderIndex", "Stride to multiply by per-geometry GeometryContributionToHitGroupIndex in Addressing calculations within shader tables for hit group indexing.  Only the bottom 4 bits of this value are used"),
+            db_dxil_param(7, "i32", "MissShaderIndex", "Miss shader index in Addressing calculations within shader tables.  Only the bottom 16 bits of this value are used"),
+            db_dxil_param(8, "f", "Origin_X", "Origin x of the ray"),
+            db_dxil_param(9, "f", "Origin_Y", "Origin y of the ray"),
+            db_dxil_param(10, "f", "Origin_Z", "Origin z of the ray"),
+            db_dxil_param(11, "f", "TMin", "Tmin of the ray"),
+            db_dxil_param(12, "f", "Direction_X", "Direction x of the ray"),
+            db_dxil_param(13, "f", "Direction_Y", "Direction y of the ray"),
+            db_dxil_param(14, "f", "Direction_Z", "Direction z of the ray"),
+            db_dxil_param(15, "f", "TMax", "Tmax of the ray"),
+            db_dxil_param(16, "udt", "payload", "User-defined intersection attribute structure")])
+        next_op_idx += 1
+
+        self.add_dxil_op("ReportHit", next_op_idx, "ReportHit", "returns true if hit was accepted", "u", "", [
+            db_dxil_param(0, "i1", "", "result"),
+            db_dxil_param(2, "f", "THit", "parametric distance of the intersection"),
+            db_dxil_param(3, "i32", "HitKind", "User-specified value in range of 0-127 to identify the type of hit. Read by any_hit or closes_hit shaders with HitKind()"),
+            db_dxil_param(4, "udt", "Attributes", "User-defined intersection attribute structure")])
+        next_op_idx += 1
+
+        self.add_dxil_op("CallShader", next_op_idx, "CallShader", "Call a shader in the callable shader table supplied through the DispatchRays() API", "u", "", [
+            db_dxil_param(0, "v", "", "result"),
+            db_dxil_param(2, "i32", "ShaderIndex", "Provides index into the callable shader table supplied through the DispatchRays() API"),
+            db_dxil_param(3, "udt", "Parameter", "User-defined parameters to pass to the callable shader,This parameter structure must match the parameter structure used in the callable shader pointed to in the shader table")])
+        next_op_idx += 1
+
+        self.add_dxil_op("CreateHandleForLib", next_op_idx, "CreateHandleForLib", "create resource handle from resource struct for library", "o", "ro", [
+            db_dxil_param(0, "res", "", "result"),
+            db_dxil_param(2, "obj", "Resource", "resource to create the handle")])
+        next_op_idx += 1
+
+        # Maps to PrimitiveIndex() intrinsics for raytracing (same meaning as PrimitiveID)
+        self.add_dxil_op("PrimitiveIndex", next_op_idx, "PrimitiveIndex", "PrimitiveIndex for raytracing shaders", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result")])
+        next_op_idx += 1
+
+        # End of DXIL 1.3 opcodes.
+        self.set_op_count_for_version(1, 3, next_op_idx)
+        assert next_op_idx == 162, "next operation index is %d rather than 162 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -1285,16 +1483,19 @@ class db_dxil(object):
         add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
         add_pass('static-global-to-alloca', 'LowerStaticGlobalIntoAlloca', 'Lower static global into Alloca', [])
         add_pass('hlmatrixlower', 'HLMatrixLowerPass', 'HLSL High-Level Matrix Lower', [])
+        add_pass('matrixbitcastlower', 'MatrixBitcastLowerPass', 'Matrix Bitcast lower', [])
         add_pass('dce', 'DCE', 'Dead Code Elimination', [])
         add_pass('die', 'DeadInstElimination', 'Dead Instruction Elimination', [])
         add_pass('globaldce', 'GlobalDCE', 'Dead Global Elimination', [])
         add_pass('dynamic-vector-to-array', 'DynamicIndexingVectorToArray', 'Replace dynamic indexing vector with array', [
             {'n':'ReplaceAllVectors','t':'bool','c':1}])
-        add_pass('hlsl-dxil-legalize-resource-use', 'DxilLegalizeResourceUsePass', 'DXIL legalize resource use', [])
-        add_pass('hlsl-dxil-legalize-static-resource-use', 'DxilLegalizeStaticResourceUsePass', 'DXIL legalize static resource use', [])
+        add_pass('hlsl-dxil-promote-local-resources', 'DxilPromoteLocalResources', 'DXIL promote local resource use', [])
+        add_pass('hlsl-dxil-promote-static-resources', 'DxilPromoteStaticResources', 'DXIL promote static resource use', [])
+        add_pass('hlsl-dxil-legalize-resources', 'DxilLegalizeResources', 'DXIL legalize resource use', [])
         add_pass('hlsl-dxil-legalize-eval-operations', 'DxilLegalizeEvalOperations', 'DXIL legalize eval operations', [])
         add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
             {'n':'NotOptimized','t':'bool','c':1}])
+        add_pass('fail-undef-resource', 'FailUndefResource', 'Fail on undef resource use', [])
         add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])
         add_pass('mem2reg', 'PromotePass', 'Promote Memory to Register', [])
         add_pass('hlsl-dxil-precise', 'DxilPrecisePropagatePass', 'DXIL precise attribute propagate', [])
@@ -1306,6 +1507,8 @@ class db_dxil(object):
         add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [])
         add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [])
         add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
+        add_pass('hlsl-dxil-lower-handle-for-lib', 'DxilLowerCreateHandleForLib', 'DXIL Lower createHandleForLib', [])
+        add_pass('hlsl-dxil-allocate-resources-for-lib', 'DxilAllocateResourcesForLib', 'DXIL Allocate Resources For Library', [])
         add_pass('hlsl-dxil-convergent-mark', 'DxilConvergentMark', 'Mark convergent', [])
         add_pass('hlsl-dxil-convergent-clear', 'DxilConvergentClear', 'Clear convergent before dxil emit', [])
         add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
@@ -1639,6 +1842,7 @@ class db_dxil(object):
         self.add_valrule("Meta.BarycentricsInterpolation", "SV_Barycentrics cannot be used with 'nointerpolation' type")
         self.add_valrule("Meta.BarycentricsFloat3", "only 'float3' type is allowed for SV_Barycentrics.")
         self.add_valrule("Meta.BarycentricsTwoPerspectives", "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.")
+        self.add_valrule("Meta.NoEntryPropsForEntry", "EntryPoints must have entry properties.")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")
@@ -1704,6 +1908,9 @@ class db_dxil(object):
         self.add_valrule("Instr.ResourceClassForSamplerGather", "sample, lod and gather should on srv resource.")
         self.add_valrule("Instr.ResourceClassForUAVStore", "store should on uav resource.")
         self.add_valrule("Instr.ResourceClassForLoad", "load can only run on UAV/SRV resource")
+        self.add_valrule("Instr.ResourceMapToSingleEntry", "Fail to map resource to resource table")
+        self.add_valrule("Instr.ResourceUser", "Resource should only used by Load/GEP/Call")
+        self.add_valrule("Instr.ResourceKindForTraceRay", "TraceRay should only use RTAccelerationStructure")
         self.add_valrule("Instr.OffsetOnUAVLoad", "uav load don't support offset")
         self.add_valrule("Instr.MipOnUAVLoad", "uav load don't support mipLevel/sampleIndex")
         self.add_valrule("Instr.SampleIndexForLoad2DMS", "load on Texture2DMS/2DMSArray require sampleIndex")
@@ -1714,6 +1921,7 @@ class db_dxil(object):
         self.add_valrule("Instr.DxilStructUserOutOfBound", "Index out of bound when extract value from dxil struct types")
         self.add_valrule("Instr.HandleNotFromCreateHandle", "Resource handle should returned by createHandle")
         self.add_valrule("Instr.BufferUpdateCounterOnUAV", "BufferUpdateCounter valid only on UAV")
+        self.add_valrule("Instr.BufferUpdateCounterOnResHasCounter", "BufferUpdateCounter valid only when HasCounter is true")
         self.add_valrule("Instr.CBufferOutOfBound", "Cbuffer access out of bound")
         self.add_valrule("Instr.CBufferClassForCBufferHandle", "Expect Cbuffer for CBufferLoad handle")
         self.add_valrule("Instr.FailToResloveTGSMPointer", "TGSM pointers must originate from an unambiguous TGSM global variable.")
@@ -1721,6 +1929,7 @@ class db_dxil(object):
         self.add_valrule("Instr.TGSMRaceCond", "Race condition writing to shared memory detected, consider making this write conditional")
         self.add_valrule("Instr.AttributeAtVertexNoInterpolation", "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.")
         self.add_valrule("Instr.CreateHandleImmRangeID", "Local resource must map to global resource.")
+        self.add_valrule("Instr.SignatureOperationNotInEntry", "Dxil operation for input output signature must be in entryPoints.")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
@@ -1781,13 +1990,16 @@ class db_dxil(object):
         self.add_valrule_msg("Sm.MultiStreamMustBePoint", "When multiple GS output streams are used they must be pointlists", "Multiple GS output streams are used but '%0' is not pointlist")
         self.add_valrule("Sm.CompletePosition", "Not all elements of SV_Position were written")
         self.add_valrule("Sm.UndefinedOutput", "Not all elements of output %0 were written")
-        self.add_valrule("Sm.CSNoReturn", "Compute shaders can't return values, outputs must be written in writable resources (UAVs).")
+        self.add_valrule("Sm.CSNoSignatures", "Compute shaders must not have shader signatures.")
         self.add_valrule("Sm.CBufferTemplateTypeMustBeStruct", "D3D12 constant/texture buffer template element can only be a struct")
         self.add_valrule_msg("Sm.ResourceRangeOverlap", "Resource ranges must not overlap", "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5")
         self.add_valrule_msg("Sm.CBufferOffsetOverlap", "CBuffer offsets must not overlap", "CBuffer %0 has offset overlaps at %1")
         self.add_valrule_msg("Sm.CBufferElementOverflow", "CBuffer elements must not overflow", "CBuffer %0 size insufficient for element at offset %1")
         self.add_valrule_msg("Sm.OpcodeInInvalidFunction", "Invalid DXIL opcode usage like StorePatchConstant in patch constant function", "opcode '%0' should only be used in '%1'")
         self.add_valrule_msg("Sm.ViewIDNeedsSlot", "ViewID requires compatible space in pixel shader input signature", "Pixel shader input signature lacks available space for ViewID")
+        self.add_valrule("Sm.64bitRawBufferLoadStore", "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3")
+        self.add_valrule("Sm.RayShaderSignatures", "Ray tracing shader '%0' should not have any shader signatures")
+        self.add_valrule("Sm.RayShaderPayloadSize", "For shader '%0', %1 size is smaller than argument's allocation size")
 
         # fxc relaxed check of gradient check.
         #self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")
@@ -1808,6 +2020,13 @@ class db_dxil(object):
         self.add_valrule_msg("Decl.FnIsCalled", "Functions can only be used by call instructions", "Function '%0' is used for something other than calling")
         self.add_valrule_msg("Decl.FnFlattenParam", "Function parameters must not use struct types", "Type '%0' is a struct type but is used as a parameter in function '%1'")
         self.add_valrule_msg("Decl.FnAttribute", "Functions should only contain known function attributes", "Function '%0' contains invalid attribute '%1' with value '%2'")
+        self.add_valrule_msg("Decl.ResourceInFnSig", "Resources not allowed in function signatures", "Function '%0' uses resource in function signature")
+        self.add_valrule_msg("Decl.PayloadStruct", "Payload parameter must be struct type", "Argument '%0' must be a struct type for payload in shader function '%1'")
+        self.add_valrule_msg("Decl.AttrStruct", "Attributes parameter must be struct type", "Argument '%0' must be a struct type for attributes in shader function '%1'")
+        self.add_valrule_msg("Decl.ParamStruct", "Callable function parameter must be struct type", "Argument '%0' must be a struct type for callable shader function '%1'")
+        self.add_valrule_msg("Decl.ExtraArgs", "Extra arguments not allowed for shader functions", "Extra argument '%0' not allowed for shader function '%1'")
+        self.add_valrule_msg("Decl.ShaderReturnVoid", "Shader functions must return void", "Shader function '%0' must have void return type")
+        self.add_valrule_msg("Decl.ShaderMissingArg", "payload/params/attributes parameter is required for certain shader types", "%0 shader '%1' missing required %2 parameter")
 
         # Assign sensible category names and build up an enumeration description
         cat_names = {
@@ -1963,6 +2182,9 @@ class db_hlsl(object):
             "sampler_cube": "LICOMPTYPE_SAMPLERCUBE",
             "sampler_cmp": "LICOMPTYPE_SAMPLERCMP",
             "sampler": "LICOMPTYPE_SAMPLER",
+            "ray_desc" : "LICOMPTYPE_RAYDESC",
+            "acceleration_struct" : "LICOMPTYPE_ACCELERATION_STRUCT",
+            "udt" : "LICOMPTYPE_USER_DEFINED_TYPE",
             "void": "LICOMPTYPE_VOID",
             "string": "LICOMPTYPE_STRING",
             "wave": "LICOMPTYPE_WAVE"}
@@ -2089,7 +2311,7 @@ class db_hlsl(object):
                         template_list = "LITEMPLATE_ANY"
                     else:
                         base_type = type_name
-                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("wave"):
+                        if base_type.startswith("sampler") or base_type.startswith("string") or base_type.startswith("wave") or base_type.startswith("acceleration_struct") or base_type.startswith("ray_desc"):
                             template_list = "LITEMPLATE_OBJECT"
                         else:
                             template_list = "LITEMPLATE_SCALAR"

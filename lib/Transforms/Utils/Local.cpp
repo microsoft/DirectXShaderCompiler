@@ -44,6 +44,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include "dxc/HLSL/DxilMetadataHelper.h" // HLSL Change - combine dxil metadata.
 using namespace llvm;
 
 #define DEBUG_TYPE "local"
@@ -1323,6 +1325,10 @@ void llvm::combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsign
         break;
     }
   }
+
+  // HLSL Change Begin - combine dxil metadata.
+  hlsl::DxilMDHelper::combineDxilMetadata(K, J);
+  // HLSL Change End.
 }
 
 unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,

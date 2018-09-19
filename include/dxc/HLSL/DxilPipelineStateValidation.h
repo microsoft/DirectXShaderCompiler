@@ -14,7 +14,9 @@
 
 #include <stdint.h>
 #include <string.h>
-
+#ifndef UINT_MAX
+#define UINT_MAX 0xffffffff
+#endif
 // How many dwords are required for mask with one bit per component, 4 components per vector
 inline uint32_t PSVComputeMaskDwordsFromVectors(uint32_t Vectors) { return (Vectors + 7) >> 3; }
 inline uint32_t PSVComputeInputOutputTableSize(uint32_t InputVectors, uint32_t OutputVectors) {
@@ -70,6 +72,13 @@ enum class PSVShaderKind : uint8_t    // DXIL::ShaderKind
   Hull,
   Domain,
   Compute,
+  Library,
+  RayGeneration,
+  Intersection,
+  AnyHit,
+  ClosestHit,
+  Miss,
+  Callable,
   Invalid,
 };
 
@@ -105,8 +114,41 @@ enum class PSVResourceType
   UAVRaw,
   UAVStructured,
   UAVStructuredWithCounter,
-
   NumEntries
+};
+
+enum class PSVResourceKind
+{
+  Invalid = 0,
+  Texture1D,
+  Texture2D,
+  Texture2DMS,
+  Texture3D,
+  TextureCube,
+  Texture1DArray,
+  Texture2DArray,
+  Texture2DMSArray,
+  TextureCubeArray,
+  TypedBuffer,
+  RawBuffer,
+  StructuredBuffer,
+  CBuffer,
+  Sampler,
+  TBuffer,
+  RTAccelerationStructure,
+  NumEntries
+};
+
+// Table of null-terminated strings, overall size aligned to dword boundary, last byte must be null
+struct PSVStringTable {
+  const char *Table;
+  uint32_t Size;
+  PSVStringTable() : Table(nullptr), Size(0) {}
+  PSVStringTable(const char *table, uint32_t size) : Table(table), Size(size) {}
+  const char *Get(uint32_t offset) const {
+    _Analysis_assume_(offset < Size && Table && Table[Size-1] == '\0');
+    return Table + offset;
+  }
 };
 
 // Versioning is additive and based on size
@@ -117,7 +159,6 @@ struct PSVResourceBindInfo0
   uint32_t LowerBound;
   uint32_t UpperBound;
 };
-// PSVResourceBindInfo1 would derive and extend
 
 // Helpers for output dependencies (ViewID and Input-Output tables)
 struct PSVComponentMask {
@@ -171,17 +212,6 @@ struct PSVDependencyTable {
   bool IsValid() { return Table != nullptr; }
 };
 
-// Table of null-terminated strings, overall size aligned to dword boundary, last byte must be null
-struct PSVStringTable {
-  const char *Table;
-  uint32_t Size;
-  PSVStringTable() : Table(nullptr), Size(0) {}
-  PSVStringTable(const char *table, uint32_t size) : Table(table), Size(size) {}
-  const char *Get(uint32_t offset) const {
-    _Analysis_assume_(offset < Size && Table && Table[Size-1] == '\0');
-    return Table + offset;
-  }
-};
 struct PSVString {
   uint32_t Offset;
   PSVString() : Offset(0) {}
@@ -243,7 +273,7 @@ enum class PSVSemanticKind : uint8_t    // DXIL::SemanticKind
 
 struct PSVSignatureElement0
 {
-  uint32_t SemanticName;          // Offset into PSVStringTable
+  uint32_t SemanticName;          // Offset into StringTable
   uint32_t SemanticIndexes;       // Offset into PSVSemanticIndexTable, count == Rows
   uint8_t Rows;                   // Number of rows this element occupies
   uint8_t StartRow;               // Starting row of packing location if allocated
@@ -329,7 +359,7 @@ class DxilPipelineStateValidation
   uint32_t* m_pPCInputToOutputTable;
 
 public:
-  DxilPipelineStateValidation() : 
+  DxilPipelineStateValidation() :
     m_uPSVRuntimeInfoSize(0),
     m_pPSVRuntimeInfo0(nullptr),
     m_pPSVRuntimeInfo1(nullptr),

@@ -87,10 +87,6 @@ public:
   static const char kDxilSourceMainFileNameMDName[];
   static const char kDxilSourceArgsMDName[];
 
-  // Function props.
-  static const char kDxilFunctionPropertiesMDName[];
-  static const char kDxilEntrySignaturesMDName[];
-
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.
   static const unsigned kDxilEntryPointName       = 1;  // Entry point unmangled name.
@@ -125,7 +121,6 @@ public:
 
   // Resources.
   static const char kDxilResourcesMDName[];
-  static const char kDxilResourcesLinkInfoMDName[];
   static const unsigned kDxilNumResourceFields              = 4;
   static const unsigned kDxilResourceSRVs                   = 0;
   static const unsigned kDxilResourceUAVs                   = 1;
@@ -199,6 +194,9 @@ public:
   // Precise attribute.
   static const char kDxilPreciseAttributeMDName[];
 
+  // NonUniform attribute.
+  static const char kDxilNonUniformAttributeMDName[];
+
   // Validator version.
   static const char kDxilValidatorVersionMDName[];
   // Validator version uses the same constants for fields as kDxilVersion*
@@ -209,6 +207,10 @@ public:
   static const unsigned kDxilDSStateTag         = 2;
   static const unsigned kDxilHSStateTag         = 3;
   static const unsigned kDxilNumThreadsTag      = 4;
+  static const unsigned kDxilAutoBindingSpaceTag    = 5;
+  static const unsigned kDxilRayPayloadSizeTag  = 6;
+  static const unsigned kDxilRayAttribSizeTag   = 7;
+  static const unsigned kDxilShaderKindTag      = 8;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;
@@ -307,13 +309,6 @@ public:
   void UpdateDxilResources(llvm::MDTuple *pDxilResourceTuple);
   void GetDxilResources(const llvm::MDOperand &MDO, const llvm::MDTuple *&pSRVs, const llvm::MDTuple *&pUAVs, 
                         const llvm::MDTuple *&pCBuffers, const llvm::MDTuple *&pSamplers);
-  void EmitDxilResourceLinkInfoTuple(llvm::MDTuple *pSRVs, llvm::MDTuple *pUAVs,
-                                 llvm::MDTuple *pCBuffers,
-                                 llvm::MDTuple *pSamplers);
-  void LoadDxilResourceLinkInfoTuple(const llvm::MDTuple *&pSRVs,
-                                 const llvm::MDTuple *&pUAVs,
-                                 const llvm::MDTuple *&pCBuffers,
-                                 const llvm::MDTuple *&pSamplers);
   void EmitDxilResourceBase(const DxilResourceBase &R, llvm::Metadata *ppMDVals[]);
   void LoadDxilResourceBase(const llvm::MDOperand &MDO, DxilResourceBase &R);
   llvm::MDTuple *EmitDxilSRV(const DxilResource &SRV);
@@ -346,19 +341,26 @@ public:
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
-                                       llvm::Function *F);
-  llvm::Function *LoadDxilFunctionProps(llvm::MDTuple *pProps,
-                                        hlsl::DxilFunctionProps *props);
+                                       const llvm::Function *F);
+  const llvm::Function *LoadDxilFunctionProps(const llvm::MDTuple *pProps,
+                                              hlsl::DxilFunctionProps *props);
+  llvm::MDTuple *EmitDxilEntryProperties(uint64_t rawShaderFlag,
+                                          const hlsl::DxilFunctionProps &props,
+                                          uint32_t autoBindingSpace);
+  void LoadDxilEntryProperties(const llvm::MDOperand &MDO,
+                                uint64_t &rawShaderFlag,
+                                hlsl::DxilFunctionProps &props,
+                                uint32_t &autoBindingSpace);
 
   // ViewId state.
   void EmitDxilViewIdState(DxilViewIdState &ViewIdState);
   void LoadDxilViewIdState(DxilViewIdState &ViewIdState);
-
   // Control flow hints.
   static llvm::MDNode *EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints);
 
 
   // Shader specific.
+private:
   llvm::MDTuple *EmitDxilGSState(DXIL::InputPrimitive Primitive, unsigned MaxVertexCount, 
                                  unsigned ActiveStreamMask, DXIL::PrimitiveTopology StreamPrimitiveTopology,
                                  unsigned GSInstanceCount);
@@ -384,9 +386,10 @@ public:
                        DXIL::TessellatorPartitioning &TessPartitioning,
                        DXIL::TessellatorOutputPrimitive &TessOutputPrimitive,
                        float &MaxTessFactor);
-
+public:
   // Utility functions.
-  static bool IsKnownNamedMetaData(llvm::NamedMDNode &Node);
+  static bool IsKnownNamedMetaData(const llvm::NamedMDNode &Node);
+  static void combineDxilMetadata(llvm::Instruction *K, const llvm::Instruction *J);
   static llvm::ConstantAsMetadata *Int32ToConstMD(int32_t v, llvm::LLVMContext &Ctx);
   llvm::ConstantAsMetadata *Int32ToConstMD(int32_t v);
   static llvm::ConstantAsMetadata *Uint32ToConstMD(unsigned v, llvm::LLVMContext &Ctx);
@@ -411,6 +414,8 @@ public:
   void ConstMDTupleToUint32Vector(llvm::MDTuple *pTupleMD, std::vector<unsigned> &Vec);
   static bool IsMarkedPrecise(const llvm::Instruction *inst);
   static void MarkPrecise(llvm::Instruction *inst);
+  static bool IsMarkedNonUniform(const llvm::Instruction *inst);
+  static void MarkNonUniform(llvm::Instruction *inst);
 
 private:
   llvm::LLVMContext &m_Ctx;

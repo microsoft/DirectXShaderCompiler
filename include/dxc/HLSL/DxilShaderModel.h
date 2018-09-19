@@ -30,6 +30,7 @@ public:
   // Major/Minor version of highest shader model
   static const unsigned kHighestMajor = 6;
   static const unsigned kHighestMinor = 3;
+  static const unsigned kOfflineMinor = 0xF;
 
   bool IsPS() const     { return m_Kind == Kind::Pixel; }
   bool IsVS() const     { return m_Kind == Kind::Vertex; }
@@ -38,20 +39,27 @@ public:
   bool IsDS() const     { return m_Kind == Kind::Domain; }
   bool IsCS() const     { return m_Kind == Kind::Compute; }
   bool IsLib() const    { return m_Kind == Kind::Library; }
+  bool IsRay() const    { return m_Kind >= Kind::RayGeneration && m_Kind <= Kind::Callable; }
   bool IsValid() const;
   bool IsValidForDxil() const;
+  bool IsValidForModule() const;
 
   Kind GetKind() const      { return m_Kind; }
   unsigned GetMajor() const { return m_Major; }
   unsigned GetMinor() const { return m_Minor; }
   void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
   void GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
-  bool IsSM50Plus() const   { return m_Major >= 5; }
-  bool IsSM51Plus() const   { return m_Major > 5 || (m_Major == 5 && m_Minor >= 1); }
-  bool IsSM60Plus() const   { return m_Major >= 6; }
-  bool IsSM61Plus() const   { return m_Major > 6 || (m_Major == 6 && m_Minor >= 1); }
+  bool IsSMAtLeast(unsigned Major, unsigned Minor) const {
+    return m_Major > Major || (m_Major == Major && m_Minor >= Minor);
+  }
+  bool IsSM50Plus() const   { return IsSMAtLeast(5, 0); }
+  bool IsSM51Plus() const   { return IsSMAtLeast(5, 1); }
+  bool IsSM60Plus() const   { return IsSMAtLeast(6, 0); }
+  bool IsSM61Plus() const   { return IsSMAtLeast(6, 1); }
+  bool IsSM62Plus() const   { return IsSMAtLeast(6, 2); }
+  bool IsSM63Plus() const   { return IsSMAtLeast(6, 3); }
   const char *GetName() const { return m_pszName; }
-  std::string GetKindName() const;
+  const char *GetKindName() const;
   unsigned GetNumTempRegs() const { return DXIL::kMaxTempRegCount; }
   unsigned GetNumInputRegs() const { return m_NumInputRegs; }
   unsigned GetNumOutputRegs() const { return m_NumOutputRegs; }
@@ -65,7 +73,7 @@ public:
   static const ShaderModel *Get(unsigned Idx);
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(const char *pszName);
-  static std::string GetKindName(Kind kind);
+  static const char *GetKindName(Kind kind);
 
   bool operator==(const ShaderModel &other) const;
   bool operator!=(const ShaderModel &other) const { return !(*this == other); }
@@ -86,7 +94,7 @@ private:
               unsigned m_NumInputRegs, unsigned m_NumOutputRegs,
               bool m_bUAVs, bool m_bTypedUavs, unsigned m_UAVRegsLim);
 
-  static const unsigned kNumShaderModels = 48;
+  static const unsigned kNumShaderModels = 49;
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 
   static const ShaderModel *GetInvalid();

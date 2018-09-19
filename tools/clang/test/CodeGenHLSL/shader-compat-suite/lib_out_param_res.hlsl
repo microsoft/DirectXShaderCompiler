@@ -1,11 +1,14 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
-// CHECK: call void @"\01?GetBuf@@YA?AV?$Buffer@V?$vector@M$03@@@@XZ"(%dx.types.Handle* nonnull %{{.*}})
-// Make sure resource return type works.
+// resources in return/params disallowed for lib_6_3
+// CHECK: error: Exported function
+// CHECK: GetBuf
+// CHECK: must not contain a resource in parameter or return type
 
 Buffer<float4> GetBuf();
 
-float4 test(uint i) {
+[shader("pixel")]
+float4 test(uint i:I) : SV_Target {
   Buffer<float4> buf = GetBuf();
   return buf[i];
 }

@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace llvm {
 class LLVMContext;
@@ -63,6 +64,8 @@ struct HLOptions {
   unsigned unused                  : 24;
 };
 
+typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>> DxilFunctionPropsMap;
+
 /// Use this class to manipulate HLDXIR of a shader.
 class HLModule {
 public:
@@ -81,6 +84,11 @@ public:
   // HLOptions
   void SetHLOptions(HLOptions &opts);
   const HLOptions &GetHLOptions() const;
+
+  // AutoBindingSpace also enables automatic binding for libraries if set.
+  // UINT_MAX == unset
+  void SetAutoBindingSpace(uint32_t Space);
+  uint32_t GetAutoBindingSpace() const;
 
   // Entry function.
   llvm::Function *GetEntryFunction() const;
@@ -127,6 +135,14 @@ public:
   bool HasDxilFunctionProps(llvm::Function *F);
   DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
   void AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info);
+  void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc);
+  bool IsGraphicsShader(llvm::Function *F); // vs,hs,ds,gs,ps
+  bool IsPatchConstantShader(llvm::Function *F);
+  bool IsComputeShader(llvm::Function *F);
+
+  // Is an entry function that uses input/output signature conventions?
+  // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
+  bool IsEntryThatUsesSignatures(llvm::Function *F);
 
   DxilFunctionAnnotation *GetFunctionAnnotation(llvm::Function *F);
   DxilFunctionAnnotation *AddFunctionAnnotation(llvm::Function *F);
@@ -139,6 +155,10 @@ public:
   // Float Denorm mode.
   void SetFloat32DenormMode(const DXIL::Float32DenormMode mode);
   DXIL::Float32DenormMode GetFloat32DenormMode() const;
+
+  // Default function linkage for libraries
+  DXIL::DefaultLinkage GetDefaultLinkage() const;
+  void SetDefaultLinkage(const DXIL::DefaultLinkage linkage);
 
   // HLDXIR metadata manipulation.
   /// Serialize HLDXIR in-memory form to metadata form.
@@ -204,8 +224,7 @@ public:
   DxilTypeSystem *ReleaseTypeSystem();
   OP *ReleaseOP();
   RootSignatureHandle *ReleaseRootSignature();
-  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>> &&
-  ReleaseFunctionPropsMap();
+  DxilFunctionPropsMap &&ReleaseFunctionPropsMap();
 
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
   static llvm::DIGlobalVariable *
@@ -237,7 +256,8 @@ private:
   std::vector<llvm::GlobalVariable*>  m_TGSMVariables;
 
   // High level function info.
-  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>  m_DxilFunctionPropsMap;
+  std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>>  m_DxilFunctionPropsMap;
+  std::unordered_set<llvm::Function *>  m_PatchConstantFunctions;
 
   // Resource type annotation.
   std::unordered_map<llvm::Type *, std::pair<DXIL::ResourceClass, DXIL::ResourceKind>> m_ResTypeAnnotation;
@@ -258,6 +278,8 @@ private:
   HLOptions m_Options;
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;
+  uint32_t m_AutoBindingSpace;
+  DXIL::DefaultLinkage m_DefaultLinkage;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitHLResources();

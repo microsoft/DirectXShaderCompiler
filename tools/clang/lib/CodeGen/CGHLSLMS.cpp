@@ -28,6 +28,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -45,6 +46,7 @@
 #include "dxc/dxcapi.h"                 // stream support
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/HLSL/DxilGenerationPass.h" // support pause/resume passes
+#include "dxc/HLSL/DxilExportMap.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -53,28 +55,6 @@ using namespace llvm;
 using std::unique_ptr;
 
 static const bool KeepUndefinedTrue = true; // Keep interpolation mode undefined if not set explicitly.
-
-// Define constant variables exposed in DxilConstants.h
-namespace hlsl {
-namespace DXIL {
-  // TODO: revisit data layout descriptions for the following:
-  //      - x64 pointers?
-  //      - Keep elf manging(m:e)?
-
-  // For legacy data layout, everything less than 32 align to 32.
-  const char* kLegacyLayoutString = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f:64:64-n8:16:32:64";
-
-  // New data layout with native low precision types
-  const char* kNewLayoutString = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64";
-
-  // Function Attributes
-  // TODO: consider generating attributes from hctdb
-  const char* kFP32DenormKindString          = "fp32-denorm-mode";
-  const char* kFP32DenormValueAnyString      = "any";
-  const char* kFP32DenormValuePreserveString = "preserve";
-  const char* kFP32DenormValueFtzString      = "ftz";
-} // DXIL
-} // hlsl
 
 namespace {
 
@@ -126,6 +106,9 @@ private:
   bool  m_bDebugInfo;
   bool  m_bIsLib;
 
+  // For library, m_ExportMap maps from internal name to zero or more renames
+  dxilutil::ExportMap m_ExportMap;
+
   HLCBuffer &GetGlobalCBuffer() {
     return *static_cast<HLCBuffer*>(&(m_pHLModule->GetCBuffer(globalCBIndex)));
   }
@@ -144,7 +127,7 @@ private:
   };
 
   EntryFunctionInfo Entry;
-  
+
   // Map to save patch constant functions
   struct PatchConstantInfo {
     clang::SourceLocation SL = clang::SourceLocation();
@@ -400,6 +383,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
 
   m_pHLModule->SetHLOptions(opts);
+  m_pHLModule->SetAutoBindingSpace(CGM.getCodeGenOpts().HLSLDefaultSpace);
 
   m_pHLModule->SetValidatorVersion(CGM.getCodeGenOpts().HLSLValidatorMajorVer, CGM.getCodeGenOpts().HLSLValidatorMinorVer);
 
@@ -408,7 +392,8 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   // set profile
   m_pHLModule->SetShaderModel(SM);
   // set entry name
-  m_pHLModule->SetEntryFunctionName(CGM.getCodeGenOpts().HLSLEntryFunction);
+  if (!SM->IsLib())
+    m_pHLModule->SetEntryFunctionName(CGM.getCodeGenOpts().HLSLEntryFunction);
 
   // set root signature version.
   if (CGM.getLangOpts().RootSigMinor == 0) {
@@ -437,6 +422,18 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   // set Float Denorm Mode
   m_pHLModule->SetFloat32DenormMode(CGM.getCodeGenOpts().HLSLFloat32DenormMode);
 
+  // set DefaultLinkage
+  m_pHLModule->SetDefaultLinkage(CGM.getCodeGenOpts().DefaultLinkage);
+
+  // Fill in m_ExportMap, which maps from internal name to zero or more renames
+  m_ExportMap.clear();
+  std::string errors;
+  llvm::raw_string_ostream os(errors);
+  if (!m_ExportMap.ParseExports(CGM.getCodeGenOpts().HLSLLibraryExports, os)) {
+    DiagnosticsEngine &Diags = CGM.getDiags();
+    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "Error parsing -exports options: %0");
+    Diags.Report(DiagID) << os.str();
+  }
 }
 
 bool CGMSHLSLRuntime::IsHlslObjectType(llvm::Type *Ty) {
@@ -783,6 +780,28 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
   }
 }
 
+namespace {
+MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
+  DXASSERT(hlsl::IsHLSLMatType(Ty), "");
+  bool bIsRowMajor = bDefaultRowMajor;
+  HasHLSLMatOrientation(Ty, &bIsRowMajor);
+  return bIsRowMajor ? MatrixOrientation::RowMajor
+                          : MatrixOrientation::ColumnMajor;
+}
+
+QualType GetArrayEltType(QualType Ty) {
+  // Get element type.
+  if (Ty->isArrayType()) {
+    while (isa<clang::ArrayType>(Ty)) {
+      const clang::ArrayType *ATy = dyn_cast<clang::ArrayType>(Ty);
+      Ty = ATy->getElementType();
+    }
+  }
+  return Ty;
+}
+
+} // namespace
+
 void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     DxilFieldAnnotation &fieldAnnotation, QualType fieldTy,
     bool bDefaultRowMajor) {
@@ -791,31 +810,13 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
     Ty = Ty.getNonReferenceType();
 
   // Get element type.
-  if (Ty->isArrayType()) {
-    while (isa<clang::ArrayType>(Ty)) {
-      const clang::ArrayType *ATy = dyn_cast<clang::ArrayType>(Ty);
-      Ty = ATy->getElementType();
-    }
-  }
+  Ty = GetArrayEltType(Ty);
 
   QualType EltTy = Ty;
   if (hlsl::IsHLSLMatType(Ty)) {
     DxilMatrixAnnotation Matrix;
-    Matrix.Orientation = bDefaultRowMajor ? MatrixOrientation::RowMajor
-                                          : MatrixOrientation::ColumnMajor;
-    if (const AttributedType *AT = dyn_cast<AttributedType>(Ty)) {
-      switch (AT->getAttrKind()) {
-      case AttributedType::Kind::attr_hlsl_column_major:
-        Matrix.Orientation = MatrixOrientation::ColumnMajor;
-        break;
-      case AttributedType::Kind::attr_hlsl_row_major:
-        Matrix.Orientation = MatrixOrientation::RowMajor;
-        break;
-      default:
-        // Do nothing
-        break;
-      }
-    }
+
+    Matrix.Orientation = GetMatrixMajor(Ty, bDefaultRowMajor);
 
     hlsl::GetHLSLMatRowColCount(Ty, Matrix.Rows, Matrix.Cols);
     fieldAnnotation.SetMatrixAnnotation(Matrix);
@@ -832,20 +833,8 @@ void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
 
   bool bSNorm = false;
   bool bUNorm = false;
-
-  if (const AttributedType *AT = dyn_cast<AttributedType>(Ty)) {
-    switch (AT->getAttrKind()) {
-    case AttributedType::Kind::attr_hlsl_snorm:
-      bSNorm = true;
-      break;
-    case AttributedType::Kind::attr_hlsl_unorm:
-      bUNorm = true;
-      break;
-    default:
-      // Do nothing
-      break;
-    }
-  }
+  if (HasHLSLUNormSNorm(Ty, &bSNorm) && !bSNorm)
+    bUNorm = true;
 
   if (EltTy->isBuiltinType()) {
     const BuiltinType *BTy = EltTy->getAs<BuiltinType>();
@@ -1113,7 +1102,8 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
   isBuffer |= keyword == "RasterizerOrderedBuffer";
   if (isBuffer)
     return DxilResource::Kind::TypedBuffer;
-
+  if (keyword == "RaytracingAccelerationStructure")
+    return DxilResource::Kind::RTAccelerationStructure;
   return DxilResource::Kind::Invalid;
 }
 
@@ -1164,7 +1154,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         break;
       }
     }
-
+    if (intrinsicOpcode == (unsigned)IntrinsicOp::IOP_TraceRay) {
+      QualType recordTy = FD->getParamDecl(0)->getType();
+      llvm::Type *Ty = CGM.getTypes().ConvertType(recordTy);
+      MDNode *MD = GetOrAddResTypeMD(recordTy);
+      DXASSERT(MD, "else invalid resource type");
+      resMetadataMap[Ty] = MD;
+    }
     StringRef lower;
     if (hlsl::GetIntrinsicLowering(FD, lower))
       hlsl::SetHLLowerStrategy(F, lower);
@@ -1201,13 +1197,28 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   bool isDS = false;
   bool isVS = false;
   bool isPS = false;
+  bool isRay = false;
   if (const HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>()) {
     // Stage is already validate in HandleDeclAttributeForHLSL.
-    // Here just check first letter.
+    // Here just check first letter (or two).
     switch (Attr->getStage()[0]) {
     case 'c':
-      isCS = true;
-      funcProps->shaderKind = DXIL::ShaderKind::Compute;
+      switch (Attr->getStage()[1]) {
+      case 'o':
+        isCS = true;
+        funcProps->shaderKind = DXIL::ShaderKind::Compute;
+        break;
+      case 'l':
+        isRay = true;
+        funcProps->shaderKind = DXIL::ShaderKind::ClosestHit;
+        break;
+      case 'a':
+        isRay = true;
+        funcProps->shaderKind = DXIL::ShaderKind::Callable;
+        break;
+      default:
+        break;
+      }
       break;
     case 'v':
       isVS = true;
@@ -1229,11 +1240,34 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       isPS = true;
       funcProps->shaderKind = DXIL::ShaderKind::Pixel;
       break;
-    default: {
+    case 'r':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::RayGeneration;
+      break;
+    case 'i':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Intersection;
+      break;
+    case 'a':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::AnyHit;
+      break;
+    case 'm':
+      isRay = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Miss;
+      break;
+    default:
+      break;
+    }
+    if (funcProps->shaderKind == DXIL::ShaderKind::Invalid) {
       unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "Invalid profile for shader attribute");
+        DiagnosticsEngine::Error, "Invalid profile for shader attribute");
       Diags.Report(Attr->getLocation(), DiagID);
-    } break;
+    }
+    if (isEntry && isRay) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "Ray function cannot be used as a global entry point");
+      Diags.Report(Attr->getLocation(), DiagID);
     }
   }
 
@@ -1451,7 +1485,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->shaderKind = DXIL::ShaderKind::Pixel;
   }
 
-  const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS;
+  const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS + isRay;
 
   // TODO: check this in front-end and report error.
   DXASSERT(profileAttributes < 2, "profile attributes are mutual exclusive");
@@ -1515,10 +1549,19 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
                              /*isPatchConstantFunction*/ false);
   }
+  if (isRay && !retTy->isVoidType()) {
+    Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
+      DiagnosticsEngine::Error, "return type for ray tracing shaders must be void"));
+  }
 
   ConstructFieldAttributedAnnotation(retTyAnnotation, retTy, bDefaultRowMajor);
   if (FD->hasAttr<HLSLPreciseAttr>())
     retTyAnnotation.SetPrecise();
+
+  if (isRay) {
+    funcProps->ShaderProps.Ray.payloadSizeInBytes = 0;
+    funcProps->ShaderProps.Ray.attributeSizeInBytes = 0;
+  }
 
   for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx) {
     DxilParameterAnnotation &paramAnnotation =
@@ -1620,7 +1663,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             funcProps->ShaderProps.GS.streamPrimitiveTopologies[0] ==
                 DXIL::PrimitiveTopology::PointList;
         if (!bAllPoint) {
-          DiagnosticsEngine &Diags = CGM.getDiags();
           unsigned DiagID = Diags.getCustomDiagID(
               DiagnosticsEngine::Error, "when multiple GS output streams are "
                                         "used they must be pointlists.");
@@ -1656,7 +1698,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           DXIL::InputPrimitive::Undefined) {
         funcProps->ShaderProps.GS.inputPrimitive = inputPrimitive;
       } else if (funcProps->ShaderProps.GS.inputPrimitive != inputPrimitive) {
-        DiagnosticsEngine &Diags = CGM.getDiags();
         unsigned DiagID = Diags.getCustomDiagID(
             DiagnosticsEngine::Error, "input parameter conflicts with geometry "
                                       "specifier of previous input parameters");
@@ -1667,7 +1708,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (GsInputArrayDim != 0) {
       QualType Ty = parmDecl->getType();
       if (!Ty->isConstantArrayType()) {
-        DiagnosticsEngine &Diags = CGM.getDiags();
         unsigned DiagID = Diags.getCustomDiagID(
             DiagnosticsEngine::Error,
             "input types for geometry shader must be constant size arrays");
@@ -1686,12 +1726,99 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           };
           DXASSERT(GsInputArrayDim < llvm::array_lengthof(primtiveNames),
                    "Invalid array dim");
-          DiagnosticsEngine &Diags = CGM.getDiags();
           unsigned DiagID = Diags.getCustomDiagID(
               DiagnosticsEngine::Error, "array dimension for %0 must be %1");
           Diags.Report(parmDecl->getLocation(), DiagID)
               << primtiveNames[GsInputArrayDim] << GsInputArrayDim;
         }
+      }
+    }
+
+    // Validate Ray Tracing function parameter (some validation may be pushed into front end)
+    if (isRay) {
+      switch (funcProps->shaderKind) {
+      case DXIL::ShaderKind::RayGeneration:
+      case DXIL::ShaderKind::Intersection:
+        // RayGeneration and Intersection shaders are not allowed to have any input parameters
+        Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+          DiagnosticsEngine::Error, "parameters are not allowed for %0 shader"))
+            << (funcProps->shaderKind == DXIL::ShaderKind::RayGeneration ?
+                "raygeneration" : "intersection");
+        break;
+      case DXIL::ShaderKind::AnyHit:
+      case DXIL::ShaderKind::ClosestHit:
+        if (0 == ArgNo && dxilInputQ != DxilParamInputQual::Inout) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "ray payload parameter must be inout"));
+        } else if (1 == ArgNo && dxilInputQ != DxilParamInputQual::In) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "intersection attributes parameter must be in"));
+        } else if (ArgNo > 1) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "too many parameters, expected payload and attributes parameters only."));
+        }
+        if (ArgNo < 2) {
+          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "payload and attribute structures must be user defined types with only numeric contents."));
+          } else {
+            DataLayout DL(&this->TheModule);
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
+            if (0 == ArgNo)
+              funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+            else
+              funcProps->ShaderProps.Ray.attributeSizeInBytes = size;
+          }
+        }
+        break;
+      case DXIL::ShaderKind::Miss:
+        if (ArgNo > 0) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "only one parameter (ray payload) allowed for miss shader"));
+        } else if (dxilInputQ != DxilParamInputQual::Inout) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "ray payload parameter must be declared inout"));
+        }
+        if (ArgNo < 1) {
+          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "ray payload parameter must be a user defined type with only numeric contents."));
+          } else {
+            DataLayout DL(&this->TheModule);
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
+            funcProps->ShaderProps.Ray.payloadSizeInBytes = size;
+          }
+        }
+        break;
+      case DXIL::ShaderKind::Callable:
+        if (ArgNo > 0) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "only one parameter allowed for callable shader"));
+        } else if (dxilInputQ != DxilParamInputQual::Inout) {
+          Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "callable parameter must be declared inout"));
+        }
+        if (ArgNo < 1) {
+          if (!IsHLSLNumericUserDefinedType(parmDecl->getType())) {
+            Diags.Report(parmDecl->getLocation(), Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "callable parameter must be a user defined type with only numeric contents."));
+          } else {
+            DataLayout DL(&this->TheModule);
+            unsigned size = DL.getTypeAllocSize(F->getFunctionType()->getFunctionParamType(ArgNo)->getPointerElementType());
+            funcProps->ShaderProps.Ray.paramSizeInBytes = size;
+          }
+        }
+        break;
       }
     }
 
@@ -1703,16 +1830,42 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   if (inputPatchCount > 1) {
-    DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "may only have one InputPatch parameter");
     Diags.Report(FD->getLocation(), DiagID);
   }
   if (outputPatchCount > 1) {
-    DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "may only have one OutputPatch parameter");
     Diags.Report(FD->getLocation(), DiagID);
+  }
+
+  // If Shader is a ray shader that requires parameters, make sure size is non-zero
+  if (isRay) {
+    bool bNeedsAttributes = false;
+    bool bNeedsPayload = false;
+    switch (funcProps->shaderKind) {
+    case DXIL::ShaderKind::AnyHit:
+    case DXIL::ShaderKind::ClosestHit:
+      bNeedsAttributes = true;
+    case DXIL::ShaderKind::Miss:
+      bNeedsPayload = true;
+    case DXIL::ShaderKind::Callable:
+      if (0 == funcProps->ShaderProps.Ray.payloadSizeInBytes) {
+        unsigned DiagID = bNeedsPayload ?
+          Diags.getCustomDiagID(DiagnosticsEngine::Error,
+            "shader must include inout payload structure parameter.") :
+          Diags.getCustomDiagID(DiagnosticsEngine::Error,
+            "shader must include inout parameter structure.");
+        Diags.Report(FD->getLocation(), DiagID);
+      }
+    }
+    if (bNeedsAttributes &&
+        0 == funcProps->ShaderProps.Ray.attributeSizeInBytes) {
+      Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "shader must include attributes structure parameter."));
+    }
   }
 
   // Type annotation for parameters and return type.
@@ -1732,14 +1885,24 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
   }
 
+  // clear isExportedEntry if not exporting entry
+  bool isExportedEntry = profileAttributes != 0;
+  if (isExportedEntry) {
+    // use unmangled or mangled name depending on which is used for final entry function
+    StringRef name = isRay ? F->getName() : FD->getName();
+    if (!m_ExportMap.IsExported(name)) {
+      isExportedEntry = false;
+    }
+  }
+
   // Only add functionProps when exist.
-  if (profileAttributes || isEntry)
+  if (isExportedEntry || isEntry)
     m_pHLModule->AddDxilFunctionProps(F, funcProps);
   if (isPatchConstantFunction)
     patchConstantFunctionPropsMap[F] = std::move(funcProps);
 
   // Save F to entry map.
-  if (profileAttributes) {
+  if (isExportedEntry) {
     if (entryFunctionMap.count(FD->getName())) {
       DiagnosticsEngine &Diags = CGM.getDiags();
       unsigned DiagID = Diags.getCustomDiagID(
@@ -1804,6 +1967,23 @@ void CGMSHLSLRuntime::EmitHLSLFunctionProlog(Function *F, const FunctionDecl *FD
       AddClipPlane(clipPlane, 5);
 
     clipPlaneFuncList.emplace_back(F);
+  }
+
+  // Update function linkage based on DefaultLinkage
+  if (!m_pHLModule->HasDxilFunctionProps(F) && !IsPatchConstantFunction(F)) {
+    if (F->getLinkage() == GlobalValue::LinkageTypes::ExternalLinkage) {
+      if (!FD->hasAttr<HLSLExportAttr>()) {
+        switch (CGM.getCodeGenOpts().DefaultLinkage) {
+        case DXIL::DefaultLinkage::Default:
+          if (m_pHLModule->GetShaderModel()->GetMinor() != ShaderModel::kOfflineMinor)
+            F->setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+          break;
+        case DXIL::DefaultLinkage::Internal:
+          F->setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+          break;
+        }
+      }
+    }
   }
 }
 
@@ -2005,6 +2185,7 @@ static DxilResourceBase::Class KeywordToClass(const std::string &keyword) {
 
   bool isSRV = keyword == "Buffer";
   isSRV |= keyword == "ByteAddressBuffer";
+  isSRV |= keyword == "RaytracingAccelerationStructure";
   isSRV |= keyword == "StructuredBuffer";
   isSRV |= keyword == "Texture1D";
   isSRV |= keyword == "Texture1DArray";
@@ -2071,11 +2252,12 @@ hlsl::DxilResourceBase::Class CGMSHLSLRuntime::TypeToClass(clang::QualType Ty) {
 }
 
 uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
-  llvm::Constant *val = CGM.GetAddrOfGlobalVar(samplerDecl);
+  llvm::GlobalVariable *val =
+    cast<llvm::GlobalVariable>(CGM.GetAddrOfGlobalVar(samplerDecl));
 
   unique_ptr<DxilSampler> hlslRes(new DxilSampler);
   hlslRes->SetLowerBound(UINT_MAX);
-  hlslRes->SetGlobalSymbol(cast<llvm::GlobalVariable>(val));
+  hlslRes->SetGlobalSymbol(val);
   hlslRes->SetGlobalName(samplerDecl->getName());
   QualType VarTy = samplerDecl->getType();
   if (const clang::ArrayType *arrayType =
@@ -3948,44 +4130,49 @@ static void SimpleTransformForHLDXIR(llvm::Module *pM) {
     I->eraseFromParent();
 }
 
-// Clone shader entry function to be called by other functions.
-// The original function will be used as shader entry.
-static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
-                             HLModule &HLM) {
-  // Use mangled name for cloned one.
-  Function *F = Function::Create(ShaderF->getFunctionType(),
+static Function *CloneFunction(Function *Orig,
+                        const llvm::Twine &Name,
+                        llvm::Module *llvmModule,
+                        hlsl::DxilTypeSystem &TypeSys,
+                        hlsl::DxilTypeSystem &SrcTypeSys) {
+
+  Function *F = Function::Create(Orig->getFunctionType(),
                                  GlobalValue::LinkageTypes::ExternalLinkage,
-                                 "", HLM.GetModule());
-  F->takeName(ShaderF);
-  // Set to name before mangled.
-  ShaderF->setName(EntryName);
+                                 Name, llvmModule);
 
   SmallVector<ReturnInst *, 2> Returns;
   ValueToValueMapTy vmap;
   // Map params.
   auto entryParamIt = F->arg_begin();
-  for (Argument &param : ShaderF->args()) {
+  for (Argument &param : Orig->args()) {
     vmap[&param] = (entryParamIt++);
   }
 
-  llvm::CloneFunctionInto(F, ShaderF, vmap, /*ModuleLevelChagnes*/ false,
-                          Returns);
+  llvm::CloneFunctionInto(F, Orig, vmap, /*ModuleLevelChagnes*/ false, Returns);
+  TypeSys.CopyFunctionAnnotation(F, Orig, SrcTypeSys);
 
-  // Copy function annotation.
-  DxilFunctionAnnotation *shaderAnnot = HLM.GetFunctionAnnotation(ShaderF);
-  DxilFunctionAnnotation *annot = HLM.AddFunctionAnnotation(F);
+  return F;
+}
 
-  DxilParameterAnnotation &retAnnot = shaderAnnot->GetRetTypeAnnotation();
+// Clone shader entry function to be called by other functions.
+// The original function will be used as shader entry.
+static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
+                             HLModule &HLM) {
+  Function *F = CloneFunction(ShaderF, "", HLM.GetModule(),
+                              HLM.GetTypeSystem(), HLM.GetTypeSystem());
+
+  F->takeName(ShaderF);
+  F->setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+  // Set to name before mangled.
+  ShaderF->setName(EntryName);
+
+  DxilFunctionAnnotation *annot = HLM.GetFunctionAnnotation(F);
   DxilParameterAnnotation &cloneRetAnnot = annot->GetRetTypeAnnotation();
-  cloneRetAnnot = retAnnot;
   // Clear semantic for cloned one.
   cloneRetAnnot.SetSemanticString("");
   cloneRetAnnot.SetSemanticIndexVec({});
-  for (unsigned i = 0; i < shaderAnnot->GetNumParameters(); i++) {
+  for (unsigned i = 0; i < annot->GetNumParameters(); i++) {
     DxilParameterAnnotation &cloneParamAnnot = annot->GetParameterAnnotation(i);
-    DxilParameterAnnotation &paramAnnot =
-        shaderAnnot->GetParameterAnnotation(i);
-    cloneParamAnnot = paramAnnot;
     // Clear semantic for cloned one.
     cloneParamAnnot.SetSemanticString("");
     cloneParamAnnot.SetSemanticIndexVec({});
@@ -4195,11 +4382,11 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
   }
 
   Function *patchConstFunc = Entry->second.Func;
-  DxilFunctionProps *HSProps = &m_pHLModule->GetDxilFunctionProps(EntryFunc.Func);
-  DXASSERT(HSProps != nullptr,
+  DXASSERT(m_pHLModule->HasDxilFunctionProps(EntryFunc.Func),
     " else AddHLSLFunctionInfo did not save the dxil function props for the "
     "HS entry.");
-  HSProps->ShaderProps.HS.patchConstantFunc = patchConstFunc;
+  DxilFunctionProps *HSProps = &m_pHLModule->GetDxilFunctionProps(EntryFunc.Func);
+  m_pHLModule->SetPatchConstantFunctionForHS(EntryFunc.Func, patchConstFunc);
   DXASSERT_NOMSG(patchConstantFunctionPropsMap.count(patchConstFunc));
   // Check no inout parameter for patch constant function.
   DxilFunctionAnnotation *patchConstFuncAnnotation =
@@ -4245,6 +4432,16 @@ void CGMSHLSLRuntime::SetPatchConstantFunctionWithAttr(
     }
   }
   
+}
+
+static void ReportDisallowedTypeInExportParam(CodeGenModule &CGM, StringRef name) {
+  DiagnosticsEngine &Diags = CGM.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+    "Exported function %0 must not contain a resource in parameter or return type.");
+  std::string escaped;
+  llvm::raw_string_ostream os(escaped);
+  dxilutil::PrintEscapedString(name, os);
+  Diags.Report(DiagID) << os.str();
 }
 
 // Returns true a global value is being updated
@@ -4358,6 +4555,12 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     }
   } else {
     for (auto &it : entryFunctionMap) {
+      // skip clone if RT entry
+      if (m_pHLModule->GetDxilFunctionProps(it.second.Func).IsRay())
+        continue;
+
+      // TODO: change flattened function names to dx.entry.<name>:
+      //std::string entryName = (Twine(dxilutil::EntryPrefix) + it.getKey()).str();
       CloneShaderEntry(it.second.Func, it.getKey(), *m_pHLModule);
 
       auto AttrIter = HSEntryPatchConstantFuncAttr.find(it.second.Func);
@@ -4409,11 +4612,34 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // translate opcode into parameter for intrinsic functions
   AddOpcodeParamForIntrinsics(*m_pHLModule, m_IntrinsicMap, resMetadataMap);
 
+  // Register patch constant functions referenced by exported Hull Shaders
+  if (m_bIsLib && !m_ExportMap.empty()) {
+    for (auto &it : entryFunctionMap) {
+      if (m_pHLModule->HasDxilFunctionProps(it.second.Func)) {
+        const DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(it.second.Func);
+        if (props.IsHS())
+          m_ExportMap.RegisterExportedFunction(props.ShaderProps.HS.patchConstantFunc);
+      }
+    }
+  }
+
   // Pin entry point and constant buffers, mark everything else internal.
   for (Function &f : m_pHLModule->GetModule()->functions()) {
     if (!m_bIsLib) {
       if (&f == m_pHLModule->GetEntryFunction() ||
           IsPatchConstantFunction(&f) || f.isDeclaration()) {
+        if (f.isDeclaration() && !f.isIntrinsic() &&
+            GetHLOpcodeGroup(&f) == HLOpcodeGroup::NotHL) {
+          DiagnosticsEngine &Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "External function used in non-library profile: %0");
+          std::string escaped;
+          llvm::raw_string_ostream os(escaped);
+          dxilutil::PrintEscapedString(f.getName(), os);
+          Diags.Report(DiagID) << os.str();
+          return;
+        }
         f.setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
       } else {
         f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
@@ -4425,6 +4651,101 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     // Always inline for used functions.
     if (!f.user_empty() && !f.isDeclaration())
       f.addFnAttr(llvm::Attribute::AlwaysInline);
+  }
+
+  if (m_bIsLib && !m_ExportMap.empty()) {
+    m_ExportMap.BeginProcessing();
+    for (Function &f : m_pHLModule->GetModule()->functions()) {
+      if (f.isDeclaration() || f.isIntrinsic() ||
+        GetHLOpcodeGroup(&f) != HLOpcodeGroup::NotHL)
+        continue;
+      m_ExportMap.ProcessFunction(&f, true);
+    }
+    // TODO: add subobject export names here.
+    if (!m_ExportMap.EndProcessing()) {
+      for (auto &name : m_ExportMap.GetNameCollisions()) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+          "Export name collides with another export: %0");
+        std::string escaped;
+        llvm::raw_string_ostream os(escaped);
+        dxilutil::PrintEscapedString(name, os);
+        Diags.Report(DiagID) << os.str();
+      }
+      for (auto &name : m_ExportMap.GetUnusedExports()) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+          "Could not find target for export: %0");
+        std::string escaped;
+        llvm::raw_string_ostream os(escaped);
+        dxilutil::PrintEscapedString(name, os);
+        Diags.Report(DiagID) << os.str();
+      }
+    }
+  }
+
+  for (auto &it : m_ExportMap.GetFunctionRenames()) {
+    Function *F = it.first;
+    auto &renames = it.second;
+
+    if (renames.empty())
+      continue;
+
+    // Rename the original, if necessary, then clone the rest
+    if (renames.find(F->getName()) == renames.end())
+      F->setName(*renames.begin());
+
+    for (auto &itName : renames) {
+      if (F->getName() != itName) {
+        Function *pClone = CloneFunction(F, itName, m_pHLModule->GetModule(),
+          m_pHLModule->GetTypeSystem(), m_pHLModule->GetTypeSystem());
+        // add DxilFunctionProps if entry
+        if (m_pHLModule->HasDxilFunctionProps(F)) {
+          DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(F);
+          auto newProps = llvm::make_unique<DxilFunctionProps>(props);
+          m_pHLModule->AddDxilFunctionProps(pClone, newProps);
+        }
+      }
+    }
+  }
+
+  if (CGM.getCodeGenOpts().ExportShadersOnly) {
+    for (Function &f : m_pHLModule->GetModule()->functions()) {
+      // Skip declarations, intrinsics, shaders, and non-external linkage
+      if (f.isDeclaration() || f.isIntrinsic() ||
+          GetHLOpcodeGroup(&f) != HLOpcodeGroup::NotHL ||
+          m_pHLModule->HasDxilFunctionProps(&f) ||
+          m_pHLModule->IsPatchConstantShader(&f) ||
+          f.getLinkage() != GlobalValue::LinkageTypes::ExternalLinkage)
+        continue;
+      // Mark non-shader user functions as InternalLinkage
+      f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+    }
+  }
+
+  // Disallow resource arguments in (non-entry) function exports
+  // unless offline linking target.
+  if (m_bIsLib && m_pHLModule->GetShaderModel()->GetMinor() != ShaderModel::kOfflineMinor) {
+    for (Function &f : m_pHLModule->GetModule()->functions()) {
+      // Skip llvm intrinsics, non-external linkage, entry/patch constant func, and HL intrinsics
+      if (!f.isIntrinsic() &&
+          f.getLinkage() == GlobalValue::LinkageTypes::ExternalLinkage &&
+          !m_pHLModule->HasDxilFunctionProps(&f) &&
+          !m_pHLModule->IsPatchConstantShader(&f) &&
+          GetHLOpcodeGroup(&f) == HLOpcodeGroup::NotHL) {
+        // Verify no resources in param/return types
+        if (dxilutil::ContainsHLSLObjectType(f.getReturnType())) {
+          ReportDisallowedTypeInExportParam(CGM, f.getName());
+          continue;
+        }
+        for (auto &Arg : f.args()) {
+          if (dxilutil::ContainsHLSLObjectType(Arg.getType())) {
+            ReportDisallowedTypeInExportParam(CGM, f.getName());
+            break;
+          }
+        }
+      }
+    }
   }
 
   // Do simple transform to make later lower pass easier.
@@ -4566,16 +4887,9 @@ static const HLUnaryOpcode UnaryOperatorKindMap[] = {
 };
 
 static bool IsRowMajorMatrix(QualType Ty, bool bDefaultRowMajor) {
-  if (const AttributedType *AT = Ty->getAs<AttributedType>()) {
-    if (AT->getAttrKind() == AttributedType::attr_hlsl_row_major)
-      return true;
-    else if (AT->getAttrKind() == AttributedType::attr_hlsl_column_major)
-      return false;
-    else
-      return bDefaultRowMajor;
-  } else {
-    return bDefaultRowMajor;
-  }
+  bool bRowMajor = bDefaultRowMajor;
+  HasHLSLMatOrientation(Ty, &bRowMajor);
+  return bRowMajor;
 }
 
 static bool IsUnsigned(QualType Ty) {
@@ -6145,11 +6459,24 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     clang::QualType DestTy) {
   llvm::Type *SrcPtrTy = SrcPtr->getType()->getPointerElementType();
   llvm::Type *DestPtrTy = DestPtr->getType()->getPointerElementType();
+
+  bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
   if (SrcPtrTy == DestPtrTy) {
-    // Memcpy if type is match.
-    unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
-    CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
-    return;
+    bool bMatArrayRotate = false;
+    if (HLMatrixLower::IsMatrixArrayPointer(SrcPtr->getType())) {
+      QualType SrcEltTy = GetArrayEltType(SrcTy);
+      QualType DestEltTy = GetArrayEltType(DestTy);
+      if (GetMatrixMajor(SrcEltTy, bDefaultRowMajor) !=
+          GetMatrixMajor(DestEltTy, bDefaultRowMajor)) {
+        bMatArrayRotate = true;
+      }
+    }
+    if (!bMatArrayRotate) {
+      // Memcpy if type is match.
+      unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+      CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
+      return;
+    }
   } else if (HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(SrcPtrTy)) &&
              HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(DestPtrTy))) {
     unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
@@ -6450,15 +6777,14 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     Value *tmpArgAddr = nullptr;
     BasicBlock *InsertBlock = CGF.Builder.GetInsertBlock();
     Function *F = InsertBlock->getParent();
-    BasicBlock *EntryBlock = &F->getEntryBlock();
 
     if (ParamTy->isBooleanType()) {
       // Create i32 for bool.
       ParamTy = CGM.getContext().IntTy;
     }
     // Make sure the alloca is in entry block to stop inline create stacksave.
-    IRBuilder<> Builder(EntryBlock->getFirstInsertionPt());
-    tmpArgAddr = Builder.CreateAlloca(CGF.ConvertType(ParamTy));
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
+    tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertType(ParamTy));
 
       
     // add it to local decl map

@@ -25,7 +25,7 @@ public:
   using Kind = DXIL::SignatureKind;
 
   DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind sigKind, bool useMinPrecision);
-  DxilSignature(DXIL::SigPointKind sigPointKind);
+  DxilSignature(DXIL::SigPointKind sigPointKind, bool useMinPrecision);
   DxilSignature(const DxilSignature &src);
   virtual ~DxilSignature();
 

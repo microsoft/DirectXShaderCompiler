@@ -329,6 +329,13 @@ const unsigned kWaveAllEqualValueOpIdx = 1;
 const unsigned kCreateHandleResourceOpIdx = 1;
 const unsigned kCreateHandleIndexOpIdx = 2; // Only for array of cbuffer.
 
+// TraceRay.
+const unsigned kTraceRayRayDescOpIdx = 7;
+const unsigned kTraceRayPayLoadOpIdx = 8;
+
+// ReportIntersection.
+const unsigned kReportIntersectionAttributeOpIdx = 3;
+
 } // namespace HLOperandIndex
 
 llvm::Function *GetOrCreateHLFunction(llvm::Module &M,

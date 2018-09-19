@@ -25,6 +25,7 @@
 #include <cassert>
 #include <sstream>
 #include <algorithm>
+#include <unordered_set>
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 #ifdef _WIN32
@@ -42,6 +43,9 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/HLSL/DxilContainer.h"
+#include "dxc/HLSL/DxilRuntimeReflection.h"
+#include "dxc/HLSL/DxilShaderFlags.h"
+#include "dxc/HLSL/DxilUtil.h"
 
 #include <fstream>
 #include <chrono>
@@ -77,7 +81,12 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
+  TEST_CLASS_SETUP(InitSupport);
+
   TEST_METHOD(CompileWhenDebugSourceThenSourceMatters)
+  TEST_METHOD(CompileWhenOkThenCheckRDAT)
+  TEST_METHOD(CompileWhenOkThenCheckRDAT2)
+  TEST_METHOD(CompileWhenOkThenCheckReflection1)
   TEST_METHOD(CompileWhenOKThenIncludesFeatureInfo)
   TEST_METHOD(CompileWhenOKThenIncludesSignatures)
   TEST_METHOD(CompileWhenSigSquareThenIncludeSplit)
@@ -94,6 +103,7 @@ public:
   END_TEST_METHOD()
 
   dxc::DxcDllSupport m_dllSupport;
+  VersionSupportInfo m_ver;
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
@@ -539,6 +549,14 @@ public:
 #endif // _WIN32 - Reflection unsupported
 };
 
+bool DxilContainerTest::InitSupport() {
+  if (!m_dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    m_ver.Initialize(m_dllSupport);
+  }
+  return true;
+}
+
 #ifdef _WIN32
 TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   char program1[] = "float4 main() : SV_Target { return 0; }";
@@ -667,6 +685,546 @@ TEST_F(DxilContainerTest, CompileWhenSigSquareThenIncludeSplit) {
   std::string start(s.c_str(), strlen(expected));
   VERIFY_ARE_EQUAL_STR(expected, start.c_str());
 #endif
+}
+
+TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  const char *shader = "float c_buf;"
+    "RWTexture1D<int4> tex : register(u5);"
+    "Texture1D<float4> tex2 : register(t0);"
+    "RWByteAddressBuffer b_buf;"
+    "struct Foo { float2 f2; int2 i2; };"
+    "AppendStructuredBuffer<Foo> append_buf;"
+    "ConsumeStructuredBuffer<Foo> consume_buf;"
+    "RasterizerOrderedByteAddressBuffer rov_buf;"
+    "globallycoherent RWByteAddressBuffer gc_buf;"
+    "float function_import(float x);"
+    "export float function0(min16float x) { "
+    "  return x + 1 + tex[0].x; }"
+    "export float function1(float x, min12int i) {"
+    "  return x + c_buf + b_buf.Load(x) + tex2[i].x; }"
+    "export float function2(float x) { return x + function_import(x); }"
+    "export void function3(int i) {"
+    "  Foo f = consume_buf.Consume();"
+    "  f.f2 += 0.5; append_buf.Append(f);"
+    "  rov_buf.Store(i, f.i2.x);"
+    "  gc_buf.Store(i, f.i2.y);"
+    "  b_buf.Store(i, f.i2.x + f.i2.y); }";
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+
+  struct CheckResFlagInfo { std::string name; hlsl::DXIL::ResourceKind kind; hlsl::RDAT::DxilResourceFlag flag; };
+  const unsigned numResFlagCheck = 5;
+  CheckResFlagInfo resFlags[numResFlagCheck] = {
+    { "b_buf", hlsl::DXIL::ResourceKind::RawBuffer, hlsl::RDAT::DxilResourceFlag::None },
+    { "append_buf", hlsl::DXIL::ResourceKind::StructuredBuffer, hlsl::RDAT::DxilResourceFlag::UAVCounter },
+    { "consume_buf", hlsl::DXIL::ResourceKind::StructuredBuffer, hlsl::RDAT::DxilResourceFlag::UAVCounter },
+    { "gc_buf", hlsl::DXIL::ResourceKind::RawBuffer, hlsl::RDAT::DxilResourceFlag::UAVGloballyCoherent },
+    { "rov_buf", hlsl::DXIL::ResourceKind::RawBuffer, hlsl::RDAT::DxilResourceFlag::UAVRasterizerOrderedView }
+  };
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(shader, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_3", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  HRESULT hrStatus;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrStatus));
+  VERIFY_SUCCEEDED(hrStatus);
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  CComPtr<IDxcContainerReflection> containerReflection;
+  uint32_t partCount;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &containerReflection));
+  IFT(containerReflection->Load(pProgram));
+  IFT(containerReflection->GetPartCount(&partCount));
+  bool blobFound = false;
+  for (uint32_t i = 0; i < partCount; ++i) {
+    uint32_t kind;
+    IFT(containerReflection->GetPartKind(i, &kind));
+    if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_RuntimeData) {
+      blobFound = true;
+      using namespace hlsl::RDAT;
+      CComPtr<IDxcBlob> pBlob;
+      IFT(containerReflection->GetPartContent(i, &pBlob));
+      // Validate using DxilRuntimeData
+      DxilRuntimeData context;
+      context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
+      ResourceTableReader *resTableReader = context.GetResourceTableReader();
+      VERIFY_ARE_EQUAL(funcTableReader->GetNumFunctions(), 4);
+      std::string str("function");
+      for (uint32_t j = 0; j < funcTableReader->GetNumFunctions(); ++j) {
+        FunctionReader funcReader = funcTableReader->GetItem(j);
+        std::string funcName(funcReader.GetUnmangledName());
+        VERIFY_IS_TRUE(str.compare(funcName.substr(0,8)) == 0);
+        std::string cur_str = str;
+        cur_str.push_back('0' + j);
+        if (cur_str.compare("function0") == 0) {
+          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 1);
+          hlsl::ShaderFlags flag;
+          flag.SetUAVLoadAdditionalFormats(true);
+          flag.SetLowPrecisionPresent(true);
+          uint64_t rawFlag = flag.GetFeatureInfo();
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
+          ResourceReader resReader = funcReader.GetResource(0);
+          VERIFY_ARE_EQUAL(resReader.GetResourceClass(), hlsl::DXIL::ResourceClass::UAV);
+          VERIFY_ARE_EQUAL(resReader.GetResourceKind(), hlsl::DXIL::ResourceKind::Texture1D);
+        }
+        else if (cur_str.compare("function1") == 0) {
+          hlsl::ShaderFlags flag;
+          flag.SetLowPrecisionPresent(true);
+          uint64_t rawFlag = flag.GetFeatureInfo();
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
+          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 3);
+        }
+        else if (cur_str.compare("function2") == 0) {
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0);
+          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 0);
+          std::string dependency = funcReader.GetDependency(0);
+          VERIFY_IS_TRUE(dependency.find("function_import") != std::string::npos);
+        }
+        else if (cur_str.compare("function3") == 0) {
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0);
+          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), numResFlagCheck);
+          for (unsigned i = 0; i < funcReader.GetNumResources(); ++i) {
+            ResourceReader resReader = funcReader.GetResource(0);
+            VERIFY_ARE_EQUAL(resReader.GetResourceClass(), hlsl::DXIL::ResourceClass::UAV);
+            unsigned j = 0;
+            for (; j < numResFlagCheck; ++j) {
+              if (resFlags[j].name.compare(resReader.GetName()) == 0)
+                break;
+            }
+            VERIFY_IS_LESS_THAN(j, numResFlagCheck);
+            VERIFY_ARE_EQUAL(resReader.GetResourceKind(), resFlags[j].kind);
+            VERIFY_ARE_EQUAL(resReader.GetFlags(), static_cast<uint32_t>(resFlags[j].flag));
+          }
+        }
+        else {
+          IFTBOOLMSG(false, E_FAIL, "unknown function name");
+        }
+      }
+      VERIFY_ARE_EQUAL(resTableReader->GetNumResources(), 8);
+      // This is validation test for DxilRuntimeReflection implemented on DxilRuntimeReflection.inl
+      unique_ptr<DxilRuntimeReflection> pReflection(CreateDxilRuntimeReflection());
+      VERIFY_IS_TRUE(pReflection->InitFromRDAT(pBlob->GetBufferPointer(), pBlob->GetBufferSize()));
+      DxilLibraryDesc lib_reflection = pReflection->GetLibraryReflection();
+      VERIFY_ARE_EQUAL(lib_reflection.NumFunctions, 4);
+      for (uint32_t j = 0; j < 3; ++j) {
+        DxilFunctionDesc function = lib_reflection.pFunction[j];
+        std::string cur_str = str;
+        cur_str.push_back('0' + j);
+        if (cur_str.compare("function0") == 0) {
+          hlsl::ShaderFlags flag;
+          flag.SetUAVLoadAdditionalFormats(true);
+          flag.SetLowPrecisionPresent(true);
+          uint64_t rawFlag = flag.GetFeatureInfo();
+          uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
+          featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
+          VERIFY_ARE_EQUAL(featureFlag, rawFlag);
+          VERIFY_ARE_EQUAL(function.NumResources, 1);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
+          const DxilResourceDesc &resource = *function.Resources[0];
+          VERIFY_ARE_EQUAL(resource.Class, (uint32_t)hlsl::DXIL::ResourceClass::UAV);
+          VERIFY_ARE_EQUAL(resource.Kind, (uint32_t)hlsl::DXIL::ResourceKind::Texture1D);
+          std::wstring wName = resource.Name;
+          VERIFY_ARE_EQUAL(wName.compare(L"tex"), 0);
+        }
+        else if (cur_str.compare("function1") == 0) {
+          hlsl::ShaderFlags flag;
+          flag.SetLowPrecisionPresent(true);
+          uint64_t rawFlag = flag.GetFeatureInfo();
+          uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
+          featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
+          VERIFY_ARE_EQUAL(featureFlag, rawFlag);
+          VERIFY_ARE_EQUAL(function.NumResources, 3);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
+          std::unordered_set<std::wstring> stringSet = { L"$Globals", L"b_buf", L"tex2" };
+          for (uint32_t j = 0; j < 3; ++j) {
+            const DxilResourceDesc &resource = *function.Resources[j];
+            std::wstring compareName = resource.Name;
+            VERIFY_IS_TRUE(stringSet.find(compareName) != stringSet.end());
+          }
+        }
+        else if (cur_str.compare("function2") == 0) {
+          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0);
+          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0);
+          VERIFY_ARE_EQUAL(function.NumResources, 0);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 1);
+          std::wstring dependency = function.FunctionDependencies[0];
+          VERIFY_IS_TRUE(dependency.find(L"function_import") != std::wstring::npos);
+        }
+        else if (cur_str.compare("function3") == 0) {
+          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0);
+          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0);
+          VERIFY_ARE_EQUAL(function.NumResources, numResFlagCheck);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
+          for (unsigned i = 0; i < function.NumResources; ++i) {
+            const DxilResourceDesc *res = function.Resources[i];
+            VERIFY_ARE_EQUAL(res->Class, static_cast<uint32_t>(hlsl::DXIL::ResourceClass::UAV));
+            unsigned j = 0;
+            for (; j < numResFlagCheck; ++j) {
+              CA2W WName(resFlags[j].name.c_str());
+              std::wstring compareName(WName);
+              if (compareName.compare(res->Name) == 0)
+                break;
+            }
+            VERIFY_IS_LESS_THAN(j, numResFlagCheck);
+            VERIFY_ARE_EQUAL(res->Kind, static_cast<uint32_t>(resFlags[j].kind));
+            VERIFY_ARE_EQUAL(res->Flags, static_cast<uint32_t>(resFlags[j].flag));
+          }
+        }
+        else {
+          IFTBOOLMSG(false, E_FAIL, "unknown function name");
+        }
+      }
+      VERIFY_IS_TRUE(lib_reflection.NumResources == 8);
+    }
+  }
+  IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");
+}
+
+TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  // This is a case when the user of resource is a constant, not instruction.
+  // Compiler generates the following load instruction for texture.
+  // load %class.Texture2D, %class.Texture2D* getelementptr inbounds ([3 x
+  // %class.Texture2D], [3 x %class.Texture2D]*
+  // @"\01?ThreeTextures@@3PAV?$Texture2D@M@@A", i32 0, i32 0), align 4
+  const char *shader =
+      "SamplerState Sampler : register(s0); RWBuffer<float> Uav : "
+      "register(u0); Texture2D<float> ThreeTextures[3] : register(t0); "
+      "float function1();"
+      "[shader(\"raygeneration\")] void RayGenMain() { Uav[0] = "
+      "ThreeTextures[0].SampleLevel(Sampler, float2(0, 0), 0) + "
+      "ThreeTextures[2].SampleLevel(Sampler, float2(0, 0), 0) + function1(); }";
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+  HRESULT status;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(shader, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                      L"lib_6_3", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  CComPtr<IDxcContainerReflection> pReflection;
+  uint32_t partCount;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  IFT(pReflection->Load(pProgram));
+  IFT(pReflection->GetPartCount(&partCount));
+  bool blobFound = false;
+  for (uint32_t i = 0; i < partCount; ++i) {
+    uint32_t kind;
+    IFT(pReflection->GetPartKind(i, &kind));
+    if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_RuntimeData) {
+      blobFound = true;
+      using namespace hlsl::RDAT;
+      CComPtr<IDxcBlob> pBlob;
+      IFT(pReflection->GetPartContent(i, &pBlob));
+      DxilRuntimeData context;
+      context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+      FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
+      ResourceTableReader *resTableReader = context.GetResourceTableReader();
+      VERIFY_IS_TRUE(funcTableReader->GetNumFunctions() == 1);
+      VERIFY_IS_TRUE(resTableReader->GetNumResources() == 3);
+      FunctionReader funcReader = funcTableReader->GetItem(0);
+      llvm::StringRef name(funcReader.GetUnmangledName());
+      VERIFY_IS_TRUE(name.compare("RayGenMain") == 0);
+      VERIFY_IS_TRUE(funcReader.GetShaderKind() ==
+                     hlsl::DXIL::ShaderKind::RayGeneration);
+      VERIFY_IS_TRUE(funcReader.GetNumResources() == 3);
+      VERIFY_IS_TRUE(funcReader.GetNumDependencies() == 1);
+      llvm::StringRef dependencyName =
+          hlsl::dxilutil::DemangleFunctionName(funcReader.GetDependency(0));
+      VERIFY_IS_TRUE(dependencyName.compare("function1") == 0);
+    }
+  }
+  IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");
+}
+
+static uint32_t EncodedVersion_lib_6_3 = hlsl::EncodeVersion(hlsl::DXIL::ShaderKind::Library, 6, 3);
+static uint32_t EncodedVersion_vs_6_3 = hlsl::EncodeVersion(hlsl::DXIL::ShaderKind::Vertex, 6, 3);
+
+static void Ref1_CheckCBuffer_Globals(ID3D12ShaderReflectionConstantBuffer *pCBReflection, D3D12_SHADER_BUFFER_DESC &cbDesc) {
+  std::string cbName = cbDesc.Name;
+  VERIFY_IS_TRUE(cbName.compare("$Globals") == 0);
+  VERIFY_ARE_EQUAL(cbDesc.Size, 16);
+  VERIFY_ARE_EQUAL(cbDesc.Type, D3D_CT_CBUFFER);
+  VERIFY_ARE_EQUAL(cbDesc.Variables, 1);
+
+  // cbval1
+  ID3D12ShaderReflectionVariable *pVar = pCBReflection->GetVariableByIndex(0);
+  D3D12_SHADER_VARIABLE_DESC varDesc;
+  VERIFY_SUCCEEDED(pVar->GetDesc(&varDesc));
+  VERIFY_ARE_EQUAL_STR(varDesc.Name, "cbval1");
+  VERIFY_ARE_EQUAL(varDesc.StartOffset, 0);
+  VERIFY_ARE_EQUAL(varDesc.Size, 4);
+  // TODO: verify rest of variable
+  ID3D12ShaderReflectionType *pType = pVar->GetType();
+  D3D12_SHADER_TYPE_DESC tyDesc;
+  VERIFY_SUCCEEDED(pType->GetDesc(&tyDesc));
+  VERIFY_ARE_EQUAL(tyDesc.Class, D3D_SVC_SCALAR);
+  VERIFY_ARE_EQUAL(tyDesc.Type, D3D_SVT_FLOAT);
+  // TODO: verify rest of type
+}
+
+static void Ref1_CheckCBuffer_MyCB(ID3D12ShaderReflectionConstantBuffer *pCBReflection, D3D12_SHADER_BUFFER_DESC &cbDesc) {
+  std::string cbName = cbDesc.Name;
+  VERIFY_IS_TRUE(cbName.compare("MyCB") == 0);
+  VERIFY_ARE_EQUAL(cbDesc.Size, 32);
+  VERIFY_ARE_EQUAL(cbDesc.Type, D3D_CT_CBUFFER);
+  VERIFY_ARE_EQUAL(cbDesc.Variables, 2);
+
+  // cbval2
+  {
+    ID3D12ShaderReflectionVariable *pVar =  pCBReflection->GetVariableByIndex(0);
+    D3D12_SHADER_VARIABLE_DESC varDesc;
+    VERIFY_SUCCEEDED(pVar->GetDesc(&varDesc));
+    VERIFY_ARE_EQUAL_STR(varDesc.Name, "cbval2");
+    VERIFY_ARE_EQUAL(varDesc.StartOffset, 0);
+    VERIFY_ARE_EQUAL(varDesc.Size, 16);
+    // TODO: verify rest of variable
+    ID3D12ShaderReflectionType *pType = pVar->GetType();
+    D3D12_SHADER_TYPE_DESC tyDesc;
+    VERIFY_SUCCEEDED(pType->GetDesc(&tyDesc));
+    VERIFY_ARE_EQUAL(tyDesc.Class, D3D_SVC_VECTOR);
+    VERIFY_ARE_EQUAL(tyDesc.Type, D3D_SVT_INT);
+    // TODO: verify rest of type
+  }
+
+  // cbval3
+  {
+    ID3D12ShaderReflectionVariable *pVar = pCBReflection->GetVariableByIndex(1);
+    D3D12_SHADER_VARIABLE_DESC varDesc;
+    VERIFY_SUCCEEDED(pVar->GetDesc(&varDesc));
+    VERIFY_ARE_EQUAL_STR(varDesc.Name, "cbval3");
+    VERIFY_ARE_EQUAL(varDesc.StartOffset, 16);
+    VERIFY_ARE_EQUAL(varDesc.Size, 16);
+    // TODO: verify rest of variable
+    ID3D12ShaderReflectionType *pType = pVar->GetType();
+    D3D12_SHADER_TYPE_DESC tyDesc;
+    VERIFY_SUCCEEDED(pType->GetDesc(&tyDesc));
+    VERIFY_ARE_EQUAL(tyDesc.Class, D3D_SVC_VECTOR);
+    VERIFY_ARE_EQUAL(tyDesc.Type, D3D_SVT_INT);
+    // TODO: verify rest of type
+  }
+}
+
+static void Ref1_CheckBinding_Globals(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
+  std::string resName = resDesc.Name;
+  VERIFY_IS_TRUE(resName.compare("$Globals") == 0);
+  VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_CBUFFER);
+  // not explicitly bound:
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 4294967295);
+  VERIFY_ARE_EQUAL(resDesc.Space, 0);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+}
+
+static void Ref1_CheckBinding_MyCB(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
+  std::string resName = resDesc.Name;
+  VERIFY_IS_TRUE(resName.compare("MyCB") == 0);
+  VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_CBUFFER);
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 11);
+  VERIFY_ARE_EQUAL(resDesc.Space, 2);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+}
+
+static void Ref1_CheckBinding_tex(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
+  std::string resName = resDesc.Name;
+  VERIFY_IS_TRUE(resName.compare("tex") == 0);
+  VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_UAV_RWTYPED);
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 5);
+  VERIFY_ARE_EQUAL(resDesc.Space, 0);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+}
+
+static void Ref1_CheckBinding_tex2(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
+  std::string resName = resDesc.Name;
+  VERIFY_IS_TRUE(resName.compare("tex2") == 0);
+  VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_TEXTURE);
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 0);
+  VERIFY_ARE_EQUAL(resDesc.Space, 0);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+}
+
+static void Ref1_CheckBinding_samp(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
+  std::string resName = resDesc.Name;
+  VERIFY_IS_TRUE(resName.compare("samp") == 0);
+  VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_SAMPLER);
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 7);
+  VERIFY_ARE_EQUAL(resDesc.Space, 0);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+}
+
+static void Ref1_CheckBinding_b_buf(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
+  std::string resName = resDesc.Name;
+  VERIFY_IS_TRUE(resName.compare("b_buf") == 0);
+  VERIFY_ARE_EQUAL(resDesc.Type, D3D_SIT_UAV_RWBYTEADDRESS);
+  // not explicitly bound:
+  VERIFY_ARE_EQUAL(resDesc.BindPoint, 4294967295);
+  VERIFY_ARE_EQUAL(resDesc.Space, 0);
+  VERIFY_ARE_EQUAL(resDesc.BindCount, 1);
+}
+
+
+TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
+  if (m_ver.SkipDxilVersion(1, 3)) return;
+  const char *shader =
+    "float cbval1;"
+    "cbuffer MyCB : register(b11, space2) { int4 cbval2, cbval3; }"
+    "RWTexture1D<int4> tex : register(u5);"
+    "Texture1D<float4> tex2 : register(t0);"
+    "SamplerState samp : register(s7);"
+    "RWByteAddressBuffer b_buf;"
+    "export float function0(min16float x) { "
+    "  return x + cbval2.x + tex[0].x; }"
+    "export float function1(float x, min12int i) {"
+    "  return x + cbval1 + b_buf.Load(x) + tex2.Sample(samp, x).x; }"
+    "[shader(\"vertex\")]"
+    "float function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3.x; }";
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(shader, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"",
+    L"lib_6_3", nullptr, 0, nullptr, 0,
+    nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  CComPtr<IDxcContainerReflection> containerReflection;
+  uint32_t partCount;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &containerReflection));
+  VERIFY_SUCCEEDED(containerReflection->Load(pProgram));
+  VERIFY_SUCCEEDED(containerReflection->GetPartCount(&partCount));
+  bool blobFound = false;
+
+  for (uint32_t i = 0; i < partCount; ++i) {
+    uint32_t kind;
+    VERIFY_SUCCEEDED(containerReflection->GetPartKind(i, &kind));
+    if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_DXIL) {
+      blobFound = true;
+      VERIFY_SUCCEEDED(containerReflection->GetPartReflection(i, IID_PPV_ARGS(&pLibraryReflection)));
+      D3D12_LIBRARY_DESC LibDesc;
+      VERIFY_SUCCEEDED(pLibraryReflection->GetDesc(&LibDesc));
+      VERIFY_ARE_EQUAL(LibDesc.FunctionCount, 3);
+      for (INT iFn = 0; iFn < (INT)LibDesc.FunctionCount; iFn++) {
+        ID3D12FunctionReflection *pFunctionReflection = pLibraryReflection->GetFunctionByIndex(iFn);
+        D3D12_FUNCTION_DESC FnDesc;
+        pFunctionReflection->GetDesc(&FnDesc);
+        std::string Name = FnDesc.Name;
+        if (Name.compare("\01?function0@@YAM$min16f@@Z") == 0) {
+          VERIFY_ARE_EQUAL(FnDesc.Version, EncodedVersion_lib_6_3);
+          VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 1);
+          VERIFY_ARE_EQUAL(FnDesc.BoundResources, 2);
+          D3D12_SHADER_BUFFER_DESC cbDesc;
+          ID3D12ShaderReflectionConstantBuffer *pCBReflection = pFunctionReflection->GetConstantBufferByIndex(0);
+          VERIFY_SUCCEEDED(pCBReflection->GetDesc(&cbDesc));
+          std::string cbName = cbDesc.Name;
+          (void)(cbName);
+          Ref1_CheckCBuffer_MyCB(pCBReflection, cbDesc);
+
+          for (INT iRes = 0; iRes < (INT)FnDesc.BoundResources; iRes++) {
+            D3D12_SHADER_INPUT_BIND_DESC resDesc;
+            pFunctionReflection->GetResourceBindingDesc(iRes, &resDesc);
+            std::string resName = resDesc.Name;
+            if (resName.compare("$Globals") == 0) {
+              Ref1_CheckBinding_Globals(resDesc);
+            } else if (resName.compare("MyCB") == 0) {
+              Ref1_CheckBinding_MyCB(resDesc);
+            } else if (resName.compare("samp") == 0) {
+              Ref1_CheckBinding_samp(resDesc);
+            } else if (resName.compare("tex") == 0) {
+              Ref1_CheckBinding_tex(resDesc);
+            } else if (resName.compare("tex2") == 0) {
+              Ref1_CheckBinding_tex2(resDesc);
+            } else if (resName.compare("b_buf") == 0) {
+              Ref1_CheckBinding_b_buf(resDesc);
+            } else {
+              VERIFY_FAIL(L"Unexpected resource used");
+            }
+          }
+        } else if (Name.compare("\01?function1@@YAMM$min12i@@Z") == 0) {
+          VERIFY_ARE_EQUAL(FnDesc.Version, EncodedVersion_lib_6_3);
+          VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 1);
+          VERIFY_ARE_EQUAL(FnDesc.BoundResources, 4);
+          D3D12_SHADER_BUFFER_DESC cbDesc;
+          ID3D12ShaderReflectionConstantBuffer *pCBReflection = pFunctionReflection->GetConstantBufferByIndex(0);
+          VERIFY_SUCCEEDED(pCBReflection->GetDesc(&cbDesc));
+          std::string cbName = cbDesc.Name;
+          (void)(cbName);
+          Ref1_CheckCBuffer_Globals(pCBReflection, cbDesc);
+
+          for (INT iRes = 0; iRes < (INT)FnDesc.BoundResources; iRes++) {
+            D3D12_SHADER_INPUT_BIND_DESC resDesc;
+            pFunctionReflection->GetResourceBindingDesc(iRes, &resDesc);
+            std::string resName = resDesc.Name;
+            if (resName.compare("$Globals") == 0) {
+              Ref1_CheckBinding_Globals(resDesc);
+            } else if (resName.compare("MyCB") == 0) {
+              Ref1_CheckBinding_MyCB(resDesc);
+            } else if (resName.compare("samp") == 0) {
+              Ref1_CheckBinding_samp(resDesc);
+            } else if (resName.compare("tex") == 0) {
+              Ref1_CheckBinding_tex(resDesc);
+            } else if (resName.compare("tex2") == 0) {
+              Ref1_CheckBinding_tex2(resDesc);
+            } else if (resName.compare("b_buf") == 0) {
+              Ref1_CheckBinding_b_buf(resDesc);
+            } else {
+              VERIFY_FAIL(L"Unexpected resource used");
+            }
+          }
+        } else if (Name.compare("function2") == 0) {
+          // shader function with unmangled name
+          VERIFY_ARE_EQUAL(FnDesc.Version, EncodedVersion_vs_6_3);
+          VERIFY_ARE_EQUAL(FnDesc.ConstantBuffers, 2);
+          VERIFY_ARE_EQUAL(FnDesc.BoundResources, 2);
+          for (INT iCB = 0; iCB < (INT)FnDesc.BoundResources; iCB++) {
+            D3D12_SHADER_BUFFER_DESC cbDesc;
+            ID3D12ShaderReflectionConstantBuffer *pCBReflection = pFunctionReflection->GetConstantBufferByIndex(0);
+            VERIFY_SUCCEEDED(pCBReflection->GetDesc(&cbDesc));
+            std::string cbName = cbDesc.Name;
+            if (cbName.compare("$Globals") == 0) {
+              Ref1_CheckCBuffer_Globals(pCBReflection, cbDesc);
+            } else if (cbName.compare("MyCB") == 0) {
+              Ref1_CheckCBuffer_MyCB(pCBReflection, cbDesc);
+            }
+          }
+
+          for (INT iRes = 0; iRes < (INT)FnDesc.BoundResources; iRes++) {
+            D3D12_SHADER_INPUT_BIND_DESC resDesc;
+            pFunctionReflection->GetResourceBindingDesc(iRes, &resDesc);
+            std::string resName = resDesc.Name;
+            if (resName.compare("$Globals") == 0) {
+              Ref1_CheckBinding_Globals(resDesc);
+            } else if (resName.compare("MyCB") == 0) {
+              Ref1_CheckBinding_MyCB(resDesc);
+            } else {
+              VERIFY_FAIL(L"Unexpected resource used");
+            }
+          }
+        } else {
+          VERIFY_FAIL(L"Unexpected function");
+        }
+      }
+
+      // TODO: FINISH THIS
+    }
+  }
+  IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");
 }
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesFeatureInfo) {

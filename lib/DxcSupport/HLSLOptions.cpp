@@ -193,17 +193,29 @@ StringRefUtf16::StringRefUtf16(llvm::StringRef value) {
 }
 
 static bool GetTargetVersionFromString(llvm::StringRef ref, unsigned *major, unsigned *minor) {
-  try {
-    *major = (unsigned)std::stoul(std::string(1, ref[ref.size() - 3]));
-    *minor = (unsigned)std::stoul(std::string(1, ref[ref.size() - 1]));
-    return true;
-  }
-  catch (std::invalid_argument &) {
+  *major = *minor = -1;
+  unsigned len = ref.size();
+  if (len < 6 || len > 11) // length: ps_6_0 to rootsig_1_0
     return false;
-  }
-  catch (std::out_of_range &) {
+  if (ref[len - 4] != '_' || ref[len - 2] != '_')
     return false;
-  }
+
+  char cMajor = ref[len - 3];
+  char cMinor = ref[len - 1];
+
+  if (cMajor >= '0' && cMajor <= '9')
+    *major = cMajor - '0';
+  else
+    return false;
+
+  if (cMinor == 'x')
+    *minor = 0xF;
+  else if (cMinor >= '0' && cMinor <= '9')
+    *minor = cMinor - '0';
+  else
+    return false;
+
+  return true;
 }
 
 // SPIRV Change Starts
@@ -338,6 +350,17 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       // Set entry point to impossible name.
       opts.EntryPoint = "lib.no::entry";
     }
+  } else {
+    if (Args.getLastArg(OPT_exports)) {
+      errors << "library profile required when using -exports option";
+      return 1;
+    } else if (Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false)) {
+      errors << "library profile required when using -export-shaders-only option";
+      return 1;
+    } else if (Args.getLastArg(OPT_default_linkage)) {
+      errors << "library profile required when using -default-linkage option";
+      return 1;
+    }
   }
 
   opts.EnableBackCompatMode = Args.hasFlag(OPT_Gec, OPT_INVALID, false);
@@ -425,11 +448,34 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   }
 
+  llvm::StringRef auto_binding_space = Args.getLastArgValue(OPT_auto_binding_space);
+  if (!auto_binding_space.empty()) {
+    if (auto_binding_space.getAsInteger(10, opts.AutoBindingSpace)) {
+      errors << "Unsupported value '" << auto_binding_space << "' for auto binding space.";
+      return 1;
+    }
+  }
+
+  opts.Exports = Args.getAllArgValues(OPT_exports);
+
+  opts.DefaultLinkage = Args.getLastArgValue(OPT_default_linkage);
+  if (!opts.DefaultLinkage.empty()) {
+    if (!(opts.DefaultLinkage.equals_lower("internal") ||
+          opts.DefaultLinkage.equals_lower("external"))) {
+      errors << "Unsupported value '" << opts.DefaultLinkage
+             << "for -default-linkage option.";
+      return 1;
+    }
+  }
+
   // Check options only allowed in shader model >= 6.2FPDenormalMode
   unsigned Major = 0;
   unsigned Minor = 0;
   if (!opts.TargetProfile.empty()) {
-    GetTargetVersionFromString(opts.TargetProfile, &Major, &Minor);
+    if (!GetTargetVersionFromString(opts.TargetProfile, &Major, &Minor)) {
+      errors << "unable to parse shader model.";
+      return 1;
+    }
   }
 
   if (opts.TargetProfile.empty() || Major < 6 || (Major == 6 && Minor < 2)) {
@@ -492,6 +538,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DisassembleByteOffset = Args.hasFlag(OPT_No, OPT_INVALID, false);
   opts.DisaseembleHex = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.LegacyMacroExpansion = Args.hasFlag(OPT_flegacy_macro_expansion, OPT_INVALID, false);
+  opts.ExportShadersOnly = Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false);
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
@@ -564,7 +611,21 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  // SPIRV Change Starts
+  if (opts.IsLibraryProfile() && Minor == 0xF) {
+    // Disable validation for offline link only target
+    opts.DisableValidation = true;
+  }
+
+  // Disable lib_6_1 and lib_6_2 if /Vd is not present
+  if (opts.IsLibraryProfile() && (Major < 6 || (Major == 6 && Minor < 3))) {
+    if (!opts.DisableValidation) {
+      errors << "Must disable validation for unsupported lib_6_1 or lib_6_2 "
+                "targets.";
+      return 1;
+    }
+  }
+
+    // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
   opts.SpirvOptions.invertY = Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);

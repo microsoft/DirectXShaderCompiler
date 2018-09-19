@@ -1,8 +1,8 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
-// Make sure nested struct parameter not replaced as function call arg.
+// Make sure function call on external function has correct type.
 
-// CHECK: call void @"\01?test_extern@@YAMUFoo@@@Z"(float %{{.*}}, float* nonnull %{{.*}})
+// CHECK: call float @"\01?test_extern@@YAMUFoo@@@Z"(%struct.Foo* {{.*}})
 
 struct Foo {
   float a;

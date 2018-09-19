@@ -59,15 +59,15 @@ namespace {
       return nullptr;
     }
 
-    IRBuilder<> Builder(P);
+    IRBuilder<> AllocaBuilder(P);
     if (!AllocaPoint) {
       Function *F = P->getParent()->getParent();
       AllocaPoint = F->getEntryBlock().begin();
     }
-    Builder.SetInsertPoint(AllocaPoint);
+    AllocaBuilder.SetInsertPoint(AllocaPoint);
 
     // Create a stack slot to hold the value.
-    AllocaInst *Slot = Builder.CreateAlloca(P->getType(), nullptr, P->getName() + ".reg2mem");
+    AllocaInst *Slot = AllocaBuilder.CreateAlloca(P->getType(), nullptr, P->getName() + ".reg2mem");
 
     // Insert a load in place of the PHI and replace all uses.
     BasicBlock::iterator InsertPt = P;
@@ -123,23 +123,23 @@ namespace {
       return nullptr;
     }
 
-    IRBuilder<> Builder(&I);
+    IRBuilder<> AllocaBuilder(&I);
     if (!AllocaPoint) {
       Function *F = I.getParent()->getParent();
       AllocaPoint = F->getEntryBlock().begin();
     }
-    Builder.SetInsertPoint(AllocaPoint);
+    AllocaBuilder.SetInsertPoint(AllocaPoint);
 
     if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
       // Create a stack slot to hold the value.
-      AllocaInst *Slot = Builder.CreateAlloca(AI->getAllocatedType(), nullptr, I.getName() + ".reg2mem");
+      AllocaInst *Slot = AllocaBuilder.CreateAlloca(AI->getAllocatedType(), nullptr, I.getName() + ".reg2mem");
 	  I.replaceAllUsesWith(Slot);
 	  I.eraseFromParent();
 	  return Slot;
     }
 
     // Create a stack slot to hold the value.
-    AllocaInst *Slot = Builder.CreateAlloca(I.getType(), nullptr, I.getName() + ".reg2mem");;
+    AllocaInst *Slot = AllocaBuilder.CreateAlloca(I.getType(), nullptr, I.getName() + ".reg2mem");;
 
     // Change all of the users of the instruction to read from the stack slot.
     while (!I.use_empty()) {

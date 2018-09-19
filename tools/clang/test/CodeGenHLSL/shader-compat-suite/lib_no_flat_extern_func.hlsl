@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // Make sure extern function don't need to flat is called.
 // CHECK: call void @"\01?test@@YAXMAIAM@Z"

@@ -2,7 +2,7 @@
 
 // Make sure line number is show for resource failed to map.
 
-// CHECK:line:11 col:10 local resource not guaranteed to map to unique global resource.
+// CHECK:local_res_fail_map_error_msg.hlsl:11:10: local resource not guaranteed to map to unique global resource
 
 SamplerState samp1 : register(s5);
 

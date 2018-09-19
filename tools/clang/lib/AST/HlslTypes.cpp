@@ -90,6 +90,104 @@ bool IsHLSLVecType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLNumeric(clang::QualType type) {
+  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
+  if (isa<RecordType>(Ty)) {
+    if (IsHLSLVecMatType(type))
+      return true;
+    return IsHLSLNumericUserDefinedType(type);
+  } else if (type->isArrayType()) {
+    return IsHLSLNumeric(QualType(type->getArrayElementTypeNoTypeQual(), 0));
+  }
+  return Ty->isBuiltinType();
+}
+
+bool IsHLSLNumericUserDefinedType(clang::QualType type) {
+  const clang::Type *Ty = type.getCanonicalType().getTypePtr();
+  if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {
+    const RecordDecl *RD = RT->getDecl();
+    if (isa<ClassTemplateSpecializationDecl>(RD)) {
+      return false;   // UDT are not templates
+    }
+    // TODO: avoid check by name
+    StringRef name = RD->getName();
+    if (name == "ByteAddressBuffer" ||
+        name == "RWByteAddressBuffer" ||
+        name == "RaytracingAccelerationStructure")
+      return false;
+    for (auto member : RD->fields()) {
+      if (!IsHLSLNumeric(member->getType()))
+        return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+clang::QualType GetElementTypeOrType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+      dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
+      // TODO: check pointer instead of name
+      if (templateDecl->getName() == "vector") {
+        const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+        return argList[0].getAsType();
+      }
+      else if (templateDecl->getName() == "matrix") {
+        const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+        return argList[0].getAsType();
+      }
+    }
+  }
+  return type;
+}
+
+bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor) {
+  const AttributedType *AT = type->getAs<AttributedType>();
+  while (AT) {
+    AttributedType::Kind kind = AT->getAttrKind();
+    switch (kind) {
+    case AttributedType::attr_hlsl_row_major:
+      if (pIsRowMajor) *pIsRowMajor = true;
+      return true;
+    case AttributedType::attr_hlsl_column_major:
+      if (pIsRowMajor) *pIsRowMajor = false;
+      return true;
+    }
+    AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()->getAs<AttributedType>();
+  }
+  return false;
+}
+
+bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {
+  // snorm/unorm can be on outer vector/matrix as well as element type
+  // in the template form.  Outer-most type attribute wins.
+  // The following drills into attributed type for outer type,
+  // setting *pIsSNorm and returning true if snorm/unorm found.
+  // If not found on outer type, fall back to element type if different,
+  // indicating a vector or matrix, and try again.
+  clang::QualType elementType = GetElementTypeOrType(type);
+  while (true) {
+    const AttributedType *AT = type->getAs<AttributedType>();
+    while (AT) {
+      AttributedType::Kind kind = AT->getAttrKind();
+      switch (kind) {
+      case AttributedType::attr_hlsl_snorm:
+        if (pIsSNorm) *pIsSNorm = true;
+        return true;
+      case AttributedType::attr_hlsl_unorm:
+        if (pIsSNorm) *pIsSNorm = false;
+        return true;
+      }
+      AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()->getAs<AttributedType>();
+    }
+    if (type == elementType)
+      break;
+    type = elementType;
+  }
+  return false;
+}
+
 /// Checks whether the pAttributes indicate a parameter is inout or out; if
 /// inout, pIsIn will be set to true.
 bool IsParamAttributedAsOut(_In_opt_ clang::AttributeList *pAttributes,
@@ -374,6 +472,9 @@ bool IsHLSLResourceType(clang::QualType type) {
       return true;
 
     if (name == "ConstantBuffer")
+      return true;
+
+    if (name == "RaytracingAccelerationStructure")
       return true;
   }
   return false;

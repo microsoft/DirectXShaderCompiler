@@ -41,7 +41,7 @@
 // CHECK: call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %buf2_UAV_rawbuf, i32 1, i32 undef, float %{{.*}}, float %{{.*}}, float undef, float undef, i8 3, i32 4)
 // CHECK: call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %buf2_UAV_rawbuf, i32 1, i32 undef, float %{{.*}}, float %{{.*}}, float %{{.*}}, float undef, i8 7, i32 4)
 // CHECK: call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %buf2_UAV_rawbuf, i32 1, i32 undef, float %{{.*}}, float %{{.*}}, float %{{.*}}, float %{{.*}}, i8 15, i32 4)
-// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %buf2_UAV_rawbuf, i32 1, i32 undef, i32 %{{.*}}, i32 %{{.*}}, i32 %{{.*}}, i32 %{{.*}}, i8 3, i32 8)
+// CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %buf2_UAV_rawbuf, i32 1, i32 undef, i32 %{{.*}}, i32 %{{.*}}, i32 undef, i32 undef, i8 3, i32 8)
 // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %buf2_UAV_rawbuf, i32 1, i32 undef, i32 %{{.*}}, i32 %{{.*}}, i32 %{{.*}}, i32 %{{.*}}, i8 15, i32 8)
 
 ByteAddressBuffer buf1;

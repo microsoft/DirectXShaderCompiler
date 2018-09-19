@@ -255,6 +255,7 @@ int main(int argc, char **argv) {
   HRESULT hr;
   if (std::error_code ec = llvm::sys::fs::SetupPerThreadFileSystem())
       return 1;
+  llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
   if (!SUCCEEDED(hr = CreateMSFileSystemForDisk(&msfPtr)))
     return 1;
   std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);

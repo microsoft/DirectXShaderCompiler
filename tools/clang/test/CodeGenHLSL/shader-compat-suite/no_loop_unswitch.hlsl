@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
 // Make sure only 1 barrier.
 // CHECK: call void @dx.op.barrier(i32 80, i32 9)

@@ -318,7 +318,7 @@ void DxilTypeSystem::CopyFunctionAnnotation(const llvm::Function *pDstFunction,
 
   // Copy the annotation.
   *dstAnnot = *annot;
-
+  dstAnnot->m_pFunction = pDstFunction;
   // Clone ret type annotation.
   CopyTypeAnnotation(pDstFunction->getReturnType(), src);
   // Clone param type annotations.
@@ -415,8 +415,8 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
 bool DxilTypeSystem::UseMinPrecision() {
   if (m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined) {
     if (m_pModule->HasDxilModule()) {
-      m_LowPrecisionMode = m_pModule->GetDxilModule().m_ShaderFlags.GetUseNativeLowPrecision() ?
-        DXIL::LowPrecisionMode::UseNativeLowPrecision : DXIL::LowPrecisionMode::UseMinPrecision;
+      m_LowPrecisionMode = m_pModule->GetDxilModule().GetUseMinPrecision() ?
+        DXIL::LowPrecisionMode::UseMinPrecision : DXIL::LowPrecisionMode::UseNativeLowPrecision;
     }
     else if (m_pModule->HasHLModule()) {
       m_LowPrecisionMode = m_pModule->GetHLModule().GetHLOptions().bUseMinPrecision ?

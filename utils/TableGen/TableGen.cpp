@@ -185,6 +185,7 @@ int main(int argc, char **argv) {
   // HLSL Change Starts
   if (std::error_code ec = llvm::sys::fs::SetupPerThreadFileSystem())
       return 1;
+  llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
   llvm::sys::fs::MSFileSystem* msfPtr;
   HRESULT hr;
   if (!SUCCEEDED(hr = CreateMSFileSystemForDisk(&msfPtr)))

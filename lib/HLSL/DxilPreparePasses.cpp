@@ -11,6 +11,7 @@
 
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilOperations.h"
+#include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
@@ -33,6 +34,49 @@
 
 using namespace llvm;
 using namespace hlsl;
+
+namespace {
+class FailUndefResource : public ModulePass {
+public:
+  static char ID;
+
+  explicit FailUndefResource() : ModulePass(ID) {
+    initializeScalarizerPass(*PassRegistry::getPassRegistry());
+  }
+
+  const char *getPassName() const override { return "Fail on undef resource use"; }
+
+  bool runOnModule(Module &M) override;
+};
+}
+
+char FailUndefResource::ID = 0;
+
+ModulePass *llvm::createFailUndefResourcePass() { return new FailUndefResource(); }
+
+INITIALIZE_PASS(FailUndefResource, "fail-undef-resource", "Fail on undef resource use", false, false)
+
+bool FailUndefResource::runOnModule(Module &M) {
+  // Undef resources may be removed on simplify due to the interpretation
+  // of undef that any value could be substituted for identical meaning.
+  // However, these likely indicate uninitialized locals being used in
+  // some code path, which we should catch and report.
+  for (auto &F : M.functions()) {
+    if (GetHLOpcodeGroupByName(&F) == HLOpcodeGroup::HLCreateHandle) {
+      Type *ResTy = F.getFunctionType()->getParamType(
+        HLOperandIndex::kCreateHandleResourceOpIdx);
+      UndefValue *UndefRes = UndefValue::get(ResTy);
+      for (auto U : UndefRes->users()) {
+        // Only report instruction users.
+        if (Instruction *I = dyn_cast<Instruction>(U))
+          dxilutil::EmitResMappingError(I);
+      }
+    }
+  }
+  return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 
 namespace {
 class SimplifyInst : public FunctionPass {
@@ -133,8 +177,31 @@ INITIALIZE_PASS(DxilDeadFunctionElimination, "dxil-dfe", "Remove all unused func
 
 namespace {
 
-Function *StripFunctionParameter(Function *F, DxilModule &DM,
+static void TransferEntryFunctionAttributes(Function *F, Function *NewFunc) {
+  // Keep necessary function attributes
+  AttributeSet attributeSet = F->getAttributes();
+  StringRef attrKind, attrValue;
+  if (attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
+    Attribute attribute = attributeSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
+    DXASSERT(attribute.isStringAttribute(), "otherwise we have wrong fp-denorm-mode attribute.");
+    attrKind = attribute.getKindAsString();
+    attrValue = attribute.getValueAsString();
+  }
+  if (F == NewFunc) {
+    NewFunc->removeAttributes(AttributeSet::FunctionIndex, attributeSet);
+  }
+  if (!attrKind.empty() && !attrValue.empty())
+    NewFunc->addFnAttr(attrKind, attrValue);
+}
+
+static Function *StripFunctionParameter(Function *F, DxilModule &DM,
     DenseMap<const Function *, DISubprogram *> &FunctionDIs) {
+  if (F->arg_empty() && F->getReturnType()->isVoidTy()) {
+    // This will strip non-entry function attributes
+    TransferEntryFunctionAttributes(F, F);
+    return nullptr;
+  }
+
   Module &M = *DM.GetModule();
   Type *VoidTy = Type::getVoidTy(M.getContext());
   FunctionType *FT = FunctionType::get(VoidTy, false);
@@ -152,13 +219,7 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
   // Splice the body of the old function right into the new function.
   NewFunc->getBasicBlockList().splice(NewFunc->begin(), F->getBasicBlockList());
 
-  // Keep necessary function attributes
-  AttributeSet attributeSet = F->getAttributes();
-  if (attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
-    Attribute attribute = attributeSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
-    DXASSERT(attribute.isStringAttribute(), "otherwise we have wrong fp-denorm-mode attribute.");
-    NewFunc->addFnAttr(attribute.getKindAsString(), attribute.getValueAsString());
-  }
+  TransferEntryFunctionAttributes(F, NewFunc);
 
   // Patch the pointer to LLVM function in debug info descriptor.
   auto DI = FunctionDIs.find(F);
@@ -172,8 +233,7 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
   }
   NewFunc->takeName(F);
   if (DM.HasDxilFunctionProps(F)) {
-    DM.ReplaceDxilEntrySignature(F, NewFunc);
-    DM.ReplaceDxilFunctionProps(F, NewFunc);
+    DM.ReplaceDxilEntryProps(F, NewFunc);
   }
   DM.GetTypeSystem().EraseFunctionAnnotation(F);
   F->eraseFromParent();
@@ -270,12 +330,11 @@ public:
       // Strip parameters of entry function.
       StripEntryParameters(M, DM, IsLib);
 
-      // Skip shader flag for library.
-      if (!IsLib) {
-        DM.CollectShaderFlags(); // Update flags to reflect any changes.
-                                 // Update Validator Version
-        DM.UpgradeToMinValidatorVersion();
-      }
+      // Update flags to reflect any changes.
+      DM.CollectShaderFlagsForModule();
+
+      // Update Validator Version
+      DM.UpgradeToMinValidatorVersion();
 
       return true;
     }
@@ -360,31 +419,45 @@ private:
       if (Function *PatchConstantFunc = DM.GetPatchConstantFunction()) {
         PatchConstantFunc =
             StripFunctionParameter(PatchConstantFunc, DM, FunctionDIs);
-        if (PatchConstantFunc)
+        if (PatchConstantFunc) {
           DM.SetPatchConstantFunction(PatchConstantFunc);
+        }
       }
 
       if (Function *EntryFunc = DM.GetEntryFunction()) {
         StringRef Name = DM.GetEntryFunctionName();
         EntryFunc->setName(Name);
         EntryFunc = StripFunctionParameter(EntryFunc, DM, FunctionDIs);
-        if (EntryFunc)
+        if (EntryFunc) {
           DM.SetEntryFunction(EntryFunc);
+        }
       }
     } else {
       std::vector<Function *> entries;
+      // Handle when multiple hull shaders point to the same patch constant function
+      DenseMap<Function*,Function*> patchConstantUpdates;
       for (iplist<Function>::iterator F : M.getFunctionList()) {
-        if (DM.HasDxilFunctionProps(F)) {
-          entries.emplace_back(F);
+        if (DM.IsEntryThatUsesSignatures(F)) {
+          auto *FT = F->getFunctionType();
+          // Only do this when has parameters.
+          if (FT->getNumParams() > 0 || !FT->getReturnType()->isVoidTy())
+            entries.emplace_back(F);
         }
       }
       for (Function *entry : entries) {
         DxilFunctionProps &props = DM.GetDxilFunctionProps(entry);
         if (props.IsHS()) {
           // Strip patch constant function first.
-          Function *patchConstFunc = StripFunctionParameter(
-              props.ShaderProps.HS.patchConstantFunc, DM, FunctionDIs);
-          props.ShaderProps.HS.patchConstantFunc = patchConstFunc;
+          Function* patchConstFunc = props.ShaderProps.HS.patchConstantFunc;
+          auto it = patchConstantUpdates.find(patchConstFunc);
+          if (it == patchConstantUpdates.end()) {
+            patchConstFunc = patchConstantUpdates[patchConstFunc] =
+                StripFunctionParameter(patchConstFunc, DM, FunctionDIs);
+          } else {
+            patchConstFunc = it->second;
+          }
+          if (patchConstFunc)
+            DM.SetPatchConstantFunctionForHS(entry, patchConstFunc);
         }
         StripFunctionParameter(entry, DM, FunctionDIs);
       }
@@ -451,7 +524,7 @@ void DxilEmitMetadata::patchIsFrontfaceTy(Module &M) {
     return;
   unsigned ValMajor, ValMinor;
   DM.GetValidatorVersion(ValMajor, ValMinor);
-  bool bForceUint = ValMajor >= 1 && ValMinor >= 2;
+  bool bForceUint = ValMajor == 0 || (ValMajor >= 1 && ValMinor >= 2);
   if (pSM->IsPS()) {
     patchIsFrontface(DM.GetInputSignature(), bForceUint);
   } else if (pSM->IsGS()) {

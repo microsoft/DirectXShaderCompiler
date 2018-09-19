@@ -7665,6 +7665,10 @@ def err_hlsl_intrinsic_template_arg_requires_2018: Error<
 def err_hlsl_intrinsic_template_arg_scalar_vector_16: Error<
    "Explicit template arguments on intrinsic %0 are limited one to scalar or vector type up to 16 bytes in size.">;
 }
+def err_hlsl_no_struct_user_defined_type: Error<
+   "User defined type intrinsic arg must be struct">;
+def err_hlsl_ray_desc_required: Error<
+   "Argument type must be struct RayDesc.">;
 def err_hlsl_missing_maxvertexcount_attr: Error<
    "GS entry point must have the maxvertexcount attribute">;
 def err_hlsl_missing_patchconstantfunc_attr: Error<
