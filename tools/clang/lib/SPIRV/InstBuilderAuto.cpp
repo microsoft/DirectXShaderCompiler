@@ -120,19 +120,6 @@ InstBuilder &InstBuilder::opSource(spv::SourceLanguage source_language,
   return *this;
 }
 
-InstBuilder &InstBuilder::opSourceExtension(std::string extension) {
-  if (!TheInst.empty()) {
-    TheStatus = Status::NestedInst;
-    return *this;
-  }
-
-  TheInst.reserve(2);
-  TheInst.emplace_back(static_cast<uint32_t>(spv::Op::OpSourceExtension));
-  encodeString(extension);
-
-  return *this;
-}
-
 InstBuilder &InstBuilder::opName(uint32_t target, std::string name) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;

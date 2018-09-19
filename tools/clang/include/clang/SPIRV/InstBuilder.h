@@ -96,7 +96,6 @@ public:
   InstBuilder &opSource(spv::SourceLanguage source_language, uint32_t version,
                         llvm::Optional<uint32_t> file,
                         llvm::Optional<llvm::StringRef> source);
-  InstBuilder &opSourceExtension(std::string extension);
   InstBuilder &opName(uint32_t target, std::string name);
   InstBuilder &opMemberName(uint32_t type, uint32_t member, std::string name);
   InstBuilder &opString(uint32_t result_id, std::string string);
