@@ -1905,14 +1905,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
     ProhibitAttributes(attrs);
     SingleDecl = ParseDeclarationStartingWithTemplate(Context, DeclEnd);
     break;
-    // HLSL Change Begin.
-  case tok::kw_export:
-    // Ignore export for now.
-    ConsumeToken();
-    return ParseSimpleDeclaration(Context, DeclEnd, attrs,
-                                  true);
-    break;
-    // HLSL Change End.
   case tok::kw_inline:
     // Could be the start of an inline namespace. Allowed as an ext in C++03.
     if (getLangOpts().CPlusPlus && NextToken().is(tok::kw_namespace) && !getLangOpts().HLSL) { // HLSL Change - disallowed in HLSL
@@ -3738,6 +3730,7 @@ HLSLReservedKeyword:
     case tok::kw_lineadj:
     case tok::kw_triangle:
     case tok::kw_triangleadj:
+    case tok::kw_export:
       if (getLangOpts().HLSL) {
         if (DS.getTypeSpecType() != DeclSpec::TST_unspecified) {
           PrevSpec = "";
@@ -5201,6 +5194,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_lineadj:
   case tok::kw_triangle:
   case tok::kw_triangleadj:
+  case tok::kw_export:
     return true;
   // HLSL Change Ends
 

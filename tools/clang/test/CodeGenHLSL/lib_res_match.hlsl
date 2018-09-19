@@ -10,6 +10,6 @@ cbuffer A {
 Texture2D	tex;
 SamplerState	samp;
 
-float GetV() {
+export float GetV() {
   return v + tex.Load(uint3(a, v, a)).y;
 }

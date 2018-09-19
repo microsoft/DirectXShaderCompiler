@@ -20,6 +20,9 @@ class Constant;
 
 namespace hlsl {
 struct DxilFunctionProps {
+  DxilFunctionProps() {
+    memset(this, 0, sizeof(DxilFunctionProps));
+  }
   union {
     // Compute shader.
     struct {
@@ -56,8 +59,17 @@ struct DxilFunctionProps {
     struct {
       bool EarlyDepthStencil;
     } PS;
+    // Ray Tracing shaders
+    struct {
+      union {
+        unsigned payloadSizeInBytes;
+        unsigned paramSizeInBytes;
+      };
+      unsigned attributeSizeInBytes;
+    } Ray;
   } ShaderProps;
   DXIL::ShaderKind shaderKind;
+  // TODO: Should we have an unmangled name here for ray tracing shaders?
   bool IsPS() const     { return shaderKind == DXIL::ShaderKind::Pixel; }
   bool IsVS() const     { return shaderKind == DXIL::ShaderKind::Vertex; }
   bool IsGS() const     { return shaderKind == DXIL::ShaderKind::Geometry; }
@@ -65,14 +77,16 @@ struct DxilFunctionProps {
   bool IsDS() const     { return shaderKind == DXIL::ShaderKind::Domain; }
   bool IsCS() const     { return shaderKind == DXIL::ShaderKind::Compute; }
   bool IsGraphics() const {
-    switch (shaderKind) {
-    case DXIL::ShaderKind::Compute:
-    case DXIL::ShaderKind::Library:
-    case DXIL::ShaderKind::Invalid:
-      return false;
-    default:
-      return true;
-    }
+    return (shaderKind >= DXIL::ShaderKind::Pixel && shaderKind <= DXIL::ShaderKind::Domain);
+  }
+  bool IsRayGeneration() const { return shaderKind == DXIL::ShaderKind::RayGeneration; }
+  bool IsIntersection() const { return shaderKind == DXIL::ShaderKind::Intersection; }
+  bool IsAnyHit() const { return shaderKind == DXIL::ShaderKind::AnyHit; }
+  bool IsClosestHit() const { return shaderKind == DXIL::ShaderKind::ClosestHit; }
+  bool IsMiss() const { return shaderKind == DXIL::ShaderKind::Miss; }
+  bool IsCallable() const { return shaderKind == DXIL::ShaderKind::Callable; }
+  bool IsRay() const {
+    return (shaderKind >= DXIL::ShaderKind::RayGeneration && shaderKind <= DXIL::ShaderKind::Callable);
   }
 };
 

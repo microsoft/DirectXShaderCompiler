@@ -92,22 +92,24 @@
 // CHECK: ; RWTex4                                UAV     f32          2d      U2            u17     6
 // CHECK: ; RWTex1                                UAV     f32          2d      U3             u0     4
 
-// CHECK: %struct.Resources = type { %class.Texture2D, %class.Texture2D.0, %class.Texture2D, %class.Texture2D.0, %class.RWTexture2D, %class.RWTexture2D, %class.RWTexture2D, %class.RWTexture2D, %struct.SamplerComparisonState, %struct.SamplerState, %struct.SamplerComparisonState, %struct.SamplerState, <4 x float> }
+// CHECK: %struct.Resources = type { %"class.Texture2D<float>", %"class.Texture2D<vector<float, 4> >", %"class.Texture2D<float>", %"class.Texture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %struct.SamplerComparisonState, %struct.SamplerState, %struct.SamplerComparisonState, %struct.SamplerState, <4 x float> }
 
 // CHECK: %RWTex2_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 7, i1 false)
+// CHECK: %MyTB_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 4, i32 11, i1 false)
+
 // CHECK: %Tex1_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)
 // CHECK: %Samp2_sampler = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 0, i32 0, i1 false)
 
-// CHECK: %tbuf4_buffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 8, i32 4, i1 false)
-// CHECK: %tbuf2_buffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 7, i32 2, i1 false)
-// CHECK: %tbuf3_buffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 6, i32 6, i1 false)
-// CHECK: %tbuf1_buffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 5, i32 35, i1 false)
-// CHECK: %buf2_buffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 4, i32 55, i1 false)
-// CHECK: %buf1_buffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 3, i32 104, i1 false)
-// CHECK: %buf4_buffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 2, i32 1, i1 false)
+// CHECK: %MyCB_cbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 0, i32 11, i1 false)
 
-// CHECK: %MyCB_buffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 0, i32 11, i1 false)
-// CHECK: %MyTB_buffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 4, i32 11, i1 false)
+// CHECK: %tbuf4_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 8, i32 4, i1 false)
+// CHECK: %tbuf2_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 7, i32 2, i1 false)
+// CHECK: %tbuf3_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 6, i32 6, i1 false)
+// CHECK: %tbuf1_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 5, i32 35, i1 false)
+
+// CHECK: %buf2_cbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 4, i32 55, i1 false)
+// CHECK: %buf1_cbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 3, i32 104, i1 false)
+// CHECK: %buf4_cbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 2, i32 1, i1 false)
 
 // CHECK: %Tex2_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 1, i32 30, i1 false)
 // CHECK: %Tex3_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 2, i32 94, i1 false)
@@ -120,12 +122,12 @@
 // CHECK: %Samp4_sampler = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 2, i32 23, i1 false)
 
 // check packoffset:
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %MyCB_buffer, i32 4)
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %MyCB_buffer, i32 7)
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %MyCB_buffer, i32 21)
+// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %MyCB_cbuffer, i32 4)
+// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %MyCB_cbuffer, i32 7)
+// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %MyCB_cbuffer, i32 21)
 
 // check element index:
-// CHECK: @dx.op.bufferLoad.i32(i32 68, %dx.types.Handle %tbuf1_buffer, i32 1, i32 undef)
+// CHECK: @dx.op.bufferLoad.i32(i32 68, %dx.types.Handle %tbuf1_texture_tbuffer, i32 1, i32 undef)
 
 
 

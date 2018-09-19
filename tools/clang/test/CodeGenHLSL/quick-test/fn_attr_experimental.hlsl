@@ -1,6 +1,6 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
-// CHECK: define void
+// CHECK: define <4 x float>
 // CHECK: fn1
 // @"\01?fn1@@YA?AV?$vector@M$03@@V1@@Z"
 // CHECK: #0

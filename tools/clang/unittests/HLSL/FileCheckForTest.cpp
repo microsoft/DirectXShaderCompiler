@@ -1298,26 +1298,8 @@ bool ReadCheckFile(SourceMgr &SM,
   return false;
 }
 
-// This would typically be done in DLL load.
-struct GlobalPerThreadSys {
-  bool success;
-
-  GlobalPerThreadSys() {
-    success = ::llvm::sys::fs::SetupPerThreadFileSystem() ? false : true;
-
-  }
-  ~GlobalPerThreadSys() {
-    if (success)
-      ::llvm::sys::fs::CleanupPerThreadFileSystem();
-  }
-};
-
 int run_main() {
   // HLSL Change Starts
-  GlobalPerThreadSys gpts;
-  if (!gpts.success) {
-    return 1;
-  }
   llvm::sys::fs::MSFileSystem* msfPtr;
   HRESULT hr;
   if (!SUCCEEDED(hr = CreateMSFileSystemForDisk(&msfPtr)))

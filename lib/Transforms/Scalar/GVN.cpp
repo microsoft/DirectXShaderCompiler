@@ -955,6 +955,8 @@ static int AnalyzeLoadFromClobberingWrite(Type *LoadTy, Value *LoadPtr,
                                           Value *WritePtr,
                                           uint64_t WriteSizeInBits,
                                           const DataLayout &DL) {
+#if 0   // HLSL Change: Don't support bitcasting to different sizes.
+
   // If the loaded or stored value is a first class array or struct, don't try
   // to transform them.  We need to be able to bitcast to integer.
   if (LoadTy->isStructTy() || LoadTy->isArrayTy())
@@ -1022,12 +1024,15 @@ static int AnalyzeLoadFromClobberingWrite(Type *LoadTy, Value *LoadPtr,
   // Okay, we can do this transformation.  Return the number of bytes into the
   // store that the load is.
   return LoadOffset-StoreOffset;
+#endif  // HLSL Change: Don't support bitcasting to different sizes.
+  return -1;
 }
 
 /// This function is called when we have a
 /// memdep query of a load that ends up being a clobbering store.
 static int AnalyzeLoadFromClobberingStore(Type *LoadTy, Value *LoadPtr,
                                           StoreInst *DepSI) {
+#if 0   // HLSL Change: Don't support bitcasting to different sizes.
   // Cannot handle reading from store of first-class aggregate yet.
   if (DepSI->getValueOperand()->getType()->isStructTy() ||
       DepSI->getValueOperand()->getType()->isArrayTy())
@@ -1038,6 +1043,8 @@ static int AnalyzeLoadFromClobberingStore(Type *LoadTy, Value *LoadPtr,
   uint64_t StoreSize =DL.getTypeSizeInBits(DepSI->getValueOperand()->getType());
   return AnalyzeLoadFromClobberingWrite(LoadTy, LoadPtr,
                                         StorePtr, StoreSize, DL);
+#endif  // HLSL Change: Don't support bitcasting to different sizes.
+  return -1;
 }
 
 /// This function is called when we have a
@@ -1045,6 +1052,7 @@ static int AnalyzeLoadFromClobberingStore(Type *LoadTy, Value *LoadPtr,
 /// the other load can feed into the second load.
 static int AnalyzeLoadFromClobberingLoad(Type *LoadTy, Value *LoadPtr,
                                          LoadInst *DepLI, const DataLayout &DL){
+#if 0   // HLSL Change: Don't support bitcasting to different sizes.
   // Cannot handle reading from store of first-class aggregate yet.
   if (DepLI->getType()->isStructTy() || DepLI->getType()->isArrayTy())
     return -1;
@@ -1066,6 +1074,8 @@ static int AnalyzeLoadFromClobberingLoad(Type *LoadTy, Value *LoadPtr,
   if (Size == 0) return -1;
 
   return AnalyzeLoadFromClobberingWrite(LoadTy, LoadPtr, DepPtr, Size*8, DL);
+#endif
+  return -1;
 }
 
 
@@ -1073,6 +1083,7 @@ static int AnalyzeLoadFromClobberingLoad(Type *LoadTy, Value *LoadPtr,
 static int AnalyzeLoadFromClobberingMemInst(Type *LoadTy, Value *LoadPtr,
                                             MemIntrinsic *MI,
                                             const DataLayout &DL) {
+#if 0   // HLSL Change: Don't support bitcasting to different sizes.
   // If the mem operation is a non-constant size, we can't handle it.
   ConstantInt *SizeCst = dyn_cast<ConstantInt>(MI->getLength());
   if (!SizeCst) return -1;
@@ -1113,6 +1124,7 @@ static int AnalyzeLoadFromClobberingMemInst(Type *LoadTy, Value *LoadPtr,
   Src = ConstantExpr::getBitCast(Src, PointerType::get(LoadTy, AS));
   if (ConstantFoldLoadFromConstPtr(Src, DL))
     return Offset;
+#endif
   return -1;
 }
 

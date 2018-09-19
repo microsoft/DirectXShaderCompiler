@@ -692,10 +692,18 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys,
 
   unsigned fieldIndent = indent + 4;
 
-  for (unsigned i = 0; i < ST->getNumElements(); i++) {
-    PrintFieldLayout(ST->getElementType(i), annotation->GetFieldAnnotation(i),
-                     typeSys, OS, comment, offset, fieldIndent,
-                     offsetIndent - 4);
+  if (!annotation) {
+    if (!sizeOfStruct) {
+      (OS << comment).indent(indent) << "/* empty struct */\n";
+    } else {
+      (OS << comment).indent(indent) << "[" << sizeOfStruct << " x i8] (type annotation not present)\n";
+    }
+  } else {
+    for (unsigned i = 0; i < ST->getNumElements(); i++) {
+      PrintFieldLayout(ST->getElementType(i), annotation->GetFieldAnnotation(i),
+                       typeSys, OS, comment, offset, fieldIndent,
+                       offsetIndent - 4);
+    }
   }
   (OS << comment).indent(indent) << "\n";
   // The 2 in offsetIndent-indent-2 is for "} ".
@@ -982,7 +990,28 @@ static const char *OpCodeSignatures[] = {
   "(inputSigId,inputRowIndex,inputColIndex,VertexID)",  // AttributeAtVertex
   "()",  // ViewID
   "(srv,index,elementOffset,mask,alignment)",  // RawBufferLoad
-  "(uav,index,elementOffset,value0,value1,value2,value3,mask,alignment)"  // RawBufferStore
+  "(uav,index,elementOffset,value0,value1,value2,value3,mask,alignment)",  // RawBufferStore
+  "()",  // InstanceID
+  "()",  // InstanceIndex
+  "()",  // HitKind
+  "()",  // RayFlags
+  "(col)",  // DispatchRaysIndex
+  "(col)",  // DispatchRaysDimensions
+  "(col)",  // WorldRayOrigin
+  "(col)",  // WorldRayDirection
+  "(col)",  // ObjectRayOrigin
+  "(col)",  // ObjectRayDirection
+  "(row,col)",  // ObjectToWorld
+  "(row,col)",  // WorldToObject
+  "()",  // RayTMin
+  "()",  // RayTCurrent
+  "()",  // IgnoreHit
+  "()",  // AcceptHitAndEndSearch
+  "(AccelerationStructure,RayFlags,InstanceInclusionMask,RayContributionToHitGroupIndex,MultiplierForGeometryContributionToShaderIndex,MissShaderIndex,Origin_X,Origin_Y,Origin_Z,TMin,Direction_X,Direction_Y,Direction_Z,TMax,payload)",  // TraceRay
+  "(THit,HitKind,Attributes)",  // ReportHit
+  "(ShaderIndex,Parameter)",  // CallShader
+  "(Resource)",  // CreateHandleForLib
+  "()"  // PrimitiveIndex
 };
 // OPCODE-SIGS:END
 
@@ -1354,13 +1383,15 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
 
   if (pModule->getNamedMetadata("dx.version")) {
     DxilModule &dxilModule = pModule->GetOrCreateDxilModule();
-    PrintDxilSignature("Input", dxilModule.GetInputSignature(), Stream,
-                       /*comment*/ ";");
-    PrintDxilSignature("Output", dxilModule.GetOutputSignature(), Stream,
-                       /*comment*/ ";");
-    PrintDxilSignature("Patch Constant signature",
-                       dxilModule.GetPatchConstantSignature(), Stream,
-                       /*comment*/ ";");
+    if (!dxilModule.GetShaderModel()->IsLib()) {
+      PrintDxilSignature("Input", dxilModule.GetInputSignature(), Stream,
+                         /*comment*/ ";");
+      PrintDxilSignature("Output", dxilModule.GetOutputSignature(), Stream,
+                         /*comment*/ ";");
+      PrintDxilSignature("Patch Constant signature",
+                         dxilModule.GetPatchConstantSignature(), Stream,
+                         /*comment*/ ";");
+    }
     PrintBufferDefinitions(dxilModule, Stream, /*comment*/ ";");
     PrintResourceBindings(dxilModule, Stream, /*comment*/ ";");
     PrintViewIdState(dxilModule, Stream, /*comment*/ ";");

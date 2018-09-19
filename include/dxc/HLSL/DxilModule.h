@@ -15,17 +15,17 @@
 #include "dxc/HLSL/DxilCBuffer.h"
 #include "dxc/HLSL/DxilResource.h"
 #include "dxc/HLSL/DxilSampler.h"
+#include "dxc/HLSL/DxilShaderFlags.h"
 #include "dxc/HLSL/DxilSignature.h"
 #include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
 
-
-
 #include <memory>
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace llvm {
 class LLVMContext;
@@ -44,6 +44,11 @@ class OP;
 class RootSignatureHandle;
 struct DxilFunctionProps;
 
+class DxilEntryProps;
+
+using DxilEntryPropsMap =
+    std::unordered_map<const llvm::Function *, std::unique_ptr<DxilEntryProps>>;
+
 /// Use this class to manipulate DXIL of a shader.
 class DxilModule {
 public:
@@ -54,7 +59,7 @@ public:
   llvm::LLVMContext &GetCtx() const;
   llvm::Module *GetModule() const;
   OP *GetOP() const;
-  void SetShaderModel(const ShaderModel *pSM);
+  void SetShaderModel(const ShaderModel *pSM, bool bUseMinPrecision = true);
   const ShaderModel *GetShaderModel() const;
   void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
   void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
@@ -78,8 +83,7 @@ public:
 
   // Flags.
   unsigned GetGlobalFlags() const;
-  // TODO: move out of DxilModule as a util.
-  void CollectShaderFlags();
+  void CollectShaderFlagsForModule();
 
   // Resources.
   unsigned AddCBuffer(std::unique_ptr<DxilCBuffer> pCB);
@@ -102,16 +106,12 @@ public:
   const DxilResource &GetUAV(unsigned idx) const;
   const std::vector<std::unique_ptr<DxilResource> > &GetUAVs() const;
 
-  void CreateResourceLinkInfo();
-  struct ResourceLinkInfo;
-  const ResourceLinkInfo &GetResourceLinkInfo(DXIL::ResourceClass resClass,
-                                        unsigned rangeID) const;
-
   void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
   void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
   void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
 
   void RemoveUnusedResources();
+  void RemoveUnusedResourceSymbols();
   void RemoveFunction(llvm::Function *F);
 
   // Signatures.
@@ -122,16 +122,30 @@ public:
   DxilSignature &GetPatchConstantSignature();
   const DxilSignature &GetPatchConstantSignature() const;
   const RootSignatureHandle &GetRootSignature() const;
-  bool HasDxilEntrySignature(llvm::Function *F) const;
-  DxilEntrySignature &GetDxilEntrySignature(llvm::Function *F);
-  // Move DxilEntrySignature of F to NewF.
-  void ReplaceDxilEntrySignature(llvm::Function *F, llvm::Function *NewF);
+
+  bool HasDxilEntrySignature(const llvm::Function *F) const;
+  DxilEntrySignature &GetDxilEntrySignature(const llvm::Function *F);
+  // Move DxilEntryProps of F to NewF.
+  void ReplaceDxilEntryProps(llvm::Function *F, llvm::Function *NewF);
+  // Clone DxilEntryProps of F to NewF.
+  void CloneDxilEntryProps(llvm::Function *F, llvm::Function *NewF);
+  bool HasDxilEntryProps(const llvm::Function *F) const;
+  DxilEntryProps &GetDxilEntryProps(const llvm::Function *F);
 
   // DxilFunctionProps.
-  bool HasDxilFunctionProps(llvm::Function *F) const;
-  DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
+  bool HasDxilFunctionProps(const llvm::Function *F) const;
+  DxilFunctionProps &GetDxilFunctionProps(const llvm::Function *F);
+  const DxilFunctionProps &GetDxilFunctionProps(const llvm::Function *F) const;
+
   // Move DxilFunctionProps of F to NewF.
-  void ReplaceDxilFunctionProps(llvm::Function *F, llvm::Function *NewF);
+  void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc);
+  bool IsGraphicsShader(const llvm::Function *F) const; // vs,hs,ds,gs,ps
+  bool IsPatchConstantShader(const llvm::Function *F) const;
+  bool IsComputeShader(const llvm::Function *F) const;
+
+  // Is an entry function that uses input/output signature conventions?
+  // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
+  bool IsEntryThatUsesSignatures(const llvm::Function *F) const ;
 
   // Remove Root Signature from module metadata
   void StripRootSignatureFromMetadata();
@@ -144,6 +158,7 @@ public:
   /// Emit llvm.used array to make sure that optimizations do not remove unreferenced globals.
   void EmitLLVMUsed();
   std::vector<llvm::GlobalVariable* > &GetLLVMUsed();
+  void ClearLLVMUsed();
 
   // ViewId state.
   DxilViewIdState &GetViewIdState();
@@ -166,12 +181,7 @@ public:
   void ResetRootSignature(RootSignatureHandle *pValue);
   void ResetTypeSystem(DxilTypeSystem *pValue);
   void ResetOP(hlsl::OP *hlslOP);
-  void ResetFunctionPropsMap(
-      std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
-          &&propsMap);
-  void ResetEntrySignatureMap(
-      std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
-          &&SigMap);
+  void ResetEntryPropsMap(DxilEntryPropsMap &&PropMap);
 
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
@@ -201,135 +211,16 @@ public:
   static bool PreservesFastMathFlags(const llvm::Instruction *inst);
 
 public:
-  // Shader properties.
-  class ShaderFlags {
-  public:
-    ShaderFlags();
-
-    unsigned GetGlobalFlags() const;
-    void SetDisableOptimizations(bool flag) { m_bDisableOptimizations = flag; }
-    bool GetDisableOptimizations() const { return m_bDisableOptimizations; }
-
-    void SetDisableMathRefactoring(bool flag) { m_bDisableMathRefactoring = flag; }
-    bool GetDisableMathRefactoring() const { return m_bDisableMathRefactoring; }
-
-    void SetEnableDoublePrecision(bool flag) { m_bEnableDoublePrecision = flag; }
-    bool GetEnableDoublePrecision() const { return m_bEnableDoublePrecision; }
-
-    void SetForceEarlyDepthStencil(bool flag) { m_bForceEarlyDepthStencil = flag; }
-    bool GetForceEarlyDepthStencil() const { return m_bForceEarlyDepthStencil; }
-
-    void SetEnableRawAndStructuredBuffers(bool flag) { m_bEnableRawAndStructuredBuffers = flag; }
-    bool GetEnableRawAndStructuredBuffers() const { return m_bEnableRawAndStructuredBuffers; }
-
-    void SetLowPrecisionPresent(bool flag) { m_bLowPrecisionPresent = flag; }
-    bool GetLowPrecisionPresent() const { return m_bLowPrecisionPresent; }
-
-    void SetEnableDoubleExtensions(bool flag) { m_bEnableDoubleExtensions = flag; }
-    bool GetEnableDoubleExtensions() const { return m_bEnableDoubleExtensions; }
-
-    void SetEnableMSAD(bool flag) { m_bEnableMSAD = flag; }
-    bool GetEnableMSAD() const { return m_bEnableMSAD; }
-
-    void SetAllResourcesBound(bool flag) { m_bAllResourcesBound = flag; }
-    bool GetAllResourcesBound() const { return m_bAllResourcesBound; }
-
-    uint64_t GetFeatureInfo() const;
-    void SetCSRawAndStructuredViaShader4X(bool flag) { m_bCSRawAndStructuredViaShader4X = flag; }
-    bool GetCSRawAndStructuredViaShader4X() const { return m_bCSRawAndStructuredViaShader4X; }
-
-    void SetROVs(bool flag) { m_bROVS = flag; }
-    bool GetROVs() const { return m_bROVS; }
-
-    void SetWaveOps(bool flag) { m_bWaveOps = flag; }
-    bool GetWaveOps() const { return m_bWaveOps; }
-
-    void SetInt64Ops(bool flag) { m_bInt64Ops = flag; }
-    bool GetInt64Ops() const { return m_bInt64Ops; }
-
-    void SetTiledResources(bool flag) { m_bTiledResources = flag; }
-    bool GetTiledResources() const { return m_bTiledResources; }
-
-    void SetStencilRef(bool flag) { m_bStencilRef = flag; }
-    bool GetStencilRef() const { return m_bStencilRef; }
-
-    void SetInnerCoverage(bool flag) { m_bInnerCoverage = flag; }
-    bool GetInnerCoverage() const { return m_bInnerCoverage; }
-
-    void SetViewportAndRTArrayIndex(bool flag) { m_bViewportAndRTArrayIndex = flag; }
-    bool GetViewportAndRTArrayIndex() const { return m_bViewportAndRTArrayIndex; }
-
-    void SetUAVLoadAdditionalFormats(bool flag) { m_bUAVLoadAdditionalFormats = flag; }
-    bool GetUAVLoadAdditionalFormats() const { return m_bUAVLoadAdditionalFormats; }
-
-    void SetLevel9ComparisonFiltering(bool flag) { m_bLevel9ComparisonFiltering = flag; }
-    bool GetLevel9ComparisonFiltering() const { return m_bLevel9ComparisonFiltering; }
-
-    void Set64UAVs(bool flag) { m_b64UAVs = flag; }
-    bool Get64UAVs() const { return m_b64UAVs; }
-
-    void SetUAVsAtEveryStage(bool flag) { m_UAVsAtEveryStage = flag; }
-    bool GetUAVsAtEveryStage() const { return m_UAVsAtEveryStage; }
-
-    void SetViewID(bool flag) { m_bViewID = flag; }
-    bool GetViewID() const { return m_bViewID; }
-
-    void SetBarycentrics(bool flag) { m_bBarycentrics = flag; }
-    bool GetBarycentrics() const { return m_bBarycentrics; }
-
-    void SetUseNativeLowPrecision(bool flag) { m_bUseNativeLowPrecision = flag; }
-    bool GetUseNativeLowPrecision() const { return m_bUseNativeLowPrecision; }
-
-    static uint64_t GetShaderFlagsRawForCollection(); // some flags are collected (eg use 64-bit), some provided (eg allow refactoring)
-    uint64_t GetShaderFlagsRaw() const;
-    void SetShaderFlagsRaw(uint64_t data);
-
-  private:
-    unsigned m_bDisableOptimizations :1;   // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
-    unsigned m_bDisableMathRefactoring :1; //~D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED
-    unsigned m_bEnableDoublePrecision :1; // D3D11_SB_GLOBAL_FLAG_ENABLE_DOUBLE_PRECISION_FLOAT_OPS
-    unsigned m_bForceEarlyDepthStencil :1; // D3D11_SB_GLOBAL_FLAG_FORCE_EARLY_DEPTH_STENCIL
-    unsigned m_bEnableRawAndStructuredBuffers :1; // D3D11_SB_GLOBAL_FLAG_ENABLE_RAW_AND_STRUCTURED_BUFFERS
-    unsigned m_bLowPrecisionPresent :1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_MINIMUM_PRECISION
-    unsigned m_bEnableDoubleExtensions :1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_DOUBLE_EXTENSIONS
-    unsigned m_bEnableMSAD :1;        // D3D11_1_SB_GLOBAL_FLAG_ENABLE_SHADER_EXTENSIONS
-    unsigned m_bAllResourcesBound :1; // D3D12_SB_GLOBAL_FLAG_ALL_RESOURCES_BOUND
-
-    unsigned m_bViewportAndRTArrayIndex :1;   // SHADER_FEATURE_VIEWPORT_AND_RT_ARRAY_INDEX_FROM_ANY_SHADER_FEEDING_RASTERIZER
-    unsigned m_bInnerCoverage :1;             // SHADER_FEATURE_INNER_COVERAGE
-    unsigned m_bStencilRef  :1;               // SHADER_FEATURE_STENCIL_REF
-    unsigned m_bTiledResources  :1;           // SHADER_FEATURE_TILED_RESOURCES
-    unsigned m_bUAVLoadAdditionalFormats :1;  // SHADER_FEATURE_TYPED_UAV_LOAD_ADDITIONAL_FORMATS
-    unsigned m_bLevel9ComparisonFiltering :1; // SHADER_FEATURE_LEVEL_9_COMPARISON_FILTERING
-                                              // SHADER_FEATURE_11_1_SHADER_EXTENSIONS shared with EnableMSAD
-    unsigned m_b64UAVs :1;                    // SHADER_FEATURE_64_UAVS
-    unsigned m_UAVsAtEveryStage :1;           // SHADER_FEATURE_UAVS_AT_EVERY_STAGE
-    unsigned m_bCSRawAndStructuredViaShader4X : 1; // SHADER_FEATURE_COMPUTE_SHADERS_PLUS_RAW_AND_STRUCTURED_BUFFERS_VIA_SHADER_4_X
-    
-    // SHADER_FEATURE_COMPUTE_SHADERS_PLUS_RAW_AND_STRUCTURED_BUFFERS_VIA_SHADER_4_X is specifically
-    // about shader model 4.x.
-
-    unsigned m_bROVS :1;              // SHADER_FEATURE_ROVS
-    unsigned m_bWaveOps :1;           // SHADER_FEATURE_WAVE_OPS
-    unsigned m_bInt64Ops :1;          // SHADER_FEATURE_INT64_OPS
-    unsigned m_bViewID : 1;           // SHADER_FEATURE_VIEWID
-    unsigned m_bBarycentrics : 1;     // SHADER_FEATURE_BARYCENTRICS
-
-    unsigned m_bUseNativeLowPrecision : 1;
-
-    unsigned m_align0 : 8;        // align to 32 bit.
-    uint32_t m_align1;            // align to 64 bit.
-  };
-
   ShaderFlags m_ShaderFlags;
-  void CollectShaderFlags(ShaderFlags &Flags);
+  void CollectShaderFlagsForModule(ShaderFlags &Flags);
 
   // Check if DxilModule contains multi component UAV Loads.
   // This funciton must be called after unused resources are removed from DxilModule
   bool ModuleHasMulticomponentUAVLoads();
 
   // Compute shader.
-  unsigned m_NumThreads[3];
+  void SetNumThreads(unsigned x, unsigned y, unsigned z);
+  unsigned GetNumThreads(unsigned idx) const;
 
   // Geometry shader.
   DXIL::InputPrimitive GetInputPrimitive() const;
@@ -347,6 +238,14 @@ public:
   void SetActiveStreamMask(unsigned Mask);
   unsigned GetActiveStreamMask() const;
 
+  // Language options
+  // UseMinPrecision must be set at SetShaderModel time.
+  bool GetUseMinPrecision() const;
+  void SetDisableOptimization(bool disableOptimization);
+  bool GetDisableOptimization() const;
+  void SetAllResourcesBound(bool resourcesBound);
+  bool GetAllResourcesBound() const;
+
   // Hull and Domain shaders.
   unsigned GetInputControlPointCount() const;
   void SetInputControlPointCount(unsigned NumICPs);
@@ -363,18 +262,15 @@ public:
   float GetMaxTessellationFactor() const;
   void SetMaxTessellationFactor(float MaxTessellationFactor);
 
-  void SetShaderProperties(DxilFunctionProps *props);
+  // AutoBindingSpace also enables automatic binding for libraries if set.
+  // UINT_MAX == unset
+  void SetAutoBindingSpace(uint32_t Space);
+  uint32_t GetAutoBindingSpace() const;
 
-  // Shader resource information only needed before linking.
-  // Use constant as rangeID for resource in a library.
-  // When link the library, replace these constants with real rangeID.
-  struct ResourceLinkInfo {
-    llvm::Constant *ResRangeID;
-  };
+  void SetShaderProperties(DxilFunctionProps *props);
 
 private:
   // Signatures.
-  std::unique_ptr<DxilEntrySignature> m_EntrySignature;
   std::unique_ptr<RootSignatureHandle> m_RootSignature;
 
   // Shader resources.
@@ -383,34 +279,14 @@ private:
   std::vector<std::unique_ptr<DxilCBuffer> > m_CBuffers;
   std::vector<std::unique_ptr<DxilSampler> > m_Samplers;
 
-  // Save resource link for library, when link replace it with real resource ID.
-  std::vector<ResourceLinkInfo> m_SRVsLinkInfo;
-  std::vector<ResourceLinkInfo> m_UAVsLinkInfo;
-  std::vector<ResourceLinkInfo> m_CBuffersLinkInfo;
-  std::vector<ResourceLinkInfo> m_SamplersLinkInfo;
-
   // Geometry shader.
-  DXIL::InputPrimitive m_InputPrimitive;
-  unsigned m_MaxVertexCount;
   DXIL::PrimitiveTopology m_StreamPrimitiveTopology;
   unsigned m_ActiveStreamMask;
-  unsigned m_NumGSInstances;
-
-  // Hull and Domain shaders.
-  unsigned m_InputControlPointCount;
-  DXIL::TessellatorDomain m_TessellatorDomain;
-
-  // Hull shader.
-  unsigned m_OutputControlPointCount;
-  DXIL::TessellatorPartitioning m_TessellatorPartitioning;
-  DXIL::TessellatorOutputPrimitive m_TessellatorOutputPrimitive;
-  float m_MaxTessellationFactor;
 
 private:
   llvm::LLVMContext &m_Ctx;
   llvm::Module *m_pModule;
   llvm::Function *m_pEntryFunc;
-  llvm::Function *m_pPatchConstantFunc;
   std::string m_EntryName;
   std::unique_ptr<DxilMDHelper> m_pMDHelper;
   std::unique_ptr<llvm::DebugInfoFinder> m_pDebugInfoFinder;
@@ -429,12 +305,11 @@ private:
   // Type annotations.
   std::unique_ptr<DxilTypeSystem> m_pTypeSystem;
 
-  // Function properties for shader functions.
-  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
-      m_DxilFunctionPropsMap;
-  // EntrySig for shader functions.
-  std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
-      m_DxilEntrySignatureMap;
+  // EntryProps for shader functions.
+  DxilEntryPropsMap  m_DxilEntryPropsMap;
+
+  // Keeps track of patch constant functions used by hull shaders
+  std::unordered_set<const llvm::Function *>  m_PatchConstantFunctions;
 
   // ViewId state.
   std::unique_ptr<DxilViewIdState> m_pViewIdState;
@@ -442,14 +317,16 @@ private:
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();
   void LoadDxilResources(const llvm::MDOperand &MDO);
-  void EmitDxilResourcesLinkInfo();
-  void LoadDxilResourcesLinkInfo();
-  llvm::MDTuple *EmitDxilShaderProperties();
-  void LoadDxilShaderProperties(const llvm::MDOperand &MDO);
 
   // Helpers.
   template<typename T> unsigned AddResource(std::vector<std::unique_ptr<T> > &Vec, std::unique_ptr<T> pRes);
   void LoadDxilSignature(const llvm::MDTuple *pSigTuple, DxilSignature &Sig, bool bInput);
+
+  // properties from HLModule
+  bool m_bDisableOptimizations;
+  bool m_bUseMinPrecision;
+  bool m_bAllResourcesBound;
+  uint32_t m_AutoBindingSpace;
 };
 
 } // namespace hlsl

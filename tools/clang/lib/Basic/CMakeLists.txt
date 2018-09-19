@@ -32,7 +32,7 @@ set(get_svn_script "${LLVM_MAIN_SRC_DIR}/cmake/modules/GetSVN.cmake")
 
 # HLSL Change Starts
 if (HLSL_ENABLE_FIXED_VER)
-  add_definitions(/DHLSL_FIXED_VER="dxcoob 2017.11")
+  add_definitions(/DHLSL_FIXED_VER="dxcoob 2018.08")
 endif (HLSL_ENABLE_FIXED_VER)
 # HLSL Change Ends
 

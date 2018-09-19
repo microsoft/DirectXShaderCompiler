@@ -33,6 +33,10 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
+#include "dxc/HLSL/DxilContainer.h"
+#include "D3DReflectionDumper.h"
+
+#include "d3d12shader.h"
 
 using namespace std;
 using namespace hlsl_test;
@@ -105,6 +109,9 @@ static string trim(string value) {
       }
       else if (0 == _stricmp(Command.c_str(), "%opt")) {
         RunOpt(Prior);
+      }
+      else if (0 == _stricmp(Command.c_str(), "%D3DReflect")) {
+        RunD3DReflect(Prior);
       }
       else {
         RunResult = 1;
@@ -362,6 +369,89 @@ static string trim(string value) {
       IFT(pOptimizer->RunOptimizer(pSource, options.data(), options.size(),
                                    &pOutputModule, &pOutputText));
       StdOut = BlobToUtf8(pOutputText);
+      RunResult = 0;
+    }
+
+    void FileRunCommandPart::RunD3DReflect(const FileRunCommandPart *Prior) {
+      std::string args(strtrim(Arguments));
+      if (args != "%s") {
+        StdErr = "Only supported pattern is a plain input file";
+        RunResult = 1;
+        return;
+      }
+      if (!Prior) {
+        StdErr = "Prior command required to generate stdin";
+        RunResult = 1;
+        return;
+      }
+
+      CComPtr<IDxcLibrary> pLibrary;
+      CComPtr<IDxcBlobEncoding> pSource;
+      CComPtr<IDxcAssembler> pAssembler;
+      CComPtr<IDxcOperationResult> pResult;
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      CComPtr<IDxcContainerReflection> containerReflection;
+      uint32_t partCount;
+      CComPtr<IDxcBlob> pContainerBlob;
+      HRESULT resultStatus;
+      bool blobFound = false;
+      std::ostringstream ss;
+      D3DReflectionDumper dumper(ss);
+
+      IFT(DllSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
+      IFT(DllSupport->CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+      IFT(pLibrary->CreateBlobWithEncodingFromPinned(
+          (LPBYTE)Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8,
+          &pSource));
+
+      IFT(pAssembler->AssembleToContainer(pSource, &pResult));
+      IFT(pResult->GetStatus(&resultStatus));
+      if (FAILED(resultStatus)) {
+        CComPtr<IDxcBlobEncoding> pAssembleBlob;
+        IFT(pResult->GetErrorBuffer(&pAssembleBlob));
+        StdErr = BlobToUtf8(pAssembleBlob);
+        RunResult = resultStatus;
+        return;
+      }
+      IFT(pResult->GetResult(&pContainerBlob));
+
+      VERIFY_SUCCEEDED(DllSupport->CreateInstance(CLSID_DxcContainerReflection, &containerReflection));
+      VERIFY_SUCCEEDED(containerReflection->Load(pContainerBlob));
+      VERIFY_SUCCEEDED(containerReflection->GetPartCount(&partCount));
+
+      for (uint32_t i = 0; i < partCount; ++i) {
+        uint32_t kind;
+        VERIFY_SUCCEEDED(containerReflection->GetPartKind(i, &kind));
+        if (kind == (uint32_t)hlsl::DxilFourCC::DFCC_DXIL) {
+          blobFound = true;
+          CComPtr<IDxcBlob> pPart;
+          IFT(containerReflection->GetPartContent(i, &pPart));
+          const hlsl::DxilProgramHeader *pProgramHeader =
+            reinterpret_cast<const hlsl::DxilProgramHeader*>(pPart->GetBufferPointer());
+          VERIFY_IS_TRUE(IsValidDxilProgramHeader(pProgramHeader, (uint32_t)pPart->GetBufferSize()));
+          hlsl::DXIL::ShaderKind SK = hlsl::GetVersionShaderType(pProgramHeader->ProgramVersion);
+          if (SK == hlsl::DXIL::ShaderKind::Library)
+            VERIFY_SUCCEEDED(containerReflection->GetPartReflection(i, IID_PPV_ARGS(&pLibraryReflection)));
+          else
+            VERIFY_SUCCEEDED(containerReflection->GetPartReflection(i, IID_PPV_ARGS(&pShaderReflection)));
+          break;
+        }
+      }
+
+      if (!blobFound) {
+        StdErr = "Unable to find DXIL part";
+        RunResult = 1;
+        return;
+      } else if (pShaderReflection) {
+        dumper.Dump(pShaderReflection);
+      } else if (pLibraryReflection) {
+        dumper.Dump(pLibraryReflection);
+      }
+
+      ss.flush();
+      StdOut = ss.str();
       RunResult = 0;
     }
 

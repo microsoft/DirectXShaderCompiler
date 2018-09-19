@@ -488,7 +488,7 @@ raw_ostream &raw_ostream::operator<<(const FormattedNumber &FN) {
 
 // HLSL Change Starts - Add handling of numerical base IO manipulators.
 raw_ostream &raw_ostream::
-operator<<(std::ios_base &(*iomanip)(std::ios_base &)) {
+operator<<(std::ios_base &(__cdecl*iomanip)(std::ios_base &)) {
   if (iomanip == std::hex)
     writeBase = 16;
   else if (iomanip == std::oct)

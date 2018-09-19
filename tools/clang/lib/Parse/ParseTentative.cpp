@@ -1306,6 +1306,7 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw_lineadj:
   case tok::kw_triangle:
   case tok::kw_triangleadj:
+  case tok::kw_export:
     return TPResult::True;
   // HLSL Change Ends
 

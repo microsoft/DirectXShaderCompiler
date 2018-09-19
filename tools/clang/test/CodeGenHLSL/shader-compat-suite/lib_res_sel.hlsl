@@ -1,7 +1,7 @@
-// RUN: %dxc -T lib_6_1 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | FileCheck %s
 
-// Make sure select resource works for lib profile.
-// CHECK: call %dx.types.Handle @dx.op.createHandle(
+// resource uses must resolve to a single resource global variable (single rangeID)
+// CHECK: error: local resource not guaranteed to map to unique global resource
 
 RWStructuredBuffer<float2> buf0;
 RWStructuredBuffer<float2> buf1;

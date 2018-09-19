@@ -53,33 +53,80 @@ namespace fs {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Per-thread MSFileSystem support.
 
-static DWORD g_FileSystemTls;
+namespace {
 
-error_code SetupPerThreadFileSystem() throw()
-{
-  assert(g_FileSystemTls == 0 && "otherwise this has already been initialized");
-  g_FileSystemTls = TlsAlloc();
-  if (g_FileSystemTls == TLS_OUT_OF_INDEXES)
-  {
-    g_FileSystemTls = 0;
-    return mapWindowsError(::GetLastError());
+template <typename _T>
+class ThreadLocalStorage {
+  DWORD m_Tls;
+  DWORD m_dwError;
+public:
+  ThreadLocalStorage() : m_Tls(TLS_OUT_OF_INDEXES), m_dwError(ERROR_NOT_READY) {}
+  DWORD Setup() {
+    if (m_Tls == TLS_OUT_OF_INDEXES) {
+      m_Tls = TlsAlloc();
+      m_dwError = (m_Tls == TLS_OUT_OF_INDEXES) ? ::GetLastError() : 0;
+    }
+    return m_dwError;
   }
+  void Cleanup() {
+    if (m_Tls != TLS_OUT_OF_INDEXES)
+      TlsFree(m_Tls);
+    m_Tls = TLS_OUT_OF_INDEXES;
+    m_dwError = ERROR_NOT_READY;
+  }
+  ~ThreadLocalStorage() { Cleanup(); }
+  _T GetValue() const {
+    if (m_Tls != TLS_OUT_OF_INDEXES)
+      return (_T)TlsGetValue(m_Tls);
+    else
+      return nullptr;
+  }
+  bool SetValue(_T value) {
+    if (m_Tls != TLS_OUT_OF_INDEXES) {
+      return TlsSetValue(m_Tls, (void*)value);
+    } else {
+      ::SetLastError(m_dwError);
+      return false;
+    }
+  }
+  // Retrieve error code if TlsAlloc() failed
+  DWORD GetError() const {
+    return m_dwError;
+  }
+  operator bool() const { return m_Tls != TLS_OUT_OF_INDEXES; }
+};
+
+static ThreadLocalStorage<MSFileSystemRef> g_PerThreadSystem;
+
+}
+
+error_code GetFileSystemTlsStatus() throw() {
+  DWORD dwError = g_PerThreadSystem.GetError();
+  if (dwError)
+    return error_code(dwError, system_category());
+  else
+    return error_code();
+}
+
+error_code SetupPerThreadFileSystem() throw() {
+  assert(!g_PerThreadSystem && g_PerThreadSystem.GetError() == ERROR_NOT_READY &&
+          "otherwise, PerThreadSystem already set up.");
+  if (g_PerThreadSystem.Setup())
+    return GetFileSystemTlsStatus();
   return error_code();
 }
-
-void CleanupPerThreadFileSystem() throw()
-{
-  TlsFree(g_FileSystemTls);
-  g_FileSystemTls = 0;
+void CleanupPerThreadFileSystem() throw() {
+  g_PerThreadSystem.Cleanup();
 }
 
-MSFileSystemRef GetCurrentThreadFileSystem() throw()
-{
-  return (MSFileSystemRef)TlsGetValue(g_FileSystemTls);
+MSFileSystemRef GetCurrentThreadFileSystem() throw() {
+  assert(g_PerThreadSystem && "otherwise, TLS not initialized");
+  return g_PerThreadSystem.GetValue();
 }
 
 error_code SetCurrentThreadFileSystem(MSFileSystemRef value) throw()
 {
+  assert(g_PerThreadSystem && "otherwise, TLS not initialized");
   // For now, disallow reentrancy in APIs (i.e., replace the current instance with another one).
   if (value != nullptr)
   {
@@ -90,7 +137,7 @@ error_code SetCurrentThreadFileSystem(MSFileSystemRef value) throw()
     }
   }
 
-  if (!TlsSetValue(g_FileSystemTls, value))
+  if (!g_PerThreadSystem.SetValue(value))
   {
     return mapWindowsError(::GetLastError());
   }

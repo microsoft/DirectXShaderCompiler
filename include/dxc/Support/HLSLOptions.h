@@ -110,6 +110,8 @@ public:
   llvm::StringRef VerifyRootSignatureSource; //OPT_verifyrootsignature
   llvm::StringRef RootSignatureDefine; // OPT_rootsig_define
   llvm::StringRef FloatDenormalMode; // OPT_denorm
+  std::vector<std::string> Exports; // OPT_exports
+  llvm::StringRef DefaultLinkage; // OPT_default_linkage
 
   bool AllResourcesBound = false; // OPT_all_resources_bound
   bool AstDump = false; // OPT_ast_dump
@@ -156,6 +158,8 @@ public:
   bool DisassembleByteOffset = false; //OPT_No
   bool DisaseembleHex = false; //OPT_Lx
   bool LegacyMacroExpansion = false; // OPT_flegacy_macro_expansion
+  unsigned long AutoBindingSpace = UINT_MAX; // OPT_auto_binding_space
+  bool ExportShadersOnly = false; // OPT_export_shaders_only
 
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();

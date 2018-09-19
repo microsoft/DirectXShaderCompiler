@@ -19,30 +19,30 @@
 
 // CHECK: %dx.types.CBufRet.f16 = type { half, half, half, half }
 
-// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_buffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_cbuffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 0
-// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo_buffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo_cbuffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f32 {{%[0-9]+}}, 1
-// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_buffer, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_cbuffer, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 0
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 1
-// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo_buffer, i32 2)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo_cbuffer, i32 2)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f32 {{%[0-9]+}}, 2
-// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo_buffer, i32 3)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo_cbuffer, i32 3)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f32 {{%[0-9]+}}, 0
-// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_buffer, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_cbuffer, i32 4)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 0
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 1
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 2
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 3
-// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_buffer, i32 5)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_cbuffer, i32 5)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 0
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 1
-// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_buffer, i32 6)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_cbuffer, i32 6)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 0
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 1
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 2
-// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f64 @dx.op.cbufferLoadLegacy.f64(i32 59, %dx.types.Handle %Foo_buffer, i32 7)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f64 @dx.op.cbufferLoadLegacy.f64(i32 59, %dx.types.Handle %Foo_cbuffer, i32 7)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f64 {{%[0-9]+}}, 0
 
 cbuffer Foo {

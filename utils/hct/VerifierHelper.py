@@ -58,6 +58,7 @@ VerifierTests = {
     'RunMoreOperators': "more-operators.hlsl",
     'RunObjectOperators': "object-operators.hlsl",
     'RunPackReg': "packreg.hlsl",
+    'RunRayTracings': "raytracing.hlsl",
     'RunScalarAssignments': "scalar-assignments.hlsl",
     'RunScalarOperatorsAssign': "scalar-operators-assign.hlsl",
     'RunScalarOperatorsAssignExactPrecision': "scalar-operators-assign.hlsl",

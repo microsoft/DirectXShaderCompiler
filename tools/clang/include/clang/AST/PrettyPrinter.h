@@ -41,7 +41,8 @@ struct PrintingPolicy {
       ConstantArraySizeAsWritten(false), AnonymousTagLocations(true),
       SuppressStrongLifetime(false), SuppressLifetimeQualifiers(false),
       Bool(LO.Bool), TerseOutput(false), PolishForDeclaration(false),
-      Half(LO.Half), MSWChar(LO.MicrosoftExt && !LO.WChar),
+      Half(LO.HLSL || LO.Half), // HLSL Change - always print 'half' for HLSL
+      MSWChar(LO.MicrosoftExt && !LO.WChar),
       IncludeNewlines(true) { }
 
   /// \brief What language we're printing.

@@ -41,12 +41,19 @@ enum class ValidationRule : unsigned {
   ContainerRootSignatureIncompatible, // Root Signature in DXIL Container must be compatible with shader
 
   // Declaration
+  DeclAttrStruct, // Attributes parameter must be struct type
   DeclDxilFnExtern, // External function must be a DXIL function
   DeclDxilNsReserved, // The DXIL reserved prefixes must only be used by built-in functions and types
+  DeclExtraArgs, // Extra arguments not allowed for shader functions
   DeclFnAttribute, // Functions should only contain known function attributes
   DeclFnFlattenParam, // Function parameters must not use struct types
   DeclFnIsCalled, // Functions can only be used by call instructions
   DeclNotUsedExternal, // External declaration should not be used
+  DeclParamStruct, // Callable function parameter must be struct type
+  DeclPayloadStruct, // Payload parameter must be struct type
+  DeclResourceInFnSig, // Resources not allowed in function signatures
+  DeclShaderMissingArg, // payload/params/attributes parameter is required for certain shader types
+  DeclShaderReturnVoid, // Shader functions must return void
   DeclUsedExternalFunction, // External function must be used
   DeclUsedInternal, // Internal declaration must be used
 
@@ -56,6 +63,7 @@ enum class ValidationRule : unsigned {
   InstrBarrierModeForNonCS, // sync in a non-Compute Shader must only sync UAV (sync_uglobal)
   InstrBarrierModeNoMemory, // sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional. 
   InstrBarrierModeUselessUGroup, // sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
+  InstrBufferUpdateCounterOnResHasCounter, // BufferUpdateCounter valid only when HasCounter is true
   InstrBufferUpdateCounterOnUAV, // BufferUpdateCounter valid only on UAV
   InstrCBufferClassForCBufferHandle, // Expect Cbuffer for CBufferLoad handle
   InstrCBufferOutOfBound, // Cbuffer access out of bound
@@ -106,13 +114,17 @@ enum class ValidationRule : unsigned {
   InstrResourceKindForSampleC, // samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray
   InstrResourceKindForTextureLoad, // texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray
   InstrResourceKindForTextureStore, // texture store only works on Texture1D/1DArray/2D/2DArray/3D
+  InstrResourceKindForTraceRay, // TraceRay should only use RTAccelerationStructure
+  InstrResourceMapToSingleEntry, // Fail to map resource to resource table
   InstrResourceOffsetMiss, // offset uninitialized
   InstrResourceOffsetTooMany, // out of bound offset must be undef
+  InstrResourceUser, // Resource should only used by Load/GEP/Call
   InstrSampleCompType, // sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.
   InstrSampleIndexForLoad2DMS, // load on Texture2DMS/2DMSArray require sampleIndex
   InstrSamplerModeForLOD, // lod instruction requires sampler declared in default mode
   InstrSamplerModeForSample, // sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
   InstrSamplerModeForSampleC, // sample_c_*/gather_c instructions require sampler declared in comparison mode
+  InstrSignatureOperationNotInEntry, // Dxil operation for input output signature must be in entryPoints.
   InstrStatus, // Resource status should only used by CheckAccessFullyMapped
   InstrStructBitCast, // Bitcast on struct types is not allowed
   InstrTGSMRaceCond, // Race condition writing to shared memory detected, consider making this write conditional
@@ -142,6 +154,7 @@ enum class ValidationRule : unsigned {
   MetaInvalidControlFlowHint, // Invalid control flow hint
   MetaKnown, // Named metadata should be known
   MetaMaxTessFactor, // Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
+  MetaNoEntryPropsForEntry, // EntryPoints must have entry properties.
   MetaNoSemanticOverlap, // Semantics must not overlap
   MetaRequired, // TODO - Required metadata missing
   MetaSemaKindMatchesName, // Semantic name must match system value, when defined.
@@ -176,11 +189,12 @@ enum class ValidationRule : unsigned {
   FlowReducible, // Execution flow must be reducible
 
   // Shader model
+  Sm64bitRawBufferLoadStore, // i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3
   SmAppendAndConsumeOnSameUAV, // BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
   SmCBufferElementOverflow, // CBuffer elements must not overflow
   SmCBufferOffsetOverlap, // CBuffer offsets must not overlap
   SmCBufferTemplateTypeMustBeStruct, // D3D12 constant/texture buffer template element can only be a struct
-  SmCSNoReturn, // Compute shaders can't return values, outputs must be written in writable resources (UAVs).
+  SmCSNoSignatures, // Compute shaders must not have shader signatures.
   SmCompletePosition, // Not all elements of SV_Position were written
   SmCounterOnlyOnStructBuf, // BufferUpdateCounter valid only on structured buffers
   SmDSInputControlPointCountRange, // DS input control point count must be [0..%0].  %1 specified
@@ -217,6 +231,8 @@ enum class ValidationRule : unsigned {
   SmPSTargetIndexMatchesRow, // SV_Target semantic index must match packed row location
   SmPatchConstantOnlyForHSDS, // patch constant signature only valid in HS and DS
   SmROVOnlyInPS, // RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
+  SmRayShaderPayloadSize, // For shader '%0', %1 size is smaller than argument's allocation size
+  SmRayShaderSignatures, // Ray tracing shader '%0' should not have any shader signatures
   SmResourceRangeOverlap, // Resource ranges must not overlap
   SmSampleCountOnlyOn2DMS, // Only Texture2DMS/2DMSArray could has sample count
   SmSemantic, // Semantic must be defined in target shader model
@@ -258,6 +274,11 @@ bool VerifySignatureMatches(_In_ llvm::Module *pModule,
 bool VerifyPSVMatches(_In_ llvm::Module *pModule,
                       _In_reads_bytes_(PSVSize) const void *pPSVData,
                       _In_ uint32_t PSVSize);
+
+// PSV = data for Pipeline State Validation
+bool VerifyRDATMatches(_In_ llvm::Module *pModule,
+                       _In_reads_bytes_(RDATSize) const void *pRDATData,
+                       _In_ uint32_t RDATSize);
 
 bool VerifyFeatureInfoMatches(_In_ llvm::Module *pModule,
                               _In_reads_bytes_(FeatureInfoSize) const void *pFeatureInfoData,

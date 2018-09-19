@@ -59,11 +59,18 @@ bool ShaderModel::IsValidForDxil() const {
       case 2:
       case 3:
         return true;
+      case kOfflineMinor:
+        return m_Kind == Kind::Library;
       }
     }
     break;
   }
   return false;
+}
+
+bool ShaderModel::IsValidForModule() const {
+  // Ray tracing shader model should only be used on functions in a lib
+  return IsValid() && !IsRay();
 }
 
 const ShaderModel *ShaderModel::Get(unsigned Idx) {
@@ -134,6 +141,12 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
         break;
       }
       else return GetInvalid();
+    case 'x':
+      if (kind == Kind::Library && Major == 6) {
+        Minor = kOfflineMinor;
+        break;
+      }
+      else return GetInvalid();
     default:  return GetInvalid();
   }
   if (pszName[Idx++] != 0)
@@ -156,6 +169,7 @@ void ShaderModel::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const
     DxilMinor = 2;
     break;
   case 3:
+  case kOfflineMinor: // Always update this to highest dxil version
     DxilMinor = 3;
     break;
   default:
@@ -180,6 +194,10 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor)
   case 3:
     ValMinor = 3;
     break;
+  case kOfflineMinor:
+    ValMajor = 0;
+    ValMinor = 0;
+    break;
   default:
     DXASSERT(0, "IsValidForDxil() should have caught this.");
     break;
@@ -187,15 +205,17 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor)
 }
 
 static const char *ShaderModelKindNames[] = {
-    "ps", "vs", "gs", "hs", "ds", "cs", "lib", "invalid",
+    "ps", "vs", "gs", "hs", "ds", "cs", "lib",
+    "raygeneration", "intersection", "anyhit", "closesthit", "miss", "callable",
+    "invalid",
 };
 
-std::string ShaderModel::GetKindName() const {
+const char * ShaderModel::GetKindName() const {
   return GetKindName(m_Kind);
 }
 
-std::string ShaderModel::GetKindName(Kind kind) {
-  return std::string(ShaderModelKindNames[static_cast<unsigned int>(kind)]);
+const char * ShaderModel::GetKindName(Kind kind) {
+  return ShaderModelKindNames[static_cast<unsigned int>(kind)];
 }
 
 const ShaderModel *ShaderModel::GetInvalid() {
@@ -259,6 +279,9 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Library,  6, 1, "lib_6_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Library,  6, 2, "lib_6_2",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Library,  6, 3, "lib_6_3",  32, 32,  true,  true,  UINT_MAX),
+
+  // lib_6_x is for offline linking only, and relaxes restrictions
+  SM(Kind::Library,  6, kOfflineMinor, "lib_6_x",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Invalid,  0, 0, "invalid", 0,  0,   false, false, 0),
 };

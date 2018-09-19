@@ -31,8 +31,11 @@ class Twine;
 namespace hlsl {
 enum class SerializeDxilFlags : uint32_t;
 class AbstractMemoryStream;
-}
-
+namespace options {
+class MainArgs;
+class DxcOpts;
+} // namespace options
+} // namespace hlsl
 
 namespace dxcutil {
 HRESULT ValidateAndAssembleToContainer(
@@ -47,7 +50,11 @@ void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
                          hlsl::SerializeDxilFlags SerializeFlags,
                          CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode);
 HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);
-
+void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
+                         hlsl::options::DxcOpts &opts,
+                         hlsl::AbstractMemoryStream *pOutputStream,
+                         _COM_Outptr_ IDxcOperationResult **ppResult,
+                         bool &finished);
 void CreateOperationResultFromOutputs(
     IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
     const std::string &warnings, bool hasErrorOccurred,

@@ -35,6 +35,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "dxc/Support/HLSLOptions.h"
 
 using namespace hlsl;
 using namespace llvm;
@@ -164,9 +165,8 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 ) {
   DxcThreadMalloc TM(m_pMalloc);
   // Prepare UTF8-encoded versions of API values.
-  CW2A pUtf8EntryPoint(pEntryName, CP_UTF8);
   CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
-  // TODO: read and validate options.
+  CW2A pUtf8EntryPoint(pEntryName, CP_UTF8);
 
   CComPtr<AbstractMemoryStream> pOutputStream;
 
@@ -182,8 +182,26 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     IFT(CoGetMalloc(1, &pMalloc));
     IFT(CreateMemoryStream(pMalloc, &pOutputStream));
 
+    // Read and validate options.
+    int argCountInt;
+    IFT(UIntToInt(argCount, &argCountInt));
+    hlsl::options::MainArgs mainArgs(argCountInt,
+                                     const_cast<LPCWSTR *>(pArguments), 0);
+    hlsl::options::DxcOpts opts;
+    CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
+    // Set target profile before reading options and validate
+    opts.TargetProfile = pUtf8TargetProfile.m_psz;
+    bool finished;
+    dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult,
+                                 finished);
+    if (pEntryName)
+      opts.EntryPoint = pUtf8EntryPoint.m_psz;
+    if (finished) {
+      return S_OK;
+    }
+
     std::string warnings;
-    llvm::raw_string_ostream w(warnings);
+    //llvm::raw_string_ostream w(warnings);
     IFT(CreateMemoryStream(pMalloc, &pDiagStream));
     raw_stream_ostream DiagStream(pDiagStream);
     llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
@@ -198,10 +216,13 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       bSuccess &= m_pLinker->AttachLib(pUtf8LibName.m_psz);
     }
 
+    dxilutil::ExportMap exportMap;
+    bSuccess = exportMap.ParseExports(opts.Exports, DiagStream);
+
     bool hasErrorOccurred = !bSuccess;
     if (bSuccess) {
-      std::unique_ptr<Module> pM =
-          m_pLinker->Link(pUtf8EntryPoint.m_psz, pUtf8TargetProfile.m_psz);
+      std::unique_ptr<Module> pM = m_pLinker->Link(
+          opts.EntryPoint, pUtf8TargetProfile.m_psz, exportMap);
       if (pM) {
         const IntrusiveRefCntPtr<clang::DiagnosticIDs> Diags(
             new clang::DiagnosticIDs);
@@ -217,12 +238,29 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         WriteBitcodeToFile(pM.get(), outStream);
         outStream.flush();
 
+        // Always save debug info. If lib has debug info, the link result will
+        // have debug info.
+        SerializeDxilFlags SerializeFlags =
+            SerializeDxilFlags::IncludeDebugNamePart;
+        // Unless we want to strip it right away, include it in the container.
+        if (!opts.StripDebug) {
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+        }
+        if (opts.DebugNameForSource) {
+          SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
+        }
         // Validation.
-        HRESULT valHR = dxcutil::ValidateAndAssembleToContainer(
-            std::move(pM), pOutputBlob, pMalloc, SerializeDxilFlags::None,
-            pOutputStream,
-            /*bDebugInfo*/ false, Diag);
-
+        HRESULT valHR = S_OK;
+        // Skip validation on lib for now.
+        if (!opts.TargetProfile.startswith("lib_")) {
+          valHR = dxcutil::ValidateAndAssembleToContainer(
+              std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
+              pOutputStream,
+              /*bDebugInfo*/ false, Diag);
+        } else {
+          dxcutil::AssembleToContainer(std::move(pM), pOutputBlob, m_pMalloc,
+                                       SerializeFlags, pOutputStream);
+        }
         // Callback after valid DXIL is produced
         if (SUCCEEDED(valHR)) {
           CComPtr<IDxcBlob> pTargetBlob;

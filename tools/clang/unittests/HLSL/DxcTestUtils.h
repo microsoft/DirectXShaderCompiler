@@ -9,6 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#pragma once
+
 #include <string>
 #include <vector>
 #include "dxc/dxcapi.h"
@@ -59,6 +61,7 @@ private:
   void RunDxc(const FileRunCommandPart *Prior);
   void RunDxv(const FileRunCommandPart *Prior);
   void RunOpt(const FileRunCommandPart *Prior);
+  void RunD3DReflect(const FileRunCommandPart *Prior);
   void RunTee(const FileRunCommandPart *Prior);
 public:
   FileRunCommandPart(const FileRunCommandPart&) = default;
@@ -109,6 +112,8 @@ bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
                               const LPCSTR *pErrorMsgs, size_t errorMsgCount,
                               bool maySucceedAnyway, bool bRegex);
 bool CheckMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
+               size_t errorMsgCount, bool bRegex);
+bool CheckNotMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
                size_t errorMsgCount, bool bRegex);
 void GetDxilPart(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram, IDxcBlob **pDxilPart);
 std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram);

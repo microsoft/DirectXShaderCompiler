@@ -26,6 +26,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxc/Support/HLSLOptions.h"
 
 #include "llvm/Support/Path.h"
 
@@ -121,6 +122,31 @@ void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
 
   llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob,
                                        SerializeFlags);
+}
+
+void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
+                         hlsl::options::DxcOpts &opts,
+                         AbstractMemoryStream *pOutputStream,
+                         _COM_Outptr_ IDxcOperationResult **ppResult,
+                         bool &finished) {
+  const llvm::opt::OptTable *table = ::options::getHlslOptTable();
+  raw_stream_ostream outStream(pOutputStream);
+  if (0 != hlsl::options::ReadDxcOpts(table, hlsl::options::CompilerFlags,
+                                      mainArgs, opts, outStream)) {
+    CComPtr<IDxcBlob> pErrorBlob;
+    IFT(pOutputStream->QueryInterface(&pErrorBlob));
+    CComPtr<IDxcBlobEncoding> pErrorBlobWithEncoding;
+    outStream.flush();
+    IFT(DxcCreateBlobWithEncodingSet(pErrorBlob.p, CP_UTF8,
+                                     &pErrorBlobWithEncoding));
+    IFT(DxcOperationResult::CreateFromResultErrorStatus(
+        nullptr, pErrorBlobWithEncoding.p, E_INVALIDARG, ppResult));
+    finished = true;
+    return;
+  }
+  DXASSERT(opts.HLSLVersion > 2015,
+           "else ReadDxcOpts didn't fail for non-isense");
+  finished = false;
 }
 
 HRESULT ValidateAndAssembleToContainer(

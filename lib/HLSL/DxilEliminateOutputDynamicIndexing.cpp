@@ -13,6 +13,7 @@
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilSignatureElement.h"
 #include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/DxilInstructions.h"
 
@@ -100,11 +101,12 @@ public:
 bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
     hlsl::OP *hlslOP, DXIL::OpCode opcode, DxilSignature &outputSig,
     Function *Entry) {
-  ArrayRef<llvm::Function *> storeOutputs =
+  auto &storeOutputs =
       hlslOP->GetOpFuncList(opcode);
 
   MapVector<Value *, Type *> dynamicSigSet;
-  for (Function *F : storeOutputs) {
+  for (auto it : storeOutputs) {
+    Function *F = it.second;
     // Skip overload not used.
     if (!F)
       continue;
@@ -122,10 +124,10 @@ bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
   if (dynamicSigSet.empty())
     return false;
 
-  IRBuilder<> Builder(Entry->getEntryBlock().getFirstInsertionPt());
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Entry));
 
-  Value *opcodeV = Builder.getInt32(static_cast<unsigned>(opcode));
-  Value *zero = Builder.getInt32(0);
+  Value *opcodeV = AllocaBuilder.getInt32(static_cast<unsigned>(opcode));
+  Value *zero = AllocaBuilder.getInt32(0);
 
   for (auto sig : dynamicSigSet) {
     Value *sigID = sig.first;
@@ -138,7 +140,7 @@ bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
 
     std::vector<Value *> tmpSigElts(col);
     for (unsigned c = 0; c < col; c++) {
-      Value *newCol = Builder.CreateAlloca(AT);
+      Value *newCol = AllocaBuilder.CreateAlloca(AT);
       tmpSigElts[c] = newCol;
     }
 

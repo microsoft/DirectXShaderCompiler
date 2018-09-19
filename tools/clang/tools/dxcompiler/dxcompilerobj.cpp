@@ -228,28 +228,6 @@ private:
     }
   }
 
-  void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
-                           hlsl::options::DxcOpts &opts,
-                           AbstractMemoryStream *pOutputStream,
-                           _COM_Outptr_ IDxcOperationResult **ppResult,
-                           bool &finished) {
-    const llvm::opt::OptTable *table = ::options::getHlslOptTable();
-    raw_stream_ostream outStream(pOutputStream);
-    if (0 != hlsl::options::ReadDxcOpts(table, hlsl::options::CompilerFlags,
-                                        mainArgs, opts, outStream)) {
-      CComPtr<IDxcBlob> pErrorBlob;
-      IFT(pOutputStream->QueryInterface(&pErrorBlob));
-      CComPtr<IDxcBlobEncoding> pErrorBlobWithEncoding;
-      outStream.flush();
-      IFT(DxcCreateBlobWithEncodingSet(pErrorBlob.p, CP_UTF8,
-                                       &pErrorBlobWithEncoding));
-      IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlobWithEncoding.p, E_INVALIDARG, ppResult));
-      finished = true;
-      return;
-    }
-    DXASSERT(opts.HLSLVersion > 2015, "else ReadDxcOpts didn't fail for non-isense");
-    finished = false;
-  }
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcCompiler)
@@ -344,7 +322,7 @@ public:
       // Set target profile before reading options and validate
       opts.TargetProfile = pUtf8TargetProfile.m_psz;
       bool finished = false;
-      ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
+      dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
       if (finished) {
         hr = S_OK;
         goto Cleanup;
@@ -451,12 +429,21 @@ public:
       }
       compiler.getLangOpts().IsHLSLLibrary = opts.IsLibraryProfile();
 
+      // Clear entry function if library target
+      if (compiler.getLangOpts().IsHLSLLibrary)
+        compiler.getLangOpts().HLSLEntryFunction =
+          compiler.getCodeGenOpts().HLSLEntryFunction = "";
+
       // NOTE: this calls the validation component from dxil.dll; the built-in
       // validator can be used as a fallback.
       bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
 
-      bool needsValidation = produceFullContainer && !opts.DisableValidation &&
-                             !opts.IsLibraryProfile();
+      bool needsValidation = produceFullContainer && !opts.DisableValidation;
+      // Disable validation for lib_6_1 and lib_6_2.
+      if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_1" ||
+          compiler.getCodeGenOpts().HLSLProfile == "lib_6_2") {
+        needsValidation = false;
+      }
 
       if (needsValidation || (opts.CodeGenHighLevel && !opts.DisableValidation)) {
         UINT32 majorVer, minorVer;
@@ -676,7 +663,7 @@ public:
       hlsl::options::MainArgs mainArgs(argCountInt, pArguments, 0);
       hlsl::options::DxcOpts opts;
       bool finished;
-      ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
+      dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
       if (finished) {
         hr = S_OK;
         goto Cleanup;
@@ -940,6 +927,23 @@ public:
         clang::CodeGenOptions::OnlyAlwaysInlining);
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
+
+    // AutoBindingSpace also enables automatic binding for libraries if set. UINT_MAX == unset
+    compiler.getCodeGenOpts().HLSLDefaultSpace = Opts.AutoBindingSpace;
+
+    // processed export names from -exports option:
+    compiler.getCodeGenOpts().HLSLLibraryExports = Opts.Exports;
+
+    // only export shader functions for library
+    compiler.getCodeGenOpts().ExportShadersOnly = Opts.ExportShadersOnly;
+
+    if (Opts.DefaultLinkage.empty()) {
+      compiler.getCodeGenOpts().DefaultLinkage = DXIL::DefaultLinkage::Default;
+    } else if (Opts.DefaultLinkage.equals_lower("internal")) {
+      compiler.getCodeGenOpts().DefaultLinkage = DXIL::DefaultLinkage::Internal;
+    } else if (Opts.DefaultLinkage.equals_lower("external")) {
+      compiler.getCodeGenOpts().DefaultLinkage = DXIL::DefaultLinkage::External;
+    }
   }
 
   // IDxcVersionInfo
