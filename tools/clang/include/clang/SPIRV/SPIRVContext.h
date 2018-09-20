@@ -15,6 +15,7 @@
 #include "clang/SPIRV/Constant.h"
 #include "clang/SPIRV/Decoration.h"
 #include "clang/SPIRV/Type.h"
+#include "llvm/Support/Allocator.h"
 
 namespace clang {
 namespace spirv {
@@ -111,7 +112,58 @@ SPIRVContext::SPIRVContext() : nextId(1) {}
 uint32_t SPIRVContext::getNextId() const { return nextId; }
 uint32_t SPIRVContext::takeNextId() { return nextId++; }
 
+/// The class owning various SPIR-V entities allocated in memory during CodeGen.
+///
+/// All entities should be allocated from an object of this class using
+/// placement new. This way other components of the CodeGen do not need to worry
+/// about lifetime of those SPIR-V entities. They will be deleted when such a
+/// context is deleted. Therefore, this context should outlive the usages of the
+/// the SPIR-V entities allocated in memory.
+class SpirvContext {
+public:
+  SpirvContext() = default;
+  ~SpirvContext() = default;
+
+  // Forbid copy construction and assignment
+  SpirvContext(const SpirvContext &) = delete;
+  SpirvContext &operator=(const SpirvContext &) = delete;
+
+  // Forbid move construction and assignment
+  SpirvContext(SpirvContext &&) = delete;
+  SpirvContext &operator=(SpirvContext &&) = delete;
+
+  /// Allocates memory of the given size and alignment.
+  void *allocate(size_t size, unsigned align = 8) const {
+    return allocator.Allocate(size, align);
+  }
+
+  /// Deallocates the memory pointed by the given pointer.
+  void deallocate(void *ptr) const {}
+
+private:
+  /// \brief The allocator used to create SPIR-V entity objects.
+  ///
+  /// SPIR-V entity objects are never destructed; rather, all memory associated
+  /// with the SPIR-V entity objects will be released when the SpirvContext
+  /// itself is destroyed.
+  mutable llvm::BumpPtrAllocator allocator;
+};
+
 } // end namespace spirv
 } // end namespace clang
+
+// operator new and delete aren't allowed inside namespaces.
+
+/// Placement new for using the SpirvContext's allocator.
+inline void *operator new(size_t bytes, const clang::spirv::SpirvContext &c,
+                          size_t align = 8) {
+  return c.allocate(bytes, align);
+}
+
+/// Placement delete companion to the new above.
+inline void operator delete(void *ptr, const clang::spirv::SpirvContext &c,
+                            size_t) {
+  c.deallocate(ptr);
+}
 
 #endif

@@ -15,16 +15,42 @@
 namespace clang {
 namespace spirv {
 
+bool SpirvInstruction::isTerminator() const {
+  switch (opcode) {
+  case spv::Op::OpBranch:
+  case spv::Op::OpBranchConditional:
+  case spv::Op::OpSwitch:
+  case spv::Op::OpReturn:
+  case spv::Op::OpReturnValue:
+  case spv::Op::OpKill:
+  case spv::Op::OpUnreachable:
+    return true;
+  deault:
+    break;
+  }
+
+  return false;
+}
+
+SpirvDecoration::SpirvDecoration(SourceLocation loc, spv::Decoration decor,
+                                 llvm::ArrayRef<uint32_t> p,
+                                 llvm::Optional<uint32_t> idx)
+    : SpirvInstruction(index.hasValue() ? spv::Op::OpMemberDecorate
+                                        : spv::Op::OpDecorate,
+                       /*type*/ {}, /*id*/ 0, loc),
+      decoration(decor), params(p.begin(), p.end()), index(idx) {}
+
 // Image query instructions constructor.
 SpirvImageQuery::SpirvImageQuery(spv::Op op, QualType type, uint32_t resultId,
                                  SourceLocation loc, uint32_t img,
                                  uint32_t lodId, uint32_t coordId)
     : SpirvInstruction(op, type, resultId, loc), image(img), lod(lodId),
       coordinate(coordId) {
-  assert(op == spv::Op::OpImageQueryFormat || spv::Op::OpImageQueryOrder ||
-         spv::Op::OpImageQuerySize || spv::Op::OpImageQueryLevels ||
-         spv::Op::OpImageQuerySamples || spv::Op::OpImageQueryLod ||
-         spv::Op::OpImageQuerySizeLod);
+  assert(op == spv::Op::OpImageQueryFormat ||
+         op == spv::Op::OpImageQueryOrder || op == spv::Op::OpImageQuerySize ||
+         op == spv::Op::OpImageQueryLevels ||
+         op == spv::Op::OpImageQuerySamples || op == spv::Op::OpImageQueryLod ||
+         op == spv::Op::OpImageQuerySizeLod);
   if (lodId)
     assert(op == spv::Op::OpImageQuerySizeLod);
   if (coordId)
