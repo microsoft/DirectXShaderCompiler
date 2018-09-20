@@ -5,6 +5,8 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //===----------------------------------------------------------------------===//
+#ifndef LLVM_CLANG_SPIRV_SPIRVINSTRUCTION_H
+#define LLVM_CLANG_SPIRV_SPIRVINSTRUCTION_H
 
 #include "spirv/unified1/GLSL.std.450.h"
 #include "spirv/unified1/spirv.hpp11"
@@ -19,14 +21,18 @@ namespace spirv {
 /// \brief The base class for representing SPIR-V instructions.
 class SpirvInstruction {
 public:
+  virtual ~SpirvInstruction() = default;
+
   spv::Op getOpcode() const { return opcode; }
   QualType getResultType() const { return resultType; }
   uint32_t getResultId() const { return resultId; }
   clang::SourceLocation getSourceLocation() const { return srcLoc; }
 
-  virtual ~SpirvInstruction() = default;
+  /// Returns true if this instruction is a termination instruction.
+  bool isTerminator() const;
 
 protected:
+  // Forbid creating SpirvInstruction directly
   SpirvInstruction(spv::Op op, QualType type, uint32_t id, SourceLocation loc)
       : opcode(op), resultType(type), resultId(id), srcLoc(loc) {}
 
@@ -37,9 +43,11 @@ private:
   SourceLocation srcLoc;
 };
 
-/// \brief Represents SPIR-V unary operation instructions. Includes:
+/// \brief Represents SPIR-V unary operation instructions.
+///
+/// This class includes:
 /// ----------------------------------------------------------------------------
-/// opTranspose     // Matrix capability
+/// opTranspose    // Matrix capability
 /// opDPdx
 /// opDPdy
 /// opFwidth
@@ -99,7 +107,9 @@ private:
   spv::Op specOp;
 };
 
-/// \brief Represents SPIR-V binary operation instructions. Includes:
+/// \brief Represents SPIR-V binary operation instructions.
+///
+/// This class includes:
 /// -------------------------- Arithmetic operations ---------------------------
 /// OpIAdd
 /// OpFAdd
@@ -234,8 +244,9 @@ private:
 };
 
 /// \brief Access Chain instruction representation (OpAccessChain)
-/// Note: If needed, this class can be extended to cover Ptr access chains, and
-/// InBounds access chains. These are currently not used by CodeGen.
+///
+/// Note: If needed, this class can be extended to cover Ptr access chains,
+/// and InBounds access chains. These are currently not used by CodeGen.
 class SpirvAccessChain : public SpirvInstruction {
 public:
   SpirvAccessChain(QualType type, uint32_t resultId, SourceLocation loc,
@@ -314,6 +325,7 @@ private:
 };
 
 /// \brief Image query instructions:
+///
 /// Covers the following instructions:
 /// OpImageQueryFormat  (image)
 /// OpImageQueryOrder   (image)
@@ -353,24 +365,27 @@ private:
   uint32_t residentCode;
 };
 
-/// \brief Atomic instructions. includes:
-/// OpAtomicLoad           (pointer,scope,memorysemantics)
-/// OpAtomicIncrement      (pointer,scope,memorysemantics)
-/// OpAtomicDecrement      (pointer,scope,memorysemantics)
-/// OpAtomicFlagClear      (pointer,scope,memorysemantics)
-/// OpAtomicFlagTestAndSet (pointer,scope,memorysemantics)
-/// OpAtomicStore          (pointer,scope,memorysemantics,value)
-/// OpAtomicAnd            (pointer,scope,memorysemantics,value)
-/// OpAtomicOr             (pointer,scope,memorysemantics,value)
-/// OpAtomicXor            (pointer,scope,memorysemantics,value)
-/// OpAtomicIAdd           (pointer,scope,memorysemantics,value)
-/// OpAtomicISub           (pointer,scope,memorysemantics,value)
-/// OpAtomicSMin           (pointer,scope,memorysemantics,value)
-/// OpAtomicUMin           (pointer,scope,memorysemantics,value)
-/// OpAtomicSMax           (pointer,scope,memorysemantics,value)
-/// OpAtomicUMax           (pointer,scope,memorysemantics,value)
-/// OpAtomicExchange       (pointer,scope,memorysemantics,value)
-/// OpAtomicCompareExchange(pointer,scope,semaequal,semaunequal,value,comparator)
+/// \brief Atomic instructions.
+///
+/// This class includes:
+/// OpAtomicLoad           (pointer, scope, memorysemantics)
+/// OpAtomicIncrement      (pointer, scope, memorysemantics)
+/// OpAtomicDecrement      (pointer, scope, memorysemantics)
+/// OpAtomicFlagClear      (pointer, scope, memorysemantics)
+/// OpAtomicFlagTestAndSet (pointer, scope, memorysemantics)
+/// OpAtomicStore          (pointer, scope, memorysemantics, value)
+/// OpAtomicAnd            (pointer, scope, memorysemantics, value)
+/// OpAtomicOr             (pointer, scope, memorysemantics, value)
+/// OpAtomicXor            (pointer, scope, memorysemantics, value)
+/// OpAtomicIAdd           (pointer, scope, memorysemantics, value)
+/// OpAtomicISub           (pointer, scope, memorysemantics, value)
+/// OpAtomicSMin           (pointer, scope, memorysemantics, value)
+/// OpAtomicUMin           (pointer, scope, memorysemantics, value)
+/// OpAtomicSMax           (pointer, scope, memorysemantics, value)
+/// OpAtomicUMax           (pointer, scope, memorysemantics, value)
+/// OpAtomicExchange       (pointer, scope, memorysemantics, value)
+/// OpAtomicCompareExchange(pointer, scope, semaequal, semaunequal,
+///                         value, comparator)
 class SpirvAtomic : public SpirvInstruction {
 public:
   SpirvAtomic(spv::Op opCode, QualType type, uint32_t resultId,
@@ -589,6 +604,19 @@ private:
   spv::Capability capability;
 };
 
+/// \brief OpDecorate instruction
+class SpirvDecoration : public SpirvInstruction {
+public:
+  SpirvDecoration(SourceLocation loc, spv::Decoration decor,
+                  llvm::ArrayRef<uint32_t> params,
+                  llvm::Optional<uint32_t> index);
+
+private:
+  spv::Decoration decoration;
+  llvm::Optional<uint32_t> index;
+  llvm::SmallVector<uint32_t, 4> params;
+};
+
 /// \brief OpMemoryBarrier and OpControlBarrier instructions
 class SpirvBarrier : public SpirvInstruction {
 public:
@@ -653,9 +681,12 @@ private:
 };
 
 /// \brief Termination instructions are instructions that end a basic block.
+///
 /// These instructions include:
+///
 /// * OpBranch, OpBranchConditional, OpSwitch
 /// * OpReturn, OpReturnValue, OpKill, OpUnreachable
+///
 /// The first group (branching instructions) also include information on
 /// possible branches that will be taken next.
 class SpirvTerminator : public SpirvInstruction {
@@ -762,8 +793,10 @@ private:
   uint32_t returnValue;
 };
 
-/// \brief Composition instructions include: opConstantComposite,
-/// opSpecConstantComposite, and opCompositeConstruct
+/// \brief Composition instructions
+///
+/// This class includes OpConstantComposite, OpSpecConstantComposite,
+/// and OpCompositeConstruct.
 class SpirvComposite : public SpirvInstruction {
 public:
   SpirvComposite(QualType type, uint32_t resultId, SourceLocation loc,
@@ -797,8 +830,10 @@ private:
   llvm::SmallVector<uint32_t, 4> indices;
 };
 
-/// \brief BitField instructions include: OpBitFieldInsert, OpBitFieldSExtract,
-/// and OpBitFieldUExtract
+/// \brief BitField instructions
+///
+/// This class includes OpBitFieldInsert, OpBitFieldSExtract,
+//  and OpBitFieldUExtract.
 class SpirvBitField : public SpirvInstruction {
 public:
   virtual uint32_t getBase() const { return base; }
@@ -809,14 +844,15 @@ protected:
   SpirvBitField(spv::Op op, QualType type, uint32_t resultId,
                 SourceLocation loc, uint32_t baseId, uint32_t offsetId,
                 uint32_t countId)
-      : SpirvInstruction(op, type, resultId, loc), base(base), offset(offsetId),
-        count(countId) {}
+      : SpirvInstruction(op, type, resultId, loc), base(baseId),
+        offset(offsetId), count(countId) {}
 
 private:
   uint32_t base;
   uint32_t offset;
   uint32_t count;
 };
+
 class SpirvBitFieldInsert : public SpirvBitField {
 public:
   SpirvBitFieldInsert(QualType type, uint32_t resultId, SourceLocation loc,
@@ -830,6 +866,7 @@ public:
 private:
   uint32_t insert;
 };
+
 class SpirvBitFieldExtract : public SpirvBitField {
 public:
   SpirvBitFieldExtract(QualType type, uint32_t resultId, SourceLocation loc,
@@ -856,6 +893,12 @@ public:
 private:
   uint32_t function;
   llvm::SmallVector<uint32_t, 4> args;
+};
+
+class SpirvFunctionParameter : public SpirvInstruction {
+public:
+  SpirvFunctionParameter(QualType type, uint32_t resultId, SourceLocation loc)
+      : SpirvInstruction(spv::Op::OpFunctionParameter, type, resultId, loc) {}
 };
 
 /// \brief OpVariable instruction
@@ -944,7 +987,9 @@ public:
       : SpirvInstruction(spv::Op::OpLabel, /*QualType*/ {}, resultId, loc) {}
 };
 
-/// \brief Image instructions. These include:
+/// \brief Image instructions.
+///
+/// This class includes:
 ///
 /// OpImageSampleImplicitLod          (image, coordinate, mask, args)
 /// OpImageSampleExplicitLod          (image, coordinate, mask, args, lod)
@@ -1015,8 +1060,7 @@ private:
   spv::ImageOperandsMask operandsMask;
 };
 
-/// \brief OpSampledImage instruction (Create a sampled image, containing both a
-/// sampler and an image).
+/// \brief OpSampledImage instruction
 class SpirvSampledImage : public SpirvInstruction {
 public:
   SpirvSampledImage(QualType type, uint32_t resultId, SourceLocation loc,
@@ -1034,3 +1078,5 @@ private:
 
 } // namespace spirv
 } // namespace clang
+
+#endif // LLVM_CLANG_SPIRV_SPIRVINSTRUCTION_H
