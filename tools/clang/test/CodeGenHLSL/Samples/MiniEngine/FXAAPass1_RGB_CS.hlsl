@@ -10,8 +10,11 @@
 // CHECK: FMax
 // CHECK: FMin
 // CHECK: FAbs
-// CHECK: Log
-// CHECK: Exp
+
+// pow function uses mul op instead of Exp and Log for exponent value <= 5
+// CHECK-NOT: Log
+// CHECK-NOT: Exp
+
 // CHECK: Saturate
 // CHECK: bufferUpdateCounter
 // CHECK: bufferStore

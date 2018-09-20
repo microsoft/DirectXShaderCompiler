@@ -2113,12 +2113,43 @@ Value *TranslateStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateSelect(cond, zero, one);
 }
 
+static bool IsExactValWithinThreshold(ConstantFP* exp, int th) {
+  for (int i = 2; i <= th; i++) {
+    if (exp->isExactlyValue(i))
+      return true;
+  }
+  return false;
+}
+
 Value *TranslatePow(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *x = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
+
+  if (ConstantFP *exp = dyn_cast<ConstantFP>(y)) {
+    // if pow(x,0) -> return 1
+    if (exp->isExactlyValue(0)) {
+      return ConstantFP::get(Builder.getFloatTy(), 1);
+    }
+    // if pow(x,1) -> return x
+    if (exp->isExactlyValue(1)) {
+      return x;
+    }
+    // if pow(x,n) where n is within the threshold -> do (n-1) mul ops
+    const int expthreshold = 5;
+    if (IsExactValWithinThreshold(exp, expthreshold)) {
+      int p = (int) exp->getValueAPF().convertToFloat();
+      DXASSERT(p >= 2 && p <= expthreshold, "must be with in valid range.");
+      Value *mulX = Builder.CreateFMul(x, x);
+      for (int i = 2; i < p; i++) {
+        mulX = Builder.CreateFMul(mulX, x);
+      }
+      return mulX;
+    }
+  }
+
   // t = log(x);
   Value *logX =
       TrivialDxilUnaryOperation(DXIL::OpCode::Log, x, hlslOP, Builder);

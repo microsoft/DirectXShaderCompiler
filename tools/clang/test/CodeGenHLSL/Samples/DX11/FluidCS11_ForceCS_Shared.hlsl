@@ -4,8 +4,11 @@
 // CHECK: flattenedThreadIdInGroup
 // CHECK: bufferLoad
 // CHECK: dot2
-// CHECK: Log
-// CHECK: Exp
+
+// pow function uses mul op instead of Exp and Log for exponent value <= 5
+// CHECK-NOT: Log
+// CHECK-NOT: Exp
+
 // CHECK: FMax
 // CHECK: Sqrt
 // CHECK: barrier
