@@ -95,16 +95,6 @@ static std::string stripSuffix(StringRef name, StringRef suffix)
 }
 
 
-static std::string stripAfter(StringRef name, StringRef suffixStart)
-{
-  size_t pos = name.find(suffixStart);
-  if (pos != name.npos)
-    return name.substr(0, pos).str();
-  else
-    return name.str();
-}
-
-
 // Insert str before the final "." in filename.
 static std::string insertBeforeExtension(const std::string& filename, const std::string& str)
 {
@@ -1283,15 +1273,6 @@ void StateFunctionTransform::rewriteDummyStackSize(uint64_t frameSizeInBytes)
   Value*   frameSizeVal = makeInt32(frameSizeInBytes / sizeof(int), m_function->getContext());
   replaceValAndRemoveUnusedDummyFunc(m_stackFrameSizeVal, frameSizeVal, m_function);
   m_stackFrameSizeVal = frameSizeVal;
-}
-
-static inline Value* toIntIndex(int offsetInBytes, Value* baseOffset, Instruction* insertBefore)
-{
-  assert(offsetInBytes % sizeof(int) == 0);
-  Value* intIndex = makeInt32(offsetInBytes / sizeof(int), insertBefore->getContext());
-  if (baseOffset)
-    intIndex = BinaryOperator::Create(Instruction::Add, intIndex, baseOffset, "", insertBefore);
-  return intIndex;
 }
 
 void StateFunctionTransform::createStackStore(Value* baseOffset, Value* val, int offsetInBytes, Instruction* insertBefore)
