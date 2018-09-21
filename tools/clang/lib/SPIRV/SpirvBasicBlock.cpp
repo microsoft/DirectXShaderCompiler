@@ -17,7 +17,7 @@ SpirvBasicBlock::SpirvBasicBlock(uint32_t id, llvm::StringRef name)
       continueTarget(nullptr) {}
 
 bool SpirvBasicBlock::hasTerminator() const {
-  return !instructions.empty() && instructions.back()->isTerminator();
+  return !instructions.empty() && isa<SpirvTerminator>(instructions.back());
 }
 
 } // end namespace spirv
