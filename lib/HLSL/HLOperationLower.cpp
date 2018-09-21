@@ -2351,6 +2351,49 @@ Value *SplatToVector(Value *Elt, Type *DstTy, IRBuilder<> &Builder) {
   return Result;
 }
 
+Value *TranslateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+  HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *arg0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
+  Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+  Type *arg0Ty = arg0->getType();
+  Type *arg1Ty = arg1->getType();
+  IRBuilder<> Builder(CI);
+
+  if (arg0Ty->isVectorTy()) {
+    if (arg1Ty->isVectorTy()) {
+      // mul(vector, vector) == dot(vector, vector)
+      unsigned vecSize = arg0Ty->getVectorNumElements();
+      if (arg0Ty->getScalarType()->isFloatingPointTy()) {
+        return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
+      }
+      else {
+        return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder);
+      }
+    }
+    else {
+      // mul(vector, scalar) == vector * scalar-splat
+      arg1 = SplatToVector(arg1, arg0Ty, Builder);
+    }
+  }
+  else {
+    if (arg1Ty->isVectorTy()) {
+      // mul(scalar, vector) == scalar-splat * vector
+      arg0 = SplatToVector(arg0, arg1Ty, Builder);
+    }
+    // else mul(scalar, scalar) == scalar * scalar;
+  }
+
+  // create fmul/mul for the pair of vectors or scalars
+  if (arg0Ty->getScalarType()->isFloatingPointTy()) {
+    return Builder.CreateFMul(arg0, arg1);
+  }
+  else {
+    return Builder.CreateMul(arg0, arg1);
+  }
+}
+
 // Sample intrinsics.
 struct SampleHelper {
   SampleHelper(CallInst *CI, OP::OpCode op, HLObjectOperationLowerHelper *pObjHelper);
@@ -4251,6 +4294,7 @@ Value *TranslateProcessTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpCode opc
   return nullptr;
 }
 
+
 }
 
 // Ray Tracing.
@@ -4582,7 +4626,7 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_min, TranslateFUIBinary, DXIL::OpCode::IMin},
     {IntrinsicOp::IOP_modf, TranslateModF, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_msad4, TranslateMSad4, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_mul, EmptyLower, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_mul, TranslateMul, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_normalize, TranslateNormalize, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_pow, TranslatePow, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_radians, TranslateRadians, DXIL::OpCode::NumOpCodes},
