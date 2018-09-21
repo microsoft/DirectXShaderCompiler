@@ -59,9 +59,6 @@ private:
   void GenerateStreamOutputOperation(llvm::Value *streamVal, unsigned streamID);
   // Generate DXIL stream output operations.
   void GenerateStreamOutputOperations();
-  // Remap obsolete semantics
-  void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, const SigPoint *pSigPoint);
-  void RemapSemanticAndWarn(llvm::StringRef &oldSemName, llvm::StringRef &oldSemFullName, const char *newSemName, DxilParameterAnnotation &paramInfo);
 
 private:
   llvm::Function *Entry;

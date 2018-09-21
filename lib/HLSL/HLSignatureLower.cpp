@@ -232,7 +232,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
 
   //  back-compat mode - remap obsolete semantics
   if (HLM.GetHLOptions().bBackCompatMode && paramAnnotation.HasSemanticString()) {
-    RemapObsoleteSemantic(paramAnnotation, sigPoint);
+    hlsl::RemapObsoleteSemantic(paramAnnotation, sigPoint->GetKind(), HLM.GetCtx());
   }
 
   llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
@@ -391,48 +391,6 @@ void HLSignatureLower::ProcessArgument(Function *func,
   if (streamIdx > 0)
     pSE->SetOutputStream(streamIdx);
 }
-
-void HLSignatureLower::RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, const SigPoint *pSigPoint) {
-  DXASSERT(HLM.GetHLOptions().bBackCompatMode, "should be used only in back-compat mode");
-  DXASSERT(paramInfo.HasSemanticString(), "expected paramInfo with semantic");
-
-  llvm::StringRef semFullName = paramInfo.GetSemanticStringRef();
-  llvm::StringRef semName;
-  unsigned semIndex;
-  Semantic::DecomposeNameAndIndex(semFullName, &semName, &semIndex);
-
-  DXIL::SigPointKind sigPointKind = pSigPoint->GetKind();
-  if (sigPointKind == DXIL::SigPointKind::PSOut) {
-    if (semName.size() == 5) {
-      if (strnicmp(semName.data(), "COLOR", 5) == 0) {
-        RemapSemanticAndWarn(semName, semFullName, "SV_Target", paramInfo);
-      }
-      else if (strnicmp(semName.data(), "DEPTH", 5) == 0) {
-        RemapSemanticAndWarn(semName, semFullName, "SV_Depth", paramInfo);
-      }
-    }
-  }
-  else if ((sigPointKind == DXIL::SigPointKind::VSOut && semName.size() == 8 && strncmp(semName.data(), "POSITION", 8) == 0) ||
-           (sigPointKind == DXIL::SigPointKind::PSIn  && semName.size() == 4 && strncmp(semName.data(), "VPOS", 4) == 0)) {
-    RemapSemanticAndWarn(semName, semFullName, "SV_Position", paramInfo);
-  }
-}
-
-void HLSignatureLower::RemapSemanticAndWarn(llvm::StringRef &oldSemName, llvm::StringRef &oldSemFullName, const char *newSemName,
-                                           DxilParameterAnnotation &paramInfo) {
-  // obsolete warning
-  HLM.GetCtx().emitWarning(oldSemName + Twine(" semantic is deprecated, use ") + newSemName + Twine(" instead"));
-  
-  // create new semantic name with the same index
-  std::string newSemNameStr(newSemName);
-  unsigned indexLen = oldSemFullName.size() - oldSemName.size();
-  if (indexLen > 0) {
-    newSemNameStr = newSemNameStr.append(oldSemFullName.data() + oldSemName.size(), indexLen);
-  }
-
-  paramInfo.SetSemanticString(newSemNameStr);
-}
-
 
 void HLSignatureLower::CreateDxilSignatures() {
   DxilFunctionProps &props = HLM.GetDxilFunctionProps(Entry);
