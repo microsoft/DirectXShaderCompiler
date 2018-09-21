@@ -386,11 +386,6 @@ DXIL::ShaderKind GetRayShaderKindCopy(Function* F)
     return DXIL::ShaderKind::Invalid;
 }
 
-static std::string ws2s(const std::wstring& wide)
-{
-    return std::string(wide.begin(), wide.end());
-}
-
 bool DxilPatchShaderRecordBindings::runOnModule(Module &M) {
   DxilModule &DM = M.GetOrCreateDxilModule();
   EntryPointFunction = pInputShaderInfo->ExportName ? getFunctionFromName(M, pInputShaderInfo->ExportName) : DM.GetEntryFunction();
@@ -834,7 +829,7 @@ void DxilPatchShaderRecordBindings::InitializeViewTable() {
     // manually add it to the list of UAV register spaces used
     if (*pInputShaderInfo->pNumUAVSpaces == 0)
     {
-        ViewKey key = { (unsigned int)hlsl::DXIL::ResourceKind::RawBuffer, 0 };
+        ViewKey key = { (unsigned int)hlsl::DXIL::ResourceKind::RawBuffer, {0} };
         unsigned int index = FindOrInsertViewIntoList(
           key, 
           pInputShaderInfo->pUAVRegisterSpaceArray, 
@@ -854,7 +849,6 @@ void DxilPatchShaderRecordBindings::PatchShaderBindings(Module &M) {
   std::vector<llvm::Instruction *> instructionsToRemove;
   for (BasicBlock &block : EntryPointFunction->getBasicBlockList()) {
     auto & Instructions = block.getInstList();
-    auto It = Instructions.begin();
 
     for (auto &instr : Instructions) {
       DxilInst_CreateHandleForLib createHandleForLib(&instr);
