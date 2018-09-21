@@ -583,7 +583,9 @@ ReprocessLoop:
     // If this is really a nested loop, rip it out into a child loop.  Don't do
     // this for loops with a giant number of backedges, just factor them into a
     // common backedge instead.
-    if (L->getNumBackEdges() < 8) {
+    if (L->getNumBackEdges() < 8
+        && false // HLSL Change - don't add nested loop.
+        ) {
       if (Loop *OuterL =
               separateNestedLoop(L, Preheader, AA, DT, LI, SE, PP, AC)) {
         ++NumNested;
