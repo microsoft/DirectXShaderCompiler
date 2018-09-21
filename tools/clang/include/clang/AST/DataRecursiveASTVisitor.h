@@ -1301,6 +1301,8 @@ DEF_TRAVERSE_DECL(NamespaceAliasDecl, {
 DEF_TRAVERSE_DECL(LabelDecl, {// There is no code in a LabelDecl.
                              })
 
+DEF_TRAVERSE_DECL(HLSLBufferDecl, {}) // HLSL Change.
+
 DEF_TRAVERSE_DECL(
     NamespaceDecl,
     {// Code in an unnamed namespace shows up automatically in
@@ -1933,6 +1935,8 @@ DEF_TRAVERSE_STMT(DeclStmt, {
   return true;
 })
 
+DEF_TRAVERSE_STMT(DiscardStmt, {}) // HLSL Change.
+
 // These non-expr stmts (most of them), do not need any action except
 // iterating over the children.
 DEF_TRAVERSE_STMT(BreakStmt, {})
@@ -2137,6 +2141,12 @@ DEF_TRAVERSE_STMT(ArrayTypeTraitExpr, {
 
 DEF_TRAVERSE_STMT(ExpressionTraitExpr,
                   { StmtQueue.queue(S->getQueriedExpression()); })
+
+// HLSL Change begin.
+DEF_TRAVERSE_STMT(ExtMatrixElementExpr, {})
+
+DEF_TRAVERSE_STMT(HLSLVectorElementExpr, {})
+// HLSL Change end.
 
 DEF_TRAVERSE_STMT(VAArgExpr, {
   // The child-iterator will pick up the expression argument.
