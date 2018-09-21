@@ -1290,6 +1290,15 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             GetHLSLInputPatchCount(parmDecl->getType());
       }
     }
+
+    // Mark patch constant functions that cannot be linked as exports
+    // InternalLinkage.  Patch constant functions that are actually used
+    // will be set back to ExternalLinkage in FinishCodeGen.
+    if (funcProps->ShaderProps.HS.outputControlPoints ||
+        funcProps->ShaderProps.HS.inputControlPoints) {
+      PCI.Func->setLinkage(GlobalValue::InternalLinkage);
+    }
+
     funcProps->shaderKind = DXIL::ShaderKind::Hull;
   }
 
@@ -1970,7 +1979,8 @@ void CGMSHLSLRuntime::EmitHLSLFunctionProlog(Function *F, const FunctionDecl *FD
   }
 
   // Update function linkage based on DefaultLinkage
-  if (!m_pHLModule->HasDxilFunctionProps(F) && !IsPatchConstantFunction(F)) {
+  // We will take care of patch constant functions later, once identified for certain.
+  if (!m_pHLModule->HasDxilFunctionProps(F)) {
     if (F->getLinkage() == GlobalValue::LinkageTypes::ExternalLinkage) {
       if (!FD->hasAttr<HLSLExportAttr>()) {
         switch (CGM.getCodeGenOpts().DefaultLinkage) {
@@ -4721,6 +4731,22 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       // Mark non-shader user functions as InternalLinkage
       f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
     }
+  }
+
+  // Now iterate hull shaders and make sure their corresponding patch constant
+  // functions are marked ExternalLinkage:
+  for (Function &f : m_pHLModule->GetModule()->functions()) {
+    if (f.isDeclaration() || f.isIntrinsic() ||
+        GetHLOpcodeGroup(&f) != HLOpcodeGroup::NotHL ||
+        f.getLinkage() != GlobalValue::LinkageTypes::ExternalLinkage ||
+        !m_pHLModule->HasDxilFunctionProps(&f))
+      continue;
+    DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(&f);
+    if (!props.IsHS())
+      continue;
+    Function *PCFunc = props.ShaderProps.HS.patchConstantFunc;
+    if (PCFunc->getLinkage() != GlobalValue::LinkageTypes::ExternalLinkage)
+      PCFunc->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
   }
 
   // Disallow resource arguments in (non-entry) function exports
