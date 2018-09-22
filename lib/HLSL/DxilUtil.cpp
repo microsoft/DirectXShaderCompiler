@@ -394,6 +394,19 @@ bool ContainsHLSLObjectType(llvm::Type *Ty) {
   return false;
 }
 
+// Based on the implementation available in LLVM's trunk:
+// http://llvm.org/doxygen/Constants_8cpp_source.html#l02734
+bool IsSplat(llvm::ConstantDataVector *cdv) {
+  const char *Base = cdv->getRawDataValues().data();
+
+  // Compare elements 1+ to the 0'th element.
+  unsigned EltSize = cdv->getElementByteSize();
+  for (unsigned i = 1, e = cdv->getNumElements(); i != e; ++i)
+    if (memcmp(Base, Base + i * EltSize, EltSize))
+      return false;
+
+  return true;
+}
 
 }
 }

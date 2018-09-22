@@ -7,15 +7,11 @@
 // CHECK: Rsqrt
 // CHECK: sample
 // CHECK: sample
+// CHECK: Log
+// CHECK: Exp
 // CHECK: Sqrt
 // CHECK: dot3
 // CHECK: Saturate
-
-// pow function uses mul op instead of Exp and Log for exponent value <= 5
-// only 1 out of 2 pow refs would use Exp and Log
-// CHECK: Log
-// CHECK: Exp
-
 // CHECK: storeOutput
 
 //--------------------------------------------------------------------------------------

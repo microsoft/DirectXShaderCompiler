@@ -7,11 +7,8 @@
 // CHECK: IMax
 // CHECK: IMin
 // CHECK: dot2
-
-// pow function uses mul op instead of Exp and Log for exponent value <= 5
-// CHECK-NOT: Log
-// CHECK-NOT: Exp
-
+// CHECK: Log
+// CHECK: Exp
 // CHECK: Sqrt
 // CHECK: bufferStore
 

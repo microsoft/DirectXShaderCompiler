@@ -231,7 +231,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
   }
 
   //  back-compat mode - remap obsolete semantics
-  if (HLM.GetHLOptions().bBackCompatMode && paramAnnotation.HasSemanticString()) {
+  if (HLM.GetHLOptions().bDX9CompatMode && paramAnnotation.HasSemanticString()) {
     hlsl::RemapObsoleteSemantic(paramAnnotation, sigPoint->GetKind(), HLM.GetCtx());
   }
 
