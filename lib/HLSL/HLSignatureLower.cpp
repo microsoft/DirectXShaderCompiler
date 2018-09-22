@@ -230,6 +230,11 @@ void HLSignatureLower::ProcessArgument(Function *func,
       interpMode = InterpolationMode::Kind::Constant;
   }
 
+  //  back-compat mode - remap obsolete semantics
+  if (HLM.GetHLOptions().bBackCompatMode && paramAnnotation.HasSemanticString()) {
+    hlsl::RemapObsoleteSemantic(paramAnnotation, sigPoint->GetKind(), HLM.GetCtx());
+  }
+
   llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
   if (semanticStr.empty()) {
     func->getContext().emitError(

@@ -412,6 +412,47 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
   return DXIL::SigPointKind::Invalid;
 }
 
+void RemapSemantic(llvm::StringRef &oldSemName, llvm::StringRef &oldSemFullName, const char *newSemName,
+  DxilParameterAnnotation &paramInfo, llvm::LLVMContext &Context) {
+  // format deprecation warning
+  Context.emitWarning(Twine("DX9-style semantic \"") + oldSemName + Twine("\" mapped to DX10 system semantic \"") + newSemName +
+    Twine("\" due to -Gec flag. This functionality is deprecated in newer language versions."));
+
+  // create new semantic name with the same index
+  std::string newSemNameStr(newSemName);
+  unsigned indexLen = oldSemFullName.size() - oldSemName.size();
+  if (indexLen > 0) {
+    newSemNameStr = newSemNameStr.append(oldSemFullName.data() + oldSemName.size(), indexLen);
+  }
+
+  paramInfo.SetSemanticString(newSemNameStr);
+}
+
+void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, DXIL::SigPointKind sigPoint, llvm::LLVMContext &Context) {
+  DXASSERT(paramInfo.HasSemanticString(), "expected paramInfo with semantic");
+  //*ppWarningMsg = nullptr;
+
+  llvm::StringRef semFullName = paramInfo.GetSemanticStringRef();
+  llvm::StringRef semName;
+  unsigned semIndex;
+  Semantic::DecomposeNameAndIndex(semFullName, &semName, &semIndex);
+
+  if (sigPoint == DXIL::SigPointKind::PSOut) {
+    if (semName.size() == 5) {
+      if (strnicmp(semName.data(), "COLOR", 5) == 0) {
+        RemapSemantic(semName, semFullName, "SV_Target", paramInfo, Context);
+      }
+      else if (strnicmp(semName.data(), "DEPTH", 5) == 0) {
+        RemapSemantic(semName, semFullName, "SV_Depth", paramInfo, Context);
+      }
+    }
+  }
+  else if ((sigPoint == DXIL::SigPointKind::VSOut && semName.size() == 8 && strnicmp(semName.data(), "POSITION", 8) == 0) ||
+           (sigPoint == DXIL::SigPointKind::PSIn  && semName.size() == 4 && strnicmp(semName.data(), "VPOS", 4) == 0)) {
+    RemapSemantic(semName, semFullName, "SV_Position", paramInfo, Context);
+  }
+}
+
 bool DxilTypeSystem::UseMinPrecision() {
   if (m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined) {
     if (m_pModule->HasDxilModule()) {

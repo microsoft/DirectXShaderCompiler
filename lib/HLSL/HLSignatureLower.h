@@ -17,6 +17,7 @@ namespace llvm {
 class Value;
 class Argument;
 class Function;
+class StringRef;
 } // namespace llvm
 
 namespace hlsl {
@@ -26,6 +27,8 @@ class DxilFunctionAnnotation;
 class ShaderModel;
 struct DxilFunctionProps;
 class DxilSignatureElement;
+class DxilParameterAnnotation;
+class SigPoint;
 
 class HLSignatureLower {
 public:

@@ -205,6 +205,10 @@ private:
                                 DxilParamInputQual paramQual,
                                 llvm::StringRef semFullName,
                                 bool isPatchConstantFunction);
+
+  void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo,
+                             bool isPatchConstantFunction);
+
   void SetEntryFunction();
   SourceLocation SetSemantic(const NamedDecl *decl,
                              DxilParameterAnnotation &paramInfo);
@@ -381,6 +385,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
 
   opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
+  opts.bBackCompatMode = CGM.getLangOpts().EnableBackCompatMode;
 
   m_pHLModule->SetHLOptions(opts);
   m_pHLModule->SetAutoBindingSpace(CGM.getCodeGenOpts().HLSLDefaultSpace);
@@ -477,10 +482,9 @@ void CGMSHLSLRuntime::CheckParameterAnnotation(
       Semantic::GetByName(semName, sigPoint, SM->GetMajor(), SM->GetMinor());
   if (pSemantic->IsInvalid()) {
     DiagnosticsEngine &Diags = CGM.getDiags();
-    const ShaderModel *shader = m_pHLModule->GetShaderModel();
     unsigned DiagID =
-        Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid semantic '%0' for %1 %2.%3");
-    Diags.Report(SLoc, DiagID) << semName << shader->GetKindName() << shader->GetMajor() << shader->GetMinor();
+      Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid semantic '%0' for %1 %2.%3");
+    Diags.Report(SLoc, DiagID) << semName << SM->GetKindName() << SM->GetMajor() << SM->GetMinor();
   }
 }
 
@@ -1555,6 +1559,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   SourceLocation retTySemanticLoc = SetSemantic(FD, retTyAnnotation);
   retTyAnnotation.SetParamInputQual(DxilParamInputQual::Out);
   if (isEntry) {
+    if (CGM.getLangOpts().EnableBackCompatMode && retTyAnnotation.HasSemanticString()) {
+      RemapObsoleteSemantic(retTyAnnotation, /*isPatchConstantFunction*/ false);
+    }
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
                              /*isPatchConstantFunction*/ false);
   }
@@ -1833,6 +1840,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     paramAnnotation.SetParamInputQual(dxilInputQ);
     if (isEntry) {
+      if (CGM.getLangOpts().EnableBackCompatMode && paramAnnotation.HasSemanticString()) {
+        RemapObsoleteSemantic(paramAnnotation, /*isPatchConstantFunction*/ false);
+      }
       CheckParameterAnnotation(paramSemanticLoc, paramAnnotation,
                                /*isPatchConstantFunction*/ false);
     }
@@ -1928,6 +1938,15 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   for (const auto &Attr : FD->specific_attrs<HLSLExperimentalAttr>()) {
     F->addFnAttr(Twine("exp-", Attr->getName()).str(), Attr->getValue());
   }
+}
+
+void CGMSHLSLRuntime::RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, bool isPatchConstantFunction) {
+  DXASSERT(CGM.getLangOpts().EnableBackCompatMode, "should be used only in back-compat mode");
+
+  const ShaderModel *SM = m_pHLModule->GetShaderModel();
+  DXIL::SigPointKind sigPointKind = SigPointFromInputQual(paramInfo.GetParamInputQual(), SM->GetKind(), isPatchConstantFunction);
+
+  hlsl::RemapObsoleteSemantic(paramInfo, sigPointKind, CGM.getLLVMContext());
 }
 
 void CGMSHLSLRuntime::EmitHLSLFunctionProlog(Function *F, const FunctionDecl *FD) {

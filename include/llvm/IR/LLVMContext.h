@@ -168,6 +168,7 @@ public:
   void emitError(unsigned LocCookie, const Twine &ErrorStr);
   void emitError(const Instruction *I, const Twine &ErrorStr);
   void emitError(const Twine &ErrorStr);
+  void emitWarning(const Twine &WarningStr); // HLSL Change
 
   /// \brief Query for a debug option's value.
   ///
