@@ -202,6 +202,8 @@ private:
 
 DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind SK, bool isPC);
 
+void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, DXIL::SigPointKind sigPoint, llvm::LLVMContext &Context);
+
 class DxilStructTypeIterator
     : public std::iterator<std::input_iterator_tag,
                            std::pair<llvm::Type *, DxilFieldAnnotation *>> {
