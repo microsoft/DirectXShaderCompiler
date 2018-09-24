@@ -8220,12 +8220,6 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     return;
   }
 
-  // Promote bool to int now if necessary
-  if (BinaryOperatorKindRequiresBoolAsNumeric(Opc) &&
-      !isCompoundAssignment) {
-    LHS = PromoteToIntIfBool(LHS);
-  }
-
   // Gather type info
   QualType leftType = GetStructuralForm(LHS.get()->getType());
   QualType rightType = GetStructuralForm(RHS.get()->getType());
@@ -8245,11 +8239,6 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     if (!ValidateTypeRequirements(OpLoc, rightElementKind, rightObjectKind, requiresIntegrals, requiresNumerics)) {
       return;
     }
-  }
-
-  // Promote rhs bool to int if necessary.
-  if (BinaryOperatorKindRequiresBoolAsNumeric(Opc)) {
-    RHS = PromoteToIntIfBool(RHS);
   }
 
   if (unsupportedBoolLvalue) {
@@ -8294,6 +8283,9 @@ void HLSLExternalSource::CheckBinOpForHLSL(
                rightElementKind != AR_BASIC_LITERAL_FLOAT) {
       // For case like 1<<x.
       resultElementKind = AR_BASIC_UINT32;
+    } else if (resultElementKind == AR_BASIC_BOOL && 
+              (BinaryOperatorKindRequiresBoolAsNumeric(Opc) || BinaryOperatorKindIsBitwiseShift(Opc))) {
+      resultElementKind = AR_BASIC_INT32;
     }
 
     // The following combines the selected/combined element kind above with 
