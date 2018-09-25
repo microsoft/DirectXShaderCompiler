@@ -800,7 +800,7 @@ public:
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(
         TargetInfo::CreateTargetInfo(compiler.getDiagnostics(), targetOptions));
-    if (Opts.EnableBackCompatMode) {
+    if (Opts.EnableDX9CompatMode) {
       auto const ID = compiler.getDiagnostics().getCustomDiagID(clang::DiagnosticsEngine::Warning, "/Gec flag is a deprecated functionality.");
       compiler.getDiagnostics().Report(ID);
     }
@@ -855,7 +855,8 @@ public:
     compiler.getLangOpts().RootSigMajor = 1;
     compiler.getLangOpts().RootSigMinor = rootSigMinor;
     compiler.getLangOpts().HLSLVersion = (unsigned) Opts.HLSLVersion;
-    compiler.getLangOpts().EnableBackCompatMode = Opts.EnableBackCompatMode;
+    compiler.getLangOpts().EnableDX9CompatMode = Opts.EnableDX9CompatMode;
+    compiler.getLangOpts().EnableFXCCompatMode = Opts.EnableFXCCompatMode;
 
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
