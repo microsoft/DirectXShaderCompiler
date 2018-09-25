@@ -70,11 +70,10 @@ float4 main() : SV_Target {
   /*verify-ast
     DeclStmt <col:3, col:51>
     `-VarDecl <col:3, col:50> col:12 f22_target_clone 'float2x2':'matrix<float, 2, 2>' cinit
-      `-ImplicitCastExpr <col:31, col:50> 'float2x2':'matrix<float, 2, 2>' <LValueToRValue>
-        `-CXXFunctionalCastExpr <col:31, col:50> 'float2x2':'matrix<float, 2, 2>' lvalue functional cast to float2x2 <NoOp>
-          `-InitListExpr <col:40> 'float2x2':'matrix<float, 2, 2>'
-            `-ImplicitCastExpr <col:40> 'float2x2':'matrix<float, 2, 2>' <LValueToRValue>
-              `-DeclRefExpr <col:40> 'float2x2':'matrix<float, 2, 2>' lvalue Var 'f22_target' 'float2x2':'matrix<float, 2, 2>'
+      `-CXXFunctionalCastExpr <col:31, col:50> 'float2x2':'matrix<float, 2, 2>' functional cast to float2x2 <NoOp>
+        `-InitListExpr <col:40> 'float2x2':'matrix<float, 2, 2>'
+          `-ImplicitCastExpr <col:40> 'float2x2':'matrix<float, 2, 2>' <LValueToRValue>
+            `-DeclRefExpr <col:40> 'float2x2':'matrix<float, 2, 2>' lvalue Var 'f22_target' 'float2x2':'matrix<float, 2, 2>'
   */
   // fxc warning X3081: comma expression used where a vector constructor may have been intended
   float2x2 f22_target_cast = (float2x2)(0.1f, 0.2f, 0.3f, 0.4f); // expected-warning {{comma expression used where a constructor list may have been intended}} fxc-warning {{X3081: comma expression used where a vector constructor may have been intended}}
@@ -150,16 +149,17 @@ float4 main() : SV_Target {
   fn1(val);
   /*verify-ast
     CallExpr <col:3, col:10> 'void'
-    |-ImplicitCastExpr <col:3> 'void (*)(float2x3 (&)[2])' <FunctionToPointerDecay>
-    | `-DeclRefExpr <col:3> 'void (float2x3 (&)[2])' lvalue Function 'fn1' 'void (float2x3 (&)[2])'
-    `-DeclRefExpr <col:7> 'float2x3 [2]' lvalue Var 'val' 'float2x3 [2]'
+    |-ImplicitCastExpr <col:3> 'void (*)(float2x3 __restrict[2])' <FunctionToPointerDecay>
+    | `-DeclRefExpr <col:3> 'void (float2x3 __restrict[2])' lvalue Function 'fn1' 'void (float2x3 __restrict[2])'
+    `-ImplicitCastExpr <col:7> 'float2x3 [2]' <LValueToRValue>
+      `-DeclRefExpr <col:7> 'float2x3 [2]' lvalue Var 'val' 'float2x3 [2]'
   */
 
   fn2(val[1]);
   /*verify-ast
     CallExpr <col:3, col:13> 'void'
-    |-ImplicitCastExpr <col:3> 'void (*)(float2x3 &)' <FunctionToPointerDecay>
-    | `-DeclRefExpr <col:3> 'void (float2x3 &)' lvalue Function 'fn2' 'void (float2x3 &)'
+    |-ImplicitCastExpr <col:3> 'void (*)(float2x3 &__restrict)' <FunctionToPointerDecay>
+    | `-DeclRefExpr <col:3> 'void (float2x3 &__restrict)' lvalue Function 'fn2' 'void (float2x3 &__restrict)'
     `-ArraySubscriptExpr <col:7, col:12> 'float2x3':'matrix<float, 2, 3>' lvalue
       |-ImplicitCastExpr <col:7> 'float2x3 [2]' <LValueToRValue>
       | `-DeclRefExpr <col:7> 'float2x3 [2]' lvalue Var 'val' 'float2x3 [2]'
@@ -173,8 +173,8 @@ float4 main() : SV_Target {
   fn3(val[0][0]);
   /*verify-ast
     CallExpr <col:3, col:16> 'void'
-    |-ImplicitCastExpr <col:3> 'void (*)(float3 &)' <FunctionToPointerDecay>
-    | `-DeclRefExpr <col:3> 'void (float3 &)' lvalue Function 'fn3' 'void (float3 &)'
+    |-ImplicitCastExpr <col:3> 'void (*)(float3 &__restrict)' <FunctionToPointerDecay>
+    | `-DeclRefExpr <col:3> 'void (float3 &__restrict)' lvalue Function 'fn3' 'void (float3 &__restrict)'
     `-CXXOperatorCallExpr <col:7, col:15> 'vector<float, 3>':'vector<float, 3>' lvalue
       |-ImplicitCastExpr <col:13, col:15> 'vector<float, 3> &(*)(unsigned int)' <FunctionToPointerDecay>
       | `-DeclRefExpr <col:13, col:15> 'vector<float, 3> &(unsigned int)' lvalue CXXMethod 'operator[]' 'vector<float, 3> &(unsigned int)'

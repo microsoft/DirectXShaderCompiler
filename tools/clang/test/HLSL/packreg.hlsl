@@ -81,7 +81,7 @@ cbuffer MyFloats
 {
   float4 f4_simple : packoffset(c0.x);
   /*verify-ast
-    VarDecl <col:3, col:10> col:10 f4_simple 'float4':'vector<float, 4>'
+    VarDecl parent cbuffer <col:3, col:10> col:10 f4_simple 'const float4':'const vector<float, 4>'
     `-ConstantPacking <col:22> packoffset(c0.x)
   */
   // fxc error X3530: register or offset bind c3.xy not valid
@@ -94,7 +94,7 @@ tbuffer OtherFloats
   float4 f4_t_simple : packoffset(c10.x);
   float3 f3_t_simple : packoffset(c11.y);
   /*verify-ast
-    VarDecl <col:3, col:10> col:10 f3_t_simple 'float3':'vector<float, 3>'
+    VarDecl parent tbuffer <col:3, col:10> col:10 f3_t_simple 'const float3':'const vector<float, 3>'
     `-ConstantPacking <col:24> packoffset(c11.y)
   */
   // fxc error X3530: register or offset bind c3.xy not valid
@@ -109,7 +109,7 @@ sampler myvar_norparen: register(ps, s[2]; ); // expected-error {{expected ')'}}
 sampler myVar : register(ps_5_0, s);
 /*verify-ast
   VarDecl <col:1, col:9> col:9 myVar 'sampler':'SamplerState'
-  `-RegisterAssignment <col:17> register(ps_6_0, s0)
+  `-RegisterAssignment <col:17> register(ps_5_0, s0)
 */
 sampler myVar2 : register(vs, s[8]);
 sampler myVar2_offset : register(vs, s2[8]);
@@ -160,7 +160,7 @@ Texture2D myVar_t_1_1 : register(ps, t1[1]),
 /*verify-ast
   VarDecl <col:1, col:11> col:11 myVar_t_1_1 'Texture2D':'Texture2D<vector<float, 4> >'
   `-RegisterAssignment <col:25> register(ps, t2)
-  VarDecl <col:1, line:147:3> col:3 myVar_t_2_1 'Texture2D':'Texture2D<vector<float, 4> >'
+  VarDecl <col:1, line:167:3> col:3 myVar_t_2_1 'Texture2D':'Texture2D<vector<float, 4> >'
   |-RegisterAssignment <col:17> register(ps, t3)
   `-RegisterAssignment <col:39> register(vs, t0)
 */
@@ -171,7 +171,7 @@ sampler myVar_i : register(ps, i); // expected-error {{invalid register specific
 float4 myVar_b : register(ps, b);
 bool myVar_bool : register(ps, b) : register(ps, c);
 /*verify-ast
-  VarDecl <col:1, col:6> col:6 myVar_bool 'bool'
+  VarDecl <col:1, col:6> col:6 myVar_bool 'const bool'
   |-RegisterAssignment <col:19> register(ps, b0)
   `-RegisterAssignment <col:37> register(ps, c0)
 */
@@ -195,7 +195,7 @@ sampler myVar_s1 : register(ps, s[1], space1);
   `-RegisterAssignment <col:20> register(ps, s1, space1)
 */
 // fxc error X3591: incorrect bind semantic
-sampler myVar_sb : register(ps, s[1], splice); // expected-error {{expected space definition with syntax 'spaceX', where X is an integral value}} fxc-pass {{X3591: incorrect bind semantic}}
+sampler myVar_sb : register(ps, s[1], splice); // expected-error {{expected space definition with syntax 'spaceX', where X is an integral value}} fxc-error {{X3591: incorrect bind semantic}}
 sampler myVar_sz : register(ps, s[1], spacez); // expected-error {{space number should be an integral numeric string}} fxc-error {{X3591: incorrect bind semantic}}
 
 // Legal in fxc due to compatibility mode:
@@ -543,11 +543,11 @@ cbuffer MyBuffer
   float4 Element4 : packoffset(c10) : packoffset(c10);
   float4 Element5 : packoffset(c10) : MY_SEMANTIC : packoffset(c11), Element6 : packoffset(c12) : MY_SEMANTIC2; // expected-warning {{packoffset is overridden by another packoffset annotation}} fxc-pass {{}}
   /*verify-ast
-    VarDecl <col:3, col:10> col:10 Element5 'float4':'vector<float, 4>'
+    VarDecl parent cbuffer <col:3, col:10> col:10 Element5 'const float4':'const vector<float, 4>'
     |-ConstantPacking <col:21> packoffset(c10.x)
     |-SemanticDecl <col:39> "MY_SEMANTIC"
     `-ConstantPacking <col:53> packoffset(c11.x)
-    VarDecl <col:3, col:70> col:70 Element6 'float4':'vector<float, 4>'
+    VarDecl parent cbuffer <col:3, col:70> col:70 Element6 'const float4':'const vector<float, 4>'
     |-ConstantPacking <col:81> packoffset(c12.x)
     `-SemanticDecl <col:99> "MY_SEMANTIC2"
   */
@@ -561,11 +561,11 @@ cbuffer MyBuffer2
   float4 Element10 : packoffset(C20) : packoffset(C20);
   float4 Element11 : packoffset(C20) : MY_SEMANTIC : packoffset(C21), Element12 : packoffset(C22) : MY_SEMANTIC2; // expected-warning {{packoffset is overridden by another packoffset annotation}} fxc-pass {{}}
   /*verify-ast
-    VarDecl <col:3, col:10> col:10 Element11 'float4':'vector<float, 4>'
+    VarDecl parent cbuffer <col:3, col:10> col:10 Element11 'const float4':'const vector<float, 4>'
     |-ConstantPacking <col:22> packoffset(c20.x)
     |-SemanticDecl <col:40> "MY_SEMANTIC"
     `-ConstantPacking <col:54> packoffset(c21.x)
-    VarDecl <col:3, col:71> col:71 Element12 'float4':'vector<float, 4>'
+    VarDecl parent cbuffer <col:3, col:71> col:71 Element12 'const float4':'const vector<float, 4>'
     |-ConstantPacking <col:83> packoffset(c22.x)
     `-SemanticDecl <col:101> "MY_SEMANTIC2"
   */
@@ -579,7 +579,7 @@ cbuffer Parameters : register(b0)
 {
   float4   DiffuseColor   : packoffset(c0) : register(c0);
   /*verify-ast
-    VarDecl <col:3, col:12> col:12 DiffuseColor 'float4':'vector<float, 4>'
+    VarDecl parent cbuffer <col:3, col:12> col:12 DiffuseColor 'const float4':'const vector<float, 4>'
     |-ConstantPacking <col:29> packoffset(c0.x)
     `-RegisterAssignment <col:46> register(c0)
   */
@@ -606,14 +606,14 @@ cbuffer cbPerFrame : register(b1)
 // Nesting case
 cbuffer OuterBuffer : register(b3) {
 /*verify-ast
-  HLSLBufferDecl <col:1, line:602:1> line:586:9 cbuffer OuterBuffer
+  HLSLBufferDecl <col:1, line:623:1> line:607:9 cbuffer OuterBuffer
   |-RegisterAssignment <col:23> register(b3)
-  |-VarDecl <line:597:3, col:9> col:9 used OuterItem0 'float'
-  |-HLSLBufferDecl parent <line:598:3, line:600:3> line:598:11 cbuffer InnerBuffer
+  |-VarDecl parent cbuffer <line:618:3, col:9> col:9 used OuterItem0 'const float'
+  |-HLSLBufferDecl parent <line:619:3, line:621:3> line:619:11 cbuffer InnerBuffer
   | |-RegisterAssignment <col:25> register(b4)
-  | `-VarDecl <line:599:5, col:11> col:11 used InnerItem0 'float'
-  |-EmptyDecl <line:600:4> col:4
-  `-VarDecl <line:601:3, col:9> col:9 used OuterItem1 'float'
+  | `-VarDecl parent cbuffer <line:620:5, col:11> col:11 used InnerItem0 'const float'
+  |-EmptyDecl parent cbuffer <line:621:4> col:4
+  `-VarDecl parent cbuffer <line:622:3, col:9> col:9 used OuterItem1 'const float'
 */
   float OuterItem0;
   cbuffer InnerBuffer : register(b4) {

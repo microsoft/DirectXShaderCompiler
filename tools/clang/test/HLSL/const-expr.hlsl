@@ -4,7 +4,7 @@ float overload1(float f) { return 1; }                        /* expected-note {
 double overload1(double f) { return 2; }                       /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
 int overload1(int i) { return 3; }                             /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
 uint overload1(uint i) { return 4; }                           /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
-min12int overload1(min12int i) { return 5; }                   /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} expected-warning {{min12int is promoted to min16int}} expected-warning {{min12int is promoted to min16int}} */
+min12int overload1(min12int i) { return 5; }                   /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-warning {{min12int is promoted to min16int}} expected-warning {{min12int is promoted to min16int}} fxc-pass {{}} */
 
 
 static const float2 g_f2_arr[8] =
@@ -37,24 +37,24 @@ float fn_f_f(float r)
     `-VarDecl <col:3, col:79> col:12 used rotationMatrix 'float2x2':'matrix<float, 2, 2>' cinit
       `-InitListExpr <col:29, col:79> 'float2x2':'matrix<float, 2, 2>'
         |-ImplicitCastExpr <col:31, col:40> 'float' <LValueToRValue>
-        | `-HLSLVectorElementExpr <col:31, col:40> 'float' lvalue vectorcomponent x
-        |   `-DeclRefExpr <col:31> 'float2':'vector<float, 2>' lvalue Var 'rotation' 'float2':'vector<float, 2>'
+        | `-HLSLVectorElementExpr <col:31, col:40> 'const float' lvalue vectorcomponent x
+        |   `-DeclRefExpr <col:31> 'const float2':'const vector<float, 2>' lvalue Var 'rotation' 'const float2':'const vector<float, 2>'
         |-ImplicitCastExpr <col:43, col:52> 'float' <LValueToRValue>
-        | `-HLSLVectorElementExpr <col:43, col:52> 'float' lvalue vectorcomponent y
-        |   `-DeclRefExpr <col:43> 'float2':'vector<float, 2>' lvalue Var 'rotation' 'float2':'vector<float, 2>'
+        | `-HLSLVectorElementExpr <col:43, col:52> 'const float' lvalue vectorcomponent y
+        |   `-DeclRefExpr <col:43> 'const float2':'const vector<float, 2>' lvalue Var 'rotation' 'const float2':'const vector<float, 2>'
         |-UnaryOperator <col:55, col:65> 'float' prefix '-'
         | `-ImplicitCastExpr <col:56, col:65> 'float' <LValueToRValue>
-        |   `-HLSLVectorElementExpr <col:56, col:65> 'float' lvalue vectorcomponent y
-        |     `-DeclRefExpr <col:56> 'float2':'vector<float, 2>' lvalue Var 'rotation' 'float2':'vector<float, 2>'
+        |   `-HLSLVectorElementExpr <col:56, col:65> 'const float' lvalue vectorcomponent y
+        |     `-DeclRefExpr <col:56> 'const float2':'const vector<float, 2>' lvalue Var 'rotation' 'const float2':'const vector<float, 2>'
         `-ImplicitCastExpr <col:68, col:77> 'float' <LValueToRValue>
-          `-HLSLVectorElementExpr <col:68, col:77> 'float' lvalue vectorcomponent x
-            `-DeclRefExpr <col:68> 'float2':'vector<float, 2>' lvalue Var 'rotation' 'float2':'vector<float, 2>'
+          `-HLSLVectorElementExpr <col:68, col:77> 'const float' lvalue vectorcomponent x
+            `-DeclRefExpr <col:68> 'const float2':'const vector<float, 2>' lvalue Var 'rotation' 'const float2':'const vector<float, 2>'
   */
   float2 offs = mul(g_f2_arr[tap], rotationMatrix) * r;
   /*verify-ast
     DeclStmt <col:3, col:55>
     `-VarDecl <col:3, col:54> col:10 used offs 'float2':'vector<float, 2>' cinit
-      `-BinaryOperator <col:17, col:54> 'vector<float, 2>' '*'
+      `-BinaryOperator <col:17, col:54> 'vector<float, 2>':'vector<float, 2>' '*'
         |-CallExpr <col:17, col:50> 'vector<float, 2>':'vector<float, 2>'
         | |-ImplicitCastExpr <col:17> 'vector<float, 2> (*)(vector<float, 2>, matrix<float, 2, 2>)' <FunctionToPointerDecay>
         | | `-DeclRefExpr <col:17> 'vector<float, 2> (vector<float, 2>, matrix<float, 2, 2>)' lvalue Function 'mul' 'vector<float, 2> (vector<float, 2>, matrix<float, 2, 2>)'
@@ -116,8 +116,8 @@ uint fn_f3_f3io_u(float3 wn, inout float3 tsn)
 
   tsn *= float3 (1.0 / sqrt_6, 1.0 / sqrt_2, 1.0 / sqrt_3);
   /*verify-ast
-    CompoundAssignOperator <col:3, col:58> 'float3':'vector<float, 3>' lvalue '*=' ComputeLHSTy='vector<float, 3>' ComputeResultTy='vector<float, 3>'
-    |-DeclRefExpr <col:3> 'float3':'vector<float, 3>' lvalue ParmVar 'tsn' 'float3 &'
+    CompoundAssignOperator <col:3, col:58> 'float3':'vector<float, 3>' lvalue '*=' ComputeLHSTy='float3':'vector<float, 3>' ComputeResultTy='float3':'vector<float, 3>'
+    |-DeclRefExpr <col:3> 'float3':'vector<float, 3>' lvalue ParmVar 'tsn' 'float3 &__restrict'
     `-CXXFunctionalCastExpr <col:10, col:58> 'float3':'vector<float, 3>' functional cast to float3 <NoOp>
       `-InitListExpr <col:18, col:52> 'float3':'vector<float, 3>'
         |-BinaryOperator <col:18, col:24> 'float' '/'
@@ -160,22 +160,22 @@ void fn_const_eval() {
   float f_ice_rem[u % 2];
   float f_ice_shl[u << 1];
   float f_ice_shr[u >> 1];
-  float f_ice_ternary[u > 1 ? 3 : 4];
-  float f_ice_lt[u < 1 ? 3 : 4];
-  float f_ice_le[u <= 1 ? 3 : 4];
-  float f_ice_gt[u > 1 ? 3 : 4];
-  float f_ice_ge[u >= 1 ? 3 : 4];
-  float f_ice_eq[u == 1 ? 3 : 4];
-  float f_ice_ne[u != 1 ? 3 : 4];
+  float f_ice_ternary[u > 1 ? 3 : 4];                          /* fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+  float f_ice_lt[u < 1 ? 3 : 4];                               /* fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+  float f_ice_le[u <= 1 ? 3 : 4];                              /* fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+  float f_ice_gt[u > 1 ? 3 : 4];                               /* fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+  float f_ice_ge[u >= 1 ? 3 : 4];                              /* fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+  float f_ice_eq[u == 1 ? 3 : 4];                              /* fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+  float f_ice_ne[u != 1 ? 3 : 4];                              /* fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
   float f_ice_bin_and[u & 0x1];
   float f_ice_bin_or[u | 0x1];
   float f_ice_bin_xor[u ^ 0x1];
-  float f_ice_log_and[u && true ? 3 : 4];
-  float f_ice_log_or[u || false ? 3 : 4];
+  float f_ice_log_and[u && true ? 3 : 4];                      /* fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+  float f_ice_log_or[u || false ? 3 : 4];                      /* fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
 
   // This fails, as it should, but the error recovery isn't very good
   // and the error messages could be improved.
-  float f_ice_assign[u_var = 3]; // expected-error {{expected ']'}} expected-note {{to match this '['}} expected-error {{variable length arrays are not supported in HLSL}}
+  float f_ice_assign[u_var = 3]; // expected-error {{expected ']'}} expected-error {{variable length arrays are not supported in HLSL}} expected-note {{to match this '['}} fxc-error {{X3058: array dimensions must be literal scalar expressions}}
 
   // Data types:
   // Check with all primitive types.
@@ -287,8 +287,8 @@ void fn_const_eval() {
   // but the intrin_max subexpression isn't one (even if the binary comparsion
   // expression is).
   // _Static_assert(intrin_max == 2, "expected 2");
-  _Static_assert(max(1, 2) == 2, "expected 2");
-  _Static_assert(max(1, -2) == 1, "expected 1");
+  _Static_assert(max(1, 2) == 2, "expected 2");             /* fxc-error {{X3004: undeclared identifier '_Static_assert'}} */
+  _Static_assert(max(1, -2) == 1, "expected 1");            /* fxc-error {{X3004: undeclared identifier '_Static_assert'}} */
   //    (UINT)hlsl::IntrinsicOp::IOP_min, 3, g_Intrinsics_Args96,
 //    (UINT)hlsl::IntrinsicOp::IOP_modf, 3, g_Intrinsics_Args97,
 //    (UINT)hlsl::IntrinsicOp::IOP_msad4, 4, g_Intrinsics_Args98,
@@ -377,8 +377,8 @@ void fn_ice() {
 
   // Note: here dxc is different from fxc, where a const integral vector can be used in ICE.
   // It would be desirable to have this supported.
-  float arr_vc_One[vc_One.x];  /* expected-error {{variable length arrays are not supported in HLSL}} */
-  float arr_vc_Two[vc_Two.x];  /* expected-error {{variable length arrays are not supported in HLSL}} */
+  float arr_vc_One[vc_One.x];  /* expected-error {{variable length arrays are not supported in HLSL}} fxc-pass {{}} */
+  float arr_vc_Two[vc_Two.x];  /* expected-error {{variable length arrays are not supported in HLSL}} fxc-pass {{}} */
 }
 
 void cs_main() {

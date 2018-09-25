@@ -76,8 +76,8 @@ int g_i;
 uint g_u;
 bool g_b;
 double g_d;
-int64_t g_i64;
-uint64_t g_u64;
+int64_t g_i64;                                              /* fxc-error {{X3000: unrecognized identifier 'int64_t'}} */
+uint64_t g_u64;                                             /* fxc-error {{X3000: unrecognized identifier 'uint64_t'}} */
 min16float g_m16f;
 float1 g_f1;
 float2 g_f2;
@@ -94,12 +94,12 @@ bool4 g_b4;
 double1 g_d1;
 double2 g_d2;
 double4 g_d4;
-int64_t1 g_i641;
-int64_t2 g_i642;
-int64_t4 g_i644;
-uint64_t1 g_u641;
-uint64_t2 g_u642;
-uint64_t4 g_u644;
+int64_t1 g_i641;                                            /* fxc-error {{X3000: unrecognized identifier 'int64_t1'}} */
+int64_t2 g_i642;                                            /* fxc-error {{X3000: unrecognized identifier 'int64_t2'}} */
+int64_t4 g_i644;                                            /* fxc-error {{X3000: unrecognized identifier 'int64_t4'}} */
+uint64_t1 g_u641;                                           /* fxc-error {{X3000: unrecognized identifier 'uint64_t1'}} */
+uint64_t2 g_u642;                                           /* fxc-error {{X3000: unrecognized identifier 'uint64_t2'}} */
+uint64_t4 g_u644;                                           /* fxc-error {{X3000: unrecognized identifier 'uint64_t4'}} */
 min16float1 g_m16f1;
 min16float2 g_m16f2;
 min16float4 g_m16f4;
@@ -123,14 +123,14 @@ double1x1 g_d1x1;
 double4x1 g_d4x1;
 double1x4 g_d1x4;
 double4x4 g_d4x4;
-int64_t1x1 g_i641x1;
-int64_t4x1 g_i644x1;
-int64_t1x4 g_i641x4;
-int64_t4x4 g_i644x4;
-uint64_t1x1 g_u641x1;
-uint64_t4x1 g_u644x1;
-uint64_t1x4 g_u641x4;
-uint64_t4x4 g_u644x4;
+int64_t1x1 g_i641x1;                                        /* fxc-error {{X3000: unrecognized identifier 'int64_t1x1'}} */
+int64_t4x1 g_i644x1;                                        /* fxc-error {{X3000: unrecognized identifier 'int64_t4x1'}} */
+int64_t1x4 g_i641x4;                                        /* fxc-error {{X3000: unrecognized identifier 'int64_t1x4'}} */
+int64_t4x4 g_i644x4;                                        /* fxc-error {{X3000: unrecognized identifier 'int64_t4x4'}} */
+uint64_t1x1 g_u641x1;                                       /* fxc-error {{X3000: unrecognized identifier 'uint64_t1x1'}} */
+uint64_t4x1 g_u644x1;                                       /* fxc-error {{X3000: unrecognized identifier 'uint64_t4x1'}} */
+uint64_t1x4 g_u641x4;                                       /* fxc-error {{X3000: unrecognized identifier 'uint64_t1x4'}} */
+uint64_t4x4 g_u644x4;                                       /* fxc-error {{X3000: unrecognized identifier 'uint64_t4x4'}} */
 min16float1x1 g_m16f1x1;
 min16float4x1 g_m16f4x1;
 min16float1x4 g_m16f1x4;
@@ -149,8 +149,8 @@ int overload1(int v) { return (int)200; }
 uint overload1(uint v) { return (uint)300; }
 bool overload1(bool v) { return (bool)400; }
 double overload1(double v) { return (double)500; }
-int64_t overload1(int64_t v) { return (int64_t)600; }
-uint64_t overload1(uint64_t v) { return (uint64_t)700; }
+int64_t overload1(int64_t v) { return (int64_t)600; }       /* fxc-error {{X3000: unrecognized identifier 'int64_t'}} */
+uint64_t overload1(uint64_t v) { return (uint64_t)700; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t'}} */
 float2 overload1(float2 v) { return (float2)102; }
 float4 overload1(float4 v) { return (float4)104; }
 int2 overload1(int2 v) { return (int2)202; }
@@ -161,10 +161,10 @@ bool2 overload1(bool2 v) { return (bool2)402; }
 bool4 overload1(bool4 v) { return (bool4)404; }
 double2 overload1(double2 v) { return (double2)502; }
 double4 overload1(double4 v) { return (double4)504; }
-int64_t2 overload1(int64_t2 v) { return (int64_t2)602; }
-int64_t4 overload1(int64_t4 v) { return (int64_t4)604; }
-uint64_t2 overload1(uint64_t2 v) { return (uint64_t2)702; }
-uint64_t4 overload1(uint64_t4 v) { return (uint64_t4)704; }
+int64_t2 overload1(int64_t2 v) { return (int64_t2)602; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t2'}} */
+int64_t4 overload1(int64_t4 v) { return (int64_t4)604; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t4'}} */
+uint64_t2 overload1(uint64_t2 v) { return (uint64_t2)702; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t2'}} */
+uint64_t4 overload1(uint64_t4 v) { return (uint64_t4)704; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t4'}} */
 float4x1 overload1(float4x1 v) { return (float4x1)141; }
 float1x4 overload1(float1x4 v) { return (float1x4)114; }
 float4x4 overload1(float4x4 v) { return (float4x4)144; }
@@ -180,12 +180,12 @@ bool4x4 overload1(bool4x4 v) { return (bool4x4)444; }
 double4x1 overload1(double4x1 v) { return (double4x1)541; }
 double1x4 overload1(double1x4 v) { return (double1x4)514; }
 double4x4 overload1(double4x4 v) { return (double4x4)544; }
-int64_t4x1 overload1(int64_t4x1 v) { return (int64_t4x1)641; }
-int64_t1x4 overload1(int64_t1x4 v) { return (int64_t1x4)614; }
-int64_t4x4 overload1(int64_t4x4 v) { return (int64_t4x4)644; }
-uint64_t4x1 overload1(uint64_t4x1 v) { return (uint64_t4x1)741; }
-uint64_t1x4 overload1(uint64_t1x4 v) { return (uint64_t1x4)714; }
-uint64_t4x4 overload1(uint64_t4x4 v) { return (uint64_t4x4)744; }
+int64_t4x1 overload1(int64_t4x1 v) { return (int64_t4x1)641; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t4x1'}} */
+int64_t1x4 overload1(int64_t1x4 v) { return (int64_t1x4)614; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t1x4'}} */
+int64_t4x4 overload1(int64_t4x4 v) { return (int64_t4x4)644; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t4x4'}} */
+uint64_t4x1 overload1(uint64_t4x1 v) { return (uint64_t4x1)741; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t4x1'}} */
+uint64_t1x4 overload1(uint64_t1x4 v) { return (uint64_t1x4)714; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t1x4'}} */
+uint64_t4x4 overload1(uint64_t4x4 v) { return (uint64_t4x4)744; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t4x4'}} */
 // GENERATED_CODE:END
 
 // <py::lines('GENERATED_CODE')>modify(lines, gen_code('%(type)s overload2(%(type)s v1, %(type)s v2) { return (%(type)s)%(val)s; }', overload_types))</py>
@@ -195,8 +195,8 @@ int overload2(int v1, int v2) { return (int)200; }
 uint overload2(uint v1, uint v2) { return (uint)300; }
 bool overload2(bool v1, bool v2) { return (bool)400; }
 double overload2(double v1, double v2) { return (double)500; }
-int64_t overload2(int64_t v1, int64_t v2) { return (int64_t)600; }
-uint64_t overload2(uint64_t v1, uint64_t v2) { return (uint64_t)700; }
+int64_t overload2(int64_t v1, int64_t v2) { return (int64_t)600; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t'}} */
+uint64_t overload2(uint64_t v1, uint64_t v2) { return (uint64_t)700; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t'}} */
 float2 overload2(float2 v1, float2 v2) { return (float2)102; }
 float4 overload2(float4 v1, float4 v2) { return (float4)104; }
 int2 overload2(int2 v1, int2 v2) { return (int2)202; }
@@ -207,10 +207,10 @@ bool2 overload2(bool2 v1, bool2 v2) { return (bool2)402; }
 bool4 overload2(bool4 v1, bool4 v2) { return (bool4)404; }
 double2 overload2(double2 v1, double2 v2) { return (double2)502; }
 double4 overload2(double4 v1, double4 v2) { return (double4)504; }
-int64_t2 overload2(int64_t2 v1, int64_t2 v2) { return (int64_t2)602; }
-int64_t4 overload2(int64_t4 v1, int64_t4 v2) { return (int64_t4)604; }
-uint64_t2 overload2(uint64_t2 v1, uint64_t2 v2) { return (uint64_t2)702; }
-uint64_t4 overload2(uint64_t4 v1, uint64_t4 v2) { return (uint64_t4)704; }
+int64_t2 overload2(int64_t2 v1, int64_t2 v2) { return (int64_t2)602; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t2'}} */
+int64_t4 overload2(int64_t4 v1, int64_t4 v2) { return (int64_t4)604; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t4'}} */
+uint64_t2 overload2(uint64_t2 v1, uint64_t2 v2) { return (uint64_t2)702; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t2'}} */
+uint64_t4 overload2(uint64_t4 v1, uint64_t4 v2) { return (uint64_t4)704; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t4'}} */
 float4x1 overload2(float4x1 v1, float4x1 v2) { return (float4x1)141; }
 float1x4 overload2(float1x4 v1, float1x4 v2) { return (float1x4)114; }
 float4x4 overload2(float4x4 v1, float4x4 v2) { return (float4x4)144; }
@@ -226,12 +226,12 @@ bool4x4 overload2(bool4x4 v1, bool4x4 v2) { return (bool4x4)444; }
 double4x1 overload2(double4x1 v1, double4x1 v2) { return (double4x1)541; }
 double1x4 overload2(double1x4 v1, double1x4 v2) { return (double1x4)514; }
 double4x4 overload2(double4x4 v1, double4x4 v2) { return (double4x4)544; }
-int64_t4x1 overload2(int64_t4x1 v1, int64_t4x1 v2) { return (int64_t4x1)641; }
-int64_t1x4 overload2(int64_t1x4 v1, int64_t1x4 v2) { return (int64_t1x4)614; }
-int64_t4x4 overload2(int64_t4x4 v1, int64_t4x4 v2) { return (int64_t4x4)644; }
-uint64_t4x1 overload2(uint64_t4x1 v1, uint64_t4x1 v2) { return (uint64_t4x1)741; }
-uint64_t1x4 overload2(uint64_t1x4 v1, uint64_t1x4 v2) { return (uint64_t1x4)714; }
-uint64_t4x4 overload2(uint64_t4x4 v1, uint64_t4x4 v2) { return (uint64_t4x4)744; }
+int64_t4x1 overload2(int64_t4x1 v1, int64_t4x1 v2) { return (int64_t4x1)641; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t4x1'}} */
+int64_t1x4 overload2(int64_t1x4 v1, int64_t1x4 v2) { return (int64_t1x4)614; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t1x4'}} */
+int64_t4x4 overload2(int64_t4x4 v1, int64_t4x4 v2) { return (int64_t4x4)644; }    /* fxc-error {{X3000: unrecognized identifier 'int64_t4x4'}} */
+uint64_t4x1 overload2(uint64_t4x1 v1, uint64_t4x1 v2) { return (uint64_t4x1)741; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t4x1'}} */
+uint64_t1x4 overload2(uint64_t1x4 v1, uint64_t1x4 v2) { return (uint64_t1x4)714; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t1x4'}} */
+uint64_t4x4 overload2(uint64_t4x4 v1, uint64_t4x4 v2) { return (uint64_t4x4)744; }    /* fxc-error {{X3000: unrecognized identifier 'uint64_t4x4'}} */
 // GENERATED_CODE:END
 
 
@@ -243,8 +243,8 @@ float4 test(): SV_Target {
   uint u = g_u;
   bool b = g_b;
   double d = g_d;
-  int64_t i64 = g_i64;
-  uint64_t u64 = g_u64;
+  int64_t i64 = g_i64;                                      /* fxc-error {{X3000: unrecognized identifier 'i64'}} fxc-error {{X3000: unrecognized identifier 'int64_t'}} */
+  uint64_t u64 = g_u64;                                     /* fxc-error {{X3000: unrecognized identifier 'u64'}} fxc-error {{X3000: unrecognized identifier 'uint64_t'}} */
   min16float m16f = g_m16f;
   float1 f1 = g_f1;
   float2 f2 = g_f2;
@@ -261,12 +261,12 @@ float4 test(): SV_Target {
   double1 d1 = g_d1;
   double2 d2 = g_d2;
   double4 d4 = g_d4;
-  int64_t1 i641 = g_i641;
-  int64_t2 i642 = g_i642;
-  int64_t4 i644 = g_i644;
-  uint64_t1 u641 = g_u641;
-  uint64_t2 u642 = g_u642;
-  uint64_t4 u644 = g_u644;
+  int64_t1 i641 = g_i641;                                   /* fxc-error {{X3000: unrecognized identifier 'i641'}} fxc-error {{X3000: unrecognized identifier 'int64_t1'}} */
+  int64_t2 i642 = g_i642;                                   /* fxc-error {{X3000: unrecognized identifier 'i642'}} fxc-error {{X3000: unrecognized identifier 'int64_t2'}} */
+  int64_t4 i644 = g_i644;                                   /* fxc-error {{X3000: unrecognized identifier 'i644'}} fxc-error {{X3000: unrecognized identifier 'int64_t4'}} */
+  uint64_t1 u641 = g_u641;                                  /* fxc-error {{X3000: unrecognized identifier 'u641'}} fxc-error {{X3000: unrecognized identifier 'uint64_t1'}} */
+  uint64_t2 u642 = g_u642;                                  /* fxc-error {{X3000: unrecognized identifier 'u642'}} fxc-error {{X3000: unrecognized identifier 'uint64_t2'}} */
+  uint64_t4 u644 = g_u644;                                  /* fxc-error {{X3000: unrecognized identifier 'u644'}} fxc-error {{X3000: unrecognized identifier 'uint64_t4'}} */
   min16float1 m16f1 = g_m16f1;
   min16float2 m16f2 = g_m16f2;
   min16float4 m16f4 = g_m16f4;
@@ -290,14 +290,14 @@ float4 test(): SV_Target {
   double4x1 d4x1 = g_d4x1;
   double1x4 d1x4 = g_d1x4;
   double4x4 d4x4 = g_d4x4;
-  int64_t1x1 i641x1 = g_i641x1;
-  int64_t4x1 i644x1 = g_i644x1;
-  int64_t1x4 i641x4 = g_i641x4;
-  int64_t4x4 i644x4 = g_i644x4;
-  uint64_t1x1 u641x1 = g_u641x1;
-  uint64_t4x1 u644x1 = g_u644x1;
-  uint64_t1x4 u641x4 = g_u641x4;
-  uint64_t4x4 u644x4 = g_u644x4;
+  int64_t1x1 i641x1 = g_i641x1;                             /* fxc-error {{X3000: unrecognized identifier 'i641x1'}} fxc-error {{X3000: unrecognized identifier 'int64_t1x1'}} */
+  int64_t4x1 i644x1 = g_i644x1;                             /* fxc-error {{X3000: unrecognized identifier 'i644x1'}} fxc-error {{X3000: unrecognized identifier 'int64_t4x1'}} */
+  int64_t1x4 i641x4 = g_i641x4;                             /* fxc-error {{X3000: unrecognized identifier 'i641x4'}} fxc-error {{X3000: unrecognized identifier 'int64_t1x4'}} */
+  int64_t4x4 i644x4 = g_i644x4;                             /* fxc-error {{X3000: unrecognized identifier 'i644x4'}} fxc-error {{X3000: unrecognized identifier 'int64_t4x4'}} */
+  uint64_t1x1 u641x1 = g_u641x1;                            /* fxc-error {{X3000: unrecognized identifier 'u641x1'}} fxc-error {{X3000: unrecognized identifier 'uint64_t1x1'}} */
+  uint64_t4x1 u644x1 = g_u644x1;                            /* fxc-error {{X3000: unrecognized identifier 'u644x1'}} fxc-error {{X3000: unrecognized identifier 'uint64_t4x1'}} */
+  uint64_t1x4 u641x4 = g_u641x4;                            /* fxc-error {{X3000: unrecognized identifier 'u641x4'}} fxc-error {{X3000: unrecognized identifier 'uint64_t1x4'}} */
+  uint64_t4x4 u644x4 = g_u644x4;                            /* fxc-error {{X3000: unrecognized identifier 'u644x4'}} fxc-error {{X3000: unrecognized identifier 'uint64_t4x4'}} */
   min16float1x1 m16f1x1 = g_m16f1x1;
   min16float4x1 m16f4x1 = g_m16f4x1;
   min16float1x4 m16f1x4 = g_m16f1x4;
@@ -326,18 +326,18 @@ float4 test(): SV_Target {
   VERIFY_TYPES(float4x4, overload1(i4x4 * 1.5F));
   VERIFY_TYPES(float4x4, overload1(i4x4 * 1.5));
   VERIFY_TYPES(double2, overload1(i2 * 1.5L));
-  VERIFY_TYPES(uint64_t2, overload1(i2 * 2ULL));
-  VERIFY_TYPES(int64_t2, overload1(i2 * 2LL));
+  VERIFY_TYPES(uint64_t2, overload1(i2 * 2ULL));            /* fxc-error {{X3000: unrecognized identifier '_tmp_var_'}} fxc-error {{X3000: unrecognized identifier 'uint64_t2'}} */
+  VERIFY_TYPES(int64_t2, overload1(i2 * 2LL));  /* fxc-error {{X3000: unrecognized identifier '_tmp_var_'}} fxc-error {{X3000: unrecognized identifier 'int64_t2'}} */
   VERIFY_TYPES(float4x4, overload1(f4x4 * 2));
 
   // TODO: Should there be a narrowing warning here due to implicit cast of float to int type?
   VERIFY_TYPES(int4x4, overload2(i4x4, f));
   VERIFY_TYPES(int4x4, overload2(f, i4x4));
 
-  VERIFY_TYPES(uint64_t4x4, overload2(u644x4, d));
-  VERIFY_TYPES(uint64_t4x4, overload2(d, u644x4));
-  VERIFY_TYPES(int64_t4x4, overload2(i644x4, d));
-  VERIFY_TYPES(int64_t4x4, overload2(d, i644x4));
+  VERIFY_TYPES(uint64_t4x4, overload2(u644x4, d));          /* fxc-error {{X3000: unrecognized identifier '_tmp_var_'}} fxc-error {{X3000: unrecognized identifier 'uint64_t4x4'}} */
+  VERIFY_TYPES(uint64_t4x4, overload2(d, u644x4));          /* fxc-error {{X3000: unrecognized identifier '_tmp_var_'}} fxc-error {{X3000: unrecognized identifier 'uint64_t4x4'}} */
+  VERIFY_TYPES(int64_t4x4, overload2(i644x4, d));           /* fxc-error {{X3000: unrecognized identifier '_tmp_var_'}} fxc-error {{X3000: unrecognized identifier 'int64_t4x4'}} */
+  VERIFY_TYPES(int64_t4x4, overload2(d, i644x4));           /* fxc-error {{X3000: unrecognized identifier '_tmp_var_'}} fxc-error {{X3000: unrecognized identifier 'int64_t4x4'}} */
 
   // ambiguous:
   //VERIFY_TYPES(float4, overload2(f4, i4));
@@ -346,10 +346,10 @@ float4 test(): SV_Target {
   VERIFY_TYPES(float, overload2(1.0, f));
   VERIFY_TYPES(double, overload2(d, 1.0));
   VERIFY_TYPES(double, overload2(1.0, d));
-  VERIFY_TYPES(uint64_t, overload2(u64, 2));
-  VERIFY_TYPES(uint64_t, overload2(2, u64));
-  VERIFY_TYPES(int64_t, overload2(i64, 2));
-  VERIFY_TYPES(int64_t, overload2(2, i64));
+  VERIFY_TYPES(uint64_t, overload2(u64, 2));    /* fxc-error {{X3000: unrecognized identifier '_tmp_var_'}} fxc-error {{X3000: unrecognized identifier 'uint64_t'}} */
+  VERIFY_TYPES(uint64_t, overload2(2, u64));    /* fxc-error {{X3000: unrecognized identifier '_tmp_var_'}} fxc-error {{X3000: unrecognized identifier 'uint64_t'}} */
+  VERIFY_TYPES(int64_t, overload2(i64, 2));     /* fxc-error {{X3000: unrecognized identifier '_tmp_var_'}} fxc-error {{X3000: unrecognized identifier 'int64_t'}} */
+  VERIFY_TYPES(int64_t, overload2(2, i64));     /* fxc-error {{X3000: unrecognized identifier '_tmp_var_'}} fxc-error {{X3000: unrecognized identifier 'int64_t'}} */
 
   i4 = i;
   /*verify-ast
@@ -360,13 +360,13 @@ float4 test(): SV_Target {
         `-DeclRefExpr <col:8> 'int' lvalue Var 'i' 'int'
   */
 
-  u64 = d;
+  u64 = d;                                      /* fxc-error {{X3004: undeclared identifier 'u64'}} */
   /*verify-ast
     BinaryOperator <col:3, col:9> 'uint64_t':'unsigned long long' '='
     |-DeclRefExpr <col:3> 'uint64_t':'unsigned long long' lvalue Var 'u64' 'uint64_t':'unsigned long long'
     `-ImplicitCastExpr <col:9> 'uint64_t':'unsigned long long' <FloatingToIntegral>
       `-ImplicitCastExpr <col:9> 'double' <LValueToRValue>
-        `-DeclRefExpr <col:9> 'double' lvalue Var 0x1627fd8 'd' 'double'
+        `-DeclRefExpr <col:9> 'double' lvalue Var 'd' 'double'
   */
   i4 = i1x4;
   /*verify-ast
@@ -487,7 +487,7 @@ float4 test(): SV_Target {
   /*verify-ast
     BinaryOperator <col:3, col:7> 'float' '='
     |-DeclRefExpr <col:3> 'float' lvalue Var 'f' 'float'
-    `-ImplicitCastExpr <col:7> 'float' <FloatingCast>
+    `-ImplicitCastExpr <col:7> 'float' <IntegralToFloating>
       `-ImplicitCastExpr <col:7> 'bool' <LValueToRValue>
         `-DeclRefExpr <col:7> 'bool' lvalue Var 'b' 'bool'
   */
@@ -495,7 +495,7 @@ float4 test(): SV_Target {
   /*verify-ast
     BinaryOperator <col:3, col:7> 'float' '='
     |-DeclRefExpr <col:3> 'float' lvalue Var 'f' 'float'
-    `-ImplicitCastExpr <col:7> 'float' <FloatingCast>
+    `-ImplicitCastExpr <col:7> 'float' <IntegralToFloating>
       `-ImplicitCastExpr <col:7> 'bool' <HLSLVectorToScalarCast>
         `-ImplicitCastExpr <col:7> 'vector<bool, 1>':'vector<bool, 1>' <HLSLVectorTruncationCast>
           `-ImplicitCastExpr <col:7> 'bool4':'vector<bool, 4>' <LValueToRValue>
@@ -533,7 +533,7 @@ float4 test(): SV_Target {
   /*verify-ast
     BinaryOperator <col:3, col:13> 'float4':'vector<float, 4>' '='
     |-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
-    `-BinaryOperator <col:8, col:13> 'vector<float, 4>' '*'
+    `-BinaryOperator <col:8, col:13> 'vector<float, 4>':'vector<float, 4>' '*'
       |-ImplicitCastExpr <col:8> 'vector<float, 4>' <HLSLCC_IntegralToFloating>
       | `-ImplicitCastExpr <col:8> 'int4':'vector<int, 4>' <LValueToRValue>
       |   `-DeclRefExpr <col:8> 'int4':'vector<int, 4>' lvalue Var 'i4' 'int4':'vector<int, 4>'
@@ -543,50 +543,50 @@ float4 test(): SV_Target {
   */
   m16f = 0.5 * m16f;
   /*verify-ast
-    BinaryOperator <col:3, col:16> 'min16float':'__fp16' '='
-    |-DeclRefExpr <col:3> 'min16float':'__fp16' lvalue Var 'm16f' 'min16float':'__fp16'
-    `-BinaryOperator <col:10, col:16> '__fp16' '*'
-      |-ImplicitCastExpr <col:10> '__fp16' <FloatingCast>
+    BinaryOperator <col:3, col:16> 'min16float':'min16float' '='
+    |-DeclRefExpr <col:3> 'min16float':'min16float' lvalue Var 'm16f' 'min16float':'min16float'
+    `-BinaryOperator <col:10, col:16> 'min16float':'min16float' '*'
+      |-ImplicitCastExpr <col:10> 'min16float':'min16float' <FloatingCast>
       | `-FloatingLiteral <col:10> 'literal float' 5.000000e-01
-      `-ImplicitCastExpr <col:16> 'min16float':'__fp16' <LValueToRValue>
-        `-DeclRefExpr <col:16> 'min16float':'__fp16' lvalue Var 'm16f' 'min16float':'__fp16'
+      `-ImplicitCastExpr <col:16> 'min16float':'min16float' <LValueToRValue>
+        `-DeclRefExpr <col:16> 'min16float':'min16float' lvalue Var 'm16f' 'min16float':'min16float'
   */
   m16f = 0.5F * m16f;                           /* expected-warning {{conversion from larger type 'float' to smaller type 'min16float', possible loss of data}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
   /*verify-ast
-    BinaryOperator <col:3, col:17> 'min16float':'__fp16' '='
-    |-DeclRefExpr <col:3> 'min16float':'__fp16' lvalue Var 'm16f' 'min16float':'__fp16'
-    `-ImplicitCastExpr <col:10, col:17> 'min16float':'__fp16' <FloatingCast>
+    BinaryOperator <col:3, col:17> 'min16float':'min16float' '='
+    |-DeclRefExpr <col:3> 'min16float':'min16float' lvalue Var 'm16f' 'min16float':'min16float'
+    `-ImplicitCastExpr <col:10, col:17> 'min16float':'min16float' <FloatingCast>
       `-BinaryOperator <col:10, col:17> 'float' '*'
         |-FloatingLiteral <col:10> 'float' 5.000000e-01
         `-ImplicitCastExpr <col:17> 'float' <FloatingCast>
-          `-ImplicitCastExpr <col:17> 'min16float':'__fp16' <LValueToRValue>
-            `-DeclRefExpr <col:17> 'min16float':'__fp16' lvalue Var 'm16f' 'min16float':'__fp16'
+          `-ImplicitCastExpr <col:17> 'min16float':'min16float' <LValueToRValue>
+            `-DeclRefExpr <col:17> 'min16float':'min16float' lvalue Var 'm16f' 'min16float':'min16float'
   */
   m16f = 0.5L * m16f;                           /* expected-warning {{conversion from larger type 'double' to smaller type 'min16float', possible loss of data}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
   /*verify-ast
-    BinaryOperator <col:3, col:17> 'min16float':'__fp16' '='
-    |-DeclRefExpr <col:3> 'min16float':'__fp16' lvalue Var 'm16f' 'min16float':'__fp16'
-    `-ImplicitCastExpr <col:10, col:17> 'min16float':'__fp16' <FloatingCast>
+    BinaryOperator <col:3, col:17> 'min16float':'min16float' '='
+    |-DeclRefExpr <col:3> 'min16float':'min16float' lvalue Var 'm16f' 'min16float':'min16float'
+    `-ImplicitCastExpr <col:10, col:17> 'min16float':'min16float' <FloatingCast>
       `-BinaryOperator <col:10, col:17> 'double' '*'
         |-FloatingLiteral <col:10> 'double' 5.000000e-01
         `-ImplicitCastExpr <col:17> 'double' <FloatingCast>
-          `-ImplicitCastExpr <col:17> 'min16float':'__fp16' <LValueToRValue>
-            `-DeclRefExpr <col:17> 'min16float':'__fp16' lvalue Var 'm16f' 'min16float':'__fp16'
+          `-ImplicitCastExpr <col:17> 'min16float':'min16float' <LValueToRValue>
+            `-DeclRefExpr <col:17> 'min16float':'min16float' lvalue Var 'm16f' 'min16float':'min16float'
   */
-  m16f4x4 = i4x4 * (m16f + 1);                  /* fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
+  m16f4x4 = i4x4 * (m16f + 1);                  /* expected-warning {{conversion from larger type 'int4x4' to smaller type 'matrix<min16float, 4, 4>', possible loss of data}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
   /*verify-ast
     BinaryOperator <col:3, col:29> 'min16float4x4':'matrix<min16float, 4, 4>' '='
     |-DeclRefExpr <col:3> 'min16float4x4':'matrix<min16float, 4, 4>' lvalue Var 'm16f4x4' 'min16float4x4':'matrix<min16float, 4, 4>'
-    `-BinaryOperator <col:13, col:29> 'matrix<min16float, 4, 4>' '*'
+    `-BinaryOperator <col:13, col:29> 'matrix<min16float, 4, 4>':'matrix<min16float, 4, 4>' '*'
       |-ImplicitCastExpr <col:13> 'matrix<min16float, 4, 4>' <HLSLCC_IntegralToFloating>
       | `-ImplicitCastExpr <col:13> 'int4x4':'matrix<int, 4, 4>' <LValueToRValue>
       |   `-DeclRefExpr <col:13> 'int4x4':'matrix<int, 4, 4>' lvalue Var 'i4x4' 'int4x4':'matrix<int, 4, 4>'
       `-ImplicitCastExpr <col:20, col:29> 'matrix<min16float, 4, 4>':'matrix<min16float, 4, 4>' <HLSLMatrixSplat>
-        `-ParenExpr <col:20, col:29> '__fp16'
-          `-BinaryOperator <col:21, col:28> '__fp16' '+'
-            |-ImplicitCastExpr <col:21> 'min16float':'__fp16' <LValueToRValue>
-            | `-DeclRefExpr <col:21> 'min16float':'__fp16' lvalue Var 'm16f' 'min16float':'__fp16'
-            `-ImplicitCastExpr <col:28> '__fp16' <IntegralToFloating>
+        `-ParenExpr <col:20, col:29> 'min16float':'min16float'
+          `-BinaryOperator <col:21, col:28> 'min16float':'min16float' '+'
+            |-ImplicitCastExpr <col:21> 'min16float':'min16float' <LValueToRValue>
+            | `-DeclRefExpr <col:21> 'min16float':'min16float' lvalue Var 'm16f' 'min16float':'min16float'
+            `-ImplicitCastExpr <col:28> 'min16float':'min16float' <IntegralToFloating>
               `-IntegerLiteral <col:28> 'literal int' 1
   */
   VERIFY_TYPES(min16float4x4, m16f4x4 * (0.5 + 1));
@@ -594,11 +594,11 @@ float4 test(): SV_Target {
   /*verify-ast
     BinaryOperator <col:3, col:31> 'min16float4x4':'matrix<min16float, 4, 4>' '='
     |-DeclRefExpr <col:3> 'min16float4x4':'matrix<min16float, 4, 4>' lvalue Var 'm16f4x4' 'min16float4x4':'matrix<min16float, 4, 4>'
-    `-BinaryOperator <col:13, col:31> 'matrix<min16float, 4, 4>' '*'
+    `-BinaryOperator <col:13, col:31> 'min16float4x4':'matrix<min16float, 4, 4>' '*'
       |-ImplicitCastExpr <col:13> 'min16float4x4':'matrix<min16float, 4, 4>' <LValueToRValue>
       | `-DeclRefExpr <col:13> 'min16float4x4':'matrix<min16float, 4, 4>' lvalue Var 'm16f4x4' 'min16float4x4':'matrix<min16float, 4, 4>'
       `-ImplicitCastExpr <col:23, col:31> 'matrix<min16float, 4, 4>':'matrix<min16float, 4, 4>' <HLSLMatrixSplat>
-        `-ImplicitCastExpr <col:23, col:31> 'min16float':'__fp16' <FloatingCast>
+        `-ImplicitCastExpr <col:23, col:31> 'min16float':'min16float' <FloatingCast>
           `-ParenExpr <col:23, col:31> 'literal float'
             `-BinaryOperator <col:24, col:30> 'literal float' '+'
               |-FloatingLiteral <col:24> 'literal float' 5.000000e-01
@@ -617,33 +617,7 @@ float4 test(): SV_Target {
             `-DeclRefExpr <col:7> 'int4':'vector<int, 4>' lvalue Var 'i4' 'int4':'vector<int, 4>'
   */
 
-  // TODO: FXC fails this case, but passes other similar cases.  What should we do?
-  i.x = f4 + f1x4 * f4x1 / i1;                  /* expected-warning {{implicit truncation of vector type}} fxc-error {{X3020: type mismatch}} */
-  /*verify-ast
-    BinaryOperator <col:3, col:28> 'int' '='
-    |-HLSLVectorElementExpr <col:3, col:5> 'int' lvalue vectorcomponent x
-    | `-ImplicitCastExpr <col:3> 'vector<int, 1>':'vector<int, 1>' lvalue <HLSLVectorSplat>
-    |   `-DeclRefExpr <col:3> 'int' lvalue Var 'i' 'int'
-    `-ImplicitCastExpr <col:9, col:28> 'int' <FloatingToIntegral>
-      `-ImplicitCastExpr <col:9, col:28> 'float' <HLSLVectorToScalarCast>
-        `-ImplicitCastExpr <col:9, col:28> 'vector<float, 1>':'vector<float, 1>' <HLSLVectorTruncationCast>
-          `-BinaryOperator <col:9, col:28> 'vector<float, 4>' '+'
-            |-ImplicitCastExpr <col:9> 'float4':'vector<float, 4>' <LValueToRValue>
-            | `-DeclRefExpr <col:9> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
-            `-BinaryOperator <col:14, col:28> 'vector<float, 4>' '/'
-              |-BinaryOperator <col:14, col:21> 'vector<float, 4>' '*'
-              | |-ImplicitCastExpr <col:14> 'vector<float, 4>':'vector<float, 4>' <HLSLMatrixToVectorCast>
-              | | `-ImplicitCastExpr <col:14> 'float1x4':'matrix<float, 1, 4>' <LValueToRValue>
-              | |   `-DeclRefExpr <col:14> 'float1x4':'matrix<float, 1, 4>' lvalue Var 'f1x4' 'float1x4':'matrix<float, 1, 4>'
-              | `-ImplicitCastExpr <col:21> 'vector<float, 4>':'vector<float, 4>' <HLSLMatrixToVectorCast>
-              |   `-ImplicitCastExpr <col:21> 'float4x1':'matrix<float, 4, 1>' <LValueToRValue>
-              |     `-DeclRefExpr <col:21> 'float4x1':'matrix<float, 4, 1>' lvalue Var 'f4x1' 'float4x1':'matrix<float, 4, 1>'
-              `-ImplicitCastExpr <col:28> 'vector<float, 4>':'vector<float, 4>' <HLSLVectorSplat>
-                `-ImplicitCastExpr <col:28> 'float' <IntegralToFloating>
-                  `-ImplicitCastExpr <col:28> 'int' <HLSLVectorToScalarCast>
-                    `-ImplicitCastExpr <col:28> 'int1':'vector<int, 1>' <LValueToRValue>
-                      `-DeclRefExpr <col:28> 'int1':'vector<int, 1>' lvalue Var 'i1' 'int1':'vector<int, 1>'
-  */
+  i.x = f4 + f1x4 * f4x1 / i1;                  /* expected-error {{cannot convert from 'float4x1' to 'float1x4'}} fxc-error {{X3020: type mismatch}} */
 
   // TODO: fxc passes the following (i4x1 should implicitly cast to float4 for mul op)
   f4x4._m02_m11_m20 = i4x1 * f4;                /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
@@ -653,7 +627,7 @@ float4 test(): SV_Target {
     | `-DeclRefExpr <col:3> 'float4x4':'matrix<float, 4, 4>' lvalue Var 'f4x4' 'float4x4':'matrix<float, 4, 4>'
     `-ImplicitCastExpr <col:23, col:30> 'vector<float, 3>':'vector<float, 3>' <HLSLMatrixToVectorCast>
       `-ImplicitCastExpr <col:23, col:30> 'matrix<float, 3, 1>':'matrix<float, 3, 1>' <HLSLMatrixTruncationCast>
-        `-BinaryOperator <col:23, col:30> 'matrix<float, 4, 1>' '*'
+        `-BinaryOperator <col:23, col:30> 'matrix<float, 4, 1>':'matrix<float, 4, 1>' '*'
           |-ImplicitCastExpr <col:23> 'matrix<float, 4, 1>' <HLSLCC_IntegralToFloating>
           | `-ImplicitCastExpr <col:23> 'int4x1':'matrix<int, 4, 1>' <LValueToRValue>
           |   `-DeclRefExpr <col:23> 'int4x1':'matrix<int, 4, 1>' lvalue Var 'i4x1' 'int4x1':'matrix<int, 4, 1>'
@@ -668,7 +642,7 @@ float4 test(): SV_Target {
     BinaryOperator <col:3, col:15> 'float3':'vector<float, 3>' '='
     |-DeclRefExpr <col:3> 'float3':'vector<float, 3>' lvalue Var 'f3' 'float3':'vector<float, 3>'
     `-ImplicitCastExpr <col:8, col:15> 'vector<float, 3>':'vector<float, 3>' <HLSLMatrixToVectorCast>
-      `-BinaryOperator <col:8, col:15> 'matrix<float, 3, 1>' '*'
+      `-BinaryOperator <col:8, col:15> 'matrix<float, 3, 1>':'matrix<float, 3, 1>' '*'
         |-ImplicitCastExpr <col:8> 'matrix<float, 3, 1>' <HLSLCC_IntegralToFloating>
         | `-ImplicitCastExpr <col:8> 'int3x1':'matrix<int, 3, 1>' <LValueToRValue>
         |   `-DeclRefExpr <col:8> 'int3x1':'matrix<int, 3, 1>' lvalue Var 'i3x1' 'int3x1':'matrix<int, 3, 1>'
@@ -685,8 +659,8 @@ float4 test(): SV_Target {
     |-DeclRefExpr <col:3> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
     `-ConditionalOperator <col:8, col:25> 'vector<bool, 4>'
       |-ImplicitCastExpr <col:8, col:16> 'vector<bool, 4>' <HLSLCC_IntegralToBoolean>
-      | `-ParenExpr <col:8, col:16> 'vector<int, 4>'
-      |   `-BinaryOperator <col:9, col:14> 'vector<int, 4>' '*'
+      | `-ParenExpr <col:8, col:16> 'vector<int, 4>':'vector<int, 4>'
+      |   `-BinaryOperator <col:9, col:14> 'vector<int, 4>':'vector<int, 4>' '*'
       |     |-ImplicitCastExpr <col:9> 'vector<int, 4>' <HLSLCC_IntegralCast>
       |     | `-ImplicitCastExpr <col:9> 'bool4':'vector<bool, 4>' <LValueToRValue>
       |     |   `-DeclRefExpr <col:9> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
@@ -734,10 +708,10 @@ bool1 stresstest() {
                                 `-ParenExpr <col:24, col:765> 'vector<bool, 4>'
                                   `-ConditionalOperator <col:25, col:764> 'vector<bool, 4>'
                                     |-ImplicitCastExpr <col:25, col:457> 'vector<bool, 4>' <HLSLCC_IntegralToBoolean>
-                                    | `-ParenExpr <col:25, col:457> 'vector<int, 4>'
-                                    |   `-BinaryOperator <col:26, col:456> 'vector<int, 4>' '*'
-                                    |     |-ParenExpr <col:26, col:281> 'vector<int, 4>'
-                                    |     | `-BinaryOperator <col:27, col:280> 'vector<int, 4>' '+'
+                                    | `-ParenExpr <col:25, col:457> 'vector<int, 4>':'vector<int, 4>'
+                                    |   `-BinaryOperator <col:26, col:456> 'vector<int, 4>':'vector<int, 4>' '*'
+                                    |     |-ParenExpr <col:26, col:281> 'vector<int, 4>':'vector<int, 4>'
+                                    |     | `-BinaryOperator <col:27, col:280> 'vector<int, 4>':'vector<int, 4>' '+'
                                     |     |   |-ImplicitCastExpr <col:27, col:52> 'vector<int, 4>' <HLSLCC_IntegralCast>
                                     |     |   | `-ParenExpr <col:27, col:52> 'bool4':'vector<bool, 4>'
                                     |     |   |   `-CStyleCastExpr <col:28, col:51> 'bool4':'vector<bool, 4>' <NoOp>
@@ -749,16 +723,16 @@ bool1 stresstest() {
                                     |     |   |             | `-DeclRefExpr <col:36> 'int' lvalue Var 'VarTwo' 'int'
                                     |     |   |             `-ImplicitCastExpr <col:45> 'int' <LValueToRValue>
                                     |     |   |               `-DeclRefExpr <col:45> 'int' lvalue Var 'VarTwo' 'int'
-                                    |     |   `-ParenExpr <col:56, col:280> 'vector<int, 4>'
-                                    |     |     `-BinaryOperator <col:57, col:279> 'vector<int, 4>' '+'
+                                    |     |   `-ParenExpr <col:56, col:280> 'vector<int, 4>':'vector<int, 4>'
+                                    |     |     `-BinaryOperator <col:57, col:279> 'vector<int, 4>':'vector<int, 4>' '+'
                                     |     |       |-ImplicitCastExpr <col:57, col:146> 'vector<int, 4>' <HLSLCC_IntegralCast>
                                     |     |       | `-ParenExpr <col:57, col:146> 'vector<bool, 4>'
                                     |     |       |   `-ConditionalOperator <col:58, col:145> 'vector<bool, 4>'
                                     |     |       |     |-ImplicitCastExpr <col:58, col:98> 'vector<bool, 4>' <HLSLCC_IntegralToBoolean>
-                                    |     |       |     | `-ParenExpr <col:58, col:98> 'vector<int, 4>'
-                                    |     |       |     |   `-BinaryOperator <col:59, col:91> 'vector<int, 4>' '*'
-                                    |     |       |     |     |-ParenExpr <col:59, col:87> 'vector<int, 4>'
-                                    |     |       |     |     | `-BinaryOperator <col:60, col:80> 'vector<int, 4>' '*'
+                                    |     |       |     | `-ParenExpr <col:58, col:98> 'vector<int, 4>':'vector<int, 4>'
+                                    |     |       |     |   `-BinaryOperator <col:59, col:91> 'vector<int, 4>':'vector<int, 4>' '*'
+                                    |     |       |     |     |-ParenExpr <col:59, col:87> 'vector<int, 4>':'vector<int, 4>'
+                                    |     |       |     |     | `-BinaryOperator <col:60, col:80> 'vector<int, 4>':'vector<int, 4>' '*'
                                     |     |       |     |     |   |-ImplicitCastExpr <col:60, col:76> 'vector<int, 4>' <HLSLCC_IntegralCast>
                                     |     |       |     |     |   | `-ParenExpr <col:60, col:76> 'bool4':'vector<bool, 4>'
                                     |     |       |     |     |   |   `-CStyleCastExpr <col:61, col:68> 'bool4':'vector<bool, 4>' <NoOp>
@@ -811,7 +785,7 @@ bool1 stresstest() {
                                     |     |                         |       `-DeclRefExpr <col:208> 'int' lvalue Var 'VarTwo' 'int'
                                     |     |                         `-ParenExpr <col:218, col:276> 'float'
                                     |     |                           `-CStyleCastExpr <col:219, col:275> 'float' <NoOp>
-                                    |     |                             `-ImplicitCastExpr <col:226, col:275> 'float' <FloatingCast>
+                                    |     |                             `-ImplicitCastExpr <col:226, col:275> 'float' <IntegralToFloating>
                                     |     |                               `-HLSLVectorElementExpr <col:226, col:275> 'bool' z
                                     |     |                                 `-ParenExpr <col:226, col:273> 'vector<bool, 3>'
                                     |     |                                   `-ConditionalOperator <col:227, col:272> 'vector<bool, 3>'
@@ -999,13 +973,13 @@ bool1 stresstest() {
                                                     |     | `-DeclRefExpr <col:703> 'float' lvalue Var 'VarZero' 'float'
                                                     |     `-ParenExpr <col:713, col:730> 'float'
                                                     |       `-CStyleCastExpr <col:714, col:729> 'float' <NoOp>
-                                                    |         `-ImplicitCastExpr <col:721, col:729> 'float' <FloatingCast>
+                                                    |         `-ImplicitCastExpr <col:721, col:729> 'float' <IntegralToFloating>
                                                     |           `-ImplicitCastExpr <col:721, col:729> 'bool' <LValueToRValue>
                                                     |             `-HLSLVectorElementExpr <col:721, col:729> 'bool' lvalue vectorcomponent z
                                                     |               `-DeclRefExpr <col:721> 'bool4':'vector<bool, 4>' lvalue Var 'VarNine' 'bool4':'vector<bool, 4>'
                                                     |-ParenExpr <col:735, col:751> 'float'
                                                     | `-CStyleCastExpr <col:736, col:743> 'float' <NoOp>
-                                                    |   `-ImplicitCastExpr <col:743> 'float' <FloatingCast>
+                                                    |   `-ImplicitCastExpr <col:743> 'float' <IntegralToFloating>
                                                     |     `-ImplicitCastExpr <col:743> 'bool' <LValueToRValue>
                                                     |       `-DeclRefExpr <col:743> 'bool' lvalue Var 'VarThree' 'bool'
                                                     `-ImplicitCastExpr <col:755> 'float' <LValueToRValue>
