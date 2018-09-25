@@ -11,6 +11,7 @@
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/WinFunctions.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/LLVMContext.h"
