@@ -27,6 +27,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/ADT/APSInt.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -2113,19 +2114,130 @@ Value *TranslateStep(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateSelect(cond, zero, one);
 }
 
+// Returns true if pow can be implemented using Fxc's mul-only code gen pattern.
+// Fxc uses the below rules when choosing mul-only code gen pattern to implement pow function.
+// Rule 1: Applicable only to power values in the range [INT32_MIN, INT32_MAX]
+// Rule 2: The maximum number of mul ops needed shouldn't exceed (2n+1) or (n+1) based on whether the power
+//         is a positive or a negative value. Here "n" is the number of scalar elements in power.
+// Rule 3: Power must be an exact value.
+// +----------+---------------------+------------------+
+// | BaseType | IsExponentPositive  | MaxMulOpsAllowed |
+// +----------+---------------------+------------------+
+// | float4x4 | True                |               33 |
+// | float4x4 | False               |               17 |
+// | float4x2 | True                |               17 |
+// | float4x2 | False               |                9 |
+// | float2x4 | True                |               17 |
+// | float2x4 | False               |                9 |
+// | float4   | True                |                9 |
+// | float4   | False               |                5 |
+// | float2   | True                |                5 |
+// | float2   | False               |                3 |
+// | float    | True                |                3 |
+// | float    | False               |                2 |
+// +----------+---------------------+------------------+
+
+bool CanUseFxcMulOnlyPatternForPow(IRBuilder<>& Builder, Value *x, Value *pow, int32_t& powI) {
+  // Applicable only when power is a literal.
+  if (!isa<ConstantDataVector>(pow) && !isa<ConstantFP>(pow)) {
+    return false;
+  }
+
+  // Only apply this code gen on splat values.
+  if (ConstantDataVector *cdv = dyn_cast<ConstantDataVector>(pow)) {
+    if (!hlsl::dxilutil::IsSplat(cdv)) {
+      return false;
+    }
+  }
+
+  APFloat powAPF = isa<ConstantDataVector>(pow) ?
+    cast<ConstantDataVector>(pow)->getElementAsAPFloat(0) : // should be a splat value
+    cast<ConstantFP>(pow)->getValueAPF();
+  APSInt powAPS(32, false);
+  bool isExact = false;
+  // Try converting float value of power to integer and also check if the float value is exact.
+  APFloat::opStatus status = powAPF.convertToInteger(powAPS, APFloat::rmTowardZero, &isExact);
+  if (status == APFloat::opStatus::opOK && isExact) {
+    powI = powAPS.getExtValue();
+    uint32_t powU = abs(powI);
+    int setBitCount = 0;
+    int maxBitSetPos = -1;
+    for (int i = 0; i < 32; i++) {
+      if ((powU >> i) & 1) {
+        setBitCount++;
+        maxBitSetPos = i;
+      }
+    }
+
+    DXASSERT(maxBitSetPos <= 30, "msb should always be zero.");
+    unsigned numElem = isa<ConstantDataVector>(pow) ? x->getType()->getVectorNumElements() : 1;
+    int mulOpThreshold = powI < 0 ? numElem + 1 : 2 * numElem + 1;
+    int mulOpNeeded = maxBitSetPos + setBitCount - 1;
+    return mulOpNeeded <= mulOpThreshold;
+  }
+
+  return false;
+}
+
+Value *TranslatePowUsingFxcMulOnlyPattern(IRBuilder<>& Builder, Value *x, const int32_t y) {
+  uint32_t absY = abs(y);
+  // If y is zero then always return 1.
+  if (absY == 0) {
+    return ConstantFP::get(x->getType(), 1);
+  }
+
+  int lastSetPos = -1;
+  Value *result = nullptr;
+  Value *mul = nullptr;
+  for (int i = 0; i < 32; i++) {
+    if ((absY >> i) & 1) {
+      for (int j = i; j > lastSetPos; j--) {
+        if (!mul) {
+          mul = x;
+        } else {
+          mul = Builder.CreateFMul(mul, mul);
+        }
+      }
+
+      result = (result == nullptr) ? mul : Builder.CreateFMul(result, mul);
+      lastSetPos = i;
+    }
+  }
+
+  // Compute reciprocal for negative power values.
+  if (y < 0) {
+    Value* constOne = ConstantFP::get(x->getType(), 1);
+    result = Builder.CreateFDiv(constOne, result);
+  }
+
+  return result;
+}
+
+Value *TranslatePowImpl(hlsl::OP *hlslOP, IRBuilder<>& Builder, Value *x, Value *y, bool isFXCCompatMode = false) {
+  // As applicable implement pow using only mul ops as done by Fxc.
+  int32_t p=0;
+  if (isFXCCompatMode && CanUseFxcMulOnlyPatternForPow(Builder, x, y, p)) {
+    return TranslatePowUsingFxcMulOnlyPattern(Builder, x, p);
+  }
+
+  // Default to log-mul-exp pattern if previous scenarios don't apply.
+  // t = log(x);
+  Value *logX =
+    TrivialDxilUnaryOperation(DXIL::OpCode::Log, x, hlslOP, Builder);
+  // t = y * t;
+  Value *mulY = Builder.CreateFMul(logX, y);
+  // pow = exp(t);
+  return TrivialDxilUnaryOperation(DXIL::OpCode::Exp, mulY, hlslOP, Builder);
+}
+
 Value *TranslatePow(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *x = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+  bool isFXCCompatMode = CI->getModule()->GetHLModule().GetHLOptions().bFXCCompatMode;
   IRBuilder<> Builder(CI);
-  // t = log(x);
-  Value *logX =
-      TrivialDxilUnaryOperation(DXIL::OpCode::Log, x, hlslOP, Builder);
-  // t = y * t;
-  Value *mulY = Builder.CreateFMul(logX, y);
-  // pow = exp(t);
-  return TrivialDxilUnaryOperation(DXIL::OpCode::Exp, mulY, hlslOP, Builder);
+  return TranslatePowImpl(hlslOP,Builder,x,y,isFXCCompatMode);
 }
 
 Value *TranslateFaceforward(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
