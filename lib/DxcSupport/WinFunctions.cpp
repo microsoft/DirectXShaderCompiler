@@ -98,6 +98,23 @@ HRESULT UInt32Mult(UINT a, UINT b, UINT *out) {
   return S_OK;
 }
 
+int strnicmp(const char *str1, const char *str2, size_t count) {
+  size_t i = 0;
+  for (; i < count && str1[i] && str2[i]; ++i) {
+    int d = std::tolower(str1[i]) - std::tolower(str2[i]);
+    if (d != 0)
+      return d;
+  }
+
+  if (i == count) {
+    // All 'count' characters matched.
+    return 0;
+  }
+
+  // str1 or str2 reached NULL before 'count' characters were compared.
+  return str1[i] - str2[i];
+}
+
 int _stricmp(const char *str1, const char *str2) {
   size_t i = 0;
   for (; str1[i] && str2[i]; ++i) {

@@ -26,6 +26,8 @@ HRESULT UIntAdd(UINT uAugend, UINT uAddend, UINT *puResult);
 HRESULT IntToUInt(int in, UINT *out);
 HRESULT SizeTToInt(size_t in, INT *out);
 HRESULT UInt32Mult(UINT a, UINT b, UINT *out);
+
+int strnicmp(const char *str1, const char *str2, size_t count);
 int _stricmp(const char *str1, const char *str2);
 int _wcsicmp(const wchar_t *str1, const wchar_t *str2);
 int _wcsnicmp(const wchar_t *str1, const wchar_t *str2, size_t n);

@@ -172,6 +172,7 @@
 #define _atoi64 atoll
 #define sprintf_s snprintf
 #define _strdup strdup
+#define _strnicmp strnicmp
 
 #define vsprintf_s vsprintf
 #define strcat_s strcat
