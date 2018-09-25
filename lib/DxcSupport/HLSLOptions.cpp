@@ -363,10 +363,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   }
 
-  opts.EnableBackCompatMode = Args.hasFlag(OPT_Gec, OPT_INVALID, false);
+  opts.EnableDX9CompatMode = Args.hasFlag(OPT_Gec, OPT_INVALID, false);
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
   if (ver.empty()) {
-    if (opts.EnableBackCompatMode)
+    if (opts.EnableDX9CompatMode)
       opts.HLSLVersion = 2016; // Default to max supported version with /Gec flag
     else
       opts.HLSLVersion = 2018; // Default to latest version
@@ -393,9 +393,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  if (opts.EnableBackCompatMode && opts.HLSLVersion > 2016) {
+  if (opts.EnableDX9CompatMode && opts.HLSLVersion > 2016) {
     errors << "/Gec is not supported with HLSLVersion " << opts.HLSLVersion;
     return 1;
+  }
+
+  if (opts.HLSLVersion <= 2016) {
+    opts.EnableFXCCompatMode = true;
   }
 
   // AssemblyCodeHex not supported (Fx)
