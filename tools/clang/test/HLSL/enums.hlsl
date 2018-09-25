@@ -156,9 +156,9 @@ int4 main() : SV_Target {
     unary1--;                                       /* expected-error {{numeric type expected}} */
     ++unary1;                                       /* expected-error {{numeric type expected}} */
     --unary1;                                       /* expected-error {{numeric type expected}} */
-    
-    int unaryInt = !unary0;                                       
-    unaryInt = ~unary0;                                        
+
+    int unaryInt = !unary0;
+    unaryInt = ~unary0;
     unaryInt = !unary1;                  /* expected-error {{numeric type expected}} */
     unaryInt = ~unary1;                  /* expected-error {{int or unsigned int type required}} */
 
@@ -198,16 +198,16 @@ int4 main() : SV_Target {
     float FaddU = MyEnumUInt::FOURU + 283.48f;
     float Fadd64 = MyEnum64::ZERO64  - 8471.0f;
 
-    if (MyEnum == ONE) 
+    if (MyEnum == ONE)
       ;
-    if (MyEnum != ONE) 
+    if (MyEnum != ONE)
       ;
-    if (MyEnum > ONE) 
+    if (MyEnum > ONE)
       ;
 
-    if (MyEnumClass == MyEnumClass::ONEC) 
+    if (MyEnumClass == MyEnumClass::ONEC)
       ;
-    if (MyEnumClass != MyEnumClass::ONEC) 
+    if (MyEnumClass != MyEnumClass::ONEC)
       ;
     if (MyEnumClass < MyEnumClass::ONEC) /* expected-error {{numeric type expected}} */
       ;

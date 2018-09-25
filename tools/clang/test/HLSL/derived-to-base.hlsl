@@ -56,7 +56,7 @@ float main() : A {
             `-DeclRefExpr <col:26> 'DerivedAgain' lvalue Var 'da2' 'DerivedAgain'
     */
 
-    da1          = (DerivedAgain)d; // expected-error {{cannot convert from 'Derived' to 'DerivedAgain'}}
+    da1          = (DerivedAgain)d; // expected-error {{cannot convert from 'Derived' to 'DerivedAgain'}} fxc-error {{X3017: cannot convert from 'struct Derived' to 'struct DerivedAgain'}}
 
     return 1.0;
 }

@@ -11,10 +11,10 @@ struct S {
 float main(S s:POSITION) : SV_Target {
     float4 planes3[] = {{ 1.0, 2.0, 3.0, 4.0 }};
     
-    int total = planes1.Length;	// expected-warning {{Length is deprecated}}
-    total += planes2.Length;  	// expected-warning {{Length is deprecated}}
-    total += planes3.Length;    // expected-warning {{Length is deprecated}}
-    total += s.planes.Length;   // expected-warning {{Length is deprecated}}
+    int total = planes1.Length;	// expected-warning {{Length is deprecated}} fxc-pass {{}}
+    total += planes2.Length;  	// expected-warning {{Length is deprecated}} fxc-pass {{}}
+    total += planes3.Length;    // expected-warning {{Length is deprecated}} fxc-pass {{}}
+    total += s.planes.Length;   // expected-warning {{Length is deprecated}} fxc-pass {{}}
 
     return total;
 }
