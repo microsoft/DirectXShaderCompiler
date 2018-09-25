@@ -2241,8 +2241,8 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     if (const uint32_t valueId = tryToEvaluateAsConst(expr))
       return SpirvEvalInfo(valueId).setConstant().setRValue();
 
-    const auto valueId =
-        castToInt(doExpr(subExpr), subExprType, toType, subExpr->getExprLoc());
+    const auto valueId = castToInt(loadIfGLValue(subExpr), subExprType, toType,
+                                   subExpr->getExprLoc());
     return SpirvEvalInfo(valueId).setRValue();
   }
   case CastKind::CK_FloatingCast:

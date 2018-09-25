@@ -342,6 +342,19 @@ void main() {
 // CHECK-NEXT: %switch_merge_8 = OpLabel
   }
 
-// CHECK-NEXT: OpReturn
-// CHECK-NEXT: OpFunctionEnd
+
+  //////////////////////////////////////////////////////////////////
+  // Using float as selector results in multiple casts in the AST //
+  //////////////////////////////////////////////////////////////////
+  float sel;
+// CHECK:      [[floatSelector:%\d+]] = OpLoad %float %sel
+// CHECK-NEXT:           [[sel:%\d+]] = OpConvertFToS %int [[floatSelector]]
+// CHECK-NEXT:                          OpSelectionMerge %switch_merge_9 None
+// CHECK-NEXT:                          OpSwitch [[sel]] %switch_merge_9 0 %switch_0_0
+  switch (sel) {
+  case 0:
+    result = 0;
+    break;
+  }
+
 }
