@@ -32,7 +32,7 @@ using namespace hlsl;
 namespace {
 // Decompose semantic name (eg FOO1=>FOO,1), change interp mode for SV_Position.
 // Return semantic index.
-unsigned UpateSemanticAndInterpMode(StringRef &semName,
+unsigned UpdateSemanticAndInterpMode(StringRef &semName,
                                     DXIL::InterpolationMode &mode,
                                     DXIL::SigPointKind kind,
                                     LLVMContext &Context) {
@@ -77,7 +77,7 @@ DxilSignatureElement *FindArgInSignature(Argument &arg,
                                          DxilSignature &sig) {
   // Match output ID.
   unsigned semIndex =
-      UpateSemanticAndInterpMode(semantic, interpMode, kind, arg.getContext());
+      UpdateSemanticAndInterpMode(semantic, interpMode, kind, arg.getContext());
 
   for (uint32_t i = 0; i < sig.GetElements().size(); i++) {
     DxilSignatureElement &SE = sig.GetElement(i);
@@ -242,7 +242,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
         "patch constant function");
     return;
   }
-  UpateSemanticAndInterpMode(semanticStr, interpMode, sigPoint->GetKind(),
+  UpdateSemanticAndInterpMode(semanticStr, interpMode, sigPoint->GetKind(),
                              arg.getContext());
 
   // Get Semantic interpretation, skipping if not in signature
