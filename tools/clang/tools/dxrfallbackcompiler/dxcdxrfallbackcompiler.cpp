@@ -635,7 +635,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Compile(
       shaderNames[i] = ws2s(pShaderNames[i]);
 
     // Link all the modules together into a single into library
-    int valMajor = 1, valMinor = 2; // TODO: Where to get these values?
+    int valMajor = 1, valMinor = 3; // TODO: Where to get these values?
     std::unique_ptr<Module> M;
     {
     DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
