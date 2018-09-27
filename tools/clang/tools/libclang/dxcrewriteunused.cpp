@@ -129,7 +129,8 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getLangOpts().HLSLVersion = (unsigned)opts.HLSLVersion;
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
-  compiler.getLangOpts().EnableBackCompatMode = opts.EnableBackCompatMode;
+  compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
+  compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
 
   PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
   if (rewrite != nullptr) {

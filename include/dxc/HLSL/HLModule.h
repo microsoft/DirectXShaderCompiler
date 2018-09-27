@@ -49,7 +49,7 @@ class RootSignatureHandle;
 struct HLOptions {
   HLOptions()
       : bDefaultRowMajor(false), bIEEEStrict(false), bDisableOptimizations(false),
-        bLegacyCBufferLoad(false), PackingStrategy(0), bBackCompatMode(0), unused(0) {
+        bLegacyCBufferLoad(false), PackingStrategy(0), bDX9CompatMode(0), bFXCCompatMode(0), unused(0) {
   }
   uint32_t GetHLOptionsRaw() const;
   void SetHLOptionsRaw(uint32_t data);
@@ -61,8 +61,9 @@ struct HLOptions {
   unsigned PackingStrategy         : 2;
   static_assert((unsigned)DXIL::PackingStrategy::Invalid < 4, "otherwise 2 bits is not enough to store PackingStrategy");
   unsigned bUseMinPrecision        : 1;
-  unsigned bBackCompatMode         : 1;
-  unsigned unused                  : 23;
+  unsigned bDX9CompatMode          : 1;
+  unsigned bFXCCompatMode          : 1;
+  unsigned unused                  : 22;
 };
 
 typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>> DxilFunctionPropsMap;

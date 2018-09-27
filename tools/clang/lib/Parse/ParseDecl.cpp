@@ -2177,7 +2177,7 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
   // global variable can be inside a global structure as a static member.
   // Check if the global is a static member and skip global const pass.
   // in backcompat mode, the check for global const is deferred to later stage in CGMSHLSLRuntime::FinishCodeGen()
-  bool CheckGlobalConst = getLangOpts().HLSL && getLangOpts().EnableBackCompatMode && getLangOpts().HLSLVersion <= 2016 ? false : true;
+  bool CheckGlobalConst = getLangOpts().HLSL && getLangOpts().EnableDX9CompatMode && getLangOpts().HLSLVersion <= 2016 ? false : true;
   if (NestedNameSpecifier *nameSpecifier = D.getCXXScopeSpec().getScopeRep()) {
     if (nameSpecifier->getKind() == NestedNameSpecifier::SpecifierKind::TypeSpec) {
       const Type *type = D.getCXXScopeSpec().getScopeRep()->getAsType();

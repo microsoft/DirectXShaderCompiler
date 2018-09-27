@@ -14,6 +14,7 @@
 #include <string>
 #include <memory>
 #include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Constants.h"
 
 namespace llvm {
 class Type;
@@ -92,6 +93,7 @@ namespace dxilutil {
   void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI, void *Context);
   // Returns true if type contains HLSL Object type (resource)
   bool ContainsHLSLObjectType(llvm::Type *Ty);
+  bool IsSplat(llvm::ConstantDataVector *cdv);
 }
 
 }
