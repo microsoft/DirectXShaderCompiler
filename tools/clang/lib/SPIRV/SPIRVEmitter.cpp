@@ -6859,8 +6859,17 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       }
     }
   }
-  if (!ptr)
-    ptr = doExpr(dest);
+  if (!ptr) {
+    const auto ptrInfo = doExpr(dest);
+    const auto sc = ptrInfo.getStorageClass();
+    if (sc == spv::StorageClass::Private || sc == spv::StorageClass::Function) {
+      emitError("using static variable or function scope variable in "
+                "interlocked operation is not allowed",
+                dest->getExprLoc());
+      return 0;
+    }
+    ptr = ptrInfo;
+  }
 
   const bool isCompareExchange =
       opcode == hlsl::IntrinsicOp::IOP_InterlockedCompareExchange;
