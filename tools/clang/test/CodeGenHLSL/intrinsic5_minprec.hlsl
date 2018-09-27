@@ -1,6 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: Round_z
+// CHECK: Round_ne
+// CHECK: fptosi
 // CHECK: IsInf
 // CHECK: IsNaN
 // CHECK: IsFinite

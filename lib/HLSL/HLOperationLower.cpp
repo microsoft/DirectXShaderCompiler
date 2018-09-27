@@ -605,9 +605,8 @@ Value *TranslateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
         ConstantVector::getSplat(Ty->getVectorNumElements(), toByteConst);
   }
   Value *byte4 = Builder.CreateFMul(toByteConst, val);
-  byte4 =
-      TrivialDxilUnaryOperation(OP::OpCode::Round_z, byte4, hlslOP, Builder);
-  return Builder.CreateBitCast(byte4, CI->getType());
+  byte4 = TrivialDxilUnaryOperation(OP::OpCode::Round_ne, byte4, hlslOP, Builder);
+  return Builder.CreateCast(Instruction::CastOps::FPToSI, byte4, CI->getType());
 }
 
 // Returns true if pow can be implemented using Fxc's mul-only code gen pattern.
