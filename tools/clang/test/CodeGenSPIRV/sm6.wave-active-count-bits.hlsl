@@ -7,6 +7,7 @@ struct S {
 };
 
 RWStructuredBuffer<S> values;
+RWStructuredBuffer<S> results;
 
 // CHECK: OpCapability GroupNonUniformBallot
 
@@ -14,7 +15,9 @@ RWStructuredBuffer<S> values;
 void main(uint3 id: SV_DispatchThreadID) {
     uint x = id.x;
 
-// CHECK:  {{%\d+}} = OpGroupNonUniformBallotBitCount %uint %int_3 Reduce {{%\d+}}
-    values[x].val = WaveActiveCountBits(values[x].val == 0);
+// CHECK:         [[cmp:%\d+]] = OpIEqual %bool {{%\d+}} %uint_0
+// CHECK-NEXT: [[ballot:%\d+]] = OpGroupNonUniformBallot %v4uint %int_3 [[cmp]]
+// CHECK:             {{%\d+}} = OpGroupNonUniformBallotBitCount %uint %int_3 Reduce [[ballot]]
+    results[x].val = WaveActiveCountBits(values[x].val == 0);
 }
 
