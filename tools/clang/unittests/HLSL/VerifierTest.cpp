@@ -20,7 +20,7 @@
 #include "WexTestClass.h"
 #define TEST_CLASS_DERIVATION
 #else
-#define TEST_DERIVATION : public ::testing::Test
+#define TEST_CLASS_DERIVATION : public ::testing::Test
 #endif
 #include "HlslTestUtils.h"
 
