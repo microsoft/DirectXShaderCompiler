@@ -48,33 +48,66 @@ HlslVerifierTestCpp = os.path.expandvars(r'${HLSL_SRC_DIR}\tools\clang\unittests
 HlslDataDir = os.path.expandvars(r'${HLSL_SRC_DIR}\tools\clang\test\HLSL')
 HlslBinDir = os.path.expandvars(r'${HLSL_BLD_DIR}\Debug\bin')
 VerifierTests = {
-    'RunAttributes': "attributes.hlsl",
-#    'RunCppErrors': "cpp-errors.hlsl",             # This test doesn't work properly in HLSL (fxc mode)
-    'RunEnums' : "enums.hlsl",
-    'RunIndexingOperator': "indexing-operator.hlsl",
-    'RunIntrinsicExamples': "intrinsic-examples.hlsl",
-    'RunMatrixAssignments': "matrix-assignments.hlsl",
-    'RunMatrixSyntax': "matrix-syntax.hlsl",
-    'RunMoreOperators': "more-operators.hlsl",
-    'RunObjectOperators': "object-operators.hlsl",
-    'RunPackReg': "packreg.hlsl",
+    'RunAttributes': 'attributes.hlsl',
+    'RunBadInclude': 'bad-include.hlsl',
+    'RunBinopDims': 'binop-dims.hlsl',
+    'RunCXX11Attributes': 'cxx11-attributes.hlsl',
+    'RunConstAssign': 'const-assign.hlsl',
+    'RunConstDefault': 'const-default.hlsl',
+    'RunConstExpr': 'const-expr.hlsl',
+    'RunCppErrors': 'cpp-errors.hlsl',
+    'RunCppErrorsHV2015': 'cpp-errors-hv2015.hlsl',
+    'RunDerivedToBaseCasts': 'derived-to-base.hlsl',
+    'RunEffectsSyntax': 'effects-syntax.hlsl',
+    'RunEnums': 'enums.hlsl',
+    'RunFunctions': 'functions.hlsl',
+    'RunImplicitCasts': 'implicit-casts.hlsl',
+    'RunIndexingOperator': 'indexing-operator.hlsl',
+    'RunIntrinsicExamples': 'intrinsic-examples.hlsl',
+    'RunLiterals': 'literals.hlsl',
+    'RunMatrixAssignments': 'matrix-assignments.hlsl',
+    'RunMatrixSyntax': 'matrix-syntax.hlsl',
+    'RunMatrixSyntaxExactPrecision': 'matrix-syntax-exact-precision.hlsl',
+    'RunMoreOperators': 'more-operators.hlsl',
+    'RunObjectOperators': 'object-operators.hlsl',
+    'RunPackReg': 'packreg.hlsl',
     'RunRayTracings': "raytracing.hlsl",
-    'RunScalarAssignments': "scalar-assignments.hlsl",
-    'RunScalarOperatorsAssign': "scalar-operators-assign.hlsl",
-    'RunScalarOperatorsAssignExactPrecision': "scalar-operators-assign.hlsl",
-    'RunScalarOperators': "scalar-operators.hlsl",
-    'RunStructAssignments': "struct-assignments.hlsl",
-    'RunTemplateChecks': "template-checks.hlsl",
-    'RunVarmodsSyntax': "varmods-syntax.hlsl",
-    'RunVectorAssignments': "vector-assignments.hlsl",
-    'RunVectorSyntaxMix': "vector-syntax-mix.c",
-    'RunVectorSyntax': "vector-syntax.hlsl",
-    'RunTypemodsSyntax': "typemods-syntax.hlsl",
-    'RunSemantics': "semantics.hlsl",
+    'RunScalarAssignments': 'scalar-assignments.hlsl',
+    'RunScalarAssignmentsExactPrecision': 'scalar-assignments-exact-precision.hlsl',
+    'RunScalarOperators': 'scalar-operators.hlsl',
+    'RunScalarOperatorsAssign': 'scalar-operators-assign.hlsl',
+    'RunScalarOperatorsAssignExactPrecision': 'scalar-operators-assign-exact-precision.hlsl',
+    'RunScalarOperatorsExactPrecision': 'scalar-operators-exact-precision.hlsl',
+    'RunSemantics': 'semantics.hlsl',
+    'RunString': 'string.hlsl',
+    'RunStructAssignments': 'struct-assignments.hlsl',
+    'RunTemplateChecks': 'template-checks.hlsl',
+    'RunTypemodsSyntax': 'typemods-syntax.hlsl',
+    'RunUint4Add3': 'uint4_add3.hlsl',
+    'RunVarmodsSyntax': 'varmods-syntax.hlsl',
+    'RunVectorAssignments': 'vector-assignments.hlsl',
+    'RunVectorConditional': 'vector-conditional.hlsl',
+    'RunVectorSyntax': 'vector-syntax.hlsl',
+    'RunVectorSyntaxExactPrecision': 'vector-syntax-exact-precision.hlsl',
+    'RunVectorSyntaxMix': 'vector-syntax-mix.hlsl',
+    'RunWave': 'wave.hlsl',
 }
 
 # The following test(s) do not work in fxc mode:
-fxcExcludedTests = ['RunCppErrors']
+fxcExcludedTests = [
+    'RunCppErrors',
+    'RunCppErrorsHV2015',
+    'RunCXX11Attributes',
+    'RunEnums',
+    'RunIntrinsicExamples',
+    'RunMatrixSyntaxExactPrecision',
+    'RunRayTracings',
+    'RunScalarAssignmentsExactPrecision',
+    'RunScalarOperatorsAssignExactPrecision',
+    'RunScalarOperatorsExactPrecision',
+    'RunVectorSyntaxExactPrecision',
+    'RunWave',
+]
 
 # rxRUN = re.compile(r'[ RUN      ] VerifierTest.(\w+)')	# gtest syntax
 rxRUN = re.compile(r'StartGroup: VerifierTest::(\w+)')		# TAEF syntax
@@ -543,7 +576,7 @@ class File(object):
             result[i] = line, diag_col, expected
 
         with open(result_filename, 'wt') as f:
-            f.write('\n'.join(map(lambda line, diag_col, expected: line, result)))
+            f.write('\n'.join(map(lambda (line, diag_col, expected): line, result)))
 
     def TryAst(self, result_filename=None):
         temp_filename = os.path.expandvars(r'${TEMP}\%s' % os.path.split(self.filename)[1])

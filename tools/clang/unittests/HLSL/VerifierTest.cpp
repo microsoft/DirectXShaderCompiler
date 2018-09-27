@@ -18,18 +18,16 @@
 
 #ifdef _WIN32
 #include "WexTestClass.h"
+#define TEST_CLASS_DERIVATION
+#else
+#define TEST_CLASS_DERIVATION : public ::testing::Test
 #endif
 #include "HlslTestUtils.h"
 
 using namespace std;
 
 // The test fixture.
-#ifdef _WIN32
-class VerifierTest {
-#else
-class VerifierTest : public ::testing::Test {
-#endif
-
+class VerifierTest TEST_CLASS_DERIVATION {
 public:
   BEGIN_TEST_CLASS(VerifierTest)
     TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -80,6 +78,7 @@ public:
   TEST_METHOD(RunUint4Add3)
   TEST_METHOD(RunBadInclude)
   TEST_METHOD(RunWave)
+  TEST_METHOD(RunBinopDims)
 
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -308,4 +307,8 @@ TEST_F(VerifierTest, RunBadInclude) {
 
 TEST_F(VerifierTest, RunWave) {
   CheckVerifiesHLSL(L"wave.hlsl");
+}
+
+TEST_F(VerifierTest, RunBinopDims) {
+  CheckVerifiesHLSL(L"binop-dims.hlsl");
 }

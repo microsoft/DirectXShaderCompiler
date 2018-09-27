@@ -111,14 +111,14 @@ float4 component_fun(uint input) {
     |-HLSLVectorElementExpr <col:3, col:10> 'vector<float, 3>':'vector<float, 3>' lvalue vectorcomponent rgb
     | `-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'output' 'float4':'vector<float, 4>'
     `-ConditionalOperator <col:16, col:105> 'vector<float, 3>'
-      |-ParenExpr <col:16, col:39> 'const bool'
-      | `-BinaryOperator <col:17, col:31> 'const bool' '<='
+      |-ParenExpr <col:16, col:39> 'vector<bool, 3>':'vector<bool, 3>'
+      | `-BinaryOperator <col:17, col:31> 'vector<bool, 3>':'vector<bool, 3>' '<='
       |   |-ImplicitCastExpr <col:17, col:24> 'vector<float, 3>':'vector<float, 3>' <LValueToRValue>
       |   | `-HLSLVectorElementExpr <col:17, col:24> 'vector<float, 3>':'vector<float, 3>' lvalue vectorcomponent rgb
       |   |   `-DeclRefExpr <col:17> 'float4':'vector<float, 4>' lvalue Var 'output' 'float4':'vector<float, 4>'
       |   `-ImplicitCastExpr <col:31> 'vector<float, 3>':'vector<float, 3>' <HLSLVectorSplat>
       |     `-FloatingLiteral <col:31> 'float' 4.045000e-02
-      |-BinaryOperator <col:43, col:56> 'vector<float, 3>' '/'
+      |-BinaryOperator <col:43, col:56> 'vector<float, 3>':'vector<float, 3>' '/'
       | |-ImplicitCastExpr <col:43, col:50> 'vector<float, 3>':'vector<float, 3>' <LValueToRValue>
       | | `-HLSLVectorElementExpr <col:43, col:50> 'vector<float, 3>':'vector<float, 3>' lvalue vectorcomponent rgb
       | |   `-DeclRefExpr <col:43> 'float4':'vector<float, 4>' lvalue Var 'output' 'float4':'vector<float, 4>'
@@ -127,9 +127,9 @@ float4 component_fun(uint input) {
       `-CallExpr <col:65, col:105> 'vector<float, 3>':'vector<float, 3>'
         |-ImplicitCastExpr <col:65> 'vector<float, 3> (*)(vector<float, 3>, vector<float, 3>)' <FunctionToPointerDecay>
         | `-DeclRefExpr <col:65> 'vector<float, 3> (vector<float, 3>, vector<float, 3>)' lvalue Function 'pow' 'vector<float, 3> (vector<float, 3>, vector<float, 3>)'
-        |-BinaryOperator <col:69, col:93> 'vector<float, 3>' '/'
-        | |-ParenExpr <col:69, col:89> 'vector<float, 3>'
-        | | `-BinaryOperator <col:70, col:83> 'vector<float, 3>' '+'
+        |-BinaryOperator <col:69, col:93> 'vector<float, 3>':'vector<float, 3>' '/'
+        | |-ParenExpr <col:69, col:89> 'vector<float, 3>':'vector<float, 3>'
+        | | `-BinaryOperator <col:70, col:83> 'vector<float, 3>':'vector<float, 3>' '+'
         | |   |-ImplicitCastExpr <col:70, col:77> 'vector<float, 3>':'vector<float, 3>' <LValueToRValue>
         | |   | `-HLSLVectorElementExpr <col:70, col:77> 'vector<float, 3>':'vector<float, 3>' lvalue vectorcomponent rgb
         | |   |   `-DeclRefExpr <col:70> 'float4':'vector<float, 4>' lvalue Var 'output' 'float4':'vector<float, 4>'
@@ -220,19 +220,19 @@ void fn_uint_oload3(inout uint u) { }
 void fn_uint_oload3(out uint u) { }
 
 // function redefinitions
-void fn_redef(min10float x) {}      /* expected-warning {{min10float is promoted to min16float}} */
-void fn_redef(min16float x) {}      /* */
+void fn_redef(min10float x) {}      /* expected-warning {{min10float is promoted to min16float}} fxc-pass {{}} */
+void fn_redef(min16float x) {}
 
 
-void fn_redef2(min12int x) {}       /* expected-warning {{min12int is promoted to min16int}} */
-void fn_redef2(min16int x) {}       /* */
+void fn_redef2(min12int x) {}       /* expected-warning {{min12int is promoted to min16int}} fxc-pass {{}} */
+void fn_redef2(min16int x) {}
 
-void fn_redef3(half x) {}           /* */
-void fn_redef3(float x) {}          /* */
+void fn_redef3(half x) {}
+void fn_redef3(float x) {}
 
 typedef min16int My16Int;
-void fn_redef4(min16int x) {}       /* expected-note {{previous definition is here}} */
-void fn_redef4(My16Int x) {}        /* expected-error {{redefinition of 'fn_redef4'}} */
+void fn_redef4(min16int x) {}       /* expected-note {{previous definition is here}} fxc-pass {{}} */
+void fn_redef4(My16Int x) {}        /* expected-error {{redefinition of 'fn_redef4'}} fxc-pass {{}} */
 
 void inout_calls() {
   uint u = 1;

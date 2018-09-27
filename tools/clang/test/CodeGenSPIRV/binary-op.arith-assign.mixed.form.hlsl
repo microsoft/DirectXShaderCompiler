@@ -50,13 +50,9 @@ void main() {
     i *= s;
 
     // Use OpVectorTimesScalar for float1xN * float
-    // Sadly, the AST is constructed differently for 'float1xN *= float' cases.
-    // So we are not able generate an OpVectorTimesScalar here.
-    // TODO: Minor issue. Fix this later maybe.
 // CHECK-NEXT: [[s6:%\d+]] = OpLoad %float %s
-// CHECK-NEXT: [[cc1:%\d+]] = OpCompositeConstruct %v3float [[s6]] [[s6]] [[s6]]
 // CHECK-NEXT: [[k0:%\d+]] = OpLoad %v3float %k
-// CHECK-NEXT: [[mul10:%\d+]] = OpFMul %v3float [[k0]] [[cc1]]
+// CHECK-NEXT: [[mul10:%\d+]] = OpVectorTimesScalar %v3float [[k0]] [[s6]]
 // CHECK-NEXT: OpStore %k [[mul10]]
     k *= s;
 

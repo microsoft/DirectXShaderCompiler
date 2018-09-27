@@ -7238,7 +7238,7 @@ Sema::CheckSingleAssignmentConstraints(QualType LHSType, ExprResult &RHS,
                                        bool DiagnoseCFAudited) {
   // HLSL Change Starts
   if (getLangOpts().HLSL) {
-    // DiagnoseAssignmentResultForHLSL will take care of diagnostics.
+    // implicit conversion will take care of diagnostics.
     return Compatible;
   }
   // HLSL Change Ends
@@ -11866,12 +11866,6 @@ bool Sema::DiagnoseAssignmentResult(AssignConvertType ConvTy,
   bool MayHaveFunctionDiff = false;
   const ObjCInterfaceDecl *IFace = nullptr;
   const ObjCProtocolDecl *PDecl = nullptr;
-
-  // HLSL Change Starts
-  if (LangOpts.HLSL) {
-    hlsl::DiagnoseAssignmentResultForHLSL(this, ConvTy, Loc, DstType, SrcType, SrcExpr, Action, Complained);
-  }
-  // HLSL Change Ends
 
   switch (ConvTy) {
   case Compatible:

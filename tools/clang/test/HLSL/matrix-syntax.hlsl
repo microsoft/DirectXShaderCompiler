@@ -61,12 +61,12 @@ void matrix_out_of_bounds() {
 
 void matrix_unsigned() {
    unsigned int4x2 intMatrix;
-   unsigned min16int4x3 min16Matrix;
-   unsigned int64_t3x3 int64Matrix;
-   unsigned uint3x4 uintMatrix;
-   unsigned min16uint4x1 min16uintMatrix;
-   unsigned uint64_t2x2 int64uintMatrix;
-   unsigned dword3x2 dwordvector; /* fxc-error {{X3000: unrecognized identifier 'dword3x1'}} */
+   unsigned min16int4x3 min16Matrix; /* fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned int64_t3x3 int64Matrix;  /* fxc-error {{X3000: syntax error: unexpected token 'int64_t3x3'}} */
+   unsigned uint3x4 uintMatrix;      /* fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16uint4x1 min16uintMatrix;                   /* fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned uint64_t2x2 int64uintMatrix;                    /* fxc-error {{X3000: syntax error: unexpected token 'uint64_t2x2'}} */
+   unsigned dword3x2 dwordvector; /* fxc-error {{X3000: syntax error: unexpected token 'dword3x2'}} */
 
    unsigned float2x3 floatMatrix; /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned bool3x4 boolvector;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */

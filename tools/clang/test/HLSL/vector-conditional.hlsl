@@ -49,7 +49,7 @@ float4 a2[2];
 float4 a3[8];
 float a4[8];
 
-void Select(out Texture2D TOut) { /* expected-note {{candidate function}}  */
+void Select(out Texture2D TOut) { /* expected-note {{candidate function}} fxc-pass {{}} */
   TOut = b4.x ? T1 : T2;
 }
 
@@ -61,16 +61,16 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
 
   acc += b4.x ? v0 : (v0 + 1.0F);
   /*verify-ast
-    CompoundAssignOperator <col:3, col:32> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+    CompoundAssignOperator <col:3, col:32> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
     |-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
     `-ConditionalOperator <col:10, col:32> 'vector<float, 4>'
-      |-ImplicitCastExpr <col:10, col:13> 'bool' <LValueToRValue>
-      | `-HLSLVectorElementExpr <col:10, col:13> 'bool' lvalue vectorcomponent x
-      |   `-DeclRefExpr <col:10> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
+      |-ImplicitCastExpr <col:10, col:13> 'const bool' <LValueToRValue>
+      | `-HLSLVectorElementExpr <col:10, col:13> 'const bool' lvalue vectorcomponent x
+      |   `-DeclRefExpr <col:10> 'const bool4':'const vector<bool, 4>' lvalue Var 'b4' 'const bool4':'const vector<bool, 4>'
       |-ImplicitCastExpr <col:17> 'float4':'vector<float, 4>' <LValueToRValue>
       | `-DeclRefExpr <col:17> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
-      `-ParenExpr <col:22, col:32> 'vector<float, 4>'
-        `-BinaryOperator <col:23, col:28> 'vector<float, 4>' '+'
+      `-ParenExpr <col:22, col:32> 'float4':'vector<float, 4>'
+        `-BinaryOperator <col:23, col:28> 'float4':'vector<float, 4>' '+'
           |-ImplicitCastExpr <col:23> 'float4':'vector<float, 4>' <LValueToRValue>
           | `-DeclRefExpr <col:23> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
           `-ImplicitCastExpr <col:28> 'vector<float, 4>':'vector<float, 4>' <HLSLVectorSplat>
@@ -79,12 +79,12 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
 
   acc += b4.x ? v0 : 1.0F;
   /*verify-ast
-    CompoundAssignOperator <col:3, col:22> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+    CompoundAssignOperator <col:3, col:22> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
     |-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
     `-ConditionalOperator <col:10, col:22> 'vector<float, 4>'
-      |-ImplicitCastExpr <col:10, col:13> 'bool' <LValueToRValue>
-      | `-HLSLVectorElementExpr <col:10, col:13> 'bool' lvalue vectorcomponent x
-      |   `-DeclRefExpr <col:10> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
+      |-ImplicitCastExpr <col:10, col:13> 'const bool' <LValueToRValue>
+      | `-HLSLVectorElementExpr <col:10, col:13> 'const bool' lvalue vectorcomponent x
+      |   `-DeclRefExpr <col:10> 'const bool4':'const vector<bool, 4>' lvalue Var 'b4' 'const bool4':'const vector<bool, 4>'
       |-ImplicitCastExpr <col:17> 'float4':'vector<float, 4>' <LValueToRValue>
       | `-DeclRefExpr <col:17> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
       `-ImplicitCastExpr <col:22> 'vector<float, 4>':'vector<float, 4>' <HLSLVectorSplat>
@@ -93,15 +93,15 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
 
   acc += b4 ? v0 : (v0 + 1.0F);
   /*verify-ast
-    CompoundAssignOperator <col:3, col:30> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+    CompoundAssignOperator <col:3, col:30> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
     |-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
     `-ConditionalOperator <col:10, col:30> 'vector<float, 4>'
-      |-ImplicitCastExpr <col:10> 'bool4':'vector<bool, 4>' <LValueToRValue>
-      | `-DeclRefExpr <col:10> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
+      |-ImplicitCastExpr <col:10> 'const bool4':'const vector<bool, 4>' <LValueToRValue>
+      | `-DeclRefExpr <col:10> 'const bool4':'const vector<bool, 4>' lvalue Var 'b4' 'const bool4':'const vector<bool, 4>'
       |-ImplicitCastExpr <col:15> 'float4':'vector<float, 4>' <LValueToRValue>
       | `-DeclRefExpr <col:15> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
-      `-ParenExpr <col:20, col:30> 'vector<float, 4>'
-        `-BinaryOperator <col:21, col:26> 'vector<float, 4>' '+'
+      `-ParenExpr <col:20, col:30> 'float4':'vector<float, 4>'
+        `-BinaryOperator <col:21, col:26> 'float4':'vector<float, 4>' '+'
           |-ImplicitCastExpr <col:21> 'float4':'vector<float, 4>' <LValueToRValue>
           | `-DeclRefExpr <col:21> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
           `-ImplicitCastExpr <col:26> 'vector<float, 4>':'vector<float, 4>' <HLSLVectorSplat>
@@ -110,11 +110,11 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
 
   acc += b4 ? v0 : 1.0F;
   /*verify-ast
-    CompoundAssignOperator <col:3, col:20> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+    CompoundAssignOperator <col:3, col:20> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
     |-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
     `-ConditionalOperator <col:10, col:20> 'vector<float, 4>'
-      |-ImplicitCastExpr <col:10> 'bool4':'vector<bool, 4>' <LValueToRValue>
-      | `-DeclRefExpr <col:10> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
+      |-ImplicitCastExpr <col:10> 'const bool4':'const vector<bool, 4>' <LValueToRValue>
+      | `-DeclRefExpr <col:10> 'const bool4':'const vector<bool, 4>' lvalue Var 'b4' 'const bool4':'const vector<bool, 4>'
       |-ImplicitCastExpr <col:15> 'float4':'vector<float, 4>' <LValueToRValue>
       | `-DeclRefExpr <col:15> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
       `-ImplicitCastExpr <col:20> 'vector<float, 4>':'vector<float, 4>' <HLSLVectorSplat>
@@ -123,19 +123,19 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
 
   acc.xy += b4.xy ? v0.xy : (v0 + 1.0F);                    /* expected-warning {{implicit truncation of vector type}} fxc-warning {{X3206: implicit truncation of vector type}} */
   /*verify-ast
-    CompoundAssignOperator <col:3, col:39> 'vector<float, 2>':'vector<float, 2>' lvalue vectorcomponent '+=' ComputeLHSTy='vector<float, 2>' ComputeResultTy='vector<float, 2>'
+    CompoundAssignOperator <col:3, col:39> 'vector<float, 2>':'vector<float, 2>' lvalue vectorcomponent '+=' ComputeLHSTy='vector<float, 2>':'vector<float, 2>' ComputeResultTy='vector<float, 2>':'vector<float, 2>'
     |-HLSLVectorElementExpr <col:3, col:7> 'vector<float, 2>':'vector<float, 2>' lvalue vectorcomponent xy
     | `-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
     `-ConditionalOperator <col:13, col:39> 'vector<float, 2>'
-      |-ImplicitCastExpr <col:13, col:16> 'vector<bool, 2>':'vector<bool, 2>' <LValueToRValue>
-      | `-HLSLVectorElementExpr <col:13, col:16> 'vector<bool, 2>':'vector<bool, 2>' lvalue vectorcomponent xy
-      |   `-DeclRefExpr <col:13> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
+      |-ImplicitCastExpr <col:13, col:16> 'const vector<bool, 2>':'const vector<bool, 2>' <LValueToRValue>
+      | `-HLSLVectorElementExpr <col:13, col:16> 'const vector<bool, 2>':'const vector<bool, 2>' lvalue vectorcomponent xy
+      |   `-DeclRefExpr <col:13> 'const bool4':'const vector<bool, 4>' lvalue Var 'b4' 'const bool4':'const vector<bool, 4>'
       |-ImplicitCastExpr <col:21, col:24> 'vector<float, 2>':'vector<float, 2>' <LValueToRValue>
       | `-HLSLVectorElementExpr <col:21, col:24> 'vector<float, 2>':'vector<float, 2>' lvalue vectorcomponent xy
       |   `-DeclRefExpr <col:21> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
       `-ImplicitCastExpr <col:29, col:39> 'vector<float, 2>':'vector<float, 2>' <HLSLVectorTruncationCast>
-        `-ParenExpr <col:29, col:39> 'vector<float, 4>'
-          `-BinaryOperator <col:30, col:35> 'vector<float, 4>' '+'
+        `-ParenExpr <col:29, col:39> 'float4':'vector<float, 4>'
+          `-BinaryOperator <col:30, col:35> 'float4':'vector<float, 4>' '+'
             |-ImplicitCastExpr <col:30> 'float4':'vector<float, 4>' <LValueToRValue>
             | `-DeclRefExpr <col:30> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
             `-ImplicitCastExpr <col:35> 'vector<float, 4>':'vector<float, 4>' <HLSLVectorSplat>
@@ -150,11 +150,11 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
   // lit float/int
   acc += b4 ? v0 : 1.1;
   /*verify-ast
-    CompoundAssignOperator <col:3, col:20> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+    CompoundAssignOperator <col:3, col:20> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
     |-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
     `-ConditionalOperator <col:10, col:20> 'vector<float, 4>'
-      |-ImplicitCastExpr <col:10> 'bool4':'vector<bool, 4>' <LValueToRValue>
-      | `-DeclRefExpr <col:10> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
+      |-ImplicitCastExpr <col:10> 'const bool4':'const vector<bool, 4>' <LValueToRValue>
+      | `-DeclRefExpr <col:10> 'const bool4':'const vector<bool, 4>' lvalue Var 'b4' 'const bool4':'const vector<bool, 4>'
       |-ImplicitCastExpr <col:15> 'float4':'vector<float, 4>' <LValueToRValue>
       | `-DeclRefExpr <col:15> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
       `-ImplicitCastExpr <col:20> 'vector<float, 4>':'vector<float, 4>' <HLSLVectorSplat>
@@ -163,11 +163,11 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
   */
   acc += b4 ? v0 : -2;
   /*verify-ast
-    CompoundAssignOperator <col:3, col:21> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+    CompoundAssignOperator <col:3, col:21> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
     |-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
     `-ConditionalOperator <col:10, col:21> 'vector<float, 4>'
-      |-ImplicitCastExpr <col:10> 'bool4':'vector<bool, 4>' <LValueToRValue>
-      | `-DeclRefExpr <col:10> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
+      |-ImplicitCastExpr <col:10> 'const bool4':'const vector<bool, 4>' <LValueToRValue>
+      | `-DeclRefExpr <col:10> 'const bool4':'const vector<bool, 4>' lvalue Var 'b4' 'const bool4':'const vector<bool, 4>'
       |-ImplicitCastExpr <col:15> 'float4':'vector<float, 4>' <LValueToRValue>
       | `-DeclRefExpr <col:15> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
       `-ImplicitCastExpr <col:20, col:21> 'vector<float, 4>':'vector<float, 4>' <HLSLVectorSplat>
@@ -179,11 +179,11 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
   min16float4 mf4 = (min16float4)acc * (min16float4)v0;
   mf4 += b4 ? v0 : mf4;                                     /* expected-warning {{conversion from larger type 'vector<float, 4>' to smaller type 'min16float4', possible loss of data}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
   /*verify-ast
-    CompoundAssignOperator <col:3, col:20> 'min16float4':'vector<min16float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+    CompoundAssignOperator <col:3, col:20> 'min16float4':'vector<min16float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>':'vector<float, 4>' ComputeResultTy='vector<float, 4>':'vector<float, 4>'
     |-DeclRefExpr <col:3> 'min16float4':'vector<min16float, 4>' lvalue Var 'mf4' 'min16float4':'vector<min16float, 4>'
     `-ConditionalOperator <col:10, col:20> 'vector<float, 4>'
-      |-ImplicitCastExpr <col:10> 'bool4':'vector<bool, 4>' <LValueToRValue>
-      | `-DeclRefExpr <col:10> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
+      |-ImplicitCastExpr <col:10> 'const bool4':'const vector<bool, 4>' <LValueToRValue>
+      | `-DeclRefExpr <col:10> 'const bool4':'const vector<bool, 4>' lvalue Var 'b4' 'const bool4':'const vector<bool, 4>'
       |-ImplicitCastExpr <col:15> 'float4':'vector<float, 4>' <LValueToRValue>
       | `-DeclRefExpr <col:15> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
       `-ImplicitCastExpr <col:20> 'vector<float, 4>' <HLSLCC_FloatingCast>
@@ -192,11 +192,11 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
   */
   acc += b4 ? v0 : mf4;
   /*verify-ast
-    CompoundAssignOperator <col:3, col:20> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+    CompoundAssignOperator <col:3, col:20> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
     |-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
     `-ConditionalOperator <col:10, col:20> 'vector<float, 4>'
-      |-ImplicitCastExpr <col:10> 'bool4':'vector<bool, 4>' <LValueToRValue>
-      | `-DeclRefExpr <col:10> 'bool4':'vector<bool, 4>' lvalue Var 'b4' 'bool4':'vector<bool, 4>'
+      |-ImplicitCastExpr <col:10> 'const bool4':'const vector<bool, 4>' <LValueToRValue>
+      | `-DeclRefExpr <col:10> 'const bool4':'const vector<bool, 4>' lvalue Var 'b4' 'const bool4':'const vector<bool, 4>'
       |-ImplicitCastExpr <col:15> 'float4':'vector<float, 4>' <LValueToRValue>
       | `-DeclRefExpr <col:15> 'float4':'vector<float, 4>' lvalue ParmVar 'v0' 'float4':'vector<float, 4>'
       `-ImplicitCastExpr <col:20> 'vector<float, 4>' <HLSLCC_FloatingCast>
@@ -221,7 +221,7 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
   // Matrix ternary support:
   acc += mul(acc, b4x4 ? m1 : m2);
   /*verify-ast
-    CompoundAssignOperator <col:3, col:33> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+    CompoundAssignOperator <col:3, col:33> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
     |-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
     `-CallExpr <col:10, col:33> 'vector<float, 4>':'vector<float, 4>'
       |-ImplicitCastExpr <col:10> 'vector<float, 4> (*)(vector<float, 4>, matrix<float, 4, 4>)' <FunctionToPointerDecay>
@@ -229,17 +229,17 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
       |-ImplicitCastExpr <col:14> 'float4':'vector<float, 4>' <LValueToRValue>
       | `-DeclRefExpr <col:14> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
       `-ConditionalOperator <col:19, col:31> 'matrix<float, 4, 4>'
-        |-ImplicitCastExpr <col:19> 'bool4x4':'matrix<bool, 4, 4>' <LValueToRValue>
-        | `-DeclRefExpr <col:19> 'bool4x4':'matrix<bool, 4, 4>' lvalue Var 'b4x4' 'bool4x4':'matrix<bool, 4, 4>'
-        |-ImplicitCastExpr <col:26> 'float4x4':'matrix<float, 4, 4>' <LValueToRValue>
-        | `-DeclRefExpr <col:26> 'float4x4':'matrix<float, 4, 4>' lvalue Var 'm1' 'float4x4':'matrix<float, 4, 4>'
-        `-ImplicitCastExpr <col:31> 'float4x4':'matrix<float, 4, 4>' <LValueToRValue>
-          `-DeclRefExpr <col:31> 'float4x4':'matrix<float, 4, 4>' lvalue Var 'm2' 'float4x4':'matrix<float, 4, 4>'
+        |-ImplicitCastExpr <col:19> 'const bool4x4':'const matrix<bool, 4, 4>' <LValueToRValue>
+        | `-DeclRefExpr <col:19> 'const bool4x4':'const matrix<bool, 4, 4>' lvalue Var 'b4x4' 'const bool4x4':'const matrix<bool, 4, 4>'
+        |-ImplicitCastExpr <col:26> 'const float4x4':'const matrix<float, 4, 4>' <LValueToRValue>
+        | `-DeclRefExpr <col:26> 'const float4x4':'const matrix<float, 4, 4>' lvalue Var 'm1' 'const float4x4':'const matrix<float, 4, 4>'
+        `-ImplicitCastExpr <col:31> 'const float4x4':'const matrix<float, 4, 4>' <LValueToRValue>
+          `-DeclRefExpr <col:31> 'const float4x4':'const matrix<float, 4, 4>' lvalue Var 'm2' 'const float4x4':'const matrix<float, 4, 4>'
   */
   // float : double and matrix : scalar
   acc += mul(acc, b4x4 ? m1 : (double)1.0);                 /*  expected-warning {{conversion from larger type 'vector<double, 4>' to smaller type 'float4', possible loss of data}} fxc-warning {{X3205: conversion from larger type to smaller, possible loss of data}} */
   /*verify-ast
-    CompoundAssignOperator <col:3, col:42> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<double, 4>' ComputeResultTy='vector<double, 4>'
+    CompoundAssignOperator <col:3, col:42> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<double, 4>':'vector<double, 4>' ComputeResultTy='vector<double, 4>':'vector<double, 4>'
     |-DeclRefExpr <col:3> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
     `-CallExpr <col:10, col:42> 'vector<double, 4>':'vector<double, 4>'
       |-ImplicitCastExpr <col:10> 'vector<double, 4> (*)(vector<double, 4>, matrix<double, 4, 4>)' <FunctionToPointerDecay>
@@ -248,11 +248,11 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
       | `-ImplicitCastExpr <col:14> 'float4':'vector<float, 4>' <LValueToRValue>
       |   `-DeclRefExpr <col:14> 'float4':'vector<float, 4>' lvalue Var 'acc' 'float4':'vector<float, 4>'
       `-ConditionalOperator <col:19, col:39> 'matrix<double, 4, 4>'
-        |-ImplicitCastExpr <col:19> 'bool4x4':'matrix<bool, 4, 4>' <LValueToRValue>
-        | `-DeclRefExpr <col:19> 'bool4x4':'matrix<bool, 4, 4>' lvalue Var 'b4x4' 'bool4x4':'matrix<bool, 4, 4>'
+        |-ImplicitCastExpr <col:19> 'const bool4x4':'const matrix<bool, 4, 4>' <LValueToRValue>
+        | `-DeclRefExpr <col:19> 'const bool4x4':'const matrix<bool, 4, 4>' lvalue Var 'b4x4' 'const bool4x4':'const matrix<bool, 4, 4>'
         |-ImplicitCastExpr <col:26> 'matrix<double, 4, 4>' <HLSLCC_FloatingCast>
-        | `-ImplicitCastExpr <col:26> 'float4x4':'matrix<float, 4, 4>' <LValueToRValue>
-        |   `-DeclRefExpr <col:26> 'float4x4':'matrix<float, 4, 4>' lvalue Var 'm1' 'float4x4':'matrix<float, 4, 4>'
+        | `-ImplicitCastExpr <col:26> 'const float4x4':'const matrix<float, 4, 4>' <LValueToRValue>
+        |   `-DeclRefExpr <col:26> 'const float4x4':'const matrix<float, 4, 4>' lvalue Var 'm1' 'const float4x4':'const matrix<float, 4, 4>'
         `-ImplicitCastExpr <col:31, col:39> 'matrix<double, 4, 4>':'matrix<double, 4, 4>' <HLSLMatrixSplat>
           `-CStyleCastExpr <col:31, col:39> 'double' <NoOp>
             `-ImplicitCastExpr <col:39> 'double' <FloatingCast>

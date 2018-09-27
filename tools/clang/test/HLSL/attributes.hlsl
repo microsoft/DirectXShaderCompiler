@@ -225,7 +225,7 @@ HSFoo HSMain( InputPatch<HSFoo, 16> p,
   | |       |       `-DeclRefExpr <col:25> 'uint':'unsigned int' lvalue ParmVar 'PatchID' 'uint':'unsigned int'
   | |       `-ImplicitCastExpr <col:39> 'float' <IntegralToFloating>
   | |         `-IntegerLiteral <col:39> 'literal int' 1
-  | |-CompoundAssignOperator <line:273:5, col:30> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='vector<float, 4>' ComputeResultTy='vector<float, 4>'
+  | |-CompoundAssignOperator <line:273:5, col:30> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
   | | |-DeclRefExpr <col:5> 'float4':'vector<float, 4>' lvalue Var 'r' 'float4':'vector<float, 4>'
   | | `-CXXMemberCallExpr <col:10, col:30> 'vector<float, 4>'
   | |   |-MemberExpr <col:10, col:20> '<bound member function type>' .Load
@@ -243,7 +243,7 @@ HSFoo HSMain( InputPatch<HSFoo, 16> p,
   | |-BinaryOperator <line:274:5, col:31> 'float3':'vector<float, 3>' '='
   | | |-MemberExpr <col:5, col:12> 'float3':'vector<float, 3>' lvalue .pos
   | | | `-DeclRefExpr <col:5> 'HSFoo' lvalue Var 'output' 'HSFoo'
-  | | `-BinaryOperator <col:18, col:31> 'vector<float, 3>' '+'
+  | | `-BinaryOperator <col:18, col:31> 'float3':'vector<float, 3>' '+'
   | |   |-ImplicitCastExpr <col:18, col:23> 'float3':'vector<float, 3>' <LValueToRValue>
   | |   | `-MemberExpr <col:18, col:23> 'const float3':'const vector<float, 3>' lvalue .pos
   | |   |   `-CXXOperatorCallExpr <col:18, col:21> 'const HSFoo' lvalue

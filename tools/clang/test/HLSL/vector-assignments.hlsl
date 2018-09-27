@@ -14,7 +14,7 @@ float2 f2_none;
 
 // Direct initialization fails.
 // fxc error: error X3000: syntax error: unexpected token '('
-float2 f2_direct(0.1f, 0.2f); /* expected-error {{expected ')'}} expected-error {{expected parameter declarator}} expected-note {{to match this '('}} fxc-error {{X3000: syntax error: unexpected token '('}} */ /* */ /* */
+float2 f2_direct(0.1f, 0.2f); /* expected-error {{expected ')'}} expected-error {{expected parameter declarator}} expected-note {{to match this '('}} fxc-error {{X3000: syntax error: unexpected token '('}} */
 
 // Initialization list with members.
 float2 f2_all = { 0.1f, 0.2f };
