@@ -16,7 +16,7 @@ cbuffer CBInit : register(b2)
     float g2_foo5 : foo : fubar : packoffset(c5);
     float g2_foo6 : packoffset(c6) : foo : fubar;
     /*verify-ast
-      VarDecl <col:5, col:11> col:11 g2_foo6 'float'
+      VarDecl parent cbuffer <col:5, col:11> col:11 g2_foo6 'const float'
       |-ConstantPacking <col:21> packoffset(c6.x)
       |-SemanticDecl <col:38> "foo"
       `-SemanticDecl <col:44> "fubar"
@@ -28,7 +28,7 @@ cbuffer CBInit2 : register(b3) : cbuffer_semantic           /* fxc-warning {{X32
   HLSLBufferDecl <col:1, line:36:1> line:26:9 cbuffer CBInit2
   |-RegisterAssignment <col:19> register(b3)
   |-SemanticDecl <col:34> "cbuffer_semantic"
-  `-VarDecl <line:35:5, col:11> col:11 g3_foo1 'float'
+  `-VarDecl parent cbuffer <line:35:5, col:11> col:11 g3_foo1 'const float'
     `-SemanticDecl <col:21> "foo"
 */
 {
@@ -48,9 +48,9 @@ struct semantic_on_struct_instance {
   CXXRecordDecl <col:1, line:57:1> line:46:8 struct semantic_on_struct_instance definition
   |-CXXRecordDecl <col:1, col:8> col:8 implicit struct semantic_on_struct_instance
   `-FieldDecl <line:56:5, col:11> col:11 a 'float'
-  VarDecl <col:1, line:57:3> col:3 g_struct 'struct semantic_on_struct_instance':'semantic_on_struct_instance'
+  VarDecl <col:1, line:57:3> col:3 g_struct 'const struct semantic_on_struct_instance':'const semantic_on_struct_instance'
   `-SemanticDecl <col:14> "semantic"
-  VarDecl <col:1, line:58:3> col:3 g_struct2 'struct semantic_on_struct_instance':'semantic_on_struct_instance'
+  VarDecl <col:1, line:58:3> col:3 g_struct2 'const struct semantic_on_struct_instance':'const semantic_on_struct_instance'
   `-SemanticDecl <col:15> "semantic2"
 */
     float a;

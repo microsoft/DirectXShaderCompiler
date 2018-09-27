@@ -665,6 +665,7 @@ static const bool IsConstexprFalse = false;       // function is not constexpr
 static const bool ListInitializationFalse = false;// not performing a list initialization
 static const bool SuppressWarningsFalse = false;  // do not suppress warning diagnostics
 static const bool SuppressErrorsTrue = true;      // suppress error diagnostics
+static const bool SuppressErrorsFalse = false;    // do not suppress error diagnostics
 static const int OneRow = 1;                      // a single row for a type
 static const bool MipsFalse = false;              // a type does not support the .mips member
 static const bool MipsTrue = true;                // a type supports the .mips member
@@ -3072,7 +3073,11 @@ private:
     return ImplicitCastExpr::Create(*m_context, input->getType(), CK_LValueToRValue, input, nullptr, VK_RValue);
   }
 
-  HRESULT CombineDimensions(QualType leftType, QualType rightType, ArTypeObjectKind leftKind, ArTypeObjectKind rightKind, QualType *resultType);
+  static TYPE_CONVERSION_REMARKS RemarksUnused;
+  static ImplicitConversionKind ImplicitConversionKindUnused;
+  HRESULT CombineDimensions(QualType leftType, QualType rightType, QualType *resultType,
+                            ImplicitConversionKind &convKind = ImplicitConversionKindUnused,
+                            TYPE_CONVERSION_REMARKS &Remarks = RemarksUnused);
 
   clang::TypedefDecl *LookupMatrixShorthandType(HLSLScalarType scalarType, UINT rowCount, UINT colCount) {
     DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
@@ -4026,8 +4031,6 @@ public:
   bool CanConvert(SourceLocation loc, Expr* sourceExpr, QualType target, bool explicitConversion,
     _Out_opt_ TYPE_CONVERSION_REMARKS* remarks,
     _Inout_opt_ StandardConversionSequence* sequence);
-  /// <summary>Produces an expression that turns the given expression into the specified numeric type.</summary>
-  Expr* CastExprToTypeNumeric(Expr* expr, QualType targetType);
   void CollectInfo(QualType type, _Out_ ArTypeInfo* pTypeInfo);
   void GetConversionForm(
     QualType type,
@@ -4162,21 +4165,6 @@ public:
 
     return false;
   }
-
-  /// <summary>Diagnoses an assignment operation.</summary>
-  /// <param name="ConvTy">Type of conversion assignment.</param>
-  /// <param name="Loc">Location for operation.</param>
-  /// <param name="DstType">Destination type.</param>
-  /// <param name="SrcType">Source type.</param>
-  /// <param name="SrcExpr">Source expression.</param>
-  /// <param name="Action">Action that triggers the assignment (assignment, passing, return, etc).</param>
-  /// <param name="Complained">Whether a diagnostic was emitted.</param>
-  void DiagnoseAssignmentResultForHLSL(
-    Sema::AssignConvertType ConvTy,
-    SourceLocation Loc,
-    QualType DstType, QualType SrcType,
-    _In_ Expr *SrcExpr, Sema::AssignmentAction Action,
-    _Out_opt_ bool *Complained);
 
   FindStructBasicTypeResult FindStructBasicType(_In_ DeclContext* functionDeclContext);
 
@@ -4500,6 +4488,9 @@ public:
   bool IsCast(ArBasicKind leftKind, ArBasicKind rightKind);
   bool IsIntCast(ArBasicKind leftKind, ArBasicKind rightKind);
 };
+
+TYPE_CONVERSION_REMARKS HLSLExternalSource::RemarksUnused = TYPE_CONVERSION_REMARKS::TYPE_CONVERSION_NONE;
+ImplicitConversionKind HLSLExternalSource::ImplicitConversionKindUnused = ImplicitConversionKind::ICK_Identity;
 
 // Use this class to flatten a type into HLSL primitives and iterate through them.
 class FlattenedTypeIterator
@@ -5678,6 +5669,9 @@ void HLSLExternalSource::CollectInfo(QualType type, ArTypeInfo* pTypeInfo)
 
   memset(pTypeInfo, 0, sizeof(*pTypeInfo));
 
+  // TODO: Get* functions used here add up to a bunch of redundant code.
+  //       Try to inline that here, making it cheaper to use this function
+  //       when retrieving multiple properties.
   pTypeInfo->ObjKind = GetTypeElementKind(type);
   pTypeInfo->EltKind = pTypeInfo->ObjKind;
   pTypeInfo->ShapeKind = GetTypeObjectKind(type);
@@ -7490,6 +7484,268 @@ bool HandleVoidConversion(QualType source, QualType target, bool explicitConvers
   return applicable;
 }
 
+static bool ConvertDimensions(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
+                              ImplicitConversionKind &Second,
+                              TYPE_CONVERSION_REMARKS &Remarks) {
+  // The rules for aggregate conversions are:
+  // 1. A scalar can be replicated to any layout.
+  // 2. Any type may be truncated to anything else with one component.
+  // 3. A vector may be truncated to a smaller vector.
+  // 4. A matrix may be truncated to a smaller matrix.
+  // 5. The result of a vector and a matrix is:
+  //    a. If the matrix has one row it's a vector-sized
+  //       piece of the row.
+  //    b. If the matrix has one column it's a vector-sized
+  //       piece of the column.
+  //    c. Otherwise the number of elements in the vector
+  //       and matrix must match and the result is the vector.
+  // 5. The result of a matrix and a vector is similar to #4.
+
+  switch (TargetInfo.ShapeKind) {
+  case AR_TOBJ_BASIC:
+    switch (SourceInfo.ShapeKind)
+    {
+    case AR_TOBJ_BASIC:
+      Second = ICK_Identity;
+      break;
+
+    case AR_TOBJ_VECTOR:
+      if (1 < SourceInfo.uCols)
+        Second = ICK_HLSLVector_Truncation;
+      else
+        Second = ICK_HLSLVector_Scalar;
+      break;
+
+    case AR_TOBJ_MATRIX:
+      if (1 < SourceInfo.uRows * SourceInfo.uCols)
+        Second = ICK_HLSLVector_Truncation;
+      else
+        Second = ICK_HLSLVector_Scalar;
+      break;
+
+    default:
+      return false;
+    }
+
+    break;
+
+  case AR_TOBJ_VECTOR:
+    switch (SourceInfo.ShapeKind)
+    {
+    case AR_TOBJ_BASIC:
+      // Conversions between scalars and aggregates are always supported.
+      Second = ICK_HLSLVector_Splat;
+      break;
+
+    case AR_TOBJ_VECTOR:
+      if (TargetInfo.uCols > SourceInfo.uCols) {
+        if (SourceInfo.uCols == 1) {
+          Second = ICK_HLSLVector_Splat;
+        }
+        else {
+          return false;
+        }
+      }
+      else if (TargetInfo.uCols < SourceInfo.uCols) {
+        Second = ICK_HLSLVector_Truncation;
+      }
+      else {
+        Second = ICK_Identity;
+      }
+      break;
+
+    case AR_TOBJ_MATRIX: {
+      UINT SourceComponents = SourceInfo.uRows * SourceInfo.uCols;
+      if (1 == SourceComponents && TargetInfo.uCols != 1) {
+        // splat: matrix<[..], 1, 1> -> vector<[..], O>
+        Second = ICK_HLSLVector_Splat;
+      }
+      else if (1 == SourceInfo.uRows || 1 == SourceInfo.uCols) {
+        // cases for: matrix<[..], M, N> -> vector<[..], O>, where N == 1 or M == 1
+        if (TargetInfo.uCols > SourceComponents)          // illegal: O > N*M
+          return false;
+        else if (TargetInfo.uCols < SourceComponents)     // truncation: O < N*M
+          Second = ICK_HLSLVector_Truncation;
+        else                                              // equalivalent: O == N*M
+          Second = ICK_HLSLVector_Conversion;
+      }
+      else if (TargetInfo.uCols == 1 && SourceComponents > 1) {
+        Second = ICK_HLSLVector_Truncation;
+      }
+      else if (TargetInfo.uCols != SourceComponents) {
+        // illegal: matrix<[..], M, N> -> vector<[..], O> where N != 1 and M != 1 and O != N*M
+        return false;
+      }
+      else {
+        // legal: matrix<[..], M, N> -> vector<[..], O> where N != 1 and M != 1 and O == N*M
+        Second = ICK_HLSLVector_Conversion;
+      }
+      break;
+    }
+
+    default:
+      return false;
+    }
+
+    break;
+
+  case AR_TOBJ_MATRIX: {
+    UINT TargetComponents = TargetInfo.uRows * TargetInfo.uCols;
+    switch (SourceInfo.ShapeKind)
+    {
+    case AR_TOBJ_BASIC:
+      // Conversions between scalars and aggregates are always supported.
+      Second = ICK_HLSLVector_Splat;
+      break;
+
+    case AR_TOBJ_VECTOR: {
+      // We can only convert vector to matrix in following cases:
+      //  - splat from vector<...,1>
+      //  - same number of components
+      //  - one target component (truncate to scalar)
+      //  - matrix has one row or one column, and fewer components (truncation)
+      // Other cases disallowed even if implicitly convertable in two steps (truncation+conversion).
+      if (1 == SourceInfo.uCols && TargetComponents != 1) {
+        // splat: vector<[..], 1> -> matrix<[..], M, N>
+        Second = ICK_HLSLVector_Splat;
+      }
+      else if (TargetComponents == SourceInfo.uCols) {
+        // legal: vector<[..], O> -> matrix<[..], M, N> where N != 1 and M != 1 and O == N*M
+        Second = ICK_HLSLVector_Conversion;
+      }
+      else if (1 == TargetComponents) {
+        // truncate to scalar: matrix<[..], 1, 1>
+        Second = ICK_HLSLVector_Truncation;
+      }
+      else if ((1 == TargetInfo.uRows || 1 == TargetInfo.uCols) &&
+               TargetComponents < SourceInfo.uCols) {
+        Second = ICK_HLSLVector_Truncation;
+      }
+      else {
+        // illegal: change in components without going to or from scalar equivalent
+        return false;
+      }
+      break;
+    }
+
+    case AR_TOBJ_MATRIX: {
+      UINT SourceComponents = SourceInfo.uRows * SourceInfo.uCols;
+      if (1 == SourceComponents && TargetComponents != 1) {
+        // splat: matrix<[..], 1, 1> -> matrix<[..], M, N>
+        Second = ICK_HLSLVector_Splat;
+      }
+      else if (TargetComponents == 1) {
+        Second = ICK_HLSLVector_Truncation;
+      }
+      else if (TargetInfo.uRows > SourceInfo.uRows || TargetInfo.uCols > SourceInfo.uCols) {
+        return false;
+      }
+      else if (TargetInfo.uRows < SourceInfo.uRows || TargetInfo.uCols < SourceInfo.uCols) {
+        Second = ICK_HLSLVector_Truncation;
+      }
+      else {
+        Second = ICK_Identity;
+      }
+      break;
+    }
+
+    default:
+      return false;
+    }
+
+    break;
+  }
+
+  default:
+    return false;
+  }
+
+  if (TargetInfo.uTotalElts < SourceInfo.uTotalElts)
+  {
+    Remarks |= TYPE_CONVERSION_ELT_TRUNCATION;
+  }
+
+  return true;
+}
+
+static bool ConvertComponent(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
+                             ImplicitConversionKind &ComponentConversion,
+                             TYPE_CONVERSION_REMARKS &Remarks) {
+  // Conversion to/from unknown types not supported.
+  if (TargetInfo.EltKind == AR_BASIC_UNKNOWN ||
+      SourceInfo.EltKind == AR_BASIC_UNKNOWN) {
+    return false;
+  }
+
+  bool precisionLoss = false;
+  if (GET_BASIC_BITS(TargetInfo.EltKind) != 0 &&
+    GET_BASIC_BITS(TargetInfo.EltKind) <
+    GET_BASIC_BITS(SourceInfo.EltKind))
+  {
+    precisionLoss = true;
+    Remarks |= TYPE_CONVERSION_PRECISION_LOSS;
+  }
+
+  // enum -> enum not allowed
+  if ((SourceInfo.EltKind == AR_BASIC_ENUM &&
+    TargetInfo.EltKind == AR_BASIC_ENUM) ||
+    SourceInfo.EltKind == AR_BASIC_ENUM_CLASS ||
+    TargetInfo.EltKind == AR_BASIC_ENUM_CLASS) {
+    return false;
+  }
+  if (SourceInfo.EltKind != TargetInfo.EltKind)
+  {
+    if (IS_BASIC_BOOL(TargetInfo.EltKind))
+    {
+      ComponentConversion = ICK_Boolean_Conversion;
+    }
+    else if (IS_BASIC_ENUM(TargetInfo.EltKind))
+    {
+      // conversion to enum type not allowed
+      return false;
+    }
+    else if (IS_BASIC_ENUM(SourceInfo.EltKind))
+    {
+      // enum -> int/float
+      ComponentConversion = ICK_Integral_Conversion;
+    }
+    else
+    {
+      bool targetIsInt = IS_BASIC_AINT(TargetInfo.EltKind);
+      if (IS_BASIC_AINT(SourceInfo.EltKind))
+      {
+        if (targetIsInt)
+        {
+          ComponentConversion = precisionLoss ? ICK_Integral_Conversion : ICK_Integral_Promotion;
+        }
+        else
+        {
+          ComponentConversion = ICK_Floating_Integral;
+        }
+      }
+      else if (IS_BASIC_FLOAT(SourceInfo.EltKind))
+      {
+        if (targetIsInt)
+        {
+          ComponentConversion = ICK_Floating_Integral;
+        }
+        else
+        {
+          ComponentConversion = precisionLoss ? ICK_Floating_Conversion : ICK_Floating_Promotion;
+        }
+      }
+      else if (IS_BASIC_BOOL(SourceInfo.EltKind)) {
+        if (targetIsInt)
+          ComponentConversion = ICK_Integral_Conversion;
+        else
+          ComponentConversion = ICK_Floating_Integral;
+      }
+    }
+  }
+
+  return true;
+}
+
 _Use_decl_annotations_
 bool HLSLExternalSource::CanConvert(
   SourceLocation loc,
@@ -7651,261 +7907,13 @@ bool HLSLExternalSource::CanConvert(
     goto lSuccess;
   }
 
-  // Base type cast.
-  //
-  // The rules for aggregate conversions are:
-  // 1. A scalar can be replicated to any layout.
-  // 2. The result of two vectors is the smaller vector.
-  // 3. The result of two matrices is the smaller matrix.
-  // 4. The result of a vector and a matrix is:
-  //    a. If the matrix has one row it's a vector-sized
-  //       piece of the row.
-  //    b. If the matrix has one column it's a vector-sized
-  //       piece of the column.
-  //    c. Otherwise the number of elements in the vector
-  //       and matrix must match and the result is the vector.
-  // 5. The result of a matrix and a vector is similar to #4.
-  //
-
-
-  switch (TargetInfo.ShapeKind) {
-  case AR_TOBJ_BASIC:
-    switch (SourceInfo.ShapeKind)
-    {
-    case AR_TOBJ_BASIC:
-      Second = ICK_Identity;
-      break;
-
-    case AR_TOBJ_VECTOR:
-      if(1 < SourceInfo.uCols)
-        Second = ICK_HLSLVector_Truncation;
-      else
-        Second = ICK_HLSLVector_Scalar;
-      break;
-
-    case AR_TOBJ_MATRIX:
-      if(1 < SourceInfo.uRows * SourceInfo.uCols)
-        Second = ICK_HLSLVector_Truncation;
-      else
-        Second = ICK_HLSLVector_Scalar;
-      break;
-    
-    case AR_TOBJ_OBJECT:
-    case AR_TOBJ_INTERFACE:
-    case AR_TOBJ_POINTER:
-      return false;
-    default:
-      // Only valid conversion source types are handled.
-      break;
-    }
-
-    bCheckElt = true;
-    break;
-
-  case AR_TOBJ_VECTOR:
-    switch (SourceInfo.ShapeKind)
-    {
-    case AR_TOBJ_BASIC:
-      // Conversions between scalars and aggregates are always supported.
-      Second = ICK_HLSLVector_Splat;
-      break;
-
-    case AR_TOBJ_VECTOR:
-      if (TargetInfo.uCols > SourceInfo.uCols) {
-        if (SourceInfo.uCols == 1) {
-          Second = ICK_HLSLVector_Splat;
-        } else {
-          return false;
-      }
-      } else if (TargetInfo.uCols < SourceInfo.uCols) {
-        Second = ICK_HLSLVector_Truncation;
-      } else {
-        Second = ICK_Identity;
-      }
-      break;
-
-    case AR_TOBJ_MATRIX: {
-      UINT SourceComponents = SourceInfo.uRows * SourceInfo.uCols;
-      if (1 == SourceComponents && TargetInfo.uCols != 1) {
-        // splat: matrix<[..], 1, 1> -> vector<[..], O>
-        Second = ICK_HLSLVector_Splat;
-      } else if (1 == SourceInfo.uRows || 1 == SourceInfo.uCols) {
-        // cases for: matrix<[..], M, N> -> vector<[..], O>, where N == 1 or M == 1
-        if (TargetInfo.uCols > SourceComponents)          // illegal: O > N*M
-        return false;
-        else if (TargetInfo.uCols < SourceComponents)     // truncation: O < N*M
-          Second = ICK_HLSLVector_Truncation;
-        else                                              // equalivalent: O == N*M
-          Second = ICK_HLSLVector_Conversion;
-      } else if (TargetInfo.uCols != SourceComponents) {
-        // illegal: matrix<[..], M, N> -> vector<[..], O> where N != 1 and M != 1 and O != N*M
-        return false;
-      } else {
-        // legal: matrix<[..], M, N> -> vector<[..], O> where N != 1 and M != 1 and O == N*M
-        Second = ICK_HLSLVector_Conversion;
-      }
-      break;
-    }
-
-    case AR_TOBJ_OBJECT:
-    case AR_TOBJ_INTERFACE:
-    case AR_TOBJ_POINTER:
-      return false;
-    default:
-      // Only valid conversion source types are handled.
-      break;
-    }
-
-    bCheckElt = true;
-    break;
-
-  case AR_TOBJ_MATRIX: {
-    UINT TargetComponents = TargetInfo.uRows * TargetInfo.uCols;
-    switch (SourceInfo.ShapeKind)
-    {
-    case AR_TOBJ_BASIC:
-      // Conversions between scalars and aggregates are always supported.
-      Second = ICK_HLSLVector_Splat;
-      break;
-
-    case AR_TOBJ_VECTOR: {
-      if (1 == SourceInfo.uCols && TargetComponents != 1) {
-        // splat: vector<[..], 1> -> matrix<[..], M, N>
-        Second = ICK_HLSLVector_Splat;
-      } else if (1 == TargetInfo.uRows || 1 == TargetInfo.uCols) {
-        // cases for: vector<[..], O> -> matrix<[..], N, M>, where N == 1 or M == 1
-        if (TargetComponents > SourceInfo.uCols)          // illegal: N*M > O
-        return false;
-        else if (TargetComponents < SourceInfo.uCols)     // truncation: N*M < O
-          Second = ICK_HLSLVector_Truncation;
-        else                                              // equalivalent: N*M == O
-          Second = ICK_HLSLVector_Conversion;
-      } else if (TargetComponents != SourceInfo.uCols) {
-        // illegal: vector<[..], O> -> matrix<[..], M, N> where N != 1 and M != 1 and O != N*M
-        return false;
-      } else {
-        // legal: vector<[..], O> -> matrix<[..], M, N> where N != 1 and M != 1 and O == N*M
-        Second = ICK_HLSLVector_Conversion;
-      }
-      break;
-      }
-
-    case AR_TOBJ_MATRIX: {
-      UINT SourceComponents = SourceInfo.uRows * SourceInfo.uCols;
-      if (1 == SourceComponents && TargetComponents != 1) {
-        // splat: matrix<[..], 1, 1> -> matrix<[..], M, N>
-        Second = ICK_HLSLVector_Splat;
-      } else if (TargetInfo.uRows > SourceInfo.uRows || TargetInfo.uCols > SourceInfo.uCols) {
-        return false;
-      } else if(TargetInfo.uRows < SourceInfo.uRows || TargetInfo.uCols < SourceInfo.uCols) {
-          Second = ICK_HLSLVector_Truncation;
-      } else {
-          Second = ICK_Identity;
-      }
-      break;
-      }
-
-    case AR_TOBJ_OBJECT:
-    case AR_TOBJ_INTERFACE:
-    case AR_TOBJ_POINTER:
-      return false;
-    default:
-      // Only valid conversion source types are handled.
-      break;
-    }
-
-    bCheckElt = true;
-    break;
-  }
-
-  case AR_TOBJ_OBJECT:
-    // There are no compatible object assignments that aren't
-    // from one type to itself, which is already covered.
-    DXASSERT(source != target, "otherwise trivial case was not checked by this function");
+  // Convert scalar/vector/matrix dimensions
+  if (!ConvertDimensions(TargetInfo, SourceInfo, Second, Remarks))
     return false;
 
-  default:
-    DXASSERT_NOMSG(false);
+  // Convert component type
+  if (!ConvertComponent(TargetInfo, SourceInfo, ComponentConversion, Remarks))
     return false;
-  }
-
-  if (bCheckElt)
-  {
-    bool precisionLoss = false;
-    if (GET_BASIC_BITS(TargetInfo.EltKind) != 0 &&
-      GET_BASIC_BITS(TargetInfo.EltKind) <
-      GET_BASIC_BITS(SourceInfo.EltKind))
-    {
-      precisionLoss = true;
-      Remarks |= TYPE_CONVERSION_PRECISION_LOSS;
-    }
-
-    if (TargetInfo.uTotalElts < SourceInfo.uTotalElts)
-    {
-      Remarks |= TYPE_CONVERSION_ELT_TRUNCATION;
-    }
-    // enum -> enum not allowed
-    if ((SourceInfo.EltKind == AR_BASIC_ENUM &&
-        TargetInfo.EltKind == AR_BASIC_ENUM) ||
-        SourceInfo.EltKind == AR_BASIC_ENUM_CLASS ||
-        TargetInfo.EltKind == AR_BASIC_ENUM_CLASS) {
-      return false;
-    }
-    if (SourceInfo.EltKind != TargetInfo.EltKind)
-    {
-      if (TargetInfo.EltKind == AR_BASIC_UNKNOWN ||
-          SourceInfo.EltKind == AR_BASIC_UNKNOWN)
-      {
-        Second = ICK_Flat_Conversion;
-      }
-      else if (IS_BASIC_BOOL(TargetInfo.EltKind))
-      {
-        ComponentConversion = ICK_Boolean_Conversion;
-      }
-      else if (IS_BASIC_ENUM(TargetInfo.EltKind))
-      {
-        // conversion to enum type not allowed
-        return false;
-      }
-      else if (IS_BASIC_ENUM(SourceInfo.EltKind))
-      {
-        // enum -> int/float
-        ComponentConversion = ICK_Integral_Conversion;
-      }
-      else
-      {
-        bool targetIsInt = IS_BASIC_AINT(TargetInfo.EltKind);
-        if (IS_BASIC_AINT(SourceInfo.EltKind))
-        {
-          if (targetIsInt)
-          {
-            ComponentConversion = precisionLoss ? ICK_Integral_Conversion : ICK_Integral_Promotion;
-          }
-          else
-          {
-            ComponentConversion = ICK_Floating_Integral;
-          }
-        }
-        else if (IS_BASIC_FLOAT(SourceInfo.EltKind))
-        {
-          DXASSERT(IS_BASIC_FLOAT(SourceInfo.EltKind), "otherwise should not be checking element types");
-          if (targetIsInt)
-          {
-            ComponentConversion = ICK_Floating_Integral;
-          }
-          else
-          {
-            ComponentConversion = precisionLoss ? ICK_Floating_Conversion : ICK_Floating_Promotion;
-          }
-        } else if (IS_BASIC_BOOL(SourceInfo.EltKind)) {
-          if (targetIsInt)
-            ComponentConversion = ICK_Integral_Conversion;
-          else
-            ComponentConversion = ICK_Floating_Integral;
-        }
-      }
-    }
-  }
 
 lSuccess:
   if (standard)
@@ -7984,28 +7992,6 @@ lSuccess:
   return true;
 }
 
-Expr* HLSLExternalSource::CastExprToTypeNumeric(Expr* expr, QualType type)
-{
-  DXASSERT_NOMSG(expr != nullptr);
-  DXASSERT_NOMSG(!type.isNull());
-
-  if (expr->getType() != type) {
-    StandardConversionSequence standard;
-    TYPE_CONVERSION_REMARKS remarks;
-    if (CanConvert(SourceLocation(), expr, type, /*explicitConversion*/false, &remarks, &standard) &&
-        (standard.First != ICK_Identity || !standard.isIdentityConversion())) {
-      if ((remarks & TYPE_CONVERSION_ELT_TRUNCATION) != 0) {
-        m_sema->Diag(expr->getExprLoc(), diag::warn_hlsl_implicit_vector_truncation);
-      }
-      ExprResult result = m_sema->PerformImplicitConversion(expr, type, standard, Sema::AA_Casting, Sema::CCK_ImplicitConversion);
-      if (result.isUsable()) {
-        return result.get();
-      }
-    }
-  }
-  return expr;
-}
-
 bool HLSLExternalSource::ValidateTypeRequirements(
   SourceLocation loc,
   ArBasicKind elementKind,
@@ -8056,65 +8042,32 @@ bool HLSLExternalSource::ValidatePrimitiveTypeForOperand(SourceLocation loc, Qua
   return isValid;
 }
 
-HRESULT HLSLExternalSource::CombineDimensions(QualType leftType, QualType rightType, ArTypeObjectKind leftKind, ArTypeObjectKind rightKind, QualType *resultType)
+HRESULT HLSLExternalSource::CombineDimensions(
+  QualType leftType, QualType rightType, QualType *resultType,
+  ImplicitConversionKind &convKind, TYPE_CONVERSION_REMARKS &Remarks)
 {
-  UINT leftRows, leftCols;
-  UINT rightRows, rightCols;
-  GetRowsAndColsForAny(leftType, leftRows, leftCols);
-  GetRowsAndColsForAny(rightType, rightRows, rightCols);
-  UINT leftTotal = leftRows * leftCols;
-  UINT rightTotal = rightRows * rightCols;
+  ArTypeInfo leftInfo, rightInfo;
+  CollectInfo(leftType, &leftInfo);
+  CollectInfo(rightType, &rightInfo);
 
-  if (rightTotal == 1) {
-    *resultType = leftType;
-    return S_OK;
-  } else if (leftTotal == 1) {
-    *resultType = rightType;
-    return S_OK;
-  } else if (leftRows <= rightRows && leftCols <= rightCols) {
-    DXASSERT_NOMSG((leftKind == AR_TOBJ_MATRIX || leftKind == AR_TOBJ_VECTOR) && 
-                   (rightKind == AR_TOBJ_MATRIX || rightKind == AR_TOBJ_VECTOR));
-    if (leftKind == rightKind) {
+  // Prefer larger, or left if same.
+  if (leftInfo.uTotalElts >= rightInfo.uTotalElts) {
+    if (ConvertDimensions(leftInfo, rightInfo, convKind, Remarks))
       *resultType = leftType;
-      return S_OK;
-    } else {
-      // vector & matrix combination - only 1xN is allowed here
-      if (leftKind == AR_TOBJ_VECTOR && rightRows == 1) {
-        *resultType = leftType;
-        return S_OK;
-      }
-    }
-  } else if (rightRows <= leftRows && rightCols <= leftCols) {
-    DXASSERT_NOMSG((leftKind == AR_TOBJ_MATRIX || leftKind == AR_TOBJ_VECTOR) && 
-                   (rightKind == AR_TOBJ_MATRIX || rightKind == AR_TOBJ_VECTOR));
-    if (leftKind == rightKind) {
+    else if (ConvertDimensions(rightInfo, leftInfo, convKind, Remarks))
       *resultType = rightType;
-      return S_OK;
-    } else {
-      // matrix & vector combination - only 1xN is allowed here
-      if (rightKind == AR_TOBJ_VECTOR && leftRows == 1) {
-        *resultType = leftType;
-        return S_OK;
-      }
-    }
-  } else if ( (1 == leftRows || 1 == leftCols) &&
-              (1 == rightRows || 1 == rightCols)) {
-    // Handles cases where 1xN or Nx1 matrices are involved possibly mixed with vectors
-    if (leftTotal <= rightTotal) {
+    else
+      return E_FAIL;
+  } else {
+    if (ConvertDimensions(rightInfo, leftInfo, convKind, Remarks))
+      *resultType = rightType;
+    else if (ConvertDimensions(leftInfo, rightInfo, convKind, Remarks))
       *resultType = leftType;
-      return S_OK;
-    } else {
-      *resultType = rightType;
-      return S_OK;
-    }
-  }
-  else if (((leftKind == AR_TOBJ_VECTOR && rightKind == AR_TOBJ_MATRIX) ||
-            (leftKind == AR_TOBJ_MATRIX && rightKind == AR_TOBJ_VECTOR)) && leftTotal == rightTotal) {
-    *resultType = leftType;
-    return S_OK;
+    else
+      return E_FAIL;
   }
 
-  return E_FAIL;
+  return S_OK;
 }
 
 /// <summary>Validates and adjusts operands for the specified binary operator.</summary>
@@ -8182,7 +8135,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(
       }
       StandardConversionSequence standard;
       if (!ValidateCast(OpLoc, RHS.get(), ResultTy, 
-          ExplicitConversionFalse, complained, complained, &standard)) {
+          ExplicitConversionFalse, SuppressWarningsFalse, SuppressErrorsFalse, &standard)) {
         return;
       }
       if (RHS.get()->isLValue()) {
@@ -8220,12 +8173,6 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     return;
   }
 
-  // Promote bool to int now if necessary
-  if (BinaryOperatorKindRequiresBoolAsNumeric(Opc) &&
-      !isCompoundAssignment) {
-    LHS = PromoteToIntIfBool(LHS);
-  }
-
   // Gather type info
   QualType leftType = GetStructuralForm(LHS.get()->getType());
   QualType rightType = GetStructuralForm(RHS.get()->getType());
@@ -8245,11 +8192,6 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     if (!ValidateTypeRequirements(OpLoc, rightElementKind, rightObjectKind, requiresIntegrals, requiresNumerics)) {
       return;
     }
-  }
-
-  // Promote rhs bool to int if necessary.
-  if (BinaryOperatorKindRequiresBoolAsNumeric(Opc)) {
-    RHS = PromoteToIntIfBool(RHS);
   }
 
   if (unsupportedBoolLvalue) {
@@ -8294,6 +8236,9 @@ void HLSLExternalSource::CheckBinOpForHLSL(
                rightElementKind != AR_BASIC_LITERAL_FLOAT) {
       // For case like 1<<x.
       resultElementKind = AR_BASIC_UINT32;
+    } else if (resultElementKind == AR_BASIC_BOOL &&
+               BinaryOperatorKindRequiresBoolAsNumeric(Opc)) {
+      resultElementKind = AR_BASIC_INT32;
     }
 
     // The following combines the selected/combined element kind above with 
@@ -8305,33 +8250,45 @@ void HLSLExternalSource::CheckBinOpForHLSL(
       // Legal dimension combinations are identical, splat, and truncation.
       // ResultTy will be set to whichever type can be converted to, if legal,
       // with preference for leftType if both are possible.
-      if (FAILED(CombineDimensions(leftType, rightType, leftObjectKind, rightObjectKind, &ResultTy))) {
-        m_sema->Diag(OpLoc, diag::err_hlsl_type_mismatch);
-        return;
+      if (FAILED(CombineDimensions(LHS.get()->getType(), RHS.get()->getType(), &ResultTy))) {
+        // Just choose leftType, and allow ValidateCast to catch this later
+        ResultTy = LHS.get()->getType();
       }
     } else {
       ResultTy = LHS.get()->getType();
     }
 
-    // Here, element kind is combined with dimensions for computation type.
-    UINT rowCount, colCount;
-    ArTypeObjectKind resultObjectKind = (leftObjectKind == rightObjectKind ? leftObjectKind : AR_TOBJ_INVALID);
-    GetRowsAndColsForAny(ResultTy, rowCount, colCount);
-    ResultTy = NewSimpleAggregateType(resultObjectKind, resultElementKind, 0, rowCount, colCount)->getCanonicalTypeInternal();
+    // Here, element kind is combined with dimensions for computation type, if different.
+    if (resultElementKind != GetTypeElementKind(ResultTy)) {
+      UINT rowCount, colCount;
+      GetRowsAndColsForAny(ResultTy, rowCount, colCount);
+      ResultTy = NewSimpleAggregateType(GetTypeObjectKind(ResultTy), resultElementKind, 0, rowCount, colCount);
+    }
   }
+
+  bool bFailedFirstRHSCast = false;
 
   // Perform necessary conversion sequences for LHS and RHS
   if (RHS.get()->getType() != ResultTy) {
-    RHS = CastExprToTypeNumeric(RHS.get(), ResultTy);
-  }
-  if (isCompoundAssignment) {
-    bool complained = false;
     StandardConversionSequence standard;
-    if (!ValidateCast(OpLoc, RHS.get(), LHS.get()->getType(), ExplicitConversionFalse,
-                      complained, complained, &standard)) {
+    // Suppress type narrowing or truncation warnings for RHS on bitwise shift, since we only care about the LHS type.
+    bool bSuppressWarnings = BinaryOperatorKindIsBitwiseShift(Opc);
+    // Suppress errors on compound assignment, since we will vaildate the cast to the final type later.
+    bool bSuppressErrors = isCompoundAssignment;
+    // If compound assignment, suppress errors until later, but report warning (vector truncation/type narrowing) here.
+    if (ValidateCast(SourceLocation(), RHS.get(), ResultTy, ExplicitConversionFalse, bSuppressWarnings, bSuppressErrors, &standard)) {
+      if (standard.First != ICK_Identity || !standard.isIdentityConversion())
+        RHS = m_sema->PerformImplicitConversion(RHS.get(), ResultTy, standard, Sema::AA_Casting, Sema::CCK_ImplicitConversion);
+    } else if (!isCompoundAssignment) {
+      // If compound assignment, validate cast from RHS directly to LHS later, otherwise, fail here.
       ResultTy = QualType();
       return;
+    } else {
+      bFailedFirstRHSCast = true;
     }
+  }
+
+  if (isCompoundAssignment) {
     CompResultTy = ResultTy;
     CompLHSTy = CompResultTy;
 
@@ -8341,8 +8298,25 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     // So int + float promotes the int to float, does a floating-point addition,
     // then the result becomes and int and is assigned.
     ResultTy = LHSTypeAsPossibleLValue;
+
+    // Validate remainder of cast from computation type to final result type
+    StandardConversionSequence standard;
+    if (!ValidateCast(SourceLocation(), RHS.get(), ResultTy, ExplicitConversionFalse, SuppressWarningsFalse, SuppressErrorsFalse, &standard)) {
+      ResultTy = QualType();
+      return;
+    }
+    DXASSERT_LOCALVAR(bFailedFirstRHSCast, !bFailedFirstRHSCast,
+      "otherwise, hit compound assign case that failed RHS -> CompResultTy cast, but succeeded RHS -> LHS cast.");
+
   } else if (LHS.get()->getType() != ResultTy) {
-    LHS = CastExprToTypeNumeric(LHS.get(), ResultTy);
+    StandardConversionSequence standard;
+    if (ValidateCast(SourceLocation(), LHS.get(), ResultTy, ExplicitConversionFalse, SuppressWarningsFalse, SuppressErrorsFalse, &standard)) {
+      if (standard.First != ICK_Identity || !standard.isIdentityConversion())
+        LHS = m_sema->PerformImplicitConversion(LHS.get(), ResultTy, standard, Sema::AA_Casting, Sema::CCK_ImplicitConversion);
+    } else {
+      ResultTy = QualType();
+      return;
+    }
   }
 
   if (BinaryOperatorKindIsComparison(Opc) || BinaryOperatorKindIsLogical(Opc))
@@ -8552,8 +8526,12 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
     }
   }
 
+  // Restore left/right type to original to avoid stripping attributed type or typedef type
+  leftType = LHS.get()->getType();
+  rightType = RHS.get()->getType();
+
   // Combine LHS and RHS dimensions
-  if (FAILED(CombineDimensions(leftType, rightType, leftObjectKind, rightObjectKind, &ResultTy))) {
+  if (FAILED(CombineDimensions(leftType, rightType, &ResultTy))) {
     m_sema->Diag(QuestionLoc, diag::err_hlsl_conditional_result_dimensions);
     return QualType();
   }
@@ -8581,23 +8559,43 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
 
   // Convert condition component type to bool, using result component dimensions
   if (condElementKind != AR_BASIC_BOOL) {
-    Cond = CastExprToTypeNumeric(Cond.get(),
-      NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal());
+    QualType boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal();
+    StandardConversionSequence standard;
+    if (ValidateCast(SourceLocation(), Cond.get(), boolType, ExplicitConversionFalse, SuppressWarningsFalse, SuppressErrorsFalse, &standard)) {
+      if (standard.First != ICK_Identity || !standard.isIdentityConversion())
+        Cond = m_sema->PerformImplicitConversion(Cond.get(), boolType, standard, Sema::AA_Casting, Sema::CCK_ImplicitConversion);
+    }
+    else {
+      return QualType();
+    }
   }
 
+  // TODO: Is this correct?  Does fxc support lvalue return here?
   // Cast LHS/RHS to RValue
   if (LHS.get()->isLValue())
     LHS.set(CreateLValueToRValueCast(LHS.get()));
   if (RHS.get()->isLValue())
     RHS.set(CreateLValueToRValueCast(RHS.get()));
 
-  // TODO: Why isn't vector truncation being reported?
-
   if (leftType != ResultTy) {
-    LHS = CastExprToTypeNumeric(LHS.get(), ResultTy);
+    StandardConversionSequence standard;
+    if (ValidateCast(SourceLocation(), LHS.get(), ResultTy, ExplicitConversionFalse, SuppressWarningsFalse, SuppressErrorsFalse, &standard)) {
+      if (standard.First != ICK_Identity || !standard.isIdentityConversion())
+        LHS = m_sema->PerformImplicitConversion(LHS.get(), ResultTy, standard, Sema::AA_Casting, Sema::CCK_ImplicitConversion);
+    }
+    else {
+      return QualType();
+    }
   }
   if (rightType != ResultTy) {
-    RHS = CastExprToTypeNumeric(RHS.get(), ResultTy);
+    StandardConversionSequence standard;
+    if (ValidateCast(SourceLocation(), RHS.get(), ResultTy, ExplicitConversionFalse, SuppressWarningsFalse, SuppressErrorsFalse, &standard)) {
+      if (standard.First != ICK_Identity || !standard.isIdentityConversion())
+        RHS = m_sema->PerformImplicitConversion(RHS.get(), ResultTy, standard, Sema::AA_Casting, Sema::CCK_ImplicitConversion);
+    }
+    else {
+      return QualType();
+    }
   }
 
   return ResultTy;
@@ -8798,67 +8796,6 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   }
 
   return Sema::TemplateDeductionResult::TDK_NonDeducedMismatch;
-}
-
-void HLSLExternalSource::DiagnoseAssignmentResultForHLSL(
-  Sema::AssignConvertType ConvTy,
-  SourceLocation Loc,
-  QualType DstType, QualType SrcType,
-  _In_ Expr *SrcExpr, Sema::AssignmentAction Action,
-  _Out_opt_ bool *Complained)
-{
-  if (Complained) *Complained = false;
-
-  // No work to do if there is not type change.
-  if (DstType == SrcType) {
-    return;
-  }
-
-  // Don't generate a warning if the user is casting explicitly
-  // or if initializing - our initialization handling already emits this.
-  if (Action == Sema::AssignmentAction::AA_Casting ||
-      Action == Sema::AssignmentAction::AA_Initializing) {
-    return;
-  }
-
-  ArBasicKind src = BasicTypeForScalarType(SrcType->getCanonicalTypeUnqualified());
-  if (src == AR_BASIC_UNKNOWN || src == AR_BASIC_BOOL) {
-    return;
-  }
-
-  ArBasicKind dst = BasicTypeForScalarType(DstType->getCanonicalTypeUnqualified());
-  if (dst == AR_BASIC_UNKNOWN) {
-    return;
-  }
-
-  bool warnAboutNarrowing = false;
-  switch (dst) {
-  case AR_BASIC_FLOAT32:
-  case AR_BASIC_INT32:
-  case AR_BASIC_UINT32:
-  case AR_BASIC_FLOAT16:
-    warnAboutNarrowing = src == AR_BASIC_FLOAT64;
-    break;
-  case AR_BASIC_MIN16FLOAT:
-    warnAboutNarrowing = (src == AR_BASIC_INT32 || src == AR_BASIC_UINT32 || src == AR_BASIC_FLOAT32 || src == AR_BASIC_FLOAT64);
-    break;
-  case AR_BASIC_MIN16INT:
-  case AR_BASIC_MIN16UINT:
-  case AR_BASIC_MIN12INT:
-  case AR_BASIC_MIN10FLOAT:
-    warnAboutNarrowing = (src == AR_BASIC_INT32 || src == AR_BASIC_UINT32 || src == AR_BASIC_FLOAT32 || src == AR_BASIC_FLOAT64);
-    break;
-  default:
-    // No other destination types result in narrowing.
-    break;
-  }
-
-  // fxc errors looked like this:
-  // warning X3205: conversion from larger type to smaller, possible loss of data
-  if (warnAboutNarrowing) {
-    m_sema->Diag(Loc, diag::warn_hlsl_narrowing) << SrcType << DstType;
-    AssignOpt(true, Complained);
-  }
 }
 
 void HLSLExternalSource::ReportUnsupportedTypeNesting(SourceLocation loc, QualType type)
@@ -9082,6 +9019,9 @@ bool HLSLExternalSource::ValidateCast(
 {
   DXASSERT_NOMSG(sourceExpr != nullptr);
 
+  if (OpLoc.isInvalid())
+    OpLoc = sourceExpr->getExprLoc();
+
   QualType source = sourceExpr->getType();
   TYPE_CONVERSION_REMARKS remarks;
   if (!CanConvert(OpLoc, sourceExpr, target, explicitConversion, &remarks, standard))
@@ -9198,17 +9138,6 @@ Sema::TemplateDeductionResult hlsl::DeduceTemplateArgumentsForHLSL(Sema* self,
 {
   return HLSLExternalSource::FromSema(self)
     ->DeduceTemplateArgumentsForHLSL(FunctionTemplate, ExplicitTemplateArgs, Args, Specialization, Info);
-}
-
-void hlsl::DiagnoseAssignmentResultForHLSL(Sema* self,
-  Sema::AssignConvertType ConvTy,
-  SourceLocation Loc,
-  QualType DstType, QualType SrcType,
-  Expr *SrcExpr, Sema::AssignmentAction Action,
-  bool *Complained)
-{
-  return HLSLExternalSource::FromSema(self)
-    ->DiagnoseAssignmentResultForHLSL(ConvTy, Loc, DstType, SrcType, SrcExpr, Action, Complained);
 }
 
 void hlsl::DiagnoseControlFlowConditionForHLSL(Sema *self, Expr *condExpr, StringRef StmtName) {

@@ -64,15 +64,6 @@ clang::Sema::TemplateDeductionResult DeduceTemplateArgumentsForHLSL(
   clang::FunctionDecl *&, 
   clang::sema::TemplateDeductionInfo &);
 
-void DiagnoseAssignmentResultForHLSL(
-  clang::Sema* self,
-  clang::Sema::AssignConvertType ConvTy,
-  clang::SourceLocation Loc,
-  clang::QualType DstType, clang::QualType SrcType,
-  clang::Expr *SrcExpr,
-  clang::Sema::AssignmentAction Action,
-  bool *Complained);
-
 void DiagnoseControlFlowConditionForHLSL(clang::Sema *self,
                                          clang::Expr *condExpr,
                                          llvm::StringRef StmtName);
