@@ -651,7 +651,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Compile(
     }
 
     dxilutil::ExportMap exportMap;
-    M = pLinker->Link("", "lib_6_1", exportMap);
+    M = pLinker->Link("", "lib_6_3", exportMap);
     if (m_debugOutput)
     {
         saveModuleToAsmFile(M.get(), "combined.ll");
