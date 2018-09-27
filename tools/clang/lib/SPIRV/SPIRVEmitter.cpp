@@ -5570,11 +5570,13 @@ SpirvEvalInfo
 SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
   const QualType type = expr->getType();
   const SourceRange range = expr->getSourceRange();
+  QualType elemType = {};
 
   // We can only translate floatN * float into OpVectorTimesScalar.
-  // So the result type must be floatN.
-  if (!hlsl::IsHLSLVecType(type) ||
-      !hlsl::GetHLSLVecElementType(type)->isFloatingType())
+  // So the result type must be floatN. Note that float1 is not a valid vector
+  // in SPIR-V.
+  if (!(TypeTranslator::isVectorType(type, &elemType) &&
+        elemType->isFloatingType()))
     return 0;
 
   const Expr *lhs = expr->getLHS();
@@ -5627,10 +5629,13 @@ SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
   const QualType type = expr->getType();
   const SourceRange range = expr->getSourceRange();
 
-  // We can only translate floatMxN * float into OpMatrixTimesScalar.
-  // So the result type must be floatMxN.
+  // We translate 'floatMxN * float' into OpMatrixTimesScalar.
+  // We translate 'floatMx1 * float' and 'float1xN * float' using
+  // OpVectorTimesScalar.
+  // So the result type can be floatMxN, floatMx1, or float1xN.
   if (!hlsl::IsHLSLMatType(type) ||
-      !hlsl::GetHLSLMatElementType(type)->isFloatingType())
+      !hlsl::GetHLSLMatElementType(type)->isFloatingType() ||
+      TypeTranslator::is1x1Matrix(type))
     return 0;
 
   const Expr *lhs = expr->getLHS();
