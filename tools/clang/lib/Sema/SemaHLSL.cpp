@@ -7499,7 +7499,7 @@ static bool ConvertDimensions(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
   //       piece of the column.
   //    c. Otherwise the number of elements in the vector
   //       and matrix must match and the result is the vector.
-  // 5. The result of a matrix and a vector is similar to #4.
+  // 6. The result of a matrix and a vector is similar to #5.
 
   switch (TargetInfo.ShapeKind) {
   case AR_TOBJ_BASIC:
