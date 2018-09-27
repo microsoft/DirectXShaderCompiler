@@ -467,6 +467,9 @@ private:
   /// Processes SM6.0 wave vote intrinsic calls.
   uint32_t processWaveVote(const CallExpr *, spv::Op opcode);
 
+  /// Processes SM6.0 wave active/prefix count bits.
+  uint32_t processWaveCountBits(const CallExpr *, spv::GroupOperation groupOp);
+
   /// Processes SM6.0 wave reduction or scan/prefix intrinsic calls.
   uint32_t processWaveReductionOrPrefix(const CallExpr *, spv::Op op,
                                         spv::GroupOperation groupOp);

@@ -14,6 +14,8 @@ RWStructuredBuffer<S> values;
 void main(uint3 id: SV_DispatchThreadID) {
     uint x = id.x;
 
-// CHECK:  {{%\d+}} = OpGroupNonUniformBallotBitCount %uint %int_3 ExclusiveScan {{%\d+}}
+// CHECK:         [[cmp:%\d+]] = OpIEqual %bool {{%\d+}} %uint_0
+// CHECK-NEXT: [[ballot:%\d+]] = OpGroupNonUniformBallot %v4uint %int_3 [[cmp]]
+// CHECK:             {{%\d+}} = OpGroupNonUniformBallotBitCount %uint %int_3 ExclusiveScan [[ballot]]
     values[x].val = WavePrefixCountBits(values[x].val == 0);
 }

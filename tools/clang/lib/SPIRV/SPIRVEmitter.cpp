@@ -6635,9 +6635,7 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processWaveVote(callExpr, spv::Op::OpGroupNonUniformAllEqual);
     break;
   case hlsl::IntrinsicOp::IOP_WaveActiveCountBits:
-    retVal = processWaveReductionOrPrefix(
-        callExpr, spv::Op::OpGroupNonUniformBallotBitCount,
-        spv::GroupOperation::Reduce);
+    retVal = processWaveCountBits(callExpr, spv::GroupOperation::Reduce);
     break;
   case hlsl::IntrinsicOp::IOP_WaveActiveUSum:
   case hlsl::IntrinsicOp::IOP_WaveActiveSum:
@@ -6665,9 +6663,7 @@ SpirvEvalInfo SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
         spv::GroupOperation::ExclusiveScan);
   } break;
   case hlsl::IntrinsicOp::IOP_WavePrefixCountBits:
-    retVal = processWaveReductionOrPrefix(
-        callExpr, spv::Op::OpGroupNonUniformBallotBitCount,
-        spv::GroupOperation::ExclusiveScan);
+    retVal = processWaveCountBits(callExpr, spv::GroupOperation::ExclusiveScan);
     break;
   case hlsl::IntrinsicOp::IOP_WaveReadLaneAt:
   case hlsl::IntrinsicOp::IOP_WaveReadLaneFirst:
@@ -7194,11 +7190,38 @@ spv::Op SPIRVEmitter::translateWaveOp(hlsl::IntrinsicOp op, QualType type,
   return spv::Op::OpNop;
 }
 
+uint32_t SPIRVEmitter::processWaveCountBits(const CallExpr *callExpr,
+                                            spv::GroupOperation groupOp) {
+  // Signatures:
+  // uint WaveActiveCountBits(bool bBit)
+  // uint WavePrefixCountBits(Bool bBit)
+  assert(callExpr->getNumArgs() == 1);
+
+  featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
+                                  callExpr->getExprLoc());
+  theBuilder.requireCapability(getCapabilityForGroupNonUniform(
+      spv::Op::OpGroupNonUniformBallotBitCount));
+
+  const uint32_t predicate = doExpr(callExpr->getArg(0));
+  const uint32_t subgroupScope = theBuilder.getConstantInt32(3);
+
+  const uint32_t u32Type = theBuilder.getUint32Type();
+  const uint32_t v4u32Type = theBuilder.getVecType(u32Type, 4);
+  const uint32_t retType =
+      typeTranslator.translateType(callExpr->getCallReturnType(astContext));
+
+  const uint32_t ballot = theBuilder.createGroupNonUniformUnaryOp(
+      spv::Op::OpGroupNonUniformBallot, v4u32Type, subgroupScope, predicate);
+
+  return theBuilder.createGroupNonUniformUnaryOp(
+      spv::Op::OpGroupNonUniformBallotBitCount, retType, subgroupScope, ballot,
+      llvm::Optional<spv::GroupOperation>(groupOp));
+}
+
 uint32_t SPIRVEmitter::processWaveReductionOrPrefix(
     const CallExpr *callExpr, spv::Op opcode, spv::GroupOperation groupOp) {
   // Signatures:
   // bool WaveActiveAllEqual( <type> expr )
-  // uint WaveActiveCountBits( bool bBit )
   // <type> WaveActiveSum( <type> expr )
   // <type> WaveActiveProduct( <type> expr )
   // <int_type> WaveActiveBitAnd( <int_type> expr )
@@ -7207,7 +7230,6 @@ uint32_t SPIRVEmitter::processWaveReductionOrPrefix(
   // <type> WaveActiveMin( <type> expr)
   // <type> WaveActiveMax( <type> expr)
   //
-  // uint WavePrefixCountBits(Bool bBit)
   // <type> WavePrefixProduct(<type> value)
   // <type> WavePrefixSum(<type> value)
   assert(callExpr->getNumArgs() == 1);
