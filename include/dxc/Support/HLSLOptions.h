@@ -132,7 +132,8 @@ public:
   bool AvoidFlowControl = false;     // OPT_Gfa
   bool PreferFlowControl = false;    // OPT_Gfp
   bool EnableStrictMode = false;     // OPT_Ges
-  bool EnableBackCompatMode = false;     // OPT_Gec
+  bool EnableDX9CompatMode = false;     // OPT_Gec
+  bool EnableFXCCompatMode = false;     // internal flag
   unsigned long HLSLVersion = 0; // OPT_hlsl_version (2015-2018)
   bool Enable16BitTypes = false; // OPT_enable_16bit_types
   bool OptDump = false; // OPT_ODump - dump optimizer commands

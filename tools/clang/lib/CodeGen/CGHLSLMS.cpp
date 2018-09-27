@@ -385,7 +385,8 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
 
   opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
-  opts.bBackCompatMode = CGM.getLangOpts().EnableBackCompatMode;
+  opts.bDX9CompatMode = CGM.getLangOpts().EnableDX9CompatMode;
+  opts.bFXCCompatMode = CGM.getLangOpts().EnableFXCCompatMode;
 
   m_pHLModule->SetHLOptions(opts);
   m_pHLModule->SetAutoBindingSpace(CGM.getCodeGenOpts().HLSLDefaultSpace);
@@ -1559,7 +1560,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   SourceLocation retTySemanticLoc = SetSemantic(FD, retTyAnnotation);
   retTyAnnotation.SetParamInputQual(DxilParamInputQual::Out);
   if (isEntry) {
-    if (CGM.getLangOpts().EnableBackCompatMode && retTyAnnotation.HasSemanticString()) {
+    if (CGM.getLangOpts().EnableDX9CompatMode && retTyAnnotation.HasSemanticString()) {
       RemapObsoleteSemantic(retTyAnnotation, /*isPatchConstantFunction*/ false);
     }
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
@@ -1840,7 +1841,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     paramAnnotation.SetParamInputQual(dxilInputQ);
     if (isEntry) {
-      if (CGM.getLangOpts().EnableBackCompatMode && paramAnnotation.HasSemanticString()) {
+      if (CGM.getLangOpts().EnableDX9CompatMode && paramAnnotation.HasSemanticString()) {
         RemapObsoleteSemantic(paramAnnotation, /*isPatchConstantFunction*/ false);
       }
       CheckParameterAnnotation(paramSemanticLoc, paramAnnotation,
@@ -1941,7 +1942,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 }
 
 void CGMSHLSLRuntime::RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, bool isPatchConstantFunction) {
-  DXASSERT(CGM.getLangOpts().EnableBackCompatMode, "should be used only in back-compat mode");
+  DXASSERT(CGM.getLangOpts().EnableDX9CompatMode, "should be used only in back-compat mode");
 
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
   DXIL::SigPointKind sigPointKind = SigPointFromInputQual(paramInfo.GetParamInputQual(), SM->GetKind(), isPatchConstantFunction);
@@ -4577,7 +4578,7 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     // In back-compat mode (with /Gec flag) create a static global for each const global
     // to allow writing to it.
     // TODO: Verfiy the behavior of static globals in hull shader
-    if(CGM.getLangOpts().EnableBackCompatMode && CGM.getLangOpts().HLSLVersion <= 2016)
+    if(CGM.getLangOpts().EnableDX9CompatMode && CGM.getLangOpts().HLSLVersion <= 2016)
       CreateWriteEnabledStaticGlobals(m_pHLModule->GetModule(), m_pHLModule->GetEntryFunction());
     if (m_pHLModule->GetShaderModel()->IsHS()) {
       SetPatchConstantFunction(Entry);
