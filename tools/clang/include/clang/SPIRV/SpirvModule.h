@@ -18,6 +18,8 @@
 namespace clang {
 namespace spirv {
 
+class SpirvVisitor;
+
 // TODO: flesh this out
 class SpirvTypeConstant;
 
@@ -47,6 +49,9 @@ public:
   // Forbid move construction and assignment
   SpirvModule(SpirvModule &&) = delete;
   SpirvModule &operator=(SpirvModule &&) = delete;
+
+  // Handle SPIR-V module visitors.
+  bool visit(Visitor *);
 
 private:
   uint32_t bound; ///< The <result-id> bound: the next unused one

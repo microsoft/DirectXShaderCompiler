@@ -19,6 +19,8 @@
 namespace clang {
 namespace spirv {
 
+class SpirvVisitor;
+
 /// The class representing a SPIR-V basic block in memory.
 class SpirvBasicBlock {
 public:
@@ -60,6 +62,9 @@ public:
   /// Returns true if the last instruction in this basic block is a termination
   /// instruction.
   bool hasTerminator() const;
+
+  /// Handle SPIR-V basic block visitors.
+  bool invokeVisitor(Visitor *);
 
 private:
   uint32_t labelId;      ///< The label's <result-id>

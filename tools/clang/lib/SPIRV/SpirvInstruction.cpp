@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/SpirvInstruction.h"
+#include "clang/SPIRV/SpirvVisitor.h"
 
 namespace clang {
 namespace spirv {
@@ -18,6 +19,10 @@ namespace spirv {
 SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType type,
                                    uint32_t id, SourceLocation loc)
     : kind(k), opcode(op), resultType(type), resultId(id), srcLoc(loc) {}
+
+bool SpirvInstruction::invokeVisitor(Visitor *visitor) {
+  return visitor->visit(this);
+}
 
 SpirvCapability::SpirvCapability(SourceLocation loc, spv::Capability cap)
     : SpirvInstruction(IK_Capability, spv::Op::OpCapability, QualType(),
@@ -88,14 +93,16 @@ SpirvModuleProcessed::SpirvModuleProcessed(SourceLocation loc,
                        /*resultId=*/0, loc),
       process(processStr) {}
 
-SpirvDecoration::SpirvDecoration(SourceLocation loc, spv::Decoration decor,
+SpirvDecoration::SpirvDecoration(SourceLocation loc, uint32_t targetId,
+                                 spv::Decoration decor,
                                  llvm::ArrayRef<uint32_t> p,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration,
                        index.hasValue() ? spv::Op::OpMemberDecorate
                                         : spv::Op::OpDecorate,
                        /*type*/ {}, /*id*/ 0, loc),
-      decoration(decor), params(p.begin(), p.end()), index(idx) {}
+      target(targetId), decoration(decor), params(p.begin(), p.end()),
+      index(idx) {}
 
 SpirvVariable::SpirvVariable(QualType resultType, uint32_t resultId,
                              SourceLocation loc, spv::StorageClass sc,
