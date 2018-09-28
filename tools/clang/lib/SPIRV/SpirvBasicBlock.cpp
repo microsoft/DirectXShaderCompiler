@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/SpirvBasicBlock.h"
+#include "clang/SPIRV/SpirvVisitor.h"
 
 namespace clang {
 namespace spirv {
@@ -18,6 +19,20 @@ SpirvBasicBlock::SpirvBasicBlock(uint32_t id, llvm::StringRef name)
 
 bool SpirvBasicBlock::hasTerminator() const {
   return !instructions.empty() && isa<SpirvTerminator>(instructions.back());
+}
+
+bool SpirvBasicBlock::invokeVisitor(Visitor *visitor) {
+  if (!visitor->visit(this, Visitor::Phase::Init))
+    return false;
+
+  for (auto *inst : instructions)
+    if (!inst->invokeVisitor(visitor))
+      return false;
+
+  if (!visitor->visit(this, Visitor::Phase::Done))
+    return false;
+
+  return true;
 }
 
 } // end namespace spirv

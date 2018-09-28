@@ -8,6 +8,7 @@
 #ifndef LLVM_CLANG_SPIRV_SPIRVINSTRUCTION_H
 #define LLVM_CLANG_SPIRV_SPIRVINSTRUCTION_H
 
+#include "dxc/Support/SPIRVOptions.h"
 #include "spirv/unified1/GLSL.std.450.h"
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Type.h"
@@ -18,6 +19,8 @@
 
 namespace clang {
 namespace spirv {
+
+class Visitor;
 
 /// \brief The base class for representing SPIR-V instructions.
 class SpirvInstruction {
@@ -96,11 +99,23 @@ public:
   virtual ~SpirvInstruction() = default;
 
   Kind getKind() const { return kind; }
-
   spv::Op getopcode() const { return opcode; }
   QualType getResultType() const { return resultType; }
+
+  // TODO: The QualType should be lowered to a SPIR-V type and the result-id of
+  // the SPIR-V type should be stored somewhere (either in SpirvInstruction or
+  // in a map in SpirvModule). The id of the result type should be retreived and
+  // returned by this method.
+  uint32_t getResultTypeId() const { return 0; }
+
+  // TODO: The responsibility of assigning the result-id of an instruction
+  // shouldn't be on the instruction itself.
   uint32_t getResultId() const { return resultId; }
+
   clang::SourceLocation getSourceLocation() const { return srcLoc; }
+
+  // Handle SPIR-V instruction visitors.
+  bool invokeVisitor(Visitor *);
 
 protected:
   // Forbid creating SpirvInstruction directly
@@ -221,6 +236,7 @@ public:
 
   uint32_t getEntryPointId() const { return entryPointId; }
   spv::ExecutionMode getExecutionMode() const { return execMode; }
+  llvm::ArrayRef<uint32_t> getParams() const { return params; }
 
 private:
   uint32_t entryPointId;
@@ -306,10 +322,10 @@ private:
   std::string process;
 };
 
-/// \brief OpDecorate instruction
+/// \brief OpDecorate and OpMemberDecorate instructions
 class SpirvDecoration : public SpirvInstruction {
 public:
-  SpirvDecoration(SourceLocation loc, spv::Decoration decor,
+  SpirvDecoration(SourceLocation loc, uint32_t target, spv::Decoration decor,
                   llvm::ArrayRef<uint32_t> params,
                   llvm::Optional<uint32_t> index);
 
@@ -318,7 +334,17 @@ public:
     return inst->getKind() == IK_Decoration;
   }
 
+  // Returns the <result-id> of the target of the decoration. It may be the id
+  // of an object or the id of a structure type whose member is being decorated.
+  uint32_t getTarget() const { return target; }
+
+  spv::Decoration getDecoration() const { return decoration; }
+  llvm::ArrayRef<uint32_t> getParams() const { return params; }
+  bool isMemberDecoration() const { return index.hasValue(); }
+  uint32_t getMemberIndex() const { return index.getValue(); }
+
 private:
+  uint32_t target;
   spv::Decoration decoration;
   llvm::Optional<uint32_t> index;
   llvm::SmallVector<uint32_t, 4> params;
@@ -903,6 +929,8 @@ public:
            inst->getKind() <= IK_GroupNonUniformUnaryOp;
   }
 
+  spv::Scope getExecutionScope() const { return execScope; }
+
 protected:
   SpirvGroupNonUniformOp(Kind kind, spv::Op opcode, QualType resultType,
                          uint32_t resultId, SourceLocation loc,
@@ -923,6 +951,9 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_GroupNonUniformBinaryOp;
   }
+
+  uint32_t getArg1() const { return arg1; }
+  uint32_t getArg2() const { return arg2; }
 
 private:
   uint32_t arg1;
@@ -954,6 +985,10 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_GroupNonUniformUnaryOp;
   }
+
+  uint32_t getArg() const { return arg; }
+  bool hasGroupOp() const { return groupOp.hasValue(); }
+  spv::GroupOperation getGroupOp() const { return groupOp.getValue(); }
 
 private:
   uint32_t arg;
@@ -1005,6 +1040,19 @@ public:
   uint32_t getImage() const { return image; }
   uint32_t getCoordinate() const { return coordinate; }
   spv::ImageOperandsMask getImageOperandsMask() const { return operandsMask; }
+
+  bool hasDref() const { return dref != 0; }
+  bool hasBias() const { return bias != 0; }
+  bool hasLod() const { return lod != 0; }
+  bool hasGrad() const { return gradDx != 0 && gradDy != 0; }
+  bool hasConstOffset() const { return constOffset != 0; }
+  bool hasOffset() const { return offset != 0; }
+  bool hasConstOffsets() const { return constOffsets != 0; }
+  bool hasSample() const { return sample != 0; }
+  bool hasMinLod() const { return minLod != 0; }
+  bool hasComponent() const { return component != 0; }
+  bool isImageWrite() const { return texelToWrite != 0; }
+
   uint32_t getDref() const { return dref; }
   uint32_t getBias() const { return bias; }
   uint32_t getLod() const { return lod; }
@@ -1186,6 +1234,8 @@ public:
   }
 
   spv::Op getSpecConstantopcode() const { return specOp; }
+  uint32_t getOperand1() const { return operand1; }
+  uint32_t getOperand2() const { return operand2; }
 
 private:
   spv::Op specOp;
@@ -1206,6 +1256,7 @@ public:
   }
 
   spv::Op getSpecConstantopcode() const { return specOp; }
+  uint32_t getOperand() const { return operand; }
 
 private:
   spv::Op specOp;
