@@ -5163,8 +5163,29 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
   }  
 }
 
+static bool IsBooleanType(llvm::Type *ty) {
+  return (ty->isIntegerTy() && ty->getIntegerBitWidth() == 1);
+}
+
+static Value *CreateCastforBoolDestType(CGBuilderTy &Builder, Value *srcVal) {
+  llvm::Type *srcTy = srcVal->getType();
+  if (srcTy->isFloatingPointTy()) {
+    return Builder.CreateFCmp(FCmpInst::FCMP_UNE, srcVal,
+                              ConstantFP::get(srcTy, 0));
+  } else {
+    // must be an integer type here
+    DXASSERT(srcTy->isIntegerTy() && srcTy->getIntegerBitWidth() > 1,
+             "must be a non-boolean integer type.");
+    return Builder.CreateICmp(ICmpInst::ICMP_NE, srcVal,
+                              ConstantInt::get(srcTy, 0));
+  }
+}
+
 // Cast elements in initlist if not match the target type.
 // idx is current element index in initlist, Ty is target type.
+
+// TODO: Stop handling missing cast here. Handle the casting of non-scalar values
+// to their destination type in init list expressions at AST level.
 static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts, SmallVector<QualType, 4> &eltTys, unsigned &idx, QualType Ty, CodeGenFunction &CGF) {
   if (Ty->isArrayType()) {
     const clang::ArrayType *AT = Ty->getAsArrayTypeUnsafe();
@@ -5218,10 +5239,14 @@ static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts, SmallVect
     llvm::Type *srcTy = val->getType();
     llvm::Type *dstTy = CGF.ConvertType(Ty);
     if (srcTy != dstTy) {
-      Instruction::CastOps castOp =
+      if (IsBooleanType(dstTy)) {
+        elts[idx] = CreateCastforBoolDestType(CGF.Builder, val);
+      } else {
+        Instruction::CastOps castOp =
           static_cast<Instruction::CastOps>(HLModule::FindCastOp(
-              IsUnsigned(eltTys[idx]), IsUnsigned(Ty), srcTy, dstTy));
-      elts[idx] = CGF.Builder.CreateCast(castOp, val, dstTy);
+            IsUnsigned(eltTys[idx]), IsUnsigned(Ty), srcTy, dstTy));
+        elts[idx] = CGF.Builder.CreateCast(castOp, val, dstTy);
+      }
     }
     idx++;
   }
