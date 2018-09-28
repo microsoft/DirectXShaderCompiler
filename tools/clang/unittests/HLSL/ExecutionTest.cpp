@@ -249,6 +249,9 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
 
+  TEST_METHOD(BasicShaderModel61);
+  TEST_METHOD(BasicShaderModel63);
+
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveIntTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveIntTable")
   END_TEST_METHOD()
@@ -358,8 +361,9 @@ public:
     D3D_SHADER_MODEL_5_1 = 0x51,
     D3D_SHADER_MODEL_6_0 = 0x60,
     D3D_SHADER_MODEL_6_1 = 0x61,
-    D3D_SHADER_MODEL_6_2 = 0x62
-  } D3D_SHADER_MODEL;
+    D3D_SHADER_MODEL_6_2 = 0x62,
+    D3D_SHADER_MODEL_6_3 = 0x63,
+} D3D_SHADER_MODEL;
 
 #if WDK_NTDDI_VERSION == NTDDI_WIN10_RS2
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_0;
@@ -375,14 +379,23 @@ public:
 
   const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
 
-  template <class T1, class T2>
-  void WaveIntrinsicsActivePrefixTest(
-    TableParameter *pParameterList, size_t numParameter, bool isPrefix);
-
-  void BasicTriangleTestSetup(LPCSTR OpName, LPCWSTR FileName, D3D_SHADER_MODEL testModel);
+// Do not remove the following line - it is used bqy TranslateExecutionTest.py
+// MARKER: ExecutionTest/DxilConf Shared Implementation Start
 
   bool UseDxbc() {
+#ifdef _HLK_CONF
+    return false;
+#else
     return GetTestParamBool(L"DXBC");
+#endif
+  }
+
+  bool UseWarpByDefault() {
+#ifdef _HLK_CONF
+    return false;
+#else
+    return true;
+#endif
   }
 
   bool UseDebugIfaces() {
@@ -393,6 +406,20 @@ public:
     return GetTestParamBool(L"SaveImages");
   }
 
+  template <class T1, class T2>
+  void WaveIntrinsicsActivePrefixTest(TableParameter *pParameterList,
+                                      size_t numParameter, bool isPrefix);
+
+  void BasicTriangleTestSetup(LPCSTR OpName, LPCWSTR FileName, D3D_SHADER_MODEL testModel);
+
+  void RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel);
+
+  template <class Ty>
+  void RunBasicShaderModelTest(CComPtr<ID3D12Device> pDevice, const char *pShaderModelStr, const char *pShader, Ty *pInputDataPairs, unsigned inputDataCount);
+  
+  template <class Ty>
+  const wchar_t* BasicShaderModelTest_GetFormatString();
+                                      
   void CompileFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile, ID3DBlob **ppBlob) {
     VERIFY_SUCCEEDED(m_support.Initialize());
     CComPtr<IDxcCompiler> pCompiler;
@@ -402,13 +429,15 @@ public:
     HRESULT resultCode;
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pText, strlen(pText), CP_UTF8, &pTextBlob));
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pText, (UINT32)strlen(pText), CP_UTF8, &pTextBlob));
     VERIFY_SUCCEEDED(pCompiler->Compile(pTextBlob, L"hlsl.hlsl", pEntryPoint, pTargetProfile, nullptr, 0, nullptr, 0, nullptr, &pResult));
     VERIFY_SUCCEEDED(pResult->GetStatus(&resultCode));
     if (FAILED(resultCode)) {
       CComPtr<IDxcBlobEncoding> errors;
       VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&errors));
+#ifndef _HLK_CONF
       LogCommentFmt(L"Failed to compile shader: %s", BlobToUtf16(errors).data());
+#endif
     }
     VERIFY_SUCCEEDED(resultCode);
     VERIFY_SUCCEEDED(pResult->GetResult((IDxcBlob **)ppBlob));
@@ -424,9 +453,12 @@ public:
 
   void CreateComputePSO(ID3D12Device *pDevice, ID3D12RootSignature *pRootSignature, LPCSTR pShader, ID3D12PipelineState **ppComputeState) {
     CComPtr<ID3DBlob> pComputeShader;
- // Load and compile shaders.
+
+    // Load and compile shaders.
     if (UseDxbc()) {
+#ifndef _HLK_CONF
       DXBCFromText(pShader, L"main", L"cs_6_0", &pComputeShader);
+#endif
     }
     else {
       CompileFromText(pShader, L"main", L"cs_6_0", &pComputeShader);
@@ -443,10 +475,10 @@ public:
   bool CreateDevice(_COM_Outptr_ ID3D12Device **ppDevice,
                     D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0) {
     if (testModel > HIGHEST_SHADER_MODEL) {
-      UINT minor = testModel & 0x0f;
+      UINT minor = (UINT)testModel & 0x0f;
       LogCommentFmt(L"Installed SDK does not support "
           L"shader model 6.%1u", minor);
-      WEX::Logging::Log::Result(WEX::Logging::TestResults::Blocked);
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
       return false;
     }
     const D3D_FEATURE_LEVEL FeatureLevelRequired = D3D_FEATURE_LEVEL_11_0;
@@ -456,33 +488,38 @@ public:
     *ppDevice = nullptr;
 
     VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)));
-    if (GetTestParamUseWARP(true)) {
+    if (GetTestParamUseWARP(UseWarpByDefault())) {
       CComPtr<IDXGIAdapter> warpAdapter;
       VERIFY_SUCCEEDED(factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
       HRESULT createHR = D3D12CreateDevice(warpAdapter, FeatureLevelRequired,
                                            IID_PPV_ARGS(&pDevice));
       if (FAILED(createHR)) {
         LogCommentFmt(L"The available version of WARP does not support d3d12.");
-        WEX::Logging::Log::Result(WEX::Logging::TestResults::Blocked);
+        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
         return false;
       }
     } else {
       CComPtr<IDXGIAdapter1> hardwareAdapter;
       WEX::Common::String AdapterValue;
-      IFT(WEX::TestExecution::RuntimeParameters::TryGetValue(L"Adapter",
-                                                             AdapterValue));
-      GetHardwareAdapter(factory, AdapterValue, &hardwareAdapter);
-      if (hardwareAdapter == nullptr) {
-        WEX::Logging::Log::Error(
-            L"Unable to find hardware adapter with D3D12 support.");
-        return false;
+      HRESULT hr = WEX::TestExecution::RuntimeParameters::TryGetValue(L"Adapter",
+                                                             AdapterValue);
+      if (SUCCEEDED(hr)) {
+          GetHardwareAdapter(factory, AdapterValue, &hardwareAdapter);
+      } else {
+        WEX::Logging::Log::Comment(
+            L"Using default hardware adapter with D3D12 support.");
       }
       VERIFY_SUCCEEDED(D3D12CreateDevice(hardwareAdapter, FeatureLevelRequired,
                                          IID_PPV_ARGS(&pDevice)));
-      DXGI_ADAPTER_DESC1 AdapterDesc;
-      VERIFY_SUCCEEDED(hardwareAdapter->GetDesc1(&AdapterDesc));
-      LogCommentFmt(L"Using Adapter: %s", AdapterDesc.Description);
     }
+    // retrieve adapter information
+    LUID adapterID = pDevice->GetAdapterLuid();
+    CComPtr<IDXGIAdapter> adapter;
+    factory->EnumAdapterByLuid(adapterID, IID_PPV_ARGS(&adapter));
+    DXGI_ADAPTER_DESC AdapterDesc;
+    VERIFY_SUCCEEDED(adapter->GetDesc(&AdapterDesc));
+    LogCommentFmt(L"Using Adapter:%s", AdapterDesc.Description);
+    
     if (pDevice == nullptr)
       return false;
 
@@ -497,10 +534,10 @@ public:
       VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport(
         (D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL, &SMData, sizeof(SMData)));
       if (SMData.HighestShaderModel < testModel) {
-        UINT minor = testModel & 0x0f;
+        UINT minor = (UINT)testModel & 0x0f;
         LogCommentFmt(L"The selected device does not support "
                       L"shader model 6.%1u", minor);
-        WEX::Logging::Log::Result(WEX::Logging::TestResults::Blocked);
+        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
         return false;
       }
     }
@@ -543,8 +580,10 @@ public:
     CComPtr<ID3DBlob> pixelShader;
 
     if (UseDxbc()) {
+#ifndef _HLK_CONF
       DXBCFromText(pShaders, L"VSMain", L"vs_6_0", &vertexShader);
       DXBCFromText(pShaders, L"PSMain", L"ps_6_0", &pixelShader);
+#endif
     } else {
       CompileFromText(pShaders, L"VSMain", L"vs_6_0", &vertexShader);
       CompileFromText(pShaders, L"PSMain", L"ps_6_0", &pixelShader);
@@ -725,6 +764,13 @@ public:
     return O.Int64ShaderOps != FALSE;
   }
 
+  bool DoesDeviceSupportDouble(ID3D12Device *pDevice) {
+    D3D12_FEATURE_DATA_D3D12_OPTIONS O;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS, &O, sizeof(O))))
+      return false;
+    return O.DoublePrecisionFloatShaderOps != FALSE;
+  }
+
   bool DoesDeviceSupportWaveOps(ID3D12Device *pDevice) {
     D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &O, sizeof(O))))
@@ -732,6 +778,7 @@ public:
     return O.WaveOps != FALSE;
   }
 
+#ifndef _HLK_CONF
   void DXBCFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile, ID3DBlob **ppBlob) {
     CW2A pEntryPointA(pEntryPoint, CP_UTF8);
     CW2A pTargetProfileA(pTargetProfile, CP_UTF8);
@@ -747,6 +794,7 @@ public:
     }
     VERIFY_SUCCEEDED(hr);
   }
+#endif
 
   HRESULT EnableDebugLayer() {
     // The debug layer does net yet validate DXIL programs that require rewriting,
@@ -763,6 +811,7 @@ public:
     return hr;
   }
 
+#ifndef _HLK_CONF
   HRESULT EnableExperimentalMode() {
     if (m_ExperimentalModeEnabled) {
       return S_OK;
@@ -776,6 +825,7 @@ public:
     }
     return hr;
   }
+#endif
 
   struct FenceObj {
     HANDLE m_fenceEvent = NULL;
@@ -2264,6 +2314,153 @@ TEST_F(ExecutionTest, PartialDerivTest) {
                    CompareFloatULP(CenterDDYCoarse, -511.75f, ulpTolerance)));
   }
 }
+
+// Executing a simple binop to verify shadel model 6.1 support; runs with
+// ShaderModel61.CoreRequirement
+TEST_F(ExecutionTest, BasicShaderModel61) {
+  RunBasicShaderModelTest(D3D_SHADER_MODEL_6_1);
+}
+
+// Executing a simple binop to verify shadel model 6.3 support; runs with
+// ShaderModel63.CoreRequirement
+TEST_F(ExecutionTest, BasicShaderModel63) {
+  RunBasicShaderModelTest(D3D_SHADER_MODEL_6_3);
+}
+
+void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
+
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, shaderModel)) {
+    return;
+  }
+
+  char *pShaderModelStr;
+  if (shaderModel == D3D_SHADER_MODEL_6_1) {
+    pShaderModelStr = "cs_6_1";
+  } else if (shaderModel == D3D_SHADER_MODEL_6_3) {
+    pShaderModelStr = "cs_6_3";
+  } else {
+    DXASSERT_NOMSG("Invalid Shader Model Parameter");
+    pShaderModelStr = nullptr;
+  }
+
+  const char shaderTemplate[] =
+      "struct SBinaryOp { %s input1; %s input2; %s output; };"
+      "RWStructuredBuffer<SBinaryOp> g_buf : register(u0);"
+      "[numthreads(8,8,1)]"
+      "void main(uint GI : SV_GroupIndex) {"
+      "    SBinaryOp l = g_buf[GI];"
+      "    l.output = l.input1 + l.input2;"
+      "    g_buf[GI] = l;"
+      "}";
+  char shader[sizeof(shaderTemplate) + 50];
+
+  // Run simple shader with float data types
+  char* sTy = "float";
+  float inputFloatPairs[] = { 1.5f, -2.8f, 3.23e-5f, 6.0f, 181.621f, 14.978f };
+  VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
+  WEX::Logging::Log::Comment(L"BasicShaderModel float");
+  RunBasicShaderModelTest<float>(pDevice, pShaderModelStr, shader, inputFloatPairs, sizeof(inputFloatPairs) / (2 * sizeof(float)));
+
+   // Run simple shader with double data types
+  if (DoesDeviceSupportDouble(pDevice)) {
+    sTy = "double";
+    double inputDoublePairs[] = { 1.5891020, -2.8, 3.23e-5, 1 / 3, 181.91621, 14.654978 };
+    VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
+    WEX::Logging::Log::Comment(L"BasicShaderModel double");
+    RunBasicShaderModelTest<double>(pDevice, pShaderModelStr, shader, inputDoublePairs, sizeof(inputDoublePairs) / (2 * sizeof(double)));
+   }
+   else {
+     // Optional feature, so it's correct to not support it if declared as such.
+     WEX::Logging::Log::Comment(L"Device does not support double operations.");
+   }
+
+   // Run simple shader with int64 types
+   if (DoesDeviceSupportInt64(pDevice)) {
+     sTy = "int64_t";
+     int64_t inputInt64Pairs[] = { 1, -100, 6814684, -9814810, 654, 1021248900 };
+     VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
+     WEX::Logging::Log::Comment(L"BasicShaderModel int64_t");
+     RunBasicShaderModelTest<int64_t>(pDevice, pShaderModelStr, shader, inputInt64Pairs, sizeof(inputInt64Pairs) / (2 * sizeof(int64_t)));
+   }
+   else {
+     // Optional feature, so it's correct to not support it if declared as such.
+     WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+   }
+}
+
+template <class Ty>
+const wchar_t* ExecutionTest::BasicShaderModelTest_GetFormatString() {
+  DXASSERT_NOMSG("Unsupported type");
+  return "";
+}
+
+template <>
+const wchar_t* ExecutionTest::BasicShaderModelTest_GetFormatString<float>() {
+  return L"element #%u: input1 = %6.8f, input1 = %6.8f, output = %6.8f, expected = %6.8f";
+}
+
+template <>
+const wchar_t* ExecutionTest::BasicShaderModelTest_GetFormatString<double>() {
+  return BasicShaderModelTest_GetFormatString<float>();
+}
+
+template <>
+const wchar_t* ExecutionTest::BasicShaderModelTest_GetFormatString<int64_t>() {
+  return L"element #%u: input1 = %ld, input1 = %ld, output = %ld, expected = %ld";
+}
+
+template <class Ty>
+void ExecutionTest::RunBasicShaderModelTest(CComPtr<ID3D12Device> pDevice, const char *pShaderModelStr, const char *pShader,
+                                           Ty *pInputDataPairs, unsigned inputDataCount) {
+  struct SBinaryOp {
+    Ty input1;
+    Ty input2;
+    Ty output;
+  };
+
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+    pDevice, m_support, pStream, "BinaryFPOp",
+    // this callbacked is called when the test is creating the resource to run the test
+    [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+      UNREFERENCED_PARAMETER(Name);
+      pShaderOp->Shaders.at(0).Target = pShaderModelStr;
+      pShaderOp->Shaders.at(0).Text = pShader;
+      size_t size = sizeof(SBinaryOp) * inputDataCount;
+      Data.resize(size);
+      SBinaryOp *pPrimitives = (SBinaryOp*)Data.data();
+      Ty *pIn = pInputDataPairs;
+      for (size_t i = 0; i < inputDataCount; i++, pIn += 2) {
+        SBinaryOp *p = &pPrimitives[i];
+        p->input1 = pIn[0];
+        p->input2 = pIn[1];
+      }
+  });
+
+  VERIFY_SUCCEEDED(S_OK);
+
+  MappedData data;
+  test->Test->GetReadBackData("SBinaryFPOp", &data);
+  SBinaryOp *pPrimitives = (SBinaryOp*)data.data();
+
+  const wchar_t* formatStr = BasicShaderModelTest_GetFormatString<Ty>();
+  Ty *pIn = pInputDataPairs;
+
+  for (unsigned i = 0; i < inputDataCount; i++, pIn += 2) {
+    Ty expValue = pIn[0] + pIn[1];
+    SBinaryOp *p = &pPrimitives[i];
+    
+    LogCommentFmt(formatStr, i,  pIn[0], pIn[1], p->output, expValue);
+    VERIFY_ARE_EQUAL(p->output, expValue);
+  }
+}
+
 
 // Resource structure for data-driven tests.
 
@@ -5492,40 +5689,32 @@ TEST_F(ExecutionTest, CBufferTestHalf) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_2))
     return;
 
-  uint16_t InputDataList[] = { 0x3F80, 0x3F00, 0x3D80, 0x7BFF };
-  std::vector<uint16_t> InputData(InputDataList, InputDataList + _countof(InputDataList));
+  uint16_t InputData[] = { 0x3F80, 0x3F00, 0x3D80, 0x7BFF };
 
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "CBufferTestHalf",
     [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
     UNREFERENCED_PARAMETER(pShaderOp);
     VERIFY_IS_TRUE(0 == _stricmp(Name, "CB0"));
     // use shader from data table.
-    Data.resize(4 * sizeof(uint16_t));
-    for (size_t i = 0; i < 4; ++i) {
-      // pack two halves in 32 bits
-      uint16_t val = InputData[i];
-      Data.at(2*i) = val & 0xff;
-      Data.at(2*i + 1) = val >> 8;
+    Data.resize(sizeof(InputData));
+    uint16_t *pData = (uint16_t *)Data.data();
+    for (size_t i = 0; i < 4; ++i, ++pData) {
+      *pData = InputData[i];
     }
   });
   {
     MappedData data;
     test->Test->GetReadBackData("RTarget", &data);
     const uint16_t *pPixels = (uint16_t *)data.data();
-    uint16_t first = *pPixels;
-    uint16_t second = *(pPixels + 1);
-    uint16_t third = *(pPixels + 2);
-    uint16_t fourth = *(pPixels + 3);
 
-    LogCommentFmt(L"first %f", first);
-    LogCommentFmt(L"second %f", second);
-    LogCommentFmt(L"third %f", third);
-    LogCommentFmt(L"fourth %f", fourth);
-
-    VERIFY_ARE_EQUAL(first, InputData[0]);
-    VERIFY_ARE_EQUAL(second, InputData[1]);
-    VERIFY_ARE_EQUAL(third, InputData[2]);
-    VERIFY_ARE_EQUAL(fourth, InputData[3]);
+    for (int i = 0; i < 4; ++i) {
+      uint16_t output = *(pPixels + i);
+      float outputFloat = ConvertFloat16ToFloat32(output);
+      float inputFloat = ConvertFloat16ToFloat32(InputData[i]);
+      LogCommentFmt(L"element #%u: input = %6.8f(0x%04x), output = %6.8f(0x%04x)",
+          i, inputFloat, InputData[i], outputFloat, output);
+      VERIFY_ARE_EQUAL(inputFloat, outputFloat);
+    }
   }
 }
 
@@ -5735,3 +5924,5 @@ extern "C" {
   }
 }
 #endif
+// MARKER: ExecutionTest/DxilConf Shared Implementation End
+// Do not remove the line above - it is used by TranslateExecutionTest.py
