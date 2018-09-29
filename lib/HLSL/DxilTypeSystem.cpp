@@ -440,16 +440,16 @@ void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, DXIL::SigPointKin
 
   if (sigPoint == DXIL::SigPointKind::PSOut) {
     if (semName.size() == 5) {
-      if (strnicmp(semName.data(), "COLOR", 5) == 0) {
+      if (_strnicmp(semName.data(), "COLOR", 5) == 0) {
         RemapSemantic(semName, semFullName, "SV_Target", paramInfo, Context);
       }
-      else if (strnicmp(semName.data(), "DEPTH", 5) == 0) {
+      else if (_strnicmp(semName.data(), "DEPTH", 5) == 0) {
         RemapSemantic(semName, semFullName, "SV_Depth", paramInfo, Context);
       }
     }
   }
-  else if ((sigPoint == DXIL::SigPointKind::VSOut && semName.size() == 8 && strnicmp(semName.data(), "POSITION", 8) == 0) ||
-           (sigPoint == DXIL::SigPointKind::PSIn  && semName.size() == 4 && strnicmp(semName.data(), "VPOS", 4) == 0)) {
+  else if ((sigPoint == DXIL::SigPointKind::VSOut && semName.size() == 8 && _strnicmp(semName.data(), "POSITION", 8) == 0) ||
+           (sigPoint == DXIL::SigPointKind::PSIn  && semName.size() == 4 && _strnicmp(semName.data(), "VPOS", 4) == 0)) {
     RemapSemantic(semName, semFullName, "SV_Position", paramInfo, Context);
   }
 }
