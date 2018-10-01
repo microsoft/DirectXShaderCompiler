@@ -170,7 +170,7 @@ public:
     {
       CComPtr<IDxcBlob> pInput;
       LPCWSTR args[] = { L"-O3" };
-      CompileToDxilFromFile(m_dxcSupport, s2ws(m_path + filename).c_str(), L"", L"lib_6_1", args, _countof(args), nullptr, 0, &pInput);
+      CompileToDxilFromFile(m_dxcSupport, s2ws(m_path + filename).c_str(), L"", L"lib_6_3", args, _countof(args), nullptr, 0, &pInput);
       m_inputBlobs.push_back(pInput);
       m_inputBlobPtrs.push_back(pInput);
     }
