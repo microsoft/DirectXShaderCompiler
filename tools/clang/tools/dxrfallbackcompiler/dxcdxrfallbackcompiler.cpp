@@ -283,7 +283,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::RenameAndLink(
             }
 
             dxilutil::ExportMap exportMap;
-            M = pLinker->Link("", "lib_6_1", exportMap);
+            M = pLinker->Link("", "lib_6_3", exportMap);
             if (m_debugOutput)
             {
                 saveModuleToAsmFile(M.get(), "combined.ll");
@@ -310,7 +310,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::RenameAndLink(
         DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
         pLinker->RegisterLib("M", std::move(M), nullptr);
         pLinker->AttachLib("M");
-        auto profile = "lib_6_1";
+        auto profile = "lib_6_3";
         M = pLinker->Link(StringRef(), profile, exportMap);
         bool hasErrors = DiagContext.HasErrors();
 
@@ -489,7 +489,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Link(
             }
 
             dxilutil::ExportMap exportMap;
-            M = pLinker->Link("", "lib_6_1", exportMap);
+            M = pLinker->Link("", "lib_6_3", exportMap);
             if (m_debugOutput)
             {
                 saveModuleToAsmFile(M.get(), "combined.ll");
@@ -711,7 +711,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Compile(
     DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
     pLinker->RegisterLib("M", std::move(M), nullptr);
     pLinker->AttachLib("M");
-    auto profile = "lib_6_1";
+    auto profile = "lib_6_3";
     M = pLinker->Link(StringRef(), profile, exportMap);
     bool hasErrors = DiagContext.HasErrors();
 
