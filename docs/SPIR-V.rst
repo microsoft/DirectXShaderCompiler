@@ -255,6 +255,20 @@ Right now the following ``<builtin>`` are supported:
 Please see Vulkan spec. `14.6. Built-In Variables <https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-builtin-variables>`_
 for detailed explanation of these builtins.
 
+Supported extensions
+~~~~~~~~~~~~~~~~~~~~
+
+* SPV_KHR_16bit_storage
+* SPV_KHR_device_group
+* SPV_KHR_multivew
+* SPV_KHR_post_depth_coverage
+* SPV_KHR_shader_draw_parameters
+* SPV_EXT_descriptor_indexing
+* SPV_EXT_fragment_fully_covered
+* SPV_EXT_shader_stencil_support
+* SPV_AMD_shader_explicit_vertex_parameter
+* SPV_GOOGLE_hlsl_functionality1
+
 Vulkan specific attributes
 --------------------------
 
