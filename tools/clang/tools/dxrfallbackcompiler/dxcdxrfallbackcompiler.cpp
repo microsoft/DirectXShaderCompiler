@@ -265,7 +265,9 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::RenameAndLink(
         }
 
         // Link all the modules together into a single into library
-        int valMajor = 1, valMinor = 2; // TODO: Where to get these values?
+        unsigned int valMajor = 0, valMinor = 0;
+        dxcutil::GetValidatorVersion(&valMajor, &valMinor);
+
         std::unique_ptr<Module> M;
         {
             DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
@@ -281,7 +283,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::RenameAndLink(
             }
 
             dxilutil::ExportMap exportMap;
-            M = pLinker->Link("", "lib_6_1", exportMap);
+            M = pLinker->Link("", "lib_6_3", exportMap);
             if (m_debugOutput)
             {
                 saveModuleToAsmFile(M.get(), "combined.ll");
@@ -308,7 +310,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::RenameAndLink(
         DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
         pLinker->RegisterLib("M", std::move(M), nullptr);
         pLinker->AttachLib("M");
-        auto profile = "lib_6_1";
+        auto profile = "lib_6_3";
         M = pLinker->Link(StringRef(), profile, exportMap);
         bool hasErrors = DiagContext.HasErrors();
 
@@ -470,7 +472,8 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Link(
             shaderNames[i] = ws2s(pShaderNames[i]);
 
         // Link all the modules together into a single into library
-        int valMajor = 1, valMinor = 2; // TODO: Where to get these values?
+        unsigned int valMajor = 0, valMinor = 0;
+        dxcutil::GetValidatorVersion(&valMajor, &valMinor);
         std::unique_ptr<Module> M;
         {
             DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
@@ -486,7 +489,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Link(
             }
 
             dxilutil::ExportMap exportMap;
-            M = pLinker->Link("", "lib_6_1", exportMap);
+            M = pLinker->Link("", "lib_6_3", exportMap);
             if (m_debugOutput)
             {
                 saveModuleToAsmFile(M.get(), "combined.ll");
@@ -635,7 +638,8 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Compile(
       shaderNames[i] = ws2s(pShaderNames[i]);
 
     // Link all the modules together into a single into library
-    int valMajor = 1, valMinor = 2; // TODO: Where to get these values?
+    unsigned int valMajor = 0, valMinor = 0;
+    dxcutil::GetValidatorVersion(&valMajor, &valMinor);
     std::unique_ptr<Module> M;
     {
     DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
@@ -651,7 +655,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Compile(
     }
 
     dxilutil::ExportMap exportMap;
-    M = pLinker->Link("", "lib_6_1", exportMap);
+    M = pLinker->Link("", "lib_6_3", exportMap);
     if (m_debugOutput)
     {
         saveModuleToAsmFile(M.get(), "combined.ll");
@@ -707,7 +711,7 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Compile(
     DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
     pLinker->RegisterLib("M", std::move(M), nullptr);
     pLinker->AttachLib("M");
-    auto profile = "lib_6_1";
+    auto profile = "lib_6_3";
     M = pLinker->Link(StringRef(), profile, exportMap);
     bool hasErrors = DiagContext.HasErrors();
 
