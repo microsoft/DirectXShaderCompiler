@@ -1002,6 +1002,8 @@ def err_hlsl_unsupported_register_noninteger : Error<
   "register subcomponent is not an integral constant">;
 def err_hlsl_unsupported_register_type : Error<
   "register type is unsupported - available types are 'b', 'c', 'i', 's', 't', 'u'">;
+def err_hlsl_missing_register_type_and_number : Error<
+  "missing register type and number">;
 def err_hlsl_unsupported_space_number : Error<
   "space number should be an integral numeric string">;
 def err_hlsl_modifier_after_type : Error<

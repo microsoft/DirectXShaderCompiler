@@ -233,7 +233,7 @@ struct RegisterAssignment : public UnusualAnnotation
 
   llvm::StringRef   ShaderProfile;
   bool              IsValid;
-  char              RegisterType;
+  char              RegisterType; // 'x' means only space is assigned from the source code
   uint32_t          RegisterNumber;
   uint32_t          RegisterSpace;
   uint32_t          RegisterOffset;
@@ -241,6 +241,9 @@ struct RegisterAssignment : public UnusualAnnotation
   void setIsValid(bool value) {
     IsValid = value;
   }
+
+  void setAsSpaceOnly() { RegisterType = 'x'; }
+  bool isSpaceOnly() const { return RegisterType == 'x'; }
 
   static bool classof(const UnusualAnnotation *UA) {
     return UA->getKind() == UA_RegisterAssignment;
