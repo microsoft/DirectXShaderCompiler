@@ -265,7 +265,9 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::RenameAndLink(
         }
 
         // Link all the modules together into a single into library
-        int valMajor = 1, valMinor = 2; // TODO: Where to get these values?
+        unsigned int valMajor = 0, valMinor = 0;
+        dxcutil::GetValidatorVersion(&valMajor, &valMinor);
+
         std::unique_ptr<Module> M;
         {
             DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
@@ -470,7 +472,8 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Link(
             shaderNames[i] = ws2s(pShaderNames[i]);
 
         // Link all the modules together into a single into library
-        int valMajor = 1, valMinor = 2; // TODO: Where to get these values?
+        unsigned int valMajor = 0, valMinor = 0;
+        dxcutil::GetValidatorVersion(&valMajor, &valMinor);
         std::unique_ptr<Module> M;
         {
             DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
@@ -635,7 +638,8 @@ HRESULT STDMETHODCALLTYPE DxcDxrFallbackCompiler::Compile(
       shaderNames[i] = ws2s(pShaderNames[i]);
 
     // Link all the modules together into a single into library
-    int valMajor = 1, valMinor = 3; // TODO: Where to get these values?
+    unsigned int valMajor = 0, valMinor = 0;
+    dxcutil::GetValidatorVersion(&valMajor, &valMinor);
     std::unique_ptr<Module> M;
     {
     DxilLinker* pLinker = DxilLinker::CreateLinker(context, valMajor, valMinor);
