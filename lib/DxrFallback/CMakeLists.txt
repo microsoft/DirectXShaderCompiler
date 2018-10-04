@@ -11,4 +11,4 @@ add_llvm_library(LLVMDxrFallback
   StateFunctionTransform.h
 )
 
-add_dependencies(LLVMDxrFallback intrinscs_gen)
+add_dependencies(LLVMDxrFallback intrinsics_gen)
