@@ -792,6 +792,7 @@ bool HLModule::IsStreamOutputPtrType(llvm::Type *Ty) {
 bool HLModule::IsHLSLObjectType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     StringRef name = ST->getName();
+    // TODO: don't check names.
     if (name.startswith("dx.types.wave_t"))
       return true;
 
@@ -806,19 +807,19 @@ bool HLModule::IsHLSLObjectType(llvm::Type *Ty) {
     if (name == "SamplerComparisonState")
       return true;
 
-    if (name.startswith("TriangleStream"))
+    if (name.startswith("TriangleStream<"))
       return true;
-    if (name.startswith("PointStream"))
+    if (name.startswith("PointStream<"))
       return true;
-    if (name.startswith("LineStream"))
-      return true;
-
-    if (name.startswith("AppendStructuredBuffer"))
-      return true;
-    if (name.startswith("ConsumeStructuredBuffer"))
+    if (name.startswith("LineStream<"))
       return true;
 
-    if (name.startswith("ConstantBuffer"))
+    if (name.startswith("AppendStructuredBuffer<"))
+      return true;
+    if (name.startswith("ConsumeStructuredBuffer<"))
+      return true;
+
+    if (name.startswith("ConstantBuffer<"))
       return true;
 
     if (name == "RaytracingAccelerationStructure")
@@ -829,27 +830,27 @@ bool HLModule::IsHLSLObjectType(llvm::Type *Ty) {
     if (name == "ByteAddressBuffer")
       return true;
 
-    if (name.startswith("Buffer"))
+    if (name.startswith("Buffer<"))
       return true;
-    if (name.startswith("StructuredBuffer"))
+    if (name.startswith("StructuredBuffer<"))
       return true;
-    if (name.startswith("Texture1D"))
+    if (name.startswith("Texture1D<"))
       return true;
-    if (name.startswith("Texture1DArray"))
+    if (name.startswith("Texture1DArray<"))
       return true;
-    if (name.startswith("Texture2D"))
+    if (name.startswith("Texture2D<"))
       return true;
-    if (name.startswith("Texture2DArray"))
+    if (name.startswith("Texture2DArray<"))
       return true;
-    if (name.startswith("Texture3D"))
+    if (name.startswith("Texture3D<"))
       return true;
-    if (name.startswith("TextureCube"))
+    if (name.startswith("TextureCube<"))
       return true;
-    if (name.startswith("TextureCubeArray"))
+    if (name.startswith("TextureCubeArray<"))
       return true;
-    if (name.startswith("Texture2DMS"))
+    if (name.startswith("Texture2DMS<"))
       return true;
-    if (name.startswith("Texture2DMSArray"))
+    if (name.startswith("Texture2DMSArray<"))
       return true;
   }
   return false;
