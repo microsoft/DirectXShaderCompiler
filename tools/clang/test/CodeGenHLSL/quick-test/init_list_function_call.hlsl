@@ -10,10 +10,12 @@ struct A {
 
 float2 aa;
 int2 bb;
+int2 cc;
 
-static const A a = {sin(aa), bb};
+static const A a = {sin(aa), bb+cc};
+static const A a2 = {aa, bb+cc};
 
 float2 main() : SV_TARGET
 {
-  return a.a;
+  return a.a + a2.b;
 }
