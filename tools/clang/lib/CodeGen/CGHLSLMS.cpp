@@ -5457,12 +5457,21 @@ bool CGMSHLSLRuntime::IsTrivalInitListExpr(CodeGenFunction &CGF,
       // Add Constant to InitList.
       for (unsigned i=0;i<E->getNumInits();i++) {
         Expr *Expr = E->getInit(i);
-        LValue LV = CGF.EmitLValue(Expr);
-        if (LV.isSimple()) {
-          Constant *SrcPtr = dyn_cast<Constant>(LV.getAddress());
-          if (SrcPtr && !isa<UndefValue>(SrcPtr)) {
-            InitConstants.emplace_back(SrcPtr);
-            continue;
+        if (ImplicitCastExpr *Cast = dyn_cast<ImplicitCastExpr>(Expr)) {
+          if (Cast->getCastKind() == CK_LValueToRValue) {
+            Expr = Cast->getSubExpr();
+          }
+        }
+        // Only do this on lvalue, if not lvalue, it will not be constant
+        // anyway.
+        if (Expr->isLValue()) {
+          LValue LV = CGF.EmitLValue(Expr);
+          if (LV.isSimple()) {
+            Constant *SrcPtr = dyn_cast<Constant>(LV.getAddress());
+            if (SrcPtr && !isa<UndefValue>(SrcPtr)) {
+              InitConstants.emplace_back(SrcPtr);
+             continue;
+            }
           }
         }
 
