@@ -255,6 +255,8 @@ public:
   TEST_METHOD(WhenMissingPayloadThenFail)
   TEST_METHOD(ShaderFunctionReturnTypeVoid)
 
+  TEST_METHOD(SpaceOnlyRegisterFail)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -3048,6 +3050,10 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
       "!1012 =" },
     "Pixel shader input signature lacks available space for ViewID",
     /*bRegex*/true);
+}
+
+TEST_F(ValidationTest, SpaceOnlyRegisterFail) {
+  TestCheck(L"..\\CodeGenHLSL\\space-only-register.hlsl");
 }
 
 TEST_F(ValidationTest, GSMainMissingAttributeFail) {

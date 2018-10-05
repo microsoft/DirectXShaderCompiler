@@ -1438,7 +1438,11 @@ TEST_F(FileTest, VulkanPrecedenceBinding) {
   runFileTest("vk.binding.precedence.hlsl");
 }
 TEST_F(FileTest, VulkanRegisterBinding) {
-  // Resource binding from :register()
+  // Resource binding from :register(xX, spaceY)
+  runFileTest("vk.binding.register.hlsl");
+}
+TEST_F(FileTest, VulkanSpaceOnlyRegisterBinding) {
+  // Resource binding from :register(spaceY)
   runFileTest("vk.binding.register.hlsl");
 }
 TEST_F(FileTest, VulkanRegisterBindingShift) {

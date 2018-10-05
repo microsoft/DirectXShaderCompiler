@@ -392,75 +392,107 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
 
       DXASSERT(Tok.is(tok::identifier), "otherwise previous code should have failed");
       unsigned diagId;
-      ParseRegisterNumberForHLSL(
-        Tok.getIdentifierInfo()->getName().data(), &r.RegisterType, &r.RegisterNumber, &diagId);
-      if (diagId == 0) {
-        r.setIsValid(true);
+
+      // SPIRV Change Starts
+      bool hasOnlySpace = false;
+      identifierText = Tok.getIdentifierInfo()->getName().data();
+      if (strncmp(identifierText, "space", strlen("space")) == 0) {
+        if (!getLangOpts().SPIRV) {
+          Diag(Tok.getLocation(),
+               diag::err_hlsl_missing_register_type_and_number);
+          SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+          return true;
+        }
+        hasOnlySpace = true;
       } else {
-        r.setIsValid(false);
-        Diag(Tok.getLocation(), diagId);
-      }
+        // SPIRV Change Ends
 
-      ConsumeToken(); // consume register (type'#')
+        ParseRegisterNumberForHLSL(
+          Tok.getIdentifierInfo()->getName().data(), &r.RegisterType, &r.RegisterNumber, &diagId);
+        if (diagId == 0) {
+          r.setIsValid(true);
+        } else {
+          r.setIsValid(false);
+          Diag(Tok.getLocation(), diagId);
+        }
 
-      ExprResult subcomponentResult;
-      if (Tok.is(tok::l_square)) {
-        BalancedDelimiterTracker brackets(*this, tok::l_square);
-        brackets.consumeOpen();
+        ConsumeToken(); // consume register (type'#')
 
-        ExprResult result;
-        if (Tok.isNot(tok::r_square)) {
-          subcomponentResult = ParseConstantExpression();
-          r.IsValid = r.IsValid && !subcomponentResult.isInvalid();
-          Expr::EvalResult evalResult;
-          if (!subcomponentResult.get()->EvaluateAsRValue(evalResult, context) ||
-              evalResult.hasSideEffects() ||
-              (!evalResult.Val.isInt() && !evalResult.Val.isFloat())) {
-            Diag(Tok.getLocation(), diag::err_hlsl_unsupported_register_noninteger);
-            r.setIsValid(false);
-          } else {
-            llvm::APSInt intResult;
-            if (evalResult.Val.isFloat()) {
-              bool isExact;
-              // TODO: consider what to do when convertToInteger fails
-              evalResult.Val.getFloat().convertToInteger(intResult, llvm::APFloat::roundingMode::rmTowardZero, &isExact);
-            } else {
-              DXASSERT(evalResult.Val.isInt(), "otherwise prior test in this function should have failed");
-              intResult = evalResult.Val.getInt();
-            }
+        ExprResult subcomponentResult;
+        if (Tok.is(tok::l_square)) {
+          BalancedDelimiterTracker brackets(*this, tok::l_square);
+          brackets.consumeOpen();
 
-            if (intResult.isNegative()) {
+          ExprResult result;
+          if (Tok.isNot(tok::r_square)) {
+            subcomponentResult = ParseConstantExpression();
+            r.IsValid = r.IsValid && !subcomponentResult.isInvalid();
+            Expr::EvalResult evalResult;
+            if (!subcomponentResult.get()->EvaluateAsRValue(evalResult, context) ||
+                evalResult.hasSideEffects() ||
+                (!evalResult.Val.isInt() && !evalResult.Val.isFloat())) {
               Diag(Tok.getLocation(), diag::err_hlsl_unsupported_register_noninteger);
               r.setIsValid(false);
             } else {
-              r.RegisterOffset = intResult.getLimitedValue();
+              llvm::APSInt intResult;
+              if (evalResult.Val.isFloat()) {
+                bool isExact;
+                // TODO: consider what to do when convertToInteger fails
+                evalResult.Val.getFloat().convertToInteger(intResult, llvm::APFloat::roundingMode::rmTowardZero, &isExact);
+              } else {
+                DXASSERT(evalResult.Val.isInt(), "otherwise prior test in this function should have failed");
+                intResult = evalResult.Val.getInt();
+              }
+
+              if (intResult.isNegative()) {
+                Diag(Tok.getLocation(), diag::err_hlsl_unsupported_register_noninteger);
+                r.setIsValid(false);
+              } else {
+                r.RegisterOffset = intResult.getLimitedValue();
+              }
             }
+          } else {
+            Diag(Tok.getLocation(), diag::err_expected_expression);
+            r.setIsValid(false);
           }
-        } else {
-          Diag(Tok.getLocation(), diag::err_expected_expression);
-          r.setIsValid(false);
+
+          if (brackets.consumeClose()) {
+            SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+            return true;
+          }
         }
 
-        if (brackets.consumeClose()) {
-          SkipUntil(tok::r_paren, StopAtSemi); // skip through )
-          return true;
-        }
+        // SPIRV Change Starts
       }
-
-      if (Tok.is(tok::comma)) {
-        ConsumeToken(); // consume comma
-        if (!Tok.is(tok::identifier)) {
-          Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
-          SkipUntil(tok::r_paren, StopAtSemi); // skip through )
-          return true;
-        }
+      if (hasOnlySpace) {
         ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName().data(), &r.RegisterSpace, &diagId);
         if (diagId != 0) {
           Diag(Tok.getLocation(), diagId);
           r.setIsValid(false);
+        } else {
+          r.setAsSpaceOnly();
+          r.setIsValid(true);
         }
         ConsumeToken(); // consume identifier
-      }
+      } else {
+        // SPIRV Change Ends
+
+        if (Tok.is(tok::comma)) {
+          ConsumeToken(); // consume comma
+          if (!Tok.is(tok::identifier)) {
+            Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
+            SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+            return true;
+          }
+          ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName().data(), &r.RegisterSpace, &diagId);
+          if (diagId != 0) {
+            Diag(Tok.getLocation(), diagId);
+            r.setIsValid(false);
+          }
+          ConsumeToken(); // consume identifier
+        }
+
+      } // SPIRV Change
 
       if (ExpectAndConsume(tok::r_paren, diag::err_expected)) {
         SkipUntil(tok::r_paren, StopAtSemi); // skip through )
@@ -2170,8 +2202,8 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
     return DeclGroupPtrTy();
   }
 
-  // HLSL Change Starts: change global variables that will be in constant buffer to be constant by default 
-  // Global variables that are groupshared, static, or typedef 
+  // HLSL Change Starts: change global variables that will be in constant buffer to be constant by default
+  // Global variables that are groupshared, static, or typedef
   // will not be part of constant buffer and therefore should not be const by default.
 
   // global variable can be inside a global structure as a static member.
@@ -3745,7 +3777,7 @@ HLSLReservedKeyword:
     case tok::kw_sample:
     case tok::kw_globallycoherent:
     case tok::kw_center:
-      // Back-compat: 'precise', 'globallycoherent', 'center' and 'sample' are keywords when used as an interpolation 
+      // Back-compat: 'precise', 'globallycoherent', 'center' and 'sample' are keywords when used as an interpolation
       // modifiers, but in FXC they can also be used an identifiers. If the decl type has already been specified
       // we need to update the token to be handled as an identifier.
       if (getLangOpts().HLSL) {
