@@ -2,5 +2,8 @@
 
 // CHECK: OpExecutionMode %main OutputVertices 3
 
+struct S { float4 val : VAL; };
+
 [maxvertexcount(3)]
-void main() {}
+void main(point in uint id[1] : VertexID, inout LineStream<S> outData) {
+}

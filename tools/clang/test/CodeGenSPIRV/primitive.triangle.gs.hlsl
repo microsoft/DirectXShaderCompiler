@@ -2,5 +2,8 @@
 
 // CHECK: OpExecutionMode %main Triangles
 
+struct S { float4 val : VAL; };
+
 [maxvertexcount(3)]
-void main(triangle in uint i[3] : VertexID) {}
+void main(triangle in uint id[3] : VertexID, inout LineStream<S> outData) {
+}
