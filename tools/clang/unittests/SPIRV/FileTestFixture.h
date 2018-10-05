@@ -21,9 +21,10 @@ class FileTest : public ::testing::Test {
 public:
   /// \brief Expected test result to be
   enum class Expect {
-    Success, // Success (with or without warnings) - check disassembly
-    Warning, // Success (with warnings) - check warning message
-    Failure, // Failure (with errors) - check error message
+    Success,    // Success (with or without warnings) - check disassembly
+    Warning,    // Success (with warnings) - check warning message
+    Failure,    // Failure (with errors) - check error message
+    ValFailure, // Validation failure (with errors) - check error message
   };
 
   FileTest()
