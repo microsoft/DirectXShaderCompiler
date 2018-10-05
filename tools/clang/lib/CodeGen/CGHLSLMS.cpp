@@ -5462,6 +5462,8 @@ bool CGMSHLSLRuntime::IsTrivalInitListExpr(CodeGenFunction &CGF,
             Expr = Cast->getSubExpr();
           }
         }
+        // Only do this on lvalue, if not lvalue, it will not be constant
+        // anyway.
         if (Expr->isLValue()) {
           LValue LV = CGF.EmitLValue(Expr);
           if (LV.isSimple()) {
