@@ -9188,6 +9188,11 @@ void hlsl::DiagnoseRegisterType(
   clang::QualType type,
   char registerType)
 {
+  // SPIRV Change Starts - skip the check if space-only for SPIR-V
+  if (self->getLangOpts().SPIRV && registerType == 'x')
+    return;
+  // SPIRV Change Ends
+
   HLSLExternalSource* source = HLSLExternalSource::FromSema(self);
   ArBasicKind element = source->GetTypeElementKind(type);
   StringRef expected("none");
@@ -10835,6 +10840,11 @@ Decl* Sema::ActOnStartHLSLBuffer(
     }
     case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
       hlsl::RegisterAssignment* registerAssignment = cast<hlsl::RegisterAssignment>(*unusualIter);
+
+      // SPIRV Change Starts - skip the check if space-only for SPIR-V
+      if (getLangOpts().SPIRV && registerAssignment->isSpaceOnly())
+        continue;
+      // SPIRV Change Ends
 
       if (registerAssignment->RegisterType != expectedRegisterType && registerAssignment->RegisterType != toupper(expectedRegisterType)) {
         Diag(registerAssignment->Loc, cbuffer ? diag::err_hlsl_unsupported_cbuffer_register : 
