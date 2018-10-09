@@ -11,6 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// jim: TEMP
+#include "llvm/IR/Type.h"
+
 #include "ValueEnumerator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"

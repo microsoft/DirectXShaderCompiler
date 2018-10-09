@@ -344,11 +344,68 @@ IDxcVersionInfo : public IUnknown {
   DECLARE_CROSS_PLATFORM_UUIDOF(IDxcVersionInfo)
 };
 
-struct __declspec(uuid("fb6904c4-42f0-4b62-9c46-983af7da7c83"))
-IDxcVersionInfo2 : public IDxcVersionInfo {
-  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) = 0;
+struct __declspec(uuid("fb6904c4-42f0-4b62-9c46-983af7da7c83")) IDxcVersionInfo2
+    : public IDxcVersionInfo {
+  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount,
+                                                  _Out_ char **pCommitHash) = 0;
 
   DECLARE_CROSS_PLATFORM_UUIDOF(IDxcVersionInfo2)
+};
+
+struct DxcInputElementDesc { // Analogous to D3D12_INPUT_ELEMENT_DESC
+  LPCSTR SemanticName;
+  UINT SemanticIndex;
+  UINT DxgiFormat;
+  UINT InputSlot;
+  UINT AlignedByteOffset;
+  UINT InputSlotClass;
+  UINT InstanceDataStepRate;
+};
+
+struct DxcInputLayoutDesc { // Analogous to D3D12_INPUT_LAYOUT_DESC
+  _Field_size_full_(NumElements) const DxcInputElementDesc *pInputElementDescs;
+  UINT NumElements;
+};
+
+struct __declspec(uuid("d0ba47c3-3d89-4bd9-ae6f-b6969c6f88cd"))
+    IDxcVsPsToHitShader : public IUnknown {
+  // Convert vertex and pixel shader pair to closest-hit and/or any-hit
+  // raytracing shaders.
+  virtual HRESULT STDMETHODCALLTYPE Transform(
+      _In_ IDxcBlob *pVsShader, // Vertex shader input (lib or vs)
+      _In_opt_ LPCWSTR
+          pVsLibEntrypoint,     // Vertex shader entrypoint name (for lib)
+      _In_ IDxcBlob *pPsShader, // Pixel shader input (lib or ps)
+      _In_opt_ LPCWSTR
+          pPsLibEntrypoint,           // Pixel shader entrypoint name (for lib)
+      DxcInputLayoutDesc inputLayout, // Specifies the mapping from vertex
+                                      // buffers to vertex shader inputs
+      UINT indexByteSize, // Size in bytes of a single index in the index buffer
+                          // (4, 2, or 0)
+      const UINT *pVertexBufferStrides, // Stride in bytes of each vertex buffer
+      UINT
+          iaRegisterSpace, // Register space to use for index and vertex buffers
+      UINT vsRegisterSpaceAddend, // Register space value to add to vertex
+                                  // shader registers
+      UINT psRegisterSpaceAddend, // Register space value to add to pixel shader
+                                  // registers
+      UINT64 chRendertargetScalarOutputMask, // Specifies pixel shader outputs
+                                             // that should be stored in payload
+                                             // for closest-hit
+      UINT64 ahRendertargetScalarOutputMask, // Specifies pixel shader outputs
+                                             // that should be stored in payload
+                                             // for any-hit
+      _COM_Outptr_opt_ IDxcBlob **ppChShader, // Resulting closest-hit shader
+      _COM_Outptr_opt_ IDxcBlob **ppAhShader  // Resulting any-hit shader
+      ) = 0;
+};
+
+// {b99ba4b4-f160-44e3-8186-dcc4c0e2ace0}
+__declspec(selectany) extern const CLSID CLSID_DxcVsPsToHitShader = {
+    0xb99ba4b4,
+    0xf160,
+    0x44e3,
+    {0x81, 0x86, 0xdc, 0xc4, 0xc0, 0xe2, 0xac, 0xe0}
 };
 
 // Note: __declspec(selectany) requires 'extern'

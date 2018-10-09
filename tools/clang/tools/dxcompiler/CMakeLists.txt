@@ -57,6 +57,7 @@ set(SOURCES
   dxcutil.cpp
   dxcdisassembler.cpp
   dxclinker.cpp
+  dxcvspstohitshader.cpp
 )
 else ()
 set(SOURCES
