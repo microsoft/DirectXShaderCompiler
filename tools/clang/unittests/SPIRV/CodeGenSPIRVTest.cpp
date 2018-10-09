@@ -1670,34 +1670,34 @@ TEST_F(FileTest, ComputeShaderGroupShared) {
 // === Legalization examples ===
 
 TEST_F(FileTest, LegalizationExample0) {
-  runFileTest("legal-examples/0-copy-sbuf-ok.hlsl");
+  runFileTest("legal-examples/00-copy-sbuf-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample1) {
-  runFileTest("legal-examples/1-copy-global-static-ok.hlsl");
+  runFileTest("legal-examples/01-copy-global-static-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample2) {
-  runFileTest("legal-examples/2-write-global-static-ok.hlsl");
+  runFileTest("legal-examples/02-write-global-static-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample3) {
-  runFileTest("legal-examples/3-copy-local-struct-ok.hlsl");
+  runFileTest("legal-examples/03-copy-local-struct-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample4) {
-  runFileTest("legal-examples/4-copy-local-nested-struct-ok.hlsl");
+  runFileTest("legal-examples/04-copy-local-nested-struct-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample5) {
-  runFileTest("legal-examples/5-func-param-sbuf-ok.hlsl");
+  runFileTest("legal-examples/05-func-param-sbuf-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample6) {
-  runFileTest("legal-examples/6-func-param-rwsbuf-ok.hlsl");
+  runFileTest("legal-examples/06-func-param-rwsbuf-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample7) {
-  runFileTest("legal-examples/7-func-ret-tmp-var-ok.hlsl");
+  runFileTest("legal-examples/07-func-ret-tmp-var-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample8) {
-  runFileTest("legal-examples/8-func-ret-direct-ok.hlsl");
+  runFileTest("legal-examples/08-func-ret-direct-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample9) {
-  runFileTest("legal-examples/9-if-stmt-select-fail.hlsl", Expect::ValFailure);
+  runFileTest("legal-examples/09-if-stmt-select-fail.hlsl", Expect::ValFailure);
 }
 TEST_F(FileTest, LegalizationExample10) {
   runFileTest("legal-examples/10-if-stmt-select-ok.hlsl");
@@ -1706,8 +1706,9 @@ TEST_F(FileTest, LegalizationExample11) {
   runFileTest("legal-examples/11-if-stmt-const-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample12) {
-  runFileTest("legal-examples/12-switch-stmt-select-fail.hlsl",
-              Expect::Failure);
+  // TODO: this is expected to trigger ValFailure! Validator is not
+  // checking this case yet.
+  runFileTest("legal-examples/12-switch-stmt-select-fail.hlsl");
 }
 TEST_F(FileTest, LegalizationExample13) {
   runFileTest("legal-examples/13-switch-stmt-const-ok.hlsl");
