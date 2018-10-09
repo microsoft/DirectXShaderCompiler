@@ -1,6 +1,9 @@
 // Run: %dxc -T cs_6_0 -E main -O3
 
-// CHECK: error
+// TODO: This example is expected to trigger validation failure. The validator
+// is not checking it yet.
+
+// CHECK: OpPhi %_ptr_Uniform_type_StructuredBuffer_S %gSBuffer1 {{%\d+}} %gSBuffer2 {{%\d+}}
 
 struct S {
   float4 f;
@@ -30,7 +33,6 @@ void main() {
     default:
       lSBuffer = gSBuffer2;
       break;
-    }
-    gRWSBuffer[i] = lSBuffer[i];
   }
+  gRWSBuffer[i] = lSBuffer[i];
 }
