@@ -35,16 +35,21 @@ bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
 }
 
 bool validateSpirvBinary(spv_target_env env, std::vector<uint32_t> &binary,
-                         bool relaxLogicalPointer, bool glLayout,
-                         bool dxLayout) {
+                         bool relaxLogicalPointer, bool glLayout, bool dxLayout,
+                         std::string *message) {
   spvtools::ValidatorOptions options;
   options.SetRelaxLogicalPointer(relaxLogicalPointer);
   options.SetRelaxBlockLayout(!glLayout && !dxLayout);
   options.SetSkipBlockLayout(dxLayout);
   spvtools::SpirvTools spirvTools(env);
-  spirvTools.SetMessageConsumer(
-      [](spv_message_level_t, const char *, const spv_position_t &,
-         const char *message) { fprintf(stdout, "%s\n", message); });
+  spirvTools.SetMessageConsumer([message](spv_message_level_t, const char *,
+                                          const spv_position_t &,
+                                          const char *msg) {
+    if (message)
+      *message = msg;
+    else
+      fprintf(stdout, "%s\n", msg);
+  });
   return spirvTools.Validate(binary.data(), binary.size(), options);
 }
 
@@ -143,10 +148,10 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     CComPtr<IDxcIncludeHandler> pIncludeHandler;
     HRESULT resultStatus;
 
-    bool running_specific_opt_recipe = false;
+    bool requires_opt = false;
     for (const auto &arg : rest)
-      if (arg.substr(0, 8) == L"-Oconfig")
-        running_specific_opt_recipe = true;
+      if (arg == L"-O3" || arg.substr(0, 8) == L"-Oconfig")
+        requires_opt = true;
 
     std::vector<LPCWSTR> flags;
     flags.push_back(L"-E");
@@ -156,7 +161,7 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     flags.push_back(L"-spirv");
     // Disable legalization and optimization for testing, unless the caller
     // wants to run a specific optimization recipe (with -Oconfig).
-    if (!running_specific_opt_recipe)
+    if (!requires_opt)
       flags.push_back(L"-fcgl");
     // Disable validation. We'll run it manually.
     flags.push_back(L"-Vd");

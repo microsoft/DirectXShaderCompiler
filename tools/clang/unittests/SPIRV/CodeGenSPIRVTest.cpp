@@ -931,7 +931,8 @@ TEST_F(FileTest, IntrinsicsInterlockedMethodsError) {
   runFileTest("intrinsics.interlocked-methods.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsInterlockedMethodsStaticError) {
-  runFileTest("intrinsics.interlocked-methods.static-error.hlsl", Expect::Failure);
+  runFileTest("intrinsics.interlocked-methods.static-error.hlsl",
+              Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
@@ -1344,9 +1345,7 @@ TEST_F(FileTest, SpirvDebugOpSource) {
   runFileTest("spirv.debug.opsource.hlsl");
 }
 
-TEST_F(FileTest, SpirvDebugOpLine) {
-  runFileTest("spirv.debug.opline.hlsl");
-}
+TEST_F(FileTest, SpirvDebugOpLine) { runFileTest("spirv.debug.opline.hlsl"); }
 
 TEST_F(FileTest, SpirvDebugDxcCommitInfo) {
   useVulkan1p1();
@@ -1666,6 +1665,76 @@ TEST_F(FileTest, GeometryShaderEmit) { runFileTest("gs.emit.hlsl"); }
 // CS: groupshared
 TEST_F(FileTest, ComputeShaderGroupShared) {
   runFileTest("cs.groupshared.hlsl");
+}
+
+// === Legalization examples ===
+
+TEST_F(FileTest, LegalizationExample0) {
+  runFileTest("legal-examples/0-copy-sbuf-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample1) {
+  runFileTest("legal-examples/1-copy-global-static-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample2) {
+  runFileTest("legal-examples/2-write-global-static-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample3) {
+  runFileTest("legal-examples/3-copy-local-struct-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample4) {
+  runFileTest("legal-examples/4-copy-local-nested-struct-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample5) {
+  runFileTest("legal-examples/5-func-param-sbuf-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample6) {
+  runFileTest("legal-examples/6-func-param-rwsbuf-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample7) {
+  runFileTest("legal-examples/7-func-ret-tmp-var-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample8) {
+  runFileTest("legal-examples/8-func-ret-direct-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample9) {
+  runFileTest("legal-examples/9-if-stmt-select-fail.hlsl", Expect::ValFailure);
+}
+TEST_F(FileTest, LegalizationExample10) {
+  runFileTest("legal-examples/10-if-stmt-select-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample11) {
+  runFileTest("legal-examples/11-if-stmt-const-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample12) {
+  runFileTest("legal-examples/12-switch-stmt-select-fail.hlsl",
+              Expect::Failure);
+}
+TEST_F(FileTest, LegalizationExample13) {
+  runFileTest("legal-examples/13-switch-stmt-const-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample14) {
+  runFileTest("legal-examples/14-loop-var-fail.hlsl", Expect::ValFailure);
+}
+TEST_F(FileTest, LegalizationExample15) {
+  runFileTest("legal-examples/15-loop-var-unroll-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample16) {
+  runFileTest("legal-examples/16-loop-var-range-fail.hlsl", Expect::ValFailure);
+}
+TEST_F(FileTest, LegalizationExample17) {
+  runFileTest("legal-examples/17-loop-var-float-fail.hlsl", Expect::ValFailure);
+}
+TEST_F(FileTest, LegalizationExample18) {
+  runFileTest("legal-examples/18-multi-func-call-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample19) {
+  runFileTest("legal-examples/19-multi-func-ret-fail.hlsl", Expect::ValFailure);
+}
+TEST_F(FileTest, LegalizationExample20) {
+  runFileTest("legal-examples/20-multi-func-ret-const-ok.hlsl");
+}
+TEST_F(FileTest, LegalizationExample21) {
+  runFileTest("legal-examples/21-combined-ok.hlsl");
 }
 
 } // namespace
