@@ -52,6 +52,7 @@ HRESULT CreateDxcAssembler(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcOptimizer(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcLinker(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcVsPsToHitShader(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
 namespace hlsl {
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
@@ -113,6 +114,9 @@ static HRESULT ThreadMallocDxcCreateInstance(
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
     hr = CreateDxcContainerBuilder(riid, ppv);
+  }
+  else if (IsEqualCLSID(rclsid, CLSID_DxcVsPsToHitShader)) {
+    hr = CreateDxcVsPsToHitShader(riid, ppv);
   }
 #endif
   else {
