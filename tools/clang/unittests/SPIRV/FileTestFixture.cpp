@@ -93,6 +93,17 @@ void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
     // Run CHECK commands via effcee on disassembly.
     result = effcee::Match(generatedSpirvAsm, checkCommands, options);
 
+    // Print effcee's error message (if any).
+    if (result.status() != effcee::Result::Status::Ok) {
+      fprintf(stderr, "%s\n", result.message().c_str());
+    }
+
+    // All checks must have passed.
+    ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
+
+    if (runValidation)
+      EXPECT_TRUE(utils::validateSpirvBinary(
+          targetEnv, generatedBinary, relaxLogicalPointer, glLayout, dxLayout));
   } else if (expect == Expect::Warning) {
     ASSERT_TRUE(compileOk);
 
@@ -107,7 +118,18 @@ void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
     // Run CHECK commands via effcee on warning messages.
     result = effcee::Match(errorMessages, checkCommands, options);
 
-  } else {
+    // Print effcee's error message (if any).
+    if (result.status() != effcee::Result::Status::Ok) {
+      fprintf(stderr, "%s\n", result.message().c_str());
+    }
+
+    // All checks must have passed.
+    ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
+
+    if (runValidation)
+      EXPECT_TRUE(utils::validateSpirvBinary(
+          targetEnv, generatedBinary, relaxLogicalPointer, glLayout, dxLayout));
+  } else if (expect == Expect::Failure) {
     ASSERT_FALSE(compileOk);
 
     auto options = effcee::Options()
@@ -116,20 +138,34 @@ void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
 
     // Run CHECK commands via effcee on error messages.
     result = effcee::Match(errorMessages, checkCommands, options);
-  }
 
-  // Print effcee's error message (if any).
-  if (result.status() != effcee::Result::Status::Ok) {
-    fprintf(stderr, "%s\n", result.message().c_str());
-  }
+    // Print effcee's error message (if any).
+    if (result.status() != effcee::Result::Status::Ok) {
+      fprintf(stderr, "%s\n", result.message().c_str());
+    }
 
-  // All checks must have passed.
-  ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
+    // All checks must have passed.
+    ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
+  } else {
+    ASSERT_TRUE(compileOk);
 
-  // Run SPIR-V validation for successful compilations
-  if (runValidation && expect != Expect::Failure) {
-    EXPECT_TRUE(utils::validateSpirvBinary(
-        targetEnv, generatedBinary, relaxLogicalPointer, glLayout, dxLayout));
+    // Disassemble the generated SPIR-V binary.
+    ASSERT_TRUE(utils::disassembleSpirvBinary(
+        generatedBinary, &generatedSpirvAsm, true /* generateHeader */));
+
+    std::string valMessages;
+    EXPECT_FALSE(utils::validateSpirvBinary(targetEnv, generatedBinary,
+                                            relaxLogicalPointer, glLayout,
+                                            dxLayout, &valMessages));
+    auto options = effcee::Options()
+                       .SetChecksName(filename.str())
+                       .SetInputName("<val-message>");
+
+    // Run CHECK commands via effcee on error messages.
+    result = effcee::Match(valMessages, checkCommands, options);
+
+    // All checks over validation message must have passed.
+    ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
   }
 }
 
