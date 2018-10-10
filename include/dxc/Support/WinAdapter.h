@@ -208,6 +208,8 @@
 #define UInt32Add UIntAdd
 #define Int32ToUInt32 IntToUInt
 
+#define __popcnt64 __builtin_popcountll
+
 //===--------------------- HRESULT Related Macros -------------------------===//
 
 #define S_OK ((HRESULT)0L)
