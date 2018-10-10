@@ -74,6 +74,7 @@ set(SOURCES
   dxcdisassembler.cpp
   dxillib.cpp
   dxcvalidator.cpp
+  dxcvspstohitshader.cpp
 )
 set (HLSL_IGNORE_SOURCES
   dxcdia.cpp

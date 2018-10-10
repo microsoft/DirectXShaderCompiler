@@ -11,7 +11,7 @@
 
 #include "llvm/Support/Debug.h"
 
-#include "dxc/HLSL/DXILOperations.h"
+#include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilLinker.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/DxilContainer.h"
@@ -54,6 +54,8 @@
 
 using namespace llvm;
 using namespace hlsl;
+
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcVsPsToHitShader)
 
 #define VSPS_DXIL_EXTERNAL_VALIDATOR 1
 
@@ -2047,7 +2049,7 @@ public:
     return DoBasicQueryInterface<IDxcVsPsToHitShader>(this, iid, ppvObject);
   }
 
-  __override HRESULT STDMETHODCALLTYPE Transform(
+  HRESULT STDMETHODCALLTYPE Transform(
     _In_ IDxcBlob              *pVsShader,
     _In_opt_ LPCWSTR            pVsLibEntrypoint,
     _In_ IDxcBlob              *pPsShader,
@@ -2062,7 +2064,7 @@ public:
     UINT64                      ahRendertargetScalarOutputMask,
     _COM_Outptr_opt_ IDxcBlob **ppChShader,
     _COM_Outptr_opt_ IDxcBlob **ppAhShader
-  ) {
+  ) override {
     if (!pVsShader || !pPsShader)
       return E_INVALIDARG;
 
