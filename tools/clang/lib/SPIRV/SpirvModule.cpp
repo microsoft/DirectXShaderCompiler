@@ -16,7 +16,7 @@ namespace spirv {
 SpirvModule::SpirvModule()
     : bound(1), memoryModel(nullptr), debugSource(nullptr) {}
 
-bool SpirvModule::visit(Visitor *visitor) {
+bool SpirvModule::invokeVisitor(Visitor *visitor) {
   if (!visitor->visit(this, Visitor::Phase::Init))
     return false;
 
