@@ -106,12 +106,12 @@ bool ReducibilityAnalysis::runOnFunction(Function &F) {
   // Initialize.
   //
   unsigned iNode = 0;
-  for (auto itBB = F.begin(), endBB = F.end(); itBB != endBB; ++itBB) {
-    BasicBlockToNodeIdxMap[itBB] = iNode++;
+  for (BasicBlock &BB : F) {
+    BasicBlockToNodeIdxMap[&BB] = iNode++;
   }
 
-  for (auto itBB = F.begin(), endBB = F.end(); itBB != endBB; ++itBB) {
-    BasicBlock *pBB = itBB;
+  for (BasicBlock &BB : F) {
+    BasicBlock *pBB = &BB;
     unsigned N = BasicBlockToNodeIdxMap[pBB];
 
     for (succ_iterator itSucc = succ_begin(pBB), endSucc = succ_end(pBB); itSucc != endSucc; ++itSucc) {
