@@ -189,6 +189,7 @@ public:
                               const DxilTypeSystem &src);
 
   bool UseMinPrecision();
+  void SetMinPrecision(bool bMinPrecision);
 
 private:
   llvm::Module *m_pModule;

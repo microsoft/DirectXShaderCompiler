@@ -128,6 +128,9 @@ void DxilModule::SetShaderModel(const ShaderModel *pSM, bool bUseMinPrecision) {
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
   m_bUseMinPrecision = bUseMinPrecision;
+  m_pOP->SetMinPrecision(m_bUseMinPrecision);
+  m_pTypeSystem->SetMinPrecision(m_bUseMinPrecision);
+
   if (!m_pSM->IsLib()) {
     // Always have valid entry props for non-lib case from this point on.
     DxilFunctionProps props;

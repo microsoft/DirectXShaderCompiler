@@ -633,7 +633,7 @@ static bool TryToDetectObjectType(
   llvm::StructType            *structType,
   D3D_SHADER_VARIABLE_TYPE    *outObjectType)
 {
-  // Note: This logic is largely duplicated from `HLModule::IsHLSLObjectType`
+  // Note: This logic is largely duplicated from `dxilutil::IsHLSLObjectType`
   // with the addition of returning the appropriate reflection type tag.
   //
   // That logic looks error-prone, since it relies on string tests against

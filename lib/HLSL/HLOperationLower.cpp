@@ -5588,7 +5588,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
     Type *Ty = ldInst->getType();
     Type *EltTy = Ty->getScalarType();
     // Resource inside cbuffer is lowered after GenerateDxilOperations.
-    if (HLModule::IsHLSLObjectType(Ty)) {
+    if (dxilutil::IsHLSLObjectType(Ty)) {
       CallInst *CI = cast<CallInst>(handle);
       GlobalVariable *CbGV = cast<GlobalVariable>(
           CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
