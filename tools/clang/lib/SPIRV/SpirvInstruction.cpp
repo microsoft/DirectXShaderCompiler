@@ -16,13 +16,63 @@
 namespace clang {
 namespace spirv {
 
+#define DEFINE_INVOKE_VISITOR_FOR_CLASS(cls)                                   \
+  bool cls::invokeVisitor(Visitor *v) { return v->visit(this); }
+
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCapability)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExtension)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInstImport)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvMemoryModel)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEntryPoint)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionMode)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvString)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSource)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvName)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvModuleProcessed)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDecoration)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVariable)
+
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionParameter)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLoopMerge)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSelectionMerge)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBranch)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBranchConditional)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvKill)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvReturn)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSwitch)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnreachable)
+
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAccessChain)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAtomic)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBarrier)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBinaryOp)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldExtract)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldInsert)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvComposite)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInst)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionCall)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformBinaryOp)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformElect)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformUnaryOp)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageOp)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageQuery)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageSparseTexelsResident)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageTexelPointer)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLoad)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSampledImage)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSelect)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantBinaryOp)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantUnaryOp)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvStore)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
+
+#undef DEFINE_INVOKE_VISITOR_FOR_CLASS
+
 SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType type,
                                    uint32_t id, SourceLocation loc)
     : kind(k), opcode(op), resultType(type), resultId(id), srcLoc(loc) {}
-
-bool SpirvInstruction::invokeVisitor(Visitor *visitor) {
-  return visitor->visit(this);
-}
 
 SpirvCapability::SpirvCapability(SourceLocation loc, spv::Capability cap)
     : SpirvInstruction(IK_Capability, spv::Op::OpCapability, QualType(),

@@ -98,6 +98,9 @@ public:
 
   virtual ~SpirvInstruction() = default;
 
+  // Invokes SPIR-V visitor on this instruction.
+  virtual bool invokeVisitor(Visitor *) = 0;
+
   Kind getKind() const { return kind; }
   spv::Op getopcode() const { return opcode; }
   QualType getResultType() const { return resultType; }
@@ -114,9 +117,6 @@ public:
 
   clang::SourceLocation getSourceLocation() const { return srcLoc; }
 
-  // Handle SPIR-V instruction visitors.
-  bool invokeVisitor(Visitor *);
-
 protected:
   // Forbid creating SpirvInstruction directly
   SpirvInstruction(Kind kind, spv::Op opcode, QualType resultType,
@@ -131,6 +131,9 @@ private:
   SourceLocation srcLoc;
 };
 
+#define DECLARE_INVOKE_VISITOR_FOR_CLASS(cls)                                  \
+  bool invokeVisitor(Visitor *v) override;
+
 /// \brief OpCapability instruction
 class SpirvCapability : public SpirvInstruction {
 public:
@@ -140,6 +143,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Capability;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvCapability)
 
   spv::Capability getCapability() const { return capability; }
 
@@ -156,6 +161,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Extension;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExtension)
 
   llvm::StringRef getExtensionName() const { return extName; }
 
@@ -174,6 +181,8 @@ public:
     return inst->getKind() == IK_ExtInstImport;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInstImport)
+
   llvm::StringRef getExtendedInstSetName() const { return extName; }
 
 private:
@@ -189,6 +198,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_MemoryModel;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvMemoryModel)
 
   spv::AddressingModel getAddressingModel() const { return addressModel; }
   spv::MemoryModel getMemoryModel() const { return memoryModel; }
@@ -209,6 +220,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_EntryPoint;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvEntryPoint)
 
   spv::ExecutionModel getExecModel() const { return execModel; }
   uint32_t getEntryPointId() const { return entryPoint; }
@@ -234,6 +247,8 @@ public:
     return inst->getKind() == IK_ExecutionMode;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionMode)
+
   uint32_t getEntryPointId() const { return entryPointId; }
   spv::ExecutionMode getExecutionMode() const { return execMode; }
   llvm::ArrayRef<uint32_t> getParams() const { return params; }
@@ -254,6 +269,8 @@ public:
     return inst->getKind() == IK_String;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvString)
+
   llvm::StringRef getString() const { return str; }
 
 private:
@@ -270,6 +287,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Source;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSource)
 
   spv::SourceLanguage getSourceLanguage() const { return lang; }
   uint32_t getVersion() const { return version; }
@@ -295,6 +314,8 @@ public:
     return inst->getKind() == IK_Name;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvName)
+
   uint32_t getTarget() const { return target; }
   bool isForMember() const { return member.hasValue(); }
   uint32_t getMember() const { return member.getValue(); }
@@ -316,6 +337,8 @@ public:
     return inst->getKind() == IK_ModuleProcessed;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvModuleProcessed)
+
   llvm::StringRef getProcess() const { return process; }
 
 private:
@@ -333,6 +356,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Decoration;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvDecoration)
 
   // Returns the <result-id> of the target of the decoration. It may be the id
   // of an object or the id of a structure type whose member is being decorated.
@@ -361,6 +386,8 @@ public:
     return inst->getKind() == IK_Variable;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvVariable)
+
   bool hasInitializer() const { return initializer != 0; }
   uint32_t getInitializer() const { return initializer; }
   spv::StorageClass getStorageClass() const { return storageClass; }
@@ -379,6 +406,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_FunctionParameter;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionParameter)
 };
 
 /// \brief Merge instructions include OpLoopMerge and OpSelectionMerge
@@ -396,6 +425,8 @@ protected:
            inst->getKind() == IK_SelectionMerge;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvMerge)
+
 private:
   uint32_t mergeBlock;
 };
@@ -409,6 +440,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_LoopMerge;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvLoopMerge)
 
   uint32_t getContinueTarget() const { return continueTarget; }
   spv::LoopControlMask getLoopControlMask() const { return loopControlMask; }
@@ -427,6 +460,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_SelectionMerge;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSelectionMerge)
 
   spv::SelectionControlMask getSelectionControlMask() const {
     return selControlMask;
@@ -452,6 +487,8 @@ public:
     return inst->getKind() >= IK_Branch && inst->getKind() <= IK_Unreachable;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvTerminator)
+
 protected:
   SpirvTerminator(Kind kind, spv::Op opcode, SourceLocation loc);
 };
@@ -464,6 +501,8 @@ public:
     return inst->getKind() >= IK_Branch &&
            inst->getKind() <= IK_BranchConditional;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBranching)
 
   virtual llvm::ArrayRef<uint32_t> getTargetBranches() const = 0;
 
@@ -480,6 +519,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Branch;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBranch)
 
   uint32_t getTargetLabel() const { return targetLabel; }
 
@@ -501,6 +542,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_BranchConditional;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBranchConditional)
 
   llvm::ArrayRef<uint32_t> getTargetBranches() const {
     return {trueLabel, falseLabel};
@@ -525,6 +568,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Kill;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvKill)
 };
 
 /// \brief OpReturn and OpReturnValue instructions
@@ -536,6 +581,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Return;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvReturn)
 
   bool hasReturnValue() const { return returnValue != 0; }
   uint32_t getReturnValue() const { return returnValue; }
@@ -554,6 +601,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Switch;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSwitch)
 
   uint32_t getSelector() const { return selector; }
   uint32_t getDefaultLabel() const { return defaultLabel; }
@@ -580,6 +629,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Unreachable;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvUnreachable)
 };
 
 /// \brief Access Chain instruction representation (OpAccessChain)
@@ -595,6 +646,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_AccessChain;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvAccessChain)
 
   uint32_t getBase() const { return base; }
   llvm::ArrayRef<uint32_t> getIndexes() const { return indices; }
@@ -641,6 +694,8 @@ public:
     return inst->getKind() == IK_Atomic;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvAtomic)
+
   uint32_t getPointer() const { return pointer; }
   spv::Scope getScope() const { return scope; }
   spv::MemorySemanticsMask getMemorySemantics() const { return memorySemantic; }
@@ -675,6 +730,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Barrier;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBarrier)
 
   spv::Scope getMemoryScope() const { return memoryScope; }
   spv::MemorySemanticsMask getMemorySemantics() const {
@@ -761,6 +818,8 @@ public:
     return inst->getKind() == IK_BinaryOp;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBinaryOp)
+
   uint32_t getOperand1() const { return operand1; }
   uint32_t getOperand2() const { return operand2; }
   bool isSpecConstantOp() const {
@@ -783,6 +842,8 @@ public:
     return inst->getKind() == IK_BitFieldExtract ||
            inst->getKind() == IK_BitFieldInsert;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBitField)
 
   virtual uint32_t getBase() const { return base; }
   virtual uint32_t getOffset() const { return offset; }
@@ -810,6 +871,8 @@ public:
     return inst->getKind() == IK_BitFieldExtract;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldExtract)
+
   uint32_t isSigned() const {
     return getopcode() == spv::Op::OpBitFieldSExtract;
   }
@@ -825,6 +888,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_BitFieldInsert;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldInsert)
 
   uint32_t getInsert() const { return insert; }
 
@@ -846,6 +911,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Composite;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvComposite)
 
   bool isConstantComposite() const {
     return getopcode() == spv::Op::OpConstantComposite;
@@ -871,6 +938,8 @@ public:
     return inst->getKind() == IK_CompositeExtract;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
+
   uint32_t getComposite() const { return composite; }
   llvm::ArrayRef<uint32_t> getIndexes() const { return indices; }
 
@@ -890,6 +959,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ExtInst;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInst)
 
   uint32_t getInstructionSetId() const { return instructionSetId; }
   GLSLstd450 getInstruction() const { return instruction; }
@@ -912,6 +983,8 @@ public:
     return inst->getKind() == IK_FunctionCall;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionCall)
+
   uint32_t getFunction() const { return function; }
   llvm::ArrayRef<uint32_t> getArgs() const { return args; }
 
@@ -928,6 +1001,8 @@ public:
     return inst->getKind() >= IK_GroupNonUniformBinaryOp &&
            inst->getKind() <= IK_GroupNonUniformUnaryOp;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvGroupNonUniformOp)
 
   spv::Scope getExecutionScope() const { return execScope; }
 
@@ -952,6 +1027,8 @@ public:
     return inst->getKind() == IK_GroupNonUniformBinaryOp;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformBinaryOp)
+
   uint32_t getArg1() const { return arg1; }
   uint32_t getArg2() const { return arg2; }
 
@@ -971,6 +1048,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_GroupNonUniformElect;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformElect)
 };
 
 /// \brief OpGroupNonUniform* unary instructions.
@@ -985,6 +1064,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_GroupNonUniformUnaryOp;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformUnaryOp)
 
   uint32_t getArg() const { return arg; }
   bool hasGroupOp() const { return groupOp.hasValue(); }
@@ -1036,6 +1117,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ImageOp;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageOp)
 
   uint32_t getImage() const { return image; }
   uint32_t getCoordinate() const { return coordinate; }
@@ -1108,6 +1191,8 @@ public:
     return inst->getKind() == IK_ImageQuery;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageQuery)
+
   uint32_t getImage() const { return image; }
   uint32_t hasLod() const { return lod != 0; }
   uint32_t getLod() const { return lod; }
@@ -1131,6 +1216,8 @@ public:
     return inst->getKind() == IK_ImageSparseTexelsResident;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageSparseTexelsResident)
+
   uint32_t getResidentCode() const { return residentCode; }
 
 private:
@@ -1148,6 +1235,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ImageTexelPointer;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageTexelPointer)
 
   uint32_t getImage() const { return image; }
   uint32_t getCoordinate() const { return coordinate; }
@@ -1169,6 +1258,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Load;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvLoad)
 
   uint32_t getPointer() const { return pointer; }
   bool hasMemoryAccessSemantics() const { return memoryAccess.hasValue(); }
@@ -1192,6 +1283,8 @@ public:
     return inst->getKind() == IK_SampledImage;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSampledImage)
+
   uint32_t getImage() const { return image; }
   uint32_t getSampler() const { return sampler; }
 
@@ -1210,6 +1303,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Select;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSelect)
 
   uint32_t getCondition() const { return condition; }
   uint32_t getTrueObject() const { return trueObject; }
@@ -1233,6 +1328,8 @@ public:
     return inst->getKind() == IK_SpecConstantBinaryOp;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantBinaryOp)
+
   spv::Op getSpecConstantopcode() const { return specOp; }
   uint32_t getOperand1() const { return operand1; }
   uint32_t getOperand2() const { return operand2; }
@@ -1255,6 +1352,8 @@ public:
     return inst->getKind() == IK_SpecConstantUnaryOp;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantUnaryOp)
+
   spv::Op getSpecConstantopcode() const { return specOp; }
   uint32_t getOperand() const { return operand; }
 
@@ -1273,6 +1372,8 @@ public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Store;
   }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvStore)
 
   uint32_t getPointer() const { return pointer; }
   uint32_t getObject() const { return object; }
@@ -1335,6 +1436,8 @@ public:
     return inst->getKind() == IK_UnaryOp;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
+
   uint32_t getOperand() const { return operand; }
 
 private:
@@ -1353,6 +1456,8 @@ public:
     return inst->getKind() == IK_VectorShuffle;
   }
 
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
+
   uint32_t getVec1() const { return vec1; }
   uint32_t getVec2() const { return vec2; }
   llvm::ArrayRef<uint32_t> getComponents() const { return components; }
@@ -1362,6 +1467,8 @@ private:
   uint32_t vec2;
   llvm::SmallVector<uint32_t, 4> components;
 };
+
+#undef DECLARE_INVOKE_VISITOR_FOR_CLASS
 
 } // namespace spirv
 } // namespace clang
