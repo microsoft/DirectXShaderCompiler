@@ -51,7 +51,7 @@ public:
   SpirvModule &operator=(SpirvModule &&) = delete;
 
   // Handle SPIR-V module visitors.
-  bool visit(Visitor *);
+  bool invokeVisitor(Visitor *);
 
 private:
   uint32_t bound; ///< The <result-id> bound: the next unused one
