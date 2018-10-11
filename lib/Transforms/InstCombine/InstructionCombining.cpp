@@ -752,6 +752,15 @@ Instruction *InstCombiner::FoldOpIntoSelect(Instruction &Op, SelectInst *SI) {
   return nullptr;
 }
 
+// HLSL change begins
+static bool HasUndefValue(PHINode *PHI) {
+  for (unsigned i = 0; i < PHI->getNumIncomingValues(); i++)
+    if (isa<UndefValue>(PHI->getIncomingValue(i)))
+      return true;
+  return false;
+}
+// HLSL change ends
+
 /// FoldOpIntoPhi - Given a binary operator, cast instruction, or select which
 /// has a PHI node as operand #0, see if we can fold the instruction into the
 /// PHI (which is only possible if all operands to the PHI are constants).
@@ -761,6 +770,12 @@ Instruction *InstCombiner::FoldOpIntoPhi(Instruction &I) {
   unsigned NumPHIValues = PN->getNumIncomingValues();
   if (NumPHIValues == 0)
     return nullptr;
+
+  // HLSL Change begins
+  // Don't fold a binary op into PHI having undef value(s).
+  if (HasUndefValue(PN))
+    return nullptr;
+  // HLSL Change ends
 
   // We normally only transform phis with a single use.  However, if a PHI has
   // multiple uses and they are all the same operation, we can fold *all* of the
