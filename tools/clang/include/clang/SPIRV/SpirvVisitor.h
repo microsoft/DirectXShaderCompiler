@@ -42,54 +42,68 @@ public:
   virtual bool visit(SpirvModule *, Phase) {}
   virtual bool visit(SpirvFunction *, Phase) {}
   virtual bool visit(SpirvBasicBlock *, Phase) {}
-  virtual bool visit(SpirvInstruction *) {}
-  virtual bool visit(SpirvCapability *) {}
-  virtual bool visit(SpirvExtension *) {}
-  virtual bool visit(SpirvExtInstImport *) {}
-  virtual bool visit(SpirvMemoryModel *) {}
-  virtual bool visit(SpirvEntryPoint *) {}
-  virtual bool visit(SpirvExecutionMode *) {}
-  virtual bool visit(SpirvString *) {}
-  virtual bool visit(SpirvSource *) {}
-  virtual bool visit(SpirvName *) {}
-  virtual bool visit(SpirvModuleProcessed *) {}
-  virtual bool visit(SpirvDecoration *) {}
-  virtual bool visit(SpirvVariable *) {}
-  virtual bool visit(SpirvFunctionParameter *) {}
-  virtual bool visit(SpirvLoopMerge *) {}
-  virtual bool visit(SpirvSelectionMerge *) {}
-  virtual bool visit(SpirvBranching *) {}
-  virtual bool visit(SpirvBranch *) {}
-  virtual bool visit(SpirvBranchConditional *) {}
-  virtual bool visit(SpirvKill *) {}
-  virtual bool visit(SpirvReturn *) {}
-  virtual bool visit(SpirvSwitch *) {}
-  virtual bool visit(SpirvUnreachable *) {}
-  virtual bool visit(SpirvAccessChain *) {}
-  virtual bool visit(SpirvAtomic *) {}
-  virtual bool visit(SpirvBarrier *) {}
-  virtual bool visit(SpirvBinaryOp *) {}
-  virtual bool visit(SpirvBitFieldExtract *) {}
-  virtual bool visit(SpirvBitFieldInsert *) {}
-  virtual bool visit(SpirvComposite *) {}
-  virtual bool visit(SpirvCompositeExtract *) {}
-  virtual bool visit(SpirvExtInst *) {}
-  virtual bool visit(SpirvFunctionCall *) {}
-  virtual bool visit(SpirvNonUniformBinaryOp *) {}
-  virtual bool visit(SpirvNonUniformElect *) {}
-  virtual bool visit(SpirvNonUniformUnaryOp *) {}
-  virtual bool visit(SpirvImageOp *) {}
-  virtual bool visit(SpirvImageQuery *) {}
-  virtual bool visit(SpirvImageSparseTexelsResident *) {}
-  virtual bool visit(SpirvImageTexelPointer *) {}
-  virtual bool visit(SpirvLoad *) {}
-  virtual bool visit(SpirvSampledImage *) {}
-  virtual bool visit(SpirvSelect *) {}
-  virtual bool visit(SpirvSpecConstantBinaryOp *) {}
-  virtual bool visit(SpirvSpecConstantUnaryOp *) {}
-  virtual bool visit(SpirvStore *) {}
-  virtual bool visit(SpirvUnaryOp *) {}
-  virtual bool visit(SpirvVectorShuffle *) {}
+
+  /// The "sink" visit function for all instructions.
+  ///
+  /// By default, all other visit instructions redirect to this visit function.
+  /// So that you want override this visit function to handle all instructions,
+  /// regardless of their polymorphism.
+  virtual bool visitInstruction(SpirvInstruction *) {}
+
+#define DEFINE_VISIT_METHOD(cls)                                               \
+  virtual bool visit(cls *i) { visitInstruction(i); }
+
+  DEFINE_VISIT_METHOD(SpirvCapability)
+  DEFINE_VISIT_METHOD(SpirvExtension)
+  DEFINE_VISIT_METHOD(SpirvExtInstImport)
+  DEFINE_VISIT_METHOD(SpirvMemoryModel)
+  DEFINE_VISIT_METHOD(SpirvEntryPoint)
+  DEFINE_VISIT_METHOD(SpirvExecutionMode)
+  DEFINE_VISIT_METHOD(SpirvString)
+  DEFINE_VISIT_METHOD(SpirvSource)
+  DEFINE_VISIT_METHOD(SpirvName)
+  DEFINE_VISIT_METHOD(SpirvModuleProcessed)
+  DEFINE_VISIT_METHOD(SpirvDecoration)
+  DEFINE_VISIT_METHOD(SpirvVariable)
+
+  DEFINE_VISIT_METHOD(SpirvFunctionParameter)
+  DEFINE_VISIT_METHOD(SpirvLoopMerge)
+  DEFINE_VISIT_METHOD(SpirvSelectionMerge)
+  DEFINE_VISIT_METHOD(SpirvBranching)
+  DEFINE_VISIT_METHOD(SpirvBranch)
+  DEFINE_VISIT_METHOD(SpirvBranchConditional)
+  DEFINE_VISIT_METHOD(SpirvKill)
+  DEFINE_VISIT_METHOD(SpirvReturn)
+  DEFINE_VISIT_METHOD(SpirvSwitch)
+  DEFINE_VISIT_METHOD(SpirvUnreachable)
+
+  DEFINE_VISIT_METHOD(SpirvAccessChain)
+  DEFINE_VISIT_METHOD(SpirvAtomic)
+  DEFINE_VISIT_METHOD(SpirvBarrier)
+  DEFINE_VISIT_METHOD(SpirvBinaryOp)
+  DEFINE_VISIT_METHOD(SpirvBitFieldExtract)
+  DEFINE_VISIT_METHOD(SpirvBitFieldInsert)
+  DEFINE_VISIT_METHOD(SpirvComposite)
+  DEFINE_VISIT_METHOD(SpirvCompositeExtract)
+  DEFINE_VISIT_METHOD(SpirvExtInst)
+  DEFINE_VISIT_METHOD(SpirvFunctionCall)
+  DEFINE_VISIT_METHOD(SpirvNonUniformBinaryOp)
+  DEFINE_VISIT_METHOD(SpirvNonUniformElect)
+  DEFINE_VISIT_METHOD(SpirvNonUniformUnaryOp)
+  DEFINE_VISIT_METHOD(SpirvImageOp)
+  DEFINE_VISIT_METHOD(SpirvImageQuery)
+  DEFINE_VISIT_METHOD(SpirvImageSparseTexelsResident)
+  DEFINE_VISIT_METHOD(SpirvImageTexelPointer)
+  DEFINE_VISIT_METHOD(SpirvLoad)
+  DEFINE_VISIT_METHOD(SpirvSampledImage)
+  DEFINE_VISIT_METHOD(SpirvSelect)
+  DEFINE_VISIT_METHOD(SpirvSpecConstantBinaryOp)
+  DEFINE_VISIT_METHOD(SpirvSpecConstantUnaryOp)
+  DEFINE_VISIT_METHOD(SpirvStore)
+  DEFINE_VISIT_METHOD(SpirvUnaryOp)
+  DEFINE_VISIT_METHOD(SpirvVectorShuffle)
+
+#undef DEFINE_VISIT_METHOD
 
 protected:
   Visitor() = default;
