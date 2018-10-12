@@ -1,4 +1,4 @@
-//===-- SpirvInstruction.h - SPIR-V Instruction Representation --*- C++ -*-===//
+//===- SpirvInstruction.cpp - SPIR-V Instruction Representation -*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
