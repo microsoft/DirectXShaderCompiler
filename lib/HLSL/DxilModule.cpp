@@ -1133,12 +1133,9 @@ void DxilModule::ClearDxilMetadata(Module &M) {
   // root signature, function properties.
   // Other cases for libs pending.
   // LLVM used is a global variable - handle separately.
-  Module::named_metadata_iterator
-    b = M.named_metadata_begin(),
-    e = M.named_metadata_end();
   SmallVector<NamedMDNode*, 8> nodes;
-  for (; b != e; ++b) {
-    StringRef name = b->getName();
+  for (NamedMDNode &b : M.named_metadata()) {
+    StringRef name = b.getName();
     if (name == DxilMDHelper::kDxilVersionMDName ||
       name == DxilMDHelper::kDxilValidatorVersionMDName ||
       name == DxilMDHelper::kDxilShaderModelMDName ||
@@ -1148,7 +1145,7 @@ void DxilModule::ClearDxilMetadata(Module &M) {
       name == DxilMDHelper::kDxilTypeSystemMDName ||
       name == DxilMDHelper::kDxilViewIdStateMDName ||
       name.startswith(DxilMDHelper::kDxilTypeSystemHelperVariablePrefix)) {
-      nodes.push_back(b);
+      nodes.push_back(&b);
     }
   }
   for (size_t i = 0; i < nodes.size(); ++i) {
