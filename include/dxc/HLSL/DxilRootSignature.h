@@ -359,6 +359,10 @@ bool VerifyRootSignatureWithShaderPSV(_In_ const DxilVersionedRootSignatureDesc 
                                       _In_ uint32_t PSVSize,
                                       _In_ llvm::raw_ostream &DiagStream);
 
+// standalone verification
+bool VerifyRootSignature(_In_ const DxilVersionedRootSignatureDesc *pDesc,
+                         _In_ llvm::raw_ostream &DiagStream);
+
 } // namespace hlsl
 
 #endif // __DXC_ROOTSIGNATURE__
