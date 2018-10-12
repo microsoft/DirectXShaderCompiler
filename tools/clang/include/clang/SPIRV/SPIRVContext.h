@@ -9,12 +9,16 @@
 #ifndef LLVM_CLANG_SPIRV_SPIRVCONTEXT_H
 #define LLVM_CLANG_SPIRV_SPIRVCONTEXT_H
 
+#include <array>
 #include <unordered_map>
 
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/SPIRV/Constant.h"
 #include "clang/SPIRV/Decoration.h"
+#include "clang/SPIRV/SpirvType.h"
 #include "clang/SPIRV/Type.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/Support/Allocator.h"
 
 namespace clang {
@@ -112,6 +116,26 @@ SPIRVContext::SPIRVContext() : nextId(1) {}
 uint32_t SPIRVContext::getNextId() const { return nextId; }
 uint32_t SPIRVContext::takeNextId() { return nextId++; }
 
+// Provides DenseMapInfo for spv::StorageClass so that we can use
+// spv::StorageClass as key to DenseMap.
+//
+// Mostly from DenseMapInfo<unsigned> in DenseMapInfo.h.
+struct StorageClassDenseMapInfo {
+  static inline spv::StorageClass getEmptyKey() {
+    return spv::StorageClass::Function;
+  }
+  static inline spv::StorageClass getTombstoneKey() {
+    return spv::StorageClass::Max;
+  }
+  static unsigned getHashValue(const spv::StorageClass &Val) {
+    return static_cast<unsigned>(Val) * 37U;
+  }
+  static bool isEqual(const spv::StorageClass &LHS,
+                      const spv::StorageClass &RHS) {
+    return LHS == RHS;
+  }
+};
+
 /// The class owning various SPIR-V entities allocated in memory during CodeGen.
 ///
 /// All entities should be allocated from an object of this class using
@@ -121,7 +145,7 @@ uint32_t SPIRVContext::takeNextId() { return nextId++; }
 /// the SPIR-V entities allocated in memory.
 class SpirvContext {
 public:
-  SpirvContext() = default;
+  SpirvContext();
   ~SpirvContext() = default;
 
   // Forbid copy construction and assignment
@@ -133,12 +157,43 @@ public:
   SpirvContext &operator=(SpirvContext &&) = delete;
 
   /// Allocates memory of the given size and alignment.
-  void *allocate(size_t size, unsigned align = 8) const {
+  void *allocate(size_t size, unsigned align) const {
     return allocator.Allocate(size, align);
   }
 
   /// Deallocates the memory pointed by the given pointer.
   void deallocate(void *ptr) const {}
+
+  // === Types ===
+
+  const VoidType *getVoidType() const { return voidType; }
+
+  const BoolType *getBoolType() const { return boolType; }
+  const IntegerType *getSIntType(uint32_t bitwidth);
+  const IntegerType *getUIntType(uint32_t bitwidth);
+  const FloatType *getFloatType(uint32_t bitwidth);
+
+  const VectorType *getVectorType(const ScalarType *elemType, uint32_t count);
+  const MatrixType *getMatrixType(const VectorType *vecType, uint32_t vecCount);
+
+  const ImageType *getImageType(const NumericalType *, spv::Dim, bool arrayed,
+                                bool ms, ImageType::WithSampler sampled,
+                                spv::ImageFormat);
+  const SamplerType *getSamplerType() const { return samplerType; }
+  const SampledImageType *getSampledImageType(const ImageType *image);
+
+  const ArrayType *getArrayType(const SpirvType *elemType, uint32_t elemCount);
+  const RuntimeArrayType *getRuntimeArrayType(const SpirvType *elemType);
+
+  const StructType *getStructType(llvm::ArrayRef<const SpirvType *> fieldTypes,
+                                  llvm::StringRef name,
+                                  llvm::ArrayRef<llvm::StringRef> fieldNames);
+
+  const SpirvPointerType *getPointerType(const SpirvType *pointee,
+                                         spv::StorageClass);
+
+  const FunctionType *getFunctionType(const SpirvType *ret,
+                                      llvm::ArrayRef<const SpirvType *> param);
 
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
@@ -146,7 +201,47 @@ private:
   /// SPIR-V entity objects are never destructed; rather, all memory associated
   /// with the SPIR-V entity objects will be released when the SpirvContext
   /// itself is destroyed.
+  ///
+  /// This field must appear the first since it will be used to allocate object
+  /// for the other fields.
   mutable llvm::BumpPtrAllocator allocator;
+
+  // Unique types
+
+  const VoidType *voidType;
+  const BoolType *boolType;
+
+  // The type at index i is for bitwidth 2^i. So max bitwidth supported
+  // is 2^6 = 64. Index 0/1/2/3 is not used right now.
+  std::array<const IntegerType *, 7> sintTypes;
+  std::array<const IntegerType *, 7> uintTypes;
+  std::array<const FloatType *, 7> floatTypes;
+
+  using VectorTypeArray = std::array<const VectorType *, 5>;
+  using MatrixTypeArray = std::array<const MatrixType *, 5>;
+  using CountToArrayMap = llvm::DenseMap<uint32_t, const ArrayType *>;
+  using SCToPtrTyMap =
+      llvm::DenseMap<spv::StorageClass, const SpirvPointerType *,
+                     StorageClassDenseMapInfo>;
+
+  // Vector/matrix types for each possible element count.
+  // Type at index is for vector of index components. Index 0/1 is unused.
+
+  llvm::DenseMap<const ScalarType *, VectorTypeArray> vecTypes;
+  llvm::DenseMap<const VectorType *, MatrixTypeArray> matTypes;
+
+  llvm::SmallVector<const ImageType *, 8> imageTypes;
+  const SamplerType *samplerType;
+  llvm::DenseMap<const ImageType *, const SampledImageType *> sampledImageTypes;
+
+  llvm::DenseMap<const SpirvType *, CountToArrayMap> arrayTypes;
+  llvm::DenseMap<const SpirvType *, const RuntimeArrayType *> runtimeArrayTypes;
+
+  llvm::SmallVector<const StructType *, 8> structTypes;
+
+  llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
+
+  llvm::SmallVector<const FunctionType *, 8> functionTypes;
 };
 
 } // end namespace spirv
@@ -160,10 +255,20 @@ inline void *operator new(size_t bytes, const clang::spirv::SpirvContext &c,
   return c.allocate(bytes, align);
 }
 
+inline void *operator new(size_t bytes, const clang::spirv::SpirvContext *c,
+                          size_t align = 8) {
+  return c->allocate(bytes, align);
+}
+
 /// Placement delete companion to the new above.
 inline void operator delete(void *ptr, const clang::spirv::SpirvContext &c,
                             size_t) {
   c.deallocate(ptr);
+}
+
+inline void operator delete(void *ptr, const clang::spirv::SpirvContext *c,
+                            size_t) {
+  c->deallocate(ptr);
 }
 
 #endif
