@@ -111,17 +111,17 @@ bool EmitVisitor::visit(SpirvMemoryModel *inst) {
 bool EmitVisitor::visit(SpirvEntryPoint *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(static_cast<uint32_t>(inst->getExecModel()));
-  curInst.push_back(static_cast<uint32_t>(inst->getEntryPointId()));
+  curInst.push_back(inst->getEntryPoint()->getResultId());
   encodeString(inst->getEntryPointName());
-  curInst.insert(curInst.end(), inst->getInterface().begin(),
-                 inst->getInterface().end());
+  for (auto *var : inst->getInterface())
+    curInst.push_back(var->getResultId());
   finalizeInstruction();
   return true;
 }
 
 bool EmitVisitor::visit(SpirvExecutionMode *inst) {
   initInstruction(inst->getopcode());
-  curInst.push_back(inst->getEntryPointId());
+  curInst.push_back(inst->getEntryPoint()->getResultId());
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionMode()));
   curInst.insert(curInst.end(), inst->getParams().begin(),
                  inst->getParams().end());
@@ -141,8 +141,8 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(static_cast<uint32_t>(inst->getSourceLanguage()));
   curInst.push_back(static_cast<uint32_t>(inst->getVersion()));
-  if (inst->hasFileId())
-    curInst.push_back(inst->getFileId());
+  if (inst->hasFile())
+    curInst.push_back(inst->getFile()->getResultId());
   if (!inst->getSource().empty()) {
     // Note: in order to improve performance and avoid multiple copies, we
     // encode this (potentially large) string directly into spirvBinary.
@@ -157,7 +157,7 @@ bool EmitVisitor::visit(SpirvSource *inst) {
 
 bool EmitVisitor::visit(SpirvName *inst) {
   initInstruction(inst->getopcode());
-  curInst.push_back(static_cast<uint32_t>(inst->getTarget()));
+  curInst.push_back(inst->getTarget()->getResultId());
   if (inst->isForMember())
     curInst.push_back(inst->getMember());
   encodeString(inst->getName());
@@ -174,7 +174,7 @@ bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
 
 bool EmitVisitor::visit(SpirvDecoration *inst) {
   initInstruction(inst->getopcode());
-  curInst.push_back(inst->getTarget());
+  curInst.push_back(inst->getTarget()->getResultId());
   if (inst->isMemberDecoration())
     curInst.push_back(inst->getMemberIndex());
   curInst.push_back(static_cast<uint32_t>(inst->getDecoration()));
@@ -190,7 +190,7 @@ bool EmitVisitor::visit(SpirvVariable *inst) {
   curInst.push_back(inst->getResultId());
   curInst.push_back(static_cast<uint32_t>(inst->getStorageClass()));
   if (inst->hasInitializer())
-    curInst.push_back(inst->getInitializer());
+    curInst.push_back(inst->getInitializer()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -205,8 +205,8 @@ bool EmitVisitor::visit(SpirvFunctionParameter *inst) {
 
 bool EmitVisitor::visit(SpirvLoopMerge *inst) {
   initInstruction(inst->getopcode());
-  curInst.push_back(inst->getMergeBlock());
-  curInst.push_back(inst->getContinueTarget());
+  curInst.push_back(inst->getMergeBlock()->getLabelId());
+  curInst.push_back(inst->getContinueTarget()->getLabelId());
   curInst.push_back(static_cast<uint32_t>(inst->getLoopControlMask()));
   finalizeInstruction();
   return true;
@@ -214,7 +214,7 @@ bool EmitVisitor::visit(SpirvLoopMerge *inst) {
 
 bool EmitVisitor::visit(SpirvSelectionMerge *inst) {
   initInstruction(inst->getopcode());
-  curInst.push_back(inst->getMergeBlock());
+  curInst.push_back(inst->getMergeBlock()->getLabelId());
   curInst.push_back(static_cast<uint32_t>(inst->getSelectionControlMask()));
   finalizeInstruction();
   return true;
@@ -222,16 +222,16 @@ bool EmitVisitor::visit(SpirvSelectionMerge *inst) {
 
 bool EmitVisitor::visit(SpirvBranch *inst) {
   initInstruction(inst->getopcode());
-  curInst.push_back(inst->getTargetLabel());
+  curInst.push_back(inst->getTargetLabel()->getLabelId());
   finalizeInstruction();
   return true;
 }
 
 bool EmitVisitor::visit(SpirvBranchConditional *inst) {
   initInstruction(inst->getopcode());
-  curInst.push_back(inst->getCondition());
-  curInst.push_back(inst->getTrueLabel());
-  curInst.push_back(inst->getFalseLabel());
+  curInst.push_back(inst->getCondition()->getResultId());
+  curInst.push_back(inst->getTrueLabel()->getLabelId());
+  curInst.push_back(inst->getFalseLabel()->getLabelId());
   finalizeInstruction();
   return true;
 }
@@ -250,11 +250,11 @@ bool EmitVisitor::visit(SpirvReturn *inst) {
 
 bool EmitVisitor::visit(SpirvSwitch *inst) {
   initInstruction(inst->getopcode());
-  curInst.push_back(inst->getSelector());
-  curInst.push_back(inst->getDefaultLabel());
+  curInst.push_back(inst->getSelector()->getResultId());
+  curInst.push_back(inst->getDefaultLabel()->getLabelId());
   for (const auto &target : inst->getTargets()) {
     curInst.push_back(target.first);
-    curInst.push_back(target.second);
+    curInst.push_back(target.second->getLabelId());
   }
   finalizeInstruction();
   return true;
@@ -270,9 +270,9 @@ bool EmitVisitor::visit(SpirvAccessChain *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getBase());
+  curInst.push_back(inst->getBase()->getResultId());
   for (const auto index : inst->getIndexes())
-    curInst.push_back(index);
+    curInst.push_back(index->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -284,15 +284,15 @@ bool EmitVisitor::visit(SpirvAtomic *inst) {
     curInst.push_back(inst->getResultTypeId());
     curInst.push_back(inst->getResultId());
   }
-  curInst.push_back(inst->getPointer());
+  curInst.push_back(inst->getPointer()->getResultId());
   curInst.push_back(static_cast<uint32_t>(inst->getScope()));
   curInst.push_back(static_cast<uint32_t>(inst->getMemorySemantics()));
   if (inst->hasComparator())
     curInst.push_back(static_cast<uint32_t>(inst->getMemorySemanticsUnequal()));
   if (inst->hasValue())
-    curInst.push_back(inst->getValue());
+    curInst.push_back(inst->getValue()->getResultId());
   if (inst->hasComparator())
-    curInst.push_back(inst->getComparator());
+    curInst.push_back(inst->getComparator()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -311,8 +311,8 @@ bool EmitVisitor::visit(SpirvBinaryOp *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getOperand1());
-  curInst.push_back(inst->getOperand2());
+  curInst.push_back(inst->getOperand1()->getResultId());
+  curInst.push_back(inst->getOperand2()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -321,9 +321,9 @@ bool EmitVisitor::visit(SpirvBitFieldExtract *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getBase());
-  curInst.push_back(inst->getOffset());
-  curInst.push_back(inst->getCount());
+  curInst.push_back(inst->getBase()->getResultId());
+  curInst.push_back(inst->getOffset()->getResultId());
+  curInst.push_back(inst->getCount()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -332,10 +332,10 @@ bool EmitVisitor::visit(SpirvBitFieldInsert *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getBase());
-  curInst.push_back(inst->getInsert());
-  curInst.push_back(inst->getOffset());
-  curInst.push_back(inst->getCount());
+  curInst.push_back(inst->getBase()->getResultId());
+  curInst.push_back(inst->getInsert()->getResultId());
+  curInst.push_back(inst->getOffset()->getResultId());
+  curInst.push_back(inst->getCount()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -345,7 +345,7 @@ bool EmitVisitor::visit(SpirvComposite *inst) {
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
   for (const auto constituent : inst->getConstituents())
-    curInst.push_back(constituent);
+    curInst.push_back(constituent->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -354,7 +354,7 @@ bool EmitVisitor::visit(SpirvCompositeExtract *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getComposite());
+  curInst.push_back(inst->getComposite()->getResultId());
   for (const auto constituent : inst->getIndexes())
     curInst.push_back(constituent);
   finalizeInstruction();
@@ -365,10 +365,10 @@ bool EmitVisitor::visit(SpirvExtInst *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getInstructionSetId());
+  curInst.push_back(inst->getInstructionSet()->getResultId());
   curInst.push_back(inst->getInstruction());
   for (const auto operand : inst->getOperands())
-    curInst.push_back(operand);
+    curInst.push_back(operand->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -377,9 +377,9 @@ bool EmitVisitor::visit(SpirvFunctionCall *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getFunction());
+  curInst.push_back(inst->getFunction()->getResultId());
   for (const auto arg : inst->getArgs())
-    curInst.push_back(arg);
+    curInst.push_back(arg->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -389,8 +389,8 @@ bool EmitVisitor::visit(SpirvNonUniformBinaryOp *inst) {
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionScope()));
-  curInst.push_back(inst->getArg1());
-  curInst.push_back(inst->getArg2());
+  curInst.push_back(inst->getArg1()->getResultId());
+  curInst.push_back(inst->getArg2()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -411,7 +411,7 @@ bool EmitVisitor::visit(SpirvNonUniformUnaryOp *inst) {
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionScope()));
   if (inst->hasGroupOp())
     curInst.push_back(static_cast<uint32_t>(inst->getGroupOp()));
-  curInst.push_back(inst->getArg());
+  curInst.push_back(inst->getArg()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -424,36 +424,36 @@ bool EmitVisitor::visit(SpirvImageOp *inst) {
     curInst.push_back(inst->getResultId());
   }
 
-  curInst.push_back(inst->getImage());
-  curInst.push_back(inst->getCoordinate());
+  curInst.push_back(inst->getImage()->getResultId());
+  curInst.push_back(inst->getCoordinate()->getResultId());
 
   if (inst->isImageWrite())
-    curInst.push_back(inst->getTexelToWrite());
+    curInst.push_back(inst->getTexelToWrite()->getResultId());
 
   if (inst->hasDref())
-    curInst.push_back(inst->getDref());
+    curInst.push_back(inst->getDref()->getResultId());
   if (inst->hasComponent())
-    curInst.push_back(inst->getComponent());
+    curInst.push_back(inst->getComponent()->getResultId());
   if (inst->getImageOperandsMask() != spv::ImageOperandsMask::MaskNone) {
     curInst.push_back(static_cast<uint32_t>(inst->getImageOperandsMask()));
     if (inst->hasBias())
-      curInst.push_back(inst->getBias());
+      curInst.push_back(inst->getBias()->getResultId());
     if (inst->hasLod())
-      curInst.push_back(inst->getLod());
+      curInst.push_back(inst->getLod()->getResultId());
     if (inst->hasGrad()) {
-      curInst.push_back(inst->getGradDx());
-      curInst.push_back(inst->getGradDy());
+      curInst.push_back(inst->getGradDx()->getResultId());
+      curInst.push_back(inst->getGradDy()->getResultId());
     }
     if (inst->hasConstOffset())
-      curInst.push_back(inst->getConstOffset());
+      curInst.push_back(inst->getConstOffset()->getResultId());
     if (inst->hasOffset())
-      curInst.push_back(inst->getOffset());
+      curInst.push_back(inst->getOffset()->getResultId());
     if (inst->hasConstOffsets())
-      curInst.push_back(inst->getConstOffsets());
+      curInst.push_back(inst->getConstOffsets()->getResultId());
     if (inst->hasSample())
-      curInst.push_back(inst->getSample());
+      curInst.push_back(inst->getSample()->getResultId());
     if (inst->hasMinLod())
-      curInst.push_back(inst->getMinLod());
+      curInst.push_back(inst->getMinLod()->getResultId());
   }
   finalizeInstruction();
   return true;
@@ -463,11 +463,11 @@ bool EmitVisitor::visit(SpirvImageQuery *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getImage());
+  curInst.push_back(inst->getImage()->getResultId());
   if (inst->hasCoordinate())
-    curInst.push_back(inst->getCoordinate());
+    curInst.push_back(inst->getCoordinate()->getResultId());
   if (inst->hasLod())
-    curInst.push_back(inst->getLod());
+    curInst.push_back(inst->getLod()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -476,7 +476,7 @@ bool EmitVisitor::visit(SpirvImageSparseTexelsResident *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getResidentCode());
+  curInst.push_back(inst->getResidentCode()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -485,9 +485,9 @@ bool EmitVisitor::visit(SpirvImageTexelPointer *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getImage());
-  curInst.push_back(inst->getCoordinate());
-  curInst.push_back(inst->getSample());
+  curInst.push_back(inst->getImage()->getResultId());
+  curInst.push_back(inst->getCoordinate()->getResultId());
+  curInst.push_back(inst->getSample()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -496,7 +496,7 @@ bool EmitVisitor::visit(SpirvLoad *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getPointer());
+  curInst.push_back(inst->getPointer()->getResultId());
   if (inst->hasMemoryAccessSemantics())
     curInst.push_back(static_cast<uint32_t>(inst->getMemoryAccess()));
   finalizeInstruction();
@@ -507,8 +507,8 @@ bool EmitVisitor::visit(SpirvSampledImage *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getImage());
-  curInst.push_back(inst->getSampler());
+  curInst.push_back(inst->getImage()->getResultId());
+  curInst.push_back(inst->getSampler()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -517,9 +517,9 @@ bool EmitVisitor::visit(SpirvSelect *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getCondition());
-  curInst.push_back(inst->getTrueObject());
-  curInst.push_back(inst->getFalseObject());
+  curInst.push_back(inst->getCondition()->getResultId());
+  curInst.push_back(inst->getTrueObject()->getResultId());
+  curInst.push_back(inst->getFalseObject()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -529,8 +529,8 @@ bool EmitVisitor::visit(SpirvSpecConstantBinaryOp *inst) {
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
   curInst.push_back(static_cast<uint32_t>(inst->getSpecConstantopcode()));
-  curInst.push_back(inst->getOperand1());
-  curInst.push_back(inst->getOperand2());
+  curInst.push_back(inst->getOperand1()->getResultId());
+  curInst.push_back(inst->getOperand2()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -540,15 +540,15 @@ bool EmitVisitor::visit(SpirvSpecConstantUnaryOp *inst) {
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
   curInst.push_back(static_cast<uint32_t>(inst->getSpecConstantopcode()));
-  curInst.push_back(inst->getOperand());
+  curInst.push_back(inst->getOperand()->getResultId());
   finalizeInstruction();
   return true;
 }
 
 bool EmitVisitor::visit(SpirvStore *inst) {
   initInstruction(inst->getopcode());
-  curInst.push_back(inst->getPointer());
-  curInst.push_back(inst->getObject());
+  curInst.push_back(inst->getPointer()->getResultId());
+  curInst.push_back(inst->getObject()->getResultId());
   if (inst->hasMemoryAccessSemantics())
     curInst.push_back(static_cast<uint32_t>(inst->getMemoryAccess()));
   finalizeInstruction();
@@ -559,7 +559,7 @@ bool EmitVisitor::visit(SpirvUnaryOp *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getOperand());
+  curInst.push_back(inst->getOperand()->getResultId());
   finalizeInstruction();
   return true;
 }
@@ -568,8 +568,8 @@ bool EmitVisitor::visit(SpirvVectorShuffle *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(inst->getResultId());
-  curInst.push_back(inst->getVec1());
-  curInst.push_back(inst->getVec2());
+  curInst.push_back(inst->getVec1()->getResultId());
+  curInst.push_back(inst->getVec2()->getResultId());
   for (const auto component : inst->getComponents())
     curInst.push_back(component);
   finalizeInstruction();
