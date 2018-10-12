@@ -51,8 +51,6 @@ public:
 
     IK_FunctionParameter, // OpFunctionParameter
 
-    IK_Label, // OpLabel
-
     // The following section is for merge instructions.
     // Used by LLVM-style RTTI; order matters.
     IK_LoopMerge,      // OpLoopMerge
