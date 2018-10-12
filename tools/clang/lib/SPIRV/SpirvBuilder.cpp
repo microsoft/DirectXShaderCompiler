@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/SpirvBuilder.h"
+#include "llvm/Support/MathExtras.h"
 
 namespace clang {
 namespace spirv {

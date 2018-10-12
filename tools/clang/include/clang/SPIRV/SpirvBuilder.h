@@ -54,7 +54,7 @@ private:
   /// the entry block.
   using OrderedBasicBlockMap = llvm::MapVector<uint32_t, SpirvBasicBlock *>;
 
-  SpirvContext &context;
+  SpirvContext &context; ///< From which we allocate various SPIR-V object
 
   SpirvModule *module;              ///< The current module being built
   SpirvFunction *function;          ///< The current function being built
