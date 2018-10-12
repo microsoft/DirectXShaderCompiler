@@ -1373,8 +1373,6 @@ MDTuple *DxilModule::EmitDxilResources() {
 
 void DxilModule::ReEmitDxilResources() {
   ClearDxilMetadata(*m_pModule);
-  if (!m_pSM->IsCS() && !m_pSM->IsLib())
-    m_pViewIdState->Compute();
   EmitDxilMetadata();
 }
 
