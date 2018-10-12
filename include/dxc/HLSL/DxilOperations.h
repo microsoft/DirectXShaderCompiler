@@ -66,6 +66,8 @@ public:
 
   // To check if operation uses strict precision types
   bool UseMinPrecision();
+  // Set if operation uses strict precision types or not.
+  void SetMinPrecision(bool bMinPrecision);
 
   // Get the size of the type for a given layout
   uint64_t GetAllocSizeForType(llvm::Type *Ty);

@@ -29,6 +29,8 @@ public:
   static unsigned GetNumDimensionsForCalcLOD(Kind ResourceKind);
   /// Total number of offsets (in [-8,7]) necessary to access resource.
   static unsigned GetNumOffsets(Kind ResourceKind);
+  /// Whether the resource kind is texture.
+  static bool IsAnyTexture(Kind ResourceKind);
 
   DxilResource();
 

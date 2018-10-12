@@ -56,7 +56,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
-#include "dxc/HLSL/HLModule.h"  // HLSL Change - not sroa resource type.
+#include "dxc/HLSL/DxilUtil.h"  // HLSL Change - not sroa resource type.
 
 #if __cplusplus >= 201103L && !defined(NDEBUG)
 // We only use this for a debug check in C++11
@@ -4310,7 +4310,7 @@ bool SROA::runOnAlloca(AllocaInst &AI) {
 
   // Skip alloca forms that this analysis can't handle.
   if (AI.isArrayAllocation() || !AI.getAllocatedType()->isSized() ||
-      hlsl::HLModule::IsHLSLObjectType(AI.getAllocatedType()) || // HLSL Change - not sroa resource type.
+      hlsl::dxilutil::IsHLSLObjectType(AI.getAllocatedType()) || // HLSL Change - not sroa resource type.
       DL.getTypeAllocSize(AI.getAllocatedType()) == 0)
     return false;
 

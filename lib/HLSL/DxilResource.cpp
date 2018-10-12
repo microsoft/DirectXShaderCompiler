@@ -104,7 +104,12 @@ void DxilResource::SetROV(bool bROV) {
 }
 
 bool DxilResource::IsAnyTexture() const {
-  return Kind::Texture1D <= GetKind() && GetKind() <= Kind::TextureCubeArray;
+  return IsAnyTexture(GetKind());
+}
+
+bool DxilResource::IsAnyTexture(Kind ResourceKind) {
+  return Kind::Texture1D <= ResourceKind &&
+         ResourceKind <= Kind::TextureCubeArray;
 }
 
 bool DxilResource::IsStructuredBuffer() const {
