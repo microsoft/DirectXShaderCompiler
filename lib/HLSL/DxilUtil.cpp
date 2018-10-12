@@ -14,7 +14,6 @@
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilUtil.h"
 #include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/HLModule.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
@@ -371,6 +370,73 @@ llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
     F->getEntryBlock().getFirstInsertionPt());
 }
 
+bool IsHLSLObjectType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    StringRef name = ST->getName();
+    // TODO: don't check names.
+    if (name.startswith("dx.types.wave_t"))
+      return true;
+
+    if (name.endswith("_slice_type"))
+      return false;
+
+    name = name.ltrim("class.");
+    name = name.ltrim("struct.");
+
+    if (name == "SamplerState")
+      return true;
+    if (name == "SamplerComparisonState")
+      return true;
+
+    if (name.startswith("TriangleStream<"))
+      return true;
+    if (name.startswith("PointStream<"))
+      return true;
+    if (name.startswith("LineStream<"))
+      return true;
+
+    if (name.startswith("AppendStructuredBuffer<"))
+      return true;
+    if (name.startswith("ConsumeStructuredBuffer<"))
+      return true;
+
+    if (name.startswith("ConstantBuffer<"))
+      return true;
+
+    if (name == "RaytracingAccelerationStructure")
+      return true;
+
+    name = name.ltrim("RasterizerOrdered");
+    name = name.ltrim("RW");
+    if (name == "ByteAddressBuffer")
+      return true;
+
+    if (name.startswith("Buffer<"))
+      return true;
+    if (name.startswith("StructuredBuffer<"))
+      return true;
+    if (name.startswith("Texture1D<"))
+      return true;
+    if (name.startswith("Texture1DArray<"))
+      return true;
+    if (name.startswith("Texture2D<"))
+      return true;
+    if (name.startswith("Texture2DArray<"))
+      return true;
+    if (name.startswith("Texture3D<"))
+      return true;
+    if (name.startswith("TextureCube<"))
+      return true;
+    if (name.startswith("TextureCubeArray<"))
+      return true;
+    if (name.startswith("Texture2DMS<"))
+      return true;
+    if (name.startswith("Texture2DMSArray<"))
+      return true;
+  }
+  return false;
+}
+
 bool ContainsHLSLObjectType(llvm::Type *Ty) {
   // Unwrap pointer/array
   while (llvm::isa<llvm::PointerType>(Ty))
@@ -383,7 +449,7 @@ bool ContainsHLSLObjectType(llvm::Type *Ty) {
       return true;
     // TODO: How is this suppoed to check for Input/OutputPatch types if
     // these have already been eliminated in function arguments during CG?
-    if (HLModule::IsHLSLObjectType(Ty))
+    if (IsHLSLObjectType(Ty))
       return true;
     // Otherwise, recurse elements of UDT
     for (auto ETy : ST->elements()) {

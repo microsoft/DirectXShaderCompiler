@@ -181,7 +181,6 @@ public:
   // Type related methods.
   static bool IsStreamOutputPtrType(llvm::Type *Ty);
   static bool IsStreamOutputType(llvm::Type *Ty);
-  static bool IsHLSLObjectType(llvm::Type *Ty);
   static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows, unsigned &cols,
                                       DxilParameterAnnotation &paramAnnotation);
 

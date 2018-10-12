@@ -12,7 +12,6 @@
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/HLModule.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/LLVMContext.h"
@@ -1086,20 +1085,18 @@ bool OP::GetOpCodeClass(const Function *F, OP::OpCodeClass &opClass) {
 }
 
 bool OP::UseMinPrecision() {
-  if (m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined) {
-    if (m_pModule->HasDxilModule()) {
-      m_LowPrecisionMode = m_pModule->GetDxilModule().GetUseMinPrecision() ?
-        DXIL::LowPrecisionMode::UseMinPrecision : DXIL::LowPrecisionMode::UseNativeLowPrecision;
-    }
-    else if (m_pModule->HasHLModule()) {
-      m_LowPrecisionMode = m_pModule->GetHLModule().GetHLOptions().bUseMinPrecision ?
-        DXIL::LowPrecisionMode::UseMinPrecision : DXIL::LowPrecisionMode::UseNativeLowPrecision;
-    }
-    else {
-      DXASSERT(false, "otherwise module doesn't contain either HLModule or Dxil Module.");
-    }
-  }
   return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
+}
+
+void OP::SetMinPrecision(bool bMinPrecision) {
+  DXIL::LowPrecisionMode mode =
+      bMinPrecision ? DXIL::LowPrecisionMode::UseMinPrecision
+                    : DXIL::LowPrecisionMode::UseNativeLowPrecision;
+  DXASSERT((mode == m_LowPrecisionMode ||
+            m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined),
+           "LowPrecisionMode should only be set once.");
+
+  m_LowPrecisionMode = mode;
 }
 
 uint64_t OP::GetAllocSizeForType(llvm::Type *Ty) {

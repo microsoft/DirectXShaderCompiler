@@ -9,7 +9,6 @@
 
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/HLModule.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinFunctions.h"
 
@@ -455,20 +454,18 @@ void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, DXIL::SigPointKin
 }
 
 bool DxilTypeSystem::UseMinPrecision() {
-  if (m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined) {
-    if (m_pModule->HasDxilModule()) {
-      m_LowPrecisionMode = m_pModule->GetDxilModule().GetUseMinPrecision() ?
-        DXIL::LowPrecisionMode::UseMinPrecision : DXIL::LowPrecisionMode::UseNativeLowPrecision;
-    }
-    else if (m_pModule->HasHLModule()) {
-      m_LowPrecisionMode = m_pModule->GetHLModule().GetHLOptions().bUseMinPrecision ?
-        DXIL::LowPrecisionMode::UseMinPrecision : DXIL::LowPrecisionMode::UseNativeLowPrecision;
-    }
-    else {
-      DXASSERT(false, "otherwise module doesn't contain either HLModule or Dxil Module.");
-    }
-  }
   return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
+}
+
+void DxilTypeSystem::SetMinPrecision(bool bMinPrecision) {
+  DXIL::LowPrecisionMode mode =
+      bMinPrecision ? DXIL::LowPrecisionMode::UseMinPrecision
+                    : DXIL::LowPrecisionMode::UseNativeLowPrecision;
+  DXASSERT((mode == m_LowPrecisionMode ||
+            m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined),
+           "LowPrecisionMode should only be set once.");
+
+  m_LowPrecisionMode = mode;
 }
 
 DxilStructTypeIterator::DxilStructTypeIterator(llvm::StructType *sTy, DxilStructAnnotation *sAnnotation,

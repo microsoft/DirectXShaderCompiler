@@ -1716,7 +1716,7 @@ void SROA_HLSL::isSafeForScalarRepl(Instruction *I, uint64_t Offset,
                                     AllocaInfo &Info) {
   if (I->getType()->isPointerTy()) {
     // Don't check object pointers.
-    if (HLModule::IsHLSLObjectType(I->getType()->getPointerElementType()))
+    if (dxilutil::IsHLSLObjectType(I->getType()->getPointerElementType()))
       return;
   }
   const DataLayout &DL = I->getModule()->getDataLayout();
@@ -2232,7 +2232,7 @@ static bool IsMemCpyTy(Type *Ty, DxilTypeSystem &typeSys) {
     return false;
   if (HLMatrixLower::IsMatrixType(Ty))
     return false;
-  if (HLModule::IsHLSLObjectType(Ty))
+  if (dxilutil::IsHLSLObjectType(Ty))
     return false;
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
     DxilStructAnnotation *STA = typeSys.GetStructAnnotation(ST);
@@ -2299,7 +2299,7 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
           {DestGEP, Load}, *M);
     }
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (HLModule::IsHLSLObjectType(ST)) {
+    if (dxilutil::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
       SimpleCopy(Dest, Src, idxList, Builder);
       return;
@@ -2360,7 +2360,7 @@ static void SplitPtr(Type *Ty, Value *Ptr, SmallVector<Value *, 16> &idxList,
     Value *GEP = Builder.CreateInBoundsGEP(Ptr, idxList);
     EltPtrList.emplace_back(GEP);
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (HLModule::IsHLSLObjectType(ST)) {
+    if (dxilutil::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
       Value *GEP = Builder.CreateInBoundsGEP(Ptr, idxList);
       EltPtrList.emplace_back(GEP);
@@ -2666,7 +2666,7 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
     // End at array of basic type.
     Type *Ty = GEP->getType()->getPointerElementType();
     if (Ty->isVectorTy() ||
-        (Ty->isStructTy() && !HLModule::IsHLSLObjectType(Ty)) ||
+        (Ty->isStructTy() && !dxilutil::IsHLSLObjectType(Ty)) ||
         Ty->isArrayTy()) {
       SmallVector<Value *, 8> NewArgs;
       NewArgs.append(GEP->idx_begin(), GEP->idx_end());
@@ -3366,7 +3366,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
 
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
     // Skip HLSL object types.
-    if (HLModule::IsHLSLObjectType(ST)) {
+    if (dxilutil::IsHLSLObjectType(ST)) {
       return false;
     }
 
@@ -3407,7 +3407,7 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
     if (ElTy->isStructTy() &&
         // Skip Matrix type.
         !HLMatrixLower::IsMatrixType(ElTy)) {
-      if (!HLModule::IsHLSLObjectType(ElTy)) {
+      if (!dxilutil::IsHLSLObjectType(ElTy)) {
         // for array of struct
         // split into arrays of struct elements
         StructType *ElST = cast<StructType>(ElTy);
@@ -3550,7 +3550,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
 
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
     // Skip HLSL object types.
-    if (HLModule::IsHLSLObjectType(ST))
+    if (dxilutil::IsHLSLObjectType(ST))
       return false;
     unsigned numTypes = ST->getNumContainedTypes();
     Elts.reserve(numTypes);
@@ -5107,7 +5107,7 @@ Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
 
   // Lower resource type to handle ty.
-  if (HLModule::IsHLSLObjectType(Ty) &&
+  if (dxilutil::IsHLSLObjectType(Ty) &&
     !HLModule::IsStreamOutputPtrType(V->getType())) {
     Value *Res = V;
     if (!bOut) {
@@ -5128,7 +5128,7 @@ Value *SROA_Parameter_HLSL::castResourceArgIfRequired(
       arraySize *= AT->getArrayNumElements();
       AT = AT->getArrayElementType();
     }
-    if (HLModule::IsHLSLObjectType(AT)) {
+    if (dxilutil::IsHLSLObjectType(AT)) {
       Value *Res = V;
       Type *Ty = ArrayType::get(HandleTy, arraySize);
       V = AllocaBuilder.CreateAlloca(Ty);
@@ -6962,14 +6962,14 @@ void ResourceToHandle::initialize(Module &M) {
 bool ResourceToHandle::needToLower(Value *V) {
   Type *Ty = V->getType()->getPointerElementType();
   Ty = dxilutil::GetArrayEltTy(Ty);
-  return (HLModule::IsHLSLObjectType(Ty) &&
+  return (dxilutil::IsHLSLObjectType(Ty) &&
           !HLModule::IsStreamOutputType(Ty)) &&
          // Skip lib profile.
          !m_bIsLib;
 }
 
 Type *ResourceToHandle::lowerType(Type *Ty) {
-  if ((HLModule::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty))) {
+  if ((dxilutil::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty))) {
     return m_HandleTy;
   }
 
@@ -7055,7 +7055,7 @@ void ResourceToHandle::ReplaceResourceGEPWithHandleGEP(
   if (Ty->isArrayTy()) {
     ReplaceResourceArrayWithHandleArray(GEP, newGEP);
   } else {
-    DXASSERT(HLModule::IsHLSLObjectType(Ty), "must be resource type here");
+    DXASSERT(dxilutil::IsHLSLObjectType(Ty), "must be resource type here");
     ReplaceResourceWithHandle(GEP, newGEP);
   }
 }
