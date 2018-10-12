@@ -1679,4 +1679,17 @@ bool VerifyRootSignatureWithShaderPSV(const DxilVersionedRootSignatureDesc *pDes
   return true;
 }
 
+bool VerifyRootSignature(_In_ const DxilVersionedRootSignatureDesc *pDesc,
+                         _In_ llvm::raw_ostream &DiagStream) {
+  try {
+    RootSignatureVerifier RSV;
+    DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+    RSV.VerifyRootSignature(pDesc, DiagPrinter);
+  } catch (...) {
+    return false;
+  }
+
+  return true;
+}
+
 } // namespace hlsl

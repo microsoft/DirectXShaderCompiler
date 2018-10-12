@@ -191,14 +191,9 @@ void PrintUnescapedString(StringRef Name, raw_ostream &Out) {
 std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
   llvm::LLVMContext &Ctx,
   std::string &DiagStr) {
-  raw_string_ostream DiagStream(DiagStr);
-  llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
-  LLVMContext::DiagnosticHandlerTy OrigHandler = Ctx.getDiagnosticHandler();
-  void *OrigContext = Ctx.getDiagnosticContext();
-  Ctx.setDiagnosticHandler(PrintDiagnosticHandler, &DiagPrinter, true);
+  // Note: the DiagStr is not used.
   ErrorOr<std::unique_ptr<llvm::Module>> pModule(
     llvm::parseBitcodeFile(MB->getMemBufferRef(), Ctx));
-  Ctx.setDiagnosticHandler(OrigHandler, OrigContext);
   if (std::error_code ec = pModule.getError()) {
     return nullptr;
   }
@@ -351,23 +346,23 @@ llvm::Instruction *SkipAllocas(llvm::Instruction *I) {
 llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I) {
   Function *F = I->getParent()->getParent();
   if (F)
-    return F->getEntryBlock().getFirstInsertionPt();
+    return &*F->getEntryBlock().getFirstInsertionPt();
   else // BB with no parent function
-    return I->getParent()->getFirstInsertionPt();
+    return &*I->getParent()->getFirstInsertionPt();
 }
 llvm::Instruction *FindAllocaInsertionPt(llvm::Function* F) {
-  return F->getEntryBlock().getFirstInsertionPt();
+  return &*F->getEntryBlock().getFirstInsertionPt();
 }
 llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Instruction* I) {
   return SkipAllocas(FindAllocaInsertionPt(I));
 }
 llvm::Instruction *FirstNonAllocaInsertionPt(llvm::BasicBlock* BB) {
   return SkipAllocas(
-    BB->getFirstInsertionPt());
+    &*BB->getFirstInsertionPt());
 }
 llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
   return SkipAllocas(
-    F->getEntryBlock().getFirstInsertionPt());
+    &*F->getEntryBlock().getFirstInsertionPt());
 }
 
 bool IsHLSLObjectType(llvm::Type *Ty) {
