@@ -170,6 +170,7 @@ public:
   /// Serialize DXIL in-memory form to metadata form.
   void EmitDxilMetadata();
   /// Update resource metadata.
+  /// Note: this method not update Metadata for ViewIdState.
   void ReEmitDxilResources();
   /// Deserialize DXIL metadata form into in-memory form.
   void LoadDxilMetadata();
