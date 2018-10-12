@@ -21,6 +21,9 @@ namespace clang {
 namespace spirv {
 
 class Visitor;
+class SpirvBasicBlock;
+class SpirvFunction;
+class SpirvVariable;
 
 /// \brief The base class for representing SPIR-V instructions.
 class SpirvInstruction {
@@ -47,6 +50,8 @@ public:
     // Function structure kinds
 
     IK_FunctionParameter, // OpFunctionParameter
+
+    IK_Label, // OpLabel
 
     // The following section is for merge instructions.
     // Used by LLVM-style RTTI; order matters.
@@ -213,8 +218,8 @@ private:
 class SpirvEntryPoint : public SpirvInstruction {
 public:
   SpirvEntryPoint(SourceLocation loc, spv::ExecutionModel executionModel,
-                  uint32_t entryPointId, llvm::StringRef nameStr,
-                  llvm::ArrayRef<uint32_t> iface);
+                  SpirvFunction *entryPoint, llvm::StringRef nameStr,
+                  llvm::ArrayRef<SpirvVariable *> iface);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -224,21 +229,21 @@ public:
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvEntryPoint)
 
   spv::ExecutionModel getExecModel() const { return execModel; }
-  uint32_t getEntryPointId() const { return entryPoint; }
+  SpirvFunction *getEntryPoint() const { return entryPoint; }
   llvm::StringRef getEntryPointName() const { return name; }
-  llvm::ArrayRef<uint32_t> getInterface() const { return interfaceVec; }
+  llvm::ArrayRef<SpirvVariable *> getInterface() const { return interfaceVec; }
 
 private:
   spv::ExecutionModel execModel;
-  uint32_t entryPoint;
+  SpirvFunction *entryPoint;
   std::string name;
-  llvm::SmallVector<uint32_t, 8> interfaceVec;
+  llvm::SmallVector<SpirvVariable *, 8> interfaceVec;
 };
 
 /// \brief OpExecutionMode and OpExecutionModeId instructions
 class SpirvExecutionMode : public SpirvInstruction {
 public:
-  SpirvExecutionMode(SourceLocation loc, uint32_t entryPointId,
+  SpirvExecutionMode(SourceLocation loc, SpirvEntryPoint *entryPoint,
                      spv::ExecutionMode, llvm::ArrayRef<uint32_t> params,
                      bool usesIdParams);
 
@@ -249,12 +254,12 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionMode)
 
-  uint32_t getEntryPointId() const { return entryPointId; }
+  SpirvEntryPoint *getEntryPoint() const { return entryPoint; }
   spv::ExecutionMode getExecutionMode() const { return execMode; }
   llvm::ArrayRef<uint32_t> getParams() const { return params; }
 
 private:
-  uint32_t entryPointId;
+  SpirvEntryPoint *entryPoint;
   spv::ExecutionMode execMode;
   llvm::SmallVector<uint32_t, 4> params;
 };
@@ -281,7 +286,7 @@ private:
 class SpirvSource : public SpirvInstruction {
 public:
   SpirvSource(SourceLocation loc, spv::SourceLanguage language, uint32_t ver,
-              uint32_t fileId, llvm::StringRef src);
+              SpirvString *file, llvm::StringRef src);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -292,22 +297,22 @@ public:
 
   spv::SourceLanguage getSourceLanguage() const { return lang; }
   uint32_t getVersion() const { return version; }
-  bool hasFileId() const { return file != 0; }
-  uint32_t getFileId() const { return file; }
+  bool hasFile() const { return file != nullptr; }
+  SpirvString *getFile() const { return file; }
   llvm::StringRef getSource() const { return source; }
 
 private:
   spv::SourceLanguage lang;
   uint32_t version;
-  uint32_t file;
+  SpirvString *file;
   std::string source;
 };
 
 /// \brief OpMemberName instruction
 class SpirvName : public SpirvInstruction {
 public:
-  SpirvName(SourceLocation loc, uint32_t targetId, llvm::StringRef nameStr,
-            llvm::Optional<uint32_t> memberIndex);
+  SpirvName(SourceLocation loc, SpirvInstruction *targetInst,
+            llvm::StringRef nameStr, llvm::Optional<uint32_t> memberIndex);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -316,13 +321,13 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvName)
 
-  uint32_t getTarget() const { return target; }
+  SpirvInstruction *getTarget() const { return target; }
   bool isForMember() const { return member.hasValue(); }
   uint32_t getMember() const { return member.getValue(); }
   llvm::StringRef getName() const { return name; }
 
 private:
-  uint32_t target;
+  SpirvInstruction *target;
   llvm::Optional<uint32_t> member;
   std::string name;
 };
@@ -348,8 +353,8 @@ private:
 /// \brief OpDecorate and OpMemberDecorate instructions
 class SpirvDecoration : public SpirvInstruction {
 public:
-  SpirvDecoration(SourceLocation loc, uint32_t target, spv::Decoration decor,
-                  llvm::ArrayRef<uint32_t> params,
+  SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
+                  spv::Decoration decor, llvm::ArrayRef<uint32_t> params,
                   llvm::Optional<uint32_t> index);
 
   // For LLVM-style RTTI
@@ -359,9 +364,8 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvDecoration)
 
-  // Returns the <result-id> of the target of the decoration. It may be the id
-  // of an object or the id of a structure type whose member is being decorated.
-  uint32_t getTarget() const { return target; }
+  // Returns the instruction that is the target of the decoration.
+  SpirvInstruction *getTarget() const { return target; }
 
   spv::Decoration getDecoration() const { return decoration; }
   llvm::ArrayRef<uint32_t> getParams() const { return params; }
@@ -369,7 +373,7 @@ public:
   uint32_t getMemberIndex() const { return index.getValue(); }
 
 private:
-  uint32_t target;
+  SpirvInstruction *target;
   spv::Decoration decoration;
   llvm::Optional<uint32_t> index;
   llvm::SmallVector<uint32_t, 4> params;
@@ -379,7 +383,7 @@ private:
 class SpirvVariable : public SpirvInstruction {
 public:
   SpirvVariable(QualType resultType, uint32_t resultId, SourceLocation loc,
-                spv::StorageClass sc, uint32_t initializerId = 0);
+                spv::StorageClass sc, SpirvInstruction *initializerId = 0);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -388,13 +392,13 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvVariable)
 
-  bool hasInitializer() const { return initializer != 0; }
-  uint32_t getInitializer() const { return initializer; }
+  bool hasInitializer() const { return initializer != nullptr; }
+  SpirvInstruction *getInitializer() const { return initializer; }
   spv::StorageClass getStorageClass() const { return storageClass; }
 
 private:
   spv::StorageClass storageClass;
-  uint32_t initializer;
+  SpirvInstruction *initializer;
 };
 
 class SpirvFunctionParameter : public SpirvInstruction {
@@ -413,11 +417,11 @@ public:
 /// \brief Merge instructions include OpLoopMerge and OpSelectionMerge
 class SpirvMerge : public SpirvInstruction {
 public:
-  uint32_t getMergeBlock() const { return mergeBlock; }
+  SpirvBasicBlock *getMergeBlock() const { return mergeBlock; }
 
 protected:
   SpirvMerge(Kind kind, spv::Op opcode, SourceLocation loc,
-             uint32_t mergeBlockId);
+             SpirvBasicBlock *mergeBlock);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -428,13 +432,13 @@ protected:
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvMerge)
 
 private:
-  uint32_t mergeBlock;
+  SpirvBasicBlock *mergeBlock;
 };
 
 class SpirvLoopMerge : public SpirvMerge {
 public:
-  SpirvLoopMerge(SourceLocation loc, uint32_t mergeBlock, uint32_t contTarget,
-                 spv::LoopControlMask mask);
+  SpirvLoopMerge(SourceLocation loc, SpirvBasicBlock *mergeBlock,
+                 SpirvBasicBlock *contTarget, spv::LoopControlMask mask);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -443,17 +447,17 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvLoopMerge)
 
-  uint32_t getContinueTarget() const { return continueTarget; }
+  SpirvBasicBlock *getContinueTarget() const { return continueTarget; }
   spv::LoopControlMask getLoopControlMask() const { return loopControlMask; }
 
 private:
-  uint32_t continueTarget;
+  SpirvBasicBlock *continueTarget;
   spv::LoopControlMask loopControlMask;
 };
 
 class SpirvSelectionMerge : public SpirvMerge {
 public:
-  SpirvSelectionMerge(SourceLocation loc, uint32_t mergeBlock,
+  SpirvSelectionMerge(SourceLocation loc, SpirvBasicBlock *mergeBlock,
                       spv::SelectionControlMask mask);
 
   // For LLVM-style RTTI
@@ -504,7 +508,7 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBranching)
 
-  virtual llvm::ArrayRef<uint32_t> getTargetBranches() const = 0;
+  virtual llvm::ArrayRef<SpirvBasicBlock *> getTargetBranches() const = 0;
 
 protected:
   SpirvBranching(Kind kind, spv::Op opcode, SourceLocation loc);
@@ -513,7 +517,7 @@ protected:
 /// \brief OpBranch instruction
 class SpirvBranch : public SpirvBranching {
 public:
-  SpirvBranch(SourceLocation loc, uint32_t target);
+  SpirvBranch(SourceLocation loc, SpirvBasicBlock *target);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -522,21 +526,24 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBranch)
 
-  uint32_t getTargetLabel() const { return targetLabel; }
+  SpirvBasicBlock *getTargetLabel() const { return targetLabel; }
 
-  // Returns all possible branches that could be taken by the branching
+  // Returns all possible basic blocks that could be taken by the branching
   // instruction.
-  llvm::ArrayRef<uint32_t> getTargetBranches() const { return {targetLabel}; }
+  llvm::ArrayRef<SpirvBasicBlock *> getTargetBranches() const {
+    return {targetLabel};
+  }
 
 private:
-  uint32_t targetLabel;
+  SpirvBasicBlock *targetLabel;
 };
 
 /// \brief OpBranchConditional instruction
 class SpirvBranchConditional : public SpirvBranching {
 public:
-  SpirvBranchConditional(SourceLocation loc, uint32_t cond,
-                         uint32_t trueLabelId, uint32_t falseLabelId);
+  SpirvBranchConditional(SourceLocation loc, SpirvInstruction *cond,
+                         SpirvBasicBlock *trueLabel,
+                         SpirvBasicBlock *falseLabel);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -545,18 +552,18 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBranchConditional)
 
-  llvm::ArrayRef<uint32_t> getTargetBranches() const {
+  llvm::ArrayRef<SpirvBasicBlock *> getTargetBranches() const {
     return {trueLabel, falseLabel};
   }
 
-  uint32_t getCondition() const { return condition; }
-  uint32_t getTrueLabel() const { return trueLabel; }
-  uint32_t getFalseLabel() const { return falseLabel; }
+  SpirvInstruction *getCondition() const { return condition; }
+  SpirvBasicBlock *getTrueLabel() const { return trueLabel; }
+  SpirvBasicBlock *getFalseLabel() const { return falseLabel; }
 
 private:
-  uint32_t condition;
-  uint32_t trueLabel;
-  uint32_t falseLabel;
+  SpirvInstruction *condition;
+  SpirvBasicBlock *trueLabel;
+  SpirvBasicBlock *falseLabel;
 };
 
 /// \brief OpKill instruction
@@ -575,7 +582,7 @@ public:
 /// \brief OpReturn and OpReturnValue instructions
 class SpirvReturn : public SpirvTerminator {
 public:
-  SpirvReturn(SourceLocation loc, uint32_t retVal = 0);
+  SpirvReturn(SourceLocation loc, SpirvInstruction *retVal = 0);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -585,17 +592,19 @@ public:
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvReturn)
 
   bool hasReturnValue() const { return returnValue != 0; }
-  uint32_t getReturnValue() const { return returnValue; }
+  SpirvInstruction *getReturnValue() const { return returnValue; }
 
 private:
-  uint32_t returnValue;
+  SpirvInstruction *returnValue;
 };
 
 /// \brief Switch instruction
 class SpirvSwitch : public SpirvBranching {
 public:
-  SpirvSwitch(SourceLocation loc, uint32_t selectorId, uint32_t defaultLabelId,
-              llvm::ArrayRef<std::pair<uint32_t, uint32_t>> &targetsVec);
+  SpirvSwitch(
+      SourceLocation loc, SpirvInstruction *selector,
+      SpirvBasicBlock *defaultLabelId,
+      llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> &targetsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -604,20 +613,20 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSwitch)
 
-  uint32_t getSelector() const { return selector; }
-  uint32_t getDefaultLabel() const { return defaultLabel; }
-  llvm::ArrayRef<std::pair<uint32_t, uint32_t>> getTargets() const {
+  SpirvInstruction *getSelector() const { return selector; }
+  SpirvBasicBlock *getDefaultLabel() const { return defaultLabel; }
+  llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> getTargets() const {
     return targets;
   }
   // Returns the branch label that will be taken for the given literal.
-  uint32_t getTargetLabelForLiteral(uint32_t) const;
+  SpirvBasicBlock *getTargetLabelForLiteral(uint32_t) const;
   // Returns all possible branches that could be taken by the switch statement.
-  llvm::ArrayRef<uint32_t> getTargetBranches() const;
+  llvm::ArrayRef<SpirvBasicBlock *> getTargetBranches() const;
 
 private:
-  uint32_t selector;
-  uint32_t defaultLabel;
-  llvm::SmallVector<std::pair<uint32_t, uint32_t>, 4> targets;
+  SpirvInstruction *selector;
+  SpirvBasicBlock *defaultLabel;
+  llvm::SmallVector<std::pair<uint32_t, SpirvBasicBlock *>, 4> targets;
 };
 
 /// \brief OpUnreachable instruction
@@ -640,7 +649,8 @@ public:
 class SpirvAccessChain : public SpirvInstruction {
 public:
   SpirvAccessChain(QualType resultType, uint32_t resultId, SourceLocation loc,
-                   uint32_t baseId, llvm::ArrayRef<uint32_t> indexVec);
+                   SpirvInstruction *base,
+                   llvm::ArrayRef<SpirvInstruction *> indexVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -649,12 +659,12 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvAccessChain)
 
-  uint32_t getBase() const { return base; }
-  llvm::ArrayRef<uint32_t> getIndexes() const { return indices; }
+  SpirvInstruction *getBase() const { return base; }
+  llvm::ArrayRef<SpirvInstruction *> getIndexes() const { return indices; }
 
 private:
-  uint32_t base;
-  llvm::SmallVector<uint32_t, 4> indices;
+  SpirvInstruction *base;
+  llvm::SmallVector<SpirvInstruction *, 4> indices;
 };
 
 /// \brief Atomic instructions.
@@ -681,13 +691,13 @@ private:
 class SpirvAtomic : public SpirvInstruction {
 public:
   SpirvAtomic(spv::Op opcode, QualType resultType, uint32_t resultId,
-              SourceLocation loc, uint32_t pointerId, spv::Scope,
-              spv::MemorySemanticsMask, uint32_t valueId = 0);
+              SourceLocation loc, SpirvInstruction *pointer, spv::Scope,
+              spv::MemorySemanticsMask, SpirvInstruction *value = nullptr);
   SpirvAtomic(spv::Op opcode, QualType resultType, uint32_t resultId,
-              SourceLocation loc, uint32_t pointerId, spv::Scope,
+              SourceLocation loc, SpirvInstruction *pointer, spv::Scope,
               spv::MemorySemanticsMask semanticsEqual,
-              spv::MemorySemanticsMask semanticsUnequal, uint32_t value,
-              uint32_t comparatorId);
+              spv::MemorySemanticsMask semanticsUnequal,
+              SpirvInstruction *value, SpirvInstruction *comparator);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -696,13 +706,13 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvAtomic)
 
-  uint32_t getPointer() const { return pointer; }
+  SpirvInstruction *getPointer() const { return pointer; }
   spv::Scope getScope() const { return scope; }
   spv::MemorySemanticsMask getMemorySemantics() const { return memorySemantic; }
-  bool hasValue() const { return value != 0; }
-  uint32_t getValue() const { return value; }
-  bool hasComparator() const { return comparator != 0; }
-  uint32_t getComparator() const { return comparator; }
+  bool hasValue() const { return value != nullptr; }
+  SpirvInstruction *getValue() const { return value; }
+  bool hasComparator() const { return comparator != nullptr; }
+  SpirvInstruction *getComparator() const { return comparator; }
   spv::MemorySemanticsMask getMemorySemanticsEqual() const {
     return memorySemantic;
   }
@@ -711,12 +721,12 @@ public:
   }
 
 private:
-  uint32_t pointer;
+  SpirvInstruction *pointer;
   spv::Scope scope;
   spv::MemorySemanticsMask memorySemantic;
   spv::MemorySemanticsMask memorySemanticUnequal;
-  uint32_t value;
-  uint32_t comparator;
+  SpirvInstruction *value;
+  SpirvInstruction *comparator;
 };
 
 /// \brief OpMemoryBarrier and OpControlBarrier instructions
@@ -811,7 +821,8 @@ private:
 class SpirvBinaryOp : public SpirvInstruction {
 public:
   SpirvBinaryOp(spv::Op opcode, QualType resultType, uint32_t resultId,
-                SourceLocation loc, uint32_t op1, uint32_t op2);
+                SourceLocation loc, SpirvInstruction *op1,
+                SpirvInstruction *op2);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -820,15 +831,15 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBinaryOp)
 
-  uint32_t getOperand1() const { return operand1; }
-  uint32_t getOperand2() const { return operand2; }
+  SpirvInstruction *getOperand1() const { return operand1; }
+  SpirvInstruction *getOperand2() const { return operand2; }
   bool isSpecConstantOp() const {
     return getopcode() == spv::Op::OpSpecConstantOp;
   }
 
 private:
-  uint32_t operand1;
-  uint32_t operand2;
+  SpirvInstruction *operand1;
+  SpirvInstruction *operand2;
 };
 
 /// \brief BitField instructions
@@ -845,26 +856,27 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBitField)
 
-  virtual uint32_t getBase() const { return base; }
-  virtual uint32_t getOffset() const { return offset; }
-  virtual uint32_t getCount() const { return count; }
+  virtual SpirvInstruction *getBase() const { return base; }
+  virtual SpirvInstruction *getOffset() const { return offset; }
+  virtual SpirvInstruction *getCount() const { return count; }
 
 protected:
   SpirvBitField(Kind kind, spv::Op opcode, QualType resultType,
-                uint32_t resultId, SourceLocation loc, uint32_t baseId,
-                uint32_t offsetId, uint32_t countId);
+                uint32_t resultId, SourceLocation loc, SpirvInstruction *base,
+                SpirvInstruction *offset, SpirvInstruction *count);
 
 private:
-  uint32_t base;
-  uint32_t offset;
-  uint32_t count;
+  SpirvInstruction *base;
+  SpirvInstruction *offset;
+  SpirvInstruction *count;
 };
 
 class SpirvBitFieldExtract : public SpirvBitField {
 public:
   SpirvBitFieldExtract(QualType resultType, uint32_t resultId,
-                       SourceLocation loc, uint32_t baseId, uint32_t offsetId,
-                       uint32_t countId, bool isSigned);
+                       SourceLocation loc, SpirvInstruction *base,
+                       SpirvInstruction *offset, SpirvInstruction *count,
+                       bool isSigned);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -881,8 +893,9 @@ public:
 class SpirvBitFieldInsert : public SpirvBitField {
 public:
   SpirvBitFieldInsert(QualType resultType, uint32_t resultId,
-                      SourceLocation loc, uint32_t baseId, uint32_t insertId,
-                      uint32_t offsetId, uint32_t countId);
+                      SourceLocation loc, SpirvInstruction *base,
+                      SpirvInstruction *insert, SpirvInstruction *offset,
+                      SpirvInstruction *count);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -891,10 +904,10 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldInsert)
 
-  uint32_t getInsert() const { return insert; }
+  SpirvInstruction *getInsert() const { return insert; }
 
 private:
-  uint32_t insert;
+  SpirvInstruction *insert;
 };
 
 /// \brief Composition instructions
@@ -904,7 +917,7 @@ private:
 class SpirvComposite : public SpirvInstruction {
 public:
   SpirvComposite(QualType resultType, uint32_t resultId, SourceLocation loc,
-                 llvm::ArrayRef<uint32_t> constituentsVec,
+                 llvm::ArrayRef<SpirvInstruction *> constituentsVec,
                  bool isConstant = false, bool isSpecConstant = false);
 
   // For LLVM-style RTTI
@@ -920,17 +933,19 @@ public:
   bool isSpecConstantComposite() const {
     return getopcode() == spv::Op::OpSpecConstantComposite;
   }
-  llvm::ArrayRef<uint32_t> getConstituents() const { return consituents; }
+  llvm::ArrayRef<SpirvInstruction *> getConstituents() const {
+    return consituents;
+  }
 
 private:
-  llvm::SmallVector<uint32_t, 4> consituents;
+  llvm::SmallVector<SpirvInstruction *, 4> consituents;
 };
 
 /// \brief Extraction instruction (OpCompositeExtract)
 class SpirvCompositeExtract : public SpirvInstruction {
 public:
   SpirvCompositeExtract(QualType resultType, uint32_t resultId,
-                        SourceLocation loc, uint32_t compositeId,
+                        SourceLocation loc, SpirvInstruction *composite,
                         llvm::ArrayRef<uint32_t> indices);
 
   // For LLVM-style RTTI
@@ -940,11 +955,11 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
 
-  uint32_t getComposite() const { return composite; }
+  SpirvInstruction *getComposite() const { return composite; }
   llvm::ArrayRef<uint32_t> getIndexes() const { return indices; }
 
 private:
-  uint32_t composite;
+  SpirvInstruction *composite;
   llvm::SmallVector<uint32_t, 4> indices;
 };
 
@@ -952,8 +967,8 @@ private:
 class SpirvExtInst : public SpirvInstruction {
 public:
   SpirvExtInst(QualType resultType, uint32_t resultId, SourceLocation loc,
-               uint32_t setId, GLSLstd450 inst,
-               llvm::ArrayRef<uint32_t> operandsVec);
+               SpirvExtInstImport *set, GLSLstd450 inst,
+               llvm::ArrayRef<SpirvInstruction *> operandsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -962,21 +977,22 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInst)
 
-  uint32_t getInstructionSetId() const { return instructionSetId; }
+  SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
   GLSLstd450 getInstruction() const { return instruction; }
-  llvm::ArrayRef<uint32_t> getOperands() const { return operands; }
+  llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
 
 private:
-  uint32_t instructionSetId;
+  SpirvExtInstImport *instructionSet;
   GLSLstd450 instruction;
-  llvm::SmallVector<uint32_t, 4> operands;
+  llvm::SmallVector<SpirvInstruction *, 4> operands;
 };
 
 /// \brief OpFunctionCall instruction
 class SpirvFunctionCall : public SpirvInstruction {
 public:
   SpirvFunctionCall(QualType resultType, uint32_t resultId, SourceLocation loc,
-                    uint32_t fnId, llvm::ArrayRef<uint32_t> argsVec);
+                    SpirvFunction *function,
+                    llvm::ArrayRef<SpirvInstruction *> argsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -985,12 +1001,12 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionCall)
 
-  uint32_t getFunction() const { return function; }
-  llvm::ArrayRef<uint32_t> getArgs() const { return args; }
+  SpirvFunction *getFunction() const { return function; }
+  llvm::ArrayRef<SpirvInstruction *> getArgs() const { return args; }
 
 private:
-  uint32_t function;
-  llvm::SmallVector<uint32_t, 4> args;
+  SpirvFunction *function;
+  llvm::SmallVector<SpirvInstruction *, 4> args;
 };
 
 /// \brief Base for OpGroupNonUniform* instructions
@@ -1020,7 +1036,8 @@ class SpirvNonUniformBinaryOp : public SpirvGroupNonUniformOp {
 public:
   SpirvNonUniformBinaryOp(spv::Op opcode, QualType resultType,
                           uint32_t resultId, SourceLocation loc,
-                          spv::Scope scope, uint32_t arg1Id, uint32_t arg2Id);
+                          spv::Scope scope, SpirvInstruction *arg1,
+                          SpirvInstruction *arg2);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1029,12 +1046,12 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformBinaryOp)
 
-  uint32_t getArg1() const { return arg1; }
-  uint32_t getArg2() const { return arg2; }
+  SpirvInstruction *getArg1() const { return arg1; }
+  SpirvInstruction *getArg2() const { return arg2; }
 
 private:
-  uint32_t arg1;
-  uint32_t arg2;
+  SpirvInstruction *arg1;
+  SpirvInstruction *arg2;
 };
 
 /// \brief OpGroupNonUniformElect instruction. This is currently the only
@@ -1058,7 +1075,7 @@ public:
   SpirvNonUniformUnaryOp(spv::Op opcode, QualType resultType, uint32_t resultId,
                          SourceLocation loc, spv::Scope scope,
                          llvm::Optional<spv::GroupOperation> group,
-                         uint32_t argId);
+                         SpirvInstruction *arg);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1067,12 +1084,12 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformUnaryOp)
 
-  uint32_t getArg() const { return arg; }
+  SpirvInstruction *getArg() const { return arg; }
   bool hasGroupOp() const { return groupOp.hasValue(); }
   spv::GroupOperation getGroupOp() const { return groupOp.getValue(); }
 
 private:
-  uint32_t arg;
+  SpirvInstruction *arg;
   llvm::Optional<spv::GroupOperation> groupOp;
 };
 
@@ -1104,14 +1121,18 @@ private:
 ///
 class SpirvImageOp : public SpirvInstruction {
 public:
-  SpirvImageOp(spv::Op opcode, QualType resultType, uint32_t resultId,
-               SourceLocation loc, uint32_t imageId, uint32_t coordinateId,
-               spv::ImageOperandsMask mask, uint32_t drefId = 0,
-               uint32_t biasId = 0, uint32_t lodId = 0, uint32_t gradDxId = 0,
-               uint32_t gradDyId = 0, uint32_t constOffsetId = 0,
-               uint32_t offsetId = 0, uint32_t constOffsetsId = 0,
-               uint32_t sampleId = 0, uint32_t minLodId = 0,
-               uint32_t componentId = 0, uint32_t texelToWriteId = 0);
+  SpirvImageOp(
+      spv::Op opcode, QualType resultType, uint32_t resultId,
+      SourceLocation loc, SpirvInstruction *image, SpirvInstruction *coordinate,
+      spv::ImageOperandsMask mask, SpirvInstruction *dref = nullptr,
+      SpirvInstruction *bias = nullptr, SpirvInstruction *lod = nullptr,
+      SpirvInstruction *gradDx = nullptr, SpirvInstruction *gradDy = nullptr,
+      SpirvInstruction *constOffset = nullptr,
+      SpirvInstruction *offset = nullptr,
+      SpirvInstruction *constOffsets = nullptr,
+      SpirvInstruction *sample = nullptr, SpirvInstruction *minLod = nullptr,
+      SpirvInstruction *component = nullptr,
+      SpirvInstruction *texelToWrite = nullptr);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1120,53 +1141,53 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageOp)
 
-  uint32_t getImage() const { return image; }
-  uint32_t getCoordinate() const { return coordinate; }
+  SpirvInstruction *getImage() const { return image; }
+  SpirvInstruction *getCoordinate() const { return coordinate; }
   spv::ImageOperandsMask getImageOperandsMask() const { return operandsMask; }
 
-  bool hasDref() const { return dref != 0; }
-  bool hasBias() const { return bias != 0; }
-  bool hasLod() const { return lod != 0; }
-  bool hasGrad() const { return gradDx != 0 && gradDy != 0; }
-  bool hasConstOffset() const { return constOffset != 0; }
-  bool hasOffset() const { return offset != 0; }
-  bool hasConstOffsets() const { return constOffsets != 0; }
-  bool hasSample() const { return sample != 0; }
-  bool hasMinLod() const { return minLod != 0; }
-  bool hasComponent() const { return component != 0; }
-  bool isImageWrite() const { return texelToWrite != 0; }
+  bool hasDref() const { return dref != nullptr; }
+  bool hasBias() const { return bias != nullptr; }
+  bool hasLod() const { return lod != nullptr; }
+  bool hasGrad() const { return gradDx != nullptr && gradDy != nullptr; }
+  bool hasConstOffset() const { return constOffset != nullptr; }
+  bool hasOffset() const { return offset != nullptr; }
+  bool hasConstOffsets() const { return constOffsets != nullptr; }
+  bool hasSample() const { return sample != nullptr; }
+  bool hasMinLod() const { return minLod != nullptr; }
+  bool hasComponent() const { return component != nullptr; }
+  bool isImageWrite() const { return texelToWrite != nullptr; }
 
-  uint32_t getDref() const { return dref; }
-  uint32_t getBias() const { return bias; }
-  uint32_t getLod() const { return lod; }
-  uint32_t getGradDx() const { return gradDx; }
-  uint32_t getGradDy() const { return gradDy; }
-  std::pair<uint32_t, uint32_t> getGrad() const {
+  SpirvInstruction *getDref() const { return dref; }
+  SpirvInstruction *getBias() const { return bias; }
+  SpirvInstruction *getLod() const { return lod; }
+  SpirvInstruction *getGradDx() const { return gradDx; }
+  SpirvInstruction *getGradDy() const { return gradDy; }
+  std::pair<SpirvInstruction *, SpirvInstruction *> getGrad() const {
     return std::make_pair(gradDx, gradDy);
   }
-  uint32_t getConstOffset() const { return constOffset; }
-  uint32_t getOffset() const { return offset; }
-  uint32_t getConstOffsets() const { return constOffsets; }
-  uint32_t getSample() const { return sample; }
-  uint32_t getMinLod() const { return minLod; }
-  uint32_t getComponent() const { return component; }
-  uint32_t getTexelToWrite() const { return texelToWrite; }
+  SpirvInstruction *getConstOffset() const { return constOffset; }
+  SpirvInstruction *getOffset() const { return offset; }
+  SpirvInstruction *getConstOffsets() const { return constOffsets; }
+  SpirvInstruction *getSample() const { return sample; }
+  SpirvInstruction *getMinLod() const { return minLod; }
+  SpirvInstruction *getComponent() const { return component; }
+  SpirvInstruction *getTexelToWrite() const { return texelToWrite; }
 
 private:
-  uint32_t image;
-  uint32_t coordinate;
-  uint32_t dref;
-  uint32_t bias;
-  uint32_t lod;
-  uint32_t gradDx;
-  uint32_t gradDy;
-  uint32_t constOffset;
-  uint32_t offset;
-  uint32_t constOffsets;
-  uint32_t sample;
-  uint32_t minLod;
-  uint32_t component;
-  uint32_t texelToWrite;
+  SpirvInstruction *image;
+  SpirvInstruction *coordinate;
+  SpirvInstruction *dref;
+  SpirvInstruction *bias;
+  SpirvInstruction *lod;
+  SpirvInstruction *gradDx;
+  SpirvInstruction *gradDy;
+  SpirvInstruction *constOffset;
+  SpirvInstruction *offset;
+  SpirvInstruction *constOffsets;
+  SpirvInstruction *sample;
+  SpirvInstruction *minLod;
+  SpirvInstruction *component;
+  SpirvInstruction *texelToWrite;
   spv::ImageOperandsMask operandsMask;
 };
 
@@ -1183,8 +1204,9 @@ private:
 class SpirvImageQuery : public SpirvInstruction {
 public:
   SpirvImageQuery(spv::Op opcode, QualType resultType, uint32_t resultId,
-                  SourceLocation loc, uint32_t img, uint32_t lodId = 0,
-                  uint32_t coordId = 0);
+                  SourceLocation loc, SpirvInstruction *img,
+                  SpirvInstruction *lod = nullptr,
+                  SpirvInstruction *coord = nullptr);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1193,23 +1215,23 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageQuery)
 
-  uint32_t getImage() const { return image; }
-  uint32_t hasLod() const { return lod != 0; }
-  uint32_t getLod() const { return lod; }
-  uint32_t hasCoordinate() const { return coordinate != 0; }
-  uint32_t getCoordinate() const { return coordinate; }
+  SpirvInstruction *getImage() const { return image; }
+  bool hasLod() const { return lod != nullptr; }
+  SpirvInstruction *getLod() const { return lod; }
+  bool hasCoordinate() const { return coordinate != nullptr; }
+  SpirvInstruction *getCoordinate() const { return coordinate; }
 
 private:
-  uint32_t image;
-  uint32_t lod;
-  uint32_t coordinate;
+  SpirvInstruction *image;
+  SpirvInstruction *lod;
+  SpirvInstruction *coordinate;
 };
 
 /// \brief OpImageSparseTexelsResident instruction
 class SpirvImageSparseTexelsResident : public SpirvInstruction {
 public:
   SpirvImageSparseTexelsResident(QualType resultType, uint32_t resultId,
-                                 SourceLocation loc, uint32_t resCode);
+                                 SourceLocation loc, SpirvInstruction *resCode);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1218,18 +1240,19 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageSparseTexelsResident)
 
-  uint32_t getResidentCode() const { return residentCode; }
+  SpirvInstruction *getResidentCode() const { return residentCode; }
 
 private:
-  uint32_t residentCode;
+  SpirvInstruction *residentCode;
 };
 
 /// \brief OpImageTexelPointer instruction
 class SpirvImageTexelPointer : public SpirvInstruction {
 public:
   SpirvImageTexelPointer(QualType resultType, uint32_t resultId,
-                         SourceLocation loc, uint32_t imageId,
-                         uint32_t coordinateId, uint32_t sampleId);
+                         SourceLocation loc, SpirvInstruction *image,
+                         SpirvInstruction *coordinate,
+                         SpirvInstruction *sample);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1238,21 +1261,22 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvImageTexelPointer)
 
-  uint32_t getImage() const { return image; }
-  uint32_t getCoordinate() const { return coordinate; }
-  uint32_t getSample() const { return sample; }
+  SpirvInstruction *getImage() const { return image; }
+  SpirvInstruction *getCoordinate() const { return coordinate; }
+  SpirvInstruction *getSample() const { return sample; }
 
 private:
-  uint32_t image;
-  uint32_t coordinate;
-  uint32_t sample;
+  SpirvInstruction *image;
+  SpirvInstruction *coordinate;
+  SpirvInstruction *sample;
 };
 
 /// \brief Load instruction representation
 class SpirvLoad : public SpirvInstruction {
 public:
   SpirvLoad(QualType resultType, uint32_t resultId, SourceLocation loc,
-            uint32_t pointerId, llvm::Optional<spv::MemoryAccessMask> mask);
+            SpirvInstruction *pointer,
+            llvm::Optional<spv::MemoryAccessMask> mask);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1261,14 +1285,14 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvLoad)
 
-  uint32_t getPointer() const { return pointer; }
+  SpirvInstruction *getPointer() const { return pointer; }
   bool hasMemoryAccessSemantics() const { return memoryAccess.hasValue(); }
   spv::MemoryAccessMask getMemoryAccess() const {
     return memoryAccess.getValue();
   }
 
 private:
-  uint32_t pointer;
+  SpirvInstruction *pointer;
   llvm::Optional<spv::MemoryAccessMask> memoryAccess;
 };
 
@@ -1276,7 +1300,7 @@ private:
 class SpirvSampledImage : public SpirvInstruction {
 public:
   SpirvSampledImage(QualType resultType, uint32_t resultId, SourceLocation loc,
-                    uint32_t imageId, uint32_t samplerId);
+                    SpirvInstruction *image, SpirvInstruction *sampler);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1285,19 +1309,20 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSampledImage)
 
-  uint32_t getImage() const { return image; }
-  uint32_t getSampler() const { return sampler; }
+  SpirvInstruction *getImage() const { return image; }
+  SpirvInstruction *getSampler() const { return sampler; }
 
 private:
-  uint32_t image;
-  uint32_t sampler;
+  SpirvInstruction *image;
+  SpirvInstruction *sampler;
 };
 
 /// \brief Select operation representation.
 class SpirvSelect : public SpirvInstruction {
 public:
   SpirvSelect(QualType resultType, uint32_t resultId, SourceLocation loc,
-              uint32_t cond, uint32_t trueId, uint32_t falseId);
+              SpirvInstruction *cond, SpirvInstruction *trueId,
+              SpirvInstruction *falseId);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1306,14 +1331,14 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSelect)
 
-  uint32_t getCondition() const { return condition; }
-  uint32_t getTrueObject() const { return trueObject; }
-  uint32_t getFalseObject() const { return falseObject; }
+  SpirvInstruction *getCondition() const { return condition; }
+  SpirvInstruction *getTrueObject() const { return trueObject; }
+  SpirvInstruction *getFalseObject() const { return falseObject; }
 
 private:
-  uint32_t condition;
-  uint32_t trueObject;
-  uint32_t falseObject;
+  SpirvInstruction *condition;
+  SpirvInstruction *trueObject;
+  SpirvInstruction *falseObject;
 };
 
 /// \brief OpSpecConstantOp instruction where the operation is binary.
@@ -1321,7 +1346,8 @@ class SpirvSpecConstantBinaryOp : public SpirvInstruction {
 public:
   SpirvSpecConstantBinaryOp(spv::Op specConstantOp, QualType resultType,
                             uint32_t resultId, SourceLocation loc,
-                            uint32_t operand1, uint32_t operand2);
+                            SpirvInstruction *operand1,
+                            SpirvInstruction *operand2);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1331,13 +1357,13 @@ public:
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantBinaryOp)
 
   spv::Op getSpecConstantopcode() const { return specOp; }
-  uint32_t getOperand1() const { return operand1; }
-  uint32_t getOperand2() const { return operand2; }
+  SpirvInstruction *getOperand1() const { return operand1; }
+  SpirvInstruction *getOperand2() const { return operand2; }
 
 private:
   spv::Op specOp;
-  uint32_t operand1;
-  uint32_t operand2;
+  SpirvInstruction *operand1;
+  SpirvInstruction *operand2;
 };
 
 /// \brief OpSpecConstantOp instruction where the operation is unary.
@@ -1345,7 +1371,7 @@ class SpirvSpecConstantUnaryOp : public SpirvInstruction {
 public:
   SpirvSpecConstantUnaryOp(spv::Op specConstantOp, QualType resultType,
                            uint32_t resultId, SourceLocation loc,
-                           uint32_t operand);
+                           SpirvInstruction *operand);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1355,17 +1381,18 @@ public:
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantUnaryOp)
 
   spv::Op getSpecConstantopcode() const { return specOp; }
-  uint32_t getOperand() const { return operand; }
+  SpirvInstruction *getOperand() const { return operand; }
 
 private:
   spv::Op specOp;
-  uint32_t operand;
+  SpirvInstruction *operand;
 };
 
 /// \brief Store instruction representation
 class SpirvStore : public SpirvInstruction {
 public:
-  SpirvStore(SourceLocation loc, uint32_t pointerId, uint32_t objectId,
+  SpirvStore(SourceLocation loc, SpirvInstruction *pointer,
+             SpirvInstruction *object,
              llvm::Optional<spv::MemoryAccessMask> mask);
 
   // For LLVM-style RTTI
@@ -1375,16 +1402,16 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvStore)
 
-  uint32_t getPointer() const { return pointer; }
-  uint32_t getObject() const { return object; }
+  SpirvInstruction *getPointer() const { return pointer; }
+  SpirvInstruction *getObject() const { return object; }
   bool hasMemoryAccessSemantics() const { return memoryAccess.hasValue(); }
   spv::MemoryAccessMask getMemoryAccess() const {
     return memoryAccess.getValue();
   }
 
 private:
-  uint32_t pointer;
-  uint32_t object;
+  SpirvInstruction *pointer;
+  SpirvInstruction *object;
   llvm::Optional<spv::MemoryAccessMask> memoryAccess;
 };
 
@@ -1429,7 +1456,7 @@ private:
 class SpirvUnaryOp : public SpirvInstruction {
 public:
   SpirvUnaryOp(spv::Op opcode, QualType resultType, uint32_t resultId,
-               SourceLocation loc, uint32_t op);
+               SourceLocation loc, SpirvInstruction *op);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1438,17 +1465,17 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
 
-  uint32_t getOperand() const { return operand; }
+  SpirvInstruction *getOperand() const { return operand; }
 
 private:
-  uint32_t operand;
+  SpirvInstruction *operand;
 };
 
 /// \brief OpVectorShuffle instruction
 class SpirvVectorShuffle : public SpirvInstruction {
 public:
   SpirvVectorShuffle(QualType resultType, uint32_t resultId, SourceLocation loc,
-                     uint32_t vec1Id, uint32_t vec2Id,
+                     SpirvInstruction *vec1, SpirvInstruction *vec2,
                      llvm::ArrayRef<uint32_t> componentsVec);
 
   // For LLVM-style RTTI
@@ -1458,13 +1485,13 @@ public:
 
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 
-  uint32_t getVec1() const { return vec1; }
-  uint32_t getVec2() const { return vec2; }
+  SpirvInstruction *getVec1() const { return vec1; }
+  SpirvInstruction *getVec2() const { return vec2; }
   llvm::ArrayRef<uint32_t> getComponents() const { return components; }
 
 private:
-  uint32_t vec1;
-  uint32_t vec2;
+  SpirvInstruction *vec1;
+  SpirvInstruction *vec2;
   llvm::SmallVector<uint32_t, 4> components;
 };
 
