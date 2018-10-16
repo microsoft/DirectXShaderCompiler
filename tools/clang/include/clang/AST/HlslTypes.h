@@ -19,7 +19,7 @@
 #include "clang/AST/Type.h"             // needs QualType
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
-#include "dxc/HLSL/DxilConstants.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/WinAdapter.h"
 #include "llvm/Support/Casting.h"
 

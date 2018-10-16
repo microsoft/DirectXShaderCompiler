@@ -28,7 +28,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "dxc/HLSL/HLModule.h" // HLSL Change
-#include "dxc/HLSL/DxilModule.h" // HLSL Change
+#include "dxc/DXIL/DxilModule.h" // HLSL Change
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/RWMutex.h"
 #include "llvm/Support/StringPool.h"

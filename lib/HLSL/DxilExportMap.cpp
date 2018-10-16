@@ -10,9 +10,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/DxilExportMap.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"

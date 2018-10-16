@@ -12,7 +12,7 @@
 #pragma once
 
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/dxcapi.h"

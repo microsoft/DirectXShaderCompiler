@@ -21,11 +21,11 @@
 #include "llvm/IR/Instructions.h"
 
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/HLSL/DxilContainer.h"
-#include "dxc/HLSL/DxilShaderModel.h"
-#include "dxc/HLSL/DxilMetadataHelper.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilMetadataHelper.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 #ifdef _WIN32
 #include "dia2.h"

@@ -9,11 +9,11 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilShaderModel.h"
-#include "dxc/HLSL/DxilCBuffer.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilCBuffer.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilRootSignature.h"
 #include "dxc/Support/WinAdapter.h"
 

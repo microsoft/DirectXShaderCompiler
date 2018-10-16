@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "dxc/HLSL/DxilConstants.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include <vector>
 
 namespace hlsl {

@@ -15,6 +15,7 @@ set(LLVM_LINK_COMPONENTS
 #  debuginfopdb # no support for PDB files
   dxcsupport
   dxrfallback
+  dxil
   hlsl
   instcombine
   ipa

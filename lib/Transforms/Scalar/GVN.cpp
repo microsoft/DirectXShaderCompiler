@@ -51,7 +51,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <vector>
-#include "dxc/HLSL/DxilConstants.h"  // HLSL Change
+#include "dxc/DXIL/DxilConstants.h"  // HLSL Change
 using namespace llvm;
 using namespace PatternMatch;
 

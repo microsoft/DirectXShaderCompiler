@@ -9,9 +9,9 @@
 
 #include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilInstructions.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilInstructions.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"

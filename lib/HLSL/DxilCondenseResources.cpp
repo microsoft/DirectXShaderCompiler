@@ -10,15 +10,15 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilSignatureElement.h"
-#include "dxc/HLSL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilSignatureElement.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
-#include "dxc/HLSL/DxilInstructions.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLModule.h"
 
 #include "llvm/IR/Instructions.h"

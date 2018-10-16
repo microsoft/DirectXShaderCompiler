@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "dxc/HLSL/DxilResource.h"
+#include "dxc/DXIL/DxilResource.h"
 
 
 namespace hlsl {

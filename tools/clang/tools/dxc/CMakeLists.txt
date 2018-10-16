@@ -9,6 +9,7 @@ endif (WIN32)
 set( LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
   dxcsupport
+  DXIL
   HLSL
   Option     # option library
   Support    # just for assert and raw streams

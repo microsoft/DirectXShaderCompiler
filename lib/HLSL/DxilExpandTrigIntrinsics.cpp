@@ -41,11 +41,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilSignatureElement.h"
-#include "dxc/HLSL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilSignatureElement.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilInstructions.h"
+#include "dxc/DXIL/DxilInstructions.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
