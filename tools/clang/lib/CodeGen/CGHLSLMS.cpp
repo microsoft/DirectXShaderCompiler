@@ -1589,7 +1589,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     const ParmVarDecl *parmDecl = FD->getParamDecl(ParmIdx);
 
-    ConstructFieldAttributedAnnotation(paramAnnotation, parmDecl->getType(),
+    QualType fieldTy = parmDecl->getType();
+    // if parameter type is a typedef, try to desugar it first.
+    if (isa<TypedefType>(fieldTy.getTypePtr()))
+      fieldTy = fieldTy.getDesugaredType(FD->getASTContext());
+    ConstructFieldAttributedAnnotation(paramAnnotation, fieldTy,
                                        bDefaultRowMajor);
     if (parmDecl->hasAttr<HLSLPreciseAttr>())
       paramAnnotation.SetPrecise();
