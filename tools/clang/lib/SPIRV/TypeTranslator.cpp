@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <tuple>
 
-#include "dxc/HLSL/DxilConstants.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/HlslTypes.h"

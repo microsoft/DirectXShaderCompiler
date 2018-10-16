@@ -19,7 +19,7 @@
 #include "WEXAdapter.h"
 #endif
 #include "dxc/Support/Unicode.h"
-#include "dxc/HLSL/DxilConstants.h" // DenormMode
+#include "dxc/DXIL/DxilConstants.h" // DenormMode
 #include "llvm/Support/Atomic.h"
 
 // If TAEF verify macros are available, use them to alias other legacy

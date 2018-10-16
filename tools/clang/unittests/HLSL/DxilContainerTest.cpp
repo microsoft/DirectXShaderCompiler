@@ -42,10 +42,10 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 #include "dxc/HLSL/DxilRuntimeReflection.h"
-#include "dxc/HLSL/DxilShaderFlags.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/DXIL/DxilShaderFlags.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 #include <fstream>
 #include <chrono>

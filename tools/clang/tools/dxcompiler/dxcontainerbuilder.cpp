@@ -11,7 +11,7 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/ErrorCodes.h"
 #include "dxc/Support/FileIOHelper.h"

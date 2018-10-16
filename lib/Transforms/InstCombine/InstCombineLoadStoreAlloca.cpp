@@ -20,7 +20,7 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "dxc/HLSL/DxilOperations.h"   // HLSL Change - avoid unpack for dxil types.
+#include "dxc/DXIL/DxilOperations.h"   // HLSL Change - avoid unpack for dxil types.
 using namespace llvm;
 
 #define DEBUG_TYPE "instcombine"
