@@ -12,14 +12,14 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
-#include "dxc/HLSL/DxilPIXPasses.h"
+#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DXIL/DxilUtil.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
-
+#include "llvm/ADT/STLExtras.h"
 
 using namespace llvm;
 using namespace hlsl;

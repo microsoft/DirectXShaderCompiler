@@ -66,8 +66,6 @@ struct DxilViewIdStateData {
   InputsContributingToOutputType m_InputsContributingToPCOutputs; // HS PC only.
   InputsContributingToOutputType m_PCInputsContributingToOutputs; // DS only.
 
-  // Serialized form.
-  std::vector<unsigned> m_SerializedState;
   bool m_bUsesViewId = false;
 };
 
@@ -98,7 +96,8 @@ public:
 
 private:
   DxilModule *m_pModule;
-
+  // Serialized form.
+  std::vector<unsigned> m_SerializedState;
   void Clear();
 };
 

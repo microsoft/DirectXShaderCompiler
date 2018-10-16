@@ -26,6 +26,8 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/raw_ostream.h"
 #include <memory>
 #include <vector>
 
@@ -40,6 +42,7 @@
 #include "llvm/Transforms/Scalar.h"
 
 #include "dxc/HLSL/DxilExportMap.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 
 using namespace llvm;
 using namespace hlsl;

@@ -11,7 +11,7 @@
 
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/DXIL/DxilModule.h"
-#include "dxc/HLSL/DxilPIXPasses.h"
+#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "llvm/IR/Module.h"
 
 using namespace llvm;

@@ -73,7 +73,7 @@ class db_dxil_inst(object):
             setattr(self, k, v)
         self.is_dxil_op = self.dxil_op != "" # whether this is a DXIL operation
         self.is_reserved = self.dxil_class == "Reserved"
-        self.shader_model_translated = None # minimum shader model required with translation by linker
+        self.shader_model_translated = () # minimum shader model required with translation by linker
 
     def __str__(self):
         return self.name
@@ -109,6 +109,7 @@ class db_dxil_pass(object):
         self.args = []              # modifiers for the option
         self.type_name = ""         # name of the class that implements the pass
         self.doc = ""               # documentation for the pass
+        self.category_lib = ""      # lib which pass belongs to
         for k,v in kwargs.items():
             setattr(self, k, v)
 
@@ -1403,176 +1404,189 @@ class db_dxil(object):
     def populate_passes(self):
         # Populate passes and their options.
         p = self.passes
-        def add_pass(name, type_name, doc, opts):
-            apass = db_dxil_pass(name, type_name=type_name, doc=doc)
+        category_lib = "set this before add_pass"
+        def add_pass(name, type_name, doc, opts, category_lib):
+            apass = db_dxil_pass(name, type_name=type_name, doc=doc, category_lib=category_lib)
             for o in opts:
                 assert 'n' in o, "option in %s has no 'n' member" % name
                 apass.args.append(db_dxil_pass_arg(o['n'], ident=o.get('i'), type_name=o.get('t'), is_ctor_param=o.get('c'), doc=o.get('d')))
             p.append(apass)
+
+        category_lib = "llvm"
         # Add discriminators is a DWARF 4 thing, useful for the profiler.
         # Consider removing lib\Transforms\Utils\AddDiscriminators.cpp altogether
         add_pass("add-discriminators", "AddDiscriminators", "Add DWARF path discriminators",
-                 [{'n':"no-discriminators", 'i':"NoDiscriminators", 't':"bool"}])
+                 [{'n':"no-discriminators", 'i':"NoDiscriminators", 't':"bool"}], category_lib)
         # Sample profile is part of the sample profiling infrastructure.
         # Consider removing lib\Transforms\Scalar\SampleProfile.cpp
         add_pass("sample-profile", "SampleProfileLoader", "Sample Profile loader", [
             {'n':"sample-profile-file", 'i':"SampleProfileFile", 't':"string"},
-            {'n':"sample-profile-max-propagate-iterations", 'i':"SampleProfileMaxPropagateIterations", 't':"unsigned"}])
+            {'n':"sample-profile-max-propagate-iterations", 'i':"SampleProfileMaxPropagateIterations", 't':"unsigned"}], category_lib)
         # inline and always-inline share a base class - those are the arguments we document for each of them.
         inliner_args = [
             {'n':'InsertLifetime', 't':'bool', 'c':1, 'd':'Insert @llvm.lifetime intrinsics'},
             {'n':'InlineThreshold', 't':'unsigned', 'c':1, 'd':'Insert @llvm.lifetime intrinsics'}]
-        add_pass("inline", "SimpleInliner", "Function Integration/Inlining", inliner_args)
+        add_pass("inline", "SimpleInliner", "Function Integration/Inlining", inliner_args, category_lib)
 #            {'n':"OptLevel", 't':"unsigned", 'c':1},
 #            {'n':"SizeOptLevel", 't':'unsigned', 'c':1}
-        add_pass('always-inline', 'AlwaysInliner', 'Inliner for always_inline functions', inliner_args)
+        add_pass('always-inline', 'AlwaysInliner', 'Inliner for always_inline functions', inliner_args, category_lib)
 #            {'n':'InsertLifetime', 't':'bool', 'c':1, 'd':'Insert @llvm.lifetime intrinsics'}
         # Consider a review of the target-specific wrapper.
         add_pass("tti", "TargetTransformInfoWrapperPass", "Target Transform Information", [
-            {'n':'TIRA', 't':'TargetIRAnalysis', 'c':1}])
+            {'n':'TIRA', 't':'TargetIRAnalysis', 'c':1}], category_lib)
         add_pass("verify", "VerifierLegacyPass", "Module Verifier", [
             {'n':'FatalErrors', 't':'bool', 'c':1},
-            {'n':'verify-debug-info', 'i':'VerifyDebugInfo', 't':'bool'}])
+            {'n':'verify-debug-info', 'i':'VerifyDebugInfo', 't':'bool'}], category_lib)
         add_pass("targetlibinfo", "TargetLibraryInfoWrapperPass", "Target Library Information", [
             {'n':'TLIImpl', 't':'TargetLibraryInfoImpl', 'c':1},
-            {'n':'vector-library', 'i':'ClVectorLibrary', 't':'TargetLibraryInfoImpl::VectorLibrary'}])
-        add_pass("cfl-aa", "CFLAliasAnalysis", "CFL-Based AA implementation", [])
+            {'n':'vector-library', 'i':'ClVectorLibrary', 't':'TargetLibraryInfoImpl::VectorLibrary'}], category_lib)
+        add_pass("cfl-aa", "CFLAliasAnalysis", "CFL-Based AA implementation", [], category_lib)
         add_pass("tbaa", "TypeBasedAliasAnalysis", "Type-Based Alias Analysis", [
-            {'n':"enable-tbaa", 'i':'EnableTBAA', 't':'bool', 'd':'Use to disable TBAA functionality'}])
+            {'n':"enable-tbaa", 'i':'EnableTBAA', 't':'bool', 'd':'Use to disable TBAA functionality'}], category_lib)
         add_pass("scoped-noalias", "ScopedNoAliasAA", "Scoped NoAlias Alias Analysis", [
-            {'n':"enable-scoped-noalias", 'i':'EnableScopedNoAlias', 't':'bool', 'd':'Use to disable scoped no-alias'}])
-        add_pass("basicaa", "BasicAliasAnalysis", "Basic Alias Analysis (stateless AA impl)", [])
-        add_pass("reg2mem_hlsl", "RegToMemHlsl", "Demote values with phi-node usage to stack slots", [])
+            {'n':"enable-scoped-noalias", 'i':'EnableScopedNoAlias', 't':'bool', 'd':'Use to disable scoped no-alias'}], category_lib)
+        add_pass("basicaa", "BasicAliasAnalysis", "Basic Alias Analysis (stateless AA impl)", [], category_lib)
         add_pass("simplifycfg", "CFGSimplifyPass", "Simplify the CFG", [
             {'n':'Threshold', 't':'int', 'c':1},
             {'n':'Ftor', 't':'std::function<bool(const Function &)>', 'c':1},
-            {'n':'bonus-inst-threshold', 'i':'UserBonusInstThreshold', 't':'unsigned', 'd':'Control the number of bonus instructions (default = 1)'}])
+            {'n':'bonus-inst-threshold', 'i':'UserBonusInstThreshold', 't':'unsigned', 'd':'Control the number of bonus instructions (default = 1)'}], category_lib)
         # UseNewSROA is used by PassManagerBuilder::populateFunctionPassManager, not a pass per se.
         add_pass("sroa", "SROA", "Scalar Replacement Of Aggregates", [
             {'n':'RequiresDomTree', 't':'bool', 'c':1},
             {'n':'force-ssa-updater', 'i':'ForceSSAUpdater', 't':'bool', 'd':'Force the pass to not use DomTree and mem2reg, insteadforming SSA values through the SSAUpdater infrastructure.'},
             {'n':'sroa-random-shuffle-slices', 'i':'SROARandomShuffleSlices', 't':'bool', 'd':'Enable randomly shuffling the slices to help uncover instability in their order.'},
-            {'n':'sroa-strict-inbounds', 'i':'SROAStrictInbounds', 't':'bool', 'd':'Experiment with completely strict handling of inbounds GEPs.'}])
+            {'n':'sroa-strict-inbounds', 'i':'SROAStrictInbounds', 't':'bool', 'd':'Experiment with completely strict handling of inbounds GEPs.'}], category_lib)
         add_pass('scalarrepl', 'SROA_DT', 'Scalar Replacement of Aggregates (DT)', [
             {'n':'Threshold', 't':'int', 'c':1},
             {'n':'StructMemberThreshold', 't':'int', 'c':1},
             {'n':'ArrayElementThreshold', 't':'int', 'c':1},
-            {'n':'ScalarLoadThreshold', 't':'int', 'c':1}])
+            {'n':'ScalarLoadThreshold', 't':'int', 'c':1}], category_lib)
         add_pass('scalarrepl-ssa', 'SROA_SSAUp', 'Scalar Replacement of Aggregates (SSAUp)', [
             {'n':'Threshold', 't':'int', 'c':1},
             {'n':'StructMemberThreshold', 't':'int', 'c':1},
             {'n':'ArrayElementThreshold', 't':'int', 'c':1},
-            {'n':'ScalarLoadThreshold', 't':'int', 'c':1}])
-        add_pass('early-cse', 'EarlyCSELegacyPass', 'Early CSE', [])
+            {'n':'ScalarLoadThreshold', 't':'int', 'c':1}], category_lib)
+        add_pass('early-cse', 'EarlyCSELegacyPass', 'Early CSE', [], category_lib)
         # More branch weight support.
         add_pass('lower-expect', 'LowerExpectIntrinsic', "Lower 'expect' Intrinsics", [
             {'n':'likely-branch-weight', 'i':'LikelyBranchWeight', 't':'uint32_t', 'd':'Weight of the branch likely to be taken (default = 64)'},
-            {'n':'unlikely-branch-weight', 'i':'UnlikelyBranchWeight', 't':'uint32_t', 'd':'Weight of the branch unlikely to be taken (default = 4)'}])
+            {'n':'unlikely-branch-weight', 'i':'UnlikelyBranchWeight', 't':'uint32_t', 'd':'Weight of the branch unlikely to be taken (default = 4)'}], category_lib)
         # Consider removing lib\Transforms\Utils\SymbolRewriter.cpp
         add_pass('rewrite-symbols', 'RewriteSymbols', 'Rewrite Symbols', [
             {'n':'DL', 't':'SymbolRewriter::RewriteDescriptorList', 'c':1},
-            {'n':'rewrite-map-file', 'i':'RewriteMapFiles', 't':'string'}])
-        add_pass('hlsl-hlensure', 'HLEnsureMetadata', 'HLSL High-Level Metadata Ensure', [])
+            {'n':'rewrite-map-file', 'i':'RewriteMapFiles', 't':'string'}], category_lib)
         add_pass('mergefunc', 'MergeFunctions', 'Merge Functions', [
-            {'n':'mergefunc-sanity', 'i':'NumFunctionsForSanityCheck', 't':'unsigned', 'd':"How many functions in module could be used for MergeFunctions pass sanity check. '0' disables this check. Works only with '-debug' key."}])
+            {'n':'mergefunc-sanity', 'i':'NumFunctionsForSanityCheck', 't':'unsigned', 'd':"How many functions in module could be used for MergeFunctions pass sanity check. '0' disables this check. Works only with '-debug' key."}], category_lib)
         # Consider removing GlobalExtensions globals altogether.
-        add_pass('barrier', 'BarrierNoop', 'A No-Op Barrier Pass', [])
-        add_pass('hlsl-hlemit', 'HLEmitMetadata', 'HLSL High-Level Metadata Emit.', [])
-        add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [])
-        add_pass('scalarreplhlsl', 'SROA_DT_HLSL', 'Scalar Replacement of Aggregates HLSL (DT)', [])
-        add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
-        add_pass('static-global-to-alloca', 'LowerStaticGlobalIntoAlloca', 'Lower static global into Alloca', [])
-        add_pass('hlmatrixlower', 'HLMatrixLowerPass', 'HLSL High-Level Matrix Lower', [])
-        add_pass('matrixbitcastlower', 'MatrixBitcastLowerPass', 'Matrix Bitcast lower', [])
-        add_pass('dce', 'DCE', 'Dead Code Elimination', [])
-        add_pass('die', 'DeadInstElimination', 'Dead Instruction Elimination', [])
-        add_pass('globaldce', 'GlobalDCE', 'Dead Global Elimination', [])
-        add_pass('dynamic-vector-to-array', 'DynamicIndexingVectorToArray', 'Replace dynamic indexing vector with array', [
-            {'n':'ReplaceAllVectors','t':'bool','c':1}])
-        add_pass('hlsl-dxil-promote-local-resources', 'DxilPromoteLocalResources', 'DXIL promote local resource use', [])
-        add_pass('hlsl-dxil-promote-static-resources', 'DxilPromoteStaticResources', 'DXIL promote static resource use', [])
-        add_pass('hlsl-dxil-legalize-resources', 'DxilLegalizeResources', 'DXIL legalize resource use', [])
-        add_pass('hlsl-dxil-legalize-eval-operations', 'DxilLegalizeEvalOperations', 'DXIL legalize eval operations', [])
-        add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
-            {'n':'NotOptimized','t':'bool','c':1}])
-        add_pass('fail-undef-resource', 'FailUndefResource', 'Fail on undef resource use', [])
-        add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])
-        add_pass('mem2reg', 'PromotePass', 'Promote Memory to Register', [])
-        add_pass('hlsl-dxil-precise', 'DxilPrecisePropagatePass', 'DXIL precise attribute propagate', [])
-        add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [])
-        add_pass('scalarizer', 'Scalarizer', 'Scalarize vector operations', [])
-        add_pass('multi-dim-one-dim', 'MultiDimArrayToOneDimArray', 'Flatten multi-dim array into one-dim array', [])
-        add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [])
-        add_pass('hlsl-passes-nopause', 'NoPausePasses', 'Clears metadata used for pause and resume', [])
-        add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [])
-        add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [])
-        add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
-        add_pass('hlsl-dxil-lower-handle-for-lib', 'DxilLowerCreateHandleForLib', 'DXIL Lower createHandleForLib', [])
-        add_pass('hlsl-dxil-allocate-resources-for-lib', 'DxilAllocateResourcesForLib', 'DXIL Allocate Resources For Library', [])
-        add_pass('hlsl-dxil-convergent-mark', 'DxilConvergentMark', 'Mark convergent', [])
-        add_pass('hlsl-dxil-convergent-clear', 'DxilConvergentClear', 'Clear convergent before dxil emit', [])
-        add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
+        add_pass('barrier', 'BarrierNoop', 'A No-Op Barrier Pass', [], category_lib)
+        add_pass('dce', 'DCE', 'Dead Code Elimination', [], category_lib)
+        add_pass('die', 'DeadInstElimination', 'Dead Instruction Elimination', [], category_lib)
+        add_pass('globaldce', 'GlobalDCE', 'Dead Global Elimination', [], category_lib)
+        add_pass('mem2reg', 'PromotePass', 'Promote Memory to Register', [], category_lib)
+        add_pass('scalarizer', 'Scalarizer', 'Scalarize vector operations', [], category_lib)
+
+        category_lib="pix"
         add_pass('hlsl-dxil-add-pixel-hit-instrmentation', 'DxilAddPixelHitInstrumentation', 'DXIL Count completed PS invocations and costs', [
             {'n':'force-early-z','t':'int','c':1},
             {'n':'add-pixel-cost','t':'int','c':1},
             {'n':'rt-width','t':'int','c':1},
             {'n':'sv-position-index','t':'int','c':1},
-            {'n':'num-pixels','t':'int','c':1}])
+            {'n':'num-pixels','t':'int','c':1}], category_lib)
         add_pass('hlsl-dxil-constantColor', 'DxilOutputColorBecomesConstant', 'DXIL Constant Color Mod', [
             {'n':'mod-mode','t':'int','c':1},
             {'n':'constant-red','t':'float','c':1},
             {'n':'constant-green','t':'float','c':1},
             {'n':'constant-blue','t':'float','c':1},
-            {'n':'constant-alpha','t':'float','c':1}])
-        add_pass('hlsl-dxil-remove-discards', 'DxilRemoveDiscards', 'HLSL DXIL Remove all discard instructions', [])
-        add_pass('hlsl-dxil-force-early-z', 'DxilForceEarlyZ', 'HLSL DXIL Force the early Z global flag, if shader has no discard calls', [])
+            {'n':'constant-alpha','t':'float','c':1}], category_lib)
+        add_pass('hlsl-dxil-remove-discards', 'DxilRemoveDiscards', 'HLSL DXIL Remove all discard instructions', [], category_lib)
+        add_pass('hlsl-dxil-force-early-z', 'DxilForceEarlyZ', 'HLSL DXIL Force the early Z global flag, if shader has no discard calls', [], category_lib)
         add_pass('hlsl-dxil-pix-shader-access-instrumentation', 'DxilShaderAccessTracking', 'HLSL DXIL shader access tracking for PIX', [
             {'n':'config','t':'int','c':1},
-            {'n':'checkForDynamicIndexing','t':'bool','c':1}])
+            {'n':'checkForDynamicIndexing','t':'bool','c':1}], category_lib)
         add_pass('hlsl-dxil-debug-instrumentation', 'DxilDebugInstrumentation', 'HLSL DXIL debug instrumentation for PIX', [
             {'n':'UAVSize','t':'int','c':1},
             {'n':'parameter0','t':'int','c':1},
             {'n':'parameter1','t':'int','c':1},
-            {'n':'parameter2','t':'int','c':1}])
-        add_pass('hlsl-dxil-reduce-msaa-to-single', 'DxilReduceMSAAToSingleSample', 'HLSL DXIL Reduce all MSAA reads to single-sample reads', [])
-        add_pass('hlsl-dxilfinalize', 'DxilFinalizeModule', 'HLSL DXIL Finalize Module', [])
-        add_pass('hlsl-dxilemit', 'DxilEmitMetadata', 'HLSL DXIL Metadata Emit', [])
-        add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
-        add_pass('dxil-dfe', 'DxilDeadFunctionElimination', 'Remove all unused function except entry from DxilModule', [])
-        add_pass('hl-dfe', 'HLDeadFunctionElimination', 'Remove all unused function except entry from HLModule', [])
-        add_pass('hl-preprocess', 'HLPreprocess', 'Preprocess HLModule after inline', [])
-        add_pass('hlsl-dxil-expand-trig', 'DxilExpandTrigIntrinsics', 'DXIL expand trig intrinsics', [])
-        add_pass('hlsl-hca', 'HoistConstantArray', 'HLSL constant array hoisting', [])
-        add_pass('hlsl-dxil-preserve-all-outputs', 'DxilPreserveAllOutputs', 'DXIL write to all outputs in signature', [])
-        add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])
-        add_pass('globalopt', 'GlobalOpt', 'Global Variable Optimizer', [])
-        add_pass('deadargelim', 'DAE', 'Dead Argument Elimination', [])
+            {'n':'parameter2','t':'int','c':1}], category_lib)
+        add_pass('hlsl-dxil-reduce-msaa-to-single', 'DxilReduceMSAAToSingleSample', 'HLSL DXIL Reduce all MSAA reads to single-sample reads', [], category_lib)
+
+        category_lib="dxil_gen"
+
+        add_pass('hlsl-hlemit', 'HLEmitMetadata', 'HLSL High-Level Metadata Emit.', [], category_lib)
+        add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [], category_lib)
+        add_pass('scalarreplhlsl', 'SROA_DT_HLSL', 'Scalar Replacement of Aggregates HLSL (DT)', [], category_lib)
+        add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [], category_lib)
+        add_pass('static-global-to-alloca', 'LowerStaticGlobalIntoAlloca', 'Lower static global into Alloca', [], category_lib)
+        add_pass('hlmatrixlower', 'HLMatrixLowerPass', 'HLSL High-Level Matrix Lower', [], category_lib)
+        add_pass('matrixbitcastlower', 'MatrixBitcastLowerPass', 'Matrix Bitcast lower', [], category_lib)
+        add_pass("reg2mem_hlsl", "RegToMemHlsl", "Demote values with phi-node usage to stack slots", [], category_lib)
+        add_pass('dynamic-vector-to-array', 'DynamicIndexingVectorToArray', 'Replace dynamic indexing vector with array', [
+            {'n':'ReplaceAllVectors','t':'bool','c':1}], category_lib)
+        add_pass('hlsl-dxil-promote-local-resources', 'DxilPromoteLocalResources', 'DXIL promote local resource use', [], category_lib)
+        add_pass('hlsl-dxil-promote-static-resources', 'DxilPromoteStaticResources', 'DXIL promote static resource use', [], category_lib)
+        add_pass('hlsl-dxil-legalize-resources', 'DxilLegalizeResources', 'DXIL legalize resource use', [], category_lib)
+        add_pass('hlsl-dxil-legalize-eval-operations', 'DxilLegalizeEvalOperations', 'DXIL legalize eval operations', [], category_lib)
+        add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
+            {'n':'NotOptimized','t':'bool','c':1}], category_lib)
+        add_pass('fail-undef-resource', 'FailUndefResource', 'Fail on undef resource use', [], category_lib)
+        add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [], category_lib)
+        add_pass('hlsl-dxil-precise', 'DxilPrecisePropagatePass', 'DXIL precise attribute propagate', [], category_lib)
+        add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [], category_lib)
+        add_pass('hlsl-hlensure', 'HLEnsureMetadata', 'HLSL High-Level Metadata Ensure', [], category_lib)
+        add_pass('multi-dim-one-dim', 'MultiDimArrayToOneDimArray', 'Flatten multi-dim array into one-dim array', [], category_lib)
+        add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [], category_lib)
+        add_pass('hlsl-passes-nopause', 'NoPausePasses', 'Clears metadata used for pause and resume', [], category_lib)
+        add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [], category_lib)
+        add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [], category_lib)
+        add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [], category_lib)
+        add_pass('hlsl-dxil-lower-handle-for-lib', 'DxilLowerCreateHandleForLib', 'DXIL Lower createHandleForLib', [], category_lib)
+        add_pass('hlsl-dxil-allocate-resources-for-lib', 'DxilAllocateResourcesForLib', 'DXIL Allocate Resources For Library', [], category_lib)
+        add_pass('hlsl-dxil-convergent-mark', 'DxilConvergentMark', 'Mark convergent', [], category_lib)
+        add_pass('hlsl-dxil-convergent-clear', 'DxilConvergentClear', 'Clear convergent before dxil emit', [], category_lib)
+        add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [], category_lib)
+        add_pass('hlsl-dxilfinalize', 'DxilFinalizeModule', 'HLSL DXIL Finalize Module', [], category_lib)
+        add_pass('hlsl-dxilemit', 'DxilEmitMetadata', 'HLSL DXIL Metadata Emit', [], category_lib)
+        add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [], category_lib)
+        add_pass('dxil-dfe', 'DxilDeadFunctionElimination', 'Remove all unused function except entry from DxilModule', [], category_lib)
+        add_pass('hl-dfe', 'HLDeadFunctionElimination', 'Remove all unused function except entry from HLModule', [], category_lib)
+        add_pass('hl-preprocess', 'HLPreprocess', 'Preprocess HLModule after inline', [], category_lib)
+        add_pass('hlsl-dxil-expand-trig', 'DxilExpandTrigIntrinsics', 'DXIL expand trig intrinsics', [], category_lib)
+        add_pass('hlsl-hca', 'HoistConstantArray', 'HLSL constant array hoisting', [], category_lib)
+        add_pass('hlsl-dxil-preserve-all-outputs', 'DxilPreserveAllOutputs', 'DXIL write to all outputs in signature', [], category_lib)
+        add_pass('red', 'ReducibilityAnalysis', 'Reducibility Analysis', [], category_lib)
+        add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [], category_lib)
+        add_pass('hlsl-translate-dxil-opcode-version', 'DxilTranslateRawBuffer', 'Translates one version of dxil to another', [], category_lib)
+
+        category_lib="llvm"
+        add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [], category_lib)
+        add_pass('globalopt', 'GlobalOpt', 'Global Variable Optimizer', [], category_lib)
+        add_pass('deadargelim', 'DAE', 'Dead Argument Elimination', [], category_lib)
         # Should we get rid of this, or invest in bugpoint support?
-        add_pass('deadarghaX0r', 'DAH', 'Dead Argument Hacking (BUGPOINT USE ONLY; DO NOT USE)', [])
-        add_pass('instcombine', 'InstructionCombiningPass', 'Combine redundant instructions', [])
-        add_pass('prune-eh', 'PruneEH', 'Remove unused exception handling info', [])
-        add_pass('functionattrs', 'FunctionAttrs', 'Deduce function attributes', [])
+        add_pass('deadarghaX0r', 'DAH', 'Dead Argument Hacking (BUGPOINT USE ONLY; DO NOT USE)', [], category_lib)
+        add_pass('instcombine', 'InstructionCombiningPass', 'Combine redundant instructions', [], category_lib)
+        add_pass('prune-eh', 'PruneEH', 'Remove unused exception handling info', [], category_lib)
+        add_pass('functionattrs', 'FunctionAttrs', 'Deduce function attributes', [], category_lib)
         add_pass('argpromotion', 'ArgPromotion', "Promote 'by reference' arguments to scalars", [
-            {'n':'maxElements', 't':'unsigned', 'c':1}])
+            {'n':'maxElements', 't':'unsigned', 'c':1}], category_lib)
         add_pass('jump-threading', 'JumpThreading', 'Jump Threading', [
             {'n':'Threshold', 't':'int', 'c':1},
-            {'n':'jump-threading-threshold', 'i':'BBDuplicateThreshold', 't':'unsigned', 'd':'Max block size to duplicate for jump threading'}])
-        add_pass('correlated-propagation', 'CorrelatedValuePropagation', 'Value Propagation', [])
+            {'n':'jump-threading-threshold', 'i':'BBDuplicateThreshold', 't':'unsigned', 'd':'Max block size to duplicate for jump threading'}], category_lib)
+        add_pass('correlated-propagation', 'CorrelatedValuePropagation', 'Value Propagation', [], category_lib)
         # createTailCallEliminationPass is removed - but is this checked before?
-        add_pass('reassociate', 'Reassociate', 'Reassociate expressions', [])
+        add_pass('reassociate', 'Reassociate', 'Reassociate expressions', [], category_lib)
         add_pass('loop-rotate', 'LoopRotate', 'Rotate Loops', [
             {'n':'MaxHeaderSize', 't':'int', 'c':1},
-            {'n':'rotation-max-header-size', 'i':'DefaultRotationThreshold', 't':'unsigned', 'd':'The default maximum header size for automatic loop rotation'}])
+            {'n':'rotation-max-header-size', 'i':'DefaultRotationThreshold', 't':'unsigned', 'd':'The default maximum header size for automatic loop rotation'}], category_lib)
         add_pass('licm', 'LICM', 'Loop Invariant Code Motion', [
-            {'n':'disable-licm-promotion', 'i':'DisablePromotion', 't':'bool', 'd':'Disable memory promotion in LICM pass'}])
+            {'n':'disable-licm-promotion', 'i':'DisablePromotion', 't':'bool', 'd':'Disable memory promotion in LICM pass'}], category_lib)
         add_pass('loop-unswitch', 'LoopUnswitch', 'Unswitch loops', [
             {'n':'Os', 't':'bool', 'c':1, 'd':'Optimize for size'},
-            {'n':'loop-unswitch-threshold', 'i':'Threshold', 't':'unsigned', 'd':'Max loop size to unswitch'}])
+            {'n':'loop-unswitch-threshold', 'i':'Threshold', 't':'unsigned', 'd':'Max loop size to unswitch'}], category_lib)
         # C:\nobackup\work\HLSLonLLVM\lib\Transforms\IPO\PassManagerBuilder.cpp:353
-        add_pass('indvars', 'IndVarSimplify', "Induction Variable Simplification", [])
-        add_pass('loop-idiom', 'LoopIdiomRecognize', "Recognize loop idioms", [])
-        add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [])
-        add_pass('loop-interchange', 'LoopInterchange', 'Interchanges loops for cache reuse', [])
+        add_pass('indvars', 'IndVarSimplify', "Induction Variable Simplification", [], category_lib)
+        add_pass('loop-idiom', 'LoopIdiomRecognize', "Recognize loop idioms", [], category_lib)
+        add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [], category_lib)
+        add_pass('loop-interchange', 'LoopInterchange', 'Interchanges loops for cache reuse', [], category_lib)
         add_pass('loop-unroll', 'LoopUnroll', 'Unroll loops', [
             {'n':'Threshold', 't':'int', 'c':1},
             {'n':'Count', 't':'int', 'c':1},
@@ -1585,35 +1599,32 @@ class db_dxil(object):
             {'n':'unroll-count', 'i':'UnrollCount', 't':'unsigned', 'd':'Use this unroll count for all loops including those with unroll_count pragma values, for testing purposes'},
             {'n':'unroll-allow-partial', 'i':'UnrollAllowPartial', 't':'bool', 'd':'Allows loops to be partially unrolled until -unroll-threshold loop size is reached.'},
             {'n':'unroll-runtime', 'i':'UnrollRuntime', 't':'bool', 'd':'Unroll loops with run-time trip counts'},
-            {'n':'pragma-unroll-threshold', 'i':'PragmaUnrollThreshold', 't':'unsigned', 'd':'Unrolled size limit for loops with an unroll(full) or unroll_count pragma.'}])
-        add_pass('mldst-motion', 'MergedLoadStoreMotion', 'MergedLoadStoreMotion', [])
+            {'n':'pragma-unroll-threshold', 'i':'PragmaUnrollThreshold', 't':'unsigned', 'd':'Unrolled size limit for loops with an unroll(full) or unroll_count pragma.'}], category_lib)
+        add_pass('mldst-motion', 'MergedLoadStoreMotion', 'MergedLoadStoreMotion', [], category_lib)
         add_pass('gvn', 'GVN', 'Global Value Numbering', [
             {'n':'noloads', 't':'bool', 'c':1},
             {'n':'enable-pre', 'i':'EnablePRE', 't':'bool'},
             {'n':'enable-load-pre', 'i':'EnableLoadPRE', 't':'bool'},
-            {'n':'max-recurse-depth', 'i':'MaxRecurseDepth', 't':'uint32_t', 'd':'Max recurse depth'}])
-        add_pass('sccp', 'SCCP', 'Sparse Conditional Constant Propagation', [])
-        add_pass('bdce', 'BDCE', 'Bit-Tracking Dead Code Elimination', [])
-        add_pass('dse', 'DSE', 'Dead Store Elimination', [])
+            {'n':'max-recurse-depth', 'i':'MaxRecurseDepth', 't':'uint32_t', 'd':'Max recurse depth'}], category_lib)
+        add_pass('sccp', 'SCCP', 'Sparse Conditional Constant Propagation', [], category_lib)
+        add_pass('bdce', 'BDCE', 'Bit-Tracking Dead Code Elimination', [], category_lib)
+        add_pass('dse', 'DSE', 'Dead Store Elimination', [], category_lib)
         add_pass('loop-reroll', 'LoopReroll', 'Reroll loops', [
             {'n':'max-reroll-increment', 'i':'MaxInc', 't':'unsigned', 'd':'The maximum increment for loop rerolling'},
-            {'n':'reroll-num-tolerated-failed-matches', 'i':'NumToleratedFailedMatches', 't':'unsigned', 'd':'The maximum number of failures to tolerate during fuzzy matching.'}])
-        add_pass('load-combine', 'LoadCombine', 'Combine Adjacent Loads', [])
-        add_pass('adce', 'ADCE', 'Aggressive Dead Code Elimination', [])
+            {'n':'reroll-num-tolerated-failed-matches', 'i':'NumToleratedFailedMatches', 't':'unsigned', 'd':'The maximum number of failures to tolerate during fuzzy matching.'}], category_lib)
+        add_pass('load-combine', 'LoadCombine', 'Combine Adjacent Loads', [], category_lib)
+        add_pass('adce', 'ADCE', 'Aggressive Dead Code Elimination', [], category_lib)
         add_pass('float2int', 'Float2Int', 'Float to int', [
-            {'n':'float2int-max-integer-bw', 'i':'MaxIntegerBW', 't':'unsigned', 'd':'Max integer bitwidth to consider in float2int'}])
+            {'n':'float2int-max-integer-bw', 'i':'MaxIntegerBW', 't':'unsigned', 'd':'Max integer bitwidth to consider in float2int'}], category_lib)
         add_pass('loop-distribute', 'LoopDistribute', 'Loop Distribition', [
             {'n':'loop-distribute-verify', 'i':'LDistVerify', 't':'bool', 'd':'Turn on DominatorTree and LoopInfo verification after Loop Distribution'},
-            {'n':'loop-distribute-non-if-convertible', 'i':'DistributeNonIfConvertible', 't':'bool', 'd':'Whether to distribute into a loop that may not be if-convertible by the loop vectorizer'}])
-        add_pass('alignment-from-assumptions', 'AlignmentFromAssumptions', 'Alignment from assumptions', [])
-        add_pass('strip-dead-prototypes', 'StripDeadPrototypesPass', 'Strip Unused Function Prototypes', [])
-        add_pass('elim-avail-extern', 'EliminateAvailableExternally', 'Eliminate Available Externally Globals', [])
-        add_pass('constmerge', 'ConstantMerge', 'Merge Duplicate Global Constants', [])
+            {'n':'loop-distribute-non-if-convertible', 'i':'DistributeNonIfConvertible', 't':'bool', 'd':'Whether to distribute into a loop that may not be if-convertible by the loop vectorizer'}], category_lib)
+        add_pass('alignment-from-assumptions', 'AlignmentFromAssumptions', 'Alignment from assumptions', [], category_lib)
+        add_pass('strip-dead-prototypes', 'StripDeadPrototypesPass', 'Strip Unused Function Prototypes', [], category_lib)
+        add_pass('elim-avail-extern', 'EliminateAvailableExternally', 'Eliminate Available Externally Globals', [], category_lib)
+        add_pass('constmerge', 'ConstantMerge', 'Merge Duplicate Global Constants', [], category_lib)
         add_pass('lowerbitsets', 'LowerBitSets', 'Lower bitset metadata', [
-            {'n':'lowerbitsets-avoid-reuse', 'i':'AvoidReuse', 't':'bool', 'd':'Try to avoid reuse of byte array addresses using aliases'}])
-        add_pass('red', 'ReducibilityAnalysis', 'Reducibility Analysis', [])
-        add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [])
-        add_pass('hlsl-translate-dxil-opcode-version', 'DxilTranslateRawBuffer', 'Translates one version of dxil to another', [])
+            {'n':'lowerbitsets-avoid-reuse', 'i':'AvoidReuse', 't':'bool', 'd':'Try to avoid reuse of byte array addresses using aliases'}], category_lib)
         # TODO: turn STATISTICS macros into ETW events
         # assert no duplicate names
         self.pass_idx_args = set()

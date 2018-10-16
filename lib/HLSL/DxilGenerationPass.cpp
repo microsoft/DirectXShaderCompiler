@@ -39,6 +39,7 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/IR/Dominators.h"
 #include <memory>
 #include <unordered_set>
 #include <iterator>
