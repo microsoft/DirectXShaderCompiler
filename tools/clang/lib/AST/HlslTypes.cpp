@@ -13,6 +13,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/Support/Global.h"
 #include "clang/AST/CanonicalType.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
@@ -277,12 +278,12 @@ void GetRowsAndCols(clang::QualType type, uint32_t &rowCount,
 }
 
 bool IsArrayConstantStringType(const QualType type) {
-  assert(type->isArrayType());
+  DXASSERT(type->isArrayType(), "array type expected");
   return type->getArrayElementTypeNoTypeQual()->isSpecificBuiltinType(BuiltinType::Char_S);
 }
 
 bool IsPointerStringType(const QualType type) {
-  assert(type->isPointerType());
+  DXASSERT(type->isPointerType(), "pointer type expected");
   return type->getPointeeType()->isSpecificBuiltinType(BuiltinType::Char_S);
 }
 

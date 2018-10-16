@@ -4578,16 +4578,16 @@ static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
 }
 
 void CGMSHLSLRuntime::AddGlobalStringDecl(const clang::VarDecl *D, llvm::GlobalVariable *GV) {
-  assert(hlsl::IsStringType(D->getType()) && "not a string type");
-  assert(D->getDeclContext()->isTranslationUnit() && "not a global");
+  DXASSERT(hlsl::IsStringType(D->getType()), "must be a string type");
+  DXASSERT(D->getDeclContext()->isTranslationUnit(), "must be a global");
 
   globalStringsDecls.emplace_back(GV);
 }
 
 void CGMSHLSLRuntime::AddGlobalStringConstant(llvm::GlobalVariable *GV) {
-  assert(GV->getType()->isPointerTy() &&
+  DXASSERT(GV->getType()->isPointerTy() &&
          GV->getType()->getPointerElementType()->isArrayTy() &&
-         GV->getType()->getPointerElementType()->getArrayElementType() == llvm::Type::getInt8Ty(Context) && "must be i8[]");
+         GV->getType()->getPointerElementType()->getArrayElementType() == llvm::Type::getInt8Ty(Context), "must be i8[]");
   globalStringsConstants.emplace_back(GV);
 }
 

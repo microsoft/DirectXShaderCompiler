@@ -7651,7 +7651,7 @@ def warn_hlsl_unused_call : Warning<
   "ignoring return value of function that only reads data">,
   InGroup<UnusedValue>;
 def err_hlsl_string_not_global : Error<
-   "string declaration not supported here">;
+   "string declaration may only appear in global scope">;
 def err_hlsl_func_in_func_decl : Error<
    "function declaration is not allowed in function parameters">;
 def err_hlsl_unsupported_keyword_for_version : Error<

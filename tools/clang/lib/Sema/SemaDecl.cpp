@@ -10267,7 +10267,8 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
   if (getLangOpts().HLSL) {
     const bool IsParm = true;
     if (hlsl::IsStringType(parmDeclType)) {
-      Diag(D.getLocStart(), diag::err_hlsl_unsupported_string_decl) << 1;
+      static const unsigned selectParamIdx = 1;
+      Diag(D.getLocStart(), diag::err_hlsl_unsupported_string_decl) << selectParamIdx;
       D.setInvalidType();
     }
     if (!DiagnoseHLSLDecl(D, Context.getTranslationUnitDecl(), TInfo, IsParm)) {

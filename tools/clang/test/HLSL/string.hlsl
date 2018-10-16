@@ -53,16 +53,20 @@ void hello_here(string message, string s, float f) {        /* expected-error {{
   printf("%f", f);                                          /* expected-error {{use of undeclared identifier 'printf'}} fxc-pass {{}} */
 }
 
-float4 main() : SV_Target0{
-  string str;                                               /* expected-error {{string declaration not supported here}} fxc-pass {{}} */
+struct test {
+  string field;                                             /* expected-error {{string declaration may only appear in global scope}} fxc-pass {{}} */
+};
+
+float4 main() : SV_Target0{                                 /* fxc-error {{X3003: redefinition of 'float4'}} */
+  string str;                                               /* expected-error {{string declaration may only appear in global scope}} fxc-pass {{}} */
   str = s_global2;                                          /* expected-error {{use of undeclared identifier 'str'}} fxc-pass {{}} */
 
-  string strArray[];                                        /* expected-error {{array of type string is not supported}} fxc-error {{X3074: 'strArray': implicit array missing initial value}} */
-  vector<string, 4> strVector1;                             /* expected-error {{'string' cannot be used as a type parameter where a scalar is required}} fxc-error {{X3122: vector element type must be a scalar type}} */
-  matrix<string, 4, 4> strMatrix1;                          /* expected-error {{'string' cannot be used as a type parameter where a scalar is required}} fxc-error {{X3123: matrix element type must be a scalar type}} */
+  string strArray[5];                                        /* expected-error {{array of type string is not supported}} fxc-pass {{}} */
+  vector<string, 4> strVector1;                             /* expected-error {{'string' cannot be used as a type parameter where a scalar is required}} fxc-pass {{}} */
+  matrix<string, 4, 4> strMatrix1;                          /* expected-error {{'string' cannot be used as a type parameter where a scalar is required}} fxc-pass {{}} */
 
   float4 cp4_local;
-  cp4_local.x = a("hi" "bob");                              /* expected-error {{use of undeclared identifier 'a'}} fxc-error {{X3004: undeclared identifier 'a'}} */
   printf("hi mom", 1, 2, 3);                                /* expected-error {{use of undeclared identifier 'printf'}} fxc-pass {{}} */
   hello_here("a", "b", 1);
-  return cp4_local;}
+  return cp4_local;
+}
