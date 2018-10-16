@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-#include "dxc/HLSL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv/unified1/GLSL.std.450.h"
 #include "clang/AST/AST.h"
