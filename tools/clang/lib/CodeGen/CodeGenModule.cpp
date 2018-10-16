@@ -1869,6 +1869,12 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
   if (AddrSpace != Ty->getAddressSpace() && !LangOpts.HLSL) // HLSL Change -TODO: do we put address space in type?
     return llvm::ConstantExpr::getAddrSpaceCast(GV, Ty);
 
+  // HLSL Change start
+  if (hlsl::IsStringType(D->getType())) {
+    getHLSLRuntime().AddGlobalStringDecl(D, GV);
+  }
+  // HLSL Change end
+
   return GV;
 }
 
@@ -3042,6 +3048,10 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
     assert(CGM.supportsCOMDAT() && "Only COFF uses weak string literals");
     GV->setComdat(M.getOrInsertComdat(GV->getName()));
   }
+
+  // HLSL Change Start
+  CGM.getHLSLRuntime().AddGlobalStringConstant(GV);
+  // HLSL CHange End
 
   return GV;
 }

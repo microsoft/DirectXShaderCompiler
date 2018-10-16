@@ -7650,6 +7650,8 @@ def warn_hlsl_effect_object : Warning <
 def warn_hlsl_unused_call : Warning<
   "ignoring return value of function that only reads data">,
   InGroup<UnusedValue>;
+def err_hlsl_string_not_global : Error<
+   "string declaration not supported here">;
 def err_hlsl_func_in_func_decl : Error<
    "function declaration is not allowed in function parameters">;
 def err_hlsl_unsupported_keyword_for_version : Error<
@@ -7675,6 +7677,8 @@ def err_hlsl_missing_patchconstantfunc_attr: Error<
    "HS entry point must have the patchconstantfunc attribute">;
 def err_hlsl_missing_inout_attr: Error<
    "stream-output object must be an inout parameter">;
+def err_hlsl_unsupported_string_decl: Error<
+   "%select{array|parameter}0 of type string is not supported">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

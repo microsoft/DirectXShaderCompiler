@@ -1071,6 +1071,20 @@ bool hlsl::TryParseAny(
   return false;
 }
 
+/// <summary>Parse string hlsl type</summary>
+_Use_decl_annotations_
+bool hlsl::TryParseString(
+  _In_count_(typenameLen)
+  const char* typeName,
+  size_t typeNameLen,
+  _In_ const clang::LangOptions& langOptions) {
+
+  if (typeNameLen == 6 && typeName[0] == 's' && strncmp(typeName, "string", 6) == 0) {
+    return true;
+  }
+  return false;
+}
+
 /// <summary>Parse any kind of dimension for vector or matrix (e.g 4,3 in int4x3).
 /// If it's a matrix type, rowCount and colCount will be nonzero. If it's a vector type, colCount is 0.
 /// Otherwise both rowCount and colCount is 0. Returns true if either matrix or vector dimensions detected. </summary>

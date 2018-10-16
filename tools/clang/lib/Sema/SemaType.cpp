@@ -1987,6 +1987,14 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
       return QualType();
     }
 
+    // HLSL Change Start
+    // no arrays of strings in HLSL
+    if (getLangOpts().HLSL && hlsl::IsStringType(T)) {
+      Diag(Loc, diag::err_hlsl_unsupported_string_decl) << 0;
+      return QualType();
+    }
+    // HLSL Change End
+
     if (RequireNonAbstractType(Brackets.getBegin(), T,
                                diag::err_array_of_abstract_type))
       return QualType();

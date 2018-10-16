@@ -833,7 +833,7 @@ StringLiteral *StringLiteral::Create(const ASTContext &C, StringRef Str,
                                      StringKind Kind, bool Pascal, QualType Ty,
                                      const SourceLocation *Loc,
                                      unsigned NumStrs) {
-  assert(C.getAsConstantArrayType(Ty) &&
+  assert(hlsl::IsStringLiteralType(Ty) &&
          "StringLiteral must be of constant array type!");
 
   // Allocate enough space for the StringLiteral plus an array of locations for

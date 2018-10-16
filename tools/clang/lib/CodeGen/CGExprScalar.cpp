@@ -254,6 +254,11 @@ public:
   Value *VisitCharacterLiteral(const CharacterLiteral *E) {
     return llvm::ConstantInt::get(ConvertType(E->getType()), E->getValue());
   }
+  // HLSL Change Start
+  Value *VisitStringLiteral(const StringLiteral *E) {
+    return CGF.CGM.GetConstantArrayFromStringLiteral(E);
+  }
+  // HLSL Change End
   Value *VisitObjCBoolLiteralExpr(const ObjCBoolLiteralExpr *E) {
     return llvm::ConstantInt::get(ConvertType(E->getType()), E->getValue());
   }

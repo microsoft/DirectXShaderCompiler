@@ -156,6 +156,10 @@ private:
   std::unordered_map<Value *, DebugLoc> debugInfoMap;
 
   DxilRootSignatureVersion  rootSigVer;
+
+  // Strings
+  std::vector<GlobalVariable *> globalStringsDecls;
+  std::vector<GlobalVariable *> globalStringsConstants;
   
   Value *EmitHLSLMatrixLoad(CGBuilderTy &Builder, Value *Ptr, QualType Ty);
   void EmitHLSLMatrixStore(CGBuilderTy &Builder, Value *Val, Value *DestPtr,
@@ -244,6 +248,10 @@ public:
   void SetPatchConstantFunctionWithAttr(
       const EntryFunctionInfo &EntryFunc,
       const clang::HLSLPatchConstantFuncAttr *PatchConstantFuncAttr);
+
+  void AddGlobalStringDecl(const clang::VarDecl *D, llvm::GlobalVariable *GV) override;
+  void AddGlobalStringConstant(llvm::GlobalVariable *GV) override;
+  
   void FinishCodeGen() override;
   bool IsTrivalInitListExpr(CodeGenFunction &CGF, InitListExpr *E) override;
   Value *EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E, Value *DestPtr) override;
@@ -1042,6 +1050,9 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     // Save result type info.
     AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize);
     // Resource don't count for cbuffer size.
+    return 0;
+  } else if (IsStringType(Ty)) {
+    // string won't be included in cbuffer
     return 0;
   } else {
     unsigned arraySize = 0;
@@ -4564,6 +4575,20 @@ static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
         GV->getType()->getPointerElementType());
     Builder.CreateMemCpy(NGV, GV, size, 1);
   }
+}
+
+void CGMSHLSLRuntime::AddGlobalStringDecl(const clang::VarDecl *D, llvm::GlobalVariable *GV) {
+  assert(hlsl::IsStringType(D->getType()) && "not a string type");
+  assert(D->getDeclContext()->isTranslationUnit() && "not a global");
+
+  globalStringsDecls.emplace_back(GV);
+}
+
+void CGMSHLSLRuntime::AddGlobalStringConstant(llvm::GlobalVariable *GV) {
+  assert(GV->getType()->isPointerTy() &&
+         GV->getType()->getPointerElementType()->isArrayTy() &&
+         GV->getType()->getPointerElementType()->getArrayElementType() == llvm::Type::getInt8Ty(Context) && "must be i8[]");
+  globalStringsConstants.emplace_back(GV);
 }
 
 void CGMSHLSLRuntime::FinishCodeGen() {
