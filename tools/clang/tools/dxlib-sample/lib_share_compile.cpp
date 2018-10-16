@@ -10,8 +10,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/HLSL/DxilContainer.h"
-#include "dxc/HLSL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/Support/Global.h"
 #include "dxc/dxcapi.h"
 

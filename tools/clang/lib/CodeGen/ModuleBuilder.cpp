@@ -25,7 +25,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include <memory>
-#include "dxc/HLSL/DxilMetadataHelper.h" // HLSL Change - dx source info
+#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
 using namespace clang;
 
 namespace {

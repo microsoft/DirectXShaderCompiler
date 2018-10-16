@@ -12,14 +12,14 @@
 #pragma once
 
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilMetadataHelper.h"
-#include "dxc/HLSL/DxilConstants.h"
+#include "dxc/DXIL/DxilMetadataHelper.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HLSL/HLResource.h"
 #include "dxc/HLSL/HLOperations.h"
-#include "dxc/HLSL/DxilSampler.h"
-#include "dxc/HLSL/DxilShaderModel.h"
-#include "dxc/HLSL/DxilSignature.h"
-#include "dxc/HLSL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilSampler.h"
+#include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilSignature.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
 #include <memory>
 #include <string>
 #include <vector>

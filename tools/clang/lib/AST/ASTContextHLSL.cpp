@@ -23,7 +23,7 @@
 #include "clang/Sema/Overload.h"
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/HLOperations.h"
-#include "dxc/HLSL/DxilSemantic.h"
+#include "dxc/DXIL/DxilSemantic.h"
 
 using namespace clang;
 using namespace hlsl;

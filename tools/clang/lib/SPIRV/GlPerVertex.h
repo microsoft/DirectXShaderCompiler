@@ -10,9 +10,9 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_GLPERVERTEX_H
 #define LLVM_CLANG_LIB_SPIRV_GLPERVERTEX_H
 
-#include "dxc/HLSL/DxilSemantic.h"
-#include "dxc/HLSL/DxilShaderModel.h"
-#include "dxc/HLSL/DxilSigPoint.h"
+#include "dxc/DXIL/DxilSemantic.h"
+#include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilSigPoint.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"

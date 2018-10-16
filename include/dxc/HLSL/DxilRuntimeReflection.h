@@ -10,7 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "DxilConstants.h"
+#include "dxc/DXIL/DxilConstants.h"
 
 namespace hlsl {
 namespace RDAT {

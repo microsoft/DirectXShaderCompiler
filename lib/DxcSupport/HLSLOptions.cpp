@@ -17,7 +17,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/dxcapi.use.h"
-#include "dxc/HLSL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 
 using namespace llvm::opt;
 using namespace dxc;

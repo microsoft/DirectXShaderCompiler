@@ -56,7 +56,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
-#include "dxc/HLSL/DxilUtil.h"  // HLSL Change - not sroa resource type.
+#include "dxc/DXIL/DxilUtil.h"  // HLSL Change - not sroa resource type.
 
 #if __cplusplus >= 201103L && !defined(NDEBUG)
 // We only use this for a debug check in C++11

@@ -26,9 +26,9 @@
 #include "llvm/Pass.h"
 #include <unordered_map>
 #include "dxc/HLSL/HLModule.h" // HLSL Change
-#include "dxc/HLSL/DxilModule.h" // HLSL Change
-#include "dxc/HLSL/DxilOperations.h" // HLSL Change
-#include "dxc/HLSL/DxilInstructions.h" // HLSL Change
+#include "dxc/DXIL/DxilModule.h" // HLSL Change
+#include "dxc/DXIL/DxilOperations.h" // HLSL Change
+#include "dxc/DXIL/DxilInstructions.h" // HLSL Change
 using namespace llvm;
 
 #define DEBUG_TYPE "globaldce"

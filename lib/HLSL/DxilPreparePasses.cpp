@@ -10,13 +10,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilOperations.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/HLOperations.h"
-#include "dxc/HLSL/DxilModule.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
-#include "dxc/HLSL/DxilUtil.h"
-#include "dxc/HLSL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
