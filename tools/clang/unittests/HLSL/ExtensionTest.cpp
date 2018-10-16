@@ -14,7 +14,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HLSL/HLOperationLowerExtension.h"
 #include "dxc/HlslIntrinsicOp.h"
-#include "dxc/HLSL/DxilOperations.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "llvm/Support/Regex.h"
 
 ///////////////////////////////////////////////////////////////////////////////

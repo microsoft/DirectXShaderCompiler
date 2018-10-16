@@ -17,10 +17,10 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLOperations.h"
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/Frontend/CodeGenOptions.h"
@@ -40,7 +40,7 @@
 #include <set>
 
 #include "dxc/HLSL/DxilRootSignature.h"
-#include "dxc/HLSL/DxilCBuffer.h"
+#include "dxc/DXIL/DxilCBuffer.h"
 #include "clang/Parse/ParseHLSL.h"      // root sig would be in Parser if part of lang
 #include "dxc/Support/WinIncludes.h"    // stream support
 #include "dxc/dxcapi.h"                 // stream support

@@ -10,7 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "dxc/HLSL/DxilOperations.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include <vector>
 #include <string>
 

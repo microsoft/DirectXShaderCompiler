@@ -21,8 +21,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
 
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/DxilOperations.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "llvm/Analysis/DxilConstantFolding.h"
 #include "llvm/Analysis/DxilSimplify.h"
 

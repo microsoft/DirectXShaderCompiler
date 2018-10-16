@@ -10,16 +10,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "HLSignatureLower.h"
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilSignatureElement.h"
-#include "dxc/HLSL/DxilSigPoint.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilSignatureElement.h"
+#include "dxc/DXIL/DxilSigPoint.h"
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
-#include "dxc/HLSL/DxilSemantic.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilSemantic.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HlslIntrinsicOp.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/DXIL/DxilUtil.h"
+#include "dxc/HLSL/DxilPackSignatureElement.h"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DebugInfo.h"
@@ -453,13 +454,13 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
   if (packing == DXIL::PackingStrategy::Default)
     packing = pSM->GetDefaultPackingStrategy();
 
-  EntrySig.InputSignature.PackElements(packing);
+  hlsl::PackDxilSignature(EntrySig.InputSignature, packing);
   if (!EntrySig.InputSignature.IsFullyAllocated()) {
     HLM.GetCtx().emitError(
         "Failed to allocate all input signature elements in available space.");
   }
 
-  EntrySig.OutputSignature.PackElements(packing);
+  hlsl::PackDxilSignature(EntrySig.OutputSignature, packing);
   if (!EntrySig.OutputSignature.IsFullyAllocated()) {
     HLM.GetCtx().emitError(
         "Failed to allocate all output signature elements in available space.");
@@ -467,7 +468,7 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
 
   if (props.shaderKind == DXIL::ShaderKind::Hull ||
       props.shaderKind == DXIL::ShaderKind::Domain) {
-    EntrySig.PatchConstantSignature.PackElements(packing);
+    hlsl::PackDxilSignature(EntrySig.PatchConstantSignature, packing);
     if (!EntrySig.PatchConstantSignature.IsFullyAllocated()) {
       HLM.GetCtx().emitError("Failed to allocate all patch constant signature "
                              "elements in available space.");

@@ -17,6 +17,7 @@ set(LLVM_LINK_COMPONENTS
 #  debuginfodwarf # no support for DWARF files (IR debug info is OK)
 #  debuginfopdb # no support for PDB files
   dxcsupport
+  dxil
   hlsl
   instcombine
   ipa

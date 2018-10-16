@@ -37,7 +37,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "gen_intrin_main_tables_15.h"
 #include "dxc/HLSL/HLOperations.h"
-#include "dxc/HLSL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 #include <array>
 #include <float.h>
 

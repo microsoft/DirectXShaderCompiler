@@ -34,7 +34,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include <deque>
-#include "dxc/HLSL/DxilOperations.h"   // HLSL Change
+#include "dxc/DXIL/DxilOperations.h"   // HLSL Change
 using namespace llvm;
 
 namespace {

@@ -45,7 +45,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "dxc/HLSL/DxilMetadataHelper.h" // HLSL Change - combine dxil metadata.
+#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - combine dxil metadata.
 using namespace llvm;
 
 #define DEBUG_TYPE "local"

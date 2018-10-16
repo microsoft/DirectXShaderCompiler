@@ -53,7 +53,7 @@
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "dxc/HLSL/DxilConstants.h"    // HLSL Change
+#include "dxc/DXIL/DxilConstants.h"    // HLSL Change
 
 using namespace clang;
 using namespace CodeGen;

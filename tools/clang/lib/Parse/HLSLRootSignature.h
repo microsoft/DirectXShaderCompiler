@@ -10,7 +10,8 @@
 
 #pragma once
 
-#include "dxc/HLSL/DXIL.h"
+#include "dxc/DXIL/DXIL.h"
+#include "dxc/HLSL/DxilRootSignature.h"
 
 namespace llvm {
 class raw_ostream;

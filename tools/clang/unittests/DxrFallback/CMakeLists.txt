@@ -6,6 +6,7 @@ set(LLVM_LINK_COMPONENTS
   core
   dxcsupport
   dxrfallback
+  dxil
   hlsl
   instcombine
   ipa

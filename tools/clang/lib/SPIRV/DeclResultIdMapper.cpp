@@ -14,8 +14,8 @@
 #include <sstream>
 #include <unordered_map>
 
-#include "dxc/HLSL/DxilConstants.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecursiveASTVisitor.h"

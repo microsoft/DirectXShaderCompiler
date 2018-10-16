@@ -16,6 +16,7 @@ set( LLVM_LINK_COMPONENTS
   analysis
   ipa
   dxcsupport
+  DXIL
   HLSL
   Option     # option library
   Support    # just for assert and raw streams

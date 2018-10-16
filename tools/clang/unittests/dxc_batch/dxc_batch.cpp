@@ -18,9 +18,9 @@
 #include <string>
 #include <vector>
 
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 #include "dxc/HLSL/DxilRootSignature.h"
-#include "dxc/HLSL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/dxcapi.use.h"

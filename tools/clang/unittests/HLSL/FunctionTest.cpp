@@ -20,7 +20,7 @@
 #include "HlslTestUtils.h"
 #include "DxcTestUtils.h"
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 
 #ifdef _WIN32
 class FunctionTest {

@@ -18,7 +18,7 @@
 #include "llvm/Support/GenericDomTree.h"
 #include "llvm/Support/raw_os_ostream.h"
 
-#include "dxc/HLSL/DxilConstants.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/HLModule.h"

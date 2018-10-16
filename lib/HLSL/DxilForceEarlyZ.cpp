@@ -10,7 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilModule.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/DxilPIXPasses.h"
 #include "llvm/IR/Module.h"
 

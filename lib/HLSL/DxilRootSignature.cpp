@@ -9,7 +9,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/DxilConstants.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HLSL/DxilRootSignature.h"
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/Support/Global.h"
