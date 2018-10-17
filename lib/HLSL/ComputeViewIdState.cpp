@@ -38,8 +38,8 @@ using std::unordered_map;
 
 #define DEBUG_TYPE "viewid"
 
-
-DxilViewIdState::DxilViewIdState(DxilModule *pDxilModule) : m_pModule(pDxilModule) {}
+DxilViewIdState::DxilViewIdState(DxilModule *pDxilModule)
+    : m_pModule(pDxilModule) {}
 unsigned DxilViewIdState::getNumInputSigScalars() const                   { return m_NumInputSigScalars; }
 unsigned DxilViewIdState::getNumOutputSigScalars(unsigned StreamId) const { return m_NumOutputSigScalars[StreamId]; }
 unsigned DxilViewIdState::getNumPCSigScalars() const                      { return m_NumPCSigScalars; }

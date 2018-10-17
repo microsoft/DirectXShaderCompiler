@@ -19,7 +19,10 @@
 #endif
 #include "dxillib.h"
 
-namespace hlsl { HRESULT SetupRegistryPassForHLSL(); }
+namespace hlsl {
+HRESULT SetupRegistryPassForHLSL();
+HRESULT SetupRegistryPassForPIX();
+} // namespace hlsl
 
 // C++ exception specification ignored except to indicate a function is not __declspec(nothrow)
 #pragma warning( disable : 4290 )
@@ -56,6 +59,7 @@ static HRESULT InitMaybeFail() throw() {
   }
   fsSetup = true;
   IFC(hlsl::SetupRegistryPassForHLSL());
+  IFC(hlsl::SetupRegistryPassForPIX());
   IFC(DxilLibInitialize());
   if (hlsl::options::initHlslOptTable()) {
     hr = E_FAIL;

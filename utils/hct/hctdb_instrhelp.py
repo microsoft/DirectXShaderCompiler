@@ -817,11 +817,15 @@ def get_instrs_rst():
             result += i.name + "\n" + ("~" * len(i.name)) + "\n\n" + i.remarks + "\n\n"
     return result + "\n"
 
-def get_init_passes():
+def get_init_passes(category_libs):
     "Create a series of statements to initialize passes in a registry."
     db = get_db_dxil()
     result = ""
     for p in sorted(db.passes, key=lambda p : p.type_name):
+        # Skip if not in target category.
+        if (p.category_lib not in category_libs):
+            continue
+
         result += "initialize%sPass(Registry);\n" % p.type_name
     return result
 
@@ -1139,16 +1143,17 @@ if __name__ == "__main__":
         pj = lambda *parts: os.path.abspath(os.path.join(*parts))
         files = [
             'docs/DXIL.rst',
-            'lib/HLSL/DXILOperations.cpp',
-            'include/dxc/HLSL/DXILConstants.h',
+            'lib/DXIL/DXILOperations.cpp',
+            'include/dxc/DXIL/DXILConstants.h',
             'include/dxc/HLSL/DxilValidation.h',
-            'include/dxc/HLSL/DxilInstructions.h',
+            'include/dxc/DXIL/DxilInstructions.h',
             'lib/HLSL/DxcOptimizer.cpp',
+            'lib/DxilPIXPasses/DxilPIXPasses.cpp',
             'lib/HLSL/DxilValidation.cpp',
             'tools/clang/lib/Sema/gen_intrin_main_tables_15.h',
             'include/dxc/HlslIntrinsicOp.h',
             'tools/clang/tools/dxcompiler/dxcdisassembler.cpp',
-            'include/dxc/HLSL/DxilSigPoint.inl',
+            'include/dxc/DXIL/DxilSigPoint.inl',
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))

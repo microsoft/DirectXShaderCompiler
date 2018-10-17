@@ -12,6 +12,8 @@
 #pragma once
 
 namespace llvm {
+class ModulePass;
+class PassRegistry;
 
 ModulePass *createDxilAddPixelHitInstrumentationPass();
 ModulePass *createDxilOutputColorBecomesConstantPass();

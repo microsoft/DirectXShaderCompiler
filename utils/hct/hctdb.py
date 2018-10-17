@@ -73,7 +73,7 @@ class db_dxil_inst(object):
             setattr(self, k, v)
         self.is_dxil_op = self.dxil_op != "" # whether this is a DXIL operation
         self.is_reserved = self.dxil_class == "Reserved"
-        self.shader_model_translated = None # minimum shader model required with translation by linker
+        self.shader_model_translated = () # minimum shader model required with translation by linker
 
     def __str__(self):
         return self.name
@@ -109,6 +109,7 @@ class db_dxil_pass(object):
         self.args = []              # modifiers for the option
         self.type_name = ""         # name of the class that implements the pass
         self.doc = ""               # documentation for the pass
+        self.category_lib = ""      # lib which pass belongs to
         for k,v in kwargs.items():
             setattr(self, k, v)
 
@@ -1403,12 +1404,15 @@ class db_dxil(object):
     def populate_passes(self):
         # Populate passes and their options.
         p = self.passes
+        category_lib = "set this before add_pass"
         def add_pass(name, type_name, doc, opts):
-            apass = db_dxil_pass(name, type_name=type_name, doc=doc)
+            apass = db_dxil_pass(name, type_name=type_name, doc=doc, category_lib=category_lib)
             for o in opts:
                 assert 'n' in o, "option in %s has no 'n' member" % name
                 apass.args.append(db_dxil_pass_arg(o['n'], ident=o.get('i'), type_name=o.get('t'), is_ctor_param=o.get('c'), doc=o.get('d')))
             p.append(apass)
+
+        category_lib = "llvm"
         # Add discriminators is a DWARF 4 thing, useful for the profiler.
         # Consider removing lib\Transforms\Utils\AddDiscriminators.cpp altogether
         add_pass("add-discriminators", "AddDiscriminators", "Add DWARF path discriminators",
@@ -1442,7 +1446,6 @@ class db_dxil(object):
         add_pass("scoped-noalias", "ScopedNoAliasAA", "Scoped NoAlias Alias Analysis", [
             {'n':"enable-scoped-noalias", 'i':'EnableScopedNoAlias', 't':'bool', 'd':'Use to disable scoped no-alias'}])
         add_pass("basicaa", "BasicAliasAnalysis", "Basic Alias Analysis (stateless AA impl)", [])
-        add_pass("reg2mem_hlsl", "RegToMemHlsl", "Demote values with phi-node usage to stack slots", [])
         add_pass("simplifycfg", "CFGSimplifyPass", "Simplify the CFG", [
             {'n':'Threshold', 't':'int', 'c':1},
             {'n':'Ftor', 't':'std::function<bool(const Function &)>', 'c':1},
@@ -1472,46 +1475,17 @@ class db_dxil(object):
         add_pass('rewrite-symbols', 'RewriteSymbols', 'Rewrite Symbols', [
             {'n':'DL', 't':'SymbolRewriter::RewriteDescriptorList', 'c':1},
             {'n':'rewrite-map-file', 'i':'RewriteMapFiles', 't':'string'}])
-        add_pass('hlsl-hlensure', 'HLEnsureMetadata', 'HLSL High-Level Metadata Ensure', [])
         add_pass('mergefunc', 'MergeFunctions', 'Merge Functions', [
             {'n':'mergefunc-sanity', 'i':'NumFunctionsForSanityCheck', 't':'unsigned', 'd':"How many functions in module could be used for MergeFunctions pass sanity check. '0' disables this check. Works only with '-debug' key."}])
         # Consider removing GlobalExtensions globals altogether.
         add_pass('barrier', 'BarrierNoop', 'A No-Op Barrier Pass', [])
-        add_pass('hlsl-hlemit', 'HLEmitMetadata', 'HLSL High-Level Metadata Emit.', [])
-        add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [])
-        add_pass('scalarreplhlsl', 'SROA_DT_HLSL', 'Scalar Replacement of Aggregates HLSL (DT)', [])
-        add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
-        add_pass('static-global-to-alloca', 'LowerStaticGlobalIntoAlloca', 'Lower static global into Alloca', [])
-        add_pass('hlmatrixlower', 'HLMatrixLowerPass', 'HLSL High-Level Matrix Lower', [])
-        add_pass('matrixbitcastlower', 'MatrixBitcastLowerPass', 'Matrix Bitcast lower', [])
         add_pass('dce', 'DCE', 'Dead Code Elimination', [])
         add_pass('die', 'DeadInstElimination', 'Dead Instruction Elimination', [])
         add_pass('globaldce', 'GlobalDCE', 'Dead Global Elimination', [])
-        add_pass('dynamic-vector-to-array', 'DynamicIndexingVectorToArray', 'Replace dynamic indexing vector with array', [
-            {'n':'ReplaceAllVectors','t':'bool','c':1}])
-        add_pass('hlsl-dxil-promote-local-resources', 'DxilPromoteLocalResources', 'DXIL promote local resource use', [])
-        add_pass('hlsl-dxil-promote-static-resources', 'DxilPromoteStaticResources', 'DXIL promote static resource use', [])
-        add_pass('hlsl-dxil-legalize-resources', 'DxilLegalizeResources', 'DXIL legalize resource use', [])
-        add_pass('hlsl-dxil-legalize-eval-operations', 'DxilLegalizeEvalOperations', 'DXIL legalize eval operations', [])
-        add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
-            {'n':'NotOptimized','t':'bool','c':1}])
-        add_pass('fail-undef-resource', 'FailUndefResource', 'Fail on undef resource use', [])
-        add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])
         add_pass('mem2reg', 'PromotePass', 'Promote Memory to Register', [])
-        add_pass('hlsl-dxil-precise', 'DxilPrecisePropagatePass', 'DXIL precise attribute propagate', [])
-        add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [])
         add_pass('scalarizer', 'Scalarizer', 'Scalarize vector operations', [])
-        add_pass('multi-dim-one-dim', 'MultiDimArrayToOneDimArray', 'Flatten multi-dim array into one-dim array', [])
-        add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [])
-        add_pass('hlsl-passes-nopause', 'NoPausePasses', 'Clears metadata used for pause and resume', [])
-        add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [])
-        add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [])
-        add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
-        add_pass('hlsl-dxil-lower-handle-for-lib', 'DxilLowerCreateHandleForLib', 'DXIL Lower createHandleForLib', [])
-        add_pass('hlsl-dxil-allocate-resources-for-lib', 'DxilAllocateResourcesForLib', 'DXIL Allocate Resources For Library', [])
-        add_pass('hlsl-dxil-convergent-mark', 'DxilConvergentMark', 'Mark convergent', [])
-        add_pass('hlsl-dxil-convergent-clear', 'DxilConvergentClear', 'Clear convergent before dxil emit', [])
-        add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
+
+        category_lib="pix"
         add_pass('hlsl-dxil-add-pixel-hit-instrmentation', 'DxilAddPixelHitInstrumentation', 'DXIL Count completed PS invocations and costs', [
             {'n':'force-early-z','t':'int','c':1},
             {'n':'add-pixel-cost','t':'int','c':1},
@@ -1535,6 +1509,41 @@ class db_dxil(object):
             {'n':'parameter1','t':'int','c':1},
             {'n':'parameter2','t':'int','c':1}])
         add_pass('hlsl-dxil-reduce-msaa-to-single', 'DxilReduceMSAAToSingleSample', 'HLSL DXIL Reduce all MSAA reads to single-sample reads', [])
+
+        category_lib="dxil_gen"
+
+        add_pass('hlsl-hlemit', 'HLEmitMetadata', 'HLSL High-Level Metadata Emit.', [])
+        add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [])
+        add_pass('scalarreplhlsl', 'SROA_DT_HLSL', 'Scalar Replacement of Aggregates HLSL (DT)', [])
+        add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
+        add_pass('static-global-to-alloca', 'LowerStaticGlobalIntoAlloca', 'Lower static global into Alloca', [])
+        add_pass('hlmatrixlower', 'HLMatrixLowerPass', 'HLSL High-Level Matrix Lower', [])
+        add_pass('matrixbitcastlower', 'MatrixBitcastLowerPass', 'Matrix Bitcast lower', [])
+        add_pass("reg2mem_hlsl", "RegToMemHlsl", "Demote values with phi-node usage to stack slots", [])
+        add_pass('dynamic-vector-to-array', 'DynamicIndexingVectorToArray', 'Replace dynamic indexing vector with array', [
+            {'n':'ReplaceAllVectors','t':'bool','c':1}])
+        add_pass('hlsl-dxil-promote-local-resources', 'DxilPromoteLocalResources', 'DXIL promote local resource use', [])
+        add_pass('hlsl-dxil-promote-static-resources', 'DxilPromoteStaticResources', 'DXIL promote static resource use', [])
+        add_pass('hlsl-dxil-legalize-resources', 'DxilLegalizeResources', 'DXIL legalize resource use', [])
+        add_pass('hlsl-dxil-legalize-eval-operations', 'DxilLegalizeEvalOperations', 'DXIL legalize eval operations', [])
+        add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
+            {'n':'NotOptimized','t':'bool','c':1}])
+        add_pass('fail-undef-resource', 'FailUndefResource', 'Fail on undef resource use', [])
+        add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])
+        add_pass('hlsl-dxil-precise', 'DxilPrecisePropagatePass', 'DXIL precise attribute propagate', [])
+        add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [])
+        add_pass('hlsl-hlensure', 'HLEnsureMetadata', 'HLSL High-Level Metadata Ensure', [])
+        add_pass('multi-dim-one-dim', 'MultiDimArrayToOneDimArray', 'Flatten multi-dim array into one-dim array', [])
+        add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [])
+        add_pass('hlsl-passes-nopause', 'NoPausePasses', 'Clears metadata used for pause and resume', [])
+        add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [])
+        add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [])
+        add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
+        add_pass('hlsl-dxil-lower-handle-for-lib', 'DxilLowerCreateHandleForLib', 'DXIL Lower createHandleForLib', [])
+        add_pass('hlsl-dxil-allocate-resources-for-lib', 'DxilAllocateResourcesForLib', 'DXIL Allocate Resources For Library', [])
+        add_pass('hlsl-dxil-convergent-mark', 'DxilConvergentMark', 'Mark convergent', [])
+        add_pass('hlsl-dxil-convergent-clear', 'DxilConvergentClear', 'Clear convergent before dxil emit', [])
+        add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
         add_pass('hlsl-dxilfinalize', 'DxilFinalizeModule', 'HLSL DXIL Finalize Module', [])
         add_pass('hlsl-dxilemit', 'DxilEmitMetadata', 'HLSL DXIL Metadata Emit', [])
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
@@ -1544,6 +1553,11 @@ class db_dxil(object):
         add_pass('hlsl-dxil-expand-trig', 'DxilExpandTrigIntrinsics', 'DXIL expand trig intrinsics', [])
         add_pass('hlsl-hca', 'HoistConstantArray', 'HLSL constant array hoisting', [])
         add_pass('hlsl-dxil-preserve-all-outputs', 'DxilPreserveAllOutputs', 'DXIL write to all outputs in signature', [])
+        add_pass('red', 'ReducibilityAnalysis', 'Reducibility Analysis', [])
+        add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [])
+        add_pass('hlsl-translate-dxil-opcode-version', 'DxilTranslateRawBuffer', 'Translates one version of dxil to another', [])
+
+        category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])
         add_pass('globalopt', 'GlobalOpt', 'Global Variable Optimizer', [])
         add_pass('deadargelim', 'DAE', 'Dead Argument Elimination', [])
@@ -1611,9 +1625,6 @@ class db_dxil(object):
         add_pass('constmerge', 'ConstantMerge', 'Merge Duplicate Global Constants', [])
         add_pass('lowerbitsets', 'LowerBitSets', 'Lower bitset metadata', [
             {'n':'lowerbitsets-avoid-reuse', 'i':'AvoidReuse', 't':'bool', 'd':'Try to avoid reuse of byte array addresses using aliases'}])
-        add_pass('red', 'ReducibilityAnalysis', 'Reducibility Analysis', [])
-        add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [])
-        add_pass('hlsl-translate-dxil-opcode-version', 'DxilTranslateRawBuffer', 'Translates one version of dxil to another', [])
         # TODO: turn STATISTICS macros into ETW events
         # assert no duplicate names
         self.pass_idx_args = set()

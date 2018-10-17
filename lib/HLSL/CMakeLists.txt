@@ -4,27 +4,20 @@ add_llvm_library(LLVMHLSL
   ComputeViewIdState.cpp
   ComputeViewIdStateBuilder.cpp
   ControlDependence.cpp
-  DxilAddPixelHitInstrumentation.cpp
   DxilCondenseResources.cpp
   DxilContainerAssembler.cpp
   DxilContainerReflection.cpp
   DxilConvergent.cpp
-  DxilDebugInstrumentation.cpp
   DxilEliminateOutputDynamicIndexing.cpp
   DxilExpandTrigIntrinsics.cpp
-  DxilForceEarlyZ.cpp
   DxilGenerationPass.cpp
   DxilLegalizeSampleOffsetPass.cpp
   DxilLinker.cpp
-  DxilOutputColorBecomesConstant.cpp
   DxilPreparePasses.cpp
-  DxilRemoveDiscards.cpp
-  DxilReduceMSAAToSingleSample.cpp
   DxilPackSignatureElement.cpp
   DxilPatchShaderRecordBindings.cpp
   DxilPreserveAllOutputs.cpp
   DxilRootSignature.cpp
-  DxilShaderAccessTracking.cpp
   DxilSignatureValidation.cpp
   DxilTargetLowering.cpp
   DxilTargetTransformInfo.cpp

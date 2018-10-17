@@ -48,7 +48,6 @@ class DxilFieldAnnotation;
 class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
 class RootSignatureHandle;
-class DxilViewIdState;
 struct DxilFunctionProps;
 
 /// Use this class to manipulate DXIL-spcific metadata.
@@ -353,8 +352,8 @@ public:
                                 uint32_t &autoBindingSpace);
 
   // ViewId state.
-  void EmitDxilViewIdState(DxilViewIdState &ViewIdState);
-  void LoadDxilViewIdState(DxilViewIdState &ViewIdState);
+  void EmitDxilViewIdState(std::vector<unsigned> &SerializedState);
+  void LoadDxilViewIdState(std::vector<unsigned> &SerializedState);
   // Control flow hints.
   static llvm::MDNode *EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints);
 

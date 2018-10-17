@@ -23,6 +23,7 @@ subdirectories =
  CodeGen
  DebugInfo
  DxcSupport
+ DxilPIXPasses
  ExecutionEngine
  Linker
  IR
@@ -41,7 +42,7 @@ subdirectories =
  DXIL
  DxrFallback
 
-; HLSL Change: remove LibDriver, LineEditor, add HLSL, add DxrtFallback, add DXIL
+; HLSL Change: remove LibDriver, LineEditor, add HLSL, add DxrtFallback, add DXIL, add DxilPIXPasses
 
 [component_0]
 type = Group
