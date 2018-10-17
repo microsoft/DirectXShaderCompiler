@@ -13,6 +13,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilModule.h"
 
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"

@@ -26,6 +26,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Format.h"
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/DXIL/DxilContainer.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxcutil.h"
@@ -509,7 +510,10 @@ void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
     return;
 
   const ShaderModel *pSM = M.GetShaderModel();
-  DxilViewIdState &VID = M.GetViewIdState();
+
+  DxilViewIdState VID(&M);
+  auto &SerializedVID = M.GetSerializedViewIdState();
+  VID.Deserialize(SerializedVID.data(), SerializedVID.size());
   OS << comment << "\n";
   OS << comment << " ViewId state:\n";
   OS << comment << "\n";

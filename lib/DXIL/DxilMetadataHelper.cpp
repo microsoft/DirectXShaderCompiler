@@ -1273,8 +1273,8 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
   return MDTuple::get(m_Ctx, ArrayRef<llvm::Metadata *>(MDVals, valIdx));
 }
 
-void DxilMDHelper::EmitDxilViewIdState(DxilViewIdState &ViewIdState) {
-  const vector<unsigned> &Data = ViewIdState.GetSerialized();
+void DxilMDHelper::EmitDxilViewIdState(std::vector<unsigned> &SerializedState) {
+  const vector<unsigned> &Data = SerializedState;
   // If all UINTs are zero, do not emit ViewIdState.
   if (!std::any_of(Data.begin(), Data.end(), [](unsigned e){return e!=0;}))
     return;
@@ -1286,7 +1286,7 @@ void DxilMDHelper::EmitDxilViewIdState(DxilViewIdState &ViewIdState) {
   pViewIdNamedMD->addOperand(MDNode::get(m_Ctx, {ConstantAsMetadata::get(V)}));
 }
 
-void DxilMDHelper::LoadDxilViewIdState(DxilViewIdState &ViewIdState) {
+void DxilMDHelper::LoadDxilViewIdState(std::vector<unsigned> &SerializedState) {
   NamedMDNode *pViewIdStateNamedMD = m_pModule->getNamedMetadata(kDxilViewIdStateMDName);
   if(!pViewIdStateNamedMD)
     return;
@@ -1307,8 +1307,11 @@ void DxilMDHelper::LoadDxilViewIdState(DxilViewIdState &ViewIdState) {
   IFTBOOL(pData->getRawDataValues().size() < UINT_MAX && 
           (pData->getRawDataValues().size() & 3) == 0, DXC_E_INCORRECT_DXIL_METADATA);
 
-  ViewIdState.Deserialize((const unsigned *)pData->getRawDataValues().begin(),
-                          (unsigned)pData->getRawDataValues().size() / 4);
+  SerializedState.clear();
+  unsigned size = (unsigned)pData->getRawDataValues().size() / 4;
+  SerializedState.resize(size);
+  const unsigned *Ptr = (const unsigned *)pData->getRawDataValues().begin();
+  memcpy(SerializedState.data(), Ptr, size * sizeof(unsigned));
 }
 
 MDNode *DxilMDHelper::EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints) {

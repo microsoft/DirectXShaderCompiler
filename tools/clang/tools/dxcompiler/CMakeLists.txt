@@ -18,6 +18,7 @@ set(LLVM_LINK_COMPONENTS
 #  debuginfopdb # no support for PDB files
   dxcsupport
   dxil
+  dxilpixpasses # for DxcOptimizerPass
   hlsl
   instcombine
   ipa

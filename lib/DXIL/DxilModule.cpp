@@ -29,6 +29,7 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/STLExtras.h"
 #include <unordered_set>
 
 using namespace llvm;
@@ -95,7 +96,6 @@ DxilModule::DxilModule(Module *pModule)
 , m_ValMinor(0)
 , m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
 , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
-, m_pViewIdState(llvm::make_unique<DxilViewIdState>(this))
 , m_bDisableOptimizations(false)
 , m_bUseMinPrecision(true) // use min precision by default
 , m_bAllResourcesBound(false)
@@ -1054,11 +1054,11 @@ DxilTypeSystem &DxilModule::GetTypeSystem() {
   return *m_pTypeSystem;
 }
 
-DxilViewIdState &DxilModule::GetViewIdState() {
-  return *m_pViewIdState;
+std::vector<unsigned> &DxilModule::GetSerializedViewIdState() {
+  return m_SerializedState;
 }
-const DxilViewIdState &DxilModule::GetViewIdState() const {
-  return *m_pViewIdState;
+const std::vector<unsigned> &DxilModule::GetSerializedViewIdState() const {
+  return m_SerializedState;
 }
 
 void DxilModule::ResetTypeSystem(DxilTypeSystem *pValue) {
@@ -1183,7 +1183,7 @@ void DxilModule::EmitDxilMetadata() {
   if (!m_pSM->IsLib() && !m_pSM->IsCS() &&
       ((m_ValMajor == 0 &&  m_ValMinor == 0) ||
        (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1)))) {
-    m_pMDHelper->EmitDxilViewIdState(GetViewIdState());
+    m_pMDHelper->EmitDxilViewIdState(m_SerializedState);
   }
   EmitLLVMUsed();
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
@@ -1320,7 +1320,7 @@ void DxilModule::LoadDxilMetadata() {
 
   m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
 
-  m_pMDHelper->LoadDxilViewIdState(*m_pViewIdState.get());
+  m_pMDHelper->LoadDxilViewIdState(m_SerializedState);
 }
 
 MDTuple *DxilModule::EmitDxilResources() {

@@ -14,7 +14,7 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
-#include "dxc/HLSL/DxilPIXPasses.h"
+#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DXIL/DxilUtil.h"
 
 #include "llvm/IR/PassManager.h"

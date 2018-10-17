@@ -15,6 +15,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MD5.h"
+#include "llvm/ADT/STLExtras.h"
 #include "dxc/DXIL/DxilContainer.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilShaderModel.h"
@@ -692,7 +693,7 @@ public:
       }
 
       // Gather ViewID dependency information
-      auto &viewState = m_Module.GetViewIdState().GetSerialized();
+      auto &viewState = m_Module.GetSerializedViewIdState();
       if (!viewState.empty()) {
         const uint32_t *pSrc = viewState.data();
         const uint32_t InputScalars = *(pSrc++);

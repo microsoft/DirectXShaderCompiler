@@ -19,7 +19,6 @@
 #include "dxc/DXIL/DxilSignature.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
-#include "dxc/HLSL/ComputeViewIdState.h"
 
 #include <memory>
 #include <string>
@@ -161,8 +160,8 @@ public:
   void ClearLLVMUsed();
 
   // ViewId state.
-  DxilViewIdState &GetViewIdState();
-  const DxilViewIdState &GetViewIdState() const;
+  std::vector<unsigned> &GetSerializedViewIdState();
+  const std::vector<unsigned> &GetSerializedViewIdState() const;
 
   // DXIL metadata manipulation.
   /// Clear all DXIL data that exists in in-memory form.
@@ -312,8 +311,8 @@ private:
   // Keeps track of patch constant functions used by hull shaders
   std::unordered_set<const llvm::Function *>  m_PatchConstantFunctions;
 
-  // ViewId state.
-  std::unique_ptr<DxilViewIdState> m_pViewIdState;
+  // Serialized ViewId state.
+  std::vector<unsigned> m_SerializedState;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();
