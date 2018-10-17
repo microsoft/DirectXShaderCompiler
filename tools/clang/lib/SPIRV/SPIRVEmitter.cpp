@@ -15,6 +15,7 @@
 
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
+#include "clang/SPIRV/AstTypeProbe.h"
 #include "llvm/ADT/StringExtras.h"
 
 #include "InitListHandler.h"
@@ -54,8 +55,7 @@ bool patchConstFuncTakesHullOutputPatch(FunctionDecl *pcf) {
 /// Returns true if the given type is a bool or vector of bool type.
 bool isBoolOrVecOfBoolType(QualType type) {
   QualType elemType = {};
-  return (TypeTranslator::isScalarType(type, &elemType) ||
-          TypeTranslator::isVectorType(type, &elemType)) &&
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
          elemType->isBooleanType();
 }
 
@@ -63,8 +63,7 @@ bool isBoolOrVecOfBoolType(QualType type) {
 /// integer type.
 bool isSintOrVecOfSintType(QualType type) {
   QualType elemType = {};
-  return (TypeTranslator::isScalarType(type, &elemType) ||
-          TypeTranslator::isVectorType(type, &elemType)) &&
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
          elemType->isSignedIntegerType();
 }
 
@@ -72,16 +71,14 @@ bool isSintOrVecOfSintType(QualType type) {
 /// integer type.
 bool isUintOrVecOfUintType(QualType type) {
   QualType elemType = {};
-  return (TypeTranslator::isScalarType(type, &elemType) ||
-          TypeTranslator::isVectorType(type, &elemType)) &&
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
          elemType->isUnsignedIntegerType();
 }
 
 /// Returns true if the given type is a float or vector of float type.
 bool isFloatOrVecOfFloatType(QualType type) {
   QualType elemType = {};
-  return (TypeTranslator::isScalarType(type, &elemType) ||
-          TypeTranslator::isVectorType(type, &elemType)) &&
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
          elemType->isFloatingType();
 }
 
@@ -961,8 +958,7 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
       const auto exprType = expr->getType();
       QualType uintType = astContext.UnsignedIntTy;
       QualType boolType = astContext.BoolTy;
-      if (TypeTranslator::isScalarType(exprType) ||
-          TypeTranslator::isVectorType(exprType, nullptr, &vecSize)) {
+      if (isScalarType(exprType) || isVectorType(exprType, nullptr, &vecSize)) {
         const auto fromType =
             vecSize == 1 ? uintType
                          : astContext.getExtVectorType(uintType, vecSize);
@@ -971,8 +967,7 @@ SpirvEvalInfo SPIRVEmitter::loadIfGLValue(const Expr *expr,
                          : astContext.getExtVectorType(boolType, vecSize);
         loadedId = castToBool(loadedId, fromType, toType);
       } else {
-        const bool isMat =
-            TypeTranslator::isMxNMatrix(exprType, nullptr, &numRows, &numCols);
+        const bool isMat = isMxNMatrix(exprType, nullptr, &numRows, &numCols);
         assert(isMat);
         (void)isMat;
         const auto uintRowQualType =
@@ -1208,8 +1203,7 @@ bool SPIRVEmitter::validateVKAttributes(const NamedDecl *decl) {
     const auto elementType =
         hlsl::GetHLSLResourceResultType(cast<VarDecl>(decl)->getType());
 
-    if (!TypeTranslator::isScalarType(elementType) &&
-        !TypeTranslator::isVectorType(elementType)) {
+    if (!isScalarType(elementType) && !isVectorType(elementType)) {
       emitError(
           "only scalar/vector types allowed as SubpassInput(MS) parameter type",
           decl->getLocation());
@@ -2095,10 +2089,9 @@ SpirvEvalInfo SPIRVEmitter::processCall(const CallExpr *callExpr) {
           objectEvalInfo.getStorageClass() != spv::StorageClass::Function;
 
       if (needsTempVar) {
-        objectId =
-            createTemporaryVar(objectType, TypeTranslator::getName(objectType),
-                               // May need to load to use as initializer
-                               loadIfGLValue(object, objectEvalInfo));
+        objectId = createTemporaryVar(objectType, getAstTypeName(objectType),
+                                      // May need to load to use as initializer
+                                      loadIfGLValue(object, objectEvalInfo));
       }
 
       args.push_back(objectId);
@@ -2302,7 +2295,7 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   case CastKind::CK_HLSLVectorToMatrixCast: {
     // If target type is already an 1xN matrix type, we just return the
     // underlying vector.
-    if (TypeTranslator::is1xNMatrix(toType))
+    if (is1xNMatrix(toType))
       return doExpr(subExpr);
 
     // A vector can have no more than 4 elements. The only remaining case
@@ -2312,8 +2305,7 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
 
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
-    const bool isMat =
-        TypeTranslator::isMxNMatrix(toType, &elemType, &rowCount, &colCount);
+    const bool isMat = isMxNMatrix(toType, &elemType, &rowCount, &colCount);
 
     assert(isMat && rowCount == 2 && colCount == 2);
     (void)isMat;
@@ -2370,8 +2362,8 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     // The front-end disallows float1x3 --> float2x1.
     {
       uint32_t srcVecSize = 0, dstVecSize = 0;
-      if (TypeTranslator::isVectorType(srcType, nullptr, &srcVecSize) &&
-          TypeTranslator::isVectorType(toType, nullptr, &dstVecSize)) {
+      if (isVectorType(srcType, nullptr, &srcVecSize) &&
+          isVectorType(toType, nullptr, &dstVecSize)) {
         for (uint32_t i = 0; i < dstVecSize; ++i)
           indexes.push_back(i);
         const auto valId =
@@ -2416,13 +2408,12 @@ SpirvEvalInfo SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   }
   case CastKind::CK_HLSLMatrixToScalarCast: {
     // The underlying should already be a matrix of 1x1.
-    assert(TypeTranslator::is1x1Matrix(subExprType));
+    assert(is1x1Matrix(subExprType));
     return doExpr(subExpr);
   }
   case CastKind::CK_HLSLMatrixToVectorCast: {
     // The underlying should already be a matrix of 1xN.
-    assert(TypeTranslator::is1xNMatrix(subExprType) ||
-           TypeTranslator::isMx1Matrix(subExprType));
+    assert(is1xNMatrix(subExprType) || isMx1Matrix(subExprType));
     return doExpr(subExpr);
   }
   case CastKind::CK_FunctionToPointerDecay:
@@ -2515,7 +2506,7 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
   // Primitive types
   {
     QualType ty = {};
-    if (TypeTranslator::isScalarType(type, &ty)) {
+    if (isScalarType(type, &ty)) {
       if (const auto *builtinType = ty->getAs<BuiltinType>()) {
         switch (builtinType->getKind()) {
         case BuiltinType::Void: {
@@ -2557,7 +2548,7 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
   {
     QualType elemType = {};
     uint32_t elemCount = {};
-    if (TypeTranslator::isVectorType(type, &elemType, &elemCount)) {
+    if (isVectorType(type, &elemType, &elemCount)) {
       const uint32_t elemId =
           processFlatConversion(elemType, initType, initId, srcLoc);
       llvm::SmallVector<uint32_t, 4> constituents(size_t(elemCount), elemId);
@@ -2570,7 +2561,7 @@ uint32_t SPIRVEmitter::processFlatConversion(const QualType type,
   {
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
-    if (TypeTranslator::isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
       // By default HLSL matrices are row major, while SPIR-V matrices are
       // column major. We are mapping what HLSL semantically mean a row into a
       // column here.
@@ -2701,14 +2692,13 @@ SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   // For cases where the return type is a scalar or a vector, we can use
   // OpSelect to choose between the two. OpSelect's return type must be either
   // scalar or vector.
-  if (TypeTranslator::isScalarType(type) ||
-      TypeTranslator::isVectorType(type)) {
+  if (isScalarType(type) || isVectorType(type)) {
     // The SPIR-V OpSelect instruction must have a selection argument that is
     // the same size as the return type. If the return type is a vector, the
     // selection must be a vector of booleans (one per output component).
     uint32_t count = 0;
-    if (TypeTranslator::isVectorType(expr->getType(), nullptr, &count) &&
-        !TypeTranslator::isVectorType(expr->getCond()->getType())) {
+    if (isVectorType(expr->getType(), nullptr, &count) &&
+        !isVectorType(expr->getCond()->getType())) {
       const uint32_t condVecType =
           theBuilder.getVecType(theBuilder.getBoolType(), count);
       const llvm::SmallVector<uint32_t, 4> components(size_t(count), condition);
@@ -3223,7 +3213,7 @@ SpirvEvalInfo SPIRVEmitter::processBufferTextureLoad(
   bool isTemplateOverStruct = false;
 
   // Check whether the template type is a vector type or struct type.
-  if (!TypeTranslator::isVectorType(sampledType, &elemType, &elemCount)) {
+  if (!isVectorType(sampledType, &elemType, &elemCount)) {
     if (sampledType->getAsStructureType()) {
       isTemplateOverStruct = true;
       // For struct type, we need to make sure it can fit into a 4-component
@@ -3995,11 +3985,10 @@ uint32_t SPIRVEmitter::createImageSample(
   QualType elemType = {};
   uint32_t elemTypeId = 0;
   uint32_t retVecSize = 0;
-  if (TypeTranslator::isVectorType(retType, &elemType, &retVecSize) &&
-      retVecSize != 4) {
+  if (isVectorType(retType, &elemType, &retVecSize) && retVecSize != 4) {
     elemTypeId = typeTranslator.translateType(elemType);
     texelTypeId = theBuilder.getVecType(elemTypeId, 4);
-  } else if (TypeTranslator::isScalarType(retType)) {
+  } else if (isScalarType(retType)) {
     retVecSize = 1;
     elemTypeId = typeTranslator.translateType(retType);
     texelTypeId = theBuilder.getVecType(elemTypeId, 4);
@@ -4710,7 +4699,7 @@ SpirvEvalInfo SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
                              ? getMatElemValueOne(subType)
                              : getValueOne(subType);
     uint32_t incValue = 0;
-    if (TypeTranslator::isMxNMatrix(subType)) {
+    if (isMxNMatrix(subType)) {
       // For matrices, we can only increment/decrement each vector of it.
       const auto actOnEachVec = [this, spvOp, one](uint32_t /*index*/,
                                                    uint32_t vecType,
@@ -4919,12 +4908,11 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     lhsValType = refType->getPointeeType();
 
   QualType matElemType = {};
-  const bool lhsIsMat = typeTranslator.isMxNMatrix(lhsValType, &matElemType);
+  const bool lhsIsMat = isMxNMatrix(lhsValType, &matElemType);
   const bool lhsIsFloatMat = lhsIsMat && matElemType->isFloatingType();
   const bool lhsIsNonFpMat = lhsIsMat && !matElemType->isFloatingType();
 
-  if (typeTranslator.isScalarType(lhsValType) ||
-      typeTranslator.isVectorType(lhsValType) || lhsIsFloatMat) {
+  if (isScalarType(lhsValType) || isVectorType(lhsValType) || lhsIsFloatMat) {
     uint32_t rhsValId = rhsVal;
 
     // Special-case: According to the SPIR-V Spec: There is no physical size
@@ -4934,8 +4922,7 @@ void SPIRVEmitter::storeValue(const SpirvEvalInfo &lhsPtr,
     if (isBoolOrVecOfBoolType(lhsValType) &&
         lhsPtr.getLayoutRule() != SpirvLayoutRule::Void) {
       uint32_t vecSize = 1;
-      const bool isVec =
-          TypeTranslator::isVectorType(lhsValType, nullptr, &vecSize);
+      const bool isVec = isVectorType(lhsValType, nullptr, &vecSize);
       const auto toType =
           isVec ? astContext.getExtVectorType(astContext.UnsignedIntTy, vecSize)
                 : astContext.UnsignedIntTy;
@@ -5049,7 +5036,7 @@ uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
       return val;
 
     uint32_t vecSize = 1;
-    TypeTranslator::isVectorType(valType, nullptr, &vecSize);
+    isVectorType(valType, nullptr, &vecSize);
     QualType boolType =
         vecSize == 1 ? astContext.BoolTy
                      : astContext.getExtVectorType(astContext.BoolTy, vecSize);
@@ -5095,7 +5082,7 @@ uint32_t SPIRVEmitter::reconstructValue(const SpirvEvalInfo &srcVal,
   QualType matElemType = {};
   uint32_t numRows = 0, numCols = 0;
   const bool isNonFpMat =
-      typeTranslator.isMxNMatrix(valType, &matElemType, &numRows, &numCols) &&
+      isMxNMatrix(valType, &matElemType, &numRows, &numCols) &&
       !matElemType->isFloatingType();
 
   if (isNonFpMat) {
@@ -5158,8 +5145,7 @@ SpirvEvalInfo SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   // If the operands are of matrix type, we need to dispatch the operation
   // onto each element vector iff the operands are not degenerated matrices
   // and we don't have a matrix specific SPIR-V instruction for the operation.
-  if (!isSpirvMatrixOp(mandateGenOpcode) &&
-      TypeTranslator::isMxNMatrix(lhsType)) {
+  if (!isSpirvMatrixOp(mandateGenOpcode) && isMxNMatrix(lhsType)) {
     return processMatrixBinaryOp(lhs, rhs, opcode, sourceRange);
   }
 
@@ -5545,11 +5531,10 @@ uint32_t SPIRVEmitter::convertVectorToStruct(QualType structType,
   llvm::SmallVector<uint32_t, 4> members;
 
   for (const auto *field : structDecl->fields()) {
-    if (TypeTranslator::isScalarType(field->getType())) {
+    if (isScalarType(field->getType())) {
       members.push_back(theBuilder.createCompositeExtract(elemTypeId, vector,
                                                           {vectorIndex++}));
-    } else if (TypeTranslator::isVectorType(field->getType(), nullptr,
-                                            &elemCount)) {
+    } else if (isVectorType(field->getType(), nullptr, &elemCount)) {
       llvm::SmallVector<uint32_t, 4> indices;
       for (uint32_t i = 0; i < elemCount; ++i)
         indices.push_back(vectorIndex++);
@@ -5575,8 +5560,7 @@ SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
   // We can only translate floatN * float into OpVectorTimesScalar.
   // So the result type must be floatN. Note that float1 is not a valid vector
   // in SPIR-V.
-  if (!(TypeTranslator::isVectorType(type, &elemType) &&
-        elemType->isFloatingType()))
+  if (!(isVectorType(type, &elemType) && elemType->isFloatingType()))
     return 0;
 
   const Expr *lhs = expr->getLHS();
@@ -5634,8 +5618,7 @@ SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
   // OpVectorTimesScalar.
   // So the result type can be floatMxN, floatMx1, or float1xN.
   if (!hlsl::IsHLSLMatType(type) ||
-      !hlsl::GetHLSLMatElementType(type)->isFloatingType() ||
-      TypeTranslator::is1x1Matrix(type))
+      !hlsl::GetHLSLMatElementType(type)->isFloatingType() || is1x1Matrix(type))
     return 0;
 
   const Expr *lhs = expr->getLHS();
@@ -5644,9 +5627,8 @@ SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
   const QualType rhsType = rhs->getType();
 
   const auto selectOpcode = [](const QualType ty) {
-    return TypeTranslator::isMx1Matrix(ty) || TypeTranslator::is1xNMatrix(ty)
-               ? spv::Op::OpVectorTimesScalar
-               : spv::Op::OpMatrixTimesScalar;
+    return isMx1Matrix(ty) || is1xNMatrix(ty) ? spv::Op::OpVectorTimesScalar
+                                              : spv::Op::OpMatrixTimesScalar;
   };
 
   // Multiplying a float matrix with a float scalar will be represented in
@@ -5893,7 +5875,7 @@ SpirvEvalInfo SPIRVEmitter::processEachVectorInMatrix(
     llvm::function_ref<uint32_t(uint32_t, uint32_t, uint32_t)>
         actOnEachVector) {
   const auto matType = matrix->getType();
-  assert(TypeTranslator::isMxNMatrix(matType));
+  assert(isMxNMatrix(matType));
   const uint32_t vecType = typeTranslator.getComponentVectorType(matType);
 
   uint32_t rowCount = 0, colCount = 0;
@@ -5984,7 +5966,7 @@ SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
                                     SourceRange range) {
   // TODO: some code are duplicated from processBinaryOp. Try to unify them.
   const auto lhsType = lhs->getType();
-  assert(TypeTranslator::isMxNMatrix(lhsType));
+  assert(isMxNMatrix(lhsType));
   const spv::Op spvOp = translateOp(opcode, lhsType);
 
   uint32_t rhsVal, lhsPtr, lhsVal;
@@ -6118,8 +6100,7 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
 
       if ((hlsl::IsHLSLVecType(thisBaseType) &&
            (hlsl::GetHLSLVecSize(thisBaseType) == 1)) ||
-          typeTranslator.is1x1Matrix(thisBaseType) ||
-          typeTranslator.is1xNMatrix(thisBaseType)) {
+          is1x1Matrix(thisBaseType) || is1xNMatrix(thisBaseType)) {
         // If this is a size-1 vector or 1xN matrix, ignore the index.
       } else {
         indices->push_back(doExpr(indexing->getArg(1)));
@@ -6154,7 +6135,7 @@ SpirvEvalInfo &SPIRVEmitter::turnIntoElementPtr(
   const bool needTempVar = base.isRValue();
 
   if (needTempVar) {
-    auto varName = TypeTranslator::getName(baseType);
+    auto varName = getAstTypeName(baseType);
     const auto var = createTemporaryVar(baseType, varName, base);
     base.setResultId(var)
         .setLayoutRule(SpirvLayoutRule::Void)
@@ -6193,8 +6174,7 @@ uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
   { // Special case handling for converting to a matrix of booleans.
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
-    if (TypeTranslator::isMxNMatrix(fromType, &elemType, &rowCount,
-                                    &colCount)) {
+    if (isMxNMatrix(fromType, &elemType, &rowCount, &colCount)) {
       const auto fromRowQualType =
           astContext.getExtVectorType(elemType, colCount);
       const auto fromRowQualTypeId =
@@ -6255,12 +6235,12 @@ uint32_t SPIRVEmitter::castToInt(uint32_t fromVal, QualType fromType,
   {
     QualType elemType = {};
     uint32_t numRows = 0, numCols = 0;
-    if (TypeTranslator::isMxNMatrix(fromType, &elemType, &numRows, &numCols)) {
+    if (isMxNMatrix(fromType, &elemType, &numRows, &numCols)) {
       // The source matrix and the target matrix must have the same dimensions.
       QualType toElemType = {};
       uint32_t toNumRows = 0, toNumCols = 0;
-      const bool isMat = TypeTranslator::isMxNMatrix(toIntType, &toElemType,
-                                                     &toNumRows, &toNumCols);
+      const bool isMat =
+          isMxNMatrix(toIntType, &toElemType, &toNumRows, &toNumCols);
       assert(isMat && numRows == toNumRows && numCols == toNumCols);
       (void)isMat;
       (void)toNumRows;
@@ -6356,12 +6336,12 @@ uint32_t SPIRVEmitter::castToFloat(uint32_t fromVal, QualType fromType,
   {
     QualType elemType = {};
     uint32_t numRows = 0, numCols = 0;
-    if (TypeTranslator::isMxNMatrix(fromType, &elemType, &numRows, &numCols)) {
+    if (isMxNMatrix(fromType, &elemType, &numRows, &numCols)) {
       // The source matrix and the target matrix must have the same dimensions.
       QualType toElemType = {};
       uint32_t toNumRows = 0, toNumCols = 0;
-      const auto isMat = TypeTranslator::isMxNMatrix(toFloatType, &toElemType,
-                                                     &toNumRows, &toNumCols);
+      const auto isMat =
+          isMxNMatrix(toFloatType, &toElemType, &toNumRows, &toNumCols);
       assert(isMat && numRows == toNumRows && numCols == toNumCols);
       (void)isMat;
       (void)toNumRows;
@@ -6852,8 +6832,8 @@ SPIRVEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
         // OpImageTexelPointer's Image argument must have a type of
         // OpTypePointer with Type OpTypeImage. Need to create a temporary
         // variable if the baseId is an rvalue.
-        baseId = createTemporaryVar(
-            base->getType(), TypeTranslator::getName(base->getType()), baseId);
+        baseId = createTemporaryVar(base->getType(),
+                                    getAstTypeName(base->getType()), baseId);
       }
       const auto coordId = doExpr(index);
       ptr = theBuilder.createImageTexelPointer(ptrType, baseId, coordId, zero);
@@ -7361,8 +7341,7 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
 
   // For scalar and vector argument types.
   {
-    if (TypeTranslator::isScalarType(argType) ||
-        TypeTranslator::isVectorType(argType)) {
+    if (isScalarType(argType) || isVectorType(argType)) {
       const auto argTypeId = typeTranslator.translateType(argType);
       // The struct members *must* have the same type.
       const auto modfStructTypeId = theBuilder.getStructType(
@@ -7383,7 +7362,7 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
   {
     uint32_t rowCount = 0, colCount = 0;
     QualType elemType = {};
-    if (TypeTranslator::isMxNMatrix(argType, &elemType, &rowCount, &colCount)) {
+    if (isMxNMatrix(argType, &elemType, &rowCount, &colCount)) {
       const auto elemTypeId = typeTranslator.translateType(elemType);
       const auto colTypeId = theBuilder.getVecType(elemTypeId, colCount);
       const auto modfStructTypeId = theBuilder.getStructType(
@@ -7478,8 +7457,7 @@ uint32_t SPIRVEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
   // For scalar and vector argument types.
   {
     uint32_t elemCount = 1;
-    if (TypeTranslator::isScalarType(argType) ||
-        TypeTranslator::isVectorType(argType, nullptr, &elemCount)) {
+    if (isScalarType(argType) || isVectorType(argType, nullptr, &elemCount)) {
       const auto argTypeId = typeTranslator.translateType(argType);
       const auto expTypeId =
           elemCount == 1 ? intId : theBuilder.getVecType(intId, elemCount);
@@ -7504,7 +7482,7 @@ uint32_t SPIRVEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
   // For matrix argument types.
   {
     uint32_t rowCount = 0, colCount = 0;
-    if (TypeTranslator::isMxNMatrix(argType, nullptr, &rowCount, &colCount)) {
+    if (isMxNMatrix(argType, nullptr, &rowCount, &colCount)) {
       const auto floatId = theBuilder.getFloat32Type();
       const auto expTypeId = theBuilder.getVecType(intId, colCount);
       const auto colTypeId = theBuilder.getVecType(floatId, colCount);
@@ -7555,8 +7533,7 @@ uint32_t SPIRVEmitter::processIntrinsicLdexp(const CallExpr *callExpr) {
   const uint32_t expId = doExpr(callExpr->getArg(1));
 
   // For scalar and vector argument types.
-  if (TypeTranslator::isScalarType(paramType) ||
-      TypeTranslator::isVectorType(paramType)) {
+  if (isScalarType(paramType) || isVectorType(paramType)) {
     const auto paramTypeId = typeTranslator.translateType(paramType);
     const auto twoExp = theBuilder.createExtInst(
         paramTypeId, glsl, GLSLstd450::GLSLstd450Exp2, {expId});
@@ -7566,7 +7543,7 @@ uint32_t SPIRVEmitter::processIntrinsicLdexp(const CallExpr *callExpr) {
   // For matrix argument types.
   {
     uint32_t rowCount = 0, colCount = 0;
-    if (TypeTranslator::isMxNMatrix(paramType, nullptr, &rowCount, &colCount)) {
+    if (isMxNMatrix(paramType, nullptr, &rowCount, &colCount)) {
       const auto actOnEachVec = [this, glsl, expId](uint32_t index,
                                                     uint32_t vecType,
                                                     uint32_t xRowId) {
@@ -7625,18 +7602,17 @@ uint32_t SPIRVEmitter::processIntrinsicClip(const CallExpr *callExpr) {
 
   QualType elemType = {};
   uint32_t elemCount = 0, rowCount = 0, colCount = 0;
-  if (TypeTranslator::isScalarType(argType)) {
+  if (isScalarType(argType)) {
     const auto zero = getValueZero(argType);
     condition = theBuilder.createBinaryOp(spv::Op::OpFOrdLessThan, boolType,
                                           argId, zero);
-  } else if (TypeTranslator::isVectorType(argType, nullptr, &elemCount)) {
+  } else if (isVectorType(argType, nullptr, &elemCount)) {
     const auto zero = getValueZero(argType);
     const auto boolVecType = theBuilder.getVecType(boolType, elemCount);
     const auto cmp = theBuilder.createBinaryOp(spv::Op::OpFOrdLessThan,
                                                boolVecType, argId, zero);
     condition = theBuilder.createUnaryOp(spv::Op::OpAny, boolType, cmp);
-  } else if (TypeTranslator::isMxNMatrix(argType, &elemType, &rowCount,
-                                         &colCount)) {
+  } else if (isMxNMatrix(argType, &elemType, &rowCount, &colCount)) {
     const uint32_t elemTypeId = typeTranslator.translateType(elemType);
     const uint32_t floatVecType = theBuilder.getVecType(elemTypeId, colCount);
     const uint32_t elemZeroId = getValueZero(elemType);
@@ -7702,7 +7678,7 @@ uint32_t SPIRVEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
 
   // FClamp, UClamp, and SClamp do not operate on matrices, so we should perform
   // the operation on each vector of the matrix.
-  if (TypeTranslator::isMxNMatrix(argX->getType())) {
+  if (isMxNMatrix(argX->getType())) {
     const auto actOnEachVec = [this, glslInstSetId, glslOpcode, argMinId,
                                argMaxId](uint32_t index, uint32_t vecType,
                                          uint32_t curRowId) {
@@ -7793,8 +7769,7 @@ uint32_t SPIRVEmitter::processNonFpMatrixTranspose(QualType matType,
   // flattened elements. (for a mat4x4).
   QualType elemType = {};
   uint32_t numRows = 0, numCols = 0;
-  const bool isMat =
-      TypeTranslator::isMxNMatrix(matType, &elemType, &numRows, &numCols);
+  const bool isMat = isMxNMatrix(matType, &elemType, &numRows, &numCols);
   assert(isMat && !elemType->isFloatingType());
   (void)isMat;
 
@@ -7851,11 +7826,10 @@ uint32_t SPIRVEmitter::processNonFpScalarTimesMatrix(QualType scalarType,
                                                      uint32_t scalarId,
                                                      QualType matrixType,
                                                      uint32_t matrixId) {
-  assert(TypeTranslator::isScalarType(scalarType));
+  assert(isScalarType(scalarType));
   QualType elemType = {};
   uint32_t numRows = 0, numCols = 0;
-  const bool isMat =
-      TypeTranslator::isMxNMatrix(matrixType, &elemType, &numRows, &numCols);
+  const bool isMat = isMxNMatrix(matrixType, &elemType, &numRows, &numCols);
   assert(isMat);
   assert(typeTranslator.isSameType(scalarType, elemType));
   (void)isMat;
@@ -7891,10 +7865,8 @@ uint32_t SPIRVEmitter::processNonFpVectorTimesMatrix(QualType vecType,
   // are the same.
   QualType vecElemType = {}, matElemType = {};
   uint32_t vecSize = 0, numRows = 0, numCols = 0;
-  const bool isVec =
-      TypeTranslator::isVectorType(vecType, &vecElemType, &vecSize);
-  const bool isMat =
-      TypeTranslator::isMxNMatrix(matType, &matElemType, &numRows, &numCols);
+  const bool isVec = isVectorType(vecType, &vecElemType, &vecSize);
+  const bool isMat = isMxNMatrix(matType, &matElemType, &numRows, &numCols);
   assert(typeTranslator.isSameType(vecElemType, matElemType));
   assert(isVec);
   assert(isMat);
@@ -7930,10 +7902,8 @@ uint32_t SPIRVEmitter::processNonFpMatrixTimesVector(QualType matType,
   // are the same.
   QualType vecElemType = {}, matElemType = {};
   uint32_t vecSize = 0, numRows = 0, numCols = 0;
-  const bool isVec =
-      TypeTranslator::isVectorType(vecType, &vecElemType, &vecSize);
-  const bool isMat =
-      TypeTranslator::isMxNMatrix(matType, &matElemType, &numRows, &numCols);
+  const bool isVec = isVectorType(vecType, &vecElemType, &vecSize);
+  const bool isMat = isMxNMatrix(matType, &matElemType, &numRows, &numCols);
   assert(typeTranslator.isSameType(vecElemType, matElemType));
   assert(isVec);
   assert(isMat);
@@ -7966,10 +7936,10 @@ uint32_t SPIRVEmitter::processNonFpMatrixTimesMatrix(QualType lhsType,
   QualType lhsElemType = {}, rhsElemType = {};
   uint32_t lhsNumRows = 0, lhsNumCols = 0;
   uint32_t rhsNumRows = 0, rhsNumCols = 0;
-  const bool lhsIsMat = TypeTranslator::isMxNMatrix(lhsType, &lhsElemType,
-                                                    &lhsNumRows, &lhsNumCols);
-  const bool rhsIsMat = TypeTranslator::isMxNMatrix(rhsType, &rhsElemType,
-                                                    &rhsNumRows, &rhsNumCols);
+  const bool lhsIsMat =
+      isMxNMatrix(lhsType, &lhsElemType, &lhsNumRows, &lhsNumCols);
+  const bool rhsIsMat =
+      isMxNMatrix(rhsType, &rhsElemType, &rhsNumRows, &rhsNumCols);
   assert(typeTranslator.isSameType(lhsElemType, rhsElemType));
   assert(lhsIsMat && rhsIsMat);
   assert(lhsNumCols == rhsNumRows);
@@ -8014,8 +7984,7 @@ uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   // mul(scalar, vector)
   {
     uint32_t elemCount = 0;
-    if (TypeTranslator::isScalarType(arg0Type) &&
-        TypeTranslator::isVectorType(arg1Type, nullptr, &elemCount)) {
+    if (isScalarType(arg0Type) && isVectorType(arg1Type, nullptr, &elemCount)) {
 
       const uint32_t arg1Id = doExpr(arg1);
 
@@ -8034,8 +8003,7 @@ uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   // mul(vector, scalar)
   {
     uint32_t elemCount = 0;
-    if (TypeTranslator::isVectorType(arg0Type, nullptr, &elemCount) &&
-        TypeTranslator::isScalarType(arg1Type)) {
+    if (isVectorType(arg0Type, nullptr, &elemCount) && isScalarType(arg1Type)) {
 
       const uint32_t arg0Id = doExpr(arg0);
 
@@ -8051,8 +8019,7 @@ uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   }
 
   // mul(vector, vector)
-  if (TypeTranslator::isVectorType(arg0Type) &&
-      TypeTranslator::isVectorType(arg1Type))
+  if (isVectorType(arg0Type) && isVectorType(arg1Type))
     return processIntrinsicDot(callExpr);
 
   // All the following cases require handling arg0 and arg1 expressions first.
@@ -8060,16 +8027,14 @@ uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   const uint32_t arg1Id = doExpr(arg1);
 
   // mul(scalar, scalar)
-  if (TypeTranslator::isScalarType(arg0Type) &&
-      TypeTranslator::isScalarType(arg1Type))
+  if (isScalarType(arg0Type) && isScalarType(arg1Type))
     return theBuilder.createBinaryOp(translateOp(BO_Mul, arg0Type),
                                      returnTypeId, arg0Id, arg1Id);
 
   // mul(scalar, matrix)
   {
     QualType elemType = {};
-    if (TypeTranslator::isScalarType(arg0Type) &&
-        TypeTranslator::isMxNMatrix(arg1Type, &elemType)) {
+    if (isScalarType(arg0Type) && isMxNMatrix(arg1Type, &elemType)) {
       // OpMatrixTimesScalar can only be used if *both* the matrix element type
       // and the scalar type are float.
       if (arg0Type->isFloatingType() && elemType->isFloatingType())
@@ -8084,8 +8049,7 @@ uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   // mul(matrix, scalar)
   {
     QualType elemType = {};
-    if (TypeTranslator::isScalarType(arg1Type) &&
-        TypeTranslator::isMxNMatrix(arg0Type, &elemType)) {
+    if (isScalarType(arg1Type) && isMxNMatrix(arg0Type, &elemType)) {
       // OpMatrixTimesScalar can only be used if *both* the matrix element type
       // and the scalar type are float.
       if (arg1Type->isFloatingType() && elemType->isFloatingType())
@@ -8101,8 +8065,8 @@ uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   {
     QualType vecElemType = {}, matElemType = {};
     uint32_t elemCount = 0, numRows = 0;
-    if (TypeTranslator::isVectorType(arg0Type, &vecElemType, &elemCount) &&
-        TypeTranslator::isMxNMatrix(arg1Type, &matElemType, &numRows)) {
+    if (isVectorType(arg0Type, &vecElemType, &elemCount) &&
+        isMxNMatrix(arg1Type, &matElemType, &numRows)) {
       assert(elemCount == numRows);
 
       if (vecElemType->isFloatingType() && matElemType->isFloatingType())
@@ -8118,9 +8082,8 @@ uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   {
     QualType vecElemType = {}, matElemType = {};
     uint32_t elemCount = 0, numCols = 0;
-    if (TypeTranslator::isMxNMatrix(arg0Type, &matElemType, nullptr,
-                                    &numCols) &&
-        TypeTranslator::isVectorType(arg1Type, &vecElemType, &elemCount)) {
+    if (isMxNMatrix(arg0Type, &matElemType, nullptr, &numCols) &&
+        isVectorType(arg1Type, &vecElemType, &elemCount)) {
       assert(elemCount == numCols);
       if (vecElemType->isFloatingType() && matElemType->isFloatingType())
         return theBuilder.createBinaryOp(spv::Op::OpVectorTimesMatrix,
@@ -8136,8 +8099,8 @@ uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
     // The front-end ensures that the two matrix element types match.
     QualType elemType = {};
     uint32_t lhsCols = 0, rhsRows = 0;
-    if (TypeTranslator::isMxNMatrix(arg0Type, &elemType, nullptr, &lhsCols) &&
-        TypeTranslator::isMxNMatrix(arg1Type, nullptr, &rhsRows, nullptr)) {
+    if (isMxNMatrix(arg0Type, &elemType, nullptr, &lhsCols) &&
+        isMxNMatrix(arg1Type, nullptr, &rhsRows, nullptr)) {
       assert(lhsCols == rhsRows);
       if (elemType->isFloatingType())
         return theBuilder.createBinaryOp(spv::Op::OpMatrixTimesMatrix,
@@ -8239,7 +8202,7 @@ uint32_t SPIRVEmitter::processIntrinsicRcp(const CallExpr *callExpr) {
   // For cases with matrix argument.
   QualType elemType = {};
   uint32_t numRows = 0, numCols = 0;
-  if (TypeTranslator::isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
+  if (isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
     const uint32_t vecOne = getVecValueOne(elemType, numCols);
     const auto actOnEachVec = [this, vecOne](uint32_t /*index*/,
                                              uint32_t vecType,
@@ -8268,7 +8231,7 @@ uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
   // Optimization: can directly cast them to boolean. No need for OpAny/OpAll.
   {
     QualType scalarType = {};
-    if (TypeTranslator::isScalarType(argType, &scalarType) &&
+    if (isScalarType(argType, &scalarType) &&
         (scalarType->isBooleanType() || scalarType->isFloatingType() ||
          scalarType->isIntegerType()))
       return castToBool(doExpr(arg), argType, returnType);
@@ -8279,7 +8242,7 @@ uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
   {
     QualType elemType = {};
     uint32_t size = 0;
-    if (TypeTranslator::isVectorType(argType, &elemType, &size)) {
+    if (isVectorType(argType, &elemType, &size)) {
       const QualType castToBoolType =
           astContext.getExtVectorType(returnType, size);
       uint32_t castedToBoolId =
@@ -8292,8 +8255,7 @@ uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
   {
     QualType elemType = {};
     uint32_t matRowCount = 0, matColCount = 0;
-    if (TypeTranslator::isMxNMatrix(argType, &elemType, &matRowCount,
-                                    &matColCount)) {
+    if (isMxNMatrix(argType, &elemType, &matRowCount, &matColCount)) {
       uint32_t matrixId = doExpr(arg);
       const uint32_t vecType = typeTranslator.getComponentVectorType(argType);
       llvm::SmallVector<uint32_t, 4> rowResults;
@@ -8375,8 +8337,7 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     QualType fromElemType = {};
     uint32_t numRows = 0, numCols = 0;
     // For non-matrix arguments (scalar or vector), just do an OpBitCast.
-    if (!TypeTranslator::isMxNMatrix(argType, &fromElemType, &numRows,
-                                     &numCols)) {
+    if (!isMxNMatrix(argType, &fromElemType, &numRows, &numCols)) {
       return theBuilder.createUnaryOp(spv::Op::OpBitcast, returnTypeId, argId);
     }
 
@@ -8513,7 +8474,7 @@ uint32_t SPIRVEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
 
   QualType elemType = {};
   uint32_t vecSize = 0;
-  if (TypeTranslator::isVectorType(argType, &elemType, &vecSize)) {
+  if (isVectorType(argType, &elemType, &vecSize)) {
     const uint32_t vecZero = getVecValueZero(elemType, vecSize);
     const uint32_t vecOne = getVecValueOne(elemType, vecSize);
     return theBuilder.createExtInst(returnType, glslInstSetId,
@@ -8522,7 +8483,7 @@ uint32_t SPIRVEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
   }
 
   uint32_t numRows = 0, numCols = 0;
-  if (TypeTranslator::isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
+  if (isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
     const uint32_t vecZero = getVecValueZero(elemType, numCols);
     const uint32_t vecOne = getVecValueOne(elemType, numCols);
     const auto actOnEachVec = [this, vecZero, vecOne, glslInstSetId](
@@ -8552,7 +8513,7 @@ uint32_t SPIRVEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
   uint32_t floatSignResultId = 0;
 
   // For matrices, we can perform the instruction on each vector of the matrix.
-  if (TypeTranslator::isMxNMatrix(argType)) {
+  if (isMxNMatrix(argType)) {
     const auto actOnEachVec = [this, glslInstSetId](uint32_t /*index*/,
                                                     uint32_t vecType,
                                                     uint32_t curRowId) {
@@ -8582,7 +8543,7 @@ uint32_t SPIRVEmitter::processIntrinsicF16ToF32(const CallExpr *callExpr) {
 
   uint32_t elemCount = {};
 
-  if (TypeTranslator::isVectorType(arg->getType(), nullptr, &elemCount)) {
+  if (isVectorType(arg->getType(), nullptr, &elemCount)) {
     // The input is a vector. We need to handle each element separately.
     llvm::SmallVector<uint32_t, 4> elements;
 
@@ -8618,7 +8579,7 @@ uint32_t SPIRVEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
   const uint32_t argId = doExpr(arg);
   uint32_t elemCount = {};
 
-  if (TypeTranslator::isVectorType(arg->getType(), nullptr, &elemCount)) {
+  if (isVectorType(arg->getType(), nullptr, &elemCount)) {
     // The input is a vector. We need to handle each element separately.
     llvm::SmallVector<uint32_t, 4> elements;
 
@@ -8672,7 +8633,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
 
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
-    if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg->getType())) {
+    if (actPerRowForMatrices && isMxNMatrix(arg->getType())) {
       const auto actOnEachVec = [this, opcode](uint32_t /*index*/,
                                                uint32_t vecType,
                                                uint32_t curRowId) {
@@ -8687,7 +8648,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
     const uint32_t arg1Id = doExpr(callExpr->getArg(1));
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
-    if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg0->getType())) {
+    if (actPerRowForMatrices && isMxNMatrix(arg0->getType())) {
       const auto actOnEachVec = [this, opcode, arg1Id](uint32_t index,
                                                        uint32_t vecType,
                                                        uint32_t arg0RowId) {
@@ -8716,7 +8677,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
 
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
-    if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg->getType())) {
+    if (actPerRowForMatrices && isMxNMatrix(arg->getType())) {
       const auto actOnEachVec = [this, glslInstSetId,
                                  opcode](uint32_t /*index*/, uint32_t vecType,
                                          uint32_t curRowId) {
@@ -8732,7 +8693,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     const uint32_t arg1Id = doExpr(callExpr->getArg(1));
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
-    if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg0->getType())) {
+    if (actPerRowForMatrices && isMxNMatrix(arg0->getType())) {
       const auto actOnEachVec = [this, glslInstSetId, opcode,
                                  arg1Id](uint32_t index, uint32_t vecType,
                                          uint32_t arg0RowId) {
@@ -8752,7 +8713,7 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     const uint32_t arg2Id = doExpr(callExpr->getArg(2));
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
-    if (actPerRowForMatrices && TypeTranslator::isMxNMatrix(arg0->getType())) {
+    if (actPerRowForMatrices && isMxNMatrix(arg0->getType())) {
       const auto actOnEachVec = [this, glslInstSetId, opcode, arg1Id,
                                  arg2Id](uint32_t index, uint32_t vecType,
                                          uint32_t arg0RowId) {
@@ -8783,9 +8744,9 @@ uint32_t SPIRVEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
       processIntrinsicUsingGLSLInst(callExpr, GLSLstd450::GLSLstd450Log2, true);
   const auto returnType = callExpr->getType();
   const auto returnTypeId = typeTranslator.translateType(returnType);
-  spv::Op scaleOp = TypeTranslator::isScalarType(returnType)
+  spv::Op scaleOp = isScalarType(returnType)
                         ? spv::Op::OpFMul
-                        : TypeTranslator::isVectorType(returnType)
+                        : isVectorType(returnType)
                               ? spv::Op::OpVectorTimesScalar
                               : spv::Op::OpMatrixTimesScalar;
   return theBuilder.createBinaryOp(scaleOp, returnTypeId, log2, scale);
@@ -8794,7 +8755,7 @@ uint32_t SPIRVEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
 uint32_t SPIRVEmitter::getValueZero(QualType type) {
   {
     QualType scalarType = {};
-    if (TypeTranslator::isScalarType(type, &scalarType)) {
+    if (isScalarType(type, &scalarType)) {
       if (scalarType->isSignedIntegerType()) {
         return theBuilder.getConstantInt32(0);
       }
@@ -8812,7 +8773,7 @@ uint32_t SPIRVEmitter::getValueZero(QualType type) {
   {
     QualType elemType = {};
     uint32_t size = {};
-    if (TypeTranslator::isVectorType(type, &elemType, &size)) {
+    if (isVectorType(type, &elemType, &size)) {
       return getVecValueZero(elemType, size);
     }
   }
@@ -8820,7 +8781,7 @@ uint32_t SPIRVEmitter::getValueZero(QualType type) {
   {
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
-    if (TypeTranslator::isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
       const auto row = getVecValueZero(elemType, colCount);
       llvm::SmallVector<uint32_t, 4> rows((size_t)rowCount, row);
       return theBuilder.createCompositeConstruct(
@@ -8849,7 +8810,7 @@ uint32_t SPIRVEmitter::getVecValueZero(QualType elemType, uint32_t size) {
 uint32_t SPIRVEmitter::getValueOne(QualType type) {
   {
     QualType scalarType = {};
-    if (TypeTranslator::isScalarType(type, &scalarType)) {
+    if (isScalarType(type, &scalarType)) {
       if (scalarType->isBooleanType()) {
         return theBuilder.getConstantBool(true);
       }
@@ -8891,7 +8852,7 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
   {
     QualType elemType = {};
     uint32_t size = {};
-    if (TypeTranslator::isVectorType(type, &elemType, &size)) {
+    if (isVectorType(type, &elemType, &size)) {
       return getVecValueOne(elemType, size);
     }
   }
@@ -8931,8 +8892,7 @@ uint32_t SPIRVEmitter::getMaskForBitwidthValue(QualType type) {
   QualType elemType = {};
   uint32_t count = 1;
 
-  if (TypeTranslator::isScalarType(type, &elemType) ||
-      TypeTranslator::isVectorType(type, &elemType, &count)) {
+  if (isScalarType(type, &elemType) || isVectorType(type, &elemType, &count)) {
     const auto bitwidth = typeTranslator.getElementSpirvBitwidth(elemType);
     uint32_t mask = 0;
     uint32_t elemTypeId = 0;

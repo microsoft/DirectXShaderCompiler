@@ -13,6 +13,7 @@
 
 #include "clang/AST/Attr.h"
 #include "clang/AST/HlslTypes.h"
+#include "clang/SPIRV/AstTypeProbe.h"
 
 namespace clang {
 namespace spirv {
@@ -61,11 +62,11 @@ inline bool hasGSPrimitiveTypeQualifier(const DeclaratorDecl *decl) {
 
 GlPerVertex::GlPerVertex(const hlsl::ShaderModel &sm, ASTContext &context,
                          ModuleBuilder &builder, TypeTranslator &translator)
-    : shaderModel(sm), astContext(context), theBuilder(builder),
-      inClipVar(0), inCullVar(0), outClipVar(0),
-      outCullVar(0), inArraySize(0), outArraySize(0), inClipArraySize(1),
-      outClipArraySize(1), inCullArraySize(1), outCullArraySize(1),
-      inSemanticStrs(2, ""), outSemanticStrs(2, "") {}
+    : shaderModel(sm), astContext(context), theBuilder(builder), inClipVar(0),
+      inCullVar(0), outClipVar(0), outCullVar(0), inArraySize(0),
+      outArraySize(0), inClipArraySize(1), outClipArraySize(1),
+      inCullArraySize(1), outCullArraySize(1), inSemanticStrs(2, ""),
+      outSemanticStrs(2, "") {}
 
 void GlPerVertex::generateVars(uint32_t inArrayLen, uint32_t outArrayLen) {
   inArraySize = inArrayLen;
@@ -295,9 +296,9 @@ void GlPerVertex::calculateClipCullDistanceArraySize() {
       QualType elemType = {};
       uint32_t count = 0;
 
-      if (TypeTranslator::isScalarType(type)) {
+      if (isScalarType(type)) {
         (*offsetMap)[index] = (*totalSize)++;
-      } else if (TypeTranslator::isVectorType(type, &elemType, &count)) {
+      } else if (isVectorType(type, &elemType, &count)) {
         (*offsetMap)[index] = *totalSize;
         *totalSize += count;
       } else {
@@ -395,14 +396,14 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
     QualType elemType = {};
     uint32_t count = {};
 
-    if (TypeTranslator::isScalarType(asType)) {
+    if (isScalarType(asType)) {
       const uint32_t offsetId = theBuilder.getConstantUint32(offset);
       const uint32_t ptr =
           theBuilder.createAccessChain(ptrType, clipCullVar, {offsetId});
       return theBuilder.createLoad(f32Type, ptr);
     }
 
-    if (TypeTranslator::isVectorType(asType, &elemType, &count)) {
+    if (isVectorType(asType, &elemType, &count)) {
       // The target SV_ClipDistance/SV_CullDistance variable is of vector
       // type, then we need to construct a vector out of float array elements.
       llvm::SmallVector<uint32_t, 4> elements;
@@ -434,7 +435,7 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
   uint32_t arrayType = {};
   uint32_t arraySize = theBuilder.getConstantUint32(inArraySize);
 
-  if (TypeTranslator::isScalarType(asType)) {
+  if (isScalarType(asType)) {
     arrayType = theBuilder.getArrayType(f32Type, arraySize);
     for (uint32_t i = 0; i < inArraySize; ++i) {
       const uint32_t ptr = theBuilder.createAccessChain(
@@ -443,7 +444,7 @@ uint32_t GlPerVertex::readClipCullArrayAsType(bool isClip, uint32_t offset,
            theBuilder.getConstantUint32(offset)});
       arrayElements.push_back(theBuilder.createLoad(f32Type, ptr));
     }
-  } else if (TypeTranslator::isVectorType(asType, &elemType, &count)) {
+  } else if (isVectorType(asType, &elemType, &count)) {
     arrayType = theBuilder.getArrayType(theBuilder.getVecType(f32Type, count),
                                         arraySize);
     for (uint32_t i = 0; i < inArraySize; ++i) {
@@ -517,7 +518,7 @@ void GlPerVertex::writeClipCullArrayFromType(
     QualType elemType = {};
     uint32_t count = {};
 
-    if (TypeTranslator::isScalarType(fromType)) {
+    if (isScalarType(fromType)) {
       const uint32_t offsetId = theBuilder.getConstantUint32(offset);
       const uint32_t ptr =
           theBuilder.createAccessChain(ptrType, clipCullVar, {offsetId});
@@ -525,7 +526,7 @@ void GlPerVertex::writeClipCullArrayFromType(
       return;
     }
 
-    if (TypeTranslator::isVectorType(fromType, &elemType, &count)) {
+    if (isVectorType(fromType, &elemType, &count)) {
       // The target SV_ClipDistance/SV_CullDistance variable is of vector
       // type. We need to write each component in the vector out.
       for (uint32_t i = 0; i < count; ++i) {
@@ -561,7 +562,7 @@ void GlPerVertex::writeClipCullArrayFromType(
   QualType elemType = {};
   uint32_t count = {};
 
-  if (TypeTranslator::isScalarType(fromType)) {
+  if (isScalarType(fromType)) {
     const uint32_t ptr =
         theBuilder.createAccessChain(ptrType, clipCullVar,
                                      {arrayIndex, // Block array index
@@ -570,7 +571,7 @@ void GlPerVertex::writeClipCullArrayFromType(
     return;
   }
 
-  if (TypeTranslator::isVectorType(fromType, &elemType, &count)) {
+  if (isVectorType(fromType, &elemType, &count)) {
     // For each gl_PerVertex block, we need to write a vector into it.
     for (uint32_t i = 0; i < count; ++i) {
       const uint32_t ptr = theBuilder.createAccessChain(

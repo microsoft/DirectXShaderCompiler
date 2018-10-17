@@ -130,45 +130,6 @@ public:
   /// realized SPIR-V bitwidth of the vector elements.
   uint32_t getElementSpirvBitwidth(QualType type);
 
-  /// \brief Returns true if the given type will be translated into a SPIR-V
-  /// scalar type. This includes normal scalar types, vectors of size 1, and
-  /// 1x1 matrices. If scalarType is not nullptr, writes the scalar type to
-  /// *scalarType.
-  static bool isScalarType(QualType type, QualType *scalarType = nullptr);
-
-  /// \breif Returns true if the given type will be translated into a SPIR-V
-  /// vector type. This includes normal types (either ExtVectorType or HLSL
-  /// vector type) with more than one elements and matrices with exactly one
-  /// row or one column. Writes the element type and count into *elementType and
-  /// *count respectively if they are not nullptr.
-  static bool isVectorType(QualType type, QualType *elemType = nullptr,
-                           uint32_t *count = nullptr);
-
-  /// \brief Returns true if the given type is a 1x1 matrix type.
-  /// If elemType is not nullptr, writes the element type to *elemType.
-  static bool is1x1Matrix(QualType type, QualType *elemType = nullptr);
-
-  /// \brief Returns true if the given type is a 1xN (N > 1) matrix type.
-  /// If elemType is not nullptr, writes the element type to *elemType.
-  /// If count is not nullptr, writes the value of N into *count.
-  static bool is1xNMatrix(QualType type, QualType *elemType = nullptr,
-                          uint32_t *count = nullptr);
-
-  /// \brief Returns true if the given type is a Mx1 (M > 1) matrix type.
-  /// If elemType is not nullptr, writes the element type to *elemType.
-  /// If count is not nullptr, writes the value of M into *count.
-  static bool isMx1Matrix(QualType type, QualType *elemType = nullptr,
-                          uint32_t *count = nullptr);
-
-  /// \brief returns true if the given type is a matrix with more than 1 row and
-  /// more than 1 column.
-  /// If elemType is not nullptr, writes the element type to *elemType.
-  /// If rowCount is not nullptr, writes the number of rows (M) into *rowCount.
-  /// If colCount is not nullptr, writes the number of cols (N) into *colCount.
-  static bool isMxNMatrix(QualType type, QualType *elemType = nullptr,
-                          uint32_t *rowCount = nullptr,
-                          uint32_t *colCount = nullptr);
-
   /// \brief Returns true if type is a row-major matrix, either with explicit
   /// attribute or implicit command-line option.
   bool isRowMajorMatrix(QualType type) const;
@@ -218,9 +179,6 @@ public:
   ///
   /// Note: legalization specific code
   static bool isOpaqueStructType(QualType tye);
-
-  /// \brief Returns a string name for the given type.
-  static std::string getName(QualType type);
 
   /// \brief Returns the the element type for the given scalar, vector, matrix,
   /// or array type. Returns empty QualType for other cases.
