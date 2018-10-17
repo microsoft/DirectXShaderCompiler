@@ -64,7 +64,7 @@ HRESULT SetupRegistryPassForHLSL() {
   try
   {
     PassRegistry &Registry = *PassRegistry::getPassRegistry();
-    /* <py::lines('INIT-PASSES')>hctdb_instrhelp.get_init_passes({"llvm":"llvm", "dxil_gen":"dxil_gen"})</py>*/
+    /* <py::lines('INIT-PASSES')>hctdb_instrhelp.get_init_passes(set(["llvm", "dxil_gen"]))</py>*/
     // INIT-PASSES:BEGIN
     initializeADCEPass(Registry);
     initializeAddDiscriminatorsPass(Registry);

@@ -28,7 +28,7 @@ HRESULT SetupRegistryPassForPIX() {
   try
   {
     PassRegistry &Registry = *PassRegistry::getPassRegistry();
-    /* <py::lines('INIT-PASSES')>hctdb_instrhelp.get_init_passes({"pix":"pix"})</py>*/
+    /* <py::lines('INIT-PASSES')>hctdb_instrhelp.get_init_passes(set(["pix"]))</py>*/
     // INIT-PASSES:BEGIN
     initializeDxilAddPixelHitInstrumentationPass(Registry);
     initializeDxilDebugInstrumentationPass(Registry);
