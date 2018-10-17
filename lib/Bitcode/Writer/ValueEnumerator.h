@@ -128,12 +128,6 @@ public:
 
   unsigned getTypeID(Type *T) const {
     TypeMapType::const_iterator I = TypeMap.find(T);
-    // jim: TEMP
-    if( !(I != TypeMap.end()))
-    {
-        T->dump();
-    }
-    ////////////////
     assert(I != TypeMap.end() && "Type not in ValueEnumerator!");
     return I->second-1;
   }
