@@ -278,12 +278,12 @@ void GetRowsAndCols(clang::QualType type, uint32_t &rowCount,
 }
 
 bool IsArrayConstantStringType(const QualType type) {
-  DXASSERT(type->isArrayType(), "array type expected");
+  DXASSERT_NOMSG(type->isArrayType());
   return type->getArrayElementTypeNoTypeQual()->isSpecificBuiltinType(BuiltinType::Char_S);
 }
 
 bool IsPointerStringType(const QualType type) {
-  DXASSERT(type->isPointerType(), "pointer type expected");
+  DXASSERT_NOMSG(type->isPointerType());
   return type->getPointeeType()->isSpecificBuiltinType(BuiltinType::Char_S);
 }
 

@@ -4578,7 +4578,7 @@ static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
 }
 
 void CGMSHLSLRuntime::AddGlobalStringDecl(const clang::VarDecl *D, llvm::GlobalVariable *GV) {
-  DXASSERT(hlsl::IsStringType(D->getType()), "must be a string type");
+  DXASSERT_NOMSG(hlsl::IsStringType(D->getType()));
   DXASSERT(D->getDeclContext()->isTranslationUnit(), "must be a global");
 
   globalStringsDecls.emplace_back(GV);
