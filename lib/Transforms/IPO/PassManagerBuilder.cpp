@@ -268,7 +268,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   MPM.add(createFailUndefResourcePass());
 
   MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
-  MPM.add(createDxilLoadMetadataPass()); // Ensure DxilModule is loaded for optimizations.
 
   // Propagate precise attribute.
   MPM.add(createDxilPrecisePropagatePass());

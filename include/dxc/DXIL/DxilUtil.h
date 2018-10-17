@@ -28,6 +28,11 @@ class Value;
 class Instruction;
 class BasicBlock;
 class raw_ostream;
+class ModulePass;
+class PassRegistry;
+
+ModulePass *createDxilLoadMetadataPass();
+void initializeDxilLoadMetadataPass(llvm::PassRegistry&);
 }
 
 namespace hlsl {
