@@ -34,6 +34,8 @@ using std::string;
 
 namespace hlsl {
 
+using namespace root_sig_helper;
+
 //////////////////////////////////////////////////////////////////////////////
 // Simple serializer.
 

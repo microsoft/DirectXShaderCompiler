@@ -30,7 +30,7 @@
 #include "dxcutil.h"
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/HLSL/DxilContainerWriter.h"
+#include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/dxcapi.internal.h"
 
 #include "dxc/Support/dxcapi.use.h"

@@ -10,9 +10,9 @@
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSignatureElement.h"
-#include "dxc/DXIL/DxilContainer.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/DXIL/DxilEntryProps.h"
@@ -175,7 +175,8 @@ bool DxilModule::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) 
   if (!m_pSM)
     return false;
   m_pSM->GetMinValidatorVersion(ValMajor, ValMinor);
-  if (ValMajor == 1 && ValMinor == 0 && (m_ShaderFlags.GetFeatureInfo() & hlsl::ShaderFeatureInfo_ViewID))
+  if (ValMajor == 1 && ValMinor == 0 &&
+      (m_ShaderFlags.GetFeatureInfo() & hlsl::DXIL::ShaderFeatureInfo_ViewID))
     ValMinor = 1;
   return true;
 }

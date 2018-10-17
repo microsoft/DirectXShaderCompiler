@@ -16,7 +16,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/MSFileSystem.h"

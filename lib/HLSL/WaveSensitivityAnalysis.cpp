@@ -15,7 +15,7 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/HLModule.h"

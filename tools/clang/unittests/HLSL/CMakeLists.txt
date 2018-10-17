@@ -12,6 +12,7 @@ set( LLVM_LINK_COMPONENTS
   mssupport
   dxcsupport
   dxil
+  dxilcontainer
   dxilrootsignature
   hlsl
   option

@@ -87,29 +87,6 @@ enum DxilFourCC {
 
 #undef DXIL_FOURCC
 
-// DFCC_FeatureInfo is a uint64_t value with these flags.
-static const uint64_t ShaderFeatureInfo_Doubles = 0x0001;
-static const uint64_t ShaderFeatureInfo_ComputeShadersPlusRawAndStructuredBuffersViaShader4X = 0x0002;
-static const uint64_t ShaderFeatureInfo_UAVsAtEveryStage = 0x0004;
-static const uint64_t ShaderFeatureInfo_64UAVs = 0x0008;
-static const uint64_t ShaderFeatureInfo_MinimumPrecision = 0x0010;
-static const uint64_t ShaderFeatureInfo_11_1_DoubleExtensions = 0x0020;
-static const uint64_t ShaderFeatureInfo_11_1_ShaderExtensions = 0x0040;
-static const uint64_t ShaderFeatureInfo_LEVEL9ComparisonFiltering = 0x0080;
-static const uint64_t ShaderFeatureInfo_TiledResources = 0x0100;
-static const uint64_t ShaderFeatureInfo_StencilRef = 0x0200;
-static const uint64_t ShaderFeatureInfo_InnerCoverage = 0x0400;
-static const uint64_t ShaderFeatureInfo_TypedUAVLoadAdditionalFormats = 0x0800;
-static const uint64_t ShaderFeatureInfo_ROVs = 0x1000;
-static const uint64_t ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer = 0x2000;
-static const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
-static const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
-static const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
-static const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
-static const uint64_t ShaderFeatureInfo_NativeLowPrecision = 0x40000;
-
-static const unsigned ShaderFeatureInfoCount = 19;
-
 struct DxilShaderFeatureInfo {
   uint64_t FeatureFlags;
 };
@@ -187,11 +164,6 @@ enum class DxilProgramSigCompType : uint32_t {
   SInt64 = 8,
   Float64 = 9,
 };
-
-static const uint8_t DxilProgramSigMaskX = 1;
-static const uint8_t DxilProgramSigMaskY = 2;
-static const uint8_t DxilProgramSigMaskZ = 4;
-static const uint8_t DxilProgramSigMaskW = 8;
 
 struct DxilProgramSignatureElement {
   uint32_t Stream;                    // Stream index (parameters must appear in non-decreasing stream order)

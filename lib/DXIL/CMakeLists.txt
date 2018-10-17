@@ -3,7 +3,6 @@
 add_llvm_library(LLVMDXIL
   DxilCBuffer.cpp
   DxilCompType.cpp
-  DxilContainer.cpp
   DxilInterpolationMode.cpp
   DxilMetadataHelper.cpp
   DxilModule.cpp

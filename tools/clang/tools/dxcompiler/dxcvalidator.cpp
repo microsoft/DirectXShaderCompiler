@@ -14,7 +14,7 @@
 #include "llvm/IR/DiagnosticPrinter.h"
 
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/HLSL/DxilValidation.h"
 
 #include "dxc/Support/Global.h"

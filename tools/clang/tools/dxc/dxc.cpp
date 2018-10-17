@@ -49,7 +49,7 @@
 #include "dxc/dxctools.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/FileIOHelper.h"

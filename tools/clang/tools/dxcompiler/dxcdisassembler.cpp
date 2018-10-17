@@ -27,12 +27,13 @@
 #include "llvm/Support/Format.h"
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxcutil.h"
 
 using namespace llvm;
 using namespace hlsl;
+using namespace hlsl::DXIL;
 
 namespace {
 // Disassemble helper functions.

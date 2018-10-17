@@ -97,46 +97,41 @@ void RootSignatureHandle::LoadSerialized(const uint8_t *pData,
 
 //////////////////////////////////////////////////////////////////////////////
 
+namespace root_sig_helper {
 // GetFlags/SetFlags overloads.
-DxilRootDescriptorFlags GetFlags(const DxilRootDescriptor &)
-{
+DxilRootDescriptorFlags GetFlags(const DxilRootDescriptor &) {
   // Upconvert root parameter flags to be volatile.
   return DxilRootDescriptorFlags::DataVolatile;
 }
-void SetFlags(DxilRootDescriptor &, DxilRootDescriptorFlags)
-{
+void SetFlags(DxilRootDescriptor &, DxilRootDescriptorFlags) {
   // Drop the flags; none existed in rs_1_0.
 }
-DxilRootDescriptorFlags GetFlags(const DxilRootDescriptor1 &D)
-{
+DxilRootDescriptorFlags GetFlags(const DxilRootDescriptor1 &D) {
   return D.Flags;
 }
-void SetFlags(DxilRootDescriptor1 &D, DxilRootDescriptorFlags Flags)
-{
+void SetFlags(DxilRootDescriptor1 &D, DxilRootDescriptorFlags Flags) {
   D.Flags = Flags;
 }
-void SetFlags(DxilContainerRootDescriptor1 &D, DxilRootDescriptorFlags Flags)
-{
+void SetFlags(DxilContainerRootDescriptor1 &D, DxilRootDescriptorFlags Flags) {
   D.Flags = (uint32_t)Flags;
 }
-DxilDescriptorRangeFlags GetFlags(const DxilDescriptorRange &D)
-{
+DxilDescriptorRangeFlags GetFlags(const DxilDescriptorRange &D) {
   // Upconvert range flags to be volatile.
-  DxilDescriptorRangeFlags Flags = DxilDescriptorRangeFlags::DescriptorsVolatile;
+  DxilDescriptorRangeFlags Flags =
+      DxilDescriptorRangeFlags::DescriptorsVolatile;
 
   // Sampler does not have data.
   if (D.RangeType != DxilDescriptorRangeType::Sampler)
-    Flags = (DxilDescriptorRangeFlags)((unsigned)Flags | (unsigned)DxilDescriptorRangeFlags::DataVolatile);
+    Flags = (DxilDescriptorRangeFlags)(
+        (unsigned)Flags | (unsigned)DxilDescriptorRangeFlags::DataVolatile);
 
   return Flags;
 }
-void SetFlags(DxilDescriptorRange &, DxilDescriptorRangeFlags)
-{
-}
-DxilDescriptorRangeFlags GetFlags(const DxilContainerDescriptorRange &D)
-{
+void SetFlags(DxilDescriptorRange &, DxilDescriptorRangeFlags) {}
+DxilDescriptorRangeFlags GetFlags(const DxilContainerDescriptorRange &D) {
   // Upconvert range flags to be volatile.
-  DxilDescriptorRangeFlags Flags = DxilDescriptorRangeFlags::DescriptorsVolatile;
+  DxilDescriptorRangeFlags Flags =
+      DxilDescriptorRangeFlags::DescriptorsVolatile;
 
   // Sampler does not have data.
   if (D.RangeType != (uint32_t)DxilDescriptorRangeType::Sampler)
@@ -144,25 +139,22 @@ DxilDescriptorRangeFlags GetFlags(const DxilContainerDescriptorRange &D)
 
   return Flags;
 }
-void SetFlags(DxilContainerDescriptorRange &, DxilDescriptorRangeFlags)
-{
-}
-DxilDescriptorRangeFlags GetFlags(const DxilDescriptorRange1 &D)
-{
+void SetFlags(DxilContainerDescriptorRange &, DxilDescriptorRangeFlags) {}
+DxilDescriptorRangeFlags GetFlags(const DxilDescriptorRange1 &D) {
   return D.Flags;
 }
-void SetFlags(DxilDescriptorRange1 &D, DxilDescriptorRangeFlags Flags)
-{
+void SetFlags(DxilDescriptorRange1 &D, DxilDescriptorRangeFlags Flags) {
   D.Flags = Flags;
 }
-DxilDescriptorRangeFlags GetFlags(const DxilContainerDescriptorRange1 &D)
-{
+DxilDescriptorRangeFlags GetFlags(const DxilContainerDescriptorRange1 &D) {
   return (DxilDescriptorRangeFlags)D.Flags;
 }
-void SetFlags(DxilContainerDescriptorRange1 &D, DxilDescriptorRangeFlags Flags)
-{
+void SetFlags(DxilContainerDescriptorRange1 &D,
+              DxilDescriptorRangeFlags Flags) {
   D.Flags = (uint32_t)Flags;
 }
+
+} // namespace root_sig_helper
 
 //////////////////////////////////////////////////////////////////////////////
 

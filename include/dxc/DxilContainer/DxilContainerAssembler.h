@@ -12,7 +12,7 @@
 #pragma once
 
 #include <functional>
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 
 namespace hlsl {
 

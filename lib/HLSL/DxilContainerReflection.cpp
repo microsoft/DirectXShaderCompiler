@@ -12,7 +12,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/InstIterator.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -47,6 +47,7 @@ const GUID IID_ID3D11ShaderReflection_47 = {
 
 using namespace llvm;
 using namespace hlsl;
+using namespace hlsl::DXIL;
 
 class DxilContainerReflection : public IDxcContainerReflection {
 private:

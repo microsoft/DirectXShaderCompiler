@@ -8,6 +8,7 @@ set( LLVM_LINK_COMPONENTS
   ipa
   dxcsupport
   DXIL
+  DxilContainer
   HLSL
   Option     # option library
   Support    # just for assert and raw streams

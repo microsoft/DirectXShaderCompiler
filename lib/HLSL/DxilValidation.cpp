@@ -10,12 +10,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilValidation.h"
-#include "dxc/HLSL/DxilContainerWriter.h"
+#include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilUtil.h"
