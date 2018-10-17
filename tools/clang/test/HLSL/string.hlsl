@@ -6,7 +6,7 @@ static const string s_global1 = "my global string 1";
   `-ImplicitCastExpr <col:33> 'const string' <ArrayToPointerDecay>
     `-StringLiteral <col:33> 'const char [19]' lvalue "my global string 1"
   */
-  
+
 string s_global2 = "my global string 2";
 
 string s_global3 = s_global1;
@@ -23,7 +23,7 @@ string s_global_concat = "my string " "with "
   */
    "broken up"
    " parts";
-  
+
 static const bool b1 = s_global1;                           /* expected-error {{cannot initialize a variable of type 'const bool' with an lvalue of type 'string'}} fxc-error {{X3017: cannot implicitly convert from 'const string' to 'const bool'}} */
 static const bool b2 = false;
 static const string s_global4 = true;                       /* expected-error {{cannot initialize a variable of type 'string' with an rvalue of type 'bool'}} fxc-error {{X3017: cannot implicitly convert from 'bool' to 'const string'}} */
@@ -53,17 +53,21 @@ void hello_here(string message, string s, float f) {        /* expected-error {{
   printf("%f", f);                                          /* expected-error {{use of undeclared identifier 'printf'}} fxc-pass {{}} */
 }
 
+string get_message() {                                      /* expected-error {{return value of type string is not supported}} fxc-error {{X3038: 'get_message': function return value cannot contain Effects objects}} */
+  return "foo";
+}
+
 struct test {
   string field;                                             /* expected-error {{string declaration may only appear in global scope}} fxc-pass {{}} */
 };
 
-float4 main() : SV_Target0{                                 /* fxc-error {{X3003: redefinition of 'float4'}} */
+float4 main() : SV_Target0 {                                /* */
   string str;                                               /* expected-error {{string declaration may only appear in global scope}} fxc-pass {{}} */
   str = s_global2;                                          /* expected-error {{use of undeclared identifier 'str'}} fxc-pass {{}} */
 
   string strArray[5];                                        /* expected-error {{array of type string is not supported}} fxc-pass {{}} */
-  vector<string, 4> strVector1;                             /* expected-error {{'string' cannot be used as a type parameter where a scalar is required}} fxc-pass {{}} */
-  matrix<string, 4, 4> strMatrix1;                          /* expected-error {{'string' cannot be used as a type parameter where a scalar is required}} fxc-pass {{}} */
+  vector<string, 4> strVector1;                             /* expected-error {{'string' cannot be used as a type parameter where a scalar is required}} fxc-error {{X3122: vector element type must be a scalar type}} */
+  matrix<string, 4, 4> strMatrix1;                          /* expected-error {{'string' cannot be used as a type parameter where a scalar is required}} fxc-error {{X3123: matrix element type must be a scalar type}} */
 
   float4 cp4_local;
   printf("hi mom", 1, 2, 3);                                /* expected-error {{use of undeclared identifier 'printf'}} fxc-pass {{}} */

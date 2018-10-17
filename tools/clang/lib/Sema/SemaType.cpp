@@ -1990,7 +1990,8 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
     // HLSL Change Start
     // no arrays of strings in HLSL
     if (getLangOpts().HLSL && hlsl::IsStringType(T)) {
-      Diag(Loc, diag::err_hlsl_unsupported_string_decl) << 0;
+      static const unsigned selectArrayIdx = 0;
+      Diag(Loc, diag::err_hlsl_unsupported_string_decl) << selectArrayIdx;
       return QualType();
     }
     // HLSL Change End

@@ -7678,7 +7678,7 @@ def err_hlsl_missing_patchconstantfunc_attr: Error<
 def err_hlsl_missing_inout_attr: Error<
    "stream-output object must be an inout parameter">;
 def err_hlsl_unsupported_string_decl: Error<
-   "%select{array|parameter}0 of type string is not supported">;
+   "%select{array|parameter|return value}0 of type string is not supported">;
 // HLSL Change Ends
 
 // SPIRV Change Starts
