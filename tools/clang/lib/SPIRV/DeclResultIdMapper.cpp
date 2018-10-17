@@ -480,7 +480,7 @@ uint32_t DeclResultIdMapper::getMatrixStructType(const VarDecl *matVar,
                                                  spv::StorageClass sc,
                                                  SpirvLayoutRule rule) {
   const auto matType = matVar->getType();
-  assert(TypeTranslator::isMxNMatrix(matType));
+  assert(isMxNMatrix(matType));
 
   auto &context = *theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 4> decorations;
