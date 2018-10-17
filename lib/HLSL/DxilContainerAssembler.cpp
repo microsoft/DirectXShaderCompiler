@@ -15,13 +15,14 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MD5.h"
-#include "dxc/HLSL/DxilContainer.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/DxilShaderModel.h"
+#include "llvm/ADT/STLExtras.h"
+#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilRootSignature.h"
-#include "dxc/HLSL/DxilUtil.h"
-#include "dxc/HLSL/DxilFunctionProps.h"
-#include "dxc/HLSL/DxilOperations.h"
+#include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
@@ -692,7 +693,7 @@ public:
       }
 
       // Gather ViewID dependency information
-      auto &viewState = m_Module.GetViewIdState().GetSerialized();
+      auto &viewState = m_Module.GetSerializedViewIdState();
       if (!viewState.empty()) {
         const uint32_t *pSrc = viewState.data();
         const uint32_t InputScalars = *(pSrc++);

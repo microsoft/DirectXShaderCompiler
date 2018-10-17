@@ -12,10 +12,11 @@
 #include <algorithm>
 #include <tuple>
 
-#include "dxc/HLSL/DxilConstants.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/HlslTypes.h"
+#include "clang/SPIRV/AstTypeProbe.h"
 
 namespace clang {
 namespace spirv {
@@ -33,7 +34,7 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
 /// Returns true if the given vector type (of the given size) crosses the
 /// 4-component vector boundary if placed at the given offset.
 bool improperStraddle(QualType type, int size, int offset) {
-  assert(TypeTranslator::isVectorType(type));
+  assert(isVectorType(type));
   return size <= 16 ? offset / 16 != (offset + size - 1) / 16
                     : offset % 16 != 0;
 }
@@ -433,15 +434,15 @@ uint32_t TypeTranslator::getElementSpirvBitwidth(QualType type) {
 
   // Typedefs
   if (const auto *typedefType = type->getAs<TypedefType>())
-    return getLocationCount(typedefType->desugar());
+    return getElementSpirvBitwidth(typedefType->desugar());
 
   // Reference types
   if (const auto *refType = type->getAs<ReferenceType>())
-    return getLocationCount(refType->getPointeeType());
+    return getElementSpirvBitwidth(refType->getPointeeType());
 
   // Pointer types
   if (const auto *ptrType = type->getAs<PointerType>())
-    return getLocationCount(ptrType->getPointeeType());
+    return getElementSpirvBitwidth(ptrType->getPointeeType());
 
   // Scalar types
   QualType ty = {};
@@ -717,33 +718,6 @@ uint32_t TypeTranslator::getACSBufferCounter() {
                                   decorations);
 }
 
-bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
-  bool isScalar = false;
-  QualType ty = {};
-
-  if (type->isBuiltinType()) {
-    isScalar = true;
-    ty = type;
-  } else if (hlsl::IsHLSLVecType(type) && hlsl::GetHLSLVecSize(type) == 1) {
-    isScalar = true;
-    ty = hlsl::GetHLSLVecElementType(type);
-  } else if (const auto *extVecType =
-                 dyn_cast<ExtVectorType>(type.getTypePtr())) {
-    if (extVecType->getNumElements() == 1) {
-      isScalar = true;
-      ty = extVecType->getElementType();
-    }
-  } else if (is1x1Matrix(type)) {
-    isScalar = true;
-    ty = hlsl::GetHLSLMatElementType(type);
-  }
-
-  if (isScalar && scalarType)
-    *scalarType = ty;
-
-  return isScalar;
-}
-
 bool TypeTranslator::isRWByteAddressBuffer(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     return rt->getDecl()->getName() == "RWByteAddressBuffer";
@@ -971,118 +945,6 @@ bool TypeTranslator::isSubpassInputMS(QualType type) {
   return false;
 }
 
-bool TypeTranslator::isVectorType(QualType type, QualType *elemType,
-                                  uint32_t *elemCount) {
-  bool isVec = false;
-  QualType ty = {};
-  uint32_t count = 0;
-
-  if (hlsl::IsHLSLVecType(type)) {
-    ty = hlsl::GetHLSLVecElementType(type);
-    count = hlsl::GetHLSLVecSize(type);
-    isVec = count > 1;
-  } else if (const auto *extVecType =
-                 dyn_cast<ExtVectorType>(type.getTypePtr())) {
-    ty = extVecType->getElementType();
-    count = extVecType->getNumElements();
-    isVec = count > 1;
-  } else if (hlsl::IsHLSLMatType(type)) {
-    uint32_t rowCount = 0, colCount = 0;
-    hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-
-    ty = hlsl::GetHLSLMatElementType(type);
-    count = rowCount == 1 ? colCount : rowCount;
-    isVec = (rowCount == 1) != (colCount == 1);
-  }
-
-  if (isVec) {
-    if (elemType)
-      *elemType = ty;
-    if (elemCount)
-      *elemCount = count;
-  }
-  return isVec;
-}
-
-bool TypeTranslator::is1x1Matrix(QualType type, QualType *elemType) {
-  if (!hlsl::IsHLSLMatType(type))
-    return false;
-
-  uint32_t rowCount = 0, colCount = 0;
-  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-
-  const bool is1x1 = rowCount == 1 && colCount == 1;
-
-  if (!is1x1)
-    return false;
-
-  if (elemType)
-    *elemType = hlsl::GetHLSLMatElementType(type);
-  return true;
-}
-
-bool TypeTranslator::is1xNMatrix(QualType type, QualType *elemType,
-                                 uint32_t *count) {
-  if (!hlsl::IsHLSLMatType(type))
-    return false;
-
-  uint32_t rowCount = 0, colCount = 0;
-  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-
-  const bool is1xN = rowCount == 1 && colCount > 1;
-
-  if (!is1xN)
-    return false;
-
-  if (elemType)
-    *elemType = hlsl::GetHLSLMatElementType(type);
-  if (count)
-    *count = colCount;
-  return true;
-}
-
-bool TypeTranslator::isMx1Matrix(QualType type, QualType *elemType,
-                                 uint32_t *count) {
-  if (!hlsl::IsHLSLMatType(type))
-    return false;
-
-  uint32_t rowCount = 0, colCount = 0;
-  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-
-  const bool isMx1 = rowCount > 1 && colCount == 1;
-
-  if (!isMx1)
-    return false;
-
-  if (elemType)
-    *elemType = hlsl::GetHLSLMatElementType(type);
-  if (count)
-    *count = rowCount;
-  return true;
-}
-
-bool TypeTranslator::isMxNMatrix(QualType type, QualType *elemType,
-                                 uint32_t *numRows, uint32_t *numCols) {
-  if (!hlsl::IsHLSLMatType(type))
-    return false;
-
-  uint32_t rowCount = 0, colCount = 0;
-  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-
-  const bool isMxN = rowCount > 1 && colCount > 1;
-
-  if (!isMxN)
-    return false;
-
-  if (elemType)
-    *elemType = hlsl::GetHLSLMatElementType(type);
-  if (numRows)
-    *numRows = rowCount;
-  if (numCols)
-    *numCols = colCount;
-  return true;
-}
-
 bool TypeTranslator::isOrContainsNonFpColMajorMatrix(QualType type,
                                                      const Decl *decl) const {
   const auto isColMajorDecl = [this](const Decl *decl) {
@@ -1185,16 +1047,15 @@ bool TypeTranslator::canTreatAsSameScalarType(QualType type1, QualType type2) {
 bool TypeTranslator::isSameScalarOrVecType(QualType type1, QualType type2) {
   { // Scalar types
     QualType scalarType1 = {}, scalarType2 = {};
-    if (TypeTranslator::isScalarType(type1, &scalarType1) &&
-        TypeTranslator::isScalarType(type2, &scalarType2))
+    if (isScalarType(type1, &scalarType1) && isScalarType(type2, &scalarType2))
       return canTreatAsSameScalarType(scalarType1, scalarType2);
   }
 
   { // Vector types
     QualType elemType1 = {}, elemType2 = {};
     uint32_t count1 = {}, count2 = {};
-    if (TypeTranslator::isVectorType(type1, &elemType1, &count1) &&
-        TypeTranslator::isVectorType(type2, &elemType2, &count2))
+    if (isVectorType(type1, &elemType1, &count1) &&
+        isVectorType(type2, &elemType2, &count2))
       return count1 == count2 && canTreatAsSameScalarType(elemType1, elemType2);
   }
 
@@ -1211,8 +1072,8 @@ bool TypeTranslator::isSameType(QualType type1, QualType type2) {
   { // Matrix types
     QualType elemType1 = {}, elemType2 = {};
     uint32_t row1 = 0, row2 = 0, col1 = 0, col2 = 0;
-    if (TypeTranslator::isMxNMatrix(type1, &elemType1, &row1, &col1) &&
-        TypeTranslator::isMxNMatrix(type2, &elemType2, &row2, &col2))
+    if (isMxNMatrix(type1, &elemType1, &row1, &col1) &&
+        isMxNMatrix(type2, &elemType2, &row2, &col2))
       return row1 == row2 && col1 == col2 &&
              canTreatAsSameScalarType(elemType1, elemType2);
   }
@@ -1526,7 +1387,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type,
     if (innerType->isStructureType())
       structName = innerType->getAs<RecordType>()->getDecl()->getName();
     else
-      structName = getName(innerType);
+      structName = getAstTypeName(innerType);
 
     const bool isRowMajor = isRowMajorMatrix(s);
     llvm::SmallVector<const Decoration *, 4> decorations;
@@ -1541,7 +1402,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type,
     decorations.clear();
 
     // Attach majorness decoration if this is a *StructuredBuffer<matrix>.
-    if (TypeTranslator::isMxNMatrix(s))
+    if (isMxNMatrix(s))
       decorations.push_back(isRowMajor ? Decoration::getColMajor(context, 0)
                                        : Decoration::getRowMajor(context, 0));
 
@@ -2015,71 +1876,6 @@ TypeTranslator::getAlignmentAndSize(QualType type, SpirvLayoutRule rule,
 
   emitError("alignment and size calculation for type %0 unimplemented") << type;
   return {0, 0};
-}
-
-std::string TypeTranslator::getName(QualType type) {
-  {
-    QualType ty = {};
-    if (isScalarType(type, &ty))
-      if (const auto *builtinType = ty->getAs<BuiltinType>())
-        switch (builtinType->getKind()) {
-        case BuiltinType::Void:
-          return "void";
-        case BuiltinType::Bool:
-          return "bool";
-        case BuiltinType::Int:
-          return "int";
-        case BuiltinType::UInt:
-          return "uint";
-        case BuiltinType::Float:
-          return "float";
-        case BuiltinType::Double:
-          return "double";
-        case BuiltinType::LongLong:
-          return "int64";
-        case BuiltinType::ULongLong:
-          return "uint64";
-        case BuiltinType::Short:
-          return "short";
-        case BuiltinType::UShort:
-          return "ushort";
-        case BuiltinType::Half:
-        case BuiltinType::HalfFloat:
-          return "half";
-        case BuiltinType::Min12Int:
-          return "min12int";
-        case BuiltinType::Min16Int:
-          return "min16int";
-        case BuiltinType::Min16UInt:
-          return "min16uint";
-        case BuiltinType::Min16Float:
-          return "min16float";
-        case BuiltinType::Min10Float:
-          return "min10float";
-        default:
-          return "";
-        }
-  }
-
-  {
-    QualType elemType = {};
-    uint32_t elemCount = {};
-    if (isVectorType(type, &elemType, &elemCount))
-      return "v" + std::to_string(elemCount) + getName(elemType);
-  }
-
-  {
-    QualType elemType = {};
-    uint32_t rowCount = 0, colCount = 0;
-    if (isMxNMatrix(type, &elemType, &rowCount, &colCount))
-      return "mat" + std::to_string(rowCount) + "v" + std::to_string(colCount) +
-             getName(elemType);
-  }
-
-  if (const auto *structType = type->getAs<RecordType>())
-    return structType->getDecl()->getName();
-
-  return "";
 }
 
 QualType TypeTranslator::desugarType(QualType type) {

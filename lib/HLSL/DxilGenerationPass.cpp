@@ -10,20 +10,20 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLOperations.h"
-#include "dxc/HLSL/DxilInstructions.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/HLSL/HLOperationLower.h"
 #include "HLSignatureLower.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/exception.h"
-#include "DxilEntryProps.h"
+#include "dxc/DXIL/DxilEntryProps.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -39,6 +39,7 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/IR/Dominators.h"
 #include <memory>
 #include <unordered_set>
 #include <iterator>
@@ -962,7 +963,7 @@ bool DxilPromoteLocalResources::PromoteLocalResource(Function &F) {
     // the entry node
     for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
       if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-        if (HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(AI->getAllocatedType()))) {
+        if (dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(AI->getAllocatedType()))) {
           if (isAllocaPromotable(AI))
             Allocas.push_back(AI);
         }
@@ -1015,7 +1016,7 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
     //  optimized away for the exported function.
     for (auto &GV : M.globals()) {
       if (GV.getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
-        HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {
+        dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {
         if (!GV.user_empty()) {
           if (Instruction *I = dyn_cast<Instruction>(*GV.user_begin())) {
             dxilutil::EmitErrorOnInstruction(I, kStaticResourceLibErrorMsg);
@@ -1031,7 +1032,7 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
   std::set<GlobalVariable *> staticResources;
   for (auto &GV : M.globals()) {
     if (GV.getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
-        HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {
+        dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {
       staticResources.insert(&GV);
     }
   }

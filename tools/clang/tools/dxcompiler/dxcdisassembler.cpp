@@ -14,20 +14,21 @@
 #include "dxc/dxcapi.h"
 #include "dxc/Support/Global.h"
 
-#include "dxc/HLSL/DxilShaderModel.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/DxilResource.h"
+#include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilResource.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
-#include "dxc/HLSL/DxilConstants.h"
-#include "dxc/HLSL/DxilOperations.h"
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Format.h"
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
-#include "dxc/HLSL/DxilContainer.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
+#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxcutil.h"
 
 using namespace llvm;
@@ -509,7 +510,10 @@ void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
     return;
 
   const ShaderModel *pSM = M.GetShaderModel();
-  DxilViewIdState &VID = M.GetViewIdState();
+
+  DxilViewIdState VID(&M);
+  auto &SerializedVID = M.GetSerializedViewIdState();
+  VID.Deserialize(SerializedVID.data(), SerializedVID.size());
   OS << comment << "\n";
   OS << comment << " ViewId state:\n";
   OS << comment << "\n";

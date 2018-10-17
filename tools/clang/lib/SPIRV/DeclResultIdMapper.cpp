@@ -14,11 +14,11 @@
 #include <sstream>
 #include <unordered_map>
 
-#include "dxc/HLSL/DxilConstants.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/HlslTypes.h"
-#include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/SPIRV/AstTypeProbe.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
@@ -45,9 +45,9 @@ bool isBooleanStageIOVar(const NamedDecl *decl, QualType type,
 
   // TODO: support boolean matrix stage I/O variable if needed.
   QualType elemType = {};
-  const bool isBooleanType = ((TypeTranslator::isScalarType(type, &elemType) ||
-                               TypeTranslator::isVectorType(type, &elemType)) &&
-                              elemType->isBooleanType());
+  const bool isBooleanType =
+      ((isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
+       elemType->isBooleanType());
 
   return isBooleanType && !isBooleanBuiltin;
 }
@@ -480,7 +480,7 @@ uint32_t DeclResultIdMapper::getMatrixStructType(const VarDecl *matVar,
                                                  spv::StorageClass sc,
                                                  SpirvLayoutRule rule) {
   const auto matType = matVar->getType();
-  assert(TypeTranslator::isMxNMatrix(matType));
+  assert(isMxNMatrix(matType));
 
   auto &context = *theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 4> decorations;

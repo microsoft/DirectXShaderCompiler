@@ -17,10 +17,10 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLOperations.h"
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/Frontend/CodeGenOptions.h"
@@ -40,7 +40,7 @@
 #include <set>
 
 #include "dxc/HLSL/DxilRootSignature.h"
-#include "dxc/HLSL/DxilCBuffer.h"
+#include "dxc/DXIL/DxilCBuffer.h"
 #include "clang/Parse/ParseHLSL.h"      // root sig would be in Parser if part of lang
 #include "dxc/Support/WinIncludes.h"    // stream support
 #include "dxc/dxcapi.h"                 // stream support
@@ -389,6 +389,9 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bFXCCompatMode = CGM.getLangOpts().EnableFXCCompatMode;
 
   m_pHLModule->SetHLOptions(opts);
+  m_pHLModule->GetOP()->SetMinPrecision(opts.bUseMinPrecision);
+  m_pHLModule->GetTypeSystem().SetMinPrecision(opts.bUseMinPrecision);
+
   m_pHLModule->SetAutoBindingSpace(CGM.getCodeGenOpts().HLSLDefaultSpace);
 
   m_pHLModule->SetValidatorVersion(CGM.getCodeGenOpts().HLSLValidatorMajorVer, CGM.getCodeGenOpts().HLSLValidatorMinorVer);
@@ -443,7 +446,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
 }
 
 bool CGMSHLSLRuntime::IsHlslObjectType(llvm::Type *Ty) {
-  return HLModule::IsHLSLObjectType(Ty);
+  return dxilutil::IsHLSLObjectType(Ty);
 }
 
 void CGMSHLSLRuntime::AddHLSLIntrinsicOpcodeToFunction(Function *F,
@@ -1586,7 +1589,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     const ParmVarDecl *parmDecl = FD->getParamDecl(ParmIdx);
 
-    ConstructFieldAttributedAnnotation(paramAnnotation, parmDecl->getType(),
+    QualType fieldTy = parmDecl->getType();
+    // if parameter type is a typedef, try to desugar it first.
+    if (isa<TypedefType>(fieldTy.getTypePtr()))
+      fieldTy = fieldTy.getDesugaredType(FD->getASTContext());
+    ConstructFieldAttributedAnnotation(paramAnnotation, fieldTy,
                                        bDefaultRowMajor);
     if (parmDecl->hasAttr<HLSLPreciseAttr>())
       paramAnnotation.SetPrecise();
@@ -3437,7 +3444,7 @@ static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
     llvm::Type *Ty = paramTyList[i];
     if (Ty->isPointerTy()) {
       Ty = Ty->getPointerElementType();
-      if (HLModule::IsHLSLObjectType(Ty) &&
+      if (dxilutil::IsHLSLObjectType(Ty) &&
           // StreamOutput don't need handle.
           !HLModule::IsStreamOutputType(Ty)) {
         // Use handle type for object type.
@@ -3498,7 +3505,7 @@ static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
     gep_type_iterator GEPIt = gep_type_begin(objGEP), E = gep_type_end(objGEP);
     llvm::Type *resTy = nullptr;
     while (GEPIt != E) {
-      if (HLModule::IsHLSLObjectType(*GEPIt)) {
+      if (dxilutil::IsHLSLObjectType(*GEPIt)) {
         resTy = *GEPIt;
         break;
       }
@@ -3581,7 +3588,7 @@ static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
       llvm::Type *Ty = arg->getType();
       if (Ty->isPointerTy()) {
         Ty = Ty->getPointerElementType();
-        if (HLModule::IsHLSLObjectType(Ty) &&
+        if (dxilutil::IsHLSLObjectType(Ty) &&
           // StreamOutput don't need handle.
           !HLModule::IsStreamOutputType(Ty)) {
           // Use object type directly, not by pointer.
@@ -4541,7 +4548,7 @@ static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
   for (GlobalVariable &GV : M->globals()) {
     if (!GV.isConstant() && GV.getLinkage() != GlobalValue::InternalLinkage &&
         // skip globals which are HLSL objects or group shared
-        !HLModule::IsHLSLObjectType(GV.getType()->getPointerElementType()) &&
+        !dxilutil::IsHLSLObjectType(GV.getType()->getPointerElementType()) &&
         !dxilutil::IsSharedMemoryGlobal(&GV)) {
       if (GlobalHasStoreUser(&GV))
         worklist.emplace_back(&GV);
@@ -5092,7 +5099,7 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF, SmallVector<Val
       } else {
         // Struct.
         StructType *ST = cast<StructType>(valEltTy);
-        if (HLModule::IsHLSLObjectType(ST)) {
+        if (dxilutil::IsHLSLObjectType(ST)) {
           // Save object directly like basic type.
           elts.emplace_back(Builder.CreateLoad(val));
           eltTys.emplace_back(Ty);
@@ -5207,7 +5214,7 @@ static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts, SmallVect
     for (unsigned i = 0; i < matSize; i++)
       AddMissingCastOpsInInitList(elts, eltTys, idx, EltTy, CGF);
   } else if (Ty->isRecordType()) {
-    if (HLModule::IsHLSLObjectType(CGF.ConvertType(Ty))) {
+    if (dxilutil::IsHLSLObjectType(CGF.ConvertType(Ty))) {
       // Skip hlsl object.
       idx++;
     } else {
@@ -5303,7 +5310,7 @@ static void StoreInitListToDestPtr(Value *DestPtr,
           {DestPtr, matVal}, M);
     }
   } else if (Ty->isStructTy()) {
-    if (HLModule::IsHLSLObjectType(Ty)) {
+    if (dxilutil::IsHLSLObjectType(Ty)) {
       Builder.CreateStore(elts[idx], DestPtr);
       idx++;
     } else {
@@ -6305,7 +6312,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     }
 
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (HLModule::IsHLSLObjectType(ST)) {
+    if (dxilutil::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
       Value *GEP = CGF.Builder.CreateInBoundsGEP(Ptr, idxList);
       GepList.push_back(GEP);
@@ -6451,7 +6458,7 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
     Value *ldMat = EmitHLSLMatrixLoad(CGF, srcGEP, SrcType);
     EmitHLSLMatrixStore(CGF, ldMat, dstGEP, DestType);
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (HLModule::IsHLSLObjectType(ST)) {
+    if (dxilutil::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
       SimpleCopy(DestPtr, SrcPtr, idxList, CGF.Builder);
       return;
@@ -6557,8 +6564,8 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
       CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
       return;
     }
-  } else if (HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(SrcPtrTy)) &&
-             HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(DestPtrTy))) {
+  } else if (dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(SrcPtrTy)) &&
+             dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(DestPtrTy))) {
     unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
     unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::max(sizeSrc, sizeDest), 1);
@@ -6668,7 +6675,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(
         CGF.Builder, HLOpcodeGroup::HLInit, 0, Ty, {VecMat}, TheModule);
     EmitHLSLMatrixStore(CGF, MatInit, dstGEP, Type);
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    DXASSERT(!HLModule::IsHLSLObjectType(ST), "cannot cast to hlsl object, Sema should reject");
+    DXASSERT(!dxilutil::IsHLSLObjectType(ST), "cannot cast to hlsl object, Sema should reject");
 
     const clang::RecordType *RT = Type->getAsStructureType();
     RecordDecl *RD = RT->getDecl();
@@ -6879,7 +6886,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       castArgList.emplace_back(argLV);
     }
 
-    bool isObject = HLModule::IsHLSLObjectType(
+    bool isObject = dxilutil::IsHLSLObjectType(
         tmpArgAddr->getType()->getPointerElementType());
 
     // cast before the call
@@ -6936,7 +6943,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
     bool isAggrageteTy = ArgTy->isAggregateType();
     isAggrageteTy &= !IsHLSLVecMatType(ArgTy);
 
-    bool isObject = HLModule::IsHLSLObjectType(
+    bool isObject = dxilutil::IsHLSLObjectType(
        tmpArgAddr->getType()->getPointerElementType());
     if (!isObject) {
       if (!isAggrageteTy) {

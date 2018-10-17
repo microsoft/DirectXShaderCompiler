@@ -494,15 +494,42 @@ private:
   template <class Compare>
   static Use *mergeUseLists(Use *L, Use *R, Compare Cmp) {
     Use *Merged;
-    mergeUseListsImpl(L, R, &Merged, Cmp);
+
+    // HLSL Change Begins. Copied from LLVM Version 8.0.0.
+    // MergeUseListsImpl(L, R, &Merged, Cmp);
+    Use **Next = &Merged;
+
+    while (true) {
+      if (!L) {
+        *Next = R;
+        break;
+      }
+      if (!R) {
+        *Next = L;
+        break;
+      }
+      if (Cmp(*R, *L)) {
+        *Next = R;
+        Next = &R->Next;
+        R = R->Next;
+      } else {
+        *Next = L;
+        Next = &L->Next;
+        L = L->Next;
+      }
+    }
+    // HLSL Change Ends.
+
     return Merged;
   }
-
+  
   /// \brief Tail-recursive helper for \a mergeUseLists().
   ///
   /// \param[out] Next the first element in the list.
-  template <class Compare>
-  static void mergeUseListsImpl(Use *L, Use *R, Use **Next, Compare Cmp);
+  // HLSL Change Begins.
+  //template <class Compare>
+  //static void mergeUseListsImpl(Use *L, Use *R, Use **Next, Compare Cmp);
+  // HLSL Change Ends.
 
 protected:
   unsigned short getSubclassDataFromValue() const { return SubclassData; }
@@ -587,6 +614,8 @@ template <class Compare> void Value::sortUseList(Compare Cmp) {
   }
 }
 
+// HLSL Change Begins.
+/*
 template <class Compare>
 void Value::mergeUseListsImpl(Use *L, Use *R, Use **Next, Compare Cmp) {
   if (!L) {
@@ -605,6 +634,8 @@ void Value::mergeUseListsImpl(Use *L, Use *R, Use **Next, Compare Cmp) {
   *Next = L;
   mergeUseListsImpl(L->Next, R, &L->Next, Cmp);
 }
+*/
+// HLSL Change Ends.
 
 // isa - Provide some specializations of isa so that we don't have to include
 // the subtype header files to test to see if the value is a subclass...

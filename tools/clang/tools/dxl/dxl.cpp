@@ -16,7 +16,7 @@
 #include "dxc/dxcapi.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support//MSFileSystem.h"

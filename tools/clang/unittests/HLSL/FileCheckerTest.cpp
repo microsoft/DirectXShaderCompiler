@@ -33,7 +33,7 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 #include "D3DReflectionDumper.h"
 
 #include "d3d12shader.h"

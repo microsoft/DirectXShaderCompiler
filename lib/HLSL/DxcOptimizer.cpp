@@ -13,15 +13,14 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/microcom.h"
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 #include "dxc/Support/FileIOHelper.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/DxilPIXPasses.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/ReducibilityAnalysis.h"
 #include "dxc/HLSL/HLMatrixLowerPass.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/dxcapi.impl.h"
 
 #include "llvm/Pass.h"
@@ -65,7 +64,7 @@ HRESULT SetupRegistryPassForHLSL() {
   try
   {
     PassRegistry &Registry = *PassRegistry::getPassRegistry();
-    /* <py::lines('INIT-PASSES')>hctdb_instrhelp.get_init_passes()</py>*/
+    /* <py::lines('INIT-PASSES')>hctdb_instrhelp.get_init_passes(set(["llvm", "dxil_gen"]))</py>*/
     // INIT-PASSES:BEGIN
     initializeADCEPass(Registry);
     initializeAddDiscriminatorsPass(Registry);
@@ -85,32 +84,25 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDCEPass(Registry);
     initializeDSEPass(Registry);
     initializeDeadInstEliminationPass(Registry);
-    initializeDxilAddPixelHitInstrumentationPass(Registry);
     initializeDxilAllocateResourcesForLibPass(Registry);
     initializeDxilCondenseResourcesPass(Registry);
     initializeDxilConvergentClearPass(Registry);
     initializeDxilConvergentMarkPass(Registry);
     initializeDxilDeadFunctionEliminationPass(Registry);
-    initializeDxilDebugInstrumentationPass(Registry);
     initializeDxilEliminateOutputDynamicIndexingPass(Registry);
     initializeDxilEmitMetadataPass(Registry);
     initializeDxilExpandTrigIntrinsicsPass(Registry);
     initializeDxilFinalizeModulePass(Registry);
-    initializeDxilForceEarlyZPass(Registry);
     initializeDxilGenerationPassPass(Registry);
     initializeDxilLegalizeEvalOperationsPass(Registry);
     initializeDxilLegalizeResourcesPass(Registry);
     initializeDxilLegalizeSampleOffsetPassPass(Registry);
     initializeDxilLoadMetadataPass(Registry);
     initializeDxilLowerCreateHandleForLibPass(Registry);
-    initializeDxilOutputColorBecomesConstantPass(Registry);
     initializeDxilPrecisePropagatePassPass(Registry);
     initializeDxilPreserveAllOutputsPass(Registry);
     initializeDxilPromoteLocalResourcesPass(Registry);
     initializeDxilPromoteStaticResourcesPass(Registry);
-    initializeDxilReduceMSAAToSingleSamplePass(Registry);
-    initializeDxilRemoveDiscardsPass(Registry);
-    initializeDxilShaderAccessTrackingPass(Registry);
     initializeDxilTranslateRawBufferPass(Registry);
     initializeDynamicIndexingVectorToArrayPass(Registry);
     initializeEarlyCSELegacyPassPass(Registry);

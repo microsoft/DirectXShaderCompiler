@@ -2,46 +2,25 @@
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 add_llvm_library(LLVMHLSL
   ComputeViewIdState.cpp
+  ComputeViewIdStateBuilder.cpp
   ControlDependence.cpp
-  DxilAddPixelHitInstrumentation.cpp
-  DxilCBuffer.cpp
-  DxilCompType.cpp
   DxilCondenseResources.cpp
-  DxilContainer.cpp
   DxilContainerAssembler.cpp
   DxilContainerReflection.cpp
   DxilConvergent.cpp
-  DxilDebugInstrumentation.cpp
   DxilEliminateOutputDynamicIndexing.cpp
   DxilExpandTrigIntrinsics.cpp
-  DxilForceEarlyZ.cpp
   DxilGenerationPass.cpp
-  DxilInterpolationMode.cpp
   DxilLegalizeSampleOffsetPass.cpp
   DxilLinker.cpp
-  DxilMetadataHelper.cpp
-  DxilModule.cpp
-  DxilOperations.cpp
-  DxilOutputColorBecomesConstant.cpp
   DxilPreparePasses.cpp
-  DxilRemoveDiscards.cpp
-  DxilReduceMSAAToSingleSample.cpp
+  DxilPackSignatureElement.cpp
   DxilPatchShaderRecordBindings.cpp
   DxilPreserveAllOutputs.cpp
-  DxilResource.cpp
-  DxilResourceBase.cpp
   DxilRootSignature.cpp
-  DxilSampler.cpp
-  DxilSemantic.cpp
-  DxilShaderFlags.cpp
-  DxilShaderAccessTracking.cpp
-  DxilShaderModel.cpp
-  DxilSignature.cpp
-  DxilSignatureElement.cpp
+  DxilSignatureValidation.cpp
   DxilTargetLowering.cpp
   DxilTargetTransformInfo.cpp
-  DxilTypeSystem.cpp
-  DxilUtil.cpp
   DxilExportMap.cpp
   DxilValidation.cpp
   DxcOptimizer.cpp

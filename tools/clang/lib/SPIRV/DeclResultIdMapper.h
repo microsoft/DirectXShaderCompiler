@@ -13,9 +13,9 @@
 #include <tuple>
 #include <vector>
 
-#include "dxc/HLSL/DxilSemantic.h"
-#include "dxc/HLSL/DxilShaderModel.h"
-#include "dxc/HLSL/DxilSigPoint.h"
+#include "dxc/DXIL/DxilSemantic.h"
+#include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilSigPoint.h"
 #include "dxc/Support/SPIRVOptions.h"
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Attr.h"

@@ -19,7 +19,7 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 #include <d3d12shader.h>
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 
 LPCSTR ToString(D3D_CBUFFER_TYPE CBType);
 LPCSTR ToString(D3D_SHADER_INPUT_TYPE Type);

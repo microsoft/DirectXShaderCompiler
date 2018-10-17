@@ -14,8 +14,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "DxilTargetTransformInfo.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/DxilOperations.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "llvm/CodeGen/BasicTTIImpl.h"
 
 using namespace llvm;

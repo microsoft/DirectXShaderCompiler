@@ -27,10 +27,10 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 
-#include "dxc/HLSL/DxilConstants.h"
-#include "dxc/HLSL/DxilSemantic.h"
-#include "dxc/HLSL/DxilSigPoint.h"
-#include "dxc/HLSL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilSemantic.h"
+#include "dxc/DXIL/DxilSigPoint.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 
 #include <fstream>
 

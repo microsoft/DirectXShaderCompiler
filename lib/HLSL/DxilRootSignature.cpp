@@ -9,7 +9,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/DxilConstants.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HLSL/DxilRootSignature.h"
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/Support/Global.h"
@@ -1672,6 +1672,19 @@ bool VerifyRootSignatureWithShaderPSV(const DxilVersionedRootSignatureDesc *pDes
     DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
     RSV.VerifyRootSignature(pDesc, DiagPrinter);
     RSV.VerifyShader(GetVisibilityType(ShaderKind), pPSVData, PSVSize, DiagPrinter);
+  } catch (...) {
+    return false;
+  }
+
+  return true;
+}
+
+bool VerifyRootSignature(_In_ const DxilVersionedRootSignatureDesc *pDesc,
+                         _In_ llvm::raw_ostream &DiagStream) {
+  try {
+    RootSignatureVerifier RSV;
+    DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+    RSV.VerifyRootSignature(pDesc, DiagPrinter);
   } catch (...) {
     return false;
   }

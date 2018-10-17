@@ -23,7 +23,7 @@
 #include "dxc/Support/Global.h"     // OutputDebugBytes
 #include "dxc/Support/Unicode.h"    // IsStarMatchUTF16
 #include "dxc/Support/dxcapi.use.h" // DxcDllSupport
-#include "dxc/HLSL/DxilConstants.h" // ComponentType
+#include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "WexTestClass.h"           // TAEF
 #include "HLSLTestUtils.h"          // LogCommentFmt
 

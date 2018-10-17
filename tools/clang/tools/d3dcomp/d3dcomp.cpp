@@ -11,7 +11,7 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 #include "dxc/dxcapi.h"
 
 #include <d3dcompiler.h>

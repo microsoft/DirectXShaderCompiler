@@ -12,18 +12,18 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/InstIterator.h"
-#include "dxc/HLSL/DxilContainer.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/DxilShaderModel.h"
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilInstructions.h"
+#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
-#include "dxc/HLSL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
 
 #include <unordered_set>
 #include "llvm/ADT/SetVector.h"
@@ -633,7 +633,7 @@ static bool TryToDetectObjectType(
   llvm::StructType            *structType,
   D3D_SHADER_VARIABLE_TYPE    *outObjectType)
 {
-  // Note: This logic is largely duplicated from `HLModule::IsHLSLObjectType`
+  // Note: This logic is largely duplicated from `dxilutil::IsHLSLObjectType`
   // with the addition of returning the appropriate reflection type tag.
   //
   // That logic looks error-prone, since it relies on string tests against

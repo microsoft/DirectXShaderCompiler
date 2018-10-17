@@ -8,14 +8,14 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilLinker.h"
-#include "dxc/HLSL/DxilCBuffer.h"
-#include "dxc/HLSL/DxilFunctionProps.h"
-#include "DxilEntryProps.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/DxilOperations.h"
-#include "dxc/HLSL/DxilResource.h"
-#include "dxc/HLSL/DxilSampler.h"
-#include "dxc/HLSL/DxilUtil.h"
+#include "dxc/DXIL/DxilCBuffer.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilEntryProps.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilResource.h"
+#include "dxc/DXIL/DxilSampler.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/DenseSet.h"
@@ -26,10 +26,12 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/raw_ostream.h"
 #include <memory>
 #include <vector>
 
-#include "dxc/HLSL/DxilContainer.h"
+#include "dxc/DXIL/DxilContainer.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/DebugInfo.h"
@@ -40,6 +42,7 @@
 #include "llvm/Transforms/Scalar.h"
 
 #include "dxc/HLSL/DxilExportMap.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 
 using namespace llvm;
 using namespace hlsl;
