@@ -36,7 +36,6 @@ public:
   bool visit(SpirvExecutionMode *);
   bool visit(SpirvString *);
   bool visit(SpirvSource *);
-  bool visit(SpirvName *);
   bool visit(SpirvModuleProcessed *);
   bool visit(SpirvDecoration *);
   bool visit(SpirvVariable *);
@@ -90,10 +89,31 @@ private:
   // Provides the next available <result-id>
   uint32_t getNextId() { return ++id; }
 
+  // Emits an OpName instruction into the debugBinary for the given target.
+  void emitDebugNameForInstruction(uint32_t resultId, llvm::StringRef name);
+
+  // TODO: Add a method for adding OpMemberName instructions for struct members
+  // using the type information.
+
 private:
   uint32_t id;
+  // Current instruction being built
   SmallVector<uint32_t, 16> curInst;
-  std::vector<uint32_t> spirvBinary;
+  // All preamble instructions in the following order:
+  // OpCapability, OpExtension, OpExtInstImport, OpMemoryModel, OpEntryPoint,
+  // OpExecutionMode(Id)
+  std::vector<uint32_t> preambleBinary;
+  // All debug instructions *except* OpLine. Includes:
+  // OpString, OpSourceExtension, OpSource, OpSourceContinued, OpName,
+  // OpMemberName, OpModuleProcessed
+  std::vector<uint32_t> debugBinary;
+  // All annotation instructions: OpDecorate, OpMemberDecorate, OpGroupDecorate,
+  // OpGroupMemberDecorate, and OpDecorationGroup.
+  std::vector<uint32_t> annotationsBinary;
+  // All OpLine instructions
+  std::vector<uint32_t> typeConstantBinary;
+  // All other instructions
+  std::vector<uint32_t> mainBinary;
 };
 
 } // namespace spirv

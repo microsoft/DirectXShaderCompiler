@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/SpirvBasicBlock.h"
+#include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 
@@ -28,7 +29,6 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEntryPoint)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionMode)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvString)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSource)
-DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvName)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvModuleProcessed)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDecoration)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVariable)
@@ -132,13 +132,6 @@ SpirvSource::SpirvSource(SourceLocation loc, spv::SourceLanguage language,
     : SpirvInstruction(IK_Source, spv::Op::OpSource, QualType(),
                        /*resultId=*/0, loc),
       lang(language), version(ver), file(fileString), source(src) {}
-
-SpirvName::SpirvName(SourceLocation loc, SpirvInstruction *targetInst,
-                     llvm::StringRef nameStr,
-                     llvm::Optional<uint32_t> memberIndex)
-    : SpirvInstruction(IK_Name, spv::Op::OpMemberName, QualType(),
-                       /*resultId=*/0, loc),
-      target(targetInst), member(memberIndex), name(nameStr) {}
 
 SpirvModuleProcessed::SpirvModuleProcessed(SourceLocation loc,
                                            llvm::StringRef processStr)

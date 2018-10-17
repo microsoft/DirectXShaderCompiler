@@ -66,6 +66,9 @@ public:
   /// Handle SPIR-V basic block visitors.
   bool invokeVisitor(Visitor *);
 
+  /// \brief Adds the given basic block as a successsor to this basic block.
+  void addSuccessor(SpirvBasicBlock *bb);
+
 private:
   uint32_t labelId;      ///< The label's <result-id>
   std::string labelName; ///< The label's debug name

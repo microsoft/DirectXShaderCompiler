@@ -120,6 +120,9 @@ public:
 
   clang::SourceLocation getSourceLocation() const { return srcLoc; }
 
+  void setDebugName(llvm::StringRef name) { debugName = name; }
+  llvm::StringRef getDebugName() const { return debugName; }
+
 protected:
   // Forbid creating SpirvInstruction directly
   SpirvInstruction(Kind kind, spv::Op opcode, QualType resultType,
@@ -132,6 +135,7 @@ private:
   QualType resultType;
   uint32_t resultId;
   SourceLocation srcLoc;
+  std::string debugName;
 };
 
 #define DECLARE_INVOKE_VISITOR_FOR_CLASS(cls)                                  \
@@ -304,30 +308,6 @@ private:
   uint32_t version;
   SpirvString *file;
   std::string source;
-};
-
-/// \brief OpMemberName instruction
-class SpirvName : public SpirvInstruction {
-public:
-  SpirvName(SourceLocation loc, SpirvInstruction *targetInst,
-            llvm::StringRef nameStr, llvm::Optional<uint32_t> memberIndex);
-
-  // For LLVM-style RTTI
-  static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() == IK_Name;
-  }
-
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvName)
-
-  SpirvInstruction *getTarget() const { return target; }
-  bool isForMember() const { return member.hasValue(); }
-  uint32_t getMember() const { return member.getValue(); }
-  llvm::StringRef getName() const { return name; }
-
-private:
-  SpirvInstruction *target;
-  llvm::Optional<uint32_t> member;
-  std::string name;
 };
 
 /// \brief OpModuleProcessed instruction
