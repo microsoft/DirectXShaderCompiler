@@ -34,7 +34,7 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
 /// Returns true if the given vector type (of the given size) crosses the
 /// 4-component vector boundary if placed at the given offset.
 bool improperStraddle(QualType type, int size, int offset) {
-  assert(TypeTranslator::isVectorType(type));
+  assert(isVectorType(type));
   return size <= 16 ? offset / 16 != (offset + size - 1) / 16
                     : offset % 16 != 0;
 }
