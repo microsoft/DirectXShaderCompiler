@@ -35,5 +35,10 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor) {
   return true;
 }
 
+void SpirvBasicBlock::addSuccessor(SpirvBasicBlock *bb) {
+  assert(bb && "cannot add null basic block as successor");
+  successors.push_back(bb);
+}
+
 } // end namespace spirv
 } // end namespace clang
