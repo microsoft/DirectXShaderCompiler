@@ -361,7 +361,8 @@ bool VerifyRootSignatureWithShaderPSV(_In_ const DxilVersionedRootSignatureDesc 
 
 // standalone verification
 bool VerifyRootSignature(_In_ const DxilVersionedRootSignatureDesc *pDesc,
-                         _In_ llvm::raw_ostream &DiagStream);
+                         _In_ llvm::raw_ostream &DiagStream,
+                         _In_ bool bAllowReservedRegisterSpace);
 
 } // namespace hlsl
 

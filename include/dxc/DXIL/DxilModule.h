@@ -40,7 +40,6 @@ namespace hlsl {
 
 class ShaderModel;
 class OP;
-class RootSignatureHandle;
 struct DxilFunctionProps;
 
 class DxilEntryProps;
@@ -120,7 +119,7 @@ public:
   const DxilSignature &GetOutputSignature() const;
   DxilSignature &GetPatchConstantSignature();
   const DxilSignature &GetPatchConstantSignature() const;
-  const RootSignatureHandle &GetRootSignature() const;
+  const std::vector<uint8_t> &GetSerializedRootSignature() const;
 
   bool HasDxilEntrySignature(const llvm::Function *F) const;
   DxilEntrySignature &GetDxilEntrySignature(const llvm::Function *F);
@@ -178,7 +177,7 @@ public:
 
   // Reset functions used to transfer ownership.
   void ResetEntrySignature(DxilEntrySignature *pValue);
-  void ResetRootSignature(RootSignatureHandle *pValue);
+  void ResetSerializedRootSignature(std::vector<uint8_t> &Value);
   void ResetTypeSystem(DxilTypeSystem *pValue);
   void ResetOP(hlsl::OP *hlslOP);
   void ResetEntryPropsMap(DxilEntryPropsMap &&PropMap);
@@ -271,7 +270,7 @@ public:
 
 private:
   // Signatures.
-  std::unique_ptr<RootSignatureHandle> m_RootSignature;
+  std::vector<uint8_t> m_SerializedRootSignature;
 
   // Shader resources.
   std::vector<std::unique_ptr<DxilResource> > m_SRVs;

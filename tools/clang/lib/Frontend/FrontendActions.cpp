@@ -29,7 +29,7 @@
 #include <memory>
 #include <system_error>
 // HLSL Change Begin.
-#include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "clang/Parse/ParseHLSL.h"
 // HLSL Change End.
 using namespace clang;

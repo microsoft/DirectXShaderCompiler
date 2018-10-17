@@ -16,8 +16,6 @@
 #include "dxc/DXIL/DxilSignatureElement.h"
 #include "dxc/DXIL/DxilSignature.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
-#include "dxc/HLSL/DxilRootSignature.h"
-#include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
 
@@ -294,15 +292,15 @@ MDTuple *DxilMDHelper::EmitDxilSignatures(const DxilEntrySignature &EntrySig) {
   return pSignatureTupleMD;
 }
 
-void DxilMDHelper::EmitRootSignature(RootSignatureHandle &RootSig) {
-  if (RootSig.IsEmpty()) {
+void DxilMDHelper::EmitRootSignature(
+    std::vector<uint8_t> &SerializedRootSignature) {
+  if (SerializedRootSignature.empty()) {
     return;
   }
 
-  RootSig.EnsureSerializedAvailable();
   Constant *V = llvm::ConstantDataArray::get(
-      m_Ctx, llvm::ArrayRef<uint8_t>(RootSig.GetSerializedBytes(),
-                                     RootSig.GetSerializedSize()));
+      m_Ctx, llvm::ArrayRef<uint8_t>(SerializedRootSignature.data(),
+                                     SerializedRootSignature.size()));
 
   NamedMDNode *pRootSignatureNamedMD = m_pModule->getNamedMetadata(kDxilRootSignatureMDName);
   IFTBOOL(pRootSignatureNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
@@ -353,7 +351,7 @@ void DxilMDHelper::LoadSignatureMetadata(const MDOperand &MDO, DxilSignature &Si
   }
 }
 
-void DxilMDHelper::LoadRootSignature(RootSignatureHandle &Sig) {
+void DxilMDHelper::LoadRootSignature(std::vector<uint8_t> &SerializedRootSignature) {
   NamedMDNode *pRootSignatureNamedMD = m_pModule->getNamedMetadata(kDxilRootSignatureMDName);
   if(!pRootSignatureNamedMD)
     return;
@@ -372,9 +370,11 @@ void DxilMDHelper::LoadRootSignature(RootSignatureHandle &Sig) {
   IFTBOOL(pData->getElementType() == Type::getInt8Ty(m_Ctx),
           DXC_E_INCORRECT_DXIL_METADATA);
 
-  Sig.Clear();
-  Sig.LoadSerialized((const uint8_t *)pData->getRawDataValues().begin(),
-                     pData->getRawDataValues().size());
+  SerializedRootSignature.clear();
+  unsigned size = pData->getRawDataValues().size();
+  SerializedRootSignature.resize(size);
+  memcpy(SerializedRootSignature.data(),
+         (const uint8_t *)pData->getRawDataValues().begin(), size);
 }
 
 static const MDTuple *CastToTupleOrNull(const MDOperand &MDO) {

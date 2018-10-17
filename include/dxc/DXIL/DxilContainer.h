@@ -16,7 +16,6 @@
 
 #include <stdint.h>
 #include <iterator>
-#include <functional>
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/WinAdapter.h"
 
@@ -418,28 +417,6 @@ inline bool GetDxilShaderDebugName(const DxilPartHeader *pDebugNamePart,
   return true;
 }
 
-class DxilPartWriter {
-public:
-  virtual ~DxilPartWriter() {}
-  virtual uint32_t size() const = 0;
-  virtual void write(AbstractMemoryStream *pStream) = 0;
-};
-
-DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
-DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
-DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
-DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = 0);
-DxilPartWriter *NewRDATWriter(const DxilModule &M, uint32_t InfoVersion = 0);
-
-class DxilContainerWriter : public DxilPartWriter  {
-public:
-  typedef std::function<void(AbstractMemoryStream*)> WriteFn;
-  virtual ~DxilContainerWriter() {}
-  virtual void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) = 0;
-};
-
-DxilContainerWriter *NewDxilContainerWriter();
-
 enum class SerializeDxilFlags : uint32_t {
   None = 0,                     // No flags defined.
   IncludeDebugInfoPart = 1,     // Include the debug info part in the container.
@@ -460,13 +437,6 @@ inline int operator&(SerializeDxilFlags l, SerializeDxilFlags r) {
 inline SerializeDxilFlags operator~(SerializeDxilFlags l) {
   return static_cast<SerializeDxilFlags>(~static_cast<uint32_t>(l));
 }
-
-void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
-                                     AbstractMemoryStream *pModuleBitcode,
-                                     AbstractMemoryStream *pStream,
-                                     SerializeDxilFlags Flags);
-void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
-                                     AbstractMemoryStream *pStream);
 
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
 

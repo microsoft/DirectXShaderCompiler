@@ -26,11 +26,11 @@
 #include "llvm/IR/LLVMContext.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
-#include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxcutil.h"
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/HLSL/DxilContainerWriter.h"
 #include "dxc/dxcapi.internal.h"
 
 #include "dxc/Support/dxcapi.use.h"

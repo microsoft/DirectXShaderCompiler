@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilValidation.h"
+#include "dxc/HLSL/DxilContainerWriter.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilModule.h"
@@ -46,7 +47,7 @@
 #include "dxc/HLSL/DxilSpanAllocator.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
 #include "dxc/HLSL/DxilPackSignatureElement.h"
-#include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include <algorithm>
 #include <deque>
 
@@ -5489,22 +5490,19 @@ HRESULT ValidateDxilBitcode(
     return hr;
 
   DxilModule &dxilModule = pModule->GetDxilModule();
-  if (!dxilModule.GetRootSignature().IsEmpty()) {
+  auto &SerializedRootSig = dxilModule.GetSerializedRootSignature();
+  if (!SerializedRootSig.empty()) {
     unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule, 0));
     DXASSERT_NOMSG(pWriter->size());
     CComPtr<AbstractMemoryStream> pOutputStream;
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
     pOutputStream->Reserve(pWriter->size());
     pWriter->write(pOutputStream);
-    const DxilVersionedRootSignatureDesc* pDesc = dxilModule.GetRootSignature().GetDesc();
-    RootSignatureHandle RS;
     try {
+      const DxilVersionedRootSignatureDesc* pDesc = nullptr;
+      DeserializeRootSignature(SerializedRootSig.data(), SerializedRootSig.size(), &pDesc);
       if (!pDesc) {
-        RS.Assign(nullptr, dxilModule.GetRootSignature().GetSerialized());
-        RS.Deserialize();
-        pDesc = RS.GetDesc();
-        if (!pDesc)
-          return DXC_E_INCORRECT_ROOT_SIGNATURE;
+        return DXC_E_INCORRECT_ROOT_SIGNATURE;
       }
       IFTBOOL(VerifyRootSignatureWithShaderPSV(pDesc,
                                                dxilModule.GetShaderModel()->GetKind(),

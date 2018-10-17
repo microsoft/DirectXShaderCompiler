@@ -51,7 +51,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DXIL/DxilContainer.h"
 #include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/microcom.h"
 #include "llvm/Option/OptTable.h"

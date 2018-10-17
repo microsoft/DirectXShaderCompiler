@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "dxc/DXIL/DxilContainer.h"
-#include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/HLSLOptions.h"

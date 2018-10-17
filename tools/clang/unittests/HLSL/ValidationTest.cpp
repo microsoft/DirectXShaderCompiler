@@ -17,6 +17,7 @@
 #include "llvm/Support/Regex.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "dxc/DXIL/DxilContainer.h"
+#include "dxc/HLSL/DxilContainerWriter.h"
 
 #ifdef _WIN32
 #include <atlbase.h>

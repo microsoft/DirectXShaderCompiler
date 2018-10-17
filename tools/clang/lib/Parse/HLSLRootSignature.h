@@ -11,7 +11,7 @@
 #pragma once
 
 #include "dxc/DXIL/DXIL.h"
-#include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 
 namespace llvm {
 class raw_ostream;
