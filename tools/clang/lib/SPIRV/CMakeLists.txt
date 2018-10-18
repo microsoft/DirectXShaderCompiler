@@ -15,6 +15,7 @@ add_clang_library(clangSPIRV
   InitListHandler.cpp
   InstBuilderAuto.cpp
   InstBuilderManual.cpp
+  LowerTypeVisitor.cpp
   ModuleBuilder.cpp
   SPIRVContext.cpp
   SPIRVEmitter.cpp
