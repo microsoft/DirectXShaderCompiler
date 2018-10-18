@@ -1131,6 +1131,31 @@ namespace DXIL {
 
   const unsigned ShaderFeatureInfoCount = 19;
 
+  // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
+  // certain values reserved, since they cannot be used from Dxil.
+  enum class SubobjectKind : uint32_t {
+    StateObjectConfig                 = 0,
+    GlobalRootSignature               = 1,
+    LocalRootSignature                = 2,
+    // 3-7 are reserved (not supported in Dxil)
+    SubobjectToExportsAssociation     = 8,
+    RaytracingShaderConfig            = 9,
+    RaytracingPipelineConfig          = 10,
+    HitGroup                          = 11,
+    NumKinds // aka D3D12_STATE_SUBOBJECT_TYPE_MAX_VALID
+  };
+  inline bool IsValidSubobjectKind(SubobjectKind kind) {
+    return (kind < SubobjectKind::NumKinds &&
+      ( kind <= SubobjectKind::LocalRootSignature ||
+        kind >= SubobjectKind::SubobjectToExportsAssociation));
+  }
+
+  enum class StateObjectFlags : uint32_t {
+    AllowLocalDependenciesOnExternalDefinitions = 0x1,
+    AllowExternalDependenciesOnLocalDefinitions = 0x2,
+    ValidMask = 0x3,
+  };
+
   extern const char* kLegacyLayoutString;
   extern const char* kNewLayoutString;
   extern const char* kFP32DenormKindString;

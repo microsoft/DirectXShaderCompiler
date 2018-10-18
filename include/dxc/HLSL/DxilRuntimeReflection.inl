@@ -93,12 +93,15 @@ public:
 DxilRuntimeData::DxilRuntimeData() : DxilRuntimeData(nullptr, 0) {}
 
 DxilRuntimeData::DxilRuntimeData(const char *ptr, size_t size)
-    : m_TableCount(0), m_StringReader(), m_ResourceTableReader(),
-      m_FunctionTableReader(), m_IndexTableReader(), m_Context() {
-  m_Context = {&m_StringReader, &m_IndexTableReader, &m_ResourceTableReader,
-               &m_FunctionTableReader};
+    : m_TableCount(0), m_StringReader(), m_IndexTableReader(), m_RawBytesReader(),
+      m_ResourceTableReader(), m_FunctionTableReader(),
+      m_SubobjectTableReader(), m_Context() {
+  m_Context = {&m_StringReader, &m_IndexTableReader, &m_RawBytesReader,
+               &m_ResourceTableReader, &m_FunctionTableReader,
+               &m_SubobjectTableReader};
   m_ResourceTableReader.SetContext(&m_Context);
   m_FunctionTableReader.SetContext(&m_Context);
+  m_SubobjectTableReader.SetContext(&m_Context);
   InitFromRDAT(ptr, size);
 }
 
@@ -108,7 +111,7 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
     try {
       CheckedReader Reader(pRDAT, size);
       RuntimeDataHeader RDATHeader = Reader.Read<RuntimeDataHeader>();
-      if (RDATHeader.Version < RDAT_Version_0) {
+      if (RDATHeader.Version < RDAT_Version_10) {
         // Prerelease version, fallback to that Init
         return InitFromRDAT_Prerelease(pRDAT, size);
       }
@@ -129,6 +132,11 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
             PR.ReadArray<uint32_t>(count), count);
           break;
         }
+        case RuntimeDataPartType::RawBytes: {
+          m_RawBytesReader = RawBytesReader(
+            PR.ReadArray<char>(part.Size), part.Size);
+          break;
+        }
         case RuntimeDataPartType::ResourceTable: {
           RuntimeDataTableHeader table = PR.Read<RuntimeDataTableHeader>();
           size_t tableSize = table.RecordCount * table.RecordStride;
@@ -140,6 +148,13 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
           RuntimeDataTableHeader table = PR.Read<RuntimeDataTableHeader>();
           size_t tableSize = table.RecordCount * table.RecordStride;
           m_FunctionTableReader.SetFunctionInfo(PR.ReadArray<char>(tableSize),
+            table.RecordCount, table.RecordStride);
+          break;
+        }
+        case RuntimeDataPartType::SubobjectTable: {
+          RuntimeDataTableHeader table = PR.Read<RuntimeDataTableHeader>();
+          size_t tableSize = table.RecordCount * table.RecordStride;
+          m_SubobjectTableReader.SetSubobjectInfo(PR.ReadArray<char>(tableSize),
             table.RecordCount, table.RecordStride);
           break;
         }
@@ -226,6 +241,10 @@ ResourceTableReader *DxilRuntimeData::GetResourceTableReader() {
   return &m_ResourceTableReader;
 }
 
+SubobjectTableReader *DxilRuntimeData::GetSubobjectTableReader() {
+  return &m_SubobjectTableReader;
+}
+
 }} // hlsl::RDAT
 
 using namespace hlsl;
@@ -245,18 +264,21 @@ namespace {
 class DxilRuntimeReflection_impl : public DxilRuntimeReflection {
 private:
   typedef std::unordered_map<const char *, std::unique_ptr<wchar_t[]>> StringMap;
+  typedef std::vector<const wchar_t *> WStringList;
   typedef std::vector<DxilResourceDesc> ResourceList;
   typedef std::vector<DxilResourceDesc *> ResourceRefList;
   typedef std::vector<DxilFunctionDesc> FunctionList;
-  typedef std::vector<const wchar_t *> WStringList;
+  typedef std::vector<DxilSubobjectDesc> SubobjectList;
 
   DxilRuntimeData m_RuntimeData;
   StringMap m_StringMap;
   ResourceList m_Resources;
   FunctionList m_Functions;
+  SubobjectList m_Subobjects;
   std::unordered_map<ResourceKey, DxilResourceDesc *> m_ResourceMap;
   std::unordered_map<DxilFunctionDesc *, ResourceRefList> m_FuncToResMap;
   std::unordered_map<DxilFunctionDesc *, WStringList> m_FuncToStringMap;
+  std::unordered_map<DxilSubobjectDesc *, WStringList> m_SubobjectToStringMap;
   bool m_initialized;
 
   const wchar_t *GetWideString(const char *ptr);
@@ -266,15 +288,19 @@ private:
                              const FunctionReader &functionReader);
   const wchar_t **GetDependenciesForFunction(DxilFunctionDesc &function,
                              const FunctionReader &functionReader);
+  const wchar_t **GetExportsForAssociation(DxilSubobjectDesc &subobject,
+                             const SubobjectReader &subobjectReader);
   DxilResourceDesc *AddResource(const ResourceReader &resourceReader);
   DxilFunctionDesc *AddFunction(const FunctionReader &functionReader);
+  DxilSubobjectDesc *AddSubobject(const SubobjectReader &subobjectReader);
 
 public:
   // TODO: Implement pipeline state validation with runtime data
   // TODO: Update BlobContainer.h to recognize 'RDAT' blob
   DxilRuntimeReflection_impl()
       : m_RuntimeData(), m_StringMap(), m_Resources(), m_Functions(),
-        m_FuncToResMap(), m_FuncToStringMap(), m_initialized(false) {}
+        m_FuncToResMap(), m_FuncToStringMap(), m_SubobjectToStringMap(),
+        m_initialized(false) {}
   virtual ~DxilRuntimeReflection_impl() {}
   // This call will allocate memory for GetLibraryReflection call
   bool InitFromRDAT(const void *pRDAT, size_t size) override;
@@ -341,6 +367,13 @@ void DxilRuntimeReflection_impl::InitializeReflection() {
     FunctionReader functionReader = functionTableReader->GetItem(i);
     AddString(functionReader.GetName());
     AddFunction(functionReader);
+  }
+  const SubobjectTableReader *subobjectTableReader = m_RuntimeData.GetSubobjectTableReader();
+  m_Subobjects.reserve(subobjectTableReader->GetCount());
+  for (uint32_t i = 0; i < subobjectTableReader->GetCount(); ++i) {
+    SubobjectReader subobjectReader = subobjectTableReader->GetItem(i);
+    AddString(subobjectReader.GetName());
+    AddSubobject(subobjectReader);
   }
 }
 
@@ -416,6 +449,60 @@ DxilRuntimeReflection_impl::AddFunction(const FunctionReader &functionReader) {
   function.ShaderStageFlag = functionReader.GetShaderStageFlag();
   function.MinShaderTarget = functionReader.GetMinShaderTarget();
   return &function;
+}
+
+const wchar_t **DxilRuntimeReflection_impl::GetExportsForAssociation(
+  DxilSubobjectDesc &subobject, const SubobjectReader &subobjectReader) {
+  if (m_SubobjectToStringMap.find(&subobject) == m_SubobjectToStringMap.end())
+    m_SubobjectToStringMap.insert(
+      std::pair<DxilSubobjectDesc *, WStringList>(&subobject, WStringList()));
+  WStringList &wStringList = m_SubobjectToStringMap.at(&subobject);
+  for (uint32_t i = 0; i < subobjectReader.GetSubobjectToExportsAssociation_NumExports(); ++i) {
+    wStringList.emplace_back(GetWideString(subobjectReader.GetSubobjectToExportsAssociation_Export(i)));
+  }
+  return wStringList.empty() ? nullptr : wStringList.data();
+}
+
+DxilSubobjectDesc *DxilRuntimeReflection_impl::AddSubobject(const SubobjectReader &subobjectReader) {
+  assert(m_Subobjects.size() < m_Subobjects.capacity() && "Otherwise, number of subobjects was incorrect");
+  if (!(m_Subobjects.size() < m_Subobjects.capacity()))
+    return nullptr;
+  m_Subobjects.emplace_back(DxilSubobjectDesc({0}));
+  DxilSubobjectDesc &subobject = m_Subobjects.back();
+  subobject.Name = GetWideString(subobjectReader.GetName());
+  subobject.Kind = (uint32_t)subobjectReader.GetKind();
+  switch (subobjectReader.GetKind()) {
+  case DXIL::SubobjectKind::StateObjectConfig:
+    subobject.StateObjectConfig.Flags = subobjectReader.GetStateObjectConfig_Flags();
+    break;
+  case DXIL::SubobjectKind::GlobalRootSignature:
+  case DXIL::SubobjectKind::LocalRootSignature:
+    if (!subobjectReader.GetRootSignature(&subobject.RootSignature.pSerializedSignature, &subobject.RootSignature.SizeInBytes))
+      return nullptr;
+    break;
+  case DXIL::SubobjectKind::SubobjectToExportsAssociation:
+    subobject.SubobjectToExportsAssociation.Subobject =
+      GetWideString(subobjectReader.GetSubobjectToExportsAssociation_Subobject());
+    subobject.SubobjectToExportsAssociation.NumExports = subobjectReader.GetSubobjectToExportsAssociation_NumExports();
+    subobject.SubobjectToExportsAssociation.Exports = GetExportsForAssociation(subobject, subobjectReader);
+    break;
+  case DXIL::SubobjectKind::RaytracingShaderConfig:
+    subobject.RaytracingShaderConfig.MaxPayloadSizeInBytes = subobjectReader.GetRaytracingShaderConfig_MaxPayloadSizeInBytes();
+    subobject.RaytracingShaderConfig.MaxAttributeSizeInBytes = subobjectReader.GetRaytracingShaderConfig_MaxAttributeSizeInBytes();
+    break;
+  case DXIL::SubobjectKind::RaytracingPipelineConfig:
+    subobject.RaytracingPipelineConfig.MaxTraceRecursionDepth = subobjectReader.GetRaytracingPipelineConfig_MaxTraceRecursionDepth();
+    break;
+  case DXIL::SubobjectKind::HitGroup:
+    subobject.HitGroup.Intersection = GetWideString(subobjectReader.GetHitGroup_Intersection());
+    subobject.HitGroup.AnyHit = GetWideString(subobjectReader.GetHitGroup_AnyHit());
+    subobject.HitGroup.ClosestHit = GetWideString(subobjectReader.GetHitGroup_ClosestHit());
+    break;
+  default:
+    // Ignore contents of unrecognized subobject type (forward-compat)
+    break;
+  }
+  return &subobject;
 }
 
 } // namespace anon

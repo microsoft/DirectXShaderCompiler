@@ -18,6 +18,7 @@
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
+#include "dxc/DXIL/DxilSubobject.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -54,6 +55,7 @@ const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valv
 // This named metadata is not valid in final module (should be moved to DxilContainer)
 const char DxilMDHelper::kDxilRootSignatureMDName[]                   = "dx.rootSignature";
 const char DxilMDHelper::kDxilViewIdStateMDName[]                     = "dx.viewIdState";
+const char DxilMDHelper::kDxilSubobjectsMDName[]                      = "dx.subobjects";
 
 const char DxilMDHelper::kDxilSourceContentsMDName[]                  = "dx.source.contents";
 const char DxilMDHelper::kDxilSourceDefinesMDName[]                   = "dx.source.defines";
@@ -1329,6 +1331,160 @@ MDNode *DxilMDHelper::EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<D
   return hintsNode;
 }
 
+void DxilMDHelper::EmitSubobjects(const DxilSubobjects &Subobjects) {
+  NamedMDNode *pSubobjectsNamedMD = m_pModule->getNamedMetadata(kDxilSubobjectsMDName);
+  IFTBOOL(pSubobjectsNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  pSubobjectsNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilSubobjectsMDName);
+
+  const auto &objMap = Subobjects.GetSubobjects();
+  for (auto &it : objMap)
+    pSubobjectsNamedMD->addOperand(cast<MDNode>(EmitSubobject(*it.second)));
+}
+
+void DxilMDHelper::LoadSubobjects(DxilSubobjects &Subobjects) {
+  NamedMDNode *pSubobjectsNamedMD = m_pModule->getNamedMetadata(kDxilSubobjectsMDName);
+  if (!pSubobjectsNamedMD)
+    return;
+
+  for (unsigned i = 0; i < pSubobjectsNamedMD->getNumOperands(); ++i)
+    LoadSubobject(*pSubobjectsNamedMD->getOperand(i), Subobjects);
+}
+
+Metadata *DxilMDHelper::EmitSubobject(const DxilSubobject &obj) {
+  SmallVector<Metadata *, 6> Args;
+  Args.emplace_back(MDString::get(m_Ctx, obj.GetName()));
+  Args.emplace_back(Uint32ToConstMD((unsigned)obj.GetKind()));
+  bool bLocalRS = false;
+  IFTBOOL(DXIL::IsValidSubobjectKind(obj.GetKind()), DXC_E_INCORRECT_DXIL_METADATA);
+  switch (obj.GetKind()) {
+  case DXIL::SubobjectKind::StateObjectConfig: {
+    uint32_t Flags;
+    IFTBOOL(!obj.GetStateObjectConfig(Flags),
+      DXC_E_INCORRECT_DXIL_METADATA);
+    Args.emplace_back(Uint32ToConstMD((unsigned)Flags));
+    break;
+  }
+  case DXIL::SubobjectKind::LocalRootSignature:
+    bLocalRS = true;
+  case DXIL::SubobjectKind::GlobalRootSignature: {
+    const void * Data;
+    uint32_t Size;
+    IFTBOOL(!obj.GetRootSignature(bLocalRS, Data, Size),
+      DXC_E_INCORRECT_DXIL_METADATA);
+    Constant *V = ConstantDataArray::get(m_Ctx,
+      ArrayRef<uint8_t>((const uint8_t *)Data, Size));
+    Args.emplace_back(MDNode::get(m_Ctx, { ConstantAsMetadata::get(V) }));
+    break;
+  }
+  case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
+    StringRef Subobj;
+    const char * const * Exports;
+    uint32_t NumExports;
+    IFTBOOL(!obj.GetSubobjectToExportsAssociation(Subobj, Exports, NumExports),
+      DXC_E_INCORRECT_DXIL_METADATA);
+    SmallVector<Metadata *, 4> strArgs;
+    for (unsigned i = 0; i < NumExports; ++i) {
+      strArgs.emplace_back(MDString::get(m_Ctx, Exports[i]));
+    }
+    Args.emplace_back(MDNode::get(m_Ctx, strArgs));
+    break;
+  }
+  case DXIL::SubobjectKind::RaytracingShaderConfig: {
+    uint32_t MaxPayloadSizeInBytes;
+    uint32_t MaxAttributeSizeInBytes;
+    IFTBOOL(!obj.GetRaytracingShaderConfig(MaxPayloadSizeInBytes,
+                                           MaxAttributeSizeInBytes),
+      DXC_E_INCORRECT_DXIL_METADATA);
+    Args.emplace_back(Uint32ToConstMD(MaxPayloadSizeInBytes));
+    Args.emplace_back(Uint32ToConstMD(MaxAttributeSizeInBytes));
+    break;
+  }
+  case DXIL::SubobjectKind::RaytracingPipelineConfig: {
+    uint32_t MaxTraceRecursionDepth;
+    IFTBOOL(!obj.GetRaytracingPipelineConfig(MaxTraceRecursionDepth),
+      DXC_E_INCORRECT_DXIL_METADATA);
+    Args.emplace_back(Uint32ToConstMD(MaxTraceRecursionDepth));
+    break;
+  }
+  case DXIL::SubobjectKind::HitGroup: {
+    llvm::StringRef Intersection, AnyHit, ClosestHit;
+    IFTBOOL(!obj.GetHitGroup(Intersection, AnyHit, ClosestHit),
+      DXC_E_INCORRECT_DXIL_METADATA);
+    Args.emplace_back(MDString::get(m_Ctx, Intersection));
+    Args.emplace_back(MDString::get(m_Ctx, AnyHit));
+    Args.emplace_back(MDString::get(m_Ctx, ClosestHit));
+    break;
+  }
+  default:
+    DXASSERT(false, "otherwise, we didn't handle a valid subobject kind");
+    break;
+  }
+  return MDNode::get(m_Ctx, Args);
+}
+void DxilMDHelper::LoadSubobject(const llvm::MDNode &MD, DxilSubobjects &Subobjects) {
+  IFTBOOL(MD.getNumOperands() >= 2, DXC_E_INCORRECT_DXIL_METADATA);
+  unsigned i = 0;
+  StringRef name(StringMDToStringRef(MD.getOperand(i++)));
+  DXIL::SubobjectKind kind = (DXIL::SubobjectKind)ConstMDToUint32(MD.getOperand(i++));
+  IFTBOOL(DXIL::IsValidSubobjectKind(kind), DXC_E_INCORRECT_DXIL_METADATA);
+  bool bLocalRS = false;
+  switch (kind) {
+  case DXIL::SubobjectKind::StateObjectConfig: {
+    uint32_t Flags = ConstMDToUint32(MD.getOperand(i++));
+    IFTBOOL(0 == ((~(uint32_t)DXIL::StateObjectFlags::ValidMask) & Flags),
+            DXC_E_INCORRECT_DXIL_METADATA);
+    Subobjects.CreateStateObjectConfig(name, Flags);
+    break;
+  }
+  case DXIL::SubobjectKind::LocalRootSignature:
+    bLocalRS = true;
+  case DXIL::SubobjectKind::GlobalRootSignature: {
+    const ConstantAsMetadata *pMetaData = dyn_cast<ConstantAsMetadata>(MD.getOperand(i++));
+    IFTBOOL(pMetaData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+    const ConstantDataArray *pData = dyn_cast<ConstantDataArray>(pMetaData->getValue());
+    IFTBOOL(pData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+    IFTBOOL(pData->getElementType() == Type::getInt8Ty(m_Ctx), DXC_E_INCORRECT_DXIL_METADATA);
+    IFTBOOL(pData->getRawDataValues().size() < UINT_MAX &&
+            (pData->getRawDataValues().size() & 3) == 0, DXC_E_INCORRECT_DXIL_METADATA);
+    const void *Data = pData->getRawDataValues().begin();
+    uint32_t Size = pData->getRawDataValues().size();
+    Subobjects.CreateRootSignature(name, bLocalRS, Data, Size);
+    break;
+  }
+  case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
+    StringRef Subobj(StringMDToStringRef(MD.getOperand(i++)));
+    const MDNode *exportMD = dyn_cast<MDNode>(MD.getOperand(i++));
+    SmallVector<const char *, 4> Exports;
+    for (unsigned iExport = 0; iExport < exportMD->getNumOperands(); iExport++) {
+      Exports.push_back(StringMDToStringRef(exportMD->getOperand(iExport)).data());
+    }
+    Subobjects.CreateSubobjectToExportsAssociation(name, Subobj, Exports.data(), Exports.size());
+    break;
+  }
+  case DXIL::SubobjectKind::RaytracingShaderConfig: {
+    uint32_t MaxPayloadSizeInBytes = ConstMDToUint32(MD.getOperand(i++));;
+    uint32_t MaxAttributeSizeInBytes = ConstMDToUint32(MD.getOperand(i++));;
+    Subobjects.CreateRaytracingShaderConfig(name, MaxPayloadSizeInBytes, MaxAttributeSizeInBytes);
+    break;
+  }
+  case DXIL::SubobjectKind::RaytracingPipelineConfig: {
+    uint32_t MaxTraceRecursionDepth = ConstMDToUint32(MD.getOperand(i++));;
+    Subobjects.CreateRaytracingPipelineConfig(name, MaxTraceRecursionDepth);
+    break;
+  }
+  case DXIL::SubobjectKind::HitGroup: {
+    StringRef Intersection(StringMDToStringRef(MD.getOperand(i++)));
+    StringRef AnyHit(StringMDToStringRef(MD.getOperand(i++)));
+    StringRef ClosestHit(StringMDToStringRef(MD.getOperand(i++)));
+    Subobjects.CreateHitGroup(name, Intersection, AnyHit, ClosestHit);
+    break;
+  }
+  default:
+    DXASSERT(false, "otherwise, we didn't handle a valid subobject kind");
+    break;
+  }
+}
+
 MDTuple *DxilMDHelper::EmitDxilSampler(const DxilSampler &S) {
   Metadata *MDVals[kDxilSamplerNumFields];
 
@@ -1823,6 +1979,12 @@ float DxilMDHelper::ConstMDToFloat(const MDOperand &MDO) {
 }
 
 string DxilMDHelper::StringMDToString(const MDOperand &MDO) {
+  MDString *pMDString = dyn_cast<MDString>(MDO.get());
+  IFTBOOL(pMDString != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  return pMDString->getString();
+}
+
+StringRef DxilMDHelper::StringMDToStringRef(const MDOperand &MDO) {
   MDString *pMDString = dyn_cast<MDString>(MDO.get());
   IFTBOOL(pMDString != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   return pMDString->getString();
