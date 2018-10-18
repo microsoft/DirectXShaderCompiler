@@ -20,7 +20,7 @@
 #include <cassert>
 #include <sstream>
 #include <algorithm>
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 #ifdef _WIN32

@@ -14,7 +14,7 @@
 #include "llvm/IR/DiagnosticPrinter.h"
 
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/HLSL/DxilValidation.h"
 
 #include "dxc/Support/Global.h"
@@ -23,7 +23,7 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
-#include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 
 #ifdef _WIN32
 #include "dxcetw.h"

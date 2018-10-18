@@ -110,35 +110,6 @@ bool SimplifyInst::runOnFunction(Function &F) {
 ///////////////////////////////////////////////////////////////////////////////
 
 namespace {
-class DxilLoadMetadata : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  explicit DxilLoadMetadata () : ModulePass(ID) {}
-
-  const char *getPassName() const override { return "HLSL load DxilModule from metadata"; }
-
-  bool runOnModule(Module &M) override {
-    if (!M.HasDxilModule()) {
-      (void)M.GetOrCreateDxilModule();
-      return true;
-    }
-
-    return false;
-  }
-};
-}
-
-char DxilLoadMetadata::ID = 0;
-
-ModulePass *llvm::createDxilLoadMetadataPass() {
-  return new DxilLoadMetadata();
-}
-
-INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload", "HLSL load DxilModule from metadata", false, false)
-
-///////////////////////////////////////////////////////////////////////////////
-
-namespace {
 class DxilDeadFunctionElimination : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid

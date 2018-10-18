@@ -5,7 +5,6 @@ add_llvm_library(LLVMHLSL
   ComputeViewIdStateBuilder.cpp
   ControlDependence.cpp
   DxilCondenseResources.cpp
-  DxilContainerAssembler.cpp
   DxilContainerReflection.cpp
   DxilConvergent.cpp
   DxilEliminateOutputDynamicIndexing.cpp
@@ -17,7 +16,6 @@ add_llvm_library(LLVMHLSL
   DxilPackSignatureElement.cpp
   DxilPatchShaderRecordBindings.cpp
   DxilPreserveAllOutputs.cpp
-  DxilRootSignature.cpp
   DxilSignatureValidation.cpp
   DxilTargetLowering.cpp
   DxilTargetTransformInfo.cpp

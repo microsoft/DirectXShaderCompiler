@@ -14,7 +14,6 @@
 #include "dxc/DXIL/DxilCBuffer.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
-#include "dxc/HLSL/DxilRootSignature.h"
 #include "dxc/Support/WinAdapter.h"
 
 #include "llvm/ADT/STLExtras.h"
@@ -84,7 +83,7 @@ void HLModule::SetShaderModel(const ShaderModel *pSM) {
   m_pSM = pSM;
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
-  m_RootSignature = llvm::make_unique<RootSignatureHandle>();
+  m_SerializedRootSignature.clear();
 }
 
 const ShaderModel *HLModule::GetShaderModel() const {
@@ -297,8 +296,14 @@ void HLModule::AddGroupSharedVariable(GlobalVariable *GV) {
   m_TGSMVariables.emplace_back(GV);
 }
 
-RootSignatureHandle &HLModule::GetRootSignature() {
-  return *m_RootSignature;
+std::vector<uint8_t> &HLModule::GetSerializedRootSignature() {
+  return m_SerializedRootSignature;
+}
+
+void HLModule::SetSerializedRootSignature(const uint8_t *pData, unsigned size) {
+  m_SerializedRootSignature.clear();
+  m_SerializedRootSignature.resize(size);
+  memcpy(m_SerializedRootSignature.data(), pData, size);
 }
 
 DxilTypeSystem &HLModule::GetTypeSystem() {
@@ -311,10 +316,6 @@ DxilTypeSystem *HLModule::ReleaseTypeSystem() {
 
 hlsl::OP *HLModule::ReleaseOP() {
   return m_pOP.release();
-}
-
-RootSignatureHandle *HLModule::ReleaseRootSignature() {
-  return m_RootSignature.release();
 }
 
 DxilFunctionPropsMap &&HLModule::ReleaseFunctionPropsMap() {
@@ -475,8 +476,8 @@ void HLModule::EmitHLMetadata() {
     resTyAnnotations->addOperand(EmitResTyAnnotations());
   }
 
-  if (!m_RootSignature->IsEmpty()) {
-    m_pMDHelper->EmitRootSignature(*m_RootSignature.get());
+  if (!m_SerializedRootSignature.empty()) {
+    m_pMDHelper->EmitRootSignature(m_SerializedRootSignature);
   }
 }
 
@@ -484,7 +485,7 @@ void HLModule::LoadHLMetadata() {
   m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->LoadDxilShaderModel(m_pSM);
-  m_RootSignature = llvm::make_unique<RootSignatureHandle>();
+  m_SerializedRootSignature.clear();
 
   const llvm::NamedMDNode *pEntries = m_pMDHelper->GetDxilEntryPoints();
 
@@ -531,7 +532,7 @@ void HLModule::LoadHLMetadata() {
       LoadResTyAnnotations(MDResTyAnnotations->getOperand(0));
   }
 
-  m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
+  m_pMDHelper->LoadRootSignature(m_SerializedRootSignature);
 }
 
 void HLModule::ClearHLMetadata(llvm::Module &M) {

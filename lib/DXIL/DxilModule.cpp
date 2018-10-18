@@ -10,10 +10,9 @@
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSignatureElement.h"
-#include "dxc/DXIL/DxilContainer.h"
-#include "dxc/HLSL/DxilRootSignature.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/DXIL/DxilEntryProps.h"
@@ -80,8 +79,7 @@ const char* kFP32DenormValueFtzString      = "ftz";
 //  DxilModule methods.
 //
 DxilModule::DxilModule(Module *pModule)
-: m_RootSignature(nullptr)
-, m_StreamPrimitiveTopology(DXIL::PrimitiveTopology::Undefined)
+: m_StreamPrimitiveTopology(DXIL::PrimitiveTopology::Undefined)
 , m_ActiveStreamMask(0)
 , m_Ctx(pModule->getContext())
 , m_pModule(pModule)
@@ -138,7 +136,7 @@ void DxilModule::SetShaderModel(const ShaderModel *pSM, bool bUseMinPrecision) {
     m_DxilEntryPropsMap[nullptr] =
       llvm::make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
   }
-  m_RootSignature.reset(new RootSignatureHandle());
+  m_SerializedRootSignature.clear();
 }
 
 const ShaderModel *DxilModule::GetShaderModel() const {
@@ -177,7 +175,8 @@ bool DxilModule::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) 
   if (!m_pSM)
     return false;
   m_pSM->GetMinValidatorVersion(ValMajor, ValMinor);
-  if (ValMajor == 1 && ValMinor == 0 && (m_ShaderFlags.GetFeatureInfo() & hlsl::ShaderFeatureInfo_ViewID))
+  if (ValMajor == 1 && ValMinor == 0 &&
+      (m_ShaderFlags.GetFeatureInfo() & hlsl::DXIL::ShaderFeatureInfo_ViewID))
     ValMinor = 1;
   return true;
 }
@@ -953,8 +952,8 @@ const DxilSignature &DxilModule::GetPatchConstantSignature() const {
   return m_DxilEntryPropsMap.begin()->second->sig.PatchConstantSignature;
 }
 
-const RootSignatureHandle &DxilModule::GetRootSignature() const {
-  return *m_RootSignature;
+const std::vector<uint8_t> &DxilModule::GetSerializedRootSignature() const {
+  return m_SerializedRootSignature;
 }
 
 // Entry props.
@@ -1046,8 +1045,10 @@ void DxilModule::UpdateValidatorVersionMetadata() {
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
 }
 
-void DxilModule::ResetRootSignature(RootSignatureHandle *pValue) {
-  m_RootSignature.reset(pValue);
+void DxilModule::ResetSerializedRootSignature(std::vector<uint8_t> &Value) {
+  m_SerializedRootSignature.clear();
+  m_SerializedRootSignature.reserve(Value.size());
+  m_SerializedRootSignature.assign(Value.begin(), Value.end());
 }
 
 DxilTypeSystem &DxilModule::GetTypeSystem() {
@@ -1217,8 +1218,8 @@ void DxilModule::EmitDxilMetadata() {
   }
   m_pMDHelper->EmitDxilEntryPoints(Entries);
 
-  if (!m_RootSignature->IsEmpty()) {
-    m_pMDHelper->EmitRootSignature(*m_RootSignature.get());
+  if (!m_SerializedRootSignature.empty()) {
+    m_pMDHelper->EmitRootSignature(m_SerializedRootSignature);
   }
 }
 
@@ -1318,7 +1319,7 @@ void DxilModule::LoadDxilMetadata() {
 
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
 
-  m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
+  m_pMDHelper->LoadRootSignature(m_SerializedRootSignature);
 
   m_pMDHelper->LoadDxilViewIdState(m_SerializedState);
 }

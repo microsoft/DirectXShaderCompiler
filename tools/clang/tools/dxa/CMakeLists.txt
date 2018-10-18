@@ -9,6 +9,7 @@ endif (WIN32)
 set( LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
   DXIL
+  DxilContainer
   HLSL
   dxcsupport
   Option     # option library

@@ -1098,6 +1098,38 @@ namespace DXIL {
     TriangleBackFace = 0xFF,
   };
 
+  // Constant for Container.
+  const uint8_t DxilProgramSigMaskX = 1;
+  const uint8_t DxilProgramSigMaskY = 2;
+  const uint8_t DxilProgramSigMaskZ = 4;
+  const uint8_t DxilProgramSigMaskW = 8;
+
+  // DFCC_FeatureInfo is a uint64_t value with these flags.
+  const uint64_t ShaderFeatureInfo_Doubles = 0x0001;
+  const uint64_t
+      ShaderFeatureInfo_ComputeShadersPlusRawAndStructuredBuffersViaShader4X =
+          0x0002;
+  const uint64_t ShaderFeatureInfo_UAVsAtEveryStage = 0x0004;
+  const uint64_t ShaderFeatureInfo_64UAVs = 0x0008;
+  const uint64_t ShaderFeatureInfo_MinimumPrecision = 0x0010;
+  const uint64_t ShaderFeatureInfo_11_1_DoubleExtensions = 0x0020;
+  const uint64_t ShaderFeatureInfo_11_1_ShaderExtensions = 0x0040;
+  const uint64_t ShaderFeatureInfo_LEVEL9ComparisonFiltering = 0x0080;
+  const uint64_t ShaderFeatureInfo_TiledResources = 0x0100;
+  const uint64_t ShaderFeatureInfo_StencilRef = 0x0200;
+  const uint64_t ShaderFeatureInfo_InnerCoverage = 0x0400;
+  const uint64_t ShaderFeatureInfo_TypedUAVLoadAdditionalFormats = 0x0800;
+  const uint64_t ShaderFeatureInfo_ROVs = 0x1000;
+  const uint64_t
+      ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer =
+          0x2000;
+  const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
+  const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
+  const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
+  const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
+  const uint64_t ShaderFeatureInfo_NativeLowPrecision = 0x40000;
+
+  const unsigned ShaderFeatureInfoCount = 19;
 
   extern const char* kLegacyLayoutString;
   extern const char* kNewLayoutString;

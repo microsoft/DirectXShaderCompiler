@@ -16,7 +16,6 @@
 
 #include <stdint.h>
 #include <iterator>
-#include <functional>
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/WinAdapter.h"
 
@@ -87,29 +86,6 @@ enum DxilFourCC {
 };
 
 #undef DXIL_FOURCC
-
-// DFCC_FeatureInfo is a uint64_t value with these flags.
-static const uint64_t ShaderFeatureInfo_Doubles = 0x0001;
-static const uint64_t ShaderFeatureInfo_ComputeShadersPlusRawAndStructuredBuffersViaShader4X = 0x0002;
-static const uint64_t ShaderFeatureInfo_UAVsAtEveryStage = 0x0004;
-static const uint64_t ShaderFeatureInfo_64UAVs = 0x0008;
-static const uint64_t ShaderFeatureInfo_MinimumPrecision = 0x0010;
-static const uint64_t ShaderFeatureInfo_11_1_DoubleExtensions = 0x0020;
-static const uint64_t ShaderFeatureInfo_11_1_ShaderExtensions = 0x0040;
-static const uint64_t ShaderFeatureInfo_LEVEL9ComparisonFiltering = 0x0080;
-static const uint64_t ShaderFeatureInfo_TiledResources = 0x0100;
-static const uint64_t ShaderFeatureInfo_StencilRef = 0x0200;
-static const uint64_t ShaderFeatureInfo_InnerCoverage = 0x0400;
-static const uint64_t ShaderFeatureInfo_TypedUAVLoadAdditionalFormats = 0x0800;
-static const uint64_t ShaderFeatureInfo_ROVs = 0x1000;
-static const uint64_t ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer = 0x2000;
-static const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
-static const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
-static const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
-static const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
-static const uint64_t ShaderFeatureInfo_NativeLowPrecision = 0x40000;
-
-static const unsigned ShaderFeatureInfoCount = 19;
 
 struct DxilShaderFeatureInfo {
   uint64_t FeatureFlags;
@@ -188,11 +164,6 @@ enum class DxilProgramSigCompType : uint32_t {
   SInt64 = 8,
   Float64 = 9,
 };
-
-static const uint8_t DxilProgramSigMaskX = 1;
-static const uint8_t DxilProgramSigMaskY = 2;
-static const uint8_t DxilProgramSigMaskZ = 4;
-static const uint8_t DxilProgramSigMaskW = 8;
 
 struct DxilProgramSignatureElement {
   uint32_t Stream;                    // Stream index (parameters must appear in non-decreasing stream order)
@@ -418,28 +389,6 @@ inline bool GetDxilShaderDebugName(const DxilPartHeader *pDebugNamePart,
   return true;
 }
 
-class DxilPartWriter {
-public:
-  virtual ~DxilPartWriter() {}
-  virtual uint32_t size() const = 0;
-  virtual void write(AbstractMemoryStream *pStream) = 0;
-};
-
-DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
-DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
-DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
-DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = 0);
-DxilPartWriter *NewRDATWriter(const DxilModule &M, uint32_t InfoVersion = 0);
-
-class DxilContainerWriter : public DxilPartWriter  {
-public:
-  typedef std::function<void(AbstractMemoryStream*)> WriteFn;
-  virtual ~DxilContainerWriter() {}
-  virtual void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) = 0;
-};
-
-DxilContainerWriter *NewDxilContainerWriter();
-
 enum class SerializeDxilFlags : uint32_t {
   None = 0,                     // No flags defined.
   IncludeDebugInfoPart = 1,     // Include the debug info part in the container.
@@ -460,13 +409,6 @@ inline int operator&(SerializeDxilFlags l, SerializeDxilFlags r) {
 inline SerializeDxilFlags operator~(SerializeDxilFlags l) {
   return static_cast<SerializeDxilFlags>(~static_cast<uint32_t>(l));
 }
-
-void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
-                                     AbstractMemoryStream *pModuleBitcode,
-                                     AbstractMemoryStream *pStream,
-                                     SerializeDxilFlags Flags);
-void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
-                                     AbstractMemoryStream *pStream);
 
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
 

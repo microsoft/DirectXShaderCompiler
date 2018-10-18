@@ -11,7 +11,7 @@
 
 #include "dxc/Support/Global.h"
 #include "D3DReflectionDumper.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include <sstream>
 
 // Copied from llvm/ADT/StringExtras.h
