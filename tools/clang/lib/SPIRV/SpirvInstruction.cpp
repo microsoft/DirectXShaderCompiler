@@ -51,6 +51,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldExtract)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldInsert)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeInsert)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInst)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionCall)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformBinaryOp)
@@ -335,6 +336,17 @@ SpirvCompositeExtract::SpirvCompositeExtract(QualType resultType,
     : SpirvInstruction(IK_CompositeExtract, spv::Op::OpCompositeExtract,
                        resultType, resultId, loc),
       composite(compositeInst), indices(indexVec.begin(), indexVec.end()) {}
+
+SpirvCompositeInsert::SpirvCompositeInsert(QualType resultType,
+                                           uint32_t resultId,
+                                           SourceLocation loc,
+                                           SpirvInstruction *compositeInst,
+                                           SpirvInstruction *objectInst,
+                                           llvm::ArrayRef<uint32_t> indexVec)
+    : SpirvInstruction(IK_CompositeInsert, spv::Op::OpCompositeInsert,
+                       resultType, resultId, loc),
+      composite(compositeInst), object(objectInst),
+      indices(indexVec.begin(), indexVec.end()) {}
 
 SpirvExtInst::SpirvExtInst(QualType resultType, uint32_t resultId,
                            SourceLocation loc, SpirvExtInstImport *set,

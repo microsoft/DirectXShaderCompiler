@@ -56,6 +56,9 @@ public:
   // Add a function to the list of module functions.
   void addFunction(SpirvFunction *);
 
+  // Add a capability to the list of module capabilities.
+  void addCapability(SpirvCapability *cap);
+
 private:
   uint32_t bound; ///< The <result-id> bound: the next unused one
 

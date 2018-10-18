@@ -59,6 +59,10 @@ public:
   /// OpLoopMerge instruction. Returns nullptr otherwise.
   SpirvBasicBlock *getContinueTarget() const { return continueTarget; }
 
+  /// Adds an instruction to the vector of instructions belonging to this basic
+  /// block.
+  void addInstruction(SpirvInstruction *inst) { instructions.push_back(inst); }
+
   /// Returns true if the last instruction in this basic block is a termination
   /// instruction.
   bool hasTerminator() const;

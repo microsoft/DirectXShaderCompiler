@@ -32,7 +32,7 @@ namespace spirv {
 /// module.
 class SpirvBuilder {
 public:
-  explicit SpirvBuilder(SpirvContext &c);
+  explicit SpirvBuilder(ASTContext &ac, SpirvContext &c);
   ~SpirvBuilder() = default;
 
   // Forbid copy construction and assignment
@@ -102,7 +102,300 @@ public:
   /// \brief Sets insertion point to the given basic block.
   inline void setInsertPoint(SpirvBasicBlock *bb) { insertPoint = bb; }
 
+  // === Instruction at the current Insertion Point ===
+
+  /// \brief Creates a composite construct instruction with the given
+  /// <result-type> and constituents and returns the pointer of the
+  /// composite instruction.
+  SpirvComposite *
+  createCompositeConstruct(QualType resultType,
+                           llvm::ArrayRef<SpirvInstruction *> constituents,
+                           SourceLocation loc = {});
+
+  /// \brief Creates a composite extract instruction. The given composite is
+  /// indexed using the given literal indexes to obtain the resulting element.
+  /// Returns the instruction pointer for the extracted element.
+  SpirvCompositeExtract *
+  createCompositeExtract(QualType resultType, SpirvInstruction *composite,
+                         llvm::ArrayRef<uint32_t> indexes,
+                         SourceLocation loc = {});
+
+  /// \brief Creates a composite insert instruction. The given object will
+  /// replace the component in the composite at the given indices. Returns the
+  /// instruction pointer for the new composite.
+  SpirvCompositeInsert *createCompositeInsert(QualType resultType,
+                                              SpirvInstruction *composite,
+                                              llvm::ArrayRef<uint32_t> indices,
+                                              SpirvInstruction *object,
+                                              SourceLocation loc = {});
+
+  /// \brief Creates a vector shuffle instruction of selecting from the two
+  /// vectors using selectors and returns the instruction pointer of the result
+  /// vector.
+  SpirvVectorShuffle *createVectorShuffle(QualType resultType,
+                                          SpirvInstruction *vector1,
+                                          SpirvInstruction *vector2,
+                                          llvm::ArrayRef<uint32_t> selectors,
+                                          SourceLocation loc = {});
+
+  /// \brief Creates a load instruction loading the value of the given
+  /// <result-type> from the given pointer. Returns the instruction pointer for
+  /// the loaded value.
+  SpirvLoad *createLoad(QualType resultType, SpirvInstruction *pointer,
+                        SourceLocation loc = {});
+
+  /// \brief Creates a store instruction storing the given value into the given
+  /// address.
+  void createStore(SpirvInstruction *address, SpirvInstruction *value,
+                   SourceLocation loc = {});
+
+  /// \brief Creates a function call instruction and returns the instruction
+  /// pointer for the return value.
+  SpirvFunctionCall *
+  createFunctionCall(QualType returnType, SpirvFunction *func,
+                     llvm::ArrayRef<SpirvInstruction *> params,
+                     SourceLocation loc = {});
+
+  /// \brief Creates an access chain instruction to retrieve the element from
+  /// the given base by walking through the given indexes. Returns the
+  /// instruction pointer for the pointer to the element.
+  SpirvAccessChain *
+  createAccessChain(QualType resultType, SpirvInstruction *base,
+                    llvm::ArrayRef<SpirvInstruction *> indexes,
+                    SourceLocation loc = {});
+
+  /// \brief Creates a unary operation with the given SPIR-V opcode. Returns
+  /// the instruction pointer for the result.
+  SpirvUnaryOp *createUnaryOp(spv::Op op, QualType resultType,
+                              SpirvInstruction *operand,
+                              SourceLocation loc = {});
+
+  /// \brief Creates a binary operation with the given SPIR-V opcode. Returns
+  /// the instruction pointer for the result.
+  SpirvBinaryOp *createBinaryOp(spv::Op op, QualType resultType,
+                                SpirvInstruction *lhs, SpirvInstruction *rhs,
+                                SourceLocation loc = {});
+  SpirvSpecConstantBinaryOp *
+  createSpecConstantBinaryOp(spv::Op op, QualType resultType,
+                             SpirvInstruction *lhs, SpirvInstruction *rhs,
+                             SourceLocation loc = {});
+
+  /// \brief Creates an operation with the given OpGroupNonUniform* SPIR-V
+  /// opcode.
+  SpirvNonUniformElect *createGroupNonUniformElect(spv::Op op,
+                                                   QualType resultType,
+                                                   spv::Scope execScope,
+                                                   SourceLocation loc = {});
+  SpirvNonUniformUnaryOp *createGroupNonUniformUnaryOp(
+      spv::Op op, QualType resultType, spv::Scope execScope,
+      SpirvInstruction *operand,
+      llvm::Optional<spv::GroupOperation> groupOp = llvm::None,
+      SourceLocation loc = {});
+  SpirvNonUniformBinaryOp *createGroupNonUniformBinaryOp(
+      spv::Op op, QualType resultType, spv::Scope execScope,
+      SpirvInstruction *operand1, SpirvInstruction *operand2,
+      SourceLocation loc = {});
+
+  /// \brief Creates an atomic instruction with the given parameters and returns
+  /// its pointer.
+  SpirvAtomic *createAtomicOp(spv::Op opcode, QualType resultType,
+                              SpirvInstruction *orignalValuePtr,
+                              spv::Scope scope,
+                              spv::MemorySemanticsMask memorySemantics,
+                              SpirvInstruction *valueToOp,
+                              SourceLocation loc = {});
+  SpirvAtomic *createAtomicCompareExchange(
+      QualType resultType, SpirvInstruction *orignalValuePtr, spv::Scope scope,
+      spv::MemorySemanticsMask equalMemorySemantics,
+      spv::MemorySemanticsMask unequalMemorySemantics,
+      SpirvInstruction *valueToOp, SpirvInstruction *comparator,
+      SourceLocation loc = {});
+
+  /// \brief Creates an OpImageTexelPointer SPIR-V instruction with the given
+  /// parameters.
+  SpirvImageTexelPointer *createImageTexelPointer(QualType resultType,
+                                                  SpirvInstruction *image,
+                                                  SpirvInstruction *coordinate,
+                                                  SpirvInstruction *sample,
+                                                  SourceLocation loc = {});
+
+  /// \brief Creates SPIR-V instructions for sampling the given image.
+  ///
+  /// If compareVal is given a non-zero value, *Dref* variants of OpImageSample*
+  /// will be generated.
+  ///
+  /// If lod or grad is given a non-zero value, *ExplicitLod variants of
+  /// OpImageSample* will be generated; otherwise, *ImplicitLod variant will
+  /// be generated.
+  ///
+  /// If bias, lod, grad, or minLod is given a non-zero value, an additional
+  /// image operands, Bias, Lod, Grad, or MinLod will be attached to the current
+  /// instruction, respectively. Panics if both lod and minLod are non-zero.
+  ///
+  /// If residencyCodeId is not zero, the sparse version of the instructions
+  /// will be used, and the SPIR-V instruction for storing the resulting
+  /// residency code will also be emitted.
+  ///
+  /// If isNonUniform is true, the sampled image will be decorated with
+  /// NonUniformEXT.
+  SpirvInstruction *
+  createImageSample(QualType texelType, QualType imageType,
+                    SpirvInstruction *image, SpirvInstruction *sampler,
+                    bool isNonUniform, SpirvInstruction *coordinate,
+                    SpirvInstruction *compareVal, SpirvInstruction *bias,
+                    SpirvInstruction *lod,
+                    std::pair<SpirvInstruction *, SpirvInstruction *> grad,
+                    SpirvInstruction *constOffset, SpirvInstruction *varOffset,
+                    SpirvInstruction *constOffsets, SpirvInstruction *sample,
+                    SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
+                    SourceLocation loc = {});
+
+  /// \brief Creates SPIR-V instructions for reading a texel from an image. If
+  /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
+  /// OpImageFetch should be used for sampled images. OpImageRead should be used
+  /// for images without a sampler.
+  ///
+  /// If residencyCodeId is not zero, the sparse version of the instructions
+  /// will be used, and the SPIR-V instruction for storing the resulting
+  /// residency code will also be emitted.
+  SpirvInstruction *createImageFetchOrRead(
+      bool doImageFetch, QualType texelType, QualType imageType,
+      SpirvInstruction *image, SpirvInstruction *coordinate,
+      SpirvInstruction *lod, SpirvInstruction *constOffset,
+      SpirvInstruction *varOffset, SpirvInstruction *constOffsets,
+      SpirvInstruction *sample, SpirvInstruction *residencyCode,
+      SourceLocation loc = {});
+
+  /// \brief Creates SPIR-V instructions for writing to the given image.
+  void createImageWrite(QualType imageType, SpirvInstruction *image,
+                        SpirvInstruction *coord, SpirvInstruction *texel,
+                        SourceLocation loc = {});
+
+  /// \brief Creates SPIR-V instructions for gathering the given image.
+  ///
+  /// If compareVal is given a non-null value, OpImageDrefGather or
+  /// OpImageSparseDrefGather will be generated; otherwise, OpImageGather or
+  /// OpImageSparseGather will be generated.
+  /// If residencyCode is not null, the sparse version of the instructions
+  /// will be used, and the SPIR-V instruction for storing the resulting
+  /// residency code will also be emitted.
+  /// If isNonUniform is true, the sampled image will be decorated with
+  /// NonUniformEXT.
+  SpirvInstruction *
+  createImageGather(QualType texelType, QualType imageType,
+                    SpirvInstruction *image, SpirvInstruction *sampler,
+                    bool isNonUniform, SpirvInstruction *coordinate,
+                    SpirvInstruction *component, SpirvInstruction *compareVal,
+                    SpirvInstruction *constOffset, SpirvInstruction *varOffset,
+                    SpirvInstruction *constOffsets, SpirvInstruction *sample,
+                    SpirvInstruction *residencyCode, SourceLocation loc = {});
+
+  /// \brief Creates an OpImageSparseTexelsResident SPIR-V instruction for the
+  /// given Resident Code and returns the instruction pointer.
+  SpirvImageSparseTexelsResident *
+  createImageSparseTexelsResident(SpirvInstruction *resident_code,
+                                  SourceLocation loc = {});
+
+  /// \brief Creates a select operation with the given values for true and false
+  /// cases and returns the instruction pointer.
+  SpirvSelect *createSelect(QualType resultType, SpirvInstruction *condition,
+                            SpirvInstruction *trueValue,
+                            SpirvInstruction *falseValue,
+                            SourceLocation loc = {});
+
+  /// \brief Creates a switch statement for the given selector, default, and
+  /// branches. Results in OpSelectionMerge followed by OpSwitch.
+  void
+  createSwitch(SpirvBasicBlock *mergeLabel, SpirvInstruction *selector,
+               SpirvBasicBlock *defaultLabel,
+               llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> target,
+               SourceLocation loc = {});
+
+  /// \brief Creates a fragment-shader discard via by emitting OpKill.
+  void createKill(SourceLocation loc = {});
+
+  /// \brief Creates an unconditional branch to the given target label.
+  /// If mergeBB and continueBB are non-null, it creates an OpLoopMerge
+  /// instruction followed by an unconditional branch to the given target label.
+  void createBranch(
+      SpirvBasicBlock *targetLabel, SpirvBasicBlock *mergeBB = nullptr,
+      SpirvBasicBlock *continueBB = nullptr,
+      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone,
+      SourceLocation loc = {});
+
+  /// \brief Creates a conditional branch. An OpSelectionMerge instruction
+  /// will be created if mergeLabel is not null and continueLabel is null.
+  /// An OpLoopMerge instruction will also be created if both continueLabel
+  /// and mergeLabel are not null. For other cases, mergeLabel and continueLabel
+  /// will be ignored. If selection control mask and/or loop control mask are
+  /// provided, they will be applied to the corresponding SPIR-V instruction.
+  /// Otherwise, MaskNone will be used.
+  void createConditionalBranch(
+      SpirvInstruction *condition, SpirvBasicBlock *trueLabel,
+      SpirvBasicBlock *falseLabel, SpirvBasicBlock *mergeLabel = nullptr,
+      SpirvBasicBlock *continueLabel = nullptr,
+      spv::SelectionControlMask selectionControl =
+          spv::SelectionControlMask::MaskNone,
+      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone,
+      SourceLocation loc = {});
+
+  /// \brief Creates a return instruction.
+  void createReturn(SourceLocation loc = {});
+  /// \brief Creates a return value instruction.
+  void createReturnValue(SpirvInstruction *value, SourceLocation loc = {});
+
+  /// \brief Creates an OpExtInst instruction with the given instruction set,
+  /// instruction number, and operands. Returns the resulting instruction
+  /// pointer.
+  SpirvInstruction *createExtInst(QualType resultType, SpirvExtInstImport *set,
+                                  GLSLstd450 instId,
+                                  llvm::ArrayRef<SpirvInstruction *> operands,
+                                  SourceLocation loc = {});
+
+  /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
+  /// given flags. If execution scope (exec) is provided, an OpControlBarrier
+  /// is created; otherwise an OpMemoryBarrier is created.
+  void createBarrier(spv::Scope memoryScope,
+                     spv::MemorySemanticsMask memorySemantics,
+                     llvm::Optional<spv::Scope> exec = llvm::None,
+                     SourceLocation loc = {});
+
+  /// \brief Creates an OpBitFieldInsert SPIR-V instruction for the given
+  /// arguments.
+  SpirvBitFieldInsert *
+  createBitFieldInsert(QualType resultType, SpirvInstruction *base,
+                       SpirvInstruction *insert, SpirvInstruction *offset,
+                       SpirvInstruction *count, SourceLocation loc = {});
+
+  /// \brief Creates an OpBitFieldUExtract or OpBitFieldSExtract SPIR-V
+  /// instruction for the given arguments.
+  SpirvBitFieldExtract *
+  createBitFieldExtract(QualType resultType, SpirvInstruction *base,
+                        SpirvInstruction *offset, SpirvInstruction *count,
+                        bool isSigned, SourceLocation loc = {});
+
+  /// \brief Creates an OpEmitVertex instruction.
+  void createEmitVertex(SourceLocation loc = {});
+
+  /// \brief Creates an OpEndPrimitive instruction.
+  void createEndPrimitive(SourceLocation loc = {});
+
+  // === SPIR-V Module Structure ===
+
+  inline void requireCapability(spv::Capability, SourceLocation loc = {});
+
 private:
+  /// \brief Returns the composed ImageOperandsMask from non-zero parameters
+  /// and pushes non-zero parameters to *orderedParams in the expected order.
+  spv::ImageOperandsMask composeImageOperandsMask(
+      SpirvInstruction *bias, SpirvInstruction *lod,
+      const std::pair<SpirvInstruction *, SpirvInstruction *> &grad,
+      SpirvInstruction *constOffset, SpirvInstruction *varOffset,
+      SpirvInstruction *constOffsets, SpirvInstruction *sample,
+      SpirvInstruction *minLod);
+
+private:
+  ASTContext &astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
 
   SpirvModule *module;          ///< The current module being built
@@ -116,6 +409,13 @@ private:
   /// the entry block.
   std::vector<SpirvBasicBlock *> basicBlocks;
 };
+
+void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
+  if (cap != spv::Capability::Max) {
+    auto *capability = new (context) SpirvCapability(loc, cap);
+    module->addCapability(capability);
+  }
+}
 
 } // end namespace spirv
 } // end namespace clang
