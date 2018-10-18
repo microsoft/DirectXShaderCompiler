@@ -115,11 +115,14 @@ const FloatType *SpirvContext::getFloatType(uint32_t bitwidth) {
   return type;
 }
 
-const VectorType *SpirvContext::getVectorType(const ScalarType *elemType,
+const VectorType *SpirvContext::getVectorType(const SpirvType *elemType,
                                               uint32_t count) {
+  // We are certain this should be a scalar type. Otherwise, cast causes an
+  // assertion failure.
+  const ScalarType *scalarType = cast<ScalarType>(elemType);
   assert(count == 2 || count == 3 || count == 4);
 
-  auto found = vecTypes.find(elemType);
+  auto found = vecTypes.find(scalarType);
 
   if (found != vecTypes.end()) {
     auto &type = found->second[count];
@@ -128,37 +131,48 @@ const VectorType *SpirvContext::getVectorType(const ScalarType *elemType,
   } else {
     // Make sure to initialize since std::array is "an aggregate type with the
     // same semantics as a struct holding a C-style array T[N]".
-    vecTypes[elemType] = {};
+    vecTypes[scalarType] = {};
   }
 
-  return vecTypes[elemType][count] = new (this) VectorType(elemType, count);
+  return vecTypes[scalarType][count] = new (this) VectorType(scalarType, count);
 }
 
-const MatrixType *SpirvContext::getMatrixType(const VectorType *vecType,
-                                              uint32_t count) {
+const MatrixType *SpirvContext::getMatrixType(const SpirvType *elemType,
+                                              uint32_t count, bool isRowMajor) {
+  // We are certain this should be a vector type. Otherwise, cast causes an
+  // assertion failure.
+  const VectorType *vecType = cast<VectorType>(elemType);
   assert(count == 2 || count == 3 || count == 4);
 
-  auto found = matTypes.find(vecType);
+  auto foundVec = matTypes.find(vecType);
 
-  if (found != matTypes.end()) {
-    auto &type = found->second[count];
-    if (type != nullptr)
-      return type;
-  } else {
-    // Make sure to initialize since std::array is "an aggregate type with the
-    // same semantics as a struct holding a C-style array T[N]".
-    matTypes[vecType] = {};
+  if (foundVec != matTypes.end()) {
+    const auto &matVector = foundVec->second;
+    // Create a temporary object for finding in the vector.
+    MatrixType type(vecType, count, isRowMajor);
+
+    for (const auto *cachedType : matVector)
+      if (type == *cachedType)
+        return cachedType;
   }
 
-  return matTypes[vecType][count] = new (this) MatrixType(vecType, count);
+  const auto *ptr = new (this) MatrixType(vecType, count, isRowMajor);
+
+  matTypes[vecType].push_back(ptr);
+
+  return ptr;
 }
 
-const ImageType *SpirvContext::getImageType(const NumericalType *sampledType,
+const ImageType *SpirvContext::getImageType(const SpirvType *sampledType,
                                             spv::Dim dim, bool arrayed, bool ms,
                                             ImageType::WithSampler sampled,
                                             spv::ImageFormat format) {
+  // We are certain this should be a numerical type. Otherwise, cast causes an
+  // assertion failure.
+  const NumericalType *elemType = cast<NumericalType>(sampledType);
+
   // Create a temporary object for finding in the vector.
-  ImageType type(sampledType, dim, arrayed, ms, sampled, format);
+  ImageType type(elemType, dim, arrayed, ms, sampled, format);
 
   auto found = std::find_if(
       imageTypes.begin(), imageTypes.end(),
@@ -168,7 +182,7 @@ const ImageType *SpirvContext::getImageType(const NumericalType *sampledType,
     return *found;
 
   imageTypes.push_back(
-      new (this) ImageType(sampledType, dim, arrayed, ms, sampled, format));
+      new (this) ImageType(elemType, dim, arrayed, ms, sampled, format));
 
   return imageTypes.back();
 }
@@ -209,16 +223,15 @@ SpirvContext::getRuntimeArrayType(const SpirvType *elemType) {
   return runtimeArrayTypes[elemType] = new (this) RuntimeArrayType(elemType);
 }
 
-const StructType *
-SpirvContext::getStructType(llvm::ArrayRef<const SpirvType *> fieldTypes,
-                            llvm::StringRef name,
-                            llvm::ArrayRef<llvm::StringRef> fieldNames) {
+const StructType *SpirvContext::getStructType(
+    llvm::ArrayRef<const SpirvType *> fieldTypes, llvm::StringRef name,
+    llvm::ArrayRef<llvm::StringRef> fieldNames, bool isReadOnly) {
   // We are creating a temporary struct type here for querying whether the
   // same type was already created. It is a little bit costly, but we can
   // avoid allocating directly from the bump pointer allocator, from which
   // then we are unable to reclaim until the allocator itself is destroyed.
 
-  StructType type(fieldTypes, name, fieldNames);
+  StructType type(fieldTypes, name, fieldNames, isReadOnly);
 
   auto found = std::find_if(
       structTypes.begin(), structTypes.end(),
@@ -227,7 +240,8 @@ SpirvContext::getStructType(llvm::ArrayRef<const SpirvType *> fieldTypes,
   if (found != structTypes.end())
     return *found;
 
-  structTypes.push_back(new (this) StructType(fieldTypes, name, fieldNames));
+  structTypes.push_back(
+      new (this) StructType(fieldTypes, name, fieldNames, isReadOnly));
 
   return structTypes.back();
 }
@@ -263,6 +277,17 @@ SpirvContext::getFunctionType(const SpirvType *ret,
   functionTypes.push_back(new (this) FunctionType(ret, param));
 
   return functionTypes.back();
+}
+
+const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
+  // Create a uint RuntimeArray.
+  const auto *raType = getRuntimeArrayType(getUIntType(32));
+
+  // Create a struct containing the runtime array as its only member.
+  return getStructType({raType},
+                       isWritable ? "type.RWByteAddressBuffer"
+                                  : "type.ByteAddressBuffer",
+                       {}, !isWritable);
 }
 
 } // end namespace spirv

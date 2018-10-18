@@ -8,6 +8,7 @@
 #ifndef LLVM_CLANG_SPIRV_SPIRVVISITOR_H
 #define LLVM_CLANG_SPIRV_SPIRVVISITOR_H
 
+#include "dxc/Support/SPIRVOptions.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 
 namespace clang {
@@ -106,7 +107,12 @@ public:
 #undef DEFINE_VISIT_METHOD
 
 protected:
-  Visitor() = default;
+  explicit Visitor(const SpirvCodeGenOptions &opts) : spvOptions(opts) {}
+
+  const SpirvCodeGenOptions &getCodeGenOptions() const { return spvOptions; }
+
+private:
+  const SpirvCodeGenOptions &spvOptions;
 };
 
 } // namespace spirv
