@@ -842,6 +842,8 @@ public:
   CanQualType Min12IntTy, Min10FloatTy;
   CanQualType LitIntTy, LitFloatTy;
   CanQualType HalfFloatTy, Min16FloatTy, Min16IntTy, Min16UIntTy;
+  CanQualType HLSLStringTy;
+
   // HLSL Changes end
 
   // Types for deductions in C++0x [stmt.ranged]'s desugaring. Built on demand.
@@ -902,6 +904,11 @@ public:
 
   /// \brief Retrieve the declaration for a 128-bit float stub type.
   TypeDecl *getFloat128StubType() const;
+
+  // HLSL Change Starts
+  /// \brief Retrieve the declaration for HLSL string type.
+  TypedefDecl *getHLSLStringTypedef() const;
+  // HSLS CHange Ends
 
   //===--------------------------------------------------------------------===//
   //                           Type Constructors

@@ -13,6 +13,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/Support/Global.h"
 #include "clang/AST/CanonicalType.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
@@ -276,6 +277,26 @@ void GetRowsAndCols(clang::QualType type, uint32_t &rowCount,
   colCount = colSize.getLimitedValue();
 }
 
+bool IsArrayConstantStringType(const QualType type) {
+  DXASSERT_NOMSG(type->isArrayType());
+  return type->getArrayElementTypeNoTypeQual()->isSpecificBuiltinType(BuiltinType::Char_S);
+}
+
+bool IsPointerStringType(const QualType type) {
+  DXASSERT_NOMSG(type->isPointerType());
+  return type->getPointeeType()->isSpecificBuiltinType(BuiltinType::Char_S);
+}
+
+bool IsStringType(const QualType type) {
+  QualType canType = type.getCanonicalType();
+  return canType->isPointerType() && IsPointerStringType(canType);
+}
+
+bool IsStringLiteralType(const QualType type) {
+  QualType canType = type.getCanonicalType();
+  return canType->isArrayType() && IsArrayConstantStringType(canType);
+}
+
 void GetRowsAndColsForAny(QualType type, uint32_t &rowCount,
                           uint32_t &colCount) {
   assert(!type.isNull());
@@ -284,7 +305,7 @@ void GetRowsAndColsForAny(QualType type, uint32_t &rowCount,
   rowCount = 1;
   colCount = 1;
   const Type *Ty = type.getCanonicalType().getTypePtr();
-  if (type->isArrayType()) {
+  if (type->isArrayType() && !IsArrayConstantStringType(type)) {
     if (type->isConstantArrayType()) {
       const ConstantArrayType *arrayType =
           (const ConstantArrayType *)type->getAsArrayTypeUnsafe();
@@ -479,6 +500,7 @@ bool IsHLSLResourceType(clang::QualType type) {
   }
   return false;
 }
+
 QualType GetHLSLResourceResultType(QualType type) {
   type = type.getCanonicalType();
   const RecordType *RT = cast<RecordType>(type);

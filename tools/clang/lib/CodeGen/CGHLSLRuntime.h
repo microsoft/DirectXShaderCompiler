@@ -19,6 +19,7 @@ template <typename T, unsigned N> class SmallVector;
 class Value;
 class Constant;
 class TerminatorInst;
+class GlobalVariable;
 class Type;
 template <typename T> class ArrayRef;
 }
@@ -115,6 +116,9 @@ public:
 
   virtual void AddHLSLFunctionInfo(llvm::Function *, const FunctionDecl *FD) = 0;
   virtual void EmitHLSLFunctionProlog(llvm::Function *, const FunctionDecl *FD) = 0;
+
+  virtual void AddGlobalStringDecl(const clang::VarDecl *D, llvm::GlobalVariable *GV) = 0;
+  virtual void AddGlobalStringConstant(llvm::GlobalVariable *GV) = 0;
 
   virtual bool IsHlslObjectType(llvm::Type *Ty) = 0;
 

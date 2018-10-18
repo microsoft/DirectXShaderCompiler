@@ -84,6 +84,7 @@ enum ArBasicKind {
   AR_BASIC_ENUM_CLASS,
 
   AR_OBJECT_NULL,
+  AR_OBJECT_STRING_LITERAL,
   AR_OBJECT_STRING,
 
   // AR_OBJECT_TEXTURE,
@@ -360,6 +361,7 @@ const UINT g_uBasicKindProps[] =
   BPROP_ENUM, // AR_BASIC_ENUM_CLASS
 
   BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_NULL
+  BPROP_OBJECT | BPROP_RBUFFER,  // AR_OBJECT_STRING_LITERAL
   BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_STRING
 
 
@@ -541,6 +543,7 @@ enum ArTypeObjectKind {
   AR_TOBJ_QUALIFIER, // Represents another type plus an ArTypeQualifier.
   AR_TOBJ_INNER_OBJ, // Represents a built-in inner object, such as an 
                      // indexer object used to implement .mips[1].
+  AR_TOBJ_STRING,    // Represents a string
 };
 
 enum TYPE_CONVERSION_FLAGS
@@ -1087,6 +1090,7 @@ static const ArBasicKind g_UDTCT[] =
 
 static const ArBasicKind g_StringCT[] =
 {
+  AR_OBJECT_STRING_LITERAL,
   AR_OBJECT_STRING,
   AR_BASIC_UNKNOWN
 };
@@ -1424,6 +1428,7 @@ const char* g_ArBasicTypeNames[] =
   "enum class",
 
   "null",
+  "literal string",
   "string",
   // "texture",
   "Texture1D",
@@ -2592,6 +2597,10 @@ private:
   // BuiltinType for each scalar type.
   QualType m_baseTypes[HLSLScalarTypeCount];
 
+  // String type
+  QualType m_hlslStringType;
+  TypedefDecl* m_hlslStringTypedef;
+
   // Built-in object types declarations, indexed by basic kind constant.
   CXXRecordDecl* m_objectTypeDecls[_countof(g_ArBasicKindsAsTypes)];
   // Map from object decl to the object index.
@@ -2607,6 +2616,9 @@ private:
 
   /// <summary>Adds all supporting declarations to reference scalar types.</summary>
   void AddHLSLScalarTypes();
+
+  /// <summary>Adds string type QualType for HSLS string declarations</summary>
+  void AddHLSLStringType();
 
   QualType GetTemplateObjectDataType(_In_ CXXRecordDecl* recordDecl)
   {
@@ -3111,7 +3123,8 @@ public:
     m_matrixTemplateDecl(nullptr),
     m_vectorTemplateDecl(nullptr),
     m_context(nullptr),
-    m_sema(nullptr)
+    m_sema(nullptr),
+    m_hlslStringTypedef(nullptr)
   {
     memset(m_matrixTypes, 0, sizeof(m_matrixTypes));
     memset(m_matrixShorthandTypes, 0, sizeof(m_matrixShorthandTypes));
@@ -3192,6 +3205,15 @@ public:
       m_vectorTypes[scalarType][colCount - 1] = qt;
     }
     return qt;
+  }
+
+  TypedefDecl* GetStringTypedef() {
+    if (m_hlslStringTypedef == nullptr) {
+      m_hlslStringTypedef = CreateGlobalTypedef(m_context, "string", m_hlslStringType);
+      m_hlslStringType = m_context->getTypeDeclType(m_hlslStringTypedef);
+    }
+    DXASSERT_NOMSG(m_hlslStringTypedef != nullptr);
+    return m_hlslStringTypedef;
   }
 
   void WarnMinPrecision(HLSLScalarType type, SourceLocation loc) {
@@ -3297,6 +3319,11 @@ public:
       }
       return true;
     }
+    // string
+    else if (TryParseString(nameIdentifier.data(), nameIdentifier.size(), getSema()->getLangOpts())) {
+      TypedefDecl *strDecl = GetStringTypedef();
+      R.addDecl(strDecl);
+    }
     return false;
   }
 
@@ -3377,9 +3404,11 @@ public:
     type = GetStructuralForm(type);
 
     if (type->isVoidType()) return AR_TOBJ_VOID;
-    if (type->isArrayType()) return AR_TOBJ_ARRAY;
+    if (type->isArrayType()) {
+      return hlsl::IsArrayConstantStringType(type) ? AR_TOBJ_STRING : AR_TOBJ_ARRAY;
+    }
     if (type->isPointerType()) {
-      return AR_TOBJ_POINTER;
+      return hlsl::IsPointerStringType(type) ? AR_TOBJ_STRING : AR_TOBJ_POINTER;
     }
     if (type->isStructureOrClassType()) {
       const RecordType* recordType = type->getAs<RecordType>();
@@ -3459,6 +3488,10 @@ public:
     if (kind == AR_TOBJ_MATRIX || kind == AR_TOBJ_VECTOR) {
       QualType elementType = GetMatrixOrVectorElementType(type);
       return GetTypeElementKind(elementType);
+    }
+
+    if (kind == AR_TOBJ_STRING) {
+      return type->isArrayType() ? AR_OBJECT_STRING_LITERAL : AR_OBJECT_STRING;
     }
 
     if (type->isArrayType()) {
@@ -3625,8 +3658,8 @@ public:
     case AR_BASIC_ENUM:           return m_context->IntTy;
     case AR_BASIC_ENUM_CLASS:     return m_context->IntTy;
 
-    case AR_OBJECT_STRING: return QualType();
-
+    case AR_OBJECT_STRING:        return m_hlslStringType;
+    
     case AR_OBJECT_LEGACY_EFFECT:   // used for all legacy effect object types
 
     case AR_OBJECT_TEXTURE1D:
@@ -3900,6 +3933,7 @@ public:
     m_hlslNSDecl->setImplicit();
     AddBaseTypes();
     AddHLSLScalarTypes();
+    AddHLSLStringType();
 
     AddHLSLVectorTemplate(*m_context, &m_vectorTemplateDecl);
     DXASSERT(m_vectorTemplateDecl != nullptr, "AddHLSLVectorTypes failed to return the vector template declaration");
@@ -4676,6 +4710,10 @@ void HLSLExternalSource::AddHLSLScalarTypes()
   m_scalarTypes[HLSLScalarType_double] = m_baseTypes[HLSLScalarType_double];
   m_scalarTypes[HLSLScalarType_float_lit] = m_baseTypes[HLSLScalarType_float_lit];
   m_scalarTypes[HLSLScalarType_int_lit] = m_baseTypes[HLSLScalarType_int_lit];
+}
+
+void HLSLExternalSource::AddHLSLStringType() {
+  m_hlslStringType = m_context->HLSLStringTy;
 }
 
 FunctionDecl* HLSLExternalSource::AddSubscriptSpecialization(
@@ -5701,6 +5739,7 @@ unsigned HLSLExternalSource::GetNumElements(QualType anyType) {
   switch (kind) {
   case AR_TOBJ_BASIC:
   case AR_TOBJ_OBJECT:
+  case AR_TOBJ_STRING:
     return 1;
   case AR_TOBJ_COMPOUND: {
     // TODO: consider caching this value for perf
@@ -5736,6 +5775,7 @@ unsigned HLSLExternalSource::GetNumBasicElements(QualType anyType) {
   switch (kind) {
   case AR_TOBJ_BASIC:
   case AR_TOBJ_OBJECT:
+  case AR_TOBJ_STRING:
     return 1;
   case AR_TOBJ_COMPOUND: {
     // TODO: consider caching this value for perf
@@ -5834,6 +5874,7 @@ QualType HLSLExternalSource::GetNthElementType(QualType type, unsigned index) {
   switch (kind) {
   case AR_TOBJ_BASIC:
   case AR_TOBJ_OBJECT:
+  case AR_TOBJ_STRING:
     return (index == 0) ? type : QualType();
   case AR_TOBJ_COMPOUND: {
     // TODO: consider caching this value for perf
@@ -6693,6 +6734,7 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT* count)
     *count = GetElementCount(type);
     return IsBasicKindNumeric(GetTypeElementKind(type));
   case AR_TOBJ_OBJECT:
+  case AR_TOBJ_STRING:
     return false;
   }
 }
@@ -7655,6 +7697,14 @@ static bool ConvertDimensions(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
 
     break;
   }
+  case AR_TOBJ_STRING:
+    if (SourceInfo.ShapeKind == AR_TOBJ_STRING) {
+      Second = ICK_Identity;
+      break;
+    }
+    else {
+      return false;
+    }
 
   default:
     return false;
@@ -7708,6 +7758,16 @@ static bool ConvertComponent(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
     {
       // enum -> int/float
       ComponentConversion = ICK_Integral_Conversion;
+    }
+    else if (TargetInfo.EltKind == AR_OBJECT_STRING) 
+    {
+      if (SourceInfo.EltKind == AR_OBJECT_STRING_LITERAL) {
+        ComponentConversion = ICK_Array_To_Pointer;
+      }
+      else 
+      {
+        return false;
+      }
     }
     else
     {
@@ -7954,6 +8014,9 @@ lSuccess:
         case ICK_Boolean_Conversion:
           standard->First = ICK_Lvalue_To_Rvalue;
           break;
+        case ICK_Array_To_Pointer:
+          standard->First = ICK_Array_To_Pointer;
+          break;
         default:
           // Only potential assignments above covered.
           break;
@@ -7969,7 +8032,8 @@ lSuccess:
           // Scalar to scalar type conversion, use normal mechanism (Second)
           Second = ComponentConversion;
           ComponentConversion = ICK_Identity;
-        } else {
+        }
+        else if (TargetInfo.ShapeKind != AR_TOBJ_STRING) {
           // vector or matrix dimensions are not being changed, but component type
           // is being converted, so change Second to signal the conversion
           Second = ICK_HLSLVector_Conversion;
@@ -9802,7 +9866,8 @@ bool FlattenedTypeIterator::considerLeaf()
   case FlattenedIterKind::FK_Simple: {
     ArTypeObjectKind objectKind = m_source.GetTypeObjectKind(tracker.Type);
     if (objectKind != ArTypeObjectKind::AR_TOBJ_BASIC &&
-        objectKind != ArTypeObjectKind::AR_TOBJ_OBJECT) {
+        objectKind != ArTypeObjectKind::AR_TOBJ_OBJECT &&
+        objectKind != ArTypeObjectKind::AR_TOBJ_STRING) {
       if (pushTrackerForType(tracker.Type, tracker.CurrentExpr)) {
         result = considerLeaf();
       }
@@ -9996,6 +10061,12 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
     // Object have no sub-types.
     m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(
         type.getCanonicalType(), 1, expression));
+    return true;
+  }
+  case ArTypeObjectKind::AR_TOBJ_STRING: {
+    // Strings have no sub-types.
+    m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(
+      type.getCanonicalType(), 1, expression));
     return true;
   }
   default:
@@ -11085,6 +11156,26 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     }
   }
 
+  // diagnose string declarations
+  if (hlsl::IsStringType(qt) && !D.isInvalidType()) {
+    // string are supported only as top level global variables
+    if (!DC->isTranslationUnit()) {
+      Diag(D.getLocStart(), diag::err_hlsl_string_not_global);
+      result = false;
+    }
+    // const and static modifiers are implied - add them if missing
+    const char *PrevSpec = nullptr;
+    unsigned DiagID = 0;
+    if (!isStatic) {
+      D.getMutableDeclSpec().SetStorageClassSpec(*this, DeclSpec::SCS_static, D.getLocStart(), PrevSpec, DiagID, Context.getPrintingPolicy());
+      isStatic = true;
+    }
+    if (!isConst) {
+      D.getMutableDeclSpec().SetTypeQual(DeclSpec::TQ_const, D.getLocStart(), PrevSpec, DiagID, getLangOpts());
+      isConst = true;
+    }
+  }
+
   const char* declarationType =
     (isLocalVar) ? "local variable" :
     (isTypedef) ? "typedef" :
@@ -11099,6 +11190,13 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     if (pFP) {
       qt = pFP->getReturnType();
       pType = qt.getTypePtrOrNull();
+
+      // prohibit string as a return type
+      if (hlsl::IsStringType(qt)) {
+        static const unsigned selectReturnValueIdx = 2;
+        Diag(D.getLocStart(), diag::err_hlsl_unsupported_string_decl) << selectReturnValueIdx;
+        D.setInvalidType();
+      }
     }
   }
 
