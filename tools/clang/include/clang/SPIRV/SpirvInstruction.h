@@ -76,6 +76,7 @@ public:
     IK_BitFieldInsert,   // OpBitFieldInsert
     IK_Composite,        // Op*Composite
     IK_CompositeExtract, // OpCompositeExtract
+    IK_CompositeInsert,  // OpCompositeInsert
     IK_ExtInst,          // OpExtInst
     IK_FunctionCall,     // OpFunctionCall
 
@@ -581,7 +582,7 @@ class SpirvSwitch : public SpirvBranching {
 public:
   SpirvSwitch(
       SourceLocation loc, SpirvInstruction *selector,
-      SpirvBasicBlock *defaultLabelId,
+      SpirvBasicBlock *defaultLabel,
       llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> &targetsVec);
 
   // For LLVM-style RTTI
@@ -941,6 +942,31 @@ private:
   llvm::SmallVector<uint32_t, 4> indices;
 };
 
+/// \brief Composite insertion instruction (OpCompositeInsert)
+class SpirvCompositeInsert : public SpirvInstruction {
+public:
+  SpirvCompositeInsert(QualType resultType, uint32_t resultId,
+                       SourceLocation loc, SpirvInstruction *composite,
+                       SpirvInstruction *object,
+                       llvm::ArrayRef<uint32_t> indices);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_CompositeInsert;
+  }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeInsert)
+
+  SpirvInstruction *getComposite() const { return composite; }
+  SpirvInstruction *getObject() const { return object; }
+  llvm::ArrayRef<uint32_t> getIndexes() const { return indices; }
+
+private:
+  SpirvInstruction *composite;
+  SpirvInstruction *object;
+  llvm::SmallVector<uint32_t, 4> indices;
+};
+
 /// \brief ExtInst instruction
 class SpirvExtInst : public SpirvInstruction {
 public:
@@ -1254,7 +1280,7 @@ class SpirvLoad : public SpirvInstruction {
 public:
   SpirvLoad(QualType resultType, uint32_t resultId, SourceLocation loc,
             SpirvInstruction *pointer,
-            llvm::Optional<spv::MemoryAccessMask> mask);
+            llvm::Optional<spv::MemoryAccessMask> mask = llvm::None);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1371,7 +1397,7 @@ class SpirvStore : public SpirvInstruction {
 public:
   SpirvStore(SourceLocation loc, SpirvInstruction *pointer,
              SpirvInstruction *object,
-             llvm::Optional<spv::MemoryAccessMask> mask);
+             llvm::Optional<spv::MemoryAccessMask> mask = llvm::None);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
