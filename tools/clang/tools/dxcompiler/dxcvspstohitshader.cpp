@@ -25,13 +25,8 @@
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/HLSL/DxilLinker.h"
 #include "dxc/DXIL/DxilModule.h"
-#include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/HLSL/DxilExportMap.h"
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/FileIOHelper.h"
-#include "dxc/Support/microcom.h"
-#include "dxc/Support/dxcapi.impl.h"
-#include "dxc/dxcapi.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -41,6 +36,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Pass.h"
@@ -56,6 +52,12 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/microcom.h"
+#include "dxc/Support/dxcapi.impl.h"
+#include "dxc/dxcapi.h"
+
 #include "dxillib.h"
 #include <memory>
 #include <unordered_set>
