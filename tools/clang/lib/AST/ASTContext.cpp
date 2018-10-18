@@ -1102,6 +1102,9 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
     InitBuiltinType(HalfFloatTy, BuiltinType::HalfFloat);
     InitBuiltinType(LitIntTy, BuiltinType::LitInt);
     InitBuiltinType(LitFloatTy, BuiltinType::LitFloat);
+    
+    HLSLStringTy = this->getPointerType(CharTy);
+
     hlsl::InitializeASTContextForHLSL(*this); // Previously in constructor, guarded by !DelayInitialization
   }
   // HLSL Change Ends
