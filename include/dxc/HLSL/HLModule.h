@@ -44,7 +44,6 @@ namespace hlsl {
 
 class ShaderModel;
 class OP;
-class RootSignatureHandle;
 
 struct HLOptions {
   HLOptions()
@@ -131,7 +130,8 @@ public:
   void AddGroupSharedVariable(llvm::GlobalVariable *GV);
 
   // Signatures.
-  RootSignatureHandle &GetRootSignature();
+  std::vector<uint8_t> &GetSerializedRootSignature();
+  void SetSerializedRootSignature(const uint8_t *pData, unsigned size);
 
   // DxilFunctionProps.
   bool HasDxilFunctionProps(llvm::Function *F);
@@ -224,7 +224,6 @@ public:
   // Release functions used to transfer ownership.
   DxilTypeSystem *ReleaseTypeSystem();
   OP *ReleaseOP();
-  RootSignatureHandle *ReleaseRootSignature();
   DxilFunctionPropsMap &&ReleaseFunctionPropsMap();
 
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
@@ -245,7 +244,7 @@ public:
 
 private:
   // Signatures.
-  std::unique_ptr<RootSignatureHandle> m_RootSignature;
+  std::vector<uint8_t> m_SerializedRootSignature;
 
   // Shader resources.
   std::vector<std::unique_ptr<HLResource> > m_SRVs;

@@ -15,7 +15,7 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcdxrfallbackcompiler.h"
 #include "dxc/DxrFallback/DxrFallbackCompiler.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/HLSL/DxilLinker.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilUtil.h"

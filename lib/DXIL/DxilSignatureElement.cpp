@@ -14,7 +14,6 @@
 #include "dxc/DXIL/DxilSemantic.h"
 #include "dxc/DXIL/DxilSigPoint.h"
 #include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/DXIL/DxilContainer.h"
 #include <memory>
 
 using std::string;
@@ -233,29 +232,34 @@ uint8_t DxilSignatureElement::GetColsAsMask() const {
   case 0: {
     switch (m_Cols) {
     case 1:
-      return DxilProgramSigMaskX;
+      return hlsl::DXIL::DxilProgramSigMaskX;
     case 2:
-      return DxilProgramSigMaskX | DxilProgramSigMaskY;
+      return hlsl::DXIL::DxilProgramSigMaskX | hlsl::DXIL::DxilProgramSigMaskY;
     case 3:
-      return DxilProgramSigMaskX | DxilProgramSigMaskY | DxilProgramSigMaskZ;
+      return hlsl::DXIL::DxilProgramSigMaskX | hlsl::DXIL::DxilProgramSigMaskY |
+             hlsl::DXIL::DxilProgramSigMaskZ;
     default:
-      return DxilProgramSigMaskX | DxilProgramSigMaskY | DxilProgramSigMaskZ | DxilProgramSigMaskW;
+      return hlsl::DXIL::DxilProgramSigMaskX | hlsl::DXIL::DxilProgramSigMaskY |
+             hlsl::DXIL::DxilProgramSigMaskZ | hlsl::DXIL::DxilProgramSigMaskW;
     }
   }
   case 1: {
     switch (m_Cols) {
     case 1:
-      return DxilProgramSigMaskY;
+      return hlsl::DXIL::DxilProgramSigMaskY;
     case 2:
-      return DxilProgramSigMaskY | DxilProgramSigMaskZ;
+      return hlsl::DXIL::DxilProgramSigMaskY | hlsl::DXIL::DxilProgramSigMaskZ;
     default:
-      return DxilProgramSigMaskY | DxilProgramSigMaskZ | DxilProgramSigMaskW;
+      return hlsl::DXIL::DxilProgramSigMaskY | hlsl::DXIL::DxilProgramSigMaskZ |
+             hlsl::DXIL::DxilProgramSigMaskW;
     }
   }
-  case 2: return DxilProgramSigMaskZ | ((m_Cols == 1) ? 0 : DxilProgramSigMaskW);
+  case 2:
+    return hlsl::DXIL::DxilProgramSigMaskZ |
+           ((m_Cols == 1) ? 0 : hlsl::DXIL::DxilProgramSigMaskW);
   case 3:
   default:
-    return DxilProgramSigMaskW;
+    return hlsl::DXIL::DxilProgramSigMaskW;
   }
 }
 

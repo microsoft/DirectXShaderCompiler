@@ -295,11 +295,11 @@ public:
   void LoadDxilSignatures(const llvm::MDOperand &MDO,
                           DxilEntrySignature &EntrySig);
   llvm::MDTuple *EmitSignatureMetadata(const DxilSignature &Sig);
-  void EmitRootSignature(RootSignatureHandle &RootSig);
+  void EmitRootSignature(std::vector<uint8_t> &SerializedRootSignature);
   void LoadSignatureMetadata(const llvm::MDOperand &MDO, DxilSignature &Sig);
   llvm::MDTuple *EmitSignatureElement(const DxilSignatureElement &SE);
   void LoadSignatureElement(const llvm::MDOperand &MDO, DxilSignatureElement &SE);
-  void LoadRootSignature(RootSignatureHandle &RootSig);
+  void LoadRootSignature(std::vector<uint8_t> &SerializedRootSignature);
 
   // Resources.
   llvm::MDTuple *EmitDxilResourceTuple(llvm::MDTuple *pSRVs, llvm::MDTuple *pUAVs, 

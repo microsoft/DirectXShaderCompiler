@@ -39,7 +39,7 @@
 #include <unordered_set>
 #include <set>
 
-#include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/DXIL/DxilCBuffer.h"
 #include "clang/Parse/ParseHLSL.h"      // root sig would be in Parser if part of lang
 #include "dxc/Support/WinIncludes.h"    // stream support
@@ -156,6 +156,10 @@ private:
   std::unordered_map<Value *, DebugLoc> debugInfoMap;
 
   DxilRootSignatureVersion  rootSigVer;
+
+  // Strings
+  std::vector<GlobalVariable *> globalStringsDecls;
+  std::vector<GlobalVariable *> globalStringsConstants;
   
   Value *EmitHLSLMatrixLoad(CGBuilderTy &Builder, Value *Ptr, QualType Ty);
   void EmitHLSLMatrixStore(CGBuilderTy &Builder, Value *Val, Value *DestPtr,
@@ -244,6 +248,10 @@ public:
   void SetPatchConstantFunctionWithAttr(
       const EntryFunctionInfo &EntryFunc,
       const clang::HLSLPatchConstantFuncAttr *PatchConstantFuncAttr);
+
+  void AddGlobalStringDecl(const clang::VarDecl *D, llvm::GlobalVariable *GV) override;
+  void AddGlobalStringConstant(llvm::GlobalVariable *GV) override;
+  
   void FinishCodeGen() override;
   bool IsTrivalInitListExpr(CodeGenFunction &CGF, InitListExpr *E) override;
   Value *EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E, Value *DestPtr) override;
@@ -1042,6 +1050,9 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     // Save result type info.
     AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize);
     // Resource don't count for cbuffer size.
+    return 0;
+  } else if (IsStringType(Ty)) {
+    // string won't be included in cbuffer
     return 0;
   } else {
     unsigned arraySize = 0;
@@ -4570,6 +4581,20 @@ static void CreateWriteEnabledStaticGlobals(llvm::Module *M,
   }
 }
 
+void CGMSHLSLRuntime::AddGlobalStringDecl(const clang::VarDecl *D, llvm::GlobalVariable *GV) {
+  DXASSERT_NOMSG(hlsl::IsStringType(D->getType()));
+  DXASSERT(D->getDeclContext()->isTranslationUnit(), "must be a global");
+
+  globalStringsDecls.emplace_back(GV);
+}
+
+void CGMSHLSLRuntime::AddGlobalStringConstant(llvm::GlobalVariable *GV) {
+  DXASSERT(GV->getType()->isPointerTy() &&
+         GV->getType()->getPointerElementType()->isArrayTy() &&
+         GV->getType()->getPointerElementType()->getArrayElementType() == llvm::Type::getInt8Ty(Context), "must be i8[]");
+  globalStringsConstants.emplace_back(GV);
+}
+
 void CGMSHLSLRuntime::FinishCodeGen() {
   // Library don't have entry.
   if (!m_bIsLib) {
@@ -4825,9 +4850,16 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       HLSLExtensionsCodegenHelper::CustomRootSignature customRootSig;
       Status status = CGM.getCodeGenOpts().HLSLExtensionsCodegen->GetCustomRootSignature(&customRootSig);
       if (status == Status::FOUND) {
+         RootSignatureHandle RootSigHandle;
           CompileRootSignature(customRootSig.RootSignature, Diags,
                                SourceLocation::getFromRawEncoding(customRootSig.EncodedSourceLocation),
-                               rootSigVer, &m_pHLModule->GetRootSignature());
+                               rootSigVer, &RootSigHandle);
+          if (!RootSigHandle.IsEmpty()) {
+            RootSigHandle.EnsureSerializedAvailable();
+            m_pHLModule->SetSerializedRootSignature(
+                RootSigHandle.GetSerializedBytes(),
+                RootSigHandle.GetSerializedSize());
+          }
       }
     }
   }
@@ -6777,8 +6809,13 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
   StringRef StrRef = RSA->getSignatureName();
   DiagnosticsEngine &Diags = CGF.getContext().getDiagnostics();
   SourceLocation SLoc = RSA->getLocation();
-
-  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, &m_pHLModule->GetRootSignature());
+  RootSignatureHandle RootSigHandle;
+  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, &RootSigHandle);
+  if (!RootSigHandle.IsEmpty()) {
+    RootSigHandle.EnsureSerializedAvailable();
+    m_pHLModule->SetSerializedRootSignature(RootSigHandle.GetSerializedBytes(),
+                                            RootSigHandle.GetSerializedSize());
+  }
 }
 
 void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(

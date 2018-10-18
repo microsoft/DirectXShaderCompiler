@@ -7,7 +7,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/DXIL/DxilContainer.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -52,25 +51,45 @@ ShaderFlags::ShaderFlags():
 
 uint64_t ShaderFlags::GetFeatureInfo() const {
   uint64_t Flags = 0;
-  Flags |= m_bEnableDoublePrecision ? hlsl::ShaderFeatureInfo_Doubles : 0;
-  Flags |= m_bLowPrecisionPresent && !m_bUseNativeLowPrecision ? hlsl::ShaderFeatureInfo_MinimumPrecision: 0;
-  Flags |= m_bLowPrecisionPresent && m_bUseNativeLowPrecision ? hlsl::ShaderFeatureInfo_NativeLowPrecision : 0;
-  Flags |= m_bEnableDoubleExtensions ? hlsl::ShaderFeatureInfo_11_1_DoubleExtensions : 0;
-  Flags |= m_bWaveOps ? hlsl::ShaderFeatureInfo_WaveOps : 0;
-  Flags |= m_bInt64Ops ? hlsl::ShaderFeatureInfo_Int64Ops : 0;
-  Flags |= m_bROVS ? hlsl::ShaderFeatureInfo_ROVs : 0;
-  Flags |= m_bViewportAndRTArrayIndex ? hlsl::ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer : 0;
-  Flags |= m_bInnerCoverage ? hlsl::ShaderFeatureInfo_InnerCoverage : 0;
-  Flags |= m_bStencilRef ? hlsl::ShaderFeatureInfo_StencilRef : 0;
-  Flags |= m_bTiledResources ? hlsl::ShaderFeatureInfo_TiledResources : 0;
-  Flags |= m_bEnableMSAD ? hlsl::ShaderFeatureInfo_11_1_ShaderExtensions : 0;
-  Flags |= m_bCSRawAndStructuredViaShader4X ? hlsl::ShaderFeatureInfo_ComputeShadersPlusRawAndStructuredBuffersViaShader4X : 0;
-  Flags |= m_UAVsAtEveryStage ? hlsl::ShaderFeatureInfo_UAVsAtEveryStage : 0;
-  Flags |= m_b64UAVs ? hlsl::ShaderFeatureInfo_64UAVs : 0;
-  Flags |= m_bLevel9ComparisonFiltering ? hlsl::ShaderFeatureInfo_LEVEL9ComparisonFiltering : 0;
-  Flags |= m_bUAVLoadAdditionalFormats ? hlsl::ShaderFeatureInfo_TypedUAVLoadAdditionalFormats : 0;
-  Flags |= m_bViewID ? hlsl::ShaderFeatureInfo_ViewID : 0;
-  Flags |= m_bBarycentrics ? hlsl::ShaderFeatureInfo_Barycentrics : 0;
+  Flags |= m_bEnableDoublePrecision ? hlsl::DXIL::ShaderFeatureInfo_Doubles : 0;
+  Flags |= m_bLowPrecisionPresent && !m_bUseNativeLowPrecision
+               ? hlsl::DXIL::ShaderFeatureInfo_MinimumPrecision
+               : 0;
+  Flags |= m_bLowPrecisionPresent && m_bUseNativeLowPrecision
+               ? hlsl::DXIL::ShaderFeatureInfo_NativeLowPrecision
+               : 0;
+  Flags |= m_bEnableDoubleExtensions
+               ? hlsl::DXIL::ShaderFeatureInfo_11_1_DoubleExtensions
+               : 0;
+  Flags |= m_bWaveOps ? hlsl::DXIL::ShaderFeatureInfo_WaveOps : 0;
+  Flags |= m_bInt64Ops ? hlsl::DXIL::ShaderFeatureInfo_Int64Ops : 0;
+  Flags |= m_bROVS ? hlsl::DXIL::ShaderFeatureInfo_ROVs : 0;
+  Flags |=
+      m_bViewportAndRTArrayIndex
+          ? hlsl::DXIL::
+                ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer
+          : 0;
+  Flags |= m_bInnerCoverage ? hlsl::DXIL::ShaderFeatureInfo_InnerCoverage : 0;
+  Flags |= m_bStencilRef ? hlsl::DXIL::ShaderFeatureInfo_StencilRef : 0;
+  Flags |= m_bTiledResources ? hlsl::DXIL::ShaderFeatureInfo_TiledResources : 0;
+  Flags |=
+      m_bEnableMSAD ? hlsl::DXIL::ShaderFeatureInfo_11_1_ShaderExtensions : 0;
+  Flags |=
+      m_bCSRawAndStructuredViaShader4X
+          ? hlsl::DXIL::
+                ShaderFeatureInfo_ComputeShadersPlusRawAndStructuredBuffersViaShader4X
+          : 0;
+  Flags |=
+      m_UAVsAtEveryStage ? hlsl::DXIL::ShaderFeatureInfo_UAVsAtEveryStage : 0;
+  Flags |= m_b64UAVs ? hlsl::DXIL::ShaderFeatureInfo_64UAVs : 0;
+  Flags |= m_bLevel9ComparisonFiltering
+               ? hlsl::DXIL::ShaderFeatureInfo_LEVEL9ComparisonFiltering
+               : 0;
+  Flags |= m_bUAVLoadAdditionalFormats
+               ? hlsl::DXIL::ShaderFeatureInfo_TypedUAVLoadAdditionalFormats
+               : 0;
+  Flags |= m_bViewID ? hlsl::DXIL::ShaderFeatureInfo_ViewID : 0;
+  Flags |= m_bBarycentrics ? hlsl::DXIL::ShaderFeatureInfo_Barycentrics : 0;
 
   return Flags;
 }

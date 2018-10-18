@@ -184,7 +184,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   }
 
   // Signatures.
-  M.ResetRootSignature(H.ReleaseRootSignature());
+  M.ResetSerializedRootSignature(H.GetSerializedRootSignature());
 
   // Shader properties.
   //bool m_bDisableOptimizations;

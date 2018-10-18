@@ -217,22 +217,39 @@ namespace {
         // Add all file contents in a list of filename/content pairs.
         llvm::NamedMDNode *pContents = nullptr;
         llvm::LLVMContext &LLVMCtx = M->getContext();
+        auto AddFile = [&](StringRef name, StringRef content) {
+          if (pContents == nullptr) {
+            pContents = M->getOrInsertNamedMetadata(
+              hlsl::DxilMDHelper::kDxilSourceContentsMDName);
+          }
+          llvm::MDTuple *pFileInfo = llvm::MDNode::get(
+            LLVMCtx,
+            { llvm::MDString::get(LLVMCtx, name),
+              llvm::MDString::get(LLVMCtx, content) });
+          pContents->addOperand(pFileInfo);
+        };
+        std::map<StringRef, StringRef> filesMap;
+        bool bFoundMainFile = false;
         for (SourceManager::fileinfo_iterator
                  it = Ctx.getSourceManager().fileinfo_begin(),
                  end = Ctx.getSourceManager().fileinfo_end();
              it != end; ++it) {
           if (it->first->isValid() && !it->second->IsSystemFile) {
-            if (pContents == nullptr) {
-              pContents = M->getOrInsertNamedMetadata(
-                  hlsl::DxilMDHelper::kDxilSourceContentsMDName);
+            // If main file, write that to metadata first.
+            // Add the rest to filesMap to sort by name.
+            if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
+              assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
+              AddFile(it->first->getName(), it->second->getRawBuffer()->getBuffer());
+              bFoundMainFile = true;
+            } else {
+              filesMap[it->first->getName()] = it->second->getRawBuffer()->getBuffer();
             }
-            llvm::MDTuple *pFileInfo = llvm::MDNode::get(
-                LLVMCtx,
-                {llvm::MDString::get(LLVMCtx, it->first->getName()),
-                 llvm::MDString::get(LLVMCtx,
-                                     it->second->getRawBuffer()->getBuffer())});
-            pContents->addOperand(pFileInfo);
           }
+        }
+        assert(bFoundMainFile && "otherwise, no file found matches main filename");
+        // Emit the rest of the files in sorted order.
+        for (auto it : filesMap) {
+          AddFile(it.first, it.second);
         }
 
         // Add Defines to Debug Info
