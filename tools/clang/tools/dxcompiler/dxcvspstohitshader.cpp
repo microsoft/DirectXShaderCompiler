@@ -25,7 +25,7 @@
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/HLSL/DxilLinker.h"
 #include "dxc/DXIL/DxilModule.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/HLSL/DxilExportMap.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
