@@ -600,8 +600,9 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDxilTranslateRawBuffer());
     MPM.add(createDeadCodeEliminationPass());
-    if (DisableUnrollLoops)
-      MPM.add(createDxilLegalizeSampleOffsetPass());
+    // Always try to legalize sample offsets as loop unrolling
+    // is not guaranteed for higher opt levels.
+    MPM.add(createDxilLegalizeSampleOffsetPass());
     MPM.add(createDxilFinalizeModulePass());
     MPM.add(createComputeViewIdStatePass());
     MPM.add(createDxilDeadFunctionEliminationPass());
