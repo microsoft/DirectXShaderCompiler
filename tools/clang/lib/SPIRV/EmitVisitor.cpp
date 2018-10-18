@@ -419,6 +419,19 @@ bool EmitVisitor::visit(SpirvCompositeExtract *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvCompositeInsert *inst) {
+  initInstruction(inst->getopcode());
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(inst->getResultId());
+  curInst.push_back(inst->getObject()->getResultId());
+  curInst.push_back(inst->getComposite()->getResultId());
+  for (const auto constituent : inst->getIndexes())
+    curInst.push_back(constituent);
+  finalizeInstruction();
+  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvExtInst *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
