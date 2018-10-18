@@ -39,7 +39,7 @@
 #include <unordered_set>
 #include <set>
 
-#include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/DXIL/DxilCBuffer.h"
 #include "clang/Parse/ParseHLSL.h"      // root sig would be in Parser if part of lang
 #include "dxc/Support/WinIncludes.h"    // stream support
@@ -4825,9 +4825,16 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       HLSLExtensionsCodegenHelper::CustomRootSignature customRootSig;
       Status status = CGM.getCodeGenOpts().HLSLExtensionsCodegen->GetCustomRootSignature(&customRootSig);
       if (status == Status::FOUND) {
+         RootSignatureHandle RootSigHandle;
           CompileRootSignature(customRootSig.RootSignature, Diags,
                                SourceLocation::getFromRawEncoding(customRootSig.EncodedSourceLocation),
-                               rootSigVer, &m_pHLModule->GetRootSignature());
+                               rootSigVer, &RootSigHandle);
+          if (!RootSigHandle.IsEmpty()) {
+            RootSigHandle.EnsureSerializedAvailable();
+            m_pHLModule->SetSerializedRootSignature(
+                RootSigHandle.GetSerializedBytes(),
+                RootSigHandle.GetSerializedSize());
+          }
       }
     }
   }
@@ -6777,8 +6784,13 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
   StringRef StrRef = RSA->getSignatureName();
   DiagnosticsEngine &Diags = CGF.getContext().getDiagnostics();
   SourceLocation SLoc = RSA->getLocation();
-
-  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, &m_pHLModule->GetRootSignature());
+  RootSignatureHandle RootSigHandle;
+  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, &RootSigHandle);
+  if (!RootSigHandle.IsEmpty()) {
+    RootSigHandle.EnsureSerializedAvailable();
+    m_pHLModule->SetSerializedRootSignature(RootSigHandle.GetSerializedBytes(),
+                                            RootSigHandle.GetSerializedSize());
+  }
 }
 
 void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(

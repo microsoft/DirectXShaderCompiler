@@ -16,10 +16,11 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/ADT/STLExtras.h"
-#include "dxc/DXIL/DxilContainer.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -148,6 +149,7 @@ struct sort_sig {
             (a.SemanticName < b.SemanticName));
   }
 };
+
 
 class DxilProgramSignatureWriter : public DxilPartWriter {
 private:
@@ -1341,6 +1343,23 @@ static void WriteProgramPart(const ShaderModel *pModel,
   }
 }
 
+namespace {
+
+class RootSignatureWriter : public DxilPartWriter {
+private:
+  const std::vector<uint8_t> &m_Sig;
+
+public:
+  RootSignatureWriter(const std::vector<uint8_t> &S) : m_Sig(S) {}
+  uint32_t size() const { return m_Sig.size(); }
+  void write(AbstractMemoryStream *pStream) {
+    ULONG cbWritten;
+    IFT(pStream->Write(m_Sig.data(), size(), &cbWritten));
+  }
+};
+
+} // namespace
+
 void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
                                            AbstractMemoryStream *pFinalStream,
@@ -1419,9 +1438,9 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });
   }
   // Write the root signature (RTS0) part.
-  DxilProgramRootSignatureWriter rootSigWriter(pModule->GetRootSignature());
+  RootSignatureWriter rootSigWriter(pModule->GetSerializedRootSignature());
   CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
-  if (!pModule->GetRootSignature().IsEmpty()) {
+  if (!pModule->GetSerializedRootSignature().empty()) {
     writer.AddPart(
         DFCC_RootSignature, rootSigWriter.size(),
         [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
