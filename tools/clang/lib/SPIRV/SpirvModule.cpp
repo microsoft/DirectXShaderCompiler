@@ -71,5 +71,10 @@ void SpirvModule::addFunction(SpirvFunction *fn) {
   functions.push_back(fn);
 }
 
+void SpirvModule::addCapability(SpirvCapability *cap) {
+  assert(cap && "cannot add null capability to the module");
+  capabilities.push_back(cap);
+}
+
 } // end namespace spirv
 } // end namespace clang
