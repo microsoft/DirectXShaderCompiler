@@ -27,6 +27,16 @@ bool ScalarType::classof(const SpirvType *t) {
   return false;
 }
 
+MatrixType::MatrixType(const VectorType *vecType, uint32_t vecCount,
+                       bool rowMajor)
+    : SpirvType(TK_Matrix), vectorType(vecType), vectorCount(vecCount),
+      isRowMajor(rowMajor) {}
+
+bool MatrixType::operator==(const MatrixType &that) const {
+  return vectorType == that.vectorType && vectorCount == that.vectorCount &&
+         isRowMajor == that.isRowMajor;
+}
+
 ImageType::ImageType(const NumericalType *type, spv::Dim dim, bool arrayed,
                      bool ms, WithSampler sampled, spv::ImageFormat format)
     : SpirvType(TK_Image), sampledType(type), dimension(dim),
@@ -41,14 +51,16 @@ bool ImageType::operator==(const ImageType &that) const {
 
 StructType::StructType(llvm::ArrayRef<const SpirvType *> memberTypes,
                        llvm::StringRef name,
-                       llvm::ArrayRef<llvm::StringRef> memberNames)
+                       llvm::ArrayRef<llvm::StringRef> memberNames,
+                       bool isReadOnly)
     : SpirvType(TK_Struct), structName(name),
       fieldTypes(memberTypes.begin(), memberTypes.end()),
-      fieldNames(memberNames.begin(), memberNames.end()) {}
+      fieldNames(memberNames.begin(), memberNames.end()), readOnly(isReadOnly) {
+}
 
 bool StructType::operator==(const StructType &that) const {
   return structName == that.structName && fieldTypes == that.fieldTypes &&
-         fieldNames == that.fieldNames;
+         fieldNames == that.fieldNames && readOnly == that.readOnly;
 }
 
 } // namespace spirv
