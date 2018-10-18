@@ -186,6 +186,9 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   // Signatures.
   M.ResetSerializedRootSignature(H.GetSerializedRootSignature());
 
+  // Subobjects.
+  M.ResetSubobjects(H.ReleaseSubobjects());
+
   // Shader properties.
   //bool m_bDisableOptimizations;
   M.SetDisableOptimization(H.GetHLOptions().bDisableOptimizations);
