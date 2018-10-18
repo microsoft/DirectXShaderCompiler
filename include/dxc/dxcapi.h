@@ -344,10 +344,9 @@ IDxcVersionInfo : public IUnknown {
   DECLARE_CROSS_PLATFORM_UUIDOF(IDxcVersionInfo)
 };
 
-struct __declspec(uuid("fb6904c4-42f0-4b62-9c46-983af7da7c83")) IDxcVersionInfo2
-    : public IDxcVersionInfo {
-  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount,
-                                                  _Out_ char **pCommitHash) = 0;
+struct __declspec(uuid("fb6904c4-42f0-4b62-9c46-983af7da7c83"))
+IDxcVersionInfo2 : public IDxcVersionInfo {
+  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) = 0;
 
   DECLARE_CROSS_PLATFORM_UUIDOF(IDxcVersionInfo2)
 };
@@ -398,14 +397,8 @@ struct __declspec(uuid("d0ba47c3-3d89-4bd9-ae6f-b6969c6f88cd"))
       _COM_Outptr_opt_ IDxcBlob **ppChShader, // Resulting closest-hit shader
       _COM_Outptr_opt_ IDxcBlob **ppAhShader  // Resulting any-hit shader
       ) = 0;
-};
 
-// {b99ba4b4-f160-44e3-8186-dcc4c0e2ace0}
-__declspec(selectany) extern const CLSID CLSID_DxcVsPsToHitShader = {
-    0xb99ba4b4,
-    0xf160,
-    0x44e3,
-    {0x81, 0x86, 0xdc, 0xc4, 0xc0, 0xe2, 0xac, 0xe0}
+  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcVsPsToHitShader)
 };
 
 // Note: __declspec(selectany) requires 'extern'
@@ -415,6 +408,14 @@ __declspec(selectany) extern const CLSID CLSID_DxcVsPsToHitShader = {
 #else
 #define EXTERN
 #endif
+
+// {b99ba4b4-f160-44e3-8186-dcc4c0e2ace0}
+__declspec(selectany) EXTERN const CLSID CLSID_DxcVsPsToHitShader = {
+    0xb99ba4b4,
+    0xf160,
+    0x44e3,
+    {0x81, 0x86, 0xdc, 0xc4, 0xc0, 0xe2, 0xac, 0xe0}
+};
 
 // {73e22d93-e6ce-47f3-b5bf-f0664f39c1b0}
 __declspec(selectany) EXTERN const CLSID CLSID_DxcCompiler = {
