@@ -120,14 +120,21 @@ private:
 
 class MatrixType : public SpirvType {
 public:
-  MatrixType(const VectorType *vecType, uint32_t vecCount)
-      : SpirvType(TK_Matrix), vectorType(vecType), vectorCount(vecCount) {}
+  MatrixType(const VectorType *vecType, uint32_t vecCount, bool rowMajor);
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Matrix; }
+
+  bool operator==(const MatrixType &that) const;
 
 private:
   const VectorType *vectorType;
   uint32_t vectorCount;
+  // It's debatable whether we should put majorness as a field in the type
+  // itself. Majorness only matters at the time of emitting SPIR-V words since
+  // we need the layout decoration then. However, if we don't put it here,
+  // we will need to rediscover the majorness information from QualType at
+  // the time of emitting SPIR-V words.
+  bool isRowMajor;
 };
 
 class ImageType : public SpirvType {
@@ -202,16 +209,24 @@ private:
 class StructType : public SpirvType {
 public:
   StructType(llvm::ArrayRef<const SpirvType *> memberTypes,
-             llvm::StringRef name, llvm::ArrayRef<llvm::StringRef> memberNames);
+             llvm::StringRef name, llvm::ArrayRef<llvm::StringRef> memberNames,
+             bool isReadOnly);
 
   static bool classof(const SpirvType *t) { return t->getKind() == TK_Struct; }
+
+  bool isReadOnly() const { return readOnly; }
 
   bool operator==(const StructType &that) const;
 
 private:
+  // Reflection is heavily used in graphics pipelines. Reflection relies on
+  // struct names and field names. That basically means we cannot ignore these
+  // names when considering unification. Otherwise, reflection will be confused.
+
   std::string structName;
   llvm::SmallVector<const SpirvType *, 8> fieldTypes;
   llvm::SmallVector<std::string, 8> fieldNames;
+  bool readOnly;
 };
 
 class SpirvPointerType : public SpirvType {
