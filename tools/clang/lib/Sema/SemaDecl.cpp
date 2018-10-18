@@ -7690,15 +7690,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     NewFD->setInvalidDecl();
   }
 
-  // HLSL Change Start
-  // prohibit string as a return type
-  if (getLangOpts().HLSL && hlsl::IsStringType(NewFD->getReturnType())) {
-    static const unsigned selectReturnValueIdx = 2;
-    Diag(NewFD->getLocation(), diag::err_hlsl_unsupported_string_decl) << selectReturnValueIdx;
-    NewFD->setInvalidDecl();
-  }
-  // HLSL Change End
-
   // Apply an implicit SectionAttr if #pragma code_seg is active.
   if (CodeSegStack.CurrentValue && D.isFunctionDefinition() &&
       !NewFD->hasAttr<SectionAttr>()) {

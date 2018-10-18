@@ -11190,6 +11190,13 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     if (pFP) {
       qt = pFP->getReturnType();
       pType = qt.getTypePtrOrNull();
+
+      // prohibit string as a return type
+      if (hlsl::IsStringType(qt)) {
+        static const unsigned selectReturnValueIdx = 2;
+        Diag(D.getLocStart(), diag::err_hlsl_unsupported_string_decl) << selectReturnValueIdx;
+        D.setInvalidType();
+      }
     }
   }
 
