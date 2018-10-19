@@ -59,8 +59,38 @@ public:
   // Add a capability to the list of module capabilities.
   void addCapability(SpirvCapability *cap);
 
+  // Set the memory model of the module.
+  void setMemoryModel(SpirvMemoryModel *model);
+
+  // Add an entry point to the module.
+  void addEntryPoint(SpirvEntryPoint *);
+
+  // Adds an execution mode to the module.
+  void addExecutionMode(SpirvExecutionMode *);
+
+  // Adds an extension to the module.
+  void addExtension(SpirvExtension*);
+
+  // Adds an extended instruction set to the module.
+  void addExtInstSet(SpirvExtInstImport *);
+
+  // Returns the GLSL extended instruction set if already added to the module.
+  // Returns nullptr otherwise.
+  SpirvExtInstImport *getGLSLExtInstSet();
+
+  // Adds a variable to the module.
+  void addVariable(SpirvVariable *);
+
+  // Adds a decoration to the module.
+  void addDecoration(SpirvDecoration *);
+
+  void setShaderModelVersion(uint32_t v) { shaderModelVersion = v; }
+  void setSourceFileName(llvm::StringRef name) { sourceFileName = name; }
+  void setSourceFileContent(llvm::StringRef c) { sourceFileContent = c; }
+
 private:
   uint32_t bound; ///< The <result-id> bound: the next unused one
+  uint32_t shaderModelVersion;
 
   // "Metadata" instructions
   llvm::SmallVector<SpirvCapability *, 8> capabilities;
@@ -76,6 +106,8 @@ private:
 
   // Shader logic instructions
   std::vector<SpirvFunction *> functions;
+  std::string sourceFileName;
+  std::string sourceFileContent;
 };
 
 } // end namespace spirv

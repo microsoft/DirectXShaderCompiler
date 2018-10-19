@@ -432,6 +432,18 @@ bool EmitVisitor::visit(SpirvCompositeInsert *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvEmitVertex *inst) {
+  initInstruction(inst->getopcode());
+  finalizeInstruction();
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvEndPrimitive *inst) {
+  initInstruction(inst->getopcode());
+  finalizeInstruction();
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvExtInst *inst) {
   initInstruction(inst->getopcode());
   curInst.push_back(inst->getResultTypeId());
