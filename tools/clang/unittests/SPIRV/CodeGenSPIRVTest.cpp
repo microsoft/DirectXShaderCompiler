@@ -1706,9 +1706,8 @@ TEST_F(FileTest, LegalizationExample11) {
   runFileTest("legal-examples/11-if-stmt-const-ok.hlsl");
 }
 TEST_F(FileTest, LegalizationExample12) {
-  // TODO: this is expected to trigger ValFailure! Validator is not
-  // checking this case yet.
-  runFileTest("legal-examples/12-switch-stmt-select-fail.hlsl");
+  runFileTest("legal-examples/12-switch-stmt-select-fail.hlsl",
+              Expect::ValFailure);
 }
 TEST_F(FileTest, LegalizationExample13) {
   runFileTest("legal-examples/13-switch-stmt-const-ok.hlsl");
