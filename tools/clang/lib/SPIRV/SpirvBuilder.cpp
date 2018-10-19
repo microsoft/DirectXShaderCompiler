@@ -7,15 +7,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/SPIRV/SpirvBuilder.h"
 #include "TypeTranslator.h"
+#include "clang/SPIRV/FeatureManager.h"
+#include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/Support/MathExtras.h"
 
 namespace clang {
 namespace spirv {
 
-SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx)
-    : astContext(ac), context(ctx), module(nullptr), function(nullptr) {
+SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
+                           FeatureManager *fm, const SpirvCodeGenOptions &opt)
+    : astContext(ac), context(ctx), module(nullptr), function(nullptr),
+      featureManager(fm), spirvOptions(opt) {
   module = new (context) SpirvModule;
 }
 
@@ -372,7 +375,7 @@ SpirvInstruction *SpirvBuilder::createImageSample(
   if (isNonUniform) {
     // The sampled image will be used to access resource's memory, so we need
     // to decorate it with NonUniformEXT.
-    // TODO: decorateNonUniformEXT(sampledImgId);
+    decorateNonUniformEXT(sampledImage, loc);
   }
 
   const auto mask = composeImageOperandsMask(
@@ -480,7 +483,7 @@ SpirvInstruction *SpirvBuilder::createImageGather(
   if (isNonUniform) {
     // The sampled image will be used to access resource's memory, so we need
     // to decorate it with NonUniformEXT.
-    // TODO: decorateNonUniformEXT(sampledImgId);
+    decorateNonUniformEXT(sampledImage, loc);
   }
 
   // TODO: Update ImageGather to accept minLod if necessary.
@@ -650,12 +653,203 @@ SpirvBitFieldExtract *SpirvBuilder::createBitFieldExtract(
 }
 
 void SpirvBuilder::createEmitVertex(SourceLocation loc) {
-  // TODO: We currently don't have SpirvEmitVertex class.
-  // Either create the class or remove usages of createEmitVertex.
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvEmitVertex(loc);
+  insertPoint->addInstruction(inst);
 }
+
 void SpirvBuilder::createEndPrimitive(SourceLocation loc) {
-  // TODO: We currently don't have SpirvEndPrimitive class.
-  // Either create the class or remove usages of createEndPrimitive.
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvEndPrimitive(loc);
+  insertPoint->addInstruction(inst);
+}
+
+void SpirvBuilder::addExtension(Extension ext, llvm::StringRef target,
+                                SourceLocation loc) {
+  // TODO: The extension management should be removed from here and added as a
+  // separate pass.
+
+  assert(featureManager);
+  featureManager->requestExtension(ext, target, loc);
+  // Do not emit OpExtension if the given extension is natively supported in the
+  // target environment.
+  if (featureManager->isExtensionRequiredForTargetEnv(ext))
+    module->addExtension(new (context) SpirvExtension(
+        loc, featureManager->getExtensionName(ext)));
+}
+
+SpirvExtInstImport *SpirvBuilder::getGLSLExtInstSet(SourceLocation loc) {
+  SpirvExtInstImport *glslSet = module->getGLSLExtInstSet();
+  if (!glslSet) {
+    glslSet = new (context) SpirvExtInstImport(/*id*/ 0, loc, "GLSL.std.450");
+    module->addExtInstSet(glslSet);
+  }
+  return glslSet;
+}
+
+SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
+                                           spv::StorageClass storageClass,
+                                           std::string name,
+                                           SourceLocation loc) {
+  // Note: We store the underlying type in the variable, *not* the pointer type.
+  auto *var = new (context) SpirvVariable(type, /*id*/ 0, loc, storageClass);
+  var->setDebugName(name);
+  module->addVariable(var);
+  return var;
+}
+
+SpirvVariable *SpirvBuilder::addStageBuiltinVar(QualType type,
+                                                spv::StorageClass storageClass,
+                                                spv::BuiltIn builtin,
+                                                SourceLocation loc) {
+  // Note: We store the underlying type in the variable, *not* the pointer type.
+  auto *var = new (context) SpirvVariable(type, /*id*/ 0, loc, storageClass);
+  module->addVariable(var);
+
+  // Decorate with the specified Builtin
+  auto *decor = new (context) SpirvDecoration(
+      loc, var, spv::Decoration::BuiltIn, {static_cast<uint32_t>(builtin)});
+  module->addDecoration(decor);
+
+  return var;
+}
+
+SpirvVariable *SpirvBuilder::addModuleVar(
+    QualType type, spv::StorageClass storageClass, llvm::StringRef name,
+    llvm::Optional<SpirvInstruction *> init, SourceLocation loc) {
+  assert(storageClass != spv::StorageClass::Function);
+  // Note: We store the underlying type in the variable, *not* the pointer type.
+  auto *var =
+      new (context) SpirvVariable(type, /*id*/ 0, loc, storageClass,
+                                  init.hasValue() ? init.getValue() : nullptr);
+  var->setDebugName(name);
+  module->addVariable(var);
+  return var;
+}
+
+void SpirvBuilder::decorateLocation(SpirvInstruction *target, uint32_t location,
+                                    SourceLocation srcLoc) {
+  auto *decor = new (context)
+      SpirvDecoration(srcLoc, target, spv::Decoration::Location, {location});
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateIndex(SpirvInstruction *target, uint32_t index,
+                                 SourceLocation srcLoc) {
+  auto *decor = new (context)
+      SpirvDecoration(srcLoc, target, spv::Decoration::Index, {index});
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateDSetBinding(SpirvInstruction *target,
+                                       uint32_t setNumber,
+                                       uint32_t bindingNumber,
+                                       SourceLocation srcLoc) {
+  auto *dset = new (context) SpirvDecoration(
+      srcLoc, target, spv::Decoration::DescriptorSet, {setNumber});
+  module->addDecoration(dset);
+
+  auto *binding = new (context) SpirvDecoration(
+      srcLoc, target, spv::Decoration::Binding, {bindingNumber});
+  module->addDecoration(binding);
+}
+
+void SpirvBuilder::decorateSpecId(SpirvInstruction *target, uint32_t specId,
+                                  SourceLocation srcLoc) {
+  auto *decor = new (context)
+      SpirvDecoration(srcLoc, target, spv::Decoration::SpecId, {specId});
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateInputAttachmentIndex(SpirvInstruction *target,
+                                                uint32_t indexNumber,
+                                                SourceLocation srcLoc) {
+  auto *decor = new (context) SpirvDecoration(
+      srcLoc, target, spv::Decoration::InputAttachmentIndex, {indexNumber});
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateCounterBufferId(SpirvInstruction *mainBuffer,
+                                           uint32_t counterBufferId,
+                                           SourceLocation srcLoc) {
+  if (spirvOptions.enableReflect) {
+    addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
+                 srcLoc);
+    auto *decor = new (context) SpirvDecoration(
+        srcLoc, mainBuffer, spv::Decoration::HlslCounterBufferGOOGLE,
+        {counterBufferId});
+    module->addDecoration(decor);
+  }
+}
+
+void SpirvBuilder::decorateHlslSemantic(SpirvInstruction *target,
+                                        llvm::StringRef semantic,
+                                        llvm::Optional<uint32_t> memberIdx,
+                                        SourceLocation srcLoc) {
+  if (spirvOptions.enableReflect) {
+    addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
+                 srcLoc);
+    auto *decor = new (context)
+        SpirvDecoration(srcLoc, target, spv::Decoration::HlslSemanticGOOGLE,
+                        semantic, memberIdx);
+    module->addDecoration(decor);
+  }
+}
+
+void SpirvBuilder::decorateCentroid(SpirvInstruction *target,
+                                    SourceLocation srcLoc) {
+  auto *decor =
+      new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Centroid);
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateFlat(SpirvInstruction *target,
+                                SourceLocation srcLoc) {
+  auto *decor =
+      new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Flat);
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateNoPerspective(SpirvInstruction *target,
+                                         SourceLocation srcLoc) {
+  auto *decor = new (context)
+      SpirvDecoration(srcLoc, target, spv::Decoration::NoPerspective);
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateSample(SpirvInstruction *target,
+                                  SourceLocation srcLoc) {
+  auto *decor =
+      new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Sample);
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateBlock(SpirvInstruction *target,
+                                 SourceLocation srcLoc) {
+  auto *decor =
+      new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Block);
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateRelaxedPrecision(SpirvInstruction *target,
+                                            SourceLocation srcLoc) {
+  auto *decor = new (context)
+      SpirvDecoration(srcLoc, target, spv::Decoration::RelaxedPrecision);
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decoratePatch(SpirvInstruction *target,
+                                 SourceLocation srcLoc) {
+  auto *decor =
+      new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Patch);
+  module->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateNonUniformEXT(SpirvInstruction *target,
+                                         SourceLocation srcLoc) {
+  auto *decor = new (context)
+      SpirvDecoration(srcLoc, target, spv::Decoration::NonUniformEXT);
+  module->addDecoration(decor);
 }
 
 } // end namespace spirv

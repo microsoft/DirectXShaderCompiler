@@ -14,7 +14,7 @@ namespace clang {
 namespace spirv {
 
 SpirvModule::SpirvModule()
-    : bound(1), memoryModel(nullptr), debugSource(nullptr) {}
+    : bound(1), shaderModelVersion(0), memoryModel(nullptr), debugSource(nullptr) {}
 
 bool SpirvModule::invokeVisitor(Visitor *visitor) {
   if (!visitor->visit(this, Visitor::Phase::Init))
@@ -74,6 +74,56 @@ void SpirvModule::addFunction(SpirvFunction *fn) {
 void SpirvModule::addCapability(SpirvCapability *cap) {
   assert(cap && "cannot add null capability to the module");
   capabilities.push_back(cap);
+}
+
+void SpirvModule::setMemoryModel(SpirvMemoryModel *model) {
+  assert(model && "cannot set a null memory model");
+  memoryModel = model;
+}
+
+void SpirvModule::addEntryPoint(SpirvEntryPoint* ep) {
+  assert(ep && "cannot add null as an entry point");
+  entryPoints.push_back(ep);
+}
+
+void SpirvModule::addExecutionMode(SpirvExecutionMode *em) {
+  assert(em && "cannot add null execution mode");
+  executionModes.push_back(em);
+}
+
+void SpirvModule::addExtension(SpirvExtension *ext) {
+  assert(ext && "cannot add null extension");
+  extensions.push_back(ext);
+}
+
+void SpirvModule::addExtInstSet(SpirvExtInstImport *set) {
+  assert(set && "cannot add null extended instruction set");
+  extInstSets.push_back(set);
+}
+
+SpirvExtInstImport *SpirvModule::getGLSLExtInstSet() {
+  // We expect very few (usually 1) extended instruction sets to exist in the
+  // module, so this is not expensive.
+  auto found =
+      std::find_if(extInstSets.begin(), extInstSets.end(),
+                   [](const SpirvExtInstImport *set) {
+                     return set->getExtendedInstSetName() == "GLSL.std.450";
+                   });
+
+  if (found != extInstSets.end())
+    return *found;
+
+  return nullptr;
+}
+
+void SpirvModule::addVariable(SpirvVariable *var) {
+  assert(var && "cannot add null variable to the module");
+  variables.push_back(var);
+}
+
+void SpirvModule::addDecoration(SpirvDecoration *decor) {
+  assert(decor && "cannot add null decoration to the module");
+  decorations.push_back(decor);
 }
 
 } // end namespace spirv
