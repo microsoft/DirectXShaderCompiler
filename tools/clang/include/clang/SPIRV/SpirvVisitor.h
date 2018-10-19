@@ -86,6 +86,8 @@ public:
   DEFINE_VISIT_METHOD(SpirvComposite)
   DEFINE_VISIT_METHOD(SpirvCompositeExtract)
   DEFINE_VISIT_METHOD(SpirvCompositeInsert)
+  DEFINE_VISIT_METHOD(SpirvEmitVertex)
+  DEFINE_VISIT_METHOD(SpirvEndPrimitive)
   DEFINE_VISIT_METHOD(SpirvExtInst)
   DEFINE_VISIT_METHOD(SpirvFunctionCall)
   DEFINE_VISIT_METHOD(SpirvNonUniformBinaryOp)
