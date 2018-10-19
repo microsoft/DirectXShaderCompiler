@@ -14,6 +14,7 @@
 #include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvVisitor.h"
+#include "clang/SPIRV/String.h"
 
 namespace clang {
 namespace spirv {
@@ -52,6 +53,8 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldInsert)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeInsert)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEmitVertex)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEndPrimitive)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInst)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionCall)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformBinaryOp)
@@ -152,6 +155,20 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                        /*type*/ {}, /*id*/ 0, loc),
       target(targetInst), decoration(decor), params(p.begin(), p.end()),
       index(idx) {}
+
+SpirvDecoration::SpirvDecoration(SourceLocation loc,
+                                 SpirvInstruction *targetInst,
+                                 spv::Decoration decor,
+                                 llvm::StringRef strParam,
+                                 llvm::Optional<uint32_t> idx)
+    : SpirvInstruction(IK_Decoration,
+                       index.hasValue() ? spv::Op::OpMemberDecorate
+                                        : spv::Op::OpDecorate,
+                       /*type*/ {}, /*id*/ 0, loc),
+      target(targetInst), decoration(decor), params(), index(idx) {
+  const auto &stringWords = string::encodeSPIRVString(strParam);
+  params.insert(params.end(), stringWords.begin(), stringWords.end());
+}
 
 SpirvVariable::SpirvVariable(QualType resultType, uint32_t resultId,
                              SourceLocation loc, spv::StorageClass sc,
@@ -347,6 +364,14 @@ SpirvCompositeInsert::SpirvCompositeInsert(QualType resultType,
                        resultType, resultId, loc),
       composite(compositeInst), object(objectInst),
       indices(indexVec.begin(), indexVec.end()) {}
+
+SpirvEmitVertex::SpirvEmitVertex(SourceLocation loc)
+    : SpirvInstruction(IK_EmitVertex, spv::Op::OpEmitVertex, QualType(),
+                       /*resultId=*/0, loc) {}
+
+SpirvEndPrimitive::SpirvEndPrimitive(SourceLocation loc)
+    : SpirvInstruction(IK_EndPrimitive, spv::Op::OpEndPrimitive, QualType(),
+                       /*resultId=*/0, loc) {}
 
 SpirvExtInst::SpirvExtInst(QualType resultType, uint32_t resultId,
                            SourceLocation loc, SpirvExtInstImport *set,

@@ -32,6 +32,8 @@ public:
   bool visit(SpirvExtension *);
   bool visit(SpirvExtInstImport *);
   bool visit(SpirvMemoryModel *);
+  bool visit(SpirvEmitVertex *);
+  bool visit(SpirvEndPrimitive *);
   bool visit(SpirvEntryPoint *);
   bool visit(SpirvExecutionMode *);
   bool visit(SpirvString *);

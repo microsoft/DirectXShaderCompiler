@@ -32,7 +32,8 @@ namespace spirv {
 /// module.
 class SpirvBuilder {
 public:
-  explicit SpirvBuilder(ASTContext &ac, SpirvContext &c);
+  explicit SpirvBuilder(ASTContext &ac, SpirvContext &c, FeatureManager *,
+                        const SpirvCodeGenOptions &);
   ~SpirvBuilder() = default;
 
   // Forbid copy construction and assignment
@@ -384,6 +385,123 @@ public:
 
   inline void requireCapability(spv::Capability, SourceLocation loc = {});
 
+  inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
+
+  /// \brief Adds an entry point for the module under construction. We only
+  /// support a single entry point per module for now.
+  inline void addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
+                            std::string targetName,
+                            llvm::ArrayRef<SpirvVariable *> interfaces,
+                            SourceLocation loc = {});
+
+  inline void setShaderModelVersion(uint32_t major, uint32_t minor);
+
+  /// \brief Sets the source file name.
+  inline void setSourceFileName(llvm::StringRef name);
+  /// \brief Sets the main source file content.
+  inline void setSourceFileContent(llvm::StringRef content);
+
+  /// \brief Adds an execution mode to the module under construction.
+  inline void addExecutionMode(SpirvEntryPoint *entryPoint,
+                               spv::ExecutionMode em,
+                               llvm::ArrayRef<uint32_t> params,
+                               SourceLocation loc = {});
+
+  /// \brief Adds an extension to the module under construction for translating
+  /// the given target at the given source location.
+  void addExtension(Extension, llvm::StringRef target, SourceLocation);
+
+  /// \brief If not added already, adds an OpExtInstImport (import of extended
+  /// instruction set) of the GLSL instruction set. Returns the  the imported
+  /// GLSL instruction set.
+  SpirvExtInstImport *getGLSLExtInstSet(SourceLocation loc = {});
+
+  /// \brief Adds a stage input/ouput variable whose value is of the given type.
+  ///
+  /// Note: the corresponding pointer type of the given type will not be
+  /// constructed in this method.
+  SpirvVariable *addStageIOVar(QualType type, spv::StorageClass storageClass,
+                               std::string name, SourceLocation loc = {});
+
+  /// \brief Adds a stage builtin variable whose value is of the given type.
+  ///
+  /// Note: The corresponding pointer type of the given type will not be
+  /// constructed in this method.
+  SpirvVariable *addStageBuiltinVar(QualType type,
+                                    spv::StorageClass storageClass,
+                                    spv::BuiltIn, SourceLocation loc = {});
+
+  /// \brief Adds a module variable. This variable should not have the Function
+  /// storage class.
+  ///
+  /// Note: The corresponding pointer type of the given type will not be
+  /// constructed in this method.
+  SpirvVariable *
+  addModuleVar(QualType valueType, spv::StorageClass storageClass,
+               llvm::StringRef name = "",
+               llvm::Optional<SpirvInstruction *> init = llvm::None,
+               SourceLocation loc = {});
+
+  /// \brief Decorates the given target with the given location.
+  void decorateLocation(SpirvInstruction *target, uint32_t location,
+                        SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with the given index.
+  void decorateIndex(SpirvInstruction *target, uint32_t index,
+                     SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with the given descriptor set and
+  /// binding number.
+  void decorateDSetBinding(SpirvInstruction *target, uint32_t setNumber,
+                           uint32_t bindingNumber, SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with the given SpecId.
+  void decorateSpecId(SpirvInstruction *target, uint32_t specId,
+                      SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with the given input attchment index
+  /// number.
+  void decorateInputAttachmentIndex(SpirvInstruction *target,
+                                    uint32_t indexNumber,
+                                    SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given main buffer with the given counter buffer.
+  void decorateCounterBufferId(SpirvInstruction *mainBuffer,
+                               uint32_t counterBufferId,
+                               SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with the given HLSL semantic string.
+  void decorateHlslSemantic(SpirvInstruction *target, llvm::StringRef semantic,
+                            llvm::Optional<uint32_t> memberIdx = llvm::None,
+                            SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with centroid
+  void decorateCentroid(SpirvInstruction *target, SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with flat
+  void decorateFlat(SpirvInstruction *target, SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with noperspective
+  void decorateNoPerspective(SpirvInstruction *target,
+                             SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with sample
+  void decorateSample(SpirvInstruction *target, SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with block
+  void decorateBlock(SpirvInstruction *target, SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with relaxedprecision
+  void decorateRelaxedPrecision(SpirvInstruction *target,
+                                SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with patch
+  void decoratePatch(SpirvInstruction *target, SourceLocation srcLoc = {});
+
+  /// \brief Decorates the given target with nonuniformEXT
+  void decorateNonUniformEXT(SpirvInstruction *target,
+                             SourceLocation srcLoc = {});
+
 private:
   /// \brief Returns the composed ImageOperandsMask from non-zero parameters
   /// and pushes non-zero parameters to *orderedParams in the expected order.
@@ -408,6 +526,9 @@ private:
   /// here since, for example, we'll know for sure the first basic block is
   /// the entry block.
   std::vector<SpirvBasicBlock *> basicBlocks;
+
+  FeatureManager *featureManager; ///< SPIR-V version/extension manager.
+  const SpirvCodeGenOptions &spirvOptions; ///< Command line options.
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
@@ -415,6 +536,39 @@ void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
     auto *capability = new (context) SpirvCapability(loc, cap);
     module->addCapability(capability);
   }
+}
+
+void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
+                                  spv::MemoryModel memModel) {
+  module->setMemoryModel(new (context) SpirvMemoryModel(addrModel, memModel));
+}
+
+void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
+                                 std::string targetName,
+                                 llvm::ArrayRef<SpirvVariable *> interfaces,
+                                 SourceLocation loc) {
+  module->addEntryPoint(
+      new (context) SpirvEntryPoint(loc, em, target, targetName, interfaces));
+}
+
+void SpirvBuilder::setShaderModelVersion(uint32_t major, uint32_t minor) {
+  module->setShaderModelVersion(100 * major + 10 * minor);
+}
+
+void SpirvBuilder::setSourceFileName(llvm::StringRef name) {
+  module->setSourceFileName(name);
+}
+
+void SpirvBuilder::setSourceFileContent(llvm::StringRef content) {
+  module->setSourceFileContent(content);
+}
+
+void SpirvBuilder::addExecutionMode(SpirvEntryPoint *entryPoint,
+                                    spv::ExecutionMode em,
+                                    llvm::ArrayRef<uint32_t> params,
+                                    SourceLocation loc) {
+  module->addExecutionMode(
+      new (context) SpirvExecutionMode(loc, entryPoint, em, params, false));
 }
 
 } // end namespace spirv
