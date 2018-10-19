@@ -1,6 +1,6 @@
 // Run: %dxc -T cs_6_0 -E main -O3
 
-// CHECK: Using pointers with OpSelect requires capability
+// CHECK: Using pointers with OpPhi requires capability
 
 struct S {
   float4 f;
@@ -13,7 +13,7 @@ RWStructuredBuffer<S> gRWSBuffer1;
 RWStructuredBuffer<S> gRWSBuffer2;
 
 RWStructuredBuffer<S> foo(int l) {
-  if (l == 0) {       // Compiler does not know which branch will be taken: 
+  if (l == 0) {       // Compiler does not know which branch will be taken:
                       // Branch taken depends on input i.
     return gRWSBuffer1;
   } else {
