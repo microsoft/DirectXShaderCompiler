@@ -80,6 +80,9 @@ public:
     IK_ExtInst,          // OpExtInst
     IK_FunctionCall,     // OpFunctionCall
 
+    IK_EndPrimitive, // OpEndPrimitive
+    IK_EmitVertex,   // OpEmitVertex
+
     // The following section is for group non-uniform instructions.
     // Used by LLVM-style RTTI; order matters.
     IK_GroupNonUniformBinaryOp, // Group non-uniform binary operations
@@ -333,8 +336,11 @@ private:
 class SpirvDecoration : public SpirvInstruction {
 public:
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
-                  spv::Decoration decor, llvm::ArrayRef<uint32_t> params,
-                  llvm::Optional<uint32_t> index);
+                  spv::Decoration decor, llvm::ArrayRef<uint32_t> params = {},
+                  llvm::Optional<uint32_t> index = llvm::None);
+  SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
+                  spv::Decoration decor, llvm::StringRef stringParam,
+                  llvm::Optional<uint32_t> index = llvm::None);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -965,6 +971,33 @@ private:
   SpirvInstruction *composite;
   SpirvInstruction *object;
   llvm::SmallVector<uint32_t, 4> indices;
+};
+
+/// \brief EmitVertex instruction
+class SpirvEmitVertex : public SpirvInstruction {
+public:
+  SpirvEmitVertex(SourceLocation loc);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_EmitVertex;
+  }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvEmitVertex)
+};
+
+
+/// \brief EndPrimitive instruction
+class SpirvEndPrimitive : public SpirvInstruction {
+public:
+  SpirvEndPrimitive(SourceLocation loc);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_EndPrimitive;
+  }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvEndPrimitive)
 };
 
 /// \brief ExtInst instruction

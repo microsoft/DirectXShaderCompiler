@@ -324,8 +324,6 @@ public:
 
   // === SPIR-V Module Structure ===
 
-  inline void useSpirv1p3();
-
   inline void requireCapability(spv::Capability);
 
   inline void setAddressingModel(spv::AddressingModel);
