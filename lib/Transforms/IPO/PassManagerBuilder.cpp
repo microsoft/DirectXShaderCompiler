@@ -597,7 +597,8 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDxilConvergentClearPass());
     MPM.add(createDeadCodeEliminationPass()); // DCE needed after clearing convergent
                                               // before CreateHandleForLib so no
-                                              // unused resources get added declared.
+                                              // unused resources get re-added to
+                                              // DxilModule.
     MPM.add(createMultiDimArrayToOneDimArrayPass());
     MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDxilTranslateRawBuffer());
