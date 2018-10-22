@@ -51,7 +51,7 @@ Examples for structured buffers
 Desired code
 ------------
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 0-copy-sbuf-ok.hlsl
     // http://shader-playground.timjones.io/e6af2bdce0c61ed07d3a826aa8a95d45
@@ -90,7 +90,7 @@ symbol with the global resource.
 Initialization of a static
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 1-copy-global-static-ok.hlsl
     // http://shader-playground.timjones.io/815543dc91a4e6855a8d0c6a345d4a5a
@@ -119,7 +119,7 @@ This example can be legalized because the compiler is able to see that
 ``sSbuffer`` is points to ``gSBuffer``, which does not move, so uses of
 ``sSbuffer`` can be replaced by ``gSBuffer``.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 2-write-global-static-ok.hlsl
     // http://shader-playground.timjones.io/1c65c467e395383945d219a60edbe10c
@@ -147,7 +147,7 @@ be visible outside of the shader.
 Copy to function scope
 ~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 3-copy-local-struct-ok.hlsl
     // http://shader-playground.timjones.io/77dd20774e4943044c2f1b630c539f07
@@ -183,7 +183,7 @@ buffers can be anywhere in the structure, and there can be any number of
 members. Structured buffers can be in nested structures of any depth.
 The following is a move complicated example.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 4-copy-local-nested-struct-ok.hlsl
     // http://shader-playground.timjones.io/14f59ff2a28c0a0180daf6ce4393cf6b
@@ -220,7 +220,7 @@ The following is a move complicated example.
 Function parameters
 ~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 5-func-param-sbuf-ok.hlsl
     // http://shader-playground.timjones.io/aeb06f527c5390d82d63bdb4eafc9ae7
@@ -253,7 +253,7 @@ As with the copies in the previous section, it is a pointer to the
 structured buffer that is actually being passed to ``foo``. This is the
 same way that arrays work in C/C++.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 6-func-param-rwsbuf-ok.hlsl
     // http://shader-playground.timjones.io/f4e0194ce78118c0a709d85080ccea93
@@ -287,7 +287,7 @@ The next two examples show that structured buffers can be a function's
 return value. As before, the return value of ``foo`` is really a pointer
 to the global resource.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 7-func-ret-tmp-var-ok.hlsl
     // http://shader-playground.timjones.io/d6b706423f02dad58fbb01841282c6a1
@@ -313,7 +313,7 @@ to the global resource.
 | In this case, the compiler will replace ``lRWSBuffer`` by
   ``gRWSBuffer``.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 8-func-ret-direct-ok.hlsl
     // http://shader-playground.timjones.io/6edbbc1aa6c6b6533c5a728135f87fb9
@@ -357,7 +357,7 @@ Inputs in if-statement
 The first example is one where the compiler cannot determine which
 resource is actually being accessed.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 9-if-stmt-select-fail.hlsl
     // http://shader-playground.timjones.io/2896e95627fd8a6689ca96c81a5c7c68
@@ -400,7 +400,7 @@ will accept.
 If this is the pattern that your code, I would suggest rewriting the
 code into the following:
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 10-if-stmt-select-ok.hlsl
     // http://shader-playground.timjones.io/5063d8a0a7ad1f9d0839cd34a6d94dd2
@@ -447,7 +447,7 @@ compiler is able to determine that a condition is always true or always
 false. For example, in the following code, the compiler looks at "0>2",
 and knows that is always false.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 11-if-stmt-const-ok.hlsl
     // http://shader-playground.timjones.io/7ef5b89b3ec3d56c22e1bca45b40516a
@@ -477,7 +477,7 @@ and knows that is always false.
 
 The compiler will turn this code into
 
-.. code-block:: c
+.. code-block:: hlsl
 
     struct S {
       float4 f;
@@ -508,7 +508,7 @@ Switch statements
 Switch statements are similar to if-statements. If the selector is a
 constant, then the compiler will be able to propagate the copies.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 12-switch-stmt-select-fail.hlsl
     // http://shader-playground.timjones.io/b079f878daeba5d77842725b90a476ca
@@ -548,7 +548,7 @@ constant, then the compiler will be able to propagate the copies.
 The compiler is not able to remove the copies in this example because it
 does not know the value of ``i`` at compile time.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 13-switch-stmt-const-ok.hlsl
     // http://shader-playground.timjones.io/a46dd1f1a84eba38c047439741ec08ab
@@ -595,7 +595,7 @@ Besides inputs, another type of variable that hinders the compiler are
 loop induction variables. These are variables that change value for each
 iteration of the loop. Consider this example.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 14-loop-var-fail.hlsl
     // http://shader-playground.timjones.io/8df364770e3f425e6321e71f817bcd1a
@@ -638,7 +638,7 @@ If you want the compiler to be able to legalize this code, then you will
 have to direct the compiler to unroll this loop using the unroll
 attribute. The following example can be legalized by the compiler:
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 15-loop-var-unroll-ok.hlsl
     // http://shader-playground.timjones.io/3d0f6f830fc4a5102714e19c748e81c7
@@ -688,7 +688,7 @@ value, the final value, and the step for the induction variable, ``j``
 in the example. None of ``foo1``, ``foo2``, or ``foo3`` can be legalized
 because the number of iterations cannot be known at compile time.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 16-loop-var-range-fail.hlsl
     // http://shader-playground.timjones.io/376f5f985c3ceceea004ab58edb336f2
@@ -773,7 +773,7 @@ be able to fully unroll the loop. However, due to the internal details
 handled. The most notable one is that the induction variable must be an
 integral type.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 17-loop-var-float-fail.hlsl
     // http://shader-playground.timjones.io/d5d2598699378688684a4a074553dddf
@@ -816,7 +816,7 @@ Other interesting cases
 Multiple calls to a function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 18-multi-func-call-ok.hlsl
     // http://shader-playground.timjones.io/e7b3ac1262a291c92902fd3f1fd3343c
@@ -855,7 +855,7 @@ As we have already seen, a return from a function is a copy. At this
 point, it would be fair to ask what happens if there are multiple
 returns.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 19-multi-func-ret-fail.hlsl
     // http://shader-playground.timjones.io/922facb688a5ba09b153d64cf1fc4557
@@ -888,7 +888,7 @@ The compiler is not able to legalize this example because it does not
 know which value will be returned. However, if the compiler is able to
 determine which path will be taken, then it can be legalized.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 20-multi-func-ret-const-ok.hlsl
     // http://shader-playground.timjones.io/84b093c7cf9e3932c5f0d9691533bafe
@@ -927,7 +927,7 @@ Individually, these examples are simple; however, these elements can be
 combined in arbitrary ways. As one last example, consider this HLSL
 source code.
 
-.. code-block:: c
+.. code-block:: hlsl
 
     // 21-combined-ok.hlsl
     // http://shader-playground.timjones.io/9f00d2d359da0731cdf8d0b68520e2c4
