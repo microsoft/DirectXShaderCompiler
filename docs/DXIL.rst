@@ -2248,6 +2248,9 @@ ID  Name                          Description
 159 CallShader                    Call a shader in the callable shader table supplied through the DispatchRays() API
 160 CreateHandleForLib            create resource handle from resource struct for library
 161 PrimitiveIndex                PrimitiveIndex for raytracing shaders
+162 Dot2AddHalf                   2D half dot product with accumulate to float
+163 Dot4AddI8Packed               signed dot product of 4 x i8 vectors packed into i32, with accumulate to i32
+164 Dot4AddU8Packed               unsigned dot product of 4 x u8 vectors packed into i32, with accumulate to i32
 === ============================= =======================================================================================================================================================================================================================
 
 

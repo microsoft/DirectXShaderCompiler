@@ -374,6 +374,9 @@ class db_dxil(object):
             self.name_idx[i].category = "Library create handle from resource struct (like HL intrinsic)"
             self.name_idx[i].shader_model = 6,3
             self.name_idx[i].shader_model_translated = 6,0
+        for i in "Dot4AddU8Packed,Dot4AddI8Packed,Dot2AddHalf".split(","):
+            self.name_idx[i].category = "Dot product with accumulate"
+            self.name_idx[i].shader_model = 6,4
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1308,6 +1311,33 @@ class db_dxil(object):
         # End of DXIL 1.3 opcodes.
         self.set_op_count_for_version(1, 3, next_op_idx)
         assert next_op_idx == 162, "next operation index is %d rather than 162 and thus opcodes are broken" % next_op_idx
+
+        self.add_dxil_op("Dot2AddHalf", next_op_idx, "Dot2AddHalf", "2D half dot product with accumulate to float", "f", "rn", [
+            db_dxil_param(0, "$o", "", "accumulated result"),
+            db_dxil_param(2, "$o", "acc", "input accumulator"),
+            db_dxil_param(3, "h", "ax", "the first component of the first vector"),
+            db_dxil_param(4, "h", "ay", "the second component of the first vector"),
+            db_dxil_param(5, "h", "bx", "the first component of the second vector"),
+            db_dxil_param(6, "h", "by", "the second component of the second vector")])
+        next_op_idx += 1
+
+        self.add_dxil_op("Dot4AddI8Packed", next_op_idx, "Dot4AddPacked", "signed dot product of 4 x i8 vectors packed into i32, with accumulate to i32", "i", "rn", [
+            db_dxil_param(0, "i32", "", "accumulated result"),
+            db_dxil_param(2, "i32", "acc", "input accumulator"),
+            db_dxil_param(3, "i32", "a", "first packed 4 x i8 for dot product"),
+            db_dxil_param(4, "i32", "b", "second packed 4 x i8 for dot product")])
+        next_op_idx += 1
+
+        self.add_dxil_op("Dot4AddU8Packed", next_op_idx, "Dot4AddPacked", "unsigned dot product of 4 x u8 vectors packed into i32, with accumulate to i32", "i", "rn", [
+            db_dxil_param(0, "i32", "", "accumulated result"),
+            db_dxil_param(2, "i32", "acc", "input accumulator"),
+            db_dxil_param(3, "i32", "a", "first packed 4 x u8 for dot product"),
+            db_dxil_param(4, "i32", "b", "second packed 4 x u8 for dot product")])
+        next_op_idx += 1
+
+        # End of DXIL 1.4 opcodes.
+        self.set_op_count_for_version(1, 4, next_op_idx)
+        assert next_op_idx == 165, "next operation index is %d rather than 165 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()

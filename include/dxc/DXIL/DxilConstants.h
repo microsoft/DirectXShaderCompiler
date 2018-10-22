@@ -343,6 +343,11 @@ namespace DXIL {
     // Domain shader
     DomainLocation = 105, // DomainLocation
   
+    // Dot product with accumulate
+    Dot2AddHalf = 162, // 2D half dot product with accumulate to float
+    Dot4AddI8Packed = 163, // signed dot product of 4 x i8 vectors packed into i32, with accumulate to i32
+    Dot4AddU8Packed = 164, // unsigned dot product of 4 x u8 vectors packed into i32, with accumulate to i32
+  
     // Dot
     Dot2 = 54, // Two-dimensional vector dot-product
     Dot3 = 55, // Three-dimensional vector dot-product
@@ -549,8 +554,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_1 = 139,
     NumOpCodes_Dxil_1_2 = 141,
     NumOpCodes_Dxil_1_3 = 162,
+    NumOpCodes_Dxil_1_4 = 165,
   
-    NumOpCodes = 162 // exclusive last value of enumeration
+    NumOpCodes = 165 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -591,6 +597,10 @@ namespace DXIL {
   
     // Domain shader
     DomainLocation,
+  
+    // Dot product with accumulate
+    Dot2AddHalf,
+    Dot4AddPacked,
   
     // Dot
     Dot2,
@@ -756,8 +766,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_1 = 95,
     NumOpClasses_Dxil_1_2 = 97,
     NumOpClasses_Dxil_1_3 = 118,
+    NumOpClasses_Dxil_1_4 = 120,
   
-    NumOpClasses = 118 // exclusive last value of enumeration
+    NumOpClasses = 120 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
