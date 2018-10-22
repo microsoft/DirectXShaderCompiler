@@ -3491,7 +3491,7 @@ static void ValidateDxilVersion(ValidationContext &ValCtx) {
           GetNodeOperandAsInt(ValCtx, pVerValues, 1, &minorVer)) {
         // This will need to be updated as dxil major/minor versions evolve,
         // depending on the degree of compat across versions.
-        if ((majorVer == 1 && minorVer < 4) &&
+        if ((majorVer == 1 && minorVer <= DXIL::kDxilMinor) &&
             (majorVer == ValCtx.m_DxilMajor && minorVer == ValCtx.m_DxilMinor)) {
           return;
         }
@@ -5075,7 +5075,7 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // - Raytracing support
   // - i64/f64 overloads for rawBufferLoad/Store
   *pMajor = 1;
-  *pMinor = 3;
+  *pMinor = 4;
 }
 
 _Use_decl_annotations_ HRESULT
