@@ -6058,9 +6058,26 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     // Change return value into out parameter.
     retType = Type::getVoidTy(retType->getContext());
     // Merge return data info param data.
-    FlatParamList.insert(FlatParamList.end(), FlatRetList.begin(), FlatRetList.end());
 
-    FlatParamAnnotationList.insert(FlatParamAnnotationList.end(),
+    std::vector<Value *>::iterator FlatParamListInsertPt = FlatParamList.end();
+    std::vector<DxilParameterAnnotation>::iterator FlatParamAnnotationListInsertPt = FlatParamAnnotationList.end();
+
+    // If we have a single return value, find the first output arg,
+    // and insert it before that. This is to match the behavior of
+    // legacy compiler.
+    if (FlatRetList.size() == 1) {
+      for (unsigned i = 0; i < FlatParamAnnotationList.size(); i++) {
+        DxilParamInputQual quality = FlatParamAnnotationList[i].GetParamInputQual();
+        if (quality == DxilParamInputQual::Out || quality == DxilParamInputQual::Inout) {
+          FlatParamListInsertPt = FlatParamList.begin()+i;
+          FlatParamAnnotationListInsertPt = FlatParamAnnotationList.begin()+i;
+          break;
+        }
+      }
+    }
+
+    FlatParamList.insert(FlatParamListInsertPt, FlatRetList.begin(), FlatRetList.end());
+    FlatParamAnnotationList.insert(FlatParamAnnotationListInsertPt,
                                     FlatRetAnnotationList.begin(),
                                     FlatRetAnnotationList.end());
   }
