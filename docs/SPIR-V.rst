@@ -383,6 +383,10 @@ Specifically, we need to legalize the following HLSL source code patterns:
 Legalization transformations will not run unless the above patterns are
 encountered in the source code.
 
+For more details, please see the `SPIR-V cookbook <https://github.com/Microsoft/DirectXShaderCompiler/tree/master/docs/SPIRV-Cookbook.rst>`_,
+which contains examples of what HLSL code patterns will be accepted and
+generate valid SPIR-V for Vulkan.
+
 Optimization
 ~~~~~~~~~~~~
 
