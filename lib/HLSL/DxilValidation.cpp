@@ -849,6 +849,9 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if ((145 <= op && op <= 146))
     return (major > 6 || (major == 6 && minor >= 3))
         && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::RayGeneration || SK == DXIL::ShaderKind::Intersection || SK == DXIL::ShaderKind::AnyHit || SK == DXIL::ShaderKind::ClosestHit || SK == DXIL::ShaderKind::Miss || SK == DXIL::ShaderKind::Callable);
+  // Instructions: Dot2AddHalf=162, Dot4AddI8Packed=163, Dot4AddU8Packed=164
+  if ((162 <= op && op <= 164))
+    return (major > 6 || (major == 6 && minor >= 4));
   return true;
   // VALOPCODESM-TEXT:END
 }
@@ -5074,6 +5077,9 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // - Library support
   // - Raytracing support
   // - i64/f64 overloads for rawBufferLoad/Store
+  // 1.4 adds:
+  // - packed u8x4/i8x4 dot with accumulate to i32
+  // - half dot2 with accumulate to float
   *pMajor = 1;
   *pMinor = 4;
 }

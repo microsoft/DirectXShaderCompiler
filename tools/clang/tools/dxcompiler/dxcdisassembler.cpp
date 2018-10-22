@@ -1016,7 +1016,10 @@ static const char *OpCodeSignatures[] = {
   "(THit,HitKind,Attributes)",  // ReportHit
   "(ShaderIndex,Parameter)",  // CallShader
   "(Resource)",  // CreateHandleForLib
-  "()"  // PrimitiveIndex
+  "()",  // PrimitiveIndex
+  "(acc,ax,ay,bx,by)",  // Dot2AddHalf
+  "(acc,a,b)",  // Dot4AddI8Packed
+  "(acc,a,b)"  // Dot4AddU8Packed
 };
 // OPCODE-SIGS:END
 
