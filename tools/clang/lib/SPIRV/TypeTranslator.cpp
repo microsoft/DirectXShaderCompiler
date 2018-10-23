@@ -39,31 +39,6 @@ bool improperStraddle(QualType type, int size, int offset) {
                     : offset % 16 != 0;
 }
 
-// From https://github.com/Microsoft/DirectXShaderCompiler/pull/1032.
-// TODO: use that after it is landed.
-bool hasHLSLMatOrientation(QualType type, bool *pIsRowMajor) {
-  const AttributedType *AT = type->getAs<AttributedType>();
-  while (AT) {
-    AttributedType::Kind kind = AT->getAttrKind();
-    switch (kind) {
-    case AttributedType::attr_hlsl_row_major:
-      if (pIsRowMajor)
-        *pIsRowMajor = true;
-      return true;
-    case AttributedType::attr_hlsl_column_major:
-      if (pIsRowMajor)
-        *pIsRowMajor = false;
-      return true;
-    default:
-      // Only oriented matrices return true.
-      break;
-    }
-    AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()
-             ->getAs<AttributedType>();
-  }
-  return false;
-}
-
 /// Returns the :packoffset() annotation on the given decl. Returns nullptr if
 /// the decl does not have one.
 const hlsl::ConstantPacking *getPackOffset(const NamedDecl *decl) {
@@ -1003,7 +978,7 @@ bool TypeTranslator::isResourceType(const ValueDecl *decl) {
 bool TypeTranslator::isRowMajorMatrix(QualType type) const {
   // The type passed in may not be desugared. Check attributes on itself first.
   bool attrRowMajor = false;
-  if (hasHLSLMatOrientation(type, &attrRowMajor))
+  if (hlsl::HasHLSLMatOrientation(type, &attrRowMajor))
     return attrRowMajor;
 
   // Use the majorness info we recorded before.
