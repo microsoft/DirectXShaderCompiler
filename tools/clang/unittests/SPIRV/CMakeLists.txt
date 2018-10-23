@@ -18,6 +18,7 @@ add_clang_unittest(clang-spirv-tests
   SPIRVTestOptions.cpp
   StructureTest.cpp
   TestMain.cpp
+  SpirvConstantTest.cpp
   StringTest.cpp
   TypeTest.cpp
   WholeFileTestFixture.cpp

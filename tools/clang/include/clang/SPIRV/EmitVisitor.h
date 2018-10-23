@@ -57,6 +57,11 @@ public:
   bool visit(SpirvBinaryOp *);
   bool visit(SpirvBitFieldExtract *);
   bool visit(SpirvBitFieldInsert *);
+  bool visit(SpirvConstantBoolean *);
+  bool visit(SpirvConstantInteger *);
+  bool visit(SpirvConstantFloat *);
+  bool visit(SpirvConstantComposite *);
+  bool visit(SpirvConstantNull *);
   bool visit(SpirvComposite *);
   bool visit(SpirvCompositeExtract *);
   bool visit(SpirvCompositeInsert *);

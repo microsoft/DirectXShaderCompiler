@@ -44,8 +44,14 @@ public:
     IK_ModuleProcessed, // OpModuleProcessed (debug)
     IK_Decoration,      // Op*Decorate
     IK_Type,            // OpType*
-    IK_Constant,        // OpConstant*
     IK_Variable,        // OpVariable
+
+    // Different kind of constants. Order matters.
+    IK_ConstantBoolean,
+    IK_ConstantInteger,
+    IK_ConstantFloat,
+    IK_ConstantComposite,
+    IK_ConstantNull,
 
     // Function structure kinds
 
@@ -414,8 +420,6 @@ protected:
            inst->getKind() == IK_SelectionMerge;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvMerge)
-
 private:
   SpirvBasicBlock *mergeBlock;
 };
@@ -476,8 +480,6 @@ public:
     return inst->getKind() >= IK_Branch && inst->getKind() <= IK_Unreachable;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvTerminator)
-
 protected:
   SpirvTerminator(Kind kind, spv::Op opcode, SourceLocation loc);
 };
@@ -490,8 +492,6 @@ public:
     return inst->getKind() >= IK_Branch &&
            inst->getKind() <= IK_BranchConditional;
   }
-
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBranching)
 
   virtual llvm::ArrayRef<SpirvBasicBlock *> getTargetBranches() const = 0;
 
@@ -839,8 +839,6 @@ public:
            inst->getKind() == IK_BitFieldInsert;
   }
 
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvBitField)
-
   virtual SpirvInstruction *getBase() const { return base; }
   virtual SpirvInstruction *getOffset() const { return offset; }
   virtual SpirvInstruction *getCount() const { return count; }
@@ -893,6 +891,136 @@ public:
 
 private:
   SpirvInstruction *insert;
+};
+
+class SpirvConstant : public SpirvInstruction {
+public:
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() >= IK_ConstantBoolean &&
+           inst->getKind() <= IK_ConstantNull;
+  }
+
+protected:
+  SpirvConstant(Kind, spv::Op, QualType resultType, uint32_t resultId,
+                SourceLocation);
+};
+
+class SpirvConstantBoolean : public SpirvConstant {
+public:
+  SpirvConstantBoolean(bool value, QualType resultType, uint32_t resultId,
+                       SourceLocation loc);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ConstantBoolean;
+  }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantBoolean)
+
+  bool getValue() const { return value; }
+
+private:
+  bool value;
+};
+
+/// \brief Represent OpConstant for integer values.
+class SpirvConstantInteger : public SpirvConstant {
+public:
+  SpirvConstantInteger(uint16_t value, QualType resultType, uint32_t resultId,
+                       SourceLocation loc);
+  SpirvConstantInteger(int16_t value, QualType resultType, uint32_t resultId,
+                       SourceLocation loc);
+  SpirvConstantInteger(uint32_t value, QualType resultType, uint32_t resultId,
+                       SourceLocation loc);
+  SpirvConstantInteger(int32_t value, QualType resultType, uint32_t resultId,
+                       SourceLocation loc);
+  SpirvConstantInteger(uint64_t value, QualType resultType, uint32_t resultId,
+                       SourceLocation loc);
+  SpirvConstantInteger(int64_t value, QualType resultType, uint32_t resultId,
+                       SourceLocation loc);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ConstantInteger;
+  }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantInteger)
+
+  uint16_t getUnsignedInt16Value() const;
+  int16_t getSignedInt16Value() const;
+  uint32_t getUnsignedInt32Value() const;
+  int32_t getSignedInt32Value() const;
+  uint64_t getUnsignedInt64Value() const;
+  int64_t getSignedInt64Value() const;
+
+  uint32_t getBitwidth() const { return bitwidth; }
+  void setBitwidth(uint32_t width) { bitwidth = width; }
+  bool isSigned() const { return getResultType()->isSignedIntegerType(); }
+
+private:
+  uint32_t bitwidth;
+  uint64_t value;
+};
+
+class SpirvConstantFloat : public SpirvConstant {
+public:
+  SpirvConstantFloat(uint16_t value, QualType resultType, uint32_t resultId,
+                     SourceLocation loc);
+  SpirvConstantFloat(float value, QualType resultType, uint32_t resultId,
+                     SourceLocation loc);
+  SpirvConstantFloat(double value, QualType resultType, uint32_t resultId,
+                     SourceLocation loc);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ConstantFloat;
+  }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantFloat)
+
+  uint16_t getValue16() const;
+  float getValue32() const;
+  double getValue64() const;
+  uint32_t getBitwidth() const { return bitwidth; }
+  void setBitwidth(uint32_t width) { bitwidth = width; }
+
+private:
+  uint32_t bitwidth;
+  uint64_t value;
+};
+
+class SpirvConstantComposite : public SpirvConstant {
+public:
+  SpirvConstantComposite(llvm::ArrayRef<SpirvConstant *> constituents,
+                         QualType resultType, uint32_t resultId,
+                         SourceLocation loc);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ConstantComposite;
+  }
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
+
+  llvm::ArrayRef<SpirvConstant *> getConstituents() const {
+    return constituents;
+  }
+
+private:
+  std::vector<SpirvConstant *> constituents;
+};
+
+class SpirvConstantNull : public SpirvConstant {
+public:
+  SpirvConstantNull(QualType resultType, uint32_t resultId, SourceLocation loc);
+
+  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ConstantNull;
+  }
 };
 
 /// \brief Composition instructions
@@ -986,7 +1114,6 @@ public:
   DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvEmitVertex)
 };
 
-
 /// \brief EndPrimitive instruction
 class SpirvEndPrimitive : public SpirvInstruction {
 public:
@@ -1054,8 +1181,6 @@ public:
     return inst->getKind() >= IK_GroupNonUniformBinaryOp &&
            inst->getKind() <= IK_GroupNonUniformUnaryOp;
   }
-
-  DECLARE_INVOKE_VISITOR_FOR_CLASS(SpirvGroupNonUniformOp)
 
   spv::Scope getExecutionScope() const { return execScope; }
 
