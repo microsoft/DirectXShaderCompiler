@@ -1700,7 +1700,8 @@ class db_dxil(object):
             (26, "InsideTessFactor", ""),
             (27, "ViewID", ""),
             (28, "Barycentrics", ""),
-            (29, "Invalid", ""),
+            (29, "ShadingRate", ""),
+            (30, "Invalid", ""),
             ])
         self.enums.append(SemanticKind)
         SigPointKind = db_dxil_enum("SigPointKind", "Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.", [
@@ -1819,6 +1820,7 @@ class db_dxil(object):
             InsideTessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
             ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA
             Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA
+            ShadingRate,NA,SV _64,NA,NA,SV _64,SV _64,NA,NA,SV _64,SV _64,SV _64,NA,SV _64,SV _64,NA,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
