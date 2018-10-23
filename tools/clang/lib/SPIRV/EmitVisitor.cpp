@@ -8,11 +8,43 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/EmitVisitor.h"
+#include "clang/SPIRV/BitwiseCast.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvFunction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvModule.h"
 #include "clang/SPIRV/String.h"
+
+namespace {
+uint32_t zeroExtendTo32Bits(uint16_t value) {
+  // TODO: The ordering of the 2 words depends on the endian-ness of the host
+  // machine. Assuming Little Endian at the moment.
+  struct two16Bits {
+    uint16_t low;
+    uint16_t high;
+  };
+
+  two16Bits result = {value, 0};
+  return clang::spirv::cast::BitwiseCast<uint32_t, two16Bits>(result);
+}
+
+uint32_t signExtendTo32Bits(int16_t value) {
+  // TODO: The ordering of the 2 words depends on the endian-ness of the host
+  // machine. Assuming Little Endian at the moment.
+  struct two16Bits {
+    int16_t low;
+    uint16_t high;
+  };
+
+  two16Bits result = {value, 0};
+
+  // Sign bit is 1
+  if (value >> 15) {
+    result.high = 0xffff;
+  }
+  return clang::spirv::cast::BitwiseCast<uint32_t, two16Bits>(result);
+}
+} // anonymous namespace
 
 namespace clang {
 namespace spirv {
@@ -66,7 +98,8 @@ void EmitVisitor::finalizeInstruction() {
   case spv::Op::OpDecorationGroup:
   case spv::Op::OpDecorateStringGOOGLE:
   case spv::Op::OpMemberDecorateStringGOOGLE:
-    annotationsBinary.insert(annotationsBinary.end(), curInst.begin(), curInst.end());
+    annotationsBinary.insert(annotationsBinary.end(), curInst.begin(),
+                             curInst.end());
     break;
   default:
     mainBinary.insert(mainBinary.end(), curInst.begin(), curInst.end());
@@ -391,6 +424,105 @@ bool EmitVisitor::visit(SpirvBitFieldInsert *inst) {
   curInst.push_back(inst->getInsert()->getResultId());
   curInst.push_back(inst->getOffset()->getResultId());
   curInst.push_back(inst->getCount()->getResultId());
+  finalizeInstruction();
+  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvConstantBoolean *inst) {
+  initInstruction(inst->getopcode());
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(inst->getResultId());
+  finalizeInstruction();
+  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvConstantInteger *inst) {
+  initInstruction(inst->getopcode());
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(inst->getResultId());
+  // 16-bit cases
+  if (inst->getBitwidth() == 16) {
+    if (inst->isSigned()) {
+      curInst.push_back(signExtendTo32Bits(inst->getSignedInt16Value()));
+    } else {
+      curInst.push_back(zeroExtendTo32Bits(inst->getUnsignedInt16Value()));
+    }
+  }
+  // 32-bit cases
+  else if (inst->getBitwidth() == 32) {
+    if (inst->isSigned()) {
+      curInst.push_back(
+          cast::BitwiseCast<uint32_t, int32_t>(inst->getSignedInt32Value()));
+    } else {
+      curInst.push_back(inst->getUnsignedInt32Value());
+    }
+  }
+  // 64-bit cases
+  else {
+    struct wideInt {
+      uint32_t word0;
+      uint32_t word1;
+    };
+    wideInt words;
+    if (inst->isSigned()) {
+      words = cast::BitwiseCast<wideInt, int64_t>(inst->getSignedInt64Value());
+    } else {
+      words =
+          cast::BitwiseCast<wideInt, uint64_t>(inst->getUnsignedInt64Value());
+    }
+    curInst.push_back(words.word0);
+    curInst.push_back(words.word1);
+  }
+  finalizeInstruction();
+  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvConstantFloat *inst) {
+  initInstruction(inst->getopcode());
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(inst->getResultId());
+  if (inst->getBitwidth() == 16) {
+    // According to the SPIR-V Spec:
+    // When the type's bit width is less than 32-bits, the literal's value
+    // appears in the low-order bits of the word, and the high-order bits must
+    // be 0 for a floating-point type.
+    curInst.push_back(zeroExtendTo32Bits(inst->getValue16()));
+  } else if (inst->getBitwidth() == 32) {
+    curInst.push_back(cast::BitwiseCast<uint32_t, float>(inst->getValue32()));
+  } else {
+    // TODO: The ordering of the 2 words depends on the endian-ness of the host
+    // machine.
+    struct wideFloat {
+      uint32_t word0;
+      uint32_t word1;
+    };
+    wideFloat words = cast::BitwiseCast<wideFloat, double>(inst->getValue64());
+    curInst.push_back(words.word0);
+    curInst.push_back(words.word1);
+  }
+  finalizeInstruction();
+  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvConstantComposite *inst) {
+  initInstruction(inst->getopcode());
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(inst->getResultId());
+  for (const auto constituent : inst->getConstituents())
+    curInst.push_back(constituent->getResultId());
+  finalizeInstruction();
+  emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvConstantNull *inst) {
+  initInstruction(inst->getopcode());
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(inst->getResultId());
   finalizeInstruction();
   emitDebugNameForInstruction(inst->getResultId(), inst->getDebugName());
   return true;
