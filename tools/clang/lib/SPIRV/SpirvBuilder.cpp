@@ -7,10 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "TypeTranslator.h"
-#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvBuilder.h"
-#include "llvm/Support/MathExtras.h"
+#include "TypeTranslator.h"
 
 namespace clang {
 namespace spirv {
